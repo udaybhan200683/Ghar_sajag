@@ -1,0 +1,180 @@
+GHAR SAJAG — P0 ENGINEERING PROGRESS
+Status date: 8 September 2026
+Baseline: Requirements/Software Design v1.2 + Hardware-Independent LLD v1.0
+
+============================================================
+1. CURRENT OVERALL STATE
+============================================================
+
+Architecture and design:                 COMPLETE
+Hardware-independent reference code:     COMPLETE
+Host-side automated verification:        COMPLETE
+ESP32 hardware integration:              NOT STARTED
+Real cloud/provider integration:          NOT STARTED
+Installed-home and pilot validation:      NOT STARTED
+
+Overall conclusion:
+The software architecture is no longer only a proposal. All 32 logical module
+boundaries have executable host logic or an explicit adapter seam, and the
+included host verification is green. However, Ghar Sajag P0 is NOT yet a
+working physical prototype, pilot-ready product or commercially releasable
+system. Hardware, production-service and field-validation gates remain.
+
+============================================================
+2. WHAT HAS BEEN COMPLETED
+============================================================
+
+A. Requirements and architecture
+- P0 scope fixed at 24 requirements: F01-F14 and E01-E10.
+- 32-module architecture documented: N01-N05, H01-H08, B01-B08,
+  A01-A05, S01-S03 and T01-T03.
+- Requirement-to-module ownership is mapped.
+- F01 household/caregiver example flow is documented.
+- Hub FreeRTOS task, queue and state-ownership proposal is documented.
+- Communication, persistence, acknowledgement, privacy, failure and recovery
+  semantics are documented.
+
+B. Low-level design
+- LLD exists for every one of the 32 modules.
+- Each module includes source paths, responsibilities, API, owned state,
+  inputs/outputs, code flow, failure behavior, test evidence, exit criterion
+  and future enhancement boundary.
+- End-to-end flows are documented for activity, missing activity, resident
+  check-in, Call family, offline replay and caregiver acknowledgement.
+
+C. Hardware-independent implementation
+- Shared versioned node/cloud/configuration contracts and OpenAPI surface.
+- Portable C++ deterministic rule core.
+- Node logic for sensing qualification, retries, power policy, lifecycle,
+  configuration and bounded retained-event storage.
+- Hub logic for admission, queueing, journaling, time trust, observation
+  coverage, routine decisions, resident actions, configuration and cloud
+  outbox behavior.
+- Security/update policy seam that fails closed; production cryptography is
+  deliberately not simulated or claimed.
+- Python backend domain services for tenant authorization, consent,
+  idempotent ingest, incidents, caregiver ownership, backup routing,
+  configuration, read models, diagnostics and audit.
+- Caregiver browser-domain modules and responsive PWA prototype for onboarding,
+  home evidence, routines, incident actions, cache and push capability state.
+- Host simulator, scenario fixtures, HIL-safe scaffolding and deployment/runbook
+  examples.
+- Reference package contains 83 source, contract, test, application, tooling
+  and operations files, excluding build output and caches.
+
+D. Verification re-run successfully on 8 September 2026
+- 3 JSON schemas plus OpenAPI surface: PASSED.
+- Strict C++17 build: PASSED.
+- Portable C++ assertions: 52 PASSED.
+- Host simulator: PASSED; activity persisted, missing-activity decision was
+  suppressed by evidence, and one offline event was replayed once.
+- Python backend tests: 10 PASSED.
+- Caregiver app-domain tests: 6 PASSED.
+
+============================================================
+3. COMPLETION BOUNDARY BY LAYER
+============================================================
+
+N01-N05 — Node firmware
+Completed: host logic for debounce/qualification, event retention, retry and
+ACK rules, power policy and versioned lifecycle/configuration.
+Remaining: ESP32-C3 GPIO, PIR/reed/button behavior, deep sleep/wake, ADC battery
+measurement, ESP-NOW, NVS/flash, leakage and battery-life qualification.
+
+H01-H08 — Hub firmware
+Completed: host logic for ingest, bounded queues, persistence semantics,
+trusted time, coverage, routine decisions, resident actions, configuration and
+cloud replay/outbox.
+Remaining: ESP-IDF/FreeRTOS binding, DevKit V1 board profile, ESP-NOW callback,
+real flash journal, buttons/privacy switch/display/buzzer, Wi-Fi, MQTT/TLS,
+watchdog, reboot and power-loss testing.
+
+B01-B08 — Backend
+Completed: in-memory domain implementation and tests for identity, home/consent,
+ingest, incidents, notification policy, fleet configuration, queries and audit.
+Remaining: PostgreSQL repositories/migrations/RLS, transaction/outbox behavior,
+MQTT consumer, worker leases, OIDC verification, Web Push provider, deployment,
+backup/restore, monitoring and security hardening.
+
+A01-A05 — Caregiver application
+Completed: framework-neutral validation, view models, incident actions, cache,
+failure classification and a responsive static PWA prototype.
+Remaining: production React/PWA integration, real API/OIDC, service-worker push,
+IndexedDB/offline behavior, accessibility, localization and supported-phone
+testing.
+
+S01-S03 — Shared contracts, rules and security
+Completed: v1 source schemas, deterministic C++ rules and update/security policy
+interfaces with host tests.
+Remaining: generated C++/Python/TypeScript bindings, golden compatibility
+vectors, production SHA-256/signature verification, protected key storage,
+secure boot and signed OTA recovery.
+
+T01-T03 — Test, HIL and operations
+Completed: repeatable host verification, scenario fixtures, HIL command
+scaffolding and example deployment/broker/alert/runbook files.
+Remaining: CI service integration, physical fault injection, RF and power
+profiling, staging broker/database/provider setup, recovery and restore drills,
+four-node installed-home testing and pilot evidence.
+
+============================================================
+4. WORK STILL REQUIRED TO FINISH P0 — EXECUTE IN THIS ORDER
+============================================================
+
+STEP 1 — COMPLETE: Re-run and understand the host baseline
+Exit: another engineer can run `make verify` and trace one event through
+NodeRuntime, HubRuntime, backend and app view logic.
+
+STEP 2 — NEXT: Create the ESP-IDF skeleton and exact board profiles
+- Pin ESP-IDF/toolchain versions.
+- Create ESP32-C3 node and ESP32 DevKit V1 hub targets.
+- Freeze GPIO, voltage, flash-partition and power constraints for purchased
+  boards and sensors.
+Exit: both targets compile/flash and expose version/boot diagnostics.
+
+STEP 3 — Build one real vertical slice
+- AM312 PIR -> ESP32-C3 GPIO/debounce -> retained event -> ESP-NOW -> hub ingest
+  -> durable hub journal -> local dashboard.
+- Test duplicate packet, power loss and reconnect/replay behavior.
+Exit: one physical motion event appears once with original event time; missing
+activity is never raised when observation coverage is unknown.
+
+STEP 4 — Add local routine and resident controls
+- Trusted clock/window boundaries and coverage gate.
+- I'm OK button, Call family button and physical privacy switch.
+- Clear local feedback during internet failure.
+Exit: normal, offline, privacy, away/pause and missing-activity scenarios pass
+on the bench without false reassurance.
+
+STEP 5 — Integrate the real caregiver path
+- PostgreSQL + migrations/RLS, OIDC, MQTT/TLS and Web Push.
+- Incident claim, acknowledgement, resolution and backup caregiver routing.
+- Production PWA integration and delivery/freshness visibility.
+Exit: real primary and backup phones pass the Test-alert workflow, including
+provider failure and duplicate-request cases.
+
+STEP 6 — Complete the four-node installed-home gate
+- Install and tune all four sources at intended positions.
+- Measure RF reliability, false/missed events, charging/current/battery behavior
+  and support burden.
+- Run 72-hour WAN outage/replay, reboot, storage, OTA-recovery and privacy tests.
+- Complete resident/caregiver comprehension and consent checks.
+Exit: every G1/G2 P0 exit criterion in the v1.2 requirements is backed by dated,
+repeatable evidence. Only then call the system pilot-ready.
+
+============================================================
+5. IMPORTANT PRODUCT LIMITS
+============================================================
+
+- P0 reports household activity evidence, coverage, check-ins and caregiver
+  workflow. It does not prove a person is safe or identify which resident moved.
+- P0 is not fall detection, medical monitoring, fire detection or guaranteed
+  emergency response.
+- No indoor camera, microphone, speech recognition or opaque AI inference is
+  part of this P0 baseline.
+- Provider acceptance, phone receipt, human acknowledgement and incident
+  resolution must remain separate states.
+
+Detailed row-by-row status, ownership, source paths, evidence and remaining
+work are available in the companion file
+Ghar_Sajag_P0_Engineering_Progress_Tracker_v1.0.xlsx.

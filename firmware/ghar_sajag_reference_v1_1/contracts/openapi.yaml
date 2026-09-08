@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info:
+  title: Ghar Sajag pilot API
+  version: 1.0.0
+paths:
+  /v1/homes:
+    post:
+      operationId: createHome
+      responses:
+        '201': {description: Home created}
+  /v1/homes/{homeId}/events:
+    post:
+      operationId: ingestEvent
+      parameters:
+        - {name: homeId, in: path, required: true, schema: {type: string}}
+      responses:
+        '202': {description: Event durably accepted}
+        '200': {description: Duplicate already accepted}
+  /v1/homes/{homeId}/incidents/{incidentId}/claim:
+    post:
+      operationId: claimIncident
+      parameters:
+        - {name: homeId, in: path, required: true, schema: {type: string}}
+        - {name: incidentId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Ownership lease returned}
+  /v1/homes/{homeId}/snapshot:
+    get:
+      operationId: getHomeSnapshot
+      parameters:
+        - {name: homeId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Current evidence and connectivity snapshot}

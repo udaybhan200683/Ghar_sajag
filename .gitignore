@@ -1,0 +1,14 @@
+# Compiled/generated files
+**/build/
+**/__pycache__/
+**/*.pyc
+
+# Temporary document rendering output
+render_*/
+contact_*/
+
+# Generated logs; keep deliberate validation samples only
+**/logs/*.txt
+!**/logs/README.md
+!**/logs/production_validation_v1_1.txt
+!**/logs/development_trace_validation_v1_1.txt
