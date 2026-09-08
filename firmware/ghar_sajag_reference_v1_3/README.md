@@ -10,7 +10,10 @@ Production ERROR logging is enabled by default; development call-flow TRACE is b
 make verify          # production profile
 make verify-trace    # development call-flow profile
 make verify-sanitize # memory/undefined-behaviour checks
+make simulate-matrix # four compile-time feature-flag scenarios
 ```
+
+Feature defaults and safe P1/P2 gates are documented in `docs/FEATURE_FLAGS.md`.
 
 ## What is implemented
 

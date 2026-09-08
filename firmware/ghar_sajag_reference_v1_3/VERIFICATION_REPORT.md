@@ -10,6 +10,12 @@ Date: 8 September 2026
 - Production sample contains ERROR only; development sample contains ERROR and TRACE records spanning N00–N05, H00–H08 and S00–S01.
 - Hardware/ESP-IDF memory, flash-wear, watchdog, brown-out and coredump validation remains pending physical boards.
 
+## Simulation and feature-flag verification
+
+- `make simulate-matrix` passed four deterministic simulator builds: P0 default, morning routine disabled, family-call disabled and local-offline disabled.
+- Each simulator result reports the active flags and changes the expected outcome explicitly; no disabled feature is silently treated as available.
+- Web application tests remain runnable with mock API responses; real browser hosting, service worker deployment and push-provider credentials are hardware/service integration work.
+
 Command: `make verify`
 
 | Check | Result |

@@ -6,6 +6,10 @@ Status date: 8 September 2026
 
 Complete and host-verified: shared C++ logger and rotating file sink; ERROR breadcrumbs in critical node/hub/security paths; build-gated TRACE instrumentation across all implemented C++ modules; rotating backend logger and decorators across B01–B12; bounded app logger and A01–A05 entry traces; log analyzer; production, trace and sanitizer tests. ESP-IDF flash/RTC sink and coredump upload remain hardware-integration work and are not claimed complete.
 
+## Pre-hardware work update
+
+Complete and host-verified: compile/deployment feature flags with safe P0 defaults and P1/P2 deny-by-default gates; C++/Python/JavaScript flag views; simulator output includes active flags; four-case simulator matrix covers default P0, routine-off, call-family-off and local-offline-off builds. Web application domain modules remain mock-data/API-client testable; browser hosting and real notification-provider integration remain pending.
+
 This is a hardware-independent reference implementation, not released firmware and not a medical or guaranteed emergency-response product.
 
 | Group | Host status | Hardware/vendor work remaining |

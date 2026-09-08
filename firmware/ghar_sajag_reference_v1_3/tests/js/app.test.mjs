@@ -7,6 +7,7 @@ import { buildDesiredConfig, configStatus } from "../../app/src/features/routine
 import { actionCommand, incidentActions } from "../../app/src/features/incidents/index.mjs";
 import { VersionedCache, pushCapability } from "../../app/src/platform/index.mjs";
 import { clearLogsForTest, exportLogText, logError, logTrace } from "../../app/src/platform/logging.mjs";
+import { featureFlags, isFeatureEnabled } from "../../app/src/platform/feature_flags.mjs";
 
 test("A01 requires resident consent and distinct backup", () => {
   const draft = {
@@ -62,4 +63,10 @@ test("A05 logger retains errors and applies the build trace gate", () => {
   assert.match(text, /level=ERROR/);
   if (process.env.GS_TRACE === "1") assert.match(text, /level=TRACE/);
   else assert.doesNotMatch(text, /level=TRACE/);
+});
+
+test("feature flags keep unfinished capabilities disabled", () => {
+  assert.equal(isFeatureEnabled("morning_routine"), true);
+  assert.equal(isFeatureEnabled("fall_detection"), false);
+  assert.equal(Object.hasOwn(featureFlags, "external_camera"), true);
 });

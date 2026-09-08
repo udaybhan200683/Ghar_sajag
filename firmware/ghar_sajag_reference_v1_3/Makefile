@@ -24,7 +24,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test simulator python-test app-test contracts clean
+.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean
 
 all: verify
 
@@ -39,6 +39,9 @@ simulator: build
 	$(CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/main.cpp -o build/ghar_sajag_simulator
 	./build/ghar_sajag_simulator
 
+simulate-matrix:
+	python3 tools/sim/scenario_matrix.py
+
 python-test:
 	PYTHONPATH=backend python3 -m unittest discover -s tests/python -p 'test_*.py' -v
 
@@ -48,7 +51,7 @@ app-test:
 contracts:
 	python3 scripts/verify_contracts.py
 
-verify: contracts cpp-test simulator python-test app-test
+verify: contracts cpp-test simulator simulate-matrix python-test app-test
 
 verify-trace:
 	$(MAKE) clean

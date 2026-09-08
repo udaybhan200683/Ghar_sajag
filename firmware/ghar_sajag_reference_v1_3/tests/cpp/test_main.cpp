@@ -16,6 +16,7 @@
 #include "time/clock.hpp"
 #include "ui/resident_ui.hpp"
 #include "host/logging/file_log_sink.hpp"
+#include "gs/feature_flags.hpp"
 
 #include <iostream>
 #include <cstdlib>
@@ -196,6 +197,12 @@ void test_logging_policy() {
 #endif
 }
 
+void test_feature_flag_defaults() {
+    check(gs::FeatureFlags::enabled(gs::Feature::MorningRoutine) == (GS_FEATURE_MORNING_ROUTINE != 0), "morning flag maps to build");
+    check(gs::FeatureFlags::enabled(gs::Feature::TemperatureContext) == (GS_FEATURE_TEMP_CONTEXT != 0), "P1 flag maps to build");
+    check(std::string(gs::FeatureFlags::name(gs::Feature::CallFamily)) == "call_family", "flag names are stable");
+}
+
 }  // namespace
 
 int main() {
@@ -207,6 +214,7 @@ int main() {
         test_hub_modules();
         test_security_seams();
         test_logging_policy();
+        test_feature_flag_defaults();
         std::cout << "cpp: " << checks << " checks passed\n";
         return 0;
     } catch (const std::exception& error) {

@@ -3,6 +3,7 @@ import tempfile
 import unittest
 
 from ghar_sajag import logging_config as logs
+from ghar_sajag.feature_flags import DEFAULTS, snapshot
 
 
 class LoggingTest(unittest.TestCase):
@@ -27,3 +28,8 @@ class LoggingTest(unittest.TestCase):
             logs.configure_logging(str(path), trace_enabled=True)
             logs.trace("TEST", "T02", "flow.enter")
             self.assertIn("level=TRACE", path.read_text())
+
+    def test_feature_flags_are_safe_by_default(self):
+        self.assertTrue(DEFAULTS["morning_routine"])
+        self.assertFalse(DEFAULTS["fall_detection"])
+        self.assertEqual(set(snapshot()), set(DEFAULTS))
