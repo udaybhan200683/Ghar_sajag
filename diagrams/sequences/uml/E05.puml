@@ -1,0 +1,33 @@
+@startuml
+title E05 - Persistence, recovery and bounded storage
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "N05\nNode storage" as N05
+control "H02\nHub persistence" as H02
+control "H08\nHub cloud link" as H08
+control "B03\nEvent ingestion" as B03
+control "B04\nIncident workflow" as B04
+control "B05\nNotification routing" as B05
+control "B08\nOperations/data" as B08
+actor "Operations engineer" as Ops
+N05 -> N05: Append business event before transmit; set gap marker on full
+N05 -> H02: Replay retained event after reboot/link recovery
+H02 -> H02: Commit once with CRC/marker target implementation
+H02 -> H08: Expose unacknowledged cloud outbox
+H08 -> B03: Replay with stable event ID and original time
+B03 -> B04: Create/reuse incident effect by stable key
+B04 -> B05: Create/reuse unique route jobs
+B03 -> B08: Append audit/diagnostic record
+Ops -> B08: Run backup/restore and retention diagnostics
+B08 --> Ops: Return counts, gaps, backlog and restore evidence
+note over N05,Ops: Bounded storage must signal loss; no layer silently drops business evidence.
+note over N05,Ops: Outcome - Stable identities and layered journals support reboot/outage recovery while surfacing overflow or restore failures.
+@enduml

@@ -1,0 +1,30 @@
+@startuml
+title F03 - Kit provisioning and installation verification
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Installer" as Installer
+boundary "A01\nApp onboarding" as A01
+control "B06\nFleet/config" as B06
+control "S03\nFirmware security/update" as S03
+control "H07\nHub lifecycle/config" as H07
+control "N04\nNode lifecycle" as N04
+control "T02\nHardware-in-loop tools" as T02
+Installer -> A01: Scan/enter one hub and four unique node identities
+A01 -> B06: Claim devices for the authorized home
+B06 -> S03: Validate board identity, credential reference and update policy
+B06 -> H07: Publish versioned hub configuration
+H07 -> N04: Open bounded service window and apply node configurations
+N04 -> B06: Report applied version and device binding
+T02 -> H07: Observe hub controls, input sources, RF and delivery test evidence
+T02 -> A01: Return pass/fail installation gate with missing checks
+note over A01,Installer: Unobserved hardware checks remain failed; the tool never invents a board result.
+note over Installer,T02: Outcome - The kit is eligible only when identity, configuration, every enabled input and a real TEST delivery are evidenced.
+@enduml

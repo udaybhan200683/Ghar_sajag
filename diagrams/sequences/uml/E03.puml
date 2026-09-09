@@ -1,0 +1,36 @@
+@startuml
+title E03 - Local operation during internet failure
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Resident" as Resident
+control "N01\nNode sensing" as N01
+control "H02\nHub persistence" as H02
+control "H03\nHub time" as H03
+control "H04\nHub coverage" as H04
+control "H05\nHub rules adapter" as H05
+control "H06\nHub resident interface" as H06
+control "H08\nHub cloud link" as H08
+participant "Home internet / WAN" as WAN
+WAN -> H08: Connectivity becomes unavailable
+H08 -> H08: Enter bounded reconnect/backoff; retain outbox
+Resident -> N01: Create normal household activity
+N01 -> H02: Deliver through node/hub transport and commit locally
+H02 -> H04: Refresh source coverage from local contact
+H03 -> H05: Provide trusted time until anchor expiry
+H02 -> H05: Apply committed activity or deadline locally
+Resident -> H06: Press I'm OK or Call family
+H06 -> H02: Persist explicit resident action
+H02 --> H06: Show saved-local / internet-unavailable feedback
+WAN -> H08: Connectivity returns
+H08 -> H02: Replay pending records in priority/order
+note over H03,H05: After time trust expires, absence alerts are suppressed; manual resident actions remain valid.
+note over Resident,WAN: Outcome - Local evidence, coverage, routine gating and resident controls continue during WAN failure and replay safely later.
+@enduml

@@ -1,0 +1,32 @@
+@startuml
+title F10 - Away, pause and visitor modes
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Primary caregiver" as Caregiver
+boundary "A03\nApp routines" as A03
+control "B02\nHome/consent" as B02
+control "H07\nHub lifecycle/config" as H07
+control "H06\nHub resident interface" as H06
+control "H05\nHub rules adapter" as H05
+control "S02\nDeterministic rules core" as S02
+boundary "A02\nApp home" as A02
+Caregiver -> A03: Select HOME, AWAY, PAUSED or VISITOR with reason/expiry
+A03 -> B02: Submit authorized versioned mode command
+B02 -> H07: Publish desired configuration
+H07 -> H07: Atomically apply newer valid version
+H07 -> H06: Update local mode/privacy feedback
+H07 -> H05: Update active routine mode
+H05 -> S02: Gate incident evaluation by mode
+S02 --> H05: Return suppression reason outside HOME
+B02 -> A02: Expose current/applied mode and freshness
+note over Caregiver,A02: Expiry or stale desired state must not silently reactivate monitoring.
+note over Caregiver,A02: Outcome - Mode changes are explicit, versioned and visible; routines never generate missing-activity incidents in an ineligible mode.
+@enduml

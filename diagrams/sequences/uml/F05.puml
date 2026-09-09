@@ -1,0 +1,38 @@
+@startuml
+title F05 - Morning activity evidence
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "PIR / reed / button hardware" as Sensor
+control "N01\nNode sensing" as N01
+control "N05\nNode storage" as N05
+control "N02\nNode radio" as N02
+control "H01\nHub ingest" as H01
+control "H02\nHub persistence" as H02
+control "H05\nHub rules adapter" as H05
+control "S02\nDeterministic rules core" as S02
+control "H08\nHub cloud link" as H08
+control "B07\nRead models/API" as B07
+boundary "A02\nApp home" as A02
+Sensor -> N01: Raw PIR/reed transition
+N01 -> N01: Warm-up/debounce/retrigger qualification
+N01 -> N05: Persist qualified DomainEvent before radio send
+N05 -> N02: Queue retained event with stable event ID
+N02 -> H01: ESP-NOW node event v1
+H01 -> H02: Authorize session and commit once
+H02 --> N02: DURABLE ACK only after journal commit
+H02 -> H05: Apply committed event to active routine
+H05 -> S02: Reduce evidence deterministically
+H02 -> H08: Expose committed record for cloud replay
+H08 -> B07: Cloud ingest/projection updates timeline
+A02 -> B07: Read evidence and independent freshness
+note over A02,Sensor: Activity evidence is household-level; it does not identify a resident or prove wellbeing.
+note over Sensor,A02: Outcome - One qualified physical activity becomes one durable, traceable timeline event and suppresses the matching missing-activity decision.
+@enduml

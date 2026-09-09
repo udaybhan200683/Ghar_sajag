@@ -1,0 +1,6 @@
+PASS: 82 source files compared. All differences are comments/blank lines except Product::version 1.4.1 -> 1.4.2.
+PASS: 11 current Word/Excel files have valid internal ZIP CRCs.
+PASS: 70 standalone PNG diagrams decoded fully.
+PASS: 29 sequence PNGs have matching PlantUML filenames.
+PASS: all populated values and formulas in the four uploaded BOM sheets retained; Edition 2 guidance added.
+LIMIT: PlantUML source syntax has not been compiled by a PlantUML runtime in this environment. PNGs are provided ready to read; imported baseline and AI scenario relationships are described in the sequence guide.

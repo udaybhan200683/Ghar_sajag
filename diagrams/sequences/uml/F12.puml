@@ -1,0 +1,31 @@
+@startuml
+title F12 - Acknowledgement and resolution
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Primary caregiver" as Caregiver
+boundary "A04\nApp incidents" as A04
+control "B04\nIncident workflow" as B04
+control "B05\nNotification routing" as B05
+control "B07\nRead models/API" as B07
+control "H08\nHub cloud link" as H08
+Caregiver -> A04: Open incident and request claim
+A04 -> B04: POST claim with idempotency key
+B04 -> B04: Acquire bounded owner lease; reject competing live owner
+Caregiver -> A04: Acknowledge after taking responsibility
+A04 -> B04: POST acknowledge
+B04 -> B05: Stop still-pending escalation jobs
+B04 -> B07: Publish acknowledged state
+B07 -> H08: Optionally return caregiver action for hub visibility
+Caregiver -> A04: Resolve with explicit outcome after contact/check
+A04 -> B04: POST resolve; closed transition is auditable
+note over B05,A04: Provider acceptance never equals human acknowledgement or incident resolution.
+note over Caregiver,H08: Outcome - Ownership, acknowledgement and resolution are distinct idempotent transitions with bounded concurrency.
+@enduml

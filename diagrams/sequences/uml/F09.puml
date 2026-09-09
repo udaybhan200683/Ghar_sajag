@@ -1,0 +1,35 @@
+@startuml
+title F09 - Main-door history and quiet notice
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "PIR / reed / button hardware" as Sensor
+control "N01\nNode sensing" as N01
+control "N05\nNode storage" as N05
+control "N02\nNode radio" as N02
+control "H05\nHub rules adapter" as H05
+control "S02\nDeterministic rules core" as S02
+control "B07\nRead models/API" as B07
+control "B05\nNotification routing" as B05
+participant "Web Push provider" as Push
+boundary "A02\nApp home" as A02
+Sensor -> N01: Reed switch opens or closes
+N01 -> N01: Debounce and classify DoorOpen / DoorClosed
+N01 -> N05: Persist stable door event
+N05 -> N02: Transmit retained event and await durable ACK
+N02 -> H05: Deliver committed door evidence through hub ingest/journal
+H05 -> S02: Apply event without creating a safety conclusion
+H05 -> B07: Project original event time into door history
+B07 -> B05: Evaluate explicit opt-in quiet notice policy
+B05 -> Push: Send advisory notice once when eligible
+A02 -> B07: Fetch door history and evidence freshness
+note over A02,Sensor: A door event is advisory household evidence, not proof that a named resident left or returned.
+note over Sensor,A02: Outcome - Door activity is recorded once and may create an opt-in quiet advisory without becoming an emergency incident.
+@enduml

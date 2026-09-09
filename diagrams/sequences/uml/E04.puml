@@ -1,0 +1,30 @@
+@startuml
+title E04 - Hub/cloud/app connectivity and freshness
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Primary caregiver" as Caregiver
+boundary "A05\nApp platform" as A05
+control "H08\nHub cloud link" as H08
+control "B08\nOperations/data" as B08
+control "B07\nRead models/API" as B07
+boundary "A02\nApp home" as A02
+H08 -> B08: Send heartbeat/cloud receipt when connected
+B08 -> B08: Evaluate hub lease using server receipt time
+Caregiver -> A05: Open/refresh application
+A05 -> B07: GET snapshot with client request time
+B07 -> B08: Read independent hub health and diagnostics
+B07 --> A05: Return fetched-at, last hub receipt and last activity separately
+A05 -> A05: Classify network/auth/service failure and cache version
+A05 -> A02: Build independent phone, API, hub and activity freshness labels
+A02 -> Caregiver: Display explicit stale/offline/never-seen states
+note over H08,A02: A fresh API response does not make a stale hub current, and activity freshness is a separate dimension.
+note over Caregiver,A02: Outcome - Each connectivity boundary and evidence timestamp remains separately visible so the family knows what is actually known.
+@enduml

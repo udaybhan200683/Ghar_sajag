@@ -1,0 +1,33 @@
+@startuml
+title H01 - Hub ingest
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H01\nHub ingest" as H01
+interface "PeerRegistry::authorize/accepts; IngestQueue::callback_copy/pop" as API
+database "Owned state\nauthorized source→session map, bounded ingress deque and rejection count" as State
+queue "Input / output\nRadio callback DomainEvent → admitted fixed-value mailbox entry" as IO
+API --> H01
+IO --> H01
+H01 --> State : owns
+component "S01\nShared contracts" as S01
+H01 ..> S01 : contract / port
+component "H02\nHub persistence" as H02
+H01 ..> H02 : contract / port
+component "H04\nHub coverage" as H04
+H01 ..> H04 : contract / port
+component "N02\nNode radio" as N02
+H01 ..> N02 : contract / port
+note bottom of H01
+Flow: Authenticate source/session and sequence; copy into bounded queue; return immediately; state task later pops and processes.
+Guard: Unknown session or full queue rejects and increments observable count. Callback never writes flash or runs rules.
+Status: Host complete; target pending
+end note
+@enduml

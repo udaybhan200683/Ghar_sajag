@@ -1,0 +1,29 @@
+@startuml
+title N05 - Node storage
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "N05\nNode storage" as N05
+interface "NodeStore::append(); acknowledge(); oldest()" as API
+database "Owned state\nbounded business-event deque and explicit gap-marker flag" as State
+queue "Input / output\nBusiness DomainEvent + ACK → retained/released event or overflow signal" as IO
+API --> N05
+IO --> N05
+N05 --> State : owns
+component "S01\nShared contracts" as S01
+N05 ..> S01 : contract / port
+component "N02\nNode radio" as N02
+N05 ..> N02 : contract / port
+note bottom of N05
+Flow: Ignore periodic heartbeat for flash journal; deduplicate; append before transmit; retire on DURABLE or DISCARDED_POLICY; signal capacity loss.
+Guard: Full store does not silently drop; gap_marker_required becomes true. Volatile ACK cannot delete business evidence.
+Status: Host complete; target pending
+end note
+@enduml

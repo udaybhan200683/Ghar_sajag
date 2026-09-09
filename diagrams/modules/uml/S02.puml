@@ -1,0 +1,27 @@
+@startuml
+title S02 - Deterministic rules core
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "S02\nDeterministic rules core" as S02
+interface "RulesCore::event_overlaps_window/apply_event/evaluate_deadline" as API
+database "Owned state\nCaller-owned RoutineState; no global state or I/O" as State
+queue "Input / output\nRoutineConfig + ordered DomainEvent/deadline → deterministic state and IncidentDecision" as IO
+API --> S02
+IO --> S02
+S02 --> State : owns
+component "H05\nHub rules adapter" as H05
+S02 ..> H05 : contract / port
+note bottom of S02
+Flow: Use uncertainty interval overlap; ignore tests; gate modes; record evidence IDs; produce stable incident key only after all eligibility gates.
+Guard: Time, coverage and mode uncertainty return a reason instead of a false incident. Same state/input is replayable.
+Status: Host complete; target pending
+end note
+@enduml

@@ -1,0 +1,37 @@
+@startuml
+title H05 - Hub rules adapter
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H05\nHub rules adapter" as H05
+interface "start_window(); set_coverage(); apply(); deadline()" as API
+database "Owned state\none RoutineConfig and RoutineState owned by the hub state task" as State
+queue "Input / output\nCommitted event / deadline / coverage → evidence state or stable incident decision" as IO
+API --> H05
+IO --> H05
+H05 --> State : owns
+component "S02\nDeterministic rules core" as S02
+H05 ..> S02 : contract / port
+component "H02\nHub persistence" as H02
+H05 ..> H02 : contract / port
+component "H03\nHub time" as H03
+H05 ..> H03 : contract / port
+component "H04\nHub coverage" as H04
+H05 ..> H04 : contract / port
+component "H06\nHub resident interface" as H06
+H05 ..> H06 : contract / port
+component "B04\nIncident workflow" as B04
+H05 ..> B04 : contract / port
+note bottom of H05
+Flow: Reset on stable window ID; apply pure S02 reducer; at grace deadline require trusted time, HOME mode and Covered state; create once if no evidence.
+Guard: Unknown coverage, privacy/away/pause, test data or untrusted time suppresses missing-activity creation with a reason.
+Status: Host complete; target pending
+end note
+@enduml

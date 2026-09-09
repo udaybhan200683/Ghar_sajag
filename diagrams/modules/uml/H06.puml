@@ -1,0 +1,31 @@
+@startuml
+title H06 - Hub resident interface
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H06\nHub resident interface" as H06
+interface "ResidentUi::make_action(); feedback_for()" as API
+database "Owned state\nStateless command builder; physical debounce belongs to GPIO adapter" as State
+queue "Input / output\nOK/Call/Privacy action → durable DomainEvent and local feedback code/text" as IO
+API --> H06
+IO --> H06
+H06 --> State : owns
+component "S01\nShared contracts" as S01
+H06 ..> S01 : contract / port
+component "H02\nHub persistence" as H02
+H06 ..> H02 : contract / port
+component "H05\nHub rules adapter" as H05
+H06 ..> H05 : contract / port
+note bottom of H06
+Flow: Map physically distinct controls to explicit event kinds; state whether action was saved locally or accepted remotely; use fixed prompt flag only.
+Guard: No microphone or generated speech. Offline Call family remains stored and explicitly says internet unavailable.
+Status: Host complete; target pending
+end note
+@enduml

@@ -1,0 +1,9 @@
+@startuml
+title H09 Interaction controller
+top to bottom direction
+component "H09 Interaction controller" as M
+note right of M
+Requirements: AI01, AI02, AI03, AI04, AI05, AI08, NFR-04, NFR-07
+State + request ID + monotonic start time + borrowed Provider reference
+end note
+@enduml

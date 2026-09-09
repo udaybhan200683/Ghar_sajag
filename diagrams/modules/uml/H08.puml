@@ -1,0 +1,33 @@
+@startuml
+title H08 - Hub cloud link
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H08\nHub cloud link" as H08
+interface "set_connected(); next_batch(); application_commit_ack(); record_failure()" as API
+database "Owned state\nconnection flag, failure count and retry-after deadline; journal owns payload" as State
+queue "Input / output\nCommitted outbox + connection/ACK → prioritized batch and retirement" as IO
+API --> H08
+IO --> H08
+H08 --> State : owns
+component "S01\nShared contracts" as S01
+H08 ..> S01 : contract / port
+component "H02\nHub persistence" as H02
+H08 ..> H02 : contract / port
+component "B03\nEvent ingestion" as B03
+H08 ..> B03 : contract / port
+component "B08\nOperations/data" as B08
+H08 ..> B08 : contract / port
+note bottom of H08
+Flow: Send only when connected/due; prioritize Call family over history; use bounded reconnect schedule; retire on backend commit ACK.
+Guard: Disconnect/backoff preserves outbox. Transport ACK cannot call application_commit_ack. Original event time is unchanged.
+Status: Host complete; target pending
+end note
+@enduml

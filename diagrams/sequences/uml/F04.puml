@@ -1,0 +1,31 @@
+@startuml
+title F04 - Configurable morning routine
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Primary caregiver" as Caregiver
+boundary "A03\nApp routines" as A03
+control "B06\nFleet/config" as B06
+control "H07\nHub lifecycle/config" as H07
+control "H03\nHub time" as H03
+control "H05\nHub rules adapter" as H05
+control "S02\nDeterministic rules core" as S02
+Caregiver -> A03: Set start, end, grace, required locations and mode
+A03 -> S02: Validate deterministic routine/window semantics
+A03 -> B06: Publish next desired configuration version
+B06 -> H07: Deliver desired HomeConfig
+H07 -> H07: Validate and atomically replace active snapshot
+H07 -> H03: Apply timezone and trusted boundary parameters
+H07 -> H05: Start routine using stable window ID
+H05 -> S02: Initialize deterministic RoutineState
+H07 -> B06: Report applied version; desired and applied remain distinct
+B06 --> A03: Return pending/applied/conflict status
+note over Caregiver,S02: Outcome - A versioned routine is validated, atomically applied and visible as desired versus applied state.
+@enduml

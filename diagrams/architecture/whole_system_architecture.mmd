@@ -1,0 +1,7 @@
+flowchart TD
+ N["C3 nodes N01-N05"] -. "ESP-NOW events and ACKs: pending" .-> H["Shared hub H01-H08 / S02"]
+ H -. "TLS replay and config: pending" .-> B["Backend B01-B08"]
+ B -. "HTTPS: integration pending" .-> A["App A01-A05"]
+ H -. "Priority cancel: coordinator pending" .-> I["H09 interaction / S04 profile"]
+ I -. "H10 / H11 pending" .-> P["B09 gateway / provider pending"]
+ P -. "Availability: pending" .-> U["A06 interaction UI pending"]

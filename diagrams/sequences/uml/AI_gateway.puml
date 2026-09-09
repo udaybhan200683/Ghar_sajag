@@ -1,0 +1,15 @@
+@startuml
+title AI gateway | reference and planned boundaries
+hide footbox
+participant "H11 planned" as P0
+participant "B09 planned" as P1
+participant "Provider" as P2
+participant "A06 planned" as P3
+P0 -> P1: Authenticated session request
+P1 -> P1: Check tenant, edition, consent and quota
+P1 -> P2: Start bounded provider request
+P2 -> P1: Response or provider error
+P1 -> P0: Result / offline / quota reason
+P1 -> P3: Authorized capability and availability view
+note over P0: Scenarios include alternatives; read the v2.0 sequence guide for guards.
+@enduml

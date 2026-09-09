@@ -1,0 +1,35 @@
+@startuml
+title E08 - Security, privacy and tenant isolation
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Primary caregiver" as Caregiver
+actor "Unauthorized cross-home actor" as Attacker
+participant "OIDC identity provider" as IdP
+boundary "A05\nApp platform" as A05
+control "B01\nIdentity/access" as B01
+control "B02\nHome/consent" as B02
+control "B06\nFleet/config" as B06
+control "B08\nOperations/data" as B08
+control "S03\nFirmware security/update" as S03
+control "T01\nSimulation/CI" as T01
+Caregiver -> IdP: Authenticate and obtain audience/issuer-bound token
+Caregiver -> A05: Request home data or command
+A05 -> B01: Present token, home ID and required permission
+B01 -> B02: Resolve active home-scoped membership and consent
+B01 -> B06: Authorize device/config action only for same home
+B01 -> B08: Audit allowed action without exposing secrets
+Attacker -> B01: Attempt cross-home access/rebind
+B01 --> Attacker: Reject as unauthorized/not found
+S03 -> B06: Require valid credential/update policy for device lifecycle
+T01 -> B01: Execute tenant-isolation and fail-closed host tests
+note over B02,B08: Resident consent and privacy mode are explicit product states, not implied by purchase or activity.
+note over Caregiver,T01: Outcome - Every actor/device action is home-scoped, consent-aware, auditable and fail-closed across security boundaries.
+@enduml

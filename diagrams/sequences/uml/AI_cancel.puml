@@ -1,0 +1,15 @@
+@startuml
+title AI cancel | reference and planned boundaries
+hide footbox
+participant "Monitoring" as P0
+participant "H10 planned" as P1
+participant "H09" as P2
+participant "H11 planned" as P3
+P0 -> P1: Urgent prompt or privacy withdrawal
+P1 -> P2: cancel()
+P2 -> P3: Provider.cancel(ID) if Waiting
+P1 -> P3: Stop recording and playback; clear buffers
+P3 -> P2: Late result rejected
+P1 -> P0: Continue deterministic monitoring
+note over P0: Scenarios include alternatives; read the v2.0 sequence guide for guards.
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+title N04 - Node lifecycle
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "N04\nNode lifecycle" as N04
+interface "LifecycleService::apply(); open_service_window(); service_window_open()" as API
+database "Owned state\nactive NodeConfig and physical-service-window deadline" as State
+queue "Input / output\nVersioned NodeConfig / physical action → atomic applied config or reason" as IO
+API --> N04
+IO --> N04
+N04 --> State : owns
+component "S01\nShared contracts" as S01
+N04 ..> S01 : contract / port
+component "S03\nFirmware security/update" as S03
+N04 ..> S03 : contract / port
+component "H07\nHub lifecycle/config" as H07
+N04 ..> H07 : contract / port
+component "B06\nFleet/config" as B06
+N04 ..> B06 : contract / port
+note bottom of N04
+Flow: Validate identity, location, enabled capability and heartbeat range; reject same/older version; replace active snapshot atomically.
+Guard: No open radio enrollment. Invalid config leaves prior version intact. Service access expires by monotonic deadline.
+Status: Host complete; target pending
+end note
+@enduml

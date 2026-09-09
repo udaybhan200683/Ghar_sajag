@@ -1,0 +1,33 @@
+@startuml
+title H04 - Hub coverage
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H04\nHub coverage" as H04
+interface "require_node(); observe(); set_sensor_fault(); current(); reasons()" as API
+database "Owned state\nrequired-node set and per-node last contact, battery and fault" as State
+queue "Input / output\nHeartbeat/business contact + lease clock → Covered/Unknown/Fault and reason list" as IO
+API --> H04
+IO --> H04
+H04 --> State : owns
+component "H01\nHub ingest" as H01
+H04 ..> H01 : contract / port
+component "H02\nHub persistence" as H02
+H04 ..> H02 : contract / port
+component "H05\nHub rules adapter" as H05
+H04 ..> H05 : contract / port
+component "B08\nOperations/data" as B08
+H04 ..> B08 : contract / port
+note bottom of H04
+Flow: Require only configured routine sources; refresh contact; report unknown for unseen/expired source; report fault separately from activity.
+Guard: Current recovery never erases the historical gap. A heartbeat cannot clear an explicit sensor fault.
+Status: Host complete; target pending
+end note
+@enduml

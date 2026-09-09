@@ -1,0 +1,37 @@
+@startuml
+title B07 - Read models/API
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "B07\nRead models/API" as B07
+interface "QueryService.snapshot/timeline; JsonApi.dispatch/WSGI" as API
+database "Owned state\nDerived view only; source facts remain in store" as State
+queue "Input / output\nAuthorized read + events/incidents → dashboard snapshot/timeline JSON" as IO
+API --> B07
+IO --> B07
+B07 --> State : owns
+component "B01\nIdentity/access" as B01
+B07 ..> B01 : contract / port
+component "B03\nEvent ingestion" as B03
+B07 ..> B03 : contract / port
+component "B04\nIncident workflow" as B04
+B07 ..> B04 : contract / port
+component "B08\nOperations/data" as B08
+B07 ..> B08 : contract / port
+component "A02\nApp home" as A02
+B07 ..> A02 : contract / port
+component "A05\nApp platform" as A05
+B07 ..> A05 : contract / port
+note bottom of B07
+Flow: Sort by original occurrence; compute hub lease from server receipts; choose latest activity independently; expose incidents and fetched time.
+Guard: Fresh phone fetch cannot make stale hub data current. Test events are excluded from production timeline.
+Status: Host complete; target pending
+end note
+@enduml

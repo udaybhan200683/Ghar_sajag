@@ -1,0 +1,31 @@
+@startuml
+title H03 - Hub time
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H03\nHub time" as H03
+interface "TrustedClock::anchor(); estimate(); valid_for_absence()" as API
+database "Owned state\ntrusted server anchor, monotonic anchor and uncertainty" as State
+queue "Input / output\nAuthenticated time anchor + monotonic now → earliest/latest wall-time estimate and trust" as IO
+API --> H03
+IO --> H03
+H03 --> State : owns
+component "S01\nShared contracts" as S01
+H03 ..> S01 : contract / port
+component "H05\nHub rules adapter" as H05
+H03 ..> H05 : contract / port
+component "H07\nHub lifecycle/config" as H07
+H03 ..> H07 : contract / port
+note bottom of H03
+Flow: Advance from monotonic elapsed time; expand uncertainty by conservative drift; expire anchor after 72 hours; gate absence evaluation by trust and uncertainty.
+Guard: No anchor, monotonic rollback or expired anchor produces untrusted/expired state. Manual buttons remain valid elsewhere.
+Status: Host complete; target pending
+end note
+@enduml

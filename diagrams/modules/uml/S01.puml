@@ -1,0 +1,53 @@
+@startuml
+title S01 - Shared contracts
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "S01\nShared contracts" as S01
+interface "Schema v1 fields and OpenAPI operation IDs" as API
+database "Owned state\nVersioned source files only" as State
+queue "Input / output\nProducer payload → structural acceptance or explicit schema/version rejection" as IO
+API --> S01
+IO --> S01
+S01 --> State : owns
+component "N01\nNode sensing" as N01
+S01 ..> N01 : contract / port
+component "N02\nNode radio" as N02
+S01 ..> N02 : contract / port
+component "N04\nNode lifecycle" as N04
+S01 ..> N04 : contract / port
+component "N05\nNode storage" as N05
+S01 ..> N05 : contract / port
+component "H01\nHub ingest" as H01
+S01 ..> H01 : contract / port
+component "H02\nHub persistence" as H02
+S01 ..> H02 : contract / port
+component "H03\nHub time" as H03
+S01 ..> H03 : contract / port
+component "H06\nHub resident interface" as H06
+S01 ..> H06 : contract / port
+component "H07\nHub lifecycle/config" as H07
+S01 ..> H07 : contract / port
+component "H08\nHub cloud link" as H08
+S01 ..> H08 : contract / port
+component "B03\nEvent ingestion" as B03
+S01 ..> B03 : contract / port
+component "B06\nFleet/config" as B06
+S01 ..> B06 : contract / port
+component "A01\nApp onboarding" as A01
+S01 ..> A01 : contract / port
+component "A03\nApp routines" as A03
+S01 ..> A03 : contract / port
+note bottom of S01
+Flow: Keep node event identity, cloud timestamps/test flag and desired configuration version canonical; validate source structure in CI.
+Guard: Unknown additional fields fail in JSON schemas; schema change requires a new version and compatibility tests.
+Status: Host complete; target pending
+end note
+@enduml

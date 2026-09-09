@@ -1,0 +1,35 @@
+@startuml
+title E09 - Signed firmware update and recovery
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Development / test engineer" as Engineer
+control "B06\nFleet/config" as B06
+control "S03\nFirmware security/update" as S03
+control "H07\nHub lifecycle/config" as H07
+control "N04\nNode lifecycle" as N04
+control "Hub bootloader / OTA slot" as HubBoot
+control "Node bootloader / OTA slot" as NodeBoot
+control "B08\nOperations/data" as B08
+control "T02\nHardware-in-loop tools" as T02
+Engineer -> B06: Publish board-bound version/hash/signature manifest
+B06 -> S03: Check board identity, version monotonicity, hash text and signature verifier
+S03 --> B06: Return accept/reject with reason
+B06 -> H07: Stage accepted hub update policy/config
+H07 -> HubBoot: Download to inactive slot and verify real image signature
+B06 -> N04: Open authorized node service/update window
+N04 -> NodeBoot: Stage and verify node image
+HubBoot -> B08: Report boot health, rollback or confirmed version
+NodeBoot -> B08: Report node update result
+T02 -> HubBoot: Inject corrupt/wrong-board/reset recovery cases
+T02 -> NodeBoot: Verify prior image remains recoverable
+note over S03,T02: Current implementation is only the fail-closed policy seam; production crypto and secure boot are pending.
+note over Engineer,T02: Outcome - Only authenticated board-compatible upgrades can activate, and failure returns to a known-good image with auditable evidence.
+@enduml

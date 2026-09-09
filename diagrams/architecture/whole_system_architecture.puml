@@ -1,0 +1,19 @@
+@startuml
+title Ghar Sajag shared system and future AI boundary
+top to bottom direction
+node "C3 nodes N01 to N05" as N
+node "Base hub H01 to H08 and S02" as H
+component "Backend B01 to B08" as B
+component "Caregiver app A01 to A05" as A
+component "H09 controller and S04 profile" as I
+component "H10 H11 audio coordinator planned" as P
+component "B09 gateway and A06 UI planned" as G
+N ..> H : I01 event and durable ACK target
+H ..> B : I02 replay config commit ACK target
+A ..> B : I03 authenticated queries and commands target
+H ..> I : optional interaction boundary
+I ..> P : provider start cancel completion
+P ..> G : future consented bounded interaction
+note bottom of H : Host core exists
+GPIO radio flash FreeRTOS pending
+@enduml

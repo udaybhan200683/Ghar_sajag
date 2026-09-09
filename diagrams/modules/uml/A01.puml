@@ -1,0 +1,33 @@
+@startuml
+title A01 - App onboarding
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "A01\nApp onboarding" as A01
+interface "validateHouseholdDraft(); buildCreateHomeCommand(); installationGate()" as API
+database "Owned state\nPure draft/result values; no hidden authoritative state" as State
+queue "Input / output\nHousehold draft and install evidence → validation errors, API command, pilot eligibility" as IO
+API --> A01
+IO --> A01
+A01 --> State : owns
+component "S01\nShared contracts" as S01
+A01 ..> S01 : contract / port
+component "B01\nIdentity/access" as B01
+A01 ..> B01 : contract / port
+component "B02\nHome/consent" as B02
+A01 ..> B02 : contract / port
+component "B06\nFleet/config" as B06
+A01 ..> B06 : contract / port
+note bottom of A01
+Flow: Require home/timezone/resident consent/distinct caregiver pair; construct idempotent home command; require every enabled input plus hub controls and real delivery drill.
+Guard: Missing check remains visible and blocks unattended eligibility. No default consent or inferred backup.
+Status: Host complete; target pending
+end note
+@enduml

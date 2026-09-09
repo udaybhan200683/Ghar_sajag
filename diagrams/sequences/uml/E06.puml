@@ -1,0 +1,30 @@
+@startuml
+title E06 - Trusted time and boundary handling
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+participant "Authenticated time source" as Clock
+control "S01\nShared contracts" as S01
+control "H07\nHub lifecycle/config" as H07
+control "H03\nHub time" as H03
+control "H05\nHub rules adapter" as H05
+control "S02\nDeterministic rules core" as S02
+control "H02\nHub persistence" as H02
+Clock -> S01: Authenticated wall-time anchor + uncertainty
+S01 -> H03: Validated time-anchor contract
+H07 -> H03: Apply timezone/window configuration version
+H03 -> H03: Estimate earliest/latest wall time from monotonic elapsed time
+H03 -> H05: Return trust state and uncertainty bounds
+H05 -> S02: Check event-window overlap or grace deadline eligibility
+S02 --> H05: Return deterministic evidence/incident/suppression result
+H05 -> H02: Persist decision reason and stable window ID
+note over H03,H05: No anchor, monotonic rollback, excessive uncertainty or >72-hour expiry suppresses absence decisions.
+note over Clock,H02: Outcome - Routine decisions use bounded trusted time and remain deterministic across reboot, drift and boundary ambiguity.
+@enduml

@@ -1,0 +1,9 @@
+@startuml
+title S05 Diagnostics facade and sinks
+top to bottom direction
+component "S05 Diagnostics facade and sinks" as M
+note right of M
+Requirements: AI08, E10, NFR-05, NFR-09
+Borrowed sink; bounded formatting/file rotation; browser ring
+end note
+@enduml

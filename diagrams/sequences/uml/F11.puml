@@ -1,0 +1,29 @@
+@startuml
+title F11 - Caregiver dashboard and timeline
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Primary caregiver" as Caregiver
+boundary "A05\nApp platform" as A05
+control "B01\nIdentity/access" as B01
+control "B07\nRead models/API" as B07
+control "B08\nOperations/data" as B08
+boundary "A02\nApp home" as A02
+Caregiver -> A05: Open home dashboard
+A05 -> B01: Attach verified OIDC token and require home membership
+A05 -> B07: GET snapshot and ordered timeline
+B07 -> B08: Read independent hub lease, diagnostics and audit-safe status
+B07 --> A05: Return versioned evidence, incidents and fetched time
+A05 -> A05: Accept only newer cache version; classify auth/service/network failure
+A05 -> A02: Build separate activity and connectivity cards
+A02 -> Caregiver: Render original time, freshness, coverage and unresolved incidents
+note over A02,Caregiver: Fresh phone data cannot make stale hub data current; no activity is not a wellbeing verdict.
+note over Caregiver,A02: Outcome - The caregiver sees evidence, hub reachability and incident state as separate, freshness-qualified facts.
+@enduml

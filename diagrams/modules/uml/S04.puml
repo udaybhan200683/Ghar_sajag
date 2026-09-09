@@ -1,0 +1,9 @@
+@startuml
+title S04 Product profile
+top to bottom direction
+component "S04 Product profile" as M
+note right of M
+Requirements: V01, AI01, AI07, E07, E10, NFR-08
+Compile-time constants
+end note
+@enduml

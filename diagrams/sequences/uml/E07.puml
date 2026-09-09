@@ -1,0 +1,31 @@
+@startuml
+title E07 - Versioned configuration and atomic application
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Primary caregiver" as Caregiver
+boundary "A03\nApp routines" as A03
+control "S01\nShared contracts" as S01
+control "B06\nFleet/config" as B06
+control "H08\nHub cloud link" as H08
+control "H07\nHub lifecycle/config" as H07
+control "N04\nNode lifecycle" as N04
+Caregiver -> A03: Edit routine, mode or device configuration
+A03 -> S01: Validate schema and versioned command
+A03 -> B06: Create next desired version
+B06 -> H08: Publish desired config over authenticated channel
+H08 -> H07: Deliver complete immutable snapshot
+H07 -> H07: Validate all fields; reject stale/invalid without partial mutation
+H07 -> N04: Apply node-specific newer configuration during authorized window
+N04 --> H07: Return applied/rejected version
+H07 -> B06: Report actual applied version
+B06 --> A03: Show desired, applied, pending or conflict
+note over Caregiver,N04: Outcome - Configuration is all-or-nothing, monotonic and observable as desired versus actually applied state.
+@enduml

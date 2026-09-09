@@ -1,0 +1,28 @@
+@startuml
+title E01 - Node health, battery and coverage
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "Node wake / heartbeat timer" as NodeTimer
+control "N03\nNode power" as N03
+control "N02\nNode radio" as N02
+control "H04\nHub coverage" as H04
+control "B08\nOperations/data" as B08
+boundary "A02\nApp home" as A02
+NodeTimer -> N03: Wake and sample calibrated battery voltage/status
+N03 -> N03: Classify UNKNOWN/OK/LOW/CRITICAL without invented percentage
+N03 -> N02: Create heartbeat with battery band and sensor status
+N02 -> H04: Deliver contact/heartbeat through authorized hub ingest
+H04 -> H04: Refresh source lease; retain explicit sensor fault
+H04 -> B08: Publish health/coverage reason through hub cloud path
+B08 -> A02: Return node reachability, battery and coverage separately
+note over N03,A02: Software thresholds do not replace protected cells, charger qualification or measured runtime.
+note over NodeTimer,A02: Outcome - Battery, contact and sensor faults are visible as separate facts and required-source expiry becomes coverage unknown.
+@enduml

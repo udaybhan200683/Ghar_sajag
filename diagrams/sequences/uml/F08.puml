@@ -1,0 +1,40 @@
+@startuml
+title F08 - Missing morning activity workflow
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "Hub routine deadline timer" as HubTimer
+control "H03\nHub time" as H03
+control "H04\nHub coverage" as H04
+control "H05\nHub rules adapter" as H05
+control "S02\nDeterministic rules core" as S02
+control "H02\nHub persistence" as H02
+control "H08\nHub cloud link" as H08
+control "B04\nIncident workflow" as B04
+control "B05\nNotification routing" as B05
+participant "Web Push provider" as Push
+boundary "A04\nApp incidents" as A04
+actor "Primary caregiver" as Caregiver
+HubTimer -> H03: Grace deadline reached using monotonic time
+H03 -> H05: Provide trusted earliest/latest wall-time estimate
+H05 -> H04: Request required-source coverage state
+H04 --> H05: Covered / Unknown / Fault plus reasons
+H05 -> S02: Evaluate deadline with mode, evidence, time and coverage
+note over H04,S02: Untrusted time, privacy/away/pause, test data or unknown coverage suppresses incident.
+S02 --> H05: Return stable incident decision or suppression reason
+H05 -> H02: Commit missing-activity incident intent once
+H02 -> H08: Queue urgent cloud record
+H08 -> B04: Idempotently create incident
+B04 -> B05: Schedule bounded caregiver routes
+B05 -> Push: Submit notification
+Push -> Caregiver: Deliver missing-activity alert
+Caregiver -> A04: Claim, acknowledge and later resolve
+note over HubTimer,Caregiver: Outcome - A missing-activity alert is created only when observation coverage and time are trustworthy; otherwise the reason is explicit.
+@enduml

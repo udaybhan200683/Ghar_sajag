@@ -1,0 +1,31 @@
+@startuml
+title S03 - Firmware security/update
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "S03\nFirmware security/update" as S03
+interface "CredentialRegistry::install/revoke/get; UpdatePolicy::validate" as API
+database "Owned state\nversioned credential references; no raw secret bytes; running version supplied" as State
+queue "Input / output\nCredential/update manifest + verifier → install/reject decision with reason" as IO
+API --> S03
+IO --> S03
+S03 --> State : owns
+component "N04\nNode lifecycle" as N04
+S03 ..> N04 : contract / port
+component "H07\nHub lifecycle/config" as H07
+S03 ..> H07 : contract / port
+component "B06\nFleet/config" as B06
+S03 ..> B06 : contract / port
+note bottom of S03
+Flow: Reject missing/stale credential; match board; prevent rollback; validate hash text; delegate signature verification to injected production crypto.
+Guard: Host verifier is a seam, not cryptographic proof. Wrong board/version/hash/signature fails closed.
+Status: Host complete; target pending
+end note
+@enduml

@@ -1,0 +1,31 @@
+@startuml
+title F14 - Opt-in daily morning summary
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "Daily scheduler" as Scheduler
+boundary "A03\nApp routines" as A03
+control "B07\nRead models/API" as B07
+control "B05\nNotification routing" as B05
+participant "Web Push provider" as Push
+boundary "A02\nApp home" as A02
+actor "Primary caregiver" as Caregiver
+Caregiver -> A03: Enable one daily summary and select delivery route
+A03 -> B05: Persist explicit opt-in and schedule key
+Scheduler -> B05: Trigger home/day summary job
+B05 -> B07: Read morning evidence, modes, coverage and unresolved incidents
+B07 --> B05: Return coverage-honest projection
+B05 -> B05: Deduplicate by home/day and build fixed summary
+B05 -> Push: Submit one advisory summary
+Push -> Caregiver: Deliver summary
+Caregiver -> A02: Open detailed evidence timeline
+note over B05,A02: A summary never resolves an incident and never converts missing evidence into a safety statement.
+note over Scheduler,Caregiver: Outcome - One opt-in summary presents evidence and coverage honestly without creating or closing an incident.
+@enduml

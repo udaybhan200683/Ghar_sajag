@@ -1,0 +1,83 @@
+@startuml
+title T01 - Simulation/CI
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "T01\nSimulation/CI" as T01
+interface "make verify" as API
+database "Owned state\nDeterministic fixtures and executable assertions" as State
+queue "Input / output\nSource tree → contract/build/test/simulator result" as IO
+API --> T01
+IO --> T01
+T01 --> State : owns
+component "N01\nNode sensing" as N01
+T01 ..> N01 : contract / port
+component "N02\nNode radio" as N02
+T01 ..> N02 : contract / port
+component "N03\nNode power" as N03
+T01 ..> N03 : contract / port
+component "N04\nNode lifecycle" as N04
+T01 ..> N04 : contract / port
+component "N05\nNode storage" as N05
+T01 ..> N05 : contract / port
+component "H01\nHub ingest" as H01
+T01 ..> H01 : contract / port
+component "H02\nHub persistence" as H02
+T01 ..> H02 : contract / port
+component "H03\nHub time" as H03
+T01 ..> H03 : contract / port
+component "H04\nHub coverage" as H04
+T01 ..> H04 : contract / port
+component "H05\nHub rules adapter" as H05
+T01 ..> H05 : contract / port
+component "H06\nHub resident interface" as H06
+T01 ..> H06 : contract / port
+component "H07\nHub lifecycle/config" as H07
+T01 ..> H07 : contract / port
+component "H08\nHub cloud link" as H08
+T01 ..> H08 : contract / port
+component "B01\nIdentity/access" as B01
+T01 ..> B01 : contract / port
+component "B02\nHome/consent" as B02
+T01 ..> B02 : contract / port
+component "B03\nEvent ingestion" as B03
+T01 ..> B03 : contract / port
+component "B04\nIncident workflow" as B04
+T01 ..> B04 : contract / port
+component "B05\nNotification routing" as B05
+T01 ..> B05 : contract / port
+component "B06\nFleet/config" as B06
+T01 ..> B06 : contract / port
+component "B07\nRead models/API" as B07
+T01 ..> B07 : contract / port
+component "B08\nOperations/data" as B08
+T01 ..> B08 : contract / port
+component "A01\nApp onboarding" as A01
+T01 ..> A01 : contract / port
+component "A02\nApp home" as A02
+T01 ..> A02 : contract / port
+component "A03\nApp routines" as A03
+T01 ..> A03 : contract / port
+component "A04\nApp incidents" as A04
+T01 ..> A04 : contract / port
+component "A05\nApp platform" as A05
+T01 ..> A05 : contract / port
+component "S01\nShared contracts" as S01
+T01 ..> S01 : contract / port
+component "S02\nDeterministic rules core" as S02
+T01 ..> S02 : contract / port
+component "S03\nFirmware security/update" as S03
+T01 ..> S03 : contract / port
+note bottom of T01
+Flow: Validate contracts; compile strict C++17; execute 52 checks; run simulator; run 10 Python and 6 Node tests.
+Guard: Any command returns non-zero. Report never claims RF/power/provider coverage.
+Status: Host complete; target pending
+end note
+@enduml

@@ -1,0 +1,15 @@
+@startuml
+title AI completion | reference and planned boundaries
+hide footbox
+participant "Caller" as P0
+participant "H09" as P1
+participant "Provider" as P2
+P0 -> P1: begin -> Waiting
+P1 -> P2: start(ID)
+P2 -> P1: complete(wrong ID): rejected
+P0 -> P1: tick(start + 30000 ms)
+P1 -> P2: cancel(ID); state = Failed
+P2 -> P1: late complete(ID): rejected
+P0 -> P1: new begin -> different ID
+note over P0: Scenarios include alternatives; read the v2.0 sequence guide for guards.
+@enduml

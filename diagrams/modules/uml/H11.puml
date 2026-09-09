@@ -1,0 +1,9 @@
+@startuml
+title H11 Audio/provider adapter (planned)
+top to bottom direction
+component "H11 Audio/provider adapter (planned)" as M
+note right of M
+Requirements: AI04, AI06
+Bounded chunk buffers and worker handles
+end note
+@enduml

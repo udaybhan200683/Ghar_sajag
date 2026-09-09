@@ -1,0 +1,33 @@
+@startuml
+title A04 - App incidents
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "A04\nApp incidents" as A04
+interface "incidentActions(); actionCommand(); deliveryLabel()" as API
+database "Owned state\nServer incident snapshot and pending client command only" as State
+queue "Input / output\nIncident/actor/time → permitted actions and idempotent REST command" as IO
+API --> A04
+IO --> A04
+A04 --> State : owns
+component "B04\nIncident workflow" as B04
+A04 ..> B04 : contract / port
+component "B05\nNotification routing" as B05
+A04 ..> B05 : contract / port
+component "B07\nRead models/API" as B07
+A04 ..> B07 : contract / port
+component "A05\nApp platform" as A05
+A04 ..> A05 : contract / port
+note bottom of A04
+Flow: Hide mutation actions when another live owner holds lease; distinguish claim, acknowledge and resolve; label provider acceptance separately.
+Guard: Offline action cannot become authoritative. Unsupported action is rejected before request.
+Status: Host complete; target pending
+end note
+@enduml

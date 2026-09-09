@@ -1,0 +1,29 @@
+@startuml
+title F02 - Resident consent and privacy controls
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Resident" as Resident
+control "H06\nHub resident interface" as H06
+control "H07\nHub lifecycle/config" as H07
+control "B02\nHome/consent" as B02
+control "B08\nOperations/data" as B08
+boundary "A01\nApp onboarding" as A01
+Resident -> H06: Move the physical privacy control
+H06 -> H07: Create explicit PRIVACY mode command
+H07 -> H07: Atomically apply local mode/version
+H07 -> B02: Synchronize privacy state when connectivity is available
+B02 -> B08: Audit source, actor, version and effective time
+B02 -> A01: Return consent/privacy state for caregiver view
+A01 -> B02: Optional resident-consent withdrawal command
+B02 -> H07: Publish privacy configuration; never silently resume
+note over Resident,A01: Privacy suppresses missing-activity alerts; the UI must not present false reassurance.
+note over Resident,A01: Outcome - Physical and remote consent changes converge on an auditable privacy state without pretending monitoring is active.
+@enduml

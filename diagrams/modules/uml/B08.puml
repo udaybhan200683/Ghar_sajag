@@ -1,0 +1,43 @@
+@startuml
+title B08 - Operations/data
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "B08\nOperations/data" as B08
+interface "hub_health(); diagnostics(); record_support_action()" as API
+database "Owned state\naudit trail plus counts and independent hub lease" as State
+queue "Input / output\nEvents/actions/current time → health, diagnostics and auditable support record" as IO
+API --> B08
+IO --> B08
+B08 --> State : owns
+component "B01\nIdentity/access" as B01
+B08 ..> B01 : contract / port
+component "B02\nHome/consent" as B02
+B08 ..> B02 : contract / port
+component "B03\nEvent ingestion" as B03
+B08 ..> B03 : contract / port
+component "B04\nIncident workflow" as B04
+B08 ..> B04 : contract / port
+component "B05\nNotification routing" as B05
+B08 ..> B05 : contract / port
+component "B06\nFleet/config" as B06
+B08 ..> B06 : contract / port
+component "B07\nRead models/API" as B07
+B08 ..> B07 : contract / port
+component "A02\nApp home" as A02
+B08 ..> A02 : contract / port
+component "T03\nDeployment/operations" as T03
+B08 ..> T03 : contract / port
+note bottom of B08
+Flow: Evaluate hub server-receipt lease; count each domain independently; record support actions without editing historical events.
+Guard: Broker retained online state is not authoritative. In-memory store is a host adapter, not a durable production claim.
+Status: Host complete; target pending
+end note
+@enduml

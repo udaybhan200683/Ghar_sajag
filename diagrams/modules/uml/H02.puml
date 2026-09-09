@@ -1,0 +1,33 @@
+@startuml
+title H02 - Hub persistence
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H02\nHub persistence" as H02
+interface "HubJournal::commit(); pending_cloud(); acknowledge_cloud(); contains()" as API
+database "Owned state\nbounded ordered records, event-ID set and application-ACK set" as State
+queue "Input / output\nDomainEvent → Stored/Duplicate/Full; committed records → cloud outbox batch" as IO
+API --> H02
+IO --> H02
+H02 --> State : owns
+component "S01\nShared contracts" as S01
+H02 ..> S01 : contract / port
+component "H04\nHub coverage" as H04
+H02 ..> H04 : contract / port
+component "H05\nHub rules adapter" as H05
+H02 ..> H05 : contract / port
+component "H08\nHub cloud link" as H08
+H02 ..> H08 : contract / port
+note bottom of H02
+Flow: Check event key; commit once; expose unacknowledged records; retain until backend application-commit ACK.
+Guard: Full returns Full and therefore no DURABLE node ACK. Duplicate returns committed equivalence. MQTT PUBACK is intentionally absent from retirement API.
+Status: Host complete; target pending
+end note
+@enduml

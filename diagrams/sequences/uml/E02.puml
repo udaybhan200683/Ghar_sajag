@@ -1,0 +1,32 @@
+@startuml
+title E02 - Reliable transport and duplicate handling
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "N05\nNode storage" as N05
+control "N02\nNode radio" as N02
+control "S01\nShared contracts" as S01
+control "H01\nHub ingest" as H01
+control "H02\nHub persistence" as H02
+control "H08\nHub cloud link" as H08
+control "B03\nEvent ingestion" as B03
+N05 -> N02: Expose oldest retained event
+N02 -> S01: Encode node event v1 with stable event/session/sequence IDs
+N02 -> H01: Send or retry with bounded jitter
+H01 -> H02: Authorize and commit event key once
+H02 --> N02: Return VOLATILE, DURABLE or policy-discard ACK
+N02 -> N05: Retire only on DURABLE/policy-discard
+H02 -> H08: Replay uncommitted cloud outbox item
+H08 -> B03: Publish CloudEvent; transport ACK is insufficient
+B03 -> B03: Unique (home,event) insert or return prior commit
+B03 --> H08: Application-commit ACK
+note over N02,B03: Duplicates may cross either link, but domain effects remain exactly once by stable key.
+note over N05,B03: Outcome - Events survive loss/retry and duplicate delivery without being deleted before durable downstream commitment.
+@enduml

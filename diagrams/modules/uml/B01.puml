@@ -1,0 +1,37 @@
+@startuml
+title B01 - Identity/access
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "B01\nIdentity/access" as B01
+interface "IdentityService.grant/revoke/require" as API
+database "Owned state\nMembership rows keyed by (home_id, actor_id), active flag and expiry" as State
+queue "Input / output\nVerified actor claim + home + permission → membership or AuthorizationError" as IO
+API --> B01
+IO --> B01
+B01 --> State : owns
+component "B02\nHome/consent" as B02
+B01 ..> B02 : contract / port
+component "B06\nFleet/config" as B06
+B01 ..> B06 : contract / port
+component "B07\nRead models/API" as B07
+B01 ..> B07 : contract / port
+component "B08\nOperations/data" as B08
+B01 ..> B08 : contract / port
+component "A01\nApp onboarding" as A01
+B01 ..> A01 : contract / port
+component "A05\nApp platform" as A05
+B01 ..> A05 : contract / port
+note bottom of B01
+Flow: Resolve exact home-scoped membership; distinguish manage/read role sets; enforce expiry; audit grant/revoke.
+Guard: No global caregiver access and no serial-number authorization. Cross-home lookup fails closed.
+Status: Host complete; target pending
+end note
+@enduml

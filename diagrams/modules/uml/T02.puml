@@ -1,0 +1,53 @@
+@startuml
+title T02 - Hardware-in-loop tools
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "T02\nHardware-in-loop tools" as T02
+interface "build_plan(); InstallationRun.observe/result(); summarize()" as API
+database "Owned state\nProvisioning plan, required/pass/fail check set and current capture statistics" as State
+queue "Input / output\nKit IDs / physical observations / current CSV → redacted plan, eligibility, power summary" as IO
+API --> T02
+IO --> T02
+T02 --> State : owns
+component "T01\nSimulation/CI" as T01
+T02 ..> T01 : contract / port
+component "N01\nNode sensing" as N01
+T02 ..> N01 : contract / port
+component "N02\nNode radio" as N02
+T02 ..> N02 : contract / port
+component "N03\nNode power" as N03
+T02 ..> N03 : contract / port
+component "N04\nNode lifecycle" as N04
+T02 ..> N04 : contract / port
+component "N05\nNode storage" as N05
+T02 ..> N05 : contract / port
+component "H01\nHub ingest" as H01
+T02 ..> H01 : contract / port
+component "H02\nHub persistence" as H02
+T02 ..> H02 : contract / port
+component "H03\nHub time" as H03
+T02 ..> H03 : contract / port
+component "H04\nHub coverage" as H04
+T02 ..> H04 : contract / port
+component "H05\nHub rules adapter" as H05
+T02 ..> H05 : contract / port
+component "H06\nHub resident interface" as H06
+T02 ..> H06 : contract / port
+component "H07\nHub lifecycle/config" as H07
+T02 ..> H07 : contract / port
+component "H08\nHub cloud link" as H08
+T02 ..> H08 : contract / port
+note bottom of T02
+Flow: Require four unique nodes; never print claim token; fail unknown checks; gate eligibility on every required check; summarize measured current.
+Guard: Scripts cannot prove a board action without an adapter/evidence. Sensitive plan is explicitly separated from console output.
+Status: Host partial; target pending
+end note
+@enduml

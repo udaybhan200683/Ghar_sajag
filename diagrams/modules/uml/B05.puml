@@ -1,0 +1,35 @@
+@startuml
+title B05 - Notification routing
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "B05\nNotification routing" as B05
+interface "schedule_for_incident(); due(); provider_result(); human_acknowledged(); create_door_notice(); build_daily_summary()" as API
+database "Owned state\nunique stage jobs, provider state, advisory notices and one-per-day summary keys" as State
+queue "Input / output\nIncident/event/window projection → primary/backup jobs, opt-in advisory or summary" as IO
+API --> B05
+IO --> B05
+B05 --> State : owns
+component "B04\nIncident workflow" as B04
+B05 ..> B04 : contract / port
+component "B07\nRead models/API" as B07
+B05 ..> B07 : contract / port
+component "B08\nOperations/data" as B08
+B05 ..> B08 : contract / port
+component "A04\nApp incidents" as A04
+B05 ..> A04 : contract / port
+component "A05\nApp platform" as A05
+B05 ..> A05 : contract / port
+note bottom of B05
+Flow: Schedule primary now and backup at +300 s; select due open jobs; keep provider acceptance separate from human ACK; cancel pending jobs after ACK; summarize coverage honestly.
+Guard: No recipient means no invented route; tests never create production notice; a summary cannot resolve an incident; duplicate keys reuse prior intent.
+Status: Host complete; target pending
+end note
+@enduml

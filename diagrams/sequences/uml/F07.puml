@@ -1,0 +1,36 @@
+@startuml
+title F07 - Call family request
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Resident" as Resident
+control "H06\nHub resident interface" as H06
+control "H02\nHub persistence" as H02
+control "H05\nHub rules adapter" as H05
+control "H08\nHub cloud link" as H08
+control "B04\nIncident workflow" as B04
+control "B05\nNotification routing" as B05
+participant "Web Push provider" as Push
+boundary "A04\nApp incidents" as A04
+actor "Primary caregiver" as Caregiver
+Resident -> H06: Press Call family
+H06 -> H02: Persist urgent CallFamily event
+H02 --> H06: Show saved locally / internet unavailable or sending
+H02 -> H05: Record explicit resident action; do not wait for routine deadline
+H02 -> H08: Prioritize urgent outbox item
+H08 -> B04: Create one incident using stable event key
+B04 -> B05: Schedule primary now and backup after bounded delay
+B05 -> Push: Submit primary notification job
+Push -> Caregiver: Deliver call-family notification
+Caregiver -> A04: Claim and acknowledge incident
+A04 -> B04: Idempotent claim/acknowledge command
+B04 -> B05: Cancel still-pending backup jobs after human ACK
+note over Resident,Caregiver: Outcome - A resident request is durable offline, escalated once online and remains open until a caregiver explicitly acts.
+@enduml

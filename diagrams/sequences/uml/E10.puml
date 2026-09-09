@@ -1,0 +1,35 @@
+@startuml
+title E10 - Verification, observability and release evidence
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Development / test engineer" as Engineer
+control "T01\nSimulation/CI" as T01
+control "H02\nHub persistence" as H02
+control "H08\nHub cloud link" as H08
+control "B08\nOperations/data" as B08
+boundary "A02\nApp home" as A02
+control "T02\nHardware-in-loop tools" as T02
+control "Physical four-node kit" as Devices
+control "T03\nDeployment/operations" as T03
+Engineer -> T01: Run contract, strict C++17, simulator, backend and app suites
+T01 -> H02: Verify durability/idempotency invariants in host composition
+T01 -> H08: Verify offline priority/replay scheduling
+T01 -> B08: Verify tenant/audit/diagnostic domain behavior
+T01 -> A02: Verify evidence versus connectivity presentation
+Engineer -> T02: Run provisioning, RF, sensor, reset, flash and current tests
+T02 -> Devices: Execute four-node physical fault/outage scenarios
+Devices --> T02: Return measured, timestamped observations
+Engineer -> T03: Deploy staging broker/database/providers and run restore drill
+T03 -> B08: Collect independent alerts, backlogs and recovery evidence
+B08 --> Engineer: Produce redacted release evidence bundle
+note over T01,T03: Host green is necessary but not sufficient; release requires hardware, provider and installed-home evidence.
+note over Engineer,T03: Outcome - Every release claim is tied to a repeatable test or operational record, with untested boundaries explicitly marked pending.
+@enduml

@@ -1,0 +1,31 @@
+@startuml
+title N01 - Node sensing
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "N01\nNode sensing" as N01
+interface "QualifiedInput::sample(raw_level, now_ms); stable_level()" as API
+database "Owned state\nraw/stable level, edge timestamp, debounce and retrigger clocks" as State
+queue "Input / output\nRaw PIR/reed level → optional qualified Motion/DoorOpen/DoorClosed event kind" as IO
+API --> N01
+IO --> N01
+N01 --> State : owns
+component "S01\nShared contracts" as S01
+N01 ..> S01 : contract / port
+component "N05\nNode storage" as N05
+N01 ..> N05 : contract / port
+component "N02\nNode radio" as N02
+N01 ..> N02 : contract / port
+note bottom of N01
+Flow: Initialize without emitting; record raw edge; require stability for debounce interval; enforce retrigger interval; emit only a qualified transition.
+Guard: Bounce and repeated PIR holds are suppressed. Initial level is state, not an invented event. Queueing and persistence happen outside this module.
+Status: Host complete; target pending
+end note
+@enduml

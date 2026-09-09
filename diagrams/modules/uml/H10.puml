@@ -1,0 +1,9 @@
+@startuml
+title H10 Interaction coordinator (planned)
+top to bottom direction
+component "H10 Interaction coordinator (planned)" as M
+note right of M
+Requirements: AI02, AI04, AI05
+Owns H09 and consent/capability snapshot
+end note
+@enduml

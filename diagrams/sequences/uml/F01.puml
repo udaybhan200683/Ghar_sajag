@@ -1,0 +1,28 @@
+@startuml
+title F01 - Household profile and caregiver roles
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Household owner" as Owner
+boundary "A01\nApp onboarding" as A01
+control "S01\nShared contracts" as S01
+control "B02\nHome/consent" as B02
+control "B01\nIdentity/access" as B01
+control "B08\nOperations/data" as B08
+Owner -> A01: Enter home, timezone, resident consent, primary and backup caregivers
+A01 -> S01: Validate versioned create-home command
+A01 -> B02: POST home with idempotency key
+B02 -> B01: Grant home-scoped owner and caregiver memberships
+B02 -> B02: Persist consent, mode and distinct caregiver route
+B02 -> B08: Append auditable home/role creation event
+B02 --> A01: Return home ID, version and explicit validation result
+note over A01,Owner: Cross-home access is never inferred from a serial number or global caregiver role.
+note over Owner,B08: Outcome - A consented household exists with tenant-scoped owner, primary and distinct backup roles.
+@enduml

@@ -1,0 +1,14 @@
+@startuml
+title AI admission | reference and planned boundaries
+hide footbox
+participant "Caller" as P0
+participant "H09" as P1
+participant "Provider" as P2
+P0 -> P1: begin(now, consent, online)
+P1 -> P0: Base: Disabled; no provider call
+P1 -> P0: AI without consent: NoConsent
+P1 -> P0: AI offline: Offline
+P1 -> P2: Eligible AI: start(new ID)
+P1 -> P0: Accepted; inspect state for start failure
+note over P0: Scenarios include alternatives; read the v2.0 sequence guide for guards.
+@enduml

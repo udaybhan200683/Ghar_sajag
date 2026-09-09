@@ -1,0 +1,37 @@
+@startuml
+title B03 - Event ingestion
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "B03\nEvent ingestion" as B03
+interface "IngestService.accept()" as API
+database "Owned state\nCloudEvent dictionary keyed by (home_id, event_id)" as State
+queue "Input / output\nValidated CloudEvent → (stored event, duplicate flag)" as IO
+API --> B03
+IO --> B03
+B03 --> State : owns
+component "S01\nShared contracts" as S01
+B03 ..> S01 : contract / port
+component "B01\nIdentity/access" as B01
+B03 ..> B01 : contract / port
+component "B04\nIncident workflow" as B04
+B03 ..> B04 : contract / port
+component "B07\nRead models/API" as B07
+B03 ..> B07 : contract / port
+component "B08\nOperations/data" as B08
+B03 ..> B08 : contract / port
+component "H08\nHub cloud link" as H08
+B03 ..> H08 : contract / port
+note bottom of B03
+Flow: Verify known home, event kind and timing fields; use unique event key; append audit in the same host operation.
+Guard: Unknown home/kind and invalid timing fail. Duplicate returns prior commit without another domain effect.
+Status: Host complete; target pending
+end note
+@enduml

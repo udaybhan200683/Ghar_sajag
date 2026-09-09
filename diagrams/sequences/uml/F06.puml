@@ -1,0 +1,31 @@
+@startuml
+title F06 - Explicit I'm OK check-in
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+actor "Resident" as Resident
+control "H06\nHub resident interface" as H06
+control "H02\nHub persistence" as H02
+control "H05\nHub rules adapter" as H05
+control "S02\nDeterministic rules core" as S02
+control "H08\nHub cloud link" as H08
+control "B07\nRead models/API" as B07
+boundary "A02\nApp home" as A02
+Resident -> H06: Press the dedicated I'm OK button
+H06 -> H02: Create and durably commit explicit check-in event
+H02 --> H06: Return saved-local feedback immediately
+H02 -> H05: Apply check-in to current routine window
+H05 -> S02: Record explicit evidence and stable event ID
+H02 -> H08: Queue cloud replay without changing occurrence time
+H08 -> B07: Update household timeline/read model
+A02 -> B07: Fetch explicit check-in and freshness
+B07 --> A02: Return evidence; no automatic safe/well label
+note over Resident,A02: Outcome - The resident receives honest local feedback and the caregiver sees an explicit check-in separately from inferred activity.
+@enduml

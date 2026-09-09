@@ -1,0 +1,29 @@
+@startuml
+title N03 - Node power
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "N03\nNode power" as N03
+interface "PowerPolicy::classify(); PowerPolicy::plan()" as API
+database "Owned state\nNo mutable ownership; thresholds are explicit policy inputs/constants" as State
+queue "Input / output\nCalibrated millivolts + pending work + NodeConfig → BatteryReading and SleepPlan" as IO
+API --> N03
+IO --> N03
+N03 --> State : owns
+component "N02\nNode radio" as N02
+N03 ..> N02 : contract / port
+component "N04\nNode lifecycle" as N04
+N03 ..> N04 : contract / port
+note bottom of N03
+Flow: Never convert an uncalibrated voltage to percentage; classify voltage band; shorten wake for retry; lengthen it at critical voltage; enable only configured wake sources.
+Guard: Unknown calibration stays UNKNOWN. Software thresholds do not replace cell protection or charger qualification.
+Status: Host complete; target pending
+end note
+@enduml

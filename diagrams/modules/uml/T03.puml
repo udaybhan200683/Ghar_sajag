@@ -1,0 +1,37 @@
+@startuml
+title T03 - Deployment/operations
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "T03\nDeployment/operations" as T03
+interface "Container/broker configuration and operator procedures" as API
+database "Owned state\nPostgreSQL volume, broker persistence, alert/routing state outside application domain" as State
+queue "Input / output\nDeployment secrets/certs/images → regional pilot services and independent alerts" as IO
+API --> T03
+IO --> T03
+T03 --> State : owns
+component "T01\nSimulation/CI" as T01
+T03 ..> T01 : contract / port
+component "B03\nEvent ingestion" as B03
+T03 ..> B03 : contract / port
+component "B05\nNotification routing" as B05
+T03 ..> B05 : contract / port
+component "B08\nOperations/data" as B08
+T03 ..> B08 : contract / port
+component "H08\nHub cloud link" as H08
+T03 ..> H08 : contract / port
+component "A05\nApp platform" as A05
+T03 ..> A05 : contract / port
+note bottom of T03
+Flow: Use TLS client identity and topic ACL; durable broker/database; alert ingest/backlog/fleet/backup; follow idempotent recovery runbook.
+Guard: Example files omit secrets by design and are not a production deployment certificate. Restore and provider failures remain explicit.
+Status: Host partial; target pending
+end note
+@enduml

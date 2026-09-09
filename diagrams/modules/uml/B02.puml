@@ -1,0 +1,37 @@
+@startuml
+title B02 - Home/consent
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "B02\nHome/consent" as B02
+interface "HomeService.create/set_caregivers/set_mode/withdraw_resident_consent" as API
+database "Owned state\nHome, resident consents, caregiver route, mode and version" as State
+queue "Input / output\nOwner commands → validated home/configuration changes and audit" as IO
+API --> B02
+IO --> B02
+B02 --> State : owns
+component "B01\nIdentity/access" as B01
+B02 ..> B01 : contract / port
+component "B06\nFleet/config" as B06
+B02 ..> B06 : contract / port
+component "B08\nOperations/data" as B08
+B02 ..> B08 : contract / port
+component "A01\nApp onboarding" as A01
+B02 ..> A01 : contract / port
+component "A03\nApp routines" as A03
+B02 ..> A03 : contract / port
+component "H07\nHub lifecycle/config" as H07
+B02 ..> H07 : contract / port
+note bottom of B02
+Flow: Require valid timezone/name and active resident consent; create owner membership; require distinct primary/backup; privacy on withdrawal.
+Guard: Duplicate home, missing consent or same backup fails. Purchase does not imply consent and PIR never identifies a resident.
+Status: Host complete; target pending
+end note
+@enduml

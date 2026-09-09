@@ -1,0 +1,39 @@
+@startuml
+title B06 - Fleet/config
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "B06\nFleet/config" as B06
+interface "register_device(); publish_config(); record_applied()" as API
+database "Owned state\ndevice registry and latest desired/applied configuration" as State
+queue "Input / output\nOwner/install command or hub ACK → device/config version state" as IO
+API --> B06
+IO --> B06
+B06 --> State : owns
+component "S01\nShared contracts" as S01
+B06 ..> S01 : contract / port
+component "S03\nFirmware security/update" as S03
+B06 ..> S03 : contract / port
+component "B01\nIdentity/access" as B01
+B06 ..> B01 : contract / port
+component "B02\nHome/consent" as B02
+B06 ..> B02 : contract / port
+component "H07\nHub lifecycle/config" as H07
+B06 ..> H07 : contract / port
+component "N04\nNode lifecycle" as N04
+B06 ..> N04 : contract / port
+component "A03\nApp routines" as A03
+B06 ..> A03 : contract / port
+note bottom of B06
+Flow: Authorize owner; prevent cross-home device rebind; increment desired version; record only known applied versions; audit.
+Guard: Unknown future apply and device conflict reject. Desired does not equal applied until hub reports it.
+Status: Host complete; target pending
+end note
+@enduml

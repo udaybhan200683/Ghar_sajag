@@ -1,0 +1,35 @@
+@startuml
+title F13 - Backup routing and delivery visibility
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+autonumber
+control "Hub routine deadline timer" as HubTimer
+control "B04\nIncident workflow" as B04
+control "B05\nNotification routing" as B05
+participant "Web Push provider" as Push
+actor "Primary caregiver" as Primary
+actor "Backup caregiver" as Backup
+boundary "A04\nApp incidents" as A04
+boundary "A05\nApp platform" as A05
+control "B08\nOperations/data" as B08
+B04 -> B05: Create unique primary-now and backup-after-300s jobs
+B05 -> Push: Submit primary route
+Push --> B05: Return provider accepted/failed state
+Push -> Primary: Attempt device delivery
+B05 -> B08: Record provider result separately from human state
+HubTimer -> B05: Backup delay expires while incident remains unacknowledged
+B05 -> Push: Submit backup route once
+Push -> Backup: Attempt backup delivery
+Primary -> A04: Optional claim/acknowledge
+A04 -> B04: Human acknowledgement closes pending route eligibility
+A05 -> B08: Read provider, push capability and freshness diagnostics
+note over Primary,Backup: The UI reports accepted, failed, pending and acknowledged states without assuming receipt.
+note over HubTimer,B08: Outcome - Escalation is bounded and observable, with no duplicate route and no claim that a notification was seen.
+@enduml

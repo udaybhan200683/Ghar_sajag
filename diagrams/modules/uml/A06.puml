@@ -1,0 +1,9 @@
+@startuml
+title A06 Interaction availability UI (planned)
+top to bottom direction
+component "A06 Interaction availability UI (planned)" as M
+note right of M
+Requirements: AI07
+Read-only availability projection and pending commands
+end note
+@enduml

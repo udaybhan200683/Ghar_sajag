@@ -1,0 +1,9 @@
+@startuml
+title B09 AI gateway (planned)
+top to bottom direction
+component "B09 AI gateway (planned)" as M
+note right of M
+Requirements: AI06, AI07
+Tenant quota, provider credentials, session lease
+end note
+@enduml

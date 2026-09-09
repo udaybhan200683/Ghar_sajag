@@ -1,0 +1,31 @@
+@startuml
+title A05 - App platform
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "A05\nApp platform" as A05
+interface "ApiClient.request(); VersionedCache.put/get(); pushCapability(); classifyFetchFailure()" as API
+database "Owned state\nVersioned local cache; browser subscription state" as State
+queue "Input / output\nInjected fetch/token + command → JSON result/error; cached snapshot → explicit stale flag" as IO
+API --> A05
+IO --> A05
+A05 --> State : owns
+component "B01\nIdentity/access" as B01
+A05 ..> B01 : contract / port
+component "B07\nRead models/API" as B07
+A05 ..> B07 : contract / port
+component "B08\nOperations/data" as B08
+A05 ..> B08 : contract / port
+note bottom of A05
+Flow: Attach bearer/idempotency headers; classify auth/service/network failures; retain only newer cache versions; expose exact push capability reason.
+Guard: Cache never claims server commit. Push permission/subscription is not human acknowledgement.
+Status: Host complete; target pending
+end note
+@enduml

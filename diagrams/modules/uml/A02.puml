@@ -1,0 +1,31 @@
+@startuml
+title A02 - App home
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "A02\nApp home" as A02
+interface "formatFreshness(); buildHomeView(); timelineLabel()" as API
+database "Owned state\nRendered projection only; optional A05 cache" as State
+queue "Input / output\nBackend snapshot/timeline + phone now → evidence/connectivity cards" as IO
+API --> A02
+IO --> A02
+A02 --> State : owns
+component "B07\nRead models/API" as B07
+A02 ..> B07 : contract / port
+component "B08\nOperations/data" as B08
+A02 ..> B08 : contract / port
+component "A05\nApp platform" as A05
+A02 ..> A05 : contract / port
+note bottom of A02
+Flow: Format separate freshness; show household activity only; render hub availability independently; explicitly state no activity evidence is not presence proof.
+Guard: Stale/never-seen is visible. No safe/fine/wellbeing label and no resident identity inference.
+Status: Host complete; target pending
+end note
+@enduml

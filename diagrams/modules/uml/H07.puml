@@ -1,0 +1,37 @@
+@startuml
+title H07 - Hub lifecycle/config
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "H07\nHub lifecycle/config" as H07
+interface "ConfigService::apply(); active()" as API
+database "Owned state\nactive immutable HomeConfig snapshot and applied version" as State
+queue "Input / output\nDesired HomeConfig → applied version or rejection reason" as IO
+API --> H07
+IO --> H07
+H07 --> State : owns
+component "S01\nShared contracts" as S01
+H07 ..> S01 : contract / port
+component "S03\nFirmware security/update" as S03
+H07 ..> S03 : contract / port
+component "H03\nHub time" as H03
+H07 ..> H03 : contract / port
+component "H05\nHub rules adapter" as H05
+H07 ..> H05 : contract / port
+component "N04\nNode lifecycle" as N04
+H07 ..> N04 : contract / port
+component "B06\nFleet/config" as B06
+H07 ..> B06 : contract / port
+note bottom of H07
+Flow: Validate home/timezone and ordered window boundaries; reject same/older version; replace atomically; expose applied version.
+Guard: Invalid version never partially mutates active rules. Device update orchestration is separated by S03 policy.
+Status: Host complete; target pending
+end note
+@enduml

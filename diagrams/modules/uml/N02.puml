@@ -1,0 +1,31 @@
+@startuml
+title N02 - Node radio
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "N02\nNode radio" as N02
+interface "enqueue(); next_due(); record_transport_result(); apply_ack()" as API
+database "Owned state\nbounded PendingTx deque, attempt count and next-attempt deadline" as State
+queue "Input / output\nDomainEvent + application ACK → scheduled transmissions / retired entries" as IO
+API --> N02
+IO --> N02
+N02 --> State : owns
+component "S01\nShared contracts" as S01
+N02 ..> S01 : contract / port
+component "N05\nNode storage" as N05
+N02 ..> N05 : contract / port
+component "H01\nHub ingest" as H01
+N02 ..> H01 : contract / port
+note bottom of N02
+Flow: Queue once; expose due item; schedule deterministic jittered retry; reject volatile ACK for business events; retire only DURABLE or policy-discard ACK.
+Guard: Full queue returns false. Radio success is not durable success. Backoff is bounded by the scheduled wake policy.
+Status: Host complete; target pending
+end note
+@enduml

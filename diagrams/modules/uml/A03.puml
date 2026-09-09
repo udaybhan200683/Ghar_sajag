@@ -1,0 +1,33 @@
+@startuml
+title A03 - App routines
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+skinparam ArrowColor #2877B5
+skinparam ParticipantBorderColor #17324D
+skinparam ParticipantBackgroundColor #F4F7FA
+skinparam NoteBackgroundColor #FFF1BF
+skinparam NoteBorderColor #9C6500
+left to right direction
+component "A03\nApp routines" as A03
+interface "validateMorningRoutine(); buildDesiredConfig(); configStatus()" as API
+database "Owned state\nDesired draft and server/applied versions" as State
+queue "Input / output\nSchedule/mode form → schema-aligned desired configuration and status" as IO
+API --> A03
+IO --> A03
+A03 --> State : owns
+component "S01\nShared contracts" as S01
+A03 ..> S01 : contract / port
+component "B02\nHome/consent" as B02
+A03 ..> B02 : contract / port
+component "B06\nFleet/config" as B06
+A03 ..> B06 : contract / port
+component "H07\nHub lifecycle/config" as H07
+A03 ..> H07 : contract / port
+note bottom of A03
+Flow: Validate minute ranges/grace; deduplicate locations; build versioned config; compare desired against applied without pretending pending succeeded.
+Guard: Invalid mode/routine throws explicit client error. Newer hub version becomes conflict, not silent overwrite.
+Status: Host complete; target pending
+end note
+@enduml

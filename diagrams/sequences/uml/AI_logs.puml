@@ -1,0 +1,13 @@
+@startuml
+title AI logs | reference and planned boundaries
+hide footbox
+participant "H09" as P0
+participant "S05" as P1
+participant "Sink" as P2
+participant "Monitoring" as P3
+P0 -> P1: provider_failed / timeout metadata
+P1 -> P2: Bounded record; no transcript
+P0 -> P3: No incident mutation interface
+P3 -> P3: Existing explicit actions govern incidents
+note over P0: Scenarios include alternatives; read the v2.0 sequence guide for guards.
+@enduml
