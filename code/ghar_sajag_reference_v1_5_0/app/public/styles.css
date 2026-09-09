@@ -1,0 +1,14 @@
+:root { font-family: Inter, system-ui, sans-serif; color: #17332c; background: #f4f7f5; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(100% - 24px, 680px); margin: 0 auto; padding: 24px 0 48px; }
+header { padding: 16px 4px; }
+.eyebrow { color: #0b5d4b; font-weight: 800; margin: 0 0 4px; }
+h1 { font-size: clamp(1.8rem, 7vw, 2.6rem); margin: 0; }
+h2 { font-size: 1.05rem; margin: 0 0 8px; }
+p { line-height: 1.5; }
+.card { background: white; border: 1px solid #dce7e2; border-radius: 16px; padding: 18px; margin: 12px 0; box-shadow: 0 4px 16px rgb(16 57 47 / 6%); }
+.positive { border-left: 6px solid #16805f; }
+.warning { border-left: 6px solid #bd7b00; }
+button { appearance: none; border: 0; border-radius: 10px; padding: 12px 14px; background: #0b5d4b; color: white; font: inherit; font-weight: 700; margin-right: 8px; }
+.muted { color: #5c6c67; }

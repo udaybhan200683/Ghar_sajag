@@ -1,0 +1,25 @@
+GHAR SAJAG — SOURCE RELEASE 1.5.0
+Base P0 local simulation addition; documentation baseline remains v2.0.
+
+ADDED AND IMPLEMENTED
+- Interactive host adapter using four existing NodeRuntime instances, HubRuntime and CloudSync.
+- Synthetic event injection, deterministic time advancement, node-link/WAN controls and clock trust.
+- Python bridge to the existing JsonApi/services; application model ACK and event replay.
+- Missing-activity intent mapping with detection timestamp retained during WAN outage.
+- Connected local dashboard reusing existing app view/action helpers.
+- Real browser HTTP routes for caregiver claim/acknowledge/resolve.
+- Fake notification acceptance/failure controls; no real external messages.
+- 13 connected scenario assertions and 9 local HTTP checks.
+- Optional Playwright browser script; not executed successfully in this authoring environment.
+- Windows/Ubuntu setup, manual walkthrough, log instructions and adapter LLD.
+
+UNCHANGED / STILL PENDING
+- Existing node/hub/backend domain algorithms and their known gaps.
+- Flash/DB persistence and restart recovery, RF/battery/PIR physical qualification.
+- Historical coverage proof, duplicate reducer effects, journal reclamation.
+- Full onboarding/configuration/OTA/prompt-grace integration and real notification delivery/retry.
+- Commercial authentication/authorization, provider credentials and tenant production deployment.
+- AI audio, real model/STT/TTS provider, quota gateway and hardware integration.
+
+Do not turn the whole P0 requirement green because the host scenarios pass.
+Read VERIFICATION_REPORT.md for exact evidence and limitations.

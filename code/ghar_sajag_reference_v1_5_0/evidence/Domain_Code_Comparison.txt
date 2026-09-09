@@ -1,0 +1,1 @@
+Compared all existing .cpp/.hpp/.py/.mjs sources against 1.4.2. Only shared/include/gs/product.hpp differs: version metadata 1.4.2 -> 1.5.0. New integration sources are additional adapters.

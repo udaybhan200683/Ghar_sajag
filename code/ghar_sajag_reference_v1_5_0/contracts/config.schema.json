@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ghar-sajag.example/contracts/home-config-v1.json",
+  "title": "Ghar Sajag desired configuration v1",
+  "type": "object",
+  "required": ["schema", "home_id", "version", "timezone", "mode", "morning"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": 1},
+    "home_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "version": {"type": "integer", "minimum": 1},
+    "timezone": {"type": "string", "minLength": 1, "maxLength": 64},
+    "mode": {"enum": ["HOME", "AWAY", "PAUSED", "VISITOR", "PRIVACY"]},
+    "morning": {
+      "type": "object",
+      "required": ["enabled", "start_minute", "end_minute", "grace_minutes"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "start_minute": {"type": "integer", "minimum": 0, "maximum": 1439},
+        "end_minute": {"type": "integer", "minimum": 1, "maximum": 1440},
+        "grace_minutes": {"type": "integer", "minimum": 0, "maximum": 180},
+        "qualifying_locations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 32}}
+      }
+    }
+  }
+}
