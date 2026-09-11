@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ghar-sajag.example/contracts/home-config-v1.json",
+  "title": "Ghar Sajag desired configuration v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "home_id",
+    "version",
+    "timezone",
+    "mode",
+    "morning",
+    "activity_rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "home_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "mode": {
+      "enum": [
+        "HOME",
+        "AWAY",
+        "PAUSED",
+        "VISITOR",
+        "PRIVACY"
+      ]
+    },
+    "morning": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "start_minute",
+        "end_minute",
+        "grace_minutes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "end_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440
+        },
+        "grace_minutes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 180
+        },
+        "qualifying_locations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 32
+          }
+        }
+      }
+    },
+    "activity_rules": {
+      "type": "object",
+      "required": [
+        "quiet_hours_enabled",
+        "quiet_start_minute",
+        "quiet_end_minute",
+        "door_open_timeout_seconds",
+        "daytime_inactivity_enabled",
+        "daytime_start_minute",
+        "daytime_end_minute",
+        "daytime_inactivity_seconds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "quiet_hours_enabled": {
+          "type": "boolean"
+        },
+        "quiet_start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "quiet_end_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "door_open_timeout_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 86400
+        },
+        "daytime_inactivity_enabled": {
+          "type": "boolean"
+        },
+        "daytime_start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "daytime_end_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "daytime_inactivity_seconds": {
+          "type": "integer",
+          "minimum": 300,
+          "maximum": 86400
+        }
+      }
+    }
+  }
+}

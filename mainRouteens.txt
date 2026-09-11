@@ -1,0 +1,8 @@
+basic routine tc:
+1. bed room activity->batroom activity+kitchen activity==> morning routine completed
+2. unusal bathroom visit at night > 4(configurable from app settings) ==> red flag unusal night activty
+3. main door remained opened > 2hrs(configurable)  ==> red flag main door open
+4. unusal common room visit at night > 4(configurable from app settings) ==> red flag unusal night activty
+5. main door cloased --> no indor activty for configurable time(2-3 hrs) ==> red flag unusal under door activity with red font.
+6. any refglag activity will chage the main banner color to light red and corresponding problem.
+

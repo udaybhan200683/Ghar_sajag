@@ -1,0 +1,17 @@
+{
+  "name": "Parivar Sathi",
+  "short_name": "Parivar Sathi",
+  "description": "Apno ka khayal, har pal",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6fbf8",
+  "theme_color": "#f6fbf8",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

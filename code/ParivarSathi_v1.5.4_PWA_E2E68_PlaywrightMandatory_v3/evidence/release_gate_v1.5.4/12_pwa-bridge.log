@@ -1,0 +1,10 @@
+test_battery_is_health_only (__main__.PwaBridgeTests.test_battery_is_health_only) ... ok
+test_each_care_toggle_round_trips (__main__.PwaBridgeTests.test_each_care_toggle_round_trips) ... ok
+test_events_are_newest_first (__main__.PwaBridgeTests.test_events_are_newest_first) ... ok
+test_pwa_assets (__main__.PwaBridgeTests.test_pwa_assets) ... ok
+test_reset_is_pass (__main__.PwaBridgeTests.test_reset_is_pass) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.560s
+
+OK

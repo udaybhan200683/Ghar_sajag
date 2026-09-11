@@ -1,2 +1,0 @@
-level=ERROR category=HUB module=H01 event=ingest.rejected detail=unauthorized_peer
-level=ERROR category=BACKEND module=B04 event=claim.failed detail=IncidentConflict

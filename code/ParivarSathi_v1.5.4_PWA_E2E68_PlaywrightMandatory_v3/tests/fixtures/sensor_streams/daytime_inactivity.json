@@ -1,0 +1,13 @@
+{
+  "id": "stream-daytime-inactivity",
+  "title": "Configured daytime inactivity triggers family check-in workflow",
+  "steps": [
+    {"action": "settings_patch", "values": {"daytime_inactivity_seconds": 300}},
+    {"action": "time", "minute": 600},
+    {"action": "advance", "seconds": 300}
+  ],
+  "assertions": [
+    {"select": "timeline", "where": {"kind": "DAYTIME_INACTIVITY", "tone": "danger"}, "count": 1},
+    {"select": "incidents", "where": {"kind": "DAYTIME_INACTIVITY", "state": "OPEN"}, "count": 1}
+  ]
+}

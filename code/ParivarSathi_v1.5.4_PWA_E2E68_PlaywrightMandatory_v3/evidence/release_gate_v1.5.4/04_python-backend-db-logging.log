@@ -1,0 +1,32 @@
+make[1]: Entering directory '/mnt/f/Home_risk_alert/Ghar_sajag/code/ParivarSathi_v1.5.4_PWA_E2E68_PlaywrightMandatory_v3'
+PYTHONPATH=backend python3 -m unittest discover -s tests/python -p 'test_*.py' -v
+test_B01_F01_membership_is_tenant_scoped (test_backend.BackendTest.test_B01_F01_membership_is_tenant_scoped) ... ok
+test_B02_consent_withdrawal_enters_privacy (test_backend.BackendTest.test_B02_consent_withdrawal_enters_privacy) ... ok
+test_B03_ingest_is_idempotent (test_backend.BackendTest.test_B03_ingest_is_idempotent) ... ok
+test_B04_B05_call_creates_one_incident_and_two_bounded_routes (test_backend.BackendTest.test_B04_B05_call_creates_one_incident_and_two_bounded_routes) ... ok
+test_B04_claim_lease_prevents_double_ownership (test_backend.BackendTest.test_B04_claim_lease_prevents_double_ownership) ... ok
+test_B05_F09_quiet_door_notice_is_opt_in_and_idempotent (test_backend.BackendTest.test_B05_F09_quiet_door_notice_is_opt_in_and_idempotent) ... ok
+test_B05_F14_summary_is_opt_in_single_and_coverage_honest (test_backend.BackendTest.test_B05_F14_summary_is_opt_in_single_and_coverage_honest) ... ok
+test_B06_config_version_and_device_binding (test_backend.BackendTest.test_B06_config_version_and_device_binding) ... ok
+test_B07_B08_snapshot_separates_activity_from_reachability (test_backend.BackendTest.test_B07_B08_snapshot_separates_activity_from_reachability) ... ok
+test_daytime_inactivity_creates_one_checkin_incident_and_routes (test_backend.BackendTest.test_daytime_inactivity_creates_one_checkin_incident_and_routes) ... ok
+test_test_alert_never_creates_production_incident (test_backend.BackendTest.test_test_alert_never_creates_production_incident) ... ok
+test_alert_stable_key_is_idempotent (test_database_schema.DatabaseSchemaTest.test_alert_stable_key_is_idempotent) ... ok
+test_device_health_is_not_resident_activity (test_database_schema.DatabaseSchemaTest.test_device_health_is_not_resident_activity) ... ok
+test_event_identity_suppresses_duplicates (test_database_schema.DatabaseSchemaTest.test_event_identity_suppresses_duplicates) ... ok
+test_notification_job_idempotency_and_human_ack_are_separate (test_database_schema.DatabaseSchemaTest.test_notification_job_idempotency_and_human_ack_are_separate) ... ok
+test_p0_tables_exist (test_database_schema.DatabaseSchemaTest.test_p0_tables_exist) ... ok
+test_routine_window_is_persistable_for_reboot_recovery (test_database_schema.DatabaseSchemaTest.test_routine_window_is_persistable_for_reboot_recovery) ... ok
+test_development_trace_records_flow (test_logging.LoggingTest.test_development_trace_records_flow) ... ok
+test_feature_flags_are_safe_by_default (test_logging.LoggingTest.test_feature_flags_are_safe_by_default) ... ok
+test_production_keeps_error_and_filters_trace (test_logging.LoggingTest.test_production_keeps_error_and_filters_trace) ... ok
+test_all_fault_codes_have_scenarios (test_validation_framework.ValidationFrameworkTest.test_all_fault_codes_have_scenarios) ... ok
+test_catalog_has_required_categories_and_unique_ids (test_validation_framework.ValidationFrameworkTest.test_catalog_has_required_categories_and_unique_ids) ... ok
+test_dummy_streams_exist (test_validation_framework.ValidationFrameworkTest.test_dummy_streams_exist) ... ok
+test_manual_plan_is_generated (test_validation_framework.ValidationFrameworkTest.test_manual_plan_is_generated) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.982s
+
+OK
+make[1]: Leaving directory '/mnt/f/Home_risk_alert/Ghar_sajag/code/ParivarSathi_v1.5.4_PWA_E2E68_PlaywrightMandatory_v3'

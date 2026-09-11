@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ghar-sajag.example/contracts/node-ack-v1.json",
+  "title": "Ghar Sajag hub acknowledgement v1",
+  "type": "object",
+  "required": ["schema", "node_id", "session_id", "sequence_number", "ack_type", "hub_received_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": 1},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "session_id": {"type": "integer", "minimum": 1},
+    "sequence_number": {"type": "integer", "minimum": 1},
+    "ack_type": {"enum": ["DURABLE", "RECEIVED_VOLATILE", "DISCARDED_POLICY", "REJECTED"]},
+    "hub_received_at": {"type": "integer", "minimum": 0},
+    "reason": {"type": "string", "maxLength": 96}
+  }
+}

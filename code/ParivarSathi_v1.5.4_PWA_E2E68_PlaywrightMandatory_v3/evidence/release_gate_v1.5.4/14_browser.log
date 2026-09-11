@@ -1,0 +1,1 @@
+MANUAL_REQUIRED: Playwright is not installed in the authoring environment. Run make release-gate-browser when available, or execute tests/MANUAL_FUNCTIONAL_VALIDATION.md.

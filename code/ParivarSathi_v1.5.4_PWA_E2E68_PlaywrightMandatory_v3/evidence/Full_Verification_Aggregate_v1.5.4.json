@@ -1,0 +1,78 @@
+{
+  "release": "1.5.4",
+  "status": "PASS_HOST_WITH_MANUAL_BROWSER",
+  "stages": [
+    {
+      "name": "validation coverage",
+      "status": "PASS",
+      "evidence": "24/24 P0 IDs mapped"
+    },
+    {
+      "name": "contracts",
+      "status": "PASS",
+      "evidence": "4 schemas + protocol examples + config + OpenAPI"
+    },
+    {
+      "name": "C++ unit/component",
+      "status": "PASS",
+      "evidence": "80 checks"
+    },
+    {
+      "name": "Python backend/database/logging/framework",
+      "status": "PASS",
+      "evidence": "24 tests"
+    },
+    {
+      "name": "JavaScript app",
+      "status": "PASS",
+      "evidence": "10 tests"
+    },
+    {
+      "name": "Base product profile",
+      "status": "PASS",
+      "evidence": "passed"
+    },
+    {
+      "name": "AI product profile",
+      "status": "PASS",
+      "evidence": "passed"
+    },
+    {
+      "name": "feature flag matrix",
+      "status": "PASS",
+      "evidence": "4/4 variants"
+    },
+    {
+      "name": "dummy sensor streams",
+      "status": "PASS",
+      "evidence": "5/5 streams"
+    },
+    {
+      "name": "connected functional catalog",
+      "status": "PASS",
+      "evidence": "68/68 scenarios"
+    },
+    {
+      "name": "HTTP integration",
+      "status": "PASS",
+      "evidence": "16/16 tests"
+    },
+    {
+      "name": "ASan/UBSan",
+      "status": "PASS",
+      "evidence": "80 C++ checks"
+    },
+    {
+      "name": "trace-enabled C++",
+      "status": "PASS",
+      "evidence": "80 checks"
+    },
+    {
+      "name": "Playwright browser",
+      "status": "MANUAL_REQUIRED",
+      "evidence": "Playwright not installed; generated manual plan provided"
+    }
+  ],
+  "note": "Mandatory host stages were executed and passed. Long compile stages were executed individually because the hosted command runner caps a single invocation; this does not remove them from make release-gate.",
+  "physical_hardware_acceptance": "PENDING"
+}

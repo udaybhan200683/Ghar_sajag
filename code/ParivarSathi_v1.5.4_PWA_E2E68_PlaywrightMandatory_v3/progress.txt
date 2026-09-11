@@ -1,0 +1,42 @@
+GHAR SAJAG — SOURCE RELEASE 1.5.4
+Base P0 hardware-independent reference plus release-gate validation framework; documentation baseline remains v2.0.
+
+CARRIED FORWARD
+- Hardware-independent generic-event rule engine for morning, quiet-hours door, door-left-open and daytime inactivity.
+- Typed node↔hub semantic protocol with stable identity, ACK/retry/dedup, heartbeat/offline policy, battery and RSSI fields.
+- Persistent relational P0 schema and versioned per-household activity-policy settings.
+- Exact family/caregiver timeline semantics, Call Family lifecycle, device health/fault codes and no user-facing Privacy ON/OFF control.
+
+ADDED / CLOSED IN 1.5.4
+- Canonical declarative host functional catalog: 68 positive/negative/boundary/failure/recovery scenarios.
+- Manual 68-case checklist generated from the same catalog.
+- Five realistic dummy sensor stream fixtures and replay runner.
+- Release-gate orchestration, P0 coverage mapping and failure evidence output.
+- Connected simulator consumes C++ RulesCore signals for quiet-hours, door-left-open and daytime-inactivity paths.
+- Daytime inactivity now creates a backend family check-in incident and notification routes.
+- Sensor capability validation rejects impossible simulated node/event combinations.
+- Rule signal detection timestamps preserve chronological event ordering.
+
+VERIFIED IN 1.5.4
+- 80 C++ checks PASS.
+- 24 Python tests PASS.
+- 10 JavaScript tests PASS.
+- Four feature-matrix variants PASS.
+- Base and AI product profile tests PASS.
+- 5/5 dummy sensor streams PASS.
+- 68/68 connected functional scenarios PASS.
+- 16/16 HTTP integration tests PASS.
+- AddressSanitizer/UBSan C++ checks PASS.
+- Trace-enabled C++ checks PASS.
+- Playwright browser automation not executed in the authoring environment because Playwright is not installed; generated manual browser/PWA validation is provided.
+
+STILL PENDING / PHYSICAL OR DEPLOYMENT DEPENDENT
+- Physical ESP-NOW encoding/authentication/RF/channel/RSSI validation on selected boards.
+- Real PIR/reed/button debounce and placement behavior.
+- Flash-backed journals and actual reboot/power-loss persistence.
+- Battery ADC/runtime/charging/UPS, brown-out and thermal telemetry.
+- Signed OTA/rollback/watchdog evidence on target boards.
+- Real push/SMS/voice provider delivery and unattended pilot evidence.
+- Switching host/backend runtime from InMemoryStore to SQLite/PostgreSQL remains an implementation step against the frozen schema.
+
+Do not mark physical P0 complete because the host release gate passes.

@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "p0_requirements": {
+    "F01": {"automated": ["tests/python/test_backend.py", "tests/js/app.test.mjs"]},
+    "F02": {"automated": ["tests/python/test_backend.py", "tests/functional/scenario_catalog.json"]},
+    "F03": {"automated": ["tests/js/app.test.mjs"], "hardware_pending": ["identity/capability/radio/input installed-home drill"]},
+    "F04": {"automated": ["tests/js/app.test.mjs", "tests/functional/scenario_catalog.json"]},
+    "F05": {"automated": ["tests/cpp/test_main.cpp", "tests/functional/scenario_catalog.json"]},
+    "F06": {"automated": ["tests/functional/scenario_catalog.json", "tests/simulation_http_test.py"]},
+    "F07": {"automated": ["tests/python/test_backend.py", "tests/functional/scenario_catalog.json"]},
+    "F08": {"automated": ["tests/cpp/test_main.cpp", "tests/functional/scenario_catalog.json", "tests/simulation_http_test.py"]},
+    "F09": {"automated": ["tests/cpp/test_main.cpp", "tests/functional/scenario_catalog.json", "tests/simulation_http_test.py"]},
+    "F10": {"automated": ["tests/functional/scenario_catalog.json"]},
+    "F11": {"automated": ["tests/js/app.test.mjs", "tests/functional/scenario_catalog.json"], "manual": ["tests/MANUAL_FUNCTIONAL_VALIDATION.md"]},
+    "F12": {"automated": ["tests/functional/scenario_catalog.json", "tests/simulation_http_test.py"]},
+    "F13": {"automated": ["tests/python/test_backend.py", "tests/functional/scenario_catalog.json"]},
+    "F14": {"automated": ["tests/python/test_backend.py"]},
+    "E01": {"automated": ["tests/functional/scenario_catalog.json"]},
+    "E02": {"automated": ["tests/cpp/test_main.cpp", "tests/functional/scenario_catalog.json"]},
+    "E03": {"automated": ["tests/functional/scenario_catalog.json", "tests/simulation_http_test.py"]},
+    "E04": {"automated": ["tests/python/test_backend.py", "tests/simulation_http_test.py"]},
+    "E05": {"automated": ["tests/python/test_database_schema.py"], "hardware_pending": ["actual flash persistence/power-loss"]},
+    "E06": {"automated": ["tests/cpp/test_main.cpp", "tests/functional/scenario_catalog.json"]},
+    "E07": {"automated": ["tests/js/app.test.mjs", "tests/functional/scenario_catalog.json", "tests/simulation_http_test.py"]},
+    "E08": {"automated": ["tests/python/test_backend.py", "tests/simulation_http_test.py"]},
+    "E09": {"automated": ["tests/cpp/test_main.cpp"], "hardware_pending": ["signed OTA/rollback/watchdog on target boards"]},
+    "E10": {"automated": ["tests/python/test_logging.py", "tests/functional/scenario_catalog.json"], "manual": ["tests/MANUAL_FUNCTIONAL_VALIDATION.md"]}
+  }
+}

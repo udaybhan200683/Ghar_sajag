@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ghar-sajag.example/contracts/node-message-v2.json",
+  "title": "Ghar Sajag node-to-hub message v2",
+  "type": "object",
+  "required": [
+    "schema", "node_id", "session_id", "sequence_number", "sensor_type", "event_type",
+    "location", "monotonic_ms", "occurred_at", "time_uncertainty_ms", "battery_mv", "rssi_dbm"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": 2},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "session_id": {"type": "integer", "minimum": 1},
+    "sequence_number": {"type": "integer", "minimum": 1},
+    "sensor_type": {"enum": ["PIR", "REED", "BUTTON", "HEARTBEAT", "SYSTEM", "UNKNOWN"]},
+    "event_type": {"enum": ["MOTION", "DOOR_OPEN", "DOOR_CLOSED", "OK_PRESSED", "CALL_FAMILY", "HEARTBEAT", "GAP"]},
+    "location": {"type": "string", "minLength": 1, "maxLength": 64},
+    "monotonic_ms": {"type": "integer", "minimum": 0},
+    "occurred_at": {"type": ["integer", "null"], "minimum": 0},
+    "time_uncertainty_ms": {"type": "integer", "minimum": 0, "maximum": 86400000},
+    "battery_mv": {"type": "integer", "minimum": 0, "maximum": 6000},
+    "rssi_dbm": {"type": "integer", "minimum": -127, "maximum": 20},
+    "is_test": {"type": "boolean"},
+    "payload": {"type": "object", "additionalProperties": true}
+  }
+}

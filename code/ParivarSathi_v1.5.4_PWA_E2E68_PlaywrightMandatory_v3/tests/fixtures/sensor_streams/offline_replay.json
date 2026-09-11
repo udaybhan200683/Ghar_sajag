@@ -1,0 +1,14 @@
+{
+  "id": "stream-offline-replay",
+  "title": "Sensor activity during WAN loss is replayed after reconnect",
+  "steps": [
+    {"action": "wan", "enabled": false},
+    {"action": "event", "node": "kitchen", "kind": "MOTION"},
+    {"action": "advance", "seconds": 120},
+    {"action": "wan", "enabled": true}
+  ],
+  "assertions": [
+    {"select": "timeline", "where": {"kind": "MOTION"}, "count": 1},
+    {"path": "simulation.pending_cloud", "eq": 0}
+  ]
+}

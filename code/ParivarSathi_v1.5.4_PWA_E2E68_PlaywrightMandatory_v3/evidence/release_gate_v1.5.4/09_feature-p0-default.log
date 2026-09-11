@@ -1,0 +1,11 @@
+make[1]: Entering directory '/mnt/f/Home_risk_alert/Ghar_sajag/code/ParivarSathi_v1.5.4_PWA_E2E68_PlaywrightMandatory_v3'
+mkdir -p build logs
+g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_FEATURE_MORNING_ROUTINE=1 -DGS_FEATURE_CALL_FAMILY=1 -DGS_FEATURE_LOCAL_OFFLINE=1 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security shared/src/rules.cpp shared/src/logging.cpp host/logging/file_log_sink.cpp firmware/node/components/sensing/sensing.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/power/power.cpp firmware/node/components/lifecycle/lifecycle.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/time/clock.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/components/ui/resident_ui.cpp firmware/hub/components/lifecycle/config_service.cpp firmware/hub/components/cloud/cloud_sync.cpp firmware/hub/runtime/hub_runtime.cpp firmware/common/security/security.cpp host/simulator/main.cpp -o build/ghar_sajag_simulator
+./build/ghar_sajag_simulator
+{
+  "features": {"morning_routine": true, "call_family": true, "local_offline": true},
+  "activity_seen": true,
+  "missing_incident_created": false,
+  "offline_records_replayed": 1
+}
+make[1]: Leaving directory '/mnt/f/Home_risk_alert/Ghar_sajag/code/ParivarSathi_v1.5.4_PWA_E2E68_PlaywrightMandatory_v3'

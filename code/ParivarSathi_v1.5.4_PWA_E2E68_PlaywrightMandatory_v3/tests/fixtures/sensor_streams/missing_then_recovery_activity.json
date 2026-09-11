@@ -1,0 +1,16 @@
+{
+  "id": "stream-missing-then-recovery",
+  "title": "Missing morning followed by later household activity",
+  "steps": [
+    {"action": "advance", "seconds": 1300},
+    {"action": "event", "node": "room1", "kind": "MOTION"},
+    {"action": "advance", "seconds": 120},
+    {"action": "event", "node": "kitchen", "kind": "MOTION"},
+    {"action": "event", "node": "entry", "kind": "DOOR_OPEN"}
+  ],
+  "assertions": [
+    {"select": "incidents", "where": {"kind": "MISSING_MORNING_ACTIVITY"}, "count": 1},
+    {"select": "home.recent_events", "where": {"kind": "MOTION"}, "min_count": 2},
+    {"select": "home.recent_events", "where": {"kind": "DOOR_OPEN"}, "count": 1}
+  ]
+}

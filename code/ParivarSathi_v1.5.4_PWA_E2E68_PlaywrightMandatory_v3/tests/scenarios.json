@@ -1,0 +1,6 @@
+{
+  "schema": 3,
+  "deprecated": true,
+  "canonical_catalog": "tests/functional/scenario_catalog.json",
+  "note": "Use the declarative release catalog; it drives both automation and the generated manual plan."
+}

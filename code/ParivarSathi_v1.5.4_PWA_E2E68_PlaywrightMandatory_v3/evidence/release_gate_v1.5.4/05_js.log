@@ -1,0 +1,71 @@
+node --test tests/js/*.test.mjs
+TAP version 13
+# Subtest: A01 requires resident consent and distinct backup
+ok 1 - A01 requires resident consent and distinct backup
+  ---
+  duration_ms: 1.195841
+  type: 'test'
+  ...
+# Subtest: A01 installation gate enumerates missing device tests
+ok 2 - A01 installation gate enumerates missing device tests
+  ---
+  duration_ms: 0.82283
+  type: 'test'
+  ...
+# Subtest: A02 never converts absent evidence into wellbeing
+ok 3 - A02 never converts absent evidence into wellbeing
+  ---
+  duration_ms: 0.698575
+  type: 'test'
+  ...
+# Subtest: A02 presents exact activity meaning and age
+ok 4 - A02 presents exact activity meaning and age
+  ---
+  duration_ms: 0.297732
+  type: 'test'
+  ...
+# Subtest: A02 presents daytime inactivity as a concern
+ok 5 - A02 presents daytime inactivity as a concern
+  ---
+  duration_ms: 0.119867
+  type: 'test'
+  ...
+# Subtest: A03 produces versioned routine and household-policy config
+ok 6 - A03 produces versioned routine and household-policy config
+  ---
+  duration_ms: 0.603575
+  type: 'test'
+  ...
+# Subtest: A04 prevents action when another caregiver owns a live lease
+ok 7 - A04 prevents action when another caregiver owns a live lease
+  ---
+  duration_ms: 0.284552
+  type: 'test'
+  ...
+# Subtest: A05 cache rejects older versions and reports push gaps
+ok 8 - A05 cache rejects older versions and reports push gaps
+  ---
+  duration_ms: 0.17512
+  type: 'test'
+  ...
+# Subtest: A05 logger retains errors and applies the build trace gate
+ok 9 - A05 logger retains errors and applies the build trace gate
+  ---
+  duration_ms: 1.090686
+  type: 'test'
+  ...
+# Subtest: feature flags keep unfinished capabilities disabled
+ok 10 - feature flags keep unfinished capabilities disabled
+  ---
+  duration_ms: 0.345231
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 63.561366

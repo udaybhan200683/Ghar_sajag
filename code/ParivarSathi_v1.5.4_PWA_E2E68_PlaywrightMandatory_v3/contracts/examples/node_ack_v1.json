@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "node_id": "node-kitchen",
+  "session_id": 381245,
+  "sequence_number": 44,
+  "ack_type": "DURABLE",
+  "hub_received_at": 1789108201,
+  "reason": "journal_committed"
+}

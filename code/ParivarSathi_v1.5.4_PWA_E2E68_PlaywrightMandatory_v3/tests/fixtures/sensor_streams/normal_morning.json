@@ -1,0 +1,14 @@
+{
+  "id": "stream-normal-morning",
+  "title": "Normal morning kitchen and pooja activity",
+  "steps": [
+    {"action": "event", "node": "kitchen", "kind": "MOTION"},
+    {"action": "advance", "seconds": 120},
+    {"action": "event", "node": "pooja", "kind": "MOTION"},
+    {"action": "advance", "seconds": 1180}
+  ],
+  "assertions": [
+    {"select": "incidents", "where": {"kind": "MISSING_MORNING_ACTIVITY"}, "count": 0},
+    {"path": "simulation.reason", "eq": "evidence_present"}
+  ]
+}

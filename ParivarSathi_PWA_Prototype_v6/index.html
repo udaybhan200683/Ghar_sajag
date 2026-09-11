@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f5fbf7" />
+  <meta name="description" content="Parivar Sathi — Apno ka khayal, har pal" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Parivar Sathi</title>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/icon.svg" alt="" class="brand-icon">
+      <div>
+        <div class="brand-name">Parivar Sathi</div>
+        <div class="tagline">Apno ka khayal, har pal</div>
+      </div>
+    </div>
+    <label class="away-wrap">
+      <input id="awayToggle" type="checkbox" disabled aria-disabled="true" />
+      <span class="switch"></span>
+      <span>Away <small style="opacity:.65">(coming later)</small></span>
+    </label>
+    <div class="datetime">
+      <div id="dateText"></div>
+      <strong id="timeText"></strong>
+    </div>
+  </header>
+
+  <main>
+    <section id="homeTab" class="tab-panel active"></section>
+    <section id="devicesTab" class="tab-panel"></section>
+    <section id="reportsTab" class="tab-panel"></section>
+    <section id="settingsTab" class="tab-panel"></section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Primary">
+    <button data-tab="home" class="nav-btn active"><span>⌂</span><b>Home</b></button>
+    <button data-tab="devices" class="nav-btn"><span>◉</span><b>Devices</b></button>
+    <button data-tab="reports" class="nav-btn"><span>▤</span><b>Reports</b></button>
+    <button data-tab="settings" class="nav-btn"><span>⚙</span><b>Settings</b></button>
+  </nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

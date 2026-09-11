@@ -1,0 +1,2 @@
+Ghar Sajag local simulation: http://localhost:8765
+Synthetic data only. Ctrl+C stops both processes. Reset clears scenario state.

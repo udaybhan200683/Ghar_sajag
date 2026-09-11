@@ -1,0 +1,13 @@
+{
+  "name": "parivar-sathi-pwa-e2e",
+  "private": true,
+  "version": "1.5.4",
+  "scripts": {
+    "test:pwa:browser": "playwright test",
+    "test:pwa:browser:headed": "playwright test --headed",
+    "test:pwa:browser:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
