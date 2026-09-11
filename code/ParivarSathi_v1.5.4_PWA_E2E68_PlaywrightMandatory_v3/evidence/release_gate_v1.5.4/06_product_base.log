@@ -1,3 +1,0 @@
-g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security tests/cpp/test_product.cpp shared/src/logging.cpp -o build/product_tests_base
-./build/product_tests_base
-Parivar Saathi product tests passed; controller bytes=32

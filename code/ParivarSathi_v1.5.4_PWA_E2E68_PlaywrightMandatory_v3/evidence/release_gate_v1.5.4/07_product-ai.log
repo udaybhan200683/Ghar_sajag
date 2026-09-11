@@ -1,5 +1,0 @@
-make[1]: Entering directory '/mnt/f/Home_risk_alert/Ghar_sajag/code/ParivarSathi_v1.5.4_PWA_E2E68_PlaywrightMandatory_v3'
-g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=1 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security tests/cpp/test_product.cpp shared/src/logging.cpp -o build/product_tests_ai
-./build/product_tests_ai
-Sarthi-AI product tests passed; controller bytes=32
-make[1]: Leaving directory '/mnt/f/Home_risk_alert/Ghar_sajag/code/ParivarSathi_v1.5.4_PWA_E2E68_PlaywrightMandatory_v3'

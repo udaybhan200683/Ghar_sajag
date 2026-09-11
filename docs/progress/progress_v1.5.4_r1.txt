@@ -1,0 +1,72 @@
+GHAR SAJAG DOCUMENTATION 2.0 / REFERENCE CODE 1.5.4 CORRECTED
+Immediate focus: Base Parivar Saathi P0. P1/add-ons and Sarthi AI remain future scope.
+
+CURRENT SOFTWARE BASELINE
+Reference code 1.5.4 is no longer a comment-only traceability edition. Since 1.4.2 it adds
+functional P0 behavior, a hardware-independent rule engine, a typed node↔hub protocol,
+a concrete relational persistence contract, configurable household activity policies,
+expanded connected simulation/PWA behavior and a formal regression/release framework.
+
+HOST/SOFTWARE VALIDATION STATUS
+- 24/24 Base P0 requirement IDs mapped to validation evidence.
+- 4 JSON/contract schemas plus protocol examples, configuration and OpenAPI verified.
+- 80 C++ checks PASS.
+- 24 Python backend/database/logging/framework tests PASS.
+- 10 JavaScript application tests PASS.
+- Base and AI product-profile compatibility tests PASS.
+- 4/4 feature-flag simulator variants PASS.
+- 5/5 dummy sensor streams PASS.
+- 68/68 connected functional scenarios PASS.
+- 16/16 HTTP integration tests PASS.
+- AddressSanitizer/UBSan PASS.
+- Trace-enabled C++ build/tests PASS.
+- Browser/PWA automation is MANUAL_REQUIRED in the current evidence environment because
+  Playwright/Chromium is not installed; the generated manual plan is the current visual gate.
+
+IMPLEMENTED / ADVANCED SINCE 1.4.2
+- Generic DomainEvent/RulesCore path independent of GPIO/RF.
+- Missing-morning, quiet-hours door, door-left-open and daytime-inactivity rules.
+- I am OK age/chronology; Call Family remains independent and unresolved until human action.
+- Exact motion/door timeline, later-activity-after-missing-morning behavior and device diagnostics.
+- Per-household configurable quiet hours, door-open timeout and daytime inactivity policy.
+- Typed node↔hub message/ACK contract with stable identity, retry, heartbeat/offline, battery and RSSI.
+- Relational schema/migration for household/rooms/caregivers/hub/nodes/events/routines/windows/
+  alerts/acknowledgements/notification jobs/battery/device health/configuration/audit.
+- Canonical 68-case functional catalog, five dummy streams, requirement coverage guard and fail-closed release gate.
+
+IMPORTANT BOUNDARY
+HOST PASS IS NOT HARDWARE/PILOT ACCEPTANCE. The connected simulator still uses synthetic
+sensor/RF/time/fault/provider inputs and in-memory runtime stores. Real PIR/reed/buttons,
+ESP-NOW RF/RSSI/channel behavior, battery/charging/UPS, brownout/reset/watchdog, flash
+persistence/wear, signed OTA/rollback, real notification-provider delivery and installed-home
+coverage remain pending HIL/pilot gates.
+
+OPEN-WORK STATUS
+G01/G06/G07/G08/G09/G10/G11/G12/G15 are materially advanced but still partial.
+G02 remains a known duplicate-reducer gap. G03/G04/G05 remain open persistence/coverage
+gaps. G13/G14 remain future AI. G16 tracks mandatory browser automation evidence and
+G17 tracks the physical/HIL and installed-home release gate.
+
+NEXT
+1. Keep make release-gate mandatory for every host/software release.
+2. Install/pin Playwright+Chromium in release CI and promote make release-gate-browser
+   from optional/manual to mandatory.
+3. Bind one real ESP32-C3 node and the hub, add HIL evidence for sensing/RF/power/flash/reboot.
+4. Close G02-G05 and the remaining persistent-runtime/notification/security gaps.
+5. Expand from one node+hub to the four-node installed-home pilot only after the HIL gate passes.
+
+TRACEABILITY NOTE
+Some legacy source-file comment headers still say source release 1.4.2. They are historical
+metadata only; this updated tracker and the v1.5.4 release evidence are the current status authority.
+
+DOCUMENTATION REFRESH 2.1.1
+No new implementation delta has occurred beyond reference code 1.5.4 corrected since the
+previous traceability synchronization. Requirement, code and open-work CSV statuses therefore
+remain unchanged.
+
+The following current release companion artifacts are now explicitly registered in the handover:
+- Ghar_Sajag_Validation_Framework_Design_v1.5.4.docx
+- Ghar_Sajag_Complete_Validation_Test_Register_v1.5.4.xlsx
+
+These are part of the release evidence set and should be updated whenever validation architecture,
+scenario coverage, release gates or test status changes.

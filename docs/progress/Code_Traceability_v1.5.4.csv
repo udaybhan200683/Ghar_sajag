@@ -1,0 +1,124 @@
+﻿Source file,Module,Requirement responsibilities,State,Existing test location
+app/public/app.mjs,A02,"F05, F06, F09, F11, F14, E01, E04, E10, NFR-01, NFR-02, NFR-10",Host implemented / validated; target integration pending where applicable,Home-view separation test; static responsive prototype included
+app/public/service-worker.mjs,A02,"F05, F06, F09, F11, F14, E01, E04, E10, NFR-01, NFR-02, NFR-10",Host implemented / validated; target integration pending where applicable,Home-view separation test; static responsive prototype included
+app/src/features/home/index.mjs,A02,"F05, F06, F09, F11, F14, E01, E04, E10, NFR-01, NFR-02, NFR-10",Host implemented / validated; target integration pending where applicable,Home-view separation test; static responsive prototype included
+app/src/features/incidents/index.mjs,A04,"F07, F12, F13, NFR-10",Host implemented / validated; target integration pending where applicable,Incident ownership/action and command-path test
+app/src/features/onboarding/index.mjs,A01,"F01, F02, F03, NFR-10",Host implemented / validated; target integration pending where applicable,Node tests: onboarding validation and installation gate
+app/src/features/routines/index.mjs,A03,"F04, F10, F14, E07",Host implemented / validated; target integration pending where applicable,Routine command and desired/applied status test
+app/src/platform/feature_flags.mjs,S04,"V01, AI01, AI07, E07, E10, NFR-08",Host implemented / validated; target integration pending where applicable,tests/cpp/test_product.cpp; invalid PRODUCT check
+app/src/platform/index.mjs,A05,"F11, F13, E04, E08",Host implemented / validated; target integration pending where applicable,Cache and push capability test
+app/src/platform/logging.mjs,S05,"AI08, E10, NFR-05, NFR-09",Host implemented / validated; target integration pending where applicable,Inherited logging tests and historical sanitizer evidence; no new board evidence
+backend/ghar_sajag/feature_flags.py,S04,"V01, AI01, AI07, E07, E10, NFR-08",Host implemented / validated; target integration pending where applicable,tests/cpp/test_product.cpp; invalid PRODUCT check
+backend/ghar_sajag/fleet.py,B06,"F03, F04, E07, E08, E09, NFR-06",Host implemented / validated; target integration pending where applicable,test_B06_config_version_and_device_binding
+backend/ghar_sajag/homes.py,B02,"F01, F02, F10, E08, AI02, AI04, NFR-07",Host implemented / validated; target integration pending where applicable,F01 role test and test_B02_consent_withdrawal_enters_privacy
+backend/ghar_sajag/http_api.py,B07,"F05, F06, F09, F11, F12, F14, E04",Host implemented / validated; target integration pending where applicable,test_B07_B08_snapshot_separates_activity_from_reachability
+backend/ghar_sajag/identity.py,B01,"F01, E08, AI07, NFR-06",Host implemented / validated; target integration pending where applicable,test_B01_F01_membership_is_tenant_scoped
+backend/ghar_sajag/incidents.py,B04,"F07, F08, F12, F13, E05",Host implemented / validated; target integration pending where applicable,call idempotency and test_B04_claim_lease_prevents_double_ownership
+backend/ghar_sajag/ingest.py,B03,"E02, E05, NFR-03",Host implemented / validated; target integration pending where applicable,test_B03_ingest_is_idempotent
+backend/ghar_sajag/logging_config.py,S05,"AI08, E10, NFR-05, NFR-09",Host implemented / validated; target integration pending where applicable,Inherited logging tests and historical sanitizer evidence; no new board evidence
+backend/ghar_sajag/model.py,S01,"F01, E02, E06, E07, NFR-08",Host implemented / validated; target integration pending where applicable,make contracts verifies three required-field sets and API surface
+backend/ghar_sajag/notifications.py,B05,"F07, F08, F09, F12, F13, F14, E05",Host implemented / validated; target integration pending where applicable,"B04/B05 route tests, F09 notice test, F14 summary test and TEST exclusion"
+backend/ghar_sajag/operations.py,B08,"F02, F11, F13, E01, E04, E05, E08, E09, E10, NFR-09",Host implemented / validated; target integration pending where applicable,B07/B08 snapshot test and diagnostics assertions
+backend/ghar_sajag/queries.py,B07,"F05, F06, F09, F11, F12, F14, E04",Host implemented / validated; target integration pending where applicable,test_B07_B08_snapshot_separates_activity_from_reachability
+backend/ghar_sajag/service.py,B03,"E02, E05, NFR-03",Host implemented / validated; target integration pending where applicable,test_B03_ingest_is_idempotent
+backend/ghar_sajag/store.py,B08,"F02, F11, F13, E01, E04, E05, E08, E09, E10, NFR-09",Host implemented / validated; target integration pending where applicable,B07/B08 snapshot test and diagnostics assertions
+firmware/common/security/security.cpp,S03,"F03, E08, E09, NFR-06",Host implemented / validated; target integration pending where applicable,"C++ tests cover install, rollback, revoke and manifest policy"
+firmware/common/security/security.hpp,S03,"F03, E08, E09, NFR-06",Host implemented / validated; target integration pending where applicable,"C++ tests cover install, rollback, revoke and manifest policy"
+firmware/hub/components/cloud/cloud_sync.cpp,H08,"F12, E02, E03, E04, E07, E10, NFR-03",Host implemented / validated; target integration pending where applicable,C++ tests cover urgent ordering and application-level retirement; simulator replays one offline record
+firmware/hub/components/cloud/cloud_sync.hpp,H08,"F12, E02, E03, E04, E07, E10, NFR-03",Host implemented / validated; target integration pending where applicable,C++ tests cover urgent ordering and application-level retirement; simulator replays one offline record
+firmware/hub/components/coverage/coverage.cpp,H04,"F08, E01, E03",Host implemented / validated; target integration pending where applicable,"C++ tests cover never-seen, fresh and 190-second expired lease"
+firmware/hub/components/coverage/coverage.hpp,H04,"F08, E01, E03",Host implemented / validated; target integration pending where applicable,"C++ tests cover never-seen, fresh and 190-second expired lease"
+firmware/hub/components/ingest/ingest.cpp,H01,"F05, E02, NFR-04",Host implemented / validated; target integration pending where applicable,C++ tests cover known/unknown peer and callback-to-worker copy
+firmware/hub/components/ingest/ingest.hpp,H01,"F05, E02, NFR-04",Host implemented / validated; target integration pending where applicable,C++ tests cover known/unknown peer and callback-to-worker copy
+firmware/hub/components/lifecycle/config_service.cpp,H07,"F02, F03, F04, F10, E06, E07, E09, NFR-07",Host implemented / validated; target integration pending where applicable,C++ tests cover valid apply and stale-version rejection
+firmware/hub/components/lifecycle/config_service.hpp,H07,"F02, F03, F04, F10, E06, E07, E09, NFR-07",Host implemented / validated; target integration pending where applicable,C++ tests cover valid apply and stale-version rejection
+firmware/hub/components/rules/routine_service.cpp,H05,"F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01",Host implemented / validated; target integration pending where applicable,"C++ tests cover evidence, missing, duplicate deadline, coverage unknown and privacy"
+firmware/hub/components/rules/routine_service.hpp,H05,"F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01",Host implemented / validated; target integration pending where applicable,"C++ tests cover evidence, missing, duplicate deadline, coverage unknown and privacy"
+firmware/hub/components/storage/journal.cpp,H02,"F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05",Host implemented / validated; target integration pending where applicable,"C++ tests cover store, duplicate, pending outbox and application ACK"
+firmware/hub/components/storage/journal.hpp,H02,"F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05",Host implemented / validated; target integration pending where applicable,"C++ tests cover store, duplicate, pending outbox and application ACK"
+firmware/hub/components/time/clock.cpp,H03,"F04, F08, E03, E06",Host implemented / validated; target integration pending where applicable,C++ tests verify unanchored suppression and trusted bounded estimate
+firmware/hub/components/time/clock.hpp,H03,"F04, F08, E03, E06",Host implemented / validated; target integration pending where applicable,C++ tests verify unanchored suppression and trusted bounded estimate
+firmware/hub/components/ui/resident_ui.cpp,H06,"F02, F06, F07, F10, E03, AI05, NFR-02, NFR-10",Host implemented / validated; target integration pending where applicable,C++ tests verify Call family event and offline wording
+firmware/hub/components/ui/resident_ui.hpp,H06,"F02, F06, F07, F10, E03, AI05, NFR-02, NFR-10",Host implemented / validated; target integration pending where applicable,C++ tests verify Call family event and offline wording
+firmware/hub/runtime/hub_runtime.cpp,H05,"F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01",Host implemented / validated; target integration pending where applicable,"C++ tests cover evidence, missing, duplicate deadline, coverage unknown and privacy"
+firmware/hub/runtime/hub_runtime.hpp,H05,"F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01",Host implemented / validated; target integration pending where applicable,"C++ tests cover evidence, missing, duplicate deadline, coverage unknown and privacy"
+firmware/node/components/lifecycle/lifecycle.cpp,N04,"F03, E07, E09",Host implemented / validated; target integration pending where applicable,"C++ tests cover invalid capability, valid apply, rollback and 120-second window"
+firmware/node/components/lifecycle/lifecycle.hpp,N04,"F03, E07, E09",Host implemented / validated; target integration pending where applicable,"C++ tests cover invalid capability, valid apply, rollback and 120-second window"
+firmware/node/components/power/power.cpp,N03,"E01, NFR-05",Host implemented / validated; target integration pending where applicable,C++ tests verify low/unknown bands and retry wake plan
+firmware/node/components/power/power.hpp,N03,"E01, NFR-05",Host implemented / validated; target integration pending where applicable,C++ tests verify low/unknown bands and retry wake plan
+firmware/node/components/radio/node_radio.cpp,N02,"E01, E02, NFR-04",Host implemented / validated; target integration pending where applicable,"C++ tests cover immediate send, volatile ACK retention and durable retirement"
+firmware/node/components/radio/node_radio.hpp,N02,"E01, E02, NFR-04",Host implemented / validated; target integration pending where applicable,"C++ tests cover immediate send, volatile ACK retention and durable retirement"
+firmware/node/components/sensing/sensing.cpp,N01,"F05, F09",Host implemented / validated; target integration pending where applicable,"tests/cpp/test_main.cpp: initial, bounce and stable-rise checks"
+firmware/node/components/sensing/sensing.hpp,N01,"F05, F09",Host implemented / validated; target integration pending where applicable,"tests/cpp/test_main.cpp: initial, bounce and stable-rise checks"
+firmware/node/components/storage/node_store.cpp,N05,"E02, E05, NFR-03",Host implemented / validated; target integration pending where applicable,C++ tests cover persist-before-send and ACK class behavior; NodeRuntime composition tested
+firmware/node/components/storage/node_store.hpp,N05,"E02, E05, NFR-03",Host implemented / validated; target integration pending where applicable,C++ tests cover persist-before-send and ACK class behavior; NodeRuntime composition tested
+firmware/node/runtime/node_runtime.cpp,N02,"E01, E02, NFR-04",Host implemented / validated; target integration pending where applicable,"C++ tests cover immediate send, volatile ACK retention and durable retirement"
+firmware/node/runtime/node_runtime.hpp,N02,"E01, E02, NFR-04",Host implemented / validated; target integration pending where applicable,"C++ tests cover immediate send, volatile ACK retention and durable retirement"
+host/logging/file_log_sink.cpp,S05,"AI08, E10, NFR-05, NFR-09",Host implemented / validated; target integration pending where applicable,Inherited logging tests and historical sanitizer evidence; no new board evidence
+host/logging/file_log_sink.hpp,S05,"AI08, E10, NFR-05, NFR-09",Host implemented / validated; target integration pending where applicable,Inherited logging tests and historical sanitizer evidence; no new board evidence
+host/simulator/main.cpp,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host implemented / validated; target integration pending where applicable,VERIFICATION_REPORT.md: v1.5.4 release-gate evidence
+scripts/instrument_cpp_logging.py,S05,"AI08, E10, NFR-05, NFR-09",Host utility / validated where release-gated,Inherited logging tests and historical sanitizer evidence; no new board evidence
+scripts/instrument_js_logging.py,S05,"AI08, E10, NFR-05, NFR-09",Host utility / validated where release-gated,Inherited logging tests and historical sanitizer evidence; no new board evidence
+scripts/instrument_python_logging.py,S05,"AI08, E10, NFR-05, NFR-09",Host utility / validated where release-gated,Inherited logging tests and historical sanitizer evidence; no new board evidence
+scripts/verify_contracts.py,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host utility / validated where release-gated,VERIFICATION_REPORT.md: v1.5.4 release-gate evidence
+shared/include/gs/domain.hpp,S01,"F01, E02, E06, E07, NFR-08",Host implemented / validated; target integration pending where applicable,make contracts verifies three required-field sets and API surface
+shared/include/gs/feature_flags.hpp,S04,"V01, AI01, AI07, E07, E10, NFR-08",Host implemented / validated; target integration pending where applicable,tests/cpp/test_product.cpp; invalid PRODUCT check
+shared/include/gs/interaction.hpp,H09,"AI01, AI02, AI03, AI04, AI05, AI08, NFR-04, NFR-07",Host implemented / validated; target integration pending where applicable,tests/cpp/test_product.cpp
+shared/include/gs/logging.hpp,S05,"AI08, E10, NFR-05, NFR-09",Host implemented / validated; target integration pending where applicable,Inherited logging tests and historical sanitizer evidence; no new board evidence
+shared/include/gs/ports.hpp,S01,"F01, E02, E06, E07, NFR-08",Host implemented / validated; target integration pending where applicable,make contracts verifies three required-field sets and API surface
+shared/include/gs/product.hpp,S04,"V01, AI01, AI07, E07, E10, NFR-08",Host implemented / validated; target integration pending where applicable,tests/cpp/test_product.cpp; invalid PRODUCT check
+shared/include/gs/rules.hpp,S02,"F04, F05, F06, F08, F09, F10, E06, AI08, NFR-01",Host implemented / validated; target integration pending where applicable,C++ rule tests and HubRuntime composition
+shared/src/logging.cpp,S05,"AI08, E10, NFR-05, NFR-09",Host implemented / validated; target integration pending where applicable,Inherited logging tests and historical sanitizer evidence; no new board evidence
+shared/src/rules.cpp,S02,"F04, F05, F06, F08, F09, F10, E06, AI08, NFR-01",Host implemented / validated; target integration pending where applicable,C++ rule tests and HubRuntime composition
+tests/cpp/test_main.cpp,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host test / validated in v1.5.4,tests/cpp/test_main.cpp; included in v1.5.4 release evidence as applicable
+tests/cpp/test_product.cpp,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host test / validated in v1.5.4,tests/cpp/test_product.cpp; included in v1.5.4 release evidence as applicable
+tests/js/app.test.mjs,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host test / validated in v1.5.4,tests/js/app.test.mjs; included in v1.5.4 release evidence as applicable
+tests/python/test_backend.py,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host test / validated in v1.5.4,tests/python/test_backend.py; included in v1.5.4 release evidence as applicable
+tests/python/test_logging.py,S05,"AI08, E10, NFR-05, NFR-09",Host test / validated in v1.5.4,tests/python/test_logging.py; included in v1.5.4 release evidence as applicable
+tools/hil/power_profile.py,T02,"F03, E09, E10, NFR-05",HIL scaffold / physical execution pending,Syntax/import covered by backend run context; physical execution deliberately pending
+tools/hil/provision.py,T02,"F03, E09, E10, NFR-05",HIL scaffold / physical execution pending,Syntax/import covered by backend run context; physical execution deliberately pending
+tools/hil/runner.py,T02,"F03, E09, E10, NFR-05",HIL scaffold / physical execution pending,Syntax/import covered by backend run context; physical execution deliberately pending
+tools/logs/analyze_logs.py,S05,"AI08, E10, NFR-05, NFR-09",Host utility / validated where release-gated,Inherited logging tests and historical sanitizer evidence; no new board evidence
+tools/sim/scenario_matrix.py,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host utility / validated where release-gated,VERIFICATION_REPORT.md: v1.5.4 release-gate evidence
+Makefile,T01,"E10, V01, NFR-08",Release orchestration / validated,make validation-fast; make release-gate; make release-gate-browser
+shared/include/gs/protocol.hpp,S01,"E01, E02, E07, NFR-08",Host implemented / validated,tests/cpp/test_main.cpp protocol/ACK/retry checks; contract verifier
+backend/ghar_sajag/database.py,B08,"E05, E10, NFR-08",Persistence schema adapter / validated,tests/python/test_database_schema.py
+backend/migrations/001_p0_core.sql,B08,"E05, NFR-08",Relational persistence contract / validated,tests/python/test_database_schema.py
+backend/DATA_MODEL.md,B08,"E05, E10",Documented persistence contract,Schema test + migration review
+contracts/node.schema.json,S01,"E02, E07, NFR-08",Contract / validated,scripts/verify_contracts.py
+contracts/cloud.schema.json,S01,"E02, E04, E07",Contract / validated,scripts/verify_contracts.py
+contracts/config.schema.json,S01,"F04, F10, E07",Contract / validated,scripts/verify_contracts.py; HTTP config test
+contracts/node_ack.schema.json,S01,E02,Contract / validated,scripts/verify_contracts.py; golden ACK payload
+contracts/openapi.yaml,S01/B07,"F11, E04, E07, E08",API contract / validated,scripts/verify_contracts.py; 16 HTTP integration tests
+contracts/NODE_TO_HUB_PROTOCOL.md,S01/N02/H01,"E01, E02, E06",Protocol contract / frozen host baseline,Protocol golden payloads + C++ tests
+contracts/examples/node_message_v2.json,S01,E02,Golden protocol fixture / validated,scripts/verify_contracts.py
+contracts/examples/node_ack_v1.json,S01,E02,Golden protocol fixture / validated,scripts/verify_contracts.py
+host/simulator/interactive.cpp,T01,"F04-F13, E01-E10",Connected host adapter / validated,68 functional scenarios; 16 HTTP integration tests
+tools/sim/local_lab.py,T01,"F04-F13, E01-E10",Connected simulation lab / validated,68/68 functional + dummy streams + HTTP tests
+tools/sim/web/index.html,A02/A03,"F04, F11, E01, E10, NFR-10",Simulation/PWA UI / host implemented,Manual functional plan; optional Playwright
+tools/sim/web/lab.mjs,A02/A03/A04,"F04, F06-F13, E01, E07, E10",Simulation/PWA behavior / host implemented,16 HTTP tests; manual plan; optional Playwright
+tools/sim/web/lab.css,A02,"F11, NFR-10",Simulation/PWA presentation / manual visual gate,tests/MANUAL_FUNCTIONAL_VALIDATION.md
+tests/simulation_http_test.py,T01,"F06, F08, F09, F12, E03, E04, E07, E08, E10",HTTP integration test / validated,16/16 PASS
+tests/simulation_browser_test.cjs,T01/A02,"F11, E10, NFR-10","Browser automation / available, not executed in current evidence",release-gate-browser; current status MANUAL_REQUIRED
+tests/functional/scenario_catalog.json,T01,"F04-F13, E01-E10",Canonical functional catalog / validated,68/68 connected scenarios
+tests/validation_coverage.json,T01,"F01-F14, E01-E10",Requirement coverage contract / validated,24/24 P0 IDs mapped
+tests/MANUAL_FUNCTIONAL_VALIDATION.md,T01/A02,"F11, E10, NFR-10",Generated manual validation plan,Generated from canonical scenario catalog
+tests/python/test_database_schema.py,T01/B08,"E05, E10, NFR-08",Persistence test / validated,Python release-gate suite
+tests/python/test_validation_framework.py,T01,"E10, NFR-08",Framework self-test / validated,Python release-gate suite
+tests/fixtures/sensor_streams/normal_morning.json,T01,"F05, F08",Dummy sensor stream / validated,5/5 dummy stream replay suite
+tests/fixtures/sensor_streams/missing_then_recovery_activity.json,T01,"F08, F11",Dummy sensor stream / validated,5/5 dummy stream replay suite
+tests/fixtures/sensor_streams/late_night_door.json,T01,F09,Dummy sensor stream / validated,5/5 dummy stream replay suite
+tests/fixtures/sensor_streams/daytime_inactivity.json,T01,"E10, F11",Dummy sensor stream / validated,5/5 dummy stream replay suite
+tests/fixtures/sensor_streams/offline_replay.json,T01,"E02, E03",Dummy sensor stream / validated,5/5 dummy stream replay suite
+tools/validation/functional_scenarios.py,T01,"F04-F13, E01-E10",Validation executor / validated,68-case functional suite
+tools/validation/run_functional_suite.py,T01,"E10, NFR-08",Validation runner / validated,release-gate stage
+tools/validation/run_dummy_sensor_streams.py,T01,"E10, NFR-08",Dummy-stream runner / validated,release-gate stage
+tools/validation/generate_manual_plan.py,T01,"E10, NFR-08, NFR-10",Manual-plan generator / validated,make manual-test-plan
+tools/validation/release_gate.py,T01,"E10, NFR-08",Fail-closed release orchestration / validated,make release-gate
+scripts/check_validation_coverage.py,T01,"F01-F14, E01-E10, NFR-08",Traceability guard / validated,24/24 requirement mapping gate
+docs/VALIDATION_FRAMEWORK.md,T01,"E10, NFR-08",Validation design / current,v1.5.4 framework document
+app/public/index.html,A02,"F11, NFR-10",Host PWA shell / implemented,Manual/optional browser gate
+app/public/styles.css,A02,"F11, NFR-10",Host PWA styles / implemented,Manual visual gate
+app/public/manifest.webmanifest,A05,"F11, E04",PWA manifest / implemented,Static/app integration checks
+firmware/hub/runtime/FREERTOS_BINDING.md,H01-H08,"E01-E10, NFR-04, NFR-05",Target runtime binding design / pending HIL,Architecture review; target measurements pending
+tools/hil/installation_checklist.md,T02,"F03, E01, E09, E10, NFR-05",HIL checklist / pending physical execution,Physical execution deliberately pending
