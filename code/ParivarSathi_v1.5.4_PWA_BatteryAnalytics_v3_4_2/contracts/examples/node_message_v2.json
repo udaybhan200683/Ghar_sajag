@@ -1,0 +1,29 @@
+{
+  "schema": 2,
+  "node_id": "node-kitchen",
+  "session_id": 381245,
+  "sequence_number": 44,
+  "sensor_type": "PIR",
+  "event_type": "MOTION",
+  "location": "Kitchen",
+  "monotonic_ms": 845321,
+  "occurred_at": 1789108200,
+  "time_uncertainty_ms": 1500,
+  "battery_mv": 3780,
+  "rssi_dbm": -62,
+  "is_test": false,
+  "payload": {},
+  "power": {
+    "deep_sleep_ms": 842000,
+    "awake_ms": 3321,
+    "sensor_active_ms": 1200,
+    "radio_tx_ms": 180,
+    "radio_rx_ms": 260,
+    "radio_tx_packets": 44,
+    "radio_retries": 2,
+    "wake_count": 18,
+    "heartbeat_count": 14,
+    "boot_count": 1,
+    "brownout_count": 0
+  }
+}

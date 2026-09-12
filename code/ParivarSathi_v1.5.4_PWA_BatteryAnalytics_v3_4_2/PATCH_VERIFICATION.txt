@@ -1,0 +1,18 @@
+PARIVAR SATHI v3.4.0 BATTERY ANALYTICS — FOCUSED VERIFICATION
+
+PASS validation coverage: 24/24 P0 requirement IDs mapped
+PASS contracts: 4 schemas + node/hub examples + optional power telemetry + battery threshold config + OpenAPI
+PASS C++: 89 checks
+PASS Python: 31 tests
+PASS JavaScript: 11 tests
+PASS PWA bridge: 9 tests
+PASS dummy sensor streams: 5/5
+PASS connected functional scenarios: 92/92
+PASS HTTP integration: 16/16
+PASS PWA API/frontend semantic validation
+LOCAL_REQUIRED mandatory Playwright/Chromium gate: run `make playwright-gate` in the WSL project after `make playwright-install`
+LOCAL_REQUIRED complete final gate: run `make release-gate-final`
+
+Generated manual suite: tests/MANUAL_FUNCTIONAL_VALIDATION.md (92 cases + UI/hardware checks)
+Battery design: docs/BATTERY_ANALYTICS_DESIGN.md
+Physical current/ADC/capacity calibration remains pending on the final ESP32/battery hardware.

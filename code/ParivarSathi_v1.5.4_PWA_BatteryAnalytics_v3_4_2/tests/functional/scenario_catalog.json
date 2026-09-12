@@ -1,0 +1,3408 @@
+{
+  "schema": 1,
+  "release": "1.5.4-routine-battery",
+  "description": "Canonical host functional regression including configurable routines and battery usage/runtime analytics.",
+  "scenarios": [
+    {
+      "id": "motion-room1-visible",
+      "title": "Room 1 motion is preserved as exact positive activity",
+      "category": "expected",
+      "requirements": [
+        "F05",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.kind",
+          "eq": "MOTION"
+        },
+        {
+          "path": "home.latest_activity.location",
+          "eq": "room1"
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "positive"
+        }
+      ]
+    },
+    {
+      "id": "motion-kitchen-visible",
+      "title": "Kitchen motion is preserved as exact positive activity",
+      "category": "expected",
+      "requirements": [
+        "F05",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.location",
+          "eq": "kitchen"
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "positive"
+        }
+      ]
+    },
+    {
+      "id": "motion-pooja-visible",
+      "title": "Pooja motion is preserved as exact positive activity",
+      "category": "expected",
+      "requirements": [
+        "F05",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "pooja",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.location",
+          "eq": "pooja"
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "positive"
+        }
+      ]
+    },
+    {
+      "id": "door-open-daytime",
+      "title": "Normal daytime door opening is green and explicit",
+      "category": "expected",
+      "requirements": [
+        "F09",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.kind",
+          "eq": "DOOR_OPEN"
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "positive"
+        },
+        {
+          "path": "home.latest_activity.details.unexpected",
+          "eq": false
+        }
+      ]
+    },
+    {
+      "id": "door-open-close-order",
+      "title": "Door open and close remain chronological and explicit",
+      "category": "expected",
+      "requirements": [
+        "F09",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 60
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_CLOSED"
+        }
+      ],
+      "assertions": [
+        {
+          "order": {
+            "path": "home.recent_events",
+            "field": "kind",
+            "prefix": [
+              "DOOR_CLOSED",
+              "DOOR_OPEN"
+            ]
+          }
+        },
+        {
+          "path": "home.door_status.state",
+          "eq": "CLOSED"
+        }
+      ]
+    },
+    {
+      "id": "resident-ok-green",
+      "title": "I am OK remains a distinct green self-check-in",
+      "category": "expected",
+      "requirements": [
+        "F06",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "OK_PRESSED"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.kind",
+          "eq": "OK_PRESSED"
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "positive"
+        }
+      ]
+    },
+    {
+      "id": "call-family-opens-workflow",
+      "title": "Call Family opens exactly one incident and two routes",
+      "category": "expected",
+      "requirements": [
+        "F07",
+        "F13"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "CALL_FAMILY"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "CALL_FAMILY",
+            "state": "OPEN"
+          },
+          "count": 1
+        },
+        {
+          "select": "notifications",
+          "where": {},
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "call-then-ok-keeps-call",
+      "title": "I am OK after Call Family is newer but does not resolve the request",
+      "category": "expected",
+      "requirements": [
+        "F06",
+        "F07",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "CALL_FAMILY"
+        },
+        {
+          "action": "advance",
+          "seconds": 60
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "OK_PRESSED"
+        }
+      ],
+      "assertions": [
+        {
+          "order": {
+            "path": "home.recent_events",
+            "field": "kind",
+            "prefix": [
+              "OK_PRESSED",
+              "CALL_FAMILY"
+            ]
+          }
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "CALL_FAMILY",
+            "state": "OPEN"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "post-missing-activity-visible",
+      "title": "Later activities remain visible after missing-morning alert",
+      "category": "expected",
+      "requirements": [
+        "F08",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "advance",
+          "seconds": 1300
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 60
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 1
+        },
+        {
+          "select": "home.recent_events",
+          "where": {
+            "kind": "MOTION"
+          },
+          "min_count": 2
+        },
+        {
+          "select": "home.recent_events",
+          "where": {
+            "kind": "DOOR_OPEN"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "morning-missing-covered",
+      "title": "Covered morning with no evidence creates one concern",
+      "category": "morning",
+      "requirements": [
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.reason",
+          "eq": "no_qualifying_evidence"
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 1
+        },
+        {
+          "select": "notifications",
+          "where": {},
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "morning-kitchen-qualifies",
+      "title": "Kitchen motion satisfies morning routine",
+      "category": "morning",
+      "requirements": [
+        "F05",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.reason",
+          "eq": "evidence_present"
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "morning-pooja-qualifies",
+      "title": "Pooja motion satisfies morning routine",
+      "category": "morning",
+      "requirements": [
+        "F05",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "pooja",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.reason",
+          "eq": "evidence_present"
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "morning-room1-not-qualifying",
+      "title": "Room 1 motion does not silently satisfy kitchen/pooja morning policy",
+      "category": "morning",
+      "requirements": [
+        "F04",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "morning-door-not-qualifying",
+      "title": "Main-door activity does not silently satisfy kitchen/pooja morning policy",
+      "category": "morning",
+      "requirements": [
+        "F04",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "morning-ok-qualifies",
+      "title": "Explicit I am OK satisfies morning check-in independently of PIR",
+      "category": "morning",
+      "requirements": [
+        "F06",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "OK_PRESSED"
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.explicit_ok",
+          "truthy": true
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "morning-coverage-gap-suppresses",
+      "title": "Missing sensor coverage suppresses inactivity interpretation",
+      "category": "morning",
+      "requirements": [
+        "E01",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "node",
+          "node": "kitchen",
+          "enabled": false
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.reason",
+          "eq": "coverage_unknown"
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "morning-untrusted-clock-suppresses",
+      "title": "Untrusted clock suppresses time-based morning concern",
+      "category": "morning",
+      "requirements": [
+        "E06",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "clock",
+          "enabled": false
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.reason",
+          "eq": "time_untrusted"
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "morning-wan-offline-replay",
+      "title": "Morning concern detected offline replays with original detection time",
+      "category": "morning",
+      "requirements": [
+        "E03",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "wan",
+          "enabled": false
+        },
+        {
+          "action": "advance",
+          "seconds": 1300
+        },
+        {
+          "action": "advance",
+          "seconds": 60
+        },
+        {
+          "action": "wan",
+          "enabled": true
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 1
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY",
+            "occurred_at": 2300
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "morning-repeat-deadline-idempotent",
+      "title": "Repeated deadline evaluation does not create duplicate missing incident",
+      "category": "morning",
+      "requirements": [
+        "E02",
+        "F08"
+      ],
+      "steps": [
+        {
+          "action": "advance",
+          "seconds": 1300
+        },
+        {
+          "action": "deadline"
+        },
+        {
+          "action": "deadline"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "door-late-night-red",
+      "title": "Door opening in configured quiet hours is unexpected/red",
+      "category": "door",
+      "requirements": [
+        "F09"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN",
+          "late_night": true
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.details.unexpected",
+          "eq": true
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "danger"
+        }
+      ]
+    },
+    {
+      "id": "door-quiet-rule-disabled",
+      "title": "Quiet-hour door opening is normal when the household disables that rule",
+      "category": "door",
+      "requirements": [
+        "F09",
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "quiet_hours_enabled": false
+          }
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN",
+          "late_night": true
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.details.unexpected",
+          "eq": false
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "positive"
+        }
+      ]
+    },
+    {
+      "id": "door-late-night-away-suppressed",
+      "title": "Late-night door concern is suppressed in AWAY mode",
+      "category": "door",
+      "requirements": [
+        "F09",
+        "F10"
+      ],
+      "steps": [
+        {
+          "action": "mode",
+          "mode": "AWAY"
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN",
+          "late_night": true
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.details.unexpected",
+          "eq": false
+        },
+        {
+          "path": "home.mode",
+          "eq": "AWAY"
+        }
+      ]
+    },
+    {
+      "id": "door-late-night-paused-suppressed",
+      "title": "Late-night door concern is suppressed in PAUSED mode",
+      "category": "door",
+      "requirements": [
+        "F09",
+        "F10"
+      ],
+      "steps": [
+        {
+          "action": "mode",
+          "mode": "PAUSED"
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN",
+          "late_night": true
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.details.unexpected",
+          "eq": false
+        },
+        {
+          "path": "home.mode",
+          "eq": "PAUSED"
+        }
+      ]
+    },
+    {
+      "id": "door-late-night-visitor-suppressed",
+      "title": "Late-night door concern is suppressed in VISITOR mode",
+      "category": "door",
+      "requirements": [
+        "F09",
+        "F10"
+      ],
+      "steps": [
+        {
+          "action": "mode",
+          "mode": "VISITOR"
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN",
+          "late_night": true
+        }
+      ],
+      "assertions": [
+        {
+          "path": "home.latest_activity.details.unexpected",
+          "eq": false
+        },
+        {
+          "path": "home.mode",
+          "eq": "VISITOR"
+        }
+      ]
+    },
+    {
+      "id": "door-left-open-before-threshold",
+      "title": "Door left open before threshold does not warn",
+      "category": "door",
+      "requirements": [
+        "F09"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 299
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN"
+          },
+          "count": 0
+        },
+        {
+          "path": "home.door_status.left_open",
+          "eq": false
+        }
+      ]
+    },
+    {
+      "id": "door-left-open-at-threshold",
+      "title": "Door left open at threshold creates one red warning",
+      "category": "door",
+      "requirements": [
+        "F09"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "door_open_timeout_seconds": 300
+          }
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN",
+            "tone": "danger"
+          },
+          "count": 1
+        },
+        {
+          "path": "home.door_status.left_open",
+          "eq": true
+        }
+      ]
+    },
+    {
+      "id": "door-close-before-threshold",
+      "title": "Door closed before threshold remains normal",
+      "category": "door",
+      "requirements": [
+        "F09"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 240
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_CLOSED"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN"
+          },
+          "count": 0
+        },
+        {
+          "path": "home.latest_activity.kind",
+          "eq": "DOOR_CLOSED"
+        },
+        {
+          "path": "home.latest_activity.tone",
+          "eq": "positive"
+        }
+      ]
+    },
+    {
+      "id": "door-close-after-warning",
+      "title": "Closing a left-open door clears current condition and preserves duration",
+      "category": "door",
+      "requirements": [
+        "F09"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "door_open_timeout_seconds": 300
+          }
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 360
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_CLOSED"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN"
+          },
+          "count": 1
+        },
+        {
+          "path": "home.latest_activity.details.resolved_left_open",
+          "eq": true
+        },
+        {
+          "path": "home.latest_activity.details.open_duration_s",
+          "ge": 360
+        },
+        {
+          "path": "home.door_status.state",
+          "eq": "CLOSED"
+        }
+      ]
+    },
+    {
+      "id": "door-close-without-open",
+      "title": "Standalone close state does not invent a left-open warning",
+      "category": "door",
+      "requirements": [
+        "F09"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_CLOSED"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN"
+          },
+          "count": 0
+        },
+        {
+          "path": "home.door_status.state",
+          "eq": "CLOSED"
+        }
+      ]
+    },
+    {
+      "id": "door-configurable-threshold",
+      "title": "Door-left-open threshold follows household configuration",
+      "category": "door",
+      "requirements": [
+        "F09",
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "door_open_timeout_seconds": 120
+          }
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 119
+        },
+        {
+          "action": "advance",
+          "seconds": 1
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN"
+          },
+          "count": 1
+        },
+        {
+          "path": "home.door_status.left_open",
+          "eq": true
+        }
+      ]
+    },
+    {
+      "id": "inactivity-before-threshold",
+      "title": "No activity before configured threshold does not alert",
+      "category": "inactivity",
+      "requirements": [
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "advance",
+          "seconds": 299
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "inactivity-at-threshold",
+      "title": "No activity at configured threshold opens check-in workflow",
+      "category": "inactivity",
+      "requirements": [
+        "F11",
+        "F12"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY",
+            "tone": "danger"
+          },
+          "count": 1
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY",
+            "state": "OPEN"
+          },
+          "count": 1
+        },
+        {
+          "select": "notifications",
+          "where": {},
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "inactivity-motion-rearms",
+      "title": "Activity resets daytime inactivity timer",
+      "category": "inactivity",
+      "requirements": [
+        "F05"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "advance",
+          "seconds": 240
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 240
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "inactivity-disabled",
+      "title": "Disabled daytime inactivity policy produces no concern",
+      "category": "inactivity",
+      "requirements": [
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_enabled": false,
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "advance",
+          "seconds": 600
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "inactivity-away-suppressed",
+      "title": "Daytime inactivity is suppressed in AWAY mode",
+      "category": "inactivity",
+      "requirements": [
+        "F10"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "mode",
+          "mode": "AWAY"
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        },
+        {
+          "path": "home.mode",
+          "eq": "AWAY"
+        }
+      ]
+    },
+    {
+      "id": "inactivity-paused-suppressed",
+      "title": "Daytime inactivity is suppressed in PAUSED mode",
+      "category": "inactivity",
+      "requirements": [
+        "F10"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "mode",
+          "mode": "PAUSED"
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        },
+        {
+          "path": "home.mode",
+          "eq": "PAUSED"
+        }
+      ]
+    },
+    {
+      "id": "inactivity-visitor-suppressed",
+      "title": "Daytime inactivity is suppressed in VISITOR mode",
+      "category": "inactivity",
+      "requirements": [
+        "F10"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "mode",
+          "mode": "VISITOR"
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        },
+        {
+          "path": "home.mode",
+          "eq": "VISITOR"
+        }
+      ]
+    },
+    {
+      "id": "inactivity-coverage-gap-suppressed",
+      "title": "Daytime inactivity is suppressed when observation coverage is unavailable",
+      "category": "inactivity",
+      "requirements": [
+        "E01"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "node",
+          "node": "kitchen",
+          "enabled": false
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "inactivity-clock-untrusted-suppressed",
+      "title": "Daytime inactivity is suppressed when time is untrusted",
+      "category": "inactivity",
+      "requirements": [
+        "E06"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 600
+        },
+        {
+          "action": "clock",
+          "enabled": false
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "inactivity-outside-daytime-window",
+      "title": "Daytime inactivity does not fire outside configured daytime window",
+      "category": "inactivity",
+      "requirements": [
+        "E06"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 300
+          }
+        },
+        {
+          "action": "time",
+          "minute": 1380
+        },
+        {
+          "action": "advance",
+          "seconds": 300
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DAYTIME_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "wan-loss-local-progress",
+      "title": "WAN loss keeps local evidence while backend view is stale",
+      "category": "transport",
+      "requirements": [
+        "E03",
+        "E04"
+      ],
+      "steps": [
+        {
+          "action": "wan",
+          "enabled": false
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 240
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.activity_seen",
+          "truthy": true
+        },
+        {
+          "path": "simulation.pending_cloud",
+          "gt": 0
+        },
+        {
+          "path": "home.hub_reachable",
+          "eq": false
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "MOTION"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "wan-reconnect-replays",
+      "title": "WAN reconnect replays pending event exactly once",
+      "category": "transport",
+      "requirements": [
+        "E02",
+        "E03"
+      ],
+      "steps": [
+        {
+          "action": "wan",
+          "enabled": false
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        },
+        {
+          "action": "wan",
+          "enabled": true
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.pending_cloud",
+          "eq": 0
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "MOTION"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "node-link-replay",
+      "title": "Node link recovery replays retained event exactly once",
+      "category": "transport",
+      "requirements": [
+        "E02"
+      ],
+      "steps": [
+        {
+          "action": "node",
+          "node": "kitchen",
+          "enabled": false
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        },
+        {
+          "action": "node",
+          "node": "kitchen",
+          "enabled": true
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "MOTION"
+          },
+          "count": 1
+        },
+        {
+          "path": "simulation.nodes.1.retained",
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "id": "duplicate-event-backend-idempotent",
+      "title": "Duplicate radio replay is stored once by backend",
+      "category": "transport",
+      "requirements": [
+        "E02"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        },
+        {
+          "action": "duplicate"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "MOTION"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "call-family-offline-replay",
+      "title": "Call Family survives WAN outage and opens one incident on reconnect",
+      "category": "transport",
+      "requirements": [
+        "E03",
+        "F07"
+      ],
+      "steps": [
+        {
+          "action": "wan",
+          "enabled": false
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "CALL_FAMILY"
+        },
+        {
+          "action": "wan",
+          "enabled": true
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "CALL_FAMILY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "provider-acceptance-not-human-ack",
+      "title": "Notification provider acceptance does not acknowledge incident",
+      "category": "caregiver",
+      "requirements": [
+        "F12",
+        "F13"
+      ],
+      "steps": [
+        {
+          "action": "advance",
+          "seconds": 1300
+        },
+        {
+          "action": "notify"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "MISSING_MORNING_ACTIVITY",
+            "state": "OPEN"
+          },
+          "count": 1
+        },
+        {
+          "select": "notifications",
+          "where": {
+            "state": "PROVIDER_ACCEPTED"
+          },
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "caregiver-lifecycle",
+      "title": "Claim acknowledge resolve closes incident and cancels pending routes",
+      "category": "caregiver",
+      "requirements": [
+        "F12",
+        "F13"
+      ],
+      "steps": [
+        {
+          "action": "advance",
+          "seconds": 1300
+        },
+        {
+          "capture": "first_incident",
+          "as": "iid"
+        },
+        {
+          "action": "claim",
+          "incident_id": "$iid"
+        },
+        {
+          "action": "acknowledge",
+          "incident_id": "$iid"
+        },
+        {
+          "action": "resolve",
+          "incident_id": "$iid"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "incidents",
+          "where": {
+            "state": "RESOLVED"
+          },
+          "count": 1
+        },
+        {
+          "select": "notifications",
+          "where": {
+            "state": "CANCELLED"
+          },
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "settings-version-increments",
+      "title": "Changing household policy creates a new config version",
+      "category": "configuration",
+      "requirements": [
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "door_open_timeout_seconds": 180
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "settings.config_version",
+          "ge": 2
+        },
+        {
+          "path": "settings.door_open_timeout_seconds",
+          "eq": 180
+        }
+      ]
+    },
+    {
+      "id": "invalid-privacy-event-rejected",
+      "title": "User-facing privacy event is not accepted by simulator controls",
+      "category": "negative",
+      "requirements": [
+        "F02"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "PRIVACY_ON",
+          "expect_error": "invalid node or event"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "invalid-kitchen-door-event-rejected",
+      "title": "Sensor capability mismatch is rejected",
+      "category": "negative",
+      "requirements": [
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "DOOR_OPEN",
+          "expect_error": "not supported"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "invalid-entry-ok-event-rejected",
+      "title": "Resident button event cannot be injected through door sensor",
+      "category": "negative",
+      "requirements": [
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "OK_PRESSED",
+          "expect_error": "not supported"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "invalid-advance-rejected",
+      "title": "Negative simulated time advance is rejected",
+      "category": "negative",
+      "requirements": [
+        "NFR-08"
+      ],
+      "steps": [
+        {
+          "action": "advance",
+          "seconds": -1,
+          "expect_error": "seconds must"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "invalid-local-time-rejected",
+      "title": "Invalid local minute is rejected",
+      "category": "negative",
+      "requirements": [
+        "E06"
+      ],
+      "steps": [
+        {
+          "action": "time",
+          "minute": 1440,
+          "expect_error": "minute must"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "invalid-mode-rejected",
+      "title": "Unsupported mode is rejected",
+      "category": "negative",
+      "requirements": [
+        "F10"
+      ],
+      "steps": [
+        {
+          "action": "mode",
+          "mode": "PRIVACY",
+          "expect_error": "invalid mode"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "invalid-door-timeout-rejected",
+      "title": "Unsafe door timeout setting is rejected",
+      "category": "negative",
+      "requirements": [
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "door_open_timeout_seconds": 20
+          },
+          "expect_error": "door_open_timeout_seconds"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "invalid-inactivity-threshold-rejected",
+      "title": "Unsafe inactivity threshold is rejected",
+      "category": "negative",
+      "requirements": [
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "daytime_inactivity_seconds": 200
+          },
+          "expect_error": "daytime_inactivity_seconds"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "unknown-node-rejected",
+      "title": "Unknown node cannot inject sensor data",
+      "category": "negative",
+      "requirements": [
+        "E07"
+      ],
+      "steps": [
+        {
+          "action": "event",
+          "node": "garage",
+          "kind": "MOTION",
+          "expect_error": "invalid node or event"
+        }
+      ],
+      "assertions": []
+    },
+    {
+      "id": "node-fault-low_battery",
+      "title": "Node fault LOW_BATTERY maps to stable diagnostics",
+      "category": "diagnostics",
+      "requirements": [
+        "E01",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "kitchen",
+          "fault": "LOW_BATTERY"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "kitchen"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "kitchen",
+            "code": "GS-N001",
+            "health": "DEGRADED",
+            "active": true
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "node-fault-battery_depleted",
+      "title": "Node fault BATTERY_DEPLETED maps to stable diagnostics",
+      "category": "diagnostics",
+      "requirements": [
+        "E01",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "kitchen",
+          "fault": "BATTERY_DEPLETED"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "kitchen"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "kitchen",
+            "code": "GS-N002",
+            "health": "OFFLINE",
+            "active": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "node-fault-link_loss",
+      "title": "Node fault LINK_LOSS maps to stable diagnostics and reboot recovery",
+      "category": "diagnostics",
+      "requirements": [
+        "E01",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "kitchen",
+          "fault": "LINK_LOSS"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "kitchen"
+        },
+        {
+          "action": "reboot",
+          "target": "kitchen"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "kitchen",
+            "code": "GS-OK000",
+            "health": "ACTIVE",
+            "active": true
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "node-fault-sensor_fault",
+      "title": "Node fault SENSOR_FAULT maps to stable diagnostics",
+      "category": "diagnostics",
+      "requirements": [
+        "E01",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "kitchen",
+          "fault": "SENSOR_FAULT"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "kitchen"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "kitchen",
+            "code": "GS-N004",
+            "health": "DEGRADED",
+            "active": true
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "node-fault-over_temp",
+      "title": "Node fault OVER_TEMP maps to stable diagnostics",
+      "category": "diagnostics",
+      "requirements": [
+        "E01",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "kitchen",
+          "fault": "OVER_TEMP"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "kitchen"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "kitchen",
+            "code": "GS-N005",
+            "health": "OFFLINE",
+            "active": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "node-fault-watchdog",
+      "title": "Node fault WATCHDOG maps to stable diagnostics and reboot recovery",
+      "category": "diagnostics",
+      "requirements": [
+        "E01",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "kitchen",
+          "fault": "WATCHDOG"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "kitchen"
+        },
+        {
+          "action": "reboot",
+          "target": "kitchen"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "kitchen",
+            "code": "GS-OK000",
+            "health": "ACTIVE",
+            "active": true
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "hub-fault-power_loss",
+      "title": "Hub fault POWER_LOSS maps to stable diagnostics",
+      "category": "diagnostics",
+      "requirements": [
+        "E04",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "hub",
+          "fault": "POWER_LOSS"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "hub"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "hub",
+            "code": "GS-H001",
+            "health": "OFFLINE",
+            "active": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "hub-fault-node_radio_failure",
+      "title": "Hub fault NODE_RADIO_FAILURE maps to stable diagnostics and reboot recovery",
+      "category": "diagnostics",
+      "requirements": [
+        "E04",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "hub",
+          "fault": "NODE_RADIO_FAILURE"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "hub"
+        },
+        {
+          "action": "reboot",
+          "target": "hub"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "hub",
+            "code": "GS-OK000",
+            "health": "ACTIVE",
+            "active": true
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "hub-fault-internet_loss",
+      "title": "Hub fault INTERNET_LOSS maps to stable diagnostics",
+      "category": "diagnostics",
+      "requirements": [
+        "E04",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "hub",
+          "fault": "INTERNET_LOSS"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "hub"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "hub",
+            "code": "GS-H003",
+            "health": "DEGRADED",
+            "active": true
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "hub-fault-over_temp",
+      "title": "Hub fault OVER_TEMP maps to stable diagnostics",
+      "category": "diagnostics",
+      "requirements": [
+        "E04",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "hub",
+          "fault": "OVER_TEMP"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "hub"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "hub",
+            "code": "GS-H004",
+            "health": "OFFLINE",
+            "active": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "hub-fault-watchdog",
+      "title": "Hub fault WATCHDOG maps to stable diagnostics and reboot recovery",
+      "category": "diagnostics",
+      "requirements": [
+        "E04",
+        "E10"
+      ],
+      "steps": [
+        {
+          "action": "fault",
+          "target": "hub",
+          "fault": "WATCHDOG"
+        },
+        {
+          "action": "troubleshoot",
+          "target": "hub"
+        },
+        {
+          "action": "reboot",
+          "target": "hub"
+        }
+      ],
+      "assertions": [
+        {
+          "select": "devices",
+          "where": {
+            "id": "hub",
+            "code": "GS-OK000",
+            "health": "ACTIVE",
+            "active": true
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "morning-sequence-bedroom-bathroom-kitchen-completes",
+      "title": "Configured bedroom \u2192 bathroom + kitchen completes morning routine",
+      "category": "routine",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "time",
+          "minute": 420
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 600
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 600
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.morning_sequence_completed",
+          "eq": true
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "MORNING_ROUTINE_COMPLETED"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "morning-sequence-bathroom-before-bedroom-does-not-complete",
+      "title": "Bathroom before bedroom does not satisfy configured morning sequence",
+      "category": "routine",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "time",
+          "minute": 420
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.morning_sequence_completed",
+          "eq": false
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "MORNING_ROUTINE_COMPLETED"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "morning-sequence-configurable-locations",
+      "title": "Morning sequence uses configured locations rather than code constants",
+      "category": "configuration",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "morning_bedroom_location": "pooja",
+            "morning_bathroom_location": "common",
+            "morning_kitchen_location": "kitchen"
+          }
+        },
+        {
+          "action": "time",
+          "minute": 420
+        },
+        {
+          "action": "event",
+          "node": "pooja",
+          "kind": "MOTION"
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.morning_sequence_completed",
+          "eq": true
+        },
+        {
+          "path": "settings.morning_bedroom_location",
+          "eq": "pooja"
+        }
+      ]
+    },
+    {
+      "id": "morning-sequence-window-configurable",
+      "title": "Morning sequence completion window is configurable",
+      "category": "boundary",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "morning_sequence_window_seconds": 600
+          }
+        },
+        {
+          "action": "time",
+          "minute": 420
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 601
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "event",
+          "node": "kitchen",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.morning_sequence_completed",
+          "eq": false
+        }
+      ]
+    },
+    {
+      "id": "night-bathroom-at-configured-limit-no-alert",
+      "title": "Bathroom visits equal to configured limit do not alert",
+      "category": "boundary",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 1380
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.night_bathroom_visits",
+          "eq": 4
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_BATHROOM_ACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "night-bathroom-over-limit-alerts",
+      "title": "Bathroom visits greater than configured limit raise concern",
+      "category": "routine",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 1380
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.night_bathroom_visits",
+          "eq": 5
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_BATHROOM_ACTIVITY"
+          },
+          "count": 1
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_BATHROOM_ACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "night-bathroom-threshold-configurable",
+      "title": "Bathroom visit threshold from household settings changes the alert point",
+      "category": "configuration",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "night_bathroom_visit_threshold": 2,
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 1380
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        }
+      ],
+      "assertions": [
+        {
+          "path": "settings.night_bathroom_visit_threshold",
+          "eq": 2
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_BATHROOM_ACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "night-common-over-limit-alerts",
+      "title": "Common-room visits greater than configured limit raise concern",
+      "category": "routine",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 1380
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.night_common_visits",
+          "eq": 5
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_COMMON_ACTIVITY"
+          },
+          "count": 1
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_COMMON_ACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "night-common-threshold-configurable",
+      "title": "Common-room threshold is household-configurable",
+      "category": "configuration",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "night_common_visit_threshold": 1,
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 1380
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        },
+        {
+          "action": "event",
+          "node": "common",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 301
+        }
+      ],
+      "assertions": [
+        {
+          "path": "settings.night_common_visit_threshold",
+          "eq": 1
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_COMMON_ACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "night-visit-merge-prevents-pir-burst-overcount",
+      "title": "Repeated PIR events inside configured merge interval count as one visit",
+      "category": "boundary",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "night_visit_merge_seconds": 600,
+            "night_bathroom_visit_threshold": 1,
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 1380
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 60
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.night_bathroom_visits",
+          "eq": 1
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "UNUSUAL_NIGHT_BATHROOM_ACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "night-motion-outside-window-not-counted",
+      "title": "Bathroom motion outside configured night window is not a night visit",
+      "category": "boundary",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 720
+        },
+        {
+          "action": "event",
+          "node": "bathroom",
+          "kind": "MOTION"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.night_bathroom_visits",
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "id": "door-left-open-two-hour-config-default",
+      "title": "Door-open concern uses configured two-hour default",
+      "category": "routine",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "time",
+          "minute": 720
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 7199
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "door-left-open-configured-boundary",
+      "title": "Door-left-open concern fires at configured threshold",
+      "category": "boundary",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "door_open_timeout_seconds": 7200,
+            "morning_sequence_enabled": false
+          }
+        },
+        {
+          "action": "time",
+          "minute": 720
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "advance",
+          "seconds": 7200
+        }
+      ],
+      "assertions": [
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "DOOR_LEFT_OPEN"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "post-door-inactivity-before-threshold-no-alert",
+      "title": "Door closed with no motion before configured threshold stays normal",
+      "category": "boundary",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "post_door_inactivity_seconds": 7200
+          }
+        },
+        {
+          "action": "time",
+          "minute": 720
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_CLOSED"
+        },
+        {
+          "action": "advance",
+          "seconds": 7199
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.post_door_inactivity_alerted",
+          "eq": false
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "POST_DOOR_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "post-door-inactivity-at-threshold-alerts",
+      "title": "Door closed with no indoor motion reaches configured red-flag threshold",
+      "category": "routine",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "post_door_inactivity_seconds": 7200
+          }
+        },
+        {
+          "action": "time",
+          "minute": 720
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_CLOSED"
+        },
+        {
+          "action": "advance",
+          "seconds": 7200
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.post_door_inactivity_alerted",
+          "eq": true
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "POST_DOOR_INACTIVITY"
+          },
+          "count": 1
+        },
+        {
+          "select": "incidents",
+          "where": {
+            "kind": "POST_DOOR_INACTIVITY"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "post-door-indoor-motion-cancels-alert",
+      "title": "Indoor motion after door close cancels post-door inactivity concern",
+      "category": "recovery",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "post_door_inactivity_seconds": 7200
+          }
+        },
+        {
+          "action": "time",
+          "minute": 720
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_OPEN"
+        },
+        {
+          "action": "event",
+          "node": "entry",
+          "kind": "DOOR_CLOSED"
+        },
+        {
+          "action": "advance",
+          "seconds": 3600
+        },
+        {
+          "action": "event",
+          "node": "room1",
+          "kind": "MOTION"
+        },
+        {
+          "action": "advance",
+          "seconds": 3600
+        }
+      ],
+      "assertions": [
+        {
+          "path": "simulation.post_door_inactivity_alerted",
+          "eq": false
+        },
+        {
+          "select": "timeline",
+          "where": {
+            "kind": "POST_DOOR_INACTIVITY"
+          },
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "household-routine-settings-versioned",
+      "title": "Household routine settings are versioned and visible after apply",
+      "category": "configuration",
+      "requirements": [
+        "F04",
+        "F05",
+        "F09",
+        "F10",
+        "F11"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "night_bathroom_visit_threshold": 3,
+            "night_common_visit_threshold": 2,
+            "door_open_timeout_seconds": 5400,
+            "post_door_inactivity_seconds": 9000
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "settings.night_bathroom_visit_threshold",
+          "eq": 3
+        },
+        {
+          "path": "settings.night_common_visit_threshold",
+          "eq": 2
+        },
+        {
+          "path": "settings.door_open_timeout_seconds",
+          "eq": 5400
+        },
+        {
+          "path": "settings.post_door_inactivity_seconds",
+          "eq": 9000
+        },
+        {
+          "path": "settings.config_version",
+          "ge": 2
+        }
+      ]
+    },
+    {
+      "id": "battery-prediction-baseline",
+      "title": "Battery analytics predicts remaining days from voltage plus calibrated usage history",
+      "category": "battery",
+      "requirements": [
+        "E01",
+        "E10",
+        "NFR-05"
+      ],
+      "steps": [],
+      "assertions": [
+        {
+          "path": "battery_analytics.kitchen.percent",
+          "gt": 50
+        },
+        {
+          "path": "battery_analytics.kitchen.daily_mah",
+          "gt": 0
+        },
+        {
+          "path": "battery_analytics.kitchen.estimated_days",
+          "gt": 30
+        },
+        {
+          "path": "battery_analytics.kitchen.confidence",
+          "eq": "HIGH"
+        },
+        {
+          "path": "battery_analytics.kitchen.drain_status",
+          "eq": "NORMAL"
+        },
+        {
+          "path": "battery_analytics.kitchen.recent_wakeups_per_day",
+          "gt": 0
+        }
+      ]
+    },
+    {
+      "id": "battery-high-drain-detected",
+      "title": "Sustained high wake/radio usage is detected and shortens battery-life prediction",
+      "category": "battery",
+      "requirements": [
+        "E01",
+        "E10",
+        "NFR-05"
+      ],
+      "steps": [
+        {
+          "action": "battery_usage",
+          "target": "kitchen",
+          "days": 2,
+          "intensity": 20
+        }
+      ],
+      "assertions": [
+        {
+          "path": "battery_analytics.kitchen.drain_status",
+          "eq": "HIGH"
+        },
+        {
+          "path": "battery_analytics.kitchen.recent_daily_mah",
+          "gt": 20
+        },
+        {
+          "path": "battery_analytics.kitchen.baseline_daily_mah",
+          "lt": 10
+        },
+        {
+          "path": "battery_analytics.kitchen.estimated_days",
+          "lt": 100
+        },
+        {
+          "path": "battery_analytics.kitchen.recent_retries_per_day",
+          "ge": 40
+        }
+      ]
+    },
+    {
+      "id": "battery-low-voltage-reserve",
+      "title": "Low battery voltage respects reserve and does not over-promise runtime",
+      "category": "battery",
+      "requirements": [
+        "E01",
+        "E10",
+        "NFR-05"
+      ],
+      "steps": [
+        {
+          "action": "battery_usage",
+          "target": "kitchen",
+          "days": 3,
+          "intensity": 1,
+          "battery_mv": 3500
+        }
+      ],
+      "assertions": [
+        {
+          "path": "battery_analytics.kitchen.percent",
+          "eq": 5
+        },
+        {
+          "path": "battery_analytics.kitchen.remaining_mah",
+          "eq": 0.0
+        },
+        {
+          "path": "battery_analytics.kitchen.estimated_days",
+          "eq": null
+        }
+      ]
+    },
+    {
+      "id": "battery-counter-reset-safe",
+      "title": "Battery analytics tolerates device counter reset without negative energy",
+      "category": "battery",
+      "requirements": [
+        "E01",
+        "E10",
+        "NFR-05"
+      ],
+      "steps": [
+        {
+          "action": "battery_counter_reset",
+          "target": "kitchen",
+          "battery_mv": 3900
+        }
+      ],
+      "assertions": [
+        {
+          "path": "battery_analytics.kitchen.modeled_consumed_mah",
+          "ge": 0
+        },
+        {
+          "path": "battery_analytics.kitchen.estimated_days",
+          "gt": 0
+        },
+        {
+          "path": "battery_analytics.kitchen.confidence",
+          "eq": "LOW"
+        }
+      ]
+    },
+    {
+      "id": "battery-profile-capacity-configurable",
+      "title": "Device battery capacity calibration changes runtime prediction without code change",
+      "category": "battery",
+      "requirements": [
+        "E01",
+        "E10",
+        "NFR-05"
+      ],
+      "steps": [
+        {
+          "action": "battery_profile_patch",
+          "target": "kitchen",
+          "values": {
+            "usable_capacity_mah": 4000.0
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "battery_analytics.kitchen.estimated_days",
+          "gt": 350
+        },
+        {
+          "path": "battery_analytics.kitchen.daily_mah",
+          "lt": 10
+        }
+      ]
+    },
+    {
+      "id": "battery-alert-threshold-configurable",
+      "title": "Household low-battery alert threshold is configuration, not a hardcoded value",
+      "category": "battery",
+      "requirements": [
+        "F04",
+        "E01",
+        "NFR-05"
+      ],
+      "steps": [
+        {
+          "action": "settings_patch",
+          "values": {
+            "battery_alert_percent": 35
+          }
+        }
+      ],
+      "assertions": [
+        {
+          "path": "settings.battery_alert_percent",
+          "eq": 35
+        },
+        {
+          "path": "settings.config_version",
+          "ge": 2
+        }
+      ]
+    },
+    {
+      "id": "battery-invalid-usage-rejected",
+      "title": "Invalid battery-usage telemetry controls are rejected safely",
+      "category": "negative",
+      "requirements": [
+        "E07",
+        "E10",
+        "NFR-05"
+      ],
+      "steps": [
+        {
+          "action": "battery_usage",
+          "target": "kitchen",
+          "days": 0,
+          "intensity": 1,
+          "expect_error": "invalid battery usage"
+        }
+      ],
+      "assertions": []
+    }
+  ]
+}

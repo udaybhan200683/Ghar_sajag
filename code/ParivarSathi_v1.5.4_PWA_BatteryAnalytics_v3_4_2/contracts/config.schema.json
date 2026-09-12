@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ghar-sajag.example/contracts/home-config-v1.json",
+  "title": "Ghar Sajag desired configuration v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "home_id",
+    "version",
+    "timezone",
+    "mode",
+    "morning",
+    "activity_rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "home_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "mode": {
+      "enum": [
+        "HOME",
+        "AWAY",
+        "PAUSED",
+        "VISITOR",
+        "PRIVACY"
+      ]
+    },
+    "morning": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "start_minute",
+        "end_minute",
+        "grace_minutes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "end_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440
+        },
+        "grace_minutes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 180
+        },
+        "qualifying_locations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 32
+          }
+        }
+      }
+    },
+    "activity_rules": {
+      "type": "object",
+      "required": [
+        "quiet_hours_enabled",
+        "quiet_start_minute",
+        "quiet_end_minute",
+        "door_open_timeout_seconds",
+        "daytime_inactivity_enabled",
+        "daytime_start_minute",
+        "daytime_end_minute",
+        "daytime_inactivity_seconds",
+        "morning_sequence_enabled",
+        "morning_start_minute",
+        "morning_end_minute",
+        "morning_sequence_window_seconds",
+        "morning_bedroom_location",
+        "morning_bathroom_location",
+        "morning_kitchen_location",
+        "night_activity_enabled",
+        "night_start_minute",
+        "night_end_minute",
+        "night_bathroom_location",
+        "night_bathroom_visit_threshold",
+        "night_common_location",
+        "night_common_visit_threshold",
+        "night_visit_merge_seconds",
+        "post_door_inactivity_enabled",
+        "post_door_inactivity_seconds",
+        "battery_alert_percent"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "quiet_hours_enabled": {
+          "type": "boolean"
+        },
+        "quiet_start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "quiet_end_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "door_open_timeout_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 86400
+        },
+        "daytime_inactivity_enabled": {
+          "type": "boolean"
+        },
+        "daytime_start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "daytime_end_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "daytime_inactivity_seconds": {
+          "type": "integer",
+          "minimum": 300,
+          "maximum": 86400
+        },
+        "morning_sequence_enabled": {
+          "type": "boolean"
+        },
+        "morning_start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "morning_end_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "morning_sequence_window_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 86400
+        },
+        "morning_bedroom_location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "morning_bathroom_location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "morning_kitchen_location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "night_activity_enabled": {
+          "type": "boolean"
+        },
+        "night_start_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "night_end_minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        },
+        "night_bathroom_location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "night_bathroom_visit_threshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "night_common_location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "night_common_visit_threshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "night_visit_merge_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7200
+        },
+        "post_door_inactivity_enabled": {
+          "type": "boolean"
+        },
+        "post_door_inactivity_seconds": {
+          "type": "integer",
+          "minimum": 300,
+          "maximum": 86400
+        },
+        "battery_alert_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      }
+    }
+  }
+}
