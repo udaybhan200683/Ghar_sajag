@@ -11,6 +11,9 @@ let scheduleEditorOpen=false;
 let scheduleFeedbackState={message:'',kind:''};
 let phase1EditorOpen=false;
 let validation={catalog:null,results:[],running:false,last:null};
+let reportState={status:'idle',data:null,error:''};
+let reportRequestSeq=0, reportInFlight=false;
+const reportApiPeriods={day:'TODAY',week:'WEEK',month:'MONTH'};
 
 function nowTick(){
   const d=new Date();
@@ -28,7 +31,8 @@ function formatSimTime(sec){
 }
 
 async function backendRequest(path,body){
-  const options=body===undefined?{cache:'no-store'}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};
+  const headers={'X-Actor-Id':'simulation-owner'};
+  const options=body===undefined?{cache:'no-store',headers}:{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)};
   const response=await fetch(path,options);
   if(!response.ok){
     let detail=''; try{detail=(await response.json()).error||''}catch(_){ }
@@ -154,6 +158,76 @@ function countLabel(value,singular){
   const count=Number(value)||0;
   return `${count} ${count===1?singular:`${singular}s`}`;
 }
+function requireReportPayload(data){
+  if(!data || data.schema_version!==1 || !data.summary || !Array.isArray(data.trend) || !Array.isArray(data.highlights) || !Array.isArray(data.insights))throw new Error('malformed_report');
+  if(!['TODAY','WEEK','MONTH'].includes(data.period) || !['DATA','NO_DATA'].includes(data.status))throw new Error('malformed_report');
+  return data;
+}
+async function loadReport({quiet=false}={}){
+  const apiPeriod=reportApiPeriods[reportPeriod]||'WEEK';
+  const needsLoading=!reportState.data || reportState.data.period!==apiPeriod || reportState.status==='error';
+  const requestId=++reportRequestSeq;
+  reportInFlight=true;
+  if(needsLoading){
+    reportState={status:'loading',data:reportState.data,error:''};
+    renderReports();
+  }
+  try{
+    const data=requireReportPayload(await backendRequest(`/v1/homes/simulation-home/reports?period=${encodeURIComponent(apiPeriod)}`));
+    if(requestId===reportRequestSeq)reportState={status:data.status==='NO_DATA'?'no-data':'data',data,error:''};
+  }catch(err){
+    if(requestId===reportRequestSeq){
+      reportState={status:'error',data:null,error:'Reports are temporarily unavailable.'};
+      if(!quiet && currentTab==='reports')toast('Reports are temporarily unavailable');
+    }
+  }finally{
+    reportInFlight=false;
+    if(requestId===reportRequestSeq)renderReports();
+  }
+}
+function reportPeriodLabel(period){return period==='day'?'Today':period==='week'?'This Week':'This Month'}
+function reportMetric(value,singular){return countLabel(Number(value)||0,singular)}
+function reportTile(icon,value,label,key,tone=''){
+  return `<div class="report-tile ${tone}" data-report-card="${esc(key)}">${icon}<strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;
+}
+function renderReportTrend(data){
+  const max=Math.max(1,...data.trend.map(item=>Number(item.activity_events)||0));
+  const bars=data.trend.map(item=>{
+    const activity=Number(item.activity_events)||0, concerns=Number(item.care_concerns)||0;
+    return `<div class="bar-wrap" data-report-bucket="${esc(item.key)}"><div class="bar-val">${activity}</div><div class="bar ${concerns?'concern':''}" style="height:${Math.max(10,Math.round(activity/max*120))}px"></div><div class="bar-label">${esc(item.label)}</div></div>`;
+  }).join('');
+  return `<div class="card report-card" style="margin-top:16px"><h2>Activity trend</h2><div class="muted">Recorded household activity by day</div><div class="chart report-chart">${bars}</div></div>`;
+}
+function renderReportHighlights(data){
+  if(!data.highlights.length)return `<div class="insight"><strong>No notable activity recorded</strong><div class="muted">There are no caregiver highlights for this period.</div></div>`;
+  return data.highlights.map(item=>`<div class="insight report-highlight ${esc(item.tone||'neutral')}" data-report-highlight="${esc(item.tone||'neutral')}"><strong>${esc(item.title)}</strong><div class="muted">${esc(item.time)} · ${esc(item.detail)}</div></div>`).join('');
+}
+function renderReportInsights(data){
+  if(!data.insights.length)return `<div class="insight"><strong>Insufficient history</strong><div class="muted">Reports will summarize trends as more household activity is recorded.</div></div>`;
+  return data.insights.map(item=>`<div class="insight"><strong>${esc(item.title)}</strong><div class="muted">${esc(item.detail)}</div></div>`).join('');
+}
+function renderReportData(data){
+  const s=data.summary;
+  const concernTone=Number(s.care_concerns)>0?'danger':'';
+  const dateRange=data.window?.start_local===data.window?.end_local?data.window?.start_local:`${data.window?.start_local} to ${data.window?.end_local}`;
+  const rooms=(data.room_activity||[]).map(item=>`<span>${esc(item.location)}: ${reportMetric(item.count,'event')}</span>`).join('');
+  return `
+ <div class="card report-card"><h2>${esc(data.label)} at a glance</h2><div class="muted">Backend history from ${esc(dateRange||'this period')}</div><div class="report-grid" style="margin-top:14px">
+   ${reportTile('☀️',reportMetric(s.morning_completed,'completion'),'Morning routine','morning')}
+   ${reportTile('✓',reportMetric(s.check_ins,'check-in'),'I am OK','check-ins')}
+   ${reportTile('☾',reportMetric(s.night_activity,'event'),'Night activity','night')}
+   ${reportTile('!',reportMetric(s.care_concerns,'concern'),'Care concerns','concerns',concernTone)}
+ </div>${data.partial_data?'<p class="muted report-note">Some report domains have no recorded activity in this period.</p>':''}</div>
+ ${renderReportTrend(data)}
+ <div class="card report-card" style="margin-top:16px"><h2>Notable activity</h2>${renderReportHighlights(data)}</div>
+ <div class="card report-card" style="margin-top:16px"><h2>Caregiver insights</h2>${renderReportInsights(data)}</div>
+ <div class="card report-card" style="margin-top:16px"><h2>Rooms and door activity</h2><div class="report-grid compact">
+   ${reportTile('🚪',reportMetric(s.door_openings,'opening'),'Main door','door')}
+   ${reportTile('☎',reportMetric(s.call_family,'request'),'Call Family','call-family')}
+   ${reportTile('📶',reportMetric(s.coverage_lost,'loss'),'Coverage lost','coverage-lost',Number(s.coverage_lost)>0?'danger':'')}
+   ${reportTile('✓',reportMetric(s.coverage_restored,'restoration'),'Coverage restored','coverage-restored')}
+ </div>${rooms?`<div class="room-summary">${rooms}</div>`:'<p class="muted report-note">No room activity recorded for this period.</p>'}</div>`;
+}
 
 function renderHome(){
   const s=homeSeverity(), health=state.deviceHealth || {low_name:'Unknown',low_percent:0,runtime:'calculating',attention:false,high_drain_devices:[]};
@@ -216,25 +290,18 @@ function renderDevices(){
  </div>`}).join('')}</div>`;
 }
 function renderReports(){
- const vals=[62,78,112,76,48,69,83];
+ const status=reportState.status==='idle'?'loading':reportState.status;
+ const data=reportState.data;
+ const activeApiPeriod=reportApiPeriods[reportPeriod]||'WEEK';
+ const stale=data && data.period!==activeApiPeriod;
+ const body=status==='error'?`<div class="card report-state error" role="alert" data-report-status="error"><h2>Reports unavailable</h2><p class="muted">${esc(reportState.error||'Reports are temporarily unavailable.')}</p><button type="button" onclick="loadReport()">Try again</button></div>`:
+   (status==='loading' || stale)?`<div class="card report-state" data-report-status="loading"><h2>Loading ${esc(reportPeriodLabel(reportPeriod))}</h2><p class="muted">Fetching household history from the backend.</p></div>`:
+   status==='no-data'?`<div class="card report-state" data-report-status="no-data"><h2>No recorded activity for ${esc(reportPeriodLabel(reportPeriod).toLowerCase())}</h2><p class="muted">Reports become available as household activity is recorded. No-data is not a backend error.</p></div>`:
+   renderReportData(data);
  $('#reportsTab').innerHTML=`
- <div class="card"><div class="card-row"><div class="round-icon">▥</div><div><h1 style="margin:0">Reports</h1><div class="muted">Daily and weekly family care summary</div></div></div></div>
- <div class="tabs3">${['day','week','month'].map(p=>`<button class="${reportPeriod===p?'active':''}" onclick="setReport('${p}')">${p==='day'?'Today':p==='week'?'This Week':'This Month'}</button>`).join('')}</div>
- <div class="card"><h2>This week at a glance</h2><div class="muted">Key highlights from 9–15 Sep</div><div class="report-grid" style="margin-top:14px">
-   <div class="report-tile">☀️<strong>6/7 days</strong>Morning routine</div>
-   <div class="report-tile">✅<strong>5/7 days</strong>I am OK</div>
-   <div class="report-tile">🌙<strong>2 visits</strong>Night avg</div>
-   <div class="report-tile">⚠️<strong style="color:#d91920">1</strong>Unusual alert</div>
- </div></div>
- <div class="card" style="margin-top:16px"><h2>Activity trend</h2><div class="muted">Daily activity level (sensor events)</div><div class="chart">
- ${vals.map((v,i)=>`<div class="bar-wrap"><div class="bar-val">${v}</div><div class="bar" style="height:${v/1.25}px"></div><div class="bar-label">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}</div></div>`).join('')}
- </div></div>
- <div class="card" style="margin-top:16px"><h2>Key insights</h2>
-   <div class="insight"><strong>✅ Routine was normal on most days</strong><div class="muted">Morning routine completed on 6 out of 7 days.</div></div>
-   <div class="insight"><strong>🌙 Higher night activity seen on Wed</strong><div class="muted">Night activity was higher than usual.</div></div>
-   <div class="insight"><strong>🚪 Main door activity lower than usual on Fri</strong><div class="muted">Fewer main door events compared to usual.</div></div>
-   <div class="insight"><strong>⚠️ One device needed battery attention</strong><div class="muted">Bathroom sensor battery low this week.</div></div>
- </div>`;
+ <div class="card"><div class="card-row"><div class="round-icon">▥</div><div><h1 style="margin:0">Reports</h1><div class="muted">Family care summary from backend history</div></div></div></div>
+ <div class="tabs3">${['day','week','month'].map(p=>`<button type="button" class="${reportPeriod===p?'active':''}" data-report-period="${p}" onclick="setReport('${p}')">${reportPeriodLabel(p)}</button>`).join('')}</div>
+ <div data-report-period-active="${esc(activeApiPeriod)}" data-report-status="${esc(status)}">${body}</div>`;
 }
 function minutesToClock(minute){const h=Math.floor(Number(minute||0)/60)%24,m=Number(minute||0)%60;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`}
 function clockToMinutes(v){const [h,m]=String(v||'00:00').split(':').map(Number);return h*60+m}
@@ -343,9 +410,9 @@ function render(){
   $('#awayToggle').checked=false;
   $('#awayToggle').disabled=true;
 }
-$$('.nav-btn').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab; $$('.nav-btn').forEach(x=>x.classList.toggle('active',x===b)); $$('.tab-panel').forEach(x=>x.classList.remove('active')); $('#'+currentTab+'Tab').classList.add('active');});
+$$('.nav-btn').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab; $$('.nav-btn').forEach(x=>x.classList.toggle('active',x===b)); $$('.tab-panel').forEach(x=>x.classList.remove('active')); $('#'+currentTab+'Tab').classList.add('active'); if(currentTab==='reports')loadReport({quiet:true});});
 $('#awayToggle').checked=false; $('#awayToggle').disabled=true;
-window.setReport=p=>{reportPeriod=p;renderReports()}
+window.setReport=p=>{if(!reportApiPeriods[p])return;reportPeriod=p;loadReport()}
 window.toggleDemo=async k=>{
   await scenarioAction({action:'toggle',scenario:k});
 }
@@ -357,5 +424,5 @@ window.toast=t=>{let n=document.createElement('div');n.className='toast';n.textC
 window.enableNotifications=async()=>{if(!('Notification'in window))return toast('Browser notifications are not supported here.');let p=await Notification.requestPermission();toast(p==='granted'?'Notifications enabled':'Notification permission not granted')}
 function notify(title,body){if('Notification'in window && Notification.permission==='granted')new Notification(title,{body,icon:'assets/icon.svg'})}
 if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js');
-(async()=>{try{await loadValidationCatalog()}catch(err){toast(`Validation catalog unavailable: ${err.message}`)}await refreshFromBackend(true);if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
-setInterval(()=>{if(!validation.running)refreshFromBackend(false)},2000);
+(async()=>{try{await loadValidationCatalog()}catch(err){toast(`Validation catalog unavailable: ${err.message}`)}await refreshFromBackend(true);await loadReport({quiet:true});if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
+setInterval(()=>{if(!validation.running){refreshFromBackend(false);if(currentTab==='reports')loadReport({quiet:true});}},2000);

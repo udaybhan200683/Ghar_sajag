@@ -30,6 +30,8 @@ from ghar_sajag.model import HomeMode
 from ghar_sajag.battery import BatteryPowerProfile, BatterySample, EnergyCounters
 from ghar_sajag.service import GharSajagService
 from ghar_sajag.foundation import FoundationService, FoundationError
+from ghar_sajag.sqlite_events import SQLiteEventMap
+from ghar_sajag.store import InMemoryStore
 
 HOME = "simulation-home"
 OWNER = "simulation-owner"
@@ -189,15 +191,19 @@ class Lab:
             raise ValueError(result.get("error", captured[0]))
         return result
 
-    def reset(self, test_fixture=False):
+    def reset(self, test_fixture=False, clear_events=False):
         self.command("reset")
         if test_fixture:
             self.foundation.reset_test_fixture(DEFAULT_HOUSEHOLD_SETTINGS, DEFAULT_REGISTRY)
-        self.service = GharSajagService()
+        event_map = SQLiteEventMap(self.foundation.db, self.foundation.lock)
+        if test_fixture or clear_events:
+            event_map.clear_home(HOME)
+        self.service = GharSajagService(InMemoryStore(events=event_map))
         self.api = JsonApi(self.service, now=lambda: self.state["now"])
-        self.api_call("POST", "/v1/homes", {"home_id": HOME, "display_name": "Synthetic demo home",
-                      "timezone": "Asia/Kolkata", "residents": [{"resident_id": "demo-resident",
-                      "display_name": "Demo resident", "consent_active": True}]})
+        household = self.foundation.home(OWNER)
+        self.api_call("POST", "/v1/homes", {"home_id": HOME, "display_name": household["display_name"],
+                      "timezone": household["timezone"], "language": household["language"],
+                      "residents": [{"resident_id": "demo-resident", "display_name": "Demo resident", "consent_active": True}]})
         self.service.homes.set_caregivers(HOME, OWNER, "primary", "backup", self.state["now"])
         self.heartbeat_id = 0
         self.device_faults = {**{node: None for node in NODES}, "hub": None}
@@ -823,7 +829,7 @@ class Lab:
         """Rebuild current verification state through the existing simulator/backend path."""
         flags = dict(getattr(self, "pwa_flags", {}))
         audit = list(getattr(self, "pwa_audit", []))
-        self.reset()
+        self.reset(clear_events=True)
         self.pwa_flags.update(flags)
         self.pwa_audit = audit
         if not self.pwa_flags["morning_negative"]:

@@ -14,6 +14,7 @@ from .logging_config import traced
 import json
 import re
 from typing import Callable, Iterable
+from urllib.parse import parse_qs
 
 from .model import CloudEvent, Resident
 from .service import GharSajagService
@@ -38,7 +39,8 @@ class JsonApi:
             path = environ.get("PATH_INFO", "/")
             actor = environ.get("HTTP_X_ACTOR_ID", "")
             body = self._body(environ)
-            status, payload = self.dispatch(method, path, actor, body)
+            query = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
+            status, payload = self.dispatch(method, path, actor, body, query)
         except PermissionError as error:
             status, payload = "403 Forbidden", {"error": str(error)}
         except KeyError as error:
@@ -51,8 +53,9 @@ class JsonApi:
 
     @traced("B11")
 
-    def dispatch(self, method: str, path: str, actor: str, body: dict) -> tuple[str, dict]:
+    def dispatch(self, method: str, path: str, actor: str, body: dict, query: dict | None = None) -> tuple[str, dict]:
         at = self.now()
+        query = query or {}
         if method == "GET" and path == "/healthz":
             return "200 OK", {"status": "ok"}
         if method == "POST" and path == "/v1/homes":
@@ -80,6 +83,11 @@ class JsonApi:
         match = re.fullmatch(r"/v1/homes/([^/]+)/snapshot", path)
         if method == "GET" and match:
             return "200 OK", self.service.queries.snapshot(match.group(1), actor, at)
+        match = re.fullmatch(r"/v1/homes/([^/]+)/reports", path)
+        if method == "GET" and match:
+            if set(query) != {"period"} or len(query.get("period", [])) != 1:
+                raise ValueError("invalid_report_request")
+            return "200 OK", self.service.queries.report(match.group(1), actor, at, query["period"][0])
         match = re.fullmatch(r"/v1/homes/([^/]+)/incidents/([^/]+)/(claim|acknowledge|resolve)", path)
         if method == "POST" and match:
             home_id, incident_id, action = match.groups()
