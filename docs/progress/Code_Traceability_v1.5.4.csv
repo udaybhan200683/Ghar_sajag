@@ -82,7 +82,7 @@ tools/logs/analyze_logs.py,S05,"AI08, E10, NFR-05, NFR-09",Host utility / valida
 tools/sim/scenario_matrix.py,T01,"E08, E10, V01, AI01, AI03, NFR-08",Host utility / validated where release-gated,VERIFICATION_REPORT.md: v1.5.4 release-gate evidence
 Makefile,T01,"E10, V01, NFR-08",Release orchestration / validated,make validation-fast; make release-gate; make release-gate-browser
 shared/include/gs/protocol.hpp,S01,"E01, E02, E07, NFR-08",Host implemented / validated,tests/cpp/test_main.cpp protocol/ACK/retry checks; contract verifier
-backend/ghar_sajag/database.py,B08,"E05, E10, NFR-08",Persistence schema adapter / validated,tests/python/test_database_schema.py
+backend/ghar_sajag/database.py,B08,"E05, E10, NFR-08",Versioned SQLite migration adapter / Phase 1 targeted validated,tests/python/test_database_schema.py; tests/python/test_foundation.py
 backend/migrations/001_p0_core.sql,B08,"E05, NFR-08",Relational persistence contract / validated,tests/python/test_database_schema.py
 backend/DATA_MODEL.md,B08,"E05, E10",Documented persistence contract,Schema test + migration review
 contracts/node.schema.json,S01,"E02, E07, NFR-08",Contract / validated,scripts/verify_contracts.py
@@ -93,14 +93,14 @@ contracts/openapi.yaml,S01/B07,"F11, E04, E07, E08",API contract / validated,scr
 contracts/NODE_TO_HUB_PROTOCOL.md,S01/N02/H01,"E01, E02, E06",Protocol contract / frozen host baseline,Protocol golden payloads + C++ tests
 contracts/examples/node_message_v2.json,S01,E02,Golden protocol fixture / validated,scripts/verify_contracts.py
 contracts/examples/node_ack_v1.json,S01,E02,Golden protocol fixture / validated,scripts/verify_contracts.py
-host/simulator/interactive.cpp,T01,"F04-F13, E01-E10",Connected host adapter / validated,68 functional scenarios; 16 HTTP integration tests
-tools/sim/local_lab.py,T01,"F04-F13, E01-E10",Connected simulation lab / validated,68/68 functional + dummy streams + HTTP tests
+host/simulator/interactive.cpp,T01,"F04-F13, E01-E10",Connected host adapter / 92 functional scenarios validated,tests/functional/scenario_catalog.json; tests/simulation_http_test.py
+tools/sim/local_lab.py,T01,"F04-F13, E01-E10",Connected simulator and Phase 1 API/projection / targeted validated; focused browser PASS; full gate pending,tests/python/test_phase1_application.py; tests/functional/scenario_catalog.json; tests/playwright/phase1_foundation.spec.ts
 tools/sim/web/index.html,A02/A03,"F04, F11, E01, E10, NFR-10",Simulation/PWA UI / host implemented,Manual functional plan; optional Playwright
 tools/sim/web/lab.mjs,A02/A03/A04,"F04, F06-F13, E01, E07, E10",Simulation/PWA behavior / host implemented,16 HTTP tests; manual plan; optional Playwright
 tools/sim/web/lab.css,A02,"F11, NFR-10",Simulation/PWA presentation / manual visual gate,tests/MANUAL_FUNCTIONAL_VALIDATION.md
 tests/simulation_http_test.py,T01,"F06, F08, F09, F12, E03, E04, E07, E08, E10",HTTP integration test / validated,16/16 PASS
-tests/simulation_browser_test.cjs,T01/A02,"F11, E10, NFR-10","Browser automation / available, not executed in current evidence",release-gate-browser; current status MANUAL_REQUIRED
-tests/functional/scenario_catalog.json,T01,"F04-F13, E01-E10",Canonical functional catalog / validated,68/68 connected scenarios
+tests/simulation_browser_test.cjs,T01/A02,"F11, E10, NFR-10",Legacy engineering-lab browser E2E / baseline validated; Phase 1 focused browser PASS; full gate pending,make release-gate-final; tests/playwright/phase1_foundation.spec.ts
+tests/functional/scenario_catalog.json,T01,"F04-F13, E01-E10",Canonical functional catalog / 92 cases validated,tools/validation/run_functional_suite.py
 tests/validation_coverage.json,T01,"F01-F14, E01-E10",Requirement coverage contract / validated,24/24 P0 IDs mapped
 tests/MANUAL_FUNCTIONAL_VALIDATION.md,T01/A02,"F11, E10, NFR-10",Generated manual validation plan,Generated from canonical scenario catalog
 tests/python/test_database_schema.py,T01/B08,"E05, E10, NFR-08",Persistence test / validated,Python release-gate suite
@@ -132,3 +132,12 @@ tests/pwa_68_api_test.py,T01,"F04-F14, E01-E10",PWA canonical API validation / v
 tests/pwa_68_frontend_test.py,T01,"F04-F14, E01-E10",PWA canonical frontend validation / validated,92 canonical scenarios through frontend runner
 tests/playwright/pwa_release_gate.spec.ts,T01/A02,"F04-F14, E01, E04, E07, E10, NFR-10",Mandatory Chromium PWA release gate / validated,Desktop and Pixel 7 viewport scenarios; invoked by make release-gate-final
 scripts/run_playwright_gate.py,T01/A02,"E10, NFR-10",Playwright release orchestration / validated,make playwright-gate and release-gate-final
+backend/migrations/003_phase1_application.sql,B08,"F01, F03, F04, F11, E01, E05, E07",Phase 1 application schema / targeted validated,tests/python/test_database_schema.py; tests/python/test_foundation.py
+backend/ghar_sajag/foundation.py,B08/A01/A03,"F01, F03, F04, F11, E01, E05, E07, E08",Single household/family/device/policy domain / targeted validated; browser pending,tests/python/test_foundation.py; tests/python/test_phase1_application.py
+tools/sim/pwa/app.js,A02/A03,"F01, F03, F04, F11, E01, E07, E08, NFR-10",Phase 1 PWA client and CRUD UI / focused browser PASS; full gate pending,tests/playwright/phase1_foundation.spec.ts; node --check
+tools/sim/pwa/index.html,A02,"F11, NFR-10",Phase 1 responsive dialog shell / focused browser PASS; full gate pending,tests/playwright/phase1_foundation.spec.ts
+tools/sim/pwa/styles.css,A02,"F11, NFR-10",Phase 1 responsive dialogs / focused browser PASS; full gate pending,tests/playwright/phase1_foundation.spec.ts
+tools/sim/pwa/sw.js,A05,"E04, F11",Static-shell cache; live state/API remain network-authoritative / targeted checked,node --check; tests/playwright/phase1_foundation.spec.ts
+tests/python/test_foundation.py,T01/B08,"F01, F03, F04, E01, E05, E07, E08",Phase 1 persistence/domain negative and restart tests / PASS,PYTHONPATH=backend python3 -m unittest tests/python/test_foundation.py
+tests/python/test_phase1_application.py,T01/B08,"F01, F03, F04, F11, E01, E05, E07, E08",Phase 1 direct WSGI API and simulator integration / PASS,PYTHONPATH=backend python3 -m unittest tests/python/test_phase1_application.py
+tests/playwright/phase1_foundation.spec.ts,T01/A02,"F01, F03, F04, F11, E01, E07, NFR-10",Phase 1 desktop/mobile Chromium acceptance / focused 12/12 PASS outside socket sandbox; full WSL gate pending,make release-gate-final; focused 12/12 PASS outside sandbox

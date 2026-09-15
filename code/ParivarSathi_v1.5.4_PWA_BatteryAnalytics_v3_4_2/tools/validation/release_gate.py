@@ -70,7 +70,8 @@ def browser_stage():
     subprocess.run(['make','lab-build'],cwd=ROOT,check=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
     server=subprocess.Popen(
         [sys.executable,'tools/sim/local_lab.py','--port','8765'],
-        cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True
+        cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,
+        env={**os.environ,'GS_APP_DB':':memory:'}
     )
     server_log=EVIDENCE/'browser-e2e-server.log'
     try:
@@ -110,6 +111,8 @@ ok=True
 ok &= run('validation-coverage',[sys.executable,'scripts/check_validation_coverage.py'])
 ok &= run('contracts',[sys.executable,'scripts/verify_contracts.py'])
 ok &= run('cpp-unit',['make','cpp-test'])
+# make python-test discovers all tests/python/test_*.py, including the Phase 1
+# FoundationService persistence/domain and WSGI application-path suites.
 ok &= run('python-backend-db-logging',['make','python-test'])
 ok &= run('javascript-app',['make','app-test'])
 ok &= run('product-base',['make','product-test','PRODUCT=base'])
@@ -130,6 +133,8 @@ ok &= run('functional-catalog',[sys.executable,'tools/validation/run_functional_
 ok &= run('http-integration',[sys.executable,'tests/simulation_http_test.py'],timeout=240)
 ok &= run('pwa-bridge',[sys.executable,'tests/pwa_bridge_test.py'],timeout=240)
 ok &= run('pwa-68-api',[sys.executable,'tests/pwa_68_api_test.py'],timeout=300)
+# Phase 1 browser coverage is included by scripts/run_playwright_gate.py, which
+# runs every spec under tests/playwright for both configured Chromium projects.
 ok &= run('pwa-68-frontend',[sys.executable,'tests/pwa_68_frontend_test.py'],timeout=300)
 if not args.quick:
     ok &= run('cpp-sanitizers',['make','verify-sanitize'],timeout=300,env={'ASAN_OPTIONS':'detect_leaks=0'})

@@ -13,6 +13,7 @@ from dataclasses import asdict
 from io import BytesIO
 import json
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import selectors
@@ -28,6 +29,7 @@ from ghar_sajag.http_api import JsonApi
 from ghar_sajag.model import HomeMode
 from ghar_sajag.battery import BatteryPowerProfile, BatterySample, EnergyCounters
 from ghar_sajag.service import GharSajagService
+from ghar_sajag.foundation import FoundationService, FoundationError
 
 HOME = "simulation-home"
 OWNER = "simulation-owner"
@@ -103,12 +105,24 @@ DEFAULT_HOUSEHOLD_SETTINGS = {
     "post_door_inactivity_enabled": True,
     "post_door_inactivity_seconds": 2 * 60 * 60,
     "battery_alert_percent": 20,
+    "critical_battery_percent": 5,
+    "abnormal_drain_alert_enabled": True,
 }
+
+DEFAULT_REGISTRY = [
+    {"id":"hub","name":"Hub","kind":"HUB","capability":"HUB","room":"Central hub"},
+    {"id":"room1","name":"Bedroom Node","kind":"NODE","capability":"MOTION_BUTTON","room":"Bedroom / Room 1"},
+    {"id":"kitchen","name":"Kitchen Node","kind":"NODE","capability":"MOTION","room":"Kitchen"},
+    {"id":"entry","name":"Main Door Node","kind":"NODE","capability":"DOOR","room":"Main door"},
+    {"id":"pooja","name":"Pooja Room Node","kind":"NODE","capability":"MOTION","room":"Pooja room"},
+    {"id":"bathroom","name":"Bathroom Sensor","kind":"NODE","capability":"MOTION","room":"Bathroom"},
+    {"id":"common","name":"Common Room Sensor","kind":"NODE","capability":"MOTION","room":"Common room"},
+]
 
 
 class Lab:
     """Owns process lifetime, synthetic clock, fixture data and bounded diagnostic trail."""
-    def __init__(self):
+    def __init__(self, data_path=":memory:"):
         (ROOT / "logs").mkdir(exist_ok=True)
         self.log = logging.getLogger("simulation_lab")
         if not self.log.handlers:
@@ -124,6 +138,8 @@ class Lab:
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.proc.stdout, selectors.EVENT_READ)
         self.report = {"status": "NOT_RUN", "cases": []}
+        self.foundation = FoundationService(data_path, HOME, OWNER, clock=lambda: getattr(self, "state", {}).get("now", 1000))
+        self.foundation.seed(DEFAULT_HOUSEHOLD_SETTINGS, DEFAULT_REGISTRY)
         try:
             self.reset()
         except Exception:
@@ -131,6 +147,7 @@ class Lab:
             raise
 
     def close(self):
+        self.foundation.close()
         self.selector.close()
         if self.proc.poll() is None:
             self.proc.terminate()
@@ -172,8 +189,10 @@ class Lab:
             raise ValueError(result.get("error", captured[0]))
         return result
 
-    def reset(self):
+    def reset(self, test_fixture=False):
         self.command("reset")
+        if test_fixture:
+            self.foundation.reset_test_fixture(DEFAULT_HOUSEHOLD_SETTINGS, DEFAULT_REGISTRY)
         self.service = GharSajagService()
         self.api = JsonApi(self.service, now=lambda: self.state["now"])
         self.api_call("POST", "/v1/homes", {"home_id": HOME, "display_name": "Synthetic demo home",
@@ -187,7 +206,7 @@ class Lab:
         self.pending_derived_events = []
         self.door = {"open": False, "opened_at": None, "open_event_id": None,
                      "quiet_hours": False, "left_open_emitted": False}
-        self.household_settings = dict(DEFAULT_HOUSEHOLD_SETTINGS)
+        self.household_settings = dict(self.foundation.policy(OWNER)["settings"])
         self.config_version = self._publish_household_settings()
         self.sync()
         # PWA verification/telemetry adapter. This is intentionally outside the
@@ -242,7 +261,7 @@ class Lab:
         result = self.api_call("POST", f"/v1/homes/{HOME}/config", self._config_body())
         return int(result["version"])
 
-    def _update_household_settings(self, values):
+    def _validate_household_settings(self, values):
         if not isinstance(values, dict):
             raise ValueError("settings object required")
         expected = set(DEFAULT_HOUSEHOLD_SETTINGS)
@@ -258,24 +277,39 @@ class Lab:
         for key in minute_fields:
             if type(values[key]) is not int or not 0 <= values[key] <= 1439:
                 raise ValueError(f"{key} must be minute 0..1439")
+        if values["morning_start_minute"] >= values["morning_end_minute"] or values["daytime_start_minute"] >= values["daytime_end_minute"]:
+            raise ValueError("morning/daytime start must precede end")
+        if values["quiet_start_minute"] == values["quiet_end_minute"] or values["night_start_minute"] == values["night_end_minute"]:
+            raise ValueError("quiet/night window cannot have zero length")
         bounded = {
             "door_open_timeout_seconds": (30, 86400), "daytime_inactivity_seconds": (300, 86400),
             "morning_sequence_window_seconds": (60, 86400), "night_visit_merge_seconds": (0, 7200),
             "post_door_inactivity_seconds": (300, 86400),
             "night_bathroom_visit_threshold": (0, 50), "night_common_visit_threshold": (0, 50),
             "battery_alert_percent": (1, 50),
+            "critical_battery_percent": (1, 49),
         }
         for key, (lo, hi) in bounded.items():
             if type(values[key]) is not int or not lo <= values[key] <= hi:
                 raise ValueError(f"{key} must be {lo}..{hi}")
+        if values["critical_battery_percent"] >= values["battery_alert_percent"]:
+            raise ValueError("critical battery threshold must be below low threshold")
+        if type(values["abnormal_drain_alert_enabled"]) is not bool:
+            raise ValueError("abnormal_drain_alert_enabled must be boolean")
         location_fields = ("morning_bedroom_location", "morning_bathroom_location", "morning_kitchen_location",
                            "night_bathroom_location", "night_common_location")
         for key in location_fields:
             if values[key] not in NODES:
                 raise ValueError(f"{key} must reference a configured location")
+    def _update_household_settings(self, values):
+        self._save_policy_from_api(OWNER, values)
+
+    def _save_policy_from_api(self, actor, values):
+        policy = self.foundation.save_policy(actor, values, self._validate_household_settings)
         self.household_settings = dict(values)
         self.config_version = self._publish_household_settings()
         self.sync()
+        return policy
 
     @staticmethod
     def _counter_add(base, delta):
@@ -571,7 +605,7 @@ class Lab:
         """Translate lab controls only; eligibility decisions stay inside the original C++ rules."""
         action = body.get("action")
         if action == "reset":
-            self.reset()
+            self.reset(test_fixture=body.get("test_fixture") is True)
         elif action == "event":
             node = body.get("node")
             kind_name = body.get("kind")
@@ -579,6 +613,9 @@ class Lab:
                 raise ValueError("invalid node or event")
             if kind_name not in NODE_CAPABILITIES[node]:
                 raise ValueError("event not supported by selected simulated device")
+            registered = self.foundation.device(OWNER, node)
+            if not registered["registered"] or not registered["enabled"]:
+                raise ValueError("device is not registered and enabled")
             if body.get("late_night") is True:
                 minute = int(self.household_settings["quiet_start_minute"])
                 self.command(f"time {minute}")
@@ -787,7 +824,7 @@ class Lab:
             self.sync()
 
     def pwa_reset_pass(self):
-        self.reset()
+        self.reset(test_fixture=True)
         self.pwa_flags["door_negative"] = False
         self.action({"action":"event","node":"room1","kind":"MOTION"})
         self.action({"action":"event","node":"bathroom","kind":"MOTION"})
@@ -884,12 +921,24 @@ class Lab:
             "common": ("Common Room Sensor","Motion Sensor"),
         }
         battery_estimates = snap.get("battery_analytics", {})
+        self.foundation.expire_stale(now, exclude=NODES)
+        registry = {d["device_id"]: d for d in self.foundation.devices(OWNER)}
         for d in snap["devices"]:
+            if d["id"] not in registry:
+                continue
             estimate = battery_estimates.get(d["id"], {})
             nm, typ = name_map.get(d["id"], (d["location"], d["kind"]))
+            record = registry[d["id"]]
+            nm = record["display_name"]
+            active = bool(d["active"] and record["enabled"])
+            health = d["health"] if active else "OFFLINE"
+            self.foundation.record_health(d["id"], active, health, estimate.get("battery_mv"), estimate.get("percent"), estimate.get("drain_status", "LEARNING"))
             devices.append({
-                "id": d["id"], "name": nm, "type": typ, "active": bool(d["active"]),
-                "health": d["health"], "code": d["code"], "message": d["message"],
+                "id": d["id"], "name": nm, "type": typ, "active": active,
+                "kind": record["kind"], "capability": record["capability"], "room": record["room"],
+                "registered": True, "enabled": bool(record["enabled"]), "registration_source": record["registration_source"],
+                "firmware_version": record["firmware_version"], "last_seen_at": record["last_seen_at"],
+                "health": health, "code": d["code"], "message": d["message"],
                 "battery": estimate.get("percent"),
                 "battery_mv": estimate.get("battery_mv"),
                 "left": self._format_battery_runtime(estimate, d["id"] == "hub"),
@@ -905,8 +954,19 @@ class Lab:
                 "observation_hours": estimate.get("observation_hours", 0),
                 "updated": "just now",
             })
-        low = min((d for d in devices if d["battery"] is not None), key=lambda d:d["battery"])
-        drain_attention = [d for d in devices if d.get("drain_status") == "HIGH"]
+        for did, record in registry.items():
+            if did in {d["id"] for d in devices}: continue
+            devices.append({"id":did,"name":record["display_name"],"type":record["capability"],"kind":record["kind"],
+                            "capability":record["capability"],"room":record["room"],"active":bool(record["online"]),
+                            "health":record["health"],"battery":record["battery_percent"],"battery_mv":record["battery_mv"],
+                            "drain_status":record["drain_status"],"left":"calculating","daily_mah":None,"confidence":"LOW",
+                            "registration_source":record["registration_source"],"registered":True,"enabled":bool(record["enabled"]),
+                            "firmware_version":record["firmware_version"],"last_seen_at":record["last_seen_at"],"updated":"never"})
+        for d in devices:
+            pct = d.get("battery")
+            d["battery_health"] = "UNKNOWN" if pct is None else "CRITICAL" if pct <= self.household_settings["critical_battery_percent"] else "LOW" if pct <= self.household_settings["battery_alert_percent"] else "NORMAL"
+        low = min((d for d in devices if d["battery"] is not None), key=lambda d:d["battery"], default=None)
+        drain_attention = [d for d in devices if d.get("drain_status") == "HIGH"] if self.household_settings["abnormal_drain_alert_enabled"] else []
         morning_ok = (not self.household_settings["morning_sequence_enabled"] or bool(sim.get("morning_sequence_completed", False))) and not self.pwa_flags.get("morning_negative", False)
         ok = not self.pwa_flags.get("ok_negative", False)
         night_bathroom = int(sim.get("night_bathroom_visits", 0))
@@ -947,16 +1007,21 @@ class Lab:
                       "bathroom_threshold": self.household_settings["night_bathroom_visit_threshold"],
                       "common_threshold": self.household_settings["night_common_visit_threshold"]},
             "device_health": {
-                "low_id": low["id"], "low_name": low["name"], "low_percent": low["battery"],
-                "runtime": low["left"], "daily_mah": low.get("daily_mah"), "confidence": low.get("confidence"),
-                "wakeups_per_day": low.get("wakeups_per_day"), "retries_per_day": low.get("retries_per_day"),
-                "drain_status": low.get("drain_status"), "high_drain_devices": [d["id"] for d in drain_attention],
+                "low_id": low["id"] if low else None, "low_name": low["name"] if low else "No battery telemetry", "low_percent": low["battery"] if low else None,
+                "runtime": low["left"] if low else "calculating", "daily_mah": low.get("daily_mah") if low else None, "confidence": low.get("confidence") if low else "LOW",
+                "wakeups_per_day": low.get("wakeups_per_day") if low else None, "retries_per_day": low.get("retries_per_day") if low else None,
+                "drain_status": low.get("drain_status") if low else "LEARNING", "high_drain_devices": [d["id"] for d in drain_attention],
                 "alert_percent": self.household_settings["battery_alert_percent"],
-                "attention": low["battery"] <= self.household_settings["battery_alert_percent"] or bool(drain_attention),
+                "critical_percent": self.household_settings["critical_battery_percent"],
+                "critical": low is not None and low["battery_health"] == "CRITICAL",
+                "attention": (low is not None and low["battery"] <= self.household_settings["battery_alert_percent"]) or bool(drain_attention) or any(not d["active"] for d in devices),
             },
             "devices": devices,
             "events": recent,
             "schedules": dict(self.household_settings),
+            "home_details": self.foundation.home(OWNER),
+            "family_members": self.foundation.members(OWNER),
+            "network": {"hub_online":bool(sim.get("hub_online",True)),"wan_online":bool(sim.get("wan",True)),"provisioning":"HW_REQUIRED"},
             "raw": {"home_mode": home.get("mode"), "settings_version": snap["settings"].get("config_version")},
         }
 
@@ -1016,7 +1081,9 @@ class WebLab:
         else:
             try:
                 return self.route(environ, start_response)
-            except (ValueError, KeyError, TypeError) as error:
+            except KeyError as error:
+                status, result = "404 Not Found", {"error":str(error)[:200]}
+            except (ValueError, TypeError) as error:
                 status, result = "400 Bad Request", {"error":str(error)[:200]}
             except PermissionError:
                 status, result = "403 Forbidden", {"error":"not_authorized"}
@@ -1035,6 +1102,45 @@ class WebLab:
 
     def route(self, env, start):
         path, method = env.get("PATH_INFO","/"), env.get("REQUEST_METHOD","GET")
+        if path.startswith("/pwa/foundation/"):
+            actor = env.get("HTTP_X_ACTOR_ID", "")
+            if method in {"POST", "PATCH", "DELETE"}:
+                if not env.get("CONTENT_TYPE", "").startswith("application/json"): raise ValueError("application/json required")
+                length = int(env.get("CONTENT_LENGTH") or 0)
+                if not 0 <= length <= 8192: raise ValueError("request too large")
+                body = json.loads(env["wsgi.input"].read(length) or b"{}")
+                if not isinstance(body, dict): raise ValueError("object required")
+            else: body = {}
+            foundation = self.lab.foundation
+            tail = path.removeprefix("/pwa/foundation/").split("/")
+            if tail == ["home"]:
+                result = foundation.home(actor) if method == "GET" else foundation.update_home(actor, body) if method == "PATCH" else None
+            elif tail == ["members"]:
+                result = foundation.members(actor) if method == "GET" else foundation.add_member(actor, body) if method == "POST" else None
+            elif len(tail) == 2 and tail[0] == "members":
+                result = foundation.update_member(actor, tail[1], body) if method == "PATCH" else foundation.deactivate_member(actor, tail[1]) if method == "DELETE" else None
+            elif tail == ["devices"]:
+                result = foundation.devices(actor) if method == "GET" else foundation.register_device(actor, body) if method == "POST" else None
+            elif len(tail) == 2 and tail[0] == "devices":
+                result = foundation.device(actor, tail[1]) if method == "GET" else foundation.update_device(actor, tail[1], body) if method == "PATCH" else foundation.unregister_device(actor, tail[1]) if method == "DELETE" else None
+            elif len(tail) == 3 and tail[0] == "devices" and tail[2] == "health" and method == "POST":
+                foundation._authorize(actor, True)
+                if set(body) != {"online", "health", "battery_mv", "battery_percent", "drain_status"}: raise ValueError("health_fields_mismatch")
+                foundation.validate_health(**body)
+                device = foundation.device(actor, tail[1])
+                if not device["registered"]: raise ValueError("device_unregistered")
+                if tail[1] in NODES:
+                    self.lab.action({"action":"node","node":tail[1],"enabled":body["online"]})
+                foundation.record_health(tail[1], heartbeat=True, **body)
+                result = foundation.device(actor, tail[1])
+            elif tail == ["policy"]:
+                result = foundation.policy(actor) if method == "GET" else self.lab._save_policy_from_api(actor, body) if method == "PATCH" else None
+            elif tail == ["network"] and method == "GET":
+                foundation._authorize(actor)
+                result = self.lab.pwa_view()["network"]
+            else: result = None
+            if result is None: return self.json_response(start,{"error":"route_not_found"},"404 Not Found")
+            return self.json_response(start,result,"201 Created" if method == "POST" and tail in (["members"],["devices"]) else "200 OK")
         if method == "GET" and path == "/sim/state":
             return self.json_response(start,self.lab.snapshot())
         if method == "GET" and path == "/pwa/state":
@@ -1116,7 +1222,7 @@ def main():
     parser.add_argument("--port",type=int,default=8765)
     parser.add_argument("--test",action="store_true")
     args=parser.parse_args()
-    lab=Lab()
+    lab=Lab(":memory:" if args.test else os.environ.get("GS_APP_DB", str(ROOT / "logs" / "application.sqlite")))
     try:
         if args.test:
             report=lab.run_suite()

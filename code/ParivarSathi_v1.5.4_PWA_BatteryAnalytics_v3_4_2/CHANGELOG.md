@@ -1,3 +1,11 @@
+# Phase 1 implementation checkpoint — manual release qualification pending
+
+- Added one versioned SQLite application store for Home Details, family members, registered devices, device health/history and battery/routine policy without resetting existing household data.
+- Added server-validated owner-only Home/family/device/policy APIs; simulator registration, edit and unregister use the same registry as Devices and Manage Devices, preserving historical rows.
+- Made the PWA Devices view/counts, Device Details, Home Details, Family Members, Battery Alerts and Manage Devices backend-driven; saved policy changes feed existing host rules and battery evaluation.
+- Added focused migration, domain, WSGI API and desktop/mobile Playwright tests. The 46-case targeted Python suite and 12-case focused desktop/mobile browser file pass; complete release qualification awaits the user's WSL `make release-gate-final` result.
+- Kept physical provisioning and network setup as adapter/HW_REQUIRED boundaries. The physical source directory remains `v3_4_2`, with effective prior browser baseline v3.4.3.
+
 # Parivar Sathi v3.4.3 — checked-in effective browser baseline
 
 - Integrated the legacy engineering-lab browser assertion alignment (`/No (?:open )?incidents/i`).

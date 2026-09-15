@@ -1,5 +1,13 @@
 # 1.5.4 status addendum
 
+## Phase 1 targeted implementation checkpoint — manual full gate pending
+
+Home Details and Family Members now load, validate, mutate and reload through `/pwa/foundation/` and one SQLite `FoundationService`. Active OWNER authorizes mutations; last-owner removal, duplicate contact/ID and inactive-member edits are rejected. Devices and Manage Devices share `device_registry`; simulator registration, details, rename/room/enabled edits, confirmed unregistration, counts, online/offline and health history use the same application domain. Unregistration retains historical rows. Battery alert thresholds and routine policy are versioned in `application_policy`, survive restart and affect the existing host evaluation/configuration path. Migration 003 and `schema_migrations` preserve existing household data.
+
+The 46/46 targeted Python suite, 92/92 functional catalog and focused Phase 1 Chromium desktop/mobile flows (12/12) pass. The Phase 0 v3.4.3 `make release-gate-final` result was manually PASS before this work. Inside-sandbox browser execution was ENVIRONMENT_BLOCKED by loopback EPERM; the focused 12-case file passed outside the sandbox. Complete manual WSL full-gate qualification remains pending. **Phase 1 is not yet full-gate validated.** The local lab uses a development actor header; production authentication, cloud deployment, physical pairing/Wi-Fi, battery/RF calibration and flash qualification remain open. Reports/production notifications are Phase 2; stress/endurance and final evidence are Phase 3.
+
+Release-gate wiring: `make release-gate-final` runs `release-gate` first; its `make python-test` discovery includes `test_foundation.py` and `test_phase1_application.py`, while the existing HTTP, canonical functional, PWA bridge/API/frontend, sanitizer and trace stages remain in place. The mandatory Playwright runner executes every `tests/playwright/*.spec.ts` for both Chromium desktop and mobile projects, including `phase1_foundation.spec.ts`. No separate duplicate Phase 1 campaign or Phase 3 stress suite is added.
+
 ## Host/software status
 
 The hardware-independent reference now has a formal regression/release framework. The canonical connected functional suite contains **92 scenarios** and is driven by synthetic node, clock, link, fault and caregiver inputs. The same catalog generates the manual validation plan.

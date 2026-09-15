@@ -47,3 +47,6 @@ semantics while strengthening JSON/time types (`jsonb`, `timestamptz`, etc.).
 This schema closes the **data-model/design** work. It does not claim that the current host simulator has been
 converted from `InMemoryStore` to PostgreSQL/SQLite persistence. That adapter is a deployment/integration task;
 the schema and integrity tests are designed so doing it later does not require changing the domain model.
+# Phase 1 application persistence
+
+Migration `003_phase1_application.sql` extends the existing SQLite schema with `family_members`, `device_registry` and `application_policy`. `schema_migrations` tracks applied files and bootstrap uses `INSERT OR IGNORE`, so saved household and device state survive lab restart. `FoundationService` owns this store for Home Details, family roles, the single application device registry, health snapshots/history and versioned policy. `registered=0` is a tombstone: device/event/health history is retained. The simulator still holds event/incident runtime state in memory; physical flash recovery and production database deployment are separate pending gates.

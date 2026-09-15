@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import sqlite3
+import tempfile
 import unittest
+from pathlib import Path
 
-from ghar_sajag.database import REQUIRED_TABLES, initialize_sqlite, table_names
+from ghar_sajag.database import APPLICATION_TABLES, REQUIRED_TABLES, initialize_sqlite, table_names
 
 
 class DatabaseSchemaTest(unittest.TestCase):
@@ -20,6 +22,21 @@ class DatabaseSchemaTest(unittest.TestCase):
 
     def test_p0_tables_exist(self) -> None:
         self.assertTrue(REQUIRED_TABLES.issubset(table_names(self.db)))
+
+    def test_migrations_are_versioned_and_preserve_existing_household(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "legacy.sqlite"
+            old = sqlite3.connect(path)
+            old.execute("CREATE TABLE households (home_id TEXT PRIMARY KEY, display_name TEXT NOT NULL, timezone TEXT NOT NULL, language TEXT NOT NULL DEFAULT 'en-IN', mode TEXT NOT NULL DEFAULT 'HOME', consent_state TEXT NOT NULL DEFAULT 'ACTIVE', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)")
+            old.execute("INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES('h1','Existing home','Asia/Kolkata',1,1)")
+            old.commit()
+            initialize_sqlite(old)
+            applied = old.execute("SELECT count(*) FROM schema_migrations").fetchone()[0]
+            initialize_sqlite(old)
+            self.assertEqual(old.execute("SELECT count(*) FROM schema_migrations").fetchone()[0], applied)
+            self.assertEqual(old.execute("SELECT display_name FROM households WHERE home_id='h1'").fetchone()[0], "Existing home")
+            self.assertTrue(APPLICATION_TABLES.issubset(table_names(old)))
+            old.close()
 
     def test_event_identity_suppresses_duplicates(self) -> None:
         self.db.execute(

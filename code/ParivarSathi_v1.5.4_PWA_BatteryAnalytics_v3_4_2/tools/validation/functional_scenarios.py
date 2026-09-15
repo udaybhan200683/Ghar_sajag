@@ -153,7 +153,7 @@ def run_catalog(lab, path: Path = DEFAULT_CATALOG, categories: set[str] | None =
         variables: dict[str, Any] = {}
         failures: list[str] = []
         try:
-            lab.reset()
+            lab.reset(test_fixture=True)
             for index, step in enumerate(scenario.get("steps", []), 1):
                 ok, detail = _execute_step(lab, step, variables)
                 if not ok:

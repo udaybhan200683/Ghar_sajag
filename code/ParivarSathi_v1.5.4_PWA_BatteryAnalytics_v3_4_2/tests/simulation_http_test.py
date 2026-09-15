@@ -37,7 +37,7 @@ class HttpTests(unittest.TestCase):
             return error.code,json.loads(error.read())
 
     def setUp(self):
-        self.request("/sim/action",{"action":"reset"})
+        self.request("/sim/action",{"action":"reset","test_fixture":True})
 
     def test_release_scenarios_through_http(self):
         status,report=self.request("/sim/run-suite",{})

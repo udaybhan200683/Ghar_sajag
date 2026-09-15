@@ -49,6 +49,7 @@ print("Starting Parivar Sathi / Ghar Sajag local lab...")
 lab = subprocess.Popen(
     ["python3", "tools/sim/local_lab.py"],
     cwd=ROOT,
+    env={**os.environ, "GS_APP_DB": ":memory:"},
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,

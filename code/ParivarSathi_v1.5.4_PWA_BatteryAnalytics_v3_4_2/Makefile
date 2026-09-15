@@ -52,6 +52,7 @@ simulate-matrix:
 	python3 tools/sim/scenario_matrix.py
 
 python-test:
+	# unittest discovery includes the Phase 1 foundation, persistence and WSGI API suites.
 	PYTHONPATH=backend python3 -m unittest discover -s tests/python -p 'test_*.py' -v
 
 app-test:
@@ -144,6 +145,7 @@ playwright-install:
 
 playwright-gate:
 	python3 scripts/playwright_preflight.py
+	# The runner executes every tests/playwright spec for desktop and mobile projects.
 	python3 scripts/run_playwright_gate.py
 
 # Final release gate: browser/DOM automation is mandatory.
