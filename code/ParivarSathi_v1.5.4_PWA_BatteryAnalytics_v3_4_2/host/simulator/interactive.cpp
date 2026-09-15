@@ -130,6 +130,7 @@ struct Simulation {
           <<",\"pending_cloud\":"<<hub.journal().pending_cloud(4096).size()
           <<",\"evidence_count\":"<<state.evidence_ids.size()
           <<",\"missing_pending\":"<<(decision_pending?"true":"false")<<",\"missing_at\":"<<decision_at
+          <<",\"morning_sequence_started\":"<<(hub.activity_state().morning_started?"true":"false")
           <<",\"morning_sequence_completed\":"<<(hub.activity_state().morning_completed?"true":"false")
           <<",\"night_bathroom_visits\":"<<hub.activity_state().night_bathroom_visits
           <<",\"night_common_visits\":"<<hub.activity_state().night_common_visits

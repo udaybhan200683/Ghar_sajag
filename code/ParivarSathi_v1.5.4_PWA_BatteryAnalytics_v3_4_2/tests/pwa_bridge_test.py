@@ -28,7 +28,25 @@ class PwaBridgeTests(unittest.TestCase):
     def test_reset_is_pass(self):
         s=self.reset(); self.assertFalse(s['care']['alert']); self.assertTrue(s['morning']['ok']); self.assertTrue(s['iam_ok']['ok']); self.assertFalse(s['door']['open']); self.assertFalse(s['night']['unusual']); self.assertFalse(s['device_health']['attention'])
     def test_battery_is_health_only(self):
-        self.reset(); s=self.toggle('battery'); self.assertTrue(s['device_health']['attention']); self.assertFalse(s['care']['alert']); s=self.toggle('battery'); self.assertFalse(s['device_health']['attention']); self.assertFalse(s['care']['alert'])
+        self.reset(); s=self.toggle('battery'); self.assertTrue(s['device_health']['attention']); self.assertFalse(s['care']['alert']); self.assertFalse(any('battery' in e['title'].lower() for e in s['events'])); s=self.toggle('battery'); self.assertFalse(s['device_health']['attention']); self.assertFalse(s['care']['alert'])
+
+    def test_night_projection_is_domain_specific(self):
+        self.reset(); self.toggle('door'); s=self.toggle('night')
+        self.assertTrue(s['night']['unusual'])
+        self.assertIn('Bathroom', s['night']['concern_text'])
+        self.assertNotIn('door', s['night']['concern_text'].lower())
+
+    def test_door_projection_includes_elapsed_duration(self):
+        self.reset(); s=self.toggle('door')
+        self.assertTrue(s['door']['left_open_alert'])
+        self.assertGreaterEqual(s['door']['open_for_s'], 120)
+
+    def test_morning_in_progress_is_neutral_to_household_banner(self):
+        self.lab.reset()
+        self.req('/sim/action', {'action':'event','node':'room1','kind':'MOTION'})
+        s=self.req('/pwa/state')
+        self.assertEqual(s['morning']['status'], 'IN_PROGRESS')
+        self.assertFalse(s['care']['alert'])
     def test_battery_prediction_fields_are_backend_driven(self):
         s=self.reset()
         kitchen=next(d for d in s['devices'] if d['id']=='kitchen')

@@ -1,8 +1,8 @@
 import {evaluateScenario,renderValidationRow} from './validation_engine.mjs';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let state={
-  away:false,homeAlert:false,morning:true,morningMissing:false,ok:true,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,indoorAgo:0,
-  nightBathroomVisits:0,nightCommonVisits:0,nightUnusual:false,careSubtitle:'All is well at home.',careProblemKind:null,
+  away:false,homeAlert:false,morning:true,morningMissing:false,morningStatus:'UNAVAILABLE',ok:true,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,doorOpenForSeconds:0,indoorAgo:0,
+  nightBathroomVisits:0,nightCommonVisits:0,nightUnusual:false,nightConcernText:'',careSubtitle:'All is well at home.',careProblemKind:null,
   devices:[],events:[],deviceHealth:null,schedules:null,source:'Connecting to backend…'
 };
 let currentTab='home', reportPeriod='week';
@@ -89,15 +89,18 @@ function applyBackend(view){
     homeAlert:!!view.care?.alert,
     morning:!!view.morning?.ok,
     morningMissing:!!view.morning?.missing,
+    morningStatus:view.morning?.status||'UNAVAILABLE',
     ok:!!view.iam_ok?.ok,
     doorOpen:!!view.door?.open,
     doorLeftOpenAlert:!!view.door?.left_open_alert,
     doorUnexpectedAlert:!!view.door?.unexpected_alert,
     doorPostCloseAlert:!!view.door?.post_close_inactivity_alert,
+    doorOpenForSeconds:Number(view.door?.open_for_s ?? 0),
     indoorAgo:view.door?.indoor_activity_age_min ?? 0,
     nightBathroomVisits:Number(view.night?.bathroom_visits ?? 0),
     nightCommonVisits:Number(view.night?.common_visits ?? 0),
     nightUnusual:!!view.night?.unusual,
+    nightConcernText:view.night?.concern_text||'',
     careSubtitle:view.care?.subtitle||'All is well at home.',
     careProblemKind:view.care?.problem_kind||null,
     devices:(view.devices||[]).map(d=>({...d})),
@@ -135,12 +138,32 @@ function homeSeverity(){
   return {alert:false,title:'Home looks normal',sub:'All is well at home.'};
 }
 
+function humanizeDuration(seconds){
+  const total=Math.max(0,Math.floor(Number(seconds)||0));
+  const hours=Math.floor(total/3600), minutes=Math.floor((total%3600)/60);
+  if(hours && minutes)return `${hours} hr ${minutes} min`;
+  if(hours)return `${hours} hr`;
+  if(minutes)return `${minutes} min`;
+  return `${total} sec`;
+}
+function countLabel(value,singular){
+  const count=Number(value)||0;
+  return `${count} ${count===1?singular:`${singular}s`}`;
+}
+
 function renderHome(){
-  const s=homeSeverity(), health=state.deviceHealth || {low_name:'Unknown',low_percent:0,runtime:'calculating',attention:false,high_drain_devices:[]}, active=state.devices.filter(d=>d.active).length;
+  const s=homeSeverity(), health=state.deviceHealth || {low_name:'Unknown',low_percent:0,runtime:'calculating',attention:false,high_drain_devices:[]};
   const highDrain=(health.high_drain_devices||[]).map(id=>state.devices.find(d=>d.id===id)?.name||id);
   const batteryAlert=Number(health.alert_percent ?? state.schedules?.battery_alert_percent ?? 20);
   const healthHeadline=highDrain.length?`Battery draining faster: ${highDrain.join(', ')}`:(health.low_percent==null?'No battery telemetry':health.low_percent<=batteryAlert?`Low battery: ${health.low_name} ${health.low_percent}%`:`Lowest battery: ${health.low_name} ${health.low_percent}%`);
-  const usage=health.daily_mah==null?'Learning usage':`${Number(health.daily_mah).toFixed(1)} mAh/day`;
+  const rawRuntime=String(health.runtime||'').trim();
+  const runtimeUnavailable=!rawRuntime || /^(calculating|recharge now|unknown)$/i.test(rawRuntime);
+  const runtimeText=runtimeUnavailable?'Collecting battery data':rawRuntime;
+  const morningStatus=state.morningStatus;
+  const morningClass=morningStatus==='MISSED'?'status-bad':morningStatus==='COMPLETED'?'status-good':morningStatus==='IN_PROGRESS'?'status-amber':'muted';
+  const morningText=morningStatus==='COMPLETED'?'Completed':morningStatus==='MISSED'?'Activity not completed':morningStatus==='IN_PROGRESS'?'In progress':'Not started';
+  const morningDetail=morningStatus==='COMPLETED'?'Bedroom, bathroom and kitchen activity observed':morningStatus==='MISSED'?'Configured morning routine was not completed':morningStatus==='IN_PROGRESS'?'Routine activity is in progress':'Waiting for the configured morning routine to start';
+  const doorDetail=state.doorLeftOpenAlert?`Open for ${humanizeDuration(state.doorOpenForSeconds)}`:state.doorUnexpectedAlert?'Opened during configured quiet hours':state.doorPostCloseAlert?'No indoor activity after door closed':state.doorOpen?'Door is currently open':`Indoor activity · ${state.indoorAgo} min ago`;
   $('#homeTab').innerHTML=`
   <div class="home-layout">
     <aside class="sim-sidebar">
@@ -164,11 +187,11 @@ function renderHome(){
         <div class="hero-row"><div class="hero-icon">${s.alert?'!':'✓'}</div><div><h1>${s.title}</h1><p>${s.sub}</p></div></div>
       </div>
       <div class="grid2 routine-grid">
-        <div class="card ${state.morningMissing?'alert':''}" data-care-card="morning"><div class="card-row"><div class="round-icon">☀️</div><div><h2>Morning routine</h2><div class="${state.morningMissing?'status-bad':state.morning?'status-good':'muted'}">${state.morning?'Completed':state.morningMissing?'Activity not completed':'In progress'}</div><div class="${state.morningMissing?'status-bad':'muted'}">${state.morning?'Bedroom, bathroom and kitchen activity observed':state.morningMissing?'Configured morning routine was not completed':'Waiting for the configured morning routine to complete'}</div></div></div></div>
+        <div class="card ${morningStatus==='MISSED'?'alert':''}" data-care-card="morning"><div class="card-row"><div class="round-icon">☀️</div><div><h2>Morning routine</h2><div class="${morningClass}">${morningText}</div><div class="${morningStatus==='MISSED'?'status-bad':'muted'}">${morningDetail}</div></div></div></div>
         <div class="card ${state.ok?'':'alert'}" data-care-card="ok"><div class="card-row"><div class="round-icon">❤</div><div><h2>I am OK</h2><div class="${state.ok?'status-good':'status-bad'}">${state.ok?'1 hr ago confirmed':'not confirmed today'}</div></div></div></div>
-        <div class="card ${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'alert':''}" data-care-card="door"><div class="card-row"><div class="round-icon">🚪</div><div><h2>Main door</h2><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'status-good'}">${state.doorOpen?'Open':'Closed'}</div><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'muted'}">${state.doorLeftOpenAlert?'Open longer than configured':state.doorUnexpectedAlert?'Opened during configured quiet hours':state.doorPostCloseAlert?'No indoor activity after door closed':state.doorOpen?'Door is currently open':`Indoor activity · ${state.indoorAgo} min ago`}</div></div></div></div>
-        <div class="card ${state.nightUnusual?'alert':''}" data-care-card="night"><div class="card-row"><div class="round-icon night">☾</div><div><h2>Night activity</h2><div>Bathroom ${state.nightBathroomVisits} · Common room ${state.nightCommonVisits}</div><div class="${state.nightUnusual?'status-bad':'status-good'}">${state.nightUnusual?'unusual':'no concern'}</div><div class="${state.nightUnusual?'status-bad':'muted'}">${state.nightUnusual?(state.careSubtitle||'Night activity is outside the configured routine'):'Within configured night routine'}</div></div></div></div>
-        <div class="card ${health.attention?'alert':''} wide-card" data-care-card="device-health"><div class="card-row"><div class="round-icon">🔋</div><div><h2>Device health</h2><div class="${health.attention?'status-bad':''}">${healthHeadline}</div><div class="${health.attention?'status-bad':'muted'}">Estimated time left ${health.runtime}</div><div class="muted">Usage ${usage} · ${health.confidence||'LOW'} confidence${health.drain_status==='HIGH'?' · faster-than-usual drain detected':''}</div><div class="muted">Alert below ${batteryAlert}% · ${active}/${state.devices.length} devices online</div></div></div></div>
+        <div class="card ${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'alert':''}" data-care-card="door"><div class="card-row"><div class="round-icon">🚪</div><div><h2>Main door</h2><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'status-good'}">${state.doorOpen?'Open':'Closed'}</div><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'muted'}">${doorDetail}</div></div></div></div>
+        <div class="card ${state.nightUnusual?'alert':''}" data-care-card="night"><div class="card-row"><div class="round-icon night">☾</div><div><h2>Night activity</h2><div>Bathroom: ${countLabel(state.nightBathroomVisits,'time')}<br>Common room: ${countLabel(state.nightCommonVisits,'time')}</div><div class="${state.nightUnusual?'status-bad':'status-good'}">${state.nightUnusual?'Unusual activity':'No unusual activity'}</div>${state.nightUnusual?`<div class="status-bad">${state.nightConcernText||'Night activity is outside the configured routine'}</div>`:'<div class="muted">Within configured night routine</div>'}</div></div></div>
+        <div class="card ${health.attention?'alert':''} wide-card" data-care-card="device-health"><div class="card-row"><div class="round-icon">🔋</div><div><h2>Device health</h2><div class="${health.attention?'status-bad':''}">${healthHeadline}</div><div class="${runtimeUnavailable?'muted':health.attention?'status-bad':'muted'}">Estimated time left: ${runtimeText}</div>${health.attention&&health.low_percent!=null&&health.low_percent<=batteryAlert?'<div class="status-bad">Recharge now</div>':''}</div></div></div>
       </div>
       <div class="timeline"><div class="section-title"><h2>Recent important events</h2><button class="link-btn" onclick="toast('All events view will use backend history in the pilot.')">View all ›</button></div>
         ${state.events.map(e=>`<div class="event"><div class="event-time">${e.time}</div><div>${e.icon}</div><div class="event-pill ${e.tone==='red'?'red':e.tone==='blue'?'blue':''}">${e.text}</div></div>`).join('')}

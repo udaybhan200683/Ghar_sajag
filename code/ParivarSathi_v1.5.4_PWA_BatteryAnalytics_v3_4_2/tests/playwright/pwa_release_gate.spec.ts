@@ -44,20 +44,45 @@ test.describe('Parivar Sathi mandatory browser release gate', () => {
 
     await expect(page.getByText(/Home looks normal/i)).toBeVisible();
 
-    // Scope battery assertions to the Device Health card. The same low-battery
-    // condition is intentionally also present in Recent Important Events, so a
-    // page-wide getByText() violates Playwright strict mode by matching both.
+    // Scope battery assertions to the Device Health card. Battery telemetry is
+    // a maintenance condition and is intentionally excluded from important
+    // household events.
     const deviceHealth = page.locator('[data-care-card="device-health"]');
     await expect(deviceHealth).toHaveClass(/alert/);
     await expect(deviceHealth.getByText(/Low battery:.*5%|Kitchen.*5%/i)).toBeVisible();
-    await expect(deviceHealth.getByText(/Estimated time left recharge now/i)).toBeVisible();
+    await expect(deviceHealth.getByText(/Estimated time left: Collecting battery data/i)).toBeVisible();
+    await expect(deviceHealth.getByText(/^Recharge now$/i)).toBeVisible();
+    await expect(deviceHealth).not.toContainText(/mAh\/day|confidence|alert below|analytics internals/i);
 
-    // The event feed should also contain the battery warning.
-    await expect(page.locator('.event-pill.red').filter({ hasText: /Kitchen sensor battery low: 5%/i }).first()).toBeVisible();
+    await expect(page.locator('.timeline')).not.toContainText(/Kitchen sensor battery low/i);
 
     // toggle back
     await battery.click();
     await expect(page.getByText(/Home looks normal/i)).toBeVisible();
+  });
+
+  test('low battery with sufficient history renders the backend runtime prediction', async ({ page }) => {
+    await waitForApp(page);
+    await page.evaluate(async()=>{
+      await fetch('/pwa/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reset_pass'})});
+      // 3 days of real simulator history plus a low-but-predictable voltage
+      // leaves an estimate while still crossing the low-battery policy.
+      await fetch('/sim/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'battery_usage',target:'kitchen',days:3,intensity:1,battery_mv:3600})});
+    });
+    await page.waitForTimeout(2200);
+
+    const backend=await page.evaluate(async()=>fetch('/pwa/state',{cache:'no-store'}).then(r=>r.json()));
+    const health=backend.device_health;
+    expect(health.low_percent).toBeGreaterThan(8);
+    expect(health.low_percent).toBeLessThanOrEqual(Number(health.alert_percent));
+    expect(String(health.runtime)).toMatch(/~\d+ (?:days|hrs)/);
+
+    const deviceHealth=page.locator('[data-care-card="device-health"]');
+    await expect(deviceHealth).toContainText(`Low battery: ${health.low_name} ${health.low_percent}%`);
+    await expect(deviceHealth).toContainText(`Estimated time left: ${health.runtime}`);
+    await expect(deviceHealth.getByText(/^Recharge now$/i)).toBeVisible();
+    await expect(deviceHealth).not.toContainText(/mAh\/day|confidence|alert below|analytics internals/i);
+    await expect(page.locator('.timeline')).not.toContainText(/battery low|battery restored/i);
   });
 
   test('high battery drain shortens prediction, flags device health, and does not change care banner', async ({ page }) => {
@@ -92,6 +117,33 @@ test.describe('Parivar Sathi mandatory browser release gate', () => {
 
     const events = page.locator('.event');
     await expect(events.first()).toContainText(/Main door left open/i);
+  });
+
+  test('night card stays domain-specific and door card shows elapsed open time', async ({ page }) => {
+    await waitForApp(page);
+    const reset = page.getByRole('button', { name: /Reset all to PASS/i });
+    if (await reset.count()) await reset.click();
+    await page.getByRole('button', { name: /main door/i }).filter({ hasText: /Toggle|Simulate/i }).first().click();
+    await page.getByRole('button', { name: /night activity/i }).filter({ hasText: /Toggle|Simulate/i }).first().click();
+    const night=page.locator('[data-care-card="night"]');
+    await expect(night).toContainText(/Bathroom: 5 times/i);
+    await expect(night).toContainText(/Common room: 0 times/i);
+    await expect(night).toContainText(/Unusual activity/i);
+    await expect(night).not.toContainText(/main door|door has remained|opened during|indoor activity/i);
+    await expect(page.locator('[data-care-card="door"]')).toContainText(/Open for \d+ hr/i);
+  });
+
+  test('morning in progress is amber without an attention banner', async ({ page }) => {
+    await waitForApp(page);
+    await page.evaluate(async()=>{
+      await fetch('/sim/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reset'})});
+      await fetch('/sim/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'event',node:'room1',kind:'MOTION'})});
+    });
+    await page.waitForTimeout(2200);
+    const morning=page.locator('[data-care-card="morning"]');
+    await expect(morning).toContainText(/In progress/i);
+    await expect(morning.locator('.status-amber')).toBeVisible();
+    await expect(page.locator('.hero')).not.toHaveClass(/alert/);
   });
 
   test('Device Schedules exposes and saves family-specific routine thresholds', async ({ page }) => {
@@ -181,9 +233,19 @@ test.describe('Parivar Sathi mandatory browser release gate', () => {
       await expect(page.locator('.hero')).toContainText(/Please check the highlighted routine below/i);
       const target = id.startsWith('door-') ? page.locator('[data-care-card="door"]') : page.locator('[data-care-card="night"]');
       await expect(target).toHaveClass(/alert/);
-      await expect(target).toContainText(expected);
+      if (id.startsWith('door-')) {
+        const backend=await page.evaluate(async()=>fetch('/pwa/state',{cache:'no-store'}).then(r=>r.json()));
+        const elapsed=Math.max(0,Math.floor(Number(backend.door.open_for_s)||0));
+        expect(elapsed).toBeGreaterThanOrEqual(Number(backend.schedules.door_open_timeout_seconds));
+        const hours=Math.floor(elapsed/3600), minutes=Math.floor((elapsed%3600)/60);
+        const duration=hours&&minutes?`${hours} hr ${minutes} min`:hours?`${hours} hr`:minutes?`${minutes} min`:`${elapsed} sec`;
+        await expect(target.getByText(/^Open$/)).toBeVisible();
+        await expect(target).toContainText(`Open for ${duration}`);
+      } else {
+        await expect(target).toContainText(expected);
+      }
     };
-    await runScenario('door-left-open-configured-boundary', /Open longer than configured/i);
+    await runScenario('door-left-open-configured-boundary', /Open for \d+ hr/i);
     await runScenario('night-common-over-limit-alerts', /Common-room visits are higher/i);
   });
 

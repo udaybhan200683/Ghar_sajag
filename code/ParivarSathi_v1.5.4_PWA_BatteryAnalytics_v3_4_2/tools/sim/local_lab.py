@@ -784,7 +784,7 @@ class Lab:
             "icon": icon,
         }
 
-    def _pwa_add_audit(self, title, tone="green", icon="•"):
+    def _pwa_add_audit(self, title, tone="green", icon="•", domain="care"):
         # Manual PWA scenario toggles may rebuild the deterministic simulator back
         # to its baseline clock. Keep UI audit/event chronology monotonic so the
         # most recently requested user action remains the newest visible event.
@@ -796,6 +796,7 @@ class Lab:
             "title": title,
             "tone": tone,
             "icon": icon,
+            "domain": domain,
         })
         self.pwa_audit = self.pwa_audit[-40:]
 
@@ -869,12 +870,12 @@ class Lab:
             if self.pwa_flags["battery_negative"]:
                 self._inject_fault("kitchen", "LOW_BATTERY")
                 estimate = self._battery_set_low("kitchen")
-                self._pwa_add_audit(f"Kitchen sensor battery low: {estimate['percent']}%", "red", "🔋")
+                self._pwa_add_audit(f"Kitchen sensor battery low: {estimate['percent']}%", "red", "🔋", "device_health")
             else:
                 self._clear_fault("kitchen")
                 self._seed_battery_analytics()
                 estimate = self.service.battery.estimate("kitchen").as_dict()
-                self._pwa_add_audit(f"Kitchen sensor battery restored: {estimate['percent']}%", "green", "🔋")
+                self._pwa_add_audit(f"Kitchen sensor battery restored: {estimate['percent']}%", "green", "🔋", "device_health")
             self.sync()
         return self.pwa_view()
 
@@ -902,7 +903,11 @@ class Lab:
             if item.get("kind") in {"HEARTBEAT","HUB_HEARTBEAT","COVERAGE_CHANGED"}:
                 continue
             recent.append(self._pwa_event_presentation(item))
-        recent.extend(getattr(self, "pwa_audit", []))
+        # Battery telemetry remains in backend analytics/audit history, but is a
+        # maintenance condition rather than a household safety event.  Only
+        # care-domain audit entries belong in Home's important-event feed.
+        recent.extend(item for item in getattr(self, "pwa_audit", [])
+                      if item.get("domain", "care") != "device_health")
         dedup = {item["id"]: item for item in recent}
         recent = sorted(dedup.values(), key=lambda x: (x["at"], x["id"]), reverse=True)[:20]
         latest_activity = home.get("latest_activity")
@@ -975,6 +980,12 @@ class Lab:
             night_bathroom = self.household_settings["night_bathroom_visit_threshold"] + 1
         night_unusual = (night_bathroom > self.household_settings["night_bathroom_visit_threshold"] or
                          night_common > self.household_settings["night_common_visit_threshold"])
+        night_concerns = []
+        if night_bathroom > self.household_settings["night_bathroom_visit_threshold"]:
+            night_concerns.append("Bathroom visits are higher than the configured night limit.")
+        if night_common > self.household_settings["night_common_visit_threshold"]:
+            night_concerns.append("Common-room visits are higher than the configured night limit.")
+        night_concern_text = " ".join(night_concerns) if night_concerns else ""
         active_kinds = [i.get("kind") for i in snap["incidents"] if i.get("state") != "RESOLVED"]
         latest_concern = timeline_concern
         problem_map = {
@@ -992,6 +1003,17 @@ class Lab:
         subtitle = problem_map.get(concern_kind, "Please check the home status.") if care_alert else "All is well at home."
         post_door_alert = bool(sim.get("post_door_inactivity_alerted", False)) or concern_kind == "POST_DOOR_INACTIVITY"
         door_left_open_alert = current_door_open and (concern_kind == "DOOR_LEFT_OPEN" or any(e.get("kind")=="DOOR_LEFT_OPEN" for e in snap["timeline"]))
+        morning_missing = concern_kind == "MISSING_MORNING_ACTIVITY" or self.pwa_flags.get("morning_negative", False)
+        if morning_missing:
+            morning_status = "MISSED"
+        elif bool(sim.get("morning_sequence_completed", False)):
+            morning_status = "COMPLETED"
+        elif bool(sim.get("morning_sequence_started", False)) and self.household_settings["morning_sequence_enabled"]:
+            morning_status = "IN_PROGRESS"
+        elif self.household_settings["morning_sequence_enabled"]:
+            morning_status = "NOT_STARTED"
+        else:
+            morning_status = "UNAVAILABLE"
         return {
             "source": "Ghar Sajag v1.5.4 C++ rules + Python backend + PWA bridge",
             "simulation_now": now,
@@ -999,11 +1021,13 @@ class Lab:
             "morning": {
                 "ok": morning_ok,
                 "sequence_completed": bool(sim.get("morning_sequence_completed", False)),
-                "missing": concern_kind == "MISSING_MORNING_ACTIVITY",
+                "missing": morning_missing,
+                "status": morning_status,
             },
             "iam_ok": {"ok": ok},
             "door": {"open": door.get("state") == "OPEN" or bool(self.pwa_flags.get("door_negative")), "open_for_s": max(0, now-int(door.get("since") or now)) if door.get("state") == "OPEN" else 0, "indoor_activity_age_min": indoor_age_min, "post_close_inactivity_alert": post_door_alert, "left_open_alert": door_left_open_alert, "unexpected_alert": unexpected_door},
             "night": {"bathroom_visits": night_bathroom, "common_visits": night_common, "unusual": night_unusual,
+                      "concern_text": night_concern_text,
                       "bathroom_threshold": self.household_settings["night_bathroom_visit_threshold"],
                       "common_threshold": self.household_settings["night_common_visit_threshold"]},
             "device_health": {
