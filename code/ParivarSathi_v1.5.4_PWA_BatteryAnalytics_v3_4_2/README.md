@@ -19,7 +19,8 @@ Start with [SIMULATION_START_HERE.md](SIMULATION_START_HERE.md). Version **1.5.4
 ```bash
 make validation-fast        # normal development regression
 make release-gate           # full host/software release gate
-make release-gate-browser   # full gate, Playwright browser automation mandatory
+make release-gate-browser   # release-gate --require-browser for the engineering lab
+make release-gate-final     # mandatory Playwright preflight + desktop/mobile PWA gate
 make manual-test-plan       # regenerate manual cases from canonical catalog
 make lab PRODUCT=base       # interactive browser simulator
 ```

@@ -10,18 +10,18 @@ expanded connected simulation/PWA behavior and a formal regression/release frame
 HOST/SOFTWARE VALIDATION STATUS
 - 24/24 Base P0 requirement IDs mapped to validation evidence.
 - 4 JSON/contract schemas plus protocol examples, configuration and OpenAPI verified.
-- 80 C++ checks PASS.
-- 24 Python backend/database/logging/framework tests PASS.
-- 10 JavaScript application tests PASS.
+- 94 C++ checks PASS.
+- 31 Python backend/database/logging/framework/battery-analytics tests PASS.
+- 11 JavaScript application tests PASS.
 - Base and AI product-profile compatibility tests PASS.
 - 4/4 feature-flag simulator variants PASS.
 - 5/5 dummy sensor streams PASS.
-- 68/68 connected functional scenarios PASS.
+- 92/92 connected functional scenarios PASS.
 - 16/16 HTTP integration tests PASS.
 - AddressSanitizer/UBSan PASS.
 - Trace-enabled C++ build/tests PASS.
-- Browser/PWA automation is MANUAL_REQUIRED in the current evidence environment because
-  Playwright/Chromium is not installed; the generated manual plan is the current visual gate.
+- Playwright/Chromium desktop and mobile browser validation is PASS and mandatory through
+  make release-gate-final. The generated 92-case manual plan remains supplementary evidence.
 
 IMPLEMENTED / ADVANCED SINCE 1.4.2
 - Generic DomainEvent/RulesCore path independent of GPIO/RF.
@@ -49,8 +49,8 @@ G17 tracks the physical/HIL and installed-home release gate.
 
 NEXT
 1. Keep make release-gate mandatory for every host/software release.
-2. Install/pin Playwright+Chromium in release CI and promote make release-gate-browser
-   from optional/manual to mandatory.
+2. Preserve pinned Playwright/Chromium evidence in release CI; make release-gate-final is the
+   mandatory browser-qualified release command.
 3. Bind one real ESP32-C3 node and the hub, add HIL evidence for sensing/RF/power/flash/reboot.
 4. Close G02-G05 and the remaining persistent-runtime/notification/security gaps.
 5. Expand from one node+hub to the four-node installed-home pilot only after the HIL gate passes.
@@ -59,10 +59,12 @@ TRACEABILITY NOTE
 Some legacy source-file comment headers still say source release 1.4.2. They are historical
 metadata only; this updated tracker and the v1.5.4 release evidence are the current status authority.
 
-DOCUMENTATION REFRESH 2.1.1
-No new implementation delta has occurred beyond reference code 1.5.4 corrected since the
-previous traceability synchronization. Requirement, code and open-work CSV statuses therefore
-remain unchanged.
+PHASE 0 BASELINE RECONCILIATION
+The effective checked-in baseline is Parivar Saathi v1.5.4 / PWA-BatteryAnalytics v3.4.3.
+The physical source directory deliberately remains v3_4_2. Battery analytics, the 92-case
+catalog, PWA bridge/API/frontend checks and mandatory Playwright gate supersede the earlier
+68-case/manual-browser statements. Phase 1 persistence/household and device management,
+Phase 2 reports/notification completion, and Phase 3 stress qualification remain open.
 
 The following current release companion artifacts are now explicitly registered in the handover:
 - Ghar_Sajag_Validation_Framework_Design_v1.5.4.docx

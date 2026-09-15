@@ -22,7 +22,7 @@ The connected simulator now exercises quiet-hours, door-left-open and daytime-in
 
 ## Release process
 
-`make release-gate` is the mandatory host/software release command. `make release-gate-browser` additionally requires Playwright browser automation. If Playwright is unavailable, run the generated `tests/MANUAL_FUNCTIONAL_VALIDATION.md` and record results before treating the visual PWA as accepted.
+`make release-gate-final` is the mandatory browser-qualified host/software release command: it runs the release gate, Playwright preflight and the desktop/mobile Chromium suite. `make release-gate` remains the non-browser host regression gate. The generated `tests/MANUAL_FUNCTIONAL_VALIDATION.md` is supplementary exploratory evidence, not a substitute for the final automated browser gate.
 
 Every new feature should add positive, negative and relevant boundary/recovery cases to the canonical catalog or the appropriate unit/integration suite before release.
 

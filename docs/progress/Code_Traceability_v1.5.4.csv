@@ -110,15 +110,25 @@ tests/fixtures/sensor_streams/missing_then_recovery_activity.json,T01,"F08, F11"
 tests/fixtures/sensor_streams/late_night_door.json,T01,F09,Dummy sensor stream / validated,5/5 dummy stream replay suite
 tests/fixtures/sensor_streams/daytime_inactivity.json,T01,"E10, F11",Dummy sensor stream / validated,5/5 dummy stream replay suite
 tests/fixtures/sensor_streams/offline_replay.json,T01,"E02, E03",Dummy sensor stream / validated,5/5 dummy stream replay suite
-tools/validation/functional_scenarios.py,T01,"F04-F13, E01-E10",Validation executor / validated,68-case functional suite
+tools/validation/functional_scenarios.py,T01,"F04-F13, E01-E10",Validation executor / validated,92-case functional suite
 tools/validation/run_functional_suite.py,T01,"E10, NFR-08",Validation runner / validated,release-gate stage
 tools/validation/run_dummy_sensor_streams.py,T01,"E10, NFR-08",Dummy-stream runner / validated,release-gate stage
 tools/validation/generate_manual_plan.py,T01,"E10, NFR-08, NFR-10",Manual-plan generator / validated,make manual-test-plan
 tools/validation/release_gate.py,T01,"E10, NFR-08",Fail-closed release orchestration / validated,make release-gate
 scripts/check_validation_coverage.py,T01,"F01-F14, E01-E10, NFR-08",Traceability guard / validated,24/24 requirement mapping gate
 docs/VALIDATION_FRAMEWORK.md,T01,"E10, NFR-08",Validation design / current,v1.5.4 framework document
-app/public/index.html,A02,"F11, NFR-10",Host PWA shell / implemented,Manual/optional browser gate
-app/public/styles.css,A02,"F11, NFR-10",Host PWA styles / implemented,Manual visual gate
+app/public/index.html,A02,"F11, NFR-10",Host PWA shell / implemented,Legacy lab shell; mandatory Chromium PWA coverage is tests/playwright/pwa_release_gate.spec.ts
+app/public/styles.css,A02,"F11, NFR-10",Host PWA styles / implemented,Legacy lab presentation; mandatory Chromium PWA coverage is tests/playwright/pwa_release_gate.spec.ts
 app/public/manifest.webmanifest,A05,"F11, E04",PWA manifest / implemented,Static/app integration checks
 firmware/hub/runtime/FREERTOS_BINDING.md,H01-H08,"E01-E10, NFR-04, NFR-05",Target runtime binding design / pending HIL,Architecture review; target measurements pending
 tools/hil/installation_checklist.md,T02,"F03, E01, E09, E10, NFR-05",HIL checklist / pending physical execution,Physical execution deliberately pending
+app/src/features/home/index.mjs,A02,"F05, F06, F07, F09, F11, F14, E01, E04, E10, NFR-01, NFR-02, NFR-10",PWA home projection / host validated,PWA bridge/API/frontend plus mandatory Chromium coverage; simulator-backed
+app/src/features/incidents/index.mjs,A04,"F07, F12, F13, NFR-10",PWA incident workflow / host validated,PWA bridge/API/frontend plus mandatory Chromium coverage; production authorization remains G08
+app/src/features/onboarding/index.mjs,A01,"F01, F02, F03, NFR-10",PWA onboarding / host validated,Unit/bridge coverage; authoritative persistent household flow is Phase 1
+app/src/features/routines/index.mjs,A03,"F04, F09, F10, F14, E07",PWA routines/settings / host validated,PWA bridge/API/frontend plus mandatory Chromium coverage; durable target apply remains pending
+backend/ghar_sajag/battery.py,B08,"E01, E10, NFR-05",Battery analytics service / host validated,tests/python/test_battery_analytics.py; PWA/API and Chromium battery scenarios; hardware calibration pending
+tests/pwa_bridge_test.py,T01,"F04-F14, E01-E10",PWA bridge integration / validated,8 host bridge checks in current suite
+tests/pwa_68_api_test.py,T01,"F04-F14, E01-E10",PWA canonical API validation / validated,92 canonical scenarios through PWA API
+tests/pwa_68_frontend_test.py,T01,"F04-F14, E01-E10",PWA canonical frontend validation / validated,92 canonical scenarios through frontend runner
+tests/playwright/pwa_release_gate.spec.ts,T01/A02,"F04-F14, E01, E04, E07, E10, NFR-10",Mandatory Chromium PWA release gate / validated,Desktop and Pixel 7 viewport scenarios; invoked by make release-gate-final
+scripts/run_playwright_gate.py,T01/A02,"E10, NFR-10",Playwright release orchestration / validated,make playwright-gate and release-gate-final

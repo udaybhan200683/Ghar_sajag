@@ -1,3 +1,9 @@
+# Parivar Sathi v3.4.3 — checked-in effective browser baseline
+
+- Integrated the legacy engineering-lab browser assertion alignment (`/No (?:open )?incidents/i`).
+- `make release-gate-final` is the browser-qualified release command and runs Playwright preflight plus desktop/mobile PWA validation.
+- The physical source directory deliberately retains the historical `v3_4_2` name.
+
 # Parivar Sathi v3.4.0 — battery analytics and remaining-life prediction
 
 - Added backend `BatteryAnalyticsService` with non-linear Li-ion voltage→SOC estimation, calibrated energy accounting, usage-history smoothing, confidence levels and remaining-days prediction.
