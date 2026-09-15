@@ -375,9 +375,37 @@ class FoundationService:
         return self.apply_notification_event(Event(), delivery_available)
 
     @synchronized
+    def create_device_maintenance_notification(self, device_id, display_name, at, delivery_available=True):
+        prefs = self.notification_preferences(self.owner_id)["preferences"]
+        if not prefs["device_maintenance_alerts"]:
+            return None
+        title = f"{clean_text(display_name, 'display_name')} battery needs attention"
+        correlation_key = f"device-maintenance:{clean_text(device_id, 'device_id', 2, 32)}"
+        state = "DELIVERED" if delivery_available else "FAILED"
+        reason = None if delivery_available else "delivery_unavailable"
+        record_id = "notif_" + hashlib.sha256(f"{self.home_id}:{correlation_key}".encode()).hexdigest()[:16]
+        with self.db:
+            self.db.execute(
+                """
+                INSERT OR IGNORE INTO notification_records(
+                    record_id,home_id,source_event_id,category,severity,state,title,message,correlation_key,
+                    created_at,delivered_at,failed_at,suppressed_reason
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    record_id, self.home_id, None, "DEVICE_MAINTENANCE", "CONCERN",
+                    state, title, "Recharge or inspect this device.", correlation_key, at,
+                    at if state == "DELIVERED" else None,
+                    at if state == "FAILED" else None,
+                    reason,
+                ),
+            )
+        return self.notification_record_by_id(record_id)
+
+    @synchronized
     def resolve_notification(self, correlation_key, at):
         with self.db:
-            self.db.execute("UPDATE notification_records SET state='RESOLVED',resolved_at=? WHERE home_id=? AND correlation_key=? AND state IN ('DELIVERED','FAILED')",
+            self.db.execute("UPDATE notification_records SET state='RESOLVED',resolved_at=? WHERE home_id=? AND correlation_key=? AND state IN ('DELIVERED','FAILED','SUPPRESSED')",
                             (at, self.home_id, correlation_key))
 
     def notification_record_by_id(self, record_id):

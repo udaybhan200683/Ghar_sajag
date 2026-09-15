@@ -230,7 +230,7 @@ test.describe('Phase 1 visible contract and contamination matrix',()=>{
     const base=await (await request.get('/pwa/state')).json();
     await post(request,'/pwa/action',{action:'toggle',scenario:'ok'});
     const overdue=await assertHome(page,request);
-    expect(overdue.iam_ok).toEqual({ok:false,status:'OVERDUE'});
+    expect(overdue.iam_ok).toMatchObject({ok:false,status:'OVERDUE'});
     expect(overdue.care.alert).toBe(true);
     expect(overdue.care.problem_kind).toBe('I_AM_OK_OVERDUE');
     await expect(card(page,'ok')).toContainText('I am OK overdue');
@@ -245,7 +245,7 @@ test.describe('Phase 1 visible contract and contamination matrix',()=>{
     const domain=await (await request.get('/sim/state')).json();
     expect(domain.timeline.some((e:any)=>e.kind==='OK_PRESSED')).toBe(true);
     const acknowledged=await assertHome(page,request);
-    expect(acknowledged.iam_ok).toEqual({ok:true,status:'ACKNOWLEDGED'});
+    expect(acknowledged.iam_ok).toMatchObject({ok:true,status:'ACKNOWLEDGED'});
     expect(acknowledged.care.alert).toBe(false);
     await expect(card(page,'ok')).toContainText('Just confirmed');
     await expect(card(page,'ok')).not.toContainText('overdue');

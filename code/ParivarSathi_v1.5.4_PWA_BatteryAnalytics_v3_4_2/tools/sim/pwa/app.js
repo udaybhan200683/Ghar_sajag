@@ -2,7 +2,7 @@ import {evaluateScenario,renderValidationRow} from './validation_engine.mjs';
 import {nextScheduleFeedback} from './schedule_feedback.mjs';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let state={
-  away:false,homeAlert:false,morning:true,morningMissing:false,morningStatus:'UNAVAILABLE',ok:true,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,doorOpenForSeconds:0,indoorAgo:0,
+  away:false,homeAlert:false,morning:true,morningMissing:false,morningStatus:'UNAVAILABLE',ok:true,okLastAgeSeconds:null,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,doorOpenForSeconds:0,indoorAgo:0,
   nightBathroomVisits:0,nightCommonVisits:0,nightUnusual:false,nightConcernText:'',careSubtitle:'All is well at home.',careProblemKind:null,
   devices:[],events:[],deviceHealth:null,schedules:null,source:'Connecting to backend…'
 };
@@ -99,6 +99,7 @@ function applyBackend(view){
     morningStatus:view.morning?.status||'UNAVAILABLE',
     ok:!!view.iam_ok?.ok,
     okStatus:view.iam_ok?.status||'NORMAL',
+    okLastAgeSeconds:view.iam_ok?.last_ok_age_s ?? null,
     coverageLost:!!view.coverage?.lost,
     doorOpen:!!view.door?.open,
     doorLeftOpenAlert:!!view.door?.left_open_alert,
@@ -268,7 +269,7 @@ function renderHome(){
       </div>
       <div class="grid2 routine-grid">
         <div class="card ${morningStatus==='MISSED'?'alert':''}" data-care-card="morning" data-status="${morningStatus}" data-severity="${morningStatus==='MISSED'?'danger':morningStatus==='COMPLETED'?'success':morningStatus==='IN_PROGRESS'?'warning':'neutral'}"><div class="card-row"><div class="round-icon">☀️</div><div><h2>Morning routine</h2><div class="${morningClass}">${morningText}</div><div class="${morningStatus==='MISSED'?'status-bad':'muted'}">${morningDetail}</div></div></div></div>
-        <div class="card ${state.ok?'':'alert'}" data-care-card="ok" data-status="${state.okStatus}" data-severity="${state.ok?'success':'danger'}"><div class="card-row"><div class="round-icon">❤</div><div><h2>I am OK</h2><div class="${state.ok?'status-good':'status-bad'}">${state.okStatus==='OVERDUE'?'I am OK overdue':state.okStatus==='ACKNOWLEDGED'?'Just confirmed':'Confirmed'}</div></div></div></div>
+        <div class="card ${state.ok?'':'alert'}" data-care-card="ok" data-status="${state.okStatus}" data-severity="${state.ok?'success':'danger'}"><div class="card-row"><div class="round-icon">❤</div><div><h2>I am OK</h2><div class="${state.ok?'status-good':'status-bad'}">${state.okStatus==='OVERDUE'?'I am OK overdue':state.okStatus==='ACKNOWLEDGED'?'Just confirmed':'Confirmed'}</div>${state.okLastAgeSeconds!=null&&state.okStatus!=='OVERDUE'?`<div class="muted">Last confirmed ${humanizeDuration(state.okLastAgeSeconds)} ago</div>`:state.okStatus==='OVERDUE'?'<div class="status-bad">Expected check-in has not arrived</div>':''}</div></div></div>
         <div class="card ${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'alert':''}" data-care-card="door"><div class="card-row"><div class="round-icon">🚪</div><div><h2>Main door</h2><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'status-good'}">${state.doorOpen?'Open':'Closed'}</div><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'muted'}">${doorDetail}</div></div></div></div>
         <div class="card ${state.nightUnusual?'alert':''}" data-care-card="night"><div class="card-row"><div class="round-icon night">☾</div><div><h2>Night activity</h2><div>Bathroom: ${countLabel(state.nightBathroomVisits,'time')}<br>Common room: ${countLabel(state.nightCommonVisits,'time')}</div><div class="${state.nightUnusual?'status-bad':'status-good'}">${state.nightUnusual?'Unusual activity':'No unusual activity'}</div>${state.nightUnusual?`<div class="status-bad">${state.nightConcernText||'Night activity is outside the configured routine'}</div>`:'<div class="muted">Within configured night routine</div>'}</div></div></div>
         <div class="card ${health.attention?'alert':''} wide-card" data-care-card="device-health" data-severity="${health.attention?'danger':'neutral'}"><div class="card-row"><div class="round-icon">🔋</div><div><h2>Device health</h2>${state.coverageLost?'<div class="status-bad">Monitoring coverage lost</div>':''}${offlineDevices.length?`<div class="status-bad">Offline: ${offlineDevices.map(esc).join(', ')}</div>`:''}<div class="${health.attention?'status-bad':''}">${healthHeadline}</div><div class="${runtimeUnavailable?'muted':health.attention?'status-bad':'muted'}">Estimated time left: ${runtimeText}</div>${health.attention&&health.low_percent!=null&&health.low_percent<=batteryAlert?'<div class="status-bad">Recharge now</div>':''}</div></div></div>
@@ -313,7 +314,7 @@ function scheduleEditor(){
  const locs=[['room1','Bedroom / Room 1'],['bathroom','Bathroom'],['kitchen','Kitchen'],['common','Common room'],['pooja','Pooja room']];
  const opts=(selected)=>locs.map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');
  return `<div id="scheduleEditor" class="schedule-editor">
-   <div class="schedule-header"><div><h2>Device Schedules & Routine Rules</h2><p class="muted">These values are household-specific. Change them to match the resident's routine; they are saved as versioned backend configuration.</p></div><button onclick="closeScheduleEditor()">✕</button></div>
+   <div class="schedule-header"><div><h2>Routines & Activity Rules</h2><p class="muted">These values are household-specific. Change them to match the resident's routine; they are saved as versioned backend configuration.</p></div><button onclick="closeScheduleEditor()">✕</button></div>
    <form id="scheduleForm" onsubmit="saveScheduleSettings(event)">
     <section><h3>Morning routine</h3><label class="toggle-line"><input name="morning_sequence_enabled" type="checkbox" ${r.morning_sequence_enabled?'checked':''}> Enable morning sequence</label>
       <div class="form-grid"><label>Active from<input name="morning_start_minute" type="time" value="${minutesToClock(r.morning_start_minute)}"></label><label>Active until<input name="morning_end_minute" type="time" value="${minutesToClock(r.morning_end_minute)}"></label><label>Complete within (hours)<input name="morning_sequence_window_seconds" type="number" min="0.0167" max="24" step="any" value="${secondsToHours(r.morning_sequence_window_seconds)}"></label>
@@ -331,12 +332,12 @@ function renderSettings(){
  $('#settingsTab').innerHTML=`
  <div class="card"><h1 style="margin:0">Settings</h1><div class="muted">Customize your home and device preferences</div></div>
  ${settingsGroup('Home Settings',[['🏠','Home Details','Update home name, timezone and locale','openHomeDetails()'],['👥','Family Members','Manage family access and permissions','openFamilyMembers()'],['📶','Wi‑Fi & Network','View hub/network status','openNetworkStatus()']])}
- ${settingsGroup('Device Settings',[['⚙️','Manage Devices','Register, edit or remove devices','openManageDevices()'],['🔔','Notifications','Manage caregiver alert preferences','openNotificationSettings()'],['🔋','Battery Alerts','Set low and critical battery thresholds','openBatterySettings()'],['◷','Device Schedules','Set household routine windows and alert thresholds','openDeviceSchedules()']])}
+ ${settingsGroup('Device Settings',[['⚙️','Manage Devices','Register, edit or remove devices','openManageDevices()'],['🔔','Notifications','Manage caregiver alert preferences','openNotificationSettings()'],['🔋','Battery Alerts','Set low and critical battery thresholds','openBatterySettings()'],['◷','Routines & Activity Rules','Set household routine windows and alert thresholds','openDeviceSchedules()','Device Schedules']])}
  ${settingsGroup('App Settings',[['🛡️','Privacy & Security','Future: security controls and retention details'],['❓','Help & Support','Phase 2: support guide pending'],['ℹ️','About','Phase 2: build details pending']])}
  <div id="scheduleMount"></div>
  <div style="margin:20px 0;text-align:center"><a href="https://ghar-sajag.rahuljnvakg.chatgpt.site/" target="_blank" rel="noopener" style="color:#0d8a43;font-weight:800">Visit public Ghar Sajag website ↗</a></div>`;
 }
-function settingsGroup(title,items){return `<div class="settings-group"><h3>${title}</h3>${items.map(x=>`<div class="setting" data-setting="${x[1]}" ${x[3]?`onclick="${x[3]}"`:'aria-disabled="true"'}><div class="setting-icon">${x[0]}</div><div><strong>${x[1]}</strong><small>${x[2]}</small></div><div>${x[3]?'›':'Pending'}</div></div>`).join('')}</div>`}
+function settingsGroup(title,items){return `<div class="settings-group"><h3>${title}</h3>${items.map(x=>{const key=x[4]||x[1];return `<div class="setting" data-setting="${key}" ${x[3]?`onclick="${x[3]}"`:'aria-disabled="true"'}><div class="setting-icon">${x[0]}</div><div><strong>${x[1]}</strong><small>${x[2]}</small></div><div>${x[3]?'›':'Pending'}</div></div>`}).join('')}</div>`}
 window.openHomeDetails=async()=>{
   try{const h=await foundationRequest('home');phase1Dialog('Home Details',`<form id="homeDetailsForm" onsubmit="saveHomeDetails(event)" class="phase1-form"><label>Home name<input name="display_name" required minlength="1" maxlength="80" value="${esc(h.display_name)}"></label><label>Timezone<input name="timezone" required maxlength="64" value="${esc(h.timezone)}"></label><label>Locale<input name="language" required maxlength="5" value="${esc(h.language)}"></label><div class="schedule-actions"><button type="button" onclick="closePhase1Dialog()">Cancel</button><button type="submit" class="primary">Save Home Details</button></div></form>`)}catch(err){toast(`Home Details unavailable: ${err.message}`)}
 };

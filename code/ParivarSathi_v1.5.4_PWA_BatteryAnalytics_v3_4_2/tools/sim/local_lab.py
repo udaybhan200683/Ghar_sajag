@@ -483,12 +483,13 @@ class Lab:
                         if key in context:
                             payload[key] = context[key]
             wire["payload"] = payload
+            had_check_in_overdue = self._has_active_check_in_overdue()
             result = self.api_call("POST", f"/v1/homes/{HOME}/events", wire)
             self.log.info("category=SIM module=B03 event=ingest id=%s duplicate=%s", wire["event_id"], result["duplicate"])
             if result.get("commit") != "DURABLE":
                 raise RuntimeError("Missing backend model acknowledgement")
             self._apply_notification_for_event(wire["event_id"])
-            if event["kind"] == "OK_PRESSED" and getattr(self, "pwa_flags", {}).get("ok_negative"):
+            if event["kind"] == "OK_PRESSED" and (getattr(self, "pwa_flags", {}).get("ok_negative") or had_check_in_overdue):
                 self.pwa_flags["ok_negative"] = False
                 self.pwa_flags["ok_acknowledged"] = True
             if event["kind"] == "OK_PRESSED":
@@ -549,6 +550,12 @@ class Lab:
         event = self.service.store.events.get((HOME, event_id))
         if event is not None:
             self.foundation.apply_notification_event(event, self.notification_delivery_available)
+
+    def _has_active_check_in_overdue(self):
+        return any(
+            record.get("category") == "CHECK_IN" and record.get("state") in {"DELIVERED", "FAILED", "SUPPRESSED"}
+            for record in self.foundation.notification_records(OWNER, limit=50)
+        )
 
     def _evaluate_check_in_overdue(self):
         if getattr(self, "check_in_pending", False) and self.state["now"] >= self.check_in_due_at:
@@ -874,6 +881,10 @@ class Lab:
         if self.pwa_flags["battery_negative"]:
             self._inject_fault("kitchen", "LOW_BATTERY")
             self._battery_set_low("kitchen")
+            device = self.foundation.device(OWNER, "kitchen")
+            self.foundation.create_device_maintenance_notification(
+                "kitchen", device["display_name"], self.state["now"], self.notification_delivery_available
+            )
             self.sync()
 
     def pwa_reset_pass(self):
@@ -923,11 +934,16 @@ class Lab:
             if self.pwa_flags["battery_negative"]:
                 self._inject_fault("kitchen", "LOW_BATTERY")
                 estimate = self._battery_set_low("kitchen")
+                device = self.foundation.device(OWNER, "kitchen")
+                self.foundation.create_device_maintenance_notification(
+                    "kitchen", device["display_name"], self.state["now"], self.notification_delivery_available
+                )
                 self._pwa_add_audit(f"Kitchen sensor battery low: {estimate['percent']}%", "red", "🔋", "device_health")
             else:
                 self._clear_fault("kitchen")
                 self._seed_battery_analytics()
                 estimate = self.service.battery.estimate("kitchen").as_dict()
+                self.foundation.resolve_notification("device-maintenance:kitchen", self.state["now"])
                 self._pwa_add_audit(f"Kitchen sensor battery restored: {estimate['percent']}%", "green", "🔋", "device_health")
             self.sync()
         return self.pwa_view()
@@ -938,6 +954,7 @@ class Lab:
         home = snap["home"]
         now = int(sim["now"])
         coverage_lost = sim.get("coverage") != "COVERED"
+        active_check_in_overdue = self._has_active_check_in_overdue()
         care_kinds = {"MISSING_MORNING_ACTIVITY","DAYTIME_INACTIVITY","CALL_FAMILY","DOOR_LEFT_OPEN",
                       "UNUSUAL_NIGHT_BATHROOM_ACTIVITY","UNUSUAL_NIGHT_COMMON_ACTIVITY","POST_DOOR_INACTIVITY"}
         current_door_open = (home.get("door_status") or {}).get("state") == "OPEN" or bool(self.pwa_flags.get("door_negative"))
@@ -950,7 +967,7 @@ class Lab:
         if timeline_concern is not None or unexpected_door:
             care_alert = True
         if (self.pwa_flags.get("morning_negative") or self.pwa_flags.get("ok_negative")
-                or self.pwa_flags.get("night_negative")):
+                or self.pwa_flags.get("night_negative") or active_check_in_overdue):
             care_alert = True
         if coverage_lost:
             care_alert = True
@@ -1037,8 +1054,10 @@ class Lab:
         low = min((d for d in devices if d["battery"] is not None), key=lambda d:d["battery"], default=None)
         drain_attention = [d for d in devices if d.get("drain_status") == "HIGH"] if self.household_settings["abnormal_drain_alert_enabled"] else []
         morning_ok = (not self.household_settings["morning_sequence_enabled"] or bool(sim.get("morning_sequence_completed", False))) and not self.pwa_flags.get("morning_negative", False)
-        ok = not self.pwa_flags.get("ok_negative", False)
+        ok = not (self.pwa_flags.get("ok_negative", False) or active_check_in_overdue)
         ok_status = "OVERDUE" if not ok else "ACKNOWLEDGED" if self.pwa_flags.get("ok_acknowledged", False) else "NORMAL"
+        last_ok = next((e for e in snap["timeline"] if e.get("kind") == "OK_PRESSED"), None)
+        last_ok_age_s = max(0, now - int(last_ok["occurred_at"])) if last_ok and last_ok.get("occurred_at") is not None else None
         night_bathroom = int(sim.get("night_bathroom_visits", 0))
         night_common = int(sim.get("night_common_visits", 0))
         if self.pwa_flags.get("night_negative"):
@@ -1089,7 +1108,7 @@ class Lab:
                 "missing": morning_missing,
                 "status": morning_status,
             },
-            "iam_ok": {"ok": ok, "status": ok_status},
+            "iam_ok": {"ok": ok, "status": ok_status, "last_ok_at": last_ok.get("occurred_at") if last_ok else None, "last_ok_age_s": last_ok_age_s},
             "door": {"open": door.get("state") == "OPEN" or bool(self.pwa_flags.get("door_negative")), "open_for_s": max(0, now-int(door.get("since") or now)) if door.get("state") == "OPEN" else 0, "indoor_activity_age_min": indoor_age_min, "post_close_inactivity_alert": post_door_alert, "left_open_alert": door_left_open_alert, "unexpected_alert": unexpected_door},
             "night": {"bathroom_visits": night_bathroom, "common_visits": night_common, "unusual": night_unusual,
                       "concern_text": night_concern_text,
