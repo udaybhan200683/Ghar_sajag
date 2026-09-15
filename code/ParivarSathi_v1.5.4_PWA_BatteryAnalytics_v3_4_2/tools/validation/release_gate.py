@@ -11,8 +11,15 @@ from __future__ import annotations
 import argparse, json, os, shutil, subprocess, sys, time, urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+from scripts.run_playwright_gate import (
+    assert_lab_port_available,
+    terminate_process_group,
+)
 EVIDENCE=ROOT/'evidence'/'release_gate_v1.5.4'
 EVIDENCE.mkdir(parents=True,exist_ok=True)
+BROWSER_HOST='127.0.0.1'
+BROWSER_PORT=8765
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--quick',action='store_true',help='skip feature matrix, sanitizer and trace build')
@@ -67,44 +74,65 @@ def browser_stage():
         print(('FAIL' if args.require_browser else 'MANUAL_REQUIRED'), 'browser-e2e (Playwright not installed)')
         return not args.require_browser
 
-    subprocess.run(['make','lab-build'],cwd=ROOT,check=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
-    server=subprocess.Popen(
-        [sys.executable,'tools/sim/local_lab.py','--port','8765'],
-        cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,
-        env={**os.environ,'GS_APP_DB':':memory:'}
-    )
     server_log=EVIDENCE/'browser-e2e-server.log'
     try:
-        ready,why=wait_http_ready('http://127.0.0.1:8765/lab',server,timeout=60)
+        assert_lab_port_available(BROWSER_HOST, BROWSER_PORT)
+    except RuntimeError as exc:
+        server_log.write_text(str(exc)+'\n')
+        stages.append({'name':'browser-e2e','status':'FAIL','mandatory':True,'seconds':0,
+                       'command':['node','tests/simulation_browser_test.cjs'],
+                       'log':str(server_log.relative_to(ROOT))})
+        print(f'FAIL browser-e2e ({exc})')
+        return False
+    subprocess.run(['make','lab-build'],cwd=ROOT,check=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+    try:
+        assert_lab_port_available(BROWSER_HOST, BROWSER_PORT)
+    except RuntimeError as exc:
+        server_log.write_text(str(exc)+'\n')
+        stages.append({'name':'browser-e2e','status':'FAIL','mandatory':True,'seconds':0,
+                       'command':['node','tests/simulation_browser_test.cjs'],
+                       'log':str(server_log.relative_to(ROOT))})
+        print(f'FAIL browser-e2e ({exc})')
+        return False
+    server=subprocess.Popen(
+        [sys.executable,'tools/sim/local_lab.py','--port',str(BROWSER_PORT)],
+        cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,
+        env={**os.environ,'GS_APP_DB':':memory:'},
+        start_new_session=True,
+    )
+    stage_result=False
+    server_details=''
+    try:
+        browser_url=f'http://{BROWSER_HOST}:{BROWSER_PORT}/lab'
+        ready,why=wait_http_ready(browser_url,server,timeout=60)
         if not ready:
-            try:
-                output=server.stdout.read() if server.stdout else ''
-            except Exception:
-                output=''
-            server_log.write_text((why+'\n'+output)[-12000:])
+            # Do not read a live child's pipe to EOF here; the finally block
+            # must be able to terminate/reap it on readiness timeout as well.
+            output=''
+            if server.poll() is not None:
+                try:
+                    output=server.stdout.read() if server.stdout else ''
+                except Exception:
+                    output=''
+            server_details=(why+'\n'+output)[-12000:]
             stages.append({
                 'name':'browser-e2e','status':'FAIL','mandatory':True,'seconds':0,
                 'command':['node','tests/simulation_browser_test.cjs'],
                 'log':str(server_log.relative_to(ROOT))
             })
             print('FAIL browser-e2e (local lab did not become ready)')
-            return False
-
-        return run(
-            'browser-e2e',
-            ['node','tests/simulation_browser_test.cjs'],
-            timeout=180,
-            mandatory=True,
-            env={'GS_LAB_URL':'http://127.0.0.1:8765/lab'}
-        )
+        else:
+            stage_result = run(
+                'browser-e2e',
+                ['node','tests/simulation_browser_test.cjs'],
+                timeout=180,
+                mandatory=True,
+                env={'GS_LAB_URL':browser_url}
+            )
     finally:
-        server.terminate()
-        try:
-            out,_=server.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            server.kill()
-            out,_=server.communicate()
-        server_log.write_text(out or '')
+        out=terminate_process_group(server)
+        server_log.write_text((server_details+'\n'+(out or ''))[-12000:])
+    return stage_result
 
 ok=True
 # Reproducibility/traceability first.

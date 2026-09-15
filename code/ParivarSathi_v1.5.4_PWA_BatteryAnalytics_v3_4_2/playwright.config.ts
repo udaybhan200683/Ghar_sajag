@@ -12,7 +12,7 @@ export default defineConfig({
     ['json', { outputFile: 'evidence/playwright-results.json' }]
   ],
   use: {
-    baseURL: process.env.PWA_BASE_URL || 'http://127.0.0.1:8765',
+    baseURL: process.env.PWA_BASE_URL || 'http://127.0.0.1:8766',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'

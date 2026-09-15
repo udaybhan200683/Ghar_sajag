@@ -98,8 +98,8 @@ test.describe('Parivar Sathi mandatory browser release gate', () => {
     await page.getByRole('button', { name: /Devices/i }).click();
     await expect(kitchen).toHaveClass(/alert/);
     await expect(kitchen).toContainText(/Battery draining faster than usual/i);
-    await expect(kitchen).toContainText(/HIGH confidence/i);
-    await expect(kitchen).toContainText(/RF retries\/day/i);
+    await expect(kitchen).toContainText(/Estimated time left/i);
+    await expect(kitchen).not.toContainText(/mAh\/day|confidence|mV|RF retries|wakes\/day|threshold/i);
   });
 
   test('recent important events are newest-first after scenario toggles', async ({ page }) => {
@@ -164,6 +164,7 @@ test.describe('Parivar Sathi mandatory browser release gate', () => {
     await expect(batteryAlert).toHaveValue(/\d+/);
     await batteryAlert.fill('25');
     await page.locator('#scheduleForm button[type="submit"]').click();
+    await expect(page.locator('[data-save-feedback="success"]')).toHaveText(/saved and applied/i);
     await expect(page.locator('#scheduleEditor')).toBeVisible();
     await expect(page.locator('[name="night_bathroom_visit_threshold"]')).toHaveValue('3');
     await expect(page.locator('[name="battery_alert_percent"]')).toHaveValue('25');

@@ -94,6 +94,8 @@ class FoundationService:
         at = self.clock()
         baseline = {d["id"] for d in devices}
         with self.db:
+            self.db.execute("UPDATE households SET display_name='Synthetic demo home',timezone='Asia/Kolkata',language='en-IN',updated_at=? WHERE home_id=?", (at, self.home_id))
+            self.db.execute("DELETE FROM device_health_history WHERE home_id=?", (self.home_id,))
             self.db.execute("DELETE FROM family_members WHERE home_id=? AND member_id<>?", (self.home_id, self.owner_id))
             self.db.execute("UPDATE family_members SET display_name='Household admin',relationship='Admin',role='OWNER',contact=NULL,active=1,updated_at=? WHERE home_id=? AND member_id=?", (at, self.home_id, self.owner_id))
             placeholders = ",".join("?" for _ in baseline)

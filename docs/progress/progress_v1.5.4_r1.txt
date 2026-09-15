@@ -64,9 +64,9 @@ The effective checked-in baseline is Parivar Saathi v1.5.4 / PWA-BatteryAnalytic
 The physical source directory deliberately remains v3_4_2. Battery analytics, the 92-case
 catalog, PWA bridge/API/frontend checks and mandatory Playwright gate supersede the earlier
 68-case/manual-browser statements. Phase 0 manually passed make release-gate-final.
-Phase 1 persistence/household and device management are now implemented and targeted-tested;
-new desktop/mobile browser flows passed a focused 12/12 run outside the socket sandbox; the manual WSL full gate remains pending. Phase 2 reports/notification
-completion and Phase 3 stress qualification remain open.
+Phase 1 persistence/household and device management are now implemented, validation-hardened
+and final-gate qualified. Phase 2 reports/notification completion and Phase 3 stress
+qualification remain open.
 
 The following current release companion artifacts are now explicitly registered in the handover:
 - Ghar_Sajag_Validation_Framework_Design_v1.5.4.docx
@@ -75,14 +75,29 @@ The following current release companion artifacts are now explicitly registered 
 These are part of the release evidence set and should be updated whenever validation architecture,
 scenario coverage, release gates or test status changes.
 
-PHASE 1 TARGETED CHECKPOINT (NOT YET FULL-GATE VALIDATED)
+PHASE 1 CURRENT STATUS
+- Phase 1 implementation: COMPLETE.
+- Phase 1 UX correction: COMPLETE.
+- Phase 1 Validation Hardening: COMPLETE.
+- Final qualification: make release-gate-final PASS.
+
+Validated Phase 1 browser coverage is now driven by the authoritative machine-readable UI
+contract/coverage matrix at tests/validation/phase1_ui_contract.json. It checks required and
+forbidden caregiver-visible UI states, backend/UI consistency, state isolation and mandatory
+desktop/mobile rendering. This does not claim that every possible behavior is exhaustively tested.
+
 - Home Details, family-member management, one device registry, simulated registration,
   device edit/unregistration, health history and versioned battery/routine policy are now backed
   by migration 003 and FoundationService. The same device domain drives Devices and Manage Devices.
-- 46/46 targeted Python tests PASS; 92/92 connected scenarios PASS. The focused Phase 1
-  Chromium desktop/Pixel 7 file passed 12/12 outside the sandbox. Inside-sandbox execution
-  was ENVIRONMENT_BLOCKED by loopback EPERM; manual WSL release-gate-final is still pending.
-- Local development actor identity and simulated telemetry/pairing are HOST_SIMULATED. Physical
-  pairing, Wi-Fi provisioning, battery/RF calibration and target flash endurance are HW_REQUIRED.
-- Production notification delivery and Reports remain Phase 2. Stress/endurance, full failure
-  injection and final documentation/evidence reconciliation remain Phase 3.
+- make release-gate-final is PASS and remains the authoritative release qualification command.
+  It includes host validation plus mandatory Playwright validation for chromium-desktop and
+  chromium-mobile. browser-e2e owns port 8765; Playwright owns port 8766. Automated browser
+  tests use isolated in-memory application DBs where intended.
+- Selective screenshot baselines are PARTIAL by design; they are targeted regression evidence,
+  not exhaustive visual proof.
+- Browser permission prompts and engineering log-export checks remain MANUAL_ONLY where still
+  applicable.
+- Physical provisioning, Wi-Fi, real sensors, battery/RF calibration and target flash endurance
+  are HW_REQUIRED.
+- Reports and production notifications are PHASE2_PENDING. Stress/endurance and full failure
+  injection remain later qualification work.

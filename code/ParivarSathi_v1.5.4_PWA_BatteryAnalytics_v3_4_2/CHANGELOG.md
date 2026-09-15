@@ -1,9 +1,18 @@
-# Phase 1 implementation checkpoint — manual release qualification pending
+# Phase 1 Validation Hardening — final qualification PASS
+
+- Added the machine-readable Phase 1 UI contract at `tests/validation/phase1_ui_contract.json`, covering required caregiver-visible content and forbidden unrelated UI assertions.
+- Hardened browser validation for cross-feature contamination, state-matrix coverage, event classification, persistence/test isolation and backend/UI consistency.
+- Expanded Settings validation across save, rejection, cancel and reload behavior.
+- Covered coverage-loss and I am OK acknowledgement flows, plus consumer-facing Device Health and battery presentation.
+- Hardened release-gate process and port lifecycle ownership: `browser-e2e` uses `8765`, Playwright uses `8766`, and `make release-gate-final` requires mandatory desktop/mobile browser validation.
+- Validation hardening found and corrected real Phase 1 defects; the final documented baseline is qualified by `make release-gate-final` PASS.
+
+# Phase 1 implementation checkpoint — complete
 
 - Added one versioned SQLite application store for Home Details, family members, registered devices, device health/history and battery/routine policy without resetting existing household data.
 - Added server-validated owner-only Home/family/device/policy APIs; simulator registration, edit and unregister use the same registry as Devices and Manage Devices, preserving historical rows.
 - Made the PWA Devices view/counts, Device Details, Home Details, Family Members, Battery Alerts and Manage Devices backend-driven; saved policy changes feed existing host rules and battery evaluation.
-- Added focused migration, domain, WSGI API and desktop/mobile Playwright tests. The 46-case targeted Python suite and 12-case focused desktop/mobile browser file pass; complete release qualification awaits the user's WSL `make release-gate-final` result.
+- Added focused migration, domain, WSGI API and desktop/mobile Playwright tests; final release qualification is `make release-gate-final` PASS.
 - Kept physical provisioning and network setup as adapter/HW_REQUIRED boundaries. The physical source directory remains `v3_4_2`, with effective prior browser baseline v3.4.3.
 
 # Parivar Sathi v3.4.3 — checked-in effective browser baseline
@@ -37,7 +46,7 @@
 - Added simulated-device capability checks so impossible sensor/event combinations are rejected.
 - Added actual rule detection timestamps so warning/close chronology remains deterministic.
 - Expanded regression evidence to 80 C++ checks, 24 Python tests, 10 JavaScript tests, 68 connected functional scenarios, 5 dummy sensor streams and 16 HTTP integration tests.
-- Playwright browser automation remains optional unless `make release-gate-browser` is used; the manual browser checklist is mandatory when browser automation is unavailable.
+- Superseded by the final gate above: Playwright browser automation is mandatory for pilot/release qualification through `make release-gate-final`; the manual browser checklist remains supplementary.
 
 # 1.5.3 — configurable household policy settings
 

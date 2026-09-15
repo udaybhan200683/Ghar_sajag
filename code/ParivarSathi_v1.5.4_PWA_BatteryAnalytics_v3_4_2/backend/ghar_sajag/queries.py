@@ -35,7 +35,9 @@ class QueryService:
             tone = "danger"
         elif item.kind == "DOOR_OPEN" and payload.get("unexpected"):
             tone = "danger"
-        elif item.kind in {"OK_PRESSED", "DOOR_CLOSED", "MORNING_ROUTINE_COMPLETED"}:
+        elif item.kind == "COVERAGE_CHANGED" and payload.get("reason") == "coverage_lost":
+            tone = "danger"
+        elif item.kind in {"OK_PRESSED", "DOOR_CLOSED", "MORNING_ROUTINE_COMPLETED"} or (item.kind == "COVERAGE_CHANGED" and payload.get("reason") == "coverage_restored"):
             tone = "positive"
         elif item.kind in {"MOTION", "DOOR_OPEN"}:
             tone = "positive"
@@ -69,7 +71,8 @@ class QueryService:
             if item.home_id == home_id and item.state not in {IncidentState.RESOLVED}
         ]
         latest_activity = next((item for item in events if item.kind in _ACTIVITY_KINDS), None)
-        recent = [self._event_view(item) for item in events if item.kind in _MEANINGFUL_KINDS][:6]
+        recent = [self._event_view(item) for item in events if item.kind in _MEANINGFUL_KINDS or
+                  (item.kind == "COVERAGE_CHANGED" and item.payload.get("reason") in {"coverage_lost", "coverage_restored"})][:6]
 
         door_events = [item for item in events if item.kind in {"DOOR_OPEN", "DOOR_CLOSED"}]
         latest_door = door_events[0] if door_events else None

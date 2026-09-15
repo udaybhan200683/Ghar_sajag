@@ -208,12 +208,14 @@ class Lab:
                      "quiet_hours": False, "left_open_emitted": False}
         self.household_settings = dict(self.foundation.policy(OWNER)["settings"])
         self.config_version = self._publish_household_settings()
+        self.reported_coverage = self.state.get("coverage", "COVERED")
         self.sync()
         # PWA verification/telemetry adapter. This is intentionally outside the
         # deterministic C++ rules core so the v1.5.4 domain logic remains unchanged.
         self.pwa_flags = {
             "morning_negative": False,
             "ok_negative": False,
+            "ok_acknowledged": False,
             "night_negative": False,
             "battery_negative": False,
             "door_negative": False,
@@ -473,6 +475,9 @@ class Lab:
             self.log.info("category=SIM module=B03 event=ingest id=%s duplicate=%s", wire["event_id"], result["duplicate"])
             if result.get("commit") != "DURABLE":
                 raise RuntimeError("Missing backend model acknowledgement")
+            if event["kind"] == "OK_PRESSED" and getattr(self, "pwa_flags", {}).get("ok_negative"):
+                self.pwa_flags["ok_negative"] = False
+                self.pwa_flags["ok_acknowledged"] = True
             self.command("ack " + wire["event_id"])
 
         for signal in signals:
@@ -511,6 +516,14 @@ class Lab:
         self.api_call("POST", f"/v1/homes/{HOME}/events", {"event_id": f"hub:{self.heartbeat_id}",
                       "kind": "HUB_HEARTBEAT", "occurred_at": self.state["now"],
                       "hub_received_at": self.state["now"]})
+        current_coverage = self.state.get("coverage", "UNKNOWN")
+        if current_coverage != self.reported_coverage:
+            reason = "coverage_restored" if current_coverage == "COVERED" else "coverage_lost"
+            self.api_call("POST", f"/v1/homes/{HOME}/events", {
+                "event_id": f"coverage:{reason}:{self.state['now']}", "kind": "COVERAGE_CHANGED",
+                "location": "home", "occurred_at": self.state["now"],
+                "hub_received_at": self.state["now"], "payload": {"reason": reason}})
+            self.reported_coverage = current_coverage
 
     def _record_manual_event_context(self, node, kind, body):
         context = {"node": node, "kind": kind, "occurred_at": self.state["now"]}
@@ -771,11 +784,17 @@ class Lab:
             "UNUSUAL_NIGHT_BATHROOM_ACTIVITY": ("Unusual bathroom activity at night", "red", "☾"),
             "UNUSUAL_NIGHT_COMMON_ACTIVITY": ("Unusual common-room activity at night", "red", "☾"),
             "POST_DOOR_INACTIVITY": ("No indoor activity after main door closed", "red", "🚪"),
+            "COVERAGE_CHANGED": ("Monitoring coverage changed", "blue", "📶"),
         }
         title, tone, icon = labels.get(event.get("kind"), (event.get("kind","Activity").replace("_"," ").title(), "green", "•"))
         location = event.get("location") or ""
         if event.get("kind") == "MOTION" and location:
             title = f"Motion in {NODE_LOCATIONS.get(location, location)}"
+        if event.get("kind") == "COVERAGE_CHANGED":
+            reason = (event.get("details") or {}).get("reason")
+            title, tone = (("Monitoring coverage lost", "red") if reason == "coverage_lost" else
+                           ("Monitoring coverage restored", "green") if reason == "coverage_restored" else
+                           ("Monitoring coverage changed", "blue"))
         return {
             "id": event.get("event_id", f"evt-{event.get('occurred_at',0)}"),
             "at": int(event.get("occurred_at", 0)),
@@ -818,7 +837,7 @@ class Lab:
             self.action({"action":"deadline"})
         if self.pwa_flags.get("door_negative"):
             self.action({"action":"event","node":"entry","kind":"DOOR_OPEN"})
-            self.action({"action":"advance","seconds":120})
+            self.action({"action":"advance","seconds":self.household_settings["door_open_timeout_seconds"]})
         if self.pwa_flags["battery_negative"]:
             self._inject_fault("kitchen", "LOW_BATTERY")
             self._battery_set_low("kitchen")
@@ -847,6 +866,7 @@ class Lab:
             self._pwa_rebuild_base()
         elif scenario == "ok":
             self.pwa_flags["ok_negative"] = not self.pwa_flags["ok_negative"]
+            self.pwa_flags["ok_acknowledged"] = False
             self._pwa_add_audit(
                 "I'm OK not confirmed" if self.pwa_flags["ok_negative"] else "I'm OK received",
                 "red" if self.pwa_flags["ok_negative"] else "green", "❤")
@@ -884,6 +904,7 @@ class Lab:
         sim = snap["simulation"]
         home = snap["home"]
         now = int(sim["now"])
+        coverage_lost = sim.get("coverage") != "COVERED"
         care_kinds = {"MISSING_MORNING_ACTIVITY","DAYTIME_INACTIVITY","CALL_FAMILY","DOOR_LEFT_OPEN",
                       "UNUSUAL_NIGHT_BATHROOM_ACTIVITY","UNUSUAL_NIGHT_COMMON_ACTIVITY","POST_DOOR_INACTIVITY"}
         current_door_open = (home.get("door_status") or {}).get("state") == "OPEN" or bool(self.pwa_flags.get("door_negative"))
@@ -898,9 +919,19 @@ class Lab:
         if (self.pwa_flags.get("morning_negative") or self.pwa_flags.get("ok_negative")
                 or self.pwa_flags.get("night_negative")):
             care_alert = True
+        if coverage_lost:
+            care_alert = True
+        # An explicit care/activity allowlist prevents new diagnostic event kinds
+        # from leaking into the caregiver's important-event feed by default.
+        important_kinds = {"MOTION", "DOOR_OPEN", "DOOR_CLOSED", "OK_PRESSED", "CALL_FAMILY",
+                           "MISSING_MORNING_ACTIVITY", "DAYTIME_INACTIVITY", "DOOR_LEFT_OPEN",
+                           "MORNING_ROUTINE_COMPLETED", "UNUSUAL_NIGHT_BATHROOM_ACTIVITY",
+                           "UNUSUAL_NIGHT_COMMON_ACTIVITY", "POST_DOOR_INACTIVITY", "COVERAGE_CHANGED"}
         recent = []
         for item in snap["timeline"]:
-            if item.get("kind") in {"HEARTBEAT","HUB_HEARTBEAT","COVERAGE_CHANGED"}:
+            if item.get("kind") not in important_kinds:
+                continue
+            if item.get("kind") == "COVERAGE_CHANGED" and (item.get("details") or {}).get("reason") not in {"coverage_lost", "coverage_restored"}:
                 continue
             recent.append(self._pwa_event_presentation(item))
         # Battery telemetry remains in backend analytics/audit history, but is a
@@ -974,6 +1005,7 @@ class Lab:
         drain_attention = [d for d in devices if d.get("drain_status") == "HIGH"] if self.household_settings["abnormal_drain_alert_enabled"] else []
         morning_ok = (not self.household_settings["morning_sequence_enabled"] or bool(sim.get("morning_sequence_completed", False))) and not self.pwa_flags.get("morning_negative", False)
         ok = not self.pwa_flags.get("ok_negative", False)
+        ok_status = "OVERDUE" if not ok else "ACKNOWLEDGED" if self.pwa_flags.get("ok_acknowledged", False) else "NORMAL"
         night_bathroom = int(sim.get("night_bathroom_visits", 0))
         night_common = int(sim.get("night_common_visits", 0))
         if self.pwa_flags.get("night_negative"):
@@ -999,7 +1031,7 @@ class Lab:
             "UNEXPECTED_DOOR_OPEN": "Main door opened during the configured quiet-hours window.",
         }
         concern_kind = ("UNEXPECTED_DOOR_OPEN" if unexpected_door else
-                        (latest_concern.get("kind") if latest_concern else (active_kinds[0] if active_kinds else None)))
+                        (latest_concern.get("kind") if latest_concern else (active_kinds[0] if active_kinds else "I_AM_OK_OVERDUE" if not ok else "MONITORING_COVERAGE_LOST" if coverage_lost else None)))
         subtitle = problem_map.get(concern_kind, "Please check the home status.") if care_alert else "All is well at home."
         post_door_alert = bool(sim.get("post_door_inactivity_alerted", False)) or concern_kind == "POST_DOOR_INACTIVITY"
         door_left_open_alert = current_door_open and (concern_kind == "DOOR_LEFT_OPEN" or any(e.get("kind")=="DOOR_LEFT_OPEN" for e in snap["timeline"]))
@@ -1024,7 +1056,7 @@ class Lab:
                 "missing": morning_missing,
                 "status": morning_status,
             },
-            "iam_ok": {"ok": ok},
+            "iam_ok": {"ok": ok, "status": ok_status},
             "door": {"open": door.get("state") == "OPEN" or bool(self.pwa_flags.get("door_negative")), "open_for_s": max(0, now-int(door.get("since") or now)) if door.get("state") == "OPEN" else 0, "indoor_activity_age_min": indoor_age_min, "post_close_inactivity_alert": post_door_alert, "left_open_alert": door_left_open_alert, "unexpected_alert": unexpected_door},
             "night": {"bathroom_visits": night_bathroom, "common_visits": night_common, "unusual": night_unusual,
                       "concern_text": night_concern_text,
@@ -1035,11 +1067,14 @@ class Lab:
                 "runtime": low["left"] if low else "calculating", "daily_mah": low.get("daily_mah") if low else None, "confidence": low.get("confidence") if low else "LOW",
                 "wakeups_per_day": low.get("wakeups_per_day") if low else None, "retries_per_day": low.get("retries_per_day") if low else None,
                 "drain_status": low.get("drain_status") if low else "LEARNING", "high_drain_devices": [d["id"] for d in drain_attention],
+                "offline_devices": [d["id"] for d in devices if not d["active"]],
+                "monitoring_coverage_lost": coverage_lost,
                 "alert_percent": self.household_settings["battery_alert_percent"],
                 "critical_percent": self.household_settings["critical_battery_percent"],
                 "critical": low is not None and low["battery_health"] == "CRITICAL",
-                "attention": (low is not None and low["battery"] <= self.household_settings["battery_alert_percent"]) or bool(drain_attention) or any(not d["active"] for d in devices),
+                "attention": coverage_lost or (low is not None and low["battery"] <= self.household_settings["battery_alert_percent"]) or bool(drain_attention) or any(not d["active"] for d in devices),
             },
+            "coverage": {"state": sim.get("coverage", "UNKNOWN"), "lost": coverage_lost},
             "devices": devices,
             "events": recent,
             "schedules": dict(self.household_settings),
@@ -1209,6 +1244,7 @@ class WebLab:
                   "/index.html":("tools/sim/pwa/index.html","text/html"),
                   "/app.js":("tools/sim/pwa/app.js","text/javascript"),
                   "/validation_engine.mjs":("tools/sim/pwa/validation_engine.mjs","text/javascript"),
+                  "/schedule_feedback.mjs":("tools/sim/pwa/schedule_feedback.mjs","text/javascript"),
                   "/styles.css":("tools/sim/pwa/styles.css","text/css"),
                   "/sw.js":("tools/sim/pwa/sw.js","text/javascript"),
                   "/manifest.webmanifest":("tools/sim/pwa/manifest.webmanifest","application/manifest+json"),

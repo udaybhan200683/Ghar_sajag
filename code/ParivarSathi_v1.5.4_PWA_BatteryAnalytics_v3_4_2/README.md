@@ -1,12 +1,12 @@
 # Ghar Sajag reference code 1.5.4
 
-## Phase 1 implementation checkpoint (full qualification pending)
+## Phase 1 implementation + Validation Hardening complete
 
 The effective PWA/BatteryAnalytics baseline is v3.4.3 in the historical `v3_4_2` directory. Phase 1 now stores Home Details, family membership, registered devices, device health and household battery/routine policy in one versioned SQLite application store (`backend/ghar_sajag/foundation.py`, migration `003_phase1_application.sql`). Devices and Settings → Manage Devices use the same registry and API. Registration is simulator-only; the physical provisioning adapter remains a hardware qualification boundary. Existing C++ care rules, Home presentation and canonical scenarios remain in place.
 
-`make lab` uses `logs/application.sqlite` for durable interactive application settings and registry data. Set `GS_APP_DB` to another SQLite path for an isolated lab, or `GS_APP_DB=:memory:` for disposable host sessions. Browser release runners force an in-memory application database to keep qualification deterministic. Local PWA APIs under `/pwa/foundation/` accept a development `X-Actor-Id` and enforce active OWNER for mutations; this local identity is not production authentication. Real ESP32 pairing/network provisioning, production identity, deployed database integration and flash durability remain pending.
+`make lab` uses `logs/application.sqlite` for durable interactive application settings and registry data. Set `GS_APP_DB` to another SQLite path for an isolated lab, or `GS_APP_DB=:memory:` for disposable host sessions. Automated browser tests force isolated in-memory application databases where intended to keep qualification deterministic. Local PWA APIs under `/pwa/foundation/` accept a development `X-Actor-Id` and enforce active OWNER for mutations; this local identity is not production authentication. Real ESP32 pairing/network provisioning, production identity, deployed database integration and flash durability remain pending.
 
-Focused checks: `make python-test`, `python3 tools/validation/run_functional_suite.py`, and `node --check tools/sim/pwa/app.js`. New desktop/mobile browser flows in `tests/playwright/phase1_foundation.spec.ts` passed a focused 12/12 run outside the Codex socket sandbox; complete manual WSL `make release-gate-final` qualification is still pending.
+Final qualification: `make release-gate-final` PASS. This is the authoritative release qualification command for the validated baseline. It includes the host validation gate plus mandatory Playwright browser validation for all mandatory specs across `chromium-desktop` and `chromium-mobile`. The host `browser-e2e` lab owns port `8765`; Playwright owns port `8766`.
 
 Start with [SIMULATION_START_HERE.md](SIMULATION_START_HERE.md). Version **1.5.4** adds a release-gate validation framework around the existing Base / Parivar Saathi P0 host implementation. It remains hardware-independent reference code, not a flashable ESP-IDF application.
 
@@ -91,6 +91,8 @@ make release-gate-final
 ```
 
 This runs the existing v1.5.4 release gate and then launches the local lab, opens the actual PWA in Chromium, and validates the rendered page.
+The host `browser-e2e` lab and the mandatory Playwright lab use isolated ports (`8765` and `8766` respectively); the runner propagates its `8766` URL through `PWA_BASE_URL`.
+The Phase 1 UI coverage matrix is the machine-readable contract at `tests/validation/phase1_ui_contract.json`.
 
 The browser gate checks:
 - PWA can load and the primary tabs are visible.

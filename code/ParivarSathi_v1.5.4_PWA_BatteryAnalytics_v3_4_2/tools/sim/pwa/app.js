@@ -1,4 +1,5 @@
 import {evaluateScenario,renderValidationRow} from './validation_engine.mjs';
+import {nextScheduleFeedback} from './schedule_feedback.mjs';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let state={
   away:false,homeAlert:false,morning:true,morningMissing:false,morningStatus:'UNAVAILABLE',ok:true,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,doorOpenForSeconds:0,indoorAgo:0,
@@ -7,6 +8,7 @@ let state={
 };
 let currentTab='home', reportPeriod='week';
 let scheduleEditorOpen=false;
+let scheduleFeedbackState={message:'',kind:''};
 let phase1EditorOpen=false;
 let validation={catalog:null,results:[],running:false,last:null};
 
@@ -91,6 +93,8 @@ function applyBackend(view){
     morningMissing:!!view.morning?.missing,
     morningStatus:view.morning?.status||'UNAVAILABLE',
     ok:!!view.iam_ok?.ok,
+    okStatus:view.iam_ok?.status||'NORMAL',
+    coverageLost:!!view.coverage?.lost,
     doorOpen:!!view.door?.open,
     doorLeftOpenAlert:!!view.door?.left_open_alert,
     doorUnexpectedAlert:!!view.door?.unexpected_alert,
@@ -154,6 +158,7 @@ function countLabel(value,singular){
 function renderHome(){
   const s=homeSeverity(), health=state.deviceHealth || {low_name:'Unknown',low_percent:0,runtime:'calculating',attention:false,high_drain_devices:[]};
   const highDrain=(health.high_drain_devices||[]).map(id=>state.devices.find(d=>d.id===id)?.name||id);
+  const offlineDevices=(health.offline_devices||[]).map(id=>state.devices.find(d=>d.id===id)?.name||id);
   const batteryAlert=Number(health.alert_percent ?? state.schedules?.battery_alert_percent ?? 20);
   const healthHeadline=highDrain.length?`Battery draining faster: ${highDrain.join(', ')}`:(health.low_percent==null?'No battery telemetry':health.low_percent<=batteryAlert?`Low battery: ${health.low_name} ${health.low_percent}%`:`Lowest battery: ${health.low_name} ${health.low_percent}%`);
   const rawRuntime=String(health.runtime||'').trim();
@@ -183,15 +188,15 @@ function renderHome(){
       <div id="validationPanel" class="demo-panel validation-panel">${validationPanelInner()}</div>
     </aside>
     <div class="home-main">
-      <div class="hero ${s.alert?'alert':''}">
+      <div class="hero ${s.alert?'alert':''}" data-severity="${s.alert?'danger':'success'}">
         <div class="hero-row"><div class="hero-icon">${s.alert?'!':'✓'}</div><div><h1>${s.title}</h1><p>${s.sub}</p></div></div>
       </div>
       <div class="grid2 routine-grid">
-        <div class="card ${morningStatus==='MISSED'?'alert':''}" data-care-card="morning"><div class="card-row"><div class="round-icon">☀️</div><div><h2>Morning routine</h2><div class="${morningClass}">${morningText}</div><div class="${morningStatus==='MISSED'?'status-bad':'muted'}">${morningDetail}</div></div></div></div>
-        <div class="card ${state.ok?'':'alert'}" data-care-card="ok"><div class="card-row"><div class="round-icon">❤</div><div><h2>I am OK</h2><div class="${state.ok?'status-good':'status-bad'}">${state.ok?'1 hr ago confirmed':'not confirmed today'}</div></div></div></div>
+        <div class="card ${morningStatus==='MISSED'?'alert':''}" data-care-card="morning" data-status="${morningStatus}" data-severity="${morningStatus==='MISSED'?'danger':morningStatus==='COMPLETED'?'success':morningStatus==='IN_PROGRESS'?'warning':'neutral'}"><div class="card-row"><div class="round-icon">☀️</div><div><h2>Morning routine</h2><div class="${morningClass}">${morningText}</div><div class="${morningStatus==='MISSED'?'status-bad':'muted'}">${morningDetail}</div></div></div></div>
+        <div class="card ${state.ok?'':'alert'}" data-care-card="ok" data-status="${state.okStatus}" data-severity="${state.ok?'success':'danger'}"><div class="card-row"><div class="round-icon">❤</div><div><h2>I am OK</h2><div class="${state.ok?'status-good':'status-bad'}">${state.okStatus==='OVERDUE'?'I am OK overdue':state.okStatus==='ACKNOWLEDGED'?'Just confirmed':'Confirmed'}</div></div></div></div>
         <div class="card ${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'alert':''}" data-care-card="door"><div class="card-row"><div class="round-icon">🚪</div><div><h2>Main door</h2><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'status-good'}">${state.doorOpen?'Open':'Closed'}</div><div class="${state.doorLeftOpenAlert||state.doorUnexpectedAlert||state.doorPostCloseAlert?'status-bad':'muted'}">${doorDetail}</div></div></div></div>
         <div class="card ${state.nightUnusual?'alert':''}" data-care-card="night"><div class="card-row"><div class="round-icon night">☾</div><div><h2>Night activity</h2><div>Bathroom: ${countLabel(state.nightBathroomVisits,'time')}<br>Common room: ${countLabel(state.nightCommonVisits,'time')}</div><div class="${state.nightUnusual?'status-bad':'status-good'}">${state.nightUnusual?'Unusual activity':'No unusual activity'}</div>${state.nightUnusual?`<div class="status-bad">${state.nightConcernText||'Night activity is outside the configured routine'}</div>`:'<div class="muted">Within configured night routine</div>'}</div></div></div>
-        <div class="card ${health.attention?'alert':''} wide-card" data-care-card="device-health"><div class="card-row"><div class="round-icon">🔋</div><div><h2>Device health</h2><div class="${health.attention?'status-bad':''}">${healthHeadline}</div><div class="${runtimeUnavailable?'muted':health.attention?'status-bad':'muted'}">Estimated time left: ${runtimeText}</div>${health.attention&&health.low_percent!=null&&health.low_percent<=batteryAlert?'<div class="status-bad">Recharge now</div>':''}</div></div></div>
+        <div class="card ${health.attention?'alert':''} wide-card" data-care-card="device-health" data-severity="${health.attention?'danger':'neutral'}"><div class="card-row"><div class="round-icon">🔋</div><div><h2>Device health</h2>${state.coverageLost?'<div class="status-bad">Monitoring coverage lost</div>':''}${offlineDevices.length?`<div class="status-bad">Offline: ${offlineDevices.map(esc).join(', ')}</div>`:''}<div class="${health.attention?'status-bad':''}">${healthHeadline}</div><div class="${runtimeUnavailable?'muted':health.attention?'status-bad':'muted'}">Estimated time left: ${runtimeText}</div>${health.attention&&health.low_percent!=null&&health.low_percent<=batteryAlert?'<div class="status-bad">Recharge now</div>':''}</div></div></div>
       </div>
       <div class="timeline"><div class="section-title"><h2>Recent important events</h2><button class="link-btn" onclick="toast('All events view will use backend history in the pilot.')">View all ›</button></div>
         ${state.events.map(e=>`<div class="event"><div class="event-time">${e.time}</div><div>${e.icon}</div><div class="event-pill ${e.tone==='red'?'red':e.tone==='blue'?'blue':''}">${e.text}</div></div>`).join('')}
@@ -203,11 +208,11 @@ function renderDevices(){
  const active=state.devices.filter(d=>d.active).length;
  $('#devicesTab').innerHTML=`
  <div class="device-summary"><div><h1 style="margin:0">${state.devices.length} devices total</h1><p class="muted">Registered devices from your household backend.</p><button type="button" onclick="openDeviceRegister()">Register simulated device</button></div><div class="metric-box"><strong>${active}</strong><div>active</div></div><div class="metric-box bad"><strong>${state.devices.length-active}</strong><div>inactive</div></div></div>
- <div class="device-list">${state.devices.map(d=>{const batteryAlert=d.battery_health==='LOW'||d.battery_health==='CRITICAL',drainHigh=d.drain_status==='HIGH',attention=!d.active||batteryAlert||drainHigh;const usage=d.daily_mah==null?'Learning usage pattern':`${Number(d.daily_mah).toFixed(1)} mAh/day`;const confidence=d.confidence||'LOW';return `<div class="device-card ${attention?'alert':''}" data-device-id="${d.id}">
+ <div class="device-list">${state.devices.map(d=>{const batteryAlert=d.battery_health==='LOW'||d.battery_health==='CRITICAL',drainHigh=d.drain_status==='HIGH',attention=!d.active||batteryAlert||drainHigh;const remaining=/^(calculating|unknown|recharge now)$/i.test(String(d.left||''))?'Collecting battery data':d.left;return `<div class="device-card ${attention?'alert':''}" data-device-id="${d.id}" data-status="${d.active?'online':'offline'}" data-battery-status="${d.battery_health}">
    <div class="round-icon">${d.id==='entry'?'🚪':d.id==='hub'?'📶':'🏃'}</div>
    <div><div class="device-name">${esc(d.name)}</div><div class="muted">${esc(d.type)} · ${esc(d.room||'Unassigned')}</div><div class="${d.active?'status-good':'status-bad'}">● ${d.active?'Active':'Inactive'}</div>${drainHigh?'<div class="status-bad">Battery draining faster than usual</div>':''}</div>
    <div class="battery-col"><div class="battery"><div class="battery-icon"><div class="battery-fill ${batteryClass(d.battery_health,d.drain_status)}" style="width:${Math.max(2,Number(d.battery)||0)}%"></div></div><div class="battery-pct">${d.battery==null?'—':`${d.battery}%`}</div></div>
-   <div class="${batteryAlert||drainHigh?'status-bad':'status-good'}">Estimated ${d.id==='hub'?'backup':'time left'} ${esc(d.left)}</div><div class="muted">${usage} · ${confidence} confidence</div><div class="muted">${d.battery_mv||'—'} mV · Drain ${String(d.drain_status||'LEARNING').toLowerCase()}</div><div class="muted">Usage pattern: ${d.wakeups_per_day==null?'—':Math.round(d.wakeups_per_day)} wakes/day · ${d.retries_per_day==null?'—':Number(d.retries_per_day).toFixed(1)} RF retries/day</div><div class="muted">◷ ${d.active?'Last updated':'Last seen'} ${esc(d.updated)}</div></div><button type="button" onclick="openDeviceDetails('${d.id}')">Details ›</button>
+   <div class="${batteryAlert||drainHigh?'status-bad':'status-good'}">Estimated ${d.id==='hub'?'backup':'time left'} ${esc(remaining||'Collecting battery data')}</div>${batteryAlert?'<div class="status-bad">Recharge now</div>':''}<div class="muted">◷ ${d.active?'Last updated':'Last seen'} ${esc(d.updated)}</div></div><button type="button" onclick="openDeviceDetails('${d.id}')">Details ›</button>
  </div>`}).join('')}</div>`;
 }
 function renderReports(){
@@ -243,15 +248,15 @@ function scheduleEditor(){
    <div class="schedule-header"><div><h2>Device Schedules & Routine Rules</h2><p class="muted">These values are household-specific. Change them to match the resident's routine; they are saved as versioned backend configuration.</p></div><button onclick="closeScheduleEditor()">✕</button></div>
    <form id="scheduleForm" onsubmit="saveScheduleSettings(event)">
     <section><h3>Morning routine</h3><label class="toggle-line"><input name="morning_sequence_enabled" type="checkbox" ${r.morning_sequence_enabled?'checked':''}> Enable morning sequence</label>
-      <div class="form-grid"><label>Active from<input name="morning_start_minute" type="time" value="${minutesToClock(r.morning_start_minute)}"></label><label>Active until<input name="morning_end_minute" type="time" value="${minutesToClock(r.morning_end_minute)}"></label><label>Complete within (hours)<input name="morning_sequence_window_seconds" type="number" min="0.0167" max="24" step="0.25" value="${secondsToHours(r.morning_sequence_window_seconds)}"></label>
+      <div class="form-grid"><label>Active from<input name="morning_start_minute" type="time" value="${minutesToClock(r.morning_start_minute)}"></label><label>Active until<input name="morning_end_minute" type="time" value="${minutesToClock(r.morning_end_minute)}"></label><label>Complete within (hours)<input name="morning_sequence_window_seconds" type="number" min="0.0167" max="24" step="any" value="${secondsToHours(r.morning_sequence_window_seconds)}"></label>
       <label>Bedroom activity<select name="morning_bedroom_location">${opts(r.morning_bedroom_location)}</select></label><label>Bathroom activity<select name="morning_bathroom_location">${opts(r.morning_bathroom_location)}</select></label><label>Kitchen activity<select name="morning_kitchen_location">${opts(r.morning_kitchen_location)}</select></label></div><p class="rule-help">Completion rule: bedroom activity first, then both configured bathroom and kitchen activity within the configured window.</p></section>
     <section><h3>Night activity</h3><label class="toggle-line"><input name="night_activity_enabled" type="checkbox" ${r.night_activity_enabled?'checked':''}> Enable night-activity monitoring</label>
       <div class="form-grid"><label>Night starts<input name="night_start_minute" type="time" value="${minutesToClock(r.night_start_minute)}"></label><label>Night ends<input name="night_end_minute" type="time" value="${minutesToClock(r.night_end_minute)}"></label><label>Merge motion into one visit (minutes)<input name="night_visit_merge_seconds" type="number" min="0" max="120" step="1" value="${Math.round(r.night_visit_merge_seconds/60)}"></label>
       <label>Bathroom location<select name="night_bathroom_location">${opts(r.night_bathroom_location)}</select></label><label>Bathroom visits allowed<input name="night_bathroom_visit_threshold" type="number" min="0" max="50" value="${r.night_bathroom_visit_threshold}"></label><label>Common-room location<select name="night_common_location">${opts(r.night_common_location)}</select></label><label>Common-room visits allowed<input name="night_common_visit_threshold" type="number" min="0" max="50" value="${r.night_common_visit_threshold}"></label></div><p class="rule-help">A concern is raised only when distinct visits are greater than the configured allowed count.</p></section>
-    <section><h3>Main door & indoor activity</h3><div class="form-grid"><label>Door-open concern after (hours)<input name="door_open_timeout_seconds" type="number" min="0.0083" max="24" step="0.25" value="${secondsToHours(r.door_open_timeout_seconds)}"></label><label class="toggle-line"><input name="post_door_inactivity_enabled" type="checkbox" ${r.post_door_inactivity_enabled?'checked':''}> Watch for inactivity after door closes</label><label>No indoor activity after close (hours)<input name="post_door_inactivity_seconds" type="number" min="0.0833" max="24" step="0.25" value="${secondsToHours(r.post_door_inactivity_seconds)}"></label></div></section>
-    <section><h3>General quiet/inactivity windows</h3><div class="form-grid"><label class="toggle-line"><input name="quiet_hours_enabled" type="checkbox" ${r.quiet_hours_enabled?'checked':''}> Quiet-hour door alerts</label><label>Quiet start<input name="quiet_start_minute" type="time" value="${minutesToClock(r.quiet_start_minute)}"></label><label>Quiet end<input name="quiet_end_minute" type="time" value="${minutesToClock(r.quiet_end_minute)}"></label><label class="toggle-line"><input name="daytime_inactivity_enabled" type="checkbox" ${r.daytime_inactivity_enabled?'checked':''}> General daytime inactivity</label><label>Day starts<input name="daytime_start_minute" type="time" value="${minutesToClock(r.daytime_start_minute)}"></label><label>Day ends<input name="daytime_end_minute" type="time" value="${minutesToClock(r.daytime_end_minute)}"></label><label>General inactivity threshold (hours)<input name="daytime_inactivity_seconds" type="number" min="0.0833" max="24" step="0.25" value="${secondsToHours(r.daytime_inactivity_seconds)}"></label></div></section>
+    <section><h3>Main door & indoor activity</h3><div class="form-grid"><label>Door-open concern after (hours)<input name="door_open_timeout_seconds" type="number" min="0.0083" max="24" step="any" value="${secondsToHours(r.door_open_timeout_seconds)}"></label><label class="toggle-line"><input name="post_door_inactivity_enabled" type="checkbox" ${r.post_door_inactivity_enabled?'checked':''}> Watch for inactivity after door closes</label><label>No indoor activity after close (hours)<input name="post_door_inactivity_seconds" type="number" min="0.0833" max="24" step="any" value="${secondsToHours(r.post_door_inactivity_seconds)}"></label></div></section>
+    <section><h3>General quiet/inactivity windows</h3><div class="form-grid"><label class="toggle-line"><input name="quiet_hours_enabled" type="checkbox" ${r.quiet_hours_enabled?'checked':''}> Quiet-hour door alerts</label><label>Quiet start<input name="quiet_start_minute" type="time" value="${minutesToClock(r.quiet_start_minute)}"></label><label>Quiet end<input name="quiet_end_minute" type="time" value="${minutesToClock(r.quiet_end_minute)}"></label><label class="toggle-line"><input name="daytime_inactivity_enabled" type="checkbox" ${r.daytime_inactivity_enabled?'checked':''}> General daytime inactivity</label><label>Day starts<input name="daytime_start_minute" type="time" value="${minutesToClock(r.daytime_start_minute)}"></label><label>Day ends<input name="daytime_end_minute" type="time" value="${minutesToClock(r.daytime_end_minute)}"></label><label>General inactivity threshold (hours)<input name="daytime_inactivity_seconds" type="number" min="0.0833" max="24" step="any" value="${secondsToHours(r.daytime_inactivity_seconds)}"></label></div></section>
     <section><h3>Device power & battery</h3><div class="form-grid"><label>Low-battery alert below (%)<input name="battery_alert_percent" type="number" min="2" max="50" step="1" value="${r.battery_alert_percent}"></label><label>Critical-battery alert below (%)<input name="critical_battery_percent" type="number" min="1" max="49" step="1" value="${r.critical_battery_percent}"></label><label class="toggle-line"><input name="abnormal_drain_alert_enabled" type="checkbox" ${r.abnormal_drain_alert_enabled?'checked':''}> Alert on abnormal drain</label></div><p class="rule-help">Battery-life prediction uses each device's calibrated power profile plus its measured voltage and usage counters. Current calibration is host-simulation data until hardware bench measurements are loaded.</p></section>
-    <div class="schedule-actions"><button type="button" onclick="closeScheduleEditor()">Cancel</button><button type="submit" class="primary">Save household schedule</button></div>
+    <p id="scheduleFeedback" data-save-feedback="${esc(scheduleFeedbackState.kind)}" role="status" aria-live="polite" class="${scheduleFeedbackState.kind==='error'?'status-bad':scheduleFeedbackState.kind==='success'?'status-good':''}">${esc(scheduleFeedbackState.message)}</p><div class="schedule-actions"><button type="button" onclick="closeScheduleEditor()">Cancel</button><button type="submit" class="primary">Save household schedule</button></div>
    </form></div>`;
 }
 function renderSettings(){
@@ -278,7 +283,7 @@ window.deactivateFamilyMember=async id=>{if(!window.confirm('Deactivate this fam
 const roomOptions=(selected)=>['Bedroom / Room 1','Kitchen','Main door','Pooja room','Bathroom','Common room','Central hub'].map(x=>`<option value="${esc(x)}" ${x===selected?'selected':''}>${esc(x)}</option>`).join('');
 function deviceForm(d={}){const editing=!!d.device_id;return `<form id="deviceForm" onsubmit="saveDevice(event)" class="phase1-form" data-edit-id="${esc(d.device_id||'')}"><p class="muted">${editing?'Edit the registered device.':'Simulator registration only; physical ESP32 pairing remains hardware qualification.'}</p>${!editing?`<label>Device ID<input name="device_id" required pattern="[a-z][a-z0-9-]{1,31}" maxlength="32"></label><label>Type<select name="kind"><option value="NODE">Node</option><option value="HUB">Hub</option></select></label><label>Capability<select name="capability"><option value="MOTION">Motion</option><option value="DOOR">Door</option><option value="MOTION_BUTTON">Motion + resident buttons</option><option value="HUB">Hub</option></select></label>`:''}<label>Display name<input name="display_name" required maxlength="80" value="${esc(d.display_name||'')}"></label><label>Room/location<select name="room">${roomOptions(d.room||'')}</select></label>${editing?`<label class="toggle-line"><input name="enabled" type="checkbox" ${d.enabled?'checked':''}> Enabled</label>`:''}<div class="schedule-actions"><button type="button" onclick="closePhase1Dialog()">Cancel</button><button type="submit" class="primary">${editing?'Save device':'Register simulated device'}</button></div></form>`}
 window.openDeviceRegister=()=>phase1Dialog('Register Device',deviceForm());
-window.openDeviceDetails=async id=>{try{const d=await foundationRequest(`devices/${id}`);phase1Dialog('Device Details',`<div class="phase1-detail"><p><strong>${esc(d.display_name)}</strong> · ${esc(d.kind)} · ${esc(d.capability)}</p><p>ID: ${esc(d.device_id)} · Room: ${esc(d.room)}</p><p>${d.online?'Online':'Offline'} · ${esc(d.health)} · Communication ${esc(d.communication)}</p><p>Last seen: ${d.last_seen_at==null?'Never':new Date(d.last_seen_at*1000).toLocaleString()}</p><p>Battery: ${d.battery_percent==null?'No telemetry':`${d.battery_percent}%`} · ${d.battery_mv??'—'} mV · ${esc(d.drain_status)}</p><p>Firmware: ${esc(d.firmware_version||'Unknown')} · ${esc(d.registration_source)} registration</p></div><button type="button" onclick="openDeviceEditor('${d.device_id}')">Edit / Rename</button><button type="button" onclick="removeDevice('${d.device_id}')">Unregister device</button><button type="button" onclick="closePhase1Dialog()">Close</button>`)}catch(err){toast(`Device Details unavailable: ${err.message}`)}};
+window.openDeviceDetails=async id=>{try{const d=await foundationRequest(`devices/${id}`),projected=state.devices.find(x=>x.id===id);const remaining=projected&&/^(calculating|unknown|recharge now)$/i.test(String(projected.left||''))?'Collecting battery data':projected?.left||'Collecting battery data';phase1Dialog('Device Details',`<div class="phase1-detail"><p><strong>${esc(d.display_name)}</strong> · ${esc(d.kind)} · ${esc(d.capability)}</p><p>ID: ${esc(d.device_id)} · Room: ${esc(d.room)}</p><p>${d.online?'Online':'Offline'} · ${esc(d.health)}</p><p>Last seen: ${d.last_seen_at==null?'Never':new Date(d.last_seen_at*1000).toLocaleString()}</p><p>Battery: ${d.battery_percent==null?'No telemetry':`${d.battery_percent}%`}</p><p>Estimated time left: ${esc(remaining)}</p>${projected?.drain_status==='HIGH'?'<p>Battery draining faster than usual</p>':''}<p>Firmware: ${esc(d.firmware_version||'Unknown')} · ${esc(d.registration_source)} registration</p></div><button type="button" onclick="openDeviceEditor('${d.device_id}')">Edit / Rename</button><button type="button" onclick="removeDevice('${d.device_id}')">Unregister device</button><button type="button" onclick="closePhase1Dialog()">Close</button>`)}catch(err){toast(`Device Details unavailable: ${err.message}`)}};
 window.openDeviceEditor=async id=>{try{phase1Dialog('Edit Device',deviceForm(await foundationRequest(`devices/${id}`)))}catch(err){toast(`Device unavailable: ${err.message}`)}};
 window.saveDevice=async ev=>{ev.preventDefault();const f=new FormData(ev.target),id=ev.target.dataset.editId;const body=id?{display_name:String(f.get('display_name')),room:String(f.get('room')),enabled:f.has('enabled')}:{device_id:String(f.get('device_id')),display_name:String(f.get('display_name')),kind:String(f.get('kind')),capability:String(f.get('capability')),room:String(f.get('room'))};try{await foundationRequest(id?`devices/${id}`:'devices',id?'PATCH':'POST',body);await refreshFromBackend();closePhase1Dialog();toast(id?'Device saved':'Simulated device registered')}catch(err){formError(`Not saved: ${err.message}`)}};
 window.removeDevice=async id=>{if(!window.confirm(`Unregister ${id}? Historical records will remain.`))return;try{await foundationRequest(`devices/${id}`,'DELETE',{});await refreshFromBackend();closePhase1Dialog();toast('Device unregistered')}catch(err){formError(`Not unregistered: ${err.message}`)}};
@@ -288,6 +293,7 @@ window.openBatterySettings=async()=>{try{const p=await foundationRequest('policy
 window.saveBatterySettings=async ev=>{ev.preventDefault();const f=new FormData(ev.target),r={...state.schedules,battery_alert_percent:Number(f.get('battery_alert_percent')),critical_battery_percent:Number(f.get('critical_battery_percent')),abnormal_drain_alert_enabled:f.has('abnormal_drain_alert_enabled')};try{await foundationRequest('policy','PATCH',r);await refreshFromBackend();closePhase1Dialog();toast('Battery policy saved')}catch(err){formError(`Not saved: ${err.message}`)}};
 window.openDeviceSchedules=()=>{
   scheduleEditorOpen=true;
+  scheduleFeedbackState={message:'',kind:''};
   const m=$('#scheduleMount');
   if(m){
     m.innerHTML=scheduleEditor();
@@ -296,22 +302,34 @@ window.openDeviceSchedules=()=>{
 }
 window.closeScheduleEditor=()=>{
   scheduleEditorOpen=false;
+  scheduleFeedbackState={message:'',kind:''};
   const m=$('#scheduleMount');
   if(m)m.innerHTML='';
 }
+function scheduleFeedback(message='',kind=''){
+ scheduleFeedbackState=nextScheduleFeedback(message,kind);
+ const el=$('#scheduleFeedback');
+ if(!el)return;
+ el.textContent=message;
+ el.dataset.saveFeedback=kind;
+ el.className=kind==='error'?'status-bad':kind==='success'?'status-good':'';
+}
 window.saveScheduleSettings=async(ev)=>{ev.preventDefault();const f=new FormData(ev.target),r={...state.schedules};
+ scheduleFeedback('','');
  const bools=['morning_sequence_enabled','night_activity_enabled','post_door_inactivity_enabled','quiet_hours_enabled','daytime_inactivity_enabled'];for(const k of bools)r[k]=f.has(k);
  for(const k of ['morning_start_minute','morning_end_minute','night_start_minute','night_end_minute','quiet_start_minute','quiet_end_minute','daytime_start_minute','daytime_end_minute'])r[k]=clockToMinutes(f.get(k));
  for(const k of ['morning_bedroom_location','morning_bathroom_location','morning_kitchen_location','night_bathroom_location','night_common_location'])r[k]=String(f.get(k));
  r.morning_sequence_window_seconds=hoursToSeconds(f.get('morning_sequence_window_seconds'));r.door_open_timeout_seconds=hoursToSeconds(f.get('door_open_timeout_seconds'));r.post_door_inactivity_seconds=hoursToSeconds(f.get('post_door_inactivity_seconds'));r.daytime_inactivity_seconds=hoursToSeconds(f.get('daytime_inactivity_seconds'));
  r.night_visit_merge_seconds=Math.round(Number(f.get('night_visit_merge_seconds'))*60);r.night_bathroom_visit_threshold=Number(f.get('night_bathroom_visit_threshold'));r.night_common_visit_threshold=Number(f.get('night_common_visit_threshold'));r.battery_alert_percent=Number(f.get('battery_alert_percent'));r.critical_battery_percent=Number(f.get('critical_battery_percent'));r.abnormal_drain_alert_enabled=f.has('abnormal_drain_alert_enabled');
  try{
-   applyBackend(await backendRequest('/pwa/action',{action:'settings_save',settings:r}));
+   const confirmed=await backendRequest('/pwa/action',{action:'settings_save',settings:r});
+   scheduleFeedback('Device schedule saved and applied to the hub','success');
+   applyBackend(confirmed);
    toast('Device schedule saved and applied to the hub');
    // applyBackend intentionally preserves Settings while editing. Repaint only
    // this editor from the backend-confirmed configuration.
    const m=$('#scheduleMount'); if(m && scheduleEditorOpen)m.innerHTML=scheduleEditor();
- }catch(err){toast(`Settings not saved: ${err.message}`)}
+ }catch(err){scheduleFeedback(`Not saved: ${err.message}`,'error')}
 }
 
 function render(){
