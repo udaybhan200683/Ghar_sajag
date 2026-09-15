@@ -6,6 +6,7 @@ import re
 import sqlite3
 import threading
 import time
+import hashlib
 from functools import wraps
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -17,6 +18,14 @@ LOCALE = re.compile(r"[a-z]{2}(?:-[A-Z]{2})?\Z")
 CONTACT = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+\Z")
 ROOMS = {"Bedroom / Room 1", "Kitchen", "Main door", "Pooja room", "Bathroom", "Common room", "Central hub"}
 CAPABILITIES = {"HUB": {"HUB"}, "NODE": {"MOTION", "DOOR", "MOTION_BUTTON"}}
+NOTIFICATION_PREF_DEFAULTS = {
+    "safety_alerts": True,
+    "routine_alerts": True,
+    "check_in_alerts": True,
+    "monitoring_alerts": True,
+    "device_maintenance_alerts": False,
+    "browser_alerts_enabled": False,
+}
 
 
 class ProvisioningAdapter:
@@ -84,6 +93,8 @@ class FoundationService:
                             (self.owner_id, self.home_id, "Household admin", "Admin", "OWNER", at, at))
             self.db.execute("INSERT OR IGNORE INTO application_policy(home_id,version,policy_json,updated_at) VALUES(?,?,?,?)",
                             (self.home_id, 1, json.dumps(defaults), at))
+            self.db.execute("INSERT OR IGNORE INTO notification_preferences(home_id,preferences_json,updated_at) VALUES(?,?,?)",
+                            (self.home_id, json.dumps(NOTIFICATION_PREF_DEFAULTS, sort_keys=True), at))
             for d in devices:
                 self.db.execute("INSERT OR IGNORE INTO device_registry(device_id,home_id,display_name,kind,capability,room,firmware_version,registration_source,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
                                 (d["id"], self.home_id, d["name"], d["kind"], d["capability"], d["room"], "1.5.4", "SIMULATOR", at, at))
@@ -104,6 +115,8 @@ class FoundationService:
                 self.db.execute("INSERT OR IGNORE INTO device_registry(device_id,home_id,display_name,kind,capability,room,firmware_version,registration_source,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)", (d["id"], self.home_id, d["name"], d["kind"], d["capability"], d["room"], "1.5.4", "SIMULATOR", at, at))
                 self.db.execute("UPDATE device_registry SET display_name=?,kind=?,capability=?,room=?,registered=1,enabled=1,online=0,health='UNKNOWN',communication='UNKNOWN',last_seen_at=NULL,battery_mv=NULL,battery_percent=NULL,drain_status='LEARNING',updated_at=? WHERE home_id=? AND device_id=?", (d["name"], d["kind"], d["capability"], d["room"], at, self.home_id, d["id"]))
             self.db.execute("UPDATE application_policy SET version=1,policy_json=?,updated_at=? WHERE home_id=?", (json.dumps(defaults), at, self.home_id))
+            self.db.execute("UPDATE notification_preferences SET preferences_json=?,updated_at=? WHERE home_id=?", (json.dumps(NOTIFICATION_PREF_DEFAULTS, sort_keys=True), at, self.home_id))
+            self.db.execute("DELETE FROM notification_records WHERE home_id=?", (self.home_id,))
 
     @synchronized
     def home(self, actor):
@@ -291,3 +304,111 @@ class FoundationService:
             self.db.execute("UPDATE application_policy SET version=version+1,policy_json=?,updated_at=? WHERE home_id=?",
                             (json.dumps(settings), self.clock(), self.home_id))
         return self.policy(actor)
+
+    @synchronized
+    def notification_preferences(self, actor):
+        self._authorize(actor)
+        row = self.db.execute("SELECT preferences_json,updated_at FROM notification_preferences WHERE home_id=?", (self.home_id,)).fetchone()
+        prefs = dict(NOTIFICATION_PREF_DEFAULTS)
+        if row:
+            prefs.update(json.loads(row["preferences_json"]))
+        return {"home_id": self.home_id, "preferences": prefs, "updated_at": row["updated_at"] if row else None}
+
+    @synchronized
+    def update_notification_preferences(self, actor, body):
+        self._authorize(actor, True)
+        if set(body) != set(NOTIFICATION_PREF_DEFAULTS):
+            raise FoundationError("notification_preference_fields_mismatch")
+        if any(type(value) is not bool for value in body.values()):
+            raise FoundationError("invalid_notification_preference")
+        at = self.clock()
+        with self.db:
+            self.db.execute("UPDATE notification_preferences SET preferences_json=?,updated_at=? WHERE home_id=?",
+                            (json.dumps(body, sort_keys=True), at, self.home_id))
+        return self.notification_preferences(actor)
+
+    @synchronized
+    def notification_records(self, actor, limit=20):
+        self._authorize(actor)
+        rows = self.db.execute(
+            "SELECT record_id,category,severity,state,title,message,created_at,delivered_at,failed_at,resolved_at,suppressed_reason "
+            "FROM notification_records WHERE home_id=? ORDER BY created_at DESC,record_id DESC LIMIT ?",
+            (self.home_id, max(1, min(int(limit), 100))),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    @synchronized
+    def apply_notification_event(self, event, delivery_available=True):
+        decision = self._notification_decision(event)
+        if decision is None:
+            return None
+        prefs = self.notification_preferences(self.owner_id)["preferences"]
+        enabled = prefs[decision["preference"]]
+        state = "DELIVERED" if enabled and delivery_available else "SUPPRESSED" if not enabled else "FAILED"
+        reason = None if state == "DELIVERED" else "preference_disabled" if state == "SUPPRESSED" else "delivery_unavailable"
+        record_id = "notif_" + hashlib.sha256(f"{self.home_id}:{decision['correlation_key']}".encode()).hexdigest()[:16]
+        with self.db:
+            self.db.execute(
+                """
+                INSERT OR IGNORE INTO notification_records(
+                    record_id,home_id,source_event_id,category,severity,state,title,message,correlation_key,
+                    created_at,delivered_at,failed_at,suppressed_reason
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    record_id, self.home_id, event.event_id, decision["category"], decision["severity"],
+                    state, decision["title"], decision["message"], decision["correlation_key"], event.server_received_at,
+                    event.server_received_at if state == "DELIVERED" else None,
+                    event.server_received_at if state == "FAILED" else None,
+                    reason,
+                ),
+            )
+        return self.notification_record_by_id(record_id)
+
+    @synchronized
+    def create_check_in_overdue_notification(self, at, delivery_available=True):
+        class Event:
+            event_id = "check-in-overdue"
+            kind = "CHECK_IN_OVERDUE"
+            server_received_at = at
+            payload = {}
+        return self.apply_notification_event(Event(), delivery_available)
+
+    @synchronized
+    def resolve_notification(self, correlation_key, at):
+        with self.db:
+            self.db.execute("UPDATE notification_records SET state='RESOLVED',resolved_at=? WHERE home_id=? AND correlation_key=? AND state IN ('DELIVERED','FAILED')",
+                            (at, self.home_id, correlation_key))
+
+    def notification_record_by_id(self, record_id):
+        row = self.db.execute("SELECT record_id,category,severity,state,title,message,created_at,delivered_at,failed_at,resolved_at,suppressed_reason FROM notification_records WHERE home_id=? AND record_id=?",
+                              (self.home_id, record_id)).fetchone()
+        return None if row is None else dict(row)
+
+    def _notification_decision(self, event):
+        kind = event.kind
+        reason = event.payload.get("reason")
+        if kind == "CHECK_IN_OVERDUE":
+            return {"preference": "check_in_alerts", "category": "CHECK_IN", "severity": "CONCERN", "title": "I am OK check-in overdue", "message": "The expected I am OK check-in has not arrived.", "correlation_key": "check-in:overdue"}
+        if kind == "CALL_FAMILY":
+            return {"preference": "safety_alerts", "category": "SAFETY", "severity": "URGENT", "title": "Call Family requested", "message": "Family assistance was requested.", "correlation_key": f"event:{event.event_id}"}
+        if kind == "MISSING_MORNING_ACTIVITY":
+            window = event.payload.get("window_id", event.event_id)
+            return {"preference": "routine_alerts", "category": "ROUTINE", "severity": "CONCERN", "title": "Morning routine concern", "message": "Expected morning activity was not completed.", "correlation_key": f"morning:{window}"}
+        if kind == "DAYTIME_INACTIVITY":
+            return {"preference": "routine_alerts", "category": "ROUTINE", "severity": "CONCERN", "title": "Daytime inactivity concern", "message": "Expected daytime activity was not observed.", "correlation_key": f"event:{event.event_id}"}
+        if kind == "DOOR_LEFT_OPEN":
+            return {"preference": "safety_alerts", "category": "SAFETY", "severity": "CONCERN", "title": "Main door left open", "message": "Main door stayed open longer than configured.", "correlation_key": f"event:{event.event_id}"}
+        if kind == "POST_DOOR_INACTIVITY":
+            return {"preference": "safety_alerts", "category": "SAFETY", "severity": "CONCERN", "title": "No indoor activity after door closed", "message": "Indoor activity did not follow the door event.", "correlation_key": f"event:{event.event_id}"}
+        if kind in {"UNUSUAL_NIGHT_BATHROOM_ACTIVITY", "UNUSUAL_NIGHT_COMMON_ACTIVITY"}:
+            return {"preference": "safety_alerts", "category": "SAFETY", "severity": "CONCERN", "title": "Unusual night activity", "message": "Night activity was outside configured household limits.", "correlation_key": f"event:{event.event_id}"}
+        if kind == "COVERAGE_CHANGED" and reason == "coverage_lost":
+            return {"preference": "monitoring_alerts", "category": "MONITORING", "severity": "CONCERN", "title": "Monitoring coverage lost", "message": "A monitoring device was unavailable.", "correlation_key": "coverage:monitoring"}
+        if kind == "COVERAGE_CHANGED" and reason == "coverage_restored":
+            self.resolve_notification("coverage:monitoring", event.server_received_at)
+            return None
+        if kind == "OK_PRESSED":
+            self.resolve_notification("check-in:overdue", event.server_received_at)
+            return None
+        return None

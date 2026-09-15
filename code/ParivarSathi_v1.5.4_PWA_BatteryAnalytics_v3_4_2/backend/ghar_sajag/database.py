@@ -17,7 +17,7 @@ CORE_TABLES = {
     "battery_history", "configurations",
 }
 OPERATIONAL_TABLES = {"notification_jobs", "device_health_history", "audit_log", "battery_power_profiles", "battery_usage_history"}
-APPLICATION_TABLES = {"family_members", "device_registry", "application_policy", "schema_migrations"}
+APPLICATION_TABLES = {"family_members", "device_registry", "application_policy", "notification_preferences", "notification_records", "schema_migrations"}
 REQUIRED_TABLES = CORE_TABLES | OPERATIONAL_TABLES | APPLICATION_TABLES
 
 

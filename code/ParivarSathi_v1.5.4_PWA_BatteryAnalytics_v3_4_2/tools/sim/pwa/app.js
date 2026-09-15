@@ -14,6 +14,7 @@ let validation={catalog:null,results:[],running:false,last:null};
 let reportState={status:'idle',data:null,error:''};
 let reportRequestSeq=0, reportInFlight=false;
 const reportApiPeriods={day:'TODAY',week:'WEEK',month:'MONTH'};
+let notifiedRecords=new Set();
 
 function nowTick(){
   const d=new Date();
@@ -330,7 +331,7 @@ function renderSettings(){
  $('#settingsTab').innerHTML=`
  <div class="card"><h1 style="margin:0">Settings</h1><div class="muted">Customize your home and device preferences</div></div>
  ${settingsGroup('Home Settings',[['🏠','Home Details','Update home name, timezone and locale','openHomeDetails()'],['👥','Family Members','Manage family access and permissions','openFamilyMembers()'],['📶','Wi‑Fi & Network','View hub/network status','openNetworkStatus()']])}
- ${settingsGroup('Device Settings',[['⚙️','Manage Devices','Register, edit or remove devices','openManageDevices()'],['🔔','Notifications','Phase 2: notification delivery and preferences pending'],['🔋','Battery Alerts','Set low and critical battery thresholds','openBatterySettings()'],['◷','Device Schedules','Set household routine windows and alert thresholds','openDeviceSchedules()']])}
+ ${settingsGroup('Device Settings',[['⚙️','Manage Devices','Register, edit or remove devices','openManageDevices()'],['🔔','Notifications','Manage caregiver alert preferences','openNotificationSettings()'],['🔋','Battery Alerts','Set low and critical battery thresholds','openBatterySettings()'],['◷','Device Schedules','Set household routine windows and alert thresholds','openDeviceSchedules()']])}
  ${settingsGroup('App Settings',[['🛡️','Privacy & Security','Future: security controls and retention details'],['❓','Help & Support','Phase 2: support guide pending'],['ℹ️','About','Phase 2: build details pending']])}
  <div id="scheduleMount"></div>
  <div style="margin:20px 0;text-align:center"><a href="https://ghar-sajag.rahuljnvakg.chatgpt.site/" target="_blank" rel="noopener" style="color:#0d8a43;font-weight:800">Visit public Ghar Sajag website ↗</a></div>`;
@@ -358,6 +359,53 @@ window.openManageDevices=async()=>{try{const devices=await foundationRequest('de
 window.openNetworkStatus=async()=>{try{const n=await foundationRequest('network');phase1Dialog('Wi-Fi & Network',`<p>Hub: ${n.hub_online?'Online':'Offline'}</p><p>WAN: ${n.wan_online?'Online':'Offline'}</p><p class="muted">Physical Wi-Fi provisioning requires a hub hardware adapter. This simulator does not claim pairing or provisioning success.</p><button type="button" onclick="closePhase1Dialog()">Close</button>`)}catch(err){toast(`Network status unavailable: ${err.message}`)}};
 window.openBatterySettings=async()=>{try{const p=await foundationRequest('policy'),r=p.settings;phase1Dialog('Battery Alerts',`<form id="batteryForm" onsubmit="saveBatterySettings(event)" class="phase1-form"><label>Low battery (%)<input name="battery_alert_percent" type="number" min="2" max="50" required value="${r.battery_alert_percent}"></label><label>Critical battery (%)<input name="critical_battery_percent" type="number" min="1" max="49" required value="${r.critical_battery_percent}"></label><label class="toggle-line"><input name="abnormal_drain_alert_enabled" type="checkbox" ${r.abnormal_drain_alert_enabled?'checked':''}> Alert on abnormal drain</label><div class="schedule-actions"><button type="button" onclick="closePhase1Dialog()">Cancel</button><button type="submit" class="primary">Save Battery Alerts</button></div></form>`)}catch(err){toast(`Battery Alerts unavailable: ${err.message}`)}};
 window.saveBatterySettings=async ev=>{ev.preventDefault();const f=new FormData(ev.target),r={...state.schedules,battery_alert_percent:Number(f.get('battery_alert_percent')),critical_battery_percent:Number(f.get('critical_battery_percent')),abnormal_drain_alert_enabled:f.has('abnormal_drain_alert_enabled')};try{await foundationRequest('policy','PATCH',r);await refreshFromBackend();closePhase1Dialog();toast('Battery policy saved')}catch(err){formError(`Not saved: ${err.message}`)}};
+function browserPermissionLabel(){if(!('Notification' in window))return 'Unavailable in this browser';return Notification.permission==='granted'?'Allowed':Notification.permission==='denied'?'Blocked':'Not allowed yet'}
+function notificationForm(prefs,records){
+ const p=prefs.preferences||{};
+ const row=(name,label,detail)=>`<label class="toggle-line"><input name="${name}" type="checkbox" ${p[name]?'checked':''}> <span><strong>${label}</strong><small>${detail}</small></span></label>`;
+ const rows=(records||[]).map(r=>`<div class="insight notification-record ${String(r.state).toLowerCase()}" data-notification-state="${esc(r.state)}"><strong>${esc(r.title)}</strong><div class="muted">${esc(r.state==='FAILED'?'Delivery failed':r.state==='SUPPRESSED'?'Suppressed by preference':r.state==='RESOLVED'?'Resolved':'Delivered')} · ${esc(r.message)}</div></div>`).join('');
+ return `<form id="notificationForm" onsubmit="saveNotificationSettings(event)" class="phase1-form">
+   ${row('safety_alerts','Safety and urgent concerns','Call Family, main door concerns, unusual night activity and similar safety alerts.')}
+   ${row('routine_alerts','Routine concerns','Missed morning routine and daytime inactivity concerns.')}
+   ${row('check_in_alerts','I am OK concerns','Expected check-ins that have not arrived.')}
+   ${row('monitoring_alerts','Monitoring coverage','Coverage loss that may affect household monitoring.')}
+   ${row('device_maintenance_alerts','Device maintenance','Separate from care and safety alerts.')}
+   ${row('browser_alerts_enabled','Browser alerts on this device','Uses browser permission when available.')}
+   <p class="muted">Browser permission: ${esc(browserPermissionLabel())}</p>
+   <div class="schedule-actions"><button type="button" onclick="closePhase1Dialog()">Cancel</button><button type="submit" class="primary">Save Notifications</button></div>
+   <h3>Recent notification status</h3>
+   <div class="notification-history">${rows||'<p class="muted">No notification records yet.</p>'}</div>
+ </form>`;
+}
+window.openNotificationSettings=async()=>{
+ try{
+   const [prefs,records]=await Promise.all([foundationRequest('notifications/preferences'),foundationRequest('notifications/records')]);
+   phase1Dialog('Notifications',notificationForm(prefs,records));
+ }catch(err){toast(`Notifications unavailable: ${err.message}`)}
+};
+window.saveNotificationSettings=async ev=>{
+ ev.preventDefault();
+ const names=['safety_alerts','routine_alerts','check_in_alerts','monitoring_alerts','device_maintenance_alerts','browser_alerts_enabled'];
+ const body=Object.fromEntries(names.map(name=>[name,ev.target.elements[name].checked]));
+ try{
+   await foundationRequest('notifications/preferences','PATCH',body);
+   toast('Notification settings saved');
+   await openNotificationSettings();
+ }catch(err){formError(`Not saved: ${err.message}`)}
+};
+async function pollBrowserNotifications(){
+  if(!('Notification' in window) || Notification.permission!=='granted')return;
+  try{
+    const prefs=await foundationRequest('notifications/preferences');
+    if(!prefs.preferences?.browser_alerts_enabled)return;
+    const records=await foundationRequest('notifications/records');
+    for(const record of records.filter(r=>r.state==='DELIVERED').reverse()){
+      if(notifiedRecords.has(record.record_id))continue;
+      notifiedRecords.add(record.record_id);
+      notify(record.title,record.message);
+    }
+  }catch(_){}
+}
 window.openDeviceSchedules=()=>{
   scheduleEditorOpen=true;
   scheduleFeedbackState={message:'',kind:''};
@@ -425,4 +473,4 @@ window.enableNotifications=async()=>{if(!('Notification'in window))return toast(
 function notify(title,body){if('Notification'in window && Notification.permission==='granted')new Notification(title,{body,icon:'assets/icon.svg'})}
 if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js');
 (async()=>{try{await loadValidationCatalog()}catch(err){toast(`Validation catalog unavailable: ${err.message}`)}await refreshFromBackend(true);await loadReport({quiet:true});if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
-setInterval(()=>{if(!validation.running){refreshFromBackend(false);if(currentTab==='reports')loadReport({quiet:true});}},2000);
+setInterval(()=>{if(!validation.running){refreshFromBackend(false);if(currentTab==='reports')loadReport({quiet:true});pollBrowserNotifications();}},2000);

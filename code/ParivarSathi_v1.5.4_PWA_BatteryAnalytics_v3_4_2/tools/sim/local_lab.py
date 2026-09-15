@@ -189,12 +189,15 @@ class Lab:
         result = json.loads(b"".join(chunks))
         if not captured[0].startswith("2"):
             raise ValueError(result.get("error", captured[0]))
+        if method == "POST" and path == f"/v1/homes/{HOME}/events" and isinstance(body, dict):
+            self._apply_notification_for_event(body.get("event_id"))
         return result
 
     def reset(self, test_fixture=False, clear_events=False):
         self.command("reset")
         if test_fixture:
             self.foundation.reset_test_fixture(DEFAULT_HOUSEHOLD_SETTINGS, DEFAULT_REGISTRY)
+            self.notification_delivery_available = True
         event_map = SQLiteEventMap(self.foundation.db, self.foundation.lock)
         if test_fixture or clear_events:
             event_map.clear_home(HOME)
@@ -212,9 +215,12 @@ class Lab:
         self.pending_derived_events = []
         self.door = {"open": False, "opened_at": None, "open_event_id": None,
                      "quiet_hours": False, "left_open_emitted": False}
+        self.check_in_due_at = self.state["now"] + 120
+        self.check_in_pending = True
         self.household_settings = dict(self.foundation.policy(OWNER)["settings"])
         self.config_version = self._publish_household_settings()
         self.reported_coverage = self.state.get("coverage", "COVERED")
+        self.notification_delivery_available = getattr(self, "notification_delivery_available", True)
         self.sync()
         # PWA verification/telemetry adapter. This is intentionally outside the
         # deterministic C++ rules core so the v1.5.4 domain logic remains unchanged.
@@ -481,9 +487,12 @@ class Lab:
             self.log.info("category=SIM module=B03 event=ingest id=%s duplicate=%s", wire["event_id"], result["duplicate"])
             if result.get("commit") != "DURABLE":
                 raise RuntimeError("Missing backend model acknowledgement")
+            self._apply_notification_for_event(wire["event_id"])
             if event["kind"] == "OK_PRESSED" and getattr(self, "pwa_flags", {}).get("ok_negative"):
                 self.pwa_flags["ok_negative"] = False
                 self.pwa_flags["ok_acknowledged"] = True
+            if event["kind"] == "OK_PRESSED":
+                self.check_in_pending = False
             self.command("ack " + wire["event_id"])
 
         for signal in signals:
@@ -507,6 +516,7 @@ class Lab:
                 "payload": {"duration_s": signal.get("duration_s", 0), "reason": signal.get("reason", "")},
             }
             self.api_call("POST", f"/v1/homes/{HOME}/events", event)
+            self._apply_notification_for_event(event["event_id"])
         if signals:
             self.command("clear_signals")
         if self.state["missing_pending"]:
@@ -517,11 +527,13 @@ class Lab:
                 self.api_call("POST", f"/v1/homes/{HOME}/events", {"event_id": "missing:sim-morning",
                               "kind": "MISSING_MORNING_ACTIVITY", "occurred_at": self.state["missing_at"],
                               "hub_received_at": self.state["missing_at"], "payload": {"window_id": "sim-morning"}})
+                self._apply_notification_for_event("missing:sim-morning")
             self.command("ack_missing")
         self.heartbeat_id += 1
         self.api_call("POST", f"/v1/homes/{HOME}/events", {"event_id": f"hub:{self.heartbeat_id}",
                       "kind": "HUB_HEARTBEAT", "occurred_at": self.state["now"],
                       "hub_received_at": self.state["now"]})
+        self._apply_notification_for_event(f"hub:{self.heartbeat_id}")
         current_coverage = self.state.get("coverage", "UNKNOWN")
         if current_coverage != self.reported_coverage:
             reason = "coverage_restored" if current_coverage == "COVERED" else "coverage_lost"
@@ -529,7 +541,18 @@ class Lab:
                 "event_id": f"coverage:{reason}:{self.state['now']}", "kind": "COVERAGE_CHANGED",
                 "location": "home", "occurred_at": self.state["now"],
                 "hub_received_at": self.state["now"], "payload": {"reason": reason}})
+            self._apply_notification_for_event(f"coverage:{reason}:{self.state['now']}")
             self.reported_coverage = current_coverage
+        self._evaluate_check_in_overdue()
+
+    def _apply_notification_for_event(self, event_id):
+        event = self.service.store.events.get((HOME, event_id))
+        if event is not None:
+            self.foundation.apply_notification_event(event, self.notification_delivery_available)
+
+    def _evaluate_check_in_overdue(self):
+        if getattr(self, "check_in_pending", False) and self.state["now"] >= self.check_in_due_at:
+            self.foundation.create_check_in_overdue_notification(self.state["now"], self.notification_delivery_available)
 
     def _record_manual_event_context(self, node, kind, body):
         context = {"node": node, "kind": kind, "occurred_at": self.state["now"]}
@@ -717,6 +740,10 @@ class Lab:
         elif action == "notify":
             for job in self.service.notifications.due(self.state["now"]):
                 self.service.notifications.provider_result(job.job_id, body.get("accepted", True) is True, "FAKE-PROVIDER")
+        elif action == "notification_delivery":
+            if type(body.get("available")) is not bool:
+                raise ValueError("invalid notification delivery state")
+            self.notification_delivery_available = body["available"]
         elif action in ("claim", "acknowledge", "resolve"):
             incident = body.get("incident_id")
             if not isinstance(incident, str) or not incident.startswith("inc_") or not incident[4:].isalnum():
@@ -1200,6 +1227,10 @@ class WebLab:
                 result = foundation.device(actor, tail[1])
             elif tail == ["policy"]:
                 result = foundation.policy(actor) if method == "GET" else self.lab._save_policy_from_api(actor, body) if method == "PATCH" else None
+            elif tail == ["notifications", "preferences"]:
+                result = foundation.notification_preferences(actor) if method == "GET" else foundation.update_notification_preferences(actor, body) if method == "PATCH" else None
+            elif tail == ["notifications", "records"] and method == "GET":
+                result = foundation.notification_records(actor)
             elif tail == ["network"] and method == "GET":
                 foundation._authorize(actor)
                 result = self.lab.pwa_view()["network"]
