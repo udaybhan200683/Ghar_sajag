@@ -1,5 +1,31 @@
 # 1.5.4 status addendum
 
+## Phase 2D reconciliation checkpoint — final manual qualification pending
+
+Phase 2A Reports, Phase 2B Notifications and Phase 2C PWA integration are
+implemented and committed. Phase 2D performed a narrow reconciliation against
+the master PWA specification and found no unresolved software-testable Phase 2
+feature gap requiring new product behavior. Deferred boundaries remain real
+browser permission-prompt interaction, physical ESP32/RF/Wi-Fi/sensor/battery
+qualification, production auth/deployment and production SMS/email/push
+providers, plus Phase 3 stress/load/endurance/fault-injection work.
+
+The PWA now uses a compact `GET /pwa/state?scope=home` payload for normal Home
+polling. Full `/pwa/state` is preserved for validation and on-demand
+Devices/Settings hydration. Reports no longer fetch during initial Home load;
+they load from `GET /v1/homes/{home_id}/reports?period=...` only when Reports is
+opened or the period changes. Notification history remains backend-limited and
+is loaded through Settings > Notifications; browser-delivery polling caches
+preferences and is throttled.
+
+Validation discovery remains unchanged: `make python-test` discovers
+`tests/python/test_*.py`, including `test_phase2a_reports.py`,
+`test_phase2b_notifications.py`, `test_phase2c_integration.py` and
+`test_phase2d_reconciliation.py`; Playwright discovers every
+`tests/playwright/*.spec.ts` for both `chromium-desktop` and
+`chromium-mobile`. Do not run `make release-gate-final` inside restricted
+Codex; run it manually in the normal local terminal for final qualification.
+
 ## Phase 1 targeted implementation checkpoint — manual full gate pending
 
 Home Details and Family Members now load, validate, mutate and reload through `/pwa/foundation/` and one SQLite `FoundationService`. Active OWNER authorizes mutations; last-owner removal, duplicate contact/ID and inactive-member edits are rejected. Devices and Manage Devices share `device_registry`; simulator registration, details, rename/room/enabled edits, confirmed unregistration, counts, online/offline and health history use the same application domain. Unregistration retains historical rows. Battery alert thresholds and routine policy are versioned in `application_policy`, survive restart and affect the existing host evaluation/configuration path. Migration 003 and `schema_migrations` preserve existing household data.

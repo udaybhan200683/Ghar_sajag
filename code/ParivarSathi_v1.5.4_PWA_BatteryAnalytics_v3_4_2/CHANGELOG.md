@@ -1,3 +1,22 @@
+# Phase 2D reconciliation checkpoint — final qualification preparation
+
+- Reconciled Phase 2 behavior against the master PWA specification without
+  starting Phase 3 or reworking completed Phase 2A-C functionality.
+- Added a compact `GET /pwa/state?scope=home` projection for routine Home
+  polling while preserving the existing full `/pwa/state` contract for
+  validation and on-demand Devices/Settings hydration.
+- Stopped eager Reports loading at initial app startup; Reports now fetch from
+  the backend when the Reports tab/period is opened.
+- Reduced browser-notification polling by caching preferences, bounding
+  delivered-record tracking, and keeping notification history/detail fetches on
+  the Settings > Notifications path where practical.
+- Added `tests/python/test_phase2d_reconciliation.py` so the payload contract is
+  automatically discovered by `make python-test` and therefore by
+  `make release-gate-final`.
+- Targeted validation passed for Phase 2A/B/C regressions, the new Phase 2D
+  contract, affected Phase 1 application/foundation tests, Playwright-runner
+  discovery tests, and JavaScript unit tests.
+
 # Phase 1 Validation Hardening — final qualification PASS
 
 - Added the machine-readable Phase 1 UI contract at `tests/validation/phase1_ui_contract.json`, covering required caregiver-visible content and forbidden unrelated UI assertions.

@@ -17,6 +17,7 @@ Prevent a new release from silently breaking already implemented P0 behaviour. T
 9. **Sanitizers/trace build** — AddressSanitizer/UBSan and development tracing.
 10. **Browser/PWA validation** — mandatory Playwright desktop/mobile validation in `make release-gate-final`, plus a generated manual checklist using the same functional catalog.
 11. **Phase 1 UI contract** — `tests/validation/phase1_ui_contract.json` is the authoritative machine-readable Phase 1 UI contract and coverage matrix.
+12. **Phase 2 deterministic suites** — `tests/python/test_phase2a_reports.py`, `test_phase2b_notifications.py`, `test_phase2c_integration.py` and `test_phase2d_reconciliation.py` cover Reports, Notifications, cross-feature integration and the compact Home payload contract. Matching browser specs under `tests/playwright/*.spec.ts` are discovered for both mandatory Chromium projects.
 
 ## Single source of truth
 
@@ -25,6 +26,12 @@ Prevent a new release from silently breaking already implemented P0 behaviour. T
 `tests/validation/phase1_ui_contract.json` is the authoritative machine-readable Phase 1 UI contract/coverage matrix. Important caregiver-visible behavior should verify required content/state, forbidden unrelated content, backend/UI consistency, unaffected components where relevant, and desktop/mobile rendering.
 
 New product behaviour is not release-complete until its positive path, negative/failure path and relevant boundary/recovery path are added to this catalog (or to the appropriate lower-level suite) and `tests/validation_coverage.json` is updated if the requirement mapping changes.
+
+Phase 2 browser validation is discovered by filename rather than a separate
+qualification command: the Playwright runner executes every
+`tests/playwright/*.spec.ts` for `chromium-desktop` and `chromium-mobile`.
+Python Phase 2 reconciliation tests use the normal `tests/python/test_*.py`
+discovery path.
 
 ## Commands
 

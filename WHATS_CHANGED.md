@@ -1,3 +1,13 @@
+> **Historical document**
+>
+> This file records changes made for Documentation Edition 2.0 and reference
+> code 1.4.2. It is retained for documentation provenance and is not the
+> current implementation-status authority.
+>
+> Current status: `docs/progress/CURRENT_BASELINE.md`
+>
+> Chronological history: `docs/progress/PROJECT_HISTORY.md`
+
 # What changed in documentation edition 2.0
 
 Reference code: 1.4.2. Immediate scope: Base Parivar Saathi P0. AI design remains included as future scope.

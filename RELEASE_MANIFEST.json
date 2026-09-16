@@ -1,11 +1,13 @@
 {
   "documentation_version": "2.0",
   "source_version": "1.4.2",
+  "manifest_status": "HISTORICAL_DOCUMENTATION_RELEASE_INVENTORY",
+  "status_note": "This manifest describes the Documentation 2.0 / reference-code 1.4.2 release inventory. It is retained for historical provenance and is not the current Ghar Sajag / Parivar Saathi implementation-status authority.",
+  "current_status_authority": "docs/progress/CURRENT_BASELINE.md",
+  "chronological_history": "docs/progress/PROJECT_HISTORY.md",
+  "master_implementation_specification": "docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md",
+  "maintenance_rule": "Do not update historical nested package entries merely to match the current active implementation. Generate a separate current release manifest if a new package-wide checksum inventory is required.",
   "files": {
-    "START_HERE.md": {
-      "bytes": 2096,
-      "sha256": "2c796da9fd5e2caf9b83990fa7b1e93b12970141abcca2e3a98323c22c2d1446"
-    },
     "WHATS_CHANGED.md": {
       "bytes": 2458,
       "sha256": "23be9860d6b95f8145d8aaa50f050fd483daaab1050b8c1d09901e6de9bff139"
@@ -1117,10 +1119,6 @@
     "evidence/Verification_v1.4.2.txt": {
       "bytes": 12875,
       "sha256": "6a9894db31010e278085ed8b899c3744013942fe8f7b14fd5eb2344861b3fff4"
-    },
-    "progress.txt": {
-      "bytes": 1386,
-      "sha256": "793fa60045ac49d38816b99b40d25e2fa57326da757ba5ca25574b771caa5d58"
     },
     "reference_baselines/Family_CheckIn_Deployment_and_Routine_Logic_Guide(2).docx": {
       "bytes": 271703,

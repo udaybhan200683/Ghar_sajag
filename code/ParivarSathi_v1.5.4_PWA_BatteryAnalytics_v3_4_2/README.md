@@ -1,12 +1,23 @@
 # Ghar Sajag reference code 1.5.4
 
-## Phase 1 implementation + Validation Hardening complete
+## Phase 1 + Phase 2 implementation status
 
 The effective PWA/BatteryAnalytics baseline is v3.4.3 in the historical `v3_4_2` directory. Phase 1 now stores Home Details, family membership, registered devices, device health and household battery/routine policy in one versioned SQLite application store (`backend/ghar_sajag/foundation.py`, migration `003_phase1_application.sql`). Devices and Settings → Manage Devices use the same registry and API. Registration is simulator-only; the physical provisioning adapter remains a hardware qualification boundary. Existing C++ care rules, Home presentation and canonical scenarios remain in place.
 
 `make lab` uses `logs/application.sqlite` for durable interactive application settings and registry data. Set `GS_APP_DB` to another SQLite path for an isolated lab, or `GS_APP_DB=:memory:` for disposable host sessions. Automated browser tests force isolated in-memory application databases where intended to keep qualification deterministic. Local PWA APIs under `/pwa/foundation/` accept a development `X-Actor-Id` and enforce active OWNER for mutations; this local identity is not production authentication. Real ESP32 pairing/network provisioning, production identity, deployed database integration and flash durability remain pending.
 
-Final qualification: `make release-gate-final` PASS. This is the authoritative release qualification command for the validated baseline. It includes the host validation gate plus mandatory Playwright browser validation for all mandatory specs across `chromium-desktop` and `chromium-mobile`. The host `browser-e2e` lab owns port `8765`; Playwright owns port `8766`.
+Phase 2 adds backend-derived Reports, durable canonical CloudEvent history,
+persisted notification preferences/records, backend-owned I-am-OK overdue
+evaluation and Home/Reports/Notifications classification consistency. Phase 2D
+keeps the PWA lightweight by polling a compact Home payload, loading Reports
+only when the Reports tab is opened/changed, and loading detailed
+Notifications/Settings state on demand.
+
+Final qualification command: `make release-gate-final`. This is the
+authoritative release qualification command for the validated baseline. It
+includes the host validation gate plus mandatory Playwright browser validation
+for all mandatory specs across `chromium-desktop` and `chromium-mobile`. The
+host `browser-e2e` lab owns port `8765`; Playwright owns port `8766`.
 
 Start with [SIMULATION_START_HERE.md](SIMULATION_START_HERE.md). Version **1.5.4** adds a release-gate validation framework around the existing Base / Parivar Saathi P0 host implementation. It remains hardware-independent reference code, not a flashable ESP-IDF application.
 
@@ -54,7 +65,10 @@ Open:
 - `http://localhost:8765/` — Parivar Sathi PWA, driven by backend state.
 - `http://localhost:8765/lab` — original engineering simulation lab.
 
-The PWA polls `GET /pwa/state` and its verification buttons call `POST /pwa/action`.
+The PWA polls `GET /pwa/state?scope=home` for normal Home/current-state updates.
+The full `GET /pwa/state` projection remains available for validation and
+on-demand Devices/Settings hydration. Verification buttons call
+`POST /pwa/action`.
 The bridge translates supported controls into the existing v1.5.4 C++/Python simulation path. The PWA battery percentage/runtime is now produced by the software battery-analytics pipeline. In the host lab the voltage, usage counters and current profiles are synthetic; field accuracy still depends on connecting real node telemetry and calibrating the exact hardware.
 
 Useful verification:

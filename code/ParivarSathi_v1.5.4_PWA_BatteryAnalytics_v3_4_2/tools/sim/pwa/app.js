@@ -15,6 +15,7 @@ let reportState={status:'idle',data:null,error:''};
 let reportRequestSeq=0, reportInFlight=false;
 const reportApiPeriods={day:'TODAY',week:'WEEK',month:'MONTH'};
 let notifiedRecords=new Set();
+let notificationPreferenceCache=null, notificationPollInFlight=false, lastNotificationPoll=0;
 
 function nowTick(){
   const d=new Date();
@@ -113,20 +114,20 @@ function applyBackend(view){
     nightConcernText:view.night?.concern_text||'',
     careSubtitle:view.care?.subtitle||'All is well at home.',
     careProblemKind:view.care?.problem_kind||null,
-    devices:(view.devices||[]).map(d=>({...d})),
-    homeDetails:view.home_details||null,
-    familyMembers:(view.family_members||[]).map(m=>({...m})),
-    network:view.network||null,
+    devices:Array.isArray(view.devices)?view.devices.map(d=>({...d})):state.devices,
+    homeDetails:view.home_details||state.homeDetails||null,
+    familyMembers:Array.isArray(view.family_members)?view.family_members.map(m=>({...m})):state.familyMembers||[],
+    network:view.network||state.network||null,
     deviceHealth:view.device_health||null,
-    schedules:view.schedules||null,
+    schedules:view.schedules||state.schedules||null,
     source:view.source||'Backend',
     events:(view.events||[]).map(e=>({time:formatSimTime(e.at),icon:e.icon||'•',text:e.title||'Activity',tone:e.tone||'green',at:e.at}))
   };
   render();
 }
 
-async function refreshFromBackend(showError=false){
-  try{applyBackend(await backendRequest('/pwa/state'));}
+async function refreshFromBackend(showError=false,scope='home'){
+  try{applyBackend(await backendRequest(`/pwa/state?scope=${encodeURIComponent(scope)}`));}
   catch(err){if(showError) toast(`Backend unavailable: ${err.message}`);}
 }
 
@@ -233,8 +234,8 @@ function renderReportData(data){
 
 function renderHome(){
   const s=homeSeverity(), health=state.deviceHealth || {low_name:'Unknown',low_percent:0,runtime:'calculating',attention:false,high_drain_devices:[]};
-  const highDrain=(health.high_drain_devices||[]).map(id=>state.devices.find(d=>d.id===id)?.name||id);
-  const offlineDevices=(health.offline_devices||[]).map(id=>state.devices.find(d=>d.id===id)?.name||id);
+  const highDrain=(health.high_drain_devices||[]).map(id=>health.high_drain_device_names?.[id]||state.devices.find(d=>d.id===id)?.name||id);
+  const offlineDevices=(health.offline_devices||[]).map(id=>health.offline_device_names?.[id]||state.devices.find(d=>d.id===id)?.name||id);
   const batteryAlert=Number(health.alert_percent ?? state.schedules?.battery_alert_percent ?? 20);
   const healthHeadline=highDrain.length?`Battery draining faster: ${highDrain.join(', ')}`:(health.low_percent==null?'No battery telemetry':health.low_percent<=batteryAlert?`Low battery: ${health.low_name} ${health.low_percent}%`:`Lowest battery: ${health.low_name} ${health.low_percent}%`);
   const rawRuntime=String(health.runtime||'').trim();
@@ -354,8 +355,8 @@ function deviceForm(d={}){const editing=!!d.device_id;return `<form id="deviceFo
 window.openDeviceRegister=()=>phase1Dialog('Register Device',deviceForm());
 window.openDeviceDetails=async id=>{try{const d=await foundationRequest(`devices/${id}`),projected=state.devices.find(x=>x.id===id);const remaining=projected&&/^(calculating|unknown|recharge now)$/i.test(String(projected.left||''))?'Collecting battery data':projected?.left||'Collecting battery data';phase1Dialog('Device Details',`<div class="phase1-detail"><p><strong>${esc(d.display_name)}</strong> · ${esc(d.kind)} · ${esc(d.capability)}</p><p>ID: ${esc(d.device_id)} · Room: ${esc(d.room)}</p><p>${d.online?'Online':'Offline'} · ${esc(d.health)}</p><p>Last seen: ${d.last_seen_at==null?'Never':new Date(d.last_seen_at*1000).toLocaleString()}</p><p>Battery: ${d.battery_percent==null?'No telemetry':`${d.battery_percent}%`}</p><p>Estimated time left: ${esc(remaining)}</p>${projected?.drain_status==='HIGH'?'<p>Battery draining faster than usual</p>':''}<p>Firmware: ${esc(d.firmware_version||'Unknown')} · ${esc(d.registration_source)} registration</p></div><button type="button" onclick="openDeviceEditor('${d.device_id}')">Edit / Rename</button><button type="button" onclick="removeDevice('${d.device_id}')">Unregister device</button><button type="button" onclick="closePhase1Dialog()">Close</button>`)}catch(err){toast(`Device Details unavailable: ${err.message}`)}};
 window.openDeviceEditor=async id=>{try{phase1Dialog('Edit Device',deviceForm(await foundationRequest(`devices/${id}`)))}catch(err){toast(`Device unavailable: ${err.message}`)}};
-window.saveDevice=async ev=>{ev.preventDefault();const f=new FormData(ev.target),id=ev.target.dataset.editId;const body=id?{display_name:String(f.get('display_name')),room:String(f.get('room')),enabled:f.has('enabled')}:{device_id:String(f.get('device_id')),display_name:String(f.get('display_name')),kind:String(f.get('kind')),capability:String(f.get('capability')),room:String(f.get('room'))};try{await foundationRequest(id?`devices/${id}`:'devices',id?'PATCH':'POST',body);await refreshFromBackend();closePhase1Dialog();toast(id?'Device saved':'Simulated device registered')}catch(err){formError(`Not saved: ${err.message}`)}};
-window.removeDevice=async id=>{if(!window.confirm(`Unregister ${id}? Historical records will remain.`))return;try{await foundationRequest(`devices/${id}`,'DELETE',{});await refreshFromBackend();closePhase1Dialog();toast('Device unregistered')}catch(err){formError(`Not unregistered: ${err.message}`)}};
+window.saveDevice=async ev=>{ev.preventDefault();const f=new FormData(ev.target),id=ev.target.dataset.editId;const body=id?{display_name:String(f.get('display_name')),room:String(f.get('room')),enabled:f.has('enabled')}:{device_id:String(f.get('device_id')),display_name:String(f.get('display_name')),kind:String(f.get('kind')),capability:String(f.get('capability')),room:String(f.get('room'))};try{await foundationRequest(id?`devices/${id}`:'devices',id?'PATCH':'POST',body);await refreshFromBackend(false,'full');closePhase1Dialog();toast(id?'Device saved':'Simulated device registered')}catch(err){formError(`Not saved: ${err.message}`)}};
+window.removeDevice=async id=>{if(!window.confirm(`Unregister ${id}? Historical records will remain.`))return;try{await foundationRequest(`devices/${id}`,'DELETE',{});await refreshFromBackend(false,'full');closePhase1Dialog();toast('Device unregistered')}catch(err){formError(`Not unregistered: ${err.message}`)}};
 window.openManageDevices=async()=>{try{const devices=await foundationRequest('devices');phase1Dialog('Manage Devices',`<button type="button" onclick="openDeviceRegister()">Register simulated device</button><div class="phase1-list">${devices.map(d=>`<div><strong>${esc(d.display_name)}</strong> · ${esc(d.kind)} · ${esc(d.room)}<button type="button" onclick="openDeviceDetails('${d.device_id}')">Details / Edit</button></div>`).join('')}</div>`)}catch(err){toast(`Manage Devices unavailable: ${err.message}`)}};
 window.openNetworkStatus=async()=>{try{const n=await foundationRequest('network');phase1Dialog('Wi-Fi & Network',`<p>Hub: ${n.hub_online?'Online':'Offline'}</p><p>WAN: ${n.wan_online?'Online':'Offline'}</p><p class="muted">Physical Wi-Fi provisioning requires a hub hardware adapter. This simulator does not claim pairing or provisioning success.</p><button type="button" onclick="closePhase1Dialog()">Close</button>`)}catch(err){toast(`Network status unavailable: ${err.message}`)}};
 window.openBatterySettings=async()=>{try{const p=await foundationRequest('policy'),r=p.settings;phase1Dialog('Battery Alerts',`<form id="batteryForm" onsubmit="saveBatterySettings(event)" class="phase1-form"><label>Low battery (%)<input name="battery_alert_percent" type="number" min="2" max="50" required value="${r.battery_alert_percent}"></label><label>Critical battery (%)<input name="critical_battery_percent" type="number" min="1" max="49" required value="${r.critical_battery_percent}"></label><label class="toggle-line"><input name="abnormal_drain_alert_enabled" type="checkbox" ${r.abnormal_drain_alert_enabled?'checked':''}> Alert on abnormal drain</label><div class="schedule-actions"><button type="button" onclick="closePhase1Dialog()">Cancel</button><button type="submit" class="primary">Save Battery Alerts</button></div></form>`)}catch(err){toast(`Battery Alerts unavailable: ${err.message}`)}};
@@ -381,6 +382,7 @@ function notificationForm(prefs,records){
 window.openNotificationSettings=async()=>{
  try{
    const [prefs,records]=await Promise.all([foundationRequest('notifications/preferences'),foundationRequest('notifications/records')]);
+   notificationPreferenceCache=prefs;
    phase1Dialog('Notifications',notificationForm(prefs,records));
  }catch(err){toast(`Notifications unavailable: ${err.message}`)}
 };
@@ -389,27 +391,40 @@ window.saveNotificationSettings=async ev=>{
  const names=['safety_alerts','routine_alerts','check_in_alerts','monitoring_alerts','device_maintenance_alerts','browser_alerts_enabled'];
  const body=Object.fromEntries(names.map(name=>[name,ev.target.elements[name].checked]));
  try{
-   await foundationRequest('notifications/preferences','PATCH',body);
+   notificationPreferenceCache=await foundationRequest('notifications/preferences','PATCH',body);
    toast('Notification settings saved');
    await openNotificationSettings();
  }catch(err){formError(`Not saved: ${err.message}`)}
 };
 async function pollBrowserNotifications(){
   if(!('Notification' in window) || Notification.permission!=='granted')return;
+  const now=Date.now();
+  if(notificationPollInFlight || now-lastNotificationPoll<15000)return;
+  notificationPollInFlight=true;
+  lastNotificationPoll=now;
   try{
-    const prefs=await foundationRequest('notifications/preferences');
+    const prefs=notificationPreferenceCache||await foundationRequest('notifications/preferences');
+    notificationPreferenceCache=prefs;
     if(!prefs.preferences?.browser_alerts_enabled)return;
     const records=await foundationRequest('notifications/records');
     for(const record of records.filter(r=>r.state==='DELIVERED').reverse()){
       if(notifiedRecords.has(record.record_id))continue;
       notifiedRecords.add(record.record_id);
+      if(notifiedRecords.size>200)notifiedRecords.delete(notifiedRecords.values().next().value);
       notify(record.title,record.message);
     }
   }catch(_){}
+  finally{notificationPollInFlight=false}
 }
-window.openDeviceSchedules=()=>{
+window.openDeviceSchedules=async()=>{
   scheduleEditorOpen=true;
   scheduleFeedbackState={message:'',kind:''};
+  try{
+    const policy=await foundationRequest('policy');
+    state.schedules=policy.settings;
+  }catch(err){
+    toast(`Routines & Activity Rules unavailable: ${err.message}`);
+  }
   const m=$('#scheduleMount');
   if(m){
     m.innerHTML=scheduleEditor();
@@ -450,16 +465,16 @@ window.saveScheduleSettings=async(ev)=>{ev.preventDefault();const f=new FormData
 
 function render(){
   renderHome();
-  renderDevices();
-  renderReports();
+  if(currentTab==='devices')renderDevices();
+  if(currentTab==='reports')renderReports();
   // Backend polling can finish after the editor was opened. Rebuilding the
   // Settings tab here would detach the form every ~2 seconds and lose edits.
   // Keep the live editor DOM intact until the user saves or cancels.
-  if(!scheduleEditorOpen && !phase1EditorOpen)renderSettings();
+  if(currentTab==='settings' && !scheduleEditorOpen && !phase1EditorOpen)renderSettings();
   $('#awayToggle').checked=false;
   $('#awayToggle').disabled=true;
 }
-$$('.nav-btn').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab; $$('.nav-btn').forEach(x=>x.classList.toggle('active',x===b)); $$('.tab-panel').forEach(x=>x.classList.remove('active')); $('#'+currentTab+'Tab').classList.add('active'); if(currentTab==='reports')loadReport({quiet:true});});
+$$('.nav-btn').forEach(b=>b.onclick=async()=>{currentTab=b.dataset.tab; $$('.nav-btn').forEach(x=>x.classList.toggle('active',x===b)); $$('.tab-panel').forEach(x=>x.classList.remove('active')); $('#'+currentTab+'Tab').classList.add('active'); if(currentTab==='devices'||currentTab==='settings')await refreshFromBackend(false,'full'); else render(); if(currentTab==='reports')loadReport({quiet:true});});
 $('#awayToggle').checked=false; $('#awayToggle').disabled=true;
 window.setReport=p=>{if(!reportApiPeriods[p])return;reportPeriod=p;loadReport()}
 window.toggleDemo=async k=>{
@@ -473,5 +488,5 @@ window.toast=t=>{let n=document.createElement('div');n.className='toast';n.textC
 window.enableNotifications=async()=>{if(!('Notification'in window))return toast('Browser notifications are not supported here.');let p=await Notification.requestPermission();toast(p==='granted'?'Notifications enabled':'Notification permission not granted')}
 function notify(title,body){if('Notification'in window && Notification.permission==='granted')new Notification(title,{body,icon:'assets/icon.svg'})}
 if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js');
-(async()=>{try{await loadValidationCatalog()}catch(err){toast(`Validation catalog unavailable: ${err.message}`)}await refreshFromBackend(true);await loadReport({quiet:true});if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
-setInterval(()=>{if(!validation.running){refreshFromBackend(false);if(currentTab==='reports')loadReport({quiet:true});pollBrowserNotifications();}},2000);
+(async()=>{try{await loadValidationCatalog()}catch(err){toast(`Validation catalog unavailable: ${err.message}`)}await refreshFromBackend(true,'home');if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
+setInterval(()=>{if(!validation.running){refreshFromBackend(false,currentTab==='devices'?'full':'home');if(currentTab==='reports')loadReport({quiet:true});pollBrowserNotifications();}},2000);

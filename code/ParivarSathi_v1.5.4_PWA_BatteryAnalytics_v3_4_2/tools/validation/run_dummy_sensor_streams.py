@@ -12,7 +12,7 @@ lab=Lab(); results=[]
 try:
     for path in sorted((ROOT/'tests'/'fixtures'/'sensor_streams').glob('*.json')):
         case=json.loads(path.read_text())
-        failures=[]; vars={}; lab.reset()
+        failures=[]; vars={}; lab.reset(test_fixture=True)
         for i,step in enumerate(case.get('steps',[]),1):
             ok,detail=_execute_step(lab,step,vars)
             if not ok: failures.append(f'step {i}: {detail}'); break

@@ -3,7 +3,10 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
-from functional_scenarios import DEFAULT_CATALOG, _execute_step, load_catalog
+try:
+    from functional_scenarios import DEFAULT_CATALOG, _execute_step, load_catalog
+except ModuleNotFoundError:
+    from .functional_scenarios import DEFAULT_CATALOG, _execute_step, load_catalog
 
 def catalog_for_frontend(path: Path = DEFAULT_CATALOG) -> dict[str, Any]:
     catalog=load_catalog(path)
@@ -13,7 +16,7 @@ def execute_for_frontend(lab, scenario_id: str, path: Path = DEFAULT_CATALOG) ->
     catalog=load_catalog(path)
     scenario=next((s for s in catalog["scenarios"] if s["id"]==scenario_id),None)
     if scenario is None: raise ValueError("unknown validation scenario")
-    variables={}; step_results=[]; lab.reset()
+    variables={}; step_results=[]; lab.reset(test_fixture=True)
     for index,step in enumerate(scenario.get("steps",[]),1):
         ok,detail=_execute_step(lab,deepcopy(step),variables)
         step_results.append({"index":index,"passed":bool(ok),"detail":detail})

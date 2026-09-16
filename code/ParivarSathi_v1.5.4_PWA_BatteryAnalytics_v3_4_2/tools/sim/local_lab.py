@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from socketserver import ThreadingMixIn
+from urllib.parse import parse_qs
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -948,7 +949,7 @@ class Lab:
             self.sync()
         return self.pwa_view()
 
-    def pwa_view(self):
+    def pwa_view(self, scope="full"):
         snap = self.snapshot()
         sim = snap["simulation"]
         home = snap["home"]
@@ -1053,6 +1054,7 @@ class Lab:
             d["battery_health"] = "UNKNOWN" if pct is None else "CRITICAL" if pct <= self.household_settings["critical_battery_percent"] else "LOW" if pct <= self.household_settings["battery_alert_percent"] else "NORMAL"
         low = min((d for d in devices if d["battery"] is not None), key=lambda d:d["battery"], default=None)
         drain_attention = [d for d in devices if d.get("drain_status") == "HIGH"] if self.household_settings["abnormal_drain_alert_enabled"] else []
+        offline_devices = [d for d in devices if not d["active"]]
         morning_ok = (not self.household_settings["morning_sequence_enabled"] or bool(sim.get("morning_sequence_completed", False))) and not self.pwa_flags.get("morning_negative", False)
         ok = not (self.pwa_flags.get("ok_negative", False) or active_check_in_overdue)
         ok_status = "OVERDUE" if not ok else "ACKNOWLEDGED" if self.pwa_flags.get("ok_acknowledged", False) else "NORMAL"
@@ -1098,7 +1100,7 @@ class Lab:
             morning_status = "NOT_STARTED"
         else:
             morning_status = "UNAVAILABLE"
-        return {
+        view = {
             "source": "Ghar Sajag v1.5.4 C++ rules + Python backend + PWA bridge",
             "simulation_now": now,
             "care": {"alert": care_alert, "title": "Attention needed at home" if care_alert else "Home looks normal", "subtitle": subtitle, "problem_kind": concern_kind},
@@ -1119,12 +1121,14 @@ class Lab:
                 "runtime": low["left"] if low else "calculating", "daily_mah": low.get("daily_mah") if low else None, "confidence": low.get("confidence") if low else "LOW",
                 "wakeups_per_day": low.get("wakeups_per_day") if low else None, "retries_per_day": low.get("retries_per_day") if low else None,
                 "drain_status": low.get("drain_status") if low else "LEARNING", "high_drain_devices": [d["id"] for d in drain_attention],
-                "offline_devices": [d["id"] for d in devices if not d["active"]],
+                "high_drain_device_names": {d["id"]: d["name"] for d in drain_attention},
+                "offline_devices": [d["id"] for d in offline_devices],
+                "offline_device_names": {d["id"]: d["name"] for d in offline_devices},
                 "monitoring_coverage_lost": coverage_lost,
                 "alert_percent": self.household_settings["battery_alert_percent"],
                 "critical_percent": self.household_settings["critical_battery_percent"],
                 "critical": low is not None and low["battery_health"] == "CRITICAL",
-                "attention": coverage_lost or (low is not None and low["battery"] <= self.household_settings["battery_alert_percent"]) or bool(drain_attention) or any(not d["active"] for d in devices),
+                "attention": coverage_lost or (low is not None and low["battery"] <= self.household_settings["battery_alert_percent"]) or bool(drain_attention) or bool(offline_devices),
             },
             "coverage": {"state": sim.get("coverage", "UNKNOWN"), "lost": coverage_lost},
             "devices": devices,
@@ -1135,6 +1139,17 @@ class Lab:
             "network": {"hub_online":bool(sim.get("hub_online",True)),"wan_online":bool(sim.get("wan",True)),"provisioning":"HW_REQUIRED"},
             "raw": {"home_mode": home.get("mode"), "settings_version": snap["settings"].get("config_version")},
         }
+        if scope == "home":
+            return {
+                key: view[key]
+                for key in (
+                    "source", "simulation_now", "care", "morning", "iam_ok",
+                    "door", "night", "device_health", "coverage", "events"
+                )
+            }
+        if scope != "full":
+            raise ValueError("invalid PWA state scope")
+        return view
 
     def run_suite(self):
         """Run the declarative release functional catalog through this connected lab."""
@@ -1259,7 +1274,8 @@ class WebLab:
         if method == "GET" and path == "/sim/state":
             return self.json_response(start,self.lab.snapshot())
         if method == "GET" and path == "/pwa/state":
-            return self.json_response(start,self.lab.pwa_view())
+            scope = parse_qs(env.get("QUERY_STRING","")).get("scope",["full"])[0]
+            return self.json_response(start,self.lab.pwa_view(scope))
         if method == "GET" and path == "/pwa/validation/catalog":
             return self.json_response(start,self.lab.pwa_validation_catalog())
         if method == "GET" and path == "/sim/report":

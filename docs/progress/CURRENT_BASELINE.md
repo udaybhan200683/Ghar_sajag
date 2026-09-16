@@ -58,12 +58,16 @@ Mandatory browser projects:
 
 # Current Baseline
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
 ## Git
 
 - Branch: `feature/full-pwa-e2e`
-- HEAD: `4d021cdd25024774375ccdbc8cef3de57a7ba420`
+- Current committed baseline before Phase 2D:
+  `4ddef50` (`Update Phase 2C baseline status`)
+- Phase 2D implementation and reconciliation are complete.
+- Final qualification: PASS.
+- Phase 2D changes are ready for the Phase 2D completion commit.
 
 ## Phase Status
 
@@ -657,34 +661,374 @@ PHASE3_PENDING:
 ### Phase 2C - PWA Integration
 
 - Status: COMPLETE / committed
-  - backend-derived "Last confirmed" elapsed timing
-  - caregiver-facing "Routines & Activity Rules" display label
-  - optional DEVICE_MAINTENANCE notifications
-  - Home / Reports / Notifications classification consistency
-- Targeted socket-free validation:
-  - `test_phase2c_integration.py`: PASS
-  - Phase 2B Notifications regression tests: PASS
-  - Phase 2A Reports regression tests: PASS
-  - affected Phase 1 application tests: PASS
-- Browser validation:
-  - `phase2c_integration.spec.ts`: implemented and discovered for desktop/mobile
-  - affected `phase1_ui_contract.spec.ts`: included in focused qualification
-  - focused desktop/mobile execution: PENDING
+- Commit: `4d021cdd25024774375ccdbc8cef3de57a7ba420`
+
+#### Purpose
+
+Phase 2C completed the remaining cross-feature PWA integration after
+Phase 2A Reports and Phase 2B Notifications.
+
+The work focused on Home, Settings, Notifications, Reports and Device Health
+consistency rather than introducing another major product subsystem.
+
+#### I-am-OK Home integration
+
+Implemented:
+
+- backend-owned I-am-OK overdue state reflected on Home;
+- persisted active `CHECK_IN` notification state used by Home;
+- accepted `OK_PRESSED` resolves the active overdue concern;
+- backend-derived `last_ok_age_s`;
+- caregiver-facing `Last confirmed X ago` timing;
+- acknowledgement timing remains correct across browser refresh.
+
+The underlying Home care concern remains visible even when notification
+delivery for that category is suppressed.
+
+#### Settings integration
+
+The caregiver-visible settings label:
+
+`Device Schedules`
+
+was changed to:
+
+`Routines & Activity Rules`
+
+because the settings represent household routine/activity policy rather than
+device power scheduling.
+
+The existing internal selector:
+
+`data-setting="Device Schedules"`
+
+was intentionally preserved for Phase 1 compatibility.
+
+#### Device-maintenance notification integration
+
+Implemented a functional positive path for the existing
+`device_maintenance` notification preference.
+
+When enabled:
+
+- qualifying maintenance conditions can create `DEVICE_MAINTENANCE`
+  notification records;
+- caregiver-facing device display names are used;
+- maintenance remains separate from care/safety notification classification;
+- maintenance does not cause the overall Home care banner to enter attention;
+- maintenance is not counted as caregiver/safety activity in Reports.
+
+#### Cross-feature consistency
+
+Preserved the established semantics across Home, Reports and Notifications:
+
+- canonical historical events remain the source of report activity;
+- resolving notification state does not delete historical events;
+- notification suppression/delivery state does not redefine event
+  classification;
+- device maintenance remains outside care/safety report activity;
+- existing household-timezone and durable event-history behavior remains
+  unchanged.
+
+#### Important invariants
+
+Future work must preserve:
+
+1. I-am-OK overdue must not depend on the caregiver PWA being open.
+2. Accepted I-am-OK acknowledgement clears the active concern and resolves the
+   corresponding persisted notification.
+3. I-am-OK elapsed confirmation timing remains backend-derived.
+4. Notification suppression must not erase the underlying Home care concern.
+5. Device maintenance remains separate from care/safety classification.
+6. Device maintenance must not be counted as caregiver activity in Reports.
+7. Existing Phase 1 Home state/color semantics remain unchanged.
+8. `Routines & Activity Rules` remains the caregiver-facing name while stable
+   internal compatibility identifiers may retain the previous identifier.
+
+#### Validation
+
+Primary backend validation:
+
+`tests/python/test_phase2c_integration.py`
+
+Targeted validation:
+
+- Phase 2C integration tests: PASS
+- Phase 2B Notifications regression tests: PASS
+- Phase 2A Reports regression tests: PASS
+- affected Phase 1 application tests: PASS
+
+Browser validation:
+
+`tests/playwright/phase2c_integration.spec.ts`
+
+Validated on:
+
+- `chromium-desktop`: PASS
+- `chromium-mobile`: PASS
+
+Phase 2C was also included successfully in the later Phase 2 focused browser
+qualification and final `make release-gate-final` qualification.
+
+### Phase 2D - Final Phase 2 Reconciliation, Performance Trim and Qualification
+
+- Status: COMPLETE / QUALIFIED
+- Final qualification: `make release-gate-final` PASS
+- Phase 2 overall status: COMPLETE / QUALIFIED
+- Phase 2D working tree is ready for final documentation review and commit.
+
+#### Gap audit summary
+
+No unresolved software-testable Phase 2 product requirement was found after
+reconciling the master specification with current code and tests.
+
+Classifications:
+
+- COMPLETE: Home current-state integration, Devices/Manage Devices, Settings
+  Home Details/Family Members/Battery/Routines/Notifications, Today/Week/Month
+  Reports, durable canonical event history, persisted notification preferences
+  and records, backend-owned I-am-OK overdue evaluation, care/safety versus
+  maintenance classification, removed-device historical reporting, desktop and
+  mobile Playwright coverage.
+- MANUAL_ONLY: real browser notification permission prompt.
+- HW_REQUIRED: ESP32/RF/Wi-Fi provisioning, physical sensors and physical
+  battery calibration.
+- PRODUCTION_INTEGRATION_PENDING: production authentication/deployment, SMS
+  provider, email provider, production push provider and autonomous production
+  scheduler.
+- PHASE3_PENDING: stress/load/endurance/soak, event and notification storms,
+  DB scale, resource leakage and fault injection.
+
+#### Cross-feature consistency confirmed
+
+Current automated coverage verifies the high-risk Phase 2 flows:
+
+- I-am-OK overdue opens a Home concern and notification, accepted
+  `OK_PRESSED` clears Home, resolves the notification and preserves historical
+  activity.
+- monitoring coverage loss opens Home attention and notification state;
+  restoration resolves the correlated notification and preserves history.
+- Main Door open-too-long, post-door inactivity and night unusual activity are
+  Home care concerns, eligible for notifications, and remain consistently
+  classified in Reports/history without Door/battery contamination.
+- device maintenance and battery diagnostics remain Device Health/maintenance
+  concerns, with optional `DEVICE_MAINTENANCE` notification behavior; they do
+  not become care/safety Home events or Reports care activity.
+- removed devices stay inactive/unregistered while historical report activity
+  remains meaningful.
+
+#### Performance and UX trim
+
+Implemented Phase 2D performance trims:
+
+- `GET /pwa/state?scope=home` returns a compact Home/current-state projection
+  for normal Home polling.
+- existing full `GET /pwa/state` remains available for validation and
+  domain-specific hydration where required.
+- Reports are no longer fetched during initial Home load; Reports fetch only
+  when Reports is opened or the selected period changes.
+- notification preference/history polling for browser delivery is throttled,
+  preference-cached and bounded.
+- repeated DOM rebuilds are reduced to the active tab where practical.
+- full device state is fetched while Devices is the active tab or after
+  device create/edit/remove actions.
+- the lightweight no-framework HTML/CSS/JS architecture remains unchanged.
+
+Existing bounds preserved:
+
+- Home Recent Important Events: 20 rendered events.
+- backend snapshot recent events: 6 domain events.
+- canonical timeline projection: explicit limit, currently 40 for the PWA lab.
+- notification records endpoint: limit bounded to 1..100, default 20.
+- report windows: Today, seven-day Week and calendar Month windows; backend
+  aggregation/highlights are bounded.
+
+The service worker continues to cache only explicitly allowlisted static app
+assets and does not cache dynamic caregiver-state endpoints.
+
+#### Phase 2D qualification regressions and resolutions
+
+##### Regression 1 - Device Health caregiver display name
+
+After compact Home polling was introduced, the full `devices[]` metadata was
+no longer present in `scope=home`.
+
+Device Health still received offline device IDs such as:
+
+`kitchen`
+
+but could no longer resolve the caregiver-facing name:
+
+`Kitchen Node`
+
+This caused the UI to show the internal identifier rather than the configured
+device display name.
+
+Resolution:
+
+- preserved the compact Home payload;
+- added only the minimal caregiver-facing name mappings required by Device
+  Health;
+- added `offline_device_names`;
+- added `high_drain_device_names`;
+- did not restore the full device/settings payload.
+
+Focused Phase 1 UI contract validation subsequently passed on desktop/mobile.
+
+##### Regression 2 - Durable-history validation isolation
+
+After Phase 2A made canonical CloudEvent history durable, validation runners
+that reused one Lab and called plain `reset()` retained events from previous
+scenarios.
+
+Observed failure:
+
+`stream-offline-replay` contained two `MOTION` events when the isolated fixture
+expected one.
+
+Root cause:
+
+test/harness isolation, not replay/idempotency product behavior.
+
+Resolution:
+
+- dummy sensor stream validation uses `reset(test_fixture=True)` per stream;
+- PWA frontend validation uses `reset(test_fixture=True)` per validation run;
+- production event durability semantics remain unchanged.
+
+Validation after the fix:
+
+- dummy sensor streams: PASS `5/5`;
+- Phase 2D reconciliation tests: PASS.
+
+##### Regression 3 - Devices tab stale full-state data
+
+The Phase 2D active-tab optimization initially kept normal polling on compact
+Home state even while the Devices tab was active.
+
+This caused:
+
+- a newly registered device to exist in the backend but not appear in Devices;
+- direct backend online/offline health changes to remain visually stale.
+
+Resolution:
+
+- device create/edit/remove performs a full state refresh;
+- normal polling fetches full state while `currentTab === 'devices'`;
+- Home polling remains compact;
+- Reports remain on-demand;
+- notification polling remains throttled/cached;
+- active-tab rendering remains enabled.
+
+The fix preserves the Phase 2D performance strategy while ensuring Devices
+uses fresh authoritative device state.
+
+#### Validation
+
+Added:
+
+`tests/python/test_phase2d_reconciliation.py`
+
+Coverage includes:
+
+- compact Home payload excludes on-demand Devices/Settings/Reports/Notifications
+  payloads;
+- compact Home events remain bounded;
+- full `/pwa/state` compatibility remains available;
+- invalid state scopes are rejected;
+- compact Device Health retains caregiver-facing device identity;
+- validation runners isolate durable history correctly.
+
+Targeted socket-free validation:
+
+- Phase 2A/2B/2C/2D focused Python tests: PASS
+- affected Phase 1/foundation tests: PASS
+- JavaScript tests: PASS
+- JavaScript syntax validation: PASS
+- dummy sensor stream validation: PASS `5/5`
+- `git diff --check`: PASS
+
+Manual browser qualification:
+
+- Phase 1 UI contract:
+  - `chromium-desktop`: PASS
+  - `chromium-mobile`: PASS
+  - focused result: `12/12 PASS`
+- Phase 2 focused browser suite:
+  - Phase 1 UI contract
+  - Phase 2A Reports
+  - Phase 2B Notifications
+  - Phase 2C Integration
+  - desktop/mobile result: `34/34 PASS`
+- Phase 1 Foundation regressions after Devices refresh fix:
+  - desktop/mobile: PASS
+
+#### Final qualification
+
+Authoritative command:
+
+`make release-gate-final`
+
+Result:
+
+PASS
+
+Host release gate passed, including:
+
+- validation coverage
+- contracts
+- C++ unit tests
+- Python/backend/database/logging
+- JavaScript application tests
+- product variants
+- feature variants
+- lab build
+- dummy sensor streams
+- functional catalog
+- HTTP integration
+- PWA bridge
+- PWA 68 API
+- PWA 68 frontend
+- C++ sanitizers
+- trace build
+- browser E2E
+
+Mandatory Playwright qualification also passed for:
+
+- `chromium-desktop`
+- `chromium-mobile`
+
+Phase 2 is therefore COMPLETE / QUALIFIED.
 
 ## Authoritative Validation Locations
 
-- Phase 1 UI contract: `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/validation/phase1_ui_contract.json`
-- Python tests: `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/python/test_*.py`
-- Playwright specs: `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/playwright/*.spec.ts`
-- Release gate target: `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/Makefile`
+- Phase 1 UI contract:
+  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/validation/phase1_ui_contract.json`
+- Python tests:
+  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/python/test_*.py`
+- Playwright specs:
+  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/playwright/*.spec.ts`
+- Release gate target:
+  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/Makefile`
 
 ## Deferred Boundaries
 
-- MANUAL_ONLY: real browser notification permission prompt.
-- HW_REQUIRED: ESP32/RF/Wi-Fi provisioning, physical sensors, physical battery calibration.
-- PRODUCTION_INTEGRATION_PENDING: SMS/email/push providers, production authentication/deployment, autonomous production scheduler.
-- PHASE3_PENDING: stress, load, endurance, soak, fault injection.
+- MANUAL_ONLY:
+  real browser notification permission prompt.
+- HW_REQUIRED:
+  ESP32/RF/Wi-Fi provisioning, physical sensors, physical battery calibration.
+- PRODUCTION_INTEGRATION_PENDING:
+  SMS/email/push providers, production authentication/deployment, autonomous
+  production scheduler.
+- PHASE3_PENDING:
+  stress, load, endurance, soak, event/notification storms, DB scale,
+  resource leakage and fault injection.
 
 ## Next
 
-- NEXT = Phase 2D
+1. Final documentation sanity check.
+2. Commit and push the Phase 2D qualified baseline.
+3. Record the Phase 2D commit hash in the baseline/history.
+4. Start Phase 3 only from the clean committed Phase 2 baseline.
+
+NEXT = Phase 2D commit/push, then Phase 3 planning.

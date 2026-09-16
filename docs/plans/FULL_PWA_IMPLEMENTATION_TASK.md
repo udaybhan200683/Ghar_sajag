@@ -285,15 +285,15 @@ Before implementation, inspect the repository thoroughly.
 
 Read at minimum:
 
-- START_HERE.md
-- progress.txt
-- repository README
+- repository `README.md`
+- `docs/progress/CURRENT_BASELINE.md`
+- `docs/progress/PROJECT_HISTORY.md`
 - active implementation README
-- CHANGELOG
-- IMPLEMENTATION_STATUS
-- docs/requirements
-- docs/design
-- docs/progress
+- active implementation CHANGELOG
+- active implementation IMPLEMENTATION_STATUS
+- `docs/requirements`
+- `docs/design`
+- `docs/progress`
 - current PWA source
 - backend
 - persistence/database implementation
@@ -310,6 +310,19 @@ Read at minimum:
 - functional catalog
 - existing API tests
 - existing frontend tests
+
+Use the documentation roles consistently:
+
+- `CURRENT_BASELINE.md` is the operational authority for what is implemented,
+  validated and currently deferred.
+- `PROJECT_HISTORY.md` is the append-only chronological engineering history.
+- this master specification defines intended product scope, requirements and
+  phase boundaries.
+- current code and automated tests are the implementation/evidence truth.
+
+Do not use superseded historical progress snapshots as the current project
+status authority. Historical files may be retained for provenance without being
+kept synchronized with the active baseline.
 
 Build an internal gap inventory classified as:
 
@@ -1963,9 +1976,12 @@ Update documentation along with implementation.
 
 Update relevant:
 
-- README
+- repository README
+- active implementation README
 - CHANGELOG
 - IMPLEMENTATION_STATUS
+- `docs/progress/CURRENT_BASELINE.md`
+- `docs/progress/PROJECT_HISTORY.md`
 - architecture
 - backend/API documentation
 - persistence/data model
@@ -1974,6 +1990,17 @@ Update relevant:
 - validation documentation
 - coverage/status documents
 - open-work tracking
+
+Documentation maintenance rules:
+
+- `CURRENT_BASELINE.md` is a current-state snapshot and may be rewritten as the
+  validated implementation changes.
+- `PROJECT_HISTORY.md` is append-only. Add later milestones, corrections and
+  refinements chronologically; do not erase completed historical entries.
+- README files should stay concise and point to the baseline/history instead of
+  duplicating the full engineering chronology.
+- superseded progress/status snapshots may remain frozen for provenance but
+  must not be presented as current status authority.
 
 Clearly classify work as:
 

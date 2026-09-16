@@ -1,3 +1,23 @@
+STATUS: SUPERSEDED HISTORICAL SNAPSHOT
+
+This file is retained as historical evidence for the earlier v1.5.4 r1
+baseline and is no longer maintained as the current project status.
+
+Current implementation/validation status:
+docs/progress/CURRENT_BASELINE.md
+
+Chronological engineering history:
+docs/progress/PROJECT_HISTORY.md
+
+Master intended scope and phase boundaries:
+docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md
+
+Do not use status, test counts, OPEN-WORK classifications, or NEXT items below
+as the current project baseline. The historical contents below are intentionally
+preserved and may describe work that was subsequently completed or refined.
+
+---
+
 GHAR SAJAG DOCUMENTATION 2.0 / REFERENCE CODE 1.5.4 CORRECTED
 Immediate focus: Base Parivar Saathi P0. P1/add-ons and Sarthi AI remain future scope.
 
