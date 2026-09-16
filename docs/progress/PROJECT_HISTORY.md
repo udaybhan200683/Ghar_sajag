@@ -1,5 +1,16 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
+**Document revision:** P2D-R1
+**History covered through:** Phase 2D
+**Product baseline through:** Parivar Saathi v1.5.4
+**PWA / BatteryAnalytics baseline through:** v3.4.3
+**Latest implementation anchor covered:** `9499381`
+**Updated:** 2026-09-16
+
+This file is an append-only chronological engineering history.
+
+# Ghar Sajag / Parivar Saathi Engineering History
+
 This file is an append-only chronological engineering history.
 
 Do not delete or rewrite completed historical entries when later phases are
@@ -152,3 +163,18 @@ Final qualification:
 
 Phase 2 status:
 COMPLETE / QUALIFIED
+
+## 2026-09-16 - Phase 2D Commit Anchor Recorded
+
+Implementation / qualification commit:
+`9499381` - Complete Phase 2D reconciliation and qualification
+
+Repository state at the Phase 2D implementation checkpoint:
+- branch: `feature/full-pwa-e2e`
+- implementation/qualification commit pushed to origin
+- Phase 2: COMPLETE / QUALIFIED
+- authoritative final qualification: `make release-gate-final` PASS
+
+This commit is the Phase 2D implementation/qualification anchor. Later
+documentation-only commits may become repository HEAD without changing this
+qualified implementation anchor.

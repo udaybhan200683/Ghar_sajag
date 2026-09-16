@@ -1,3 +1,14 @@
+# Ghar Sajag / Parivar Saathi - Current Baseline
+
+**Document revision:** P2D-R1
+**Product baseline:** Parivar Saathi v1.5.4
+**PWA / BatteryAnalytics baseline:** v3.4.3
+**Engineering baseline:** Phase 2D - COMPLETE / QUALIFIED
+**Implementation/qualification commit:** `9499381`
+**Updated:** 2026-09-16
+
+This document describes the current validated implementation baseline.
+
 ## Master implementation specification
 
 Primary master plan:
@@ -63,11 +74,13 @@ Updated: 2026-09-16
 ## Git
 
 - Branch: `feature/full-pwa-e2e`
-- Current committed baseline before Phase 2D:
-  `4ddef50` (`Update Phase 2C baseline status`)
-- Phase 2D implementation and reconciliation are complete.
-- Final qualification: PASS.
-- Phase 2D changes are ready for the Phase 2D completion commit.
+- Phase 2D implementation and qualification commit:
+  `9499381` (`Complete Phase 2D reconciliation and qualification`)
+- Phase 2D status: COMPLETE / QUALIFIED.
+- Final qualification: `make release-gate-final` PASS.
+- Overall Phase 2 status: COMPLETE / QUALIFIED.
+- `9499381` is the Phase 2D implementation/qualification anchor. A later
+  documentation-only pointer commit does not replace this implementation anchor.
 
 ## Phase Status
 
@@ -773,9 +786,10 @@ qualification and final `make release-gate-final` qualification.
 ### Phase 2D - Final Phase 2 Reconciliation, Performance Trim and Qualification
 
 - Status: COMPLETE / QUALIFIED
+- Implementation/qualification commit:
+  `9499381` (`Complete Phase 2D reconciliation and qualification`)
 - Final qualification: `make release-gate-final` PASS
 - Phase 2 overall status: COMPLETE / QUALIFIED
-- Phase 2D working tree is ready for final documentation review and commit.
 
 #### Gap audit summary
 
@@ -1026,9 +1040,12 @@ Phase 2 is therefore COMPLETE / QUALIFIED.
 
 ## Next
 
-1. Final documentation sanity check.
-2. Commit and push the Phase 2D qualified baseline.
-3. Record the Phase 2D commit hash in the baseline/history.
-4. Start Phase 3 only from the clean committed Phase 2 baseline.
+1. Commit and push this documentation-only pointer update.
+2. Verify the working tree is clean and the branch is synchronized with origin.
+3. Start Phase 3 planning from the qualified Phase 2D implementation anchor
+   `9499381`.
 
-NEXT = Phase 2D commit/push, then Phase 3 planning.
+The documentation-only pointer update does not require rerunning
+`make release-gate-final` because the qualified implementation is unchanged.
+
+NEXT = Phase 3 planning after the documentation pointer update is committed and pushed.
