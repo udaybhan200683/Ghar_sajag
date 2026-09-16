@@ -1,6 +1,36 @@
 # 1.5.4 status addendum
 
-## Phase 2D reconciliation checkpoint — final manual qualification pending
+## Phase 3A performance / lightweight UX / stress foundation — COMPLETE / QUALIFIED
+
+Document revision: `P3A-R1`.
+
+Implemented deterministic profiling/budgets, indexed bounded event-history
+reads, lazy validation/Settings hydration, guarded visibility-aware polling,
+change-aware active-tab rendering, a bounded static-only service-worker cache,
+and isolated stress profiles. SMALL and MEDIUM host runs pass. The product
+version remains 1.5.4 and Phase 2D anchor `9499381` remains the historical
+qualified Phase 2 implementation anchor until the Phase 3A commit anchor is
+created and recorded.
+
+Final Phase 3A qualification passed in WSL:
+- mandatory Chromium desktop browser suite: PASS;
+- mandatory Chromium mobile browser suite: PASS;
+- authoritative `make release-gate-final`: PASS;
+- final Python regression discovery: `96/96` PASS;
+- JavaScript test files: `3/3` PASS;
+- performance profile: PASS;
+- SMALL and MEDIUM deterministic stress profiles: PASS.
+
+Browser qualification also found and corrected Reports refresh scheduling,
+stale Home-poll/action sequencing, and simulator reset-epoch handling. These
+fixes preserve the Phase 3A lightweight runtime strategy while making reset and
+explicit-action boundaries deterministic.
+
+LARGE/EXTENDED, long soak, controlled concurrent API load, comprehensive
+failure injection and physical hardware resource qualification remain Phase
+3B/3C or HW_REQUIRED.
+
+## Phase 2D reconciliation checkpoint — COMPLETE / QUALIFIED
 
 Phase 2A Reports, Phase 2B Notifications and Phase 2C PWA integration are
 implemented and committed. Phase 2D performed a narrow reconciliation against
@@ -26,11 +56,18 @@ Validation discovery remains unchanged: `make python-test` discovers
 `chromium-mobile`. Do not run `make release-gate-final` inside restricted
 Codex; run it manually in the normal local terminal for final qualification.
 
-## Phase 1 targeted implementation checkpoint — manual full gate pending
+## Phase 1 targeted implementation checkpoint — subsequently qualified
 
 Home Details and Family Members now load, validate, mutate and reload through `/pwa/foundation/` and one SQLite `FoundationService`. Active OWNER authorizes mutations; last-owner removal, duplicate contact/ID and inactive-member edits are rejected. Devices and Manage Devices share `device_registry`; simulator registration, details, rename/room/enabled edits, confirmed unregistration, counts, online/offline and health history use the same application domain. Unregistration retains historical rows. Battery alert thresholds and routine policy are versioned in `application_policy`, survive restart and affect the existing host evaluation/configuration path. Migration 003 and `schema_migrations` preserve existing household data.
 
-The 46/46 targeted Python suite, 92/92 functional catalog and focused Phase 1 Chromium desktop/mobile flows (12/12) pass. The Phase 0 v3.4.3 `make release-gate-final` result was manually PASS before this work. Inside-sandbox browser execution was ENVIRONMENT_BLOCKED by loopback EPERM; the focused 12-case file passed outside the sandbox. Complete manual WSL full-gate qualification remains pending. **Phase 1 is not yet full-gate validated.** The local lab uses a development actor header; production authentication, cloud deployment, physical pairing/Wi-Fi, battery/RF calibration and flash qualification remain open. Reports/production notifications are Phase 2; stress/endurance and final evidence are Phase 3.
+At this historical checkpoint, the 46/46 targeted Python suite, 92/92
+functional catalog and focused Phase 1 Chromium desktop/mobile flows (12/12)
+passed, while the restricted Codex sandbox could not execute the complete
+socket-bound gate. Phase 1 was subsequently fully qualified by the mandatory
+desktop/mobile `make release-gate-final` process and remains COMPLETE /
+QUALIFIED. The local lab still uses a development actor header; production
+authentication, cloud deployment, physical pairing/Wi-Fi, battery/RF
+calibration and flash qualification remain open.
 
 Release-gate wiring: `make release-gate-final` runs `release-gate` first; its `make python-test` discovery includes `test_foundation.py` and `test_phase1_application.py`, while the existing HTTP, canonical functional, PWA bridge/API/frontend, sanitizer and trace stages remain in place. The mandatory Playwright runner executes every `tests/playwright/*.spec.ts` for both Chromium desktop and mobile projects, including `phase1_foundation.spec.ts`. No separate duplicate Phase 1 campaign or Phase 3 stress suite is added.
 

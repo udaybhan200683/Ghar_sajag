@@ -1,7 +1,7 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** P2D-R1
-**History covered through:** Phase 2D
+**Document revision:** P3A-R1
+**History covered through:** Phase 3A qualification
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest implementation anchor covered:** `9499381`
@@ -178,3 +178,81 @@ Repository state at the Phase 2D implementation checkpoint:
 This commit is the Phase 2D implementation/qualification anchor. Later
 documentation-only commits may become repository HEAD without changing this
 qualified implementation anchor.
+
+## 2026-09-16 - Phase 3A Performance and Stress-Foundation Checkpoint
+
+Document revision:
+`P3A-R1`
+
+Historical qualified baseline retained:
+`9499381` - Complete Phase 2D reconciliation and qualification
+
+Summary:
+- established deterministic static and API payload measurement with structural
+  regression budgets;
+- moved the engineering validation catalog off initial Home startup;
+- removed unnecessary full-state Settings hydration;
+- guarded and throttled polling without weakening backend-owned safety rules;
+- added change-aware active-tab rendering and visibility recovery;
+- changed durable history projections to indexed/range/limit-aware SQLite reads;
+- completed the bounded static-only service-worker module allowlist;
+- added isolated deterministic SMALL/MEDIUM/LARGE/EXTENDED stress profiles and
+  performance/stress/endurance Make targets;
+- added Python, JavaScript and desktop/mobile Playwright regression coverage.
+
+Checkpoint evidence:
+- profiler structural budgets: PASS;
+- SMALL deterministic stress: PASS;
+- MEDIUM deterministic stress: PASS;
+- targeted Phase 1/2 Python regressions: PASS;
+- full Python discovery: PASS (94/94);
+- JavaScript tests: PASS (3/3);
+- 20 socket-free/compiled release-gate stages: PASS;
+- Playwright desktop/mobile discovery: PASS (86 instances);
+- socket-bound HTTP/PWA/browser stages: ENVIRONMENT_BLOCKED by Codex loopback
+  EPERM and therefore still require WSL execution.
+
+Qualification status:
+IMPLEMENTED / QUALIFICATION PENDING. This entry does not replace or weaken the
+qualified Phase 2D anchor and does not claim Phase 3A QUALIFIED before the
+mandatory browser/final release gate is executed successfully.
+
+## 2026-09-16 - Phase 3A Final Qualification
+
+Document revision:
+`P3A-R1`
+
+Qualification result:
+COMPLETE / QUALIFIED
+
+Authoritative final qualification:
+- `make release-gate-final`: PASS;
+- mandatory Chromium desktop browser suite: PASS;
+- mandatory Chromium mobile browser suite: PASS;
+- performance profile: PASS;
+- SMALL deterministic stress: PASS;
+- MEDIUM deterministic stress: PASS;
+- Python regression suite: PASS (`96/96`);
+- JavaScript regression suite: PASS (`3/3`);
+- `git diff --check`: PASS.
+
+Performance / UX result:
+- the 28,770-byte engineering validation catalog remains removed from initial
+  Home startup;
+- compact Home state remains 1,216 B in the recorded deterministic baseline;
+- the post-fix profiler reported 80,542 B static total and remained within the
+  established Phase 3A structural budget;
+- Reports, Settings and Devices retain the Phase 3A lazy/bounded hydration and
+  active-domain refresh rules.
+
+Browser qualification found and corrected three sequencing defects:
+- Reports refresh used a deadline sampled from the Home poll loop, allowing an
+  effective delay beyond the intended active refresh interval;
+- an older Home poll response could overwrite a newer explicit action result;
+- simulator `simulation_now` can legitimately move backward after reset, so the
+  stale-response guard now uses a reset epoch before comparing simulator time.
+
+The Phase 2D qualified implementation anchor `9499381` remains historical
+evidence. The Phase 3A implementation/qualification commit anchor is pending
+creation of the qualified commit and will be recorded in a later append-only
+entry.

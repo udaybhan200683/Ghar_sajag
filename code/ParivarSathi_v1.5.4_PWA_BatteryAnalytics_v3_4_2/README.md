@@ -13,6 +13,13 @@ keeps the PWA lightweight by polling a compact Home payload, loading Reports
 only when the Reports tab is opened/changed, and loading detailed
 Notifications/Settings state on demand.
 
+Phase 3A adds deterministic static/payload budgets, indexed bounded history
+reads, change-aware active-tab rendering, guarded/throttled polling, lazy
+engineering validation data, and isolated SMALL/MEDIUM/LARGE/EXTENDED stress
+profiles. It does not change the product version or the historical directory
+name. See `docs/PHASE3A_PERFORMANCE.md` and
+`docs/PHASE3_STRESS_FRAMEWORK.md`.
+
 Final qualification command: `make release-gate-final`. This is the
 authoritative release qualification command for the validated baseline. It
 includes the host validation gate plus mandatory Playwright browser validation
@@ -41,6 +48,10 @@ make release-gate           # full host/software release gate
 make release-gate-browser   # release-gate --require-browser for the engineering lab
 make release-gate-final     # mandatory Playwright preflight + desktop/mobile PWA gate
 make manual-test-plan       # regenerate manual cases from canonical catalog
+make performance-profile    # deterministic static/payload measurements
+make performance-test       # budgets + SMALL stress smoke
+make stress-test            # MEDIUM deterministic workload by default
+make endurance-test         # explicit EXTENDED workload; not a normal gate
 make lab PRODUCT=base       # interactive browser simulator
 ```
 

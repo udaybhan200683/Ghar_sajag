@@ -84,6 +84,51 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
             rows = self.db.execute("SELECT * FROM events ORDER BY occurred_at,event_id").fetchall()
         return [((row["home_id"], row["event_id"]), self._row_to_event(row)) for row in rows]
 
+    def home_events(self, home_id: str, *, kinds=None, start=None, end=None,
+                    include_test=True, newest_first=False, limit=None, payload_reasons=None) -> list[CloudEvent]:
+        """Use the durable history index instead of materializing every home's events."""
+        clauses, values = ["home_id=?"], [home_id]
+        if not include_test:
+            clauses.append("is_test=0")
+        if start is not None:
+            clauses.append("occurred_at>=?")
+            values.append(int(start))
+        if end is not None:
+            clauses.append("occurred_at<?")
+            values.append(int(end))
+        if kinds:
+            ordered = sorted(set(kinds))
+            clauses.append("event_type IN (" + ",".join("?" for _ in ordered) + ")")
+            values.extend(ordered)
+        if payload_reasons:
+            reasons = sorted(set(payload_reasons))
+            clauses.append("json_extract(payload_json,'$.reason') IN (" + ",".join("?" for _ in reasons) + ")")
+            values.extend(reasons)
+        direction = "DESC" if newest_first else "ASC"
+        sql = "SELECT * FROM events WHERE " + " AND ".join(clauses) + f" ORDER BY occurred_at {direction},event_id {direction}"
+        if limit is not None:
+            sql += " LIMIT ?"
+            values.append(max(0, int(limit)))
+        with self.lock:
+            rows = self.db.execute(sql, values).fetchall()
+        return [self._row_to_event(row) for row in rows]
+
+    def latest_home_received(self, home_id: str, kind: str) -> CloudEvent | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM events WHERE home_id=? AND event_type=? ORDER BY received_at DESC,event_id DESC LIMIT 1",
+                (home_id, kind),
+            ).fetchone()
+        return None if row is None else self._row_to_event(row)
+
+    def home_event_counts(self, home_id: str) -> dict[str, int]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT event_type,COUNT(*) AS count FROM events WHERE home_id=? GROUP BY event_type",
+                (home_id,),
+            ).fetchall()
+        return {row["event_type"]: int(row["count"]) for row in rows}
+
     def get(self, key: tuple[str, str], default=None):  # type: ignore[override]
         try:
             return self[key]

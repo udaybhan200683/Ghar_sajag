@@ -1,6 +1,6 @@
 
-const CACHE='parivar-sathi-phase1-v1';
-const ASSETS=['./','index.html','styles.css','app.js','manifest.webmanifest','assets/icon.svg'];
+const CACHE='parivar-sathi-phase3a-v1';
+const ASSETS=['./','index.html','styles.css','app.js','performance_runtime.mjs','validation_engine.mjs','schedule_feedback.mjs','manifest.webmanifest','assets/icon.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{

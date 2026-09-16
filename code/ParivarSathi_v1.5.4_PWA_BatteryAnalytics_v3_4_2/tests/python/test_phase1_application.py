@@ -20,10 +20,11 @@ class Phase1ApplicationTest(unittest.TestCase):
         self.lab.close()
         self.temp.cleanup()
 
-    def call(self, method, path, body=None, actor="simulation-owner"):
+    def call(self, method, path, body=None, actor="simulation-owner", query=""):
         raw = json.dumps(body or {}).encode()
         statuses = []
         env = {"REQUEST_METHOD":method,"PATH_INFO":path,"HTTP_HOST":"127.0.0.1:8765",
+               "QUERY_STRING":query,
                "HTTP_X_ACTOR_ID":actor,"CONTENT_TYPE":"application/json","CONTENT_LENGTH":str(len(raw)),"wsgi.input":BytesIO(raw)}
         value = json.loads(b"".join(self.web(env, lambda status, headers: statuses.append(status))))
         return int(statuses[0][:3]), value
@@ -95,6 +96,40 @@ class Phase1ApplicationTest(unittest.TestCase):
         self.assertEqual(self.call("GET", "/pwa/foundation/policy")[1]["settings"]["night_bathroom_visit_threshold"], 3)
         self.lab.reset()
         self.assertEqual(self.call("GET", "/pwa/state")[1]["schedules"]["night_bathroom_visit_threshold"], 3)
+
+    def test_release_gate_door_elapsed_after_foundation_schedule_flow(self):
+        self.lab.pwa_reset_pass()
+        policy = self.call("GET", "/pwa/foundation/policy")[1]["settings"]
+        invalid = {**policy, "critical_battery_percent": policy["battery_alert_percent"]}
+        self.assertEqual(self.call("PATCH", "/pwa/foundation/policy", invalid)[0], 400)
+
+        self.call("POST", "/pwa/action", {"action":"reset_pass"})
+        self.call("POST", "/pwa/action", {"action":"toggle", "scenario":"door"})
+        self.call("POST", "/pwa/action", {"action":"toggle", "scenario":"night"})
+        code, home = self.call("GET", "/pwa/state", query="scope=home")
+        self.assertEqual(code, 200)
+        self.assertTrue(home["door"]["open"])
+        self.assertTrue(home["door"]["left_open_alert"])
+        self.assertGreaterEqual(home["door"]["open_for_s"], self.lab.household_settings["door_open_timeout_seconds"])
+        self.assertTrue(home["night"]["unusual"])
+
+    def test_door_night_reset_then_partial_morning_stays_in_progress(self):
+        self.call("POST", "/pwa/action", {"action":"reset_pass"})
+        self.call("POST", "/pwa/action", {"action":"toggle", "scenario":"door"})
+        self.call("POST", "/pwa/action", {"action":"toggle", "scenario":"night"})
+        completed = self.call("GET", "/pwa/state", query="scope=home")[1]
+        self.assertEqual(completed["morning"]["status"], "COMPLETED")
+
+        reset = self.call("POST", "/pwa/action", {"action":"reset_pass"})[1]
+        self.call("POST", "/sim/action", {"action":"reset"})
+        self.call("POST", "/sim/action", {"action":"event", "node":"room1", "kind":"MOTION"})
+        partial = self.call("GET", "/pwa/state", query="scope=home")[1]
+        self.assertGreater(reset["state_epoch"], completed["state_epoch"])
+        self.assertGreater(partial["state_epoch"], reset["state_epoch"])
+        self.assertLess(partial["simulation_now"], reset["simulation_now"])
+        self.assertEqual(partial["morning"]["status"], "IN_PROGRESS")
+        self.assertFalse(partial["morning"]["sequence_completed"])
+        self.assertFalse(partial["care"]["alert"])
 
     def test_simulated_device_heartbeat_refresh_and_stale_expiry(self):
         d={"device_id":"stale-2","display_name":"Stale node","kind":"NODE","capability":"MOTION","room":"Kitchen"}

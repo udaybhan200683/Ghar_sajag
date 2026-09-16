@@ -33,7 +33,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test
+.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test endurance-test
 
 all: verify
 
@@ -51,7 +51,7 @@ simulator: build
 simulate-matrix:
 	python3 tools/sim/scenario_matrix.py
 
-python-test:
+python-test: lab-build
 	# unittest discovery includes the Phase 1 foundation, persistence and WSGI API suites.
 	PYTHONPATH=backend python3 -m unittest discover -s tests/python -p 'test_*.py' -v
 
@@ -110,6 +110,21 @@ functional-test: lab-build
 
 dummy-sensor-test: lab-build
 	python3 tools/validation/run_dummy_sensor_streams.py
+
+performance-profile: lab-build
+	python3 tools/performance/profile_pwa.py
+
+performance-test: lab-build
+	python3 tools/performance/profile_pwa.py
+	python3 tools/stress/run_stress.py --profile SMALL
+
+STRESS_PROFILE ?= MEDIUM
+stress-test: lab-build
+	python3 tools/stress/run_stress.py --profile $(STRESS_PROFILE) --allow-large
+
+# Explicit endurance/soak target; never included in normal validation/release gates.
+endurance-test: lab-build
+	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
 validation-fast:
 	python3 tools/validation/release_gate.py --quick

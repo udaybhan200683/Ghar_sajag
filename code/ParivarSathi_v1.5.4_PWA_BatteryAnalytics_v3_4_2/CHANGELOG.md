@@ -1,3 +1,35 @@
+# Phase 3A PWA performance and stress foundation — COMPLETE / QUALIFIED
+
+- Added deterministic static/payload/resource measurement and structural byte
+  budgets without introducing a bundler or wall-clock release limits.
+- Removed the 28,770-byte engineering validation catalog from initial Home;
+  it now loads only when validation is requested.
+- Removed the full application-state fetch from Settings navigation; Settings
+  domains continue to hydrate from their authoritative bounded APIs.
+- Added polling overlap guards, bounded active Reports refresh, visibility-aware
+  state polling with immediate foreground refresh, and change-aware active-tab
+  DOM rendering.
+- Added indexed/range/limit-aware SQLite event reads for snapshot, timeline and
+  Reports instead of materializing all durable history for routine projections.
+- Completed the static-only service-worker allowlist for imported PWA modules;
+  dynamic caregiver APIs remain excluded.
+- Added configurable deterministic SMALL/MEDIUM/LARGE/EXTENDED stress profiles,
+  machine-readable counts/storage/resource diagnostics, `make stress-test` and
+  `make endurance-test`.
+- Added Python/JavaScript/Playwright Phase 3A coverage for budgets, stress smoke,
+  repeated navigation, lazy loading, request-overlap protection, bounded
+  cache/DOM behavior and temporary API-failure recovery.
+- Corrected Reports refresh scheduling so the active Reports refresh owns its
+  self-scheduling timer instead of depending on Home-poll timer alignment.
+- Corrected PWA state sequencing so stale Home poll responses cannot overwrite a
+  newer explicit action result.
+- Added simulator reset-epoch handling so a valid post-reset state is accepted
+  even when `simulation_now` moves backward.
+- Final qualification: mandatory Chromium desktop/mobile browser validation PASS
+  and authoritative `make release-gate-final` PASS.
+- Final Python regression discovery: `96/96` PASS; JavaScript test files: `3/3`
+  PASS; SMALL and MEDIUM deterministic stress profiles: PASS.
+
 # Phase 2D reconciliation checkpoint — final qualification preparation
 
 - Reconciled Phase 2 behavior against the master PWA specification without

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "SMALL": {"events": 120, "duplicates": 12, "malformed": 6, "extra_devices": 5, "api_reads": 30, "report_cycles": 3, "max_database_bytes": 2097152, "manual_only": false},
+    "MEDIUM": {"events": 2500, "duplicates": 250, "malformed": 50, "extra_devices": 18, "api_reads": 400, "report_cycles": 12, "max_database_bytes": 16777216, "manual_only": false},
+    "LARGE": {"events": 25000, "duplicates": 2500, "malformed": 250, "extra_devices": 25, "api_reads": 2000, "report_cycles": 50, "max_database_bytes": 134217728, "manual_only": true},
+    "EXTENDED": {"events": 100000, "duplicates": 10000, "malformed": 1000, "extra_devices": 25, "api_reads": 10000, "report_cycles": 250, "max_database_bytes": 536870912, "manual_only": true}
+  }
+}

@@ -18,6 +18,9 @@ Prevent a new release from silently breaking already implemented P0 behaviour. T
 10. **Browser/PWA validation** — mandatory Playwright desktop/mobile validation in `make release-gate-final`, plus a generated manual checklist using the same functional catalog.
 11. **Phase 1 UI contract** — `tests/validation/phase1_ui_contract.json` is the authoritative machine-readable Phase 1 UI contract and coverage matrix.
 12. **Phase 2 deterministic suites** — `tests/python/test_phase2a_reports.py`, `test_phase2b_notifications.py`, `test_phase2c_integration.py` and `test_phase2d_reconciliation.py` cover Reports, Notifications, cross-feature integration and the compact Home payload contract. Matching browser specs under `tests/playwright/*.spec.ts` are discovered for both mandatory Chromium projects.
+13. **Phase 3A structural performance contract** — `tools/performance/profile_pwa.py` measures static and representative serialized payload bytes and enforces `tests/validation/phase3a_performance_budget.json` without sockets or wall-clock limits.
+14. **Phase 3 stress foundation** — `tools/stress/run_stress.py` uses deterministic isolated SMALL/MEDIUM/LARGE/EXTENDED profiles. SMALL is part of normal Python discovery; larger workloads remain explicit.
+15. **Phase 3A browser resource contract** — `tests/playwright/phase3a_performance.spec.ts` verifies lazy Reports/Settings hydration, request overlap protection, repeated-navigation timer/listener stability, bounded DOM/cache behavior and temporary API-failure recovery.
 
 ## Single source of truth
 
@@ -41,7 +44,16 @@ make release-gate           # full host/software release gate
 make release-gate-browser   # full gate; browser automation is required
 make release-gate-final     # authoritative final gate; host + mandatory Playwright desktop/mobile
 make manual-test-plan       # regenerate manual checklist from canonical catalog
+make performance-profile    # raw static/payload/bound diagnostics + budgets
+make performance-test       # profiler plus SMALL deterministic stress smoke
+make stress-test            # MEDIUM by default; STRESS_PROFILE may override
+make endurance-test         # explicit EXTENDED workload; never a normal gate
 ```
+
+Performance correctness gates are structural: byte/count bounds, expected
+accepted/rejected/duplicate counts, no unexpected failures, and bounded
+collections/storage. Duration and RSS/heap values are diagnostic metrics only.
+See `docs/PHASE3A_PERFORMANCE.md` and `docs/PHASE3_STRESS_FRAMEWORK.md`.
 
 ## Release interpretation
 

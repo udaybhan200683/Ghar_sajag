@@ -19,6 +19,11 @@ Phase 2:
 - Phase 2C PWA Integration: COMPLETE
 - Phase 2D Reconciliation / Performance / Qualification: COMPLETE / QUALIFIED
 
+Phase 3:
+- Phase 3A PWA Performance / Lightweight UX / Stress Foundation: IMPLEMENTED,
+  socket-free/compiled stages PASS; final browser/release qualification is not
+  yet claimed
+
 Authoritative final qualification:
 
 `make release-gate-final`
@@ -42,3 +47,6 @@ Master implementation plan:
 
 Validation framework:
 `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/VALIDATION_FRAMEWORK.md`
+
+Phase 3A performance evidence:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3A_PERFORMANCE.md`

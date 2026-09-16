@@ -185,13 +185,16 @@ test.describe('Phase 1 authoritative application flows', () => {
       await expect(kitchen).toHaveAttribute('data-status','offline');
       await expect(kitchen).not.toContainText('● Active');
       await expect(page.locator('#devicesTab .device-summary')).toContainText('6');
+      await page.getByRole('button',{name:'Home'}).click();
       await expect(page.locator('[data-care-card="device-health"]')).toContainText('Offline: Kitchen Node');
       await expect(page.locator('.timeline')).not.toContainText(/battery percentage|confidence update|mAh\/day/i);
+      await page.getByRole('button',{name:'Devices'}).click();
     } finally {
       await request.post('/pwa/foundation/devices/kitchen/health',{headers:admin,data:{online:true,health:'ACTIVE',battery_mv:3920,battery_percent:65,drain_status:'NORMAL'}});
     }
     await expect(kitchen).toContainText('Active',{timeout:10_000});
     await expect(kitchen).toHaveAttribute('data-status','online');
+    await page.getByRole('button',{name:'Home'}).click();
     await expect(page.locator('[data-care-card="device-health"]')).not.toContainText('Offline: Kitchen Node');
   });
 

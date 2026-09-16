@@ -64,24 +64,52 @@ class QueryService:
             "details": payload,
         }
 
+    def _events(self, home_id: str, *, kinds=None, start=None, end=None,
+                include_test=True, newest_first=False, limit=None, payload_reasons=None) -> list[CloudEvent]:
+        durable_query = getattr(self.store.events, "home_events", None)
+        if durable_query is not None:
+            return durable_query(
+                home_id, kinds=kinds, start=start, end=end, include_test=include_test,
+                newest_first=newest_first, limit=limit, payload_reasons=payload_reasons,
+            )
+        events = [
+            event for (candidate, _), event in self.store.events.items()
+            if candidate == home_id
+            and (include_test or not event.is_test)
+            and (start is None or event.occurred_at >= start)
+            and (end is None or event.occurred_at < end)
+            and (not kinds or event.kind in kinds)
+            and (not payload_reasons or event.payload.get("reason") in payload_reasons)
+        ]
+        events.sort(key=lambda item: (item.occurred_at, item.event_id), reverse=newest_first)
+        return events if limit is None else events[:max(0, int(limit))]
+
     @traced("B07")
     def snapshot(self, home_id: str, actor_id: str, at: int) -> dict[str, Any]:
         self.identity.require(home_id, actor_id, "read", at)
         home = self.store.homes[home_id]
-        events = [event for (candidate, _), event in self.store.events.items() if candidate == home_id]
-        events.sort(key=lambda item: (item.occurred_at, item.event_id), reverse=True)
-        hub_beats = [item for item in events if item.kind == "HUB_HEARTBEAT"]
-        last_hub = max((item.server_received_at for item in hub_beats), default=None)
+        if hasattr(self.store.events, "latest_home_received"):
+            last_hub_event = self.store.events.latest_home_received(home_id, "HUB_HEARTBEAT")
+        else:
+            hub_beats = self._events(home_id, kinds={"HUB_HEARTBEAT"})
+            last_hub_event = max(hub_beats, key=lambda item: item.server_received_at, default=None)
+        last_hub = last_hub_event.server_received_at if last_hub_event else None
         hub_reachable = last_hub is not None and at - last_hub <= self.hub_lease_seconds
         active_incidents = [
             item for item in self.store.incidents.values()
             if item.home_id == home_id and item.state not in {IncidentState.RESOLVED}
         ]
-        latest_activity = next((item for item in events if item.kind in _ACTIVITY_KINDS), None)
-        recent = [self._event_view(item) for item in events if item.kind in _MEANINGFUL_KINDS or
-                  (item.kind == "COVERAGE_CHANGED" and item.payload.get("reason") in {"coverage_lost", "coverage_restored"})][:6]
+        activity = self._events(home_id, kinds=_ACTIVITY_KINDS, newest_first=True, limit=1)
+        latest_activity = activity[0] if activity else None
+        meaningful = self._events(home_id, kinds=_MEANINGFUL_KINDS, newest_first=True, limit=6)
+        coverage = self._events(
+            home_id, kinds={"COVERAGE_CHANGED"}, payload_reasons={"coverage_lost", "coverage_restored"},
+            newest_first=True, limit=6,
+        )
+        recent_events = sorted(meaningful + coverage, key=lambda item: (item.occurred_at, item.event_id), reverse=True)[:6]
+        recent = [self._event_view(item) for item in recent_events]
 
-        door_events = [item for item in events if item.kind in {"DOOR_OPEN", "DOOR_CLOSED"}]
+        door_events = self._events(home_id, kinds={"DOOR_OPEN", "DOOR_CLOSED"}, newest_first=True, limit=1)
         latest_door = door_events[0] if door_events else None
         door_status = None
         if latest_door is not None:
@@ -105,16 +133,17 @@ class QueryService:
             "recent_events": recent,
             "door_status": door_status,
             "active_incidents": [item.incident_id for item in active_incidents],
-            "event_counts": dict(Counter(item.kind for item in events)),
+            "event_counts": (self.store.events.home_event_counts(home_id)
+                             if hasattr(self.store.events, "home_event_counts")
+                             else dict(Counter(item.kind for item in self._events(home_id)))),
             "fetched_at": at,
         }
 
     @traced("B07")
     def timeline(self, home_id: str, actor_id: str, at: int, limit: int = 100) -> list[dict[str, Any]]:
         self.identity.require(home_id, actor_id, "read", at)
-        events = [event for (candidate, _), event in self.store.events.items() if candidate == home_id and not event.is_test]
-        events.sort(key=lambda item: (item.occurred_at, item.event_id), reverse=True)
-        return [self._event_view(item) for item in events[:limit]]
+        events = self._events(home_id, include_test=False, newest_first=True, limit=limit)
+        return [self._event_view(item) for item in events]
 
     @traced("B07")
     def report(self, home_id: str, actor_id: str, at: int, period: str) -> dict[str, Any]:
@@ -125,11 +154,10 @@ class QueryService:
         home = self.store.homes[home_id]
         tz = ZoneInfo(home.timezone)
         start, end = self._report_window(at, period, tz)
-        all_events = [
-            item for (candidate, _), item in self.store.events.items()
-            if candidate == home_id and not item.is_test and start <= item.occurred_at < end and self._is_reportable_event(item)
-        ]
-        all_events.sort(key=lambda item: (item.occurred_at, item.event_id))
+        all_events = self._events(
+            home_id, kinds=_REPORT_KINDS, start=start, end=end, include_test=False,
+        )
+        all_events = [item for item in all_events if self._is_reportable_event(item)]
         buckets = self._report_buckets(start, end, period, tz)
         bucket_map = {item["key"]: item for item in buckets}
         summary = Counter()

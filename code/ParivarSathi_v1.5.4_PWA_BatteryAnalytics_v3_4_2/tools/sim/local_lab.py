@@ -143,6 +143,7 @@ class Lab:
         self.report = {"status": "NOT_RUN", "cases": []}
         self.foundation = FoundationService(data_path, HOME, OWNER, clock=lambda: getattr(self, "state", {}).get("now", 1000))
         self.foundation.seed(DEFAULT_HOUSEHOLD_SETTINGS, DEFAULT_REGISTRY)
+        self.state_epoch = 0
         try:
             self.reset()
         except Exception:
@@ -195,6 +196,7 @@ class Lab:
         return result
 
     def reset(self, test_fixture=False, clear_events=False):
+        self.state_epoch += 1
         self.command("reset")
         if test_fixture:
             self.foundation.reset_test_fixture(DEFAULT_HOUSEHOLD_SETTINGS, DEFAULT_REGISTRY)
@@ -950,7 +952,19 @@ class Lab:
         return self.pwa_view()
 
     def pwa_view(self, scope="full"):
-        snap = self.snapshot()
+        if scope not in {"home", "full"}:
+            raise ValueError("invalid PWA state scope")
+        # The caregiver projection needs only these bounded read models. Avoid
+        # materializing notification jobs, diagnostics and other lab-only state
+        # on every two-second Home poll.
+        snap = {
+            "simulation": {k: v for k, v in self.state.items() if k != "events"},
+            "home": self.api_call("GET", f"/v1/homes/{HOME}/snapshot"),
+            "devices": self._devices(),
+            "incidents": [asdict(v) for v in self.service.store.incidents.values()],
+            "timeline": self.service.queries.timeline(HOME, OWNER, self.state["now"], limit=40),
+            "battery_analytics": self.service.battery.all_estimates(),
+        }
         sim = snap["simulation"]
         home = snap["home"]
         now = int(sim["now"])
@@ -1102,6 +1116,7 @@ class Lab:
             morning_status = "UNAVAILABLE"
         view = {
             "source": "Ghar Sajag v1.5.4 C++ rules + Python backend + PWA bridge",
+            "state_epoch": self.state_epoch,
             "simulation_now": now,
             "care": {"alert": care_alert, "title": "Attention needed at home" if care_alert else "Home looks normal", "subtitle": subtitle, "problem_kind": concern_kind},
             "morning": {
@@ -1131,24 +1146,18 @@ class Lab:
                 "attention": coverage_lost or (low is not None and low["battery"] <= self.household_settings["battery_alert_percent"]) or bool(drain_attention) or bool(offline_devices),
             },
             "coverage": {"state": sim.get("coverage", "UNKNOWN"), "lost": coverage_lost},
-            "devices": devices,
             "events": recent,
+        }
+        if scope == "home":
+            return view
+        view.update({
+            "devices": devices,
             "schedules": dict(self.household_settings),
             "home_details": self.foundation.home(OWNER),
             "family_members": self.foundation.members(OWNER),
             "network": {"hub_online":bool(sim.get("hub_online",True)),"wan_online":bool(sim.get("wan",True)),"provisioning":"HW_REQUIRED"},
-            "raw": {"home_mode": home.get("mode"), "settings_version": snap["settings"].get("config_version")},
-        }
-        if scope == "home":
-            return {
-                key: view[key]
-                for key in (
-                    "source", "simulation_now", "care", "morning", "iam_ok",
-                    "door", "night", "device_health", "coverage", "events"
-                )
-            }
-        if scope != "full":
-            raise ValueError("invalid PWA state scope")
+            "raw": {"home_mode": home.get("mode"), "settings_version": self.config_version},
+        })
         return view
 
     def run_suite(self):
@@ -1315,6 +1324,7 @@ class WebLab:
         assets = {"/":("tools/sim/pwa/index.html","text/html"),
                   "/index.html":("tools/sim/pwa/index.html","text/html"),
                   "/app.js":("tools/sim/pwa/app.js","text/javascript"),
+                  "/performance_runtime.mjs":("tools/sim/pwa/performance_runtime.mjs","text/javascript"),
                   "/validation_engine.mjs":("tools/sim/pwa/validation_engine.mjs","text/javascript"),
                   "/schedule_feedback.mjs":("tools/sim/pwa/schedule_feedback.mjs","text/javascript"),
                   "/styles.css":("tools/sim/pwa/styles.css","text/css"),

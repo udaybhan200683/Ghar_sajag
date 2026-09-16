@@ -1,13 +1,18 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** P2D-R1
+**Document revision:** P3A-R1
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
-**Engineering baseline:** Phase 2D - COMPLETE / QUALIFIED
-**Implementation/qualification commit:** `9499381`
+**Engineering baseline:** Phase 3A - COMPLETE / QUALIFIED
+**Qualified Phase 2D implementation anchor:** `9499381`
 **Updated:** 2026-09-16
 
 This document describes the current validated implementation baseline.
+
+Phase 2 remains COMPLETE / QUALIFIED at `9499381`. Phase 3A is now COMPLETE /
+QUALIFIED after successful desktop/mobile browser validation and the authoritative
+`make release-gate-final` PASS. The Phase 3A implementation/qualification commit
+anchor will be recorded after the qualified change set is committed.
 
 ## Master implementation specification
 
@@ -81,6 +86,65 @@ Updated: 2026-09-16
 - Overall Phase 2 status: COMPLETE / QUALIFIED.
 - `9499381` is the Phase 2D implementation/qualification anchor. A later
   documentation-only pointer commit does not replace this implementation anchor.
+
+## Phase 3A - PWA Performance, Lightweight UX and Stress Foundation
+
+- Status: COMPLETE / QUALIFIED
+- Document revision: P3A-R1
+- Product version remains Parivar Saathi v1.5.4 / PWA v3.4.3.
+- Physical implementation directory remains `v3_4_2`.
+
+Implemented:
+
+- deterministic socket-free static/payload/profile measurement;
+- structural performance budgets with documented headroom;
+- initial Home no longer fetches the 28,770-byte validation catalog;
+- Settings no longer hydrates full application state on entry;
+- Reports remain lazy and use guarded bounded active refresh;
+- state/report requests cannot form persistent overlapping poll loops;
+- background state/report work pauses while browser notification checking stays
+  available, and foreground return refreshes immediately;
+- unchanged Home/Devices/Reports DOM is retained rather than rebuilt every poll;
+- SQLite snapshot/timeline/report reads use indexed home/range/kind/limit queries;
+- service-worker cache remains static-only and now includes imported modules;
+- SMALL/MEDIUM/LARGE/EXTENDED deterministic stress profiles and isolated cleanup;
+- `make performance-profile`, `make performance-test`, `make stress-test`, and
+  `make endurance-test` targets;
+- Python, JavaScript and Playwright Phase 3A regression coverage.
+
+Measured evidence is in the active implementation documents:
+
+- `docs/PHASE3A_PERFORMANCE.md`
+- `docs/PHASE3_STRESS_FRAMEWORK.md`
+
+Current focused evidence:
+
+- structural profiler: PASS;
+- final post-fix profiler run remains within the Phase 3A static budget
+  (profiler-reported static total: 80,542 B);
+- SMALL stress: PASS (120 accepted / 12 duplicate / 6 rejected);
+- MEDIUM stress: PASS (2,500 accepted / 250 duplicate / 50 rejected);
+- targeted Phase 1/2 Python regressions: PASS;
+- full Python discovery: PASS (`96/96`);
+- JavaScript tests: PASS (`3/3`);
+- contracts and validation coverage: PASS (`24/24` mapped requirement IDs);
+- focused desktop/mobile browser regressions: PASS;
+- mandatory desktop/mobile Playwright suite: PASS;
+- authoritative `make release-gate-final`: PASS.
+
+Final browser qualification also found and corrected three sequencing defects
+without weakening the Phase 3A performance strategy:
+
+- Reports refresh scheduling could effectively exceed the intended refresh
+  interval because the deadline was sampled only from the Home poll loop;
+- an older Home poll snapshot could overwrite a newer explicit action result;
+- simulator time can move backward across an explicit reset, so stale-response
+  rejection now compares a reset epoch before comparing `simulation_now`.
+
+Phase 3B/3C remains responsible for substantial LARGE/EXTENDED qualification,
+accelerated multi-month soak, controlled concurrent API load, full database and
+resource failure injection, restart checkpoints under stress, and physical
+hardware resource qualification.
 
 ## Phase Status
 
@@ -1034,18 +1098,17 @@ Phase 2 is therefore COMPLETE / QUALIFIED.
 - PRODUCTION_INTEGRATION_PENDING:
   SMS/email/push providers, production authentication/deployment, autonomous
   production scheduler.
-- PHASE3_PENDING:
-  stress, load, endurance, soak, event/notification storms, DB scale,
-  resource leakage and fault injection.
+- PHASE3B_3C_PENDING:
+  LARGE/EXTENDED qualification, accelerated long household soak, concurrent
+  API load, notification-provider storm qualification, DB/resource failure
+  injection and restart/recovery under substantial load.
 
 ## Next
 
-1. Commit and push this documentation-only pointer update.
-2. Verify the working tree is clean and the branch is synchronized with origin.
-3. Start Phase 3 planning from the qualified Phase 2D implementation anchor
-   `9499381`.
+1. Commit the qualified Phase 3A implementation and record its Git anchor.
+2. Start Phase 3B load/scale qualification from the P3A-R1 qualified baseline.
+3. Preserve the Phase 3A performance budgets and browser sequencing regressions
+   as mandatory regression coverage during later stress/fault work.
 
-The documentation-only pointer update does not require rerunning
-`make release-gate-final` because the qualified implementation is unchanged.
-
-NEXT = Phase 3 planning after the documentation pointer update is committed and pushed.
+NEXT = Phase 3B event/device/history/report/notification/API load qualification,
+followed by Phase 3C fault/recovery/resource/endurance work.

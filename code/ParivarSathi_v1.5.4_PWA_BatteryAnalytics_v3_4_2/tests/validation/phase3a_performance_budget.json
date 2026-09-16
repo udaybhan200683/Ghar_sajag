@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "baseline": "Phase 2D / 9499381",
+  "rationale": "Byte budgets allow modest source growth while preventing accidental large payloads or a framework/bundle from entering the lightweight PWA. Count budgets are product bounds, not machine timing limits.",
+  "limits": {
+    "static.total_bytes": 90112,
+    "static.javascript_bytes": 65536,
+    "static.css_bytes": 18432,
+    "static.service_worker_bytes": 2048,
+    "payloads.home_compact_bytes": 6144,
+    "payloads.full_state_bytes": 24576,
+    "payloads.devices_bytes": 24576,
+    "payloads.report_today_bytes": 8192,
+    "payloads.report_week_bytes": 16384,
+    "payloads.report_month_bytes": 32768,
+    "payloads.notification_preferences_bytes": 2048,
+    "payloads.notification_history_bytes": 16384,
+    "payloads.home_details_bytes": 2048,
+    "payloads.family_members_bytes": 8192,
+    "payloads.policy_bytes": 8192,
+    "payloads.network_bytes": 2048,
+    "bounds.home_recent_events": 20,
+    "bounds.notification_history_records": 20,
+    "bounds.report_highlights": 6,
+    "bounds.report_room_activity": 5,
+    "bounds.report_month_buckets": 31,
+    "bounds.service_worker_cache_entries": 9
+  }
+}

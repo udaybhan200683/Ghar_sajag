@@ -1,5 +1,6 @@
 import {evaluateScenario,renderValidationRow} from './validation_engine.mjs';
 import {nextScheduleFeedback} from './schedule_feedback.mjs';
+import {POLL_INTERVALS,addBounded,renderSignature,requestDue,shouldApplyStateUpdate} from './performance_runtime.mjs';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let state={
   away:false,homeAlert:false,morning:true,morningMissing:false,morningStatus:'UNAVAILABLE',ok:true,okLastAgeSeconds:null,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,doorOpenForSeconds:0,indoorAgo:0,
@@ -12,10 +13,13 @@ let scheduleFeedbackState={message:'',kind:''};
 let phase1EditorOpen=false;
 let validation={catalog:null,results:[],running:false,last:null};
 let reportState={status:'idle',data:null,error:''};
-let reportRequestSeq=0, reportInFlight=false;
+let reportRequestSeq=0, reportInFlight=false, reportAbortController=null, reportRefreshTimer=null;
 const reportApiPeriods={day:'TODAY',week:'WEEK',month:'MONTH'};
 let notifiedRecords=new Set();
 let notificationPreferenceCache=null, notificationPollInFlight=false, lastNotificationPoll=0;
+let statePollInFlight=false;
+let scenarioActionQueue=Promise.resolve();
+const lastRenderSignature={home:'',devices:'',reports:''};
 
 function nowTick(){
   const d=new Date();
@@ -32,9 +36,9 @@ function formatSimTime(sec){
   return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
 }
 
-async function backendRequest(path,body){
+async function backendRequest(path,body,extra={}){
   const headers={'X-Actor-Id':'simulation-owner'};
-  const options=body===undefined?{cache:'no-store',headers}:{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)};
+  const options=body===undefined?{cache:'no-store',headers,...extra}:{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body),...extra};
   const response=await fetch(path,options);
   if(!response.ok){
     let detail=''; try{detail=(await response.json()).error||''}catch(_){ }
@@ -58,7 +62,7 @@ async function loadValidationCatalog(){if(!validation.catalog)validation.catalog
 function validationSummary(){const total=validation.catalog?.count||0,done=validation.results.length,passed=validation.results.filter(r=>r.pass).length;return {total,done,passed,failed:done-passed,complete:total>0&&done===total}}
 async function runValidationScenario(id,{renderEach=true}={}){
   const result=evaluateScenario(await backendRequest('/pwa/validation/run',{scenario_id:id}));
-  validation.last=result; const i=validation.results.findIndex(x=>x.scenario.id===id); if(i>=0)validation.results[i]=result;else validation.results.push(result); if(renderEach)render(); return result;
+  validation.last=result; const i=validation.results.findIndex(x=>x.scenario.id===id); if(i>=0)validation.results[i]=result;else validation.results.push(result); if(renderEach)renderValidationOnly(); return result;
 }
 async function runAllValidation(){
   if(validation.running)return; validation.running=true;validation.results=[];validation.last=null;render();
@@ -73,7 +77,7 @@ async function runAllValidation(){
     toast(`Functional validation failed: ${err.message}`);
   } finally {
     // Do not leave the family dashboard in the final synthetic test state.
-    try{applyBackend(await backendRequest('/pwa/action',{action:'reset_pass'}));}catch(_){}
+    try{applyBackend(await backendRequest('/pwa/action',{action:'reset_pass'}),{force:true});}catch(_){}
     validation.running=false;
     renderValidationOnly();
   }
@@ -88,10 +92,13 @@ function validationPanelInner(){
   return `<h3>${s.total||'…'}-case PWA validation</h3><p class="muted">Temporary engineering validation: C++/hub → backend → HTTP → PWA. Expected results are independently evaluated in JavaScript.</p><div id="validationOverall" class="validation-overall ${status==='PASS'?'pass':status==='FAIL'?'fail':''}" data-validation-status="${status}" data-validation-count="${s.done}">${status} · ${s.passed}/${s.total||0} passed${s.failed?` · ${s.failed} failed`:''}</div><button id="runAllValidation" onclick="runAllValidationCases()" ${validation.running?'disabled':''}>Run all ${s.total||''} automatically</button><select id="scenarioSelect">${opts}</select><button onclick="runSelectedScenario()" ${validation.running?'disabled':''}>Run selected scenario</button><button onclick="clearValidationResults()" ${validation.running?'disabled':''}>Clear results</button><div class="validation-results">${rows}</div>${details}`;
 }
 window.runAllValidationCases=async()=>{await runAllValidation()};
-window.runSelectedScenario=async()=>{const id=document.querySelector('#scenarioSelect')?.value;if(id)await runValidationScenario(id)};
+window.runSelectedScenario=async()=>{await loadValidationCatalog();renderValidationOnly();const id=document.querySelector('#scenarioSelect')?.value;if(id)await runValidationScenario(id)};
 window.clearValidationResults=()=>{validation.results=[];validation.last=null;renderValidationOnly()};
 
-function applyBackend(view){
+function applyBackend(view,{force=false}={}){
+  if(!shouldApplyStateUpdate(state.simulationNow,view?.simulation_now,{
+    currentEpoch:state.stateEpoch,nextEpoch:view?.state_epoch,force
+  }))return false;
   state={
     away:false,
     homeAlert:!!view.care?.alert,
@@ -120,20 +127,29 @@ function applyBackend(view){
     network:view.network||state.network||null,
     deviceHealth:view.device_health||null,
     schedules:view.schedules||state.schedules||null,
+    simulationNow:view.simulation_now ?? state.simulationNow ?? null,
+    stateEpoch:view.state_epoch ?? state.stateEpoch ?? null,
     source:view.source||'Backend',
     events:(view.events||[]).map(e=>({time:formatSimTime(e.at),icon:e.icon||'•',text:e.title||'Activity',tone:e.tone||'green',at:e.at}))
   };
   render();
+  return true;
 }
 
-async function refreshFromBackend(showError=false,scope='home'){
-  try{applyBackend(await backendRequest(`/pwa/state?scope=${encodeURIComponent(scope)}`));}
+async function refreshFromBackend(showError=false,scope='home',options={}){
+  try{return applyBackend(await backendRequest(`/pwa/state?scope=${encodeURIComponent(scope)}`),options);}
   catch(err){if(showError) toast(`Backend unavailable: ${err.message}`);}
+  return false;
+}
+async function pollState(scope){
+  if(statePollInFlight)return;
+  statePollInFlight=true;
+  try{await refreshFromBackend(false,scope)}finally{statePollInFlight=false}
 }
 
 async function scenarioAction(body){
   try{
-    applyBackend(await backendRequest('/pwa/action',body));
+    applyBackend(await backendRequest('/pwa/action',body),{force:true});
   }catch(err){toast(`Simulation failed: ${err.message}`);}
 }
 function batteryClass(health,drain='NORMAL'){
@@ -167,16 +183,20 @@ function requireReportPayload(data){
   return data;
 }
 async function loadReport({quiet=false}={}){
+  if(reportInFlight && quiet)return;
+  if(reportInFlight)reportAbortController?.abort();
+  cancelReportRefresh();
   const apiPeriod=reportApiPeriods[reportPeriod]||'WEEK';
   const needsLoading=!reportState.data || reportState.data.period!==apiPeriod || reportState.status==='error';
   const requestId=++reportRequestSeq;
   reportInFlight=true;
+  reportAbortController=new AbortController();
   if(needsLoading){
     reportState={status:'loading',data:reportState.data,error:''};
     renderReports();
   }
   try{
-    const data=requireReportPayload(await backendRequest(`/v1/homes/simulation-home/reports?period=${encodeURIComponent(apiPeriod)}`));
+    const data=requireReportPayload(await backendRequest(`/v1/homes/simulation-home/reports?period=${encodeURIComponent(apiPeriod)}`,undefined,{signal:reportAbortController.signal}));
     if(requestId===reportRequestSeq)reportState={status:data.status==='NO_DATA'?'no-data':'data',data,error:''};
   }catch(err){
     if(requestId===reportRequestSeq){
@@ -184,9 +204,25 @@ async function loadReport({quiet=false}={}){
       if(!quiet && currentTab==='reports')toast('Reports are temporarily unavailable');
     }
   }finally{
-    reportInFlight=false;
-    if(requestId===reportRequestSeq)renderReports();
+    if(requestId===reportRequestSeq)reportInFlight=false;
+    if(requestId===reportRequestSeq){renderReports();scheduleReportRefresh()}
   }
+}
+function cancelReportRefresh(){
+  if(reportRefreshTimer!==null)clearTimeout(reportRefreshTimer);
+  reportRefreshTimer=null;
+}
+function scheduleReportRefresh(){
+  cancelReportRefresh();
+  if(currentTab!=='reports' || document.hidden)return;
+  // Anchor the refresh to the completed request. A due check on the 2-second
+  // Home poll cadence can turn a 4-second report interval into nearly 6 seconds.
+  reportRefreshTimer=setTimeout(()=>{
+    reportRefreshTimer=null;
+    if(currentTab!=='reports' || document.hidden)return;
+    if(validation.running)scheduleReportRefresh();
+    else loadReport({quiet:true});
+  },POLL_INTERVALS.reportsMs);
 }
 function reportPeriodLabel(period){return period==='day'?'Today':period==='week'?'This Week':'This Month'}
 function reportMetric(value,singular){return countLabel(Number(value)||0,singular)}
@@ -233,6 +269,17 @@ function renderReportData(data){
 }
 
 function renderHome(){
+  const signature=renderSignature({
+    homeAlert:state.homeAlert,morningStatus:state.morningStatus,ok:state.ok,okStatus:state.okStatus,
+    okLastAgeSeconds:state.okLastAgeSeconds,coverageLost:state.coverageLost,doorOpen:state.doorOpen,
+    doorLeftOpenAlert:state.doorLeftOpenAlert,doorUnexpectedAlert:state.doorUnexpectedAlert,
+    doorPostCloseAlert:state.doorPostCloseAlert,doorOpenForSeconds:state.doorOpenForSeconds,
+    indoorAgo:state.indoorAgo,nightBathroomVisits:state.nightBathroomVisits,
+    nightCommonVisits:state.nightCommonVisits,nightUnusual:state.nightUnusual,
+    nightConcernText:state.nightConcernText,deviceHealth:state.deviceHealth,events:state.events,
+  });
+  if(signature===lastRenderSignature.home && $('#homeTab').childElementCount)return;
+  lastRenderSignature.home=signature;
   const s=homeSeverity(), health=state.deviceHealth || {low_name:'Unknown',low_percent:0,runtime:'calculating',attention:false,high_drain_devices:[]};
   const highDrain=(health.high_drain_devices||[]).map(id=>health.high_drain_device_names?.[id]||state.devices.find(d=>d.id===id)?.name||id);
   const offlineDevices=(health.offline_devices||[]).map(id=>health.offline_device_names?.[id]||state.devices.find(d=>d.id===id)?.name||id);
@@ -282,6 +329,9 @@ function renderHome(){
   </div>`;
 }
 function renderDevices(){
+ const signature=renderSignature(state.devices);
+ if(signature===lastRenderSignature.devices && $('#devicesTab').childElementCount)return;
+ lastRenderSignature.devices=signature;
  const active=state.devices.filter(d=>d.active).length;
  $('#devicesTab').innerHTML=`
  <div class="device-summary"><div><h1 style="margin:0">${state.devices.length} devices total</h1><p class="muted">Registered devices from your household backend.</p><button type="button" onclick="openDeviceRegister()">Register simulated device</button></div><div class="metric-box"><strong>${active}</strong><div>active</div></div><div class="metric-box bad"><strong>${state.devices.length-active}</strong><div>inactive</div></div></div>
@@ -293,6 +343,9 @@ function renderDevices(){
  </div>`}).join('')}</div>`;
 }
 function renderReports(){
+ const signature=renderSignature({reportPeriod,reportState});
+ if(signature===lastRenderSignature.reports && $('#reportsTab').childElementCount)return;
+ lastRenderSignature.reports=signature;
  const status=reportState.status==='idle'?'loading':reportState.status;
  const data=reportState.data;
  const activeApiPeriod=reportApiPeriods[reportPeriod]||'WEEK';
@@ -359,7 +412,7 @@ window.saveDevice=async ev=>{ev.preventDefault();const f=new FormData(ev.target)
 window.removeDevice=async id=>{if(!window.confirm(`Unregister ${id}? Historical records will remain.`))return;try{await foundationRequest(`devices/${id}`,'DELETE',{});await refreshFromBackend(false,'full');closePhase1Dialog();toast('Device unregistered')}catch(err){formError(`Not unregistered: ${err.message}`)}};
 window.openManageDevices=async()=>{try{const devices=await foundationRequest('devices');phase1Dialog('Manage Devices',`<button type="button" onclick="openDeviceRegister()">Register simulated device</button><div class="phase1-list">${devices.map(d=>`<div><strong>${esc(d.display_name)}</strong> · ${esc(d.kind)} · ${esc(d.room)}<button type="button" onclick="openDeviceDetails('${d.device_id}')">Details / Edit</button></div>`).join('')}</div>`)}catch(err){toast(`Manage Devices unavailable: ${err.message}`)}};
 window.openNetworkStatus=async()=>{try{const n=await foundationRequest('network');phase1Dialog('Wi-Fi & Network',`<p>Hub: ${n.hub_online?'Online':'Offline'}</p><p>WAN: ${n.wan_online?'Online':'Offline'}</p><p class="muted">Physical Wi-Fi provisioning requires a hub hardware adapter. This simulator does not claim pairing or provisioning success.</p><button type="button" onclick="closePhase1Dialog()">Close</button>`)}catch(err){toast(`Network status unavailable: ${err.message}`)}};
-window.openBatterySettings=async()=>{try{const p=await foundationRequest('policy'),r=p.settings;phase1Dialog('Battery Alerts',`<form id="batteryForm" onsubmit="saveBatterySettings(event)" class="phase1-form"><label>Low battery (%)<input name="battery_alert_percent" type="number" min="2" max="50" required value="${r.battery_alert_percent}"></label><label>Critical battery (%)<input name="critical_battery_percent" type="number" min="1" max="49" required value="${r.critical_battery_percent}"></label><label class="toggle-line"><input name="abnormal_drain_alert_enabled" type="checkbox" ${r.abnormal_drain_alert_enabled?'checked':''}> Alert on abnormal drain</label><div class="schedule-actions"><button type="button" onclick="closePhase1Dialog()">Cancel</button><button type="submit" class="primary">Save Battery Alerts</button></div></form>`)}catch(err){toast(`Battery Alerts unavailable: ${err.message}`)}};
+window.openBatterySettings=async()=>{try{const p=await foundationRequest('policy'),r=p.settings;state.schedules=r;phase1Dialog('Battery Alerts',`<form id="batteryForm" onsubmit="saveBatterySettings(event)" class="phase1-form"><label>Low battery (%)<input name="battery_alert_percent" type="number" min="2" max="50" required value="${r.battery_alert_percent}"></label><label>Critical battery (%)<input name="critical_battery_percent" type="number" min="1" max="49" required value="${r.critical_battery_percent}"></label><label class="toggle-line"><input name="abnormal_drain_alert_enabled" type="checkbox" ${r.abnormal_drain_alert_enabled?'checked':''}> Alert on abnormal drain</label><div class="schedule-actions"><button type="button" onclick="closePhase1Dialog()">Cancel</button><button type="submit" class="primary">Save Battery Alerts</button></div></form>`)}catch(err){toast(`Battery Alerts unavailable: ${err.message}`)}};
 window.saveBatterySettings=async ev=>{ev.preventDefault();const f=new FormData(ev.target),r={...state.schedules,battery_alert_percent:Number(f.get('battery_alert_percent')),critical_battery_percent:Number(f.get('critical_battery_percent')),abnormal_drain_alert_enabled:f.has('abnormal_drain_alert_enabled')};try{await foundationRequest('policy','PATCH',r);await refreshFromBackend();closePhase1Dialog();toast('Battery policy saved')}catch(err){formError(`Not saved: ${err.message}`)}};
 function browserPermissionLabel(){if(!('Notification' in window))return 'Unavailable in this browser';return Notification.permission==='granted'?'Allowed':Notification.permission==='denied'?'Blocked':'Not allowed yet'}
 function notificationForm(prefs,records){
@@ -399,7 +452,7 @@ window.saveNotificationSettings=async ev=>{
 async function pollBrowserNotifications(){
   if(!('Notification' in window) || Notification.permission!=='granted')return;
   const now=Date.now();
-  if(notificationPollInFlight || now-lastNotificationPoll<15000)return;
+  if(!requestDue({inFlight:notificationPollInFlight,lastStartedAt:lastNotificationPoll,now,intervalMs:POLL_INTERVALS.notificationsMs}))return;
   notificationPollInFlight=true;
   lastNotificationPoll=now;
   try{
@@ -409,8 +462,7 @@ async function pollBrowserNotifications(){
     const records=await foundationRequest('notifications/records');
     for(const record of records.filter(r=>r.state==='DELIVERED').reverse()){
       if(notifiedRecords.has(record.record_id))continue;
-      notifiedRecords.add(record.record_id);
-      if(notifiedRecords.size>200)notifiedRecords.delete(notifiedRecords.values().next().value);
+      addBounded(notifiedRecords,record.record_id,200);
       notify(record.title,record.message);
     }
   }catch(_){}
@@ -455,7 +507,7 @@ window.saveScheduleSettings=async(ev)=>{ev.preventDefault();const f=new FormData
  try{
    const confirmed=await backendRequest('/pwa/action',{action:'settings_save',settings:r});
    scheduleFeedback('Device schedule saved and applied to the hub','success');
-   applyBackend(confirmed);
+   applyBackend(confirmed,{force:true});
    toast('Device schedule saved and applied to the hub');
    // applyBackend intentionally preserves Settings while editing. Repaint only
    // this editor from the backend-confirmed configuration.
@@ -464,29 +516,53 @@ window.saveScheduleSettings=async(ev)=>{ev.preventDefault();const f=new FormData
 }
 
 function render(){
-  renderHome();
-  if(currentTab==='devices')renderDevices();
-  if(currentTab==='reports')renderReports();
+  if(currentTab==='home')renderHome();
+  else if(currentTab==='devices')renderDevices();
+  else if(currentTab==='reports')renderReports();
   // Backend polling can finish after the editor was opened. Rebuilding the
   // Settings tab here would detach the form every ~2 seconds and lose edits.
   // Keep the live editor DOM intact until the user saves or cancels.
-  if(currentTab==='settings' && !scheduleEditorOpen && !phase1EditorOpen)renderSettings();
+  if(currentTab==='settings' && !scheduleEditorOpen && !phase1EditorOpen && !$('#settingsTab').childElementCount)renderSettings();
   $('#awayToggle').checked=false;
   $('#awayToggle').disabled=true;
 }
-$$('.nav-btn').forEach(b=>b.onclick=async()=>{currentTab=b.dataset.tab; $$('.nav-btn').forEach(x=>x.classList.toggle('active',x===b)); $$('.tab-panel').forEach(x=>x.classList.remove('active')); $('#'+currentTab+'Tab').classList.add('active'); if(currentTab==='devices'||currentTab==='settings')await refreshFromBackend(false,'full'); else render(); if(currentTab==='reports')loadReport({quiet:true});});
+$$('.nav-btn').forEach(b=>b.onclick=async()=>{
+  const nextTab=b.dataset.tab;
+  if(nextTab===currentTab)return;
+  if(nextTab!=='reports')cancelReportRefresh();
+  currentTab=nextTab;
+  $$('.nav-btn').forEach(x=>x.classList.toggle('active',x===b));
+  $$('.tab-panel').forEach(x=>x.classList.remove('active'));
+  $('#'+currentTab+'Tab').classList.add('active');
+  if(currentTab==='devices')await refreshFromBackend(false,'full');
+  else if(currentTab==='home')await refreshFromBackend(false,'home');
+  else render();
+  if(currentTab==='reports')loadReport({quiet:true});
+});
 $('#awayToggle').checked=false; $('#awayToggle').disabled=true;
 window.setReport=p=>{if(!reportApiPeriods[p])return;reportPeriod=p;loadReport()}
-window.toggleDemo=async k=>{
-  await scenarioAction({action:'toggle',scenario:k});
+window.toggleDemo=k=>{
+  scenarioActionQueue=scenarioActionQueue.then(()=>scenarioAction({action:'toggle',scenario:k}));
+  return scenarioActionQueue;
 }
 window.resetDemo=async()=>{
-  await scenarioAction({action:'reset_pass'});
+  scenarioActionQueue=scenarioActionQueue.then(()=>scenarioAction({action:'reset_pass'}));
+  await scenarioActionQueue;
   toast('Reset complete: all scenarios PASS');
 }
 window.toast=t=>{let n=document.createElement('div');n.className='toast';n.textContent=t;document.body.appendChild(n);setTimeout(()=>n.remove(),2200)}
 window.enableNotifications=async()=>{if(!('Notification'in window))return toast('Browser notifications are not supported here.');let p=await Notification.requestPermission();toast(p==='granted'?'Notifications enabled':'Notification permission not granted')}
 function notify(title,body){if('Notification'in window && Notification.permission==='granted')new Notification(title,{body,icon:'assets/icon.svg'})}
 if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js');
-(async()=>{try{await loadValidationCatalog()}catch(err){toast(`Validation catalog unavailable: ${err.message}`)}await refreshFromBackend(true,'home');if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
-setInterval(()=>{if(!validation.running){refreshFromBackend(false,currentTab==='devices'?'full':'home');if(currentTab==='reports')loadReport({quiet:true});pollBrowserNotifications();}},2000);
+(async()=>{await refreshFromBackend(true,'home',{force:true});if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
+async function pollApplication(){
+  if(validation.running)return;
+  pollBrowserNotifications();
+  if(document.hidden)return;
+  pollState(currentTab==='devices'?'full':'home');
+}
+setInterval(pollApplication,POLL_INTERVALS.stateMs);
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){cancelReportRefresh();return}
+  if(!validation.running){pollState(currentTab==='devices'?'full':'home');if(currentTab==='reports')loadReport({quiet:true})}
+});
