@@ -4,15 +4,16 @@
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3A - COMPLETE / QUALIFIED
+**Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
 **Updated:** 2026-09-16
 
 This document describes the current validated implementation baseline.
 
-Phase 2 remains COMPLETE / QUALIFIED at `9499381`. Phase 3A is now COMPLETE /
+Phase 2 remains COMPLETE / QUALIFIED at `9499381`. Phase 3A is COMPLETE /
 QUALIFIED after successful desktop/mobile browser validation and the authoritative
-`make release-gate-final` PASS. The Phase 3A implementation/qualification commit
-anchor will be recorded after the qualified change set is committed.
+`make release-gate-final` PASS. The Phase 3A implementation/qualification anchor is
+`4dcaf99` (`Complete Phase 3A performance and stress foundation`).
 
 ## Master implementation specification
 
@@ -79,6 +80,12 @@ Updated: 2026-09-16
 ## Git
 
 - Branch: `feature/full-pwa-e2e`
+- Phase 3A implementation and qualification commit:
+  `4dcaf99` (`Complete Phase 3A performance and stress foundation`)
+- Phase 3A status: COMPLETE / QUALIFIED.
+- Authoritative Phase 3A qualification: `make release-gate-final` PASS.
+- `4dcaf99` is the Phase 3A implementation/qualification anchor. Later
+  documentation-only commits do not replace this implementation anchor.
 - Phase 2D implementation and qualification commit:
   `9499381` (`Complete Phase 2D reconciliation and qualification`)
 - Phase 2D status: COMPLETE / QUALIFIED.
@@ -1105,10 +1112,12 @@ Phase 2 is therefore COMPLETE / QUALIFIED.
 
 ## Next
 
-1. Commit the qualified Phase 3A implementation and record its Git anchor.
-2. Start Phase 3B load/scale qualification from the P3A-R1 qualified baseline.
-3. Preserve the Phase 3A performance budgets and browser sequencing regressions
+1. Start Phase 3B load/scale qualification from the P3A-R1 qualified baseline
+   anchored at `4dcaf99`.
+2. Preserve the Phase 3A performance budgets and browser sequencing regressions
    as mandatory regression coverage during later stress/fault work.
+3. Keep `4dcaf99` as the permanent Phase 3A implementation/qualification anchor;
+   later documentation-only commits do not replace it.
 
 NEXT = Phase 3B event/device/history/report/notification/API load qualification,
 followed by Phase 3C fault/recovery/resource/endurance work.

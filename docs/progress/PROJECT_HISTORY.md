@@ -4,7 +4,7 @@
 **History covered through:** Phase 3A qualification
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
-**Latest implementation anchor covered:** `9499381`
+**Latest implementation anchor covered:** `4dcaf99`
 **Updated:** 2026-09-16
 
 This file is an append-only chronological engineering history.
@@ -256,3 +256,19 @@ The Phase 2D qualified implementation anchor `9499381` remains historical
 evidence. The Phase 3A implementation/qualification commit anchor is pending
 creation of the qualified commit and will be recorded in a later append-only
 entry.
+
+## 2026-09-16 - Phase 3A Commit Anchor Recorded
+
+Implementation / qualification commit:
+
+`4dcaf99` - Complete Phase 3A performance and stress foundation
+
+Repository state at the Phase 3A implementation checkpoint:
+- branch: `feature/full-pwa-e2e`
+- implementation/qualification commit pushed to origin
+- Phase 3A: COMPLETE / QUALIFIED
+- authoritative final qualification: `make release-gate-final` PASS
+
+This commit is the Phase 3A implementation/qualification anchor. Later
+documentation-only commits may become repository HEAD without changing this
+qualified implementation anchor.

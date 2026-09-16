@@ -8,9 +8,12 @@ Implemented deterministic profiling/budgets, indexed bounded event-history
 reads, lazy validation/Settings hydration, guarded visibility-aware polling,
 change-aware active-tab rendering, a bounded static-only service-worker cache,
 and isolated stress profiles. SMALL and MEDIUM host runs pass. The product
-version remains 1.5.4 and Phase 2D anchor `9499381` remains the historical
-qualified Phase 2 implementation anchor until the Phase 3A commit anchor is
-created and recorded.
+version remains 1.5.4.
+
+Phase 3A implementation/qualification anchor:
+`4dcaf99` (`Complete Phase 3A performance and stress foundation`).
+
+Phase 2D anchor `9499381` remains the historical Phase 2 qualified baseline.
 
 Final Phase 3A qualification passed in WSL:
 - mandatory Chromium desktop browser suite: PASS;
