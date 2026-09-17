@@ -24,6 +24,11 @@ The qualified Phase 3B Reports scalability checkpoint is `0e5a9e3`. The earlier
 qualified Phase 3B scale/read-path checkpoint remains `fee5854`; the permanent
 Phase 3A implementation/qualification anchor remains `4dcaf99`.
 
+The qualified Phase 3B concurrent API and household-isolation checkpoint is
+`0d6a2fc`. Phase 3B remains IN PROGRESS; notification-provider storm/failure
+qualification, restart/recovery, DB/resource fault injection,
+EXTENDED/endurance and final Phase 3 qualification remain pending.
+
 ## Master implementation specification
 
 Primary master plan:
@@ -188,12 +193,12 @@ qualification, and restart/recovery. EXTENDED/endurance remains pending.
 Evidence:
 `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_CONCURRENT_API_ISOLATION.md`
 
-Phase 3B overall remains IN PROGRESS. This uncommitted work does not replace
+Phase 3B overall remains IN PROGRESS. This checkpoint does not replace
 qualified Reports checkpoint `0e5a9e3`, earlier scale/read-path checkpoint
 `fee5854`, or permanent Phase 3A anchor `4dcaf99`. Remaining Phase 3B work
-includes notification-provider storm qualification and restart/recovery;
-database/resource failure injection and EXTENDED/endurance remain pending in
-their later scoped campaigns.
+includes notification-provider storm/failure qualification, restart/recovery,
+DB/resource fault injection, EXTENDED/endurance and final Phase 3
+qualification.
 
 ## Git
 

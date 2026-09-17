@@ -85,9 +85,10 @@ Detailed evidence:
 Manual qualification is complete: `make concurrency-test`,
 `make release-gate-final`, Playwright (`86/86`), SMALL, MEDIUM and LARGE all
 passed, including the recorded LARGE correctness and resource results. This
-checkpoint does not replace `0e5a9e3`, `fee5854`, or permanent Phase 3A anchor
-`4dcaf99`. Notification-provider storm,
-restart/recovery, later failure injection and EXTENDED/endurance remain open.
+checkpoint is recorded at `0d6a2fc` and does not replace `0e5a9e3`, `fee5854`,
+or permanent Phase 3A anchor `4dcaf99`. Notification-provider storm/failure
+qualification, restart/recovery, DB/resource fault injection,
+EXTENDED/endurance and final Phase 3 qualification remain open.
 
 ## Phase 2D reconciliation checkpoint — COMPLETE / QUALIFIED
 

@@ -4,7 +4,7 @@
 **History covered through:** Phase 3B Reports scalability qualification
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
-**Latest qualified Phase 3B checkpoint covered:** `0e5a9e3`
+**Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
 **Previous qualified Phase 3B scale/read-path checkpoint:** `fee5854`
 **Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
 **Updated:** 2026-09-17
@@ -442,3 +442,17 @@ Phase 3B remains IN PROGRESS. The new checkpoint commit hash is intentionally
 not recorded yet; `0e5a9e3` and permanent Phase 3A anchor `4dcaf99` remain
 unchanged. Notification-provider storm qualification, restart/recovery, later
 database/resource failure injection and EXTENDED/endurance remain pending.
+
+## 2026-09-17 - Phase 3B Concurrent API Load and Household Isolation Pointer
+
+Qualified checkpoint: `0d6a2fc`.
+
+This documentation-only pointer records the completed concurrent API and
+household-isolation qualification. Phase 3B remains IN PROGRESS. `0e5a9e3`
+remains the qualified Reports scalability checkpoint, `fee5854` remains the
+earlier Phase 3B scale/read-path checkpoint, and `4dcaf99` remains the permanent
+Phase 3A anchor.
+
+Remaining Phase 3B work is unchanged: notification-provider storm/failure
+qualification, restart/recovery, DB/resource fault injection,
+EXTENDED/endurance and final Phase 3 qualification.
