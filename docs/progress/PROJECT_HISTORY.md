@@ -456,3 +456,13 @@ Phase 3A anchor.
 Remaining Phase 3B work is unchanged: notification-provider storm/failure
 qualification, restart/recovery, DB/resource fault injection,
 EXTENDED/endurance and final Phase 3 qualification.
+
+## 2026-09-17 - P0 Software-Gap Audit and HW-M1 Transition
+
+The complete P0 software-gap audit is recorded in
+`docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`. The audit found no unresolved
+host/backend/PWA blocker, so HW-M1 is approved to start with one ESP32 DevKit
+hub, one ESP32-C3 node, and one PIR. F14 remains the open software gap and is
+not an HW-M1 blocker, but remains a pilot/commercial P0 blocker. Target ESP32
+adapters and HIL evidence are the next work. Phase 3B remains IN PROGRESS and
+its remaining work is unchanged.

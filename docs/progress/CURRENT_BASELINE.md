@@ -29,6 +29,11 @@ The qualified Phase 3B concurrent API and household-isolation checkpoint is
 qualification, restart/recovery, DB/resource fault injection,
 EXTENDED/endurance and final Phase 3 qualification remain pending.
 
+The P0 software-gap audit is complete: software is ready to start HW-M1. No
+host/backend/PWA defect blocks the first physical vertical slice. F14 remains
+an open software gap but does not block HW-M1; it remains a pilot/commercial
+P0 blocker. Full audit: `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`.
+
 ## Master implementation specification
 
 Primary master plan:

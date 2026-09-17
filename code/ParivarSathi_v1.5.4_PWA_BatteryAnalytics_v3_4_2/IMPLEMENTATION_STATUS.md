@@ -1,5 +1,12 @@
 # 1.5.4 status addendum
 
+## P0 software-gap audit / HW-M1 transition
+
+P0 audit complete. HW-M1 may start: no host/backend/PWA blocker was found.
+Target ESP32 adapters and HIL evidence remain pending. F14 remains software-open
+but is not an HW-M1 blocker; it remains a pilot/commercial P0 blocker. See
+`docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`.
+
 ## Phase 3B Reports scalability - qualified checkpoint; overall IN PROGRESS
 
 Reports now use specialized SQLite aggregation for summary/trend facts,
