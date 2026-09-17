@@ -483,3 +483,15 @@ injection, EXTENDED/endurance / long-soak validation, and final Phase 3
 reconciliation and qualification. Resumption must first inspect HW-M1 history
 and changes, compare the integrated code with `0d6a2fc`, and rerun applicable
 release and Phase 3 gates before any new Phase 3 implementation.
+
+## 2026-09-17 - HW-M1 Working Branch Initialized
+
+The isolated `feature/hw-m1` branch was created from documented branch point
+`9b391fa`; stable host/PWA reference `feature/full-pwa-e2e` remains preserved.
+HW-M1 scope is frozen as one ESP32 DevKit hub, one ESP32-C3 node, and one PIR.
+The checkpoint breakdown, acceptance evidence, regression policy, and exit
+strategy are recorded in `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`.
+
+No target firmware implementation has started yet. Phase 3 historical anchors
+remain unchanged, and later Phase 3 work is preserved for reconciliation after
+the single-node hardware slice.

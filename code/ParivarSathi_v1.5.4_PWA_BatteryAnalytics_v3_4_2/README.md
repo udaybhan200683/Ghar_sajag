@@ -26,6 +26,14 @@ includes the host validation gate plus mandatory Playwright browser validation
 for all mandatory specs across `chromium-desktop` and `chromium-mobile`. The
 host `browser-e2e` lab owns port `8765`; Playwright owns port `8766`.
 
+## HW-M1 development branch
+
+Current hardware branch: `feature/hw-m1`. Its objective is the first real
+ESP32 DevKit hub + ESP32-C3 node + PIR vertical slice. See
+[`HW_M1_IMPLEMENTATION_PLAN.md`](../../../docs/hw/HW_M1_IMPLEMENTATION_PLAN.md)
+and the current baseline at
+[`CURRENT_BASELINE.md`](../../../docs/progress/CURRENT_BASELINE.md).
+
 Start with [SIMULATION_START_HERE.md](SIMULATION_START_HERE.md). Version **1.5.4** adds a release-gate validation framework around the existing Base / Parivar Saathi P0 host implementation. It remains hardware-independent reference code, not a flashable ESP-IDF application.
 
 ## What v1.5.4 adds

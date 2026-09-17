@@ -1295,6 +1295,22 @@ Future HW-M1 commits do not replace or redefine historical Phase 3 anchors. Git
 and code/tests remain exact implementation truth; `CURRENT_BASELINE.md` remains
 the current operational and resume truth.
 
+## HW-M1 working status
+
+- Branch: `feature/hw-m1`
+- Branch point: `9b391fa`
+- Stable host/PWA reference: `feature/full-pwa-e2e`
+- HW-M1 status: NOT STARTED
+- Current checkpoint: HW-M1.0
+- Last qualified HW-M1 checkpoint: NONE
+- Next task: toolchain and board bring-up
+- Known blockers: none before starting; target adapters and HIL evidence are
+  pending during the milestone
+- Host regression status: inherited qualified baseline; rerun after shared
+  changes
+- Hardware/HIL evidence status: NOT STARTED
+- Plan: `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`
+
 ## Next
 
 1. Start Phase 3B load/scale qualification from the P3A-R1 qualified baseline
