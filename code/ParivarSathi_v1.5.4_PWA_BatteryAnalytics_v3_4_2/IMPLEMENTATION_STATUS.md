@@ -1,6 +1,6 @@
 # 1.5.4 status addendum
 
-## Phase 3B durable-history read optimization - IN PROGRESS
+## Phase 3B durable-history read optimization - qualified checkpoint; overall IN PROGRESS
 
 The first focused Phase 3B task aligns SQLite indexes with the actual bounded
 snapshot/timeline query order, replaces recursive all-incident PWA conversion
@@ -8,12 +8,18 @@ with a bounded active-kind read model, and adds stderr stage/milestone progress
 plus per-stage JSON diagnostics to the deterministic stress runner.
 
 Focused, Python, JavaScript, performance/SMALL, MEDIUM and an explicit LARGE
-host diagnostic pass. Desktop/mobile browser validation, manual acceptance and
-the remaining Phase 3B load scope are not yet qualified. See
+host diagnostic pass. The qualified scale/read-path optimization checkpoint is
+`fee5854`; LARGE correctness passed, runtime improved from approximately 461 s
+to approximately 72 s, and the PWA/read-path optimization is qualified. The
+Playwright cleanup race is fixed, `make playwright-gate` passes 86/86, and
+`make release-gate-final` passes. See
 `docs/PHASE3B_SCALE_OPTIMIZATION.md`.
 
-Phase 3A remains COMPLETE / QUALIFIED at permanent implementation anchor
-`4dcaf99`; this in-progress work does not replace that anchor.
+Phase 3B overall status remains IN PROGRESS. Remaining work includes Reports
+scaling, controlled concurrent API load, household isolation, notification
+storm qualification, and restart/recovery. EXTENDED/endurance remains pending.
+Phase 3A remains COMPLETE / QUALIFIED at permanent implementation/qualification
+anchor `4dcaf99`; this in-progress work does not replace that anchor.
 
 ## Phase 3A performance / lightweight UX / stress foundation — COMPLETE / QUALIFIED
 

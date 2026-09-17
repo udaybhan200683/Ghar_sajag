@@ -4,10 +4,10 @@
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3A - COMPLETE / QUALIFIED
-**Active engineering work:** Phase 3B - IN PROGRESS / MANUAL QUALIFICATION PENDING
+**Active engineering work:** Phase 3B - IN PROGRESS
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
-**Updated:** 2026-09-16
+**Updated:** 2026-09-17
 
 This document describes the current validated implementation baseline.
 
@@ -16,10 +16,9 @@ QUALIFIED after successful desktop/mobile browser validation and the authoritati
 `make release-gate-final` PASS. The Phase 3A implementation/qualification anchor is
 `4dcaf99` (`Complete Phase 3A performance and stress foundation`).
 
-The first focused Phase 3B change is implemented but not manually qualified. It
-optimizes large durable-history read plans and PWA incident projection, and adds
-stress stage observability. It does not replace the Phase 3A anchor, and it does
-not claim all of Phase 3B complete.
+The qualified Phase 3B scale/read-path optimization checkpoint is `fee5854`.
+It does not replace the permanent Phase 3A implementation/qualification anchor
+`4dcaf99`, and it does not claim all of Phase 3B complete.
 
 ## Master implementation specification
 
@@ -81,9 +80,9 @@ Mandatory browser projects:
 
 # Current Baseline
 
-Updated: 2026-09-16
+Updated: 2026-09-17
 
-## Active Phase 3B work - qualification pending
+## Phase 3B qualified scale/read-path checkpoint; broader work in progress
 
 - Added migration-managed indexes matching timeline/event-kind/latest-received
   hot query shapes; representative plans no longer use temporary sort/group
@@ -96,17 +95,23 @@ Updated: 2026-09-16
   JSON while keeping stdout machine-readable.
 - Focused tests, full Python discovery, JavaScript tests, performance/SMALL and
   MEDIUM stress pass on the implementation host.
-- An explicit LARGE host diagnostic passes all correctness checks: 25,000
-  accepted events, 2,500 duplicates, 250 rejected malformed events, zero
-  request failures and 75.14 s wall time.
-- Manual acceptance and mandatory desktop/mobile browser qualification remain
-  pending.
+- Qualified checkpoint: `fee5854`.
+- LARGE correctness: PASS; runtime improved from approximately 461 s to
+  approximately 72 s.
+- PWA/read-path optimization: qualified.
+- Playwright cleanup race: fixed.
+- `make playwright-gate`: PASS, 86/86.
+- `make release-gate-final`: PASS.
+- Remaining Phase 3B work includes Reports scaling, controlled concurrent API
+  load, household isolation, notification storm qualification, and
+  restart/recovery.
+- EXTENDED/endurance remains pending.
 
 Focused evidence:
 `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_SCALE_OPTIMIZATION.md`
 
-Phase 3B status remains IN PROGRESS. Permanent Phase 3A implementation and
-qualification anchor: `4dcaf99`.
+Phase 3B overall status remains IN PROGRESS. Phase 3A remains COMPLETE /
+QUALIFIED. Permanent Phase 3A implementation/qualification anchor: `4dcaf99`.
 
 ## Git
 

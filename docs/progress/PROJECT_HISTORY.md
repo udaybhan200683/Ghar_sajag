@@ -1,11 +1,12 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** P3A-R1
-**History covered through:** Phase 3A qualification
+**Document revision:** P3B-Q1
+**History covered through:** Phase 3B qualified scale/read-path checkpoint
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
-**Latest implementation anchor covered:** `4dcaf99`
-**Updated:** 2026-09-16
+**Latest qualified Phase 3B checkpoint covered:** `fee5854`
+**Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
+**Updated:** 2026-09-17
 
 This file is an append-only chronological engineering history.
 
@@ -302,3 +303,22 @@ Host evidence:
 This is not a Phase 3B completion or qualification entry. Manual acceptance and
 mandatory desktop/mobile browser qualification remain pending. Phase 3A remains
 COMPLETE / QUALIFIED at permanent implementation anchor `4dcaf99`.
+
+## 2026-09-17 - Phase 3B Scale/Read-Path Optimization Qualified Checkpoint
+
+Qualified checkpoint: `fee5854`.
+
+Phase 3B overall status remains IN PROGRESS. This checkpoint qualified the
+PWA/read-path optimization while preserving Phase 3A as COMPLETE / QUALIFIED at
+the permanent implementation/qualification anchor `4dcaf99`.
+
+Qualification evidence:
+- LARGE correctness: PASS;
+- LARGE runtime improved from approximately 461 s to approximately 72 s;
+- Playwright cleanup race fixed;
+- `make playwright-gate`: PASS, 86/86;
+- `make release-gate-final`: PASS.
+
+Remaining Phase 3B work includes Reports scaling, controlled concurrent API
+load, household isolation, notification storm qualification, and
+restart/recovery. EXTENDED/endurance remains pending.
