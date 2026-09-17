@@ -70,6 +70,25 @@ LARGE/EXTENDED, long soak, controlled concurrent API load, comprehensive
 failure injection and physical hardware resource qualification remain Phase
 3B/3C or HW_REQUIRED.
 
+## Phase 3B concurrent API load / household isolation — QUALIFIED
+
+Implemented and host-validated a bounded six-worker, fixed-seed concurrency
+harness across two households. Durable event identity and duplicate handling
+are now household-local and atomic, and the threaded local WSGI path holds the
+existing application lock for each complete shared-state operation. Focused
+state/report/device/notification/incident/database-isolation and cleanup checks
+pass with no SQLite busy/locked errors.
+
+Detailed evidence:
+`docs/PHASE3B_CONCURRENT_API_ISOLATION.md`
+
+Manual qualification is complete: `make concurrency-test`,
+`make release-gate-final`, Playwright (`86/86`), SMALL, MEDIUM and LARGE all
+passed, including the recorded LARGE correctness and resource results. This
+checkpoint does not replace `0e5a9e3`, `fee5854`, or permanent Phase 3A anchor
+`4dcaf99`. Notification-provider storm,
+restart/recovery, later failure injection and EXTENDED/endurance remain open.
+
 ## Phase 2D reconciliation checkpoint — COMPLETE / QUALIFIED
 
 Phase 2A Reports, Phase 2B Notifications and Phase 2C PWA integration are

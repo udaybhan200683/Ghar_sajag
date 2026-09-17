@@ -40,6 +40,13 @@ class IngestService:
         if not event.event_id or event.uncertainty_s < 0 or event.server_received_at < event.hub_received_at:
             raise EventValidationError("invalid_event")
         key = (event.home_id, event.event_id)
+        durable_accept = getattr(self.store.events, "accept_once", None)
+        if durable_accept is not None:
+            accepted, duplicate = durable_accept(event)
+            if duplicate:
+                return accepted, True
+            self.store.add_audit(AuditEntry(event.server_received_at, "device", event.home_id, "event.accepted", event.event_id, {"kind": event.kind}))
+            return event, False
         existing = self.store.events.get(key)
         if existing is not None:
             return existing, True

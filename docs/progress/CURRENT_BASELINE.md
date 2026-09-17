@@ -1,6 +1,6 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** P3B-Q2
+**Document revision:** P3B-R3
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3A - COMPLETE / QUALIFIED
@@ -150,6 +150,50 @@ checkpoint, and `4dcaf99` remains the permanent Phase 3A
 implementation/qualification anchor. Remaining Phase 3B work includes
 controlled concurrent API load, household isolation, notification storm
 qualification, and restart/recovery. EXTENDED/endurance remains pending.
+
+## Phase 3B controlled concurrent API load and household isolation
+
+- Status: QUALIFIED (manual qualification complete).
+- Added a fixed-seed, six-worker bounded concurrency harness using real WSGI,
+  domain, SQLite event, report, device and notification paths.
+- Corrected the durable event identity mismatch: canonical event IDs are now
+  unique per household rather than accidentally global in SQLite.
+- Made durable duplicate acceptance atomic and serialized complete core/local
+  lab requests through the existing re-entrant application lock.
+- Verified simultaneous two-household reads/writes with identical canonical
+  event IDs and identical caregiver-facing device names.
+- Verified snapshots, chronology, Today/Week/Month Reports, incidents,
+  notifications, devices, preferences and raw database ownership remain
+  household-local.
+- Focused result: PASS (`9/9`); harness result: PASS with 12 accepted, 6
+  duplicates and 2 rejected per household, zero unexpected failures, zero
+  SQLite busy/lock failures and deterministic worker/simulator cleanup.
+- Focused schema/migration suite: PASS (`9/9`), including an explicit 006→007
+  existing-history upgrade fixture.
+- Full Python: PASS (`107/107`); JavaScript: PASS (`3/3`);
+  performance/SMALL: PASS; MEDIUM stress: PASS.
+- Manual qualification: `make concurrency-test` PASS; `make release-gate-final`
+  PASS; Playwright `86/86` PASS; SMALL, MEDIUM and LARGE PASS. LARGE recorded
+  25,000 accepted, 2,500 duplicates, 250 rejected, zero request failures,
+  `correctness_gate` PASS, a 20,828,160-byte database, approximately 64 MB
+  maximum RSS and approximately 49.9 seconds wall time. Migration 006→007
+  preservation regression: PASS.
+- Timing remains diagnostic only; the focused host run was approximately
+  147 ms. MEDIUM completed in approximately 3.946 s with a 111.019 ms report
+  stage.
+- `make concurrency-test` is explicit and is not added to
+  `release-gate-final`; MEDIUM/LARGE/EXTENDED concurrency is not made a normal
+  release gate.
+
+Evidence:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_CONCURRENT_API_ISOLATION.md`
+
+Phase 3B overall remains IN PROGRESS. This uncommitted work does not replace
+qualified Reports checkpoint `0e5a9e3`, earlier scale/read-path checkpoint
+`fee5854`, or permanent Phase 3A anchor `4dcaf99`. Remaining Phase 3B work
+includes notification-provider storm qualification and restart/recovery;
+database/resource failure injection and EXTENDED/endurance remain pending in
+their later scoped campaigns.
 
 ## Git
 

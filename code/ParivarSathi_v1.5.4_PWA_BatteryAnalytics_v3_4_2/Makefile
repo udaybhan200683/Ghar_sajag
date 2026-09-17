@@ -33,7 +33,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test endurance-test
+.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test
 
 all: verify
 
@@ -121,6 +121,11 @@ performance-test: lab-build
 STRESS_PROFILE ?= MEDIUM
 stress-test: lab-build
 	python3 tools/stress/run_stress.py --profile $(STRESS_PROFILE) --allow-large
+
+# Focused bounded Phase 3B API concurrency/household-isolation qualification.
+# Kept separate from performance-test and the normal final release gate.
+concurrency-test: lab-build
+	python3 tools/stress/run_concurrency.py
 
 # Explicit endurance/soak target; never included in normal validation/release gates.
 endurance-test: lab-build

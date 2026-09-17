@@ -386,3 +386,59 @@ work only.
 Remaining Phase 3B work is controlled concurrent API load, household
 isolation, notification storm qualification, and restart/recovery;
 EXTENDED/endurance remains pending.
+
+## 2026-09-17 - Phase 3B Controlled Concurrent API Load and Household Isolation
+
+Status:
+IMPLEMENTED / HOST VALIDATED / MANUAL QUALIFICATION PENDING
+
+Summary:
+- found that the Python event identity contract was household-local while the
+  SQLite `event_id` primary key was still global;
+- added migration-managed household-local canonical event identity without
+  rewriting existing relational foreign-key identifiers;
+- made durable event acceptance/duplicate detection atomic;
+- serialized complete core/local-lab requests through the existing shared
+  re-entrant lock while retaining threaded request dispatch;
+- added a fixed-seed, six-worker two-household WSGI/store harness covering
+  simultaneous event writes/replays, compact/full reads, snapshots,
+  Today/Week/Month Reports, device health, notifications/preferences and
+  caregiver acknowledgement;
+- deliberately reused canonical event IDs and caregiver-facing device names
+  across households and verified no cross-household event, snapshot, report,
+  incident, notification, device, preference or database-row leakage;
+- kept the explicit concurrency target outside `release-gate-final`.
+
+Focused host evidence:
+- concurrency plus Phase 3B projection/report regressions: PASS (`9/9`);
+- focused schema/migration suite: PASS (`9/9`), including explicit 006→007
+  preservation of history, reports, ordering and historical references;
+- full Python: PASS (`107/107`); JavaScript: PASS (`3/3`);
+- performance/SMALL and MEDIUM stress: PASS;
+- 12 accepted, 6 duplicate and 2 rejected requests per household;
+- 3 incidents and 3 persisted notifications per household;
+- zero unexpected failures and zero SQLite busy/lock failures;
+- no worker-thread leak; simulator process cleaned up;
+- 147.446 ms focused harness duration and 3,945.727 ms MEDIUM duration
+  (diagnostic only).
+
+This entry does not qualify or complete Phase 3B. Qualified Reports checkpoint
+`0e5a9e3`, earlier scale/read-path checkpoint `fee5854`, and permanent Phase 3A
+anchor `4dcaf99` remain unchanged. Notification-provider storm qualification,
+restart/recovery, later database/resource failure injection and
+EXTENDED/endurance remain pending.
+
+## 2026-09-17 - Phase 3B Concurrent API Load and Household Isolation Qualified
+
+Manual qualification is complete for the concurrent API and household-isolation
+checkpoint. `make concurrency-test`, `make release-gate-final`, Playwright
+(`86/86`), SMALL, MEDIUM and LARGE passed. LARGE recorded 25,000 accepted,
+2,500 duplicates, 250 rejected, zero request failures, `correctness_gate`
+PASS, a 20,828,160-byte database, approximately 64 MB maximum RSS and
+approximately 49.9 seconds wall time. The migration 006→007 preservation
+regression also passed.
+
+Phase 3B remains IN PROGRESS. The new checkpoint commit hash is intentionally
+not recorded yet; `0e5a9e3` and permanent Phase 3A anchor `4dcaf99` remain
+unchanged. Notification-provider storm qualification, restart/recovery, later
+database/resource failure injection and EXTENDED/endurance remain pending.

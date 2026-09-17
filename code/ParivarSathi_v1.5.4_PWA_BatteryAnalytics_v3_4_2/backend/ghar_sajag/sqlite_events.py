@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 import threading
 from collections.abc import Iterable, Iterator, MutableMapping
@@ -20,7 +21,7 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
         home_id, event_id = key
         with self.lock:
             row = self.db.execute(
-                "SELECT * FROM events WHERE home_id=? AND event_id=?",
+                "SELECT * FROM events WHERE home_id=? AND canonical_event_id=?",
                 (home_id, event_id),
             ).fetchone()
         if row is None:
@@ -31,49 +32,66 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
         home_id, event_id = key
         if home_id != event.home_id or event_id != event.event_id:
             raise KeyError("event_key_mismatch")
-        payload_json = json.dumps(event.payload, sort_keys=True, separators=(",", ":"))
-        source_type = self._source_type(event.kind)
         with self.lock, self.db:
-            self.db.execute(
-                """
-                INSERT OR REPLACE INTO events(
-                    event_id,home_id,source_id,source_type,node_id,room_id,session_id,sequence_number,
-                    sensor_type,event_type,location,occurred_at,received_at,hub_received_at,
-                    uncertainty_ms,is_test,payload_json
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    event.event_id,
-                    event.home_id,
-                    f"{event.home_id}:{event.event_id}",
-                    source_type,
-                    None,
-                    None,
-                    0,
-                    0,
-                    event.kind,
-                    event.kind,
-                    event.location,
-                    event.occurred_at,
-                    event.server_received_at,
-                    event.hub_received_at,
-                    event.uncertainty_s * 1000,
-                    1 if event.is_test else 0,
-                    payload_json,
-                ),
-            )
+            self._write_event(event)
+
+    def accept_once(self, event: CloudEvent) -> tuple[CloudEvent, bool]:
+        """Atomically insert one household-local event or return its durable original."""
+        key = (event.home_id, event.event_id)
+        with self.lock, self.db:
+            row = self.db.execute(
+                "SELECT * FROM events WHERE home_id=? AND canonical_event_id=?",
+                key,
+            ).fetchone()
+            if row is not None:
+                return self._row_to_event(row), True
+            self._write_event(event)
+        return event, False
+
+    def _write_event(self, event: CloudEvent) -> None:
+        payload_json = json.dumps(event.payload, sort_keys=True, separators=(",", ":"))
+        storage_id = "evt_" + hashlib.sha256(
+            f"{event.home_id}\0{event.event_id}".encode("utf-8")
+        ).hexdigest()
+        self.db.execute(
+            """
+            INSERT INTO events(
+                event_id,canonical_event_id,home_id,source_id,source_type,node_id,room_id,
+                session_id,sequence_number,sensor_type,event_type,location,occurred_at,
+                received_at,hub_received_at,uncertainty_ms,is_test,payload_json
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(home_id,canonical_event_id) DO UPDATE SET
+                source_id=excluded.source_id,source_type=excluded.source_type,
+                sensor_type=excluded.sensor_type,event_type=excluded.event_type,
+                location=excluded.location,occurred_at=excluded.occurred_at,
+                received_at=excluded.received_at,hub_received_at=excluded.hub_received_at,
+                uncertainty_ms=excluded.uncertainty_ms,is_test=excluded.is_test,
+                payload_json=excluded.payload_json
+            """,
+            (
+                storage_id, event.event_id, event.home_id,
+                f"{event.home_id}:{event.event_id}", self._source_type(event.kind),
+                None, None, 0, 0, event.kind, event.kind, event.location,
+                event.occurred_at, event.server_received_at, event.hub_received_at,
+                event.uncertainty_s * 1000, 1 if event.is_test else 0, payload_json,
+            ),
+        )
 
     def __delitem__(self, key: tuple[str, str]) -> None:
         home_id, event_id = key
         with self.lock, self.db:
-            deleted = self.db.execute("DELETE FROM events WHERE home_id=? AND event_id=?", (home_id, event_id)).rowcount
+            deleted = self.db.execute(
+                "DELETE FROM events WHERE home_id=? AND canonical_event_id=?", (home_id, event_id)
+            ).rowcount
         if deleted == 0:
             raise KeyError(key)
 
     def __iter__(self) -> Iterator[tuple[str, str]]:
         with self.lock:
-            rows = self.db.execute("SELECT home_id,event_id FROM events ORDER BY home_id,event_id").fetchall()
-        return iter((row["home_id"], row["event_id"]) for row in rows)
+            rows = self.db.execute(
+                "SELECT home_id,canonical_event_id FROM events ORDER BY home_id,canonical_event_id"
+            ).fetchall()
+        return iter((row["home_id"], row["canonical_event_id"]) for row in rows)
 
     def __len__(self) -> int:
         with self.lock:
@@ -81,8 +99,8 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
 
     def items(self) -> Iterable[tuple[tuple[str, str], CloudEvent]]:  # type: ignore[override]
         with self.lock:
-            rows = self.db.execute("SELECT * FROM events ORDER BY occurred_at,event_id").fetchall()
-        return [((row["home_id"], row["event_id"]), self._row_to_event(row)) for row in rows]
+            rows = self.db.execute("SELECT * FROM events ORDER BY occurred_at,canonical_event_id").fetchall()
+        return [((row["home_id"], row["canonical_event_id"]), self._row_to_event(row)) for row in rows]
 
     def home_events(self, home_id: str, *, kinds=None, start=None, end=None,
                     include_test=True, newest_first=False, limit=None, payload_reasons=None) -> list[CloudEvent]:
@@ -105,7 +123,7 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
             clauses.append("json_extract(payload_json,'$.reason') IN (" + ",".join("?" for _ in reasons) + ")")
             values.extend(reasons)
         direction = "DESC" if newest_first else "ASC"
-        sql = "SELECT * FROM events WHERE " + " AND ".join(clauses) + f" ORDER BY occurred_at {direction},event_id {direction}"
+        sql = "SELECT * FROM events WHERE " + " AND ".join(clauses) + f" ORDER BY occurred_at {direction},canonical_event_id {direction}"
         if limit is not None:
             sql += " LIMIT ?"
             values.append(max(0, int(limit)))
@@ -116,7 +134,7 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
     def latest_home_received(self, home_id: str, kind: str) -> CloudEvent | None:
         with self.lock:
             row = self.db.execute(
-                "SELECT * FROM events WHERE home_id=? AND event_type=? ORDER BY received_at DESC,event_id DESC LIMIT 1",
+                "SELECT * FROM events WHERE home_id=? AND event_type=? ORDER BY received_at DESC,canonical_event_id DESC LIMIT 1",
                 (home_id, kind),
             ).fetchone()
         return None if row is None else self._row_to_event(row)
@@ -182,7 +200,7 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
             rows = self.db.execute(
                 """
                 SELECT grouped.location,grouped.event_count,grouped.first_occurred_at,
-                       MIN(first_event.event_id) AS first_event_id
+                       MIN(first_event.canonical_event_id) AS first_event_id
                   FROM (
                         SELECT location,COUNT(*) AS event_count,
                                MIN(occurred_at) AS first_occurred_at
@@ -217,7 +235,7 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
                AND event_type IN ({','.join('?' for _ in ordered_kinds)})
                AND (event_type<>'COVERAGE_CHANGED'
                     OR json_extract(payload_json,'$.reason') IN ('coverage_lost','coverage_restored'))
-             ORDER BY occurred_at DESC,event_id DESC
+             ORDER BY occurred_at DESC,canonical_event_id DESC
              LIMIT ?
         """
         values = [home_id, int(start), int(end), *ordered_kinds, max(0, int(limit))]
@@ -251,7 +269,7 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
         hub_received_at = row["hub_received_at"] if "hub_received_at" in row.keys() and row["hub_received_at"] is not None else row["received_at"]
         return CloudEvent(
             row["home_id"],
-            row["event_id"],
+            row["canonical_event_id"],
             row["event_type"],
             row["location"],
             int(row["occurred_at"] or row["received_at"]),

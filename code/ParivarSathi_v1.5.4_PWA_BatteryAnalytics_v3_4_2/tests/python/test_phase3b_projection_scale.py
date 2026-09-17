@@ -53,29 +53,29 @@ class EventQueryIndexTest(unittest.TestCase):
                 "SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='events'"
             )
         }
-        self.assertIn("occurred_at DESC, event_id DESC", indexes["idx_events_home_time"])
+        self.assertIn("occurred_at DESC, canonical_event_id DESC", indexes["idx_events_home_time"])
         self.assertIn("idx_events_home_type_time", indexes)
         self.assertIn("idx_events_home_type_received", indexes)
 
         plans = {
             "timeline": self._plan(
                 "SELECT * FROM events WHERE home_id=? AND is_test=0 "
-                "ORDER BY occurred_at DESC,event_id DESC LIMIT ?",
+                "ORDER BY occurred_at DESC,canonical_event_id DESC LIMIT ?",
                 ("scale-home", 40),
             ),
             "activity": self._plan(
                 "SELECT * FROM events WHERE home_id=? AND event_type IN (?,?,?,?) "
-                "ORDER BY occurred_at DESC,event_id DESC LIMIT ?",
+                "ORDER BY occurred_at DESC,canonical_event_id DESC LIMIT ?",
                 ("scale-home", "DOOR_CLOSED", "DOOR_OPEN", "MOTION", "OK_PRESSED", 1),
             ),
             "single_type": self._plan(
                 "SELECT * FROM events WHERE home_id=? AND event_type=? "
-                "ORDER BY occurred_at DESC,event_id DESC LIMIT ?",
+                "ORDER BY occurred_at DESC,canonical_event_id DESC LIMIT ?",
                 ("scale-home", "MOTION", 6),
             ),
             "latest_received": self._plan(
                 "SELECT * FROM events WHERE home_id=? AND event_type=? "
-                "ORDER BY received_at DESC,event_id DESC LIMIT 1",
+                "ORDER BY received_at DESC,canonical_event_id DESC LIMIT 1",
                 ("scale-home", "MOTION"),
             ),
             "counts": self._plan(

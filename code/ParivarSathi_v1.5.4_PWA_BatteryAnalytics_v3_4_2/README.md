@@ -87,7 +87,12 @@ Useful verification:
 ```bash
 make http-e2e-test
 make pwa-bridge-test
+make concurrency-test
 ```
+
+`make concurrency-test` is the explicit bounded Phase 3B concurrent API and
+two-household isolation harness. It is intentionally separate from the normal
+final release gate. See `docs/PHASE3B_CONCURRENT_API_ISOLATION.md`.
 
 Production path remains:
 

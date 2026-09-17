@@ -54,6 +54,10 @@ class JsonApi:
     @traced("B11")
 
     def dispatch(self, method: str, path: str, actor: str, body: dict, query: dict | None = None) -> tuple[str, dict]:
+        with self.service.lock:
+            return self._dispatch(method, path, actor, body, query)
+
+    def _dispatch(self, method: str, path: str, actor: str, body: dict, query: dict | None = None) -> tuple[str, dict]:
         at = self.now()
         query = query or {}
         if method == "GET" and path == "/healthz":

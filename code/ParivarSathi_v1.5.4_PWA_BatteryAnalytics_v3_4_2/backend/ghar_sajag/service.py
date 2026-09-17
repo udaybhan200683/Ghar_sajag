@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import threading
+
 from .logging_config import traced
 from .fleet import FleetService
 from .battery import BatteryAnalyticsService
@@ -26,8 +28,9 @@ from .store import InMemoryStore
 class GharSajagService:
     """Composition root for host tests and a future FastAPI adapter."""
 
-    def __init__(self, store: InMemoryStore | None = None) -> None:
+    def __init__(self, store: InMemoryStore | None = None, lock: threading.RLock | None = None) -> None:
         self.store = store or InMemoryStore()
+        self.lock = lock or threading.RLock()
         self.identity = IdentityService(self.store)
         self.homes = HomeService(self.store, self.identity)
         self.ingest = IngestService(self.store)

@@ -93,3 +93,29 @@ correctness checks and reduced report cycles from approximately 27.3 s to
 
 Phase 3B remains IN PROGRESS. `fee5854` remains the previous qualified Phase 3B
 checkpoint until this Reports work is manually qualified and committed.
+
+## Phase 3B controlled concurrency and isolation update - IN PROGRESS
+
+`tools/stress/run_concurrency.py` adds a separate fixed-seed, six-worker
+concurrency mode. It overlaps real WSGI core API requests and persistent
+foundation operations for two households, including compact/full state,
+snapshots, Today/Week/Month Reports, canonical event ingestion/replay,
+malformed rejection, device health, notification preferences/history, and a
+caregiver acknowledgement.
+
+The households deliberately reuse canonical event IDs and caregiver-facing
+device names. Correctness checks cover household-local event identity,
+snapshots, reports, incidents, notifications, devices, preferences and raw
+database row ownership, plus deterministic counts, collection bounds, SQLite
+busy/lock errors, and thread/process cleanup. Timing is diagnostic only.
+
+Run it explicitly with:
+
+```bash
+make concurrency-test
+```
+
+The focused Python regression is included in normal discovery because the
+SMALL harness is bounded and fast. The separate target is not added to
+`release-gate-final`; MEDIUM/LARGE/EXTENDED concurrency is not implied.
+Detailed evidence is in `docs/PHASE3B_CONCURRENT_API_ISOLATION.md`.

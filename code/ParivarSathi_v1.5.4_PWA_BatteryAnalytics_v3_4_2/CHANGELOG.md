@@ -1,3 +1,16 @@
+# Phase 3B controlled concurrent API load and household isolation — in progress
+
+- Added household-local durable canonical event identity and atomic concurrent
+  duplicate acceptance.
+- Serialized threaded local API operations through the existing application
+  `RLock` to protect SQLite plus process-local incident/config state.
+- Added a fixed-seed, six-worker two-household concurrency harness and focused
+  regression coverage for state, Reports, devices, notifications, incidents,
+  preferences, database ownership and cleanup.
+- Added explicit `make concurrency-test`; the target is not part of the normal
+  final release gate.
+- Phase 3B remains IN PROGRESS; this uncommitted work is not qualified.
+
 # Phase 3B Reports scalability - IN PROGRESS
 
 - Replaced repeated full report-history `CloudEvent`/JSON materialization with

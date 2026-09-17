@@ -204,7 +204,7 @@ class Lab:
         event_map = SQLiteEventMap(self.foundation.db, self.foundation.lock)
         if test_fixture or clear_events:
             event_map.clear_home(HOME)
-        self.service = GharSajagService(InMemoryStore(events=event_map))
+        self.service = GharSajagService(InMemoryStore(events=event_map), lock=self.foundation.lock)
         self.api = JsonApi(self.service, now=lambda: self.state["now"])
         household = self.foundation.home(OWNER)
         self.api_call("POST", "/v1/homes", {"home_id": HOME, "display_name": household["display_name"],
@@ -1226,7 +1226,12 @@ class WebLab:
             status, result = "403 Forbidden", {"error":"local_origin_required"}
         else:
             try:
-                return self.route(environ, start_response)
+                # One request owns the existing application/SQLite lock through
+                # validation, domain mutation and response projection. The
+                # threaded WSGI adapter remains concurrent at dispatch while
+                # shared local-lab state is intentionally serialized.
+                with self.lab.foundation.lock:
+                    return self.route(environ, start_response)
             except KeyError as error:
                 status, result = "404 Not Found", {"error":str(error)[:200]}
             except (ValueError, TypeError) as error:

@@ -55,10 +55,17 @@ Migration `003_phase1_application.sql` extends the existing SQLite schema with `
 
 Migration `006_phase3b_event_query_indexes.sql` aligns the SQLite event indexes
 with the bounded read models: household chronology uses
-`(home_id, occurred_at, event_id)`, event-kind chronology adds `event_type`, and
-latest receipt queries use `(home_id, event_type, received_at, event_id)`.
+`(home_id, occurred_at, canonical_event_id)`, event-kind chronology adds
+`event_type`, and latest receipt queries use
+`(home_id, event_type, received_at, canonical_event_id)`.
 Representative query plans avoid temporary sort/group B-trees while preserving
 canonical event rows, ordering and report windows.
+
+Migration `007_phase3b_household_event_identity.sql` makes the API CloudEvent
+identity explicitly unique on `(home_id,canonical_event_id)`. The legacy
+`events.event_id` remains an opaque relational key for compatibility with
+existing foreign keys. This permits two households to use the same canonical
+device event ID without replacement or duplicate misclassification.
 
 ## Phase 3B report read model
 

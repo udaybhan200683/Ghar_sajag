@@ -278,8 +278,8 @@ class FoundationService:
         with self.db:
             self.db.execute("UPDATE device_registry SET online=?,health=?,communication=?,last_seen_at=CASE WHEN ? THEN ? ELSE last_seen_at END,battery_mv=?,battery_percent=?,drain_status=?,updated_at=? WHERE device_id=? AND home_id=? AND registered=1",
                             (int(online), health, "ONLINE" if online else "OFFLINE", int(online), at, battery_mv, battery_percent, drain_status, at, did, self.home_id))
-            self.db.execute("INSERT INTO device_health_history(home_id,device_type,device_id,sampled_at,status,battery_mv,details_json) SELECT home_id,kind,device_id,?,?,?,? FROM device_registry WHERE device_id=? AND registered=1",
-                            (at, health, battery_mv, json.dumps({"online": online, "battery_percent": battery_percent, "drain_status": drain_status}), did))
+            self.db.execute("INSERT INTO device_health_history(home_id,device_type,device_id,sampled_at,status,battery_mv,details_json) SELECT home_id,kind,device_id,?,?,?,? FROM device_registry WHERE device_id=? AND home_id=? AND registered=1",
+                            (at, health, battery_mv, json.dumps({"online": online, "battery_percent": battery_percent, "drain_status": drain_status}), did, self.home_id))
 
     @synchronized
     def expire_stale(self, now, exclude=(), stale_seconds=190):
