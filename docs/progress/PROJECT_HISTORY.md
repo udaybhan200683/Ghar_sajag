@@ -1,10 +1,11 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** P3B-WIP2
-**History covered through:** Phase 3B Reports scalability host validation
+**Document revision:** P3B-Q2
+**History covered through:** Phase 3B Reports scalability qualification
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
-**Latest qualified Phase 3B checkpoint covered:** `fee5854`
+**Latest qualified Phase 3B checkpoint covered:** `0e5a9e3`
+**Previous qualified Phase 3B scale/read-path checkpoint:** `fee5854`
 **Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
 **Updated:** 2026-09-17
 
@@ -357,3 +358,31 @@ qualified Phase 3B checkpoint. Phase 3A remains COMPLETE / QUALIFIED at
 permanent anchor `4dcaf99`. Remaining Phase 3B scope is controlled concurrent
 API load, household isolation, notification-provider storm qualification, and
 restart/recovery; EXTENDED/endurance remains pending.
+
+## 2026-09-17 - Phase 3B Reports Scalability Qualified Checkpoint
+
+Qualified checkpoint: `0e5a9e3`.
+
+Phase 3B overall status remains IN PROGRESS. This checkpoint qualifies the
+Reports scalability work; it does not complete the broader Phase 3B scope.
+`fee5854` remains the earlier qualified Phase 3B scale/read-path checkpoint,
+and `4dcaf99` remains the permanent Phase 3A implementation/qualification
+anchor with Phase 3A COMPLETE / QUALIFIED.
+
+Manual LARGE qualification:
+- correctness: PASS;
+- Reports stage improved from approximately 27.3 s to approximately 4.9 s;
+- total LARGE runtime improved from approximately 72.2 s to approximately
+  47.6 s;
+- request failures: zero;
+- `make release-gate-final`: PASS.
+
+The final release gate now includes `performance-test` and its SMALL
+deterministic stress smoke. MEDIUM and LARGE remain outside the normal final
+gate, with LARGE reserved for explicit/manual milestone qualification.
+EXTENDED/endurance remains outside the normal final gate as endurance/soak
+work only.
+
+Remaining Phase 3B work is controlled concurrent API load, household
+isolation, notification storm qualification, and restart/recovery;
+EXTENDED/endurance remains pending.

@@ -1,18 +1,20 @@
 # 1.5.4 status addendum
 
-## Phase 3B Reports scalability - implemented / host validated / qualification pending
+## Phase 3B Reports scalability - qualified checkpoint; overall IN PROGRESS
 
 Reports now use specialized SQLite aggregation for summary/trend facts,
 grouped motion timestamps for timezone-aware night classification, bounded room
-totals, and six-row highlight materialization. Repeated MEDIUM report cycles
-improved from 675.680 ms to 106.244 ms; an explicit LARGE run improved the
-report stage from approximately 27.3 s to 5.320 s and total runtime from
-approximately 72.2 s to 52.290 s with correctness PASS and zero request
-failures. See `docs/PHASE3B_REPORT_SCALABILITY.md`.
+totals, and six-row highlight materialization. Qualified checkpoint `0e5a9e3`
+recorded manual LARGE correctness PASS, Reports stage improvement from
+approximately 27.3 s to approximately 4.9 s, and total runtime improvement
+from approximately 72.2 s to approximately 47.6 s with zero request failures.
+See `docs/PHASE3B_REPORT_SCALABILITY.md`.
 
-Phase 3B remains IN PROGRESS. This work is not yet manually/browser qualified
-or committed, so `fee5854` remains the previous qualified Phase 3B checkpoint.
-Phase 3A remains COMPLETE / QUALIFIED at permanent anchor `4dcaf99`.
+Phase 3B overall remains IN PROGRESS. `fee5854` remains the earlier qualified
+Phase 3B scale/read-path checkpoint. `make release-gate-final` PASS now includes
+`performance-test` and SMALL deterministic stress; MEDIUM/LARGE/EXTENDED remain
+outside the normal final gate. Phase 3A remains COMPLETE / QUALIFIED at
+permanent implementation/qualification anchor `4dcaf99`.
 
 ## Phase 3B durable-history read optimization - qualified checkpoint; overall IN PROGRESS
 
