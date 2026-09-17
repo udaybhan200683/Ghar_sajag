@@ -13,11 +13,19 @@ EVIDENCE = ROOT / "evidence"
 EVIDENCE.mkdir(exist_ok=True)
 LAB_LOG = EVIDENCE / "playwright-lab.log"
 
+def _bind_probe(host: str, port: int) -> None:
+    """Probe with the same reuse policy as the owned ThreadingWSGIServer."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        # Browser connections can leave TCP entries in TIME_WAIT after the lab
+        # exits. Those are not listeners and must not fail owned-lab cleanup.
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        probe.bind((host, port))
+
+
 def assert_lab_port_available(host: str = LAB_HOST, port: int = LAB_PORT) -> None:
     """Fail before the build if another lab owns the fixed browser-gate port."""
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-            probe.bind((host, port))
+        _bind_probe(host, port)
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
             raise RuntimeError(
@@ -55,18 +63,20 @@ def playwright_environment(base_url: str = BASE) -> dict[str, str]:
 
 
 def wait_for_port_available(host: str = LAB_HOST, port: int = LAB_PORT,
-                            timeout: float = 5.0, interval: float = 0.05) -> None:
+                            timeout: float = 5.0, interval: float = 0.05,
+                            owner: subprocess.Popen | None = None) -> None:
     """Wait until a gate-owned listener has actually released its port.
 
-    This is deliberately a bind probe rather than a fixed sleep.  EADDRINUSE is
-    retried for a short bounded period; permission errors remain immediate setup
-    errors.  Callers use this only after terminating their own lab process.
+    This is deliberately a reuse-aware bind probe rather than a fixed sleep.
+    It distinguishes a listener from harmless TCP TIME_WAIT state left by the
+    owned server's completed browser requests. EADDRINUSE is retried for a
+    short bounded period; permission errors remain immediate setup errors.
+    Callers use this only after terminating their own lab process.
     """
     deadline = time.monotonic() + timeout
     while True:
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-                probe.bind((host, port))
+            _bind_probe(host, port)
             return
         except OSError as exc:
             if exc.errno in (errno.EPERM, errno.EACCES):
@@ -79,9 +89,12 @@ def wait_for_port_available(host: str = LAB_HOST, port: int = LAB_PORT,
                 ) from exc
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                owner_detail = ""
+                if owner is not None:
+                    owner_detail = f"; owned lab pid={owner.pid}, returncode={owner.poll()}"
                 raise RuntimeError(
-                    f"VALIDATION_HARNESS_ERROR: owned lab did not release {host}:{port} "
-                    f"within {timeout:g}s; owned lab cleanup did not complete"
+                    f"VALIDATION_HARNESS_ERROR: listener still holds {host}:{port} "
+                    f"after owned-lab cleanup within {timeout:g}s{owner_detail}"
                 ) from exc
             time.sleep(min(interval, remaining))
 
@@ -107,7 +120,13 @@ def terminate_process_group(proc: subprocess.Popen, timeout: float = 5.0) -> str
             pass
         except OSError:
             proc.kill()
-        output, _ = proc.communicate()
+        try:
+            output, _ = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"VALIDATION_HARNESS_ERROR: owned lab process group {proc.pid} "
+                f"did not terminate within {timeout:g}s after SIGKILL"
+            ) from exc
     return output or ""
 
 def wait_http(url: str, proc: subprocess.Popen, timeout: int = 60) -> None:
@@ -155,21 +174,25 @@ def main() -> int:
         bufsize=1, start_new_session=True,
     )
     result = 1
-    cleanup_error = None
+    cleanup_errors = []
     try:
         wait_http(BASE, lab, timeout=60)
         print(f"Lab ready: {BASE}", flush=True)
         result = subprocess.call(["npx", "playwright", "test"], cwd=ROOT,
                                  env=playwright_environment(BASE))
     finally:
-        out = terminate_process_group(lab)
+        out = ""
+        try:
+            out = terminate_process_group(lab)
+        except RuntimeError as exc:
+            cleanup_errors.append(str(exc))
         LAB_LOG.write_text(out or "", encoding="utf-8")
         try:
-            wait_for_port_available()
+            wait_for_port_available(owner=lab)
         except RuntimeError as exc:
-            cleanup_error = exc
-    if cleanup_error:
-        print(str(cleanup_error), flush=True)
+            cleanup_errors.append(str(exc))
+    if cleanup_errors:
+        print("\n".join(cleanup_errors), flush=True)
         return 1
     return result
 

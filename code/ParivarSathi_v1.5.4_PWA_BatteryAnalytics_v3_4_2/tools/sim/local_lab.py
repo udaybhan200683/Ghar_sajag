@@ -27,7 +27,7 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 from ghar_sajag.http_api import JsonApi
-from ghar_sajag.model import HomeMode
+from ghar_sajag.model import HomeMode, IncidentState
 from ghar_sajag.battery import BatteryPowerProfile, BatterySample, EnergyCounters
 from ghar_sajag.service import GharSajagService
 from ghar_sajag.foundation import FoundationService, FoundationError
@@ -951,6 +951,13 @@ class Lab:
             self.sync()
         return self.pwa_view()
 
+    def _active_incident_kinds(self):
+        """Return the bounded incident information consumed by caregiver Home."""
+        return list(dict.fromkeys(
+            incident.kind for incident in self.service.store.incidents.values()
+            if incident.home_id == HOME and incident.state != IncidentState.RESOLVED
+        ))
+
     def pwa_view(self, scope="full"):
         if scope not in {"home", "full"}:
             raise ValueError("invalid PWA state scope")
@@ -959,9 +966,10 @@ class Lab:
         # on every two-second Home poll.
         snap = {
             "simulation": {k: v for k, v in self.state.items() if k != "events"},
-            "home": self.api_call("GET", f"/v1/homes/{HOME}/snapshot"),
+            "home": self.service.queries.snapshot(
+                HOME, OWNER, self.state["now"], include_active_incident_ids=False
+            ),
             "devices": self._devices(),
-            "incidents": [asdict(v) for v in self.service.store.incidents.values()],
             "timeline": self.service.queries.timeline(HOME, OWNER, self.state["now"], limit=40),
             "battery_analytics": self.service.battery.all_estimates(),
         }
@@ -973,9 +981,13 @@ class Lab:
         care_kinds = {"MISSING_MORNING_ACTIVITY","DAYTIME_INACTIVITY","CALL_FAMILY","DOOR_LEFT_OPEN",
                       "UNUSUAL_NIGHT_BATHROOM_ACTIVITY","UNUSUAL_NIGHT_COMMON_ACTIVITY","POST_DOOR_INACTIVITY"}
         current_door_open = (home.get("door_status") or {}).get("state") == "OPEN" or bool(self.pwa_flags.get("door_negative"))
-        care_alert = any(i.get("state") != "RESOLVED" and i.get("kind") in care_kinds and
-                         not (i.get("kind") == "DOOR_LEFT_OPEN" and not current_door_open)
-                         for i in snap["incidents"])
+        # Home needs concern categories, not recursive copies of every historical
+        # incident. Preserve first-seen ordering while bounding this read model by
+        # the finite set of incident kinds.
+        active_kinds = self._active_incident_kinds()
+        care_alert = any(kind in care_kinds and
+                         not (kind == "DOOR_LEFT_OPEN" and not current_door_open)
+                         for kind in active_kinds)
         timeline_concern = next((e for e in snap["timeline"] if e.get("kind") in care_kinds and
                                  not (e.get("kind") == "DOOR_LEFT_OPEN" and not current_door_open)), None)
         unexpected_door = bool((home.get("door_status") or {}).get("unexpected", False))
@@ -1086,7 +1098,6 @@ class Lab:
         if night_common > self.household_settings["night_common_visit_threshold"]:
             night_concerns.append("Common-room visits are higher than the configured night limit.")
         night_concern_text = " ".join(night_concerns) if night_concerns else ""
-        active_kinds = [i.get("kind") for i in snap["incidents"] if i.get("state") != "RESOLVED"]
         latest_concern = timeline_concern
         problem_map = {
             "MISSING_MORNING_ACTIVITY": "Morning activity not completed.",

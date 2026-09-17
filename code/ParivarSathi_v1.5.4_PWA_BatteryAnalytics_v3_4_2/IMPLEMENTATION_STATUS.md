@@ -1,5 +1,20 @@
 # 1.5.4 status addendum
 
+## Phase 3B durable-history read optimization - IN PROGRESS
+
+The first focused Phase 3B task aligns SQLite indexes with the actual bounded
+snapshot/timeline query order, replaces recursive all-incident PWA conversion
+with a bounded active-kind read model, and adds stderr stage/milestone progress
+plus per-stage JSON diagnostics to the deterministic stress runner.
+
+Focused, Python, JavaScript, performance/SMALL, MEDIUM and an explicit LARGE
+host diagnostic pass. Desktop/mobile browser validation, manual acceptance and
+the remaining Phase 3B load scope are not yet qualified. See
+`docs/PHASE3B_SCALE_OPTIMIZATION.md`.
+
+Phase 3A remains COMPLETE / QUALIFIED at permanent implementation anchor
+`4dcaf99`; this in-progress work does not replace that anchor.
+
 ## Phase 3A performance / lightweight UX / stress foundation — COMPLETE / QUALIFIED
 
 Document revision: `P3A-R1`.

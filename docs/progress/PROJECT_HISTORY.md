@@ -272,3 +272,33 @@ Repository state at the Phase 3A implementation checkpoint:
 This commit is the Phase 3A implementation/qualification anchor. Later
 documentation-only commits may become repository HEAD without changing this
 qualified implementation anchor.
+
+## 2026-09-16 - Phase 3B Durable-History Read Optimization (In Progress)
+
+Status:
+IMPLEMENTED / MANUAL QUALIFICATION PENDING
+
+Summary:
+- confirmed temporary SQLite sort/group B-trees on representative hot event
+  queries and added migration-managed indexes matching their filters/orders;
+- replaced recursive per-poll conversion of the historical incident population
+  with the bounded active incident categories required by caregiver Home;
+- preserved public snapshot, durable history, Reports and caregiver-visible
+  care semantics;
+- added bounded stderr stage/milestone progress and diagnostic-only per-stage
+  timings to the stress runner;
+- added focused query-plan, ordering, projection-scale and JSON-stream tests.
+
+Host evidence:
+- focused Phase 3B tests: PASS (`5/5`);
+- full Python discovery: PASS (`101/101`);
+- JavaScript application tests: PASS (`3/3`);
+- performance/SMALL and MEDIUM stress gates: PASS;
+- explicit LARGE host diagnostic: PASS (25,000 accepted, 2,500 duplicates,
+  250 rejected, 5,000 notifications, zero request failures, 75.14 s wall time);
+- MEDIUM unprofiled diagnostic: 11.93 s before, 4.51 s after on the same host;
+- MEDIUM profiled diagnostic: supplied ~17.45 s before, 6.94 s after.
+
+This is not a Phase 3B completion or qualification entry. Manual acceptance and
+mandatory desktop/mobile browser qualification remain pending. Phase 3A remains
+COMPLETE / QUALIFIED at permanent implementation anchor `4dcaf99`.

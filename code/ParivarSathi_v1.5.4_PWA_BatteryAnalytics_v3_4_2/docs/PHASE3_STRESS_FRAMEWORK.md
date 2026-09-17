@@ -53,3 +53,18 @@ make stress-test
 make stress-test STRESS_PROFILE=LARGE
 make endurance-test
 ```
+
+## Phase 3B observability update - IN PROGRESS
+
+The focused Phase 3B durable-history optimization adds bounded stderr progress
+for setup/devices, accepted ingestion, duplicate replay, malformed rejection,
+API/PWA reads, report cycles and final verification. Long loops report only
+25/50/75/100 percent milestones. JSON/stdout remains machine-readable, and the
+final `diagnostics.stage_duration_ms` object records diagnostic-only stage
+elapsed times. No elapsed time is a correctness gate.
+
+Query-plan, projection and progress/JSON regression coverage is in
+`tests/python/test_phase3b_projection_scale.py`. Current implementation evidence
+is recorded in `docs/PHASE3B_SCALE_OPTIMIZATION.md`. Phase 3B remains IN
+PROGRESS. A post-change LARGE host diagnostic passes, but manual/browser
+qualification and EXTENDED are not claimed by this update.

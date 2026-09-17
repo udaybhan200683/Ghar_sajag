@@ -50,3 +50,12 @@ the schema and integrity tests are designed so doing it later does not require c
 # Phase 1 application persistence
 
 Migration `003_phase1_application.sql` extends the existing SQLite schema with `family_members`, `device_registry` and `application_policy`. `schema_migrations` tracks applied files and bootstrap uses `INSERT OR IGNORE`, so saved household and device state survive lab restart. `FoundationService` owns this store for Home Details, family roles, the single application device registry, health snapshots/history and versioned policy. `registered=0` is a tombstone: device/event/health history is retained. The simulator still holds event/incident runtime state in memory; physical flash recovery and production database deployment are separate pending gates.
+
+## Phase 3B durable-history query indexes
+
+Migration `006_phase3b_event_query_indexes.sql` aligns the SQLite event indexes
+with the bounded read models: household chronology uses
+`(home_id, occurred_at, event_id)`, event-kind chronology adds `event_type`, and
+latest receipt queries use `(home_id, event_type, received_at, event_id)`.
+Representative query plans avoid temporary sort/group B-trees while preserving
+canonical event rows, ordering and report windows.

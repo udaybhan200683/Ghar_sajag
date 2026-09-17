@@ -1,5 +1,6 @@
 """Socket-free diagnostics for the mandatory browser runner."""
 import errno
+import socket
 import subprocess
 import unittest
 from unittest.mock import Mock, patch
@@ -43,6 +44,7 @@ class PlaywrightRunnerTest(unittest.TestCase):
         probe.bind.side_effect = [OSError(errno.EADDRINUSE, "closing"), None]
         wait_for_port_available(timeout=5, interval=0.05)
         self.assertEqual(probe.bind.call_count, 2)
+        probe.setsockopt.assert_called_with(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sleep.assert_called_once_with(0.05)
 
     @patch("scripts.run_playwright_gate.os.killpg")
@@ -67,14 +69,27 @@ class PlaywrightRunnerTest(unittest.TestCase):
         self.assertEqual(terminate_process_group(proc), "forced output")
         self.assertEqual(killpg.call_count, 2)
         proc.communicate.assert_any_call(timeout=5.0)
-        proc.communicate.assert_any_call()
+        self.assertEqual(proc.communicate.call_count, 2)
 
     @patch("scripts.run_playwright_gate.time.monotonic", return_value=0.0)
     @patch("scripts.run_playwright_gate.socket.socket")
     def test_wait_for_port_available_reports_internal_listener_after_bound(self, socket_factory, _clock):
         socket_factory.return_value.__enter__.return_value.bind.side_effect = OSError(errno.EADDRINUSE, "still bound")
-        with self.assertRaisesRegex(RuntimeError, r"VALIDATION_HARNESS_ERROR: owned lab did not release"):
+        with self.assertRaisesRegex(RuntimeError, r"VALIDATION_HARNESS_ERROR: listener still holds"):
             wait_for_port_available(timeout=0, interval=0)
+
+    @patch("scripts.run_playwright_gate.os.killpg")
+    def test_terminate_process_group_reports_unreaped_owned_group_after_kill(self, killpg):
+        proc = Mock()
+        proc.pid = 1234
+        proc.poll.return_value = None
+        proc.communicate.side_effect = [
+            subprocess.TimeoutExpired("lab", 5.0),
+            subprocess.TimeoutExpired("lab", 5.0),
+        ]
+        with self.assertRaisesRegex(RuntimeError, r"did not terminate within 5s after SIGKILL"):
+            terminate_process_group(proc)
+        self.assertEqual(killpg.call_count, 2)
 
     def test_playwright_base_url_targets_its_dedicated_port(self):
         self.assertNotEqual(LAB_PORT, 8765)

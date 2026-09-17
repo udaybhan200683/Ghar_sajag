@@ -85,7 +85,14 @@ class QueryService:
         return events if limit is None else events[:max(0, int(limit))]
 
     @traced("B07")
-    def snapshot(self, home_id: str, actor_id: str, at: int) -> dict[str, Any]:
+    def snapshot(
+        self,
+        home_id: str,
+        actor_id: str,
+        at: int,
+        *,
+        include_active_incident_ids: bool = True,
+    ) -> dict[str, Any]:
         self.identity.require(home_id, actor_id, "read", at)
         home = self.store.homes[home_id]
         if hasattr(self.store.events, "latest_home_received"):
@@ -95,10 +102,13 @@ class QueryService:
             last_hub_event = max(hub_beats, key=lambda item: item.server_received_at, default=None)
         last_hub = last_hub_event.server_received_at if last_hub_event else None
         hub_reachable = last_hub is not None and at - last_hub <= self.hub_lease_seconds
-        active_incidents = [
-            item for item in self.store.incidents.values()
-            if item.home_id == home_id and item.state not in {IncidentState.RESOLVED}
-        ]
+        active_incident_ids = (
+            [
+                item.incident_id for item in self.store.incidents.values()
+                if item.home_id == home_id and item.state != IncidentState.RESOLVED
+            ]
+            if include_active_incident_ids else []
+        )
         activity = self._events(home_id, kinds=_ACTIVITY_KINDS, newest_first=True, limit=1)
         latest_activity = activity[0] if activity else None
         meaningful = self._events(home_id, kinds=_MEANINGFUL_KINDS, newest_first=True, limit=6)
@@ -132,7 +142,7 @@ class QueryService:
             "latest_activity": None if latest_activity is None else self._event_view(latest_activity),
             "recent_events": recent,
             "door_status": door_status,
-            "active_incidents": [item.incident_id for item in active_incidents],
+            "active_incidents": active_incident_ids,
             "event_counts": (self.store.events.home_event_counts(home_id)
                              if hasattr(self.store.events, "home_event_counts")
                              else dict(Counter(item.kind for item in self._events(home_id)))),

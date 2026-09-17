@@ -1,9 +1,10 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** P3A-R1
+**Document revision:** P3B-WIP1
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3A - COMPLETE / QUALIFIED
+**Active engineering work:** Phase 3B - IN PROGRESS / MANUAL QUALIFICATION PENDING
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
 **Updated:** 2026-09-16
@@ -14,6 +15,11 @@ Phase 2 remains COMPLETE / QUALIFIED at `9499381`. Phase 3A is COMPLETE /
 QUALIFIED after successful desktop/mobile browser validation and the authoritative
 `make release-gate-final` PASS. The Phase 3A implementation/qualification anchor is
 `4dcaf99` (`Complete Phase 3A performance and stress foundation`).
+
+The first focused Phase 3B change is implemented but not manually qualified. It
+optimizes large durable-history read plans and PWA incident projection, and adds
+stress stage observability. It does not replace the Phase 3A anchor, and it does
+not claim all of Phase 3B complete.
 
 ## Master implementation specification
 
@@ -76,6 +82,31 @@ Mandatory browser projects:
 # Current Baseline
 
 Updated: 2026-09-16
+
+## Active Phase 3B work - qualification pending
+
+- Added migration-managed indexes matching timeline/event-kind/latest-received
+  hot query shapes; representative plans no longer use temporary sort/group
+  B-trees.
+- Replaced recursive conversion of the full incident population during every
+  PWA poll with a distinct active-incident-kind read model.
+- Preserved the public snapshot active-ID contract, durable event/incident
+  history, report semantics and caregiver-visible Home behavior.
+- Added bounded stderr stress progress and diagnostic-only per-stage timings in
+  JSON while keeping stdout machine-readable.
+- Focused tests, full Python discovery, JavaScript tests, performance/SMALL and
+  MEDIUM stress pass on the implementation host.
+- An explicit LARGE host diagnostic passes all correctness checks: 25,000
+  accepted events, 2,500 duplicates, 250 rejected malformed events, zero
+  request failures and 75.14 s wall time.
+- Manual acceptance and mandatory desktop/mobile browser qualification remain
+  pending.
+
+Focused evidence:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_SCALE_OPTIMIZATION.md`
+
+Phase 3B status remains IN PROGRESS. Permanent Phase 3A implementation and
+qualification anchor: `4dcaf99`.
 
 ## Git
 

@@ -1,3 +1,17 @@
+# Phase 3B durable-history read optimization - IN PROGRESS
+
+- Added migration-managed event indexes confirmed by representative SQLite
+  query plans for bounded timeline, event-kind, latest-received and count reads.
+- Replaced per-poll recursive incident-history conversion with the bounded
+  active incident categories required by caregiver Home while keeping the
+  public snapshot contract and historical/report semantics intact.
+- Added stderr stress stages/milestones and diagnostic-only per-stage JSON
+  timings without making wall time a gate or corrupting stdout JSON.
+- Added focused query-plan, ordering, projection-scale and CLI stream tests.
+- An explicit post-change LARGE host run passed all correctness checks in
+  75.14 s; browser/manual Phase 3B qualification remains pending.
+- Phase 3A remains qualified at `4dcaf99`.
+
 # Phase 3A PWA performance and stress foundation — COMPLETE / QUALIFIED
 
 - Added deterministic static/payload/resource measurement and structural byte
