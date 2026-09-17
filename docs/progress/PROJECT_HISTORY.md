@@ -466,3 +466,20 @@ hub, one ESP32-C3 node, and one PIR. F14 remains the open software gap and is
 not an HW-M1 blocker, but remains a pilot/commercial P0 blocker. Target ESP32
 adapters and HIL evidence are the next work. Phase 3B remains IN PROGRESS and
 its remaining work is unchanged.
+
+## 2026-09-17 - Phase 3B Paused for HW-M1 Integration
+
+Phase 3B is intentionally paused after qualified concurrent API and
+household-isolation checkpoint `0d6a2fc`. The completed P0 software-gap audit
+approved transition to HW-M1: no unresolved host/backend/PWA blocker was found;
+F14 remains an open software gap but does not block HW-M1. The stable qualified
+host/PWA baseline is retained on `feature/full-pwa-e2e`, with documented
+baseline `c43c829`; HW-M1 will use the intended `feature/hw-m1` branch.
+
+Target ESP32 adapters and HIL evidence are next. The remaining Phase 3 work is
+preserved for later reconciliation and resumption: notification-provider
+storm/failure qualification, restart/recovery qualification, DB/resource fault
+injection, EXTENDED/endurance / long-soak validation, and final Phase 3
+reconciliation and qualification. Resumption must first inspect HW-M1 history
+and changes, compare the integrated code with `0d6a2fc`, and rerun applicable
+release and Phase 3 gates before any new Phase 3 implementation.

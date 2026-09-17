@@ -1238,6 +1238,63 @@ Phase 2 is therefore COMPLETE / QUALIFIED.
   API load, notification-provider storm qualification, DB/resource failure
   injection and restart/recovery under substantial load.
 
+## Phase 3B Pause / Resume Point for HW-M1
+
+Phase 3B is intentionally paused while HW-M1 target integration is performed.
+The stable qualified host/PWA branch is `feature/full-pwa-e2e`. The last
+qualified Phase 3B implementation checkpoint before HW-M1 is `0d6a2fc`; the
+current documented baseline before branching for HW-M1 is `c43c829`.
+
+Qualified Phase 3B work already completed:
+
+- scale/read-path optimization (`fee5854`);
+- Reports scalability (`0e5a9e3`); and
+- concurrent API / household isolation (`0d6a2fc`).
+
+Remaining Phase 3 work is unchanged:
+
+- notification-provider storm/failure qualification;
+- restart/recovery qualification;
+- DB/resource fault injection;
+- EXTENDED/endurance / long-soak validation; and
+- final Phase 3 reconciliation and qualification.
+
+The P0 audit at `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md` approved HW-M1:
+software is ready, no unresolved host/backend/PWA defect blocks the milestone,
+F14 remains a software gap but does not block HW-M1, and target ESP32 adapters
+and HIL evidence remain pending. HW-M1 is one ESP32 DevKit hub, one ESP32-C3
+node, and one PIR proving PIR → C3 sensing → NodeMessage → ESP-NOW → hub
+ingest/ACK/dedupe/rules → hub Wi-Fi/backend transport → backend
+persistence/read models → PWA.
+
+When Phase 3 resumes, the first step is reconciliation, not immediate new
+Phase 3 implementation:
+
+1. Read `CURRENT_BASELINE.md`, `docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md`,
+   `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`, the current Phase 3
+   stress/qualification documents, and `docs/progress/PROJECT_HISTORY.md`.
+2. Inspect Git history and all HW-M1 changes since the pre-HW-M1 baseline.
+3. Compare the integrated code with qualified checkpoint `0d6a2fc`.
+4. Identify HW-M1 effects on node and hub runtimes, radio/transport,
+   persistence, configuration, backend interfaces, PWA contracts,
+   concurrency assumptions, performance assumptions, and release tests.
+5. Re-run and reconcile applicable existing release and Phase 3 gates on the
+   integrated baseline.
+6. Continue the remaining Phase 3 work only after reconciliation.
+
+The intended branch strategy is `feature/hw-m1` for HW-M1 development while
+`feature/full-pwa-e2e` remains the stable qualified host/PWA reference. Hardware
+work may change shared portable code, backend interfaces, or tests when needed,
+but those changes remain isolated on `feature/hw-m1` until reconciled and
+qualified. Integration back to the main development line must be deliberate
+and followed by regression/release qualification; partially working HW-M1
+changes should not be continuously merged into the stable PWA branch.
+
+`0d6a2fc` remains a historical qualified checkpoint even after HEAD advances.
+Future HW-M1 commits do not replace or redefine historical Phase 3 anchors. Git
+and code/tests remain exact implementation truth; `CURRENT_BASELINE.md` remains
+the current operational and resume truth.
+
 ## Next
 
 1. Start Phase 3B load/scale qualification from the P3A-R1 qualified baseline
