@@ -168,4 +168,4 @@ release-gate-browser-mandatory: release-gate playwright-gate
 	@echo "PASS: mandatory Playwright/Chromium PWA browser gate"
 
 .PHONY: release-gate-final
-release-gate-final: release-gate-browser-mandatory
+release-gate-final: release-gate-browser-mandatory performance-test

@@ -54,6 +54,15 @@ make stress-test STRESS_PROFILE=LARGE
 make endurance-test
 ```
 
+Release-gate policy:
+
+- `make release-gate-final` includes `performance-test`, which runs the
+  deterministic performance profile and the SMALL stress smoke;
+- `make stress-test` remains a separate stronger MEDIUM qualification target
+  (with LARGE only by explicit profile/opt-in);
+- `make endurance-test` remains the explicit EXTENDED endurance/soak target and
+  is not part of the normal final gate.
+
 ## Phase 3B observability update - IN PROGRESS
 
 The focused Phase 3B durable-history optimization adds bounded stderr progress
@@ -64,7 +73,23 @@ final `diagnostics.stage_duration_ms` object records diagnostic-only stage
 elapsed times. No elapsed time is a correctness gate.
 
 Query-plan, projection and progress/JSON regression coverage is in
-`tests/python/test_phase3b_projection_scale.py`. Current implementation evidence
-is recorded in `docs/PHASE3B_SCALE_OPTIMIZATION.md`. Phase 3B remains IN
-PROGRESS. A post-change LARGE host diagnostic passes, but manual/browser
-qualification and EXTENDED are not claimed by this update.
+`tests/python/test_phase3b_projection_scale.py`. Implementation evidence is
+recorded in `docs/PHASE3B_SCALE_OPTIMIZATION.md`. This focused scale/read-path
+work was subsequently qualified at checkpoint `fee5854`; Phase 3B overall
+remains IN PROGRESS and EXTENDED is not claimed.
+
+## Phase 3B Reports scalability update - IN PROGRESS
+
+The stress runner preserves the existing report-cycle stage timing and now also
+records diagnostic-only cumulative `TODAY`, `WEEK`, and `MONTH` durations under
+`diagnostics.report_period_duration_ms`. Timing remains non-gating, stderr
+progress is unchanged, and stdout remains machine-readable JSON.
+
+The host-validated report read model aggregates durable history in SQLite and
+materializes only bounded highlights. MEDIUM report cycles improved from
+675.680 ms to 106.244 ms on the same host. An explicit LARGE run passed all
+correctness checks and reduced report cycles from approximately 27.3 s to
+5.320 s. Evidence is in `docs/PHASE3B_REPORT_SCALABILITY.md`.
+
+Phase 3B remains IN PROGRESS. `fee5854` remains the previous qualified Phase 3B
+checkpoint until this Reports work is manually qualified and committed.

@@ -1,5 +1,19 @@
 # 1.5.4 status addendum
 
+## Phase 3B Reports scalability - implemented / host validated / qualification pending
+
+Reports now use specialized SQLite aggregation for summary/trend facts,
+grouped motion timestamps for timezone-aware night classification, bounded room
+totals, and six-row highlight materialization. Repeated MEDIUM report cycles
+improved from 675.680 ms to 106.244 ms; an explicit LARGE run improved the
+report stage from approximately 27.3 s to 5.320 s and total runtime from
+approximately 72.2 s to 52.290 s with correctness PASS and zero request
+failures. See `docs/PHASE3B_REPORT_SCALABILITY.md`.
+
+Phase 3B remains IN PROGRESS. This work is not yet manually/browser qualified
+or committed, so `fee5854` remains the previous qualified Phase 3B checkpoint.
+Phase 3A remains COMPLETE / QUALIFIED at permanent anchor `4dcaf99`.
+
 ## Phase 3B durable-history read optimization - qualified checkpoint; overall IN PROGRESS
 
 The first focused Phase 3B task aligns SQLite indexes with the actual bounded

@@ -59,3 +59,15 @@ with the bounded read models: household chronology uses
 latest receipt queries use `(home_id, event_type, received_at, event_id)`.
 Representative query plans avoid temporary sort/group B-trees while preserving
 canonical event rows, ordering and report windows.
+
+## Phase 3B report read model
+
+Reports remain reproducible projections over canonical `events`; no report
+cache or second history store was added. The SQLite adapter uses the existing
+Phase 3B indexes to aggregate summary/trend facts inside the exact
+household-local bucket boundaries, fetch grouped motion timestamps for
+timezone-aware night classification, aggregate bounded room activity, and
+materialize only the six newest reportable highlights. The generic in-memory
+mapping path remains the semantic reference/fallback. SQL aggregate operations
+may use bounded temporary grouping B-trees; full report history is no longer
+deserialized into Python objects for every request.

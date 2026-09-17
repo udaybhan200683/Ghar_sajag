@@ -1,4 +1,19 @@
-# Phase 3B durable-history read optimization - IN PROGRESS
+# Phase 3B Reports scalability - IN PROGRESS
+
+- Replaced repeated full report-history `CloudEvent`/JSON materialization with
+  report-specific SQL aggregation and bounded detail reads.
+- Preserved household-local Today/Week/calendar-Month semantics, reportable
+  event filtering, room/highlight bounds, removed-device history, and the
+  existing API schema through optimized-versus-reference payload tests.
+- Added diagnostic-only Today/Week/Month stress timings.
+- MEDIUM report cycles improved from 675.680 ms to 106.244 ms; explicit LARGE
+  report cycles improved from approximately 27.3 s to 5.320 s with correctness
+  PASS and zero request failures.
+- Host validation passes; manual/browser qualification remains pending.
+- `fee5854` remains the previous qualified Phase 3B checkpoint, and Phase 3A
+  remains qualified at `4dcaf99`.
+
+# Phase 3B durable-history read optimization - qualified at `fee5854`
 
 - Added migration-managed event indexes confirmed by representative SQLite
   query plans for bounded timeline, event-kind, latest-received and count reads.
@@ -8,8 +23,8 @@
 - Added stderr stress stages/milestones and diagnostic-only per-stage JSON
   timings without making wall time a gate or corrupting stdout JSON.
 - Added focused query-plan, ordering, projection-scale and CLI stream tests.
-- An explicit post-change LARGE host run passed all correctness checks in
-  75.14 s; browser/manual Phase 3B qualification remains pending.
+- An explicit post-change LARGE host run passed all correctness checks; this
+  focused checkpoint was subsequently qualified at `fee5854`.
 - Phase 3A remains qualified at `4dcaf99`.
 
 # Phase 3A PWA performance and stress foundation — COMPLETE / QUALIFIED

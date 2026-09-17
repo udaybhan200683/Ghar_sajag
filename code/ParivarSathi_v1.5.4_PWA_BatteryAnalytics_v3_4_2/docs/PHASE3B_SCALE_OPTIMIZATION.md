@@ -1,10 +1,11 @@
 # Phase 3B Durable-History Read Optimization
 
-Status: **IN PROGRESS / MANUAL QUALIFICATION PENDING**
+Status: **QUALIFIED CHECKPOINT `fee5854` / PHASE 3B OVERALL IN PROGRESS**
 
 Phase 3A remains COMPLETE / QUALIFIED at implementation anchor `4dcaf99`.
-This focused Phase 3B change does not claim completion of the broader Phase 3B
-load/scale scope.
+This focused Phase 3B change was qualified after mandatory browser/final-gate
+validation. It does not claim completion of the broader Phase 3B load/scale
+scope.
 
 ## Confirmed causes
 
@@ -94,6 +95,11 @@ database is the deliberate index-storage tradeoff and remains below the LARGE
 - LARGE stress diagnostic: PASS;
 - `git diff --check`: PASS before documentation update.
 
-Desktop/mobile browser qualification and the user's manual acceptance remain
-required before this work can be qualified. EXTENDED/endurance remains
-intentionally unrun.
+Subsequent qualification at checkpoint `fee5854` recorded:
+
+- Playwright cleanup race: fixed;
+- `make playwright-gate`: PASS (`86/86`);
+- `make release-gate-final`: PASS.
+
+Phase 3B overall remains IN PROGRESS. EXTENDED/endurance remains intentionally
+unrun.

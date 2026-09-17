@@ -1,6 +1,6 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** P3B-WIP1
+**Document revision:** P3B-WIP2
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3A - COMPLETE / QUALIFIED
@@ -19,6 +19,10 @@ QUALIFIED after successful desktop/mobile browser validation and the authoritati
 The qualified Phase 3B scale/read-path optimization checkpoint is `fee5854`.
 It does not replace the permanent Phase 3A implementation/qualification anchor
 `4dcaf99`, and it does not claim all of Phase 3B complete.
+
+The next focused Phase 3B Reports-scalability change is implemented and host
+validated but is not yet manually/browser qualified or committed. Therefore it
+does not replace `fee5854` as the previous qualified Phase 3B checkpoint.
 
 ## Master implementation specification
 
@@ -102,9 +106,9 @@ Updated: 2026-09-17
 - Playwright cleanup race: fixed.
 - `make playwright-gate`: PASS, 86/86.
 - `make release-gate-final`: PASS.
-- Remaining Phase 3B work includes Reports scaling, controlled concurrent API
-  load, household isolation, notification storm qualification, and
-  restart/recovery.
+- At the `fee5854` checkpoint, remaining Phase 3B work included Reports
+  scaling, controlled concurrent API load, household isolation, notification
+  storm qualification, and restart/recovery.
 - EXTENDED/endurance remains pending.
 
 Focused evidence:
@@ -112,6 +116,36 @@ Focused evidence:
 
 Phase 3B overall status remains IN PROGRESS. Phase 3A remains COMPLETE /
 QUALIFIED. Permanent Phase 3A implementation/qualification anchor: `4dcaf99`.
+
+## Active Phase 3B Reports scalability work - qualification pending
+
+- Root cause: each repeated report request selected and deserialized every
+  reportable event in the window into a full `CloudEvent`, then repeated Python
+  filtering and aggregation.
+- Added SQL summary/trend aggregation using exact household-local bucket
+  boundaries, grouped motion timestamps for timezone-aware night activity,
+  bounded room totals, and six-row highlight materialization.
+- Did not add report caching or a second history store; canonical durable events
+  remain authoritative and the API schema is unchanged.
+- Optimized-versus-reference tests preserve Today, Week, calendar Month,
+  timezone, include/exclude-test, care/maintenance, reportability,
+  removed-device history, deterministic ordering, and collection bounds.
+- MEDIUM report stage improved from 675.680 ms to 106.244 ms on the same host.
+- Explicit LARGE correctness: PASS; report stage improved from approximately
+  27.3 s to 5.320 s and total runtime from approximately 72.2 s to 52.290 s;
+  request failures remained zero and the database remained 16,424,960 B.
+- Full host validation passes: Python `105/105`, JavaScript `3/3`, performance
+  plus SMALL, MEDIUM stress, and explicit LARGE.
+- Manual/browser qualification remains pending; EXTENDED/endurance was not run.
+
+Focused evidence:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_REPORT_SCALABILITY.md`
+
+Phase 3B overall status remains IN PROGRESS. `fee5854` remains the previous
+qualified Phase 3B checkpoint, and `4dcaf99` remains the permanent Phase 3A
+implementation/qualification anchor. Remaining Phase 3B work includes
+controlled concurrent API load, household isolation, notification-provider
+storm qualification, and restart/recovery. EXTENDED/endurance remains pending.
 
 ## Git
 

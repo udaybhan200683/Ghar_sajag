@@ -164,21 +164,63 @@ class QueryService:
         home = self.store.homes[home_id]
         tz = ZoneInfo(home.timezone)
         start, end = self._report_window(at, period, tz)
-        all_events = self._events(
-            home_id, kinds=_REPORT_KINDS, start=start, end=end, include_test=False,
-        )
-        all_events = [item for item in all_events if self._is_reportable_event(item)]
         buckets = self._report_buckets(start, end, period, tz)
         bucket_map = {item["key"]: item for item in buckets}
         summary = Counter()
         location_counts: Counter[str] = Counter()
-        for event in all_events:
-            self._count_report_event(event, summary)
-            if event.location and event.kind in {"MOTION", "DOOR_OPEN", "DOOR_CLOSED"}:
-                location_counts[self._label_location(event.location)] += 1
-            key = self._bucket_key(event.occurred_at, period, tz)
-            if key in bucket_map:
-                self._count_report_event(event, bucket_map[key])
+        room_first_order: dict[str, tuple[int, str]] = {}
+        durable_reports = getattr(self.store.events, "report_event_groups", None)
+        if durable_reports is not None:
+            bucket_ranges = [(item["start_at"], item["end_at"]) for item in buckets]
+            total = 0
+            for group in durable_reports(home_id, kinds=_REPORT_KINDS, buckets=bucket_ranges):
+                count = int(group["event_count"])
+                total += count
+                event = CloudEvent(
+                    home_id, "", group["event_type"], "", 0, 0, 0,
+                    payload={
+                        "reason": group["payload_reason"],
+                        "unexpected": group["payload_unexpected"],
+                    },
+                )
+                self._count_report_event(event, summary, amount=count, include_motion_night=False)
+                self._count_report_event(
+                    event, buckets[int(group["bucket_index"])],
+                    amount=count, include_motion_night=False,
+                )
+            for occurred_at, count in self.store.events.report_motion_times(home_id, start, end):
+                if not self._is_night_timestamp(home_id, occurred_at):
+                    continue
+                summary["night_activity"] += count
+                key = self._bucket_key(occurred_at, period, tz)
+                if key in bucket_map:
+                    bucket_map[key]["night_activity"] += count
+            for group in self.store.events.report_room_groups(home_id, start, end):
+                location = self._label_location(group["location"])
+                location_counts[location] += int(group["event_count"])
+                first_order = (int(group["first_occurred_at"]), group["first_event_id"])
+                room_first_order[location] = min(room_first_order.get(location, first_order), first_order)
+            highlight_events = self.store.events.report_highlights(
+                home_id, kinds=_REPORT_KINDS, start=start, end=end, limit=6,
+            )
+        else:
+            all_events = self._events(
+                home_id, kinds=_REPORT_KINDS, start=start, end=end, include_test=False,
+            )
+            all_events = [item for item in all_events if self._is_reportable_event(item)]
+            for event in all_events:
+                self._count_report_event(event, summary)
+                if event.location and event.kind in {"MOTION", "DOOR_OPEN", "DOOR_CLOSED"}:
+                    location = self._label_location(event.location)
+                    location_counts[location] += 1
+                    room_first_order.setdefault(location, (event.occurred_at, event.event_id))
+                key = self._bucket_key(event.occurred_at, period, tz)
+                if key in bucket_map:
+                    self._count_report_event(event, bucket_map[key])
+            total = len(all_events)
+            highlight_events = sorted(
+                all_events, key=lambda event: (event.occurred_at, event.event_id), reverse=True
+            )[:6]
 
         incidents = [
             item for item in self.store.incidents.values()
@@ -186,7 +228,6 @@ class QueryService:
         ]
         open_concerns = sum(1 for item in incidents if item.state is not IncidentState.RESOLVED)
         resolved_concerns = sum(1 for item in incidents if item.state is IncidentState.RESOLVED)
-        total = len(all_events)
         summary_view = {
             "event_count": total,
             "activity_events": int(summary["activity_events"]),
@@ -219,8 +260,14 @@ class QueryService:
             "partial_data": total > 0 and min(summary_view["check_ins"], summary_view["morning_completed"], summary_view["door_openings"], summary_view["night_activity"]) == 0,
             "summary": summary_view,
             "trend": [{k: item[k] for k in ("key", "label", "start_at", "end_at", "activity_events", "check_ins", "morning_completed", "care_concerns", "door_openings", "night_activity")} for item in buckets],
-            "room_activity": [{"location": location, "count": count} for location, count in location_counts.most_common(5)],
-            "highlights": [self._report_highlight(item, tz) for item in sorted(all_events, key=lambda event: (event.occurred_at, event.event_id), reverse=True)[:6]],
+            "room_activity": [
+                {"location": location, "count": count}
+                for location, count in sorted(
+                    location_counts.items(),
+                    key=lambda item: (-item[1], room_first_order[item[0]]),
+                )[:5]
+            ],
+            "highlights": [self._report_highlight(item, tz) for item in highlight_events],
             "insights": self._report_insights(period, summary_view, buckets, total),
             "fetched_at": at,
         }
@@ -271,48 +318,53 @@ class QueryService:
             return event.payload.get("reason") in {"coverage_lost", "coverage_restored"}
         return event.kind in _REPORT_KINDS
 
-    def _count_report_event(self, event: CloudEvent, counter: Counter | dict[str, Any]) -> None:
+    def _count_report_event(self, event: CloudEvent, counter: Counter | dict[str, Any],
+                            *, amount: int = 1, include_motion_night: bool = True) -> None:
         def add(key: str, amount: int = 1) -> None:
             counter[key] = int(counter.get(key, 0)) + amount
 
         if event.kind in _ACTIVITY_KINDS:
-            add("activity_events")
+            add("activity_events", amount)
         if event.kind == "OK_PRESSED":
-            add("check_ins")
+            add("check_ins", amount)
         elif event.kind == "MORNING_ROUTINE_COMPLETED":
-            add("morning_completed")
+            add("morning_completed", amount)
         elif event.kind == "MISSING_MORNING_ACTIVITY":
-            add("morning_concerns")
-            add("care_concerns")
+            add("morning_concerns", amount)
+            add("care_concerns", amount)
         elif event.kind == "DOOR_OPEN":
-            add("door_openings")
+            add("door_openings", amount)
             if event.payload.get("unexpected"):
-                add("care_concerns")
+                add("care_concerns", amount)
         elif event.kind == "CALL_FAMILY":
-            add("call_family")
-            add("care_concerns")
+            add("call_family", amount)
+            add("care_concerns", amount)
         elif event.kind in {"UNUSUAL_NIGHT_BATHROOM_ACTIVITY", "UNUSUAL_NIGHT_COMMON_ACTIVITY"}:
-            add("night_activity")
-            add("care_concerns")
+            add("night_activity", amount)
+            add("care_concerns", amount)
         elif event.kind in {"DOOR_LEFT_OPEN", "DAYTIME_INACTIVITY", "POST_DOOR_INACTIVITY"}:
-            add("care_concerns")
+            add("care_concerns", amount)
         elif event.kind == "COVERAGE_CHANGED":
             reason = event.payload.get("reason")
             if reason == "coverage_lost":
-                add("coverage_lost")
-                add("care_concerns")
+                add("coverage_lost", amount)
+                add("care_concerns", amount)
             elif reason == "coverage_restored":
-                add("coverage_restored")
-        if event.kind == "MOTION" and self._is_night_activity(event):
-            add("night_activity")
+                add("coverage_restored", amount)
+        if include_motion_night and event.kind == "MOTION" and self._is_night_activity(event):
+            add("night_activity", amount)
 
     def _is_night_activity(self, event: CloudEvent) -> bool:
-        desired = self.store.configs.get(event.home_id)
+        return self._is_night_timestamp(event.home_id, event.occurred_at)
+
+    def _is_night_timestamp(self, home_id: str, occurred_at: int) -> bool:
+        desired = self.store.configs.get(home_id)
         rules = desired.body.get("activity_rules", {}) if desired else {}
         if rules.get("night_activity_enabled", True) is False:
             return False
-        home = self.store.homes[event.home_id]
-        minute = datetime.fromtimestamp(event.occurred_at, ZoneInfo(home.timezone)).hour * 60 + datetime.fromtimestamp(event.occurred_at, ZoneInfo(home.timezone)).minute
+        home = self.store.homes[home_id]
+        local_event = datetime.fromtimestamp(occurred_at, ZoneInfo(home.timezone))
+        minute = local_event.hour * 60 + local_event.minute
         start = int(rules.get("night_start_minute", 22 * 60))
         end = int(rules.get("night_end_minute", 6 * 60))
         if start <= end:

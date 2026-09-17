@@ -129,6 +129,102 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
             ).fetchall()
         return {row["event_type"]: int(row["count"]) for row in rows}
 
+    def report_event_groups(self, home_id: str, *, kinds, buckets) -> list[dict]:
+        """Aggregate report facts without materializing the report history."""
+        ordered_kinds = sorted(set(kinds))
+        bucket_values = []
+        bucket_cases = []
+        for index, (start, end) in enumerate(buckets):
+            bucket_cases.append("WHEN occurred_at>=? AND occurred_at<? THEN ?")
+            bucket_values.extend((int(start), int(end), index))
+        bucket_case = "CASE " + " ".join(bucket_cases) + " END"
+        sql = f"""
+            SELECT {bucket_case} AS bucket_index,
+                   event_type,
+                   CASE WHEN event_type='COVERAGE_CHANGED'
+                        THEN json_extract(payload_json,'$.reason') END AS payload_reason,
+                   CASE WHEN event_type='DOOR_OPEN'
+                        THEN json_extract(payload_json,'$.unexpected') END AS payload_unexpected,
+                   COUNT(*) AS event_count
+              FROM events
+             WHERE home_id=? AND is_test=0
+               AND occurred_at>=? AND occurred_at<?
+               AND event_type IN ({','.join('?' for _ in ordered_kinds)})
+               AND (event_type<>'COVERAGE_CHANGED'
+                    OR json_extract(payload_json,'$.reason') IN ('coverage_lost','coverage_restored'))
+             GROUP BY bucket_index,event_type,payload_reason,payload_unexpected
+             ORDER BY bucket_index,event_type,payload_reason,payload_unexpected
+        """
+        values = bucket_values + [home_id, int(buckets[0][0]), int(buckets[-1][1]), *ordered_kinds]
+        with self.lock:
+            rows = self.db.execute(sql, values).fetchall()
+        return [dict(row) for row in rows]
+
+    def report_motion_times(self, home_id: str, start: int, end: int) -> list[tuple[int, int]]:
+        """Return grouped motion timestamps for timezone-aware night classification."""
+        with self.lock:
+            rows = self.db.execute(
+                """
+                SELECT occurred_at,COUNT(*) AS event_count
+                  FROM events
+                 WHERE home_id=? AND is_test=0 AND event_type='MOTION'
+                   AND occurred_at>=? AND occurred_at<?
+                 GROUP BY occurred_at
+                 ORDER BY occurred_at
+                """,
+                (home_id, int(start), int(end)),
+            ).fetchall()
+        return [(int(row["occurred_at"]), int(row["event_count"])) for row in rows]
+
+    def report_room_groups(self, home_id: str, start: int, end: int) -> list[dict]:
+        """Return activity totals and deterministic first-event order per location."""
+        with self.lock:
+            rows = self.db.execute(
+                """
+                SELECT grouped.location,grouped.event_count,grouped.first_occurred_at,
+                       MIN(first_event.event_id) AS first_event_id
+                  FROM (
+                        SELECT location,COUNT(*) AS event_count,
+                               MIN(occurred_at) AS first_occurred_at
+                          FROM events
+                         WHERE home_id=? AND is_test=0
+                           AND occurred_at>=? AND occurred_at<?
+                           AND event_type IN ('MOTION','DOOR_OPEN','DOOR_CLOSED')
+                           AND location<>''
+                         GROUP BY location
+                       ) AS grouped
+                  JOIN events AS first_event
+                    ON first_event.home_id=?
+                   AND first_event.is_test=0
+                   AND first_event.location=grouped.location
+                   AND first_event.occurred_at=grouped.first_occurred_at
+                   AND first_event.event_type IN ('MOTION','DOOR_OPEN','DOOR_CLOSED')
+                 GROUP BY grouped.location,grouped.event_count,grouped.first_occurred_at
+                 ORDER BY grouped.first_occurred_at,first_event_id
+                """,
+                (home_id, int(start), int(end), home_id),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def report_highlights(self, home_id: str, *, kinds, start: int, end: int,
+                          limit: int = 6) -> list[CloudEvent]:
+        """Materialize only the bounded report detail rows returned to the client."""
+        ordered_kinds = sorted(set(kinds))
+        sql = f"""
+            SELECT * FROM events
+             WHERE home_id=? AND is_test=0
+               AND occurred_at>=? AND occurred_at<?
+               AND event_type IN ({','.join('?' for _ in ordered_kinds)})
+               AND (event_type<>'COVERAGE_CHANGED'
+                    OR json_extract(payload_json,'$.reason') IN ('coverage_lost','coverage_restored'))
+             ORDER BY occurred_at DESC,event_id DESC
+             LIMIT ?
+        """
+        values = [home_id, int(start), int(end), *ordered_kinds, max(0, int(limit))]
+        with self.lock:
+            rows = self.db.execute(sql, values).fetchall()
+        return [self._row_to_event(row) for row in rows]
+
     def get(self, key: tuple[str, str], default=None):  # type: ignore[override]
         try:
             return self[key]

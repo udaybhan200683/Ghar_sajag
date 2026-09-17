@@ -103,6 +103,7 @@ def run(profile_name="SMALL", seed=30401, allow_large=False, progress=None):
     started = time.perf_counter()
     rss_before = _rss_bytes()
     stage_duration_ms = {}
+    report_period_duration_ms = {period: 0.0 for period in ("TODAY", "WEEK", "MONTH")}
 
     @contextmanager
     def stage(key, label):
@@ -184,7 +185,9 @@ def run(profile_name="SMALL", seed=30401, allow_large=False, progress=None):
                 for index in range(profile["report_cycles"]):
                     period = ("TODAY", "WEEK", "MONTH")[index % 3]
                     try:
+                        report_started = time.perf_counter()
                         report = _report_api(lab, period)
+                        report_period_duration_ms[period] += (time.perf_counter() - report_started) * 1000
                         reports[period] = report
                         max_report_bytes = max(max_report_bytes, len(json.dumps(report, separators=(",", ":")).encode()))
                     except Exception:
@@ -244,6 +247,10 @@ def run(profile_name="SMALL", seed=30401, allow_large=False, progress=None):
                     "simulator_rss_before_bytes": child_rss_before,
                     "simulator_rss_after_bytes": _proc_rss(lab.proc.pid),
                     "stage_duration_ms": stage_duration_ms,
+                    "report_period_duration_ms": {
+                        period: round(duration, 3)
+                        for period, duration in report_period_duration_ms.items()
+                    },
                 },
             }
         finally:

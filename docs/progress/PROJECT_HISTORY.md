@@ -1,7 +1,7 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** P3B-Q1
-**History covered through:** Phase 3B qualified scale/read-path checkpoint
+**Document revision:** P3B-WIP2
+**History covered through:** Phase 3B Reports scalability host validation
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest qualified Phase 3B checkpoint covered:** `fee5854`
@@ -322,3 +322,38 @@ Qualification evidence:
 Remaining Phase 3B work includes Reports scaling, controlled concurrent API
 load, household isolation, notification storm qualification, and
 restart/recovery. EXTENDED/endurance remains pending.
+
+## 2026-09-17 - Phase 3B Reports Scalability (In Progress)
+
+Status:
+IMPLEMENTED / HOST VALIDATED / MANUAL QUALIFICATION PENDING
+
+Root cause and implementation:
+- repeated Today/Week/Month generation selected full durable event rows,
+  parsed every JSON payload, and materialized every matching `CloudEvent` before
+  Python filtering and aggregation;
+- the existing range query was indexed, so no new index was added;
+- report-specific SQLite reads now aggregate summary/trend facts, return
+  grouped motion timestamps for timezone-aware night classification, aggregate
+  bounded room activity, and materialize only six highlights;
+- no cache, second report store, migration, or API/schema change was introduced;
+- stress diagnostics now include non-gating Today/Week/Month subtotals.
+
+Host evidence:
+- optimized-versus-reference Today/Week/Month payload comparison: PASS;
+- focused report/Phase 2/Phase 3 regressions: PASS (`21/21`);
+- full Python discovery: PASS (`105/105`);
+- JavaScript application tests: PASS (`3/3`);
+- performance/SMALL and MEDIUM stress gates: PASS;
+- MEDIUM report stage: 675.680 ms before, 106.244 ms after;
+- explicit LARGE: PASS, 52.290 s total and 5.320 s Reports versus the qualified
+  baseline of approximately 72.2 s total and 27.3 s Reports;
+- LARGE retained 25,000 accepted, 2,500 duplicate, 250 malformed rejected,
+  zero request failures, and a 16,424,960-byte database.
+
+This entry does not qualify or complete Phase 3B. Manual/browser qualification
+and a committed checkpoint remain pending. `fee5854` remains the previous
+qualified Phase 3B checkpoint. Phase 3A remains COMPLETE / QUALIFIED at
+permanent anchor `4dcaf99`. Remaining Phase 3B scope is controlled concurrent
+API load, household isolation, notification-provider storm qualification, and
+restart/recovery; EXTENDED/endurance remains pending.

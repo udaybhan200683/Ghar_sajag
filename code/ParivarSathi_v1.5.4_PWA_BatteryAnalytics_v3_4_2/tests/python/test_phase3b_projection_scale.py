@@ -167,6 +167,10 @@ class StressObservabilityTest(unittest.TestCase):
             },
         )
         self.assertTrue(all(value >= 0 for value in timings.values()))
+        self.assertEqual(
+            set(result["diagnostics"]["report_period_duration_ms"]),
+            {"TODAY", "WEEK", "MONTH"},
+        )
         self.assertEqual(result["correctness_gate"]["status"], "PASS")
 
 
