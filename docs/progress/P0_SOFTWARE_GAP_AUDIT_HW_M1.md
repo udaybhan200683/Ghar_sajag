@@ -1,8 +1,8 @@
 # P0 Software-Gap Audit and HW-M1 Transition
 
-**Audit status:** COMPLETE  
-**Decision:** SOFTWARE READY TO START HW-M1  
-**Branch:** `feature/full-pwa-e2e`  
+**Audit status:** COMPLETE
+**Decision:** SOFTWARE READY TO START HW-M1
+**Branch:** `feature/full-pwa-e2e`
 **Current checkpoints:** `8e570b5` documentation pointer, `0d6a2fc` concurrent
 API/household isolation, `0e5a9e3` Reports scalability, `fee5854`
 scale/read-path optimization, and permanent Phase 3A anchor `4dcaf99`.
