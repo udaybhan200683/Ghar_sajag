@@ -78,6 +78,13 @@ The previously recorded complete `make release-gate-final` result remains
 environment-blocked for localhost HTTP/PWA/browser stages; it is not a full
 PASS and was not rerun for this target-only composition checkpoint.
 
+The repeatable regression/target gate is `make hw-release-gate` from the
+active product directory. Its successful automated stages were host
+regression, C3/Hub target builds, partition layout, rollback configuration,
+HW configuration invariants, static structure, and image size. It reports HIL
+as `MANUAL_REQUIRED` and never flashes hardware. The fast subset is
+`make hw-validation-fast`.
+
 ## Next
 
 HW-M1.3C physical qualification must flash both build-validated images and

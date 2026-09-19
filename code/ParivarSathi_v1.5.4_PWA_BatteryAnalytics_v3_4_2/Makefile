@@ -35,7 +35,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test
+.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-release-gate
 
 all: verify
 
@@ -135,6 +135,15 @@ endurance-test: lab-build
 
 validation-fast:
 	python3 tools/validation/release_gate.py --quick
+
+# HW-M1 firmware regression/release gate. Physical acceptance is deliberately
+# reported as MANUAL_REQUIRED/PENDING; this target never flashes hardware.
+HW_OTA_WARNING_PERCENT ?= 15
+hw-validation-fast:
+	python3 tools/validation/hw_release_gate.py --fast --ota-warning-percent $(HW_OTA_WARNING_PERCENT)
+
+hw-release-gate:
+	python3 tools/validation/hw_release_gate.py --ota-warning-percent $(HW_OTA_WARNING_PERCENT)
 
 release-gate:
 	python3 tools/validation/release_gate.py

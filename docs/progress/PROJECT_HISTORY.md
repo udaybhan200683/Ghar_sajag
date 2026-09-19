@@ -1,6 +1,6 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1.3-TARGET-BUILD-R1
+**Document revision:** HW-M1.3-GATE-R1
 **History covered through:** HW-M1.3 ESP-IDF target composition/build validation
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
@@ -714,3 +714,30 @@ No device was flashed. No target behavior or post-integration FOTA rotation
 was physically exercised. The last physically qualified commit therefore
 remains `50abdce`; the exact next task is HW-M1.3C physical target
 qualification with serial/configuration evidence.
+
+## 2026-09-19 - HW Firmware Regression and Release Gate Added
+
+The HW-M1.3B target-build checkpoint now has a repeatable gate invoked from the
+active product directory with `make hw-release-gate`; the fast subset is
+`make hw-validation-fast`. The gate reuses the existing 124 C++ checks and
+adds C3/Hub ESP-IDF build verification, target metadata and binary checks,
+exact 4 MB dual-OTA partition validation, rollback validation, qualified
+channel/GPIO/TX invariants, lightweight structural checks, and hard OTA image
+size limits. Hub headroom warning threshold defaults to 15% and is configurable
+without changing firmware behavior.
+
+The gate is fail-closed for missing ESP-IDF: target stages report
+`BLOCKED / ENVIRONMENT_MISSING` rather than being silently skipped. It reports
+functional and FOTA HIL as `MANUAL_REQUIRED`, power/performance as
+`NOT_BASELINED`, and endurance as `NOT_RUN`. It explicitly prints
+`SOFTWARE/TARGET GATE: PASS` separately from `PHYSICAL QUALIFICATION: PENDING`;
+it never prints HW QUALIFIED.
+
+Focused gate self-tests cover in-slot images, OTA overflow, warning thresholds,
+malformed partitions, wrong invariants, and missing ESP-IDF. The full gate was
+run successfully: host regression, C3 target build, Hub target build,
+partition layout, rollback, configuration invariants, static structure, and
+image size all passed. No board was flashed. The HIL matrix is
+`docs/hw/HW_M1_3_HIL_TEST_MATRIX.json` with the readable checklist in
+`docs/hw/HW_M1_3_HIL_VALIDATION.md`. Future power/performance measurements are
+reserved as NOT_BASELINED in `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`.

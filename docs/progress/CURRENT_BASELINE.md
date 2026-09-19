@@ -1,6 +1,6 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** HW-M1.3-TARGET-BUILD-R1
+**Document revision:** HW-M1.3-GATE-R1
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3B paused; HW-M1.2 QUALIFIED / PASS
@@ -13,6 +13,7 @@
 **Implementation branch point:** `4645098`
 **Last host-validated implementation commit:** `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`
 **Pre-build documentation/resume HEAD:** `0546b28`
+**Current target-build-validated implementation:** `a6b084c`
 **Remote development branch:** `origin/feature/hw-m1-runtime-integration`
 **Updated:** 2026-09-19
 
@@ -49,6 +50,8 @@ generic “stable” state:
 | Documentation / resume baseline | `4645098` | `feature/hw-m1`, parent of the implementation branch | Documentation-only checkpoint; no new physical firmware behavior qualified. |
 | HW-M1.3 host-validated implementation | `1d41864` | `feature/hw-m1-runtime-integration`, also on `origin/feature/hw-m1-runtime-integration` | IMPLEMENTED / HOST VALIDATED. |
 | Pre-build documentation/resume checkpoint | `0546b28` | `feature/hw-m1-runtime-integration`, also on the tracked remote before this work | Documentation checkpoint; no physical qualification. |
+| Current target-build-validated implementation | `a6b084c` | `feature/hw-m1-runtime-integration`, parent of this gate checkpoint | IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED; physical validation pending. |
+| HW firmware validation-framework checkpoint | This document's commit | `feature/hw-m1-runtime-integration`; descendant of `a6b084c` | Automated software/target gate PASS; HIL MANUAL_REQUIRED; physical qualification pending. |
 | Current HW-M1.3B source/build checkpoint | This document's commit | `feature/hw-m1-runtime-integration`; descendant of `0546b28` | IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE VALIDATION PENDING. |
 
 The last host-validated implementation commit before target composition is
@@ -226,6 +229,34 @@ qualification: real AM312 -> NodeRuntime, typed NodeMessage over ESP-NOW,
 bounded Hub callback queue, HubRuntime owner-task processing, application ACK
 return, correct retained-event retirement, reboot/session behavior, and both
 post-integration FOTA rotations with PIR restoration and retained evidence.
+
+### HW firmware regression/release gate
+
+The repeatable automated command is run from the active product directory:
+
+```sh
+make hw-release-gate
+```
+
+It reuses the existing 124-check host regression, builds the C3 `esp32c3` and
+Hub `esp32` ESP-IDF compositions when ESP-IDF v6.0.3 is available, verifies
+the exact 4 MB dual-OTA partition layout and rollback setting, checks the
+qualified channel/GPIO/TX constants, checks the target/FOTA/data-plane
+structure, and hard-fails images larger than a `0x1E0000` OTA slot. The Hub
+headroom warning threshold is configurable with
+`HW_OTA_WARNING_PERCENT` (default 15%). The gate writes a local report under
+the ignored product `build/hw_release_gate/` directory and never flashes.
+
+`make hw-validation-fast` runs the host/configuration/structure subset and
+explicitly reports target builds and image size as `NOT_RUN`. A missing ESP-IDF
+activation or `idf.py` reports target stages as
+`BLOCKED / ENVIRONMENT_MISSING`; it is never treated as PASS.
+
+The gate's automated software/target result is **PASS** when its mandatory
+stages pass, but it always reports **PHYSICAL QUALIFICATION: PENDING**. The
+current HIL matrix is `docs/hw/HW_M1_3_HIL_TEST_MATRIX.json` with the readable
+checklist at `docs/hw/HW_M1_3_HIL_VALIDATION.md`. Power/performance metrics are
+reserved as **NOT_BASELINED** in `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`.
 
 ### Current open gaps
 
@@ -1584,9 +1615,9 @@ the current operational and resume truth.
 - Active branch: `feature/hw-m1-runtime-integration`; qualified parent is
   `feature/hw-m1`; frozen software/PWA reference is `feature/full-pwa-e2e`,
   with HW-M1 fork point `9b391fa`.
-- Pre-build documentation/resume commit: `0546b28` (`Document HW-M1.3
-  checkpoint and resume state`); the current development checkpoint is this
-  document's target-build commit.
+- Previous target-build development commit: `a6b084c` (`Build HW-M1.3 ESP-IDF
+  Hub and node targets`); the current development checkpoint is this
+  validation-framework commit.
 - Last host-validated implementation commit:
   `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`.
 - Remote development branch: `origin/feature/hw-m1-runtime-integration`
@@ -1637,11 +1668,18 @@ the current operational and resume truth.
   resilience/telemetry work remain open.
 - Exact next engineering task: HW-M1.3C — physically flash and validate the
   build-validated C3 and Hub compositions using the exact sequence above.
+- Automated gate commands: `make hw-validation-fast` for host/configuration
+  checks; `make hw-release-gate` for host regression, C3/Hub builds, partition,
+  rollback, invariants, structural checks, image size, and explicit pending
+  HIL/power/endurance statuses. Default Hub early-warning threshold is 15%.
 - Read first: this `RESUME HERE` section; `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`;
   `docs/progress/PROJECT_HISTORY.md`; `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`;
   `docs/hw/evidence/HW_M1_2/README.md`; `docs/hw/evidence/HW_M1_FOTA/README.md`;
   `docs/hw/evidence/HW_M1_3_HOST/README.md`;
   `docs/hw/evidence/HW_M1_3_TARGET_BUILD/README.md`;
+  `docs/hw/HW_M1_3_HIL_VALIDATION.md`;
+  `docs/hw/HW_M1_3_HIL_TEST_MATRIX.json`;
+  `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`;
   and, under
   `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`,
   `shared/include/gs/domain.hpp`, `shared/include/gs/protocol.hpp`,
@@ -1658,6 +1696,11 @@ the current operational and resume truth.
 - Target ESP-IDF builds: PASS in this checkpoint; physical validation was not
   run. Use the exact sequence above and write a new immutable HW-M1.3 physical
   evidence snapshot only after executing it.
+- Latest automated gate result: `make hw-release-gate` PASS for host,
+  C3-target-build, Hub-target-build, partition-layout, rollback-config,
+  hw-config-invariants, hw-static-structure, and image-size. It reported
+  `MANUAL_REQUIRED` for functional/FOTA HIL, `NOT_BASELINED` for
+  power-performance, and `NOT_RUN` for endurance. The gate never flashes.
 - Qualification reminder: HW-M1.3 is not physically qualified. Do not label it
   HW VALIDATED or QUALIFIED until the host and target exit criteria in the plan
   are demonstrated and captured as evidence.

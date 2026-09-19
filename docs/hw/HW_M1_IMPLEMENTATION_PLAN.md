@@ -293,6 +293,26 @@ HW-M1.3B acceptance criteria:
 Target-build-only evidence is recorded in
 `docs/hw/evidence/HW_M1_3_TARGET_BUILD/README.md`.
 
+### HW firmware regression/release gate — IMPLEMENTED
+
+The repeatable gate is invoked from the active product directory with
+`make hw-release-gate`. `make hw-validation-fast` provides the host,
+configuration, partition, rollback, and structural subset without rebuilding
+ESP-IDF targets. The full gate reuses the existing 124 C++ checks, builds both
+ESP-IDF targets, validates target metadata and binary presence, checks the
+exact 4 MB dual-OTA layout, rollback, qualified C3/Hub settings, FOTA/data
+plane separation artifacts, and hard-fails OTA overflow. A configurable
+`HW_OTA_WARNING_PERCENT` threshold defaults to 15% and produces a warning
+without failing an otherwise in-slot image.
+
+If ESP-IDF v6.0.3 activation or `idf.py` is unavailable, target stages report
+`BLOCKED / ENVIRONMENT_MISSING`; they are never silently skipped. The command
+always reports `PHYSICAL QUALIFICATION: PENDING`, with functional/FOTA HIL
+stages as `MANUAL_REQUIRED`, power/performance as `NOT_BASELINED`, and
+endurance as `NOT_RUN`. The implementation is
+`tools/validation/hw_release_gate.py`, with focused self-tests in
+`tests/python/test_hw_release_gate.py`.
+
 ### HW-M1.3C — Physical target qualification — HARDWARE VALIDATION PENDING
 
 This is the exact next engineering task. Physically validate the complete
@@ -301,6 +321,20 @@ target path and retain durable evidence. HW-M1.3C must demonstrate the manual se
 callback queue ownership, HubRuntime processing, Durable ACK retirement,
 retry/duplicate/session behavior, RSSI visibility and both post-integration
 FOTA rotations. Only then may HW-M1.3 become HW VALIDATED / QUALIFIED.
+
+### HW-M1 continuation ordering
+
+The approved order is:
+
+`HW-M1.3B TARGET BUILD VALIDATED`
+-> `HW firmware regression/release gate`
+-> `HW-M1.3C PHYSICAL FUNCTIONAL QUALIFICATION`
+-> `HW-M1.4 POWER & PERFORMANCE BASELINE / OPTIMIZATION`
+-> repeat the full regression gate
+-> future Hub -> backend -> existing PWA integration.
+
+The gate framework does not implement HW-M1.4 power optimization, routine
+learning, backend delivery, or PWA functionality.
 
 ## 8. HW-M1.3 acceptance and exit criteria
 
