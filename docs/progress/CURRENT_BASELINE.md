@@ -1,15 +1,16 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** HW-M1.3-GATE-R1
+**Document revision:** HW-M1.3-GATE-R2
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3B paused; HW-M1.2 QUALIFIED / PASS
-**Active engineering work:** HW-M1.3 implementation/host/target-build/automated-gate/positive-HIL/FOTA-HIL/negative-HIL PASS; final clean-production restore/smoke PENDING
+**Active engineering work:** HW-M1.3 implementation/host/target-build/automated-gate/positive-HIL/FOTA-HIL/negative-HIL/clean-production artifact provenance PASS; final clean-production restore/smoke PENDING
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
 **Current qualified HW branch:** `feature/hw-m1`
 **Current qualified HW commit:** `50abdce`
 **Current implementation branch:** `feature/hw-m1-runtime-integration`
+**Current implementation HEAD:** `5aad7e6` (`Document HW-M1.3 negative HIL qualification`)
 **Implementation branch point:** `4645098`
 **Last host-validated implementation commit:** `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`
 **Pre-build documentation/resume HEAD:** `0546b28`
@@ -51,8 +52,8 @@ generic “stable” state:
 | HW-M1.3 host-validated implementation | `1d41864` | `feature/hw-m1-runtime-integration`, also on `origin/feature/hw-m1-runtime-integration` | IMPLEMENTED / HOST VALIDATED. |
 | Pre-build documentation/resume checkpoint | `0546b28` | `feature/hw-m1-runtime-integration`, also on the tracked remote before this work | Documentation checkpoint; no physical qualification. |
 | Current target-build-validated implementation | `a6b084c` | `feature/hw-m1-runtime-integration`, parent of this gate checkpoint | IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED; physical validation pending. |
-| HW firmware validation-framework checkpoint | This document's commit | `feature/hw-m1-runtime-integration`; descendant of `a6b084c` | Automated software/target gate PASS; negative HIL PASS; final restore/smoke pending. |
-| Current HW-M1.3 source/build/HIL checkpoint | This document's commit | `test/hw-m1-3-negative-hil`; descendant of `0546b28` | Implementation/host/target-build/automated-gate/positive-HIL/FOTA-HIL/negative-HIL PASS; final QUALIFIED status pending. |
+| HW firmware validation-framework checkpoint | `5aad7e6` | `feature/hw-m1-runtime-integration`; descendant of `a6b084c` | Automated software/target gate PASS; negative HIL PASS; clean-production artifact provenance PASS; final restore/smoke pending. |
+| Temporary negative-HIL physical checkpoint | `d1ee3ef` | Preserved on `test/hw-m1-3-negative-hil` | Negative-HIL PASS evidence only; harness was not brought into production source. |
 
 The last host-validated implementation commit before target composition is
 `1d41864`; `0546b28` is the documentation/resume checkpoint from which
@@ -65,6 +66,52 @@ The P0 software-gap audit approved HW-M1: no host/backend/PWA defect blocks the
 first physical vertical slice. F14 remains an open software gap but does not
 block HW-M1; it remains a pilot/commercial P0 blocker. Full audit:
 `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`.
+
+### Clean-production restore checkpoint — 2026-09-19
+
+The current clean production provenance checkpoint is branch
+`feature/hw-m1-runtime-integration` at HEAD `5aad7e6`. The `make hw-release-gate`
+software/target gate is **PASS**: host regression (124 C++ checks), partition
+layout, rollback configuration, HW configuration invariants, static structure,
+C3/Hub target builds, and image-size checks all passed. This gate does not
+perform a flash and does not qualify physical hardware.
+
+| Production artifact | Size | SHA-256 |
+|---|---:|---|
+| Standalone C3 `firmware/node/target/esp32c3/idf/build/gs_hw_m1_node.bin` | 824,368 bytes | `20fbb95e118e8d5f3b0b2f350ee1ae066333a690fe3c1e7c304109c00cf91ec9` |
+| Hub embedded C3 `firmware/hub/target/esp32/idf/main/node_firmware.bin` | 824,368 bytes | `20fbb95e118e8d5f3b0b2f350ee1ae066333a690fe3c1e7c304109c00cf91ec9` |
+| Clean production Hub `firmware/hub/target/esp32/idf/build/gs_hw_m1_hub.bin` | 1,592,848 bytes | `35cee47bb906e1c559c7f66a72e83d3b0682be2caf21302c44283f6e6a1c8f57` |
+
+The embedded C3 image exactly matches the standalone production C3 image.
+The C3 and Hub production images report embedded version `5aad7e6`; the Hub
+also contains the embedded C3 version string `5aad7e6`. The production source
+has no `GS_HW_M1_3_NEGATIVE_HIL` compile hook, and scans of the standalone C3,
+Hub embedded C3, and Hub production binaries found no negative-HIL runtime
+strings.
+
+Hardware was disconnected after provenance verification. No clean-production
+restore flash has been performed, and the final normal PIR smoke test has not
+been performed. Therefore HW-M1.3 remains below final QUALIFIED status.
+
+### Tomorrow: exact clean-production restore/smoke resume sequence
+
+1. Reconnect the Hub and C3.
+2. Attach the USB devices to WSL if required.
+3. Detect the actual `/dev/ttyUSB*` and `/dev/ttyACM*` ports; do not assume numbering.
+4. Flash the already provenance-verified clean `5aad7e6` Hub and C3 artifacts above.
+5. Do not erase flash.
+6. Do not press Hub BOOT; a BOOT long-press invokes C3 FOTA.
+7. Open the correct product monitors.
+8. Verify both targets boot as app version `5aad7e6` and no HIL logs appear.
+9. Trigger one controlled PIR event.
+10. Verify the normal path: `PIR -> NodeRuntime -> NodeMessage sent -> Hub accepts/processes -> Durable application ACK -> node retired=1 -> MAC accepted=1`.
+11. Record Hub transport RSSI and channel.
+12. If the smoke passes, update final documentation to HW-M1.3 QUALIFIED/PASS.
+13. If the smoke fails, do not mark qualified; preserve logs and investigate.
+
+Opening the C3 native USB monitor may cause `USB_UART_CHIP_RESET` and
+increment the NVS session. This is expected and is not by itself a smoke
+failure.
 
 ## Current HW-M1 state
 
@@ -94,7 +141,7 @@ software/PWA branch point. The stable host/PWA reference remains
 | HW-M1.1 real AM312 PIR sensing | QUALIFIED / PASS | GPIO4 sensing, LED indication, battery operation and approximately 12 ft / 3.7 m observation. |
 | HW-M1.2 PIR -> C3 -> ESP-NOW -> Hub | QUALIFIED / PASS | Real motion events reached the Hub; channel/TX/RSSI findings recorded. |
 | Dual-slot C3 FOTA | QUALIFIED / PASS | `ota_0 -> ota_1 -> ota_0`, validation, PIR restoration and post-update events. |
-| HW-M1.3 Target Runtime Integration | IMPLEMENTATION / HOST / TARGET BUILD / AUTOMATED GATE / POSITIVE HIL / FOTA HIL / NEGATIVE HIL PASS; FINAL RESTORE-SMOKE PENDING | Portable runtime/adapters are composed into ESP-IDF v6.0.3 C3 and Hub products; both fit the 1920 KB OTA slots; 124 focused C++ checks pass. Negative-HIL evidence is recorded in `docs/hw/evidence/HW_M1_3_HIL/README.md`. |
+| HW-M1.3 Target Runtime Integration | IMPLEMENTATION / HOST / TARGET BUILD / AUTOMATED GATE / POSITIVE HIL / FOTA HIL / NEGATIVE HIL / CLEAN-PRODUCTION ARTIFACT PROVENANCE PASS; FINAL RESTORE-SMOKE PENDING | Portable runtime/adapters are composed into ESP-IDF v6.0.3 C3 and Hub products; both fit the 1920 KB OTA slots; 124 focused C++ checks pass; clean production artifacts are verified at `5aad7e6`. Physical restore and final normal PIR smoke remain pending. |
 
 The terms are strict: IMPLEMENTED means source exists; HOST VALIDATED means
 host/simulation validation passed; HW VALIDATED means target behavior was
@@ -167,8 +214,10 @@ queue; they must not mutate `HubRuntime` directly. The owner-task model in
 
 ### HW-M1.3 implementation state
 
-HW-M1.3 is **IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE
-VALIDATION PENDING**. It is not HW VALIDATED or QUALIFIED.
+HW-M1.3 is **IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / AUTOMATED
+GATE PASS / POSITIVE HIL PASS / FOTA HIL PASS / NEGATIVE HIL PASS /
+CLEAN-PRODUCTION ARTIFACT PROVENANCE PASS / CLEAN-PRODUCTION RESTORE-SMOKE
+PENDING**. It is not finally QUALIFIED.
 
 1. Implemented and host-tested a common bounded codec for `NodeMessage` and
    `NodeAckMessage`, with protocol magic/version/frame type and fixed-width,
@@ -225,11 +274,14 @@ idf.py build
 Then return to the active product directory and run
 `PATH=/usr/bin:/bin make cpp-test CXX=/usr/bin/g++`.
 
-No target was flashed. The immediate remaining task is HW-M1.3C physical
-qualification: real AM312 -> NodeRuntime, typed NodeMessage over ESP-NOW,
-bounded Hub callback queue, HubRuntime owner-task processing, application ACK
-return, correct retained-event retirement, reboot/session behavior, and both
-post-integration FOTA rotations with PIR restoration and retained evidence.
+No target was flashed from this clean production checkpoint. Negative-HIL
+flashing occurred only on the preserved temporary HIL branch. The immediate
+remaining task is the clean-production restore/smoke: real AM312 ->
+NodeRuntime, typed NodeMessage over ESP-NOW, bounded Hub callback queue,
+HubRuntime owner-task processing, application ACK return, correct retained-
+event retirement, and captured normal-path evidence. The prior positive and
+FOTA HIL evidence remains recorded; do not infer final qualification until the
+clean-production restore/smoke passes.
 
 ### HW firmware regression/release gate
 

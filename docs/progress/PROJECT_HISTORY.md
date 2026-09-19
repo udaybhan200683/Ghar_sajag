@@ -1,6 +1,6 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1.3-GATE-R1
+**Document revision:** HW-M1.3-GATE-R2
 **History covered through:** HW-M1.3 ESP-IDF target composition/build validation
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
@@ -762,3 +762,45 @@ HW-M1.3 now has implementation, host, target-build, automated-gate,
 positive-HIL, FOTA-HIL, and negative-HIL PASS evidence. Final clean-production
 restore/smoke verification remains pending, so final QUALIFIED status remains
 pending. HW-M1.4 power/performance remains separate.
+
+## 2026-09-19 - HW-M1.3 Clean-Production Restore Checkpoint
+
+The evidence-only negative-HIL qualification record was preserved on the
+production-development branch as `5aad7e6`,
+`Document HW-M1.3 negative HIL qualification`. The temporary HIL harness
+remains isolated on `test/hw-m1-3-negative-hil`; it is not present in the
+current production source.
+
+The repeatable `make hw-release-gate` result is **PASS** for host regression,
+partition layout, rollback configuration, HW invariants, target structure, C3
+and Hub builds, and image size. The clean production artifacts prepared for
+the next hardware session are:
+
+- C3 `gs_hw_m1_node.bin`: 824,368 bytes,
+  SHA-256 `20fbb95e118e8d5f3b0b2f350ee1ae066333a690fe3c1e7c304109c00cf91ec9`.
+- Hub embedded `node_firmware.bin`: 824,368 bytes, with the exact same
+  SHA-256 as the standalone C3 image.
+- Hub `gs_hw_m1_hub.bin`: 1,592,848 bytes,
+  SHA-256 `35cee47bb906e1c559c7f66a72e83d3b0682be2caf21302c44283f6e6a1c8f57`.
+
+All three production artifacts report embedded version `5aad7e6` where
+applicable. The production source contains no `GS_HW_M1_3_NEGATIVE_HIL` compile
+hook, and binary scans found no negative-HIL runtime strings. Hardware was
+disconnected after this provenance verification. No clean-production restore
+flash or final normal PIR smoke test has yet been performed.
+
+The exact resume sequence is recorded in `docs/progress/CURRENT_BASELINE.md`:
+reconnect the Hub and C3, attach USB devices if needed, detect actual serial
+ports, flash the verified artifacts without erasing, avoid Hub BOOT, open the
+correct monitors, verify version `5aad7e6` with no HIL logs, perform one
+controlled PIR event, verify the normal NodeRuntime/NodeMessage/Hub processing/
+Durable ACK/retirement/MAC path, and record Hub RSSI/channel. A
+`USB_UART_CHIP_RESET` and NVS session increment from opening the C3 native USB
+monitor is expected and is not by itself a smoke failure.
+
+Status remains: implementation PASS; host validation PASS; target build
+validation PASS; automated gate PASS; positive HIL PASS; FOTA HIL PASS;
+negative HIL PASS; clean-production artifact preparation/provenance PASS;
+clean-production hardware restore PENDING; final normal PIR smoke PENDING; and
+final HW-M1.3 QUALIFIED status PENDING. HW-M1.4 power/performance remains
+separate.
