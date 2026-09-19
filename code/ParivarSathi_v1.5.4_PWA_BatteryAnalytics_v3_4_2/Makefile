@@ -16,6 +16,8 @@ CPP_SOURCES := \
 	shared/src/rules.cpp \
 	shared/src/logging.cpp \
 	host/logging/file_log_sink.cpp \
+	firmware/common/transport/data_plane_codec.cpp \
+	firmware/common/transport/session_id.cpp \
 	firmware/node/components/sensing/sensing.cpp \
 	firmware/node/components/radio/node_radio.cpp \
 	firmware/node/components/power/power.cpp \

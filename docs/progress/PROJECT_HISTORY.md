@@ -1,7 +1,7 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1-R1
-**History covered through:** HW-M1 dual-slot C3 FOTA qualification
+**Document revision:** HW-M1.3-HOST-R1
+**History covered through:** HW-M1.3 implementation and host validation
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
@@ -9,7 +9,8 @@
 **Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
 **Latest qualified HW branch:** `feature/hw-m1`
 **Latest qualified HW commit:** `50abdce`
-**Updated:** 2026-09-18
+**Current implementation branch:** `feature/hw-m1-runtime-integration`
+**Updated:** 2026-09-19
 
 This file is an append-only chronological engineering history.
 
@@ -588,3 +589,64 @@ existing standalone evidence. Its physical exit criteria require real typed
 messages, bounded callback ownership, HubRuntime processing, application ACK,
 correct retained-event retirement, post-integration FOTA/PIR behavior and
 captured hardware evidence.
+
+## 2026-09-19 - HW-M1.3 Target Runtime Integration Implemented and Host Validated
+
+Status: **IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING**.
+
+A bounded binary codec was introduced because C++ `std::string`,
+`std::optional` and object layouts cannot be copied safely or deterministically
+onto RF. The codec uses explicit big-endian fixed-width integers, bounded
+strings, magic, version, frame type, presence flags and exact payload length.
+It preserves every current `NodeMessage` field, including optional power
+telemetry and bounded `payload_json`, while keeping the maximum normal frame
+below the ESP-NOW v1 payload limit. `NodeAckMessage` uses the same data-plane
+envelope. Existing FOTA magic is recognized as control-plane traffic and is
+never decoded as a business message.
+
+Target code was isolated under `firmware/node/target/esp32c3/` and
+`firmware/hub/target/esp32/` so ESP-IDF headers and callback concerns do not
+enter the portable host build or redefine runtime ownership. C3 constants
+preserve GPIO4 PIR, active-low GPIO8 LED, channel 1, TX API value 40 (10 dBm)
+and both qualified MACs. The C3 owner task alone calls `NodeRuntime`; ESP-NOW
+callbacks only copy ACK/control frames or enqueue MAC results. The Hub callback
+only bounds/checks/copies bytes and transport metadata; one owner task decodes,
+admits through `radio_message_callback()`, processes through
+`run_state_once()`, creates `NodeAckMessage`, and transmits it.
+
+The ACK distinction remains explicit: ESP-NOW MAC success only enters
+`NodeRuntime::transport_result()` and cannot retire retained evidence. Only a
+matching application ACK enters `NodeRuntime::acknowledge()`;
+`ReceivedVolatile` does not retire business evidence and Durable may retire
+the exact EventKey. Transport RSSI/channel stay diagnostic and do not overwrite
+semantic RSSI.
+
+Reboot identity uses a portable fail-closed boot-session policy backed by an
+ESP32-C3 NVS counter. The counter is durably incremented before the runtime
+starts; failure prevents startup rather than knowingly reusing an EventKey.
+The Hub admits a newer monotonically increasing session from the qualified MAC
+and rejects stale prior sessions. NVS erase/reset behavior and secure
+provisioning remain future operational/security policy.
+
+Created target/portable files include:
+
+- `firmware/common/transport/data_plane_codec.{hpp,cpp}`;
+- `firmware/common/transport/session_id.{hpp,cpp}`;
+- `firmware/node/target/esp32c3/` configuration, session provider and adapter;
+- `firmware/hub/target/esp32/` configuration and adapter; and
+- `docs/hw/evidence/HW_M1_3_HOST/README.md`.
+
+Host test result: `make cpp-test` PASS with 124 checks using the system host
+compiler/linker. Codec round trips, malformed input, ACK policy, retry identity,
+session identity, stale-session rejection and FOTA separation are covered.
+The release-gate C++ unit, sanitizers, trace, Python, JavaScript, contracts,
+product/feature, simulator/lab, dummy-stream and functional stages passed.
+Complete `make release-gate-final` did not pass because the sandbox forbids
+localhost socket creation/binding; HTTP/PWA/browser stages could not start.
+This is recorded as ENVIRONMENT BLOCKED and must be rerun in a normal terminal.
+
+The repository has no unified ESP-IDF product project/CMake composition, so
+target-only adapter code was not target-built, flashed or physically exercised.
+The separate control-plane queues still need composition with the existing
+qualified FOTA maintenance implementation. HW-M1.3 therefore remains hardware
+validation pending and is not QUALIFIED.

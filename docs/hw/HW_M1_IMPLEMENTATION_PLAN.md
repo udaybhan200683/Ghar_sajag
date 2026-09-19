@@ -14,13 +14,15 @@ one PIR proving:
 ACK / dedupe / rules / journal -> Hub Wi-Fi/backend transport -> backend
 persistence/read models -> PWA`
 
-Current status at qualified commit `50abdce`:
+Current status on implementation branch `feature/hw-m1-runtime-integration`,
+based on documentation checkpoint `4645098`:
 
 - HW-M1.0 toolchain and board bring-up: **QUALIFIED / PASS**.
 - HW-M1.1 real AM312 PIR sensing: **QUALIFIED / PASS**.
 - HW-M1.2 real PIR-to-C3-to-ESP-NOW-to-Hub path: **QUALIFIED / PASS**.
 - ESP-NOW dual-slot C3 FOTA qualification: **QUALIFIED / PASS**.
-- HW-M1.3 Target Runtime Integration: **PLANNED / NOT STARTED**.
+- HW-M1.3 Target Runtime Integration: **IMPLEMENTED / HOST VALIDATED /
+  HARDWARE VALIDATION PENDING**.
 
 The status words have strict meanings in this plan:
 
@@ -36,7 +38,10 @@ or QUALIFIED.
 
 ## 2. Branch and software baseline
 
-- Current HW branch: `feature/hw-m1`.
+- Current implementation branch: `feature/hw-m1-runtime-integration`.
+- Qualified parent branch: `feature/hw-m1`.
+- Implementation branch point: `4645098` (`Document complete HW-M1 resume
+  state before runtime integration`).
 - Current qualified HW commit: `50abdce` (`Qualify dual-slot ESP-NOW node
   FOTA`).
 - Earlier HW checkpoint: `3f02822` (`Qualify HW-M1.2 PIR to ESP-NOW hub
@@ -198,12 +203,13 @@ demonstrated through the Hub, with PIR restoration and post-update motion after
 both boots. This is a qualified control-plane checkpoint separate from
 HW-M1.3 data-plane runtime integration.
 
-### HW-M1.3 — Target Runtime Integration — PLANNED / NOT STARTED
+### HW-M1.3 — Target Runtime Integration — IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING
 
-This is the exact next engineering milestone. It will connect the proven
-hardware path to the existing portable runtime architecture.
+Source implementation and portable host validation are complete. No ESP-IDF
+target image was built or flashed and no physical HW-M1.3 behavior was
+demonstrated in this run, so the milestone is not HW VALIDATED or QUALIFIED.
 
-Expected implementation scope:
+Implemented scope:
 
 A. **Common bounded wire codec**
 
@@ -236,10 +242,27 @@ data-plane frames and ACK policy.
 
 E. **Validation sequence**
 
-Run host tests before physical target validation, then capture target logs,
+Host codec/runtime tests passed before physical validation. Target logs,
 queue/overflow observations, frame results, application ACKs, retained-event
-retirement, and PIR behavior. Do not create HW-M1.3 evidence until this work
-has physically begun.
+retirement, PIR behavior and post-integration FOTA remain to be captured.
+
+Implementation modules:
+
+- `firmware/common/transport/data_plane_codec.{hpp,cpp}` — bounded portable
+  codec and data/control frame classification.
+- `firmware/common/transport/session_id.{hpp,cpp}` — fail-closed persistent
+  boot-session policy.
+- `firmware/node/target/esp32c3/` — qualified C3 constants, NVS session
+  provider, static callback queues and sole NodeRuntime owner task.
+- `firmware/hub/target/esp32/` — qualified Hub constants, static callback
+  queues, session admission and sole HubRuntime owner task.
+- `tests/cpp/test_main.cpp` — codec, malformed-frame, ACK/retry/session and
+  FOTA separation regressions.
+
+The repository has no unified ESP-IDF product project/CMake composition.
+Target adapters are intentionally excluded from the host Makefile; composing
+and target-building them with the qualified FOTA maintenance path is the first
+manual hardware-validation step.
 
 ## 8. HW-M1.3 acceptance and exit criteria
 
@@ -248,14 +271,19 @@ and evidence is captured.
 
 ### Host side
 
-- Bounded `NodeMessage` codec tests pass.
-- Bounded `NodeAckMessage` codec tests pass.
-- Malformed, truncated, wrong-magic, wrong-version, wrong-frame-type and
+- **PASS:** bounded `NodeMessage` codec tests.
+- **PASS:** bounded `NodeAckMessage` codec tests.
+- **PASS:** malformed, truncated, wrong-magic, wrong-version, wrong-frame-type and
   out-of-range frames are rejected.
-- ACK semantics, including durable versus volatile receipt, are preserved.
-- Retry identity (`node_id`, `session_id`, `sequence_number`) is preserved
+- **PASS:** ACK semantics, including durable versus volatile receipt, are preserved.
+- **PASS:** retry identity (`node_id`, `session_id`, `sequence_number`) is preserved
   across retries and re-encoding.
-- Existing host regression gates pass.
+- **PASS:** `make cpp-test` with 124 checks, plus the release-gate C++ unit,
+  sanitizers, trace, Python, JavaScript, contracts, product/feature, simulator,
+  dummy-stream and functional stages.
+- **ENVIRONMENT BLOCKED:** complete `make release-gate-final`; localhost HTTP,
+  PWA and browser stages cannot create/bind sockets in this sandbox. This is
+  not recorded as PASS and must be rerun in the normal local terminal.
 
 ### Target side
 
@@ -276,7 +304,9 @@ and evidence is captured.
 
 ## 9. Open limitations and non-goals
 
-The following remain open unless separately qualified: RF range optimization,
+The following remain open unless separately qualified: target ESP-IDF
+composition/build, physical HW-M1.3 validation, post-integration FOTA,
+RF range optimization,
 multi-node RF/concurrency behavior, ESP-NOW peer encryption/key management,
 signed firmware authenticity, anti-rollback/version policy, backend firmware
 distribution, Hub self-OTA, target Wi-Fi/backend transport, target journal and

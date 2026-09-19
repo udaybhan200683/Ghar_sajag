@@ -11,6 +11,8 @@
 #include "coverage/coverage.hpp"
 #include "gs/rules.hpp"
 #include "gs/protocol.hpp"
+#include "firmware/common/transport/data_plane_codec.hpp"
+#include "firmware/common/transport/session_id.hpp"
 #include "ingest/ingest.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
@@ -30,6 +32,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <array>
 #include <stdexcept>
 #include <string>
 
@@ -66,6 +69,28 @@ public:
     bool verify(const std::string& payload, const std::string& signature) const override {
         return payload.find("esp32-c3") != std::string::npos && signature == "test-signature";
     }
+};
+
+class FakeSessionStore final : public gs::transport::SessionCounterStore {
+public:
+    bool load(std::uint64_t& value, bool& found) override {
+        if (!load_ok) return false;
+        value = persisted;
+        found = has_value;
+        return true;
+    }
+
+    bool save(std::uint64_t value) override {
+        if (!save_ok) return false;
+        persisted = value;
+        has_value = true;
+        return true;
+    }
+
+    std::uint64_t persisted{0};
+    bool has_value{false};
+    bool load_ok{true};
+    bool save_ok{true};
 };
 
 void test_node_modules() {
@@ -351,6 +376,203 @@ void test_protocol_and_generic_rules() {
           "post-door inactivity uses configured threshold");
 }
 
+void test_data_plane_codec_and_ack_policy() {
+    namespace wire = gs::transport;
+
+    gs::NodeMessage message;
+    message.node_id = std::string(wire::kMaxSourceIdBytes, 'n');
+    message.session_id = 0x0102030405060708ULL;
+    message.sequence_number = 0x1112131415161718ULL;
+    message.sensor_type = gs::SensorType::Pir;
+    message.event_type = gs::EventKind::Motion;
+    message.location = std::string(wire::kMaxLocationBytes, 'l');
+    message.monotonic_ms = 123456789;
+    message.occurred_at = 1700000000;
+    message.time_uncertainty_ms = 2300;
+    message.battery_mv = 3775;
+    message.rssi_dbm = -67;
+    message.is_test = true;
+    gs::NodePowerTelemetry power;
+    power.deep_sleep_ms = 900000;
+    power.awake_ms = 100000;
+    power.sensor_active_ms = 25000;
+    power.radio_tx_ms = 5000;
+    power.radio_rx_ms = 7000;
+    power.radio_tx_packets = 44;
+    power.radio_retries = 2;
+    power.wake_count = 18;
+    power.heartbeat_count = 14;
+    power.boot_count = 3;
+    power.brownout_count = 1;
+    message.power = power;
+    message.payload_json = std::string(wire::kMaxPayloadJsonBytes, 'p');
+
+    const auto encoded = wire::encode_node_message(message);
+    check(encoded && encoded.frame.size <= wire::kMaxFrameBytes && encoded.frame.size < 250,
+          "maximum data-plane message fits bounded ESP-NOW payload");
+    check(encoded.frame.bytes[0] == 0x47 && encoded.frame.bytes[1] == 0x53 &&
+          encoded.frame.bytes[2] == 0x44 && encoded.frame.bytes[3] == 0x50 &&
+          encoded.frame.bytes[4] == wire::kDataPlaneVersion &&
+          encoded.frame.bytes[5] == static_cast<std::uint8_t>(wire::FrameType::NodeMessage),
+          "data-plane envelope has deterministic magic, version and type");
+    check(wire::classify_frame(encoded.frame.bytes.data(), encoded.frame.size) ==
+              wire::FrameClass::NodeMessage,
+          "node message frame discriminator is recognized");
+
+    const auto decoded = wire::decode_node_message(encoded.frame.bytes.data(), encoded.frame.size);
+    check(decoded && decoded.value->node_id == message.node_id &&
+          decoded.value->session_id == message.session_id &&
+          decoded.value->sequence_number == message.sequence_number &&
+          decoded.value->event_type == message.event_type &&
+          decoded.value->sensor_type == message.sensor_type &&
+          decoded.value->location == message.location,
+          "NodeMessage round trip preserves EventKey, event, sensor and location");
+    check(decoded.value->monotonic_ms == message.monotonic_ms &&
+          decoded.value->occurred_at == message.occurred_at &&
+          decoded.value->time_uncertainty_ms == message.time_uncertainty_ms &&
+          decoded.value->battery_mv == message.battery_mv &&
+          decoded.value->rssi_dbm == message.rssi_dbm &&
+          decoded.value->is_test == message.is_test &&
+          decoded.value->payload_json == message.payload_json,
+          "NodeMessage round trip preserves timing, battery, RSSI, flags and payload");
+    check(decoded.value->power.has_value() &&
+          decoded.value->power->deep_sleep_ms == power.deep_sleep_ms &&
+          decoded.value->power->awake_ms == power.awake_ms &&
+          decoded.value->power->sensor_active_ms == power.sensor_active_ms &&
+          decoded.value->power->radio_tx_ms == power.radio_tx_ms &&
+          decoded.value->power->radio_rx_ms == power.radio_rx_ms &&
+          decoded.value->power->radio_tx_packets == power.radio_tx_packets &&
+          decoded.value->power->radio_retries == power.radio_retries &&
+          decoded.value->power->wake_count == power.wake_count &&
+          decoded.value->power->heartbeat_count == power.heartbeat_count &&
+          decoded.value->power->boot_count == power.boot_count &&
+          decoded.value->power->brownout_count == power.brownout_count,
+          "NodeMessage round trip preserves all power telemetry");
+
+    gs::NodeAckMessage ack = gs::make_node_ack(
+        {message.node_id, message.session_id, message.sequence_number},
+        gs::AckClass::Durable, 1700000001,
+        std::string(wire::kMaxAckReasonBytes, 'r'));
+    const auto encoded_ack = wire::encode_node_ack(ack);
+    check(encoded_ack && wire::classify_frame(encoded_ack.frame.bytes.data(), encoded_ack.frame.size) ==
+              wire::FrameClass::NodeAck,
+          "NodeAckMessage encodes within the data-plane ACK envelope");
+    const auto decoded_ack = wire::decode_node_ack(
+        encoded_ack.frame.bytes.data(), encoded_ack.frame.size);
+    check(decoded_ack && decoded_ack.value->node_id == ack.node_id &&
+          decoded_ack.value->session_id == ack.session_id &&
+          decoded_ack.value->sequence_number == ack.sequence_number &&
+          decoded_ack.value->ack_type == gs::AckClass::Durable &&
+          decoded_ack.value->hub_received_at == ack.hub_received_at &&
+          decoded_ack.value->reason == ack.reason,
+          "NodeAckMessage round trip preserves identity, class, time and reason");
+
+    check(wire::decode_node_message(encoded.frame.bytes.data(), encoded.frame.size - 1).error ==
+              wire::CodecError::Truncated,
+          "truncated frame is rejected");
+    auto bad = encoded.frame;
+    bad.bytes[0] ^= 0x01U;
+    check(wire::decode_node_message(bad.bytes.data(), bad.size).error == wire::CodecError::BadMagic,
+          "bad magic is rejected");
+    bad = encoded.frame;
+    bad.bytes[4] = static_cast<std::uint8_t>(wire::kDataPlaneVersion + 1U);
+    check(wire::decode_node_message(bad.bytes.data(), bad.size).error ==
+              wire::CodecError::UnsupportedVersion,
+          "unsupported data-plane version is rejected");
+    bad = encoded.frame;
+    bad.bytes[5] = 0x7FU;
+    check(wire::decode_node_message(bad.bytes.data(), bad.size).error ==
+              wire::CodecError::UnknownFrameType,
+          "unknown frame type is rejected");
+
+    const std::size_t source_length = message.node_id.size();
+    const std::size_t sensor_offset = 29U + source_length;
+    const std::size_t event_offset = sensor_offset + 1U;
+    const std::size_t location_length_offset = event_offset + 1U;
+    const std::size_t flags_offset = location_length_offset + 1U + message.location.size() + 8U;
+    bad = encoded.frame;
+    bad.bytes[sensor_offset] = 0x7FU;
+    check(wire::decode_node_message(bad.bytes.data(), bad.size).error == wire::CodecError::InvalidValue,
+          "impossible SensorType is rejected");
+    bad = encoded.frame;
+    bad.bytes[event_offset] = 0x7FU;
+    check(wire::decode_node_message(bad.bytes.data(), bad.size).error == wire::CodecError::InvalidValue,
+          "impossible EventKind is rejected");
+    bad = encoded.frame;
+    bad.bytes[12] = static_cast<std::uint8_t>(wire::kMaxSourceIdBytes + 1U);
+    check(!wire::decode_node_message(bad.bytes.data(), bad.size),
+          "oversized encoded source length is rejected");
+    bad = encoded.frame;
+    bad.bytes[flags_offset] |= 0x80U;
+    check(wire::decode_node_message(bad.bytes.data(), bad.size).error ==
+              wire::CodecError::MalformedFlags,
+          "unknown optional-presence flags are rejected");
+    bad = encoded.frame;
+    bad.bytes[bad.size] = 0U;
+    check(wire::decode_node_message(bad.bytes.data(), bad.size + 1U).error ==
+              wire::CodecError::TrailingData,
+          "trailing bytes are rejected");
+
+    auto bad_ack = encoded_ack.frame;
+    const std::size_t ack_class_offset = 29U + ack.node_id.size();
+    bad_ack.bytes[ack_class_offset] = 0x7FU;
+    check(wire::decode_node_ack(bad_ack.bytes.data(), bad_ack.size).error ==
+              wire::CodecError::InvalidValue,
+          "invalid AckClass is rejected");
+
+    const std::array<std::uint8_t, 8> fota_frame{{0x4F, 0x46, 0x53, 0x47, 1, 1, 0, 0}};
+    check(wire::classify_frame(fota_frame.data(), fota_frame.size()) ==
+              wire::FrameClass::ControlFota &&
+          wire::decode_node_message(fota_frame.data(), fota_frame.size()).error ==
+              wire::CodecError::BadMagic,
+          "FOTA control frame is classified separately and never decoded as NodeMessage");
+
+    gs::node::NodeRuntime runtime("ack-node", 42);
+    const auto retained_key = runtime.record(gs::EventKind::Motion, "room1", 0, 0,
+                                             86400, 0, false, gs::SensorType::Pir, 0);
+    check(retained_key.has_value() && runtime.persisted() == 1,
+          "business event is retained before transport");
+    const auto first_attempt = runtime.next_message(0);
+    check(first_attempt && first_attempt->session_id == 42 && first_attempt->sequence_number == 1,
+          "runtime creates first typed message identity");
+    runtime.transport_result(*retained_key, true, 0);
+    check(runtime.persisted() == 1,
+          "ESP-NOW MAC delivery success alone does not retire durable evidence");
+    check(!runtime.acknowledge(*retained_key, gs::AckClass::ReceivedVolatile) &&
+          runtime.persisted() == 1,
+          "ReceivedVolatile does not retire a business event");
+    check(!runtime.acknowledge({"ack-node", 42, 99}, gs::AckClass::Durable) &&
+          runtime.persisted() == 1,
+          "wrong EventKey ACK cannot retire another event");
+    const auto retry = runtime.next_message(237);
+    check(retry && retry->node_id == first_attempt->node_id &&
+          retry->session_id == first_attempt->session_id &&
+          retry->sequence_number == first_attempt->sequence_number,
+          "retry preserves the complete EventKey");
+    check(runtime.acknowledge(*retained_key, gs::AckClass::Durable) && runtime.persisted() == 0,
+          "Durable application ACK retires the intended retained event");
+
+    gs::node::NodeRuntime next_boot("ack-node", 43);
+    const auto next_boot_key = next_boot.record(gs::EventKind::Motion, "room1", 0, 0);
+    check(next_boot_key && next_boot_key->sequence == retained_key->sequence &&
+          next_boot_key->session_id != retained_key->session_id,
+          "different boot sessions distinguish identical sequence numbers");
+
+    gs::hub::HubRuntime hub(4, 8);
+    hub.authorize_node("ack-node", 43, false);
+    check(!hub.radio_message_callback(*first_attempt, 0),
+          "HubRuntime rejects an unauthorized stale session");
+
+    FakeSessionStore session_store;
+    const auto first_session = wire::next_boot_session(session_store);
+    const auto second_session = wire::next_boot_session(session_store);
+    check(first_session == 1 && second_session == 2 && session_store.persisted == 2,
+          "persistent boot-session policy advances across boots");
+    session_store.save_ok = false;
+    check(!wire::next_boot_session(session_store),
+          "boot-session policy fails closed when durable commit fails");
+}
+
 void test_security_seams() {
     gs::security::CredentialRegistry registry;
     check(registry.install({"node-1", "nvs:key:1", 1}), "credential reference installs");
@@ -394,6 +616,7 @@ int main() {
         test_node_modules();
         test_hub_modules();
         test_protocol_and_generic_rules();
+        test_data_plane_codec_and_ack_policy();
         test_security_seams();
         test_logging_policy();
         test_feature_flag_defaults();
