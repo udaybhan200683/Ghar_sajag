@@ -14,14 +14,28 @@ RSSI.
 
 FOTA frames are classified by their existing control-plane magic and copied to
 the separate bounded queue returned by `control_plane_queue()`. They never
-enter `HubRuntime`, the journal, or rules. A complete ESP-IDF product
-composition must connect this queue to the already qualified FOTA maintenance
-implementation.
+enter `HubRuntime`, the journal, or rules. The product composition under
+`idf/` connects this queue to the wire-compatible FOTA sender, pauses normal
+data-plane processing during maintenance, and retains the temporary BOOT
+button long-press trigger used for engineering qualification.
 
 No trustworthy wall-clock source is composed yet. The adapter uses epoch zero
 for the explicitly untrusted Hub receive/ACK time rather than inventing a wall
 clock; SNTP integration remains later scope.
 
-This repository does not yet contain a unified ESP-IDF product project, so
-these target-only files are intentionally excluded from the host Makefile.
-Hardware build/composition and validation remain pending.
+Build the C3 image first, copy its application binary to the ignored embed
+input, then build with ESP-IDF v6.0.3:
+
+```sh
+cp ../../../node/target/esp32c3/idf/build/gs_hw_m1_node.bin \
+  idf/main/node_firmware.bin
+source ~/.espressif/tools/activate_idf_v6.0.3.sh
+cd idf
+idf.py set-target esp32
+idf.py build
+```
+
+The custom `partitions.csv` provides two 0x1E0000 OTA slots and
+`sdkconfig.defaults` enables 4 MB flash and rollback. The target-only files
+remain excluded from the host Makefile. Target build is validated; flashing
+and physical validation remain pending.

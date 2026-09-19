@@ -6,7 +6,7 @@
 
 **HARDWARE VALIDATION PENDING**
 
-HW-M1.3 is **IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING /
+HW-M1.3 is **IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED /
 HARDWARE VALIDATION PENDING**.
 This document does not claim HW VALIDATED, QUALIFIED, or PASS on target
 hardware.
@@ -33,13 +33,12 @@ Checkpoint metadata:
 - ESP32 Hub adapter with qualified MAC/channel settings, bounded callback
   queues, transport RSSI/channel diagnostics, monotonically increasing session
   admission, one `HubRuntime` owner task, and typed application ACK return.
-- Separate target control-plane queues for later composition with the existing
-  qualified FOTA maintenance path.
+- Separate target control-plane queues, now consumed by the HW-M1.3B FOTA
+  workers without entering portable business processing.
 
-The repository has no unified ESP-IDF product project/CMake composition.
-Target-only adapter files are therefore isolated from the host Makefile and
-have not yet been target-built or flashed. The FOTA queues must be connected
-to the qualified maintenance implementation during target image composition.
+Target-only adapter files remain isolated from the host Makefile. Subsequent
+HW-M1.3B work added ESP-IDF product compositions; that later build result does
+not change this folder's role as host-validation evidence.
 
 ## Host test results
 
@@ -72,11 +71,17 @@ creation; browser validation reported that the sandbox cannot bind
 
 ## Target build and physical validation status
 
-Target ESP-IDF composition/build was **NOT RUN** at commit `1d41864`.
-The next task is HW-M1.3B: compose buildable ESP32-C3 and ESP32 Hub images
-from the existing adapters, preserve the 1920 KB dual-OTA slots and rollback,
-and connect the qualified FOTA maintenance paths as separate control-plane
-traffic. Both target builds must pass before physical validation begins.
+Target ESP-IDF composition/build was **NOT RUN at commit `1d41864`**. It was
+subsequently run for HW-M1.3B from documentation checkpoint `0546b28`:
+
+- ESP-IDF v6.0.3 C3 target `esp32c3`: PASS, 824,368 bytes with 1,141,712
+  bytes of 1920 KB OTA-slot headroom.
+- ESP-IDF v6.0.3 Hub target `esp32`: PASS, 1,592,848 bytes with 373,232 bytes
+  of 1920 KB OTA-slot headroom.
+- Exact dual-OTA layout and rollback configuration: preserved.
+- Host regression after composition: PASS, 124 checks.
+
+The next task is HW-M1.3C physical target qualification.
 
 Physical validation was **NOT RUN**. This folder is host-validation evidence
 only; it must not be described as physical HW evidence or used to mark
@@ -84,37 +89,35 @@ HW-M1.3 qualified.
 
 ## Manual hardware validation sequence
 
-1. Compose the node adapter and qualified FOTA maintenance consumer into the
-   ESP32-C3 ESP-IDF image; target-build it with the existing dual-OTA layout.
-2. Compose the Hub adapter and qualified FOTA maintenance consumer into the
-   ESP32 Hub ESP-IDF image; target-build it with the existing dual-OTA layout.
-3. Flash/boot the qualified C3 and verify MAC `14:63:93:C5:D1:58`, channel 1,
+1. Flash/boot the build-validated C3 composition and verify MAC
+   `14:63:93:C5:D1:58`, channel 1,
    TX API value 40 (10 dBm), GPIO4 PIR and active-low GPIO8 LED diagnostics.
-4. Flash/boot the qualified Hub and verify MAC `5C:01:3B:BE:B9:F8`, channel 1,
+2. Flash/boot the build-validated Hub composition and verify MAC
+   `5C:01:3B:BE:B9:F8`, channel 1,
    bounded data/control queues, and the sole Hub owner task.
-5. Allow the AM312 ten-second stabilization interval to complete without a
+3. Allow the AM312 ten-second stabilization interval to complete without a
    fabricated boot-time motion event.
-6. Trigger motion and capture the C3 log proving sensing -> `NodeRuntime::record`
+4. Trigger motion and capture the C3 log proving sensing -> `NodeRuntime::record`
    with node/session/sequence identity.
-7. Capture the C3 log proving bounded `NodeMessage` encoding and ESP-NOW send;
+5. Capture the C3 log proving bounded `NodeMessage` encoding and ESP-NOW send;
    separately capture the MAC send result passed to `transport_result()`.
-8. Capture the Hub callback/owner logs proving callback enqueue with MAC,
+6. Capture the Hub callback/owner logs proving callback enqueue with MAC,
    transport RSSI/channel and deferred owner-task decode.
-9. Verify the Hub accepts the mapped node and current NVS boot session, calls
+7. Verify the Hub accepts the mapped node and current NVS boot session, calls
    `radio_message_callback()` and `run_state_once()`, and journals the event.
-10. Capture the typed Durable `NodeAckMessage` sent by the Hub and decoded by
+8. Capture the typed Durable `NodeAckMessage` sent by the Hub and decoded by
     the C3 owner task; verify only the matching retained event is retired.
-11. Deliberately suppress/drop one application ACK where practical; verify MAC
+9. Deliberately suppress/drop one application ACK where practical; verify MAC
     success alone does not retire the event and the retry preserves the exact
     EventKey.
-12. Deliver a duplicate retry and verify journal identity remains duplicate-safe;
+10. Deliver a duplicate retry and verify journal identity remains duplicate-safe;
     record the existing duplicate-reducer gap if its effects are observable.
-13. Reboot the C3 and verify the NVS session increments while sequence restarts,
+11. Reboot the C3 and verify the NVS session increments while sequence restarts,
     so the complete EventKey differs and the Hub rejects the stale prior session.
-14. Verify Hub RSSI/channel diagnostics remain visible and semantic message RSSI
+12. Verify Hub RSSI/channel diagnostics remain visible and semantic message RSSI
     is not overwritten by transport metadata.
-15. Run both qualified FOTA rotations, verify post-update PIR operation, then
-    repeat steps 6-10 to prove the business data path still works after FOTA.
+13. Run both qualified FOTA rotations, verify post-update PIR operation, then
+    repeat steps 4-8 to prove the business data path still works after FOTA.
 
 Only after this sequence and retained evidence pass may HW-M1.3 be considered
 for HW VALIDATED / QUALIFIED status.

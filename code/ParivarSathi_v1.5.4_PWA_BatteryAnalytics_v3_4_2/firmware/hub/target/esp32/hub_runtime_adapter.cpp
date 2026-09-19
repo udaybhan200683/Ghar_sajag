@@ -34,6 +34,7 @@ QueueHandle_t g_data_queue = nullptr;
 QueueHandle_t g_control_queue = nullptr;
 std::atomic<std::uint32_t> g_data_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
+std::atomic<bool> g_control_plane_active{false};
 
 bool from_qualified_node(const std::uint8_t* mac) {
     return mac != nullptr &&
@@ -134,6 +135,10 @@ void owner_task(void*) {
              static_cast<unsigned>(kEspNowChannel));
 
     for (;;) {
+        if (g_control_plane_active.load(std::memory_order_acquire)) {
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
         ReceivedFrame frame;
         if (xQueueReceive(g_data_queue, &frame, pdMS_TO_TICKS(1000)) != pdTRUE) {
             const auto data_drops = g_data_queue_drops.exchange(0U, std::memory_order_relaxed);
@@ -210,6 +215,10 @@ void owner_task(void*) {
 
 QueueHandle_t control_plane_queue() {
     return g_control_queue;
+}
+
+void set_control_plane_active(bool active) {
+    g_control_plane_active.store(active, std::memory_order_release);
 }
 
 esp_err_t start_runtime_adapter() {

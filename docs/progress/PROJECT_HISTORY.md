@@ -1,7 +1,7 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1.3-HOST-R1
-**History covered through:** HW-M1.3 implementation and host validation
+**Document revision:** HW-M1.3-TARGET-BUILD-R1
+**History covered through:** HW-M1.3 ESP-IDF target composition/build validation
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
@@ -675,3 +675,42 @@ rollback and separate FOTA control plane. HW-M1.3C is the subsequent physical
 qualification step. No target build or HW-M1.3 physical validation is claimed
 by this checkpoint, and the immutable HW-M1.2/FOTA evidence snapshots remain
 unchanged.
+
+## 2026-09-19 - HW-M1.3B ESP-IDF Target Composition and Build Validated
+
+Status: **IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE
+VALIDATION PENDING**.
+
+Starting from documentation/resume checkpoint `0546b28`, real ESP-IDF v6.0.3
+product projects were added under `firmware/node/target/esp32c3/idf/` and
+`firmware/hub/target/esp32/idf/`. They compile the already host-validated
+adapters and portable NodeRuntime/HubRuntime dependencies; they do not create
+a second target-only business runtime. This isolation keeps ESP-IDF headers
+out of the host build and preserves callback -> bounded queue -> sole owner
+task ownership.
+
+The target compositions added a wire-compatible form of the qualified FOTA
+protocol under `firmware/common/transport/fota_protocol.hpp`, a C3 receiver,
+and a Hub sender with the temporary BOOT-button engineering trigger. The sole
+ESP-NOW callback on each target classifies and enqueues control frames. FOTA
+workers consume only the bounded control queues while normal data-plane work
+pauses, so FOTA cannot enter NodeRuntime, HubRuntime, journal, or rules. The Hub
+embeds the exact C3 application build artifact for engineering qualification;
+this is not backend firmware distribution or production authenticity.
+
+Both projects preserve the 4 MB partition map (`nvs` at `0x9000`, `otadata`
+at `0xF000`, `phy_init` at `0x11000`, `ota_0` at `0x20000`, and `ota_1` at
+`0x200000`), with each OTA slot `0x1E0000` and rollback enabled. Build results:
+
+- C3 target `esp32c3`: PASS; `gs_hw_m1_node.bin` = `0xC9430` (824,368
+  bytes), leaving `0x116BD0` (1,141,712 bytes, 58%).
+- Hub target `esp32`: PASS; `gs_hw_m1_hub.bin` = `0x184E10` (1,592,848
+  bytes), leaving `0x5B1F0` (373,232 bytes, 19%).
+- Host regression: `PATH=/usr/bin:/bin make cpp-test CXX=/usr/bin/g++` PASS,
+  124 checks under strict warnings.
+- `git diff --check`: PASS before checkpoint commit.
+
+No device was flashed. No target behavior or post-integration FOTA rotation
+was physically exercised. The last physically qualified commit therefore
+remains `50abdce`; the exact next task is HW-M1.3C physical target
+qualification with serial/configuration evidence.

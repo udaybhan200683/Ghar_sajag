@@ -15,15 +15,15 @@ ACK / dedupe / rules / journal -> Hub Wi-Fi/backend transport -> backend
 persistence/read models -> PWA`
 
 Current status on implementation branch `feature/hw-m1-runtime-integration`,
-currently at implementation commit `1d41864` and based on documentation
-checkpoint `4645098`:
+based on implementation commit `1d41864` and pre-build documentation
+checkpoint `0546b28`:
 
 - HW-M1.0 toolchain and board bring-up: **QUALIFIED / PASS**.
 - HW-M1.1 real AM312 PIR sensing: **QUALIFIED / PASS**.
 - HW-M1.2 real PIR-to-C3-to-ESP-NOW-to-Hub path: **QUALIFIED / PASS**.
 - ESP-NOW dual-slot C3 FOTA qualification: **QUALIFIED / PASS**.
 - HW-M1.3 Target Runtime Integration: **IMPLEMENTED / HOST VALIDATED / TARGET
-  BUILD PENDING / HARDWARE VALIDATION PENDING**.
+  BUILD VALIDATED / HARDWARE VALIDATION PENDING**.
 
 The status words have strict meanings in this plan:
 
@@ -40,8 +40,11 @@ or QUALIFIED.
 ## 2. Branch and software baseline
 
 - Current implementation branch: `feature/hw-m1-runtime-integration`.
-- Current development HEAD: `1d41864` (`Implement HW-M1.3 target runtime
-  integration`), also pushed to `origin/feature/hw-m1-runtime-integration`.
+- Last host-validated implementation commit: `1d41864` (`Implement HW-M1.3
+  target runtime integration`).
+- Pre-build documentation/resume checkpoint: `0546b28` (`Document HW-M1.3
+  checkpoint and resume state`), pushed to
+  `origin/feature/hw-m1-runtime-integration`.
 - Qualified parent branch: `feature/hw-m1`.
 - Implementation branch point: `4645098` (`Document complete HW-M1 resume
   state before runtime integration`).
@@ -206,12 +209,11 @@ demonstrated through the Hub, with PIR restoration and post-update motion after
 both boots. This is a qualified control-plane checkpoint separate from
 HW-M1.3 data-plane runtime integration.
 
-### HW-M1.3 — Target Runtime Integration — IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING / HARDWARE VALIDATION PENDING
+### HW-M1.3 — Target Runtime Integration — IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE VALIDATION PENDING
 
-Source implementation and portable host validation are complete. No ESP-IDF
-target image was built or flashed and no physical HW-M1.3 behavior was
-demonstrated at commit `1d41864`, so the milestone is not HW VALIDATED or
-QUALIFIED.
+Source implementation, portable host validation, and ESP-IDF target builds are
+complete. No target was flashed and no physical HW-M1.3 behavior was
+demonstrated, so the milestone is not HW VALIDATED or QUALIFIED.
 
 Implemented scope:
 
@@ -263,34 +265,38 @@ Implementation modules:
 - `tests/cpp/test_main.cpp` — codec, malformed-frame, ACK/retry/session and
   FOTA separation regressions.
 
-The repository has no unified ESP-IDF product project/CMake composition.
-Target adapters are intentionally excluded from the host Makefile. Composing
-and target-building them with the qualified FOTA maintenance path is the next
-engineering sub-step, before any physical validation.
+The target adapters remain excluded from the host Makefile, but are now
+composed through isolated ESP-IDF product projects under each target's `idf/`
+directory. Those projects compile the portable runtime dependencies directly
+and preserve the portable business ownership model.
 
-### HW-M1.3B — ESP-IDF target composition/build — TARGET BUILD PENDING
+### HW-M1.3B — ESP-IDF target composition/build — TARGET BUILD VALIDATED
 
-This is the exact next implementation task. Compose buildable ESP-IDF images
-for the ESP32-C3 node and ESP32 Hub from the existing target adapters and
-portable dependencies. Preserve the qualified dual-slot FOTA layout and
-rollback behavior, and connect the separate control-plane queues to the
-qualified FOTA maintenance paths without routing FOTA through business
-runtime processing.
+ESP-IDF v6.0.3 product compositions now build for the ESP32-C3 node and ESP32
+Hub from the existing target adapters and portable dependencies. Both preserve
+the qualified dual-slot layout and rollback. Wire-compatible FOTA worker tasks
+consume the adapters' bounded control queues; maintenance pauses normal
+data-plane work and never routes FOTA through business runtime processing.
 
 HW-M1.3B acceptance criteria:
 
-- C3 ESP-IDF build passes.
-- Hub ESP-IDF build passes.
-- Both images fit their 1920 KB OTA slots.
-- `ota_0`/`ota_1` layout and rollback configuration remain unchanged.
-- C3 AM312 GPIO4, channel 1 and TX API value 40 remain configured.
-- Host `PATH=/usr/bin:/bin make cpp-test CXX=/usr/bin/g++` remains PASS.
+- **PASS:** C3 ESP-IDF target `esp32c3`; `0xC9430` (824,368 bytes),
+  `0x116BD0` (1,141,712 bytes, 58%) OTA headroom.
+- **PASS:** Hub ESP-IDF target `esp32`; `0x184E10` (1,592,848 bytes),
+  `0x5B1F0` (373,232 bytes, 19%) OTA headroom.
+- **PASS:** exact `ota_0`/`ota_1` 0x1E0000 layout, 4 MB flash and rollback
+  configuration preserved in both projects.
+- **PASS:** C3 AM312 GPIO4, channel 1 and TX API value 40 remain configured.
+- **PASS:** `PATH=/usr/bin:/bin make cpp-test CXX=/usr/bin/g++` — 124 checks.
 - No hardware qualification is claimed from target build success alone.
+
+Target-build-only evidence is recorded in
+`docs/hw/evidence/HW_M1_3_TARGET_BUILD/README.md`.
 
 ### HW-M1.3C — Physical target qualification — HARDWARE VALIDATION PENDING
 
-After HW-M1.3B passes, physically validate the complete target path and retain
-durable evidence. HW-M1.3C must demonstrate the manual sequence in
+This is the exact next engineering task. Physically validate the complete
+target path and retain durable evidence. HW-M1.3C must demonstrate the manual sequence in
 `CURRENT_BASELINE.md`, including PIR -> `NodeRuntime`, typed ESP-NOW data,
 callback queue ownership, HubRuntime processing, Durable ACK retirement,
 retry/duplicate/session behavior, RSSI visibility and both post-integration
@@ -319,11 +325,12 @@ and evidence is captured.
 
 ### Target composition/build (HW-M1.3B)
 
-- **PENDING:** C3 ESP-IDF composition/build.
-- **PENDING:** Hub ESP-IDF composition/build.
-- **PENDING:** OTA-slot fit, partition preservation and rollback verification.
-- **PENDING:** Composition of the separate FOTA control-plane maintenance
-  paths with the target adapters.
+- **PASS:** C3 ESP-IDF composition/build with ESP-IDF v6.0.3.
+- **PASS:** Hub ESP-IDF composition/build with ESP-IDF v6.0.3.
+- **PASS:** OTA-slot fit, exact partition preservation and rollback
+  configuration verified for both images.
+- **PASS:** Separate FOTA control-plane sender/receiver workers composed with
+  the target adapters through bounded queues.
 
 ### Target side (HW-M1.3C)
 
@@ -344,8 +351,8 @@ and evidence is captured.
 
 ## 9. Open limitations and non-goals
 
-The following remain open unless separately qualified: target ESP-IDF
-composition/build, physical HW-M1.3 validation, post-integration FOTA,
+The following remain open unless separately qualified: physical HW-M1.3
+validation, post-integration FOTA,
 RF range optimization,
 multi-node RF/concurrency behavior, ESP-NOW peer encryption/key management,
 signed firmware authenticity, anti-rollback/version policy, backend firmware

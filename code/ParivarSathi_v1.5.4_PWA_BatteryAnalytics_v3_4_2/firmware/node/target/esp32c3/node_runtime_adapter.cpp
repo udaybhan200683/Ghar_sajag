@@ -49,6 +49,7 @@ QueueHandle_t g_send_queue = nullptr;
 std::uint64_t g_session_id = 0;
 std::atomic<std::uint32_t> g_ack_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
+std::atomic<bool> g_control_plane_active{false};
 
 Milliseconds monotonic_ms() {
     return static_cast<Milliseconds>(esp_timer_get_time() / 1000);
@@ -100,7 +101,10 @@ void send_callback(const esp_now_send_info_t*, esp_now_send_status_t status) {
 #else
 void send_callback(const std::uint8_t*, esp_now_send_status_t status) {
 #endif
-    if (g_send_queue == nullptr) return;
+    // FOTA ACK sends use the same peer and produce indistinguishable MAC
+    // callbacks. They belong to the control-plane worker, not NodeRuntime.
+    if (g_send_queue == nullptr ||
+        g_control_plane_active.load(std::memory_order_acquire)) return;
     const SendResult result{status == ESP_NOW_SEND_SUCCESS};
     (void)xQueueSend(g_send_queue, &result, 0);
 }
@@ -225,17 +229,22 @@ void owner_task(void*) {
             in_flight.reset();
         }
 
-        const bool raw_pir = gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
-        const auto sensed = pir.sample(raw_pir, now);
-        if (sensed) {
-            const auto key = runtime.record(*sensed, kLocation, now, 0, 24U * 60U * 60U,
-                                            0, false, SensorType::Pir, 0);
-            if (key) {
-                ESP_LOGI(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
-                         static_cast<unsigned long long>(key->session_id),
-                         static_cast<unsigned long long>(key->sequence));
-                (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio), kLedActiveLow ? 0 : 1);
-                led_off_at_ms = now + 200;
+        const bool maintenance = g_control_plane_active.load(std::memory_order_acquire);
+        if (!maintenance) {
+            const bool raw_pir = gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
+            const auto sensed = pir.sample(raw_pir, now);
+            if (sensed) {
+                const auto key = runtime.record(*sensed, kLocation, now, 0,
+                                                24U * 60U * 60U, 0, false,
+                                                SensorType::Pir, 0);
+                if (key) {
+                    ESP_LOGI(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
+                             static_cast<unsigned long long>(key->session_id),
+                             static_cast<unsigned long long>(key->sequence));
+                    (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio),
+                                         kLedActiveLow ? 0 : 1);
+                    led_off_at_ms = now + 200;
+                }
             }
         }
         if (led_off_at_ms != 0 && now >= led_off_at_ms) {
@@ -243,7 +252,7 @@ void owner_task(void*) {
             led_off_at_ms = 0;
         }
 
-        if (!in_flight) {
+        if (!in_flight && !maintenance) {
             const auto message = runtime.next_message(now);
             if (message) {
                 const EventKey key{message->node_id, message->session_id,
@@ -279,6 +288,10 @@ void owner_task(void*) {
 
 QueueHandle_t control_plane_queue() {
     return g_control_queue;
+}
+
+void set_control_plane_active(bool active) {
+    g_control_plane_active.store(active, std::memory_order_release);
 }
 
 esp_err_t start_runtime_adapter() {

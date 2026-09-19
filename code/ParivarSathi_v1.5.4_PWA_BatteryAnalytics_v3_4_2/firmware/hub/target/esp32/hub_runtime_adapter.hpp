@@ -21,9 +21,10 @@ struct ReceivedFrame {
 };
 
 // Initializes channel 1 ESP-NOW and starts the sole HubRuntime owner task.
-// The separate control-plane queue is the explicit handoff to the existing
-// FOTA maintenance subsystem and is never consumed as business data.
+// The separate control-plane queue is the explicit handoff to the product
+// FOTA worker and is never consumed as business data.
 esp_err_t start_runtime_adapter();
 QueueHandle_t control_plane_queue();
+void set_control_plane_active(bool active);
 
 }  // namespace gs::hub::target

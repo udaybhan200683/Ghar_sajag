@@ -21,10 +21,10 @@ struct ReceivedFrame {
 };
 
 // Initializes the qualified GPIO/radio configuration and starts the sole task
-// that owns NodeRuntime. The caller must compose the returned control-plane
-// queue with the existing FOTA maintenance path; data-plane code never consumes
-// or journals those frames.
+// that owns NodeRuntime. The product FOTA worker consumes the returned
+// control-plane queue; data-plane code never consumes or journals those frames.
 esp_err_t start_runtime_adapter();
 QueueHandle_t control_plane_queue();
+void set_control_plane_active(bool active);
 
 }  // namespace gs::node::target

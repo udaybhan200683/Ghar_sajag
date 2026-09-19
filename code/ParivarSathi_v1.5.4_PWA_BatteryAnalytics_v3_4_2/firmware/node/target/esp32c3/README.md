@@ -12,11 +12,21 @@ be durably incremented, so a reboot does not knowingly reuse
 `(node_id, session_id, sequence)` identity.
 
 FOTA frames are classified by their existing control-plane magic and copied to
-the separate bounded queue returned by `control_plane_queue()`. A complete
-ESP-IDF product composition must connect that queue to the already qualified
-FOTA maintenance implementation. FOTA is never decoded as `NodeMessage` and
-never enters `NodeRuntime`.
+the separate bounded queue returned by `control_plane_queue()`. The product
+composition under `idf/` connects that queue to the wire-compatible FOTA
+receiver. Normal sensing/transmission pauses during active maintenance; FOTA
+is never decoded as `NodeMessage` and never enters `NodeRuntime`.
 
-This repository does not yet contain a unified ESP-IDF product project, so
-these target-only files are intentionally excluded from the host Makefile.
-Hardware build/composition and validation remain pending.
+Build with ESP-IDF v6.0.3:
+
+```sh
+source ~/.espressif/tools/activate_idf_v6.0.3.sh
+cd idf
+idf.py set-target esp32c3
+idf.py build
+```
+
+The custom `partitions.csv` provides two 0x1E0000 OTA slots and
+`sdkconfig.defaults` enables 4 MB flash and rollback. The target-only files
+remain excluded from the host Makefile. Target build is validated; flashing
+and physical validation remain pending.
