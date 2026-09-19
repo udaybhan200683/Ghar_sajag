@@ -741,3 +741,24 @@ image size all passed. No board was flashed. The HIL matrix is
 `docs/hw/HW_M1_3_HIL_TEST_MATRIX.json` with the readable checklist in
 `docs/hw/HW_M1_3_HIL_VALIDATION.md`. Future power/performance measurements are
 reserved as NOT_BASELINED in `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`.
+
+## 2026-09-19 - HW-M1.3 Negative HIL Physically Exercised
+
+The temporary branch `test/hw-m1-3-negative-hil` physically exercised the
+remaining negative-HIL cases using the temporary compile-time harness. The
+drop-ACK retry path, same EventKey retry identity, wrong EventKey ACK, durable
+versus `ReceivedVolatile` retirement, duplicate current behavior, NVS session
+lifecycle, stale-session rejection, and separate semantic/transport RSSI
+diagnostics all passed. Exact artifacts, hashes, board identities, and
+observations are recorded in `docs/hw/evidence/HW_M1_3_HIL/README.md`.
+
+The tested binaries were built before the harness commit and therefore report
+`efbeaf9-dirty`; their recorded SHA-256 values are authoritative. Native USB
+monitor reconnects caused expected `USB_UART_CHIP_RESET` resets and new NVS
+sessions; this was not a firmware crash. The harness is temporary and must not
+be merged into the production runtime branch.
+
+HW-M1.3 now has implementation, host, target-build, automated-gate,
+positive-HIL, FOTA-HIL, and negative-HIL PASS evidence. Final clean-production
+restore/smoke verification remains pending, so final QUALIFIED status remains
+pending. HW-M1.4 power/performance remains separate.

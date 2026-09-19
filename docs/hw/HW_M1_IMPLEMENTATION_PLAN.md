@@ -22,8 +22,9 @@ checkpoint `0546b28`:
 - HW-M1.1 real AM312 PIR sensing: **QUALIFIED / PASS**.
 - HW-M1.2 real PIR-to-C3-to-ESP-NOW-to-Hub path: **QUALIFIED / PASS**.
 - ESP-NOW dual-slot C3 FOTA qualification: **QUALIFIED / PASS**.
-- HW-M1.3 Target Runtime Integration: **IMPLEMENTED / HOST VALIDATED / TARGET
-  BUILD VALIDATED / HARDWARE VALIDATION PENDING**.
+- HW-M1.3 Target Runtime Integration: **IMPLEMENTATION / HOST / TARGET BUILD /
+  AUTOMATED GATE / POSITIVE HIL / FOTA HIL / NEGATIVE HIL PASS; FINAL
+  RESTORE-SMOKE PENDING**.
 
 The status words have strict meanings in this plan:
 
@@ -209,11 +210,12 @@ demonstrated through the Hub, with PIR restoration and post-update motion after
 both boots. This is a qualified control-plane checkpoint separate from
 HW-M1.3 data-plane runtime integration.
 
-### HW-M1.3 — Target Runtime Integration — IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE VALIDATION PENDING
+### HW-M1.3 — Target Runtime Integration — NEGATIVE HIL PASS / FINAL RESTORE-SMOKE PENDING
 
 Source implementation, portable host validation, and ESP-IDF target builds are
-complete. No target was flashed and no physical HW-M1.3 behavior was
-demonstrated, so the milestone is not HW VALIDATED or QUALIFIED.
+complete. Positive/FOTA HIL and the temporary negative-HIL cases have been
+physically demonstrated, but final clean-production restore/smoke verification
+is still pending, so the milestone is not yet QUALIFIED.
 
 Implemented scope:
 
@@ -315,12 +317,15 @@ endurance as `NOT_RUN`. The implementation is
 
 ### HW-M1.3C — Physical target qualification — HARDWARE VALIDATION PENDING
 
-This is the exact next engineering task. Physically validate the complete
-target path and retain durable evidence. HW-M1.3C must demonstrate the manual sequence in
+The negative-HIL portion of this task is complete and recorded in
+`docs/hw/evidence/HW_M1_3_HIL/README.md`. The remaining HW-M1.3C task is the
+final clean-production restore/smoke verification. HW-M1.3C must demonstrate the manual sequence in
 `CURRENT_BASELINE.md`, including PIR -> `NodeRuntime`, typed ESP-NOW data,
 callback queue ownership, HubRuntime processing, Durable ACK retirement,
 retry/duplicate/session behavior, RSSI visibility and both post-integration
-FOTA rotations. Only then may HW-M1.3 become HW VALIDATED / QUALIFIED.
+FOTA rotations. Only then may HW-M1.3 become HW VALIDATED / QUALIFIED. The
+temporary fault-injection harness must not be merged into the production
+runtime branch.
 
 ### HW-M1 continuation ordering
 

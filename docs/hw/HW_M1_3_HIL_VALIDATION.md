@@ -1,10 +1,12 @@
 # HW-M1.3C Hardware-in-Loop Validation
 
-Status: **MANUAL_REQUIRED / HARDWARE VALIDATION PENDING**
+Status: **NEGATIVE HIL PASS / FINAL RESTORE-SMOKE PENDING**
 
 This is the physical acceptance checklist for the build-validated HW-M1.3
 compositions. It is intentionally not part of the automated software/target
-gate and no item is currently PASS. The machine-readable source is
+gate. The negative-HIL rows physically proven on 2026-09-19 are PASS in the
+machine-readable source, with evidence in
+`docs/hw/evidence/HW_M1_3_HIL/README.md`. The machine-readable source is
 `docs/hw/HW_M1_3_HIL_TEST_MATRIX.json`; record serial logs, photos/configuration
 observations, and evidence paths there when each item is executed.
 
@@ -17,7 +19,9 @@ observations, and evidence paths there when each item is executed.
   results from an image build.
 - FOTA is CONTROL PLANE traffic. NodeMessage/NodeAckMessage is DATA PLANE
   traffic. Record them separately.
-- `MANUAL_REQUIRED` means the step needs target hardware and evidence.
+- `MANUAL_REQUIRED` means the step still needs target hardware and evidence.
+- Negative HIL is complete, but this does not make HW-M1.3 QUALIFIED. Final
+  clean-production restore/smoke verification remains pending.
 
 ## Boot and configuration
 
@@ -56,23 +60,23 @@ observations, and evidence paths there when each item is executed.
 
 | ID | Acceptance observation | Status |
 |---|---|---|
-| HIL-RETRY-001 | Deliberately drop an application ACK where practical. | MANUAL_REQUIRED |
-| HIL-RETRY-002 | Event remains retained after ACK loss. | MANUAL_REQUIRED |
-| HIL-RETRY-003 | Retry occurs at the runtime retry deadline. | MANUAL_REQUIRED |
-| HIL-RETRY-004 | Retry uses identical source/session/sequence identity. | MANUAL_REQUIRED |
-| HIL-RETRY-005 | Wrong EventKey ACK does not retire another event. | MANUAL_REQUIRED |
-| HIL-RETRY-006 | `ReceivedVolatile` does not retire durable evidence. | MANUAL_REQUIRED |
+| HIL-RETRY-001 | Deliberately drop an application ACK where practical. | PASS |
+| HIL-RETRY-002 | Event remains retained after ACK loss. | PASS |
+| HIL-RETRY-003 | Retry occurs at the runtime retry deadline. | PASS |
+| HIL-RETRY-004 | Retry uses identical source/session/sequence identity. | PASS |
+| HIL-RETRY-005 | Wrong EventKey ACK does not retire another event. | PASS |
+| HIL-RETRY-006 | `ReceivedVolatile` does not retire durable evidence. | PASS |
 
 ## Duplicate, session, and RSSI behavior
 
 | ID | Acceptance observation | Status |
 |---|---|---|
-| HIL-SESSION-001 | Duplicate packet remains identity-safe under current behavior. | MANUAL_REQUIRED |
-| HIL-SESSION-002 | C3 reboot produces a new NVS boot/session identity. | MANUAL_REQUIRED |
-| HIL-SESSION-003 | New authorized session is admitted according to lifecycle policy. | MANUAL_REQUIRED |
-| HIL-SESSION-004 | Stale prior session is rejected. | MANUAL_REQUIRED |
-| HIL-RSSI-001 | Transport RSSI and channel diagnostics remain visible. | MANUAL_REQUIRED |
-| HIL-RSSI-002 | Transport RSSI does not overwrite semantic RSSI. | MANUAL_REQUIRED |
+| HIL-SESSION-001 | Duplicate packet remains identity-safe under current behavior. | PASS / behavior recorded |
+| HIL-SESSION-002 | C3 reboot produces a new NVS boot/session identity. | PASS |
+| HIL-SESSION-003 | New authorized session is admitted according to lifecycle policy. | PASS |
+| HIL-SESSION-004 | Stale prior session is rejected. | PASS |
+| HIL-RSSI-001 | Transport RSSI and channel diagnostics remain visible. | PASS |
+| HIL-RSSI-002 | Transport RSSI does not overwrite semantic RSSI. | PASS |
 
 ## FOTA regression
 
@@ -102,5 +106,9 @@ observations, and evidence paths there when each item is executed.
 For each row, record date/time, image hashes, running partition, target serial
 log path, physical setup, observed result, and reviewer. A failed or
 inconclusive item remains open; do not convert it to PASS by documentation
-review. Only after all required rows and FOTA regressions are physically
-demonstrated may HW-M1.3 become HW VALIDATED / QUALIFIED.
+review. The negative-HIL physical record is in the new evidence snapshot.
+Native USB monitor reconnect/reset behavior is recorded there as expected
+`USB_UART_CHIP_RESET`, not a firmware crash. Final clean-production
+restore/smoke verification remains open, so HW-M1.3 remains below final
+QUALIFIED status. HW-M1.4 power/performance is separate and is not an
+HW-M1.3 functional blocker.

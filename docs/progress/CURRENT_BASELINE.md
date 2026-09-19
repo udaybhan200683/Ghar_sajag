@@ -4,7 +4,7 @@
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3B paused; HW-M1.2 QUALIFIED / PASS
-**Active engineering work:** HW-M1.3 IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE VALIDATION PENDING
+**Active engineering work:** HW-M1.3 implementation/host/target-build/automated-gate/positive-HIL/FOTA-HIL/negative-HIL PASS; final clean-production restore/smoke PENDING
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
 **Current qualified HW branch:** `feature/hw-m1`
@@ -51,14 +51,15 @@ generic “stable” state:
 | HW-M1.3 host-validated implementation | `1d41864` | `feature/hw-m1-runtime-integration`, also on `origin/feature/hw-m1-runtime-integration` | IMPLEMENTED / HOST VALIDATED. |
 | Pre-build documentation/resume checkpoint | `0546b28` | `feature/hw-m1-runtime-integration`, also on the tracked remote before this work | Documentation checkpoint; no physical qualification. |
 | Current target-build-validated implementation | `a6b084c` | `feature/hw-m1-runtime-integration`, parent of this gate checkpoint | IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED; physical validation pending. |
-| HW firmware validation-framework checkpoint | This document's commit | `feature/hw-m1-runtime-integration`; descendant of `a6b084c` | Automated software/target gate PASS; HIL MANUAL_REQUIRED; physical qualification pending. |
-| Current HW-M1.3B source/build checkpoint | This document's commit | `feature/hw-m1-runtime-integration`; descendant of `0546b28` | IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE VALIDATION PENDING. |
+| HW firmware validation-framework checkpoint | This document's commit | `feature/hw-m1-runtime-integration`; descendant of `a6b084c` | Automated software/target gate PASS; negative HIL PASS; final restore/smoke pending. |
+| Current HW-M1.3 source/build/HIL checkpoint | This document's commit | `test/hw-m1-3-negative-hil`; descendant of `0546b28` | Implementation/host/target-build/automated-gate/positive-HIL/FOTA-HIL/negative-HIL PASS; final QUALIFIED status pending. |
 
 The last host-validated implementation commit before target composition is
 `1d41864`; `0546b28` is the documentation/resume checkpoint from which
-HW-M1.3B started. The latest physically qualified checkpoint remains
-`50abdce` until HW-M1.3 target hardware testing passes. Target build success
-does not replace physical qualification.
+HW-M1.3B started. The latest physically qualified production checkpoint
+remains `50abdce`; negative-HIL behavior is separately recorded in the new
+temporary-branch evidence snapshot. Target/HIL evidence does not replace the
+required clean-production restore/smoke check for final qualification.
 
 The P0 software-gap audit approved HW-M1: no host/backend/PWA defect blocks the
 first physical vertical slice. F14 remains an open software gap but does not
@@ -93,7 +94,7 @@ software/PWA branch point. The stable host/PWA reference remains
 | HW-M1.1 real AM312 PIR sensing | QUALIFIED / PASS | GPIO4 sensing, LED indication, battery operation and approximately 12 ft / 3.7 m observation. |
 | HW-M1.2 PIR -> C3 -> ESP-NOW -> Hub | QUALIFIED / PASS | Real motion events reached the Hub; channel/TX/RSSI findings recorded. |
 | Dual-slot C3 FOTA | QUALIFIED / PASS | `ota_0 -> ota_1 -> ota_0`, validation, PIR restoration and post-update events. |
-| HW-M1.3 Target Runtime Integration | IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE VALIDATION PENDING | Portable runtime/adapters are composed into ESP-IDF v6.0.3 C3 and Hub products; both fit the 1920 KB OTA slots; 124 focused C++ checks pass. No flashing or physical HW-M1.3 validation was performed. |
+| HW-M1.3 Target Runtime Integration | IMPLEMENTATION / HOST / TARGET BUILD / AUTOMATED GATE / POSITIVE HIL / FOTA HIL / NEGATIVE HIL PASS; FINAL RESTORE-SMOKE PENDING | Portable runtime/adapters are composed into ESP-IDF v6.0.3 C3 and Hub products; both fit the 1920 KB OTA slots; 124 focused C++ checks pass. Negative-HIL evidence is recorded in `docs/hw/evidence/HW_M1_3_HIL/README.md`. |
 
 The terms are strict: IMPLEMENTED means source exists; HOST VALIDATED means
 host/simulation validation passed; HW VALIDATED means target behavior was
@@ -1548,33 +1549,38 @@ the current operational and resume truth.
 - Branch point: `9b391fa`
 - Stable host/PWA reference: `feature/full-pwa-e2e`
 - HW-M1 status: HW-M1.2 QUALIFIED / PASS; separate C3 FOTA QUALIFIED / PASS;
-  HW-M1.3 IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED /
-  HARDWARE VALIDATION PENDING
+  HW-M1.3 implementation, host validation, target-build validation,
+  automated gate, positive HIL, FOTA HIL, and negative HIL PASS; final
+  clean-production restore/smoke verification PENDING
 - Pre-build documentation/resume HEAD: `0546b28`
 - Last host-validated implementation commit: `1d41864`
 - Last physically qualified HW checkpoint: `50abdce`
 - Previous documentation/resume checkpoint: `4645098`
-- Current checkpoint: HW-M1.3B target composition/build validated; next sub-step is physical qualification
-- HW-M1.3 status: IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED /
-  HARDWARE VALIDATION PENDING
+- Current checkpoint: HW-M1.3 negative HIL physically exercised; next sub-step
+  is final clean-production restore/smoke verification
+- HW-M1.3 status: implementation/host/target-build/automated-gate/positive-HIL/
+  FOTA-HIL/negative-HIL PASS; final restore/smoke and QUALIFIED status PENDING
 - Host regression status: focused C++ PASS (124 checks); most full-gate stages
   PASS; complete release gate ENVIRONMENT BLOCKED by sandbox localhost policy
 - Target-build status: C3 and Hub ESP-IDF v6.0.3 builds PASS and fit their
-  1920 KB OTA slots; physical HW-M1.3 evidence does not exist
+  1920 KB OTA slots; negative-HIL physical evidence is in
+  `docs/hw/evidence/HW_M1_3_HIL/README.md`
 - Plan: `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`
 - Host-only evidence: `docs/hw/evidence/HW_M1_3_HOST/README.md`
 - Target-build-only evidence:
   `docs/hw/evidence/HW_M1_3_TARGET_BUILD/README.md`
+- Negative-HIL evidence: `docs/hw/evidence/HW_M1_3_HIL/README.md`
 
 ## Next
 
-1. **HW-M1.3C — physical target qualification:** flash the build-validated C3
-   and Hub compositions, run the manual sequence below, and retain
+1. **HW-M1.3C — final clean-production restore/smoke:** restore the clean
+   production artifacts, run the required smoke check, and retain
    serial/configuration evidence.
 2. Rerun `make release-gate-final` in a normal local terminal where localhost
    sockets are permitted.
-3. Keep HW-M1.3 at HARDWARE VALIDATION PENDING until every physical criterion
-   passes; do not infer qualification from host or target-build success.
+3. Keep final HW-M1.3 QUALIFIED status PENDING until the clean-production
+   restore/smoke check passes; do not infer qualification from HIL or target
+   build success alone.
 
 ### Exact manual HW-M1.3 hardware validation
 
