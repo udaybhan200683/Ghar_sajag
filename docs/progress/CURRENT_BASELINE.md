@@ -1,15 +1,19 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** P3B-R3
+**Document revision:** HW-M1-R1
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
-**Engineering baseline:** Phase 3A - COMPLETE / QUALIFIED
-**Active engineering work:** Phase 3B - IN PROGRESS
+**Engineering baseline:** Phase 3B paused; HW-M1.2 QUALIFIED / PASS
+**Active engineering work:** HW-M1.3 PLANNED / NOT STARTED
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
-**Updated:** 2026-09-17
+**Current qualified HW branch:** `feature/hw-m1`
+**Current qualified HW commit:** `50abdce`
+**Updated:** 2026-09-18
 
-This document describes the current validated implementation baseline.
+This document is the definitive current “WHERE ARE WE NOW?” record. It
+preserves the inherited PWA/software baseline and the HW-M1 deltas without
+duplicating the full historical PWA implementation record below.
 
 Phase 2 remains COMPLETE / QUALIFIED at `9499381`. Phase 3A is COMPLETE /
 QUALIFIED after successful desktop/mobile browser validation and the authoritative
@@ -29,10 +33,141 @@ The qualified Phase 3B concurrent API and household-isolation checkpoint is
 qualification, restart/recovery, DB/resource fault injection,
 EXTENDED/endurance and final Phase 3 qualification remain pending.
 
-The P0 software-gap audit is complete: software is ready to start HW-M1. No
-host/backend/PWA defect blocks the first physical vertical slice. F14 remains
-an open software gap but does not block HW-M1; it remains a pilot/commercial
-P0 blocker. Full audit: `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`.
+The P0 software-gap audit approved HW-M1: no host/backend/PWA defect blocks the
+first physical vertical slice. F14 remains an open software gap but does not
+block HW-M1; it remains a pilot/commercial P0 blocker. Full audit:
+`docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`.
+
+## Current HW-M1 state
+
+### Repository and inherited software baseline
+
+- Repository root: `/home/udaybhan/projects/Ghar_sajag`.
+- Active product code directory:
+  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2`.
+- HW-M1 branch: `feature/hw-m1`.
+- Frozen software/PWA branch point: `9b391fa` on `feature/full-pwa-e2e`.
+- HW-M1 planning commit: `997f9ba`.
+- Earlier qualified HW checkpoint: `3f02822`.
+- Latest qualified HW commit: `50abdce`.
+
+The HW branch documents hardware and target-integration deltas from the frozen
+software/PWA branch point. The stable host/PWA reference remains
+`feature/full-pwa-e2e`; the historical qualified Phase 3B host checkpoint is
+`0d6a2fc`. These historical software anchors are not replaced by HW commits.
+
+### Milestone status
+
+| Milestone | Status | Evidence / meaning |
+|---|---|---|
+| HW-M1.0 toolchain and board bring-up | QUALIFIED / PASS | ESP-IDF v6.0.3 Hub/C3 build, flash and serial bring-up; board identity and 4 MB flash recorded. |
+| HW-M1.1 real AM312 PIR sensing | QUALIFIED / PASS | GPIO4 sensing, LED indication, battery operation and approximately 12 ft / 3.7 m observation. |
+| HW-M1.2 PIR -> C3 -> ESP-NOW -> Hub | QUALIFIED / PASS | Real motion events reached the Hub; channel/TX/RSSI findings recorded. |
+| Dual-slot C3 FOTA | QUALIFIED / PASS | `ota_0 -> ota_1 -> ota_0`, validation, PIR restoration and post-update events. |
+| HW-M1.3 Target Runtime Integration | PLANNED / NOT STARTED | No target-runtime implementation or physical qualification has begun. |
+
+The terms are strict: IMPLEMENTED means source exists; HOST VALIDATED means
+host/simulation validation passed; HW VALIDATED means target behavior was
+physically exercised; QUALIFIED / PASS means checkpoint exit criteria were
+physically demonstrated. Documentation or source inspection does not upgrade
+a status.
+
+### Qualified hardware configuration
+
+| Item | Qualified configuration |
+|---|---|
+| Hub | ESP32 DevKit / ESP-WROOM-32; ESP32-D0WD-V3 rev 3.1; 4 MB flash; STA MAC `5C:01:3B:BE:B9:F8`; CP2102 USB interface. |
+| Node | ESP32-C3 small board / SuperMini-style; 4 MB flash; MAC `14:63:93:C5:D1:58`. |
+| PIR | SmartElex AM312 on node GPIO4; approximately 12 ft / 3.7 m observed in the test setup. |
+| LED | Node onboard LED GPIO8, active-low. |
+| ESP-NOW | Current channel 1 on Hub and node. |
+| C3 TX power | `esp_wifi_set_max_tx_power(40)` = 10 dBm. |
+
+The full HW-M1.2 snapshot is `docs/hw/evidence/HW_M1_2/README.md`. It also
+records that initial operation used channel 6, the C3 was unstable at the
+higher/default TX power, 10 dBm was substantially more stable, channel 6 -> 1
+did not produce meaningful range improvement, and channel congestion was not
+proven to be the dominant range limitation. RF optimization remains open;
+channel 1 did not solve the range issue. Hub RSSI logging was added and
+cleaned single-line logging removed the prior serial-garbage symptoms.
+
+### FOTA state and security limitations
+
+Hub and C3 use 4 MB flash with `ota_0` and `ota_1` each 1920 KB and rollback
+enabled. The C3 completed USB bootstrap to `ota_0`, FOTA #1 `ota_0 -> ota_1`,
+and FOTA #2 `ota_1 -> ota_0`, including pending validation, VALID marking, PIR
+restoration and post-update Hub events. The immutable record is
+`docs/hw/evidence/HW_M1_FOTA/README.md`.
+
+FOTA is CONTROL PLANE traffic. Normal sensor/business events are DATA PLANE
+traffic. Qualified FOTA features include ESP-NOW transfer, application ACK,
+sequence handling, retry, duplicate handling, per-chunk/full-image CRC32,
+inactive partition selection, boot partition switching, rollback-enabled boot
+and post-boot validation.
+
+FOTA is not production-secure: CRC32 is corruption detection, not
+authenticity; ESP-NOW peer encryption/key management, signed firmware
+authenticity, anti-rollback/version policy and backend firmware distribution
+remain open. The embedded C3 image in the qualification Hub was only for
+bootstrap qualification, not the intended production distribution
+architecture. Hub self-OTA is also open.
+
+### Architecture boundaries to preserve
+
+The portable code already defines `AckClass`, `EventKey`, `DomainEvent`,
+`NodeMessage`, `NodeAckMessage`, `node_message_from_event()`,
+`domain_event_from_node_message()` and `make_node_ack()`.
+
+`NodeRuntime` owns node/session identity, event sequence, retained business
+events, retry scheduling, typed `NodeMessage` creation, physical transport
+result handling and application ACK semantics. `next_message()` is the typed
+boundary for the future physical adapter; `transport_result()` accepts the
+physical result; `acknowledge()` applies the application ACK. `NodeRadio` owns
+retry timing/pending work, not physical RF. ESP-NOW delivery success is not a
+durable business ACK.
+
+`HubRuntime::radio_message_callback()` is the typed ingress boundary, followed
+by validation, authorization/session checks, ingest, journal, coverage and
+routine/rules processing through `run_state_once()`. The Hub runtime remains
+single-owner. ESP-NOW callbacks must only perform bounded copy/admission into a
+queue; they must not mutate `HubRuntime` directly. The owner-task model in
+`firmware/hub/runtime/FREERTOS_BINDING.md` remains authoritative.
+
+### Exact next milestone and implementation scope
+
+The exact next milestone is **HW-M1.3 — Target Runtime Integration**. It is
+**PLANNED / NOT STARTED**.
+
+1. Build and test a common bounded codec for `NodeMessage` and
+   `NodeAckMessage`, with protocol magic/version/frame type and fixed-width,
+   bounded representation; reject malformed frames.
+2. Integrate the C3 AM312 GPIO4 path with existing sensing semantics,
+   `NodeRuntime`, `next_message()`, an ESP-NOW adapter,
+   `transport_result()`, and application ACK -> `acknowledge()`.
+3. Integrate the Hub ESP-NOW callback, bounded queue, owner task, decode,
+   `radio_message_callback()`, `run_state_once()`, and `NodeAckMessage` return.
+4. Keep FOTA separate as control-plane traffic.
+5. Run host codec/regression tests before physical target validation.
+
+HW-M1.3 is not physically qualified. Its host exit criteria are bounded
+NodeMessage/NodeAckMessage codec tests, malformed-frame rejection, preserved
+ACK semantics, preserved retry identity and existing host regression gates.
+Its target exit criteria are real AM312 -> NodeRuntime, real typed
+NodeMessage over ESP-NOW, bounded Hub callback queue, HubRuntime owner-task
+processing, application ACK return, correct retained-event retirement,
+post-integration FOTA/PIR operation, and captured hardware evidence.
+
+### Current open gaps
+
+- HW-M1.3 target-runtime integration and physical validation.
+- Common bounded wire codec and malformed-frame tests.
+- Target ESP-NOW peer encryption/key management and production authenticity.
+- Anti-rollback/version policy and backend firmware distribution.
+- RF range optimization and multi-node RF characterization.
+- Target Wi-Fi/backend transport, target persistence/power-loss recovery,
+  battery calibration and later HW-M1 vertical-slice milestones.
+- Remaining Phase 3B host work: provider storm/failure, restart/recovery,
+  DB/resource fault injection, EXTENDED/endurance and final reconciliation.
 
 ## Master implementation specification
 
@@ -1240,7 +1375,9 @@ Phase 2 is therefore COMPLETE / QUALIFIED.
 
 ## Phase 3B Pause / Resume Point for HW-M1
 
-Phase 3B is intentionally paused while HW-M1 target integration is performed.
+Phase 3B is intentionally paused while HW-M1 target integration remains the
+active engineering line. HW-M1.2 and the separate C3 FOTA checkpoint are
+qualified; HW-M1.3 target-runtime integration has not started.
 The stable qualified host/PWA branch is `feature/full-pwa-e2e`. The last
 qualified Phase 3B implementation checkpoint before HW-M1 is `0d6a2fc`; the
 current documented baseline before branching for HW-M1 is `c43c829`.
@@ -1261,11 +1398,12 @@ Remaining Phase 3 work is unchanged:
 
 The P0 audit at `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md` approved HW-M1:
 software is ready, no unresolved host/backend/PWA defect blocks the milestone,
-F14 remains a software gap but does not block HW-M1, and target ESP32 adapters
-and HIL evidence remain pending. HW-M1 is one ESP32 DevKit hub, one ESP32-C3
-node, and one PIR proving PIR → C3 sensing → NodeMessage → ESP-NOW → hub
-ingest/ACK/dedupe/rules → hub Wi-Fi/backend transport → backend
-persistence/read models → PWA.
+and F14 remains a software gap but does not block HW-M1. HW-M1 is one ESP32
+DevKit hub, one ESP32-C3 node, and one PIR proving PIR → C3 sensing →
+NodeMessage → ESP-NOW → hub ingest/ACK/dedupe/rules → hub Wi-Fi/backend
+transport → backend persistence/read models → PWA. The currently qualified
+scope is the HW-M1.2 PIR-to-Hub path plus separate C3 FOTA; target runtime
+integration, backend transport and PWA delivery remain open.
 
 When Phase 3 resumes, the first step is reconciliation, not immediate new
 Phase 3 implementation:
@@ -1300,25 +1438,75 @@ the current operational and resume truth.
 - Branch: `feature/hw-m1`
 - Branch point: `9b391fa`
 - Stable host/PWA reference: `feature/full-pwa-e2e`
-- HW-M1 status: NOT STARTED
-- Current checkpoint: HW-M1.0
-- Last qualified HW-M1 checkpoint: NONE
-- Next task: toolchain and board bring-up
-- Known blockers: none before starting; target adapters and HIL evidence are
-  pending during the milestone
+- HW-M1 status: HW-M1.2 QUALIFIED / PASS; separate C3 FOTA QUALIFIED / PASS
+- Current checkpoint: HW-M1.2 plus qualified dual-slot C3 FOTA
+- Last qualified HW checkpoint: `50abdce`
+- Next milestone: HW-M1.3 Target Runtime Integration
+- HW-M1.3 status: PLANNED / NOT STARTED
+- Known blockers: none identified; bounded codec, target runtime adapters and
+  HW-M1.3 HIL evidence remain to be implemented and demonstrated
 - Host regression status: inherited qualified baseline; rerun after shared
   changes
-- Hardware/HIL evidence status: NOT STARTED
+- Hardware/HIL evidence status: HW-M1.0, HW-M1.1, HW-M1.2 and FOTA qualified;
+  HW-M1.3 evidence does not exist
 - Plan: `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`
 
 ## Next
 
-1. Start Phase 3B load/scale qualification from the P3A-R1 qualified baseline
-   anchored at `4dcaf99`.
-2. Preserve the Phase 3A performance budgets and browser sequencing regressions
-   as mandatory regression coverage during later stress/fault work.
-3. Keep `4dcaf99` as the permanent Phase 3A implementation/qualification anchor;
-   later documentation-only commits do not replace it.
+1. Implement HW-M1.3 on a new branch named
+   `feature/hw-m1-runtime-integration`.
+2. First add host-tested bounded codecs for `NodeMessage` and
+   `NodeAckMessage`, malformed-frame rejection and preserved ACK/retry identity.
+3. Then integrate the real C3 sensing/runtime/ESP-NOW path and the Hub
+   callback queue/owner task/HubRuntime/application ACK path.
+4. Keep FOTA control-plane traffic separate from normal sensor/business
+   data-plane traffic.
+5. Run applicable host regression gates before physical validation and do not
+   call HW-M1.3 QUALIFIED until every target exit criterion and evidence item
+   in the plan has passed.
 
-NEXT = Phase 3B event/device/history/report/notification/API load qualification,
-followed by Phase 3C fault/recovery/resource/endurance work.
+## RESUME HERE
+
+- Repository root: `/home/udaybhan/projects/Ghar_sajag`.
+- Active branch context: `feature/hw-m1`; frozen software/PWA reference is
+  `feature/full-pwa-e2e`, with HW-M1 fork point `9b391fa`.
+- Latest qualified commit: `50abdce` (`Qualify dual-slot ESP-NOW node FOTA`).
+- Expected working-tree state: clean before starting implementation; this
+  documentation consolidation is committed separately from the qualified
+  baseline.
+- Current milestone: HW-M1.3 — Target Runtime Integration,
+  **PLANNED / NOT STARTED**.
+- Last successful physical qualification: dual-slot C3 FOTA
+  `ota_0 -> ota_1 -> ota_0`, after HW-M1.2 physically qualified
+  `PIR -> C3 -> ESP-NOW -> Hub`.
+- Unresolved limitations: RF range optimization; channel 1 did not prove a
+  range solution; 10 dBm remains the qualified C3 baseline; production
+  ESP-NOW encryption/key management, signed authenticity, anti-rollback and
+  backend firmware distribution are open; the qualification Hub’s embedded C3
+  image is bootstrap-only; target runtime/backend/PWA integration and later
+  resilience/telemetry work remain open.
+- Exact next engineering task: create
+  `feature/hw-m1-runtime-integration`, add and host-test the bounded
+  `NodeMessage`/`NodeAckMessage` codec, then integrate C3 `NodeRuntime` and
+  Hub callback queue/owner-task processing with application ACK semantics.
+- Read first: this `RESUME HERE` section; `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`;
+  `docs/progress/PROJECT_HISTORY.md`; `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`;
+  `docs/hw/evidence/HW_M1_2/README.md`; `docs/hw/evidence/HW_M1_FOTA/README.md`;
+  and, under
+  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`,
+  `shared/include/gs/domain.hpp`, `shared/include/gs/protocol.hpp`,
+  `shared/include/gs/ports.hpp`, `firmware/node/runtime/node_runtime.hpp`,
+  `firmware/node/runtime/node_runtime.cpp`,
+  `firmware/node/components/radio/node_radio.hpp`,
+  `firmware/node/components/radio/node_radio.cpp`,
+  `firmware/node/components/sensing/`,
+  `firmware/hub/runtime/hub_runtime.hpp`,
+  `firmware/hub/runtime/hub_runtime.cpp`,
+  `firmware/hub/components/ingest/`, and
+  `firmware/hub/runtime/FREERTOS_BINDING.md`, plus `Makefile`.
+- Branch instruction: create `feature/hw-m1-runtime-integration` from the
+  current `feature/hw-m1` HEAD after verifying the working tree and qualified
+  commit. Do not merge or push automatically.
+- Qualification reminder: HW-M1.3 is not physically qualified. Do not label it
+  HW VALIDATED or QUALIFIED until the host and target exit criteria in the plan
+  are demonstrated and captured as evidence.

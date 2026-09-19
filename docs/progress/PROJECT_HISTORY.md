@@ -1,13 +1,15 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** P3B-Q2
-**History covered through:** Phase 3B Reports scalability qualification
+**Document revision:** HW-M1-R1
+**History covered through:** HW-M1 dual-slot C3 FOTA qualification
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
 **Previous qualified Phase 3B scale/read-path checkpoint:** `fee5854`
 **Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
-**Updated:** 2026-09-17
+**Latest qualified HW branch:** `feature/hw-m1`
+**Latest qualified HW commit:** `50abdce`
+**Updated:** 2026-09-18
 
 This file is an append-only chronological engineering history.
 
@@ -495,3 +497,94 @@ strategy are recorded in `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`.
 No target firmware implementation has started yet. Phase 3 historical anchors
 remain unchanged, and later Phase 3 work is preserved for reconciliation after
 the single-node hardware slice.
+
+## 2026-09-18 - HW-M1.0 and HW-M1.1 Physical Qualification
+
+The first physical HW-M1 slice was brought up on ESP-IDF v6.0.3 with one ESP32
+DevKit / ESP-WROOM-32 Hub and one ESP32-C3 node, both with 4 MB flash. The
+qualified board identities, Hub CP2102 interface, MAC addresses, node GPIO
+mapping and power baseline were recorded in the HW-M1.2 evidence snapshot.
+
+The SmartElex AM312 PIR was connected to C3 GPIO4 and the onboard active-low
+LED was used for indication on GPIO8. PIR sensing was physically demonstrated,
+including an observed approximately 12 ft / 3.7 m detection distance in the
+recorded test setup and battery-powered node operation. These results closed
+the bring-up and standalone sensing checkpoints because target electrical and
+sensor behavior had to be observed before qualifying the radio path.
+
+Evidence: `docs/hw/evidence/HW_M1_2/README.md`.
+
+## 2026-09-18 - HW-M1.2 ESP-NOW Path and RF Baseline Qualified
+
+Commit `3f02822` recorded the physically qualified path:
+
+`AM312 PIR -> ESP32-C3 -> ESP-NOW -> ESP32 Hub`
+
+The Hub received real PIR-generated motion events and the recorded C3 send
+callback reported successful delivery. The qualification baseline moved from
+initial channel 6 operation to channel 1 on both devices. This was tested
+because local Wi-Fi-channel congestion was suspected, but channel 1 produced
+no meaningful room-to-room range improvement. Therefore congestion was not
+established as the dominant range limitation and RF optimization remains open.
+
+The C3 was unstable at the higher/default configured TX power. Reducing the
+configured maximum to `esp_wifi_set_max_tx_power(40)` (10 dBm) produced much
+more stable behavior, so 10 dBm became the current qualified baseline. Any
+future increase requires controlled RF requalification. Hub RSSI and channel
+metadata logging was added to make later range work measurable, and cleaned
+single-line logging removed the earlier serial-garbage symptoms.
+
+This checkpoint qualified the physical link and logging behavior only. It did
+not qualify the portable runtime codec, durable business ACK semantics,
+backend/Wi-Fi delivery, PWA delivery or production RF optimization.
+
+## 2026-09-18 - HW-M1 Dual-Slot ESP-NOW Node FOTA Qualified
+
+Commit `50abdce` qualified the C3 control-plane FOTA path through the ESP32
+Hub. Both devices used 4 MB flash with custom dual-OTA partitions: `ota_0`
+and `ota_1` were each 1920 KB and rollback was enabled.
+
+The qualification started with a USB bootstrap into `ota_0`. FOTA #1 rotated
+`ota_0 -> ota_1`; the node rebooted into pending validation, was marked VALID,
+restored PIR operation and generated post-update motion received by the Hub.
+FOTA #2 rotated `ota_1 -> ota_0` and demonstrated the same validation, PIR
+restoration and post-update event behavior. The sequence therefore qualified
+dual-slot rotation in both directions.
+
+The demonstrated FOTA features were ESP-NOW transfer, application-level ACK,
+sequence handling, retry, duplicate handling, per-chunk CRC32, whole-image
+CRC32, inactive OTA partition selection, boot-partition switching,
+rollback-enabled boot and post-boot validation. FOTA is control-plane traffic;
+normal sensor/business events remain data-plane traffic and are not equivalent
+to FOTA acknowledgements.
+
+The qualification intentionally leaves production-security and distribution
+work open: CRC32 is corruption detection rather than authenticity, ESP-NOW
+peer encryption/key management is pending, signed firmware authenticity and
+anti-rollback/version policy are pending, backend firmware distribution is
+pending, and the C3 image embedded in the qualification Hub was only a
+bootstrap arrangement rather than the intended production architecture.
+
+Evidence: `docs/hw/evidence/HW_M1_FOTA/README.md`.
+
+## 2026-09-18 - Transition to Planned HW-M1.3 Runtime Integration
+
+After the HW-M1.2 link and separate FOTA qualification, the next milestone was
+defined as **HW-M1.3 — Target Runtime Integration**. It remains
+**PLANNED / NOT STARTED**. The purpose is to connect the proven hardware path
+to the existing portable `NodeRuntime` and `HubRuntime` architecture without
+redesigning ownership boundaries.
+
+The planned work is a common bounded `NodeMessage`/`NodeAckMessage` codec with
+magic, version and frame type; C3 AM312 GPIO4 -> sensing -> `NodeRuntime` ->
+`next_message()` -> ESP-NOW transport -> `transport_result()` and application
+ACK -> `acknowledge()`; and Hub callback -> bounded queue -> owner task ->
+decode -> `radio_message_callback()` -> `run_state_once()` -> application ACK
+back to the node. Host codec and regression tests must pass before target
+validation. FOTA remains separate control-plane traffic.
+
+HW-M1.3 cannot become HW VALIDATED or QUALIFIED from source inspection or the
+existing standalone evidence. Its physical exit criteria require real typed
+messages, bounded callback ownership, HubRuntime processing, application ACK,
+correct retained-event retirement, post-integration FOTA/PIR behavior and
+captured hardware evidence.
