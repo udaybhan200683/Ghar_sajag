@@ -1,14 +1,14 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1.3-GATE-R2
-**History covered through:** HW-M1.3 ESP-IDF target composition/build validation
+**Document revision:** HW-M1.3-FINAL-QUALIFICATION
+**History covered through:** HW-M1.3 final clean-production qualification
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
 **Previous qualified Phase 3B scale/read-path checkpoint:** `fee5854`
 **Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
-**Latest qualified HW branch:** `feature/hw-m1`
-**Latest qualified HW commit:** `50abdce`
+**Latest qualified HW branch:** `feature/hw-m1-runtime-integration`
+**Latest physically qualified firmware/artifact provenance:** `1dfa9c3`
 **Current implementation branch:** `feature/hw-m1-runtime-integration`
 **Updated:** 2026-09-19
 
@@ -804,3 +804,42 @@ negative HIL PASS; clean-production artifact preparation/provenance PASS;
 clean-production hardware restore PENDING; final normal PIR smoke PENDING; and
 final HW-M1.3 QUALIFIED status PENDING. HW-M1.4 power/performance remains
 separate.
+
+## 2026-09-19 - HW-M1.3 Final Clean-Production Qualification
+
+The exact clean-production artifacts were rebuilt at documentation/provenance
+version `1dfa9c3` and physically qualified after the earlier checkpoint. The
+standalone C3 and Hub-embedded C3 images are each 824,368 bytes with SHA-256
+`f2c81ad8794fe766664ce253f588124665bb7c3e91da3b2b2ab4dc3b5c9104b2`; the Hub
+image is 1,592,848 bytes with SHA-256
+`f48a455658cf59d4f3e6a857bac36360ca045da2fd890d9b23ce7438e779a7f1`.
+The embedded C3 image exactly matched the standalone image. Production source
+contains no temporary negative-HIL implementation, and binary scans found no
+negative-HIL runtime strings.
+
+WSL plus USB-IP Hub flashing was unstable for sustained writes on this
+workstation (`urb->status -104` and serial drops). Native Windows serial access
+recovered the activity: Python 3.12.10, esptool 5.4.0, Hub COM3 and C3 COM4
+for this session. Both native flashes passed hash verification and hard reset;
+no erase-flash was used. The port names are historical and must be re-detected.
+
+The Hub clean boot physically reported version `1dfa9c3`, initialized ESP-NOW,
+started the `HubRuntime` owner on channel 1, and reported the embedded C3 image
+size of 824368 bytes. A clean C3 startup banner was not retained because
+native USB Serial/JTAG monitor/reset can reset or re-enumerate; its image
+provenance and esptool hash verification were captured instead. No
+negative-HIL logs were observed.
+
+The decisive matched normal event was C3 `session=17 seq=3`: PIR reached
+NodeRuntime, a 63-byte NodeMessage was sent, the Hub processed the matching
+event and returned `ack_send=ESP_OK` at RSSI `-69` on channel `1`, and the C3
+received Durable ACK class `0`, retired exactly once (`retired=1`), with MAC
+delivery `accepted=1`. Final evidence is
+`docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md`.
+
+Qualification decision: **HW-M1.3 TARGET RUNTIME INTEGRATION: QUALIFIED / PASS**.
+HW-M1.0, HW-M1.1, HW-M1.2, and dual-slot C3 FOTA remain QUALIFIED / PASS.
+The temporary negative-HIL branch remains isolated and the PWA branch remains
+frozen at `9b391fa` on `feature/full-pwa-e2e`. Next engineering work is
+HW-M1.4 power/performance characterization; its measurements remain
+`NOT_BASELINED`.

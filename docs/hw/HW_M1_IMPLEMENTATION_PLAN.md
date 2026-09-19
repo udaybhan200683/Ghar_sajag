@@ -22,9 +22,10 @@ checkpoint `0546b28`:
 - HW-M1.1 real AM312 PIR sensing: **QUALIFIED / PASS**.
 - HW-M1.2 real PIR-to-C3-to-ESP-NOW-to-Hub path: **QUALIFIED / PASS**.
 - ESP-NOW dual-slot C3 FOTA qualification: **QUALIFIED / PASS**.
-- HW-M1.3 Target Runtime Integration: **IMPLEMENTATION / HOST / TARGET BUILD /
-  AUTOMATED GATE / POSITIVE HIL / FOTA HIL / NEGATIVE HIL PASS; FINAL
-  RESTORE-SMOKE PENDING**.
+- HW-M1.3 Target Runtime Integration: **QUALIFIED / PASS**. Implementation,
+  host validation, target build, automated release gate, positive HIL, FOTA
+  HIL, negative HIL, clean-production artifact provenance, clean-production
+  restore, and final normal PIR smoke all passed.
 
 The status words have strict meanings in this plan:
 
@@ -49,8 +50,10 @@ or QUALIFIED.
 - Qualified parent branch: `feature/hw-m1`.
 - Implementation branch point: `4645098` (`Document complete HW-M1 resume
   state before runtime integration`).
-- Current qualified HW commit: `50abdce` (`Qualify dual-slot ESP-NOW node
-  FOTA`).
+- Previous fully qualified HW baseline: `50abdce` (`Qualify dual-slot
+  ESP-NOW node FOTA`). HW-M1.3 physically qualified artifact provenance is
+  `1dfa9c3`; the current documentation HEAD is the closure commit created
+  after that provenance checkpoint.
 - Earlier HW checkpoint: `3f02822` (`Qualify HW-M1.2 PIR to ESP-NOW hub
   path`).
 - HW-M1 planning commit: `997f9ba` (`Initialize HW-M1 implementation plan`).
@@ -210,12 +213,13 @@ demonstrated through the Hub, with PIR restoration and post-update motion after
 both boots. This is a qualified control-plane checkpoint separate from
 HW-M1.3 data-plane runtime integration.
 
-### HW-M1.3 — Target Runtime Integration — NEGATIVE HIL PASS / FINAL RESTORE-SMOKE PENDING
+### HW-M1.3 — Target Runtime Integration — QUALIFIED / PASS
 
-Source implementation, portable host validation, and ESP-IDF target builds are
-complete. Positive/FOTA HIL and the temporary negative-HIL cases have been
-physically demonstrated, but final clean-production restore/smoke verification
-is still pending, so the milestone is not yet QUALIFIED.
+Source implementation, portable host validation, ESP-IDF target builds,
+positive/FOTA HIL, temporary negative-HIL cases, and final clean-production
+restore/smoke verification are complete. The final evidence is recorded in
+`docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md`; the temporary HIL harness
+remains isolated on `test/hw-m1-3-negative-hil`.
 
 Implemented scope:
 
@@ -309,23 +313,21 @@ without failing an otherwise in-slot image.
 
 If ESP-IDF v6.0.3 activation or `idf.py` is unavailable, target stages report
 `BLOCKED / ENVIRONMENT_MISSING`; they are never silently skipped. The command
-always reports `PHYSICAL QUALIFICATION: PENDING`, with functional/FOTA HIL
-stages as `MANUAL_REQUIRED`, power/performance as `NOT_BASELINED`, and
-endurance as `NOT_RUN`. The implementation is
+reports automated software/target results separately from physical evidence;
+its HIL stages remain manual-evidence inputs, power/performance remains
+`NOT_BASELINED`, and endurance remains `NOT_RUN`. The implementation is
 `tools/validation/hw_release_gate.py`, with focused self-tests in
 `tests/python/test_hw_release_gate.py`.
 
-### HW-M1.3C — Physical target qualification — HARDWARE VALIDATION PENDING
+### HW-M1.3C — Physical target qualification — QUALIFIED / PASS
 
-The negative-HIL portion of this task is complete and recorded in
-`docs/hw/evidence/HW_M1_3_HIL/README.md`. The remaining HW-M1.3C task is the
-final clean-production restore/smoke verification. HW-M1.3C must demonstrate the manual sequence in
-`CURRENT_BASELINE.md`, including PIR -> `NodeRuntime`, typed ESP-NOW data,
-callback queue ownership, HubRuntime processing, Durable ACK retirement,
-retry/duplicate/session behavior, RSSI visibility and both post-integration
-FOTA rotations. Only then may HW-M1.3 become HW VALIDATED / QUALIFIED. The
-temporary fault-injection harness must not be merged into the production
-runtime branch.
+The negative-HIL portion is recorded in `docs/hw/evidence/HW_M1_3_HIL/README.md`
+and the final clean-production restore/smoke is recorded in
+`docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md`. The required path,
+callback/owner-task boundary, Durable ACK retirement, session/retry behavior,
+RSSI visibility, and FOTA evidence are represented in the HIL matrix. The
+temporary fault-injection harness remains isolated and is not production
+runtime source.
 
 ### HW-M1 continuation ordering
 
@@ -333,7 +335,7 @@ The approved order is:
 
 `HW-M1.3B TARGET BUILD VALIDATED`
 -> `HW firmware regression/release gate`
--> `HW-M1.3C PHYSICAL FUNCTIONAL QUALIFICATION`
+-> `HW-M1.3C PHYSICAL FUNCTIONAL QUALIFICATION — QUALIFIED / PASS`
 -> `HW-M1.4 POWER & PERFORMANCE BASELINE / OPTIMIZATION`
 -> repeat the full regression gate
 -> future Hub -> backend -> existing PWA integration.
@@ -390,15 +392,16 @@ and evidence is captured.
 
 ## 9. Open limitations and non-goals
 
-The following remain open unless separately qualified: physical HW-M1.3
-validation, post-integration FOTA,
+The following remain open unless separately qualified: HW-M1.4
+power/performance characterization, longer-run robustness, post-integration
+FOTA changes,
 RF range optimization,
 multi-node RF/concurrency behavior, ESP-NOW peer encryption/key management,
 signed firmware authenticity, anti-rollback/version policy, backend firmware
 distribution, Hub self-OTA, target Wi-Fi/backend transport, target journal and
 power-loss recovery, battery calibration, production security, and the wider
-HW-M1.4+ vertical slice. HW-M1.3 is not complete merely because FOTA or the
-standalone PIR-to-Hub path passed.
+HW-M1.4+ vertical slice. HW-M1.3 is complete and qualified by the combined
+evidence record; these remaining items are outside its qualified exit criteria.
 
 Later HW-M1 milestones remain planned for Hub Wi-Fi/backend transport, the
 full PIR-to-PWA slice, resilience/recovery, and telemetry. The remaining Phase

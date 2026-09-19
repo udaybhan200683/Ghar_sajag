@@ -50,6 +50,11 @@ dedupe / rules -> Hub Wi-Fi/backend transport -> backend persistence/read models
 Host mappings and validation coverage do not equal physical or commercial
 completion.
 
+This audit is the pre-HW-M1 software-readiness record. Subsequent HW-M1
+physical evidence qualifies the documented Hub/C3 runtime slice and FOTA
+milestones, but it does not close the remaining backend/provider, security,
+power, field, or full PWA vertical-integration gaps listed here.
+
 ## 4. E01-E10 audit table
 
 | Requirement | Current status | Evidence | HW-M1 blocker | Pilot/commercial blocker |

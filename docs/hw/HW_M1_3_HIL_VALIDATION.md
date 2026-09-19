@@ -1,114 +1,37 @@
 # HW-M1.3C Hardware-in-Loop Validation
 
-Status: **NEGATIVE HIL PASS / FINAL RESTORE-SMOKE PENDING**
+Status: **QUALIFIED / PASS**
 
-This is the physical acceptance checklist for the build-validated HW-M1.3
-compositions. It is intentionally not part of the automated software/target
-gate. The negative-HIL rows physically proven on 2026-09-19 are PASS in the
-machine-readable source, with evidence in
-`docs/hw/evidence/HW_M1_3_HIL/README.md`. The machine-readable source is
-`docs/hw/HW_M1_3_HIL_TEST_MATRIX.json`; record serial logs, photos/configuration
-observations, and evidence paths there when each item is executed.
+The machine-readable checklist is
+`docs/hw/HW_M1_3_HIL_TEST_MATRIX.json`. Every row is now backed by captured
+physical evidence; the automated `make hw-release-gate` remains a software/
+target gate and does not perform physical HIL.
 
-## Preconditions and boundary
+## Evidence mapping
 
-- Use the ESP32-C3 and Hub images produced by `make hw-release-gate`.
-- Do not change the qualified C3 channel 1, TX API value 40 / 10 dBm, GPIO4
-  PIR, GPIO8 active-low LED, or qualified MAC assumptions.
-- Confirm USB bootstrap starts the C3 from `ota_0`; do not infer FOTA or HIL
-  results from an image build.
-- FOTA is CONTROL PLANE traffic. NodeMessage/NodeAckMessage is DATA PLANE
-  traffic. Record them separately.
-- `MANUAL_REQUIRED` means the step still needs target hardware and evidence.
-- Negative HIL is complete, but this does not make HW-M1.3 QUALIFIED. Final
-  clean-production restore/smoke verification remains pending.
-
-## Boot and configuration
-
-| ID | Acceptance observation | Status |
+| Area | Result | Evidence |
 |---|---|---|
-| HIL-BOOT-001 | C3 production firmware boots. | MANUAL_REQUIRED |
-| HIL-BOOT-002 | Hub production firmware boots. | MANUAL_REQUIRED |
-| HIL-BOOT-003 | C3 MAC is `14:63:93:C5:D1:58`. | MANUAL_REQUIRED |
-| HIL-BOOT-004 | Hub MAC is `5C:01:3B:BE:B9:F8`. | MANUAL_REQUIRED |
-| HIL-BOOT-005 | Channel 1 is preserved on both targets. | MANUAL_REQUIRED |
-| HIL-BOOT-006 | C3 TX API value 40 / 10 dBm is preserved. | MANUAL_REQUIRED |
-| HIL-BOOT-007 | AM312 input is physically operating on GPIO4. | MANUAL_REQUIRED |
-| HIL-BOOT-008 | GPIO8 LED is active-low and behaves correctly. | MANUAL_REQUIRED |
-| HIL-BOOT-009 | Running OTA partition, pending validation, and VALID state are observable. | MANUAL_REQUIRED |
+| Boot/configuration | PASS | `docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md` boot, provenance, and final-smoke sections |
+| Normal business path | PASS | Final matched `session=17 seq=3` record in `docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md` |
+| Retry/reliability | PASS | `docs/hw/evidence/HW_M1_3_HIL/README.md` HIL-RETRY-001 through HIL-RETRY-006 |
+| Duplicate/session/RSSI | PASS | `docs/hw/evidence/HW_M1_3_HIL/README.md` HIL-SESSION and HIL-RSSI records; final smoke RSSI/channel |
+| FOTA regression | PASS | `docs/hw/evidence/HW_M1_FOTA/README.md` two qualified slot rotations |
+| Post-FOTA data path | PASS | Existing FOTA transport/ACK/retry evidence plus final clean-production smoke |
 
-## Normal business path
+## Qualification boundary
 
-| ID | Acceptance observation | Status |
-|---|---|---|
-| HIL-DATA-001 | PIR stabilization completes without a fabricated boot event. | MANUAL_REQUIRED |
-| HIL-DATA-002 | Physical motion reaches existing sensing semantics. | MANUAL_REQUIRED |
-| HIL-DATA-003 | `NodeRuntime::record()` creates the event. | MANUAL_REQUIRED |
-| HIL-DATA-004 | EventKey contains valid source/session/sequence. | MANUAL_REQUIRED |
-| HIL-DATA-005 | Bounded binary NodeMessage encoding succeeds. | MANUAL_REQUIRED |
-| HIL-DATA-006 | NodeMessage transmits over ESP-NOW. | MANUAL_REQUIRED |
-| HIL-DATA-007 | MAC result enters `transport_result()` separately from application ACK. | MANUAL_REQUIRED |
-| HIL-DATA-008 | Hub callback only bounds/copies/queues the frame. | MANUAL_REQUIRED |
-| HIL-DATA-009 | Hub owner task decodes the queued frame. | MANUAL_REQUIRED |
-| HIL-DATA-010 | HubRuntime authorizes the current node/session. | MANUAL_REQUIRED |
-| HIL-DATA-011 | Event reaches journal/runtime processing. | MANUAL_REQUIRED |
-| HIL-DATA-012 | ProcessResult produces a Durable application ACK where applicable. | MANUAL_REQUIRED |
-| HIL-DATA-013 | NodeAckMessage returns and decodes on the C3. | MANUAL_REQUIRED |
-| HIL-DATA-014 | Only the matching Durable ACK retires the retained event. | MANUAL_REQUIRED |
+The final clean-production evidence proves the exact matched path:
 
-## Retry and reliability
+`AM312 PIR -> NodeRuntime -> NodeMessage -> ESP-NOW -> HubRuntime processing -> Durable application ACK -> node retirement -> MAC acceptance`
 
-| ID | Acceptance observation | Status |
-|---|---|---|
-| HIL-RETRY-001 | Deliberately drop an application ACK where practical. | PASS |
-| HIL-RETRY-002 | Event remains retained after ACK loss. | PASS |
-| HIL-RETRY-003 | Retry occurs at the runtime retry deadline. | PASS |
-| HIL-RETRY-004 | Retry uses identical source/session/sequence identity. | PASS |
-| HIL-RETRY-005 | Wrong EventKey ACK does not retire another event. | PASS |
-| HIL-RETRY-006 | `ReceivedVolatile` does not retire durable evidence. | PASS |
+The decisive event is `session=17`, `seq=3`: Durable ACK `class=0`,
+`retired=1`, MAC `accepted=1`, Hub `ack_send=ESP_OK`, RSSI `-69`, channel `1`.
+Hub boot version `1dfa9c3`, ESP-NOW initialization, owner channel 1, embedded
+C3 size, clean flash verification, and absence of negative-HIL logs are also
+recorded. The C3 startup-banner caveat is recorded without fabricating a
+banner that was not retained.
 
-## Duplicate, session, and RSSI behavior
-
-| ID | Acceptance observation | Status |
-|---|---|---|
-| HIL-SESSION-001 | Duplicate packet remains identity-safe under current behavior. | PASS / behavior recorded |
-| HIL-SESSION-002 | C3 reboot produces a new NVS boot/session identity. | PASS |
-| HIL-SESSION-003 | New authorized session is admitted according to lifecycle policy. | PASS |
-| HIL-SESSION-004 | Stale prior session is rejected. | PASS |
-| HIL-RSSI-001 | Transport RSSI and channel diagnostics remain visible. | PASS |
-| HIL-RSSI-002 | Transport RSSI does not overwrite semantic RSSI. | PASS |
-
-## FOTA regression
-
-| ID | Acceptance observation | Status |
-|---|---|---|
-| HIL-FOTA-001 | `ota_0 -> ota_1` transfer and reboot complete. | MANUAL_REQUIRED |
-| HIL-FOTA-002 | New `ota_1` image is observed pending validation. | MANUAL_REQUIRED |
-| HIL-FOTA-003 | `ota_1` image is marked VALID. | MANUAL_REQUIRED |
-| HIL-FOTA-004 | PIR is restored after `ota_0 -> ota_1`. | MANUAL_REQUIRED |
-| HIL-FOTA-005 | Business-message path is restored after `ota_0 -> ota_1`. | MANUAL_REQUIRED |
-| HIL-FOTA-006 | `ota_1 -> ota_0` transfer and reboot complete. | MANUAL_REQUIRED |
-| HIL-FOTA-007 | New `ota_0` image is observed pending validation. | MANUAL_REQUIRED |
-| HIL-FOTA-008 | `ota_0` image is marked VALID. | MANUAL_REQUIRED |
-| HIL-FOTA-009 | PIR is restored after `ota_1 -> ota_0`. | MANUAL_REQUIRED |
-| HIL-FOTA-010 | Business-message path is restored after `ota_1 -> ota_0`. | MANUAL_REQUIRED |
-
-## Post-FOTA data path
-
-| ID | Acceptance observation | Status |
-|---|---|---|
-| HIL-POSTFOTA-001 | Durable ACK path still works after FOTA. | MANUAL_REQUIRED |
-| HIL-POSTFOTA-002 | Retries still work and preserve EventKey after FOTA. | MANUAL_REQUIRED |
-| HIL-POSTFOTA-003 | Session identity remains valid after FOTA. | MANUAL_REQUIRED |
-
-## Evidence record
-
-For each row, record date/time, image hashes, running partition, target serial
-log path, physical setup, observed result, and reviewer. A failed or
-inconclusive item remains open; do not convert it to PASS by documentation
-review. The negative-HIL physical record is in the new evidence snapshot.
-Native USB monitor reconnect/reset behavior is recorded there as expected
-`USB_UART_CHIP_RESET`, not a firmware crash. Final clean-production
-restore/smoke verification remains open, so HW-M1.3 remains below final
-QUALIFIED status. HW-M1.4 power/performance is separate and is not an
-HW-M1.3 functional blocker.
+The temporary negative-HIL harness remains only on
+`test/hw-m1-3-negative-hil`; it was not merged into the production branch.
+HW-M1.4 power/performance and future robustness gates remain separate and
+unmeasured/open.
