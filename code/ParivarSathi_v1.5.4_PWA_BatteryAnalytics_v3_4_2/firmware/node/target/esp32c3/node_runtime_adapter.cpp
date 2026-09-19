@@ -60,6 +60,13 @@ bool from_qualified_hub(const std::uint8_t* mac) {
            std::memcmp(mac, kQualifiedHubMac.data(), kQualifiedHubMac.size()) == 0;
 }
 
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+bool same_event_key(const EventKey& lhs, const EventKey& rhs) {
+    return lhs.source_id == rhs.source_id && lhs.session_id == rhs.session_id &&
+           lhs.sequence == rhs.sequence;
+}
+#endif
+
 void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
                       int length) {
     if (info == nullptr || !from_qualified_hub(info->src_addr) || data == nullptr ||
@@ -177,6 +184,14 @@ void owner_task(void*) {
     std::optional<EventKey> in_flight;
     Milliseconds sent_at_ms = 0;
     Milliseconds led_off_at_ms = 0;
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+    std::optional<NodeMessage> hil_last_message;
+    std::optional<EventKey> hil_last_counted_key;
+    std::uint8_t hil_durable_retirements = 0;
+    bool hil_stale_pending = false;
+    bool hil_stale_sent = false;
+    bool hil_stale_tx_in_flight = false;
+#endif
 
     ESP_LOGI(kTag, "NodeRuntime owner started session=%llu channel=%u tx_power_qdbm=%d",
              static_cast<unsigned long long>(g_session_id),
@@ -208,10 +223,42 @@ void owner_task(void*) {
                      static_cast<unsigned long long>(key.session_id),
                      static_cast<unsigned long long>(key.sequence),
                      static_cast<int>(decoded.value->ack_type), retired);
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+            if (retired && decoded.value->ack_type == AckClass::Durable &&
+                hil_last_message.has_value() &&
+                same_event_key(key, EventKey{hil_last_message->node_id,
+                                             hil_last_message->session_id,
+                                             hil_last_message->sequence_number}) &&
+                (!hil_last_counted_key.has_value() ||
+                 !same_event_key(*hil_last_counted_key, key))) {
+                hil_last_counted_key = key;
+                ++hil_durable_retirements;
+                ESP_LOGI(kTag, "HIL DURABLE_RETIREMENT count=%u session=%llu seq=%llu",
+                         static_cast<unsigned>(hil_durable_retirements),
+                         static_cast<unsigned long long>(key.session_id),
+                         static_cast<unsigned long long>(key.sequence));
+                if (hil_durable_retirements >= 3U && !hil_stale_sent) {
+                    hil_stale_pending = true;
+                }
+            }
+#endif
         }
 
         SendResult send_result;
         while (xQueueReceive(g_send_queue, &send_result, 0) == pdTRUE) {
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+            if (hil_stale_tx_in_flight) {
+                hil_stale_tx_in_flight = false;
+                if (send_result.accepted_by_radio) {
+                    hil_stale_sent = true;
+                } else {
+                    hil_stale_pending = true;
+                }
+                ESP_LOGI(kTag, "HIL STALE_TX_MAC_RESULT accepted=%d complete=%d",
+                         send_result.accepted_by_radio, hil_stale_sent);
+                continue;
+            }
+#endif
             if (in_flight) {
                 runtime.transport_result(*in_flight, send_result.accepted_by_radio, now);
                 ESP_LOGI(kTag, "MAC result session=%llu seq=%llu accepted=%d",
@@ -230,6 +277,38 @@ void owner_task(void*) {
         }
 
         const bool maintenance = g_control_plane_active.load(std::memory_order_acquire);
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+        if (hil_stale_pending && !hil_stale_sent && !in_flight &&
+            !hil_stale_tx_in_flight && !maintenance) {
+            if (g_session_id > 1U && hil_last_message.has_value()) {
+                NodeMessage stale = *hil_last_message;
+                stale.session_id = g_session_id - 1U;
+                const auto encoded_stale = transport::encode_node_message(stale);
+                if (encoded_stale) {
+                    const esp_err_t sent = esp_now_send(
+                        kQualifiedHubMac.data(), encoded_stale.frame.bytes.data(),
+                        encoded_stale.frame.size);
+                    ESP_LOGW(kTag,
+                             "HIL STALE_TX current_session=%llu stale_session=%llu seq=%llu send=%s",
+                             static_cast<unsigned long long>(g_session_id),
+                             static_cast<unsigned long long>(stale.session_id),
+                             static_cast<unsigned long long>(stale.sequence_number),
+                             esp_err_to_name(sent));
+                    if (sent == ESP_OK) {
+                        hil_stale_pending = false;
+                        hil_stale_tx_in_flight = true;
+                    }
+                } else {
+                    ESP_LOGE(kTag, "HIL STALE_TX encode_failed error=%d",
+                             static_cast<int>(encoded_stale.error));
+                }
+            } else {
+                hil_stale_sent = true;
+                ESP_LOGI(kTag, "HIL STALE_TX_SKIPPED current_session=%llu",
+                         static_cast<unsigned long long>(g_session_id));
+            }
+        }
+#endif
         if (!maintenance) {
             const bool raw_pir = gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
             const auto sensed = pir.sample(raw_pir, now);
@@ -252,7 +331,11 @@ void owner_task(void*) {
             led_off_at_ms = 0;
         }
 
-        if (!in_flight && !maintenance) {
+        if (!in_flight && !maintenance
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+            && !hil_stale_tx_in_flight
+#endif
+        ) {
             const auto message = runtime.next_message(now);
             if (message) {
                 const EventKey key{message->node_id, message->session_id,
@@ -262,6 +345,9 @@ void owner_task(void*) {
                     ESP_LOGE(kTag, "NodeMessage encode failed error=%d", static_cast<int>(encoded.error));
                     runtime.transport_result(key, false, now);
                 } else {
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+                    hil_last_message = *message;
+#endif
                     const esp_err_t sent = esp_now_send(kQualifiedHubMac.data(),
                                                         encoded.frame.bytes.data(),
                                                         encoded.frame.size);

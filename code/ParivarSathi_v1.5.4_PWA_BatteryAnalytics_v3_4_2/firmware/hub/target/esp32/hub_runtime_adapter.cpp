@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
 
 namespace gs::hub::target {
@@ -90,6 +91,26 @@ const char* ack_reason(const ProcessResult& result) {
     return "unknown";
 }
 
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+enum class HilAckScenario : std::uint8_t { DropAck, WrongEventKey, ReceivedVolatile };
+
+struct HilAckState {
+    std::optional<EventKey> active_key;
+    std::uint8_t next_scenario{0};
+    bool first_attempt{true};
+};
+
+bool same_event_key(const EventKey& lhs, const EventKey& rhs) {
+    return lhs.source_id == rhs.source_id && lhs.session_id == rhs.session_id &&
+           lhs.sequence == rhs.sequence;
+}
+
+std::optional<HilAckScenario> current_hil_scenario(const HilAckState& state) {
+    if (state.next_scenario > 2U) return std::nullopt;
+    return static_cast<HilAckScenario>(state.next_scenario);
+}
+#endif
+
 esp_err_t initialize_wifi() {
     esp_err_t result = esp_netif_init();
     if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) return result;
@@ -131,6 +152,9 @@ esp_err_t initialize_esp_now() {
 void owner_task(void*) {
     HubRuntime runtime(32, 1024);
     std::uint64_t authorized_session = 0;
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+    HilAckState hil_ack_state;
+#endif
     ESP_LOGI(kTag, "HubRuntime owner started channel=%u",
              static_cast<unsigned>(kEspNowChannel));
 
@@ -158,6 +182,11 @@ void owner_task(void*) {
             continue;
         }
         const NodeMessage& message = *decoded.value;
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+        ESP_LOGI(kTag, "HIL RSSI semantic_rssi=%d transport_rssi=%d channel=%u",
+                 static_cast<int>(message.rssi_dbm), static_cast<int>(frame.transport_rssi),
+                 static_cast<unsigned>(frame.channel));
+#endif
         if (message.node_id != kAuthorizedNodeId ||
             frame.source_mac != kQualifiedNodeMac) {
             ESP_LOGW(kTag, "Rejected unmapped node identity");
@@ -192,8 +221,90 @@ void owner_task(void*) {
             continue;
         }
 
-        const auto ack = make_node_ack(processed->key, processed->ack,
-                                       hub_received_at, ack_reason(*processed));
+        NodeAckMessage ack = make_node_ack(processed->key, processed->ack,
+                                            hub_received_at, ack_reason(*processed));
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+        enum class HilPostSendAction : std::uint8_t { None, FirstInjected, RetryNormal };
+        HilPostSendAction hil_post_send = HilPostSendAction::None;
+        ESP_LOGI(kTag, "HIL PROCESS session=%llu seq=%llu state_changed=%d app_ack=%d",
+                 static_cast<unsigned long long>(processed->key.session_id),
+                 static_cast<unsigned long long>(processed->key.sequence),
+                 processed->state_changed, static_cast<int>(processed->ack));
+
+        const bool is_active_retry = hil_ack_state.active_key.has_value() &&
+                                     same_event_key(*hil_ack_state.active_key, processed->key) &&
+                                     !hil_ack_state.first_attempt;
+        if (!hil_ack_state.active_key.has_value() && current_hil_scenario(hil_ack_state)) {
+            hil_ack_state.active_key = processed->key;
+            hil_ack_state.first_attempt = true;
+        }
+
+        bool send_ack = true;
+        if (hil_ack_state.active_key.has_value() &&
+            same_event_key(*hil_ack_state.active_key, processed->key)) {
+            const auto scenario = current_hil_scenario(hil_ack_state);
+            if (hil_ack_state.first_attempt && scenario.has_value()) {
+                switch (*scenario) {
+                    case HilAckScenario::DropAck:
+                        ESP_LOGW(kTag, "HIL DROP_ACK session=%llu seq=%llu",
+                                 static_cast<unsigned long long>(processed->key.session_id),
+                                 static_cast<unsigned long long>(processed->key.sequence));
+                        // Dropping the ACK is the complete first action. The
+                        // next matching frame is therefore the retry phase.
+                        hil_ack_state.first_attempt = false;
+                        send_ack = false;
+                        break;
+                    case HilAckScenario::WrongEventKey: {
+                        EventKey wrong_key = processed->key;
+                        wrong_key.sequence = wrong_key.sequence == UINT64_MAX
+                                                 ? wrong_key.sequence - 1U
+                                                 : wrong_key.sequence + 1U;
+                        ack = make_node_ack(wrong_key, AckClass::Durable,
+                                            hub_received_at, "hil_wrong_event_key");
+                        ESP_LOGW(kTag,
+                                 "HIL WRONG_ACK original_session=%llu original_seq=%llu ack_session=%llu ack_seq=%llu",
+                                 static_cast<unsigned long long>(processed->key.session_id),
+                                 static_cast<unsigned long long>(processed->key.sequence),
+                                 static_cast<unsigned long long>(wrong_key.session_id),
+                                 static_cast<unsigned long long>(wrong_key.sequence));
+                        hil_post_send = HilPostSendAction::FirstInjected;
+                        break;
+                    }
+                    case HilAckScenario::ReceivedVolatile:
+                        ack = make_node_ack(processed->key, AckClass::ReceivedVolatile,
+                                            hub_received_at, "hil_received_volatile");
+                        ESP_LOGW(kTag, "HIL VOLATILE_ACK session=%llu seq=%llu",
+                                 static_cast<unsigned long long>(processed->key.session_id),
+                                 static_cast<unsigned long long>(processed->key.sequence));
+                        hil_post_send = HilPostSendAction::FirstInjected;
+                        break;
+                }
+            } else if (is_active_retry) {
+                const auto scenario = current_hil_scenario(hil_ack_state);
+                if (scenario.has_value()) {
+                    switch (*scenario) {
+                        case HilAckScenario::DropAck:
+                            ESP_LOGI(kTag, "HIL DROP_ACK_RETRY session=%llu seq=%llu",
+                                     static_cast<unsigned long long>(processed->key.session_id),
+                                     static_cast<unsigned long long>(processed->key.sequence));
+                            break;
+                        case HilAckScenario::WrongEventKey:
+                            ESP_LOGI(kTag, "HIL WRONG_ACK_RETRY session=%llu seq=%llu",
+                                     static_cast<unsigned long long>(processed->key.session_id),
+                                     static_cast<unsigned long long>(processed->key.sequence));
+                            break;
+                        case HilAckScenario::ReceivedVolatile:
+                            ESP_LOGI(kTag, "HIL VOLATILE_ACK_RETRY session=%llu seq=%llu",
+                                     static_cast<unsigned long long>(processed->key.session_id),
+                                     static_cast<unsigned long long>(processed->key.sequence));
+                            break;
+                    }
+                    hil_post_send = HilPostSendAction::RetryNormal;
+                }
+            }
+        }
+        if (!send_ack) continue;
+#endif
         const auto encoded_ack = transport::encode_node_ack(ack);
         if (!encoded_ack) {
             ESP_LOGE(kTag, "NodeAck encode failed error=%d", static_cast<int>(encoded_ack.error));
@@ -202,6 +313,23 @@ void owner_task(void*) {
         const esp_err_t sent = esp_now_send(frame.source_mac.data(),
                                             encoded_ack.frame.bytes.data(),
                                             encoded_ack.frame.size);
+#if defined(GS_HW_M1_3_NEGATIVE_HIL)
+        if (sent == ESP_OK) {
+            if (hil_post_send == HilPostSendAction::FirstInjected) {
+                hil_ack_state.first_attempt = false;
+                ESP_LOGI(kTag, "HIL FIRST_ACK_ACTION_COMMITTED session=%llu seq=%llu",
+                         static_cast<unsigned long long>(processed->key.session_id),
+                         static_cast<unsigned long long>(processed->key.sequence));
+            } else if (hil_post_send == HilPostSendAction::RetryNormal) {
+                ++hil_ack_state.next_scenario;
+                hil_ack_state.active_key.reset();
+                hil_ack_state.first_attempt = true;
+                ESP_LOGI(kTag, "HIL RETRY_ACK_ACTION_COMMITTED session=%llu seq=%llu",
+                         static_cast<unsigned long long>(processed->key.session_id),
+                         static_cast<unsigned long long>(processed->key.sequence));
+            }
+        }
+#endif
         ESP_LOGI(kTag,
                  "Processed session=%llu seq=%llu app_ack=%d ack_send=%s RSSI=%d CH=%u",
                  static_cast<unsigned long long>(processed->key.session_id),
