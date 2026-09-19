@@ -650,3 +650,28 @@ target-only adapter code was not target-built, flashed or physically exercised.
 The separate control-plane queues still need composition with the existing
 qualified FOTA maintenance implementation. HW-M1.3 therefore remains hardware
 validation pending and is not QUALIFIED.
+
+## 2026-09-19 - HW-M1.3 Checkpoint and Resume Taxonomy
+
+The repository checkpoint meanings were made explicit for future sessions.
+`4645098` is the documentation/resume baseline: it consolidated the HW-M1
+context but did not qualify new physical firmware behavior. The latest commit
+associated with physically demonstrated hardware remains `50abdce`, which
+qualified the dual-slot FOTA baseline and therefore remains the last physically
+qualified HW checkpoint.
+
+Commit `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f` on
+`feature/hw-m1-runtime-integration` is the current HW-M1.3 implementation and
+host-validation checkpoint. It was pushed to
+`origin/feature/hw-m1-runtime-integration`. Its exact status is IMPLEMENTED /
+HOST VALIDATED / TARGET BUILD PENDING / HARDWARE VALIDATION PENDING. The
+focused host command passed 124 C++ checks and `git diff --check` passed; the
+complete release gate remained incomplete because localhost HTTP/PWA/browser
+stages were blocked by the sandbox socket policy.
+
+The immediate next task is HW-M1.3B — ESP-IDF target composition/build for the
+real C3 and Hub images, preserving the qualified 1920 KB dual-OTA layout,
+rollback and separate FOTA control plane. HW-M1.3C is the subsequent physical
+qualification step. No target build or HW-M1.3 physical validation is claimed
+by this checkpoint, and the immutable HW-M1.2/FOTA evidence snapshots remain
+unchanged.

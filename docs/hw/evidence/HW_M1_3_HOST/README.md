@@ -6,9 +6,18 @@
 
 **HARDWARE VALIDATION PENDING**
 
-HW-M1.3 is **IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING**.
+HW-M1.3 is **IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING /
+HARDWARE VALIDATION PENDING**.
 This document does not claim HW VALIDATED, QUALIFIED, or PASS on target
 hardware.
+
+Checkpoint metadata:
+
+- Branch: `feature/hw-m1-runtime-integration`
+- Implementation commit: `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`
+- Remote: `origin/feature/hw-m1-runtime-integration`
+- Last physically qualified commit: `50abdce` (recorded here only as the
+  historical physical baseline, not as HW-M1.3 evidence)
 
 ## Implemented scope
 
@@ -40,6 +49,9 @@ Successful focused command:
 
 Result: **PASS — 124 checks**.
 
+The checks passed under `-Wall -Wextra -Werror -pedantic`. `git diff --check`
+also passed for the implementation checkpoint.
+
 Coverage includes NodeMessage and NodeAckMessage round trips, maximum bounded
 fields, complete EventKey and power telemetry preservation, malformed/truncated
 frame rejection, bad magic/version/type/enums/length/flags/trailing-data
@@ -48,7 +60,7 @@ ReceivedVolatile retention, Durable retirement, wrong-key protection, retry
 identity, distinct reboot sessions, stale Hub session rejection, and
 fail-closed persistent session allocation.
 
-`PATH=/usr/bin:$PATH make release-gate-final CXX=/usr/bin/g++` was run. C++
+`make release-gate-final` was run with `CXX=/usr/bin/g++`. C++
 unit, Python, JavaScript, contracts, validation coverage, both product variants,
 feature variants, simulator/lab build, dummy streams, functional catalog,
 sanitizers, and trace build passed. The overall command did **not** pass:
@@ -57,6 +69,18 @@ socket creation/binding. A focused `make http-e2e-test` confirmed
 `PermissionError: [Errno 1] Operation not permitted` during Python socket
 creation; browser validation reported that the sandbox cannot bind
 `127.0.0.1:8765`. Rerun `make release-gate-final` in the normal local terminal.
+
+## Target build and physical validation status
+
+Target ESP-IDF composition/build was **NOT RUN** at commit `1d41864`.
+The next task is HW-M1.3B: compose buildable ESP32-C3 and ESP32 Hub images
+from the existing adapters, preserve the 1920 KB dual-OTA slots and rollback,
+and connect the qualified FOTA maintenance paths as separate control-plane
+traffic. Both target builds must pass before physical validation begins.
+
+Physical validation was **NOT RUN**. This folder is host-validation evidence
+only; it must not be described as physical HW evidence or used to mark
+HW-M1.3 qualified.
 
 ## Manual hardware validation sequence
 

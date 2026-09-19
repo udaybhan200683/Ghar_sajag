@@ -1,16 +1,18 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** HW-M1.3-HOST-R1
+**Document revision:** HW-M1.3-HOST-R2
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3B paused; HW-M1.2 QUALIFIED / PASS
-**Active engineering work:** HW-M1.3 IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING
+**Active engineering work:** HW-M1.3 IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING / HARDWARE VALIDATION PENDING
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
 **Current qualified HW branch:** `feature/hw-m1`
 **Current qualified HW commit:** `50abdce`
 **Current implementation branch:** `feature/hw-m1-runtime-integration`
 **Implementation branch point:** `4645098`
+**Current development HEAD:** `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`
+**Remote development branch:** `origin/feature/hw-m1-runtime-integration`
 **Updated:** 2026-09-19
 
 This document is the definitive current “WHERE ARE WE NOW?” record. It
@@ -34,6 +36,22 @@ The qualified Phase 3B concurrent API and household-isolation checkpoint is
 `0d6a2fc`. Phase 3B remains IN PROGRESS; notification-provider storm/failure
 qualification, restart/recovery, DB/resource fault injection,
 EXTENDED/endurance and final Phase 3 qualification remain pending.
+
+## Git Checkpoints
+
+These commits have different meanings and must not be summarized as one
+generic “stable” state:
+
+| Purpose | Commit | Branch / relationship | Validation status |
+|---|---|---|---|
+| Last physically qualified HW baseline | `50abdce` | `feature/hw-m1` history | HW QUALIFIED / PASS; dual-slot FOTA and earlier HW-M1 milestones physically demonstrated. |
+| Documentation / resume baseline | `4645098` | `feature/hw-m1`, parent of the implementation branch | Documentation-only checkpoint; no new physical firmware behavior qualified. |
+| Current HW-M1.3 host-validated implementation | `1d41864` | `feature/hw-m1-runtime-integration`, also on `origin/feature/hw-m1-runtime-integration` | IMPLEMENTED / HOST VALIDATED; target build and hardware validation pending. |
+
+The current development HEAD is `1d41864`; the last host-validated
+implementation commit is also `1d41864`. The latest physically qualified
+checkpoint remains `50abdce` until HW-M1.3 target hardware testing passes.
+`4645098` remains the previous documentation/resume checkpoint.
 
 The P0 software-gap audit approved HW-M1: no host/backend/PWA defect blocks the
 first physical vertical slice. F14 remains an open software gap but does not
@@ -68,7 +86,7 @@ software/PWA branch point. The stable host/PWA reference remains
 | HW-M1.1 real AM312 PIR sensing | QUALIFIED / PASS | GPIO4 sensing, LED indication, battery operation and approximately 12 ft / 3.7 m observation. |
 | HW-M1.2 PIR -> C3 -> ESP-NOW -> Hub | QUALIFIED / PASS | Real motion events reached the Hub; channel/TX/RSSI findings recorded. |
 | Dual-slot C3 FOTA | QUALIFIED / PASS | `ota_0 -> ota_1 -> ota_0`, validation, PIR restoration and post-update events. |
-| HW-M1.3 Target Runtime Integration | IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING | Portable codec/session policy and isolated C3/Hub adapters exist; 124 focused C++ checks pass; no target build, flash or physical validation was performed. |
+| HW-M1.3 Target Runtime Integration | IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING / HARDWARE VALIDATION PENDING | Portable codec/session policy and isolated C3/Hub adapters exist; 124 focused C++ checks pass; no target build, flash or physical validation was performed. |
 
 The terms are strict: IMPLEMENTED means source exists; HOST VALIDATED means
 host/simulation validation passed; HW VALIDATED means target behavior was
@@ -97,8 +115,10 @@ cleaned single-line logging removed the prior serial-garbage symptoms.
 
 ### FOTA state and security limitations
 
-Hub and C3 use 4 MB flash with `ota_0` and `ota_1` each 1920 KB and rollback
-enabled. The C3 completed USB bootstrap to `ota_0`, FOTA #1 `ota_0 -> ota_1`,
+Hub and C3 use 4 MB flash with custom dual-OTA partitions: `ota_0 = 0x1E0000`
+(1920 KB) and `ota_1 = 0x1E0000` (1920 KB), with rollback enabled. The
+Hub -> C3 control-plane path completed the USB bootstrap to `ota_0`, FOTA #1
+`ota_0 -> ota_1`,
 and FOTA #2 `ota_1 -> ota_0`, including pending validation, VALID marking, PIR
 restoration and post-update Hub events. The immutable record is
 `docs/hw/evidence/HW_M1_FOTA/README.md`.
@@ -139,8 +159,8 @@ queue; they must not mutate `HubRuntime` directly. The owner-task model in
 
 ### HW-M1.3 implementation state
 
-HW-M1.3 source is **IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION
-PENDING**. It is not HW VALIDATED or QUALIFIED.
+HW-M1.3 source is **IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING /
+HARDWARE VALIDATION PENDING**. It is not HW VALIDATED or QUALIFIED.
 
 1. Implemented and host-tested a common bounded codec for `NodeMessage` and
    `NodeAckMessage`, with protocol magic/version/frame type and fixed-width,
@@ -162,16 +182,19 @@ this sandbox prohibits localhost socket creation/binding, so HTTP/PWA/browser
 stages cannot start. The exact record is
 `docs/hw/evidence/HW_M1_3_HOST/README.md`.
 
-HW-M1.3 is not physically qualified. Its remaining target exit criteria are
-real AM312 -> NodeRuntime, real typed
-NodeMessage over ESP-NOW, bounded Hub callback queue, HubRuntime owner-task
-processing, application ACK return, correct retained-event retirement,
-post-integration FOTA/PIR operation, and captured hardware evidence.
+HW-M1.3 is not target-built or physically qualified. The immediate remaining
+task is ESP-IDF product composition/build for the C3 and Hub while preserving
+the qualified FOTA behavior. The later physical exit criteria are real AM312
+-> NodeRuntime, real typed NodeMessage over ESP-NOW, bounded Hub callback
+queue, HubRuntime owner-task processing, application ACK return, correct
+retained-event retirement, post-integration FOTA/PIR operation, and captured
+hardware evidence.
 
 ### Current open gaps
 
-- Unified ESP-IDF node/Hub product composition and target builds.
-- HW-M1.3 physical validation and evidence.
+- Unified ESP-IDF node/Hub product composition and target builds (the exact
+  next task, HW-M1.3B).
+- HW-M1.3 physical validation and evidence (HW-M1.3C after target build).
 - Connection of the dedicated control-plane queues to the qualified FOTA
   maintenance implementation, followed by post-integration FOTA revalidation.
 - Normal-terminal rerun of `make release-gate-final` because localhost stages
@@ -1458,27 +1481,36 @@ the current operational and resume truth.
 - Branch point: `9b391fa`
 - Stable host/PWA reference: `feature/full-pwa-e2e`
 - HW-M1 status: HW-M1.2 QUALIFIED / PASS; separate C3 FOTA QUALIFIED / PASS;
-  HW-M1.3 IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING
-- Current checkpoint: HW-M1.3 host implementation and validation
-- Last qualified HW checkpoint: `50abdce`
-- HW-M1.3 status: IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING
+  HW-M1.3 IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING /
+  HARDWARE VALIDATION PENDING
+- Current development HEAD: `1d41864` (`Implement HW-M1.3 target runtime integration`)
+- Last host-validated implementation commit: `1d41864`
+- Last physically qualified HW checkpoint: `50abdce`
+- Previous documentation/resume checkpoint: `4645098`
+- Current checkpoint: HW-M1.3 host implementation; next sub-step is target composition/build
+- HW-M1.3 status: IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING /
+  HARDWARE VALIDATION PENDING
 - Host regression status: focused C++ PASS (124 checks); most full-gate stages
   PASS; complete release gate ENVIRONMENT BLOCKED by sandbox localhost policy
 - Hardware/HIL evidence status: HW-M1.0, HW-M1.1, HW-M1.2 and FOTA qualified;
-  HW-M1.3 physical evidence does not exist
+  HW-M1.3 target-build and physical evidence do not exist
 - Plan: `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`
 - Host-only evidence: `docs/hw/evidence/HW_M1_3_HOST/README.md`
 
 ## Next
 
-1. Compose and target-build the isolated C3 and Hub adapters with their
-   portable dependencies and the qualified dual-slot/FOTA maintenance path.
-2. Run the manual HW-M1.3 sequence below on the qualified boards and retain
-   serial/configuration evidence.
+1. **HW-M1.3B — ESP-IDF target composition/build:** compose buildable C3 and
+   Hub firmware from the existing adapters and portable dependencies while
+   preserving the qualified dual-slot/FOTA layout, rollback, and control-plane
+   coexistence. Prove both images fit their OTA slots and keep `cpp-test`
+   passing.
+2. **HW-M1.3C — physical target qualification:** after both target builds
+   pass, run the manual sequence below and retain serial/configuration evidence.
 3. Rerun `make release-gate-final` in a normal local terminal where localhost
    sockets are permitted.
-4. Keep HW-M1.3 at HARDWARE VALIDATION PENDING until every physical criterion
-   passes; do not infer qualification from host tests.
+4. Keep HW-M1.3 at TARGET BUILD PENDING until HW-M1.3B passes, then at
+   HARDWARE VALIDATION PENDING until every physical criterion passes; do not
+   infer qualification from host tests.
 
 ### Exact manual HW-M1.3 hardware validation
 
@@ -1519,15 +1551,19 @@ the current operational and resume truth.
 - Active branch: `feature/hw-m1-runtime-integration`; qualified parent is
   `feature/hw-m1`; frozen software/PWA reference is `feature/full-pwa-e2e`,
   with HW-M1 fork point `9b391fa`.
-- Current implementation checkpoint: branch based on `4645098`; the commit
-  containing this implementation has subject
-  `Implement HW-M1.3 target runtime integration`.
+- Current development commit: `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`
+  (`Implement HW-M1.3 target runtime integration`).
+- Remote development branch: `origin/feature/hw-m1-runtime-integration`
+  contains `1d41864`.
+- Previous documentation/resume checkpoint: `4645098`; it was documentation
+  only and did not qualify new physical firmware behavior.
 - Active code directory:
   `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2`.
 - Latest qualified commit: `50abdce` (`Qualify dual-slot ESP-NOW node FOTA`).
 - Expected working-tree state after handoff: clean.
 - Current milestone: HW-M1.3 — Target Runtime Integration,
-  **IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING**.
+  **IMPLEMENTED / HOST VALIDATED / TARGET BUILD PENDING / HARDWARE VALIDATION
+  PENDING**.
 - Implemented modules: bounded data-plane codec; persistent boot-session
   policy; ESP32-C3 GPIO/ESP-NOW/NodeRuntime adapter; ESP32 Hub
   callback-queue/HubRuntime/ACK adapter; separate control-plane queue boundary;
@@ -1537,7 +1573,8 @@ the current operational and resume truth.
 - Node configuration: ESP32-C3 SuperMini-style board, 4 MB flash, MAC
   `14:63:93:C5:D1:58`, AM312 GPIO4, active-low LED GPIO8, ESP-NOW channel 1,
   TX API value 40 = 10 dBm.
-- Tests: focused `make cpp-test` PASS with 124 checks. Full release gate did
+- Tests: focused `PATH=/usr/bin:/bin make cpp-test CXX=/usr/bin/g++` PASS with
+  124 checks; `git diff --check` PASS at the implementation checkpoint. Full release gate did
   not pass because this sandbox blocks localhost socket creation/binding; all
   non-localhost stages listed in `HW_M1_3_HOST/README.md` passed. Rerun the
   complete gate in a normal local terminal.
@@ -1552,8 +1589,10 @@ the current operational and resume truth.
   image is bootstrap-only; unified ESP-IDF target composition/build, physical
   HW-M1.3 validation, trusted Hub time, backend/PWA integration and later
   resilience/telemetry work remain open.
-- Exact next engineering task: perform the 15-step manual validation sequence
-  above, including target image composition/build and post-integration FOTA.
+- Exact next engineering task: HW-M1.3B — compose and target-build real
+  ESP-IDF C3 and Hub firmware from the existing adapters, preserving the
+  qualified FOTA image layout and behavior. Do not begin physical qualification
+  until both target builds pass.
 - Read first: this `RESUME HERE` section; `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`;
   `docs/progress/PROJECT_HISTORY.md`; `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`;
   `docs/hw/evidence/HW_M1_2/README.md`; `docs/hw/evidence/HW_M1_FOTA/README.md`;
@@ -1571,7 +1610,8 @@ the current operational and resume truth.
   `firmware/hub/runtime/hub_runtime.cpp`,
   `firmware/hub/components/ingest/`, `firmware/hub/target/esp32/`, and
   `firmware/hub/runtime/FREERTOS_BINDING.md`, plus `Makefile`.
-- Physical validation: pending; use the exact sequence above and write a new
+- Target ESP-IDF build: not run at commit `1d41864`; physical validation is
+  pending. After HW-M1.3B passes, use the exact sequence above and write a new
   immutable HW-M1.3 target evidence snapshot only after executing it.
 - Qualification reminder: HW-M1.3 is not physically qualified. Do not label it
   HW VALIDATED or QUALIFIED until the host and target exit criteria in the plan
