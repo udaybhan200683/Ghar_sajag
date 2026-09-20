@@ -26,5 +26,6 @@ struct ReceivedFrame {
 esp_err_t start_runtime_adapter();
 QueueHandle_t control_plane_queue();
 void set_control_plane_active(bool active);
+void report_control_plane_timeout();
 
 }  // namespace gs::node::target

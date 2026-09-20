@@ -25,13 +25,17 @@ namespace {
 constexpr char kTag[] = "gs_hub_runtime";
 constexpr UBaseType_t kDataQueueDepth = 16U;
 constexpr UBaseType_t kControlQueueDepth = 8U;
+constexpr UBaseType_t kHealthQueueDepth = 1U;
 
 StaticQueue_t g_data_queue_state{};
 StaticQueue_t g_control_queue_state{};
+StaticQueue_t g_health_queue_state{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kDataQueueDepth * sizeof(ReceivedFrame)> g_data_storage{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kControlQueueDepth * sizeof(ReceivedFrame)> g_control_storage{};
+alignas(ReceivedFrame) std::array<std::uint8_t, kHealthQueueDepth * sizeof(ReceivedFrame)> g_health_storage{};
 QueueHandle_t g_data_queue = nullptr;
 QueueHandle_t g_control_queue = nullptr;
+QueueHandle_t g_health_queue = nullptr;
 std::atomic<std::uint32_t> g_data_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<bool> g_control_plane_active{false};
@@ -55,6 +59,9 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
         destination = g_data_queue;
     } else if (frame_class == transport::FrameClass::ControlFota) {
         destination = g_control_queue;
+    } else if (frame_class == transport::FrameClass::NodeHealth &&
+               static_cast<std::size_t>(length) <= transport::kMaxFrameBytes) {
+        destination = g_health_queue;
     } else {
         return;
     }
@@ -68,7 +75,10 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
         envelope.channel = info->rx_ctrl->channel;
     }
     std::memcpy(envelope.bytes.data(), data, envelope.size);
-    if (xQueueSend(destination, &envelope, 0) != pdTRUE) {
+    if (destination == g_health_queue) {
+        // Depth one deliberately keeps only the latest best-effort snapshot.
+        (void)xQueueOverwrite(destination, &envelope);
+    } else if (xQueueSend(destination, &envelope, 0) != pdTRUE) {
         // No durable ACK is emitted, so dropped data remains retained and is
         // retried. The owner reports the counter outside callback context.
         if (destination == g_data_queue) {
@@ -139,8 +149,51 @@ void owner_task(void*) {
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
         }
+        ReceivedFrame health_frame;
+        if (xQueueReceive(g_health_queue, &health_frame, 0) == pdTRUE) {
+            const auto health = transport::decode_node_health(
+                health_frame.bytes.data(), health_frame.size);
+            if (!health || health.value->node_id != kAuthorizedNodeId ||
+                health_frame.source_mac != kQualifiedNodeMac) {
+                ESP_LOGW(kTag, "Rejected malformed/unmapped NodeHealth error=%d RSSI=%d CH=%u",
+                         static_cast<int>(health.error), health_frame.transport_rssi,
+                         static_cast<unsigned>(health_frame.channel));
+            } else {
+                const NodeHealthSnapshot& value = *health.value;
+                ESP_LOGI(kTag,
+                         "NodeHealth schema=%u session=%llu health_seq=%llu uptime_ms=%llu reset=%u pir_raw=%d pir_edges=%u pir_ok=%u pir_rejected=%u store_full=%u motion_drop=%u priority_rejected=%u sensing_live=%u runtime_live=%u retained=%u oldest_seq=%llu in_flight=%d tx=%u mac_ok=%u mac_fail=%u durable_ack=%u volatile_ack=%u retry=%u backoff=%u breadcrumb=%u error=%u heap=%u min_heap=%u maintenance=%d RSSI=%d CH=%u",
+                         static_cast<unsigned>(value.schema),
+                         static_cast<unsigned long long>(value.session_id),
+                         static_cast<unsigned long long>(value.health_sequence),
+                         static_cast<unsigned long long>(value.uptime_ms),
+                         static_cast<unsigned>(value.reset_reason), value.raw_pir_level,
+                         static_cast<unsigned>(value.raw_pir_edges),
+                         static_cast<unsigned>(value.accepted_pir),
+                         static_cast<unsigned>(value.rejected_pir),
+                         static_cast<unsigned>(value.store_full),
+                         static_cast<unsigned>(value.dropped_motion),
+                         static_cast<unsigned>(value.priority_rejected),
+                         static_cast<unsigned>(value.sensing_liveness),
+                         static_cast<unsigned>(value.runtime_liveness),
+                         static_cast<unsigned>(value.retained_count),
+                         static_cast<unsigned long long>(value.oldest_sequence),
+                         value.radio_in_flight, static_cast<unsigned>(value.tx_attempts),
+                         static_cast<unsigned>(value.mac_success),
+                         static_cast<unsigned>(value.mac_failure),
+                         static_cast<unsigned>(value.durable_acks),
+                         static_cast<unsigned>(value.volatile_acks),
+                         static_cast<unsigned>(value.retries),
+                         static_cast<unsigned>(value.periodic_backoff_entries),
+                         static_cast<unsigned>(value.last_breadcrumb),
+                         static_cast<unsigned>(value.last_error),
+                         static_cast<unsigned>(value.free_heap),
+                         static_cast<unsigned>(value.minimum_free_heap),
+                         value.maintenance_active, health_frame.transport_rssi,
+                         static_cast<unsigned>(health_frame.channel));
+            }
+        }
         ReceivedFrame frame;
-        if (xQueueReceive(g_data_queue, &frame, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        if (xQueueReceive(g_data_queue, &frame, pdMS_TO_TICKS(200)) != pdTRUE) {
             const auto data_drops = g_data_queue_drops.exchange(0U, std::memory_order_relaxed);
             const auto control_drops = g_control_queue_drops.exchange(0U, std::memory_order_relaxed);
             if (data_drops != 0U || control_drops != 0U) {
@@ -228,7 +281,11 @@ esp_err_t start_runtime_adapter() {
                                       g_data_storage.data(), &g_data_queue_state);
     g_control_queue = xQueueCreateStatic(kControlQueueDepth, sizeof(ReceivedFrame),
                                          g_control_storage.data(), &g_control_queue_state);
-    if (g_data_queue == nullptr || g_control_queue == nullptr) return ESP_ERR_NO_MEM;
+    g_health_queue = xQueueCreateStatic(kHealthQueueDepth, sizeof(ReceivedFrame),
+                                        g_health_storage.data(), &g_health_queue_state);
+    if (g_data_queue == nullptr || g_control_queue == nullptr || g_health_queue == nullptr) {
+        return ESP_ERR_NO_MEM;
+    }
     if ((result = initialize_wifi()) != ESP_OK) return result;
     if ((result = initialize_esp_now()) != ESP_OK) return result;
     if (xTaskCreate(owner_task, "gs_hub_owner", 8192, nullptr, 8, nullptr) != pdPASS) {

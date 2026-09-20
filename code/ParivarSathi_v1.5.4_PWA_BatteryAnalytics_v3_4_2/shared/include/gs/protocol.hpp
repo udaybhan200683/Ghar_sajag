@@ -23,9 +23,91 @@ struct NodeProtocolPolicy {
     static constexpr std::uint32_t offline_grace_seconds = 10;
     static constexpr EpochSeconds offline_after_seconds =
         static_cast<EpochSeconds>(heartbeat_seconds * missed_heartbeats_before_offline + offline_grace_seconds);
-    inline static constexpr std::array<Milliseconds, 4> retry_delays_ms{{200, 600, 1800, 10000}};
+    // Fast recovery for transient loss, followed by a low-rate periodic probe.
+    // The last delay repeats indefinitely; retries never depend on a new sensor event.
+    inline static constexpr std::array<Milliseconds, 5> retry_delays_ms{{200, 600, 1800, 10000, 60000}};
     static constexpr Milliseconds retry_jitter_max_ms = 100;
 };
+
+enum class NodeBreadcrumb : std::uint8_t {
+    Boot = 1,
+    SensingIdle,
+    PirRaw,
+    PirAccepted,
+    EventRecordEnter,
+    EventRecordOk,
+    EventRecordRejected,
+    StoreFull,
+    TxIdle,
+    TxPrepare,
+    TxSend,
+    WaitMac,
+    MacOk,
+    MacFail,
+    WaitAppAck,
+    AppAck,
+    EventRetired,
+    RetryBackoff,
+    RetryWake,
+    FotaPause,
+    FotaResume
+};
+
+enum class NodeHealthError : std::uint16_t {
+    None = 0,
+    StoreFull,
+    TxQueueFull,
+    EncodeFailed,
+    SendRejected,
+    MacCallbackTimeout,
+    AckQueueDrop,
+    ControlQueueDrop,
+    SendQueueDrop,
+    FotaTimeout
+};
+
+// Best-effort engineering diagnostics. This is not a business event, has its
+// own sequence space, is never retained, and never receives a Durable ACK.
+struct NodeHealthSnapshot {
+    static constexpr std::uint32_t schema_version = 1;
+
+    std::uint32_t schema{schema_version};
+    std::string node_id;
+    std::uint64_t session_id{0};
+    std::uint64_t health_sequence{0};
+    std::uint64_t uptime_ms{0};
+    std::uint32_t reset_reason{0};
+    bool raw_pir_level{false};
+    std::uint32_t raw_pir_edges{0};
+    std::uint32_t accepted_pir{0};
+    std::uint32_t rejected_pir{0};
+    std::uint32_t store_full{0};
+    std::uint32_t dropped_motion{0};
+    std::uint32_t priority_rejected{0};
+    std::uint32_t sensing_liveness{0};
+    std::uint32_t runtime_liveness{0};
+    NodeBreadcrumb last_breadcrumb{NodeBreadcrumb::Boot};
+    std::uint16_t retained_count{0};
+    std::uint64_t oldest_sequence{0};
+    bool radio_in_flight{false};
+    std::uint32_t tx_attempts{0};
+    std::uint32_t mac_success{0};
+    std::uint32_t mac_failure{0};
+    std::uint32_t durable_acks{0};
+    std::uint32_t volatile_acks{0};
+    std::uint32_t retries{0};
+    std::uint32_t periodic_backoff_entries{0};
+    NodeHealthError last_error{NodeHealthError::None};
+    std::uint32_t free_heap{0};
+    std::uint32_t minimum_free_heap{0};
+    bool maintenance_active{false};
+};
+
+inline bool valid_node_health(const NodeHealthSnapshot& health) {
+    return health.schema == NodeHealthSnapshot::schema_version &&
+           !health.node_id.empty() && health.session_id > 0 &&
+           health.health_sequence > 0;
+}
 
 inline SensorType sensor_type_for(EventKind kind) {
     switch (kind) {

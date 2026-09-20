@@ -25,6 +25,7 @@ constexpr std::size_t kMaxFrameBytes = 224U;
 enum class FrameType : std::uint8_t {
     NodeMessage = 1U,
     NodeAck = 2U,
+    NodeHealth = 3U,
     ControlFota = 0x80U
 };
 
@@ -32,6 +33,7 @@ enum class FrameClass {
     Unknown,
     NodeMessage,
     NodeAck,
+    NodeHealth,
     ControlFota
 };
 
@@ -82,5 +84,9 @@ DecodeResult<NodeMessage> decode_node_message(const std::uint8_t* data,
 EncodeResult encode_node_ack(const NodeAckMessage& message);
 DecodeResult<NodeAckMessage> decode_node_ack(const std::uint8_t* data,
                                             std::size_t size);
+
+EncodeResult encode_node_health(const NodeHealthSnapshot& health);
+DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
+                                                    std::size_t size);
 
 }  // namespace gs::transport

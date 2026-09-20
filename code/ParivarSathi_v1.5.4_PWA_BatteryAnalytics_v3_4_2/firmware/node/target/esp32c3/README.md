@@ -14,8 +14,15 @@ be durably incremented, so a reboot does not knowingly reuse
 FOTA frames are classified by their existing control-plane magic and copied to
 the separate bounded queue returned by `control_plane_queue()`. The product
 composition under `idf/` connects that queue to the wire-compatible FOTA
-receiver. Normal sensing/transmission pauses during active maintenance; FOTA
-is never decoded as `NodeMessage` and never enters `NodeRuntime`.
+receiver. Local PIR qualification and its LED indication continue during
+maintenance; business admission/transmission pauses to preserve one radio
+owner. A 30-second FOTA inactivity lease aborts an abandoned update and resumes
+the data plane. FOTA is never decoded as `NodeMessage` and never enters
+`NodeRuntime`.
+
+GPIO8 now means a locally qualified PIR event, independent of Hub availability.
+Business admission and transport/ACK progress are separately observable in the
+versioned 60-second `NodeHealth` frame and Hub serial log.
 
 Build with ESP-IDF v6.0.3:
 

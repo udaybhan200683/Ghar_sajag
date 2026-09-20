@@ -4,7 +4,7 @@
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3B paused; HW-M1.3 QUALIFIED / PASS
-**Active engineering work:** HW-M1.3 closed; next engineering phase is HW-M1.4 power/performance characterization
+**Active engineering work:** HW-M1.3 remains closed/qualified; HW-M1.4 node offline-resilience implementation is under physical validation
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
 **Current qualified HW branch:** `feature/hw-m1`
@@ -16,7 +16,25 @@
 **Pre-build documentation/resume HEAD:** `0546b28`
 **Current target-build-validated implementation:** `a6b084c`
 **Remote development branch:** `origin/feature/hw-m1-runtime-integration`
-**Updated:** 2026-09-19
+**Updated:** 2026-09-20
+
+## Post-qualification HW-M1.4 robustness work — 2026-09-20
+
+HW-M1.3 remains **QUALIFIED / PASS** with unchanged historical evidence and
+artifact hashes. A reproducible post-qualification defect was found when the
+Hub remained off: the node's 32-entry TX queue filled, later retained records
+could be stranded, and GPIO8's downstream admission semantics made continued
+GPIO4 sensing look dead.
+
+The follow-on implementation lives only on
+`fix/hw-m1-4-node-offline-resilience`. It adds atomic bounded admission,
+explicit newest-drop accounting with four non-motion reserve slots,
+timer-driven 60-second periodic retry, local-sensing GPIO8 semantics, compact
+best-effort health frames, and FOTA inactivity recovery. Host and target-build
+validation are recorded under
+`docs/hw/evidence/HW_M1_4_NODE_OFFLINE_RESILIENCE/README.md`. It is **not
+physically qualified** until the documented Hub-off, recovery-without-motion,
+cycling, endurance and power/resource HIL tests pass.
 
 This document is the definitive current “WHERE ARE WE NOW?” record. It
 preserves the inherited PWA/software baseline and the HW-M1 deltas without

@@ -32,18 +32,38 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
                                             std::uint32_t uncertainty_s, std::uint16_t battery_mv,
                                             bool is_test, SensorType sensor_type, std::int16_t rssi_dbm) {
     GS_TRACE(gs::log::Category::Node, "N00", "record.enter", "-");
+    ++stats_.record_calls;
     EventKey key{node_id_, session_id_, next_sequence_++};
     const auto resolved_sensor = sensor_type == SensorType::Unknown ? sensor_type_for(kind) : sensor_type;
     DomainEvent event{key, kind, location, monotonic_ms, occurred_at, occurred_at,
                       uncertainty_s, battery_mv, is_test, resolved_sensor, rssi_dbm};
+    // Preflight the transport queue before retaining so an admission failure
+    // cannot create an unreachable/stranded journal record.
+    if (!radio_.can_enqueue(kind)) {
+        ++stats_.tx_queue_full;
+        if (kind == EventKind::Motion) ++stats_.dropped_motion;
+        else ++stats_.priority_rejected;
+        GS_ERROR(gs::log::Category::Radio, "N00", "record.failed", "tx_queue_full");
+        return std::nullopt;
+    }
     if (!store_.append(event)) {
+        ++stats_.store_full;
+        if (kind == EventKind::Motion) ++stats_.dropped_motion;
+        else ++stats_.priority_rejected;
         GS_ERROR(gs::log::Category::Storage, "N00", "record.failed", "node_journal_full");
         return std::nullopt;
     }
     if (!radio_.enqueue(event, monotonic_ms)) {
+        // Single-owner preflight makes this defensive path unexpected, but
+        // preserve the store/radio invariant if capacities ever diverge.
+        (void)store_.acknowledge(key, AckClass::DiscardedPolicy);
+        ++stats_.tx_queue_full;
+        if (kind == EventKind::Motion) ++stats_.dropped_motion;
+        else ++stats_.priority_rejected;
         GS_ERROR(gs::log::Category::Radio, "N00", "record.failed", "tx_queue_full");
         return std::nullopt;
     }
+    ++stats_.accepted;
     return key;
 }
 
@@ -53,8 +73,12 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
 bool NodeRuntime::acknowledge(const EventKey& key, AckClass ack) {
     GS_TRACE(gs::log::Category::Node, "N00", "acknowledge.enter", "-");
     const bool radio_removed = radio_.apply_ack(key, ack);
-    if (ack == AckClass::ReceivedVolatile) return radio_removed;
+    if (ack == AckClass::ReceivedVolatile) {
+        ++stats_.volatile_acks;
+        return radio_removed;
+    }
     const bool store_removed = store_.acknowledge(key, ack);
+    if (ack == AckClass::Durable && radio_removed && store_removed) ++stats_.durable_acks;
     return radio_removed && (store_removed || ack == AckClass::DiscardedPolicy);
 }
 

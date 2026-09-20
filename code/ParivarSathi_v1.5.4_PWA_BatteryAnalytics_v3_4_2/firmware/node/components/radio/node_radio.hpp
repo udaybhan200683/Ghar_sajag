@@ -23,11 +23,21 @@ struct PendingTx {
     DomainEvent event;
     std::size_t attempt{0};
     Milliseconds next_attempt_ms{0};
+    bool periodic_backoff_counted{false};
+};
+
+struct NodeRadioStats {
+    std::uint32_t transport_results{0};
+    std::uint32_t mac_success{0};
+    std::uint32_t mac_failure{0};
+    std::uint32_t retries{0};
+    std::uint32_t periodic_backoff_entries{0};
 };
 
 class NodeRadio {
 public:
     explicit NodeRadio(std::size_t capacity = 32);
+    bool can_enqueue(EventKind kind) const;
     // @requirements E01, E02, NFR-04
     // Retain the existing event identity for retries; report capacity refusal to the state owner.
     bool enqueue(const DomainEvent& event, Milliseconds now_ms);
@@ -43,10 +53,16 @@ public:
     // business evidence.
     bool apply_ack(const EventKey& key, AckClass ack);
     std::size_t pending() const { return queue_.size(); }
+    std::size_t capacity() const { return capacity_; }
+    std::optional<EventKey> oldest_key() const;
+    const NodeRadioStats& stats() const { return stats_; }
 
 private:
     std::size_t capacity_;
     std::deque<PendingTx> queue_;
+    NodeRadioStats stats_;
+    std::size_t round_robin_cursor_{0};
+    Milliseconds next_radio_opportunity_ms_{0};
 };
 
 }  // namespace gs::node

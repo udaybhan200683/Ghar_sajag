@@ -28,7 +28,7 @@ Transport-layer success alone is never a durable ACK.
 
 ## Retry and duplicate suppression
 
-P0 retry schedule is `200 ms, 600 ms, 1800 ms, 10000 ms`, then capped at 10 s, with deterministic 0–100 ms jitter. Retries reuse the same event identity and payload. They never mint a new sequence number.
+Retry schedule is `200 ms, 600 ms, 1800 ms, 10000 ms, 60000 ms`, then capped at a 60-second periodic probe, with deterministic 0–100 ms jitter. A global opportunity gate and round-robin selection bound aggregate offline radio work; Durable ACK releases the gate to drain recovered traffic. Retries reuse the same event identity and payload. They never mint a new sequence number and do not require a new sensor event.
 
 The hub journal suppresses duplicates by `(node_id, session_id, sequence_number)`. Backend `event_id` is derived from that same identity, so replay after WAN loss remains idempotent end-to-end.
 
@@ -40,6 +40,24 @@ The hub journal suppresses duplicates by `(node_id, session_id, sequence_number)
 - Offline status is a device/coverage state, not evidence of resident inactivity.
 
 These constants live in `shared/include/gs/protocol.hpp` and are reused by node retry and hub coverage code to prevent configuration drift.
+
+## Bounded offline admission
+
+The HW-M1.4 node keeps at most 32 retained/retry entries. Repetitive Motion
+events may occupy 28; four slots are reserved for non-motion evidence. When a
+class allocation is full, the newest event is rejected nonblockingly and a
+cumulative diagnostic counter advances. Sequence allocation occurs before
+admission, so such rejection is visible as an intentional sequence gap. Store
+and retry admission are atomic: no record may be retained without retry state.
+No event is silently overwritten or coalesced in this revision.
+
+## Engineering health frame
+
+`NodeHealthSnapshot` uses a separate `NodeHealth` frame type and independent
+health sequence. It is emitted best-effort every 60 seconds, is never retained,
+does not consume business EventKey space, and receives no Durable ACK. The Hub
+keeps at most the latest queued snapshot and logs its node counters plus receive
+RSSI/channel. Diagnostic loss is harmless and cannot fill the business store.
 
 ## Code binding
 

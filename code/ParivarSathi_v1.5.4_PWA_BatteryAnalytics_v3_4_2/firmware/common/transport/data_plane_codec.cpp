@@ -193,6 +193,7 @@ CodecError validate_header(const std::uint8_t* data, std::size_t size,
     const auto type = data[5];
     if (type != static_cast<std::uint8_t>(FrameType::NodeMessage) &&
         type != static_cast<std::uint8_t>(FrameType::NodeAck) &&
+        type != static_cast<std::uint8_t>(FrameType::NodeHealth) &&
         type != static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return CodecError::UnknownFrameType;
     }
@@ -316,6 +317,9 @@ FrameClass classify_frame(const std::uint8_t* data, std::size_t size) {
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::NodeAck)) {
         return FrameClass::NodeAck;
+    }
+    if (data[5] == static_cast<std::uint8_t>(FrameType::NodeHealth)) {
+        return FrameClass::NodeHealth;
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return FrameClass::ControlFota;
@@ -502,6 +506,103 @@ DecodeResult<NodeAckMessage> decode_node_ack(const std::uint8_t* data,
     }
     message.ack_type = *ack;
     result.value = std::move(message);
+    return result;
+}
+
+EncodeResult encode_node_health(const NodeHealthSnapshot& health) {
+    EncodeResult result;
+    if (!valid_node_health(health)) {
+        result.error = health.schema == NodeHealthSnapshot::schema_version
+            ? CodecError::InvalidValue : CodecError::UnsupportedSchema;
+        return result;
+    }
+    if (health.node_id.size() > kMaxSourceIdBytes) {
+        result.error = CodecError::FieldTooLong;
+        return result;
+    }
+
+    Writer writer(result.frame);
+    const bool ok = writer.reserve_header() && writer.u32(health.schema) &&
+        writer.string8(health.node_id, kMaxSourceIdBytes) &&
+        writer.u64(health.session_id) && writer.u64(health.health_sequence) &&
+        writer.u64(health.uptime_ms) && writer.u32(health.reset_reason) &&
+        writer.u8(health.raw_pir_level ? 1U : 0U) &&
+        writer.u32(health.raw_pir_edges) && writer.u32(health.accepted_pir) &&
+        writer.u32(health.rejected_pir) && writer.u32(health.store_full) &&
+        writer.u32(health.dropped_motion) && writer.u32(health.priority_rejected) &&
+        writer.u32(health.sensing_liveness) && writer.u32(health.runtime_liveness) &&
+        writer.u8(static_cast<std::uint8_t>(health.last_breadcrumb)) &&
+        writer.u16(health.retained_count) && writer.u64(health.oldest_sequence) &&
+        writer.u8(health.radio_in_flight ? 1U : 0U) &&
+        writer.u32(health.tx_attempts) && writer.u32(health.mac_success) &&
+        writer.u32(health.mac_failure) && writer.u32(health.durable_acks) &&
+        writer.u32(health.volatile_acks) && writer.u32(health.retries) &&
+        writer.u32(health.periodic_backoff_entries) &&
+        writer.u16(static_cast<std::uint16_t>(health.last_error)) &&
+        writer.u32(health.free_heap) && writer.u32(health.minimum_free_heap) &&
+        writer.u8(health.maintenance_active ? 1U : 0U) &&
+        writer.finish(FrameType::NodeHealth);
+    if (!ok) result.error = CodecError::BufferTooSmall;
+    return result;
+}
+
+DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
+                                                    std::size_t size) {
+    DecodeResult<NodeHealthSnapshot> result;
+    result.error = validate_header(data, size, FrameType::NodeHealth);
+    if (result.error != CodecError::None) return result;
+
+    Reader reader(data, size);
+    NodeHealthSnapshot health;
+    std::uint8_t raw_pir = 0;
+    std::uint8_t breadcrumb = 0;
+    std::uint8_t in_flight = 0;
+    std::uint16_t last_error = 0;
+    std::uint8_t maintenance = 0;
+    if (!reader.u32(health.schema) ||
+        !reader.string8(health.node_id, kMaxSourceIdBytes) ||
+        !reader.u64(health.session_id) || !reader.u64(health.health_sequence) ||
+        !reader.u64(health.uptime_ms) || !reader.u32(health.reset_reason) ||
+        !reader.u8(raw_pir) || !reader.u32(health.raw_pir_edges) ||
+        !reader.u32(health.accepted_pir) || !reader.u32(health.rejected_pir) ||
+        !reader.u32(health.store_full) || !reader.u32(health.dropped_motion) ||
+        !reader.u32(health.priority_rejected) || !reader.u32(health.sensing_liveness) ||
+        !reader.u32(health.runtime_liveness) || !reader.u8(breadcrumb) ||
+        !reader.u16(health.retained_count) || !reader.u64(health.oldest_sequence) ||
+        !reader.u8(in_flight) || !reader.u32(health.tx_attempts) ||
+        !reader.u32(health.mac_success) || !reader.u32(health.mac_failure) ||
+        !reader.u32(health.durable_acks) || !reader.u32(health.volatile_acks) ||
+        !reader.u32(health.retries) || !reader.u32(health.periodic_backoff_entries) ||
+        !reader.u16(last_error) || !reader.u32(health.free_heap) ||
+        !reader.u32(health.minimum_free_heap) || !reader.u8(maintenance)) {
+        result.error = CodecError::Truncated;
+        return result;
+    }
+    if (!reader.at_end()) {
+        result.error = CodecError::LengthMismatch;
+        return result;
+    }
+    if (health.schema != NodeHealthSnapshot::schema_version) {
+        result.error = CodecError::UnsupportedSchema;
+        return result;
+    }
+    if (raw_pir > 1U || in_flight > 1U || maintenance > 1U ||
+        breadcrumb < static_cast<std::uint8_t>(NodeBreadcrumb::Boot) ||
+        breadcrumb > static_cast<std::uint8_t>(NodeBreadcrumb::FotaResume) ||
+        last_error > static_cast<std::uint16_t>(NodeHealthError::FotaTimeout)) {
+        result.error = CodecError::InvalidValue;
+        return result;
+    }
+    health.raw_pir_level = raw_pir != 0U;
+    health.radio_in_flight = in_flight != 0U;
+    health.maintenance_active = maintenance != 0U;
+    health.last_breadcrumb = static_cast<NodeBreadcrumb>(breadcrumb);
+    health.last_error = static_cast<NodeHealthError>(last_error);
+    if (!valid_node_health(health)) {
+        result.error = CodecError::InvalidValue;
+        return result;
+    }
+    result.value = std::move(health);
     return result;
 }
 

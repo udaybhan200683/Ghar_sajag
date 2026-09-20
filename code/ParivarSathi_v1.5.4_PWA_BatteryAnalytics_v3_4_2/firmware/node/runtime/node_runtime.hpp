@@ -21,13 +21,24 @@
 
 namespace gs::node {
 
+struct NodeRuntimeStats {
+    std::uint32_t record_calls{0};
+    std::uint32_t accepted{0};
+    std::uint32_t store_full{0};
+    std::uint32_t tx_queue_full{0};
+    std::uint32_t dropped_motion{0};
+    std::uint32_t priority_rejected{0};
+    std::uint32_t durable_acks{0};
+    std::uint32_t volatile_acks{0};
+};
+
 class NodeRuntime {
 public:
     NodeRuntime(std::string node_id, std::uint64_t session_id,
-                std::size_t journal_capacity = 64, std::size_t tx_capacity = 32);
+                std::size_t journal_capacity = 32, std::size_t tx_capacity = 32);
     // @requirements E01, E02, NFR-04
-    // Create one identity and retain before enqueue; failed enqueue can strand the stored event until a
-    // refill adapter is added (G05).
+    // Allocate one identity and atomically admit it to both bounded retained
+    // and retry state. A refusal is counted and cannot strand a store record.
     std::optional<EventKey> record(EventKind kind, const std::string& location,
                                    Milliseconds monotonic_ms, EpochSeconds occurred_at,
                                    std::uint32_t uncertainty_s = 0, std::uint16_t battery_mv = 0,
@@ -46,6 +57,11 @@ public:
     const std::optional<NodePowerTelemetry>& power_telemetry() const { return power_telemetry_; }
     void transport_result(const EventKey& key, bool accepted_by_radio, Milliseconds now_ms);
     std::size_t persisted() const { return store_.size(); }
+    std::size_t pending() const { return radio_.pending(); }
+    std::uint64_t next_sequence() const { return next_sequence_; }
+    std::optional<EventKey> oldest_pending_key() const { return radio_.oldest_key(); }
+    const NodeRuntimeStats& stats() const { return stats_; }
+    const NodeRadioStats& radio_stats() const { return radio_.stats(); }
 
 private:
     std::string node_id_;
@@ -54,6 +70,7 @@ private:
     NodeStore store_;
     NodeRadio radio_;
     std::optional<NodePowerTelemetry> power_telemetry_;
+    NodeRuntimeStats stats_;
 };
 
 }  // namespace gs::node

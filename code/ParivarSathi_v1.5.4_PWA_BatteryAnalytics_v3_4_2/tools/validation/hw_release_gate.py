@@ -297,7 +297,7 @@ def run_gate(full: bool, warning_percent: float) -> int:
         "host-regression", ["make", "cpp-test", f"CXX={compiler}"], ROOT,
         env_update={"PATH": "/usr/bin:/bin"})
     stage("host-regression", "PASS" if host_ok else "FAIL",
-          "124 C++ checks expected" if host_ok else "see build/hw_release_gate/host-regression.log")
+          "245 C++ checks expected" if host_ok else "see build/hw_release_gate/host-regression.log")
 
     partition_problems = partition_errors(NODE_PROJECT / "partitions.csv")
     partition_problems += partition_errors(HUB_PROJECT / "partitions.csv")
@@ -344,10 +344,11 @@ def run_gate(full: bool, warning_percent: float) -> int:
         stage("hub-target-build", "NOT_RUN", "fast gate")
         stage("image-size", "NOT_RUN", "fast gate")
 
-    stage("hil-functional", "MANUAL_REQUIRED", "see docs/hw/HW_M1_3_HIL_VALIDATION.md")
+    stage("hil-functional", "MANUAL_REQUIRED",
+          "see docs/hw/evidence/HW_M1_4_NODE_OFFLINE_RESILIENCE/README.md")
     stage("hil-fota", "MANUAL_REQUIRED", "see docs/hw/HW_M1_3_HIL_VALIDATION.md")
     stage("power-performance", "NOT_BASELINED", "HW-M1.4 measurement plan")
-    stage("endurance", "NOT_RUN", "future 1h/24h/72h and recovery matrix")
+    stage("endurance", "NOT_RUN", "HW-M1.4 Hub-off 8-12h and recovery matrix")
 
     report = {"full": full, "ota_warning_percent": warning_percent,
               "stages": results, "physical_qualification": "PENDING"}

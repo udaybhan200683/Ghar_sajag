@@ -19,6 +19,8 @@ namespace gs::node::target {
 namespace {
 
 constexpr char kTag[] = "gs_node_fota";
+constexpr TickType_t kControlReceivePoll = pdMS_TO_TICKS(1000);
+constexpr TickType_t kFotaInactivityTimeout = pdMS_TO_TICKS(30000);
 
 struct Context {
     bool active{false};
@@ -30,6 +32,7 @@ struct Context {
     std::uint32_t running_crc{0};
     esp_ota_handle_t ota_handle{0};
     const esp_partition_t* partition{nullptr};
+    TickType_t last_activity_tick{0};
 };
 
 Context g_context;
@@ -94,6 +97,7 @@ void handle_begin(const fota::Packet& packet) {
     g_context.running_crc = 0xFFFFFFFFU;
     g_context.ota_handle = handle;
     g_context.partition = partition;
+    g_context.last_activity_tick = xTaskGetTickCount();
     set_control_plane_active(true);
     ESP_LOGI(kTag, "FOTA BEGIN session=%lu target=%s size=%lu",
              static_cast<unsigned long>(packet.session_id), partition->label,
@@ -176,7 +180,15 @@ void handle_end(const fota::Packet& packet) {
 void worker(void*) {
     ReceivedFrame frame;
     for (;;) {
-        if (xQueueReceive(control_plane_queue(), &frame, portMAX_DELAY) != pdTRUE) continue;
+        const bool received =
+            xQueueReceive(control_plane_queue(), &frame, kControlReceivePoll) == pdTRUE;
+        if (g_context.active &&
+            xTaskGetTickCount() - g_context.last_activity_tick >= kFotaInactivityTimeout) {
+            ESP_LOGE(kTag, "FOTA session timed out; resuming local data plane");
+            report_control_plane_timeout();
+            reset(true);
+        }
+        if (!received) continue;
         if (frame.size != sizeof(fota::Packet)) {
             ESP_LOGW(kTag, "Rejected FOTA frame length=%u", static_cast<unsigned>(frame.size));
             continue;
@@ -185,6 +197,9 @@ void worker(void*) {
         std::memcpy(&packet, frame.bytes.data(), sizeof(packet));
         if (packet.magic != fota::kMagic ||
             packet.protocol_version != fota::kProtocolVersion) continue;
+        if (g_context.active && packet.session_id == g_context.session_id) {
+            g_context.last_activity_tick = xTaskGetTickCount();
+        }
         switch (static_cast<fota::MessageType>(packet.type)) {
             case fota::MessageType::Begin: handle_begin(packet); break;
             case fota::MessageType::Data: handle_data(packet); break;

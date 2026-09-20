@@ -111,6 +111,20 @@ void test_node_modules() {
     check(!radio.apply_ack({"node-1", 7, 2}, gs::AckClass::ReceivedVolatile), "radio preserves business event on volatile ack");
     check(radio.apply_ack({"node-1", 7, 2}, gs::AckClass::Durable), "radio retires durable ack");
 
+    gs::node::NodeRadio paced_radio(2);
+    check(paced_radio.enqueue(event(10, gs::EventKind::DoorOpen, 101), 0) &&
+          paced_radio.enqueue(event(11, gs::EventKind::DoorClosed, 102), 0),
+          "paced radio admits bounded work");
+    const auto paced_first = paced_radio.next_due(0);
+    check(paced_first && paced_first->key.sequence == 10,
+          "paced radio selects the first due identity");
+    paced_radio.record_transport_result(paced_first->key, false, 0);
+    check(!paced_radio.next_due(200),
+          "global opportunity gate prevents retry bursts before backoff");
+    const auto paced_second = paced_radio.next_due(400);
+    check(paced_second && paced_second->key.sequence == 11,
+          "round-robin retry selection prevents one identity monopolizing transport");
+
     gs::node::LifecycleService lifecycle;
     check(!lifecycle.apply({1, "node-1", "kitchen", false, false, 60}).applied, "input-less config is rejected");
     check(lifecycle.apply({1, "node-1", "kitchen", true, false, 60}).applied, "valid node config applies");
@@ -233,8 +247,10 @@ void test_hub_modules() {
 void test_protocol_and_generic_rules() {
     check(gs::NodeProtocolPolicy::heartbeat_seconds == 60, "node heartbeat interval is frozen at 60 seconds");
     check(gs::NodeProtocolPolicy::offline_after_seconds == 190, "three missed heartbeats plus grace means offline");
-    check(gs::NodeProtocolPolicy::retry_delays_ms[0] == 200 && gs::NodeProtocolPolicy::retry_delays_ms[3] == 10000,
-          "bounded retry schedule is shared by protocol code");
+    check(gs::NodeProtocolPolicy::retry_delays_ms[0] == 200 &&
+          gs::NodeProtocolPolicy::retry_delays_ms[3] == 10000 &&
+          gs::NodeProtocolPolicy::retry_delays_ms[4] == 60000,
+          "retry schedule reaches a controlled periodic offline probe");
 
     gs::node::NodeRuntime node_runtime("proto-node", 11);
     gs::NodePowerTelemetry wire_power;
@@ -374,6 +390,143 @@ void test_protocol_and_generic_rules() {
     const auto post_bad=gs::RulesCore::evaluate_activity_timers(post_door,routines,9210,14*60);
     check(!post_bad.empty() && post_bad.back().kind==gs::RuleSignalKind::PostDoorInactivity,
           "post-door inactivity uses configured threshold");
+}
+
+void test_node_offline_resilience() {
+    gs::node::NodeRuntime offline("offline-node", 21, 32, 32);
+    std::size_t admitted = 0;
+    for (std::uint64_t index = 0; index < 1000; ++index) {
+        const auto now = static_cast<gs::Milliseconds>(index * 2000U);
+        if (offline.record(gs::EventKind::Motion, "room1", now, 0)) {
+            ++admitted;
+        }
+        // Simulate one bounded owner-loop radio opportunity while the Hub is
+        // unavailable. No sensor event is ever allowed to wait for it.
+        const auto attempt = offline.next_message(now);
+        if (attempt) {
+            offline.transport_result({attempt->node_id, attempt->session_id,
+                                      attempt->sequence_number}, false, now);
+        }
+    }
+    check(admitted == 28, "motion backlog preserves four priority reserve slots");
+    check(offline.persisted() == admitted && offline.pending() == admitted,
+          "offline store and retry queue remain consistent and bounded");
+    check(offline.stats().record_calls == 1000 && offline.stats().accepted == admitted &&
+          offline.stats().dropped_motion == 1000 - admitted,
+          "one thousand local motions are accounted without blocking");
+    check(offline.next_sequence() == 1001,
+          "every qualified event attempt consumes one explicit sequence identity");
+    check(offline.radio_stats().transport_results <= 1000 &&
+          offline.radio_stats().periodic_backoff_entries > 0,
+          "long offline retry work stays bounded and reaches periodic backoff");
+
+    for (std::size_t index = 0; index < admitted; ++index) {
+        const auto pending = offline.next_message(3000000);
+        check(pending.has_value(), "Hub return exposes retained work without a new PIR event");
+        const gs::EventKey key{pending->node_id, pending->session_id,
+                               pending->sequence_number};
+        check(offline.acknowledge(key, gs::AckClass::Durable),
+              "Hub Durable ACK retires exactly one retained offline event");
+    }
+    check(offline.persisted() == 0 && offline.pending() == 0,
+          "offline backlog drains without stranded store entries");
+    const auto after_recovery = offline.record(gs::EventKind::Motion, "room1", 3001000, 0);
+    check(after_recovery && after_recovery->sequence == 1001,
+          "fresh sensing works after Hub recovery and preserves sequence gaps");
+
+    gs::node::NodeRuntime retry("retry-node", 22, 1, 1);
+    const auto retry_key = retry.record(gs::EventKind::Motion, "room1", 0, 0);
+    check(retry_key.has_value(), "Hub-unavailable-from-boot retains first event");
+    const auto first = retry.next_message(0);
+    check(first && first->sequence_number == retry_key->sequence,
+          "first offline transmission is immediately due");
+    retry.transport_result(*retry_key, false, 0);
+    check(!retry.next_message(200), "retry honors deterministic delay and jitter");
+    const auto mac_retry = retry.next_message(300);
+    check(mac_retry && mac_retry->sequence_number == retry_key->sequence,
+          "MAC failure recovers on timer with the same EventKey");
+    retry.transport_result(*retry_key, true, 300);
+    check(!retry.next_message(800), "MAC success still waits for application ACK timeout");
+    const auto app_ack_retry = retry.next_message(1000);
+    check(app_ack_retry && app_ack_retry->sequence_number == retry_key->sequence,
+          "missing application ACK retries without a new PIR event");
+    check(!retry.acknowledge({"retry-node", 22, 99}, gs::AckClass::Durable) &&
+          retry.persisted() == 1,
+          "stale ACK cannot retire current retained evidence");
+    check(retry.acknowledge(*retry_key, gs::AckClass::Durable) && retry.persisted() == 0,
+          "correct Durable ACK retires after recovery");
+
+    gs::node::NodeRuntime store_limited("store-node", 23, 2, 8);
+    check(store_limited.record(gs::EventKind::DoorOpen, "entry", 0, 0).has_value() &&
+          store_limited.record(gs::EventKind::DoorClosed, "entry", 1, 0).has_value(),
+          "priority evidence fills configured store capacity");
+    check(!store_limited.record(gs::EventKind::CallFamily, "entry", 2, 0) &&
+          store_limited.stats().store_full == 1 &&
+          store_limited.persisted() == store_limited.pending(),
+          "store-full policy rejects explicitly without stranding");
+
+    gs::node::NodeRuntime priority("priority-node", 24, 32, 32);
+    for (std::uint64_t index = 0; index < 28; ++index) {
+        check(priority.record(gs::EventKind::Motion, "room1", index, 0).has_value(),
+              "motion fits within repetitive-event allocation");
+    }
+    for (std::uint64_t index = 0; index < 4; ++index) {
+        check(priority.record(gs::EventKind::CallFamily, "room1", 100 + index, 0).has_value(),
+              "reserved capacity admits higher-priority non-motion evidence");
+    }
+    check(!priority.record(gs::EventKind::CallFamily, "room1", 200, 0) &&
+          priority.stats().priority_rejected == 1,
+          "priority exhaustion is explicit rather than silently coalesced");
+
+    gs::NodeHealthSnapshot health;
+    health.node_id = "offline-node";
+    health.session_id = 21;
+    health.health_sequence = 7;
+    health.uptime_ms = 60000;
+    health.raw_pir_edges = 2000;
+    health.accepted_pir = 1000;
+    health.rejected_pir = 972;
+    health.retained_count = 28;
+    health.oldest_sequence = 1;
+    health.last_breadcrumb = gs::NodeBreadcrumb::RetryBackoff;
+    health.last_error = gs::NodeHealthError::TxQueueFull;
+    health.free_heap = 120000;
+    health.minimum_free_heap = 110000;
+    const auto encoded_health = gs::transport::encode_node_health(health);
+    check(encoded_health && encoded_health.frame.size <= gs::transport::kMaxFrameBytes,
+          "health snapshot is compact and bounded");
+    check(gs::transport::classify_frame(encoded_health.frame.bytes.data(),
+                                        encoded_health.frame.size) ==
+              gs::transport::FrameClass::NodeHealth,
+          "health uses a separate non-business frame type");
+    const auto decoded_health = gs::transport::decode_node_health(
+        encoded_health.frame.bytes.data(), encoded_health.frame.size);
+    check(decoded_health && decoded_health.value->health_sequence == 7 &&
+          decoded_health.value->accepted_pir == 1000 &&
+          decoded_health.value->oldest_sequence == 1,
+          "health snapshot round trip preserves endurance diagnostics");
+
+    gs::node::QualifiedInput pir(gs::EventKind::Motion, std::nullopt, 1, 1);
+    check(!pir.sample(false, 0), "offline sensing initializes independently");
+    std::size_t local_events = 0;
+    for (gs::Milliseconds now = 2; now < 4002; now += 4) {
+        (void)pir.sample(true, now);
+        if (pir.sample(true, now + 1)) ++local_events;
+        (void)pir.sample(false, now + 2);
+        (void)pir.sample(false, now + 3);
+    }
+    check(local_events == 1000,
+          "local sensing continues for one thousand cycles independent of transport capacity");
+
+    for (int cycle = 0; cycle < 3; ++cycle) {
+        gs::node::NodeRuntime cycling("cycle-node", 30 + cycle, 2, 2);
+        const auto key = cycling.record(gs::EventKind::Motion, "room1", 0, 0);
+        check(key && cycling.next_message(0), "Hub-off cycle starts bounded retry work");
+        cycling.transport_result(*key, false, 0);
+        const auto recovered = cycling.next_message(300);
+        check(recovered && cycling.acknowledge(*key, gs::AckClass::Durable),
+              "repeated Hub off/on cycle recovers without reboot or new PIR");
+    }
 }
 
 void test_data_plane_codec_and_ack_policy() {
@@ -616,6 +769,7 @@ int main() {
         test_node_modules();
         test_hub_modules();
         test_protocol_and_generic_rules();
+        test_node_offline_resilience();
         test_data_plane_codec_and_ack_policy();
         test_security_seams();
         test_logging_policy();

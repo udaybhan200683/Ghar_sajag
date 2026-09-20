@@ -12,21 +12,30 @@
 #include "gs/logging.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 namespace gs::node {
 
 NodeRadio::NodeRadio(std::size_t capacity) : capacity_(capacity) {
     GS_TRACE(gs::log::Category::Radio, "N02", "NodeRadio.enter", "-");}
 
+bool NodeRadio::can_enqueue(EventKind kind) const {
+    if (queue_.size() >= capacity_) return false;
+    // Repetitive PIR evidence cannot consume every slot. Preserve a small
+    // bounded reserve for buttons, door state, privacy and gap evidence.
+    const std::size_t priority_reserve = std::min<std::size_t>(4U, capacity_ / 4U);
+    return kind != EventKind::Motion || queue_.size() < capacity_ - priority_reserve;
+}
+
 // @requirements E01, E02, NFR-04
 // Retain the existing event identity for retries; report capacity refusal to the state owner.
 bool NodeRadio::enqueue(const DomainEvent& event, Milliseconds now_ms) {
     GS_TRACE(gs::log::Category::Radio, "N02", "enqueue.enter", "-");
-    if (queue_.size() >= capacity_) {
+    if (!can_enqueue(event.kind)) {
         GS_ERROR(gs::log::Category::Radio, "N02", "enqueue.failed", "capacity_exhausted");
         return false;
     }
-    queue_.push_back(PendingTx{event, 0, now_ms});
+    queue_.push_back(PendingTx{event, 0, now_ms, false});
     return true;
 }
 
@@ -34,11 +43,15 @@ bool NodeRadio::enqueue(const DomainEvent& event, Milliseconds now_ms) {
 // Expose work eligible at this elapsed time; this method does not transmit a radio frame.
 std::optional<DomainEvent> NodeRadio::next_due(Milliseconds now_ms) {
     GS_TRACE(gs::log::Category::Radio, "N02", "next_due.enter", "-");
-    auto it = std::find_if(queue_.begin(), queue_.end(), [now_ms](const PendingTx& pending) {
-        return pending.next_attempt_ms <= now_ms;
-    });
-    if (it == queue_.end()) return std::nullopt;
-    return it->event;
+    if (queue_.empty() || now_ms < next_radio_opportunity_ms_) return std::nullopt;
+    for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
+        const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
+        if (queue_[index].next_attempt_ms <= now_ms) {
+            round_robin_cursor_ = (index + 1U) % queue_.size();
+            return queue_[index].event;
+        }
+    }
+    return std::nullopt;
 }
 
 // @requirements E01, E02, NFR-04
@@ -50,12 +63,29 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
         return pending.event.key.str() == key.str();
     });
     if (it == queue_.end()) return;
+    ++stats_.transport_results;
+    if (accepted_by_radio) ++stats_.mac_success;
+    else ++stats_.mac_failure;
+    if (it->attempt > 0U) ++stats_.retries;
     const auto index = std::min(it->attempt, NodeProtocolPolicy::retry_delays_ms.size() - 1);
     const auto base = NodeProtocolPolicy::retry_delays_ms[index];
     const auto deterministic_jitter = static_cast<Milliseconds>(
         (key.sequence * 37U) % (static_cast<std::uint64_t>(NodeProtocolPolicy::retry_jitter_max_ms) + 1U));
     it->next_attempt_ms = now_ms + base + deterministic_jitter;
-    it->attempt += accepted_by_radio ? 1U : 2U;
+    // One global opportunity gate prevents N retained events from becoming an
+    // N-packet burst every backoff period while the Hub is absent.
+    next_radio_opportunity_ms_ = it->next_attempt_ms;
+    ++it->attempt;
+    if (index == NodeProtocolPolicy::retry_delays_ms.size() - 1U &&
+        !it->periodic_backoff_counted) {
+        it->periodic_backoff_counted = true;
+        ++stats_.periodic_backoff_entries;
+    }
+}
+
+std::optional<EventKey> NodeRadio::oldest_key() const {
+    if (queue_.empty()) return std::nullopt;
+    return queue_.front().event.key;
 }
 
 // @requirements E01, E02, NFR-04
@@ -69,7 +99,18 @@ bool NodeRadio::apply_ack(const EventKey& key, AckClass ack) {
     });
     if (it == queue_.end()) return false;
     if (is_business_event(it->event.kind) && ack == AckClass::ReceivedVolatile) return false;
+    const auto erased_index = static_cast<std::size_t>(std::distance(queue_.begin(), it));
     queue_.erase(it);
+    if (queue_.empty()) round_robin_cursor_ = 0;
+    else {
+        if (erased_index < round_robin_cursor_ && round_robin_cursor_ > 0U) {
+            --round_robin_cursor_;
+        }
+        round_robin_cursor_ %= queue_.size();
+    }
+    // A valid application retirement proves Hub progress; allow the next
+    // retained identity to drain immediately rather than waiting on offline backoff.
+    next_radio_opportunity_ms_ = 0;
     return true;
 }
 

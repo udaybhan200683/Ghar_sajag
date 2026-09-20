@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_now.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/task.h"
@@ -32,6 +33,7 @@ constexpr UBaseType_t kAckQueueDepth = 8U;
 constexpr UBaseType_t kControlQueueDepth = 8U;
 constexpr UBaseType_t kSendQueueDepth = 4U;
 constexpr Milliseconds kSendCallbackTimeoutMs = 1000;
+constexpr Milliseconds kHealthIntervalMs = 60000;
 
 struct SendResult {
     bool accepted_by_radio{false};
@@ -49,6 +51,8 @@ QueueHandle_t g_send_queue = nullptr;
 std::uint64_t g_session_id = 0;
 std::atomic<std::uint32_t> g_ack_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
+std::atomic<std::uint32_t> g_send_queue_drops{0};
+std::atomic<std::uint32_t> g_fota_timeouts{0};
 std::atomic<bool> g_control_plane_active{false};
 
 Milliseconds monotonic_ms() {
@@ -106,7 +110,9 @@ void send_callback(const std::uint8_t*, esp_now_send_status_t status) {
     if (g_send_queue == nullptr ||
         g_control_plane_active.load(std::memory_order_acquire)) return;
     const SendResult result{status == ESP_NOW_SEND_SUCCESS};
-    (void)xQueueSend(g_send_queue, &result, 0);
+    if (xQueueSend(g_send_queue, &result, 0) != pdTRUE) {
+        g_send_queue_drops.fetch_add(1U, std::memory_order_relaxed);
+    }
 }
 
 esp_err_t initialize_gpio() {
@@ -175,8 +181,25 @@ void owner_task(void*) {
     QualifiedInput pir(EventKind::Motion, std::nullopt, kPirDebounceMs,
                        kPirMinimumRetriggerMs);
     std::optional<EventKey> in_flight;
+    bool health_in_flight = false;
     Milliseconds sent_at_ms = 0;
     Milliseconds led_off_at_ms = 0;
+    Milliseconds next_health_ms = kHealthIntervalMs;
+    std::uint64_t health_sequence = 1;
+    std::uint32_t raw_pir_edges = 0;
+    std::uint32_t accepted_pir = 0;
+    std::uint32_t rejected_pir = 0;
+    std::uint32_t sensing_liveness = 0;
+    std::uint32_t runtime_liveness = 0;
+    std::uint32_t send_attempts = 0;
+    std::uint32_t mac_success_count = 0;
+    std::uint32_t mac_failure_count = 0;
+    bool previous_raw_pir = false;
+    bool raw_initialized = false;
+    bool previous_maintenance = false;
+    NodeBreadcrumb breadcrumb = NodeBreadcrumb::Boot;
+    NodeHealthError last_error = NodeHealthError::None;
+    const std::uint32_t reset_reason = static_cast<std::uint32_t>(esp_reset_reason());
 
     ESP_LOGI(kTag, "NodeRuntime owner started session=%llu channel=%u tx_power_qdbm=%d",
              static_cast<unsigned long long>(g_session_id),
@@ -188,10 +211,21 @@ void owner_task(void*) {
     for (;;) {
         const Milliseconds now = monotonic_ms();
         const auto ack_drops = g_ack_queue_drops.exchange(0U, std::memory_order_relaxed);
+        ++sensing_liveness;
+        ++runtime_liveness;
         const auto control_drops = g_control_queue_drops.exchange(0U, std::memory_order_relaxed);
-        if (ack_drops != 0U || control_drops != 0U) {
-            ESP_LOGW(kTag, "Callback queue drops ACK=%u CONTROL=%u",
-                     static_cast<unsigned>(ack_drops), static_cast<unsigned>(control_drops));
+        const auto send_drops = g_send_queue_drops.exchange(0U, std::memory_order_relaxed);
+        const auto fota_timeouts = g_fota_timeouts.exchange(0U, std::memory_order_relaxed);
+        if (ack_drops != 0U || control_drops != 0U || send_drops != 0U) {
+            ESP_LOGW(kTag, "Callback queue drops ACK=%u CONTROL=%u SEND=%u",
+                     static_cast<unsigned>(ack_drops), static_cast<unsigned>(control_drops),
+                     static_cast<unsigned>(send_drops));
+            if (ack_drops != 0U) last_error = NodeHealthError::AckQueueDrop;
+            else if (control_drops != 0U) last_error = NodeHealthError::ControlQueueDrop;
+            else last_error = NodeHealthError::SendQueueDrop;
+        }
+        if (fota_timeouts != 0U) {
+            last_error = NodeHealthError::FotaTimeout;
         }
         ReceivedFrame ack_frame;
         while (xQueueReceive(g_ack_queue, &ack_frame, 0) == pdTRUE) {
@@ -204,6 +238,7 @@ void owner_task(void*) {
             const EventKey key{decoded.value->node_id, decoded.value->session_id,
                                decoded.value->sequence_number};
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
+            breadcrumb = retired ? NodeBreadcrumb::EventRetired : NodeBreadcrumb::AppAck;
             ESP_LOGI(kTag, "Application ACK session=%llu seq=%llu class=%d retired=%d",
                      static_cast<unsigned long long>(key.session_id),
                      static_cast<unsigned long long>(key.sequence),
@@ -212,13 +247,19 @@ void owner_task(void*) {
 
         SendResult send_result;
         while (xQueueReceive(g_send_queue, &send_result, 0) == pdTRUE) {
+            if (send_result.accepted_by_radio) ++mac_success_count;
+            else ++mac_failure_count;
             if (in_flight) {
                 runtime.transport_result(*in_flight, send_result.accepted_by_radio, now);
+                breadcrumb = send_result.accepted_by_radio
+                    ? NodeBreadcrumb::WaitAppAck : NodeBreadcrumb::RetryBackoff;
                 ESP_LOGI(kTag, "MAC result session=%llu seq=%llu accepted=%d",
                          static_cast<unsigned long long>(in_flight->session_id),
                          static_cast<unsigned long long>(in_flight->sequence),
                          send_result.accepted_by_radio);
                 in_flight.reset();
+            } else if (health_in_flight) {
+                health_in_flight = false;
             }
         }
         if (in_flight && now - sent_at_ms >= kSendCallbackTimeoutMs) {
@@ -227,24 +268,59 @@ void owner_task(void*) {
                      static_cast<unsigned long long>(in_flight->session_id),
                      static_cast<unsigned long long>(in_flight->sequence));
             in_flight.reset();
+            ++mac_failure_count;
+            breadcrumb = NodeBreadcrumb::RetryBackoff;
+            last_error = NodeHealthError::MacCallbackTimeout;
+        } else if (health_in_flight && now - sent_at_ms >= kSendCallbackTimeoutMs) {
+            health_in_flight = false;
+            ++mac_failure_count;
+            last_error = NodeHealthError::MacCallbackTimeout;
         }
 
         const bool maintenance = g_control_plane_active.load(std::memory_order_acquire);
-        if (!maintenance) {
-            const bool raw_pir = gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
-            const auto sensed = pir.sample(raw_pir, now);
-            if (sensed) {
+        if (maintenance != previous_maintenance) {
+            breadcrumb = maintenance ? NodeBreadcrumb::FotaPause : NodeBreadcrumb::FotaResume;
+            previous_maintenance = maintenance;
+        }
+        const bool raw_pir = gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
+        if (!raw_initialized) {
+            previous_raw_pir = raw_pir;
+            raw_initialized = true;
+        } else if (raw_pir != previous_raw_pir) {
+            previous_raw_pir = raw_pir;
+            ++raw_pir_edges;
+            breadcrumb = NodeBreadcrumb::PirRaw;
+        }
+        const auto sensed = pir.sample(raw_pir, now);
+        if (sensed) {
+            ++accepted_pir;
+            breadcrumb = NodeBreadcrumb::PirAccepted;
+            // GPIO8 is a local qualified-PIR indication. It is deliberately
+            // independent of store admission, radio delivery and Hub ACK.
+            (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio),
+                                 kLedActiveLow ? 0 : 1);
+            led_off_at_ms = now + 200;
+            if (!maintenance) {
+                breadcrumb = NodeBreadcrumb::EventRecordEnter;
+                const auto store_full_before = runtime.stats().store_full;
                 const auto key = runtime.record(*sensed, kLocation, now, 0,
                                                 24U * 60U * 60U, 0, false,
                                                 SensorType::Pir, 0);
                 if (key) {
+                    breadcrumb = NodeBreadcrumb::EventRecordOk;
                     ESP_LOGI(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
                              static_cast<unsigned long long>(key->session_id),
                              static_cast<unsigned long long>(key->sequence));
-                    (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio),
-                                         kLedActiveLow ? 0 : 1);
-                    led_off_at_ms = now + 200;
+                } else {
+                    ++rejected_pir;
+                    const bool store_full = runtime.stats().store_full != store_full_before;
+                    breadcrumb = store_full ? NodeBreadcrumb::StoreFull
+                                            : NodeBreadcrumb::EventRecordRejected;
+                    last_error = store_full ? NodeHealthError::StoreFull
+                                            : NodeHealthError::TxQueueFull;
                 }
+            } else {
+                ++rejected_pir;
             }
         }
         if (led_off_at_ms != 0 && now >= led_off_at_ms) {
@@ -252,28 +328,83 @@ void owner_task(void*) {
             led_off_at_ms = 0;
         }
 
-        if (!in_flight && !maintenance) {
+        if (!in_flight && !health_in_flight && !maintenance && now >= next_health_ms) {
+            const auto& stats = runtime.stats();
+            const auto& radio_stats = runtime.radio_stats();
+            const auto oldest = runtime.oldest_pending_key();
+            NodeHealthSnapshot health;
+            health.node_id = kNodeId;
+            health.session_id = g_session_id;
+            health.health_sequence = health_sequence++;
+            health.uptime_ms = static_cast<std::uint64_t>(now);
+            health.reset_reason = reset_reason;
+            health.raw_pir_level = raw_pir;
+            health.raw_pir_edges = raw_pir_edges;
+            health.accepted_pir = accepted_pir;
+            health.rejected_pir = rejected_pir;
+            health.store_full = stats.store_full;
+            health.dropped_motion = stats.dropped_motion;
+            health.priority_rejected = stats.priority_rejected;
+            health.sensing_liveness = sensing_liveness;
+            health.runtime_liveness = runtime_liveness;
+            health.last_breadcrumb = breadcrumb;
+            health.retained_count = static_cast<std::uint16_t>(runtime.persisted());
+            health.oldest_sequence = oldest ? oldest->sequence : 0U;
+            health.radio_in_flight = false;
+            health.tx_attempts = send_attempts;
+            health.mac_success = mac_success_count;
+            health.mac_failure = mac_failure_count;
+            health.durable_acks = stats.durable_acks;
+            health.volatile_acks = stats.volatile_acks;
+            health.retries = radio_stats.retries;
+            health.periodic_backoff_entries = radio_stats.periodic_backoff_entries;
+            health.last_error = last_error;
+            health.free_heap = esp_get_free_heap_size();
+            health.minimum_free_heap = esp_get_minimum_free_heap_size();
+            health.maintenance_active = maintenance;
+            const auto encoded = transport::encode_node_health(health);
+            next_health_ms = now + kHealthIntervalMs;
+            if (encoded) {
+                ++send_attempts;
+                const esp_err_t sent = esp_now_send(kQualifiedHubMac.data(),
+                                                    encoded.frame.bytes.data(),
+                                                    encoded.frame.size);
+                if (sent == ESP_OK) {
+                    health_in_flight = true;
+                    sent_at_ms = now;
+                }
+            }
+        }
+
+        if (!in_flight && !health_in_flight && !maintenance) {
             const auto message = runtime.next_message(now);
             if (message) {
+                breadcrumb = NodeBreadcrumb::TxPrepare;
                 const EventKey key{message->node_id, message->session_id,
                                    message->sequence_number};
                 const auto encoded = transport::encode_node_message(*message);
                 if (!encoded) {
                     ESP_LOGE(kTag, "NodeMessage encode failed error=%d", static_cast<int>(encoded.error));
                     runtime.transport_result(key, false, now);
+                    last_error = NodeHealthError::EncodeFailed;
+                    breadcrumb = NodeBreadcrumb::RetryBackoff;
                 } else {
+                    ++send_attempts;
                     const esp_err_t sent = esp_now_send(kQualifiedHubMac.data(),
                                                         encoded.frame.bytes.data(),
                                                         encoded.frame.size);
                     if (sent == ESP_OK) {
                         in_flight = key;
                         sent_at_ms = now;
+                        breadcrumb = NodeBreadcrumb::WaitMac;
                         ESP_LOGI(kTag, "NodeMessage sent session=%llu seq=%llu bytes=%u",
                                  static_cast<unsigned long long>(key.session_id),
                                  static_cast<unsigned long long>(key.sequence),
                                  static_cast<unsigned>(encoded.frame.size));
                     } else {
                         runtime.transport_result(key, false, now);
+                        last_error = NodeHealthError::SendRejected;
+                        breadcrumb = NodeBreadcrumb::RetryBackoff;
                         ESP_LOGW(kTag, "esp_now_send failed error=%s", esp_err_to_name(sent));
                     }
                 }
@@ -292,6 +423,10 @@ QueueHandle_t control_plane_queue() {
 
 void set_control_plane_active(bool active) {
     g_control_plane_active.store(active, std::memory_order_release);
+}
+
+void report_control_plane_timeout() {
+    g_fota_timeouts.fetch_add(1U, std::memory_order_relaxed);
 }
 
 esp_err_t start_runtime_adapter() {
