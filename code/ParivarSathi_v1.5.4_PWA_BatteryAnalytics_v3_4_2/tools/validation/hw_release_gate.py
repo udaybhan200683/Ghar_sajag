@@ -26,7 +26,6 @@ NODE_PROJECT = ROOT / "firmware/node/target/esp32c3/idf"
 HUB_PROJECT = ROOT / "firmware/hub/target/esp32/idf"
 NODE_BINARY = NODE_PROJECT / "build/gs_hw_m1_node.bin"
 HUB_BINARY = HUB_PROJECT / "build/gs_hw_m1_hub.bin"
-HUB_EMBEDDED_NODE = HUB_PROJECT / "main/node_firmware.bin"
 OTA_SLOT_BYTES = 0x1E0000
 DEFAULT_OTA_WARNING_PERCENT = 15.0
 
@@ -179,6 +178,7 @@ def structural_errors() -> list[str]:
         HUB_PROJECT / "CMakeLists.txt",
         HUB_PROJECT / "main/CMakeLists.txt",
         HUB_PROJECT / "main/fota_sender.cpp",
+        ROOT / "scripts/build_hw_pair.py",
         REPO_ROOT / "docs/hw/evidence/HW_M1_2/README.md",
         REPO_ROOT / "docs/hw/evidence/HW_M1_FOTA/README.md",
     ]
@@ -319,16 +319,23 @@ def run_gate(full: bool, warning_percent: float) -> int:
     if full:
         environment = resolve_idf_environment()
         if environment is None:
+            stage("pair-integrity", "BLOCKED / ENVIRONMENT_MISSING",
+                  "source ESP-IDF v6.0.3 activation or provide idf.py")
             stage("c3-target-build", "BLOCKED / ENVIRONMENT_MISSING",
                   "source ESP-IDF v6.0.3 activation or provide idf.py")
             stage("hub-target-build", "BLOCKED / ENVIRONMENT_MISSING",
                   "source ESP-IDF v6.0.3 activation or provide idf.py")
         else:
+            pair_ok, pair_output = run_logged(
+                "pair-integrity", [sys.executable, str(ROOT / "scripts/build_hw_pair.py")], ROOT,
+                timeout=2400)
+            stage("pair-integrity", "PASS" if pair_ok else "FAIL",
+                  "clean C3/Hub provenance pair" if pair_ok else
+                  "see build/hw_release_gate/pair-integrity.log")
             c3_status, c3_detail = target_build("c3-target-build", NODE_PROJECT, "esp32c3",
                                                  NODE_BINARY, environment)
             stage("c3-target-build", c3_status, c3_detail)
             if c3_status == "PASS":
-                shutil.copy2(NODE_BINARY, HUB_EMBEDDED_NODE)
                 hub_status, hub_detail = target_build("hub-target-build", HUB_PROJECT, "esp32",
                                                       HUB_BINARY, environment)
                 stage("hub-target-build", hub_status, hub_detail)
@@ -340,6 +347,7 @@ def run_gate(full: bool, warning_percent: float) -> int:
         stage("image-size", "PASS" if c3_image_status == hub_image_status == "PASS" else "FAIL",
               f"C3: {c3_image_detail}; Hub: {hub_image_detail}")
     else:
+        stage("pair-integrity", "NOT_RUN", "fast gate")
         stage("c3-target-build", "NOT_RUN", "fast gate")
         stage("hub-target-build", "NOT_RUN", "fast gate")
         stage("image-size", "NOT_RUN", "fast gate")

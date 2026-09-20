@@ -35,7 +35,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-release-gate
+.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate
 
 all: verify
 
@@ -141,6 +141,9 @@ validation-fast:
 HW_OTA_WARNING_PERCENT ?= 15
 hw-validation-fast:
 	python3 tools/validation/hw_release_gate.py --fast --ota-warning-percent $(HW_OTA_WARNING_PERCENT)
+
+hw-pair-build:
+	python3 scripts/build_hw_pair.py
 
 hw-release-gate:
 	python3 tools/validation/hw_release_gate.py --ota-warning-percent $(HW_OTA_WARNING_PERCENT)

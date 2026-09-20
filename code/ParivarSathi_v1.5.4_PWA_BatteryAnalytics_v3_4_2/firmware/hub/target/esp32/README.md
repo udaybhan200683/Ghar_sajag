@@ -23,17 +23,32 @@ No trustworthy wall-clock source is composed yet. The adapter uses epoch zero
 for the explicitly untrusted Hub receive/ACK time rather than inventing a wall
 clock; SNTP integration remains later scope.
 
-Build the C3 image first, copy its application binary to the ignored embed
-input, then build with ESP-IDF v6.0.3:
+The HW-M1.4 offline-resilience runtime implementation remains the parent
+commit `cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` (`cfcee97`).  Firmware built
+for physical HIL must be produced from a later clean tooling commit with the
+repository-owned pair builder.  Pre-commit or dirty-tree builds are useful for
+development validation only and are not qualification artifacts.
+
+Use the canonical pair build from the product root; it rebuilds both projects,
+always replaces the ignored embed input, verifies versions/SHA/byte equality,
+and writes a provenance manifest:
 
 ```sh
-cp ../../../node/target/esp32c3/idf/build/gs_hw_m1_node.bin \
-  idf/main/node_firmware.bin
-source ~/.espressif/tools/activate_idf_v6.0.3.sh
-cd idf
-idf.py set-target esp32
-idf.py build
+make hw-pair-build
 ```
+
+The command fails closed unless tracked Git files are clean, each image app
+version equals the current committed short SHA (with no `-dirty` suffix), the
+standalone C3 image and `main/node_firmware.bin` are byte-for-byte/SHA equal,
+and the Hub image and generated embedded object are rebuilt after
+synchronization.  Never trust or manually copy an existing
+`node_firmware.bin`.  The generated manifest is
+`build/hw_pair/provenance.json` and accompanies HIL evidence; it is ignored
+build output, not a source or runtime change.
+
+The existing `make hw-release-gate` includes this strict pair-integrity stage
+for full target gates.  `make hw-validation-fast` remains a developer/static
+gate and does not build qualification images.
 
 The custom `partitions.csv` provides two 0x1E0000 OTA slots and
 `sdkconfig.defaults` enables 4 MB flash and rollback. The target-only files
