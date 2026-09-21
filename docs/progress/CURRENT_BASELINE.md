@@ -1,22 +1,23 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** HW-M1.3-FINAL-QUALIFICATION
+**Document revision:** HW-M1.4A-ENDURANCE-CLOSURE
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3B paused; HW-M1.3 QUALIFIED / PASS
-**Active engineering work:** HW-M1.3 remains closed/qualified; HW-M1.4 node offline-resilience implementation is under physical validation
+**Active engineering work:** HW-M1.3 and HW-M1.4A are closed/qualified; HW-M1.4B power baseline characterization is next
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
-**Current qualified HW branch:** `feature/hw-m1`
-**Current qualified HW commit:** `1dfa9c3` artifact provenance; this documentation commit is the new resume HEAD
-**Current implementation branch:** `feature/hw-m1-runtime-integration`
-**Current implementation HEAD before this closure:** `1dfa9c3` (`Document HW-M1.3 clean production restore checkpoint`)
+**Current qualified HW branch:** `fix/hw-m1-4-node-offline-resilience`
+**Current qualified HW commit:** `bb34f5e` paired-artifact provenance for HW-M1.4A; this documentation commit is the new resume HEAD
+**Current implementation branch:** `fix/hw-m1-4-node-offline-resilience`
+**Current HW-M1.4 offline-resilience runtime implementation:** `cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` (`Fix node operation during Hub outages`)
+**Historical HW-M1.3 implementation HEAD before this closure:** `1dfa9c3` (`Document HW-M1.3 clean production restore checkpoint`)
 **Implementation branch point:** `4645098`
 **Last host-validated implementation commit:** `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`
 **Pre-build documentation/resume HEAD:** `0546b28`
 **Current target-build-validated implementation:** `a6b084c`
-**Remote development branch:** `origin/feature/hw-m1-runtime-integration`
-**Updated:** 2026-09-20
+**Historical HW-M1.3 remote integration branch:** `origin/feature/hw-m1-runtime-integration`
+**Updated:** 2026-09-21
 
 ## Post-qualification HW-M1.4 robustness work — 2026-09-20
 
@@ -32,9 +33,18 @@ explicit newest-drop accounting with four non-motion reserve slots,
 timer-driven 60-second periodic retry, local-sensing GPIO8 semantics, compact
 best-effort health frames, and FOTA inactivity recovery. Host and target-build
 validation are recorded under
-`docs/hw/evidence/HW_M1_4_NODE_OFFLINE_RESILIENCE/README.md`. It is **not
-physically qualified** until the documented Hub-off, recovery-without-motion,
-cycling, endurance and power/resource HIL tests pass.
+`docs/hw/evidence/HW_M1_4_NODE_OFFLINE_RESILIENCE/README.md`. Its physical
+endurance/resilience closure is recorded separately below. The physical
+endurance/resilience closure is now recorded separately as HW-M1.4A
+**QUALIFIED / PASS** for the exact `bb34f5e` paired artifact. See
+`docs/hw/evidence/HW_M1_4A_ENDURANCE/README.md`.
+
+The implementation evidence above remains historical and is not rewritten.
+The current physical result does not turn this run into a commercial
+battery-life qualification; the measured endpoint is input to the next
+milestone, HW-M1.4B Power Baseline Characterization. The endurance node used
+one 18650 cell through the Robocraze `TIFC00389` shield; exact shield-output
+wiring remains an HW-M1.4B verification item.
 
 This document is the definitive current “WHERE ARE WE NOW?” record. It
 preserves the inherited PWA/software baseline and the HW-M1 deltas without
@@ -42,11 +52,13 @@ duplicating the full historical PWA implementation record below.
 
 ## Final HW-M1.3 resume state — 2026-09-19
 
-- Branch to resume: `feature/hw-m1-runtime-integration`.
+- Branch to resume: `fix/hw-m1-4-node-offline-resilience`.
 - Latest documentation/resume commit: the new documentation-only commit
   created by this closure task; inspect `git log -1` rather than hard-coding
   its SHA here.
-- Physically qualified firmware/artifact provenance: `1dfa9c3`.
+- Physically qualified firmware/artifact provenance for HW-M1.3: `1dfa9c3`.
+- Current HW-M1.4 offline-resilience runtime implementation: `cfcee97`.
+- Physically qualified Hub+C3 paired artifact for HW-M1.4A: `bb34f5e`.
 - Final status: **HW-M1.3 TARGET RUNTIME INTEGRATION: QUALIFIED / PASS**.
 - Final evidence: `docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md`.
 - Qualified C3 SHA-256:
@@ -66,8 +78,9 @@ duplicating the full historical PWA implementation record below.
   and isolated. PWA branch `feature/full-pwa-e2e` remains frozen at `9b391fa`.
 - Do not repeat the clean restore, physical smoke, or negative-HIL harness
   work unnecessarily. Do not assume historical COM assignments.
-- Next milestone: **HW-M1.4 power/performance characterization**. Its plan
-  remains `NOT_BASELINED`; no metrics are claimed measured.
+- Next milestone: **HW-M1.4B Power Baseline Characterization**. The existing
+  plan remains `NOT_BASELINED`; the endurance duration is not a controlled
+  current/energy baseline and no product battery-life claim is made.
 - HW-M1.4 node work remains pending: average/idle/sleep/event-active current,
   event wake/processing duration, radio TX/RX/ACK timing, retries, energy per
   event, estimated battery life, minimum free heap, task stack high-water
@@ -132,7 +145,7 @@ generic “stable” state:
 The last host-validated implementation commit before target composition is
 `1d41864`; `0546b28` is the documentation/resume checkpoint from which
 HW-M1.3B started from historical checkpoint `0546b28`. The latest physically
-qualified production artifact provenance is now `1dfa9c3`; negative-HIL
+qualified HW-M1.3 production artifact provenance was `1dfa9c3`; negative-HIL
 behavior remains separately recorded on the temporary branch. Final-smoke
 evidence is the authoritative physical closure record.
 
@@ -162,13 +175,14 @@ channel 1. Full record: `docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md`.
 - Repository root: `/home/udaybhan/projects/Ghar_sajag`.
 - Active product code directory:
   `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2`.
-- HW-M1 implementation branch: `feature/hw-m1-runtime-integration`.
-- Qualified parent branch: `feature/hw-m1`.
+- HW-M1.4A physical qualification branch: `fix/hw-m1-4-node-offline-resilience`.
+- Historical HW-M1.3 implementation branch: `feature/hw-m1-runtime-integration`.
+- Historical qualified parent branch: `feature/hw-m1`.
 - Implementation branch point: `4645098`.
 - Frozen software/PWA branch point: `9b391fa` on `feature/full-pwa-e2e`.
 - HW-M1 planning commit: `997f9ba`.
 - Earlier qualified HW checkpoint: `3f02822`.
-- Previous qualified HW commit: `50abdce`; latest physically qualified
+- Previous qualified HW commit: `50abdce`; latest HW-M1.3 physically qualified
   artifact provenance: `1dfa9c3`.
 
 The HW branch documents hardware and target-integration deltas from the frozen
@@ -185,6 +199,7 @@ software/PWA branch point. The stable host/PWA reference remains
 | HW-M1.2 PIR -> C3 -> ESP-NOW -> Hub | QUALIFIED / PASS | Real motion events reached the Hub; channel/TX/RSSI findings recorded. |
 | Dual-slot C3 FOTA | QUALIFIED / PASS | `ota_0 -> ota_1 -> ota_0`, validation, PIR restoration and post-update events. |
 | HW-M1.3 Target Runtime Integration | QUALIFIED / PASS | Implementation, host validation, target build, automated gate, positive HIL, FOTA HIL, negative HIL, clean-production provenance, restore, Hub boot, C3 exercise, and final matched smoke all pass. |
+| HW-M1.4A Offline resilience / physical endurance | QUALIFIED / PASS | Exact `bb34f5e` Hub+C3 pair; confirmed alive for at least 19 h 54 min under the documented HIL workload; final health and endpoint evidence recorded. |
 
 The terms are strict: IMPLEMENTED means source exists; HOST VALIDATED means
 host/simulation validation passed; HW VALIDATED means target behavior was
@@ -351,7 +366,10 @@ reserved as **NOT_BASELINED** in `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`.
 
 ### Current open gaps
 
-- HW-M1.4 power/performance characterization and longer-run robustness.
+- HW-M1.4B controlled power baseline characterization and HW-M1.4C low-power
+  architecture; the HW-M1.4A endurance run is not a current/energy baseline.
+- HW-M1.4B low-voltage cutoff and restart/recovery electrical
+  characterization, including the 3.3-V-domain cutoff question.
 - Post-integration FOTA changes, if the FOTA implementation changes; the
   existing dual-slot FOTA qualification remains PASS.
 - Normal-terminal rerun of `make release-gate-final` because localhost stages

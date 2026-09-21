@@ -1,16 +1,16 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1.3-FINAL-QUALIFICATION
-**History covered through:** HW-M1.3 final clean-production qualification
+**Document revision:** HW-M1.4A-ENDURANCE-CLOSURE
+**History covered through:** HW-M1.4A physical endurance/resilience closure
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
 **Previous qualified Phase 3B scale/read-path checkpoint:** `fee5854`
 **Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
-**Latest qualified HW branch:** `feature/hw-m1-runtime-integration`
-**Latest physically qualified firmware/artifact provenance:** `1dfa9c3`
-**Current implementation branch:** `feature/hw-m1-runtime-integration`
-**Updated:** 2026-09-19
+**Latest qualified HW branch:** `fix/hw-m1-4-node-offline-resilience`
+**Latest physically qualified firmware/artifact provenance:** `bb34f5e`
+**Current implementation branch:** `fix/hw-m1-4-node-offline-resilience`
+**Updated:** 2026-09-21
 
 This file is an append-only chronological engineering history.
 
@@ -843,3 +843,38 @@ The temporary negative-HIL branch remains isolated and the PWA branch remains
 frozen at `9b391fa` on `feature/full-pwa-e2e`. Next engineering work is
 HW-M1.4 power/performance characterization; its measurements remain
 `NOT_BASELINED`.
+
+## 2026-09-21 - HW-M1.4A Offline Resilience / Physical Endurance Closure
+
+HW-M1.4A physical endurance/resilience qualification is **QUALIFIED / PASS**
+for the exact `bb34f5eb796d4975c7e8ab788ca638d9828a3996` Hub+C3 pair
+(`Enforce Hub and C3 firmware pair integrity`). Its runtime implementation is
+`cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` (`Fix node operation during Hub
+outages`); no runtime logic changed between those commits.
+
+Under the documented HIL workload, the node was confirmed alive for at least
+19 h 54 min. The final health sample retained session 26, reset 1,
+`pir_ok=1545`, `pir_rejected=0`, `durable_ack=1545`, zero retained/in-flight
+backlog, zero motion drops, five matched MAC-failure retries, `error=0`, and
+stable heap evidence. The final successful motion was at
+`2026-09-21T20:00:43+05:30`; the final health sample was at
+`2026-09-21T20:01:20+05:30`.
+
+Approximately 15 minutes after operation stopped, the cell measured about
+2.80 V while the C3 3V3 and AM312 VCC were approximately 0 V. The exact
+cutoff component/path is intentionally unresolved and is carried to HW-M1.4B;
+this is not recorded as a battery-protection cutoff claim. Earlier 12-hour,
+14.5-hour, and 18-hour checkpoints remain historically valid. The dedicated record is
+`docs/hw/evidence/HW_M1_4A_ENDURANCE/README.md`.
+
+The run is not a commercial battery-life qualification or controlled
+power-consumption baseline. Next milestone: **HW-M1.4B — Power Baseline
+Characterization**. The planned HW-M1.4C low-power architecture and HW-M1.4D
+battery telemetry/energy model roadmap is recorded in
+`docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`.
+
+The node used one 18650 cell through the Robocraze `TIFC00389` shield; the
+authoritative product and wiring-boundary detail is recorded in the dedicated
+HW-M1.4A evidence README. The seller-advertised over-discharge protection is
+consistent with the observed endpoint but the actual cutoff mechanism and
+threshold remain unverified.

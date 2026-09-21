@@ -2,7 +2,8 @@
 
 ## 1. Purpose and current state
 
-This plan is the operational plan for the isolated `feature/hw-m1` branch. It
+This plan was established for the isolated `feature/hw-m1` branch. The current
+HW-M1.4A closure is on `fix/hw-m1-4-node-offline-resilience`. It
 uses `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md` as the software-readiness
 basis and the immutable evidence snapshots under `docs/hw/evidence/` as the
 physical qualification record.
@@ -14,9 +15,11 @@ one PIR proving:
 ACK / dedupe / rules / journal -> Hub Wi-Fi/backend transport -> backend
 persistence/read models -> PWA`
 
-Current status on implementation branch `feature/hw-m1-runtime-integration`,
-based on implementation commit `1d41864` and pre-build documentation
-checkpoint `0546b28`:
+The historical HW-M1.3 status was based on implementation commit `1d41864`
+and pre-build documentation checkpoint `0546b28`. Current HW-M1.4A status is
+on the qualification branch `fix/hw-m1-4-node-offline-resilience`, using
+runtime implementation `cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` and
+qualified paired artifact `bb34f5eb796d4975c7e8ab788ca638d9828a3996`:
 
 - HW-M1.0 toolchain and board bring-up: **QUALIFIED / PASS**.
 - HW-M1.1 real AM312 PIR sensing: **QUALIFIED / PASS**.
@@ -41,7 +44,12 @@ or QUALIFIED.
 
 ## 2. Branch and software baseline
 
-- Current implementation branch: `feature/hw-m1-runtime-integration`.
+- Current HW-M1.4A qualification branch: `fix/hw-m1-4-node-offline-resilience`.
+- Historical HW-M1.3 implementation branch: `feature/hw-m1-runtime-integration`.
+- Current HW-M1.4 offline-resilience runtime implementation:
+  `cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` (`Fix node operation during Hub outages`).
+- Current HW-M1.4A qualified paired artifact:
+  `bb34f5eb796d4975c7e8ab788ca638d9828a3996` (`Enforce Hub and C3 firmware pair integrity`).
 - Last host-validated implementation commit: `1d41864` (`Implement HW-M1.3
   target runtime integration`).
 - Pre-build documentation/resume checkpoint: `0546b28` (`Document HW-M1.3
@@ -315,7 +323,8 @@ If ESP-IDF v6.0.3 activation or `idf.py` is unavailable, target stages report
 `BLOCKED / ENVIRONMENT_MISSING`; they are never silently skipped. The command
 reports automated software/target results separately from physical evidence;
 its HIL stages remain manual-evidence inputs, power/performance remains
-`NOT_BASELINED`, and endurance remains `NOT_RUN`. The implementation is
+`NOT_BASELINED`, and physical endurance is recorded separately as HW-M1.4A
+PASS. The implementation is
 `tools/validation/hw_release_gate.py`, with focused self-tests in
 `tests/python/test_hw_release_gate.py`.
 
@@ -329,6 +338,31 @@ RSSI visibility, and FOTA evidence are represented in the HIL matrix. The
 temporary fault-injection harness remains isolated and is not production
 runtime source.
 
+### HW-M1.4A — Offline resilience / physical endurance — QUALIFIED / PASS
+
+The physical endurance/resilience qualification is recorded in
+`docs/hw/evidence/HW_M1_4A_ENDURANCE/README.md`. The exact qualified
+Hub+C3 pair is artifact `bb34f5eb796d4975c7e8ab788ca638d9828a3996`
+(`Enforce Hub and C3 firmware pair integrity`), whose runtime behavior is
+unchanged from `cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` (`Fix node operation
+during Hub outages`).
+
+Decision: **HW-M1.4A physical endurance/resilience qualification PASS for the
+bb34f5e paired artifact under the documented HIL workload.** The node was
+confirmed continuously alive for at least 19 h 54 min, with a healthy final
+firmware state, all accepted motions durably acknowledged, no motion drops,
+no PIR rejection, no queue accumulation, no unexpected reset, no reported
+runtime error, stable heap evidence, and operation continuing at weak measured
+RSSI near the endpoint. This is not a commercial battery-life or production
+battery qualification.
+
+The run is useful input to HW-M1.4B but is not a controlled current or energy
+baseline. The next milestone is **HW-M1.4B — Power Baseline
+Characterization**, which must measure the current architecture before any
+low-power redesign. The endurance node used one 18650 cell through the
+Robocraze `TIFC00389` shield; product and wiring-boundary detail is in the
+dedicated evidence record.
+
 ### HW-M1 continuation ordering
 
 The approved order is:
@@ -336,7 +370,8 @@ The approved order is:
 `HW-M1.3B TARGET BUILD VALIDATED`
 -> `HW firmware regression/release gate`
 -> `HW-M1.3C PHYSICAL FUNCTIONAL QUALIFICATION — QUALIFIED / PASS`
--> `HW-M1.4 POWER & PERFORMANCE BASELINE / OPTIMIZATION`
+-> `HW-M1.4A OFFLINE RESILIENCE / PHYSICAL ENDURANCE — QUALIFIED / PASS`
+-> `HW-M1.4B POWER BASELINE CHARACTERIZATION`
 -> repeat the full regression gate
 -> future Hub -> backend -> existing PWA integration.
 
@@ -392,8 +427,9 @@ and evidence is captured.
 
 ## 9. Open limitations and non-goals
 
-The following remain open unless separately qualified: HW-M1.4
-power/performance characterization, longer-run robustness, post-integration
+The following remain open unless separately qualified: HW-M1.4B
+power-baseline characterization, HW-M1.4C low-power architecture, longer-run
+robustness beyond the documented HW-M1.4A run, post-integration
 FOTA changes,
 RF range optimization,
 multi-node RF/concurrency behavior, ESP-NOW peer encryption/key management,
