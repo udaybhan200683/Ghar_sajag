@@ -1,7 +1,7 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1.4A-ENDURANCE-CLOSURE
-**History covered through:** HW-M1.4A physical endurance/resilience closure
+**Document revision:** HW-M1.4-MASTER-ROADMAP
+**History covered through:** HW-M1.4 master forward-roadmap planning
 **Product baseline through:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline through:** v3.4.3
 **Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
@@ -878,3 +878,43 @@ authoritative product and wiring-boundary detail is recorded in the dedicated
 HW-M1.4A evidence README. The seller-advertised over-discharge protection is
 consistent with the observed endpoint but the actual cutoff mechanism and
 threshold remain unverified.
+
+## 2026-09-21 - HW-M1.4B Minimal Power Baseline Planned
+
+HW-M1.4B is **PLANNED / READY TO START**. The authoritative plan is
+`docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`. It establishes a minimal repeatable
+BEFORE baseline for the current `bb34f5e` software using the Robocraze
+`TIFC00389` fixture only as prototype test hardware: B0 measurement-path
+verification, B1 idle, B2 NodeHealth-inclusive normal activity, B3 controlled
+PIR workload, and B4 short Hub-offline/recovery behavior.
+
+No HW-M1.4B physical measurement has been performed or claimed by this
+planning checkpoint. After B0 measurement-path verification plus minimal B1–B4
+capture, HW-M1.4C1 Low-Power Software V1 may start immediately; full
+prototype-shield characterization is not a software start gate. HW-M1.4C2 remains deep-sleep/retained-state work and
+HW-M1.4D remains future battery telemetry and energy-model work.
+
+Detailed prototype hardware characterization is separate HW-PWR-PROT work.
+Future commercial battery/power-path selection and qualification is
+HW-PWR-COMM; the Robocraze fixture is not a frozen product architecture.
+
+## 2026-09-21 - HW-M1.4 Master Forward Roadmap Planning Pass
+
+The forward roadmap was expanded so a future session can resume from
+repository documentation alone. The authoritative current-state entry is
+`docs/progress/CURRENT_BASELINE.md`; the authoritative forward roadmap is
+`docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`; and the active milestone detail
+is `docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`.
+
+The roadmap preserves HW-M1.4A **QUALIFIED / PASS**, sets the immediate action
+to B0 measurement-path verification followed by repeatable B1–B4 BEFORE
+measurements, and permits HW-M1.4C1 Low-Power Software V1 after that minimal
+baseline. It explicitly keeps Robocraze prototype characterization separate
+as HW-PWR-PROT and defers commercial hardware selection/qualification to
+HW-PWR-COMM.
+
+It also records planned activity-episode semantics, P0-SW-R0 event chronology
+dependencies for routine learning, C2 retained-state/recovery work, D battery
+telemetry, E installer observability, F RF/Wi-Fi/backend coexistence, G
+FOTA/maintenance/security closure, the BLE feasibility experiment, H extended
+reliability/soak, and explicit acceptance/evidence boundaries for each.

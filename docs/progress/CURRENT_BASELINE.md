@@ -1,16 +1,19 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
-**Document revision:** HW-M1.4A-ENDURANCE-CLOSURE
+**Document revision:** HW-M1.4-MASTER-ROADMAP
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3
 **Engineering baseline:** Phase 3B paused; HW-M1.3 QUALIFIED / PASS
-**Active engineering work:** HW-M1.3 and HW-M1.4A are closed/qualified; HW-M1.4B power baseline characterization is next
+**Active engineering work:** HW-M1.3 and HW-M1.4A are closed/qualified; HW-M1.4B is PLANNED / READY TO START; HW-M1.4C1 follows the minimal baseline
 **Qualified Phase 3A implementation anchor:** `4dcaf99`
 **Qualified Phase 2D implementation anchor:** `9499381`
 **Current qualified HW branch:** `fix/hw-m1-4-node-offline-resilience`
-**Current qualified HW commit:** `bb34f5e` paired-artifact provenance for HW-M1.4A; this documentation commit is the new resume HEAD
+**Qualified HW-M1.4A paired artifact:** `bb34f5e`; documentation/resume commit identity is separate and must be determined with `git rev-parse HEAD`
 **Current implementation branch:** `fix/hw-m1-4-node-offline-resilience`
 **Current HW-M1.4 offline-resilience runtime implementation:** `cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` (`Fix node operation during Hub outages`)
+**HW-M1.4B plan:** `docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md` — PLANNED / READY TO START
+**HW-M1.4C1:** Low-Power Software V1 is planned to start after B0 measurement-path verification and B1–B4, without waiting for full prototype-shield characterization
+**Authoritative HW-M1.4 forward roadmap:** `docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`
 **Historical HW-M1.3 implementation HEAD before this closure:** `1dfa9c3` (`Document HW-M1.3 clean production restore checkpoint`)
 **Implementation branch point:** `4645098`
 **Last host-validated implementation commit:** `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f`
@@ -78,9 +81,9 @@ duplicating the full historical PWA implementation record below.
   and isolated. PWA branch `feature/full-pwa-e2e` remains frozen at `9b391fa`.
 - Do not repeat the clean restore, physical smoke, or negative-HIL harness
   work unnecessarily. Do not assume historical COM assignments.
-- Next milestone: **HW-M1.4B Power Baseline Characterization**. The existing
-  plan remains `NOT_BASELINED`; the endurance duration is not a controlled
-  current/energy baseline and no product battery-life claim is made.
+- Next milestone: **HW-M1.4B Power Baseline Characterization** — PLANNED /
+  READY TO START. The endurance duration is not a controlled current/energy
+  baseline and no product battery-life claim is made.
 - HW-M1.4 node work remains pending: average/idle/sleep/event-active current,
   event wake/processing duration, radio TX/RX/ACK timing, retries, energy per
   event, estimated battery life, minimum free heap, task stack high-water
@@ -90,9 +93,10 @@ duplicating the full historical PWA implementation record below.
   rate, FOTA throughput, and long-run heap stability. Future robustness gates
   remain `NOT_RUN` or `MANUAL_REQUIRED` exactly as listed in the plan.
 - Read first: this section, `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`,
-  `docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md`, and
-  `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`. Preserve the P0 audit and do
-  not claim backend/PWA vertical integration complete.
+  `docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`,
+  `docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`, and
+  `docs/hw/evidence/HW_M1_4A_ENDURANCE/README.md`. Preserve the P0 audit and
+  do not claim backend/PWA vertical integration complete.
 
 ### HW-M1.3 closure commit chain
 
@@ -103,7 +107,8 @@ checkpoint) -> `a6b084c` (target build) -> `efbeaf9` (release gate) ->
 `test/hw-m1-3-negative-hil`) -> `d1ee3ef` (negative-HIL evidence on that
 branch) -> `5aad7e6` (negative-HIL evidence on the production branch) ->
 `1dfa9c3` (clean-production restore checkpoint and physically qualified
-artifact version) -> this new final qualification documentation commit.
+artifact version) -> `aef3f63` (HW-M1.4A closure documentation/provenance
+checkpoint).
 
 The PWA branch remains separate: `feature/full-pwa-e2e` at frozen checkpoint
 `9b391fa`; no PWA work was resumed or merged here.
@@ -366,10 +371,12 @@ reserved as **NOT_BASELINED** in `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`.
 
 ### Current open gaps
 
-- HW-M1.4B controlled power baseline characterization and HW-M1.4C low-power
-  architecture; the HW-M1.4A endurance run is not a current/energy baseline.
-- HW-M1.4B low-voltage cutoff and restart/recovery electrical
-  characterization, including the 3.3-V-domain cutoff question.
+- HW-M1.4B minimal controlled power baseline and HW-M1.4C1 low-power software;
+  the HW-M1.4A endurance run is not a current/energy baseline.
+- HW-PWR-PROT prototype shield/power-path characterization, separate from the
+  HW-M1.4C1 software start gate.
+- HW-PWR-COMM commercial power architecture selection and qualification after
+  production hardware is selected.
 - Post-integration FOTA changes, if the FOTA implementation changes; the
   existing dual-slot FOTA qualification remains PASS.
 - Normal-terminal rerun of `make release-gate-final` because localhost stages
@@ -1827,3 +1834,27 @@ its pending HW-M1.3 status or restore sequence as the current state; use the
   are demonstrated and captured as evidence.
 - Expected next milestone after HW-M1.3 physical qualification: HW-M1.4 — Hub
   Wi-Fi/backend transport.
+
+## Current resume pointer — HW-M1.4B planning
+
+This block is the authoritative current resume pointer. The older handoff above
+is retained as historical provenance only.
+
+- **CURRENT:** HW-M1.4B — Minimal Pre-Optimization Power Baseline,
+  **PLANNED / READY TO START**.
+- **IMMEDIATE NEXT:** complete B0 measurement-path verification, then capture
+  repeatable B1–B4 BEFORE measurements using the existing `bb34f5e` behavior.
+- **AFTER B0 + B1–B4:** start HW-M1.4C1 Low-Power Software V1 immediately;
+  full prototype-shield characterization is not required for that start.
+- **AUTHORITATIVE CURRENT-STATE ENTRY:** this document.
+- **AUTHORITATIVE HW STRUCTURE:** `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`.
+- **AUTHORITATIVE FORWARD ROADMAP:**
+  `docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`.
+- **CURRENT HW-M1.4B PLAN:**
+  `docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`.
+- **QUALIFIED HW-M1.4A EVIDENCE:**
+  `docs/hw/evidence/HW_M1_4A_ENDURANCE/README.md`.
+- **MUST NOT INFER:** the Robocraze fixture is commercial product hardware;
+  current endurance is commercial battery life; a 2.8-V software threshold is
+  valid; receive order equals occurrence order; or C1/C2/FOTA/security/
+  commercial power work is already implemented or qualified.

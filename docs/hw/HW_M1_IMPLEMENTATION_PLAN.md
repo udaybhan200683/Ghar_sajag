@@ -60,8 +60,8 @@ or QUALIFIED.
   state before runtime integration`).
 - Previous fully qualified HW baseline: `50abdce` (`Qualify dual-slot
   ESP-NOW node FOTA`). HW-M1.3 physically qualified artifact provenance is
-  `1dfa9c3`; the current documentation HEAD is the closure commit created
-  after that provenance checkpoint.
+  `1dfa9c3`; the subsequent documentation/provenance closure checkpoint is
+  recorded separately from that firmware artifact.
 - Earlier HW checkpoint: `3f02822` (`Qualify HW-M1.2 PIR to ESP-NOW hub
   path`).
 - HW-M1 planning commit: `997f9ba` (`Initialize HW-M1 implementation plan`).
@@ -363,6 +363,14 @@ low-power redesign. The endurance node used one 18650 cell through the
 Robocraze `TIFC00389` shield; product and wiring-boundary detail is in the
 dedicated evidence record.
 
+HW-M1.4B is **PLANNED / READY TO START**. Its authoritative minimal
+pre-optimization measurement plan is
+`docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`. It does not change runtime
+architecture or the qualified `bb34f5e` behavior. After B0 measurement-path
+verification and the B1–B4 baseline are captured, HW-M1.4C1 Low-Power Software
+V1 may start immediately;
+full prototype-shield characterization is not a software start gate.
+
 ### HW-M1 continuation ordering
 
 The approved order is:
@@ -371,7 +379,8 @@ The approved order is:
 -> `HW firmware regression/release gate`
 -> `HW-M1.3C PHYSICAL FUNCTIONAL QUALIFICATION — QUALIFIED / PASS`
 -> `HW-M1.4A OFFLINE RESILIENCE / PHYSICAL ENDURANCE — QUALIFIED / PASS`
--> `HW-M1.4B POWER BASELINE CHARACTERIZATION`
+-> `HW-M1.4B MINIMAL PRE-OPTIMIZATION POWER BASELINE`
+-> `HW-M1.4C1 LOW-POWER SOFTWARE V1`
 -> repeat the full regression gate
 -> future Hub -> backend -> existing PWA integration.
 
@@ -427,9 +436,11 @@ and evidence is captured.
 
 ## 9. Open limitations and non-goals
 
-The following remain open unless separately qualified: HW-M1.4B
-power-baseline characterization, HW-M1.4C low-power architecture, longer-run
-robustness beyond the documented HW-M1.4A run, post-integration
+The following remain open unless separately qualified: HW-M1.4B minimal
+power-baseline characterization, HW-M1.4C1 low-power software, HW-M1.4C2
+deep-sleep/retained-state optimization, HW-PWR-PROT prototype power-path
+characterization, HW-PWR-COMM commercial power architecture qualification,
+longer-run robustness beyond the documented HW-M1.4A run, post-integration
 FOTA changes,
 RF range optimization,
 multi-node RF/concurrency behavior, ESP-NOW peer encryption/key management,
