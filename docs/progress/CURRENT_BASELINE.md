@@ -22,6 +22,23 @@
 **Historical HW-M1.3 remote integration branch:** `origin/feature/hw-m1-runtime-integration`
 **Updated:** 2026-09-21
 
+## Validation-framework work in progress — 2026-09-22
+
+Development of the master automated validation/regression framework is
+isolated on `feature/hw-m1-4-regression-framework`, branched from exact
+`0eb1324c27ce3d6a2464627c6057b0cc68943c60`. Its authoritative architecture,
+suite inventory, current-feature inventory, traceability matrix, commands and
+explicit gaps are under `docs/validation/`.
+
+This work adds validation infrastructure only. It does not start HW-M1.4C1,
+aggregation, chronology redesign, NodeHealth optimization, retry redesign,
+deep sleep, battery SOC/lifetime, BLE, routine learning, or commercial power
+optimization. Historical qualified artifacts and evidence are unchanged.
+
+Project rule: **NO FUTURE FEATURE IS COMPLETE UNTIL ITS POSITIVE, NEGATIVE,
+BOUNDARY, FAULT/RECOVERY AND APPLICABLE PERFORMANCE/REGRESSION TESTS ARE ADDED
+AND ALL MANDATORY GATES PASS.**
+
 ## Post-qualification HW-M1.4 robustness work — 2026-09-20
 
 HW-M1.3 remains **QUALIFIED / PASS** with unchanged historical evidence and

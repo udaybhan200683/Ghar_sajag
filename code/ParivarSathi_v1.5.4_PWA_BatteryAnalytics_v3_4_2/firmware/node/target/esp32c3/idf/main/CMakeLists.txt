@@ -4,6 +4,7 @@ idf_component_register(
     SRCS
         "app_main.cpp"
         "fota_receiver.cpp"
+        "${GS_ROOT}/firmware/node/fota/fota_receiver.cpp"
         "${GS_ROOT}/shared/src/logging.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
         "${GS_ROOT}/firmware/common/transport/session_id.cpp"

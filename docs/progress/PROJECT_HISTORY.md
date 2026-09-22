@@ -918,3 +918,55 @@ dependencies for routine learning, C2 retained-state/recovery work, D battery
 telemetry, E installer observability, F RF/Wi-Fi/backend coexistence, G
 FOTA/maintenance/security closure, the BLE feasibility experiment, H extended
 reliability/soak, and explicit acceptance/evidence boundaries for each.
+
+## 2026-09-22 - Master Automated Validation Framework
+
+Work began on the dedicated
+`feature/hw-m1-4-regression-framework` branch from exact `0eb1324`. The
+repository's existing release, unit, component, scenario, API, PWA,
+Playwright, sanitizer, trace, stress, HW-build and pair-integrity suites were
+inventoried before framework changes.
+
+The validation foundation adds an ID-addressable host harness that runs the
+production sensing, NodeRuntime, NodeRadio, NodeStore, codec, HubRuntime,
+ingest, journal and ACK policies with virtual time and deterministic transport
+faults. It defines OR-001 through OR-035 plus smoke, protocol, queue, restart,
+FOTA shared-policy, stress and accelerated stability cases; JSON/JUnit
+aggregation; a fail-fast hardware-free nightly command; a controlled negative
+self-test; and a fail-closed optional HIL entry point. Target-only FOTA,
+restart persistence, RF/electrical and other physical gaps remain explicit and
+are not claimed as simulation PASS.
+
+Authoritative documentation and the machine-readable feature ownership matrix
+are under `docs/validation/`. No future HW-M1.4C or other product behavior was
+implemented. Historical qualification evidence was not rewritten.
+
+Project rule established: **NO FUTURE FEATURE IS COMPLETE UNTIL ITS POSITIVE,
+NEGATIVE, BOUNDARY, FAULT/RECOVERY AND APPLICABLE PERFORMANCE/REGRESSION TESTS
+ARE ADDED AND ALL MANDATORY GATES PASS.**
+
+## 2026-09-22 - Validation Architecture and Coverage Closure
+
+The final pre-feature closure pass preserved the 49-case production-runtime
+master and OR-001..OR-035, then removed the C3 receiver's ESP-IDF testability
+coupling. One production FOTA receiver now owns protocol, state, CRC, sequence,
+timeout, maintenance and failure policy behind `IOtaWriter`; the target adapter
+still calls the real ESP-IDF OTA APIs. A 22-case host matrix executes that same
+receiver with deterministic writer failures. The ESP32-C3 target composition
+compiled successfully with ESP-IDF 6.0.3.
+
+The complete hardware-free nightly now owns master, FOTA, negative self-test,
+MEDIUM stress, concurrency, the mandatory release gate (including desktop and
+mobile Playwright, sanitizers and trace), EXTENDED 100,000-event endurance, and
+LCOV line/branch reporting without duplicating expensive suite ownership.
+GCC/LCOV artifacts include human, JSON, LCOV and HTML forms. Stress/stability
+assertions and production retry-boundary checks were strengthened.
+
+The HIL entry point now has a concrete repository ESP-IDF adapter for MAC-based
+port discovery, clean paired provenance, flashing, serial readiness and
+NodeHealth capture. It remains fail-closed because the current targets do not
+expose safe software controls for logical Hub receive outage, synthetic motion,
+transport faults, FOTA trigger, deterministic restart/state query or final
+state collection. Electrical power cycling stays a separate fixture capability.
+Persistent C3 retained state, target Hub journal/dedupe, target backend bridge
+and Hub self-FOTA remain named product gaps; none was implemented here.

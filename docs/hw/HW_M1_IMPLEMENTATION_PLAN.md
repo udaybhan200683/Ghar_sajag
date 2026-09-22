@@ -465,3 +465,16 @@ Before integrating HW-M1 changes back toward the stable software/PWA line,
 compare with `0d6a2fc`, run applicable host/release gates, document contract
 changes, and perform deliberate reconciliation. Partially working HW-M1
 changes must remain isolated on the HW branch.
+
+## 11. Mandatory validation ownership rule
+
+NO FUTURE FEATURE IS COMPLETE UNTIL ITS POSITIVE, NEGATIVE, BOUNDARY,
+FAULT/RECOVERY AND APPLICABLE PERFORMANCE/REGRESSION TESTS ARE ADDED AND ALL
+MANDATORY GATES PASS.
+
+The authoritative validation architecture and feature-to-test ownership are
+in `docs/validation/MASTER_VALIDATION.md` and
+`docs/validation/MASTER_TRACEABILITY.csv`. Traceability uses only `COVERED`,
+`PARTIAL`, `MISSING_PRODUCT_FEATURE`, and `HIL_ONLY_PHYSICAL`. Hardware-
+dependent residue must be stated precisely and must never be silently reported
+as software PASS.

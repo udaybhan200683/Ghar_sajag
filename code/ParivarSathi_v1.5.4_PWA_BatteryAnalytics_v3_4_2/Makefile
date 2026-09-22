@@ -1,5 +1,10 @@
 CXX ?= g++
 CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -Werror -pedantic
+# ESP-IDF activation can prepend its esp32ulp-elf directory, whose `ld`
+# cannot link host x86_64 binaries. Keep host validation independent of that
+# ambient PATH while leaving the selected host compiler configurable.
+HOST_TOOLCHAIN_GUARD ?= -B/usr/bin
+HOST_CXX = $(CXX) $(HOST_TOOLCHAIN_GUARD)
 TRACE_FLAGS ?= -DGS_ENABLE_TRACE=0
 PRODUCT ?= base
 ifeq ($(PRODUCT),base)
@@ -23,6 +28,7 @@ CPP_SOURCES := \
 	firmware/node/components/power/power.cpp \
 	firmware/node/components/lifecycle/lifecycle.cpp \
 	firmware/node/components/storage/node_store.cpp \
+	firmware/node/fota/fota_receiver.cpp \
 	firmware/node/runtime/node_runtime.cpp \
 	firmware/hub/components/ingest/ingest.cpp \
 	firmware/hub/components/storage/journal.cpp \
@@ -35,7 +41,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate
+.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage
 
 all: verify
 
@@ -43,11 +49,23 @@ build:
 	mkdir -p build logs
 
 cpp-test: build
-	$(CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/test_main.cpp -o build/cpp_tests
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/test_main.cpp -o build/cpp_tests
 	./build/cpp_tests
 
+master-validation: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/master_validation.cpp -o build/master_validation
+	python3 tools/validation/master_validation.py
+
+master-validation-self-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/master_validation.cpp -o build/master_validation
+	python3 tools/validation/master_validation.py --self-test
+
+fota-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
+	./build/fota_host_validation
+
 simulator: build
-	$(CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/main.cpp -o build/ghar_sajag_simulator
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/main.cpp -o build/ghar_sajag_simulator
 	./build/ghar_sajag_simulator
 
 simulate-matrix:
@@ -67,7 +85,7 @@ verify: contracts cpp-test simulator simulate-matrix python-test app-test produc
 
 .PHONY: product-test verify-products
 product-test: build
-	$(CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) tests/cpp/test_product.cpp shared/src/logging.cpp -o build/product_tests_$(PRODUCT)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) tests/cpp/test_product.cpp shared/src/logging.cpp -o build/product_tests_$(PRODUCT)
 	./build/product_tests_$(PRODUCT)
 
 verify-products:
@@ -88,7 +106,7 @@ clean:
 # T01: local integration adapter; the original component suites remain unchanged.
 .PHONY: lab-build lab e2e-test
 lab-build: build
-	$(CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/interactive.cpp -o build/ghar_sajag_interactive
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/interactive.cpp -o build/ghar_sajag_interactive
 
 lab: lab-build
 	python3 tools/sim/local_lab.py
@@ -187,4 +205,24 @@ release-gate-browser-mandatory: release-gate playwright-gate
 	@echo "PASS: mandatory Playwright/Chromium PWA browser gate"
 
 .PHONY: release-gate-final
-release-gate-final: release-gate-browser-mandatory performance-test
+RELEASE_GATE_FINAL_SKIP_PERFORMANCE ?= 0
+release-gate-final: release-gate-browser-mandatory $(if $(filter 1,$(RELEASE_GATE_FINAL_SKIP_PERFORMANCE)),,performance-test)
+
+validation-nightly:
+	python3 tools/validation/nightly.py $(if $(filter 1,$(HIL)),--hil,) $(if $(HIL_SOAK_MINUTES),--hil-soak-minutes $(HIL_SOAK_MINUTES),)
+
+# GCC's built-in gcov data is collected with the repository-provided LCOV.
+# This is visibility only: no arbitrary percentage threshold is imposed.
+validation-coverage: build
+	rm -rf build/coverage evidence/coverage
+	mkdir -p build/coverage evidence/coverage
+	$(HOST_CXX) -std=c++17 -O0 -g -Wall -Wextra -Werror -pedantic --coverage $(PRODUCT_FLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/test_main.cpp -o build/coverage/cpp_tests
+	$(HOST_CXX) -std=c++17 -O0 -g -Wall -Wextra -Werror -pedantic --coverage $(PRODUCT_FLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/master_validation.cpp -o build/coverage/master_validation
+	$(HOST_CXX) -std=c++17 -O0 -g -Wall -Wextra -Werror -pedantic --coverage $(PRODUCT_FLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/fota_host_validation.cpp -o build/coverage/fota_host_validation
+	./build/coverage/cpp_tests
+	./build/coverage/master_validation
+	./build/coverage/fota_host_validation
+	lcov --capture --directory build/coverage --output-file build/coverage/all.info --rc branch_coverage=1 --ignore-errors mismatch,inconsistent
+	lcov --extract build/coverage/all.info '*/firmware/*' '*/shared/*' --output-file evidence/coverage/coverage.info --rc branch_coverage=1 --ignore-errors unused
+	genhtml evidence/coverage/coverage.info --output-directory evidence/coverage/html --branch-coverage --quiet
+	python3 tools/validation/coverage_report.py

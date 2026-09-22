@@ -139,6 +139,20 @@ ok=True
 ok &= run('validation-coverage',[sys.executable,'scripts/check_validation_coverage.py'])
 ok &= run('contracts',[sys.executable,'scripts/verify_contracts.py'])
 ok &= run('cpp-unit',['make','cpp-test'])
+# Production NodeRuntime/HubRuntime virtual-time regression, including the
+# complete OR-001..OR-035 offline-resilience set and shared FOTA policy.
+if os.environ.get('GS_RELEASE_GATE_SKIP_MASTER') == '1':
+    stages.append({'name':'master-production-runtime','status':'ALREADY_PASSED','mandatory':False,
+                   'seconds':0,'command':['make','master-validation'],'log':None})
+    print('ALREADY_PASSED master-production-runtime (owned by parent validation campaign)')
+else:
+    ok &= run('master-production-runtime',['make','master-validation'],timeout=900)
+if os.environ.get('GS_RELEASE_GATE_SKIP_FOTA_HOST') == '1':
+    stages.append({'name':'fota-host-state-machine','status':'ALREADY_PASSED','mandatory':False,
+                   'seconds':0,'command':['make','fota-host-test'],'log':None})
+    print('ALREADY_PASSED fota-host-state-machine (owned by parent validation campaign)')
+else:
+    ok &= run('fota-host-state-machine',['make','fota-host-test'],timeout=300)
 # make python-test discovers all tests/python/test_*.py, including the Phase 1
 # FoundationService persistence/domain and WSGI application-path suites.
 ok &= run('python-backend-db-logging',['make','python-test'])

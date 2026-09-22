@@ -2,6 +2,45 @@ from pathlib import Path
 import json, unittest
 ROOT=Path(__file__).resolve().parents[2]
 class ValidationFrameworkTest(unittest.TestCase):
+    def test_master_validation_has_complete_offline_id_set(self):
+        source=(ROOT/'tests/cpp/master_validation.cpp').read_text()
+        for number in range(1,36):
+            with self.subTest(number=number):
+                self.assertIn(f'"OR-{number:03d}"',source)
+
+    def test_master_traceability_rows_have_required_columns_and_explicit_status(self):
+        import csv
+        path=ROOT.parents[1]/'docs/validation/MASTER_TRACEABILITY.csv'
+        with path.open(newline='') as stream:
+            rows=list(csv.DictReader(stream))
+        required={'FEATURE_ID','feature_requirement','implementation_modules','positive_case',
+                  'negative_case','boundary_case','fault_injection_case','restart_recovery_case',
+                  'stress_performance_case','simulation_TC','HIL_TC','PWA_E2E_TC',
+                  'release_gate','nightly','status'}
+        self.assertGreaterEqual(len(rows),30)
+        self.assertTrue(required <= set(rows[0]))
+        self.assertTrue(all(row['status'] in {
+            'COVERED','PARTIAL','MISSING_PRODUCT_FEATURE','HIL_ONLY_PHYSICAL'
+        } for row in rows))
+
+    def test_fota_host_matrix_is_complete_and_uses_production_receiver(self):
+        source=(ROOT/'tests/cpp/fota_host_validation.cpp').read_text()
+        for number in range(1,23):
+            with self.subTest(number=number):
+                self.assertIn(f'"FOTA-HOST-{number:03d}"',source)
+        self.assertIn('firmware/node/fota/fota_receiver.hpp',source)
+
+    def test_complete_nightly_has_expensive_suites_once(self):
+        source=(ROOT/'tools/validation/nightly.py').read_text()
+        for token in ('fota-host-test','concurrency-test','STRESS_PROFILE=MEDIUM',
+                      'release-gate-final','endurance-test','validation-coverage'):
+            self.assertEqual(source.count(f'"{token}"'),1,token)
+
+    def test_hil_runner_is_fail_closed_when_unconfigured(self):
+        source=(ROOT/'tools/hil/nightly.py').read_text()
+        self.assertIn('"status": "BLOCKED"',source)
+        self.assertIn('return 2',source)
+
     def test_phase1_ui_contract_has_mandatory_negative_and_viewport_rules(self):
         contract=json.loads((ROOT/'tests/validation/phase1_ui_contract.json').read_text())
         self.assertEqual(contract['schema'],1)
