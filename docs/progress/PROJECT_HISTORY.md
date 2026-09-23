@@ -1026,3 +1026,16 @@ zero FAIL and six expected physical-fixture BLOCKED rows; unexpected resets
 were zero and final retained/in-flight state was zero. The browser gate also
 completed 86/86 PASS. This closes Phase 1 only; no Phase-2 implementation was
 started.
+
+## 2026-09-23 - Phase-2 architecture and gap-analysis baseline
+
+Documentation-only Phase-2 baseline recorded in
+`docs/PHASE2_ARCHITECTURE_AND_GAP_ANALYSIS.md`.
+
+The analysis preserves the `ae9b7dc` Phase-1 qualification boundary and
+records the current single hard-coded Hub/C3 target, commissioning and
+security gaps, effective ESP-NOW capacity questions, FOTA boundaries,
+target-to-application bridge gap, real-evidence replay requirement, staged
+4/10/25-node qualification plan, proposed command ownership and implementation
+order. No firmware, runtime, HIL behavior, configuration or evidence was
+changed. No Phase-2 implementation or real-hardware PASS is claimed.
