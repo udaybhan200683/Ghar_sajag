@@ -70,6 +70,24 @@ verification, failure/rework, replacement and lost-key policy. No production
 private key, signing key, test credential masquerading as production or local
 fixture MAC belongs in the repository.
 
+## Host protocol checkpoint
+
+The P2.3 host foundation implements P-256 identity signatures, ephemeral
+ECDH, HKDF-SHA-256, HMAC-SHA-256 and AES-256-GCM through a crypto-provider
+interface. The OpenSSL provider creates test-only identities at runtime. The
+commissioning transcript authenticates the Device ID, Hub/Home IDs, logical
+ID, room, function, both public identities, fresh challenges and ephemeral
+keys. Host tests cover changed assignment fields, wrong identity, a changed
+transcript, expiry and replay. The Node commits its binding only after a
+verified Hub confirmation and final ACK.
+
+This checkpoint is not target commissioning. ESP-IDF crypto and protected-key
+providers, target transport, persistent association, authenticated rejoin and
+runtime packet AEAD remain to be implemented and qualified. A copied installer
+authorization code can race enrollment while a window is open; it cannot
+impersonate the Node without the Node private key. A half-completed transaction
+still needs a persistent recovery protocol before production use.
+
 ## Source inspection
 
 This design uses the repository's generated ESP-IDF 6.0.3 `sdkconfig` files

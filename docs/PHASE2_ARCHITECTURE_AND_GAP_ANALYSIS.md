@@ -1,9 +1,9 @@
 # Phase 2 Architecture and Gap Analysis
 
-**Document status:** ARCHITECTURE BASELINE with P2.1/P2.2 host implementation notes
+**Document status:** ARCHITECTURE BASELINE with incremental Phase-2 implementation notes
 **Analysis baseline:** `ae9b7dc` — *Add unattended WSL-first Phase-1 HIL qualification*
 **Phase-1 status:** CLOSED / QUALIFIED
-**Phase-2 implementation status:** P2.1/P2.2 host foundation in progress; production multi-node/security unchanged
+**Phase-2 implementation status:** P2.1/P2.2 host foundation and P2.3 host registry/commissioning foundations; production target commissioning remains absent
 
 ## 1. PURPOSE / SCOPE
 
@@ -149,6 +149,26 @@ The production rules should be:
 
 The exact credential, key derivation, anti-replay and secure-storage design is
 `OPEN_DECISION` pending threat modelling and target capacity measurements.
+
+### P2.3 implementation note (2026-09-23)
+
+The approved credential direction is unique asymmetric Node identity. A
+bounded, host-tested commissioning state machine now uses an exact QR-pinned
+Device ID/public key, a separate one-time installer authorization code,
+fresh Hub/Node challenges, P-256 signatures and ephemeral ECDH, HKDF-SHA-256,
+and HMAC confirmations. The authenticated transcript includes Home ID, Hub
+ID, logical Node ID, room and function. Host tests reject altered assignments,
+wrong keys, transcript tampering, expired windows and replay. The test crypto
+provider uses OpenSSL and generates test-only private keys in memory.
+
+This is `PARTIALLY_IMPLEMENTED`: no production target credential provider,
+commissioning radio/wire adapter, protected association persistence,
+authenticated rejoin or runtime AEAD is connected yet. The installer code
+authorizes enrollment intent; knowing it alone cannot forge the Node's
+private-key proof. Its disclosure can permit a competing Hub to race to
+enroll an uncommissioned Node, so recovery needs explicit product
+qualification. No current physical board has passed production-security
+qualification.
 
 ## 5. MANDATORY MULTI-NODE REQUIREMENTS
 

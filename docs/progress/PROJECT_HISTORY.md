@@ -1081,3 +1081,15 @@ and simulated removal of one of ten NodeRuntime contexts without affecting
 the other nine. The test harness still supplies preauthenticated records;
 cryptographic commissioning, target peer wiring and persistent association
 remain open.
+
+## 2026-09-23 - Phase-2 host commissioning crypto and transcript foundation
+
+A shared commissioning protocol and host OpenSSL provider now exercise unique
+P-256 test identities, exact public-key pinning, bounded Hub/Node windows,
+fresh challenge and ephemeral ECDH exchange, HKDF installation keys and
+mutual signature/HMAC confirmations. The signed transcript binds the Home,
+Hub, Device and logical ID plus room/function. Host checks cover assignment
+tampering, wrong key, expiry and replay. The installer authorization code is
+separate from the Node identity key. This is a software-only partial P2.3
+checkpoint: no target pairing, protected credential storage, association
+persistence, rejoin or runtime AEAD is claimed.
