@@ -191,6 +191,15 @@ caller yet. Both target images build with the shared commissioning protocol
 and runtime envelope, but the new code is not in the active target packet
 path. This is compile evidence, not physical or production-security evidence.
 
+A separate authenticated rejoin state machine now uses the installation key
+to prove possession with fresh Node/Hub challenges, validates the bound
+physical/logical/Home/Hub IDs, rejects stale sessions and derives a fresh
+runtime session salt. The host harness uses it before registry session
+progression, including one-of-ten Node restart with the other nine active.
+This is `HOST/SIMULATED` only. The Hub and Node still need persistent
+association/session state and an interrupted-final-ACK recovery rule; the
+target packet path has not enabled rejoin.
+
 ## 5. MANDATORY MULTI-NODE REQUIREMENTS
 
 The following are `CONFIRMED_REQUIREMENT` product qualification targets:

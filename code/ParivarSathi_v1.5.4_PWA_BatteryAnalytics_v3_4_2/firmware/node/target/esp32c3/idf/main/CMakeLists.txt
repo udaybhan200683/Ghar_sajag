@@ -16,6 +16,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/common/transport/session_id.cpp"
         "${GS_ROOT}/firmware/common/security/psa_commissioning_crypto.cpp"
         "${GS_ROOT}/firmware/common/security/commissioning_protocol.cpp"
+        "${GS_ROOT}/firmware/common/security/rejoin_protocol.cpp"
         "${GS_ROOT}/firmware/common/security/runtime_frame_security.cpp"
         "${GS_ROOT}/firmware/node/components/sensing/sensing.cpp"
         "${GS_ROOT}/firmware/node/components/radio/node_radio.cpp"

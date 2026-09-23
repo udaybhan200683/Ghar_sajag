@@ -1110,3 +1110,14 @@ compile in both the ESP32 Hub and ESP32-C3 target projects. Identity signing
 is an injected interface, with no production key store, target commissioning
 entry point or active secure radio path connected. This target-build result
 must not be read as target security or physical qualification.
+
+## 2026-09-23 - Phase-2 authenticated rejoin host foundation
+
+A symmetric challenge/response rejoin state machine uses the persisted
+installation key and a higher committed Node boot session to authenticate the
+bound physical/logical/Home/Hub identity and derive a fresh runtime salt.
+Host tests reject altered identity, foreign Home, wrong key, stale session,
+tampered challenge/final/ACK and replay. The 10-Node host harness now reboots
+one Node while the other nine continue, then verifies fresh-session event and
+ACK isolation. Association/session persistence, interrupted-ACK recovery and
+target radio wiring remain open.

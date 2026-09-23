@@ -20,6 +20,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
         "${GS_ROOT}/firmware/common/security/psa_commissioning_crypto.cpp"
         "${GS_ROOT}/firmware/common/security/commissioning_protocol.cpp"
+        "${GS_ROOT}/firmware/common/security/rejoin_protocol.cpp"
         "${GS_ROOT}/firmware/common/security/runtime_frame_security.cpp"
         "${GS_ROOT}/firmware/hub/components/ingest/ingest.cpp"
         "${GS_ROOT}/firmware/hub/components/registry/node_registry.cpp"

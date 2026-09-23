@@ -110,6 +110,26 @@ void removal_isolated_from_other_nine() {
     }
     std::cout << "P2-MN10-REMOVE HOST/SIMULATED PASS nine unaffected\n";
 }
+
+void one_of_ten_rejoins_without_repairing() {
+    ScheduledHarness harness(10);
+    for (std::size_t i = 0; i < 10; ++i)
+        require(harness.record(i).has_value(), "first ten-node burst failed");
+    harness.run_until_quiet();
+    require(harness.restart_node(4), "individual authenticated rejoin failed");
+    for (std::size_t i = 0; i < 10; ++i)
+        require(harness.record(i).has_value(), "post-rejoin burst failed");
+    harness.run_until_quiet();
+    require(harness.journal_size() == 20, "rejoin lost or duplicated another Node event");
+    for (std::size_t i = 0; i < 10; ++i) {
+        const auto state = harness.snapshot(i);
+        require(state.session == (i == 4 ? 2U : 1U) &&
+                state.matching_acks == 2 && state.ack_mismatches == 0 &&
+                state.registry_rejections == 0 && state.pending == 0,
+                "one-Node rejoin contaminated another Node state");
+    }
+    std::cout << "P2-MN10-REJOIN HOST/SIMULATED PASS nine unaffected\n";
+}
 }  // namespace
 
 int main() {
@@ -119,6 +139,7 @@ int main() {
         misrouted_ack_is_rejected();
         outage_recovers();
         removal_isolated_from_other_nine();
+        one_of_ten_rejoins_without_repairing();
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "P2-MULTINODE HOST/SIMULATED FAIL " << error.what() << '\n';

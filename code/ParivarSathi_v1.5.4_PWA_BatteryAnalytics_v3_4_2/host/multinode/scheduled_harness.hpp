@@ -40,12 +40,14 @@ struct NodeSnapshot {
 class ScheduledHarness {
 public:
     explicit ScheduledHarness(std::size_t count, std::size_t journal_capacity = 1024);
+    ~ScheduledHarness();
     std::optional<EventKey> record(std::size_t index, EventKind kind = EventKind::Motion);
     void set_hub_online(bool online) { hub_online_ = online; }
     void set_node_online(std::size_t index, bool online);
     void drop_next_ack(std::size_t index);
     void redirect_next_ack(std::size_t from_index, std::size_t to_index);
     hub::RegistryResult remove_node(std::size_t index);
+    bool restart_node(std::size_t index);
     void advance(Milliseconds delta_ms);
     void run_until_quiet(Milliseconds maximum_ms = 5000);
     NodeSnapshot snapshot(std::size_t index) const;
@@ -62,6 +64,8 @@ private:
         std::array<std::uint8_t, 6> radio_mac{};
         std::uint64_t session{1};
         std::unique_ptr<node::NodeRuntime> runtime;
+        std::unique_ptr<gs::security::CommissioningBinding> node_binding;
+        std::unique_ptr<gs::security::CommissioningBinding> hub_binding;
         bool online{true};
         bool drop_ack{false};
         std::optional<std::size_t> redirect_ack_to;
@@ -86,6 +90,7 @@ private:
     void send_due_nodes();
     void deliver_due_frames();
     void deliver(const Frame& frame);
+    bool establish_session(Node& node, std::uint64_t last_session);
 
     hub::HubRuntime hub_;
     hub::NodeRegistry registry_;

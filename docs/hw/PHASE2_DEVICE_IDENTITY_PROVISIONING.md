@@ -107,6 +107,13 @@ an operation, or that secure boot/flash encryption is active. The signer must
 be backed by the selected protected production store after the separate
 manufacturing-security decision; HIL may use isolated test-only keys.
 
+The host rejoin protocol authenticates both sides with the installation key,
+fresh nonces and a strictly higher committed Node boot session. It derives a
+fresh salt for direction-separated runtime AEAD keys. The current host harness
+uses that proof for initial admission and an individual Node restart. Target
+storage and radio integration are pending; the protocol does not yet resolve
+lost final ACK or one-sided persistent commits after a crash.
+
 ## Source inspection
 
 This design uses the repository's generated ESP-IDF 6.0.3 `sdkconfig` files

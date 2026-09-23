@@ -1,5 +1,6 @@
 #include "host/multinode/scheduled_harness.hpp"
 #include "firmware/common/security/commissioning_protocol.hpp"
+#include "firmware/common/security/rejoin_protocol.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -36,6 +37,7 @@ ScheduledHarness::ScheduledHarness(std::size_t count, std::size_t journal_capaci
                                                 node.logical_id, node.location, "motion");
         gs::security::NodeCommissioning node_pairing(crypto_, key_reference, node.physical_id,
                                                   installer_code);
+        crypto_.secure_zero(installer_code.data(), installer_code.size());
         const auto offer = hub_pairing.open(0, 5000);
         if (!offer || !node_pairing.enable_window(0, 5000))
             throw std::runtime_error("host commissioning window failed");
@@ -47,33 +49,71 @@ ScheduledHarness::ScheduledHarness(std::size_t count, std::size_t journal_capaci
             !hub_pairing.binding() || !node_pairing.binding() ||
             hub_pairing.binding()->installation_key != node_pairing.binding()->installation_key)
             throw std::runtime_error("host asymmetric commissioning failed");
-        gs::security::Key32 session_salt{};
-        if (!crypto_.random_bytes(session_salt.data(), session_salt.size()))
-            throw std::runtime_error("host runtime session salt failed");
-        node.node_security = std::make_unique<gs::security::RuntimeFrameSecurity>(
-            crypto_, *node_pairing.binding());
-        node.hub_security = std::make_unique<gs::security::RuntimeFrameSecurity>(
-            crypto_, *hub_pairing.binding());
-        if (!node.node_security->start(node.session, session_salt) ||
-            !node.hub_security->start(node.session, session_salt))
-            throw std::runtime_error("host runtime key derivation failed");
-        node.commissioned = true;
+        node.node_binding = std::make_unique<gs::security::CommissioningBinding>(
+            *node_pairing.binding());
+        node.hub_binding = std::make_unique<gs::security::CommissioningBinding>(
+            *hub_pairing.binding());
         hub::EnrolledNode record;
-        record.device_id = hub_pairing.binding()->device_id;
-        record.p256_public_key = hub_pairing.binding()->device_public_key;
+        record.device_id = node.hub_binding->device_id;
+        record.p256_public_key = node.hub_binding->device_public_key;
         record.radio_mac = node.radio_mac;
-        record.home_id = hub_pairing.binding()->home_id;
-        record.hub_id = hub_pairing.binding()->hub_id;
-        record.logical_id = hub_pairing.binding()->logical_id;
-        record.room = hub_pairing.binding()->room;
-        record.function = hub_pairing.binding()->function;
-        if (registry_.enroll(record) != hub::RegistryResult::Accepted ||
-            registry_.rejoin(record.device_id, record.radio_mac, node.session) !=
-                hub::RegistryResult::Accepted)
+        record.home_id = node.hub_binding->home_id;
+        record.hub_id = node.hub_binding->hub_id;
+        record.logical_id = node.hub_binding->logical_id;
+        record.room = node.hub_binding->room;
+        record.function = node.hub_binding->function;
+        if (registry_.enroll(record) != hub::RegistryResult::Accepted)
             throw std::runtime_error("host registry setup failed");
-        hub_.authorize_node(node.logical_id, node.session, true);
+        if (!establish_session(node, 0))
+            throw std::runtime_error("host authenticated rejoin failed");
         nodes_.push_back(std::move(node));
     }
+}
+
+ScheduledHarness::~ScheduledHarness() {
+    for (auto& node : nodes_) {
+        if (node.node_binding)
+            crypto_.secure_zero(node.node_binding->installation_key.data(),
+                                node.node_binding->installation_key.size());
+        if (node.hub_binding)
+            crypto_.secure_zero(node.hub_binding->installation_key.data(),
+                                node.hub_binding->installation_key.size());
+    }
+}
+
+bool ScheduledHarness::establish_session(Node& node, std::uint64_t last_session) {
+        gs::security::NodeRejoin node_rejoin(crypto_, *node.node_binding, node.session);
+        gs::security::HubRejoin hub_rejoin(crypto_, *node.hub_binding, last_session);
+        const auto hello = node_rejoin.begin();
+        const auto challenge = hello ? hub_rejoin.accept(*hello) : std::nullopt;
+        const auto rejoin_final = challenge ? node_rejoin.accept(*challenge) : std::nullopt;
+        const auto rejoin_ack = rejoin_final ? hub_rejoin.confirm(*rejoin_final) : std::nullopt;
+        if (!rejoin_ack || !hub_rejoin.session_salt() ||
+            registry_.rejoin(node.physical_id, node.radio_mac,
+                             hub_rejoin.authenticated_session()) != hub::RegistryResult::Accepted ||
+            !node_rejoin.commit(*rejoin_ack) || !node_rejoin.session_salt() ||
+            *node_rejoin.session_salt() != *hub_rejoin.session_salt())
+            return false;
+        node.node_security = std::make_unique<gs::security::RuntimeFrameSecurity>(
+            crypto_, *node.node_binding);
+        node.hub_security = std::make_unique<gs::security::RuntimeFrameSecurity>(
+            crypto_, *node.hub_binding);
+        if (!node.node_security->start(node.session, *node_rejoin.session_salt()) ||
+            !node.hub_security->start(node.session, *hub_rejoin.session_salt()))
+            return false;
+        node.commissioned = true;
+        hub_.authorize_node(node.logical_id, node.session, true);
+        return true;
+}
+
+bool ScheduledHarness::restart_node(std::size_t index) {
+    auto& node = nodes_.at(index);
+    if (node.session == UINT64_MAX || node.runtime->pending() != 0) return false;
+    const auto record = registry_.find(node.physical_id);
+    if (!record || record->quarantined) return false;
+    ++node.session;
+    node.runtime = std::make_unique<node::NodeRuntime>(node.logical_id, node.session);
+    return establish_session(node, record->last_session);
 }
 
 std::optional<EventKey> ScheduledHarness::record(std::size_t index, EventKind kind) {
