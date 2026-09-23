@@ -31,6 +31,7 @@ CPP_SOURCES := \
 	firmware/node/fota/fota_receiver.cpp \
 	firmware/node/runtime/node_runtime.cpp \
 	firmware/hub/components/ingest/ingest.cpp \
+	firmware/hub/components/registry/node_registry.cpp \
 	firmware/hub/components/storage/journal.cpp \
 	firmware/hub/components/time/clock.cpp \
 	firmware/hub/components/coverage/coverage.cpp \
@@ -41,7 +42,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test multinode-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
+.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test multinode-host-test registry-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 
 all: verify
 
@@ -67,6 +68,10 @@ fota-host-test: build
 multinode-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -o build/multinode_host_validation
 	./build/multinode_host_validation
+
+registry-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/hub/components/registry/node_registry.cpp tests/cpp/node_registry_validation.cpp -o build/node_registry_validation
+	./build/node_registry_validation
 
 simulator: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/main.cpp -o build/ghar_sajag_simulator
@@ -155,7 +160,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hil-tooling-test hil-host-check multinode-host-test
+validation-fast: hil-tooling-test hil-host-check multinode-host-test registry-host-test
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately

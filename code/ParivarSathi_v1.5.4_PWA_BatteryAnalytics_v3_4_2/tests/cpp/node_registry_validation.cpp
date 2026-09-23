@@ -1,0 +1,123 @@
+#include "firmware/hub/components/registry/node_registry.hpp"
+
+#include <iostream>
+#include <stdexcept>
+#include <string>
+
+using gs::hub::EnrolledNode;
+using gs::hub::NodeRegistry;
+using gs::hub::RegistryResult;
+
+namespace {
+void require(bool value, const char* message) {
+    if (!value) throw std::runtime_error(message);
+}
+
+EnrolledNode node(unsigned index) {
+    EnrolledNode value;
+    value.device_id = "physical-" + std::to_string(index);
+    value.p256_public_key[0] = 0x04;
+    value.p256_public_key[1] = static_cast<std::uint8_t>(index);
+    value.radio_mac = {0x14, 0x63, 0x93, 0x00, 0x00, static_cast<std::uint8_t>(index)};
+    value.home_id = "home-a";
+    value.hub_id = "hub-a";
+    value.logical_id = "room-node-" + std::to_string(index);
+    value.room = "room-" + std::to_string(index);
+    value.function = "motion";
+    return value;
+}
+
+void capacity_and_isolation() {
+    NodeRegistry invalid("home-a", "hub-a", 9, 0);
+    require(invalid.capacity() == 0 && invalid.enroll(node(1)) == RegistryResult::InvalidRecord,
+            "invalid product configuration did not fail closed");
+    NodeRegistry registry("home-a", "hub-a", 10, 16);
+    for (unsigned i = 1; i <= 10; ++i)
+        require(registry.enroll(node(i)) == RegistryResult::Accepted, "max-1/max enrollment failed");
+    require(registry.size() == 10 && registry.capacity() == 10, "registry capacity mismatch");
+    require(registry.enroll(node(11)) == RegistryResult::CapacityFull, "max+1 was not rejected");
+    require(registry.size() == 10 && !registry.find("physical-11"), "capacity rejection mutated registry");
+    for (unsigned i = 1; i <= 10; ++i) {
+        const auto found = registry.find("physical-" + std::to_string(i));
+        require(found && found->logical_id == "room-node-" + std::to_string(i),
+                "per-node assignment was contaminated");
+    }
+    std::cout << "P2-REG-CAPACITY HOST PASS max-1/max/max+1\n";
+}
+
+void identity_rejoin_and_quarantine() {
+    NodeRegistry registry("home-a", "hub-a", 10, 16);
+    auto first = node(1);
+    require(registry.enroll(first) == RegistryResult::Accepted, "initial enrollment failed");
+    require(registry.enroll(first) == RegistryResult::AlreadyEnrolled, "idempotent enrollment failed");
+    auto reassigned = first; reassigned.room = "unapproved-room";
+    require(registry.enroll(reassigned) == RegistryResult::DuplicateLogicalIdentity,
+            "duplicate enrollment silently changed room");
+    require(registry.find(first.device_id)->room == first.room,
+            "rejected assignment changed the existing room");
+    auto foreign = node(2); foreign.home_id = "home-b";
+    require(registry.enroll(foreign) == RegistryResult::ForeignInstallation, "foreign Home accepted");
+    foreign = node(2); foreign.hub_id = "hub-b";
+    require(registry.enroll(foreign) == RegistryResult::ForeignInstallation, "foreign Hub accepted");
+    auto duplicate_mac = node(2); duplicate_mac.radio_mac = first.radio_mac;
+    require(registry.enroll(duplicate_mac) == RegistryResult::DuplicateRadioAddress,
+            "duplicate radio address accepted");
+    auto duplicate_logical = node(2); duplicate_logical.logical_id = first.logical_id;
+    require(registry.enroll(duplicate_logical) == RegistryResult::DuplicateLogicalIdentity,
+            "duplicate logical identity accepted");
+    require(registry.rejoin("unknown", first.radio_mac, 1) == RegistryResult::UnknownDevice,
+            "unknown device rejoined");
+    require(registry.rejoin(first.device_id, first.radio_mac, 1) == RegistryResult::Accepted,
+            "fresh authenticated rejoin failed");
+    require(registry.rejoin(first.device_id, first.radio_mac, 1) == RegistryResult::StaleSession,
+            "stale session accepted");
+    auto clone = first; clone.radio_mac[5] = 9;
+    require(registry.enroll(clone) == RegistryResult::DuplicatePhysicalIdentity,
+            "conflicting physical identity accepted");
+    require(registry.find(first.device_id)->quarantined, "identity conflict did not quarantine");
+    require(registry.rejoin(first.device_id, first.radio_mac, 2) ==
+            RegistryResult::DuplicatePhysicalIdentity, "quarantined identity rejoined");
+    require(registry.counters().quarantined == 1, "quarantine accounting missing");
+    std::cout << "P2-REG-IDENTITY HOST PASS foreign/duplicate/rejoin/quarantine\n";
+}
+
+void removal_and_replacement() {
+    NodeRegistry registry("home-a", "hub-a", 10, 16);
+    for (unsigned i = 1; i <= 10; ++i)
+        require(registry.enroll(node(i)) == RegistryResult::Accepted, "full registry setup failed");
+    auto replacement = node(11);
+    replacement.logical_id = "room-node-3";
+    replacement.room = "room-3";
+    require(registry.replace("physical-3", replacement) == RegistryResult::Accepted,
+            "replacement at capacity failed");
+    require(registry.size() == 10 && registry.is_revoked("physical-3"),
+            "replacement lost capacity or tombstone");
+    require(registry.find("physical-11")->logical_id == "room-node-3",
+            "replacement did not inherit logical slot");
+    require(registry.rejoin("physical-3", node(3).radio_mac, 7) == RegistryResult::RevokedDevice,
+            "replaced device rejoined");
+    auto invalid = node(12); invalid.logical_id = "room-node-4"; invalid.room = "wrong-room";
+    require(registry.replace("physical-4", invalid) == RegistryResult::DuplicateLogicalIdentity,
+            "invalid replacement assignment accepted");
+    require(registry.find("physical-4") && !registry.find("physical-12"),
+            "failed replacement partially changed registry");
+    require(registry.remove("physical-5") == RegistryResult::Accepted, "remove failed");
+    require(registry.enroll(node(5)) == RegistryResult::RevokedDevice,
+            "removed device was silently re-enrolled");
+    require(registry.size() == 9 && registry.tombstone_count() == 2,
+            "remove/replacement accounting wrong");
+    std::cout << "P2-REG-LIFECYCLE HOST PASS replace/remove/revoke\n";
+}
+}  // namespace
+
+int main() {
+    try {
+        capacity_and_isolation();
+        identity_rejoin_and_quarantine();
+        removal_and_replacement();
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "P2-REGISTRY HOST FAIL " << error.what() << '\n';
+        return 1;
+    }
+}

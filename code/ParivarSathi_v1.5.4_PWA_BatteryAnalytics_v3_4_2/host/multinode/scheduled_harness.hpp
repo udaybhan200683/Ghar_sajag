@@ -2,8 +2,10 @@
 
 #include "firmware/common/transport/data_plane_codec.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
+#include "firmware/hub/components/registry/node_registry.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -27,6 +29,7 @@ struct NodeSnapshot {
     std::uint64_t hub_admissions{0};
     std::uint64_t matching_acks{0};
     std::uint64_t ack_mismatches{0};
+    std::uint64_t registry_rejections{0};
     std::uint64_t maximum_ack_latency_ms{0};
 };
 
@@ -37,6 +40,7 @@ public:
     void set_hub_online(bool online) { hub_online_ = online; }
     void set_node_online(std::size_t index, bool online);
     void drop_next_ack(std::size_t index);
+    hub::RegistryResult remove_node(std::size_t index);
     void advance(Milliseconds delta_ms);
     void run_until_quiet(Milliseconds maximum_ms = 5000);
     NodeSnapshot snapshot(std::size_t index) const;
@@ -50,6 +54,7 @@ private:
         std::string physical_id;
         std::string logical_id;
         std::string location;
+        std::array<std::uint8_t, 6> radio_mac{};
         std::uint64_t session{1};
         std::unique_ptr<node::NodeRuntime> runtime;
         bool online{true};
@@ -58,6 +63,7 @@ private:
         std::uint64_t hub_admissions{0};
         std::uint64_t matching_acks{0};
         std::uint64_t ack_mismatches{0};
+        std::uint64_t registry_rejections{0};
         std::uint64_t maximum_ack_latency_ms{0};
     };
     struct Frame {
@@ -73,6 +79,7 @@ private:
     void deliver(const Frame& frame);
 
     hub::HubRuntime hub_;
+    hub::NodeRegistry registry_;
     std::vector<Node> nodes_;
     std::vector<Frame> frames_;
     Milliseconds now_ms_{0};

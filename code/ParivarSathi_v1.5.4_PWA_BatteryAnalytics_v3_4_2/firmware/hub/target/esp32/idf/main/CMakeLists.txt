@@ -19,6 +19,7 @@ idf_component_register(
         "${GS_ROOT}/shared/src/rules.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
         "${GS_ROOT}/firmware/hub/components/ingest/ingest.cpp"
+        "${GS_ROOT}/firmware/hub/components/registry/node_registry.cpp"
         "${GS_ROOT}/firmware/hub/components/storage/journal.cpp"
         "${GS_ROOT}/firmware/hub/components/coverage/coverage.cpp"
         "${GS_ROOT}/firmware/hub/components/rules/routine_service.cpp"

@@ -216,11 +216,13 @@ The evaluated mechanisms are:
 | BLE-assisted commissioning | Possible without new hardware, but adds app, firmware and coexistence complexity. |
 | Wi-Fi-assisted commissioning | Adds network dependency and is not currently justified. |
 
-Current recommended direction (`PROPOSED_ARCHITECTURE`): ESP-NOW discovery plus
-explicit installer authorization and a device-specific credential, with a QR
-assisted association flow. The exact cryptographic protocol, key storage and
-whether authenticated application-layer encryption or ESP-NOW peer encryption
-is primary remain `OPEN_DECISION`.
+Approved direction: ESP-NOW discovery plus explicit installer authorization,
+unique asymmetric Node identity and QR-represented public identity. The Node
+must authenticate the intended Hub/Home. Commissioning derives symmetric
+runtime keys; application-layer authenticated encryption is required if
+native ESP-NOW encrypted-peer capacity cannot support ten. Protocol details,
+protected storage and production eFuse policy remain open for implementation
+and qualification.
 
 ## 9. PRODUCT GAPS
 
@@ -373,7 +375,7 @@ These decisions remain `OPEN_DECISION`:
 
 - final product Node maximum above mandatory ten;
 - application-layer versus ESP-NOW encryption strategy;
-- factory credential type and manufacturing provisioning;
+- factory asymmetric-key generation and manufacturing provisioning process;
 - secure credential storage and rotation;
 - exact commissioning cryptographic protocol and anti-replay policy;
 - offline installer and app-to-Hub control path;
@@ -441,11 +443,10 @@ health/liveness and the full ten-node acceptance matrix remain open. These
 results are `HOST/SIMULATED` evidence only and do not qualify target ten-node
 product behavior or 25 physical peers.
 
-P2.3 is gated on explicit security/manufacturing decisions already listed in
-Section 18. In particular, the repository provides neither a per-device
-factory credential process nor an effective ten-peer native encrypted
-ESP-NOW configuration. The selected credential/provisioning and protection
-model must be frozen before production enrollment state is implemented.
+The product owner subsequently approved unique asymmetric Node credentials,
+QR-represented public identity and derived symmetric runtime protection.
+This resolves the credential-direction decision, while manufacturing/eFuse
+layout and effective target peer capacity still require qualification.
 
 ## 22. CONNECTED CHECKPOINT AND HIL SETUP RECOVERY
 
@@ -466,3 +467,27 @@ refreshed before every focused checkpoint, including after branch, commit or
 source changes. The campaign continues to own paired build, conditional
 flash, target version/identity checks and report generation. The new profile
 has host orchestration tests; its first connected execution remains pending.
+
+## 23. P2.3 REGISTRY FOUNDATION
+
+`NodeRegistry` is now a bounded production C++ component compiled into the
+Hub image. It stores distinct physical Device ID/public-key identity, radio
+address, Home/Hub binding, logical ID, room and function. It provides explicit
+enrollment, monotonic-session rejoin, removal, replacement, bounded revocation
+tombstones and quarantine on conflicting physical identity. Capacity is a
+constructor policy: host tests prove max−1/max/max+1 at ten installed Nodes;
+the commercial maximum above ten remains `OPEN_DECISION`. Replacement retains
+the logical slot while changing the physical identity.
+
+The scheduled host transport harness now uses registry admission before
+`HubRuntime`, including removal of one context while the other nine continue.
+Its test setup supplies preauthenticated records directly. This does not
+constitute cryptographic commissioning, persistent association, target peer
+management or physical ten-node qualification. `P2-COM` remains a product gap.
+
+The approved security direction is a unique asymmetric keypair per production
+C3, a QR-represented public identity, authenticated Hub/Home binding and
+derived symmetric application-layer protection for runtime traffic. The QR
+must not expose a private credential that alone permits Node impersonation.
+The exact protocol, credential storage, target wiring and production eFuse
+policy are not yet implemented.

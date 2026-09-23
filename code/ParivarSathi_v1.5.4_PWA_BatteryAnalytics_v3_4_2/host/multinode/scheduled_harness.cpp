@@ -7,7 +7,9 @@
 namespace gs::host::multinode {
 
 ScheduledHarness::ScheduledHarness(std::size_t count, std::size_t journal_capacity)
-    : hub_(32, journal_capacity) {
+    : hub_(32, journal_capacity),
+      registry_("sim-home", "sim-hub", std::max<std::size_t>(count, 10),
+                2 * std::max<std::size_t>(count, 10)) {
     if (count == 0 || count > 25) throw std::invalid_argument("host node count must be 1..25");
     nodes_.reserve(count);
     for (std::size_t i = 0; i < count; ++i) {
@@ -15,8 +17,26 @@ ScheduledHarness::ScheduledHarness(std::size_t count, std::size_t journal_capaci
         node.physical_id = "sim-physical-" + std::to_string(i + 1);
         node.logical_id = "sim-node-" + std::to_string(i + 1);
         node.location = "sim-room-" + std::to_string(i + 1);
+        node.radio_mac = {0x14, 0x63, 0x93, 0x00,
+                          static_cast<std::uint8_t>((i + 1) >> 8),
+                          static_cast<std::uint8_t>(i + 1)};
         node.runtime = std::make_unique<node::NodeRuntime>(node.logical_id, node.session);
-        // Test setup authorization; production commissioning is a later checkpoint.
+        // Test setup supplies preauthenticated records. It is not evidence of
+        // a production QR, key proof or persisted commissioning transaction.
+        hub::EnrolledNode record;
+        record.device_id = node.physical_id;
+        record.p256_public_key[0] = 0x04;
+        record.p256_public_key[1] = static_cast<std::uint8_t>(i + 1);
+        record.radio_mac = node.radio_mac;
+        record.home_id = "sim-home";
+        record.hub_id = "sim-hub";
+        record.logical_id = node.logical_id;
+        record.room = node.location;
+        record.function = "motion";
+        if (registry_.enroll(record) != hub::RegistryResult::Accepted ||
+            registry_.rejoin(record.device_id, record.radio_mac, node.session) !=
+                hub::RegistryResult::Accepted)
+            throw std::runtime_error("host registry setup failed");
         hub_.authorize_node(node.logical_id, node.session, true);
         nodes_.push_back(std::move(node));
     }
@@ -33,6 +53,10 @@ void ScheduledHarness::set_node_online(std::size_t index, bool online) {
 
 void ScheduledHarness::drop_next_ack(std::size_t index) {
     nodes_.at(index).drop_ack = true;
+}
+
+hub::RegistryResult ScheduledHarness::remove_node(std::size_t index) {
+    return registry_.remove(nodes_.at(index).physical_id);
 }
 
 void ScheduledHarness::send_due_nodes() {
@@ -58,6 +82,13 @@ void ScheduledHarness::deliver(const Frame& frame) {
         if (!decoded) throw std::runtime_error("production NodeMessage decoder failed");
         if (decoded.value->node_id != node.logical_id || decoded.value->session_id != node.session)
             throw std::runtime_error("cross-node uplink identity");
+        const auto assigned = registry_.find(node.physical_id);
+        if (!assigned || assigned->quarantined || assigned->radio_mac != node.radio_mac ||
+            assigned->logical_id != decoded.value->node_id ||
+            assigned->last_session != decoded.value->session_id) {
+            ++node.registry_rejections;
+            return;
+        }
         if (!hub_.radio_message_callback(*decoded.value, 0)) return;
         ++node.hub_admissions;
         const auto processed = hub_.run_state_once();
@@ -126,7 +157,8 @@ NodeSnapshot ScheduledHarness::snapshot(std::size_t index) const {
     return {node.physical_id, node.logical_id, node.location, node.session,
             node.runtime->next_sequence(), node.runtime->persisted(), node.runtime->pending(),
             node.uplink_attempts, node.hub_admissions, node.matching_acks,
-            node.ack_mismatches, node.maximum_ack_latency_ms};
+            node.ack_mismatches, node.registry_rejections,
+            node.maximum_ack_latency_ms};
 }
 
 }  // namespace gs::host::multinode

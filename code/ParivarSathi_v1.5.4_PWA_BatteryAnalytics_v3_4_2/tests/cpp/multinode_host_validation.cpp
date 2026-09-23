@@ -73,6 +73,27 @@ void outage_recovers() {
         require(harness.snapshot(i).matching_acks == 1, "per-node recovery failed");
     std::cout << "P2-MN10-OUTAGE HOST/SIMULATED PASS\n";
 }
+
+void removal_isolated_from_other_nine() {
+    ScheduledHarness harness(10);
+    require(harness.remove_node(3) == gs::hub::RegistryResult::Accepted,
+            "registry removal failed");
+    for (std::size_t i = 0; i < 10; ++i)
+        require(harness.record(i).has_value(), "removal burst setup failed");
+    harness.advance(500);
+    require(harness.journal_size() == 9, "removed device entered journal or another node was lost");
+    for (std::size_t i = 0; i < 10; ++i) {
+        const auto snapshot = harness.snapshot(i);
+        if (i == 3) {
+            require(snapshot.matching_acks == 0 && snapshot.registry_rejections > 0 &&
+                    snapshot.retained == 1, "removed device was admitted or lost its retained event");
+        } else {
+            require(snapshot.matching_acks == 1 && snapshot.registry_rejections == 0 &&
+                    snapshot.retained == 0, "removal disturbed another node");
+        }
+    }
+    std::cout << "P2-MN10-REMOVE HOST/SIMULATED PASS nine unaffected\n";
+}
 }  // namespace
 
 int main() {
@@ -80,6 +101,7 @@ int main() {
         for (std::size_t count : {1U, 4U, 10U, 25U}) qualify_count(count);
         lost_ack_retries_same_identity();
         outage_recovers();
+        removal_isolated_from_other_nine();
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "P2-MULTINODE HOST/SIMULATED FAIL " << error.what() << '\n';

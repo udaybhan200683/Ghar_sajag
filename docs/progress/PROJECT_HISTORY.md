@@ -1068,3 +1068,16 @@ USB fixture readiness and setup, runs preflight, then invokes the unchanged
 smoke campaign. Host tests cover stage order, stale branch/commit/source
 rejection and fail-closed behavior. The focused profile has not yet itself
 been run on connected boards.
+
+## 2026-09-23 - Phase-2 asymmetric identity direction and registry foundation
+
+The product owner approved unique asymmetric production Node identities,
+QR-represented public identity and symmetric authenticated runtime traffic
+after commissioning. No prototype eFuse was programmed. A bounded Hub
+`NodeRegistry` foundation now separates physical, Home/Hub and logical
+identity and defines deterministic enrollment, rejoin, quarantine,
+remove/replace and capacity outcomes. Host tests cover the ten-slot boundary
+and simulated removal of one of ten NodeRuntime contexts without affecting
+the other nine. The test harness still supplies preauthenticated records;
+cryptographic commissioning, target peer wiring and persistent association
+remain open.
