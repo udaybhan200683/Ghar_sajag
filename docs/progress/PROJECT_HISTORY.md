@@ -1093,3 +1093,20 @@ tampering, wrong key, expiry and replay. The installer authorization code is
 separate from the Node identity key. This is a software-only partial P2.3
 checkpoint: no target pairing, protected credential storage, association
 persistence, rejoin or runtime AEAD is claimed.
+
+## 2026-09-23 - Phase-2 authenticated host multi-node transport
+
+The scheduled 1/4/10/25-node host harness now commissions each unique test
+identity before registry admission and carries production-codec events and
+ACKs inside a shared AES-256-GCM runtime envelope. Per-node installation keys,
+session salts, directional counters and replay windows are independent. Host
+tests reject tampering, replay, wrong logical association, old-session ACKs
+and a misrouted ACK, while the original sender retries successfully. This is
+host simulation only; target crypto/storage/ESP-NOW wiring, authenticated
+rejoin, RF timing and full ten-node release qualification are still open.
+
+The ESP-IDF 6.0.3 PSA crypto adapter and shared protocol/security sources
+compile in both the ESP32 Hub and ESP32-C3 target projects. Identity signing
+is an injected interface, with no production key store, target commissioning
+entry point or active secure radio path connected. This target-build result
+must not be read as target security or physical qualification.

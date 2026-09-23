@@ -66,7 +66,7 @@ fota-host-test: build
 	./build/fota_host_validation
 
 multinode-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -o build/multinode_host_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/common/security/commissioning_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
 	./build/multinode_host_validation
 
 registry-host-test: build
@@ -74,7 +74,7 @@ registry-host-test: build
 	./build/node_registry_validation
 
 commissioning-crypto-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/commissioning_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/commissioning_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
 	./build/commissioning_crypto_validation
 
 simulator: build

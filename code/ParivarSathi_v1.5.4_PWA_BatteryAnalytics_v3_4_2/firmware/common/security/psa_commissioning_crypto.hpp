@@ -2,27 +2,23 @@
 
 #include "firmware/common/security/commissioning_crypto.hpp"
 
-#include <map>
-#include <memory>
-#include <string>
+namespace gs::security {
 
-#include <openssl/evp.h>
-
-namespace gs::host::security {
-
-using gs::security::Bytes;
-using gs::security::EphemeralP256;
-using gs::security::GcmTag;
-using gs::security::Key32;
-using gs::security::Nonce12;
-using gs::security::P256PublicKey;
-using gs::security::P256Signature;
-
-// Host qualification backend. Identities are generated in process and never
-// written to source, fixtures or reports. This is not production key storage.
-class OpenSslCommissioningCrypto final : public gs::security::CommissioningCrypto {
+// Platform identity storage is deliberately separate from protocol crypto.
+// Production implementations must sign without exporting the device private
+// key. Development/HIL implementations must be marked test-only.
+class IdentitySigner {
 public:
-    bool generate_test_identity(const std::string& reference);
+    virtual ~IdentitySigner() = default;
+    virtual bool public_key(const std::string& reference, P256PublicKey& out) = 0;
+    virtual bool sign_hash(const std::string& reference, const Key32& sha256_hash,
+                           P256Signature& out) = 0;
+};
+
+class PsaCommissioningCrypto final : public CommissioningCrypto {
+public:
+    explicit PsaCommissioningCrypto(IdentitySigner& identities);
+    bool ready() const { return ready_; }
     bool random_bytes(std::uint8_t* out, std::size_t length) override;
     bool identity_public_key(const std::string& reference, P256PublicKey& out) override;
     bool sign_identity(const std::string& reference, const Bytes& transcript,
@@ -46,7 +42,8 @@ public:
                          const GcmTag& tag, Bytes& plain) override;
 
 private:
-    std::map<std::string, std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>> identities_;
+    IdentitySigner& identities_;
+    bool ready_{false};
 };
 
-}  // namespace gs::host::security
+}  // namespace gs::security

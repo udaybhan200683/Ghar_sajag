@@ -14,6 +14,9 @@ idf_component_register(
         "${GS_ROOT}/shared/src/logging.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
         "${GS_ROOT}/firmware/common/transport/session_id.cpp"
+        "${GS_ROOT}/firmware/common/security/psa_commissioning_crypto.cpp"
+        "${GS_ROOT}/firmware/common/security/commissioning_protocol.cpp"
+        "${GS_ROOT}/firmware/common/security/runtime_frame_security.cpp"
         "${GS_ROOT}/firmware/node/components/sensing/sensing.cpp"
         "${GS_ROOT}/firmware/node/components/radio/node_radio.cpp"
         "${GS_ROOT}/firmware/node/components/storage/node_store.cpp"
@@ -34,6 +37,7 @@ idf_component_register(
         esp_timer
         esp_wifi
         nvs_flash
+        mbedtls
 )
 
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)

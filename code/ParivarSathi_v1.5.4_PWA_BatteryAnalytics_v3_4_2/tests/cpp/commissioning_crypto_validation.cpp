@@ -1,5 +1,6 @@
 #include "host/security/openssl_commissioning_crypto.hpp"
 #include "firmware/common/security/commissioning_protocol.hpp"
+#include "firmware/common/security/runtime_frame_security.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -100,6 +101,60 @@ int main() {
         require(!node.respond(*offer, 106), "committed Node accepted replayed offer");
         require(!hub.accept(*node_proof, 106), "committed Hub accepted replayed proof");
 
+        Key32 runtime_salt{};
+        require(crypto.random_bytes(runtime_salt.data(), runtime_salt.size()),
+                "authenticated runtime salt setup failed");
+        RuntimeFrameSecurity secure_node(crypto, *node.binding());
+        RuntimeFrameSecurity secure_hub(crypto, *hub.binding());
+        require(secure_node.start(1, runtime_salt) && secure_hub.start(1, runtime_salt) &&
+                !secure_node.start(1, runtime_salt),
+                "runtime session did not enforce forward progression");
+        gs::transport::EncodedFrame runtime_plain{};
+        runtime_plain.bytes[0] = 0x47;
+        runtime_plain.bytes[1] = 0x53;
+        runtime_plain.size = 2;
+        SecureFrame protected_uplink{};
+        gs::transport::EncodedFrame opened_frame{};
+        require(secure_node.seal(RuntimeDirection::Uplink, runtime_plain, protected_uplink) &&
+                protected_uplink.size == runtime_plain.size + kSecureFrameOverhead &&
+                secure_hub.open(RuntimeDirection::Uplink, protected_uplink, opened_frame) &&
+                opened_frame.size == runtime_plain.size &&
+                opened_frame.bytes[0] == runtime_plain.bytes[0],
+                "runtime AEAD uplink did not round trip");
+        require(!secure_hub.open(RuntimeDirection::Uplink, protected_uplink, opened_frame) &&
+                opened_frame.size == 0, "runtime replay was accepted");
+        require(secure_node.seal(RuntimeDirection::Uplink, runtime_plain, protected_uplink),
+                "second runtime packet could not be sealed");
+        auto changed_uplink = protected_uplink;
+        changed_uplink.bytes[12] ^= 1;
+        require(!secure_hub.open(RuntimeDirection::Uplink, changed_uplink, opened_frame) &&
+                secure_hub.open(RuntimeDirection::Uplink, protected_uplink, opened_frame),
+                "runtime tamper was accepted or advanced replay state");
+        auto changed_binding = *hub.binding();
+        changed_binding.logical_id = "different-logical-node";
+        RuntimeFrameSecurity wrong_association(crypto, changed_binding);
+        require(wrong_association.start(1, runtime_salt) &&
+                !wrong_association.open(RuntimeDirection::Uplink, protected_uplink, opened_frame),
+                "wrong logical association decrypted runtime traffic");
+        SecureFrame protected_ack{};
+        require(secure_hub.seal(RuntimeDirection::Downlink, runtime_plain, protected_ack) &&
+                !secure_node.open(RuntimeDirection::Uplink, protected_ack, opened_frame) &&
+                secure_node.open(RuntimeDirection::Downlink, protected_ack, opened_frame),
+                "runtime direction separation or ACK authentication failed");
+        runtime_plain.size = kMaximumSecureFrameBytes - kSecureFrameOverhead;
+        require(secure_node.seal(RuntimeDirection::Uplink, runtime_plain, protected_uplink) &&
+                protected_uplink.size == kMaximumSecureFrameBytes,
+                "secure ESP-NOW payload boundary failed");
+        ++runtime_plain.size;
+        require(!secure_node.seal(RuntimeDirection::Uplink, runtime_plain, protected_uplink),
+                "oversized authenticated frame was accepted");
+        Key32 next_salt{};
+        require(crypto.random_bytes(next_salt.data(), next_salt.size()) &&
+                secure_node.start(2, next_salt) && secure_hub.start(2, next_salt) &&
+                !secure_node.open(RuntimeDirection::Downlink, protected_ack, opened_frame) &&
+                !secure_node.start(1, runtime_salt),
+                "new runtime session accepted prior ACK or rolled back");
+
         Key32 wrong_code = installation_code; wrong_code[0] ^= 1;
         NodeCommissioning wrong_node(crypto, "node-a", "node-id", wrong_code);
         require(wrong_node.enable_window(100, 5000) && !wrong_node.respond(*offer, 101),
@@ -129,6 +184,7 @@ int main() {
                 "Node accepted an offer pinned to a different device key");
         std::cout << "P2-COM-CRYPTO HOST PASS unique keys/signatures/ECDH/HKDF/AEAD/tamper\n";
         std::cout << "P2-COM-HANDSHAKE HOST PASS exact identity/Home/Hub/window/replay\n";
+        std::cout << "P2-RUNTIME-AEAD HOST PASS uplink/ACK/tamper/replay/boundary\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "P2-COM-CRYPTO HOST FAIL " << error.what() << '\n';

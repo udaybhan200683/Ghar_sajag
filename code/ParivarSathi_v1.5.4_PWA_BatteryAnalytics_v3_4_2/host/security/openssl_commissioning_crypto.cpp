@@ -204,6 +204,10 @@ bool OpenSslCommissioningCrypto::constant_time_equal(const std::uint8_t* left,
     return left != nullptr && right != nullptr && CRYPTO_memcmp(left, right, length) == 0;
 }
 
+void OpenSslCommissioningCrypto::secure_zero(void* data, std::size_t length) {
+    if (data != nullptr && length != 0) OPENSSL_cleanse(data, length);
+}
+
 bool OpenSslCommissioningCrypto::seal_aes256_gcm(const Key32& key, const Nonce12& nonce,
                                                   const Bytes& aad, const Bytes& plain,
                                                   Bytes& cipher, GcmTag& tag) {

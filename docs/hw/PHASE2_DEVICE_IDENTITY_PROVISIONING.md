@@ -88,6 +88,25 @@ authorization code can race enrollment while a window is open; it cannot
 impersonate the Node without the Node private key. A half-completed transaction
 still needs a persistent recovery protocol before production use.
 
+The host multi-node transport now derives separate uplink/downlink AES-256-GCM
+keys from each installation key and an authenticated session salt. Its common
+security envelope authenticates the physical and logical identity, Home/Hub,
+direction, session and packet counter. A 64-packet replay window is advanced
+only after a valid tag. The current host harness supplies the fresh session
+salt directly after commissioning; that is not an authenticated target rejoin
+protocol. Target delivery must verify fresh rejoin before using a new salt or
+resetting counters. The conservative 250-byte frame budget leaves 222 bytes
+for the existing encoded data-plane frame after the 28-byte security overhead.
+
+The ESP-IDF 6.0.3 PSA adapter is compiled for both current target projects.
+It uses PSA P-256, SHA-256, ECDH, HKDF, HMAC and AES-GCM operations and
+delegates identity public-key lookup and signing to an `IdentitySigner`.
+No target identity store implements that interface yet. Compiling this adapter
+does not prove that a private key is protected, that the hardware accelerates
+an operation, or that secure boot/flash encryption is active. The signer must
+be backed by the selected protected production store after the separate
+manufacturing-security decision; HIL may use isolated test-only keys.
+
 ## Source inspection
 
 This design uses the repository's generated ESP-IDF 6.0.3 `sdkconfig` files

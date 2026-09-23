@@ -40,6 +40,7 @@ public:
     virtual bool hmac_sha256(const Key32& key, const Bytes& message, Key32& out) = 0;
     virtual bool constant_time_equal(const std::uint8_t* left,
                                      const std::uint8_t* right, std::size_t length) = 0;
+    virtual void secure_zero(void* data, std::size_t length) = 0;
     virtual bool seal_aes256_gcm(const Key32& key, const Nonce12& nonce,
                                  const Bytes& aad, const Bytes& plain,
                                  Bytes& cipher, GcmTag& tag) = 0;

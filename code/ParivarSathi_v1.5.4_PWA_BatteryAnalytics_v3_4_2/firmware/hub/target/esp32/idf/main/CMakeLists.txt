@@ -18,6 +18,9 @@ idf_component_register(
         "${GS_ROOT}/shared/src/logging.cpp"
         "${GS_ROOT}/shared/src/rules.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
+        "${GS_ROOT}/firmware/common/security/psa_commissioning_crypto.cpp"
+        "${GS_ROOT}/firmware/common/security/commissioning_protocol.cpp"
+        "${GS_ROOT}/firmware/common/security/runtime_frame_security.cpp"
         "${GS_ROOT}/firmware/hub/components/ingest/ingest.cpp"
         "${GS_ROOT}/firmware/hub/components/registry/node_registry.cpp"
         "${GS_ROOT}/firmware/hub/components/storage/journal.cpp"
@@ -39,6 +42,7 @@ idf_component_register(
         esp_system
         esp_wifi
         nvs_flash
+        mbedtls
     EMBED_FILES
         "node_firmware.bin"
 )

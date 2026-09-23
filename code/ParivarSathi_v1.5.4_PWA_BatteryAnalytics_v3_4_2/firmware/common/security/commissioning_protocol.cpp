@@ -77,7 +77,10 @@ bool derive_installation_key(CommissioningCrypto& crypto, const EphemeralP256& l
                              const CommissioningOffer& offer, const NodeProof& proof,
                              Key32& key) {
     Key32 shared{};
-    if (!crypto.derive_shared(local, remote, shared)) return false;
+    if (!crypto.derive_shared(local, remote, shared)) {
+        crypto.secure_zero(shared.data(), shared.size());
+        return false;
+    }
     Bytes salt;
     append(salt, offer.hub_challenge.data(), offer.hub_challenge.size());
     append(salt, proof.node_challenge.data(), proof.node_challenge.size());
@@ -86,7 +89,7 @@ bool derive_installation_key(CommissioningCrypto& crypto, const EphemeralP256& l
     const auto transcript = transcript_bytes(offer, proof);
     append(context, transcript.data(), transcript.size());
     const bool okay = crypto.hkdf_sha256(shared, salt, context, key);
-    std::fill(shared.begin(), shared.end(), 0);
+    crypto.secure_zero(shared.data(), shared.size());
     return okay;
 }
 
@@ -107,6 +110,14 @@ HubCommissioning::HubCommissioning(CommissioningCrypto& crypto, std::string hub_
       logical_id_(std::move(logical_id)), room_(std::move(room)),
       function_(std::move(function)),
       expected_device_key_(expected_device_key), installer_code_(installer_code) {}
+
+HubCommissioning::~HubCommissioning() {
+    crypto_.secure_zero(installer_code_.data(), installer_code_.size());
+    crypto_.secure_zero(ephemeral_.private_scalar.data(), ephemeral_.private_scalar.size());
+    crypto_.secure_zero(installation_key_.data(), installation_key_.size());
+    if (binding_) crypto_.secure_zero(binding_->installation_key.data(),
+                                      binding_->installation_key.size());
+}
 
 std::optional<CommissioningOffer> HubCommissioning::open(std::uint64_t now,
                                                           std::uint64_t duration) {
@@ -165,11 +176,18 @@ std::optional<CommissioningAck> HubCommissioning::confirm(const CommissioningFin
                              confirmation_bytes(transcript, node_proof_, hub_proof_,
                                                 "GS-P2-COM-HUB-ACK-v1"), ack.confirmation))
         return std::nullopt;
-    binding_ = CommissioningBinding{expected_device_id_, hub_id_, home_id_,
-                                    logical_id_, room_, function_,
-                                    expected_device_key_, offer_.hub_public_key,
-                                    installation_key_};
-    std::fill(installer_code_.begin(), installer_code_.end(), 0);
+    binding_.emplace();
+    binding_->device_id = expected_device_id_;
+    binding_->hub_id = hub_id_;
+    binding_->home_id = home_id_;
+    binding_->logical_id = logical_id_;
+    binding_->room = room_;
+    binding_->function = function_;
+    binding_->device_public_key = expected_device_key_;
+    binding_->hub_public_key = offer_.hub_public_key;
+    binding_->installation_key = installation_key_;
+    crypto_.secure_zero(installer_code_.data(), installer_code_.size());
+    crypto_.secure_zero(ephemeral_.private_scalar.data(), ephemeral_.private_scalar.size());
     state_ = State::Committed;
     return ack;
 }
@@ -179,6 +197,14 @@ NodeCommissioning::NodeCommissioning(CommissioningCrypto& crypto,
                                      std::string device_id, Key32 installer_code)
     : crypto_(crypto), device_key_reference_(std::move(device_key_reference)),
       device_id_(std::move(device_id)), installer_code_(installer_code) {}
+
+NodeCommissioning::~NodeCommissioning() {
+    crypto_.secure_zero(installer_code_.data(), installer_code_.size());
+    crypto_.secure_zero(ephemeral_.private_scalar.data(), ephemeral_.private_scalar.size());
+    crypto_.secure_zero(installation_key_.data(), installation_key_.size());
+    if (binding_) crypto_.secure_zero(binding_->installation_key.data(),
+                                      binding_->installation_key.size());
+}
 
 bool NodeCommissioning::enable_window(std::uint64_t now, std::uint64_t duration) {
     if (state_ != State::Idle || !valid_window(now, duration) || !valid_id(device_id_))
@@ -200,8 +226,10 @@ std::optional<NodeProof> NodeCommissioning::respond(const CommissioningOffer& of
                                      own_public.size())) return std::nullopt;
     Key32 expected{};
     if (!crypto_.hmac_sha256(installer_code_, offer_bytes(offer), expected) ||
-        !matches(crypto_, expected, offer.installer_authorization) ||
-        !crypto_.generate_ephemeral(ephemeral_) ||
+        !matches(crypto_, expected, offer.installer_authorization))
+        return std::nullopt;
+    crypto_.secure_zero(ephemeral_.private_scalar.data(), ephemeral_.private_scalar.size());
+    if (!crypto_.generate_ephemeral(ephemeral_) ||
         !crypto_.random_bytes(proof_.node_challenge.data(), proof_.node_challenge.size()))
         return std::nullopt;
     offer_ = offer;
@@ -247,11 +275,18 @@ bool NodeCommissioning::commit(const CommissioningAck& ack, std::uint64_t now) {
         !matches(crypto_, expected, ack.confirmation)) return false;
     P256PublicKey own_public{};
     if (!crypto_.identity_public_key(device_key_reference_, own_public)) return false;
-    binding_ = CommissioningBinding{device_id_, offer_.hub_id, offer_.home_id,
-                                    offer_.logical_id, offer_.room, offer_.function,
-                                    own_public, offer_.hub_public_key,
-                                    installation_key_};
-    std::fill(installer_code_.begin(), installer_code_.end(), 0);
+    binding_.emplace();
+    binding_->device_id = device_id_;
+    binding_->hub_id = offer_.hub_id;
+    binding_->home_id = offer_.home_id;
+    binding_->logical_id = offer_.logical_id;
+    binding_->room = offer_.room;
+    binding_->function = offer_.function;
+    binding_->device_public_key = own_public;
+    binding_->hub_public_key = offer_.hub_public_key;
+    binding_->installation_key = installation_key_;
+    crypto_.secure_zero(installer_code_.data(), installer_code_.size());
+    crypto_.secure_zero(ephemeral_.private_scalar.data(), ephemeral_.private_scalar.size());
     state_ = State::Committed;
     return true;
 }

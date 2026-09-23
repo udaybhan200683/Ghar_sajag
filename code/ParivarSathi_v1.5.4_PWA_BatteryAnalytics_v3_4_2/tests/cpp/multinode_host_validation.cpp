@@ -18,6 +18,7 @@ void qualify_count(std::size_t count) {
     std::vector<gs::EventKey> keys;
     for (std::size_t i = 0; i < count; ++i) {
         const auto snapshot = harness.snapshot(i);
+        require(snapshot.commissioned, "Node lacked authenticated commissioning");
         physical.insert(snapshot.physical_id);
         logical.insert(snapshot.logical_id);
         locations.insert(snapshot.location);
@@ -57,6 +58,21 @@ void lost_ack_retries_same_identity() {
     for (std::size_t i : {0U, 1U, 3U})
         require(harness.snapshot(i).matching_acks == 0, "cross-node ACK leakage");
     std::cout << "P2-MN-RETRY HOST/SIMULATED PASS\n";
+}
+
+void misrouted_ack_is_rejected() {
+    ScheduledHarness harness(4);
+    harness.redirect_next_ack(0, 1);
+    const auto key = harness.record(0);
+    require(key.has_value(), "misrouted ACK setup failed");
+    harness.run_until_quiet(2000);
+    require(harness.snapshot(0).matching_acks == 1 &&
+            harness.snapshot(0).uplink_attempts >= 2 &&
+            harness.snapshot(1).matching_acks == 0 &&
+            harness.snapshot(1).ack_mismatches == 1 &&
+            harness.journal_size() == 1 && harness.contains(*key),
+            "wrong-node authenticated ACK leaked or blocked sender retry");
+    std::cout << "P2-MN-ACK-ISOLATION HOST/SIMULATED PASS\n";
 }
 
 void outage_recovers() {
@@ -100,6 +116,7 @@ int main() {
     try {
         for (std::size_t count : {1U, 4U, 10U, 25U}) qualify_count(count);
         lost_ack_retries_same_identity();
+        misrouted_ack_is_rejected();
         outage_recovers();
         removal_isolated_from_other_nine();
         return 0;

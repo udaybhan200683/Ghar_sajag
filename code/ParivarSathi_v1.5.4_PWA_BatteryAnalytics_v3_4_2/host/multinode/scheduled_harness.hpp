@@ -4,6 +4,8 @@
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/components/registry/node_registry.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
+#include "host/security/openssl_commissioning_crypto.hpp"
+#include "firmware/common/security/runtime_frame_security.hpp"
 
 #include <array>
 #include <cstddef>
@@ -15,8 +17,9 @@
 
 namespace gs::host::multinode {
 
-// Host-only scheduled transport. It uses production NodeRuntime, wire codec,
-// HubRuntime, journal, and ACK rules. It does not emulate RF or authentication.
+// Host-only scheduled transport. It uses production NodeRuntime, commissioning
+// protocol, registry, wire codec, HubRuntime, journal, and ACK rules. It does
+// not emulate RF or target credential storage.
 struct NodeSnapshot {
     std::string physical_id;
     std::string logical_id;
@@ -31,6 +34,7 @@ struct NodeSnapshot {
     std::uint64_t ack_mismatches{0};
     std::uint64_t registry_rejections{0};
     std::uint64_t maximum_ack_latency_ms{0};
+    bool commissioned{false};
 };
 
 class ScheduledHarness {
@@ -40,6 +44,7 @@ public:
     void set_hub_online(bool online) { hub_online_ = online; }
     void set_node_online(std::size_t index, bool online);
     void drop_next_ack(std::size_t index);
+    void redirect_next_ack(std::size_t from_index, std::size_t to_index);
     hub::RegistryResult remove_node(std::size_t index);
     void advance(Milliseconds delta_ms);
     void run_until_quiet(Milliseconds maximum_ms = 5000);
@@ -59,17 +64,21 @@ private:
         std::unique_ptr<node::NodeRuntime> runtime;
         bool online{true};
         bool drop_ack{false};
+        std::optional<std::size_t> redirect_ack_to;
         std::uint64_t uplink_attempts{0};
         std::uint64_t hub_admissions{0};
         std::uint64_t matching_acks{0};
         std::uint64_t ack_mismatches{0};
         std::uint64_t registry_rejections{0};
         std::uint64_t maximum_ack_latency_ms{0};
+        std::unique_ptr<gs::security::RuntimeFrameSecurity> node_security;
+        std::unique_ptr<gs::security::RuntimeFrameSecurity> hub_security;
+        bool commissioned{false};
     };
     struct Frame {
         enum class Direction { Uplink, Ack } direction;
         std::size_t node_index;
-        transport::EncodedFrame wire;
+        gs::security::SecureFrame wire;
         Milliseconds due_ms;
         Milliseconds originated_ms;
     };
@@ -80,6 +89,7 @@ private:
 
     hub::HubRuntime hub_;
     hub::NodeRegistry registry_;
+    host::security::OpenSslCommissioningCrypto crypto_;
     std::vector<Node> nodes_;
     std::vector<Frame> frames_;
     Milliseconds now_ms_{0};

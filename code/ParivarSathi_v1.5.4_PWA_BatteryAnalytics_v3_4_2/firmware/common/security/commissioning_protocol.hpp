@@ -62,6 +62,9 @@ public:
                      std::string expected_device_id, P256PublicKey expected_device_key,
                      Key32 installer_code, std::string logical_id,
                      std::string room, std::string function);
+    ~HubCommissioning();
+    HubCommissioning(const HubCommissioning&) = delete;
+    HubCommissioning& operator=(const HubCommissioning&) = delete;
     std::optional<CommissioningOffer> open(std::uint64_t now_ms, std::uint64_t duration_ms);
     std::optional<HubProof> accept(const NodeProof& proof, std::uint64_t now_ms);
     std::optional<CommissioningAck> confirm(const CommissioningFinal& final,
@@ -93,6 +96,9 @@ class NodeCommissioning {
 public:
     NodeCommissioning(CommissioningCrypto& crypto, std::string device_key_reference,
                       std::string device_id, Key32 installer_code);
+    ~NodeCommissioning();
+    NodeCommissioning(const NodeCommissioning&) = delete;
+    NodeCommissioning& operator=(const NodeCommissioning&) = delete;
     bool enable_window(std::uint64_t now_ms, std::uint64_t duration_ms);
     std::optional<NodeProof> respond(const CommissioningOffer& offer, std::uint64_t now_ms);
     std::optional<CommissioningFinal> finish(const HubProof& proof, std::uint64_t now_ms);

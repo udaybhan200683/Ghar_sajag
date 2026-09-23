@@ -163,12 +163,33 @@ provider uses OpenSSL and generates test-only private keys in memory.
 
 This is `PARTIALLY_IMPLEMENTED`: no production target credential provider,
 commissioning radio/wire adapter, protected association persistence,
-authenticated rejoin or runtime AEAD is connected yet. The installer code
+authenticated rejoin or target runtime AEAD is connected yet. The installer code
 authorizes enrollment intent; knowing it alone cannot forge the Node's
 private-key proof. Its disclosure can permit a competing Hub to race to
 enroll an uncommissioned Node, so recovery needs explicit product
 qualification. No current physical board has passed production-security
 qualification.
+
+The scheduled host harness subsequently enrolled each of its 1, 4, 10 and
+25 independent NodeRuntime contexts through this protocol before registry
+admission. Its uplink and ACK path now wraps the production data-plane codec
+with AES-256-GCM, direction-separated session keys, an authenticated counter
+and a 64-packet replay window. Host checks include wrong-node ACK delivery,
+tampering, stale-session ACK rejection and retry recovery. These are
+`HOST/SIMULATED` results. The protected envelope uses 28 bytes, leaving at
+most 222 payload bytes under the conservative 250-byte ESP-NOW v1 limit;
+the existing codec permits 224-byte frames, so those largest frames are
+rejected until the target transport size policy is resolved. Fresh session
+salt authentication, persisted anti-replay state or mandatory fresh rejoin,
+target crypto/peer wiring and RF capacity remain `PRODUCT_GAP`.
+
+An ESP-IDF 6.0.3 PSA crypto provider for P-256 verification, ephemeral ECDH,
+HKDF-SHA-256, HMAC-SHA-256 and AES-256-GCM now compiles in both Hub and C3
+projects. Its identity signing operation delegates to an `IdentitySigner`
+interface; there is no factory private-key store or target commissioning
+caller yet. Both target images build with the shared commissioning protocol
+and runtime envelope, but the new code is not in the active target packet
+path. This is compile evidence, not physical or production-security evidence.
 
 ## 5. MANDATORY MULTI-NODE REQUIREMENTS
 
