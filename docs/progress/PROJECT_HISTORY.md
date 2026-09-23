@@ -1121,3 +1121,13 @@ tampered challenge/final/ACK and replay. The 10-Node host harness now reboots
 one Node while the other nine continue, then verifies fresh-session event and
 ACK isolation. Association/session persistence, interrupted-ACK recovery and
 target radio wiring remain open.
+
+## 2026-09-23 - Phase-2 encrypted association-store foundation
+
+A common bounded association record now wraps Home/Hub/Node/logical identity
+and installation key using AES-256-GCM and an externally supplied wrapping
+key. Host tests reopen the record, reject wrong keys and corruption, preserve
+the old state on a failed write, and commit an authenticated factory-reset
+tombstone. The ESP-IDF NVS blob adapter compiles for both boards. No protected
+target wrapping-key provider, startup restore, Hub registry persistence or
+physical power-cut proof exists yet; production association remains partial.

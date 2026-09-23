@@ -200,6 +200,18 @@ This is `HOST/SIMULATED` only. The Hub and Node still need persistent
 association/session state and an interrupted-final-ACK recovery rule; the
 target packet path has not enabled rejoin.
 
+An encrypted single-blob association repository now has host tests for
+reopen/reboot, write failure, wrong wrapping key, corrupted data,
+generation progression and an explicit factory-reset tombstone. An ESP-IDF
+NVS adapter for the wrapped blob compiles in both targets and verifies a
+completed write by rereading it. This is `PARTIALLY_IMPLEMENTED`: no
+production protected wrapping-key source exists, no target startup loads the
+record, Hub multi-node registry/session state is not persisted, and NVS
+power-cut behavior has not been physically qualified. A restored old valid
+flash image can roll back an association without a separate protected
+monotonic counter; service policy for that threat remains open. Corruption
+fails closed and needs explicit service recovery.
+
 ## 5. MANDATORY MULTI-NODE REQUIREMENTS
 
 The following are `CONFIRMED_REQUIREMENT` product qualification targets:

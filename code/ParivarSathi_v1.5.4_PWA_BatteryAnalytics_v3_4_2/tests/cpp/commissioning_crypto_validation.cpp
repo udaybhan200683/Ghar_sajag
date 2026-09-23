@@ -66,6 +66,13 @@ int main() {
         cipher[0] ^= 1;
         require(!crypto.open_aes256_gcm(hub_key, nonce, aad, cipher, tag, opened) && opened.empty(),
                 "modified ciphertext was accepted");
+        Bytes empty_plain, empty_cipher, empty_opened;
+        GcmTag empty_tag{};
+        require(crypto.seal_aes256_gcm(node_key, nonce, aad, empty_plain,
+                                       empty_cipher, empty_tag) && empty_cipher.empty() &&
+                crypto.open_aes256_gcm(hub_key, nonce, aad, empty_cipher,
+                                       empty_tag, empty_opened) && empty_opened.empty(),
+                "empty authenticated payload inherited AAD length");
 
         Key32 installation_code{};
         require(crypto.random_bytes(installation_code.data(), installation_code.size()),

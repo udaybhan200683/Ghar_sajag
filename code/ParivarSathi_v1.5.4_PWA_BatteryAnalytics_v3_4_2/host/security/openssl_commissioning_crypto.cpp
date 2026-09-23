@@ -220,6 +220,7 @@ bool OpenSslCommissioningCrypto::seal_aes256_gcm(const Key32& key, const Nonce12
                                           aad.data(), static_cast<int>(aad.size())) != 1) return false;
     cipher.resize(plain.size() + 16);
     int total = 0;
+    written = 0;
     if (!plain.empty() && EVP_EncryptUpdate(context.get(), cipher.data(), &written,
                                             plain.data(), static_cast<int>(plain.size())) != 1) return false;
     total += written;
@@ -242,6 +243,7 @@ bool OpenSslCommissioningCrypto::open_aes256_gcm(const Key32& key, const Nonce12
                                           aad.data(), static_cast<int>(aad.size())) != 1) return false;
     plain.resize(cipher.size() + 16);
     int total = 0;
+    written = 0;
     if (!cipher.empty() && EVP_DecryptUpdate(context.get(), plain.data(), &written,
                                              cipher.data(), static_cast<int>(cipher.size())) != 1) return false;
     total += written;

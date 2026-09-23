@@ -114,6 +114,17 @@ uses that proof for initial admission and an individual Node restart. Target
 storage and radio integration are pending; the protocol does not yet resolve
 lost final ACK or one-sided persistent commits after a crash.
 
+The common association repository encrypts the Node binding under a supplied
+device-specific wrapping key with AES-256-GCM. It stores a bounded versioned
+record and writes an authenticated tombstone on factory reset, leaving factory
+identity outside that record. Host tests prove reopen, write-failure behavior,
+corruption rejection and reset progression. The target NVS adapter stores
+only the wrapped blob and rereads after commit. No target provider yet supplies
+a protected wrapping key, and target startup does not load the association.
+Power-cut atomicity and rollback resistance need separate target/security
+qualification. Current HIL flash/secure-boot settings cannot be described as
+protected production credential storage.
+
 ## Source inspection
 
 This design uses the repository's generated ESP-IDF 6.0.3 `sdkconfig` files
