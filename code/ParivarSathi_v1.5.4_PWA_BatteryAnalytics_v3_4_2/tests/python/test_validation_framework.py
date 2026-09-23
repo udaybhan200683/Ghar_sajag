@@ -20,7 +20,9 @@ class ValidationFrameworkTest(unittest.TestCase):
         self.assertGreaterEqual(len(rows),30)
         self.assertTrue(required <= set(rows[0]))
         self.assertTrue(all(row['status'] in {
-            'COVERED','PARTIAL','MISSING_PRODUCT_FEATURE','HIL_ONLY_PHYSICAL'
+            'COVERED','PARTIAL','MISSING_PRODUCT_FEATURE',
+            'MISSING_PRODUCT_FEATURE_TARGET_VERTICAL_BRIDGE',
+            'PRODUCT_GAP','TEST_INFRA_GAP','HIL_ONLY_PHYSICAL'
         } for row in rows))
 
     def test_fota_host_matrix_is_complete_and_uses_production_receiver(self):

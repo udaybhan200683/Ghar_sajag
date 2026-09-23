@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "qualification": "Phase-1 71-PASS run, 20260923T081850.612148Z",
+  "fixtures": [
+    {
+      "id": "P2-REPLAY-001",
+      "kind": "REAL_HARDWARE",
+      "target": "hub",
+      "source": "evidence/hil/runs/20260923T081850.612148Z/hub_serial.log",
+      "source_sha256": "b2d6b3f26415c113863eb496e85027ddf905df667e117072ed6e763f27e59672",
+      "expected_parser": "SOFTWARE_RESET",
+      "expected_transition": "fresh ROM reset then versioned HIL_READY",
+      "stale": [
+        "2026-09-23T08:25:37.648+00:00 [hub] rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)",
+        "2026-09-23T08:25:38.877+00:00 [hub] I (1032) gs_hil_control: HIL_READY role=hub protocol=1 version=df60ed5-hil-a18d5c2"
+      ],
+      "fresh": [
+        "2026-09-23T08:25:53.185+00:00 [hub] rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)",
+        "2026-09-23T08:25:54.417+00:00 [hub] I (1032) gs_hil_control: HIL_READY role=hub protocol=1 version=df60ed5-hil-a18d5c2"
+      ]
+    },
+    {
+      "id": "P2-REPLAY-002",
+      "kind": "REAL_HARDWARE",
+      "target": "c3",
+      "source": "evidence/hil/runs/20260923T081850.612148Z/c3_serial.log",
+      "source_sha256": "2e65da1a53329cfe43430abe2c04f23b740922c7a8d5504b66ff5fb1ada44a03",
+      "expected_parser": "SOFTWARE_RESET",
+      "expected_transition": "fresh ROM reset then versioned HIL_READY then PIR sensing-ready",
+      "stale": [
+        "2026-09-23T08:25:38.950+00:00 [c3] rst:0xc (RTC_SW_CPU_RST),boot:0xf (SPI_FAST_FLASH_BOOT)",
+        "2026-09-23T08:25:39.200+00:00 [c3] I (245) gs_hil_control: HIL_READY role=c3 protocol=1 version=df60ed5-hil-a18d5c2",
+        "2026-09-23T08:25:49.223+00:00 [c3] I (10245) gs_node_runtime: PIR ready on GPIO4"
+      ],
+      "fresh": [
+        "2026-09-23T08:25:54.724+00:00 [c3] rst:0xc (RTC_SW_CPU_RST),boot:0xf (SPI_FAST_FLASH_BOOT)",
+        "2026-09-23T08:25:54.974+00:00 [c3] I (245) gs_hil_control: HIL_READY role=c3 protocol=1 version=df60ed5-hil-a18d5c2",
+        "2026-09-23T08:26:04.998+00:00 [c3] I (10245) gs_node_runtime: PIR ready on GPIO4"
+      ]
+    },
+    {
+      "id": "P2-REPLAY-003",
+      "kind": "REAL_HARDWARE",
+      "target": "hub",
+      "source": "evidence/hil/runs/20260923T081850.612148Z/hub_serial.log",
+      "source_sha256": "b2d6b3f26415c113863eb496e85027ddf905df667e117072ed6e763f27e59672",
+      "expected_parser": "SOFTWARE_RESET",
+      "expected_transition": "truncated and interleaved pre-reset UART is insufficient; ROM reset is authoritative",
+      "fresh": [
+        "2026-09-23T08:25:37.582+00:00 [hub] ed from app_main()",
+        "2026-09-23T08:25:37.647+00:00 [hub] I (2372) gs_hil_control: HIL_OK I (2372) gs_hil_control: HIL_OK I (2372) gs_hil_control: HIL_OK I (2372) gs_hil_control: HIL_OK I (2372) gs_hil_control: HIL_OK I (2372) gs_hil_control: HIL_OK I (2372) gs_hil_control: HIL_OK I (2372) gs_hil_control: HIL_OK command=SOFTWARE_RESTART reset_class=SOFTWARE_RESET",
+        "2026-09-23T08:25:37.648+00:00 [hub] rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)"
+      ]
+    },
+    {
+      "id": "P2-REPLAY-004",
+      "kind": "REAL_HARDWARE",
+      "target": "hub",
+      "source": "evidence/hil/runs/20260923T081850.612148Z/hub_flash.log",
+      "source_sha256": "a6cdf7760ba4a76eeee441f255224d655d4f8094d2c3ee587cfbfb67e27d8f96",
+      "expected_parser": "ESP32-D0WD-V3",
+      "expected_transition": "esptool 5.x identifies qualified Hub before campaign",
+      "fresh": [
+        "esptool v5.4.0",
+        "Connected to ESP32 on /dev/ttyUSB0:",
+        "Chip type:          ESP32-D0WD-V3 (revision v3.1)",
+        "MAC:                5c:01:3b:be:b9:f8",
+        "Hard resetting via RTS pin..."
+      ]
+    },
+    {
+      "id": "P2-REPLAY-005",
+      "kind": "REAL_HARDWARE",
+      "target": "c3",
+      "source": "evidence/hil/runs/20260923T081850.612148Z/c3_flash.log",
+      "source_sha256": "44d17e4208dce7e76d5d68adefefd507f18fbcead5255963e7e625a8ce153387",
+      "expected_parser": "ESP32-C3",
+      "expected_transition": "esptool 5.x identifies qualified C3 before campaign",
+      "fresh": [
+        "esptool v5.4.0",
+        "Connected to ESP32-C3 on /dev/ttyACM0:",
+        "Chip type:          ESP32-C3 (QFN32) (revision v0.4)",
+        "MAC:                14:63:93:c5:d1:58",
+        "Hard resetting via RTS pin..."
+      ]
+    },
+    {
+      "id": "P2-REPLAY-006",
+      "kind": "SYNTHETIC_NO_RAW_CAPTURE",
+      "target": "c3",
+      "source": "tests/python/test_hil_phase1.py",
+      "expected_parser": "SERIAL_RECONNECTED",
+      "expected_transition": "USB disappearance/reappearance with unchanged or changed tty reopens one reader; raw physical trace pending",
+      "fresh": ["SERIAL_RECONNECTED port=/dev/ttyACM0", "SERIAL_RECONNECTED port=/dev/ttyACM1"]
+    }
+  ]
+}

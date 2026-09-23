@@ -1039,3 +1039,20 @@ target-to-application bridge gap, real-evidence replay requirement, staged
 4/10/25-node qualification plan, proposed command ownership and implementation
 order. No firmware, runtime, HIL behavior, configuration or evidence was
 changed. No Phase-2 implementation or real-hardware PASS is claimed.
+
+## 2026-09-23 - Phase-2 P2.1/P2.2 host foundation
+
+The Phase-1 physical run was reduced to portable replay fixtures for the
+observed ESP32/C3 reset forms, stale/fresh serial evidence, PIR readiness,
+UART truncation/interleaving and esptool 5.4 output. USB reconnect replay is
+explicitly synthetic because no raw physical trace was retained. The WSL HIL
+campaign now reuses authoritative identity across healthy capture startup,
+checking stable USB metadata, and reserves esptool re-verification for flash
+and recovery. The qualified Phase-1 test manifest is unchanged; physical
+regression of the discovery change remains pending.
+
+A scheduled host transport harness now runs independent NodeRuntime contexts
+through the production codec and HubRuntime for 1, 4, 10 and 25 simulated
+Nodes. Lost-ACK and logical-outage recovery cases are included. This is a
+host foundation only: commissioning, secure target peer capacity, target
+multi-node behavior and full ten-node qualification remain unimplemented.

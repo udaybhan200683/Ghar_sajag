@@ -8,13 +8,14 @@ import tempfile
 import threading
 import time
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from tools.hil import phase1
 from tools.hil.phase1 import (Campaign, IdentityProbeError, SOFTWARE_RESET_EVIDENCE,
-                              fixture_usb_snapshot, is_usb_candidate,
+                              cached_campaign_ports, fixture_usb_snapshot, is_usb_candidate,
                               normalize_rom_reset_class, parse_esptool_output,
                               probe_port, run_identity_probe, stable_fixture_usb_snapshot)
 from tools.hil.core import (Device, FixtureLock, Results, SerialCapture,
@@ -90,6 +91,42 @@ class HilInfrastructureTest(unittest.TestCase):
     def devices(self):
         return [Device("/dev/hub", "5c013bbeb9f8", "ESP32-D0WD-V3", 0x10c4, 0xea60, "H"),
                 Device("/dev/c3", "146393c5d158", "ESP32-C3", 0x303a, 0x1001, "C")]
+
+    def test_cached_campaign_ports_use_metadata_without_esptool(self):
+        hub, c3 = self.devices()
+        config = {"HIL_HUB_MAC": hub.mac, "HIL_C3_MAC": c3.mac}
+        snapshot = {
+            "hub": SimpleNamespace(device="/dev/ttyUSB7", vid=hub.vid, pid=hub.pid, serial_number="H"),
+            "c3": SimpleNamespace(device="/dev/ttyACM8", vid=c3.vid, pid=c3.pid, serial_number="C"),
+        }
+        with patch.object(phase1, "stable_fixture_usb_snapshot", return_value=snapshot), \
+             patch.object(phase1, "run_identity_probe", side_effect=AssertionError("intrusive probe")):
+            self.assertEqual(cached_campaign_ports(config, {"hub": hub, "c3": c3}),
+                             {"hub": "/dev/ttyUSB7", "c3": "/dev/ttyACM8"})
+
+    def test_cached_campaign_ports_reject_changed_usb_identity(self):
+        hub, c3 = self.devices()
+        config = {"HIL_HUB_MAC": hub.mac, "HIL_C3_MAC": c3.mac}
+        snapshot = {
+            "hub": SimpleNamespace(device="/dev/ttyUSB7", vid=hub.vid, pid=hub.pid, serial_number="different"),
+            "c3": SimpleNamespace(device="/dev/ttyACM8", vid=c3.vid, pid=c3.pid, serial_number="C"),
+        }
+        with patch.object(phase1, "stable_fixture_usb_snapshot", return_value=snapshot):
+            with self.assertRaisesRegex(RuntimeError, "USB serial changed"):
+                cached_campaign_ports(config, {"hub": hub, "c3": c3})
+
+    def test_cached_campaign_ports_reverify_when_usb_serial_absent(self):
+        hub, c3 = self.devices()
+        hub = replace(hub, serial_number="")
+        config = {"HIL_HUB_MAC": hub.mac, "HIL_C3_MAC": c3.mac}
+        snapshot = {
+            "hub": SimpleNamespace(device="/dev/ttyUSB7", vid=hub.vid, pid=hub.pid, serial_number=""),
+            "c3": SimpleNamespace(device="/dev/ttyACM8", vid=c3.vid, pid=c3.pid, serial_number="C"),
+        }
+        with patch.object(phase1, "stable_fixture_usb_snapshot", return_value=snapshot), \
+             patch.object(phase1, "_verified_runtime_port", return_value="/dev/ttyUSB7") as verify:
+            self.assertEqual(cached_campaign_ports(config, {"hub": hub, "c3": c3})["hub"], "/dev/ttyUSB7")
+            verify.assert_called_once_with(config, "hub")
 
     def test_no_devices_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError, "exactly one hub"):

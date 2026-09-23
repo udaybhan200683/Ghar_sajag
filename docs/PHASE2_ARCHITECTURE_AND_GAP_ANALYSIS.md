@@ -1,9 +1,9 @@
 # Phase 2 Architecture and Gap Analysis
 
-**Document status:** ARCHITECTURE BASELINE / DOCUMENTATION ONLY
+**Document status:** ARCHITECTURE BASELINE with P2.1/P2.2 host implementation notes
 **Analysis baseline:** `ae9b7dc` — *Add unattended WSL-first Phase-1 HIL qualification*
 **Phase-1 status:** CLOSED / QUALIFIED
-**Phase-2 implementation status:** NOT STARTED
+**Phase-2 implementation status:** P2.1/P2.2 host foundation in progress; production multi-node/security unchanged
 
 ## 1. PURPOSE / SCOPE
 
@@ -412,3 +412,37 @@ transport harness while keeping the Phase-1 campaign unchanged. Do not claim
 ten-node product support until the registry, authenticated association,
 effective encrypted-peer capacity and per-node evidence are implemented and
 qualified.
+
+## 21. IMPLEMENTATION CHECKPOINT: P2.1/P2.2 HOST FOUNDATION
+
+The Phase-1 hardware run from 2026-09-23 supplies five `REAL_HARDWARE`
+replay fixtures. They cover ESP32/C3 software reset forms, fresh versus stale
+readiness, C3 PIR readiness after `HIL_READY`, reset-boundary UART truncation
+and interleaving, and esptool 5.4 chip/MAC output. A sixth reconnect fixture
+is labelled `SYNTHETIC_NO_RAW_CAPTURE`; the repository does not contain a
+portable raw USB disconnect/re-enumeration trace from that run. Replay tests
+exercise the existing reboot parser and fresh-cursor state machine. No new
+physical test has been executed for this checkpoint.
+
+The existing HIL supervisor now uses cached chip/MAC identity plus stable USB
+metadata when starting capture and before flashing. It still performs a bounded
+authoritative probe after flash or runtime disappearance/reappearance. The
+Phase-1 71-case campaign and assertions retain their ownership and manifest.
+This discovery change has host test coverage but still awaits physical
+regression before Phase-2 closure.
+
+The host-only scheduled transport harness creates independent `NodeRuntime`
+instances, serializes with the production data-plane codec, schedules delivery
+to `HubRuntime`, and returns encoded ACKs to the matching runtime. Focused
+host cases exercise 1, 4, 10 and 25 simulated contexts, a lost ACK, and a
+ten-context logical outage/recovery. Authorization is a test setup shortcut;
+commissioning, target ESP-NOW admission, RF behavior, persistent association,
+health/liveness and the full ten-node acceptance matrix remain open. These
+results are `HOST/SIMULATED` evidence only and do not qualify target ten-node
+product behavior or 25 physical peers.
+
+P2.3 is gated on explicit security/manufacturing decisions already listed in
+Section 18. In particular, the repository provides neither a per-device
+factory credential process nor an effective ten-peer native encrypted
+ESP-NOW configuration. The selected credential/provisioning and protection
+model must be frozen before production enrollment state is implemented.

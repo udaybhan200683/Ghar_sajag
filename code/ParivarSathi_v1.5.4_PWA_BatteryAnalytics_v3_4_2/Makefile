@@ -41,7 +41,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
+.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test multinode-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 
 all: verify
 
@@ -63,6 +63,10 @@ master-validation-self-test: build
 fota-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
 	./build/fota_host_validation
+
+multinode-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -o build/multinode_host_validation
+	./build/multinode_host_validation
 
 simulator: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/main.cpp -o build/ghar_sajag_simulator
@@ -151,7 +155,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hil-tooling-test hil-host-check
+validation-fast: hil-tooling-test hil-host-check multinode-host-test
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately
@@ -190,6 +194,7 @@ hil-supervisor-test:
 
 hil-tooling-test: hil-supervisor-test
 	python3 -m unittest tests.python.test_hil_phase1 -v
+	python3 -m unittest tests.python.test_hil_real_replay -v
 
 hil-host-check:
 	python3 tools/validation/hil_host_gate.py --fast

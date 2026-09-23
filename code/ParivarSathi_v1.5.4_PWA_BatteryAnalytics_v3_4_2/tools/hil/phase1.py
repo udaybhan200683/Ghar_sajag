@@ -230,6 +230,30 @@ def stable_fixture_usb_snapshot(config: dict[str, str], *, samples: int = FIXTUR
     return first
 
 
+def cached_campaign_ports(config: dict[str, str], devices: dict[str, Device]) -> dict[str, str]:
+    """Resolve the already probed fixture using stable, non-intrusive USB metadata."""
+    snapshot = stable_fixture_usb_snapshot(config)
+    ports: dict[str, str] = {}
+    for role in EXPECTED_USB_IDS:
+        known = devices[role]
+        current = snapshot[role]
+        if (known.vid, known.pid) != (current.vid, current.pid):
+            raise RuntimeError(f"{role} USB metadata changed since authoritative identity probe")
+        if not known.serial_number:
+            # Without a stable USB serial, metadata cannot prove that this is
+            # the same physical device. Keep the authoritative fallback.
+            ports[role] = _verified_runtime_port(config, role)
+            continue
+        if known.serial_number and current.serial_number != known.serial_number:
+            raise RuntimeError(f"{role} USB serial changed since authoritative identity probe")
+        if normalize_mac(known.mac) != normalize_mac(config[f"HIL_{role.upper()}_MAC"]):
+            raise RuntimeError(f"{role} cached MAC differs from configured fixture identity")
+        ports[role] = current.device
+    if ports["hub"] == ports["c3"]:
+        raise RuntimeError("Hub and C3 metadata resolved to the same tty")
+    return ports
+
+
 def stable_path(port: str) -> str:
     root = Path("/dev/serial/by-id")
     if root.is_dir():
@@ -495,15 +519,14 @@ def flash(config: dict[str, str], devices: dict[str, Device], manifest: dict, ru
     if config.get("HIL_FLASH", "auto") == "auto" and state == desired:
         return
     for role, project in (("hub", HUB_PROJECT), ("c3", NODE_PROJECT)):
-        current, _ = discover(config)
-        port = current[role].port
+        port = cached_campaign_ports(config, devices)[role]
         cp = idf_command(config, f"idf.py -p {shlex.quote(port)} flash", project, 900)
         (run_dir / f"{role}_flash.log").write_text(cp.stdout or "")
         if cp.returncode: raise RuntimeError(f"{role} flash failed")
         time.sleep(2)
-        rediscovered, _ = discover(config)
-        if rediscovered[role].mac != devices[role].mac:
-            raise RuntimeError(f"{role} identity changed after flash")
+        # Flash/reset can re-enumerate the tty. One bounded authoritative probe
+        # of the flashed role is required before its identity is cached again.
+        _verified_runtime_port(config, role)
     state_path.write_text(json.dumps(desired, indent=2) + "\n")
 
 
@@ -515,10 +538,12 @@ class Campaign:
         self.recovery_status = "RECOVERY_NOT_ATTEMPTED"
 
     def start_capture(self):
-        current, _ = discover(self.config)
-        self.hub = SerialCapture("hub", current["hub"].port, self.run_dir / "hub_serial.log",
+        # Preflight (and any post-flash probe) has already verified chip/MAC.
+        # Opening capture must not reset healthy targets via esptool again.
+        current = cached_campaign_ports(self.config, self.devices)
+        self.hub = SerialCapture("hub", current["hub"], self.run_dir / "hub_serial.log",
                                  port_resolver=lambda: runtime_port(self.config, "hub"))
-        self.c3 = SerialCapture("c3", current["c3"].port, self.run_dir / "c3_serial.log",
+        self.c3 = SerialCapture("c3", current["c3"], self.run_dir / "c3_serial.log",
                                 port_resolver=lambda: runtime_port(self.config, "c3"))
         self.hub.start(); self.c3.start(); time.sleep(.5)
 
