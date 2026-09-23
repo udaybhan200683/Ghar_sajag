@@ -28,4 +28,10 @@ QueueHandle_t control_plane_queue();
 void set_control_plane_active(bool active);
 void report_control_plane_timeout();
 
+#if GS_HIL_BUILD
+void hil_inject_motion();
+void hil_request_health();
+void hil_log_state();
+#endif
+
 }  // namespace gs::node::target

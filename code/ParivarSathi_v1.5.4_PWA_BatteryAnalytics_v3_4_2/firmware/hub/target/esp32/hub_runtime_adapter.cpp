@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_now.h"
+#include "esp_system.h"
 #include "esp_wifi.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
@@ -39,6 +40,12 @@ QueueHandle_t g_health_queue = nullptr;
 std::atomic<std::uint32_t> g_data_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<bool> g_control_plane_active{false};
+#if GS_HIL_BUILD
+std::atomic<bool> g_hil_logical_online{true};
+std::atomic<std::uint32_t> g_hil_processed{0};
+std::atomic<std::uint32_t> g_hil_durable_ack{0};
+std::atomic<std::uint32_t> g_hil_health_received{0};
+#endif
 
 bool from_qualified_node(const std::uint8_t* mac) {
     return mac != nullptr &&
@@ -47,6 +54,9 @@ bool from_qualified_node(const std::uint8_t* mac) {
 
 void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
                       int length) {
+#if GS_HIL_BUILD
+    if (!g_hil_logical_online.load(std::memory_order_acquire)) return;
+#endif
     if (info == nullptr || !from_qualified_node(info->src_addr) || data == nullptr ||
         length <= 0 || static_cast<std::size_t>(length) > kTargetEspNowPayloadMax) {
         return;
@@ -160,6 +170,9 @@ void owner_task(void*) {
                          static_cast<unsigned>(health_frame.channel));
             } else {
                 const NodeHealthSnapshot& value = *health.value;
+#if GS_HIL_BUILD
+                g_hil_health_received.fetch_add(1U, std::memory_order_relaxed);
+#endif
                 ESP_LOGI(kTag,
                          "NodeHealth schema=%u session=%llu health_seq=%llu uptime_ms=%llu reset=%u pir_raw=%d pir_edges=%u pir_ok=%u pir_rejected=%u store_full=%u motion_drop=%u priority_rejected=%u sensing_live=%u runtime_live=%u retained=%u oldest_seq=%llu in_flight=%d tx=%u mac_ok=%u mac_fail=%u durable_ack=%u volatile_ack=%u retry=%u backoff=%u breadcrumb=%u error=%u heap=%u min_heap=%u maintenance=%d RSSI=%d CH=%u",
                          static_cast<unsigned>(value.schema),
@@ -261,6 +274,12 @@ void owner_task(void*) {
                  static_cast<unsigned long long>(processed->key.sequence),
                  static_cast<int>(processed->ack), esp_err_to_name(sent),
                  frame.transport_rssi, static_cast<unsigned>(frame.channel));
+#if GS_HIL_BUILD
+        g_hil_processed.fetch_add(1U, std::memory_order_relaxed);
+        if (processed->ack == AckClass::Durable) {
+            g_hil_durable_ack.fetch_add(1U, std::memory_order_relaxed);
+        }
+#endif
     }
 }
 
@@ -273,6 +292,25 @@ QueueHandle_t control_plane_queue() {
 void set_control_plane_active(bool active) {
     g_control_plane_active.store(active, std::memory_order_release);
 }
+
+#if GS_HIL_BUILD
+void hil_set_logical_online(bool online) {
+    g_hil_logical_online.store(online, std::memory_order_release);
+    ESP_LOGI(kTag, "HIL hub logical state online=%d", online);
+}
+
+void hil_log_state() {
+    ESP_LOGI(kTag,
+             "HIL_STATE role=hub online=%d processed=%u durable_ack=%u health=%u data_queue=%u heap=%u min_heap=%u",
+             g_hil_logical_online.load(std::memory_order_acquire),
+             static_cast<unsigned>(g_hil_processed.load(std::memory_order_acquire)),
+             static_cast<unsigned>(g_hil_durable_ack.load(std::memory_order_acquire)),
+             static_cast<unsigned>(g_hil_health_received.load(std::memory_order_acquire)),
+             static_cast<unsigned>(uxQueueMessagesWaiting(g_data_queue)),
+             static_cast<unsigned>(esp_get_free_heap_size()),
+             static_cast<unsigned>(esp_get_minimum_free_heap_size()));
+}
+#endif
 
 esp_err_t start_runtime_adapter() {
     esp_err_t result = nvs_flash_init();

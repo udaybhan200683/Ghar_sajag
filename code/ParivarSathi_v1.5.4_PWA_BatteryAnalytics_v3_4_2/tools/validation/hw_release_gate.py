@@ -2,9 +2,10 @@
 """Repeatable software/target gate for the HW-M1 firmware compositions.
 
 This gate validates host code, the two ESP-IDF compositions, fixed partition
-invariants, qualified target constants, and image size. It deliberately does
-not claim physical hardware qualification. HIL, power, performance, and
-endurance stages are reported as explicit pending states.
+invariants, qualified target constants, and image size. Connected Phase-1 HIL
+is invoked only with --hil; otherwise its fixture status is explicit and no
+physical PASS is claimed. FOTA, power, performance, and endurance remain
+outside Phase 1.
 """
 from __future__ import annotations
 
@@ -281,7 +282,7 @@ def print_stage(name: str, status: str, detail: str = "") -> None:
     print(f"{status} {name}" + (f" — {detail}" if detail else ""))
 
 
-def run_gate(full: bool, warning_percent: float) -> int:
+def run_gate(full: bool, warning_percent: float, hil: bool = False) -> int:
     failures = False
     results: list[dict[str, str]] = []
 
@@ -289,7 +290,8 @@ def run_gate(full: bool, warning_percent: float) -> int:
         nonlocal failures
         print_stage(name, status, detail)
         results.append({"stage": name, "status": status, "detail": detail})
-        if status not in {"PASS", "WARN", "MANUAL_REQUIRED", "NOT_BASELINED", "NOT_RUN"}:
+        if status not in {"PASS", "WARN", "MANUAL_REQUIRED", "BLOCKED_HIL_FIXTURE_UNAVAILABLE",
+                          "NOT_BASELINED", "NOT_RUN"}:
             failures = True
 
     compiler = os.environ.get("CXX", "/usr/bin/g++")
@@ -352,8 +354,21 @@ def run_gate(full: bool, warning_percent: float) -> int:
         stage("hub-target-build", "NOT_RUN", "fast gate")
         stage("image-size", "NOT_RUN", "fast gate")
 
-    stage("hil-functional", "MANUAL_REQUIRED",
-          "see docs/hw/evidence/HW_M1_4_NODE_OFFLINE_RESILIENCE/README.md")
+    if hil:
+        hil_ok, hil_output = run_logged("hil-phase1-regression", ["make", "hil-qualify"], REPO_ROOT,
+                                        timeout=7200)
+        if hil_ok:
+            stage("hil-phase1-regression", "PASS",
+                  "authoritative HIL-SMOKE/RADIO/OR/restart suite")
+        elif "BLOCKED" in hil_output or "no serial" in hil_output.lower() or "fixture" in hil_output.lower():
+            stage("hil-phase1-regression", "BLOCKED_HIL_FIXTURE_UNAVAILABLE",
+                  "connected fixture unavailable; inspect hil-phase1-regression.log")
+        else:
+            stage("hil-phase1-regression", "FAIL",
+                  "authoritative Phase-1 HIL regression failed")
+    else:
+        stage("hil-phase1-regression", "BLOCKED_HIL_FIXTURE_UNAVAILABLE",
+              "run make hw-release-gate HIL=1; connected HIL uses the WSL-first supervisor")
     stage("hil-fota", "MANUAL_REQUIRED", "see docs/hw/HW_M1_3_HIL_VALIDATION.md")
     stage("power-performance", "NOT_BASELINED", "HW-M1.4 measurement plan")
     stage("endurance", "NOT_RUN", "HW-M1.4 Hub-off 8-12h and recovery matrix")
@@ -374,6 +389,8 @@ def run_gate(full: bool, warning_percent: float) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fast", action="store_true", help="skip ESP-IDF target builds and image checks")
+    parser.add_argument("--hil", action="store_true",
+                        help="run the authoritative connected Phase-1 HIL regression")
     parser.add_argument("--ota-warning-percent", type=float,
                         default=float(os.environ.get("HW_OTA_WARNING_PERCENT",
                                                      DEFAULT_OTA_WARNING_PERCENT)),
@@ -381,7 +398,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.ota_warning_percent < 0 or args.ota_warning_percent > 100:
         parser.error("--ota-warning-percent must be between 0 and 100")
-    return run_gate(not args.fast, args.ota_warning_percent)
+    return run_gate(not args.fast, args.ota_warning_percent, args.hil)
 
 
 if __name__ == "__main__":

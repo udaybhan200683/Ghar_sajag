@@ -1,9 +1,15 @@
 set(GS_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../../..")
+set(GS_NODE_SRCS
+    "app_main.cpp"
+    "fota_receiver.cpp"
+)
+if(GS_HIL_BUILD)
+    list(APPEND GS_NODE_SRCS "hil_control.cpp")
+endif()
 
 idf_component_register(
     SRCS
-        "app_main.cpp"
-        "fota_receiver.cpp"
+        ${GS_NODE_SRCS}
         "${GS_ROOT}/firmware/node/fota/fota_receiver.cpp"
         "${GS_ROOT}/shared/src/logging.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
@@ -31,3 +37,4 @@ idf_component_register(
 )
 
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>)

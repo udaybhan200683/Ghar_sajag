@@ -2,6 +2,11 @@
 **/build/
 **/__pycache__/
 **/*.pyc
+/config/hil.local.env
+/config/hil.flash-state.json
+/evidence/hil/runs/
+/evidence/hil/latest.txt
+**/sdkconfig.hil
 
 # Temporary document rendering output
 render_*/

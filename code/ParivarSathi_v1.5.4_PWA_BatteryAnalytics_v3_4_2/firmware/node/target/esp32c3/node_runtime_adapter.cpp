@@ -54,6 +54,14 @@ std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<std::uint32_t> g_send_queue_drops{0};
 std::atomic<std::uint32_t> g_fota_timeouts{0};
 std::atomic<bool> g_control_plane_active{false};
+#if GS_HIL_BUILD
+std::atomic<std::uint32_t> g_hil_motion_pending{0};
+std::atomic<bool> g_hil_force_health{false};
+std::atomic<std::uint32_t> g_hil_retained{0};
+std::atomic<std::uint32_t> g_hil_in_flight{0};
+std::atomic<std::uint32_t> g_hil_runtime_live{0};
+std::atomic<std::uint32_t> g_hil_sensing_live{0};
+#endif
 
 Milliseconds monotonic_ms() {
     return static_cast<Milliseconds>(esp_timer_get_time() / 1000);
@@ -184,7 +192,12 @@ void owner_task(void*) {
     bool health_in_flight = false;
     Milliseconds sent_at_ms = 0;
     Milliseconds led_off_at_ms = 0;
-    Milliseconds next_health_ms = kHealthIntervalMs;
+    Milliseconds next_health_ms =
+#if GS_HIL_BUILD
+        1000;
+#else
+        kHealthIntervalMs;
+#endif
     std::uint64_t health_sequence = 1;
     std::uint32_t raw_pir_edges = 0;
     std::uint32_t accepted_pir = 0;
@@ -291,7 +304,19 @@ void owner_task(void*) {
             ++raw_pir_edges;
             breadcrumb = NodeBreadcrumb::PirRaw;
         }
-        const auto sensed = pir.sample(raw_pir, now);
+        auto sensed = pir.sample(raw_pir, now);
+#if GS_HIL_BUILD
+        auto pending = g_hil_motion_pending.load(std::memory_order_acquire);
+        while (pending != 0U &&
+               !g_hil_motion_pending.compare_exchange_weak(
+                   pending, pending - 1U, std::memory_order_acq_rel)) {}
+        if (pending != 0U) {
+            // HIL injection replaces only the electrical/optical observation.
+            // Everything from EventKind admission onward is the production path.
+            sensed = EventKind::Motion;
+            ESP_LOGI(kTag, "HIL synthetic sensing boundary accepted");
+        }
+#endif
         if (sensed) {
             ++accepted_pir;
             breadcrumb = NodeBreadcrumb::PirAccepted;
@@ -328,7 +353,12 @@ void owner_task(void*) {
             led_off_at_ms = 0;
         }
 
-        if (!in_flight && !health_in_flight && !maintenance && now >= next_health_ms) {
+        if (!in_flight && !health_in_flight && !maintenance &&
+            (now >= next_health_ms
+#if GS_HIL_BUILD
+             || g_hil_force_health.exchange(false, std::memory_order_acq_rel)
+#endif
+            )) {
             const auto& stats = runtime.stats();
             const auto& radio_stats = runtime.radio_stats();
             const auto oldest = runtime.oldest_pending_key();
@@ -411,6 +441,14 @@ void owner_task(void*) {
             }
         }
 
+#if GS_HIL_BUILD
+        g_hil_retained.store(static_cast<std::uint32_t>(runtime.persisted()),
+                             std::memory_order_release);
+        g_hil_in_flight.store(in_flight ? 1U : 0U, std::memory_order_release);
+        g_hil_runtime_live.store(runtime_liveness, std::memory_order_release);
+        g_hil_sensing_live.store(sensing_liveness, std::memory_order_release);
+#endif
+
         vTaskDelay(pdMS_TO_TICKS(kPirPollMs));
     }
 }
@@ -428,6 +466,29 @@ void set_control_plane_active(bool active) {
 void report_control_plane_timeout() {
     g_fota_timeouts.fetch_add(1U, std::memory_order_relaxed);
 }
+
+#if GS_HIL_BUILD
+void hil_inject_motion() {
+    g_hil_motion_pending.fetch_add(1U, std::memory_order_release);
+}
+
+void hil_request_health() {
+    g_hil_force_health.store(true, std::memory_order_release);
+}
+
+void hil_log_state() {
+    ESP_LOGI(kTag,
+             "HIL_STATE role=c3 session=%llu retained=%u in_flight=%u sensing_live=%u runtime_live=%u pending_inject=%u heap=%u min_heap=%u",
+             static_cast<unsigned long long>(g_session_id),
+             static_cast<unsigned>(g_hil_retained.load(std::memory_order_acquire)),
+             static_cast<unsigned>(g_hil_in_flight.load(std::memory_order_acquire)),
+             static_cast<unsigned>(g_hil_sensing_live.load(std::memory_order_acquire)),
+             static_cast<unsigned>(g_hil_runtime_live.load(std::memory_order_acquire)),
+             static_cast<unsigned>(g_hil_motion_pending.load(std::memory_order_acquire)),
+             static_cast<unsigned>(esp_get_free_heap_size()),
+             static_cast<unsigned>(esp_get_minimum_free_heap_size()));
+}
+#endif
 
 esp_err_t start_runtime_adapter() {
     esp_err_t result = nvs_flash_init();

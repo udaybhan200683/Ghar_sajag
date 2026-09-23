@@ -36,6 +36,9 @@ def main() -> int:
     # release-gate-final records those as already passed and does not repeat
     # them; its SMALL stress is superseded by MEDIUM here.
     stages = [
+        ("hil-tooling", ["make", "hil-tooling-test"], 300),
+        ("hil-host-isolation", ["make", "hil-host-check"], 300),
+        ("hil-target-build", ["make", "hil-target-build-check"], 3600),
         ("master-production-runtime", ["make", "master-validation"], 900),
         ("fota-host-state-machine", ["make", "fota-host-test"], 300),
         ("master-negative-self-test", ["make", "master-validation-self-test"], 300),
@@ -49,9 +52,9 @@ def main() -> int:
         ("host-line-branch-coverage", ["make", "validation-coverage"], 1800),
     ]
     if args.hil:
-        stages.append(("connected-target-hil", [sys.executable, "tools/hil/nightly.py",
-                                        "--soak-minutes", str(args.hil_soak_minutes)],
-                       max(1800, args.hil_soak_minutes * 60 + 900)))
+        # Phase 1 has one WSL-first qualification path. The nested target owns
+        # software gates, fixture readiness and the authoritative regression.
+        stages.append(("connected-target-hil-phase1", ["make", "hil-qualify"], 7200))
     results: list[dict[str, object]] = []
     overall_start = time.monotonic()
     for index, (name, command, timeout) in enumerate(stages, 1):
@@ -61,7 +64,7 @@ def main() -> int:
                                 stderr=subprocess.STDOUT, timeout=timeout,
                                 env={**os.environ, "PYTHONUNBUFFERED": "1"})
             status = ("PASS" if cp.returncode == 0 else
-                      "BLOCKED" if name == "connected-target-hil" and cp.returncode == 2
+                      "BLOCKED" if name == "connected-target-hil-phase1" and cp.returncode == 2
                       else "FAIL")
             output = cp.stdout or ""
             reason = "" if cp.returncode == 0 else f"exit {cp.returncode}"

@@ -970,3 +970,59 @@ transport faults, FOTA trigger, deterministic restart/state query or final
 state collection. Electrical power cycling stays a separate fixture capability.
 Persistent C3 retained state, target Hub journal/dedupe, target backend bridge
 and Hub self-FOTA remain named product gaps; none was implemented here.
+
+## 2026-09-22 - Unattended Hub+C3 HIL Phase 1
+
+The `feature/hw-m1-4-hil-automation` checkpoint adds a complete bounded
+connected-target core gate: one-time MAC/chip/stable-USB setup, fail-closed
+preflight, exclusive fixture ownership, paired HIL builds and provenance,
+safe cached flashing, timestamped reconnecting serial capture, synthetic motion
+through the real production runtimes and ESP-NOW, logical Hub outage/recovery,
+Hub/C3/both software restart campaigns, short resource/reset checks, recovery,
+and machine/human evidence.
+
+The UART control surface is compiled only into explicit HIL images. Production
+pair builds now reject HIL command markers, while HIL builds require them.
+Seventy-one real-target IDs cover smoke, radio, OR-001..035-correlated outage,
+and restart behavior. Fake-device host tests cover fixture and report failure
+paths. True electrical power/brownout, measurement, PIR optics, house RF and
+thermal work remain extra-fixture/physical-only. FOTA matrices and long
+stress/soak remain Phase 2; no scheduler was installed and no prior evidence
+was rewritten.
+
+## 2026-09-22 - Phase-1 HIL Gate Integration
+
+The existing Phase-1 real-target suite remains single-owner `make
+hil-regression`. Hardware-independent HIL tooling, compile-time isolation and
+supervisor contract checks now run from `validation-fast`, with the HIL target
+build/provenance check added to `release-gate-final`. The HW release gate now
+reports `BLOCKED_HIL_FIXTURE_UNAVAILABLE` when connected hardware is not
+requested or unavailable, and runs the authoritative regression only when
+`HIL=1`. Hardware-free nightly validation includes the same HIL infrastructure
+checks; `validation-nightly HIL=1` adds the real Phase-1 suite without
+duplicating its test IDs. No Phase-2 FOTA, stress or soak work was started.
+
+## 2026-09-22 - WSL-first Phase-1 HIL orchestration
+
+Real Windows/WSL qualification showed that the PowerShell-master design spent
+too much control complexity on encoding, native argument parsing, process
+waiting, provider-qualified UNC paths and Windows-to-Linux repository paths.
+That implementation is preserved in project history but superseded. The one
+authoritative entry point is now `make hil-qualify` from normal WSL Ubuntu.
+WSL owns the software gates, fixture identity, make stages, evidence and final
+summary. Windows owns only a small, synchronous, bounded usbipd helper that
+attaches unique current VID:PID/BUSID matches when WSL cannot already see and
+verify both targets. Runtime serial recovery is likewise initiated by WSL and
+re-verifies chip/MAC before reconnecting capture. The 71 real-target cases
+remain single-owner `make hil-regression`; no Phase-2 FOTA, fault matrix,
+extended stress or soak behavior was added.
+
+## 2026-09-23 - Phase-1 real-HW qualification closure
+
+The authoritative WSL-first closure run completed with validation-fast,
+release-gate-final, USB fixture readiness, setup, preflight, smoke and
+regression all passing. The connected campaign recorded 71 real-target PASS,
+zero FAIL and six expected physical-fixture BLOCKED rows; unexpected resets
+were zero and final retained/in-flight state was zero. The browser gate also
+completed 86/86 PASS. This closes Phase 1 only; no Phase-2 implementation was
+started.

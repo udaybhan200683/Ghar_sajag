@@ -41,7 +41,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage
+.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 
 all: verify
 
@@ -151,7 +151,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast:
+validation-fast: hil-tooling-test hil-host-check
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately
@@ -164,7 +164,39 @@ hw-pair-build:
 	python3 scripts/build_hw_pair.py
 
 hw-release-gate:
-	python3 tools/validation/hw_release_gate.py --ota-warning-percent $(HW_OTA_WARNING_PERCENT)
+	python3 tools/validation/hw_release_gate.py --ota-warning-percent $(HW_OTA_WARNING_PERCENT) $(if $(filter 1,$(HIL)),--hil,)
+
+# Connected Hub+C3 Phase-1 HIL. setup discovers and records identities but never
+# flashes. smoke/regression own locking, paired HIL build, safe flash caching,
+# serial capture, cleanup and fail-closed evidence.
+hil-setup:
+	python3 tools/hil/phase1.py setup
+
+hil-preflight:
+	python3 tools/hil/phase1.py preflight
+
+hil-smoke:
+	python3 tools/hil/phase1.py smoke
+
+hil-regression:
+	python3 tools/hil/phase1.py regression
+
+hil-qualify:
+	python3 tools/hil/qualify.py
+
+hil-supervisor-test:
+	python3 -m unittest tests.python.test_hil_supervisor -v
+	python3 tools/hil/check_usb_helper.py
+
+hil-tooling-test: hil-supervisor-test
+	python3 -m unittest tests.python.test_hil_phase1 -v
+
+hil-host-check:
+	python3 tools/validation/hil_host_gate.py --fast
+	python3 -m unittest tests.python.test_hw_pair_build -v
+
+hil-target-build-check:
+	python3 scripts/build_hil_pair.py
 
 release-gate:
 	python3 tools/validation/release_gate.py
@@ -206,7 +238,7 @@ release-gate-browser-mandatory: release-gate playwright-gate
 
 .PHONY: release-gate-final
 RELEASE_GATE_FINAL_SKIP_PERFORMANCE ?= 0
-release-gate-final: release-gate-browser-mandatory $(if $(filter 1,$(RELEASE_GATE_FINAL_SKIP_PERFORMANCE)),,performance-test)
+release-gate-final: hil-tooling-test hil-host-check hil-target-build-check release-gate-browser-mandatory $(if $(filter 1,$(RELEASE_GATE_FINAL_SKIP_PERFORMANCE)),,performance-test)
 
 validation-nightly:
 	python3 tools/validation/nightly.py $(if $(filter 1,$(HIL)),--hil,) $(if $(HIL_SOAK_MINUTES),--hil-soak-minutes $(HIL_SOAK_MINUTES),)

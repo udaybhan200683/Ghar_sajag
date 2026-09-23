@@ -162,17 +162,39 @@ test.describe('Phase 1 authoritative application flows', () => {
     }
   });
 
-  test('failed Home Details save stays open and never claims success', async ({page}) => {
-    await app(page); await page.getByRole('button',{name:'Settings'}).click();
-    await page.locator('[data-setting="Home Details"]').click();
-    await page.route('**/pwa/foundation/home',route=>route.request().method()==='PATCH'?route.abort():route.continue());
-    await page.locator('#homeDetailsForm [name="display_name"]').fill('Unavailable save');
-    await watchSuccessMessages(page);
-    await page.locator('#homeDetailsForm button[type="submit"]').click();
-    await expect(page.locator('#phase1Dialog')).toBeVisible();
-    await expect(page.locator('#phase1Error')).toContainText('Not saved');
-    await expect(page.locator('#phase1Dialog')).not.toContainText('Home Details saved');
-    await noFalseSuccess(page);
+  // This flow must use Playwright routing, rather than an intermittently
+  // controlling PWA service worker.  The static-cache behavior itself is
+  // covered separately in phase3a_performance.spec.ts.
+  test.describe('deterministic failed-save routing', () => {
+    test.use({serviceWorkers:'block'});
+
+    test('failed Home Details save stays open and never claims success', async ({page}) => {
+      let rejectedPatch=false;
+      // Install the route before loading the application.  A fulfilled 503 is
+      // a deterministic backend failure and exercises the same UI error path
+      // as a real rejected save without depending on abort timing.
+      await page.route('**/pwa/foundation/home',async route=>{
+        if(route.request().method()!=='PATCH') return route.continue();
+        rejectedPatch=true;
+        await route.fulfill({
+          status:503,
+          contentType:'application/json',
+          body:JSON.stringify({error:'Simulated save failure'})
+        });
+      });
+      await app(page); await page.getByRole('button',{name:'Settings'}).click();
+      await page.locator('[data-setting="Home Details"]').click();
+      const displayName=page.locator('#homeDetailsForm [name="display_name"]');
+      await displayName.fill('Unavailable save');
+      await watchSuccessMessages(page);
+      await page.locator('#homeDetailsForm button[type="submit"]').click();
+      await expect.poll(()=>rejectedPatch).toBe(true);
+      await expect(page.locator('#phase1Dialog')).toBeVisible();
+      await expect(page.locator('#phase1Error')).toContainText('Not saved: Simulated save failure');
+      await expect(page.locator('#phase1Dialog')).not.toContainText('Home Details saved');
+      await expect(displayName).toHaveValue('Unavailable save');
+      await noFalseSuccess(page);
+    });
   });
 
   test('simulated online/offline transition updates backend-driven device health', async ({page,request}) => {

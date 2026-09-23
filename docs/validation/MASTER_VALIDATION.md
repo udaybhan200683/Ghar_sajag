@@ -272,17 +272,20 @@ superseded SMALL stress, so expensive suites have one campaign owner. Coverage
 necessarily replays instrumented C++ cases as measurement. Use
 `--continue-on-failure` only for diagnostics.
 
-HIL is disabled by default. With `HIL=1`, `HIL_EXPECTED_HUB_ID` and
-`HIL_EXPECTED_C3_ID` are qualified station MACs. Configure
-`HIL_HUB_PORT`/`HIL_C3_PORT`, or set `HIL_AUTO_DISCOVER=1`. The repository
-ESP-IDF adapter performs MAC discovery, clean paired build, commit/version/SHA
-provenance, explicit-port flash, serial capture, readiness detection and
-NodeHealth collection. `HIL_ADAPTER_COMMAND` may override it. Missing hardware,
-configuration or control seams produce `BLOCKED` and non-zero. Exact remaining
-seams are logical Hub receive disable, synthetic motion, deterministic
-transport fault, software FOTA trigger, deterministic software restart/state
-query, and final target-state query. The framework never erases NVS,
-discharges a battery, or performs uncontrolled physical power switching.
+HIL is disabled by default. `validation-fast` runs the hardware-independent
+HIL tooling/isolation checks, while `release-gate-final` additionally runs the
+HIL target compile/provenance check; neither requires attached boards.
+The authoritative connected Phase-1 suite is exactly `make hil-regression`.
+The complete connected qualification is `make hil-qualify` from normal WSL;
+it owns software-gate ordering and calls `hil-regression` rather than copying
+its 71 cases. It invokes the minimal Windows usbipd helper only if WSL cannot
+already verify both targets. Missing hardware is reported as BLOCKED, never as
+physical PASS.
+
+`make validation-nightly` remains hardware-free by default and includes the
+HIL tooling, isolation and target-build checks. `make validation-nightly HIL=1`
+adds `make hil-qualify`, the only orchestration path. No Phase-2 soak or FOTA
+matrix is started by these integrations.
 
 Execution modes are distinct: simulation nightly needs no hardware; HIL
 nightly requires configured connected Hub+C3 and blocks when absent; milestone
@@ -320,6 +323,22 @@ gap and reason; never mark it PASS or implement a future feature to fill it.
 
 ## Clean post-commit pair qualification
 
+The intended Phase-1 qualification order is:
+
+```text
+make validation-fast
+make release-gate-final
+make hil-qualify                         # pre-commit software + connected fixture
+git commit                                 # deliberate human checkpoint
+make hw-pair-build
+make hw-release-gate
+make validation-nightly
+make validation-nightly HIL=1              # optional connected nightly
+```
+
+The real-target IDs have one owner (`make hil-regression`); top-level gates
+invoke that owner rather than copying its scenarios.
+
 Do not bypass the pair builder's clean-tree safeguard. This closure pass is
 intentionally uncommitted, so neither command below is claimed here. After the
 validation-framework change is reviewed and committed, with no tracked or
@@ -344,3 +363,13 @@ brownout voltage, PIR optical/thermal sensitivity, converter/cutoff/thermal
 behavior, and GPIO electrical waveform. Target flash, boot, ESP-IDF restart,
 FOTA and radio behavior belong in L8 whenever configured connected hardware
 and a safe adapter are available.
+# Phase-1 unattended Hub+C3 HIL checkpoint
+
+The connected-target core gate is documented in
+`docs/validation/HIL_AUTOMATION.md` and invoked from repository root with
+`make hil-setup`, `make hil-preflight`, `make hil-smoke`, and
+`make hil-regression`. It adds HIL-SMOKE-001..017, HIL-RADIO-001..010,
+HIL-OR-001..020, HIL-HUB-RST-001..010, HIL-C3-RST-001..008 and
+HIL-BOTH-RST-001..006 (71 automated real-target cases). Six electrical,
+optical, RF/current/battery/thermal boundaries remain explicit extra-fixture
+rows. FOTA and extended stress/soak remain Phase 2.

@@ -27,4 +27,9 @@ esp_err_t start_runtime_adapter();
 QueueHandle_t control_plane_queue();
 void set_control_plane_active(bool active);
 
+#if GS_HIL_BUILD
+void hil_set_logical_online(bool online);
+void hil_log_state();
+#endif
+
 }  // namespace gs::hub::target

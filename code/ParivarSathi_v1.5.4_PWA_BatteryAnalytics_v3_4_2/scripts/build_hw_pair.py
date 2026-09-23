@@ -31,6 +31,7 @@ MANIFEST = ROOT / "build/hw_pair/provenance.json"
 RUNTIME_IMPLEMENTATION_COMMIT = "cfcee972dab6045bbb8f7fbfeb51bf66097cfae9"
 RUNTIME_IMPLEMENTATION_SHORT = "cfcee97"
 SCHEMA_VERSION = 1
+HIL_MARKERS = (b"HIL_READY", b"INJECT_MOTION", b"SET_HUB_LOGICAL_OFFLINE")
 
 
 class PairBuildError(RuntimeError):
@@ -193,6 +194,14 @@ def validate_pair(c3: dict[str, object], embedded: dict[str, object], hub: dict[
     return checks
 
 
+def require_production_isolation(*images: Path) -> None:
+    for image in images:
+        data = image.read_bytes()
+        present = [marker.decode() for marker in HIL_MARKERS if marker in data]
+        if present:
+            raise PairBuildError(f"production image exposes HIL control markers {present}: {image}")
+
+
 def write_manifest(state: dict[str, object], c3: dict[str, object], embedded: dict[str, object],
                    hub: dict[str, object], verification: dict[str, object]) -> Path:
     manifest = {
@@ -240,7 +249,9 @@ def build_pair() -> int:
     hub_meta = run_esptool(HUB_BINARY, activation)
     validate_version(hub_meta, expected_short, "Hub")
     hub = image_record(HUB_BINARY, hub_meta)
+    require_production_isolation(NODE_BINARY, HUB_BINARY)
     verification = validate_pair(c3, embedded, hub, expected_short)
+    verification["production_hil_control_absent"] = True
     manifest = write_manifest(state, c3, embedded, hub, verification)
     print("HW PAIR BUILD: PASS")
     print(f"Runtime implementation: {RUNTIME_IMPLEMENTATION_SHORT}")

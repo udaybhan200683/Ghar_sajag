@@ -18,6 +18,7 @@ from scripts.build_hw_pair import (
     parse_image_info,
     require_clean_tree,
     require_rebuilt,
+    require_production_isolation,
     synchronize_node_image,
     validate_pair,
     validate_version,
@@ -94,6 +95,17 @@ class HwPairBuildTest(unittest.TestCase):
             with self.assertRaises(PairBuildError):
                 require_rebuilt(path, path.stat().st_mtime_ns + 1, "embedded object")
             require_rebuilt(path, path.stat().st_mtime_ns, "embedded object")
+
+    def test_production_image_rejects_hil_control_markers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            clean = root / "production.bin"
+            contaminated = root / "hil.bin"
+            clean.write_bytes(b"normal production image")
+            contaminated.write_bytes(b"HIL_READY INJECT_MOTION SET_HUB_LOGICAL_OFFLINE")
+            require_production_isolation(clean)
+            with self.assertRaises(PairBuildError):
+                require_production_isolation(contaminated)
 
     def test_runtime_provenance_is_fixed(self):
         self.assertEqual(RUNTIME_IMPLEMENTATION_COMMIT, "cfcee972dab6045bbb8f7fbfeb51bf66097cfae9")
