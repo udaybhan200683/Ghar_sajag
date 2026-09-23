@@ -1056,3 +1056,15 @@ through the production codec and HubRuntime for 1, 4, 10 and 25 simulated
 Nodes. Lost-ACK and logical-outage recovery cases are included. This is a
 host foundation only: commissioning, secure target peer capacity, target
 multi-node behavior and full ten-node qualification remain unimplemented.
+
+## 2026-09-23 - Phase-2 single-C3 smoke and setup recovery
+
+The connected checkpoint at `fc0776b` passed all 17 physical Phase-1 smoke
+cases with matching Hub/C3 firmware versions and no unexpected resets or
+retained/in-flight residue. A preceding bare smoke attempt correctly stopped
+before hardware tests because its saved setup referenced the prior branch.
+The existing WSL supervisor now offers a focused smoke profile that refreshes
+USB fixture readiness and setup, runs preflight, then invokes the unchanged
+smoke campaign. Host tests cover stage order, stale branch/commit/source
+rejection and fail-closed behavior. The focused profile has not yet itself
+been run on connected boards.

@@ -132,7 +132,7 @@ class HilWslSupervisorTest(unittest.TestCase):
         stable.assert_called_once()
         discover.assert_called_once()
 
-    def run_supervisor(self, failures=None, fixture_error=None):
+    def run_supervisor(self, failures=None, fixture_error=None, stages=None):
         failures = failures or {}
         calls = []
         output = []
@@ -148,8 +148,30 @@ class HilWslSupervisorTest(unittest.TestCase):
 
         supervisor = qualify.QualificationSupervisor(
             stage_runner=stage, fixture_runner=fixture,
-            report_reader=lambda: "/real/evidence/report", output=output.append)
+            report_reader=lambda: "/real/evidence/report", output=output.append,
+            stages=stages)
         return supervisor.run(), calls, supervisor.statuses, output
+
+    def test_checkpoint_smoke_refreshes_setup_before_preflight_and_campaign(self):
+        code, calls, states, _ = self.run_supervisor(stages=qualify.CHECKPOINT_SMOKE_STAGES)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight", "hil-smoke"])
+        self.assertTrue(all(value == "PASS" for value in states.values()))
+
+    def test_checkpoint_smoke_setup_failure_blocks_preflight_and_hardware(self):
+        code, calls, states, _ = self.run_supervisor(
+            failures={"hil-setup": 1}, stages=qualify.CHECKPOINT_SMOKE_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup"])
+        self.assertEqual(states["hil-preflight"], "BLOCKED")
+        self.assertEqual(states["hil-smoke"], "BLOCKED")
+
+    def test_checkpoint_smoke_preflight_failure_blocks_hardware(self):
+        code, calls, states, _ = self.run_supervisor(
+            failures={"hil-preflight": 1}, stages=qualify.CHECKPOINT_SMOKE_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight"])
+        self.assertEqual(states["hil-smoke"], "BLOCKED")
 
     def test_12_validation_fast_failure_blocks_every_later_stage(self):
         code, calls, states, _ = self.run_supervisor({"validation-fast": 3})

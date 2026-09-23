@@ -128,6 +128,21 @@ class HilInfrastructureTest(unittest.TestCase):
             self.assertEqual(cached_campaign_ports(config, {"hub": hub, "c3": c3})["hub"], "/dev/ttyUSB7")
             verify.assert_called_once_with(config, "hub")
 
+    def test_preflight_rejects_stale_branch_commit_and_source_setup(self):
+        config = {"HIL_HUB_MAC": "5c013bbeb9f8", "HIL_C3_MAC": "146393c5d158",
+                  "HIL_EXPECTED_BRANCH": "expected-branch", "HIL_EXPECTED_COMMIT": "expected-commit",
+                  "HIL_SOURCE_FINGERPRINT": "expected-source", "HIL_IDF_ACTIVATE": "/unused"}
+        cases = [(["other-branch"], "expected-source", "branch differs"),
+                 (["expected-branch", "other-commit"], "expected-source", "commit differs"),
+                 (["expected-branch", "expected-commit"], "other-source", "source changed")]
+        for git_results, source, message in cases:
+            with self.subTest(message=message), \
+                 patch.object(phase1, "git", side_effect=git_results), \
+                 patch.object(phase1, "source_fingerprint", return_value=source), \
+                 patch.object(phase1, "discover", side_effect=AssertionError("stale setup reached hardware")):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    phase1.preflight(config, quiet=True)
+
     def test_no_devices_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError, "exactly one hub"):
             assign_devices([], "5c013bbeb9f8", "146393c5d158")

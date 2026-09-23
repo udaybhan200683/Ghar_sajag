@@ -446,3 +446,23 @@ Section 18. In particular, the repository provides neither a per-device
 factory credential process nor an effective ten-peer native encrypted
 ESP-NOW configuration. The selected credential/provisioning and protection
 model must be frozen before production enrollment state is implemented.
+
+## 22. CONNECTED CHECKPOINT AND HIL SETUP RECOVERY
+
+The connected Hub+C3 smoke run at
+`evidence/hil/runs/20260923T111615.076642Z` passed 17/17 Phase-1 smoke cases
+on commit `fc0776b`, with zero failures, unexpected resets, retained events
+or in-flight events. Both targets reported `fc0776b-hil-e3b0c44`; the
+standalone and Hub-embedded C3 image hashes matched. This is a physical
+single-C3 smoke result, not Phase-1 71-case regression or Phase-2 multi-node
+qualification.
+
+The first bare smoke invocation was blocked before any hardware test because
+the saved setup belonged to a previous branch. The existing fail-closed
+preflight rule remains intact. A focused profile of the existing WSL
+supervisor, `make hil-checkpoint-smoke`, now runs USB fixture readiness,
+fresh `hil-setup`, `hil-preflight`, then `hil-smoke` in one command. Setup is
+refreshed before every focused checkpoint, including after branch, commit or
+source changes. The campaign continues to own paired build, conditional
+flash, target version/identity checks and report generation. The new profile
+has host orchestration tests; its first connected execution remains pending.
