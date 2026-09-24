@@ -141,6 +141,59 @@ The full requirement status and evidence references are in
 [`MASTER_TRACEABILITY.csv`](../validation/MASTER_TRACEABILITY.csv). Phase 2 is
 not complete.
 
+### Fast-closure triage of every Phase-2 traceability row (2026-09-24)
+
+This classification sets the work boundary before further implementation.
+`ALREADY_COMPLETE` applies only to the row's stated host or one-pair physical
+scope; it does not promote that result to target multi-Node or production
+security qualification. `PHASE2_REQUIRED_NOW` is limited to installed-node
+security, event/restart correctness, practical OTA safety, and credible target
+proof needed before battery optimization and a pilot. The original CSV status
+continues to record its broader requirement until evidence changes.
+
+| Traceability ID | Fast-closure classification | Reason / boundary |
+|---|---|---|
+| P2-COM-01 | PHASE2_REQUIRED_NOW | The active Hub/C3 radio path does not commission or authenticate installed Nodes. |
+| P2-MN10-01 | PHASE2_REQUIRED_NOW | Host scale passes; target admission/peer capacity and representative RF proof remain. |
+| P2-FOTA-01 | PHASE2_REQUIRED_NOW | Bound the remaining scope to real upgrade, authorized image, corruption/interruption safety, failed-boot recovery and practical A/B evidence. Extensive cycling is later validation debt. |
+| P2-FAULT-01 | VALIDATION_TECH_DEBT | Defer the full generic fault matrix; test high-risk product failures directly through existing seams and focused cases. |
+| P2-REC-01 | PHASE2_REQUIRED_NOW | Node/Hub restart and outage recovery must protect event identity and rejoin. A comprehensive storm matrix can be narrowed. |
+| P2-VERT-01 | DEFER_TO_P0_PRODUCT_WORK | A real Hub/backend/PWA bridge is P0 product vertical work; Phase 2 must state this boundary explicitly. |
+| P2-REPLAY-01 | PARTIAL_BUT_SUFFICIENT_FOR_PHASE2 | Real reset/UART/esptool evidence replays; missing raw USB trace remains labelled synthetic. |
+| P2-MN-HOST-01 | ALREADY_COMPLETE | 1/4/10/25 logical runtime transport, pressure, fairness and per-Node evidence are host-qualified. |
+| P2-HIL-WORKFLOW-01 | ALREADY_COMPLETE | The self-contained one-pair smoke/FOTA checkpoint has physical evidence. |
+| P2-REG-01 | PHASE2_REQUIRED_NOW | Target registry admission, revocation persistence and distinct physical/logical identity are still absent. |
+| P2-COM-HOST-01 | ALREADY_COMPLETE | Host commissioning transcript/crypto tests pass; target wiring is owned by P2-COM-01. |
+| P2-RUNTIME-SEC-HOST-01 | ALREADY_COMPLETE | Host AEAD/ACK isolation tests pass; target wiring is owned by P2-COM-01. |
+| P2-PSA-TARGET-01 | PARTIAL_BUT_SUFFICIENT_FOR_PHASE2 | The platform crypto implementation builds; a test-only target key source is needed now, while irreversible manufacturing/eFuse policy belongs to productization. |
+| P2-REJOIN-HOST-01 | ALREADY_COMPLETE | Host authenticated rejoin passes; target rejoin is owned by P2-COM-01 and P2-REC-01. |
+| P2-PERSIST-ASSOC-HOST-01 | PHASE2_REQUIRED_NOW | Bind target startup restore to authenticated Home/Hub/Node association so ordinary reboot does not re-pair. |
+| P2-PERSIST-HUB-REG-HOST-01 | PHASE2_REQUIRED_NOW | Hub reboot must retain authorization, session floors and revocations. |
+| P2-NODE-RECOVERY-HOST-01 | ALREADY_COMPLETE | Host in-flight/retained recovery passes; target durability is the next row. |
+| P2-PERSIST-NODE-REC-HOST-01 | PHASE2_REQUIRED_NOW | Node reboot must not silently erase retained/critical events or retry identity. |
+| P2-PERSIST-HUB-JOURNAL-HOST-01 | PHASE2_REQUIRED_NOW | Hub restart must not erase accepted events/dedupe while ACK semantics claim durability. |
+| P2-FOTA-PROTOCOL-HOST-01 | ALREADY_COMPLETE | Focused host CRC, sequencing, timeout and repeated receiver-cycle tests pass; authenticity/physical negatives remain in P2-FOTA-01. |
+| P2-FOTA-SAME-HIL-01 | ALREADY_COMPLETE | One-pair same-image OTA and functional recovery passed physically. |
+| P2-FOTA-BOOT-HEALTH-01 | PHASE2_REQUIRED_NOW | The success gate passed physically; failed-boot/timeout rollback and authenticated Hub admission are still unproven. |
+
+Additional boundaries: production private-key provisioning, secure boot/eFuse
+policy, commercial recovery and certification are `DEFER_TO_PRODUCTIZATION`;
+battery current, sleep, TX-power and long endurance are
+`DEFER_TO_BATTERY_TRACK`. The final release can run the necessary existing
+gates without first creating universal `hil-full` or `release-qualify`
+orchestrators; those commands and richer reporting are `VALIDATION_TECH_DEBT`
+unless an actual release blocker requires them. A bounded short stress run is
+required; long soak framework development belongs to the battery/endurance
+track.
+
+The source audit found no active target commissioning or runtime AEAD/rejoin:
+both target ESP-NOW adapters currently pin one peer MAC, set `encrypt=false`,
+route plaintext codec frames, and the Hub accepts a higher session directly
+from a matching MAC. The target builds include the shared crypto, registry and
+NVS components, but their presence in CMake is build evidence only. Actual
+target wiring must remove that trust shortcut and reject unknown Nodes before
+any ten-Node target claim.
+
 ## Exact remaining Phase-2 sequence
 
 1. **P2.3 target commissioning/security wiring:** complete target mutual

@@ -1,5 +1,6 @@
 #include "host/security/openssl_commissioning_crypto.hpp"
 #include "firmware/common/security/commissioning_protocol.hpp"
+#include "firmware/common/security/commissioning_wire.hpp"
 #include "firmware/common/security/runtime_frame_security.hpp"
 
 #include <algorithm>
@@ -12,6 +13,28 @@ using namespace gs::security;
 namespace {
 void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
+}
+
+template <typename T>
+T over_radio(const T& value, std::uint32_t transaction, std::size_t minimum_fragments) {
+    wire::Message message;
+    std::vector<wire::Packet> packets;
+    require(wire::encode(value, message) &&
+            wire::fragment(message, transaction, packets) &&
+            packets.size() >= minimum_fragments, "commissioning wire encode failed");
+    wire::Assembler receiver;
+    std::optional<wire::Message> assembled;
+    for (std::size_t i = 0; i < packets.size(); ++i) {
+        require(packets[i].size <= wire::kMaximumPacketBytes,
+                "commissioning fragment exceeded ESP-NOW payload bound");
+        assembled = receiver.push(packets[i].bytes.data(), packets[i].size, 100 + i);
+        require((i + 1 == packets.size()) == assembled.has_value(),
+                "commissioning fragment completed at wrong boundary");
+    }
+    T decoded;
+    require(assembled && wire::decode(*assembled, decoded),
+            "commissioning wire decode failed");
+    return decoded;
 }
 }
 
@@ -84,19 +107,20 @@ int main() {
         require(node.enable_window(100, 5000), "Node pairing intent missing");
         auto offer = hub.open(100, 5000);
         require(offer.has_value(), "bounded Hub offer failed");
-        auto node_proof = node.respond(*offer, 101);
+        const auto wire_offer = over_radio(*offer, 1, 2);
+        auto node_proof = node.respond(wire_offer, 101);
         require(node_proof.has_value(), "Node rejected exact authorized Hub offer");
-        auto hub_proof = hub.accept(*node_proof, 102);
+        auto hub_proof = hub.accept(over_radio(*node_proof, 2, 1), 102);
         require(hub_proof.has_value(), "Hub rejected QR-pinned Node identity");
         auto tampered_hub_proof = *hub_proof;
         tampered_hub_proof.hub_signature[0] ^= 1;
         require(!node.finish(tampered_hub_proof, 103), "forged Hub signature accepted");
-        auto final = node.finish(*hub_proof, 103);
+        auto final = node.finish(over_radio(*hub_proof, 3, 1), 103);
         require(final.has_value(), "Node failed to authenticate intended Hub");
-        auto ack = hub.confirm(*final, 104);
+        auto ack = hub.confirm(over_radio(*final, 4, 1), 104);
         require(ack.has_value() && hub.binding().has_value() && !node.binding().has_value(),
                 "two-phase association state was not bounded");
-        require(node.commit(*ack, 105) && node.binding().has_value(),
+        require(node.commit(over_radio(*ack, 5, 1), 105) && node.binding().has_value(),
                 "Node failed to confirm association");
         require(node.binding()->installation_key == hub.binding()->installation_key &&
                 node.binding()->home_id == "home-id" && node.binding()->hub_id == "hub-id" &&
@@ -107,6 +131,49 @@ int main() {
                 "Home/Hub binding or key agreement differed");
         require(!node.respond(*offer, 106), "committed Node accepted replayed offer");
         require(!hub.accept(*node_proof, 106), "committed Hub accepted replayed proof");
+
+        wire::Message encoded_offer;
+        std::vector<wire::Packet> fragments;
+        require(wire::encode(*offer, encoded_offer) &&
+                wire::fragment(encoded_offer, 77, fragments) && fragments.size() > 1,
+                "large Hub offer did not fragment");
+        wire::Assembler truncated;
+        require(!truncated.push(fragments[0].bytes.data(), fragments[0].size, 100) &&
+                !truncated.push(fragments[1].bytes.data(), fragments[1].size, 3201),
+                "stale commissioning fragment completed after deadline");
+        wire::Assembler reordered;
+        require(!reordered.push(fragments[1].bytes.data(), fragments[1].size, 100),
+                "out-of-order commissioning fragment was accepted");
+        auto altered_fragment = fragments[1];
+        altered_fragment.bytes[4] ^= 1;
+        wire::Assembler crossed;
+        require(!crossed.push(fragments[0].bytes.data(), fragments[0].size, 100) &&
+                !crossed.push(altered_fragment.bytes.data(), altered_fragment.size, 101),
+                "fragments from different transactions were combined");
+        auto changed_assignment = fragments;
+        changed_assignment[0].bytes[wire::kFragmentHeaderBytes + 1 + 1 + 7 + 1 + 6 + 1 + 7 + 1] ^= 1;
+        wire::Assembler tampered_wire;
+        require(!tampered_wire.push(changed_assignment[0].bytes.data(),
+                                    changed_assignment[0].size, 100),
+                "first altered fragment unexpectedly completed");
+        auto tampered_message = tampered_wire.push(changed_assignment[1].bytes.data(),
+                                                    changed_assignment[1].size, 101);
+        CommissioningOffer tampered_offer;
+        NodeCommissioning tampered_node(crypto, "node-a", "node-id", installation_code);
+        require(tampered_message && wire::decode(*tampered_message, tampered_offer) &&
+                tampered_node.enable_window(100, 5000) &&
+                !tampered_node.respond(tampered_offer, 102),
+                "wire-altered assignment bypassed installer authorization");
+
+        RejoinHello hello;
+        hello.device_id = "node-id";
+        hello.hub_id = "hub-id";
+        hello.home_id = "home-id";
+        hello.logical_id = "logical-bathroom";
+        hello.session = 2;
+        const auto decoded_hello = over_radio(hello, 6, 1);
+        require(decoded_hello.session == 2 && decoded_hello.logical_id == hello.logical_id,
+                "rejoin wire lost bound identity or session");
 
         Key32 runtime_salt{};
         require(crypto.random_bytes(runtime_salt.data(), runtime_salt.size()),
@@ -191,6 +258,7 @@ int main() {
                 "Node accepted an offer pinned to a different device key");
         std::cout << "P2-COM-CRYPTO HOST PASS unique keys/signatures/ECDH/HKDF/AEAD/tamper\n";
         std::cout << "P2-COM-HANDSHAKE HOST PASS exact identity/Home/Hub/window/replay\n";
+        std::cout << "P2-COM-WIRE HOST PASS fragmented offer/bounded packet/timeout/tamper\n";
         std::cout << "P2-RUNTIME-AEAD HOST PASS uplink/ACK/tamper/replay/boundary\n";
         return 0;
     } catch (const std::exception& error) {

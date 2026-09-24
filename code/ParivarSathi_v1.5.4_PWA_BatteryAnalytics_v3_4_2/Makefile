@@ -83,7 +83,7 @@ hub-journal-persistence-host-test: build
 	./build/hub_journal_persistence_validation
 
 commissioning-crypto-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/commissioning_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/commissioning_protocol.cpp firmware/common/security/commissioning_wire.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
 	./build/commissioning_crypto_validation
 
 rejoin-host-test: build
