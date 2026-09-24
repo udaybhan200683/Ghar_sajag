@@ -645,6 +645,15 @@ class Campaign:
             version = re.escape(self.manifest["image_version"])
             self.c3.wait_for(rf"HIL_READY role=c3 protocol=1 version={version}", 30, c3_cursor)
             self.c3.wait_for(r"PIR ready on GPIO", 35, c3_cursor)
+            self.c3.wait_for(r"OTA image marked VALID after sensing/runtime/radio health",
+                             90, c3_cursor)
+            fresh_lines = self.c3.lines[c3_cursor:]
+            ready_index = next((i for i, line in enumerate(fresh_lines)
+                                if "PIR ready on GPIO" in line), None)
+            valid_index = next((i for i, line in enumerate(fresh_lines)
+                                if "OTA image marked VALID after sensing/runtime/radio health" in line), None)
+            if ready_index is None or valid_index is None or valid_index <= ready_index:
+                raise RuntimeError("OTA image validity did not follow fresh PIR readiness")
             post_state = self.command(self.c3, "GET_STATE", r"HIL_STATE role=c3 .*ota_slot=ota_[01]", 20)
             after_slot = re.search(r"ota_slot=(ota_[01])", post_state).group(1)
             if before_slot == after_slot:

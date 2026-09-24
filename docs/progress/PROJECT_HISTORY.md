@@ -1256,3 +1256,11 @@ retired a post-update motion event by application ACK. Final retained and
 in-flight counts were zero, with zero unexpected resets. The qualification
 covers same-image OTA and functional recovery. Version upgrade, image
 authenticity and rollback remain open.
+
+The raw C3 evidence also shows the previous fixed-delay validation occurred
+before PIR readiness. A bounded post-update health gate now waits for sensing,
+runtime liveness, post-sensing MAC delivery and heap headroom, or requests
+rollback at 90 seconds. `FOTA-HOST-028` and real-evidence replay cover the old
+ordering; the paired HIL target build passes. The new health gate is a software
+checkpoint awaiting its own physical run. No rollback or authenticated Hub
+admission qualification is claimed from the earlier same-image run.

@@ -93,5 +93,19 @@
       "expected_transition": "USB disappearance/reappearance with unchanged or changed tty reopens one reader; raw physical trace pending",
       "fresh": ["SERIAL_RECONNECTED port=/dev/ttyACM0", "SERIAL_RECONNECTED port=/dev/ttyACM1"]
     }
-  ]
+  ],
+  "fota_boot_health_regression": {
+    "id": "P2-REPLAY-FOTA-001",
+    "kind": "REAL_HARDWARE",
+    "target": "c3",
+    "source": "evidence/hil/runs/20260924T085804.060488Z/c3_serial.log",
+    "source_sha256": "bb30b391568293663ceb9c9d25659501a108c26356eac098bbce45bf5f324fe7",
+    "expected_parser": "PREMATURE_OTA_VALIDITY",
+    "expected_transition": "old five-second image validation occurs before PIR readiness and must fail the new boot-health order",
+    "fresh": [
+      "2026-09-24T09:05:52.967+00:00 [c3] W (266) gs_node_fota: OTA image pending validation",
+      "2026-09-24T09:05:57.981+00:00 [c3] I (5296) gs_node_fota: OTA image marked VALID",
+      "2026-09-24T09:06:02.793+00:00 [c3] I (10266) gs_node_runtime: PIR ready on GPIO4"
+    ]
+  }
 }

@@ -42,6 +42,20 @@ class ReplayCapture:
 
 
 class RealEvidenceReplayTest(unittest.TestCase):
+    def test_real_fota_exposes_old_premature_validity_decision(self):
+        fixture = json.loads(FIXTURES.read_text())["fota_boot_health_regression"]
+        source = FIXTURES.parents[5] / fixture["source"]
+        self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(),
+                         fixture["source_sha256"])
+        raw_lines = set(source.read_text(errors="replace").splitlines())
+        self.assertTrue(set(fixture["fresh"]).issubset(raw_lines))
+        observed = fixture["fresh"]
+        valid = next(i for i, line in enumerate(observed) if "OTA image marked VALID" in line)
+        sensing_ready = next(i for i, line in enumerate(observed) if "PIR ready on GPIO" in line)
+        self.assertLess(valid, sensing_ready)
+        self.assertFalse(any("OTA image marked VALID after sensing/runtime/radio health" in line
+                             for line in observed[sensing_ready:]))
+
     def test_real_reset_and_readiness_transitions(self):
         fixtures = json.loads(FIXTURES.read_text())["fixtures"]
         for fixture in fixtures:

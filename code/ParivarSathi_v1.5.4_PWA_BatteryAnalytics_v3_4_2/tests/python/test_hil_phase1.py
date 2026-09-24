@@ -532,16 +532,18 @@ class HilInfrastructureTest(unittest.TestCase):
                                  "rst:0xc (SW_CPU_RESET)")
                 self.role = role
                 self.state_reads = 0
-                self.cursor_value = 0
             def cursor(self):
-                self.cursor_value += 1
-                return self.cursor_value
+                return len(self.lines)
             def wait_for(self, pattern, timeout, start=0):
                 super().wait_for(pattern, timeout, start)
                 if self.role == "c3" and "HIL_STATE role=c3" in pattern:
                     self.state_reads += 1
                     return ("HIL_STATE role=c3 retained=0 in_flight=0 "
                             f"ota_slot=ota_{0 if self.state_reads == 1 else 1}")
+                if self.role == "c3" and "PIR ready on GPIO" in pattern:
+                    self.lines.append("PIR ready on GPIO4")
+                if self.role == "c3" and "OTA image marked VALID after" in pattern:
+                    self.lines.append("OTA image marked VALID after sensing/runtime/radio health")
                 return "matched"
         with tempfile.TemporaryDirectory() as tmp:
             campaign = Campaign("fota", {}, {}, {"image_version": "test"}, Path(tmp))
@@ -557,6 +559,8 @@ class HilInfrastructureTest(unittest.TestCase):
                                 for call in campaign.c3.calls))
             self.assertTrue(any(call[0] == "wait" and "PIR ready on GPIO" in call[1]
                                 for call in campaign.c3.calls))
+            self.assertTrue(any(call[0] == "wait" and "OTA image marked VALID after" in call[1]
+                                for call in campaign.c3.calls))
             self.assertEqual([r["status"] for r in campaign.results.rows], ["PASS"] * 3)
 
     def test_phase2_fota_rejects_unchanged_ota_slot(self):
@@ -565,6 +569,10 @@ class HilInfrastructureTest(unittest.TestCase):
                 super().wait_for(pattern, timeout, start)
                 if "HIL_STATE role=c3" in pattern:
                     return "HIL_STATE role=c3 retained=0 in_flight=0 ota_slot=ota_0"
+                if "PIR ready on GPIO" in pattern:
+                    self.lines.append("PIR ready on GPIO4")
+                if "OTA image marked VALID after" in pattern:
+                    self.lines.append("OTA image marked VALID after sensing/runtime/radio health")
                 return "matched"
         with tempfile.TemporaryDirectory() as tmp:
             campaign = Campaign("fota", {}, {}, {"image_version": "test"}, Path(tmp))
@@ -572,6 +580,30 @@ class HilInfrastructureTest(unittest.TestCase):
             campaign.c3 = SameSlotTarget("rst:0xc (RTC_SW_CPU_RST)")
             self.assertFalse(campaign.fota_same_image())
             self.assertIn("slot did not change",
+                          (Path(tmp)/"failures"/"P2-FOTA-SAME-001.txt").read_text())
+
+    def test_phase2_fota_rejects_validity_before_sensing_ready(self):
+        class PrematureValidityTarget(RecordingTarget):
+            def __init__(self):
+                super().__init__("rst:0xc (RTC_SW_CPU_RST)")
+                self.state_reads = 0
+            def wait_for(self, pattern, timeout, start=0):
+                super().wait_for(pattern, timeout, start)
+                if "HIL_STATE role=c3" in pattern:
+                    self.state_reads += 1
+                    return ("HIL_STATE role=c3 retained=0 in_flight=0 "
+                            f"ota_slot=ota_{0 if self.state_reads == 1 else 1}")
+                if "HIL_READY role=c3" in pattern:
+                    self.lines.append("OTA image marked VALID after sensing/runtime/radio health")
+                if "PIR ready on GPIO" in pattern:
+                    self.lines.append("PIR ready on GPIO4")
+                return "matched"
+        with tempfile.TemporaryDirectory() as tmp:
+            campaign = Campaign("fota", {}, {}, {"image_version": "test"}, Path(tmp))
+            campaign.hub = RecordingTarget()
+            campaign.c3 = PrematureValidityTarget()
+            self.assertFalse(campaign.fota_same_image())
+            self.assertIn("validity did not follow fresh PIR readiness",
                           (Path(tmp)/"failures"/"P2-FOTA-SAME-001.txt").read_text())
 
     def test_recovery_sensing_timeout_has_specific_evidence_code(self):

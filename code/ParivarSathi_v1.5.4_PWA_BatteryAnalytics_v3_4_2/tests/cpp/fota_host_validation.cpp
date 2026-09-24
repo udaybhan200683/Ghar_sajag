@@ -1,3 +1,4 @@
+#include "firmware/node/fota/boot_health_gate.hpp"
 #include "firmware/node/fota/fota_receiver.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
 
@@ -243,6 +244,40 @@ std::vector<TestCase> catalog() {
             f.send(begin_packet(bytes));
             require(f.callbacks.last_status()==Status::BadPacket && f.writer.begin_calls==1,
                     "completed session restarted before reboot"); }},
+        {"FOTA-HOST-028", [] {
+            using gs::node::fota::BootHealthDecision;
+            using gs::node::fota::BootHealthObservation;
+            using gs::node::fota::evaluate_boot_health;
+            BootHealthObservation state;
+            require(evaluate_boot_health(state, 5000)==BootHealthDecision::Wait,
+                    "fixed delay accepted unready OTA image");
+            state.owner_started=true;
+            state.minimum_free_heap=200000;
+            state.post_sensing_radio_confirmed=true;
+            state.post_sensing_runtime_ticks=5;
+            require(evaluate_boot_health(state, 11000)==BootHealthDecision::Wait,
+                    "radio success before PIR readiness accepted image");
+            state.sensing_ready=true;
+            state.post_sensing_radio_confirmed=false;
+            require(evaluate_boot_health(state, 11000)==BootHealthDecision::Wait,
+                    "PIR readiness without post-sensing radio success accepted image");
+            state.post_sensing_radio_confirmed=true;
+            state.minimum_free_heap=8191;
+            require(evaluate_boot_health(state, 11000)==BootHealthDecision::Wait,
+                    "unsafe heap accepted image");
+            state.minimum_free_heap=8192;
+            state.post_sensing_runtime_ticks=1;
+            require(evaluate_boot_health(state, 11000)==BootHealthDecision::Wait,
+                    "one post-sensing runtime tick accepted image");
+            state.post_sensing_runtime_ticks=2;
+            require(evaluate_boot_health(state, 89999)==BootHealthDecision::Validate,
+                    "healthy pending image was not validated");
+            state.maintenance_active=true;
+            require(evaluate_boot_health(state, 89999)==BootHealthDecision::Wait,
+                    "maintenance image was validated");
+            require(evaluate_boot_health(state, 90000)==BootHealthDecision::Rollback,
+                    "health deadline did not request rollback");
+        }},
     };
 }
 

@@ -443,6 +443,19 @@ unexpected reset reported. This physical result qualifies same-image transfer,
 reboot and functional recovery only. Version upgrade, image authenticity and
 rollback remain unqualified.
 
+The same physical log exposed an incomplete boot-health ordering: the old
+five-second task marked the pending image valid before PIR stabilization.
+`P2-REPLAY-FOTA-001` retains those raw lines as a permanent regression. The
+next target checkpoint replaces that delay with a bounded 90-second gate:
+NodeRuntime owner active, PIR ready, at least two post-sensing runtime ticks,
+a fresh post-sensing health frame accepted at the ESP-NOW MAC layer, no active
+maintenance, and at least 8 KiB minimum free heap. Missing health evidence
+requests ESP-IDF rollback instead of marking the image valid. `FOTA-HOST-028`
+passes, and the paired HIL build passes. This is awaiting physical execution;
+MAC delivery does not prove authenticated Hub application admission. The full
+production health gate remains partial until target authenticated runtime is
+integrated and rollback is observed on hardware.
+
 ### Deferred battery milestone after Phase 2
 
 Battery optimization is the next milestone, outside Phase 2: HW-M1.4B

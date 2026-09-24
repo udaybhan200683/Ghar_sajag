@@ -1,5 +1,6 @@
 #include "fota_receiver.hpp"
 
+#include "firmware/node/fota/boot_health_gate.hpp"
 #include "firmware/node/fota/fota_receiver.hpp"
 #include "firmware/node/target/esp32c3/node_runtime_adapter.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
@@ -137,11 +138,31 @@ void validate_running_image(void*) {
     esp_ota_img_states_t state{};
     if (esp_ota_get_state_partition(running, &state) == ESP_OK &&
         state == ESP_OTA_IMG_PENDING_VERIFY) {
-        ESP_LOGW(kTag, "OTA image pending validation");
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        const esp_err_t result = esp_ota_mark_app_valid_cancel_rollback();
-        if (result == ESP_OK) ESP_LOGI(kTag, "OTA image marked VALID");
-        else ESP_LOGE(kTag, "Could not mark OTA image valid: %s", esp_err_to_name(result));
+        ESP_LOGW(kTag, "OTA image pending health validation");
+        const auto started_ms = monotonic_ms();
+        for (;;) {
+            const auto observation = ota_boot_health_observation();
+            const auto decision = fota::evaluate_boot_health(
+                observation, monotonic_ms() - started_ms);
+            if (decision == fota::BootHealthDecision::Validate) {
+                const esp_err_t result = esp_ota_mark_app_valid_cancel_rollback();
+                if (result == ESP_OK) {
+                    ESP_LOGI(kTag, "OTA image marked VALID after sensing/runtime/radio health");
+                } else {
+                    ESP_LOGE(kTag, "Could not mark OTA image valid: %s",
+                             esp_err_to_name(result));
+                }
+                break;
+            }
+            if (decision == fota::BootHealthDecision::Rollback) {
+                ESP_LOGE(kTag, "OTA health deadline expired; requesting rollback");
+                const esp_err_t result = esp_ota_mark_app_invalid_rollback_and_reboot();
+                // A failed rollback must never cause this image to be marked valid.
+                ESP_LOGE(kTag, "OTA rollback could not start: %s", esp_err_to_name(result));
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
     }
     vTaskDelete(nullptr);
 }

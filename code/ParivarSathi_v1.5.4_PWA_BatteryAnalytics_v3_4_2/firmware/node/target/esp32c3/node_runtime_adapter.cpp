@@ -12,9 +12,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_now.h"
-#if GS_HIL_BUILD
 #include "esp_ota_ops.h"
-#endif
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -57,6 +55,10 @@ std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<std::uint32_t> g_send_queue_drops{0};
 std::atomic<std::uint32_t> g_fota_timeouts{0};
 std::atomic<bool> g_control_plane_active{false};
+std::atomic<bool> g_ota_owner_started{false};
+std::atomic<bool> g_ota_sensing_ready{false};
+std::atomic<bool> g_ota_post_sensing_radio_confirmed{false};
+std::atomic<std::uint32_t> g_ota_post_sensing_runtime_ticks{0};
 #if GS_HIL_BUILD
 std::atomic<std::uint32_t> g_hil_motion_pending{0};
 std::atomic<bool> g_hil_force_health{false};
@@ -189,6 +191,7 @@ esp_err_t initialize_esp_now() {
 
 void owner_task(void*) {
     NodeRuntime runtime(kNodeId, g_session_id);
+    g_ota_owner_started.store(true, std::memory_order_release);
     QualifiedInput pir(EventKind::Motion, std::nullopt, kPirDebounceMs,
                        kPirMinimumRetriggerMs);
     std::optional<EventKey> in_flight;
@@ -223,6 +226,16 @@ void owner_task(void*) {
              kTxPowerQuarterDbm);
     vTaskDelay(pdMS_TO_TICKS(kPirStabilizationMs));
     ESP_LOGI(kTag, "PIR ready on GPIO%d", kPirGpio);
+    g_ota_sensing_ready.store(true, std::memory_order_release);
+    const esp_partition_t* running = esp_ota_get_running_partition();
+    esp_ota_img_states_t ota_state{};
+    if (running != nullptr &&
+        esp_ota_get_state_partition(running, &ota_state) == ESP_OK &&
+        ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+        // A pending image needs fresh post-sensing radio evidence. Ordinary
+        // boots keep the configured health interval.
+        next_health_ms = monotonic_ms();
+    }
 
     for (;;) {
         const Milliseconds now = monotonic_ms();
@@ -275,6 +288,11 @@ void owner_task(void*) {
                          send_result.accepted_by_radio);
                 in_flight.reset();
             } else if (health_in_flight) {
+                if (send_result.accepted_by_radio &&
+                    g_ota_sensing_ready.load(std::memory_order_acquire)) {
+                    g_ota_post_sensing_radio_confirmed.store(true,
+                                                             std::memory_order_release);
+                }
                 health_in_flight = false;
             }
         }
@@ -452,6 +470,8 @@ void owner_task(void*) {
         g_hil_sensing_live.store(sensing_liveness, std::memory_order_release);
 #endif
 
+        g_ota_post_sensing_runtime_ticks.fetch_add(1U, std::memory_order_relaxed);
+
         vTaskDelay(pdMS_TO_TICKS(kPirPollMs));
     }
 }
@@ -468,6 +488,15 @@ void set_control_plane_active(bool active) {
 
 void report_control_plane_timeout() {
     g_fota_timeouts.fetch_add(1U, std::memory_order_relaxed);
+}
+
+fota::BootHealthObservation ota_boot_health_observation() {
+    return {g_ota_owner_started.load(std::memory_order_acquire),
+            g_ota_sensing_ready.load(std::memory_order_acquire),
+            g_ota_post_sensing_radio_confirmed.load(std::memory_order_acquire),
+            g_control_plane_active.load(std::memory_order_acquire),
+            g_ota_post_sensing_runtime_ticks.load(std::memory_order_acquire),
+            esp_get_minimum_free_heap_size()};
 }
 
 #if GS_HIL_BUILD

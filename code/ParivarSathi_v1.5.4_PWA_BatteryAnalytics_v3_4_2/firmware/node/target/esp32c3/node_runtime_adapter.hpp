@@ -1,5 +1,7 @@
 #pragma once
 
+#include "firmware/node/fota/boot_health_gate.hpp"
+
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -27,6 +29,7 @@ esp_err_t start_runtime_adapter();
 QueueHandle_t control_plane_queue();
 void set_control_plane_active(bool active);
 void report_control_plane_timeout();
+fota::BootHealthObservation ota_boot_health_observation();
 
 #if GS_HIL_BUILD
 void hil_inject_motion();
