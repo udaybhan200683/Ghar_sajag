@@ -45,11 +45,15 @@ public:
                                      std::uint64_t transport_session);
     std::optional<DomainEvent> pop();
     std::size_t rejected() const { return rejected_; }
+    std::size_t size() const { return queue_.size(); }
+    std::size_t capacity() const { return capacity_; }
+    std::size_t high_water() const { return high_water_; }
 
 private:
     std::size_t capacity_;
     std::deque<DomainEvent> queue_;
     std::size_t rejected_{0};
+    std::size_t high_water_{0};
 };
 
 }  // namespace gs::hub

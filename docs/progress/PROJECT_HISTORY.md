@@ -1190,3 +1190,15 @@ boot-session rollback. The 1/4/10/25-context scheduled harness now uses this
 record at Node restart. The dedicated target NVS namespace is compiled only;
 target startup/runtime, protected key sourcing, flash-wear policy, rollback
 resistance and physical power-cut proof are still outstanding.
+
+## 2026-09-24 - Phase-2 ten-Node host pressure and per-Node evidence
+
+The scheduled transport now models a bounded Hub processing budget after
+authenticated ingress. Ten-Node host tests fill the 32-entry ingress queue,
+observe explicit per-Node rejections, resume processing and drain all ten
+events. With journal capacity eight, the final two Nodes retain rejected
+evidence. A 20-event noisy Node does not starve nine quiet Nodes. The existing
+multi-Node host campaign now writes a fail-closed JSON detail artifact under
+`build/` with 13 case rows and per-Node identities, ACKs, retries, rejections,
+latency and retained/pending counts. This is host simulation only; target
+ESP-NOW admission, resource scaling and physical RF remain unqualified.

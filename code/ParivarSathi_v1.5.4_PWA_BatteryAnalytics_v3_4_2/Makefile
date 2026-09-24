@@ -68,6 +68,7 @@ fota-host-test: build
 multinode-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
 	./build/multinode_host_validation
+	python3 tools/validation/check_multinode_summary.py build/multinode_host_summary.json
 
 registry-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/hub/components/registry/node_registry.cpp tests/cpp/node_registry_validation.cpp -o build/node_registry_validation

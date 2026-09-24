@@ -11,6 +11,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -33,7 +35,11 @@ struct NodeSnapshot {
     std::uint64_t hub_admissions{0};
     std::uint64_t matching_acks{0};
     std::uint64_t ack_mismatches{0};
+    std::uint64_t stale_acks{0};
     std::uint64_t registry_rejections{0};
+    std::uint64_t ingress_rejections{0};
+    std::uint64_t application_rejections{0};
+    std::uint64_t volatile_receipts{0};
     std::uint64_t maximum_ack_latency_ms{0};
     bool commissioned{false};
 };
@@ -44,6 +50,7 @@ public:
     ~ScheduledHarness();
     std::optional<EventKey> record(std::size_t index, EventKind kind = EventKind::Motion);
     void set_hub_online(bool online) { hub_online_ = online; }
+    void set_hub_processing_budget(std::size_t per_tick) { hub_processing_budget_ = per_tick; }
     void set_node_online(std::size_t index, bool online);
     void drop_next_ack(std::size_t index);
     void redirect_next_ack(std::size_t from_index, std::size_t to_index);
@@ -54,6 +61,9 @@ public:
     NodeSnapshot snapshot(std::size_t index) const;
     std::size_t node_count() const { return nodes_.size(); }
     std::size_t journal_size() { return hub_.journal().size(); }
+    std::size_t ingest_depth() const { return hub_.ingest_depth(); }
+    std::size_t ingest_high_water() const { return hub_.ingest_high_water(); }
+    std::size_t ingest_rejected() const { return hub_.ingest_rejected(); }
     bool contains(const EventKey& key) { return hub_.journal().contains(key); }
     Milliseconds now_ms() const { return now_ms_; }
 
@@ -91,7 +101,11 @@ private:
         std::uint64_t hub_admissions{0};
         std::uint64_t matching_acks{0};
         std::uint64_t ack_mismatches{0};
+        std::uint64_t stale_acks{0};
         std::uint64_t registry_rejections{0};
+        std::uint64_t ingress_rejections{0};
+        std::uint64_t application_rejections{0};
+        std::uint64_t volatile_receipts{0};
         std::uint64_t maximum_ack_latency_ms{0};
         std::unique_ptr<gs::security::RuntimeFrameSecurity> node_security;
         std::unique_ptr<gs::security::RuntimeFrameSecurity> hub_security;
@@ -104,10 +118,15 @@ private:
         Milliseconds due_ms;
         Milliseconds originated_ms;
     };
+    struct Admitted {
+        std::size_t node_index;
+        Milliseconds originated_ms;
+    };
 
     void send_due_nodes();
     void deliver_due_frames();
     void deliver(const Frame& frame);
+    void process_hub_events();
     bool establish_session(Node& node, std::uint64_t last_session);
     void commit_recovery(Node& node);
 
@@ -116,8 +135,10 @@ private:
     host::security::OpenSslCommissioningCrypto crypto_;
     std::vector<Node> nodes_;
     std::vector<Frame> frames_;
+    std::deque<Admitted> admitted_;
     Milliseconds now_ms_{0};
     bool hub_online_{true};
+    std::size_t hub_processing_budget_{std::numeric_limits<std::size_t>::max()};
 };
 
 }  // namespace gs::host::multinode

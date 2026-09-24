@@ -11,6 +11,8 @@
 #include "ingest/ingest.hpp"
 #include "gs/logging.hpp"
 
+#include <algorithm>
+
 namespace gs::hub {
 
 void PeerRegistry::authorize(const std::string& source_id, std::uint64_t session_id) {
@@ -49,6 +51,7 @@ bool IngestQueue::callback_copy(const DomainEvent& event, const PeerRegistry& pe
         return false;
     }
     queue_.push_back(event);
+    high_water_ = std::max(high_water_, queue_.size());
     return true;
 }
 
@@ -64,6 +67,7 @@ bool IngestQueue::callback_copy_authenticated(const DomainEvent& event,
         return false;
     }
     queue_.push_back(event);
+    high_water_ = std::max(high_water_, queue_.size());
     return true;
 }
 

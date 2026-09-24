@@ -73,6 +73,10 @@ public:
         return it == power_telemetry_.end() ? std::nullopt : std::optional<NodePowerTelemetry>{it->second};
     }
     HubJournal& journal() { return journal_; }
+    std::size_t ingest_depth() const { return ingest_.size(); }
+    std::size_t ingest_capacity() const { return ingest_.capacity(); }
+    std::size_t ingest_high_water() const { return ingest_.high_water(); }
+    std::size_t ingest_rejected() const { return ingest_.rejected(); }
     const RoutineState& routine_state() const { return routine_.state(); }
 
 private:

@@ -607,6 +607,17 @@ constitute target commissioning, protected target credential storage, target
 peer management or physical ten-node qualification. Target `P2-COM` remains a
 product gap.
 
+The host scheduler now separates authenticated Hub ingress from the Hub state
+owner's processing budget. A ten-context pressure case fills the 32-entry
+HubRuntime ingress queue, observes explicit rejections, resumes processing and
+drains all ten retained events without wrong-node ACKs. A separate journal
+case caps storage at eight entries and proves two Nodes keep their rejected
+events. A noisy Node with 20 events does not starve nine quiet Nodes. These
+cases and the 1/4/10/25-context cases produce
+`build/multinode_host_summary.json` with one result and metrics row per Node;
+the existing validation gate checks expected/executed/passed case and Node
+counts. The artifact is `HOST/SIMULATED`, not target or physical RF proof.
+
 The approved security direction is a unique asymmetric keypair per production
 C3, a QR-represented public identity, authenticated Hub/Home binding and
 derived symmetric application-layer protection for runtime traffic. The QR

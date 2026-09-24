@@ -209,25 +209,12 @@ void ScheduledHarness::deliver(const Frame& frame) {
         }
         if (!hub_.authenticated_radio_message_callback(*decoded.value,
                                                        assigned->logical_id,
-                                                       node.session, 0)) return;
-        ++node.hub_admissions;
-        const auto processed = hub_.run_state_once();
-        if (!processed) throw std::runtime_error("HubRuntime did not process admitted frame");
-        const auto ack = make_node_ack(processed->key, processed->ack, 0, "host_transport");
-        const auto encoded = transport::encode_node_ack(ack);
-        if (!encoded) throw std::runtime_error("production NodeAck encoder failed");
-        gs::security::SecureFrame protected_ack;
-        if (!node.hub_security->seal(gs::security::RuntimeDirection::Downlink,
-                                      encoded.frame, protected_ack))
-            throw std::runtime_error("authenticated ACK encoding failed");
-        if (node.drop_ack) {
-            node.drop_ack = false;
+                                                       node.session, 0)) {
+            ++node.ingress_rejections;
             return;
         }
-        const auto destination = node.redirect_ack_to.value_or(frame.node_index);
-        node.redirect_ack_to.reset();
-        frames_.push_back({Frame::Direction::Ack, destination, protected_ack,
-                           now_ms_ + 1, frame.originated_ms});
+        ++node.hub_admissions;
+        admitted_.push_back({frame.node_index, frame.originated_ms});
         return;
     }
     transport::EncodedFrame plain;
@@ -245,13 +232,51 @@ void ScheduledHarness::deliver(const Frame& frame) {
         ++node.ack_mismatches;
         return;
     }
+    if (decoded.value->ack_type == AckClass::Rejected) {
+        ++node.application_rejections;
+        return;
+    }
+    if (decoded.value->ack_type == AckClass::ReceivedVolatile) {
+        ++node.volatile_receipts;
+        (void)node.runtime->acknowledge(key, decoded.value->ack_type);
+        return;
+    }
     if (node.runtime->acknowledge(key, decoded.value->ack_type)) {
         commit_recovery(node);
         ++node.matching_acks;
         node.maximum_ack_latency_ms = std::max(node.maximum_ack_latency_ms,
             static_cast<std::uint64_t>(now_ms_ - frame.originated_ms));
     } else {
-        ++node.ack_mismatches;
+        ++node.stale_acks;
+    }
+}
+
+void ScheduledHarness::process_hub_events() {
+    if (!hub_online_) return;
+    std::size_t processed_count = 0;
+    while (!admitted_.empty() && processed_count < hub_processing_budget_) {
+        const auto admitted = admitted_.front();
+        admitted_.pop_front();
+        ++processed_count;
+        auto& node = nodes_.at(admitted.node_index);
+        const auto processed = hub_.run_state_once();
+        if (!processed || processed->key.source_id != node.logical_id)
+            throw std::runtime_error("HubRuntime processing order or attribution mismatch");
+        const auto ack = make_node_ack(processed->key, processed->ack, 0, "host_transport");
+        const auto encoded = transport::encode_node_ack(ack);
+        if (!encoded) throw std::runtime_error("production NodeAck encoder failed");
+        gs::security::SecureFrame protected_ack;
+        if (!node.hub_security->seal(gs::security::RuntimeDirection::Downlink,
+                                      encoded.frame, protected_ack))
+            throw std::runtime_error("authenticated ACK encoding failed");
+        if (node.drop_ack) {
+            node.drop_ack = false;
+            continue;
+        }
+        const auto destination = node.redirect_ack_to.value_or(admitted.node_index);
+        node.redirect_ack_to.reset();
+        frames_.push_back({Frame::Direction::Ack, destination, protected_ack,
+                           now_ms_ + 1, admitted.originated_ms});
     }
 }
 
@@ -271,6 +296,7 @@ void ScheduledHarness::advance(Milliseconds delta_ms) {
     do {
         send_due_nodes();
         deliver_due_frames();
+        process_hub_events();
         if (now_ms_ == target) break;
         ++now_ms_;
     } while (true);
@@ -279,7 +305,8 @@ void ScheduledHarness::advance(Milliseconds delta_ms) {
 void ScheduledHarness::run_until_quiet(Milliseconds maximum_ms) {
     for (Milliseconds elapsed = 0; elapsed <= maximum_ms; ++elapsed) {
         advance(1);
-        if (frames_.empty() && std::all_of(nodes_.begin(), nodes_.end(), [](const Node& item) {
+        if (frames_.empty() && admitted_.empty() &&
+            std::all_of(nodes_.begin(), nodes_.end(), [](const Node& item) {
                 return item.runtime->pending() == 0;
             })) return;
     }
@@ -291,7 +318,9 @@ NodeSnapshot ScheduledHarness::snapshot(std::size_t index) const {
     return {node.physical_id, node.logical_id, node.location, node.session,
             node.runtime->next_sequence(), node.runtime->persisted(), node.runtime->pending(),
             node.uplink_attempts, node.hub_admissions, node.matching_acks,
-            node.ack_mismatches, node.registry_rejections,
+            node.ack_mismatches, node.stale_acks, node.registry_rejections,
+            node.ingress_rejections, node.application_rejections,
+            node.volatile_receipts,
             node.maximum_ack_latency_ms, node.commissioned};
 }
 
