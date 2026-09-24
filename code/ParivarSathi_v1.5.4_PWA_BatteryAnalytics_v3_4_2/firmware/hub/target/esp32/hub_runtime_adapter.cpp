@@ -6,20 +6,27 @@
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
 
 #include "esp_event.h"
+#include "esp_idf_version.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_now.h"
+#include "esp_random.h"
+#include "esp_timer.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <memory>
+#include <map>
+#include <vector>
 
 namespace gs::hub::target {
 namespace {
@@ -28,16 +35,26 @@ constexpr char kTag[] = "gs_hub_runtime";
 constexpr UBaseType_t kDataQueueDepth = 16U;
 constexpr UBaseType_t kControlQueueDepth = 8U;
 constexpr UBaseType_t kHealthQueueDepth = 1U;
+constexpr UBaseType_t kSecurityQueueDepth = 8U;
 
 StaticQueue_t g_data_queue_state{};
 StaticQueue_t g_control_queue_state{};
 StaticQueue_t g_health_queue_state{};
+StaticQueue_t g_security_queue_state{};
+StaticQueue_t g_request_queue_state{};
+StaticQueue_t g_security_send_queue_state{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kDataQueueDepth * sizeof(ReceivedFrame)> g_data_storage{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kControlQueueDepth * sizeof(ReceivedFrame)> g_control_storage{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kHealthQueueDepth * sizeof(ReceivedFrame)> g_health_storage{};
+alignas(ReceivedFrame) std::array<std::uint8_t, kSecurityQueueDepth * sizeof(ReceivedFrame)> g_security_storage{};
+alignas(HubSecurityLink::ExpectedNode*) std::array<std::uint8_t, sizeof(HubSecurityLink::ExpectedNode*)> g_request_storage{};
+alignas(bool) std::array<std::uint8_t, sizeof(bool)> g_security_send_storage{};
 QueueHandle_t g_data_queue = nullptr;
 QueueHandle_t g_control_queue = nullptr;
 QueueHandle_t g_health_queue = nullptr;
+QueueHandle_t g_security_queue = nullptr;
+QueueHandle_t g_request_queue = nullptr;
+QueueHandle_t g_security_send_queue = nullptr;
 std::atomic<std::uint32_t> g_data_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<bool> g_control_plane_active{false};
@@ -58,22 +75,35 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
 #if GS_HIL_BUILD
     if (!g_hil_logical_online.load(std::memory_order_acquire)) return;
 #endif
-    if (info == nullptr || !from_qualified_node(info->src_addr) || data == nullptr ||
+    if (info == nullptr || data == nullptr ||
         length <= 0 || static_cast<std::size_t>(length) > kTargetEspNowPayloadMax) {
         return;
     }
+#if GS_HIL_BUILD
+    if (!from_qualified_node(info->src_addr)) return;
+#endif
 
     const auto frame_class = transport::classify_frame(data, static_cast<std::size_t>(length));
     QueueHandle_t destination = nullptr;
-    if (frame_class == transport::FrameClass::NodeMessage &&
+    if (length >= 3 && data[0] == 0x47 && data[1] == 0x53 && data[2] == 1) {
+        destination = g_security_queue;
+    } else if (length >= 3 && data[0] == 0x47 && data[1] == 0x53 && data[2] == 2) {
+        destination = g_data_queue;
+    }
+#if GS_HIL_BUILD
+    else if (frame_class == transport::FrameClass::NodeMessage &&
         static_cast<std::size_t>(length) <= transport::kMaxFrameBytes) {
         destination = g_data_queue;
-    } else if (frame_class == transport::FrameClass::ControlFota) {
+    }
+    else if (frame_class == transport::FrameClass::ControlFota) {
         destination = g_control_queue;
-    } else if (frame_class == transport::FrameClass::NodeHealth &&
+    }
+    else if (frame_class == transport::FrameClass::NodeHealth &&
                static_cast<std::size_t>(length) <= transport::kMaxFrameBytes) {
         destination = g_health_queue;
-    } else {
+    }
+#endif
+    else {
         return;
     }
     if (destination == nullptr) return;
@@ -97,6 +127,17 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
         } else {
             g_control_queue_drops.fetch_add(1U, std::memory_order_relaxed);
         }
+    }
+}
+
+#if ESP_IDF_VERSION_MAJOR >= 6
+void send_callback(const esp_now_send_info_t*, esp_now_send_status_t status) {
+#else
+void send_callback(const std::uint8_t*, esp_now_send_status_t status) {
+#endif
+    if (g_security_send_queue != nullptr) {
+        const bool delivered = status == ESP_NOW_SEND_SUCCESS;
+        (void)xQueueOverwrite(g_security_send_queue, &delivered);
     }
 }
 
@@ -126,10 +167,12 @@ esp_err_t initialize_wifi() {
 
     std::array<std::uint8_t, 6> actual_mac{};
     if ((result = esp_wifi_get_mac(WIFI_IF_STA, actual_mac.data())) != ESP_OK) return result;
+#if GS_HIL_BUILD
     if (actual_mac != kQualifiedHubMac) {
         ESP_LOGE(kTag, "STA MAC does not match qualified Hub");
         return ESP_ERR_INVALID_STATE;
     }
+#endif
     return ESP_OK;
 }
 
@@ -137,7 +180,9 @@ esp_err_t initialize_esp_now() {
     esp_err_t result = esp_now_init();
     if (result != ESP_OK) return result;
     if ((result = esp_now_register_recv_cb(receive_callback)) != ESP_OK) return result;
+    if ((result = esp_now_register_send_cb(send_callback)) != ESP_OK) return result;
 
+#if GS_HIL_BUILD
     esp_now_peer_info_t peer{};
     std::memcpy(peer.peer_addr, kQualifiedNodeMac.data(), kQualifiedNodeMac.size());
     peer.channel = 0;
@@ -146,6 +191,7 @@ esp_err_t initialize_esp_now() {
     if (!esp_now_is_peer_exist(kQualifiedNodeMac.data())) {
         result = esp_now_add_peer(&peer);
     }
+#endif
     return result;
 }
 
@@ -284,6 +330,150 @@ void owner_task(void*) {
     }
 }
 
+#if !GS_HIL_BUILD
+bool add_runtime_peer(const HubSecurityLink::Mac& mac) {
+    if (esp_now_is_peer_exist(mac.data())) return true;
+    esp_now_peer_info_t peer{};
+    std::memcpy(peer.peer_addr, mac.data(), mac.size());
+    peer.channel = 0;
+    peer.ifidx = WIFI_IF_STA;
+    // Runtime frames carry their own authenticated encryption. Native
+    // encrypted-peer capacity is below the installed-node requirement.
+    peer.encrypt = false;
+    return esp_now_add_peer(&peer) == ESP_OK;
+}
+
+bool send_security_message(const HubSecurityLink::Outbound& outbound) {
+    if (!add_runtime_peer(outbound.destination)) return false;
+    std::vector<security::wire::Packet> packets;
+    std::uint32_t transaction = esp_random();
+    if (transaction == 0) transaction = 1;
+    if (!security::wire::fragment(outbound.message, transaction, packets)) return false;
+    for (const auto& packet : packets) {
+        (void)xQueueReset(g_security_send_queue);
+        if (esp_now_send(outbound.destination.data(), packet.bytes.data(),
+                         packet.size) != ESP_OK) return false;
+        bool delivered = false;
+        if (xQueueReceive(g_security_send_queue, &delivered,
+                          pdMS_TO_TICKS(1000)) != pdTRUE || !delivered) return false;
+    }
+    return true;
+}
+
+void secure_owner_task(void*) {
+    HubSecurityLink security_link;
+    HubSecurityLink::Mac physical_mac{};
+    if (esp_wifi_get_mac(WIFI_IF_STA, physical_mac.data()) != ESP_OK ||
+        !security_link.initialize(physical_mac)) {
+        ESP_LOGE(kTag, "Hub security bootstrap failed closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+    for (const auto& mac : security_link.enrolled_macs()) {
+        if (!add_runtime_peer(mac)) {
+            ESP_LOGE(kTag, "Could not restore enrolled ESP-NOW peer");
+            vTaskDelete(nullptr);
+            return;
+        }
+    }
+    HubRuntime runtime(32, 1024);
+    std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
+    ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u",
+             static_cast<unsigned>(security_link.enrolled_macs().size()));
+    for (;;) {
+        const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+        if (const auto expired = security_link.expire_candidate(now_ms)) {
+            (void)esp_now_del_peer(expired->data());
+            ESP_LOGI(kTag, "Expired uncommissioned peer removed");
+        }
+        if (g_control_plane_active.load(std::memory_order_acquire)) {
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
+        HubSecurityLink::ExpectedNode* requested = nullptr;
+        if (xQueueReceive(g_request_queue, &requested, 0) == pdTRUE) {
+            std::unique_ptr<HubSecurityLink::ExpectedNode> exact(requested);
+            const auto outbound = security_link.begin_commissioning(
+                *exact, static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+            if (outbound && send_security_message(*outbound)) {
+                ESP_LOGI(kTag, "Exact-node commissioning offer sent");
+            } else {
+                ESP_LOGW(kTag, "Exact-node commissioning request rejected");
+            }
+            std::fill(exact->installer_code.begin(), exact->installer_code.end(), 0);
+        }
+        ReceivedFrame control;
+        if (xQueueReceive(g_security_queue, &control, pdMS_TO_TICKS(20)) == pdTRUE) {
+            const auto outbound = security_link.accept(control.source_mac,
+                control.bytes.data(), control.size,
+                static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+            if (outbound && !send_security_message(*outbound))
+                ESP_LOGW(kTag, "Authenticated control reply delivery failed");
+            if (const auto* node = security_link.ready_node(control.source_mac)) {
+                const auto prior = authorized.find(control.source_mac);
+                if (prior == authorized.end() || prior->second != node->last_session) {
+                    runtime.authorize_node(node->logical_id, node->last_session, true);
+                    authorized[control.source_mac] = node->last_session;
+                    ESP_LOGI(kTag, "Authenticated rejoin logical=%s session=%llu",
+                             node->logical_id.c_str(),
+                             static_cast<unsigned long long>(node->last_session));
+                }
+            }
+        }
+        ReceivedFrame frame;
+        if (xQueueReceive(g_data_queue, &frame, 0) != pdTRUE) continue;
+        const auto* node = security_link.ready_node(frame.source_mac);
+        auto* frames = security_link.frames_for(frame.source_mac);
+        if (node == nullptr || frames == nullptr) continue;
+        security::SecureFrame protected_frame;
+        protected_frame.size = frame.size;
+        std::copy_n(frame.bytes.data(), frame.size, protected_frame.bytes.data());
+        transport::EncodedFrame plain;
+        if (!frames->open(security::RuntimeDirection::Uplink,
+                          protected_frame, plain)) {
+            ESP_LOGW(kTag, "Rejected unauthenticated/replayed runtime frame");
+            continue;
+        }
+        const auto classification = transport::classify_frame(plain.bytes.data(), plain.size);
+        if (classification == transport::FrameClass::NodeHealth) {
+            const auto health = transport::decode_node_health(plain.bytes.data(), plain.size);
+            if (health && health.value->node_id == node->logical_id &&
+                health.value->session_id == node->last_session) {
+                ESP_LOGI(kTag, "Authenticated NodeHealth logical=%s session=%llu heap=%u min_heap=%u retained=%u RSSI=%d",
+                         node->logical_id.c_str(),
+                         static_cast<unsigned long long>(node->last_session),
+                         static_cast<unsigned>(health.value->free_heap),
+                         static_cast<unsigned>(health.value->minimum_free_heap),
+                         static_cast<unsigned>(health.value->retained_count),
+                         frame.transport_rssi);
+            }
+            continue;
+        }
+        if (classification != transport::FrameClass::NodeMessage) continue;
+        const auto decoded = transport::decode_node_message(plain.bytes.data(), plain.size);
+        if (!decoded || decoded.value->node_id != node->logical_id) continue;
+        constexpr EpochSeconds hub_received_at = 0;  // No trusted clock yet.
+        if (!runtime.authenticated_radio_message_callback(
+                *decoded.value, node->logical_id, node->device_id,
+                node->last_session, hub_received_at)) continue;
+        const auto processed = runtime.run_state_once();
+        if (!processed) continue;
+        const auto ack = make_node_ack(processed->key, processed->ack,
+                                       hub_received_at, ack_reason(*processed));
+        const auto encoded = transport::encode_node_ack(ack);
+        security::SecureFrame protected_ack;
+        if (!encoded || !frames->seal(security::RuntimeDirection::Downlink,
+                                      encoded.frame, protected_ack)) continue;
+        const auto sent = esp_now_send(frame.source_mac.data(),
+                                       protected_ack.bytes.data(), protected_ack.size);
+        ESP_LOGI(kTag, "Authenticated event logical=%s seq=%llu ack=%d send=%s",
+                 node->logical_id.c_str(),
+                 static_cast<unsigned long long>(processed->key.sequence),
+                 static_cast<int>(processed->ack), esp_err_to_name(sent));
+    }
+}
+#endif
+
 }  // namespace
 
 QueueHandle_t control_plane_queue() {
@@ -292,6 +482,15 @@ QueueHandle_t control_plane_queue() {
 
 void set_control_plane_active(bool active) {
     g_control_plane_active.store(active, std::memory_order_release);
+}
+
+bool request_node_commissioning(HubSecurityLink::ExpectedNode exact) {
+    if (g_request_queue == nullptr) return false;
+    auto candidate = std::make_unique<HubSecurityLink::ExpectedNode>(std::move(exact));
+    auto* pointer = candidate.get();
+    if (xQueueSend(g_request_queue, &pointer, 0) != pdTRUE) return false;
+    candidate.release();
+    return true;
 }
 
 #if GS_HIL_BUILD
@@ -344,12 +543,24 @@ esp_err_t start_runtime_adapter() {
                                          g_control_storage.data(), &g_control_queue_state);
     g_health_queue = xQueueCreateStatic(kHealthQueueDepth, sizeof(ReceivedFrame),
                                         g_health_storage.data(), &g_health_queue_state);
-    if (g_data_queue == nullptr || g_control_queue == nullptr || g_health_queue == nullptr) {
+    g_security_queue = xQueueCreateStatic(kSecurityQueueDepth, sizeof(ReceivedFrame),
+                                          g_security_storage.data(), &g_security_queue_state);
+    g_request_queue = xQueueCreateStatic(1U, sizeof(HubSecurityLink::ExpectedNode*),
+                                         g_request_storage.data(), &g_request_queue_state);
+    g_security_send_queue = xQueueCreateStatic(1U, sizeof(bool),
+        g_security_send_storage.data(), &g_security_send_queue_state);
+    if (g_data_queue == nullptr || g_control_queue == nullptr || g_health_queue == nullptr ||
+        g_security_queue == nullptr || g_request_queue == nullptr ||
+        g_security_send_queue == nullptr) {
         return ESP_ERR_NO_MEM;
     }
     if ((result = initialize_wifi()) != ESP_OK) return result;
     if ((result = initialize_esp_now()) != ESP_OK) return result;
+#if GS_HIL_BUILD
     if (xTaskCreate(owner_task, "gs_hub_owner", 8192, nullptr, 8, nullptr) != pdPASS) {
+#else
+    if (xTaskCreate(secure_owner_task, "gs_hub_owner", 16384, nullptr, 8, nullptr) != pdPASS) {
+#endif
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;

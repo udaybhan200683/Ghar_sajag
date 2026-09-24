@@ -30,6 +30,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/node/runtime/node_runtime.cpp"
         "${GS_ROOT}/firmware/node/target/esp32c3/nvs_session_provider.cpp"
         "${GS_ROOT}/firmware/node/target/esp32c3/node_runtime_adapter.cpp"
+        "${GS_ROOT}/firmware/node/target/esp32c3/node_security_link.cpp"
     INCLUDE_DIRS
         "."
         "${GS_ROOT}"

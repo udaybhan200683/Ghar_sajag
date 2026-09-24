@@ -5,6 +5,7 @@
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/common/security/target_wrapping_key.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
+#include "firmware/node/target/esp32c3/node_security_link.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
 #include "firmware/node/target/esp32c3/nvs_session_provider.hpp"
 #include "sensing/sensing.hpp"
@@ -15,6 +16,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_now.h"
+#include "esp_random.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -22,6 +24,7 @@
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -29,6 +32,7 @@
 #include <cstring>
 #include <cstdio>
 #include <optional>
+#include <vector>
 
 namespace gs::node::target {
 namespace {
@@ -36,6 +40,7 @@ namespace {
 constexpr char kTag[] = "gs_node_runtime";
 constexpr UBaseType_t kAckQueueDepth = 8U;
 constexpr UBaseType_t kControlQueueDepth = 8U;
+constexpr UBaseType_t kSecurityQueueDepth = 8U;
 constexpr UBaseType_t kSendQueueDepth = 4U;
 constexpr Milliseconds kSendCallbackTimeoutMs = 1000;
 constexpr Milliseconds kHealthIntervalMs = 60000;
@@ -46,12 +51,18 @@ struct SendResult {
 
 StaticQueue_t g_ack_queue_state{};
 StaticQueue_t g_control_queue_state{};
+StaticQueue_t g_security_queue_state{};
+StaticQueue_t g_security_send_queue_state{};
 StaticQueue_t g_send_queue_state{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kAckQueueDepth * sizeof(ReceivedFrame)> g_ack_storage{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kControlQueueDepth * sizeof(ReceivedFrame)> g_control_storage{};
+alignas(ReceivedFrame) std::array<std::uint8_t, kSecurityQueueDepth * sizeof(ReceivedFrame)> g_security_storage{};
+alignas(SendResult) std::array<std::uint8_t, sizeof(SendResult)> g_security_send_storage{};
 alignas(SendResult) std::array<std::uint8_t, kSendQueueDepth * sizeof(SendResult)> g_send_storage{};
 QueueHandle_t g_ack_queue = nullptr;
 QueueHandle_t g_control_queue = nullptr;
+QueueHandle_t g_security_queue = nullptr;
+QueueHandle_t g_security_send_queue = nullptr;
 QueueHandle_t g_send_queue = nullptr;
 std::uint64_t g_session_id = 0;
 std::atomic<std::uint32_t> g_ack_queue_drops{0};
@@ -59,6 +70,7 @@ std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<std::uint32_t> g_send_queue_drops{0};
 std::atomic<std::uint32_t> g_fota_timeouts{0};
 std::atomic<bool> g_control_plane_active{false};
+std::atomic<bool> g_security_phase{true};
 std::atomic<bool> g_ota_owner_started{false};
 std::atomic<bool> g_ota_sensing_ready{false};
 std::atomic<bool> g_ota_post_sensing_radio_confirmed{false};
@@ -83,19 +95,33 @@ bool from_qualified_hub(const std::uint8_t* mac) {
 
 void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
                       int length) {
-    if (info == nullptr || !from_qualified_hub(info->src_addr) || data == nullptr ||
+    if (info == nullptr || data == nullptr ||
         length <= 0 || static_cast<std::size_t>(length) > kTargetEspNowPayloadMax) {
         return;
     }
 
+    const bool security_wire = length >= 3 && data[0] == 0x47 &&
+                               data[1] == 0x53 && data[2] == 1;
+    const bool secured_runtime = length >= 3 && data[0] == 0x47 &&
+                                 data[1] == 0x53 && data[2] == 2;
     const auto frame_class = transport::classify_frame(data, static_cast<std::size_t>(length));
     QueueHandle_t destination = nullptr;
-    if (frame_class == transport::FrameClass::NodeAck &&
-        static_cast<std::size_t>(length) <= transport::kMaxFrameBytes) {
+    if (security_wire) {
+        destination = g_security_queue;
+    } else if (secured_runtime) {
         destination = g_ack_queue;
-    } else if (frame_class == transport::FrameClass::ControlFota) {
+    }
+#if GS_HIL_BUILD
+    else if (frame_class == transport::FrameClass::NodeAck &&
+               from_qualified_hub(info->src_addr)) {
+        destination = g_ack_queue;
+    }
+    else if (frame_class == transport::FrameClass::ControlFota &&
+               from_qualified_hub(info->src_addr)) {
         destination = g_control_queue;
-    } else {
+    }
+#endif
+    else {
         return;
     }
     if (destination == nullptr) return;
@@ -124,6 +150,13 @@ void send_callback(const std::uint8_t*, esp_now_send_status_t status) {
 #endif
     // FOTA ACK sends use the same peer and produce indistinguishable MAC
     // callbacks. They belong to the control-plane worker, not NodeRuntime.
+    if (g_security_phase.load(std::memory_order_acquire)) {
+        if (g_security_send_queue != nullptr) {
+            const SendResult result{status == ESP_NOW_SEND_SUCCESS};
+            (void)xQueueOverwrite(g_security_send_queue, &result);
+        }
+        return;
+    }
     if (g_send_queue == nullptr ||
         g_control_plane_active.load(std::memory_order_acquire)) return;
     const SendResult result{status == ESP_NOW_SEND_SUCCESS};
@@ -169,10 +202,12 @@ esp_err_t initialize_wifi() {
 
     std::array<std::uint8_t, 6> actual_mac{};
     if ((result = esp_wifi_get_mac(WIFI_IF_STA, actual_mac.data())) != ESP_OK) return result;
+    #if GS_HIL_BUILD
     if (actual_mac != kQualifiedNodeMac) {
         ESP_LOGE(kTag, "STA MAC does not match qualified C3");
         return ESP_ERR_INVALID_STATE;
     }
+    #endif
     return ESP_OK;
 }
 
@@ -182,6 +217,7 @@ esp_err_t initialize_esp_now() {
     if ((result = esp_now_register_recv_cb(receive_callback)) != ESP_OK) return result;
     if ((result = esp_now_register_send_cb(send_callback)) != ESP_OK) return result;
 
+    #if GS_HIL_BUILD
     esp_now_peer_info_t peer{};
     std::memcpy(peer.peer_addr, kQualifiedHubMac.data(), kQualifiedHubMac.size());
     peer.channel = 0;
@@ -190,11 +226,76 @@ esp_err_t initialize_esp_now() {
     if (!esp_now_is_peer_exist(kQualifiedHubMac.data())) {
         result = esp_now_add_peer(&peer);
     }
+    #endif
     return result;
 }
 
+bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
+    security::wire::Message message = outbound.message;
+    std::vector<security::wire::Packet> packets;
+    std::uint32_t transaction = esp_random();
+    if (transaction == 0) transaction = 1;
+    if (!security::wire::fragment(message, transaction, packets)) return false;
+    if (!esp_now_is_peer_exist(outbound.destination.data())) {
+        esp_now_peer_info_t peer{};
+        std::memcpy(peer.peer_addr, outbound.destination.data(), outbound.destination.size());
+        peer.channel = 0;
+        peer.ifidx = WIFI_IF_STA;
+        peer.encrypt = false;  // Application AEAD protects runtime after rejoin.
+        if (esp_now_add_peer(&peer) != ESP_OK) return false;
+    }
+    for (const auto& packet : packets) {
+        (void)xQueueReset(g_security_send_queue);
+        if (esp_now_send(outbound.destination.data(), packet.bytes.data(),
+                         packet.size) != ESP_OK) return false;
+        SendResult result;
+        if (xQueueReceive(g_security_send_queue, &result,
+                          pdMS_TO_TICKS(kSendCallbackTimeoutMs)) != pdTRUE ||
+            !result.accepted_by_radio) return false;
+    }
+    return true;
+}
+
 void owner_task(void*) {
+#if !GS_HIL_BUILD
+    NodeSecurityLink security_link;
+    std::array<std::uint8_t, 6> physical_mac{};
+    if (esp_wifi_get_mac(WIFI_IF_STA, physical_mac.data()) != ESP_OK ||
+        !security_link.initialize(physical_mac, g_session_id, monotonic_ms())) {
+        ESP_LOGE(kTag, "Node security bootstrap failed closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+    auto last_outbound = security_link.initial_message();
+    if (last_outbound) (void)send_security_message(*last_outbound);
+    Milliseconds next_security_retry_ms = monotonic_ms() + 1500;
+    while (!security_link.ready()) {
+        if (security_link.faulted()) {
+            ESP_LOGE(kTag, "Node security owner faulted; runtime admission disabled");
+            vTaskDelete(nullptr);
+            return;
+        }
+        ReceivedFrame frame;
+        if (xQueueReceive(g_security_queue, &frame, pdMS_TO_TICKS(100)) == pdTRUE) {
+            const auto response = security_link.accept(frame.source_mac,
+                frame.bytes.data(), frame.size, monotonic_ms());
+            if (response) {
+                last_outbound = response;
+                (void)send_security_message(*response);
+                next_security_retry_ms = monotonic_ms() + 1500;
+            }
+        }
+        if (last_outbound && monotonic_ms() >= next_security_retry_ms) {
+            (void)send_security_message(*last_outbound);
+            next_security_retry_ms = monotonic_ms() + 3000;
+        }
+    }
+    g_security_phase.store(false, std::memory_order_release);
+    NodeRuntime runtime(security_link.binding()->logical_id, g_session_id);
+#else
+    g_security_phase.store(false, std::memory_order_release);
     NodeRuntime runtime(kNodeId, g_session_id);
+#endif
     g_ota_owner_started.store(true, std::memory_order_release);
     QualifiedInput pir(EventKind::Motion, std::nullopt, kPirDebounceMs,
                        kPirMinimumRetriggerMs);
@@ -262,8 +363,25 @@ void owner_task(void*) {
         }
         ReceivedFrame ack_frame;
         while (xQueueReceive(g_ack_queue, &ack_frame, 0) == pdTRUE) {
+#if !GS_HIL_BUILD
+            if (ack_frame.source_mac != security_link.hub_mac()) continue;
+            security::SecureFrame protected_ack;
+            protected_ack.size = ack_frame.size;
+            std::copy_n(ack_frame.bytes.data(), ack_frame.size,
+                        protected_ack.bytes.data());
+            transport::EncodedFrame verified_ack;
+            if (!security_link.frames()->open(security::RuntimeDirection::Downlink,
+                                              protected_ack, verified_ack)) {
+                ESP_LOGW(kTag, "Rejected unauthenticated or replayed ACK");
+                continue;
+            }
+            const auto decoded = transport::decode_node_ack(
+                verified_ack.bytes.data(), verified_ack.size);
+#else
+            if (!from_qualified_hub(ack_frame.source_mac.data())) continue;
             const auto decoded = transport::decode_node_ack(
                 ack_frame.bytes.data(), ack_frame.size);
+#endif
             if (!decoded) {
                 ESP_LOGW(kTag, "Rejected malformed ACK error=%d", static_cast<int>(decoded.error));
                 continue;
@@ -353,7 +471,13 @@ void owner_task(void*) {
             if (!maintenance) {
                 breadcrumb = NodeBreadcrumb::EventRecordEnter;
                 const auto store_full_before = runtime.stats().store_full;
-                const auto key = runtime.record(*sensed, kLocation, now, 0,
+                const auto key = runtime.record(*sensed,
+#if !GS_HIL_BUILD
+                                                security_link.binding()->room,
+#else
+                                                kLocation,
+#endif
+                                                now, 0,
                                                 24U * 60U * 60U, 0, false,
                                                 SensorType::Pir, 0);
                 if (key) {
@@ -388,7 +512,11 @@ void owner_task(void*) {
             const auto& radio_stats = runtime.radio_stats();
             const auto oldest = runtime.oldest_pending_key();
             NodeHealthSnapshot health;
+#if !GS_HIL_BUILD
+            health.node_id = security_link.binding()->logical_id;
+#else
             health.node_id = kNodeId;
+#endif
             health.session_id = g_session_id;
             health.health_sequence = health_sequence++;
             health.uptime_ms = static_cast<std::uint64_t>(now);
@@ -420,10 +548,23 @@ void owner_task(void*) {
             const auto encoded = transport::encode_node_health(health);
             next_health_ms = now + kHealthIntervalMs;
             if (encoded) {
+#if !GS_HIL_BUILD
+                security::SecureFrame protected_health;
+                if (!security_link.frames()->seal(security::RuntimeDirection::Uplink,
+                                                  encoded.frame, protected_health)) {
+                    last_error = NodeHealthError::EncodeFailed;
+                    continue;
+                }
+                ++send_attempts;
+                const esp_err_t sent = esp_now_send(security_link.hub_mac().data(),
+                                                    protected_health.bytes.data(),
+                                                    protected_health.size);
+#else
                 ++send_attempts;
                 const esp_err_t sent = esp_now_send(kQualifiedHubMac.data(),
                                                     encoded.frame.bytes.data(),
                                                     encoded.frame.size);
+#endif
                 if (sent == ESP_OK) {
                     health_in_flight = true;
                     sent_at_ms = now;
@@ -444,10 +585,25 @@ void owner_task(void*) {
                     last_error = NodeHealthError::EncodeFailed;
                     breadcrumb = NodeBreadcrumb::RetryBackoff;
                 } else {
+#if !GS_HIL_BUILD
+                    security::SecureFrame protected_message;
+                    if (!security_link.frames()->seal(security::RuntimeDirection::Uplink,
+                                                      encoded.frame, protected_message)) {
+                        runtime.transport_result(key, false, now);
+                        last_error = NodeHealthError::EncodeFailed;
+                        breadcrumb = NodeBreadcrumb::RetryBackoff;
+                        continue;
+                    }
+                    ++send_attempts;
+                    const esp_err_t sent = esp_now_send(security_link.hub_mac().data(),
+                                                        protected_message.bytes.data(),
+                                                        protected_message.size);
+#else
                     ++send_attempts;
                     const esp_err_t sent = esp_now_send(kQualifiedHubMac.data(),
                                                         encoded.frame.bytes.data(),
                                                         encoded.frame.size);
+#endif
                     if (sent == ESP_OK) {
                         in_flight = key;
                         sent_at_ms = now;
@@ -588,9 +744,15 @@ esp_err_t start_runtime_adapter() {
                                      g_ack_storage.data(), &g_ack_queue_state);
     g_control_queue = xQueueCreateStatic(kControlQueueDepth, sizeof(ReceivedFrame),
                                          g_control_storage.data(), &g_control_queue_state);
+    g_security_queue = xQueueCreateStatic(kSecurityQueueDepth, sizeof(ReceivedFrame),
+                                          g_security_storage.data(), &g_security_queue_state);
+    g_security_send_queue = xQueueCreateStatic(1U, sizeof(SendResult),
+        g_security_send_storage.data(), &g_security_send_queue_state);
     g_send_queue = xQueueCreateStatic(kSendQueueDepth, sizeof(SendResult),
                                       g_send_storage.data(), &g_send_queue_state);
-    if (g_ack_queue == nullptr || g_control_queue == nullptr || g_send_queue == nullptr) {
+    if (g_ack_queue == nullptr || g_control_queue == nullptr ||
+        g_security_queue == nullptr || g_security_send_queue == nullptr ||
+        g_send_queue == nullptr) {
         return ESP_ERR_NO_MEM;
     }
     if ((result = initialize_gpio()) != ESP_OK) return result;

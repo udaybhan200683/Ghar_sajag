@@ -1341,3 +1341,17 @@ multi-C3 RF qualification is claimed.
 The matching present-state, P0/P1 future work and remaining Phase-2 blockers
 are maintained in `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`; requirement
 evidence classifications remain in `docs/validation/MASTER_TRACEABILITY.csv`.
+
+### 2026-09-24: target security owner-path integration in progress
+
+The production Hub and C3 owner tasks were connected to the existing Phase-2
+commissioning, registry, association, rejoin and runtime AEAD components. The
+Hub now exposes an exact-candidate commissioning request boundary and restores
+enrolled ESP-NOW peers; the C3 restores its bound Hub and waits for
+authenticated rejoin before normal runtime. Production plaintext event/ACK
+admission and unauthenticated FOTA control were disabled. The default HIL
+build keeps the qualified Phase-1 transport path. Focused host crypto/rejoin/
+persistence tests and both target build profiles are the software evidence;
+physical target security qualification and installer UI integration remain
+open. This target change does not alter the latest physical evidence or its
+`7bc2a33` firmware provenance.

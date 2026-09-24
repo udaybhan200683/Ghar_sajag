@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "firmware/hub/target/esp32/hub_security_link.hpp"
 
 namespace gs::hub::target {
 
@@ -26,6 +27,9 @@ struct ReceivedFrame {
 esp_err_t start_runtime_adapter();
 QueueHandle_t control_plane_queue();
 void set_control_plane_active(bool active);
+// Installer-facing product boundary. Ownership of the exact candidate is
+// transferred to the Hub owner only when the bounded request queue accepts it.
+bool request_node_commissioning(HubSecurityLink::ExpectedNode exact);
 
 #if GS_HIL_BUILD
 void hil_set_logical_online(bool online);

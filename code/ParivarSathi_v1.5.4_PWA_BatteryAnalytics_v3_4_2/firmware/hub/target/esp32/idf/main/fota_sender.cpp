@@ -219,9 +219,11 @@ esp_err_t start_fota_sender() {
     if (xTaskCreate(sender_task, "gs_fota_sender", 6144, nullptr, 8, nullptr) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
+#if GS_HIL_BUILD
     if (xTaskCreate(trigger_task, "gs_fota_trigger", 3072, nullptr, 4, nullptr) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
+#endif
     ESP_LOGI(kTag, "Embedded C3 image=%lu bytes",
              static_cast<unsigned long>(node_firmware_end - node_firmware_start));
     return ESP_OK;

@@ -186,20 +186,26 @@ unless an actual release blocker requires them. A bounded short stress run is
 required; long soak framework development belongs to the battery/endurance
 track.
 
-The source audit found no active target commissioning or runtime AEAD/rejoin:
-both target ESP-NOW adapters currently pin one peer MAC, set `encrypt=false`,
-route plaintext codec frames, and the Hub accepts a higher session directly
-from a matching MAC. The target builds include the shared crypto, registry and
-NVS components, but their presence in CMake is build evidence only. Actual
-target wiring must remove that trust shortcut and reject unknown Nodes before
-any ten-Node target claim.
+The initial source audit found no active target commissioning or runtime
+AEAD/rejoin: both ESP-NOW adapters pinned one peer MAC and trusted plaintext
+traffic from that MAC. Subsequent target integration added exact-candidate
+commissioning, registry-backed authenticated rejoin, and AEAD event/health/ACK
+routing to the production Hub/C3 owner tasks. This is **target-build evidence,
+not physical security qualification**. The default HIL image retains the
+Phase-1 single-pair transport path for its 71 mandatory regression cases.
+Production provisioning and installer-to-Hub authorization remain open, and
+the secure target path must be exercised on development hardware before the
+ten-Node target/RF claim. Unauthenticated production FOTA controls are disabled
+pending image/control authorization; the previously qualified HIL FOTA path
+remains available in HIL images only.
 
 ## Exact remaining Phase-2 sequence
 
-1. **P2.3 target commissioning/security wiring:** complete target mutual
-   authentication, registry admission, authenticated runtime, and rejoin.
-   Development/HIL key sourcing may be used for qualification; production
-   credential manufacturing remains a separately governed decision.
+1. **P2.3 target commissioning/security qualification:** exercise the newly
+   wired Hub/C3 owner path with development credentials, finish the installer
+   authorization entry point, and prove target peer/session recovery. The
+   target build alone does not close this item; production credential
+   manufacturing remains a separately governed decision.
 2. **P2.4 target persistence integration:** connect protected key sourcing,
    association/registry/recovery restore, and the bounded Hub event journal;
    define accurate durable-ACK behavior and qualify restart semantics.

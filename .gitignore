@@ -1,5 +1,6 @@
 # Compiled/generated files
 **/build/
+**/build_prod/
 **/__pycache__/
 **/*.pyc
 /config/hil.local.env
