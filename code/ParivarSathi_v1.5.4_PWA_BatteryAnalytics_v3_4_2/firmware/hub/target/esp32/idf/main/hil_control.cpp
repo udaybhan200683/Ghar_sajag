@@ -24,6 +24,8 @@ void dispatch_command(const char* command) {
                std::strcmp(command, "GET_HEALTH") == 0) {
         gs::hub::target::hil_log_state();
         ESP_LOGI(kTag, "HIL_OK command=%s", command);
+    } else if (std::strcmp(command, "GET_TEST_IDENTITY") == 0) {
+        gs::hub::target::hil_log_test_identity();
     } else if (std::strcmp(command, "SOFTWARE_RESTART") == 0) {
         ESP_LOGI(kTag, "HIL_OK command=SOFTWARE_RESTART reset_class=SOFTWARE_RESET");
         std::fflush(stdout);

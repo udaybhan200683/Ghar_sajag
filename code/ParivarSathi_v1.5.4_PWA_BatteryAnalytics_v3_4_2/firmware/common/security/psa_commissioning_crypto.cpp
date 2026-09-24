@@ -3,7 +3,11 @@
 #include <algorithm>
 #include <utility>
 
+// ESP-IDF 6.0.3's constant_time.h lacks an extern-C guard, although its
+// implementation is C. Keep the C symbol name when this C++ provider links.
+extern "C" {
 #include "mbedtls/constant_time.h"
+}
 #include "mbedtls/platform_util.h"
 #include "psa/crypto.h"
 

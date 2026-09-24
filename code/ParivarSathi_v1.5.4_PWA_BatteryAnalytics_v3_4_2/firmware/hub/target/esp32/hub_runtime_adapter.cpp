@@ -1,6 +1,7 @@
 #include "firmware/hub/target/esp32/hub_runtime_adapter.hpp"
 
 #include "firmware/common/transport/data_plane_codec.hpp"
+#include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
 
@@ -309,6 +310,28 @@ void hil_log_state() {
              static_cast<unsigned>(uxQueueMessagesWaiting(g_data_queue)),
              static_cast<unsigned>(esp_get_free_heap_size()),
              static_cast<unsigned>(esp_get_minimum_free_heap_size()));
+}
+
+void hil_log_test_identity() {
+    static security::TargetIdentitySigner identity("hub", 0x7001);
+    static bool identity_ready = identity.initialize();
+    security::P256PublicKey public_key{};
+    std::array<std::uint8_t, 6> mac{};
+    if (!identity_ready || !identity.public_key("hub", public_key) ||
+        esp_wifi_get_mac(WIFI_IF_STA, mac.data()) != ESP_OK) {
+        ESP_LOGE(kTag, "HIL_ERROR command=GET_TEST_IDENTITY reason=identity_unavailable");
+        return;
+    }
+    char key_hex[public_key.size() * 2 + 1]{};
+    constexpr char hex[] = "0123456789abcdef";
+    for (std::size_t i = 0; i < public_key.size(); ++i) {
+        key_hex[2 * i] = hex[public_key[i] >> 4];
+        key_hex[2 * i + 1] = hex[public_key[i] & 0x0f];
+    }
+    ESP_LOGI(kTag,
+             "HIL_TEST_IDENTITY profile=TEST_ONLY hub_id=hub-%02x%02x%02x%02x%02x%02x public_key=%s",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], key_hex);
+    ESP_LOGI(kTag, "HIL_OK command=GET_TEST_IDENTITY");
 }
 #endif
 

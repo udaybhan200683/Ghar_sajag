@@ -1,6 +1,9 @@
 #include "firmware/node/target/esp32c3/node_runtime_adapter.hpp"
 
 #include "firmware/common/transport/data_plane_codec.hpp"
+#include "firmware/common/security/psa_commissioning_crypto.hpp"
+#include "firmware/common/security/target_identity_signer.hpp"
+#include "firmware/common/security/target_wrapping_key.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
 #include "firmware/node/target/esp32c3/nvs_session_provider.hpp"
@@ -24,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <cstdio>
 #include <optional>
 
 namespace gs::node::target {
@@ -521,6 +525,48 @@ void hil_log_state() {
              static_cast<unsigned>(esp_get_free_heap_size()),
              static_cast<unsigned>(esp_get_minimum_free_heap_size()),
              running_partition == nullptr ? "unknown" : running_partition->label);
+}
+
+void hil_log_test_qr() {
+    // Development-only provisioning evidence. A production QR is issued by
+    // manufacturing and must never expose the device private signing key.
+    static security::TargetIdentitySigner identity("node", 0x7001);
+    static bool identity_ready = identity.initialize();
+    if (!identity_ready) {
+        ESP_LOGE(kTag, "HIL_ERROR command=GET_TEST_QR reason=identity_unavailable");
+        return;
+    }
+    security::PsaCommissioningCrypto crypto(identity);
+    security::P256PublicKey public_key{};
+    security::Key32 code{};
+    std::array<std::uint8_t, 6> mac{};
+    if (!crypto.ready() || !identity.public_key("node", public_key) ||
+        !security::load_target_installer_code(crypto, code) ||
+        esp_wifi_get_mac(WIFI_IF_STA, mac.data()) != ESP_OK) {
+        crypto.secure_zero(code.data(), code.size());
+        ESP_LOGE(kTag, "HIL_ERROR command=GET_TEST_QR reason=provisioning_unavailable");
+        return;
+    }
+    char key_hex[public_key.size() * 2 + 1]{};
+    char code_hex[code.size() * 2 + 1]{};
+    constexpr char hex[] = "0123456789abcdef";
+    for (std::size_t i = 0; i < public_key.size(); ++i) {
+        key_hex[2 * i] = hex[public_key[i] >> 4];
+        key_hex[2 * i + 1] = hex[public_key[i] & 0x0f];
+    }
+    for (std::size_t i = 0; i < code.size(); ++i) {
+        code_hex[2 * i] = hex[code[i] >> 4];
+        code_hex[2 * i + 1] = hex[code[i] & 0x0f];
+    }
+    ESP_LOGI(kTag,
+             "HIL_TEST_QR profile=TEST_ONLY device_id=c3-%02x%02x%02x%02x%02x%02x public_key=%s",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], key_hex);
+    ESP_LOGI(kTag,
+             "HIL_TEST_CODE profile=TEST_ONLY device_id=c3-%02x%02x%02x%02x%02x%02x installer_code=%s",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], code_hex);
+    crypto.secure_zero(code.data(), code.size());
+    std::memset(code_hex, 0, sizeof(code_hex));
+    ESP_LOGI(kTag, "HIL_OK command=GET_TEST_QR");
 }
 #endif
 

@@ -30,6 +30,7 @@ void set_control_plane_active(bool active);
 #if GS_HIL_BUILD
 void hil_set_logical_online(bool online);
 void hil_log_state();
+void hil_log_test_identity();
 #endif
 
 }  // namespace gs::hub::target

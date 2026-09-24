@@ -165,7 +165,7 @@ continues to record its broader requirement until evidence changes.
 | P2-REG-01 | PHASE2_REQUIRED_NOW | Target registry admission, revocation persistence and distinct physical/logical identity are still absent. |
 | P2-COM-HOST-01 | ALREADY_COMPLETE | Host commissioning transcript/crypto tests pass; target wiring is owned by P2-COM-01. |
 | P2-RUNTIME-SEC-HOST-01 | ALREADY_COMPLETE | Host AEAD/ACK isolation tests pass; target wiring is owned by P2-COM-01. |
-| P2-PSA-TARGET-01 | PARTIAL_BUT_SUFFICIENT_FOR_PHASE2 | The platform crypto implementation builds; a test-only target key source is needed now, while irreversible manufacturing/eFuse policy belongs to productization. |
+| P2-PSA-TARGET-01 | PARTIAL_BUT_SUFFICIENT_FOR_PHASE2 | Platform crypto and test-only target identity/wrapping-key sources build; live radio wiring is owned by P2-COM-01, while irreversible manufacturing/eFuse policy belongs to productization. |
 | P2-REJOIN-HOST-01 | ALREADY_COMPLETE | Host authenticated rejoin passes; target rejoin is owned by P2-COM-01 and P2-REC-01. |
 | P2-PERSIST-ASSOC-HOST-01 | PHASE2_REQUIRED_NOW | Bind target startup restore to authenticated Home/Hub/Node association so ordinary reboot does not re-pair. |
 | P2-PERSIST-HUB-REG-HOST-01 | PHASE2_REQUIRED_NOW | Hub reboot must retain authorization, session floors and revocations. |

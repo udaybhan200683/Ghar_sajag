@@ -35,6 +35,7 @@ fota::BootHealthObservation ota_boot_health_observation();
 void hil_inject_motion();
 void hil_request_health();
 void hil_log_state();
+void hil_log_test_qr();
 #endif
 
 }  // namespace gs::node::target

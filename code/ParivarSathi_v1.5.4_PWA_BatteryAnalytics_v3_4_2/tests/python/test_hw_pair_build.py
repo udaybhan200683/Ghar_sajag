@@ -109,6 +109,11 @@ class HwPairBuildTest(unittest.TestCase):
             contaminated.write_bytes(b"production-looking image START_C3_FOTA")
             with self.assertRaises(PairBuildError):
                 require_production_isolation(contaminated)
+            for marker in (b"HIL_TEST_QR", b"HIL_TEST_CODE", b"HIL_TEST_IDENTITY",
+                           b"GET_TEST_QR", b"GET_TEST_IDENTITY"):
+                contaminated.write_bytes(b"production-looking image " + marker)
+                with self.assertRaises(PairBuildError):
+                    require_production_isolation(contaminated)
 
     def test_runtime_provenance_is_fixed(self):
         self.assertEqual(RUNTIME_IMPLEMENTATION_COMMIT, "cfcee972dab6045bbb8f7fbfeb51bf66097cfae9")

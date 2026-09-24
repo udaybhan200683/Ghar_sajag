@@ -22,6 +22,8 @@ void dispatch_command(const char* command) {
     } else if (std::strcmp(command, "GET_STATE") == 0) {
         gs::node::target::hil_log_state();
         ESP_LOGI(kTag, "HIL_OK command=GET_STATE");
+    } else if (std::strcmp(command, "GET_TEST_QR") == 0) {
+        gs::node::target::hil_log_test_qr();
     } else if (std::strcmp(command, "SOFTWARE_RESTART") == 0) {
         ESP_LOGI(kTag, "HIL_OK command=SOFTWARE_RESTART reset_class=SOFTWARE_RESET");
         std::fflush(stdout);
