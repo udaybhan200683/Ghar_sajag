@@ -108,6 +108,53 @@ void removal_and_replacement() {
             "remove/replacement accounting wrong");
     std::cout << "P2-REG-LIFECYCLE HOST PASS replace/remove/revoke\n";
 }
+
+void revocation_capacity_fails_closed() {
+    NodeRegistry registry("home-a", "hub-a", 10, 2);
+    for (unsigned i = 1; i <= 3; ++i)
+        require(registry.enroll(node(i)) == RegistryResult::Accepted,
+                "revocation capacity setup failed");
+    require(registry.remove("physical-1") == RegistryResult::Accepted &&
+            registry.tombstone_count() == 1, "max-1 revocation failed");
+    require(registry.remove("physical-2") == RegistryResult::Accepted &&
+            registry.tombstone_count() == 2, "max revocation failed");
+    require(registry.remove("physical-3") == RegistryResult::RevocationCapacityFull,
+            "max+1 removal was not explicitly rejected");
+    require(registry.tombstone_count() == 2 && registry.size() == 1 &&
+            registry.is_revoked("physical-1") && registry.is_revoked("physical-2"),
+            "capacity pressure discarded a prior revocation or changed registry size");
+    require(registry.enroll(node(1)) == RegistryResult::RevokedDevice &&
+            registry.rejoin("physical-1", node(1).radio_mac, 1) ==
+                RegistryResult::RevokedDevice,
+            "oldest revoked identity became admissible after capacity pressure");
+    require(registry.find("physical-3")->quarantined &&
+            registry.rejoin("physical-3", node(3).radio_mac, 1) ==
+                RegistryResult::DuplicatePhysicalIdentity,
+            "unrecorded removal left the active identity usable");
+    require(registry.remove("physical-3") == RegistryResult::RevocationCapacityFull &&
+            registry.counters().quarantined == 1,
+            "repeated full-store removal changed quarantine state");
+
+    NodeRegistry replacement("home-a", "hub-a", 10, 1);
+    require(replacement.enroll(node(4)) == RegistryResult::Accepted &&
+            replacement.enroll(node(5)) == RegistryResult::Accepted,
+            "replacement capacity setup failed");
+    require(replacement.remove("physical-4") == RegistryResult::Accepted,
+            "replacement capacity tombstone setup failed");
+    auto next = node(6);
+    next.logical_id = node(5).logical_id;
+    next.room = node(5).room;
+    require(replacement.replace("physical-5", next) ==
+                RegistryResult::RevocationCapacityFull &&
+            replacement.size() == 1 && !replacement.find(next.device_id) &&
+            replacement.find("physical-5")->quarantined &&
+            replacement.is_revoked("physical-4"),
+            "full-store replacement partially enrolled or lost revocation");
+    require(replacement.rejoin("physical-5", node(5).radio_mac, 1) ==
+                RegistryResult::DuplicatePhysicalIdentity,
+            "failed replacement left old physical identity usable");
+    std::cout << "P2-REG-REVOCATION HOST PASS max-1/max/max+1 and quarantine\n";
+}
 }  // namespace
 
 int main() {
@@ -115,6 +162,7 @@ int main() {
         capacity_and_isolation();
         identity_rejoin_and_quarantine();
         removal_and_replacement();
+        revocation_capacity_fails_closed();
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "P2-REGISTRY HOST FAIL " << error.what() << '\n';

@@ -541,6 +541,14 @@ constructor policy: host tests prove max−1/max/max+1 at ten installed Nodes;
 the commercial maximum above ten remains `OPEN_DECISION`. Replacement retains
 the logical slot while changing the physical identity.
 
+Revocation tombstones are never evicted on capacity pressure. At max−1 and max,
+removal records the revoked physical identity. At max+1, removal or replacement
+returns `RevocationCapacityFull`, retains all prior revocations, and
+quarantines the active identity requested for removal. Rejoin then rejects it;
+the installer must resolve the exhausted revocation store through an explicit
+service workflow. Host regression covers this behavior. Hub persistence and
+service recovery remain incomplete, so this is not target restart proof.
+
 The scheduled host transport harness now uses registry admission before
 `HubRuntime`, including removal of one context while the other nine continue.
 Its test setup supplies preauthenticated records directly. This does not

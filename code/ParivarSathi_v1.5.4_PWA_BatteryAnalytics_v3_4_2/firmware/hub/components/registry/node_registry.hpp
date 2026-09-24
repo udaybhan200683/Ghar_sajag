@@ -35,6 +35,7 @@ enum class RegistryResult {
     DuplicateRadioAddress,
     DuplicateLogicalIdentity,
     CapacityFull,
+    RevocationCapacityFull,
     StaleSession,
     InvalidRecord
 };
@@ -75,6 +76,7 @@ private:
     RegistryResult conflict(const EnrolledNode& record,
                             const std::string& excluded_device_id = "") const;
     void tombstone(const std::string& device_id);
+    RegistryResult reject_revocation_at_capacity(EnrolledNode& record);
     RegistryResult reject(RegistryResult reason);
 
     std::string home_id_;

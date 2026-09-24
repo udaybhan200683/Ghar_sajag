@@ -1131,3 +1131,12 @@ the old state on a failed write, and commit an authenticated factory-reset
 tombstone. The ESP-IDF NVS blob adapter compiles for both boards. No protected
 target wrapping-key provider, startup restore, Hub registry persistence or
 physical power-cut proof exists yet; production association remains partial.
+
+## 2026-09-24 - Phase-2 registry revocation capacity correction
+
+The bounded Hub registry no longer evicts the oldest revoked physical identity
+when its tombstone store fills. Remove/replace at capacity returns an explicit
+`RevocationCapacityFull` result, retains every existing tombstone, and
+quarantines the affected active Node so rejoin is rejected. Focused host tests
+cover max−1/max/max+1, oldest revoked identity rejection and no partial
+replacement. Durable Hub registry storage and service recovery are still open.

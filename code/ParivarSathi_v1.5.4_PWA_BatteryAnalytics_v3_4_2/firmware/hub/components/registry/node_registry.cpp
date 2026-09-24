@@ -94,8 +94,18 @@ RegistryResult NodeRegistry::rejoin(const std::string& device_id,
 }
 
 void NodeRegistry::tombstone(const std::string& device_id) {
-    if (tombstones_.size() == tombstone_capacity_) tombstones_.pop_front();
     tombstones_.push_back(device_id);
+}
+
+RegistryResult NodeRegistry::reject_revocation_at_capacity(EnrolledNode& record) {
+    // A requested removal must not leave its physical identity usable when
+    // the bounded revocation store is full. Keep the record and every prior
+    // tombstone for explicit service recovery; admit no new session.
+    if (!record.quarantined) {
+        record.quarantined = true;
+        ++counters_.quarantined;
+    }
+    return reject(RegistryResult::RevocationCapacityFull);
 }
 
 RegistryResult NodeRegistry::remove(const std::string& device_id) {
@@ -104,6 +114,8 @@ RegistryResult NodeRegistry::remove(const std::string& device_id) {
     if (found == active_.end())
         return reject(is_revoked(device_id) ? RegistryResult::RevokedDevice
                                             : RegistryResult::UnknownDevice);
+    if (tombstones_.size() >= tombstone_capacity_)
+        return reject_revocation_at_capacity(found->second);
     active_.erase(found);
     tombstone(device_id);
     ++counters_.removed;
@@ -126,6 +138,8 @@ RegistryResult NodeRegistry::replace(const std::string& old_device_id,
         return reject(RegistryResult::DuplicateLogicalIdentity);
     const auto clash = conflict(replacement, old_device_id);
     if (clash != RegistryResult::Accepted) return reject(clash);
+    if (tombstones_.size() >= tombstone_capacity_)
+        return reject_revocation_at_capacity(old->second);
     // Validate before mutation. The logical slot remains occupied throughout
     // replacement, including when the registry is at installed capacity.
     active_.emplace(replacement.device_id, replacement);
