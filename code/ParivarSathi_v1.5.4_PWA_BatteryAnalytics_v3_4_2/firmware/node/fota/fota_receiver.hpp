@@ -53,7 +53,7 @@ public:
 
 private:
     void handle_begin(const gs::fota::Packet& packet, std::uint64_t now_ms);
-    void handle_data(const gs::fota::Packet& packet);
+    void handle_data(const gs::fota::Packet& packet, std::uint64_t now_ms);
     void handle_end(const gs::fota::Packet& packet);
     void send_ack(std::uint32_t session_id, gs::fota::Status status,
                   std::uint32_t sequence);

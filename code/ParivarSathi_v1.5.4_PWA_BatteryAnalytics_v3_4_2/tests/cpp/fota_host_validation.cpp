@@ -80,8 +80,17 @@ struct Fixture {
     FakeCallbacks callbacks;
     Receiver receiver{writer, callbacks};
     std::uint64_t now{100};
+    std::uint32_t image_size{0};
+    std::uint32_t image_crc32{0};
 
-    void send(const Packet& packet) { require(receiver.process(packet, now), "packet ignored"); }
+    void send(const Packet& packet) {
+        if (packet.type == static_cast<std::uint8_t>(MessageType::Begin) &&
+            image_size == 0) {
+            image_size = packet.image_size;
+            image_crc32 = packet.image_crc32;
+        }
+        require(receiver.process(packet, now), "packet ignored");
+    }
 };
 
 Packet base(MessageType type, std::uint32_t session = 17) {
@@ -105,6 +114,8 @@ Packet data_packet(const std::vector<std::uint8_t>& image, std::size_t offset,
                    std::uint32_t session = 17) {
     auto packet = base(MessageType::Data, session);
     packet.sequence = sequence;
+    packet.image_size = static_cast<std::uint32_t>(image.size());
+    packet.image_crc32 = gs::fota::crc32(image.data(), image.size());
     packet.payload_length = static_cast<std::uint16_t>(size);
     std::copy_n(image.data() + offset, size, packet.payload);
     packet.payload_crc32 = gs::fota::crc32(packet.payload, size);
@@ -125,6 +136,8 @@ void transfer(Fixture& fixture, const std::vector<std::uint8_t>& image) {
 void finish(Fixture& fixture, std::uint32_t sequence = 0) {
     auto packet = base(MessageType::End);
     packet.sequence = sequence;
+    packet.image_size = fixture.image_size;
+    packet.image_crc32 = fixture.image_crc32;
     fixture.send(packet);
 }
 
@@ -159,7 +172,7 @@ std::vector<TestCase> catalog() {
             f.send(data_packet(bytes,40,20,2)); require(f.callbacks.last_status()==Status::BadSequence, "out-of-order chunk accepted"); }},
         {"FOTA-HOST-008", [] { Fixture f; const auto bytes=image(); f.send(begin_packet(bytes)); auto packet=data_packet(bytes,0,20,0); packet.payload_crc32^=1U; f.send(packet);
             require(f.callbacks.last_status()==Status::BadCrc && f.writer.write_calls==0 && f.receiver.snapshot().active, "chunk CRC semantics changed"); }},
-        {"FOTA-HOST-009", [] { Fixture f; const auto bytes=image(20); auto begin=begin_packet(bytes); begin.image_crc32^=1U; f.send(begin); f.send(data_packet(bytes,0,20,0)); finish(f,1);
+        {"FOTA-HOST-009", [] { Fixture f; const auto bytes=image(20); auto begin=begin_packet(bytes); begin.image_crc32^=1U; f.send(begin); auto data=data_packet(bytes,0,20,0); data.image_crc32=begin.image_crc32; f.send(data); finish(f,1);
             require(f.callbacks.last_status()==Status::BadCrc && f.writer.abort_calls==1 && !f.callbacks.maintenance, "image CRC failure did not abort"); }},
         {"FOTA-HOST-010", [] { Fixture f; const auto bytes=image(20); auto zero=begin_packet(bytes); zero.image_size=0; f.send(zero); require(f.callbacks.last_status()==Status::BadSize, "zero image accepted");
             f.writer.available=10; f.send(begin_packet(bytes)); require(f.callbacks.last_status()==Status::BadSize, "oversize image accepted");
@@ -188,6 +201,48 @@ std::vector<TestCase> catalog() {
             f.send(begin_packet(image())); require(node.persisted()==1&&node.pending()==1,"maintenance altered retained application event"); f.send(base(MessageType::Abort)); require(node.persisted()==1&&node.pending()==1,"abort altered retained event"); }},
         {"FOTA-HOST-022", [] { Fixture f; gs::node::NodeRuntime node("n",1); const auto key=node.record(gs::EventKind::Motion,"room",0,0); require(key,"event setup failed");
             f.send(begin_packet(image())); require(node.acknowledge(*key,gs::AckClass::Durable),"pending application ACK not processed during maintenance"); require(node.persisted()==0&&node.pending()==0&&f.callbacks.maintenance,"ACK retirement incorrectly coupled to FOTA pause"); }},
+        {"FOTA-HOST-023", [] { Fixture f; const auto bytes=image(20); f.send(begin_packet(bytes));
+            auto changed=begin_packet(bytes); changed.image_crc32^=1U; f.send(changed);
+            require(f.callbacks.last_status()==Status::BadPacket && f.writer.begin_calls==1 &&
+                    f.receiver.snapshot().active,"changed duplicate Begin restarted or changed transfer");
+            f.send(data_packet(bytes,0,20,0)); finish(f,1);
+            require(f.callbacks.last_status()==Status::Complete,"original transfer did not survive altered Begin"); }},
+        {"FOTA-HOST-024", [] { Fixture f; const auto bytes=image(20); f.send(begin_packet(bytes));
+            auto changed=data_packet(bytes,0,20,0); changed.image_size^=1U; f.send(changed);
+            require(f.callbacks.last_status()==Status::BadPacket && f.writer.write_calls==0,
+                    "changed Data metadata was written");
+            f.send(data_packet(bytes,0,20,0)); auto end=base(MessageType::End);
+            end.sequence=1; end.image_size=f.image_size; end.image_crc32=f.image_crc32^1U;
+            f.send(end);
+            require(f.callbacks.last_status()==Status::BadPacket && f.writer.finalize_calls==0,
+                    "changed End metadata finalized image");
+            end.image_crc32=f.image_crc32; end.sequence=2; f.send(end);
+            require(f.callbacks.last_status()==Status::BadSequence && f.writer.finalize_calls==0,
+                    "wrong End sequence finalized image");
+            finish(f,1); require(f.callbacks.last_status()==Status::Complete,
+                                 "valid End did not complete after rejected metadata"); }},
+        {"FOTA-HOST-025", [] { Fixture f; const auto bytes=image(20); f.send(begin_packet(bytes));
+            f.now += Receiver::kInactivityTimeoutMs-1;
+            auto bad=data_packet(bytes,0,20,0); bad.payload_crc32^=1U; f.send(bad);
+            f.receiver.poll(100+Receiver::kInactivityTimeoutMs);
+            require(f.callbacks.timeouts==1 && !f.receiver.snapshot().active,
+                    "malformed traffic extended FOTA inactivity window"); }},
+        {"FOTA-HOST-026", [] { Fixture f; auto packet=begin_packet(image(20));
+            packet.reserved0=1; require(!f.receiver.process(packet,f.now),
+                "nonzero reserved field accepted");
+            packet.reserved0=0; packet.session_id=0;
+            require(!f.receiver.process(packet,f.now) && f.writer.begin_calls==0,
+                    "zero session began FOTA"); }},
+        {"FOTA-HOST-027", [] { Fixture f; const auto bytes=image(20); transfer(f,bytes);
+            finish(f,1); require(f.callbacks.last_status()==Status::Complete,
+                                  "initial final ACK missing");
+            finish(f,1); require(f.callbacks.last_status()==Status::Complete &&
+                                  f.writer.finalize_calls==1 && f.writer.commit_calls==1 &&
+                                  f.callbacks.restarts==1,
+                                  "lost final ACK retried finalize or restart");
+            f.send(begin_packet(bytes));
+            require(f.callbacks.last_status()==Status::BadPacket && f.writer.begin_calls==1,
+                    "completed session restarted before reboot"); }},
     };
 }
 

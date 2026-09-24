@@ -32,7 +32,12 @@ void Receiver::reset(bool abort_writer) {
 
 void Receiver::handle_begin(const gs::fota::Packet& packet, std::uint64_t now_ms) {
     if (active_ && session_id_ == packet.session_id) {
-        send_ack(packet.session_id, gs::fota::Status::Ready, 0);
+        if (packet.image_size == expected_size_ && packet.image_crc32 == expected_crc_) {
+            last_activity_ms_ = now_ms;
+            send_ack(packet.session_id, gs::fota::Status::Ready, 0);
+        } else {
+            send_ack(packet.session_id, gs::fota::Status::BadPacket, 0);
+        }
         return;
     }
     if (active_) reset(true);
@@ -64,7 +69,7 @@ void Receiver::handle_begin(const gs::fota::Packet& packet, std::uint64_t now_ms
     send_ack(packet.session_id, gs::fota::Status::Ready, 0);
 }
 
-void Receiver::handle_data(const gs::fota::Packet& packet) {
+void Receiver::handle_data(const gs::fota::Packet& packet, std::uint64_t now_ms) {
     if (!active_ || packet.session_id != session_id_) {
         send_ack(packet.session_id, gs::fota::Status::BadSession, packet.sequence);
         return;
@@ -75,6 +80,10 @@ void Receiver::handle_data(const gs::fota::Packet& packet) {
     }
     if (packet.sequence != expected_sequence_) {
         send_ack(packet.session_id, gs::fota::Status::BadSequence, packet.sequence);
+        return;
+    }
+    if (packet.image_size != expected_size_ || packet.image_crc32 != expected_crc_) {
+        send_ack(packet.session_id, gs::fota::Status::BadPacket, packet.sequence);
         return;
     }
     if (packet.payload_length == 0U || packet.payload_length > gs::fota::kChunkBytes ||
@@ -95,12 +104,21 @@ void Receiver::handle_data(const gs::fota::Packet& packet) {
                                            packet.payload_length);
     bytes_written_ += packet.payload_length;
     ++expected_sequence_;
+    last_activity_ms_ = now_ms;
     send_ack(packet.session_id, gs::fota::Status::DataOk, packet.sequence);
 }
 
 void Receiver::handle_end(const gs::fota::Packet& packet) {
     if (!active_ || packet.session_id != session_id_) {
         send_ack(packet.session_id, gs::fota::Status::BadSession, packet.sequence);
+        return;
+    }
+    if (packet.sequence != expected_sequence_) {
+        send_ack(packet.session_id, gs::fota::Status::BadSequence, packet.sequence);
+        return;
+    }
+    if (packet.image_size != expected_size_ || packet.image_crc32 != expected_crc_) {
+        send_ack(packet.session_id, gs::fota::Status::BadPacket, packet.sequence);
         return;
     }
     if (bytes_written_ != expected_size_) {
@@ -129,11 +147,22 @@ void Receiver::handle_end(const gs::fota::Packet& packet) {
 
 bool Receiver::process(const gs::fota::Packet& packet, std::uint64_t now_ms) {
     if (packet.magic != gs::fota::kMagic ||
-        packet.protocol_version != gs::fota::kProtocolVersion) return false;
-    if (active_ && packet.session_id == session_id_) last_activity_ms_ = now_ms;
+        packet.protocol_version != gs::fota::kProtocolVersion ||
+        packet.reserved0 != 0 || packet.reserved1 != 0 ||
+        packet.session_id == 0) return false;
+    if (completion_requested_) {
+        if (packet.type == static_cast<std::uint8_t>(gs::fota::MessageType::End) &&
+            packet.session_id == session_id_ && packet.sequence == expected_sequence_ &&
+            packet.image_size == expected_size_ && packet.image_crc32 == expected_crc_) {
+            send_ack(packet.session_id, gs::fota::Status::Complete, packet.sequence);
+        } else {
+            send_ack(packet.session_id, gs::fota::Status::BadPacket, packet.sequence);
+        }
+        return true;
+    }
     switch (static_cast<gs::fota::MessageType>(packet.type)) {
         case gs::fota::MessageType::Begin: handle_begin(packet, now_ms); break;
-        case gs::fota::MessageType::Data: handle_data(packet); break;
+        case gs::fota::MessageType::Data: handle_data(packet, now_ms); break;
         case gs::fota::MessageType::End: handle_end(packet); break;
         case gs::fota::MessageType::Abort:
             if (active_ && packet.session_id == session_id_) reset(true);

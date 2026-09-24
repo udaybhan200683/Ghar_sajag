@@ -1217,3 +1217,15 @@ The paired HIL target build passed, but the active target adapter remains on
 the Phase-1 volatile journal until protected Hub key sourcing, authenticated
 target admission and safe retirement are integrated. No new physical run or
 power-loss durability qualification occurred at this checkpoint.
+
+## 2026-09-24 - Phase-2 FOTA protocol negative-path hardening
+
+The existing C3 FOTA receiver now binds repeated Begin, Data and End frames to
+the same image size/CRC, requires the correct final sequence, rejects malformed
+reserved fields and zero sessions, and prevents rejected traffic from extending
+the transfer timeout. Existing host tests were extended with altered metadata,
+wrong End sequence and malformed-traffic timeout cases. This is host/target
+protocol correctness; image authenticity, post-update health, physical OTA and
+rollback qualification remain open.
+Repeated final End before reboot also returns Complete without a second OTA
+finalize or restart request.

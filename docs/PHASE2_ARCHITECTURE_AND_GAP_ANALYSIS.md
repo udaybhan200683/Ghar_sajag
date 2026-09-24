@@ -410,6 +410,27 @@ post-restart health decision remain gaps. Target FOTA happy-path, negative,
 interrupted, restart, boot-failure, rollback and repeated A/B qualification are
 Phase-2 work; host receiver tests do not claim those physical outcomes.
 
+The host receiver now checks image metadata on repeated Begin, each Data
+chunk and End, requires the expected End sequence, rejects malformed reserved
+fields and zero sessions, and does not let rejected traffic extend its
+inactivity window. These are protocol-correctness checks only. They do not
+authenticate firmware source or image, establish board/version policy, prove
+a physical OTA, or replace the fixed target boot-health decision. Lost final
+ACK followed by immediate Node reboot remains a recovery case to qualify.
+Before restart, a repeated valid End now returns the same Complete result
+without writing or activating the image twice.
+
+### Deferred battery milestone after Phase 2
+
+Battery optimization is the next milestone, outside Phase 2: HW-M1.4B
+baseline current measurement; HW-M1.4C1 automatic light sleep and measurement;
+HW-M1.4C2 GPIO4 PIR event wake, immediate first motion with 30–60 second
+coalescing, adaptive health/offline retry backoff; HW-M1.4C3 deep sleep with
+RTC retention; then overnight/endurance qualification. AM312 remains powered,
+critical events stay immediate, and per-motion NVS writes are avoided. The
+current roughly 20 ms polling and 60 second HIL health interval are not the
+production battery policy.
+
 ## 11. TARGET-TO-APPLICATION GAP
 
 `MISSING_PRODUCT_FEATURE_TARGET_VERTICAL_BRIDGE` is the current status. The
