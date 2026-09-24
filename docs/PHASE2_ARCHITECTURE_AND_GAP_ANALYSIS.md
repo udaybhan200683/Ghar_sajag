@@ -257,6 +257,18 @@ caller yet. Both target images build with the shared commissioning protocol
 and runtime envelope, but the new code is not in the active target packet
 path. This is compile evidence, not physical or production-security evidence.
 
+As of 2026-09-24, the bounded commissioning wire codec is linked into both
+targets and host-tested across ESP-NOW-sized fragments. Target key-source
+adapters are being added: HIL keys are generated once per target and
+stored in explicitly test-only NVS; the production identity adapter accepts
+only a separately provisioned persistent PSA signing key. A separate random
+wrapping key is committed and read back before use. Production initialization
+rejects configurations without secure boot and flash encryption. These
+adapters remain **unconnected to the live radio owners**, and the current
+prototype configuration has both protections disabled. Their target builds
+are compile evidence only; no credential provisioning, association recovery,
+or production-security qualification is implied.
+
 A separate authenticated rejoin state machine now uses the installation key
 to prove possession with fresh Node/Hub challenges, validates the bound
 physical/logical/Home/Hub IDs, rejects stale sessions and derives a fresh

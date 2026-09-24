@@ -19,6 +19,8 @@ idf_component_register(
         "${GS_ROOT}/shared/src/rules.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
         "${GS_ROOT}/firmware/common/security/psa_commissioning_crypto.cpp"
+        "${GS_ROOT}/firmware/common/security/target_identity_signer.cpp"
+        "${GS_ROOT}/firmware/common/security/target_wrapping_key.cpp"
         "${GS_ROOT}/firmware/common/security/commissioning_protocol.cpp"
         "${GS_ROOT}/firmware/common/security/commissioning_wire.cpp"
         "${GS_ROOT}/firmware/common/security/rejoin_protocol.cpp"
