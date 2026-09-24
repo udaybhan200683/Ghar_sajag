@@ -1,9 +1,10 @@
 # HW-M1.4 Post-Resilience Master Forward Roadmap
 
-This is the authoritative forward roadmap after HW-M1.4A. A future engineer
-or Codex session should read this file together with
-`docs/progress/CURRENT_BASELINE.md` and the current milestone plan without
-requiring prior chat history.
+This is the authoritative battery/power and post-resilience roadmap. A future
+engineer or Codex session should read it together with
+`docs/progress/CURRENT_STATUS_AND_ROADMAP.md` and the current milestone plan
+without requiring prior chat history. `docs/progress/CURRENT_BASELINE.md` is a
+dated HW-M1.4 snapshot, not current Phase-2 status.
 
 For the current Phase-2 branch status and priorities, use
 `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`. The older resume branch, commit

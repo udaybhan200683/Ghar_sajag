@@ -1,5 +1,11 @@
 # Ghar Sajag / Parivar Saathi - Current Baseline
 
+> **Historical snapshot, not the current repository baseline.** This document
+> records the HW-M1.4 checkpoint from 2026-09-21. For the current Phase-2
+> branch, validated firmware provenance, latest physical evidence, gaps and
+> next work, see [`CURRENT_STATUS_AND_ROADMAP.md`](CURRENT_STATUS_AND_ROADMAP.md).
+> The dated branch and commit values below are retained as historical facts.
+
 **Document revision:** HW-M1.4-MASTER-ROADMAP
 **Product baseline:** Parivar Saathi v1.5.4
 **PWA / BatteryAnalytics baseline:** v3.4.3

@@ -17,7 +17,8 @@ Do not delete or rewrite completed historical entries when later phases are
 implemented. Corrections and refinements should be recorded as later entries.
 
 For current implementation status, see:
-`docs/progress/CURRENT_BASELINE.md`
+`docs/progress/CURRENT_STATUS_AND_ROADMAP.md`. The older
+`docs/progress/CURRENT_BASELINE.md` is retained as a dated HW-M1.4 snapshot.
 
 For intended scope and phase boundaries, see:
 `docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md`
