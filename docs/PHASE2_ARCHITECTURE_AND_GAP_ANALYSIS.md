@@ -1,19 +1,26 @@
 # Phase 2 Architecture and Gap Analysis
 
-**Document status:** ARCHITECTURE BASELINE with incremental Phase-2 implementation notes
+**Document status:** ARCHITECTURE BASELINE with incremental Phase-2 implementation notes; current snapshot is maintained in [CURRENT_STATUS_AND_ROADMAP.md](progress/CURRENT_STATUS_AND_ROADMAP.md)
 **Analysis baseline:** `ae9b7dc` — *Add unattended WSL-first Phase-1 HIL qualification*
 **Phase-1 status:** CLOSED / QUALIFIED
-**Phase-2 implementation status:** P2.1/P2.2 host foundation and P2.3 host registry/commissioning foundations; production target commissioning remains absent
+**Phase-2 implementation status:** host registry/commissioning/rejoin/persistence and 1/4/10/25 logical-Node foundations exist; one-Hub/one-C3 smoke and same-image OTA health-gate success are physically qualified; Phase 2 remains ACTIVE / NOT COMPLETE
 
 ## 1. PURPOSE / SCOPE
+
+For present status, current evidence, release blockers and forward execution
+order, see [CURRENT_STATUS_AND_ROADMAP.md](progress/CURRENT_STATUS_AND_ROADMAP.md).
+Chronological implementation and HIL defect/fix history is in
+[PROJECT_HISTORY.md](progress/PROJECT_HISTORY.md); requirement status is in
+[MASTER_TRACEABILITY.csv](validation/MASTER_TRACEABILITY.csv).
 
 This document records the repository and target-firmware analysis that starts
 Phase 2 of Ghar Sajag / Parivar Saathi HIL qualification. It is based on the
 Phase-1 qualified baseline `ae9b7dc`. It describes current facts, proposed
 architecture, product gaps, test-infrastructure gaps and qualification order.
 
-No Phase-2 product or runtime behavior has been implemented by this baseline.
-No Phase-2 real-hardware PASS is claimed. The 71 Phase-1 real-HW cases remain
+At the original `ae9b7dc` baseline, no Phase-2 product or runtime behavior had
+been implemented. That sentence describes the historical analysis point, not
+the current branch. The 71 Phase-1 real-HW cases remain
 mandatory regression coverage and must continue to run through the existing
 WSL-first supervisor.
 
@@ -761,5 +768,42 @@ The approved security direction is a unique asymmetric keypair per production
 C3, a QR-represented public identity, authenticated Hub/Home binding and
 derived symmetric application-layer protection for runtime traffic. The QR
 must not expose a private credential that alone permits Node impersonation.
-The exact protocol, credential storage, target wiring and production eFuse
-policy are not yet implemented.
+Host commissioning and runtime-authentication protocols now implement this
+direction for test identities. Production credential storage, active target
+commissioning/runtime wiring and production eFuse policy are not implemented
+or physically qualified.
+
+## 24. CURRENT STATUS UPDATE — 2026-09-24
+
+Phase 2 remains **ACTIVE / NOT COMPLETE**. Host-side commissioning crypto,
+authenticated runtime frames/rejoin, bounded registry and fail-closed
+revocation, encrypted association/registry/Node-recovery records, and scheduled
+1/4/10/25 logical-Node qualification have advanced beyond the original
+architecture baseline. Ten-Node ingress/journal pressure, noisy-node fairness,
+and per-Node evidence are host/simulated results. Target adapters/builds do
+not establish active target commissioning, protected key sourcing, durable
+target association restore, or ten-peer ESP-NOW/RF qualification.
+
+The Hub event-history design is bounded to 128 locally durable records in the
+remaining 128 KiB partition space while preserving both OTA slots. Host
+encrypted append/dedupe behavior and the target NVS adapter exist, but the
+active target Hub still uses a volatile journal. Do not describe its ACK as
+power-loss durable until target integration and power-cut recovery are
+qualified.
+
+The latest physical result is
+[`evidence/hil/runs/20260924T094521.398370Z`](../evidence/hil/runs/20260924T094521.398370Z):
+17/17 smoke plus 3/3 same-image OTA passed on firmware provenance
+`7bc2a33-hil-e3b0c44`, with OTA slot change, fresh reset, PIR readiness,
+post-boot health gate, and post-OTA application ACK. This is one Hub plus one
+C3. It does not qualify version upgrades, image authenticity, rollback,
+negative/interrupted OTA, physical multi-C3 contention, or the six extra
+electrical/optical/RF fixtures. See
+[CURRENT_STATUS_AND_ROADMAP.md](progress/CURRENT_STATUS_AND_ROADMAP.md) for
+the exact PASS/BLOCKED interpretation and remaining blockers, and
+[PROJECT_HISTORY.md](progress/PROJECT_HISTORY.md) for dated milestones.
+
+The master traceability entries are the source of truth for requirement
+status. Phase-1 remains closed with all 71 real-HW cases mandatory for
+regression; its final evidence and detailed historical HIL fixes are recorded
+in [PROJECT_HISTORY.md](progress/PROJECT_HISTORY.md).

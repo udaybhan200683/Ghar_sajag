@@ -172,7 +172,7 @@ The following are explicitly not required before HW-M1.4C1:
 HW-M1.4B remains **PLANNED / READY TO START** until the minimal dataset is
 captured. It must not be marked RUNNING or PASS from documentation alone.
 
-## 7. HW-M1.4C1 — Low-Power Software V1 start gate and scope
+## 7. HW-M1.4C1 — Automatic Light Sleep
 
 After B0 measurement-path verification and the B1–B4 baseline are captured,
 HW-M1.4C1 low-power software implementation may start immediately. Measurements quantify improvement,
@@ -180,26 +180,37 @@ detect regressions, and help tune parameters; they do not determine whether
 low-power work is necessary. The core direction is already established by
 the current architecture and HW-M1.4A evidence.
 
-The intended first increment is:
+The first increment is automatic light sleep with safe local sensing and event
+handling. Preserve the remaining power work as ordered follow-on milestones:
 
-1. Replace continuous approximately 20-ms PIR polling with an event/wake-
-   oriented design where technically feasible.
-2. Keep PIR sensing available while reducing MCU active time.
-3. Implement LIGHT SLEEP first.
-4. Investigate/implement GPIO4 PIR wake.
-5. Keep the first meaningful motion event immediate.
-6. Suppress/coalesce repeated PIR activity locally instead of generating
-   unnecessary ESP-NOW transactions.
-7. Keep PIR retrigger/debounce semantics distinct from the longer
-   activity-aggregation window.
-8. Reduce production NodeHealth radio traffic and/or piggyback health on
-   ordinary events where safe.
-9. Add adaptive Hub-offline retry/backoff.
-10. Reduce unnecessary production LED/debug activity.
+1. Replace continuous approximately 20-ms active polling with light sleep
+   whenever safely possible; preserve the AM312 continuously powered.
+2. Measure the same B1–B4 workload before and after this change.
+3. Keep the first meaningful motion event immediate.
+4. Reduce unnecessary production LED/debug activity where safe.
 
 These changes are not implemented by this documentation task.
 
-## 8. HW-M1.4C2 — Deep Sleep / Retained-State Optimization
+## 8. HW-M1.4C2 — GPIO4 Event Wake and Adaptive Activity Policy
+
+GPIO4 is the intended PIR event/wake source. Keep PIR sensing available while
+the C3 sleeps, then wake, process the event, and communicate only as required.
+Do not use a ten-second wake/poll/sleep loop as the target design. Send the
+first motion immediately; aggregate ordinary PIR repeats over a measured
+30–60 second activity window while preserving first time, last time, count and
+Node/room identity. Never batch emergency/SOS, security-relevant door,
+tamper, serious fault, or other designated critical events.
+
+The 60-second NodeHealth interval is HIL/debug-oriented, not production power
+policy. Reduce healthy reporting, piggyback health where practical, and report
+faster temporarily during fault, low battery, commissioning, recovery or
+diagnostics. Hub-offline retries should begin with bounded short retries,
+progressively back off, then probe at low frequency during long outages while
+local sensing continues and repeated ordinary PIR events coalesce. Evaluate
+ESP-NOW TX power from measured RSSI, ACK/loss and retry margin; do not hard-code
+lower power without RF qualification.
+
+## 9. HW-M1.4C3 — Deep Sleep / RTC Retained State
 
 Deep sleep is a later iteration. Before implementation, design session
 semantics, sequence continuity, pending critical events, activity aggregation
@@ -207,7 +218,7 @@ state, configuration/FOTA state, offline state, and retained/persistent state.
 Do not treat every deep-sleep wake as a normal reboot without designing these
 semantics.
 
-## 9. HW-M1.4D — Battery Telemetry + Energy Model
+## 10. HW-M1.4D — Battery Telemetry + Energy Model
 
 HW-M1.4D remains future battery telemetry and energy-model work. Generic
 software concepts may eventually include `battery_mv`, `battery_state`,
@@ -216,7 +227,7 @@ selected hardware. Do not hard-code Robocraze-specific behavior or a 2.8-V
 threshold. Final SOC and remaining-life modeling must be calibrated to the
 selected commercial battery and power path.
 
-## 10. Parallel hardware milestones
+## 11. Parallel hardware milestones
 
 ### HW-PWR-PROT — Prototype Power-Path Characterization
 

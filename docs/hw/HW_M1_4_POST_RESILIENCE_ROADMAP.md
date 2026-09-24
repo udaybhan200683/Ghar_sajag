@@ -5,6 +5,12 @@ or Codex session should read this file together with
 `docs/progress/CURRENT_BASELINE.md` and the current milestone plan without
 requiring prior chat history.
 
+For the current Phase-2 branch status and priorities, use
+`docs/progress/CURRENT_STATUS_AND_ROADMAP.md`. The older resume branch, commit
+and physically qualified pair in the historical resume contract below describe
+the 2026-09-21 HW-M1.4 planning checkpoint; they are not the current Phase-2
+repository or firmware provenance.
+
 ## Resume contract
 
 - **Resume branch:** `fix/hw-m1-4-node-offline-resilience`
@@ -51,8 +57,9 @@ regulator/PMIC, or power-path architecture.
 |---|---|---|---|---|---|
 | **HW-M1.4A — Physical resilience/endurance** | QUALIFIED / PASS | Complete | Confirm offline operation and physical endurance of the qualified pair. | Final health is healthy; accepted motion is durably acknowledged; no qualified drops/rejections/backlog/unexpected reset; endpoint is documented with bounded claims. | `docs/hw/evidence/HW_M1_4A_ENDURANCE/README.md` |
 | **HW-M1.4B — Minimal pre-optimization power baseline** | READY TO START | After A; before C1 | Capture repeatable software BEFORE values using prototype hardware as a fixture. | B0 plus repeatable B1–B4 current/workload records and instrumentation limits. | `docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`; future B0–B4 evidence under `docs/hw/evidence/` |
-| **HW-M1.4C1 — Low-Power Software V1** | PLANNED | After B0 + B1–B4; no HW-PWR-PROT dependency | Implement light-sleep/event-oriented sensing and radio/health policy improvements. | Same B1–B4 workloads show measured improvement without critical-event loss, unacceptable latency, chronology errors, or resilience regression. | Future `docs/hw/evidence/HW_M1_4C1_*` record and implementation history |
-| **HW-M1.4C2 — Deep sleep / retained-state optimization** | DEFERRED | After C1/light-sleep semantics and retained-state design | Reduce sleep energy while preserving identity, sequence, pending-event, configuration, FOTA, and offline semantics. | Recovery tests preserve state and critical events across reset/brownout/power interruption as specified. | Future C2 design and target-recovery evidence under `docs/hw/evidence/` |
+| **HW-M1.4C1 — Automatic light sleep** | PLANNED | After B0 + B1–B4; no HW-PWR-PROT dependency | Replace continuous active polling with automatic light sleep while keeping the AM312 powered and event semantics safe. | Same B1–B4 workloads show measured improvement without critical-event loss, unacceptable latency, chronology errors, or resilience regression. | Future `docs/hw/evidence/HW_M1_4C1_*` record and implementation history |
+| **HW-M1.4C2 — GPIO4 event wake and adaptive policy** | PLANNED | After C1 and measurement | Wake on GPIO4 PIR event; transmit first motion immediately; coalesce ordinary repeats; adapt health and Hub-offline backoff. | Wake/event behavior, chronology, critical-event priority, outage retry and power improvement are measured and qualified. | Future `docs/hw/evidence/HW_M1_4C2_*` record |
+| **HW-M1.4C3 — Deep sleep / RTC retained state** | DEFERRED | After C1/C2 semantics and retained-state design | Reduce sleep energy while preserving identity, sequence, pending-event, configuration, FOTA, and offline semantics. | Recovery tests preserve state and critical events across reset/brownout/power interruption as specified. | Future C3 design and target-recovery evidence under `docs/hw/evidence/` |
 | **HW-M1.4D — Battery telemetry + energy model** | PLANNED | After suitable battery/power-path measurement; can overlap later firmware work | Expose generic battery/power state and calibrated activity-aware energy estimates. | Calibrated raw battery measurement and model validation across representative discharge/workloads; no voltage-only SOC claim. | Future HW-M1.4D telemetry/calibration evidence |
 | **HW-M1.4E — Engineering / installer observability** | PLANNED | Requires diagnostic contracts and transport/backend path | Provide structured commissioning and engineering diagnostics separate from caregiver UX. | Installer can inspect live flow, identity, RF, ACK/retry, queue, health, power, and routine-learning state from structured diagnostics. | Future engineering diagnostic contract/UI evidence |
 | **HW-M1.4F — RF / Wi-Fi / backend coexistence** | PLANNED | Requires Hub Wi-Fi/transport composition and controlled RF setup | Validate ESP-NOW with Wi-Fi STA, WAN outage/reconnect, replay, idempotency, and later multi-node behavior. | Controlled channel/provisioning/reconnect/RF/cloud tests preserve event identity, durable ACK, journal/outbox, replay, and idempotency. | Future coexistence/HIL and Hub-backend evidence |
@@ -93,7 +100,7 @@ not required before C1. No software task is blocked by unavailable prototype
 shield specifications; only direct hardware-interface work is conditional when
 the required electrical signal does not yet exist.
 
-## HW-M1.4C1 low-power software contract
+## HW-M1.4C1 automatic light-sleep contract
 
 The first software increment should reduce unnecessary active/radio time while
 preserving local sensing and event semantics:
@@ -102,19 +109,31 @@ preserving local sensing and event semantics:
   normal operating model where technically feasible;
 - keep the AM312 powered and sensing while the C3 sleeps, where the selected
   hardware power path permits it;
-- implement LIGHT SLEEP first and investigate/implement GPIO4 PIR wake;
+- implement automatic LIGHT SLEEP first, preserving AM312 sensing;
 - keep local sensing independent of Hub availability;
-- transmit the first meaningful motion event promptly;
-- suppress/coalesce repeated PIR activity locally;
-- keep PIR debounce/retrigger semantics distinct from longer aggregation;
-- reduce production NodeHealth traffic and piggyback health on activity where
-  safe;
-- use adaptive Hub-offline retry/backoff; and
+- defer GPIO4 wake, aggregation, health and outage retry refinements to C2;
 - reduce unnecessary production LED/debug activity.
 
-Adaptive ESP-NOW TX-power evaluation is a later C1 or C1-follow-up experiment
-based on measured RSSI, ACK, loss, and retry margin. Do not lower TX power
-without RF-margin validation.
+Do not lower ESP-NOW TX power during C1 without RF-margin validation.
+
+## HW-M1.4C2 GPIO4 event-wake and adaptive-policy contract
+
+GPIO4 is the intended PIR event/wake source. Keep the AM312 continuously
+powered while the C3 CPU/radio sleep when idle. A PIR event wakes the C3 for
+processing and required communication; do not wake every ten seconds just to
+poll PIR. The first meaningful motion is sent immediately. Then aggregate
+ordinary PIR repeats over an initially measured 30–60 second window, tracking
+`first_time`, `last_time`, and `count` per Node/room. Keep PIR debounce and
+retrigger semantics separate from the longer aggregation window.
+
+The 60-second NodeHealth interval is HIL/debug-oriented, not production power
+policy. Healthy Nodes should report less often and piggyback health where
+practical; report faster temporarily for faults, low battery, commissioning,
+recovery or diagnostics. Hub-offline retry uses bounded short attempts,
+progressive backoff and low-frequency probes during long outages, while local
+sensing continues and ordinary PIR repeats coalesce. Evaluate dynamic ESP-NOW
+TX power using measured RSSI, ACK/loss and retry margin; do not hard-code a
+lower value before RF qualification.
 
 ### Motion activity-episode semantics
 
@@ -138,6 +157,11 @@ must not be merged merely to save radio energy.
 Acceptance requires prompt first activity, reduced repeated-PIR radio traffic,
 correct episode first/last/count, and no delay or loss of critical events.
 
+This remains a product/energy roadmap decision, not current runtime behavior.
+Represent the proposed episode with `first_time`, `last_time`, and `count`;
+preserve Node/zone identity. Emergency/SOS, security-relevant door chronology,
+tamper, serious fault and other designated critical events are never batched.
+
 ### P0-SW-R0 — Event Chronology & Episode Semantics
 
 Backlog recovery can deliver packets in an order different from occurrence
@@ -155,7 +179,7 @@ depends on these semantics. Acceptance is deterministic replay/HIL coverage
 for duplicate, out-of-order, replayed, conflicting, session-reset, and
 individually persistent events.
 
-## HW-M1.4C2 retained-state and recovery requirements
+## HW-M1.4C3 retained-state and recovery requirements
 
 Before deep sleep, explicitly design session semantics, sequence continuity,
 pending critical events, first/last activity timestamps, activity count,
@@ -281,12 +305,68 @@ substitute for occurrence chronology.
 
 `HW-M1.4A QUALIFIED / PASS`
 -> `HW-M1.4B B0 + B1–B4 minimal BEFORE baseline`
--> `HW-M1.4C1 Low-Power Software V1`
+-> `HW-M1.4C1 Automatic Light Sleep`
 -> `repeat identical B1–B4 BEFORE/AFTER`
--> `HW-M1.4C2 Deep Sleep / Retained State`
+-> `HW-M1.4C2 GPIO4 PIR Event Wake + Adaptive Activity/Health/Retry`
+-> `HW-M1.4C3 Deep Sleep / RTC Retained State`
 -> `HW-M1.4D Battery Telemetry + Energy Model`
 -> `HW-M1.4E/F/G/H as dependencies mature`.
 
 In parallel: `HW-PWR-PROT` prototype characterization, then later
 `HW-PWR-COMM` after commercial hardware selection; and `HW-EXP-BLE` only
 after the optimized ESP-NOW baseline exists.
+
+## Additional approved battery and UX details (planned, not implemented)
+
+### Battery-state reporting policy candidate
+
+Keep `last_node_seen` separate from `last_battery_update`. After measurement
+hardware and calibration exist, sample at boot and initially about every four
+hours, piggyback where practical, and increase sampling/reporting near a
+threshold or on abnormal behavior. A candidate warning policy is 20% warning,
+10% critical, and 5% urgent, with hysteresis; these are product-policy
+candidates, not implemented thresholds. Estimate state of charge using a
+calibrated Li-ion discharge mapping and measured energy/activity/retry history,
+not a simplistic linear voltage conversion.
+
+Where ADC measurement is supported, allow settling and average/filter roughly
+10–16 samples, calibrate against the actual measurement path, and validate a
+measured Li-ion discharge curve. Do not write NVS for every PIR event. Use RTC
+retention for appropriate transient state (session/sequence as designed,
+activity first/last/count, pending aggregate, battery state and recovery
+breadcrumbs); reserve flash writes for state that truly requires power-loss
+durability.
+
+### Priority and status-indicator direction
+
+Power work priority is: (1) event-driven sleep and ending continuous CPU/radio
+wakefulness, with a suitably low-quiescent-current regulator/power path; (2)
+first-event delivery plus ordinary PIR burst coalescing; (3) adaptive health
+and outage retry; (4) measured ESP-NOW TX-power adjustment; then production
+LED reduction and debug-log reduction. Historical lab RSSI is often around
+−40 to −60 dBm, so TX-power savings merit measurement, but do not hard-code a
+lower setting before link-margin qualification.
+
+The later LED UX should use one centralized non-blocking status manager and a
+small vocabulary: one short blink for successful normal application-data
+exchange; two medium blinks for ready/registration/authenticated rejoin; three
+long blinks for successfully completed and operational FOTA; fast repeated
+blinks for generic attention/error. PIR detection alone should not blink.
+Current Node blue LED is GPIO8 active-low; routine exchange blinking should be
+configurable or disabled in battery mode. Detailed causes belong in
+diagnostics/PWA rather than a growing set of LED patterns. This is design
+guidance only, not implemented behavior.
+
+### Historical apparent offline-motion failure
+
+In the battery-operated Hub-offline exercise, the Node's usual GPIO8 motion
+indication stopped after repeated activity and a complete power cycle appeared
+to restore it. Forensic evidence showed the C3 and GPIO4/AM312 path remained
+alive; the actual defect was bounded retained/retry queue exhaustion without
+ACKs, which made new event admission fail and the indicator appear dead. The
+fix and evidence are in
+`docs/hw/evidence/HW_M1_4_NODE_OFFLINE_RESILIENCE/README.md`. Preserve this as
+a recovery/endurance regression scenario; do not misstate it as a proven PIR
+sensor failure. The separate HW-M1.4A run confirmed approximately 19 h 54 min
+under its unoptimized HIL workload and did not qualify commercial battery
+life.

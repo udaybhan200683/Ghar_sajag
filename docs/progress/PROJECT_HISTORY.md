@@ -1,16 +1,11 @@
 # Ghar Sajag / Parivar Saathi Engineering History
 
-**Document revision:** HW-M1.4-MASTER-ROADMAP
-**History covered through:** HW-M1.4 master forward-roadmap planning
-**Product baseline through:** Parivar Saathi v1.5.4
-**PWA / BatteryAnalytics baseline through:** v3.4.3
-**Latest qualified Phase 3B checkpoint covered:** `0d6a2fc`
-**Previous qualified Phase 3B scale/read-path checkpoint:** `fee5854`
-**Permanent Phase 3A implementation/qualification anchor:** `4dcaf99`
-**Latest qualified HW branch:** `fix/hw-m1-4-node-offline-resilience`
-**Latest physically qualified firmware/artifact provenance:** `bb34f5e`
-**Current implementation branch:** `fix/hw-m1-4-node-offline-resilience`
-**Updated:** 2026-09-21
+**Document role:** append-only chronological project history
+**Current status and next work:** `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`
+**Historical entries below:** retained from earlier PWA and HW-M1.4 milestones;
+their branch/provenance snapshots are time-bound and are not the current
+Phase-2 state.
+**Latest Phase-2 history entry before this documentation update:** 2026-09-24
 
 This file is an append-only chronological engineering history.
 
@@ -1288,3 +1283,60 @@ multi-C3 contention and target outage/restart storms remain separate Phase-2
 gaps. This result qualifies the same-image FOTA happy path and boot-health
 success branch only. Version upgrade, firmware authenticity and rollback
 remain unqualified.
+
+## 2026-09-24 - Documentation and provenance consolidation
+
+The authoritative present-status snapshot is now
+`docs/progress/CURRENT_STATUS_AND_ROADMAP.md`; this file remains the
+chronological history, and `docs/PHASE2_ARCHITECTURE_AND_GAP_ANALYSIS.md`
+remains the detailed architecture record. `README.md` is the project
+navigation entry point. The canonical battery/power roadmap remains
+`docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`, with the HW-M1.4B measurement
+procedure in its existing plan.
+
+The current Phase-2 branch must not be confused with older PWA Phase 2A–2D
+history earlier in this file. The current repository HEAD before this
+documentation-only update was `6f49d28`; the latest physical firmware/code
+commit remains `7bc2a33`, as proven by the target versions and binary hashes
+in `evidence/hil/runs/20260924T094521.398370Z`. The new documentation commit is
+on top of that published history and does not change the tested firmware.
+
+Phase-1 historical HIL fixes and their regressions remain part of the
+engineering record: stale setup/provenance fails closed; esptool 5.x identity
+output is parsed; USB/D-state identity probing is bounded and metadata-first;
+healthy target identities are cached; UART fragmentation and reset-boundary
+truncation are handled; ESP32 and C3 software resets normalize correctly;
+fresh evidence cursors prevent stale readiness/reset evidence; C3
+`HIL_READY` is distinct from PIR sensing readiness; native USB/tty
+re-enumeration is reconciled without duplicate readers; browser/service-worker
+routing failures are treated as harness contamination when evidence supports
+that diagnosis; and HIL-only controls remain absent from production builds.
+The WSL supervisor remains authoritative, with PowerShell limited to USB
+fixture assistance.
+
+The current Phase-2 milestone history above records the asymmetric identity
+direction, host commissioning and authenticated runtime, registry tombstone
+capacity fix, encrypted association/registry/recovery records, 1/4/10/25
+logical-Node tests, ten-Node pressure/fairness evidence, bounded Hub journal
+design, and FOTA protocol/checkpoint work. The FOTA orchestration defect was
+that the root Makefile did not route `hil-fota` to the product Makefile; the
+existing WSL-first checkpoint ownership was retained, the root forwarding and
+fresh-report handling were fixed, and focused regressions were added. The
+first physical same-image FOTA run passed at
+`evidence/hil/runs/20260924T085804.060488Z`; the subsequent health-gate
+requalification passed at `evidence/hil/runs/20260924T094521.398370Z`.
+
+That latest run records 17/17 smoke and 3/3 same-image FOTA PASS, alternate
+OTA slot, fresh C3 reset, PIR readiness, post-boot health validity, functional
+post-OTA event ACK, zero unexpected resets and zero final retained/in-flight
+events. Six rows are `BLOCKED_EXTRA_FIXTURE`: Hub power, C3 power, controlled
+brownout, current/battery instrumentation, optical PIR stimulus and physical
+RF/environmental fixture. Radio-loss, offline, Hub restart, C3 restart, and
+both-target restart suites were outside this focused campaign; they are not
+reported as BLOCKED or passed by it. No real version upgrade, signature
+enforcement, rollback, failed-boot recovery, repeated A/B cycle, or physical
+multi-C3 RF qualification is claimed.
+
+The matching present-state, P0/P1 future work and remaining Phase-2 blockers
+are maintained in `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`; requirement
+evidence classifications remain in `docs/validation/MASTER_TRACEABILITY.csv`.
