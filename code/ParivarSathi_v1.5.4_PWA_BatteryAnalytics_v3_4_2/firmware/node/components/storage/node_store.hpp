@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <deque>
 #include <optional>
+#include <vector>
 
 namespace gs::node {
 
@@ -29,8 +30,10 @@ public:
     // separate concepts.
     bool acknowledge(const EventKey& key, AckClass ack);
     std::optional<DomainEvent> oldest() const;
+    std::vector<DomainEvent> retained_snapshot() const;
     bool gap_marker_required() const { return gap_marker_required_; }
     void clear_gap_marker() { gap_marker_required_ = false; }
+    void restore_gap_marker(bool required) { gap_marker_required_ = required; }
     std::size_t size() const { return records_.size(); }
     std::size_t capacity() const { return capacity_; }
 

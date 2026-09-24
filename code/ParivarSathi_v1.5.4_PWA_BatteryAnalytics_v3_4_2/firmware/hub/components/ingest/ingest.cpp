@@ -24,6 +24,16 @@ bool PeerRegistry::accepts(const EventKey& key) const {
     return it != sessions_.end() && it->second == key.session_id && key.sequence > 0;
 }
 
+bool PeerRegistry::accepts_authenticated(const EventKey& key,
+                                         const std::string& source_id,
+                                         std::uint64_t transport_session) const {
+    const auto it = sessions_.find(source_id);
+    return it != sessions_.end() && key.source_id == source_id &&
+           transport_session != 0 && it->second == transport_session &&
+           key.session_id != 0 && key.session_id <= transport_session &&
+           key.sequence > 0;
+}
+
 IngestQueue::IngestQueue(std::size_t capacity) : capacity_(capacity) {
     GS_TRACE(gs::log::Category::Hub, "H01", "IngestQueue.enter", "-");}
 
@@ -33,6 +43,21 @@ IngestQueue::IngestQueue(std::size_t capacity) : capacity_(capacity) {
 bool IngestQueue::callback_copy(const DomainEvent& event, const PeerRegistry& peers) {
     GS_TRACE(gs::log::Category::Hub, "H01", "callback_copy.enter", "-");
     if (!peers.accepts(event.key) || queue_.size() >= capacity_) {
+        ++rejected_;
+        GS_ERROR(gs::log::Category::Hub, "H01", "ingest.rejected",
+                 queue_.size() >= capacity_ ? "ingest_queue_full" : "unauthorized_peer");
+        return false;
+    }
+    queue_.push_back(event);
+    return true;
+}
+
+bool IngestQueue::callback_copy_authenticated(const DomainEvent& event,
+                                               const PeerRegistry& peers,
+                                               const std::string& source_id,
+                                               std::uint64_t transport_session) {
+    if (!peers.accepts_authenticated(event.key, source_id, transport_session) ||
+        queue_.size() >= capacity_) {
         ++rejected_;
         GS_ERROR(gs::log::Category::Hub, "H01", "ingest.rejected",
                  queue_.size() >= capacity_ ? "ingest_queue_full" : "unauthorized_peer");

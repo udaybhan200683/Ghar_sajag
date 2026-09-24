@@ -13,8 +13,24 @@
 #include "gs/protocol.hpp"
 
 #include <utility>
+#include <algorithm>
+#include <set>
 
 namespace gs::node {
+namespace {
+bool same_event(const DomainEvent& left, const DomainEvent& right) {
+    return left.key.source_id == right.key.source_id &&
+           left.key.session_id == right.key.session_id &&
+           left.key.sequence == right.key.sequence &&
+           left.kind == right.kind && left.location == right.location &&
+           left.monotonic_ms == right.monotonic_ms &&
+           left.occurred_at == right.occurred_at &&
+           left.received_at == right.received_at &&
+           left.uncertainty_s == right.uncertainty_s &&
+           left.battery_mv == right.battery_mv && left.is_test == right.is_test &&
+           left.sensor_type == right.sensor_type && left.rssi_dbm == right.rssi_dbm;
+}
+}
 
 NodeRuntime::NodeRuntime(std::string node_id, std::uint64_t session_id,
                          std::size_t journal_capacity, std::size_t tx_capacity)
@@ -98,6 +114,51 @@ std::optional<NodeMessage> NodeRuntime::next_message(Milliseconds now_ms) {
 void NodeRuntime::transport_result(const EventKey& key, bool accepted_by_radio, Milliseconds now_ms) {
     GS_TRACE(gs::log::Category::Node, "N00", "transport_result.enter", "-");
     radio_.record_transport_result(key, accepted_by_radio, now_ms);
+}
+
+NodeRuntimeRecoveryState NodeRuntime::recovery_snapshot() const {
+    return {node_id_, session_id_, store_.retained_snapshot(),
+            radio_.pending_snapshot(), store_.gap_marker_required()};
+}
+
+bool NodeRuntime::restore_recovery(const NodeRuntimeRecoveryState& state,
+                                   Milliseconds now_ms) {
+    if (now_ms < 0 || node_id_.empty() || state.node_id != node_id_ ||
+        state.prior_boot_session == 0 || session_id_ <= state.prior_boot_session ||
+        store_.size() != 0 || radio_.pending() != 0 || next_sequence_ != 1 ||
+        state.retained.size() > store_.capacity() ||
+        state.pending.size() > radio_.capacity()) return false;
+    std::set<EventKey> pending_keys;
+    for (const auto& item : state.pending) {
+        const auto& event = item.event;
+        if (event.key.source_id != node_id_ || event.key.session_id == 0 ||
+            event.key.session_id > state.prior_boot_session ||
+            event.key.sequence == 0 || !pending_keys.insert(event.key).second)
+            return false;
+        const auto retained = std::find_if(state.retained.begin(), state.retained.end(),
+            [&event](const DomainEvent& value) {
+                return value.key.source_id == event.key.source_id &&
+                       value.key.session_id == event.key.session_id &&
+                       value.key.sequence == event.key.sequence;
+            });
+        if (is_business_event(event.kind)) {
+            if (retained == state.retained.end() || !same_event(event, *retained)) return false;
+        } else if (retained != state.retained.end()) return false;
+    }
+    std::set<EventKey> retained_keys;
+    NodeStore restored_store(store_.capacity());
+    for (const auto& event : state.retained) {
+        if (!is_business_event(event.kind) ||
+            !retained_keys.insert(event.key).second ||
+            pending_keys.count(event.key) == 0 ||
+            !restored_store.append(event)) return false;
+    }
+    restored_store.restore_gap_marker(state.gap_marker_required);
+    NodeRadio restored_radio(radio_.capacity());
+    if (!restored_radio.restore_pending(state.pending, now_ms)) return false;
+    store_ = std::move(restored_store);
+    radio_ = std::move(restored_radio);
+    return true;
 }
 
 }  // namespace gs::node

@@ -47,9 +47,25 @@ bool HubRuntime::radio_message_callback(const NodeMessage& message, EpochSeconds
     return accepted;
 }
 
+bool HubRuntime::authenticated_radio_message_callback(
+    const NodeMessage& message, const std::string& authenticated_node_id,
+    std::uint64_t transport_session, EpochSeconds hub_received_at) {
+    if (!valid_node_message(message) || message.node_id != authenticated_node_id) {
+        GS_ERROR(gs::log::Category::Hub, "H00", "wire_message.rejected",
+                 "invalid_authenticated_node_message");
+        return false;
+    }
+    const bool accepted = ingest_.callback_copy_authenticated(
+        domain_event_from_node_message(message, hub_received_at), peers_,
+        authenticated_node_id, transport_session);
+    if (accepted && message.power.has_value())
+        power_telemetry_[message.node_id] = *message.power;
+    return accepted;
+}
+
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
-// Consume one admitted event, apply privacy policy, commit and update the reducer. Duplicate reducer
-// effects remain G02.
+// Consume one admitted event, apply privacy policy, commit and update the reducer.
+// Duplicate journal identities receive an ACK without repeating reducer effects.
 std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint16_t> local_minute) {
     GS_TRACE(gs::log::Category::Hub, "H00", "run_state_once.enter", "-");
     const auto event = ingest_.pop();
@@ -62,6 +78,11 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     if (committed == CommitResult::Full) {
         GS_ERROR(gs::log::Category::Storage, "H00", "event.rejected", "hub_journal_full");
         return ProcessResult{event->key, AckClass::Rejected, false, {}};
+    }
+    if (committed == CommitResult::Duplicate) {
+        // A lost ACK may replay the same business event after a Node reboot.
+        // Acknowledge the known identity without applying rules a second time.
+        return ProcessResult{event->key, AckClass::Durable, false, {}};
     }
     coverage_.observe(event->key.source_id, event->received_at, event->battery_mv);
     routine_.set_coverage(coverage_.current(event->received_at));

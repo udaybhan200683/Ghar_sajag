@@ -57,4 +57,8 @@ std::optional<DomainEvent> NodeStore::oldest() const {
     return records_.front();
 }
 
+std::vector<DomainEvent> NodeStore::retained_snapshot() const {
+    return {records_.begin(), records_.end()};
+}
+
 }  // namespace gs::node

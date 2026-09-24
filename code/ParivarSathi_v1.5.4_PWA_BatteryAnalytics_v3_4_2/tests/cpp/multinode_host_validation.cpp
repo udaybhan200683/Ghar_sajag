@@ -130,6 +130,36 @@ void one_of_ten_rejoins_without_repairing() {
     }
     std::cout << "P2-MN10-REJOIN HOST/SIMULATED PASS nine unaffected\n";
 }
+
+void one_of_ten_restarts_with_inflight_event() {
+    ScheduledHarness harness(10);
+    std::vector<gs::EventKey> old_keys;
+    for (std::size_t i = 0; i < 10; ++i) {
+        const auto key = harness.record(i);
+        require(key.has_value(), "in-flight reboot burst setup failed");
+        old_keys.push_back(*key);
+    }
+    harness.advance(0);  // Encrypted uplinks exist but no Hub delivery yet.
+    require(harness.restart_node(4), "pending event blocked authenticated rejoin");
+    harness.run_until_quiet(5000);
+    require(harness.journal_size() == 10 && harness.contains(old_keys[4]),
+            "restarted Node lost or rewrote its original event identity");
+    for (std::size_t i = 0; i < 10; ++i) {
+        const auto state = harness.snapshot(i);
+        require(state.matching_acks == 1 && state.pending == 0 && state.retained == 0 &&
+                state.session == (i == 4 ? 2U : 1U),
+                "in-flight restart disturbed another Node or stranded evidence");
+    }
+    require(harness.snapshot(4).registry_rejections >= 1,
+            "old-session encrypted frame was not rejected after rejoin");
+    const auto fresh = harness.record(4);
+    require(fresh && fresh->session_id == 2 && fresh->sequence == 1,
+            "new event reused the prior boot event identity");
+    harness.run_until_quiet();
+    require(harness.journal_size() == 11 && harness.contains(*fresh),
+            "new-session event failed after recovery");
+    std::cout << "P2-MN10-INFLIGHT-REJOIN HOST/SIMULATED PASS old event identity retained\n";
+}
 }  // namespace
 
 int main() {
@@ -140,6 +170,7 @@ int main() {
         outage_recovers();
         removal_isolated_from_other_nine();
         one_of_ten_rejoins_without_repairing();
+        one_of_ten_restarts_with_inflight_event();
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "P2-MULTINODE HOST/SIMULATED FAIL " << error.what() << '\n';

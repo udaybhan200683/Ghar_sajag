@@ -212,6 +212,18 @@ flash image can roll back an association without a separate protected
 monotonic counter; service policy for that threat remains open. Corruption
 fails closed and needs explicit service recovery.
 
+NodeRuntime now exposes a bounded recovery snapshot of retained business
+events, pending transmissions, retry attempts and the storage gap marker.
+Host restore requires the same logical Node and a strictly newer boot session,
+preserves old event identities, and makes old monotonic retry deadlines due in
+the new clock domain. A trusted HubRuntime ingest path accepts such old event
+keys only inside the currently authenticated transport session and correct
+logical Node mapping. Duplicate journal identities receive an ACK without
+repeating reducer effects. A ten-Node host test restarts one Node with an
+encrypted frame in flight and proves the other nine continue. This is
+`HOST/SIMULATED`: no target flash store or startup restore exists, and the
+target ESP-NOW adapter does not yet call the authenticated ingest path.
+
 ## 5. MANDATORY MULTI-NODE REQUIREMENTS
 
 The following are `CONFIRMED_REQUIREMENT` product qualification targets:

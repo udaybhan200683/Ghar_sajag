@@ -43,9 +43,15 @@ public:
     bool radio_callback(const DomainEvent& event);
     // Physical transport adapters validate/decode NodeMessage then enter the same generic event path.
     bool radio_message_callback(const NodeMessage& message, EpochSeconds hub_received_at);
+    // Call only after current-session AEAD verification and physical-to-logical
+    // registry admission. Preserves an older retained event key across reboot.
+    bool authenticated_radio_message_callback(const NodeMessage& message,
+                                              const std::string& authenticated_node_id,
+                                              std::uint64_t transport_session,
+                                              EpochSeconds hub_received_at);
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
-    // Consume one admitted event, apply privacy policy, commit and update the reducer. Duplicate reducer
-    // effects remain G02.
+    // Consume one admitted event, apply privacy policy, commit and update the reducer.
+    // A duplicate journal identity does not repeat reducer effects.
     std::optional<ProcessResult> run_state_once(std::optional<std::uint16_t> local_minute = std::nullopt);
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Evaluate absence only with explicit clock and coverage state; full prompt/grace orchestration is

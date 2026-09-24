@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace gs::node {
 
@@ -30,6 +31,14 @@ struct NodeRuntimeStats {
     std::uint32_t priority_rejected{0};
     std::uint32_t durable_acks{0};
     std::uint32_t volatile_acks{0};
+};
+
+struct NodeRuntimeRecoveryState {
+    std::string node_id;
+    std::uint64_t prior_boot_session{0};
+    std::vector<DomainEvent> retained;
+    std::vector<PendingTx> pending;
+    bool gap_marker_required{false};
 };
 
 class NodeRuntime {
@@ -62,6 +71,10 @@ public:
     std::optional<EventKey> oldest_pending_key() const { return radio_.oldest_key(); }
     const NodeRuntimeStats& stats() const { return stats_; }
     const NodeRadioStats& radio_stats() const { return radio_.stats(); }
+    NodeRuntimeRecoveryState recovery_snapshot() const;
+    // Only a fresh runtime with a strictly newer authenticated boot session
+    // may restore prior event identities. Target flash commit is separate.
+    bool restore_recovery(const NodeRuntimeRecoveryState& state, Milliseconds now_ms);
 
 private:
     std::string node_id_;

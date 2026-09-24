@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <deque>
 #include <optional>
+#include <vector>
 
 namespace gs::node {
 
@@ -55,6 +56,11 @@ public:
     std::size_t pending() const { return queue_.size(); }
     std::size_t capacity() const { return capacity_; }
     std::optional<EventKey> oldest_key() const;
+    std::vector<PendingTx> pending_snapshot() const;
+    // Old monotonic deadlines cannot cross a reboot. Every unacknowledged
+    // transmission becomes due in the new clock domain; retry attempt count
+    // and event identity are preserved.
+    bool restore_pending(const std::vector<PendingTx>& pending, Milliseconds now_ms);
     const NodeRadioStats& stats() const { return stats_; }
 
 private:

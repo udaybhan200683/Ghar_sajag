@@ -108,11 +108,14 @@ bool ScheduledHarness::establish_session(Node& node, std::uint64_t last_session)
 
 bool ScheduledHarness::restart_node(std::size_t index) {
     auto& node = nodes_.at(index);
-    if (node.session == UINT64_MAX || node.runtime->pending() != 0) return false;
+    if (node.session == UINT64_MAX) return false;
     const auto record = registry_.find(node.physical_id);
     if (!record || record->quarantined) return false;
+    const auto recovery = node.runtime->recovery_snapshot();
+    auto restarted = std::make_unique<node::NodeRuntime>(node.logical_id, node.session + 1);
+    if (!restarted->restore_recovery(recovery, now_ms_)) return false;
     ++node.session;
-    node.runtime = std::make_unique<node::NodeRuntime>(node.logical_id, node.session);
+    node.runtime = std::move(restarted);
     return establish_session(node, record->last_session);
 }
 
@@ -170,16 +173,19 @@ void ScheduledHarness::deliver(const Frame& frame) {
         }
         const auto decoded = transport::decode_node_message(plain.bytes.data(), plain.size);
         if (!decoded) throw std::runtime_error("production NodeMessage decoder failed");
-        if (decoded.value->node_id != node.logical_id || decoded.value->session_id != node.session)
+        if (decoded.value->node_id != node.logical_id ||
+            decoded.value->session_id == 0 || decoded.value->session_id > node.session)
             throw std::runtime_error("cross-node uplink identity");
         const auto assigned = registry_.find(node.physical_id);
         if (!assigned || assigned->quarantined || assigned->radio_mac != node.radio_mac ||
             assigned->logical_id != decoded.value->node_id ||
-            assigned->last_session != decoded.value->session_id) {
+            assigned->last_session != node.session) {
             ++node.registry_rejections;
             return;
         }
-        if (!hub_.radio_message_callback(*decoded.value, 0)) return;
+        if (!hub_.authenticated_radio_message_callback(*decoded.value,
+                                                       assigned->logical_id,
+                                                       node.session, 0)) return;
         ++node.hub_admissions;
         const auto processed = hub_.run_state_once();
         if (!processed) throw std::runtime_error("HubRuntime did not process admitted frame");
@@ -210,7 +216,8 @@ void ScheduledHarness::deliver(const Frame& frame) {
     if (!decoded) throw std::runtime_error("production NodeAck decoder failed");
     const EventKey key{decoded.value->node_id, decoded.value->session_id,
                        decoded.value->sequence_number};
-    if (key.source_id != node.logical_id || key.session_id != node.session) {
+    if (key.source_id != node.logical_id || key.session_id == 0 ||
+        key.session_id > node.session) {
         ++node.ack_mismatches;
         return;
     }

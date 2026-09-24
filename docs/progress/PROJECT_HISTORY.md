@@ -1161,3 +1161,15 @@ unrevoked removal, and preserve the prior record after write failure. A
 A separate bounded NVS registry namespace compiles on the ESP32. Target startup
 does not load this record, the protected wrapping-key source is unresolved,
 and flash rollback/power-cut behavior is unqualified.
+
+## 2026-09-24 - Phase-2 Node event recovery host foundation
+
+NodeRuntime can snapshot retained business events, in-flight retry identities,
+retry attempts and the storage gap marker, then restore them under a strictly
+newer boot session. The old event key remains unchanged while new events use
+the new boot session. The authenticated Hub ingest path accepts old event keys
+only under a verified current transport session, and duplicate Hub journal
+records no longer repeat reducer effects. Host tests include one of ten Nodes
+restarting with an encrypted event in flight while the other nine continue.
+This does not persist Node events to flash or prove physical C3 restart
+recovery; target storage and ESP-NOW security wiring remain open.

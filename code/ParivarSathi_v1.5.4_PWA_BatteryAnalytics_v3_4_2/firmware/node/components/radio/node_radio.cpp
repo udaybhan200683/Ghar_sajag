@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <utility>
 
 namespace gs::node {
 
@@ -75,7 +76,7 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
     // One global opportunity gate prevents N retained events from becoming an
     // N-packet burst every backoff period while the Hub is absent.
     next_radio_opportunity_ms_ = it->next_attempt_ms;
-    ++it->attempt;
+    if (it->attempt < NodeProtocolPolicy::retry_delays_ms.size()) ++it->attempt;
     if (index == NodeProtocolPolicy::retry_delays_ms.size() - 1U &&
         !it->periodic_backoff_counted) {
         it->periodic_backoff_counted = true;
@@ -86,6 +87,34 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
 std::optional<EventKey> NodeRadio::oldest_key() const {
     if (queue_.empty()) return std::nullopt;
     return queue_.front().event.key;
+}
+
+std::vector<PendingTx> NodeRadio::pending_snapshot() const {
+    return {queue_.begin(), queue_.end()};
+}
+
+bool NodeRadio::restore_pending(const std::vector<PendingTx>& pending,
+                                Milliseconds now_ms) {
+    if (now_ms < 0 || !queue_.empty() || pending.size() > capacity_) return false;
+    NodeRadio candidate(capacity_);
+    for (const auto& saved : pending) {
+        if (saved.event.key.source_id.empty() || saved.event.key.session_id == 0 ||
+            saved.event.key.sequence == 0 ||
+            saved.attempt > NodeProtocolPolicy::retry_delays_ms.size() ||
+            !candidate.can_enqueue(saved.event.kind)) return false;
+        const auto duplicate = std::any_of(candidate.queue_.begin(), candidate.queue_.end(),
+            [&saved](const PendingTx& item) {
+                return item.event.key.str() == saved.event.key.str();
+            });
+        if (duplicate) return false;
+        PendingTx restored = saved;
+        restored.next_attempt_ms = now_ms;
+        candidate.queue_.push_back(std::move(restored));
+    }
+    queue_.swap(candidate.queue_);
+    round_robin_cursor_ = 0;
+    next_radio_opportunity_ms_ = 0;
+    return true;
 }
 
 // @requirements E01, E02, NFR-04

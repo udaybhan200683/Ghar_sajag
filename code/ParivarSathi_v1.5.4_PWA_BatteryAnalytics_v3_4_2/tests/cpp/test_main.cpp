@@ -241,6 +241,14 @@ void test_hub_modules() {
     const auto processed = runtime.run_state_once();
     check(processed && processed->ack == gs::AckClass::Durable, "state owner commits before durable ack");
     check(runtime.routine_state().activity_seen, "runtime routes committed event to rules");
+    const auto evidence_before_retry = runtime.routine_state().evidence_ids.size();
+    check(runtime.radio_callback(event(20, gs::EventKind::Motion, 150)),
+          "retry of known event enters bounded ingest");
+    const auto retry = runtime.run_state_once();
+    check(retry && retry->ack == gs::AckClass::Durable && !retry->state_changed &&
+          retry->rule_signals.empty() && runtime.journal().size() == 1 &&
+          runtime.routine_state().evidence_ids.size() == evidence_before_retry,
+          "duplicate event replayed reducer effects after lost ACK");
 }
 
 
