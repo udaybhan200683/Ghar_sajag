@@ -1261,6 +1261,30 @@ The raw C3 evidence also shows the previous fixed-delay validation occurred
 before PIR readiness. A bounded post-update health gate now waits for sensing,
 runtime liveness, post-sensing MAC delivery and heap headroom, or requests
 rollback at 90 seconds. `FOTA-HOST-028` and real-evidence replay cover the old
-ordering; the paired HIL target build passes. The new health gate is a software
-checkpoint awaiting its own physical run. No rollback or authenticated Hub
-admission qualification is claimed from the earlier same-image run.
+ordering; the paired HIL target build passes. At that point the gate still
+awaited physical execution; the following entry records the result. No rollback
+or authenticated Hub admission qualification is claimed from the earlier
+same-image run.
+
+## 2026-09-24 - Phase-2 C3 OTA boot-health gate physical result
+
+The follow-up run at `evidence/hil/runs/20260924T094521.398370Z` passed the
+17-case smoke and all three same-image FOTA cases on clean commit `7bc2a33`.
+Hub/C3 firmware version was `7bc2a33-hil-e3b0c44` (ESP-IDF v6.0.3); Hub
+SHA-256 was `b713e7d983d5e343cea8b66581cac4dde56967b13a4b6a36e730b412446881ae`,
+and standalone/embedded C3 SHA-256 was
+`a439202c8e4231bc3c29a67ee2cc42ee90c4b5c6a33c7102f7859c1fba52d10b`.
+The C3 changed `ota_0` to `ota_1`, showed a fresh `RTC_SW_CPU_RST`, reached
+PIR readiness, then marked the image valid after runtime, post-sensing MAC
+delivery and heap criteria. Minimum free heap was 201,212 bytes at the
+post-update state observation. The post-OTA event received application ACK;
+unexpected resets, retained and in-flight counts were zero.
+
+The six blocked report rows are physical extra-fixture cases: Hub and C3 power
+cut, controlled brownout, current/battery measurement, optical PIR stimulus,
+and house-range RF/thermal. The focused FOTA report has no blocked radio,
+offline or restart-suite rows; those suites were not part of this run. Physical
+multi-C3 contention and target outage/restart storms remain separate Phase-2
+gaps. This result qualifies the same-image FOTA happy path and boot-health
+success branch only. Version upgrade, firmware authenticity and rollback
+remain unqualified.

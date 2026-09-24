@@ -443,18 +443,41 @@ unexpected reset reported. This physical result qualifies same-image transfer,
 reboot and functional recovery only. Version upgrade, image authenticity and
 rollback remain unqualified.
 
-The same physical log exposed an incomplete boot-health ordering: the old
+The earlier physical log exposed an incomplete boot-health ordering: the old
 five-second task marked the pending image valid before PIR stabilization.
 `P2-REPLAY-FOTA-001` retains those raw lines as a permanent regression. The
-next target checkpoint replaces that delay with a bounded 90-second gate:
+replacement uses a bounded 90-second gate:
 NodeRuntime owner active, PIR ready, at least two post-sensing runtime ticks,
 a fresh post-sensing health frame accepted at the ESP-NOW MAC layer, no active
 maintenance, and at least 8 KiB minimum free heap. Missing health evidence
 requests ESP-IDF rollback instead of marking the image valid. `FOTA-HOST-028`
-passes, and the paired HIL build passes. This is awaiting physical execution;
-MAC delivery does not prove authenticated Hub application admission. The full
-production health gate remains partial until target authenticated runtime is
-integrated and rollback is observed on hardware.
+passes, and the paired HIL build passes. The gate then passed on physical
+hardware at `evidence/hil/runs/20260924T094521.398370Z`. That run used commit
+`7bc2a3302b2e8b7792aefe453f31e78a750fe929`, clean source fingerprint
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`, Hub
+SHA-256 `b713e7d983d5e343cea8b66581cac4dde56967b13a4b6a36e730b412446881ae`,
+and matching standalone/embedded C3 SHA-256
+`a439202c8e4231bc3c29a67ee2cc42ee90c4b5c6a33c7102f7859c1fba52d10b`.
+Both report `7bc2a33-hil-e3b0c44` on ESP-IDF v6.0.3. The C3 changed from
+`ota_0` to `ota_1`, produced fresh `RTC_SW_CPU_RST` evidence, reached PIR
+readiness, then logged image validity. At that decision the gate had observed
+post-sensing runtime ticks, accepted health transmission at the ESP-NOW MAC
+layer and minimum free heap of 201,212 bytes. A post-OTA motion event was
+application-ACKed; unexpected resets, retained events and in-flight events
+were all zero. The physical campaign passed 17/17 smoke and 3/3 same-image
+FOTA cases. MAC delivery does not prove authenticated Hub application
+admission, and this run did not exercise the timeout/rollback branch. Version
+upgrade, image authenticity, negative transfer cases, rollback and repeated
+A/B cycles remain unqualified.
+
+The same report lists six `BLOCKED_EXTRA_FIXTURE` rows: Hub power cut, C3
+power cut, controlled brownout, current/battery measurement, optical PIR
+stimulus, and house-range RF/thermal testing. They are explicitly outside this
+focused software FOTA checkpoint and require specialized fixtures. It contains
+no blocked radio, offline, Hub restart, C3 restart or both-target restart
+suite rows; those cases were not run by this focused campaign. Host/logical
+coverage exists for some of those paths, while physical multi-C3 RF and
+target outage/restart-storm evidence remain Phase-2 qualification gaps.
 
 ### Deferred battery milestone after Phase 2
 
