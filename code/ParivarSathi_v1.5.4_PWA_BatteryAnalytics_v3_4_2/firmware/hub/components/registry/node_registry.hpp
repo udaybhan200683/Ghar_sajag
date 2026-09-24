@@ -7,6 +7,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace gs::hub {
 
@@ -49,6 +50,15 @@ struct RegistryCounters {
     std::uint32_t quarantined{0};
 };
 
+// A caller must authenticate and durably commit this bounded state before
+// trusting it after reboot. Installation keys are managed separately.
+struct RegistrySnapshot {
+    std::string home_id;
+    std::string hub_id;
+    std::vector<EnrolledNode> active;
+    std::vector<std::string> revoked_device_ids;
+};
+
 // This bounded store is downstream of authenticated commissioning/rejoin.
 // The radio callback must never call enroll() merely because a MAC or product
 // signature matches. The cryptographic proof gate is a separate component.
@@ -66,6 +76,10 @@ public:
                            const EnrolledNode& authenticated_replacement);
     std::optional<EnrolledNode> find(const std::string& device_id) const;
     bool is_revoked(const std::string& device_id) const;
+    RegistrySnapshot snapshot() const;
+    // Restores only into a fresh registry and validates the complete snapshot
+    // before changing live state. A false result leaves this registry empty.
+    bool restore(const RegistrySnapshot& snapshot);
     std::size_t size() const { return active_.size(); }
     std::size_t capacity() const { return installed_capacity_; }
     std::size_t tombstone_count() const { return tombstones_.size(); }

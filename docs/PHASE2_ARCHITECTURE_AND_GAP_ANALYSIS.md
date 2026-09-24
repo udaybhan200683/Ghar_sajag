@@ -549,6 +549,13 @@ the installer must resolve the exhausted revocation store through an explicit
 service workflow. Host regression covers this behavior. Hub persistence and
 service recovery remain incomplete, so this is not target restart proof.
 
+A bounded registry snapshot/restore operation now validates Home/Hub identity,
+installed capacity, tombstone capacity, active identity conflicts, prior
+sessions and quarantine before restoring a fresh registry. Host tests prove
+stale-session and revoked-identity rejection after restore. The snapshot is
+an in-memory state transfer only: it has no encrypted durable Hub store,
+installation-key recovery, target startup path or power-cut proof.
+
 The scheduled host transport harness now uses registry admission before
 `HubRuntime`, including removal of one context while the other nine continue.
 Its test setup supplies preauthenticated records directly. This does not

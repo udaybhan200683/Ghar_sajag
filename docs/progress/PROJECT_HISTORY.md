@@ -1140,3 +1140,12 @@ when its tombstone store fills. Remove/replace at capacity returns an explicit
 quarantines the affected active Node so rejoin is rejected. Focused host tests
 cover max−1/max/max+1, oldest revoked identity rejection and no partial
 replacement. Durable Hub registry storage and service recovery are still open.
+
+## 2026-09-24 - Phase-2 registry snapshot validation foundation
+
+The existing `NodeRegistry` gained a bounded snapshot and all-or-nothing
+restore into a fresh instance. Host tests restore Home/Hub identity, active
+records, last authenticated session, revoked identities and quarantine, then
+reject stale and revoked rejoin attempts. Corrupt, conflicting and foreign
+snapshots leave the destination empty. This is memory-state validation only;
+protected Hub flash storage and installation-key recovery are pending.

@@ -158,4 +158,40 @@ bool NodeRegistry::is_revoked(const std::string& device_id) const {
     return std::find(tombstones_.begin(), tombstones_.end(), device_id) != tombstones_.end();
 }
 
+RegistrySnapshot NodeRegistry::snapshot() const {
+    RegistrySnapshot state;
+    state.home_id = home_id_;
+    state.hub_id = hub_id_;
+    state.active.reserve(active_.size());
+    for (const auto& [id, record] : active_) {
+        (void)id;
+        state.active.push_back(record);
+    }
+    state.revoked_device_ids.assign(tombstones_.begin(), tombstones_.end());
+    return state;
+}
+
+bool NodeRegistry::restore(const RegistrySnapshot& state) {
+    if (installed_capacity_ == 0 || !active_.empty() || !tombstones_.empty() ||
+        state.home_id != home_id_ || state.hub_id != hub_id_ ||
+        state.active.size() > installed_capacity_ ||
+        state.revoked_device_ids.size() > tombstone_capacity_) return false;
+
+    NodeRegistry candidate(home_id_, hub_id_, installed_capacity_, tombstone_capacity_);
+    for (const auto& id : state.revoked_device_ids) {
+        if (id.empty() || id.size() > 64 || candidate.is_revoked(id)) return false;
+        candidate.tombstone(id);
+    }
+    for (const auto& saved : state.active) {
+        EnrolledNode record = saved;
+        record.quarantined = false;
+        if (candidate.enroll(record) != RegistryResult::Accepted) return false;
+        if (saved.quarantined) candidate.active_.find(saved.device_id)->second.quarantined = true;
+    }
+    active_.swap(candidate.active_);
+    tombstones_.swap(candidate.tombstones_);
+    counters_ = {};
+    return true;
+}
+
 }  // namespace gs::hub

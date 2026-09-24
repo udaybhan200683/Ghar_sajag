@@ -155,6 +155,51 @@ void revocation_capacity_fails_closed() {
             "failed replacement left old physical identity usable");
     std::cout << "P2-REG-REVOCATION HOST PASS max-1/max/max+1 and quarantine\n";
 }
+
+void snapshot_restore_is_atomic() {
+    NodeRegistry original("home-a", "hub-a", 10, 2);
+    for (unsigned i = 1; i <= 3; ++i)
+        require(original.enroll(node(i)) == RegistryResult::Accepted,
+                "snapshot setup enrollment failed");
+    require(original.rejoin("physical-1", node(1).radio_mac, 7) == RegistryResult::Accepted,
+            "snapshot session setup failed");
+    require(original.remove("physical-2") == RegistryResult::Accepted,
+            "snapshot revocation setup failed");
+    auto clone = node(3);
+    clone.radio_mac[5] = 33;
+    require(original.enroll(clone) == RegistryResult::DuplicatePhysicalIdentity,
+            "snapshot quarantine setup failed");
+    const auto saved = original.snapshot();
+    NodeRegistry restored("home-a", "hub-a", 10, 2);
+    require(restored.restore(saved) && restored.size() == 2 &&
+            restored.is_revoked("physical-2") &&
+            restored.find("physical-3")->quarantined &&
+            restored.find("physical-1")->last_session == 7,
+            "restore lost association security state");
+    require(restored.rejoin("physical-1", node(1).radio_mac, 7) ==
+                RegistryResult::StaleSession &&
+            restored.rejoin("physical-3", node(3).radio_mac, 8) ==
+                RegistryResult::DuplicatePhysicalIdentity &&
+            restored.enroll(node(2)) == RegistryResult::RevokedDevice,
+            "restored registry admitted stale quarantined or revoked Node");
+    require(!restored.restore(saved), "live registry accepted a second restore");
+
+    auto corrupt = saved;
+    corrupt.active[0].logical_id = corrupt.active[1].logical_id;
+    NodeRegistry fresh("home-a", "hub-a", 10, 2);
+    require(!fresh.restore(corrupt) && fresh.size() == 0 &&
+            fresh.tombstone_count() == 0,
+            "invalid snapshot partially changed registry");
+    corrupt = saved;
+    corrupt.revoked_device_ids.push_back(corrupt.revoked_device_ids.front());
+    require(!fresh.restore(corrupt) && fresh.size() == 0,
+            "duplicate revoked identity restored");
+    corrupt = saved;
+    corrupt.home_id = "foreign-home";
+    require(!fresh.restore(corrupt) && fresh.size() == 0,
+            "foreign Home snapshot restored");
+    std::cout << "P2-REG-SNAPSHOT HOST PASS sessions/revocations/quarantine/atomicity\n";
+}
 }  // namespace
 
 int main() {
@@ -163,6 +208,7 @@ int main() {
         identity_rejoin_and_quarantine();
         removal_and_replacement();
         revocation_capacity_fails_closed();
+        snapshot_restore_is_atomic();
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "P2-REGISTRY HOST FAIL " << error.what() << '\n';
