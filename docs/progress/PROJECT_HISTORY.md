@@ -1229,3 +1229,10 @@ protocol correctness; image authenticity, post-update health, physical OTA and
 rollback qualification remain open.
 Repeated final End before reboot also returns Complete without a second OTA
 finalize or restart request.
+
+The existing Phase-1 WSL supervisor now has a focused `hil-checkpoint-fota`
+path with automatic fixture/setup/preflight, paired HIL flash, Phase-1 smoke
+and a same-image C3 OTA scenario. A HIL-only Hub UART trigger replaces manual
+BOOT pressing. The scenario checks fresh transfer/reset evidence, OTA slot
+change, exact image provenance, PIR readiness and functional ACK recovery.
+Host supervisor/replay tests pass; a physical FOTA run has not yet occurred.

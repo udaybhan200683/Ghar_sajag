@@ -21,6 +21,7 @@ from tools.hil.usb_attach import FixtureBlocked, FixtureFailed, ensure_verified_
 STAGES = ("validation-fast", "release-gate-final", "usb-fixture", "hil-setup",
           "hil-preflight", "hil-smoke", "hil-regression")
 CHECKPOINT_SMOKE_STAGES = ("usb-fixture", "hil-setup", "hil-preflight", "hil-smoke")
+CHECKPOINT_FOTA_STAGES = ("usb-fixture", "hil-setup", "hil-preflight", "hil-fota")
 LATEST_REPORT = REPO / "evidence/hil/latest.txt"
 
 
@@ -60,7 +61,8 @@ class QualificationSupervisor:
         self.output = output
         self.stages = tuple(STAGES if stages is None else stages)
         self.label = label
-        self.prefix = "HIL CHECKPOINT" if self.stages == CHECKPOINT_SMOKE_STAGES else "PHASE-1"
+        self.prefix = ("HIL CHECKPOINT" if self.stages in
+                       (CHECKPOINT_SMOKE_STAGES, CHECKPOINT_FOTA_STAGES) else "PHASE-1")
         self.statuses: OrderedDict[str, str] = OrderedDict((name, "BLOCKED") for name in self.stages)
         self.executed = 0
         self.report_eligible = False
@@ -80,7 +82,7 @@ class QualificationSupervisor:
                 else:
                     result = self.stage_runner(name)
                     code = int(result.returncode if hasattr(result, "returncode") else result)
-                    if name in ("hil-smoke", "hil-regression"):
+                    if name in ("hil-smoke", "hil-regression", "hil-fota"):
                         self.report_eligible = True
             except FixtureBlocked as exc:
                 self.output(f"{self.prefix}: {name} - BLOCKED: {exc}")
@@ -132,10 +134,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint-smoke", action="store_true",
                         help="refresh fixture setup and preflight before the focused physical smoke")
+    parser.add_argument("--checkpoint-fota", action="store_true",
+                        help="refresh fixture setup and preflight before same-image C3 FOTA")
     args = parser.parse_args()
+    if args.checkpoint_smoke and args.checkpoint_fota:
+        parser.error("choose one focused checkpoint")
     if args.checkpoint_smoke:
         return QualificationSupervisor(stages=CHECKPOINT_SMOKE_STAGES,
                                        label="HIL CHECKPOINT SMOKE").run()
+    if args.checkpoint_fota:
+        return QualificationSupervisor(stages=CHECKPOINT_FOTA_STAGES,
+                                       label="HIL CHECKPOINT C3 FOTA").run()
     return QualificationSupervisor().run()
 
 

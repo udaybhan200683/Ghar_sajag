@@ -12,6 +12,9 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_now.h"
+#if GS_HIL_BUILD
+#include "esp_ota_ops.h"
+#endif
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -477,8 +480,9 @@ void hil_request_health() {
 }
 
 void hil_log_state() {
+    const esp_partition_t* running_partition = esp_ota_get_running_partition();
     ESP_LOGI(kTag,
-             "HIL_STATE role=c3 session=%llu retained=%u in_flight=%u sensing_live=%u runtime_live=%u pending_inject=%u heap=%u min_heap=%u",
+             "HIL_STATE role=c3 session=%llu retained=%u in_flight=%u sensing_live=%u runtime_live=%u pending_inject=%u heap=%u min_heap=%u ota_slot=%s",
              static_cast<unsigned long long>(g_session_id),
              static_cast<unsigned>(g_hil_retained.load(std::memory_order_acquire)),
              static_cast<unsigned>(g_hil_in_flight.load(std::memory_order_acquire)),
@@ -486,7 +490,8 @@ void hil_log_state() {
              static_cast<unsigned>(g_hil_runtime_live.load(std::memory_order_acquire)),
              static_cast<unsigned>(g_hil_motion_pending.load(std::memory_order_acquire)),
              static_cast<unsigned>(esp_get_free_heap_size()),
-             static_cast<unsigned>(esp_get_minimum_free_heap_size()));
+             static_cast<unsigned>(esp_get_minimum_free_heap_size()),
+             running_partition == nullptr ? "unknown" : running_partition->label);
 }
 #endif
 

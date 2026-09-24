@@ -61,6 +61,7 @@ def normalize_rom_reset_class(line: str) -> str | None:
 _ACTIVE_IDENTITY_PROBES: dict[str, "ActiveIdentityProbe"] = {}
 
 SMOKE_IDS = [f"HIL-SMOKE-{n:03d}" for n in range(1, 18)]
+FOTA_IDS = ["P2-FOTA-SAME-001", "P2-FOTA-SAME-002", "P2-FOTA-SAME-003"]
 RADIO_IDS = [f"HIL-RADIO-{n:03d}" for n in range(1, 11)]
 OR_IDS = [f"HIL-OR-{n:03d}" for n in range(1, 21)]
 HUB_RST_IDS = [f"HIL-HUB-RST-{n:03d}" for n in range(1, 11)]
@@ -626,6 +627,33 @@ class Campaign:
             self.command(self.c3, "GET_STATE", r"retained=0 in_flight=0")
         return self.scenario(RADIO_IDS, run, "ESP-NOW baseline/repeat/ACK/health/idle/restart recovery/burst")
 
+    def fota_same_image(self):
+        # This checkpoint proves the transfer/reboot path with the qualified
+        # embedded image. It does not claim a new version or signed image.
+        def run():
+            initial_state = self.command(self.c3, "GET_STATE", r"HIL_STATE role=c3 .*ota_slot=ota_[01]")
+            before_slot = re.search(r"ota_slot=(ota_[01])", initial_state).group(1)
+            hub_cursor, c3_cursor = self.hub.cursor(), self.c3.cursor()
+            self.command(self.hub, "START_C3_FOTA", timeout=10)
+            self.hub.wait_for(r"NODE FOTA START size=\d+ crc=0x[0-9A-F]+ chunks=\d+", 20, hub_cursor)
+            self.c3.wait_for(r"FOTA maintenance ACTIVE", 30, c3_cursor)
+            self.c3.wait_for(r"FOTA COMPLETE; next boot partition=ota_[01]", 1200, c3_cursor)
+            self.hub.wait_for(r"FOTA RESULT: PASS", 30, hub_cursor)
+            self.c3.wait_for_predicate(
+                lambda line: normalize_rom_reset_class(line) == SOFTWARE_RESET_EVIDENCE,
+                "post-FOTA normalized SOFTWARE_RESET ROM evidence", 30, c3_cursor)
+            version = re.escape(self.manifest["image_version"])
+            self.c3.wait_for(rf"HIL_READY role=c3 protocol=1 version={version}", 30, c3_cursor)
+            self.c3.wait_for(r"PIR ready on GPIO", 35, c3_cursor)
+            post_state = self.command(self.c3, "GET_STATE", r"HIL_STATE role=c3 .*ota_slot=ota_[01]", 20)
+            after_slot = re.search(r"ota_slot=(ota_[01])", post_state).group(1)
+            if before_slot == after_slot:
+                raise RuntimeError(f"C3 OTA slot did not change: {before_slot}->{after_slot}")
+            self.motion(timeout=30)
+            self.command(self.c3, "GET_STATE", r"HIL_STATE role=c3 .*retained=0 in_flight=0", 20)
+            self._check_resets_resources()
+        return self.scenario(FOTA_IDS, run, "same-image OTA/alternate-slot/reboot/sensing/event/ACK")
+
     def offline(self):
         def run():
             self.motion(); self.command(self.hub, "SET_HUB_LOGICAL_OFFLINE")
@@ -761,6 +789,8 @@ def run_campaign(mode: str) -> int:
             manifest = build_pair(config, run_dir); flash(config, devices, manifest, run_dir)
             campaign = Campaign(mode, config, devices, manifest, run_dir); campaign.start_capture()
             healthy = campaign.smoke()
+            if mode == "fota" and healthy:
+                campaign.fota_same_image()
             if mode == "regression" and healthy:
                 for suite in (campaign.radio, campaign.offline, campaign.hub_restart,
                               campaign.c3_restart, campaign.both_restart):
@@ -768,7 +798,9 @@ def run_campaign(mode: str) -> int:
                         recovered = campaign.recover()
                         print("FIXTURE RECOVERY:", campaign.recovery_status)
                         if not recovered: break
-            expected = SMOKE_IDS if mode == "smoke" else (SMOKE_IDS + RADIO_IDS + OR_IDS + HUB_RST_IDS + C3_RST_IDS + BOTH_RST_IDS)
+            expected = (SMOKE_IDS if mode == "smoke" else
+                        SMOKE_IDS + FOTA_IDS if mode == "fota" else
+                        SMOKE_IDS + RADIO_IDS + OR_IDS + HUB_RST_IDS + C3_RST_IDS + BOTH_RST_IDS)
             recorded = {row["id"] for row in campaign.results.rows}
             for tc in expected:
                 if tc not in recorded:
@@ -810,6 +842,7 @@ def run_campaign(mode: str) -> int:
         print(f"Hub version={manifest['hub']['app_version']} sha256={manifest['hub']['sha256']}")
         print(f"C3 version={manifest['c3']['app_version']} sha256={manifest['c3']['sha256']}")
         for label, prefix in (("smoke", "HIL-SMOKE-"), ("radio", "HIL-RADIO-"),
+                              ("Phase-2 same-image FOTA", "P2-FOTA-SAME-"),
                               ("offline", "HIL-OR-"), ("Hub restart", "HIL-HUB-RST-"),
                               ("C3 restart", "HIL-C3-RST-"), ("both-target restart", "HIL-BOTH-RST-")):
             rows = [row for row in results.rows if row["id"].startswith(prefix)]
@@ -829,7 +862,7 @@ def run_campaign(mode: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("setup", "preflight", "smoke", "regression"))
+    parser.add_argument("command", choices=("setup", "preflight", "smoke", "regression", "fota"))
     args = parser.parse_args()
     try:
         if args.command == "setup": return setup()

@@ -75,7 +75,8 @@ def main() -> int:
         c3_bytes, hub_bytes = NODE_BINARY.read_bytes(), HUB_BINARY.read_bytes()
         if b"HIL_READY" not in c3_bytes or b"INJECT_MOTION" not in c3_bytes:
             raise PairBuildError("C3 HIL control markers missing from HIL image")
-        if b"HIL_READY" not in hub_bytes or b"SET_HUB_LOGICAL_OFFLINE" not in hub_bytes:
+        if (b"HIL_READY" not in hub_bytes or b"SET_HUB_LOGICAL_OFFLINE" not in hub_bytes or
+                b"START_C3_FOTA" not in hub_bytes):
             raise PairBuildError("Hub HIL control markers missing from HIL image")
         verification = validate_pair(c3, embedded, hub, version)
         verification["clean_tree"] = not dirty

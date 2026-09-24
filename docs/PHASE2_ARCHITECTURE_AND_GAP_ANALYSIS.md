@@ -420,6 +420,17 @@ ACK followed by immediate Node reboot remains a recovery case to qualify.
 Before restart, a repeated valid End now returns the same Complete result
 without writing or activating the image twice.
 
+A Phase-2 same-image physical FOTA checkpoint is now prepared within the
+existing WSL HIL supervisor: `make hil-checkpoint-fota` refreshes USB fixture
+setup and preflight, builds/flashes the paired HIL images, runs the Phase-1
+17-case smoke, then triggers C3 OTA through a compile-gated Hub UART command.
+It requires fresh transfer completion, expected C3 software-reset evidence,
+the alternate OTA slot, exact paired firmware provenance, PIR readiness,
+post-update motion/ACK and empty retained/in-flight state. The command and
+host supervisor tests exist, but **no physical FOTA PASS is claimed until the
+boards run it**. This same-image checkpoint does not prove version upgrade,
+signed-image authorization, rollback, or repeated A/B cycles.
+
 ### Deferred battery milestone after Phase 2
 
 Battery optimization is the next milestone, outside Phase 2: HW-M1.4B

@@ -525,6 +525,55 @@ class HilInfrastructureTest(unittest.TestCase):
                 self.assertTrue(any(f"HIL_READY role={role} protocol=1 version=test" in pattern
                                     for pattern in waits))
 
+    def test_phase2_fota_requires_fresh_transfer_reset_slot_and_sensing(self):
+        class FotaTarget(RecordingTarget):
+            def __init__(self, role):
+                super().__init__("rst:0xc (RTC_SW_CPU_RST)" if role == "c3" else
+                                 "rst:0xc (SW_CPU_RESET)")
+                self.role = role
+                self.state_reads = 0
+                self.cursor_value = 0
+            def cursor(self):
+                self.cursor_value += 1
+                return self.cursor_value
+            def wait_for(self, pattern, timeout, start=0):
+                super().wait_for(pattern, timeout, start)
+                if self.role == "c3" and "HIL_STATE role=c3" in pattern:
+                    self.state_reads += 1
+                    return ("HIL_STATE role=c3 retained=0 in_flight=0 "
+                            f"ota_slot=ota_{0 if self.state_reads == 1 else 1}")
+                return "matched"
+        with tempfile.TemporaryDirectory() as tmp:
+            campaign = Campaign("fota", {}, {}, {"image_version": "test"}, Path(tmp))
+            campaign.hub, campaign.c3 = FotaTarget("hub"), FotaTarget("c3")
+            motions = []
+            campaign.motion = lambda timeout=20: motions.append(timeout)
+            campaign._check_resets_resources = lambda: None
+            self.assertTrue(campaign.fota_same_image())
+            self.assertEqual(motions, [30])
+            self.assertIn(("send", "START_C3_FOTA"), campaign.hub.calls)
+            self.assertTrue(any(call[0] == "wait_predicate" and
+                                "post-FOTA normalized SOFTWARE_RESET" in call[1]
+                                for call in campaign.c3.calls))
+            self.assertTrue(any(call[0] == "wait" and "PIR ready on GPIO" in call[1]
+                                for call in campaign.c3.calls))
+            self.assertEqual([r["status"] for r in campaign.results.rows], ["PASS"] * 3)
+
+    def test_phase2_fota_rejects_unchanged_ota_slot(self):
+        class SameSlotTarget(RecordingTarget):
+            def wait_for(self, pattern, timeout, start=0):
+                super().wait_for(pattern, timeout, start)
+                if "HIL_STATE role=c3" in pattern:
+                    return "HIL_STATE role=c3 retained=0 in_flight=0 ota_slot=ota_0"
+                return "matched"
+        with tempfile.TemporaryDirectory() as tmp:
+            campaign = Campaign("fota", {}, {}, {"image_version": "test"}, Path(tmp))
+            campaign.hub = RecordingTarget()
+            campaign.c3 = SameSlotTarget("rst:0xc (RTC_SW_CPU_RST)")
+            self.assertFalse(campaign.fota_same_image())
+            self.assertIn("slot did not change",
+                          (Path(tmp)/"failures"/"P2-FOTA-SAME-001.txt").read_text())
+
     def test_recovery_sensing_timeout_has_specific_evidence_code(self):
         with tempfile.TemporaryDirectory() as tmp:
             campaign = Campaign("regression", {}, {}, {"image_version": "test"}, Path(tmp))

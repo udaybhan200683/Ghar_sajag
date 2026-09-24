@@ -1,4 +1,5 @@
 #include "firmware/hub/target/esp32/hub_runtime_adapter.hpp"
+#include "fota_sender.hpp"
 
 #include "esp_log.h"
 #include "esp_app_desc.h"
@@ -28,6 +29,11 @@ void dispatch_command(const char* command) {
         std::fflush(stdout);
         vTaskDelay(pdMS_TO_TICKS(50));
         esp_restart();
+    } else if (std::strcmp(command, "START_C3_FOTA") == 0) {
+        if (gs::hub::target::hil_request_fota())
+            ESP_LOGI(kTag, "HIL_OK command=START_C3_FOTA");
+        else
+            ESP_LOGW(kTag, "HIL_ERROR command=START_C3_FOTA reason=busy_or_unavailable");
     } else if (command[0] != '\0') {
         ESP_LOGW(kTag, "HIL_ERROR unknown_command=%s", command);
     }

@@ -227,4 +227,12 @@ esp_err_t start_fota_sender() {
     return ESP_OK;
 }
 
+#if GS_HIL_BUILD
+bool hil_request_fota() {
+    if (g_start_queue == nullptr) return false;
+    const std::uint8_t command = 1U;
+    return xQueueSend(g_start_queue, &command, 0) == pdTRUE;
+}
+#endif
+
 }  // namespace gs::hub::target

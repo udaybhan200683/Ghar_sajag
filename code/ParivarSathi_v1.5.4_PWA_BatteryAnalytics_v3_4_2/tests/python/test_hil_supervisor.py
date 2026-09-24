@@ -173,6 +173,21 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight"])
         self.assertEqual(states["hil-smoke"], "BLOCKED")
 
+    def test_checkpoint_fota_refreshes_provenance_before_hardware(self):
+        code, calls, states, output = self.run_supervisor(
+            stages=qualify.CHECKPOINT_FOTA_STAGES)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight", "hil-fota"])
+        self.assertTrue(all(value == "PASS" for value in states.values()))
+        self.assertTrue(any("/real/evidence/report" in line for line in output))
+
+    def test_checkpoint_fota_stale_preflight_blocks_transfer(self):
+        code, calls, states, _ = self.run_supervisor(
+            failures={"hil-preflight": 1}, stages=qualify.CHECKPOINT_FOTA_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight"])
+        self.assertEqual(states["hil-fota"], "BLOCKED")
+
     def test_12_validation_fast_failure_blocks_every_later_stage(self):
         code, calls, states, _ = self.run_supervisor({"validation-fast": 3})
         self.assertEqual(code, 1)
