@@ -224,6 +224,25 @@ encrypted frame in flight and proves the other nine continue. This is
 `HOST/SIMULATED`: no target flash store or startup restore exists, and the
 target ESP-NOW adapter does not yet call the authenticated ingest path.
 
+The Node recovery repository now seals a bounded 8,192-byte record under a
+caller-supplied wrapping key and binds it to Home, Hub and logical Node IDs.
+It stores pending events once, marks the retained subset, and preserves retry
+attempts and the storage gap marker. Wrong identity/key, tampering, corrupt
+state and read errors fail closed; failed writes leave the previous record.
+It rejects a save from an older boot session. The scheduled host harness now
+commits this record after recording, transport results and ACK retirement, and
+reopens it for individual Node restart. These are host tests, not flash or
+power-loss qualification. The NVS adapter has a dedicated bounded namespace,
+but target startup and runtime do not yet use it. A protected key source,
+write-frequency/wear policy, power-cut proof and rollback protection remain
+open before any target durability claim.
+
+The physical one-Hub/one-C3 checkpoint at commit `613dd45` passed on
+2026-09-24: 17/17 smoke cases, zero failures or unexpected resets, and final
+retained/in-flight both zero. Both targets reported
+`613dd45-hil-e3b0c44`. This is Phase-1 physical regression evidence for
+the host recovery foundation; it is not physical persisted-event recovery.
+
 ## 5. MANDATORY MULTI-NODE REQUIREMENTS
 
 The following are `CONFIRMED_REQUIREMENT` product qualification targets:
@@ -581,11 +600,12 @@ no protected Hub wrapping-key provider exists, NVS fit/power-cut behavior has no
 measured, and a valid old flash image can still roll back state without a
 protected monotonic counter. It is not target restart qualification.
 
-The scheduled host transport harness now uses registry admission before
-`HubRuntime`, including removal of one context while the other nine continue.
-Its test setup supplies preauthenticated records directly. This does not
-constitute cryptographic commissioning, persistent association, target peer
-management or physical ten-node qualification. `P2-COM` remains a product gap.
+The scheduled host transport harness now runs the asymmetric commissioning
+protocol, authenticated rejoin and registry admission before `HubRuntime`,
+including removal of one context while the other nine continue. It does not
+constitute target commissioning, protected target credential storage, target
+peer management or physical ten-node qualification. Target `P2-COM` remains a
+product gap.
 
 The approved security direction is a unique asymmetric keypair per production
 C3, a QR-represented public identity, authenticated Hub/Home binding and

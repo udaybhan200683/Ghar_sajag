@@ -30,4 +30,9 @@ public:
     NvsRegistryBlobStore();
 };
 
+class NvsNodeRecoveryBlobStore final : public NvsBoundedSecurityBlobStore {
+public:
+    NvsNodeRecoveryBlobStore();
+};
+
 }  // namespace gs::security

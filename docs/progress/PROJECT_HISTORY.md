@@ -1173,3 +1173,20 @@ records no longer repeat reducer effects. Host tests include one of ten Nodes
 restarting with an encrypted event in flight while the other nine continue.
 This does not persist Node events to flash or prove physical C3 restart
 recovery; target storage and ESP-NOW security wiring remain open.
+
+## 2026-09-24 - Phase-2 physical smoke and encrypted Node recovery record
+
+The self-contained `hil-checkpoint-smoke` run at commit `613dd45` passed:
+fixture/setup/preflight and 17/17 physical smoke cases, no failures or
+unexpected resets, and final retained/in-flight both zero. Hub and C3 both
+reported `613dd45-hil-e3b0c44`; the run is retained under
+`evidence/hil/runs/20260924T022030.632921Z`.
+
+A bounded encrypted Node recovery record now preserves event identity,
+retained/pending membership, retry attempt and gap marker across host-store
+reopen. It is bound to Home, Hub and logical Node IDs. Host tests cover the
+32-event boundary, write failure, wrong key/Hub, tampering, corruption and
+boot-session rollback. The 1/4/10/25-context scheduled harness now uses this
+record at Node restart. The dedicated target NVS namespace is compiled only;
+target startup/runtime, protected key sourcing, flash-wear policy, rollback
+resistance and physical power-cut proof are still outstanding.

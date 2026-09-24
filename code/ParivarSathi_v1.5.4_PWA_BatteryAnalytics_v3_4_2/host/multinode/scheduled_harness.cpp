@@ -53,6 +53,18 @@ ScheduledHarness::ScheduledHarness(std::size_t count, std::size_t journal_capaci
             *node_pairing.binding());
         node.hub_binding = std::make_unique<gs::security::CommissioningBinding>(
             *hub_pairing.binding());
+        const gs::security::Bytes recovery_salt(node.physical_id.begin(),
+                                                 node.physical_id.end());
+        const gs::security::Bytes recovery_context{
+            'g','s','-','n','o','d','e','-','r','e','c','o','v','e','r','y','-','v','1'};
+        if (!crypto_.hkdf_sha256(node.node_binding->installation_key,
+                                 recovery_salt, recovery_context, node.recovery_key))
+            throw std::runtime_error("host recovery key derivation failed");
+        node.recovery_blob = std::make_unique<MemoryRecoveryBlob>();
+        node.recovery_repository = std::make_unique<node::NodeRecoveryRepository>(
+            crypto_, *node.recovery_blob, node.recovery_key,
+            "sim-home", "sim-hub", node.logical_id);
+        commit_recovery(node);
         hub::EnrolledNode record;
         record.device_id = node.hub_binding->device_id;
         record.p256_public_key = node.hub_binding->device_public_key;
@@ -78,6 +90,7 @@ ScheduledHarness::~ScheduledHarness() {
         if (node.hub_binding)
             crypto_.secure_zero(node.hub_binding->installation_key.data(),
                                 node.hub_binding->installation_key.size());
+        crypto_.secure_zero(node.recovery_key.data(), node.recovery_key.size());
     }
 }
 
@@ -111,17 +124,27 @@ bool ScheduledHarness::restart_node(std::size_t index) {
     if (node.session == UINT64_MAX) return false;
     const auto record = registry_.find(node.physical_id);
     if (!record || record->quarantined) return false;
-    const auto recovery = node.runtime->recovery_snapshot();
+    const auto saved = node.recovery_repository->load();
+    if (saved.status != node::NodeRecoveryLoadStatus::Ready || !saved.state) return false;
     auto restarted = std::make_unique<node::NodeRuntime>(node.logical_id, node.session + 1);
-    if (!restarted->restore_recovery(recovery, now_ms_)) return false;
+    if (!restarted->restore_recovery(*saved.state, now_ms_)) return false;
     ++node.session;
     node.runtime = std::move(restarted);
-    return establish_session(node, record->last_session);
+    if (!establish_session(node, record->last_session)) return false;
+    commit_recovery(node);
+    return true;
 }
 
 std::optional<EventKey> ScheduledHarness::record(std::size_t index, EventKind kind) {
     auto& node = nodes_.at(index);
-    return node.runtime->record(kind, node.location, now_ms_, 0, 0, 3800);
+    const auto key = node.runtime->record(kind, node.location, now_ms_, 0, 0, 3800);
+    if (key) commit_recovery(node);
+    return key;
+}
+
+void ScheduledHarness::commit_recovery(Node& node) {
+    if (!node.recovery_repository->save(node.runtime->recovery_snapshot()))
+        throw std::runtime_error("host Node recovery commit failed");
 }
 
 void ScheduledHarness::set_node_online(std::size_t index, bool online) {
@@ -156,6 +179,7 @@ void ScheduledHarness::send_due_nodes() {
             throw std::runtime_error("authenticated uplink encoding failed");
         ++node.uplink_attempts;
         node.runtime->transport_result(key, hub_online_, now_ms_);
+        commit_recovery(node);
         if (hub_online_) frames_.push_back({Frame::Direction::Uplink, i, protected_frame,
                                            now_ms_ + 1, now_ms_});
     }
@@ -222,6 +246,7 @@ void ScheduledHarness::deliver(const Frame& frame) {
         return;
     }
     if (node.runtime->acknowledge(key, decoded.value->ack_type)) {
+        commit_recovery(node);
         ++node.matching_acks;
         node.maximum_ack_latency_ms = std::max(node.maximum_ack_latency_ms,
             static_cast<std::uint64_t>(now_ms_ - frame.originated_ms));

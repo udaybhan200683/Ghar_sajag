@@ -4,6 +4,7 @@
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/components/registry/node_registry.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
+#include "firmware/node/components/storage/node_recovery_persistence.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
 #include "firmware/common/security/runtime_frame_security.hpp"
 
@@ -57,6 +58,20 @@ public:
     Milliseconds now_ms() const { return now_ms_; }
 
 private:
+    struct MemoryRecoveryBlob final : gs::security::SecurityBlobStore {
+        bool read(gs::security::Bytes& out, bool& found) override {
+            out = bytes;
+            found = present;
+            return true;
+        }
+        bool write(const gs::security::Bytes& blob) override {
+            bytes = blob;
+            present = true;
+            return true;
+        }
+        gs::security::Bytes bytes;
+        bool present{false};
+    };
     struct Node {
         std::string physical_id;
         std::string logical_id;
@@ -66,6 +81,9 @@ private:
         std::unique_ptr<node::NodeRuntime> runtime;
         std::unique_ptr<gs::security::CommissioningBinding> node_binding;
         std::unique_ptr<gs::security::CommissioningBinding> hub_binding;
+        gs::security::Key32 recovery_key{};
+        std::unique_ptr<MemoryRecoveryBlob> recovery_blob;
+        std::unique_ptr<node::NodeRecoveryRepository> recovery_repository;
         bool online{true};
         bool drop_ack{false};
         std::optional<std::size_t> redirect_ack_to;
@@ -91,6 +109,7 @@ private:
     void deliver_due_frames();
     void deliver(const Frame& frame);
     bool establish_session(Node& node, std::uint64_t last_session);
+    void commit_recovery(Node& node);
 
     hub::HubRuntime hub_;
     hub::NodeRegistry registry_;

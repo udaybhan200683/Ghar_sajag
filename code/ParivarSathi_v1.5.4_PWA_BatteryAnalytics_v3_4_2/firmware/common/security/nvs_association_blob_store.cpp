@@ -14,6 +14,9 @@ NvsAssociationBlobStore::NvsAssociationBlobStore()
 NvsRegistryBlobStore::NvsRegistryBlobStore()
     : NvsBoundedSecurityBlobStore("gs_registry", "snapshot", 8192) {}
 
+NvsNodeRecoveryBlobStore::NvsNodeRecoveryBlobStore()
+    : NvsBoundedSecurityBlobStore("gs_node_rec", "snapshot", 8192) {}
+
 bool NvsBoundedSecurityBlobStore::read(Bytes& blob, bool& found) {
     found = false;
     blob.clear();
