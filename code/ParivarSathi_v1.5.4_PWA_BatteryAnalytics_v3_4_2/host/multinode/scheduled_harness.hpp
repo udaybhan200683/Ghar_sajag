@@ -64,7 +64,7 @@ public:
     std::size_t ingest_depth() const { return hub_.ingest_depth(); }
     std::size_t ingest_high_water() const { return hub_.ingest_high_water(); }
     std::size_t ingest_rejected() const { return hub_.ingest_rejected(); }
-    bool contains(const EventKey& key) { return hub_.journal().contains(key); }
+    bool contains(const EventKey& key);
     Milliseconds now_ms() const { return now_ms_; }
 
 private:

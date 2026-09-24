@@ -43,12 +43,29 @@ struct EventKey {
     std::string source_id;
     std::uint64_t session_id{0};
     std::uint64_t sequence{0};
+    // Set by authenticated Hub admission. It keeps replacement hardware
+    // distinct when the same logical room and local boot counters are reused.
+    std::string physical_device_id;
+
+    EventKey() = default;
+    EventKey(std::string source, std::uint64_t session, std::uint64_t seq,
+             std::string physical = {})
+        : source_id(std::move(source)), session_id(session), sequence(seq),
+          physical_device_id(std::move(physical)) {}
 
     std::string str() const {
-        return source_id + ":" + std::to_string(session_id) + ":" + std::to_string(sequence);
+        if (physical_device_id.empty())
+            return source_id + ":" + std::to_string(session_id) + ":" +
+                   std::to_string(sequence);
+        return "p" + std::to_string(physical_device_id.size()) + ":" +
+               physical_device_id + "n" + std::to_string(source_id.size()) +
+               ":" + source_id + "s" + std::to_string(session_id) +
+               "q" + std::to_string(sequence);
     }
 
     bool operator<(const EventKey& other) const {
+        if (physical_device_id != other.physical_device_id)
+            return physical_device_id < other.physical_device_id;
         if (source_id != other.source_id) return source_id < other.source_id;
         if (session_id != other.session_id) return session_id < other.session_id;
         return sequence < other.sequence;

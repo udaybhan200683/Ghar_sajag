@@ -1202,3 +1202,18 @@ multi-Node host campaign now writes a fail-closed JSON detail artifact under
 `build/` with 13 case rows and per-Node identities, ACKs, retries, rejections,
 latency and retained/pending counts. This is host simulation only; target
 ESP-NOW admission, resource scaling and physical RF remain unqualified.
+
+## 2026-09-24 - Phase-2 bounded Hub event-history persistence foundation
+
+The 4 MiB Hub layout has two 1,920 KiB OTA slots and exactly 128 KiB free at
+`0x3e0000`; it cannot safely promise 1,024 worst-case durable events. The
+design reserves that space as a dedicated NVS partition with a 128-record
+active capacity and explicit full rejection. A host journal now encrypts
+individual append-only records, verifies storage readback before commitment,
+restores dedupe after restart and fails closed on wrong key, corruption or
+ambiguous write. Authenticated Hub admission namespaces journal identities by
+physical device, so replacement hardware cannot collide with its predecessor.
+The paired HIL target build passed, but the active target adapter remains on
+the Phase-1 volatile journal until protected Hub key sourcing, authenticated
+target admission and safe retirement are integrated. No new physical run or
+power-loss durability qualification occurred at this checkpoint.

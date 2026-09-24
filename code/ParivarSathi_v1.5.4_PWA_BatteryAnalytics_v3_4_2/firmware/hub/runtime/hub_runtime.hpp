@@ -47,6 +47,7 @@ public:
     // registry admission. Preserves an older retained event key across reboot.
     bool authenticated_radio_message_callback(const NodeMessage& message,
                                               const std::string& authenticated_node_id,
+                                              const std::string& authenticated_device_id,
                                               std::uint64_t transport_session,
                                               EpochSeconds hub_received_at);
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01

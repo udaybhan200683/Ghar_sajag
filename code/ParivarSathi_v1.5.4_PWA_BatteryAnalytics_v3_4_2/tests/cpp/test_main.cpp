@@ -249,6 +249,30 @@ void test_hub_modules() {
           retry->rule_signals.empty() && runtime.journal().size() == 1 &&
           runtime.routine_state().evidence_ids.size() == evidence_before_retry,
           "duplicate event replayed reducer effects after lost ACK");
+
+    gs::hub::HubRuntime replacement_runtime(4, 8);
+    replacement_runtime.authorize_node("node-1", 7, true);
+    const auto same_logical_event = gs::node_message_from_event(
+        event(1, gs::EventKind::Motion, 150));
+    check(replacement_runtime.authenticated_radio_message_callback(
+              same_logical_event, "node-1", "physical-A", 7, 150) &&
+          replacement_runtime.run_state_once().has_value(),
+          "old physical device was not admitted");
+    check(replacement_runtime.authenticated_radio_message_callback(
+              same_logical_event, "node-1", "physical-B", 7, 150) &&
+          replacement_runtime.run_state_once().has_value() &&
+          replacement_runtime.journal().size() == 2,
+          "replacement hardware reused old physical event identity");
+    check(replacement_runtime.authenticated_radio_message_callback(
+              same_logical_event, "node-1", "physical-A", 7, 150),
+          "same physical replay was not admitted for dedupe");
+    const auto physical_retry = replacement_runtime.run_state_once();
+    check(physical_retry && physical_retry->ack == gs::AckClass::Durable &&
+          !physical_retry->state_changed && replacement_runtime.journal().size() == 2,
+          "same physical identity was not deduplicated");
+    check(gs::EventKey{"a/b", 7, 1, "c"}.str() !=
+          gs::EventKey{"b", 7, 1, "c/a"}.str(),
+          "physical and logical delimiters collided");
 }
 
 

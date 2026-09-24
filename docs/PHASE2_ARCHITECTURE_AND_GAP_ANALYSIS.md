@@ -73,6 +73,65 @@ compact records after cloud acknowledgement.
 The current “durable Hub ACK” means that the event was committed to the
 volatile in-memory Hub journal. It does not mean power-loss durability.
 
+### Phase-2 Hub event-history storage decision (host repository implemented; target integration pending)
+
+The 4 MiB Hub flash ends at `0x400000`. The second required OTA slot ends at
+`0x3e0000`, leaving exactly `0x20000` (128 KiB) unpartitioned. The existing
+default 1,024-entry journal is a RAM bound, not a flash retention promise. A
+maximum-length event needs up to 181 bytes before framing, authentication and
+NVS entry overhead, so 1,024 such events cannot fit in the free region. Phase
+2 will use that region as a separate 128 KiB NVS journal partition without
+moving either OTA slot or the existing 24 KiB NVS partition.
+
+The product target will admit at most **128 locally durable event records**.
+This is a bound on outstanding records whose safe reclamation is not yet
+proven, not a time guarantee for internet outage. A new event receives a
+durable ACK only after its authenticated record is committed and read back.
+At 128 occupied slots or any write/read/corruption fault, it receives an
+explicit rejected ACK; the Node retains its own business evidence. The Hub
+must expose storage-full and rejected-event counters. No accepted event may
+be silently overwritten.
+
+Exact event identities remain in persistent dedupe state while their records
+are retained. A record may be reclaimed only after backend application commit
+and authenticated evidence that its source Node has retired that event. A
+persisted per-Node/session retirement floor must be committed before record
+deletion; older event keys then remain rejected across Hub restart. If that
+evidence or floor commit is absent, the slot stays occupied. Target
+reclamation, authenticated Node retirement evidence and target/backend
+integration remain implementation work.
+
+Use NVS append/commit behavior on the dedicated partition and encrypt each
+record with a Hub installation-specific key from a protected production key
+provider. Development/HIL keys are test-only. The storage owner must verify
+readback before ACK and fail closed on ambiguous recovery. The design avoids
+rewriting the entire journal on every event; target erase/write counts and
+power-cut atomicity still require measurement. Worst-case sealed payloads are
+under 256 bytes, so 128 records consume under 32 KiB of payload before NVS
+metadata and reclamation headroom; actual NVS fit is a target qualification
+gate. Target RAM journal capacity becomes 128 when this storage owner is
+wired; host 1/4/10/25-context stress may continue using larger simulated
+capacities with explicit classification.
+
+Adding the partition does not change OTA slot offsets. Existing boards with
+the old partition table require a controlled partition-table flash before the
+new journal is used; an application-only OTA cannot create this partition.
+Migration must fail closed when the expected partition is absent, and must
+not report power-loss durability until physical interruption tests pass.
+
+The current checkpoint adds the partition-table entry, a dedicated NVS slot
+adapter, and a 128-record host journal that seals each immutable slot using
+AES-256-GCM with the slot index as authenticated context. Commit requires NVS
+write/readback and successful authenticated decode before an ACK is eligible.
+Host tests cover exact capacity, Hub restart dedupe, physical-device
+replacement identity, wrong key, corruption and an ambiguous write result.
+The **active ESP32 target adapter still uses its qualified volatile journal**;
+it does not yet supply a protected Hub key or attach the new store. Therefore
+the current target `Durable` ACK still means RAM commitment. No power-loss
+durability or flash endurance result is claimed. An append-only 128-record
+store without authenticated retirement and backend application receipts will
+eventually fill; reclamation and target integration remain release gaps.
+
 ### Security and target peer state
 
 The current target adds one product ESP-NOW peer and sets `encrypt=false`.

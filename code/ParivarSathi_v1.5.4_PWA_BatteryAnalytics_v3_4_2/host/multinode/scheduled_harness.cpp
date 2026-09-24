@@ -209,6 +209,7 @@ void ScheduledHarness::deliver(const Frame& frame) {
         }
         if (!hub_.authenticated_radio_message_callback(*decoded.value,
                                                        assigned->logical_id,
+                                                       assigned->device_id,
                                                        node.session, 0)) {
             ++node.ingress_rejections;
             return;
@@ -322,6 +323,18 @@ NodeSnapshot ScheduledHarness::snapshot(std::size_t index) const {
             node.ingress_rejections, node.application_rejections,
             node.volatile_receipts,
             node.maximum_ack_latency_ms, node.commissioned};
+}
+
+bool ScheduledHarness::contains(const EventKey& key) {
+    EventKey attributed = key;
+    if (attributed.physical_device_id.empty()) {
+        const auto it = std::find_if(nodes_.begin(), nodes_.end(), [&key](const Node& node) {
+            return node.logical_id == key.source_id;
+        });
+        if (it == nodes_.end()) return false;
+        attributed.physical_device_id = it->physical_id;
+    }
+    return hub_.journal().contains(attributed);
 }
 
 }  // namespace gs::host::multinode

@@ -32,6 +32,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/hub/components/rules/routine_service.cpp"
         "${GS_ROOT}/firmware/hub/runtime/hub_runtime.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32/hub_runtime_adapter.cpp"
+        "${GS_ROOT}/firmware/hub/target/esp32/nvs_journal_slot_store.cpp"
     INCLUDE_DIRS
         "."
         "${GS_ROOT}"

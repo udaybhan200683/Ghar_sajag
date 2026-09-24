@@ -10,6 +10,7 @@
 #pragma once
 
 #include "gs/domain.hpp"
+#include "firmware/common/security/commissioning_crypto.hpp"
 
 #include <cstddef>
 #include <map>
@@ -19,11 +20,28 @@
 
 namespace gs::hub {
 
-enum class CommitResult { Stored, Duplicate, Full };
+enum class CommitResult { Stored, Duplicate, Full, StorageFault };
+
+// One immutable record per slot. Target implementation commits and verifies
+// each NVS blob in the dedicated journal partition before returning success.
+class JournalSlotStore {
+public:
+    virtual ~JournalSlotStore() = default;
+    virtual bool read(std::size_t slot, security::Bytes& blob, bool& found) = 0;
+    virtual bool write(std::size_t slot, const security::Bytes& blob) = 0;
+};
 
 class HubJournal {
 public:
     explicit HubJournal(std::size_t capacity = 1024);
+    ~HubJournal();
+    HubJournal(const HubJournal&) = delete;
+    HubJournal& operator=(const HubJournal&) = delete;
+    // A failed or ambiguous load locks the journal closed until repaired.
+    // Existing prototype callers remain volatile until they opt in.
+    bool attach_persistence(security::CommissioningCrypto& crypto,
+                            JournalSlotStore& store,
+                            const security::Key32& protected_key);
     // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
     // Return Stored, Duplicate or Full for this event identity; this reference container is volatile, not
     // flash.
@@ -37,12 +55,17 @@ public:
     bool acknowledge_cloud(const EventKey& key);
     bool contains(const EventKey& key) const;
     std::size_t size() const { return records_.size(); }
+    bool storage_fault() const { return storage_fault_; }
 
 private:
     std::size_t capacity_;
     std::vector<DomainEvent> records_;
     std::set<std::string> ids_;
     std::set<std::string> cloud_acked_;
+    security::CommissioningCrypto* crypto_{nullptr};
+    JournalSlotStore* store_{nullptr};
+    security::Key32 storage_key_{};
+    bool storage_fault_{false};
 };
 
 }  // namespace gs::hub

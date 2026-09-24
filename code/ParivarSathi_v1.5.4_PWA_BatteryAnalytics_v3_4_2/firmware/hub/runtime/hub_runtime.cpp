@@ -49,14 +49,18 @@ bool HubRuntime::radio_message_callback(const NodeMessage& message, EpochSeconds
 
 bool HubRuntime::authenticated_radio_message_callback(
     const NodeMessage& message, const std::string& authenticated_node_id,
-    std::uint64_t transport_session, EpochSeconds hub_received_at) {
-    if (!valid_node_message(message) || message.node_id != authenticated_node_id) {
+    const std::string& authenticated_device_id, std::uint64_t transport_session,
+    EpochSeconds hub_received_at) {
+    if (!valid_node_message(message) || message.node_id != authenticated_node_id ||
+        authenticated_device_id.empty()) {
         GS_ERROR(gs::log::Category::Hub, "H00", "wire_message.rejected",
                  "invalid_authenticated_node_message");
         return false;
     }
+    auto event = domain_event_from_node_message(message, hub_received_at);
+    event.key.physical_device_id = authenticated_device_id;
     const bool accepted = ingest_.callback_copy_authenticated(
-        domain_event_from_node_message(message, hub_received_at), peers_,
+        event, peers_,
         authenticated_node_id, transport_session);
     if (accepted && message.power.has_value())
         power_telemetry_[message.node_id] = *message.power;
@@ -75,8 +79,9 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
         return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {}};
     }
     const auto committed = journal_.commit(*event);
-    if (committed == CommitResult::Full) {
-        GS_ERROR(gs::log::Category::Storage, "H00", "event.rejected", "hub_journal_full");
+    if (committed == CommitResult::Full || committed == CommitResult::StorageFault) {
+        GS_ERROR(gs::log::Category::Storage, "H00", "event.rejected",
+                 committed == CommitResult::Full ? "hub_journal_full" : "hub_journal_fault");
         return ProcessResult{event->key, AckClass::Rejected, false, {}};
     }
     if (committed == CommitResult::Duplicate) {
