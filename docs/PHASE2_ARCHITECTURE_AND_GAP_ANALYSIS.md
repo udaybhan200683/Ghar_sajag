@@ -552,9 +552,22 @@ service recovery remain incomplete, so this is not target restart proof.
 A bounded registry snapshot/restore operation now validates Home/Hub identity,
 installed capacity, tombstone capacity, active identity conflicts, prior
 sessions and quarantine before restoring a fresh registry. Host tests prove
-stale-session and revoked-identity rejection after restore. The snapshot is
-an in-memory state transfer only: it has no encrypted durable Hub store,
-installation-key recovery, target startup path or power-cut proof.
+stale-session and revoked-identity rejection after restore. The registry
+snapshot method itself transfers in-memory state; the repository described
+below adds authenticated serialization around it.
+
+A separate bounded Hub registry repository now encrypts one snapshot containing
+up to the configured installed-node capacity, associated installation keys,
+session floors, quarantines and revoked Device IDs. Its host tests cover ten
+Nodes, wrong wrapping/Hub identity, tampering, write failure, lost revocation
+and session rollback. A 25-Node host-only snapshot passes its configured
+boundary and max+1 is rejected. It refuses a replacement snapshot that
+silently drops a revocation or an active Device ID. The ESP-IDF NVS adapter
+has a separate 8,192-byte bounded registry namespace and compiles into the
+Hub image. Status is `PARTIALLY_IMPLEMENTED`: target runtime does not call it,
+no protected Hub wrapping-key provider exists, NVS fit/power-cut behavior has not been
+measured, and a valid old flash image can still roll back state without a
+protected monotonic counter. It is not target restart qualification.
 
 The scheduled host transport harness now uses registry admission before
 `HubRuntime`, including removal of one context while the other nine continue.

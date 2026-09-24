@@ -1149,3 +1149,15 @@ records, last authenticated session, revoked identities and quarantine, then
 reject stale and revoked rejoin attempts. Corrupt, conflicting and foreign
 snapshots leave the destination empty. This is memory-state validation only;
 protected Hub flash storage and installation-key recovery are pending.
+
+## 2026-09-24 - Phase-2 encrypted Hub registry snapshot foundation
+
+A bounded Hub registry repository now encrypts authorization, revocation,
+quarantine, last authenticated sessions and the per-Node installation keys in
+one authenticated snapshot. Ten-Node host tests reopen it, reject a wrong Hub
+key or public identity, tampering, old sessions, dropped revocations and
+unrevoked removal, and preserve the prior record after write failure. A
+25-Node simulated snapshot passes its configured bound and max+1 is rejected.
+A separate bounded NVS registry namespace compiles on the ESP32. Target startup
+does not load this record, the protected wrapping-key source is unresolved,
+and flash rollback/power-cut behavior is unqualified.

@@ -18,12 +18,14 @@ struct AssociationState {
 // A single write must atomically replace one bounded blob. Target adapters
 // must not report success until the flash/NVS commit is complete. Key storage
 // is separate and must be protected in production.
-class AssociationBlobStore {
+class SecurityBlobStore {
 public:
-    virtual ~AssociationBlobStore() = default;
+    virtual ~SecurityBlobStore() = default;
     virtual bool read(Bytes& blob, bool& found) = 0;
     virtual bool write(const Bytes& blob) = 0;
 };
+
+using AssociationBlobStore = SecurityBlobStore;
 
 class AssociationRepository {
 public:

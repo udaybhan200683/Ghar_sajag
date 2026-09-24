@@ -26,6 +26,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/common/security/runtime_frame_security.cpp"
         "${GS_ROOT}/firmware/hub/components/ingest/ingest.cpp"
         "${GS_ROOT}/firmware/hub/components/registry/node_registry.cpp"
+        "${GS_ROOT}/firmware/hub/components/registry/registry_persistence.cpp"
         "${GS_ROOT}/firmware/hub/components/storage/journal.cpp"
         "${GS_ROOT}/firmware/hub/components/coverage/coverage.cpp"
         "${GS_ROOT}/firmware/hub/components/rules/routine_service.cpp"

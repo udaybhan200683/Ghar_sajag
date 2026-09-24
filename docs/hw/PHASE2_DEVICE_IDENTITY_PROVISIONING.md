@@ -125,6 +125,15 @@ Power-cut atomicity and rollback resistance need separate target/security
 qualification. Current HIL flash/secure-boot settings cannot be described as
 protected production credential storage.
 
+The Hub now has a separate encrypted registry snapshot repository that binds
+enrolled physical Device IDs, Home/Hub/logical assignments, session floors,
+revocation/quarantine state and per-Node installation keys under a supplied
+Hub wrapping key. It rejects wrong Hub public identity and updates that drop
+revocations or roll sessions backward. Host tests pass for ten Nodes; the
+target NVS adapter compiles but has no protected Hub key source or startup
+caller. Valid old flash-state rollback and physical power-cut behavior remain
+unresolved. This is a development foundation, not production key protection.
+
 ## Source inspection
 
 This design uses the repository's generated ESP-IDF 6.0.3 `sdkconfig` files
