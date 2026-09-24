@@ -136,10 +136,14 @@ class HilWslSupervisorTest(unittest.TestCase):
         failures = failures or {}
         calls = []
         output = []
+        report = {"value": "/old/evidence/report"}
 
         def stage(name):
             calls.append(name)
-            return failures.get(name, 0)
+            result = failures.get(name, 0)
+            if name in ("hil-smoke", "hil-regression", "hil-fota") and result == 0:
+                report["value"] = f"/fresh/evidence/{name}"
+            return result
 
         def fixture():
             calls.append("usb-fixture")
@@ -148,7 +152,7 @@ class HilWslSupervisorTest(unittest.TestCase):
 
         supervisor = qualify.QualificationSupervisor(
             stage_runner=stage, fixture_runner=fixture,
-            report_reader=lambda: "/real/evidence/report", output=output.append,
+            report_reader=lambda: report["value"], output=output.append,
             stages=stages)
         return supervisor.run(), calls, supervisor.statuses, output
 
@@ -179,7 +183,7 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight", "hil-fota"])
         self.assertTrue(all(value == "PASS" for value in states.values()))
-        self.assertTrue(any("/real/evidence/report" in line for line in output))
+        self.assertTrue(any("/fresh/evidence/hil-fota" in line for line in output))
 
     def test_checkpoint_fota_stale_preflight_blocks_transfer(self):
         code, calls, states, _ = self.run_supervisor(
@@ -187,6 +191,63 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight"])
         self.assertEqual(states["hil-fota"], "BLOCKED")
+
+    def test_checkpoint_fota_setup_failure_blocks_preflight_and_transfer(self):
+        code, calls, states, _ = self.run_supervisor(
+            failures={"hil-setup": 1}, stages=qualify.CHECKPOINT_FOTA_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup"])
+        self.assertEqual(states["hil-preflight"], "BLOCKED")
+        self.assertEqual(states["hil-fota"], "BLOCKED")
+
+    def test_checkpoint_fota_fixture_failure_blocks_every_later_stage(self):
+        code, calls, states, _ = self.run_supervisor(
+            fixture_error=FixtureBlocked("fixture unavailable"),
+            stages=qualify.CHECKPOINT_FOTA_STAGES)
+        self.assertEqual(code, 2)
+        self.assertEqual(calls, ["usb-fixture"])
+        self.assertEqual(states["hil-setup"], "BLOCKED")
+        self.assertEqual(states["hil-preflight"], "BLOCKED")
+        self.assertEqual(states["hil-fota"], "BLOCKED")
+
+    def test_fota_routing_exists_at_supervisor_root(self):
+        result = subprocess.run(["make", "-n", "hil-fota"], cwd=qualify.REPO,
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 hil-fota",
+                      result.stdout)
+        self.assertIn("tools/hil/phase1.py fota", result.stdout)
+
+    def test_latest_report_requires_a_valid_run_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runs = root / "evidence/hil/runs"
+            valid = runs / "fresh-run"
+            valid.mkdir(parents=True)
+            (valid / "summary.json").write_text("{}")
+            (valid / "summary.md").write_text("# run\n")
+            pointer = root / "evidence/hil/latest.txt"
+            pointer.parent.mkdir(parents=True, exist_ok=True)
+            with mock.patch.object(qualify, "REPO", root), mock.patch.object(
+                    qualify, "LATEST_REPORT", pointer):
+                pointer.write_text(str(root / "outside") + "\n")
+                self.assertIsNone(qualify.latest_report())
+                pointer.write_text(str(valid) + "\n")
+                self.assertEqual(qualify.latest_report(), str(valid.resolve()))
+
+    def test_checkpoint_does_not_reuse_old_report_after_orchestration_failure(self):
+        code, calls, states, output = self.run_supervisor(
+            failures={"hil-fota": 2}, stages=qualify.CHECKPOINT_FOTA_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight", "hil-fota"])
+        self.assertEqual(states["hil-fota"], "FAIL")
+        self.assertIn("REPORT               <none>", output)
+        self.assertNotIn("/old/evidence/report", "\n".join(output))
+
+    def test_wrong_supervisor_root_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(qualify, "REPO", Path(directory)):
+            result = qualify.run_make_stage("hil-fota")
+        self.assertNotEqual(result.returncode, 0)
 
     def test_12_validation_fast_failure_blocks_every_later_stage(self):
         code, calls, states, _ = self.run_supervisor({"validation-fast": 3})
@@ -213,7 +274,7 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertEqual(calls, list(qualify.STAGES))
         self.assertTrue(all(value == "PASS" for value in states.values()))
         self.assertIn("OVERALL              PASS", output)
-        self.assertIn("REPORT               /real/evidence/report", output)
+        self.assertIn("REPORT               /fresh/evidence/hil-regression", output)
 
     def test_16_zero_stage_execution_fails_closed(self):
         with mock.patch.object(qualify, "STAGES", ()):
@@ -221,6 +282,13 @@ class HilWslSupervisorTest(unittest.TestCase):
             supervisor = qualify.QualificationSupervisor(output=output.append)
             self.assertEqual(supervisor.run(), 1)
             self.assertIn("FAIL_NO_QUALIFICATION_EXECUTED", output)
+
+    def test_empty_fota_checkpoint_fails_closed(self):
+        output = []
+        supervisor = qualify.QualificationSupervisor(stages=(), output=output.append)
+        self.assertEqual(supervisor.run(), 1)
+        self.assertEqual(supervisor.executed, 0)
+        self.assertIn("FAIL_NO_QUALIFICATION_EXECUTED", output)
 
     def test_17_informational_helper_stderr_is_not_failure(self):
         observed = {}
@@ -252,6 +320,19 @@ class HilWslSupervisorTest(unittest.TestCase):
             finally:
                 os.chdir(old)
         self.assertEqual(result.returncode, 0)
+        self.assertEqual(observed["cwd"], qualify.REPO)
+
+    def test_fota_stage_runner_uses_repo_root_proxy(self):
+        observed = {}
+
+        def fake_run(command, cwd):
+            observed.update(command=command, cwd=cwd)
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch("tools.hil.qualify.subprocess.run", side_effect=fake_run):
+            result = qualify.run_make_stage("hil-fota")
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(observed["command"], ["make", "hil-fota"])
         self.assertEqual(observed["cwd"], qualify.REPO)
 
     def test_19_qualification_needs_no_windows_path_conversion(self):

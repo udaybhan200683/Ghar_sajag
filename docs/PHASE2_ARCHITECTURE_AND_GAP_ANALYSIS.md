@@ -426,10 +426,22 @@ setup and preflight, builds/flashes the paired HIL images, runs the Phase-1
 17-case smoke, then triggers C3 OTA through a compile-gated Hub UART command.
 It requires fresh transfer completion, expected C3 software-reset evidence,
 the alternate OTA slot, exact paired firmware provenance, PIR readiness,
-post-update motion/ACK and empty retained/in-flight state. The command and
-host supervisor tests exist, but **no physical FOTA PASS is claimed until the
-boards run it**. This same-image checkpoint does not prove version upgrade,
+post-update motion/ACK and empty retained/in-flight state. This same-image
+checkpoint does not prove version upgrade,
 signed-image authorization, rollback, or repeated A/B cycles.
+
+The connected checkpoint at `evidence/hil/runs/20260924T085804.060488Z`
+passed the 17 Phase-1 smoke cases and all three `P2-FOTA-SAME` cases. The
+paired ESP-IDF v6.0.3 images both report `6ed7de7-hil-ae23023`: Hub SHA-256
+`f2f619efead13239b245c86b5844f50136eb70f29bb0cc8876d3793b0e01388a`,
+C3 and Hub-embedded C3 SHA-256
+`1f4ee9844ca1bf79ecd0cf6f49da341cf10d0e51c8d5f1a50ae2c313e835d748`.
+The C3 log shows `ota_0` to `ota_1`, a fresh `rst:0xc (RTC_SW_CPU_RST)`,
+the new `HIL_READY`, subsequent PIR readiness, and a motion event retired by
+application ACK. Final retained and in-flight counts are zero, with no
+unexpected reset reported. This physical result qualifies same-image transfer,
+reboot and functional recovery only. Version upgrade, image authenticity and
+rollback remain unqualified.
 
 ### Deferred battery milestone after Phase 2
 

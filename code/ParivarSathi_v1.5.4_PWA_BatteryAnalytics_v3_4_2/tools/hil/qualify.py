@@ -45,7 +45,17 @@ def latest_report() -> str | None:
     if not LATEST_REPORT.is_file():
         return None
     value = LATEST_REPORT.read_text().splitlines()
-    return value[0].strip() if value and value[0].strip() else None
+    if not value or not value[0].strip():
+        return None
+    report = Path(value[0].strip())
+    try:
+        report = report.resolve(strict=True)
+        report.relative_to((REPO / "evidence/hil/runs").resolve(strict=True))
+    except (OSError, ValueError):
+        return None
+    if not report.is_dir() or not (report / "summary.json").is_file() or not (report / "summary.md").is_file():
+        return None
+    return str(report)
 
 
 class QualificationSupervisor:
@@ -65,7 +75,7 @@ class QualificationSupervisor:
                        (CHECKPOINT_SMOKE_STAGES, CHECKPOINT_FOTA_STAGES) else "PHASE-1")
         self.statuses: OrderedDict[str, str] = OrderedDict((name, "BLOCKED") for name in self.stages)
         self.executed = 0
-        self.report_eligible = False
+        self.report_path: str | None = None
 
     def run(self) -> int:
         failure_kind: str | None = None
@@ -75,6 +85,8 @@ class QualificationSupervisor:
                 continue
             self.output(f"{self.prefix}: {name} - START")
             self.executed += 1
+            needs_report = name in ("hil-smoke", "hil-regression", "hil-fota")
+            report_before = self.report_reader() if needs_report else None
             try:
                 if name == "usb-fixture":
                     self.fixture_runner()
@@ -82,18 +94,25 @@ class QualificationSupervisor:
                 else:
                     result = self.stage_runner(name)
                     code = int(result.returncode if hasattr(result, "returncode") else result)
-                    if name in ("hil-smoke", "hil-regression", "hil-fota"):
-                        self.report_eligible = True
             except FixtureBlocked as exc:
                 self.output(f"{self.prefix}: {name} - BLOCKED: {exc}")
                 self.statuses[name] = "BLOCKED"
+                if needs_report:
+                    self._capture_fresh_report(report_before)
                 failure_kind = "BLOCKED"
                 continue
             except Exception as exc:
                 self.output(f"{self.prefix}: {name} - FAIL: {type(exc).__name__}: {exc}")
                 self.statuses[name] = "FAIL"
+                if needs_report:
+                    self._capture_fresh_report(report_before)
                 failure_kind = "FAIL"
                 continue
+            if needs_report:
+                fresh_report = self._capture_fresh_report(report_before)
+                if code == 0 and fresh_report is None:
+                    code = 1
+                    self.output(f"{self.prefix}: {name} - FAIL: fresh HIL report missing or unchanged")
             if code == 0:
                 self.statuses[name] = "PASS"
                 self.output(f"{self.prefix}: {name} - PASS")
@@ -116,18 +135,23 @@ class QualificationSupervisor:
         self.print_summary(overall)
         return exit_code
 
+    def _capture_fresh_report(self, previous: str | None) -> str | None:
+        try:
+            current = self.report_reader()
+        except Exception as exc:
+            self.output(f"REPORT READ ERROR    {exc}")
+            return None
+        if current and current != previous:
+            self.report_path = current
+            return current
+        return None
+
     def print_summary(self, overall: str) -> None:
         self.output(self.label)
         for name, status in self.statuses.items():
             self.output(f"{name:<20} {status}")
         self.output(f"{'OVERALL':<20} {overall}")
-        report = None
-        if self.report_eligible:
-            try:
-                report = self.report_reader()
-            except Exception as exc:
-                self.output(f"REPORT READ ERROR    {exc}")
-        self.output(f"{'REPORT':<20} {report or '<none>'}")
+        self.output(f"{'REPORT':<20} {self.report_path or '<none>'}")
 
 
 def main() -> int:

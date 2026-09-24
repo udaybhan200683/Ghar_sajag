@@ -1235,4 +1235,24 @@ path with automatic fixture/setup/preflight, paired HIL flash, Phase-1 smoke
 and a same-image C3 OTA scenario. A HIL-only Hub UART trigger replaces manual
 BOOT pressing. The scenario checks fresh transfer/reset evidence, OTA slot
 change, exact image provenance, PIR readiness and functional ACK recovery.
-Host supervisor/replay tests pass; a physical FOTA run has not yet occurred.
+Host supervisor/replay tests passed before physical execution.
+
+## 2026-09-24 - Phase-2 same-image physical FOTA and checkpoint routing
+
+The first `hil-checkpoint-fota` attempt completed USB fixture, setup and
+preflight, then failed before FOTA because the repository root Makefile did not
+forward `hil-fota` to the product Makefile. The existing WSL-first supervisor
+and self-contained checkpoint ownership were retained. The root forwarding
+rule was added, and the supervisor now reports a run directory only when the
+hardware stage creates a fresh valid report. Focused host tests cover the
+exact missing-root-target failure, stage ordering, fail-closed setup/preflight,
+zero-stage execution and stale-report rejection.
+
+The rerun at `evidence/hil/runs/20260924T085804.060488Z` passed fixture,
+setup, preflight, 17/17 physical smoke cases and 3/3 same-image FOTA cases.
+The paired Hub/C3 version was `6ed7de7-hil-ae23023`; the C3 moved from
+`ota_0` to `ota_1`, rebooted with `RTC_SW_CPU_RST`, reached PIR readiness and
+retired a post-update motion event by application ACK. Final retained and
+in-flight counts were zero, with zero unexpected resets. The qualification
+covers same-image OTA and functional recovery. Version upgrade, image
+authenticity and rollback remain open.
