@@ -1342,6 +1342,23 @@ The matching present-state, P0/P1 future work and remaining Phase-2 blockers
 are maintained in `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`; requirement
 evidence classifications remain in `docs/validation/MASTER_TRACEABILITY.csv`.
 
+### 2026-09-25: attach bounded encrypted Hub journal to authenticated target owner
+
+The authenticated Hub owner now initializes the existing `gs_journal` NVS
+partition and attaches the existing encrypted 128-slot `HubJournal` before
+processing authenticated events. A domain-separated HKDF key is derived from
+the existing Hub wrapping key and Home/Hub identity context. Restore failure
+prevents the secure owner from starting; a runtime write/readback fault rejects
+the event without an accepted ACK and faults further journal commits. A
+distinct event is ACK-eligible only after append and readback, while a full
+journal rejects new events without overwriting old records. The focused
+`hub-journal-persistence-host-test`
+passed, and the Hub ESP-IDF production profile built with `GS_HIL_BUILD=OFF`.
+This is target-build, not physical restart/power-cut evidence. The journal is
+append-only with no reclamation, cloud-ACK status remains volatile, and
+production protected-key provisioning, endurance and power-cut behavior remain
+open. No hardware qualification is claimed for this change.
+
 ### 2026-09-24: target security owner-path integration in progress
 
 The production Hub and C3 owner tasks were connected to the existing Phase-2

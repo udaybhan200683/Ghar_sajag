@@ -66,6 +66,7 @@ HubSecurityLink::~HubSecurityLink() {
         crypto_.secure_zero(binding.installation_key.data(),
                             binding.installation_key.size());
     crypto_.secure_zero(wrapping_key_.data(), wrapping_key_.size());
+    crypto_.secure_zero(journal_key_.data(), journal_key_.size());
 }
 
 bool HubSecurityLink::initialize(const Mac& hub_mac) {
@@ -77,6 +78,19 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
         return false;
     }
     hub_id_ = id_for_mac(hub_mac, "hub");
+    security::Bytes journal_salt(home_id_.begin(), home_id_.end());
+    journal_salt.insert(journal_salt.end(), hub_id_.begin(), hub_id_.end());
+    constexpr char kJournalContext[] = "GharSajag/HubJournal/v1";
+    const security::Bytes journal_context(kJournalContext,
+                                          kJournalContext + sizeof(kJournalContext) - 1U);
+    if (!crypto_.hkdf_sha256(wrapping_key_, journal_salt, journal_context,
+                             journal_key_)) {
+        crypto_.secure_zero(journal_salt.data(), journal_salt.size());
+        crypto_.secure_zero(wrapping_key_.data(), wrapping_key_.size());
+        faulted_ = true;
+        return false;
+    }
+    crypto_.secure_zero(journal_salt.data(), journal_salt.size());
     repository_ = std::make_unique<HubRegistryRepository>(
         crypto_, store_, wrapping_key_, home_id_, hub_id_, hub_public_key_,
         kInstalledCapacity, kInstalledCapacity);
@@ -93,6 +107,14 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
     }
     if (loaded.status == HubRegistryLoadStatus::Ready) bindings_ = loaded.state->bindings;
     return true;
+}
+
+bool HubSecurityLink::attach_event_journal(hub::HubJournal& journal,
+                                           hub::JournalSlotStore& store) {
+    return !faulted_ && registry_ && repository_ &&
+           std::any_of(journal_key_.begin(), journal_key_.end(),
+                       [](std::uint8_t byte) { return byte != 0; }) &&
+           journal.attach_persistence(crypto_, store, journal_key_);
 }
 
 bool HubSecurityLink::persist_candidate(

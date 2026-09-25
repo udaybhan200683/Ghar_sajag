@@ -802,11 +802,21 @@ not establish active target commissioning, protected key sourcing, durable
 target association restore, or ten-peer ESP-NOW/RF qualification.
 
 The Hub event-history design is bounded to 128 locally durable records in the
-remaining 128 KiB partition space while preserving both OTA slots. Host
-encrypted append/dedupe behavior and the target NVS adapter exist, but the
-active target Hub still uses a volatile journal. Do not describe its ACK as
-power-loss durable until target integration and power-cut recovery are
-qualified.
+128 KiB `gs_journal` partition while preserving both OTA slots. The
+authenticated target owner now initializes the existing NVS slot store and
+attaches the existing encrypted append/dedupe journal before processing
+authenticated events. Its journal key is derived from the Hub wrapping key
+with Home/Hub context. Each new event is persisted and read back before the
+application ACK; restore failure prevents the secure owner from starting,
+while a runtime write/readback fault rejects the event without an accepted
+ACK and faults further journal commits. The 129th distinct event is rejected
+rather than overwriting history. The
+production-profile Hub build (`GS_HIL_BUILD=OFF`) and focused host journal
+regression pass. This is target-build evidence only: physical restart/power-cut
+recovery, production protected-key provisioning and flash endurance are not
+qualified. The 128-slot append-only store has no reclamation; backend/cloud
+acknowledgment state also remains volatile, so this does not provide a complete
+cloud delivery/retention lifecycle.
 
 The latest physical result is
 [`evidence/hil/runs/20260924T094521.398370Z`](../evidence/hil/runs/20260924T094521.398370Z):

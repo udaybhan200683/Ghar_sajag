@@ -6,6 +6,7 @@
 #include "firmware/common/security/runtime_frame_security.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/hub/components/registry/registry_persistence.hpp"
+#include "firmware/hub/components/storage/journal.hpp"
 
 #include <array>
 #include <cstddef>
@@ -41,6 +42,10 @@ public:
     HubSecurityLink(const HubSecurityLink&) = delete;
     HubSecurityLink& operator=(const HubSecurityLink&) = delete;
     bool initialize(const Mac& hub_mac);
+    // Attach the existing bounded encrypted event journal using a key derived
+    // from this Hub/Home wrapping key. Failure keeps event admission closed.
+    bool attach_event_journal(hub::HubJournal& journal,
+                              hub::JournalSlotStore& store);
     std::optional<Outbound> begin_commissioning(const ExpectedNode& exact,
                                                  std::uint64_t now_ms);
     std::optional<Outbound> accept(const Mac& source, const std::uint8_t* packet,
@@ -78,6 +83,7 @@ private:
     security::PsaCommissioningCrypto crypto_{identity_};
     security::NvsRegistryBlobStore store_;
     security::Key32 wrapping_key_{};
+    security::Key32 journal_key_{};
     security::P256PublicKey hub_public_key_{};
     std::unique_ptr<hub::HubRegistryRepository> repository_;
     std::unique_ptr<hub::NodeRegistry> registry_;

@@ -3,6 +3,7 @@
 #include "firmware/common/transport/data_plane_codec.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
+#include "firmware/hub/target/esp32/nvs_journal_slot_store.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
 
 #include "esp_event.h"
@@ -376,7 +377,16 @@ void secure_owner_task(void*) {
             return;
         }
     }
-    HubRuntime runtime(32, 1024);
+    // The dedicated partition contains a bounded append-only encrypted journal.
+    // Do not start authenticated event admission if restore or persistence fails.
+    NvsJournalSlotStore journal_store;
+    HubRuntime runtime(32, 128);
+    if (!journal_store.initialize() ||
+        !security_link.attach_event_journal(runtime.journal(), journal_store)) {
+        ESP_LOGE(kTag, "Hub durable event journal unavailable; refusing event admission");
+        vTaskDelete(nullptr);
+        return;
+    }
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
     ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u",
              static_cast<unsigned>(security_link.enrolled_macs().size()));
