@@ -254,6 +254,14 @@ class HilWslSupervisorTest(unittest.TestCase):
                       result.stdout)
         self.assertIn("--checkpoint-secure-signed-fota", result.stdout)
 
+    def test_secure_signed_fota_stage_routes_through_product_makefile(self):
+        result = subprocess.run(["make", "-n", "hil-secure-signed-fota"],
+                                cwd=qualify.REPO, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 hil-secure-signed-fota",
+                      result.stdout)
+        self.assertIn("tools/hil/secure_signed_fota.py", result.stdout)
+
     def test_latest_report_requires_a_valid_run_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
