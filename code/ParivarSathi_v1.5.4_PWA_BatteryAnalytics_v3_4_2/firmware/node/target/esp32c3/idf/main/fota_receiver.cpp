@@ -13,6 +13,9 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#if !GS_HIL_BUILD
+#include "psa/crypto.h"
+#endif
 
 #include <cstddef>
 #include <cstdint>
@@ -143,7 +146,40 @@ EspIdfOtaWriter g_writer;
 TargetCallbacks g_callbacks(g_writer);
 fota_receiver::Receiver g_receiver(g_writer, g_callbacks);
 #if !GS_HIL_BUILD
-fota_receiver::SecureFotaAdapter g_secure_receiver(g_receiver, "esp32c3");
+class PsaImageDigest final : public fota_receiver::IImageDigest {
+public:
+    bool start() override {
+        abort();
+        if (psa_crypto_init() != PSA_SUCCESS ||
+            psa_hash_setup(&operation_, PSA_ALG_SHA_256) != PSA_SUCCESS) return false;
+        active_ = true;
+        return true;
+    }
+    bool add(const std::uint8_t* bytes, std::size_t size) override {
+        return active_ && psa_hash_update(&operation_, bytes, size) == PSA_SUCCESS;
+    }
+    bool finish(std::array<std::uint8_t, 32>& digest) override {
+        std::size_t written = 0;
+        if (!active_ || psa_hash_finish(&operation_, digest.data(), digest.size(),
+                                        &written) != PSA_SUCCESS ||
+            written != digest.size()) {
+            abort();
+            return false;
+        }
+        active_ = false;
+        return true;
+    }
+    void abort() override {
+        (void)psa_hash_abort(&operation_);
+        active_ = false;
+    }
+private:
+    psa_hash_operation_t operation_ = PSA_HASH_OPERATION_INIT;
+    bool active_{false};
+};
+PsaImageDigest g_image_digest;
+fota_receiver::SecureFotaAdapter g_secure_receiver(g_receiver, g_image_digest,
+                                                   "esp32c3");
 #endif
 
 void worker(void*) {

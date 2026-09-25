@@ -1,5 +1,6 @@
 #include "firmware/node/fota/secure_fota_adapter.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
+#include <openssl/evp.h>
 
 #include <algorithm>
 #include <iostream>
@@ -37,6 +38,24 @@ struct Callbacks final : gs::node::fota_receiver::IReceiverCallbacks {
     void request_restart() override { ++restarts; }
     gs::fota::Status status() const { return static_cast<gs::fota::Status>(last.status); }
 };
+
+struct Digest final : gs::node::fota_receiver::IImageDigest {
+    EVP_MD_CTX* context{EVP_MD_CTX_new()};
+    ~Digest() override { EVP_MD_CTX_free(context); }
+    bool start() override {
+        return context != nullptr &&
+               EVP_DigestInit_ex(context, EVP_sha256(), nullptr) == 1;
+    }
+    bool add(const std::uint8_t* bytes, std::size_t size) override {
+        return EVP_DigestUpdate(context, bytes, size) == 1;
+    }
+    bool finish(std::array<std::uint8_t, 32>& digest) override {
+        unsigned length = 0;
+        return EVP_DigestFinal_ex(context, digest.data(), &length) == 1 &&
+               length == digest.size();
+    }
+    void abort() override { if (context != nullptr) EVP_MD_CTX_reset(context); }
+};
 }
 
 int main() {
@@ -54,8 +73,9 @@ int main() {
     require(hub.start(7, salt) && node.start(7, salt), "session startup");
     Writer writer;
     Callbacks callbacks;
+    Digest digest;
     node::fota_receiver::Receiver receiver(writer, callbacks);
-    node::fota_receiver::SecureFotaAdapter adapter(receiver, "esp32c3");
+    node::fota_receiver::SecureFotaAdapter adapter(receiver, digest, "esp32c3");
     const auto deliver = [&](const Message& message) {
         const auto encoded = encode(message);
         security::SecureFrame protected_frame;
@@ -76,6 +96,10 @@ int main() {
     begin.transfer_id = 81;
     begin.image_size = image.size();
     begin.image_crc32 = fota::crc32(image.data(), image.size());
+    unsigned digest_length = 0;
+    require(EVP_Digest(image.data(), image.size(), begin.image_sha256.data(),
+                       &digest_length, EVP_sha256(), nullptr) == 1 &&
+            digest_length == begin.image_sha256.size(), "fixture SHA-256 failed");
     begin.board_size = 7;
     std::copy_n("esp32c3", 7, begin.board.begin());
     begin.version_size = 3;
@@ -155,11 +179,36 @@ int main() {
 
     Writer timeout_writer;
     Callbacks timeout_callbacks;
+    Digest timeout_digest;
     node::fota_receiver::Receiver timeout_receiver(timeout_writer, timeout_callbacks);
-    node::fota_receiver::SecureFotaAdapter timeout_adapter(timeout_receiver, "esp32c3");
+    node::fota_receiver::SecureFotaAdapter timeout_adapter(timeout_receiver,
+                                                          timeout_digest, "esp32c3");
     require(timeout_adapter.process(begin, 7, 100), "timeout Begin rejected");
     timeout_adapter.poll(100 + node::fota_receiver::Receiver::kInactivityTimeoutMs);
     require(!timeout_adapter.active() && timeout_writer.aborted &&
             timeout_callbacks.timeouts == 1, "timeout did not abort OTA");
+
+    Writer mismatch_writer;
+    Callbacks mismatch_callbacks;
+    Digest mismatch_digest;
+    node::fota_receiver::Receiver mismatch_receiver(mismatch_writer, mismatch_callbacks);
+    node::fota_receiver::SecureFotaAdapter mismatch_adapter(
+        mismatch_receiver, mismatch_digest, "esp32c3");
+    Message bad_digest = begin;
+    bad_digest.image_sha256[0] ^= 1;
+    require(mismatch_adapter.process(bad_digest, 7, 100),
+            "bad digest claim should fail at End");
+    data.index = 0;
+    data.data_size = 192;
+    std::copy_n(image.begin(), 192, data.data.begin());
+    require(mismatch_adapter.process(data, 7, 101), "mismatch chunk 0 rejected");
+    data.index = 1;
+    data.data_size = 1;
+    data.data[0] = image.back();
+    require(mismatch_adapter.process(data, 7, 102), "mismatch chunk 1 rejected");
+    require(!mismatch_adapter.process(end, 7, 103) && mismatch_writer.aborted &&
+            !mismatch_writer.committed && !mismatch_adapter.active(),
+            "wrong SHA-256 digest activated image");
     std::cout << "P2-FOTA-S3-ADAPTER HOST PASS\n";
+    std::cout << "P2-FOTA-S4-HASH HOST PASS\n";
 }
