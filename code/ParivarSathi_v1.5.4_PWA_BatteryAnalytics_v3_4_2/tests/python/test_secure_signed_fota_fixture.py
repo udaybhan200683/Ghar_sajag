@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -13,6 +14,7 @@ from build_signed_c3 import signed_hil_control_sdkconfig
 
 from tools.hil.secure_signed_fota import (NEGATIVE_ENV, SIGNING_ENV,
     SecureCampaign, activated_python_command, hub_flash_command,
+    send_commissioning_control,
     validate_signing_inputs)
 
 
@@ -59,6 +61,49 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
 
         self.assertLess(events.index("authenticated-rejoin"), events.index("pir-ready"))
         self.assertEqual(campaign.before_session, "91")
+
+    def test_first_commissioning_control_is_paced_and_still_precedes_pir_gate(self):
+        class FakeStream:
+            is_open = True
+            def __init__(self):
+                self.parts = []
+            def write(self, data):
+                self.parts.append(bytes(data))
+            def flush(self):
+                pass
+
+        campaign = object.__new__(SecureCampaign)
+        events: list[str] = []
+        campaign.node_id = ""
+        campaign.before_session = ""
+        campaign.hub = mock.Mock()
+        stream = FakeStream()
+        campaign.hub.stream = stream
+        campaign.hub.stream_lock = threading.RLock()
+        campaign.hub.cursor.return_value = 3
+        campaign.hub.wait_for.side_effect = [
+            TimeoutError("not commissioned"),
+            "HIL_OK command=COMMISSION_TEST_NODE",
+            "Authenticated rejoin device=c3-abcdef123456 session=92",
+        ]
+        campaign.c3 = mock.Mock()
+        campaign.c3.cursor.return_value = 7
+        campaign.c3.wait_for.side_effect = lambda pattern, *_args: (
+            "HIL_TEST_QR profile=TEST_ONLY device_id=c3-abcdef123456 public_key=" + "a" * 130
+            if "HIL_TEST_QR" in pattern else
+            "HIL_TEST_CODE profile=TEST_ONLY device_id=c3-abcdef123456 installer_code=" + "b" * 64
+            if "HIL_TEST_CODE" in pattern else
+            events.append("pir-ready") or "PIR ready on GPIO4"
+        )
+
+        with mock.patch("tools.hil.secure_signed_fota.time.sleep"):
+            campaign.exact_identity_and_session(rejoin_cursor=3, c3_ready_cursor=7)
+
+        self.assertGreater(len(stream.parts), 1)
+        self.assertTrue(all(len(part) <= 32 for part in stream.parts))
+        self.assertEqual(b"".join(stream.parts)[-1:], b"\n")
+        self.assertIn(b"COMMISSION_TEST_NODE", b"".join(stream.parts))
+        self.assertEqual(campaign.before_session, "92")
 
     def test_signed_hil_control_profile_selects_native_usb_console(self):
         base = "\n".join((

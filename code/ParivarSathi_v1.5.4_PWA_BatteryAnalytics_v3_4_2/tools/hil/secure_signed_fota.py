@@ -201,6 +201,20 @@ def redact_test_code(path: Path) -> None:
         path.write_text(text, encoding="utf-8")
 
 
+def send_commissioning_control(capture: SerialCapture, command_text: str) -> None:
+    """Pace the long test commissioning line below the Hub UART RX ring size."""
+    payload = (command_text + "\n").encode("utf-8")
+    with capture.stream_lock:
+        stream = capture.stream
+        if stream is None or not stream.is_open:
+            raise RuntimeError(f"{capture.role} serial is not open")
+        for offset in range(0, len(payload), 32):
+            stream.write(payload[offset:offset + 32])
+            stream.flush()
+            if offset + 32 < len(payload):
+                time.sleep(0.01)
+
+
 class SecureCampaign:
     def __init__(self, config: dict[str, str], devices: dict, run_dir: Path):
         self.config, self.devices, self.run_dir = config, devices, run_dir
@@ -276,7 +290,8 @@ class SecureCampaign:
         except TimeoutError:
             command = (f"COMMISSION_TEST_NODE {self.node_id} {mac_hex} {identity.group(2)} "
                        f"{secret.group(2)} hil-signed-fota test pir")
-            self.send(self.hub, command, r"HIL_OK command=COMMISSION_TEST_NODE", 10)
+            send_commissioning_control(self.hub, command)
+            self.hub.wait_for(r"HIL_OK command=COMMISSION_TEST_NODE", 10, rejoin_cursor)
             joined = self.hub.wait_for(rejoin_pattern, 30, rejoin_cursor)
         self.before_session = re.search(r"session=(\d+)", joined).group(1)
         # Sensing is deliberately unavailable until authenticated commissioning
