@@ -18,6 +18,8 @@ HubRuntime::HubRuntime(std::size_t ingest_capacity, std::size_t journal_capacity
 
 void HubRuntime::authorize_node(const std::string& node_id, std::uint64_t session_id, bool required_for_routine) {
     GS_TRACE(gs::log::Category::Hub, "H00", "authorize_node.enter", "-");
+    node_health_.erase(node_id);
+    last_authenticated_contact_ms_.erase(node_id);
     peers_.authorize(node_id, session_id);
     if (required_for_routine) coverage_.require_node(node_id);
 }
@@ -27,6 +29,39 @@ void HubRuntime::revoke_node(const std::string& node_id) {
     ingest_.discard_source(node_id);
     coverage_.forget_node(node_id);
     power_telemetry_.erase(node_id);
+    node_health_.erase(node_id);
+    last_authenticated_contact_ms_.erase(node_id);
+}
+
+bool HubRuntime::observe_authenticated_health(
+    const NodeHealthSnapshot& health, const std::string& authenticated_node_id,
+    std::uint64_t transport_session, std::uint64_t now_monotonic_ms) {
+    if (!valid_node_health(health) || health.node_id != authenticated_node_id ||
+        health.session_id != transport_session || now_monotonic_ms == 0 ||
+        !peers_.accepts_health(authenticated_node_id, transport_session)) return false;
+    const auto found = node_health_.find(authenticated_node_id);
+    if (found != node_health_.end() &&
+        (health.health_sequence <= found->second.snapshot.health_sequence ||
+         now_monotonic_ms < found->second.last_seen_monotonic_ms)) return false;
+    node_health_[authenticated_node_id] = {health, now_monotonic_ms};
+    last_authenticated_contact_ms_[authenticated_node_id] = now_monotonic_ms;
+    return true;
+}
+
+std::optional<AuthenticatedNodeHealth> HubRuntime::node_health(
+    const std::string& node_id) const {
+    const auto found = node_health_.find(node_id);
+    if (found == node_health_.end()) return std::nullopt;
+    return found->second;
+}
+
+bool HubRuntime::node_online(const std::string& node_id,
+                             std::uint64_t now_monotonic_ms) const {
+    const auto found = last_authenticated_contact_ms_.find(node_id);
+    return found != last_authenticated_contact_ms_.end() &&
+           now_monotonic_ms >= found->second &&
+           now_monotonic_ms - found->second <=
+               static_cast<std::uint64_t>(NodeProtocolPolicy::offline_after_seconds) * 1000U;
 }
 
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
@@ -57,7 +92,7 @@ bool HubRuntime::radio_message_callback(const NodeMessage& message, EpochSeconds
 bool HubRuntime::authenticated_radio_message_callback(
     const NodeMessage& message, const std::string& authenticated_node_id,
     const std::string& authenticated_device_id, std::uint64_t transport_session,
-    EpochSeconds hub_received_at) {
+    EpochSeconds hub_received_at, std::uint64_t now_monotonic_ms) {
     if (!valid_node_message(message) || message.node_id != authenticated_node_id ||
         authenticated_device_id.empty()) {
         GS_ERROR(gs::log::Category::Hub, "H00", "wire_message.rejected",
@@ -69,6 +104,8 @@ bool HubRuntime::authenticated_radio_message_callback(
     const bool accepted = ingest_.callback_copy_authenticated(
         event, peers_,
         authenticated_node_id, transport_session);
+    if (accepted && now_monotonic_ms != 0)
+        last_authenticated_contact_ms_[authenticated_node_id] = now_monotonic_ms;
     if (accepted && message.power.has_value())
         power_telemetry_[message.node_id] = *message.power;
     return accepted;

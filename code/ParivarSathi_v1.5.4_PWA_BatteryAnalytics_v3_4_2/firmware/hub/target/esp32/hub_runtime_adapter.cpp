@@ -501,8 +501,9 @@ void secure_owner_task(void*) {
         const auto classification = transport::classify_frame(plain.bytes.data(), plain.size);
         if (classification == transport::FrameClass::NodeHealth) {
             const auto health = transport::decode_node_health(plain.bytes.data(), plain.size);
-            if (health && health.value->node_id == node->logical_id &&
-                health.value->session_id == node->last_session) {
+            if (health && runtime.observe_authenticated_health(
+                    *health.value, node->logical_id, node->last_session,
+                    static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) {
                 ESP_LOGI(kTag, "Authenticated NodeHealth logical=%s session=%llu heap=%u min_heap=%u retained=%u RSSI=%d",
                          node->logical_id.c_str(),
                          static_cast<unsigned long long>(node->last_session),
@@ -510,6 +511,8 @@ void secure_owner_task(void*) {
                          static_cast<unsigned>(health.value->minimum_free_heap),
                          static_cast<unsigned>(health.value->retained_count),
                          frame.transport_rssi);
+            } else {
+                ESP_LOGW(kTag, "Rejected stale/mismatched authenticated NodeHealth");
             }
             continue;
         }
@@ -519,7 +522,8 @@ void secure_owner_task(void*) {
         constexpr EpochSeconds hub_received_at = 0;  // No trusted clock yet.
         if (!runtime.authenticated_radio_message_callback(
                 *decoded.value, node->logical_id, node->device_id,
-                node->last_session, hub_received_at)) continue;
+                node->last_session, hub_received_at,
+                static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) continue;
         const auto processed = runtime.run_state_once();
         if (!processed) continue;
         const auto ack = make_node_ack(processed->key, processed->ack,

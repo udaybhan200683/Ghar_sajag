@@ -36,6 +36,13 @@ bool PeerRegistry::accepts(const EventKey& key) const {
     return it != sessions_.end() && it->second == key.session_id && key.sequence > 0;
 }
 
+bool PeerRegistry::accepts_health(const std::string& source_id,
+                                  std::uint64_t session_id) const {
+    const auto found = sessions_.find(source_id);
+    return session_id != 0 && found != sessions_.end() &&
+           found->second == session_id;
+}
+
 bool PeerRegistry::accepts_authenticated(const EventKey& key,
                                          const std::string& source_id,
                                          std::uint64_t transport_session) const {

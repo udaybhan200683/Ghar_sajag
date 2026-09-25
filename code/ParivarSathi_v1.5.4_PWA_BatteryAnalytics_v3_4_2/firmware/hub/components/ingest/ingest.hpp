@@ -25,6 +25,7 @@ public:
     void authorize(const std::string& source_id, std::uint64_t session_id);
     void revoke(const std::string& source_id);
     bool accepts(const EventKey& key) const;
+    bool accepts_health(const std::string& source_id, std::uint64_t session_id) const;
     // Trusted AEAD/registry admission may carry a retained event key from an
     // older boot under the current authenticated transport session.
     bool accepts_authenticated(const EventKey& key, const std::string& source_id,

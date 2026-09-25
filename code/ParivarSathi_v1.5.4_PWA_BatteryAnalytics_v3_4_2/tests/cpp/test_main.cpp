@@ -285,8 +285,41 @@ void test_hub_modules() {
           "removed node retained HubRuntime admission");
     replacement_runtime.authorize_node("node-1", 8, true);
     check(replacement_runtime.authenticated_radio_message_callback(
-              same_logical_event, "node-1", "physical-B", 8, 150),
+              same_logical_event, "node-1", "physical-B", 8, 150, 500) &&
+          replacement_runtime.node_online("node-1", 500),
           "new authenticated replacement could not reuse logical slot");
+    gs::NodeHealthSnapshot health_one;
+    health_one.node_id = "node-1";
+    health_one.session_id = 8;
+    health_one.health_sequence = 1;
+    health_one.free_heap = 50000;
+    replacement_runtime.authorize_node("node-2", 3, true);
+    auto health_two = health_one;
+    health_two.node_id = "node-2";
+    health_two.session_id = 3;
+    health_two.free_heap = 40000;
+    check(replacement_runtime.observe_authenticated_health(health_one, "node-1", 8, 1000) &&
+          replacement_runtime.observe_authenticated_health(health_two, "node-2", 3, 1000),
+          "independent authenticated health was not recorded");
+    check(replacement_runtime.node_health("node-1")->snapshot.free_heap == 50000 &&
+          replacement_runtime.node_health("node-2")->snapshot.free_heap == 40000,
+          "per-node health state was contaminated");
+    check(!replacement_runtime.observe_authenticated_health(health_one, "node-2", 3, 2000) &&
+          !replacement_runtime.observe_authenticated_health(health_one, "node-1", 7, 2000) &&
+          !replacement_runtime.observe_authenticated_health(health_one, "node-1", 8, 2000),
+          "wrong identity/session or stale health sequence was accepted");
+    check(replacement_runtime.node_online("node-1", 190000) &&
+          !replacement_runtime.node_online("node-1", 191001),
+          "authenticated health lease did not expire");
+    replacement_runtime.authorize_node("node-1", 9, true);
+    check(!replacement_runtime.node_health("node-1") &&
+          !replacement_runtime.node_online("node-1", 2000) &&
+          replacement_runtime.node_health("node-2").has_value(),
+          "one Node rejoin disturbed another Node's health");
+    replacement_runtime.revoke_node("node-2");
+    check(!replacement_runtime.node_health("node-2") &&
+          !replacement_runtime.node_online("node-2", 2000),
+          "removed Node retained health/liveness state");
     check(gs::EventKey{"a/b", 7, 1, "c"}.str() !=
           gs::EventKey{"b", 7, 1, "c/a"}.str(),
           "physical and logical delimiters collided");
