@@ -215,6 +215,15 @@ def send_commissioning_control(capture: SerialCapture, command_text: str) -> Non
                 time.sleep(0.01)
 
 
+def latest_c3_ready_version(lines: list[str]) -> str | None:
+    """Return the most recent complete HIL_READY version token."""
+    for line in reversed(lines):
+        match = re.search(r"HIL_READY role=c3 protocol=1 version=(\S+)", line)
+        if match:
+            return match.group(1)
+    return None
+
+
 class SecureCampaign:
     def __init__(self, config: dict[str, str], devices: dict, run_dir: Path):
         self.config, self.devices, self.run_dir = config, devices, run_dir
@@ -378,8 +387,7 @@ class SecureCampaign:
         if any(phase1.normalize_rom_reset_class(line) == phase1.SOFTWARE_RESET_EVIDENCE
                for line in self.c3.lines[negative_cursor:]):
             raise RuntimeError("C3 reset during bad-signature rejection")
-        ready = re.search(r"HIL_READY role=c3 protocol=1 version=([^ ]+)", "\n".join(self.c3.lines))
-        if not ready or ready.group(1) != self.images["A"]["version"]:
+        if latest_c3_ready_version(self.c3.lines) != self.images["A"]["version"]:
             raise RuntimeError("known-good signed A did not remain active after signature rejection")
         self.motion()
         self.results.add(EXPECTED[0], "PASS", "authenticated transfer reached ESP-IDF signature verifier; A stayed active and application ACK recovered")

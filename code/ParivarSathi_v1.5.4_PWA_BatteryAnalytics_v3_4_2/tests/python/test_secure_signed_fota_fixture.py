@@ -14,11 +14,19 @@ from build_signed_c3 import signed_hil_control_sdkconfig
 
 from tools.hil.secure_signed_fota import (NEGATIVE_ENV, SIGNING_ENV,
     SecureCampaign, activated_python_command, hub_flash_command,
+    latest_c3_ready_version,
     send_commissioning_control,
     validate_signing_inputs)
 
 
 class SecureSignedFotaFixtureTest(unittest.TestCase):
+    def test_ready_version_is_bounded_to_one_log_token(self):
+        lines = [
+            "HIL_READY role=c3 protocol=1 version=sfA-physical\n",
+            "2026-09-25T17:39:37Z HIL_STATE role=c3 ota_slot=ota_0\n",
+        ]
+        self.assertEqual(latest_c3_ready_version(lines), "sfA-physical")
+
     def test_initial_uncommissioned_c3_boot_defers_pir_gate(self):
         campaign = object.__new__(SecureCampaign)
         capture = mock.Mock()
