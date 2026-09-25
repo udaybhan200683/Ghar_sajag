@@ -42,6 +42,10 @@ public:
         std::string logical_id;
         bool access_stopped{false};
     };
+    struct ReplacedNode {
+        Mac radio_mac{};
+        std::string logical_id;
+    };
 
     HubSecurityLink();
     ~HubSecurityLink();
@@ -54,12 +58,16 @@ public:
                               hub::JournalSlotStore& store);
     std::optional<Outbound> begin_commissioning(const ExpectedNode& exact,
                                                  std::uint64_t now_ms);
+    std::optional<Outbound> begin_replacement(const std::string& old_device_id,
+                                               const ExpectedNode& exact,
+                                               std::uint64_t now_ms);
     std::optional<Outbound> accept(const Mac& source, const std::uint8_t* packet,
                                     std::size_t length, std::uint64_t now_ms);
     std::optional<Mac> expire_candidate(std::uint64_t now_ms);
     // Called only by the Hub owner after a locally authorized service request.
     // The revocation/quarantine snapshot commits before live access is cut off.
     Removal remove_node(const std::string& device_id);
+    std::optional<ReplacedNode> take_replaced_node();
     const hub::EnrolledNode* ready_node(const Mac& source) const;
     security::RuntimeFrameSecurity* frames_for(const Mac& source);
     std::vector<Mac> enrolled_macs() const;
@@ -87,6 +95,9 @@ private:
                                    const security::wire::Message& message);
     const security::CommissioningBinding* binding_for(const std::string& device_id) const;
     bool expected_source(const Mac& source) const;
+    std::optional<Outbound> open_commissioning(const ExpectedNode& exact,
+                                               std::uint64_t now_ms,
+                                               const std::string& replaced_device_id);
 
     security::TargetIdentitySigner identity_{"hub", 0x7001};
     security::PsaCommissioningCrypto crypto_{identity_};
@@ -99,6 +110,8 @@ private:
     std::vector<security::CommissioningBinding> bindings_;
     std::unique_ptr<security::HubCommissioning> commissioning_;
     std::optional<ExpectedNode> expected_;
+    std::string replacing_device_id_;
+    std::optional<ReplacedNode> replaced_node_;
     std::map<Mac, security::wire::Assembler> assemblers_;
     std::map<Mac, std::unique_ptr<PendingRejoin>> rejoining_;
     std::map<Mac, ActiveSession> active_;

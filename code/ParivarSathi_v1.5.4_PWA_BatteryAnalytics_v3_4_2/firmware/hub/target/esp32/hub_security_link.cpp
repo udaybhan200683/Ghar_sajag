@@ -150,6 +150,7 @@ std::optional<HubSecurityLink::Mac> HubSecurityLink::expire_candidate(
     const Mac expired = expected_->radio_mac;
     expected_.reset();
     commissioning_.reset();
+    replacing_device_id_.clear();
     assemblers_.erase(expired);
     for (const auto& enrolled : registry_->snapshot().active)
         if (enrolled.radio_mac == expired) return std::nullopt;
@@ -206,6 +207,7 @@ HubSecurityLink::Removal HubSecurityLink::remove_node(const std::string& device_
     if (expected_ && expected_->radio_mac == outcome.radio_mac) {
         expected_.reset();
         commissioning_.reset();
+        replacing_device_id_.clear();
     }
     outcome.access_stopped = true;
     return outcome;
@@ -213,6 +215,26 @@ HubSecurityLink::Removal HubSecurityLink::remove_node(const std::string& device_
 
 std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_commissioning(
     const ExpectedNode& exact, std::uint64_t now_ms) {
+    return open_commissioning(exact, now_ms, "");
+}
+
+std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_replacement(
+    const std::string& old_device_id, const ExpectedNode& exact,
+    std::uint64_t now_ms) {
+    if (faulted_ || !registry_ || old_device_id == exact.device_id ||
+        registry_->is_revoked(exact.device_id) ||
+        registry_->find(exact.device_id) ||
+        registry_->tombstone_count() >= kInstalledCapacity) return std::nullopt;
+    const auto old = registry_->find(old_device_id);
+    if (!old || old->quarantined || old->logical_id != exact.logical_id ||
+        old->room != exact.room || old->function != exact.function ||
+        old->radio_mac == exact.radio_mac) return std::nullopt;
+    return open_commissioning(exact, now_ms, old_device_id);
+}
+
+std::optional<HubSecurityLink::Outbound> HubSecurityLink::open_commissioning(
+    const ExpectedNode& exact, std::uint64_t now_ms,
+    const std::string& replaced_device_id) {
     EnrolledNode requested;
     requested.device_id = exact.device_id;
     requested.p256_public_key = exact.public_key;
@@ -226,7 +248,8 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_commissioning(
     if (faulted_ || !registry_ || expected_ ||
         exact.device_id != id_for_mac(exact.radio_mac, "c3") ||
         exact.public_key[0] != 0x04 ||
-        (!already_enrolled && registry_->size() >= kInstalledCapacity) ||
+        (!already_enrolled && replaced_device_id.empty() &&
+         registry_->size() >= kInstalledCapacity) ||
         registry_->is_revoked(exact.device_id) ||
         (already_enrolled && !registry_->can_retry_unactivated(requested)))
         return std::nullopt;
@@ -243,10 +266,17 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_commissioning(
         return std::nullopt;
     }
     expected_ = exact;
+    replacing_device_id_ = replaced_device_id;
     crypto_.secure_zero(expected_->installer_code.data(),
                         expected_->installer_code.size());
     pairing_deadline_ms_ = now_ms + 120000;
     return reply(exact.radio_mac, message);
+}
+
+std::optional<HubSecurityLink::ReplacedNode> HubSecurityLink::take_replaced_node() {
+    auto replaced = std::move(replaced_node_);
+    replaced_node_.reset();
+    return replaced;
 }
 
 std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
@@ -287,7 +317,19 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
         record.function = binding.function;
         auto next_bindings = bindings_;
         const auto already = candidate->find(binding.device_id);
-        if (already) {
+        std::optional<ReplacedNode> replacing;
+        if (!replacing_device_id_.empty()) {
+            const auto old_record = candidate->find(replacing_device_id_);
+            if (!old_record || candidate->replace(replacing_device_id_, record) !=
+                                   RegistryResult::Accepted) return std::nullopt;
+            const auto old_binding = std::find_if(next_bindings.begin(), next_bindings.end(),
+                [&](const auto& value) { return value.device_id == replacing_device_id_; });
+            if (old_binding == next_bindings.end()) return std::nullopt;
+            crypto_.secure_zero(old_binding->installation_key.data(),
+                                old_binding->installation_key.size());
+            *old_binding = binding;
+            replacing = ReplacedNode{old_record->radio_mac, old_record->logical_id};
+        } else if (already) {
             if (!candidate->can_retry_unactivated(record)) return std::nullopt;
             const auto old = std::find_if(next_bindings.begin(), next_bindings.end(),
                 [&](const auto& value) { return value.device_id == binding.device_id; });
@@ -303,14 +345,21 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
             next_bindings.push_back(binding);
         }
         if (!persist_candidate(*candidate, next_bindings)) return std::nullopt;
-        if (already) {
+        if (already || replacing) {
             for (auto& old : bindings_)
-                if (old.device_id == binding.device_id)
+                if (old.device_id == (replacing ? replacing_device_id_ : binding.device_id))
                     crypto_.secure_zero(old.installation_key.data(),
                                         old.installation_key.size());
         }
         registry_ = std::move(candidate);
         bindings_ = std::move(next_bindings);
+        if (replacing) {
+            active_.erase(replacing->radio_mac);
+            rejoining_.erase(replacing->radio_mac);
+            assemblers_.erase(replacing->radio_mac);
+            replaced_node_ = std::move(replacing);
+            replacing_device_id_.clear();
+        }
         return reply(source, outbound);
     }
     if (message->kind == security::wire::Kind::RejoinHello) {

@@ -31,6 +31,10 @@ void set_control_plane_active(bool active);
 // Installer-facing product boundary. Ownership of the exact candidate is
 // transferred to the Hub owner only when the bounded request queue accepts it.
 bool request_node_commissioning(HubSecurityLink::ExpectedNode exact);
+// Preserve the logical slot while a new physical identity proves possession
+// of its key. Queue acceptance is not a completed replacement.
+bool request_node_replacement(const std::string& old_physical_device_id,
+                              HubSecurityLink::ExpectedNode replacement);
 // Product service boundary: only an authenticated/authorized local caller may
 // request removal. The owner persists revocation before dropping admission.
 bool request_node_removal(const std::string& physical_device_id);

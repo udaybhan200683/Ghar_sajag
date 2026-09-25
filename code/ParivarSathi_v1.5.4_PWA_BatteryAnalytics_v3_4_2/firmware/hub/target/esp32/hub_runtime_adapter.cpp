@@ -44,9 +44,16 @@ StaticQueue_t g_health_queue_state{};
 StaticQueue_t g_security_queue_state{};
 StaticQueue_t g_request_queue_state{};
 #if !GS_HIL_BUILD
+struct ReplacementRequest {
+    std::string old_device_id;
+    HubSecurityLink::ExpectedNode replacement;
+};
 StaticQueue_t g_removal_queue_state{};
 alignas(std::string*) std::array<std::uint8_t, sizeof(std::string*)> g_removal_storage{};
 QueueHandle_t g_removal_queue = nullptr;
+StaticQueue_t g_replacement_queue_state{};
+alignas(ReplacementRequest*) std::array<std::uint8_t, sizeof(ReplacementRequest*)> g_replacement_storage{};
+QueueHandle_t g_replacement_queue = nullptr;
 #endif
 StaticQueue_t g_security_send_queue_state{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kDataQueueDepth * sizeof(ReceivedFrame)> g_data_storage{};
@@ -428,6 +435,18 @@ void secure_owner_task(void*) {
             }
             if (security_link.faulted()) continue;
         }
+        ReplacementRequest* replacement_request = nullptr;
+        if (xQueueReceive(g_replacement_queue, &replacement_request, 0) == pdTRUE) {
+            std::unique_ptr<ReplacementRequest> replacement(replacement_request);
+            const auto outbound = security_link.begin_replacement(
+                replacement->old_device_id, replacement->replacement, now_ms);
+            if (outbound && send_security_message(*outbound))
+                ESP_LOGI(kTag, "Exact-node replacement offer sent");
+            else
+                ESP_LOGW(kTag, "Exact-node replacement request rejected");
+            std::fill(replacement->replacement.installer_code.begin(),
+                      replacement->replacement.installer_code.end(), 0);
+        }
         HubSecurityLink::ExpectedNode* requested = nullptr;
         if (xQueueReceive(g_request_queue, &requested, 0) == pdTRUE) {
             std::unique_ptr<HubSecurityLink::ExpectedNode> exact(requested);
@@ -445,6 +464,13 @@ void secure_owner_task(void*) {
             const auto outbound = security_link.accept(control.source_mac,
                 control.bytes.data(), control.size,
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+            if (const auto replaced = security_link.take_replaced_node()) {
+                runtime.revoke_node(replaced->logical_id);
+                authorized.erase(replaced->radio_mac);
+                const esp_err_t peer_result = esp_now_del_peer(replaced->radio_mac.data());
+                ESP_LOGI(kTag, "Prior physical Node revoked after replacement peer=%s",
+                         esp_err_to_name(peer_result));
+            }
             if (outbound && !send_security_message(*outbound))
                 ESP_LOGW(kTag, "Authenticated control reply delivery failed");
             if (const auto* node = security_link.ready_node(control.source_mac)) {
@@ -531,6 +557,24 @@ bool request_node_commissioning(HubSecurityLink::ExpectedNode exact) {
     return true;
 }
 
+bool request_node_replacement(const std::string& old_physical_device_id,
+                              HubSecurityLink::ExpectedNode replacement) {
+#if GS_HIL_BUILD
+    (void)old_physical_device_id;
+    (void)replacement;
+    return false;
+#else
+    if (g_replacement_queue == nullptr || old_physical_device_id.empty() ||
+        old_physical_device_id.size() > 64) return false;
+    auto request = std::make_unique<ReplacementRequest>(
+        ReplacementRequest{old_physical_device_id, std::move(replacement)});
+    auto* pointer = request.get();
+    if (xQueueSend(g_replacement_queue, &pointer, 0) != pdTRUE) return false;
+    request.release();
+    return true;
+#endif
+}
+
 bool request_node_removal(const std::string& physical_device_id) {
 #if GS_HIL_BUILD
     (void)physical_device_id;
@@ -603,6 +647,8 @@ esp_err_t start_runtime_adapter() {
 #if !GS_HIL_BUILD
     g_removal_queue = xQueueCreateStatic(1U, sizeof(std::string*),
         g_removal_storage.data(), &g_removal_queue_state);
+    g_replacement_queue = xQueueCreateStatic(1U, sizeof(ReplacementRequest*),
+        g_replacement_storage.data(), &g_replacement_queue_state);
 #endif
     g_security_send_queue = xQueueCreateStatic(1U, sizeof(bool),
         g_security_send_storage.data(), &g_security_send_queue_state);
@@ -610,7 +656,7 @@ esp_err_t start_runtime_adapter() {
         g_security_queue == nullptr || g_request_queue == nullptr ||
         g_security_send_queue == nullptr
 #if !GS_HIL_BUILD
-        || g_removal_queue == nullptr
+        || g_removal_queue == nullptr || g_replacement_queue == nullptr
 #endif
         ) {
         return ESP_ERR_NO_MEM;

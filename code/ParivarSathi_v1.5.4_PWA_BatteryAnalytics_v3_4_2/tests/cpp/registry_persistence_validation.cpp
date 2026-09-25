@@ -124,6 +124,43 @@ int main() {
         auto forbidden = activated;
         forbidden.bindings[0].installation_key[0] ^= 1;
         require(!retry_repo.save(forbidden), "activated key was replaced");
+        // Replacement keeps the logical slot but must retire the old physical
+        // identity and installation key in the same encrypted snapshot.
+        MemoryBlob replacement_store;
+        HubRegistryRepository replacement_repo(
+            crypto, replacement_store, wrap, "test-home", "test-hub",
+            test_hub_public_key(), 10, 16);
+        auto prior = make_state(10);
+        require(replacement_repo.save(prior), "replacement baseline save failed");
+        NodeRegistry replacement_registry("test-home", "test-hub", 10, 16);
+        require(replacement_registry.restore(prior.registry),
+                "replacement baseline restore failed");
+        auto new_physical = prior.registry.active[0];
+        new_physical.device_id = "replacement-device";
+        new_physical.radio_mac[5] = 42;
+        new_physical.p256_public_key[1] = 42;
+        new_physical.last_session = 0;
+        require(replacement_registry.replace(prior.registry.active[0].device_id,
+                                             new_physical) == gs::hub::RegistryResult::Accepted,
+                "atomic replacement at installed capacity failed");
+        auto replaced_state = prior;
+        replaced_state.registry = replacement_registry.snapshot();
+        replaced_state.bindings[0].device_id = new_physical.device_id;
+        replaced_state.bindings[0].device_public_key = new_physical.p256_public_key;
+        replaced_state.bindings[0].installation_key[0] = 42;
+        require(replacement_repo.save(replaced_state),
+                "replacement snapshot did not commit");
+        const auto replacement_load = replacement_repo.load();
+        require(replacement_load.status == HubRegistryLoadStatus::Ready &&
+                replacement_load.state &&
+                replacement_load.state->registry.revoked_device_ids.size() == 1 &&
+                replacement_load.state->registry.revoked_device_ids[0] ==
+                    prior.registry.active[0].device_id &&
+                replacement_load.state->bindings[0].device_id ==
+                    new_physical.device_id &&
+                replacement_load.state->bindings[0].installation_key ==
+                    replaced_state.bindings[0].installation_key,
+                "replacement lost revocation or new binding across reopen");
         require(repo.save(state), "ten-node encrypted registry save failed");
         require(!store.data.empty() && store.data[0] == 'G' &&
                 std::search(store.data.begin(), store.data.end(),
