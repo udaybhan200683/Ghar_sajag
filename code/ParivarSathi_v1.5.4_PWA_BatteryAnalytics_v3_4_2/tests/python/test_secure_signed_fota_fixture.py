@@ -81,6 +81,32 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertLess(events.index("authenticated-rejoin"), events.index("pir-ready"))
         self.assertEqual(campaign.before_session, "91")
 
+    def test_session_setup_restarts_node_after_hub_and_captures_fresh_rejoin_cursor(self):
+        campaign = object.__new__(SecureCampaign)
+        campaign.hubs = {"NEG": {"hub_app_version": "hub-negative"}}
+        campaign.images = {"A": {"version": "signed-a"}}
+        campaign.hub = mock.Mock()
+        campaign.c3 = mock.Mock()
+        events: list[tuple] = []
+
+        def restart(capture, role, version, *, wait_for_sensing=True):
+            events.append(("restart", role, version, wait_for_sensing))
+        campaign.restart_and_ready = restart
+        campaign.hub.cursor.side_effect = lambda: events.append(("hub-cursor",)) or 31
+        campaign.c3.cursor.side_effect = lambda: events.append(("c3-cursor",)) or 47
+        campaign.exact_identity_and_session = lambda rejoin_cursor, c3_ready_cursor: \
+            events.append(("associate", rejoin_cursor, c3_ready_cursor))
+
+        campaign.establish_fresh_node_session()
+
+        self.assertEqual(events, [
+            ("restart", "hub", "hub-negative", True),
+            ("hub-cursor",),
+            ("c3-cursor",),
+            ("restart", "c3", "signed-a", False),
+            ("associate", 31, 47),
+        ])
+
     def test_first_commissioning_control_is_paced_and_still_precedes_pir_gate(self):
         class FakeStream:
             is_open = True

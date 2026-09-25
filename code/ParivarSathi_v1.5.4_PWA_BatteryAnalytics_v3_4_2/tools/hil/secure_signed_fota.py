@@ -308,6 +308,15 @@ class SecureCampaign:
         # or rejoin has completed. Prove readiness from after the fresh C3 boot.
         self.c3.wait_for(r"PIR ready on GPIO", 45, c3_ready_cursor)
 
+    def establish_fresh_node_session(self) -> None:
+        """Restart Hub first, then Node, so rejoin belongs to the current Hub boot."""
+        self.restart_and_ready(self.hub, "hub", self.hubs["NEG"]["hub_app_version"])
+        rejoin_cursor = self.hub.cursor()
+        c3_ready_cursor = self.c3.cursor()
+        self.restart_and_ready(self.c3, "c3", self.images["A"]["version"],
+                               wait_for_sensing=False)
+        self.exact_identity_and_session(rejoin_cursor, c3_ready_cursor)
+
     def state(self, expected: str | None = None) -> str:
         pattern = r"HIL_STATE role=c3 .*ota_slot=ota_[01]"
         if expected:
@@ -353,12 +362,7 @@ class SecureCampaign:
         flash_signed_a(self.config, self.devices["c3"].port, self.images["A"], self.run_dir)
         flash_hub(self.config, self.devices["hub"].port, self.hubs["NEG"], self.run_dir, "negative")
         self.open()
-        c3_boot_cursor = self.c3.cursor()
-        self.restart_and_ready(self.c3, "c3", self.images["A"]["version"],
-                               wait_for_sensing=False)
-        initial_rejoin_cursor = self.hub.cursor()
-        self.restart_and_ready(self.hub, "hub", self.hubs["NEG"]["hub_app_version"])
-        self.exact_identity_and_session(initial_rejoin_cursor, c3_boot_cursor)
+        self.establish_fresh_node_session()
         state = self.state()
         self.before_slot = re.search(r"ota_slot=(ota_[01])", state).group(1)
         self.motion()
