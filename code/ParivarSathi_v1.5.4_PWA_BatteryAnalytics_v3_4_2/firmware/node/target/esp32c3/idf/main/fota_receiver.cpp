@@ -2,6 +2,7 @@
 
 #include "firmware/node/fota/boot_health_gate.hpp"
 #include "firmware/node/fota/fota_receiver.hpp"
+#include "firmware/node/fota/secure_fota_adapter.hpp"
 #include "firmware/node/target/esp32c3/node_runtime_adapter.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
 
@@ -84,15 +85,37 @@ class TargetCallbacks final : public fota_receiver::IReceiverCallbacks {
 public:
     explicit TargetCallbacks(EspIdfOtaWriter& writer) : writer_(writer) {}
 
+#if !GS_HIL_BUILD
+    void set_authenticated_session(std::uint64_t session) { authenticated_session_ = session; }
+#endif
+
     void send_ack(const gs::fota::Ack& ack) override {
+#if GS_HIL_BUILD
         const esp_err_t result = esp_now_send(
             kQualifiedHubMac.data(), reinterpret_cast<const std::uint8_t*>(&ack), sizeof(ack));
         if (result != ESP_OK) {
             ESP_LOGE(kTag, "FOTA ACK send failed: %s", esp_err_to_name(result));
         }
+#else
+        // A failed BEGIN has not paused the normal data plane. Drop its ACK
+        // rather than let an indistinguishable ESP-NOW callback retire an
+        // unrelated NodeRuntime send; the Hub retries and times out safely.
+        if (!maintenance_ || authenticated_session_ == 0) return;
+        AuthenticatedFotaAck verified;
+        verified.authenticated_session = authenticated_session_;
+        verified.message.type = gs::fota::secure_wire::Type::Ack;
+        verified.message.transfer_id = ack.session_id;
+        verified.message.index = ack.acknowledged_sequence;
+        verified.message.ack_status = static_cast<gs::fota::Status>(ack.status);
+        verified.message.next_index = ack.next_sequence;
+        verified.message.bytes_written = ack.bytes_written;
+        if (!submit_authenticated_fota_ack(verified))
+            ESP_LOGW(kTag, "Authenticated FOTA ACK queue full or unavailable");
+#endif
     }
 
     void set_maintenance(bool active) override {
+        maintenance_ = active;
         set_control_plane_active(active);
         ESP_LOGI(kTag, "FOTA maintenance %s", active ? "ACTIVE" : "INACTIVE");
     }
@@ -110,19 +133,31 @@ public:
 
 private:
     EspIdfOtaWriter& writer_;
+    bool maintenance_{false};
+#if !GS_HIL_BUILD
+    std::uint64_t authenticated_session_{0};
+#endif
 };
 
 EspIdfOtaWriter g_writer;
 TargetCallbacks g_callbacks(g_writer);
 fota_receiver::Receiver g_receiver(g_writer, g_callbacks);
+#if !GS_HIL_BUILD
+fota_receiver::SecureFotaAdapter g_secure_receiver(g_receiver, "esp32c3");
+#endif
 
 void worker(void*) {
     ReceivedFrame frame;
     for (;;) {
         const bool received =
             xQueueReceive(control_plane_queue(), &frame, kControlReceivePoll) == pdTRUE;
+#if GS_HIL_BUILD
         g_receiver.poll(monotonic_ms());
+#else
+        g_secure_receiver.poll(monotonic_ms());
+#endif
         if (!received) continue;
+#if GS_HIL_BUILD
         if (frame.size != sizeof(gs::fota::Packet)) {
             ESP_LOGW(kTag, "Rejected FOTA frame length=%u", static_cast<unsigned>(frame.size));
             continue;
@@ -130,6 +165,18 @@ void worker(void*) {
         gs::fota::Packet packet{};
         std::memcpy(&packet, frame.bytes.data(), sizeof(packet));
         (void)g_receiver.process(packet, monotonic_ms());
+#else
+        if (frame.authenticated_session == 0) continue;
+        const auto decoded = gs::fota::secure_wire::decode(frame.bytes.data(), frame.size);
+        if (!decoded || decoded.message.type == gs::fota::secure_wire::Type::Ack) {
+            ESP_LOGW(kTag, "Rejected malformed verified FOTA plaintext");
+            continue;
+        }
+        g_callbacks.set_authenticated_session(frame.authenticated_session);
+        if (!g_secure_receiver.process(decoded.message, frame.authenticated_session,
+                                       monotonic_ms()))
+            ESP_LOGW(kTag, "Rejected FOTA transfer/session/board mismatch");
+#endif
     }
 }
 

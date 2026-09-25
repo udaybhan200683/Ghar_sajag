@@ -11,6 +11,8 @@ idf_component_register(
     SRCS
         ${GS_NODE_SRCS}
         "${GS_ROOT}/firmware/node/fota/fota_receiver.cpp"
+        "${GS_ROOT}/firmware/node/fota/secure_fota_adapter.cpp"
+        "${GS_ROOT}/firmware/common/transport/fota_secure_wire.cpp"
         "${GS_ROOT}/firmware/node/fota/boot_health_gate.cpp"
         "${GS_ROOT}/shared/src/logging.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"

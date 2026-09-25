@@ -54,6 +54,11 @@ StaticQueue_t g_control_queue_state{};
 StaticQueue_t g_security_queue_state{};
 StaticQueue_t g_security_send_queue_state{};
 StaticQueue_t g_send_queue_state{};
+#if !GS_HIL_BUILD
+StaticQueue_t g_fota_ack_queue_state{};
+alignas(AuthenticatedFotaAck) std::array<std::uint8_t, 4U * sizeof(AuthenticatedFotaAck)> g_fota_ack_storage{};
+QueueHandle_t g_fota_ack_queue = nullptr;
+#endif
 alignas(ReceivedFrame) std::array<std::uint8_t, kAckQueueDepth * sizeof(ReceivedFrame)> g_ack_storage{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kControlQueueDepth * sizeof(ReceivedFrame)> g_control_storage{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kSecurityQueueDepth * sizeof(ReceivedFrame)> g_security_storage{};
@@ -384,6 +389,25 @@ void owner_task(void*) {
                 ESP_LOGW(kTag, "Rejected unauthenticated or replayed ACK");
                 continue;
             }
+            if (verified_ack.size >= 2 && verified_ack.bytes[0] == 'G' &&
+                verified_ack.bytes[1] == 'F') {
+                const auto decoded_fota = gs::fota::secure_wire::decode(
+                    verified_ack.bytes.data(), verified_ack.size);
+                if (!decoded_fota || decoded_fota.message.type ==
+                                     gs::fota::secure_wire::Type::Ack) {
+                    ESP_LOGW(kTag, "Rejected malformed protected FOTA control");
+                    continue;
+                }
+                ReceivedFrame verified_control;
+                verified_control.source_mac = ack_frame.source_mac;
+                verified_control.authenticated_session = security_link.frames()->session();
+                verified_control.size = verified_ack.size;
+                std::copy_n(verified_ack.bytes.data(), verified_ack.size,
+                            verified_control.bytes.data());
+                if (xQueueSend(g_control_queue, &verified_control, 0) != pdTRUE)
+                    g_control_queue_drops.fetch_add(1U, std::memory_order_relaxed);
+                continue;
+            }
             const auto decoded = transport::decode_node_ack(
                 verified_ack.bytes.data(), verified_ack.size);
 #else
@@ -417,6 +441,29 @@ void owner_task(void*) {
                      static_cast<unsigned long long>(key.sequence),
                      static_cast<int>(decoded.value->ack_type), retired);
         }
+
+#if !GS_HIL_BUILD
+        AuthenticatedFotaAck fota_ack;
+        while (xQueueReceive(g_fota_ack_queue, &fota_ack, 0) == pdTRUE) {
+            // A failed transfer may have left an ACK queued before the OTA
+            // worker cleared maintenance. Do not let its MAC callback be
+            // mistaken for a normal NodeRuntime send after resumption.
+            if (!g_control_plane_active.load(std::memory_order_acquire) ||
+                !security_link.ready() ||
+                security_link.frames()->session() != fota_ack.authenticated_session ||
+                fota_ack.message.type != gs::fota::secure_wire::Type::Ack) continue;
+            const auto encoded = gs::fota::secure_wire::encode(fota_ack.message);
+            security::SecureFrame protected_fota_ack;
+            if (!encoded || !security_link.frames()->seal(
+                    security::RuntimeDirection::Uplink, encoded.frame,
+                    protected_fota_ack)) continue;
+            if (esp_now_send(security_link.hub_mac().data(),
+                             protected_fota_ack.bytes.data(),
+                             protected_fota_ack.size) != ESP_OK) {
+                ESP_LOGW(kTag, "Authenticated FOTA ACK send rejected");
+            }
+        }
+#endif
 
         SendResult send_result;
         while (xQueueReceive(g_send_queue, &send_result, 0) == pdTRUE) {
@@ -684,6 +731,14 @@ QueueHandle_t control_plane_queue() {
     return g_control_queue;
 }
 
+#if !GS_HIL_BUILD
+bool submit_authenticated_fota_ack(const AuthenticatedFotaAck& ack) {
+    return g_fota_ack_queue != nullptr && ack.authenticated_session != 0 &&
+           ack.message.type == gs::fota::secure_wire::Type::Ack &&
+           xQueueSend(g_fota_ack_queue, &ack, 0) == pdTRUE;
+}
+#endif
+
 void set_control_plane_active(bool active) {
     g_control_plane_active.store(active, std::memory_order_release);
 }
@@ -791,10 +846,18 @@ esp_err_t start_runtime_adapter() {
     g_security_send_queue = xQueueCreateStatic(1U, sizeof(SendResult),
         g_security_send_storage.data(), &g_security_send_queue_state);
     g_send_queue = xQueueCreateStatic(kSendQueueDepth, sizeof(SendResult),
-                                      g_send_storage.data(), &g_send_queue_state);
+        g_send_storage.data(), &g_send_queue_state);
+#if !GS_HIL_BUILD
+    g_fota_ack_queue = xQueueCreateStatic(4U, sizeof(AuthenticatedFotaAck),
+        g_fota_ack_storage.data(), &g_fota_ack_queue_state);
+#endif
     if (g_ack_queue == nullptr || g_control_queue == nullptr ||
         g_security_queue == nullptr || g_security_send_queue == nullptr ||
-        g_send_queue == nullptr) {
+        g_send_queue == nullptr
+#if !GS_HIL_BUILD
+        || g_fota_ack_queue == nullptr
+#endif
+        ) {
         return ESP_ERR_NO_MEM;
     }
     if ((result = initialize_gpio()) != ESP_OK) return result;

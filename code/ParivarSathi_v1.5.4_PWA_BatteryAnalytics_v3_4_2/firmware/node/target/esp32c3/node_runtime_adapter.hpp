@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firmware/node/fota/boot_health_gate.hpp"
+#include "firmware/common/transport/fota_secure_wire.hpp"
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -19,8 +20,18 @@ struct ReceivedFrame {
     std::int8_t transport_rssi{-127};
     std::uint8_t channel{0};
     std::uint16_t size{0};
+    std::uint64_t authenticated_session{0};
     std::array<std::uint8_t, kTargetEspNowPayloadMax> bytes{};
 };
+
+#if !GS_HIL_BUILD
+struct AuthenticatedFotaAck {
+    std::uint64_t authenticated_session{0};
+    gs::fota::secure_wire::Message message{};
+};
+// Called by the OTA worker; only the Node owner may seal or send this ACK.
+bool submit_authenticated_fota_ack(const AuthenticatedFotaAck& ack);
+#endif
 
 // Initializes the qualified GPIO/radio configuration and starts the sole task
 // that owns NodeRuntime. The product FOTA worker consumes the returned
