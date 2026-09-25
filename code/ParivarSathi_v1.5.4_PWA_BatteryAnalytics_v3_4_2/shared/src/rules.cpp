@@ -144,7 +144,11 @@ std::vector<RuleSignalDecision> RulesCore::apply_activity_event(
             state.morning_kitchen_seen = false;
             state.morning_completed = false;
         } else if (state.morning_started && state.morning_started_at.has_value() &&
-                   event.occurred_at - *state.morning_started_at <= config.morning_sequence_window_seconds) {
+                   event.occurred_at >= *state.morning_started_at &&
+                   config.morning_sequence_window_seconds >= 0 &&
+                   static_cast<std::uint64_t>(event.occurred_at) -
+                       static_cast<std::uint64_t>(*state.morning_started_at) <=
+                       static_cast<std::uint64_t>(config.morning_sequence_window_seconds)) {
             if (event.location == config.morning_bathroom_location) state.morning_bathroom_seen = true;
             if (event.location == config.morning_kitchen_location) state.morning_kitchen_seen = true;
             if (!state.morning_completed && state.morning_bathroom_seen && state.morning_kitchen_seen) {

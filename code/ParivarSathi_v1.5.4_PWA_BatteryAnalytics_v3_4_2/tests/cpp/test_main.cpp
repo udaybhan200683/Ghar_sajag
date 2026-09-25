@@ -457,6 +457,21 @@ void test_protocol_and_generic_rules() {
     check(morning_done.size()==1 && morning_done[0].kind==gs::RuleSignalKind::MorningRoutineCompleted,
           "configured bedroom then bathroom+kitchen completes morning routine");
 
+    auto morning_sequence = [&](gs::EpochSeconds bathroom_at, gs::EpochSeconds kitchen_at) {
+        gs::ActivityRuleState state;
+        gs::RulesCore::apply_activity_event(state, routines, event(70, gs::EventKind::Motion, 100, "room1", "room1"), 7*60);
+        gs::RulesCore::apply_activity_event(state, routines, event(71, gs::EventKind::Motion, bathroom_at, "bathroom", "bathroom"), 7*60+1);
+        return gs::RulesCore::apply_activity_event(state, routines, event(72, gs::EventKind::Motion, kitchen_at, "kitchen", "kitchen"), 7*60+2);
+    };
+    check(morning_sequence(101, 102).size() == 1,
+          "subsequent morning evidence within the window completes the sequence");
+    check(morning_sequence(101, 100 + routines.morning_sequence_window_seconds + 1).empty(),
+          "morning evidence after the sequence window does not complete it");
+    check(morning_sequence(99, 101).empty(),
+          "late-arriving bathroom evidence before bedroom start does not complete the sequence");
+    check(morning_sequence(101, 100 + routines.morning_sequence_window_seconds).size() == 1,
+          "morning evidence at the exact sequence-window boundary completes it");
+
     gs::ActivityRuleState night_state;
     routines.night_bathroom_visit_threshold=1; routines.night_visit_merge_seconds=60;
     check(gs::RulesCore::apply_activity_event(night_state,routines,event(63,gs::EventKind::Motion,1000,"bathroom","bathroom"),23*60).empty(),
