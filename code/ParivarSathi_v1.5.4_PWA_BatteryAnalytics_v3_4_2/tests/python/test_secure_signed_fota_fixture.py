@@ -271,6 +271,33 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "profile/hash"):
                 hub_flash_command(record, "/dev/ttyUSB-hub")
 
+    def test_positive_transfer_waits_for_pre_reboot_acceptance_not_post_reboot_sha_marker(self):
+        campaign = object.__new__(SecureCampaign)
+        campaign.node_id = "c3-abcdef123456"
+        campaign.before_session = "271"
+        campaign.hub = mock.Mock()
+        campaign.c3 = mock.Mock()
+        campaign.transfer_ids = {}
+        campaign.send = mock.Mock(return_value="HIL_OK")
+        campaign.hub.cursor.return_value = 20
+        campaign.c3.cursor.return_value = 30
+        campaign.hub.wait_for.side_effect = [
+            "SECURE_FOTA_BEGIN transfer=123 node=c3-abcdef123456 board=esp32c3 version=sfB bytes=921600",
+            "SECURE_FOTA_SESSION_PINNED transfer=123 session=271",
+            "SECURE_FOTA_TRANSFER_COMPLETE transfer=123 chunks=4800",
+        ]
+        campaign.c3.wait_for.side_effect = [
+            "SECURE_FOTA_IMAGE_SIGNATURE_ACCEPTED",
+            "FOTA COMPLETE; next boot partition=ota_1",
+        ]
+
+        result = campaign.secure_transfer("sfB", expect_signature_reject=False)
+
+        self.assertEqual(result, "123")
+        patterns = [call.args[0] for call in campaign.c3.wait_for.call_args_list]
+        self.assertIn(r"SECURE_FOTA_IMAGE_SIGNATURE_ACCEPTED", patterns)
+        self.assertNotIn(r"SECURE_FOTA_IMAGE_SHA256_VERIFIED transfer=123", patterns)
+
 
 if __name__ == "__main__":
     unittest.main()

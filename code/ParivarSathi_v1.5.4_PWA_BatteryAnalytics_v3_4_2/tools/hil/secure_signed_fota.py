@@ -358,16 +358,22 @@ class SecureCampaign:
         if pinned_session != self.before_session:
             raise RuntimeError("FOTA sender pinned a session other than the enrolled Node's current session")
         self.transfer_ids[version] = transfer_id
-        self.c3.wait_for(rf"SECURE_FOTA_IMAGE_SHA256_VERIFIED transfer={transfer_id}",
-                         1800, cursor_c3)
         if expect_signature_reject:
+            self.c3.wait_for(rf"SECURE_FOTA_IMAGE_SHA256_VERIFIED transfer={transfer_id}",
+                             1800, cursor_c3)
             rejected = self.c3.wait_for(r"SECURE_FOTA_IMAGE_SIGNATURE_REJECTED error=ESP_ERR_OTA_VALIDATE_FAILED",
                                         1800, cursor_c3)
             self.hub.wait_for(rf"SECURE_FOTA_TRANSFER_FAILED transfer={transfer_id} phase=end", 30, cursor_hub)
             return rejected
-        self.c3.wait_for(r"FOTA COMPLETE; next boot partition=ota_[01]", 1800, cursor_c3)
+        # A successful esp_ota_end() logs signature acceptance and immediately
+        # requests reboot. The post-process SHA marker is therefore not
+        # observable on this path; the receiver's adapter verifies the digest
+        # before calling esp_ota_end(). Wait for the pre-reboot acceptance
+        # evidence instead of blocking for a marker that cannot be emitted
+        # after esp_restart().
+        self.c3.wait_for(r"SECURE_FOTA_IMAGE_SIGNATURE_ACCEPTED", 1800, cursor_c3)
+        self.c3.wait_for(r"FOTA COMPLETE; next boot partition=ota_[01]", 30, cursor_c3)
         self.hub.wait_for(rf"SECURE_FOTA_TRANSFER_COMPLETE transfer={transfer_id} chunks=\d+", 30, cursor_hub)
-        self.c3.wait_for(r"SECURE_FOTA_IMAGE_SIGNATURE_ACCEPTED", 30, cursor_c3)
         return transfer_id
 
     def run(self) -> dict:
