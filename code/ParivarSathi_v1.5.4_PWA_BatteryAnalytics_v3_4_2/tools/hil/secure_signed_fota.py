@@ -317,14 +317,24 @@ class SecureCampaign:
         # or rejoin has completed. Prove readiness from after the fresh C3 boot.
         self.c3.wait_for(r"PIR ready on GPIO", 45, c3_ready_cursor)
 
-    def establish_fresh_node_session(self) -> None:
+    def establish_fresh_node_session(self, hub_version: str, c3_version: str) -> None:
         """Restart Hub first, then Node, so rejoin belongs to the current Hub boot."""
-        self.restart_and_ready(self.hub, "hub", self.hubs["NEG"]["hub_app_version"])
+        self.restart_and_ready(self.hub, "hub", hub_version)
         rejoin_cursor = self.hub.cursor()
         c3_ready_cursor = self.c3.cursor()
-        self.restart_and_ready(self.c3, "c3", self.images["A"]["version"],
-                               wait_for_sensing=False)
+        self.restart_and_ready(self.c3, "c3", c3_version, wait_for_sensing=False)
         self.exact_identity_and_session(rejoin_cursor, c3_ready_cursor)
+
+    def switch_to_positive_hub(self) -> None:
+        self.close()
+        self.c3 = self.hub = None
+        flash_hub(self.config, phase1.runtime_port(self.config, "hub"),
+                  self.hubs["B"], self.run_dir, "positive")
+        self.open()
+        # Swapping the Hub-embedded candidate reboots the Hub. Restart the Node
+        # afterward so its rejoin is fresh to that exact Hub boot.
+        self.establish_fresh_node_session(self.hubs["B"]["hub_app_version"],
+                                          self.images["A"]["version"])
 
     def state(self, expected: str | None = None) -> str:
         pattern = r"HIL_STATE role=c3 .*ota_slot=ota_[01]"
@@ -371,7 +381,8 @@ class SecureCampaign:
         flash_signed_a(self.config, self.devices["c3"].port, self.images["A"], self.run_dir)
         flash_hub(self.config, self.devices["hub"].port, self.hubs["NEG"], self.run_dir, "negative")
         self.open()
-        self.establish_fresh_node_session()
+        self.establish_fresh_node_session(self.hubs["NEG"]["hub_app_version"],
+                                          self.images["A"]["version"])
         state = self.state()
         self.before_slot = re.search(r"ota_slot=(ota_[01])", state).group(1)
         self.motion()
@@ -393,17 +404,8 @@ class SecureCampaign:
         self.results.add(EXPECTED[0], "PASS", "authenticated transfer reached ESP-IDF signature verifier; A stayed active and application ACK recovered")
 
         self.active_case = EXPECTED[1]
-        self.close()
-        self.c3 = self.hub = None
-        flash_hub(self.config, phase1.runtime_port(self.config, "hub"), self.hubs["B"], self.run_dir, "positive")
-        self.open()
-        rejoin_cursor = self.hub.cursor()
-        self.restart_and_ready(self.hub, "hub", self.hubs["B"]["hub_app_version"])
         old_session = self.before_session
-        # The Node re-establishes its authenticated session after Hub reboot.
-        joined = self.hub.wait_for(rf"Authenticated rejoin device={re.escape(self.node_id)} .*session=(\d+)",
-                                   30, rejoin_cursor)
-        self.before_session = re.search(r"session=(\d+)", joined).group(1)
+        self.switch_to_positive_hub()
         if self.before_session == old_session:
             raise RuntimeError("Hub restart did not establish a fresh authenticated session")
         self.before_slot = re.search(r"ota_slot=(ota_[01])", self.state()).group(1)

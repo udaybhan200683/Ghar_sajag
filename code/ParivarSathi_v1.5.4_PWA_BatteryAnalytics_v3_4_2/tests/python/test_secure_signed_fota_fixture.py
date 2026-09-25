@@ -105,15 +105,38 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         campaign.exact_identity_and_session = lambda rejoin_cursor, c3_ready_cursor: \
             events.append(("associate", rejoin_cursor, c3_ready_cursor))
 
-        campaign.establish_fresh_node_session()
+        campaign.establish_fresh_node_session("hub-positive", "signed-candidate-a")
 
         self.assertEqual(events, [
-            ("restart", "hub", "hub-negative", True),
+            ("restart", "hub", "hub-positive", True),
             ("hub-cursor",),
             ("c3-cursor",),
-            ("restart", "c3", "signed-a", False),
+            ("restart", "c3", "signed-candidate-a", False),
             ("associate", 31, 47),
         ])
+
+    def test_positive_hub_swap_reuses_fresh_node_session_sequence(self):
+        campaign = object.__new__(SecureCampaign)
+        campaign.config = {"fixture": "test"}
+        campaign.hubs = {"B": {"hub_app_version": "hub-b"}}
+        campaign.images = {"A": {"version": "node-a"}}
+        campaign.run_dir = Path("evidence")
+        campaign.hub = mock.Mock()
+        campaign.c3 = mock.Mock()
+        campaign.close = mock.Mock()
+        campaign.open = mock.Mock()
+        campaign.establish_fresh_node_session = mock.Mock()
+
+        with mock.patch("tools.hil.secure_signed_fota.phase1.runtime_port",
+                        return_value="/dev/hub"), \
+             mock.patch("tools.hil.secure_signed_fota.flash_hub") as flash:
+            campaign.switch_to_positive_hub()
+
+        campaign.close.assert_called_once_with()
+        flash.assert_called_once_with(campaign.config, "/dev/hub", campaign.hubs["B"],
+                                      campaign.run_dir, "positive")
+        campaign.open.assert_called_once_with()
+        campaign.establish_fresh_node_session.assert_called_once_with("hub-b", "node-a")
 
     def test_first_commissioning_control_is_paced_and_still_precedes_pir_gate(self):
         class FakeStream:
