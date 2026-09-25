@@ -42,7 +42,7 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
-.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
+.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 
 all: verify
 
@@ -64,6 +64,10 @@ master-validation-self-test: build
 fota-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/common/transport/fota_secure_wire.cpp firmware/node/fota/boot_health_gate.cpp tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
 	./build/fota_host_validation
+
+hub-fota-guard-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/fota_secure_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/components/registry/node_registry.cpp firmware/hub/components/fota/hub_fota_guard.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fota_guard_validation.cpp -lcrypto -o build/hub_fota_guard_validation
+	./build/hub_fota_guard_validation
 
 multinode-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation

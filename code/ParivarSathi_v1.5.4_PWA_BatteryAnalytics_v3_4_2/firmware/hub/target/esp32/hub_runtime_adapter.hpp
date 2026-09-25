@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <string>
 #include "firmware/hub/target/esp32/hub_security_link.hpp"
+#include "firmware/common/transport/fota_secure_wire.hpp"
 
 namespace gs::hub::target {
 
@@ -38,6 +39,29 @@ bool request_node_replacement(const std::string& old_physical_device_id,
 // Product service boundary: only an authenticated/authorized local caller may
 // request removal. The owner persists revocation before dropping admission.
 bool request_node_removal(const std::string& physical_device_id);
+
+#if !GS_HIL_BUILD
+enum class FotaOwnerAction : std::uint8_t { Begin, Send, Abort };
+struct FotaOwnerCommand {
+    FotaOwnerAction action{FotaOwnerAction::Begin};
+    std::string physical_device_id;
+    gs::fota::secure_wire::Message message{};
+    std::uint32_t command_id{0};
+    std::uint64_t deadline_ms{0};
+};
+struct FotaOwnerResult {
+    std::uint32_t command_id{0};
+    bool accepted{false};
+    std::uint64_t authenticated_session{0};
+};
+struct FotaOwnerAck {
+    bool aborted{false};
+    gs::fota::secure_wire::Message message{};
+};
+// Internal sender-to-owner boundary. No external production caller exists.
+bool submit_fota_owner_command(FotaOwnerCommand command, FotaOwnerResult& result);
+bool wait_fota_owner_ack(FotaOwnerAck& ack, std::uint32_t timeout_ms);
+#endif
 
 #if GS_HIL_BUILD
 void hil_set_logical_online(bool online);

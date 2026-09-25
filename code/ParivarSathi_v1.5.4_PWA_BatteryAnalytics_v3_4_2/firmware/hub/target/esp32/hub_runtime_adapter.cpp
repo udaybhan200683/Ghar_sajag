@@ -2,6 +2,7 @@
 
 #include "firmware/common/transport/data_plane_codec.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
+#include "firmware/hub/components/fota/hub_fota_guard.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/target/esp32/nvs_journal_slot_store.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
@@ -54,6 +55,16 @@ QueueHandle_t g_removal_queue = nullptr;
 StaticQueue_t g_replacement_queue_state{};
 alignas(ReplacementRequest*) std::array<std::uint8_t, sizeof(ReplacementRequest*)> g_replacement_storage{};
 QueueHandle_t g_replacement_queue = nullptr;
+StaticQueue_t g_fota_command_queue_state{};
+StaticQueue_t g_fota_result_queue_state{};
+StaticQueue_t g_fota_ack_queue_state{};
+alignas(FotaOwnerCommand*) std::array<std::uint8_t, sizeof(FotaOwnerCommand*)> g_fota_command_storage{};
+alignas(FotaOwnerResult) std::array<std::uint8_t, sizeof(FotaOwnerResult)> g_fota_result_storage{};
+alignas(FotaOwnerAck) std::array<std::uint8_t, sizeof(FotaOwnerAck)> g_fota_ack_storage{};
+QueueHandle_t g_fota_command_queue = nullptr;
+QueueHandle_t g_fota_result_queue = nullptr;
+QueueHandle_t g_fota_ack_queue = nullptr;
+std::atomic<std::uint32_t> g_fota_command_id{1};
 #endif
 StaticQueue_t g_security_send_queue_state{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kDataQueueDepth * sizeof(ReceivedFrame)> g_data_storage{};
@@ -401,6 +412,23 @@ void secure_owner_task(void*) {
         return;
     }
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
+    hub::fota::HubFotaGuard fota_guard;
+    std::uint64_t fota_last_activity_ms = 0;
+    const auto active_fota_node = [&](const std::string& device_id)
+        -> const EnrolledNode* {
+        for (const auto& mac : security_link.enrolled_macs()) {
+            const auto* node = security_link.ready_node(mac);
+            if (node != nullptr && node->device_id == device_id) return node;
+        }
+        return nullptr;
+    };
+    const auto abort_fota = [&]() {
+        if (!fota_guard.active()) return;
+        fota_guard.abort();
+        FotaOwnerAck stopped;
+        stopped.aborted = true;
+        (void)xQueueOverwrite(g_fota_ack_queue, &stopped);
+    };
     ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u",
              static_cast<unsigned>(security_link.enrolled_macs().size()));
     for (;;) {
@@ -414,15 +442,26 @@ void secure_owner_task(void*) {
             (void)esp_now_del_peer(expired->data());
             ESP_LOGI(kTag, "Expired uncommissioned peer removed");
         }
-        if (g_control_plane_active.load(std::memory_order_acquire)) {
-            vTaskDelay(pdMS_TO_TICKS(20));
-            continue;
+        if (fota_guard.active()) {
+            const auto* current = active_fota_node(fota_guard.device_id());
+            auto* frames = current == nullptr ? nullptr
+                : security_link.frames_for(current->radio_mac);
+            if (!fota_guard.current(current, frames)) {
+                FotaOwnerAck stopped;
+                stopped.aborted = true;
+                (void)xQueueOverwrite(g_fota_ack_queue, &stopped);
+            } else if (now_ms - fota_last_activity_ms >= 30000U) {
+                ESP_LOGW(kTag, "Authenticated FOTA sender idle timeout");
+                abort_fota();
+            }
         }
         std::string* removal_request = nullptr;
         if (xQueueReceive(g_removal_queue, &removal_request, 0) == pdTRUE) {
             std::unique_ptr<std::string> device_id(removal_request);
             const auto removed = security_link.remove_node(*device_id);
             if (removed.access_stopped) {
+                if (fota_guard.active() && fota_guard.device_id() == *device_id)
+                    abort_fota();
                 runtime.revoke_node(removed.logical_id);
                 authorized.erase(removed.radio_mac);
                 const esp_err_t peer_result = esp_now_del_peer(removed.radio_mac.data());
@@ -447,6 +486,54 @@ void secure_owner_task(void*) {
             std::fill(replacement->replacement.installer_code.begin(),
                       replacement->replacement.installer_code.end(), 0);
         }
+        FotaOwnerCommand* fota_request = nullptr;
+        if (xQueueReceive(g_fota_command_queue, &fota_request, 0) == pdTRUE) {
+            std::unique_ptr<FotaOwnerCommand> command(fota_request);
+            FotaOwnerResult result;
+            result.command_id = command->command_id;
+            if (now_ms <= command->deadline_ms) {
+                if (command->action == FotaOwnerAction::Begin) {
+                    const auto* node = active_fota_node(command->physical_device_id);
+                    auto* frames = node == nullptr ? nullptr
+                        : security_link.frames_for(node->radio_mac);
+                    const auto encoded = gs::fota::secure_wire::encode(command->message);
+                    result.accepted = command->message.type ==
+                        gs::fota::secure_wire::Type::Begin && encoded &&
+                        fota_guard.begin(node, frames, command->physical_device_id,
+                                         command->message.transfer_id);
+                    if (result.accepted) {
+                        result.authenticated_session = fota_guard.session();
+                        fota_last_activity_ms = now_ms;
+                        (void)xQueueReset(g_fota_ack_queue);
+                    }
+                } else if (command->action == FotaOwnerAction::Send &&
+                           fota_guard.active() &&
+                           command->physical_device_id == fota_guard.device_id()) {
+                    const auto* node = active_fota_node(fota_guard.device_id());
+                    auto* frames = node == nullptr ? nullptr
+                        : security_link.frames_for(node->radio_mac);
+                    security::SecureFrame protected_packet;
+                    if (fota_guard.seal(node, frames, command->message,
+                                        protected_packet) &&
+                        esp_now_send(fota_guard.radio_mac().data(),
+                                     protected_packet.bytes.data(),
+                                     protected_packet.size) == ESP_OK) {
+                        result.accepted = true;
+                        result.authenticated_session = fota_guard.session();
+                        fota_last_activity_ms = now_ms;
+                    } else {
+                        abort_fota();
+                    }
+                } else if (command->action == FotaOwnerAction::Abort &&
+                           fota_guard.active() &&
+                           command->physical_device_id == fota_guard.device_id() &&
+                           command->message.transfer_id == fota_guard.transfer_id()) {
+                    abort_fota();
+                    result.accepted = true;
+                }
+            }
+            (void)xQueueOverwrite(g_fota_result_queue, &result);
+        }
         HubSecurityLink::ExpectedNode* requested = nullptr;
         if (xQueueReceive(g_request_queue, &requested, 0) == pdTRUE) {
             std::unique_ptr<HubSecurityLink::ExpectedNode> exact(requested);
@@ -465,6 +552,8 @@ void secure_owner_task(void*) {
                 control.bytes.data(), control.size,
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
             if (const auto replaced = security_link.take_replaced_node()) {
+                if (fota_guard.active() && fota_guard.radio_mac() == replaced->radio_mac)
+                    abort_fota();
                 runtime.revoke_node(replaced->logical_id);
                 authorized.erase(replaced->radio_mac);
                 const esp_err_t peer_result = esp_now_del_peer(replaced->radio_mac.data());
@@ -496,6 +585,19 @@ void secure_owner_task(void*) {
         if (!frames->open(security::RuntimeDirection::Uplink,
                           protected_frame, plain)) {
             ESP_LOGW(kTag, "Rejected unauthenticated/replayed runtime frame");
+            continue;
+        }
+        if (plain.size >= 2 && plain.bytes[0] == 'G' && plain.bytes[1] == 'F') {
+            gs::fota::secure_wire::Message verified;
+            if (fota_guard.admit_verified_ack(frame.source_mac, node, frames,
+                                              plain, verified)) {
+                FotaOwnerAck forwarded;
+                forwarded.message = verified;
+                fota_last_activity_ms = now_ms;
+                (void)xQueueOverwrite(g_fota_ack_queue, &forwarded);
+            } else {
+                ESP_LOGW(kTag, "Rejected mismatched authenticated FOTA ACK");
+            }
             continue;
         }
         const auto classification = transport::classify_frame(plain.bytes.data(), plain.size);
@@ -594,6 +696,39 @@ bool request_node_removal(const std::string& physical_device_id) {
 #endif
 }
 
+#if !GS_HIL_BUILD
+bool submit_fota_owner_command(FotaOwnerCommand command, FotaOwnerResult& result) {
+    if (g_fota_command_queue == nullptr || g_fota_result_queue == nullptr ||
+        command.physical_device_id.empty() || command.physical_device_id.size() > 64 ||
+        command.message.transfer_id == 0) return false;
+    command.command_id = g_fota_command_id.fetch_add(1U, std::memory_order_relaxed);
+    if (command.command_id == 0) return false;
+    command.deadline_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 1000U;
+    auto owned = std::make_unique<FotaOwnerCommand>(std::move(command));
+    const auto expected_id = owned->command_id;
+    auto* pointer = owned.get();
+    if (xQueueSend(g_fota_command_queue, &pointer, 0) != pdTRUE) return false;
+    owned.release();
+    const TickType_t started = xTaskGetTickCount();
+    const TickType_t deadline = pdMS_TO_TICKS(1500);
+    while (xTaskGetTickCount() - started < deadline) {
+        FotaOwnerResult reply;
+        const TickType_t remaining = deadline - (xTaskGetTickCount() - started);
+        if (xQueueReceive(g_fota_result_queue, &reply, remaining) != pdTRUE) return false;
+        if (reply.command_id == expected_id) {
+            result = reply;
+            return reply.accepted;
+        }
+    }
+    return false;
+}
+
+bool wait_fota_owner_ack(FotaOwnerAck& ack, std::uint32_t timeout_ms) {
+    return g_fota_ack_queue != nullptr &&
+           xQueueReceive(g_fota_ack_queue, &ack, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+}
+#endif
+
 #if GS_HIL_BUILD
 void hil_set_logical_online(bool online) {
     g_hil_logical_online.store(online, std::memory_order_release);
@@ -653,6 +788,12 @@ esp_err_t start_runtime_adapter() {
         g_removal_storage.data(), &g_removal_queue_state);
     g_replacement_queue = xQueueCreateStatic(1U, sizeof(ReplacementRequest*),
         g_replacement_storage.data(), &g_replacement_queue_state);
+    g_fota_command_queue = xQueueCreateStatic(1U, sizeof(FotaOwnerCommand*),
+        g_fota_command_storage.data(), &g_fota_command_queue_state);
+    g_fota_result_queue = xQueueCreateStatic(1U, sizeof(FotaOwnerResult),
+        g_fota_result_storage.data(), &g_fota_result_queue_state);
+    g_fota_ack_queue = xQueueCreateStatic(1U, sizeof(FotaOwnerAck),
+        g_fota_ack_storage.data(), &g_fota_ack_queue_state);
 #endif
     g_security_send_queue = xQueueCreateStatic(1U, sizeof(bool),
         g_security_send_storage.data(), &g_security_send_queue_state);
@@ -660,7 +801,9 @@ esp_err_t start_runtime_adapter() {
         g_security_queue == nullptr || g_request_queue == nullptr ||
         g_security_send_queue == nullptr
 #if !GS_HIL_BUILD
-        || g_removal_queue == nullptr || g_replacement_queue == nullptr
+        || g_removal_queue == nullptr || g_replacement_queue == nullptr ||
+        g_fota_command_queue == nullptr || g_fota_result_queue == nullptr ||
+        g_fota_ack_queue == nullptr
 #endif
         ) {
         return ESP_ERR_NO_MEM;

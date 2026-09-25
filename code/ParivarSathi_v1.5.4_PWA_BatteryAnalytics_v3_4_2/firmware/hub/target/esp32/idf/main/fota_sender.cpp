@@ -1,6 +1,7 @@
 #include "fota_sender.hpp"
 
 #include "firmware/common/transport/fota_protocol.hpp"
+#include "firmware/common/transport/fota_secure_wire.hpp"
 #include "firmware/hub/target/esp32/hub_runtime_adapter.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
 
@@ -17,7 +18,14 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
+#include <string>
 
+#if !GS_HIL_BUILD
+#include "psa/crypto.h"
+#endif
+
+#if GS_HIL_BUILD
 namespace gs::hub::target {
 namespace {
 
@@ -238,3 +246,151 @@ bool hil_request_fota() {
 #endif
 
 }  // namespace gs::hub::target
+#else
+namespace gs::hub::target {
+namespace {
+constexpr char kTag[] = "gs_hub_fota";
+constexpr std::uint32_t kAckTimeoutMs = 1500;
+constexpr unsigned kMaximumRetries = 8;
+extern const std::uint8_t node_firmware_start[] asm("_binary_node_firmware_bin_start");
+extern const std::uint8_t node_firmware_end[] asm("_binary_node_firmware_bin_end");
+QueueHandle_t g_start_queue = nullptr;
+
+bool owner_command(FotaOwnerAction action, const FotaStartRequest& target,
+                   const gs::fota::secure_wire::Message& message,
+                   std::uint64_t session, FotaOwnerResult& result) {
+    FotaOwnerCommand command;
+    command.action = action;
+    command.physical_device_id = target.physical_device_id;
+    command.message = message;
+    return submit_fota_owner_command(std::move(command), result) &&
+           (action == FotaOwnerAction::Abort ||
+            (result.authenticated_session != 0 &&
+             (session == 0 || result.authenticated_session == session)));
+}
+
+bool send_with_retry(const FotaStartRequest& target,
+                     const gs::fota::secure_wire::Message& message,
+                     std::uint64_t session, gs::fota::Status expected,
+                     bool allow_duplicate) {
+    for (unsigned attempt = 0; attempt < kMaximumRetries; ++attempt) {
+        FotaOwnerResult result;
+        if (!owner_command(FotaOwnerAction::Send, target, message, session, result))
+            return false;
+        const TickType_t started = xTaskGetTickCount();
+        const TickType_t timeout = pdMS_TO_TICKS(kAckTimeoutMs);
+        while (xTaskGetTickCount() - started < timeout) {
+            const auto elapsed = xTaskGetTickCount() - started;
+            FotaOwnerAck verified;
+            if (!wait_fota_owner_ack(verified,
+                    static_cast<std::uint32_t>(pdTICKS_TO_MS(timeout - elapsed)))) break;
+            if (verified.aborted) return false;
+            const auto& ack = verified.message;
+            if (ack.type != gs::fota::secure_wire::Type::Ack ||
+                ack.transfer_id != message.transfer_id ||
+                ack.index != message.index) continue;
+            return ack.ack_status == expected ||
+                   (allow_duplicate && ack.ack_status == gs::fota::Status::Duplicate);
+        }
+    }
+    return false;
+}
+
+bool perform_update(const FotaStartRequest& target) {
+    using gs::fota::secure_wire::Message;
+    using gs::fota::secure_wire::Type;
+    const auto* image = node_firmware_start;
+    const auto size = static_cast<std::size_t>(node_firmware_end - node_firmware_start);
+    if (size == 0 || size > std::numeric_limits<std::uint32_t>::max() ||
+        target.board.empty() || target.board.size() > gs::fota::secure_wire::kMaxClaimBytes ||
+        target.version.empty() || target.version.size() > gs::fota::secure_wire::kMaxClaimBytes)
+        return false;
+    Message begin;
+    begin.type = Type::Begin;
+    begin.transfer_id = esp_random();
+    if (begin.transfer_id == 0) return false;
+    begin.image_size = static_cast<std::uint32_t>(size);
+    begin.image_crc32 = gs::fota::crc32(image, size);
+    std::size_t hash_length = 0;
+    if (psa_crypto_init() != PSA_SUCCESS ||
+        psa_hash_compute(PSA_ALG_SHA_256, image, size,
+            begin.image_sha256.data(), begin.image_sha256.size(),
+            &hash_length) != PSA_SUCCESS ||
+        hash_length != begin.image_sha256.size()) return false;
+    begin.board_size = static_cast<std::uint8_t>(target.board.size());
+    begin.version_size = static_cast<std::uint8_t>(target.version.size());
+    std::copy(target.board.begin(), target.board.end(), begin.board.begin());
+    std::copy(target.version.begin(), target.version.end(), begin.version.begin());
+    FotaOwnerResult start_result;
+    if (!owner_command(FotaOwnerAction::Begin, target, begin, 0, start_result))
+        return false;
+    const auto session = start_result.authenticated_session;
+    const auto abort = [&]() {
+        Message stop;
+        stop.type = Type::Abort;
+        stop.transfer_id = begin.transfer_id;
+        FotaOwnerResult ignored;
+        (void)owner_command(FotaOwnerAction::Send, target, stop, session, ignored);
+        (void)owner_command(FotaOwnerAction::Abort, target, stop, 0, ignored);
+    };
+    if (!send_with_retry(target, begin, session, gs::fota::Status::Ready, false)) {
+        abort();
+        return false;
+    }
+    std::size_t offset = 0;
+    std::uint32_t index = 0;
+    while (offset < size) {
+        Message data;
+        data.type = Type::Data;
+        data.transfer_id = begin.transfer_id;
+        data.index = index;
+        data.data_size = static_cast<std::uint16_t>(std::min(
+            gs::fota::secure_wire::kMaxChunkBytes, size - offset));
+        std::copy_n(image + offset, data.data_size, data.data.begin());
+        if (!send_with_retry(target, data, session, gs::fota::Status::DataOk, true)) {
+            abort();
+            return false;
+        }
+        offset += data.data_size;
+        ++index;
+    }
+    Message end;
+    end.type = Type::End;
+    end.transfer_id = begin.transfer_id;
+    end.index = index;
+    const bool complete = send_with_retry(target, end, session,
+                                          gs::fota::Status::Complete, false);
+    FotaOwnerResult ignored;
+    (void)owner_command(FotaOwnerAction::Abort, target, end, 0, ignored);
+    return complete;
+}
+
+void sender_task(void*) {
+    FotaStartRequest* request = nullptr;
+    for (;;) {
+        if (xQueueReceive(g_start_queue, &request, portMAX_DELAY) != pdTRUE) continue;
+        std::unique_ptr<FotaStartRequest> owned(request);
+        const bool passed = perform_update(*owned);
+        ESP_LOGI(kTag, "Authenticated FOTA sender result=%s", passed ? "TRANSFER_COMPLETE" : "FAIL");
+    }
+}
+}  // namespace
+
+esp_err_t start_fota_sender() {
+    g_start_queue = xQueueCreate(1U, sizeof(FotaStartRequest*));
+    if (g_start_queue == nullptr) return ESP_ERR_NO_MEM;
+    return xTaskCreate(sender_task, "gs_fota_sender", 6144, nullptr, 8, nullptr) == pdPASS
+        ? ESP_OK : ESP_ERR_NO_MEM;
+}
+
+bool request_authenticated_fota(FotaStartRequest request) {
+    if (g_start_queue == nullptr || request.physical_device_id.empty() ||
+        request.physical_device_id.size() > 64) return false;
+    auto owned = std::make_unique<FotaStartRequest>(std::move(request));
+    auto* pointer = owned.get();
+    if (xQueueSend(g_start_queue, &pointer, 0) != pdTRUE) return false;
+    owned.release();
+    return true;
+}
+}  // namespace gs::hub::target
+#endif
