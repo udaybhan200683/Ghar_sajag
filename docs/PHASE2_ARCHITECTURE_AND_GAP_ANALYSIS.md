@@ -494,6 +494,28 @@ admission, and this run did not exercise the timeout/rollback branch. Version
 upgrade, image authenticity, negative transfer cases, rollback and repeated
 A/B cycles remain unqualified.
 
+The later secure FOTA path uses authenticated Hub/Node sessions and a full
+SHA-256 image digest, then rejects `BEGIN` before erasing flash unless the C3
+build enables ESP-IDF signed-image verification. A separate C3 software-signed
+profile now sets `CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y`,
+`CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y`, and
+`CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y`. It builds an unsigned app
+and signs it outside the build with a private RSA-3072 key kept outside this
+repository; `scripts/build_signed_c3.py --signing-key <external-key>` verifies
+the resulting signature and OTA-partition bound. Activate ESP-IDF 6.0.3 before
+running it. Only the `.signed.bin` artifact is suitable for initial installation
+and subsequent update in this profile; the ordinary `idf.py flash` suggestion
+still references the unsigned build artifact and must not be used for this
+profile. The initial running app must be signed by the same key because ESP-IDF
+uses its signature block as the trusted public key for OTA. `esp_ota_end()`
+verifies the new image before boot activation. This protects against remote
+image substitution when the initial signed image is trusted, but provides no
+physical flash-write protection. Hardware Secure Boot/eFuse provisioning,
+production signing-key custody, signed-image transfer by the Hub, physical
+version-upgrade and bad-signature rejection are still separate work. The
+development/HIL image remains unsigned and keeps its raw compile-gated FOTA
+route; it is not a production-security qualification.
+
 The same report lists six `BLOCKED_EXTRA_FIXTURE` rows: Hub power cut, C3
 power cut, controlled brownout, current/battery measurement, optical PIR
 stimulus, and house-range RF/thermal testing. They are explicitly outside this

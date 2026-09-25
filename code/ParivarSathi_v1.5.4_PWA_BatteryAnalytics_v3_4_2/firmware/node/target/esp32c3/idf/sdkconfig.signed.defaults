@@ -1,0 +1,10 @@
+# Separate software-signed OTA profile. Do not use this with the Phase-1 HIL pair.
+# The running image supplies the trusted public key for subsequent OTA images.
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+# Sign outside the build so no private key path enters sdkconfig or the repository.
+CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=n
+# Hardware Secure Boot and flash encryption require a separate manufacturing decision.
+# CONFIG_SECURE_BOOT is not set
+# CONFIG_SECURE_FLASH_ENC_ENABLED is not set

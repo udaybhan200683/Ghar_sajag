@@ -1,6 +1,7 @@
 # Compiled/generated files
 **/build/
 **/build_prod/
+**/build_signed/
 **/__pycache__/
 **/*.pyc
 /config/hil.local.env
@@ -8,6 +9,7 @@
 /evidence/hil/runs/
 /evidence/hil/latest.txt
 **/sdkconfig.hil
+**/sdkconfig.signed
 
 # Temporary document rendering output
 render_*/
