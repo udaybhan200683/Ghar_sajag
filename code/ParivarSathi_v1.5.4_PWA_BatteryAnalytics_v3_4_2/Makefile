@@ -62,7 +62,7 @@ master-validation-self-test: build
 	python3 tools/validation/master_validation.py --self-test
 
 fota-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/node/fota/boot_health_gate.cpp tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/common/transport/fota_secure_wire.cpp firmware/node/fota/boot_health_gate.cpp tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
 	./build/fota_host_validation
 
 multinode-host-test: build

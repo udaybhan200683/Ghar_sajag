@@ -1,6 +1,7 @@
 #include "firmware/node/fota/boot_health_gate.hpp"
 #include "firmware/node/fota/fota_receiver.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
+#include "firmware/common/transport/fota_secure_wire.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -277,6 +278,157 @@ std::vector<TestCase> catalog() {
                     "maintenance image was validated");
             require(evaluate_boot_health(state, 90000)==BootHealthDecision::Rollback,
                     "health deadline did not request rollback");
+        }},
+        {"FOTA-S1-001", [] {
+            namespace wire = gs::fota::secure_wire;
+            wire::Message message;
+            message.type=wire::Type::Begin; message.transfer_id=0x12345678;
+            message.image_size=4096; message.image_crc32=0xabcdef12;
+            message.image_sha256.fill(0xa5);
+            message.board_size=2; message.board[0]='C'; message.board[1]='3';
+            message.version_size=3; message.version[0]='1'; message.version[1]='.';
+            message.version[2]='2';
+            auto encoded=wire::encode(message);
+            require(encoded && encoded.frame.size==wire::kHeaderBytes+wire::kBeginFixedBytes+5,
+                    "Begin size incorrect");
+            auto decoded=wire::decode(encoded.frame.bytes.data(),encoded.frame.size);
+            require(decoded && decoded.message.image_size==4096 &&
+                    decoded.message.image_crc32==0xabcdef12 &&
+                    decoded.message.image_sha256==message.image_sha256 &&
+                    decoded.message.board_size==2 && decoded.message.version_size==3,
+                    "Begin metadata did not round trip");
+            auto repeated=wire::encode(decoded.message);
+            require(repeated && repeated.frame.size==encoded.frame.size &&
+                    std::equal(encoded.frame.bytes.begin(),encoded.frame.bytes.begin()+encoded.frame.size,
+                               repeated.frame.bytes.begin()),"Begin encoding is nondeterministic");
+            for (auto type : {wire::Type::End,wire::Type::Abort,wire::Type::Ack}) {
+                message.type=type; message.index=0xfedcba98;
+                message.ack_status=Status::BadCrc; message.next_index=17;
+                message.bytes_written=1024;
+                encoded=wire::encode(message);
+                decoded=wire::decode(encoded.frame.bytes.data(),encoded.frame.size);
+                require(encoded && decoded && decoded.message.type==type &&
+                        decoded.message.index==message.index,"control/ACK round trip failed");
+                if (type==wire::Type::Ack)
+                    require(decoded.message.ack_status==Status::BadCrc &&
+                            decoded.message.next_index==17 &&
+                            decoded.message.bytes_written==1024,"ACK body changed");
+                else require(encoded.frame.size==wire::kHeaderBytes,"End/Abort acquired a body");
+            }
+        }},
+        {"FOTA-S1-002", [] {
+            namespace wire = gs::fota::secure_wire;
+            wire::Message message; message.type=wire::Type::Data;
+            message.transfer_id=0xffffffffU; message.index=0xffffffffU;
+            message.data_size=wire::kMaxChunkBytes;
+            for (std::size_t i=0;i<message.data_size;++i)
+                message.data[i]=static_cast<std::uint8_t>(i);
+            const auto encoded=wire::encode(message);
+            require(encoded && encoded.frame.size==206 &&
+                    encoded.frame.size+gs::security::kSecureFrameOverhead==234 &&
+                    encoded.frame.size<=wire::kMaxPlainBytes &&
+                    encoded.frame.size+gs::security::kSecureFrameOverhead<=wire::kEspNowPayloadBytes,
+                    "192-byte chunk exceeded secure payload budget");
+            require(encoded.frame.bytes[4]==0xff && encoded.frame.bytes[7]==0xff &&
+                    encoded.frame.bytes[8]==0xff && encoded.frame.bytes[11]==0xff &&
+                    encoded.frame.bytes[12]==0 && encoded.frame.bytes[13]==192,
+                    "wire byte order/boundary fields changed");
+            auto decoded=wire::decode(encoded.frame.bytes.data(),encoded.frame.size);
+            require(decoded && decoded.message.transfer_id==message.transfer_id &&
+                    decoded.message.index==message.index &&
+                    decoded.message.data_size==192 && decoded.message.data==message.data,
+                    "maximum Data did not round trip");
+            message.data_size=193;
+            require(wire::encode(message).error==wire::Error::TooLarge,
+                    "193-byte Data was accepted");
+        }},
+        {"FOTA-S1-003", [] {
+            namespace wire = gs::fota::secure_wire;
+            wire::Message message; message.type=wire::Type::Data;
+            message.transfer_id=1; message.data_size=1; message.data[0]=7;
+            const auto encoded=wire::encode(message);
+            auto bytes=encoded.frame.bytes;
+            require(wire::decode(bytes.data(),13).error==wire::Error::Truncated &&
+                    wire::decode(nullptr,15).error==wire::Error::Truncated,
+                    "truncated/null frame accepted");
+            bytes[0]=0;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::BadMagic,
+                    "bad magic accepted");
+            bytes=encoded.frame.bytes; bytes[2]=3;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::BadVersion,
+                    "bad version accepted");
+            bytes=encoded.frame.bytes; bytes[3]=0x7f;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::BadType,
+                    "unknown type accepted");
+            bytes=encoded.frame.bytes; bytes[4]=bytes[5]=bytes[6]=bytes[7]=0;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::InvalidValue,
+                    "zero transfer ID accepted");
+        }},
+        {"FOTA-S1-004", [] {
+            namespace wire = gs::fota::secure_wire;
+            wire::Message message; message.type=wire::Type::Data;
+            message.transfer_id=3; message.data_size=1;
+            const auto encoded=wire::encode(message);
+            auto bytes=encoded.frame.bytes;
+            bytes[13]=2;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::LengthMismatch,
+                    "declared body longer than available accepted");
+            bytes=encoded.frame.bytes;
+            require(wire::decode(bytes.data(),encoded.frame.size+1).error==wire::Error::LengthMismatch,
+                    "trailing byte accepted");
+            bytes=encoded.frame.bytes; bytes[12]=0; bytes[13]=193;
+            require(wire::decode(bytes.data(),wire::kHeaderBytes+193).error==wire::Error::MalformedBody,
+                    "oversized Data body accepted");
+            bytes=encoded.frame.bytes; bytes[13]=0;
+            require(wire::decode(bytes.data(),wire::kHeaderBytes).error==wire::Error::MalformedBody,
+                    "empty Data body accepted");
+        }},
+        {"FOTA-S1-005", [] {
+            namespace wire = gs::fota::secure_wire;
+            wire::Message message; message.type=wire::Type::Begin;
+            message.transfer_id=4; message.image_size=1;
+            message.board_size=33; message.version_size=1; message.version[0]='1';
+            require(wire::encode(message).error==wire::Error::MalformedBody,
+                    "oversized board claim accepted");
+            message.board_size=1; message.board[0]='C';
+            message.version_size=33;
+            require(wire::encode(message).error==wire::Error::MalformedBody,
+                    "oversized version claim accepted");
+            message.version_size=1;
+            auto encoded=wire::encode(message);
+            auto bytes=encoded.frame.bytes; bytes[wire::kHeaderBytes+40]=33;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::MalformedBody,
+                    "malformed Begin claim length accepted");
+            bytes=encoded.frame.bytes; bytes[wire::kHeaderBytes+41]=0;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::MalformedBody,
+                    "nonprintable Begin claim accepted");
+            message.board_size=32; message.version_size=32;
+            message.board.fill('B'); message.version.fill('V');
+            encoded=wire::encode(message);
+            const auto full=wire::decode(encoded.frame.bytes.data(),encoded.frame.size);
+            require(encoded && full && encoded.frame.size==120 &&
+                    full.message.board_size==32 && full.message.version_size==32,
+                    "maximum Begin claims did not round trip");
+        }},
+        {"FOTA-S1-006", [] {
+            namespace wire = gs::fota::secure_wire;
+            wire::Message message; message.type=wire::Type::Ack;
+            message.transfer_id=5; message.ack_status=Status::DataOk;
+            auto encoded=wire::encode(message);
+            auto bytes=encoded.frame.bytes; bytes[13]=11;
+            require(wire::decode(bytes.data(),encoded.frame.size-1).error==wire::Error::MalformedBody,
+                    "short ACK body accepted");
+            bytes=encoded.frame.bytes; bytes[wire::kHeaderBytes+3]=0x7f;
+            require(wire::decode(bytes.data(),encoded.frame.size).error==wire::Error::MalformedBody,
+                    "unknown ACK status accepted");
+            message.ack_status=static_cast<Status>(127);
+            require(wire::encode(message).error==wire::Error::MalformedBody,
+                    "unknown ACK status encoded");
+            message.type=wire::Type::End; message.ack_status=Status::Ready;
+            encoded=wire::encode(message); bytes=encoded.frame.bytes;
+            bytes[13]=1;
+            require(wire::decode(bytes.data(),encoded.frame.size+1).error==wire::Error::MalformedBody,
+                    "unexpected End body accepted");
         }},
     };
 }
