@@ -47,6 +47,11 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def activated_python_command(script: str, *args: str) -> list[str]:
+    """Use the interpreter selected by the ESP-IDF activation script's PATH."""
+    return ["python", script, *args]
+
+
 def command(args: list[str], *, cwd: Path, config: dict[str, str], timeout: int = 3600) -> str:
     shell = f"source {shlex.quote(str(phase1.activation(config)))}; {shlex.join(args)}"
     completed = subprocess.run(["bash", "-lc", shell], cwd=cwd, text=True,
@@ -57,13 +62,21 @@ def command(args: list[str], *, cwd: Path, config: dict[str, str], timeout: int 
     return completed.stdout
 
 
-def build_images(run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
+def validate_signing_inputs(config: dict[str, str]) -> tuple[Path, Path]:
     signing = Path(os.environ.get(SIGNING_ENV, "")).expanduser().resolve()
     negative = Path(os.environ.get(NEGATIVE_ENV, "")).expanduser().resolve()
     if not signing.is_file() or not negative.is_file():
         raise RuntimeError(f"set {SIGNING_ENV} and {NEGATIVE_ENV} to external RSA-3072 test keys")
-    if signing == negative or not os.environ.get("IDF_PATH"):
-        raise RuntimeError("distinct signing keys and an activated ESP-IDF environment are required")
+    if signing == negative:
+        raise RuntimeError("distinct signing keys are required")
+    activation = phase1.activation(config)
+    if not activation.is_file():
+        raise RuntimeError(f"ESP-IDF activation script is unavailable: {activation}")
+    return signing, negative
+
+
+def build_images(run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
+    signing, negative = validate_signing_inputs(config)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%y%m%d%H%M%S")
     versions = {"A": f"sfA-{stamp}", "B": f"sfB-{stamp}", "NEG": f"sfN-{stamp}"}
     out_dir = ARTIFACTS / stamp
@@ -72,9 +85,9 @@ def build_images(run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
     for label, key in (("A", signing), ("B", signing), ("NEG", negative)):
         image = out_dir / f"c3-{label.lower()}.signed.bin"
         build_dir = f"build_secure_signed_fota_{stamp}"
-        args = [sys.executable, "scripts/build_signed_c3.py", "--signing-key", str(key),
+        args = activated_python_command("scripts/build_signed_c3.py", "--signing-key", str(key),
                 "--version", versions[label], "--output", str(image), "--hil-control",
-                "--build-dir", build_dir]
+                "--build-dir", build_dir)
         if label == "NEG":
             args += ["--trusted-key", str(signing)]
         log = command(args, cwd=PRODUCT, config=config)
@@ -103,9 +116,9 @@ def build_hubs(images: dict[str, dict], run_dir: Path, config: dict[str, str]) -
         for candidate in ("NEG", "B"):
             label = f"sfota-{candidate.lower()}-{images['versions'][candidate]}"
             output = ARTIFACTS / f"hub-{label}.bin"
-            log = command([sys.executable, "scripts/build_secure_fota_hub.py", "--node-image",
+            log = command(activated_python_command("scripts/build_secure_fota_hub.py", "--node-image",
                            images[candidate]["path"], "--output", str(output), "--label", label,
-                           "--build-dir", f"secure_fota_hub_{images['versions']['A']}"],
+                           "--build-dir", f"secure_fota_hub_{images['versions']['A']}"),
                           cwd=PRODUCT, config=config)
             (run_dir / f"build_hub_{candidate.lower()}.log").write_text(log, encoding="utf-8")
             sidecar = json.loads(output.with_suffix(output.suffix + ".json").read_text(encoding="utf-8"))
@@ -223,13 +236,14 @@ class SecureCampaign:
         capture.send(command_text)
         return capture.wait_for(pattern, timeout, cursor)
 
-    def restart_and_ready(self, capture: SerialCapture, role: str, version: str) -> None:
+    def restart_and_ready(self, capture: SerialCapture, role: str, version: str,
+                          *, wait_for_sensing: bool = True) -> None:
         cursor = capture.cursor()
         capture.send("SOFTWARE_RESTART")
         capture.wait_for_predicate(lambda line: phase1.normalize_rom_reset_class(line) ==
             phase1.SOFTWARE_RESET_EVIDENCE, "fresh normalized software reset", 8, cursor)
         capture.wait_for(rf"HIL_READY role={role} protocol=1 version={re.escape(version)}", 35, cursor)
-        if role == "c3":
+        if role == "c3" and wait_for_sensing:
             capture.wait_for(r"PIR ready on GPIO", 45, cursor)
 
     def motion(self) -> None:
@@ -240,7 +254,8 @@ class SecureCampaign:
         self.hub.wait_for(r"Processed session=.*ack_send=ESP_OK", 20, hub_cursor)
         self.c3.wait_for(r"Application ACK .*retired=1", 20, c3_cursor)
 
-    def exact_identity_and_session(self, rejoin_cursor: int) -> None:
+    def exact_identity_and_session(self, rejoin_cursor: int,
+                                   c3_ready_cursor: int) -> None:
         qr_cursor = self.c3.cursor()
         self.send(self.c3, "GET_TEST_QR", r"HIL_OK command=GET_TEST_QR")
         qr = self.c3.wait_for(r"HIL_TEST_QR profile=TEST_ONLY device_id=([^ ]+) public_key=([0-9a-f]+)",
@@ -264,6 +279,9 @@ class SecureCampaign:
             self.send(self.hub, command, r"HIL_OK command=COMMISSION_TEST_NODE", 10)
             joined = self.hub.wait_for(rejoin_pattern, 30, rejoin_cursor)
         self.before_session = re.search(r"session=(\d+)", joined).group(1)
+        # Sensing is deliberately unavailable until authenticated commissioning
+        # or rejoin has completed. Prove readiness from after the fresh C3 boot.
+        self.c3.wait_for(r"PIR ready on GPIO", 45, c3_ready_cursor)
 
     def state(self, expected: str | None = None) -> str:
         pattern = r"HIL_STATE role=c3 .*ota_slot=ota_[01]"
@@ -310,10 +328,12 @@ class SecureCampaign:
         flash_signed_a(self.config, self.devices["c3"].port, self.images["A"], self.run_dir)
         flash_hub(self.config, self.devices["hub"].port, self.hubs["NEG"], self.run_dir, "negative")
         self.open()
-        self.restart_and_ready(self.c3, "c3", self.images["A"]["version"])
+        c3_boot_cursor = self.c3.cursor()
+        self.restart_and_ready(self.c3, "c3", self.images["A"]["version"],
+                               wait_for_sensing=False)
         initial_rejoin_cursor = self.hub.cursor()
         self.restart_and_ready(self.hub, "hub", self.hubs["NEG"]["hub_app_version"])
-        self.exact_identity_and_session(initial_rejoin_cursor)
+        self.exact_identity_and_session(initial_rejoin_cursor, c3_boot_cursor)
         state = self.state()
         self.before_slot = re.search(r"ota_slot=(ota_[01])", state).group(1)
         self.motion()

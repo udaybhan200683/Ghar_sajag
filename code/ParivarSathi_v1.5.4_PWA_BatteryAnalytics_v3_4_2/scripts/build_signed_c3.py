@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,30 @@ def run(*args: str) -> None:
     subprocess.run((sys.executable, str(idf_py), *args), cwd=NODE_PROJECT, check=True)
 
 
+def signed_hil_control_sdkconfig(config_text: str) -> str:
+    """Keep the signed profile while routing HIL control over native USB JTAG."""
+    values = {
+        "ESP_CONSOLE_UART_DEFAULT": "# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set",
+        "ESP_CONSOLE_USB_SERIAL_JTAG": "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+        "ESP_CONSOLE_UART_CUSTOM": "# CONFIG_ESP_CONSOLE_UART_CUSTOM is not set",
+        "ESP_CONSOLE_NONE": "# CONFIG_ESP_CONSOLE_NONE is not set",
+        "ESP_CONSOLE_SECONDARY_NONE": "CONFIG_ESP_CONSOLE_SECONDARY_NONE=y",
+        "ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG":
+            "# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set",
+        "ESP_CONSOLE_UART": "# CONFIG_ESP_CONSOLE_UART is not set",
+        "ESP_CONSOLE_UART_NUM": "CONFIG_ESP_CONSOLE_UART_NUM=-1",
+        "ESP_CONSOLE_ROM_SERIAL_PORT_NUM": "CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=3",
+    }
+    lines = config_text.splitlines()
+    for symbol, replacement in values.items():
+        pattern = re.compile(rf"^(?:# )?CONFIG_{re.escape(symbol)}(?:=.*| is not set)$")
+        matching = [index for index, line in enumerate(lines) if pattern.match(line)]
+        if len(matching) != 1:
+            raise RuntimeError(f"signed sdkconfig must contain exactly one CONFIG_{symbol} entry")
+        lines[matching[0]] = replacement
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--signing-key", type=Path, required=True,
@@ -32,7 +57,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path,
                         help="copy signed image here and write adjacent JSON provenance")
     parser.add_argument("--hil-control", action="store_true",
-                        help="include UART test controls while GS_HIL_BUILD remains OFF and secure runtime stays enabled")
+                        help="include HIL test controls while GS_HIL_BUILD remains OFF and secure runtime stays enabled")
     parser.add_argument("--trusted-key", type=Path,
                         help="optional existing trust-anchor key; verification must succeed for matching signer")
     parser.add_argument("--build-dir", default="build_signed",
@@ -44,8 +69,17 @@ def main() -> int:
     if "IDF_PATH" not in os.environ:
         parser.error("activate ESP-IDF 6.0.3 before running")
 
-    build_args = ["-B", args.build_dir, "-DSDKCONFIG=sdkconfig.signed",
-                  "-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.signed.defaults",
+    sdkconfig = NODE_PROJECT / "sdkconfig.signed"
+    defaults = "sdkconfig.defaults;sdkconfig.signed.defaults"
+    if args.hil_control:
+        profile_build_dir = NODE_PROJECT / args.build_dir
+        profile_build_dir.mkdir(parents=True, exist_ok=True)
+        sdkconfig = profile_build_dir / "sdkconfig.signed.hil-control"
+        sdkconfig.write_text(signed_hil_control_sdkconfig(
+            (NODE_PROJECT / "sdkconfig.signed").read_text()))
+        defaults += ";sdkconfig.hil.defaults"
+    build_args = ["-B", args.build_dir, f"-DSDKCONFIG={sdkconfig}",
+                  f"-DSDKCONFIG_DEFAULTS={defaults}",
                   "-DGS_HIL_BUILD=OFF", f"-DGS_HIL_CONTROL={'ON' if args.hil_control else 'OFF'}"]
     if args.version:
         if not args.version.strip() or len(args.version) > 31 or any(ch.isspace() for ch in args.version):
