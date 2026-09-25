@@ -208,6 +208,16 @@ void worker(void*) {
             ESP_LOGW(kTag, "Rejected malformed verified FOTA plaintext");
             continue;
         }
+#if !defined(CONFIG_SECURE_BOOT) && \
+    !defined(CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT)
+        // AEAD authenticates the Hub, not the firmware publisher. Only permit
+        // an OTA image when ESP-IDF will verify its signature at esp_ota_end().
+        // The current unsigned development fixture therefore fails closed.
+        if (decoded.message.type == gs::fota::secure_wire::Type::Begin) {
+            ESP_LOGE(kTag, "Rejected secure FOTA: signed-image verification disabled");
+            continue;
+        }
+#endif
         g_callbacks.set_authenticated_session(frame.authenticated_session);
         if (!g_secure_receiver.process(decoded.message, frame.authenticated_session,
                                        monotonic_ms()))
