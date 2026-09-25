@@ -296,6 +296,15 @@ void owner_task(void*) {
     g_security_phase.store(false, std::memory_order_release);
     NodeRuntime runtime(kNodeId, g_session_id);
 #endif
+#if !GS_HIL_BUILD
+    // Restore retained identities only after the new boot session has been
+    // authenticated. A corrupt or unreadable record must not start sensing.
+    if (!security_link.restore_recovery(runtime, monotonic_ms())) {
+        ESP_LOGE(kTag, "Node recovery restore failed; refusing event admission");
+        vTaskDelete(nullptr);
+        return;
+    }
+#endif
     g_ota_owner_started.store(true, std::memory_order_release);
     QualifiedInput pir(EventKind::Motion, std::nullopt, kPirDebounceMs,
                        kPirMinimumRetriggerMs);
@@ -388,7 +397,20 @@ void owner_task(void*) {
             }
             const EventKey key{decoded.value->node_id, decoded.value->session_id,
                                decoded.value->sequence_number};
+#if !GS_HIL_BUILD
+            const auto pending_before = runtime.pending();
+            const auto retained_before = runtime.persisted();
+#endif
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
+#if !GS_HIL_BUILD
+            if ((runtime.pending() != pending_before ||
+                 runtime.persisted() != retained_before) &&
+                !security_link.persist_recovery(runtime)) {
+                ESP_LOGE(kTag, "Node recovery ACK retirement commit failed; stopping owner");
+                vTaskDelete(nullptr);
+                return;
+            }
+#endif
             breadcrumb = retired ? NodeBreadcrumb::EventRetired : NodeBreadcrumb::AppAck;
             ESP_LOGI(kTag, "Application ACK session=%llu seq=%llu class=%d retired=%d",
                      static_cast<unsigned long long>(key.session_id),
@@ -471,6 +493,9 @@ void owner_task(void*) {
             if (!maintenance) {
                 breadcrumb = NodeBreadcrumb::EventRecordEnter;
                 const auto store_full_before = runtime.stats().store_full;
+#if !GS_HIL_BUILD
+                const bool gap_was_required = runtime.gap_marker_required();
+#endif
                 const auto key = runtime.record(*sensed,
 #if !GS_HIL_BUILD
                                                 security_link.binding()->room,
@@ -481,6 +506,15 @@ void owner_task(void*) {
                                                 24U * 60U * 60U, 0, false,
                                                 SensorType::Pir, 0);
                 if (key) {
+#if !GS_HIL_BUILD
+                    // Commit the event and its retry identity before any
+                    // ESP-NOW send can make this event visible to the Hub.
+                    if (!security_link.persist_recovery(runtime)) {
+                        ESP_LOGE(kTag, "Node recovery event commit failed; stopping owner");
+                        vTaskDelete(nullptr);
+                        return;
+                    }
+#endif
                     breadcrumb = NodeBreadcrumb::EventRecordOk;
                     ESP_LOGI(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
                              static_cast<unsigned long long>(key->session_id),
@@ -492,6 +526,14 @@ void owner_task(void*) {
                                             : NodeBreadcrumb::EventRecordRejected;
                     last_error = store_full ? NodeHealthError::StoreFull
                                             : NodeHealthError::TxQueueFull;
+#if !GS_HIL_BUILD
+                    if (!gap_was_required && runtime.gap_marker_required() &&
+                        !security_link.persist_recovery(runtime)) {
+                        ESP_LOGE(kTag, "Node recovery gap commit failed; stopping owner");
+                        vTaskDelete(nullptr);
+                        return;
+                    }
+#endif
                 }
             } else {
                 ++rejected_pir;

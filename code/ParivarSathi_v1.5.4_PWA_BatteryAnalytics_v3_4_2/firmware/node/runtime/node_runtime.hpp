@@ -67,6 +67,7 @@ public:
     void transport_result(const EventKey& key, bool accepted_by_radio, Milliseconds now_ms);
     std::size_t persisted() const { return store_.size(); }
     std::size_t pending() const { return radio_.pending(); }
+    bool gap_marker_required() const { return store_.gap_marker_required(); }
     std::uint64_t next_sequence() const { return next_sequence_; }
     std::optional<EventKey> oldest_pending_key() const { return radio_.oldest_key(); }
     const NodeRuntimeStats& stats() const { return stats_; }

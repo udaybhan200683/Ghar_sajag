@@ -1359,6 +1359,18 @@ append-only with no reclamation, cloud-ACK status remains volatile, and
 production protected-key provisioning, endurance and power-cut behavior remain
 open. No hardware qualification is claimed for this change.
 
+### 2026-09-25: connect C3 retained-event recovery to authenticated owner
+
+After authenticated rejoin, the C3 owner now opens the existing encrypted
+Node recovery record and restores retained/pending event identities into its
+new boot session. It saves each newly admitted event before radio send, saves
+ACK retirement and the first store-full gap marker, and stops the owner on a
+restore or write fault. The recovery key is derived from the existing device
+wrapping key with a separate context. Focused host runtime/repository tests
+and C3 builds with `GS_HIL_BUILD` both OFF and ON passed. The HIL transport
+path remains separate. This is target-build evidence only; physical restart,
+power-cut atomicity, flash wear and production key protection remain open.
+
 ### 2026-09-24: target security owner-path integration in progress
 
 The production Hub and C3 owner tasks were connected to the existing Phase-2

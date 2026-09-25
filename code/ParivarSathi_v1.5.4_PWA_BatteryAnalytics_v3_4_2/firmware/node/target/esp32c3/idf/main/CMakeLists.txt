@@ -27,6 +27,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/node/components/sensing/sensing.cpp"
         "${GS_ROOT}/firmware/node/components/radio/node_radio.cpp"
         "${GS_ROOT}/firmware/node/components/storage/node_store.cpp"
+        "${GS_ROOT}/firmware/node/components/storage/node_recovery_persistence.cpp"
         "${GS_ROOT}/firmware/node/runtime/node_runtime.cpp"
         "${GS_ROOT}/firmware/node/target/esp32c3/nvs_session_provider.cpp"
         "${GS_ROOT}/firmware/node/target/esp32c3/node_runtime_adapter.cpp"

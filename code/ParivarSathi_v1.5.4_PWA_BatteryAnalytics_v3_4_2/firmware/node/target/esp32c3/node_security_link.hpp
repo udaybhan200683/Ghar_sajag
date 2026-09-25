@@ -6,6 +6,7 @@
 #include "firmware/common/security/psa_commissioning_crypto.hpp"
 #include "firmware/common/security/runtime_frame_security.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
+#include "firmware/node/components/storage/node_recovery_persistence.hpp"
 
 #include <array>
 #include <cstdint>
@@ -45,6 +46,8 @@ public:
     }
     const Mac& hub_mac() const { return hub_mac_; }
     security::RuntimeFrameSecurity* frames() { return frames_.get(); }
+    bool restore_recovery(node::NodeRuntime& runtime, Milliseconds now_ms);
+    bool persist_recovery(const node::NodeRuntime& runtime);
 
 private:
     enum class Phase { Uninitialized, Commissioning, Rejoining, Ready, Fault };
@@ -56,8 +59,11 @@ private:
     security::TargetIdentitySigner identity_{"node", 0x7001};
     security::PsaCommissioningCrypto crypto_{identity_};
     security::NvsAssociationBlobStore store_;
+    security::NvsNodeRecoveryBlobStore recovery_store_;
     security::Key32 wrapping_key_{};
+    security::Key32 recovery_key_{};
     std::unique_ptr<security::AssociationRepository> repository_;
+    std::unique_ptr<node::NodeRecoveryRepository> recovery_repository_;
     std::optional<security::CommissioningBinding> binding_;
     std::unique_ptr<security::NodeCommissioning> commissioning_;
     std::unique_ptr<security::NodeRejoin> rejoin_;
