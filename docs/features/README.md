@@ -18,6 +18,12 @@ Feature guides are **not** the current project-status authority. Use:
 
 ## Available
 
+- [Device Identity, Registration and Lifecycle](DEVICE_IDENTITY_REGISTRATION_AND_LIFECYCLE.md)
+  — physical identity, exact-device commissioning, persisted association,
+  authenticated rejoin, replacement, and recovery boundaries.
+- [Hub-Node Secure Communication](HUB_NODE_SECURE_COMMUNICATION.md)
+  — per-Node runtime sessions, authenticated traffic, replay protection,
+  event/health/ACK routing, and qualification boundaries.
 - [FOTA Engineering, Flashing, Security, and Recovery Guide](FOTA_ENGINEERING_FLASHING_SECURITY_AND_RECOVERY_GUIDE.md)
   — C3 FOTA architecture, signed image workflow, operational boundaries, and
   recovery guidance.
@@ -27,8 +33,6 @@ Feature guides are **not** the current project-status authority. Use:
 The entries below are planned documentation topics. They are not claims about
 implementation or feature completeness.
 
-- Device Identity, Registration and Lifecycle
-- Hub-Node Secure Communication
 - Event Delivery, Retry and Recovery
 - Hub Persistence and Recovery
 - Multi-Node Operation
