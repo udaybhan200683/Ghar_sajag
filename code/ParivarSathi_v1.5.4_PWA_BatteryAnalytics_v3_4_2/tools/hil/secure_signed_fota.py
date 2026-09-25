@@ -263,10 +263,20 @@ class SecureCampaign:
     def motion(self) -> None:
         c3_cursor, hub_cursor = self.c3.cursor(), self.hub.cursor()
         self.send(self.c3, "INJECT_MOTION", r"HIL_OK command=INJECT_MOTION")
-        self.c3.wait_for(r"PIR -> NodeRuntime", 10, c3_cursor)
-        self.c3.wait_for(r"NodeMessage sent", 12, c3_cursor)
-        self.hub.wait_for(r"Processed session=.*ack_send=ESP_OK", 20, hub_cursor)
-        self.c3.wait_for(r"Application ACK .*retired=1", 20, c3_cursor)
+        event = self.c3.wait_for(
+            r"PIR -> NodeRuntime session=(\d+) seq=(\d+)", 10, c3_cursor)
+        identity = re.search(r"session=(\d+) seq=(\d+)", event)
+        if not identity:
+            raise RuntimeError("C3 motion event omitted authenticated session/sequence")
+        session, sequence = identity.groups()
+        self.c3.wait_for(
+            rf"NodeMessage sent session={session} seq={sequence} bytes=\d+", 12, c3_cursor)
+        self.hub.wait_for(
+            rf"Authenticated event logical=hil-signed-fota seq={sequence} ack=\d+ send=ESP_OK",
+            20, hub_cursor)
+        self.c3.wait_for(
+            rf"Application ACK session={session} seq={sequence} class=\d+ retired=1",
+            20, c3_cursor)
 
     def exact_identity_and_session(self, rejoin_cursor: int,
                                    c3_ready_cursor: int) -> None:

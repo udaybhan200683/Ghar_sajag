@@ -31,6 +31,25 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertIn("HIL_READY role=c3", patterns[0])
         capture.wait_for.assert_called_once()
 
+    def test_secure_motion_verifies_authenticated_hub_event_and_matching_node_ack(self):
+        campaign = object.__new__(SecureCampaign)
+        campaign.c3 = mock.Mock()
+        campaign.hub = mock.Mock()
+        campaign.c3.cursor.return_value = 11
+        campaign.hub.cursor.return_value = 17
+        campaign.c3.wait_for.side_effect = [
+            "PIR -> NodeRuntime session=238 seq=9",
+            "NodeMessage sent session=238 seq=9 bytes=71",
+            "Application ACK session=238 seq=9 class=0 retired=1",
+        ]
+        campaign.send = mock.Mock(return_value="HIL_OK command=INJECT_MOTION")
+
+        campaign.motion()
+
+        self.assertEqual(campaign.hub.wait_for.call_args.args,
+            (r"Authenticated event logical=hil-signed-fota seq=9 ack=\d+ send=ESP_OK",
+             20, 17))
+
     def test_c3_pir_gate_follows_authenticated_rejoin_and_uses_fresh_boot_cursor(self):
         campaign = object.__new__(SecureCampaign)
         events: list[str] = []
