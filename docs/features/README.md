@@ -18,6 +18,12 @@ Feature guides are **not** the current project-status authority. Use:
 
 ## Available
 
+- [Event Delivery, Retry and Recovery](EVENT_DELIVERY_RETRY_AND_RECOVERY.md)
+  — event identity, bounded retry, durable Hub ACK, dedupe, and restart recovery.
+- [Hub Persistence and Recovery](HUB_PERSISTENCE_AND_RECOVERY.md)
+  — Hub identity, registry and journal storage, restore sequence, and durability limits.
+- [Device Health, Liveness and Offline Detection](DEVICE_HEALTH_LIVENESS_AND_OFFLINE_DETECTION.md)
+  — authenticated health, per-Node recent contact, offline threshold, and recovery.
 - [Device Identity, Registration and Lifecycle](DEVICE_IDENTITY_REGISTRATION_AND_LIFECYCLE.md)
   — physical identity, exact-device commissioning, persisted association,
   authenticated rejoin, replacement, and recovery boundaries.
@@ -33,10 +39,7 @@ Feature guides are **not** the current project-status authority. Use:
 The entries below are planned documentation topics. They are not claims about
 implementation or feature completeness.
 
-- Event Delivery, Retry and Recovery
-- Hub Persistence and Recovery
 - Multi-Node Operation
-- Device Health, Liveness and Offline Detection
 - Battery, Low-Power and Power Management
 - Routine, Activity and Incident Rules
 - Caregiver Actions and Notifications
