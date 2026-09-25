@@ -81,6 +81,39 @@ void identity_rejoin_and_quarantine() {
     std::cout << "P2-REG-IDENTITY HOST PASS foreign/duplicate/rejoin/quarantine\n";
 }
 
+void incomplete_commissioning_retry() {
+    NodeRegistry registry("home-a", "hub-a", 10, 10);
+    const auto first = node(1);
+    require(registry.enroll(first) == RegistryResult::Accepted,
+            "initial enrollment failed");
+    const auto snapshot = registry.snapshot();
+    NodeRegistry restarted("home-a", "hub-a", 10, 10);
+    require(restarted.restore(snapshot), "unactivated enrollment did not survive restart");
+    require(restarted.can_retry_unactivated(first),
+            "exact unactivated identity could not retry after restart");
+    for (unsigned index = 2; index <= 10; ++index)
+        require(restarted.enroll(node(index)) == RegistryResult::Accepted,
+                "capacity setup for retry failed");
+    require(restarted.size() == 10 && restarted.can_retry_unactivated(first),
+            "full registry blocked exact unactivated retry");
+    auto altered = first;
+    altered.p256_public_key[1] ^= 1;
+    require(!restarted.can_retry_unactivated(altered), "different key could retry");
+    altered = first; altered.radio_mac[5] ^= 1;
+    require(!restarted.can_retry_unactivated(altered), "different radio source could retry");
+    altered = first; altered.room = "other-room";
+    require(!restarted.can_retry_unactivated(altered), "assignment change could retry");
+    require(restarted.rejoin(first.device_id, first.radio_mac, 1) == RegistryResult::Accepted,
+            "first authenticated rejoin failed");
+    require(!restarted.can_retry_unactivated(first),
+            "activated identity could be recommissioned");
+    require(restarted.remove(first.device_id) == RegistryResult::Accepted,
+            "remove failed");
+    require(!restarted.can_retry_unactivated(first),
+            "revoked identity could retry commissioning");
+    std::cout << "P2-COM-RETRY HOST PASS unactivated-only exact retry\n";
+}
+
 void removal_and_replacement() {
     NodeRegistry registry("home-a", "hub-a", 10, 16);
     for (unsigned i = 1; i <= 10; ++i)
@@ -206,6 +239,7 @@ int main() {
     try {
         capacity_and_isolation();
         identity_rejoin_and_quarantine();
+        incomplete_commissioning_retry();
         removal_and_replacement();
         revocation_capacity_fails_closed();
         snapshot_restore_is_atomic();

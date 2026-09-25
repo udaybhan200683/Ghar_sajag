@@ -154,6 +154,18 @@ std::optional<EnrolledNode> NodeRegistry::find(const std::string& device_id) con
     return found == active_.end() ? std::nullopt : std::optional<EnrolledNode>{found->second};
 }
 
+bool NodeRegistry::can_retry_unactivated(const EnrolledNode& exact) const {
+    const auto found = active_.find(exact.device_id);
+    if (found == active_.end() || is_revoked(exact.device_id)) return false;
+    const auto& current = found->second;
+    return !current.quarantined && current.last_session == 0 &&
+           current.p256_public_key == exact.p256_public_key &&
+           current.radio_mac == exact.radio_mac &&
+           current.home_id == exact.home_id && current.hub_id == exact.hub_id &&
+           current.logical_id == exact.logical_id && current.room == exact.room &&
+           current.function == exact.function;
+}
+
 bool NodeRegistry::is_revoked(const std::string& device_id) const {
     return std::find(tombstones_.begin(), tombstones_.end(), device_id) != tombstones_.end();
 }

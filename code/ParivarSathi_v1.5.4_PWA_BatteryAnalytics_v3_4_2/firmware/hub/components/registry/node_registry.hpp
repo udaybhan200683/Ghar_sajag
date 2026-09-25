@@ -75,6 +75,9 @@ public:
     RegistryResult replace(const std::string& old_device_id,
                            const EnrolledNode& authenticated_replacement);
     std::optional<EnrolledNode> find(const std::string& device_id) const;
+    // An enrollment committed before its first authenticated rejoin may be
+    // retried explicitly with the same physical and logical identity.
+    bool can_retry_unactivated(const EnrolledNode& exact) const;
     bool is_revoked(const std::string& device_id) const;
     RegistrySnapshot snapshot() const;
     // Restores only into a fresh registry and validates the complete snapshot

@@ -158,11 +158,23 @@ std::optional<HubSecurityLink::Mac> HubSecurityLink::expire_candidate(
 
 std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_commissioning(
     const ExpectedNode& exact, std::uint64_t now_ms) {
+    EnrolledNode requested;
+    requested.device_id = exact.device_id;
+    requested.p256_public_key = exact.public_key;
+    requested.radio_mac = exact.radio_mac;
+    requested.home_id = home_id_;
+    requested.hub_id = hub_id_;
+    requested.logical_id = exact.logical_id;
+    requested.room = exact.room;
+    requested.function = exact.function;
+    const bool already_enrolled = registry_ && registry_->find(exact.device_id).has_value();
     if (faulted_ || !registry_ || expected_ ||
         exact.device_id != id_for_mac(exact.radio_mac, "c3") ||
-        exact.public_key[0] != 0x04 || registry_->size() >= kInstalledCapacity ||
+        exact.public_key[0] != 0x04 ||
+        (!already_enrolled && registry_->size() >= kInstalledCapacity) ||
         registry_->is_revoked(exact.device_id) ||
-        registry_->find(exact.device_id)) return std::nullopt;
+        (already_enrolled && !registry_->can_retry_unactivated(requested)))
+        return std::nullopt;
     commissioning_.reset();
     expected_.reset();
     commissioning_ = std::make_unique<security::HubCommissioning>(
@@ -205,10 +217,6 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
         const auto ack = commissioning_->confirm(final, now_ms);
         if (!ack || !commissioning_->binding()) return std::nullopt;
         if (!security::wire::encode(*ack, outbound)) return std::nullopt;
-        const auto already = registry_->find(commissioning_->binding()->device_id);
-        if (already && already->radio_mac == source &&
-            already->p256_public_key == commissioning_->binding()->device_public_key)
-            return reply(source, outbound);  // Lost final ACK: resend safely.
         auto candidate = std::make_unique<NodeRegistry>(home_id_, hub_id_,
                                                         kInstalledCapacity, kInstalledCapacity);
         if (!candidate->restore(registry_->snapshot())) return std::nullopt;
@@ -222,10 +230,30 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
         record.logical_id = binding.logical_id;
         record.room = binding.room;
         record.function = binding.function;
-        if (candidate->enroll(record) != RegistryResult::Accepted) return std::nullopt;
         auto next_bindings = bindings_;
-        next_bindings.push_back(binding);
+        const auto already = candidate->find(binding.device_id);
+        if (already) {
+            if (!candidate->can_retry_unactivated(record)) return std::nullopt;
+            const auto old = std::find_if(next_bindings.begin(), next_bindings.end(),
+                [&](const auto& value) { return value.device_id == binding.device_id; });
+            if (old == next_bindings.end()) return std::nullopt;
+            if (crypto_.constant_time_equal(old->installation_key.data(),
+                                            binding.installation_key.data(),
+                                            binding.installation_key.size()))
+                return reply(source, outbound);  // Retransmitted final ACK.
+            crypto_.secure_zero(old->installation_key.data(), old->installation_key.size());
+            *old = binding;  // Explicit retry replaces an unactivated orphan.
+        } else {
+            if (candidate->enroll(record) != RegistryResult::Accepted) return std::nullopt;
+            next_bindings.push_back(binding);
+        }
         if (!persist_candidate(*candidate, next_bindings)) return std::nullopt;
+        if (already) {
+            for (auto& old : bindings_)
+                if (old.device_id == binding.device_id)
+                    crypto_.secure_zero(old.installation_key.data(),
+                                        old.installation_key.size());
+        }
         registry_ = std::move(candidate);
         bindings_ = std::move(next_bindings);
         return reply(source, outbound);

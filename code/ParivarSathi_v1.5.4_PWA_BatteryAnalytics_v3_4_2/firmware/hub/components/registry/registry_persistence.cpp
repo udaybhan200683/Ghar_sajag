@@ -202,9 +202,11 @@ bool HubRegistryRepository::preserves_security_state(const HubRegistryState& pre
             [&old](const CommissioningBinding& item) { return item.device_id == old.device_id; });
         if (old_binding == previous.bindings.end() || new_binding == next.bindings.end() ||
             old_binding->hub_public_key != new_binding->hub_public_key ||
-            !crypto_.constant_time_equal(old_binding->installation_key.data(),
-                                         new_binding->installation_key.data(),
-                                         old_binding->installation_key.size())) return false;
+            (!crypto_.constant_time_equal(old_binding->installation_key.data(),
+                                          new_binding->installation_key.data(),
+                                          old_binding->installation_key.size()) &&
+             (old.last_session != 0 || fresh->last_session != 0 ||
+              old.quarantined || fresh->quarantined))) return false;
     }
     return true;
 }

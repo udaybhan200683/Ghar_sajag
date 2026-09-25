@@ -100,6 +100,30 @@ int main() {
         require(!zero_key.save(state), "zero Hub wrapping key was accepted");
         require(repo.load().status == HubRegistryLoadStatus::Missing,
                 "new Hub registry was not missing");
+        // A Hub may commit the registry before the Node receives the final
+        // commissioning ACK. A later exact, authenticated retry must be able
+        // to replace only that unactivated installation key.
+        auto pending = make_state(1);
+        pending.registry.active[0].last_session = 0;
+        MemoryBlob retry_store;
+        HubRegistryRepository retry_repo(crypto, retry_store, wrap, "test-home", "test-hub",
+                                         test_hub_public_key(), 10, 16);
+        require(retry_repo.save(pending), "pending enrollment save failed");
+        auto retried = pending;
+        retried.bindings[0].installation_key[0] ^= 2;
+        require(retry_repo.save(retried), "unactivated retry save failed");
+        const auto retried_load = retry_repo.load();
+        require(retried_load.status == HubRegistryLoadStatus::Ready &&
+                retried_load.state &&
+                retried_load.state->bindings[0].installation_key ==
+                    retried.bindings[0].installation_key,
+                "unactivated exact retry could not replace orphaned key");
+        auto activated = retried;
+        activated.registry.active[0].last_session = 1;
+        require(retry_repo.save(activated), "first rejoin commit failed");
+        auto forbidden = activated;
+        forbidden.bindings[0].installation_key[0] ^= 1;
+        require(!retry_repo.save(forbidden), "activated key was replaced");
         require(repo.save(state), "ten-node encrypted registry save failed");
         require(!store.data.empty() && store.data[0] == 'G' &&
                 std::search(store.data.begin(), store.data.end(),
