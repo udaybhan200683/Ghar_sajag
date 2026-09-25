@@ -17,6 +17,7 @@ void SecureFotaAdapter::abort_transfer(std::uint64_t now_ms) {
     digest_.abort();
     active_ = false;
     digest_complete_ = false;
+    digest_verified_ = false;
 }
 
 bool SecureFotaAdapter::process(const gs::fota::secure_wire::Message& message,
@@ -30,6 +31,7 @@ bool SecureFotaAdapter::process(const gs::fota::secure_wire::Message& message,
         (message.data_size == 0 ||
          message.data_size > gs::fota::secure_wire::kMaxChunkBytes)) return false;
     if (message.type == Type::Begin) {
+        digest_verified_ = false;
         if (receiver_.snapshot().completion_requested) return false;
         if (message.index != 0 ||
             message.board_size > gs::fota::secure_wire::kMaxClaimBytes ||
@@ -87,6 +89,7 @@ bool SecureFotaAdapter::process(const gs::fota::secure_wire::Message& message,
             return false;
         }
         digest_complete_ = true;
+        digest_verified_ = true;
     }
     const bool accepted = receiver_.process(packet, now_ms);
     if (message.type == Type::Begin && accepted && receiver_.snapshot().active) {

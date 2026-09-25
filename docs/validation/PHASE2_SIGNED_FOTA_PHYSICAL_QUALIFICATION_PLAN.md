@@ -50,10 +50,35 @@ an exact authenticated Hub/C3 association, then trigger
 signed A/B artifacts, embed the selected signed artifact in the Hub image,
 and retain production fail-closed behavior and production/HIL isolation.
 
-The ordinary HIL profile currently routes to raw FOTA. The production profile
-has no external FOTA trigger. A focused secure-FOTA fixture profile and
-checkpoint command are therefore prerequisites; neither is claimed to exist
-in this plan.
+This focused adaptation is now implemented. Run the distinct
+`make hil-checkpoint-secure-signed-fota` entry point (or the same target
+through the product Makefile). It uses the existing fixture/setup/preflight
+supervisor, builds signed A, valid B, and a different-key negative candidate,
+embeds negative/B candidates into separate secure-control Hub images, installs
+signed A while preserving device identity storage, and drives the exact Node
+through the authenticated Hub owner path. The HIL control profile keeps
+`GS_HIL_BUILD=OFF`; it does not use the raw legacy FOTA implementation.
+
+Set `GS_HIL_SIGNED_FOTA_KEY` and `GS_HIL_SIGNED_FOTA_NEGATIVE_KEY` to distinct
+RSA-3072 test private-key paths outside the repository before running. The
+command fails closed if signing, image provenance, profile, key continuity,
+version distinction, partition fit, fixture setup, or preflight checks fail.
+The campaign has **not** been physically run by this implementation task.
+The ordinary `hil-checkpoint-fota` remains the legacy raw Phase-1 path.
+
+With disposable RSA-3072 test keys available outside the repository and the
+existing fixture configuration present, the focused one-command entry point
+is:
+
+```bash
+GS_HIL_SIGNED_FOTA_KEY=/absolute/path/test-a-b-key.pem \
+GS_HIL_SIGNED_FOTA_NEGATIVE_KEY=/absolute/path/test-negative-key.pem \
+make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 hil-checkpoint-secure-signed-fota
+```
+
+The supervisor performs fixture readiness, setup, preflight, then the secure
+signed campaign in order. The campaign reports its own fresh evidence
+directory; it does not reuse the raw FOTA report.
 
 ## 5. A image requirements
 
@@ -267,6 +292,10 @@ Future runs should add:
   `scripts/build_signed_c3.py` — software-signed profile and external-key
   image build/sign verification.
 - `tools/hil/qualify.py`, `tools/hil/phase1.py`, and the product `Makefile` —
-  existing fixture supervisor and legacy raw FOTA checkpoint ownership.
+  existing fixture supervisor, legacy raw FOTA checkpoint, and distinct
+  secure signed-FOTA checkpoint. `tools/hil/secure_signed_fota.py` owns the
+  focused campaign; `scripts/build_signed_c3.py` and
+  `scripts/build_secure_fota_hub.py` prepare signed C3 and embedding Hub
+  artifacts.
 - `evidence/hil/runs/20260924T094521.398370Z` — historical same-image raw
   FOTA evidence; it is not evidence for this planned secure signed-FOTA run.

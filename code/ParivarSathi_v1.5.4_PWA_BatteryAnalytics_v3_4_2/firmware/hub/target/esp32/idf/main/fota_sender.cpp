@@ -321,10 +321,18 @@ bool perform_update(const FotaStartRequest& target) {
     begin.version_size = static_cast<std::uint8_t>(target.version.size());
     std::copy(target.board.begin(), target.board.end(), begin.board.begin());
     std::copy(target.version.begin(), target.version.end(), begin.version.begin());
+    ESP_LOGI(kTag, "SECURE_FOTA_BEGIN transfer=%lu node=%s board=%s version=%s bytes=%lu sha256=%02x%02x%02x%02x...",
+             static_cast<unsigned long>(begin.transfer_id), target.physical_device_id.c_str(),
+             target.board.c_str(), target.version.c_str(), static_cast<unsigned long>(size),
+             begin.image_sha256[0], begin.image_sha256[1],
+             begin.image_sha256[2], begin.image_sha256[3]);
     FotaOwnerResult start_result;
     if (!owner_command(FotaOwnerAction::Begin, target, begin, 0, start_result))
         return false;
     const auto session = start_result.authenticated_session;
+    ESP_LOGI(kTag, "SECURE_FOTA_SESSION_PINNED transfer=%lu session=%llu",
+             static_cast<unsigned long>(begin.transfer_id),
+             static_cast<unsigned long long>(session));
     const auto abort = [&]() {
         Message stop;
         stop.type = Type::Abort;
@@ -334,9 +342,13 @@ bool perform_update(const FotaStartRequest& target) {
         (void)owner_command(FotaOwnerAction::Abort, target, stop, 0, ignored);
     };
     if (!send_with_retry(target, begin, session, gs::fota::Status::Ready, false)) {
+        ESP_LOGE(kTag, "SECURE_FOTA_TRANSFER_FAILED transfer=%lu phase=begin",
+                 static_cast<unsigned long>(begin.transfer_id));
         abort();
         return false;
     }
+    ESP_LOGI(kTag, "SECURE_FOTA_BEGIN_ACK transfer=%lu authenticated=1",
+             static_cast<unsigned long>(begin.transfer_id));
     std::size_t offset = 0;
     std::uint32_t index = 0;
     while (offset < size) {
@@ -348,11 +360,18 @@ bool perform_update(const FotaStartRequest& target) {
             gs::fota::secure_wire::kMaxChunkBytes, size - offset));
         std::copy_n(image + offset, data.data_size, data.data.begin());
         if (!send_with_retry(target, data, session, gs::fota::Status::DataOk, true)) {
+            ESP_LOGE(kTag, "SECURE_FOTA_TRANSFER_FAILED transfer=%lu phase=data index=%lu",
+                     static_cast<unsigned long>(begin.transfer_id),
+                     static_cast<unsigned long>(index));
             abort();
             return false;
         }
         offset += data.data_size;
         ++index;
+        if ((index % 32U) == 0U || offset == size)
+            ESP_LOGI(kTag, "SECURE_FOTA_ACK_PROGRESS transfer=%lu index=%lu bytes=%lu",
+                     static_cast<unsigned long>(begin.transfer_id),
+                     static_cast<unsigned long>(index), static_cast<unsigned long>(offset));
     }
     Message end;
     end.type = Type::End;
@@ -360,6 +379,12 @@ bool perform_update(const FotaStartRequest& target) {
     end.index = index;
     const bool complete = send_with_retry(target, end, session,
                                           gs::fota::Status::Complete, false);
+    if (complete)
+        ESP_LOGI(kTag, "SECURE_FOTA_TRANSFER_COMPLETE transfer=%lu chunks=%lu",
+                 static_cast<unsigned long>(begin.transfer_id), static_cast<unsigned long>(index));
+    else
+        ESP_LOGE(kTag, "SECURE_FOTA_TRANSFER_FAILED transfer=%lu phase=end",
+                 static_cast<unsigned long>(begin.transfer_id));
     FotaOwnerResult ignored;
     (void)owner_command(FotaOwnerAction::Abort, target, end, 0, ignored);
     return complete;
@@ -392,5 +417,10 @@ bool request_authenticated_fota(FotaStartRequest request) {
     owned.release();
     return true;
 }
+#if GS_HIL_CONTROL
+bool hil_request_authenticated_fota(FotaStartRequest request) {
+    return request_authenticated_fota(std::move(request));
+}
+#endif
 }  // namespace gs::hub::target
 #endif

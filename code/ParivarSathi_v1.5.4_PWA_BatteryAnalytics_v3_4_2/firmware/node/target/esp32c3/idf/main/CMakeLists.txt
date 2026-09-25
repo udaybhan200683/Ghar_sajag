@@ -3,7 +3,7 @@ set(GS_NODE_SRCS
     "app_main.cpp"
     "fota_receiver.cpp"
 )
-if(GS_HIL_BUILD)
+if(GS_HIL_BUILD OR GS_HIL_CONTROL)
     list(APPEND GS_NODE_SRCS "hil_control.cpp")
 endif()
 
@@ -52,4 +52,6 @@ idf_component_register(
 )
 
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>
+    GS_HIL_CONTROL=$<BOOL:${GS_HIL_CONTROL}>)

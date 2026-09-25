@@ -21,5 +21,10 @@ bool request_authenticated_fota(FotaStartRequest request);
 // Test-only UART control hook. Returns false when a transfer is already queued.
 bool hil_request_fota();
 #endif
+#if GS_HIL_CONTROL && !GS_HIL_BUILD
+// Test-only entry to the authenticated production sender. The owner still
+// resolves enrollment and session state; the UART control owns no keys.
+bool hil_request_authenticated_fota(FotaStartRequest request);
+#endif
 
 }  // namespace gs::hub::target

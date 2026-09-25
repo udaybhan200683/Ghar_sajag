@@ -141,7 +141,8 @@ class HilWslSupervisorTest(unittest.TestCase):
         def stage(name):
             calls.append(name)
             result = failures.get(name, 0)
-            if name in ("hil-smoke", "hil-regression", "hil-fota") and result == 0:
+            if name in ("hil-smoke", "hil-regression", "hil-fota",
+                        "hil-secure-signed-fota") and result == 0:
                 report["value"] = f"/fresh/evidence/{name}"
             return result
 
@@ -210,6 +211,33 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertEqual(states["hil-preflight"], "BLOCKED")
         self.assertEqual(states["hil-fota"], "BLOCKED")
 
+    def test_secure_signed_fota_checkpoint_orders_fixture_provenance_and_campaign(self):
+        code, calls, states, output = self.run_supervisor(
+            stages=qualify.CHECKPOINT_SECURE_SIGNED_FOTA_STAGES)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight",
+                                  "hil-secure-signed-fota"])
+        self.assertTrue(all(value == "PASS" for value in states.values()))
+        self.assertTrue(any("/fresh/evidence/hil-secure-signed-fota" in line for line in output))
+
+    def test_secure_signed_fota_preflight_failure_blocks_campaign(self):
+        code, calls, states, _ = self.run_supervisor(
+            failures={"hil-preflight": 1},
+            stages=qualify.CHECKPOINT_SECURE_SIGNED_FOTA_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight"])
+        self.assertEqual(states["hil-secure-signed-fota"], "BLOCKED")
+
+    def test_secure_signed_fota_requires_fresh_report_and_does_not_reuse_old(self):
+        code, calls, states, output = self.run_supervisor(
+            failures={"hil-secure-signed-fota": 2},
+            stages=qualify.CHECKPOINT_SECURE_SIGNED_FOTA_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls[-1], "hil-secure-signed-fota")
+        self.assertEqual(states["hil-secure-signed-fota"], "FAIL")
+        self.assertIn("REPORT               <none>", output)
+        self.assertNotIn("/old/evidence/report", "\n".join(output))
+
     def test_fota_routing_exists_at_supervisor_root(self):
         result = subprocess.run(["make", "-n", "hil-fota"], cwd=qualify.REPO,
                                 text=True, capture_output=True)
@@ -217,6 +245,14 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertIn("make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 hil-fota",
                       result.stdout)
         self.assertIn("tools/hil/phase1.py fota", result.stdout)
+
+    def test_secure_signed_fota_routing_is_distinct_at_supervisor_root(self):
+        result = subprocess.run(["make", "-n", "hil-checkpoint-secure-signed-fota"],
+                                cwd=qualify.REPO, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 hil-checkpoint-secure-signed-fota",
+                      result.stdout)
+        self.assertIn("--checkpoint-secure-signed-fota", result.stdout)
 
     def test_latest_report_requires_a_valid_run_directory(self):
         with tempfile.TemporaryDirectory() as directory:

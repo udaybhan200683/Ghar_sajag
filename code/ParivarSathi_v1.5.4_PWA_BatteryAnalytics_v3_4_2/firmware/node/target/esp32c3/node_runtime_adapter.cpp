@@ -80,7 +80,7 @@ std::atomic<bool> g_ota_owner_started{false};
 std::atomic<bool> g_ota_sensing_ready{false};
 std::atomic<bool> g_ota_post_sensing_radio_confirmed{false};
 std::atomic<std::uint32_t> g_ota_post_sensing_runtime_ticks{0};
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
 std::atomic<std::uint32_t> g_hil_motion_pending{0};
 std::atomic<bool> g_hil_force_health{false};
 std::atomic<std::uint32_t> g_hil_retained{0};
@@ -93,10 +93,12 @@ Milliseconds monotonic_ms() {
     return static_cast<Milliseconds>(esp_timer_get_time() / 1000);
 }
 
+#if GS_HIL_BUILD
 bool from_qualified_hub(const std::uint8_t* mac) {
     return mac != nullptr &&
            std::memcmp(mac, kQualifiedHubMac.data(), kQualifiedHubMac.size()) == 0;
 }
+#endif
 
 void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
                       int length) {
@@ -109,7 +111,6 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
                                data[1] == 0x53 && data[2] == 1;
     const bool secured_runtime = length >= 3 && data[0] == 0x47 &&
                                  data[1] == 0x53 && data[2] == 2;
-    const auto frame_class = transport::classify_frame(data, static_cast<std::size_t>(length));
     QueueHandle_t destination = nullptr;
     if (security_wire) {
         destination = g_security_queue;
@@ -117,11 +118,13 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
         destination = g_ack_queue;
     }
 #if GS_HIL_BUILD
-    else if (frame_class == transport::FrameClass::NodeAck &&
+    else if (transport::classify_frame(data, static_cast<std::size_t>(length)) ==
+                 transport::FrameClass::NodeAck &&
                from_qualified_hub(info->src_addr)) {
         destination = g_ack_queue;
     }
-    else if (frame_class == transport::FrameClass::ControlFota &&
+    else if (transport::classify_frame(data, static_cast<std::size_t>(length)) ==
+                 transport::FrameClass::ControlFota &&
                from_qualified_hub(info->src_addr)) {
         destination = g_control_queue;
     }
@@ -207,7 +210,7 @@ esp_err_t initialize_wifi() {
 
     std::array<std::uint8_t, 6> actual_mac{};
     if ((result = esp_wifi_get_mac(WIFI_IF_STA, actual_mac.data())) != ESP_OK) return result;
-    #if GS_HIL_BUILD
+    #if GS_HIL_CONTROL
     if (actual_mac != kQualifiedNodeMac) {
         ESP_LOGE(kTag, "STA MAC does not match qualified C3");
         return ESP_ERR_INVALID_STATE;
@@ -235,6 +238,7 @@ esp_err_t initialize_esp_now() {
     return result;
 }
 
+#if !GS_HIL_BUILD
 bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
     security::wire::Message message = outbound.message;
     std::vector<security::wire::Packet> packets;
@@ -260,6 +264,7 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
     }
     return true;
 }
+#endif
 
 void owner_task(void*) {
 #if !GS_HIL_BUILD
@@ -318,7 +323,7 @@ void owner_task(void*) {
     Milliseconds sent_at_ms = 0;
     Milliseconds led_off_at_ms = 0;
     Milliseconds next_health_ms =
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
         1000;
 #else
         kHealthIntervalMs;
@@ -517,7 +522,7 @@ void owner_task(void*) {
             breadcrumb = NodeBreadcrumb::PirRaw;
         }
         auto sensed = pir.sample(raw_pir, now);
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
         auto pending = g_hil_motion_pending.load(std::memory_order_acquire);
         while (pending != 0U &&
                !g_hil_motion_pending.compare_exchange_weak(
@@ -593,7 +598,7 @@ void owner_task(void*) {
 
         if (!in_flight && !health_in_flight && !maintenance &&
             (now >= next_health_ms
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
              || g_hil_force_health.exchange(false, std::memory_order_acq_rel)
 #endif
             )) {
@@ -711,7 +716,7 @@ void owner_task(void*) {
             }
         }
 
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
         g_hil_retained.store(static_cast<std::uint32_t>(runtime.persisted()),
                              std::memory_order_release);
         g_hil_in_flight.store(in_flight ? 1U : 0U, std::memory_order_release);
@@ -756,7 +761,7 @@ fota::BootHealthObservation ota_boot_health_observation() {
             esp_get_minimum_free_heap_size()};
 }
 
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
 void hil_inject_motion() {
     g_hil_motion_pending.fetch_add(1U, std::memory_order_release);
 }

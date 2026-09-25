@@ -137,7 +137,7 @@ int main() {
     end.transfer_id = 81;
     end.index = 2;
     require(deliver(end) && writer.committed && callbacks.restarts == 1 &&
-            callbacks.status() == fota::Status::Complete,
+            callbacks.status() == fota::Status::Complete && adapter.digest_verified(),
             "authenticated transfer did not complete");
 
     Message completed_ack;

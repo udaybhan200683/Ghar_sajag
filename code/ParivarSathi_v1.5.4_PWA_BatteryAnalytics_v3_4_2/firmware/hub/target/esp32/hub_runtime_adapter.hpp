@@ -63,7 +63,7 @@ bool submit_fota_owner_command(FotaOwnerCommand command, FotaOwnerResult& result
 bool wait_fota_owner_ack(FotaOwnerAck& ack, std::uint32_t timeout_ms);
 #endif
 
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
 void hil_set_logical_online(bool online);
 void hil_log_state();
 void hil_log_test_identity();

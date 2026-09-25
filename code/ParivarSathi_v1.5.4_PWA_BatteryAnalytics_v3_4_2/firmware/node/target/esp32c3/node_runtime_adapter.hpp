@@ -42,7 +42,7 @@ void set_control_plane_active(bool active);
 void report_control_plane_timeout();
 fota::BootHealthObservation ota_boot_health_observation();
 
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
 void hil_inject_motion();
 void hil_request_health();
 void hil_log_state();

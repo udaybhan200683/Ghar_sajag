@@ -55,7 +55,18 @@ public:
     bool finalize() override {
         const esp_err_t result = esp_ota_end(handle_);
         open_ = false;
-        if (result != ESP_OK) ESP_LOGE(kTag, "esp_ota_end failed: %s", esp_err_to_name(result));
+        if (result != ESP_OK) {
+            const char* error = esp_err_to_name(result);
+#if defined(CONFIG_SECURE_BOOT) || defined(CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT)
+            if (std::strcmp(error, "ESP_ERR_OTA_VALIDATE_FAILED") == 0)
+                ESP_LOGE(kTag, "SECURE_FOTA_IMAGE_SIGNATURE_REJECTED error=%s", error);
+#endif
+            ESP_LOGE(kTag, "esp_ota_end failed: %s", error);
+        } else {
+#if defined(CONFIG_SECURE_BOOT) || defined(CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT)
+            ESP_LOGI(kTag, "SECURE_FOTA_IMAGE_SIGNATURE_ACCEPTED");
+#endif
+        }
         return result == ESP_OK;
     }
 
@@ -219,8 +230,13 @@ void worker(void*) {
         }
 #endif
         g_callbacks.set_authenticated_session(frame.authenticated_session);
-        if (!g_secure_receiver.process(decoded.message, frame.authenticated_session,
-                                       monotonic_ms()))
+        const bool accepted = g_secure_receiver.process(decoded.message,
+            frame.authenticated_session, monotonic_ms());
+        if (decoded.message.type == gs::fota::secure_wire::Type::End &&
+            g_secure_receiver.digest_verified())
+            ESP_LOGI(kTag, "SECURE_FOTA_IMAGE_SHA256_VERIFIED transfer=%lu",
+                     static_cast<unsigned long>(decoded.message.transfer_id));
+        if (!accepted)
             ESP_LOGW(kTag, "Rejected FOTA transfer/session/board mismatch");
 #endif
     }

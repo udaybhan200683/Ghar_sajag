@@ -82,32 +82,36 @@ QueueHandle_t g_security_send_queue = nullptr;
 std::atomic<std::uint32_t> g_data_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<bool> g_control_plane_active{false};
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
 std::atomic<bool> g_hil_logical_online{true};
 std::atomic<std::uint32_t> g_hil_processed{0};
 std::atomic<std::uint32_t> g_hil_durable_ack{0};
 std::atomic<std::uint32_t> g_hil_health_received{0};
 #endif
 
+#if GS_HIL_CONTROL
 bool from_qualified_node(const std::uint8_t* mac) {
     return mac != nullptr &&
            std::memcmp(mac, kQualifiedNodeMac.data(), kQualifiedNodeMac.size()) == 0;
 }
+#endif
 
 void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
                       int length) {
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
     if (!g_hil_logical_online.load(std::memory_order_acquire)) return;
 #endif
     if (info == nullptr || data == nullptr ||
         length <= 0 || static_cast<std::size_t>(length) > kTargetEspNowPayloadMax) {
         return;
     }
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
     if (!from_qualified_node(info->src_addr)) return;
 #endif
 
+#if GS_HIL_BUILD
     const auto frame_class = transport::classify_frame(data, static_cast<std::size_t>(length));
+#endif
     QueueHandle_t destination = nullptr;
     if (length >= 3 && data[0] == 0x47 && data[1] == 0x53 && data[2] == 1) {
         destination = g_security_queue;
@@ -219,6 +223,7 @@ esp_err_t initialize_esp_now() {
     return result;
 }
 
+#if GS_HIL_BUILD
 void owner_task(void*) {
     HubRuntime runtime(32, 1024);
     std::uint64_t authorized_session = 0;
@@ -241,7 +246,7 @@ void owner_task(void*) {
                          static_cast<unsigned>(health_frame.channel));
             } else {
                 const NodeHealthSnapshot& value = *health.value;
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
                 g_hil_health_received.fetch_add(1U, std::memory_order_relaxed);
 #endif
                 ESP_LOGI(kTag,
@@ -345,7 +350,7 @@ void owner_task(void*) {
                  static_cast<unsigned long long>(processed->key.sequence),
                  static_cast<int>(processed->ack), esp_err_to_name(sent),
                  frame.transport_rssi, static_cast<unsigned>(frame.channel));
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
         g_hil_processed.fetch_add(1U, std::memory_order_relaxed);
         if (processed->ack == AckClass::Durable) {
             g_hil_durable_ack.fetch_add(1U, std::memory_order_relaxed);
@@ -353,6 +358,7 @@ void owner_task(void*) {
 #endif
     }
 }
+#endif
 
 #if !GS_HIL_BUILD
 bool add_runtime_peer(const HubSecurityLink::Mac& mac) {
@@ -567,8 +573,8 @@ void secure_owner_task(void*) {
                 if (prior == authorized.end() || prior->second != node->last_session) {
                     runtime.authorize_node(node->logical_id, node->last_session, true);
                     authorized[control.source_mac] = node->last_session;
-                    ESP_LOGI(kTag, "Authenticated rejoin logical=%s session=%llu",
-                             node->logical_id.c_str(),
+                    ESP_LOGI(kTag, "Authenticated rejoin device=%s logical=%s session=%llu",
+                             node->device_id.c_str(), node->logical_id.c_str(),
                              static_cast<unsigned long long>(node->last_session));
                 }
             }
@@ -729,7 +735,7 @@ bool wait_fota_owner_ack(FotaOwnerAck& ack, std::uint32_t timeout_ms) {
 }
 #endif
 
-#if GS_HIL_BUILD
+#if GS_HIL_CONTROL
 void hil_set_logical_online(bool online) {
     g_hil_logical_online.store(online, std::memory_order_release);
     ESP_LOGI(kTag, "HIL hub logical state online=%d", online);

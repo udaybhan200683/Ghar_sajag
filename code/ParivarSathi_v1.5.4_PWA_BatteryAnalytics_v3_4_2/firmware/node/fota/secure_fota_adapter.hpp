@@ -30,6 +30,7 @@ public:
                  std::uint64_t authenticated_session, std::uint64_t now_ms);
     void poll(std::uint64_t now_ms);
     bool active() const { return active_; }
+    bool digest_verified() const { return digest_verified_; }
     std::uint32_t transfer_id() const { return transfer_id_; }
     std::uint64_t authenticated_session() const { return authenticated_session_; }
 
@@ -39,6 +40,7 @@ private:
     std::string_view board_;
     bool active_{false};
     bool digest_complete_{false};
+    bool digest_verified_{false};
     std::uint32_t transfer_id_{0};
     std::uint64_t authenticated_session_{0};
     std::uint32_t image_size_{0};

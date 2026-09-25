@@ -357,9 +357,9 @@ need a focused implementation before they can be run as written.
 - For the HIL fixture, from the product directory run `make
   hil-checkpoint-smoke`; this owns fixture setup, preflight, build, flash, and
   smoke.
-- For a signed first-install image, use the signed profile builder below, then
-  follow the approved signed service flashing workflow. **That flashing command
-  is not currently provided.** Do not flash the unsigned `.bin` as signed A.
+- For signed-FOTA physical qualification, the focused campaign installs signed
+  A itself while preserving the C3 identity storage; see the signed-FOTA
+  qualification plan. Do not flash the unsigned `.bin` as signed A.
 
 ### B. Build a signed candidate
 
@@ -374,18 +374,21 @@ hash and size. It does not make a Hub image or flash hardware.
 
 ### C. Normal signed A→B update
 
-**Not yet available as an end-to-end repository recipe.** The runtime pieces
-exist, but tooling for distinct signed A/B versions, signed-image Hub
-embedding, secure HIL trigger, and physical installation/qualification is
-incomplete. Use the physical plan after that focused adaptation exists.
+The authenticated secure owner route is available internally to the focused
+fixture, but there is still no external installer/cloud production trigger.
+For the complete signed A→B physical qualification recipe, run the focused
+command in the qualification plan. It builds distinct signed A/B images,
+embeds B byte-for-byte in its Hub image, and drives the existing owner path.
+This fixture command has not yet produced physical qualification evidence.
 
 ### D. Verify wrong-signature rejection
 
 Offline signature tamper rejection has been demonstrated for the signed
-artifact. The repeatable physical recipe is in the
-[signed-FOTA qualification plan](../validation/PHASE2_SIGNED_FOTA_PHYSICAL_QUALIFICATION_PLAN.md).
-No current command drives a wrong-signature image through physical secure
-FOTA.
+artifact. A focused fixture campaign now prepares a different-key candidate
+with valid authenticated transport and digest, then checks for the explicit
+ESP-IDF signature-verifier rejection. The physical recipe is in the
+[signed-FOTA qualification plan](../validation/PHASE2_SIGNED_FOTA_PHYSICAL_QUALIFICATION_PLAN.md);
+the physical case remains unrun.
 
 ### E. Retry after interrupted FOTA
 
@@ -461,10 +464,12 @@ Common diagnoses:
 | Signed-app-on-update profile | Secure receiver route is used with ESP-IDF signature verification enabled at OTA update. | RSA-3072 app signatures; external test key; no hardware Secure Boot/eFuse. | Current evidence is target build plus offline valid/tampered signature checks, not physical OTA. |
 | Future production Secure Boot profile | Secure authenticated FOTA plus hardware anchored boot verification. | Requires explicit manufacturing, key custody, flash protection, and eFuse policy. | Not implemented or qualified by the current profile. |
 
-The existing HIL profile still selects raw FOTA. The signed profile currently
-builds with `GS_HIL_BUILD=OFF`, and its script rejects known HIL markers. A
-focused secure-HIL build profile is needed to combine repeatable fixture
-control with the secure target path without weakening production isolation.
+The legacy `GS_HIL_BUILD=ON` profile still selects raw FOTA. The focused
+signed secure fixture instead builds with `GS_HIL_BUILD=OFF` and
+`GS_HIL_CONTROL=ON`: the test-only UART controls are available, while the
+authenticated production security/FOTA path remains selected. Use
+`make hil-checkpoint-secure-signed-fota` for that distinct campaign; it is not
+an alias for `hil-checkpoint-fota` and has not yet been physically executed.
 
 ## 18. Security-Key Handling
 
@@ -487,8 +492,9 @@ The formal physical procedure and case-level PASS/FAIL conditions are owned by
 [`docs/validation/PHASE2_SIGNED_FOTA_PHYSICAL_QUALIFICATION_PLAN.md`](../validation/PHASE2_SIGNED_FOTA_PHYSICAL_QUALIFICATION_PLAN.md).
 
 The historical `hil-checkpoint-fota` campaign executes the raw Phase-1 path.
-Its PASS cannot be reused as secure signed-FOTA evidence. The physical plan
-requires secure FOTA HIL adaptation first.
+Its PASS cannot be reused as secure signed-FOTA evidence. The separate
+`hil-checkpoint-secure-signed-fota` entry point exercises the authenticated
+signed path; it remains unqualified until actually run on the fixture.
 
 ## 20. Current Known Limitations
 
@@ -502,8 +508,9 @@ requires secure FOTA HIL adaptation first.
 - Hardware Secure Boot/eFuse protection is not enabled.
 - No external trusted product FOTA request/control channel is integrated.
 - Multi-C3 FOTA and RF contention are not qualified.
-- Signed A/B build orchestration, Hub embedding, and signed initial/service
-  flashing commands are incomplete.
+- The focused fixture builds signed A/B and negative candidates, embeds each
+  selected candidate in a secure-control Hub image, and can install signed A.
+  A general signed service-reflash command remains unavailable.
 
 ## 21. Engineer Safety / Do-Not-Do List
 
