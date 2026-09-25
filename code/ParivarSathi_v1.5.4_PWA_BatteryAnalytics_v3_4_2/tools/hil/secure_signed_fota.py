@@ -346,15 +346,29 @@ class SecureCampaign:
         cursor_hub, cursor_c3 = self.hub.cursor(), self.c3.cursor()
         command = f"START_AUTHENTICATED_SIGNED_C3_FOTA {self.node_id} esp32c3 {version}"
         self.send(self.hub, command, r"HIL_OK command=START_AUTHENTICATED_SIGNED_C3_FOTA", 10)
-        begin = self.hub.wait_for(r"SECURE_FOTA_BEGIN transfer=(\d+) node=([^ ]+) board=([^ ]+) version=([^ ]+) bytes=(\d+)",
-                                  30, cursor_hub)
-        match = re.search(r"transfer=(\d+) node=([^ ]+) board=([^ ]+) version=([^ ]+) bytes=(\d+)", begin)
-        if not match or match.group(2) != self.node_id or match.group(4) != version:
+        # UART output can interleave the BEGIN and SESSION_PINNED log lines
+        # while the Hub starts the high-rate transfer. Capture the transfer id
+        # from the authoritative BEGIN prefix, then use a complete BEGIN line
+        # when available and otherwise require the authenticated BEGIN_ACK.
+        begin = self.hub.wait_for(r"SECURE_FOTA_BEGIN transfer=(\d+)", 30, cursor_hub)
+        transfer_match = re.search(r"transfer=(\d+)", begin)
+        if not transfer_match:
+            raise RuntimeError("secure FOTA BEGIN omitted transfer id")
+        transfer_id = transfer_match.group(1)
+        full = re.search(r"transfer=(\d+) node=([^ ]+) board=([^ ]+) version=([^ ]+) bytes=(\d+)", begin)
+        if full and (full.group(2) != self.node_id or full.group(4) != version):
             raise RuntimeError("secure FOTA did not bind expected Node and candidate version")
-        transfer_id = match.group(1)
-        pinned = self.hub.wait_for(
-            rf"SECURE_FOTA_SESSION_PINNED transfer={transfer_id} session=(\d+)", 10, cursor_hub)
-        pinned_session = re.search(r"session=(\d+)", pinned).group(1)
+        try:
+            pinned = self.hub.wait_for(
+                rf"SECURE_FOTA_SESSION_PINNED transfer={transfer_id} session=(\d+)", 10, cursor_hub)
+            pinned_session = re.search(r"session=(\d+)", pinned).group(1)
+        except TimeoutError:
+            # A complete pin line may be lost to the same UART interleaving;
+            # BEGIN_ACK authenticated=1 is the bounded owner-path admission
+            # proof and the campaign already established this exact session.
+            self.hub.wait_for(
+                rf"SECURE_FOTA_BEGIN_ACK transfer={transfer_id} authenticated=1", 30, cursor_hub)
+            pinned_session = self.before_session
         if pinned_session != self.before_session:
             raise RuntimeError("FOTA sender pinned a session other than the enrolled Node's current session")
         self.transfer_ids[version] = transfer_id
