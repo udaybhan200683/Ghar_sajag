@@ -1,4 +1,5 @@
 #include "firmware/hub/components/storage/journal.hpp"
+#include "firmware/hub/runtime/hub_runtime.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
 
 #include <array>
@@ -100,8 +101,42 @@ int main() {
         require(after_restart.attach_persistence(crypto, interrupted, key) &&
                 after_restart.commit(event(1)) == CommitResult::Duplicate,
                 "committed event recovered after ambiguous return");
+        MemorySlots reducer_slots;
+        {
+            gs::hub::HubRuntime before_crash(4, 128);
+            require(before_crash.journal().attach_persistence(crypto, reducer_slots, key),
+                    "reducer crash setup");
+            require(before_crash.journal().commit(event(77)) == CommitResult::Stored &&
+                    !before_crash.routine_state().activity_seen,
+                    "crash window did not leave committed event unapplied");
+        }
+        gs::hub::HubRuntime recovered(4, 128);
+        recovered.authorize_node("bathroom", 17, true);
+        gs::RoutineConfig window;
+        window.window_id = "morning";
+        window.end_at = 100;
+        window.grace_end_at = 120;
+        recovered.start_window(window, gs::HomeMode::Home);
+        require(recovered.journal().attach_persistence(crypto, reducer_slots, key) &&
+                recovered.restore_from_journal() &&
+                recovered.routine_state().activity_seen &&
+                recovered.routine_state().evidence_ids.size() == 1 &&
+                recovered.activity_state().last_activity_event_id == event(77).key.str(),
+                "committed event did not rebuild reducer state after restart");
+        require(!recovered.restore_from_journal(), "journal state replayed twice");
+        require(recovered.radio_callback(event(77)), "duplicate restart input rejected");
+        const auto duplicate = recovered.run_state_once();
+        require(duplicate && duplicate->ack == gs::AckClass::Durable &&
+                !duplicate->state_changed &&
+                recovered.routine_state().evidence_ids.size() == 1,
+                "post-restart duplicate reapplied reducer");
+        require(recovered.radio_callback(event(78)), "new event after restart rejected");
+        const auto fresh = recovered.run_state_once();
+        require(fresh && fresh->state_changed &&
+                recovered.routine_state().evidence_ids.size() == 2,
+                "new event after replay did not update reducer");
         std::cout << "P2-PERSIST-HUB-JOURNAL HOST PASS capacity=128 full=129 "
-                     "replacement/dedupe/restart/tamper/write-fault\n";
+                     "replacement/dedupe/restart/tamper/write-fault/reducer-replay\n";
         return EXIT_SUCCESS;
     } catch (const std::exception& error) {
         std::cerr << "P2-PERSIST-HUB-JOURNAL HOST FAIL " << error.what() << '\n';

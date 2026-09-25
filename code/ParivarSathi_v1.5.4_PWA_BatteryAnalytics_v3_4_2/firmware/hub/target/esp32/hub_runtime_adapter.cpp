@@ -382,7 +382,8 @@ void secure_owner_task(void*) {
     NvsJournalSlotStore journal_store;
     HubRuntime runtime(32, 128);
     if (!journal_store.initialize() ||
-        !security_link.attach_event_journal(runtime.journal(), journal_store)) {
+        !security_link.attach_event_journal(runtime.journal(), journal_store) ||
+        !runtime.restore_from_journal()) {
         ESP_LOGE(kTag, "Hub durable event journal unavailable; refusing event admission");
         vTaskDelete(nullptr);
         return;

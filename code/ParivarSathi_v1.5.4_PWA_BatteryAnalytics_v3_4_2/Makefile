@@ -79,7 +79,7 @@ registry-persistence-host-test: build
 	./build/registry_persistence_validation
 
 hub-journal-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/hub/components/storage/journal.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
 	./build/hub_journal_persistence_validation
 
 commissioning-crypto-host-test: build

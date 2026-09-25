@@ -56,6 +56,8 @@ public:
     bool contains(const EventKey& key) const;
     std::size_t size() const { return records_.size(); }
     bool storage_fault() const { return storage_fault_; }
+    bool persistent() const { return store_ != nullptr && !storage_fault_; }
+    const std::vector<DomainEvent>& records() const { return records_; }
 
 private:
     std::size_t capacity_;

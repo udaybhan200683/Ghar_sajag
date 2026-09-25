@@ -74,6 +74,9 @@ public:
         return it == power_telemetry_.end() ? std::nullopt : std::optional<NodePowerTelemetry>{it->second};
     }
     HubJournal& journal() { return journal_; }
+    // Rebuild event-derived state once after attaching a persistent journal,
+    // before processing any new event. It emits no rule signals.
+    bool restore_from_journal();
     std::size_t ingest_depth() const { return ingest_.size(); }
     std::size_t ingest_capacity() const { return ingest_.capacity(); }
     std::size_t ingest_high_water() const { return ingest_.high_water(); }
@@ -81,6 +84,8 @@ public:
     const RoutineState& routine_state() const { return routine_.state(); }
 
 private:
+    std::vector<RuleSignalDecision> apply_committed_event(
+        const DomainEvent& event, std::optional<std::uint16_t> local_minute);
     PeerRegistry peers_;
     IngestQueue ingest_;
     HubJournal journal_;
@@ -89,6 +94,8 @@ private:
     ActivityRuleConfig activity_config_{};
     ActivityRuleState activity_state_{};
     std::map<std::string, NodePowerTelemetry> power_telemetry_;
+    bool state_applied_{false};
+    bool journal_replayed_{false};
 };
 
 }  // namespace gs::hub

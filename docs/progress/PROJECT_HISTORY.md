@@ -1371,6 +1371,16 @@ and C3 builds with `GS_HIL_BUILD` both OFF and ON passed. The HIL transport
 path remains separate. This is target-build evidence only; physical restart,
 power-cut atomicity, flash wear and production key protection remain open.
 
+### 2026-09-25: replay committed Hub events into local reducer after restart
+
+The authenticated Hub owner now replays the restored encrypted journal once
+before admitting new events. The same reducer path rebuilds basic
+event-derived state after a reset between durable append and in-memory
+reduction; a later retry receives a duplicate ACK without reapplying the
+event. A focused host crash-window regression, the C++ core suite (252
+checks), and the non-HIL Hub build passed. Full policy/timer state, target
+restart and power-cut behavior remain unqualified.
+
 ### 2026-09-24: target security owner-path integration in progress
 
 The production Hub and C3 owner tasks were connected to the existing Phase-2

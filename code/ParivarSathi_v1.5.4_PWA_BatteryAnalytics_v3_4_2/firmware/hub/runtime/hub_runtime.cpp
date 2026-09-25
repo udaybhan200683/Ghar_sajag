@@ -67,6 +67,35 @@ bool HubRuntime::authenticated_radio_message_callback(
     return accepted;
 }
 
+bool HubRuntime::restore_from_journal() {
+    if (journal_replayed_ || state_applied_ || ingest_.size() != 0 ||
+        !journal_.persistent()) return false;
+    for (const auto& event : journal_.records())
+        (void)apply_committed_event(event, std::nullopt);
+    journal_replayed_ = true;
+    return true;
+}
+
+std::vector<RuleSignalDecision> HubRuntime::apply_committed_event(
+    const DomainEvent& event, std::optional<std::uint16_t> local_minute) {
+    coverage_.observe(event.key.source_id, event.received_at, event.battery_mv);
+    routine_.set_coverage(coverage_.current(event.received_at));
+    routine_.apply(event);
+    state_applied_ = true;
+    if (local_minute.has_value()) {
+        const RuleEvaluationContext context{
+            routine_.state().mode, coverage_.current(event.received_at), true};
+        return RulesCore::apply_activity_event(
+            activity_state_, activity_config_, event, *local_minute, context);
+    }
+    if (is_activity(event.kind)) {
+        activity_state_.last_activity_at = event.occurred_at;
+        activity_state_.last_activity_event_id = event.key.str();
+        activity_state_.inactivity_alerted = false;
+    }
+    return {};
+}
+
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
 // Consume one admitted event, apply privacy policy, commit and update the reducer.
 // Duplicate journal identities receive an ACK without repeating reducer effects.
@@ -89,18 +118,7 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
         // Acknowledge the known identity without applying rules a second time.
         return ProcessResult{event->key, AckClass::Durable, false, {}};
     }
-    coverage_.observe(event->key.source_id, event->received_at, event->battery_mv);
-    routine_.set_coverage(coverage_.current(event->received_at));
-    routine_.apply(*event);
-    std::vector<RuleSignalDecision> signals;
-    if (local_minute.has_value()) {
-        const RuleEvaluationContext context{routine_.state().mode, coverage_.current(event->received_at), true};
-        signals = RulesCore::apply_activity_event(activity_state_, activity_config_, *event, *local_minute, context);
-    } else if (is_activity(event->kind)) {
-        activity_state_.last_activity_at = event->occurred_at;
-        activity_state_.last_activity_event_id = event->key.str();
-        activity_state_.inactivity_alerted = false;
-    }
+    auto signals = apply_committed_event(*event, local_minute);
     return ProcessResult{event->key, AckClass::Durable, committed == CommitResult::Stored, signals};
 }
 
