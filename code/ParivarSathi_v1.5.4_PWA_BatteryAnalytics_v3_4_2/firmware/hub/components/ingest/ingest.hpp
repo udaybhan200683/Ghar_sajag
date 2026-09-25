@@ -23,6 +23,7 @@ namespace gs::hub {
 class PeerRegistry {
 public:
     void authorize(const std::string& source_id, std::uint64_t session_id);
+    void revoke(const std::string& source_id);
     bool accepts(const EventKey& key) const;
     // Trusted AEAD/registry admission may carry a retained event key from an
     // older boot under the current authenticated transport session.
@@ -44,6 +45,7 @@ public:
                                      const std::string& source_id,
                                      std::uint64_t transport_session);
     std::optional<DomainEvent> pop();
+    void discard_source(const std::string& source_id);
     std::size_t rejected() const { return rejected_; }
     std::size_t size() const { return queue_.size(); }
     std::size_t capacity() const { return capacity_; }

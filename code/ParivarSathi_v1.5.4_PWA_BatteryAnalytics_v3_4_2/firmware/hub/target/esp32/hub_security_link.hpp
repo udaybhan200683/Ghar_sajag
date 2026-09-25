@@ -36,6 +36,12 @@ public:
         Mac destination{};
         security::wire::Message message;
     };
+    struct Removal {
+        RegistryResult result{RegistryResult::UnknownDevice};
+        Mac radio_mac{};
+        std::string logical_id;
+        bool access_stopped{false};
+    };
 
     HubSecurityLink();
     ~HubSecurityLink();
@@ -51,6 +57,9 @@ public:
     std::optional<Outbound> accept(const Mac& source, const std::uint8_t* packet,
                                     std::size_t length, std::uint64_t now_ms);
     std::optional<Mac> expire_candidate(std::uint64_t now_ms);
+    // Called only by the Hub owner after a locally authorized service request.
+    // The revocation/quarantine snapshot commits before live access is cut off.
+    Removal remove_node(const std::string& device_id);
     const hub::EnrolledNode* ready_node(const Mac& source) const;
     security::RuntimeFrameSecurity* frames_for(const Mac& source);
     std::vector<Mac> enrolled_macs() const;

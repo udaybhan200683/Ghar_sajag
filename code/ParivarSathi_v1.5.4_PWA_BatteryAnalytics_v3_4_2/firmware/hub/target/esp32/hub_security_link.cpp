@@ -156,6 +156,61 @@ std::optional<HubSecurityLink::Mac> HubSecurityLink::expire_candidate(
     return expired;
 }
 
+HubSecurityLink::Removal HubSecurityLink::remove_node(const std::string& device_id) {
+    Removal outcome;
+    if (faulted_ || !registry_ || !repository_) return outcome;
+    const auto existing = registry_->find(device_id);
+    if (!existing) {
+        outcome.result = registry_->is_revoked(device_id)
+            ? RegistryResult::RevokedDevice : RegistryResult::UnknownDevice;
+        return outcome;
+    }
+    outcome.radio_mac = existing->radio_mac;
+    outcome.logical_id = existing->logical_id;
+    auto candidate = std::make_unique<NodeRegistry>(home_id_, hub_id_,
+                                                    kInstalledCapacity, kInstalledCapacity);
+    if (!candidate->restore(registry_->snapshot())) {
+        faulted_ = true;
+        active_.clear();
+        return outcome;
+    }
+    outcome.result = candidate->remove(device_id);
+    if (outcome.result != RegistryResult::Accepted &&
+        outcome.result != RegistryResult::RevocationCapacityFull) return outcome;
+
+    auto next_bindings = bindings_;
+    if (outcome.result == RegistryResult::Accepted) {
+        const auto old = std::find_if(next_bindings.begin(), next_bindings.end(),
+            [&](const auto& value) { return value.device_id == device_id; });
+        if (old == next_bindings.end()) {
+            faulted_ = true;
+            active_.clear();
+            return outcome;
+        }
+        crypto_.secure_zero(old->installation_key.data(), old->installation_key.size());
+        next_bindings.erase(old);
+    }
+    if (!persist_candidate(*candidate, next_bindings)) {
+        faulted_ = true;
+        active_.clear();
+        return outcome;
+    }
+    for (auto& old : bindings_)
+        if (old.device_id == device_id)
+            crypto_.secure_zero(old.installation_key.data(), old.installation_key.size());
+    registry_ = std::move(candidate);
+    bindings_ = std::move(next_bindings);
+    active_.erase(outcome.radio_mac);
+    rejoining_.erase(outcome.radio_mac);
+    assemblers_.erase(outcome.radio_mac);
+    if (expected_ && expected_->radio_mac == outcome.radio_mac) {
+        expected_.reset();
+        commissioning_.reset();
+    }
+    outcome.access_stopped = true;
+    return outcome;
+}
+
 std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_commissioning(
     const ExpectedNode& exact, std::uint64_t now_ms) {
     EnrolledNode requested;

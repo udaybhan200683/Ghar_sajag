@@ -191,6 +191,8 @@ void test_hub_modules() {
     coverage.observe("node-1", 100, 3800);
     check(coverage.current(200) == gs::CoverageState::Covered, "fresh required node covers window");
     check(coverage.current(291) == gs::CoverageState::Unknown, "expired lease becomes unknown");
+    coverage.forget_node("node-1");
+    check(coverage.reasons(291).empty(), "removed Node still affected coverage");
 
     gs::RoutineConfig config{"2026-09-07-morning", 100, 200, 230, {"kitchen", "common"}, true};
     gs::hub::RoutineService routine;
@@ -270,6 +272,21 @@ void test_hub_modules() {
     check(physical_retry && physical_retry->ack == gs::AckClass::Durable &&
           !physical_retry->state_changed && replacement_runtime.journal().size() == 2,
           "same physical identity was not deduplicated");
+    auto queued_before_removal = same_logical_event;
+    queued_before_removal.sequence_number = 2;
+    check(replacement_runtime.authenticated_radio_message_callback(
+              queued_before_removal, "node-1", "physical-A", 7, 150),
+          "pre-removal event did not enter ingest");
+    replacement_runtime.revoke_node("node-1");
+    check(replacement_runtime.ingest_depth() == 0,
+          "removed node left an uncommitted event in Hub ingest");
+    check(!replacement_runtime.authenticated_radio_message_callback(
+              same_logical_event, "node-1", "physical-A", 7, 150),
+          "removed node retained HubRuntime admission");
+    replacement_runtime.authorize_node("node-1", 8, true);
+    check(replacement_runtime.authenticated_radio_message_callback(
+              same_logical_event, "node-1", "physical-B", 8, 150),
+          "new authenticated replacement could not reuse logical slot");
     check(gs::EventKey{"a/b", 7, 1, "c"}.str() !=
           gs::EventKey{"b", 7, 1, "c/a"}.str(),
           "physical and logical delimiters collided");

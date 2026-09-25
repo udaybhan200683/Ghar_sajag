@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include "firmware/hub/target/esp32/hub_security_link.hpp"
 
 namespace gs::hub::target {
@@ -30,6 +31,9 @@ void set_control_plane_active(bool active);
 // Installer-facing product boundary. Ownership of the exact candidate is
 // transferred to the Hub owner only when the bounded request queue accepts it.
 bool request_node_commissioning(HubSecurityLink::ExpectedNode exact);
+// Product service boundary: only an authenticated/authorized local caller may
+// request removal. The owner persists revocation before dropping admission.
+bool request_node_removal(const std::string& physical_device_id);
 
 #if GS_HIL_BUILD
 void hil_set_logical_online(bool online);

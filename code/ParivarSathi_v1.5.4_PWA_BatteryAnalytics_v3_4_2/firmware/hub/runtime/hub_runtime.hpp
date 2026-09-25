@@ -36,6 +36,7 @@ class HubRuntime {
 public:
     HubRuntime(std::size_t ingest_capacity = 32, std::size_t journal_capacity = 1024);
     void authorize_node(const std::string& node_id, std::uint64_t session_id, bool required_for_routine);
+    void revoke_node(const std::string& node_id);
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Replace the active window state; production must persist the transition and define mid-window
     // configuration policy.

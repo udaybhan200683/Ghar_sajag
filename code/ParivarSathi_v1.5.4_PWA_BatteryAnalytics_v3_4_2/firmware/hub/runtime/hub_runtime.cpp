@@ -22,6 +22,13 @@ void HubRuntime::authorize_node(const std::string& node_id, std::uint64_t sessio
     if (required_for_routine) coverage_.require_node(node_id);
 }
 
+void HubRuntime::revoke_node(const std::string& node_id) {
+    peers_.revoke(node_id);
+    ingest_.discard_source(node_id);
+    coverage_.forget_node(node_id);
+    power_telemetry_.erase(node_id);
+}
+
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
 // Replace the active window state; production must persist the transition and define mid-window
 // configuration policy.

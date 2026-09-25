@@ -43,6 +43,11 @@ StaticQueue_t g_control_queue_state{};
 StaticQueue_t g_health_queue_state{};
 StaticQueue_t g_security_queue_state{};
 StaticQueue_t g_request_queue_state{};
+#if !GS_HIL_BUILD
+StaticQueue_t g_removal_queue_state{};
+alignas(std::string*) std::array<std::uint8_t, sizeof(std::string*)> g_removal_storage{};
+QueueHandle_t g_removal_queue = nullptr;
+#endif
 StaticQueue_t g_security_send_queue_state{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kDataQueueDepth * sizeof(ReceivedFrame)> g_data_storage{};
 alignas(ReceivedFrame) std::array<std::uint8_t, kControlQueueDepth * sizeof(ReceivedFrame)> g_control_storage{};
@@ -392,6 +397,11 @@ void secure_owner_task(void*) {
     ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u",
              static_cast<unsigned>(security_link.enrolled_macs().size()));
     for (;;) {
+        if (security_link.faulted()) {
+            ESP_LOGE(kTag, "Hub security owner faulted; refusing event admission");
+            vTaskDelete(nullptr);
+            return;
+        }
         const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
         if (const auto expired = security_link.expire_candidate(now_ms)) {
             (void)esp_now_del_peer(expired->data());
@@ -400,6 +410,23 @@ void secure_owner_task(void*) {
         if (g_control_plane_active.load(std::memory_order_acquire)) {
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
+        }
+        std::string* removal_request = nullptr;
+        if (xQueueReceive(g_removal_queue, &removal_request, 0) == pdTRUE) {
+            std::unique_ptr<std::string> device_id(removal_request);
+            const auto removed = security_link.remove_node(*device_id);
+            if (removed.access_stopped) {
+                runtime.revoke_node(removed.logical_id);
+                authorized.erase(removed.radio_mac);
+                const esp_err_t peer_result = esp_now_del_peer(removed.radio_mac.data());
+                ESP_LOGI(kTag, "Node access stopped device=%s result=%d peer=%s",
+                         device_id->c_str(), static_cast<int>(removed.result),
+                         esp_err_to_name(peer_result));
+            } else {
+                ESP_LOGW(kTag, "Node removal rejected device=%s result=%d",
+                         device_id->c_str(), static_cast<int>(removed.result));
+            }
+            if (security_link.faulted()) continue;
         }
         HubSecurityLink::ExpectedNode* requested = nullptr;
         if (xQueueReceive(g_request_queue, &requested, 0) == pdTRUE) {
@@ -504,6 +531,21 @@ bool request_node_commissioning(HubSecurityLink::ExpectedNode exact) {
     return true;
 }
 
+bool request_node_removal(const std::string& physical_device_id) {
+#if GS_HIL_BUILD
+    (void)physical_device_id;
+    return false;
+#else
+    if (g_removal_queue == nullptr || physical_device_id.empty() ||
+        physical_device_id.size() > 64) return false;
+    auto request = std::make_unique<std::string>(physical_device_id);
+    auto* pointer = request.get();
+    if (xQueueSend(g_removal_queue, &pointer, 0) != pdTRUE) return false;
+    request.release();
+    return true;
+#endif
+}
+
 #if GS_HIL_BUILD
 void hil_set_logical_online(bool online) {
     g_hil_logical_online.store(online, std::memory_order_release);
@@ -558,11 +600,19 @@ esp_err_t start_runtime_adapter() {
                                           g_security_storage.data(), &g_security_queue_state);
     g_request_queue = xQueueCreateStatic(1U, sizeof(HubSecurityLink::ExpectedNode*),
                                          g_request_storage.data(), &g_request_queue_state);
+#if !GS_HIL_BUILD
+    g_removal_queue = xQueueCreateStatic(1U, sizeof(std::string*),
+        g_removal_storage.data(), &g_removal_queue_state);
+#endif
     g_security_send_queue = xQueueCreateStatic(1U, sizeof(bool),
         g_security_send_storage.data(), &g_security_send_queue_state);
     if (g_data_queue == nullptr || g_control_queue == nullptr || g_health_queue == nullptr ||
         g_security_queue == nullptr || g_request_queue == nullptr ||
-        g_security_send_queue == nullptr) {
+        g_security_send_queue == nullptr
+#if !GS_HIL_BUILD
+        || g_removal_queue == nullptr
+#endif
+        ) {
         return ESP_ERR_NO_MEM;
     }
     if ((result = initialize_wifi()) != ESP_OK) return result;

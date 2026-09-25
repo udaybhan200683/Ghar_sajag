@@ -20,6 +20,16 @@ void PeerRegistry::authorize(const std::string& source_id, std::uint64_t session
     sessions_[source_id] = session_id;
 }
 
+void PeerRegistry::revoke(const std::string& source_id) {
+    sessions_.erase(source_id);
+}
+
+void IngestQueue::discard_source(const std::string& source_id) {
+    queue_.erase(std::remove_if(queue_.begin(), queue_.end(),
+        [&](const DomainEvent& event) { return event.key.source_id == source_id; }),
+        queue_.end());
+}
+
 bool PeerRegistry::accepts(const EventKey& key) const {
     GS_TRACE(gs::log::Category::Hub, "H01", "accepts.enter", "-");
     const auto it = sessions_.find(key.source_id);

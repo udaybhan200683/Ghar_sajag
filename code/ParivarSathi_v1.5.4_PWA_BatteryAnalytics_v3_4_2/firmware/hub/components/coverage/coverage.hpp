@@ -29,6 +29,7 @@ class CoverageTracker {
 public:
     explicit CoverageTracker(EpochSeconds lease_seconds = NodeProtocolPolicy::offline_after_seconds);
     void require_node(const std::string& node_id);
+    void forget_node(const std::string& node_id);
     // @requirements F08, E01, E03
     // Refresh contact telemetry; a heartbeat must not erase an explicit sensor fault.
     void observe(const std::string& node_id, EpochSeconds at, std::uint16_t battery_mv = 0);
