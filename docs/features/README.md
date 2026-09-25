@@ -30,6 +30,15 @@ Feature guides are **not** the current project-status authority. Use:
 - [Hub-Node Secure Communication](HUB_NODE_SECURE_COMMUNICATION.md)
   — per-Node runtime sessions, authenticated traffic, replay protection,
   event/health/ACK routing, and qualification boundaries.
+- [Battery, Low-Power and Power Management](BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md)
+  — current Node sensing and event-delivery power costs, portable energy policy,
+  battery analytics boundaries, and sleep roadmap.
+- [Routine, Activity and Incident Rules](ROUTINE_ACTIVITY_AND_INCIDENT_RULES.md)
+  — deterministic morning, inactivity, quiet-hours, door and night activity
+  behavior, including clock and coverage limits.
+- [Caregiver Actions and Notifications](CAREGIVER_ACTIONS_AND_NOTIFICATIONS.md)
+  — resident actions, incident timelines, caregiver acknowledgement, and
+  notification delivery boundaries.
 - [FOTA Engineering, Flashing, Security, and Recovery Guide](FOTA_ENGINEERING_FLASHING_SECURITY_AND_RECOVERY_GUIDE.md)
   — C3 FOTA architecture, signed image workflow, operational boundaries, and
   recovery guidance.
@@ -40,8 +49,5 @@ The entries below are planned documentation topics. They are not claims about
 implementation or feature completeness.
 
 - Multi-Node Operation
-- Battery, Low-Power and Power Management
-- Routine, Activity and Incident Rules
-- Caregiver Actions and Notifications
 - Installation and Service Workflow
 - Node-Hub-Backend-PWA Data Flow
