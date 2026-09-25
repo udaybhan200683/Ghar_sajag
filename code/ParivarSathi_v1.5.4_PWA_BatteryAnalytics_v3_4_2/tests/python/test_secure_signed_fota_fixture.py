@@ -79,6 +79,15 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertIn("CONFIG_ESP_CONSOLE_UART_NUM=-1", result)
         self.assertNotIn("CONFIG_ESP_CONSOLE_UART_DEFAULT=y", result)
 
+    def test_secure_hil_control_profile_enables_only_existing_test_credentials(self):
+        root = Path(__file__).resolve().parents[2]
+        identity = (root / "firmware/common/security/target_identity_signer.cpp").read_text()
+        wrapping = (root / "firmware/common/security/target_wrapping_key.cpp").read_text()
+        self.assertIn("#if GS_HIL_BUILD || GS_HIL_CONTROL", identity)
+        self.assertIn("#if !GS_HIL_BUILD && !GS_HIL_CONTROL", wrapping)
+        self.assertIn('"gs_dev_ident"', identity)
+        self.assertIn('"gs_security"', wrapping)
+
     def test_build_scripts_use_idf_activated_python_from_path(self):
         self.assertEqual(activated_python_command("scripts/build_signed_c3.py", "build"),
                          ["python", "scripts/build_signed_c3.py", "build"])

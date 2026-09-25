@@ -9,7 +9,9 @@ namespace gs::security {
 
 bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out) {
     out.fill(0);
-#if !GS_HIL_BUILD
+// HIL_CONTROL supports the secure-runtime test profile without enabling the
+// legacy raw-FOTA GS_HIL_BUILD path. Both remain disabled in release builds.
+#if !GS_HIL_BUILD && !GS_HIL_CONTROL
 #if !defined(CONFIG_SECURE_BOOT) || !defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
     return false;
 #endif
@@ -54,7 +56,7 @@ bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out)
 
 bool load_target_installer_code(CommissioningCrypto& crypto, Key32& out) {
     out.fill(0);
-#if !GS_HIL_BUILD
+#if !GS_HIL_BUILD && !GS_HIL_CONTROL
 #if !defined(CONFIG_SECURE_BOOT) || !defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
     return false;
 #endif
@@ -71,7 +73,7 @@ bool load_target_installer_code(CommissioningCrypto& crypto, Key32& out) {
         crypto.secure_zero(out.data(), out.size());
         return false;
     }
-#if GS_HIL_BUILD
+#if GS_HIL_BUILD || GS_HIL_CONTROL
     if (read == ESP_ERR_NVS_NOT_FOUND &&
         crypto.random_bytes(out.data(), out.size()) &&
         nvs_set_blob(handle, "install_code", out.data(), out.size()) == ESP_OK &&

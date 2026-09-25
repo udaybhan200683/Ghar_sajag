@@ -14,7 +14,9 @@ namespace {
 constexpr auto kP256 = PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1);
 constexpr auto kEcdsaSha256 = PSA_ALG_ECDSA(PSA_ALG_SHA_256);
 
-#if GS_HIL_BUILD
+// Both HIL profiles may generate disposable device identities. Release builds
+// leave both flags disabled and must use a protected provisioned PSA key.
+#if GS_HIL_BUILD || GS_HIL_CONTROL
 constexpr char kDevelopmentNamespace[] = "gs_dev_ident";
 constexpr char kDevelopmentKey[] = "private_p256";
 
@@ -81,7 +83,7 @@ TargetIdentitySigner::~TargetIdentitySigner() {
 bool TargetIdentitySigner::initialize() {
     if (key_ != 0 || reference_.empty() || production_key_id_ == 0 ||
         psa_crypto_init() != PSA_SUCCESS) return false;
-#if GS_HIL_BUILD
+#if GS_HIL_BUILD || GS_HIL_CONTROL
     std::array<std::uint8_t, 32> scalar{};
     const bool loaded = read_or_generate_development_scalar(scalar);
     if (!loaded) {
@@ -124,7 +126,7 @@ bool TargetIdentitySigner::initialize() {
 #endif
     P256PublicKey checked{};
     if (!public_key(reference_, checked)) {
-#if GS_HIL_BUILD
+#if GS_HIL_BUILD || GS_HIL_CONTROL
         (void)psa_destroy_key(key_);
 #endif
         key_ = 0;
