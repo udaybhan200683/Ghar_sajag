@@ -45,6 +45,11 @@ constexpr UBaseType_t kSecurityQueueDepth = 8U;
 constexpr UBaseType_t kSendQueueDepth = 4U;
 constexpr Milliseconds kSendCallbackTimeoutMs = 1000;
 constexpr Milliseconds kHealthIntervalMs = 60000;
+#if GS_HIL_CONTROL
+#define GS_NODE_PROGRESS_LOG ESP_LOGI
+#else
+#define GS_NODE_PROGRESS_LOG ESP_LOGD
+#endif
 
 struct SendResult {
     bool accepted_by_radio{false};
@@ -269,6 +274,7 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
 
 void owner_task(void*) {
     PowerPolicy power_policy;
+    NodeLedPolicy led_policy;
     EnergyCounters energy;
     energy.boot_count = 1;
     const auto boot_reset = esp_reset_reason();
@@ -329,10 +335,15 @@ void owner_task(void*) {
     g_ota_owner_started.store(true, std::memory_order_release);
     QualifiedInput pir(EventKind::Motion, std::nullopt, kPirDebounceMs,
                        kPirMinimumRetriggerMs);
+    PirNoiseMonitor pir_noise;
     std::optional<EventKey> in_flight;
     bool health_in_flight = false;
     Milliseconds sent_at_ms = 0;
+#if GS_HIL_BUILD
     Milliseconds led_off_at_ms = 0;
+#else
+    bool led_was_on = false;
+#endif
     Milliseconds next_health_ms =
 #if GS_HIL_CONTROL
         1000;
@@ -362,6 +373,9 @@ void owner_task(void*) {
     vTaskDelay(pdMS_TO_TICKS(kPirStabilizationMs));
     ESP_LOGI(kTag, "PIR ready on GPIO%d", kPirGpio);
     g_ota_sensing_ready.store(true, std::memory_order_release);
+#if !GS_HIL_BUILD
+    led_policy.trigger(LedSignal::Ready, monotonic_ms());
+#endif
     const esp_partition_t* running = esp_ota_get_running_partition();
     esp_ota_img_states_t ota_state{};
     if (running != nullptr &&
@@ -443,7 +457,13 @@ void owner_task(void*) {
             const auto retained_before = runtime.persisted();
 #endif
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
-            if (retired) power_policy.observe_authenticated_contact();
+            if (retired) {
+                power_policy.observe_authenticated_contact();
+                runtime.set_outage_profile(false, now);
+#if !GS_HIL_BUILD
+                led_policy.trigger(LedSignal::Delivery, now);
+#endif
+            }
 #if !GS_HIL_BUILD
             if ((runtime.pending() != pending_before ||
                  runtime.persisted() != retained_before) &&
@@ -457,7 +477,7 @@ void owner_task(void*) {
                 energy.record_recovery_commit();
 #endif
             breadcrumb = retired ? NodeBreadcrumb::EventRetired : NodeBreadcrumb::AppAck;
-            ESP_LOGI(kTag, "Application ACK session=%llu seq=%llu class=%d retired=%d",
+            GS_NODE_PROGRESS_LOG(kTag, "Application ACK session=%llu seq=%llu class=%d retired=%d",
                      static_cast<unsigned long long>(key.session_id),
                      static_cast<unsigned long long>(key.sequence),
                      static_cast<int>(decoded.value->ack_type), retired);
@@ -491,11 +511,15 @@ void owner_task(void*) {
             if (send_result.accepted_by_radio) ++mac_success_count;
             else ++mac_failure_count;
             if (in_flight) {
+                if (runtime.has_pending_key(*in_flight)) {
+                    power_policy.observe_unacknowledged_attempt();
+                    if (power_policy.consecutive_unacknowledged() >= 3)
+                        runtime.set_outage_profile(true, now);
+                }
                 runtime.transport_result(*in_flight, send_result.accepted_by_radio, now);
-                power_policy.observe_unacknowledged_attempt();
                 breadcrumb = send_result.accepted_by_radio
                     ? NodeBreadcrumb::WaitAppAck : NodeBreadcrumb::RetryBackoff;
-                ESP_LOGI(kTag, "MAC result session=%llu seq=%llu accepted=%d",
+                GS_NODE_PROGRESS_LOG(kTag, "MAC result session=%llu seq=%llu accepted=%d",
                          static_cast<unsigned long long>(in_flight->session_id),
                          static_cast<unsigned long long>(in_flight->sequence),
                          send_result.accepted_by_radio);
@@ -510,8 +534,12 @@ void owner_task(void*) {
             }
         }
         if (in_flight && now - sent_at_ms >= kSendCallbackTimeoutMs) {
+            if (runtime.has_pending_key(*in_flight)) {
+                power_policy.observe_unacknowledged_attempt();
+                if (power_policy.consecutive_unacknowledged() >= 3)
+                    runtime.set_outage_profile(true, now);
+            }
             runtime.transport_result(*in_flight, false, now);
-            power_policy.observe_unacknowledged_attempt();
             ESP_LOGW(kTag, "MAC callback timeout session=%llu seq=%llu",
                      static_cast<unsigned long long>(in_flight->session_id),
                      static_cast<unsigned long long>(in_flight->sequence));
@@ -540,6 +568,15 @@ void owner_task(void*) {
             breadcrumb = NodeBreadcrumb::PirRaw;
         }
         auto sensed = pir.sample(raw_pir, now);
+        if (pir_noise.observe(raw_pir, sensed.has_value(), now)) {
+            const auto& noise = pir_noise.snapshot();
+            ESP_LOGW(kTag, "PIR diagnostic rapid_edges=%u noisy_windows=%u stuck_high=%d",
+                     static_cast<unsigned>(noise.rapid_edges),
+                     static_cast<unsigned>(noise.noisy_windows), noise.stuck_high);
+#if !GS_HIL_BUILD
+            led_policy.trigger(LedSignal::Fault, now);
+#endif
+        }
 #if GS_HIL_CONTROL
         auto pending = g_hil_motion_pending.load(std::memory_order_acquire);
         while (pending != 0U &&
@@ -555,11 +592,13 @@ void owner_task(void*) {
         if (sensed) {
             ++accepted_pir;
             breadcrumb = NodeBreadcrumb::PirAccepted;
-            // GPIO8 is a local qualified-PIR indication. It is deliberately
-            // independent of store admission, radio delivery and Hub ACK.
+            // Legacy raw HIL retains its qualified-PIR indicator. Production
+            // indicates application delivery, not sensing alone.
+#if GS_HIL_BUILD
             (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio),
                                  kLedActiveLow ? 0 : 1);
             led_off_at_ms = now + 200;
+#endif
             if (!maintenance) {
                 breadcrumb = NodeBreadcrumb::EventRecordEnter;
                 const auto store_full_before = runtime.stats().store_full;
@@ -587,7 +626,7 @@ void owner_task(void*) {
                     energy.record_recovery_commit();
 #endif
                     breadcrumb = NodeBreadcrumb::EventRecordOk;
-                    ESP_LOGI(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
+                    GS_NODE_PROGRESS_LOG(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
                              static_cast<unsigned long long>(key->session_id),
                              static_cast<unsigned long long>(key->sequence));
                 } else {
@@ -612,10 +651,19 @@ void owner_task(void*) {
                 ++rejected_pir;
             }
         }
+#if GS_HIL_BUILD
         if (led_off_at_ms != 0 && now >= led_off_at_ms) {
             (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio), kLedActiveLow ? 1 : 0);
             led_off_at_ms = 0;
         }
+#else
+        const bool led_on = led_policy.on(now);
+        if (led_on != led_was_on) {
+            (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio),
+                                 kLedActiveLow ? !led_on : led_on);
+            led_was_on = led_on;
+        }
+#endif
 
         if (!in_flight && !health_in_flight && !maintenance &&
             (now >= next_health_ms
@@ -741,7 +789,7 @@ void owner_task(void*) {
                         in_flight = key;
                         sent_at_ms = now;
                         breadcrumb = NodeBreadcrumb::WaitMac;
-                        ESP_LOGI(kTag, "NodeMessage sent session=%llu seq=%llu bytes=%u",
+                        GS_NODE_PROGRESS_LOG(kTag, "NodeMessage sent session=%llu seq=%llu bytes=%u",
                                  static_cast<unsigned long long>(key.session_id),
                                  static_cast<unsigned long long>(key.sequence),
                                  static_cast<unsigned>(encoded.frame.size));

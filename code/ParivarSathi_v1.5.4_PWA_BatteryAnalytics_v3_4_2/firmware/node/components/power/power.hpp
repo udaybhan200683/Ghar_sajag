@@ -106,6 +106,46 @@ struct PowerDecision {
     bool outage_retry_profile{false};
 };
 
+// Diagnostics only: noisy input never disables sensing or rejects events.
+struct PirNoiseSnapshot {
+    std::uint32_t raw_edges{0};
+    std::uint32_t rapid_edges{0};
+    std::uint32_t noisy_windows{0};
+    std::uint32_t stuck_high_reports{0};
+    bool stuck_high{false};
+};
+
+class PirNoiseMonitor {
+public:
+    // Returns true only when a new bounded fault indication is warranted.
+    bool observe(bool raw_high, bool qualified, Milliseconds now_ms);
+    const PirNoiseSnapshot& snapshot() const { return snapshot_; }
+private:
+    PirNoiseSnapshot snapshot_;
+    Milliseconds last_change_ms_{-1};
+    Milliseconds high_since_ms_{-1};
+    Milliseconds window_start_ms_{-1};
+    std::uint16_t rapid_in_window_{0};
+    std::uint16_t qualified_in_window_{0};
+    bool warned_this_window_{false};
+    bool initialized_{false};
+    bool last_level_{false};
+};
+
+enum class LedSignal : std::uint8_t { Delivery, Ready, FotaSuccess, Fault };
+
+// A bounded pattern evaluator. The owner sets the GPIO level on each poll;
+// no task, timer, sleep call, or blocking delay is added.
+class NodeLedPolicy {
+public:
+    void trigger(LedSignal signal, Milliseconds now_ms);
+    bool on(Milliseconds now_ms) const;
+    bool active(Milliseconds now_ms) const;
+private:
+    LedSignal signal_{LedSignal::Delivery};
+    Milliseconds started_ms_{-1};
+};
+
 // Device/hardware calibration.  Values come from measured hardware profiles,
 // not family routine settings and not assumptions hidden inside the estimator.
 struct PowerCalibration {

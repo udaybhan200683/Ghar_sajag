@@ -682,6 +682,113 @@ void test_node_offline_resilience() {
     }
 }
 
+void test_node_power_diagnostics() {
+    gs::node::QualifiedInput pir(gs::EventKind::Motion, std::nullopt, 150, 1000);
+    gs::node::PirNoiseMonitor noise;
+    check(!pir.sample(false, 0), "PIR starts idle");
+    check(!pir.sample(true, 10), "PIR rise still requires debounce");
+    const auto first = pir.sample(true, 160);
+    check(first == gs::EventKind::Motion &&
+          !noise.observe(true, first.has_value(), 160),
+          "first qualified PIR is delivered without a noise fault");
+    bool warned = false;
+    for (int index = 0; index < 24; ++index)
+        warned |= noise.observe(index % 2 == 0, false, 200 + index * 10);
+    check(warned && noise.snapshot().noisy_windows == 1 &&
+          noise.snapshot().rapid_edges >= 20,
+          "rapid PIR edges produce one bounded diagnostic per window");
+    check(!noise.observe(true, false, 500) &&
+          noise.snapshot().noisy_windows == 1,
+          "additional noisy edges do not flood the same window");
+    check(noise.observe(true, false, 300500) &&
+          noise.snapshot().stuck_high && noise.snapshot().stuck_high_reports == 1,
+          "sustained PIR high is observable without disabling sensing");
+    check(!noise.observe(true, false, 300520) &&
+          noise.snapshot().stuck_high_reports == 1,
+          "stuck-high fault is reported once per continuous high interval");
+    check(pir.sample(false, 300530) == std::nullopt &&
+          !noise.observe(false, false, 300530) &&
+          !noise.snapshot().stuck_high,
+          "PIR low clears diagnostic state while sensing remains active");
+    check(!pir.sample(false, 300690) && !pir.sample(true, 300700) &&
+          pir.sample(true, 300860) == gs::EventKind::Motion,
+          "a valid later PIR event still qualifies after noisy input");
+
+    gs::node::NodeLedPolicy led;
+    check(!led.active(0) && !led.on(0), "LED defaults off");
+    led.trigger(gs::node::LedSignal::Ready, 100);
+    check(led.on(100) && !led.on(250) && led.on(400) &&
+          !led.active(550), "ready indication uses two bounded nonblocking pulses");
+    led.trigger(gs::node::LedSignal::Delivery, 600);
+    check(led.on(600) && !led.active(680),
+          "delivery indication ends without blocking owner work");
+    led.trigger(gs::node::LedSignal::Fault, 700);
+    led.trigger(gs::node::LedSignal::Delivery, 710);
+    check(led.on(710) && led.active(1180) && !led.active(1240),
+          "fault indication is bounded and not displaced by delivery");
+}
+
+void test_node_outage_profile() {
+    gs::node::NodeRuntime node("outage-node", 50, 8, 8);
+    const auto motion = node.record(gs::EventKind::Motion, "room", 0, 0);
+    check(motion && node.has_pending_key(*motion),
+          "outage fixture retains the original motion identity");
+    auto due = node.next_message(0);
+    check(due && due->sequence_number == motion->sequence,
+          "first normal attempt remains immediate");
+    node.transport_result(*motion, false, 0);
+    check(!node.next_message(200) && node.next_message(300),
+          "normal initial backoff remains unchanged");
+    node.transport_result(*motion, false, 300);
+    check(!node.next_message(800) && node.next_message(1000),
+          "normal second retry remains on the existing ladder");
+    gs::node::PowerPolicy policy;
+    policy.observe_unacknowledged_attempt();
+    policy.observe_unacknowledged_attempt();
+    check(policy.consecutive_unacknowledged() == 2 &&
+          !node.outage_profile(), "two failed attempts do not enter outage");
+    policy.observe_unacknowledged_attempt();
+    node.set_outage_profile(policy.consecutive_unacknowledged() >= 3, 1000);
+    check(node.outage_profile(), "confirmed outage selects periodic profile");
+    node.transport_result(*motion, false, 1000);
+    const auto next = node.next_retry_deadline();
+    check(next && *next >= 61000 && *next <= 61200 &&
+          !node.next_message(60000),
+          "confirmed outage limits ordinary retry opportunities to about one per minute");
+
+    const auto door = node.record(gs::EventKind::DoorOpen, "entry", 2000, 0);
+    check(door && node.next_retry_deadline() == 2000,
+          "new priority work remains due despite ordinary recovery gate");
+    due = node.next_message(2000);
+    check(due && due->sequence_number == door->sequence,
+          "new door event bypasses the motion probe gate once");
+    node.transport_result(*door, false, 2000);
+    check(!node.next_message(3000) && node.has_pending_key(*motion) &&
+          node.has_pending_key(*door),
+          "outage retains both identities and does not create a retry burst");
+    due = node.next_message(62500);
+    check(due && due->sequence_number == door->sequence,
+          "priority retained work wins the next bounded recovery opportunity");
+    node.transport_result(*door, false, 62500);
+    check(!node.next_message(120000) &&
+          node.next_retry_deadline() && *node.next_retry_deadline() >= 122500 &&
+          node.radio_stats().periodic_backoff_entries >= 1,
+          "confirmed outage remains periodic without an all-pending retry storm");
+    check(!node.acknowledge(*motion, gs::AckClass::ReceivedVolatile) &&
+          node.has_pending_key(*motion),
+          "volatile ACK cannot retire durable outage evidence");
+    policy.observe_authenticated_contact();
+    node.set_outage_profile(false, 120001);
+    check(!node.outage_profile() && policy.consecutive_unacknowledged() == 0 &&
+          node.next_retry_deadline() && *node.next_retry_deadline() <= 120001 &&
+          node.next_message(120001),
+          "authenticated recovery clears outage and schedules retained work");
+    check(node.acknowledge(*motion, gs::AckClass::Durable) &&
+          node.acknowledge(*door, gs::AckClass::Durable) &&
+          node.pending() == 0 && node.persisted() == 0,
+          "matching durable ACKs retire the original event identities");
+}
+
 void test_data_plane_codec_and_ack_policy() {
     namespace wire = gs::transport;
 
@@ -923,6 +1030,8 @@ int main() {
         test_hub_modules();
         test_protocol_and_generic_rules();
         test_node_offline_resilience();
+        test_node_power_diagnostics();
+        test_node_outage_profile();
         test_data_plane_codec_and_ack_policy();
         test_security_seams();
         test_logging_policy();

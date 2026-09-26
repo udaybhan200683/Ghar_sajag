@@ -57,10 +57,15 @@ public:
     std::size_t pending() const { return queue_.size(); }
     std::size_t capacity() const { return capacity_; }
     std::optional<EventKey> oldest_key() const;
+    bool contains(const EventKey& key) const;
     std::optional<Milliseconds> next_due_at() const {
         if (!earliest_due_ms_) return std::nullopt;
-        return std::max(*earliest_due_ms_, next_radio_opportunity_ms_);
+        const auto ordinary = std::max(*earliest_due_ms_, next_radio_opportunity_ms_);
+        return outage_profile_ && earliest_new_critical_ms_
+            ? std::min(ordinary, *earliest_new_critical_ms_) : ordinary;
     }
+    void set_outage_profile(bool enabled, Milliseconds now_ms);
+    bool outage_profile() const { return outage_profile_; }
     std::vector<PendingTx> pending_snapshot() const;
     // Old monotonic deadlines cannot cross a reboot. Every unacknowledged
     // transmission becomes due in the new clock domain; retry attempt count
@@ -76,6 +81,8 @@ private:
     std::size_t round_robin_cursor_{0};
     Milliseconds next_radio_opportunity_ms_{0};
     std::optional<Milliseconds> earliest_due_ms_;
+    std::optional<Milliseconds> earliest_new_critical_ms_;
+    bool outage_profile_{false};
 };
 
 }  // namespace gs::node

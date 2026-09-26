@@ -70,7 +70,12 @@ public:
     bool gap_marker_required() const { return store_.gap_marker_required(); }
     std::uint64_t next_sequence() const { return next_sequence_; }
     std::optional<EventKey> oldest_pending_key() const { return radio_.oldest_key(); }
+    bool has_pending_key(const EventKey& key) const { return radio_.contains(key); }
     std::optional<Milliseconds> next_retry_deadline() const { return radio_.next_due_at(); }
+    void set_outage_profile(bool enabled, Milliseconds now_ms) {
+        radio_.set_outage_profile(enabled, now_ms);
+    }
+    bool outage_profile() const { return radio_.outage_profile(); }
     const NodeRuntimeStats& stats() const { return stats_; }
     const NodeRadioStats& radio_stats() const { return radio_.stats(); }
     NodeRuntimeRecoveryState recovery_snapshot() const;

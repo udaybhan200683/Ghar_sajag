@@ -45,7 +45,31 @@ bool NodeRadio::enqueue(const DomainEvent& event, Milliseconds now_ms) {
 // Expose work eligible at this elapsed time; this method does not transmit a radio frame.
 std::optional<DomainEvent> NodeRadio::next_due(Milliseconds now_ms) {
     GS_TRACE(gs::log::Category::Radio, "N02", "next_due.enter", "-");
-    if (queue_.empty() || now_ms < next_radio_opportunity_ms_) return std::nullopt;
+    if (queue_.empty()) return std::nullopt;
+    if (outage_profile_) {
+        // An unsent safety/door/button event must not wait behind an ordinary
+        // motion recovery probe. Its later retries still use the global gate.
+        for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
+            const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
+            if (queue_[index].event.kind != EventKind::Motion &&
+                queue_[index].attempt == 0 &&
+                queue_[index].next_attempt_ms <= now_ms) {
+                round_robin_cursor_ = (index + 1U) % queue_.size();
+                return queue_[index].event;
+            }
+        }
+    }
+    if (now_ms < next_radio_opportunity_ms_) return std::nullopt;
+    if (outage_profile_) {
+        for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
+            const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
+            if (queue_[index].event.kind != EventKind::Motion &&
+                queue_[index].next_attempt_ms <= now_ms) {
+                round_robin_cursor_ = (index + 1U) % queue_.size();
+                return queue_[index].event;
+            }
+        }
+    }
     for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
         const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
         if (queue_[index].next_attempt_ms <= now_ms) {
@@ -70,7 +94,9 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
     else ++stats_.mac_failure;
     if (it->attempt > 0U) ++stats_.retries;
     const auto index = std::min(it->attempt, NodeProtocolPolicy::retry_delays_ms.size() - 1);
-    const auto base = NodeProtocolPolicy::retry_delays_ms[index];
+    const auto base = outage_profile_
+        ? NodeProtocolPolicy::retry_delays_ms.back()
+        : NodeProtocolPolicy::retry_delays_ms[index];
     const auto deterministic_jitter = static_cast<Milliseconds>(
         (key.sequence * 37U) % (static_cast<std::uint64_t>(NodeProtocolPolicy::retry_jitter_max_ms) + 1U));
     it->next_attempt_ms = now_ms + base + deterministic_jitter;
@@ -78,7 +104,8 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
     // N-packet burst every backoff period while the Hub is absent.
     next_radio_opportunity_ms_ = it->next_attempt_ms;
     if (it->attempt < NodeProtocolPolicy::retry_delays_ms.size()) ++it->attempt;
-    if (index == NodeProtocolPolicy::retry_delays_ms.size() - 1U &&
+    if ((outage_profile_ ||
+         index == NodeProtocolPolicy::retry_delays_ms.size() - 1U) &&
         !it->periodic_backoff_counted) {
         it->periodic_backoff_counted = true;
         ++stats_.periodic_backoff_entries;
@@ -86,16 +113,43 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
     refresh_earliest_due();
 }
 
+void NodeRadio::set_outage_profile(bool enabled, Milliseconds now_ms) {
+    if (enabled == outage_profile_) return;
+    outage_profile_ = enabled;
+    if (!enabled) {
+        // Authenticated progress proves the Hub is back. Make retained work
+        // eligible again without changing any event identity or ACK policy.
+        for (auto& item : queue_)
+            item.next_attempt_ms = std::min(item.next_attempt_ms, now_ms);
+        next_radio_opportunity_ms_ = 0;
+        refresh_earliest_due();
+    }
+}
+
 std::optional<EventKey> NodeRadio::oldest_key() const {
     if (queue_.empty()) return std::nullopt;
     return queue_.front().event.key;
 }
 
+bool NodeRadio::contains(const EventKey& key) const {
+    return std::any_of(queue_.begin(), queue_.end(), [&key](const PendingTx& item) {
+        return item.event.key.source_id == key.source_id &&
+               item.event.key.session_id == key.session_id &&
+               item.event.key.sequence == key.sequence &&
+               item.event.key.physical_device_id == key.physical_device_id;
+    });
+}
+
 void NodeRadio::refresh_earliest_due() {
     earliest_due_ms_.reset();
+    earliest_new_critical_ms_.reset();
     for (const auto& item : queue_) {
         if (!earliest_due_ms_ || item.next_attempt_ms < *earliest_due_ms_)
             earliest_due_ms_ = item.next_attempt_ms;
+        if (item.event.kind != EventKind::Motion && item.attempt == 0 &&
+            (!earliest_new_critical_ms_ ||
+             item.next_attempt_ms < *earliest_new_critical_ms_))
+            earliest_new_critical_ms_ = item.next_attempt_ms;
     }
 }
 

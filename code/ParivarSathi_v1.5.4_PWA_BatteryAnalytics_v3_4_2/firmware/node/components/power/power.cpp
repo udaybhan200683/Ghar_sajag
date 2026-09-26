@@ -6,6 +6,90 @@
 #include <cmath>
 
 namespace gs::node {
+namespace {
+struct LedPattern {
+    Milliseconds on_ms;
+    Milliseconds off_ms;
+    std::uint8_t pulses;
+};
+LedPattern pattern_for(LedSignal signal) {
+    switch (signal) {
+        case LedSignal::Delivery: return {80, 0, 1};
+        case LedSignal::Ready: return {150, 150, 2};
+        case LedSignal::FotaSuccess: return {400, 200, 3};
+        case LedSignal::Fault: return {60, 60, 5};
+    }
+    return {0, 0, 0};
+}
+}  // namespace
+
+bool PirNoiseMonitor::observe(bool raw_high, bool qualified, Milliseconds now_ms) {
+    if (now_ms < 0) return false;
+    if (!initialized_) {
+        initialized_ = true;
+        last_level_ = raw_high;
+        last_change_ms_ = now_ms;
+        high_since_ms_ = raw_high ? now_ms : -1;
+        window_start_ms_ = now_ms;
+        return false;
+    }
+    if (now_ms < window_start_ms_ || now_ms - window_start_ms_ >= 60000) {
+        window_start_ms_ = now_ms;
+        rapid_in_window_ = 0;
+        qualified_in_window_ = 0;
+        warned_this_window_ = false;
+    }
+    if (raw_high != last_level_) {
+        ++snapshot_.raw_edges;
+        if (last_change_ms_ >= 0 && now_ms >= last_change_ms_ &&
+            now_ms - last_change_ms_ < 150) {
+            ++snapshot_.rapid_edges;
+            if (rapid_in_window_ < 65535) ++rapid_in_window_;
+        }
+        last_level_ = raw_high;
+        last_change_ms_ = now_ms;
+        high_since_ms_ = raw_high ? now_ms : -1;
+        if (!raw_high) snapshot_.stuck_high = false;
+    }
+    if (qualified && qualified_in_window_ < 65535) ++qualified_in_window_;
+    bool new_fault = false;
+    if (!warned_this_window_ &&
+        (rapid_in_window_ >= 20 || qualified_in_window_ >= 30)) {
+        warned_this_window_ = true;
+        ++snapshot_.noisy_windows;
+        new_fault = true;
+    }
+    if (raw_high && !snapshot_.stuck_high && high_since_ms_ >= 0 &&
+        now_ms >= high_since_ms_ && now_ms - high_since_ms_ >= 300000) {
+        snapshot_.stuck_high = true;
+        ++snapshot_.stuck_high_reports;
+        new_fault = true;
+    }
+    return new_fault;
+}
+
+void NodeLedPolicy::trigger(LedSignal signal, Milliseconds now_ms) {
+    if (now_ms < 0) return;
+    if (active(now_ms) && (signal_ == signal ||
+        (signal_ == LedSignal::Fault && signal != LedSignal::Fault))) return;
+    signal_ = signal;
+    started_ms_ = now_ms;
+}
+
+bool NodeLedPolicy::active(Milliseconds now_ms) const {
+    if (started_ms_ < 0 || now_ms < started_ms_) return false;
+    const auto pattern = pattern_for(signal_);
+    const Milliseconds total = pattern.on_ms * pattern.pulses +
+        pattern.off_ms * (pattern.pulses - 1);
+    return now_ms - started_ms_ < total;
+}
+
+bool NodeLedPolicy::on(Milliseconds now_ms) const {
+    if (!active(now_ms)) return false;
+    const auto pattern = pattern_for(signal_);
+    return (now_ms - started_ms_) % (pattern.on_ms + pattern.off_ms) <
+        pattern.on_ms;
+}
 
 void PowerPolicy::observe_authenticated_contact() {
     unacknowledged_ = 0;
