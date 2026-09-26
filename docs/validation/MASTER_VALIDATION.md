@@ -287,6 +287,32 @@ HIL tooling, isolation and target-build checks. `make validation-nightly HIL=1`
 adds `make hil-qualify`, the only orchestration path. No Phase-2 soak or FOTA
 matrix is started by these integrations.
 
+## Fast-gate coverage map
+
+This map describes the current `make validation-fast` execution path. A
+registered test is covered only when its owning command is reached and returns
+nonzero on failure. Physical proof remains separate.
+
+| Feature / invariant | Test | Fast-gate execution path | Physical qualification needed? | Status |
+|---|---|---|---|---|
+| Phase-1 Node/Hub runtime, events, ACK/retry, outage/recovery and baseline persistence | `tests/cpp/test_main.cpp`, `tests/cpp/master_validation.cpp` | `release_gate.py --quick` → `cpp-unit` and `master-production-runtime`; prerequisite HIL host/replay gates | For target behavior | Executed; host failures fail the gate |
+| Phase-1 HIL parser/supervisor real-evidence replay and production/HIL isolation | `test_hil_supervisor`, `test_hil_phase1`, `test_hil_real_replay`, `hil_host_gate.py` | `validation-fast` → `hil-tooling-test` and `hil-host-check` | Yes for connected hardware claims | Executed; host failures fail the gate |
+| Phase-2 commissioning, identity, authenticated runtime/rejoin and replay protection | commissioning, rejoin, and runtime AEAD C++ validations | `validation-fast` prerequisites → commissioning/rejoin targets; quick release gate → master runtime | Target/physical claims remain distinct | Executed; host failures fail the gate |
+| Registry admission/revocation, association and Node/Hub persistence | registry, association, recovery and journal C++ validations | `validation-fast` prerequisites → registry/persistence targets | Power-loss claims need target evidence | Executed; host failures fail the gate |
+| 1/4/10/25 logical-node behavior, pressure, fairness and outage recovery | Multi-node host validation and summary checker | `validation-fast` prerequisite → `multinode-host-test` | Physical RF scale claims need physical Nodes | Executed; host failures fail the gate |
+| FOTA codec/state machine and boot-health policy | `fota_host_validation.cpp` | quick release gate → `fota-host-state-machine` | Physical update/rollback claims require HIL | Executed; host failures fail the gate |
+| Authenticated FOTA sender guard, secure receiver adapter and digest checks | `hub_fota_guard_validation.cpp`, `secure_fota_adapter_validation.cpp` | `validation-fast` prerequisites → `hub-fota-guard-host-test`, `secure-fota-adapter-host-test` | Physical signed-FOTA claims require the dedicated campaign | Executed; host failures fail the gate |
+| BAT-C1–C5 policy, queue/retry invariants, NodeHealth cadence and Hub lease | C++ BAT-C5 checks and `test_battery_power_invariants.py` | quick release gate → `cpp-unit` and full `python-backend-db-logging` discovery | Quiet-node timing and energy require measurement | Executed; host failures fail the gate |
+| Backend/API, event chronology, dedupe, offline/online state, caregiver actions and PWA | Python discovery, functional catalog, HTTP, bridge, PWA API/frontend and browser smoke | quick release gate named stages | Real deployment and physical vertical path remain separate | Executed; host failures fail the gate |
+
+The focused secure FOTA host targets run once as `validation-fast`
+prerequisites; their results are not repeated inside `release_gate.py`. The
+Python discovery stage is preceded by one `lab-build`; the browser stage also
+rebuilds the lab before launching its isolated local server. The Python test
+stage itself does not trigger another build through the `python-test` Make
+dependency. The fast gate excludes physical signed-FOTA, current/endurance/sleep HIL,
+`release-gate-final`, nightly endurance, and full PWAE2E campaigns.
+
 Execution modes are distinct: simulation nightly needs no hardware; HIL
 nightly requires configured connected Hub+C3 and blocks when absent; milestone
 physical qualification owns RF/electrical/PIR/battery/brownout and electrical

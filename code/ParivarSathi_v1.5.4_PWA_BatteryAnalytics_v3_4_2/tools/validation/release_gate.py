@@ -155,7 +155,6 @@ else:
     ok &= run('fota-host-state-machine',['make','fota-host-test'],timeout=300)
 # make python-test discovers all tests/python/test_*.py, including the Phase 1
 # FoundationService persistence/domain and WSGI application-path suites.
-ok &= run('python-backend-db-logging',['make','python-test'])
 ok &= run('javascript-app',['make','app-test'])
 ok &= run('product-base',['make','product-test','PRODUCT=base'])
 ok &= run('product-ai',['make','product-test','PRODUCT=ai'])
@@ -170,6 +169,9 @@ if not args.quick:
         ok &= run(variant_name + '-clean', ['make','clean'], timeout=60)
         ok &= run(variant_name, ['make','simulator', f'TRACE_FLAGS={flags}'], timeout=120)
 ok &= run('lab-build',['make','lab-build'])
+ok &= run('python-backend-db-logging',
+          [sys.executable,'-m','unittest','discover','-s','tests/python','-p','test_*.py','-v'],
+          env={'PYTHONPATH':'backend'})
 ok &= run('dummy-sensor-streams',[sys.executable,'tools/validation/run_dummy_sensor_streams.py'])
 ok &= run('functional-catalog',[sys.executable,'tools/validation/run_functional_suite.py'],timeout=240)
 ok &= run('http-integration',[sys.executable,'tests/simulation_http_test.py'],timeout=240)
