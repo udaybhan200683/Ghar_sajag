@@ -127,8 +127,8 @@ behavior.
 
 | Area | Status | Remaining work |
 |---|---|---|
-| Target commissioning and registry wiring | **OPEN** | Connect installer authorization, target asymmetric proof, target registry admission, logical assignment, and audit behavior. Host protocol tests do not establish this path. |
-| Target runtime authentication / rejoin | **OPEN** | Wire AEAD, authenticated ACK/control/health, replay windows, session progression, and rejoin into actual ESP-NOW adapters. |
+| Target commissioning and registry wiring | **IMPLEMENTED; PHYSICALLY_EXERCISED_PARTIAL** | Target exact-node commissioning and authenticated rejoin were exercised in `20260925T160845.031972Z`, but that campaign later failed during setup and is not a clean commissioning qualification. The later `20260925T194530.402772Z` run proves rejoin/application traffic, not a commissioning offer. Trusted installer/backend-to-Hub Add Device authorization remains a **PRODUCT_GAP**; production provisioning and multi-Node physical qualification also remain open. |
+| Target runtime authentication / rejoin | **IMPLEMENTED; PHYSICALLY_QUALIFIED (one-pair development profile)** | Hub/C3 owner tasks use AEAD, replay protection, authenticated ACK/control/health and session progression. The signed-FOTA run `20260925T194530.402772Z` proves authenticated rejoin and application ACK after Hub and C3 restarts. Multi-Node target/RF behavior and production key protection remain open. |
 | Production credential and protected-key source | **OPEN** | Define manufacturing key provisioning and use supported protected storage. Development/HIL credentials are not production qualification. No irreversible eFuse operation is authorized here. |
 | Association and Node recovery persistence | **PARTIAL** | The authenticated C3 owner now restores its existing encrypted recovery record after rejoin, commits a newly admitted event before radio send, and saves ACK retirement and the first store-full gap marker. Non-HIL and HIL C3 builds plus focused host recovery tests pass. This path has no physical restart/power-cut evidence; production protected-key provisioning, rollback resistance and flash endurance remain open. |
 | Hub registry persistence | **PARTIAL** | Host encrypted snapshot and target adapter/build exist; target restore and protected key source remain open. |
@@ -149,7 +149,7 @@ The full requirement status and evidence references are in
 [`MASTER_TRACEABILITY.csv`](../validation/MASTER_TRACEABILITY.csv). Phase 2 is
 not complete.
 
-### Fast-closure triage of every Phase-2 traceability row (2026-09-24)
+### Fast-closure triage of every Phase-2 traceability row (updated 2026-09-26)
 
 This classification sets the work boundary before further implementation.
 `ALREADY_COMPLETE` applies only to the row's stated host or one-pair physical
@@ -161,7 +161,7 @@ continues to record its broader requirement until evidence changes.
 
 | Traceability ID | Fast-closure classification | Reason / boundary |
 |---|---|---|
-| P2-COM-01 | PHASE2_REQUIRED_NOW | The active Hub/C3 radio path does not commission or authenticate installed Nodes. |
+| P2-COM-01 | PHASE2_REQUIRED_NOW | Exact-node commissioning is implemented and was physically exercised in `20260925T160845.031972Z`, but that campaign did not complete cleanly; `20260925T194530.402772Z` qualifies runtime/rejoin only. A focused clean commissioning qualification remains. The trusted installer-to-Hub Add Device channel is a separate P0 PRODUCT_GAP; production credentials/protected storage belong to productization. |
 | P2-MN10-01 | PHASE2_REQUIRED_NOW | Host scale passes; target admission/peer capacity and representative RF proof remain. |
 | P2-FOTA-01 | PARTIAL_BUT_SUFFICIENT | Signed negative rejection and one signed A-to-B/recovery cycle passed physically at `evidence/hil/runs/20260925T194530.402772Z`; repeated cycles, interruption/corruption, and failed-boot rollback remain open. |
 | P2-FAULT-01 | VALIDATION_TECH_DEBT | Defer the full generic fault matrix; test high-risk product failures directly through existing seams and focused cases. |
@@ -201,19 +201,22 @@ commissioning, registry-backed authenticated rejoin, and AEAD event/health/ACK
 routing to the production Hub/C3 owner tasks. This is **target-build evidence,
 not physical security qualification**. The default HIL image retains the
 Phase-1 single-pair transport path for its 71 mandatory regression cases.
-Production provisioning and installer-to-Hub authorization remain open, and
-the secure target path must be exercised on development hardware before the
-ten-Node target/RF claim. Unauthenticated production FOTA controls are disabled
-pending image/control authorization; the previously qualified HIL FOTA path
-remains available in HIL images only.
+Production provisioning and installer-to-Hub authorization remain open. The
+secure target path has been exercised on one development Hub/C3 pair; that
+does not establish ten-Node target/RF behavior. Unauthenticated production
+FOTA controls remain disabled; the secure signed-FOTA path used for this
+physical qualification is a focused HIL-control profile.
 
 ## Exact remaining Phase-2 sequence
 
-1. **P2.3 target commissioning/security qualification:** exercise the newly
-   wired Hub/C3 owner path with development credentials, finish the installer
-   authorization entry point, and prove target peer/session recovery. The
-   target build alone does not close this item; production credential
-   manufacturing remains a separately governed decision.
+1. **P2.3 target commissioning/security qualification:** target exact-Node
+   commissioning is implemented and partially physically exercised, but the
+   run that showed the commissioning offer did not complete cleanly. A focused
+   clean commissioning qualification remains. The later signed-FOTA campaign
+   qualifies authenticated rejoin and application ACK after restarts, not the
+   commissioning offer. Keep trusted installer/backend-to-Hub Add Device
+   authorization in P0 vertical work and production credential manufacturing
+   in productization.
 2. **P2.4 target persistence integration:** connect protected key sourcing,
    association/registry/recovery restore, and the bounded Hub event journal;
    define accurate durable-ACK behavior and qualify restart semantics.
@@ -221,14 +224,16 @@ remains available in HIL images only.
    MN25 results; prove target single-Node compatibility, then target capacity
    and representative physical 2–4 C3 behavior. Ten logical Nodes remain
    mandatory; 25 Nodes remain simulated stress.
-4. **P2.6–P2.7 FOTA:** run a real version upgrade, add image authorization and
-   compatibility policy, negative/interruption tests, rollback/failed-boot
-   evidence, and repeated A/B cycles.
+4. **P2.6–P2.7 FOTA:** one signed version upgrade and wrong-signer rejection
+   passed physically. Remaining targeted work is failed-boot/rollback proof,
+   corruption/interruption safety, and the minimum compatibility policy needed
+   for supported prototype images; repeated A/B cycles beyond a bounded check
+   can be deferred if they add no distinct risk coverage.
 5. **P2.8–P2.10 reliability/performance:** deterministic target-path fault
    injection, recovery storms, resource/latency budgets, and staged stress.
-6. **P2.11 vertical path:** deliver a real target Hub/backend/PWA path if it
-   remains in Phase-2 product scope; until then report the explicit product
-   gap and do not claim vertical qualification.
+6. **P2.11 vertical path:** defer the real target Hub/backend/PWA bridge to P0
+   product vertical work. Keep the gap explicit and do not claim physical
+   vertical qualification in Phase 2.
 7. **P2.12–P2.15 closure:** physical multi-C3 checkpoint, configurable soak,
    `hil-full`, `release-qualify`, final mandatory Phase-1 regression,
    documentation and traceability closure.
