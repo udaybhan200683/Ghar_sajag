@@ -224,6 +224,11 @@ def latest_c3_ready_version(lines: list[str]) -> str | None:
     return None
 
 
+def artifact_manifest_path(run_dir: Path) -> str:
+    """Return a JSON-safe evidence path for the generated artifact manifest."""
+    return str(run_dir / "signed_fota_artifacts.json")
+
+
 class SecureCampaign:
     def __init__(self, config: dict[str, str], devices: dict, run_dir: Path):
         self.config, self.devices, self.run_dir = config, devices, run_dir
@@ -463,7 +468,7 @@ class SecureCampaign:
                 "transfer_id_negative": self.transfer_ids[self.images["NEG"]["version"]],
                 "session_before": old_session, "session_after_hub_restart": session_after_hub_restart,
                 "session_after_c3_update": final_session,
-                "artifacts": self.run_dir / "signed_fota_artifacts.json"}
+                "artifacts": artifact_manifest_path(self.run_dir)}
 
 
 def main() -> int:
