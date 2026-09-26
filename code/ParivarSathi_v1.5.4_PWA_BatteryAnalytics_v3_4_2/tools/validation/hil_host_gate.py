@@ -33,11 +33,13 @@ def check_source_isolation() -> None:
         cmake_text = cmake.read_text()
         top_text = top.read_text()
         app_text = app.read_text()
-        if "if(GS_HIL_BUILD)" not in cmake_text or "GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>" not in cmake_text:
+        if ("if(GS_HIL_BUILD OR GS_HIL_CONTROL)" not in cmake_text
+                or "GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>" not in cmake_text
+                or "GS_HIL_CONTROL=$<BOOL:${GS_HIL_CONTROL}>" not in cmake_text):
             fail(f"HIL source is not compile-time gated: {cmake}")
         if 'option(GS_HIL_BUILD "Enable the USB HIL control plane (never for release images)" OFF)' not in top_text:
             fail(f"production HIL default is not OFF: {top}")
-        if "#if GS_HIL_BUILD" not in app_text:
+        if "#if GS_HIL_CONTROL" not in app_text:
             fail(f"HIL startup is not compile-time gated: {app}")
 
 

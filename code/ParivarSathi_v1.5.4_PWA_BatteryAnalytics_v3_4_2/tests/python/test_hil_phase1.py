@@ -658,11 +658,11 @@ class HilInfrastructureTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         for role in ("node/target/esp32c3", "hub/target/esp32"):
             cmake = (root/f"firmware/{role}/idf/main/CMakeLists.txt").read_text()
-            self.assertIn("if(GS_HIL_BUILD)", cmake)
+            self.assertIn("if(GS_HIL_BUILD OR GS_HIL_CONTROL)", cmake)
             self.assertIn('list(APPEND', cmake)
         for role in ("node/target/esp32c3", "hub/target/esp32"):
             app = (root/f"firmware/{role}/idf/main/app_main.cpp").read_text()
-            self.assertIn("#if GS_HIL_BUILD", app)
+            self.assertIn("#if GS_HIL_CONTROL", app)
 
     def test_hil_control_accumulates_commands_until_newline(self):
         root = Path(__file__).resolve().parents[2]

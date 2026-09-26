@@ -113,7 +113,14 @@ test.describe('Parivar Sathi mandatory browser release gate', () => {
 
     await okButton.click();
     await page.waitForTimeout(500);
+    const doorUpdate = page.waitForResponse(response =>
+      response.url().endsWith('/pwa/action') &&
+      response.request().method() === 'POST' &&
+      response.request().postDataJSON()?.scenario === 'door' &&
+      response.ok()
+    );
     await doorButton.click();
+    await doorUpdate;
 
     const events = page.locator('.event');
     await expect(events.first()).toContainText(/Main door left open/i);

@@ -22,7 +22,8 @@ class ValidationFrameworkTest(unittest.TestCase):
         self.assertTrue(all(row['status'] in {
             'COVERED','PARTIAL','MISSING_PRODUCT_FEATURE',
             'MISSING_PRODUCT_FEATURE_TARGET_VERTICAL_BRIDGE',
-            'PRODUCT_GAP','TEST_INFRA_GAP','HIL_ONLY_PHYSICAL'
+            'PRODUCT_GAP','TEST_INFRA_GAP','HIL_ONLY_PHYSICAL',
+            'PARTIAL_BUT_SUFFICIENT'
         } for row in rows))
 
     def test_fota_host_matrix_is_complete_and_uses_production_receiver(self):
