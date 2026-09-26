@@ -109,11 +109,19 @@ RF/environmental fixtures; they are not failures. The focused campaign did
 not run radio-loss, offline, Hub-restart, C3-restart, or both-target-restart
 campaigns; these must not be described as blocked or passed by this report.
 
-This evidence qualifies only the same-image physical OTA and the successful
-post-boot health/functional recovery path. It does **not** qualify a real
-version upgrade, image authenticity/signature enforcement, rollback or
-failed-boot recovery, all corruption/interruption cases, repeated A/B cycles,
-physical multi-C3 RF, or electrical power/current behavior.
+The later focused run `evidence/hil/runs/20260925T194530.402772Z` physically
+proved the bounded authenticated signed-FOTA path on the same one-Hub/one-C3
+fixture using target-qualified code `60f91b4`: wrong-signer rejection after
+SHA-256 verification, signed A-to-B transfer and signature acceptance,
+`ota_0` to `ota_1` activation, B version `sfB-260925194541`, boot-health
+validity, fresh authenticated rejoin, PIR readiness, and final application
+ACK with retained/in-flight counts at zero. Its original report writer failed
+after those assertions because a `PosixPath` was not JSON serializable; the
+preserved artifacts and a host-only reconstructed report are recorded in that
+directory. This does **not** qualify Secure Boot/eFuse, production signing-key
+custody/PKI, failed-boot rollback, all corruption/interruption cases,
+repeated A/B cycles, physical multi-C3 RF, or electrical power/current
+behavior.
 
 ### Remaining Phase-2 release blockers
 
@@ -155,7 +163,7 @@ continues to record its broader requirement until evidence changes.
 |---|---|---|
 | P2-COM-01 | PHASE2_REQUIRED_NOW | The active Hub/C3 radio path does not commission or authenticate installed Nodes. |
 | P2-MN10-01 | PHASE2_REQUIRED_NOW | Host scale passes; target admission/peer capacity and representative RF proof remain. |
-| P2-FOTA-01 | PHASE2_REQUIRED_NOW | Bound the remaining scope to real upgrade, authorized image, corruption/interruption safety, failed-boot recovery and practical A/B evidence. Extensive cycling is later validation debt. |
+| P2-FOTA-01 | PARTIAL_BUT_SUFFICIENT | Signed negative rejection and one signed A-to-B/recovery cycle passed physically at `evidence/hil/runs/20260925T194530.402772Z`; repeated cycles, interruption/corruption, and failed-boot rollback remain open. |
 | P2-FAULT-01 | VALIDATION_TECH_DEBT | Defer the full generic fault matrix; test high-risk product failures directly through existing seams and focused cases. |
 | P2-REC-01 | PHASE2_REQUIRED_NOW | Node/Hub restart and outage recovery must protect event identity and rejoin. A comprehensive storm matrix can be narrowed. |
 | P2-VERT-01 | DEFER_TO_P0_PRODUCT_WORK | A real Hub/backend/PWA bridge is P0 product vertical work; Phase 2 must state this boundary explicitly. |
@@ -174,7 +182,7 @@ continues to record its broader requirement until evidence changes.
 | P2-PERSIST-HUB-JOURNAL-HOST-01 | PHASE2_REQUIRED_NOW | Hub restart must not erase accepted events/dedupe while ACK semantics claim durability. |
 | P2-FOTA-PROTOCOL-HOST-01 | ALREADY_COMPLETE | Focused host CRC, sequencing, timeout and repeated receiver-cycle tests pass; authenticity/physical negatives remain in P2-FOTA-01. |
 | P2-FOTA-SAME-HIL-01 | ALREADY_COMPLETE | One-pair same-image OTA and functional recovery passed physically. |
-| P2-FOTA-BOOT-HEALTH-01 | PHASE2_REQUIRED_NOW | The success gate passed physically; failed-boot/timeout rollback and authenticated Hub admission are still unproven. |
+| P2-FOTA-BOOT-HEALTH-01 | PARTIAL_BUT_SUFFICIENT | The meaningful boot-health gate passed physically in the signed A-to-B run; failed-boot/timeout rollback remains unproven. |
 
 Additional boundaries: production private-key provisioning, secure boot/eFuse
 policy, commercial recovery and certification are `DEFER_TO_PRODUCTIZATION`;

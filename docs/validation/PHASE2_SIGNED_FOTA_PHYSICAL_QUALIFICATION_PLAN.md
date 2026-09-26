@@ -1,10 +1,11 @@
 # Phase-2 Signed FOTA Physical Qualification Plan
 
-**Prepared against repository HEAD:** `51e99e1f415af9cc896085b322d461b4720322aa`  
-**Branch:** `feature/hw-m1-4-hil-phase2`  
-**Status:** **PLAN — NOT YET PHYSICALLY EXECUTED**  
-**Last physically qualified firmware:** `7bc2a33`  
-**Latest historical physical evidence:** `evidence/hil/runs/20260924T094521.398370Z`
+**Prepared against repository HEAD:** `697ed769fcd2b179d44b8aaeb2471e684d11116c`
+**Branch:** `feature/hw-m1-4-hil-phase2`
+**Status:** **EXECUTED — PHYSICAL ASSERTIONS PASS; REPORT RECONSTRUCTED HOST-ONLY**
+**Last physically qualified firmware before this campaign:** `7bc2a33`
+**Physical target-qualified code for this campaign:** `60f91b421cc244c2b12fd92c244683c7f69ce0a6`
+**Latest physical evidence:** `evidence/hil/runs/20260925T194530.402772Z`
 
 > Authenticated transport is not firmware publisher authenticity. SHA-256 integrity is not signature authenticity. A target build is not physical qualification. Offline signature verification is not physical OTA verification. This plan does not cover Secure Boot, eFuse programming, or production PKI.
 
@@ -23,9 +24,9 @@ admission, authenticated ACK routing, streamed SHA-256 integrity, a fail-closed
 signed-image gate, a signed-app-on-update profile, external test-key signing,
 offline signature verification, and offline tamper rejection.
 
-These implementation and offline results do not establish physical transfer,
-signature enforcement on target, or boot recovery. Refer to the architecture
-and traceability documents for implementation ownership and current status.
+These implementation and offline results were followed by the one-Hub/one-C3
+campaign recorded in the execution section below. The preserved serial logs
+and test results establish the bounded physical claims listed there.
 
 ## 3. Existing fixture limitation
 
@@ -197,7 +198,9 @@ Capture:
 
 ## 13. PASS criteria
 
-These are planned criteria and are **not yet passed**.
+These criteria passed for the preserved one-Hub/one-C3 campaign below. The
+report was reconstructed host-only after the original run failed while
+serializing a `PosixPath`; no hardware was rerun.
 
 ### `SIGNED_FOTA_NEGATIVE`
 
@@ -219,8 +222,9 @@ and produces an application event acknowledged by the Hub, with final
 retained/in-flight counts and unexpected resets reported and within campaign
 acceptance.
 
-Overall signed-FOTA qualification requires all three results with fresh,
-matching provenance and complete evidence.
+Overall signed-FOTA qualification for this bounded fixture requires all three
+results with fresh, matching provenance and complete evidence. That condition
+is met by the preserved evidence directory below.
 
 ## 14. Failure and stop conditions
 
@@ -264,16 +268,38 @@ It does not prove:
 
 ## 17. Execution Results
 
-Status: **NOT YET EXECUTED**
+Status: **PASS — bounded one-Hub/one-C3 physical campaign**
 
-Future runs should add:
-
-- Execution date.
-- Repository HEAD.
-- A/B versions.
-- Evidence directory.
-- PASS/FAIL result for each planned case.
-- Any limitations or blocked prerequisites.
+- Execution date: `2026-09-25` (run directory `20260925T194530.402772Z`).
+- Physical target-qualified code: `60f91b421cc244c2b12fd92c244683c7f69ce0a6`.
+- Evidence: `evidence/hil/runs/20260925T194530.402772Z`.
+- A: `sfA-260925194541`, SHA-256
+  `8540433e3f7ab960f8e217585c061d3aad71899f0f6636d9c9cd0ab4518b569a`.
+- B: `sfB-260925194541`, SHA-256
+  `3e1d160bba4b28323d9f6ceccfcfae62d424c0493f7c392091522b6e9bf1c771`.
+- Negative: `sfN-260925194541`, SHA-256
+  `74b4dfc51d3b27ef2bff11dd58d9ab69710f65337dd1792522f91895d2b26552`.
+- A and B used public-key fingerprint
+  `5b097969d81431285f93be42f8b1d43652bc0c01ef8f35b0501d1d96d569aa0e`.
+  The negative image used a different fingerprint
+  `f1ddc34a6414b3cf138c45c465b71571217b7745b10a5299f3646407c1e8bf28`.
+- `SIGNED_FOTA_NEGATIVE`: PASS. Transport and SHA-256 verification reached
+  ESP-IDF signature verification; the wrong signer was rejected, `ota_0`
+  remained active, A stayed operational, and the post-rejection event was
+  acknowledged.
+- `SIGNED_FOTA_A_TO_B`: PASS. Authenticated B transfer completed with digest
+  and signature acceptance; transfer ID `3195579168` was recorded.
+- `POST_UPDATE_RECOVERY`: PASS. The C3 changed from `ota_0` to `ota_1`,
+  rebooted as `sfB-260925194541`, passed the boot-health validity gate,
+  rejoined with fresh session `290`, reached PIR readiness, and delivered an
+  acknowledged application event.
+- Final C3 evidence: `retained=0`, `in_flight=0`, `ota_slot=ota_1`, and zero
+  unexpected resets were observed in the campaign.
+- The original report writer failed after the physical assertions because a
+  `PosixPath` was not JSON serializable. The host-only serialization fix is
+  commit `697ed769fcd2b179d44b8aaeb2471e684d11116c`; `summary.json` and
+  `summary.md` in this directory are explicitly marked reconstructed from the
+  preserved artifacts.
 
 ## 18. Related references
 
