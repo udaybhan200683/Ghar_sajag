@@ -5,6 +5,7 @@
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/common/security/target_wrapping_key.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
+#include "power/power.hpp"
 #include "firmware/node/target/esp32c3/node_security_link.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
 #include "firmware/node/target/esp32c3/nvs_session_provider.hpp"
@@ -267,6 +268,14 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
 #endif
 
 void owner_task(void*) {
+    PowerPolicy power_policy;
+    EnergyCounters energy;
+    energy.boot_count = 1;
+    const auto boot_reset = esp_reset_reason();
+    if (boot_reset == ESP_RST_BROWNOUT) energy.brownout_count = 1;
+    if (boot_reset == ESP_RST_PANIC || boot_reset == ESP_RST_TASK_WDT ||
+        boot_reset == ESP_RST_INT_WDT || boot_reset == ESP_RST_WDT ||
+        boot_reset == ESP_RST_BROWNOUT) energy.unexpected_resets = 1;
 #if !GS_HIL_BUILD
     NodeSecurityLink security_link;
     std::array<std::uint8_t, 6> physical_mac{};
@@ -277,6 +286,7 @@ void owner_task(void*) {
         return;
     }
     auto last_outbound = security_link.initial_message();
+    const bool rejoining_existing_association = last_outbound.has_value();
     if (last_outbound) (void)send_security_message(*last_outbound);
     Milliseconds next_security_retry_ms = monotonic_ms() + 1500;
     while (!security_link.ready()) {
@@ -300,6 +310,7 @@ void owner_task(void*) {
             next_security_retry_ms = monotonic_ms() + 3000;
         }
     }
+    if (rejoining_existing_association) energy.authenticated_rejoins = 1;
     g_security_phase.store(false, std::memory_order_release);
     NodeRuntime runtime(security_link.binding()->logical_id, g_session_id);
 #else
@@ -363,6 +374,7 @@ void owner_task(void*) {
 
     for (;;) {
         const Milliseconds now = monotonic_ms();
+        energy.awake_ms = static_cast<std::uint64_t>(now);
         const auto ack_drops = g_ack_queue_drops.exchange(0U, std::memory_order_relaxed);
         ++sensing_liveness;
         ++runtime_liveness;
@@ -431,6 +443,7 @@ void owner_task(void*) {
             const auto retained_before = runtime.persisted();
 #endif
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
+            if (retired) power_policy.observe_authenticated_contact();
 #if !GS_HIL_BUILD
             if ((runtime.pending() != pending_before ||
                  runtime.persisted() != retained_before) &&
@@ -439,6 +452,9 @@ void owner_task(void*) {
                 vTaskDelete(nullptr);
                 return;
             }
+            if (runtime.pending() != pending_before ||
+                runtime.persisted() != retained_before)
+                energy.record_recovery_commit();
 #endif
             breadcrumb = retired ? NodeBreadcrumb::EventRetired : NodeBreadcrumb::AppAck;
             ESP_LOGI(kTag, "Application ACK session=%llu seq=%llu class=%d retired=%d",
@@ -476,6 +492,7 @@ void owner_task(void*) {
             else ++mac_failure_count;
             if (in_flight) {
                 runtime.transport_result(*in_flight, send_result.accepted_by_radio, now);
+                power_policy.observe_unacknowledged_attempt();
                 breadcrumb = send_result.accepted_by_radio
                     ? NodeBreadcrumb::WaitAppAck : NodeBreadcrumb::RetryBackoff;
                 ESP_LOGI(kTag, "MAC result session=%llu seq=%llu accepted=%d",
@@ -494,6 +511,7 @@ void owner_task(void*) {
         }
         if (in_flight && now - sent_at_ms >= kSendCallbackTimeoutMs) {
             runtime.transport_result(*in_flight, false, now);
+            power_policy.observe_unacknowledged_attempt();
             ESP_LOGW(kTag, "MAC callback timeout session=%llu seq=%llu",
                      static_cast<unsigned long long>(in_flight->session_id),
                      static_cast<unsigned long long>(in_flight->sequence));
@@ -566,6 +584,7 @@ void owner_task(void*) {
                         vTaskDelete(nullptr);
                         return;
                     }
+                    energy.record_recovery_commit();
 #endif
                     breadcrumb = NodeBreadcrumb::EventRecordOk;
                     ESP_LOGI(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
@@ -585,6 +604,8 @@ void owner_task(void*) {
                         vTaskDelete(nullptr);
                         return;
                     }
+                    if (!gap_was_required && runtime.gap_marker_required())
+                        energy.record_recovery_commit();
 #endif
                 }
             } else {
@@ -639,6 +660,21 @@ void owner_task(void*) {
             health.free_heap = esp_get_free_heap_size();
             health.minimum_free_heap = esp_get_minimum_free_heap_size();
             health.maintenance_active = maintenance;
+            ESP_LOGI(kTag,
+                     "Power counters uptime_ms=%llu loops=%llu pir=%llu app_tx=%llu "
+                     "mac_attempt=%llu retry=%llu health=%llu rejoin=%llu "
+                     "recovery_commit=%llu queue_hwm=%u unexpected_reset=%llu",
+                     static_cast<unsigned long long>(energy.awake_ms),
+                     static_cast<unsigned long long>(energy.sensing_loops),
+                     static_cast<unsigned long long>(energy.qualified_pir),
+                     static_cast<unsigned long long>(energy.application_tx_attempts),
+                     static_cast<unsigned long long>(energy.mac_send_attempts),
+                     static_cast<unsigned long long>(energy.radio_retries),
+                     static_cast<unsigned long long>(energy.heartbeat_count),
+                     static_cast<unsigned long long>(energy.authenticated_rejoins),
+                     static_cast<unsigned long long>(energy.recovery_nvs_commits),
+                     static_cast<unsigned>(energy.queue_high_water),
+                     static_cast<unsigned long long>(energy.unexpected_resets));
             const auto encoded = transport::encode_node_health(health);
             next_health_ms = now + kHealthIntervalMs;
             if (encoded) {
@@ -659,7 +695,9 @@ void owner_task(void*) {
                                                     encoded.frame.bytes.data(),
                                                     encoded.frame.size);
 #endif
+                energy.record_mac_attempt(false, sent == ESP_OK);
                 if (sent == ESP_OK) {
+                    ++energy.heartbeat_count;
                     health_in_flight = true;
                     sent_at_ms = now;
                 }
@@ -698,6 +736,7 @@ void owner_task(void*) {
                                                         encoded.frame.bytes.data(),
                                                         encoded.frame.size);
 #endif
+                    energy.record_mac_attempt(true, sent == ESP_OK);
                     if (sent == ESP_OK) {
                         in_flight = key;
                         sent_at_ms = now;
@@ -723,6 +762,29 @@ void owner_task(void*) {
         g_hil_runtime_live.store(runtime_liveness, std::memory_order_release);
         g_hil_sensing_live.store(sensing_liveness, std::memory_order_release);
 #endif
+
+        energy.radio_retries = runtime.radio_stats().retries;
+        energy.observe_pending(static_cast<std::uint32_t>(runtime.pending()));
+        const auto retry_due = runtime.next_retry_deadline();
+        PowerObservation power_input;
+        power_input.now_ms = now;
+        power_input.next_retry_ms = retry_due.value_or(-1);
+        power_input.next_health_ms = next_health_ms;
+        power_input.authenticated = true;
+        power_input.sensor_ready = g_ota_sensing_ready.load(std::memory_order_acquire);
+        power_input.sensor_safe = !raw_pir;
+        power_input.wake_proven = false;  // No target sleep/wake path in BAT-C1/C2.
+        power_input.persistence_clean = true;  // Required commit failures stop this owner.
+        power_input.maintenance = maintenance;
+        power_input.radio_in_flight = in_flight.has_value() || health_in_flight;
+        power_input.ack_wait = runtime.pending() != 0;
+        power_input.due_work = retry_due && *retry_due <= now;
+        power_input.pending_work = runtime.pending() != 0;
+        power_input.qualified_motion = sensed.has_value();
+        const auto power_decision = power_policy.evaluate(power_input);
+        (void)power_decision;  // Diagnostic-only until a later validated power wave.
+        energy.record_sensing_loop(static_cast<std::uint64_t>(
+            std::max<Milliseconds>(0, monotonic_ms() - now)), sensed.has_value());
 
         g_ota_post_sensing_runtime_ticks.fetch_add(1U, std::memory_order_relaxed);
 

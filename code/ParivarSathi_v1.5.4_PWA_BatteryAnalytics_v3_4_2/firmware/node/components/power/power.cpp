@@ -7,6 +7,47 @@
 
 namespace gs::node {
 
+void PowerPolicy::observe_authenticated_contact() {
+    unacknowledged_ = 0;
+}
+
+void PowerPolicy::observe_unacknowledged_attempt() {
+    if (unacknowledged_ < 3) ++unacknowledged_;
+}
+
+PowerDecision PowerPolicy::evaluate(const PowerObservation& input) {
+    PowerDecision result;
+    result.inhibitors = PowerInhibitNone;
+    if (input.now_ms < 0) result.inhibitors |= PowerInhibitUnknown;
+    if (!input.authenticated) result.inhibitors |= PowerInhibitAuthentication;
+    if (input.maintenance) result.inhibitors |= PowerInhibitMaintenance;
+    if (!input.persistence_clean) result.inhibitors |= PowerInhibitPersistence;
+    if (input.radio_in_flight) result.inhibitors |= PowerInhibitRadio;
+    if (input.ack_wait) result.inhibitors |= PowerInhibitAck;
+    if (input.due_work) result.inhibitors |= PowerInhibitDueWork;
+    if (!input.sensor_ready || !input.sensor_safe)
+        result.inhibitors |= PowerInhibitSensor;
+    if (!input.wake_proven) result.inhibitors |= PowerInhibitWakeUnproven;
+    if (input.next_retry_ms >= 0) result.next_deadline_ms = input.next_retry_ms;
+    if (input.next_health_ms >= 0 &&
+        (result.next_deadline_ms < 0 || input.next_health_ms < result.next_deadline_ms))
+        result.next_deadline_ms = input.next_health_ms;
+    if (result.next_deadline_ms < 0) result.inhibitors |= PowerInhibitUnknown;
+    if (result.next_deadline_ms >= 0 && input.now_ms >= result.next_deadline_ms)
+        result.inhibitors |= PowerInhibitDueWork;
+
+    if (!input.authenticated) state_ = PowerRuntimeState::BootAuth;
+    else if (input.maintenance) state_ = PowerRuntimeState::Maintenance;
+    else if (unacknowledged_ >= 3 && input.pending_work)
+        state_ = PowerRuntimeState::Outage;
+    else if (input.qualified_motion) state_ = PowerRuntimeState::ActivityEpisode;
+    else state_ = PowerRuntimeState::ReadyIdle;
+    result.state = state_;
+    result.outage_retry_profile = state_ == PowerRuntimeState::Outage;
+    result.future_sleep_eligible = result.inhibitors == PowerInhibitNone;
+    return result;
+}
+
 BatteryReading PowerPolicy::classify(std::uint16_t millivolts, bool calibrated) const {
     GS_TRACE(gs::log::Category::Node, "N03", "classify.enter", "-");
     BatteryReading reading{millivolts, BatteryBand::Unknown, calibrated};

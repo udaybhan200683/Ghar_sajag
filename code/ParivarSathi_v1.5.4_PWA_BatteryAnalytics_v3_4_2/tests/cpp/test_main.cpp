@@ -138,8 +138,62 @@ void test_node_modules() {
     check(power.classify(3500, false).band == gs::node::BatteryBand::Unknown, "uncalibrated voltage stays unknown");
     check(power.plan({1, "n", "room", true, false, 60}, true, gs::node::BatteryBand::Normal).wake_after_ms == 10000,
           "pending retry shortens wake interval");
+    gs::node::PowerObservation power_input;
+    power_input.now_ms = 100;
+    power_input.next_health_ms = 60000;
+    auto decision = power.evaluate(power_input);
+    check(decision.state == gs::node::PowerRuntimeState::BootAuth &&
+          !decision.future_sleep_eligible &&
+          (decision.inhibitors & gs::node::PowerInhibitAuthentication) != 0,
+          "power policy fails awake during authentication");
+    power_input.authenticated = true;
+    power_input.sensor_ready = true;
+    power_input.sensor_safe = true;
+    power_input.persistence_clean = true;
+    decision = power.evaluate(power_input);
+    check(decision.state == gs::node::PowerRuntimeState::ReadyIdle &&
+          !decision.future_sleep_eligible &&
+          (decision.inhibitors & gs::node::PowerInhibitWakeUnproven) != 0,
+          "no proven wake path means no target sleep");
+    power_input.wake_proven = true;
+    power_input.next_retry_ms = 250;
+    decision = power.evaluate(power_input);
+    check(decision.future_sleep_eligible && decision.next_deadline_ms == 250,
+          "future deadline selects earliest required work");
+    power_input.maintenance = true;
+    check((power.evaluate(power_input).inhibitors & gs::node::PowerInhibitMaintenance) != 0,
+          "maintenance inhibits future sleep");
+    power_input.maintenance = false;
+    power_input.persistence_clean = false;
+    check((power.evaluate(power_input).inhibitors & gs::node::PowerInhibitPersistence) != 0,
+          "dirty recovery inhibits future sleep");
+    power_input.persistence_clean = true;
+    power_input.now_ms = 250;
+    check((power.evaluate(power_input).inhibitors & gs::node::PowerInhibitDueWork) != 0,
+          "overdue retry cannot sleep");
+    power_input.now_ms = 100;
+    power_input.pending_work = true;
+    for (int attempt = 0; attempt < 3; ++attempt)
+        power.observe_unacknowledged_attempt();
+    check(power.evaluate(power_input).state == gs::node::PowerRuntimeState::Outage,
+          "three unacknowledged attempts select outage policy without changing radio");
+    power.observe_authenticated_contact();
+    check(power.evaluate(power_input).state == gs::node::PowerRuntimeState::ReadyIdle,
+          "authenticated progress exits outage");
 
     gs::node::EnergyCounters energy;
+    energy.record_sensing_loop(2, true);
+    energy.record_sensing_loop(3, false);
+    energy.record_mac_attempt(true, true);
+    energy.record_mac_attempt(false, false);
+    energy.record_recovery_commit();
+    energy.observe_pending(2);
+    energy.observe_pending(1);
+    check(energy.sensing_loops == 2 && energy.qualified_pir == 1 &&
+          energy.sensor_active_ms == 5 && energy.application_tx_attempts == 1 &&
+          energy.mac_send_attempts == 2 && energy.radio_tx_packets == 1 &&
+          energy.recovery_nvs_commits == 1 && energy.queue_high_water == 2,
+          "owner counters accumulate without event or retry state mutation");
     energy.deep_sleep_ms = 23ULL * 60ULL * 60ULL * 1000ULL;
     energy.awake_ms = 60ULL * 60ULL * 1000ULL;
     energy.sensor_active_ms = 10ULL * 60ULL * 1000ULL;
@@ -164,6 +218,8 @@ void test_node_modules() {
     const auto key = runtime.record(gs::EventKind::Motion, "room", 100, 10);
     check(key.has_value() && runtime.persisted() == 1, "node runtime persists before transmit");
     check(runtime.next_transmission(100).has_value(), "node runtime exposes due transmission");
+    check(runtime.next_retry_deadline() == 100,
+          "power deadline observes existing radio retry without mutating it");
     check(runtime.acknowledge(*key, gs::AckClass::Durable) && runtime.persisted() == 0, "node runtime retires durable ack");
 }
 

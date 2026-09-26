@@ -37,6 +37,7 @@ bool NodeRadio::enqueue(const DomainEvent& event, Milliseconds now_ms) {
         return false;
     }
     queue_.push_back(PendingTx{event, 0, now_ms, false});
+    refresh_earliest_due();
     return true;
 }
 
@@ -82,11 +83,20 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
         it->periodic_backoff_counted = true;
         ++stats_.periodic_backoff_entries;
     }
+    refresh_earliest_due();
 }
 
 std::optional<EventKey> NodeRadio::oldest_key() const {
     if (queue_.empty()) return std::nullopt;
     return queue_.front().event.key;
+}
+
+void NodeRadio::refresh_earliest_due() {
+    earliest_due_ms_.reset();
+    for (const auto& item : queue_) {
+        if (!earliest_due_ms_ || item.next_attempt_ms < *earliest_due_ms_)
+            earliest_due_ms_ = item.next_attempt_ms;
+    }
 }
 
 std::vector<PendingTx> NodeRadio::pending_snapshot() const {
@@ -114,6 +124,7 @@ bool NodeRadio::restore_pending(const std::vector<PendingTx>& pending,
     queue_.swap(candidate.queue_);
     round_robin_cursor_ = 0;
     next_radio_opportunity_ms_ = 0;
+    refresh_earliest_due();
     return true;
 }
 
@@ -140,6 +151,7 @@ bool NodeRadio::apply_ack(const EventKey& key, AckClass ack) {
     // A valid application retirement proves Hub progress; allow the next
     // retained identity to drain immediately rather than waiting on offline backoff.
     next_radio_opportunity_ms_ = 0;
+    refresh_earliest_due();
     return true;
 }
 

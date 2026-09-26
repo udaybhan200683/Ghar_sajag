@@ -29,7 +29,10 @@ production battery-life number.
 The current target favors correctness and observability: it polls the sensor
 while awake, keeps Wi-Fi power save disabled, sends health periodically, and
 uses bounded retries. The low-power policy and battery estimator are present
-as portable code, but target sleep and measurement integration is incomplete.
+as portable code. The C3 owner now evaluates a passive PowerPolicy decision
+and accumulates RAM-only activity counters, but it never enters target sleep
+or changes delivery/health cadence from that decision. Calibrated battery
+measurement and energy integration remain incomplete.
 
 ## Easy mental model
 
@@ -288,6 +291,14 @@ alive observation belongs to the `bb34f5e` battery fixture, not this revision.
 The earlier motion-stall defect was traced to bounded queue admission during
 Hub outage and corrected; all future power states must preserve sensing and
 bounded, explicit rejection without needing a re-plug or restart.
+
+Implementation boundary after BAT-C1/C2: the owner calls a passive policy
+evaluator and collects uptime, sensing, PIR, send, retry, rejoin, recovery
+commit and queue-high-water counters in RAM. It has no sleep entry, no new
+radio frame, no new NVS write and no change to event identity or retry timing.
+The existing `NodePowerTelemetry` wire shape remains unchanged; these new
+owner counters are diagnostic data, not calibrated energy or a battery-life
+claim. BAT-C3 through BAT-C12 remain future work at this boundary.
 
 ### Current ownership and power baseline
 

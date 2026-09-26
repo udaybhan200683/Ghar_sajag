@@ -27,6 +27,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/common/security/nvs_association_blob_store.cpp"
         "${GS_ROOT}/firmware/common/security/runtime_frame_security.cpp"
         "${GS_ROOT}/firmware/node/components/sensing/sensing.cpp"
+        "${GS_ROOT}/firmware/node/components/power/power.cpp"
         "${GS_ROOT}/firmware/node/components/radio/node_radio.cpp"
         "${GS_ROOT}/firmware/node/components/storage/node_store.cpp"
         "${GS_ROOT}/firmware/node/components/storage/node_recovery_persistence.cpp"
