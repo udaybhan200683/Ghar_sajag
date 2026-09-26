@@ -23,6 +23,22 @@ LedPattern pattern_for(LedSignal signal) {
 }
 }  // namespace
 
+void NodeHealthCadence::observe_authenticated_contact(Milliseconds now_ms) {
+    if (now_ms >= 0) next_due_ms_ = now_ms + interval_ms_;
+}
+
+void NodeHealthCadence::observe_health_attempt(Milliseconds now_ms,
+                                                Milliseconds retry_interval_ms) {
+    if (now_ms >= 0)
+        next_due_ms_ = now_ms + (retry_interval_ms > 0 ? retry_interval_ms : interval_ms_);
+}
+
+bool NodeHealthCadence::due(Milliseconds now_ms, bool application_due,
+                            bool pending_work, bool outage, bool maintenance) const {
+    return now_ms >= next_due_ms_ && !application_due && !pending_work &&
+           !outage && !maintenance;
+}
+
 bool PirNoiseMonitor::observe(bool raw_high, bool qualified, Milliseconds now_ms) {
     if (now_ms < 0) return false;
     if (!initialized_) {

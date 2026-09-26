@@ -48,6 +48,12 @@ public:
                                       const std::string& authenticated_node_id,
                                       std::uint64_t transport_session,
                                       std::uint64_t now_monotonic_ms);
+    // Called only after exact-node, current-session authentication by the
+    // security owner. Rejoin and admitted control traffic can refresh the
+    // same monotonic lease without inventing a NodeHealth packet.
+    bool observe_authenticated_contact(const std::string& node_id,
+                                       std::uint64_t transport_session,
+                                       std::uint64_t now_monotonic_ms);
     std::optional<AuthenticatedNodeHealth> node_health(const std::string& node_id) const;
     bool node_online(const std::string& node_id, std::uint64_t now_monotonic_ms) const;
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01

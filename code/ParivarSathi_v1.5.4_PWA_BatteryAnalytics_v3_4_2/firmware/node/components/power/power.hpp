@@ -62,6 +62,24 @@ struct EnergyCounters {
     }
 };
 
+// Owner-local scheduling of the existing NodeHealth frame. Only a verified
+// application ACK can defer health as authenticated Hub contact; a MAC send
+// callback alone cannot. No timer, persistence or extra radio owner is added.
+class NodeHealthCadence {
+public:
+    NodeHealthCadence(Milliseconds interval_ms, Milliseconds first_due_ms)
+        : interval_ms_(interval_ms), next_due_ms_(first_due_ms) {}
+    void observe_authenticated_contact(Milliseconds now_ms);
+    void observe_health_attempt(Milliseconds now_ms, Milliseconds retry_interval_ms = -1);
+    void schedule_now(Milliseconds now_ms) { next_due_ms_ = now_ms; }
+    bool due(Milliseconds now_ms, bool application_due, bool pending_work,
+             bool outage, bool maintenance) const;
+    Milliseconds next_due_ms() const { return next_due_ms_; }
+private:
+    Milliseconds interval_ms_;
+    Milliseconds next_due_ms_;
+};
+
 enum class PowerRuntimeState : std::uint8_t {
     BootAuth, ReadyIdle, ActivityEpisode, Outage, Maintenance
 };

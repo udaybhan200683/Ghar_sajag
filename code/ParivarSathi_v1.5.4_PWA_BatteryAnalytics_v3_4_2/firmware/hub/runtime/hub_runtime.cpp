@@ -13,7 +13,7 @@
 namespace gs::hub {
 
 HubRuntime::HubRuntime(std::size_t ingest_capacity, std::size_t journal_capacity)
-    : ingest_(ingest_capacity), journal_(journal_capacity), coverage_(NodeProtocolPolicy::offline_after_seconds) {
+    : ingest_(ingest_capacity), journal_(journal_capacity), coverage_(NodeProtocolPolicy::coverage_after_seconds) {
     GS_TRACE(gs::log::Category::Hub, "H00", "HubRuntime.enter", "-");}
 
 void HubRuntime::authorize_node(const std::string& node_id, std::uint64_t session_id, bool required_for_routine) {
@@ -43,8 +43,21 @@ bool HubRuntime::observe_authenticated_health(
     if (found != node_health_.end() &&
         (health.health_sequence <= found->second.snapshot.health_sequence ||
          now_monotonic_ms < found->second.last_seen_monotonic_ms)) return false;
+    if (!observe_authenticated_contact(authenticated_node_id, transport_session,
+                                       now_monotonic_ms)) return false;
     node_health_[authenticated_node_id] = {health, now_monotonic_ms};
-    last_authenticated_contact_ms_[authenticated_node_id] = now_monotonic_ms;
+    return true;
+}
+
+bool HubRuntime::observe_authenticated_contact(const std::string& node_id,
+                                                std::uint64_t transport_session,
+                                                std::uint64_t now_monotonic_ms) {
+    if (now_monotonic_ms == 0 ||
+        !peers_.accepts_health(node_id, transport_session)) return false;
+    const auto found = last_authenticated_contact_ms_.find(node_id);
+    if (found != last_authenticated_contact_ms_.end() &&
+        now_monotonic_ms < found->second) return false;
+    last_authenticated_contact_ms_[node_id] = now_monotonic_ms;
     return true;
 }
 
@@ -105,7 +118,8 @@ bool HubRuntime::authenticated_radio_message_callback(
         event, peers_,
         authenticated_node_id, transport_session);
     if (accepted && now_monotonic_ms != 0)
-        last_authenticated_contact_ms_[authenticated_node_id] = now_monotonic_ms;
+        (void)observe_authenticated_contact(authenticated_node_id,
+                                            transport_session, now_monotonic_ms);
     if (accepted && message.power.has_value())
         power_telemetry_[message.node_id] = *message.power;
     return accepted;

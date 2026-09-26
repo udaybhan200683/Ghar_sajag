@@ -44,7 +44,12 @@ constexpr UBaseType_t kControlQueueDepth = 8U;
 constexpr UBaseType_t kSecurityQueueDepth = 8U;
 constexpr UBaseType_t kSendQueueDepth = 4U;
 constexpr Milliseconds kSendCallbackTimeoutMs = 1000;
-constexpr Milliseconds kHealthIntervalMs = 60000;
+#if GS_HIL_BUILD
+constexpr Milliseconds kHealthIntervalMs = 60000;  // Keep the qualified raw HIL cadence.
+#else
+constexpr Milliseconds kHealthIntervalMs =
+    static_cast<Milliseconds>(NodeProtocolPolicy::heartbeat_seconds) * 1000;
+#endif
 #if GS_HIL_CONTROL
 #define GS_NODE_PROGRESS_LOG ESP_LOGI
 #else
@@ -344,11 +349,11 @@ void owner_task(void*) {
 #else
     bool led_was_on = false;
 #endif
-    Milliseconds next_health_ms =
+    NodeHealthCadence health_cadence(kHealthIntervalMs,
 #if GS_HIL_CONTROL
-        1000;
+        1000);
 #else
-        kHealthIntervalMs;
+        monotonic_ms() + kHealthIntervalMs);
 #endif
     std::uint64_t health_sequence = 1;
     std::uint32_t raw_pir_edges = 0;
@@ -378,12 +383,13 @@ void owner_task(void*) {
 #endif
     const esp_partition_t* running = esp_ota_get_running_partition();
     esp_ota_img_states_t ota_state{};
-    if (running != nullptr &&
+    const bool ota_pending_verify = running != nullptr &&
         esp_ota_get_state_partition(running, &ota_state) == ESP_OK &&
-        ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+        ota_state == ESP_OTA_IMG_PENDING_VERIFY;
+    if (ota_pending_verify) {
         // A pending image needs fresh post-sensing radio evidence. Ordinary
         // boots keep the configured health interval.
-        next_health_ms = monotonic_ms();
+        health_cadence.schedule_now(monotonic_ms());
     }
 
     for (;;) {
@@ -456,7 +462,13 @@ void owner_task(void*) {
             const auto pending_before = runtime.pending();
             const auto retained_before = runtime.persisted();
 #endif
+#if !GS_HIL_BUILD
+            const bool matched_pending = runtime.has_pending_key(key);
+#endif
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
+#if !GS_HIL_BUILD
+            if (matched_pending) health_cadence.observe_authenticated_contact(now);
+#endif
             if (retired) {
                 power_policy.observe_authenticated_contact();
                 runtime.set_outage_profile(false, now);
@@ -529,6 +541,8 @@ void owner_task(void*) {
                     g_ota_sensing_ready.load(std::memory_order_acquire)) {
                     g_ota_post_sensing_radio_confirmed.store(true,
                                                              std::memory_order_release);
+                    if (ota_pending_verify)
+                        health_cadence.observe_health_attempt(now);
                 }
                 health_in_flight = false;
             }
@@ -665,12 +679,29 @@ void owner_task(void*) {
         }
 #endif
 
-        if (!in_flight && !health_in_flight && !maintenance &&
-            (now >= next_health_ms
+        const bool boot_health_probe = ota_pending_verify &&
+            !g_ota_post_sensing_radio_confirmed.load(std::memory_order_acquire);
+        const auto application_deadline = runtime.next_retry_deadline();
+        const bool application_due = application_deadline && *application_deadline <= now;
+#if GS_HIL_BUILD
+        // Preserve Phase-1 raw HIL's periodic health evidence during outages.
+        const bool suppress_for_pending = false;
+        const bool suppress_for_outage = false;
+#else
+        const bool suppress_for_pending = runtime.pending() != 0 && !boot_health_probe;
+        const bool suppress_for_outage = runtime.outage_profile() && !boot_health_probe;
+#endif
+        if (!in_flight && !health_in_flight && !maintenance && !application_due &&
+            (health_cadence.due(now, application_due,
+                                suppress_for_pending, suppress_for_outage,
+                                maintenance)
 #if GS_HIL_CONTROL
-             || g_hil_force_health.exchange(false, std::memory_order_acq_rel)
+             || g_hil_force_health.load(std::memory_order_acquire)
 #endif
             )) {
+#if GS_HIL_CONTROL
+            g_hil_force_health.store(false, std::memory_order_release);
+#endif
             const auto& stats = runtime.stats();
             const auto& radio_stats = runtime.radio_stats();
             const auto oldest = runtime.oldest_pending_key();
@@ -724,7 +755,8 @@ void owner_task(void*) {
                      static_cast<unsigned>(energy.queue_high_water),
                      static_cast<unsigned long long>(energy.unexpected_resets));
             const auto encoded = transport::encode_node_health(health);
-            next_health_ms = now + kHealthIntervalMs;
+            health_cadence.observe_health_attempt(now,
+                boot_health_probe ? 60000 : -1);
             if (encoded) {
 #if !GS_HIL_BUILD
                 security::SecureFrame protected_health;
@@ -817,7 +849,10 @@ void owner_task(void*) {
         PowerObservation power_input;
         power_input.now_ms = now;
         power_input.next_retry_ms = retry_due.value_or(-1);
-        power_input.next_health_ms = next_health_ms;
+        power_input.next_health_ms =
+            (!suppress_for_pending && !suppress_for_outage && !maintenance) ||
+                boot_health_probe
+                ? health_cadence.next_due_ms() : -1;
         power_input.authenticated = true;
         power_input.sensor_ready = g_ota_sensing_ready.load(std::memory_order_acquire);
         power_input.sensor_safe = !raw_pir;

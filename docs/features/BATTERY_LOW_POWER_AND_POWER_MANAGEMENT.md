@@ -31,10 +31,10 @@ while awake, keeps Wi-Fi power save disabled, sends health periodically, and
 uses bounded retries. BAT-C1/C2 added a passive owner-held PowerPolicy and
 RAM-only activity counters. BAT-C3/C4 added bounded PIR noise diagnostics,
 nonblocking production indication, quieter routine logs and a confirmed-outage
-retry profile. The C3 still never enters target sleep, and NodeHealth cadence
-remains unchanged. Calibrated battery measurement and energy integration remain
-incomplete. These changes have host and target-build verification only; current
-firmware has no measured battery-life claim.
+retry profile. BAT-C5 coordinates a quieter NodeHealth schedule with the Hub
+lease. The C3 still never enters target sleep. Calibrated battery measurement
+and energy integration remain incomplete. Host/target-build evidence does not
+establish a measured battery-life improvement.
 
 ## Easy mental model
 
@@ -80,8 +80,35 @@ remain visible.
 Wi-Fi is configured in station mode with `WIFI_PS_NONE`, a fixed ESP-NOW
 channel, and configured maximum TX power of 40 API units (10 dBm in the code
 comment). Thus current firmware does not save energy by radio sleep or dynamic
-TX power. NodeHealth is attempted every 60 seconds when the radio owner is
-available; application traffic also refreshes Hub liveness.
+TX power. Normal production NodeHealth is attempted after at most 120 seconds
+of quiet authenticated operation; the legacy raw HIL image keeps its 60-second
+cadence. Application contact can defer a redundant health attempt.
+
+## BAT-C5 health cadence and Hub lease
+
+The existing C3 owner holds a RAM-only `NodeHealthCadence`. It schedules the
+existing authenticated NodeHealth frame 120 seconds after rejoin, a matching
+authenticated application ACK, or the previous health attempt. A MAC send
+callback alone does not count as authenticated application contact. Due
+application work goes first. Pending events, confirmed outage and maintenance
+suppress routine health; event retry timing remains owned by `NodeRadio`.
+The existing HIL `GET_HEALTH` control can still request a diagnostic frame.
+
+The Hub's authenticated monotonic lease is 310 seconds: two 120-second quiet
+health opportunities plus 70 seconds of margin for a 60-second outage probe
+and scheduling delay. Current-session authenticated rejoin, accepted runtime
+health, admitted application events and verified FOTA ACK progress refresh the
+lease. Unknown, revoked, stale-session and unauthenticated traffic cannot.
+The existing Hub owner checks this lease once per second and logs only online
+state changes. This is distinct from the event-time `CoverageTracker`, whose
+historical 190-second coverage expiry remains unchanged and still needs
+trusted absolute time for routine coverage decisions.
+
+Pending OTA image validation keeps its immediate post-sensing health probe and
+60-second retry opportunity until radio delivery is observed. No new task,
+packet type or routine NVS write was added. These timings are a bounded
+software policy; quiet-node RF and current reduction remain physically
+unmeasured.
 
 ## Low-power modes
 
@@ -284,13 +311,13 @@ Key implementation locations:
 
 | EVIDENCE CLASS | CURRENT BOUNDARY |
 |---|---|
-| IMPLEMENTED | Active PIR polling, bounded event/retry behavior with confirmed-outage profile, encrypted recovery persistence, 60-second best-effort health, owner-held passive power policy/counters, bounded PIR diagnostics and LED patterns, host-side supplied-data analytics |
+| IMPLEMENTED | Active PIR polling, bounded event/retry behavior with confirmed-outage profile, encrypted recovery persistence, BAT-C5 adaptive 120-second production health and 310-second Hub lease, owner-held passive power policy/counters, bounded PIR diagnostics and LED patterns, host-side supplied-data analytics |
 | HOST_VERIFIED | Portable policy, PIR diagnostic, LED and radio outage tests; battery analytics and event/recovery host tests remain separate from measuring energy |
-| TARGET_BUILD_VERIFIED | BAT-C1/C2 and BAT-C3/C4 C3 production and HIL-config builds passed. A build proves compilation, not sleep or battery performance |
+| TARGET_BUILD_VERIFIED | BAT-C1/C2 and BAT-C3/C4 C3 production and HIL-config builds passed; BAT-C5 ESP-IDF 6.0.3 C3 production, C3 HIL-config and Hub production builds passed. A build proves compilation, not battery performance |
 | HISTORICALLY_PHYSICALLY_VERIFIED | Historical HW-M1.4A resilience/endurance run for its recorded pair/workload only |
 | CURRENT_HEAD_PHYSICALLY_VERIFIED | No current-HEAD physical battery/low-power qualification evidence is claimed |
 | NOT_YET_PHYSICALLY_QUALIFIED | Current-HEAD battery life, sleep modes, ADC/SOC, brownout recovery, flash wear and production power architecture |
-| PLANNED / INCOMPLETE | BAT-C5 adaptive NodeHealth/Hub lease; BAT-C6 activity episode/coalescing; BAT-C7 offline durable compaction; BAT-C8 light sleep/GPIO4 wake; BAT-C9 battery QoS; BAT-C10 flash coalescing; BAT-C11 adaptive TX power; BAT-C12 deep sleep/RTC retention; calibrated battery telemetry and endurance |
+| PLANNED / INCOMPLETE | BAT-C6 activity episode/coalescing; BAT-C7 offline durable compaction; BAT-C8 light sleep/GPIO4 wake; BAT-C9 battery QoS; BAT-C10 flash coalescing; BAT-C11 adaptive TX power; BAT-C12 deep sleep/RTC retention; calibrated battery telemetry and endurance; physical quiet-node BAT-C5 verification |
 
 ## BAT-C1–C12 architecture freeze at `a991c88` (historical design)
 
@@ -301,14 +328,15 @@ The earlier motion-stall defect was traced to bounded queue admission during
 Hub outage and corrected; all future power states must preserve sensing and
 bounded, explicit rejection without needing a re-plug or restart.
 
-Implementation boundary after BAT-C1 through BAT-C4: the owner calls a passive
+Historical implementation boundary after BAT-C1 through BAT-C4: the owner calls a passive
 policy evaluator and collects uptime, sensing, PIR, send, retry, rejoin,
 recovery-commit and queue-high-water counters in RAM. PIR noise counters and
 bounded LED patterns are owner-local. Confirmed outage changes retry timing
 to the existing 60-second cap; normal initial retries and event identities
 remain unchanged. There is no sleep entry, new radio frame or per-retry NVS
 write. The existing `NodePowerTelemetry` wire shape remains unchanged; these
-diagnostics are not calibrated energy or a battery-life claim. BAT-C5 through
+diagnostics are not calibrated energy or a battery-life claim. The BAT-C5
+implementation above supersedes this historical health timing; BAT-C6 through
 BAT-C12 remain future work.
 
 ### Current ownership and power baseline
@@ -320,7 +348,7 @@ BAT-C12 remain future work.
 | Business retry and ACK retirement | Same owner; `NodeRuntime`/`NodeRadio` | Monotonic `esp_timer_get_time`; 200/600/1800/10000/60000 ms ladder plus sequence-derived 0–100 ms jitter; MAC callback and authenticated application ACK are distinct; only qualifying ACK retires retained business event |
 | Radio callbacks | ESP-NOW callback context | Nonblocking copies into static ACK (8), control (8), security (8) and send-result (4) queues; drop counters are atomic; callbacks do not mutate `NodeRuntime` |
 | Recovery persistence | Same owner; `NodeSecurityLink`/`NodeRecoveryRepository` | Encrypted bounded NVS snapshot saved before first event send, after ACK retirement and first gap marker; restore only after authenticated session; boot session and association have separate commits |
-| Health and liveness | Node owner; `HubRuntime` | Standalone best-effort `NodeHealth` attempted every 60 s; Hub counts authenticated health or accepted app traffic as contact and uses a fixed 190 s lease; health has separate sequence and is not a durable business event |
+| Health and liveness | Node owner; `HubRuntime` | BAT-C5 normal production health is due after 120 s without matching authenticated application contact; Hub lease is 310 s and counts rejoin, accepted health/application traffic and verified FOTA ACKs; raw HIL remains at 60 s |
 | FOTA and post-boot validity | `gs_node_fota` task and validation task; security owner mediates packets | Control queue, maintenance atomic flag and authenticated ACK handoff; maintenance pauses ordinary sends; boot-health gate depends on owner, sensing and radio evidence |
 | LED, logs and power estimates | Node owner/portable `PowerPolicy` | Production GPIO8 indicates ready, durable delivery or bounded fault without blocking; routine success logs are DEBUG; HIL retains PIR indicator; owner RAM counters are diagnostic, not measured energy, and target never enters sleep |
 
@@ -624,7 +652,7 @@ per observation, not a scan of all pending events every poll.
 |---|---|---|---|
 | 1: BAT-C1/C2 | Add low-overhead owner telemetry and passive policy observations/deadlines; no sleep | Current active-mode behavior, host policy tests, C3 build, HW-M1.4B before/after measurement path | Policy disabled: existing 20 ms loop |
 | 1B: BAT-C3/C4 | Implemented nonblocking production LED/log policy, bounded PIR diagnostics and confirmed-outage profile around existing `NodeRadio`; no sleep | Host owner/queue tests and C3 target build; physical power and motion-continuity measurement remains pending | Existing normal retry ladder and legacy raw HIL indication |
-| 2: BAT-C5 | Versioned Node/Hub health lease and piggyback where codec permits | Shared protocol/Hub tests, both target builds, quiet-node physical liveness | 60 s/190 s contract |
+| 2: BAT-C5 | Implemented owner-local health deferment and coordinated 120 s/310 s lease; no new wire schema | Shared protocol/Hub tests and both target builds; quiet-node physical liveness remains pending | Historical 60 s/190 s contract |
 | 3: BAT-C6/C7 | Bounded episode and versioned summary schema; safe offline compaction | Target codec/Hub consumer and NVS crash tests, outage chronology | One-event-per-qualified-PIR |
 | 4: BAT-C8 | GPIO4/timer light sleep only after radio/wake experiment | C3 build, wake/ACK/rejoin/FOTA race and overnight sensing; measured power | Active polling mode |
 | Conditional: BAT-C9/C10/C11/C12 | ADC QoS, write checkpointing, adaptive TX, optional deep sleep | Calibrated hardware, wear/RF/endurance evidence | Last measured safe policy |
@@ -638,8 +666,8 @@ optional. Needs experiment before freeze: exact GPIO4 wake/electrical pulse
 and board pull behavior; automatic versus explicit light-sleep ESP-NOW
 continuity; sleep current and wake latency; health interval/Hub lease values;
 episode quiet/max duration and schema; battery thresholds/calibration; TX
-ladder; deep-sleep value. None of the BAT-C waves is implemented by this
-document.
+ladder; deep-sleep value. This historical design table does not itself provide
+qualification; current BAT-C1–C5 implementation is described above.
 
 | Decision | Status | Boundary |
 |---|---|---|
@@ -648,7 +676,7 @@ document.
 | State machine | FROZEN_FOR_IMPLEMENTATION | Five operating states; battery and sleep are attributes |
 | Deadline ownership | FROZEN_FOR_IMPLEMENTATION | Owner takes earliest required monotonic deadline; NodeRadio retains per-event retry due time |
 | Sleep inhibitors | FROZEN_FOR_IMPLEMENTATION | Explicit mask, fail awake on unknown or incomplete work |
-| NodeHealth/liveness contract | NEEDS_EXPERIMENT_BEFORE_FREEZE | Shared versioned Node/Hub lease; actual slower interval after quiet-node test |
+| NodeHealth/liveness contract | IMPLEMENTED_PROVISIONAL | BAT-C5 120 s production health and 310 s Hub lease are host tested; physical quiet-node timing remains to be measured |
 | Retry/backoff ownership | FROZEN_FOR_IMPLEMENTATION | NodeRadio owns retry queue; policy chooses outage profile and radio opportunity |
 | Activity episode ownership | FROZEN_FOR_IMPLEMENTATION | One owner-held bounded PIR episode; duration and wire schema still need experiments |
 | Critical-event classification | FROZEN_FOR_IMPLEMENTATION | Only ordinary PIR motion coalesces; new kinds default critical |

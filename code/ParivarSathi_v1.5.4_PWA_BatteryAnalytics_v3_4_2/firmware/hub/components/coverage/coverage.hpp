@@ -27,7 +27,7 @@ struct NodeHealth {
 
 class CoverageTracker {
 public:
-    explicit CoverageTracker(EpochSeconds lease_seconds = NodeProtocolPolicy::offline_after_seconds);
+    explicit CoverageTracker(EpochSeconds lease_seconds = NodeProtocolPolicy::coverage_after_seconds);
     void require_node(const std::string& node_id);
     void forget_node(const std::string& node_id);
     // @requirements F08, E01, E03

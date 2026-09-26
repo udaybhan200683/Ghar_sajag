@@ -418,6 +418,8 @@ void secure_owner_task(void*) {
         return;
     }
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
+    std::map<HubSecurityLink::Mac, bool> reported_liveness;
+    std::uint64_t next_liveness_check_ms = 0;
     hub::fota::HubFotaGuard fota_guard;
     std::uint64_t fota_last_activity_ms = 0;
     const auto active_fota_node = [&](const std::string& device_id)
@@ -470,6 +472,7 @@ void secure_owner_task(void*) {
                     abort_fota();
                 runtime.revoke_node(removed.logical_id);
                 authorized.erase(removed.radio_mac);
+                reported_liveness.erase(removed.radio_mac);
                 const esp_err_t peer_result = esp_now_del_peer(removed.radio_mac.data());
                 ESP_LOGI(kTag, "Node access stopped device=%s result=%d peer=%s",
                          device_id->c_str(), static_cast<int>(removed.result),
@@ -562,6 +565,7 @@ void secure_owner_task(void*) {
                     abort_fota();
                 runtime.revoke_node(replaced->logical_id);
                 authorized.erase(replaced->radio_mac);
+                reported_liveness.erase(replaced->radio_mac);
                 const esp_err_t peer_result = esp_now_del_peer(replaced->radio_mac.data());
                 ESP_LOGI(kTag, "Prior physical Node revoked after replacement peer=%s",
                          esp_err_to_name(peer_result));
@@ -572,10 +576,27 @@ void secure_owner_task(void*) {
                 const auto prior = authorized.find(control.source_mac);
                 if (prior == authorized.end() || prior->second != node->last_session) {
                     runtime.authorize_node(node->logical_id, node->last_session, true);
+                    (void)runtime.observe_authenticated_contact(
+                        node->logical_id, node->last_session, now_ms);
                     authorized[control.source_mac] = node->last_session;
                     ESP_LOGI(kTag, "Authenticated rejoin device=%s logical=%s session=%llu",
                              node->device_id.c_str(), node->logical_id.c_str(),
                              static_cast<unsigned long long>(node->last_session));
+                }
+            }
+        }
+        if (now_ms >= next_liveness_check_ms) {
+            next_liveness_check_ms = now_ms + 1000U;
+            for (const auto& [mac, session] : authorized) {
+                const auto* node = security_link.ready_node(mac);
+                if (node == nullptr || node->last_session != session) continue;
+                const bool online = runtime.node_online(node->logical_id, now_ms);
+                const auto prior = reported_liveness.find(mac);
+                if (prior == reported_liveness.end() || prior->second != online) {
+                    reported_liveness[mac] = online;
+                    ESP_LOGI(kTag, "Node liveness logical=%s online=%d session=%llu",
+                             node->logical_id.c_str(), online,
+                             static_cast<unsigned long long>(session));
                 }
             }
         }
@@ -597,6 +618,8 @@ void secure_owner_task(void*) {
             gs::fota::secure_wire::Message verified;
             if (fota_guard.admit_verified_ack(frame.source_mac, node, frames,
                                               plain, verified)) {
+                (void)runtime.observe_authenticated_contact(
+                    node->logical_id, node->last_session, now_ms);
                 FotaOwnerAck forwarded;
                 forwarded.message = verified;
                 fota_last_activity_ms = now_ms;

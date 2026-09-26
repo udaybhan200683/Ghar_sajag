@@ -392,8 +392,8 @@ void test_hub_modules() {
           !replacement_runtime.observe_authenticated_health(health_one, "node-1", 7, 2000) &&
           !replacement_runtime.observe_authenticated_health(health_one, "node-1", 8, 2000),
           "wrong identity/session or stale health sequence was accepted");
-    check(replacement_runtime.node_online("node-1", 190000) &&
-          !replacement_runtime.node_online("node-1", 191001),
+    check(replacement_runtime.node_online("node-1", 310000) &&
+          !replacement_runtime.node_online("node-1", 311001),
           "authenticated health lease did not expire");
     replacement_runtime.authorize_node("node-1", 9, true);
     check(!replacement_runtime.node_health("node-1") &&
@@ -409,10 +409,73 @@ void test_hub_modules() {
           "physical and logical delimiters collided");
 }
 
+void test_bat_c5_health_and_lease() {
+    constexpr gs::Milliseconds quiet_ms =
+        static_cast<gs::Milliseconds>(gs::NodeProtocolPolicy::heartbeat_seconds) * 1000;
+    constexpr gs::Milliseconds lease_ms =
+        gs::NodeProtocolPolicy::offline_after_seconds * 1000;
+    check(quiet_ms == 120000 && lease_ms == 310000 &&
+          lease_ms - 2 * quiet_ms == 70000,
+          "quiet health and Hub lease have a retry/scheduling safety margin");
+
+    gs::node::NodeHealthCadence cadence(quiet_ms, quiet_ms);
+    check(!cadence.due(quiet_ms - 1, false, false, false, false) &&
+          cadence.due(quiet_ms, false, false, false, false),
+          "quiet Node offers health at the bounded silence deadline");
+    cadence.observe_authenticated_contact(90000);
+    check(!cadence.due(209999, false, false, false, false) &&
+          cadence.due(210000, false, false, false, false),
+          "authenticated application contact defers redundant NodeHealth");
+    check(!cadence.due(210000, true, false, false, false) &&
+          !cadence.due(210000, false, true, false, false) &&
+          !cadence.due(210000, false, true, true, false) &&
+          !cadence.due(210000, false, false, false, true),
+          "application work, outage and maintenance outrank routine health");
+    cadence.observe_health_attempt(210000);
+    check(!cadence.due(329999, false, false, false, false) &&
+          cadence.due(330000, false, false, false, false),
+          "quiet health repeats without a new task or telemetry type");
+
+    gs::hub::HubRuntime hub(4, 8);
+    hub.authorize_node("quiet-node", 7, false);
+    check(!hub.observe_authenticated_contact("unknown", 7, 1) &&
+          !hub.observe_authenticated_contact("quiet-node", 8, 1) &&
+          !hub.node_online("quiet-node", 1),
+          "unknown or stale-session contact cannot refresh Hub liveness");
+    check(hub.observe_authenticated_contact("quiet-node", 7, 1000) &&
+          hub.node_online("quiet-node", 241000) &&
+          hub.node_online("quiet-node", 311000) &&
+          !hub.node_online("quiet-node", 311001),
+          "authenticated rejoin covers two quiet health opportunities then expires");
+    check(!hub.observe_authenticated_contact("quiet-node", 7, 999) &&
+          !hub.node_online("quiet-node", 311001),
+          "older contact cannot move the Hub lease backward");
+
+    hub.authorize_node("quiet-node", 8, false);
+    check(!hub.node_online("quiet-node", 120000) &&
+          !hub.observe_authenticated_contact("quiet-node", 7, 120000) &&
+          hub.observe_authenticated_contact("quiet-node", 8, 120000),
+          "fresh authenticated rejoin replaces the previous session lease");
+    auto app = gs::node_message_from_event(
+        event(1, gs::EventKind::Motion, 150, "quiet-node"));
+    app.session_id = 8;
+    check(hub.authenticated_radio_message_callback(
+              app, "quiet-node", "physical-quiet", 8, 0, 200000) &&
+          hub.node_online("quiet-node", 510000) &&
+          !hub.node_online("quiet-node", 510001),
+          "authenticated application event refreshes Hub liveness without health");
+    hub.revoke_node("quiet-node");
+    check(!hub.observe_authenticated_contact("quiet-node", 8, 510002) &&
+          !hub.node_online("quiet-node", 510002),
+          "revoked Node cannot refresh Hub liveness");
+}
+
 
 void test_protocol_and_generic_rules() {
-    check(gs::NodeProtocolPolicy::heartbeat_seconds == 60, "node heartbeat interval is frozen at 60 seconds");
-    check(gs::NodeProtocolPolicy::offline_after_seconds == 190, "three missed heartbeats plus grace means offline");
+    check(gs::NodeProtocolPolicy::heartbeat_seconds == 120,
+          "quiet authenticated health interval is 120 seconds");
+    check(gs::NodeProtocolPolicy::offline_after_seconds == 310,
+          "Hub lease covers two quiet health opportunities plus 70 seconds");
     check(gs::NodeProtocolPolicy::retry_delays_ms[0] == 200 &&
           gs::NodeProtocolPolicy::retry_delays_ms[3] == 10000 &&
           gs::NodeProtocolPolicy::retry_delays_ms[4] == 60000,
@@ -1056,6 +1119,7 @@ int main() {
     try {
         test_node_modules();
         test_hub_modules();
+        test_bat_c5_health_and_lease();
         test_protocol_and_generic_rules();
         test_node_offline_resilience();
         test_node_power_diagnostics();

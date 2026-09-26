@@ -10,11 +10,12 @@ ADAPTER = NODE / "target/esp32c3/node_runtime_adapter.cpp"
 class BatteryPowerInvariantTest(unittest.TestCase):
     def test_authenticated_application_ack_restores_outage_profile(self):
         source = ADAPTER.read_text()
-        ack_start = source.index("const bool retired = runtime.acknowledge(key")
+        ack_start = source.index("const bool matched_pending = runtime.has_pending_key(key)")
         ack_end = source.index("breadcrumb = retired", ack_start)
         ack_path = source[ack_start:ack_end]
 
         self.assertIn("const bool retired = runtime.acknowledge(key, decoded.value->ack_type)", ack_path)
+        self.assertIn("if (matched_pending) health_cadence.observe_authenticated_contact(now)", ack_path)
         self.assertIn("if (retired)", ack_path)
         self.assertIn("power_policy.observe_authenticated_contact()", ack_path)
         self.assertIn("runtime.set_outage_profile(false, now)", ack_path)
@@ -65,7 +66,9 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         self.assertIn("struct EnergyCounters", power_header)
         self.assertIn("EnergyCounters energy;", adapter)
         self.assertNotIn("EnergyCounters", codec_header + codec_source)
-        self.assertIn("constexpr Milliseconds kHealthIntervalMs = 60000", adapter)
+        self.assertIn("NodeHealthCadence health_cadence", adapter)
+        self.assertIn("NodeProtocolPolicy::heartbeat_seconds", adapter)
+        self.assertIn("health_cadence.due(now, application_due", adapter)
         self.assertEqual(adapter.count("xTaskCreate("), 1)
         self.assertNotIn("esp_timer_create", adapter)
         self.assertNotIn("esp_timer_start", adapter)
