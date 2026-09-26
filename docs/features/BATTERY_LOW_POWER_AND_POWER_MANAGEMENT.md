@@ -261,12 +261,12 @@ battery/endurance qualification. See
 
 Key implementation locations:
 
-- `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/app/node_runtime_adapter.cpp` — target task, PIR polling, health cadence and radio initialization.
-- `.../firmware/node/app/node_target_config.hpp` — GPIOs, poll/debounce/stabilization, channel and TX power.
+- `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/target/esp32c3/node_runtime_adapter.cpp` — target task, PIR polling, health cadence and radio initialization.
+- `.../firmware/node/target/esp32c3/node_target_config.hpp` — GPIOs, poll/debounce/stabilization, channel and TX power.
 - `.../firmware/node/components/power/power.hpp` and `power.cpp` — portable battery classification, percent estimate, sleep plan and energy model.
-- `.../firmware/node/components/runtime/node_runtime.cpp` — event generation and runtime flow.
+- `.../firmware/node/runtime/node_runtime.cpp` — event generation and runtime flow.
 - `.../firmware/node/components/radio/node_radio.cpp` and `.../shared/include/gs/protocol.hpp` — bounded send queue and retry policy.
-- `.../firmware/node/components/persistence/node_recovery_persistence.cpp` — encrypted pending-event recovery record.
+- `.../firmware/node/components/storage/node_recovery_persistence.cpp` — encrypted pending-event recovery record.
 - `.../backend/ghar_sajag/battery.py`, `.../tools/sim/local_lab.py` — supplied-sample energy analytics and simulator thresholds.
 - `.../tests/cpp/test_main.cpp` and `.../tests/python/test_battery_analytics.py` — host policy and analytics tests.
 
@@ -279,6 +279,367 @@ Key implementation locations:
 | CURRENT_HEAD_PHYSICALLY_VERIFIED | No current-HEAD physical battery/low-power qualification evidence is claimed |
 | NOT_YET_PHYSICALLY_QUALIFIED | Current-HEAD battery life, sleep modes, ADC/SOC, brownout recovery, flash wear and production power architecture |
 | PLANNED / INCOMPLETE | Light sleep and measurement baseline; GPIO wake/adaptive aggregation and health/retry policy; deep sleep/retained state; calibrated battery telemetry; TX power optimization and long endurance soak |
+
+## BAT-C1–C12 architecture freeze at `a991c88` (design only)
+
+This section is a design for later implementation. It changes no firmware and
+claims no current-HEAD power or sleep qualification. The historical 19 h 54 min
+alive observation belongs to the `bb34f5e` battery fixture, not this revision.
+The earlier motion-stall defect was traced to bounded queue admission during
+Hub outage and corrected; all future power states must preserve sensing and
+bounded, explicit rejection without needing a re-plug or restart.
+
+### Current ownership and power baseline
+
+| Responsibility | Current owner/context | State, clock, queue, persistence |
+|---|---|---|
+| Boot identity and authenticated rejoin | `gs_node_owner` in `node_runtime_adapter.cpp`, `NodeSecurityLink` | Boot session allocated and committed to NVS before radio start; security RX queue and 100 ms commissioning/rejoin poll; association restored before sensing; session keys in RAM |
+| PIR sensing and event admission | Same owner; `QualifiedInput` | GPIO4 sampled each 20 ms after 10 s stabilization; 150 ms debounce and 1 s minimum retrigger; `NodeRuntime::record` admits to 32-entry store and 32-entry radio queue with four slots reserved from motion |
+| Business retry and ACK retirement | Same owner; `NodeRuntime`/`NodeRadio` | Monotonic `esp_timer_get_time`; 200/600/1800/10000/60000 ms ladder plus sequence-derived 0–100 ms jitter; MAC callback and authenticated application ACK are distinct; only qualifying ACK retires retained business event |
+| Radio callbacks | ESP-NOW callback context | Nonblocking copies into static ACK (8), control (8), security (8) and send-result (4) queues; drop counters are atomic; callbacks do not mutate `NodeRuntime` |
+| Recovery persistence | Same owner; `NodeSecurityLink`/`NodeRecoveryRepository` | Encrypted bounded NVS snapshot saved before first event send, after ACK retirement and first gap marker; restore only after authenticated session; boot session and association have separate commits |
+| Health and liveness | Node owner; `HubRuntime` | Standalone best-effort `NodeHealth` attempted every 60 s; Hub counts authenticated health or accepted app traffic as contact and uses a fixed 190 s lease; health has separate sequence and is not a durable business event |
+| FOTA and post-boot validity | `gs_node_fota` task and validation task; security owner mediates packets | Control queue, maintenance atomic flag and authenticated ACK handoff; maintenance pauses ordinary sends; boot-health gate depends on owner, sensing and radio evidence |
+| LED, logs and power estimates | Node owner/portable `PowerPolicy` | GPIO8 active-low blinks 200 ms on qualified PIR; many per-event INFO logs; portable classifies modeled voltage and returns a `SleepPlan`, but target never calls it; `EnergyCounters` and `NodePowerTelemetry` are not populated from target measurements |
+
+The target uses `WIFI_PS_NONE`, ESP-NOW on channel 1 and fixed 40 quarter-dBm
+(10 dBm) maximum power. `CONFIG_PM_ENABLE` is off in the checked-in C3
+`sdkconfig`. No target sleep, GPIO wake, ADC, adaptive TX, health piggyback,
+motion aggregation or battery QoS path exists. The 20 ms loop, not the
+historical approximately 10 s generated-motion spacing, explains about 3000
+`sensing_live` increments per minute. Current `PowerPolicy::plan` is not a
+safe sleep arbiter: its critical-battery 300 s wait can override a pending
+10 s retry. It must be replaced or extended before target use.
+
+### Ownership decision and interface
+
+Keep one authoritative power state machine as a **passive, fixed-size
+component invoked only by `gs_node_owner`**. It is event-driven in behavior,
+but creates no extra FreeRTOS task. Option A, a separate task, adds stack,
+wakeups, shared-session locks and sleep-entry races. A stateless helper alone
+(option B) cannot own deadlines and burst state. Option C, owner-task state
+machine with portable policy logic, preserves the current single writer and
+supports deterministic host tests. FOTA stays in its existing worker and
+reports maintenance state to the owner; it cannot call sleep directly.
+
+The proposed narrow contract uses current `Milliseconds` monotonic time and
+small value types; names are illustrative until the first code slice:
+
+```text
+PowerPolicy.observe(InputObservation)       // qualified motion, level, wake cause
+PowerPolicy.observe(DeliveryObservation)    // admitted key, MAC result, app ACK
+PowerPolicy.observe(LinkObservation)        // auth/rejoin/contact/outage
+PowerPolicy.observe(SystemObservation)      // queue, NVS, FOTA, battery, faults
+PowerDecision PowerPolicy.evaluate(now_ms)  // episode action, health due,
+                                            // retry profile, TX/LED/log advice,
+                                            // next required deadline, sleep
+```
+
+`NodeRadio` continues to own each event's retry deadline and stable identity;
+PowerPolicy chooses an outage/recovery *profile* and wake opportunity, not a
+second retry queue. The owner executes decisions and reports results back.
+`PowerDecision` must carry an explicit inhibitor bit mask and a bounded
+`next_required_deadline_ms`. No sensing, radio, FOTA or diagnostic module may
+independently enter sleep. Security admission and application ACK policy remain
+owned by their existing components. Failed observation/unknown state defaults
+to awake, normal radio power and conservative delivery.
+
+### State machine and transition contract
+
+Use five mutually exclusive operating states plus two orthogonal flags:
+`BOOT_AUTH`, `READY_IDLE`, `ACTIVITY_EPISODE`, `OUTAGE`, `MAINTENANCE`;
+`battery_band` and `sleep_mode` are attributes, not duplicated states.
+
+| State | Entry and exit | Allowed work, timer and persistence | Radio/health/retry/sleep |
+|---|---|---|---|
+| BOOT_AUTH | Enter at reset or session invalidation; exit only after association/commissioning or rejoin and recovery restore | Security exchange, durable boot-session allocation, sensor stabilization and pending recovery; retry security messages on owner deadline | Conservative TX, no sleep, no ordinary event admission before recovery is safe; health after ready |
+| READY_IDLE | Enter once authenticated, no active episode or outage; leave on PIR, maintenance, lost contact or invalid session | Sample/wake sensor, service ACK/retry/health and pending queue; no new NVS write without event transition | Normal retry ladder; sleep only with all inhibitors clear and proven wake path |
+| ACTIVITY_EPISODE | First qualified ordinary PIR; exit after quiet timeout/max duration or outage/maintenance | First event admitted, committed and sent promptly; update bounded episode counts/timestamps; finalize summary if supported | Keep critical path immediate; sleep between work only when GPIO and timer deadlines are safe |
+| OUTAGE | Enter on repeated unacknowledged delivery/contact failure, not a single lost MAC callback; exit on authenticated contact/rejoin | Continue sensing, retain important event identity, compact only eligible repeated PIR, schedule probe; persist admission/gap | Existing ladder reaches 60 s periodic ceiling; no burst retry storm; timer wake required; sleep only between probes with radio lifecycle proven |
+| MAINTENANCE | Enter before FOTA/control flash operation; exit on verified worker completion or safe abort | Worker owns image; owner handles secure ACK and restores ordinary traffic afterward | Sleep inhibited, conservative TX, FOTA health/rollback deadlines take priority; local sensor observations must be explicit, not silently lost |
+
+Any state goes to `BOOT_AUTH` if session/security validity is lost. Any state
+goes to `MAINTENANCE` before accepted FOTA control starts. `MAINTENANCE` exits
+to the state derived from real pending work and contact, never an assumed
+empty `READY_IDLE`. Queue/NVS failure is a fault annotation plus fail-closed
+admission, not a state that hides PIR sensing. `battery_band` cannot suppress
+security, first motion, critical events or required fault notice.
+
+| State | Blocked actions | Sleep eligibility |
+|---|---|---|
+| BOOT_AUTH | Ordinary runtime transmit/admission before binding, recovery and session are valid; coalescing before identity exists | Never |
+| READY_IDLE | Unauthenticated controls and transmission before durable admission | Eligible only after all inhibitors and wake sources are checked |
+| ACTIVITY_EPISODE | Deferring the first event, merging critical events, replacing committed evidence with RAM-only count | Possible only between secured work and with a safe episode/timer deadline |
+| OUTAGE | Unbounded retries, discarding retained identity, suppressing sensing | Possible between bounded probes after committed recovery state |
+| MAINTENANCE | New ordinary radio send, sleep, ambiguous candidate activation | Never while FOTA/control or boot-health work remains |
+
+### Deadlines and sleep decision
+
+All within-boot event deadlines use `esp_timer_get_time()` milliseconds, not
+wall-clock time. The owner takes the minimum of next retry, short ACK/MAC
+wait, health lease deadline, episode quiet/max deadline, outage probe,
+diagnostic/FOTA deadline and later battery sample/checkpoint deadline. An
+overdue item executes before another sleep decision; equal deadlines get
+priority: security/FOTA, critical event, ACK/retry, sensing, health, optional
+diagnostic. Use saturating arithmetic for timer microsecond conversion and
+bounded sleep duration; never sleep on an absent or overflowed deadline.
+Light sleep must preserve the monotonic clock's elapsed-time behavior in a
+target experiment. On deep sleep, RAM clock/session do not survive: RTC time
+is only a candidate elapsed-time hint; durable event identities and a fresh
+boot session/rejoin remain authoritative.
+
+`SleepDecision` is `{eligible, mode, deadline, inhibitor_bits}`. Mandatory
+inhibitors: boot/commission/rejoin/session transition; no reliable GPIO wake;
+PIR high or unstable/stuck high; uncommitted recovery/association/session
+state; critical event requiring immediate work; queued due event; active TX
+or MAC callback; short application ACK window; imminent retry/health/probe;
+FOTA/maintenance/flash write/boot-health validation; callback queues not
+drained; explicit service diagnostic; unknown clock or driver state. A pending
+business event whose next retry is safely in the future may sleep **only**
+after it has been durably recorded and the radio/wake lifecycle is proven.
+Sleep decision is re-evaluated after arming wake sources and immediately before
+entry; a new queue item or GPIO high cancels entry.
+
+### Light sleep, sensing and wake-storm design (BAT-C3/C8)
+
+The AM312 remains powered continuously. ESP-IDF 6.0.3 documents
+`gpio_wakeup_enable(GPIO4, GPIO_INTR_HIGH_LEVEL)` followed by
+`esp_sleep_enable_gpio_wakeup()` for light sleep with GPIO peripheral powered,
+plus `esp_sleep_enable_timer_wakeup()` for the next required deadline. This is
+**level** wake, not edge capture: sample GPIO before entry and immediately on
+wake, and let `QualifiedInput` confirm a stable transition. A high PIR level
+inhibits re-entry until low and stable; stuck high becomes a rate-limited
+sensor fault, not repeated zero-time sleep/wake. The GPIO API is unavailable
+if `CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP` is enabled; a different
+RTC-domain API then requires a verified GPIO4 pin/board capability.
+
+ESP-IDF also states explicit light sleep powers wireless peripherals down,
+whereas Wi-Fi modem sleep plus automatic light sleep can preserve Wi-Fi driver
+operation. ESP-NOW peer/session behavior under either mode is **not proven**
+for this target. Therefore BAT-C8 must first measure automatic PM/tickless
+behavior with the existing security owner and ESP-NOW callback path, or use
+explicit owner-controlled Wi-Fi stop/start with authenticated recovery if
+that proves necessary. Do not put the target to sleep on a guess about radio
+receive, pending callbacks or cryptographic session continuity. Validate
+GPIO4 polarity/pulse width, wake latency, timer wake, FreeRTOS tick accounting,
+MAC callback ordering, peer availability, rejoin and FOTA inhibition on the
+actual board. The 20 ms busy poll may only be removed after GPIO wake detects
+first motion reliably through long idle and noisy conditions.
+
+Preserve the existing debounce/retrigger constants until measurements justify
+change. Count raw transitions, qualified PIR, wake cause, high dwell and
+wakeups per interval. Continuous high, rapid edges or abnormal wake rate
+report a sensor/wake fault and temporarily remain awake or use a bounded timer
+check; never disable PIR indefinitely. The previous motion-stall invariant is
+an endurance acceptance gate after every sleep change.
+
+### Activity episode and offline compaction (BAT-C6/C7)
+
+Only `EventKind::Motion` from PIR is eligible for ordinary burst coalescing.
+`DoorOpen`, `DoorClosed`, `OkPressed`, `CallFamily`, `PrivacyOn`, `PrivacyOff`
+and `Gap` retain independent immediate identities; `Heartbeat` is diagnostics,
+not a coalesced business event. Future SOS/tamper/fault types default to
+critical until explicitly classified. A door sensor is not currently wired
+into this C3 target, so this is a cross-input contract, not a claim of
+implemented door behavior.
+
+The owner keeps one bounded `ActivityEpisode` per local PIR source: episode
+ID; room/source; first and last monotonic times; optional synchronized epoch
+times and uncertainty; count (saturating); dirty/final flag. The first
+qualified motion is immediately recorded and committed through `NodeRuntime`
+with its stable event key. Repeats in a proposed 30–60 s quiet window update
+the episode. Continuous motion forces periodic finalization at a bounded
+maximum duration (proposed 5 min) and starts a new episode; these durations
+are **tuning candidates**, not measured release thresholds. Outage does not
+erase the episode. Reconnection sends retained first events in identity order,
+then any durable summary/gap with its own identity; Hub dedupe applies to each.
+
+Current `NodeMessage` has no typed episode count/last-time fields and uses a
+bounded codec, so a true episode summary needs a versioned schema/codec and
+Hub consumer change. Do not stuff opaque data into `payload_json` and claim
+target compatibility. First implementation wave may reduce only *new*
+repetitive PIR admission when lossless episode metadata is durably representable;
+until then preserve today's one-event-per-qualified-motion behavior. RAM-only
+episode counters may serve diagnostics but cannot replace a committed business
+event under reboot/outage. If bounded store fills, preserve earlier identities,
+record the existing durable gap marker on first rejection, and surface count
+of further dropped ordinary motion; never overwrite a critical event or
+silently promise lossless chronology. Repeated motion need not cause one NVS
+write per edge; a finalized summary is a separate durable event.
+
+### Health, retry and radio opportunity (BAT-C4/C5)
+
+Health policy must be versioned on both Node and Hub before changing cadence.
+Define `MAX_HEALTH_INTERVAL`, `MISSED_COUNT`, `GRACE` such that Hub offline
+lease equals at least `MAX_HEALTH_INTERVAL × MISSED_COUNT + GRACE`, with a
+bounded allowance for wake/radio jitter. Accepted authenticated application
+traffic and authenticated health both refresh `last_authenticated_contact`;
+MAC success alone does not. Piggyback counters on an app frame when the codec
+fits, and schedule standalone health only when no qualifying app contact has
+occurred by the policy deadline. Fault, boot, low battery, commissioning and
+recovery may temporarily use shorter health intervals. Do not change Node's
+60 s cadence alone while Hub still uses its 190 s lease. Preserve an explicit
+maximum silent interval so a quiet sleeping Node cannot appear healthy forever.
+Health remains best-effort and does not substitute for a durable business ACK.
+
+Retain `NodeRadio`'s per-event identity, existing initial delays and
+sequence-derived jitter. Its global next-opportunity gate already prevents an
+N-event retry burst. PowerPolicy observes authenticated contact and selects
+`NORMAL`, `SUSPECT`, `CONFIRMED_OUTAGE`, `RECOVERY` modes; the radio component
+owns due times. Confirm outage only after repeated missed application ACKs or
+Hub contact deadline, never a single MAC failure. Once confirmed, cap probes
+at the existing 60 s periodic interval initially, with no unbounded
+exponential delay. Critical events get the next bounded opportunity without
+discarding ordinary event identities; successful authenticated contact
+immediately resets to normal and drains pending work fairly. Any change to
+priority scheduling must preserve the current four-slot motion reserve and
+test noisy-node fairness. A session invalidation invokes authenticated rejoin,
+not a raw radio probe.
+
+### Indication, battery and flash policies (BAT-C3/C9/C10/C11)
+
+Replace the current qualified-PIR GPIO8 blink in a later implementation with
+the agreed simple nonblocking vocabulary: one short blink for successful app
+exchange, two medium for ready/rejoin, three long for completed operational
+FOTA, fast repeated for fault. Do not blink merely because PIR went high.
+Routine data indication can be disabled in battery mode. Keep security,
+storage, OTA and fatal logs; count and rate-limit repetitive PIR/send/ACK
+INFO lines, with explicit diagnostic/HIL override. No log or LED callback may
+block owner progress.
+
+Until calibrated target ADC hardware exists, battery state is `UNKNOWN` and
+must not suppress any service. Later ADC sampling needs settling,
+approximately 10–16 filtered samples, board calibration and Li-ion discharge
+mapping, with hysteresis between `NORMAL`, `LOW`, `CRITICAL`. Optional health,
+LED, logs, repeated ordinary motion and noncritical retry effort may be
+reduced in low battery. First significant activity, SOS/critical action,
+authenticated rejoin, required recovery and fault reporting are never
+suppressed. Keep last-node-contact separate from last-battery-update.
+
+Flash classification:
+
+| Class | State and rule |
+|---|---|
+| MUST_BE_DURABLE_IMMEDIATELY | Boot session progression before radio, association/key/revocation transitions, admitted business event and its retry identity before send, ACK retirement, first gap marker, critical episode summary before it replaces individual evidence |
+| MAY_BE_CHECKPOINTED | Episode counters only while first event and later summary semantics remain explicit; calibrated battery sample, aggregate resource counters and nonsecurity diagnostic breadcrumbs |
+| RAM_ONLY | Raw PIR levels/edges, current wake cause, rate-limit counters, policy residence times and rolling RF-quality window |
+
+Do not defer security/session writes or add a per-edge NVS commit. Measure NVS
+write count and wear under a busy PIR workload before relying on aggregation
+for flash life. On any required commit failure, preserve the current
+fail-closed owner behavior; never transmit an event whose recovery identity
+was not committed.
+
+Adaptive TX power is deferred until RF measurement. PowerPolicy alone chooses
+from a small board-qualified ladder, using authenticated ACK outcomes, retries,
+latency and trusted RSSI over a rolling window; changes require hysteresis and
+minimum dwell. Commissioning, rejoin, FOTA, critical delivery or link recovery
+force conservative/high power. Historical laboratory RSSI near -40 to -60 dBm
+does not justify a hard-coded reduction. Record per-step reachability and
+energy under obstruction, distance and interference before enabling.
+
+### Deep sleep, telemetry, concurrency and resource budget
+
+Deep sleep is optional after measured light-sleep gains. It destroys the RAM
+session, `NodeRuntime` instance, ESP-NOW peer state, callback queues and
+ordinary timers. A future deep-sleep boot must allocate a fresh durable boot
+session, restore association and event identity, authenticate rejoin, then
+restore pending work. Candidate RTC-retained state is episode times/count,
+next wake deadline, battery/filter state and diagnostics; security and durable
+business identities remain in protected persistent storage. Do not write NVS
+on each PIR trigger. Pending FOTA, uncommitted events and active ACK waits
+inhibit deep sleep. `DEEP_SLEEP_NOT_NEEDED` is an allowed outcome if measured
+light-sleep endurance meets product goals.
+
+Extend existing `EnergyCounters`/`NodePowerTelemetry` rather than creating a
+second telemetry channel. Owner accumulates active/light-sleep residence,
+qualified PIR, wake reason/count, TX attempts/retries, health sends, rejoin,
+NVS commits and queue high-water; existing retained and heap counters remain
+available. Current telemetry lacks a light-sleep field, so add a versioned
+bounded extension only when the target can measure it. Counter updates are
+RAM-only and are emitted with existing authenticated health/event traffic or
+on explicit diagnostic request; no per-transition flash write or extra
+periodic radio packet. Current mAh model cannot turn these counters into
+measured energy without HW-M1.4B current/voltage calibration.
+
+Only `gs_node_owner` mutates policy, episode, `NodeRuntime` and session
+security. ESP-NOW callbacks copy into existing bounded queues without
+blocking, allocating, flashing or calling policy. FOTA worker publishes
+maintenance and typed results through existing atomic/queue handoffs; it
+does not borrow policy or session locks. A timer/ISR, if later introduced,
+only signals owner; no policy mutation in ISR. Recheck queue and GPIO before
+sleep and after wake. Never hold a mutex around `esp_now_send`, NVS commit or
+sleep entry. A FOTA begin racing sleep sets the inhibitor before sender work;
+if the owner is already asleep, a proven wake signal or bounded timer must
+bring it back. Failure to prove that wake path blocks sleep integration.
+
+Initial fixed-size budget *estimate*, not a measured target result: policy
+state 96–192 B, one episode 96–160 B plus bounded room identifier, counters
+128–256 B, rolling RF window 32–64 B, battery filter 32–64 B; approximately
+0.5–1 KiB static/RAM total, no new task, queue or per-event allocation.
+Actual `std::string`/alignment costs, code size, owner stack high-water and
+20 ms loop CPU cost require target measurement. Keep the policy update O(1)
+per observation, not a scan of all pending events every poll.
+
+### Failure review
+
+| Failure | Detection | Safe behavior and recovery | Focused test |
+|---|---|---|---|
+| PIR changes during sleep entry | GPIO re-read or immediate wake | Cancel entry/process first qualified event; never lose level | Boundary race on board |
+| PIR high/stuck high or noisy wake storm | Level/dwell/wake-rate counters | Stay awake or bounded timer check; fault health; continue sensing | High/edge burst endurance |
+| Hub disappears or returns | Authenticated contact/ACK deadlines | Retain IDs, bounded 60 s probes, then authenticated progress and fair drain | Outage/reconnect |
+| Session invalid or rejoin fails | Security owner phase/proof | Inhibit sleep during recovery, reject stale ACK, retain events | Rejoin loss/stale session |
+| Pending ACK at sleep decision | In-flight flags/short deadline | Keep awake until callback/ACK window closes; retry later | Delayed ACK |
+| NVS commit fails or reboot during episode | Commit result/recovery decode | Stop unsafe send; restore committed first event and gap/summary contract | Inject write failure/reset |
+| FOTA begins near sleep | Maintenance flag/queue | Inhibit sleep and preserve boot-health path; abort safely on conflict | FOTA/sleep race |
+| Low battery during outage | Calibrated band/hysteresis | Preserve first/critical event and bounded authenticated probe | Low-voltage outage |
+| Timer overdue after wake | Monotonic deadline comparison | Execute due work once in priority order, then recalculate | Oversleep/deadline |
+| Unexpected reset or replayed event | Reset cause, boot session, Hub dedupe | Restore old event key only under fresh authenticated session; reject stale packet | Reset/replay |
+
+### Implementation waves and decision register
+
+| Wave | Modules/behavior | Dependency and focused proof | Rollback point |
+|---|---|---|---|
+| 1: BAT-C1/C2 | Add low-overhead owner telemetry and passive policy observations/deadlines; no sleep | Current active-mode behavior, host policy tests, C3 build, HW-M1.4B before/after measurement path | Policy disabled: existing 20 ms loop |
+| 1B: BAT-C3/C4 | Nonblocking LED/log policy, wake-rate diagnostics and outage profile around existing `NodeRadio` | Owner/queue tests, outage recovery and targeted physical motion continuity | Existing retry ladder and local indication |
+| 2: BAT-C5 | Versioned Node/Hub health lease and piggyback where codec permits | Shared protocol/Hub tests, both target builds, quiet-node physical liveness | 60 s/190 s contract |
+| 3: BAT-C6/C7 | Bounded episode and versioned summary schema; safe offline compaction | Target codec/Hub consumer and NVS crash tests, outage chronology | One-event-per-qualified-PIR |
+| 4: BAT-C8 | GPIO4/timer light sleep only after radio/wake experiment | C3 build, wake/ACK/rejoin/FOTA race and overnight sensing; measured power | Active polling mode |
+| Conditional: BAT-C9/C10/C11/C12 | ADC QoS, write checkpointing, adaptive TX, optional deep sleep | Calibrated hardware, wear/RF/endurance evidence | Last measured safe policy |
+
+Frozen for implementation: single Node owner; passive deterministic policy;
+current security and radio ownership; minimum-deadline scheduler; explicit
+sleep inhibitors; first event prompt; critical-event isolation; protected
+event/ACK/session persistence; authenticated liveness; no per-edge flash
+write; no extra periodic telemetry packet; FOTA inhibits sleep; deep sleep
+optional. Needs experiment before freeze: exact GPIO4 wake/electrical pulse
+and board pull behavior; automatic versus explicit light-sleep ESP-NOW
+continuity; sleep current and wake latency; health interval/Hub lease values;
+episode quiet/max duration and schema; battery thresholds/calibration; TX
+ladder; deep-sleep value. None of the BAT-C waves is implemented by this
+document.
+
+| Decision | Status | Boundary |
+|---|---|---|
+| PowerPolicy owner | FROZEN_FOR_IMPLEMENTATION | Passive component, single `gs_node_owner` writer |
+| Runtime/task ownership | FROZEN_FOR_IMPLEMENTATION | Reuse owner, callbacks and FOTA worker; no new policy task |
+| State machine | FROZEN_FOR_IMPLEMENTATION | Five operating states; battery and sleep are attributes |
+| Deadline ownership | FROZEN_FOR_IMPLEMENTATION | Owner takes earliest required monotonic deadline; NodeRadio retains per-event retry due time |
+| Sleep inhibitors | FROZEN_FOR_IMPLEMENTATION | Explicit mask, fail awake on unknown or incomplete work |
+| NodeHealth/liveness contract | NEEDS_EXPERIMENT_BEFORE_FREEZE | Shared versioned Node/Hub lease; actual slower interval after quiet-node test |
+| Retry/backoff ownership | FROZEN_FOR_IMPLEMENTATION | NodeRadio owns retry queue; policy chooses outage profile and radio opportunity |
+| Activity episode ownership | FROZEN_FOR_IMPLEMENTATION | One owner-held bounded PIR episode; duration and wire schema still need experiments |
+| Critical-event classification | FROZEN_FOR_IMPLEMENTATION | Only ordinary PIR motion coalesces; new kinds default critical |
+| Persistence boundary | FROZEN_FOR_IMPLEMENTATION | Security and admitted business identities commit before exposure; no per-edge write |
+| Telemetry ownership | FROZEN_FOR_IMPLEMENTATION | Owner accumulates counters, existing authenticated traffic carries them |
+| Battery QoS boundary | FROZEN_FOR_IMPLEMENTATION | Unknown means no suppression; thresholds require measured calibration |
+| TX-power ownership | FROZEN_FOR_IMPLEMENTATION | Policy chooses conservative ladder; RF thresholds require physical measurement |
+| FOTA/maintenance interaction | FROZEN_FOR_IMPLEMENTATION | Existing worker owns OTA; owner inhibits sleep and normal TX |
+| Light-sleep integration | NEEDS_EXPERIMENT_BEFORE_FREEZE | GPIO4 electrical wake and ESP-NOW/PM continuity on actual IDF 6.0.3 board |
+| Deep-sleep future boundary | FROZEN_FOR_IMPLEMENTATION | Optional after measurements, always fresh boot session/rejoin |
+
+ESP-IDF API reference for the proposed wake boundary: [ESP32-C3 sleep modes,
+ESP-IDF 6.0.3](https://docs.espressif.com/projects/esp-idf/en/v6.0.3/esp32c3/api-reference/system/sleep_modes.html).
 
 ## Engineer diagnostics
 
