@@ -125,6 +125,34 @@ void test_node_modules() {
     check(paced_second && paced_second->key.sequence == 11,
           "round-robin retry selection prevents one identity monopolizing transport");
 
+    gs::node::NodeRadio outage_motion_radio(4);
+    const auto old_motion = event(20, gs::EventKind::Motion, 100);
+    check(outage_motion_radio.enqueue(old_motion, 0), "outage motion retry is queued");
+    const auto old_attempt = outage_motion_radio.next_due(0);
+    check(old_attempt && old_attempt->key.sequence == 20,
+          "outage motion retry starts immediately");
+    outage_motion_radio.record_transport_result(old_attempt->key, false, 0);
+    outage_motion_radio.set_outage_profile(true, 1000);
+    outage_motion_radio.record_transport_result(old_attempt->key, false, 1000);
+    const auto new_motion = event(21, gs::EventKind::Motion, 200);
+    check(outage_motion_radio.enqueue(new_motion, 2000),
+          "fresh activity is retained during confirmed outage");
+    check(outage_motion_radio.next_due_at() == 2000,
+          "power deadline wakes for the prompt fresh-motion opportunity");
+    const auto prompt_motion = outage_motion_radio.next_due(2000);
+    check(prompt_motion && prompt_motion->key.sequence == 21,
+          "fresh motion gets a prompt first transmission despite the old retry gate");
+    outage_motion_radio.record_transport_result(prompt_motion->key, false, 2000);
+    const auto next_motion = event(22, gs::EventKind::Motion, 300);
+    check(outage_motion_radio.enqueue(next_motion, 3000),
+          "subsequent fresh activity remains bounded in outage");
+    const auto next_prompt_ms = 62000U + ((21U * 37U) % 101U);
+    check(!outage_motion_radio.next_due(next_prompt_ms - 1U),
+          "new-motion opportunity remains rate limited while Hub is unavailable");
+    const auto next_prompt = outage_motion_radio.next_due(next_prompt_ms);
+    check(next_prompt && next_prompt->key.sequence == 22,
+          "the next fresh motion receives the next bounded prompt opportunity");
+
     gs::node::LifecycleService lifecycle;
     check(!lifecycle.apply({1, "node-1", "kitchen", false, false, 60}).applied, "input-less config is rejected");
     check(lifecycle.apply({1, "node-1", "kitchen", true, false, 60}).applied, "valid node config applies");

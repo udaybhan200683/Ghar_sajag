@@ -60,9 +60,16 @@ public:
     bool contains(const EventKey& key) const;
     std::optional<Milliseconds> next_due_at() const {
         if (!earliest_due_ms_) return std::nullopt;
-        const auto ordinary = std::max(*earliest_due_ms_, next_radio_opportunity_ms_);
-        return outage_profile_ && earliest_new_critical_ms_
-            ? std::min(ordinary, *earliest_new_critical_ms_) : ordinary;
+        auto next = std::max(*earliest_due_ms_, next_radio_opportunity_ms_);
+        if (outage_profile_ && earliest_new_critical_ms_)
+            next = std::min(next, *earliest_new_critical_ms_);
+        if (outage_profile_ && earliest_new_motion_ms_) {
+            const auto motion_opportunity = next_new_motion_opportunity_ms_
+                ? std::max(*earliest_new_motion_ms_, *next_new_motion_opportunity_ms_)
+                : *earliest_new_motion_ms_;
+            next = std::min(next, motion_opportunity);
+        }
+        return next;
     }
     void set_outage_profile(bool enabled, Milliseconds now_ms);
     bool outage_profile() const { return outage_profile_; }
@@ -82,6 +89,8 @@ private:
     Milliseconds next_radio_opportunity_ms_{0};
     std::optional<Milliseconds> earliest_due_ms_;
     std::optional<Milliseconds> earliest_new_critical_ms_;
+    std::optional<Milliseconds> earliest_new_motion_ms_;
+    std::optional<Milliseconds> next_new_motion_opportunity_ms_;
     bool outage_profile_{false};
 };
 

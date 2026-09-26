@@ -58,6 +58,22 @@ std::optional<DomainEvent> NodeRadio::next_due(Milliseconds now_ms) {
                 return queue_[index].event;
             }
         }
+        // Let newly admitted activity use one prompt recovery opportunity per
+        // outage interval. Existing motion retries remain behind the shared
+        // gate, so a continuing outage cannot turn PIR activity into a retry
+        // storm.
+        if (!next_new_motion_opportunity_ms_ ||
+            now_ms >= *next_new_motion_opportunity_ms_) {
+            for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
+                const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
+                if (queue_[index].event.kind == EventKind::Motion &&
+                    queue_[index].attempt == 0U &&
+                    queue_[index].next_attempt_ms <= now_ms) {
+                    round_robin_cursor_ = (index + 1U) % queue_.size();
+                    return queue_[index].event;
+                }
+            }
+        }
     }
     if (now_ms < next_radio_opportunity_ms_) return std::nullopt;
     if (outage_profile_) {
@@ -89,6 +105,8 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
         return pending.event.key.str() == key.str();
     });
     if (it == queue_.end()) return;
+    const bool first_outage_motion = outage_profile_ &&
+        it->event.kind == EventKind::Motion && it->attempt == 0U;
     ++stats_.transport_results;
     if (accepted_by_radio) ++stats_.mac_success;
     else ++stats_.mac_failure;
@@ -100,6 +118,8 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
     const auto deterministic_jitter = static_cast<Milliseconds>(
         (key.sequence * 37U) % (static_cast<std::uint64_t>(NodeProtocolPolicy::retry_jitter_max_ms) + 1U));
     it->next_attempt_ms = now_ms + base + deterministic_jitter;
+    if (first_outage_motion)
+        next_new_motion_opportunity_ms_ = it->next_attempt_ms;
     // One global opportunity gate prevents N retained events from becoming an
     // N-packet burst every backoff period while the Hub is absent.
     next_radio_opportunity_ms_ = it->next_attempt_ms;
@@ -116,7 +136,10 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
 void NodeRadio::set_outage_profile(bool enabled, Milliseconds now_ms) {
     if (enabled == outage_profile_) return;
     outage_profile_ = enabled;
-    if (!enabled) {
+    if (enabled) {
+        next_new_motion_opportunity_ms_ = now_ms;
+    } else {
+        next_new_motion_opportunity_ms_.reset();
         // Authenticated progress proves the Hub is back. Make retained work
         // eligible again without changing any event identity or ACK policy.
         for (auto& item : queue_)
@@ -143,6 +166,7 @@ bool NodeRadio::contains(const EventKey& key) const {
 void NodeRadio::refresh_earliest_due() {
     earliest_due_ms_.reset();
     earliest_new_critical_ms_.reset();
+    earliest_new_motion_ms_.reset();
     for (const auto& item : queue_) {
         if (!earliest_due_ms_ || item.next_attempt_ms < *earliest_due_ms_)
             earliest_due_ms_ = item.next_attempt_ms;
@@ -150,6 +174,10 @@ void NodeRadio::refresh_earliest_due() {
             (!earliest_new_critical_ms_ ||
              item.next_attempt_ms < *earliest_new_critical_ms_))
             earliest_new_critical_ms_ = item.next_attempt_ms;
+        if (item.event.kind == EventKind::Motion && item.attempt == 0U &&
+            (!earliest_new_motion_ms_ ||
+             item.next_attempt_ms < *earliest_new_motion_ms_))
+            earliest_new_motion_ms_ = item.next_attempt_ms;
     }
 }
 
