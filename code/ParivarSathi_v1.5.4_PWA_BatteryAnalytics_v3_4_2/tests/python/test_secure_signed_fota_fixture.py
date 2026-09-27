@@ -3,19 +3,20 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 from unittest import mock
 
-import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-from build_signed_c3 import signed_hil_control_sdkconfig
+from build_signed_c3 import signed_hil_control_sdkconfig, signed_profile_baseline
 
-from tools.hil.secure_signed_fota import (NEGATIVE_ENV, SIGNING_ENV,
+from tools.hil.secure_signed_fota import (EXPECTED, NEGATIVE_ENV, SIGNING_ENV,
     SecureCampaign, activated_python_command, hub_flash_command,
-    artifact_manifest_path, latest_c3_ready_version,
+    artifact_manifest_path, build_images, latest_c3_ready_version,
     send_commissioning_control,
     validate_signing_inputs)
 
@@ -207,6 +208,21 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertIn("CONFIG_ESP_CONSOLE_UART_NUM=-1", result)
         self.assertNotIn("CONFIG_ESP_CONSOLE_UART_DEFAULT=y", result)
 
+    def test_signed_profile_does_not_require_untracked_signed_sdkconfig(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node_project = Path(temporary)
+            standard = node_project / "sdkconfig"
+            standard.write_text("standard target configuration")
+            self.assertEqual(signed_profile_baseline(node_project), standard)
+            signed = node_project / "sdkconfig.signed"
+            signed.write_text("existing signed configuration")
+            self.assertEqual(signed_profile_baseline(node_project), signed)
+
+    def test_signed_profile_baseline_missing_fails_clearly(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(FileNotFoundError, "configure the target once"):
+                signed_profile_baseline(Path(temporary))
+
     def test_secure_hil_control_profile_enables_only_existing_test_credentials(self):
         root = Path(__file__).resolve().parents[2]
         identity = (root / "firmware/common/security/target_identity_signer.cpp").read_text()
@@ -219,6 +235,164 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
     def test_build_scripts_use_idf_activated_python_from_path(self):
         self.assertEqual(activated_python_command("scripts/build_signed_c3.py", "build"),
                          ["python", "scripts/build_signed_c3.py", "build"])
+
+    def test_boot_health_failure_build_option_requires_secure_hil_control(self):
+        script = Path(__file__).resolve().parents[2] / "scripts/build_signed_c3.py"
+        result = subprocess.run([sys.executable, str(script), "--signing-key", "unused.pem",
+                                 "--force-boot-health-fail"],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--force-boot-health-fail requires --hil-control", result.stdout)
+
+    def test_signed_rollback_candidate_isolated_and_only_artifact_with_fault_flag(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            key, negative, activation = root / "ab.pem", root / "neg.pem", root / "activate.sh"
+            key.write_text("disposable test key")
+            negative.write_text("different disposable test key")
+            activation.write_text("# activation")
+            seen: list[list[str]] = []
+
+            def fake_command(args, *, cwd, config, timeout=3600):
+                del cwd, config, timeout
+                seen.append(args)
+                output = Path(args[args.index("--output") + 1])
+                version = args[args.index("--version") + 1]
+                fault = "--force-boot-health-fail" in args
+                output.write_bytes((version + ("-rollback" if fault else "-normal")).encode())
+                fingerprint = "b" * 64 if "--trusted-key" in args else "a" * 64
+                output.with_suffix(output.suffix + ".json").write_text(json.dumps({
+                    "version": version, "profile": "signed-app-on-update",
+                    "hil_control": True, "gs_hil_build": False,
+                    "build_dir": args[args.index("--build-dir") + 1],
+                    "boot_health_failure_injection": fault,
+                    "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                    "size": output.stat().st_size,
+                    "signing_public_key_fingerprint_sha256": fingerprint,
+                }))
+                return "build simulated"
+
+            with mock.patch.dict(os.environ, {
+                    SIGNING_ENV: str(key), NEGATIVE_ENV: str(negative)}), \
+                 mock.patch("tools.hil.secure_signed_fota.phase1.activation",
+                            return_value=activation), \
+                 mock.patch("tools.hil.secure_signed_fota.ARTIFACTS", root / "artifacts"), \
+                 mock.patch("tools.hil.secure_signed_fota.command", side_effect=fake_command):
+                (root / "run").mkdir()
+                images = build_images(root / "run", {"HIL_IDF_ACTIVATE": str(activation)})
+
+            self.assertEqual(set(images["versions"]), {"A", "B", "NEG", "ROLLBACK"})
+            self.assertEqual(len({images[name]["version"] for name in images["versions"]}), 4)
+            self.assertNotEqual(images["A"]["build_dir"], images["ROLLBACK"]["build_dir"])
+            self.assertFalse(images["B"]["boot_health_failure_injection"])
+            self.assertTrue(images["ROLLBACK"]["boot_health_failure_injection"])
+            self.assertEqual(sum("--force-boot-health-fail" in args for args in seen), 1)
+
+    def test_secure_signed_campaign_includes_boot_rollback_case(self):
+        self.assertIn("SIGNED_FOTA_BOOT_ROLLBACK", EXPECTED)
+
+    def test_rollback_case_requires_health_rejection_reset_known_good_slot_and_fresh_ack(self):
+        class Capture:
+            def __init__(self, role, lines):
+                self.role, self.lines = role, lines
+                self.waits = []
+            def cursor(self):
+                return 1 if self.role == "c3" else 4
+            def wait_for(self, pattern, timeout, start=0):
+                self.waits.append((pattern, timeout, start))
+                import re
+                compiled = re.compile(pattern)
+                for line in self.lines[start:]:
+                    if compiled.search(line):
+                        return line
+                raise AssertionError(pattern)
+            def wait_for_predicate(self, predicate, description, timeout, start=0):
+                self.waits.append((description, timeout, start))
+                for line in self.lines[start:]:
+                    if predicate(line):
+                        return line
+                raise AssertionError(description)
+
+        campaign = object.__new__(SecureCampaign)
+        campaign.images = {"B": {"version": "sfB-test"},
+                           "ROLLBACK": {"version": "sfR-test"}}
+        campaign.node_id = "c3-test"
+        campaign.before_session = "299"
+        campaign.hubs = {"ROLLBACK": {"hub_app_version": "hub-r"}}
+        campaign.run_dir = Path("evidence")
+        campaign.config = {}
+        campaign.results = mock.Mock()
+        campaign.c3 = Capture("c3", [
+            "HIL_READY role=c3 protocol=1 version=sfB-test",
+            "rst:0xc (RTC_SW_CPU_RST)",
+            "HIL_READY role=c3 protocol=1 version=sfR-test",
+            "HIL_BOOT_HEALTH_FAILURE_INJECTED",
+            "OTA health deadline expired; requesting rollback",
+            "rst:0xc (SW_CPU_RESET)",
+            "HIL_READY role=c3 protocol=1 version=sfB-test",
+            "PIR ready on GPIO4",
+        ])
+        campaign.hub = Capture("hub", ["old hub line"] * 4 + [
+            "Authenticated rejoin device=c3-test session=300",
+        ])
+        campaign.switch_to_rollback_hub = mock.Mock()
+        campaign.secure_transfer = mock.Mock(return_value="transfer-1")
+        campaign.state = mock.Mock(side_effect=[
+            "HIL_STATE role=c3 ota_slot=ota_1",
+            "HIL_STATE role=c3 ota_slot=ota_1",
+            "HIL_STATE role=c3 retained=0 in_flight=0 ota_slot=ota_1",
+        ])
+        campaign.motion = mock.Mock()
+
+        result = campaign.qualify_boot_rollback()
+
+        campaign.secure_transfer.assert_called_once_with("sfR-test", expect_signature_reject=False)
+        campaign.motion.assert_called_once_with()
+        self.assertEqual(result["slot_before"], "ota_1")
+        self.assertEqual(result["slot_after"], "ota_1")
+        self.assertEqual(result["restored_session"], "300")
+        campaign.results.add.assert_called_once()
+        self.assertEqual(campaign.results.add.call_args.args[0], "SIGNED_FOTA_BOOT_ROLLBACK")
+        self.assertTrue(any("PIR ready" in pattern for pattern, *_ in campaign.c3.waits))
+        reset_waits = [start for description, _timeout, start in campaign.c3.waits
+                       if description.startswith("fresh reset")]
+        self.assertEqual(reset_waits, [1, 5])
+        self.assertGreater(reset_waits[1], campaign.c3.lines.index(
+            "OTA health deadline expired; requesting rollback"))
+
+    def test_rollback_case_rejects_candidate_marked_valid_before_timeout(self):
+        campaign = object.__new__(SecureCampaign)
+        campaign.images = {"B": {"version": "sfB-test"},
+                           "ROLLBACK": {"version": "sfR-test"}}
+        campaign.node_id = "c3-test"
+        campaign.before_session = "299"
+        campaign.hubs = {"ROLLBACK": {"hub_app_version": "hub-r"}}
+        campaign.run_dir = Path("evidence")
+        campaign.config = {}
+        campaign.results = mock.Mock()
+        campaign.c3 = mock.Mock()
+        campaign.c3.lines = [
+            "HIL_READY role=c3 protocol=1 version=sfB-test",
+            "OTA image marked VALID after sensing/runtime/radio health",
+            "OTA health deadline expired; requesting rollback",
+        ]
+        campaign.c3.cursor.return_value = 1
+        campaign.c3.wait_for.side_effect = [
+            "HIL_READY role=c3 protocol=1 version=sfR-test",
+            "HIL_BOOT_HEALTH_FAILURE_INJECTED",
+            "OTA health deadline expired; requesting rollback",
+            "HIL_READY role=c3 protocol=1 version=sfB-test",
+            "PIR ready on GPIO4",
+        ]
+        campaign.c3.wait_for_predicate.return_value = "rst:0xc (SW_CPU_RESET)"
+        campaign.hub = mock.Mock()
+        campaign.hub.cursor.return_value = 4
+        campaign.switch_to_rollback_hub = mock.Mock()
+        campaign.secure_transfer = mock.Mock(return_value="transfer-1")
+        campaign.state = mock.Mock(return_value="HIL_STATE role=c3 ota_slot=ota_1")
+
+        with self.assertRaisesRegex(RuntimeError, "marked valid"):
+            campaign.qualify_boot_rollback()
 
     def test_signing_preflight_uses_configured_idf_activation_not_parent_environment(self):
         with tempfile.TemporaryDirectory() as temporary:

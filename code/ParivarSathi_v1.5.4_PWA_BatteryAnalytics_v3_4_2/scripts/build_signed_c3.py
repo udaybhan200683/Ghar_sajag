@@ -49,6 +49,16 @@ def signed_hil_control_sdkconfig(config_text: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def signed_profile_baseline(node_project: Path) -> Path:
+    signed = node_project / "sdkconfig.signed"
+    standard = node_project / "sdkconfig"
+    if signed.is_file():
+        return signed
+    if standard.is_file():
+        return standard
+    raise FileNotFoundError("no ESP32-C3 sdkconfig baseline; configure the target once before signing")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--signing-key", type=Path, required=True,
@@ -58,36 +68,50 @@ def main() -> int:
                         help="copy signed image here and write adjacent JSON provenance")
     parser.add_argument("--hil-control", action="store_true",
                         help="include HIL test controls while GS_HIL_BUILD remains OFF and secure runtime stays enabled")
+    parser.add_argument("--force-boot-health-fail", action="store_true",
+                        help="test-only: force OTA health timeout/rollback; requires --hil-control")
     parser.add_argument("--trusted-key", type=Path,
                         help="optional existing trust-anchor key; verification must succeed for matching signer")
     parser.add_argument("--build-dir", default="build_signed",
                         help="ESP-IDF build directory (default: build_signed)")
     args = parser.parse_args()
+    if args.force_boot_health_fail and not args.hil_control:
+        parser.error("--force-boot-health-fail requires --hil-control")
     key = args.signing_key.resolve()
     if not key.is_file() or key.is_relative_to(ROOT.parents[1]):
         parser.error("signing key must exist outside the repository")
     if "IDF_PATH" not in os.environ:
         parser.error("activate ESP-IDF 6.0.3 before running")
 
-    sdkconfig = NODE_PROJECT / "sdkconfig.signed"
     defaults = "sdkconfig.defaults;sdkconfig.signed.defaults"
+    # Keep the generated signed profile inside this artifact's isolated build
+    # directory. A signed sdkconfig is not a source-controlled prerequisite;
+    # use the current target config as the console baseline when no previous
+    # signed config exists.
+    build_dir = NODE_PROJECT / args.build_dir
+    build_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        base_config = signed_profile_baseline(NODE_PROJECT)
+    except FileNotFoundError as exc:
+        parser.error(str(exc))
+    sdkconfig = build_dir / "sdkconfig.signed"
     if args.hil_control:
-        profile_build_dir = NODE_PROJECT / args.build_dir
-        profile_build_dir.mkdir(parents=True, exist_ok=True)
-        sdkconfig = profile_build_dir / "sdkconfig.signed.hil-control"
-        sdkconfig.write_text(signed_hil_control_sdkconfig(
-            (NODE_PROJECT / "sdkconfig.signed").read_text()))
+        sdkconfig = build_dir / "sdkconfig.signed.hil-control"
+        sdkconfig.write_text(signed_hil_control_sdkconfig(base_config.read_text()))
         defaults += ";sdkconfig.hil.defaults"
+    else:
+        shutil.copy2(base_config, sdkconfig)
     build_args = ["-B", args.build_dir, f"-DSDKCONFIG={sdkconfig}",
                   f"-DSDKCONFIG_DEFAULTS={defaults}",
-                  "-DGS_HIL_BUILD=OFF", f"-DGS_HIL_CONTROL={'ON' if args.hil_control else 'OFF'}"]
+                  "-DGS_HIL_BUILD=OFF", f"-DGS_HIL_CONTROL={'ON' if args.hil_control else 'OFF'}",
+                  f"-DGS_HIL_FORCE_BOOT_HEALTH_FAIL={'ON' if args.force_boot_health_fail else 'OFF'}"]
     if args.version:
         if not args.version.strip() or len(args.version) > 31 or any(ch.isspace() for ch in args.version):
             parser.error("version must be 1..31 non-whitespace characters")
         build_args.append(f"-DPROJECT_VER={args.version}")
     build_args.append("build")
     run(*build_args)
-    config = (NODE_PROJECT / "sdkconfig.signed").read_text()
+    config = sdkconfig.read_text()
     required = ("CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y",
                 "CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y",
                 "CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y")
@@ -108,6 +132,9 @@ def main() -> int:
     if args.hil_control:
         if b"HIL_READY" not in image or b"INJECT_MOTION" not in image or b"GET_TEST_QR" not in image:
             raise RuntimeError("secure HIL-control image is missing expected diagnostic controls")
+        rollback_marker = b"HIL_BOOT_HEALTH_FAILURE_INJECTED"
+        if (rollback_marker in image) != args.force_boot_health_fail:
+            raise RuntimeError("signed candidate boot-health fault profile does not match requested build")
     elif b"HIL_READY" in image or b"INJECT_MOTION" in image:
         raise RuntimeError("HIL marker in signed production image")
     trusted_key = args.trusted_key.resolve() if args.trusted_key else key
@@ -146,6 +173,7 @@ def main() -> int:
         shutil.copy2(signed, output)
     record = {"version": args.version or "unspecified", "profile": "signed-app-on-update",
               "hil_control": args.hil_control, "gs_hil_build": False,
+              "boot_health_failure_injection": args.force_boot_health_fail,
               "image": str(output), "size": output.stat().st_size,
               "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
               "signing_public_key_fingerprint_sha256": fingerprint,

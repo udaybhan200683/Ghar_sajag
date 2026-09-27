@@ -54,4 +54,5 @@ idf_component_register(
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
     GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>
-    GS_HIL_CONTROL=$<BOOL:${GS_HIL_CONTROL}>)
+    GS_HIL_CONTROL=$<BOOL:${GS_HIL_CONTROL}>
+    GS_HIL_FORCE_BOOT_HEALTH_FAIL=$<BOOL:${GS_HIL_FORCE_BOOT_HEALTH_FAIL}>)

@@ -114,6 +114,8 @@ def main() -> int:
               "hub_sha256": sha256(output), "hub_size": output.stat().st_size,
               "embedded_c3_image": str(image), "embedded_c3_sha256": sha256(EMBED),
               "embedded_c3_size": EMBED.stat().st_size,
+              "boot_health_failure_injection":
+                  node_record.get("boot_health_failure_injection", False),
               "c3_version": node_record.get("version"),
               "signing_public_key_fingerprint_sha256":
                   node_record.get("signing_public_key_fingerprint_sha256"),

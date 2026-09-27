@@ -21,6 +21,10 @@
 #include <cstdint>
 #include <cstring>
 
+#ifndef GS_HIL_FORCE_BOOT_HEALTH_FAIL
+#define GS_HIL_FORCE_BOOT_HEALTH_FAIL 0
+#endif
+
 namespace gs::node::target {
 namespace {
 
@@ -248,9 +252,17 @@ void validate_running_image(void*) {
     if (esp_ota_get_state_partition(running, &state) == ESP_OK &&
         state == ESP_OTA_IMG_PENDING_VERIFY) {
         ESP_LOGW(kTag, "OTA image pending health validation");
+#if GS_HIL_FORCE_BOOT_HEALTH_FAIL
+        ESP_LOGW(kTag, "HIL_BOOT_HEALTH_FAILURE_INJECTED: suppressing validation evidence");
+#endif
         const auto started_ms = monotonic_ms();
         for (;;) {
-            const auto observation = ota_boot_health_observation();
+            auto observation = ota_boot_health_observation();
+#if GS_HIL_FORCE_BOOT_HEALTH_FAIL
+            // This one signed HIL candidate exercises the actual ESP-IDF
+            // pending-verify deadline and rollback path deterministically.
+            observation.post_sensing_radio_confirmed = false;
+#endif
             const auto decision = fota::evaluate_boot_health(
                 observation, monotonic_ms() - started_ms);
             if (decision == fota::BootHealthDecision::Validate) {

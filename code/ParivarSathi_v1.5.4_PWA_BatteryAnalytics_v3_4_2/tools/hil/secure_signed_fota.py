@@ -34,7 +34,8 @@ ARTIFACTS = PRODUCT / "build/secure_signed_fota"
 LOCK = phase1.LOCK
 SIGNING_ENV = "GS_HIL_SIGNED_FOTA_KEY"
 NEGATIVE_ENV = "GS_HIL_SIGNED_FOTA_NEGATIVE_KEY"
-EXPECTED = ("SIGNED_FOTA_NEGATIVE", "SIGNED_FOTA_A_TO_B", "POST_UPDATE_RECOVERY")
+EXPECTED = ("SIGNED_FOTA_NEGATIVE", "SIGNED_FOTA_A_TO_B", "POST_UPDATE_RECOVERY",
+            "SIGNED_FOTA_BOOT_ROLLBACK")
 OTA_DATA_OFFSET = 0xF000
 OTA_DATA_SIZE = 0x2000
 
@@ -78,31 +79,41 @@ def validate_signing_inputs(config: dict[str, str]) -> tuple[Path, Path]:
 def build_images(run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
     signing, negative = validate_signing_inputs(config)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%y%m%d%H%M%S")
-    versions = {"A": f"sfA-{stamp}", "B": f"sfB-{stamp}", "NEG": f"sfN-{stamp}"}
+    versions = {"A": f"sfA-{stamp}", "B": f"sfB-{stamp}", "NEG": f"sfN-{stamp}",
+                "ROLLBACK": f"sfR-{stamp}"}
     out_dir = ARTIFACTS / stamp
     out_dir.mkdir(parents=True, exist_ok=False)
     records: dict[str, dict] = {}
-    for label, key in (("A", signing), ("B", signing), ("NEG", negative)):
+    for label, key in (("A", signing), ("B", signing), ("NEG", negative),
+                       ("ROLLBACK", signing)):
         image = out_dir / f"c3-{label.lower()}.signed.bin"
-        build_dir = f"build_secure_signed_fota_{stamp}"
+        # Every profile gets an isolated IDF cache/config so the injected
+        # rollback candidate cannot contaminate the ordinary signed A/B images.
+        build_dir = f"build_secure_signed_fota_{stamp}_{label.lower()}"
         args = activated_python_command("scripts/build_signed_c3.py", "--signing-key", str(key),
                 "--version", versions[label], "--output", str(image), "--hil-control",
                 "--build-dir", build_dir)
         if label == "NEG":
             args += ["--trusted-key", str(signing)]
+        if label == "ROLLBACK":
+            args += ["--force-boot-health-fail"]
         log = command(args, cwd=PRODUCT, config=config)
         for private_path in (str(signing), str(negative)):
             log = log.replace(private_path, "<external-test-key>")
         (run_dir / f"build_c3_{label.lower()}.log").write_text(log, encoding="utf-8")
         record = json.loads(image.with_suffix(image.suffix + ".json").read_text(encoding="utf-8"))
-        if record["version"] != versions[label] or record["hil_control"] is not True or record["gs_hil_build"] is not False:
+        if (record["version"] != versions[label] or record["hil_control"] is not True or
+                record["gs_hil_build"] is not False or
+                record.get("boot_health_failure_injection", False) !=
+                (label == "ROLLBACK")):
             raise RuntimeError(f"C3 {label} artifact profile/version mismatch")
-        if label in ("A", "B") and record["signing_public_key_fingerprint_sha256"] != records.get("A", record)["signing_public_key_fingerprint_sha256"]:
-            raise RuntimeError("signed A/B public key fingerprints differ")
+        if label in ("A", "B", "ROLLBACK") and record["signing_public_key_fingerprint_sha256"] != records.get("A", record)["signing_public_key_fingerprint_sha256"]:
+            raise RuntimeError("trusted signed candidate public key fingerprints differ")
         if label == "NEG" and record["signing_public_key_fingerprint_sha256"] == records["A"]["signing_public_key_fingerprint_sha256"]:
             raise RuntimeError("negative candidate unexpectedly uses A signing key")
         records[label] = {**record, "path": str(image)}
-    if versions["A"] == versions["B"] or records["A"]["size"] > 0x1E0000 or records["B"]["size"] > 0x1E0000:
+    if (len(set(versions.values())) != len(versions) or
+            any(records[label]["size"] > 0x1E0000 for label in versions)):
         raise RuntimeError("A/B versions or OTA slot sizes are invalid")
     records["versions"] = versions
     return records
@@ -113,17 +124,22 @@ def build_hubs(images: dict[str, dict], run_dir: Path, config: dict[str, str]) -
     embed = HUB_PROJECT / "main/node_firmware.bin"
     previous = embed.read_bytes() if embed.is_file() else None
     try:
-        for candidate in ("NEG", "B"):
+        for candidate in ("NEG", "B", "ROLLBACK"):
             label = f"sfota-{candidate.lower()}-{images['versions'][candidate]}"
             output = ARTIFACTS / f"hub-{label}.bin"
             log = command(activated_python_command("scripts/build_secure_fota_hub.py", "--node-image",
                            images[candidate]["path"], "--output", str(output), "--label", label,
-                           "--build-dir", f"secure_fota_hub_{images['versions']['A']}"),
+                           "--build-dir", f"secure_fota_hub_{images['versions']['A']}_{candidate.lower()}"),
                           cwd=PRODUCT, config=config)
             (run_dir / f"build_hub_{candidate.lower()}.log").write_text(log, encoding="utf-8")
             sidecar = json.loads(output.with_suffix(output.suffix + ".json").read_text(encoding="utf-8"))
             if sidecar["embedded_c3_sha256"] != images[candidate]["sha256"] or sidecar["legacy_raw_fota"]:
                 raise RuntimeError(f"Hub {candidate} embedding provenance mismatch")
+            if sidecar.get("embedded_c3_sha256") != images[candidate]["sha256"]:
+                raise RuntimeError(f"Hub {candidate} embeds a different C3 image hash")
+            if sidecar.get("boot_health_failure_injection", False) != \
+                    images[candidate].get("boot_health_failure_injection", False):
+                raise RuntimeError(f"Hub {candidate} rollback fault provenance mismatch")
             built[candidate] = sidecar
     finally:
         if previous is None:
@@ -341,6 +357,15 @@ class SecureCampaign:
         self.establish_fresh_node_session(self.hubs["B"]["hub_app_version"],
                                           self.images["A"]["version"])
 
+    def switch_to_rollback_hub(self) -> None:
+        self.close()
+        self.c3 = self.hub = None
+        flash_hub(self.config, phase1.runtime_port(self.config, "hub"),
+                  self.hubs["ROLLBACK"], self.run_dir, "rollback")
+        self.open()
+        self.establish_fresh_node_session(self.hubs["ROLLBACK"]["hub_app_version"],
+                                          self.images["B"]["version"])
+
     def state(self, expected: str | None = None) -> str:
         pattern = r"HIL_STATE role=c3 .*ota_slot=ota_[01]"
         if expected:
@@ -394,6 +419,71 @@ class SecureCampaign:
         self.c3.wait_for(r"FOTA COMPLETE; next boot partition=ota_[01]", 30, cursor_c3)
         self.hub.wait_for(rf"SECURE_FOTA_TRANSFER_COMPLETE transfer={transfer_id} chunks=\d+", 30, cursor_hub)
         return transfer_id
+
+    def qualify_boot_rollback(self) -> dict:
+        """Prove a valid signed candidate that misses health validation rolls back."""
+        self.active_case = EXPECTED[3]
+        self.switch_to_rollback_hub()
+        starting_state = self.state()
+        slot_before = re.search(r"ota_slot=(ota_[01])", starting_state).group(1)
+        version_before = latest_c3_ready_version(self.c3.lines)
+        if version_before != self.images["B"]["version"]:
+            raise RuntimeError("known-good signed B is not running before rollback exercise")
+
+        candidate_cursor = self.c3.cursor()
+        hub_rejoin_cursor = self.hub.cursor()
+        transfer = self.secure_transfer(self.images["ROLLBACK"]["version"],
+                                        expect_signature_reject=False)
+        self.c3.wait_for_predicate(
+            lambda line: phase1.normalize_rom_reset_class(line) ==
+                phase1.SOFTWARE_RESET_EVIDENCE,
+            "fresh reset into signed rollback candidate", 30, candidate_cursor)
+        self.c3.wait_for(
+            rf"HIL_READY role=c3 protocol=1 version={re.escape(self.images['ROLLBACK']['version'])}",
+            45, candidate_cursor)
+        self.c3.wait_for(r"HIL_BOOT_HEALTH_FAILURE_INJECTED", 15, candidate_cursor)
+        deadline_line = self.c3.wait_for(
+            r"OTA health deadline expired; requesting rollback", 110, candidate_cursor)
+        # The ESP-IDF rollback call can reboot immediately after this log. Use
+        # the marker's position in the already captured stream as the cursor,
+        # so a fast reset cannot land between the marker and a later snapshot.
+        rollback_reset_cursor = self.c3.lines.index(deadline_line, candidate_cursor) + 1
+        self.c3.wait_for_predicate(
+            lambda line: phase1.normalize_rom_reset_class(line) ==
+                phase1.SOFTWARE_RESET_EVIDENCE,
+            "fresh reset after ESP-IDF rejected pending image", 20,
+            rollback_reset_cursor)
+        self.c3.wait_for(
+            rf"HIL_READY role=c3 protocol=1 version={re.escape(self.images['B']['version'])}",
+            45, rollback_reset_cursor)
+        self.c3.wait_for(r"PIR ready on GPIO", 45, rollback_reset_cursor)
+
+        slot_after = re.search(r"ota_slot=(ota_[01])", self.state()).group(1)
+        if slot_after != slot_before:
+            raise RuntimeError(f"failed boot did not restore known-good slot {slot_before}: {slot_after}")
+        candidate_lines = self.c3.lines[candidate_cursor:]
+        rollback_line = next((index for index, line in enumerate(candidate_lines)
+                              if "OTA health deadline expired; requesting rollback" in line), None)
+        if rollback_line is None or any(
+                "OTA image marked VALID" in line for line in candidate_lines[:rollback_line + 1]):
+            raise RuntimeError("boot-health failure candidate was marked valid or lacked rollback evidence")
+
+        rejoined = self.hub.wait_for(
+            rf"Authenticated rejoin device={re.escape(self.node_id)} .*session=(\d+)",
+            45, hub_rejoin_cursor)
+        restored_session = re.search(r"session=(\d+)", rejoined).group(1)
+        if restored_session == self.before_session:
+            raise RuntimeError("rolled-back C3 did not establish a fresh authenticated session")
+        self.before_session = restored_session
+        self.motion()
+        final_state = self.state(r"HIL_STATE role=c3 .*retained=0 in_flight=0 .*ota_slot=ota_[01]")
+        self.results.add(EXPECTED[3], "PASS",
+            f"valid signed candidate failed health, ESP-IDF rolled back to B in {slot_after}; "
+            f"fresh authenticated session={restored_session}, PIR ready, event ACK; {final_state.strip()}")
+        return {"transfer_id": transfer, "candidate_version": self.images["ROLLBACK"]["version"],
+                "known_good_version": self.images["B"]["version"],
+                "slot_before": slot_before, "slot_after": slot_after,
+                "restored_session": restored_session}
 
     def run(self) -> dict:
         if self.config.get("HIL_IDF_ACTIVATE"):
@@ -462,12 +552,14 @@ class SecureCampaign:
         final_state = self.state(r"HIL_STATE role=c3 .*retained=0 in_flight=0 .*ota_slot=ota_[01]")
         self.results.add(EXPECTED[2], "PASS", f"B boot-health, alternate slot={final_slot}, authenticated rejoin and application ACK; {final_state.strip()}")
         self.results.add("SIGNED_FOTA_DIGEST", "PASS", "secure sender/receiver transfer completed with embedded image SHA-256 verification")
+        rollback = self.qualify_boot_rollback()
         return {"node_id": self.node_id, "a_slot_before": self.before_slot,
                 "slot_after_negative": after_slot, "slot_after_b": final_slot,
                 "signature_rejection_evidence": rejected, "transfer_id_b": transfer,
                 "transfer_id_negative": self.transfer_ids[self.images["NEG"]["version"]],
                 "session_before": old_session, "session_after_hub_restart": session_after_hub_restart,
                 "session_after_c3_update": final_session,
+                "rollback": rollback,
                 "artifacts": artifact_manifest_path(self.run_dir)}
 
 
