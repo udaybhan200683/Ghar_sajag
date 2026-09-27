@@ -14,8 +14,12 @@ constexpr char kTag[] = "gs_hil_control";
 
 void dispatch_command(const char* command) {
     if (std::strcmp(command, "INJECT_MOTION") == 0) {
+#if GS_BAT_C8_PHYSICAL_WAKE
+        ESP_LOGW(kTag, "HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake");
+#else
         gs::node::target::hil_inject_motion();
         ESP_LOGI(kTag, "HIL_OK command=INJECT_MOTION");
+#endif
     } else if (std::strcmp(command, "GET_HEALTH") == 0) {
         gs::node::target::hil_request_health();
         ESP_LOGI(kTag, "HIL_OK command=GET_HEALTH");

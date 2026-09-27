@@ -2,6 +2,7 @@
 #include "firmware/node/runtime/node_runtime.hpp"
 #include "power/power.hpp"
 #include "sensing/sensing.hpp"
+#include "firmware/node/target/esp32c3/physical_wake_capability.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -31,6 +32,23 @@ gs::node::LightSleepObservation healthy_idle() {
     value.wake_source_ready = true;
     value.runtime_state_known = true;
     return value;
+}
+
+void test_physical_wake_profile() {
+    using gs::node::target::physical_wake_permitted;
+    check(physical_wake_permitted(false, false, false),
+          "ordinary production retains physical wake permission");
+    check(!physical_wake_permitted(true, true, false) &&
+          !physical_wake_permitted(true, true, true),
+          "synthetic raw HIL build cannot receive physical wake permission");
+    check(!physical_wake_permitted(false, true, false),
+          "existing HIL-control images remain awake");
+    check(physical_wake_permitted(false, true, true),
+          "explicit HIL-control physical qualification permits real wake");
+    auto observation = healthy_idle();
+    observation.wake_source_ready = false;
+    check(!evaluate_light_sleep(observation).eligible,
+          "security controls alone do not grant sleep eligibility");
 }
 
 void test_sleep_eligibility_and_inhibitors() {
@@ -191,6 +209,7 @@ void test_fresh_critical_work_keeps_existing_retry_priority() {
 
 int main() {
     try {
+        test_physical_wake_profile();
         test_sleep_eligibility_and_inhibitors();
         test_pir_wake_handoff_and_timer_wake();
         test_qualification_diagnostics();

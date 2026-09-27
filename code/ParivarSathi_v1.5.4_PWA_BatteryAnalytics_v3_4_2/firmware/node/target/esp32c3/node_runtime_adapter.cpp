@@ -7,6 +7,7 @@
 #include "firmware/node/runtime/node_runtime.hpp"
 #include "power/power.hpp"
 #include "firmware/node/target/esp32c3/node_security_link.hpp"
+#include "firmware/node/target/esp32c3/physical_wake_capability.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
 #include "firmware/node/target/esp32c3/nvs_session_provider.hpp"
 #include "sensing/sensing.hpp"
@@ -44,6 +45,11 @@ constexpr UBaseType_t kAckQueueDepth = 8U;
 constexpr UBaseType_t kControlQueueDepth = 8U;
 constexpr UBaseType_t kSecurityQueueDepth = 8U;
 constexpr UBaseType_t kSendQueueDepth = 4U;
+#if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
+constexpr bool kGpioWakeSupported = false;
+#else
+constexpr bool kGpioWakeSupported = true;
+#endif
 constexpr Milliseconds kSendCallbackTimeoutMs = 1000;
 #if GS_HIL_BUILD
 constexpr Milliseconds kHealthIntervalMs = 60000;  // Keep the qualified raw HIL cadence.
@@ -1147,7 +1153,15 @@ void owner_task(void*) {
         sleep_observation.pir_high = raw_pir;
         sleep_observation.pir_low_stable = pir_low_stable;
         sleep_observation.debounce_safe = pir.safe_for_sleep(sleep_now);
-        sleep_observation.wake_source_ready = !GS_HIL_BUILD && !GS_HIL_CONTROL;
+        // GPIO4 was configured at startup; actual wake arming and timer setup
+        // are checked by enter_light_sleep before the real IDF sleep call.
+        // Existing HIL-control images remain awake unless explicitly built
+        // for physical BAT-C8 qualification on a wake-capable target.
+        sleep_observation.wake_source_ready =
+            physical_wake_permitted(GS_HIL_BUILD, GS_HIL_CONTROL,
+                                    GS_BAT_C8_PHYSICAL_WAKE) &&
+            kGpioWakeSupported &&
+            g_ota_sensing_ready.load(std::memory_order_acquire);
         sleep_observation.runtime_state_known = g_ota_owner_started.load(
                 std::memory_order_acquire) && g_wifi_active.load(std::memory_order_acquire) &&
             g_esp_now_active.load(std::memory_order_acquire) && g_ack_queue != nullptr &&

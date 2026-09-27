@@ -126,6 +126,18 @@ unmeasured.
 
 ## BAT-C8A software light sleep
 
+For the BAT-C8 physical qualification image, build the C3 with
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`, and
+`GS_BAT_C8_PHYSICAL_WAKE=ON` in an isolated generated build configuration.
+The last option is deliberately explicit: existing HIL-control/FOTA images
+remain awake, while the qualification image may use the same real GPIO4 and
+timer wake setup as production. The owner still requires initialized sensing,
+a supported GPIO wake configuration, and all BAT-C8 policy conditions before
+it calls the real ESP-IDF light-sleep API. HIL security controls alone never
+make a wake source ready. `INJECT_MOTION` is rejected in this profile, so
+physical qualification must use the AM312/GPIO4 path. This configuration does not qualify production
+Secure Boot, eFuse, or key provisioning.
+
 BAT-C8B qualification firmware emits compact INFO records at eligible sleep
 decisions (`BAT_SLEEP_DECISION`), immediately before entry (`BAT_SLEEP_ENTER`),
 immediately after return (`BAT_SLEEP_WAKE`), and after radio restoration

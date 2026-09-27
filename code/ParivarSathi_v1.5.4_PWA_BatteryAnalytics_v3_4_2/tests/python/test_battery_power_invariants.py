@@ -8,6 +8,22 @@ ADAPTER = NODE / "target/esp32c3/node_runtime_adapter.cpp"
 
 
 class BatteryPowerInvariantTest(unittest.TestCase):
+    def test_physical_wake_uses_real_idf_and_pir_path(self):
+        adapter = ADAPTER.read_text()
+        cmake = (NODE / "target/esp32c3/idf/CMakeLists.txt").read_text()
+        hil_control = (NODE / "target/esp32c3/idf/main/hil_control.cpp").read_text()
+        self.assertIn("GS_BAT_C8_PHYSICAL_WAKE", cmake)
+        self.assertIn("physical_wake_permitted(GS_HIL_BUILD, GS_HIL_CONTROL,", adapter)
+        self.assertIn("kGpioWakeSupported &&", adapter)
+        self.assertIn("g_ota_sensing_ready.load(std::memory_order_acquire)", adapter)
+        self.assertIn("gpio_wakeup_enable(static_cast<gpio_num_t>(kPirGpio)", adapter)
+        self.assertIn("esp_sleep_enable_gpio_wakeup()", adapter)
+        self.assertIn("esp_sleep_enable_timer_wakeup(duration_us)", adapter)
+        self.assertIn("esp_light_sleep_start()", adapter)
+        self.assertIn("pir.sample(raw_pir, now)", adapter)
+        self.assertIn("#if GS_BAT_C8_PHYSICAL_WAKE", hil_control)
+        self.assertIn("disabled_for_physical_wake", hil_control)
+
     def test_authenticated_application_ack_restores_outage_profile(self):
         source = ADAPTER.read_text()
         ack_start = source.index("const bool matched_pending = runtime.has_pending_key(key)")
