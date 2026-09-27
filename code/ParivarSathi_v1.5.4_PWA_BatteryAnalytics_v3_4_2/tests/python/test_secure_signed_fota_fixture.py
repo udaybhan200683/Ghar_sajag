@@ -39,13 +39,50 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         campaign = object.__new__(SecureCampaign)
         capture = mock.Mock()
         capture.cursor.return_value = 13
+        capture.wait_for.side_effect = [
+            "HIL_READY role=c3 protocol=1 version=signed-a",
+            "HIL_READY role=c3 protocol=1 version=signed-a",
+        ]
 
         campaign.restart_and_ready(capture, "c3", "signed-a", wait_for_sensing=False)
 
         patterns = [item.args[0] for item in capture.wait_for.call_args_list]
-        self.assertEqual(len(patterns), 1)
-        self.assertIn("HIL_READY role=c3", patterns[0])
-        capture.wait_for.assert_called_once()
+        self.assertEqual(len(patterns), 2)
+        self.assertTrue(all("HIL_READY role=c3" in pattern for pattern in patterns))
+        capture.wait_for_predicate.assert_called_once()
+        capture.send.assert_called_once_with("SOFTWARE_RESTART")
+
+    def test_restart_uses_fresh_exact_image_ready_when_rom_reset_line_is_truncated(self):
+        campaign = object.__new__(SecureCampaign)
+        capture = mock.Mock()
+        capture.cursor.return_value = 1
+        capture.lines = [
+            "HIL_READY role=hub protocol=1 version=hub-a",
+            "rst:0x? (truncated at UART restart boundary)",
+            "HIL_READY role=hub protocol=1 version=hub-a",
+        ]
+        capture.wait_for.side_effect = [capture.lines[0], capture.lines[2]]
+        capture.wait_for_predicate.side_effect = TimeoutError("reset line truncated")
+
+        campaign.restart_and_ready(capture, "hub", "hub-a")
+
+        self.assertEqual(capture.wait_for.call_count, 2)
+        self.assertEqual(capture.wait_for.call_args_list[1].args[1:], (35, 1))
+
+    def test_restart_fails_closed_when_post_command_ready_follows_wrong_reset(self):
+        campaign = object.__new__(SecureCampaign)
+        capture = mock.Mock()
+        capture.cursor.return_value = 1
+        capture.lines = [
+            "HIL_READY role=hub protocol=1 version=hub-a",
+            "rst:0x5 (DEEPSLEEP_RESET)",
+            "HIL_READY role=hub protocol=1 version=hub-a",
+        ]
+        capture.wait_for.side_effect = [capture.lines[0], capture.lines[2]]
+        capture.wait_for_predicate.side_effect = TimeoutError("software reset not observed")
+
+        with self.assertRaisesRegex(RuntimeError, "non-software reset"):
+            campaign.restart_and_ready(capture, "hub", "hub-a")
 
     def test_secure_motion_verifies_authenticated_hub_event_and_matching_node_ack(self):
         campaign = object.__new__(SecureCampaign)

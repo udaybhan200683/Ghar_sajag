@@ -317,6 +317,35 @@ class SecureCampaign:
         redact_test_code(self.run_dir / "hub_serial.log")
         redact_test_code(self.run_dir / "c3_serial.log")
 
+    def wait_for_restart_boot(self, capture: SerialCapture, role: str, version: str,
+                              cursor: int, *, reset_timeout: float = 8,
+                              ready_timeout: float = 35) -> tuple[str, str]:
+        """Require fresh image readiness; reject any observed non-software reset."""
+        ready_pattern = rf"HIL_READY role={role} protocol=1 version={re.escape(version)}"
+        try:
+            capture.wait_for_predicate(lambda line: phase1.normalize_rom_reset_class(line) ==
+                phase1.SOFTWARE_RESET_EVIDENCE, "fresh normalized software reset",
+                reset_timeout, cursor)
+        except TimeoutError:
+            # Reset-boundary UART output may lose the ROM reset-reason prefix.
+            # A fresh, exact-image HIL_READY after the action cursor is then
+            # authoritative boot evidence. Any observed different cause stays
+            # fail-closed.
+            ready = capture.wait_for(ready_pattern, ready_timeout, cursor)
+            reset_classes = [phase1.normalize_rom_reset_class(line)
+                             for line in capture.lines[cursor:]]
+            if any(value == "OTHER_RESET" for value in reset_classes):
+                raise RuntimeError(f"{role} restarted with a non-software reset reason")
+            evidence = "fresh_post_action_hil_ready_reset_reason_unavailable"
+        else:
+            ready = capture.wait_for(ready_pattern, ready_timeout, cursor)
+            evidence = "fresh_rom_software_reset_and_hil_ready"
+        observations = getattr(self, "restart_evidence", None)
+        if observations is None:
+            observations = self.restart_evidence = []
+        observations.append(f"{role}: {evidence}")
+        return ready, evidence
+
     @staticmethod
     def send(capture: SerialCapture, command_text: str, pattern: str,
              timeout: float = 10) -> str:
@@ -326,11 +355,14 @@ class SecureCampaign:
 
     def restart_and_ready(self, capture: SerialCapture, role: str, version: str,
                           *, wait_for_sensing: bool = True) -> None:
+        ready_pattern = rf"HIL_READY role={role} protocol=1 version={re.escape(version)}"
+        # Establish that this exact newly flashed image has finished its first
+        # boot before taking the action cursor. This keeps unread boot bytes
+        # from satisfying the post-restart readiness check.
+        capture.wait_for(ready_pattern, 35, 0)
         cursor = capture.cursor()
         capture.send("SOFTWARE_RESTART")
-        capture.wait_for_predicate(lambda line: phase1.normalize_rom_reset_class(line) ==
-            phase1.SOFTWARE_RESET_EVIDENCE, "fresh normalized software reset", 8, cursor)
-        capture.wait_for(rf"HIL_READY role={role} protocol=1 version={re.escape(version)}", 35, cursor)
+        self.wait_for_restart_boot(capture, role, version, cursor)
         if role == "c3" and wait_for_sensing:
             capture.wait_for(r"PIR ready on GPIO", 45, cursor)
 
@@ -673,13 +705,10 @@ class SecureCampaign:
             rf"HIL_FAULT restart_after_journal_commit session={session} seq={sequence}",
             20, hub_cursor)
         fault_index = self.hub.lines.index(fault, hub_cursor)
-        reset_line = self.hub.wait_for_predicate(
-            lambda line: phase1.normalize_rom_reset_class(line) == phase1.SOFTWARE_RESET_EVIDENCE,
-            "Hub restart after durable journal commit", 8, fault_index + 1)
-        reset_index = self.hub.lines.index(reset_line, fault_index + 1)
-        self.hub.wait_for(
-            rf"HIL_READY role=hub protocol=1 version={re.escape(self.hubs['BASE']['hub_app_version'])}",
-            25, reset_index + 1)
+        ready, restart_evidence = self.wait_for_restart_boot(
+            self.hub, "hub", self.hubs["BASE"]["hub_app_version"], fault_index + 1,
+            reset_timeout=8, ready_timeout=25)
+        reset_index = self.hub.lines.index(ready, fault_index + 1)
         restored = self.hub.wait_for(
             r"Persistent event journal restored records=[1-9]\d* capacity=128",
             10, reset_index + 1)
@@ -700,6 +729,8 @@ class SecureCampaign:
         self.results.add(self.active_case, "PASS", detail)
         return {"node_id": self.node_id, "event_session": session,
                 "event_sequence": sequence, "slot": self.before_slot,
+                "restart_evidence": getattr(self, "restart_evidence", []),
+                "journal_restart_evidence": restart_evidence,
                 "journal_restore": restored.strip(), "duplicate_ack": duplicate.strip(),
                 "c3_ack": ack.strip(), "artifacts": str(self.run_dir / "hub_journal_artifacts.json")}
 
