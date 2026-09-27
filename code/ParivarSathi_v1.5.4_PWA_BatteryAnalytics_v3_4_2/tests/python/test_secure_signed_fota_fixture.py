@@ -479,7 +479,7 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertIn(r"SECURE_FOTA_IMAGE_SIGNATURE_ACCEPTED", patterns)
         self.assertNotIn(r"SECURE_FOTA_IMAGE_SHA256_VERIFIED transfer=123", patterns)
 
-    def test_interleaved_begin_line_uses_authenticated_begin_ack_fallback(self):
+    def test_interleaved_begin_ack_uses_authenticated_ack_progress_fallback(self):
         campaign = object.__new__(SecureCampaign)
         campaign.node_id = "c3-abcdef123456"
         campaign.before_session = "271"
@@ -491,8 +491,7 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         campaign.c3.cursor.return_value = 30
         campaign.hub.wait_for.side_effect = [
             "SECURE_FOTA_BEGIN transfer=123 node",
-            TimeoutError("interleaved session pin"),
-            "SECURE_FOTA_BEGIN_ACK transfer=123 authenticated=1",
+            "SECURE_FOTA_ACK_PROGRESS transfer=123 index=32 bytes=6144",
             "SECURE_FOTA_TRANSFER_FAILED transfer=123 phase=end",
         ]
         campaign.c3.wait_for.side_effect = [
@@ -504,6 +503,10 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
 
         self.assertEqual(result, "SECURE_FOTA_IMAGE_SIGNATURE_REJECTED error=ESP_ERR_OTA_VALIDATE_FAILED")
         self.assertEqual(campaign.before_session, "271")
+        admission_pattern = campaign.hub.wait_for.call_args_list[1].args[0]
+        self.assertIn(r"SECURE_FOTA_BEGIN_ACK transfer=123 authenticated=1", admission_pattern)
+        self.assertIn(r"SECURE_FOTA_ACK_PROGRESS transfer=123 index=\d+ bytes=\d+", admission_pattern)
+        self.assertIn(r"SECURE_FOTA_SESSION_PINNED transfer=123 session=(\d+)", admission_pattern)
 
 
 if __name__ == "__main__":

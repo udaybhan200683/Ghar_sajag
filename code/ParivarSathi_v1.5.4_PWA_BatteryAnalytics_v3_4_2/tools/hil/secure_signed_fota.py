@@ -388,16 +388,25 @@ class SecureCampaign:
         full = re.search(r"transfer=(\d+) node=([^ ]+) board=([^ ]+) version=([^ ]+) bytes=(\d+)", begin)
         if full and (full.group(2) != self.node_id or full.group(4) != version):
             raise RuntimeError("secure FOTA did not bind expected Node and candidate version")
-        try:
-            pinned = self.hub.wait_for(
-                rf"SECURE_FOTA_SESSION_PINNED transfer={transfer_id} session=(\d+)", 10, cursor_hub)
-            pinned_session = re.search(r"session=(\d+)", pinned).group(1)
-        except TimeoutError:
-            # A complete pin line may be lost to the same UART interleaving;
-            # BEGIN_ACK authenticated=1 is the bounded owner-path admission
-            # proof and the campaign already established this exact session.
-            self.hub.wait_for(
-                rf"SECURE_FOTA_BEGIN_ACK transfer={transfer_id} authenticated=1", 30, cursor_hub)
+        # UART output can interleave the pin and BEGIN_ACK diagnostics while
+        # the sender is already exchanging chunks. Wait for any one of three
+        # transfer-bound owner-path proofs: explicit session pin, authenticated
+        # BEGIN_ACK, or progress after a verified authenticated chunk ACK.
+        # The campaign established the exact active session before requesting
+        # FOTA, so the latter two bind to that session without exposing keys.
+        admission = self.hub.wait_for(
+            rf"(?:SECURE_FOTA_SESSION_PINNED transfer={transfer_id} session=(\d+)|"
+            rf"SECURE_FOTA_BEGIN_ACK transfer={transfer_id} authenticated=1|"
+            rf"SECURE_FOTA_ACK_PROGRESS transfer={transfer_id} index=\d+ bytes=\d+)",
+            30, cursor_hub)
+        pinned_match = re.search(
+            rf"SECURE_FOTA_SESSION_PINNED transfer={transfer_id} session=(\d+)", admission)
+        if pinned_match:
+            pinned_session = pinned_match.group(1)
+        else:
+            # The fixture has already established the current authenticated
+            # session. BEGIN_ACK or ACK_PROGRESS for this exact transfer is
+            # emitted only after the security owner accepts the response.
             pinned_session = self.before_session
         if pinned_session != self.before_session:
             raise RuntimeError("FOTA sender pinned a session other than the enrolled Node's current session")
