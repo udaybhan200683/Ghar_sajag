@@ -40,7 +40,7 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         capture = mock.Mock()
         capture.cursor.return_value = 13
         capture.wait_for.side_effect = [
-            "HIL_READY role=c3 protocol=1 version=signed-a",
+            "HIL_STATE role=c3 retained=0 in_flight=0 ota_slot=ota_0",
             "HIL_READY role=c3 protocol=1 version=signed-a",
         ]
 
@@ -48,9 +48,11 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
 
         patterns = [item.args[0] for item in capture.wait_for.call_args_list]
         self.assertEqual(len(patterns), 2)
-        self.assertTrue(all("HIL_READY role=c3" in pattern for pattern in patterns))
+        self.assertIn("HIL_STATE role=c3", patterns[0])
+        self.assertIn("HIL_READY role=c3", patterns[1])
         capture.wait_for_predicate.assert_called_once()
-        capture.send.assert_called_once_with("SOFTWARE_RESTART")
+        self.assertEqual([call.args[0] for call in capture.send.call_args_list],
+                         ["GET_STATE", "SOFTWARE_RESTART"])
 
     def test_restart_uses_fresh_exact_image_ready_when_rom_reset_line_is_truncated(self):
         campaign = object.__new__(SecureCampaign)

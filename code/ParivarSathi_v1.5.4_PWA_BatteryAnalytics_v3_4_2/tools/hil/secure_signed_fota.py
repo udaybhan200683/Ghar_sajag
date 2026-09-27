@@ -356,10 +356,19 @@ class SecureCampaign:
     def restart_and_ready(self, capture: SerialCapture, role: str, version: str,
                           *, wait_for_sensing: bool = True) -> None:
         ready_pattern = rf"HIL_READY role={role} protocol=1 version={re.escape(version)}"
-        # Establish that this exact newly flashed image has finished its first
-        # boot before taking the action cursor. This keeps unread boot bytes
-        # from satisfying the post-restart readiness check.
-        capture.wait_for(ready_pattern, 35, 0)
+        if role == "c3":
+            # Native USB may enumerate after the startup HIL_READY has already
+            # passed. Query live state to establish the current parser/runtime
+            # before taking the restart cursor; the post-action ready below
+            # still must report the exact expected firmware version.
+            state_cursor = capture.cursor()
+            capture.send("GET_STATE")
+            capture.wait_for(r"HIL_STATE role=c3 .*ota_slot=ota_[01]", 10,
+                             state_cursor)
+        else:
+            # Hub UART remains attached through startup, so establish that its
+            # exact newly flashed image is live before taking the action cursor.
+            capture.wait_for(ready_pattern, 35, 0)
         cursor = capture.cursor()
         capture.send("SOFTWARE_RESTART")
         self.wait_for_restart_boot(capture, role, version, cursor)
