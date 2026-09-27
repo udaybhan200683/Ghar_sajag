@@ -81,6 +81,82 @@ private:
     Milliseconds next_due_ms_;
 };
 
+// Owner-local light-sleep bounds. The 30 s cap forces the existing owner to
+// recheck queues and maintenance state regularly; the 500 ms margin protects
+// product deadlines from sleep entry/wake overhead. The minimum window avoids
+// paying the light-sleep transition cost for a negligible idle interval.
+inline constexpr Milliseconds kLightSleepMaximumMs = 30000;
+inline constexpr Milliseconds kLightSleepDeadlineMarginMs = 500;
+inline constexpr Milliseconds kLightSleepMinimumMs = 500;
+
+enum LightSleepInhibitor : std::uint32_t {
+    LightSleepInhibitNone = 0,
+    LightSleepInhibitClock = 1U << 0,
+    LightSleepInhibitAuthentication = 1U << 1,
+    LightSleepInhibitRejoin = 1U << 2,
+    LightSleepInhibitProductNotReady = 1U << 3,
+    LightSleepInhibitPendingTx = 1U << 4,
+    LightSleepInhibitEventInFlight = 1U << 5,
+    LightSleepInhibitAckWait = 1U << 6,
+    LightSleepInhibitRetryDue = 1U << 7,
+    LightSleepInhibitRecoveryWork = 1U << 8,
+    LightSleepInhibitPersistence = 1U << 9,
+    LightSleepInhibitFota = 1U << 10,
+    LightSleepInhibitBootHealth = 1U << 11,
+    LightSleepInhibitMaintenance = 1U << 12,
+    LightSleepInhibitHealthDue = 1U << 13,
+    LightSleepInhibitSecurityDue = 1U << 14,
+    LightSleepInhibitPirHigh = 1U << 15,
+    LightSleepInhibitPirUnstable = 1U << 16,
+    LightSleepInhibitDebounce = 1U << 17,
+    LightSleepInhibitWakeUnavailable = 1U << 18,
+    LightSleepInhibitRuntimeUnknown = 1U << 19,
+    LightSleepInhibitOtherOwnerWork = 1U << 20,
+    LightSleepInhibitShortWindow = 1U << 21,
+    LightSleepInhibitOutage = 1U << 22
+};
+
+// A snapshot built only by the existing Node owner. All times are absolute
+// monotonic milliseconds; absent deadlines use -1. A missing/uncertain fact
+// defaults to inhibited.
+struct LightSleepObservation {
+    Milliseconds now_ms{-1};
+    Milliseconds next_health_ms{-1};
+    Milliseconds next_retry_ms{-1};
+    Milliseconds next_maintenance_ms{-1};
+    Milliseconds next_security_ms{-1};
+    bool authenticated{false};
+    bool rejoin_active{false};
+    bool product_ready{false};
+    bool pending_tx{false};
+    bool event_in_flight{false};
+    bool ack_wait{false};
+    bool retry_due{false};
+    bool recovery_work{false};
+    bool persistence_clean{false};
+    bool fota_active{false};
+    bool boot_health_active{false};
+    bool maintenance_active{false};
+    bool health_due{false};
+    bool security_due{false};
+    bool pir_high{true};
+    bool pir_low_stable{false};
+    bool debounce_safe{false};
+    bool wake_source_ready{false};
+    bool runtime_state_known{false};
+    bool other_owner_work{false};
+    bool outage_active{false};
+};
+
+struct LightSleepDecision {
+    std::uint32_t inhibitors{LightSleepInhibitRuntimeUnknown};
+    Milliseconds earliest_deadline_ms{-1};
+    Milliseconds requested_sleep_ms{0};
+    bool eligible{false};
+};
+
+LightSleepDecision evaluate_light_sleep(const LightSleepObservation& observation);
+
 // Owner-local PIR episode state. The first event is admitted by NodeRuntime
 // before note_first() is called. Repeats remain in RAM until emitted as a
 // separate, immutable MotionSummary event; no observation writes flash.
@@ -98,6 +174,7 @@ public:
     void note_repeat(Milliseconds now_ms);
     void poll(Milliseconds now_ms, bool outage);
     const std::optional<Summary>& pending() const { return pending_; }
+    Milliseconds next_deadline_ms() const;
     void summary_committed() { pending_.reset(); ++summaries_; }
     std::uint64_t coalesced() const { return coalesced_; }
     std::uint64_t omitted() const { return omitted_; }

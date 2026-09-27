@@ -19,6 +19,7 @@
 #include "esp_now.h"
 #include "esp_random.h"
 #include "esp_ota_ops.h"
+#include "esp_sleep.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -91,6 +92,8 @@ std::atomic<bool> g_ota_owner_started{false};
 std::atomic<bool> g_ota_sensing_ready{false};
 std::atomic<bool> g_ota_post_sensing_radio_confirmed{false};
 std::atomic<std::uint32_t> g_ota_post_sensing_runtime_ticks{0};
+std::atomic<bool> g_wifi_active{false};
+std::atomic<bool> g_esp_now_active{false};
 #if GS_HIL_CONTROL
 std::atomic<std::uint32_t> g_hil_motion_pending{0};
 std::atomic<bool> g_hil_force_health{false};
@@ -215,6 +218,7 @@ esp_err_t initialize_wifi() {
     if ((result = esp_wifi_set_storage(WIFI_STORAGE_RAM)) != ESP_OK) return result;
     if ((result = esp_wifi_set_mode(WIFI_MODE_STA)) != ESP_OK) return result;
     if ((result = esp_wifi_start()) != ESP_OK) return result;
+    g_wifi_active.store(true, std::memory_order_release);
     if ((result = esp_wifi_set_ps(WIFI_PS_NONE)) != ESP_OK) return result;
     if ((result = esp_wifi_set_channel(kEspNowChannel, WIFI_SECOND_CHAN_NONE)) != ESP_OK) return result;
     if ((result = esp_wifi_set_max_tx_power(kTxPowerQuarterDbm)) != ESP_OK) return result;
@@ -230,23 +234,165 @@ esp_err_t initialize_wifi() {
     return ESP_OK;
 }
 
+esp_err_t ensure_peer(const std::array<std::uint8_t, 6>& mac) {
+    if (esp_now_is_peer_exist(mac.data())) return ESP_OK;
+    esp_now_peer_info_t peer{};
+    std::memcpy(peer.peer_addr, mac.data(), mac.size());
+    peer.channel = 0;
+    peer.ifidx = WIFI_IF_STA;
+    peer.encrypt = false;  // Application AEAD protects runtime after rejoin.
+    const auto result = esp_now_add_peer(&peer);
+    return result == ESP_ERR_ESPNOW_EXIST ? ESP_OK : result;
+}
+
 esp_err_t initialize_esp_now() {
     esp_err_t result = esp_now_init();
     if (result != ESP_OK) return result;
+    g_esp_now_active.store(true, std::memory_order_release);
     if ((result = esp_now_register_recv_cb(receive_callback)) != ESP_OK) return result;
     if ((result = esp_now_register_send_cb(send_callback)) != ESP_OK) return result;
 
     #if GS_HIL_BUILD
-    esp_now_peer_info_t peer{};
-    std::memcpy(peer.peer_addr, kQualifiedHubMac.data(), kQualifiedHubMac.size());
-    peer.channel = 0;
-    peer.ifidx = WIFI_IF_STA;
-    peer.encrypt = false;  // Production peer key management remains open.
-    if (!esp_now_is_peer_exist(kQualifiedHubMac.data())) {
-        result = esp_now_add_peer(&peer);
-    }
+    result = ensure_peer(kQualifiedHubMac);
     #endif
     return result;
+}
+
+[[maybe_unused]] bool queued_owner_work() {
+    return (g_ack_queue != nullptr && uxQueueMessagesWaiting(g_ack_queue) != 0U) ||
+        (g_control_queue != nullptr && uxQueueMessagesWaiting(g_control_queue) != 0U) ||
+        (g_security_queue != nullptr && uxQueueMessagesWaiting(g_security_queue) != 0U) ||
+        (g_send_queue != nullptr && uxQueueMessagesWaiting(g_send_queue) != 0U)
+#if !GS_HIL_BUILD
+        || (g_fota_ack_queue != nullptr && uxQueueMessagesWaiting(g_fota_ack_queue) != 0U)
+#endif
+        ;
+}
+
+#if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
+[[maybe_unused]] esp_err_t configure_gpio_wake() {
+    return ESP_ERR_NOT_SUPPORTED;
+}
+#else
+[[maybe_unused]] esp_err_t configure_gpio_wake() {
+    esp_err_t result = gpio_wakeup_enable(static_cast<gpio_num_t>(kPirGpio),
+                                          GPIO_INTR_HIGH_LEVEL);
+    if (result != ESP_OK) return result;
+    return esp_sleep_enable_gpio_wakeup();
+}
+#endif
+
+[[maybe_unused]] void clear_sleep_wake_sources() {
+    (void)gpio_wakeup_disable(static_cast<gpio_num_t>(kPirGpio));
+    (void)esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+}
+
+[[maybe_unused]] esp_err_t stop_radio_for_light_sleep(
+    const std::array<std::uint8_t, 6>& application_peer) {
+    if (!g_wifi_active.load(std::memory_order_acquire) ||
+        !g_esp_now_active.load(std::memory_order_acquire)) return ESP_ERR_INVALID_STATE;
+    esp_err_t result = esp_now_deinit();
+    if (result != ESP_OK) return result;
+    g_esp_now_active.store(false, std::memory_order_release);
+    result = esp_wifi_stop();
+    if (result != ESP_OK) {
+        // Restore the ESP-NOW callback/peer owner if Wi-Fi did not stop.
+        auto restore = initialize_esp_now();
+#if !GS_HIL_BUILD
+        if (restore == ESP_OK) restore = ensure_peer(application_peer);
+#else
+        (void)application_peer;
+#endif
+        if (restore != ESP_OK)
+            ESP_LOGE(kTag, "ESP-NOW restore failed after Wi-Fi stop rejection");
+        return result;
+    }
+    g_wifi_active.store(false, std::memory_order_release);
+    return ESP_OK;
+}
+
+[[maybe_unused]] esp_err_t restore_radio_after_light_sleep(
+    const std::array<std::uint8_t, 6>& application_peer) {
+    esp_err_t result = ESP_OK;
+    if (!g_wifi_active.load(std::memory_order_acquire)) {
+        result = esp_wifi_start();
+        if (result != ESP_OK) return result;
+        g_wifi_active.store(true, std::memory_order_release);
+    }
+    if ((result = esp_wifi_set_ps(WIFI_PS_NONE)) != ESP_OK) return result;
+    if ((result = esp_wifi_set_channel(kEspNowChannel, WIFI_SECOND_CHAN_NONE)) != ESP_OK)
+        return result;
+    if ((result = esp_wifi_set_max_tx_power(kTxPowerQuarterDbm)) != ESP_OK) return result;
+    if (!g_esp_now_active.load(std::memory_order_acquire)) {
+        if ((result = initialize_esp_now()) != ESP_OK) return result;
+    }
+    #if !GS_HIL_BUILD
+    result = ensure_peer(application_peer);
+    #else
+    (void)application_peer;
+    #endif
+    return result;
+}
+
+struct LightSleepReturn {
+    esp_err_t error{ESP_FAIL};
+    std::uint32_t wake_causes{0};
+    bool entered{false};
+};
+
+[[maybe_unused]] LightSleepReturn enter_light_sleep(Milliseconds requested_ms,
+                                   Milliseconds deadline_ms,
+                                   const std::array<std::uint8_t, 6>& application_peer) {
+    LightSleepReturn outcome;
+    outcome.error = configure_gpio_wake();
+    if (outcome.error != ESP_OK) {
+        clear_sleep_wake_sources();
+        return outcome;
+    }
+    outcome.error = stop_radio_for_light_sleep(application_peer);
+    if (outcome.error != ESP_OK) {
+        clear_sleep_wake_sources();
+        return outcome;
+    }
+    // The level check closes the configuration/entry race. If motion arrived,
+    // resume the radio and let the next owner iteration sample GPIO4 normally.
+    if (queued_owner_work() ||
+        g_control_plane_active.load(std::memory_order_acquire) ||
+        gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0) {
+        clear_sleep_wake_sources();
+        outcome.error = restore_radio_after_light_sleep(application_peer);
+        return outcome;
+    }
+    const auto now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
+    const auto safe_ms = deadline_ms - now_ms - kLightSleepDeadlineMarginMs;
+    const auto actual_ms = std::min({requested_ms, safe_ms, kLightSleepMaximumMs});
+    if (actual_ms < kLightSleepMinimumMs) {
+        clear_sleep_wake_sources();
+        outcome.error = restore_radio_after_light_sleep(application_peer);
+        return outcome;
+    }
+    const auto duration_us = static_cast<std::uint64_t>(actual_ms) * 1000ULL;
+    outcome.error = esp_sleep_enable_timer_wakeup(duration_us);
+    if (outcome.error != ESP_OK) {
+        clear_sleep_wake_sources();
+        (void)restore_radio_after_light_sleep(application_peer);
+        return outcome;
+    }
+    // Recheck level after the final deadline calculation. A high level causes
+    // immediate wake by design, then the ordinary owner sample admits Motion.
+    if (gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0 || queued_owner_work() ||
+        g_control_plane_active.load(std::memory_order_acquire)) {
+        clear_sleep_wake_sources();
+        outcome.error = restore_radio_after_light_sleep(application_peer);
+        return outcome;
+    }
+    outcome.error = esp_light_sleep_start();
+    outcome.entered = outcome.error == ESP_OK;
+    if (outcome.entered) outcome.wake_causes = esp_sleep_get_wakeup_causes();
+    clear_sleep_wake_sources();
+    const auto radio_result = restore_radio_after_light_sleep(application_peer);
+    if (outcome.error == ESP_OK && radio_result != ESP_OK) outcome.error = radio_result;
+    return outcome;
 }
 
 #if !GS_HIL_BUILD
@@ -370,6 +516,7 @@ void owner_task(void*) {
     std::uint32_t mac_failure_count = 0;
     bool previous_raw_pir = false;
     bool raw_initialized = false;
+    Milliseconds pir_low_since_ms = -1;
     bool previous_maintenance = false;
     NodeBreadcrumb breadcrumb = NodeBreadcrumb::Boot;
     NodeHealthError last_error = NodeHealthError::None;
@@ -397,6 +544,19 @@ void owner_task(void*) {
     }
 
     for (;;) {
+#if !GS_HIL_BUILD
+        if (!g_wifi_active.load(std::memory_order_acquire) ||
+            !g_esp_now_active.load(std::memory_order_acquire)) {
+            const auto radio_recovery = restore_radio_after_light_sleep(
+                security_link.hub_mac());
+            if (radio_recovery != ESP_OK) {
+                ESP_LOGW(kTag, "Radio resume pending error=%s",
+                         esp_err_to_name(radio_recovery));
+                vTaskDelay(pdMS_TO_TICKS(kPirPollMs));
+                continue;
+            }
+        }
+#endif
         const Milliseconds now = monotonic_ms();
         energy.awake_ms = static_cast<std::uint64_t>(now);
         const auto ack_drops = g_ack_queue_drops.exchange(0U, std::memory_order_relaxed);
@@ -583,8 +743,10 @@ void owner_task(void*) {
         if (!raw_initialized) {
             previous_raw_pir = raw_pir;
             raw_initialized = true;
+            pir_low_since_ms = raw_pir ? -1 : now;
         } else if (raw_pir != previous_raw_pir) {
             previous_raw_pir = raw_pir;
+            pir_low_since_ms = raw_pir ? -1 : now;
             ++raw_pir_edges;
             breadcrumb = NodeBreadcrumb::PirRaw;
         }
@@ -903,7 +1065,8 @@ void owner_task(void*) {
         power_input.authenticated = true;
         power_input.sensor_ready = g_ota_sensing_ready.load(std::memory_order_acquire);
         power_input.sensor_safe = !raw_pir;
-        power_input.wake_proven = false;  // No target sleep/wake path in BAT-C1/C2.
+        // Keep physical qualification distinct from BAT-C8A's software wake path.
+        power_input.wake_proven = false;
         power_input.persistence_clean = true;  // Required commit failures stop this owner.
         power_input.maintenance = maintenance;
         power_input.radio_in_flight = in_flight.has_value() || health_in_flight;
@@ -918,7 +1081,85 @@ void owner_task(void*) {
 
         g_ota_post_sensing_runtime_ticks.fetch_add(1U, std::memory_order_relaxed);
 
-        vTaskDelay(pdMS_TO_TICKS(kPirPollMs));
+        bool returned_from_light_sleep = false;
+#if !GS_HIL_BUILD
+        const Milliseconds sleep_now = monotonic_ms();
+        const bool sleep_health_suppressed = runtime.pending() != 0 ||
+            runtime.outage_profile() || maintenance;
+        const Milliseconds sleep_health_deadline =
+            !sleep_health_suppressed || boot_health_probe
+                ? health_cadence.next_due_ms() : -1;
+        const auto sleep_retry_deadline = runtime.next_retry_deadline();
+        const bool pir_low_stable = !raw_pir && pir_low_since_ms >= 0 &&
+            sleep_now >= pir_low_since_ms &&
+            sleep_now - pir_low_since_ms >= static_cast<Milliseconds>(kPirDebounceMs);
+        const auto queued_callback_work = queued_owner_work();
+        const bool fota_boot_health_active = ota_pending_verify &&
+            !g_ota_post_sensing_radio_confirmed.load(std::memory_order_acquire);
+        LightSleepObservation sleep_observation;
+        sleep_observation.now_ms = sleep_now;
+        sleep_observation.next_health_ms = sleep_health_deadline;
+        sleep_observation.next_retry_ms = sleep_retry_deadline.value_or(-1);
+        sleep_observation.next_maintenance_ms = activity_episode.next_deadline_ms();
+        sleep_observation.authenticated = security_link.ready();
+        sleep_observation.rejoin_active =
+            g_security_phase.load(std::memory_order_acquire) || !security_link.ready();
+        sleep_observation.product_ready =
+            g_ota_sensing_ready.load(std::memory_order_acquire);
+        sleep_observation.pending_tx = runtime.pending() != 0;
+        sleep_observation.event_in_flight = in_flight.has_value() || health_in_flight;
+        sleep_observation.ack_wait = runtime.pending() != 0;
+        sleep_observation.retry_due = sleep_retry_deadline &&
+            *sleep_retry_deadline <= sleep_now;
+        sleep_observation.recovery_work = runtime.persisted() != 0 ||
+            runtime.gap_marker_required() ||
+#if !GS_HIL_BUILD
+            activity_episode.pending().has_value() ||
+#endif
+            false;
+        sleep_observation.persistence_clean = true;
+        sleep_observation.fota_active = maintenance ||
+            g_control_plane_active.load(std::memory_order_acquire);
+        sleep_observation.boot_health_active = fota_boot_health_active;
+        sleep_observation.maintenance_active = maintenance;
+        sleep_observation.health_due = health_cadence.due(
+            sleep_now, application_due, suppress_for_pending,
+            suppress_for_outage, maintenance) || fota_boot_health_active;
+        sleep_observation.security_due = !security_link.ready();
+        sleep_observation.pir_high = raw_pir;
+        sleep_observation.pir_low_stable = pir_low_stable;
+        sleep_observation.debounce_safe = pir.safe_for_sleep(sleep_now);
+        sleep_observation.wake_source_ready = !GS_HIL_BUILD && !GS_HIL_CONTROL;
+        sleep_observation.runtime_state_known = g_ota_owner_started.load(
+                std::memory_order_acquire) && g_wifi_active.load(std::memory_order_acquire) &&
+            g_esp_now_active.load(std::memory_order_acquire) && g_ack_queue != nullptr &&
+            g_control_queue != nullptr && g_security_queue != nullptr &&
+            g_send_queue != nullptr && sleep_now >= 0;
+        sleep_observation.other_owner_work = queued_callback_work ||
+            led_policy.active(sleep_now);
+        sleep_observation.outage_active = runtime.outage_profile();
+        const auto sleep_decision = evaluate_light_sleep(sleep_observation);
+        if (sleep_decision.eligible) {
+            const auto outcome = enter_light_sleep(sleep_decision.requested_sleep_ms,
+                                                    sleep_decision.earliest_deadline_ms,
+                                                    security_link.hub_mac());
+            if (outcome.entered && outcome.error == ESP_OK) {
+                returned_from_light_sleep = true;
+                const bool gpio_wake =
+                    (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_GPIO)) != 0U;
+                const bool timer_wake =
+                    (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_TIMER)) != 0U;
+                ESP_LOGD(kTag, "Light sleep returned cause_gpio=%d cause_timer=%d active_pir=%d",
+                         gpio_wake, timer_wake,
+                         gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0);
+            } else if (outcome.error != ESP_OK) {
+                ESP_LOGW(kTag, "Light sleep stayed awake error=%s",
+                         esp_err_to_name(outcome.error));
+            }
+        }
+#endif
+
+        if (!returned_from_light_sleep) vTaskDelay(pdMS_TO_TICKS(kPirPollMs));
     }
 }
 

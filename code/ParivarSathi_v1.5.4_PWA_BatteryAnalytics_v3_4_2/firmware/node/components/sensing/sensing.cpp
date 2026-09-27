@@ -53,4 +53,11 @@ std::optional<EventKind> QualifiedInput::sample(bool raw_level, Milliseconds now
     return std::nullopt;
 }
 
+bool QualifiedInput::safe_for_sleep(Milliseconds now_ms) const {
+    if (now_ms < 0 || !initialized_ || raw_level_ || stable_level_) return false;
+    if (now_ms < raw_since_ms_ || now_ms - raw_since_ms_ < debounce_ms_) return false;
+    return last_emit_ms_ < 0 ||
+           (now_ms >= last_emit_ms_ && now_ms - last_emit_ms_ >= minimum_retrigger_ms_);
+}
+
 }  // namespace gs::node

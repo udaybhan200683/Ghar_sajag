@@ -75,6 +75,12 @@ void ActivityEpisode::note_repeat(Milliseconds now_ms) {
     last_ms_ = now_ms;
 }
 
+Milliseconds ActivityEpisode::next_deadline_ms() const {
+    if (started_ms_ < 0 || last_ms_ < 0) return -1;
+    if (outage_) return last_ms_ + offline_idle_ms;
+    return std::min(last_ms_ + quiet_ms, started_ms_ + max_ms);
+}
+
 void ActivityEpisode::poll(Milliseconds now_ms, bool outage) {
     if (outage != outage_) {
         close();
@@ -96,6 +102,60 @@ bool NodeHealthCadence::due(Milliseconds now_ms, bool application_due,
                             bool pending_work, bool outage, bool maintenance) const {
     return now_ms >= next_due_ms_ && !application_due && !pending_work &&
            !outage && !maintenance;
+}
+
+LightSleepDecision evaluate_light_sleep(const LightSleepObservation& input) {
+    LightSleepDecision result;
+    result.inhibitors = LightSleepInhibitNone;
+    if (input.now_ms < 0) result.inhibitors |= LightSleepInhibitClock;
+    if (!input.authenticated) result.inhibitors |= LightSleepInhibitAuthentication;
+    if (input.rejoin_active) result.inhibitors |= LightSleepInhibitRejoin;
+    if (!input.product_ready) result.inhibitors |= LightSleepInhibitProductNotReady;
+    if (input.pending_tx) result.inhibitors |= LightSleepInhibitPendingTx;
+    if (input.event_in_flight) result.inhibitors |= LightSleepInhibitEventInFlight;
+    if (input.ack_wait) result.inhibitors |= LightSleepInhibitAckWait;
+    if (input.retry_due) result.inhibitors |= LightSleepInhibitRetryDue;
+    if (input.recovery_work) result.inhibitors |= LightSleepInhibitRecoveryWork;
+    if (!input.persistence_clean) result.inhibitors |= LightSleepInhibitPersistence;
+    if (input.fota_active) result.inhibitors |= LightSleepInhibitFota;
+    if (input.boot_health_active) result.inhibitors |= LightSleepInhibitBootHealth;
+    if (input.maintenance_active) result.inhibitors |= LightSleepInhibitMaintenance;
+    if (input.health_due) result.inhibitors |= LightSleepInhibitHealthDue;
+    if (input.security_due) result.inhibitors |= LightSleepInhibitSecurityDue;
+    if (input.pir_high) result.inhibitors |= LightSleepInhibitPirHigh;
+    if (!input.pir_low_stable) result.inhibitors |= LightSleepInhibitPirUnstable;
+    if (!input.debounce_safe) result.inhibitors |= LightSleepInhibitDebounce;
+    if (!input.wake_source_ready) result.inhibitors |= LightSleepInhibitWakeUnavailable;
+    if (!input.runtime_state_known) result.inhibitors |= LightSleepInhibitRuntimeUnknown;
+    if (input.other_owner_work) result.inhibitors |= LightSleepInhibitOtherOwnerWork;
+    if (input.outage_active) result.inhibitors |= LightSleepInhibitOutage;
+
+    const auto consider_deadline = [&result](Milliseconds deadline) {
+        if (deadline >= 0 &&
+            (result.earliest_deadline_ms < 0 || deadline < result.earliest_deadline_ms)) {
+            result.earliest_deadline_ms = deadline;
+        }
+    };
+    consider_deadline(input.next_health_ms);
+    consider_deadline(input.next_retry_ms);
+    consider_deadline(input.next_maintenance_ms);
+    consider_deadline(input.next_security_ms);
+    if (result.earliest_deadline_ms < 0 || input.now_ms < 0) {
+        result.inhibitors |= LightSleepInhibitRuntimeUnknown;
+    } else if (result.earliest_deadline_ms <= input.now_ms) {
+        result.inhibitors |= LightSleepInhibitRetryDue;
+    } else {
+        const auto until_deadline = result.earliest_deadline_ms - input.now_ms;
+        const auto safe_window = until_deadline - kLightSleepDeadlineMarginMs;
+        result.requested_sleep_ms = std::min(safe_window, kLightSleepMaximumMs);
+        if (result.requested_sleep_ms < kLightSleepMinimumMs) {
+            result.requested_sleep_ms = 0;
+            result.inhibitors |= LightSleepInhibitShortWindow;
+        }
+    }
+    result.eligible = result.inhibitors == LightSleepInhibitNone;
+    if (!result.eligible) result.requested_sleep_ms = 0;
+    return result;
 }
 
 bool PirNoiseMonitor::observe(bool raw_high, bool qualified, Milliseconds now_ms) {

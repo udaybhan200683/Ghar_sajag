@@ -73,6 +73,32 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         self.assertNotIn("esp_timer_create", adapter)
         self.assertNotIn("esp_timer_start", adapter)
 
+    def test_light_sleep_is_owner_local_radio_quiescent_and_ram_only(self):
+        adapter = ADAPTER.read_text()
+        power = (NODE / "components/power/power.cpp").read_text()
+        makefile = (ROOT / "Makefile").read_text()
+
+        self.assertEqual(adapter.count("xTaskCreate("), 1)
+        self.assertIn("LightSleepDecision evaluate_light_sleep", power)
+        self.assertIn("esp_now_deinit()", adapter)
+        self.assertIn("esp_wifi_stop()", adapter)
+        self.assertIn("esp_sleep_enable_gpio_wakeup()", adapter)
+        self.assertIn("GPIO_INTR_HIGH_LEVEL", adapter)
+        self.assertIn("esp_sleep_enable_timer_wakeup", adapter)
+        self.assertIn("esp_light_sleep_start()", adapter)
+        self.assertIn("esp_sleep_get_wakeup_causes()", adapter)
+        self.assertIn("gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0", adapter)
+        self.assertIn("pir.sample(raw_pir, now)", adapter)
+        self.assertIn("if (outcome.entered && outcome.error == ESP_OK)", adapter)
+        self.assertIn("if (!returned_from_light_sleep) vTaskDelay(pdMS_TO_TICKS(kPirPollMs))", adapter)
+
+        sleep_start = adapter.index("LightSleepReturn enter_light_sleep(")
+        sleep_end = adapter.index("#if !GS_HIL_BUILD\nbool send_security_message", sleep_start)
+        sleep_adapter = adapter[sleep_start:sleep_end]
+        self.assertNotRegex(sleep_adapter, r"\b(nvs_|persist_recovery|nvs_commit)")
+        self.assertIn("validation-fast:", makefile)
+        self.assertIn("battery-c8-host-test", makefile)
+
 
 if __name__ == "__main__":
     unittest.main()

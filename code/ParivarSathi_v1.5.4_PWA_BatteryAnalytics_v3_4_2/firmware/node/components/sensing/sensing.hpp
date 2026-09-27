@@ -26,6 +26,9 @@ public:
     // and warm-up handling.
     std::optional<EventKind> sample(bool raw_level, Milliseconds now_ms);
     bool stable_level() const { return stable_level_; }
+    // Sleep only after the input has qualified low and the existing minimum-
+    // retrigger window has elapsed.
+    bool safe_for_sleep(Milliseconds now_ms) const;
 
 private:
     EventKind active_kind_;

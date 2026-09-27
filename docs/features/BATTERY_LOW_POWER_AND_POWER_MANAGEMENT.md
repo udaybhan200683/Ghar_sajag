@@ -32,9 +32,11 @@ uses bounded retries. BAT-C1/C2 added a passive owner-held PowerPolicy and
 RAM-only activity counters. BAT-C3/C4 added bounded PIR noise diagnostics,
 nonblocking production indication, quieter routine logs and a confirmed-outage
 retry profile. BAT-C5 coordinates a quieter NodeHealth schedule with the Hub
-lease. The C3 still never enters target sleep. Calibrated battery measurement
-and energy integration remain incomplete. Host/target-build evidence does not
-establish a measured battery-life improvement.
+lease. BAT-C6/C7 preserve first-motion durability and compact compatible
+repeats. BAT-C8A adds owner-controlled opportunistic light sleep with GPIO4
+and timer wake in software; physical wake, radio continuity and energy results
+remain for BAT-C8B. Calibrated battery measurement remains incomplete, and no
+battery-life improvement is claimed.
 
 ## Easy mental model
 
@@ -42,7 +44,7 @@ establish a measured battery-life improvement.
 PIR / sensor
       |
       v
-Node samples input (current target: active polling)
+Node samples input (20 ms while awake; bounded sleep when safe)
       |
       v
 NodeRuntime creates an event
@@ -54,17 +56,18 @@ bounded queue and encrypted recovery record
 authenticated send -> ACK or bounded retry/backoff
       |
       v
-active wait for next input (sleep is planned, not wired in)
+opportunistic light sleep after GPIO4 and deadline setup
 ```
 
-The final low-power state in this diagram is a future target integration. No
-current target call enters ESP light sleep or deep sleep.
+Deep sleep remains out of scope. GPIO4 is level-wake configured during
+BAT-C8A, but real GPIO/PIR wake is not claimed until BAT-C8B.
 
 ## Current sensing and radio behavior
 
 On the C3, `NodeRuntimeAdapter` configures GPIO4 as a pulled-down input and
-samples it from the runtime task. There is no GPIO interrupt or sleep wake
-source configured. The task uses a 20 ms poll interval; PIR startup
+samples it from the runtime task. While awake there is no GPIO interrupt; the
+owner configures a level wake source only for a qualified light-sleep interval.
+The task uses a 20 ms poll interval; PIR startup
 stabilization is 10 seconds, and input debounce is 150 ms with a 1 second
 minimum retrigger interval. These are firmware values, not the historical
 HIL fixture's generated-motion pacing.
@@ -79,8 +82,9 @@ remain visible.
 
 Wi-Fi is configured in station mode with `WIFI_PS_NONE`, a fixed ESP-NOW
 channel, and configured maximum TX power of 40 API units (10 dBm in the code
-comment). Thus current firmware does not save energy by radio sleep or dynamic
-TX power. Normal production NodeHealth is attempted after at most 120 seconds
+comment). Before explicit light sleep the owner deinitializes ESP-NOW and stops
+Wi-Fi, then restarts Wi-Fi/ESP-NOW and restores the Hub peer before resuming
+the owner path. Normal production NodeHealth is attempted after at most 120 seconds
 of quiet authenticated operation; the legacy raw HIL image keeps its 60-second
 cadence. Application contact can defer a redundant health attempt.
 
@@ -115,10 +119,109 @@ unmeasured.
 | MODE | CURRENT STATUS | WAKE SOURCES | STATE RETAINED | RADIO CONSEQUENCES | LIMITATIONS |
 |---|---|---|---|---|---|
 | Active | Implemented target behavior | Task scheduling and GPIO polling | RAM state; durable events/association are separately saved | Wi-Fi station and ESP-NOW active; `WIFI_PS_NONE` | Continuous CPU sampling and radio availability cost power |
-| Light sleep | Policy concept only; no target sleep call | None configured | Not applicable to current target | No current sleep/wake cycle | Automatic light sleep is planned first, subject to measurement and qualification |
+| Light sleep | BAT-C8A software implementation; target build and physical qualification reported separately | GPIO4 high-level plus bounded timer wake | CPU/task/session RAM resumes at the call site | Wi-Fi/ESP-NOW are stopped before sleep and reinitialized after wake; authenticated session continuity is unproven | Only idle, durable, stable-low state; real wake and current measurement deferred to BAT-C8B |
 | Deep sleep | Deferred; no target deep-sleep path | None configured | Existing NVS records survive reset; RAM session/task state does not | Radio stops and must be initialized/rejoined after wake | RTC-retained state and event/session reconstruction are not implemented as a deep-sleep design |
-| GPIO wake | Not configured | GPIO4 is sampled, not a wake source | No sleep state | Not applicable | Roadmap intends GPIO4 wake after light-sleep baseline |
-| Timer wake | Not configured | No timer wake call | No sleep state | Not applicable | A portable `SleepPlan` is not target timer programming |
+| GPIO wake | Configured for BAT-C8A light sleep | GPIO4 high level; timer remains enabled | Wake-causing level is read by the same `QualifiedInput` path | Radio restoration precedes normal transmission | Software compile/test does not prove electrical behavior or first-motion reception on a board |
+| Timer wake | Configured on every BAT-C8A sleep attempt | Bounded monotonic deadline interval | The timer wake does not synthesize a sensor event | Owner services the due health/retry work after radio restoration | Target timing and radio behavior remain for BAT-C8B |
+
+## BAT-C8A software light sleep
+
+### Pre-C8 idle behavior
+
+Before BAT-C8A, the `gs_node_owner` task ran continuously after session
+authentication and recovery restore. It sampled GPIO4 every 20 ms, passed each
+level through `QualifiedInput`, drained the existing callback queues, advanced
+NodeRuntime/NodeRadio retries, checked the owner-held NodeHealth cadence, and
+serviced maintenance state. No sleep API or GPIO wake source was configured.
+The owner remained the single writer for event identity, recovery persistence,
+radio/session state and sensing. FOTA used its existing worker and validation
+tasks.
+
+### Ownership and eligibility
+
+Only `gs_node_owner` evaluates a `LightSleepObservation` and can request sleep.
+The portable policy returns eligibility, inhibitor bits, the earliest
+monotonic deadline and a bounded interval. The ESP-IDF adapter configures
+wake sources, stops the radio, enters light sleep, restores the radio and
+returns to the same owner stack. No power-management task, FreeRTOS timer,
+radio message or persistence path was added.
+
+Sleep is fail-awake. It is inhibited until authentication, sensing readiness,
+radio/session state and wake configuration are known; during rejoin,
+transmission, in-flight event or health send, ACK wait, any pending or retained
+recovery work, due retry/health/security work, FOTA or boot-health validation,
+maintenance, persistence uncertainty, callback queue work, outage, active
+status indication, unexpected runtime state, PIR HIGH, unstable LOW, unsafe
+debounce/retrigger state, missing deadline, or a window too short for the
+configured margin.
+
+GPIO4 is the AM312 input (expected idle LOW and active HIGH). IDF 6.0.3
+provides light-sleep level wake using `gpio_wakeup_enable(GPIO_NUM_4,
+GPIO_INTR_HIGH_LEVEL)` followed by `esp_sleep_enable_gpio_wakeup()`. C3 GPIO4 is
+among GPIO0–5, which the local SoC headers identify as RTC-function pads; the
+selected generic GPIO wake API supports digital GPIOs for light sleep. The
+firmware keeps the existing 150 ms debounce as the LOW-stability interval and
+also requires `QualifiedInput` to be stable LOW with its existing 1 s minimum
+retrigger window elapsed. GPIO4 is re-read after radio shutdown and directly
+before sleep. A held HIGH inhibits another attempt, preventing a
+sleep/wake loop.
+
+On GPIO wake, the CPU resumes at the sleep call site, restores Wi-Fi/ESP-NOW,
+then immediately starts the next owner iteration without the regular 20 ms
+delay. The actual GPIO4 level enters the established `QualifiedInput` and
+`NodeRuntime::record` path. Its existing debounce runs and the triggering
+activity can become the first event; no second edge or HIL injection is used
+by this software seam. Timer-only wake samples the actual LOW level and does
+not synthesize Motion.
+
+### Deadlines and radio/session behavior
+
+The timer deadline is the earliest available NodeHealth, event retry, security,
+maintenance or activity-episode deadline. Sleep subtracts a 500 ms execution
+margin, requires at least 500 ms remaining, and caps each request at 30 s so
+the existing owner rechecks runtime state regularly. The 30 s cap and margins
+are centralized in `power.hpp`. The owner does not use the Hub liveness lease
+or coverage expiry as a generic sleep deadline. NodeHealth remains at its
+existing 120 s opportunity; authenticated Hub liveness remains 310 s; event
+coverage remains independently 190 s.
+
+ESP-IDF 6.0.3 states that Wi-Fi is powered down during explicit light sleep and
+connections are not maintained. The owner therefore calls `esp_now_deinit()`
+and `esp_wifi_stop()` before sleep, then starts Wi-Fi, restores channel and TX
+configuration, reinitializes ESP-NOW callbacks and restores the Hub peer after
+wake. The NodeSecurityLink and its frame sequence remain in C3 RAM across
+light sleep; no liveness refresh is fabricated and the code does not force a
+rejoin solely because it slept. Hub-side session acceptance and radio
+continuity still require BAT-C8B physical qualification. A radio restore
+failure stays awake and is retried by the existing owner loop.
+
+### Tests and evidence boundary
+
+`make battery-c8-host-test` covers clean idle eligibility, each fail-awake
+inhibitor, deadline ordering/margins/cap, wake-causing HIGH handoff, timer wake
+without fabricated Motion, lingering HIGH, first Motion/MotionSummary identity,
+NodeHealth contact suppression and the 120/310/190-second policy boundaries.
+It also runs the battery source invariants for no new task, NVS path, message
+type or periodic telemetry. The target is a prerequisite of
+`make validation-fast`, with ordinary make failure propagation.
+
+The target-specific adapter uses `esp_sleep_enable_timer_wakeup()` and
+`esp_light_sleep_start()`, reads `esp_sleep_get_wakeup_causes()`, and clears
+GPIO and sleep wake configuration after every return. The installed ESP-IDF
+6.0.3 headers and sources were checked locally. GPIO wake is level-based and
+only supports HIGH/LOW modes; if peripheral power-down mode is configured,
+the generic GPIO wake API fails closed. ESP-IDF 6.0.3 production and HIL-config
+builds both pass: images are 0xdf0d0 bytes (913,616 bytes) and 0xd0850 bytes
+(854,096 bytes), respectively, within the 0x1e0000-byte app slot. No physical
+HIL, GPIO4 or PIR wake, current measurement, radio/session continuity, or
+battery-life claim is part of BAT-C8A. Those remain BAT-C8B work.
+
+`make validation-fast` reaches the C8 host checks, which pass (46 C++ checks
+and four Python invariants). The complete target did not pass: its nested quick
+release gate timed out compiling `lab-build` (240 seconds) on the first run and
+`fota-host-test` (300 seconds) on the permitted retry; the timeout handler then
+raised a `bytes`/`str` formatting error. The focused `make lab-build` rerun
+passed. This validation-gate result is not a BAT-C8 behavioral qualification.
 
 PIR sensor hardware is an external AM312 module connected to GPIO4. Evidence
 for the prototype records the sensor powered at about 3.3 V during operation;
@@ -257,7 +360,7 @@ physical UX qualification.
 
 | CONDITION | EXPECTED BEHAVIOR | IMPLEMENTATION STATUS | ENGINEER DIAGNOSTIC |
 |---|---|---|---|
-| Repeated PIR activity | Separate events are admitted until bounded capacity; no coalescing today | Implemented active sensing; aggregation planned | GPIO4 transitions, debounce/retrigger, motion sequence, queue occupancy |
+| Repeated PIR activity | First event is durable; compatible repeats are coalesced under BAT-C6/C7 | Implemented in owner/runtime; host and target compilation evidence applies | GPIO4 transitions, debounce/retrigger, motion sequence, summary identity |
 | ACK loss | Same event is retried on bounded schedule | Implemented; host retry coverage; physical power cost not qualified | Event key, retry count/next due time, session, ACK status |
 | Hub offline | Sense locally, retain admitted events, retry with backoff | Implemented bounded recovery path; endurance/power profile not current-head qualified | Hub reachability, queue counts, retry schedule, RSSI, reset reason |
 | Node reboot | Restore association and pending records, rejoin with a new session | Host recovery and target build; physical restart qualification incomplete | Reset reason, recovery generation, event keys, rejoin/session logs |
@@ -267,7 +370,7 @@ physical UX qualification.
 | Full event queue | Reject latest motion, count rejection, preserve reserved capacity | Implemented bounded admission behavior | Store/radio counts, rejected-motion and gap counters |
 | Persistence failure | Admission must not be treated as safely recoverable before durable save; report failure/gap according to path | Implemented guarded write path; target power-loss qualification incomplete | NVS return/readback, recovery generation, gap marker, error logs |
 | Rejoin failure | Keep association and pending events; retry/recovery owner controls next attempt | Implemented protocol recovery; target outage endurance incomplete | Association load, proof result, session changes, retry state |
-| Sleep/wake failure | Not applicable in present target; no target sleep entry exists | Planned | Verify actual firmware revision and absence/presence of sleep calls |
+| Sleep/wake failure | Fail awake; clear wake sources and restore radio after any unsuccessful entry | BAT-C8A software path; target build and GPIO/radio behavior require separate evidence | Adapter result, wake cause, radio restore result, owner state |
 | Brownout | NVS recovery is intended to recover valid committed records | Physical brownout/power-cut atomicity not qualified | Reset cause, valid generation, record decode, flash errors |
 
 ## Performance and resource observations
@@ -307,17 +410,17 @@ Key implementation locations:
 - `.../firmware/node/components/radio/node_radio.cpp` and `.../shared/include/gs/protocol.hpp` — bounded send queue and retry policy.
 - `.../firmware/node/components/storage/node_recovery_persistence.cpp` — encrypted pending-event recovery record.
 - `.../backend/ghar_sajag/battery.py`, `.../tools/sim/local_lab.py` — supplied-sample energy analytics and simulator thresholds.
-- `.../tests/cpp/test_main.cpp` and `.../tests/python/test_battery_analytics.py` — host policy and analytics tests.
+- `.../tests/cpp/battery_c8_validation.cpp`, `.../tests/cpp/test_main.cpp` and `.../tests/python/test_battery_power_invariants.py` — BAT-C8, host policy and source invariants.
 
 | EVIDENCE CLASS | CURRENT BOUNDARY |
 |---|---|
-| IMPLEMENTED | Active PIR polling, bounded event/retry behavior with confirmed-outage profile, encrypted recovery persistence, BAT-C5 adaptive 120-second production health and 310-second Hub lease, owner-held passive power policy/counters, bounded PIR diagnostics and LED patterns, host-side supplied-data analytics |
-| HOST_VERIFIED | Portable policy, PIR diagnostic, LED and radio outage tests; battery analytics and event/recovery host tests remain separate from measuring energy |
-| TARGET_BUILD_VERIFIED | BAT-C1/C2 and BAT-C3/C4 C3 production and HIL-config builds passed; BAT-C5 ESP-IDF 6.0.3 C3 production, C3 HIL-config and Hub production builds passed. A build proves compilation, not battery performance |
+| IMPLEMENTED | Active PIR polling while awake, bounded event/retry behavior with confirmed-outage profile, encrypted recovery persistence, BAT-C5 adaptive 120-second production health and 310-second Hub lease, BAT-C6/C7 event aggregation, BAT-C8A owner-held light-sleep policy and radio stop/restore adapter, RAM-only diagnostics |
+| HOST_VERIFIED | BAT-C8 deterministic eligibility, inhibitor, deadline, first-motion, timer-wake and existing policy regression tests; battery invariant test. No physical or energy result follows from host tests |
+| TARGET_BUILD_VERIFIED | BAT-C1–C7 target-build evidence plus BAT-C8A ESP-IDF 6.0.3 production and HIL-config builds (0xdf0d0 and 0xd0850 bytes in a 0x1e0000-byte app slot); build proves compilation only |
 | HISTORICALLY_PHYSICALLY_VERIFIED | Historical HW-M1.4A resilience/endurance run for its recorded pair/workload only |
 | CURRENT_HEAD_PHYSICALLY_VERIFIED | No current-HEAD physical battery/low-power qualification evidence is claimed |
-| NOT_YET_PHYSICALLY_QUALIFIED | Current-HEAD battery life, sleep modes, ADC/SOC, brownout recovery, flash wear and production power architecture |
-| PLANNED / INCOMPLETE | BAT-C6 activity episode/coalescing; BAT-C7 offline durable compaction; BAT-C8 light sleep/GPIO4 wake; BAT-C9 battery QoS; BAT-C10 flash coalescing; BAT-C11 adaptive TX power; BAT-C12 deep sleep/RTC retention; calibrated battery telemetry and endurance; physical quiet-node BAT-C5 verification |
+| NOT_YET_PHYSICALLY_QUALIFIED | BAT-C8 actual light sleep, GPIO4/PIR wake handoff, ESP-NOW/session continuity, current measurement, battery life, ADC/SOC, brownout recovery, flash wear and production power architecture |
+| PLANNED / INCOMPLETE | BAT-C8B physical qualification; BAT-C9 battery QoS; BAT-C10 flash coalescing; BAT-C11 adaptive TX power; BAT-C12 deep sleep/RTC retention; calibrated battery telemetry and endurance; physical quiet-node BAT-C5 verification |
 
 ## BAT-C1–C12 architecture freeze at `a991c88` (historical design)
 

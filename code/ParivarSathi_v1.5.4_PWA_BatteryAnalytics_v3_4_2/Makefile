@@ -58,7 +58,10 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
 
-.PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
+.PHONY: all verify cpp-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
+
+BATTERY_C8_SOURCES := shared/src/logging.cpp firmware/node/components/sensing/sensing.cpp firmware/node/components/power/power.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp
+BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCES))
 
 all: verify
 
@@ -72,6 +75,11 @@ cpp-test: build $(CPP_OBJECTS)
 master-validation: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py
+
+battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(BATTERY_C8_OBJECTS) tests/cpp/battery_c8_validation.cpp -o build/battery_c8_validation
+	./build/battery_c8_validation
+	PYTHONPATH=tests/python python3 -m unittest test_battery_power_invariants -v
 
 master-validation-self-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/master_validation.cpp -o build/master_validation
@@ -213,7 +221,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test hub-fota-guard-host-test secure-fota-adapter-host-test
+validation-fast: hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately

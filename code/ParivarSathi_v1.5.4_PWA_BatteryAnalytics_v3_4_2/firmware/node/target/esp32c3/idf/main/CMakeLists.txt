@@ -44,6 +44,7 @@ idf_component_register(
         app_update
         esp_driver_gpio
         esp_event
+        esp_hw_support
         esp_netif
         esp_system
         esp_timer
