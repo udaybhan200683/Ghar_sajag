@@ -176,7 +176,7 @@ class HilWslSupervisorTest(unittest.TestCase):
             stages=qualify.CHECKPOINT_HUB_JOURNAL_STAGES)
         self.assertEqual(supervisor.run(), 0)
         self.assertEqual(seen, [("hil-setup", None), ("hil-preflight", "1"),
-                                ("hil-hub-journal-recovery", None)])
+                                ("hil-hub-journal-recovery", "1")])
         self.assertNotIn("GS_HIL_REUSE_SETUP_IDENTITY", os.environ)
 
     def test_checkpoint_smoke_setup_failure_blocks_preflight_and_hardware(self):

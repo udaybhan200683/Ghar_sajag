@@ -104,10 +104,11 @@ class QualificationSupervisor:
                     self.fixture_runner()
                     code = 0
                 else:
-                    # Only this supervisor's preflight may reuse the identity
-                    # just authoritatively verified by the immediately prior
-                    # hil-setup. Standalone preflight remains authoritative.
-                    if name == "hil-preflight" and setup_passed:
+                    # The immediately preceding hil-setup authoritatively
+                    # verified identity. Keep that cache available to this
+                    # supervised HIL stage and its nested preflight, while
+                    # metadata/tty checks still force discovery on change.
+                    if name.startswith("hil-") and setup_passed:
                         prior = os.environ.get("GS_HIL_REUSE_SETUP_IDENTITY")
                         os.environ["GS_HIL_REUSE_SETUP_IDENTITY"] = "1"
                         try:
