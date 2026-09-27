@@ -83,20 +83,32 @@ int main() {
             require(retransmit && retransmit->session_id == 7 &&
                     retransmit->sequence_number == motion->sequence,
                     "persisted in-flight event identity changed");
+            require(restarted.advance_session(9) &&
+                    reopened.save(restarted.recovery_snapshot()) &&
+                    reopened.load().state->prior_boot_session == 9,
+                    "fresh authenticated session was not persisted with retained identity");
+            NodeRuntime after_rejoin("bathroom", 10);
+            require(after_rejoin.restore_recovery(*reopened.load().state, 0),
+                    "retained event did not survive reboot after in-run rejoin");
+            const auto after_rejoin_retry = after_rejoin.next_message(0);
+            const auto fresh_event = after_rejoin.record(EventKind::Motion, "Bathroom", 1, 0);
+            require(after_rejoin_retry && after_rejoin_retry->session_id == 7 &&
+                    fresh_event && fresh_event->session_id == 10 && fresh_event->sequence == 1,
+                    "recovery did not separate old event identity from the new boot session");
             store.fail_next_write = true;
-            require(!reopened.save(restarted.recovery_snapshot()) &&
-                    reopened.load().generation == 1,
-                    "write failure replaced previous committed evidence");
-            require(restarted.acknowledge(*motion, gs::AckClass::Durable),
-                    "matching ACK did not retire restored evidence");
-            require(reopened.save(restarted.recovery_snapshot()) &&
-                    reopened.load().generation == 2 &&
-                    reopened.load().state->pending.empty(),
-                    "post-ACK empty state was not committed");
-            require(!reopened.save(original.recovery_snapshot()) &&
+            require(!reopened.save(after_rejoin.recovery_snapshot()) &&
                     reopened.load().generation == 2,
+                    "write failure replaced previous committed evidence");
+            require(after_rejoin.acknowledge(*motion, gs::AckClass::Durable),
+                    "matching ACK did not retire restored evidence");
+            require(reopened.save(after_rejoin.recovery_snapshot()) &&
+                    reopened.load().generation == 3 &&
+                    reopened.load().state->pending.size() == 1,
+                    "post-ACK retirement did not preserve only the new event");
+            require(!reopened.save(original.recovery_snapshot()) &&
+                    reopened.load().generation == 3,
                     "older boot session replaced newer recovery state");
-            NodeRuntime full("bathroom", 8);
+            NodeRuntime full("bathroom", 10);
             for (unsigned i = 0; i < 32; ++i)
                 require(full.record(i < 28 ? EventKind::Motion : EventKind::DoorOpen,
                                     "Bathroom", i, 0).has_value(),

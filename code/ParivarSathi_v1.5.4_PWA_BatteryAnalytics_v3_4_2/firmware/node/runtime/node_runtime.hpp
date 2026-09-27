@@ -76,6 +76,9 @@ public:
     // Only a fresh runtime with a strictly newer authenticated boot session
     // may restore prior event identities. Target flash commit is separate.
     bool restore_recovery(const NodeRuntimeRecoveryState& state, Milliseconds now_ms);
+    // Move new events to a freshly authenticated transport session without
+    // changing retained event identities that still need delivery.
+    bool advance_session(std::uint64_t session_id);
 
 private:
     std::string node_id_;

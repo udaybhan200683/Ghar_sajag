@@ -37,6 +37,9 @@ public:
     bool initialize(const Mac& physical_mac, std::uint64_t session,
                     std::uint64_t now_ms);
     std::optional<Outbound> initial_message();
+    // Start a new authenticated session after runtime traffic indicates that
+    // the Hub lost its volatile session state (for example, after restart).
+    std::optional<Outbound> start_rejoin(std::uint64_t next_session);
     std::optional<Outbound> accept(const Mac& source, const std::uint8_t* packet,
                                     std::size_t length, std::uint64_t now_ms);
     bool ready() const { return phase_ == Phase::Ready; }
@@ -45,6 +48,7 @@ public:
         return binding_ ? &*binding_ : nullptr;
     }
     const Mac& hub_mac() const { return hub_mac_; }
+    std::uint64_t session() const { return session_; }
     security::RuntimeFrameSecurity* frames() { return frames_.get(); }
     bool restore_recovery(node::NodeRuntime& runtime, Milliseconds now_ms);
     bool persist_recovery(const node::NodeRuntime& runtime);

@@ -44,6 +44,10 @@ constexpr UBaseType_t kSecurityQueueDepth = 8U;
 constexpr UBaseType_t kSendQueueDepth = 4U;
 constexpr Milliseconds kSendCallbackTimeoutMs = 1000;
 constexpr Milliseconds kHealthIntervalMs = 60000;
+#if !GS_HIL_BUILD
+constexpr std::uint32_t kUnacknowledgedEventSendsBeforeRejoin = 3U;
+constexpr Milliseconds kSecurityRetryIntervalMs = 3000;
+#endif
 
 struct SendResult {
     bool accepted_by_radio{false};
@@ -337,6 +341,11 @@ void owner_task(void*) {
     std::uint32_t send_attempts = 0;
     std::uint32_t mac_success_count = 0;
     std::uint32_t mac_failure_count = 0;
+#if !GS_HIL_BUILD
+    std::uint32_t unacknowledged_event_sends = 0;
+    std::optional<NodeSecurityLink::Outbound> rejoin_outbound;
+    Milliseconds next_rejoin_retry_ms = 0;
+#endif
     bool previous_raw_pir = false;
     bool raw_initialized = false;
     bool previous_maintenance = false;
@@ -363,6 +372,7 @@ void owner_task(void*) {
 
     for (;;) {
         const Milliseconds now = monotonic_ms();
+        const bool maintenance = g_control_plane_active.load(std::memory_order_acquire);
         const auto ack_drops = g_ack_queue_drops.exchange(0U, std::memory_order_relaxed);
         ++sensing_liveness;
         ++runtime_liveness;
@@ -381,7 +391,8 @@ void owner_task(void*) {
             last_error = NodeHealthError::FotaTimeout;
         }
         ReceivedFrame ack_frame;
-        while (xQueueReceive(g_ack_queue, &ack_frame, 0) == pdTRUE) {
+        while (security_link.ready() &&
+               xQueueReceive(g_ack_queue, &ack_frame, 0) == pdTRUE) {
 #if !GS_HIL_BUILD
             if (ack_frame.source_mac != security_link.hub_mac()) continue;
             security::SecureFrame protected_ack;
@@ -439,6 +450,7 @@ void owner_task(void*) {
                 vTaskDelete(nullptr);
                 return;
             }
+            if (retired) unacknowledged_event_sends = 0;
 #endif
             breadcrumb = retired ? NodeBreadcrumb::EventRetired : NodeBreadcrumb::AppAck;
             ESP_LOGI(kTag, "Application ACK session=%llu seq=%llu class=%d retired=%d",
@@ -448,8 +460,74 @@ void owner_task(void*) {
         }
 
 #if !GS_HIL_BUILD
+        if (security_link.ready() && !maintenance && !in_flight &&
+            !health_in_flight && runtime.pending() != 0 &&
+            unacknowledged_event_sends >= kUnacknowledgedEventSendsBeforeRejoin) {
+            const auto next_session = allocate_nvs_session_id();
+            if (!next_session || *next_session <= security_link.session()) {
+                ESP_LOGE(kTag, "Could not durably allocate rejoin session; stopping owner");
+                vTaskDelete(nullptr);
+                return;
+            }
+            rejoin_outbound = security_link.start_rejoin(*next_session);
+            if (!rejoin_outbound) {
+                ESP_LOGE(kTag, "Could not start authenticated recovery rejoin");
+                vTaskDelete(nullptr);
+                return;
+            }
+            g_session_id = *next_session;
+            g_security_phase.store(true, std::memory_order_release);
+            (void)xQueueReset(g_ack_queue);
+            if (!send_security_message(*rejoin_outbound))
+                ESP_LOGW(kTag, "Authenticated recovery rejoin send deferred");
+            next_rejoin_retry_ms = now + kSecurityRetryIntervalMs;
+            ESP_LOGW(kTag,
+                     "Starting authenticated recovery rejoin session=%llu retained=%u",
+                     static_cast<unsigned long long>(*next_session),
+                     static_cast<unsigned>(runtime.persisted()));
+        }
+
+        if (!security_link.ready()) {
+            ReceivedFrame security_frame;
+            while (xQueueReceive(g_security_queue, &security_frame, 0) == pdTRUE) {
+                const auto response = security_link.accept(security_frame.source_mac,
+                    security_frame.bytes.data(), security_frame.size, monotonic_ms());
+                if (response) {
+                    rejoin_outbound = response;
+                    (void)send_security_message(*response);
+                    next_rejoin_retry_ms = monotonic_ms() + kSecurityRetryIntervalMs;
+                }
+                if (security_link.ready()) {
+                    const auto accepted_session = security_link.session();
+                    if (!runtime.advance_session(accepted_session) ||
+                        !security_link.persist_recovery(runtime)) {
+                        ESP_LOGE(kTag,
+                                 "Authenticated recovery rejoin state commit failed; stopping owner");
+                        vTaskDelete(nullptr);
+                        return;
+                    }
+                    unacknowledged_event_sends = 0;
+                    rejoin_outbound.reset();
+                    g_security_phase.store(false, std::memory_order_release);
+                    ESP_LOGI(kTag,
+                             "Authenticated recovery rejoin complete session=%llu retained=%u",
+                             static_cast<unsigned long long>(accepted_session),
+                             static_cast<unsigned>(runtime.persisted()));
+                    break;
+                }
+            }
+            if (!security_link.ready() && rejoin_outbound &&
+                monotonic_ms() >= next_rejoin_retry_ms) {
+                (void)send_security_message(*rejoin_outbound);
+                next_rejoin_retry_ms = monotonic_ms() + kSecurityRetryIntervalMs;
+            }
+        }
+#endif
+
+#if !GS_HIL_BUILD
         AuthenticatedFotaAck fota_ack;
-        while (xQueueReceive(g_fota_ack_queue, &fota_ack, 0) == pdTRUE) {
+        while (security_link.ready() &&
+               xQueueReceive(g_fota_ack_queue, &fota_ack, 0) == pdTRUE) {
             // A failed transfer may have left an ACK queued before the OTA
             // worker cleared maintenance. Do not let its MAC callback be
             // mistaken for a normal NodeRuntime send after resumption.
@@ -507,7 +585,6 @@ void owner_task(void*) {
             last_error = NodeHealthError::MacCallbackTimeout;
         }
 
-        const bool maintenance = g_control_plane_active.load(std::memory_order_acquire);
         if (maintenance != previous_maintenance) {
             breadcrumb = maintenance ? NodeBreadcrumb::FotaPause : NodeBreadcrumb::FotaResume;
             previous_maintenance = maintenance;
@@ -596,7 +673,11 @@ void owner_task(void*) {
             led_off_at_ms = 0;
         }
 
-        if (!in_flight && !health_in_flight && !maintenance &&
+        if (!in_flight && !health_in_flight && !maintenance
+#if !GS_HIL_BUILD
+            && security_link.ready()
+#endif
+            &&
             (now >= next_health_ms
 #if GS_HIL_CONTROL
              || g_hil_force_health.exchange(false, std::memory_order_acq_rel)
@@ -666,7 +747,11 @@ void owner_task(void*) {
             }
         }
 
-        if (!in_flight && !health_in_flight && !maintenance) {
+        if (!in_flight && !health_in_flight && !maintenance
+#if !GS_HIL_BUILD
+            && security_link.ready()
+#endif
+            ) {
             const auto message = runtime.next_message(now);
             if (message) {
                 breadcrumb = NodeBreadcrumb::TxPrepare;
@@ -700,6 +785,9 @@ void owner_task(void*) {
 #endif
                     if (sent == ESP_OK) {
                         in_flight = key;
+#if !GS_HIL_BUILD
+                        ++unacknowledged_event_sends;
+#endif
                         sent_at_ms = now;
                         breadcrumb = NodeBreadcrumb::WaitMac;
                         ESP_LOGI(kTag, "NodeMessage sent session=%llu seq=%llu bytes=%u",

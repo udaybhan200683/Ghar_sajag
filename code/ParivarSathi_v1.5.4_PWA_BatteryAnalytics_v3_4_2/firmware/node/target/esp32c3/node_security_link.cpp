@@ -161,6 +161,16 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::initial_message() {
     return begin_rejoin();
 }
 
+std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::start_rejoin(
+    std::uint64_t next_session) {
+    if (phase_ != Phase::Ready || !binding_ || next_session <= session_)
+        return std::nullopt;
+    frames_.reset();
+    rejoin_.reset();
+    session_ = next_session;
+    return begin_rejoin();
+}
+
 std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
     const Mac& source, const std::uint8_t* packet, std::size_t length,
     std::uint64_t now_ms) {

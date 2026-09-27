@@ -161,4 +161,11 @@ bool NodeRuntime::restore_recovery(const NodeRuntimeRecoveryState& state,
     return true;
 }
 
+bool NodeRuntime::advance_session(std::uint64_t session_id) {
+    if (session_id == 0 || session_id <= session_id_) return false;
+    session_id_ = session_id;
+    next_sequence_ = 1;
+    return true;
+}
+
 }  // namespace gs::node

@@ -46,6 +46,18 @@ int main() {
                 recovered.persisted() == 2 && recovered.pending() == 2,
                 "ACK did not retire only the matching old event");
 
+        NodeRuntime rejoined("bathroom", 8);
+        require(rejoined.restore_recovery(saved, 0) && rejoined.advance_session(9),
+                "runtime did not advance after a fresh authenticated rejoin");
+        const auto old_session_retry = rejoined.next_message(0);
+        const auto new_session_event = rejoined.record(EventKind::Motion, "Bathroom", 1, 0);
+        require(old_session_retry && old_session_retry->session_id == 7 &&
+                old_session_retry->sequence_number == motion->sequence &&
+                new_session_event && new_session_event->session_id == 9 &&
+                new_session_event->sequence == 1,
+                "rejoin changed retained identity or failed to reset new-session sequence");
+        require(!rejoined.advance_session(8), "runtime accepted a stale rejoin session");
+
         auto corrupt = saved;
         corrupt.retained.pop_back();
         NodeRuntime orphan("bathroom", 8);
