@@ -124,13 +124,12 @@ class HilWslSupervisorTest(unittest.TestCase):
                 helper_invoker=lambda: None, monotonic=clock.monotonic, sleeper=clock.sleep)
         self.assertLessEqual(clock.now, .4)
 
-    def test_stable_verified_fixture_runs_authoritative_discovery_once(self):
-        with mock.patch("tools.hil.qualify.stable_fixture_usb_snapshot") as stable, mock.patch(
-                "tools.hil.qualify.discover", return_value=({"hub": "verified", "c3": "verified"}, [])) as discover:
+    def test_stable_verified_fixture_uses_metadata_without_esptool(self):
+        with mock.patch("tools.hil.qualify.stable_fixture_usb_snapshot",
+                        return_value={"hub": "visible", "c3": "visible"}) as stable:
             devices = qualify.verify_fixture()
-        self.assertEqual(devices["hub"], "verified")
-        stable.assert_called_once()
-        discover.assert_called_once()
+        self.assertEqual(devices["hub"], "visible")
+        self.assertEqual(stable.call_count, 2)
 
     def run_supervisor(self, failures=None, fixture_error=None, stages=None):
         failures = failures or {}
@@ -162,6 +161,23 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight", "hil-smoke"])
         self.assertTrue(all(value == "PASS" for value in states.values()))
+
+    def test_cached_identity_is_enabled_only_for_preflight_after_setup_pass(self):
+        seen = []
+        report = {"value": "/old/report"}
+        def stage(name):
+            seen.append((name, os.environ.get("GS_HIL_REUSE_SETUP_IDENTITY")))
+            if name == "hil-hub-journal-recovery":
+                report["value"] = "/new/report"
+            return 0
+        supervisor = qualify.QualificationSupervisor(
+            stage_runner=stage, fixture_runner=lambda: None,
+            report_reader=lambda: report["value"],
+            stages=qualify.CHECKPOINT_HUB_JOURNAL_STAGES)
+        self.assertEqual(supervisor.run(), 0)
+        self.assertEqual(seen, [("hil-setup", None), ("hil-preflight", "1"),
+                                ("hil-hub-journal-recovery", None)])
+        self.assertNotIn("GS_HIL_REUSE_SETUP_IDENTITY", os.environ)
 
     def test_checkpoint_smoke_setup_failure_blocks_preflight_and_hardware(self):
         code, calls, states, _ = self.run_supervisor(

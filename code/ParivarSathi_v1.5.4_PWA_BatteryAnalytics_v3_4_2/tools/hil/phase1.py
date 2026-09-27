@@ -428,6 +428,8 @@ def setup() -> int:
              f"HIL_HUB_MAC={EXPECTED_HUB_MAC}", f"HIL_C3_MAC={EXPECTED_C3_MAC}",
              f"HIL_HUB_STABLE_PATH={devices['hub'].stable_path}",
              f"HIL_C3_STABLE_PATH={devices['c3'].stable_path}",
+             f"HIL_HUB_TTY={devices['hub'].port}", f"HIL_C3_TTY={devices['c3'].port}",
+             f"HIL_HUB_CHIP={devices['hub'].chip}", f"HIL_C3_CHIP={devices['c3'].chip}",
              f"HIL_HUB_USB_SERIAL={devices['hub'].serial_number or ''}",
              f"HIL_C3_USB_SERIAL={devices['c3'].serial_number or ''}",
              f"HIL_HUB_VID_PID={devices['hub'].vid or 0:04x}:{devices['hub'].pid or 0:04x}",
@@ -446,7 +448,36 @@ def setup() -> int:
     return 0
 
 
-def preflight(config: dict[str, str] | None = None, quiet=False) -> tuple[dict[str, Device], dict]:
+def cached_setup_devices(config: dict[str, str]) -> dict[str, Device] | None:
+    """Reuse setup's verified physical identities if USB enumeration is unchanged.
+
+    A changed tty means disappearance/reappearance and forces authoritative
+    discovery. Missing cache fields also fail closed to that discovery path.
+    """
+    required = ("HIL_HUB_TTY", "HIL_C3_TTY", "HIL_HUB_CHIP", "HIL_C3_CHIP")
+    if any(not config.get(key) for key in required):
+        return None
+    cached: dict[str, Device] = {}
+    for role in ("hub", "c3"):
+        cached[role] = Device(
+            port=config[f"HIL_{role.upper()}_TTY"],
+            mac=normalize_mac(config[f"HIL_{role.upper()}_MAC"]),
+            chip=config[f"HIL_{role.upper()}_CHIP"],
+            vid=int(config[f"HIL_{role.upper()}_VID_PID"].split(":", 1)[0], 16),
+            pid=int(config[f"HIL_{role.upper()}_VID_PID"].split(":", 1)[1], 16),
+            serial_number=config.get(f"HIL_{role.upper()}_USB_SERIAL") or None,
+            stable_path=config.get(f"HIL_{role.upper()}_STABLE_PATH") or None)
+    try:
+        ports = cached_campaign_ports(config, cached)
+    except (KeyError, RuntimeError, ValueError):
+        return None
+    if any(ports[role] != cached[role].port for role in ("hub", "c3")):
+        return None
+    return cached
+
+
+def preflight(config: dict[str, str] | None = None, quiet=False,
+              use_setup_identity: bool = False) -> tuple[dict[str, Device], dict]:
     if config is None:
         if not CONFIG.is_file(): raise RuntimeError(f"missing {CONFIG}; run make hil-setup")
         config = load_env(CONFIG)
@@ -479,7 +510,13 @@ def preflight(config: dict[str, str] | None = None, quiet=False) -> tuple[dict[s
     for path in Path("/sys/class/power_supply").glob("*/online"):
         with contextlib.suppress(OSError): ac_values.append(path.read_text().strip())
     checks["ac_power"] = "online" if "1" in ac_values else "unknown/offline; keep laptop on AC"
-    devices, observations = discover(config)
+    devices = cached_setup_devices(config) if use_setup_identity else None
+    if devices is None:
+        devices, observations = discover(config)
+        checks["identity"] = "authoritative esptool discovery"
+    else:
+        observations = list(devices.values())
+        checks["identity"] = "cached hil-setup identity; stable USB metadata unchanged"
     for role, device in devices.items():
         import serial
         try:
@@ -875,7 +912,9 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "setup": return setup()
-        if args.command == "preflight": preflight(); return 0
+        if args.command == "preflight":
+            preflight(use_setup_identity=os.environ.get("GS_HIL_REUSE_SETUP_IDENTITY") == "1")
+            return 0
         return run_campaign(args.command)
     except Exception as exc:
         print(f"HIL {args.command.upper()}: FAIL — {type(exc).__name__}: {exc}", file=sys.stderr)

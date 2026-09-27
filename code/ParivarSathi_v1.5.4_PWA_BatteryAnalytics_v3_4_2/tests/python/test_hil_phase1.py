@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 from tools.hil import phase1
 from tools.hil.phase1 import (Campaign, IdentityProbeError, SOFTWARE_RESET_EVIDENCE,
-                              cached_campaign_ports, fixture_usb_snapshot, is_usb_candidate,
+                              cached_campaign_ports, cached_setup_devices, fixture_usb_snapshot, is_usb_candidate,
                               normalize_rom_reset_class, parse_esptool_output,
                               probe_port, run_identity_probe, stable_fixture_usb_snapshot)
 from tools.hil.core import (Device, FixtureLock, Results, SerialCapture,
@@ -127,6 +127,38 @@ class HilInfrastructureTest(unittest.TestCase):
              patch.object(phase1, "_verified_runtime_port", return_value="/dev/ttyUSB7") as verify:
             self.assertEqual(cached_campaign_ports(config, {"hub": hub, "c3": c3})["hub"], "/dev/ttyUSB7")
             verify.assert_called_once_with(config, "hub")
+
+    def setup_identity_config(self):
+        return {
+            "HIL_HUB_MAC": "5c013bbeb9f8", "HIL_C3_MAC": "146393c5d158",
+            "HIL_HUB_TTY": "/dev/ttyUSB0", "HIL_C3_TTY": "/dev/ttyACM0",
+            "HIL_HUB_CHIP": "ESP32-D0WD-V3", "HIL_C3_CHIP": "ESP32-C3",
+            "HIL_HUB_VID_PID": "10c4:ea60", "HIL_C3_VID_PID": "303a:1001",
+            "HIL_HUB_USB_SERIAL": "H", "HIL_C3_USB_SERIAL": "C",
+            "HIL_HUB_STABLE_PATH": "/dev/serial/by-id/hub",
+            "HIL_C3_STABLE_PATH": "/dev/serial/by-id/c3",
+        }
+
+    def test_preflight_reuses_setup_identity_only_with_unchanged_usb_metadata(self):
+        config = self.setup_identity_config()
+        snapshot = {
+            "hub": SimpleNamespace(device="/dev/ttyUSB0", vid=0x10c4, pid=0xea60, serial_number="H"),
+            "c3": SimpleNamespace(device="/dev/ttyACM0", vid=0x303a, pid=0x1001, serial_number="C"),
+        }
+        with patch.object(phase1, "stable_fixture_usb_snapshot", return_value=snapshot), \
+             patch.object(phase1, "discover", side_effect=AssertionError("cached identity expected")):
+            devices = cached_setup_devices(config)
+        self.assertEqual(devices["hub"].mac, "5c013bbeb9f8")
+        self.assertEqual(devices["c3"].chip, "ESP32-C3")
+
+    def test_preflight_reverts_to_authoritative_discovery_after_tty_change(self):
+        config = self.setup_identity_config()
+        snapshot = {
+            "hub": SimpleNamespace(device="/dev/ttyUSB4", vid=0x10c4, pid=0xea60, serial_number="H"),
+            "c3": SimpleNamespace(device="/dev/ttyACM0", vid=0x303a, pid=0x1001, serial_number="C"),
+        }
+        with patch.object(phase1, "stable_fixture_usb_snapshot", return_value=snapshot):
+            self.assertIsNone(cached_setup_devices(config))
 
     def test_preflight_rejects_stale_branch_commit_and_source_setup(self):
         config = {"HIL_HUB_MAC": "5c013bbeb9f8", "HIL_C3_MAC": "146393c5d158",
@@ -658,11 +690,11 @@ class HilInfrastructureTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         for role in ("node/target/esp32c3", "hub/target/esp32"):
             cmake = (root/f"firmware/{role}/idf/main/CMakeLists.txt").read_text()
-            self.assertIn("if(GS_HIL_BUILD)", cmake)
+            self.assertRegex(cmake, r"if\(GS_HIL_BUILD(?: OR GS_HIL_CONTROL)?\)")
             self.assertIn('list(APPEND', cmake)
         for role in ("node/target/esp32c3", "hub/target/esp32"):
             app = (root/f"firmware/{role}/idf/main/app_main.cpp").read_text()
-            self.assertIn("#if GS_HIL_BUILD", app)
+            self.assertIn("#if GS_HIL_CONTROL", app)
 
     def test_hil_control_accumulates_commands_until_newline(self):
         root = Path(__file__).resolve().parents[2]

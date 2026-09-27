@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import argparse
+import os
 import subprocess
 import sys
 from collections import OrderedDict
@@ -15,7 +16,7 @@ if str(SCRIPT_PRODUCT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_PRODUCT))
 
 from tools.hil.core import REPO
-from tools.hil.phase1 import discover, stable_fixture_usb_snapshot
+from tools.hil.phase1 import stable_fixture_usb_snapshot
 from tools.hil.usb_attach import FixtureBlocked, FixtureFailed, ensure_verified_fixture
 
 STAGES = ("validation-fast", "release-gate-final", "usb-fixture", "hil-setup",
@@ -41,7 +42,10 @@ def run_make_stage(name: str) -> StageResult:
 
 def verify_fixture() -> object:
     config = {"HIL_IDF_ACTIVATE": str(Path.home() / ".espressif/tools/activate_idf_v6.0.3.sh")}
-    return ensure_verified_fixture(lambda: discover(config)[0],
+    # hil-setup performs the authoritative chip/MAC check. This stage only
+    # confirms stable USB metadata; repeating esptool here can reset a healthy
+    # target immediately before setup performs the same authoritative check.
+    return ensure_verified_fixture(lambda: stable_fixture_usb_snapshot(config),
                                    presence_probe=lambda: stable_fixture_usb_snapshot(config))
 
 
@@ -85,6 +89,7 @@ class QualificationSupervisor:
 
     def run(self) -> int:
         failure_kind: str | None = None
+        setup_passed = False
         for name in self.stages:
             if failure_kind is not None:
                 self.statuses[name] = "BLOCKED"
@@ -99,7 +104,21 @@ class QualificationSupervisor:
                     self.fixture_runner()
                     code = 0
                 else:
-                    result = self.stage_runner(name)
+                    # Only this supervisor's preflight may reuse the identity
+                    # just authoritatively verified by the immediately prior
+                    # hil-setup. Standalone preflight remains authoritative.
+                    if name == "hil-preflight" and setup_passed:
+                        prior = os.environ.get("GS_HIL_REUSE_SETUP_IDENTITY")
+                        os.environ["GS_HIL_REUSE_SETUP_IDENTITY"] = "1"
+                        try:
+                            result = self.stage_runner(name)
+                        finally:
+                            if prior is None:
+                                os.environ.pop("GS_HIL_REUSE_SETUP_IDENTITY", None)
+                            else:
+                                os.environ["GS_HIL_REUSE_SETUP_IDENTITY"] = prior
+                    else:
+                        result = self.stage_runner(name)
                     code = int(result.returncode if hasattr(result, "returncode") else result)
             except FixtureBlocked as exc:
                 self.output(f"{self.prefix}: {name} - BLOCKED: {exc}")
@@ -123,6 +142,8 @@ class QualificationSupervisor:
             if code == 0:
                 self.statuses[name] = "PASS"
                 self.output(f"{self.prefix}: {name} - PASS")
+                if name == "hil-setup":
+                    setup_passed = True
             else:
                 self.statuses[name] = "FAIL"
                 self.output(f"{self.prefix}: {name} - FAIL (exit {code})")
