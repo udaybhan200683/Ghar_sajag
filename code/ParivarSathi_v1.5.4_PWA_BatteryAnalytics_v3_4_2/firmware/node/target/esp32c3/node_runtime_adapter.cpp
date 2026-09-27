@@ -386,11 +386,29 @@ struct LightSleepReturn {
         outcome.error = restore_radio_after_light_sleep(application_peer);
         return outcome;
     }
+    ESP_LOGI(kTag, "BAT_SLEEP_ENTER requested_ms=%lld armed_ms=%lld gpio4=1 timer=1",
+             static_cast<long long>(requested_ms), static_cast<long long>(actual_ms));
+    const auto entry_us = esp_timer_get_time();
     outcome.error = esp_light_sleep_start();
+    const auto return_us = esp_timer_get_time();
     outcome.entered = outcome.error == ESP_OK;
     if (outcome.entered) outcome.wake_causes = esp_sleep_get_wakeup_causes();
+    const bool gpio_wake = (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_GPIO)) != 0U;
+    const bool timer_wake = (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_TIMER)) != 0U;
+    const auto elapsed_ms = return_us >= entry_us ? (return_us - entry_us) / 1000 : -1;
+    ESP_LOGI(kTag, "BAT_SLEEP_WAKE result=%s cause=%s raw=0x%lx requested_ms=%lld armed_ms=%lld elapsed_ms=%lld gpio4=%d",
+             esp_err_to_name(outcome.error),
+             light_sleep_wake_name(classify_light_sleep_wake(gpio_wake, timer_wake)),
+             static_cast<unsigned long>(outcome.wake_causes),
+             static_cast<long long>(requested_ms), static_cast<long long>(actual_ms),
+             static_cast<long long>(elapsed_ms),
+             gpio_get_level(static_cast<gpio_num_t>(kPirGpio)));
     clear_sleep_wake_sources();
     const auto radio_result = restore_radio_after_light_sleep(application_peer);
+    ESP_LOGI(kTag, "BAT_SLEEP_RESTORE radio=%s wifi=%d esp_now=%d owner=RESUMED",
+             esp_err_to_name(radio_result),
+             g_wifi_active.load(std::memory_order_acquire),
+             g_esp_now_active.load(std::memory_order_acquire));
     if (outcome.error == ESP_OK && radio_result != ESP_OK) outcome.error = radio_result;
     return outcome;
 }
@@ -1140,18 +1158,22 @@ void owner_task(void*) {
         sleep_observation.outage_active = runtime.outage_profile();
         const auto sleep_decision = evaluate_light_sleep(sleep_observation);
         if (sleep_decision.eligible) {
+            ESP_LOGI(kTag, "BAT_SLEEP_DECISION state=%d eligible=1 inhibitors=0x%lx requested_ms=%lld deadline_ms=%lld deadline=%s pir_low_stable=%d debounce_safe=%d gpio4=%d pending=%d in_flight=%d ack_wait=%d recovery=%d queues=%d",
+                     static_cast<int>(power_decision.state),
+                     static_cast<unsigned long>(sleep_decision.inhibitors),
+                     static_cast<long long>(sleep_decision.requested_sleep_ms),
+                     static_cast<long long>(sleep_decision.earliest_deadline_ms),
+                     light_sleep_deadline_name(sleep_observation, sleep_decision.earliest_deadline_ms),
+                     sleep_observation.pir_low_stable, sleep_observation.debounce_safe,
+                     sleep_observation.pir_high, sleep_observation.pending_tx,
+                     sleep_observation.event_in_flight, sleep_observation.ack_wait,
+                     sleep_observation.recovery_work, queued_callback_work);
             const auto outcome = enter_light_sleep(sleep_decision.requested_sleep_ms,
                                                     sleep_decision.earliest_deadline_ms,
                                                     security_link.hub_mac());
             if (outcome.entered && outcome.error == ESP_OK) {
                 returned_from_light_sleep = true;
-                const bool gpio_wake =
-                    (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_GPIO)) != 0U;
-                const bool timer_wake =
-                    (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_TIMER)) != 0U;
-                ESP_LOGD(kTag, "Light sleep returned cause_gpio=%d cause_timer=%d active_pir=%d",
-                         gpio_wake, timer_wake,
-                         gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0);
+                // The next owner iteration samples GPIO4 through QualifiedInput.
             } else if (outcome.error != ESP_OK) {
                 ESP_LOGW(kTag, "Light sleep stayed awake error=%s",
                          esp_err_to_name(outcome.error));

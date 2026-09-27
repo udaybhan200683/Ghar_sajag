@@ -121,6 +121,25 @@ void test_pir_wake_handoff_and_timer_wake() {
     check(!timer_pir.sample(false, 300), "timer wake at LOW does not fabricate Motion");
 }
 
+void test_qualification_diagnostics() {
+    using namespace gs::node;
+    const auto idle = healthy_idle();
+    const auto before = evaluate_light_sleep(idle);
+    check(std::string(light_sleep_wake_name(classify_light_sleep_wake(true, false))) == "GPIO",
+          "GPIO wake has a production log label");
+    check(std::string(light_sleep_wake_name(classify_light_sleep_wake(false, true))) == "TIMER",
+          "timer wake has a production log label");
+    check(std::string(light_sleep_wake_name(classify_light_sleep_wake(false, false))) == "OTHER",
+          "unknown wake has a production log label");
+    check(classify_light_sleep_wake(true, true) == LightSleepWakeKind::Gpio,
+          "GPIO is retained when multiple wake bits are set");
+    check(std::string(light_sleep_deadline_name(idle, before.earliest_deadline_ms)) == "health",
+          "limiting deadline is labeled");
+    check(before.requested_sleep_ms == 30000 &&
+          evaluate_light_sleep(idle).requested_sleep_ms == before.requested_sleep_ms,
+          "diagnostic projection preserves the requested interval and eligibility");
+}
+
 void test_existing_health_and_motion_identity_contracts() {
     using namespace gs;
     using namespace gs::node;
@@ -174,6 +193,7 @@ int main() {
     try {
         test_sleep_eligibility_and_inhibitors();
         test_pir_wake_handoff_and_timer_wake();
+        test_qualification_diagnostics();
         test_existing_health_and_motion_identity_contracts();
         test_fresh_critical_work_keeps_existing_retry_priority();
         std::cout << "BAT-C8 focused validation PASS checks=" << checks << '\n';

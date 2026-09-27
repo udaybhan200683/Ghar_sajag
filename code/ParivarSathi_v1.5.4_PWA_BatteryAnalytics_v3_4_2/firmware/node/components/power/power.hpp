@@ -155,6 +155,29 @@ struct LightSleepDecision {
     bool eligible{false};
 };
 
+// Portable labels for the qualification log; the adapter maps ESP-IDF wake bits.
+enum class LightSleepWakeKind { Gpio, Timer, Other };
+inline LightSleepWakeKind classify_light_sleep_wake(bool gpio, bool timer) {
+    if (gpio) return LightSleepWakeKind::Gpio;
+    if (timer) return LightSleepWakeKind::Timer;
+    return LightSleepWakeKind::Other;
+}
+inline const char* light_sleep_wake_name(LightSleepWakeKind kind) {
+    switch (kind) {
+        case LightSleepWakeKind::Gpio: return "GPIO";
+        case LightSleepWakeKind::Timer: return "TIMER";
+        default: return "OTHER";
+    }
+}
+inline const char* light_sleep_deadline_name(const LightSleepObservation& o,
+                                             Milliseconds deadline) {
+    if (deadline == o.next_health_ms) return "health";
+    if (deadline == o.next_retry_ms) return "retry";
+    if (deadline == o.next_maintenance_ms) return "maintenance";
+    if (deadline == o.next_security_ms) return "security";
+    return "none";
+}
+
 LightSleepDecision evaluate_light_sleep(const LightSleepObservation& observation);
 
 // Owner-local PIR episode state. The first event is admitted by NodeRuntime

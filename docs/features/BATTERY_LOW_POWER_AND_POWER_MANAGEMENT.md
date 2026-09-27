@@ -126,6 +126,17 @@ unmeasured.
 
 ## BAT-C8A software light sleep
 
+BAT-C8B qualification firmware emits compact INFO records at eligible sleep
+decisions (`BAT_SLEEP_DECISION`), immediately before entry (`BAT_SLEEP_ENTER`),
+immediately after return (`BAT_SLEEP_WAKE`), and after radio restoration
+(`BAT_SLEEP_RESTORE`). Decision records include policy state, deadline source,
+inhibitor mask, GPIO4 stability and pending work. Wake records include the API
+result, GPIO/TIMER/OTHER cause, armed interval, measured elapsed milliseconds
+and immediate GPIO4 level. These records occur only on eligible sleep attempts;
+there is no per-loop ineligibility trace or new telemetry. BAT-C8C formal
+current measurement may reduce these qualification logs if their overhead
+affects measurement, while BAT-C8B retains them for behavior evidence.
+
 ### Pre-C8 idle behavior
 
 Before BAT-C8A, the `gs_node_owner` task ran continuously after session
