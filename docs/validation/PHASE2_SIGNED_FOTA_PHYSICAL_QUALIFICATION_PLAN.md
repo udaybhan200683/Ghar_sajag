@@ -2,10 +2,10 @@
 
 **Prepared against repository HEAD:** `697ed769fcd2b179d44b8aaeb2471e684d11116c`
 **Branch:** `feature/hw-m1-4-hil-phase2`
-**Status:** **EXECUTED — PHYSICAL ASSERTIONS PASS; REPORT RECONSTRUCTED HOST-ONLY**
-**Last physically qualified firmware before this campaign:** `7bc2a33`
-**Physical target-qualified code for this campaign:** `60f91b421cc244c2b12fd92c244683c7f69ce0a6`
-**Latest physical evidence:** `evidence/hil/runs/20260925T194530.402772Z`
+**Status:** **EXECUTED — SIGNED A→B AND NEGATIVE SIGNATURE PASS; ROLLBACK CASE NEEDS REQUALIFICATION**
+**Previous physical baseline:** `7bc2a33`
+**Latest physical target code commit:** `b6d04ad1ee1de0735554dae879dd607d6d8253b7`
+**Latest physical evidence:** `evidence/hil/runs/20260927T035855.644899Z`
 
 > Authenticated transport is not firmware publisher authenticity. SHA-256 integrity is not signature authenticity. A target build is not physical qualification. Offline signature verification is not physical OTA verification. This plan does not cover Secure Boot, eFuse programming, or production PKI.
 
@@ -13,8 +13,8 @@
 
 This document defines a focused physical qualification of the authenticated,
 signed C3 FOTA path on the existing one-Hub/one-C3 fixture. It specifies the
-images, initial state, physical sequence, evidence, and pass conditions. It is
-a reusable procedure; it records no completed physical campaign.
+images, initial state, physical sequence, evidence, and pass conditions, and
+records completed executions below.
 
 ## 2. Feature state before physical qualification
 
@@ -25,8 +25,8 @@ signed-image gate, a signed-app-on-update profile, external test-key signing,
 offline signature verification, and offline tamper rejection.
 
 These implementation and offline results were followed by the one-Hub/one-C3
-campaign recorded in the execution section below. The preserved serial logs
-and test results establish the bounded physical claims listed there.
+campaigns recorded in the execution section below. The preserved serial logs
+and test results establish only the bounded physical claims listed there.
 
 ## 3. Existing fixture limitation
 
@@ -64,8 +64,8 @@ Set `GS_HIL_SIGNED_FOTA_KEY` and `GS_HIL_SIGNED_FOTA_NEGATIVE_KEY` to distinct
 RSA-3072 test private-key paths outside the repository before running. The
 command fails closed if signing, image provenance, profile, key continuity,
 version distinction, partition fit, fixture setup, or preflight checks fail.
-The campaign has **not** been physically run by this implementation task.
-The ordinary `hil-checkpoint-fota` remains the legacy raw Phase-1 path.
+The signed campaign has since been physically executed; see Section 17. The
+ordinary `hil-checkpoint-fota` remains the legacy raw Phase-1 path.
 
 With disposable RSA-3072 test keys available outside the repository and the
 existing fixture configuration present, the focused one-command entry point
@@ -300,6 +300,60 @@ Status: **PASS — bounded one-Hub/one-C3 physical campaign**
   commit `697ed769fcd2b179d44b8aaeb2471e684d11116c`; `summary.json` and
   `summary.md` in this directory are explicitly marked reconstructed from the
   preserved artifacts.
+
+### Latest execution — 2026-09-27
+
+- Evidence: `evidence/hil/runs/20260927T035855.644899Z`.
+- Physical source commit: `b6d04ad1ee1de0735554dae879dd607d6d8253b7`. The
+  artifact manifest records `git_dirty=true` because isolated generated build
+  directories were untracked during compilation; the tracked source was at
+  this commit.
+- Fixture/setup/preflight: PASS. Secure signed-FOTA campaign: 5 PASS, 0 FAIL,
+  0 blocked. The fixture was one Hub (ESP32-D0WD-V3, `5c013bbeb9f8`) and one
+  C3 (`146393c5d158`).
+- A: `sfA-260927035910`, 921600 bytes, SHA-256
+  `01a7183a8f0bf270e4b8c35617b6478c260b778f4fb49c86134db0fb781b3a02`.
+  B: `sfB-260927035910`, 921600 bytes, SHA-256
+  `3fa6b8a632b77c192231b0787c1b91b329c563374bc0f3d0dbb5e1a533b08c66`.
+  Both used trusted public-key fingerprint
+  `5b097969d81431285f93be42f8b1d43652bc0c01ef8f35b0501d1d96d569aa0e`.
+- Wrong-signer candidate: `sfN-260927035910`, SHA-256
+  `df838f029f117c7163a5d71d24eda6085c5fd27ffd222a865a0c558cee173315`;
+  its signer fingerprint was
+  `f1ddc34a6414b3cf138c45c465b71571217b7745b10a5299f3646407c1e8bf28`,
+  distinct from the trusted A/B key. The authenticated transfer completed,
+  image SHA-256 matched, ESP-IDF emitted
+  `ESP_ERR_OTA_VALIDATE_FAILED`, `ota_0` remained selected, no C3 reset was
+  observed during rejection, and A delivered a post-rejection event ACK.
+- Valid A→B transfer `1612118010` completed 4800 chunks; ESP-IDF accepted the
+  signature and B activated `ota_1` from `ota_0`. C3 rebooted as B, passed the
+  sensing/runtime/radio health gate before marking the image valid, freshly
+  rejoined as session 342, reached PIR readiness, and delivered an application
+  event ACK. Final B state had `retained=0`, `in_flight=0`, `ota_slot=ota_1`.
+- Failed-health rollback attempt: valid signed candidate
+  `sfR-260927035910` was activated to `ota_0` from known-good B on `ota_1`.
+  The injected health failure suppressed validity evidence. At the health
+  deadline, `gs_ota_validate` hit a stack-protection panic while calling the
+  ESP-IDF rollback path; the captured task stack was 3,072 bytes and the stack
+  pointer crossed its lower bound. The subsequent reset returned to known-good
+  B on `ota_1`, established authenticated session 345, reached PIR readiness,
+  and delivered an application event ACK. The candidate was not marked valid.
+  This is bootloader recovery after a target panic, not a clean rollback PASS.
+  The harness incorrectly reported session 344 from the candidate boot as the
+  restored session and marked this case PASS. The fixture now rejects target
+  panic evidence and waits for a post-deadline rejoin. The target validator
+  stack was increased to 12 KiB; this software fix has target-build evidence
+  only until the rollback path is physically requalified.
+- The serial capture contained planned fixture flashes/restarts, OTA reboots,
+  and the rollback reboot. The campaign report has no consolidated
+  unexpected-reset counter, so this record makes no numeric reset-count claim.
+- This qualifies the focused one-pair wrong-signature rejection, signed
+  version upgrade, post-boot health success, and authenticated recovery.
+  Clean deliberate failed-health rollback remains unqualified. It does not qualify Secure
+  Boot/eFuse, production key custody/PKI, physical flash-attack resistance,
+  complete anti-rollback or board/version policy, the full
+  corruption/interruption matrix, repeated A/B endurance, multi-C3 RF, or
+  electrical/current fixtures.
 
 ## 18. Related references
 

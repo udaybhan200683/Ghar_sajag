@@ -411,7 +411,9 @@ their status:
 - persistent Hub dedupe and journal with a defined retention/compaction policy;
 - target-to-backend bridge;
 - Hub self-FOTA;
-- signed FOTA manifest, board/version authorization and secure update policy;
+- complete production FOTA authorization and board/version policy (the
+  authenticated signed-image update path is now physically exercised on the
+  one-Hub/one-C3 development fixture; production policy remains open);
 - scalable Node registry, peer registry and removal behavior;
 - Hub replacement and Node replacement workflows;
 - factory reset and credential rotation.
@@ -421,18 +423,28 @@ not target provisioning or target boot authenticity.
 
 ## 10. FOTA FINDINGS
 
-Hub-initiated C3 FOTA exists. The Hub embeds a C3 image, transfers 200-byte
-CRC-checked chunks, retries each packet and supports abort. The receiver handles
-bad magic/version, bad session, duplicate and out-of-order sequence, bad chunk
-CRC/size, write/finalize/boot-partition failures and inactivity timeout.
+The legacy raw HIL FOTA path remains available for Phase-1 testing. The secure
+v2 path is distinct: the Hub embeds a C3 image, uses authenticated Hub/Node
+sessions, and sends bounded 192-byte data chunks with session-bound ACKs. The
+C3 verifies the streamed SHA-256 digest and requires ESP-IDF signed-app-on-
+update verification before activating a signed candidate. Neither transport
+authentication nor SHA-256 alone establishes firmware publisher identity.
 
-Bootloader A/B rollback support is enabled in the target configuration. The C3
-currently marks a pending image valid after a fixed five-second task delay;
-that is not a complete runtime-health gate. Signed manifests, SHA-256 image
-authorization, board/version policy, secure boot enforcement and a measured
-post-restart health decision remain gaps. Target FOTA happy-path, negative,
-interrupted, restart, boot-failure, rollback and repeated A/B qualification are
-Phase-2 work; host receiver tests do not claim those physical outcomes.
+Bootloader A/B rollback is enabled. The old fixed five-second validity check
+was replaced by a bounded post-boot health gate requiring the NodeRuntime
+owner, PIR readiness, post-sensing runtime progress, accepted health traffic,
+no active maintenance, and the minimum heap condition. Missing health evidence
+requests ESP-IDF rollback rather than marking a candidate valid. Physical
+evidence proves signed A-to-B activation, signature rejection, and health
+validity. The deliberately unhealthy candidate returned to known-good B only
+after `gs_ota_validate` hit a stack-protection panic inside the ESP-IDF rollback
+call; the fixture also matched the candidate's session as the restored session.
+The target stack was increased from 3 KiB to 12 KiB, and host fixture tests now
+reject panic evidence and require a post-deadline rejoin. This fix has target
+build evidence only; clean physical rollback requalification remains open.
+Production signing-key custody, complete board/version authorization, Secure
+Boot/eFuse protection, and the broader corruption/interruption/repeated-cycle
+matrix remain gaps.
 
 The host receiver now checks image metadata on repeated Begin, each Data
 chunk and End, requires the expected End sequence, rejects malformed reserved
@@ -494,7 +506,7 @@ admission, and this run did not exercise the timeout/rollback branch. Version
 upgrade, image authenticity, negative transfer cases, rollback and repeated
 A/B cycles remain unqualified.
 
-The later secure FOTA path uses authenticated Hub/Node sessions and a full
+The secure FOTA path uses authenticated Hub/Node sessions and a full
 SHA-256 image digest, then rejects `BEGIN` before erasing flash unless the C3
 build enables ESP-IDF signed-image verification. A separate C3 software-signed
 profile now sets `CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y`,
@@ -508,20 +520,41 @@ and subsequent update in this profile; the ordinary `idf.py flash` suggestion
 still references the unsigned build artifact and must not be used for this
 profile. The initial running app must be signed by the same key because ESP-IDF
 uses its signature block as the trusted public key for OTA. `esp_ota_end()`
-verifies the new image before boot activation. This protects against remote
-image substitution when the initial signed image is trusted, but provides no
-physical flash-write protection. Hardware Secure Boot/eFuse provisioning,
-production signing-key custody, signed-image transfer by the Hub, physical
-version-upgrade and bad-signature rejection are still separate work. The
-development/HIL image remains unsigned and keeps its raw compile-gated FOTA
-route; it is not a production-security qualification.
+verifies the new image before boot activation. The development physical run
+used external disposable RSA-3072 keys and no eFuse programming; it does not
+provide physical flash-write protection or production key custody. The HIL
+secure-control profile had `GS_HIL_BUILD=OFF` and used the authenticated owner
+path; it was distinct from legacy raw FOTA.
 
-The same report lists six `BLOCKED_EXTRA_FIXTURE` rows: Hub power cut, C3
+The latest focused signed campaign at
+`evidence/hil/runs/20260927T035855.644899Z` used code commit `b6d04ad` and
+reported 5 PASS, 0 FAIL, 0 blocked. It proved wrong-signer rejection after
+digest verification while A remained active and delivered an application ACK;
+valid signed B transferred from `ota_0` to `ota_1`, rebooted, passed the
+post-boot health gate, freshly rejoined, reached PIR readiness, and delivered
+an application ACK. A valid candidate with deliberately suppressed health
+evidence then hit a stack-protection panic in `gs_ota_validate` during the
+rollback call; bootloader startup returned to B on `ota_1`, which freshly
+rejoined and delivered an application ACK. This proves recovery to B after the
+panic, not clean rollback-call behavior. The campaign summary incorrectly
+reported this rollback case PASS and matched the candidate's session as the
+restored session. The stack and fixture have since been fixed in code, but the
+fix has target-build/host-test evidence only; physical rollback
+requalification remains open. Final post-recovery state showed retained and
+in-flight counts at zero.
+The serial report does not provide a consolidated unexpected-reset counter.
+This one-pair development qualification does not prove production PKI, Secure
+Boot/eFuse, physical flash attack resistance, complete board/version policy,
+multi-C3 behavior, broad HIL regression, or every transfer interruption.
+
+The separate same-image run from 2026-09-24 lists six `BLOCKED_EXTRA_FIXTURE`
+rows: Hub power cut, C3
 power cut, controlled brownout, current/battery measurement, optical PIR
 stimulus, and house-range RF/thermal testing. They are explicitly outside this
-focused software FOTA checkpoint and require specialized fixtures. It contains
-no blocked radio, offline, Hub restart, C3 restart or both-target restart
-suite rows; those cases were not run by this focused campaign. Host/logical
+focused same-image software FOTA checkpoint and require specialized fixtures.
+The 2026-09-27 secure signed-FOTA run reported no blocked rows. Neither focused
+campaign contains radio-loss, offline, Hub restart, C3 restart or both-target
+restart suite rows; those cases were not run by those campaigns. Host/logical
 coverage exists for some of those paths, while physical multi-C3 RF and
 target outage/restart-storm evidence remain Phase-2 qualification gaps.
 

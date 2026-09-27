@@ -1,7 +1,7 @@
 # Current Status and Roadmap
 
-**Status snapshot:** 2026-09-24, before the documentation-consolidation
-commit. This document records repository/evidence facts and the execution
+**Status snapshot:** 2026-09-27, after audit of the signed-FOTA rollback evidence.
+This document records repository/evidence facts and the execution
 roadmap; it does not qualify work by itself.
 
 ## Documentation ownership
@@ -29,11 +29,11 @@ separately throughout.
 | Field | Verified value |
 |---|---|
 | Current branch | `feature/hw-m1-4-hil-phase2` |
-| Repository HEAD before this docs-only checkpoint | `6f49d2841e5385b60fc56adcc463d849f973d0d0` |
-| Last validated product/code commit | `7bc2a3302b2e8b7792aefe453f31e78a750fe929` |
-| Worktree before documentation edits | clean |
-| Latest physical evidence | `evidence/hil/runs/20260924T094521.398370Z` |
-| Target firmware from that evidence | `7bc2a33-hil-e3b0c44`, ESP-IDF `v6.0.3` |
+| Repository HEAD before this documentation update | `10f6af7c708c1506580118203fa8c348b849289b` — signed rollback validator stack fix; target build passed |
+| Latest physically exercised source commit | `b6d04ad1ee1de0735554dae879dd607d6d8253b7` |
+| Worktree at physical build time | source at HEAD; generated isolated build directories made Git report dirty |
+| Latest physical evidence | `evidence/hil/runs/20260927T035855.644899Z` |
+| Target profile | signed-app-on-update, ESP-IDF `v6.0.3`, HIL control enabled, `GS_HIL_BUILD=OFF` |
 
 The current repository HEAD is a documentation/evidence checkpoint after the
 firmware commit exercised by the physical run. Documentation-only commits do
@@ -89,6 +89,45 @@ software passes.
 
 ### Latest physical evidence and its limits
 
+The latest focused signed-FOTA campaign is
+`evidence/hil/runs/20260927T035855.644899Z` on source commit `b6d04ad`.
+Fixture/setup/preflight passed and the secure campaign summary reported 5
+PASS, 0 FAIL, 0 blocked. Raw C3 evidence invalidates the rollback case: see
+below. It physically exercised a wrong-signer candidate through
+SHA-256 and ESP-IDF signature rejection while preserving signed A on `ota_0`
+and delivering a post-rejection application ACK. A valid signed B
+(`sfB-260927035910`) with a distinct version and the same trusted key
+transferred over the authenticated path, activated `ota_1`, rebooted, passed
+the post-boot health gate, freshly rejoined as session 342, reached PIR
+readiness, and delivered an acknowledged application event. A separate valid
+signed candidate with controlled boot-health failure reached the deadline,
+but `gs_ota_validate` then hit a stack-protection panic while invoking the
+ESP-IDF rollback path. The reboot returned to B on `ota_1`; the raw log shows
+fresh session 345, PIR readiness, and an application ACK. The summary
+incorrectly counted session 344, established by the failed candidate, as the
+restored session. Thus the known-good image recovered, but the clean rollback
+case did not pass. The target validator stack was raised from 3 KiB to 12 KiB,
+and focused tests now reject panic evidence and require a rejoin after the
+deadline. Commit `10f6af7` passed the C3 signed-profile target build and 24
+focused fixture tests; the corrected rollback path still needs physical
+requalification.
+The final recovered state had retained and in-flight counts at zero.
+
+The C3 A/B/negative/rollback image SHA-256 values are, respectively,
+`01a7183a8f0bf270e4b8c35617b6478c260b778f4fb49c86134db0fb781b3a02`,
+`3fa6b8a632b77c192231b0787c1b91b329c563374bc0f3d0dbb5e1a533b08c66`,
+`df838f029f117c7163a5d71d24eda6085c5fd27ffd222a865a0c558cee173315`, and
+`fe8ebdb152a849abd3a915cabbec1ccc22301aab3aa31e9e556dd829e65d08c1`.
+Trusted A/B/rollback key fingerprint was
+`5b097969d81431285f93be42f8b1d43652bc0c01ef8f35b0501d1d96d569aa0e`; the
+negative signer fingerprint was
+`f1ddc34a6414b3cf138c45c465b71571217b7745b10a5299f3646407c1e8bf28`.
+The report does not provide a consolidated unexpected-reset counter, so none
+is claimed. This one-pair development-profile campaign does not qualify
+Secure Boot/eFuse, production key custody, complete anti-rollback or
+board/version policy, the full corruption/interruption matrix, repeated A/B
+endurance, multi-C3 RF, or electrical/current fixtures.
+
 The run `evidence/hil/runs/20260924T094521.398370Z` records fixture, setup,
 preflight, 17/17 smoke, and 3/3 same-image FOTA PASS: total 20 PASS, 0 FAIL,
 and 6 `BLOCKED_EXTRA_FIXTURE`. Both target app versions were
@@ -109,8 +148,8 @@ RF/environmental fixtures; they are not failures. The focused campaign did
 not run radio-loss, offline, Hub-restart, C3-restart, or both-target-restart
 campaigns; these must not be described as blocked or passed by this report.
 
-The later focused run `evidence/hil/runs/20260925T194530.402772Z` physically
-proved the bounded authenticated signed-FOTA path on the same one-Hub/one-C3
+The previous focused run `evidence/hil/runs/20260925T194530.402772Z` physically
+proved the initial bounded authenticated signed-FOTA path on the same one-Hub/one-C3
 fixture using target-qualified code `60f91b4`: wrong-signer rejection after
 SHA-256 verification, signed A-to-B transfer and signature acceptance,
 `ota_0` to `ota_1` activation, B version `sfB-260925194541`, boot-health
@@ -139,7 +178,7 @@ behavior.
 | Deterministic fault injection | **OPEN** | Add compile-gated target-path faults and cases for loss, ACK, malformed traffic, queue/journal pressure, and FOTA faults. |
 | Target recovery storms | **OPEN** | Qualify target Node/Hub restarts, outage, reconnect storms, join/leave, and cross-Node isolation using fresh evidence. |
 | Performance/resource budgets | **OPEN** | Measure CPU/task load, heap/minimum heap, queues, journal occupancy, per-Node cost, latency, retries, drops, and recovery at target scales; set justified limits. |
-| FOTA version/authenticity/negative paths | **PARTIAL** | Qualify real version upgrade; signed/authenticated image and board/version policy; corruption/interruption/timeout; rollback and failed boot; repeated A/B. |
+| FOTA version/authenticity/negative paths | **PARTIAL** | Physical signed A→B, wrong-signer rejection, and post-boot health pass at `evidence/hil/runs/20260927T035855.644899Z`. The rollback report was a false pass: raw C3 logs show a validator-task stack panic, followed by bootloader recovery to B. A 12 KiB stack fix and fixture regression are target-build/host verified only; clean rollback still needs physical requalification. Full corruption/interruption/timeout matrix, repeated A/B endurance, complete board/version policy and production signing-key custody/Secure Boot remain open. |
 | Target → backend → PWA | **OPEN / PRODUCT GAP** | `MISSING_PRODUCT_FEATURE_TARGET_VERTICAL_BRIDGE`; no production target bridge or physical end-to-end qualification exists. |
 | Stress / soak | **OPEN** | Short deterministic stress, recovery and FOTA cycles, then configurable soak with resource/event accounting. |
 | `hil-full` / `release-qualify` | **OPEN** | Implement non-duplicative orchestration after Phase-2 campaign ownership and gates are ready. |
@@ -163,7 +202,7 @@ continues to record its broader requirement until evidence changes.
 |---|---|---|
 | P2-COM-01 | PHASE2_REQUIRED_NOW | Exact-node commissioning is implemented and was physically exercised in `20260925T160845.031972Z`, but that campaign did not complete cleanly; `20260925T194530.402772Z` qualifies runtime/rejoin only. A focused clean commissioning qualification remains. The trusted installer-to-Hub Add Device channel is a separate P0 PRODUCT_GAP; production credentials/protected storage belong to productization. |
 | P2-MN10-01 | PHASE2_REQUIRED_NOW | Host scale passes; target admission/peer capacity and representative RF proof remain. |
-| P2-FOTA-01 | PARTIAL_BUT_SUFFICIENT | Signed negative rejection and one signed A-to-B/recovery cycle passed physically at `evidence/hil/runs/20260925T194530.402772Z`; repeated cycles, interruption/corruption, and failed-boot rollback remain open. |
+| P2-FOTA-01 | PHASE2_REQUIRED_NOW | Signed A-to-B and wrong-signer rejection pass physically, but the reported rollback PASS is invalidated by a target stack panic in `20260927T035855.644899Z`. A 12 KiB validator-stack fix and fixture regression are host/target-build verified only; physical clean rollback requalification remains required. Broader interruption/corruption coverage and production policy remain separate. |
 | P2-FAULT-01 | VALIDATION_TECH_DEBT | Defer the full generic fault matrix; test high-risk product failures directly through existing seams and focused cases. |
 | P2-REC-01 | PHASE2_REQUIRED_NOW | Node/Hub restart and outage recovery must protect event identity and rejoin. A comprehensive storm matrix can be narrowed. |
 | P2-VERT-01 | DEFER_TO_P0_PRODUCT_WORK | A real Hub/backend/PWA bridge is P0 product vertical work; Phase 2 must state this boundary explicitly. |
@@ -182,7 +221,7 @@ continues to record its broader requirement until evidence changes.
 | P2-PERSIST-HUB-JOURNAL-HOST-01 | PHASE2_REQUIRED_NOW | Hub restart must not erase accepted events/dedupe while ACK semantics claim durability. |
 | P2-FOTA-PROTOCOL-HOST-01 | ALREADY_COMPLETE | Focused host CRC, sequencing, timeout and repeated receiver-cycle tests pass; authenticity/physical negatives remain in P2-FOTA-01. |
 | P2-FOTA-SAME-HIL-01 | ALREADY_COMPLETE | One-pair same-image OTA and functional recovery passed physically. |
-| P2-FOTA-BOOT-HEALTH-01 | PARTIAL_BUT_SUFFICIENT | The meaningful boot-health gate passed physically in the signed A-to-B run; failed-boot/timeout rollback remains unproven. |
+| P2-FOTA-BOOT-HEALTH-01 | PHASE2_REQUIRED_NOW | Valid B passed the health gate. The failed-health candidate returned to B only after a stack-protection panic in the rollback task; the fixture had also matched the candidate's session as the restored session. A 12 KiB stack fix and fresh-rejoin/panic regression are host/target-build verified, but clean physical rollback proof remains pending. |
 
 Additional boundaries: production private-key provisioning, secure boot/eFuse
 policy, commercial recovery and certification are `DEFER_TO_PRODUCTIZATION`;
@@ -225,7 +264,8 @@ physical qualification is a focused HIL-control profile.
    and representative physical 2–4 C3 behavior. Ten logical Nodes remain
    mandatory; 25 Nodes remain simulated stress.
 4. **P2.6–P2.7 FOTA:** one signed version upgrade and wrong-signer rejection
-   passed physically. Remaining targeted work is failed-boot/rollback proof,
+   passed physically. Remaining targeted work is clean failed-boot/rollback proof
+   after fixing the validator stack exhaustion,
    corruption/interruption safety, and the minimum compatibility policy needed
    for supported prototype images; repeated A/B cycles beyond a bounded check
    can be deferred if they add no distinct risk coverage.

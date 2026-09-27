@@ -5,7 +5,7 @@
 **Historical entries below:** retained from earlier PWA and HW-M1.4 milestones;
 their branch/provenance snapshots are time-bound and are not the current
 Phase-2 state.
-**Latest Phase-2 history entry before this documentation update:** 2026-09-24
+**Latest Phase-2 history entry:** 2026-09-27
 
 This file is an append-only chronological engineering history.
 
@@ -1394,3 +1394,21 @@ persistence tests and both target build profiles are the software evidence;
 physical target security qualification and installer UI integration remain
 open. This target change does not alter the latest physical evidence or its
 `7bc2a33` firmware provenance.
+
+### 2026-09-27: correct signed OTA rollback stack exhaustion
+
+The focused secure signed-FOTA run at
+`evidence/hil/runs/20260927T035855.644899Z` proved wrong-signer rejection,
+signed A-to-B update, post-boot health success, fresh authenticated rejoin,
+PIR readiness, and application ACK. Although its report marked the injected
+failed-health rollback case PASS, raw C3 serial evidence showed a stack
+protection panic in `gs_ota_validate` while ESP-IDF verified the previous
+signed image during rollback. The 3,072-byte validation-task stack was too
+small. Bootloader startup returned to known-good B on `ota_1`; the raw C3 log
+then proved session 345 and an application ACK, but this was not a clean
+rollback-call PASS. The fixture had also accepted candidate session 344 as the
+restored session. Commit `10f6af7` increases the bounded validation-task stack
+to 12 KiB, rejects target panic evidence, and requires the Hub rejoin cursor
+after the rollback deadline. The focused fixture suite passed 24/24 and the
+ESP-IDF 6.0.3 signed C3 build passed. Physical rollback requalification has
+not been run; no clean rollback qualification is claimed.

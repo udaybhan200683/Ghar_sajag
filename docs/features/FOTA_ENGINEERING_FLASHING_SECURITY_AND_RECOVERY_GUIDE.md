@@ -131,9 +131,12 @@ When those conditions pass, the target calls
 is logged; the image is not deliberately marked valid in that branch.
 
 **Qualification boundary:** ESP-IDF rollback is configured and the health
-gate has a physical success-path result in historical same-image HIL. Physical
-signed A→B activation and the health-failure rollback branch remain unqualified.
-The health gate's radio confirmation is not, by itself, proof of an
+gate has physical success-path evidence for signed A→B at
+`evidence/hil/runs/20260927T035855.644899Z`. The same run's injected
+health-failure branch hit a validator-task stack panic during rollback; the
+subsequent bootloader recovery is not a clean rollback qualification. The
+stack fix has a target build but still needs physical requalification. The
+health gate's radio confirmation is not, by itself, proof of an
 application-level authenticated Hub ACK.
 
 ## 7. Engineering Prerequisites
@@ -461,7 +464,7 @@ Common diagnoses:
 |---|---|---|---|
 | Legacy Phase-1 HIL/raw | Fixed raw packet path selected by `GS_HIL_BUILD`; UART/button controls can start the legacy sender. | HIL controls are compile-gated; not a signed secure-FOTA profile. | Existing HIL smoke/FOTA evidence applies only to the tested raw path and recorded firmware. |
 | Ordinary unsigned development | Secure production route is compiled, but C3 rejects `BEGIN` when signed-image verification is disabled. | No signed-app requirement and no Secure Boot. | Target build only; secure FOTA remains fail-closed. |
-| Signed-app-on-update profile | Secure receiver route is used with ESP-IDF signature verification enabled at OTA update. | RSA-3072 app signatures; external test key; no hardware Secure Boot/eFuse. | Current evidence is target build plus offline valid/tampered signature checks, not physical OTA. |
+| Signed-app-on-update profile | Secure receiver route is used with ESP-IDF signature verification enabled at OTA update. | RSA-3072 app signatures; external test key; no hardware Secure Boot/eFuse. | One-pair physical wrong-signer rejection and signed A→B pass; clean failed-health rollback remains unqualified. See the qualification plan. |
 | Future production Secure Boot profile | Secure authenticated FOTA plus hardware anchored boot verification. | Requires explicit manufacturing, key custody, flash protection, and eFuse policy. | Not implemented or qualified by the current profile. |
 
 The legacy `GS_HIL_BUILD=ON` profile still selects raw FOTA. The focused
@@ -469,7 +472,9 @@ signed secure fixture instead builds with `GS_HIL_BUILD=OFF` and
 `GS_HIL_CONTROL=ON`: the test-only UART controls are available, while the
 authenticated production security/FOTA path remains selected. Use
 `make hil-checkpoint-secure-signed-fota` for that distinct campaign; it is not
-an alias for `hil-checkpoint-fota` and has not yet been physically executed.
+an alias for `hil-checkpoint-fota`. The campaign physically exercised signed
+A→B and wrong-signer rejection; its rollback subcase exposed a validator-task
+stack panic and must not be treated as a rollback PASS.
 
 ## 18. Security-Key Handling
 
@@ -494,14 +499,25 @@ The formal physical procedure and case-level PASS/FAIL conditions are owned by
 The historical `hil-checkpoint-fota` campaign executes the raw Phase-1 path.
 Its PASS cannot be reused as secure signed-FOTA evidence. The separate
 `hil-checkpoint-secure-signed-fota` entry point exercises the authenticated
-signed path; it remains unqualified until actually run on the fixture.
+signed path and has been run on the one-Hub/one-C3 fixture. The latest run
+qualifies wrong-signer rejection and signed A→B with post-boot health and
+application recovery. Its reported rollback PASS was invalidated by a raw-log
+stack-protection panic and stale session match; see the execution record in
+the qualification plan. The validator stack and fixture assertions are fixed
+and target-build/host-tested, but clean rollback still requires physical
+requalification.
 
 ## 20. Current Known Limitations
 
-- Physical signed A→B OTA has not been qualified.
-- Physical bad-signature rejection and preservation of A have not been
-  qualified.
-- Physical failed-boot and rollback behavior has not been demonstrated.
+- Physical signed A→B OTA and wrong-signature rejection were demonstrated on
+  one Hub and one C3 at
+  `evidence/hil/runs/20260927T035855.644899Z`; this does not qualify multi-C3
+  operation.
+- The same run's failed-health candidate returned to known-good B after a
+  stack-protection panic in `gs_ota_validate`. The HIL summary called this a
+  PASS, but raw serial evidence shows it was not a clean rollback. The
+  validator stack has since increased from 3 KiB to 12 KiB; physical
+  requalification remains pending.
 - Board/version authorization and downgrade policy are incomplete; the FOTA
   `BEGIN` claims are not fully checked against embedded image metadata.
 - Production signing-key custody and manufacturing provisioning are pending.
@@ -570,6 +586,11 @@ repository-root.
   — formal focused physical qualification procedure.
 - Repository-root `evidence/hil/runs/20260924T094521.398370Z` — historical
   same-image raw FOTA evidence, not secure signed-FOTA evidence.
+- Repository-root `evidence/hil/runs/20260927T035855.644899Z` — physical
+  wrong-signer and signed A→B evidence plus raw rollback stack-panic evidence;
+  physical source commit `b6d04ad`.
+- Commit `10f6af7` — 12 KiB rollback validator task stack and stricter fixture
+  checks; target-build/host-test verified, not physically requalified.
 
 Implementation lineage for source history: `2480da58` added the bounded
 secure-v2 codec; `670b38d` routed Hub FOTA through authenticated Node sessions;
