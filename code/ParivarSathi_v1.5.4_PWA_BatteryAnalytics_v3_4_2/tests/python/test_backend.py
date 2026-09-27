@@ -13,6 +13,7 @@ import unittest
 
 from ghar_sajag import GharSajagService
 from ghar_sajag.identity import AuthorizationError
+from ghar_sajag.ingest import EventValidationError
 from ghar_sajag.incidents import IncidentConflict
 from ghar_sajag.model import CloudEvent, Device, HomeMode, IncidentState, Resident
 
@@ -48,6 +49,25 @@ class BackendTest(unittest.TestCase):
         self.assertFalse(duplicate1)
         self.assertTrue(duplicate2)
         self.assertEqual(len(self.service.store.events), 1)
+
+    def test_motion_summary_is_stored_once_without_second_activity_trigger(self) -> None:
+        first = self.cloud_event("node-1:1:1", "MOTION", received=100)
+        summary = self.cloud_event("node-1:1:2", "MOTION_SUMMARY", received=145,
+                                   payload={"additional_count": 12,
+                                            "first_ms": 101000, "last_ms": 140000})
+        self.service.accept_hub_event(first)
+        accepted, duplicate = self.service.accept_hub_event(summary)
+        self.assertFalse(duplicate)
+        self.assertEqual(accepted.payload["additional_count"], 12)
+        self.assertTrue(self.service.accept_hub_event(summary)[1])
+        self.assertEqual(len(self.service.store.events), 2)
+        self.assertEqual(len(self.service.store.incidents), 0)
+        snapshot = self.service.queries.snapshot("home-1", "care-1", 145)
+        self.assertEqual(snapshot["latest_activity"]["kind"], "MOTION")
+        with self.assertRaises(EventValidationError):
+            self.service.accept_hub_event(self.cloud_event(
+                "node-1:1:3", "MOTION_SUMMARY", received=146,
+                payload={"additional_count": 0, "first_ms": 140000, "last_ms": 130000}))
 
     def test_B04_B05_call_creates_one_incident_and_two_bounded_routes(self) -> None:
         event = self.cloud_event("hub-1:1:9", "CALL_FAMILY", received=100)

@@ -47,8 +47,11 @@ bool get_string(const Bytes& in, std::size_t& at, std::string& value,
 }
 
 bool encode_event(const gs::DomainEvent& event, Bytes& out) {
+    if ((event.kind == gs::EventKind::MotionSummary) != event.motion_aggregate.has_value() ||
+        (event.motion_aggregate && !gs::valid_motion_aggregate(*event.motion_aggregate)))
+        return false;
     out.clear();
-    out.push_back(1);
+    out.push_back(2);
     if (!put_string(out, event.key.physical_device_id, 64, true) ||
         !put_string(out, event.key.source_id, 24) ||
         !put_string(out, event.location, 64, true)) return false;
@@ -69,12 +72,25 @@ bool encode_event(const gs::DomainEvent& event, Bytes& out) {
     const auto rssi = static_cast<std::uint16_t>(event.rssi_dbm);
     out.push_back(static_cast<std::uint8_t>(rssi >> 8));
     out.push_back(static_cast<std::uint8_t>(rssi));
+    out.push_back(event.motion_aggregate ? 1 : 0);
+    if (event.motion_aggregate) {
+        const auto& aggregate = *event.motion_aggregate;
+        if (!gs::valid_motion_aggregate(aggregate)) return false;
+        out.push_back(static_cast<std::uint8_t>(aggregate.additional_count >> 24));
+        out.push_back(static_cast<std::uint8_t>(aggregate.additional_count >> 16));
+        out.push_back(static_cast<std::uint8_t>(aggregate.additional_count >> 8));
+        out.push_back(static_cast<std::uint8_t>(aggregate.additional_count));
+        put64(out, static_cast<std::uint64_t>(aggregate.first_ms));
+        put64(out, static_cast<std::uint64_t>(aggregate.last_ms));
+    }
     return out.size() <= 256;
 }
 
 bool decode_event(const Bytes& in, gs::DomainEvent& event) {
     std::size_t at = 0;
-    if (in.empty() || in[at++] != 1 ||
+    if (in.empty() || (in[0] != 1 && in[0] != 2)) return false;
+    const auto version = in[at++];
+    if (
         !get_string(in, at, event.key.physical_device_id, 64, true) ||
         !get_string(in, at, event.key.source_id, 24) ||
         !get_string(in, at, event.location, 64, true) ||
@@ -83,11 +99,11 @@ bool decode_event(const Bytes& in, gs::DomainEvent& event) {
     std::uint64_t monotonic = 0, occurred = 0, received = 0;
     if (!get64(in, at, monotonic) || !get64(in, at, occurred) ||
         !get64(in, at, received) ||
-        in.size() - at != 11) return false;
+        in.size() - at < (version == 1 ? 11U : 12U)) return false;
     event.monotonic_ms = static_cast<gs::Milliseconds>(monotonic);
     event.occurred_at = static_cast<gs::EpochSeconds>(occurred);
     event.received_at = static_cast<gs::EpochSeconds>(received);
-    if (in[at] > static_cast<std::uint8_t>(gs::EventKind::Gap) ||
+    if (in[at] > static_cast<std::uint8_t>(gs::EventKind::MotionSummary) ||
         in[at + 1] > static_cast<std::uint8_t>(gs::SensorType::System)) return false;
     event.kind = static_cast<gs::EventKind>(in[at++]);
     event.sensor_type = static_cast<gs::SensorType>(in[at++]);
@@ -100,8 +116,28 @@ bool decode_event(const Bytes& in, gs::DomainEvent& event) {
     if (in[at] > 1) return false;
     event.is_test = in[at++] != 0;
     event.rssi_dbm = static_cast<std::int16_t>((in[at] << 8) | in[at + 1]);
+    at += 2;
+    if (version == 2) {
+        if (at >= in.size() || in[at] > 1) return false;
+        if (in[at++] != 0) {
+            if (in.size() - at < 20) return false;
+            gs::DomainEvent::MotionAggregate aggregate;
+            aggregate.additional_count = (static_cast<std::uint32_t>(in[at]) << 24) |
+                (static_cast<std::uint32_t>(in[at + 1]) << 16) |
+                (static_cast<std::uint32_t>(in[at + 2]) << 8) | in[at + 3];
+            at += 4;
+            std::uint64_t first = 0, last = 0;
+            if (!get64(in, at, first) || !get64(in, at, last)) return false;
+            aggregate.first_ms = static_cast<gs::Milliseconds>(first);
+            aggregate.last_ms = static_cast<gs::Milliseconds>(last);
+            event.motion_aggregate = aggregate;
+        }
+    }
     return !event.key.physical_device_id.empty() &&
-           event.key.session_id != 0 && event.key.sequence != 0;
+           event.key.session_id != 0 && event.key.sequence != 0 &&
+           at == in.size() &&
+           (event.kind == gs::EventKind::MotionSummary) == event.motion_aggregate.has_value() &&
+           (!event.motion_aggregate || gs::valid_motion_aggregate(*event.motion_aggregate));
 }
 
 Bytes slot_aad(std::size_t slot) {

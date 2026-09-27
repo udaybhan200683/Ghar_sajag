@@ -28,7 +28,12 @@ bool same_event(const DomainEvent& left, const DomainEvent& right) {
            left.received_at == right.received_at &&
            left.uncertainty_s == right.uncertainty_s &&
            left.battery_mv == right.battery_mv && left.is_test == right.is_test &&
-           left.sensor_type == right.sensor_type && left.rssi_dbm == right.rssi_dbm;
+           left.sensor_type == right.sensor_type && left.rssi_dbm == right.rssi_dbm &&
+           left.motion_aggregate.has_value() == right.motion_aggregate.has_value() &&
+           (!left.motion_aggregate ||
+            (left.motion_aggregate->additional_count == right.motion_aggregate->additional_count &&
+             left.motion_aggregate->first_ms == right.motion_aggregate->first_ms &&
+             left.motion_aggregate->last_ms == right.motion_aggregate->last_ms));
 }
 }
 
@@ -46,25 +51,29 @@ NodeRuntime::NodeRuntime(std::string node_id, std::uint64_t session_id,
 std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& location,
                                             Milliseconds monotonic_ms, EpochSeconds occurred_at,
                                             std::uint32_t uncertainty_s, std::uint16_t battery_mv,
-                                            bool is_test, SensorType sensor_type, std::int16_t rssi_dbm) {
+                                            bool is_test, SensorType sensor_type, std::int16_t rssi_dbm,
+                                            std::optional<DomainEvent::MotionAggregate> motion_aggregate) {
     GS_TRACE(gs::log::Category::Node, "N00", "record.enter", "-");
     ++stats_.record_calls;
+    if ((kind == EventKind::MotionSummary) != motion_aggregate.has_value() ||
+        (motion_aggregate && !valid_motion_aggregate(*motion_aggregate))) return std::nullopt;
     EventKey key{node_id_, session_id_, next_sequence_++};
     const auto resolved_sensor = sensor_type == SensorType::Unknown ? sensor_type_for(kind) : sensor_type;
     DomainEvent event{key, kind, location, monotonic_ms, occurred_at, occurred_at,
-                      uncertainty_s, battery_mv, is_test, resolved_sensor, rssi_dbm};
+                      uncertainty_s, battery_mv, is_test, resolved_sensor, rssi_dbm,
+                      motion_aggregate};
     // Preflight the transport queue before retaining so an admission failure
     // cannot create an unreachable/stranded journal record.
     if (!radio_.can_enqueue(kind)) {
         ++stats_.tx_queue_full;
-        if (kind == EventKind::Motion) ++stats_.dropped_motion;
+        if (is_ordinary_motion(kind)) ++stats_.dropped_motion;
         else ++stats_.priority_rejected;
         GS_ERROR(gs::log::Category::Radio, "N00", "record.failed", "tx_queue_full");
         return std::nullopt;
     }
     if (!store_.append(event)) {
         ++stats_.store_full;
-        if (kind == EventKind::Motion) ++stats_.dropped_motion;
+        if (is_ordinary_motion(kind)) ++stats_.dropped_motion;
         else ++stats_.priority_rejected;
         GS_ERROR(gs::log::Category::Storage, "N00", "record.failed", "node_journal_full");
         return std::nullopt;
@@ -74,7 +83,7 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
         // preserve the store/radio invariant if capacities ever diverge.
         (void)store_.acknowledge(key, AckClass::DiscardedPolicy);
         ++stats_.tx_queue_full;
-        if (kind == EventKind::Motion) ++stats_.dropped_motion;
+        if (is_ordinary_motion(kind)) ++stats_.dropped_motion;
         else ++stats_.priority_rejected;
         GS_ERROR(gs::log::Category::Radio, "N00", "record.failed", "tx_queue_full");
         return std::nullopt;
@@ -133,7 +142,9 @@ bool NodeRuntime::restore_recovery(const NodeRuntimeRecoveryState& state,
         const auto& event = item.event;
         if (event.key.source_id != node_id_ || event.key.session_id == 0 ||
             event.key.session_id > state.prior_boot_session ||
-            event.key.sequence == 0 || !pending_keys.insert(event.key).second)
+            event.key.sequence == 0 || !pending_keys.insert(event.key).second ||
+            (event.kind == EventKind::MotionSummary) != event.motion_aggregate.has_value() ||
+            (event.motion_aggregate && !valid_motion_aggregate(*event.motion_aggregate)))
             return false;
         const auto retained = std::find_if(state.retained.begin(), state.retained.end(),
             [&event](const DomainEvent& value) {

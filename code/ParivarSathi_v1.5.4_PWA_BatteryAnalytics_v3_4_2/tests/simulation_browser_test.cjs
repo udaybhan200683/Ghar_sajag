@@ -28,7 +28,10 @@ const fs = require('node:fs');
     await page.getByRole('button',{name:'Resolve',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('#incidents').textContent.includes('RESOLVED'));
     await page.locator('#suite').click();
-    await page.waitForFunction(()=>document.querySelector('#test-status').textContent.includes('PASS:'));
+    // The 92-case local suite can exceed Playwright's 30 s default on WSL;
+    // retain the PASS assertion while bounding this one long-running action.
+    await page.waitForFunction(()=>document.querySelector('#test-status').textContent.includes('PASS:'),
+      undefined,{timeout:120000});
     assert.equal(await page.locator('#error').isVisible(),false);
     fs.mkdirSync('logs',{recursive:true});
     await page.screenshot({path:'logs/lab_desktop.png',fullPage:true});

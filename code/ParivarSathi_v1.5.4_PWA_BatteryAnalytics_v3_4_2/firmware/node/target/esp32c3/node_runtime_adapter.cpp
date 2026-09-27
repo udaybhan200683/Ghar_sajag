@@ -279,6 +279,10 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
 
 void owner_task(void*) {
     PowerPolicy power_policy;
+#if !GS_HIL_BUILD
+    ActivityEpisode activity_episode;
+    Milliseconds next_summary_attempt_ms = 0;
+#endif
     NodeLedPolicy led_policy;
     EnergyCounters energy;
     energy.boot_count = 1;
@@ -568,6 +572,9 @@ void owner_task(void*) {
         }
 
         const bool maintenance = g_control_plane_active.load(std::memory_order_acquire);
+#if !GS_HIL_BUILD
+        activity_episode.poll(now, runtime.outage_profile());
+#endif
         if (maintenance != previous_maintenance) {
             breadcrumb = maintenance ? NodeBreadcrumb::FotaPause : NodeBreadcrumb::FotaResume;
             previous_maintenance = maintenance;
@@ -614,6 +621,15 @@ void owner_task(void*) {
             led_off_at_ms = now + 200;
 #endif
             if (!maintenance) {
+#if !GS_HIL_BUILD
+                const auto& motion_room = security_link.binding()->room;
+                if (*sensed == EventKind::Motion &&
+                    !activity_episode.needs_first(motion_room, now,
+                                                  runtime.outage_profile())) {
+                    activity_episode.note_repeat(now);
+                    breadcrumb = NodeBreadcrumb::PirAccepted;
+                } else {
+#endif
                 breadcrumb = NodeBreadcrumb::EventRecordEnter;
                 const auto store_full_before = runtime.stats().store_full;
 #if !GS_HIL_BUILD
@@ -638,6 +654,9 @@ void owner_task(void*) {
                         return;
                     }
                     energy.record_recovery_commit();
+                    if (*sensed == EventKind::Motion)
+                        activity_episode.note_first(motion_room, now,
+                                                    runtime.outage_profile());
 #endif
                     breadcrumb = NodeBreadcrumb::EventRecordOk;
                     GS_NODE_PROGRESS_LOG(kTag, "PIR -> NodeRuntime session=%llu seq=%llu",
@@ -661,10 +680,38 @@ void owner_task(void*) {
                         energy.record_recovery_commit();
 #endif
                 }
+#if !GS_HIL_BUILD
+                }
+#endif
             } else {
                 ++rejected_pir;
             }
         }
+#if !GS_HIL_BUILD
+        // Commit a separate immutable summary before it is eligible for TX.
+        // During an outage the rolling aggregate stays in RAM; its first
+        // meaningful motion was already committed through the normal path.
+        if (!maintenance && !runtime.outage_profile() &&
+            now >= next_summary_attempt_ms && activity_episode.pending()) {
+            const auto summary = *activity_episode.pending();
+            const auto key = runtime.record(EventKind::MotionSummary, summary.room,
+                summary.aggregate.last_ms, 0, 24U * 60U * 60U, 0, false,
+                SensorType::Pir, 0, summary.aggregate);
+            if (key) {
+                if (!security_link.persist_recovery(runtime)) {
+                    ESP_LOGE(kTag, "Node recovery summary commit failed; stopping owner");
+                    vTaskDelete(nullptr);
+                    return;
+                }
+                energy.record_recovery_commit();
+                activity_episode.summary_committed();
+                ESP_LOGD(kTag, "Motion summary committed count=%u coalesced=%llu omitted=%llu",
+                         static_cast<unsigned>(summary.aggregate.additional_count),
+                         static_cast<unsigned long long>(activity_episode.coalesced()),
+                         static_cast<unsigned long long>(activity_episode.omitted()));
+            } else next_summary_attempt_ms = now + 60000;
+        }
+#endif
 #if GS_HIL_BUILD
         if (led_off_at_ms != 0 && now >= led_off_at_ms) {
             (void)gpio_set_level(static_cast<gpio_num_t>(kLedGpio), kLedActiveLow ? 1 : 0);

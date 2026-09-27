@@ -20,7 +20,7 @@ class EventValidationError(ValueError):
 
 class IngestService:
     ALLOWED_KINDS = {
-        "MOTION", "DOOR_OPEN", "DOOR_CLOSED", "OK_PRESSED", "CALL_FAMILY",
+        "MOTION", "MOTION_SUMMARY", "DOOR_OPEN", "DOOR_CLOSED", "OK_PRESSED", "CALL_FAMILY",
         "HEARTBEAT", "PRIVACY_ON", "PRIVACY_OFF", "GAP", "HUB_HEARTBEAT",
         "MISSING_MORNING_ACTIVITY", "COVERAGE_CHANGED", "DOOR_LEFT_OPEN", "DAYTIME_INACTIVITY",
         "MORNING_ROUTINE_COMPLETED", "UNUSUAL_NIGHT_BATHROOM_ACTIVITY", "UNUSUAL_NIGHT_COMMON_ACTIVITY",
@@ -37,6 +37,15 @@ class IngestService:
             raise EventValidationError("unknown_home")
         if event.kind not in self.ALLOWED_KINDS:
             raise EventValidationError("unknown_kind")
+        if event.kind == "MOTION_SUMMARY":
+            detail = event.payload
+            count = detail.get("additional_count") if isinstance(detail, dict) else None
+            first = detail.get("first_ms") if isinstance(detail, dict) else None
+            last = detail.get("last_ms") if isinstance(detail, dict) else None
+            if (type(count) is not int or count <= 0 or count > 0xFFFFFFFF or
+                    type(first) is not int or first < 0 or
+                    type(last) is not int or last < first):
+                raise EventValidationError("invalid_motion_summary")
         if not event.event_id or event.uncertainty_s < 0 or event.server_received_at < event.hub_received_at:
             raise EventValidationError("invalid_event")
         key = (event.home_id, event.event_id)

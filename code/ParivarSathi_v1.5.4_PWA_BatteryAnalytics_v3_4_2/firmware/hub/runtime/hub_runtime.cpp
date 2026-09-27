@@ -161,7 +161,7 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     GS_TRACE(gs::log::Category::Hub, "H00", "run_state_once.enter", "-");
     const auto event = ingest_.pop();
     if (!event) return std::nullopt;
-    const bool passive = is_activity(event->kind);
+    const bool passive = is_passive_sensor_event(event->kind);
     if (routine_.state().mode == HomeMode::Privacy && passive) {
         return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {}};
     }

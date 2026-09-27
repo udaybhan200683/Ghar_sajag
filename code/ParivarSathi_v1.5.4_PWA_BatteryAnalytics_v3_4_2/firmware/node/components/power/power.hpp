@@ -5,6 +5,7 @@
 #include "gs/domain.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace gs::node {
@@ -78,6 +79,41 @@ public:
 private:
     Milliseconds interval_ms_;
     Milliseconds next_due_ms_;
+};
+
+// Owner-local PIR episode state. The first event is admitted by NodeRuntime
+// before note_first() is called. Repeats remain in RAM until emitted as a
+// separate, immutable MotionSummary event; no observation writes flash.
+class ActivityEpisode {
+public:
+    static constexpr Milliseconds quiet_ms = 45000;
+    static constexpr Milliseconds max_ms = 300000;
+    static constexpr Milliseconds offline_idle_ms = 1800000;
+    struct Summary {
+        std::string room;
+        DomainEvent::MotionAggregate aggregate;
+    };
+    bool needs_first(const std::string& room, Milliseconds now_ms, bool outage);
+    void note_first(const std::string& room, Milliseconds now_ms, bool outage);
+    void note_repeat(Milliseconds now_ms);
+    void poll(Milliseconds now_ms, bool outage);
+    const std::optional<Summary>& pending() const { return pending_; }
+    void summary_committed() { pending_.reset(); ++summaries_; }
+    std::uint64_t coalesced() const { return coalesced_; }
+    std::uint64_t omitted() const { return omitted_; }
+    std::uint64_t summaries() const { return summaries_; }
+private:
+    void close();
+    std::string room_;
+    Milliseconds started_ms_{-1};
+    Milliseconds first_repeat_ms_{-1};
+    Milliseconds last_ms_{-1};
+    std::uint32_t repeats_{0};
+    bool outage_{false};
+    std::optional<Summary> pending_;
+    std::uint64_t coalesced_{0};
+    std::uint64_t omitted_{0};
+    std::uint64_t summaries_{0};
 };
 
 enum class PowerRuntimeState : std::uint8_t {

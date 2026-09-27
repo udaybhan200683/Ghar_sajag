@@ -485,37 +485,43 @@ an endurance acceptance gate after every sleep change.
 
 ### Activity episode and offline compaction (BAT-C6/C7)
 
-Only `EventKind::Motion` from PIR is eligible for ordinary burst coalescing.
-`DoorOpen`, `DoorClosed`, `OkPressed`, `CallFamily`, `PrivacyOn`, `PrivacyOff`
-and `Gap` retain independent immediate identities; `Heartbeat` is diagnostics,
-not a coalesced business event. Future SOS/tamper/fault types default to
-critical until explicitly classified. A door sensor is not currently wired
-into this C3 target, so this is a cross-input contract, not a claim of
-implemented door behavior.
+BAT-C6/C7 now use the existing C3 owner task and `NodeRuntime`. A first
+qualified PIR motion in a new episode is recorded and committed to Node
+recovery before radio transmission. Only after that succeeds does the owner
+start the episode. Compatible repeats update a bounded RAM count and first/
+last repeat times; they do not allocate event IDs, enqueue radio work or
+write NVS. A connected episode closes after **45 seconds quiet** or **5
+minutes maximum**. Its repeats become one `MotionSummary` business event
+with a new immutable event key, typed `additional_count`, `first_ms` and
+`last_ms`, and the same room. The summary is committed before transmission
+and ACKed through the ordinary durable path. The first event's payload and
+identity never change. The schema-3 wire codec accepts prior schema-2
+ordinary events; Node recovery and Hub journal readers accept their prior
+record versions. Summary frames remain within the protected ESP-NOW bound.
 
-The owner keeps one bounded `ActivityEpisode` per local PIR source: episode
-ID; room/source; first and last monotonic times; optional synchronized epoch
-times and uncertainty; count (saturating); dirty/final flag. The first
-qualified motion is immediately recorded and committed through `NodeRuntime`
-with its stable event key. Repeats in a proposed 30–60 s quiet window update
-the episode. Continuous motion forces periodic finalization at a bounded
-maximum duration (proposed 5 min) and starts a new episode; these durations
-are **tuning candidates**, not measured release thresholds. Outage does not
-erase the episode. Reconnection sends retained first events in identity order,
-then any durable summary/gap with its own identity; Hub dedupe applies to each.
+BAT-C7 uses one rolling episode during an outage. A new motion after **30
+minutes without qualified PIR activity** starts a fresh durable first event;
+continued repeats remain compacted in RAM. On authenticated recovery, the
+owner closes the rolling aggregate and commits a summary when queue capacity
+permits, with failed admission retried no more often than once per minute.
+One pending summary is bounded; if another room's summary arrives while that
+slot is occupied, only its nonessential repeat detail may be omitted and
+the omitted count is kept in RAM diagnostics. Every room's first meaningful
+event still follows the durable path. Ordinary motion and summaries share
+the existing four-slot priority reserve, so door/button/critical events are
+never coalesced into PIR summaries. `MotionSummary` does not retrigger routine
+ activity or caregiver incidents and remains subject to Hub Privacy mode;
+ backend ingestion validates and stores it idempotently.
+The C3 door sensor itself is still not wired by this change.
 
-Current `NodeMessage` has no typed episode count/last-time fields and uses a
-bounded codec, so a true episode summary needs a versioned schema/codec and
-Hub consumer change. Do not stuff opaque data into `payload_json` and claim
-target compatibility. First implementation wave may reduce only *new*
-repetitive PIR admission when lossless episode metadata is durably representable;
-until then preserve today's one-event-per-qualified-motion behavior. RAM-only
-episode counters may serve diagnostics but cannot replace a committed business
-event under reboot/outage. If bounded store fills, preserve earlier identities,
-record the existing durable gap marker on first rejection, and surface count
-of further dropped ordinary motion; never overwrite a critical event or
-silently promise lossless chronology. Repeated motion need not cause one NVS
-write per edge; a finalized summary is a separate durable event.
+The RAM aggregate count is best effort across sudden power loss. A reboot
+before summary commit can lose repeat detail, but the first committed motion
+and any previously committed summary retain their identities and ACK state.
+No NVS write occurs for each repeat, retry or aggregate increment. The
+45-second, 5-minute and 30-minute limits are software policy values, not
+measured battery thresholds. Host tests establish reduced event/radio
+opportunities (for example, 101 close observations become one first event
+and one summary); no physical current or battery-life gain is claimed.
 
 ### Health, retry and radio opportunity (BAT-C4/C5)
 

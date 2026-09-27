@@ -16,7 +16,8 @@ namespace gs {
 // Canonical P0 node<->hub transport policy. Physical ESP-NOW/BLE/Wi-Fi adapters may change,
 // but event identity, acknowledgement, heartbeat and retry semantics must not.
 struct NodeProtocolPolicy {
-    static constexpr std::uint32_t wire_schema = 2;
+    static constexpr std::uint32_t wire_schema = 3;
+    static constexpr std::uint32_t previous_wire_schema = 2;
     static constexpr std::uint32_t ack_schema = 1;
     // Quiet Nodes offer authenticated health every 120 s. The Hub allows two
     // opportunities plus 70 s (one 60 s outage probe and 10 s scheduling
@@ -117,7 +118,8 @@ inline bool valid_node_health(const NodeHealthSnapshot& health) {
 
 inline SensorType sensor_type_for(EventKind kind) {
     switch (kind) {
-        case EventKind::Motion: return SensorType::Pir;
+        case EventKind::Motion:
+        case EventKind::MotionSummary: return SensorType::Pir;
         case EventKind::DoorOpen:
         case EventKind::DoorClosed: return SensorType::Reed;
         case EventKind::OkPressed:
@@ -173,6 +175,7 @@ struct NodeMessage {
     bool is_test{false};
     std::optional<NodePowerTelemetry> power;
     std::string payload_json{"{}"};
+    std::optional<DomainEvent::MotionAggregate> motion_aggregate{std::nullopt};
 };
 
 struct NodeAckMessage {
@@ -186,12 +189,18 @@ struct NodeAckMessage {
 };
 
 inline bool valid_node_message(const NodeMessage& message) {
-    return message.schema == NodeProtocolPolicy::wire_schema &&
+    return (message.schema == NodeProtocolPolicy::wire_schema ||
+            message.schema == NodeProtocolPolicy::previous_wire_schema) &&
            !message.node_id.empty() && message.session_id > 0 && message.sequence_number > 0 &&
            !message.location.empty() && message.monotonic_ms >= 0 && message.battery_mv <= 6000 &&
            message.rssi_dbm >= -127 && message.rssi_dbm <= 20 &&
            message.time_uncertainty_ms <= 24U * 60U * 60U * 1000U &&
-           (!message.power.has_value() || valid_power_telemetry(*message.power));
+           (!message.power.has_value() || valid_power_telemetry(*message.power)) &&
+           (message.event_type == EventKind::MotionSummary
+                ? message.schema == NodeProtocolPolicy::wire_schema &&
+                  message.motion_aggregate.has_value() &&
+                  valid_motion_aggregate(*message.motion_aggregate)
+                : !message.motion_aggregate.has_value());
 }
 
 inline NodeMessage node_message_from_event(const DomainEvent& event) {
@@ -210,7 +219,8 @@ inline NodeMessage node_message_from_event(const DomainEvent& event) {
         event.rssi_dbm,
         event.is_test,
         std::nullopt,
-        "{}"
+        "{}",
+        event.motion_aggregate
     };
 }
 
@@ -227,7 +237,8 @@ inline DomainEvent domain_event_from_node_message(const NodeMessage& message, Ep
         message.battery_mv,
         message.is_test,
         message.sensor_type,
-        message.rssi_dbm
+        message.rssi_dbm,
+        message.motion_aggregate
     };
 }
 

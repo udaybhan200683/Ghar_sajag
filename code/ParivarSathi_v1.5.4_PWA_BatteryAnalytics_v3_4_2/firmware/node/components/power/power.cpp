@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 
 namespace gs::node {
 namespace {
@@ -25,6 +26,64 @@ LedPattern pattern_for(LedSignal signal) {
 
 void NodeHealthCadence::observe_authenticated_contact(Milliseconds now_ms) {
     if (now_ms >= 0) next_due_ms_ = now_ms + interval_ms_;
+}
+
+void ActivityEpisode::close() {
+    if (started_ms_ < 0) return;
+    if (repeats_ != 0) {
+        if (!pending_) {
+            pending_ = Summary{room_, {repeats_, first_repeat_ms_, last_ms_}};
+        } else if (pending_->room == room_) {
+            auto& value = pending_->aggregate;
+            const auto available = std::numeric_limits<std::uint32_t>::max() - value.additional_count;
+            value.additional_count += std::min(available, repeats_);
+            omitted_ += repeats_ - std::min(available, repeats_);
+            value.last_ms = std::max(value.last_ms, last_ms_);
+        } else {
+            // One pending summary is bounded. Never misattribute a room;
+            // each new room's first durable event remains independent.
+            omitted_ += repeats_;
+        }
+    }
+    room_.clear();
+    started_ms_ = first_repeat_ms_ = last_ms_ = -1;
+    repeats_ = 0;
+}
+
+bool ActivityEpisode::needs_first(const std::string& room, Milliseconds now_ms,
+                                  bool outage) {
+    poll(now_ms, outage);
+    if (started_ms_ >= 0 && room != room_) close();
+    return started_ms_ < 0;
+}
+
+void ActivityEpisode::note_first(const std::string& room, Milliseconds now_ms,
+                                 bool outage) {
+    room_ = room;
+    started_ms_ = last_ms_ = now_ms;
+    first_repeat_ms_ = -1;
+    repeats_ = 0;
+    outage_ = outage;
+}
+
+void ActivityEpisode::note_repeat(Milliseconds now_ms) {
+    if (started_ms_ < 0 || now_ms < last_ms_) return;
+    if (repeats_ == 0) first_repeat_ms_ = now_ms;
+    if (repeats_ < std::numeric_limits<std::uint32_t>::max()) ++repeats_;
+    else ++omitted_;
+    ++coalesced_;
+    last_ms_ = now_ms;
+}
+
+void ActivityEpisode::poll(Milliseconds now_ms, bool outage) {
+    if (outage != outage_) {
+        close();
+        outage_ = outage;
+    }
+    if (started_ms_ >= 0 && now_ms >= last_ms_ && now_ms >= started_ms_ &&
+        (outage ? now_ms - last_ms_ >= offline_idle_ms
+                : (now_ms - last_ms_ >= quiet_ms ||
+                   now_ms - started_ms_ >= max_ms))) close();
 }
 
 void NodeHealthCadence::observe_health_attempt(Milliseconds now_ms,

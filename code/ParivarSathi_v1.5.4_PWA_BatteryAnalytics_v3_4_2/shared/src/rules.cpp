@@ -107,7 +107,7 @@ std::vector<RuleSignalDecision> RulesCore::apply_activity_event(
     RuleEvaluationContext context) {
     GS_TRACE(gs::log::Category::Rules, "S00", "apply_activity_event.enter", "-");
     std::vector<RuleSignalDecision> result;
-    if (event.is_test) return result;
+    if (event.is_test || event.kind == EventKind::MotionSummary) return result;
 
     if (!state.monitoring_started_at.has_value()) state.monitoring_started_at = event.occurred_at;
 

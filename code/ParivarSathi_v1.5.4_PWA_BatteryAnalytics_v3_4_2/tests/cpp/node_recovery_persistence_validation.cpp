@@ -133,6 +133,27 @@ int main() {
         auto over_capacity = original.recovery_snapshot();
         over_capacity.pending.resize(33, over_capacity.pending.front());
         require(!repo.save(over_capacity), "over-capacity recovery state committed");
+        MemoryBlob summary_store;
+        NodeRuntime summary_node("bathroom", 11);
+        const gs::DomainEvent::MotionAggregate aggregate{17, 200, 900};
+        const auto summary = summary_node.record(EventKind::MotionSummary, "Bathroom",
+            900, 0, 0, 0, false, gs::SensorType::Pir, 0, aggregate);
+        require(summary.has_value(), "typed summary admission failed");
+        NodeRecoveryRepository summary_repo(crypto, summary_store, wrapping_key,
+                                            "home-a", "hub-a", "bathroom");
+        require(summary_repo.save(summary_node.recovery_snapshot()),
+                "typed summary was not encrypted and persisted");
+        const auto summary_loaded = summary_repo.load();
+        require(summary_loaded.status == NodeRecoveryLoadStatus::Ready &&
+                summary_loaded.state && summary_loaded.state->retained.size() == 1 &&
+                summary_loaded.state->retained[0].motion_aggregate &&
+                summary_loaded.state->retained[0].motion_aggregate->additional_count == 17,
+                "summary aggregate was not restored exactly");
+        NodeRuntime summary_reboot("bathroom", 12);
+        require(summary_reboot.restore_recovery(*summary_loaded.state, 1000) &&
+                summary_reboot.acknowledge(*summary, gs::AckClass::Durable) &&
+                summary_reboot.persisted() == 0,
+                "summary identity did not survive restart and ACK retirement");
         std::cout << "P2-PERSIST-NODE-RECOVERY HOST PASS encrypted bounded recovery\n";
         return 0;
     } catch (const std::exception& error) {

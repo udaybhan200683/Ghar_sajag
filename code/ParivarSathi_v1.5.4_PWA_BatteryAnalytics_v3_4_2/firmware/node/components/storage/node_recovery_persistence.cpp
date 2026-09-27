@@ -85,10 +85,16 @@ bool encode(const NodeRuntimeRecoveryState& state, Bytes& out) {
         out.push_back(static_cast<std::uint8_t>(pending.attempt));
         out.push_back(pending.periodic_backoff_counted ? 1 : 0);
         out.push_back(retained != state.retained.end() ? 1 : 0);
+        out.push_back(event.motion_aggregate ? 1 : 0);
+        if (event.motion_aggregate) {
+            put_u32(out, event.motion_aggregate->additional_count);
+            put_i64(out, event.motion_aggregate->first_ms);
+            put_i64(out, event.motion_aggregate->last_ms);
+        }
     }
     return true;
 }
-bool decode(const Bytes& in, NodeRuntimeRecoveryState& state) {
+bool decode(const Bytes& in, std::uint8_t version, NodeRuntimeRecoveryState& state) {
     std::size_t pos = 0;
     std::uint64_t value = 0;
     if (!get_string(in, pos, state.node_id) ||
@@ -104,7 +110,7 @@ bool decode(const Bytes& in, NodeRuntimeRecoveryState& state) {
         if (!get_string(in, pos, event.location) ||
             !get_unsigned(in, pos, 8, event.key.session_id) ||
             !get_unsigned(in, pos, 8, event.key.sequence) ||
-            pos >= in.size() || in[pos] > static_cast<std::uint8_t>(EventKind::Gap))
+            pos >= in.size() || in[pos] > static_cast<std::uint8_t>(EventKind::MotionSummary))
             return false;
         event.kind = static_cast<EventKind>(in[pos++]);
         if (!get_i64(in, pos, event.monotonic_ms) ||
@@ -126,6 +132,21 @@ bool decode(const Bytes& in, NodeRuntimeRecoveryState& state) {
         pending.attempt = in[pos++];
         pending.periodic_backoff_counted = in[pos++] != 0;
         const bool retained = in[pos++] != 0;
+        if (version >= 2) {
+            if (pos >= in.size() || in[pos] > 1) return false;
+            const bool has_aggregate = in[pos++] != 0;
+            if (has_aggregate) {
+                DomainEvent::MotionAggregate aggregate;
+                if (!get_unsigned(in, pos, 4, value)) return false;
+                aggregate.additional_count = static_cast<std::uint32_t>(value);
+                if (!get_i64(in, pos, aggregate.first_ms) ||
+                    !get_i64(in, pos, aggregate.last_ms)) return false;
+                event.motion_aggregate = aggregate;
+            }
+        }
+        if ((event.kind == EventKind::MotionSummary) != event.motion_aggregate.has_value() ||
+            (event.motion_aggregate && !valid_motion_aggregate(*event.motion_aggregate)))
+            return false;
         if (retained) state.retained.push_back(event);
         state.pending.push_back(std::move(pending));
     }
@@ -167,7 +188,7 @@ NodeRecoveryLoad NodeRecoveryRepository::load() {
     if (!found) return {};
     if (blob.size() < kHeaderSize + security::GcmTag{}.size() ||
         blob.size() > kMaximumBlob || blob[0] != 'G' || blob[1] != 'S' ||
-        blob[2] != 'N' || blob[3] != 'R' || blob[4] != 1)
+        blob[2] != 'N' || blob[3] != 'R' || (blob[4] != 1 && blob[4] != 2))
         return {NodeRecoveryLoadStatus::Corrupt, 0, std::nullopt};
     std::size_t pos = 5;
     std::uint64_t generation = 0;
@@ -191,7 +212,7 @@ NodeRecoveryLoad NodeRecoveryRepository::load() {
     if (!crypto_.open_aes256_gcm(wrapping_key_, nonce, aad, cipher, tag, plain))
         return {NodeRecoveryLoadStatus::Corrupt, 0, std::nullopt};
     NodeRuntimeRecoveryState state;
-    const bool okay = decode(plain, state) && valid(state);
+    const bool okay = decode(plain, blob[4], state) && valid(state);
     crypto_.secure_zero(plain.data(), plain.size());
     if (!okay) return {NodeRecoveryLoadStatus::Corrupt, 0, std::nullopt};
     return {NodeRecoveryLoadStatus::Ready, generation, std::move(state)};
@@ -216,7 +237,7 @@ bool NodeRecoveryRepository::save(const NodeRuntimeRecoveryState& state) {
         crypto_.secure_zero(plain.data(), plain.size());
         return false;
     }
-    Bytes blob{'G', 'S', 'N', 'R', 1};
+    Bytes blob{'G', 'S', 'N', 'R', 2};
     put_u64(blob, current.generation + 1);
     blob.insert(blob.end(), nonce.begin(), nonce.end());
     put_u16(blob, static_cast<std::uint16_t>(plain.size()));

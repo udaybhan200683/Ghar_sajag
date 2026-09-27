@@ -52,7 +52,8 @@ public:
                                    Milliseconds monotonic_ms, EpochSeconds occurred_at,
                                    std::uint32_t uncertainty_s = 0, std::uint16_t battery_mv = 0,
                                    bool is_test = false, SensorType sensor_type = SensorType::Unknown,
-                                   std::int16_t rssi_dbm = 0);
+                                   std::int16_t rssi_dbm = 0,
+                                   std::optional<DomainEvent::MotionAggregate> motion_aggregate = std::nullopt);
     // @requirements E01, E02, NFR-04
     // Apply the explicit acknowledgement policy; resident check-in and caregiver acknowledgement remain
     // separate concepts.

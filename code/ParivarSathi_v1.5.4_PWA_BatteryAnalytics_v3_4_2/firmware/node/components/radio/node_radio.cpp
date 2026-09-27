@@ -25,7 +25,7 @@ bool NodeRadio::can_enqueue(EventKind kind) const {
     // Repetitive PIR evidence cannot consume every slot. Preserve a small
     // bounded reserve for buttons, door state, privacy and gap evidence.
     const std::size_t priority_reserve = std::min<std::size_t>(4U, capacity_ / 4U);
-    return kind != EventKind::Motion || queue_.size() < capacity_ - priority_reserve;
+    return !is_ordinary_motion(kind) || queue_.size() < capacity_ - priority_reserve;
 }
 
 // @requirements E01, E02, NFR-04
@@ -51,7 +51,7 @@ std::optional<DomainEvent> NodeRadio::next_due(Milliseconds now_ms) {
         // motion recovery probe. Its later retries still use the global gate.
         for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
             const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
-            if (queue_[index].event.kind != EventKind::Motion &&
+            if (!is_ordinary_motion(queue_[index].event.kind) &&
                 queue_[index].attempt == 0 &&
                 queue_[index].next_attempt_ms <= now_ms) {
                 round_robin_cursor_ = (index + 1U) % queue_.size();
@@ -66,7 +66,7 @@ std::optional<DomainEvent> NodeRadio::next_due(Milliseconds now_ms) {
             now_ms >= *next_new_motion_opportunity_ms_) {
             for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
                 const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
-                if (queue_[index].event.kind == EventKind::Motion &&
+                if (is_ordinary_motion(queue_[index].event.kind) &&
                     queue_[index].attempt == 0U &&
                     queue_[index].next_attempt_ms <= now_ms) {
                     round_robin_cursor_ = (index + 1U) % queue_.size();
@@ -79,7 +79,7 @@ std::optional<DomainEvent> NodeRadio::next_due(Milliseconds now_ms) {
     if (outage_profile_) {
         for (std::size_t offset = 0; offset < queue_.size(); ++offset) {
             const std::size_t index = (round_robin_cursor_ + offset) % queue_.size();
-            if (queue_[index].event.kind != EventKind::Motion &&
+            if (!is_ordinary_motion(queue_[index].event.kind) &&
                 queue_[index].next_attempt_ms <= now_ms) {
                 round_robin_cursor_ = (index + 1U) % queue_.size();
                 return queue_[index].event;
@@ -106,7 +106,7 @@ void NodeRadio::record_transport_result(const EventKey& key, bool accepted_by_ra
     });
     if (it == queue_.end()) return;
     const bool first_outage_motion = outage_profile_ &&
-        it->event.kind == EventKind::Motion && it->attempt == 0U;
+        is_ordinary_motion(it->event.kind) && it->attempt == 0U;
     ++stats_.transport_results;
     if (accepted_by_radio) ++stats_.mac_success;
     else ++stats_.mac_failure;
@@ -170,11 +170,11 @@ void NodeRadio::refresh_earliest_due() {
     for (const auto& item : queue_) {
         if (!earliest_due_ms_ || item.next_attempt_ms < *earliest_due_ms_)
             earliest_due_ms_ = item.next_attempt_ms;
-        if (item.event.kind != EventKind::Motion && item.attempt == 0 &&
+        if (!is_ordinary_motion(item.event.kind) && item.attempt == 0 &&
             (!earliest_new_critical_ms_ ||
              item.next_attempt_ms < *earliest_new_critical_ms_))
             earliest_new_critical_ms_ = item.next_attempt_ms;
-        if (item.event.kind == EventKind::Motion && item.attempt == 0U &&
+        if (is_ordinary_motion(item.event.kind) && item.attempt == 0U &&
             (!earliest_new_motion_ms_ ||
              item.next_attempt_ms < *earliest_new_motion_ms_))
             earliest_new_motion_ms_ = item.next_attempt_ms;

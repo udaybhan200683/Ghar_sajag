@@ -501,7 +501,7 @@ void test_protocol_and_generic_rules() {
     check(tx.has_value() && tx->sensor_type == gs::SensorType::Pir && tx->rssi_dbm == -61,
           "node event carries sensor type and RSSI independently of GPIO");
     const auto wire = node_runtime.next_message(1000);
-    check(wire.has_value() && wire->schema == 2 && wire->node_id == "proto-node" &&
+    check(wire.has_value() && wire->schema == gs::NodeProtocolPolicy::wire_schema && wire->node_id == "proto-node" &&
           wire->sequence_number == key->sequence && wire->event_type == gs::EventKind::Motion &&
           wire->battery_mv == 3770 && wire->rssi_dbm == -61,
           "typed node wire message preserves canonical protocol fields");
@@ -953,6 +953,21 @@ void test_data_plane_codec_and_ack_policy() {
           decoded.value->power->brownout_count == power.brownout_count,
           "NodeMessage round trip preserves all power telemetry");
 
+    auto legacy = message;
+    legacy.schema = gs::NodeProtocolPolicy::previous_wire_schema;
+    const auto legacy_frame = wire::encode_node_message(legacy);
+    check(legacy_frame && static_cast<bool>(wire::decode_node_message(
+          legacy_frame.frame.bytes.data(), legacy_frame.frame.size)),
+          "schema-2 ordinary event remains decodable after schema-3 extension");
+    auto malformed_summary = message;
+    malformed_summary.event_type = gs::EventKind::MotionSummary;
+    check(!wire::encode_node_message(malformed_summary),
+          "summary without typed count and time range is rejected");
+    malformed_summary.motion_aggregate = gs::DomainEvent::MotionAggregate{1, 10, 20};
+    malformed_summary.schema = gs::NodeProtocolPolicy::previous_wire_schema;
+    check(!wire::encode_node_message(malformed_summary),
+          "schema-2 cannot misrepresent a typed summary");
+
     gs::NodeAckMessage ack = gs::make_node_ack(
         {message.node_id, message.session_id, message.sequence_number},
         gs::AckClass::Durable, 1700000001,
@@ -1077,6 +1092,142 @@ void test_data_plane_codec_and_ack_policy() {
           "boot-session policy fails closed when durable commit fails");
 }
 
+void test_activity_episode_and_compaction() {
+    using gs::EventKind;
+    gs::node::ActivityEpisode episode;
+    gs::node::NodeRuntime node("episode-node", 7);
+    check(episode.needs_first("bathroom", 1000, false), "first PIR observation is immediately admissible");
+    const auto first = node.record(EventKind::Motion, "bathroom", 1000, 0);
+    check(first.has_value() && node.pending() == 1 && node.persisted() == 1,
+          "first motion has its own retained identity before aggregation");
+    episode.note_first("bathroom", 1000, false);
+    for (int index = 0; index < 100; ++index) {
+        check(!episode.needs_first("bathroom", 1100 + index * 100, false),
+              "compatible motion remains in active episode");
+        episode.note_repeat(1100 + index * 100);
+    }
+    check(episode.coalesced() == 100 && node.pending() == 1 && node.persisted() == 1,
+          "100 repeats use no additional retained/radio events or persistence commits");
+    const auto before = node.recovery_snapshot();
+    check(before.retained.size() == 1 && before.retained[0].key.str() == first->str() &&
+          !before.retained[0].motion_aggregate,
+          "transmitted first-event payload and identity stay immutable");
+    episode.poll(11000 + gs::node::ActivityEpisode::quiet_ms - 1, false);
+    check(!episode.pending(), "quiet boundary is not early");
+    episode.poll(11000 + gs::node::ActivityEpisode::quiet_ms, false);
+    check(episode.pending() && episode.pending()->aggregate.additional_count == 100,
+          "exact quiet boundary closes episode with typed count");
+    const auto summary = *episode.pending();
+    const auto summary_key = node.record(EventKind::MotionSummary, summary.room,
+        summary.aggregate.last_ms, 0, 0, 0, false, gs::SensorType::Pir, 0,
+        summary.aggregate);
+    check(summary_key && summary_key->str() != first->str() && node.pending() == 2,
+          "summary has independent durable EventKey and ACK lifecycle");
+    episode.summary_committed();
+    const auto summary_wire = gs::transport::encode_node_message(
+        gs::node_message_from_event(node.recovery_snapshot().retained.back()));
+    check(summary_wire && summary_wire.frame.size + 28 <= 250,
+          "typed summary fits protected ESP-NOW frame");
+    const auto decoded = gs::transport::decode_node_message(
+        summary_wire.frame.bytes.data(), summary_wire.frame.size);
+    check(decoded && decoded.value->motion_aggregate &&
+          decoded.value->motion_aggregate->additional_count == 100 &&
+          decoded.value->event_type == EventKind::MotionSummary,
+          "typed summary round trips without becoming a second motion incident");
+    check(!gs::is_activity(EventKind::MotionSummary),
+          "summary does not create another routine activity trigger");
+    check(gs::is_passive_sensor_event(EventKind::MotionSummary),
+          "summary still obeys the Hub privacy admission boundary");
+    gs::hub::HubRuntime private_hub(4, 8);
+    private_hub.authorize_node("episode-node", 7, true);
+    gs::RoutineConfig private_window;
+    private_window.window_id = "private-window";
+    private_hub.start_window(private_window, gs::HomeMode::Privacy);
+    const bool private_admitted = private_hub.radio_callback(
+        gs::domain_event_from_node_message(*decoded.value, 60));
+    const auto private_result = private_hub.run_state_once();
+    check(private_admitted && private_result &&
+          private_result->ack == gs::AckClass::DiscardedPolicy &&
+          private_hub.journal().size() == 0,
+          "privacy mode discards summary instead of exposing passive PIR detail");
+    check(node.acknowledge(*summary_key, gs::AckClass::Durable) &&
+          node.acknowledge(*first, gs::AckClass::Durable) && node.pending() == 0,
+          "independent ACKs drain both immutable events");
+
+    gs::node::ActivityEpisode offline;
+    gs::node::NodeRuntime stranded("offline-node", 9);
+    check(offline.needs_first("bathroom", 0, true), "offline first is immediate");
+    const auto durable = stranded.record(EventKind::Motion, "bathroom", 0, 0);
+    check(durable.has_value(), "offline first motion retained");
+    offline.note_first("bathroom", 0, true);
+    for (int index = 1; index <= 1000; ++index) {
+        check(!offline.needs_first("bathroom", index * 1000, true),
+              "prolonged outage stays in one bounded rolling episode");
+        offline.note_repeat(index * 1000);
+    }
+    check(stranded.pending() == 1 && stranded.persisted() == 1,
+          "1000 offline observations leave one durable first event");
+    const auto priority = stranded.record(EventKind::DoorOpen, "front door", 1001000, 0);
+    check(priority && stranded.pending() == 2,
+          "critical distinct event is never compacted or denied by motion burst");
+    gs::node::NodeRuntime reserved("reserve-node", 4, 8, 8);
+    for (int index = 0; index < 6; ++index)
+        check(reserved.record(EventKind::Motion, "bathroom", index, 0).has_value(),
+              "ordinary motion admission reaches reserve boundary");
+    check(!reserved.record(EventKind::MotionSummary, "bathroom", 7, 0,
+             0, 0, false, gs::SensorType::Pir, 0,
+             gs::DomainEvent::MotionAggregate{1, 6, 7}),
+          "motion summary cannot consume critical-event reserve");
+    check(reserved.record(EventKind::DoorOpen, "front door", 8, 0).has_value(),
+          "door remains admissible after summary hits ordinary reserve");
+    const auto snapshot = stranded.recovery_snapshot();
+    gs::node::NodeRuntime restarted("offline-node", 10);
+    check(restarted.restore_recovery(snapshot, 1002000) && restarted.pending() == 2,
+          "restart preserves durable first and priority event without fabricated count");
+    offline.poll(1002000, false);
+    check(offline.pending() && offline.pending()->aggregate.additional_count == 1000,
+          "recovery closes rolling outage aggregate");
+    const auto recovered_aggregate = *offline.pending();
+    const auto recovered_summary = restarted.record(EventKind::MotionSummary,
+        recovered_aggregate.room, recovered_aggregate.aggregate.last_ms, 0,
+        0, 0, false, gs::SensorType::Pir, 0,
+        recovered_aggregate.aggregate);
+    check(recovered_summary && restarted.persisted() == 3 &&
+          recovered_summary->session_id == 10,
+          "post-outage summary gets a fresh identity while restored events keep theirs");
+    offline.summary_committed();
+    check(restarted.acknowledge(*durable, gs::AckClass::Durable) &&
+          restarted.acknowledge(*priority, gs::AckClass::Durable) &&
+          restarted.acknowledge(*recovered_summary, gs::AckClass::Durable) &&
+          restarted.pending() == 0 && restarted.persisted() == 0,
+          "recovery ACKs retire distinct first, priority and summary identities");
+    gs::node::ActivityEpisode separated_outage;
+    separated_outage.note_first("bathroom", 0, true);
+    check(separated_outage.needs_first("bathroom",
+          gs::node::ActivityEpisode::offline_idle_ms, true),
+          "new activity after a long offline quiet period needs a fresh durable first");
+    gs::node::ActivityEpisode different;
+    different.note_first("bedroom", 0, false);
+    different.note_repeat(100);
+    check(different.needs_first("kitchen", 200, false),
+          "room change cannot merge incompatible activity");
+    check(different.pending() && different.pending()->room == "bedroom",
+          "prior-room summary retains correct attribution");
+    check(episode.needs_first("bathroom", 1000000, false),
+          "activity after expiry starts a new first event");
+    gs::node::ActivityEpisode continuous;
+    continuous.note_first("bathroom", 0, false);
+    for (gs::Milliseconds at = 30000; at < gs::node::ActivityEpisode::max_ms;
+         at += 30000) {
+        check(!continuous.needs_first("bathroom", at, false),
+              "continuous motion stays within maximum episode interval");
+        continuous.note_repeat(at);
+    }
+    check(continuous.needs_first("bathroom", gs::node::ActivityEpisode::max_ms,
+                                 false) && continuous.pending(),
+          "five-minute maximum closes a continuously active episode");
+}
+
 void test_security_seams() {
     gs::security::CredentialRegistry registry;
     check(registry.install({"node-1", "nvs:key:1", 1}), "credential reference installs");
@@ -1125,6 +1276,7 @@ int main() {
         test_node_power_diagnostics();
         test_node_outage_profile();
         test_data_plane_codec_and_ack_policy();
+        test_activity_episode_and_compaction();
         test_security_seams();
         test_logging_policy();
         test_feature_flag_defaults();

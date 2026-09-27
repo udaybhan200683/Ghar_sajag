@@ -11,7 +11,9 @@ constexpr std::size_t kHeaderBytes = 8U;
 constexpr std::uint8_t kOccurredAtPresent = 1U << 0U;
 constexpr std::uint8_t kPowerPresent = 1U << 1U;
 constexpr std::uint8_t kIsTest = 1U << 2U;
-constexpr std::uint8_t kKnownFlags = kOccurredAtPresent | kPowerPresent | kIsTest;
+constexpr std::uint8_t kMotionAggregatePresent = 1U << 3U;
+constexpr std::uint8_t kKnownFlags = kOccurredAtPresent | kPowerPresent |
+    kIsTest | kMotionAggregatePresent;
 
 class Writer {
 public:
@@ -218,6 +220,7 @@ std::optional<std::uint8_t> encode_event_kind(EventKind kind) {
         case EventKind::PrivacyOn: return 7U;
         case EventKind::PrivacyOff: return 8U;
         case EventKind::Gap: return 9U;
+        case EventKind::MotionSummary: return 10U;
     }
     return std::nullopt;
 }
@@ -233,6 +236,7 @@ std::optional<EventKind> decode_event_kind(std::uint8_t value) {
         case 7U: return EventKind::PrivacyOn;
         case 8U: return EventKind::PrivacyOff;
         case 9U: return EventKind::Gap;
+        case 10U: return EventKind::MotionSummary;
         default: return std::nullopt;
     }
 }
@@ -330,7 +334,8 @@ FrameClass classify_frame(const std::uint8_t* data, std::size_t size) {
 EncodeResult encode_node_message(const NodeMessage& message) {
     EncodeResult result;
     if (!valid_node_message(message)) {
-        result.error = message.schema == NodeProtocolPolicy::wire_schema
+        result.error = message.schema == NodeProtocolPolicy::wire_schema ||
+                       message.schema == NodeProtocolPolicy::previous_wire_schema
             ? CodecError::InvalidValue : CodecError::UnsupportedSchema;
         return result;
     }
@@ -351,6 +356,7 @@ EncodeResult encode_node_message(const NodeMessage& message) {
     std::uint8_t flags = message.is_test ? kIsTest : 0U;
     if (message.occurred_at) flags |= kOccurredAtPresent;
     if (message.power) flags |= kPowerPresent;
+    if (message.motion_aggregate) flags |= kMotionAggregatePresent;
     const bool ok = writer.reserve_header() && writer.u32(message.schema) &&
         writer.string8(message.node_id, kMaxSourceIdBytes) &&
         writer.u64(message.session_id) && writer.u64(message.sequence_number) &&
@@ -361,6 +367,10 @@ EncodeResult encode_node_message(const NodeMessage& message) {
         writer.u32(message.time_uncertainty_ms) && writer.u16(message.battery_mv) &&
         writer.i16(message.rssi_dbm) &&
         (!message.power || write_power(writer, *message.power)) &&
+        (!message.motion_aggregate ||
+            (writer.u32(message.motion_aggregate->additional_count) &&
+             writer.i64(message.motion_aggregate->first_ms) &&
+             writer.i64(message.motion_aggregate->last_ms))) &&
         writer.string8(message.payload_json, kMaxPayloadJsonBytes) &&
         writer.finish(FrameType::NodeMessage);
     if (!ok) result.error = CodecError::BufferTooSmall;
@@ -387,7 +397,8 @@ DecodeResult<NodeMessage> decode_node_message(const std::uint8_t* data,
         result.error = CodecError::Truncated;
         return result;
     }
-    if (message.schema != NodeProtocolPolicy::wire_schema) {
+    if (message.schema != NodeProtocolPolicy::wire_schema &&
+        message.schema != NodeProtocolPolicy::previous_wire_schema) {
         result.error = CodecError::UnsupportedSchema;
         return result;
     }
@@ -404,6 +415,11 @@ DecodeResult<NodeMessage> decode_node_message(const std::uint8_t* data,
     message.sensor_type = *sensor;
     message.event_type = *event;
     message.is_test = (flags & kIsTest) != 0U;
+    if (message.schema == NodeProtocolPolicy::previous_wire_schema &&
+        (flags & kMotionAggregatePresent) != 0U) {
+        result.error = CodecError::MalformedFlags;
+        return result;
+    }
     if ((flags & kOccurredAtPresent) != 0U) {
         EpochSeconds occurred_at = 0;
         if (!reader.i64(occurred_at)) {
@@ -424,6 +440,15 @@ DecodeResult<NodeMessage> decode_node_message(const std::uint8_t* data,
             return result;
         }
         message.power = power;
+    }
+    if ((flags & kMotionAggregatePresent) != 0U) {
+        DomainEvent::MotionAggregate aggregate;
+        if (!reader.u32(aggregate.additional_count) ||
+            !reader.i64(aggregate.first_ms) || !reader.i64(aggregate.last_ms)) {
+            result.error = CodecError::Truncated;
+            return result;
+        }
+        message.motion_aggregate = aggregate;
     }
     if (!reader.string8(message.payload_json, kMaxPayloadJsonBytes)) {
         result.error = CodecError::Truncated;

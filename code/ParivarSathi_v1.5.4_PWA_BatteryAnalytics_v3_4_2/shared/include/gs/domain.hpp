@@ -29,7 +29,8 @@ enum class EventKind {
     Heartbeat,
     PrivacyOn,
     PrivacyOff,
-    Gap
+    Gap,
+    MotionSummary
 };
 
 enum class SensorType { Unknown, Pir, Reed, Button, Heartbeat, System };
@@ -84,7 +85,24 @@ struct DomainEvent {
     bool is_test{false};
     SensorType sensor_type{SensorType::Unknown};
     std::int16_t rssi_dbm{0};
+    // A separate immutable business event for observations after the first
+    // motion of an episode. The first motion keeps its own event identity.
+    struct MotionAggregate {
+        std::uint32_t additional_count{0};
+        Milliseconds first_ms{0};
+        Milliseconds last_ms{0};
+    };
+    std::optional<MotionAggregate> motion_aggregate{std::nullopt};
 };
+
+inline bool valid_motion_aggregate(const DomainEvent::MotionAggregate& value) {
+    return value.additional_count > 0 && value.first_ms >= 0 &&
+           value.last_ms >= value.first_ms;
+}
+
+inline bool is_ordinary_motion(EventKind kind) {
+    return kind == EventKind::Motion || kind == EventKind::MotionSummary;
+}
 
 struct RoutineConfig {
     std::string window_id;
@@ -173,6 +191,10 @@ inline bool is_business_event(EventKind kind) {
 
 inline bool is_activity(EventKind kind) {
     return kind == EventKind::Motion || kind == EventKind::DoorOpen || kind == EventKind::DoorClosed;
+}
+
+inline bool is_passive_sensor_event(EventKind kind) {
+    return is_activity(kind) || kind == EventKind::MotionSummary;
 }
 
 }  // namespace gs

@@ -135,6 +135,24 @@ int main() {
         require(fresh && fresh->state_changed &&
                 recovered.routine_state().evidence_ids.size() == 2,
                 "new event after replay did not update reducer");
+        MemorySlots summary_slots;
+        auto compacted = event(300);
+        compacted.kind = gs::EventKind::MotionSummary;
+        compacted.motion_aggregate = gs::DomainEvent::MotionAggregate{12, 100, 900};
+        {
+            HubJournal summary_journal(128);
+            require(summary_journal.attach_persistence(crypto, summary_slots, key) &&
+                    summary_journal.commit(compacted) == CommitResult::Stored,
+                    "typed summary did not commit durably");
+        }
+        HubJournal restored_summary(128);
+        require(restored_summary.attach_persistence(crypto, summary_slots, key) &&
+                restored_summary.contains(compacted.key) &&
+                restored_summary.records().size() == 1 &&
+                restored_summary.records().front().motion_aggregate &&
+                restored_summary.records().front().motion_aggregate->additional_count == 12 &&
+                restored_summary.commit(compacted) == CommitResult::Duplicate,
+                "typed summary lost payload or dedupe after Hub restart");
         std::cout << "P2-PERSIST-HUB-JOURNAL HOST PASS capacity=128 full=129 "
                      "replacement/dedupe/restart/tamper/write-fault/reducer-replay\n";
         return EXIT_SUCCESS;
