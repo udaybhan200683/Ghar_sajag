@@ -2,6 +2,45 @@ from pathlib import Path
 import json, unittest
 ROOT=Path(__file__).resolve().parents[2]
 class ValidationFrameworkTest(unittest.TestCase):
+    def test_release_gate_timeout_output_bytes_and_text_are_controlled_failures(self):
+        from unittest.mock import patch
+        from tools.validation.stage_runner import execute_stage
+        for stdout, stderr in ((b"partial bytes", b"error bytes"), ("partial text", "error text")):
+            with self.subTest(output_type=type(stdout).__name__):
+                with patch('tools.validation.stage_runner.subprocess.run',
+                           side_effect=__import__('subprocess').TimeoutExpired(
+                               ['slow-stage'], 17, output=stdout, stderr=stderr)):
+                    status, output = execute_stage('lab-build', ['slow-stage'], cwd='.', env={}, timeout=17)
+                self.assertEqual(status, 'FAIL')
+                self.assertIn('TIMEOUT', output)
+                self.assertIn('stage=lab-build', output)
+                self.assertIn('configured_timeout=17s', output)
+                self.assertIn(stdout.decode() if isinstance(stdout, bytes) else stdout, output)
+                self.assertIn(stderr.decode() if isinstance(stderr, bytes) else stderr, output)
+
+    def test_release_gate_stage_success_and_failure_propagation_unchanged(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        from tools.validation.stage_runner import execute_stage
+        for returncode, expected in ((0, 'PASS'), (3, 'FAIL')):
+            with self.subTest(returncode=returncode):
+                with patch('tools.validation.stage_runner.subprocess.run',
+                           return_value=SimpleNamespace(returncode=returncode, stdout='out', stderr='err')):
+                    status, output = execute_stage('sample', ['sample'], cwd='.', env={}, timeout=17)
+                self.assertEqual(status, expected)
+                self.assertEqual(output, 'outerr')
+
+    def test_fast_gate_keeps_fota_and_lab_build_coverage_without_browser_rebuild(self):
+        product = ROOT / 'Makefile'
+        gate = (ROOT / 'tools/validation/release_gate.py').read_text()
+        makefile = product.read_text()
+        self.assertIn("run('fota-host-state-machine',['make','fota-host-test']", gate)
+        self.assertIn("ok &= run('lab-build',['make','lab-build'])", gate)
+        self.assertIn('lab_binary=ROOT/\'build\'/\'ghar_sajag_interactive\'', gate)
+        self.assertNotIn("subprocess.run(['make','lab-build']", gate)
+        self.assertIn('fota-host-test', makefile)
+        self.assertIn('validation-fast:', makefile)
+
     def test_master_validation_has_complete_offline_id_set(self):
         source=(ROOT/'tests/cpp/master_validation.cpp').read_text()
         for number in range(1,36):
