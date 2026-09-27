@@ -524,11 +524,8 @@ void owner_task(void*) {
     bool led_was_on = false;
 #endif
     NodeHealthCadence health_cadence(kHealthIntervalMs,
-#if GS_HIL_CONTROL
-        1000);
-#else
-        monotonic_ms() + kHealthIntervalMs);
-#endif
+        initial_node_health_deadline(monotonic_ms(), kHealthIntervalMs,
+                                     GS_HIL_CONTROL, GS_BAT_C8_PHYSICAL_WAKE));
     std::uint64_t health_sequence = 1;
     std::uint32_t raw_pir_edges = 0;
     std::uint32_t accepted_pir = 0;
@@ -928,11 +925,11 @@ void owner_task(void*) {
             (health_cadence.due(now, application_due,
                                 suppress_for_pending, suppress_for_outage,
                                 maintenance)
-#if GS_HIL_CONTROL
+#if GS_HIL_CONTROL && !GS_BAT_C8_PHYSICAL_WAKE
              || g_hil_force_health.load(std::memory_order_acquire)
 #endif
             )) {
-#if GS_HIL_CONTROL
+#if GS_HIL_CONTROL && !GS_BAT_C8_PHYSICAL_WAKE
             g_hil_force_health.store(false, std::memory_order_release);
 #endif
             const auto& stats = runtime.stats();

@@ -51,6 +51,46 @@ void test_physical_wake_profile() {
           "security controls alone do not grant sleep eligibility");
 }
 
+void test_health_timing_profiles() {
+    using namespace gs;
+    using namespace gs::node;
+    using gs::node::target::initial_node_health_deadline;
+    constexpr Milliseconds now = 5000;
+    constexpr Milliseconds interval =
+        static_cast<Milliseconds>(NodeProtocolPolicy::heartbeat_seconds) * 1000;
+    check(initial_node_health_deadline(now, interval, false, false) == 125000,
+          "ordinary production first health remains 120 seconds after owner start");
+    check(initial_node_health_deadline(now, interval, true, false) == 1000,
+          "ordinary HIL control retains its absolute early first health deadline");
+    check(initial_node_health_deadline(now, interval, true, true) == 125000,
+          "physical wake HIL profile uses ordinary battery first health deadline");
+    NodeHealthCadence battery(interval,
+        initial_node_health_deadline(now, interval, true, true));
+    check(!battery.due(124999, false, false, false, false) &&
+          battery.due(125000, false, false, false, false),
+          "physical wake quiet health opportunity remains at 120 seconds");
+    battery.observe_health_attempt(125000);
+    check(battery.next_due_ms() == 245000,
+          "repeated physical wake NodeHealth remains on the product interval");
+    battery.observe_authenticated_contact(150000);
+    check(battery.next_due_ms() == 270000,
+          "authenticated application contact defers quiet health normally");
+    auto deadline = healthy_idle();
+    deadline.next_health_ms = 4000;
+    const auto health_bounded = evaluate_light_sleep(deadline);
+    check(health_bounded.eligible && health_bounded.earliest_deadline_ms == 4000 &&
+          health_bounded.requested_sleep_ms == 2500,
+          "health deadline still bounds physical sleep");
+    deadline.next_retry_ms = 2000;
+    const auto retry_bounded = evaluate_light_sleep(deadline);
+    check(retry_bounded.eligible && retry_bounded.earliest_deadline_ms == 2000 &&
+          retry_bounded.requested_sleep_ms == 500,
+          "earlier retry deadline still bounds physical sleep");
+    check(NodeProtocolPolicy::offline_after_seconds == 310 &&
+          NodeProtocolPolicy::coverage_after_seconds == 190,
+          "Hub lease and historical coverage contracts remain independent");
+}
+
 void test_sleep_eligibility_and_inhibitors() {
     using namespace gs::node;
     const auto eligible = evaluate_light_sleep(healthy_idle());
@@ -210,6 +250,7 @@ void test_fresh_critical_work_keeps_existing_retry_priority() {
 int main() {
     try {
         test_physical_wake_profile();
+        test_health_timing_profiles();
         test_sleep_eligibility_and_inhibitors();
         test_pir_wake_handoff_and_timer_wake();
         test_qualification_diagnostics();

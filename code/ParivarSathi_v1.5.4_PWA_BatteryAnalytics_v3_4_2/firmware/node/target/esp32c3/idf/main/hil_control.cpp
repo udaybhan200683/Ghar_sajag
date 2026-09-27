@@ -21,8 +21,12 @@ void dispatch_command(const char* command) {
         ESP_LOGI(kTag, "HIL_OK command=INJECT_MOTION");
 #endif
     } else if (std::strcmp(command, "GET_HEALTH") == 0) {
+#if GS_BAT_C8_PHYSICAL_WAKE
+        ESP_LOGW(kTag, "HIL_ERROR command=GET_HEALTH disabled_for_physical_wake");
+#else
         gs::node::target::hil_request_health();
         ESP_LOGI(kTag, "HIL_OK command=GET_HEALTH");
+#endif
     } else if (std::strcmp(command, "GET_STATE") == 0) {
         gs::node::target::hil_log_state();
         ESP_LOGI(kTag, "HIL_OK command=GET_STATE");

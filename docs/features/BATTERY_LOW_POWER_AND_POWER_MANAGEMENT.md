@@ -135,8 +135,12 @@ timer wake setup as production. The owner still requires initialized sensing,
 a supported GPIO wake configuration, and all BAT-C8 policy conditions before
 it calls the real ESP-IDF light-sleep API. HIL security controls alone never
 make a wake source ready. `INJECT_MOTION` is rejected in this profile, so
-physical qualification must use the AM312/GPIO4 path. This configuration does not qualify production
-Secure Boot, eFuse, or key provisioning.
+physical qualification must use the AM312/GPIO4 path. The profile also uses
+the ordinary 120-second initial and repeated NodeHealth cadence and rejects
+`GET_HEALTH`, which otherwise forces a fixture health event. Ordinary
+HIL-control images retain their early first health record for FOTA testing.
+This configuration does not qualify production Secure Boot, eFuse, or key
+provisioning.
 
 BAT-C8B qualification firmware emits compact INFO records at eligible sleep
 decisions (`BAT_SLEEP_DECISION`), immediately before entry (`BAT_SLEEP_ENTER`),

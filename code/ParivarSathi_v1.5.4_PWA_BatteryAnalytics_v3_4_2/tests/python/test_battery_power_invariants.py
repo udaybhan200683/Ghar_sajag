@@ -24,6 +24,17 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         self.assertIn("#if GS_BAT_C8_PHYSICAL_WAKE", hil_control)
         self.assertIn("disabled_for_physical_wake", hil_control)
 
+    def test_physical_wake_does_not_force_hil_health(self):
+        adapter = ADAPTER.read_text()
+        hil_control = (NODE / "target/esp32c3/idf/main/hil_control.cpp").read_text()
+        capability = (NODE / "target/esp32c3/physical_wake_capability.hpp").read_text()
+        self.assertIn("initial_node_health_deadline(monotonic_ms(), kHealthIntervalMs,", adapter)
+        self.assertIn("GS_HIL_CONTROL, GS_BAT_C8_PHYSICAL_WAKE", adapter)
+        self.assertIn("hil_control && !qualification_wake ? 1000 : now_ms + interval_ms", capability)
+        self.assertIn("#if GS_HIL_CONTROL && !GS_BAT_C8_PHYSICAL_WAKE", adapter)
+        self.assertIn("disabled_for_physical_wake", hil_control)
+        self.assertIn("command=GET_HEALTH disabled_for_physical_wake", hil_control)
+
     def test_authenticated_application_ack_restores_outage_profile(self):
         source = ADAPTER.read_text()
         ack_start = source.index("const bool matched_pending = runtime.has_pending_key(key)")
