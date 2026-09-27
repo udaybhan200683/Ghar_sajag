@@ -291,12 +291,15 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
     def test_secure_signed_campaign_includes_boot_rollback_case(self):
         self.assertIn("SIGNED_FOTA_BOOT_ROLLBACK", EXPECTED)
 
-    def test_rollback_case_requires_health_rejection_reset_known_good_slot_and_fresh_ack(self):
+    def test_rollback_case_requires_post_deadline_rejoin_and_fresh_ack(self):
         class Capture:
-            def __init__(self, role, lines):
+            def __init__(self, role, lines, cursors=None):
                 self.role, self.lines = role, lines
                 self.waits = []
+                self.cursors = list(cursors or [])
             def cursor(self):
+                if self.cursors:
+                    return self.cursors.pop(0)
                 return 1 if self.role == "c3" else 4
             def wait_for(self, pattern, timeout, start=0):
                 self.waits.append((pattern, timeout, start))
@@ -333,8 +336,9 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
             "PIR ready on GPIO4",
         ])
         campaign.hub = Capture("hub", ["old hub line"] * 4 + [
-            "Authenticated rejoin device=c3-test session=300",
-        ])
+            "Authenticated rejoin device=c3-test session=300",  # candidate boot
+            "Authenticated rejoin device=c3-test session=301",  # restored image
+        ], cursors=[5])
         campaign.switch_to_rollback_hub = mock.Mock()
         campaign.secure_transfer = mock.Mock(return_value="transfer-1")
         campaign.state = mock.Mock(side_effect=[
@@ -350,7 +354,7 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         campaign.motion.assert_called_once_with()
         self.assertEqual(result["slot_before"], "ota_1")
         self.assertEqual(result["slot_after"], "ota_1")
-        self.assertEqual(result["restored_session"], "300")
+        self.assertEqual(result["restored_session"], "301")
         campaign.results.add.assert_called_once()
         self.assertEqual(campaign.results.add.call_args.args[0], "SIGNED_FOTA_BOOT_ROLLBACK")
         self.assertTrue(any("PIR ready" in pattern for pattern, *_ in campaign.c3.waits))
@@ -359,6 +363,44 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertEqual(reset_waits, [1, 5])
         self.assertGreater(reset_waits[1], campaign.c3.lines.index(
             "OTA health deadline expired; requesting rollback"))
+        self.assertEqual(campaign.hub.waits[-1][2], 5)
+
+    def test_rollback_case_rejects_target_panic_even_if_b_is_restored(self):
+        campaign = object.__new__(SecureCampaign)
+        campaign.images = {"B": {"version": "sfB-test"},
+                           "ROLLBACK": {"version": "sfR-test"}}
+        campaign.node_id = "c3-test"
+        campaign.before_session = "299"
+        campaign.hubs = {"ROLLBACK": {"hub_app_version": "hub-r"}}
+        campaign.run_dir = Path("evidence")
+        campaign.config = {}
+        campaign.results = mock.Mock()
+        campaign.c3 = mock.Mock()
+        campaign.c3.lines = [
+            "HIL_READY role=c3 protocol=1 version=sfB-test",
+            "OTA health deadline expired; requesting rollback",
+            "Guru Meditation Error: Core 0 panic'ed (Stack protection fault)",
+        ]
+        campaign.c3.cursor.return_value = 1
+        campaign.c3.wait_for.side_effect = [
+            "HIL_READY role=c3 protocol=1 version=sfR-test",
+            "HIL_BOOT_HEALTH_FAILURE_INJECTED",
+            "OTA health deadline expired; requesting rollback",
+            "HIL_READY role=c3 protocol=1 version=sfB-test",
+            "PIR ready on GPIO4",
+        ]
+        campaign.c3.wait_for_predicate.return_value = "rst:0xc (SW_CPU_RESET)"
+        campaign.hub = mock.Mock()
+        campaign.hub.cursor.return_value = 5
+        campaign.switch_to_rollback_hub = mock.Mock()
+        campaign.secure_transfer = mock.Mock(return_value="transfer-1")
+        campaign.state = mock.Mock(side_effect=[
+            "HIL_STATE role=c3 ota_slot=ota_1",
+            "HIL_STATE role=c3 ota_slot=ota_1",
+        ])
+
+        with self.assertRaisesRegex(RuntimeError, "unexpected target panic"):
+            campaign.qualify_boot_rollback()
 
     def test_rollback_case_rejects_candidate_marked_valid_before_timeout(self):
         campaign = object.__new__(SecureCampaign)

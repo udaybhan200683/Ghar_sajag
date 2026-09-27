@@ -440,7 +440,6 @@ class SecureCampaign:
             raise RuntimeError("known-good signed B is not running before rollback exercise")
 
         candidate_cursor = self.c3.cursor()
-        hub_rejoin_cursor = self.hub.cursor()
         transfer = self.secure_transfer(self.images["ROLLBACK"]["version"],
                                         expect_signature_reject=False)
         self.c3.wait_for_predicate(
@@ -453,6 +452,10 @@ class SecureCampaign:
         self.c3.wait_for(r"HIL_BOOT_HEALTH_FAILURE_INJECTED", 15, candidate_cursor)
         deadline_line = self.c3.wait_for(
             r"OTA health deadline expired; requesting rollback", 110, candidate_cursor)
+        # The candidate has already established its temporary session by this
+        # point. Only a later Hub rejoin can prove the restored image has
+        # authenticated again after the rollback reboot.
+        rollback_hub_rejoin_cursor = self.hub.cursor()
         # The ESP-IDF rollback call can reboot immediately after this log. Use
         # the marker's position in the already captured stream as the cursor,
         # so a fast reset cannot land between the marker and a later snapshot.
@@ -471,6 +474,11 @@ class SecureCampaign:
         if slot_after != slot_before:
             raise RuntimeError(f"failed boot did not restore known-good slot {slot_before}: {slot_after}")
         candidate_lines = self.c3.lines[candidate_cursor:]
+        panic_markers = ("Guru Meditation Error:", "Stack protection fault",
+                         "Stack smashing protection failure",
+                         "Stack canary watchpoint triggered")
+        if any(marker in line for line in candidate_lines for marker in panic_markers):
+            raise RuntimeError("failed-image rollback path hit an unexpected target panic")
         rollback_line = next((index for index, line in enumerate(candidate_lines)
                               if "OTA health deadline expired; requesting rollback" in line), None)
         if rollback_line is None or any(
@@ -479,7 +487,7 @@ class SecureCampaign:
 
         rejoined = self.hub.wait_for(
             rf"Authenticated rejoin device={re.escape(self.node_id)} .*session=(\d+)",
-            45, hub_rejoin_cursor)
+            45, rollback_hub_rejoin_cursor)
         restored_session = re.search(r"session=(\d+)", rejoined).group(1)
         if restored_session == self.before_session:
             raise RuntimeError("rolled-back C3 did not establish a fresh authenticated session")

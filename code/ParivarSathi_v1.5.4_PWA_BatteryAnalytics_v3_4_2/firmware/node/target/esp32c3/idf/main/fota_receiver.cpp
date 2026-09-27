@@ -29,6 +29,9 @@ namespace gs::node::target {
 namespace {
 
 constexpr char kTag[] = "gs_node_fota";
+// ESP-IDF's signed rollback path verifies the previous image before rebooting.
+// That verifier has a deeper call stack than the normal health polling path.
+constexpr std::uint32_t kImageValidationTaskStackBytes = 12 * 1024;
 constexpr TickType_t kControlReceivePoll = pdMS_TO_TICKS(1000);
 
 std::uint64_t monotonic_ms() {
@@ -295,7 +298,8 @@ esp_err_t start_fota_receiver() {
     if (xTaskCreate(worker, "gs_node_fota", 6144, nullptr, 7, nullptr) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
-    if (xTaskCreate(validate_running_image, "gs_ota_validate", 3072, nullptr, 6,
+    if (xTaskCreate(validate_running_image, "gs_ota_validate",
+                    kImageValidationTaskStackBytes, nullptr, 6,
                     nullptr) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
