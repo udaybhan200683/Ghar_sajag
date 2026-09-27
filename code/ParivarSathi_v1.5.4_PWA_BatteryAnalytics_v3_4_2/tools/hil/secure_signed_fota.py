@@ -119,6 +119,50 @@ def build_images(run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
     return records
 
 
+def build_journal_recovery_artifacts(run_dir: Path, config: dict[str, str]) -> tuple[dict, dict]:
+    """Build one signed secure-runtime C3 and its exact secure-owner Hub image."""
+    signing = Path(os.environ.get(SIGNING_ENV, "")).expanduser().resolve()
+    if not signing.is_file():
+        raise RuntimeError(f"set {SIGNING_ENV} to the external disposable RSA-3072 test key")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%y%m%d%H%M%S")
+    version = f"sjrA-{stamp}"
+    output_dir = ARTIFACTS / f"journal-{stamp}"
+    output_dir.mkdir(parents=True, exist_ok=False)
+    image = output_dir / "c3-journal.signed.bin"
+    c3_log = command(activated_python_command(
+        "scripts/build_signed_c3.py", "--signing-key", str(signing), "--version", version,
+        "--output", str(image), "--hil-control", "--build-dir",
+        f"build_secure_hub_journal_{stamp}"), cwd=PRODUCT, config=config)
+    c3_log = c3_log.replace(str(signing), "<external-test-key>")
+    (run_dir / "build_c3_journal.log").write_text(c3_log, encoding="utf-8")
+    sidecar = image.with_suffix(image.suffix + ".json")
+    if not sidecar.is_file():
+        raise RuntimeError("signed journal-recovery C3 provenance sidecar is missing")
+    c3 = json.loads(sidecar.read_text(encoding="utf-8"))
+    if (c3.get("version") != version or c3.get("profile") != "signed-app-on-update" or
+            c3.get("hil_control") is not True or c3.get("gs_hil_build") is not False or
+            c3.get("sha256") != sha256(image) or c3.get("size", 0) > 0x1E0000):
+        raise RuntimeError("signed journal-recovery C3 profile, version or image provenance is invalid")
+    c3["path"] = str(image)
+
+    hub_label = f"hub-journal-{version}"
+    hub_image = output_dir / "hub-journal.bin"
+    hub_log = command(activated_python_command(
+        "scripts/build_secure_fota_hub.py", "--node-image", str(image), "--output",
+        str(hub_image), "--label", hub_label, "--build-dir",
+        f"secure_hub_journal_{stamp}"), cwd=PRODUCT, config=config)
+    (run_dir / "build_hub_journal.log").write_text(hub_log, encoding="utf-8")
+    hub_sidecar = hub_image.with_suffix(hub_image.suffix + ".json")
+    if not hub_sidecar.is_file():
+        raise RuntimeError("secure Hub journal-recovery provenance sidecar is missing")
+    hub = json.loads(hub_sidecar.read_text(encoding="utf-8"))
+    if (hub.get("embedded_c3_sha256") != c3["sha256"] or
+            hub.get("legacy_raw_fota") is not False or
+            hub.get("profile") != "secure-signed-fota-hil-control"):
+        raise RuntimeError("secure journal-recovery Hub does not embed the exact C3 candidate")
+    return c3, hub
+
+
 def build_hubs(images: dict[str, dict], run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
     built: dict[str, dict] = {}
     embed = HUB_PROJECT / "main/node_firmware.bin"
@@ -302,7 +346,8 @@ class SecureCampaign:
         self.c3.wait_for(
             rf"NodeMessage sent session={session} seq={sequence} bytes=\d+", 12, c3_cursor)
         self.hub.wait_for(
-            rf"Authenticated event logical=hil-signed-fota seq={sequence} ack=\d+ send=ESP_OK",
+            rf"Authenticated event logical=hil-signed-fota session={session} seq={sequence} "
+            r"ack=\d+ durability=(?:journal_committed|already_committed) send=ESP_OK",
             20, hub_cursor)
         self.c3.wait_for(
             rf"Application ACK session={session} seq={sequence} class=\d+ retired=1",
@@ -579,8 +624,92 @@ class SecureCampaign:
                 "rollback": rollback,
                 "artifacts": artifact_manifest_path(self.run_dir)}
 
+    @staticmethod
+    def verify_journal_recovery_evidence(fault: str, restored: str,
+                                         duplicate: str, ack: str) -> tuple[str, str]:
+        identity = re.search(r"session=(\d+) seq=(\d+)", fault)
+        restored_count = re.search(r"records=(\d+)", restored)
+        duplicate_identity = re.search(
+            r"session=(\d+) seq=(\d+).*durability=already_committed send=ESP_OK", duplicate)
+        ack_identity = re.search(r"Application ACK session=(\d+) seq=(\d+) class=\d+ retired=1", ack)
+        if not identity or not restored_count or int(restored_count.group(1)) < 1:
+            raise RuntimeError("Hub restart did not prove a non-empty persistent journal restore")
+        expected = identity.groups()
+        if (duplicate_identity is None or duplicate_identity.groups() != expected or
+                ack_identity is None or ack_identity.groups() != expected):
+            raise RuntimeError("post-restart duplicate ACK did not match the committed Node event")
+        return expected
+
+    def run_hub_journal_recovery(self) -> dict:
+        """Verify exact secure event commit/retry/dedupe across Hub software restart."""
+        self.active_case = "P2-HUB-JOURNAL-RESTART-001"
+        self.images["A"], self.hubs["BASE"] = build_journal_recovery_artifacts(
+            self.run_dir, self.config)
+        (self.run_dir / "hub_journal_artifacts.json").write_text(
+            json.dumps({"c3": self.images["A"], "hub": self.hubs["BASE"]},
+                       indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        flash_signed_a(self.config, self.devices["c3"].port,
+                       self.images["A"], self.run_dir)
+        flash_hub(self.config, self.devices["hub"].port,
+                  self.hubs["BASE"], self.run_dir, "journal")
+        self.open()
+        self.establish_fresh_node_session(self.hubs["BASE"]["hub_app_version"],
+                                          self.images["A"]["version"])
+        self.before_slot = re.search(r"ota_slot=(ota_[01])", self.state()).group(1)
+        self.motion()
+
+        self.send(self.hub, "RESTART_AFTER_NEXT_JOURNAL_COMMIT",
+                  r"HIL_OK command=RESTART_AFTER_NEXT_JOURNAL_COMMIT")
+        hub_cursor, c3_cursor = self.hub.cursor(), self.c3.cursor()
+        self.send(self.c3, "INJECT_MOTION", r"HIL_OK command=INJECT_MOTION")
+        event = self.c3.wait_for(r"PIR -> NodeRuntime session=(\d+) seq=(\d+)", 10, c3_cursor)
+        identity = re.search(r"session=(\d+) seq=(\d+)", event)
+        if not identity:
+            raise RuntimeError("C3 did not identify the event selected for persistence recovery")
+        session, sequence = identity.groups()
+        self.c3.wait_for(rf"NodeMessage sent session={session} seq={sequence} bytes=\d+",
+                         12, c3_cursor)
+        fault = self.hub.wait_for(
+            rf"HIL_FAULT restart_after_journal_commit session={session} seq={sequence}",
+            20, hub_cursor)
+        fault_index = self.hub.lines.index(fault, hub_cursor)
+        reset_line = self.hub.wait_for_predicate(
+            lambda line: phase1.normalize_rom_reset_class(line) == phase1.SOFTWARE_RESET_EVIDENCE,
+            "Hub restart after durable journal commit", 8, fault_index + 1)
+        reset_index = self.hub.lines.index(reset_line, fault_index + 1)
+        self.hub.wait_for(
+            rf"HIL_READY role=hub protocol=1 version={re.escape(self.hubs['BASE']['hub_app_version'])}",
+            25, reset_index + 1)
+        restored = self.hub.wait_for(
+            r"Persistent event journal restored records=[1-9]\d* capacity=128",
+            10, reset_index + 1)
+        restored_index = self.hub.lines.index(restored, reset_index + 1)
+        duplicate = self.hub.wait_for(
+            rf"Authenticated event logical=.*session={session} seq={sequence} ack=\d+ "
+            r"durability=already_committed send=ESP_OK", 30, restored_index + 1)
+        duplicate_index = self.hub.lines.index(duplicate, restored_index + 1)
+        if duplicate_index <= restored_index:
+            raise RuntimeError("Hub processed the retry before loading its persistent event journal")
+        ack = self.c3.wait_for(
+            rf"Application ACK session={session} seq={sequence} class=\d+ retired=1",
+            30, c3_cursor)
+        self.verify_journal_recovery_evidence(fault, restored, duplicate, ack)
+        final_state = self.state(r"HIL_STATE role=c3 .*retained=0 in_flight=0",)
+        detail = (f"same event session={session} seq={sequence} committed before Hub restart, "
+                  f"restored and re-ACKed as duplicate; {final_state.strip()}")
+        self.results.add(self.active_case, "PASS", detail)
+        return {"node_id": self.node_id, "event_session": session,
+                "event_sequence": sequence, "slot": self.before_slot,
+                "journal_restore": restored.strip(), "duplicate_ack": duplicate.strip(),
+                "c3_ack": ack.strip(), "artifacts": str(self.run_dir / "hub_journal_artifacts.json")}
+
 
 def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--hub-journal-recovery", action="store_true",
+                        help="run the focused secure Hub persistent journal restart campaign")
+    args = parser.parse_args()
     timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     run_dir = RUNS / timestamp
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -588,7 +717,8 @@ def main() -> int:
     failure = None
     metadata: dict = {"commit": phase1.git("rev-parse", "HEAD"),
                       "branch": phase1.git("branch", "--show-current"),
-                      "mode": "authenticated-signed-c3-fota", **host_metadata()}
+                      "mode": ("hub-journal-restart-recovery" if args.hub_journal_recovery else
+                               "authenticated-signed-c3-fota"), **host_metadata()}
     try:
         with FixtureLock(LOCK):
             devices, info = phase1.preflight(quiet=True)
@@ -596,8 +726,9 @@ def main() -> int:
             metadata["fixture"] = {role: {"chip": device.chip, "mac": device.mac,
                                           "stable_path": device.stable_path}
                                    for role, device in devices.items()}
-            result = campaign.run()
-            metadata["secure_fota"] = result
+            result = (campaign.run_hub_journal_recovery() if args.hub_journal_recovery
+                      else campaign.run())
+            metadata["hub_journal_recovery" if args.hub_journal_recovery else "secure_fota"] = result
             metadata["images"] = campaign.images
             metadata["hub_images"] = campaign.hubs
     except Exception as exc:
@@ -609,15 +740,19 @@ def main() -> int:
             campaign.close()
     results = campaign.results if campaign else Results()
     if failure:
-        results.add(campaign.active_case if campaign else "SIGNED_FOTA_SETUP", "FAIL", failure)
+        failed_case = campaign.active_case if campaign else (
+            "P2-HUB-JOURNAL-RESTART-001" if args.hub_journal_recovery else "SIGNED_FOTA_SETUP")
+        results.add(failed_case, "FAIL", failure)
         recorded = {row["id"] for row in results.rows}
-        for tc in EXPECTED:
+        expected = ("P2-HUB-JOURNAL-RESTART-001",) if args.hub_journal_recovery else EXPECTED
+        for tc in expected:
             if tc not in recorded:
                 results.add(tc, "BLOCKED_BY_FIXTURE_STATE", "prerequisite campaign stage failed")
     counts = results.counts()
     payload = write_report(run_dir, metadata, results)
     (RUNS.parent / "latest.txt").write_text(str(run_dir) + "\n", encoding="utf-8")
-    print(f"AUTHENTICATED SIGNED FOTA: {payload['overall']}")
+    label = "HUB JOURNAL RESTART RECOVERY" if args.hub_journal_recovery else "AUTHENTICATED SIGNED FOTA"
+    print(f"{label}: {payload['overall']}")
     print(f"PASS={counts['PASS']} FAIL={counts['FAIL']} BLOCKED={counts['BLOCKED_BY_FIXTURE_STATE']}")
     print(f"report={run_dir}")
     return 0 if payload["overall"] == "PASS" else 1

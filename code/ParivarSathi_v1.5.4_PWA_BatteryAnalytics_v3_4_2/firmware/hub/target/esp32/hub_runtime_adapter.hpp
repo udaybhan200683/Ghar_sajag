@@ -67,6 +67,7 @@ bool wait_fota_owner_ack(FotaOwnerAck& ack, std::uint32_t timeout_ms);
 void hil_set_logical_online(bool online);
 void hil_log_state();
 void hil_log_test_identity();
+bool hil_restart_after_next_journal_commit();
 #endif
 
 }  // namespace gs::hub::target

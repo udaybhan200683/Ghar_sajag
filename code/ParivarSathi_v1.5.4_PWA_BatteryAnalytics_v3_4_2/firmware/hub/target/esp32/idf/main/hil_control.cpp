@@ -29,6 +29,11 @@ void dispatch_command(const char* command) {
         ESP_LOGI(kTag, "HIL_OK command=%s", command);
     } else if (std::strcmp(command, "GET_TEST_IDENTITY") == 0) {
         gs::hub::target::hil_log_test_identity();
+    } else if (std::strcmp(command, "RESTART_AFTER_NEXT_JOURNAL_COMMIT") == 0) {
+        if (gs::hub::target::hil_restart_after_next_journal_commit())
+            ESP_LOGI(kTag, "HIL_OK command=RESTART_AFTER_NEXT_JOURNAL_COMMIT");
+        else
+            ESP_LOGW(kTag, "HIL_ERROR command=RESTART_AFTER_NEXT_JOURNAL_COMMIT reason=already_armed");
     } else if (std::strcmp(command, "SOFTWARE_RESTART") == 0) {
         ESP_LOGI(kTag, "HIL_OK command=SOFTWARE_RESTART reset_class=SOFTWARE_RESET");
         std::fflush(stdout);

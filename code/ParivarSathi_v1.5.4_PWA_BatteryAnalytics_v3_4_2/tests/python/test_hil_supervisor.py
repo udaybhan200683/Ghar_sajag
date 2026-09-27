@@ -142,7 +142,7 @@ class HilWslSupervisorTest(unittest.TestCase):
             calls.append(name)
             result = failures.get(name, 0)
             if name in ("hil-smoke", "hil-regression", "hil-fota",
-                        "hil-secure-signed-fota") and result == 0:
+                        "hil-secure-signed-fota", "hil-hub-journal-recovery") and result == 0:
                 report["value"] = f"/fresh/evidence/{name}"
             return result
 
@@ -237,6 +237,42 @@ class HilWslSupervisorTest(unittest.TestCase):
         self.assertEqual(states["hil-secure-signed-fota"], "FAIL")
         self.assertIn("REPORT               <none>", output)
         self.assertNotIn("/old/evidence/report", "\n".join(output))
+
+    def test_hub_journal_checkpoint_orders_fixture_provenance_and_campaign(self):
+        code, calls, states, output = self.run_supervisor(
+            stages=qualify.CHECKPOINT_HUB_JOURNAL_STAGES)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight",
+                                  "hil-hub-journal-recovery"])
+        self.assertTrue(all(value == "PASS" for value in states.values()))
+        self.assertTrue(any("/fresh/evidence/hil-hub-journal-recovery" in line
+                            for line in output))
+
+    def test_hub_journal_checkpoint_preflight_failure_blocks_recovery(self):
+        code, calls, states, _ = self.run_supervisor(
+            failures={"hil-preflight": 1}, stages=qualify.CHECKPOINT_HUB_JOURNAL_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["usb-fixture", "hil-setup", "hil-preflight"])
+        self.assertEqual(states["hil-hub-journal-recovery"], "BLOCKED")
+
+    def test_hub_journal_checkpoint_requires_fresh_report(self):
+        code, calls, states, output = self.run_supervisor(
+            failures={"hil-hub-journal-recovery": 2},
+            stages=qualify.CHECKPOINT_HUB_JOURNAL_STAGES)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls[-1], "hil-hub-journal-recovery")
+        self.assertEqual(states["hil-hub-journal-recovery"], "FAIL")
+        self.assertIn("REPORT               <none>", output)
+        self.assertNotIn("/old/evidence/report", "\n".join(output))
+
+    def test_hub_journal_checkpoint_routes_to_target_campaign(self):
+        result = subprocess.run(["make", "-n", "hil-checkpoint-hub-journal-recovery"],
+                                cwd=qualify.REPO, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 "
+                      "hil-checkpoint-hub-journal-recovery", result.stdout)
+        self.assertIn("tools/hil/qualify.py --checkpoint-hub-journal-recovery",
+                      result.stdout)
 
     def test_fota_routing_exists_at_supervisor_root(self):
         result = subprocess.run(["make", "-n", "hil-fota"], cwd=qualify.REPO,

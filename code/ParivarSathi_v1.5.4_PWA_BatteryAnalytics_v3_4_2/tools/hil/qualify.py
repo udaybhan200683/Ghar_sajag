@@ -24,6 +24,8 @@ CHECKPOINT_SMOKE_STAGES = ("usb-fixture", "hil-setup", "hil-preflight", "hil-smo
 CHECKPOINT_FOTA_STAGES = ("usb-fixture", "hil-setup", "hil-preflight", "hil-fota")
 CHECKPOINT_SECURE_SIGNED_FOTA_STAGES = (
     "usb-fixture", "hil-setup", "hil-preflight", "hil-secure-signed-fota")
+CHECKPOINT_HUB_JOURNAL_STAGES = (
+    "usb-fixture", "hil-setup", "hil-preflight", "hil-hub-journal-recovery")
 LATEST_REPORT = REPO / "evidence/hil/latest.txt"
 
 
@@ -75,7 +77,8 @@ class QualificationSupervisor:
         self.label = label
         self.prefix = ("HIL CHECKPOINT" if self.stages in
                        (CHECKPOINT_SMOKE_STAGES, CHECKPOINT_FOTA_STAGES,
-                        CHECKPOINT_SECURE_SIGNED_FOTA_STAGES) else "PHASE-1")
+                        CHECKPOINT_SECURE_SIGNED_FOTA_STAGES,
+                        CHECKPOINT_HUB_JOURNAL_STAGES) else "PHASE-1")
         self.statuses: OrderedDict[str, str] = OrderedDict((name, "BLOCKED") for name in self.stages)
         self.executed = 0
         self.report_path: str | None = None
@@ -89,7 +92,7 @@ class QualificationSupervisor:
             self.output(f"{self.prefix}: {name} - START")
             self.executed += 1
             needs_report = name in ("hil-smoke", "hil-regression", "hil-fota",
-                                    "hil-secure-signed-fota")
+                                    "hil-secure-signed-fota", "hil-hub-journal-recovery")
             report_before = self.report_reader() if needs_report else None
             try:
                 if name == "usb-fixture":
@@ -166,9 +169,11 @@ def main() -> int:
                         help="refresh fixture setup and preflight before same-image C3 FOTA")
     parser.add_argument("--checkpoint-secure-signed-fota", action="store_true",
                         help="refresh fixture setup and preflight before authenticated signed C3 FOTA")
+    parser.add_argument("--checkpoint-hub-journal-recovery", action="store_true",
+                        help="refresh fixture setup and preflight before persistent Hub journal restart recovery")
     args = parser.parse_args()
     selected = (args.checkpoint_smoke, args.checkpoint_fota,
-                args.checkpoint_secure_signed_fota)
+                args.checkpoint_secure_signed_fota, args.checkpoint_hub_journal_recovery)
     if sum(selected) > 1:
         parser.error("choose one focused checkpoint")
     if args.checkpoint_smoke:
@@ -180,6 +185,9 @@ def main() -> int:
     if args.checkpoint_secure_signed_fota:
         return QualificationSupervisor(stages=CHECKPOINT_SECURE_SIGNED_FOTA_STAGES,
             label="HIL CHECKPOINT AUTHENTICATED SIGNED C3 FOTA").run()
+    if args.checkpoint_hub_journal_recovery:
+        return QualificationSupervisor(stages=CHECKPOINT_HUB_JOURNAL_STAGES,
+            label="HIL CHECKPOINT HUB JOURNAL RESTART RECOVERY").run()
     return QualificationSupervisor().run()
 
 

@@ -94,7 +94,7 @@ def main() -> int:
         raise RuntimeError("secure HIL Hub image exceeds its OTA slot")
     data = built.read_bytes()
     required = (b"START_AUTHENTICATED_SIGNED_C3_FOTA", b"COMMISSION_TEST_NODE",
-                b"HIL_READY")
+                b"RESTART_AFTER_NEXT_JOURNAL_COMMIT", b"HIL_READY")
     missing = [marker.decode() for marker in required if marker not in data]
     if missing:
         raise RuntimeError(f"secure HIL Hub is missing required controls/artifact markers: {missing}")

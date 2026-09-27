@@ -87,6 +87,7 @@ std::atomic<bool> g_hil_logical_online{true};
 std::atomic<std::uint32_t> g_hil_processed{0};
 std::atomic<std::uint32_t> g_hil_durable_ack{0};
 std::atomic<std::uint32_t> g_hil_health_received{0};
+std::atomic<bool> g_hil_restart_after_journal_commit{false};
 #endif
 
 #if GS_HIL_CONTROL
@@ -417,6 +418,8 @@ void secure_owner_task(void*) {
         vTaskDelete(nullptr);
         return;
     }
+    ESP_LOGI(kTag, "Persistent event journal restored records=%u capacity=%u",
+             static_cast<unsigned>(runtime.journal().size()), 128U);
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
     hub::fota::HubFotaGuard fota_guard;
     std::uint64_t fota_last_activity_ms = 0;
@@ -634,6 +637,18 @@ void secure_owner_task(void*) {
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) continue;
         const auto processed = runtime.run_state_once();
         if (!processed) continue;
+#if GS_HIL_CONTROL
+        if (processed->ack == AckClass::Durable && processed->state_changed &&
+            g_hil_restart_after_journal_commit.exchange(false, std::memory_order_acq_rel)) {
+            ESP_LOGW(kTag,
+                     "HIL_FAULT restart_after_journal_commit session=%llu seq=%llu",
+                     static_cast<unsigned long long>(processed->key.session_id),
+                     static_cast<unsigned long long>(processed->key.sequence));
+            std::fflush(stdout);
+            vTaskDelay(pdMS_TO_TICKS(50));
+            esp_restart();
+        }
+#endif
         const auto ack = make_node_ack(processed->key, processed->ack,
                                        hub_received_at, ack_reason(*processed));
         const auto encoded = transport::encode_node_ack(ack);
@@ -642,10 +657,12 @@ void secure_owner_task(void*) {
                                       encoded.frame, protected_ack)) continue;
         const auto sent = esp_now_send(frame.source_mac.data(),
                                        protected_ack.bytes.data(), protected_ack.size);
-        ESP_LOGI(kTag, "Authenticated event logical=%s seq=%llu ack=%d send=%s",
+        ESP_LOGI(kTag, "Authenticated event logical=%s session=%llu seq=%llu ack=%d durability=%s send=%s",
                  node->logical_id.c_str(),
+                 static_cast<unsigned long long>(processed->key.session_id),
                  static_cast<unsigned long long>(processed->key.sequence),
-                 static_cast<int>(processed->ack), esp_err_to_name(sent));
+                 static_cast<int>(processed->ack), ack_reason(*processed),
+                 esp_err_to_name(sent));
     }
 }
 #endif
@@ -773,6 +790,12 @@ void hil_log_test_identity() {
              "HIL_TEST_IDENTITY profile=TEST_ONLY hub_id=hub-%02x%02x%02x%02x%02x%02x public_key=%s",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], key_hex);
     ESP_LOGI(kTag, "HIL_OK command=GET_TEST_IDENTITY");
+}
+
+bool hil_restart_after_next_journal_commit() {
+    bool expected = false;
+    return g_hil_restart_after_journal_commit.compare_exchange_strong(
+        expected, true, std::memory_order_acq_rel);
 }
 #endif
 

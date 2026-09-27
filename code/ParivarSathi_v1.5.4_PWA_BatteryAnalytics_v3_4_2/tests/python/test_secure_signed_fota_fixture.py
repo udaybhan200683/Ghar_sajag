@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from build_signed_c3 import signed_hil_control_sdkconfig, signed_profile_baseline
 
 from tools.hil.secure_signed_fota import (EXPECTED, NEGATIVE_ENV, SIGNING_ENV,
-    SecureCampaign, activated_python_command, hub_flash_command,
+    SecureCampaign, activated_python_command, build_journal_recovery_artifacts, hub_flash_command,
     artifact_manifest_path, build_images, latest_c3_ready_version,
     send_commissioning_control,
     validate_signing_inputs)
@@ -63,8 +63,78 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         campaign.motion()
 
         self.assertEqual(campaign.hub.wait_for.call_args.args,
-            (r"Authenticated event logical=hil-signed-fota seq=9 ack=\d+ send=ESP_OK",
+            (r"Authenticated event logical=hil-signed-fota session=238 seq=9 "
+             r"ack=\d+ durability=(?:journal_committed|already_committed) send=ESP_OK",
              20, 17))
+
+    def test_hub_journal_recovery_requires_restored_exact_duplicate_and_application_ack(self):
+        verify = SecureCampaign.verify_journal_recovery_evidence
+        fault = "HIL_FAULT restart_after_journal_commit session=42 seq=19"
+        restored = "Persistent event journal restored records=7 capacity=128"
+        duplicate = ("Authenticated event logical=test session=42 seq=19 ack=0 "
+                     "durability=already_committed send=ESP_OK")
+        ack = "Application ACK session=42 seq=19 class=1 retired=1"
+        self.assertEqual(verify(fault, restored, duplicate, ack), ("42", "19"))
+        with self.assertRaisesRegex(RuntimeError, "did not match"):
+            verify(fault, restored, duplicate.replace("session=42 seq=19", "session=41 seq=19"), ack)
+        with self.assertRaisesRegex(RuntimeError, "did not prove"):
+            verify(fault, "Persistent event journal restored records=0 capacity=128",
+                   duplicate, ack)
+        with self.assertRaisesRegex(RuntimeError, "did not match"):
+            verify(fault, restored,
+                   duplicate.replace("durability=already_committed", "durability=journal_committed"),
+                   ack)
+
+    def test_journal_recovery_build_uses_one_signed_c3_and_exact_secure_hub_embedding(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            key, activation = root / "test-key.pem", root / "activate.sh"
+            key.write_text("test-only key placeholder")
+            activation.write_text("# test activation")
+            calls = []
+
+            def fake_command(args, *, cwd, config, timeout=3600):
+                del cwd, config, timeout
+                calls.append(args)
+                if "scripts/build_signed_c3.py" in args:
+                    image = Path(args[args.index("--output") + 1])
+                    image.write_bytes(b"signed C3 image")
+                    image.with_suffix(image.suffix + ".json").write_text(json.dumps({
+                        "version": args[args.index("--version") + 1],
+                        "profile": "signed-app-on-update", "hil_control": True,
+                        "gs_hil_build": False, "size": image.stat().st_size,
+                        "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
+                        "build_dir": args[args.index("--build-dir") + 1],
+                    }))
+                else:
+                    embedded = Path(args[args.index("--node-image") + 1])
+                    output = Path(args[args.index("--output") + 1])
+                    output.write_bytes(b"secure Hub image")
+                    output.with_suffix(output.suffix + ".json").write_text(json.dumps({
+                        "profile": "secure-signed-fota-hil-control",
+                        "legacy_raw_fota": False,
+                        "embedded_c3_sha256": hashlib.sha256(embedded.read_bytes()).hexdigest(),
+                        "hub_app_version": args[args.index("--label") + 1],
+                        "hub_image": str(output), "build_dir": str(root / "hub-build"),
+                        "hub_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                    }))
+                return f"key={key}"
+
+            with mock.patch.dict(os.environ, {SIGNING_ENV: str(key)}), \
+                 mock.patch("tools.hil.secure_signed_fota.phase1.activation",
+                            return_value=activation), \
+                 mock.patch("tools.hil.secure_signed_fota.ARTIFACTS", root / "artifacts"), \
+                 mock.patch("tools.hil.secure_signed_fota.command", side_effect=fake_command):
+                run_dir = root / "run"
+                run_dir.mkdir()
+                c3, hub = build_journal_recovery_artifacts(
+                    run_dir, {"HIL_IDF_ACTIVATE": str(activation)})
+
+            self.assertEqual(len(calls), 2)
+            self.assertIn("--hil-control", calls[0])
+            self.assertIn("scripts/build_secure_fota_hub.py", calls[1])
+            self.assertEqual(hub["embedded_c3_sha256"], c3["sha256"])
+            self.assertNotIn(str(key), (run_dir / "build_c3_journal.log").read_text())
 
     def test_c3_pir_gate_follows_authenticated_rejoin_and_uses_fresh_boot_cursor(self):
         campaign = object.__new__(SecureCampaign)
