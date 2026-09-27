@@ -3,7 +3,7 @@
 **Document status:** ARCHITECTURE BASELINE with incremental Phase-2 implementation notes; current snapshot is maintained in [CURRENT_STATUS_AND_ROADMAP.md](progress/CURRENT_STATUS_AND_ROADMAP.md)
 **Analysis baseline:** `ae9b7dc` — *Add unattended WSL-first Phase-1 HIL qualification*
 **Phase-1 status:** CLOSED / QUALIFIED
-**Phase-2 implementation status:** host registry/commissioning/rejoin/persistence and 1/4/10/25 logical-Node foundations exist; one-Hub/one-C3 smoke and same-image OTA health-gate success are physically qualified; Phase 2 remains ACTIVE / NOT COMPLETE
+**Phase-2 implementation status:** host registry/commissioning/rejoin/persistence and 1/4/10/25 logical-Node foundations exist; one-Hub/one-C3 smoke, same-image OTA health-gate success, and a focused Hub software-restart journal/dedupe recovery path are physically qualified; Phase 2 remains ACTIVE / NOT COMPLETE
 
 ## 1. PURPOSE / SCOPE
 
@@ -72,15 +72,21 @@ ESP-NOW behavior.
 
 ### Persistence and acknowledgements
 
-The C3 boot-session counter is persisted in NVS. Node retained business events,
-in-flight state, Hub authorization, Hub dedupe state and Hub journal records are
-not persisted across a power loss or target restart. The Hub journal does not
-compact records after cloud acknowledgement.
+The C3 boot-session counter and bounded retained/in-flight event recovery
+record are persisted in NVS. The authenticated Hub target owner restores its
+association/registry state and the bounded encrypted event journal before
+processing secure traffic. A focused physical test now proves software-restart
+recovery of a committed event and its dedupe identity across a Hub restart.
+Electrical power-loss atomicity, production key protection and complete policy
+state recovery are not established. The Hub journal does not compact records
+after cloud acknowledgement.
 
-The current “durable Hub ACK” means that the event was committed to the
-volatile in-memory Hub journal. It does not mean power-loss durability.
+The current “durable Hub ACK” means that the authenticated event record was
+committed to and read back from the encrypted NVS journal before ACK. The
+focused physical run demonstrates recovery across a software reset; it does
+not prove behavior under electrical power loss or torn writes.
 
-### Phase-2 Hub event-history storage decision (host repository implemented; target integration pending)
+### Phase-2 Hub event-history storage decision and target integration
 
 The 4 MiB Hub flash ends at `0x400000`. The second required OTA slot ends at
 `0x3e0000`, leaving exactly `0x20000` (128 KiB) unpartitioned. The existing
@@ -126,18 +132,20 @@ new journal is used; an application-only OTA cannot create this partition.
 Migration must fail closed when the expected partition is absent, and must
 not report power-loss durability until physical interruption tests pass.
 
-The current checkpoint adds the partition-table entry, a dedicated NVS slot
-adapter, and a 128-record host journal that seals each immutable slot using
-AES-256-GCM with the slot index as authenticated context. Commit requires NVS
-write/readback and successful authenticated decode before an ACK is eligible.
-Host tests cover exact capacity, Hub restart dedupe, physical-device
-replacement identity, wrong key, corruption and an ambiguous write result.
-The **active ESP32 target adapter still uses its qualified volatile journal**;
-it does not yet supply a protected Hub key or attach the new store. Therefore
-the current target `Durable` ACK still means RAM commitment. No power-loss
-durability or flash endurance result is claimed. An append-only 128-record
-store without authenticated retirement and backend application receipts will
-eventually fill; reclamation and target integration remain release gaps.
+The implementation adds the partition-table entry, a dedicated NVS slot
+adapter, and a 128-record journal that seals each immutable slot using
+AES-256-GCM with the slot index as authenticated context. The authenticated
+ESP32 target owner now attaches this store, restores records and basic
+event-derived reducer state before processing events, and requires NVS
+write/readback and authenticated decode before an ACK is eligible. Host tests
+cover exact capacity, Hub restart dedupe, physical-device replacement
+identity, wrong key, corruption and ambiguous write results. Physical evidence
+`evidence/hil/runs/20260927T085726.672075Z` proves software Hub restart,
+journal restore, authenticated C3 rejoin, and duplicate ACK without
+reprocessing the committed event. The production protected Hub key provider,
+electrical power-cut/torn-write behavior and flash endurance remain open. An
+append-only 128-record store without authenticated retirement and backend
+application receipts will eventually fill; reclamation remains a release gap.
 
 ### Security and target peer state
 

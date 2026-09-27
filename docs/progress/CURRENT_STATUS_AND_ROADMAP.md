@@ -1,6 +1,6 @@
 # Current Status and Roadmap
 
-**Status snapshot:** 2026-09-27, after audit of the signed-FOTA rollback evidence.
+**Status snapshot:** 2026-09-27, after the focused Hub journal restart-recovery HIL.
 This document records repository/evidence facts and the execution
 roadmap; it does not qualify work by itself.
 
@@ -29,10 +29,10 @@ separately throughout.
 | Field | Verified value |
 |---|---|
 | Current branch | `feature/hw-m1-4-hil-phase2` |
-| Repository HEAD before this documentation update | `10f6af7c708c1506580118203fa8c348b849289b` — signed rollback validator stack fix; target build passed |
-| Latest physically exercised source commit | `b6d04ad1ee1de0735554dae879dd607d6d8253b7` |
-| Worktree at physical build time | source at HEAD; generated isolated build directories made Git report dirty |
-| Latest physical evidence | `evidence/hil/runs/20260927T035855.644899Z` |
+| Repository HEAD before this documentation update | `9bd131ebcc9bd7d1c625c7f910f6221616987f65` — authenticated Hub outage rejoin and HIL setup-identity reuse |
+| Latest physically exercised source commit | `9bd131ebcc9bd7d1c625c7f910f6221616987f65` |
+| Worktree at physical build time | tracked source at HEAD; generated isolated IDF build directories made Git report dirty |
+| Latest physical evidence | `evidence/hil/runs/20260927T085726.672075Z` |
 | Target profile | signed-app-on-update, ESP-IDF `v6.0.3`, HIL control enabled, `GS_HIL_BUILD=OFF` |
 
 The current repository HEAD is a documentation/evidence checkpoint after the
@@ -113,6 +113,17 @@ focused fixture tests; the corrected rollback path still needs physical
 requalification.
 The final recovered state had retained and in-flight counts at zero.
 
+The latest physical checkpoint overall is
+`evidence/hil/runs/20260927T085726.672075Z`, built from source commit
+`9bd131e` using ESP-IDF 6.0.3. On one Hub and one C3, it physically proved
+that event session 376 / sequence 2 was committed before a Hub software
+restart; the Hub restored 21 encrypted journal records within its 128-record
+capacity, the C3 authenticated a fresh rejoin as session 377, and the exact
+retained event was acknowledged as `already_committed` without being applied
+again. The C3 retired it and ended with `retained=0`, `in_flight=0`. This is
+software-reset recovery evidence, not electrical power-cut/torn-write
+qualification. The signed-FOTA rollback limitation above remains unchanged.
+
 The C3 A/B/negative/rollback image SHA-256 values are, respectively,
 `01a7183a8f0bf270e4b8c35617b6478c260b778f4fb49c86134db0fb781b3a02`,
 `3fa6b8a632b77c192231b0787c1b91b329c563374bc0f3d0dbb5e1a533b08c66`,
@@ -171,7 +182,7 @@ behavior.
 | Production credential and protected-key source | **OPEN** | Define manufacturing key provisioning and use supported protected storage. Development/HIL credentials are not production qualification. No irreversible eFuse operation is authorized here. |
 | Association and Node recovery persistence | **PARTIAL** | The authenticated C3 owner now restores its existing encrypted recovery record after rejoin, commits a newly admitted event before radio send, and saves ACK retirement and the first store-full gap marker. Non-HIL and HIL C3 builds plus focused host recovery tests pass. This path has no physical restart/power-cut evidence; production protected-key provisioning, rollback resistance and flash endurance remain open. |
 | Hub registry persistence | **PARTIAL** | Host encrypted snapshot and target adapter/build exist; target restore and protected key source remain open. |
-| Hub event journal/dedupe | **PARTIAL** | The authenticated target owner attaches the existing 128-slot encrypted NVS journal, restores event identities and rebuilds basic event-derived reducer state before accepting traffic, then commits/readbacks each new record before its application ACK. The host crash-window replay regression and Hub build with `GS_HIL_BUILD=OFF` pass; target restart/power-cut behavior is not physically qualified. Full policy/timer state, reclamation, persistent cloud-ACK status, production key protection and endurance remain open. |
+| Hub event journal/dedupe | **PARTIAL** | The authenticated target owner attaches the existing 128-slot encrypted NVS journal, restores event identities and basic event-derived state before accepting traffic, then commits/readbacks each new record before its application ACK. Physical checkpoint `evidence/hil/runs/20260927T085726.672075Z` now proves a Hub software restart restored the journal and ACKed the retained duplicate after authenticated C3 rejoin. True power-cut atomicity, full policy/timer state, reclamation, persistent cloud-ACK status, production key protection and endurance remain open. |
 | Power-cut atomicity / monotonicity | **OPEN** | Qualify torn writes, corrupt state, old snapshot rollback, revocation/session floors, and safe recovery on target. |
 | ESP-NOW secure peer scale | **OPEN** | Demonstrate target peer allocation/security and resource bounds at 10 Nodes; logical simulation is not peer-capacity proof. |
 | 2–4 physical C3 HIL / RF fairness | **OPEN** | Test contention, collision/retry, ACK latency, fairness, reconnect, and concurrent activity with actual multiple C3 boards. |

@@ -1412,3 +1412,37 @@ to 12 KiB, rejects target panic evidence, and requires the Hub rejoin cursor
 after the rollback deadline. The focused fixture suite passed 24/24 and the
 ESP-IDF 6.0.3 signed C3 build passed. Physical rollback requalification has
 not been run; no clean rollback qualification is claimed.
+
+### 2026-09-27: qualify Hub journal restore and duplicate ACK after restart
+
+The C3 runtime now detects a retained event that remains unacknowledged across
+a Hub outage and establishes a fresh authenticated runtime session using the
+existing monotonic NVS session allocator. Retained event identity remains
+unchanged and is retried through the new session. Commits `441643f`, `b131894`
+and `9bd131e` contain the runtime recovery and bounded HIL setup-identity reuse
+fixes. Focused Node recovery, authenticated rejoin, persistence, and HIL
+supervisor/Phase-1 infrastructure tests passed; the ESP-IDF 6.0.3 signed C3
+profile built.
+
+The physical checkpoint
+`evidence/hil/runs/20260927T085726.672075Z` passed on one Hub and one C3. Event
+session 376, sequence 2 was committed before the Hub software restart. The
+Hub restored its encrypted journal (`records=21`, `capacity=128`), the C3
+rejoined under session 377, and the Hub returned an `already_committed` ACK
+without reapplying the event; the C3 retired the event and ended with
+`retained=0`, `in_flight=0`. The test images were built from commit `9bd131e`
+with ESP-IDF 6.0.3; the C3 signed image SHA-256 was
+`43f34534ee812a7c8c7edf29512f093df7ee52afd782c990c6a7092368561b52`. This
+proves software-restart recovery for this event path only. Electrical power
+cut, torn-write atomicity, journal reclamation, full rule/timer-state restore,
+production protected-key provisioning, and endurance remain unqualified. The
+Hub image was `hub-journal-sjrA-260927085803` with SHA-256
+`e0d3bf064054c0e017eb85000d55d4c1bede77355f0abc135b7f8be7f1464037`.
+
+The fixture investigation also removed redundant esptool identity probes from
+the stable setup/preflight sequence. `hil-setup` remains authoritative;
+supervised preflight and the nested campaign may reuse its cached identity only
+when USB metadata and tty paths are unchanged. Standalone preflight and
+disappearance/re-enumeration retain authoritative discovery. The first retry
+failed before flashing because the external test signing key was not passed;
+that run is preserved separately and is not counted as product evidence.
