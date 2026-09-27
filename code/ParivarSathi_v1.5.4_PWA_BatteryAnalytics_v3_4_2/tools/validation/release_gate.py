@@ -12,6 +12,7 @@ import argparse, json, os, shutil, subprocess, sys, time, urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+from tools.validation.stage_runner import execute_stage
 from scripts.run_playwright_gate import (
     assert_lab_port_available,
     terminate_process_group,
@@ -29,12 +30,7 @@ args=parser.parse_args()
 stages=[]
 def run(name,cmd,timeout=240,env=None,mandatory=True):
     started=time.time(); merged=os.environ.copy(); merged.update(env or {})
-    try:
-        cp=subprocess.run(cmd,cwd=ROOT,env=merged,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=timeout)
-        status='PASS' if cp.returncode==0 else 'FAIL'
-        output=cp.stdout
-    except subprocess.TimeoutExpired as exc:
-        status='FAIL'; output=(exc.stdout or '')+f"\nTIMEOUT after {timeout}s\n"
+    status,output=execute_stage(name,cmd,cwd=str(ROOT),env=merged,timeout=timeout)
     log=EVIDENCE/f'{len(stages)+1:02d}_{name}.log';log.write_text(output or '')
     stages.append({'name':name,'status':status,'mandatory':mandatory,'seconds':round(time.time()-started,2),'command':cmd,'log':str(log.relative_to(ROOT))})
     print(f"{status:4} {name} ({stages[-1]['seconds']}s)")
@@ -84,7 +80,17 @@ def browser_stage():
                        'log':str(server_log.relative_to(ROOT))})
         print(f'FAIL browser-e2e ({exc})')
         return False
-    subprocess.run(['make','lab-build'],cwd=ROOT,check=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+    # The dedicated lab-build stage has already built this exact binary. Reuse
+    # it here rather than compiling all production sources a second time.
+    lab_binary=ROOT/'build'/'ghar_sajag_interactive'
+    if not lab_binary.is_file():
+        message='lab-build stage did not leave build/ghar_sajag_interactive'
+        server_log.write_text(message+'\n')
+        stages.append({'name':'browser-e2e','status':'FAIL','mandatory':True,'seconds':0,
+                       'command':['node','tests/simulation_browser_test.cjs'],
+                       'log':str(server_log.relative_to(ROOT))})
+        print(f'FAIL browser-e2e ({message})')
+        return False
     try:
         assert_lab_port_available(BROWSER_HOST, BROWSER_PORT)
     except RuntimeError as exc:

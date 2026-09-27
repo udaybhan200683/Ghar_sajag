@@ -42,6 +42,22 @@ CPP_SOURCES := \
 	firmware/hub/runtime/hub_runtime.cpp \
 	firmware/common/security/security.cpp
 
+# Reuse the large production translation units across host validation binaries.
+# Include the selected product/trace flags in the object directory so switching
+# validation modes cannot silently reuse objects built with different defines.
+CPP_OBJECT_DIR := build/obj/$(PRODUCT)/$(TRACE_FLAGS)
+CPP_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(CPP_SOURCES))
+CPP_EXTRA_SOURCES := firmware/common/transport/fota_secure_wire.cpp firmware/node/fota/boot_health_gate.cpp
+CPP_EXTRA_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(CPP_EXTRA_SOURCES))
+CPP_DEPENDENCIES := $(CPP_OBJECTS:.o=.d) $(CPP_EXTRA_OBJECTS:.o=.d)
+
+-include $(CPP_DEPENDENCIES)
+
+$(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS): Makefile
+$(CPP_OBJECT_DIR)/%.o: %.cpp
+	mkdir -p $(dir $@)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
+
 .PHONY: all verify cpp-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 
 all: verify
@@ -49,20 +65,20 @@ all: verify
 build:
 	mkdir -p build logs
 
-cpp-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/test_main.cpp -o build/cpp_tests
+cpp-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/test_main.cpp -o build/cpp_tests
 	./build/cpp_tests
 
-master-validation: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/master_validation.cpp -o build/master_validation
+master-validation: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py
 
-master-validation-self-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) tests/cpp/master_validation.cpp -o build/master_validation
+master-validation-self-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py --self-test
 
-fota-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/common/transport/fota_secure_wire.cpp firmware/node/fota/boot_health_gate.cpp tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
+fota-host-test: build $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
 	./build/fota_host_validation
 
 hub-fota-guard-host-test: build
@@ -73,8 +89,8 @@ secure-fota-adapter-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/fota_secure_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/node/fota/fota_receiver.cpp firmware/node/fota/secure_fota_adapter.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/secure_fota_adapter_validation.cpp -lcrypto -o build/secure_fota_adapter_validation
 	./build/secure_fota_adapter_validation
 
-multinode-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
+multinode-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
 	./build/multinode_host_validation
 	python3 tools/validation/check_multinode_summary.py build/multinode_host_summary.json
 
@@ -151,8 +167,8 @@ clean:
 
 # T01: local integration adapter; the original component suites remain unchanged.
 .PHONY: lab-build lab e2e-test
-lab-build: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/interactive.cpp -o build/ghar_sajag_interactive
+lab-build: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) host/simulator/interactive.cpp -o build/ghar_sajag_interactive
 
 lab: lab-build
 	python3 tools/sim/local_lab.py

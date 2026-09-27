@@ -307,10 +307,13 @@ nonzero on failure. Physical proof remains separate.
 
 The focused secure FOTA host targets run once as `validation-fast`
 prerequisites; their results are not repeated inside `release_gate.py`. The
-Python discovery stage is preceded by one `lab-build`; the browser stage also
-rebuilds the lab before launching its isolated local server. The Python test
-stage itself does not trigger another build through the `python-test` Make
-dependency. The fast gate excludes physical signed-FOTA, current/endurance/sleep HIL,
+quick gate shares product/trace-specific object files across its C++ host
+binaries, so `cpp-unit`, `master-production-runtime`, `fota-host-state-machine`,
+`lab-build`, and the multi-node prerequisite do not recompile their common
+production sources. The Python discovery stage follows one `lab-build`; the
+browser stage reuses that binary before launching its isolated local server.
+The Python test stage itself does not trigger another build through the
+`python-test` Make dependency. The fast gate excludes physical signed-FOTA, current/endurance/sleep HIL,
 `release-gate-final`, nightly endurance, and full PWAE2E campaigns.
 
 Execution modes are distinct: simulation nightly needs no hardware; HIL
