@@ -70,6 +70,7 @@ public:
     std::optional<ReplacedNode> take_replaced_node();
     const hub::EnrolledNode* ready_node(const Mac& source) const;
     security::RuntimeFrameSecurity* frames_for(const Mac& source);
+    bool health_ack_supported(const Mac& source) const;
     std::vector<Mac> enrolled_macs() const;
     const std::string& home_id() const { return home_id_; }
     const std::string& hub_id() const { return hub_id_; }
@@ -88,6 +89,7 @@ private:
     struct ActiveSession {
         hub::EnrolledNode record;
         std::unique_ptr<security::RuntimeFrameSecurity> frames;
+        std::uint32_t capabilities{0};
     };
     bool persist_candidate(hub::NodeRegistry& candidate,
                             const std::vector<security::CommissioningBinding>& bindings);

@@ -9,6 +9,31 @@ HUB_ADAPTER = ROOT / "firmware/hub/target/esp32/hub_runtime_adapter.cpp"
 
 
 class BatteryPowerInvariantTest(unittest.TestCase):
+    def test_session_recovery_has_no_periodic_or_retry_persistence(self):
+        adapter = ADAPTER.read_text()
+        link = (NODE / "target/esp32c3/node_security_link.cpp").read_text()
+        hub = HUB_ADAPTER.read_text()
+        self.assertEqual(adapter.count("NodeHealthCadence health_cadence"), 1)
+        self.assertEqual(adapter.count("xTaskCreate("), 1)
+        self.assertIn("encode_node_health_ack(", hub)
+        self.assertIn("security_link.health_ack_supported(frame.source_mac)", hub)
+        self.assertIn("outstanding_health_sequence", adapter)
+        self.assertIn("SessionRecoveryPolicy::idle_expired", adapter)
+        self.assertIn("SessionRecoveryPolicy::active_expired", adapter)
+        self.assertIn("if (response->message.kind == security::wire::Kind::RejoinHello)\n"
+                      "                    rejoin_started_ms = monotonic_ms()", adapter)
+        self.assertIn("sleep_observation.next_security_ms", adapter)
+        self.assertEqual(link.count("pin_health_ack_for_hub("), 1)
+        self.assertLess(link.index("rejoin_->commit(ack)"),
+                        link.index("pin_health_ack_for_hub("))
+        self.assertIn("if (pinned_v2_ && !negotiated)", link)
+        self.assertIn("phase_ != Phase::Ready && phase_ != Phase::Rejoining", link)
+        health_path = adapter[adapter.index("const auto encoded = transport::encode_node_health(health)"):
+                              adapter.index("if (!in_flight && !health_in_flight && !maintenance",
+                                            adapter.index("const auto encoded = transport::encode_node_health(health)"))]
+        self.assertNotIn("allocate_nvs_session_id", health_path)
+        self.assertNotIn("pin_health_ack_for_hub", health_path)
+
     def test_physical_wake_uses_real_idf_and_pir_path(self):
         adapter = ADAPTER.read_text()
         cmake = (NODE / "target/esp32c3/idf/CMakeLists.txt").read_text()
@@ -43,7 +68,9 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         ack_path = source[ack_start:ack_end]
 
         self.assertIn("const bool retired = runtime.acknowledge(key, decoded.value->ack_type)", ack_path)
-        self.assertIn("if (matched_pending) health_cadence.observe_authenticated_contact(now)", ack_path)
+        self.assertIn("if (matched_pending) {", ack_path)
+        self.assertIn("health_cadence.observe_authenticated_contact(now)", ack_path)
+        self.assertIn("last_authenticated_contact_ms = now", ack_path)
         self.assertIn("if (retired)", ack_path)
         self.assertIn("power_policy.observe_authenticated_contact()", ack_path)
         self.assertIn("runtime.set_outage_profile(false, now)", ack_path)

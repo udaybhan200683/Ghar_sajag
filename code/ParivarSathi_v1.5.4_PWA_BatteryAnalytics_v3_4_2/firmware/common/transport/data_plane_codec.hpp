@@ -26,6 +26,7 @@ enum class FrameType : std::uint8_t {
     NodeMessage = 1U,
     NodeAck = 2U,
     NodeHealth = 3U,
+    NodeHealthAck = 4U,
     ControlFota = 0x80U
 };
 
@@ -34,6 +35,7 @@ enum class FrameClass {
     NodeMessage,
     NodeAck,
     NodeHealth,
+    NodeHealthAck,
     ControlFota
 };
 
@@ -88,5 +90,9 @@ DecodeResult<NodeAckMessage> decode_node_ack(const std::uint8_t* data,
 EncodeResult encode_node_health(const NodeHealthSnapshot& health);
 DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
                                                     std::size_t size);
+
+EncodeResult encode_node_health_ack(std::uint64_t health_sequence);
+DecodeResult<std::uint64_t> decode_node_health_ack(const std::uint8_t* data,
+                                                  std::size_t size);
 
 }  // namespace gs::transport

@@ -7,8 +7,11 @@
 
 namespace gs::security {
 
+inline constexpr std::uint32_t kHealthAckCapability = 1U;
+
 struct RejoinHello {
     std::uint8_t version{1};
+    std::uint32_t offered_capabilities{0};
     std::string device_id;
     std::string hub_id;
     std::string home_id;
@@ -19,6 +22,8 @@ struct RejoinHello {
 };
 
 struct RejoinChallenge {
+    std::uint8_t version{1};
+    std::uint32_t selected_capabilities{0};
     Challenge16 hub_challenge{};
     Key32 authentication{};
 };
@@ -41,6 +46,7 @@ public:
     std::optional<RejoinAck> confirm(const RejoinFinal& final);
     const std::optional<Key32>& session_salt() const { return session_salt_; }
     std::uint64_t authenticated_session() const { return accepted_session_; }
+    std::uint32_t negotiated_capabilities() const { return challenge_.selected_capabilities; }
 
 private:
     CommissioningCrypto& crypto_;
@@ -56,7 +62,8 @@ private:
 class NodeRejoin {
 public:
     NodeRejoin(CommissioningCrypto& crypto, const CommissioningBinding& binding,
-               std::uint64_t next_session);
+               std::uint64_t next_session, std::uint8_t version = 1,
+               std::uint32_t offered_capabilities = kHealthAckCapability);
     ~NodeRejoin();
     NodeRejoin(const NodeRejoin&) = delete;
     NodeRejoin& operator=(const NodeRejoin&) = delete;
@@ -64,11 +71,14 @@ public:
     std::optional<RejoinFinal> accept(const RejoinChallenge& challenge);
     bool commit(const RejoinAck& ack);
     const std::optional<Key32>& session_salt() const { return session_salt_; }
+    std::uint32_t negotiated_capabilities() const { return challenge_.selected_capabilities; }
 
 private:
     CommissioningCrypto& crypto_;
     const CommissioningBinding& binding_;
     std::uint64_t next_session_{0};
+    std::uint8_t version_{1};
+    std::uint32_t offered_capabilities_{0};
     RejoinHello hello_{};
     RejoinChallenge challenge_{};
     std::optional<Key32> session_salt_;

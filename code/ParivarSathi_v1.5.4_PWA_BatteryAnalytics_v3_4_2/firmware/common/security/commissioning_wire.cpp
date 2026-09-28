@@ -21,6 +21,10 @@ bool valid_kind(std::uint8_t value) {
 void put_u64(Bytes& out, std::uint64_t value) {
     for (unsigned i = 0; i < 8; ++i) out.push_back(static_cast<std::uint8_t>(value >> (i * 8)));
 }
+void put_capabilities(Bytes& out, std::uint32_t value) {
+    for (unsigned i = 0; i < 4; ++i)
+        out.push_back(static_cast<std::uint8_t>(value >> (i * 8)));
+}
 
 bool put_string(Bytes& out, const std::string& value) {
     if (value.empty() || value.size() > 64) return false;
@@ -62,6 +66,13 @@ struct Reader {
         if (8 > bytes.size() - offset) return false;
         value = 0;
         for (unsigned i = 0; i < 8; ++i) value |= std::uint64_t{bytes[offset++]} << (i * 8);
+        return true;
+    }
+    bool capabilities(std::uint32_t& value) {
+        if (4 > bytes.size() - offset) return false;
+        value = 0;
+        for (unsigned i = 0; i < 4; ++i)
+            value |= std::uint32_t{bytes[offset++]} << (i * 8);
         return true;
     }
     bool done() const { return offset == bytes.size(); }
@@ -190,8 +201,11 @@ bool decode(const Message& message, CommissioningAck& out) {
 }
 
 bool encode(const RejoinHello& value, Message& out) {
-    if (value.version != 1 || value.session == 0) return false;
+    if ((value.version != 1 && value.version != 2) || value.session == 0 ||
+        (value.version == 1 && value.offered_capabilities != 0) ||
+        (value.offered_capabilities & ~kHealthAckCapability) != 0) return false;
     Bytes body{value.version};
+    if (value.version == 2) put_capabilities(body, value.offered_capabilities);
     if (!put_string(body, value.device_id) || !put_string(body, value.hub_id) ||
         !put_string(body, value.home_id) || !put_string(body, value.logical_id))
         return false;
@@ -205,7 +219,9 @@ bool decode(const Message& message, RejoinHello& out) {
     if (!begin_decode(message, Kind::RejoinHello)) return false;
     Reader read{message.body};
     RejoinHello value;
-    if (!read.octet(value.version) || value.version != 1 ||
+    if (!read.octet(value.version) || (value.version != 1 && value.version != 2) ||
+        (value.version == 2 && !read.capabilities(value.offered_capabilities)) ||
+        (value.offered_capabilities & ~kHealthAckCapability) != 0 ||
         !read.text(value.device_id) || !read.text(value.hub_id) ||
         !read.text(value.home_id) || !read.text(value.logical_id) ||
         !read.u64(value.session) || value.session == 0 ||
@@ -216,7 +232,12 @@ bool decode(const Message& message, RejoinHello& out) {
 }
 
 bool encode(const RejoinChallenge& value, Message& out) {
+    if ((value.version != 1 && value.version != 2) ||
+        (value.version == 1 && value.selected_capabilities != 0) ||
+        (value.selected_capabilities & ~kHealthAckCapability) != 0) return false;
     Bytes body;
+    if (value.version == 2)
+        put_capabilities(body, value.selected_capabilities);
     put_array(body, value.hub_challenge);
     put_array(body, value.authentication);
     return finish_encode(Kind::RejoinChallenge, std::move(body), out);
@@ -226,6 +247,10 @@ bool decode(const Message& message, RejoinChallenge& out) {
     if (!begin_decode(message, Kind::RejoinChallenge)) return false;
     Reader read{message.body};
     RejoinChallenge value;
+    if (message.body.size() != 48 && message.body.size() != 52) return false;
+    value.version = message.body.size() == 52 ? 2 : 1;
+    if (value.version == 2 && !read.capabilities(value.selected_capabilities)) return false;
+    if ((value.selected_capabilities & ~kHealthAckCapability) != 0) return false;
     if (!read.array(value.hub_challenge) || !read.array(value.authentication) ||
         !read.done()) return false;
     out = value;

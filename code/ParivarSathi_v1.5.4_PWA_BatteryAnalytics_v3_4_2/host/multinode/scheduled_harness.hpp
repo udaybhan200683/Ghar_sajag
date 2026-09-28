@@ -56,6 +56,7 @@ public:
     void redirect_next_ack(std::size_t from_index, std::size_t to_index);
     hub::RegistryResult remove_node(std::size_t index);
     bool restart_node(std::size_t index);
+    bool rejoin_node_in_place(std::size_t index);
     void advance(Milliseconds delta_ms);
     void run_until_quiet(Milliseconds maximum_ms = 5000);
     NodeSnapshot snapshot(std::size_t index) const;

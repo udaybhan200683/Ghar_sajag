@@ -369,6 +369,12 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
         const auto* binding = binding_for(hello.device_id);
         if (!record || record->quarantined || record->radio_mac != source ||
             !binding) return std::nullopt;
+        const auto previous = rejoining_.find(source);
+        if (previous != rejoining_.end() && !previous->second->committed) {
+            const auto repeated = previous->second->protocol.accept(hello);
+            if (repeated && security::wire::encode(*repeated, outbound))
+                return reply(source, outbound);
+        }
         auto pending = std::make_unique<PendingRejoin>(crypto_, *binding,
                                                        record->last_session);
         const auto challenge = pending->protocol.accept(hello);
@@ -399,7 +405,8 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
             registry_ = std::move(candidate);
             auto record = registry_->find(pending.binding.device_id);
             if (!record) return std::nullopt;
-            active_[source] = ActiveSession{*record, std::move(frames)};
+            active_[source] = ActiveSession{*record, std::move(frames),
+                pending.protocol.negotiated_capabilities()};
             pending.committed = true;
             if (expected_ && expected_->radio_mac == source) {
                 expected_.reset();
@@ -420,6 +427,12 @@ const EnrolledNode* HubSecurityLink::ready_node(const Mac& source) const {
 security::RuntimeFrameSecurity* HubSecurityLink::frames_for(const Mac& source) {
     const auto found = active_.find(source);
     return found == active_.end() ? nullptr : found->second.frames.get();
+}
+
+bool HubSecurityLink::health_ack_supported(const Mac& source) const {
+    const auto found = active_.find(source);
+    return found != active_.end() &&
+        (found->second.capabilities & security::kHealthAckCapability) != 0;
 }
 
 std::vector<HubSecurityLink::Mac> HubSecurityLink::enrolled_macs() const {

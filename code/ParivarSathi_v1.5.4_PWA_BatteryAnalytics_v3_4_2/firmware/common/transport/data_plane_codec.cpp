@@ -196,6 +196,7 @@ CodecError validate_header(const std::uint8_t* data, std::size_t size,
     if (type != static_cast<std::uint8_t>(FrameType::NodeMessage) &&
         type != static_cast<std::uint8_t>(FrameType::NodeAck) &&
         type != static_cast<std::uint8_t>(FrameType::NodeHealth) &&
+        type != static_cast<std::uint8_t>(FrameType::NodeHealthAck) &&
         type != static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return CodecError::UnknownFrameType;
     }
@@ -324,6 +325,9 @@ FrameClass classify_frame(const std::uint8_t* data, std::size_t size) {
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::NodeHealth)) {
         return FrameClass::NodeHealth;
+    }
+    if (data[5] == static_cast<std::uint8_t>(FrameType::NodeHealthAck)) {
+        return FrameClass::NodeHealthAck;
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return FrameClass::ControlFota;
@@ -661,6 +665,33 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
         return result;
     }
     result.value = std::move(health);
+    return result;
+}
+
+EncodeResult encode_node_health_ack(std::uint64_t health_sequence) {
+    EncodeResult result;
+    if (health_sequence == 0) {
+        result.error = CodecError::InvalidValue;
+        return result;
+    }
+    Writer writer(result.frame);
+    if (!writer.reserve_header() || !writer.u64(health_sequence) ||
+        !writer.finish(FrameType::NodeHealthAck))
+        result.error = CodecError::BufferTooSmall;
+    return result;
+}
+
+DecodeResult<std::uint64_t> decode_node_health_ack(const std::uint8_t* data,
+                                                  std::size_t size) {
+    DecodeResult<std::uint64_t> result;
+    result.error = validate_header(data, size, FrameType::NodeHealthAck);
+    if (result.error != CodecError::None) return result;
+    Reader reader(data, size);
+    std::uint64_t sequence = 0;
+    if (!reader.u64(sequence)) result.error = CodecError::Truncated;
+    else if (!reader.at_end()) result.error = CodecError::LengthMismatch;
+    else if (sequence == 0) result.error = CodecError::InvalidValue;
+    else result.value = sequence;
     return result;
 }
 

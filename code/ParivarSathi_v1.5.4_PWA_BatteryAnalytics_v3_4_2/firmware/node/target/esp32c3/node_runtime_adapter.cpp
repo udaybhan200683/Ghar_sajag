@@ -6,6 +6,7 @@
 #include "firmware/common/security/target_wrapping_key.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
 #include "power/power.hpp"
+#include "power/session_recovery_policy.hpp"
 #include "firmware/node/target/esp32c3/node_security_link.hpp"
 #include "firmware/node/target/esp32c3/physical_wake_capability.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
@@ -51,6 +52,14 @@ constexpr bool kGpioWakeSupported = false;
 constexpr bool kGpioWakeSupported = true;
 #endif
 constexpr Milliseconds kSendCallbackTimeoutMs = 1000;
+constexpr Milliseconds kAuthenticatedHubContactTimeoutMs =
+    SessionRecoveryPolicy::contact_timeout_ms;
+constexpr Milliseconds kInitialAmbiguityWindowMs =
+    SessionRecoveryPolicy::initial_ambiguity_window_ms;
+
+[[maybe_unused]] Milliseconds rejoin_retry_delay(unsigned attempt, std::uint64_t session) {
+    return SessionRecoveryPolicy::retry_delay(attempt, session);
+}
 #if GS_HIL_BUILD
 constexpr Milliseconds kHealthIntervalMs = 60000;  // Keep the qualified raw HIL cadence.
 #else
@@ -424,12 +433,19 @@ struct LightSleepReturn {
 }
 
 #if !GS_HIL_BUILD
-bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
+bool send_security_message(const NodeSecurityLink::Outbound& outbound,
+                           bool wait_for_callback = true,
+                           bool* submitted_to_radio = nullptr) {
+    if (submitted_to_radio != nullptr) *submitted_to_radio = false;
     security::wire::Message message = outbound.message;
     std::vector<security::wire::Packet> packets;
     std::uint32_t transaction = esp_random();
     if (transaction == 0) transaction = 1;
     if (!security::wire::fragment(message, transaction, packets)) return false;
+    // In-service rejoin runs in the sensing owner. Its authenticated Hello
+    // and Final fit one ESP-NOW packet; never block PIR sampling for a MAC
+    // callback during recovery. The scheduled retry handles a lost packet.
+    if (!wait_for_callback && packets.size() != 1U) return false;
     if (!esp_now_is_peer_exist(outbound.destination.data())) {
         esp_now_peer_info_t peer{};
         std::memcpy(peer.peer_addr, outbound.destination.data(), outbound.destination.size());
@@ -442,6 +458,8 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound) {
         (void)xQueueReset(g_security_send_queue);
         if (esp_now_send(outbound.destination.data(), packet.bytes.data(),
                          packet.size) != ESP_OK) return false;
+        if (submitted_to_radio != nullptr) *submitted_to_radio = true;
+        if (!wait_for_callback) continue;
         SendResult result;
         if (xQueueReceive(g_security_send_queue, &result,
                           pdMS_TO_TICKS(kSendCallbackTimeoutMs)) != pdTRUE ||
@@ -478,7 +496,13 @@ void owner_task(void*) {
     auto last_outbound = security_link.initial_message();
     const bool rejoining_existing_association = last_outbound.has_value();
     if (last_outbound) (void)send_security_message(*last_outbound);
-    Milliseconds next_security_retry_ms = monotonic_ms() + 1500;
+    Milliseconds rejoin_started_ms = monotonic_ms();
+    Milliseconds final_started_ms = -1;
+    Milliseconds ambiguity_window_ms = kInitialAmbiguityWindowMs;
+    unsigned final_transmissions = 0;
+    unsigned security_retry_stage = 0;
+    Milliseconds next_security_retry_ms = monotonic_ms() +
+        rejoin_retry_delay(security_retry_stage++, security_link.session());
     while (!security_link.ready()) {
         if (security_link.faulted()) {
             ESP_LOGE(kTag, "Node security owner faulted; runtime admission disabled");
@@ -491,17 +515,67 @@ void owner_task(void*) {
                 frame.bytes.data(), frame.size, monotonic_ms());
             if (response) {
                 last_outbound = response;
-                (void)send_security_message(*response);
-                next_security_retry_ms = monotonic_ms() + 1500;
+                bool submitted = false;
+                (void)send_security_message(*response, true, &submitted);
+                if (response->message.kind == security::wire::Kind::RejoinHello)
+                    rejoin_started_ms = monotonic_ms();
+                if (submitted &&
+                    response->message.kind == security::wire::Kind::RejoinFinal) {
+                    if (final_started_ms < 0) final_started_ms = monotonic_ms();
+                    ++final_transmissions;
+                }
+                security_retry_stage = 0;
+                next_security_retry_ms = monotonic_ms() +
+                    rejoin_retry_delay(security_retry_stage++, security_link.session());
             }
         }
+        const Milliseconds security_now = monotonic_ms();
+        if (last_outbound && SessionRecoveryPolicy::may_fallback(
+                security_link.pinned_v2(), security_link.challenge_seen(),
+                security_link.rejoin_version(), security_now - rejoin_started_ms)) {
+            if (const auto fallback = security_link.fallback_to_v1()) {
+                last_outbound = fallback;
+                (void)send_security_message(*fallback);
+                rejoin_started_ms = security_now;
+                security_retry_stage = 0;
+                next_security_retry_ms = security_now +
+                    rejoin_retry_delay(security_retry_stage++, security_link.session());
+            }
+        }
+        if (SessionRecoveryPolicy::ambiguity_expired(
+                security_now, final_started_ms, final_transmissions,
+                ambiguity_window_ms)) {
+            const auto next_session = allocate_nvs_session_id();
+            if (!next_session || !security_link.start_rejoin(*next_session)) {
+                ESP_LOGE(kTag, "Rejoin session allocation failed closed");
+                vTaskDelete(nullptr);
+                return;
+            }
+            g_session_id = *next_session;
+            last_outbound = security_link.initial_message();
+            if (last_outbound) (void)send_security_message(*last_outbound);
+            ambiguity_window_ms = SessionRecoveryPolicy::next_ambiguity_window(
+                ambiguity_window_ms);
+            rejoin_started_ms = security_now;
+            final_started_ms = -1;
+            final_transmissions = 0;
+            security_retry_stage = 0;
+            next_security_retry_ms = security_now +
+                rejoin_retry_delay(security_retry_stage++, security_link.session());
+        }
         if (last_outbound && monotonic_ms() >= next_security_retry_ms) {
-            (void)send_security_message(*last_outbound);
-            next_security_retry_ms = monotonic_ms() + 3000;
+            bool submitted = false;
+            (void)send_security_message(*last_outbound, true, &submitted);
+            if (submitted &&
+                last_outbound->message.kind == security::wire::Kind::RejoinFinal)
+                ++final_transmissions;
+            next_security_retry_ms = monotonic_ms() +
+                rejoin_retry_delay(security_retry_stage++, security_link.session());
         }
     }
     if (rejoining_existing_association) energy.authenticated_rejoins = 1;
     g_security_phase.store(false, std::memory_order_release);
+    const Milliseconds initial_authenticated_contact_ms = monotonic_ms();
     NodeRuntime runtime(security_link.binding()->logical_id, g_session_id);
 #else
     g_security_phase.store(false, std::memory_order_release);
@@ -523,6 +597,20 @@ void owner_task(void*) {
     std::optional<EventKey> in_flight;
     bool health_in_flight = false;
     Milliseconds sent_at_ms = 0;
+#if !GS_HIL_BUILD
+    Milliseconds last_authenticated_contact_ms = initial_authenticated_contact_ms;
+    Milliseconds first_event_attempt_ms = -1;
+    unsigned completed_event_attempts = 0;
+    std::optional<std::uint64_t> outstanding_health_sequence;
+    std::optional<NodeSecurityLink::Outbound> rejoin_outbound;
+    Milliseconds rejoin_candidate_started_ms = -1;
+    Milliseconds rejoin_final_started_ms = -1;
+    Milliseconds rejoin_next_attempt_ms = -1;
+    Milliseconds rejoin_ambiguity_window_ms = kInitialAmbiguityWindowMs;
+    unsigned rejoin_final_transmissions = 0;
+    unsigned rejoin_retry_stage = 0;
+    Milliseconds security_callback_settle_until_ms = -1;
+#endif
 #if GS_HIL_BUILD
     Milliseconds led_off_at_ms = 0;
 #else
@@ -584,6 +672,96 @@ void owner_task(void*) {
         }
 #endif
         const Milliseconds now = monotonic_ms();
+#if !GS_HIL_BUILD
+        if (security_link.ready() && security_callback_settle_until_ms >= 0 &&
+            now >= security_callback_settle_until_ms) {
+            xQueueReset(g_security_send_queue);
+            xQueueReset(g_send_queue);
+            g_security_phase.store(false, std::memory_order_release);
+            security_callback_settle_until_ms = -1;
+        }
+        if (!security_link.ready()) {
+            ReceivedFrame security_frame;
+            while (xQueueReceive(g_security_queue, &security_frame, 0) == pdTRUE) {
+                const auto response = security_link.accept(security_frame.source_mac,
+                    security_frame.bytes.data(), security_frame.size,
+                    static_cast<std::uint64_t>(now));
+                if (response) {
+                    rejoin_outbound = response;
+                    const bool submitted = send_security_message(*response, false);
+                    if (submitted &&
+                        response->message.kind == security::wire::Kind::RejoinFinal) {
+                        if (rejoin_final_started_ms < 0) rejoin_final_started_ms = now;
+                        ++rejoin_final_transmissions;
+                    }
+                    rejoin_retry_stage = 0;
+                    rejoin_next_attempt_ms = now +
+                        rejoin_retry_delay(rejoin_retry_stage++, security_link.session());
+                }
+            }
+            if (security_link.faulted()) {
+                ESP_LOGE(kTag, "Node rejoin failed closed");
+                vTaskDelete(nullptr);
+                return;
+            }
+            if (security_link.ready()) {
+                g_session_id = security_link.session();
+                security_callback_settle_until_ms = now + kSendCallbackTimeoutMs;
+                last_authenticated_contact_ms = now;
+                first_event_attempt_ms = -1;
+                completed_event_attempts = 0;
+                outstanding_health_sequence.reset();
+                rejoin_outbound.reset();
+                rejoin_ambiguity_window_ms = kInitialAmbiguityWindowMs;
+                health_cadence.observe_authenticated_contact(now);
+                runtime.set_outage_profile(false, now);
+                ++energy.authenticated_rejoins;
+            } else {
+                if (rejoin_outbound && SessionRecoveryPolicy::may_fallback(
+                        security_link.pinned_v2(), security_link.challenge_seen(),
+                        security_link.rejoin_version(),
+                        now - rejoin_candidate_started_ms)) {
+                    if (const auto fallback = security_link.fallback_to_v1()) {
+                        rejoin_outbound = fallback;
+                        (void)send_security_message(*fallback, false);
+                        rejoin_candidate_started_ms = now;
+                        rejoin_retry_stage = 0;
+                        rejoin_next_attempt_ms = now +
+                            rejoin_retry_delay(rejoin_retry_stage++, security_link.session());
+                    }
+                }
+                if (SessionRecoveryPolicy::ambiguity_expired(
+                        now, rejoin_final_started_ms, rejoin_final_transmissions,
+                        rejoin_ambiguity_window_ms)) {
+                    const auto candidate = allocate_nvs_session_id();
+                    if (!candidate || !security_link.start_rejoin(*candidate)) {
+                        ESP_LOGE(kTag, "Rejoin candidate allocation failed closed");
+                        vTaskDelete(nullptr);
+                        return;
+                    }
+                    g_session_id = *candidate;
+                    rejoin_outbound = security_link.initial_message();
+                    if (rejoin_outbound) (void)send_security_message(*rejoin_outbound, false);
+                    rejoin_ambiguity_window_ms =
+                        SessionRecoveryPolicy::next_ambiguity_window(
+                            rejoin_ambiguity_window_ms);
+                    rejoin_candidate_started_ms = now;
+                    rejoin_final_started_ms = -1;
+                    rejoin_final_transmissions = 0;
+                    rejoin_retry_stage = 0;
+                    rejoin_next_attempt_ms = now +
+                        rejoin_retry_delay(rejoin_retry_stage++, security_link.session());
+                } else if (rejoin_outbound && now >= rejoin_next_attempt_ms) {
+                    const bool submitted = send_security_message(*rejoin_outbound, false);
+                    if (submitted &&
+                        rejoin_outbound->message.kind == security::wire::Kind::RejoinFinal)
+                        ++rejoin_final_transmissions;
+                    rejoin_next_attempt_ms = now +
+                        rejoin_retry_delay(rejoin_retry_stage++, security_link.session());
+                }
+            }
+        }
+#endif
         energy.awake_ms = static_cast<std::uint64_t>(now);
         const auto ack_drops = g_ack_queue_drops.exchange(0U, std::memory_order_relaxed);
         ++sensing_liveness;
@@ -605,6 +783,7 @@ void owner_task(void*) {
         ReceivedFrame ack_frame;
         while (xQueueReceive(g_ack_queue, &ack_frame, 0) == pdTRUE) {
 #if !GS_HIL_BUILD
+            if (!security_link.ready()) continue;
             if (ack_frame.source_mac != security_link.hub_mac()) continue;
             security::SecureFrame protected_ack;
             protected_ack.size = ack_frame.size;
@@ -633,6 +812,26 @@ void owner_task(void*) {
                             verified_control.bytes.data());
                 if (xQueueSend(g_control_queue, &verified_control, 0) != pdTRUE)
                     g_control_queue_drops.fetch_add(1U, std::memory_order_relaxed);
+                else {
+                    last_authenticated_contact_ms = now;
+                    first_event_attempt_ms = -1;
+                    completed_event_attempts = 0;
+                }
+                continue;
+            }
+            if (transport::classify_frame(verified_ack.bytes.data(),
+                                          verified_ack.size) ==
+                    transport::FrameClass::NodeHealthAck) {
+                const auto health_ack = transport::decode_node_health_ack(
+                    verified_ack.bytes.data(), verified_ack.size);
+                if (health_ack && SessionRecoveryPolicy::health_ack_matches(
+                        security_link.health_ack_supported(),
+                        outstanding_health_sequence, *health_ack.value)) {
+                    outstanding_health_sequence.reset();
+                    last_authenticated_contact_ms = now;
+                    first_event_attempt_ms = -1;
+                    completed_event_attempts = 0;
+                }
                 continue;
             }
             const auto decoded = transport::decode_node_ack(
@@ -657,7 +856,12 @@ void owner_task(void*) {
 #endif
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
 #if !GS_HIL_BUILD
-            if (matched_pending) health_cadence.observe_authenticated_contact(now);
+            if (matched_pending) {
+                health_cadence.observe_authenticated_contact(now);
+                last_authenticated_contact_ms = now;
+                first_event_attempt_ms = -1;
+                completed_event_attempts = 0;
+            }
 #endif
             if (retired) {
                 power_policy.observe_authenticated_contact();
@@ -714,6 +918,9 @@ void owner_task(void*) {
             else ++mac_failure_count;
             if (in_flight) {
                 if (runtime.has_pending_key(*in_flight)) {
+#if !GS_HIL_BUILD
+                    ++completed_event_attempts;
+#endif
                     power_policy.observe_unacknowledged_attempt();
                     if (power_policy.consecutive_unacknowledged() >= 3)
                         runtime.set_outage_profile(true, now);
@@ -739,6 +946,9 @@ void owner_task(void*) {
         }
         if (in_flight && now - sent_at_ms >= kSendCallbackTimeoutMs) {
             if (runtime.has_pending_key(*in_flight)) {
+#if !GS_HIL_BUILD
+                ++completed_event_attempts;
+#endif
                 power_policy.observe_unacknowledged_attempt();
                 if (power_policy.consecutive_unacknowledged() >= 3)
                     runtime.set_outage_profile(true, now);
@@ -756,6 +966,50 @@ void owner_task(void*) {
             ++mac_failure_count;
             last_error = NodeHealthError::MacCallbackTimeout;
         }
+
+#if !GS_HIL_BUILD
+        if (runtime.pending() == 0) {
+            first_event_attempt_ms = -1;
+            completed_event_attempts = 0;
+        }
+        const bool idle_contact_expired = security_link.ready() &&
+            SessionRecoveryPolicy::idle_expired(
+                security_link.health_ack_supported(), now,
+                last_authenticated_contact_ms);
+        const bool active_contact_expired = security_link.ready() &&
+            SessionRecoveryPolicy::active_expired(
+                security_link.health_ack_supported(), now, first_event_attempt_ms,
+                completed_event_attempts, last_authenticated_contact_ms);
+        if (idle_contact_expired || active_contact_expired) {
+            ESP_LOGW(kTag, "Authenticated Hub contact expired; rejoining");
+            if (in_flight) {
+                runtime.transport_result(*in_flight, false, now);
+                in_flight.reset();
+            }
+            health_in_flight = false;
+            outstanding_health_sequence.reset();
+            const auto candidate = allocate_nvs_session_id();
+            if (!candidate || !security_link.start_rejoin(*candidate)) {
+                ESP_LOGE(kTag, "Session recovery allocation failed closed");
+                vTaskDelete(nullptr);
+                return;
+            }
+            g_session_id = *candidate;
+            g_security_phase.store(true, std::memory_order_release);
+            xQueueReset(g_ack_queue);
+            xQueueReset(g_send_queue);
+            rejoin_outbound = security_link.initial_message();
+            if (rejoin_outbound) (void)send_security_message(*rejoin_outbound, false);
+            rejoin_candidate_started_ms = now;
+            rejoin_final_started_ms = -1;
+            rejoin_final_transmissions = 0;
+            rejoin_retry_stage = 0;
+            rejoin_next_attempt_ms = now +
+                rejoin_retry_delay(rejoin_retry_stage++, security_link.session());
+            first_event_attempt_ms = -1;
+            completed_event_attempts = 0;
+        }
+#endif
 
         const bool maintenance = g_control_plane_active.load(std::memory_order_acquire);
 #if !GS_HIL_BUILD
@@ -927,6 +1181,10 @@ void owner_task(void*) {
         const bool suppress_for_outage = runtime.outage_profile() && !boot_health_probe;
 #endif
         if (!in_flight && !health_in_flight && !maintenance && !application_due &&
+#if !GS_HIL_BUILD
+            security_link.ready() &&
+            !g_security_phase.load(std::memory_order_acquire) &&
+#endif
             (health_cadence.due(now, application_due,
                                 suppress_for_pending, suppress_for_outage,
                                 maintenance)
@@ -1024,11 +1282,20 @@ void owner_task(void*) {
                     ++energy.heartbeat_count;
                     health_in_flight = true;
                     sent_at_ms = now;
+#if !GS_HIL_BUILD
+                    if (security_link.health_ack_supported())
+                        outstanding_health_sequence = health.health_sequence;
+#endif
                 }
             }
         }
 
-        if (!in_flight && !health_in_flight && !maintenance) {
+        if (!in_flight && !health_in_flight && !maintenance
+#if !GS_HIL_BUILD
+            && security_link.ready() &&
+            !g_security_phase.load(std::memory_order_acquire)
+#endif
+            ) {
             const auto message = runtime.next_message(now);
             if (message) {
                 breadcrumb = NodeBreadcrumb::TxPrepare;
@@ -1051,6 +1318,7 @@ void owner_task(void*) {
                         continue;
                     }
                     ++send_attempts;
+                    if (first_event_attempt_ms < 0) first_event_attempt_ms = now;
                     const esp_err_t sent = esp_now_send(security_link.hub_mac().data(),
                                                         protected_message.bytes.data(),
                                                         protected_message.size);
@@ -1071,6 +1339,9 @@ void owner_task(void*) {
                                  static_cast<unsigned>(encoded.frame.size));
                     } else {
                         runtime.transport_result(key, false, now);
+#if !GS_HIL_BUILD
+                        ++completed_event_attempts;
+#endif
                         last_error = NodeHealthError::SendRejected;
                         breadcrumb = NodeBreadcrumb::RetryBackoff;
                         ESP_LOGW(kTag, "esp_now_send failed error=%s", esp_err_to_name(sent));
@@ -1097,7 +1368,11 @@ void owner_task(void*) {
             (!suppress_for_pending && !suppress_for_outage && !maintenance) ||
                 boot_health_probe
                 ? health_cadence.next_due_ms() : -1;
+#if !GS_HIL_BUILD
+        power_input.authenticated = security_link.ready();
+#else
         power_input.authenticated = true;
+#endif
         power_input.sensor_ready = g_ota_sensing_ready.load(std::memory_order_acquire);
         power_input.sensor_safe = !raw_pir;
         // Keep physical qualification distinct from BAT-C8A's software wake path.
@@ -1133,20 +1408,28 @@ void owner_task(void*) {
             !g_ota_post_sensing_radio_confirmed.load(std::memory_order_acquire);
         LightSleepObservation sleep_observation;
         sleep_observation.now_ms = sleep_now;
-        sleep_observation.next_health_ms = sleep_health_deadline;
-        sleep_observation.next_retry_ms = sleep_retry_deadline.value_or(-1);
+        sleep_observation.next_health_ms = security_link.ready()
+            ? sleep_health_deadline : -1;
+        sleep_observation.next_retry_ms = security_link.ready()
+            ? sleep_retry_deadline.value_or(-1) : -1;
         sleep_observation.next_maintenance_ms = activity_episode.next_deadline_ms();
+        sleep_observation.next_security_ms = security_link.ready()
+            ? (security_link.health_ack_supported()
+                ? last_authenticated_contact_ms + kAuthenticatedHubContactTimeoutMs : -1)
+            : rejoin_next_attempt_ms;
         sleep_observation.authenticated = security_link.ready();
         sleep_observation.rejoin_active =
             g_security_phase.load(std::memory_order_acquire) || !security_link.ready();
+        sleep_observation.rejoin_backoff = !security_link.ready() &&
+            rejoin_next_attempt_ms > sleep_now;
         sleep_observation.product_ready =
             g_ota_sensing_ready.load(std::memory_order_acquire);
-        sleep_observation.pending_tx = runtime.pending() != 0;
+        sleep_observation.pending_tx = security_link.ready() && runtime.pending() != 0;
         sleep_observation.event_in_flight = in_flight.has_value() || health_in_flight;
-        sleep_observation.ack_wait = runtime.pending() != 0;
-        sleep_observation.retry_due = sleep_retry_deadline &&
+        sleep_observation.ack_wait = security_link.ready() && runtime.pending() != 0;
+        sleep_observation.retry_due = security_link.ready() && sleep_retry_deadline &&
             *sleep_retry_deadline <= sleep_now;
-        sleep_observation.recovery_work = runtime.persisted() != 0 ||
+        sleep_observation.recovery_work = (security_link.ready() && runtime.persisted() != 0) ||
             runtime.gap_marker_required() ||
 #if !GS_HIL_BUILD
             activity_episode.pending().has_value() ||
@@ -1157,10 +1440,11 @@ void owner_task(void*) {
             g_control_plane_active.load(std::memory_order_acquire);
         sleep_observation.boot_health_active = fota_boot_health_active;
         sleep_observation.maintenance_active = maintenance;
-        sleep_observation.health_due = health_cadence.due(
+        sleep_observation.health_due = security_link.ready() && (health_cadence.due(
             sleep_now, application_due, suppress_for_pending,
-            suppress_for_outage, maintenance) || fota_boot_health_active;
-        sleep_observation.security_due = !security_link.ready();
+            suppress_for_outage, maintenance) || fota_boot_health_active);
+        sleep_observation.security_due = !security_link.ready() &&
+            rejoin_next_attempt_ms <= sleep_now;
         sleep_observation.pir_high = raw_pir;
         sleep_observation.pir_low_stable = pir_low_stable;
         sleep_observation.debounce_safe = pir.safe_for_sleep(sleep_now);
@@ -1180,7 +1464,7 @@ void owner_task(void*) {
             g_send_queue != nullptr && sleep_now >= 0;
         sleep_observation.other_owner_work = queued_callback_work ||
             led_policy.active(sleep_now);
-        sleep_observation.outage_active = runtime.outage_profile();
+        sleep_observation.outage_active = security_link.ready() && runtime.outage_profile();
         const auto sleep_decision = evaluate_light_sleep(sleep_observation);
         if (sleep_decision.eligible) {
             ESP_LOGI(kTag, "BAT_SLEEP_DECISION state=%d eligible=1 inhibitors=0x%lx requested_ms=%lld deadline_ms=%lld deadline=%s pir_low_stable=%d debounce_safe=%d gpio4=%d pending=%d in_flight=%d ack_wait=%d recovery=%d queues=%d",

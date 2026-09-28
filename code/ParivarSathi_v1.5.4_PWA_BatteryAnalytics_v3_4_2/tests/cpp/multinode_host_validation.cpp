@@ -241,6 +241,29 @@ void one_of_ten_restarts_with_inflight_event() {
     std::cout << "P2-MN10-INFLIGHT-REJOIN HOST/SIMULATED PASS old event identity retained\n";
 }
 
+void in_place_rejoin_preserves_business_identity() {
+    ScheduledHarness harness(1);
+    const auto original = harness.record(0);
+    require(original.has_value(), "live rejoin event admission failed");
+    harness.advance(0);  // Old-session ciphertext is already queued.
+    require(harness.rejoin_node_in_place(0), "in-place rejoin failed");
+    harness.run_until_quiet(5000);
+    const auto recovered = harness.snapshot(0);
+    require(recovered.session == 2 && recovered.pending == 0 &&
+            recovered.retained == 0 && recovered.matching_acks == 1 &&
+            harness.journal_size() == 1 && harness.contains(*original),
+            "cross-session event was lost, rewritten, or duplicated");
+    const auto later = harness.record(0);
+    require(later && later->session_id == original->session_id &&
+            later->sequence == original->sequence + 1,
+            "in-service rejoin rewrote business origin session");
+    harness.run_until_quiet(5000);
+    require(harness.journal_size() == 2 && harness.contains(*later) &&
+            harness.snapshot(0).matching_acks == 2,
+            "post-rejoin business event did not retire once");
+    std::cout << "BAT-C8B IN-PLACE-REJOIN HOST/SIMULATED PASS original keys retained\n";
+}
+
 void ten_node_ingress_pressure_recovers() {
     ScheduledHarness harness(10);
     harness.set_hub_processing_budget(0);
@@ -320,6 +343,7 @@ int main() {
         removal_isolated_from_other_nine();
         one_of_ten_rejoins_without_repairing();
         one_of_ten_restarts_with_inflight_event();
+        in_place_rejoin_preserves_business_identity();
         ten_node_ingress_pressure_recovers();
         ten_node_journal_full_is_explicit();
         noisy_node_does_not_starve_quiet_nodes();

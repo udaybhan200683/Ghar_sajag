@@ -1,6 +1,7 @@
 #include "firmware/node/target/esp32c3/node_security_link.hpp"
 
 #include "firmware/common/security/target_wrapping_key.hpp"
+#include "firmware/node/target/esp32c3/nvs_session_provider.hpp"
 
 #include <cstdio>
 #include <utility>
@@ -88,6 +89,12 @@ bool NodeSecurityLink::initialize(const Mac& physical_mac, std::uint64_t session
             return false;
         }
         binding_ = *loaded.binding;
+        const auto pinned = health_ack_pinned_for_hub(binding_->hub_id);
+        if (!pinned) {
+            phase_ = Phase::Fault;
+            return false;
+        }
+        pinned_v2_ = *pinned;
         phase_ = Phase::Rejoining;
         return true;
     }
@@ -126,7 +133,8 @@ bool NodeSecurityLink::restore_recovery(node::NodeRuntime& runtime,
 }
 
 bool NodeSecurityLink::persist_recovery(const node::NodeRuntime& runtime) {
-    if (!ready() || !recovery_repository_ ||
+    if ((phase_ != Phase::Ready && phase_ != Phase::Rejoining) ||
+        !recovery_repository_ ||
         !recovery_repository_->save(runtime.recovery_snapshot())) {
         phase_ = Phase::Fault;
         return false;
@@ -145,7 +153,9 @@ bool NodeSecurityLink::matching_hub(const Mac& source) const {
 
 std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::begin_rejoin() {
     if (!binding_) return std::nullopt;
-    rejoin_ = std::make_unique<security::NodeRejoin>(crypto_, *binding_, session_);
+    challenge_seen_ = false;
+    rejoin_ = std::make_unique<security::NodeRejoin>(crypto_, *binding_, session_,
+                                                     rejoin_version_);
     const auto hello = rejoin_->begin();
     security::wire::Message message;
     if (!hello || !security::wire::encode(*hello, message)) {
@@ -154,6 +164,28 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::begin_rejoin() {
     }
     phase_ = Phase::Rejoining;
     return reply(hub_mac_, message);
+}
+
+bool NodeSecurityLink::start_rejoin(std::uint64_t session, std::uint8_t version) {
+    if (!binding_ || session <= session_ || (version != 1 && version != 2) ||
+        (pinned_v2_ && version != 2)) return false;
+    frames_.reset();
+    rejoin_.reset();
+    assembler_.reset();
+    health_ack_supported_ = false;
+    session_ = session;
+    rejoin_version_ = version;
+    phase_ = Phase::Rejoining;
+    return true;
+}
+
+std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::fallback_to_v1() {
+    if (phase_ != Phase::Rejoining || rejoin_version_ != 2 || pinned_v2_ ||
+        challenge_seen_) return std::nullopt;
+    rejoin_version_ = 1;
+    rejoin_.reset();
+    assembler_.reset();
+    return begin_rejoin();
 }
 
 std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::initial_message() {
@@ -211,6 +243,7 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
             return std::nullopt;
         const auto final = rejoin_->accept(challenge);
         if (!final || !security::wire::encode(*final, outbound)) return std::nullopt;
+        challenge_seen_ = true;
         return reply(source, outbound);
     }
     if (message->kind == security::wire::Kind::RejoinAck) {
@@ -218,12 +251,26 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
         if (!security::wire::decode(*message, ack) || !rejoin_ ||
             !rejoin_->commit(ack) || !rejoin_->session_salt() || !binding_)
             return std::nullopt;
+        const bool negotiated =
+            (rejoin_->negotiated_capabilities() & security::kHealthAckCapability) != 0;
+        if (pinned_v2_ && !negotiated) {
+            phase_ = Phase::Fault;
+            return std::nullopt;
+        }
+        if (negotiated && !pinned_v2_) {
+            if (!pin_health_ack_for_hub(binding_->hub_id)) {
+                phase_ = Phase::Fault;
+                return std::nullopt;
+            }
+            pinned_v2_ = true;
+        }
         frames_ = std::make_unique<security::RuntimeFrameSecurity>(crypto_, *binding_);
         if (!frames_->start(session_, *rejoin_->session_salt())) {
             phase_ = Phase::Fault;
             return std::nullopt;
         }
         rejoin_.reset();
+        health_ack_supported_ = negotiated;
         phase_ = Phase::Ready;
     }
     return std::nullopt;

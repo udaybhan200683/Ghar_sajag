@@ -659,6 +659,15 @@ void secure_owner_task(void*) {
                          static_cast<unsigned>(health.value->last_sleep_requested_ms),
                          static_cast<unsigned>(health.value->last_sleep_elapsed_ms),
                          frame.transport_rssi);
+                if (security_link.health_ack_supported(frame.source_mac)) {
+                    const auto encoded_ack = transport::encode_node_health_ack(
+                        health.value->health_sequence);
+                    security::SecureFrame protected_ack;
+                    if (encoded_ack && frames->seal(security::RuntimeDirection::Downlink,
+                                                    encoded_ack.frame, protected_ack))
+                        (void)esp_now_send(frame.source_mac.data(),
+                                           protected_ack.bytes.data(), protected_ack.size);
+                }
             } else {
                 ESP_LOGW(kTag, "Rejected stale/mismatched authenticated NodeHealth");
             }

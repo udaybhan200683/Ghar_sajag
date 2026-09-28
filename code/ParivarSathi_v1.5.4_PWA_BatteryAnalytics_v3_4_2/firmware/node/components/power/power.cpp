@@ -108,8 +108,10 @@ LightSleepDecision evaluate_light_sleep(const LightSleepObservation& input) {
     LightSleepDecision result;
     result.inhibitors = LightSleepInhibitNone;
     if (input.now_ms < 0) result.inhibitors |= LightSleepInhibitClock;
-    if (!input.authenticated) result.inhibitors |= LightSleepInhibitAuthentication;
-    if (input.rejoin_active) result.inhibitors |= LightSleepInhibitRejoin;
+    if (!input.authenticated && !input.rejoin_backoff)
+        result.inhibitors |= LightSleepInhibitAuthentication;
+    if (input.rejoin_active && !input.rejoin_backoff)
+        result.inhibitors |= LightSleepInhibitRejoin;
     if (!input.product_ready) result.inhibitors |= LightSleepInhibitProductNotReady;
     if (input.pending_tx) result.inhibitors |= LightSleepInhibitPendingTx;
     if (input.event_in_flight) result.inhibitors |= LightSleepInhibitEventInFlight;

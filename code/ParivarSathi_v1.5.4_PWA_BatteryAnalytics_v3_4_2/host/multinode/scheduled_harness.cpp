@@ -135,6 +135,19 @@ bool ScheduledHarness::restart_node(std::size_t index) {
     return true;
 }
 
+bool ScheduledHarness::rejoin_node_in_place(std::size_t index) {
+    auto& node = nodes_.at(index);
+    if (node.session == UINT64_MAX) return false;
+    const auto record = registry_.find(node.physical_id);
+    if (!record || record->quarantined) return false;
+    ++node.session;
+    if (!establish_session(node, record->last_session)) return false;
+    // The live NodeRuntime deliberately retains its original event-origin
+    // session and pending EventKeys. Only the secure transport changes.
+    commit_recovery(node);
+    return true;
+}
+
 std::optional<EventKey> ScheduledHarness::record(std::size_t index, EventKind kind) {
     auto& node = nodes_.at(index);
     const auto key = node.runtime->record(kind, node.location, now_ms_, 0, 0, 3800);

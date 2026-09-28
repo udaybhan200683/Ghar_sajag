@@ -46,6 +46,13 @@ public:
     }
     const Mac& hub_mac() const { return hub_mac_; }
     security::RuntimeFrameSecurity* frames() { return frames_.get(); }
+    bool health_ack_supported() const { return health_ack_supported_; }
+    bool pinned_v2() const { return pinned_v2_; }
+    bool challenge_seen() const { return challenge_seen_; }
+    std::uint8_t rejoin_version() const { return rejoin_version_; }
+    std::uint64_t session() const { return session_; }
+    bool start_rejoin(std::uint64_t session, std::uint8_t version = 2);
+    std::optional<Outbound> fallback_to_v1();
     bool restore_recovery(node::NodeRuntime& runtime, Milliseconds now_ms);
     bool persist_recovery(const node::NodeRuntime& runtime);
 
@@ -72,6 +79,10 @@ private:
     Mac hub_mac_{};
     std::string physical_id_;
     std::uint64_t session_{0};
+    std::uint8_t rejoin_version_{2};
+    bool pinned_v2_{false};
+    bool health_ack_supported_{false};
+    bool challenge_seen_{false};
     Phase phase_{Phase::Uninitialized};
 };
 

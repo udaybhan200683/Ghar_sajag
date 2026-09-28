@@ -119,7 +119,7 @@ commissioning-crypto-host-test: build
 	./build/commissioning_crypto_validation
 
 rejoin-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/rejoin_host_validation.cpp -lcrypto -o build/rejoin_host_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/rejoin_protocol.cpp firmware/common/security/commissioning_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/transport/data_plane_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/rejoin_host_validation.cpp -lcrypto -o build/rejoin_host_validation
 	./build/rejoin_host_validation
 
 association-host-test: build

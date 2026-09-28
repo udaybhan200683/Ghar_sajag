@@ -128,6 +128,7 @@ struct LightSleepObservation {
     Milliseconds next_security_ms{-1};
     bool authenticated{false};
     bool rejoin_active{false};
+    bool rejoin_backoff{false};
     bool product_ready{false};
     bool pending_tx{false};
     bool event_in_flight{false};
