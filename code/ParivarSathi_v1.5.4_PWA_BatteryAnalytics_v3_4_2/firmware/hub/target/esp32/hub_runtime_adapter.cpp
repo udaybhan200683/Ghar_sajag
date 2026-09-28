@@ -251,7 +251,7 @@ void owner_task(void*) {
                 g_hil_health_received.fetch_add(1U, std::memory_order_relaxed);
 #endif
                 ESP_LOGI(kTag,
-                         "NodeHealth schema=%u session=%llu health_seq=%llu uptime_ms=%llu reset=%u pir_raw=%d pir_edges=%u pir_ok=%u pir_rejected=%u store_full=%u motion_drop=%u priority_rejected=%u sensing_live=%u runtime_live=%u retained=%u oldest_seq=%llu in_flight=%d tx=%u mac_ok=%u mac_fail=%u durable_ack=%u volatile_ack=%u retry=%u backoff=%u breadcrumb=%u error=%u heap=%u min_heap=%u maintenance=%d RSSI=%d CH=%u",
+                         "NodeHealth schema=%u session=%llu health_seq=%llu uptime_ms=%llu reset=%u pir_raw=%d pir_edges=%u pir_ok=%u pir_rejected=%u store_full=%u motion_drop=%u priority_rejected=%u sensing_live=%u runtime_live=%u retained=%u oldest_seq=%llu in_flight=%d tx=%u mac_ok=%u mac_fail=%u durable_ack=%u volatile_ack=%u retry=%u backoff=%u breadcrumb=%u error=%u heap=%u min_heap=%u maintenance=%d sleep_entries=%u timer_wakes=%u gpio_wakes=%u other_wakes=%u last_wake=%s requested_ms=%u elapsed_ms=%u RSSI=%d CH=%u",
                          static_cast<unsigned>(value.schema),
                          static_cast<unsigned long long>(value.session_id),
                          static_cast<unsigned long long>(value.health_sequence),
@@ -278,7 +278,15 @@ void owner_task(void*) {
                          static_cast<unsigned>(value.last_error),
                          static_cast<unsigned>(value.free_heap),
                          static_cast<unsigned>(value.minimum_free_heap),
-                         value.maintenance_active, health_frame.transport_rssi,
+                         value.maintenance_active,
+                         static_cast<unsigned>(value.light_sleep_entry_count),
+                         static_cast<unsigned>(value.timer_wake_count),
+                         static_cast<unsigned>(value.gpio_wake_count),
+                         static_cast<unsigned>(value.other_wake_count),
+                         node_health_sleep_wake_cause_name(value.last_wake_cause),
+                         static_cast<unsigned>(value.last_sleep_requested_ms),
+                         static_cast<unsigned>(value.last_sleep_elapsed_ms),
+                         health_frame.transport_rssi,
                          static_cast<unsigned>(health_frame.channel));
             }
         }
@@ -636,12 +644,20 @@ void secure_owner_task(void*) {
             if (health && runtime.observe_authenticated_health(
                     *health.value, node->logical_id, node->last_session,
                     static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) {
-                ESP_LOGI(kTag, "Authenticated NodeHealth logical=%s session=%llu heap=%u min_heap=%u retained=%u RSSI=%d",
+                ESP_LOGI(kTag, "Authenticated NodeHealth logical=%s session=%llu heap=%u min_heap=%u retained=%u sleep_entries=%u timer_wakes=%u gpio_wakes=%u other_wakes=%u last_wake=%s requested_ms=%u elapsed_ms=%u RSSI=%d",
                          node->logical_id.c_str(),
                          static_cast<unsigned long long>(node->last_session),
                          static_cast<unsigned>(health.value->free_heap),
                          static_cast<unsigned>(health.value->minimum_free_heap),
                          static_cast<unsigned>(health.value->retained_count),
+                         static_cast<unsigned>(health.value->light_sleep_entry_count),
+                         static_cast<unsigned>(health.value->timer_wake_count),
+                         static_cast<unsigned>(health.value->gpio_wake_count),
+                         static_cast<unsigned>(health.value->other_wake_count),
+                         node_health_sleep_wake_cause_name(
+                             health.value->last_wake_cause),
+                         static_cast<unsigned>(health.value->last_sleep_requested_ms),
+                         static_cast<unsigned>(health.value->last_sleep_elapsed_ms),
                          frame.transport_rssi);
             } else {
                 ESP_LOGW(kTag, "Rejected stale/mismatched authenticated NodeHealth");

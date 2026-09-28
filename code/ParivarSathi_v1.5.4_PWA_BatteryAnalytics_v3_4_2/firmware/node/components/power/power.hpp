@@ -5,6 +5,7 @@
 #include "gs/domain.hpp"
 
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 
@@ -156,7 +157,12 @@ struct LightSleepDecision {
 };
 
 // Portable labels for the qualification log; the adapter maps ESP-IDF wake bits.
-enum class LightSleepWakeKind { Gpio, Timer, Other };
+enum class LightSleepWakeKind : std::uint8_t {
+    Unknown = 0,
+    Timer = 1,
+    Gpio = 2,
+    Other = 3
+};
 inline LightSleepWakeKind classify_light_sleep_wake(bool gpio, bool timer) {
     if (gpio) return LightSleepWakeKind::Gpio;
     if (timer) return LightSleepWakeKind::Timer;
@@ -166,9 +172,52 @@ inline const char* light_sleep_wake_name(LightSleepWakeKind kind) {
     switch (kind) {
         case LightSleepWakeKind::Gpio: return "GPIO";
         case LightSleepWakeKind::Timer: return "TIMER";
-        default: return "OTHER";
+        case LightSleepWakeKind::Other: return "OTHER";
+        default: return "UNKNOWN";
     }
 }
+
+// RAM-only diagnostics. record_sleep_attempt() is called only on the existing
+// path immediately before esp_light_sleep_start(), after both wake sources are
+// armed and all final entry checks pass. Counts saturate rather than wrapping.
+struct LightSleepTelemetry {
+    std::uint32_t light_sleep_entry_count{0};
+    std::uint32_t timer_wake_count{0};
+    std::uint32_t gpio_wake_count{0};
+    std::uint32_t other_wake_count{0};
+    LightSleepWakeKind last_wake_cause{LightSleepWakeKind::Unknown};
+    std::uint32_t last_sleep_requested_ms{0};
+    std::uint32_t last_sleep_elapsed_ms{0};
+
+    void record_sleep_attempt(Milliseconds requested_ms) {
+        increment(light_sleep_entry_count);
+        last_sleep_requested_ms = bounded_ms(requested_ms);
+        last_sleep_elapsed_ms = 0;
+    }
+
+    void record_sleep_return(bool entered, bool gpio_wake, bool timer_wake,
+                             Milliseconds elapsed_ms) {
+        last_sleep_elapsed_ms = bounded_ms(elapsed_ms);
+        if (!entered) return;
+        if (gpio_wake) increment(gpio_wake_count);
+        if (timer_wake) increment(timer_wake_count);
+        if (!gpio_wake && !timer_wake) increment(other_wake_count);
+        last_wake_cause = classify_light_sleep_wake(gpio_wake, timer_wake);
+    }
+
+private:
+    static void increment(std::uint32_t& counter) {
+        if (counter != std::numeric_limits<std::uint32_t>::max()) ++counter;
+    }
+
+    static std::uint32_t bounded_ms(Milliseconds value) {
+        if (value <= 0) return 0;
+        const auto unsigned_value = static_cast<std::uint64_t>(value);
+        return unsigned_value > std::numeric_limits<std::uint32_t>::max()
+            ? std::numeric_limits<std::uint32_t>::max()
+            : static_cast<std::uint32_t>(unsigned_value);
+    }
+};
 inline const char* light_sleep_deadline_name(const LightSleepObservation& o,
                                              Milliseconds deadline) {
     if (deadline == o.next_health_ms) return "health";

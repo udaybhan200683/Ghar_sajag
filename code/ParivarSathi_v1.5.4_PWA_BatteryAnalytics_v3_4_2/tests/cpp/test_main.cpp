@@ -794,6 +794,13 @@ void test_node_offline_resilience() {
     health.last_error = gs::NodeHealthError::TxQueueFull;
     health.free_heap = 120000;
     health.minimum_free_heap = 110000;
+    health.light_sleep_entry_count = 23;
+    health.timer_wake_count = 14;
+    health.gpio_wake_count = 9;
+    health.other_wake_count = 2;
+    health.last_wake_cause = gs::NodeHealthSnapshot::SleepWakeCause::Timer;
+    health.last_sleep_requested_ms = 30000;
+    health.last_sleep_elapsed_ms = 30012;
     const auto encoded_health = gs::transport::encode_node_health(health);
     check(encoded_health && encoded_health.frame.size <= gs::transport::kMaxFrameBytes,
           "health snapshot is compact and bounded");
@@ -805,8 +812,33 @@ void test_node_offline_resilience() {
         encoded_health.frame.bytes.data(), encoded_health.frame.size);
     check(decoded_health && decoded_health.value->health_sequence == 7 &&
           decoded_health.value->accepted_pir == 1000 &&
-          decoded_health.value->oldest_sequence == 1,
-          "health snapshot round trip preserves endurance diagnostics");
+          decoded_health.value->oldest_sequence == 1 &&
+          decoded_health.value->light_sleep_entry_count == 23 &&
+          decoded_health.value->timer_wake_count == 14 &&
+          decoded_health.value->gpio_wake_count == 9 &&
+          decoded_health.value->other_wake_count == 2 &&
+          decoded_health.value->last_wake_cause ==
+              gs::NodeHealthSnapshot::SleepWakeCause::Timer &&
+          decoded_health.value->last_sleep_requested_ms == 30000 &&
+          decoded_health.value->last_sleep_elapsed_ms == 30012,
+          "schema-2 health round trip preserves endurance and sleep diagnostics");
+
+    auto legacy_health = health;
+    legacy_health.schema = gs::NodeHealthSnapshot::legacy_schema_version;
+    const auto encoded_legacy_health = gs::transport::encode_node_health(legacy_health);
+    const auto decoded_legacy_health = encoded_legacy_health
+        ? gs::transport::decode_node_health(encoded_legacy_health.frame.bytes.data(),
+                                            encoded_legacy_health.frame.size)
+        : gs::transport::DecodeResult<gs::NodeHealthSnapshot>{};
+    check(encoded_legacy_health && decoded_legacy_health &&
+          decoded_legacy_health.value->schema ==
+              gs::NodeHealthSnapshot::legacy_schema_version &&
+          decoded_legacy_health.value->retained_count == 28 &&
+          decoded_legacy_health.value->light_sleep_entry_count == 0 &&
+          decoded_legacy_health.value->timer_wake_count == 0 &&
+          decoded_legacy_health.value->last_wake_cause ==
+              gs::NodeHealthSnapshot::SleepWakeCause::Unknown,
+          "schema-1 health remains decodable with default sleep telemetry");
 
     gs::node::QualifiedInput pir(gs::EventKind::Motion, std::nullopt, 1, 1);
     check(!pir.sample(false, 0), "offline sensing initializes independently");

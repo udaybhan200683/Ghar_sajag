@@ -191,6 +191,43 @@ void test_qualification_diagnostics() {
           "unknown wake has a production log label");
     check(classify_light_sleep_wake(true, true) == LightSleepWakeKind::Gpio,
           "GPIO is retained when multiple wake bits are set");
+
+    LightSleepTelemetry telemetry;
+    check(telemetry.light_sleep_entry_count == 0 &&
+          telemetry.timer_wake_count == 0 && telemetry.gpio_wake_count == 0 &&
+          telemetry.other_wake_count == 0 &&
+          telemetry.last_wake_cause == LightSleepWakeKind::Unknown,
+          "RAM-only sleep counters start empty until real sleep instrumentation runs");
+    telemetry.record_sleep_attempt(30000);
+    check(telemetry.light_sleep_entry_count == 1 &&
+          telemetry.last_sleep_requested_ms == 30000 &&
+          telemetry.timer_wake_count == 0 && telemetry.gpio_wake_count == 0,
+          "real sleep attempt records requested duration without fabricating a wake");
+    telemetry.record_sleep_return(false, false, true, 7);
+    check(telemetry.timer_wake_count == 0 && telemetry.gpio_wake_count == 0 &&
+          telemetry.other_wake_count == 0,
+          "failed light-sleep call does not count a wake source");
+    telemetry.record_sleep_return(true, false, true, 30012);
+    check(telemetry.timer_wake_count == 1 && telemetry.gpio_wake_count == 0 &&
+          telemetry.other_wake_count == 0 &&
+          telemetry.last_wake_cause == LightSleepWakeKind::Timer &&
+          telemetry.last_sleep_elapsed_ms == 30012,
+          "timer wake is counted after successful return with measured elapsed time");
+    telemetry.record_sleep_attempt(12000);
+    telemetry.record_sleep_return(true, true, false, 4500);
+    check(telemetry.light_sleep_entry_count == 2 &&
+          telemetry.gpio_wake_count == 1 && telemetry.timer_wake_count == 1 &&
+          telemetry.last_wake_cause == LightSleepWakeKind::Gpio &&
+          telemetry.last_sleep_requested_ms == 12000 &&
+          telemetry.last_sleep_elapsed_ms == 4500,
+          "GPIO wake retains the requested and elapsed durations");
+    telemetry.record_sleep_attempt(8000);
+    telemetry.record_sleep_return(true, false, false, 8001);
+    check(telemetry.other_wake_count == 1 &&
+          telemetry.last_wake_cause == LightSleepWakeKind::Other &&
+          telemetry.last_sleep_elapsed_ms == 8001,
+          "successful unclassified wake is counted as OTHER");
+
     check(std::string(light_sleep_deadline_name(idle, before.earliest_deadline_ms)) == "health",
           "limiting deadline is labeled");
     check(before.requested_sleep_ms == 30000 &&

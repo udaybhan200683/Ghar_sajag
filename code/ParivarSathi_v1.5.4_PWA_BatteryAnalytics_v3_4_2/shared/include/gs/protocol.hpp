@@ -76,7 +76,15 @@ enum class NodeHealthError : std::uint16_t {
 // Best-effort engineering diagnostics. This is not a business event, has its
 // own sequence space, is never retained, and never receives a Durable ACK.
 struct NodeHealthSnapshot {
-    static constexpr std::uint32_t schema_version = 1;
+    static constexpr std::uint32_t legacy_schema_version = 1;
+    static constexpr std::uint32_t schema_version = 2;
+
+    enum class SleepWakeCause : std::uint8_t {
+        Unknown = 0,
+        Timer = 1,
+        Gpio = 2,
+        Other = 3
+    };
 
     std::uint32_t schema{schema_version};
     std::string node_id;
@@ -108,12 +116,36 @@ struct NodeHealthSnapshot {
     std::uint32_t free_heap{0};
     std::uint32_t minimum_free_heap{0};
     bool maintenance_active{false};
+    // RAM-only light-sleep diagnostics. They reset with the C3 and are carried
+    // only on the existing best-effort NodeHealth frame.
+    std::uint32_t light_sleep_entry_count{0};
+    std::uint32_t timer_wake_count{0};
+    std::uint32_t gpio_wake_count{0};
+    std::uint32_t other_wake_count{0};
+    SleepWakeCause last_wake_cause{SleepWakeCause::Unknown};
+    std::uint32_t last_sleep_requested_ms{0};
+    std::uint32_t last_sleep_elapsed_ms{0};
 };
 
 inline bool valid_node_health(const NodeHealthSnapshot& health) {
-    return health.schema == NodeHealthSnapshot::schema_version &&
-           !health.node_id.empty() && health.session_id > 0 &&
-           health.health_sequence > 0;
+    const bool supported_schema =
+        health.schema == NodeHealthSnapshot::legacy_schema_version ||
+        health.schema == NodeHealthSnapshot::schema_version;
+    const auto wake_cause = static_cast<std::uint8_t>(health.last_wake_cause);
+    return supported_schema && !health.node_id.empty() &&
+           health.session_id > 0 && health.health_sequence > 0 &&
+           (health.schema == NodeHealthSnapshot::legacy_schema_version ||
+            wake_cause <= static_cast<std::uint8_t>(NodeHealthSnapshot::SleepWakeCause::Other));
+}
+
+inline const char* node_health_sleep_wake_cause_name(
+    NodeHealthSnapshot::SleepWakeCause cause) {
+    switch (cause) {
+        case NodeHealthSnapshot::SleepWakeCause::Timer: return "TIMER";
+        case NodeHealthSnapshot::SleepWakeCause::Gpio: return "GPIO";
+        case NodeHealthSnapshot::SleepWakeCause::Other: return "OTHER";
+        default: return "UNKNOWN";
+    }
 }
 
 inline SensorType sensor_type_for(EventKind kind) {

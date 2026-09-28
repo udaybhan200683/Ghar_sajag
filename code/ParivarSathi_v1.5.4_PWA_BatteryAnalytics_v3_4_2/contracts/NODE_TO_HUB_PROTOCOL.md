@@ -59,6 +59,20 @@ does not consume business EventKey space, and receives no Durable ACK. The Hub
 keeps at most the latest queued snapshot and logs its node counters plus receive
 RSSI/channel. Diagnostic loss is harmless and cannot fill the business store.
 
+NodeHealth schema 2 appends RAM-only BAT-C8 light-sleep diagnostics to the
+existing payload: fixed-width entry, timer-wake, GPIO-wake, and other-wake
+counters; last wake cause; and the requested and measured elapsed milliseconds
+for the latest real light-sleep attempt. Entry increments immediately before
+the existing `esp_light_sleep_start()` call after wake sources are armed. Wake
+counters increment only after a successful return with the corresponding
+ESP-IDF wake cause. Unknown successful causes count as `other_wake_count`.
+Counters reset on C3 reboot; they are not persisted.
+
+Schema-2 is still the same best-effort NodeHealth frame and does not change its
+cadence. The updated decoder accepts schema-1 payloads and supplies zero
+counters and `UNKNOWN` last wake for their absent extension. A schema-2 sender
+requires a schema-2-aware Hub; older strict decoders reject the new schema.
+
 ## Code binding
 
 `shared/include/gs/protocol.hpp` is the C++ semantic binding for this contract:

@@ -5,6 +5,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 NODE = ROOT / "firmware/node"
 ADAPTER = NODE / "target/esp32c3/node_runtime_adapter.cpp"
+HUB_ADAPTER = ROOT / "firmware/hub/target/esp32/hub_runtime_adapter.cpp"
 
 
 class BatteryPowerInvariantTest(unittest.TestCase):
@@ -125,6 +126,51 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         self.assertNotRegex(sleep_adapter, r"\b(nvs_|persist_recovery|nvs_commit)")
         self.assertIn("validation-fast:", makefile)
         self.assertIn("battery-c8-host-test", makefile)
+
+    def test_sleep_observability_is_only_updated_on_real_sleep_path(self):
+        adapter = ADAPTER.read_text()
+        sleep_start = adapter.index("LightSleepReturn enter_light_sleep(")
+        sleep_end = adapter.index("#if !GS_HIL_BUILD\nbool send_security_message", sleep_start)
+        sleep_adapter = adapter[sleep_start:sleep_end]
+
+        timer_armed = sleep_adapter.index("esp_sleep_enable_timer_wakeup(duration_us)")
+        attempt_recorded = sleep_adapter.index(
+            "sleep_telemetry.record_sleep_attempt(requested_ms)")
+        sleep_called = sleep_adapter.index("esp_light_sleep_start()")
+        returned_recorded = sleep_adapter.index("sleep_telemetry.record_sleep_return(")
+        wake_causes_read = sleep_adapter.index("esp_sleep_get_wakeup_causes()")
+        self.assertLess(timer_armed, attempt_recorded)
+        self.assertLess(attempt_recorded, sleep_called)
+        self.assertLess(sleep_called, wake_causes_read)
+        self.assertLess(wake_causes_read, returned_recorded)
+        self.assertEqual(sleep_adapter.count("record_sleep_attempt("), 1)
+        self.assertEqual(sleep_adapter.count("record_sleep_return("), 1)
+        self.assertIn("LightSleepTelemetry sleep_telemetry;", adapter)
+        self.assertIn("health.light_sleep_entry_count = sleep_telemetry.light_sleep_entry_count", adapter)
+        self.assertIn("health.timer_wake_count = sleep_telemetry.timer_wake_count", adapter)
+        self.assertIn("health.gpio_wake_count = sleep_telemetry.gpio_wake_count", adapter)
+        self.assertIn("health.last_sleep_requested_ms = sleep_telemetry.last_sleep_requested_ms", adapter)
+        self.assertIn("health.last_sleep_elapsed_ms = sleep_telemetry.last_sleep_elapsed_ms", adapter)
+
+    def test_nodehealth_schema_extension_is_logged_without_new_cadence(self):
+        adapter = ADAPTER.read_text()
+        hub = HUB_ADAPTER.read_text()
+        protocol = (ROOT / "shared/include/gs/protocol.hpp").read_text()
+
+        self.assertIn("legacy_schema_version = 1", protocol)
+        self.assertIn("schema_version = 2", protocol)
+        self.assertIn("writer.u32(health.light_sleep_entry_count)",
+                      (ROOT / "firmware/common/transport/data_plane_codec.cpp").read_text())
+        for field in ("sleep_entries=%u", "timer_wakes=%u", "gpio_wakes=%u",
+                      "other_wakes=%u", "last_wake=%s", "requested_ms=%u",
+                      "elapsed_ms=%u"):
+            self.assertIn(field, hub)
+        self.assertIn("node_health_sleep_wake_cause_name", hub)
+        self.assertEqual(adapter.count("transport::encode_node_health(health)"), 1)
+        self.assertIn("NodeHealthCadence health_cadence", adapter)
+        self.assertIn("NodeProtocolPolicy::heartbeat_seconds", adapter)
+        self.assertNotIn("esp_timer_create", adapter)
+        self.assertNotIn("esp_timer_start", adapter)
 
 
 if __name__ == "__main__":

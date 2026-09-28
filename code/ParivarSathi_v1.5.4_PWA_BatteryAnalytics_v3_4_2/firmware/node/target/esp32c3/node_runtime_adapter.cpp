@@ -348,7 +348,8 @@ struct LightSleepReturn {
 
 [[maybe_unused]] LightSleepReturn enter_light_sleep(Milliseconds requested_ms,
                                    Milliseconds deadline_ms,
-                                   const std::array<std::uint8_t, 6>& application_peer) {
+                                   const std::array<std::uint8_t, 6>& application_peer,
+                                   LightSleepTelemetry& sleep_telemetry) {
     LightSleepReturn outcome;
     outcome.error = configure_gpio_wake();
     if (outcome.error != ESP_OK) {
@@ -394,6 +395,7 @@ struct LightSleepReturn {
     }
     ESP_LOGI(kTag, "BAT_SLEEP_ENTER requested_ms=%lld armed_ms=%lld gpio4=1 timer=1",
              static_cast<long long>(requested_ms), static_cast<long long>(actual_ms));
+    sleep_telemetry.record_sleep_attempt(requested_ms);
     const auto entry_us = esp_timer_get_time();
     outcome.error = esp_light_sleep_start();
     const auto return_us = esp_timer_get_time();
@@ -402,6 +404,8 @@ struct LightSleepReturn {
     const bool gpio_wake = (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_GPIO)) != 0U;
     const bool timer_wake = (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_TIMER)) != 0U;
     const auto elapsed_ms = return_us >= entry_us ? (return_us - entry_us) / 1000 : -1;
+    sleep_telemetry.record_sleep_return(outcome.entered, gpio_wake, timer_wake,
+                                        elapsed_ms);
     ESP_LOGI(kTag, "BAT_SLEEP_WAKE result=%s cause=%s raw=0x%lx requested_ms=%lld armed_ms=%lld elapsed_ms=%lld gpio4=%d",
              esp_err_to_name(outcome.error),
              light_sleep_wake_name(classify_light_sleep_wake(gpio_wake, timer_wake)),
@@ -455,6 +459,7 @@ void owner_task(void*) {
 #endif
     NodeLedPolicy led_policy;
     EnergyCounters energy;
+    LightSleepTelemetry sleep_telemetry;
     energy.boot_count = 1;
     const auto boot_reset = esp_reset_reason();
     if (boot_reset == ESP_RST_BROWNOUT) energy.brownout_count = 1;
@@ -969,6 +974,15 @@ void owner_task(void*) {
             health.free_heap = esp_get_free_heap_size();
             health.minimum_free_heap = esp_get_minimum_free_heap_size();
             health.maintenance_active = maintenance;
+            health.light_sleep_entry_count = sleep_telemetry.light_sleep_entry_count;
+            health.timer_wake_count = sleep_telemetry.timer_wake_count;
+            health.gpio_wake_count = sleep_telemetry.gpio_wake_count;
+            health.other_wake_count = sleep_telemetry.other_wake_count;
+            health.last_wake_cause =
+                static_cast<NodeHealthSnapshot::SleepWakeCause>(
+                    sleep_telemetry.last_wake_cause);
+            health.last_sleep_requested_ms = sleep_telemetry.last_sleep_requested_ms;
+            health.last_sleep_elapsed_ms = sleep_telemetry.last_sleep_elapsed_ms;
             ESP_LOGI(kTag,
                      "Power counters uptime_ms=%llu loops=%llu pir=%llu app_tx=%llu "
                      "mac_attempt=%llu retry=%llu health=%llu rejoin=%llu "
@@ -1181,7 +1195,8 @@ void owner_task(void*) {
                      sleep_observation.recovery_work, queued_callback_work);
             const auto outcome = enter_light_sleep(sleep_decision.requested_sleep_ms,
                                                     sleep_decision.earliest_deadline_ms,
-                                                    security_link.hub_mac());
+                                                    security_link.hub_mac(),
+                                                    sleep_telemetry);
             if (outcome.entered && outcome.error == ESP_OK) {
                 returned_from_light_sleep = true;
                 // The next owner iteration samples GPIO4 through QualifiedInput.
