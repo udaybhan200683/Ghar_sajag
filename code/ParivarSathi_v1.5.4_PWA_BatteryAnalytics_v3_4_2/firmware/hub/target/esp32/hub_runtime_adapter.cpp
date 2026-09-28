@@ -4,6 +4,7 @@
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/hub/components/fota/hub_fota_guard.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
+#include "firmware/hub/runtime/hub_event_log.hpp"
 #include "firmware/hub/target/esp32/nvs_journal_slot_store.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
 
@@ -665,10 +666,10 @@ void secure_owner_task(void*) {
                                       encoded.frame, protected_ack)) continue;
         const auto sent = esp_now_send(frame.source_mac.data(),
                                        protected_ack.bytes.data(), protected_ack.size);
-        ESP_LOGI(kTag, "Authenticated event logical=%s seq=%llu ack=%d send=%s",
-                 node->logical_id.c_str(),
-                 static_cast<unsigned long long>(processed->key.sequence),
-                 static_cast<int>(processed->ack), esp_err_to_name(sent));
+        const auto event_log = format_authenticated_event_log(
+            node->logical_id, *decoded.value, processed->key, processed->ack,
+            esp_err_to_name(sent));
+        ESP_LOGI(kTag, "%s", event_log.c_str());
     }
 }
 #endif

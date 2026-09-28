@@ -286,7 +286,8 @@ class SecureCampaign:
         self.c3.wait_for(
             rf"NodeMessage sent session={session} seq={sequence} bytes=\d+", 12, c3_cursor)
         self.hub.wait_for(
-            rf"Authenticated event logical=hil-signed-fota seq={sequence} ack=\d+ send=ESP_OK",
+            rf"Authenticated event logical=hil-signed-fota session={session} seq={sequence} "
+            rf"sensor=PIR event=MOTION event_id=.* ack=\d+ send=ESP_OK",
             20, hub_cursor)
         self.c3.wait_for(
             rf"Application ACK session={session} seq={sequence} class=\d+ retired=1",

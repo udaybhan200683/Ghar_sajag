@@ -15,6 +15,7 @@
 #include "firmware/common/transport/session_id.hpp"
 #include "ingest/ingest.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
+#include "firmware/hub/runtime/hub_event_log.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
 #include "lifecycle/config_service.hpp"
 #include "lifecycle/lifecycle.hpp"
@@ -634,6 +635,63 @@ void test_protocol_and_generic_rules() {
     const auto post_bad=gs::RulesCore::evaluate_activity_timers(post_door,routines,9210,14*60);
     check(!post_bad.empty() && post_bad.back().kind==gs::RuleSignalKind::PostDoorInactivity,
           "post-door inactivity uses configured threshold");
+}
+
+void test_authenticated_hub_event_log() {
+    auto motion = gs::node_message_from_event(
+        event(10, gs::EventKind::Motion, 150, "hil-signed-fota", "living-room"));
+    motion.session_id = 400;
+    motion.sensor_type = gs::SensorType::Pir;
+    const gs::EventKey motion_key{"hil-signed-fota", 400, 10, "c3-146393c5d158"};
+    check(gs::hub::format_authenticated_event_log(
+              "hil-signed-fota", motion, motion_key, gs::AckClass::Durable, "ESP_OK") ==
+          "Authenticated event logical=hil-signed-fota session=400 seq=10 sensor=PIR "
+          "event=MOTION event_id=" + motion_key.str() +
+          " room=living-room ack=0 send=ESP_OK",
+          "authenticated motion log identifies session, sequence, type, source and ACK");
+
+    auto summary = motion;
+    summary.sequence_number = 11;
+    summary.event_type = gs::EventKind::MotionSummary;
+    const gs::EventKey summary_key{"hil-signed-fota", 400, 11, "c3-146393c5d158"};
+    check(gs::hub::event_log_sensor_name(summary.sensor_type) == std::string("PIR") &&
+          gs::hub::event_log_kind_name(summary.event_type) ==
+              std::string("MOTION_SUMMARY") &&
+          gs::hub::format_authenticated_event_log(
+              "hil-signed-fota", summary, summary_key, gs::AckClass::Durable, "ESP_OK")
+                  .find("sensor=PIR event=MOTION_SUMMARY") != std::string::npos,
+          "authenticated motion-summary log classification is distinct from Motion");
+
+    check(gs::hub::event_log_sensor_name(gs::SensorType::Reed) == std::string("REED") &&
+          gs::hub::event_log_kind_name(gs::EventKind::DoorOpen) ==
+              std::string("DOOR_OPEN"),
+          "another ordinary authenticated event type has a stable log classification");
+
+    gs::NodeHealthSnapshot health;
+    health.node_id = "hil-signed-fota";
+    health.session_id = 400;
+    health.health_sequence = 1;
+    const auto encoded_health = gs::transport::encode_node_health(health);
+    check(encoded_health && gs::transport::classify_frame(
+              encoded_health.frame.bytes.data(), encoded_health.frame.size) ==
+              gs::transport::FrameClass::NodeHealth,
+          "NodeHealth remains separately classified from authenticated business events");
+
+    gs::hub::HubRuntime hub(4, 8);
+    hub.authorize_node("hil-signed-fota", 400, true);
+    check(hub.authenticated_radio_message_callback(
+              motion, "hil-signed-fota", "c3-146393c5d158", 400, 150, 1000),
+          "authenticated event still enters the existing Hub path");
+    const auto first = hub.run_state_once();
+    check(first && first->ack == gs::AckClass::Durable && first->state_changed,
+          "first authenticated event still receives the durable ACK class");
+    check(hub.authenticated_radio_message_callback(
+              motion, "hil-signed-fota", "c3-146393c5d158", 400, 150, 1001),
+          "authenticated duplicate still enters normal dedupe handling");
+    const auto duplicate = hub.run_state_once();
+    check(duplicate && duplicate->ack == gs::AckClass::Durable &&
+          !duplicate->state_changed && hub.journal().size() == 1,
+          "duplicate event ACK and dedupe behavior remain unchanged");
 }
 
 void test_node_offline_resilience() {
@@ -1272,6 +1330,7 @@ int main() {
         test_hub_modules();
         test_bat_c5_health_and_lease();
         test_protocol_and_generic_rules();
+        test_authenticated_hub_event_log();
         test_node_offline_resilience();
         test_node_power_diagnostics();
         test_node_outage_profile();

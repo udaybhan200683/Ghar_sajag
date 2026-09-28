@@ -62,7 +62,8 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         campaign.motion()
 
         self.assertEqual(campaign.hub.wait_for.call_args.args,
-            (r"Authenticated event logical=hil-signed-fota seq=9 ack=\d+ send=ESP_OK",
+            (r"Authenticated event logical=hil-signed-fota session=238 seq=9 "
+             r"sensor=PIR event=MOTION event_id=.* ack=\d+ send=ESP_OK",
              20, 17))
 
     def test_c3_pir_gate_follows_authenticated_rejoin_and_uses_fresh_boot_cursor(self):
