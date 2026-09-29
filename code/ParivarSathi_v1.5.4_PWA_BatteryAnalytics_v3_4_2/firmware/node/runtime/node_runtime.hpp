@@ -39,6 +39,9 @@ struct NodeRuntimeRecoveryState {
     std::vector<DomainEvent> retained;
     std::vector<PendingTx> pending;
     bool gap_marker_required{false};
+    std::uint32_t retirement_epoch{0};
+    std::uint64_t durable_admission_highwater{0};
+    std::uint64_t report_generation{0};
 };
 
 class NodeRuntime {
@@ -80,6 +83,10 @@ public:
     const NodeRuntimeStats& stats() const { return stats_; }
     const NodeRadioStats& radio_stats() const { return radio_.stats(); }
     NodeRuntimeRecoveryState recovery_snapshot() const;
+    // Set only from an authenticated Hub epoch offer. Persist the following
+    // recovery_snapshot before creating or sending a retirement report.
+    bool set_retirement_epoch(std::uint32_t epoch);
+    std::uint64_t pending_generation() const { return pending_generation_; }
     // Only a fresh runtime with a strictly newer authenticated boot session
     // may restore prior event identities. Target flash commit is separate.
     bool restore_recovery(const NodeRuntimeRecoveryState& state, Milliseconds now_ms);
@@ -88,6 +95,10 @@ private:
     std::string node_id_;
     std::uint64_t session_id_;
     std::uint64_t next_sequence_{1};
+    std::uint64_t durable_admission_highwater_{0};
+    std::uint64_t report_generation_{1};
+    std::uint64_t pending_generation_{1};
+    std::uint32_t retirement_epoch_{0};
     NodeStore store_;
     NodeRadio radio_;
     std::optional<NodePowerTelemetry> power_telemetry_;

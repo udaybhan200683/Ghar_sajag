@@ -197,6 +197,8 @@ CodecError validate_header(const std::uint8_t* data, std::size_t size,
         type != static_cast<std::uint8_t>(FrameType::NodeAck) &&
         type != static_cast<std::uint8_t>(FrameType::NodeHealth) &&
         type != static_cast<std::uint8_t>(FrameType::NodeHealthAck) &&
+        type != static_cast<std::uint8_t>(FrameType::NodeRetirementFragment) &&
+        type != static_cast<std::uint8_t>(FrameType::NodeRetirementAck) &&
         type != static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return CodecError::UnknownFrameType;
     }
@@ -328,6 +330,12 @@ FrameClass classify_frame(const std::uint8_t* data, std::size_t size) {
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::NodeHealthAck)) {
         return FrameClass::NodeHealthAck;
+    }
+    if (data[5] == static_cast<std::uint8_t>(FrameType::NodeRetirementFragment)) {
+        return FrameClass::NodeRetirementFragment;
+    }
+    if (data[5] == static_cast<std::uint8_t>(FrameType::NodeRetirementAck)) {
+        return FrameClass::NodeRetirementAck;
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return FrameClass::ControlFota;

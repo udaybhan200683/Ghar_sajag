@@ -14,6 +14,7 @@
 
 #include <utility>
 #include <algorithm>
+#include <limits>
 #include <set>
 
 namespace gs::node {
@@ -56,7 +57,11 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
     GS_TRACE(gs::log::Category::Node, "N00", "record.enter", "-");
     ++stats_.record_calls;
     if ((kind == EventKind::MotionSummary) != motion_aggregate.has_value() ||
-        (motion_aggregate && !valid_motion_aggregate(*motion_aggregate))) return std::nullopt;
+        (motion_aggregate && !valid_motion_aggregate(*motion_aggregate)) ||
+        session_id_ == 0 || session_id_ == std::numeric_limits<std::uint64_t>::max() ||
+        next_sequence_ == std::numeric_limits<std::uint64_t>::max() ||
+        report_generation_ == std::numeric_limits<std::uint64_t>::max() ||
+        pending_generation_ == std::numeric_limits<std::uint64_t>::max()) return std::nullopt;
     EventKey key{node_id_, session_id_, next_sequence_++};
     const auto resolved_sensor = sensor_type == SensorType::Unknown ? sensor_type_for(kind) : sensor_type;
     DomainEvent event{key, kind, location, monotonic_ms, occurred_at, occurred_at,
@@ -88,6 +93,9 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
         GS_ERROR(gs::log::Category::Radio, "N00", "record.failed", "tx_queue_full");
         return std::nullopt;
     }
+    durable_admission_highwater_ = key.sequence;
+    ++report_generation_;
+    ++pending_generation_;
     ++stats_.accepted;
     return key;
 }
@@ -97,7 +105,27 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
 // separate concepts.
 bool NodeRuntime::acknowledge(const EventKey& key, AckClass ack) {
     GS_TRACE(gs::log::Category::Node, "N00", "acknowledge.enter", "-");
+    const bool is_pending = radio_.contains(key);
+    // Durable/policy ACKs remove any kind. A volatile ACK can remove only a
+    // nonbusiness message. Refuse the operation before queue mutation if the
+    // report generation could not be advanced.
+    const auto before = radio_.pending_snapshot();
+    const auto item = std::find_if(before.begin(), before.end(), [&key](const PendingTx& value) {
+        return value.event.key.source_id == key.source_id &&
+               value.event.key.session_id == key.session_id &&
+               value.event.key.sequence == key.sequence;
+    });
+    const bool will_remove = is_pending && ack != AckClass::Rejected &&
+        !(item != before.end() && is_business_event(item->event.kind) &&
+          ack == AckClass::ReceivedVolatile);
+    if (will_remove && (report_generation_ == std::numeric_limits<std::uint64_t>::max() ||
+                        pending_generation_ == std::numeric_limits<std::uint64_t>::max()))
+        return false;
     const bool radio_removed = radio_.apply_ack(key, ack);
+    if (radio_removed) {
+        ++report_generation_;
+        ++pending_generation_;
+    }
     if (ack == AckClass::ReceivedVolatile) {
         ++stats_.volatile_acks;
         return radio_removed;
@@ -127,7 +155,17 @@ void NodeRuntime::transport_result(const EventKey& key, bool accepted_by_radio, 
 
 NodeRuntimeRecoveryState NodeRuntime::recovery_snapshot() const {
     return {node_id_, session_id_, store_.retained_snapshot(),
-            radio_.pending_snapshot(), store_.gap_marker_required()};
+            radio_.pending_snapshot(), store_.gap_marker_required(), retirement_epoch_,
+            durable_admission_highwater_, report_generation_};
+}
+
+bool NodeRuntime::set_retirement_epoch(std::uint32_t epoch) {
+    if (epoch == 0) return false;
+    if (retirement_epoch_ == epoch) return true;
+    if (report_generation_ == std::numeric_limits<std::uint64_t>::max()) return false;
+    retirement_epoch_ = epoch;
+    ++report_generation_;
+    return true;
 }
 
 bool NodeRuntime::restore_recovery(const NodeRuntimeRecoveryState& state,
@@ -136,7 +174,8 @@ bool NodeRuntime::restore_recovery(const NodeRuntimeRecoveryState& state,
         state.prior_boot_session == 0 || session_id_ <= state.prior_boot_session ||
         store_.size() != 0 || radio_.pending() != 0 || next_sequence_ != 1 ||
         state.retained.size() > store_.capacity() ||
-        state.pending.size() > radio_.capacity()) return false;
+        state.pending.size() > radio_.capacity() ||
+        state.report_generation == std::numeric_limits<std::uint64_t>::max()) return false;
     std::set<EventKey> pending_keys;
     for (const auto& item : state.pending) {
         const auto& event = item.event;
@@ -169,6 +208,10 @@ bool NodeRuntime::restore_recovery(const NodeRuntimeRecoveryState& state,
     if (!restored_radio.restore_pending(state.pending, now_ms)) return false;
     store_ = std::move(restored_store);
     radio_ = std::move(restored_radio);
+    retirement_epoch_ = state.retirement_epoch;
+    durable_admission_highwater_ = 0;
+    report_generation_ = state.report_generation == 0 ? 1 : state.report_generation + 1;
+    pending_generation_ = report_generation_;
     return true;
 }
 

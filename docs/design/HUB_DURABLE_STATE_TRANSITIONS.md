@@ -1,6 +1,9 @@
 # Durable Hub state transitions and effect intent
 
-Status: **design incomplete for implementation**. Base:
+Status: **broader reducer/runtime design remains incomplete**. The Node
+retirement report, report snapshot, exact EventKey digest and checkpoint
+ownership components are implemented and host tested in the durable-storage
+worktree. Base:
 `cad13231d9e6a5b43268d3fa7d658fe504289e6e`. This document addresses the
 missing ordered inputs identified by [HUB_REDUCER_CHECKPOINT.md](HUB_REDUCER_CHECKPOINT.md).
 It specifies a candidate durability contract and records product policies that
@@ -484,7 +487,7 @@ schema and a new peak-space calculation.
 | --- | --- | --- |
 | EventKey, causal event fields and local observation time | MUST_EXIST_IN_LOG until a selected checkpoint; pending backend events then have one immutable payload chunk | Existing event blob plus full transition event |
 | Global ordinal, reducer decision, config/registry delta, effect ID and effect payload | MUST_EXIST_IN_LOG at commit | Separate decision, registry write and pending-effect queue |
-| Current reducer and security registry state, rule anchors, coverage, dedupe frontier | MUST_EXIST_IN_CHECKPOINT | Replaying all historical events; repeated Hub public key in each Node |
+| Current reducer and security registry state, rule anchors, coverage, exact EventKey digest chunk references, selected retirement snapshot | MUST_EXIST_IN_CHECKPOINT | Replaying all historical events; sequence-only dedupe frontier |
 | Pending event/effect IDs, chunk IDs and completion bits | REFERENCE_ONLY in checkpoint | Full pending payloads in checkpoint |
 | Config version/hash | REFERENCE_ONLY in transition and checkpoint | Config bytes in every transition |
 | Config bytes | One immutable ordinary-NVS version; referenced by ordered APPLY | Repeated config in checkpoint |
@@ -605,8 +608,9 @@ references; if neither candidate is complete, fail closed.
 | One active routine: window/flags/evidence count, no sample hashes | 47 |
 | Sixteen pending-effect references, 10 each | 160 |
 | Thirty-two event-chunk references, 8 each, plus 16-byte pending map | 272 |
-| **One checkpoint** | **4,253** |
-| **Two checkpoint generations** | **8,506** |
+| Exact EventKey evidence references (32 × 40 B) and report snapshot reference (41 B), replacing the old 1,060-byte frontier set | 1,321 |
+| **One checkpoint maximum** | **4,514** |
+| **Two checkpoint generations** | **9,028** |
 
 The 252-byte registry entry excludes its repeated 65-byte Hub public key:
 the current registry encoder can reach 3,952 plaintext bytes for ten Nodes
@@ -632,24 +636,22 @@ snapshot is verified before APPLY, and APPLY is the only activation point.
 | `gs_journal` component | Migration maximum bytes | Normal maximum bytes |
 | --- | ---: | ---: |
 | Four 1,332-byte transition records | 5,328 | 5,328 |
-| Checkpoint A | 4,253 | 4,253 |
-| Checkpoint B | 4,253 | 4,253 |
+| Checkpoint A | 4,514 | 4,514 |
+| Checkpoint B | 4,514 | 4,514 |
 | Pending event chunks (16 migration / 32 normal, four events each) | 16,064 | 32,128 |
 | Four pending-effect chunks | 5,040 | 5,040 |
 | Two completion bitmaps | 768 | 768 |
 | Selectors, epoch and migration metadata | 512 | 512 |
-| One extra checkpoint, bitmap and metadata write in flight | 4,765 | 4,765 |
+| One extra checkpoint, bitmap, metadata and event scratch chunk in flight | 6,030 | 6,030 |
 | Existing event/receipt slots untouched | 40,448 | 0 |
-| **Total** | **81,431** | **57,047** |
+| Three report snapshot banks (normal operation) | 0 | 18,288 |
+| **Total** | **83,218** | **77,122** |
 
-Migration nominal free space is **49,641 bytes (37.9%)**, including
-**23,427 bytes beyond a 20% reserve**. Ordinary NVS retains 9,056 raw
-bytes (36.8%). Conservatively allowing an NVS blob index, chunk metadata
-and 32-byte data entries, the 32-page journal offers about 4,032 usable
-entries. Migration peak uses at most 3,160 entries (legacy 1,792; log 176;
-event chunks 544; effect chunks 168; checkpoints including write-in-flight
-408; bitmaps including write-in-flight 42; metadata including write-in-flight
-30), leaving **872 entries (21.6%)**. This entry estimate does not prove
+Migration nominal free space is **47,854 bytes (36.51%)**. Ordinary NVS
+remains at 15,520 raw bytes with no retirement keys added. Conservatively
+allowing an NVS blob index, chunk metadata and 32-byte data entries, the
+32-page journal offers about 4,032 usable entries. The corrected migration
+peak is **3,221 used / 811 free (20.11%)**. This entry estimate does not prove
 allocability under every page-fragmentation/GC state; target NVS allocation
 and power-cut validation remain required before firmware rollout. See
 [Espressif NVS storage format and error semantics](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/storage/nvs_flash.html).

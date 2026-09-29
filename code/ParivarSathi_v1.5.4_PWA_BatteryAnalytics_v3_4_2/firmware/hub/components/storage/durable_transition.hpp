@@ -6,14 +6,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace gs::hub::durable {
 
 constexpr std::size_t kMaxTransitionBytes = 1332;
-constexpr std::size_t kMaxCheckpointBytes = 4253;
+constexpr std::size_t kMaxCheckpointBytes = 4514;
 constexpr std::size_t kMaxPendingChunkBytes = 1260;
+constexpr std::size_t kMaxDedupeEvidenceChunkBytes = 320;
 constexpr std::size_t kMaxBitmapBytes = 384;
 constexpr std::size_t kMaxCausalInputBytes = 228;
 constexpr std::size_t kMaxDecisionBytes = 128;
@@ -23,7 +25,7 @@ constexpr std::size_t kMaxPendingEffects = 16;
 constexpr std::size_t kMaxEffectsPerChunk = 4;
 constexpr std::size_t kMaxCheckpointEffectRefs = 16;
 constexpr std::size_t kMaxCheckpointChunkRefs = 32;
-constexpr std::size_t kMaxDedupeFrontiers = 10;
+constexpr std::size_t kMaxDedupeEvidenceRefs = 32;
 
 enum class TransitionType : std::uint8_t { Event = 1, Timer = 2, Registry = 3, ConfigApply = 4 };
 
@@ -46,6 +48,10 @@ struct Transition {
     std::uint32_t storage_epoch{0};
     std::uint64_t ordinal{0};
     EventIdentity event;
+    std::uint8_t enrollment_slot{0};
+    std::uint32_t enrollment_generation{0};
+    std::array<std::uint8_t, 32> event_digest{};
+    bool event_digest_present{true};
     std::uint32_t config_version{0};
     std::array<std::uint8_t, 32> config_hash{};
     TransitionType type{TransitionType::Event};
@@ -69,6 +75,33 @@ struct ChunkReference {
     std::array<std::uint8_t, 32> digest{};
 };
 
+struct DedupeEvidenceReference {
+    std::uint64_t chunk_id{0};
+    std::array<std::uint8_t, 32> digest{};
+};
+
+struct ReportSnapshotReference {
+    std::uint8_t bank{0xff};
+    std::uint64_t generation{0};
+    std::array<std::uint8_t, 32> digest{};
+    bool valid() const;
+};
+
+struct DedupeEvidenceEntry {
+    std::uint8_t enrollment_slot{0};
+    std::uint32_t enrollment_generation{0};
+    std::uint64_t origin_session{0};
+    std::uint64_t sequence{0};
+    std::array<std::uint8_t, 32> digest{};
+};
+
+struct DedupeEvidenceChunk {
+    std::uint32_t storage_epoch{0};
+    std::uint64_t chunk_id{0};
+    std::array<DedupeEvidenceEntry, 4> entries{};
+    std::uint8_t count{0};
+};
+
 struct Checkpoint {
     std::uint32_t storage_epoch{0};
     std::uint64_t generation{0};
@@ -79,8 +112,11 @@ struct Checkpoint {
     security::Bytes reducer_state;
     std::vector<EffectReference> pending_effects;
     std::vector<ChunkReference> pending_chunks;
-    // Latest EventKey per enrolled event source, retained across tail reuse.
-    std::vector<EventIdentity> dedupe_frontiers;
+    std::vector<DedupeEvidenceReference> dedupe_evidence_chunks;
+    std::optional<ReportSnapshotReference> report_snapshot;
+    // Decoded schema-1 frontiers have no exact digest and cannot authorize
+    // admission or be silently rewritten as exact evidence.
+    bool legacy_dedupe_unverified{false};
 };
 
 struct PendingEffectChunk {
@@ -112,6 +148,10 @@ public:
                              const PendingEffectChunk&, security::Bytes&);
     static bool decode_chunk(security::CommissioningCrypto&, const security::Key32&,
                              const security::Bytes&, PendingEffectChunk&);
+    static bool encode_evidence_chunk(security::CommissioningCrypto&, const security::Key32&,
+                                      const DedupeEvidenceChunk&, security::Bytes&);
+    static bool decode_evidence_chunk(security::CommissioningCrypto&, const security::Key32&,
+                                      const security::Bytes&, DedupeEvidenceChunk&);
     static bool encode_bitmap(security::CommissioningCrypto&, const security::Key32&,
                               const CompletionBitmap&, security::Bytes&);
     static bool decode_bitmap(security::CommissioningCrypto&, const security::Key32&,
@@ -124,7 +164,7 @@ public:
                                 std::uint8_t& checkpoint_index);
 };
 
-enum class CommitStatus { Committed, NotCommitted, StorageFault, AmbiguousResolvedCommitted };
+enum class CommitStatus { Committed, NotCommitted, StorageFault, AmbiguousResolvedCommitted, Conflict };
 enum class FaultMode { None, FailBeforeWrite, PartialWrite, PersistThenFail, PowerLossAfterPersist };
 
 class BlobStore {
@@ -181,6 +221,8 @@ public:
     bool read_bitmap(const std::array<std::uint8_t, 32>& mapping_digest,
                      CompletionBitmap& out);
     bool read_pending_chunk(std::uint64_t chunk_id, PendingEffectChunk& out);
+    bool read_evidence_chunk(std::uint64_t chunk_id, DedupeEvidenceChunk& out);
+    bool read_evidence_chunk(const DedupeEvidenceReference&, DedupeEvidenceChunk& out);
 private:
     BlobStore& store_;
     security::CommissioningCrypto& crypto_;

@@ -27,6 +27,8 @@ enum class FrameType : std::uint8_t {
     NodeAck = 2U,
     NodeHealth = 3U,
     NodeHealthAck = 4U,
+    NodeRetirementFragment = 5U,
+    NodeRetirementAck = 6U,
     ControlFota = 0x80U
 };
 
@@ -36,6 +38,8 @@ enum class FrameClass {
     NodeAck,
     NodeHealth,
     NodeHealthAck,
+    NodeRetirementFragment,
+    NodeRetirementAck,
     ControlFota
 };
 

@@ -47,6 +47,12 @@ bool put_string(Bytes& out, const std::string& value) {
     out.insert(out.end(), value.begin(), value.end());
     return true;
 }
+bool put_location(Bytes& out, const std::string& value) {
+    if (value.size() > 64) return false;
+    out.push_back(static_cast<std::uint8_t>(value.size()));
+    out.insert(out.end(), value.begin(), value.end());
+    return true;
+}
 bool get_string(const Bytes& in, std::size_t& pos, std::string& value) {
     if (pos >= in.size()) return false;
     const std::size_t size = in[pos++];
@@ -55,9 +61,20 @@ bool get_string(const Bytes& in, std::size_t& pos, std::string& value) {
     pos += size;
     return true;
 }
+bool get_location(const Bytes& in, std::size_t& pos, std::string& value) {
+    if (pos >= in.size()) return false;
+    const std::size_t size = in[pos++];
+    if (size > 64 || size > in.size() - pos) return false;
+    value.assign(reinterpret_cast<const char*>(in.data() + pos), size);
+    pos += size;
+    return true;
+}
 bool encode(const NodeRuntimeRecoveryState& state, Bytes& out) {
     if (!put_string(out, state.node_id) || state.pending.size() > kMaximumEvents) return false;
     put_u64(out, state.prior_boot_session);
+    put_u32(out, state.retirement_epoch);
+    put_u64(out, state.durable_admission_highwater);
+    put_u64(out, state.report_generation);
     out.push_back(state.gap_marker_required ? 1 : 0);
     out.push_back(static_cast<std::uint8_t>(state.pending.size()));
     for (const auto& pending : state.pending) {
@@ -68,7 +85,7 @@ bool encode(const NodeRuntimeRecoveryState& state, Bytes& out) {
                        value.key.sequence == event.key.sequence;
             });
         if (pending.attempt > 255 ||
-            !put_string(out, event.location)) return false;
+            !put_location(out, event.location)) return false;
         put_u64(out, event.key.session_id);
         put_u64(out, event.key.sequence);
         out.push_back(static_cast<std::uint8_t>(event.kind));
@@ -98,8 +115,15 @@ bool decode(const Bytes& in, std::uint8_t version, NodeRuntimeRecoveryState& sta
     std::size_t pos = 0;
     std::uint64_t value = 0;
     if (!get_string(in, pos, state.node_id) ||
-        !get_unsigned(in, pos, 8, state.prior_boot_session) ||
-        pos + 2 > in.size() || in[pos] > 1 || in[pos + 1] > kMaximumEvents)
+        !get_unsigned(in, pos, 8, state.prior_boot_session))
+        return false;
+    if (version >= 3) {
+        if (!get_unsigned(in, pos, 4, value)) return false;
+        state.retirement_epoch = static_cast<std::uint32_t>(value);
+        if (!get_unsigned(in, pos, 8, state.durable_admission_highwater) ||
+            !get_unsigned(in, pos, 8, state.report_generation)) return false;
+    }
+    if (pos + 2 > in.size() || in[pos] > 1 || in[pos + 1] > kMaximumEvents)
         return false;
     state.gap_marker_required = in[pos++] != 0;
     const auto count = in[pos++];
@@ -107,7 +131,7 @@ bool decode(const Bytes& in, std::uint8_t version, NodeRuntimeRecoveryState& sta
         PendingTx pending;
         auto& event = pending.event;
         event.key.source_id = state.node_id;
-        if (!get_string(in, pos, event.location) ||
+        if (!get_location(in, pos, event.location) ||
             !get_unsigned(in, pos, 8, event.key.session_id) ||
             !get_unsigned(in, pos, 8, event.key.sequence) ||
             pos >= in.size() || in[pos] > static_cast<std::uint8_t>(EventKind::MotionSummary))
@@ -174,6 +198,8 @@ bool NodeRecoveryRepository::valid(const NodeRuntimeRecoveryState& state) const 
         !valid_identity(node_id_) || state.node_id != node_id_ ||
         state.prior_boot_session == 0 ||
         state.prior_boot_session == std::numeric_limits<std::uint64_t>::max() ||
+        state.durable_admission_highwater == std::numeric_limits<std::uint64_t>::max() ||
+        state.report_generation == std::numeric_limits<std::uint64_t>::max() ||
         state.pending.size() > kMaximumEvents || state.retained.size() > kMaximumEvents ||
         !std::any_of(wrapping_key_.begin(), wrapping_key_.end(),
                      [](std::uint8_t byte) { return byte != 0; })) return false;
@@ -188,7 +214,7 @@ NodeRecoveryLoad NodeRecoveryRepository::load() {
     if (!found) return {};
     if (blob.size() < kHeaderSize + security::GcmTag{}.size() ||
         blob.size() > kMaximumBlob || blob[0] != 'G' || blob[1] != 'S' ||
-        blob[2] != 'N' || blob[3] != 'R' || (blob[4] != 1 && blob[4] != 2))
+        blob[2] != 'N' || blob[3] != 'R' || blob[4] < 1 || blob[4] > 3)
         return {NodeRecoveryLoadStatus::Corrupt, 0, std::nullopt};
     std::size_t pos = 5;
     std::uint64_t generation = 0;
@@ -223,8 +249,17 @@ bool NodeRecoveryRepository::save(const NodeRuntimeRecoveryState& state) {
     const auto current = load();
     if (current.status != NodeRecoveryLoadStatus::Missing &&
         current.status != NodeRecoveryLoadStatus::Ready) return false;
-    if (current.state &&
-        state.prior_boot_session < current.state->prior_boot_session) return false;
+    if (current.state) {
+        if (state.prior_boot_session < current.state->prior_boot_session) return false;
+        if (state.prior_boot_session == current.state->prior_boot_session &&
+            (state.durable_admission_highwater <
+                 current.state->durable_admission_highwater ||
+             state.report_generation < current.state->report_generation ||
+             (current.state->retirement_epoch != 0 &&
+              state.retirement_epoch < current.state->retirement_epoch))) return false;
+        if (state.prior_boot_session > current.state->prior_boot_session &&
+            state.report_generation <= current.state->report_generation) return false;
+    }
     if (current.generation == std::numeric_limits<std::uint64_t>::max()) return false;
     Bytes plain;
     if (!encode(state, plain) ||
@@ -237,7 +272,7 @@ bool NodeRecoveryRepository::save(const NodeRuntimeRecoveryState& state) {
         crypto_.secure_zero(plain.data(), plain.size());
         return false;
     }
-    Bytes blob{'G', 'S', 'N', 'R', 2};
+    Bytes blob{'G', 'S', 'N', 'R', 3};
     put_u64(blob, current.generation + 1);
     blob.insert(blob.end(), nonce.begin(), nonce.end());
     put_u16(blob, static_cast<std::uint16_t>(plain.size()));
@@ -255,7 +290,20 @@ bool NodeRecoveryRepository::save(const NodeRuntimeRecoveryState& state) {
     if (!sealed || cipher.size() + kHeaderSize + tag.size() > kMaximumBlob) return false;
     blob.insert(blob.end(), cipher.begin(), cipher.end());
     blob.insert(blob.end(), tag.begin(), tag.end());
-    return store_.write(blob);
+    if (store_.write(blob)) return true;
+
+    // Resolve atomic write APIs that may persist successfully but return a
+    // late error. The authenticated payload must match the whole candidate.
+    const auto verified = load();
+    Bytes expected_plain;
+    Bytes verified_plain;
+    const bool resolved = encode(state, expected_plain) &&
+        verified.status == NodeRecoveryLoadStatus::Ready &&
+        verified.generation == current.generation + 1 && verified.state &&
+        encode(*verified.state, verified_plain) && verified_plain == expected_plain;
+    crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+    crypto_.secure_zero(verified_plain.data(), verified_plain.size());
+    return resolved;
 }
 
 }  // namespace gs::node

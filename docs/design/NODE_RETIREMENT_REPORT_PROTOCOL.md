@@ -1,7 +1,8 @@
 # Node retirement report protocol and bounded Hub dedupe state
 
-Status: architecture contract for the next implementation task. Production
-firmware and the durable storage codec do not yet implement this protocol.
+Status: contract locked; bounded Node/Hub production components and host proof
+are implemented in the durable-storage worktree. Target adapter transport and
+production persistence integration remain follow-on work.
 
 ## Source invariants and scope
 
@@ -307,13 +308,14 @@ and may be backpressured; no historical retirement floor is fabricated.
 ## Host proof and implementation boundary
 
 `tests/python/test_node_retirement_protocol_model.py` contains 24
-deterministic cases: lost ACK, out-of-order delivery, gap, Node/Hub reboot,
-in-place rejoin, late old-origin event, 32 simultaneous previous sessions,
-session closure, report replay/conflict/resurrection, payload conflict,
-crashes before/after Node durable removal, lost report/response, full queue,
-wire bounds, the storage calculation, and sequenced heartbeat admission,
-retry, reboot, and session closure. It is an architecture model, not a
-test of future firmware. The next implementation task must implement the
-versioned snapshot/wire codecs and A/B report-state ownership, then rerun
-equivalent tests against production code and target NVS fault injection.
-Production log-slot reclamation and HubRuntime integration remain separate.
+deterministic cases and complements the production-component host tests. The
+production tests cover the v3 recovery fields, heartbeat admission/reboot/ACK
+report advancement, NodeHealth exclusion, bounded authenticated fragmentation,
+Hub report replay and conflict, old-session heartbeat closure, exact digest
+classification, checkpoint evidence ownership, and partial/ambiguous writes.
+The report and Hub snapshot codecs enforce the 542-byte and 6,096-byte bounds;
+the checkpoint codec enforces 4,514 bytes. The target Node/Hub adapters do not
+yet transmit, assemble, and durably select these reports in the live
+application. Target NVS allocator and physical qualification remain open.
+Production log-slot reclamation and broad HubRuntime reducer integration are
+outside this implementation.
