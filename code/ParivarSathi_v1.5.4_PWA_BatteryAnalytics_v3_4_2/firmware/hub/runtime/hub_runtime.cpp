@@ -163,21 +163,29 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     if (!event) return std::nullopt;
     const bool passive = is_passive_sensor_event(event->kind);
     if (routine_.state().mode == HomeMode::Privacy && passive) {
-        return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {}};
+        const auto count = journal_.size();
+        return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {},
+                             std::nullopt, count, count, journal_.capacity()};
     }
+    const auto count_before = journal_.size();
     const auto committed = journal_.commit(*event);
+    const auto count_after = journal_.size();
     if (committed == CommitResult::Full || committed == CommitResult::StorageFault) {
         GS_ERROR(gs::log::Category::Storage, "H00", "event.rejected",
                  committed == CommitResult::Full ? "hub_journal_full" : "hub_journal_fault");
-        return ProcessResult{event->key, AckClass::Rejected, false, {}};
+        return ProcessResult{event->key, AckClass::Rejected, false, {}, committed,
+                             count_before, count_after, journal_.capacity()};
     }
     if (committed == CommitResult::Duplicate) {
         // A lost ACK may replay the same business event after a Node reboot.
         // Acknowledge the known identity without applying rules a second time.
-        return ProcessResult{event->key, AckClass::Durable, false, {}};
+        return ProcessResult{event->key, AckClass::Durable, false, {}, committed,
+                             count_before, count_after, journal_.capacity()};
     }
     auto signals = apply_committed_event(*event, local_minute);
-    return ProcessResult{event->key, AckClass::Durable, committed == CommitResult::Stored, signals};
+    return ProcessResult{event->key, AckClass::Durable,
+                         committed == CommitResult::Stored, signals, committed,
+                         count_before, count_after, journal_.capacity()};
 }
 
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01

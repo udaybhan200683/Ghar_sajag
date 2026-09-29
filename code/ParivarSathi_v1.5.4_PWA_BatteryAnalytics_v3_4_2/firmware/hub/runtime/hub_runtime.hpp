@@ -30,6 +30,10 @@ struct ProcessResult {
     AckClass ack{AckClass::Rejected};
     bool state_changed{false};
     std::vector<RuleSignalDecision> rule_signals;
+    std::optional<CommitResult> journal_result;
+    std::size_t journal_count_before{0};
+    std::size_t journal_count_after{0};
+    std::size_t journal_capacity{0};
 };
 
 struct AuthenticatedNodeHealth {

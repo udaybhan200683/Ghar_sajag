@@ -181,6 +181,29 @@ const char* ack_reason(const ProcessResult& result) {
     return "unknown";
 }
 
+#if GS_HIL_CONTROL
+const char* journal_result_name(const std::optional<CommitResult>& result) {
+    if (!result) return "NotAttempted";
+    switch (*result) {
+        case CommitResult::Stored: return "Committed";
+        case CommitResult::Duplicate: return "Duplicate";
+        case CommitResult::Full: return "Full";
+        case CommitResult::StorageFault: return "StorageFault";
+    }
+    return "Unknown";
+}
+
+void log_journal_commit(const ProcessResult& result) {
+    if (!result.journal_result) return;
+    ESP_LOGI(kTag,
+             "HUB_JOURNAL_COMMIT event_key=%s result=%s journal_count_before=%u journal_count_after=%u capacity=%u storage_error=unavailable",
+             result.key.str().c_str(), journal_result_name(result.journal_result),
+             static_cast<unsigned>(result.journal_count_before),
+             static_cast<unsigned>(result.journal_count_after),
+             static_cast<unsigned>(result.journal_capacity));
+}
+#endif
+
 esp_err_t initialize_wifi() {
     esp_err_t result = esp_netif_init();
     if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) return result;
@@ -342,6 +365,9 @@ void owner_task(void*) {
             ESP_LOGW(kTag, "HubRuntime had no admitted event to process");
             continue;
         }
+#if GS_HIL_CONTROL
+        log_journal_commit(*processed);
+#endif
 
         const auto ack = make_node_ack(processed->key, processed->ack,
                                        hub_received_at, ack_reason(*processed));
@@ -683,6 +709,9 @@ void secure_owner_task(void*) {
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) continue;
         const auto processed = runtime.run_state_once();
         if (!processed) continue;
+#if GS_HIL_CONTROL
+        log_journal_commit(*processed);
+#endif
         const auto ack = make_node_ack(processed->key, processed->ack,
                                        hub_received_at, ack_reason(*processed));
         const auto encoded = transport::encode_node_ack(ack);

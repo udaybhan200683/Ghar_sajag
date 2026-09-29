@@ -1,5 +1,6 @@
 #include "firmware/hub/components/storage/journal.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
+#include "firmware/common/transport/data_plane_codec.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
 
 #include <array>
@@ -34,9 +35,10 @@ struct MemorySlots final : gs::hub::JournalSlotStore {
     }
 };
 
-gs::DomainEvent event(std::uint64_t sequence, const char* physical = "device-A") {
+gs::DomainEvent event(std::uint64_t sequence, const char* physical = "device-A",
+                      std::uint64_t session = 17) {
     gs::DomainEvent result;
-    result.key = {"bathroom", 17, sequence, physical};
+    result.key = {"bathroom", session, sequence, physical};
     result.kind = gs::EventKind::Motion;
     result.location = "Bathroom";
     result.occurred_at = 42;
@@ -66,6 +68,9 @@ int main() {
             require(journal.size() == 128, "capacity exactly 128");
             require(journal.commit(event(128)) == CommitResult::Full,
                     "capacity plus one rejected");
+            require(journal.acknowledge_cloud(event(1).key) &&
+                    journal.commit(event(129)) == CommitResult::Full,
+                    "cloud receipt unexpectedly reclaimed append-only journal capacity");
         }
         {
             HubJournal rebooted(128);
@@ -135,6 +140,91 @@ int main() {
         require(fresh && fresh->state_changed &&
                 recovered.routine_state().evidence_ids.size() == 2,
                 "new event after replay did not update reducer");
+
+        MemorySlots replay_slots;
+        gs::hub::HubRuntime replay_hub(8, 128);
+        require(replay_hub.journal().attach_persistence(crypto, replay_slots, key),
+                "retained-session replay journal setup");
+        replay_hub.authorize_node("bathroom", 409, true);
+        for (const auto& retained : {event(31, "device-A", 406),
+                                     event(1, "device-A", 409)}) {
+            const auto message = gs::node_message_from_event(retained);
+            require(replay_hub.authenticated_radio_message_callback(
+                        message, "bathroom", "device-A", 409, 0),
+                    "old/current retained key rejected by newer transport session");
+            const auto accepted = replay_hub.run_state_once();
+            require(accepted && accepted->ack == gs::AckClass::Durable &&
+                    accepted->journal_result == CommitResult::Stored,
+                    "old/current retained key did not commit");
+            require(replay_hub.authenticated_radio_message_callback(
+                        message, "bathroom", "device-A", 409, 0),
+                    "replayed retained key rejected at authenticated ingress");
+            const auto duplicate_runtime = replay_hub.run_state_once();
+            require(duplicate_runtime && duplicate_runtime->ack == gs::AckClass::Durable &&
+                    duplicate_runtime->journal_result == CommitResult::Duplicate &&
+                    duplicate_runtime->journal_count_before ==
+                        duplicate_runtime->journal_count_after,
+                    "old/current duplicate consumed another journal slot");
+        }
+        require(replay_hub.journal().size() == 2,
+                "old/current retained identity cardinality mismatch");
+        gs::hub::HubRuntime restored_replay(8, 128);
+        restored_replay.authorize_node("bathroom", 409, true);
+        require(restored_replay.journal().attach_persistence(crypto, replay_slots, key) &&
+                restored_replay.restore_from_journal() &&
+                restored_replay.journal().size() == 2,
+                "old/current retained keys did not restore near capacity");
+        for (const auto& retained : {event(31, "device-A", 406),
+                                     event(1, "device-A", 409)}) {
+            require(restored_replay.authenticated_radio_message_callback(
+                        gs::node_message_from_event(retained), "bathroom", "device-A", 409, 0),
+                    "restored old/current retained replay ingress rejected");
+            const auto duplicate_after_restart = restored_replay.run_state_once();
+            require(duplicate_after_restart &&
+                    duplicate_after_restart->ack == gs::AckClass::Durable &&
+                    duplicate_after_restart->journal_result == CommitResult::Duplicate &&
+                    restored_replay.journal().size() == 2,
+                    "restored old/current replay consumed journal capacity");
+        }
+
+        gs::hub::HubRuntime full_hub(4, 1);
+        full_hub.authorize_node("bathroom", 17, true);
+        require(full_hub.radio_callback(event(1)), "Full mapping first event ingress");
+        const auto first_result = full_hub.run_state_once();
+        require(first_result && first_result->ack == gs::AckClass::Durable &&
+                first_result->journal_result == CommitResult::Stored,
+                "normal HubRuntime commit/ACK mapping failed");
+        require(full_hub.radio_callback(event(2)), "Full mapping overflow ingress");
+        const auto full_result = full_hub.run_state_once();
+        require(full_result && full_result->journal_result == CommitResult::Full &&
+                full_result->ack == gs::AckClass::Rejected &&
+                full_result->journal_count_before == 1 &&
+                full_result->journal_count_after == 1 &&
+                full_result->journal_capacity == 1,
+                "Hub Full did not map to Rejected with exact counts");
+        const auto full_ack = gs::transport::encode_node_ack(
+            gs::make_node_ack(full_result->key, full_result->ack, 0, "journal_rejected"));
+        require(static_cast<bool>(full_ack), "Hub Full Rejected ACK encoding failed");
+        const auto decoded_full_ack = gs::transport::decode_node_ack(
+            full_ack.frame.bytes.data(), full_ack.frame.size);
+        require(static_cast<bool>(decoded_full_ack) &&
+                decoded_full_ack.value->ack_type == gs::AckClass::Rejected,
+                "Hub Full Rejected ACK codec mapping failed");
+
+        MemorySlots failing_slots;
+        failing_slots.fail_write = true;
+        gs::hub::HubRuntime fault_hub(4, 128);
+        require(fault_hub.journal().attach_persistence(crypto, failing_slots, key),
+                "StorageFault mapping setup");
+        fault_hub.authorize_node("bathroom", 17, true);
+        require(fault_hub.radio_callback(event(70)), "StorageFault ingress");
+        const auto fault_result = fault_hub.run_state_once();
+        require(fault_result && fault_result->journal_result == CommitResult::StorageFault &&
+                fault_result->ack == gs::AckClass::Rejected &&
+                fault_result->journal_count_before == 0 &&
+                fault_result->journal_count_after == 0,
+                "StorageFault did not map to Rejected ACK");
+
         MemorySlots summary_slots;
         auto compacted = event(300);
         compacted.kind = gs::EventKind::MotionSummary;
