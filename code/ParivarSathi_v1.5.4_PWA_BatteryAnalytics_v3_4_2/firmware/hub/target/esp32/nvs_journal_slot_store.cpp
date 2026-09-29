@@ -15,6 +15,9 @@ constexpr std::size_t kMaximumBlob = 12 + 256 + 16;
 void slot_key(std::size_t slot, char (&key)[8]) {
     std::snprintf(key, sizeof(key), "e%03u", static_cast<unsigned>(slot));
 }
+void completion_key(std::size_t slot, char (&key)[8]) {
+    std::snprintf(key, sizeof(key), "c%03u", static_cast<unsigned>(slot));
+}
 }  // namespace
 
 bool NvsJournalSlotStore::initialize() {
@@ -75,6 +78,45 @@ bool NvsJournalSlotStore::write(std::size_t slot, const security::Bytes& blob) {
     if (!committed) return false;
     security::Bytes verified;
     return read(slot, verified, found) && found && verified == blob;
+}
+
+bool NvsJournalSlotStore::read_completion(std::size_t slot, security::Bytes& blob, bool& found) {
+    blob.clear(); found = false;
+    if (!initialized_ || slot >= kCapacity) return false;
+    char key[8]{};
+    completion_key(slot, key);
+    nvs_handle_t handle = 0;
+    const auto opened = nvs_open_from_partition(kPartition, kNamespace, NVS_READONLY, &handle);
+    if (opened == ESP_ERR_NVS_NOT_FOUND) return true;
+    if (opened != ESP_OK) return false;
+    std::size_t length = 0;
+    auto result = nvs_get_blob(handle, key, nullptr, &length);
+    if (result == ESP_ERR_NVS_NOT_FOUND) { nvs_close(handle); return true; }
+    if (result != ESP_OK || length != 32) { nvs_close(handle); return false; }
+    blob.resize(length);
+    result = nvs_get_blob(handle, key, blob.data(), &length);
+    nvs_close(handle);
+    if (result != ESP_OK || length != blob.size()) { blob.clear(); return false; }
+    found = true;
+    return true;
+}
+
+bool NvsJournalSlotStore::write_completion(std::size_t slot, const security::Bytes& blob) {
+    if (!initialized_ || slot >= kCapacity || blob.size() != 32) return false;
+    security::Bytes prior;
+    bool found = false;
+    if (!read_completion(slot, prior, found) || found) return false;
+    char key[8]{};
+    completion_key(slot, key);
+    nvs_handle_t handle = 0;
+    if (nvs_open_from_partition(kPartition, kNamespace, NVS_READWRITE, &handle) != ESP_OK)
+        return false;
+    const bool committed = nvs_set_blob(handle, key, blob.data(), blob.size()) == ESP_OK &&
+                           nvs_commit(handle) == ESP_OK;
+    nvs_close(handle);
+    if (!committed) return false;
+    security::Bytes verified;
+    return read_completion(slot, verified, found) && found && verified == blob;
 }
 
 }  // namespace gs::hub::target

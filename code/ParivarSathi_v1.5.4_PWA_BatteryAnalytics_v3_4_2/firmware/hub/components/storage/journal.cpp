@@ -3,9 +3,8 @@
 // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
 // Requirement links identify design responsibility, not completed acceptance coverage.
 // See docs/progress/Requirement_Traceability.csv and the v2.0 LLD for boundaries.
-// A commit result has three meanings: Stored adds a new record, Duplicate refers to an already known key,
-// and Full refuses new evidence. The name journal describes intended semantics; the current deque is
-// volatile. Cloud acknowledgements mark records but do not currently free capacity.
+// Persistent target slots retain accepted events for reducer replay and deduplication.
+// Backend completion receipts are separate write-once slots; neither frees capacity.
 
 #include "storage/journal.hpp"
 #include "gs/logging.hpp"
@@ -146,6 +145,27 @@ Bytes slot_aad(std::size_t slot) {
     return aad;
 }
 
+bool completion_mac(gs::security::CommissioningCrypto& crypto,
+                    const gs::security::Key32& key, std::size_t slot,
+                    const gs::EventKey& event_key, gs::security::Bytes& out) {
+    constexpr char context_text[] = "GharSajag/HubCompletion/v1";
+    const gs::security::Bytes context(context_text, context_text + sizeof(context_text) - 1);
+    const gs::security::Bytes salt{'G', 'S', 'C', 1};
+    gs::security::Key32 receipt_key{};
+    if (!crypto.hkdf_sha256(key, salt, context, receipt_key)) return false;
+    gs::security::Bytes message{'G', 'S', 'C', 1};
+    put64(message, slot);
+    const auto identity = event_key.str();
+    message.insert(message.end(), identity.begin(), identity.end());
+    gs::security::Key32 digest{};
+    const bool sealed = crypto.hmac_sha256(receipt_key, message, digest);
+    crypto.secure_zero(receipt_key.data(), receipt_key.size());
+    if (!sealed) return false;
+    out.assign(digest.begin(), digest.end());
+    crypto.secure_zero(digest.data(), digest.size());
+    return true;
+}
+
 bool open_slot(gs::security::CommissioningCrypto& crypto,
                const gs::security::Key32& key, std::size_t slot,
                const Bytes& blob, gs::DomainEvent& event) {
@@ -197,12 +217,25 @@ bool HubJournal::attach_persistence(security::CommissioningCrypto& crypto,
             !ids_.insert(event.key.str()).second) { storage_fault_ = true; break; }
         records_.push_back(std::move(event));
     }
+    if (!storage_fault_) for (std::size_t slot = 0; slot < capacity_; ++slot) {
+        security::Bytes receipt;
+        bool found = false;
+        if (!store.read_completion(slot, receipt, found)) { storage_fault_ = true; break; }
+        if (!found) continue;
+        security::Bytes expected;
+        if (slot >= records_.size() || receipt.size() != 32 ||
+            !completion_mac(crypto, storage_key_, slot, records_[slot].key, expected) ||
+            !crypto.constant_time_equal(receipt.data(), expected.data(), expected.size())) {
+            storage_fault_ = true;
+            break;
+        }
+        cloud_acked_.insert(records_[slot].key.str());
+    }
     return !storage_fault_;
 }
 
 // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
-// Return Stored, Duplicate or Full for this event identity; this reference container is volatile, not
-// flash.
+// Persistent target writes and verifies a slot before returning Stored.
 CommitResult HubJournal::commit(const DomainEvent& event) {
     GS_TRACE(gs::log::Category::Storage, "H02", "commit.enter", "-");
     if (storage_fault_) return CommitResult::StorageFault;
@@ -261,11 +294,29 @@ std::vector<DomainEvent> HubJournal::pending_cloud(std::size_t limit) const {
 }
 
 // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
-// Mark backend commitment; current reference does not reclaim journal records or implement flash
-// compaction.
+// Persist backend completion in a bounded receipt slot without reclaiming the event.
 bool HubJournal::acknowledge_cloud(const EventKey& key) {
     GS_TRACE(gs::log::Category::Storage, "H02", "acknowledge_cloud.enter", "-");
     if (!ids_.count(key.str())) return false;
+    if (cloud_acked_.count(key.str())) return true;
+    if (storage_fault_) return false;
+    if (store_) {
+        const auto found = std::find_if(records_.begin(), records_.end(), [&key](const DomainEvent& event) {
+            return event.key.str() == key.str();
+        });
+        if (found == records_.end()) return false;
+        const auto slot = static_cast<std::size_t>(std::distance(records_.begin(), found));
+        security::Bytes receipt;
+        security::Bytes verified;
+        bool present = false;
+        if (!completion_mac(*crypto_, storage_key_, slot, key, receipt) ||
+            !store_->write_completion(slot, receipt) ||
+            !store_->read_completion(slot, verified, present) ||
+            !present || verified != receipt) {
+            storage_fault_ = true;
+            return false;
+        }
+    }
     cloud_acked_.insert(key.str());
     return true;
 }

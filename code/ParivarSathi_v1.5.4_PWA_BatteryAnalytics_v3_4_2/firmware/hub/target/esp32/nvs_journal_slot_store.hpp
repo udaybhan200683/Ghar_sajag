@@ -11,6 +11,8 @@ public:
     bool initialize();
     bool read(std::size_t slot, security::Bytes& blob, bool& found) override;
     bool write(std::size_t slot, const security::Bytes& blob) override;
+    bool read_completion(std::size_t slot, security::Bytes& blob, bool& found) override;
+    bool write_completion(std::size_t slot, const security::Bytes& blob) override;
 private:
     bool initialized_{false};
 };

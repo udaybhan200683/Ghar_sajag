@@ -4,6 +4,39 @@ The revised Word documents in the bundle docs/ directory and IMPLEMENTATION_STAT
 
 # Ghar Sajag shared-product architecture — 1.4.0
 
+## Durable Hub/backend event boundary (integration branch)
+
+The Node's local `Durable` application ACK means the Hub has verified its
+encrypted journal write and accepted responsibility for the event. It does not
+mean the backend or a notification provider has seen it. The backend's
+`COMMITTED` response means its SQLite transaction durably recorded the event,
+identity receipt, applicable alert/notification jobs, and outbox entries.
+Provider delivery and human acknowledgement remain separate asynchronous
+states.
+
+`CloudSync::request_for` maps the journaled physical device, logical Node,
+**origin** session and event sequence to the backend EventKey. Its JSON body is
+deterministic across Hub restart; transport session is never substituted for
+origin session. `handle_backend_reply` accepts only an authenticated,
+matching `COMMITTED` result, including an exact duplicate result after a lost
+response. It then writes one authenticated, write-once completion receipt in
+the same numbered slot as the journal event (`c000` through `c127` in the
+`gs_journal` partition). A failed or ambiguous receipt write does not mark the
+event complete. On restart, the Hub verifies receipts against their event slot
+and skips already confirmed events; absent receipts remain pending. A corrupt
+or orphaned receipt fails journal restore closed. Retries and duplicate replies
+cause no extra NVS write. No journal event is reclaimed.
+
+Transient failures use capped per-event backoff so another Node can progress.
+An authenticated conflict is quarantined in memory and never becomes a
+completion receipt. Restart may retry the conflict, which remains safe.
+
+The production ESP32 Hub currently has no backend HTTP/TLS client or trusted
+backend identity mechanism. This branch provides the persistent receipt and
+typed request/response boundary plus host cross-layer tests; the target must
+bind `CloudSync` to an authenticated client before enabling delivery. The
+simulator's `DURABLE_MODEL` response is not a production `COMMITTED` proof.
+
 Parivar Saathi is the non-AI edition. Sarthi-AI adds optional resident-initiated
 interaction. Both reuse node firmware, monitoring, incident and caregiver logic.
 This is an additive HLD/LLD for the existing reference; earlier Word documents

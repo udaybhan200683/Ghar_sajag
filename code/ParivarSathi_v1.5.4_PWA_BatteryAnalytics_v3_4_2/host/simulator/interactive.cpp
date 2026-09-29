@@ -213,7 +213,7 @@ int main() {
             else if(cmd=="clear_signals") {sim->pending_signals.clear();sim->pending_signal_times.clear();}
             else if(cmd=="deadline") sim->deadline();
             else if(cmd=="duplicate") {if(!sim->last_business)throw std::runtime_error("no_business_event");sim->hub.radio_callback(*sim->last_business);auto r=sim->hub.run_state_once(sim->local_minute());if(r)sim->collect(r->rule_signals);sim->deadline();}
-            else if(cmd=="ack") {std::string key;in>>key;for(const auto& e:sim->hub.journal().pending_cloud(4096))if(e.key.str()==key)sim->cloud.application_commit_ack(e.key);}
+            else if(cmd=="ack") {std::string key;in>>key;for(const auto& e:sim->hub.journal().pending_cloud(4096))if(e.key.str()==key)sim->cloud.handle_backend_reply(e.key,{hub::BackendReplyStatus::Committed,e.key,true,false},0);}
             else if(cmd=="ack_missing") sim->decision_pending=false;
             else if(cmd!="state") throw std::runtime_error("unknown_command");
             sim->print();

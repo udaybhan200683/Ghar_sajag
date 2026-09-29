@@ -58,7 +58,7 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
 
-.PHONY: all verify cpp-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
+.PHONY: all verify cpp-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 
 BATTERY_C8_SOURCES := shared/src/logging.cpp firmware/node/components/sensing/sensing.cpp firmware/node/components/power/power.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp
 BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCES))
@@ -114,6 +114,10 @@ hub-journal-persistence-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
 	./build/hub_journal_persistence_validation
 
+hub-backend-commit-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/cloud/cloud_sync.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_backend_commit_validation.cpp -lcrypto -o build/hub_backend_commit_validation
+	./build/hub_backend_commit_validation
+
 commissioning-crypto-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/commissioning_protocol.cpp firmware/common/security/commissioning_wire.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
 	./build/commissioning_crypto_validation
@@ -141,7 +145,7 @@ simulator: build
 simulate-matrix:
 	python3 tools/sim/scenario_matrix.py
 
-python-test: lab-build
+python-test: lab-build hub-backend-commit-host-test
 	# unittest discovery includes the Phase 1 foundation, persistence and WSGI API suites.
 	PYTHONPATH=backend python3 -m unittest discover -s tests/python -p 'test_*.py' -v
 
@@ -221,7 +225,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test
+validation-fast: hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately

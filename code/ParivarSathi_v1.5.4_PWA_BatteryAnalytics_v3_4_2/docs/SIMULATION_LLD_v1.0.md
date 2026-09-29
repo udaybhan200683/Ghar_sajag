@@ -28,7 +28,7 @@ The Base lab requires the default morning/call/offline flags. It is not the gene
 
 ## Cloud replay and incident mapping
 
-When WAN is down, CloudSync returns no batch; Python does not refresh the backend heartbeat. The simulated node/hub can still handle events. When WAN resumes, Python obtains pending events from CloudSync and posts each to the existing JSON adapter. Only an application `commit` response triggers `application_commit_ack` in the child. The API's historical string `DURABLE` is labelled **DURABLE_MODEL** in the lab because the backing container is memory.
+When WAN is down, CloudSync returns no batch; Python does not refresh the backend heartbeat. The simulated node/hub can still handle events. When WAN resumes, Python obtains pending events from CloudSync and posts each to the existing JSON adapter. A simulated `DURABLE_MODEL` response drives a host-only `ack` command in the child. The child maps that command to a typed CloudSync completion reply; it is a model signal, not authenticated production backend commitment. The real durable SQLite endpoint instead returns `COMMITTED` after its atomic business transaction.
 
 The missing-morning decision is a separate adapter-held pending flag. Python converts it to one stable `MISSING_MORNING_ACTIVITY` envelope and clears the flag after backend acceptance. This demonstrates the mapping; the boolean is not a production transactional outbox. There is one synthetic window per reset. Repeated deadline checks use the original reducer's existing incident gate.
 

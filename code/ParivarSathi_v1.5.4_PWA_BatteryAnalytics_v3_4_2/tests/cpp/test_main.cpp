@@ -319,7 +319,10 @@ void test_hub_modules() {
     cloud.set_connected(true, 0);
     const auto batch = cloud.next_batch(0);
     check(!batch.empty() && batch.front().kind == gs::EventKind::CallFamily, "contact requests are replayed first");
-    check(cloud.application_commit_ack(call.key), "application commit ack retires outbox item");
+    check(cloud.handle_backend_reply(call.key,
+          {gs::hub::BackendReplyStatus::Committed, call.key, true, false}, 0) ==
+          gs::hub::BackendReceiptResult::Completed,
+          "authenticated backend commit retires outbox item");
 
     gs::hub::HubRuntime runtime(4, 8);
     runtime.authorize_node("node-1", 7, true);
