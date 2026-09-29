@@ -28,7 +28,8 @@ class Key:
 class Snapshot:
     session: int
     highwater: int
-    pending: tuple[tuple[Key, bytes], ...]
+    # Kind is durable with the retry payload. Heartbeat is sequenced too.
+    pending: tuple[tuple[Key, bytes, str], ...]
     generation: int
 
 
@@ -53,10 +54,11 @@ class Report:
                            "sha256")
 
 
-def event_digest(key: Key, payload: bytes) -> bytes:
+def event_digest(key: Key, payload: bytes, kind: str = "business") -> bytes:
     return hmac.digest(SECRET, b"GS-EVENT-v1\0" +
                        struct.pack(">QQI", key.session, key.sequence,
-                                   len(payload)) + payload, "sha256")
+                                   len(payload)) + kind.encode() + b"\0" + payload,
+                       "sha256")
 
 
 class Node:
@@ -65,28 +67,34 @@ class Node:
         self.transport_session = session
         self.next_sequence = 1
         self.highwater = 0
-        self.pending: dict[Key, bytes] = {}
+        self.pending: dict[Key, tuple[bytes, str]] = {}
         self.durable = Snapshot(session, 0, (), 1)
 
     def persist(self) -> None:
         self.durable = Snapshot(self.session, self.highwater,
-                                tuple(sorted(self.pending.items())),
+                                tuple(sorted((key, payload, kind)
+                                             for key, (payload, kind) in self.pending.items())),
                                 self.durable.generation + 1)
 
     def record(self, payload: bytes, *, admit: bool = True,
-               persist: bool = True) -> Key | None:
+               persist: bool = True, kind: str = "business") -> Key | None:
+        assert kind in ("business", "heartbeat")
         key = Key(self.session, self.next_sequence)
         self.next_sequence += 1  # Current firmware allocates before admission.
         if not admit or len(self.pending) == MAX_PENDING:
             return None
-        self.pending[key] = payload
+        self.pending[key] = (payload, kind)
+        # Every admitted sequenced NodeMessage can enter the Hub journal.
         self.highwater = key.sequence
         if persist:
             self.persist()  # Target saves before radio send.
         return key
 
     def transmit(self, key: Key) -> bytes:
-        return dict(self.durable.pending)[key]
+        return {saved: payload for saved, payload, _ in self.durable.pending}[key]
+
+    def kind(self, key: Key) -> str:
+        return {saved: kind for saved, _, kind in self.durable.pending}[key]
 
     def retire(self, key: Key, *, persist: bool = True) -> None:
         del self.pending[key]
@@ -96,12 +104,12 @@ class Node:
     def report(self) -> Report:
         s = self.durable
         return Report(EPOCH, s.generation, s.session, s.highwater,
-                      tuple(sorted(k for k, _ in s.pending)))
+                      tuple(sorted(k for k, _, _ in s.pending)))
 
     def reboot(self, new_session: int, *, persist: bool = True) -> None:
         assert new_session > self.transport_session
         s = self.durable
-        self.pending = dict(s.pending)
+        self.pending = {key: (payload, kind) for key, payload, kind in s.pending}
         self.session = new_session
         self.transport_session = new_session
         self.next_sequence = 1
@@ -121,7 +129,8 @@ class Hub:
         self.committed: dict[Key, bytes] = {}
         self.durable: tuple[Report | None, dict[Key, bytes]] = (None, {})
 
-    def event(self, key: Key, payload: bytes) -> str:
+    def event(self, key: Key, payload: bytes, *, kind: str = "business") -> str:
+        assert kind in ("business", "heartbeat")
         report = self.report
         if report:
             if key.session > report.current_session:
@@ -130,7 +139,7 @@ class Hub:
                                key.sequence <= report.highwater)
             if known_at_report and key not in report.outstanding:
                 return "stale"
-        digest = event_digest(key, payload)
+        digest = event_digest(key, payload, kind)
         if key in self.committed:
             return "duplicate" if self.committed[key] == digest else "conflict"
         if len(self.committed) == MAX_HUB_KEYS:
@@ -348,6 +357,56 @@ class RetirementProtocolModelTest(unittest.TestCase):
         self.assertEqual(normal, 77122)
         normal_entries = 3160 - 1792 - 544 + 1088 + 27 + 3 * (2 + (report_snapshot + 31) // 32) + 34
         self.assertEqual(normal_entries, 2552)
+
+    def test_23_heartbeat_between_business_events_is_reported(self):
+        n, h = self.pair()
+        n.next_sequence = 10
+        first = n.record(b"business-10")
+        heartbeat = n.record(b"heartbeat-11", kind="heartbeat")
+        later = n.record(b"business-12")
+        self.assertEqual((first.sequence, heartbeat.sequence, later.sequence),
+                         (10, 11, 12))
+        self.assertEqual(n.report().highwater, 12)
+        self.assertEqual(n.report().outstanding, (first, heartbeat, later))
+        self.assertEqual(h.event(heartbeat, n.transmit(heartbeat),
+                                 kind=n.kind(heartbeat)), "new")
+        self.assertEqual(h.accept_report(n.report(), n.transport_session), "accepted")
+        self.assertEqual(h.event(heartbeat, n.transmit(heartbeat),
+                                 kind=n.kind(heartbeat)), "duplicate")
+        n.reboot(11)
+        self.assertEqual(n.kind(heartbeat), "heartbeat")
+        self.assertIn(heartbeat, n.report().outstanding)
+        self.assertEqual(h.event(heartbeat, n.transmit(heartbeat),
+                                 kind=n.kind(heartbeat)), "duplicate")
+
+    def test_24_heartbeat_pending_after_business_drains(self):
+        n, h = self.pair()
+        n.next_sequence = 10
+        first = n.record(b"business-10")
+        intervening = n.record(b"heartbeat-11", kind="heartbeat")
+        later = n.record(b"business-12")
+        last = n.record(b"heartbeat-13", kind="heartbeat")
+        for key in (first, intervening, later, last):
+            self.assertEqual(h.event(key, n.transmit(key), kind=n.kind(key)), "new")
+        for key in (first, intervening, later):
+            n.retire(key)
+        self.assertEqual(n.report().highwater, 13)
+        self.assertEqual(n.report().outstanding, (last,))
+        self.assertEqual(h.accept_report(n.report(), n.transport_session), "accepted")
+        self.assertEqual(set(h.committed), {last})
+        self.assertEqual(h.event(first, b"business-10"), "stale")
+        self.assertEqual(h.event(later, b"business-12"), "stale")
+        self.assertEqual(h.event(last, n.transmit(last), kind=n.kind(last)),
+                         "duplicate")
+        n.reboot(11)
+        self.assertIn(last, n.report().outstanding)
+        self.assertEqual(h.accept_report(n.report(), n.transport_session), "accepted")
+        self.assertEqual(h.event(last, n.transmit(last), kind=n.kind(last)),
+                         "duplicate")
+        n.retire(last)
+        self.assertEqual(h.accept_report(n.report(), n.transport_session), "accepted")
+        self.assertNotIn(last, h.committed)
+        self.assertEqual(h.event(last, b"heartbeat-13", kind="heartbeat"), "stale")
 
 
 if __name__ == "__main__":

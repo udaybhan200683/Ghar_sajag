@@ -25,6 +25,30 @@ create two copies of the same key. `NodeStore::append` currently accepts an
 already present key without comparing payloads; the new implementation must
 reject a conflicting same-key payload and fail closed.
 
+**Highwater scope clarification.** `Heartbeat` is the only current
+`EventKind` for which `is_business_event` is false. If passed to
+`NodeRuntime::record`, it receives an ordinary EventKey, enters `NodeRadio`'s
+retry queue and the encrypted recovery snapshot, and can survive a reboot.
+The ESP32-C3 target currently sends periodic `NodeHealth` frames separately;
+those control frames have no EventKey from `NodeRuntime::record`. An
+authenticated `Heartbeat` **NodeMessage** is different: HubRuntime commits it
+to `HubJournal`, applies coverage/routine observation, exposes it to the
+backend event stream, and returns an EventKey ACK. The current Hub does not
+give it a separate ephemeral-only path. Thus the retirement proof and exact
+digest ledger cover every admitted sequenced `NodeMessage`, including
+`Heartbeat`, while `NodeHealth` and other unsequenced control frames are
+outside this proof. The proposed business-only highwater/pending-set model is
+unsafe for the current Hub path. A complete business-only set would prove
+absence of business keys considered alone, but it would give the Hub no
+retirement evidence for a committed, still-retryable heartbeat key in the
+same event journal and backend stream.
+
+Today `NodeRuntime::acknowledge` can return false for a durable heartbeat ACK
+after `NodeRadio` has removed the key, because `NodeStore` has no heartbeat
+record. The target detects the changed pending count and persists recovery.
+Report-generation updates must follow that saved pending-set change, not the
+`acknowledge` return value alone.
+
 The proof below covers **all pending NodeMessage keys**, avoiding a separate
 exception for nonbusiness retries. A `RetirementReport` is valid only for an
 authenticated enrolled physical device and its bound logical source.
@@ -34,8 +58,10 @@ authenticated enrolled physical device and its bound logical source.
 A durable Node snapshot contains the complete set `P` of at most 32 pending
 keys. Its `current_origin_session` is the session in which `NodeRuntime` can
 still allocate. Its `durable_admission_highwater` is the highest sequence of
-an event successfully admitted and saved in that origin session. Failed
-admissions need no durable allocation entry: they were never transmissible.
+**any sequenced `NodeMessage`** successfully admitted to the durable pending
+snapshot in that origin session, whether or not `NodeStore` also retains its
+payload as a business event. Failed admissions need no durable allocation
+entry: they were never transmissible.
 The existing sparse sequence allocator is retained.
 Sequence, session, report-generation and enrollment-generation overflow
 must stop admission; wrapping any of them would invalidate the proof.
@@ -59,6 +85,16 @@ is the admission highwater. For an older session without listed keys it is
 closed. The complement of `P` also retires individual keys **above** a blocked
 floor, so one indefinitely pending low sequence cannot leak unbounded Hub
 dedupe records as later events are ACKed.
+
+For example, admitted business keys 10 and 12 around a pending heartbeat key
+11 produce highwater 12, and `P` lists whichever of **10, 11 and 12** still
+awaits its EventKey ACK. If a later heartbeat key 13 remains pending after
+both business keys retire, the origin session remains open for Hub journal
+dedupe until 13 also leaves a saved pending snapshot. The business payloads
+may have drained, but this is not a closed Hub event-dedupe session. A
+nonbusiness sequence is a harmless sparse gap only when its message was
+never durably admitted or has been durably retired; its kind alone does not
+make the key ignorable.
 
 Alternatives: a contiguous floor alone would pin later ACKed keys behind one
 old pending key. A floor with sparse retired gaps becomes an unbounded list
@@ -117,17 +153,19 @@ with retirement epoch `u32`, durable admission highwater `u64`, and retirement
 report generation `u64`: **20 new plaintext bytes per Node**. The current
 origin session and the full pending set are already present. The report
 generation increments only when the report projection changes: admitted key,
-durable ACK removal, origin-session change, or epoch change. The outer
+any exact-key pending removal (including a permitted volatile `Heartbeat`
+ACK), origin-session change, or epoch change. The outer
 repository generation remains the storage-write generation. The epoch and
 report generation are never stored independently of the pending set.
 
-An admitted event is saved with its key, payload, new highwater and report
-generation **before** radio send. If save or readback is ambiguous, stop
-transmission and resolve by reloading the snapshot. A failed admission does
+An admitted `NodeMessage` is saved with its key, pending payload, new
+highwater and report generation **before** radio send. If save or readback is
+ambiguous, stop transmission and resolve by reloading the snapshot. A failed admission does
 not enter the pending set; a later successful save may jump the highwater
-over its gap. A received durable/policy ACK removes exactly its key and saves
-the new pending set/generation before any report may claim its absence. A
-failed save stops the owner: reboot restores either the old pending key or
+over its gap. A received ACK that permits removal of a pending key removes
+exactly that key and saves the new pending set/generation before any report
+may claim its absence. A failed save stops the owner: reboot restores either
+the old pending key or
 the new absent key. Retry timing changes may be persisted without advancing
 report generation. On boot, restore the old snapshot, authenticate a strictly
 newer transport session, create a fresh origin session, set its highwater to
@@ -160,11 +198,12 @@ values before event admission. Report epoch mismatch fails closed.
 
 The Hub keeps an exact `(enrollment slot generation, origin session,
 sequence, HMAC-SHA256 payload digest)` for each committed EventKey that may
-still be retransmitted. HMAC-SHA256 uses a derived Hub dedupe key and a
-versioned canonical encoding of the **immutable Node-origin fields**:
+still be retransmitted, including committed `Heartbeat` NodeMessages.
+HMAC-SHA256 uses a derived Hub dedupe key and a versioned canonical encoding
+of the **immutable Node-origin fields**:
 physical/logical binding, origin session, sequence, event kind, location,
 Node monotonic/occurred times, uncertainty, battery, test/sensor fields,
-Node event RSSI, and motion aggregate or other business payload. Exclude
+Node event RSSI, and motion aggregate or other Node-origin payload. Exclude
 Hub receive time, transport RSSI and mutable power telemetry. Persist the
 digest with the committed transition, before a durable Node ACK. Same key
 and digest is an exact duplicate and receives a durable ACK without effects.
@@ -267,12 +306,13 @@ and may be backpressured; no historical retirement floor is fabricated.
 
 ## Host proof and implementation boundary
 
-`tests/python/test_node_retirement_protocol_model.py` contains 22
+`tests/python/test_node_retirement_protocol_model.py` contains 24
 deterministic cases: lost ACK, out-of-order delivery, gap, Node/Hub reboot,
 in-place rejoin, late old-origin event, 32 simultaneous previous sessions,
 session closure, report replay/conflict/resurrection, payload conflict,
 crashes before/after Node durable removal, lost report/response, full queue,
-wire bounds, and the storage calculation. It is an architecture model, not a
+wire bounds, the storage calculation, and sequenced heartbeat admission,
+retry, reboot, and session closure. It is an architecture model, not a
 test of future firmware. The next implementation task must implement the
 versioned snapshot/wire codecs and A/B report-state ownership, then rerun
 equivalent tests against production code and target NVS fault injection.
