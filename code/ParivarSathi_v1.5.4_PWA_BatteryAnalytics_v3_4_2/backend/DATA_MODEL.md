@@ -78,3 +78,48 @@ materialize only the six newest reportable highlights. The generic in-memory
 mapping path remains the semantic reference/fallback. SQL aggregate operations
 may use bounded temporary grouping B-trees; full report history is no longer
 deserialized into Python objects for every request.
+
+## Durable Hub event commit contract
+
+Migration `008_durable_event_commit.sql` adds an immutable EventKey receipt and
+notification outbox to the existing `events`, `alerts`, and `notification_jobs`
+tables. `DurableEventCommit` uses one file-backed SQLite connection with foreign
+keys and FULL synchronous writes. Its caller must start outside a transaction.
+It starts `BEGIN IMMEDIATE`, checks the exact identity, inserts the event and
+applicable incident and notification work, then commits before returning
+`status: "COMMITTED"`. A database error rolls back the whole operation.
+
+The canonical identity is `(home_id, physical_device_id, logical_node_id,
+origin_session_id, event_sequence)`. The serialized event ID uses the same
+length-prefixed physical/logical ID form as the Hub `EventKey::str()`. Origin
+session and sequence come from the event; the current radio transport session
+must never replace them. The SHA-256 comparison covers event type, source and
+Hub timestamps, location, uncertainty, test flag, and a sorted canonical JSON
+payload. Backend receipt time is deliberately excluded, so a lost HTTP response
+can be retried later. The identity columns are unique in SQLite. An identical
+retry returns the existing committed result without writing; a changed payload
+returns a conflict without changing the original event.
+
+The configured durable event API responds with `201` and
+`{"event_key": ..., "status": "COMMITTED", "duplicate": false}` for first
+commit, `200` with `duplicate: true` for an exact retry, and `409` for a
+conflicting retry. Trusted middleware must set the internal WSGI
+`gs.verified_hub` field, and an injected authorizer must bind that identity,
+the home, and EventKey. A raw `X-Actor-Id` header is not Hub authentication.
+Without a configured durable store the structured EventKey
+request fails closed. The old local simulator API returns `DURABLE_MODEL`; it
+does not establish backend business commitment.
+
+Incident creation and primary/backup `notification_jobs` are in the same
+transaction as the event and outbox rows. Quiet-door notices receive a pending
+outbox row. No external provider call occurs in that transaction. A sender
+reads `due_outbox`, supplies `outbox_id` as the provider idempotency key, and
+marks delivery only after provider acceptance. A sender crash may retry a
+provider request; provider-side idempotency is therefore required for
+exactly-once external delivery. `COMMITTED` proves durable enqueue, not phone
+delivery or human acknowledgement.
+
+This SQLite contract does not configure a production Hub HTTP client, TLS
+identity, or a production PostgreSQL deployment. A production adapter must
+preserve the same transaction and uniqueness rules before the Hub may treat an
+HTTP response as `BACKEND_COMMIT_ACK`.

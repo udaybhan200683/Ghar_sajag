@@ -13,11 +13,13 @@ from __future__ import annotations
 from .logging_config import traced
 import json
 import re
+import sqlite3
 from typing import Callable, Iterable
 from urllib.parse import parse_qs
 
 from .model import CloudEvent, Resident
 from .service import GharSajagService
+from .durable_commit import DurableEventCommit, EventCommitConflict
 
 
 class JsonApi:
@@ -27,11 +29,15 @@ class JsonApi:
     verified OIDC claims at the trust boundary.
     """
 
-    def __init__(self, service: GharSajagService | None = None, now: Callable[[], int] | None = None) -> None:
+    def __init__(self, service: GharSajagService | None = None, now: Callable[[], int] | None = None,
+                 durable_events: DurableEventCommit | None = None,
+                 authorize_hub: Callable[[dict, str, dict], bool] | None = None) -> None:
         import time
 
         self.service = service or GharSajagService()
         self.now = now or (lambda: int(time.time()))
+        self.durable_events = durable_events
+        self.authorize_hub = authorize_hub
 
     def __call__(self, environ: dict, start_response: Callable) -> Iterable[bytes]:
         try:
@@ -40,9 +46,13 @@ class JsonApi:
             actor = environ.get("HTTP_X_ACTOR_ID", "")
             body = self._body(environ)
             query = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
-            status, payload = self.dispatch(method, path, actor, body, query)
+            status, payload = self.dispatch(method, path, actor, body, query, environ)
         except PermissionError as error:
             status, payload = "403 Forbidden", {"error": str(error)}
+        except EventCommitConflict as error:
+            status, payload = "409 Conflict", {"error": str(error)}
+        except sqlite3.Error:
+            status, payload = "503 Service Unavailable", {"error": "event_commit_unavailable"}
         except KeyError as error:
             status, payload = "404 Not Found", {"error": str(error)}
         except (ValueError, json.JSONDecodeError) as error:
@@ -53,11 +63,13 @@ class JsonApi:
 
     @traced("B11")
 
-    def dispatch(self, method: str, path: str, actor: str, body: dict, query: dict | None = None) -> tuple[str, dict]:
+    def dispatch(self, method: str, path: str, actor: str, body: dict, query: dict | None = None,
+                 request_context: dict | None = None) -> tuple[str, dict]:
         with self.service.lock:
-            return self._dispatch(method, path, actor, body, query)
+            return self._dispatch(method, path, actor, body, query, request_context)
 
-    def _dispatch(self, method: str, path: str, actor: str, body: dict, query: dict | None = None) -> tuple[str, dict]:
+    def _dispatch(self, method: str, path: str, actor: str, body: dict, query: dict | None = None,
+                  request_context: dict | None = None) -> tuple[str, dict]:
         at = self.now()
         query = query or {}
         if method == "GET" and path == "/healthz":
@@ -69,9 +81,21 @@ class JsonApi:
         match = re.fullmatch(r"/v1/homes/([^/]+)/events", path)
         if method == "POST" and match:
             home_id = match.group(1)
+            if "event_key" in body or self.durable_events is not None:
+                if self.durable_events is None:
+                    return "503 Service Unavailable", {"error": "durable_event_store_unavailable"}
+                context = request_context or {}
+                # Trusted middleware sets this internal WSGI key; it must never
+                # be copied from a client-controlled HTTP header.
+                if (not isinstance(context.get("gs.verified_hub"), str) or
+                    self.authorize_hub is None or
+                    not self.authorize_hub(context, home_id, body.get("event_key"))):
+                    raise PermissionError("hub_not_authorized")
+                result = self.durable_events.commit(home_id, body, at)
+                return ("200 OK" if result["duplicate"] else "201 Created"), result
             event = CloudEvent(home_id, body["event_id"], body["kind"], body.get("location", ""), int(body["occurred_at"]), int(body["hub_received_at"]), at, int(body.get("uncertainty_s", 0)), bool(body.get("is_test", False)), body.get("payload", {}))
             _, duplicate = self.service.accept_hub_event(event)
-            return ("200 OK" if duplicate else "202 Accepted"), {"event_id": event.event_id, "duplicate": duplicate, "commit": "DURABLE"}
+            return ("200 OK" if duplicate else "202 Accepted"), {"event_id": event.event_id, "duplicate": duplicate, "commit": "DURABLE_MODEL"}
         match = re.fullmatch(r"/v1/homes/([^/]+)/config", path)
         if match:
             home_id = match.group(1)

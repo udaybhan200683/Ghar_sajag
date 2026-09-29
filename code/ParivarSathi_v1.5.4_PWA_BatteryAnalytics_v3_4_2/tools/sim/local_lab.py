@@ -489,7 +489,7 @@ class Lab:
             had_check_in_overdue = self._has_active_check_in_overdue()
             result = self.api_call("POST", f"/v1/homes/{HOME}/events", wire)
             self.log.info("category=SIM module=B03 event=ingest id=%s duplicate=%s", wire["event_id"], result["duplicate"])
-            if result.get("commit") != "DURABLE":
+            if result.get("commit") != "DURABLE_MODEL":
                 raise RuntimeError("Missing backend model acknowledgement")
             self._apply_notification_for_event(wire["event_id"])
             if event["kind"] == "OK_PRESSED" and (getattr(self, "pwa_flags", {}).get("ok_negative") or had_check_in_overdue):
