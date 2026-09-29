@@ -239,6 +239,9 @@ CommitStatus DurableStore::commit(Transition candidate){
         }
     }
     for(const auto&t:s.tail)if(t.event==candidate.event)return CommitStatus::Committed;
+    std::size_t pending_effect_count = s.checkpoint.pending_effects.size() + candidate.effects.size();
+    for (const auto& t : s.tail) pending_effect_count += t.effects.size();
+    if (pending_effect_count > kMaxPendingEffects) return CommitStatus::NotCommitted;
     if(s.last_ordinal-s.checkpoint.covered_ordinal>=4)return CommitStatus::NotCommitted;
     candidate.storage_epoch=epoch_;candidate.ordinal=s.last_ordinal+1;Bytes blob;if(!Codec::encode_transition(crypto_,key_,candidate,blob))return CommitStatus::NotCommitted;const auto slot=static_cast<std::size_t>((candidate.ordinal-1)%4);Bytes prior;bool found=false;if(!store_.read(trkey(slot),prior,found))return CommitStatus::StorageFault;
     if(found){

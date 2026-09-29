@@ -88,6 +88,7 @@ void stream_validation(gs::host::security::OpenSslCommissioningCrypto& crypto,co
     MemoryBlobStore gap;Bytes blob;require(Codec::encode_transition(crypto,key,transition(2),blob)&&gap.write_immutable("tr1",blob),"install ordinal gap");DurableStore gap_store(gap,crypto,key,1);RecoveryState state;require(!gap_store.recover(state),"ordinal gap fails closed");
     MemoryBlobStore duplicate;require(Codec::encode_transition(crypto,key,transition(1),blob)&&duplicate.write_immutable("tr0",blob),"install first ordinal");require(duplicate.write_immutable("tr1",blob),"install duplicate ordinal");DurableStore duplicate_store(duplicate,crypto,key,1);require(!duplicate_store.recover(state),"duplicate ordinals fail closed");
     MemoryBlobStore replay;DurableStore replay_store(replay,crypto,key,1);auto newest=transition(2);newest.event={"node-x","sensor",90,2};require(replay_store.commit(newest)==CommitStatus::Committed,"newest source sequence accepted");auto stale=transition(1);stale.event={"node-x","sensor",90,1};require(replay_store.commit(stale)==CommitStatus::NotCommitted,"stale tail sequence rejected");
+    MemoryBlobStore full;auto full_cp=checkpoint(1,0);for(std::uint64_t i=0;i<kMaxPendingEffects;++i)full_cp.pending_effects.push_back({i+1,0,{}});require(Codec::encode_checkpoint(crypto,key,full_cp,blob)&&full.write_immutable("cp0",blob),"install full pending-effect state");DurableStore full_store(full,crypto,key,1);auto extra=transition(1);extra.effects.push_back(effect(101));require(full_store.commit(extra)==CommitStatus::NotCommitted,"full pending-effect bound backpressures");
 }
 void selector_ordering(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
     MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);
@@ -112,8 +113,27 @@ void handoff_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,const
 }
 void bitmap_and_stress(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
     MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);CompletionBitmap bm;bm.mapping_digest.fill(8);bm.checkpoint_generation=1;bm.committed_bits=1;require(store.commit_bitmap(bm)==CommitStatus::Committed,"first completion bitmap");const auto writes=mem.write_count();require(store.commit_bitmap(bm)==CommitStatus::Committed,"duplicate committed state is idempotently recorded");CompletionBitmap got;require(store.read_bitmap(bm.mapping_digest,got)&&got.committed_bits==1&&got.generation==1&&mem.write_count()==writes,"bitmap duplicate avoids a write");
-    MemoryBlobStore stress_mem;DurableStore stress(stress_mem,crypto,key,1);for(std::uint64_t n=1;n<=1000;++n){const auto status=stress.commit(transition(n));require(status==CommitStatus::Committed||status==CommitStatus::AmbiguousResolvedCommitted,"stress transition commit");if(n%2==0){auto cp=checkpoint(n/2,n);require(stress.checkpoint(cp),"every-two checkpoint");}if(n%25==0){RecoveryState s;require(stress.recover(s)&&s.last_ordinal==n,"stress restore cycle");}}
-    RecoveryState final;require(stress.recover(final)&&final.last_ordinal==1000&&final.tail.size()<=4,"1000 transition bounded recovery");require(stress.commit(transition(1000))==CommitStatus::Committed,"checkpointed duplicate does not allocate ordinal");require(stress.recover(final)&&final.last_ordinal==1000,"dedupe frontier survives restart");require(stress.commit(transition(990))==CommitStatus::NotCommitted,"stale sequence cannot allocate a second ordinal");require(stress.commit(transition(1001))==CommitStatus::Committed,"next ordinal after stress");require(stress.recover(final)&&final.last_ordinal==1001,"next ordinal advances exactly once");
+    MemoryBlobStore stress_mem;DurableStore stress(stress_mem,crypto,key,1);
+    Checkpoint rolling=checkpoint(1,0);std::uint16_t completed_group=0;std::uint64_t current_group=std::numeric_limits<std::uint64_t>::max();
+    for(std::uint64_t n=1;n<=1000;++n){
+        auto candidate=transition(n);
+        if(n%100==0)candidate.effects.push_back(effect(static_cast<std::size_t>(n),8));
+        const auto status=stress.commit(candidate);require(status==CommitStatus::Committed||status==CommitStatus::AmbiguousResolvedCommitted,"stress transition commit");
+        const auto group=(n-1)/16;if(group!=current_group){current_group=group;completed_group=0;}
+        completed_group=static_cast<std::uint16_t>(completed_group|(1U<<((n-1)%16)));
+        CompletionBitmap receipt;receipt.mapping_digest.fill(static_cast<std::uint8_t>(group+1));receipt.checkpoint_generation=(n+1)/2;receipt.committed_bits=completed_group;
+        require(stress.commit_bitmap(receipt)==CommitStatus::Committed,"stress backend completion");
+        if(n%2==0){
+            RecoveryState pending;require(stress.recover(pending)&&pending.last_ordinal==n,"checkpoint candidate recovery");
+            rolling.generation=n/2;rolling.covered_ordinal=n;rolling.reducer_state={static_cast<std::uint8_t>(n>>24),static_cast<std::uint8_t>(n>>16),static_cast<std::uint8_t>(n>>8),static_cast<std::uint8_t>(n)};
+            std::vector<Effect> effects;std::vector<EffectReference> refs;
+            for(const auto& item:pending.tail)for(std::size_t i=0;i<item.effects.size();++i){effects.push_back(item.effects[i]);refs.push_back({item.ordinal,static_cast<std::uint8_t>(i),item.effects[i].id});}
+            if(!effects.empty())require(stress.handoff_effects(refs,effects,n/2,rolling),"stress effect payload handoff");
+            require(stress.checkpoint(rolling),"every-two checkpoint");
+        }
+        if(n%25==0){RecoveryState s;require(stress.recover(s)&&s.last_ordinal==n,"stress restore cycle");}
+    }
+    RecoveryState final;require(stress.recover(final)&&final.last_ordinal==1000&&final.tail.size()<=4&&final.checkpoint.pending_effects.size()==10,"1000 transition bounded recovery with handed-off effects");for(std::uint64_t n=100;n<=1000;n+=100){PendingEffectChunk restored;require(stress.read_pending_chunk(n/2,restored)&&restored.effects.size()==1,"stress effect chunk restores");}CompletionBitmap final_receipt;std::array<std::uint8_t,32> last_mapping{};last_mapping.fill(63);require(stress.read_bitmap(last_mapping,final_receipt)&&final_receipt.committed_bits==0x00ff,"stress completion bitmap restores");require(stress.commit(transition(1000))==CommitStatus::Committed,"checkpointed duplicate does not allocate ordinal");require(stress.recover(final)&&final.last_ordinal==1000,"dedupe frontier survives restart");require(stress.commit(transition(990))==CommitStatus::NotCommitted,"stale sequence cannot allocate a second ordinal");require(stress.commit(transition(1001))==CommitStatus::Committed,"next ordinal after stress");require(stress.recover(final)&&final.last_ordinal==1001,"next ordinal advances exactly once");
 }
 void modeled_migration_budget() {
     const auto entries = [](std::size_t bytes) {
