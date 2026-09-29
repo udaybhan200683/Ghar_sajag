@@ -341,6 +341,12 @@ bytes `gs_journal`; both already carry other state. See the numeric sizing
 section below. These are proposed caps and formulas, not source-enforced
 limits; target fit remains unqualified.
 
+## Superseded numeric prototype (rejected)
+
+The following prototype documents the rejected 160-record/full-payload
+design. Its `STORAGE_FITS: NO` conclusion applies only to that prototype. The
+selected storage contract and authoritative budget follow it.
+
 ## Numeric prototype bounds and fit calculation
 
 Only values labeled SOURCE_DEFINED are enforced at the cited boundary.
@@ -464,3 +470,213 @@ also writes one immutable snapshot and triggers a checkpoint. Event envelope
 includes any effect intent; polling and retries add no write.
 These rates assume future compaction/reuse. Current append-only 128-slot
 journal cannot sustain these daily rates beyond its lifetime capacity.
+
+## Selected bounded storage contract
+
+This section supersedes the prototype above. It is a proposed on-disk schema,
+not implemented firmware. All byte caps are *serialized blob* caps; encoders
+must reject overflow before writing. A change to any cap requires a versioned
+schema and a new peak-space calculation.
+
+### Duplicate-field audit
+
+| Field | Required owner | Old duplication removed |
+| --- | --- | --- |
+| EventKey, causal event fields and local observation time | MUST_EXIST_IN_LOG until a selected checkpoint; pending backend events then have one immutable payload chunk | Existing event blob plus full transition event |
+| Global ordinal, reducer decision, config/registry delta, effect ID and effect payload | MUST_EXIST_IN_LOG at commit | Separate decision, registry write and pending-effect queue |
+| Current reducer and security registry state, rule anchors, coverage, dedupe frontier | MUST_EXIST_IN_CHECKPOINT | Replaying all historical events; repeated Hub public key in each Node |
+| Pending event/effect IDs, chunk IDs and completion bits | REFERENCE_ONLY in checkpoint | Full pending payloads in checkpoint |
+| Config version/hash | REFERENCE_ONLY in transition and checkpoint | Config bytes in every transition |
+| Config bytes | One immutable ordinary-NVS version; referenced by ordered APPLY | Repeated config in checkpoint |
+| Backend receipt | DERIVABLE from authenticated active-generation completion bitmap | Per-slot lifetime receipt and separate effect receipt |
+| Routine evidence samples | DUPLICATED_UNNECESSARILY; backend/event history owns samples | Sixteen 32-byte hashes in checkpoint; retain count/flags |
+
+The maximum transition is still
+`72 header + 228 event + 128 decision/delta + 3*(32 identity + 4 metadata
++ 256 canonical payload) + 28 AEAD = 1,332 bytes`. A typical ordinary
+event remains 212 bytes. The 106-byte EventKey is *inside* the 228-byte
+event, not an additional field. Config/registry transitions use the same
+cap; a delta that cannot fit must be split into an ordered sequence that
+does not publish a partial security change, or rejected before admission.
+
+### Model comparison and selection
+
+| Model | Maximum bytes and writes per logical transition | Recovery, receipts, migration and occupancy |
+| --- | --- | --- |
+| A: unified log alone | 1,332; one write | One commit is simple, but 128 backend-pending events pin 128 records (170,496 bytes) before checkpoints/legacy state. Incompatible with bounded reuse. |
+| B: old event plus referencing decision | 284 event + up to 1,072 decision + 64 commit marker = 1,420; three writes | Marker selects the pair, but partial pairs and slot-generation binding complicate restore. Old c-slot receipts can serve legacy only. More migration space than D. |
+| C: write-ahead full envelope plus old event | 1,332 + 284 = 1,616; two writes | Envelope is authority and event is a cache. Removing the second write reduces this to A; retaining it duplicates the event. |
+| D: unified log with checkpoint handoff | 1,332 at commit; one write, then amortized chunk/checkpoint writes | Single authoritative commit; pending payload migrates from log to immutable chunks before its log slot is reusable. Generation-bound bitmap replaces lifetime slot receipts. Fits the peak below. |
+
+Select **D**. A log record is the only atomic authority for an accepted event,
+its reducer decision, security/config delta and every effect intent. The
+checkpoint stores current state and references, not historical payloads.
+The backend owns external effect idempotency by stable request/effect ID.
+
+### Exact commit and restore order
+
+1. **BUILD:** under one serialized state-machine lock, derive the complete
+   deterministic transition from the last committed state. Allocate ordinal
+   `last+1`; bind EventKey, storage epoch, reducer/config schema and all
+   effect identities. A repeat EventKey resolves to the prior ordinal and
+   returns its prior result.
+2. **WRITE:** write the complete authenticated blob to a free
+   generation-tagged log slot. There is no separate accepted-event write.
+   For CONFIG_APPLY, first write/readback an immutable config version in
+   ordinary NVS. For registry changes, include the authoritative delta in
+   the log; `gs_registry/snapshot` is only a rebuildable cache.
+3. **VERIFY:** read back exact bytes, epoch, ordinal, EventKey, digest,
+   authentication and contiguous predecessor. On an ambiguous NVS result,
+   perform this same readback. Exact valid record means committed; missing
+   or corrupt record means no ACK and no new ordinal. A corrupt committed
+   prefix blocks admission rather than being skipped.
+4. **COMMIT/PUBLISH:** after verification, apply the record once to RAM,
+   publish its pending effects and refresh derived registry cache if useful.
+   A cache-write failure never rolls back the committed transition.
+5. **ACK NODE:** only after durable verification and RAM publication. A
+   crash after the record and before publication/ACK replays it once; a
+   crash just after ACK finds the same committed record. A retry uses the
+   same EventKey and effect IDs, never a second ordinal.
+6. **RECOVERY:** choose the highest valid selected checkpoint generation,
+   verify its config version/hash and all referenced chunks, then replay
+   the contiguous authenticated log prefix. Apply registry deltas before
+   enabling secure peer admission. Ignore orphan config snapshots and
+   cache versions that disagree with the recovered ordinal. Restore the
+   latest valid completion bitmap; retry uncertain external deliveries with
+   their original stable IDs. Missing selected data is a fail-closed fault.
+
+A valid log blob is the commit point. No state can contain an accepted event
+without its decision or an effect intent without its cause. An NVS failure
+may have persisted the blob; readback, rather than the return code alone,
+classifies it. A partial/corrupt blob cannot be a commit. Firmware rollback
+to a reader unaware of the new epoch is prohibited.
+
+### Tail, payload ownership and completion
+
+Checkpoint every **two** committed logical transitions, counting events and
+non-event transitions. A checkpoint may be triggered earlier for occupancy
+or a config change. No elapsed time or graceful shutdown is required.
+Keep the two valid A/B checkpoint generations and every log record required
+to replay from either; thus the active replay tail is at most **four** records
+(two since each boundary). Before accepting a fifth record, finish a
+checkpoint or backpressure Node admission. Timer decisions that cannot be
+persisted enter an explicit fault state; they are never silently dropped.
+
+The product cap remains **16 pending rule/incident effects**, with up to
+three generated by one timer evaluation. The source-defined **128 pending
+Node events** is retained in normal operation. While all legacy slots
+remain, allow only **64 additional new-epoch pending Node events**; this is
+a migration admission cap, not a reduced normal product bound. Full queues
+backpressure Node acknowledgements and surface a storage fault for local
+timers. The log owns each pending payload until checkpoint handoff. Copy
+up to four pending event payloads into one immutable 1,004-byte chunk, and
+up to four effect payloads into one immutable 1,260-byte chunk; read back
+and authenticate all chunks before writing/selecting the new checkpoint.
+The checkpoint holds chunk IDs and item indexes. Old log slots remain until
+*both* selectable checkpoint generations no longer need them. Overlap
+during handoff is the necessary crash-safe temporary duplicate.
+
+Completion uses two alternating authenticated 384-byte bitmap/state blobs.
+Each bit is bound to storage epoch, ordinal or chunk ID, item index and
+stable backend request ID, so slot reuse cannot inherit a stale receipt.
+On backend COMMITTED, write/readback the next generation of bitmap before
+reporting durable completion. A failed/ambiguous write is inspected like a
+log write. A prior valid bitmap means retry using the same backend ID; the
+backend's durable idempotency prevents a duplicate business effect.
+Bitmap statuses only advance. Completion after checkpoint updates the
+bitmap, not the checkpoint or payload. Legacy c000–c127 receipts remain
+valid only for legacy slots until migration retirement.
+
+Checkpoint selection is: copy/verify pending chunks; write/readback inactive
+checkpoint; write/readback redundant generation-tagged selector; retire
+unreferenced records/chunks only after both valid generations release them.
+Before selector commit, restore the older checkpoint and its retained tail.
+After selector commit, restore the new checkpoint and its verified chunks.
+Invalid selector copies are resolved by authenticated generation and complete
+references; if neither candidate is complete, fail closed.
+
+### Checkpoint serialized cap and placement
+
+| Checkpoint component | Maximum bytes |
+| --- | ---: |
+| Fixed header, identity, auth, config refs, rule state, common Hub key | 494 |
+| Ten active Nodes: coverage 11 + registry record 252 each | 2,630 |
+| Ten tombstones: length + ID 64 each | 650 |
+| One active routine: window/flags/evidence count, no sample hashes | 47 |
+| Sixteen pending-effect references, 10 each | 160 |
+| Thirty-two event-chunk references, 8 each, plus 16-byte pending map | 272 |
+| **One checkpoint** | **4,253** |
+| **Two checkpoint generations** | **8,506** |
+
+The 252-byte registry entry excludes its repeated 65-byte Hub public key:
+the current registry encoder can reach 3,952 plaintext bytes for ten Nodes
+and ten tombstones, but the common key is stored once in the checkpoint.
+The fixed 494 includes the config version/hash. The routine count and flags
+are sufficient for reducer continuation; evidence samples stay with the
+event/backend history. Each byte cap is a schema requirement, to be
+enforced by serialization before firmware implementation.
+
+| Partition | Objects and maximum raw bytes |
+| --- | --- |
+| Ordinary `nvs` | Derived `gs_registry` cache 8,192; association 1,024; identity/wrapping material 160; three immutable config versions 6,144. **15,520 total**, 9,056 nominal free (36.8%). |
+| `gs_journal` | Four transition slots; A/B checkpoints; pending event/effect chunks; A/B completion bitmaps; selectors, epoch and migration metadata. Legacy 128 event/receipt slots retained during migration. |
+
+At most three config versions coexist: versions referenced by the two
+selectable checkpoints plus one staged next version. Select a checkpoint
+after each CONFIG_APPLY before staging another version. Orphans may be
+removed only after neither checkpoint/tail references them. A config
+snapshot is verified before APPLY, and APPLY is the only activation point.
+
+### Worst-case migration and steady-state budget
+
+| `gs_journal` component | Migration maximum bytes | Normal maximum bytes |
+| --- | ---: | ---: |
+| Four 1,332-byte transition records | 5,328 | 5,328 |
+| Checkpoint A | 4,253 | 4,253 |
+| Checkpoint B | 4,253 | 4,253 |
+| Pending event chunks (16 migration / 32 normal, four events each) | 16,064 | 32,128 |
+| Four pending-effect chunks | 5,040 | 5,040 |
+| Two completion bitmaps | 768 | 768 |
+| Selectors, epoch and migration metadata | 512 | 512 |
+| One extra checkpoint, bitmap and metadata write in flight | 4,765 | 4,765 |
+| Existing event/receipt slots untouched | 40,448 | 0 |
+| **Total** | **81,431** | **57,047** |
+
+Migration nominal free space is **49,641 bytes (37.9%)**, including
+**23,427 bytes beyond a 20% reserve**. Ordinary NVS retains 9,056 raw
+bytes (36.8%). Conservatively allowing an NVS blob index, chunk metadata
+and 32-byte data entries, the 32-page journal offers about 4,032 usable
+entries. Migration peak uses at most 3,160 entries (legacy 1,792; log 176;
+event chunks 544; effect chunks 168; checkpoints including write-in-flight
+408; bitmaps including write-in-flight 42; metadata including write-in-flight
+30), leaving **872 entries (21.6%)**. This entry estimate does not prove
+allocability under every page-fragmentation/GC state; target NVS allocation
+and power-cut validation remain required before firmware rollout. See
+[Espressif NVS storage format and error semantics](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/storage/nvs_flash.html).
+
+Migration restores/authenticates all legacy events and c-receipts, builds
+the new epoch's initial checkpoint from reconstructable state, verifies it,
+then durably selects NEW_STORAGE_EPOCH before admitting new transitions.
+Unknown historical time/rule state stays explicitly unknown. Old data is
+never overwritten in this step. Future retirement requires backend-pending
+legacy work to be settled or transferred, bounded dedupe and rule
+dependencies to be covered, and rollback to legacy firmware barred.
+Reclamation is outside this task.
+
+At 100 Node events and four non-event transitions/day, there are **104
+logical transitions** and 104 log writes. Assuming 104 backend completions,
+52 every-two-transition checkpoints (104 writes), online backend and one
+weekly config snapshot (0.14/day), typical persistence demand is
+**312.14 writes/day**, or **3.00 writes/logical transition** excluding the
+weekly fraction. If a delayed backend forces one chunk handoff per
+checkpoint, add at most 52 writes/day in this scenario. At 500 events,
+20 non-event transitions, 520 completions, 260 checkpoints (520 writes),
+one config snapshot and up to 260 chunk handoffs, the high activity
+bound is **1,821 writes/day** (1,561 with no handoff). Retries, polling
+and unchanged state write nothing. These are operation counts, not flash
+endurance claims.
+
+**Design fit:** yes for the modeled caps and migration peak. Firmware
+implementation readiness remains no until the byte-exact codec, NVS page
+allocation/GC behavior, cross-store restore order and fault injection are
+validated. No production firmware or reclamation is changed here.

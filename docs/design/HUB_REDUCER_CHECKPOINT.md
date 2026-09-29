@@ -207,23 +207,44 @@ bounds. This is a test **plan**; no tests were run for this design audit.
 
 Until these decisions are made, `DESIGN_READY_FOR_IMPLEMENTATION: NO`.
 
-## Follow-up policy and storage decision
+## Selected checkpoint storage contract
 
-The [durable transition design](HUB_DURABLE_STATE_TRANSITIONS.md) now records
-recommended time/coverage behavior, backend effect ownership, source-backed
-bounds and a single-envelope transition model. It does **not** make the
-checkpoint ready: historical coverage and legacy rule inputs remain
-unreconstructable, several product bounds are undecided, and the registry /
-transition cross-store commit protocol needs a crash proof. A checkpoint may
-cover only a fully canonical transition generation and must retain legacy
-evidence and receipts until the explicit safe condition in that design is met.
+The [durable transition design](HUB_DURABLE_STATE_TRANSITIONS.md#selected-bounded-storage-contract)
+supersedes the earlier 5,639-byte/full-payload checkpoint and 160-record
+tail estimates. The selected model commits one authenticated record for
+event, reducer decision, registry/config delta and effect intent. It
+checkpoints every two logical transitions, retaining at most four replay
+records across two selectable generations. Pending backend payloads move
+to immutable chunks before their causal log records can be reused.
 
-The follow-up sizes one proposed checkpoint at 5,639 raw bytes and two at
-11,278 bytes, before NVS overhead. The selected 160-record worst-case
-transition tail plus Node and rule-effect receipts, checkpoints and selectors
-totals 243,982
-bytes against the 131,072-byte `gs_journal` partition, so the current proposed
-worst-case design does not fit. The ordinary NVS raw model reserves three
-2,048-byte config versions and leaves 9,056 raw bytes
-before unmeasured metadata/GC overhead. See the transition design for the
-bound classifications and arithmetic; no firmware storage cap is implied.
+The checkpoint is capped at **4,253 serialized bytes**: fixed metadata and
+common Hub key 494, ten coverage/registry Nodes at 263 each (2,630), ten
+tombstones at 65 each (650), one active routine without evidence hashes 47,
+sixteen pending-effect references at 10 each (160), and up to thirty-two
+pending-event chunk references plus bitmap (272). Two generations use
+**8,506 bytes**. The checkpoint contains reducer/security state and payload
+references; it never owns a second copy of a pending 256-byte effect.
+The old 16 effect bound remains; when full, local decisions fault and Node
+admission backpressures instead of discarding intent.
+
+Creation order is: verify immutable pending-payload chunks; write and verify
+inactive checkpoint; write and verify selector; only then release slots
+unused by *both* selectable generations. A crash before selector selection
+uses the older checkpoint and retained tail. A crash afterward uses the
+new checkpoint and its chunks. Completion bits are separate authenticated
+generation-bound state, so a backend COMMITTED result can advance without
+rewriting a checkpoint; an ambiguous result retries the same stable ID.
+The three config versions in ordinary NVS cover both selectable generations
+and one staged successor. The APPLY transition activates a staged version;
+the registry snapshot is a derived cache, while the unified log and
+checkpoint are the security authority.
+
+The migration peak retains all 40,448 conservative bytes of legacy
+event/receipt storage and is **81,431 raw bytes** in the 131,072-byte
+`gs_journal` partition. Normal maximum after legacy retirement is
+57,047 bytes. The modeled migration margin is 49,641 bytes (37.9%);
+the NVS entry estimate leaves 872/4,032 entries (21.6%). Ordinary NVS
+raw maximum is 15,520/24,576 bytes. These are design caps, not claims
+that the current codecs or NVS allocator enforce them. Target allocation,
+GC and power-cut validation remain implementation gates; firmware and
+reclamation are not part of this change.
