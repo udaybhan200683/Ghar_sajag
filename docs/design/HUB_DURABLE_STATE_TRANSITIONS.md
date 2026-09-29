@@ -264,27 +264,15 @@ Backend/UI should distinguish “no activity detected” from “activity could
 not be verified.” The exact caregiver wording, severity and notification
 policy for the latter need product approval.
 
-### Bounds supported by current source
+### Bound classification
 
-| Quantity | Bound | Basis/classification |
-| --- | --- | --- |
-| Enrolled Nodes | 10 | SOURCE_DEFINED: `HubSecurityLink::kInstalledCapacity`. |
-| Required Nodes | At most 10 if drawn from enrolled Nodes | DERIVED_SAFE_BOUND; enforce registry membership. |
-| Instrumented rooms | At most 10 distinct currently assigned Node rooms, but arbitrary configured room labels/other rooms are unbounded | DERIVED_SAFE_BOUND for observed Node rooms; full `MAX_ROOMS` is PRODUCT_DECISION_REQUIRED. |
-| Active routine | One `RoutineService` and one `HomeConfig::morning` | SOURCE_DEFINED for current implementation; future `MAX_ROUTINES` is PRODUCT_DECISION_REQUIRED. |
-| Activity signal kinds | Eight `RuleSignalKind` values | SOURCE_DEFINED kinds, not a bound on all future rules or emitted instances; `MAX_ACTIVITY_RULES` is PRODUCT_DECISION_REQUIRED. |
-| Backend-pending Node events | 128 current journal slots | SOURCE_DEFINED current maximum; effect intents can exceed this due to timers. |
-| Pending effects; effect payload; config snapshot; transition payload | No enforced finite product bound | PRODUCT_DECISION_REQUIRED. Existing routine evidence IDs and config strings/sets are unbounded. |
-
-The registry wrapped blob has an 8192-byte maximum, but that is **not** a
-bound for HomeConfig or effect intents. `journal.cpp` limits encoded event
-plaintext to 256 bytes; each sealed event adds nonce/tag and store overhead.
-Neither number can be repurposed as a checkpoint or transition cap without
-changing and validating product semantics. Pending-effect capacity must be
-fixed before admission: when full, refuse an event whose decision might need
-another intent (without durable ACK), or stop timer progression and expose a
-fault. Never silently drop or reprioritize safety effects. Exact capacity and
-operational recovery are PRODUCT_DECISION_REQUIRED.
+The exact source-enforced and proposed prototype bounds, including their
+rationale and serialized consequences, are listed in the numeric sizing
+section below. Current code enforces ten enrolled Nodes, seven backend room
+labels at that API, 128 journal slots, an 8,192-byte registry blob maximum,
+and a 256-byte codec plaintext ceiling (the actual largest field-bounded
+event is 228 bytes). It does not enforce finite HomeConfig/evidence/effect
+limits. Proposed limits must be wired into validators before implementation.
 
 ### Selected atomic persistence model
 
@@ -349,17 +337,130 @@ depend on the storage validation contract above; current separate journal
 and registry stores do not yet provide the full proof.
 
 The target partition table provides 24,576 bytes ordinary `nvs` and 131,072
-bytes `gs_journal`; both already carry other state. Known maximum event
-plaintext is 256 bytes, and current journal holds 128 event slots. Required
-budget remains a formula:
+bytes `gs_journal`; both already carry other state. See the numeric sizing
+section below. These are proposed caps and formulas, not source-enforced
+limits; target fit remains unqualified.
 
-`transition_record_max = envelope_header + event(<=256) + context + delta + bounded_intents + authentication`
+## Numeric prototype bounds and fit calculation
 
-`total = transition_tail + 2*checkpoint_max + pending_effects + retained_config_versions + receipts + selectors + NVS overhead`
+Only values labeled SOURCE_DEFINED are enforced at the cited boundary.
 
-`checkpoint_max`, intent count/payload, config count/payload, tail capacity,
-and NVS effective available bytes are unspecified. Therefore
-`STORAGE_BUDGET_FITS: UNKNOWN`; an invented numeric maximum would conceal
-the unbounded current structs. The design remains **not ready** for durable
-transition or checkpoint firmware until product bounds, cross-store commit
-and legacy reset policy are resolved.
+| Bound | Value | Classification and rationale |
+| --- | ---: | --- |
+| Enrolled Nodes | 10 | SOURCE_DEFINED (`HubSecurityLink::kInstalledCapacity`). |
+| Required Nodes | 10 | DERIVED_FROM_EXISTING_LIMIT; must be enrolled. |
+| Rooms | 7 | SOURCE_DEFINED backend allowlist. Hub registry accepts arbitrary room labels up to 24 bytes, so this is not end-to-end enforcement. |
+| Routines | 5 | PROPOSED_ENGINEERING_BOUND, one of each existing backend routine type. Firmware currently has one active routine. |
+| Activity rules | 8 | PROPOSED_ENGINEERING_BOUND matching current eight `RuleSignalKind` values. Future kinds require schema/version update. |
+| Evidence ID samples | 16 per active routine | PROPOSED_ENGINEERING_BOUND; 32-byte hashes retained for bounded local explanation. Exact evidence count is a separate 64-bit accumulator. Backend/event history remains authoritative for full evidence. |
+| Pending effects | 16 total | PROPOSED_ENGINEERING_BOUND. On full, apply admission control and expose fault; never discard. |
+| Effect payload | 256 bytes | PROPOSED_ENGINEERING_BOUND canonical binary body; reject larger payload. |
+| Effects per transition | 3 | DERIVED_FROM_EXISTING_LIMIT: current timer evaluator can emit door-left-open, daytime-inactivity and post-door inactivity together. |
+| Config snapshot | 2048 bytes | PROPOSED_ENGINEERING_BOUND; estimated serialized HomeConfig with capped identifiers is below 1 KiB, leaving room for schema/auth metadata. |
+| Config versions | 3 | PROPOSED_ENGINEERING_BOUND: two checkpoint generations plus staged next config during apply. Select a checkpoint before another config transition. |
+| Transition envelope | 1332 bytes | PROPOSED_ENGINEERING_BOUND from explicit binary model below; supports three simultaneous rule effects. |
+| Transition tail | 160 records | PROPOSED_ENGINEERING_BOUND: 128 event positions plus 32 non-event positions before compaction/backpressure. |
+| Effect receipts for tail | 480 | DERIVED_FROM_PROPOSED_BOUND: at most three effects per transition record; completion receipt storage must be bounded. |
+| Backend-pending events | 128 | SOURCE_DEFINED current append-only event journal capacity. |
+| MAX_BACKEND_PENDING_EVENTS | 128 | PROPOSED_ENGINEERING_BOUND equal to current source capacity; full means Node admission backpressure. |
+
+These limits are small for one home with ten Nodes. Serialized RAM equivalents
+are about 4,672 bytes for 16 pending effects, 512 bytes for 16 routine
+evidence hashes, and 113 bytes for ten coverage entries, excluding C++
+container/allocator overhead. Raising limits changes the schema and requires
+recalculation and migration.
+
+### Transition serialization arithmetic
+
+Actual `encode_event` field limits yield 228 bytes plaintext at maximum:
+version/length-prefixed strings for physical ID 64, source ID 24 and location
+64 (156 bytes), fixed fields (52 bytes), and optional motion aggregate (20
+bytes). AES-GCM adds nonce 12 + tag 16, so the encoded store blob is 256 bytes.
+The NVS adapter allows 284, but current event codec cannot produce it. EventKey
+fields occupy 106 bytes maximum in this encoding (length-prefixed physical ID
+64 and source ID 24, session8 and sequence8) and are already included in the
+event payload; do not add them a second time.
+
+Proposed binary transition header: 72 bytes (magic4, version2, type1, flags1,
+ordinal8, config version4, config hash32, event length2, delta length2,
+effect count1, reserved/source binding15). Reducer delta cap 128 bytes. One
+effect is 292 bytes (identity32 + kind/status/length4 + payload256). Timer
+evaluation can emit three signals at once; authentication adds nonce/tag28.
+Thus worst transition envelope is
+`72 + 228 + 128 + 3*292 + 28 = 1332` bytes; the causal event is plaintext
+inside the single authenticated envelope, so its standalone nonce/tag is not
+counted twice. Representative ordinary event: 80-byte event plaintext +
+32-byte delta and no effect = **212 bytes**. With one effect it is 504 bytes.
+These transition sizes are proposed, not measured current serialization.
+
+### Checkpoint serialized maximum
+
+| Component | Worst bytes | Model |
+| --- | ---: | --- |
+| Header, identity, generation, config/reducer refs | 96 | Proposed fixed header |
+| Coverage | 113 | required mask/count 3 + 10×(epoch8+battery2+fault1) |
+| Routine | 560 | window ID32 + length1 + flags/enums5 + evidence count8 + sample count1 + 16 hashes512 + reserved1 |
+| Activity rules | 134 | seven optional epoch anchors63 + two event hashes64 + flags/counters/reserved7 |
+| Pending effects | 4672 | 16×(identity32 + metadata/length4 + payload256) |
+| Config ref | 36 | version4 + hash32; snapshot stored once separately |
+| Authentication | 28 | nonce12 + tag16 |
+| **One checkpoint** | **5639** | Sum |
+
+Typical empty effect queue and three evidence hashes: **551 bytes**. Two
+maximum checkpoint generations: **11,278 bytes**; selectors/metadata add
+128, for **11,406 bytes** raw. This model requires fixed-width schema
+serialization; current C++ structs do not implement it.
+
+### Configuration and partition accounting
+
+`NvsRegistryBlobStore` has one live `gs_registry/snapshot` key with maximum
+8,192 bytes (not two application-level snapshots). `NvsAssociationBlobStore`
+allows one 1,024-byte binding. The Hub also stores small Home ID/wrapping and
+development identity material, modeled conservatively as 160 bytes. Proposed
+three config versions are 3×2,048 = 6,144 bytes; checkpoint references do
+not duplicate snapshots. Config storage total including registry,
+association, identity and three config versions is **15,520 bytes** raw.
+Three versions cover two valid A/B generations and a staged new snapshot.
+Finish and select a checkpoint for each config transition before accepting
+another; retain every snapshot still referenced by a selectable generation.
+
+| Partition | Start–exclusive end | Total | Known/proposed raw occupants | Raw margin |
+| --- | --- | ---: | --- | ---: |
+| `nvs` | `0x9000–0xF000` | 24,576 | Existing current max estimate: registry8,192 + association1,024 + identity160 = 9,376. Proposed config adds 6,144; new typical/worst raw total 15,520. | Nominal margin 9,056 (36.8%). If reserving 20% for NVS internals, only 4,141 remains for unmeasured entry/GC overhead; actual fit UNKNOWN. |
+| `gs_journal` | `0x3E0000–0x400000` | 131,072 | Existing conservative max: events36,352 + Node receipts4,096 = 40,448 (actual event codec max gives 36,864 total). New typical 49,422; new worst 243,982 including up to 480 rule-effect receipts. | Typical margin 81,650 (62.3%); worst margin -112,910 (-86.2%). |
+
+Conservative current journal raw use: 128×284-byte adapter max + 128×32-byte
+completion receipts = **40,448 bytes**; actual encoder's maximum event blob
+is 256 bytes. Proposed typical new total: 160×212 + 4,096 Node receipts +
+11,278 checkpoints + 128 selectors = **49,422 bytes**; nominal margin
+**81,650 bytes (62.3%)**. Proposed worst new total: 160×1,332 + (128+480)×32
+receipts + 11,278 + 128 = **243,982 bytes**, exceeding the partition by
+**112,910 bytes (86.2%)**.
+Therefore `STORAGE_FITS: NO` for the chosen worst-case bounds. Raw byte totals
+exclude NVS entry/page/GC overhead, so target space is less favorable. The
+NVS partition's 9,056-byte raw remainder is likewise not an actual free-space
+measurement; NVS metadata and temporary copy-on-write/GC needs are not
+available from static source. No partition size is changed.
+
+With a 20% nominal reserve policy, the journal reserve is 26,214 bytes. The
+typical case retains 55,436 bytes beyond that reserve; the worst case is
+139,124 bytes short even before NVS overhead. The ordinary NVS partition has
+4,141 bytes above the same 20% reserve in the raw model, but actual NVS
+metadata, page rounding, old/new blob overlap during update, and garbage
+collection reserve are not statically known. Thus the ordinary NVS fit is
+UNKNOWN; overall worst-case storage fit is NO due to `gs_journal`.
+
+### Write-demand scenarios
+
+Illustrative future steady-state software writes/day (not flash endurance):
+
+| Scenario | Events | Non-event transitions | Event + effect receipts | Checkpoint storage writes | Config snapshot writes | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Typical assumption | 100 | 4 | 104 (100 event + 4 effect) | 8 periodic + 0.28 config-triggered | 0.14 (weekly) | **216.42/day** |
+| High activity assumption | 500 | 20 | 520 (500 event + 20 effect) | 32 periodic + 2 config-triggered | 1 | **1,075/day** |
+
+Each checkpoint uses two writes (inactive blob then selector); a config change
+also writes one immutable snapshot and triggers a checkpoint. Event envelope
+includes any effect intent; polling and retries add no write.
+These rates assume future compaction/reuse. Current append-only 128-slot
+journal cannot sustain these daily rates beyond its lifetime capacity.

@@ -217,3 +217,13 @@ unreconstructable, several product bounds are undecided, and the registry /
 transition cross-store commit protocol needs a crash proof. A checkpoint may
 cover only a fully canonical transition generation and must retain legacy
 evidence and receipts until the explicit safe condition in that design is met.
+
+The follow-up sizes one proposed checkpoint at 5,639 raw bytes and two at
+11,278 bytes, before NVS overhead. The selected 160-record worst-case
+transition tail plus Node and rule-effect receipts, checkpoints and selectors
+totals 243,982
+bytes against the 131,072-byte `gs_journal` partition, so the current proposed
+worst-case design does not fit. The ordinary NVS raw model reserves three
+2,048-byte config versions and leaves 9,056 raw bytes
+before unmeasured metadata/GC overhead. See the transition design for the
+bound classifications and arithmetic; no firmware storage cap is implied.

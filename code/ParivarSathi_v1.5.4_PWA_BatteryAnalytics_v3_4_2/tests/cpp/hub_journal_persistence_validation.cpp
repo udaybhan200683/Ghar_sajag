@@ -153,6 +153,25 @@ int main() {
                 restored_summary.records().front().motion_aggregate->additional_count == 12 &&
                 restored_summary.commit(compacted) == CommitResult::Duplicate,
                 "typed summary lost payload or dedupe after Hub restart");
+        MemorySlots maximum_slots;
+        auto maximum_event = event(301, std::string(64, 'd').c_str());
+        maximum_event.key.source_id = std::string(24, 'n');
+        maximum_event.location = std::string(64, 'r');
+        maximum_event.kind = gs::EventKind::MotionSummary;
+        maximum_event.motion_aggregate = gs::DomainEvent::MotionAggregate{0xffffffffU, 1, 2};
+        maximum_event.uncertainty_s = 0xffffffffU;
+        maximum_event.battery_mv = 0xffffU;
+        maximum_event.rssi_dbm = static_cast<std::int16_t>(0x7fff);
+        {
+            HubJournal maximum_journal(128);
+            require(maximum_journal.attach_persistence(crypto, maximum_slots, key) &&
+                    maximum_journal.commit(maximum_event) == CommitResult::Stored,
+                    "maximum bounded event did not commit");
+            // Current codec: 228-byte maximum plaintext under field bounds,
+            // plus 12-byte nonce and 16-byte GCM tag = 256-byte NVS blob.
+            require(maximum_slots.data[0].size() == 256,
+                    "maximum event serialization size changed");
+        }
         std::cout << "P2-PERSIST-HUB-JOURNAL HOST PASS capacity=128 full=129 "
                      "replacement/dedupe/restart/tamper/write-fault/reducer-replay\n";
         return EXIT_SUCCESS;
