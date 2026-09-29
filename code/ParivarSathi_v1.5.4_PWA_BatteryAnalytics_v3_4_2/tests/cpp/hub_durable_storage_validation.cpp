@@ -1,0 +1,147 @@
+#include "firmware/hub/components/storage/durable_transition.hpp"
+#include "host/security/openssl_commissioning_crypto.hpp"
+
+#include <algorithm>
+#include <cstdint>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+#include <string>
+
+namespace {
+using namespace gs::hub::durable;
+using gs::security::Bytes;
+using gs::security::Key32;
+void require(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); }
+Key32 test_key() { Key32 k{}; for (std::size_t i=0;i<k.size();++i) k[i]=static_cast<std::uint8_t>(i+1); return k; }
+EventIdentity identity(std::uint64_t n) { return {"node-"+std::to_string((n%10)+1),"sensor",77,n}; }
+Effect effect(std::size_t n, std::size_t payload=256) {
+    Effect e; for(std::size_t i=0;i<e.id.size();++i)e.id[i]=static_cast<std::uint8_t>(n+i);
+    e.kind=static_cast<std::uint32_t>(n%65535);e.payload.assign(payload,static_cast<std::uint8_t>(n));return e;
+}
+Transition transition(std::uint64_t n, bool maximum=false) {
+    Transition t;t.storage_epoch=1;t.ordinal=n;t.event=maximum?EventIdentity{std::string(64,'n'),std::string(24,'s'),77,n}:identity(n);
+    t.config_version=7;t.config_hash.fill(0x31);t.type=TransitionType::Event;
+    const std::size_t key_bytes=1+t.event.physical_device_id.size()+1+t.event.source_id.size()+16;
+    t.causal_input.assign(maximum?kMaxCausalInputBytes-key_bytes:50,0x42);
+    t.decision.assign(maximum?kMaxDecisionBytes:32,0x53);
+    if(maximum)for(std::size_t i=0;i<3;++i)t.effects.push_back(effect(i));
+    return t;
+}
+Checkpoint checkpoint(std::uint64_t generation,std::uint64_t ordinal,bool maximum=false) {
+    Checkpoint cp;cp.storage_epoch=1;cp.generation=generation;cp.covered_ordinal=ordinal;cp.config_version=7;cp.config_hash.fill(0x31);
+    if(maximum){for(std::uint64_t i=0;i<16;++i)cp.pending_effects.push_back({i+1,static_cast<std::uint8_t>(i),{}});for(std::uint64_t i=0;i<32;++i)cp.pending_chunks.push_back({i+1,{}});for(std::uint64_t i=0;i<10;++i)cp.dedupe_frontiers.push_back({std::string(64,'n'),std::string(24,'s'),i+1,i+100});cp.reducer_state.assign(2683,0x66);}
+    else cp.reducer_state={static_cast<std::uint8_t>(ordinal>>24),static_cast<std::uint8_t>(ordinal>>16),static_cast<std::uint8_t>(ordinal>>8),static_cast<std::uint8_t>(ordinal)};
+    return cp;
+}
+void codec_sizes(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key,
+                 std::size_t& transition_max,std::size_t& checkpoint_max,
+                 std::size_t& chunk_max,std::size_t& bitmap_size,
+                 std::size_t& transition_typical,std::size_t& checkpoint_typical,
+                 std::size_t& selector_size) {
+    Bytes b;auto t=transition(1,true);require(Codec::encode_transition(crypto,key,t,b),"maximum transition encodes");transition_max=b.size();require(transition_max==kMaxTransitionBytes,"transition hard maximum exact");Transition decoded;require(Codec::decode_transition(crypto,key,b,decoded)&&decoded.event==t.event&&decoded.effects.size()==3,"transition round trip");
+    t.causal_input.push_back(1);require(!Codec::encode_transition(crypto,key,t,b),"oversize event rejected");
+    require(Codec::encode_transition(crypto,key,transition(1),b),"typical transition encodes");transition_typical=b.size();require(transition_typical==212,"typical transition byte count");
+    auto cp=checkpoint(1,2,true);require(Codec::encode_checkpoint(crypto,key,cp,b),"maximum checkpoint encodes");checkpoint_max=b.size();require(checkpoint_max==kMaxCheckpointBytes,"checkpoint hard maximum exact");Checkpoint cpd;require(Codec::decode_checkpoint(crypto,key,b,cpd)&&cpd.reducer_state.size()==2683,"checkpoint round trip");
+    require(Codec::encode_checkpoint(crypto,key,checkpoint(1,0),b),"typical checkpoint encodes");checkpoint_typical=b.size();
+    PendingEffectChunk ch;ch.storage_epoch=1;ch.chunk_id=99;for(std::size_t i=0;i<4;++i)ch.effects.push_back(effect(i));require(Codec::encode_chunk(crypto,key,ch,b),"max pending chunk encodes");chunk_max=b.size();require(chunk_max==kMaxPendingChunkBytes,"chunk hard maximum exact");PendingEffectChunk chd;require(Codec::decode_chunk(crypto,key,b,chd)&&chd.effects.size()==4,"chunk round trip");
+    CompletionBitmap bm;bm.storage_epoch=1;bm.generation=1;bm.checkpoint_generation=2;bm.mapping_digest.fill(0x77);bm.committed_bits=0x55;require(Codec::encode_bitmap(crypto,key,bm,b),"bitmap encodes");bitmap_size=b.size();require(bitmap_size==kMaxBitmapBytes,"bitmap fixed bound");CompletionBitmap bmd;require(Codec::decode_bitmap(crypto,key,b,bmd)&&bmd.committed_bits==0x55,"bitmap round trip");b[40]^=1;require(!Codec::decode_bitmap(crypto,key,b,bmd),"corrupt bitmap rejected");
+    std::uint64_t selector_generation=1;std::uint8_t selector_index=0;require(Codec::encode_selector(crypto,key,selector_generation,selector_index,b),"selector encodes");selector_size=b.size();require(selector_size==41,"selector metadata size");require(Codec::decode_selector(crypto,key,b,selector_generation,selector_index)&&selector_generation==1&&selector_index==0,"selector round trip");
+}
+void write_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
+    for (FaultMode mode : {FaultMode::FailBeforeWrite,FaultMode::PartialWrite,FaultMode::PersistThenFail,FaultMode::PowerLossAfterPersist}) {
+        MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);mem.inject(mode);const auto result=store.commit(transition(1));
+        if(mode==FaultMode::PersistThenFail||mode==FaultMode::PowerLossAfterPersist){require(result==CommitStatus::AmbiguousResolvedCommitted,"persisted failed write classified committed");mem.power_cycle();DurableStore reboot(mem,crypto,key,1);RecoveryState recovered;require(reboot.recover(recovered)&&recovered.last_ordinal==1,"persisted transition recovers");require(reboot.commit(transition(1))==CommitStatus::Committed,"duplicate retry reuses ordinal");}
+        else {require(result==CommitStatus::NotCommitted,"missing/partial write not acknowledged");if(mode==FaultMode::FailBeforeWrite)require(store.commit(transition(1))==CommitStatus::Committed,"same ordinal can retry after pre-write failure");else{mem.power_cycle();DurableStore reboot(mem,crypto,key,1);RecoveryState recovered;require(!reboot.recover(recovered),"partial durable slot fails closed");}}
+    }
+    MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);require(store.commit(transition(1))==CommitStatus::Committed,"seed transition");RecoveryState state;require(store.recover(state),"seed recovery");require(store.commit(transition(2))==CommitStatus::Committed,"second transition");auto cp=checkpoint(1,2);require(store.checkpoint(cp),"select initial checkpoint");
+    MemoryBlobStore overflow_mem;DurableStore overflow_store(overflow_mem,crypto,key,1);
+    auto overflow=checkpoint(1,std::numeric_limits<std::uint64_t>::max());Bytes encoded;
+    require(Codec::encode_checkpoint(crypto,key,overflow,encoded)&&overflow_mem.write_immutable("cp0",encoded),"install max ordinal fixture");
+    require(overflow_store.commit(transition(1))==CommitStatus::NotCommitted,"ordinal overflow refuses append");
+}
+void checkpoint_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
+    MemoryBlobStore first;DurableStore first_store(first,crypto,key,1);
+    for(std::uint64_t i=1;i<=2;++i)require(first_store.commit(transition(i))==CommitStatus::Committed,"seed initial checkpoint");
+    require(first_store.checkpoint(checkpoint(1,2)),"initial A selected");
+    for(std::uint64_t i=3;i<=4;++i)require(first_store.commit(transition(i))==CommitStatus::Committed,"seed pending B");
+    first.inject(FaultMode::PartialWrite);
+    require(!first_store.checkpoint(checkpoint(2,4)),"partial B rejected");
+    first.power_cycle();RecoveryState first_recovery;
+    require(first_store.recover(first_recovery)&&first_recovery.checkpoint_generation==1&&first_recovery.last_ordinal==4,"partial B keeps valid A plus tail");
+
+    MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);for(std::uint64_t i=1;i<=2;++i)require(store.commit(transition(i))==CommitStatus::Committed,"seed checkpoint transitions");auto first_cp=checkpoint(1,2);Bytes first_bytes;Checkpoint first_decoded;require(Codec::encode_checkpoint(crypto,key,first_cp,first_bytes)&&Codec::decode_checkpoint(crypto,key,first_bytes,first_decoded),"checkpoint A codec");require(store.checkpoint(first_cp),"checkpoint A selected");for(std::uint64_t i=3;i<=4;++i)require(store.commit(transition(i))==CommitStatus::Committed,"second generation tail");require(store.checkpoint(checkpoint(2,4)),"checkpoint B selected");RecoveryState recovered;require(store.recover(recovered)&&recovered.checkpoint_generation==2&&recovered.last_ordinal==4,"A/B selector chooses B");
+    for(std::uint64_t i=5;i<=6;++i) {
+        require(store.commit(transition(i))==CommitStatus::Committed,"tail after B");
+    }
+    mem.inject(FaultMode::PartialWrite);
+    require(!store.checkpoint(checkpoint(3,6)),"partial inactive checkpoint rejected");
+    mem.power_cycle();
+    require(store.recover(recovered)&&recovered.checkpoint_generation==2&&recovered.last_ordinal==6&&recovered.checkpoint.reducer_state[3]==4,"partial B preserves old checkpoint and complete tail");
+    mem.inject_after(1,FaultMode::PersistThenFail);require(store.checkpoint(checkpoint(3,6)),"selector persisted despite failed API result");mem.power_cycle();require(store.recover(recovered)&&recovered.checkpoint_generation==3&&recovered.last_ordinal==6&&recovered.checkpoint.reducer_state[3]==6,"selected checkpoint recovers");
+    // A corrupt newest checkpoint leaves the older checkpoint usable while its tail remains.
+    Bytes corrupt(4,0);require(mem.replace("cp0",corrupt),"corrupt B fixture");require(store.recover(recovered)&&recovered.checkpoint_generation==2&&recovered.last_ordinal==6&&recovered.checkpoint.reducer_state[3]==4,"fallback A replays retained tail");
+    require(mem.replace("cp1",corrupt),"corrupt remaining checkpoint fixture");
+    require(!store.recover(recovered),"both invalid checkpoints fail closed");
+}
+void stream_validation(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
+    MemoryBlobStore gap;Bytes blob;require(Codec::encode_transition(crypto,key,transition(2),blob)&&gap.write_immutable("tr1",blob),"install ordinal gap");DurableStore gap_store(gap,crypto,key,1);RecoveryState state;require(!gap_store.recover(state),"ordinal gap fails closed");
+    MemoryBlobStore duplicate;require(Codec::encode_transition(crypto,key,transition(1),blob)&&duplicate.write_immutable("tr0",blob),"install first ordinal");require(duplicate.write_immutable("tr1",blob),"install duplicate ordinal");DurableStore duplicate_store(duplicate,crypto,key,1);require(!duplicate_store.recover(state),"duplicate ordinals fail closed");
+    MemoryBlobStore replay;DurableStore replay_store(replay,crypto,key,1);auto newest=transition(2);newest.event={"node-x","sensor",90,2};require(replay_store.commit(newest)==CommitStatus::Committed,"newest source sequence accepted");auto stale=transition(1);stale.event={"node-x","sensor",90,1};require(replay_store.commit(stale)==CommitStatus::NotCommitted,"stale tail sequence rejected");
+}
+void selector_ordering(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
+    MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);
+    require(store.commit(transition(1))==CommitStatus::Committed&&store.commit(transition(2))==CommitStatus::Committed,"selector seed A");
+    require(store.checkpoint(checkpoint(1,2)),"selector A commit");
+    RecoveryState recovered;require(store.recover(recovered)&&recovered.checkpoint_generation==1&&recovered.last_ordinal==2,"valid A with empty B");
+    require(store.commit(transition(3))==CommitStatus::Committed&&store.commit(transition(4))==CommitStatus::Committed,"selector seed B");
+    auto cp_b=checkpoint(2,4);Bytes cp_blob;require(Codec::encode_checkpoint(crypto,key,cp_b,cp_blob)&&mem.write_immutable("cp1",cp_blob),"write unselected checkpoint B");
+    require(store.recover(recovered)&&recovered.checkpoint_generation==1&&recovered.last_ordinal==4,"old selector retains A with complete tail");
+    Bytes selector;require(Codec::encode_selector(crypto,key,2,1,selector)&&mem.replace("sel0",selector),"switch selector to B");
+    require(store.recover(recovered)&&recovered.checkpoint_generation==2&&recovered.last_ordinal==4,"selector switch publishes B");
+    Bytes corrupt(4,0);require(mem.replace("sel0",corrupt)&&mem.replace("sel1",corrupt),"corrupt both selector copies");
+    require(store.recover(recovered)&&recovered.checkpoint_generation==2&&recovered.last_ordinal==4,"corrupt selectors select newest complete checkpoint");
+}
+void handoff_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
+    for(FaultMode mode:{FaultMode::FailBeforeWrite,FaultMode::PartialWrite,FaultMode::PersistThenFail,FaultMode::PowerLossAfterPersist}){
+        MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);std::vector<Effect> effects{effect(9)};std::vector<EffectReference> refs{{1,0,effects[0].id}};auto cause=transition(1);cause.effects=effects;require(store.commit(cause)==CommitStatus::Committed,"handoff causal transition committed");Checkpoint cp=checkpoint(1,1);mem.inject(mode);const bool handed=store.handoff_effects(refs,effects,41,cp);
+        if(mode==FaultMode::FailBeforeWrite||mode==FaultMode::PartialWrite)require(!handed,"unverified chunk not handed off");else require(handed,"exact persisted chunk verified after ambiguous write");
+        mem.power_cycle();RecoveryState recovered;require(store.recover(recovered)&&recovered.last_ordinal==1&&recovered.tail.size()==1&&recovered.tail[0].effects[0].id==effects[0].id,"causal log still owns payload before selector");
+        if(handed){require(cp.pending_chunks.size()==1&&cp.pending_effects.size()==1&&cp.pending_effects[0].location==0,"checkpoint can reference verified chunk and item");require(store.checkpoint(cp),"checkpoint selects chunk ownership");require(store.recover(recovered)&&recovered.checkpoint.pending_chunks.size()==1&&recovered.tail.empty(),"selected checkpoint owns payload reference");PendingEffectChunk restored;require(store.read_pending_chunk(41,restored)&&restored.effects.size()==1&&restored.effects[0].id==effects[0].id,"checkpoint reference restores canonical payload");}
+    }
+}
+void bitmap_and_stress(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
+    MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);CompletionBitmap bm;bm.mapping_digest.fill(8);bm.checkpoint_generation=1;bm.committed_bits=1;require(store.commit_bitmap(bm)==CommitStatus::Committed,"first completion bitmap");const auto writes=mem.write_count();require(store.commit_bitmap(bm)==CommitStatus::Committed,"duplicate committed state is idempotently recorded");CompletionBitmap got;require(store.read_bitmap(bm.mapping_digest,got)&&got.committed_bits==1&&got.generation==1&&mem.write_count()==writes,"bitmap duplicate avoids a write");
+    MemoryBlobStore stress_mem;DurableStore stress(stress_mem,crypto,key,1);for(std::uint64_t n=1;n<=1000;++n){const auto status=stress.commit(transition(n));require(status==CommitStatus::Committed||status==CommitStatus::AmbiguousResolvedCommitted,"stress transition commit");if(n%2==0){auto cp=checkpoint(n/2,n);require(stress.checkpoint(cp),"every-two checkpoint");}if(n%25==0){RecoveryState s;require(stress.recover(s)&&s.last_ordinal==n,"stress restore cycle");}}
+    RecoveryState final;require(stress.recover(final)&&final.last_ordinal==1000&&final.tail.size()<=4,"1000 transition bounded recovery");require(stress.commit(transition(1000))==CommitStatus::Committed,"checkpointed duplicate does not allocate ordinal");require(stress.recover(final)&&final.last_ordinal==1000,"dedupe frontier survives restart");require(stress.commit(transition(990))==CommitStatus::NotCommitted,"stale sequence cannot allocate a second ordinal");require(stress.commit(transition(1001))==CommitStatus::Committed,"next ordinal after stress");require(stress.recover(final)&&final.last_ordinal==1001,"next ordinal advances exactly once");
+}
+void modeled_migration_budget() {
+    const auto entries = [](std::size_t bytes) {
+        return 2U + (bytes + 31U) / 32U; // blob index, chunk metadata, data entries
+    };
+    const std::size_t legacy = 128U * entries(284U) + 128U * entries(32U);
+    const std::size_t transition_log = 4U * entries(kMaxTransitionBytes);
+    const std::size_t pending_node_events = 16U * entries(1004U);
+    const std::size_t effect_chunks = 4U * entries(kMaxPendingChunkBytes);
+    const std::size_t checkpoints = 3U * (3U + (kMaxCheckpointBytes + 31U) / 32U);
+    const std::size_t bitmaps = 3U * entries(kMaxBitmapBytes);
+    const std::size_t metadata = 5U * entries(128U);
+    const auto total_entries = legacy + transition_log + pending_node_events +
+        effect_chunks + checkpoints + bitmaps + metadata;
+    const std::size_t raw_peak = 40448U + 4U*kMaxTransitionBytes +
+        2U*kMaxCheckpointBytes + 16U*1004U + 4U*kMaxPendingChunkBytes +
+        2U*kMaxBitmapBytes + 512U + kMaxCheckpointBytes +
+        kMaxBitmapBytes + 128U;
+    require(legacy==1792&&total_entries==3160,"migration NVS entry budget");
+    require(raw_peak==81431&&131072U-raw_peak==49641,"migration raw byte budget");
+    require((4032U-total_entries)*100U>=4032U*20U,"migration NVS entry margin");
+}
+}
+int main(){
+    try {
+        gs::host::security::OpenSslCommissioningCrypto crypto;const auto key=test_key();std::size_t t=0,c=0,ch=0,bm=0,tt=0,ct=0,selector=0;
+        codec_sizes(crypto,key,t,c,ch,bm,tt,ct,selector);write_faults(crypto,key);checkpoint_faults(crypto,key);stream_validation(crypto,key);selector_ordering(crypto,key);handoff_faults(crypto,key);bitmap_and_stress(crypto,key);modeled_migration_budget();
+        std::cout<<"durable transition storage: PASS transition="<<tt<<"/"<<t<<" checkpoint="<<ct<<"/"<<c<<" chunk="<<ch<<" bitmap="<<bm<<" selector="<<selector<<"\n";
+        return 0;
+    }catch(const std::exception& e){std::cerr<<"durable transition storage: FAIL: "<<e.what()<<"\n";return 1;}
+}
