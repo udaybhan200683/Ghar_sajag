@@ -131,7 +131,7 @@ node-recovery-host-test: build
 	./build/node_runtime_recovery_validation
 
 node-recovery-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/node_recovery_persistence_validation.cpp -lcrypto -o build/node_recovery_persistence_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/transport/data_plane_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/node_recovery_persistence_validation.cpp -lcrypto -o build/node_recovery_persistence_validation
 	./build/node_recovery_persistence_validation
 
 simulator: build

@@ -589,6 +589,22 @@ void owner_task(void*) {
         vTaskDelete(nullptr);
         return;
     }
+#if GS_HIL_CONTROL
+    const auto restored = runtime.recovery_snapshot();
+    ESP_LOGI(kTag, "ACKDIAG_RESTORE retained_count=%u pending_count=%u",
+             static_cast<unsigned>(restored.retained.size()),
+             static_cast<unsigned>(restored.pending.size()));
+    for (const auto& event : restored.retained)
+        ESP_LOGI(kTag, "ACKDIAG_RETAINED_KEY logical_id=%s origin_session=%llu event_seq=%llu event_type=%d",
+                 event.key.source_id.c_str(),
+                 static_cast<unsigned long long>(event.key.session_id),
+                 static_cast<unsigned long long>(event.key.sequence), static_cast<int>(event.kind));
+    for (const auto& item : restored.pending)
+        ESP_LOGI(kTag, "ACKDIAG_PENDING_KEY logical_id=%s origin_session=%llu event_seq=%llu",
+                 item.event.key.source_id.c_str(),
+                 static_cast<unsigned long long>(item.event.key.session_id),
+                 static_cast<unsigned long long>(item.event.key.sequence));
+#endif
 #endif
     g_ota_owner_started.store(true, std::memory_order_release);
     QualifiedInput pir(EventKind::Motion, std::nullopt, kPirDebounceMs,
@@ -847,6 +863,23 @@ void owner_task(void*) {
             }
             const EventKey key{decoded.value->node_id, decoded.value->session_id,
                                decoded.value->sequence_number};
+#if GS_HIL_CONTROL && !GS_HIL_BUILD
+            const auto ack_before = runtime.recovery_snapshot();
+            const auto matches_key = [&key](const EventKey& candidate) {
+                return candidate.str() == key.str();
+            };
+            const bool pending_match = std::any_of(
+                ack_before.pending.begin(), ack_before.pending.end(),
+                [&matches_key](const PendingTx& item) { return matches_key(item.event.key); });
+            const bool retained_match = std::any_of(
+                ack_before.retained.begin(), ack_before.retained.end(),
+                [&matches_key](const DomainEvent& event) { return matches_key(event.key); });
+            ESP_LOGI(kTag, "ACKDIAG_ACK ack_class=%d reason=%s logical_id=%s business_session=%llu business_seq=%llu transport_session=%llu",
+                     static_cast<int>(decoded.value->ack_type), decoded.value->reason.c_str(),
+                     key.source_id.c_str(), static_cast<unsigned long long>(key.session_id),
+                     static_cast<unsigned long long>(key.sequence),
+                     static_cast<unsigned long long>(security_link.session()));
+#endif
 #if !GS_HIL_BUILD
             const auto pending_before = runtime.pending();
             const auto retained_before = runtime.persisted();
@@ -855,6 +888,23 @@ void owner_task(void*) {
             const bool matched_pending = runtime.has_pending_key(key);
 #endif
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
+#if GS_HIL_CONTROL && !GS_HIL_BUILD
+            const auto ack_after = runtime.recovery_snapshot();
+            ESP_LOGI(kTag, "ACKDIAG_PENDING_LOOKUP ack_key=%s match=%d pending_count_before=%u pending_count_after=%u",
+                     key.str().c_str(), pending_match,
+                     static_cast<unsigned>(ack_before.pending.size()),
+                     static_cast<unsigned>(ack_after.pending.size()));
+            if (!pending_match)
+                for (const auto& item : ack_before.pending)
+                    ESP_LOGI(kTag, "ACKDIAG_PENDING_KEY logical_id=%s origin_session=%llu event_seq=%llu",
+                             item.event.key.source_id.c_str(),
+                             static_cast<unsigned long long>(item.event.key.session_id),
+                             static_cast<unsigned long long>(item.event.key.sequence));
+            ESP_LOGI(kTag, "ACKDIAG_RETAINED_LOOKUP ack_key=%s match=%d retained_count_before=%u retained_count_after=%u",
+                     key.str().c_str(), retained_match,
+                     static_cast<unsigned>(ack_before.retained.size()),
+                     static_cast<unsigned>(ack_after.retained.size()));
+#endif
 #if !GS_HIL_BUILD
             if (matched_pending) {
                 health_cadence.observe_authenticated_contact(now);
@@ -1301,6 +1351,11 @@ void owner_task(void*) {
                 breadcrumb = NodeBreadcrumb::TxPrepare;
                 const EventKey key{message->node_id, message->session_id,
                                    message->sequence_number};
+#if GS_HIL_CONTROL && !GS_HIL_BUILD
+                ESP_LOGI(kTag, "ACKDIAG_SEND business_key=%s transport_session=%llu transport_seq=none",
+                         key.str().c_str(),
+                         static_cast<unsigned long long>(security_link.session()));
+#endif
                 const auto encoded = transport::encode_node_message(*message);
                 if (!encoded) {
                     ESP_LOGE(kTag, "NodeMessage encode failed error=%d", static_cast<int>(encoded.error));

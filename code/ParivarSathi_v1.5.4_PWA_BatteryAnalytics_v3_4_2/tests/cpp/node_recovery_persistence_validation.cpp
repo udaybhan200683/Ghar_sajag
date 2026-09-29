@@ -1,7 +1,9 @@
 #include "firmware/node/components/storage/node_recovery_persistence.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
+#include "firmware/common/transport/data_plane_codec.hpp"
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <stdexcept>
 
@@ -40,6 +42,99 @@ public:
     bool read_error{false};
     bool fail_next_write{false};
 };
+
+// Rewrap a single ordinary Motion in the actual legacy v1 envelope. V1 used
+// the same authenticated header and event fields, without the v2 aggregate flag.
+void convert_single_motion_to_v1(MemoryBlob& store, OpenSslCommissioningCrypto& crypto,
+                                  const Key32& key) {
+    auto& blob = store.bytes;
+    require(blob.size() > 43 && blob[4] == 2, "v2 fixture missing");
+    gs::security::Nonce12 nonce{};
+    std::copy_n(blob.begin() + 13, nonce.size(), nonce.begin());
+    Bytes aad(blob.begin(), blob.begin() + 27);
+    for (const char* value : {"home-a", "hub-a", "bathroom"}) {
+        const auto length = std::char_traits<char>::length(value);
+        aad.push_back(static_cast<std::uint8_t>(length));
+        aad.insert(aad.end(), value, value + length);
+    }
+    gs::security::GcmTag tag{};
+    std::copy_n(blob.end() - tag.size(), tag.size(), tag.begin());
+    Bytes cipher(blob.begin() + 27, blob.end() - tag.size());
+    Bytes plain;
+    require(crypto.open_aes256_gcm(key, nonce, aad, cipher, tag, plain) &&
+            !plain.empty() && plain.back() == 0, "v2 fixture decrypt failed");
+    plain.pop_back();
+    blob[4] = 1;
+    blob[25] = static_cast<std::uint8_t>(plain.size() >> 8);
+    blob[26] = static_cast<std::uint8_t>(plain.size());
+    require(crypto.random_bytes(nonce.data(), nonce.size()), "v1 nonce failed");
+    std::copy(nonce.begin(), nonce.end(), blob.begin() + 13);
+    aad.assign(blob.begin(), blob.begin() + 27);
+    for (const char* value : {"home-a", "hub-a", "bathroom"}) {
+        const auto length = std::char_traits<char>::length(value);
+        aad.push_back(static_cast<std::uint8_t>(length));
+        aad.insert(aad.end(), value, value + length);
+    }
+    require(crypto.seal_aes256_gcm(key, nonce, aad, plain, cipher, tag),
+            "v1 fixture encrypt failed");
+    blob.resize(27);
+    blob.insert(blob.end(), cipher.begin(), cipher.end());
+    blob.insert(blob.end(), tag.begin(), tag.end());
+}
+
+void persisted_ack_case(OpenSslCommissioningCrypto& crypto, const Key32& key,
+                        bool legacy_v1, bool current_origin) {
+    MemoryBlob store;
+    NodeRecoveryRepository repo(crypto, store, key, "home-a", "hub-a", "bathroom");
+    NodeRuntime before("bathroom", current_origin ? 409 : 406);
+    const auto event = before.record(EventKind::Motion, "Bathroom", 100, 0);
+    require(event && repo.save(before.recovery_snapshot()), "persisted ACK fixture failed");
+    if (legacy_v1) convert_single_motion_to_v1(store, crypto, key);
+    const auto loaded = repo.load();
+    require(loaded.status == NodeRecoveryLoadStatus::Ready && loaded.state &&
+            loaded.state->pending.size() == 1 && loaded.state->retained.size() == 1,
+            "persisted ACK restore decode failed");
+    NodeRuntime after("bathroom", current_origin ? 410 : 409);
+    require(after.restore_recovery(*loaded.state, 0), "persisted ACK runtime restore failed");
+    const auto snapshot = after.recovery_snapshot();
+    require(snapshot.pending[0].event.key.str() == event->str() &&
+            snapshot.retained[0].key.str() == event->str() &&
+            after.has_pending_key(*event), "restored pending/retained identity mismatch");
+    const auto resend = after.next_message(0);
+    require(resend && resend->node_id == event->source_id &&
+            resend->session_id == event->session_id &&
+            resend->sequence_number == event->sequence,
+            "persisted ACK resend changed business key");
+    const auto rejected_wire = gs::transport::encode_node_ack(
+        gs::make_node_ack(*event, gs::AckClass::Rejected, 0, "journal_rejected"));
+    require(static_cast<bool>(rejected_wire), "rejected ACK encode failed");
+    const auto rejected = gs::transport::decode_node_ack(
+        rejected_wire.frame.bytes.data(), rejected_wire.frame.size);
+    require(static_cast<bool>(rejected) &&
+            static_cast<int>(rejected.value->ack_type) == 3 &&
+            !after.acknowledge(*event, rejected.value->ack_type) &&
+            after.pending() == 1 && after.persisted() == 1,
+            "journal rejection unexpectedly retired retained evidence");
+    const auto encoded = gs::transport::encode_node_ack(
+        gs::make_node_ack(*event, gs::AckClass::Durable, 0, "journal_committed"));
+    require(static_cast<bool>(encoded), "production ACK encode failed");
+    const auto decoded = gs::transport::decode_node_ack(encoded.frame.bytes.data(),
+                                                         encoded.frame.size);
+    require(static_cast<bool>(decoded), "production ACK decode failed");
+    const gs::EventKey ack_key{decoded.value->node_id, decoded.value->session_id,
+                               decoded.value->sequence_number};
+    require(after.acknowledge(ack_key, decoded.value->ack_type) &&
+            after.pending() == 0 && after.persisted() == 0,
+            "persisted ACK retirement failed");
+    require(repo.save(after.recovery_snapshot()), "post-ACK persistence failed");
+    const auto empty = repo.load();
+    require(empty.status == NodeRecoveryLoadStatus::Ready && empty.state &&
+            empty.state->pending.empty() && empty.state->retained.empty(),
+            "retired event survived repository reload");
+    std::cout << "ACKDIAG-PERSIST "
+              << (legacy_v1 ? "v1" : current_origin ? "current-origin-v2" : "v2")
+              << " PASS rejected-preserves durable-retires\n";
+}
 }
 
 int main() {
@@ -48,6 +143,9 @@ int main() {
         Key32 wrapping_key{};
         require(crypto.random_bytes(wrapping_key.data(), wrapping_key.size()),
                 "test key generation failed");
+        persisted_ack_case(crypto, wrapping_key, true, false);
+        persisted_ack_case(crypto, wrapping_key, false, false);
+        persisted_ack_case(crypto, wrapping_key, false, true);
         MemoryBlob store;
         NodeRuntime original("bathroom", 7);
         const auto motion = original.record(EventKind::Motion, "Bathroom", 100, 0);
