@@ -219,3 +219,147 @@ tests were run for this design task.
 
 Therefore `DESIGN_READY_FOR_IMPLEMENTATION: NO`. Firmware implementation of
 this mechanism would otherwise encode unresolved product behavior.
+
+## Policy and storage-contract closure audit
+
+This section refines the choices above using
+`docs/features/ROUTINE_ACTIVITY_AND_INCIDENT_RULES.md`,
+`docs/features/CAREGIVER_ACTIONS_AND_NOTIFICATIONS.md`, source and the current
+host behavior. A recommendation is not a shipped behavior.
+
+### Effect ownership
+
+**Safe engineering default:** Hub owns authenticated sensor interpretation,
+local rule decisions and a durable, stable incident/alert intent. Backend owns
+the committed caregiver timeline/incident, notification jobs and provider
+outbox, escalation schedule, human acknowledgement, cancellation of unsent
+jobs, and resolution/audit history. `NotificationService` already creates
+primary/backup jobs and cancels unsent work on human acknowledgement;
+`durable_commit.py` commits event, alert and notification outbox in a backend
+transaction. The Hub must not mirror the backend escalation timer or treat an
+I Am OK event as caregiver acknowledgement. A door-close rule signal may
+request resolution of its matching concern, but backend incident lifecycle
+and caregiver-visible state remain authoritative. Whether any future Hub-side
+escalation is desired is a product decision; none is required by current code.
+
+### Time and coverage decisions
+
+| Situation | Recommended behavior | Status |
+| --- | --- | --- |
+| Boot without trusted clock | Restore durable evidence and pending intents; mark time and current coverage unknown; make no absence inference. Acquire a fresh same-boot clock anchor. | SAFE_ENGINEERING_DEFAULT, consistent with rule trust gates. |
+| Time arrives after boot; window started during outage | Resume only the current eligible window using stable `(routine_id, schedule_version, window_instance_id)` identity and verified evidence/coverage. Do not replay historical timer ticks. | SAFE_ENGINEERING_DEFAULT for dedupe; exact window-instance construction is PRODUCT_DECISION_REQUIRED. |
+| Whole window missed in outage | Do not assert “no activity.” Record a separate availability/verification gap if the product wants a caregiver-visible concern; never backfill a missing-activity alert from unknown coverage. | Suppression is SAFE_ENGINEERING_DEFAULT; caregiver presentation/severity is PRODUCT_DECISION_REQUIRED. |
+| Inactivity threshold passed during reboot | After trust returns, alert only if the entire required interval has provable coverage and no activity; otherwise classify unknown coverage. No burst for every elapsed threshold. | SAFE_ENGINEERING_DEFAULT; historical coverage proof is not implemented. |
+| Large forward correction | Commit clock-context change; evaluate the currently relevant window once, with stable instance identity. Do not emit a backlog of historical alerts. Flag skipped intervals as unknown coverage if surfaced. | SAFE_ENGINEERING_DEFAULT for no burst; definition of “current” and gap presentation is PRODUCT_DECISION_REQUIRED. |
+| Backward correction | Never undo committed intent or regenerate its stable identity. Re-evaluate only future eligible transitions after time progresses again. | SAFE_ENGINEERING_DEFAULT. |
+| Timezone or DST change | Order new timezone as config transition; prior decisions keep original version. Use a stable local-date/window instance disambiguated by schedule version and offset/fold, so repeated local clock hour cannot duplicate an alert. | SAFE_ENGINEERING_DEFAULT for versioning; skipped/repeated window policy is PRODUCT_DECISION_REQUIRED. |
+
+`KNOWN_ACTIVITY` requires authenticated evidence. `KNOWN_INACTIVITY`
+requires trusted time, a declared observation interval and complete required
+sensor coverage throughout that interval. An outage or unprovable coverage
+interval is `UNKNOWN_COVERAGE`, never known inactivity. Current
+`CoverageTracker::current` is point-in-time, so it cannot prove historical
+coverage; interval evidence or a conservative unknown result is required.
+Backend/UI should distinguish “no activity detected” from “activity could
+not be verified.” The exact caregiver wording, severity and notification
+policy for the latter need product approval.
+
+### Bounds supported by current source
+
+| Quantity | Bound | Basis/classification |
+| --- | --- | --- |
+| Enrolled Nodes | 10 | SOURCE_DEFINED: `HubSecurityLink::kInstalledCapacity`. |
+| Required Nodes | At most 10 if drawn from enrolled Nodes | DERIVED_SAFE_BOUND; enforce registry membership. |
+| Instrumented rooms | At most 10 distinct currently assigned Node rooms, but arbitrary configured room labels/other rooms are unbounded | DERIVED_SAFE_BOUND for observed Node rooms; full `MAX_ROOMS` is PRODUCT_DECISION_REQUIRED. |
+| Active routine | One `RoutineService` and one `HomeConfig::morning` | SOURCE_DEFINED for current implementation; future `MAX_ROUTINES` is PRODUCT_DECISION_REQUIRED. |
+| Activity signal kinds | Eight `RuleSignalKind` values | SOURCE_DEFINED kinds, not a bound on all future rules or emitted instances; `MAX_ACTIVITY_RULES` is PRODUCT_DECISION_REQUIRED. |
+| Backend-pending Node events | 128 current journal slots | SOURCE_DEFINED current maximum; effect intents can exceed this due to timers. |
+| Pending effects; effect payload; config snapshot; transition payload | No enforced finite product bound | PRODUCT_DECISION_REQUIRED. Existing routine evidence IDs and config strings/sets are unbounded. |
+
+The registry wrapped blob has an 8192-byte maximum, but that is **not** a
+bound for HomeConfig or effect intents. `journal.cpp` limits encoded event
+plaintext to 256 bytes; each sealed event adds nonce/tag and store overhead.
+Neither number can be repurposed as a checkpoint or transition cap without
+changing and validating product semantics. Pending-effect capacity must be
+fixed before admission: when full, refuse an event whose decision might need
+another intent (without durable ACK), or stop timer progression and expose a
+fault. Never silently drop or reprioritize safety effects. Exact capacity and
+operational recovery are PRODUCT_DECISION_REQUIRED.
+
+### Selected atomic persistence model
+
+Select **A: one authenticated, immutable transition envelope** for each new
+logical input and its reducer decision/effect intents. The envelope contains
+the full causal Node event (or a cryptographically bound immutable event
+reference already durable), global ordinal, config/time context, reducer
+decision delta and bounded effect payloads. Prefer embedding the event: a
+separate event slot plus decision slot cannot be made atomic by ordinary
+independent NVS commits. The existing journal's one-slot write, commit,
+readback and authentication pattern is a useful primitive, but its current
+format has no decision envelope, global ordinal or effect outbox. Do not
+claim the format change is already supported or that NVS power-cut behavior
+is physically qualified.
+
+Sequence: serialize from a candidate state under the sole owner; check
+capacity and expected next ordinal; write the *one* immutable slot; commit;
+read back and authenticate its complete contents, slot binding, ordinal and
+causal event; only then publish candidate RAM state, send durable Node ACK
+and expose intents to delivery. On boot, scan the contiguous authenticated
+prefix, reject holes/ordinal conflicts, rebuild state and pending intents;
+an interrupted invalid tail is either safely absent by a proven slot-store
+contract or a storage fault requiring fail-closed recovery. A failed write
+may leave an ambiguous occupied slot; it must not be retried under a new
+ordinal until the slot is inspected. No separate ordinal counter write.
+Use a 64-bit unsigned ordinal with a fixed nonzero initial value; refuse new
+transitions at maximum, never wrap. Concurrent Nodes serialize at the Hub
+owner; duplicates reuse their original EventKey/ordinal.
+
+Configuration/registry cross-store atomicity is **not resolved** by a single
+transition envelope if the registry remains an independently committed NVS
+snapshot. A safe option is immutable prepare snapshot → verified transition
+referencing its exact hash/generation → publish it as active; orphan prepared
+snapshots are ignored. The current registry repository does not expose this
+transaction protocol, and security authorization may already change before
+the logical record is committed. This needs an exact API and crash proof.
+Backend completion remains a separate write-once receipt after backend
+`COMMITTED`; lost receipt leads to same-ID retry. Provider exactly-once is
+outside the Hub's guarantee.
+
+### Migration, failures and budget
+
+Legacy journal replay recovers only the state its source actually records.
+Start a new transition generation with explicit unknown time/coverage and a
+product-approved reset of unrecoverable rule latches; preserve legacy event
+IDs, pending backend events and receipts. Do not create a checkpoint claiming
+old rich rule state was reconstructed. A first new-generation checkpoint is
+eligible only after all active state has a declared canonical reset or
+durable origin. Old slots become reclaimable only when a validated checkpoint
+and bounded dedupe state cover their effects, all backend-pending events and
+receipts are safely transferred/settled, no active rule depends on their
+evidence, and rollback to journal-only firmware is barred. Reclamation is
+not designed here.
+
+Event/envelope/intent/ordinal failure: no durable ACK and no external
+delivery; inspect ambiguous slot and fail closed if it cannot be classified.
+Backend unavailable: retain bounded intent and retry; at capacity apply
+admission control/fault, never discard. Clock unavailable: suppress absence
+decisions. Config crash: restore last matching snapshot/transition pair or
+fail closed. Two Nodes: owner serialization fixes the order. These outcomes
+depend on the storage validation contract above; current separate journal
+and registry stores do not yet provide the full proof.
+
+The target partition table provides 24,576 bytes ordinary `nvs` and 131,072
+bytes `gs_journal`; both already carry other state. Known maximum event
+plaintext is 256 bytes, and current journal holds 128 event slots. Required
+budget remains a formula:
+
+`transition_record_max = envelope_header + event(<=256) + context + delta + bounded_intents + authentication`
+
+`total = transition_tail + 2*checkpoint_max + pending_effects + retained_config_versions + receipts + selectors + NVS overhead`
+
+`checkpoint_max`, intent count/payload, config count/payload, tail capacity,
+and NVS effective available bytes are unspecified. Therefore
+`STORAGE_BUDGET_FITS: UNKNOWN`; an invented numeric maximum would conceal
+the unbounded current structs. The design remains **not ready** for durable
+transition or checkpoint firmware until product bounds, cross-store commit
+and legacy reset policy are resolved.

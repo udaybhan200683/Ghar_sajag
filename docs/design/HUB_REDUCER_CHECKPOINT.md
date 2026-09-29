@@ -206,3 +206,14 @@ bounds. This is a test **plan**; no tests were run for this design audit.
    behavior before timer state can be restored safely.
 
 Until these decisions are made, `DESIGN_READY_FOR_IMPLEMENTATION: NO`.
+
+## Follow-up policy and storage decision
+
+The [durable transition design](HUB_DURABLE_STATE_TRANSITIONS.md) now records
+recommended time/coverage behavior, backend effect ownership, source-backed
+bounds and a single-envelope transition model. It does **not** make the
+checkpoint ready: historical coverage and legacy rule inputs remain
+unreconstructable, several product bounds are undecided, and the registry /
+transition cross-store commit protocol needs a crash proof. A checkpoint may
+cover only a fully canonical transition generation and must retain legacy
+evidence and receipts until the explicit safe condition in that design is met.
