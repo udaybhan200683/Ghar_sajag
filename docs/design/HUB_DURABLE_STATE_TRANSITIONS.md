@@ -665,6 +665,226 @@ legacy work to be settled or transferred, bounded dedupe and rule
 dependencies to be covered, and rollback to legacy firmware barred.
 Reclamation is outside this task.
 
+### Hub storage epoch and production provider contract
+
+**Authority and scope.** `storage_epoch` and the Hub retirement epoch are the
+same nonzero `u32`: the generation of one Hub durable history **within one
+authenticated Home/Hub installation**. The authenticated installation binding
+plus this number is the retirement namespace. It is neither wall-clock time,
+firmware version, boot count, enrollment generation nor checkpoint generation.
+Use a monotonic counter within an installation: the first durable history is
+epoch 1; a controlled replacement of that history uses the previous epoch
++ 1. Refuse replacement at `UINT32_MAX`. A restart, firmware update,
+checkpoint, report, Node rejoin, or ordinary migration batch does not change
+it. Migration from the legacy journal creates epoch 1 once, then preserves it.
+
+The authoritative epoch record is the **selected durable checkpoint**, not a
+new NVS key. `Codec::encode_checkpoint` already puts magic `GCP1`, schema,
+nonzero `storage_epoch` (`4` bytes), checkpoint generation (`8` bytes) and
+state in an AES-GCM protected blob; `Codec::encode_selector` protects the
+generation and A/B bank choice. Both checkpoint banks must contain valid,
+matching epoch values before that epoch can be advertised or accept reports.
+The selected checkpoint and its referenced report bank/evidence chunks must
+verify under the same epoch. A single corrupt checkpoint can be recovered
+from the other valid bank **only if no valid bank or selector indicates a
+different epoch**; ambiguous mixed epochs, invalid selectors that could
+choose another epoch, or two corrupt banks stop admission. The boot service
+must inspect both banks and both selectors *before* constructing
+`DurableStore(epoch)`. It must not use `DurableStore::recover` alone as an
+epoch discovery mechanism: that method receives an epoch and can ignore a
+checkpoint from another epoch. After choosing the epoch, call `recover` and
+require its selected checkpoint, chunks, tail and report references to verify.
+An empty `recover` result is not a genesis checkpoint.
+
+**Creation and invalidation.** Create a genesis checkpoint only after the
+provider has initialized, a complete partition inventory proves it empty,
+and the security bootstrap proves this is a freshly created installation.
+Reading only the known `cp`/`sel` keys is insufficient because orphan
+dynamic chunk keys may survive. If the Home identity or wrapping material
+already exists but `gs_journal` is empty, fail closed; do not create epoch 1
+under the old trust domain. For legacy migration, first authenticate legacy
+events and receipts and stage the reconstructable initial state; build a
+complete new-epoch checkpoint without erasing the legacy source. Write/read
+back the first checkpoint, then the second matching checkpoint,
+then select and verify the new generation. No epoch offer, report acceptance,
+new transition admission or legacy-slot erasure occurs before this barrier.
+The second valid checkpoint plus verified selector is the epoch commit point.
+If power fails before it, resume staging or recover the intact legacy state;
+if a persisted-but-failed write completed the barrier, readback resolves it
+as committed. Once committed, bar rollback to legacy firmware and preserve
+the epoch through all staged batches. Legacy physical slots may be retired
+only after their authenticated EventKeys, payloads, receipts and pending work
+have been transferred in the already specified two-checkpoint order. Enable
+retirement reports only after that transfer and the three report banks can be
+allocated; moving bytes alone never proves an EventKey retired.
+
+Controlled invalidation **within the same installation** requires a complete
+new checkpoint from the retained evidence, an incremented epoch, both A/B
+banks verified under it, and a selected new generation before old history is
+discarded. If that complete transfer cannot be proved, refuse invalidation
+and keep report acceptance disabled. A bare erase of `gs_journal` while
+ordinary NVS still holds the Home identity, wrapping key or enrolled Nodes is
+corruption, not a fresh store: fail closed and require recovery or a full
+factory reset. Full factory reset erases the durable journal **and** the Home
+identity, wrapping key and enrolled bindings as one operator-controlled
+operation. Quiesce radio admission before either erase and keep it disabled
+through reboot; a power failure between erases leaves mismatched identity
+or journal inventory and must resume reset or fail closed. No old Node can
+authenticate afterward. A new installation starts
+at epoch 1 in its new binding namespace; numeric equality with an old,
+unrelated installation is harmless because old reports and ACKs fail the
+binding authentication. Reusing old installation keys after full erase is
+forbidden. This scoped rule is necessary because no finite on-device epoch
+counter can prove a globally new value after every copy of its state is
+erased. Recommissioned Nodes must send a complete authenticated report under
+the new binding before any retirement proof exists, even if the new
+installation's numeric epoch is also 1.
+
+**Node transition.** After receiving a different nonzero epoch through an
+authenticated Hub session, the Node preserves all pending EventKeys and
+their origin sessions. It updates the epoch and increments its existing
+persisted report generation; it does not reset that generation. The epoch,
+generation and complete pending set must be committed together in Node
+recovery v3 before the first new-epoch report. The Hub accepts a new-epoch
+report only under its recovered epoch and authenticated enrollment binding;
+an old-epoch report is rejected, never translated into retirement evidence.
+The Node ignores an old-epoch report ACK, and accepts only an ACK matching
+the current epoch, generation and report HMAC under the current authenticated
+relationship. Existing old-origin pending keys remain in the first report
+under the new epoch. If the Hub lacks transferable evidence for their old
+history, it retains exact dedupe records or backpressures; it does not infer
+that missing historical keys were retired.
+
+**Provider composition and startup.** The planned target class
+`NvsDurableBlobStore` implements the existing `durable::BlobStore` methods
+`read`, `write_immutable` and `replace` over the existing `gs_journal` NVS
+partition, reusing the existing `events` namespace with disjoint keys from
+legacy `e000`/`c000` slots.
+The existing `BlobStore` read/write/replace interface is sufficient for all
+current codecs and repositories: a failed or ambiguous write is resolved by
+exact readback, while a read error is distinct from a missing key. Bootstrap
+additionally needs a read-only `StoreInventory` interface with one bounded
+`scan(InventorySummary&)` operation. It enumerates at most **384** key names,
+NVS types and namespaces across the whole `gs_journal` partition; `events`
+is the only owned application namespace. It returns
+`Empty`, `KnownLegacyOnly`, `DurablePresent`, `UnknownOrCorrupt`, or `IoFault`.
+Known legacy names are bounded `e000`–`e127` and `c000`–`c127`; known durable
+names are the fixed checkpoint, selector, transition, bitmap and report banks
+plus canonical base-36 `ef`/`ev` chunk IDs. The summary contains only
+bounded counts and presence masks, not a generic key list or mutable handle.
+The 384-name limit covers the 256 legacy event/receipt names, 32 pending
+event chunks, 32 exact-evidence chunks, four effect chunks, three report
+banks, four transition slots, two checkpoints, two selectors, two bitmaps
+and one scratch key, with headroom; exceeding it is a storage fault.
+Unknown namespaces/names/types, duplicate physical mappings, invalid syntax,
+too many keys, incomplete NVS iteration or unreadable entries fail closed. `Empty`
+requires a completed scan with no application keys and no prior `events`
+namespace marker. `KnownLegacyOnly` still requires
+authenticated legacy restore; `DurablePresent` requires checkpoint/selector
+and reference validation and cannot authorize fresh epoch creation. Validly
+named but unreferenced durable chunks are not empty; a partially staged
+genesis may resume only when its authenticated checkpoint and installation
+state prove that stage. The scan never erases, rewrites or accepts retirement
+evidence. The target security bootstrap
+must also expose whether the Home identity and wrapping material were
+newly created together; the current `load_or_create_home_id` does not expose
+that fact. Neither addition changes `BlobStore` or writes provider metadata.
+The provider must never erase/reformat on NVS error and must preserve
+the bounded key/value sizes and copy-on-write behavior. NVS keys are limited
+to 15 characters: fixed `cp`, `sel`, `tr`, `bm` and `ret` keys fit directly;
+logical `ef`/`ev` plus decimal `u64` chunk IDs may not. The provider must
+parse their canonical decimal ID and map it injectively to the same two-letter
+prefix plus at most 13 base-36 digits (all `u64` values fit). It rejects
+unknown, malformed or noncanonical keys; it never hashes or truncates keys.
+Chunk-ID construction must check overflow before shifting checkpoint
+generation. The provider owns **all**
+durable keys for checkpoint A/B, selector A/B, transition slots, pending
+effect/event and exact-evidence chunks, completion bitmaps, and the three
+retirement snapshot banks. No object is split into ordinary NVS. The
+existing `NvsJournalSlotStore` remains the legacy `events` reader during
+migration; the ordinary-NVS `NvsRegistryBlobStore` remains registry storage,
+not a retirement `BlobStore`.
+
+The source boundaries are `firmware/hub/target/esp32/idf/partitions.csv`
+(`gs_journal` at `0x3E0000`, size `0x20000`, ordinary `nvs` at `0x9000`, size
+`0x6000`); `NvsJournalSlotStore` initialization and slot/receipt read/write
+methods in `firmware/hub/target/esp32/nvs_journal_slot_store.cpp`
+(legacy `events` keys); `HubSecurityLink::initialize` and
+`attach_event_journal` in `firmware/hub/target/esp32/hub_security_link.cpp`
+(Home ID, wrapping-derived journal key and enrolled registry);
+`secure_owner_task` and `start_runtime_adapter` in
+`firmware/hub/target/esp32/hub_runtime_adapter.cpp` (current initialization
+and `HubRuntime(32, 128)` construction); `NvsRegistryBlobStore` in
+`firmware/common/security/nvs_association_blob_store.cpp` (ordinary NVS);
+and `durable::BlobStore`, `DurableStore`, `Codec` and
+`RetirementSnapshotRepository` in `firmware/hub/components/storage/`.
+
+A portable Hub durability owner (composed above `BlobStore`,
+`DurableStore` and `RetirementSnapshotRepository`) discovers and validates
+the epoch, owns checkpoint/report selection and gates report ACKs on durable
+selection. The ESP32 target owns the NVS provider and derives a durable key
+from the existing Home wrapping material with a distinct HKDF context; the
+owner receives the key and `BlobStore&`, not NVS handles. `HubRuntime` gets
+the recovered owner through a constructor/injection boundary; it does not
+call ESP-IDF NVS APIs. This boundary is specified here, not implemented.
+Target boot order is: initialize ordinary NVS and identity/security keys,
+retaining the fresh/existing installation result; initialize `gs_journal`
+without formatting; construct provider and scan its inventory; inspect both
+checkpoint banks/selectors and legacy state; finish or resume migration;
+recover the chosen durable epoch, checkpoint, tail, evidence and report
+references; construct the durability owner and Hub runtime; only then
+establish authenticated Node sessions, advertise the epoch and accept reports.
+If any storage step is unavailable or ambiguous, do not advertise an epoch,
+accept reports, send report ACKs or admit events that require durable state.
+
+**Crash cases.** Fresh storage creates two verified epoch-1 checkpoints and
+one selected generation before activation. A crash before either write leaves
+an uninitialized store; a crash after only one verified bank resumes genesis
+without advertising. A partial checkpoint or selector write is rejected by
+AEAD/readback; a returned failure whose exact bytes persisted is resolved by
+recovery. One corrupted bank is recoverable only under the same-epoch rule
+above; two corrupted banks or conflicting valid epochs stop admission. Normal
+reboot and firmware update read the same selected epoch. During migration,
+legacy state stays intact until the two-bank epoch commit; after commit,
+rollback is forbidden and incomplete later batches resume from verified
+new-epoch checkpoints. Selectors or checkpoint generation at `UINT64_MAX`
+stop further writes rather than wrap. No epoch is advertised while recovery
+or migration is incomplete.
+
+**Budget and qualification.** No standalone epoch or provider metadata key
+is added: additional epoch metadata = **0 bytes / 0 NVS entries** and
+additional provider metadata = **0 bytes / 0 NVS entries**. The two existing
+checkpoint fields already include the two four-byte epoch values within
+their 4,514-byte per-bank caps; existing selectors and migration metadata
+remain inside the 512-byte `gs_journal` allowance. Reusing `events` avoids a
+new namespace entry. Migration peak remains
+**83,218 / 131,072 bytes**, leaving **47,854 bytes (36.51%)**. The modeled
+NVS allocator peak remains **3,221 / 4,032 entries**, leaving **811 entries
+(20.11%)**. Those entry figures model the NVS-formatted **`gs_journal`**
+partition, not ordinary NVS. Ordinary NVS remains at the separate modeled
+15,520 raw bytes with no added keys; its entry count was not established by
+this model. Host proof can cover codec validity, same-epoch bank selection,
+persist-then-fail recovery, stale report/ACK rejection and migration ordering.
+ESP-IDF NVS allocation/GC behavior and power-cut qualification remain target
+work; `idf.py` and `IDF_PATH` were unavailable during this contract update.
+
+The deterministic contract cases for the later portable owner are:
+
+| Case | Required result |
+| --- | --- |
+| Fresh empty installation | Require empty journal inventory and newly created Home identity/keys; create epoch 1 and activate only after both checkpoints and selector verify. |
+| Normal reboot or volatile runtime restart | Recover the same selected epoch; make no epoch write. |
+| Firmware-only update | Recover the same epoch; schema migration is a separate, explicit operation. |
+| Controlled same-installation history replacement | Transfer evidence, increment epoch once, and verify both banks before activation. |
+| Old-epoch report or ACK | Reject report; Node ignores ACK. Neither changes retirement evidence. |
+| Node epoch transition | Save new epoch, incremented report generation and full old/new-origin pending set atomically before reporting. |
+| Persisted write with a returned failure | Read back both banks and selector; recognize the committed result only if exact bytes and references verify. |
+| Partial write or one corrupt bank | Reject invalid bytes; use the remaining bank only under the same-epoch rule. |
+| Both banks corrupt or ambiguous epochs | Fail closed; do not recreate epoch 1 under existing installation keys. |
+| Migration before epoch commit | Resume staging or use untouched legacy state; do not advertise. |
+| Migration after epoch commit | Resume verified new-epoch batches; never roll back to legacy. |
+| Epoch or checkpoint-generation overflow | Refuse the transition before writing. |
+
 At 100 Node events and four non-event transitions/day, there are **104
 logical transitions** and 104 log writes. Assuming 104 backend completions,
 52 every-two-transition checkpoints (104 writes), online backend and one
@@ -678,7 +898,8 @@ bound is **1,821 writes/day** (1,561 with no handoff). Retries, polling
 and unchanged state write nothing. These are operation counts, not flash
 endurance claims.
 
-**Design fit:** yes for the modeled caps and migration peak. Firmware
-implementation readiness remains no until the byte-exact codec, NVS page
-allocation/GC behavior, cross-store restore order and fault injection are
-validated. No production firmware or reclamation is changed here.
+**Design fit:** yes for the modeled caps and migration peak. The epoch and
+provider contract is ready to implement. Production deployment still requires
+the ESP32 provider, target NVS page allocation/GC and power-cut validation,
+and the later HubRuntime integration. No production firmware or reclamation
+is changed here.
