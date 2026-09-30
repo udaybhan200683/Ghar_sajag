@@ -85,12 +85,28 @@ void HubRuntime::start_window(const RoutineConfig& config, HomeMode mode) {
     routine_.start_window(config, mode);
 }
 
+bool HubRuntime::durable_admission_open() const {
+    if (durability_owner_ == nullptr) return true;
+    const auto epoch = durability_owner_->epoch();
+    return durability_owner_->state() == durable::DurabilityOwnerState::Ready &&
+           epoch.has_value() && *epoch != 0 &&
+           durability_owner_->durable_store() != nullptr &&
+           durability_owner_->retirement_repository() != nullptr;
+}
+
+std::optional<std::uint32_t> HubRuntime::authoritative_storage_epoch() const {
+    if (!durable_admission_open() || durability_owner_ == nullptr) return std::nullopt;
+    return durability_owner_->epoch();
+}
+
 bool HubRuntime::radio_callback(const DomainEvent& event) {
     GS_TRACE(gs::log::Category::Hub, "H00", "radio_callback.enter", "-");
+    if (!durable_admission_open()) return false;
     return ingest_.callback_copy(event, peers_);
 }
 
 bool HubRuntime::radio_message_callback(const NodeMessage& message, EpochSeconds hub_received_at) {
+    if (!durable_admission_open()) return false;
     if (!valid_node_message(message)) {
         GS_ERROR(gs::log::Category::Hub, "H00", "wire_message.rejected", "invalid_node_message");
         return false;
@@ -106,6 +122,7 @@ bool HubRuntime::authenticated_radio_message_callback(
     const NodeMessage& message, const std::string& authenticated_node_id,
     const std::string& authenticated_device_id, std::uint64_t transport_session,
     EpochSeconds hub_received_at, std::uint64_t now_monotonic_ms) {
+    if (!durable_admission_open()) return false;
     if (!valid_node_message(message) || message.node_id != authenticated_node_id ||
         authenticated_device_id.empty()) {
         GS_ERROR(gs::log::Category::Hub, "H00", "wire_message.rejected",
@@ -159,6 +176,7 @@ std::vector<RuleSignalDecision> HubRuntime::apply_committed_event(
 // Duplicate journal identities receive an ACK without repeating reducer effects.
 std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint16_t> local_minute) {
     GS_TRACE(gs::log::Category::Hub, "H00", "run_state_once.enter", "-");
+    if (!durable_admission_open()) return std::nullopt;
     const auto event = ingest_.pop();
     if (!event) return std::nullopt;
     const bool passive = is_passive_sensor_event(event->kind);

@@ -5,7 +5,10 @@
 #include "firmware/hub/components/fota/hub_fota_guard.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/runtime/hub_event_log.hpp"
+#include "firmware/hub/components/storage/hub_durability_owner.hpp"
+#include "firmware/hub/target/esp32/nvs_durable_blob_store.hpp"
 #include "firmware/hub/target/esp32/nvs_journal_slot_store.hpp"
+#include "firmware/hub/target/esp32/nvs_store_inventory.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
 
 #include "esp_event.h"
@@ -415,10 +418,58 @@ void secure_owner_task(void*) {
             return;
         }
     }
-    // The dedicated partition contains a bounded append-only encrypted journal.
-    // Do not start authenticated event admission if restore or persistence fails.
+    // Recover the durable owner before constructing an event runtime. It owns
+    // the authoritative epoch and both durable repositories for this task's
+    // lifetime. No target global may retain references to these objects.
+    NvsDurableBlobStore durable_blobs;
+    NvsStoreInventory durable_inventory;
+    if (!durable_blobs.initialize()) {
+        ESP_LOGE(kTag, "Durable NVS provider initialization failed closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+    security::Key32 durable_key{};
+    auto& commissioning_crypto = security_link.commissioning_crypto();
+    if (!security_link.durable_storage_key(durable_key)) {
+        commissioning_crypto.secure_zero(durable_key.data(), durable_key.size());
+        ESP_LOGE(kTag, "Durable storage key derivation failed closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+    const auto owner_freshness = [&]() {
+        switch (security_link.installation_freshness()) {
+            case SecurityFreshness::FreshInstallation:
+                return durable::InstallationFreshness::FreshInstallation;
+            case SecurityFreshness::ExistingInstallation:
+                return durable::InstallationFreshness::ExistingInstallation;
+            case SecurityFreshness::Ambiguous:
+                return durable::InstallationFreshness::Ambiguous;
+        }
+        return durable::InstallationFreshness::Ambiguous;
+    }();
+    durable::HubDurabilityOwner durability_owner(
+        durable_blobs, durable_inventory, commissioning_crypto,
+        durable_key, owner_freshness);
+    commissioning_crypto.secure_zero(durable_key.data(), durable_key.size());
+    const auto durability_state = durability_owner.recover();
+    const auto authoritative_epoch = durability_owner.epoch();
+    if (durability_state != durable::DurabilityOwnerState::Ready ||
+        !authoritative_epoch || *authoritative_epoch == 0 ||
+        durability_owner.durable_store() == nullptr ||
+        durability_owner.retirement_repository() == nullptr) {
+        ESP_LOGE(kTag, "Durability owner unavailable state=%u error=%u; admission closed",
+                 static_cast<unsigned>(durability_state),
+                 static_cast<unsigned>(durability_owner.error()));
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    // The bounded legacy event journal remains attached for its existing
+    // reducer replay contract, but the production runtime is admission-gated
+    // by the new owner before any authenticated business event is accepted.
     NvsJournalSlotStore journal_store;
     HubRuntime runtime(32, 128);
+    runtime.bind_durability_owner(durability_owner);
     if (!journal_store.initialize() ||
         !security_link.attach_event_journal(runtime.journal(), journal_store) ||
         !runtime.restore_from_journal()) {
@@ -446,8 +497,9 @@ void secure_owner_task(void*) {
         stopped.aborted = true;
         (void)xQueueOverwrite(g_fota_ack_queue, &stopped);
     };
-    ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u",
-             static_cast<unsigned>(security_link.enrolled_macs().size()));
+    ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u storage_epoch=%u",
+             static_cast<unsigned>(security_link.enrolled_macs().size()),
+             static_cast<unsigned>(*runtime.authoritative_storage_epoch()));
     for (;;) {
         if (security_link.faulted()) {
             ESP_LOGE(kTag, "Hub security owner faulted; refusing event admission");

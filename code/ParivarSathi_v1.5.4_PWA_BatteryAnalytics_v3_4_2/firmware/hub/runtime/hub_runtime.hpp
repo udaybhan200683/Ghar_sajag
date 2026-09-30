@@ -15,6 +15,7 @@
 #include "ingest/ingest.hpp"
 #include "rules/routine_service.hpp"
 #include "storage/journal.hpp"
+#include "storage/hub_durability_owner.hpp"
 #include "gs/rules.hpp"
 
 #include <cstddef>
@@ -40,6 +41,14 @@ struct AuthenticatedNodeHealth {
 class HubRuntime {
 public:
     HubRuntime(std::size_t ingest_capacity = 32, std::size_t journal_capacity = 1024);
+    // Bind the production runtime to the owner recovered during target boot.
+    // While bound, event ingress and processing remain closed unless the owner
+    // currently exposes a Ready state and a nonzero authoritative epoch.
+    void bind_durability_owner(durable::HubDurabilityOwner& owner) {
+        durability_owner_ = &owner;
+    }
+    bool durable_admission_open() const;
+    std::optional<std::uint32_t> authoritative_storage_epoch() const;
     void authorize_node(const std::string& node_id, std::uint64_t session_id, bool required_for_routine);
     void revoke_node(const std::string& node_id);
     // The caller must first verify AEAD and physical-to-logical registry
@@ -119,6 +128,7 @@ private:
     std::map<std::string, std::uint64_t> last_authenticated_contact_ms_;
     bool state_applied_{false};
     bool journal_replayed_{false};
+    durable::HubDurabilityOwner* durability_owner_{nullptr};
 };
 
 }  // namespace gs::hub

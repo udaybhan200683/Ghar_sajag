@@ -1,4 +1,5 @@
 #include "firmware/hub/components/storage/hub_durability_owner.hpp"
+#include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/target/esp32/nvs_durable_key_codec.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
 
@@ -138,11 +139,28 @@ void codec_tests() {
 void owner_tests(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     const auto k=key();
     Fixture fresh; HubDurabilityOwner owner(fresh,fresh,crypto,k,InstallationFreshness::FreshInstallation);
+    gs::hub::HubRuntime gated_runtime;
+    gated_runtime.authorize_node("node", 7, false);
+    gated_runtime.bind_durability_owner(owner);
+    check(!gated_runtime.durable_admission_open() && !gated_runtime.authoritative_storage_epoch(),
+          "uninitialized owner exposes no epoch and keeps runtime admission closed");
+    const gs::DomainEvent sample{{"node", 7, 1}, gs::EventKind::Motion, "room", 1, 1, 1, 0, 3800, false};
+    check(!gated_runtime.radio_callback(sample) && !gated_runtime.run_state_once(),
+          "event admission and processing cannot bypass an unready owner");
     check(owner.recover()==DurabilityOwnerState::Ready && owner.epoch()==1,"fresh empty starts epoch one");
+    check(gated_runtime.durable_admission_open() && gated_runtime.authoritative_storage_epoch()==1,
+          "fresh owner Ready exposes authoritative epoch one to runtime");
+    check(gated_runtime.radio_callback(sample) && gated_runtime.run_state_once().has_value(),
+          "event admission opens only after fresh owner readiness");
     check(owner.recover()==DurabilityOwnerState::Ready && owner.epoch()==1,"repeated recovery is deterministic");
     check(owner.durable_store() && owner.retirement_repository() && owner.recovery_state(),"repositories compose when ready");
     HubDurabilityOwner reboot(fresh,fresh,crypto,k,InstallationFreshness::ExistingInstallation);
     check(reboot.recover()==DurabilityOwnerState::Ready && reboot.epoch()==1,"reboot preserves epoch");
+    gs::hub::HubRuntime reboot_runtime;
+    reboot_runtime.authorize_node("node", 7, false);
+    reboot_runtime.bind_durability_owner(reboot);
+    check(reboot_runtime.authoritative_storage_epoch()==1 && reboot_runtime.radio_callback(sample),
+          "valid existing store opens admission with the same recovered epoch");
     check(owner.candidate_next_epoch()==2,"candidate epoch increments");
     Checkpoint replacement; replacement.storage_epoch=2;
     check(owner.commit_candidate_epoch(replacement) && owner.epoch()==2,
@@ -161,9 +179,19 @@ void owner_tests(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner erased(fresh,fresh,crypto,k,InstallationFreshness::ExistingInstallation);
     Fixture empty; HubDurabilityOwner lost(empty,empty,crypto,k,InstallationFreshness::ExistingInstallation);
     check(lost.recover()==DurabilityOwnerState::FailedClosed && !lost.epoch(),"existing identity plus empty storage fails closed");
+    gs::hub::HubRuntime erased_runtime;
+    erased_runtime.authorize_node("node", 7, false);
+    erased_runtime.bind_durability_owner(lost);
+    check(!erased_runtime.durable_admission_open() && !erased_runtime.authoritative_storage_epoch() &&
+          !erased_runtime.radio_callback(sample), "bare erase keeps event admission closed");
     Fixture orphan; orphan.values["zz"]={1};
     HubDurabilityOwner orphan_owner(orphan,orphan,crypto,k,InstallationFreshness::FreshInstallation);
     check(orphan_owner.recover()==DurabilityOwnerState::FailedClosed,"unknown orphan blocks fresh bootstrap");
+    gs::hub::HubRuntime orphan_runtime;
+    orphan_runtime.authorize_node("node", 7, false);
+    orphan_runtime.bind_durability_owner(orphan_owner);
+    check(!orphan_runtime.radio_callback(sample) && !orphan_runtime.authoritative_storage_epoch(),
+          "orphan storage keeps event admission closed");
     Fixture scan_fail; scan_fail.forced_status=InventoryStatus::ScanFailure;
     HubDurabilityOwner scan_owner(scan_fail,scan_fail,crypto,k,InstallationFreshness::FreshInstallation);
     check(scan_owner.recover()==DurabilityOwnerState::FailedClosed,"inventory scan error fails closed");
@@ -173,6 +201,12 @@ void owner_tests(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     Fixture legacy; legacy.values["e000"]={1};
     HubDurabilityOwner legacy_owner(legacy,legacy,crypto,k,InstallationFreshness::ExistingInstallation);
     check(legacy_owner.recover()==DurabilityOwnerState::MigrationRequired,"legacy records require migration");
+    gs::hub::HubRuntime migration_runtime;
+    migration_runtime.authorize_node("node", 7, false);
+    migration_runtime.bind_durability_owner(legacy_owner);
+    check(!migration_runtime.durable_admission_open() && !migration_runtime.authoritative_storage_epoch() &&
+          !migration_runtime.radio_callback(sample) && legacy.values.count("e000") == 1,
+          "MigrationRequired blocks admission and preserves legacy records");
     Fixture migration; migration.values["mig0"]={1};
     HubDurabilityOwner migration_owner(migration,migration,crypto,k,InstallationFreshness::ExistingInstallation);
     check(migration_owner.recover()==DurabilityOwnerState::MigrationRequired,"migration metadata requires migration state");

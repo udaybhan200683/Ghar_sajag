@@ -115,15 +115,15 @@ registry-persistence-host-test: build
 	./build/registry_persistence_validation
 
 hub-journal-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
 	./build/hub_journal_persistence_validation
 
 hub-durable-storage-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) -DGS_DURABLE_TEST_SLOT_REUSE=1 $(INCLUDES) firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_storage_validation.cpp -lcrypto -o build/hub_durable_storage_validation
 	./build/hub_durable_storage_validation
 
-hub-durable-provider-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_provider_validation.cpp -lcrypto -o build/hub_durable_provider_validation
+hub-durable-provider-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_provider_validation.cpp -lcrypto -o build/hub_durable_provider_validation
 	./build/hub_durable_provider_validation
 
 hub-backend-commit-host-test: build
