@@ -4,11 +4,15 @@
 
 namespace gs::security {
 
+enum class PersistentKeyLoadResult { Created, Existing, Error };
+
 // One random wrapping key per target, committed before use. In production the
 // NVS partition is protected by hardware flash encryption; the current HIL
 // profile is explicitly test-only and does not qualify key-at-rest security.
 // Corrupt or unreadable existing state is never replaced automatically.
 bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out);
+PersistentKeyLoadResult load_or_create_target_wrapping_key_with_result(
+    CommissioningCrypto& crypto, Key32& out);
 
 // The installation code is distinct from the device private key. HIL creates
 // a test-only value on first use; production requires factory provisioning so

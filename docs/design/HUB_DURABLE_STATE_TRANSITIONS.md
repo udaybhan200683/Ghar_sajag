@@ -785,10 +785,12 @@ and reference validation and cannot authorize fresh epoch creation. Validly
 named but unreferenced durable chunks are not empty; a partially staged
 genesis may resume only when its authenticated checkpoint and installation
 state prove that stage. The scan never erases, rewrites or accepts retirement
-evidence. The target security bootstrap
-must also expose whether the Home identity and wrapping material were
-newly created together; the current `load_or_create_home_id` does not expose
-that fact. Neither addition changes `BlobStore` or writes provider metadata.
+evidence. The target security bootstrap reports whether the wrapping key was
+created or already existed; `HubSecurityLink` records the same result for the
+Home ID and exposes `FreshInstallation`, `ExistingInstallation`, or
+`Ambiguous` only when both results agree. The durable key is derived with a
+distinct HKDF context. Neither addition changes `BlobStore` or writes provider
+metadata.
 The provider must never erase/reformat on NVS error and must preserve
 the bounded key/value sizes and copy-on-write behavior. NVS keys are limited
 to 15 characters: fixed `cp`, `sel`, `tr`, `bm` and `ret` keys fit directly;
@@ -902,8 +904,9 @@ the epoch, owns checkpoint/report selection and gates report ACKs on durable
 selection. The ESP32 target owns the NVS provider and derives a durable key
 from the existing Home wrapping material with a distinct HKDF context; the
 owner receives the key and `BlobStore&`, not NVS handles. `HubRuntime` gets
-the recovered owner through a constructor/injection boundary; it does not
-call ESP-IDF NVS APIs. This boundary is specified here, not implemented.
+the recovered owner through a future constructor/injection boundary; it does
+not call ESP-IDF NVS APIs. The portable owner and target storage components
+are implemented; runtime injection and admission gating remain pending.
 Target boot order is: initialize ordinary NVS and identity/security keys,
 retaining the fresh/existing installation result; initialize `gs_journal`
 without formatting; construct provider and scan its inventory; inspect both
@@ -975,8 +978,48 @@ bound is **1,821 writes/day** (1,561 with no handoff). Retries, polling
 and unchanged state write nothing. These are operation counts, not flash
 endurance claims.
 
-**Design fit:** yes for the modeled caps and migration peak. The epoch and
-provider contract is ready to implement. Production deployment still requires
-the ESP32 provider, target NVS page allocation/GC and power-cut validation,
-and the later HubRuntime integration. No production firmware or reclamation
-is changed here.
+**Design fit:** yes for the modeled caps and migration peak. The Hub durable
+storage foundation is implemented and host-tested. Production deployment
+still requires an ESP-IDF target build, target NVS page allocation/GC and
+power-cut validation, and later HubRuntime/live retirement-report integration.
+No reclamation is implemented here.
+
+### Durable storage foundation implementation
+
+The portable `HubDurabilityOwner` is in
+`firmware/hub/components/storage/hub_durability_owner.{hpp,cpp}`. It owns the
+existing `DurableStore` and creates `RetirementSnapshotRepository` only after
+inventory and checkpoint recovery succeed. Its states are `Uninitialized`,
+`Recovering`, `MigrationRequired`, `Ready`, and `FailedClosed`; the epoch and
+repositories are exposed only in `Ready`. Fresh security plus an empty
+inventory writes and verifies epoch-1 checkpoint generations 1 and 2. A
+bounded genesis stage can resume after restart. Existing identity plus empty
+storage, unknown/malformed records, scan failures, orphan chunks, and ambiguous
+checkpoint authority fail closed. Recognized legacy slots and migration
+metadata report `MigrationRequired` without erasure.
+`candidate_next_epoch()` refuses zero/overflow, and the controlled epoch
+commit writes two same-epoch checkpoint generations before selecting them.
+That commit helper currently permits only an empty retained history and an
+unchanged initial config; transferring nonempty histories requires a separate
+verified migration operation.
+
+The ESP32 target adapter is
+`firmware/hub/target/esp32/nvs_durable_blob_store.{hpp,cpp}` and the separate
+read-only scanner is `nvs_store_inventory.{hpp,cpp}`. Both use the `events`
+namespace in `gs_journal`; the scanner caps results at 384 and checks every
+namespace, key type, key spelling, and bounded blob size without mutation.
+`nvs_durable_key_codec.{hpp,cpp}` maps logical `ef<decimal-u64>` and
+`ev<decimal-u64>` to their two-letter prefix plus exactly 13 lowercase base36
+digits (15 characters maximum). Fixed `cp`, `sel`, `tr`, `bm`, `ret`, `mig`
+and legacy `e000`–`e127` / `c000`–`c127` keys are recognized directly. No
+mapping metadata or extra NVS entries are written.
+
+The deterministic host target is
+`make hub-durable-provider-host-test`; its provider fixture tests physical
+mapping, inventory classification, read/write faults, genesis interruption,
+reboot recovery, legacy state, and epoch overflow. It does not model ESP-IDF
+allocator/GC behavior. The target component source list includes the owner,
+provider, inventory and codecs, but runtime admission and Node retirement
+report wiring remain outside this foundation. `idf.py` is unavailable and
+`IDF_PATH` is empty, so target build, allocator qualification, and power-cut
+qualification remain pending.

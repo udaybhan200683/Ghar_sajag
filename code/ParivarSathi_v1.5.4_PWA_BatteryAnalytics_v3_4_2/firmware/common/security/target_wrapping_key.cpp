@@ -8,25 +8,31 @@
 namespace gs::security {
 
 bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out) {
+    return load_or_create_target_wrapping_key_with_result(crypto, out) !=
+           PersistentKeyLoadResult::Error;
+}
+
+PersistentKeyLoadResult load_or_create_target_wrapping_key_with_result(
+        CommissioningCrypto& crypto, Key32& out) {
     out.fill(0);
 // HIL_CONTROL supports the secure-runtime test profile without enabling the
 // legacy raw-FOTA GS_HIL_BUILD path. Both remain disabled in release builds.
 #if !GS_HIL_BUILD && !GS_HIL_CONTROL
 #if !defined(CONFIG_SECURE_BOOT) || !defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
-    return false;
+    return PersistentKeyLoadResult::Error;
 #endif
 #endif
     nvs_handle_t handle = 0;
-    if (nvs_open("gs_security", NVS_READWRITE, &handle) != ESP_OK) return false;
+    if (nvs_open("gs_security", NVS_READWRITE, &handle) != ESP_OK) return PersistentKeyLoadResult::Error;
     std::size_t length = out.size();
     const auto read = nvs_get_blob(handle, "wrap_key", out.data(), &length);
     if (read == ESP_OK) {
         nvs_close(handle);
         if (length == out.size() &&
             !std::all_of(out.begin(), out.end(), [](std::uint8_t byte) { return byte == 0; }))
-            return true;
+            return PersistentKeyLoadResult::Existing;
         crypto.secure_zero(out.data(), out.size());
-        return false;
+        return PersistentKeyLoadResult::Error;
     }
     if (read != ESP_ERR_NVS_NOT_FOUND ||
         !crypto.random_bytes(out.data(), out.size()) ||
@@ -34,13 +40,13 @@ bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out)
         nvs_commit(handle) != ESP_OK) {
         nvs_close(handle);
         crypto.secure_zero(out.data(), out.size());
-        return false;
+        return PersistentKeyLoadResult::Error;
     }
     nvs_close(handle);
     nvs_handle_t verify = 0;
     if (nvs_open("gs_security", NVS_READONLY, &verify) != ESP_OK) {
         crypto.secure_zero(out.data(), out.size());
-        return false;
+        return PersistentKeyLoadResult::Error;
     }
     Key32 checked{};
     length = checked.size();
@@ -51,7 +57,7 @@ bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out)
     nvs_close(verify);
     crypto.secure_zero(checked.data(), checked.size());
     if (!committed) crypto.secure_zero(out.data(), out.size());
-    return committed;
+    return committed ? PersistentKeyLoadResult::Created : PersistentKeyLoadResult::Error;
 }
 
 bool load_target_installer_code(CommissioningCrypto& crypto, Key32& out) {

@@ -18,7 +18,8 @@ std::string id_for_mac(const HubSecurityLink::Mac& mac, const char* prefix) {
 }
 
 bool load_or_create_home_id(security::CommissioningCrypto& crypto,
-                            std::string& home_id) {
+                            std::string& home_id, bool& created) {
+    created = false;
     nvs_handle_t handle = 0;
     if (nvs_open("gs_home", NVS_READWRITE, &handle) != ESP_OK) return false;
     std::array<std::uint8_t, 16> raw{};
@@ -41,6 +42,7 @@ bool load_or_create_home_id(security::CommissioningCrypto& crypto,
             nvs_close(handle);
             return false;
         }
+        created = true;
     } else if (read != ESP_OK || length != raw.size()) {
         nvs_close(handle);
         return false;
@@ -71,12 +73,23 @@ HubSecurityLink::~HubSecurityLink() {
 
 bool HubSecurityLink::initialize(const Mac& hub_mac) {
     if (registry_ || !crypto_.ready() || !identity_.initialize() ||
-        !identity_.public_key("hub", hub_public_key_) ||
-        !security::load_or_create_target_wrapping_key(crypto_, wrapping_key_) ||
-        !load_or_create_home_id(crypto_, home_id_)) {
+        !identity_.public_key("hub", hub_public_key_)) {
         faulted_ = true;
         return false;
     }
+    const auto wrapping_result = security::load_or_create_target_wrapping_key_with_result(
+        crypto_, wrapping_key_);
+    bool home_created = false;
+    if (wrapping_result == security::PersistentKeyLoadResult::Error ||
+        !load_or_create_home_id(crypto_, home_id_, home_created)) {
+        faulted_ = true;
+        return false;
+    }
+    const bool wrap_created = wrapping_result == security::PersistentKeyLoadResult::Created;
+    freshness_ = wrap_created == home_created
+        ? (wrap_created ? SecurityFreshness::FreshInstallation
+                        : SecurityFreshness::ExistingInstallation)
+        : SecurityFreshness::Ambiguous;
     hub_id_ = id_for_mac(hub_mac, "hub");
     security::Bytes journal_salt(home_id_.begin(), home_id_.end());
     journal_salt.insert(journal_salt.end(), hub_id_.begin(), hub_id_.end());
@@ -88,6 +101,7 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
         crypto_.secure_zero(journal_salt.data(), journal_salt.size());
         crypto_.secure_zero(wrapping_key_.data(), wrapping_key_.size());
         faulted_ = true;
+        freshness_ = SecurityFreshness::Ambiguous;
         return false;
     }
     crypto_.secure_zero(journal_salt.data(), journal_salt.size());
@@ -103,10 +117,26 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
         (loaded.status == HubRegistryLoadStatus::Ready &&
          (!loaded.state || !registry_->restore(loaded.state->registry)))) {
         faulted_ = true;
+        freshness_ = SecurityFreshness::Ambiguous;
         return false;
     }
     if (loaded.status == HubRegistryLoadStatus::Ready) bindings_ = loaded.state->bindings;
     return true;
+}
+
+bool HubSecurityLink::durable_storage_key(security::Key32& out) const {
+    out.fill(0);
+    if (faulted_ || !registry_ ||
+        std::all_of(journal_key_.begin(), journal_key_.end(),
+                    [](std::uint8_t b) { return b == 0; })) return false;
+    security::Bytes salt(home_id_.begin(), home_id_.end());
+    salt.insert(salt.end(), hub_id_.begin(), hub_id_.end());
+    constexpr char context_text[] = "GharSajag/HubDurableStorage/v1";
+    const security::Bytes context(context_text, context_text + sizeof(context_text) - 1U);
+    const bool ok = crypto_.hkdf_sha256(journal_key_, salt, context, out);
+    crypto_.secure_zero(salt.data(), salt.size());
+    if (!ok) crypto_.secure_zero(out.data(), out.size());
+    return ok;
 }
 
 bool HubSecurityLink::attach_event_journal(hub::HubJournal& journal,

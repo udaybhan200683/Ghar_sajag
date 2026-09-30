@@ -19,6 +19,8 @@
 
 namespace gs::hub::target {
 
+enum class SecurityFreshness { FreshInstallation, ExistingInstallation, Ambiguous };
+
 class HubSecurityLink {
 public:
     using Mac = std::array<std::uint8_t, 6>;
@@ -52,6 +54,8 @@ public:
     HubSecurityLink(const HubSecurityLink&) = delete;
     HubSecurityLink& operator=(const HubSecurityLink&) = delete;
     bool initialize(const Mac& hub_mac);
+    SecurityFreshness installation_freshness() const { return freshness_; }
+    bool durable_storage_key(security::Key32& out) const;
     // Attach the existing bounded encrypted event journal using a key derived
     // from this Hub/Home wrapping key. Failure keeps event admission closed.
     bool attach_event_journal(hub::HubJournal& journal,
@@ -121,6 +125,7 @@ private:
     std::string hub_id_;
     std::uint64_t pairing_deadline_ms_{0};
     bool faulted_{false};
+    SecurityFreshness freshness_{SecurityFreshness::Ambiguous};
 };
 
 }  // namespace gs::hub::target
