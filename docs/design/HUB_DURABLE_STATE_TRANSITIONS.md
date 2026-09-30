@@ -794,7 +794,7 @@ the bounded key/value sizes and copy-on-write behavior. NVS keys are limited
 to 15 characters: fixed `cp`, `sel`, `tr`, `bm` and `ret` keys fit directly;
 logical `ef`/`ev` plus decimal `u64` chunk IDs may not. The provider must
 parse their canonical decimal ID and map it injectively to the same two-letter
-prefix plus at most 13 base-36 digits (all `u64` values fit). It rejects
+prefix plus exactly 13 lower-case base-36 digits (all `u64` values fit). It rejects
 unknown, malformed or noncanonical keys; it never hashes or truncates keys.
 Chunk-ID construction must check overflow before shifting checkpoint
 generation. The provider owns **all**
@@ -818,6 +818,83 @@ and `HubRuntime(32, 128)` construction); `NvsRegistryBlobStore` in
 `firmware/common/security/nvs_association_blob_store.cpp` (ordinary NVS);
 and `durable::BlobStore`, `DurableStore`, `Codec` and
 `RetirementSnapshotRepository` in `firmware/hub/components/storage/`.
+
+#### Physical NVS key schema and compatibility
+
+The portable `BlobStore` API and its logical key strings remain unchanged.
+Only the future `NvsDurableBlobStore` translates dynamic chunk keys before
+calling ESP-IDF NVS. The current ESP32 Hub target constructs only
+`NvsJournalSlotStore` for legacy `e###`/`c###` keys and never constructs
+`DurableStore` or `RetirementSnapshotRepository`; consequently **no decimal
+`ef`/`ev` key has been persisted by the production target**. There is no
+decimal dynamic-key migration. Existing legacy event and completion keys
+still require the approved journal migration and retain their exact names.
+
+| Logical key family | Example | Max logical length | Dynamic ID type | Max ID value | Fits NVS now? | Production persisted today? | Migration compatibility required? |
+| --- | --- | ---: | --- | --- | --- | --- | --- |
+| Checkpoint A/B | `cp0` | 3 | bank index | 1 | Yes | No | No |
+| Selector A/B | `sel0` | 4 | bank index | 1 | Yes | No | No |
+| Transition slots | `tr3` | 3 | slot index | 3 | Yes | No | No |
+| Effect chunks | `ef18446744073709551615` | 22 | `uint64_t chunk_id` | `UINT64_MAX` | No | No | No |
+| Exact-evidence chunks | `ev18446744073709551615` | 22 | `uint64_t chunk_id` | `UINT64_MAX` | No | No | No |
+| Completion bitmap A/B | `bm1` | 3 | bank index | 1 | Yes | No | No |
+| Retirement snapshot banks | `ret2` | 4 | bank index | 2 | Yes | No | No |
+| Legacy event slots | `e127` | 4 | slot index | 127 | Yes | Yes | Yes |
+| Legacy completion receipts | `c127` | 4 | slot index | 127 | Yes | Yes | Yes |
+| Epoch/bootstrap | checkpoint field, no key | 0 additional | — | — | Yes | No | No |
+| Migration metadata | no current logical key | 0 current | — | — | N/A | No | Future schema required |
+
+The complete current physical schema in the owned `gs_journal` `events`
+namespace is `cp0`/`cp1`, `sel0`/`sel1`, `tr0`–`tr3`, `bm0`/`bm1`,
+`ret0`–`ret2`, `ef` plus 13 base-36 digits, `ev` plus 13 base-36 digits,
+and legacy `e000`–`e127`/`c000`–`c127`. Prefixes and exact lengths are
+disjoint. No standalone epoch key exists. Reserve `mig0`/`mig1` for a later
+versioned migration record; their presence before that codec exists is an
+unknown/orphan condition, never proof of a valid migration. Ordinary-NVS
+Home/registry keys are outside this namespace and schema.
+
+For both `ef` and `ev`, encode the unchanged logical decimal `uint64_t` ID
+as exactly 13 base-36 characters using `0123456789abcdefghijklmnopqrstuvwxyz`,
+most significant digit first and zero-padded on the left. `36^12` is
+4,738,381,338,321,616,896, below `UINT64_MAX`; `36^13` is
+170,581,728,179,578,208,256, above it. Thus 13 digits suffice and the
+longest physical key is exactly **15 characters**. The encoding is reversible,
+collision-free, and preserves numeric lexical order within each family.
+It uses no hash, modulo, side table or persistent metadata.
+
+`logical_to_physical` accepts only the exact fixed names above or `ef`/`ev`
+followed by canonical unsigned decimal (`0` or a nonzero first digit, no
+sign, no overflow). `physical_to_inventory_record` accepts only the exact
+fixed/legacy names or a two-letter dynamic prefix followed by exactly 13
+lower-case base-36 digits whose decoded value is at most `UINT64_MAX`; it
+returns family and ID. Wrong length, alphabet, case, overflow, unknown prefix
+or reserved-but-unimplemented migration key fails closed. This canonical
+fixed-width representation has no alternative spelling for the same ID.
+Inventory scans **physical** keys and applies that decoder; validly named
+orphan chunks still prevent fresh epoch bootstrap and require reference
+validation during recovery. The provider must apply the mapping consistently
+to read, immutable write and replace, without changing encoded chunk IDs,
+checkpoint references, transition ordinals or effect identities.
+
+| ID | Fixed-width base-36 body | Physical `ef` example | Physical `ev` example |
+| ---: | --- | --- | --- |
+| 0 | `0000000000000` | `ef0000000000000` | `ev0000000000000` |
+| 1 | `0000000000001` | `ef0000000000001` | `ev0000000000001` |
+| 9 | `0000000000009` | `ef0000000000009` | `ev0000000000009` |
+| 10 | `000000000000a` | `ef000000000000a` | `ev000000000000a` |
+| 31 | `000000000000v` | `ef000000000000v` | `ev000000000000v` |
+| 32 | `000000000000w` | `ef000000000000w` | `ev000000000000w` |
+| 255 | `0000000000073` | `ef0000000000073` | `ev0000000000073` |
+| 256 | `0000000000074` | `ef0000000000074` | `ev0000000000074` |
+| `UINT32_MAX` | `0000001z141z3` | `ef0000001z141z3` | `ev0000001z141z3` |
+| `UINT64_MAX` | `3w5e11264sgsf` | `ef3w5e11264sgsf` | `ev3w5e11264sgsf` |
+
+The key codec adds **0 bytes** and **0 NVS entries**. It leaves the modeled
+`gs_journal` migration peak at **83,218 bytes**, with **47,854 bytes / 36.51%**
+free, and its modeled NVS allocator at **3,221 used / 811 free / 20.11%**.
+Ordinary system NVS gains no keys. The test model is
+`tests/python/test_hub_durable_key_codec_contract.py`; the ESP-IDF provider
+must implement this mapping exactly in the later task.
 
 A portable Hub durability owner (composed above `BlobStore`,
 `DurableStore` and `RetirementSnapshotRepository`) discovers and validates
