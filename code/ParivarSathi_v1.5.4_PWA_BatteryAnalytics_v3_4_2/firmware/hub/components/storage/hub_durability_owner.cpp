@@ -109,6 +109,14 @@ DurableStore* HubDurabilityOwner::durable_store() {
 RetirementSnapshotRepository* HubDurabilityOwner::retirement_repository() {
     return state_ == DurabilityOwnerState::Ready ? retirement_.get() : nullptr;
 }
+DurableStore* HubDurabilityOwner::migration_store() {
+    return (state_ == DurabilityOwnerState::Ready ||
+            state_ == DurabilityOwnerState::MigrationRequired) ? durable_.get() : nullptr;
+}
+std::optional<std::uint32_t> HubDurabilityOwner::migration_epoch() const {
+    if (state_ != DurabilityOwnerState::MigrationRequired || epoch_ == 0) return std::nullopt;
+    return epoch_;
+}
 
 bool HubDurabilityOwner::inspect_checkpoint_set(std::uint32_t& found_epoch,
         bool& can_resume_genesis, RecoveryState& recovered) {
@@ -170,6 +178,35 @@ bool HubDurabilityOwner::inventory_chunks_owned(const InventorySnapshot& snapsho
         if (!blobs_.read(logical, b, found) || !found) return false;
         bool owned = r.kind == InventoryRecord::EffectChunk ? effects.count(r.id) != 0
                                                             : evidence.count(r.id) != 0;
+        if (!owned && r.kind == InventoryRecord::EffectChunk &&
+            r.id == (0x8000000000000000ULL | (recovered.checkpoint_generation + 1U)) &&
+            !recovered.tail.empty()) {
+            PendingEffectChunk candidate;
+            if (!Codec::decode_chunk(crypto_, key_, b, candidate) ||
+                candidate.storage_epoch != recovered.storage_epoch || candidate.chunk_id != r.id)
+                return false;
+            std::vector<const Transition*> events;
+            for (const auto& transition : recovered.tail)
+                if (transition.type == TransitionType::Event) events.push_back(&transition);
+            owned = candidate.effects.size() == events.size() && !events.empty();
+            for (std::size_t item = 0; owned && item < events.size(); ++item) {
+                const auto& effect = candidate.effects[item];
+                const auto& transition = *events[item];
+                std::uint32_t slot = 0;
+                if (transition.decision.size() != 4 || effect.kind > 1) {
+                    owned = false;
+                    break;
+                }
+                slot = (static_cast<std::uint32_t>(transition.decision[0]) << 24) |
+                       (static_cast<std::uint32_t>(transition.decision[1]) << 16) |
+                       (static_cast<std::uint32_t>(transition.decision[2]) << 8) |
+                       transition.decision[3];
+                const auto stored_slot = (static_cast<std::uint32_t>(effect.id[0]) << 24) |
+                    (static_cast<std::uint32_t>(effect.id[1]) << 16) |
+                    (static_cast<std::uint32_t>(effect.id[2]) << 8) | effect.id[3];
+                owned = slot == stored_slot && effect.payload == transition.causal_input;
+            }
+        }
         if (!owned) {
             // Also accept references from either authenticated checkpoint bank.
             for (std::size_t bank = 0; bank < 2 && !owned; ++bank) {
@@ -223,7 +260,49 @@ DurabilityOwnerState HubDurabilityOwner::recover() {
             return r.kind == InventoryRecord::MigrationMetadata;
         });
     if (has_legacy || has_migration) {
-        error_ = DurabilityOwnerError::MigrationRequired; state_ = DurabilityOwnerState::MigrationRequired; return state_;
+        if (freshness_ != InstallationFreshness::ExistingInstallation) {
+            error_ = DurabilityOwnerError::FreshnessMismatch;
+            state_ = DurabilityOwnerState::FailedClosed;
+            return state_;
+        }
+        // A migration marker without legacy e/c slots is an unfinished older
+        // migration protocol. It has no authenticated epoch to adopt here, so
+        // retain the explicit migration-required state and keep admission shut.
+        if (has_migration && !has_legacy && inventory.status == InventoryStatus::KnownCurrentRecords) {
+            error_ = DurabilityOwnerError::MigrationRequired;
+            state_ = DurabilityOwnerState::MigrationRequired;
+            return state_;
+        }
+        if (inventory.status == InventoryStatus::KnownLegacyRecords && !has_migration) {
+            if (!initialize_epoch_one()) {
+                error_ = DurabilityOwnerError::BootstrapWriteFailure;
+                state_ = DurabilityOwnerState::FailedClosed;
+                return state_;
+            }
+        } else {
+            std::uint32_t discovered_epoch = 0; bool genesis = false; RecoveryState recovered;
+            if (!inspect_checkpoint_set(discovered_epoch, genesis, recovered) || discovered_epoch == 0) {
+                error_ = DurabilityOwnerError::InvalidCheckpoint;
+                state_ = DurabilityOwnerState::FailedClosed;
+                return state_;
+            }
+            epoch_ = discovered_epoch;
+            if (!inventory_chunks_owned(inventory, recovered)) {
+                error_ = DurabilityOwnerError::OrphanChunk;
+                state_ = DurabilityOwnerState::FailedClosed;
+                return state_;
+            }
+            recovered_ = std::move(recovered);
+        }
+        if (epoch_ == 0 || !durable_ || !recovered_) {
+            error_ = DurabilityOwnerError::RecoveryFailure;
+            state_ = DurabilityOwnerState::FailedClosed;
+            return state_;
+        }
+        retirement_ = std::make_unique<RetirementSnapshotRepository>(blobs_, crypto_, key_, epoch_);
+        error_ = DurabilityOwnerError::MigrationRequired;
+        state_ = DurabilityOwnerState::MigrationRequired;
+        return state_;
     }
     if (inventory.status == InventoryStatus::Empty) {
         if (freshness_ != InstallationFreshness::FreshInstallation) {

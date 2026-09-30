@@ -34,6 +34,8 @@ public:
         blob.clear(); found = false; return true;
     }
     virtual bool write_completion(std::size_t, const security::Bytes&) { return false; }
+    virtual bool erase(std::size_t) { return false; }
+    virtual bool erase_completion(std::size_t) { return false; }
 };
 
 class HubJournal {
@@ -62,6 +64,18 @@ public:
     bool storage_fault() const { return storage_fault_; }
     bool persistent() const { return store_ != nullptr && !storage_fault_; }
     const std::vector<DomainEvent>& records() const { return records_; }
+    static bool encode_event_payload(const DomainEvent&, security::Bytes&);
+    static bool decode_event_payload(const security::Bytes&, DomainEvent&);
+    static bool encode_slot_blob(security::CommissioningCrypto&, const security::Key32&,
+                                 std::size_t slot, const DomainEvent&, security::Bytes&);
+    static bool decode_slot_blob(security::CommissioningCrypto&, const security::Key32&,
+                                 std::size_t slot, const security::Bytes&, DomainEvent&);
+    static bool encode_completion_receipt(security::CommissioningCrypto&,
+                                          const security::Key32&, std::size_t slot,
+                                          const EventKey&, security::Bytes&);
+    static bool verify_completion_receipt(security::CommissioningCrypto&,
+                                          const security::Key32&, std::size_t slot,
+                                          const EventKey&, const security::Bytes&);
 
 private:
     friend class CloudSync;

@@ -6,6 +6,7 @@
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/runtime/hub_event_log.hpp"
 #include "firmware/hub/components/storage/hub_durability_owner.hpp"
+#include "firmware/hub/components/storage/durable_journal_slot_store.hpp"
 #include "firmware/hub/target/esp32/nvs_durable_blob_store.hpp"
 #include "firmware/hub/target/esp32/nvs_journal_slot_store.hpp"
 #include "firmware/hub/target/esp32/nvs_store_inventory.hpp"
@@ -452,11 +453,13 @@ void secure_owner_task(void*) {
         durable_key, owner_freshness);
     commissioning_crypto.secure_zero(durable_key.data(), durable_key.size());
     const auto durability_state = durability_owner.recover();
-    const auto authoritative_epoch = durability_owner.epoch();
-    if (durability_state != durable::DurabilityOwnerState::Ready ||
-        !authoritative_epoch || *authoritative_epoch == 0 ||
-        durability_owner.durable_store() == nullptr ||
-        durability_owner.retirement_repository() == nullptr) {
+    const bool migration_required =
+        durability_state == durable::DurabilityOwnerState::MigrationRequired;
+    if ((!migration_required && durability_state != durable::DurabilityOwnerState::Ready) ||
+        (migration_required && !durability_owner.migration_epoch()) ||
+        (!migration_required && (!durability_owner.epoch() || *durability_owner.epoch() == 0 ||
+          durability_owner.durable_store() == nullptr ||
+          durability_owner.retirement_repository() == nullptr))) {
         ESP_LOGE(kTag, "Durability owner unavailable state=%u error=%u; admission closed",
                  static_cast<unsigned>(durability_state),
                  static_cast<unsigned>(durability_owner.error()));
@@ -464,16 +467,55 @@ void secure_owner_task(void*) {
         return;
     }
 
-    // The bounded legacy event journal remains attached for its existing
-    // reducer replay contract, but the production runtime is admission-gated
-    // by the new owner before any authenticated business event is accepted.
-    NvsJournalSlotStore journal_store;
+    // Upgrade old e/c journal slots into the authenticated durable owner before
+    // allowing the runtime to attach. Source slots stay present until the copy
+    // has been checkpointed and verified.
+    NvsJournalSlotStore legacy_store;
+    if (migration_required) {
+        HubJournal legacy_journal(128);
+        security::Key32 journal_key{};
+        if (!security_link.event_journal_key(journal_key)) {
+            ESP_LOGE(kTag, "Event journal key unavailable for migration; admission closed");
+            vTaskDelete(nullptr);
+            return;
+        }
+        durable::DurableJournalSlotStore migration_store(
+            durability_owner, commissioning_crypto, journal_key);
+        const bool legacy_ready = legacy_store.initialize() &&
+            security_link.attach_event_journal(legacy_journal, legacy_store);
+        commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
+        if (!legacy_ready || !durable::migrate_legacy_journal(
+                legacy_journal, legacy_store, migration_store) ||
+            durability_owner.recover() != durable::DurabilityOwnerState::Ready) {
+            ESP_LOGE(kTag, "Legacy Hub journal migration failed closed");
+            vTaskDelete(nullptr);
+            return;
+        }
+    }
+
+    const auto authoritative_epoch = durability_owner.epoch();
+    if (!authoritative_epoch || *authoritative_epoch == 0 ||
+        durability_owner.durable_store() == nullptr ||
+        durability_owner.retirement_repository() == nullptr) {
+        ESP_LOGE(kTag, "Durability owner not Ready after migration; admission closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    security::Key32 journal_key{};
+    if (!security_link.event_journal_key(journal_key)) {
+        ESP_LOGE(kTag, "Event journal key unavailable; admission closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+    durable::DurableJournalSlotStore journal_store(
+        durability_owner, commissioning_crypto, journal_key);
+    commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
     HubRuntime runtime(32, 128);
     runtime.bind_durability_owner(durability_owner);
-    if (!journal_store.initialize() ||
-        !security_link.attach_event_journal(runtime.journal(), journal_store) ||
+    if (!security_link.attach_event_journal(runtime.journal(), journal_store) ||
         !runtime.restore_from_journal()) {
-        ESP_LOGE(kTag, "Hub durable event journal unavailable; refusing event admission");
+        ESP_LOGE(kTag, "Hub durable event store unavailable; refusing event admission");
         vTaskDelete(nullptr);
         return;
     }

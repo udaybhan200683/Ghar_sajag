@@ -119,4 +119,29 @@ bool NvsJournalSlotStore::write_completion(std::size_t slot, const security::Byt
     return read_completion(slot, verified, found) && found && verified == blob;
 }
 
+namespace {
+bool erase_slot_key(std::size_t slot, bool completion) {
+    if (slot >= kCapacity) return false;
+    char key[8]{};
+    if (completion) completion_key(slot, key); else slot_key(slot, key);
+    nvs_handle_t handle = 0;
+    const auto opened = nvs_open_from_partition(kPartition, kNamespace, NVS_READWRITE, &handle);
+    if (opened == ESP_ERR_NVS_NOT_FOUND) return true;
+    if (opened != ESP_OK) return false;
+    const auto erased = nvs_erase_key(handle, key);
+    const bool committed = (erased == ESP_OK || erased == ESP_ERR_NVS_NOT_FOUND) &&
+                           nvs_commit(handle) == ESP_OK;
+    nvs_close(handle);
+    return committed;
+}
+}
+
+bool NvsJournalSlotStore::erase(std::size_t slot) {
+    return initialized_ && erase_slot_key(slot, false);
+}
+
+bool NvsJournalSlotStore::erase_completion(std::size_t slot) {
+    return initialized_ && erase_slot_key(slot, true);
+}
+
 }  // namespace gs::hub::target

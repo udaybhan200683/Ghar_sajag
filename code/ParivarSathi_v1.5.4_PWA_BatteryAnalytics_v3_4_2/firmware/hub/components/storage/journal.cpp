@@ -194,6 +194,55 @@ HubJournal::~HubJournal() {
     for (std::size_t i = 0; i < storage_key_.size(); ++i) key[i] = 0;
 }
 
+bool HubJournal::encode_event_payload(const DomainEvent& event, security::Bytes& out) {
+    return encode_event(event, out);
+}
+
+bool HubJournal::decode_event_payload(const security::Bytes& in, DomainEvent& event) {
+    return decode_event(in, event);
+}
+
+bool HubJournal::encode_slot_blob(security::CommissioningCrypto& crypto,
+                                  const security::Key32& key, std::size_t slot,
+                                  const DomainEvent& event, security::Bytes& blob) {
+    security::Bytes plain;
+    if (!encode_event(event, plain)) return false;
+    security::Nonce12 nonce{};
+    security::GcmTag tag{};
+    security::Bytes cipher;
+    const bool sealed = crypto.random_bytes(nonce.data(), nonce.size()) &&
+        crypto.seal_aes256_gcm(key, nonce, slot_aad(slot), plain, cipher, tag);
+    crypto.secure_zero(plain.data(), plain.size());
+    if (!sealed) return false;
+    blob.assign(nonce.begin(), nonce.end());
+    blob.insert(blob.end(), cipher.begin(), cipher.end());
+    blob.insert(blob.end(), tag.begin(), tag.end());
+    return blob.size() <= 12 + 256 + 16;
+}
+
+bool HubJournal::decode_slot_blob(security::CommissioningCrypto& crypto,
+                                  const security::Key32& key, std::size_t slot,
+                                  const security::Bytes& blob, DomainEvent& event) {
+    return open_slot(crypto, key, slot, blob, event);
+}
+
+bool HubJournal::encode_completion_receipt(security::CommissioningCrypto& crypto,
+                                           const security::Key32& key, std::size_t slot,
+                                           const EventKey& event_key,
+                                           security::Bytes& out) {
+    return completion_mac(crypto, key, slot, event_key, out);
+}
+
+bool HubJournal::verify_completion_receipt(security::CommissioningCrypto& crypto,
+                                           const security::Key32& key, std::size_t slot,
+                                           const EventKey& event_key,
+                                           const security::Bytes& receipt) {
+    security::Bytes expected;
+    return receipt.size() == 32 &&
+           completion_mac(crypto, key, slot, event_key, expected) &&
+           crypto.constant_time_equal(receipt.data(), expected.data(), expected.size());
+}
+
 bool HubJournal::attach_persistence(security::CommissioningCrypto& crypto,
                                     JournalSlotStore& store,
                                     const security::Key32& protected_key) {
@@ -268,10 +317,15 @@ CommitResult HubJournal::commit(const DomainEvent& event) {
         security::Bytes verified;
         bool found = false;
         DomainEvent roundtrip;
+        Bytes expected_event, verified_event;
+        // Durable adapters may materialize the same encrypted slot with a new
+        // nonce on read. Verify the full decoded event rather than ciphertext
+        // identity; the legacy NVS adapter still returns its exact stored blob.
         if (!store_->write(slot, blob) || !store_->read(slot, verified, found) ||
-            !found || verified != blob ||
+            !found ||
             !open_slot(*crypto_, storage_key_, slot, verified, roundtrip) ||
-            roundtrip.key.str() != id) {
+            roundtrip.key.str() != id || !encode_event(event, expected_event) ||
+            !encode_event(roundtrip, verified_event) || expected_event != verified_event) {
             storage_fault_ = true;
             return CommitResult::StorageFault;
         }

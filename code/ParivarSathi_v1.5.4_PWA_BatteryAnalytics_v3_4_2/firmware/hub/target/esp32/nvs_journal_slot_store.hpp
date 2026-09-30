@@ -13,6 +13,8 @@ public:
     bool write(std::size_t slot, const security::Bytes& blob) override;
     bool read_completion(std::size_t slot, security::Bytes& blob, bool& found) override;
     bool write_completion(std::size_t slot, const security::Bytes& blob) override;
+    bool erase(std::size_t slot) override;
+    bool erase_completion(std::size_t slot) override;
 private:
     bool initialized_{false};
 };

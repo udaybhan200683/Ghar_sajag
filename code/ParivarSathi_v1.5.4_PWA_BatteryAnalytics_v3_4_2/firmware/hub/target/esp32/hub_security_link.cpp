@@ -139,6 +139,18 @@ bool HubSecurityLink::durable_storage_key(security::Key32& out) const {
     return ok;
 }
 
+bool HubSecurityLink::event_journal_key(security::Key32& out) const {
+    out.fill(0);
+    if (faulted_ || !registry_ ||
+        std::none_of(journal_key_.begin(), journal_key_.end(),
+                     [](std::uint8_t byte) { return byte != 0; })) {
+        crypto_.secure_zero(out.data(), out.size());
+        return false;
+    }
+    out = journal_key_;
+    return true;
+}
+
 bool HubSecurityLink::attach_event_journal(hub::HubJournal& journal,
                                            hub::JournalSlotStore& store) {
     return !faulted_ && registry_ && repository_ &&

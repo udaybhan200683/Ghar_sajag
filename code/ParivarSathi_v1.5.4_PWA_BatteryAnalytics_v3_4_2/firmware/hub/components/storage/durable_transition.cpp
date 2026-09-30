@@ -305,11 +305,7 @@ CommitStatus DurableStore::commit(Transition candidate){
     if(s.last_ordinal-s.checkpoint.covered_ordinal>=4)return CommitStatus::NotCommitted;
     candidate.storage_epoch=epoch_;candidate.ordinal=s.last_ordinal+1;Bytes blob;if(!Codec::encode_transition(crypto_,key_,candidate,blob))return CommitStatus::NotCommitted;const auto slot=static_cast<std::size_t>((candidate.ordinal-1)%4);Bytes prior;bool found=false;if(!store_.read(trkey(slot),prior,found))return CommitStatus::StorageFault;
     if(found){
-#if defined(GS_DURABLE_TEST_SLOT_REUSE)
         Transition old;if(!Codec::decode_transition(crypto_,key_,prior,old))return CommitStatus::StorageFault;std::array<Checkpoint,2> cps{};std::array<bool,2> valid{};for(std::size_t i=0;i<2;++i){Bytes b;bool f=false;if(!store_.read(cpkey(i),b,f))return CommitStatus::StorageFault;valid[i]=f&&Codec::decode_checkpoint(crypto_,key_,b,cps[i])&&cps[i].storage_epoch==epoch_;}if(!valid[0]||!valid[1]||old.ordinal>std::min(cps[0].covered_ordinal,cps[1].covered_ordinal))return CommitStatus::NotCommitted;
-#else
-        return CommitStatus::NotCommitted;
-#endif
     }
     const bool wrote=found?store_.replace(trkey(slot),blob):store_.write_immutable(trkey(slot),blob);Bytes verify;bool vf=false;Transition decoded;if(store_.read(trkey(slot),verify,vf)&&vf&&verify==blob&&Codec::decode_transition(crypto_,key_,verify,decoded)&&decoded.ordinal==candidate.ordinal&&decoded.event==candidate.event&&decoded.type==candidate.type&&decoded.event_digest==candidate.event_digest&&decoded.enrollment_slot==candidate.enrollment_slot&&decoded.enrollment_generation==candidate.enrollment_generation)return wrote?CommitStatus::Committed:CommitStatus::AmbiguousResolvedCommitted;return wrote?CommitStatus::StorageFault:CommitStatus::NotCommitted;
 }

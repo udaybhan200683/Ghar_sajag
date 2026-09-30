@@ -26,7 +26,7 @@ Transition transition(std::uint64_t n, bool maximum=false) {
     const std::size_t key_bytes=1+t.event.physical_device_id.size()+1+t.event.source_id.size()+16;
     t.causal_input.assign(maximum?kMaxCausalInputBytes-key_bytes-37:50,0x42);
     t.decision.assign(maximum?kMaxDecisionBytes:32,0x53);
-    if(maximum)for(std::size_t i=0;i<3;++i)t.effects.push_back(effect(i));
+    if(maximum){t.effects.push_back(effect(0,183));t.effects.push_back(effect(1,183));t.effects.push_back(effect(2,182));}
     return t;
 }
 Checkpoint checkpoint(std::uint64_t generation,std::uint64_t ordinal,bool maximum=false) {

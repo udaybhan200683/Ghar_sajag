@@ -37,6 +37,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/hub/components/storage/durable_transition.cpp"
         "${GS_ROOT}/firmware/hub/components/storage/node_retirement_snapshot.cpp"
         "${GS_ROOT}/firmware/hub/components/storage/hub_durability_owner.cpp"
+        "${GS_ROOT}/firmware/hub/components/storage/durable_journal_slot_store.cpp"
         "${GS_ROOT}/firmware/hub/components/coverage/coverage.cpp"
         "${GS_ROOT}/firmware/hub/components/rules/routine_service.cpp"
         "${GS_ROOT}/firmware/hub/runtime/hub_runtime.cpp"

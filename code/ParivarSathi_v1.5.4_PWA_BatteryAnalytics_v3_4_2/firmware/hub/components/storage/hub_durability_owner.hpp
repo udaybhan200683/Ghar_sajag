@@ -11,6 +11,8 @@
 
 namespace gs::hub::durable {
 
+class DurableJournalSlotStore;
+
 constexpr std::size_t kMaxInventoryRecords = 384;
 
 enum class InstallationFreshness { FreshInstallation, ExistingInstallation, Ambiguous };
@@ -92,8 +94,13 @@ public:
     const RecoveryState* recovery_state() const;
     DurableStore* durable_store();
     RetirementSnapshotRepository* retirement_repository();
+    // Migration-only access. This never makes an epoch authoritative for
+    // admission while legacy records remain.
+    DurableStore* migration_store();
+    std::optional<std::uint32_t> migration_epoch() const;
 
 private:
+    friend class DurableJournalSlotStore;
     bool initialize_epoch_one();
     bool inspect_checkpoint_set(std::uint32_t& epoch, bool& can_resume_genesis,
                                RecoveryState& recovered);
