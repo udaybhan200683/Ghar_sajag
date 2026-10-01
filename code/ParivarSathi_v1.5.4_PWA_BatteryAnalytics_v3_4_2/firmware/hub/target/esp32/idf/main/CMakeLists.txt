@@ -52,6 +52,7 @@ idf_component_register(
         "${GS_ROOT}"
         "${GS_ROOT}/shared/include"
         "${GS_ROOT}/firmware/hub/components"
+        "${GS_ROOT}/firmware/node/components"
     PRIV_REQUIRES
         app_update
         esp_driver_gpio

@@ -55,8 +55,8 @@ public:
     HubSecurityLink& operator=(const HubSecurityLink&) = delete;
     bool initialize(const Mac& hub_mac);
     SecurityFreshness installation_freshness() const { return freshness_; }
-    bool durable_storage_key(security::Key32& out) const;
-    bool event_journal_key(security::Key32& out) const;
+    bool durable_storage_key(security::Key32& out);
+    bool event_journal_key(security::Key32& out);
     security::CommissioningCrypto& commissioning_crypto() { return crypto_; }
     // Attach the existing bounded encrypted event journal using a key derived
     // from this Hub/Home wrapping key. Failure keeps event admission closed.

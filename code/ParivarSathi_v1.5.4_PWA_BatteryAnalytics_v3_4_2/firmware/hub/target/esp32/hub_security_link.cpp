@@ -124,7 +124,7 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
     return true;
 }
 
-bool HubSecurityLink::durable_storage_key(security::Key32& out) const {
+bool HubSecurityLink::durable_storage_key(security::Key32& out) {
     out.fill(0);
     if (faulted_ || !registry_ ||
         std::all_of(journal_key_.begin(), journal_key_.end(),
@@ -139,7 +139,7 @@ bool HubSecurityLink::durable_storage_key(security::Key32& out) const {
     return ok;
 }
 
-bool HubSecurityLink::event_journal_key(security::Key32& out) const {
+bool HubSecurityLink::event_journal_key(security::Key32& out) {
     out.fill(0);
     if (faulted_ || !registry_ ||
         std::none_of(journal_key_.begin(), journal_key_.end(),
