@@ -193,10 +193,49 @@ bool DurableJournalSlotStore::read_completion(std::size_t slot,
     RecoveryState recovery;
     if (slot > 127 || !rows(stored, recovery)) return false;
     const auto entry = stored.find(slot);
+    security::Bytes independent;
+    bool receipt_found = false;
+    if (!owner_.blobs_.read(completion_key(slot), independent, receipt_found)) return false;
+    if (receipt_found) {
+        if (entry == stored.end() || !HubJournal::verify_completion_receipt(
+                crypto_, journal_key_, slot, entry->second.event.key, independent)) return false;
+        blob = std::move(independent);
+        found = true;
+        return true;
+    }
     if (entry == stored.end() || !entry->second.completed) return true;
-    return HubJournal::encode_completion_receipt(crypto_, journal_key_, slot,
-                                                 entry->second.event.key, blob) &&
-           (found = true);
+    if (!HubJournal::encode_completion_receipt(crypto_, journal_key_, slot,
+                                               entry->second.event.key, blob)) return false;
+    // During legacy e/c migration the source c key is deleted after the archive
+    // copy commits. Publish only once that migration has completed. Keep kind=1
+    // as restart-safe compatibility evidence even after publication.
+    if (owner_.state() == DurabilityOwnerState::Ready &&
+        !publish_completion(slot, entry->second.event.key, blob)) return false;
+    found = true;
+    return true;
+}
+
+std::string DurableJournalSlotStore::completion_key(std::size_t slot) {
+    if (slot > 127) return {};
+    const auto digits = std::to_string(slot);
+    return "c" + std::string(3U - digits.size(), '0') + digits;
+}
+
+bool DurableJournalSlotStore::publish_completion(std::size_t slot,
+        const gs::EventKey& event, const security::Bytes& receipt) {
+    if (owner_.state() != DurabilityOwnerState::Ready ||
+        !HubJournal::verify_completion_receipt(crypto_, journal_key_, slot, event, receipt))
+        return false;
+    const auto key = completion_key(slot);
+    security::Bytes prior;
+    bool found = false;
+    if (!owner_.blobs_.read(key, prior, found)) return false;
+    if (found) return prior == receipt;
+    // A failed API may have persisted the immutable receipt. Exact readback,
+    // rather than the API result, establishes completion.
+    (void)owner_.blobs_.write_immutable(key, receipt);
+    security::Bytes verified;
+    return owner_.blobs_.read(key, verified, found) && found && verified == receipt;
 }
 
 bool DurableJournalSlotStore::import_completion(std::size_t slot, bool completed) {
@@ -256,6 +295,13 @@ bool DurableJournalSlotStore::write_completion(std::size_t slot,
     if (row == stored.end() ||
         !HubJournal::verify_completion_receipt(crypto_, journal_key_, slot,
                                                row->second.event.key, receipt)) return false;
+    if (owner_.state() == DurabilityOwnerState::Ready) {
+        if (!publish_completion(slot, row->second.event.key, receipt)) {
+            faulted_ = true;
+            return false;
+        }
+        return true;
+    }
     if (import_completion_.count(slot) != 0) {
         import_completion_[slot] = true;
         return true;

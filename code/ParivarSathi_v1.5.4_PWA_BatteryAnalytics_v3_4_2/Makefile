@@ -374,3 +374,7 @@ validation-coverage: build
 	lcov --extract build/coverage/all.info '*/firmware/*' '*/shared/*' --output-file evidence/coverage/coverage.info --rc branch_coverage=1 --ignore-errors unused
 	genhtml evidence/coverage/coverage.info --output-directory evidence/coverage/html --branch-coverage --quiet
 	python3 tools/validation/coverage_report.py
+
+# Production completion coverage shares the real journal/provider migration fixture.
+.PHONY: hub-backend-completion-host-test
+hub-backend-completion-host-test: hub-journal-migration-host-test

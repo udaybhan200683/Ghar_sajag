@@ -85,6 +85,35 @@ void checkpoint_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,co
     require(mem.replace("cp1",corrupt),"corrupt remaining checkpoint fixture");
     require(!store.recover(recovered),"both invalid checkpoints fail closed");
 }
+void metadata_checkpoint_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,
+                                const Key32& key) {
+    for (const auto fault : {FaultMode::FailBeforeWrite, FaultMode::PartialWrite,
+                            FaultMode::PersistThenFail, FaultMode::PowerLossAfterPersist}) {
+        for (std::size_t boundary = 0; boundary < 2; ++boundary) {
+            MemoryBlobStore mem;
+            DurableStore store(mem, crypto, key, 1);
+            Checkpoint initial; initial.storage_epoch = 1; initial.generation = 1;
+            require(store.checkpoint(initial), "metadata initial checkpoint");
+            require(store.commit(transition(1)) == CommitStatus::Committed,
+                    "metadata retained transition");
+            Checkpoint metadata = initial; metadata.generation = 2;
+            mem.inject_after(boundary, fault);
+            (void)store.checkpoint(metadata);
+            mem.power_cycle();
+            DurableStore reboot(mem, crypto, key, 1);
+            RecoveryState recovered;
+            require(reboot.recover(recovered) && recovered.last_ordinal == 1 &&
+                    recovered.checkpoint.covered_ordinal == 0 && recovered.tail.size() == 1 &&
+                    recovered.checkpoint.dedupe_evidence_chunks.empty(),
+                    "metadata interruption preserves event tail without duplicate evidence");
+            metadata.generation = recovered.checkpoint_generation + 1;
+            require(reboot.checkpoint(metadata), "metadata retry after interruption");
+            require(reboot.recover(recovered) && recovered.tail.size() == 1,
+                    "metadata retry retains logical event");
+        }
+    }
+}
+
 void report_checkpoint_ownership(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
     MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);RetirementSnapshotRepository reports(mem,crypto,key,1);
     RetirementSnapshot snapshot;snapshot.storage_epoch=1;snapshot.generation=1;snapshot.node_count=1;
@@ -190,12 +219,22 @@ void modeled_migration_budget() {
     require(implementation_entries==3221,"retirement migration NVS entry budget");
     require(raw_peak==83218&&131072U-raw_peak==47854,"migration raw byte budget");
     require((4032U-implementation_entries)*100U>=4032U*20U,"migration NVS entry margin");
+    // Conservative reservation: existing migration peak plus all independent
+    // cNNN receipts, even where source and destination share the same key.
+    const auto completion_bytes = 128U * 32U;
+    const auto completion_entries = 128U * entries(32U);
+    require(raw_peak + completion_bytes == 87314U &&
+            131072U - raw_peak - completion_bytes == 43758U,
+            "independent completion raw storage bound");
+    require(implementation_entries + completion_entries == 3605U &&
+            4032U - implementation_entries - completion_entries == 427U,
+            "independent completion NVS entry bound");
 }
 }
 int main(){
     try {
         gs::host::security::OpenSslCommissioningCrypto crypto;const auto key=test_key();std::size_t t=0,c=0,ch=0,bm=0,tt=0,ct=0,selector=0;
-        codec_sizes(crypto,key,t,c,ch,bm,tt,ct,selector);write_faults(crypto,key);checkpoint_faults(crypto,key);report_checkpoint_ownership(crypto,key);exact_evidence_checkpoint_and_retirement(crypto,key);stream_validation(crypto,key);selector_ordering(crypto,key);handoff_faults(crypto,key);bitmap_and_stress(crypto,key);modeled_migration_budget();
+        codec_sizes(crypto,key,t,c,ch,bm,tt,ct,selector);write_faults(crypto,key);checkpoint_faults(crypto,key);metadata_checkpoint_faults(crypto,key);report_checkpoint_ownership(crypto,key);exact_evidence_checkpoint_and_retirement(crypto,key);stream_validation(crypto,key);selector_ordering(crypto,key);handoff_faults(crypto,key);bitmap_and_stress(crypto,key);modeled_migration_budget();
         std::cout<<"durable transition storage: PASS transition="<<tt<<"/"<<t<<" checkpoint="<<ct<<"/"<<c<<" chunk="<<ch<<" bitmap="<<bm<<" selector="<<selector<<"\n";
         return 0;
     }catch(const std::exception& e){std::cerr<<"durable transition storage: FAIL: "<<e.what()<<"\n";return 1;}

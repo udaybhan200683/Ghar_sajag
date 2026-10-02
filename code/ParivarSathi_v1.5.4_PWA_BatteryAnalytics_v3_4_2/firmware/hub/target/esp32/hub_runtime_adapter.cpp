@@ -817,7 +817,9 @@ void secure_owner_task(void*) {
                     auto next_checkpoint = before.checkpoint;
                     next_checkpoint.storage_epoch = *epoch;
                     next_checkpoint.generation = before.checkpoint_generation + 1U;
-                    next_checkpoint.covered_ordinal = before.last_ordinal;
+                    // Report metadata does not cover unarchived event tail:
+                    // keep retained event/receipt identities and archive batching.
+                    next_checkpoint.covered_ordinal = before.checkpoint.covered_ordinal;
                     next_checkpoint.report_snapshot = reference;
                     durable::RecoveryState verified_state;
                     durable::RetirementSnapshot verified_snapshot;

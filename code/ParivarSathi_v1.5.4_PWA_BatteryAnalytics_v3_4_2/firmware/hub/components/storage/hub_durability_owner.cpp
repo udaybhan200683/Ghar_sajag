@@ -253,8 +253,11 @@ DurabilityOwnerState HubDurabilityOwner::recover() {
     if (freshness_ == InstallationFreshness::Ambiguous) {
         error_ = DurabilityOwnerError::SecurityStateAmbiguous; state_ = DurabilityOwnerState::FailedClosed; return state_;
     }
+    // cNNN retains its original authenticated receipt format. With durable
+    // archives and no eNNN source records, cNNN is current completion evidence.
     const bool has_legacy = inventory.status == InventoryStatus::KnownLegacyRecords ||
-                            inventory.status == InventoryStatus::KnownMixedRecords;
+        std::any_of(inventory.records.begin(), inventory.records.begin() + inventory.count,
+                    [](const auto& r) { return r.kind == InventoryRecord::LegacyEvent; });
     const bool has_migration = std::any_of(inventory.records.begin(),
         inventory.records.begin() + inventory.count, [](const auto& r) {
             return r.kind == InventoryRecord::MigrationMetadata;

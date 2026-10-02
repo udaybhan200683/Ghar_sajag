@@ -92,7 +92,7 @@ bool NvsDurableBlobStore::write(const std::string& logical,
         last_error_ = NvsDurableError::CorruptValue; return false;
     }
     if (record.kind == DurablePhysicalKeyKind::LegacyEvent ||
-        record.kind == DurablePhysicalKeyKind::LegacyCompletion) {
+        (record.kind == DurablePhysicalKeyKind::LegacyCompletion && !immutable)) {
         last_error_ = NvsDurableError::KeyMapping; return false;
     }
     if (!initialized_) { last_error_ = NvsDurableError::Io; return false; }

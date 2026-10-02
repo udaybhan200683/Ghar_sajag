@@ -46,6 +46,18 @@ public:
         if (fail_writes) return false;
         std::string physical;
         if (!durable_logical_to_physical_key(logical, physical) || blobs.count(physical)) return false;
+        if (physical.size() == 4 && physical.front() == 'c') {
+            ++completion_writes;
+            const auto fault = completion_fault;
+            completion_fault = FaultMode::None;
+            if (fault == FaultMode::FailBeforeWrite) return false;
+            if (fault == FaultMode::PartialWrite) {
+                blobs[physical] = Bytes(value.begin(), value.begin() + value.size()/2);
+                return false;
+            }
+            blobs[physical] = value;
+            return fault != FaultMode::PersistThenFail && fault != FaultMode::PowerLossAfterPersist;
+        }
         blobs[physical] = value; return true;
     }
     bool replace(const std::string& logical, const Bytes& value) override {
@@ -108,6 +120,8 @@ public:
     std::map<std::string, Bytes> blobs;
     std::array<Bytes, 128> events{}, completions{};
     bool fail_writes{false}, fail_erase{false}, fail_event_erase{false};
+    FaultMode completion_fault{FaultMode::None};
+    std::size_t completion_writes{0};
 };
 
 void seed_legacy(Fixture& fixture, gs::host::security::OpenSslCommissioningCrypto& crypto,
@@ -273,12 +287,221 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
           live_recovered.records()[4].key.str() == event(11).key.str(),
           "new durable-path event recovers");
 }
+void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto) {
+    const auto k = key();
+    Fixture f;
+    HubDurabilityOwner owner(f, f, crypto, k, InstallationFreshness::FreshInstallation);
+    check(owner.recover() == DurabilityOwnerState::Ready, "completion owner ready");
+    DurableJournalSlotStore store(owner, crypto, k);
+    HubJournal journal(128);
+    check(journal.attach_persistence(crypto, store, k), "completion journal attaches");
+    check(journal.commit(event(1)) == CommitResult::Stored &&
+          journal.commit(event(2)) == CommitResult::Stored, "two independent events stored");
+    CloudSync cloud(journal);
+    check(journal.pending_cloud(128).size() == 2 && cloud.request_for("home", event(1)),
+          "incomplete effects remain retryable");
+    const auto archived_before = f.blobs;
+    const auto reply = BackendCommitReply{BackendReplyStatus::Committed, event(1).key, true, false};
+    check(cloud.handle_backend_reply(event(1).key, reply, 0) == BackendReceiptResult::Completed,
+          "backend authenticated completion durably publishes receipt");
+    check(f.blobs.count("c000") && f.blobs.at("c000").size() == 32 &&
+          journal.pending_cloud(128).size() == 1 && !cloud.request_for("home", event(1)) &&
+          cloud.request_for("home", event(2)), "completion A never completes B");
+    for (const auto& entry : archived_before)
+        check(f.blobs.at(entry.first) == entry.second, "completion does not mutate event archive or checkpoint");
+    const auto writes = f.completion_writes;
+    check(cloud.handle_backend_reply(event(1).key, reply, 0) == BackendReceiptResult::Completed &&
+          f.completion_writes == writes, "duplicate completion has no write");
+    HubDurabilityOwner reboot(f, f, crypto, k, InstallationFreshness::ExistingInstallation);
+    check(reboot.recover() == DurabilityOwnerState::Ready, "new owner accepts independent receipts");
+    DurableJournalSlotStore restarted(reboot, crypto, k);
+    HubJournal recovered(128);
+    check(recovered.attach_persistence(crypto, restarted, k) && recovered.size() == 2 &&
+          recovered.cloud_completed(event(1).key) && !recovered.cloud_completed(event(2).key),
+          "fresh provider recovers exact completion independent of kind marker");
+    CloudSync recovered_cloud(recovered);
+    check(!recovered_cloud.request_for("home", event(1)) &&
+          recovered_cloud.request_for("home", event(2)), "reboot suppresses completed external request");
+
+    // A report metadata checkpoint leaves unarchived event tail recovery-owned,
+    // preserving receipt identity without consuming partial archive chunks.
+    RecoveryState report_before;
+    check(reboot.durable_store()->recover(report_before), "report checkpoint base recovers");
+    RetirementSnapshot snapshot;
+    snapshot.storage_epoch = 1; snapshot.generation = 1;
+    RetirementSnapshotReference snapshot_ref;
+    check(reboot.retirement_repository()->prepare_bank(snapshot, 0, snapshot_ref),
+          "report snapshot bank prepares");
+    auto report_cp = report_before.checkpoint;
+    report_cp.generation = report_before.checkpoint_generation + 1;
+    report_cp.covered_ordinal = report_before.checkpoint.covered_ordinal;
+    report_cp.report_snapshot = snapshot_ref;
+    check(reboot.durable_store()->checkpoint(report_cp), "report checkpoint selects snapshot");
+    HubDurabilityOwner report_reboot(f, f, crypto, k, InstallationFreshness::ExistingInstallation);
+    check(report_reboot.recover() == DurabilityOwnerState::Ready, "report lifecycle reboot owner");
+    DurableJournalSlotStore report_store(report_reboot, crypto, k);
+    HubJournal report_journal(128);
+    check(report_journal.attach_persistence(crypto, report_store, k) && report_journal.size() == 2 &&
+          report_journal.cloud_completed(event(1).key) && !report_journal.cloud_completed(event(2).key),
+          "report installation and retry preserve retained events and independent completion");
+    RecoveryState report_after;
+    check(report_reboot.durable_store()->recover(report_after) && report_after.tail.size() == 2,
+          "metadata checkpoint preserves uncovered event tail");
+
+    // Wrong-slot, wrong-event, and corrupted evidence must stop journal attachment.
+    for (int mutation = 0; mutation < 3; ++mutation) {
+        Fixture bad = f;
+        if (mutation == 0) bad.blobs["c001"] = bad.blobs["c000"];
+        else if (mutation == 1) {
+            Bytes wrong;
+            check(HubJournal::encode_completion_receipt(crypto, k, 0, event(99).key, wrong),
+                  "wrong identity fixture");
+            bad.blobs["c000"] = wrong;
+        } else bad.blobs["c000"][0] ^= 1;
+        HubDurabilityOwner bad_owner(bad, bad, crypto, k, InstallationFreshness::ExistingInstallation);
+        check(bad_owner.recover() == DurabilityOwnerState::Ready, "completion authentication occurs at journal bind");
+        DurableJournalSlotStore bad_store(bad_owner, crypto, k);
+        HubJournal bad_journal(128);
+        check(!bad_journal.attach_persistence(crypto, bad_store, k) && bad_journal.storage_fault(),
+              "conflicting or corrupt completion fails closed");
+    }
+
+    for (auto fault : {FaultMode::FailBeforeWrite, FaultMode::PartialWrite,
+                       FaultMode::PersistThenFail, FaultMode::PowerLossAfterPersist}) {
+        Fixture interrupted = f;
+        HubDurabilityOwner before(interrupted, interrupted, crypto, k, InstallationFreshness::ExistingInstallation);
+        check(before.recover() == DurabilityOwnerState::Ready, "fault owner ready");
+        DurableJournalSlotStore before_store(before, crypto, k);
+        HubJournal before_journal(128);
+        check(before_journal.attach_persistence(crypto, before_store, k), "fault journal ready");
+        CloudSync before_cloud(before_journal);
+        interrupted.completion_fault = fault;
+        const auto response = BackendCommitReply{BackendReplyStatus::Committed, event(2).key, true, false};
+        const auto result = before_cloud.handle_backend_reply(event(2).key, response, 0);
+        const bool persisted = fault == FaultMode::PersistThenFail || fault == FaultMode::PowerLossAfterPersist;
+        check((result == BackendReceiptResult::Completed) == persisted,
+              "only exact durable completion readback proves completion");
+        HubDurabilityOwner after(interrupted, interrupted, crypto, k, InstallationFreshness::ExistingInstallation);
+        check(after.recover() == DurabilityOwnerState::Ready, "interrupted owner restores archives");
+        DurableJournalSlotStore after_store(after, crypto, k);
+        HubJournal after_journal(128);
+        const bool opened = after_journal.attach_persistence(crypto, after_store, k);
+        if (fault == FaultMode::PartialWrite) {
+            check(!opened && after_journal.storage_fault(), "partial completion fails closed after reboot");
+        } else {
+            check(opened && after_journal.cloud_completed(event(2).key) == persisted,
+                  "before/after commit reboot reconstructs correct completion");
+        }
+    }
+
+    // Existing archive kind=1 is a compatibility source. Fail before publication,
+    // restart, publish independently, and keep the archive bytes unchanged.
+    Fixture legacy; seed_legacy(legacy, crypto, k, true);
+    HubDurabilityOwner migrating(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
+    check(migrating.recover() == DurabilityOwnerState::MigrationRequired, "kind1 migration owner");
+    HubJournal source(128); check(open_legacy(legacy, crypto, k, source), "kind1 source");
+    DurableJournalSlotStore destination(migrating, crypto, k);
+    check(migrate_legacy_journal(source, legacy, destination) &&
+          migrating.recover() == DurabilityOwnerState::Ready, "kind1 archives committed");
+    const auto legacy_archives = legacy.blobs;
+    legacy.completion_fault = FaultMode::FailBeforeWrite;
+    DurableJournalSlotStore failed_publish(migrating, crypto, k);
+    HubJournal failed_journal(128);
+    check(!failed_journal.attach_persistence(crypto, failed_publish, k),
+          "failed legacy publication prevents runtime opening");
+    for (const auto& entry : legacy_archives)
+        check(legacy.blobs.at(entry.first) == entry.second, "failed publication keeps legacy proof");
+    // Stop after publishing one legacy receipt; the next record still has its
+    // archive marker. A fresh runtime must safely finish this mixed state.
+    Bytes first_receipt; bool first_found = false;
+    check(failed_publish.read_completion(0, first_receipt, first_found) && first_found,
+          "first legacy receipt publishes independently");
+    legacy.completion_fault = FaultMode::FailBeforeWrite;
+    DurableJournalSlotStore partial_publish(migrating, crypto, k);
+    HubJournal partial_journal(128);
+    check(!partial_journal.attach_persistence(crypto, partial_publish, k) &&
+          legacy.blobs.count("c000") && !legacy.blobs.count("c001"),
+          "interrupted partial legacy publication preserves mixed evidence");
+    HubDurabilityOwner resumed(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
+    check(resumed.recover() == DurabilityOwnerState::Ready, "publication restart owner");
+    legacy.completion_fault = FaultMode::PowerLossAfterPersist;
+    DurableJournalSlotStore resume_store(resumed, crypto, k);
+    HubJournal resume_journal(128);
+    check(resume_journal.attach_persistence(crypto, resume_store, k) &&
+          resume_journal.cloud_completed_count() == 2 && legacy.blobs.count("c000") && legacy.blobs.count("c001"),
+          "legacy completion independently published and verified after interrupted API");
+    for (const auto& entry : legacy_archives)
+        check(legacy.blobs.at(entry.first) == entry.second, "legacy kind1 markers remain intact");
+    const auto publications = legacy.completion_writes;
+    HubDurabilityOwner again(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
+    check(again.recover() == DurabilityOwnerState::Ready, "published legacy completion restart");
+    DurableJournalSlotStore again_store(again, crypto, k);
+    HubJournal again_journal(128);
+    check(again_journal.attach_persistence(crypto, again_store, k) &&
+          again_journal.pending_cloud(128).empty() && legacy.completion_writes == publications,
+          "legacy publication idempotent and replay suppression preserved");
+
+    check(again_journal.commit(event(3)) == CommitResult::Stored &&
+          again_journal.commit(event(4)) == CommitResult::Stored,
+          "new events coexist with legacy-completed archives");
+    CloudSync mixed_cloud(again_journal);
+    const auto mixed_reply = BackendCommitReply{BackendReplyStatus::Committed, event(4).key, true, false};
+    check(mixed_cloud.handle_backend_reply(event(4).key, mixed_reply, 0) == BackendReceiptResult::Completed,
+          "new completion coexists with old published markers");
+    HubDurabilityOwner mixed_owner(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
+    check(mixed_owner.recover() == DurabilityOwnerState::Ready, "mixed evidence owner recovery");
+    DurableJournalSlotStore mixed_store(mixed_owner, crypto, k);
+    HubJournal mixed_journal(128);
+    check(mixed_journal.attach_persistence(crypto, mixed_store, k) && mixed_journal.size() == 4 &&
+          mixed_journal.cloud_completed_count() == 3 && mixed_journal.pending_cloud(128).size() == 1 &&
+          mixed_journal.pending_cloud(128).front().key.str() == event(3).key.str(),
+          "mixed legacy/new completion retains incomplete event exactly");
+
+    Fixture full;
+    HubDurabilityOwner full_owner(full, full, crypto, k, InstallationFreshness::FreshInstallation);
+    check(full_owner.recover() == DurabilityOwnerState::Ready, "boundary owner ready");
+    DurableJournalSlotStore full_store(full_owner, crypto, k);
+    HubJournal full_journal(128);
+    check(full_journal.attach_persistence(crypto, full_store, k), "boundary journal attaches");
+    CloudSync full_cloud(full_journal);
+    RetirementSnapshot full_snapshot;
+    full_snapshot.storage_epoch = 1; full_snapshot.generation = 1;
+    RetirementSnapshotReference full_snapshot_ref;
+    check(full_owner.retirement_repository()->prepare_bank(full_snapshot, 0, full_snapshot_ref),
+          "boundary report snapshot prepared");
+    for (std::uint64_t i = 1; i <= 128; ++i) {
+        check(full_journal.commit(event(i)) == CommitResult::Stored, "retained boundary event");
+        const auto success = BackendCommitReply{BackendReplyStatus::Committed, event(i).key, true, false};
+        check(full_cloud.handle_backend_reply(event(i).key, success, 0) == BackendReceiptResult::Completed,
+              "all 128 effect identities independently complete");
+        RecoveryState metadata_before;
+        check(full_owner.durable_store()->recover(metadata_before), "boundary metadata base");
+        auto metadata = metadata_before.checkpoint;
+        metadata.generation = metadata_before.checkpoint_generation + 1;
+        metadata.report_snapshot = full_snapshot_ref;
+        check(full_owner.durable_store()->checkpoint(metadata),
+              "report after every event preserves archive batching and tail");
+    }
+    check(full_journal.size() == 128 && full_journal.pending_cloud(128).empty() &&
+          full_journal.commit(event(129)) == CommitResult::Full && full.blobs.count("c127"),
+          "completion neither retires payload nor frees logical event capacity");
+    HubDurabilityOwner full_reboot(full, full, crypto, k, InstallationFreshness::ExistingInstallation);
+    check(full_reboot.recover() == DurabilityOwnerState::Ready, "128 receipt inventory remains bounded");
+    DurableJournalSlotStore full_reboot_store(full_reboot, crypto, k);
+    HubJournal full_recovered(128);
+    check(full_recovered.attach_persistence(crypto, full_reboot_store, k) &&
+          full_recovered.size() == 128 && full_recovered.cloud_completed_count() == 128,
+          "all retained history and independent completion survives reboot");
+    std::cout << "Independent backend completion contract validation passed\n";
+}
+
 }  // namespace
 
 int main() {
     try {
         gs::host::security::OpenSslCommissioningCrypto crypto;
         run(crypto);
+        completion_contract(crypto);
         std::cout << "Hub journal migration validation passed\n";
         return 0;
     } catch (const std::exception& error) {

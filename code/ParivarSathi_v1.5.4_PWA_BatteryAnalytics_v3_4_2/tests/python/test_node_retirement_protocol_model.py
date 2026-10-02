@@ -357,6 +357,12 @@ class RetirementProtocolModelTest(unittest.TestCase):
         self.assertEqual(normal, 77122)
         normal_entries = 3160 - 1792 - 544 + 1088 + 27 + 3 * (2 + (report_snapshot + 31) // 32) + 34
         self.assertEqual(normal_entries, 2552)
+        independent_receipts = 128 * 32
+        independent_entries = 128 * (2 + (32 + 31) // 32)
+        self.assertEqual(migration + independent_receipts, 87314)
+        self.assertEqual(131072 - migration - independent_receipts, 43758)
+        self.assertEqual(entries + independent_entries, 3605)
+        self.assertEqual(4032 - entries - independent_entries, 427)
 
     def test_23_heartbeat_between_business_events_is_reported(self):
         n, h = self.pair()

@@ -32,6 +32,9 @@ private:
     bool rows(std::map<std::size_t, Row>& out, RecoveryState& recovery);
     bool write_archive(std::uint64_t chunk_id, const PendingEffectChunk& chunk);
     bool read_archive(std::uint64_t chunk_id, PendingEffectChunk& chunk);
+    static std::string completion_key(std::size_t slot);
+    bool publish_completion(std::size_t slot, const gs::EventKey&,
+                            const security::Bytes& receipt);
     bool replace_completion(std::size_t slot, bool completed);
     bool append_event(std::size_t slot, const security::Bytes& blob,
                       const gs::DomainEvent& event);

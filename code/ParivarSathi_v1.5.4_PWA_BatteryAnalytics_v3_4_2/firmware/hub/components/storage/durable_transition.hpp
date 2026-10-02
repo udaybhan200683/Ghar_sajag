@@ -213,6 +213,8 @@ public:
     DurableStore& operator=(const DurableStore&) = delete;
     CommitStatus commit(Transition candidate);
     bool recover(RecoveryState&);
+    // Cover the complete tail, or keep the current coverage boundary for a
+    // metadata-only checkpoint. Uncovered transitions remain recovery-owned.
     bool checkpoint(const Checkpoint&);
     bool handoff_effects(const std::vector<EffectReference>&,
                          const std::vector<Effect>&, std::uint64_t chunk_id,
