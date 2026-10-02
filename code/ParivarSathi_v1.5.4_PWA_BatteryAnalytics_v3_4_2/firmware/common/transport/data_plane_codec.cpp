@@ -199,6 +199,7 @@ CodecError validate_header(const std::uint8_t* data, std::size_t size,
         type != static_cast<std::uint8_t>(FrameType::NodeHealthAck) &&
         type != static_cast<std::uint8_t>(FrameType::NodeRetirementFragment) &&
         type != static_cast<std::uint8_t>(FrameType::NodeRetirementAck) &&
+        type != static_cast<std::uint8_t>(FrameType::HubStorageEpoch) &&
         type != static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return CodecError::UnknownFrameType;
     }
@@ -336,6 +337,9 @@ FrameClass classify_frame(const std::uint8_t* data, std::size_t size) {
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::NodeRetirementAck)) {
         return FrameClass::NodeRetirementAck;
+    }
+    if (data[5] == static_cast<std::uint8_t>(FrameType::HubStorageEpoch)) {
+        return FrameClass::HubStorageEpoch;
     }
     if (data[5] == static_cast<std::uint8_t>(FrameType::ControlFota)) {
         return FrameClass::ControlFota;
@@ -700,6 +704,33 @@ DecodeResult<std::uint64_t> decode_node_health_ack(const std::uint8_t* data,
     else if (!reader.at_end()) result.error = CodecError::LengthMismatch;
     else if (sequence == 0) result.error = CodecError::InvalidValue;
     else result.value = sequence;
+    return result;
+}
+
+EncodeResult encode_hub_storage_epoch(std::uint32_t epoch) {
+    EncodeResult result;
+    if (epoch == 0) {
+        result.error = CodecError::InvalidValue;
+        return result;
+    }
+    Writer writer(result.frame);
+    if (!writer.reserve_header() || !writer.u32(epoch) ||
+        !writer.finish(FrameType::HubStorageEpoch))
+        result.error = CodecError::BufferTooSmall;
+    return result;
+}
+
+DecodeResult<std::uint32_t> decode_hub_storage_epoch(const std::uint8_t* data,
+                                                     std::size_t size) {
+    DecodeResult<std::uint32_t> result;
+    result.error = validate_header(data, size, FrameType::HubStorageEpoch);
+    if (result.error != CodecError::None) return result;
+    Reader reader(data, size);
+    std::uint32_t epoch = 0;
+    if (!reader.u32(epoch)) result.error = CodecError::Truncated;
+    else if (!reader.at_end()) result.error = CodecError::LengthMismatch;
+    else if (epoch == 0) result.error = CodecError::InvalidValue;
+    else result.value = epoch;
     return result;
 }
 

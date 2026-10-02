@@ -520,8 +520,33 @@ void secure_owner_task(void*) {
         return;
     }
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
+    std::map<HubSecurityLink::Mac, std::pair<std::uint64_t, std::uint32_t>> epoch_confirmed;
+    struct RetirementRxState {
+        std::uint64_t transport_session{0};
+        transport::RetirementReportReassembler reassembler;
+    };
+    std::map<HubSecurityLink::Mac, RetirementRxState> retirement_rx;
     std::map<HubSecurityLink::Mac, bool> reported_liveness;
     std::uint64_t next_liveness_check_ms = 0;
+    const auto advertise_storage_epoch = [&](const HubSecurityLink::Mac& mac) {
+        const auto* node = security_link.ready_node(mac);
+        auto* frames = security_link.frames_for(mac);
+        const auto epoch = runtime.authoritative_storage_epoch();
+        if (durability_owner.state() != durable::DurabilityOwnerState::Ready ||
+            !epoch || *epoch == 0 || node == nullptr || frames == nullptr ||
+            node->last_session == 0) return;
+        const auto confirmed = epoch_confirmed.find(mac);
+        if (confirmed != epoch_confirmed.end() &&
+            confirmed->second.first == node->last_session &&
+            confirmed->second.second == *epoch)
+            return;
+        const auto plain = transport::encode_hub_storage_epoch(*epoch);
+        security::SecureFrame protected_epoch;
+        if (!plain || !frames->seal(security::RuntimeDirection::Downlink,
+                                    plain.frame, protected_epoch)) return;
+        (void)esp_now_send(mac.data(), protected_epoch.bytes.data(),
+                           protected_epoch.size);
+    };
     hub::fota::HubFotaGuard fota_guard;
     std::uint64_t fota_last_activity_ms = 0;
     const auto active_fota_node = [&](const std::string& device_id)
@@ -682,6 +707,8 @@ void secure_owner_task(void*) {
                     (void)runtime.observe_authenticated_contact(
                         node->logical_id, node->last_session, now_ms);
                     authorized[control.source_mac] = node->last_session;
+                    epoch_confirmed.erase(control.source_mac);
+                    advertise_storage_epoch(control.source_mac);
                     ESP_LOGI(kTag, "Authenticated rejoin device=%s logical=%s session=%llu",
                              node->device_id.c_str(), node->logical_id.c_str(),
                              static_cast<unsigned long long>(node->last_session));
@@ -717,6 +744,7 @@ void secure_owner_task(void*) {
             ESP_LOGW(kTag, "Rejected unauthenticated/replayed runtime frame");
             continue;
         }
+        advertise_storage_epoch(frame.source_mac);
         if (plain.size >= 2 && plain.bytes[0] == 'G' && plain.bytes[1] == 'F') {
             gs::fota::secure_wire::Message verified;
             if (fota_guard.admit_verified_ack(frame.source_mac, node, frames,
@@ -733,6 +761,89 @@ void secure_owner_task(void*) {
             continue;
         }
         const auto classification = transport::classify_frame(plain.bytes.data(), plain.size);
+        if (classification == transport::FrameClass::NodeRetirementFragment) {
+            if (durability_owner.state() != durable::DurabilityOwnerState::Ready ||
+                runtime.authoritative_storage_epoch().value_or(0) == 0) continue;
+            auto& receive_state = retirement_rx[frame.source_mac];
+            if (receive_state.transport_session != frames->session()) {
+                receive_state.reassembler.reset();
+                receive_state.transport_session = frames->session();
+            }
+            security::Key32 report_key{};
+            transport::RetirementEnrollmentBinding enrollment{};
+            if (!security_link.retirement_report_key(frame.source_mac, report_key) ||
+                !security_link.retirement_enrollment_binding(frame.source_mac, enrollment)) {
+                commissioning_crypto.secure_zero(report_key.data(), report_key.size());
+                continue;
+            }
+            transport::NodeRetirementReportV1 report;
+            security::Key32 report_hmac{};
+            const auto assembly = receive_state.reassembler.accept(
+                commissioning_crypto, report_key, plain, report, report_hmac);
+            commissioning_crypto.secure_zero(report_key.data(), report_key.size());
+            if (assembly == transport::RetirementAssemblyResult::Rejected)
+                receive_state.reassembler.reset();
+            if (assembly != transport::RetirementAssemblyResult::Complete) continue;
+
+            auto* report_repository = durability_owner.retirement_repository();
+            auto* durable_store = durability_owner.durable_store();
+            const auto epoch = runtime.authoritative_storage_epoch();
+            if (report_repository == nullptr || durable_store == nullptr ||
+                !epoch || *epoch == 0 || report.epoch != *epoch) continue;
+            durable::RecoveryState before;
+            if (!durable_store->recover(before) || before.storage_epoch != *epoch) continue;
+            durable::RetirementSnapshot current;
+            if (before.checkpoint.report_snapshot) {
+                if (!report_repository->load(*before.checkpoint.report_snapshot, current))
+                    continue;
+            } else {
+                current.storage_epoch = *epoch;
+                current.generation = 1;
+            }
+            durable::RetirementSnapshot candidate;
+            const auto applied = report_repository->apply_authenticated_report(
+                current, enrollment.digest, enrollment.slot, enrollment.generation,
+                node->last_session, report, report_hmac, candidate);
+            bool durable_report_ready = applied == durable::RetirementReportApply::Duplicate;
+            if (applied == durable::RetirementReportApply::Prepared &&
+                before.checkpoint_generation != UINT64_MAX) {
+                std::uint8_t referenced_banks = 0;
+                if (before.checkpoint.report_snapshot)
+                    referenced_banks = static_cast<std::uint8_t>(
+                        1U << before.checkpoint.report_snapshot->bank);
+                durable::RetirementSnapshotReference reference;
+                if (report_repository->prepare_bank(candidate, referenced_banks,
+                                                    reference)) {
+                    auto next_checkpoint = before.checkpoint;
+                    next_checkpoint.storage_epoch = *epoch;
+                    next_checkpoint.generation = before.checkpoint_generation + 1U;
+                    next_checkpoint.covered_ordinal = before.last_ordinal;
+                    next_checkpoint.report_snapshot = reference;
+                    durable::RecoveryState verified_state;
+                    durable::RetirementSnapshot verified_snapshot;
+                    durable_report_ready = durable_store->checkpoint(next_checkpoint) &&
+                        durable_store->recover(verified_state) &&
+                        verified_state.checkpoint.report_snapshot.has_value() &&
+                        verified_state.checkpoint.report_snapshot->bank == reference.bank &&
+                        verified_state.checkpoint.report_snapshot->generation == reference.generation &&
+                        verified_state.checkpoint.report_snapshot->digest == reference.digest &&
+                        report_repository->load(reference, verified_snapshot);
+                }
+            }
+            if (!durable_report_ready) continue;
+            epoch_confirmed[frame.source_mac] = {node->last_session, report.epoch};
+            transport::NodeRetirementAckV1 ack;
+            ack.epoch = report.epoch;
+            ack.generation = report.generation;
+            ack.report_hmac = report_hmac;
+            const auto encoded_ack = transport::encode_node_retirement_ack(ack);
+            security::SecureFrame protected_ack;
+            if (!encoded_ack || !frames->seal(security::RuntimeDirection::Downlink,
+                                              encoded_ack.frame, protected_ack)) continue;
+            (void)esp_now_send(frame.source_mac.data(), protected_ack.bytes.data(),
+                               protected_ack.size);
+            continue;
+        }
         if (classification == transport::FrameClass::NodeHealth) {
             const auto health = transport::decode_node_health(plain.bytes.data(), plain.size);
             if (health && runtime.observe_authenticated_health(

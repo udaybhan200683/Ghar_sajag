@@ -29,6 +29,7 @@ enum class FrameType : std::uint8_t {
     NodeHealthAck = 4U,
     NodeRetirementFragment = 5U,
     NodeRetirementAck = 6U,
+    HubStorageEpoch = 7U,
     ControlFota = 0x80U
 };
 
@@ -40,6 +41,7 @@ enum class FrameClass {
     NodeHealthAck,
     NodeRetirementFragment,
     NodeRetirementAck,
+    HubStorageEpoch,
     ControlFota
 };
 
@@ -98,5 +100,9 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
 EncodeResult encode_node_health_ack(std::uint64_t health_sequence);
 DecodeResult<std::uint64_t> decode_node_health_ack(const std::uint8_t* data,
                                                   std::size_t size);
+
+EncodeResult encode_hub_storage_epoch(std::uint32_t epoch);
+DecodeResult<std::uint32_t> decode_hub_storage_epoch(const std::uint8_t* data,
+                                                     std::size_t size);
 
 }  // namespace gs::transport

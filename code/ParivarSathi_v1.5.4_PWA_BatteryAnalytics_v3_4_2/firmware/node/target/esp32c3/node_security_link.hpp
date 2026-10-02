@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firmware/common/security/association_persistence.hpp"
+#include "firmware/common/transport/node_retirement_protocol.hpp"
 #include "firmware/common/security/commissioning_wire.hpp"
 #include "firmware/common/security/nvs_association_blob_store.hpp"
 #include "firmware/common/security/psa_commissioning_crypto.hpp"
@@ -55,6 +56,10 @@ public:
     std::optional<Outbound> fallback_to_v1();
     bool restore_recovery(node::NodeRuntime& runtime, Milliseconds now_ms);
     bool persist_recovery(const node::NodeRuntime& runtime);
+    bool retirement_report_key(security::Key32& out);
+    bool fragment_retirement_report(
+        const transport::NodeRetirementReportV1& report,
+        transport::RetirementFragmentSet& fragments);
 
 private:
     enum class Phase { Uninitialized, Commissioning, Rejoining, Ready, Fault };

@@ -477,6 +477,24 @@ bool HubSecurityLink::health_ack_supported(const Mac& source) const {
         (found->second.capabilities & security::kHealthAckCapability) != 0;
 }
 
+bool HubSecurityLink::retirement_report_key(const Mac& source,
+                                           security::Key32& out) {
+    const auto* node = ready_node(source);
+    if (node == nullptr) return false;
+    const auto* binding = binding_for(node->device_id);
+    return binding != nullptr && transport::derive_retirement_report_key(
+        crypto_, binding->installation_key, out);
+}
+
+bool HubSecurityLink::retirement_enrollment_binding(
+        const Mac& source, transport::RetirementEnrollmentBinding& out) {
+    const auto* node = ready_node(source);
+    if (node == nullptr || std::none_of(journal_key_.begin(), journal_key_.end(),
+            [](std::uint8_t value) { return value != 0; })) return false;
+    return transport::derive_retirement_enrollment_binding(
+        crypto_, journal_key_, node->logical_id, out);
+}
+
 std::vector<HubSecurityLink::Mac> HubSecurityLink::enrolled_macs() const {
     std::vector<Mac> out;
     if (!registry_) return out;

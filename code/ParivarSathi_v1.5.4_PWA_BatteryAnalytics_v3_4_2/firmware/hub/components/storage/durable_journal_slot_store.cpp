@@ -1,4 +1,5 @@
 #include "storage/durable_journal_slot_store.hpp"
+#include "firmware/common/transport/node_retirement_protocol.hpp"
 
 #include <algorithm>
 
@@ -153,16 +154,11 @@ bool DurableJournalSlotStore::append_event(std::size_t slot,
     transition.type = TransitionType::Event;
     transition.event = {event.key.physical_device_id, event.key.source_id,
                         event.key.session_id, event.key.sequence};
-    security::Bytes binding_input(event.key.source_id.begin(), event.key.source_id.end());
-    security::Key32 binding{};
-    if (!crypto_.hmac_sha256(journal_key_, binding_input, binding)) return false;
-    transition.enrollment_slot = static_cast<std::uint8_t>(binding[0] % 10U);
-    transition.enrollment_generation =
-        (static_cast<std::uint32_t>(binding[1]) << 24) |
-        (static_cast<std::uint32_t>(binding[2]) << 16) |
-        (static_cast<std::uint32_t>(binding[3]) << 8) | binding[4];
-    if (transition.enrollment_generation == 0) transition.enrollment_generation = 1;
-    crypto_.secure_zero(binding.data(), binding.size());
+    transport::RetirementEnrollmentBinding binding;
+    if (!transport::derive_retirement_enrollment_binding(
+            crypto_, journal_key_, event.key.source_id, binding)) return false;
+    transition.enrollment_slot = binding.slot;
+    transition.enrollment_generation = binding.generation;
     if (!crypto_.hmac_sha256(journal_key_, payload, transition.event_digest)) return false;
     transition.causal_input = std::move(payload);
     transition.decision = write_u32(static_cast<std::uint32_t>(slot));

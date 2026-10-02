@@ -59,6 +59,31 @@ void fragments_and_mac(OpenSslCommissioningCrypto& crypto) {
     gs::security::RuntimeFrameSecurity node_frames(crypto, binding);
     Key32 salt{}; salt.fill(0x22);
     require(node_frames.start(101, salt), "runtime frame session did not start");
+    gs::security::RuntimeFrameSecurity hub_frames(crypto, binding);
+    require(hub_frames.start(101, salt), "Hub runtime frame session did not start");
+    const auto epoch_offer = encode_hub_storage_epoch(7);
+    require(epoch_offer && classify_frame(epoch_offer.frame.bytes.data(),
+                epoch_offer.frame.size) == FrameClass::HubStorageEpoch,
+            "Hub epoch offer did not use the authenticated data plane");
+    gs::security::SecureFrame protected_epoch;
+    require(hub_frames.seal(gs::security::RuntimeDirection::Downlink,
+                            epoch_offer.frame, protected_epoch),
+            "Hub epoch offer did not seal");
+    auto spoofed_epoch = protected_epoch;
+    spoofed_epoch.bytes[spoofed_epoch.size - 1] ^= 1U;
+    EncodedFrame spoof_plain;
+    require(!node_frames.open(gs::security::RuntimeDirection::Downlink,
+                              spoofed_epoch, spoof_plain),
+            "spoofed Hub epoch passed authenticated frame verification");
+    require(node_frames.open(gs::security::RuntimeDirection::Downlink,
+                             protected_epoch, spoof_plain),
+            "valid Hub epoch failed authenticated frame verification");
+    const auto decoded_epoch = decode_hub_storage_epoch(spoof_plain.bytes.data(),
+                                                         spoof_plain.size);
+    require(decoded_epoch && *decoded_epoch.value == 7,
+            "authenticated Hub epoch did not decode to its value");
+    require(!encode_hub_storage_epoch(0),
+            "epoch codec accepted zero");
     RetirementReportReassembler assembly;
     NodeRetirementReportV1 completed;
     Key32 completed_hmac{};
@@ -159,7 +184,7 @@ void heartbeat_retirement_and_admission() {
             "failed sequence became retransmittable after reboot");
 }
 
-void highwater_and_health_scope() {
+void highwater_and_health_scope(OpenSslCommissioningCrypto& crypto) {
     NodeRuntime node("sensor", 40);
     require(node.set_retirement_epoch(7), "epoch setup failed");
     for (unsigned i = 0; i < 9; ++i)
@@ -188,6 +213,18 @@ void highwater_and_health_scope() {
             after_health.durable_admission_highwater == report.durable_admission_highwater &&
             after_health.pending_count == report.pending_count,
             "unsequenced NodeHealth changed retirement EventKey state");
+    const auto prior_generation = node.recovery_snapshot().report_generation;
+    require(node.set_retirement_epoch(8) &&
+            node.recovery_snapshot().report_generation == prior_generation + 1 &&
+            node.recovery_snapshot().pending.size() == 12 &&
+            !node.set_retirement_epoch(7),
+            "epoch change did not preserve pending keys or reject a stale epoch");
+    RetirementEnrollmentBinding identity_binding;
+    Key32 journal_key{}; journal_key.fill(0x5a);
+    require(derive_retirement_enrollment_binding(crypto, journal_key, "sensor",
+                identity_binding) && identity_binding.slot < 10 &&
+            identity_binding.generation != 0,
+            "authenticated enrollment coordinate derivation failed");
 }
 }
 
@@ -196,7 +233,7 @@ int main() {
         OpenSslCommissioningCrypto crypto;
         fragments_and_mac(crypto);
         heartbeat_retirement_and_admission();
-        highwater_and_health_scope();
+        highwater_and_health_scope(crypto);
         std::cout << "NODE RETIREMENT PROTOCOL HOST PASS bounded authenticated report and heartbeat retirement\n";
         return 0;
     } catch (const std::exception& error) {

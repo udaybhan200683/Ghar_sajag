@@ -162,6 +162,7 @@ NodeRuntimeRecoveryState NodeRuntime::recovery_snapshot() const {
 bool NodeRuntime::set_retirement_epoch(std::uint32_t epoch) {
     if (epoch == 0) return false;
     if (retirement_epoch_ == epoch) return true;
+    if (epoch < retirement_epoch_) return false;
     if (report_generation_ == std::numeric_limits<std::uint64_t>::max()) return false;
     retirement_epoch_ = epoch;
     ++report_generation_;

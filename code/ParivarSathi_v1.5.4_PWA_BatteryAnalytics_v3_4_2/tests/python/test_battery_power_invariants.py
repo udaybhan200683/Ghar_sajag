@@ -29,7 +29,7 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         self.assertIn("if (pinned_v2_ && !negotiated)", link)
         self.assertIn("phase_ != Phase::Ready && phase_ != Phase::Rejoining", link)
         health_path = adapter[adapter.index("const auto encoded = transport::encode_node_health(health)"):
-                              adapter.index("if (!in_flight && !health_in_flight && !maintenance",
+                              adapter.index("if (!in_flight && !health_in_flight && !retirement_fragment_in_flight",
                                             adapter.index("const auto encoded = transport::encode_node_health(health)"))]
         self.assertNotIn("allocate_nvs_session_id", health_path)
         self.assertNotIn("pin_health_ack_for_hub", health_path)

@@ -16,6 +16,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/node/fota/boot_health_gate.cpp"
         "${GS_ROOT}/shared/src/logging.cpp"
         "${GS_ROOT}/firmware/common/transport/data_plane_codec.cpp"
+        "${GS_ROOT}/firmware/common/transport/node_retirement_protocol.cpp"
         "${GS_ROOT}/firmware/common/transport/session_id.cpp"
         "${GS_ROOT}/firmware/common/security/psa_commissioning_crypto.cpp"
         "${GS_ROOT}/firmware/common/security/target_identity_signer.cpp"

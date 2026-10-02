@@ -1,4 +1,5 @@
 #include "firmware/node/components/storage/node_recovery_persistence.hpp"
+#include "firmware/common/transport/node_retirement_protocol.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
 
 #include <algorithm>
@@ -221,6 +222,27 @@ int main() {
                 summary_reboot.acknowledge(*summary, gs::AckClass::Durable) &&
                 summary_reboot.persisted() == 0,
                 "summary identity did not survive restart and ACK retirement");
+        MemoryBlob epoch_store;
+        NodeRuntime epoch_node("bathroom", 21);
+        require(epoch_node.record(EventKind::Heartbeat, "", 1, 0).has_value() &&
+                epoch_node.set_retirement_epoch(9),
+                "epoch recovery fixture did not admit pending heartbeat");
+        NodeRecoveryRepository epoch_repo(crypto, epoch_store, wrapping_key,
+                                          "home-a", "hub-a", "bathroom");
+        require(epoch_repo.save(epoch_node.recovery_snapshot()),
+                "accepted Hub epoch was not persisted");
+        const auto epoch_loaded = epoch_repo.load();
+        NodeRuntime epoch_reboot("bathroom", 22);
+        require(epoch_loaded.state && epoch_reboot.restore_recovery(*epoch_loaded.state, 0) &&
+                epoch_reboot.recovery_snapshot().retirement_epoch == 9 &&
+                epoch_reboot.pending() == 1,
+                "normal reboot lost the accepted Hub epoch or pending EventKey");
+        gs::transport::NodeRetirementReportV1 reboot_report;
+        require(gs::transport::make_retirement_report(epoch_reboot.recovery_snapshot(),
+                    reboot_report) && reboot_report.epoch == 9 &&
+                reboot_report.pending_count == 1 &&
+                reboot_report.pending[0].origin_session == 21,
+                "reboot report did not include the full durable pending set");
         std::cout << "P2-PERSIST-NODE-RECOVERY HOST PASS encrypted bounded recovery\n";
         return 0;
     } catch (const std::exception& error) {

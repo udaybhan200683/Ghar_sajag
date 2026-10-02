@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace gs::transport {
 
@@ -99,6 +100,19 @@ struct NodeRetirementAckV1 {
     std::uint64_t generation{0};
     security::Key32 report_hmac{};
 };
+
+struct RetirementEnrollmentBinding {
+    std::array<std::uint8_t, 32> digest{};
+    std::uint8_t slot{0};
+    std::uint32_t generation{0};
+};
+
+// Uses the same deterministic authenticated identity mapping as durable event
+// admission, so reports and journal entries share an enrollment coordinate.
+bool derive_retirement_enrollment_binding(
+    security::CommissioningCrypto& crypto, const security::Key32& journal_key,
+    const std::string& authenticated_logical_id,
+    RetirementEnrollmentBinding& binding);
 
 EncodeResult encode_node_retirement_ack(const NodeRetirementAckV1& ack);
 bool decode_node_retirement_ack(const std::uint8_t* data, std::size_t size,

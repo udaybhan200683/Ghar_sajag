@@ -4,6 +4,7 @@
 #include "firmware/common/security/nvs_association_blob_store.hpp"
 #include "firmware/common/security/psa_commissioning_crypto.hpp"
 #include "firmware/common/security/runtime_frame_security.hpp"
+#include "firmware/common/transport/node_retirement_protocol.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/hub/components/registry/registry_persistence.hpp"
 #include "firmware/hub/components/storage/journal.hpp"
@@ -77,6 +78,9 @@ public:
     const hub::EnrolledNode* ready_node(const Mac& source) const;
     security::RuntimeFrameSecurity* frames_for(const Mac& source);
     bool health_ack_supported(const Mac& source) const;
+    bool retirement_report_key(const Mac& source, security::Key32& out);
+    bool retirement_enrollment_binding(
+        const Mac& source, transport::RetirementEnrollmentBinding& out);
     std::vector<Mac> enrolled_macs() const;
     const std::string& home_id() const { return home_id_; }
     const std::string& hub_id() const { return hub_id_; }

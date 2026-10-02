@@ -1,6 +1,7 @@
 #include "firmware/node/target/esp32c3/node_runtime_adapter.hpp"
 
 #include "firmware/common/transport/data_plane_codec.hpp"
+#include "firmware/common/transport/node_retirement_protocol.hpp"
 #include "firmware/common/security/psa_commissioning_crypto.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/common/security/target_wrapping_key.hpp"
@@ -589,6 +590,19 @@ void owner_task(void*) {
         vTaskDelete(nullptr);
         return;
     }
+    if (!security_link.persist_recovery(runtime)) {
+        ESP_LOGE(kTag, "Node recovery boot generation commit failed; stopping owner");
+        vTaskDelete(nullptr);
+        return;
+    }
+    transport::NodeRetirementReportV1 active_retirement_report{};
+    transport::RetirementFragmentSet active_retirement_fragments{};
+    std::uint64_t prepared_retirement_generation = 0;
+    std::uint64_t acknowledged_retirement_generation = 0;
+    std::uint64_t retirement_transport_session = security_link.session();
+    std::uint8_t next_retirement_fragment = 0;
+    Milliseconds next_retirement_retry_ms = 0;
+    bool retirement_fragment_in_flight = false;
 #endif
     g_ota_owner_started.store(true, std::memory_order_release);
     QualifiedInput pir(EventKind::Motion, std::nullopt, kPirDebounceMs,
@@ -834,6 +848,47 @@ void owner_task(void*) {
                 }
                 continue;
             }
+            const auto control_class = transport::classify_frame(
+                verified_ack.bytes.data(), verified_ack.size);
+            if (control_class == transport::FrameClass::HubStorageEpoch) {
+                const auto epoch = transport::decode_hub_storage_epoch(
+                    verified_ack.bytes.data(), verified_ack.size);
+                if (!epoch || epoch.value.value() == 0) continue;
+                const auto prior_epoch = runtime.recovery_snapshot().retirement_epoch;
+                if (!runtime.set_retirement_epoch(*epoch.value)) {
+                    ESP_LOGW(kTag, "Rejected stale or invalid authenticated Hub epoch");
+                    continue;
+                }
+                if (prior_epoch != *epoch.value) {
+                    if (!security_link.persist_recovery(runtime)) {
+                        ESP_LOGE(kTag, "Hub epoch persistence failed; stopping owner");
+                        vTaskDelete(nullptr);
+                        return;
+                    }
+                    acknowledged_retirement_generation = 0;
+                    next_retirement_retry_ms = now;
+                }
+                last_authenticated_contact_ms = now;
+                first_event_attempt_ms = -1;
+                completed_event_attempts = 0;
+                continue;
+            }
+            if (control_class == transport::FrameClass::NodeRetirementAck) {
+                transport::NodeRetirementAckV1 report_ack;
+                if (!transport::decode_node_retirement_ack(
+                        verified_ack.bytes.data(), verified_ack.size, report_ack))
+                    continue;
+                const auto current = runtime.recovery_snapshot();
+                if (report_ack.epoch == current.retirement_epoch &&
+                    report_ack.generation == prepared_retirement_generation &&
+                    report_ack.generation == current.report_generation &&
+                    report_ack.report_hmac == active_retirement_fragments.report_hmac) {
+                    acknowledged_retirement_generation = report_ack.generation;
+                    next_retirement_fragment = 0;
+                    last_authenticated_contact_ms = now;
+                }
+                continue;
+            }
             const auto decoded = transport::decode_node_ack(
                 verified_ack.bytes.data(), verified_ack.size);
 #else
@@ -850,6 +905,7 @@ void owner_task(void*) {
 #if !GS_HIL_BUILD
             const auto pending_before = runtime.pending();
             const auto retained_before = runtime.persisted();
+            const auto report_state_before = runtime.pending_generation();
 #endif
 #if !GS_HIL_BUILD
             const bool matched_pending = runtime.has_pending_key(key);
@@ -871,14 +927,16 @@ void owner_task(void*) {
 #endif
             }
 #if !GS_HIL_BUILD
-            if ((runtime.pending() != pending_before ||
+            if ((runtime.pending_generation() != report_state_before ||
+                 runtime.pending() != pending_before ||
                  runtime.persisted() != retained_before) &&
                 !security_link.persist_recovery(runtime)) {
                 ESP_LOGE(kTag, "Node recovery ACK retirement commit failed; stopping owner");
                 vTaskDelete(nullptr);
                 return;
             }
-            if (runtime.pending() != pending_before ||
+            if (runtime.pending_generation() != report_state_before ||
+                runtime.pending() != pending_before ||
                 runtime.persisted() != retained_before)
                 energy.record_recovery_commit();
 #endif
@@ -933,6 +991,16 @@ void owner_task(void*) {
                          static_cast<unsigned long long>(in_flight->sequence),
                          send_result.accepted_by_radio);
                 in_flight.reset();
+            } else if (retirement_fragment_in_flight) {
+                retirement_fragment_in_flight = false;
+                if (send_result.accepted_by_radio) {
+                    ++next_retirement_fragment;
+                    if (next_retirement_fragment >= active_retirement_fragments.count)
+                        next_retirement_retry_ms = now + 5000;
+                } else {
+                    next_retirement_fragment = 0;
+                    next_retirement_retry_ms = now + 1000;
+                }
             } else if (health_in_flight) {
                 if (send_result.accepted_by_radio &&
                     g_ota_sensing_ready.load(std::memory_order_acquire)) {
@@ -961,6 +1029,12 @@ void owner_task(void*) {
             ++mac_failure_count;
             breadcrumb = NodeBreadcrumb::RetryBackoff;
             last_error = NodeHealthError::MacCallbackTimeout;
+        } else if (retirement_fragment_in_flight &&
+                   now - sent_at_ms >= kSendCallbackTimeoutMs) {
+            retirement_fragment_in_flight = false;
+            next_retirement_fragment = 0;
+            next_retirement_retry_ms = now + 1000;
+            ++mac_failure_count;
         } else if (health_in_flight && now - sent_at_ms >= kSendCallbackTimeoutMs) {
             health_in_flight = false;
             ++mac_failure_count;
@@ -1290,7 +1364,65 @@ void owner_task(void*) {
             }
         }
 
-        if (!in_flight && !health_in_flight && !maintenance
+        if (security_link.ready() && !in_flight && !health_in_flight &&
+            !retirement_fragment_in_flight && !maintenance &&
+            !g_control_plane_active.load(std::memory_order_acquire)) {
+            const auto recovery = runtime.recovery_snapshot();
+            if (recovery.retirement_epoch != 0 &&
+                recovery.report_generation != prepared_retirement_generation) {
+                transport::NodeRetirementReportV1 report;
+                transport::RetirementFragmentSet fragments;
+                if (transport::make_retirement_report(recovery, report) &&
+                    security_link.fragment_retirement_report(report, fragments)) {
+                    active_retirement_report = report;
+                    active_retirement_fragments = fragments;
+                    prepared_retirement_generation = report.generation;
+                    acknowledged_retirement_generation = 0;
+                    next_retirement_fragment = 0;
+                    next_retirement_retry_ms = now;
+                } else {
+                    ESP_LOGE(kTag, "Unable to build bounded Node retirement report");
+                }
+            }
+            if (security_link.session() != retirement_transport_session) {
+                retirement_transport_session = security_link.session();
+                acknowledged_retirement_generation = 0;
+                next_retirement_fragment = 0;
+                next_retirement_retry_ms = now;
+            }
+            if (prepared_retirement_generation != 0 &&
+                acknowledged_retirement_generation != prepared_retirement_generation) {
+                if (next_retirement_fragment >= active_retirement_fragments.count) {
+                    if (now >= next_retirement_retry_ms) {
+                        next_retirement_fragment = 0;
+                        next_retirement_retry_ms = now;
+                    }
+                }
+                if (next_retirement_fragment < active_retirement_fragments.count &&
+                    now >= next_retirement_retry_ms) {
+                    security::SecureFrame protected_fragment;
+                    const auto& fragment = active_retirement_fragments.frames[
+                        next_retirement_fragment];
+                    if (security_link.frames()->seal(security::RuntimeDirection::Uplink,
+                                                     fragment, protected_fragment)) {
+                        const auto sent = esp_now_send(security_link.hub_mac().data(),
+                            protected_fragment.bytes.data(), protected_fragment.size);
+                        if (sent == ESP_OK) {
+                            retirement_fragment_in_flight = true;
+                            sent_at_ms = now;
+                        } else {
+                            next_retirement_fragment = 0;
+                            next_retirement_retry_ms = now + 1000;
+                        }
+                    } else {
+                        next_retirement_fragment = 0;
+                        next_retirement_retry_ms = now + 1000;
+                    }
+                }
+            }
+        }
+
+        if (!in_flight && !health_in_flight && !retirement_fragment_in_flight && !maintenance
 #if !GS_HIL_BUILD
             && security_link.ready() &&
             !g_security_phase.load(std::memory_order_acquire)

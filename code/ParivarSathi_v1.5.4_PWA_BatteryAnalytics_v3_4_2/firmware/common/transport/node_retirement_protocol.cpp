@@ -287,4 +287,24 @@ bool decode_node_retirement_ack(const std::uint8_t* data, std::size_t size,
     return ack.epoch != 0 && ack.generation != 0;
 }
 
+bool derive_retirement_enrollment_binding(
+        security::CommissioningCrypto& crypto,
+        const security::Key32& journal_key,
+        const std::string& authenticated_logical_id,
+        RetirementEnrollmentBinding& binding) {
+    if (authenticated_logical_id.empty()) return false;
+    const security::Bytes identity(authenticated_logical_id.begin(),
+                                   authenticated_logical_id.end());
+    RetirementEnrollmentBinding derived;
+    if (!crypto.hmac_sha256(journal_key, identity, derived.digest)) return false;
+    derived.slot = static_cast<std::uint8_t>(derived.digest[0] % 10U);
+    derived.generation = (static_cast<std::uint32_t>(derived.digest[1]) << 24U) |
+        (static_cast<std::uint32_t>(derived.digest[2]) << 16U) |
+        (static_cast<std::uint32_t>(derived.digest[3]) << 8U) |
+        static_cast<std::uint32_t>(derived.digest[4]);
+    if (derived.generation == 0) derived.generation = 1;
+    binding = derived;
+    return true;
+}
+
 }  // namespace gs::transport

@@ -1,4 +1,5 @@
 #include "firmware/node/target/esp32c3/node_security_link.hpp"
+#include "firmware/common/transport/node_retirement_protocol.hpp"
 
 #include "firmware/common/security/target_wrapping_key.hpp"
 #include "firmware/node/target/esp32c3/nvs_session_provider.hpp"
@@ -140,6 +141,24 @@ bool NodeSecurityLink::persist_recovery(const node::NodeRuntime& runtime) {
         return false;
     }
     return true;
+}
+
+bool NodeSecurityLink::retirement_report_key(security::Key32& out) {
+    if (!ready() || !binding_) return false;
+    return transport::derive_retirement_report_key(
+        crypto_, binding_->installation_key, out);
+}
+
+bool NodeSecurityLink::fragment_retirement_report(
+        const transport::NodeRetirementReportV1& report,
+        transport::RetirementFragmentSet& fragments) {
+    if (!ready() || !binding_) return false;
+    security::Key32 report_key{};
+    const bool okay = transport::derive_retirement_report_key(
+        crypto_, binding_->installation_key, report_key) &&
+        transport::fragment_retirement_report(crypto_, report_key, report, fragments);
+    crypto_.secure_zero(report_key.data(), report_key.size());
+    return okay;
 }
 
 std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::reply(
