@@ -342,27 +342,23 @@ class RetirementProtocolModelTest(unittest.TestCase):
         self.assertEqual(h.accept_report(bad, 10), "resurrected")
 
     def test_22_exact_storage_budget(self):
-        checkpoint = 4253 - 10 * (1 + 64 + 1 + 24 + 8 + 8) + 32 * 40 + 41
-        self.assertEqual(checkpoint, 4514)
-        report_snapshot = 18 + 10 * (32 + 4 + 8 + 32 + 8 + 8 + 1 + 32 * 16) + 28
-        self.assertEqual(report_snapshot, 6096)
-        migration = (5328 + 2 * checkpoint + 16064 + 5040 + 768 + 512 +
-                     checkpoint + 384 + 128 + 1004 + 40448)
-        self.assertEqual(migration, 83218)
-        self.assertGreaterEqual((131072 - migration) * 100, 131072 * 20)
-        entries = 3160 + 3 * (9) + 34
-        self.assertEqual(entries, 3221)
+        checkpoint = 4253 - 10 * (1 + 64 + 1 + 24 + 8 + 8) + 32 * 40 + 41 + 35
+        self.assertEqual(checkpoint, 4549)
+        report_snapshot = 19 + 10 * (61 + 32 * 16) + 28
+        self.assertEqual(report_snapshot, 5777)
+        manifest_bank = 18 + 184 + 16
+        self.assertEqual(manifest_bank, 218)
+        manifest_entries = 2 * (2 + (manifest_bank + 31) // 32)
+        self.assertEqual(manifest_entries, 18)
+        # The final admitted-profile certificate includes c000-c127 receipts,
+        # all three snapshot banks and both checkpoint roots in 3,206 entries.
+        entries = 3206 + manifest_entries
+        self.assertEqual(entries, 3224)
+        self.assertEqual(4032 - entries, 808)
         self.assertGreaterEqual((4032 - entries) * 100, 4032 * 20)
-        normal = 5328 + 2 * checkpoint + 32128 + 5040 + 768 + 512 + 6030 + 3 * report_snapshot
-        self.assertEqual(normal, 77122)
-        normal_entries = 3160 - 1792 - 544 + 1088 + 27 + 3 * (2 + (report_snapshot + 31) // 32) + 34
-        self.assertEqual(normal_entries, 2552)
-        independent_receipts = 128 * 32
-        independent_entries = 128 * (2 + (32 + 31) // 32)
-        self.assertEqual(migration + independent_receipts, 87314)
-        self.assertEqual(131072 - migration - independent_receipts, 43758)
-        self.assertEqual(entries + independent_entries, 3605)
-        self.assertEqual(4032 - entries - independent_entries, 427)
+        peak_bytes = 88019 + 957
+        self.assertEqual(peak_bytes, 88976)
+        self.assertEqual(131072 - peak_bytes, 42096)
 
     def test_23_heartbeat_between_business_events_is_reported(self):
         n, h = self.pair()

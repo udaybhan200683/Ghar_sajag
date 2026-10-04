@@ -111,7 +111,7 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
     crypto_.secure_zero(wrapping_key_.data(), wrapping_key_.size());
     registry_ = std::make_unique<NodeRegistry>(home_id_, hub_id_,
                                                kInstalledCapacity, kInstalledCapacity);
-    const auto loaded = repository_->load();
+    auto loaded = repository_->load();
     if (loaded.status == HubRegistryLoadStatus::Corrupt ||
         loaded.status == HubRegistryLoadStatus::IoError ||
         (loaded.status == HubRegistryLoadStatus::Ready &&
@@ -120,7 +120,11 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
         freshness_ = SecurityFreshness::Ambiguous;
         return false;
     }
-    if (loaded.status == HubRegistryLoadStatus::Ready) bindings_ = loaded.state->bindings;
+    if (loaded.status == HubRegistryLoadStatus::Ready) {
+        bindings_ = loaded.state->bindings;
+        registry_migration_ = loaded.state->migration;
+        repository_->clear_keys(*loaded.state);
+    }
     return true;
 }
 
@@ -151,6 +155,18 @@ bool HubSecurityLink::event_journal_key(security::Key32& out) {
     return true;
 }
 
+bool HubSecurityLink::authenticated_enrollment_table_digest(
+        std::array<std::uint8_t,32>& out) const {
+    out.fill(0);
+    if (faulted_ || !registry_ || !repository_ ||
+        registry_migration_.phase != hub::RegistryMigrationPhase::Activated) return false;
+    hub::HubRegistryState state{registry_->snapshot(), bindings_, registry_migration_};
+    const bool okay = repository_->enrollment_table_digest(state, out);
+    repository_->clear_keys(state);
+    if (!okay) out.fill(0);
+    return okay;
+}
+
 bool HubSecurityLink::attach_event_journal(hub::HubJournal& journal,
                                            hub::JournalSlotStore& store) {
     return !faulted_ && registry_ && repository_ &&
@@ -162,8 +178,31 @@ bool HubSecurityLink::attach_event_journal(hub::HubJournal& journal,
 bool HubSecurityLink::persist_candidate(
     NodeRegistry& candidate,
     const std::vector<security::CommissioningBinding>& bindings) {
-    HubRegistryState state{candidate.snapshot(), bindings};
-    return repository_->save(state);
+    HubRegistryState state{candidate.snapshot(), bindings, registry_migration_};
+    const auto fail_closed = [&]() {
+        faulted_ = true;
+        active_.clear();
+        rejoining_.clear();
+        assemblers_.clear();
+        return false;
+    };
+    if (!repository_->save(state)) return fail_closed();
+    auto committed = repository_->load();
+    if (committed.status != HubRegistryLoadStatus::Ready ||
+        committed.schema_version != 2 || !committed.state) {
+        if (committed.state) repository_->clear_keys(*committed.state);
+        return fail_closed();
+    }
+    NodeRegistry verified_registry(home_id_, hub_id_, kInstalledCapacity,
+                                   kInstalledCapacity);
+    if (!verified_registry.restore(committed.state->registry)) {
+        repository_->clear_keys(*committed.state);
+        return fail_closed();
+    }
+    candidate = std::move(verified_registry);
+    registry_migration_ = committed.state->migration;
+    repository_->clear_keys(*committed.state);
+    return true;
 }
 
 std::optional<HubSecurityLink::Outbound> HubSecurityLink::reply(
@@ -489,10 +528,37 @@ bool HubSecurityLink::retirement_report_key(const Mac& source,
 bool HubSecurityLink::retirement_enrollment_binding(
         const Mac& source, transport::RetirementEnrollmentBinding& out) {
     const auto* node = ready_node(source);
-    if (node == nullptr || std::none_of(journal_key_.begin(), journal_key_.end(),
-            [](std::uint8_t value) { return value != 0; })) return false;
-    return transport::derive_retirement_enrollment_binding(
-        crypto_, journal_key_, node->logical_id, out);
+    return node != nullptr && resolve_enrollment_binding(
+        node->device_id, node->logical_id, out);
+}
+
+bool HubSecurityLink::resolve_enrollment_binding(
+        const std::string& physical_device_id, const std::string& claimed_logical_id,
+        transport::RetirementEnrollmentBinding& out) const {
+    if (faulted_ || !registry_ || physical_device_id.empty() ||
+        claimed_logical_id.empty()) return false;
+    const auto record = registry_->find(physical_device_id);
+    if (!record || record->quarantined || record->logical_id != claimed_logical_id ||
+        record->home_id != home_id_ || record->hub_id != hub_id_ ||
+        record->enrollment_slot >= registry_->enrollment_slots().size() ||
+        record->enrollment_generation == 0) return false;
+    const auto& descriptor = registry_->enrollment_slots()[record->enrollment_slot];
+    if (descriptor.state != EnrollmentSlotState::Active ||
+        descriptor.device_id != record->device_id ||
+        descriptor.generation != record->enrollment_generation ||
+        std::all_of(descriptor.owner_digest.begin(), descriptor.owner_digest.end(),
+                    [](std::uint8_t byte) { return byte == 0; })) return false;
+    const auto* binding = binding_for(record->device_id);
+    if (binding == nullptr || binding->home_id != home_id_ || binding->hub_id != hub_id_ ||
+        binding->device_public_key != record->p256_public_key ||
+        binding->logical_id != record->logical_id)
+        return false;
+    transport::RetirementEnrollmentBinding resolved;
+    resolved.digest = descriptor.owner_digest;
+    resolved.slot = record->enrollment_slot;
+    resolved.generation = record->enrollment_generation;
+    out = resolved;
+    return true;
 }
 
 std::vector<HubSecurityLink::Mac> HubSecurityLink::enrolled_macs() const {

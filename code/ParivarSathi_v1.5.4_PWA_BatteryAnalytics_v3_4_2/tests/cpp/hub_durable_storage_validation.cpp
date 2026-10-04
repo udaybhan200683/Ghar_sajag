@@ -21,7 +21,7 @@ Effect effect(std::size_t n, std::size_t payload=256) {
     e.kind=static_cast<std::uint32_t>(n%65535);e.payload.assign(payload,static_cast<std::uint8_t>(n));return e;
 }
 Transition transition(std::uint64_t n, bool maximum=false) {
-    Transition t;t.storage_epoch=1;t.ordinal=n;t.event=maximum?EventIdentity{std::string(64,'n'),std::string(24,'s'),77,n}:identity(n);
+    Transition t;t.storage_epoch=1;t.ordinal=n;t.event=maximum?EventIdentity{std::string(64,'n'),std::string(24,'s'),77,n}:identity(n);t.registry_owner_domain=true;
     t.config_version=7;t.config_hash.fill(0x31);t.type=TransitionType::Event;t.enrollment_slot=static_cast<std::uint8_t>((n-1)%10);t.enrollment_generation=1;t.event_digest.fill(static_cast<std::uint8_t>((n%251)+1));
     const std::size_t key_bytes=1+t.event.physical_device_id.size()+1+t.event.source_id.size()+16;
     t.causal_input.assign(maximum?kMaxCausalInputBytes-key_bytes-37:50,0x42);
@@ -30,7 +30,7 @@ Transition transition(std::uint64_t n, bool maximum=false) {
     return t;
 }
 Checkpoint checkpoint(std::uint64_t generation,std::uint64_t ordinal,bool maximum=false) {
-    Checkpoint cp;cp.storage_epoch=1;cp.generation=generation;cp.covered_ordinal=ordinal;cp.config_version=7;cp.config_hash.fill(0x31);
+    Checkpoint cp;cp.storage_epoch=1;cp.generation=generation;cp.covered_ordinal=ordinal;cp.config_version=7;cp.config_hash.fill(0x31);cp.registry_owner_domain=true;cp.migration_frontier=1;cp.registry_table_digest.fill(0x49);
     if(maximum){for(std::uint64_t i=0;i<16;++i)cp.pending_effects.push_back({i+1,static_cast<std::uint8_t>(i),{}});for(std::uint64_t i=0;i<32;++i)cp.pending_chunks.push_back({i+1,{}});for(std::uint64_t i=0;i<32;++i){DedupeEvidenceReference ref;ref.chunk_id=i+1;ref.digest.fill(static_cast<std::uint8_t>(i+1));cp.dedupe_evidence_chunks.push_back(ref);}cp.reducer_state.assign(2723,0x66);}
     else cp.reducer_state={static_cast<std::uint8_t>(ordinal>>24),static_cast<std::uint8_t>(ordinal>>16),static_cast<std::uint8_t>(ordinal>>8),static_cast<std::uint8_t>(ordinal)};
     return cp;
@@ -59,6 +59,8 @@ void write_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,const K
     MemoryBlobStore overflow_mem;DurableStore overflow_store(overflow_mem,crypto,key,1);
     auto overflow=checkpoint(1,std::numeric_limits<std::uint64_t>::max());Bytes encoded;
     require(Codec::encode_checkpoint(crypto,key,overflow,encoded)&&overflow_mem.write_immutable("cp0",encoded),"install max ordinal fixture");
+    Bytes overflow_selector;require(Codec::encode_selector(crypto,key,1,0,overflow_selector)&&
+        overflow_mem.write_immutable("sel0",overflow_selector),"authenticate max ordinal root selection");
     require(overflow_store.commit(transition(1))==CommitStatus::NotCommitted,"ordinal overflow refuses append");
 }
 void checkpoint_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
@@ -92,7 +94,7 @@ void metadata_checkpoint_faults(gs::host::security::OpenSslCommissioningCrypto& 
         for (std::size_t boundary = 0; boundary < 2; ++boundary) {
             MemoryBlobStore mem;
             DurableStore store(mem, crypto, key, 1);
-            Checkpoint initial; initial.storage_epoch = 1; initial.generation = 1;
+            Checkpoint initial = checkpoint(1, 0);
             require(store.checkpoint(initial), "metadata initial checkpoint");
             require(store.commit(transition(1)) == CommitStatus::Committed,
                     "metadata retained transition");
@@ -102,7 +104,22 @@ void metadata_checkpoint_faults(gs::host::security::OpenSslCommissioningCrypto& 
             mem.power_cycle();
             DurableStore reboot(mem, crypto, key, 1);
             RecoveryState recovered;
-            require(reboot.recover(recovered) && recovered.last_ordinal == 1 &&
+            const bool recovered_ok=reboot.recover(recovered);
+            if(!recovered_ok){
+                std::cerr<<"metadata recovery failed fault="<<static_cast<int>(fault)
+                    <<" boundary="<<boundary<<"\n";
+                for(int bank=0;bank<2;++bank){Bytes raw;bool present=false;Checkpoint decoded;
+                    const bool read=mem.read("cp"+std::to_string(bank),raw,present);
+                    std::cerr<<" cp"<<bank<<" read="<<read<<" present="<<present<<" decode="
+                        <<(present&&Codec::decode_checkpoint(crypto,key,raw,decoded))
+                        <<" gen="<<decoded.generation<<" domain="<<decoded.registry_owner_domain<<"\n";}
+                for(int i=0;i<2;++i){Bytes raw;bool present=false;std::uint64_t gen=0;std::uint8_t bank=0xff;
+                    const bool read=mem.read("sel"+std::to_string(i),raw,present);
+                    std::cerr<<" sel"<<i<<" read="<<read<<" present="<<present<<" decode="
+                        <<(present&&Codec::decode_selector(crypto,key,raw,gen,bank))
+                        <<" gen="<<gen<<" bank="<<static_cast<int>(bank)<<"\n";}
+            }
+            require(recovered_ok && recovered.last_ordinal == 1 &&
                     recovered.checkpoint.covered_ordinal == 0 && recovered.tail.size() == 1 &&
                     recovered.checkpoint.dedupe_evidence_chunks.empty(),
                     "metadata interruption preserves event tail without duplicate evidence");
@@ -116,7 +133,7 @@ void metadata_checkpoint_faults(gs::host::security::OpenSslCommissioningCrypto& 
 
 void report_checkpoint_ownership(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
     MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);RetirementSnapshotRepository reports(mem,crypto,key,1);
-    RetirementSnapshot snapshot;snapshot.storage_epoch=1;snapshot.generation=1;snapshot.node_count=1;
+    RetirementSnapshot snapshot;snapshot.storage_epoch=1;snapshot.generation=1;snapshot.occupancy_mask=1;
     auto& node=snapshot.nodes[0];node.binding_digest.fill(0x31);node.enrollment_generation=1;node.report_generation=1;node.report_hmac.fill(0x32);node.current_origin_session=7;
     ReportSnapshotReference ref;require(reports.prepare_bank(snapshot,0,ref),"verified report bank fixture");
     auto cp=checkpoint(1,0);cp.report_snapshot=ref;require(store.checkpoint(cp),"checkpoint did not select verified report bank");
@@ -136,7 +153,7 @@ void exact_evidence_checkpoint_and_retirement(gs::host::security::OpenSslCommiss
     require(reboot.commit(conflict)==CommitStatus::Conflict,"conflicting duplicate passed after Hub reboot");
 
     RetirementSnapshotRepository reports(mem,crypto,key,1);RetirementSnapshot snapshot;
-    snapshot.storage_epoch=1;snapshot.generation=1;snapshot.node_count=1;
+    snapshot.storage_epoch=1;snapshot.generation=1;snapshot.occupancy_mask=1;
     auto& node=snapshot.nodes[0];node.binding_digest.fill(0x41);node.enrollment_generation=1;
     node.report_generation=1;node.report_hmac.fill(0x42);node.current_origin_session=77;
     node.durable_admission_highwater=1;
@@ -150,7 +167,7 @@ void stream_validation(gs::host::security::OpenSslCommissioningCrypto& crypto,co
     MemoryBlobStore gap;Bytes blob;require(Codec::encode_transition(crypto,key,transition(2),blob)&&gap.write_immutable("tr1",blob),"install ordinal gap");DurableStore gap_store(gap,crypto,key,1);RecoveryState state;require(!gap_store.recover(state),"ordinal gap fails closed");
     MemoryBlobStore duplicate;require(Codec::encode_transition(crypto,key,transition(1),blob)&&duplicate.write_immutable("tr0",blob),"install first ordinal");require(duplicate.write_immutable("tr1",blob),"install duplicate ordinal");DurableStore duplicate_store(duplicate,crypto,key,1);require(!duplicate_store.recover(state),"duplicate ordinals fail closed");
     MemoryBlobStore replay;DurableStore replay_store(replay,crypto,key,1);auto newest=transition(2);newest.event={"node-x","sensor",90,2};require(replay_store.commit(newest)==CommitStatus::Committed,"newest source sequence accepted");auto stale=transition(1);stale.event={"node-x","sensor",90,1};require(replay_store.commit(stale)==CommitStatus::Committed,"N+1 before N is accepted absent retirement proof");auto exact=newest;require(replay_store.commit(exact)==CommitStatus::Committed,"exact retry is deduplicated");auto conflict=newest;conflict.event_digest[0]^=0xff;require(replay_store.commit(conflict)==CommitStatus::Conflict,"same EventKey with different digest fails closed");
-    MemoryBlobStore full;auto full_cp=checkpoint(1,0);for(std::uint64_t i=0;i<kMaxPendingEffects;++i)full_cp.pending_effects.push_back({i+1,0,{}});require(Codec::encode_checkpoint(crypto,key,full_cp,blob)&&full.write_immutable("cp0",blob),"install full pending-effect state");DurableStore full_store(full,crypto,key,1);auto extra=transition(1);extra.effects.push_back(effect(101));require(full_store.commit(extra)==CommitStatus::NotCommitted,"full pending-effect bound backpressures");
+    MemoryBlobStore full;auto full_cp=checkpoint(1,0);for(std::uint64_t i=0;i<kMaxPendingEffects;++i)full_cp.pending_effects.push_back({i+1,0,{}});require(Codec::encode_checkpoint(crypto,key,full_cp,blob)&&full.write_immutable("cp0",blob),"install full pending-effect state");Bytes full_selector;require(Codec::encode_selector(crypto,key,1,0,full_selector)&&full.write_immutable("sel1",full_selector),"authenticate full pending-effect root");DurableStore full_store(full,crypto,key,1);auto extra=transition(1);extra.effects.push_back(effect(101));require(full_store.commit(extra)==CommitStatus::NotCommitted,"full pending-effect bound backpressures");
 }
 void selector_ordering(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
     MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);
@@ -163,7 +180,7 @@ void selector_ordering(gs::host::security::OpenSslCommissioningCrypto& crypto,co
     Bytes selector;require(Codec::encode_selector(crypto,key,2,1,selector)&&mem.replace("sel0",selector),"switch selector to B");
     require(store.recover(recovered)&&recovered.checkpoint_generation==2&&recovered.last_ordinal==4,"selector switch publishes B");
     Bytes corrupt(4,0);require(mem.replace("sel0",corrupt)&&mem.replace("sel1",corrupt),"corrupt both selector copies");
-    require(store.recover(recovered)&&recovered.checkpoint_generation==2&&recovered.last_ordinal==4,"corrupt selectors select newest complete checkpoint");
+    require(!store.recover(recovered),"corrupt selectors cannot authorize a checkpoint by generation");
 }
 void handoff_faults(gs::host::security::OpenSslCommissioningCrypto& crypto,const Key32& key) {
     for(FaultMode mode:{FaultMode::FailBeforeWrite,FaultMode::PartialWrite,FaultMode::PersistThenFail,FaultMode::PowerLossAfterPersist}){
@@ -198,43 +215,181 @@ void bitmap_and_stress(gs::host::security::OpenSslCommissioningCrypto& crypto,co
     RecoveryState final;require(stress.recover(final)&&final.last_ordinal==1000&&final.tail.size()<=4&&final.checkpoint.pending_effects.size()==10,"1000 transition bounded recovery with handed-off effects");for(std::uint64_t n=100;n<=1000;n+=100){PendingEffectChunk restored;require(stress.read_pending_chunk(n/2,restored)&&restored.effects.size()==1,"stress effect chunk restores");}CompletionBitmap final_receipt;std::array<std::uint8_t,32> last_mapping{};last_mapping.fill(63);require(stress.read_bitmap(last_mapping,final_receipt)&&final_receipt.committed_bits==0x00ff,"stress completion bitmap restores");auto after_stress=transition(1001);after_stress.type=TransitionType::Timer;require(stress.commit(after_stress)==CommitStatus::Committed,"timer transition follows stress");require(stress.recover(final)&&final.last_ordinal==1001,"next ordinal advances exactly once");
 }
 void modeled_migration_budget() {
-    const auto entries = [](std::size_t bytes) {
-        return 2U + (bytes + 31U) / 32U; // blob index, chunk metadata, data entries
-    };
-    const std::size_t legacy = 128U * entries(284U) + 128U * entries(32U);
-    const std::size_t transition_log = 4U * entries(kMaxTransitionBytes);
-    const std::size_t pending_node_events = 16U * entries(1004U);
-    const std::size_t effect_chunks = 4U * entries(kMaxPendingChunkBytes);
-    const std::size_t checkpoints = 3U * (3U + (4253U + 31U) / 32U);
-    const std::size_t bitmaps = 3U * entries(kMaxBitmapBytes);
-    const std::size_t metadata = 5U * entries(128U);
-    const auto total_entries = legacy + transition_log + pending_node_events +
-        effect_chunks + checkpoints + bitmaps + metadata;
-    const std::size_t raw_peak = 40448U + 4U*kMaxTransitionBytes +
-        2U*kMaxCheckpointBytes + 16U*1004U + 4U*kMaxPendingChunkBytes +
-        2U*kMaxBitmapBytes + 512U + kMaxCheckpointBytes +
-        kMaxBitmapBytes + 128U + 1004U;
-    require(legacy==1792&&total_entries==3160,"base migration NVS entry budget");
-    const std::size_t implementation_entries=total_entries+3U*((kMaxCheckpointBytes-4253U+31U)/32U)+34U;
-    require(implementation_entries==3221,"retirement migration NVS entry budget");
-    require(raw_peak==83218&&131072U-raw_peak==47854,"migration raw byte budget");
-    require((4032U-implementation_entries)*100U>=4032U*20U,"migration NVS entry margin");
-    // Conservative reservation: existing migration peak plus all independent
-    // cNNN receipts, even where source and destination share the same key.
-    const auto completion_bytes = 128U * 32U;
-    const auto completion_entries = 128U * entries(32U);
-    require(raw_peak + completion_bytes == 87314U &&
-            131072U - raw_peak - completion_bytes == 43758U,
-            "independent completion raw storage bound");
-    require(implementation_entries + completion_entries == 3605U &&
-            4032U - implementation_entries - completion_entries == 427U,
-            "independent completion NVS entry bound");
+    // Section 18's admitted-profile certificate counts all roots and the
+    // existing c000-c127 receipts in the 3,206 source-family entries. The
+    // only migration addition is the two 218-byte authenticated GMM2 banks.
+    const std::size_t source_family_entries=3206;
+    const std::size_t manifest_entries=2U*(2U+(kMigrationManifestBankBytes+31U)/32U);
+    const std::size_t peak_entries=source_family_entries+manifest_entries;
+    const std::size_t peak_bytes=88019U+957U;
+    require(manifest_entries==kMigrationManifestTotalEntries&&peak_entries==3224,
+            "GMM2 admitted-profile NVS entry peak");
+    require(4032U-peak_entries==808U&&
+            (4032U-peak_entries)*100U>=4032U*20U,
+            "migration keeps 20 percent operational entry reserve");
+    require(peak_bytes==88976U&&131072U-peak_bytes==42096U,
+            "GMM2 admitted-profile byte peak");
+    require(kMigrationManifestTotalBytes==436&&kMigrationManifestTotalEntries==18&&
+            kMaxCheckpointBytes==4549&&kRetirementSnapshotBankBytes==5777,
+            "hard codec and migration caps");
+}
+void conditional_erase_contract() {
+    const Bytes source{1, 2, 3, 4};
+    const Bytes different{1, 2, 3, 5};
+    MemoryBlobStore mem;
+    require(mem.write_immutable("ev000", source), "conditional erase source seeded");
+    require(!mem.erase_if_equals("ev000", different), "conditional erase rejects mismatch");
+    Bytes actual;
+    bool found = false;
+    require(mem.read("ev000", actual, found) && found && actual == source,
+            "conditional mismatch preserves current object");
+    mem.inject(FaultMode::FailBeforeWrite);
+    require(!mem.erase_if_equals("ev000", source), "conditional erase reports pre-write failure");
+    require(mem.read("ev000", actual, found) && found && actual == source,
+            "pre-write failure preserves source");
+    mem.inject(FaultMode::PersistThenFail);
+    require(!mem.erase_if_equals("ev000", source), "persisted erase failure stays ambiguous");
+    mem.power_cycle();
+    require(mem.read("ev000", actual, found) && !found && actual.empty(),
+            "persisted-but-returned-failure does not restore released object");
+
+    require(mem.write_immutable("cp0", source), "second conditional erase source seeded");
+    mem.inject(FaultMode::PartialWrite);
+    require(!mem.erase_if_equals("cp0", source), "interrupted erase fails closed");
+    require(mem.read("cp0", actual, found) && found && actual == source,
+            "interrupted erase preserves whole source object");
+    require(mem.erase_if_equals("cp0", source), "exact source erase succeeds");
+    require(mem.read("cp0", actual, found) && !found,
+            "successful exact erase is verified absent");
+    require(mem.erase_if_equals("cp0", source),
+            "repeated exact cleanup of an absent key is idempotent");
+    std::cout << "P2-DURABLE-ERASE HOST PASS exact conditional release\n";
+}
+MigrationManifest manifest_step(MigrationPhase phase) {
+    MigrationManifest m;m.epoch=1;m.migration_id.fill(0x11);m.phase=phase;
+    m.source_bank=0;m.source_generation=1;m.source_compound_digest.fill(0x22);
+    m.registry_table_digest.fill(0x33);m.batch_family=MigrationBatchFamily::EvidenceChunk;
+    m.source_key_id=0;m.target_key_id=1;m.source_child_digest.fill(0x44);m.frontier=1;
+    if(phase>=MigrationPhase::TargetVerified){m.target_root_generation=2;m.target_root_digest.fill(0x55);}
+    return m;
+}
+bool equal_manifest(const MigrationManifest& a,const MigrationManifest& b) {
+    return a.epoch==b.epoch&&a.migration_id==b.migration_id&&a.phase==b.phase&&
+        a.source_bank==b.source_bank&&a.source_generation==b.source_generation&&
+        a.source_compound_digest==b.source_compound_digest&&
+        a.registry_table_digest==b.registry_table_digest&&a.batch_family==b.batch_family&&
+        a.source_key_id==b.source_key_id&&a.target_key_id==b.target_key_id&&
+        a.source_child_digest==b.source_child_digest&&a.frontier==b.frontier&&
+        a.target_root_generation==b.target_root_generation&&a.target_root_digest==b.target_root_digest&&
+        a.source_live_tail_count==b.source_live_tail_count&&
+        a.normal_publication==b.normal_publication&&
+        a.virtual_legacy_source==b.virtual_legacy_source&&
+        a.cancelled_normal_publication==b.cancelled_normal_publication;
+}
+void manifest_codec_and_recovery(gs::host::security::OpenSslCommissioningCrypto& crypto,
+                                 const Key32& key) {
+    auto prepared=manifest_step(MigrationPhase::Prepared);Bytes bytes;
+    prepared.source_live_tail_count=3;
+    require(Codec::encode_migration_manifest(crypto,key,prepared,bytes),
+            "GMM2 manifest encoding failed");
+    require(bytes.size()==kMigrationManifestBankBytes,"GMM2 manifest must be exactly 218 bytes");
+    MigrationManifest decoded;require(Codec::decode_migration_manifest(crypto,key,bytes,decoded)&&
+            equal_manifest(decoded,prepared),"GMM2 roundtrip");
+    require((bytes[5]&0x0eU)==0x06U,"GMM2 source-tail count uses authenticated header flags");
+    auto corrupt=bytes;corrupt[5]|=0x80;require(!Codec::decode_migration_manifest(crypto,key,corrupt,decoded),
+            "GMM2 reserved header flag rejected");
+    corrupt=bytes;corrupt.back()^=1;require(!Codec::decode_migration_manifest(crypto,key,corrupt,decoded),
+            "GMM2 authentication failure rejected");
+
+    MemoryBlobStore duplicate_banks;
+    MigrationManifestRepository duplicate_repo(duplicate_banks,crypto,key,1);
+    require(duplicate_repo.advance(prepared),"GMM2 duplicate-bank fixture intent");
+    Bytes exact_intent;bool exact_found=false;
+    require(duplicate_banks.read("mig0",exact_intent,exact_found)&&exact_found&&
+            duplicate_banks.write_immutable("mig1",exact_intent),
+            "copy exact authenticated manifest to second bank");
+    std::uint8_t duplicate_selected=0xff;
+    require(duplicate_repo.load(decoded,&duplicate_selected)==MigrationManifestStatus::Ready&&
+            equal_manifest(decoded,prepared)&&duplicate_selected==1,
+            "identical GMM2 banks remain a deterministic authority");
+
+    MemoryBlobStore mem;MigrationManifestRepository repo(mem,crypto,key,1);
+    require(repo.advance(prepared),"GMM2 Prepared persisted");
+    auto copying=prepared;copying.phase=MigrationPhase::Copying;
+    mem.inject(FaultMode::PersistThenFail);
+    require(repo.advance(copying),"persisted-but-returned-failure resolved by exact readback");
+    MigrationManifest current;std::uint8_t bank=0xff;
+    require(repo.load(current,&bank)==MigrationManifestStatus::Ready&&
+            equal_manifest(current,copying)&&bank==1,"GMM2 A/B selected newest verified phase");
+    auto verified=copying;verified.phase=MigrationPhase::TargetVerified;
+    verified.target_root_generation=2;verified.target_root_digest.fill(0x55);
+    require(repo.advance(verified),"GMM2 target verification advances");
+    auto published=verified;published.phase=MigrationPhase::Published;
+    require(repo.advance(published),"GMM2 publication barrier advances");
+    auto cleanup=published;cleanup.phase=MigrationPhase::Cleanup;
+    require(repo.advance(cleanup),"GMM2 cleanup advances");
+    auto done=cleanup;done.phase=MigrationPhase::BatchDone;
+    require(repo.advance(done),"GMM2 batch completion advances");
+    auto next=manifest_step(MigrationPhase::Prepared);next.frontier=2;next.source_bank=1;
+    next.source_generation=done.target_root_generation;
+    next.source_compound_digest=done.target_root_digest;next.source_child_digest.fill(0x66);
+    next.target_key_id=2;
+    require(repo.advance(next),"GMM2 next bounded batch advances fixed frontier");
+    auto backwards=prepared;require(!repo.advance(backwards),"GMM2 stale prior phase rejected");
+    mem.power_cycle();MigrationManifestRepository reopened(mem,crypto,key,1);
+    require(reopened.load(current)==MigrationManifestStatus::Ready&&equal_manifest(current,next),
+            "GMM2 frontier recovers through a fresh repository");
+
+    // Same-frontier normal publications are selected by exact manifest lineage,
+    // even though the previous Activated phase sorts later numerically.
+    auto copying_next=next;copying_next.phase=MigrationPhase::Copying;
+    require(repo.advance(copying_next),"next frontier enters copying");
+    auto active=copying_next;active.phase=MigrationPhase::TargetVerified;
+    active.target_root_generation=4;active.target_root_digest.fill(0x77);
+    require(repo.advance(active),"normal lineage fixture verified");
+    active.phase=MigrationPhase::Published;require(repo.advance(active),"normal lineage published");
+    active.phase=MigrationPhase::Cleanup;require(repo.advance(active),"normal lineage cleanup");
+    active.phase=MigrationPhase::BatchDone;require(repo.advance(active),"normal lineage batch done");
+    active.phase=MigrationPhase::Activated;require(repo.advance(active),"normal lineage activated");
+    auto normal=active;normal.phase=MigrationPhase::Prepared;normal.normal_publication=true;
+    normal.source_bank=static_cast<std::uint8_t>(1U-active.source_bank);
+    normal.source_generation=5;normal.source_compound_digest=active.target_root_digest;
+    normal.frontier=active.frontier;normal.batch_family=MigrationBatchFamily::FinalActivation;
+    normal.source_key_id=0;normal.target_key_id=0;normal.source_child_digest.fill(0);
+    normal.target_root_generation=6;normal.target_root_digest.fill(0x66);
+    require(repo.advance(normal),"same-frontier NormalPublication follows Activated lineage");
+    require(repo.load(current)==MigrationManifestStatus::Ready&&equal_manifest(current,normal),
+            "A/B recovery selects newer same-frontier intent by lineage");
+
+    Bytes damaged{1,2,3};require(mem.replace("mig0",damaged),"install corrupt competing manifest");
+    require(reopened.load(current)==MigrationManifestStatus::Corrupt,
+            "present corrupt GMM2 bank fails closed");
+    std::cout << "P2-GMM2 HOST PASS authenticated A/B frontier recovery\n";
+}
+void canonical_root_closure(gs::host::security::OpenSslCommissioningCrypto& crypto,
+                            const Key32& key) {
+    MemoryBlobStore mem;DurableStore store(mem,crypto,key,1);
+    auto cp=checkpoint(1,0);cp.registry_owner_domain=false;cp.migration_frontier=0;
+    cp.registry_table_digest.fill(0);cp.reducer_state={1,2,3};
+    Bytes encoded;require(Codec::encode_checkpoint(crypto,key,cp,encoded)&&
+        mem.write_immutable("cp0",encoded),"root fixture checkpoint persisted");
+    std::array<std::uint8_t,32> first{},shadow{},after_receipt{};
+    require(store.compound_root_digest(0,first),"root digest computed");
+    require(mem.write_immutable("cp1",encoded)&&store.compound_root_digest(1,shadow)&&
+        first==shadow,"root digest normalizes physical checkpoint bank");
+    require(mem.write_immutable("c000",Bytes{1,2,3})&&
+        store.compound_root_digest(0,after_receipt)&&first==after_receipt,
+        "independent completion receipt is outside fixed root digest");
+    require(mem.write_immutable("e000",Bytes{4,5,6}),"legacy event fixture persisted");
+    std::array<std::uint8_t,32> with_event{};
+    require(store.compound_root_digest(0,with_event)&&with_event!=first,
+        "legacy retained event slots are included in compound root");
 }
 }
 int main(){
     try {
         gs::host::security::OpenSslCommissioningCrypto crypto;const auto key=test_key();std::size_t t=0,c=0,ch=0,bm=0,tt=0,ct=0,selector=0;
-        codec_sizes(crypto,key,t,c,ch,bm,tt,ct,selector);write_faults(crypto,key);checkpoint_faults(crypto,key);metadata_checkpoint_faults(crypto,key);report_checkpoint_ownership(crypto,key);exact_evidence_checkpoint_and_retirement(crypto,key);stream_validation(crypto,key);selector_ordering(crypto,key);handoff_faults(crypto,key);bitmap_and_stress(crypto,key);modeled_migration_budget();
+        codec_sizes(crypto,key,t,c,ch,bm,tt,ct,selector);write_faults(crypto,key);checkpoint_faults(crypto,key);metadata_checkpoint_faults(crypto,key);report_checkpoint_ownership(crypto,key);exact_evidence_checkpoint_and_retirement(crypto,key);stream_validation(crypto,key);selector_ordering(crypto,key);handoff_faults(crypto,key);bitmap_and_stress(crypto,key);conditional_erase_contract();manifest_codec_and_recovery(crypto,key);canonical_root_closure(crypto,key);modeled_migration_budget();
         std::cout<<"durable transition storage: PASS transition="<<tt<<"/"<<t<<" checkpoint="<<ct<<"/"<<c<<" chunk="<<ch<<" bitmap="<<bm<<" selector="<<selector<<"\n";
         return 0;
     }catch(const std::exception& e){std::cerr<<"durable transition storage: FAIL: "<<e.what()<<"\n";return 1;}

@@ -44,6 +44,21 @@ constexpr UBaseType_t kControlQueueDepth = 8U;
 constexpr UBaseType_t kHealthQueueDepth = 1U;
 constexpr UBaseType_t kSecurityQueueDepth = 8U;
 
+durable::DurableJournalSlotStore::EnrollmentOwnerResolver registry_owner_resolver(
+        HubSecurityLink& security_link) {
+    return [&security_link](const std::string& physical_device_id,
+            const std::string& claimed_logical_id,
+            durable::DurableJournalSlotStore::EnrollmentOwner& owner) {
+        transport::RetirementEnrollmentBinding binding;
+        if (!security_link.resolve_enrollment_binding(physical_device_id,
+                claimed_logical_id, binding)) return false;
+        owner.slot = binding.slot;
+        owner.generation = binding.generation;
+        owner.owner_digest = binding.digest;
+        return true;
+    };
+}
+
 StaticQueue_t g_data_queue_state{};
 StaticQueue_t g_control_queue_state{};
 StaticQueue_t g_health_queue_state{};
@@ -452,7 +467,13 @@ void secure_owner_task(void*) {
         durable_blobs, durable_inventory, commissioning_crypto,
         durable_key, owner_freshness);
     commissioning_crypto.secure_zero(durable_key.data(), durable_key.size());
-    const auto durability_state = durability_owner.recover();
+    std::array<std::uint8_t,32> activated_table_digest{};
+    const bool registry_activated =
+        security_link.authenticated_enrollment_table_digest(activated_table_digest);
+    const auto durability_state = durability_owner.recover(
+        registry_activated ? &activated_table_digest : nullptr);
+    commissioning_crypto.secure_zero(activated_table_digest.data(),
+                                     activated_table_digest.size());
     const bool migration_required =
         durability_state == durable::DurabilityOwnerState::MigrationRequired;
     if ((!migration_required && durability_state != durable::DurabilityOwnerState::Ready) ||
@@ -480,7 +501,8 @@ void secure_owner_task(void*) {
             return;
         }
         durable::DurableJournalSlotStore migration_store(
-            durability_owner, commissioning_crypto, journal_key);
+            durability_owner, commissioning_crypto, journal_key,
+            registry_owner_resolver(security_link));
         const bool legacy_ready = legacy_store.initialize() &&
             security_link.attach_event_journal(legacy_journal, legacy_store);
         commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
@@ -509,7 +531,8 @@ void secure_owner_task(void*) {
         return;
     }
     durable::DurableJournalSlotStore journal_store(
-        durability_owner, commissioning_crypto, journal_key);
+        durability_owner, commissioning_crypto, journal_key,
+        registry_owner_resolver(security_link));
     commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
     HubRuntime runtime(32, 128);
     runtime.bind_durability_owner(durability_owner);

@@ -121,23 +121,47 @@ void removal_and_replacement() {
     auto replacement = node(11);
     replacement.logical_id = "room-node-3";
     replacement.room = "room-3";
-    require(registry.replace("physical-3", replacement) == RegistryResult::Accepted,
-            "replacement at capacity failed");
-    require(registry.size() == 10 && registry.is_revoked("physical-3"),
-            "replacement lost capacity or tombstone");
-    require(registry.find("physical-11")->logical_id == "room-node-3",
-            "replacement did not inherit logical slot");
-    require(registry.rejoin("physical-3", node(3).radio_mac, 7) == RegistryResult::RevokedDevice,
+    require(registry.replace("physical-3", replacement) == RegistryResult::CapacityFull,
+            "replacement reused a pinned descriptor at capacity");
+    require(registry.size() == 10 && !registry.is_revoked("physical-3") &&
+            registry.find("physical-3") && !registry.find("physical-11"),
+            "descriptor exhaustion partially changed registry");
+
+    NodeRegistry room_for_replacement("home-a", "hub-a", 10, 16);
+    require(room_for_replacement.enroll(node(1)) == RegistryResult::Accepted &&
+            room_for_replacement.enroll(node(2)) == RegistryResult::Accepted,
+            "replacement free-descriptor setup failed");
+    const auto old_owner = room_for_replacement.find("physical-1");
+    require(old_owner && old_owner->enrollment_slot == 0 &&
+            old_owner->enrollment_generation == 1,
+            "initial descriptor assignment is not deterministic");
+    require(room_for_replacement.remove("physical-1") == RegistryResult::Accepted,
+            "replacement pin setup failed");
+    auto available_replacement = node(11);
+    available_replacement.logical_id = "room-node-2";
+    available_replacement.room = "room-2";
+    require(room_for_replacement.replace("physical-2", available_replacement) ==
+                RegistryResult::Accepted,
+            "replacement with an unused descriptor failed");
+    const auto new_owner = room_for_replacement.find("physical-11");
+    require(new_owner && new_owner->enrollment_slot == 2 &&
+            new_owner->enrollment_generation == 1 &&
+            room_for_replacement.enrollment_slots()[0].state ==
+                gs::hub::EnrollmentSlotState::Retired &&
+            room_for_replacement.enrollment_slots()[0].device_id == "physical-1",
+            "replacement inherited the retired descriptor");
+    require(room_for_replacement.rejoin("physical-1", node(1).radio_mac, 7) ==
+                RegistryResult::RevokedDevice,
             "replaced device rejoined");
     auto invalid = node(12); invalid.logical_id = "room-node-4"; invalid.room = "wrong-room";
-    require(registry.replace("physical-4", invalid) == RegistryResult::DuplicateLogicalIdentity,
+    require(room_for_replacement.replace("physical-11", invalid) == RegistryResult::DuplicateLogicalIdentity,
             "invalid replacement assignment accepted");
-    require(registry.find("physical-4") && !registry.find("physical-12"),
+    require(room_for_replacement.find("physical-11") && !room_for_replacement.find("physical-12"),
             "failed replacement partially changed registry");
-    require(registry.remove("physical-5") == RegistryResult::Accepted, "remove failed");
-    require(registry.enroll(node(5)) == RegistryResult::RevokedDevice,
+    require(room_for_replacement.remove("physical-11") == RegistryResult::Accepted, "remove failed");
+    require(room_for_replacement.enroll(available_replacement) == RegistryResult::RevokedDevice,
             "removed device was silently re-enrolled");
-    require(registry.size() == 9 && registry.tombstone_count() == 2,
+    require(room_for_replacement.size() == 0 && room_for_replacement.tombstone_count() == 3,
             "remove/replacement accounting wrong");
     std::cout << "P2-REG-LIFECYCLE HOST PASS replace/remove/revoke\n";
 }

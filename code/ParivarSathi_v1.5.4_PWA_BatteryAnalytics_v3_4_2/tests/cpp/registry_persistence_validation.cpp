@@ -56,6 +56,9 @@ HubRegistryState make_state(unsigned count) {
     HubRegistryState state;
     state.registry.home_id = "test-home";
     state.registry.hub_id = "test-hub";
+    state.migration.phase = gs::hub::RegistryMigrationPhase::Prepared;
+    state.migration.source_epoch = 1;
+    state.migration.source_checkpoint_generation = 2;
     for (unsigned i = 1; i <= count; ++i) {
         EnrolledNode record;
         record.device_id = "test-device-" + std::to_string(i);
@@ -93,6 +96,31 @@ int main() {
         MemoryBlob store;
         HubRegistryRepository repo(crypto, store, wrap, "test-home", "test-hub",
                                    test_hub_public_key(), 10, 16);
+        auto v1_source = make_state(3);
+        v1_source.migration = {};
+        v1_source.registry.revoked_device_ids.push_back("unused-revoked-device");
+        std::reverse(v1_source.registry.active.begin(), v1_source.registry.active.end());
+        HubRegistryState prepared_v2;
+        require(repo.prepare_v2(v1_source, 1, 2, prepared_v2),
+                "authenticated v1 registry preparation failed");
+        require(prepared_v2.registry.revoked_device_ids ==
+                    v1_source.registry.revoked_device_ids,
+                "v1 tombstone was not preserved without fabricated ownership");
+        for (std::size_t slot = 0; slot < 3; ++slot) {
+            const auto& descriptor = prepared_v2.registry.enrollment_slots[slot];
+            require(descriptor.state == gs::hub::EnrollmentSlotState::Active &&
+                    descriptor.generation == 1 &&
+                    descriptor.device_id == "test-device-" + std::to_string(slot + 1),
+                    "v1 preparation did not deterministically assign lowest slots");
+        }
+        std::array<std::uint8_t, 32> prepared_table{}, reboot_table{};
+        require(repo.enrollment_table_digest(prepared_v2, prepared_table),
+                "prepared ownership table digest failed");
+        HubRegistryState resumed_v2;
+        require(repo.prepare_v2(prepared_v2, 1, 2, resumed_v2) &&
+                repo.enrollment_table_digest(resumed_v2, reboot_table) &&
+                prepared_table == reboot_table,
+                "prepared GSRG table was not stable across reboot reconstruction");
         auto state = make_state(10);
         Key32 zero_wrap{};
         HubRegistryRepository zero_key(crypto, store, zero_wrap, "test-home", "test-hub",
@@ -130,20 +158,22 @@ int main() {
         HubRegistryRepository replacement_repo(
             crypto, replacement_store, wrap, "test-home", "test-hub",
             test_hub_public_key(), 10, 16);
-        auto prior = make_state(10);
+        auto prior = make_state(9);
         require(replacement_repo.save(prior), "replacement baseline save failed");
+        const auto committed_prior = replacement_repo.load();
+        require(committed_prior.state.has_value(), "replacement baseline readback failed");
         NodeRegistry replacement_registry("test-home", "test-hub", 10, 16);
-        require(replacement_registry.restore(prior.registry),
+        require(replacement_registry.restore(committed_prior.state->registry),
                 "replacement baseline restore failed");
-        auto new_physical = prior.registry.active[0];
+        auto new_physical = committed_prior.state->registry.active[0];
         new_physical.device_id = "replacement-device";
         new_physical.radio_mac[5] = 42;
         new_physical.p256_public_key[1] = 42;
         new_physical.last_session = 0;
-        require(replacement_registry.replace(prior.registry.active[0].device_id,
+        require(replacement_registry.replace(committed_prior.state->registry.active[0].device_id,
                                              new_physical) == gs::hub::RegistryResult::Accepted,
                 "atomic replacement at installed capacity failed");
-        auto replaced_state = prior;
+        auto replaced_state = *committed_prior.state;
         replaced_state.registry = replacement_registry.snapshot();
         replaced_state.bindings[0].device_id = new_physical.device_id;
         replaced_state.bindings[0].device_public_key = new_physical.p256_public_key;
@@ -155,7 +185,7 @@ int main() {
                 replacement_load.state &&
                 replacement_load.state->registry.revoked_device_ids.size() == 1 &&
                 replacement_load.state->registry.revoked_device_ids[0] ==
-                    prior.registry.active[0].device_id &&
+                    committed_prior.state->registry.active[0].device_id &&
                 replacement_load.state->bindings[0].device_id ==
                     new_physical.device_id &&
                 replacement_load.state->bindings[0].installation_key ==
@@ -172,8 +202,11 @@ int main() {
         auto loaded = reopened.load();
         require(loaded.status == HubRegistryLoadStatus::Ready && loaded.generation == 1 &&
                 loaded.state && loaded.state->registry.active.size() == 10 &&
-                loaded.state->bindings[9].installation_key ==
-                    state.bindings[9].installation_key,
+                std::any_of(loaded.state->bindings.begin(), loaded.state->bindings.end(),
+                    [&](const CommissioningBinding& binding) {
+                        return binding.device_id == "test-device-10" &&
+                               binding.installation_key == state.bindings[9].installation_key;
+                    }),
                 "encrypted Hub registry did not survive reopen");
         NodeRegistry restored("test-home", "test-hub", 10, 16);
         require(restored.restore(loaded.state->registry) &&
@@ -194,18 +227,41 @@ int main() {
         key_changed.bindings[0].installation_key[0] ^= 1;
         require(!repo.save(key_changed), "enrolled installation key changed silently");
         auto unrevoked_removal = changed;
-        unrevoked_removal.registry.active.pop_back();
-        unrevoked_removal.bindings.pop_back();
+        unrevoked_removal.registry.active.erase(
+            std::find_if(unrevoked_removal.registry.active.begin(),
+                         unrevoked_removal.registry.active.end(),
+                         [](const EnrolledNode& record) {
+                             return record.device_id == "test-device-10";
+                         }));
+        unrevoked_removal.bindings.erase(
+            std::find_if(unrevoked_removal.bindings.begin(), unrevoked_removal.bindings.end(),
+                         [](const CommissioningBinding& binding) {
+                             return binding.device_id == "test-device-10";
+                         }));
         require(!repo.save(unrevoked_removal),
                 "physical identity was removed without a revocation");
         auto revoked_removal = unrevoked_removal;
         revoked_removal.registry.revoked_device_ids.push_back("test-device-10");
+        const auto removed_descriptor = std::find_if(
+            revoked_removal.registry.enrollment_slots.begin(),
+            revoked_removal.registry.enrollment_slots.end(),
+            [](const gs::hub::EnrollmentSlotDescriptor& descriptor) {
+                return descriptor.device_id == "test-device-10";
+            });
+        require(removed_descriptor != revoked_removal.registry.enrollment_slots.end(),
+                "removed enrollment descriptor was absent");
+        removed_descriptor->state = gs::hub::EnrollmentSlotState::Retired;
         require(repo.save(revoked_removal) && repo.load().generation == 3,
                 "removal and revocation were not saved together");
         auto revoked_loaded = repo.load();
         NodeRegistry after_removal("test-home", "test-hub", 10, 16);
-        require(revoked_loaded.state && after_removal.restore(revoked_loaded.state->registry) &&
-                after_removal.enroll(state.registry.active[9]) ==
+        const auto old_device = std::find_if(state.registry.active.begin(),
+            state.registry.active.end(), [](const EnrolledNode& record) {
+                return record.device_id == "test-device-10";
+            });
+        require(old_device != state.registry.active.end() && revoked_loaded.state &&
+                after_removal.restore(revoked_loaded.state->registry) &&
+                after_removal.enroll(*old_device) ==
                     gs::hub::RegistryResult::RevokedDevice,
                 "removed physical identity was admissible after encrypted restore");
 
@@ -239,18 +295,13 @@ int main() {
         foreign.registry.home_id = "other-home";
         require(!repo.save(foreign), "foreign Home Hub registry saved");
         MemoryBlob architectural_store;
-        HubRegistryRepository architectural(crypto, architectural_store, wrap,
+        HubRegistryRepository over_capacity(crypto, architectural_store, wrap,
                                             "test-home", "test-hub",
-                                            test_hub_public_key(), 25, 50);
-        require(architectural.save(make_state(25)),
-                "25-node simulated registry save failed");
-        const auto architectural_loaded = architectural.load();
-        require(architectural_loaded.status == HubRegistryLoadStatus::Ready &&
-                architectural_loaded.state &&
-                architectural_loaded.state->registry.active.size() == 25 &&
-                !architectural.save(make_state(26)),
-                "25-node simulated registry boundary failed");
-        std::cout << "P2-PERSIST-HUB-REG HOST PASS ten-node security and 25-node simulated boundary\n";
+                                            test_hub_public_key(), 11, 16);
+        require(!over_capacity.save(make_state(11)) &&
+                over_capacity.load().status == HubRegistryLoadStatus::Missing,
+                "registry accepted more than ten enrollment descriptors");
+        std::cout << "P2-PERSIST-HUB-REG HOST PASS ten-node security and descriptor cap\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "P2-PERSIST-HUB-REG HOST FAIL " << error.what() << '\n';

@@ -83,7 +83,8 @@ public:
     HubDurabilityOwner(const HubDurabilityOwner&) = delete;
     HubDurabilityOwner& operator=(const HubDurabilityOwner&) = delete;
 
-    DurabilityOwnerState recover();
+    DurabilityOwnerState recover(
+        const std::array<std::uint8_t, 32>* authenticated_registry_table = nullptr);
     DurabilityOwnerState state() const { return state_; }
     DurabilityOwnerError error() const { return error_; }
     std::optional<std::uint32_t> epoch() const;

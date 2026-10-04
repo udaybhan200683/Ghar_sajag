@@ -1,6 +1,6 @@
 # G01 enrollment ownership and migration contract
 
-Status: architecture-ready DESIGN checkpoint; NOT implemented. Final section18 supersedes provisional sections1–17; those retain prior reasoning and models. Checkpoint ef511b857d8a278d810d935cb0b9dfa56fcd0460.
+Status: production implementation PARTIAL. Sections 18–19 settle the bounded architecture; section 20 closes coordinator details against the dirty implementation at committed base 072316a5b376acc16860ee58a2d351a1dce46f6e. Section 20 supersedes conflicting recovery details and estimates, while preserving every hard limit. Earlier sections retain historical reasoning and models.
 Scope: G01 only. No G03, reclamation, slot reuse implementation, or retirement-protocol redesign.
 The request ended within section 6; this document covers the complete objective stated before it.
 
@@ -1578,3 +1578,615 @@ Overflow/collision fails closed; no accidental wrap reuses a previously owned ob
 All post-BatchDone root selection also checks root frontier>=manifest frontier, not
 just root authentication. Current provider/schema/key functions are not presumed to
 already implement these rules.
+
+## 20. Coordinator closure against the partial production implementation (2026-10-04)
+
+This is an implementation handoff, not production completion or storage certification.
+The 23-file implementation diff at base `072316a` is preserved. The reported migration
+failure at `clean migration commits` is valid: `append_event()` creates registry-domain
+GDT3 against a legacy root. Keep `DurableStore::commit()`'s domain rejection. Migration
+constructs and publishes roots through a separate closed coordinator; it does not replay
+historical Events through ordinary admission.
+
+The refinements below supersede: section 18's namespace name (`events` is the actual
+namespace), its permissive newer-generation shadow, its 3,225-entry per-write allowance,
+and section 19's model as sufficient coverage of these details. The ceiling is **3,224**,
+free entries **808**, not merely the rounded 807 reserve. No persistent field grows.
+
+### 20.1 Durable vocabulary and exact encodings
+
+Let S be the frozen selected source view, C the candidate, T the prepared ownership
+table digest, N the next batch frontier, and G the source checkpoint generation.
+C has generation G+1 and occupies cp(1-source_bank). Prepublication floor is N-1;
+publication commits N. All increments, shifts, bank masks and IDs are checked before
+intent. No wrap. At most 32 evidence conversions, three selected/obsolete report-bank
+conversions/releases and one final batch are needed; conservatively allow 39 batches,
+well below the existing 128 frontier guard. Retry uses the persisted generation/IDs.
+
+GCP1 schema 3 keeps the current 35-byte extension (digest32, frontier2, flags1).
+Assign the existing flag byte as follows; no additional byte is introduced:
+
+| Bits | Meaning |
+|---|---|
+| 0 | RegistryOwnerV2 interpretation |
+| 1 | closed MigrationView; never Ready |
+| 2 | AllowLegacyEventTail, inspection of exact GDT1/2 event representation |
+| 3 | AllowLegacyEventSlots, inspection of retained e000..e127 representation |
+| 4..6 | protected live-tail prefix count, 0..4; 5..7 invalid |
+| 7 | reserved, zero |
+
+The protected prefix starts at covered_ordinal+1. It is immutable until a later barrier
+covers it. Additional ordinary GDT3 tail records may append beyond that prefix, within
+four tr keys, with authenticated consecutive ordinals; they cannot replace the prefix.
+Archive handoff/checkpoint changes use a new publication transaction before overwriting
+any tail needed by a legal root. Covered stale tr records are not digest dependencies.
+Legacy-tail inspection flags authorize no new legacy write.
+
+GMM2 remains header18 + encrypted body184 + tag16 =218 bytes per bank. Keep all existing
+body fields. Refine the existing authenticated flags byte: bit0 source bank; bits1..3
+frozen source live-tail count 0..4; bit4 NormalPublication; bit5 VirtualLegacySource;
+bit6 CancelledNormalPublication; bit7 zero. Cancellation requires NormalPublication.
+VirtualLegacySource is legal only for the initial raw e/c or proven-fresh empty profile with
+both cp banks absent, source generation 1, frontier 1, NormalPublication clear. It is
+not an authorization to ignore a missing real checkpoint. FinalActivation remains the
+zero-child family; a NormalPublication with this family is a metadata-only transaction.
+TailPair remains available only when the complete union and capacity proof admits it;
+ownership conversion itself never requires it.
+For TailPair, `source_key_id` names the staged ef identity `0x8000000000000000 | (G+1)`
+and `target_key_id` names staged ev `((G+1)<<8)|1`; its source_child_digest authenticates
+the canonical ordered frozen source tail. This family-specific interpretation owns BOTH
+children before either write. Source tr records are covered after publication, not erased;
+Cleanup has no source-child delete for TailPair. Require G+1 below the archive prefix and
+within the ev shift bound, no existing-ID alias and the full union count before intent.
+
+All root digests use a new explicit local compound-root HMAC domain. Canonical entries
+are length-prefixed (kind, logical ID, payload length, exact payload), sorted by kind/ID,
+with epoch and domain context. The checkpoint entry's logical identity is
+`checkpoint/<generation>`: physical bank is authenticated separately by manifest and
+selector. Include exact checkpoint bytes, every referenced ef/ev/ret blob, and the exact
+protected tail prefix. Source digest instead uses the full frozen tail count authenticated
+in GMM2. Include all retained e blobs when the legacy-slot flag/profile applies. Do not
+include unreferenced overlap children, covered tr records or selectors.
+
+Independent c receipts do not enter the fixed compound digest. They remain immutable,
+individually authenticated to exact EventKey AND stable journal slot under the existing
+journal key. Verify every present receipt and preserve its event in every legal view.
+Their independent commit/readback permits later completion without invalidating an
+activation root digest. No c deletion or rewrite is allowed. During frozen migration,
+compare the complete existing receipt set before/after every batch. bm values remain
+unchanged, authenticated and budgeted; any unsupported live bitmap mapping blocks this
+coordinator rather than being reinterpreted as a receipt. Their generic mutation is not
+introduced here.
+An existing authenticated ef archive's kind=1 completion marker remains readable exact
+completion evidence for that same EventKey/slot. Preserve its bytes and meaning during
+conversion. After activation, an independent c receipt may be published from that exact
+legacy proof within the already reserved receipt family. Disable the existing
+`replace_completion()` archive kind rewrite in the migration path: it would invalidate the fixed root
+digest and is unnecessary. Retaining the marker is not completed-effect retirement.
+
+A VirtualLegacySource digest covers a canonical logical genesis descriptor (epoch,
+generation1, empty durable tail/references) plus authenticated raw e objects and their
+stable slot association. It has no physical cp0 blob. Receipts are checked independently
+as above. Source recovery derives this view from the authenticated legacy journal and
+registry, with both cp keys absent. Intent precedes writing the first candidate cp1;
+after publication, its exact shadow is written to cp0. No bootstrap scratch/root key.
+
+T is HMAC-SHA256 over a versioned canonical ten-slot ownership table: occupied marker,
+slot, uint32 generation, length-prefixed device ID and owner_digest for each descriptor;
+NeverOwned has canonical zeros. Active and Retired both mean occupied for this identity
+digest. Authorization state, active records, revocations and keys remain authenticated
+by GSRG and checked independently. Thus revocation does not change historical ownership
+binding; a new owner changes T. Owner digest already binds home/hub/public key/logical
+ID/slot/generation. Exclude snapshot generation, session, migration phase and activation
+digest. This specifies the earlier "descriptor/active-owner association" as immutable
+identity association, not mutable live authorization status. A root never grants radio
+authorization merely because an occupied descriptor exists.
+
+### 20.2 Preflight and GSRG v1 -> v2 preparation
+
+One owner task holds the mutation lease throughout a bounded step. Enter closed mode
+before inspection: block event and duplicate success ACKs, reports/success ACKs, rejoin,
+commissioning/replacement, reducer/config changes and backend sends/receipt writes.
+Do not retain an unbounded queue. Existing bounded queues may discard traffic; Nodes
+keep their durable retries. Reject any independent writer that can mutate pinned data.
+
+1. Authenticate registry, selectors, source roots and their transitive child inventory.
+   For cp-backed sources require an authenticated selector naming an exact valid root;
+   absent/corrupt/conflicting selection fails closed. Do not pick a higher cp generation.
+   For raw e/c-only sources use the virtual-source rule. Authenticate every event,
+   completion and report, including weaker fallback report floors. An unexplained object,
+   unsupported schema-1 dedupe frontier, unreadable key or unowned allocation blocks.
+2. Verify S includes the union of retained event/effect/completion history and ALL
+   acknowledged retirement rejection predicates of previously legal roots. Report pending
+   keys are exceptions: highwater alone is insufficient. If S cannot dominate the full
+   union, preserve it and refuse migration; do not merge by dropping exceptions/floors.
+3. Inspect all legacy owners before any publication. Sort exact active device IDs by byte
+   order; assign lowest descriptors, generation1. Then sort any historical owners for
+   which complete authenticated enrollment identity is actually retained and assign the
+   remaining descriptors. Ten descriptors total. A bare revocation tombstone does not
+   reconstruct public key/logical identity/installation key; evidence needing that owner
+   blocks. An unused tombstone is preserved and needs no fabricated descriptor. More
+   than ten evidence owners blocks. Same physical device with multiple incarnations
+   blocks this single-generation model. Released is invalid; no slot reuse in G01.
+4. For compressed GDE1 match full retained EventIdentity, canonical immutable digest,
+   session/sequence and old coordinate to exactly one proven owner. Recompute legacy
+   binding only as a read-only consistency check. A collision/ambiguous association has
+   no tie-breaker. Reports additionally require the exact original installation key and
+   reconstruction/verification of their original report HMAC; missing keys or uncertain
+   historical logical relationship block. Verify the entire proposed conversion plan
+   now, so a later batch cannot discover an attribution gap after irreversible release.
+5. Compute T, deterministic bounded batch keys, source digest and source-child digest
+   in memory. Reserve all future live/staged counts. Write/readback first GMM2 Prepared
+   BEFORE creating the candidate GSRG snapshot. Intent owns the Prepared table through
+   T and source epoch/generation, even if the table is still derivable from GSRG v1.
+6. Replace the SAME `gs_registry/snapshot` value with GSRG2 Prepared. Preserve every
+   original base identity, installation binding, revoked ID and session field. Sort
+   canonically for comparison; no security mutation is bundled with initial preparation.
+   Exact readback/decode verifies all fields, descriptors/T and source provenance.
+   Prepared's target digest is zero. It is not live v2 authorization.
+
+Boot with Prepared GMM + v1 registry regenerates the same T and retries preparation.
+Boot with GSRG2 Prepared retains a legacy projection of its unchanged base fields for
+prepublication source recovery. This is semantic v1 recovery, not an extra backup key
+or downgrade to old firmware. Missing/corrupt registry cannot be repaired by guessing
+from payloads; leave journal sources intact and close service. A torn single registry
+replacement may therefore require service recovery. PersistThenFail succeeds only when
+exact authenticated reread proves the requested Prepared state. Boot never reallocates
+slots or changes enrollment generation.
+
+### 20.3 Candidate construction and equivalence
+
+Choose one legacy ev chunk, one selected ret snapshot, or one obsolete ret representation
+per batch, in canonical key order. Prefer retaining exact legacy event tails/slots, so
+no ef copy is needed. Copy S's checkpoint configuration/reducer/effect references,
+covered ordinal, full event history and report state. Set schema3, RegistryOwnerV2,
+MigrationView, T, frontier N, generation G+1, inspection flags and protected-tail count.
+Replace only the current batch's ev or ret reference with its verified new-domain
+reference. Mixed GDE/GRS encodings are permitted only inside this closed MigrationView:
+validate each object's actual schema and project legacy ownership through the locked
+proof table. This is not permission for legacy coordinates to become current authority.
+An ev chunk is entirely one domain. Ret v2 occupancy bit positions are persisted slots.
+Final candidate clears MigrationView only after ALL compressed GDE and referenced GRS
+objects are current-domain; legacy full-identity event representations may remain typed.
+
+For e-only migration, preserve e/c bytes and journal slots. AllowLegacyEventSlots makes
+those exact authenticated events readable under the table; it does not create new
+Events, ef copies or receipts. They occupy the same 128-event retention pool as archived
+and tail events. Existing multiple representations require exact same content AND slot;
+any conflicting representation is a migration validation failure. This does not change
+G03 ordinary duplicate handling. Remove the old copy/delete helper from the activation
+path; tests asserting e/c cleanup must become preservation/typed-read assertions.
+
+Translate each compressed coordinate through the unique proof found in preflight;
+preserve EventKey, canonical digest, session, sequence, effect ID/payload, completion
+identity and all report fields/HMAC/pending keys. Primary report conversion is exact
+logical equality. Obsolete report cleanup requires dominance of its rejection predicate
+by the selected report, not an invented equality of obsolete pending lists.
+
+Write only the inactive cp bank under the current intent. Ordinary `checkpoint()` and
+`commit(Event)` cannot construct this migration candidate. Read back checkpoint and ALL
+children/tail/events/receipts, authenticate them, verify exact references and compare
+complete projected semantic state against S. Compare reducer/config bytes, all retained
+history, stable slots/effects/completions and rejection predicates including exceptions.
+Store the exact compound target digest in TargetVerified only after this succeeds.
+A canonical semantically identical preverification retry may use a fresh nonce; after
+TargetVerified reuse exact bytes or step back only through an explicit closed reverify
+transaction. The simplest implementation freezes verified bytes and fails closed if
+lost until a source-based service retry; no Published object may be re-encrypted.
+
+`DurableStore::commit()` may first admit new registry-domain Events only after FINAL
+Activated is verified jointly with GSRG2 and a non-MigrationView selected root, then fresh
+authenticated rejoin. A published intermediate root is never sufficient. Fresh empty
+installations use this same zero-data activation path; no legacy-domain Ready genesis
+followed by a registry Event is allowed.
+
+### 20.4 Every durable phase
+
+Codes are the existing GMM2 phase values. For initial migration candidate gen/digest
+fields are zero in Prepared/Copying and exact in TargetVerified and later; G+1 is
+already derivable. For NormalPublication the early fields instead carry G+1 and the
+canonical intended child/projection digest specified below; size remains unchanged.
+"Blocked" means all traffic listed in 20.2, including success ACKs and rejoin.
+
+| Durable phase | Root/domain, selector and frontier authority | Legal fallback, staging and writes | Reboot / next transition / failure |
+|---|---|---|---|
+| No intent | authenticated legacy S or virtual source; no v2 authority | only originally authorized roots; no staging write | preflight, then Prepared; missing source, bad selector, attribution or capacity proof => closed |
+| Prepared (1) | exact S; legacy initial domain or prior closed view, floor N-1; selector cannot promote C | S only after weaker fallback domination/exclusion; intent owns T, fixed child keys and inactive cp | finish GSRG Prepared, authenticate S/T, advance Copying; mismatched T/source or occupied unowned target => closed |
+| Copying (2) | same pinned S and floor; candidate/selector higher generation ignored | S only; create/retry one named ev or ret; optional admitted ef/ev pair; then inactive C | classify every stage, rebuild/verify children and C; valid-MAC wrong content or lost S => closed |
+| TargetVerified (3) | S remains authoritative, floor N-1, even if sel names C | S only; verified C exact digest; write/readback candidate selector | verify C/selector again and write Published; mismatched C/source/digest => closed |
+| Published (4) | exact C, RegistryOwnerV2 closed view, floor N; GMM is authority, sel confirms target | ONLY C; old S excluded but source child retained; copy exact C bytes to old cp bank | verify/write shadow, then Cleanup; missing C before shadow proof => closed, never old S |
+| Cleanup (5) | C or byte-identical shadow, same generation/T/frontier/digest | both exact roots legal; named source child must be excluded by BOTH; exact erase only | retry/verify absence then BatchDone; mismatch/reachable source or corrupt proof => closed |
+| BatchDone (6) | same committed C/shadow and floor N; both manifests retained | no new stage until previous release is verified; all history/floors retained | next Prepared at N+1, or final activation transaction; unexplained leftover overlap => closed |
+| Activated (7) | non-MigrationView current-domain C/shadow, GSRG2 Activated matching T/provenance, floor N | exact roots only; typed legacy events retained; ordinary authenticated operations after fresh rejoin | Ready jointly derived; unmatched registry/root, legacy compressed ref, missing/corrupt barrier => closed |
+
+All failures preserve evidence. No transition to legacy Ready is legal after first
+Published. NormalPublication reuses these states at SAME completed migration frontier,
+with a newer source generation; it freezes traffic until Activated again. Initial
+migration never sets that bit. In a normal transaction the prepublication floor is N,
+not N-1. This prevents report/config/archive publication from reviving pre-ACK metadata.
+
+### 20.5 G05 object ownership and exact release
+
+| Existing physical family | Durable owner / expected identity | Boot validation and release |
+|---|---|---|
+| gs_registry/snapshot | Prepared intent T/source provenance, then activated joint authority | v1 or exact canonical Prepared identity; retain base projection; corruption closes; no erase |
+| inactive cp0/cp1 | Prepared source_bank implies opposite bank, generation G+1/T/N | before verified, validate canonical candidate from S; torn owned candidate is repairable only while S remains exact; after verification require exact target digest; never delete legal cp |
+| ev mapped u64 | EvidenceChunk source/target IDs, source-child HMAC, deterministic `(target_gen<<8)|1` target; full contents from S/T | absent retry; exact canonical staged object reusable; partial owned bytes may be conditionally replaced preverification; wrong authenticated content closes; old ev exact release in Cleanup |
+| ret0..ret2 | RetirementSnapshot source/target bank IDs, source-child HMAC; target snapshot generation derived/locked by S and batch | target must be excluded by every legal root after Prepared and preserve all floors; schema1 read supports 6096, new encode <=5777; old ret exact release in Cleanup |
+| ef mapped u64 + paired ev | TailPair names deterministic set derived from G+1 using existing key formulas; source-child digest covers canonical frozen tail | optional only if union<=32 ef/33 ev; intent precedes BOTH children; first-child-only reboot resumes second; no ef archive deletion |
+| tr0..tr3 | existing S/C prefix or causal GDT3 extension, never unowned staging | four slots, consecutive ordinals/epoch; no migration tail rewrite; covered records cannot become authority |
+| e000..e127 | virtual source or typed legacy-slot root closure + authenticated full event/slot | exact original bytes retained; new e writes forbidden; no migration deletion |
+| c000..c127 | exact EventKey/slot HMAC independent receipt + event retained by every legal root | verify all receipts; persisted receipt failure resolved by exact reread; no erase/rewrite |
+| bm0/bm1 | authenticated existing mapping, unchanged | preserve/read-validate; unsupported live use closes; no migration scratch |
+| sel0/sel1 | authenticated exact root generation/bank; current intent owns bounded selector publication/repair | stale authenticated selector is filtered by GMM; it cannot select another generation; corrupt selector repair only from independently exact GMM authority |
+| mig0/mig1 | authenticated same transaction, legal predecessor/successor relation | fixed A/B writes only; partial/corrupt/conflicting bank closes; no migration metadata erase |
+
+A ret target may contain an authenticated obsolete legacy value before staging. Reuse
+requires independently proving its bank is excluded and S dominates every floor/history
+it could preserve. Compare the exact currently read bytes under the single mutation
+lease before replacement. A valid old excluded value is distinguishable from an existing
+candidate by its locked snapshot generation/schema. Unknown value, unsupported report
+or unexpected valid candidate closes. The intent authorizes this specific bank reuse;
+object presence alone does not. If two legal report banks leave no target, Prepared may
+exclude the dominated fallback; it may not destroy the sole selected report.
+
+Source release algorithm: authenticated Cleanup with exact target digest; authenticate
+both legal cp closures and prove source key is excluded from both; read named source;
+compute the keyed source-child digest over epoch/kind/ID/exact bytes and compare intent;
+call erase_if_equals(key, those bytes) under the same mutation lease; reopen/read absent.
+API failure plus proven absence completes release; API success without absence does not.
+Different occupant, corrupt source, or digest mismatch closes WITHOUT erase. Missing source
+is idempotent only in Cleanup/BatchDone, never before publication. No family scan/delete.
+
+After converting the selected report, a formerly fallback/unreferenced ret value can be
+released in a separate RetirementSnapshot batch: name that obsolete bank as source,
+name the verified selected v2 bank as target, prove selected rejection-set dominance,
+publish an unchanged-semantic new cp and exact shadow, then erase only that named source.
+Thus no abandoned historical bank needs an extra digest, mask or key. Never erase ef,
+e/c or pinned descriptors. A missing/corrupt unowned stage is not forgiven as garbage.
+No next batch starts until one-overlap inventory is restored.
+
+### 20.6 Publication, A/B, fallback and normal-operation proof
+
+The driver orders: Prepared -> Copying -> children -> candidate cp -> equivalence
+readback -> TargetVerified -> selector readback -> Published -> EXACT shadow readback ->
+Cleanup -> exact source release/absence -> BatchDone. Manifest writes alternate banks
+and must be exact authenticated readbacks; write return values are not phase evidence.
+Final batch additionally performs registry activation and then Activated (20.7).
+
+Both manifest banks must authenticate and either be byte/field-equivalent or be the
+specified adjacent predecessor/successor. Within a batch all source/T/IDs/frontier
+fields are fixed. Target generation/digest become fixed at TargetVerified. BatchDone ->
+Prepared increments frontier by exactly one and pins the previous exact candidate as
+source (bank may be either authorized identical copy). No arbitrary migration ID order.
+A single initial Prepared frontier1 bank can be accepted with independently verified
+original source and absence of any evidence of publication. Every later step requires
+both banks. Missing one later bank closes: an old TargetVerified bank cannot prove that
+a lost Published bank never existed. Missing both with GSRG2 or any GCP3 migration root
+closes. Present corruption always closes; no older-bank rescue based on phase guessing.
+
+**FALLBACK_ROOT_SELECTION_RULE:** authenticate GMM first. Before Published select only
+its pinned source digest/generation/bank, with frozen source tail. Published selects only
+the exact candidate. Cleanup and later additionally authorize the source bank ONLY when
+it contains the BYTE-IDENTICAL candidate checkpoint and its independently verified exact
+compound digest. Same generation/nonce/ciphertext/references are intentional; normalize
+only the physical cp bank label in compound hashing. No semantic-only or newer-generation
+shadow is allowed. Prefer the selector's exact allowed copy; if selector absent/corrupt,
+GMM's exact candidate then authorized shadow is deterministic authority and traffic stays
+closed during repair. A valid selector naming an unexplained higher root is a conflict.
+An authenticated stale selector whose target was replaced is stale, not a fallback grant.
+
+**PUBLISHED_FRONTIER_FLOOR_RULE:** actual authenticated Published/Cleanup/BatchDone/
+Activated frontier is minimum. A later Prepared pins precisely that committed view, so
+it retains the floor while another batch is unpublished. Root digest/T/domain and the
+full acknowledged rejection predicates must also match; a large numeric frontier alone
+is never proof. **OLD_ROOT_REJECTION_RULE:** any otherwise valid lower root is illegal,
+including on selector failure, and cannot grant Ready or justify release.
+
+Proof by transition: Prepared excludes only dominated fallback; C is semantically equal
+except verified coordinates; Published commits its exact bytes/floors; Cleanup grants
+only an identical shadow; release cannot remove any reachable child. The next Prepared
+pins that view. Induction therefore preserves retained history, completion associations
+and acknowledged rejection sets for every frontier. Candidate loss before Cleanup closes;
+authorized shadow loss leaves exact C; both lost closes. Selector failure changes no
+minimum floor. Corruption does not authorize a destructive fallback.
+
+After Activated, ordinary new GDT3 append and independent c commit are allowed without
+changing the fixed digest: new tail is an authenticated causal extension, new receipts
+verify independently. At tail capacity, archive/checkpoint/report/config publication uses
+NormalPublication through the same driver. Freeze the full tail in intent before stage,
+prove all legal roots/history/report rejection sets, publish generation G+1 at the SAME
+migration frontier, shadow and release only eligible coordinate metadata, then Activated.
+For normal report ACK, Published readback and shadow/Activated joint recovery are required
+before ACK. Refresh the GSRG activation digest to the new exact root through the verified
+coordinator save operation before GMM Activated; keep source provenance and all identity
+fields. This applies also to metadata-only transactions and uses the existing single
+registry key (the v2->v2 replacement bound below). No direct selector-only `checkpoint()`
+fast path bypasses this barrier. A general caller cannot change the activation digest.
+
+Unlike migration conversion, a NEW retirement report/config update is not reconstructable
+from S alone. NormalPublication Prepared/Copying therefore use their existing target
+generation/digest fields to authenticate G+1 and a HMAC of the canonical intended
+operation: operation kind, T, exact target child keys, decoded child semantics and the
+candidate's normalized semantic projection. Exclude encryption nonces/raw reference
+digests in this EARLY planned digest, include original Node report HMAC and all fields.
+Prepare this digest before staging; read/authenticate the new child, reconstruct C and
+check its planned projection against that digest. At TargetVerified replace it with
+the exact compound ciphertext digest. The adjacent Copying bank still carries the early
+digest; verify this transition against both records and actual candidate. Later phases
+keep the exact digest. No extra target-digest field or entry is needed.
+
+Boot after intent but before a NEW operation's child persisted cannot reconstruct the
+requested payload. If child absent/partial, cancel that UNPUBLISHED normal operation
+without ACK: rebuild unchanged-semantic C from exact S at G+1 and SAME frontier; write
+C, then TargetVerified with CancelledNormalPublication set and its exact digest. For a
+present partial stage, this special adjacent successor names the former target as the
+source-to-release, the original selected child as retained target, and pins the exact
+partial bytes in source_child_digest. If no stage exists, use FinalActivation's zero
+child IDs/digest for the cancelled metadata-only batch. The original root digest/T,
+generation, frontier and source tail remain fixed. The predecessor intent must own the
+abandoned key; candidate must preserve S exactly and exclude that key. This is the ONLY
+permitted change of family/key/digest fields within a batch, and only NormalPublication
+Copying -> TargetVerified may set cancellation. A valid authenticated stage with wrong
+planned contents is a conflict, not cancellable. Before TargetVerified an incomplete
+candidate bank may be rebuilt under its existing intent; verified/published bytes stay
+fixed. Publish the unchanged view, write exact shadow, Cleanup, conditionally release
+the now-named partial stage, BatchDone, GSRG digest refresh and Activated. No report
+success ACK; require fresh rejoin after reboot and retry the report as a new transaction.
+This bounds recovery without persisting a queued wire payload or accumulating stages.
+Initial migration has deterministic source-derived children and never uses cancellation.
+
+NormalPublication starts only from Activated; its Prepared source is the prior exact
+committed cp plus independently authenticated bounded tail extension. Compare the old
+protected-prefix digest first, then pin the full frozen source-tail digest. Those two
+digests need not be equal when new events appended. A/B validates this linked successor,
+using source_generation to distinguish same-frontier transactions; `(frontier, phase)`
+alone is insufficient. Within the transaction advance adjacent phase codes; terminal
+Activated -> Prepared requires increasing source generation linked to previous target,
+NormalPublication set and retained frontier. This is lineage validation, not highest cp
+wins. Do not use phase 7 to outrank a legitimate newer Prepared at the same frontier.
+
+Registry rejoin/session refresh leaves T unchanged. Revocation changes authenticated
+active authorization and retains identity descriptors, so T remains unchanged. Adding
+an enrollment/replacement adds exactly one lowest NeverOwned descriptor. Freeze first;
+compute Tnew and persist linked NormalPublication Prepared before GSRG2 Prepared extension.
+Existing descriptor identity tuples never change. Recover Told by the unique authenticated
+old occupied-prefix projection of the extended table (never infer owner from hash); validate
+old root under Told and candidate under Tnew. All descriptors allocate lowest NeverOwned,
+so old occupied count is candidate occupied count minus one. Failed/unsupported extension
+closes; no transport grants under the partially prepared table. Publish matching Tnew root,
+activate registry, then Activated. Registry phase regression is legal ONLY inside this
+verified coordinator-owned table-extension transaction; current general save guards must
+be refined for that operation, not removed. Report/receipt ownership for retired owners
+remains their original tuple. Ten occupied/pinned descriptors rejects before any mutation.
+
+There is one additional normal cancellation case: intent Tnew persisted but the new
+GSRG Prepared table did not persist, leaving an authenticated GSRG Activated Told.
+No new-owner transport ACK may have been sent. Boot can cancel that unpublished extension
+using an unchanged-semantic C with Told, through the same cancelled normal barrier above.
+The special Copying -> TargetVerified successor may replace intent Tnew with Told ONLY
+when exact S and the existing Activated registry authenticate Told, no prepared extension
+exists, no legal root granted Tnew, and all named stages are accounted for/excluded. It
+cannot discard a persisted Prepared descriptor: if GSRG Prepared Tnew exists, recover
+its full candidate identity and finish the extension instead. Missing/corrupt registry
+still closes. Thus an intent alone does not require storing a second registry or the
+commissioning request. Initial GSRG-v1 preparation remains source-derived, never cancelled.
+
+### 20.7 Final activation and fresh installations
+
+The final batch has family FinalActivation, source/target child IDs zero, unchanged
+semantic history, next frontier and candidate MigrationView=false. No legacy compressed
+ev or selected report reference may remain. Complete normal publication, exact shadow,
+Cleanup(no child erase) and BatchDone. Write/readback GSRG2 Activated with T, preserved
+source provenance and exact final target compound digest. Then write/readback GMM2
+Activated, retaining both manifest banks. Verify registry/table, allowed root, every
+child/legacy representation, independent receipt and floor jointly. Only then construct
+Ready runtime, discard all old sessions/reassembly/queued stale traffic, and require a
+fresh authenticated rejoin before accepting any Node operation. Rejoin preserves slot/gen.
+
+GSRG Activated with GMM BatchDone is still CLOSED; finish the final manifest after exact
+joint verification. GMM Activated with missing/Prepared/mismatched registry is CLOSED;
+that is an invalid ordering, not permission to promote registry by inference. Published
+final root with GSRG Prepared is a closed historical projection only. At no boot does
+live authorization use one ownership domain while evidence uses another. Literal
+Prepared-v2 bytes alongside a legacy source are expected staging, not v2 authority.
+No old registry/root may be restored to clear the activation barrier. Retain migration
+manifests; retain typed legacy full events. There is no blanket legacy purge.
+
+Fresh installation also prepares T and a logical empty source, publishes/activates a
+matching GCP3 before first registry Event; use the virtual-source prelude with proven
+freshness and empty inventory. No physical legacy genesis has to be created before
+intent. Initial zero-owner T is valid; first commissioning then extends it through the
+same table transaction. Authenticated contradictory freshness/evidence closes service.
+
+### 20.8 Crash matrix (each row reloads persisted bytes)
+
+| Power loss boundary | Boot selection | Retry/release and traffic |
+|---|---|---|
+| Before intent | authenticated original/virtual S | preflight again; no deletion, traffic closed |
+| After intent, before/after GSRG Prepared | pinned S; v1 or unchanged Prepared base projection | regenerate/verify T; finish registry preparation; corrupt registry closes |
+| After Copying / each staged child (including first TailPair member) | S only | authenticate intent, classify named children, retry missing/partial preverification child; wrong MAC-valid content closes |
+| After candidate root | S only even if C generation higher | authenticate all C refs, equivalence and exact digest; repair incomplete owned C only before verification |
+| After candidate verification, before manifest | S only | repeat verification; no inferred progress or erase |
+| After TargetVerified manifest | S only | reuse exact C; write/readback candidate selector |
+| After selector/publication barrier write | S while GMM TargetVerified | selector alone publishes nothing; verify C and commit Published |
+| After Published, including PersistThenFail | exact C at N | reread both manifests; resume exact shadow; no old-root fallback/release |
+| During shadow update | exact C; old bank not fallback yet | finish exact byte copy/readback; loss of C closes until Cleanup proof exists |
+| After shadow, before/during Cleanup manifest | Published C, or Cleanup C/exact shadow | complete durable Cleanup proof before source erase; partial GMM closes |
+| During exact cleanup | Cleanup C/exact shadow | exact source present => guarded erase; absent => verify completion; mismatch => close without delete |
+| Before final activation | last published closed view or final BatchDone root | no Node ACK/rejoin; prepare final zero-data batch or activate registry |
+| During final GSRG activation | final root; no Ready unless joint Activated | Prepared/Activated readback determines retry; torn registry closes, no rollback |
+| During final GMM activation | final root; BatchDone remains closed or Activated jointly verified | PersistThenFail resolved by exact readback; corrupt/missing later bank closes |
+| After activation before traffic resumes | exact final current-domain root/table | rebuild empty session maps; require fresh rejoin, then allow traffic |
+| Repeated reboot between batches | prior exact published frontier, then current pinned S | reuse named IDs/gens; no accumulation of overlaps or enrollment reassignment |
+| Later normal report/checkpoint transaction | prior current root before Published, new exact root after | same-frontier generation lineage enforced; no success ACK until joint recovery |
+
+### 20.9 Actual object ledger and admission certificate
+
+Derived from current codec/provider layouts, not `3206 + 18` alone. Formula for a live
+blob is `2 + ceil(payload/32)`; namespace is one entry. Partition modeled capacity is
+4032 entries/131072 bytes. Canonical selector bytes are 4 magic +8 generation +1 bank
++28 AEAD =41 (provider permits 64; canonical decode must reject trailing/noncanonical
+values). Retirement legacy READ cap remains6096; current WRITE cap is5777. Both banks'
+GMM framing is fixed218, and all proposed flags fit existing bytes.
+
+| Key/family in gs_journal/events | Values at bounding peak | Max payload/value | Entries/value | Total entries | Payload total | Simultaneous source/candidate reason |
+|---|---:|---:|---:|---:|---:|---|
+| namespace events | 1 | 0 | 1 | 1 | 0 | existing namespace, counted once |
+| cp0/cp1 | 2 | 4549 | 145 | 290 | 9098 | pinned source/inactive candidate; later exact shadow |
+| sel0/sel1 | 2 | 41 | 4 | 8 | 82 | old selector and candidate publication |
+| tr0..tr3 | 4 | 1332 | 44 | 176 | 5328 | protected/live tail, shared unchanged |
+| ef mapped u64 | 32 | 1260 | 42 | 1344 | 40320 | retained event/effect archives shared, no conversion copies |
+| ev mapped u64 | 33 | 320 | 12 | 396 | 10560 | <=32 retained + ONE named overlap, never a second batch |
+| ret0..ret2 | 3 | 6096 legacy read | 193 | 579 | 18288 | selected, excluded prior bank, reserved target; all old maxima conservatively counted |
+| bm0/bm1 | 2 | 384 | 14 | 28 | 768 | existing immutable-for-migration mapping values |
+| c000..c127 | 128 | 32 | 3 | 384 | 4096 | independent receipts shared without copies |
+| mig0/mig1 | 2 | 218 | 9 | 18 | 436 | authenticated adjacent intent/publication records |
+| e000..e127 | 0 in THIS full-archive peak | 284 | 11 | 0 | 0 | raw-event profiles use the weighted alternative below, not uncounted objects |
+| **Total** | | | | **3224** | **88976** | every candidate already inside its family bound |
+
+`PEAK_FREE_ENTRIES=4032-3224=808`; `PEAK_MARGIN_PERCENT=100*808/4032=20.0396825397`;
+`PEAK_FREE_BYTES=131072-88976=42096`. Once all three ret values are compact the same
+upper ledger is3194 entries/88019 bytes. Namespace is included in entry totals; raw
+payload bytes exclude physical NVS headers/page/GC cost, covered by operational reserve
+and later physical qualification. Same-key flash replacement dead entries are not an
+extra LIVE object; do not claim instantaneous nvs_get_stats meets this modeled margin.
+
+Raw e values MUST be charged: replace `42*n_ef +12*n_ev` by actual union counts and add
+`11*n_e` (and exact actual bytes). The all-raw profile with128 e, zero ef/ev and remaining
+family maxima uses2892 entries/74448 bytes, leaving1140 entries/56624 bytes. Mixed
+profiles pass only if the actual live union plus the complete reserved candidate plan
+fits BOTH 3224 entries and88976 payload bytes, family limits and128 logical events.
+A single extra e at the full-archive peak means3235 entries/797 free: REFUSE that source
+profile without writes. A one-entry excess likewise stops. Objects are never omitted
+because obsolete/unselected; admission charges every physical value until exact release.
+Reserve cp/ret/mig maxima and future ordinary growth of retained typed events as well as
+the one ev overlap; recheck before every mutation. Full legacy e/c duplication into
+archives is not this design and is not budgeted. Provider cap64 selectors would produce
+89022 raw bytes at full maxima; canonical41 admission is required for the stated bound.
+
+Registry uses SAME default-nvs `gs_registry/snapshot` key, max5077. v1 max3996 plus v2
+replacement9073 bytes/288 modeled blob entries (+existing namespace). A later v2->v2
+replacement bounds10154 bytes/322 blob entries, not9073. Default partition24576 also
+contains other security state; inspect/admit that union and provider allocation separately.
+No new registry key is approved. This journal certificate does not certify that partition,
+physical allocator/GC or power cuts. It must be rederived from finished production output
+before commit; current tests' hard-coded source_family_entries=3206 are insufficient.
+
+ACTUAL_MANIFEST_TOTAL_BYTES=436; ACTUAL_MANIFEST_TOTAL_ENTRIES=18;
+ACTUAL_RETIREMENT_CURRENT_ENCODE_MAX_BYTES=19+10*(61+32*16)+28=5777;
+ACTUAL_CANDIDATE_CHECKPOINT_CAP_BYTES=4549; NEW_PERSISTENT_KEY_FAMILIES=0;
+NEW_SCRATCH_KEYS=0. No persistent scratch counter, shadow digest or registry backup.
+All flags/refinements stay within current envelopes. Any implementation growth requires
+STOP/rebudget, not use of the one-entry rounding slack or partition enlargement.
+
+The checkpoint cap is attainable from actual codec fields: fixed header63 + count bytes4
++16*10 effect refs +32*8 chunk refs +32*40 evidence refs +35 extension +28 AEAD =1826;
+reducer2723 gives4549 without report, or report reference41 + reducer2682 gives4549.
+Candidate construction checks the WHOLE encoding cap, not independent reducer/reference
+maxima. The protected count/legacy-slot flag replaces no byte and adds no encoded byte.
+
+### 20.10 Resume review, abstract validation and production handoff
+
+RESUME_DIFF_REVIEW=PARTIAL. Reusable: ten pinned descriptors/initial generation1,
+registry owner-digest/resolver work, GSRG2 framing scaffolding, compact snapshot mask,
+conditional erase, authenticated GMM2 framing/A-B scaffolding, GCP3 cap/domain gate.
+Incomplete: manifest-aware inventory, candidate construction, publication driver,
+GSRG preparation/activation and post-activation normal publication. Specific corrections:
+
+- `compound_root_digest()` currently includes physical cp bank, ALL tr and c values;
+  implement the specified stable closure and independent receipt verification.
+- `recover()` currently rejects all mixed-domain references even in MigrationView and
+  ignores typed legacy-tail/slot projection; add a CLOSED inspection context, preserve
+  the ordinary new-Event domain gate.
+- Activated recovery currently accepts a selected newer root without exact manifest
+  lineage/digest; remove this selector-only authority path.
+- `inventory_chunks_owned()` must recognize exact current intent stages/source release,
+  while accounting every physical object and rejecting unexpected keys/content.
+- Snapshot `decode()` currently applies5777 to schema1 input and `load()` rejects legacy;
+  separate authenticated inspection6096 from current encode/load5777.
+- `HubSecurityLink::persist_candidate()` attempts restore into an already populated
+  candidate; verify into a fresh instance and replace only after durable joint checks.
+  Fresh commissioning also lacks initialized registry/root provenance.
+- Existing GMM successor guards hard-code target/source-bank alternation and frontier/phase
+  ordering; allow independently exact shadow source and specified same-frontier lineage.
+- Existing raw-journal migration tests require deleting e/c and synthesize registry Events
+  against legacy root; replace that fixture contract with typed retained-event activation.
+  Do not "fix" the failure by removing the domain check or changing Node wire fields.
+
+Implementation order for Luna High (existing paths, new portable functions are proposed):
+
+1. `storage/durable_transition.{hpp,cpp}`: checkpoint/manifest flags; canonical digest
+   helper with explicit source/target tail scope; exact `legal_manifest_successor()` and
+   `MigrationManifestRepository::load()/advance()` for two-bank and normal lineage.
+   Add production codec/phase/corruption tests in `tests/cpp/hub_durable_storage_validation.cpp`.
+2. `registry/registry_persistence.{hpp,cpp}`: explicit `prepare_v2()`/`activate_v2()` and
+   canonical table/projection APIs, coordinator-only table-extension save guard; retain
+   all security fields/readback. `registry/node_registry.{hpp,cpp}`: immutable owner
+   context lookup, pinned historical view and deterministic preparation. Add v1 fixtures
+   and boundary tests in registry validation files before proceeding.
+3. `storage/node_retirement_snapshot.{hpp,cpp}`: authenticated legacy inspection6096,
+   table-bound current read5777, deterministic conversion/full rejection-set equivalence,
+   explicit intent-selected bank write (not selected-bank-only `prepare_bank()`).
+4. `storage/hub_durability_owner.{hpp,cpp}`: manifest-first `inspect_checkpoint_set()`,
+   `inventory_chunks_owned()`, virtual source, weighted admission ledger and joint Ready
+   derivation; CLOSED historical resolver distinct from active transport resolver.
+5. `storage/durable_transition.{hpp,cpp}`: proposed `stage_candidate_checkpoint()`,
+   `verify_candidate_projection()`, `publish_candidate()`, exact shadow copy/readback,
+   `release_named_source()` and bounded `resume_migration_step()` coordinator owned by
+   HubDurabilityOwner. Reuse same driver for NormalPublication; ordinary `checkpoint()`
+   delegates instead of selector-only publication. No ordinary historical Event commits.
+6. `target/esp32/nvs_durable_blob_store.{hpp,cpp}` and `nvs_store_inventory.cpp`: exact
+   lease/conditional replacement and release/readback integration, legacy/current caps,
+   complete inventory/reservation checks; retain key mapping/no automatic broad erase.
+7. `storage/durable_journal_slot_store.{hpp,cpp}`: `rows()/read()` typed e/tail reads,
+   shared c receipt authentication, coordinator replacement of `migrate_legacy_journal()`;
+   `read_completion()/publish_completion()` retain archive bytes while validating/publishing c;
+   remove migration calls to `import_completion()/replace_completion()` that rewrite ef;
+   `append_event()` accepts only verified current authenticated owner after activation.
+8. `target/esp32/hub_security_link.{hpp,cpp}`: `initialize()`, `persist_candidate()`,
+   `resolve_enrollment_binding()`, `accept()` freeze/joint activation/table transaction;
+   resolver must receive authenticated session/device context, not payload-only identity.
+   `target/esp32/hub_runtime_adapter.cpp::secure_owner_task()`: bounded resume before
+   runtime attach, block all migration traffic/ACK paths, final rejoin reset and retirement
+   report publication through common barrier. No Node protocol changes.
+9. `tests/cpp/hub_journal_migration_validation.cpp`, provider/owner/security/retirement
+   tests: actual byte/provider cuts after EACH write/readback, repeated batches, virtual
+   source, same-frontier report floors, owner injection, typed legacy preservation,
+   mismatch cleanup and all budget/layout assertions. Then all requested broad gates,
+   Hub/required Node target builds and final actual implementation budget audit.
+
+The standalone `tests/python/test_g01_coordinator_crash_model.py` is the architecture
+model for these decisions; it cannot certify production codecs/provider behavior. No
+production tests/builds are rerun or claimed fixed in this architecture-only turn.
+G03/completed-effect retirement/reclamation remain unimplemented;128-event limit remains.
+PHYSICAL_GC_QUALIFICATION=NOT_RUN; POWER_CUT_QUALIFICATION=NOT_RUN; RADIO_HIL=NOT_RUN.
+
+Architecture-only validation on2026-10-04:
+`python3 -B tests/python/test_g01_coordinator_crash_model.py` -> PASS,37 tests.
+The model includes120 boundary/failure-mode scenarios across ordinary migration/final
+activation and virtual-source activation, serialized restart, intent/candidate ownership,
+exact shadow, two-bank loss/conflict, receipt independence, repeated normal batches,
+planned normal report/cancellation, table extension, attribution refusal and a ledger
+computed from provider caps. NormalOperand is focused planned-operand coverage, not a
+complete normal-operation firmware simulator. Cryptographic/provider/target fault tests
+remain required; these results grant no production or physical qualification.
+
+G01_COORDINATOR_ARCHITECTURE_READY=YES
+G02_PUBLICATION_ARCHITECTURE_READY=YES
+G05_STAGING_ARCHITECTURE_READY=YES
+V1_TO_V2_MIGRATION_READY=YES (guarded attributed/admitted source profiles)
+CRASH_RECOVERY_MODEL_READY=YES (abstract contract level)
+ACTUAL_PEAK_USED_ENTRIES=3224 (specified live+staging ledger, not physical measurement)
+ACTUAL_PEAK_FREE_ENTRIES=808
+ACTUAL_PEAK_MARGIN_PERCENT=20.0396825397
+PEAK_USED_BYTES=88976
+PEAK_FREE_BYTES=42096
+NEW_SCRATCH_KEYS=0
+READY_TO_RESUME_PRODUCTION_IMPLEMENTATION=YES
+G01_PRODUCTION_IMPLEMENTATION_COMPLETE=NO
+
+All changes from this architecture turn are uncommitted: this contract and the new
+standalone abstract model only. The original23-file diff is checked separately for exact
+preservation. No production coordinator, release gate, target build, commit or push is
+performed here. Continue implementation in the existing worktree; do not restart it.

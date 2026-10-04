@@ -27,6 +27,19 @@ public:
     }
     bool write_immutable(const std::string& k, const Bytes& b) override { return write(k,b,true); }
     bool replace(const std::string& k, const Bytes& b) override { return write(k,b,false); }
+    bool erase_if_equals(const std::string& logical, const Bytes& expected) override {
+        std::string physical;
+        DurablePhysicalKeyRecord record;
+        if (!durable_logical_to_physical_key(logical, physical) ||
+            !durable_physical_key_record(physical, record) || expected.empty() ||
+            record.kind == DurablePhysicalKeyKind::LegacyEvent ||
+            record.kind == DurablePhysicalKeyKind::LegacyCompletion) return false;
+        const auto found = values.find(physical);
+        if (found == values.end()) return true;
+        if (found->second != expected) return false;
+        values.erase(found);
+        return values.count(physical) == 0;
+    }
     bool write(const std::string& logical, const Bytes& bytes, bool immutable) {
         ++writes;
         std::string physical;
@@ -111,6 +124,20 @@ void inventory_tests() {
     check(provider.read("ef0",readback,found)&&found&&readback==Bytes({1,2,3}),"provider logical read maps to physical key");
     check(provider.replace("ev1",Bytes{4,5}),"provider replacement maps logical key");
     check(provider.writes==3,"read-only inventory does not add writes");
+}
+
+void conditional_release_tests() {
+    Fixture fixture;
+    const Bytes source{1, 2, 3};
+    check(fixture.write_immutable("ev1", source), "staged evidence fixture write");
+    check(!fixture.erase_if_equals("ev1", Bytes{1, 2, 4}) &&
+          fixture.values.count("ev0000000000001") == 1,
+          "conditional release protects a different occupant");
+    check(!fixture.erase_if_equals("e000", source) &&
+          fixture.values.count("ev0000000000001") == 1,
+          "legacy event family cannot be used as migration scratch");
+    check(fixture.erase_if_equals("ev1", source) && fixture.values.empty(),
+          "exact staged object release succeeds");
 }
 
 void codec_tests() {
@@ -279,7 +306,7 @@ void owner_tests(gs::host::security::OpenSslCommissioningCrypto& crypto) {
 int main() {
     try {
         gs::host::security::OpenSslCommissioningCrypto crypto;
-        codec_tests(); inventory_tests(); owner_tests(crypto);
+        codec_tests(); inventory_tests(); conditional_release_tests(); owner_tests(crypto);
         std::cout << "Hub durable provider validation passed\n";
         return 0;
     } catch(const std::exception& e) {

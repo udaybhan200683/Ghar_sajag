@@ -6,7 +6,9 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
+#include <string>
 
 namespace gs::hub::durable {
 
@@ -15,8 +17,17 @@ namespace gs::hub::durable {
 // in an effect chunk and checkpointed.
 class DurableJournalSlotStore final : public JournalSlotStore {
 public:
+    struct EnrollmentOwner {
+        std::uint8_t slot{0xff};
+        std::uint32_t generation{0};
+        std::array<std::uint8_t,32> owner_digest{};
+    };
+    using EnrollmentOwnerResolver = std::function<bool(
+        const std::string& physical_device_id, const std::string& claimed_logical_id,
+        EnrollmentOwner&)>;
     DurableJournalSlotStore(HubDurabilityOwner&, security::CommissioningCrypto&,
-                            const security::Key32& journal_key);
+                            const security::Key32& journal_key,
+                            EnrollmentOwnerResolver owner_resolver = {});
     ~DurableJournalSlotStore() override;
     bool read(std::size_t slot, security::Bytes& blob, bool& found) override;
     bool write(std::size_t slot, const security::Bytes& blob) override;
@@ -42,6 +53,7 @@ private:
     HubDurabilityOwner& owner_;
     security::CommissioningCrypto& crypto_;
     security::Key32 journal_key_{};
+    EnrollmentOwnerResolver owner_resolver_;
     std::map<std::size_t, bool> import_completion_;
     bool faulted_{false};
 };

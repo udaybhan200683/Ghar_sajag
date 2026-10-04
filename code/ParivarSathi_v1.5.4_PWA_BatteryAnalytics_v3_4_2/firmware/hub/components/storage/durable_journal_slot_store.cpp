@@ -2,6 +2,7 @@
 #include "firmware/common/transport/node_retirement_protocol.hpp"
 
 #include <algorithm>
+#include <utility>
 
 namespace gs::hub::durable {
 namespace {
@@ -44,8 +45,9 @@ security::Bytes write_u32(std::uint32_t value) {
 
 DurableJournalSlotStore::DurableJournalSlotStore(
     HubDurabilityOwner& owner, security::CommissioningCrypto& crypto,
-    const security::Key32& journal_key)
-    : owner_(owner), crypto_(crypto), journal_key_(journal_key) {}
+    const security::Key32& journal_key, EnrollmentOwnerResolver owner_resolver)
+    : owner_(owner), crypto_(crypto), journal_key_(journal_key),
+      owner_resolver_(std::move(owner_resolver)) {}
 
 DurableJournalSlotStore::~DurableJournalSlotStore() {
     crypto_.secure_zero(journal_key_.data(), journal_key_.size());
@@ -119,6 +121,39 @@ bool DurableJournalSlotStore::rows(std::map<std::size_t, Row>& out,
             out.emplace(slot, std::move(row));
         }
     }
+    if (owner_.state() == DurabilityOwnerState::MigrationRequired ||
+        recovery.checkpoint.allow_legacy_event_slots) {
+        bool saw_empty_slot = false;
+        for (std::size_t slot = 0; slot < 128; ++slot) {
+            const auto digits = std::to_string(slot);
+            const auto key = "e" + std::string(3U - digits.size(), '0') + digits;
+            security::Bytes encoded;
+            bool found = false;
+            if (!owner_.blobs_.read(key, encoded, found)) return false;
+            if (!found) { saw_empty_slot = true; continue; }
+            if (saw_empty_slot) return false;
+            Row legacy;
+            if (!HubJournal::decode_slot_blob(crypto_, journal_key_, slot,
+                                               encoded, legacy.event)) return false;
+            const auto existing = out.find(slot);
+            if (existing != out.end()) {
+                if (!same_event(existing->second.event, legacy.event)) return false;
+            } else if (!out.emplace(slot, std::move(legacy)).second) {
+                return false;
+            }
+        }
+        for (std::size_t slot = 0; slot < 128; ++slot) {
+            const auto key = completion_key(slot);
+            security::Bytes receipt;
+            bool found = false;
+            if (!owner_.blobs_.read(key, receipt, found)) return false;
+            if (!found) continue;
+            const auto event = out.find(slot);
+            if (event == out.end() || !HubJournal::verify_completion_receipt(
+                    crypto_, journal_key_, slot, event->second.event.key, receipt)) return false;
+            event->second.completed = true;
+        }
+    }
     for (const auto& [slot, completed] : import_completion_) {
         const auto found = out.find(slot);
         if (found != out.end()) found->second.completed = completed;
@@ -154,11 +189,14 @@ bool DurableJournalSlotStore::append_event(std::size_t slot,
     transition.type = TransitionType::Event;
     transition.event = {event.key.physical_device_id, event.key.source_id,
                         event.key.session_id, event.key.sequence};
-    transport::RetirementEnrollmentBinding binding;
-    if (!transport::derive_retirement_enrollment_binding(
-            crypto_, journal_key_, event.key.source_id, binding)) return false;
-    transition.enrollment_slot = binding.slot;
-    transition.enrollment_generation = binding.generation;
+    EnrollmentOwner owner;
+    if (!owner_resolver_ || !owner_resolver_(event.key.physical_device_id,
+            event.key.source_id, owner) || owner.slot >= kMaxRetirementNodes ||
+        owner.generation == 0 || std::all_of(owner.owner_digest.begin(),
+            owner.owner_digest.end(), [](std::uint8_t b) { return b == 0; })) return false;
+    transition.enrollment_slot = owner.slot;
+    transition.enrollment_generation = owner.generation;
+    transition.registry_owner_domain = true;
     if (!crypto_.hmac_sha256(journal_key_, payload, transition.event_digest)) return false;
     transition.causal_input = std::move(payload);
     transition.decision = write_u32(static_cast<std::uint32_t>(slot));

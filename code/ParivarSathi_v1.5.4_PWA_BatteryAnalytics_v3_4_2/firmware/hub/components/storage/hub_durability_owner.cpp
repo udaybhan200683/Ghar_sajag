@@ -240,7 +240,8 @@ bool HubDurabilityOwner::initialize_epoch_one() {
     return true;
 }
 
-DurabilityOwnerState HubDurabilityOwner::recover() {
+DurabilityOwnerState HubDurabilityOwner::recover(
+        const std::array<std::uint8_t,32>* authenticated_registry_table) {
     state_ = DurabilityOwnerState::Recovering; error_ = DurabilityOwnerError::None;
     epoch_ = 0; recovered_.reset(); durable_.reset(); retirement_.reset();
     const auto inventory = inventory_.scan();
@@ -262,18 +263,22 @@ DurabilityOwnerState HubDurabilityOwner::recover() {
         inventory.records.begin() + inventory.count, [](const auto& r) {
             return r.kind == InventoryRecord::MigrationMetadata;
         });
+    const bool manifest_only = has_migration && !has_legacy &&
+                               inventory.status == InventoryStatus::KnownCurrentRecords;
+    if (manifest_only && std::none_of(inventory.records.begin(),
+            inventory.records.begin() + inventory.count, [](const auto& record) {
+                return record.kind == InventoryRecord::Checkpoint;
+            })) {
+        // A legacy or malformed migration marker without a root is never
+        // adopted as an epoch. Preserve the existing closed migration state.
+        error_ = DurabilityOwnerError::MigrationRequired;
+        state_ = DurabilityOwnerState::MigrationRequired;
+        return state_;
+    }
     if (has_legacy || has_migration) {
         if (freshness_ != InstallationFreshness::ExistingInstallation) {
             error_ = DurabilityOwnerError::FreshnessMismatch;
             state_ = DurabilityOwnerState::FailedClosed;
-            return state_;
-        }
-        // A migration marker without legacy e/c slots is an unfinished older
-        // migration protocol. It has no authenticated epoch to adopt here, so
-        // retain the explicit migration-required state and keep admission shut.
-        if (has_migration && !has_legacy && inventory.status == InventoryStatus::KnownCurrentRecords) {
-            error_ = DurabilityOwnerError::MigrationRequired;
-            state_ = DurabilityOwnerState::MigrationRequired;
             return state_;
         }
         if (inventory.status == InventoryStatus::KnownLegacyRecords && !has_migration) {
@@ -303,6 +308,27 @@ DurabilityOwnerState HubDurabilityOwner::recover() {
             return state_;
         }
         retirement_ = std::make_unique<RetirementSnapshotRepository>(blobs_, crypto_, key_, epoch_);
+        if (has_migration) {
+            MigrationManifest migration;
+            MigrationManifestRepository manifests(blobs_, crypto_, key_, epoch_);
+            const auto manifest_status = manifests.load(migration, nullptr);
+            if (manifest_status == MigrationManifestStatus::Ready &&
+                migration.phase == MigrationPhase::Activated) {
+                const bool registry_matches = authenticated_registry_table != nullptr &&
+                    *authenticated_registry_table == migration.registry_table_digest &&
+                    recovered_->checkpoint.registry_owner_domain &&
+                    !recovered_->checkpoint.migration_view &&
+                    recovered_->checkpoint.registry_table_digest ==
+                        migration.registry_table_digest &&
+                    recovered_->checkpoint.migration_frontier == migration.frontier &&
+                    (!has_legacy || recovered_->checkpoint.allow_legacy_event_slots);
+                if (registry_matches) {
+                    error_ = DurabilityOwnerError::None;
+                    state_ = DurabilityOwnerState::Ready;
+                    return state_;
+                }
+            }
+        }
         error_ = DurabilityOwnerError::MigrationRequired;
         state_ = DurabilityOwnerState::MigrationRequired;
         return state_;
@@ -347,6 +373,14 @@ DurabilityOwnerState HubDurabilityOwner::recover() {
         error_ = DurabilityOwnerError::RecoveryFailure; state_ = DurabilityOwnerState::FailedClosed; return state_;
     }
     retirement_ = std::make_unique<RetirementSnapshotRepository>(blobs_, crypto_, key_, epoch_);
+    if (recovered_->checkpoint.registry_owner_domain) {
+        // A v2 checkpoint is not independently sufficient to authorize runtime
+        // writes. GMM2 Activated plus the separately authenticated GSRG table
+        // binding must be checked together by the caller.
+        error_ = DurabilityOwnerError::MigrationRequired;
+        state_ = DurabilityOwnerState::MigrationRequired;
+        return state_;
+    }
     state_ = DurabilityOwnerState::Ready; return state_;
 }
 

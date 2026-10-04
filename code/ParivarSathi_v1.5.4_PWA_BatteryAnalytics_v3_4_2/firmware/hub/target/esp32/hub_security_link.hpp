@@ -58,6 +58,10 @@ public:
     SecurityFreshness installation_freshness() const { return freshness_; }
     bool durable_storage_key(security::Key32& out);
     bool event_journal_key(security::Key32& out);
+    // Exposes only the identity-table digest after an authenticated GSRG2
+    // Activated record has been restored.
+    bool authenticated_enrollment_table_digest(
+        std::array<std::uint8_t, 32>& out) const;
     security::CommissioningCrypto& commissioning_crypto() { return crypto_; }
     // Attach the existing bounded encrypted event journal using a key derived
     // from this Hub/Home wrapping key. Failure keeps event admission closed.
@@ -81,6 +85,11 @@ public:
     bool retirement_report_key(const Mac& source, security::Key32& out);
     bool retirement_enrollment_binding(
         const Mac& source, transport::RetirementEnrollmentBinding& out);
+    // Resolve ownership only through the active persisted registry record.
+    // The claimed logical ID is checked for consistency and never selects a slot.
+    bool resolve_enrollment_binding(
+        const std::string& physical_device_id, const std::string& claimed_logical_id,
+        transport::RetirementEnrollmentBinding& out) const;
     std::vector<Mac> enrolled_macs() const;
     const std::string& home_id() const { return home_id_; }
     const std::string& hub_id() const { return hub_id_; }
@@ -117,6 +126,7 @@ private:
     security::Key32 wrapping_key_{};
     security::Key32 journal_key_{};
     security::P256PublicKey hub_public_key_{};
+    hub::RegistryMigrationBarrier registry_migration_{};
     std::unique_ptr<hub::HubRegistryRepository> repository_;
     std::unique_ptr<hub::NodeRegistry> registry_;
     std::vector<security::CommissioningBinding> bindings_;

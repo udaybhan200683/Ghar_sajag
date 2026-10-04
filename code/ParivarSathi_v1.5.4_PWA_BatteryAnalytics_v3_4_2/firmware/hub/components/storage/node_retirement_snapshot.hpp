@@ -10,7 +10,8 @@
 namespace gs::hub::durable {
 
 constexpr std::size_t kMaxRetirementNodes = 10;
-constexpr std::size_t kRetirementSnapshotBankBytes = 6096;
+constexpr std::size_t kRetirementSnapshotBankBytes = 5777;
+constexpr std::size_t kRetirementLegacyInspectionBytes = 6096;
 constexpr std::size_t kRetirementSnapshotBankCount = 3;
 constexpr std::size_t kMaxExactEventEvidence = 128;
 
@@ -29,7 +30,9 @@ struct RetirementSnapshot {
     std::uint32_t storage_epoch{0};
     std::uint64_t generation{0};
     std::array<RetirementNodeSnapshot, kMaxRetirementNodes> nodes{};
-    std::uint8_t node_count{0};
+    std::uint16_t occupancy_mask{0};
+    bool legacy_binding_domain{false};
+    std::size_t node_count() const;
 };
 
 using RetirementSnapshotReference = ReportSnapshotReference;
@@ -58,6 +61,11 @@ public:
     static bool decode(security::CommissioningCrypto&, const security::Key32&,
                        const security::Bytes&, RetirementSnapshot&);
     bool load(const RetirementSnapshotReference&, RetirementSnapshot&) const;
+    // Authenticated schema-1 inspection is migration input only. Callers must
+    // attribute every occupied record before converting it; this does not make
+    // a legacy snapshot valid retirement authority.
+    bool inspect_legacy_for_migration(const RetirementSnapshotReference&,
+                                      RetirementSnapshot&) const;
     // Writes and verifies an unselected bank. A checkpoint must select the
     // returned reference before its contents may be used as retirement proof.
     bool prepare_bank(const RetirementSnapshot&, std::uint8_t referenced_bank_mask,

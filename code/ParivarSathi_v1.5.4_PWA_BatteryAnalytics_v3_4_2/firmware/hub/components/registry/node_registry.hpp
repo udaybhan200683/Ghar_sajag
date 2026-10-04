@@ -11,6 +11,8 @@
 
 namespace gs::hub {
 
+constexpr std::size_t kMaxEnrollmentSlots = 10;
+
 // Physical identity, installation binding and user-facing identity are
 // deliberately separate. Public keys and identifiers are not credentials.
 struct EnrolledNode {
@@ -23,7 +25,20 @@ struct EnrolledNode {
     std::string room;
     std::string function;
     std::uint64_t last_session{0};
+    std::uint8_t enrollment_slot{0xff};
+    std::uint32_t enrollment_generation{0};
     bool quarantined{false};
+};
+
+enum class EnrollmentSlotState : std::uint8_t {
+    NeverOwned = 0, Active = 1, Retired = 2, Released = 3
+};
+
+struct EnrollmentSlotDescriptor {
+    EnrollmentSlotState state{EnrollmentSlotState::NeverOwned};
+    std::uint32_t generation{0};
+    std::string device_id;
+    std::array<std::uint8_t, 32> owner_digest{};
 };
 
 enum class RegistryResult {
@@ -57,6 +72,7 @@ struct RegistrySnapshot {
     std::string hub_id;
     std::vector<EnrolledNode> active;
     std::vector<std::string> revoked_device_ids;
+    std::array<EnrollmentSlotDescriptor, kMaxEnrollmentSlots> enrollment_slots{};
 };
 
 // This bounded store is downstream of authenticated commissioning/rejoin.
@@ -87,6 +103,11 @@ public:
     std::size_t capacity() const { return installed_capacity_; }
     std::size_t tombstone_count() const { return tombstones_.size(); }
     const RegistryCounters& counters() const { return counters_; }
+    const std::array<EnrollmentSlotDescriptor, kMaxEnrollmentSlots>& enrollment_slots() const {
+        return enrollment_slots_;
+    }
+    bool set_enrollment_slot_digest(std::uint8_t slot,
+                                    const std::array<std::uint8_t, 32>& digest);
 
 private:
     bool valid(const EnrolledNode& record) const;
@@ -102,6 +123,7 @@ private:
     std::size_t tombstone_capacity_;
     std::map<std::string, EnrolledNode> active_;
     std::deque<std::string> tombstones_;
+    std::array<EnrollmentSlotDescriptor, kMaxEnrollmentSlots> enrollment_slots_{};
     RegistryCounters counters_{};
 };
 

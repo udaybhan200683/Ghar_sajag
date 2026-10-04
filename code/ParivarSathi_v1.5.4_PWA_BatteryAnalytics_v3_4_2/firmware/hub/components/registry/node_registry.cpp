@@ -1,6 +1,7 @@
 #include "firmware/hub/components/registry/node_registry.hpp"
 
 #include <algorithm>
+#include <set>
 #include <utility>
 
 namespace gs::hub {
@@ -10,6 +11,7 @@ NodeRegistry::NodeRegistry(std::string home_id, std::string hub_id,
     : home_id_(std::move(home_id)), hub_id_(std::move(hub_id)),
       installed_capacity_(installed_capacity), tombstone_capacity_(tombstone_capacity) {
     if (home_id_.empty() || hub_id_.empty() || installed_capacity_ < 10 ||
+        installed_capacity_ > kMaxEnrollmentSlots ||
         tombstone_capacity_ == 0) {
         // ESP-IDF product builds disable C++ exceptions. An invalid registry
         // must refuse all mutations rather than panic or become unbounded.
@@ -66,7 +68,22 @@ RegistryResult NodeRegistry::enroll(const EnrolledNode& record) {
     const auto clash = conflict(record);
     if (clash != RegistryResult::Accepted) return reject(clash);
     if (active_.size() >= installed_capacity_) return reject(RegistryResult::CapacityFull);
-    active_.emplace(record.device_id, record);
+    std::size_t slot = enrollment_slots_.size();
+    for (std::size_t i = 0; i < enrollment_slots_.size(); ++i)
+        if (enrollment_slots_[i].state == EnrollmentSlotState::NeverOwned) {
+            slot = i;
+            break;
+        }
+    if (slot == enrollment_slots_.size()) return reject(RegistryResult::CapacityFull);
+    EnrolledNode assigned = record;
+    assigned.enrollment_slot = static_cast<std::uint8_t>(slot);
+    assigned.enrollment_generation = 1;
+    EnrollmentSlotDescriptor descriptor;
+    descriptor.state = EnrollmentSlotState::Active;
+    descriptor.generation = 1;
+    descriptor.device_id = record.device_id;
+    enrollment_slots_[slot] = std::move(descriptor);
+    active_.emplace(record.device_id, std::move(assigned));
     ++counters_.enrolled;
     return RegistryResult::Accepted;
 }
@@ -116,6 +133,13 @@ RegistryResult NodeRegistry::remove(const std::string& device_id) {
                                             : RegistryResult::UnknownDevice);
     if (tombstones_.size() >= tombstone_capacity_)
         return reject_revocation_at_capacity(found->second);
+    if (found->second.enrollment_slot >= enrollment_slots_.size())
+        return reject(RegistryResult::InvalidRecord);
+    auto& owner = enrollment_slots_[found->second.enrollment_slot];
+    if (owner.state != EnrollmentSlotState::Active || owner.device_id != device_id ||
+        owner.generation != found->second.enrollment_generation)
+        return reject(RegistryResult::InvalidRecord);
+    owner.state = EnrollmentSlotState::Retired;
     active_.erase(found);
     tombstone(device_id);
     ++counters_.removed;
@@ -140,9 +164,31 @@ RegistryResult NodeRegistry::replace(const std::string& old_device_id,
     if (clash != RegistryResult::Accepted) return reject(clash);
     if (tombstones_.size() >= tombstone_capacity_)
         return reject_revocation_at_capacity(old->second);
-    // Validate before mutation. The logical slot remains occupied throughout
-    // replacement, including when the registry is at installed capacity.
-    active_.emplace(replacement.device_id, replacement);
+    std::size_t slot = enrollment_slots_.size();
+    for (std::size_t i = 0; i < enrollment_slots_.size(); ++i)
+        if (enrollment_slots_[i].state == EnrollmentSlotState::NeverOwned) {
+            slot = i;
+            break;
+        }
+    if (slot == enrollment_slots_.size()) return reject(RegistryResult::CapacityFull);
+    if (old->second.enrollment_slot >= enrollment_slots_.size())
+        return reject(RegistryResult::InvalidRecord);
+    auto& old_owner = enrollment_slots_[old->second.enrollment_slot];
+    if (old_owner.state != EnrollmentSlotState::Active ||
+        old_owner.device_id != old_device_id ||
+        old_owner.generation != old->second.enrollment_generation)
+        return reject(RegistryResult::InvalidRecord);
+    // Validate both owners before the candidate snapshot can be persisted.
+    EnrolledNode assigned = replacement;
+    assigned.enrollment_slot = static_cast<std::uint8_t>(slot);
+    assigned.enrollment_generation = 1;
+    EnrollmentSlotDescriptor next_owner;
+    next_owner.state = EnrollmentSlotState::Active;
+    next_owner.generation = 1;
+    next_owner.device_id = replacement.device_id;
+    old_owner.state = EnrollmentSlotState::Retired;
+    enrollment_slots_[slot] = std::move(next_owner);
+    active_.emplace(replacement.device_id, std::move(assigned));
     active_.erase(old);
     tombstone(old_device_id);
     ++counters_.replaced;
@@ -180,6 +226,7 @@ RegistrySnapshot NodeRegistry::snapshot() const {
         state.active.push_back(record);
     }
     state.revoked_device_ids.assign(tombstones_.begin(), tombstones_.end());
+    state.enrollment_slots = enrollment_slots_;
     return state;
 }
 
@@ -194,15 +241,75 @@ bool NodeRegistry::restore(const RegistrySnapshot& state) {
         if (id.empty() || id.size() > 64 || candidate.is_revoked(id)) return false;
         candidate.tombstone(id);
     }
-    for (const auto& saved : state.active) {
+    const bool descriptors_present = std::any_of(state.enrollment_slots.begin(),
+        state.enrollment_slots.end(), [](const auto& d) {
+            return d.state != EnrollmentSlotState::NeverOwned || d.generation != 0 ||
+                   !d.device_id.empty();
+        });
+    if (descriptors_present) {
+        std::set<std::string> descriptor_ids;
+        for (std::size_t i = 0; i < state.enrollment_slots.size(); ++i) {
+            const auto& d = state.enrollment_slots[i];
+            if (d.state == EnrollmentSlotState::NeverOwned) {
+                if (d.generation != 0 || !d.device_id.empty()) return false;
+                continue;
+            }
+            if (d.state == EnrollmentSlotState::Released || d.generation == 0 ||
+                d.device_id.empty() || d.device_id.size() > 64 ||
+                !descriptor_ids.insert(d.device_id).second) return false;
+            candidate.enrollment_slots_[i] = d;
+            if ((d.state == EnrollmentSlotState::Retired) != candidate.is_revoked(d.device_id))
+                return false;
+        }
+    }
+    auto records = state.active;
+    std::array<bool, kMaxEnrollmentSlots> active_descriptor_seen{};
+    std::sort(records.begin(), records.end(), [](const auto& a, const auto& b) {
+        return a.device_id < b.device_id;
+    });
+    for (const auto& saved : records) {
         EnrolledNode record = saved;
         record.quarantined = false;
-        if (candidate.enroll(record) != RegistryResult::Accepted) return false;
+        if (descriptors_present) {
+            if (saved.enrollment_slot >= candidate.enrollment_slots_.size()) return false;
+            const auto& d = candidate.enrollment_slots_[saved.enrollment_slot];
+            if (d.state != EnrollmentSlotState::Active || d.device_id != saved.device_id ||
+                d.generation != saved.enrollment_generation || candidate.is_revoked(d.device_id) ||
+                candidate.conflict(record) != RegistryResult::Accepted || !candidate.valid(record) ||
+                record.home_id != home_id_ || record.hub_id != hub_id_) return false;
+            if (active_descriptor_seen[saved.enrollment_slot]) return false;
+            active_descriptor_seen[saved.enrollment_slot] = true;
+            candidate.active_.emplace(record.device_id, record);
+        } else {
+            record.enrollment_slot = 0xff;
+            record.enrollment_generation = 0;
+            if (candidate.enroll(record) != RegistryResult::Accepted) return false;
+        }
         if (saved.quarantined) candidate.active_.find(saved.device_id)->second.quarantined = true;
+    }
+    if (descriptors_present) {
+        for (std::size_t slot = 0; slot < state.enrollment_slots.size(); ++slot)
+            if ((state.enrollment_slots[slot].state == EnrollmentSlotState::Active) !=
+                active_descriptor_seen[slot]) return false;
     }
     active_.swap(candidate.active_);
     tombstones_.swap(candidate.tombstones_);
+    enrollment_slots_.swap(candidate.enrollment_slots_);
     counters_ = {};
+    return true;
+}
+
+bool NodeRegistry::set_enrollment_slot_digest(
+        std::uint8_t slot, const std::array<std::uint8_t, 32>& digest) {
+    if (slot >= enrollment_slots_.size() ||
+        enrollment_slots_[slot].state == EnrollmentSlotState::NeverOwned ||
+        enrollment_slots_[slot].state == EnrollmentSlotState::Released ||
+        std::all_of(digest.begin(), digest.end(), [](std::uint8_t b) { return b == 0; }) ||
+        (std::any_of(enrollment_slots_[slot].owner_digest.begin(),
+                     enrollment_slots_[slot].owner_digest.end(), [](std::uint8_t b) { return b != 0; }) &&
+         enrollment_slots_[slot].owner_digest != digest))
+        return false;
+    enrollment_slots_[slot].owner_digest = digest;
     return true;
 }
 

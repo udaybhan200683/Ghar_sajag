@@ -13,7 +13,7 @@
 namespace gs::hub::durable {
 
 constexpr std::size_t kMaxTransitionBytes = 1332;
-constexpr std::size_t kMaxCheckpointBytes = 4514;
+constexpr std::size_t kMaxCheckpointBytes = 4549;
 constexpr std::size_t kMaxPendingChunkBytes = 1260;
 constexpr std::size_t kMaxDedupeEvidenceChunkBytes = 320;
 constexpr std::size_t kMaxBitmapBytes = 384;
@@ -26,6 +26,9 @@ constexpr std::size_t kMaxEffectsPerChunk = 4;
 constexpr std::size_t kMaxCheckpointEffectRefs = 16;
 constexpr std::size_t kMaxCheckpointChunkRefs = 32;
 constexpr std::size_t kMaxDedupeEvidenceRefs = 32;
+constexpr std::size_t kMigrationManifestBankBytes = 218;
+constexpr std::size_t kMigrationManifestTotalBytes = 436;
+constexpr std::size_t kMigrationManifestTotalEntries = 18;
 
 enum class TransitionType : std::uint8_t { Event = 1, Timer = 2, Registry = 3, ConfigApply = 4 };
 
@@ -50,6 +53,7 @@ struct Transition {
     EventIdentity event;
     std::uint8_t enrollment_slot{0};
     std::uint32_t enrollment_generation{0};
+    bool registry_owner_domain{false};
     std::array<std::uint8_t, 32> event_digest{};
     bool event_digest_present{true};
     std::uint32_t config_version{0};
@@ -100,6 +104,7 @@ struct DedupeEvidenceChunk {
     std::uint64_t chunk_id{0};
     std::array<DedupeEvidenceEntry, 4> entries{};
     std::uint8_t count{0};
+    bool registry_owner_domain{false};
 };
 
 struct Checkpoint {
@@ -114,6 +119,13 @@ struct Checkpoint {
     std::vector<ChunkReference> pending_chunks;
     std::vector<DedupeEvidenceReference> dedupe_evidence_chunks;
     std::optional<ReportSnapshotReference> report_snapshot;
+    std::array<std::uint8_t, 32> registry_table_digest{};
+    std::uint16_t migration_frontier{0};
+    bool migration_view{false};
+    bool registry_owner_domain{false};
+    bool allow_legacy_event_tail{false};
+    bool allow_legacy_event_slots{false};
+    std::uint8_t protected_live_tail_count{0};
     // Decoded schema-1 frontiers have no exact digest and cannot authorize
     // admission or be silently rewritten as exact evidence.
     bool legacy_dedupe_unverified{false};
@@ -133,6 +145,36 @@ struct CompletionBitmap {
     std::array<std::uint8_t, 32> mapping_digest{};
     std::uint16_t committed_bits{0};
 };
+
+enum class MigrationPhase : std::uint8_t {
+    NotStarted = 0, Prepared = 1, Copying = 2, TargetVerified = 3,
+    Published = 4, Cleanup = 5, BatchDone = 6, Activated = 7
+};
+enum class MigrationBatchFamily : std::uint8_t {
+    None = 0, EvidenceChunk = 1, RetirementSnapshot = 2,
+    TailPair = 3, FinalActivation = 4
+};
+struct MigrationManifest {
+    std::uint32_t epoch{0};
+    std::array<std::uint8_t, 16> migration_id{};
+    MigrationPhase phase{MigrationPhase::NotStarted};
+    std::uint8_t source_bank{0xff};
+    std::uint64_t source_generation{0};
+    std::array<std::uint8_t, 32> source_compound_digest{};
+    std::array<std::uint8_t, 32> registry_table_digest{};
+    MigrationBatchFamily batch_family{MigrationBatchFamily::None};
+    std::uint64_t source_key_id{0};
+    std::uint64_t target_key_id{0};
+    std::array<std::uint8_t, 32> source_child_digest{};
+    std::uint16_t frontier{0};
+    std::uint64_t target_root_generation{0};
+    std::array<std::uint8_t, 32> target_root_digest{};
+    std::uint8_t source_live_tail_count{0};
+    bool normal_publication{false};
+    bool virtual_legacy_source{false};
+    bool cancelled_normal_publication{false};
+};
+enum class MigrationManifestStatus { Missing, Ready, Corrupt, Conflict, IoError };
 
 class Codec {
 public:
@@ -162,6 +204,14 @@ public:
     static bool decode_selector(security::CommissioningCrypto&, const security::Key32&,
                                 const security::Bytes&, std::uint64_t& generation,
                                 std::uint8_t& checkpoint_index);
+    static bool encode_migration_manifest(security::CommissioningCrypto&,
+                                          const security::Key32&,
+                                          const MigrationManifest&,
+                                          security::Bytes&);
+    static bool decode_migration_manifest(security::CommissioningCrypto&,
+                                          const security::Key32&,
+                                          const security::Bytes&,
+                                          MigrationManifest&);
 };
 
 enum class CommitStatus { Committed, NotCommitted, StorageFault, AmbiguousResolvedCommitted, Conflict };
@@ -173,6 +223,25 @@ public:
     virtual bool read(const std::string& key, security::Bytes& value, bool& found) = 0;
     virtual bool write_immutable(const std::string& key, const security::Bytes& value) = 0;
     virtual bool replace(const std::string& key, const security::Bytes& value) = 0;
+    // Exact conditional release for a G05 manifest-owned key. Implementations
+    // must compare before erase and verify absence afterward.
+    virtual bool erase_if_equals(const std::string&, const security::Bytes&) { return false; }
+};
+
+class MigrationManifestRepository {
+public:
+    MigrationManifestRepository(BlobStore&, security::CommissioningCrypto&,
+                                const security::Key32& key, std::uint32_t epoch);
+    ~MigrationManifestRepository();
+    MigrationManifestRepository(const MigrationManifestRepository&) = delete;
+    MigrationManifestRepository& operator=(const MigrationManifestRepository&) = delete;
+    MigrationManifestStatus load(MigrationManifest& out, std::uint8_t* selected_bank = nullptr);
+    bool advance(const MigrationManifest& next);
+private:
+    BlobStore& store_;
+    security::CommissioningCrypto& crypto_;
+    security::Key32 key_{};
+    std::uint32_t epoch_{0};
 };
 
 // Deterministic host store. Production target adapters can implement BlobStore.
@@ -181,6 +250,7 @@ public:
     bool read(const std::string&, security::Bytes&, bool&) override;
     bool write_immutable(const std::string&, const security::Bytes&) override;
     bool replace(const std::string&, const security::Bytes&) override;
+    bool erase_if_equals(const std::string&, const security::Bytes&) override;
     void inject(FaultMode mode) { next_fault_ = mode; }
     void inject_after(std::size_t successful_writes, FaultMode mode) {
         writes_before_fault_ = successful_writes;
@@ -225,6 +295,14 @@ public:
     bool read_pending_chunk(std::uint64_t chunk_id, PendingEffectChunk& out);
     bool read_evidence_chunk(std::uint64_t chunk_id, DedupeEvidenceChunk& out);
     bool read_evidence_chunk(const DedupeEvidenceReference&, DedupeEvidenceChunk& out);
+    // Authenticated digest over a checkpoint and its referenced durable
+    // children plus fixed event/completion inventories, in canonical key order.
+    // `source_live_tail_count == 0xff` uses the checkpoint's protected prefix.
+    // The explicit form is used only to pin the full frozen source tail in GMM2.
+    bool compound_root_digest(std::uint8_t checkpoint_bank,
+                              std::array<std::uint8_t, 32>& out,
+                              std::uint8_t source_live_tail_count = 0xff,
+                              bool include_legacy_event_slots = false);
 private:
     BlobStore& store_;
     security::CommissioningCrypto& crypto_;

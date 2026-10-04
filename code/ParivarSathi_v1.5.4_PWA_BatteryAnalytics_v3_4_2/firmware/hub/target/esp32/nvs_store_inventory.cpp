@@ -14,7 +14,7 @@ constexpr const char* kOwnedNamespace = "events";
 std::size_t max_length(DurablePhysicalKeyKind kind) {
     using K = DurablePhysicalKeyKind;
     switch (kind) {
-        case K::Checkpoint: return 4514;
+        case K::Checkpoint: return 4549;
         case K::Selector: return 64;
         case K::Transition: return 1332;
         case K::EffectChunk: return 1260;
@@ -23,7 +23,7 @@ std::size_t max_length(DurablePhysicalKeyKind kind) {
         case K::RetirementBank: return 6096;
         case K::LegacyEvent: return 284;
         case K::LegacyCompletion: return 32;
-        case K::MigrationMetadata: return 512;
+        case K::MigrationMetadata: return 218;
     }
     return 0;
 }

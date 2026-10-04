@@ -34,6 +34,25 @@ gs::DomainEvent event(std::uint64_t sequence) {
     return value;
 }
 
+DurableJournalSlotStore::EnrollmentOwnerResolver test_owner_resolver() {
+    return [](const std::string& physical, const std::string& logical,
+              DurableJournalSlotStore::EnrollmentOwner& owner) {
+        if (physical == "device-1" && logical == "room-1") {
+            owner.slot = 0;
+            owner.generation = 1;
+            owner.owner_digest.fill(0x51);
+            return true;
+        }
+        if (physical == std::string(64, 'p') && logical == std::string(24, 's')) {
+            owner.slot = 1;
+            owner.generation = 1;
+            owner.owner_digest.fill(0x52);
+            return true;
+        }
+        return false;
+    };
+}
+
 class Fixture final : public BlobStore, public StoreInventory, public JournalSlotStore {
 public:
     bool read(const std::string& logical, Bytes& value, bool& found) override {
@@ -65,6 +84,19 @@ public:
         std::string physical;
         if (!durable_logical_to_physical_key(logical, physical)) return false;
         blobs[physical] = value; return true;
+    }
+    bool erase_if_equals(const std::string& logical, const Bytes& expected) override {
+        std::string physical;
+        DurablePhysicalKeyRecord record;
+        if (!durable_logical_to_physical_key(logical, physical) ||
+            !durable_physical_key_record(physical, record) || expected.empty() ||
+            record.kind == DurablePhysicalKeyKind::LegacyEvent ||
+            record.kind == DurablePhysicalKeyKind::LegacyCompletion) return false;
+        const auto item = blobs.find(physical);
+        if (item == blobs.end()) return true;
+        if (item->second != expected) return false;
+        blobs.erase(item);
+        return blobs.count(physical) == 0;
     }
     InventorySnapshot scan() override {
         InventorySnapshot out;
@@ -158,7 +190,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
           owner.migration_epoch() == 1, "legacy owner gates admission but preserves epoch");
     HubJournal legacy(128);
     check(open_legacy(clean, crypto, event_key, legacy), "legacy source reopens");
-    DurableJournalSlotStore durable(owner, crypto, event_key);
+    DurableJournalSlotStore durable(owner, crypto, event_key, test_owner_resolver());
     check(migrate_legacy_journal(legacy, clean, durable), "clean migration commits");
     check(clean.events[0].empty() && clean.events[1].empty() &&
           clean.completions[0].empty(), "source data erased after committed copy");
@@ -168,7 +200,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner reboot(clean, clean, crypto, storage_key, InstallationFreshness::ExistingInstallation);
     check(reboot.recover() == DurabilityOwnerState::Ready && reboot.epoch() == 1,
           "restart preserves migrated epoch");
-    DurableJournalSlotStore reboot_store(reboot, crypto, event_key);
+    DurableJournalSlotStore reboot_store(reboot, crypto, event_key, test_owner_resolver());
     HubJournal restored(128);
     check(restored.attach_persistence(crypto, reboot_store, event_key) && restored.size() == 2 &&
           restored.cloud_completed(event(1).key) && restored.cloud_completed(event(2).key),
@@ -179,7 +211,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner before_owner(before, before, crypto, storage_key, InstallationFreshness::ExistingInstallation);
     check(before_owner.recover() == DurabilityOwnerState::MigrationRequired, "precommit owner state");
     HubJournal before_legacy(128); check(open_legacy(before, crypto, event_key, before_legacy), "precommit source opens");
-    DurableJournalSlotStore before_store(before_owner, crypto, event_key);
+    DurableJournalSlotStore before_store(before_owner, crypto, event_key, test_owner_resolver());
     before.fail_writes = true;
     check(!migrate_legacy_journal(before_legacy, before, before_store) &&
           !before.events[0].empty() && !before.events[1].empty(), "interrupted precommit preserves source");
@@ -187,7 +219,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner before_resume(before, before, crypto, storage_key, InstallationFreshness::ExistingInstallation);
     check(before_resume.recover() == DurabilityOwnerState::MigrationRequired,
           "precommit restart remains migration gated");
-    DurableJournalSlotStore before_resume_store(before_resume, crypto, event_key);
+    DurableJournalSlotStore before_resume_store(before_resume, crypto, event_key, test_owner_resolver());
     check(migrate_legacy_journal(before_legacy, before, before_resume_store), "precommit migration resumes");
 
     // Fail the first legacy erase after durable checkpoint and verification.
@@ -195,7 +227,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner after_owner(after, after, crypto, storage_key, InstallationFreshness::ExistingInstallation);
     check(after_owner.recover() == DurabilityOwnerState::MigrationRequired, "postcommit owner state");
     HubJournal after_legacy(128); check(open_legacy(after, crypto, event_key, after_legacy), "postcommit source opens");
-    DurableJournalSlotStore after_store(after_owner, crypto, event_key);
+    DurableJournalSlotStore after_store(after_owner, crypto, event_key, test_owner_resolver());
     after.fail_erase = true;
     check(!migrate_legacy_journal(after_legacy, after, after_store) &&
           !after.events[0].empty() && !after.events[1].empty(), "postcommit interruption retains source");
@@ -203,7 +235,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner after_resume(after, after, crypto, storage_key, InstallationFreshness::ExistingInstallation);
     check(after_resume.recover() == DurabilityOwnerState::MigrationRequired &&
           after_resume.migration_epoch() == 1, "postcommit restart recovers same epoch");
-    DurableJournalSlotStore after_resume_store(after_resume, crypto, event_key);
+    DurableJournalSlotStore after_resume_store(after_resume, crypto, event_key, test_owner_resolver());
     check(migrate_legacy_journal(after_legacy, after, after_resume_store), "postcommit migration resumes");
     check(after_resume.recover() == DurabilityOwnerState::Ready && after_resume.epoch() == 1,
           "postcommit restart reaches ready at stable epoch");
@@ -216,7 +248,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubJournal partial_source(128);
     check(open_legacy(partial_cleanup, crypto, event_key, partial_source),
           "partial cleanup source attaches");
-    DurableJournalSlotStore partial_store(partial_owner, crypto, event_key);
+    DurableJournalSlotStore partial_store(partial_owner, crypto, event_key, test_owner_resolver());
     partial_cleanup.fail_event_erase = true;
     check(!migrate_legacy_journal(partial_source, partial_cleanup, partial_store) &&
           partial_cleanup.completions[1].empty() && !partial_cleanup.events[1].empty(),
@@ -230,11 +262,11 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     check(open_legacy(partial_cleanup, crypto, event_key, partial_reopened) &&
           !partial_reopened.cloud_completed(event(2).key),
           "missing legacy receipt does not fabricate source completion");
-    DurableJournalSlotStore partial_resume_store(partial_resume, crypto, event_key);
+    DurableJournalSlotStore partial_resume_store(partial_resume, crypto, event_key, test_owner_resolver());
     check(migrate_legacy_journal(partial_reopened, partial_cleanup, partial_resume_store) &&
           partial_resume.recover() == DurabilityOwnerState::Ready && partial_resume.epoch() == 1,
           "partial cleanup restart is idempotent and reaches ready");
-    DurableJournalSlotStore partial_final_store(partial_resume, crypto, event_key);
+    DurableJournalSlotStore partial_final_store(partial_resume, crypto, event_key, test_owner_resolver());
     HubJournal partial_final(128);
     check(partial_final.attach_persistence(crypto, partial_final_store, event_key) &&
           partial_final.size() == 2 && partial_final.cloud_completed(event(2).key),
@@ -245,7 +277,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner empty_owner(empty, empty, crypto, storage_key, InstallationFreshness::FreshInstallation);
     check(empty_owner.recover() == DurabilityOwnerState::Ready, "empty new owner ready");
     HubJournal empty_legacy(128); check(open_legacy(empty, crypto, event_key, empty_legacy), "empty source opens");
-    DurableJournalSlotStore empty_store(empty_owner, crypto, event_key);
+    DurableJournalSlotStore empty_store(empty_owner, crypto, event_key, test_owner_resolver());
     check(migrate_legacy_journal(empty_legacy, empty, empty_store), "no legacy records is a no-op");
     Fixture orphan; orphan.completions[0] = Bytes{1,2,3};
     HubDurabilityOwner orphan_owner(orphan, orphan, crypto, storage_key, InstallationFreshness::ExistingInstallation);
@@ -259,7 +291,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner live_owner(live, live, crypto, storage_key, InstallationFreshness::FreshInstallation);
     check(live_owner.recover() == DurabilityOwnerState::Ready && live_owner.epoch() == 1,
           "fresh event owner initialized");
-    DurableJournalSlotStore live_store(live_owner, crypto, event_key);
+    DurableJournalSlotStore live_store(live_owner, crypto, event_key, test_owner_resolver());
     HubJournal live_journal(128);
     check(live_journal.attach_persistence(crypto, live_store, event_key), "new durable journal attaches");
     const auto live_result = live_journal.commit(event(7));
@@ -279,7 +311,7 @@ void run(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     HubDurabilityOwner live_reboot(live, live, crypto, storage_key, InstallationFreshness::ExistingInstallation);
     check(live_reboot.recover() == DurabilityOwnerState::Ready && live_reboot.epoch() == 1,
           "live event owner restarts with stable epoch");
-    DurableJournalSlotStore live_reboot_store(live_reboot, crypto, event_key);
+    DurableJournalSlotStore live_reboot_store(live_reboot, crypto, event_key, test_owner_resolver());
     HubJournal live_recovered(128);
     check(live_recovered.attach_persistence(crypto, live_reboot_store, event_key) &&
           live_recovered.size() == 5 && live_recovered.records()[0].key.str() == event(7).key.str() &&
@@ -292,7 +324,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
     Fixture f;
     HubDurabilityOwner owner(f, f, crypto, k, InstallationFreshness::FreshInstallation);
     check(owner.recover() == DurabilityOwnerState::Ready, "completion owner ready");
-    DurableJournalSlotStore store(owner, crypto, k);
+    DurableJournalSlotStore store(owner, crypto, k, test_owner_resolver());
     HubJournal journal(128);
     check(journal.attach_persistence(crypto, store, k), "completion journal attaches");
     check(journal.commit(event(1)) == CommitResult::Stored &&
@@ -314,7 +346,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
           f.completion_writes == writes, "duplicate completion has no write");
     HubDurabilityOwner reboot(f, f, crypto, k, InstallationFreshness::ExistingInstallation);
     check(reboot.recover() == DurabilityOwnerState::Ready, "new owner accepts independent receipts");
-    DurableJournalSlotStore restarted(reboot, crypto, k);
+    DurableJournalSlotStore restarted(reboot, crypto, k, test_owner_resolver());
     HubJournal recovered(128);
     check(recovered.attach_persistence(crypto, restarted, k) && recovered.size() == 2 &&
           recovered.cloud_completed(event(1).key) && !recovered.cloud_completed(event(2).key),
@@ -339,7 +371,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
     check(reboot.durable_store()->checkpoint(report_cp), "report checkpoint selects snapshot");
     HubDurabilityOwner report_reboot(f, f, crypto, k, InstallationFreshness::ExistingInstallation);
     check(report_reboot.recover() == DurabilityOwnerState::Ready, "report lifecycle reboot owner");
-    DurableJournalSlotStore report_store(report_reboot, crypto, k);
+    DurableJournalSlotStore report_store(report_reboot, crypto, k, test_owner_resolver());
     HubJournal report_journal(128);
     check(report_journal.attach_persistence(crypto, report_store, k) && report_journal.size() == 2 &&
           report_journal.cloud_completed(event(1).key) && !report_journal.cloud_completed(event(2).key),
@@ -360,7 +392,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
         } else bad.blobs["c000"][0] ^= 1;
         HubDurabilityOwner bad_owner(bad, bad, crypto, k, InstallationFreshness::ExistingInstallation);
         check(bad_owner.recover() == DurabilityOwnerState::Ready, "completion authentication occurs at journal bind");
-        DurableJournalSlotStore bad_store(bad_owner, crypto, k);
+        DurableJournalSlotStore bad_store(bad_owner, crypto, k, test_owner_resolver());
         HubJournal bad_journal(128);
         check(!bad_journal.attach_persistence(crypto, bad_store, k) && bad_journal.storage_fault(),
               "conflicting or corrupt completion fails closed");
@@ -371,7 +403,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
         Fixture interrupted = f;
         HubDurabilityOwner before(interrupted, interrupted, crypto, k, InstallationFreshness::ExistingInstallation);
         check(before.recover() == DurabilityOwnerState::Ready, "fault owner ready");
-        DurableJournalSlotStore before_store(before, crypto, k);
+        DurableJournalSlotStore before_store(before, crypto, k, test_owner_resolver());
         HubJournal before_journal(128);
         check(before_journal.attach_persistence(crypto, before_store, k), "fault journal ready");
         CloudSync before_cloud(before_journal);
@@ -383,7 +415,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
               "only exact durable completion readback proves completion");
         HubDurabilityOwner after(interrupted, interrupted, crypto, k, InstallationFreshness::ExistingInstallation);
         check(after.recover() == DurabilityOwnerState::Ready, "interrupted owner restores archives");
-        DurableJournalSlotStore after_store(after, crypto, k);
+        DurableJournalSlotStore after_store(after, crypto, k, test_owner_resolver());
         HubJournal after_journal(128);
         const bool opened = after_journal.attach_persistence(crypto, after_store, k);
         if (fault == FaultMode::PartialWrite) {
@@ -400,12 +432,12 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
     HubDurabilityOwner migrating(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
     check(migrating.recover() == DurabilityOwnerState::MigrationRequired, "kind1 migration owner");
     HubJournal source(128); check(open_legacy(legacy, crypto, k, source), "kind1 source");
-    DurableJournalSlotStore destination(migrating, crypto, k);
+    DurableJournalSlotStore destination(migrating, crypto, k, test_owner_resolver());
     check(migrate_legacy_journal(source, legacy, destination) &&
           migrating.recover() == DurabilityOwnerState::Ready, "kind1 archives committed");
     const auto legacy_archives = legacy.blobs;
     legacy.completion_fault = FaultMode::FailBeforeWrite;
-    DurableJournalSlotStore failed_publish(migrating, crypto, k);
+    DurableJournalSlotStore failed_publish(migrating, crypto, k, test_owner_resolver());
     HubJournal failed_journal(128);
     check(!failed_journal.attach_persistence(crypto, failed_publish, k),
           "failed legacy publication prevents runtime opening");
@@ -417,7 +449,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
     check(failed_publish.read_completion(0, first_receipt, first_found) && first_found,
           "first legacy receipt publishes independently");
     legacy.completion_fault = FaultMode::FailBeforeWrite;
-    DurableJournalSlotStore partial_publish(migrating, crypto, k);
+    DurableJournalSlotStore partial_publish(migrating, crypto, k, test_owner_resolver());
     HubJournal partial_journal(128);
     check(!partial_journal.attach_persistence(crypto, partial_publish, k) &&
           legacy.blobs.count("c000") && !legacy.blobs.count("c001"),
@@ -425,7 +457,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
     HubDurabilityOwner resumed(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
     check(resumed.recover() == DurabilityOwnerState::Ready, "publication restart owner");
     legacy.completion_fault = FaultMode::PowerLossAfterPersist;
-    DurableJournalSlotStore resume_store(resumed, crypto, k);
+    DurableJournalSlotStore resume_store(resumed, crypto, k, test_owner_resolver());
     HubJournal resume_journal(128);
     check(resume_journal.attach_persistence(crypto, resume_store, k) &&
           resume_journal.cloud_completed_count() == 2 && legacy.blobs.count("c000") && legacy.blobs.count("c001"),
@@ -435,7 +467,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
     const auto publications = legacy.completion_writes;
     HubDurabilityOwner again(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
     check(again.recover() == DurabilityOwnerState::Ready, "published legacy completion restart");
-    DurableJournalSlotStore again_store(again, crypto, k);
+    DurableJournalSlotStore again_store(again, crypto, k, test_owner_resolver());
     HubJournal again_journal(128);
     check(again_journal.attach_persistence(crypto, again_store, k) &&
           again_journal.pending_cloud(128).empty() && legacy.completion_writes == publications,
@@ -450,7 +482,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
           "new completion coexists with old published markers");
     HubDurabilityOwner mixed_owner(legacy, legacy, crypto, k, InstallationFreshness::ExistingInstallation);
     check(mixed_owner.recover() == DurabilityOwnerState::Ready, "mixed evidence owner recovery");
-    DurableJournalSlotStore mixed_store(mixed_owner, crypto, k);
+    DurableJournalSlotStore mixed_store(mixed_owner, crypto, k, test_owner_resolver());
     HubJournal mixed_journal(128);
     check(mixed_journal.attach_persistence(crypto, mixed_store, k) && mixed_journal.size() == 4 &&
           mixed_journal.cloud_completed_count() == 3 && mixed_journal.pending_cloud(128).size() == 1 &&
@@ -460,7 +492,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
     Fixture full;
     HubDurabilityOwner full_owner(full, full, crypto, k, InstallationFreshness::FreshInstallation);
     check(full_owner.recover() == DurabilityOwnerState::Ready, "boundary owner ready");
-    DurableJournalSlotStore full_store(full_owner, crypto, k);
+    DurableJournalSlotStore full_store(full_owner, crypto, k, test_owner_resolver());
     HubJournal full_journal(128);
     check(full_journal.attach_persistence(crypto, full_store, k), "boundary journal attaches");
     CloudSync full_cloud(full_journal);
@@ -487,7 +519,7 @@ void completion_contract(gs::host::security::OpenSslCommissioningCrypto& crypto)
           "completion neither retires payload nor frees logical event capacity");
     HubDurabilityOwner full_reboot(full, full, crypto, k, InstallationFreshness::ExistingInstallation);
     check(full_reboot.recover() == DurabilityOwnerState::Ready, "128 receipt inventory remains bounded");
-    DurableJournalSlotStore full_reboot_store(full_reboot, crypto, k);
+    DurableJournalSlotStore full_reboot_store(full_reboot, crypto, k, test_owner_resolver());
     HubJournal full_recovered(128);
     check(full_recovered.attach_persistence(crypto, full_reboot_store, k) &&
           full_recovered.size() == 128 && full_recovered.cloud_completed_count() == 128,

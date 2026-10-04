@@ -6,15 +6,17 @@
 
 #include <algorithm>
 #include <cstring>
+#include <mutex>
 
 namespace gs::hub::target {
 namespace {
 constexpr const char* kPartition = "gs_journal";
 constexpr const char* kNamespace = "events";
+std::mutex kJournalMutationMutex;
 
 std::size_t maximum_for(const DurablePhysicalKeyRecord& r) {
     switch (r.kind) {
-        case DurablePhysicalKeyKind::Checkpoint: return 4514;
+        case DurablePhysicalKeyKind::Checkpoint: return 4549;
         case DurablePhysicalKeyKind::Selector: return 64;
         case DurablePhysicalKeyKind::Transition: return 1332;
         case DurablePhysicalKeyKind::EffectChunk: return 1260;
@@ -23,9 +25,12 @@ std::size_t maximum_for(const DurablePhysicalKeyRecord& r) {
         case DurablePhysicalKeyKind::RetirementBank: return 6096;
         case DurablePhysicalKeyKind::LegacyEvent: return 284;
         case DurablePhysicalKeyKind::LegacyCompletion: return 32;
-        case DurablePhysicalKeyKind::MigrationMetadata: return 512;
+        case DurablePhysicalKeyKind::MigrationMetadata: return 218;
     }
     return 0;
+}
+std::size_t maximum_write_for(const DurablePhysicalKeyRecord& r) {
+    return r.kind == DurablePhysicalKeyKind::RetirementBank ? 5777 : maximum_for(r);
 }
 }
 
@@ -88,7 +93,7 @@ bool NvsDurableBlobStore::write(const std::string& logical,
         !durable_physical_key_record(key, record)) {
         last_error_ = NvsDurableError::KeyMapping; return false;
     }
-    if (value.empty() || value.size() > maximum_for(record)) {
+    if (value.empty() || value.size() > maximum_write_for(record)) {
         last_error_ = NvsDurableError::CorruptValue; return false;
     }
     if (record.kind == DurablePhysicalKeyKind::LegacyEvent ||
@@ -96,6 +101,7 @@ bool NvsDurableBlobStore::write(const std::string& logical,
         last_error_ = NvsDurableError::KeyMapping; return false;
     }
     if (!initialized_) { last_error_ = NvsDurableError::Io; return false; }
+    std::lock_guard<std::mutex> mutation_lock(kJournalMutationMutex);
     nvs_handle_t handle = 0;
     auto rc = nvs_open_from_partition(kPartition, kNamespace, NVS_READWRITE, &handle);
     if (rc != ESP_OK) { last_error_ = NvsDurableError::Io; return false; }
@@ -132,6 +138,107 @@ bool NvsDurableBlobStore::write(const std::string& logical,
         last_error_ = NvsDurableError::Io; return false;
     }
     last_error_ = NvsDurableError::None; return true;
+}
+
+bool NvsDurableBlobStore::erase_if_equals(const std::string& logical,
+                                          const security::Bytes& expected) {
+    std::string key;
+    DurablePhysicalKeyRecord record;
+    if (!durable_logical_to_physical_key(logical, key) ||
+        !durable_physical_key_record(key, record)) {
+        last_error_ = NvsDurableError::KeyMapping;
+        return false;
+    }
+    // Event archives and legacy completion markers are never migration scratch
+    // objects. Their exact bytes must not make them eligible for this API.
+    if (record.kind == DurablePhysicalKeyKind::LegacyEvent ||
+        record.kind == DurablePhysicalKeyKind::LegacyCompletion || expected.empty() ||
+        expected.size() > maximum_for(record)) {
+        last_error_ = NvsDurableError::KeyMapping;
+        return false;
+    }
+    if (!initialized_) {
+        last_error_ = NvsDurableError::Io;
+        return false;
+    }
+
+    std::lock_guard<std::mutex> mutation_lock(kJournalMutationMutex);
+    nvs_handle_t handle = 0;
+    auto rc = nvs_open_from_partition(kPartition, kNamespace, NVS_READWRITE, &handle);
+    if (rc != ESP_OK) {
+        if (rc == ESP_ERR_NVS_NOT_FOUND) {
+            last_error_ = NvsDurableError::None;
+            return true;
+        }
+        last_error_ = NvsDurableError::Io;
+        return false;
+    }
+    std::size_t length = 0;
+    rc = nvs_get_blob(handle, key.c_str(), nullptr, &length);
+    if (rc == ESP_ERR_NVS_NOT_FOUND) {
+        nvs_close(handle);
+        last_error_ = NvsDurableError::None;
+        return true;
+    }
+    if (rc != ESP_OK || length == 0 || length > maximum_for(record)) {
+        nvs_close(handle);
+        last_error_ = rc == ESP_OK ? NvsDurableError::CorruptValue : NvsDurableError::Io;
+        return false;
+    }
+    security::Bytes current(length);
+    rc = nvs_get_blob(handle, key.c_str(), current.data(), &length);
+    if (rc != ESP_OK || length != current.size()) {
+        nvs_close(handle);
+        last_error_ = NvsDurableError::Io;
+        return false;
+    }
+    if (current != expected) {
+        nvs_close(handle);
+        last_error_ = NvsDurableError::ConditionalMismatch;
+        return false;
+    }
+    if (nvs_erase_key(handle, key.c_str()) != ESP_OK) {
+        nvs_close(handle);
+        last_error_ = NvsDurableError::Io;
+        return false;
+    }
+    const auto commit_rc = nvs_commit(handle);
+    nvs_close(handle);
+
+    // Reopen after commit: reading the same handle could observe an uncommitted
+    // erase from its cache and would not prove durable absence.
+    nvs_handle_t verify = 0;
+    rc = nvs_open_from_partition(kPartition, kNamespace, NVS_READONLY, &verify);
+    if (rc != ESP_OK) {
+        last_error_ = NvsDurableError::Io;
+        return false;
+    }
+    std::size_t remaining = 0;
+    rc = nvs_get_blob(verify, key.c_str(), nullptr, &remaining);
+    if (rc == ESP_ERR_NVS_NOT_FOUND) {
+        nvs_close(verify);
+        if (commit_rc != ESP_OK) {
+            last_error_ = NvsDurableError::PersistedButApiFailed;
+            return false;
+        }
+        last_error_ = NvsDurableError::None;
+        return true;
+    }
+    if (rc != ESP_OK || remaining == 0 || remaining > maximum_for(record)) {
+        nvs_close(verify);
+        last_error_ = rc == ESP_OK ? NvsDurableError::CorruptValue : NvsDurableError::Io;
+        return false;
+    }
+    security::Bytes remaining_value(remaining);
+    rc = nvs_get_blob(verify, key.c_str(), remaining_value.data(), &remaining);
+    nvs_close(verify);
+    if (rc != ESP_OK || remaining != remaining_value.size()) {
+        last_error_ = NvsDurableError::Io;
+        return false;
+    }
+    last_error_ = remaining_value == expected ? NvsDurableError::Io :
+                                                NvsDurableError::ConditionalMismatch;
+    return false;
 }
 
 }  // namespace gs::hub::target

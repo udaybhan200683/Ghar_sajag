@@ -41,7 +41,7 @@ void report_replay_and_ledger(OpenSslCommissioningCrypto& crypto,
     RetirementSnapshot staged;
     require(repository.apply_authenticated_report(empty, binding, 0, 3, 10,
                 first, mac1, staged) == RetirementReportApply::Prepared &&
-            staged.node_count == 1 && staged.generation == 2,
+            staged.node_count() == 1 && staged.occupancy_mask == 1 && staged.generation == 2,
             "first authenticated report was not staged");
     RetirementSnapshotReference ref;
     require(repository.prepare_bank(staged, 0, ref) && ref.valid() && ref.bank < 3,
@@ -92,8 +92,8 @@ void report_replay_and_ledger(OpenSslCommissioningCrypto& crypto,
 
 void bounds_and_crashes(OpenSslCommissioningCrypto& crypto, const Key32& key) {
     RetirementSnapshot full;
-    full.storage_epoch = 7; full.generation = 9; full.node_count = 10;
-    for (std::size_t n = 0; n < full.node_count; ++n) {
+    full.storage_epoch = 7; full.generation = 9; full.occupancy_mask = 0x03ff;
+    for (std::size_t n = 0; n < full.node_count(); ++n) {
         auto& node = full.nodes[n];
         node.binding_digest.fill(static_cast<std::uint8_t>(n + 1));
         node.enrollment_generation = 1;
@@ -107,11 +107,12 @@ void bounds_and_crashes(OpenSslCommissioningCrypto& crypto, const Key32& key) {
     }
     Bytes blob;
     require(RetirementSnapshotRepository::encode(crypto, key, full, blob) &&
-            blob.size() == kRetirementSnapshotBankBytes && blob.size() == 6096,
-            "maximum physical report bank byte size changed");
+            blob.size() == kRetirementSnapshotBankBytes && blob.size() == 5777,
+            "maximum compact report bank byte size changed");
     RetirementSnapshot decoded;
     require(RetirementSnapshotRepository::decode(crypto, key, blob, decoded) &&
-            decoded.node_count == 10 && decoded.nodes[9].pending_count == 32,
+            decoded.node_count() == 10 && decoded.nodes[9].pending_count == 32 &&
+            blob.size() <= 5777,
             "maximum report bank failed authenticated roundtrip");
 
     MemoryBlobStore blobs;
