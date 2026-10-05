@@ -1765,7 +1765,7 @@ esp_err_t start_runtime_adapter() {
     if ((result = initialize_gpio()) != ESP_OK) return result;
     if ((result = initialize_wifi()) != ESP_OK) return result;
     if ((result = initialize_esp_now()) != ESP_OK) return result;
-    if (xTaskCreate(owner_task, "gs_node_owner", 8192, nullptr, 8, nullptr) != pdPASS) {
+    if (xTaskCreate(owner_task, "gs_node_owner", 12288, nullptr, 8, nullptr) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
