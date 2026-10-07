@@ -1,0 +1,11 @@
+Waiting for captured NodeRuntime owner startup and PIR ready on GPIO4.
+TX node: GET_STATE
+Waiting for Hub HIL readiness and captured journal baseline.
+TX hub: REBOOT_AFTER_NEXT_DURABLE_COMMIT
+Waiting for exact Hub arm confirmation; keep clear of PIR.
+============================================================
+>>> NOW TRIGGER EXACTLY ONE PIR MOTION ON THE NODE <<<
+>>> THEN MOVE AWAY AND DO NOT TRIGGER ANOTHER MOTION <<<
+============================================================
+TX node: GET_STATE
+Selected event retired; confirming final Node queues are empty.

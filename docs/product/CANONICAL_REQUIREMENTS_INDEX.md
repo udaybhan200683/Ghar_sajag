@@ -52,6 +52,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | Path | Classification | Use | Read when |
 |---|---|---|---|
 | `docs/product/R1_WORK_STATE.md` | CANONICAL-LIVING | Current gates, blocker, next design work | R1 execution/handoff |
+| `docs/progress/R1_WORKTREE_RECONCILIATION_20261007.md` | TEST_EVIDENCE | Reconciled source/tool/evidence attribution and focused validation snapshot | Audit the committed qualification baseline and known deferred test failure |
 | `docs/progress/CURRENT_STATUS_AND_ROADMAP.md` | HISTORICAL | Earlier roadmap snapshot | Trace earlier status; do not use as current status |
 | `docs/progress/FEATURE_IMPLEMENTATION_STATUS_AND_REMAINING_GAPS_AT_0608e2a.md` | HISTORICAL | Commit-specific implementation gap snapshot | Inspect that historical baseline |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/IMPLEMENTATION_STATUS.md` | SUPPORTING | Release-code implementation notes | Investigate reference implementation; verify against R1 state |
@@ -263,7 +264,7 @@ Decision text remains authoritative in `DECISION_LOG.md`; this table points to t
 
 ## Classification totals and review flags
 
-The full inventory includes 103 Markdown files. Classes describe document use, not truth of every statement. Several old release notes are grouped in the inventory as historical or evidence; no historical result was edited. No inventory entry is currently classified `UNKNOWN_REQUIRES_REVIEW`; re-evaluate classification before promoting a source. Do not treat similar titles or repeated plans as proof that one document is a duplicate requirement.
+The full inventory includes 104 Markdown files. Classes describe document use, not truth of every statement. Several old release notes are grouped in the inventory as historical or evidence; no historical result was edited. No inventory entry is currently classified `UNKNOWN_REQUIRES_REVIEW`; re-evaluate classification before promoting a source. Do not treat similar titles or repeated plans as proof that one document is a duplicate requirement.
 
 ## Current requirement register
 

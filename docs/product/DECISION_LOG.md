@@ -88,6 +88,15 @@ BAT-C8 is an `R1_REQUIRED_FEATURE_WITH_PENDING_QUALIFICATION`. Before R1 product
 
 **Jira traceability:** GS-114 covers implementation/focused qualification; GS-146 covers final R1 battery closure. These links do not assert either issue or the physical qualification is complete.
 
+## Reconciliation status — 2026-10-07
+
+The already-qualified native fresh-install and empty-AEAD/recovery changes are
+committed; no new product decision was made. The legacy journal migration host
+gate also fails on the untouched starting commit and remains DEFER_POST_R1 under
+GS-D001. See `docs/progress/R1_WORKTREE_RECONCILIATION_20261007.md` for attribution,
+validation limits and preserved files. GS-D016's storage blocker and GS-D020's
+pending physical qualification remain open work; CONTEXT_VERSION is unchanged.
+
 ## Maintenance
 
 Append a new GS-Dxxx entry when a new product/architecture decision must survive future sessions. Never silently rewrite a LOCKED decision; supersede it explicitly.

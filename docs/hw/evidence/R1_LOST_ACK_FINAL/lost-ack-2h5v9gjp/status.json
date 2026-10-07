@@ -1,0 +1,70 @@
+{
+  "classification": "NORMAL_COMMAND_COMPLETE",
+  "port": "/dev/ghar-sajag-node",
+  "elapsed_seconds": 170.334,
+  "worker_pid": 4330,
+  "worker_alive": false,
+  "detail": "",
+  "output_log": "/home/udaybhan/projects/Ghar_sajag_r1/docs/hw/evidence/R1_LOST_ACK_FINAL/lost-ack-2h5v9gjp/output.log",
+  "state": null,
+  "recovery": "NONE",
+  "LOST_ACK_TEST": "PASS",
+  "REASON": "All selected-event invariants proven",
+  "event_id": "p15:c3-146393c5d158n15:hil-signed-fotas1530q1",
+  "EventKey": {
+    "source_id": "hil-signed-fota",
+    "physical_device_id": "c3-146393c5d158",
+    "session": 1530,
+    "seq": 1
+  },
+  "records_before": 77,
+  "records_after_unique": 78,
+  "records_after_duplicate": 79,
+  "independent_record_growth": 1,
+  "additional_events": [
+    {
+      "event_id": "p15:c3-146393c5d158n15:hil-signed-fotas1530q2",
+      "records": 79
+    }
+  ],
+  "node_retirement": {
+    "session": 1530,
+    "seq": 1,
+    "ack_class": 0,
+    "retired": 1
+  },
+  "final_retained": 0,
+  "final_in_flight": 0,
+  "additional_node_events": [
+    {
+      "session": 1530,
+      "seq": 2
+    }
+  ],
+  "hub_arm_sent": true,
+  "hub_arm_confirmed": true,
+  "operator_cue_issued": true,
+  "hub_arm_may_remain_active": false,
+  "lost_ack_marker": true,
+  "hub_journal_recovered": true,
+  "hub_reboot_hil_ready": true,
+  "same_event_duplicate": true,
+  "node_retry_same_event_proven": true,
+  "node_selected_sends": 6,
+  "node_sends_captured_after_loss_marker": 2,
+  "records_before_duplicate": 79,
+  "records_after_duplicate_excluding_independent": 78,
+  "selected_duplicate_record_growth": 0,
+  "final_node_state": {
+    "session": 1532,
+    "retained": 0,
+    "in_flight": 0,
+    "sensing_live": 7938,
+    "runtime_live": 7938,
+    "pending_inject": 0
+  },
+  "ports": [
+    "/dev/ghar-sajag-node",
+    "/dev/ghar-sajag-hub"
+  ]
+}

@@ -28,6 +28,31 @@ Do not reopen unless later code/hardware changes can invalidate these gates.
 
 Zero-touch USB automation is convenience tooling, not an R1 product requirement. Keep it out of the critical path while product blockers remain.
 
+## Working-tree reconciliation — 2026-10-07
+
+The previously uncommitted qualified Node empty-AEAD and Hub native durability,
+first-commit, stack/recovery, and lost-ACK controls are now committed, along with
+their focused tests and existing factory/USB tooling. The canonical storage
+contract and GS-D020 Jira traceability are tracked. Existing physical evidence
+is preserved unchanged; no hardware test, initialization or flash was repeated.
+See [the reconciliation snapshot](../progress/R1_WORKTREE_RECONCILIATION_20261007.md)
+for every initial file, commit units, validations and remaining metadata.
+
+Seven focused C++ gates, the production PSA host regression, factory/dispatcher/
+profile tests, real Hub ELF checks and USB offline mocks passed. Two optional
+initializer-ELF tests were skipped because their artifact is absent. The legacy
+`hub-journal-migration-host-test` fails at `clean migration commits` on both the
+start commit and reconciled sources; this pre-existing legacy failure is
+DEFER_POST_R1 under GS-D001, with no migration fix attempted. `validation-fast`
+still includes that target and is not claimed green. Eleven Windows download
+metadata streams remain untracked and untouched; no uncommitted implementation
+remains. Requirements and context version `2026-10-07.001` are unchanged.
+
+Final lost-ACK source: `docs/hw/evidence/R1_LOST_ACK_FINAL/lost-ack-2h5v9gjp/status.json`.
+Selected duplicate record growth is `79 - 78 - 1 independent event = 0`; selected
+Node ACK is class=0 retired=1 and final retained=0/in_flight=0. This preserves the
+previous physical PASS rather than claiming a new qualification run.
+
 ## Current R1 blocker
 
 Hub storage lifetime/data-lifecycle architecture.

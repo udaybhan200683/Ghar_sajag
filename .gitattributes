@@ -1,0 +1,3 @@
+# Raw physical console evidence: preserve serial bytes and do not text-merge.
+docs/hw/evidence/R1_LOST_ACK_FINAL/lost-ack-*/node.log binary
+docs/hw/evidence/R1_LOST_ACK_FINAL/lost-ack-*/hub.log binary

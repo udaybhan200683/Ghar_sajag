@@ -1,0 +1,16 @@
+{
+  "classification": "NORMAL_COMMAND_COMPLETE",
+  "port": "/dev/ghar-sajag-node",
+  "elapsed_seconds": 120.187,
+  "worker_pid": 3083,
+  "worker_alive": false,
+  "detail": "",
+  "output_log": "/home/udaybhan/projects/Ghar_sajag_r1/docs/hw/evidence/R1_LOST_ACK_20261007_NODE/command-gg2_q21h/output.log",
+  "state": {
+    "retained": 0,
+    "in_flight": 0,
+    "sensing_live": 4462,
+    "runtime_live": 4462
+  },
+  "recovery": "NONE"
+}

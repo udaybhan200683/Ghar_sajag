@@ -1,0 +1,11 @@
+{
+  "classification": "NORMAL_COMMAND_COMPLETE",
+  "port": "/dev/ghar-sajag-hub",
+  "elapsed_seconds": 100.138,
+  "worker_pid": 3352,
+  "worker_alive": false,
+  "detail": "",
+  "output_log": "/home/udaybhan/projects/Ghar_sajag_r1/docs/hw/evidence/R1_LOST_ACK_20261007_HUB/command-q233fi2s/output.log",
+  "state": null,
+  "recovery": "NONE"
+}
