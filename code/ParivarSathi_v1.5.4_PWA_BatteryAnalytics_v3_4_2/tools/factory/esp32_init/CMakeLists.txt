@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+if(NOT GS_FACTORY_ROLE STREQUAL "hub" AND NOT GS_FACTORY_ROLE STREQUAL "node")
+    message(FATAL_ERROR "Explicit GS_FACTORY_ROLE=hub or node is required")
+endif()
+set(PROJECT_VER "cfec7d2-dev-fresh-init")
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(gs_dev_fresh_init)

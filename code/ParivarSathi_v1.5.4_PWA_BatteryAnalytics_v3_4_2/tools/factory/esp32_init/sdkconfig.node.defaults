@@ -1,0 +1,2 @@
+# Node initializer uses the corrected production PSA adapter and accelerated AES.
+CONFIG_MBEDTLS_HARDWARE_AES=y
