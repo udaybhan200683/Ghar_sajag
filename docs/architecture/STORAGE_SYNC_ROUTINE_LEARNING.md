@@ -126,6 +126,19 @@ Do not choose arbitrary event-count targets first.
 
 ## Numerical closure still required
 
+The [R1 Hub storage/data-lifecycle ExecPlan](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md)
+contains the 2026-10-07 source audit, derived workload scenarios, candidate byte
+budgets/layouts and implementation STOP gates. It is a **proposal**, not an
+approved retention/outage/priority or partition requirement. Its current-image,
+protocol-progress, backend-contract, rollback and crash/wear limits remain
+explicit. This canonical contract and LOCKED decisions retain authority.
+
+Its efficiency section adds isolated host-only implementation/evidence and a
+single-immutable-payload proposal. It does not authorize a new deployed format,
+retention/overflow policy or partition size. Prove optimized fit in the existing
+128 KiB durability area before treating enlargement as necessary; all canonical
+durability, backend-first sync and independent lifecycle requirements remain.
+
 Before final storage implementation, calculate and approve:
 - worst-case six-Node semantic event rate;
 - offline outage survival target;
@@ -138,3 +151,9 @@ Before final storage implementation, calculate and approve:
 - cleanup/reclamation reserve;
 - flash-wear estimate;
 - OTA application headroom.
+
+## Storage-first engineering and failure-aware routine requirements
+
+GS-D021 requires the mandatory correctness/durability/security/recovery/stability/scalability/UX gate before optimization. Then prioritize useful information per flash byte, deterministic retrieval, bounded RAM and flash lifetime; CPU optimization is secondary. Preserve one immutable event body shared by lifecycle owners where safe. Larger records require measured realtime justification, not a host microbenchmark advantage.
+
+GS-D022/023 require bounded current-day and daily routine state, coverage/confidence and recovery through Node/Hub/radio/cloud failures, reboot/rejoin, lost ACK, delayed events, midnight, multi-day backlog and pressure. NO_ACTIVITY requires adequate observation; NO_OBSERVATION, sensor/Hub unavailability and untrusted time must remain distinguishable locally and in backend/PWA effects. Missing observation cannot train an inactive baseline. Stable daily identity and durable finalization must prevent double baseline application and duplicate backend days. Exact coverage sufficiency, late revision policy, offline horizon and overflow semantics remain OPEN. The ExecPlan contains proposed formats and proof obligations, not additional locked numerical policy.

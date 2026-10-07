@@ -54,3 +54,7 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 ## Next engineering priority
 
 Close the storage/data-lifecycle design and its explicit product decisions before implementation. The exact retention and backend-outage policies remain open; derive a bounded design and byte/wear/OTA budget from actual hardware and six-Node behavior. Then host-test the design, build/measure the Hub target, and qualify only the changes that can invalidate existing physical gates.
+
+## Storage-first and failure-aware learning priority
+
+GS-D021/022/023 are LOCKED: correctness/durability/security/recovery/stability/scalability/UX first; useful information per flash byte, deterministic retrieval, bounded RAM and flash lifetime next; CPU secondary. Routine/current-day/daily state must recover across Node, Hub, radio and cloud failure, delayed/backlog delivery, midnight and pressure. Never interpret missing sensor/Hub observation as resident inactivity. Exact numerical policies and production integration gates remain open.
