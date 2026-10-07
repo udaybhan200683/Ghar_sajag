@@ -305,4 +305,26 @@ See `DECISION_LOG.md`: exact local retention, offline duration, outbox policy, r
 
 ## Storage-first requirement additions — 2026-10-07
 
-GS-D021 (storage/retrieval priority; CPU secondary), GS-D022 (missing observation is not inactivity) and GS-D023 (current/daily routine failure recovery) are LOCKED in the decision log, with domain requirements in STORAGE_SYNC_ROUTINE_LEARNING and P0_PRODUCT_REQUIREMENTS. The storage ExecPlan remains IMPLEMENTATION_DESIGN / PROPOSED: byte budgets, retention and new storage/backend formats are not locked. Prior host evidence remains TEST_EVIDENCE for primitives only. Context revision: `2026-10-07.002`.
+GS-D021 (storage/retrieval priority; CPU secondary), GS-D022 (missing observation is not inactivity) and GS-D023 (current/daily routine failure recovery) are LOCKED in the decision log, with domain requirements in STORAGE_SYNC_ROUTINE_LEARNING and P0_PRODUCT_REQUIREMENTS. The storage ExecPlan remains IMPLEMENTATION_DESIGN / PROPOSED: byte budgets, retention and new storage/backend formats are not locked. Prior host evidence remains TEST_EVIDENCE for primitives only. Checkpoint context revision: `2026-10-07.002` (advanced by GS-D024 below).
+
+## Storage-density requirement and evidence — GS-D024
+
+GS-D024 is LOCKED in [DECISION_LOG.md](DECISION_LOG.md), with canonical
+domain requirements in [STORAGE_SYNC_ROUTINE_LEARNING.md](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md)
+and [P0_PRODUCT_REQUIREMENTS.md](P0_PRODUCT_REQUIREMENTS.md). Eliminate
+persistent redundancy and evaluate compact binary, bounded shared context,
+delta/change, dictionary/reference and safe semantic aggregation before
+increasing storage allocation. Independently recoverable restart points
+are mandatory; all quality/retrieval/routine/caregiver invariants remain.
+Context revision: `2026-10-07.003`. No exact record/outage/partition policy locked.
+
+| Path | Classification | Valid scope / limits |
+|---|---|---|
+| `docs/exec-plans/evidence/R1_STORAGE_ENCODING_DENSITY_20261007.md` and linked raw logs/CSV | TEST_EVIDENCE | Host numeric codec, synthetic binding/restart/byte-cut models, million-event bounded fixture, preserved sanitizer/regression and conditional trace accounting; no product retention or physical proof |
+| `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` sections22.10/22.11 | IMPLEMENTATION_DESIGN / PROPOSED | Corrects earlier numeric-only density planning with full-source/config/name/timing costs; full serializers/root/crypto/allocator/retirement/backend/rollback remain open |
+
+Earlier density/retention figures remain valid for their stated uniform
+numeric/historical budget comparisons, and cannot establish full-source
+production retention. Sample/max-name timing scenarios and current blocker
+status are recorded in [R1_WORK_STATE.md](R1_WORK_STATE.md). No competing
+master requirements source or production format is introduced.

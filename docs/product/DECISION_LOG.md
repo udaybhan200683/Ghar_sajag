@@ -103,6 +103,21 @@ The Hub routine learner and caregiver PWA must distinguish NO_ACTIVITY during ad
 
 Bounded local routine learning must maintain correct current state, daily conclusions, coverage/confidence and recovery through Node power failure/reboot/rejoin, Hub power failure/reboot, radio interruption, internet/backend outages, lost backend ACK, backlog re-sync, multi-day outage, local-day rollover, delayed events, partial coverage and storage pressure. Recovery must not double-apply a logical event/baseline contribution, fabricate activity, duplicate caregiver history/daily conclusions, or lose ACK-required input. Backend retries use stable logical identities; exactly-once transport is not assumed. Daily time assignment must not fabricate trusted time. Exact retention, lateness, critical-overflow, backend effect/revision and rollback contracts remain OPEN; these decisions do not approve a partition change or production integration.
 
+### GS-D024 — Eliminate persistent redundancy before increasing Hub storage
+**Status:** LOCKED
+
+Before increasing Hub storage allocation, storage design shall eliminate redundant persistent information and evaluate compact binary representation, shared bounded context, delta/change encoding, dictionary/reference encoding and safe semantic aggregation. Common context should be stored once where safe rather than repeated per record. Context-dependent formats must use bounded independently recoverable restart points. Storage optimization shall not weaken correctness, security, crash recovery, scalability, retrieval, routine learning or caregiver behavior.
+
+This locks the approved design principle, not a record format, partition size,
+retention horizon or backend substitution policy. GS-D021's mandatory quality
+gate and CPU-secondary priority remain in force. Source strings, config/time
+bindings, exact dedupe evidence and security metadata may be shared only when
+their bounded lifetime and authenticated recovery are proven. The host-only
+checkpoint `74c4b99` provides evidence for numeric codec/restart behavior and
+conditional density; full-source serialization, target crypto/allocator,
+retirement progress, derived backend effects, rollback and wear remain OPEN.
+No production integration or partition change is authorized by this decision.
+
 ## Reconciliation status — 2026-10-07
 
 The already-qualified native fresh-install and empty-AEAD/recovery changes are

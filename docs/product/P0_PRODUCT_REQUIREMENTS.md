@@ -77,3 +77,18 @@ See the [canonical index](CANONICAL_REQUIREMENTS_INDEX.md) for the authority map
 **LOCKED:** Optimize qualifying designs for retained useful information/flash byte, deterministic retrieval, bounded RAM and flash lifetime before CPU cycles. Preserve correctness, authentication, crash safety, stability, scalability and caregiver UX.
 
 **LOCKED:** Current and daily routine conclusions, coverage/confidence and recovery must remain correct through Node/Hub failures and reboot/rejoin, radio/internet/backend outages, lost ACK, backlog/multi-day recovery, rollover, delayed events, partial coverage and pressure. Distinguish NO_ACTIVITY from NO_OBSERVATION / SENSOR_UNAVAILABLE / HUB_UNAVAILABLE. Missing observation is never evidence of resident inactivity. These are requirements, not claims that the current secure target implements full coverage/day recovery. Exact formulas, time/lateness policy, offline guarantee and backend daily-effect contract remain OPEN.
+
+## Storage information density — GS-D024
+
+**LOCKED:** Before increasing Hub storage allocation, eliminate redundant
+persistent information and evaluate compact binary, bounded shared context,
+delta/change, dictionary/reference and safe semantic aggregation. Store common
+context once where safe and provide bounded independently recoverable restart
+points. Preserve correctness, authentication/security, crash recovery,
+stability, scalability, deterministic retrieval, local routine learning and
+caregiver behavior. CPU remains secondary under GS-D021.
+
+This is the design principle in [GS-D024](DECISION_LOG.md), detailed by the
+[storage/sync contract](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md);
+it does not approve an exact format,72-hour outage promise, semantic
+substitution, partition enlargement or production integration.
