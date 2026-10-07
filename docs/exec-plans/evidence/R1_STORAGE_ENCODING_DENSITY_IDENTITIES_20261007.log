@@ -1,0 +1,99 @@
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_density_validation.cpp -lcrypto -o build/storage_density_validation
+./build/storage_density_validation
+DENSITY_LONG_RUN events=1000000 peak_keys=192 fixed_pool_RAM=34080 index_RAM=12452 hot_new=0
+STORAGE_DENSITY_HOST_PASS codec/context/random-access/AEAD-binding/byte-tears/COW-model/bounded-lifetime
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security tests/cpp/storage_density_benchmark.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/common/transport/node_retirement_protocol.cpp host/security/openssl_commissioning_crypto.cpp shared/src/logging.cpp -lcrypto -o build/storage_density_benchmark
+./build/storage_density_benchmark
+DENSITY_BENCHMARK median9_after_warmup compiler_CXX17_O2 host_wall_clock_no_target_cycles
+CURRENT_LEDGER batch=1 transitions=1192 archive=640 evidence=258 checkpoints=356 selectors=82 receipts=128 total=2656 per_event=664.00 (logical blob writes, empty reducer/no reports)
+CURRENT_LEDGER batch=32 transitions=1192 archive=640 evidence=258 checkpoints=3332 selectors=82 receipts=128 total=5632 per_event=1408.00 (logical blob writes, empty reducer/no reports)
+CURRENT_LIFETIME_128 logical_blob_write_B=132608 average_B=1036.00 native_six_node_snapshot_B=3485
+DISTRIBUTION rate=384 model=FIXED raw_min=64 raw_p50=64 raw_p95=84 raw_max=84 raw_avg=70.2500 hot_min=84 hot_p50=84 hot_p95=104 hot_max=104 hot_avg=90.2500 hot_total_B=34656 hot_sectors=9 warm_sectors=7 hot_alloc_B=36864 warm_alloc_B=28672
+WARM rate=384 model=FIXED min=66 p50=66 p95=86 max=86 average=72.2500 payload_B=27744 headers_B=448 last_used_B=3828
+DISTRIBUTION rate=384 model=VARINT raw_min=27 raw_p50=27 raw_p95=36 raw_max=36 raw_avg=29.8125 hot_min=52 hot_p50=52 hot_p95=60 hot_max=60 hot_avg=54.5000 hot_total_B=20928 hot_sectors=6 warm_sectors=4 hot_alloc_B=24576 warm_alloc_B=16384
+WARM rate=384 model=VARINT min=29 p50=29 p95=38 max=38 average=31.8125 payload_B=12216 headers_B=256 last_used_B=209
+DISTRIBUTION rate=384 model=DELTA raw_min=15 raw_p50=22 raw_p95=31 raw_max=31 raw_avg=23.2135 hot_min=40 hot_p50=44 hot_p95=56 hot_max=56 hot_avg=46.6042 hot_total_B=17896 hot_sectors=5 warm_sectors=3 hot_alloc_B=20480 warm_alloc_B=12288
+WARM rate=384 model=DELTA min=17 p50=24 p95=33 max=33 average=25.8490 payload_B=9926 headers_B=1212 last_used_B=2964
+DISTRIBUTION rate=384 model=CONTEXT raw_min=11 raw_p50=18 raw_p95=27 raw_max=27 raw_avg=19.2161 hot_min=36 hot_p50=40 hot_p95=52 hot_max=52 hot_avg=42.6875 hot_total_B=16392 hot_sectors=5 warm_sectors=3 hot_alloc_B=20480 warm_alloc_B=12288
+WARM rate=384 model=CONTEXT min=13 p50=20 p95=29 max=29 average=21.8490 payload_B=8390 headers_B=1212 last_used_B=1432
+DISTRIBUTION rate=384 model=PRESENCE_DICTIONARY raw_min=6 raw_p50=15 raw_p95=24 raw_max=24 raw_avg=16.0026 hot_min=28 hot_p50=40 hot_p95=48 hot_max=48 hot_avg=39.6250 hot_total_B=15216 hot_sectors=5 warm_sectors=2 hot_alloc_B=20480 warm_alloc_B=8192
+WARM rate=384 model=PRESENCE_DICTIONARY min=8 p50=17 p95=26 max=26 average=18.8750 payload_B=7248 headers_B=808 last_used_B=3974
+DISTRIBUTION rate=384 model=CONTEXT_RELATIONS raw_min=6 raw_p50=12 raw_p95=19 raw_max=19 raw_avg=12.5938 hot_min=28 hot_p50=36 hot_p95=44 hot_max=44 hot_avg=36.1354 hot_total_B=13876 hot_sectors=4 warm_sectors=2 hot_alloc_B=16384 warm_alloc_B=8192
+WARM rate=384 model=CONTEXT_RELATIONS min=8 p50=14 p95=21 max=21 average=15.5312 payload_B=5964 headers_B=808 last_used_B=2696
+DISTRIBUTION rate=1776 model=FIXED raw_min=64 raw_p50=64 raw_p95=84 raw_max=84 raw_avg=72.1081 hot_min=84 hot_p50=84 hot_p95=104 hot_max=104 hot_avg=92.1081 hot_total_B=163584 hot_sectors=42 warm_sectors=33 hot_alloc_B=172032 warm_alloc_B=135168
+WARM rate=1776 model=FIXED min=66 p50=66 p95=86 max=86 average=74.1081 payload_B=131616 headers_B=2112 last_used_B=3562
+DISTRIBUTION rate=1776 model=VARINT raw_min=27 raw_p50=28 raw_p95=37 raw_max=37 raw_avg=31.2202 hot_min=52 hot_p50=52 hot_p95=60 hot_max=60 hot_avg=55.2432 hot_total_B=98112 hot_sectors=25 warm_sectors=15 hot_alloc_B=102400 warm_alloc_B=61440
+WARM rate=1776 model=VARINT min=29 p50=30 p95=39 max=39 average=33.2202 payload_B=58999 headers_B=960 last_used_B=2824
+DISTRIBUTION rate=1776 model=DELTA raw_min=15 raw_p50=20 raw_p95=29 raw_max=30 raw_avg=22.7151 hot_min=40 hot_p50=44 hot_p95=52 hot_max=52 hot_avg=46.4257 hot_total_B=82452 hot_sectors=23 warm_sectors=13 hot_alloc_B=94208 warm_alloc_B=53248
+WARM rate=1776 model=DELTA min=17 p50=22 p95=31 max=32 average=25.1318 payload_B=44634 headers_B=5252 last_used_B=906
+DISTRIBUTION rate=1776 model=CONTEXT raw_min=11 raw_p50=16 raw_p95=25 raw_max=26 raw_avg=18.7950 hot_min=36 hot_p50=40 hot_p95=48 hot_max=48 hot_avg=42.4955 hot_total_B=75472 hot_sectors=21 warm_sectors=11 hot_alloc_B=86016 warm_alloc_B=45056
+WARM rate=1776 model=CONTEXT min=13 p50=18 p95=27 max=28 average=21.2179 payload_B=37683 headers_B=4444 last_used_B=1220
+DISTRIBUTION rate=1776 model=PRESENCE_DICTIONARY raw_min=6 raw_p50=13 raw_p95=22 raw_max=23 raw_avg=15.4527 hot_min=28 hot_p50=36 hot_p95=44 hot_max=48 hot_avg=38.7432 hot_total_B=68808 hot_sectors=19 warm_sectors=9 hot_alloc_B=77824 warm_alloc_B=36864
+WARM rate=1776 model=PRESENCE_DICTIONARY min=8 p50=15 p95=24 max=26 average=18.1723 payload_B=32274 headers_B=3636 last_used_B=3176
+DISTRIBUTION rate=1776 model=CONTEXT_RELATIONS raw_min=6 raw_p50=12 raw_p95=21 raw_max=23 raw_avg=14.4617 hot_min=28 hot_p50=36 hot_p95=44 hot_max=48 hot_avg=37.9459 hot_total_B=67392 hot_sectors=19 warm_sectors=9 hot_alloc_B=77824 warm_alloc_B=36864
+WARM rate=1776 model=CONTEXT_RELATIONS min=8 p50=15 p95=24 max=26 average=17.2742 payload_B=30679 headers_B=3636 last_used_B=1628
+DISTRIBUTION rate=23232 model=FIXED raw_min=64 raw_p50=64 raw_p95=84 raw_max=84 raw_avg=73.9174 hot_min=84 hot_p50=84 hot_p95=104 hot_max=104 hot_avg=93.9174 hot_total_B=2181888 hot_sectors=553 warm_sectors=447 hot_alloc_B=2265088 warm_alloc_B=1830912
+WARM rate=23232 model=FIXED min=66 p50=66 p95=86 max=86 average=75.9174 payload_B=1763712 headers_B=28608 last_used_B=922
+DISTRIBUTION rate=23232 model=VARINT raw_min=26 raw_p50=28 raw_p95=37 raw_max=38 raw_avg=32.4281 hot_min=48 hot_p50=52 hot_p95=60 hot_max=60 hot_avg=55.9635 hot_total_B=1300144 hot_sectors=323 warm_sectors=200 hot_alloc_B=1323008 warm_alloc_B=819200
+WARM rate=23232 model=VARINT min=28 p50=30 p95=39 max=40 average=34.4281 payload_B=799834 headers_B=12800 last_used_B=3304
+DISTRIBUTION rate=23232 model=DELTA raw_min=15 raw_p50=19 raw_p95=26 raw_max=34 raw_avg=21.7723 hot_min=40 hot_p50=44 hot_p95=48 hot_max=56 hot_avg=45.3920 hot_total_B=1054548 hot_sectors=287 warm_sectors=153 hot_alloc_B=1175552 warm_alloc_B=626688
+WARM rate=23232 model=DELTA min=17 p50=21 p95=28 max=39 average=24.1166 payload_B=560278 headers_B=61812 last_used_B=3233
+DISTRIBUTION rate=23232 model=CONTEXT raw_min=11 raw_p50=15 raw_p95=22 raw_max=36 raw_avg=17.8419 hot_min=36 hot_p50=40 hot_p95=44 hot_max=60 hot_avg=41.4520 hot_total_B=963012 hot_sectors=262 warm_sectors=128 hot_alloc_B=1073152 warm_alloc_B=524288
+WARM rate=23232 model=CONTEXT min=13 p50=17 p95=24 max=36 average=20.1658 payload_B=468492 headers_B=51712 last_used_B=2243
+DISTRIBUTION rate=23232 model=PRESENCE_DICTIONARY raw_min=6 raw_p50=12 raw_p95=19 raw_max=37 raw_avg=14.4209 hot_min=28 hot_p50=36 hot_p95=44 hot_max=60 hot_avg=38.2577 hot_total_B=888804 hot_sectors=243 warm_sectors=107 hot_alloc_B=995328 warm_alloc_B=438272
+WARM rate=23232 model=PRESENCE_DICTIONARY min=8 p50=14 p95=21 max=39 average=16.8349 payload_B=391108 headers_B=43228 last_used_B=1430
+DISTRIBUTION rate=23232 model=CONTEXT_RELATIONS raw_min=6 raw_p50=11 raw_p95=18 raw_max=36 raw_avg=13.5759 hot_min=28 hot_p50=36 hot_p95=40 hot_max=60 hot_avg=36.9384 hot_total_B=858152 hot_sectors=234 warm_sectors=101 hot_alloc_B=958464 warm_alloc_B=413696
+WARM rate=23232 model=CONTEXT_RELATIONS min=8 p50=13 p95=20 max=39 average=15.9446 payload_B=370425 headers_B=40804 last_used_B=2007
+CAPACITY model=FIXED rate=384 identity_extra_B=0 jitter=0 normal_pool_sectors=7 source_records_fit=383 hours=23.937500 days=0.997396 three_day_source=1152 daily_records=3 three_day_sectors=22 total_with_fixed100KiB=192512 last_used=498
+CAPACITY model=CONTEXT_RELATIONS rate=384 identity_extra_B=0 jitter=0 normal_pool_sectors=7 source_records_fit=1595 hours=99.687500 days=4.153646 three_day_source=1152 daily_records=3 three_day_sectors=6 total_with_fixed100KiB=126976 last_used=706
+CAPACITY model=CONTEXT_RELATIONS rate=384 identity_extra_B=324 jitter=0 normal_pool_sectors=7 source_records_fit=1469 hours=91.812500 days=3.825521 three_day_source=1152 daily_records=3 three_day_sectors=6 total_with_fixed100KiB=126976 last_used=2526
+CAPACITY model=CONTEXT_RELATIONS rate=384 identity_extra_B=966 jitter=0 normal_pool_sectors=7 source_records_fit=1193 hours=74.562500 days=3.106771 three_day_source=1152 daily_records=3 three_day_sectors=7 total_with_fixed100KiB=131072 last_used=3446
+CAPACITY model=FIXED rate=384 identity_extra_B=378 jitter=0 normal_pool_sectors=7 source_records_fit=350 hours=21.875000 days=0.911458 three_day_source=1152 daily_records=3 three_day_sectors=24 total_with_fixed100KiB=200704 last_used=1008
+CAPACITY model=CONTEXT_RELATIONS rate=384 identity_extra_B=324 jitter=1 normal_pool_sectors=7 source_records_fit=1281 hours=80.062500 days=3.335938 three_day_source=1152 daily_records=3 three_day_sectors=7 total_with_fixed100KiB=131072 last_used=1755
+CAPACITY model=CONTEXT_RELATIONS rate=384 identity_extra_B=966 jitter=1 normal_pool_sectors=7 source_records_fit=1056 hours=66.000000 days=2.750000 three_day_source=1152 daily_records=3 three_day_sectors=8 total_with_fixed100KiB=135168 last_used=3263
+CAPACITY model=FIXED rate=384 identity_extra_B=378 jitter=1 normal_pool_sectors=7 source_records_fit=350 hours=21.875000 days=0.911458 three_day_source=1152 daily_records=3 three_day_sectors=24 total_with_fixed100KiB=200704 last_used=1008
+CAPACITY model=FIXED rate=1776 identity_extra_B=0 jitter=0 normal_pool_sectors=7 source_records_fit=377 hours=5.094595 days=0.212275 three_day_source=5328 daily_records=3 three_day_sectors=99 total_with_fixed100KiB=507904 last_used=3468
+CAPACITY model=CONTEXT_RELATIONS rate=1776 identity_extra_B=0 jitter=0 normal_pool_sectors=7 source_records_fit=1476 hours=19.945946 days=0.831081 three_day_source=5328 daily_records=3 three_day_sectors=26 total_with_fixed100KiB=208896 last_used=1371
+CAPACITY model=CONTEXT_RELATIONS rate=1776 identity_extra_B=324 jitter=0 normal_pool_sectors=7 source_records_fit=1367 hours=18.472973 days=0.769707 three_day_source=5328 daily_records=3 three_day_sectors=28 total_with_fixed100KiB=217088 last_used=1791
+CAPACITY model=CONTEXT_RELATIONS rate=1776 identity_extra_B=966 jitter=0 normal_pool_sectors=7 source_records_fit=1118 hours=15.108108 days=0.629505 three_day_source=5328 daily_records=3 three_day_sectors=34 total_with_fixed100KiB=241664 last_used=2485
+CAPACITY model=FIXED rate=1776 identity_extra_B=378 jitter=0 normal_pool_sectors=7 source_records_fit=343 hours=4.635135 days=0.193131 three_day_source=5328 daily_records=3 three_day_sectors=109 total_with_fixed100KiB=548864 last_used=1800
+CAPACITY model=CONTEXT_RELATIONS rate=1776 identity_extra_B=324 jitter=1 normal_pool_sectors=7 source_records_fit=1347 hours=18.202703 days=0.758446 three_day_source=5328 daily_records=3 three_day_sectors=28 total_with_fixed100KiB=217088 last_used=3273
+CAPACITY model=CONTEXT_RELATIONS rate=1776 identity_extra_B=966 jitter=1 normal_pool_sectors=7 source_records_fit=1103 hours=14.905405 days=0.621059 three_day_source=5328 daily_records=3 three_day_sectors=34 total_with_fixed100KiB=241664 last_used=3571
+CAPACITY model=FIXED rate=1776 identity_extra_B=378 jitter=1 normal_pool_sectors=7 source_records_fit=343 hours=4.635135 days=0.193131 three_day_source=5328 daily_records=3 three_day_sectors=109 total_with_fixed100KiB=548864 last_used=1800
+CAPACITY model=FIXED rate=23232 identity_extra_B=0 jitter=0 normal_pool_sectors=7 source_records_fit=365 hours=0.377066 days=0.015711 three_day_source=69696 daily_records=3 three_day_sectors=1339 total_with_fixed100KiB=5586944 last_used=3534
+CAPACITY model=CONTEXT_RELATIONS rate=23232 identity_extra_B=0 jitter=0 normal_pool_sectors=7 source_records_fit=1619 hours=1.672521 days=0.069688 three_day_source=69696 daily_records=3 three_day_sectors=302 total_with_fixed100KiB=1339392 last_used=1575
+CAPACITY model=CONTEXT_RELATIONS rate=23232 identity_extra_B=324 jitter=0 normal_pool_sectors=7 source_records_fit=1470 hours=1.518595 days=0.063275 three_day_source=69696 daily_records=3 three_day_sectors=331 total_with_fixed100KiB=1458176 last_used=2029
+CAPACITY model=CONTEXT_RELATIONS rate=23232 identity_extra_B=966 jitter=0 normal_pool_sectors=7 source_records_fit=1201 hours=1.240702 days=0.051696 three_day_source=69696 daily_records=3 three_day_sectors=407 total_with_fixed100KiB=1769472 last_used=1688
+CAPACITY model=FIXED rate=23232 identity_extra_B=378 jitter=0 normal_pool_sectors=7 source_records_fit=336 hours=0.347107 days=0.014463 three_day_source=69696 daily_records=3 three_day_sectors=1451 total_with_fixed100KiB=6045696 last_used=3120
+CAPACITY model=CONTEXT_RELATIONS rate=23232 identity_extra_B=324 jitter=1 normal_pool_sectors=7 source_records_fit=1457 hours=1.505165 days=0.062715 three_day_source=69696 daily_records=3 three_day_sectors=333 total_with_fixed100KiB=1466368 last_used=3738
+CAPACITY model=CONTEXT_RELATIONS rate=23232 identity_extra_B=966 jitter=1 normal_pool_sectors=7 source_records_fit=1181 hours=1.220041 days=0.050835 three_day_source=69696 daily_records=3 three_day_sectors=412 total_with_fixed100KiB=1789952 last_used=4008
+CAPACITY model=FIXED rate=23232 identity_extra_B=378 jitter=1 normal_pool_sectors=7 source_records_fit=336 hours=0.347107 days=0.014463 three_day_source=69696 daily_records=3 three_day_sectors=1451 total_with_fixed100KiB=6045696 last_used=3120
+CODEC model=FIXED encode_ns=361.19 decode_ns=518.03 buffer_RAM=128 context_RAM=568
+CODEC model=VARINT encode_ns=125.65 decode_ns=356.85 buffer_RAM=128 context_RAM=568
+CODEC model=DELTA encode_ns=130.47 decode_ns=338.05 buffer_RAM=128 context_RAM=568
+CODEC model=CONTEXT encode_ns=124.30 decode_ns=317.45 buffer_RAM=128 context_RAM=568
+CODEC model=PRESENCE_DICTIONARY encode_ns=122.97 decode_ns=307.53 buffer_RAM=128 context_RAM=568
+CODEC model=CONTEXT_RELATIONS encode_ns=128.12 decode_ns=297.00 buffer_RAM=128 context_RAM=568
+RETRIEVAL lookup_ns=49.84 random_read_ns=324.45 rebuild_32_records_ns=23623.10 scan_B=1096 sector_fixture_RAM=5680 index_RAM=12452
+CURRENT_PAYLOAD encode_ns=165.94 ordinary_plain_B=101 (no AEAD/flash)
+CHECKSUM=229123410
+
+RESUMED_CLOSEOUT_COMMAND ./build/storage_density_benchmark --closeout-sizing
+CLOSEOUT_SIZING existing_codec_only; no lifetime/sanitizer/timing benchmark rerun
+DISTRIBUTION rate=384 model=CONTEXT_RELATIONS raw_min=6 raw_p50=12 raw_p95=19 raw_max=19 raw_avg=12.5938 hot_min=28 hot_p50=36 hot_p95=44 hot_max=44 hot_avg=36.1354 hot_total_B=13876 hot_sectors=4 warm_sectors=2 hot_alloc_B=16384 warm_alloc_B=8192
+WARM rate=384 model=CONTEXT_RELATIONS min=8 p50=14 p95=21 max=21 average=15.5312 payload_B=5964 headers_B=808 last_used_B=2696
+DISTRIBUTION rate=384 model=CONTEXT_RELATIONS raw_min=6 raw_p50=13 raw_p95=22 raw_max=24 raw_avg=14.9453 hot_min=28 hot_p50=36 hot_p95=44 hot_max=48 hot_avg=38.1458 hot_total_B=14648 hot_sectors=4 warm_sectors=2 hot_alloc_B=16384 warm_alloc_B=8192
+WARM rate=384 model=CONTEXT_RELATIONS min=8 p50=16 p95=24 max=26 average=17.6823 payload_B=6790 headers_B=808 last_used_B=3502
+SIZING_VARIANT identity_extra_B=0 jitter=1 header_B=404 rate=384 source_only_one_day_no_daily
+DISTRIBUTION rate=384 model=CONTEXT_RELATIONS raw_min=6 raw_p50=12 raw_p95=19 raw_max=19 raw_avg=12.4661 hot_min=28 hot_p50=36 hot_p95=44 hot_max=44 hot_avg=36.0208 hot_total_B=13832 hot_sectors=5 warm_sectors=2 hot_alloc_B=20480 warm_alloc_B=8192
+WARM rate=384 model=CONTEXT_RELATIONS min=8 p50=14 p95=21 max=21 average=15.6979 payload_B=6028 headers_B=1456 last_used_B=3397
+SIZING_VARIANT identity_extra_B=324 jitter=0 header_B=728 rate=384 source_only_one_day_no_daily
+DISTRIBUTION rate=384 model=CONTEXT_RELATIONS raw_min=6 raw_p50=13 raw_p95=22 raw_max=24 raw_avg=14.8568 hot_min=28 hot_p50=36 hot_p95=44 hot_max=48 hot_avg=38.0521 hot_total_B=14612 hot_sectors=5 warm_sectors=3 hot_alloc_B=20480 warm_alloc_B=12288
+WARM rate=384 model=CONTEXT_RELATIONS min=8 p50=15 p95=24 max=26 average=17.5052 payload_B=6722 headers_B=2184 last_used_B=744
+SIZING_VARIANT identity_extra_B=324 jitter=1 header_B=728 rate=384 source_only_one_day_no_daily
+DISTRIBUTION rate=384 model=CONTEXT_RELATIONS raw_min=6 raw_p50=12 raw_p95=19 raw_max=19 raw_avg=12.1458 hot_min=28 hot_p50=36 hot_p95=44 hot_max=44 hot_avg=35.5938 hot_total_B=13668 hot_sectors=6 warm_sectors=3 hot_alloc_B=24576 warm_alloc_B=12288
+WARM rate=384 model=CONTEXT_RELATIONS min=8 p50=14 p95=21 max=21 average=15.2031 payload_B=5838 headers_B=4110 last_used_B=1771
+SIZING_VARIANT identity_extra_B=966 jitter=0 header_B=1370 rate=384 source_only_one_day_no_daily
+DISTRIBUTION rate=384 model=CONTEXT_RELATIONS raw_min=6 raw_p50=13 raw_p95=22 raw_max=24 raw_avg=14.5260 hot_min=28 hot_p50=36 hot_p95=44 hot_max=48 hot_avg=37.7500 hot_total_B=14496 hot_sectors=6 warm_sectors=3 hot_alloc_B=24576 warm_alloc_B=12288
+WARM rate=384 model=CONTEXT_RELATIONS min=8 p50=15 p95=24 max=26 average=17.2760 payload_B=6634 headers_B=4110 last_used_B=2568
+SIZING_VARIANT identity_extra_B=966 jitter=1 header_B=1370 rate=384 source_only_one_day_no_daily

@@ -1,0 +1,2 @@
+DENSITY_LONG_RUN events=1000000 peak_keys=192 fixed_pool_RAM=34080 index_RAM=12452 hot_new=0
+STORAGE_DENSITY_HOST_PASS codec/context/random-access/AEAD-binding/byte-tears/COW-model/bounded-lifetime

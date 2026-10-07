@@ -72,6 +72,16 @@ BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCE
 
 all: verify
 
+# Information-density experiments only; excluded from firmware source lists.
+.PHONY: storage-density-host-test storage-density-benchmark
+storage-density-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_density_validation.cpp -lcrypto -o build/storage_density_validation
+	./build/storage_density_validation
+
+storage-density-benchmark: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) tests/cpp/storage_density_benchmark.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/common/transport/node_retirement_protocol.cpp host/security/openssl_commissioning_crypto.cpp shared/src/logging.cpp -lcrypto -o build/storage_density_benchmark
+	./build/storage_density_benchmark
+
 # Experimental portable primitives only; no production object/target wiring.
 .PHONY: storage-efficiency-host-test storage-efficiency-benchmark
 storage-efficiency-host-test: build

@@ -1,0 +1,10 @@
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_efficiency_validation.cpp -o build/storage_efficiency_validation
+./build/storage_efficiency_validation
+LONG_RUN_EVENTS=1000000 LIVE_RECORDS=192 FIXED_RECORD_POOL_BYTES=17088 INDEX_BYTES=12452 HOT_NEW_ALLOCATIONS=0
+storage efficiency core validation PASS (codec, CRC, bounds, collisions, wrap, stats, parser, reconstruction)
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security shared/src/logging.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/cloud/cloud_sync.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_backend_commit_validation.cpp -lcrypto -o build/hub_backend_commit_validation
+./build/hub_backend_commit_validation
+HUB-BACKEND-COMMIT HOST PASS
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
+./build/hub_journal_persistence_validation
+P2-PERSIST-HUB-JOURNAL HOST PASS capacity=128 full=129 replacement/dedupe/restart/tamper/write-fault/reducer-replay
