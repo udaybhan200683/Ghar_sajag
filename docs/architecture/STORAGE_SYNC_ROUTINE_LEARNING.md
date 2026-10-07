@@ -189,3 +189,22 @@ before erase is host-modeled; authenticated allocator/nonce/rollback/physical
 peak proof remains open. Raw conditional128 KiB sizing does not include NVS
 entry tax by implication; no production capacity/retention guarantee is closed.
 No policy change or new requirement; use ExecPlan section23 for the next proof.
+
+## Admission and physical backend proof status (technical findings only)
+
+[Focused evidence](../exec-plans/evidence/R1_STORAGE_ADMISSION_RAWFLASH_PROOF_20261007.md)
+and ExecPlan section24 derive a conditional complete-report plus finite uncovered
+credit window:6*(32+W) exact witnesses; W32 tolerates one Node retained flight.
+Report/control selection must progress independently of normal admission, and
+critical reserves cannot be unlimited bypasses. Final critical/overflow policy
+and durable credit/recovery remain OPEN. Credits do not free backend-pinned
+bodies; NO_OBSERVATION remains distinct from inactivity.
+
+Whole-object NVS fresh-image mapping fits synthetic72h NORMAL sample/max with
+stated reserves, unlike an isolated event-pool tax estimate. This is not runtime
+allocation/GC proof. Independently erased raw checkpoint banks need24 KiB for
+three6144-byte images; shared20 KiB arena needs a release/allocator proof. Current
+128 KiB remains CONDITIONAL and storage backend UNDECIDED. Do not infer a72h
+product guarantee, partition enlargement or hardware migration. Next host step
+is actual IDF NVS runtime tail/promotion/GC peak proof; no production integration
+or new numerical requirement/context version.

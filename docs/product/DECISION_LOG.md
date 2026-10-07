@@ -171,3 +171,14 @@ persisted admission/progress invariant, not an approved product policy. Host
 COW/million-event tests pass within explicit model assumptions; physical
 allocator/crypto/rollback and saturation/backend gates stay open.128 KiB remains
 conditional; no partition decision,72h guarantee or new LOCKED requirement.
+
+### 2026-10-07 admission and physical storage findings (no new decision)
+
+GS-D016/021/024 unchanged. [Admission/NVS/raw host evidence](../exec-plans/evidence/R1_STORAGE_ADMISSION_RAWFLASH_PROOF_20261007.md)
+derives conditional6*(32+W) exact-key bound; W32/C split is not approved numerical
+policy. Critical/normal saturation still requires a product decision. Whole NVS
+fresh-image packing can fit synthetic72h sample/max at122880/126976 B; actual
+runtime/GC peaks remain unproved. Conservative independent raw state banks
+correct the old20 KiB reservation to24 KiB; raw sample/max comparison
+131072/135168 B.128 KiB remains conditional; no partition/hardware migration or
+storage backend selection approved. No new LOCKED requirement/CONTEXT_VERSION.

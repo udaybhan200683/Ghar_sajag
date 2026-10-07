@@ -1,0 +1,37 @@
+HOST_ONLY context=2026-10-07.003 source_base=347d5f4ae9a278433b3213fb57e851e56342cc41
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_admission_validation.cpp -o build/storage_admission_validation
+./build/storage_admission_validation
+ADMISSION_BOUND W=1 C=1 maximum=198 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=8 C=2 maximum=240 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=1 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=4 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=16 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=32 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_LIFETIME events=1000000 peak=139 fixed_RAM=37384 atomic-snapshot-assumption PASS
+STORAGE_ADMISSION_HOST_PASS no-false-ACK report-replay/gaps/session/no-credit-reset
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_rawflash_validation.cpp -lcrypto -o build/storage_rawflash_validation
+./build/storage_rawflash_validation
+RAW_FAULT_MODE gc=0 operations=4196 exhaustive_cuts=4197 PASS
+RAW_FAULT_MODE gc=1 operations=12820 exhaustive_cuts=12821 PASS
+STORAGE_RAWFLASH_HOST_PASS cuts=17018 sector_bytes=4096 fixed_media=16384 scan_bound=16384 AES-GCM/context-position/root-binding
+RAW_LIMITS external-unique-serials numeric-context-only prefix-erase-no-freshness-fence no-production-allocator-proof
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_lifecycle_validation.cpp -o build/storage_lifecycle_validation
+./build/storage_lifecycle_validation
+REPORT_LOSS_COUNTEREXAMPLE pending_peak=1 history_required=100000 no-protocol-finite-bound
+CREDIT_BOUND_PASS peak=384 copied-ledger-reboot/no-credit-reset/exact-conflict/no-resurrection
+GAP_SESSION_PASS pending-hole/old-origin/rejoin/replacement-rejected
+COW_FAULT_PASS cuts=4325 selected-corruption-fail-closed body-or-certificate-or-retirement
+BACKEND_LOST_ACK_PASS retain-body/retry-stable-source/local-receipt-before-release
+LIFETIME_PASS events=1000000 peak=89 ledger_RAM=26368 fixed_capacity=384 atomic-snapshot-assumption
+STORAGE_LIFECYCLE_HOST_PASS
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_density_validation.cpp -lcrypto -o build/storage_density_validation
+./build/storage_density_validation
+DENSITY_LONG_RUN events=1000000 peak_keys=192 fixed_pool_RAM=34080 index_RAM=12452 hot_new=0
+STORAGE_DENSITY_HOST_PASS codec/context/random-access/AEAD-binding/byte-tears/COW-model/bounded-lifetime
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security shared/src/logging.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/cloud/cloud_sync.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_backend_commit_validation.cpp -lcrypto -o build/hub_backend_commit_validation
+./build/hub_backend_commit_validation
+HUB-BACKEND-COMMIT HOST PASS
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
+./build/hub_journal_persistence_validation
+P2-PERSIST-HUB-JOURNAL HOST PASS capacity=128 full=129 replacement/dedupe/restart/tamper/write-fault/reducer-replay
+PROCESS_EXIT=0

@@ -1,0 +1,30 @@
+HOST_ONLY context=2026-10-07.003 source_base=347d5f4ae9a278433b3213fb57e851e56342cc41
+COMMAND=['g++', '-std=c++17', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-pedantic', '-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-I.', 'tests/cpp/storage_admission_validation.cpp', '-lcrypto', '-o', '/tmp/gs-storage_admission_validation-san']
+COMPILE_EXIT=0
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ADMISSION_BOUND W=1 C=1 maximum=198 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=8 C=2 maximum=240 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=1 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=4 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=16 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=32 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_LIFETIME events=1000000 peak=139 fixed_RAM=37384 atomic-snapshot-assumption PASS
+STORAGE_ADMISSION_HOST_PASS no-false-ACK report-replay/gaps/session/no-credit-reset
+RUN_EXIT=0
+COMMAND=['g++', '-std=c++17', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-pedantic', '-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-I.', 'tests/cpp/storage_rawflash_validation.cpp', '-lcrypto', '-o', '/tmp/gs-storage_rawflash_validation-san']
+COMPILE_EXIT=0
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+RAW_FAULT_MODE gc=0 operations=4196 exhaustive_cuts=4197 PASS
+RAW_FAULT_MODE gc=1 operations=12820 exhaustive_cuts=12821 PASS
+STORAGE_RAWFLASH_HOST_PASS cuts=17018 sector_bytes=4096 fixed_media=16384 scan_bound=16384 AES-GCM/context-position/root-binding
+RAW_LIMITS external-unique-serials numeric-context-only prefix-erase-no-freshness-fence no-production-allocator-proof
+RUN_EXIT=0
+
+FINAL_RAW_MODEL_WITH_INTERRUPTED_CLEANUP
+COMPILE_EXIT=0
+RAW_FAULT_MODE gc=0 operations=4196 exhaustive_cuts=4197 PASS
+RAW_FAULT_MODE gc=1 operations=12820 exhaustive_cuts=12821 PASS
+STORAGE_RAWFLASH_HOST_PASS cuts=17018 sector_bytes=4096 fixed_media=16384 scan_bound=16384 AES-GCM/context-position/root-binding
+RAW_LIMITS external-unique-serials numeric-context-only prefix-erase-no-freshness-fence no-production-allocator-proof
+RUN_EXIT=0
+PROCESS_EXIT=0

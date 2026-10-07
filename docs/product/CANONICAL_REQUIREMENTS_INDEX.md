@@ -336,3 +336,14 @@ master requirements source or production format is introduced.
 |---|---|---|
 | `docs/exec-plans/evidence/R1_STORAGE_RETIREMENT_RECLAIM_PROOF_20261007.md` | TEST_EVIDENCE / DERIVED / HOST-MODELED | Source pending192 bound, unreported-history counterexample, proposed384-credit lemma, abstract COW cuts and NVS/raw capacity sensitivity; no product retention/partition/production proof authority |
 | `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` section23 | IMPLEMENTATION_DESIGN / PROPOSED | Qualifies old416-body/100KiB fixed ledger with conditional dedupe-only witnesses; progress/admission, allocator/crypto/rollback, backend and saturation remain open |
+
+### Admission / physical storage evidence checkpoint
+
+| Path | Classification | Authority boundary |
+|---|---|---|
+| `docs/exec-plans/evidence/R1_STORAGE_ADMISSION_RAWFLASH_PROOF_20261007.md` and linked logs | TEST_EVIDENCE / DERIVED / HOST-MODELED | Conditional6*(32+W) credit lemma, full-sector AES host crash models, installed SDK NVS fresh-image occupancy and raw physical accounting; no product W/C/overflow/offline/partition/backend approval or target qualification |
+
+ExecPlan section24 refines section23's event-pool-only NVS sensitivity and
+conservative independent raw bank allocation. Preserve prior source/codec facts;
+whole fresh NVS packing does not establish runtime GC/peak progress. Context
+revision remains2026-10-07.003; no new LOCKED decision or authority promotion.

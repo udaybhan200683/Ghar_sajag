@@ -203,3 +203,24 @@ duplicate bypass versus component digest checking needs end-to-end investigation
 Next close progress/admission and authenticated peak allocator proofs, then
 explicit backend/offline/critical decisions; do not production-integrate.
 No new locked requirement or CONTEXT_VERSION change.
+
+## 2026-10-07 bounded admission and NVS/raw comparison
+
+[Focused host proof](../exec-plans/evidence/R1_STORAGE_ADMISSION_RAWFLASH_PROOF_20261007.md)
+and ExecPlan section24 derive `6*(32+W)` exact keys under persisted complete
+report +uncovered admission credits. W32 gives384 for one retained flight;
+final W/C, critical mapping and safe saturation remain unapproved. Reports/control
+must progress without normal credits; reboot/generation alone never replenishes.
+Million-event admission, six-Node saturation and host authenticated4 KiB flash
+models pass; actual durable credits/full allocator/freshness remain OPEN.
+
+Whole-object NVS remapping corrects the earlier event-pool-only tax sensitivity:
+official generator fresh images for synthetic72h NORMAL sample/max need
+122880/126976 B including stated COW/free/engineering reserves. This is not
+runtime GC/capacity proof. Conservative raw three independently erasable6144-byte
+state banks need24576 rather than prior20480, leaving seven event sectors;
+sample72h131072 fits, max135168 misses4096. Neither72h nor these reserve choices
+are locked.128 KiB remains CONDITIONAL; enlargement not proven necessary;
+backend UNDECIDED. Next host-only step: actual IDF NVS runtime/GC/tail/promotion
+peak proof and explicit product critical/offline/substitution decisions.
+Codec/production/ACK/backend/partition unchanged; no hardware or context bump.

@@ -1226,3 +1226,138 @@ STOP gates. No new locked requirement/context version, partition, production
 integration or hardware operation. Next work is the bounded authenticated
 allocator/progress proof plus requested product/backend decisions, not another
 codec optimization or larger journal constant.
+
+## 24. Admission progress and whole-partition NVS/raw proof
+
+[Focused admission/physical evidence](../evidence/R1_STORAGE_ADMISSION_RAWFLASH_PROOF_20261007.md)
+contains source maps, alternatives, conditional induction, pressure behavior,
+per-object physical accounting, whole-partition ledgers, fresh SDK-generator
+images and full-sector host failure models. Context remains.003; codec frozen.
+No production/ACK/backend/partition/hardware change or new LOCKED decision.
+
+### Conditional finite rule, not a product-policy choice
+
+Persist a selected complete gap-aware report P_i (<=32 keys) and bound distinct
+uncovered admissions U_i by W. New covered keys must be listed; covered absent
+keys are Stale. New uncovered commit spends one credit; retries spend none.
+Recompute remaining credits from surviving uncovered evidence on real selected
+report progress, never report-generation increment, event ACK count, reboot,
+rejoin/new transport or epoch reset. Reports/control have independent reserved
+selection/COW workspace and cannot be blocked by normal event exhaustion.
+Then E_i subset P_i union U_i; total exact live keys<=6*(32+W). Gap exceptions
+are the listed32/Node, with zero additional retired-gap ledger. Current production
+still lacks this admission rule; its historical exact evidence is unbounded.
+
+Recommended conceptual minimum is fixed persisted Hub admission plus mandatory
+complete report to replenish, optionally piggybacking report progress. W=32
+permits one full retained32-key flight; W=1 would yield198 exact keys but tighter
+report latency; W=2 is the minimum allowing separate one normal/one critical
+new credit. No final W is approved. Origin/session ledger alone cannot bound
+continued ACKed events in one origin; an ACK credit token is not needed for the
+safety proof. Event/report scheduling, full six-owner enforcement, ownership/
+epoch revocation and durable credit recovery remain integration obligations.
+
+Reserve C within W, not unlimited extra critical admissions. Normal uncovered
+charges<=W-C, total<=W. Critical body bytes and Node admission reservations must
+also be protected. Existing Node four-slot reserve protects all nonmotion
+traffic, not critical only. C=4 in the model is a test parameter; C=1/2/16/32
+and W=1/8/32 are also exercised. Final critical classes/C/rate, offline/full-detail
+horizon, saturation behavior and backend summary substitution remain
+REQUIREMENT_GAP; stop that policy branch. A finite reserve cannot promise
+unlimited unsynced critical history. Credits and body capacity are independent:
+report retirement may free dedupe credit while a backend-pending body remains.
+
+Do not force body->certificate: typical frozen HOT36/WARM15–16 are smaller than
+55 framed exact certificates. Use the smallest lossless context-pinned form
+until all replay/backend/history obligations finish, then exact key+full HMAC
+or selected report complement. Class association must remain authenticated
+when body removed (candidate48-byte384-row bitmap inside lifecycle metadata);
+53-byte dedupe certificate alone is not a class-credit or backend payload.
+No unsafe key-only conflict check, simple highest-sequence floor, or backend
+send/timeout completion. Original source retry binding remains a technical gate.
+
+### Corrected raw physical map and efficient whole NVS comparison
+
+Section23 raw fixed98,304 assumed three6144-byte state images in20,480 B. For
+**independent erase-sector banks**, charge3*8192=24,576, increasing fixed to
+102,400 and leaving28,672 (seven sectors). Shared five-sector arena remains an
+unproved allocator alternative; do not claim sector independence for it.
+
+Raw bytes: exact certificates24,576; report banks12,288; state/current-day/
+checkpoint banks24,576; roots8192; lifecycle metadata8192; GC/COW12,288; critical
+placeholder8192; engineering4096 =fixed102,400. Shared active/backlog/history/
+daily28,672; free0; total131,072. Six-row source contexts728/1370 within each
+variable sector, framing/tag/padding included. No triple body copy or RAM index
+counted as flash. Critical placeholder is not an approved derived rate guarantee.
+
+NVS uses real6.0.3 constants: page4096, header+bitmap64,126 entries32, chunk
+maximum4000. Blob minimumceil(B/32)+ceil(B/4000)+1 entries. **Remap every fixed
+object**, rather than retaining raw fixed-sector padding and taxing only events:
+six4079-byte witness blocks786 entries; three3485 reports333; three6144 state
+images585; two512 roots36; two4096 lifecycle metadata262; two4096 critical
+placeholders262; namespace1 =2265 entries. These include current-day/routine
+and candidate class/completion state, not duplicate separate payloads.
+
+Fixed minimum18 occupied pages +four reserve pages =90,112 B. Four reserve
+pages comprise one NVS internal free page, two application GC/COW pages and one
+engineering page. Nine logical4096 event segments add1179 entries; globally
+ceil(3444/126)+4=32 sectors. Incremental variable physical allocation40,960,
+logical event segments36,864; free0; total131072. Ten segments require33 sectors.
+The official installed V2 generator measures3447 actual entries for the nine
+segments, still28 occupied pages plus one free plus three application/engineering
+pages=131072. Seven/eight-segment images also match total sector minima despite
+three extra entries from actual fresh chunk splits.
+
+**FRESH-IMAGE TESTED only:** no runtime NVS GC/fragmentation/torn HOT tails/
+replacement coexistence or application scratch guarantee. Efficient NVS could
+pack fixed objects better than this conservative raw map; raw is not selected
+just for entry density. RECOMMENDED_STORAGE_BACKEND=UNDECIDED; next evaluate
+actual IDF runtime on emulated flash with committed HOT tails, sealed promotion
+and peak owner/COW/recovery churn. Never acknowledge an event waiting in an
+uncommitted batch. Never rewrite whole4096 NVS blob per event without addressing
+its>=4192-byte entry write amplification. Full raw engine remains much more
+custom security/recovery/rollback work than the fixture.
+
+### Retention and validation boundary
+
+Frozen source traces384/1776/23232/day, full sample/max names,20ms timing variation
+and302-byte daily entries:
+
+| Scenario | Raw seven sectors: sample /max records;hours | Optimistic NVS nine segments: sample /max records;hours |
+|---|---|---|
+|NORMAL|1281 /1056;80.0625 /66|1649 /1353;103.0625 /84.5625|
+|HIGH|1347 /1103;18.202703 /14.905405|1740 /1419;23.513514 /19.175676|
+|STRESS|1457 /1181;1.505165 /1.220041|1877 /1520;1.939050 /1.570248|
+
+72h1152 NORMAL sources+three daily entries: sample7 event sectors, max8.
+NVS whole fresh physical totals122,880/126,976, margins8192/4096; RAW totals
+131,072/135,168, margin0/deficit4096. **72h not a product guarantee**. NVS
+nine-segment retention assumes sealed values; transient HOT coexistence can
+reduce it.192 maximal HOT124 with1370 context still require10 event sectors,
+not guaranteed by either conservative pool. Borrowing unoccupied witness banks
+or earlier complete owner release requires an actual peak allocator proof.
+Neither this adverse trace nor raw72h miss proves partition enlargement necessary.
+
+New fixed admission model million-event run peak139, RAM37,384, plus six Nodes
+at384 simultaneously; replay/out-of-order reports, gaps, origin/generation change,
+critical reserve under normal-credit saturation, copied-snapshot reboot and
+nonresetting credit all PASS. Raw numeric fixture uses actual4 KiB sectors and
+host AES-GCM context/offset/root binding:17,018 exhaustive append/root/GC/erase
+byte-cut cases,144 sampled interrupted-cleanup second crashes,64 GC lifetimes,
+selected corruption/wrong serial fail-closed PASS. External nonce reservation,
+root freshness fence, complete-source strings, arbitrary brownout erase pattern,
+full32-sector multi-owner allocator and target implementation remain OPEN.
+Root fixture erases one sector per append to prove ordering: **not** production
+wear design. Production needs bounded journal/append-inventory amortization.
+
+Existing lifecycle/density million regressions, backend completion and journal
+recovery PASS; new admission/raw ASan+UBSan PASS (LeakSanitizer disabled). Logs and
+commands in focused evidence. No new target measurements; prior app1,864,624,
+OTA margin101,456 remain evidence, not new storage integration size/RAM/wear.
+
+CURRENT_128K_FEASIBILITY=CONDITIONAL; PARTITION_CHANGE_PROVEN_NECESSARY=NO;
+MINIMUM_REQUIRED_PARTITION=UNDETERMINED.4 MB storage viability conditional;
+current image OTA fits. Hardware upgrade is not proven required. Production
+integration remains NO pending product saturation/substitution/critical decisions,
+persisted report/admission fairness and source binding, physical peak allocator,
+authenticated root/nonce/freshness/FOTA and target RAM/code/wear. No context bump.

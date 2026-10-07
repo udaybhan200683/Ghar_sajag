@@ -73,6 +73,19 @@ BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCE
 all: verify
 
 # Lifecycle proof fixture only; no production source/ACK wiring.
+.PHONY: storage-admission-host-test storage-rawflash-host-test storage-physical-sizing
+storage-admission-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_admission_validation.cpp -o build/storage_admission_validation
+	./build/storage_admission_validation
+
+storage-rawflash-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_rawflash_validation.cpp -lcrypto -o build/storage_rawflash_validation
+	./build/storage_rawflash_validation
+
+storage-physical-sizing: build
+	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_physical_sizing.cpp -o build/storage_physical_sizing
+	./build/storage_physical_sizing
+
 .PHONY: storage-lifecycle-host-test storage-lifecycle-sizing
 storage-lifecycle-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_lifecycle_validation.cpp -o build/storage_lifecycle_validation

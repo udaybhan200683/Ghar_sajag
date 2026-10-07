@@ -1,0 +1,6 @@
+HOST_ONLY context=2026-10-07.003 source_base=347d5f4ae9a278433b3213fb57e851e56342cc41
+NVS_GENERATOR segments=7 minimum_image_pages=27 allocated_pages=26 used_entries=3185 lower_bound_entries=3182 additional_reserved_pages=3 total_bytes=122880 margin=8192 rejected_pages=[26] image_sha256=82eb7f85ef32f65cf867350c4d5fbbd1f8f9a16a2ce5706274e08091683c7c19
+NVS_GENERATOR segments=8 minimum_image_pages=28 allocated_pages=27 used_entries=3316 lower_bound_entries=3313 additional_reserved_pages=3 total_bytes=126976 margin=4096 rejected_pages=[26, 27] image_sha256=cb18afe3661b739e239390a0ab66522aa2eeccffcca6f46d45cbb900af8f4dba
+NVS_GENERATOR segments=9 minimum_image_pages=29 allocated_pages=28 used_entries=3447 lower_bound_entries=3444 additional_reserved_pages=3 total_bytes=131072 margin=0 rejected_pages=[26, 27, 28] image_sha256=3b06d1877a7334aa8e3898794193940feaebe1372a68f34bbd5e8f125c112ece
+NVS_FRESH_IMAGE_PROBE_PASS dummy-value-lengths only; no runtime/GC proof
+PROCESS_EXIT=0

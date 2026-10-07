@@ -1,0 +1,29 @@
+HOST_ONLY context=2026-10-07.003 source_base=347d5f4ae9a278433b3213fb57e851e56342cc41
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_rawflash_validation.cpp -lcrypto -o build/storage_rawflash_validation
+./build/storage_rawflash_validation
+RAW_FAULT_MODE gc=0 operations=4196 exhaustive_cuts=4197 PASS
+RAW_FAULT_MODE gc=1 operations=12820 exhaustive_cuts=12821 PASS
+STORAGE_RAWFLASH_HOST_PASS cuts=17018 sector_bytes=4096 fixed_media=16384 scan_bound=16384 AES-GCM/context-position/root-binding
+RAW_LIMITS external-unique-serials numeric-context-only prefix-erase-no-freshness-fence no-production-allocator-proof
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_physical_sizing.cpp -o build/storage_physical_sizing
+./build/storage_physical_sizing
+NVS_OBJECT logical=16 entries=3 entry_bytes=96 occupancy_ratio=6.000000
+NVS_OBJECT logical=32 entries=3 entry_bytes=96 occupancy_ratio=3.000000
+NVS_OBJECT logical=36 entries=4 entry_bytes=128 occupancy_ratio=3.555556
+NVS_OBJECT logical=53 entries=4 entry_bytes=128 occupancy_ratio=2.415094
+NVS_OBJECT logical=124 entries=6 entry_bytes=192 occupancy_ratio=1.548387
+NVS_OBJECT logical=404 entries=15 entry_bytes=480 occupancy_ratio=1.188119
+NVS_OBJECT logical=512 entries=18 entry_bytes=576 occupancy_ratio=1.125000
+NVS_OBJECT logical=3485 entries=111 entry_bytes=3552 occupancy_ratio=1.019225
+NVS_OBJECT logical=4079 entries=131 entry_bytes=4192 occupancy_ratio=1.027703
+NVS_OBJECT logical=4096 entries=131 entry_bytes=4192 occupancy_ratio=1.023438
+NVS_OBJECT logical=6144 entries=195 entry_bytes=6240 occupancy_ratio=1.015625
+NVS_GLOBAL fixed_entries=2265 min_fixed_pages=18 reserve_pages=4 fixed_bytes=90112 max_variable_segments=9 incremental_pages=10 variable_bytes=40960
+PHYSICAL_SIZING rate=384 header=728 raw7_records=1281 raw_hours=80.062500 nvs9_optimistic_records=1649 nvs_hours=103.062500 three_sectors=7 raw72=131072 raw_margin=0 nvs72_lower_bound=122880 nvs_margin=8192
+PHYSICAL_SIZING rate=384 header=1370 raw7_records=1056 raw_hours=66.000000 nvs9_optimistic_records=1353 nvs_hours=84.562500 three_sectors=8 raw72=135168 raw_margin=-4096 nvs72_lower_bound=126976 nvs_margin=4096
+PHYSICAL_SIZING rate=1776 header=728 raw7_records=1347 raw_hours=18.202703 nvs9_optimistic_records=1740 nvs_hours=23.513514 three_sectors=28 raw72=217088 raw_margin=-86016 nvs72_lower_bound=212992 nvs_margin=-81920
+PHYSICAL_SIZING rate=1776 header=1370 raw7_records=1103 raw_hours=14.905405 nvs9_optimistic_records=1419 nvs_hours=19.175676 three_sectors=34 raw72=241664 raw_margin=-110592 nvs72_lower_bound=237568 nvs_margin=-106496
+PHYSICAL_SIZING rate=23232 header=728 raw7_records=1457 raw_hours=1.505165 nvs9_optimistic_records=1877 nvs_hours=1.939050 three_sectors=333 raw72=1466368 raw_margin=-1335296 nvs72_lower_bound=1511424 nvs_margin=-1380352
+PHYSICAL_SIZING rate=23232 header=1370 raw7_records=1181 raw_hours=1.220041 nvs9_optimistic_records=1520 nvs_hours=1.570248 three_sectors=412 raw72=1789952 raw_margin=-1658880 nvs72_lower_bound=1847296 nvs_margin=-1716224
+PHYSICAL_SIZING_PASS lower-bound-only no-runtime-GC-progress-or-retention-promise
+PROCESS_EXIT=0
