@@ -126,6 +126,13 @@ Do not choose arbitrary event-count targets first.
 
 ## Numerical closure still required
 
+The [R1 Hub storage/data-lifecycle ExecPlan](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md)
+contains the 2026-10-07 source audit, derived workload scenarios, candidate byte
+budgets/layouts and implementation STOP gates. It is a **proposal**, not an
+approved retention/outage/priority or partition requirement. Its current-image,
+protocol-progress, backend-contract, rollback and crash/wear limits remain
+explicit. This canonical contract and LOCKED decisions retain authority.
+
 Before final storage implementation, calculate and approve:
 - worst-case six-Node semantic event rate;
 - offline outage survival target;

@@ -97,6 +97,19 @@ GS-D001. See `docs/progress/R1_WORKTREE_RECONCILIATION_20261007.md` for attribut
 validation limits and preserved files. GS-D016's storage blocker and GS-D020's
 pending physical qualification remain open work; CONTEXT_VERSION is unchanged.
 
+## Storage architecture analysis — 2026-10-07
+
+The proposed [R1 Hub storage/data-lifecycle ExecPlan](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md)
+audits baseline `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b` and proposes
+a conditional 4 MB dual-OTA layout. **No new LOCKED decision is made.**
+GS-D013/014/015/017 remain OPEN: outage/full-detail guarantees, critical overflow
+and summary priorities, partition acceptability and exact numerical policy need
+review. Retirement report progress/admission bounds, complete reducer limits,
+new backend effect/summary completion semantics, rollback compatibility,
+current signed image fit and crash/wear proofs also block implementation.
+The candidate figures are analysis, not product requirements; context version
+is unchanged. No firmware, partition, backend/PWA or hardware action occurred.
+
 ## Maintenance
 
 Append a new GS-Dxxx entry when a new product/architecture decision must survive future sessions. Never silently rewrite a LOCKED decision; supersede it explicitly.

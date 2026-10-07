@@ -73,6 +73,22 @@ Known requirements:
 
 ## Next engineering task
 
+Architecture analysis at storage-worktree baseline
+`cd8d126ab44689cc9c6ebbbe74e6dce058d4323b` is recorded in
+[R1_HUB_STORAGE_DATA_LIFECYCLE.md](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md).
+It recommends a **conditional** 384 KiB lifecycle allocation with dual OTA,
+not an approved partition change. Current secure target uses the durability
+owner/slot adapter and persisted receipts/reports, but retains 128 immutable
+events. The 192 simultaneous Node-pending-key bound does not bound accumulated
+ACKed-but-unreported Hub evidence without a report/admission window.
+
+Implementation remains STOP pending product outage/overflow decisions, bounded
+retirement progress, reducer/model limits, backend summary/effect completion,
+safe rollback/format transition, current image fit and crash/wear proof.
+Historical build sizes do not establish current-baseline OTA margin.
+Existing physical qualification and deferred legacy migration classification
+are unchanged; no firmware, physical event or new qualification was performed.
+
 Derive and close the storage/data-lifecycle design for the existing 4 MB Hub and six-Node worst case before implementation. Separate:
 
 1. active correctness journal and dedupe state;

@@ -93,6 +93,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 
 | Path | Classification | Use | Read when |
 |---|---|---|---|
+| `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` | IMPLEMENTATION_DESIGN / PROPOSED ExecPlan | Baseline-specific storage audit, candidate 4 MB budgets and lifecycle/proof plan; numerical policies remain unapproved | Review storage decisions and STOP gates before later implementation |
 | `docs/DURABLE_STORAGE_EPIC_PAUSE_HANDOFF.md` | HANDOFF/WORK_STATE | Paused durable-storage work context | Resume that historical workstream; reconcile with current state |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABILITY_ARCHITECTURE_CLOSURE_AUDIT.md` | SUPPORTING | Detailed durability audit and evidence | Audit current-format implementation |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABLE_BACKEND_COMPLETION_CONTRACT.md` | IMPLEMENTATION_DESIGN | Backend completion receipt contract | Outbox completion/reclamation work |
