@@ -72,6 +72,16 @@ BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCE
 
 all: verify
 
+# Experimental portable primitives only; no production object/target wiring.
+.PHONY: storage-efficiency-host-test storage-efficiency-benchmark
+storage-efficiency-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_efficiency_validation.cpp -o build/storage_efficiency_validation
+	./build/storage_efficiency_validation
+
+storage-efficiency-benchmark: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) tests/cpp/storage_efficiency_benchmark.cpp firmware/hub/components/storage/journal.cpp shared/src/logging.cpp -o build/storage_efficiency_benchmark
+	./build/storage_efficiency_benchmark
+
 build:
 	mkdir -p build logs
 

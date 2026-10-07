@@ -89,6 +89,18 @@ Historical build sizes do not establish current-baseline OTA margin.
 Existing physical qualification and deferred legacy migration classification
 are unchanged; no firmware, physical event or new qualification was performed.
 
+Subsequent efficiency phase preserves that architecture as documentation commit
+`94fe1a8` and implements **isolated host-only policy-neutral primitives** under
+the code project's `host/storage/`, with dedicated tests and benchmarks. No
+production target lists or ACK path are changed. The optimized candidate shares
+one immutable event across lifecycle owners; existing 128 KiB feasibility is
+**CONDITIONAL**, so partition enlargement remains UNDECIDED rather than assumed.
+The current 128-event production limit is unchanged. One million simulated events
+show fixed 192-record storage and allocation-free primitives; existing journal
+and backend completion host regressions pass. These are host results, not
+physical durability/GC/rollback qualification. See ExecPlan section 20 and its
+host evidence for exact byte budgets, benchmark scope and remaining STOP gates.
+
 Derive and close the storage/data-lifecycle design for the existing 4 MB Hub and six-Node worst case before implementation. Separate:
 
 1. active correctness journal and dedupe state;

@@ -133,6 +133,12 @@ approved retention/outage/priority or partition requirement. Its current-image,
 protocol-progress, backend-contract, rollback and crash/wear limits remain
 explicit. This canonical contract and LOCKED decisions retain authority.
 
+Its efficiency section adds isolated host-only implementation/evidence and a
+single-immutable-payload proposal. It does not authorize a new deployed format,
+retention/overflow policy or partition size. Prove optimized fit in the existing
+128 KiB durability area before treating enlargement as necessary; all canonical
+durability, backend-first sync and independent lifecycle requirements remain.
+
 Before final storage implementation, calculate and approve:
 - worst-case six-Node semantic event rate;
 - offline outage survival target;

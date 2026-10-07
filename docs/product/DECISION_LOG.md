@@ -110,6 +110,19 @@ current signed image fit and crash/wear proofs also block implementation.
 The candidate figures are analysis, not product requirements; context version
 is unchanged. No firmware, partition, backend/PWA or hardware action occurred.
 
+## Storage efficiency host core — 2026-10-07
+
+User-authorized policy-neutral primitives are implemented outside production:
+compact lossless experimental Node-event frames, bounded exact-key index,
+integer statistics, record cursor and host tests/benchmarks. Documentation-only
+architecture checkpoint: `94fe1a8`. The ExecPlan efficiency section challenges
+the earlier budgets and prioritizes proving the existing 128 KiB partition.
+Candidate108/128-byte authenticated envelopes,25 KiB engine RAM and smaller
+routine/state models remain proposals. No new LOCKED policy, format activation,
+partition approval or context-version change occurs. Million-event bounded host
+fixtures and sanitizer/regression checks do not close production retirement,
+backend, critical-overflow, crash/reclaim, image-size, wear or rollback gates.
+
 ## Maintenance
 
 Append a new GS-Dxxx entry when a new product/architecture decision must survive future sessions. Never silently rewrite a LOCKED decision; supersede it explicitly.

@@ -1,0 +1,18 @@
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_efficiency_validation.cpp -o build/storage_efficiency_validation
+./build/storage_efficiency_validation
+LONG_RUN_EVENTS=1000000 LIVE_RECORDS=192 FIXED_RECORD_POOL_BYTES=17088 INDEX_BYTES=12452 HOT_NEW_ALLOCATIONS=0
+storage efficiency core validation PASS (codec, CRC, bounds, collisions, wrap, stats, parser, reconstruction)
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security tests/cpp/storage_efficiency_benchmark.cpp firmware/hub/components/storage/journal.cpp shared/src/logging.cpp -o build/storage_efficiency_benchmark
+./build/storage_efficiency_benchmark
+HOST_ONLY timings; no ESP32 cycle or persistent commit performance claims. Warmup + median of 9 rounds; new insertions 128 batches/round.
+LOOKUP N=192 ns median9 linear=450.86 sorted=89.43 hash=62.43 fingerprint_exact=220.95 per_node_sorted=91.16 erase_insert=220.62 index_RAM=5828
+RETIRE N=192 hash_erase_ns=57.63 (128 batches/round, median9)
+LOOKUP N=384 ns median9 linear=478.40 sorted=122.16 hash=64.35 fingerprint_exact=292.28 per_node_sorted=228.34 erase_insert=248.97 index_RAM=11652
+RETIRE N=384 hash_erase_ns=166.67 (128 batches/round, median9)
+LOOKUP N=416 ns median9 linear=1308.69 sorted=226.92 hash=91.60 fingerprint_exact=265.63 per_node_sorted=66.67 erase_insert=215.23 index_RAM=12452
+RETIRE N=416 hash_erase_ns=106.06 (128 batches/round, median9)
+PIPELINE N=192 ns median9 current_volatile_commit=1693.62 proposed_CRC_encode_index=430.25 current_key_duplicate=1843.30 proposed_key_lookup=68.20 baseline_retained_heap=77652 baseline_new_calls=969 duplicate_new_calls_per1000=2000 proposed_heap=0 fixed_index_plus_frames=22724
+PIPELINE N=384 ns median9 current_volatile_commit=963.38 proposed_CRC_encode_index=342.21 current_key_duplicate=1249.16 proposed_key_lookup=119.26 baseline_retained_heap=155412 baseline_new_calls=1930 duplicate_new_calls_per1000=2000 proposed_heap=0 fixed_index_plus_frames=45444
+PIPELINE N=416 ns median9 current_volatile_commit=1098.81 proposed_CRC_encode_index=364.83 current_key_duplicate=1180.12 proposed_key_lookup=146.71 baseline_retained_heap=160180 baseline_new_calls=2090 duplicate_new_calls_per1000=2000 proposed_heap=0 fixed_index_plus_frames=49060
+PRIMITIVES ns CRC_event_encode=433.46 CRC_event_decode=418.01 current_payload_encode_reused_vector=332.98 moments_update=2.89 stats_encode=132.70 stats_decode=174.79 checkpoint_fixture_7168B_encode=56241.60 checkpoint_fixture_decode=38555.25 segment_parse_32records=8932.80
+SIZES current_sample_payload=101 legacy_envelope=129 DomainEvent=192 EventKey=80 compact_frame=68 summary_frame=88 Moments=24 checksum=195589901482396480

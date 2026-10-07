@@ -2,8 +2,8 @@
 
 Date: 2026-10-07. Source: `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b`, branch `feature/r1-hub-storage-lifecycle`.
 Context preflight: **PASS**, local/canonical context `2026-10-07.001`.
-Status: **PROPOSED; architecture analysis complete; implementation STOP**.
-No firmware, partitions, backend, PWA, test behavior, or hardware changed.
+Status: **PROPOSED; production integration STOP; isolated policy-neutral host primitives implemented**.
+The initial architecture checkpoint changed documentation only. The later efficiency phase adds host-only primitives/tests/benchmarks and Makefile targets; production firmware, partitions, backend, PWA and hardware remain unchanged.
 
 ## 1. Problem, authority and evidence boundaries
 
@@ -362,7 +362,7 @@ Run for this analysis: context preflight, source/evidence reads/searches, arithm
 
 Common triage: `TASK_SCOPE=architecture/static analysis/documentation`; `OUT_OF_SCOPE=firmware, partitions, backend/PWA changes, physical qualification, Jira/GS-114, BAT-C8, worktree synchronization`.
 
-**Implementation STOP if any remains:** unapproved product-semantic priority/exhaustion, unsafe rollback/format/partition transition, unmeasured insufficient 4 MiB safety margin, inability to preserve exact dedupe with bounded report credits, ambiguous new backend completion/summary contract, unproven crash recovery/reclaim peak space, canonical requirement conflict, or preflight no longer PASS. Current architecture is **NOT READY FOR IMPLEMENTATION** because these policy and proof gates remain. This plan is the reviewable implementation specification/proof agenda; it does not authorize proceeding around its gates.
+**Production-semantic implementation STOP if any remains:** unapproved product-semantic priority/exhaustion, unsafe rollback/format/partition transition, unmeasured insufficient 4 MiB safety margin, inability to preserve exact dedupe with bounded report credits, ambiguous new backend completion/summary contract, unproven crash recovery/reclaim peak space, canonical requirement conflict, or preflight no longer PASS. Current architecture is **NOT READY FOR PRODUCTION INTEGRATION** because these policy and proof gates remain. Section20 records the subsequently authorized isolated policy-neutral core; it does not bypass integration gates.
 
 ## 19. Execution status
 
@@ -371,6 +371,204 @@ Common triage: `TASK_SCOPE=architecture/static analysis/documentation`; `OUT_OF_
 - [x] Proposed lifecycle, recovery/learning/cloud/pressure/wear/FOTA design and impact/validation map.
 - [x] Legacy failure classified from preserved reconciliation evidence; test unchanged.
 - [ ] Product decisions and compatibility/crash proof closure.
-- [ ] Any implementation, build, target measurement or physical qualification: **NOT RUN / NOT AUTHORIZED IN THIS TASK**.
+- [x] Subsequent user-authorized efficiency phase: isolated host primitives and host validation; see section 20. No target build or physical qualification.
 
 Recommended next action is product/engineering review of sections 7, 9–14 and 18, then approval of exact contracts before implementation. Do not replace missing decisions with the candidate numbers in this plan.
+
+## 20. MEMORY / FLASH / CPU EFFICIENCY DESIGN
+
+This section refines the earlier numerical proposal. The original documentation checkpoint is commit **94fe1a8**, reviewed and committed separately before code. Preflight passed again at context `2026-10-07.001`. User authorization permits isolated category-A primitives despite the production STOP gates; it does not approve any new product policy or format activation. Earlier 128/96-byte copies, 5,632/8,192-byte model/state, 256-transition cadence and conditional 384 KiB recommendation are comparison baselines, **not mandatory allocations**. The optimized design below makes the current 128 KiB partition worth considering first.
+
+### 20.1 Field audit and lossless representation
+
+Multiple classifications can apply; diagnostic-looking data cannot be removed from an existing backend retry whose canonical fingerprint includes it.
+
+| Current field | Classification | Optimized treatment |
+|---|---|---|
+| Physical device ID | MANDATORY_FOR_CORRECTNESS/BACKEND; repeated text REDUNDANT | Authenticated immutable enrollment dictionary; one-byte slot plus full u32 generation |
+| Logical source ID | MANDATORY_FOR_CORRECTNESS/BACKEND; text DERIVABLE | Same dictionary preserves original logical assignment; no lookup against renamed/replaced live assignment |
+| Location | MANDATORY_FOR_BACKEND/LOCAL_AI; text DERIVABLE | Full u32 immutable assignment generation; six-zone routing from validated dictionary |
+| Origin session | MANDATORY_FOR_CORRECTNESS/BACKEND | Keep full u64; transport-session advance cannot replace it |
+| Sequence | MANDATORY_FOR_CORRECTNESS/BACKEND | Keep full u64; gaps/out-of-order keys preclude dense-sequence assumptions |
+| Kind | MANDATORY_FOR_CORRECTNESS/BACKEND/LOCAL_AI | Versioned u8 enum; reject unknown values |
+| Sensor type | MANDATORY_FOR_BACKEND; some LOCAL_AI context | u8; preserve current meaning |
+| Node monotonic time | MANDATORY_FOR_BACKEND; summary/local ordering context | Signed 64-bit lossless representation, no truncation |
+| Occurred time | MANDATORY_FOR_BACKEND/LOCAL_AI/correct rule timing | Signed 64-bit, preserve unknown/uncertainty semantics |
+| Hub received time | MANDATORY_FOR_BACKEND/rule coverage; not Node-origin identity | Signed 64-bit; immutable across backend retries |
+| Uncertainty | MANDATORY_FOR_BACKEND/LOCAL_AI/correct rule eligibility | Full u32, no assumed small default |
+| Battery mV | DIAGNOSTIC_ONLY currently, MANDATORY_FOR_BACKEND fingerprint; possible coverage input | u16 retained; no new battery ADC claim |
+| is_test | MANDATORY_FOR_CORRECTNESS/BACKEND | Bit 0 of flags; spare bits must be zero |
+| Event RSSI | DIAGNOSTIC_ONLY, MANDATORY_FOR_BACKEND fingerprint | Signed 16-bit retained; Node-origin RSSI belongs to immutable input projection; separate RX transport RSSI does not |
+| Motion count/first/last | MANDATORY_FOR_BACKEND/LOCAL_AI for summary | Rare 20-byte extension only for kind=MotionSummary |
+| Per-event schema/ownership strings, JSON | REDUNDANT | Numeric version/dictionary references; JSON only on transmission |
+| Full payload in A+C+D | REDUNDANT physical copies | One immutable event object with independent logical owners |
+
+Reject varints/sequence deltas/timestamp deltas initially: they need extra state/anchors, complicate random retry lookup/corruption recovery, and give little benefit compared with removing repeated strings/copies. Keep simple network-endian fixed fields. New reader/writer compatibility remains gated. This format preserves current Node numeric fields; it is not an approved derived Hub-alert or summary-substitution API.
+
+Implemented **experimental plaintext CRC frame**:
+
+| OFFSET | FIELD | BYTES | Rationale |
+|---:|---|---:|---|
+| 0 | Codec version=1 | 1 | Explicit local prototype version, not existing storage schema |
+| 1 | Event kind | 1 | 0–9 validated |
+| 2 | Sensor | 1 | 0–5 validated |
+| 3 | Test flags | 1 | Only bit 0 accepted |
+| 4 | Node slot | 1 | Six supported slots |
+| 5 | Reserved | 1 | Must be zero |
+| 6 | Total plaintext-frame length | 2 | Exactly 68 or 88 |
+| 8 | Enrollment generation | 4 | No truncated identity digest |
+| 12 | Assignment generation | 4 | Immutable source/location mapping |
+| 16 | Origin session | 8 | Full exact key |
+| 24 | Sequence | 8 | Full exact key |
+| 32 | Node monotonic time | 8 | Signed bits preserved |
+| 40 | Occurred epoch | 8 | Signed bits preserved |
+| 48 | Hub received epoch | 8 | Signed bits preserved |
+| 56 | Uncertainty | 4 | Full range |
+| 60 | Battery | 2 | Full range |
+| 62 | Event RSSI | 2 | Signed bits preserved |
+| 64 | Ordinary CRC32 OR summary additional count | 4 | Summary must have nonzero count |
+| 68 | Summary first monotonic time | 8 | Only in summary |
+| 76 | Summary last monotonic time | 8 | >=first>=0 |
+| 84 | Summary CRC32 | 4 | Only in summary |
+
+**68 B ordinary / 88 B summary** are implemented and statically bounded. CRC protects accidental corruption only. Prospective persistent envelope adds nonce12 + GCM tag16 + stable RecordId8 + commit marker4 = **108 /128 B**, before sector headers, transaction deltas, dictionaries and reclamation amplification. Header, installation/epoch, dictionary generations, RecordId and framing must be authenticated as AAD; the commit marker is not independently trusted without verified authentication/root reachability. No encrypted codec/flash writer is implemented here. Do not remove nonce bytes until uniqueness across ambiguous writes/reuse is formally proven.
+
+`ACTIVE_EVENT_RECORD_BYTES=108 ordinary /128 summary` while full payload remains; `OUTBOX_MIN/TYPICAL/MAX=108/108/128` for current bounded Node vocabulary. Weighted NORMAL/HIGH/STRESS sizes are ~114.25/116.11/117.92 bytes using section 6's mix. `ACTIVITY_SUMMARY_BYTES=128` authenticated-envelope candidate. `CRITICAL_EVENT_BYTES=108` for existing CallFamily Node event; future derived incident/security payload sizes are **UNRESOLVED**, provision variable extensions/multi-record transactions only after their contracts. `ROUTINE_AGGREGATE_BYTES=20` numeric moment fields, or 28 in the standalone versioned CRC statistics frame. These are different representations, not missing authentication.
+
+Once payload is no longer needed by outbox/history/replay, a key/digest witness can replace it: key21 + full HMAC32 + framing8 + RecordId8 + AEAD28 + CRC4 + commit4 =105, padded to **108 B**. A witness is retained only while a valid pending certificate permits retry. It cannot be deleted merely because backend completed. This footprint makes active-slot pressure explicit rather than hiding it behind a probabilistic fingerprint.
+
+### 20.2 One immutable blob and low-copy path
+
+Current audit sites: target ReceivedFrame queue copy/receive; RuntimeFrameSecurity cipher vector, opened vector and copy into EncodedFrame; NodeMessage string decoding; `domain_event_from_node_message`; ingest push and pop; HubJournal retained-vector copy; slot codec plaintext/cipher/readback/roundtrip and two comparison re-encodes; DurableJournalSlotStore rows/recovery/archive reconstructions; CloudSync pending batch, request DomainEvent copy and `ostringstream` serialization. Durable `rows()` reconstructs maps and decodes archive payloads repeatedly during reads/writes. Count grows with retained chunks and varies at four-event archive boundaries.
+
+`CURRENT_COPIES_PER_EVENT` is **at least eight buffer/event materializations before cloud**, plus repeated data-dependent persistence/recovery copies; this is a static ownership count, not an exact byte-copy counter. The complete RX→cloud allocation count is not measured. The benchmark separately measures actual C++ `new` calls in the current volatile commit/duplicate slice. Never convert those into an exact production allocation count.
+
+Planned path: one fixed received secure frame → fixed authenticated plaintext buffer → bounded scalar Event/view → canonical staging buffer → flash. Reducer and learner consume the same validated view; outbox queues RecordId/reference, not DomainEvent. **Two full payload transfers** (decrypt/encode and persist) are a target design, not established zero-copy target behavior. Readback/authentication adds mandatory bounded reads. Prototype encode uses an 88-byte candidate then assigns caller output; decode uses a scalar candidate then assignment so failure cannot partially mutate outputs. It is low-copy, not literally copy-free. No per-event heap is used by these primitives.
+
+One object has A retry/dedupe, C delivery and D cache owners. Root/commit-selected reference metadata expresses completion, certificate retirement, checkpoint coverage and optional-history eviction. Physical record cannot disappear until all required owners release it. Reclaim relocation publishes a stable RecordId→new location mapping before removing old physical location; index handles are only a reconstructed RAM cache. Never reuse a physical offset as durable event/effect identity.
+
+Previous separate transaction256 + outbox128 + history96 =480 bytes/new event before metadata. One 108-byte ordinary record saves **372 bytes (77.5%)** against that specific proposed triple-copy budget, not against measured physical NVS write traffic. Compared with outbox128+history96 alone, sharing108 saves116 bytes (51.8%). Section 13's former 576 B model additionally included evidence/completion; those do not all disappear. When an old root pins an old copy during GC, temporary duplication is required and counted as write amplification.
+
+### 20.3 Bounded exact index alternatives
+
+All lookup variants need verified full keys before declaring a key match; **payload equality still requires authenticated immutable bytes/full digest**. A key match by itself is not a Duplicate ACK. Corrupt persisted references fail closed on reconstruction; RAM index is never persistent authority.
+
+| Candidate at 416 entries | Lookup / insertion / deletion | Approx RAM, excluding payload/digest | Tradeoff |
+|---|---|---:|---|
+| Linear packed array | <=416 exact comparisons; append O(1); locate+swap deletion O(N) | 416×25=10,400 B | Cheapest structure, high miss/duplicate CPU |
+| Sorted packed array | <=9 search comparisons; insertion/delete shift <=415×25 bytes | ~10,404 B | Lower RAM, 10 KiB worst mutation move |
+| Open-addressing + packed rows | Typical few probes; hard bound 1,024; backshift deletion bounded, no tombstones | **12,452 B** | Selected general primitive; no age-dependent cleanup |
+| u16 fingerprint + exact rows | Scan <=416 fingerprints then full keys | ~11,236 B | Not probabilistic correctness, but measured scan remains costly |
+| Per-Node sorted sessions/sequences | ~7 comparisons at ~64–96 entries/Node; bounded shifts | ~8.4 KiB for ideal shared 20-B rows; ~11.6 KiB for six fixed 96-row quotas | Fast lookup; allocation/quota/session-generation accounting not yet a selected production policy |
+
+Chosen implementation stores **21-byte exact enrollment-scoped key + u32 opaque cache handle =25-byte row**, free list embedded in unused handle fields, and power-of-two u16 bucket references at load <=50%. Capacities 192/384/416 consume **5,828 /11,652 /12,452 B** respectively. No digest copies in RAM; full payload/witness authentication remains a storage-owner responsibility. Hash is FNV-1a over exact key bytes, solely for addressing. Forced constant-hash collisions and wraparound backshift chains are tested; no short fingerprint can produce a false key equality. Cryptographic hash/keyed hash for index addressing is unnecessary for correctness, but adversarial collision cost may justify a keyed mixer later; hard scan bounds remain.
+
+Reboot reconstruction verifies each committed record/domain/root first, then inserts live exact keys. Expected O(live records); worst O(N×buckets), fixed independently of product age. Normal runtime performs no full-partition scan. Global sorted array remains a reasonable RAM alternative if target mutations dominate less than duplicates; host results alone do not settle ESP32 cache/flash-read cost.
+
+### 20.4 Crypto/hashes and write ownership
+
+Current chain performs radio GCM open; journal event GCM seal; adapter open of that generated slot; HMAC over full encoded DomainEvent; authenticated transition seal/readback; repeated checkpoint/selector/chunk authentication on `recover/rows`; adapter re-seals reconstructed slot; journal opens readback; archive flush recomputes event HMAC and builds evidence/child-reference MACs. Completion derives receipt key via HKDF and computes HMAC. Exact operation totals depend on archive count/root state and are **not a fixed hashes/event number**. The current key-only duplicate path may avoid all flash checks; it is not a valid performance baseline for future full-payload conflict checking.
+
+Proposed ordinary ingest with already cached/verified installation keys: radio open1 + storage seal1 + readback open1 + radio ACK seal1 = **4 AEAD operations**, plus record CRC once at encode and once after readback. Required extra reducer/delivery transaction objects add their own authenticated commits; four is an event-envelope path budget, not the total product transaction cost. Readback cannot be elided for speed. Cache derived purpose keys per installation/session rather than HKDF each event.
+
+`HASHES_PER_NEW_EVENT=0` immutable-payload HMACs if the full canonical authenticated event is retained and exact compared; compute/store full HMAC once on conversion to a compact witness. Alternative eager HMAC computes1 per new event, stores it once and reuses it at archive/checkpoint. Never recompute payload HMAC solely to rename an archive effect. This choice must be settled with the exact immutable Node-origin projection; the host codec does not implement digest semantics.
+
+Full-payload retry: radio open1 + persisted-record open1 + ACK seal1 = **3 AEAD**, **0 payload HMAC**, exact field comparison. Witness retry: same 3 AEAD plus **1 canonical payload HMAC**, constant-time full digest compare. Reuse a verified cached record/digest only if its lifetime/immutability/root binding is proven; cache invalidates on relocation/domain changes. Neither CRC nor frame authentication alone proves stored immutable payload equality. Reboot authenticates all reachable durable records. Periodic checkpoint/report/GC authentication remains additional bounded work, not free.
+
+### 20.5 Segmented log, writes and wear
+
+Per-event NVS objects preserve existing qualified behavior but carry object/entry overhead and repeated blob GC; actual physical amplification is unmeasured. Fixed-slot ring offers cheap indexing but couples occupancy to longest-lived owner and variable payload sizing. Sector ring with only FIFO head can be pinned by one old pending key. **Selected future engine: sector-aligned append log + materialized checkpoint + RAM exact index**, with mixed-owner immutable records, dead/live accounting and bounded victim compaction. Existing NVS remains unchanged until an approved format/rollback transition. No flash driver/reclaim engine is implemented in category A.
+
+One event-envelope write+commit/readback precedes ACK; marker may require a second flash program operation. Backend completion appends authenticated compact lifecycle metadata before payload becomes reclaimable. Combine up to 32 consecutive completions/retirement changes per metadata record; persistent mapping is generation/RecordId-bound, not a reused-slot bitmap. A crash before local completion persistence causes idempotent backend retry. Immediate local critical decisions/config changes commit transaction intent before RAM suppression/ACK, independently of analytics batching.
+
+Candidate current 128 KiB design caps **uncheckpointed replay at32 retired events in addition to384 live exact evidence**, using the earlier 416 provision. This avoids a separate64 KiB full-payload tail; forcing a state checkpoint when that cap is reached is an engineering bound, not an invented retention policy. All still-required input/delta/effect bytes must fit; if multi-object rule transitions cannot meet it, budget changes and implementation remains STOP.
+
+Current source model excluding report/initialization writes: event transition1; each four-event archive adds archive1 + evidence chunk1 + checkpoints2 + selectors2 =6/4; independent backend receipt1 per completed event: **~3.5 logical blob writes/event**. NVS may internally write/erase much more; not a measured physical amplification ratio.
+
+Proposed event write1 + batched completion1/32 + two checkpoint-state writes1/32 = **1.09375 logical object writes/event**, plus root selectors, separate effect intents, report changes and GC. Flash program calls can be higher due commit markers/multi-sector snapshots. Epoch and registry saves occur only on their actual transitions. Unchanged health/contact diagnostics and retry counters remain RAM; persistent coverage/config changes retain required durability. Analytics numeric counters may checkpoint with state, but cannot omit enough input to make recovery incorrect. NodeHealth samples do not each become flash events.
+
+With a conservative full 5,120-byte state written twice every32 state-changing events, snapshot pairs/day =**12/56/726** for NORMAL/HIGH/STRESS; minimum every six hours when dirty adds at most4 pairs/day in a nearly idle household. Event envelopes/day =384/1,776/23,232; completion batches/day =~12/56/726; actual report-generation changes are additional and can approach per-ACK frequency. Do not assume32-ACK batches during sparse traffic. High-rate report full snapshots must be replaced by authenticated bounded deltas selected by root, with periodic compaction; that implementation/proof is still pending.
+
+For ordinary/summary mix and a provisional4 B/event amortized lifecycle metadata, full-state cadence yields roughly **164.3 KiB /768.3 KiB /9.79 MiB logical writes/day**, before report/dictionary/critical extensions. At assumed2× GC amplification, a128 KiB perfectly wear-spread pool sees roughly **2.57/12.0/156.7 cycles/day**. An illustrative10k endurance would be ~10.7 years/~2.3 years/~64 days; this is **not a chip rating or service-life claim**. The smaller partition may trade flash bytes for frequent state writes and insufficient high/stress endurance. Dirty-page/model-child snapshots and longer replay/low-value aggregation can lower load, but require proof and policy where detail is lost. Never claim 2× as an established bound at high live occupancy: relocation amplification scales with live fraction and can exceed it substantially. Track physical bytes/erase counts, roots/report hot sectors, maximum live victim and GC scheduling on target later.
+
+### 20.6 Incremental routine state and checkpoint efficiency
+
+Implemented `Moments`: count u32, sum u64, sum-of-squares u64 =**20 serialized numeric bytes**, <=24 RAM bytes on supported ABI (host24). At most UINT32_MAX u16 samples; exact sums/squares are bounded, count/sum/square overflow refuses update atomically. No floating point/division in update: one square multiply, two additions, counter increment and fixed overflow checks. Descriptive mean/population variance may be queried in double outside hot path. Tiny deviations around a large mean can suffer cancellation; a future anomaly policy must choose fixed-point/Welford or exact rational comparison with adequate intermediate widths rather than silently using noisy variance.
+
+No window/decay/anomaly product formula is implemented. Propose six-zone, two day-class model: 48 u16 hourly buckets (96 B), 12 moment tuples (240 flash/288 RAM), current day/session32 B and coverage/confidence16 B =**384 flash /432 RAM per zone**; add256 household/config/model bytes: **ROUTINE_FLASH_BYTES=2,560**, **ROUTINE_RAM_BYTES<=2,848**. Histogram overflow is saturating with an explicit lost-detail flag, never wrapping; day rollover/normalization and sample sufficiency are decisions. u16 metric samples need domain bounds (e.g. minutes/day, not86,400 seconds/day); circular first/last-time profiles need specified encoding. No hidden narrower timestamp behavior is authorized. Remove optional seven/28-day raw-summary arrays unless a local-learning requirement justifies them; bounded counters/EWMA or approved short aggregates suffice. This is a proposed model, not implemented full routine learning.
+
+Per semantic observation: route one zone, update one hourly bucket and session accumulator, at most a few moments/trend counters; **O(1), bounded tens of integer operations**, no flash-history scan/sort. Update daily first/last and finalized duration/count statistics at session/day boundaries, not duplicate retries. Coverage/privacy/test exclusions precede learning. EWMA step can use fixed-point multiply/shift with documented rounding; no formula is selected here. Long-range personalized analytics stay backend.
+
+Candidate combined state **CHECKPOINT_BYTES=5,120** = reducer2,048 + routine2,560 + header/auth/root budget512. Stream through1 KiB workspace; do not place a5 KiB blob plus crypto copies on the secure owner's stack. These bounds require actual codec/config-limit/effect proof before replacing the current 4,549-byte cap. Prototype statistics encode/decode is tested; complete household/model checkpoint encoder is not implemented or benchmarked as such.
+
+### 20.7 Proposed engine RAM budget
+
+| Component | Bytes | Notes |
+|---|---:|---|
+| ACTIVE_INDEX | 12,452 | ExactIndex<416>, no full digest cache |
+| RX_BUFFER | 512 | Two bounded buffers; existing driver queues are separate |
+| ENCODE_BUFFER | 256 | Common/summary plus rare-extension staging |
+| RECLAIM_BUFFER | 4,096 | One sector, static workspace |
+| ROUTINE_MODEL | 2,848 | Proposed six-zone model, host conservative alignment |
+| CHECKPOINT_WORKSPACE | 1,024 | Stream; whole snapshot not duplicated |
+| OUTBOX_METADATA | 1,024 | Bounded scheduler cursors/pending completion masks, no payload queue |
+| SEGMENT_METADATA | 768 | Up to96 segments at8 B; enough for conditional384 KiB option |
+| OTHER_DICTIONARY/CONFIG | 2,048 | Candidate immutable mapping cache; exact config fit unproven |
+| OTHER_OWNER_STATE | 128 | Cursors/counters/error state |
+| **STATIC_RAM** | **25,156** | Proposed engine only |
+| **MAX_STACK_TEMPORARY** | **256 budget** | Prototype event/encode candidates are bounded; target stack report required |
+| **MAX_HEAP correctness hot path** | **0 target, 0 measured primitive C++ allocations** | Framework/network/OpenSSL allocations excluded |
+| **TOTAL_WORST_CASE engine budget** | **25,412** | Not total Hub RAM or a target ABI measurement |
+
+Existing81,920-byte secure-owner stack, radio queues, Wi-Fi/crypto/task state and embedded app sections are outside this incremental engine budget. Full target heap/stack/CPU margin is still unknown. Host fixtures place large arrays on host stack for tests; production placement must be static/owner-owned. Current benchmark retained volatile journal heap scales to160,180 B at416, excluding inputs/ingest/security/recovery; current physical journal is128, so that comparison is a lab capacity comparison, not a measured production 416-event heap. Proposed benchmark index+416 max-sized frames uses49,060 fixed bytes; target engine avoids caching all payloads in RAM, reading bounded immutable flash records as needed.
+
+### 20.8 Current 128 KiB feasibility, before repartitioning
+
+Provisional byte allocation **within existing partition**:
+
+| Class | KiB | Derivation / limit |
+|---|---:|---|
+| State/root generations | 20 | Three5 KiB images packed across four sectors + root sector; actual fragment framing must fit |
+| Retirement certificate banks | 12 | Three six-Node <=3,676 B blobs in three sectors |
+| Active shared event/witness objects | 56 | Fourteen sectors×31 worst128 B frames =434 slots, >=416 |
+| Cleanup scratch | 12 | Three sectors; victim/roots/partial erase space proof pending |
+| Lifecycle/dictionary metadata | 4 | Bounded deltas and immutable dictionary generations; fit under churn unproven |
+| Free emergency operational reserve | 4 | Kept out of ordinary admission |
+| Additional outbox/history shared pool | 20 | Five sectors; one protected critical, four normal |
+| **Total** | **128** | Raw sector model, not NVS payload capacity |
+
+The active full event objects already serve the same keys' outbox/history/replay owners; they are **not copied** into20 KiB backlog pool. After Node retirement, payloads can occupy that extra pool. Conservative advertised NORMAL backlog equivalents count only the four extra normal sectors: **124 worst-size records**, with no optional-history guarantee. This is conservative about overlap but excludes larger derived effects and sustained dictionary/report delta growth; no guaranteed outage duration is locked.
+
+Keep fixed 108 KiB safety/state/metadata allocation for comparison, use all remaining flash for the shared pool, and reserve >=20% of those pool sectors rounded up for critical work:
+
+| Lifecycle size | Pool sectors | Critical sectors | Normal worst128 B records | NORMAL/HIGH/STRESS hours |
+|---|---:|---:|---:|---|
+| **128 KiB current** | 5 | 1 | **124** | **7.75 /1.676 /0.128** (~7.69 min stress) |
+| 384 KiB conditional | 69 | 14 | **1,705** | **106.562 /23.041 /1.761** |
+| 512 KiB conditional | 101 | 21 | **2,480** | **155 /33.514 /2.562** |
+
+Sector header64 B gives31×128 B objects. If all ordinary108 B objects,37 fit/sector; 128 KiB normal pool148 objects gives9.25 h NORMAL, but do not use this as a mixed/critical guarantee. Synced recent history shares the pool and is first evicted; it consumes no duplicate payload. Reclamation/source-child copies, abandoned staged records, variable transaction intents and dictionary/history pins can shorten these horizons. Table is a sizing scenario, not an allocator proof. Earlier separate-class capacities are superseded **only as this proposed optimized comparison**, not as approved product promises.
+
+`CAN_R1_STORAGE_WORK_WITH_CURRENT_128K_PARTITION=CONDITIONAL`. No locked duration currently mandates384 KiB. A modest full-detail outage promise plus approved bounded overflow could fit128 KiB **if** retirement credit/progress, complete-state/replay/critical byte bounds, peak COW/report metadata, wear and rollback prove out. A multi-day full-detail guarantee under HIGH activity would exceed this budget. Sustained stress/wear is also limiting. **PARTITION_CHANGE_NEEDED=UNDECIDED**; optimize/prove128 KiB first, retain existing dual1,966,080-byte OTA slots, and only request a layout decision if the approved guarantees demonstrably require more space. Replacing NVS with a sector log is still a format/rollback transition even when CSV addresses stay unchanged.
+
+### 20.9 Phase classification, implementation and validation
+
+| Category | Work | Status |
+|---|---|---|
+| A POLICY_NEUTRAL_STORAGE_CORE | Fixed exact-key index, lossless experimental codec/CRC/cursor, integer moments, host fixture/tests/benchmarks | **Implemented, host-only, excluded from production targets** |
+| B PRODUCT_POLICY_DEPENDENT | Retention, overflow priority, six-node credits/report progress, histogram decay/anomalies, complete reducer limits | STOP |
+| C BACKEND_CONTRACT_DEPENDENT | Derived-effect/summary/gap identity and canonical ACK mapping, production transport, routine delta API | STOP |
+| D PARTITION_LAYOUT_DEPENDENT | Any OTA/storage resize or deployment relocation | STOP; unnecessary for category A |
+| E ROLLBACK/FOTA_DEPENDENT | New persistent format, old-reader exclusion, source deletion/reclaim | STOP |
+
+Implemented paths under P: `host/storage/efficient_core.hpp`, `host/storage/README.md`, `tests/cpp/storage_efficiency_validation.cpp`, `tests/cpp/storage_efficiency_benchmark.cpp`, and two isolated Makefile targets. No CPP_SOURCES/ESP-IDF production lists, firmware, partition CSV, backend/PWA or Node behavior changed. The core never sends ACKs, authenticates ownership, decides retention or erases storage. ExactIndex matching is deliberately a key-cache operation, not an alternative to full dedupe validation.
+
+Validation: encode/decode ordinary and all enum kinds; minimum/maximum signed/unsigned values; truncated/bit-corrupted frames; malformed reserved/version/kind/slot fields with recomputed CRC; CRC golden vector; failed decode/encode leaves output unchanged; deterministic 50,000 fuzz inputs; forced constant-hash collisions including wraparound probe chains; capacity192/384/416, replacement generation separation and random 50,000-operation churn; statistic correct mean/variance, serialization, saturation/overflow; six-node interleaving and index reconstruction. Long fixture executes **1,000,000 semantic events**, retains exactly 192 records, periodically rebuilds verified CRC-frame index and asserts no new C++ allocations. Pool17,088 B +416-entry index 12,452 B remain constant; this proves simulated record count/primitive RAM independence from age, **not flash crash recovery or retirement protocol progress**. Fixture releases all three owners explicitly before reuse; no inferred policy authorizes retirement.
+
+Address/undefined sanitizer validation passes with leak detection disabled because this environment's ptrace prevents LeakSanitizer operation; allocation instrumentation separately verifies zero hot-path C++ `new`. This is not a claim about libc/network/crypto allocations. Existing `hub-backend-commit-host-test` and `hub-journal-persistence-host-test` pass, preserving their receipt/reboot/dedupe/tamper/write-fault/reducer and128/full129 boundaries. Optional legacy migration remains unchanged and was not rerun. No HIL/physical event/target build.
+
+Benchmark method: g++ 15.2.0, C++17 `-O2 -Wall -Wextra -Werror -pedantic`, trace disabled, Intel Core i5-3210M host. Warmup then median of 9 rounds; lookup/primitives200,000 operations/round, new insertion and retirement128 batches/round at 192/384/416; checkpoint/segment fixtures bounded. Timings are host wall-clock and can vary under contention; no ESP32 cycles inferred. Checksum/output observations prevent dead-code elimination. New-event baseline is actual **volatile HubJournal**, which can use lab capacities beyond 128; proposed pipeline is encode CRC+index+fixed record fixture, not authenticated durable ingestion. Duplicate comparison baseline checks key only; proposed timing is key lookup only, not full payload conflict proof. Checkpoint benchmark is256 standalone statistics frames (7,168 B), not the complete5,120 B reducer/model proposal. Segment-parser timing includes CRC/payload decode; GC root/erase-metadata processing is not implemented/benchmarked.
+
+Final measured results and raw reproducible commands are recorded in [host evidence](../evidence/R1_STORAGE_EFFICIENCY_HOST_20261007.md). Performance acceptance is **primitive-level only**: avoid unbounded allocation and repeated retained-history reconstruction; lower fixed memory and lookup cost versus the current volatile reference. Full end-to-end flash/CPU/energy acceptance waits for authenticated storage/transactions and target measurement. The compact CRC codec may cost more CPU than the current unauthenticated payload encoder even after table optimization; do not describe that isolated comparison as a speedup.
+
+All section 18 integration STOP gates remain. In particular, the million-event fixture is not a substitute for power-fail/AEAD/GC/rollback proof. No final128 KiB feasibility or durable write-amplification claim is approved by these host results.
