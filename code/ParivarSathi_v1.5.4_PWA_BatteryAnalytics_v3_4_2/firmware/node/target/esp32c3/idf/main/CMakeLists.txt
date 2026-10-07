@@ -4,7 +4,8 @@ set(GS_NODE_SRCS
     "fota_receiver.cpp"
 )
 if(GS_HIL_BUILD OR GS_HIL_CONTROL)
-    list(APPEND GS_NODE_SRCS "hil_control.cpp")
+    list(APPEND GS_NODE_SRCS "hil_control.cpp"
+        "${GS_ROOT}/firmware/node/target/esp32c3/zero_length_aead_qualification.cpp")
 endif()
 
 idf_component_register(

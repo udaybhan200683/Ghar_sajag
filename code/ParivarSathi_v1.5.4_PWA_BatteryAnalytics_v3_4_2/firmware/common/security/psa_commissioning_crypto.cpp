@@ -167,9 +167,13 @@ bool PsaCommissioningCrypto::seal_aes256_gcm(const Key32& key, const Nonce12& no
     if (!import_key(PSA_KEY_TYPE_AES, PSA_KEY_USAGE_ENCRYPT, PSA_ALG_GCM,
                     key.data(), key.size(), imported)) return false;
     Bytes combined(plain.size() + tag.size());
+    // IDF's accelerated GCM validates pointers even for a zero-byte payload.
+    // This byte supplies an address only; the authenticated length stays zero.
+    const std::uint8_t empty_input = 0;
+    const auto* input = plain.empty() ? &empty_input : plain.data();
     std::size_t length = 0;
     if (psa_aead_encrypt(imported.id, PSA_ALG_GCM, nonce.data(), nonce.size(),
-                         aad.data(), aad.size(), plain.data(), plain.size(),
+                         aad.data(), aad.size(), input, plain.size(),
                          combined.data(), combined.size(), &length) != PSA_SUCCESS ||
         length != combined.size()) return false;
     cipher.assign(combined.begin(), combined.begin() + plain.size());
@@ -188,12 +192,15 @@ bool PsaCommissioningCrypto::open_aes256_gcm(const Key32& key, const Nonce12& no
     Bytes combined(cipher);
     combined.insert(combined.end(), tag.begin(), tag.end());
     Bytes opened(cipher.size());
+    // A tag-only record still needs a non-null output for the IDF driver.
+    std::uint8_t empty_output = 0;
+    auto* output = opened.empty() ? &empty_output : opened.data();
     std::size_t length = 0;
     if (psa_aead_decrypt(imported.id, PSA_ALG_GCM, nonce.data(), nonce.size(),
                          aad.data(), aad.size(), combined.data(), combined.size(),
-                         opened.data(), opened.size(), &length) != PSA_SUCCESS ||
+                         output, opened.size(), &length) != PSA_SUCCESS ||
         length != cipher.size()) {
-        mbedtls_platform_zeroize(opened.data(), opened.size());
+        mbedtls_platform_zeroize(output, opened.size());
         return false;
     }
     plain = std::move(opened);
