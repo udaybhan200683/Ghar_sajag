@@ -157,3 +157,20 @@ Before final storage implementation, calculate and approve:
 GS-D021 requires the mandatory correctness/durability/security/recovery/stability/scalability/UX gate before optimization. Then prioritize useful information per flash byte, deterministic retrieval, bounded RAM and flash lifetime; CPU optimization is secondary. Preserve one immutable event body shared by lifecycle owners where safe. Larger records require measured realtime justification, not a host microbenchmark advantage.
 
 GS-D022/023 require bounded current-day and daily routine state, coverage/confidence and recovery through Node/Hub/radio/cloud failures, reboot/rejoin, lost ACK, delayed events, midnight, multi-day backlog and pressure. NO_ACTIVITY requires adequate observation; NO_OBSERVATION, sensor/Hub unavailability and untrusted time must remain distinguishable locally and in backend/PWA effects. Missing observation cannot train an inactive baseline. Stable daily identity and durable finalization must prevent double baseline application and duplicate backend days. Exact coverage sufficiency, late revision policy, offline horizon and overflow semantics remain OPEN. The ExecPlan contains proposed formats and proof obligations, not additional locked numerical policy.
+
+## Information-density principle — GS-D024
+
+**LOCKED:** Before increasing Hub storage allocation, storage design shall eliminate redundant persistent information and evaluate compact binary representation, shared bounded context, delta/change encoding, dictionary/reference encoding and safe semantic aggregation. Common context should be stored once where safe rather than repeated per record. Context-dependent formats must use bounded independently recoverable restart points. Storage optimization shall not weaken correctness, security, crash recovery, scalability, retrieval, routine learning or caregiver behavior.
+
+The [storage ExecPlan](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md)
+section22.10/22.11 and [density evidence](../exec-plans/evidence/R1_STORAGE_ENCODING_DENSITY_20261007.md)
+separate numeric host results from proposed complete source/security formats.
+128 KiB remains CONDITIONAL. The72-hour NORMAL comparison with full name/config
+context and timing variation has zero spare for sample names and a4096-byte
+deficit at maximum names under the unproven fixed-reservation ledger. It is
+not an approved outage guarantee or proof that partition enlargement is needed.
+Exact offline/saturation policy, retirement credits, backend summary/day
+completion, time/coverage/late recovery, authenticated nonce/root/reclaim,
+rollback and target RAM/wear remain STOP gates. Keep near-real-time connected
+sync, one shared event body where safe, bounded routine state and
+NO_ACTIVITY distinct from NO_OBSERVATION under GS-D021/022/023.

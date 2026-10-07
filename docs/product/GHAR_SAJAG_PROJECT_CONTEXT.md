@@ -53,8 +53,28 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 
 ## Next engineering priority
 
-Close the storage/data-lifecycle design and its explicit product decisions before implementation. The exact retention and backend-outage policies remain open; derive a bounded design and byte/wear/OTA budget from actual hardware and six-Node behavior. Then host-test the design, build/measure the Hub target, and qualify only the changes that can invalidate existing physical gates.
+Close the storage/data-lifecycle proof gates and its explicit product decisions before production implementation. The exact retention and backend-outage policies remain open; derive a bounded design and byte/wear/OTA budget from actual hardware and six-Node behavior. Then host-test the design, build/measure the Hub target, and qualify only the changes that can invalidate existing physical gates.
 
 ## Storage-first and failure-aware learning priority
 
 GS-D021/022/023 are LOCKED: correctness/durability/security/recovery/stability/scalability/UX first; useful information per flash byte, deterministic retrieval, bounded RAM and flash lifetime next; CPU secondary. Routine/current-day/daily state must recover across Node, Hub, radio and cloud failure, delayed/backlog delivery, midnight and pressure. Never interpret missing sensor/Hub observation as resident inactivity. Exact numerical policies and production integration gates remain open.
+
+## Information-density checkpoint and next proof work
+
+GS-D024 is LOCKED: eliminate persistent redundancy and evaluate compact binary,
+bounded shared context, delta/change, dictionary/reference and safe semantic
+aggregation before increasing storage allocation. Shared context needs bounded
+independent restart points; correctness/security/recovery/scalability/retrieval/
+routine/caregiver behavior remain mandatory. CPU remains secondary.
+
+Host-only checkpoint `74c4b99` preserves81-field audit, lossless numeric
+context codec, synthetic AES binding, million-event bounded and sanitizer
+evidence. Full-source string/config format is proposed. Existing128 KiB remains
+CONDITIONAL: sample-name timing variation uses all128 KiB for the synthetic
+72-hour NORMAL comparison; maximum names need4096 additional bytes under the
+unproven reserve ledger. No72-hour guarantee, partition or production change.
+Next close authenticated append/root/nonce/reclaim, retirement credits,
+backend derived completion, coverage/time/day recovery and rollback/RAM/wear
+proofs. Local context is2026-10-07.003; canonical remains.002 at this checkpoint.
+Require authorized canonical promotion and preflight PASS before further
+substantive work; never auto-promote or bypass the guard.
