@@ -151,3 +151,9 @@ Before final storage implementation, calculate and approve:
 - cleanup/reclamation reserve;
 - flash-wear estimate;
 - OTA application headroom.
+
+## Storage-first engineering and failure-aware routine requirements
+
+GS-D021 requires the mandatory correctness/durability/security/recovery/stability/scalability/UX gate before optimization. Then prioritize useful information per flash byte, deterministic retrieval, bounded RAM and flash lifetime; CPU optimization is secondary. Preserve one immutable event body shared by lifecycle owners where safe. Larger records require measured realtime justification, not a host microbenchmark advantage.
+
+GS-D022/023 require bounded current-day and daily routine state, coverage/confidence and recovery through Node/Hub/radio/cloud failures, reboot/rejoin, lost ACK, delayed events, midnight, multi-day backlog and pressure. NO_ACTIVITY requires adequate observation; NO_OBSERVATION, sensor/Hub unavailability and untrusted time must remain distinguishable locally and in backend/PWA effects. Missing observation cannot train an inactive baseline. Stable daily identity and durable finalization must prevent double baseline application and duplicate backend days. Exact coverage sufficiency, late revision policy, offline horizon and overflow semantics remain OPEN. The ExecPlan contains proposed formats and proof obligations, not additional locked numerical policy.

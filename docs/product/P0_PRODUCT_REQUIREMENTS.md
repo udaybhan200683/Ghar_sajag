@@ -71,3 +71,9 @@ The shared event model names motion, door-open/closed, resident OK, Call Family,
 ## Detailed sources
 
 See the [canonical index](CANONICAL_REQUIREMENTS_INDEX.md) for the authority map, requirement register and domain links. Implementation facts are documented in the feature guides and firmware notes; test plans and evidence establish only the exact validated build/configuration/workload.
+
+## Storage-first, failure-aware routine requirements — GS-D021/022/023
+
+**LOCKED:** Optimize qualifying designs for retained useful information/flash byte, deterministic retrieval, bounded RAM and flash lifetime before CPU cycles. Preserve correctness, authentication, crash safety, stability, scalability and caregiver UX.
+
+**LOCKED:** Current and daily routine conclusions, coverage/confidence and recovery must remain correct through Node/Hub failures and reboot/rejoin, radio/internet/backend outages, lost ACK, backlog/multi-day recovery, rollover, delayed events, partial coverage and pressure. Distinguish NO_ACTIVITY from NO_OBSERVATION / SENSOR_UNAVAILABLE / HUB_UNAVAILABLE. Missing observation is never evidence of resident inactivity. These are requirements, not claims that the current secure target implements full coverage/day recovery. Exact formulas, time/lateness policy, offline guarantee and backend daily-effect contract remain OPEN.

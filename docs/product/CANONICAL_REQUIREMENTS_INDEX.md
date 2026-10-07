@@ -302,3 +302,7 @@ This register records requirements explicitly present in canonical sources. `UNK
 ## Open decisions
 
 See `DECISION_LOG.md`: exact local retention, offline duration, outbox policy, record encoding, active durability capacity, pressure thresholds, and partition-layout acceptability are not locked. Do not copy candidate numbers from historical plans into requirements without a decision.
+
+## Storage-first requirement additions — 2026-10-07
+
+GS-D021 (storage/retrieval priority; CPU secondary), GS-D022 (missing observation is not inactivity) and GS-D023 (current/daily routine failure recovery) are LOCKED in the decision log, with domain requirements in STORAGE_SYNC_ROUTINE_LEARNING and P0_PRODUCT_REQUIREMENTS. The storage ExecPlan remains IMPLEMENTATION_DESIGN / PROPOSED: byte budgets, retention and new storage/backend formats are not locked. Prior host evidence remains TEST_EVIDENCE for primitives only. Context revision: `2026-10-07.002`.

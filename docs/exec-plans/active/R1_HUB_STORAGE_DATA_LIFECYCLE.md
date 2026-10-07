@@ -572,3 +572,308 @@ Benchmark method: g++ 15.2.0, C++17 `-O2 -Wall -Wextra -Werror -pedantic`, trace
 Final measured results and raw reproducible commands are recorded in [host evidence](../evidence/R1_STORAGE_EFFICIENCY_HOST_20261007.md). Performance acceptance is **primitive-level only**: avoid unbounded allocation and repeated retained-history reconstruction; lower fixed memory and lookup cost versus the current volatile reference. Full end-to-end flash/CPU/energy acceptance waits for authenticated storage/transactions and target measurement. The compact CRC codec may cost more CPU than the current unauthenticated payload encoder even after table optimization; do not describe that isolated comparison as a speedup.
 
 All section 18 integration STOP gates remain. In particular, the million-event fixture is not a substitute for power-fail/AEAD/GC/rollback proof. No final128 KiB feasibility or durable write-amplification claim is approved by these host results.
+
+## 21. Storage-first refinement and failure-aware routine recovery — 2026-10-07
+
+### 21.1 Authority, evidence and limits
+
+GS-D021/022/023 lock the new engineering order and failure-aware current/daily routine behavior. They do **not** close GS-D013/014/015/017. Sections 8/9/10/20 remain useful historical proposals; the alternatives below supersede their numerical recommendations only for this sizing comparison. No proposed codec, retention threshold, critical quota, coverage formula or backend revision API is approved by being described here.
+
+Qualified isolated core is committed as `45f6b00`. Its unchanged million-event fixture passed again: 192 records, 17,088-byte record pool, 12,452-byte exact index, zero hot C++ new calls. Production remains the current 128-event journal. No new failure simulator has been implemented in this refinement checkpoint. Model tests described below are required future work, not PASS evidence.
+
+### 21.2 Field audit and one-body lifecycle
+
+| Existing field | Classification | Treatment |
+|---|---|---|
+| Physical/logical source strings | MANDATORY_CORRECTNESS / SECURITY / BACKEND | Authenticated immutable dictionary, numeric slot + enrollment generation; retain dictionary until every reference dies |
+| Location string | MANDATORY_BACKEND / ROUTINE | Assignment generation maps historical room; never use current renamed room on retry |
+| Origin/session + sequence | MANDATORY_CORRECTNESS / BACKEND | Full u64 each; transport session is different and not substituted |
+| Kind, sensor, test/privacy exclusions | MANDATORY_CORRECTNESS / ROUTINE / BACKEND | Bounded enums/flags; reject unsupported versions |
+| Node monotonic, occurred, uncertainty | MANDATORY_ROUTINE / BACKEND | Preserve full widths; uncertain/untrusted time does not become absolute truth |
+| Original Hub received time | MANDATORY_BACKEND | Preserve once, because current backend fingerprint includes it |
+| Battery, Node-origin RSSI | MANDATORY_BACKEND / DIAGNOSTIC | Current canonical backend payload includes them; cannot discard solely as diagnostic |
+| Motion count, first/last monotonic | MANDATORY_ROUTINE / BACKEND | Rare 20-byte summary extension; does not prove continuous occupancy |
+| Payload digest in multiple objects | DERIVABLE | Full canonical bytes can be compared after authentication; do not require repeated digest if immutable body remains |
+| Installation/security domain, schema strings | MANDATORY_SECURITY; repeated strings REDUNDANT | Bind authenticated segment/dictionary, numeric schema per record |
+| Transport RSSI, latest retry receive time | DIAGNOSTIC_ONLY | Separate from immutable Node payload; RAM/latest bounded diagnostic state |
+| Archive copy/outbox copy/history copy | REDUNDANT payload duplication | One immutable body, independent ownership bits/references |
+
+An ordinary body is 64 bytes of canonical numeric content. Physical proposed record is 84 bytes after tag/commit, summary 104. For summary events use 84-byte content plus tag/commit. Body remains immutable through RX/authentication, durable commit, reducer/learner application, backend pending, backend accepted, optional recent history and reclaim. Initial active/pending/history state is implicit in record kind plus selected root; no three payload writes.
+
+| Lifecycle stage | Persistent body | Active metadata | Outbox metadata | History metadata | Checkpoint effect | Duplicate body bytes | RAM index |
+|---|---:|---|---|---|---|---:|---:|
+| RX/authentication, before commit | 0 | 0 | 0 | 0 | 0 | 0 | temporary bounded buffer |
+| LOCAL_DURABLE, before Node ACK | 84 /104 | implicit key; credit delta transaction | implicit pending | implicit optional | ordered replay ordinal; state not yet checkpointed | 0 | 25-byte row + amortized buckets |
+| LOCAL_EFFECT_APPLIED | same | unchanged | unchanged | unchanged | materialized once, dirty state covered by retained input | 0 | same |
+| BACKEND_ACCEPTED | same if other owners live | until complete report proves retirement | authenticated completion bitmap batch | optional | bounded state child | 0 | same until A ends |
+| Node retired, state checkpoint-covered | same only if C/D live | certificate replaces exact membership | pending or accepted bit | optional | checkpoint owns effect | 0 | release A row |
+| RECLAIMABLE | 0 after safe erase | 0 | 0 | 0 | survives in state/aggregate | 0 | 0 |
+
+During COW/GC there may temporarily be TWO physical authenticated copies of a live body. Both refer to the same logical event; selected root chooses one. Charge the GC reserve, never call this zero peak duplication. Independent lifecycle metadata batch below is 44 bytes for up to32 records, 1.375 bytes/record when full; sparse batches cost44 bytes. Receipt authenticity/identity verification occurs before that batch is committed. History needs no durable per-item index when bounded segment scans answer it. Checkpoint effect is not a second raw payload: fixed-size aggregate state, amortization depends on actual update cadence.
+
+### 21.3 Byte-level proposed formats (not final production codecs)
+
+All integers little endian, checked arithmetic, four-byte record alignment, no JSON/heap strings. A segment has a 64-byte authenticated header; usable sector bytes =4,032. Nonce is DERIVABLE as `(never-reused segment serial u64, physical byte offset u32)` under an installation/epoch/type-separated key. Record identity for relocation and backend is the logical EventKey/effect identity, not the physical pointer. Relocation authenticates old content then re-encrypts under the destination nonce. A per-segment nonce base alone is unsafe without a unique per-record offset.
+
+**Ordinary semantic event — 84 bytes; ActivitySummary — 104 bytes.** The first64 bytes match the prior prototype fields except its CRC is replaced with AEAD, and a summary adds20 bytes.
+
+| Offset | Field | Bytes | Rationale |
+|---:|---|---:|---|
+| 0 | schema | 1 | per-record decoder; new experimental schema distinct from deployed format |
+| 1 | kind | 1 | semantic enum |
+| 2 | sensor | 1 | preserve producer meaning |
+| 3 | flags | 1 | test/exclusion/data-quality bits |
+| 4 | Node slot | 1 | six-node dictionary binding |
+| 5 | reserved | 1 | must be zero |
+| 6 | record length | 2 | bounded parsing, authenticated AAD |
+| 8 | enrollment generation | 4 | physical replacement/ownership binding |
+| 12 | assignment generation | 4 | historical location identity |
+| 16 | origin session | 8 | exact EventKey |
+| 24 | sequence | 8 | exact EventKey, no gap floor shortcut |
+| 32 | monotonic ms | 8 | original signed domain width |
+| 40 | occurred seconds | 8 | original immutable value |
+| 48 | original received seconds | 8 | backend retry fingerprint |
+| 56 | uncertainty seconds | 4 | trusted-time eligibility |
+| 60 | battery mV | 2 | preserve current upload |
+| 62 | Node-origin RSSI | 2 | preserve current upload |
+| 64 ordinary /84 summary | AEAD tag | 16 | mandatory per-record authentication |
+| 80 ordinary /100 summary | commit pattern | 4 | programmed last; valid tag/header/length also required |
+| 64 summary only | additional motion count | 4 | lossless summary |
+| 68 summary only | first monotonic ms | 8 | lossless summary |
+| 76 summary only | last monotonic ms | 8 | lossless summary |
+
+Nonce12 is not stored; CRC4 is omitted because mandatory AEAD verifies every recovered/read record. Prototype CRC codec stays unchanged and unauthenticated. No security claim is made until nonce reservation and actual AEAD tests prove this format. Flags/length/schema are authenticated; parsing checks bounds before accessing ciphertext. Offset-derived nonce forbids overwriting a record, even with the same source key. Abandoned reservations burn offsets/serials.
+
+**Critical alert — candidate128 bytes.** Source CallFamily uses ordinary84 bytes; a distinct Hub-derived incident uses its own identity/codec:
+
+| Offset | Field | Bytes | Rationale |
+|---:|---|---:|---|
+| 0 | schema/type/length | 4 | bounded framing |
+| 4 | stable rule-instance identity | 16 | dictionary-backed installation + rule/window/generation mapping; full exact identity retained in dictionary |
+| 20 | revision | 4 | immutable effect revision |
+| 24 | cause source key | 24 | slot/enrollment/session/sequence plus padding; exact provenance |
+| 48 | occurred and received | 16 | chronology |
+| 64 | config/assignment versions | 8 | reproducible rule/room |
+| 72 | kind/severity/flags/reason code | 8 | no repeated reason strings |
+| 80 | bounded cause/decision extension | 28 | lengths/uncertainty/state; longer content requires charged extension record |
+| 108 | tag | 16 | authenticated |
+| 124 | commit | 4 | final write |
+
+128 is a sizing ceiling for this candidate, not proof every current incident fits. Truncated hashes alone must not define uniqueness; dictionaries store/compare full identity tuples and immutable versions. Critical payload exceeding28-byte extension reopens capacity gate.
+
+**Daily aggregate — candidate320 bytes.**
+
+| Offset | Field | Bytes | Rationale |
+|---:|---|---:|---|
+| 0 | schema/type/length | 4 | framing |
+| 4 | local calendar day | 4 | explicit date, not fixed86400 seconds |
+| 8 | revision | 4 | immutable retry identity |
+| 12 | timezone/config generation | 4 | interpretation version |
+| 16 | clock mapping generation | 4 | time provenance |
+| 20 | finalization generation | 8 | exactly-once baseline selection |
+| 28 | rule/config generation | 4 | model inputs |
+| 32 | installation/household dictionary binding | 4 | exact full domain outside repeated body |
+| 36 | model schema + day flags | 4 | complete/partial/untrusted/excluded |
+| 40 | covered input ordinal | 8 | replay boundary |
+| 48 | anomaly/data-quality masks | 4 | bounded conclusions |
+| 52 | household first/last activity seconds within day | 8 | positive evidence; invalid sentinel |
+| 60 | six zone blocks | 240 | each40 bytes below |
+| 300 | tag | 16 | authenticated |
+| 316 | commit | 4 | final write |
+
+Each zone block: first4, last4, sessioncount4, observed-duration proxy4, expected-observation seconds4, available seconds4, doorcount2, explicit-checkin count2, missing-reason mask2, flags2, deviation fixed-point2, confidence2, reserved4. Counts saturate with overflow/data-quality flag; duration is an observation proxy, not proof of continuous resident activity. Expected duration comes from actual local-day boundaries/config and may differ across DST. Unsupported bathroom/kitchen interpretation is omitted/flagged, never fabricated.
+
+**Backend outbox / active durability metadata — shared44-byte transition batch.** Offset0 schema/type/length4; offset4 source segment serial8; offset12 base offset4; offset16 record-selection bitmap4; offset20 accepted/retired/applied masks or action4; offset24 AEAD tag16; offset40 commit4. References apply only to at most32 records of a known immutable segment directory, not arbitrary offsets; root selects directory and report/receipt generation. The action is one authenticated state transition, not an untrusted bit. Separate report objects preserve exact pending sets/credit; this batch cannot replace full certificates. More than one action requires another batch. Sparse changes and GC relocation must be budgeted.
+
+**Segment header —64 bytes.** Offset0 magic4;4 format/minreader2+2;8 serial8;16 epoch8;24 installation/domain digest16;40 segment role/flags2+2;44 reserved4;48 tag16. Header authentication uses a separate key/nonce domain. Sector erase generation is never sufficient nonce uniqueness without reserved serial progress. Header contains no mutable per-event count: parse committed records until bounded end; directory reconstructed at boot.
+
+**Checkpoint root —240 bytes, plus4-byte page-level activation marker.** Offset0 magic/schema/length8;8 rootgeneration8;16 epoch8;24 installationdigest16;40 coveredordinal8;48 config/dictionary references16;64 three child references and full hashes144 (each16-byte locator +32-byte hash);208 minimumreader/writer4+4;216 nonce-allocation highwater8;224 tag16. Root page framing/activation is additional at page level; a complete authenticated root is valid only when all children/covered tails are reachable. Bounds include three root sectors. Generation/serial overflow refuses admission, never wraps.
+
+### 21.4 Coverage and bounded routine model
+
+Propose routine serialized2,560 B / RAM2,848 B: six zones each384 serialized (two day-class48×u16 buckets96; twelve20-byte moments240; trend32; confidence/model flags16), plus256 household/model parameters. No raw-history scans. Current-day state is separate512 B: six40-byte daily metric blocks240 + coverage208 + day/finalization/time header64. **Coverage208 B** = six32-byte zone coverage records +16-byte Hub/time anchor. Each zone: expected seconds4, available seconds4, missingreason2, stateflags2, monotoniclastchange8, clockgeneration4, trustedleaseendpoint8. Model histograms and confidence criteria are versioned; saturation is explicit. Daily confidence occupies2 bytes/zone plus day-level flags in header; at least12 bytes, not a claim of an approved probability model.
+
+Combined checkpoint budget becomes **6,144 B**, replacing preliminary5,120 only for this comparison: reducer2,048 + routine2,560 + currentday512 +1,024 authentication/schema/dictionary-root/effect-boundary allowance. Three COW images need18,432 B, provisioned in five sectors20,480 B. This is not a proven whole-state codec or an approved change to current4,549-byte limit. RAM model + currentday =3,360 B candidate; current secure owner/task memory is additional.
+
+Incremental update: validate source/assignment/time/exclusions, dedupe and coveredordinal, then update one zone first/last/count, one bucket and session accumulator; at most a bounded handful of moment/EWMA operations. Bounded tens of integer operations per semantic event; no new target-cycle estimate. Day boundaries perform six fixed-zone updates, not history replay. Current routine state remains recoverable by selected checkpoint + retained tail. Baseline receives only coverage-eligible finalized inputs; absent observation is not zero activity.
+
+Coverage intervals use monotonic elapsed time while running, trusted mapping for day clipping, and configured eligibility. Fresh contact allows a future bounded lease; it does not prove an earlier offline interval was observed. Sensor fault/runtime-stall/gap/privacy/maintenance reasons remain distinct. A Hub reboot resets liveness to UNKNOWN: downtime from last durable time anchor to fresh trusted contact is missing observation. Unknown-duration downtime is marked unknown, not assigned zero seconds. Day totals are a compact summary, not enough to prove a specific morning window was continuously covered: persist bounded per-current-rule window coverage/gap flags in reducer state. Exact positive-evidence attribution does not fill unknown coverage.
+
+For overlapping sensors, use configured required-zone eligibility/union semantics; do not sum availability beyond expected seconds. Arbitrarily flapping contact cannot require unbounded interval lists: maintain totals, current interval and bounded rule-window gap bits; exact historical availability curves belong backend. Confidence sufficiency, correlation of sources, lease tuning and overflow behavior remain product decisions. Internet/backend unavailability alone does not reduce local sensor coverage; Hub/radio failure can.
+
+### 21.5 Finite active invariant and retrieval
+
+Current implementation provides no finite accumulated-evidence bound beyond128. Conditional invariant remains: each enrolled Node has at most32 entries in selected authenticated complete pending certificate plus at most32 new distinct commitments since it. Persist credit basis with every acceptance/certificate selection. Reject new-key admission at exhausted credit while duplicates and report/control remain serviceable. Exact set complement with session/highwater proof retires covered absent keys; a greatest-sequence watermark does not.
+
+Proof by induction: certificate selection leaves <=32 listed keys; each distinct new commitment consumes one of32 credits; retry consumes zero; reboot restores same credit basis, never replenishes; fresh certificate removes only proven absent covered keys and resets credits transactionally. Six Nodes therefore <=384 exact keys. +32 bounded COW/in-flight copies =416 physical entry capacity. Engineering margin is32, not new semantic admissions. If arbitrary report loss prevents progress, the invariant bounds memory but cannot guarantee continued new-event ACKs. Thus **RETIREMENT_BOUND_PROVEN=NO for production**, MAX_EXACT_KEYS_REQUIRED unconditionally unbounded, conditionally384. Node pending maximum192 alone is insufficient. Six admission limit, progress negotiation and source/digest conflict checks remain STOP.
+
+Keep current ExactIndex416 (12,452 RAM) until storage settles; host faster/slower alternatives do not justify larger flash. Match exact enrollment/session/sequence and immutable authenticated dictionary, then compare original Node payload before Duplicate ACK. Fixed hash collision behavior is deterministic O(capacity); fingerprint is never sole proof. Backend scheduling uses per-segment pending/critical masks and cursor, not duplicate payload queues. Recent history scans bounded selected segment directories; currentday/model read fixed state children; victim lookup uses per-segment live-byte/owner counters; retirement uses six fixed certificate descriptors. Boot scans at most partition sectors and fixed metadata; no runtime full-partition scan per event. Reconstruct RAM index from authenticated selected roots and committed tail; ignore unselected COW debris. No extra flash index charged.
+
+### 21.6 Exact conditional128 KiB comparison budget
+
+This is an exact sum of a **candidate reservation**, not exact proven allocator occupancy. A 64-byte header leaves4,032 usable bytes/sector. Reserve worst104-byte Node records,38/sector, 80-byte remainder; larger critical records use31/sector. Root sectors and metadata reserves include their headers; no RAM index bytes are counted as flash.
+
+| Category | Reserved bytes | Reason | Reclaimable |
+|---|---:|---|---|
+| Active shared bodies / correctness | 45,056 (11 sectors) | 418 worst104-byte slots >=416; same bodies serve pending outbox/history | only after all owners clear |
+| State / routine / daily / COW | 20,480 (5 sectors) | three6,144-byte checkpoint images +2,048 framing slack; routine2,560/currentday512 are INCLUDED | older images only with root proof |
+| Roots / nonce generations | 12,288 (3 sectors) | rotating root log, preserve old/new valid references | safe obsolete generations |
+| Exact retirement certificates | 12,288 (3 sectors) | three <=3,676-byte six-Node snapshots | after durable newer selection |
+| Lifecycle/dictionary deltas | 8,192 (2 sectors) | bounded completion/credit/mapping transitions; churn fit unproven | after checkpoint/certificate ownership transfer |
+| GC reserve | 12,288 (3 sectors) | destination victim copy + publication/partial-erase headroom | reserved, never ordinary admission |
+| Critical operational reserve | 8,192 (2 sectors) | at least one32-event transaction burst at128 B needs2 sectors (31/sector); candidate ONLY | critical work after ownership transfer |
+| Ordinary outbox/history incremental pool | 8,192 (2 sectors) | 76 worst104-byte records | according to backend/summary/history ownership |
+| Free unassigned reserve | 4,096 (1 sector) | extra bad/abandoned tail/COW headroom; faults still fail closed | not ordinary quota |
+| **TOTAL** | **131,072 (32 sectors)** | exactly current partition | |
+
+ACTIVE_DURABILITY_BYTES45,056 excludes certificate metadata separately charged12,288. OUTBOX_BYTES8,192 is incremental ordinary pool, **not a second active payload copy**. ROUTINE_STATE_BYTES2,560 and DAILY_STATE_BYTES512 are suballocations of state reserve, not additions. CHECKPOINT_BYTES6,144 is each image. ROOT_METADATA_BYTES12,288; CRITICAL_RESERVE_BYTES8,192; GC_RESERVE_BYTES12,288. Segment headers total32×64=2,048 INCLUDED across rows. AVAILABLE_EVENT_BYTES: ordinary pool payload capacity76×104=7,904, headers128/tail160 included; active bodies capacity418×104=43,472; critical62×128=7,936. Active tail/COW headroom cannot be advertised as ordinary history. Roots/state packing, dictionary pins, variable effects and report churn still need executable allocator proof.
+
+Critical reserve derivation protects one bounded32-record ingestion burst during cleanup, not an indefinite outage. All192 Node pending keys could be critical and already fit shared active capacity; ordinary admissions must leave critical credits physically available. Emergency intervals/incident rate and post-retirement backlog are unbounded in requirements, so8,192 is **not a final critical-retention guarantee**. If critical traffic can permanently fill all pinned capacity, finite flash cannot preserve every incident indefinitely while continuing all ACKs. Required bounded incident/effect overflow semantics are a REQUIREMENT_GAP, not solved by this reserve.
+
+### 21.7 Retention, aging and72-hour comparison
+
+Retain previous actual episode scenarios384 /1,776 /23,232 records/day. No qualified Reed/button maximum exists. For guaranteed source record sizing use104 B even for ordinary84-byte events; this fixed-cell comparison avoids pretending an unspecified mix/order has an exact packing ratio. NORMAL actual scenario has264 ordinary and120 summaries =34,656 body bytes/day before sector/lifecycle effects; HIGH1,056 ordinary720 summaries =163,584; STRESS11,712 ordinary11,520 summaries =2,181,888. Those byte sums are not standalone retention guarantees.
+
+Only incremental ordinary pool counted below; active payloads may already carry additional backlog, but are pinned correctness reserve and are not promised retention space.
+
+| Detail representation | Capacity | NORMAL hours /days | HIGH hours /days | STRESS hours /days |
+|---|---:|---|---|---|
+| Full semantic detail,104-byte bound | 76 source records | 4.75 /0.197917 | 1.027027 /0.042793 | 0.078512 /0.003271 |
+| Daily320-byte aggregates in same2 sectors | 24 daily records (12/sector) | 576 /24 | 576 /24 | 576 /24 |
+
+The second row preserves daily aggregate information, **not all source events**:24 days correspond to9,216 /42,624 /557,568 source-record equivalents under scenarios, without their individual identities/chronology. It is conditional on approved backend summary/revision/completion contracts and on full active/report/reducer constraints clearing. Fixed routine model persists indefinitely by replacement, but this does not promise infinite unsynced daily history. Beyond24 aggregate days needs approved cross-day sufficient-statistic merging plus explicit coverage/gap boundaries; cannot silently drop days required for backfill. Baseline alone cannot reconstruct daily conclusions.
+
+Critical-only protected pool:62 maximum128-byte records, plus whatever active credit reservation permits; hours =62/rate_per_day×24, days=62/rate_per_day. No finite critical arrival rate is approved, so an unconditional number of days is **NOT DERIVABLE**. For an explicitly illustrative6 critical records/day:248 h /10.333 days; this is not a requirement or measured rate.
+
+Aging proposal: A recent immutable source detail; B lossless existing activity-summary records (already produced by Node, not arbitrary new five-minute suppression); C authenticated daily aggregates with coverage/reasons and stable identity; D critical incident/effect records independently pinned. Synced optional history and diagnostics go first. An unsynced source record may be transformed only after local correctness transfers, and backend explicitly accepts a new aggregate/substitution manifest; current Node EventKey API forbids changing its canonical payload. Distinct door/OK/CallFamily chronology cannot be collapsed without product approval. NO_OBSERVATION remains visible through every tier.
+
+**72h NORMAL is comparison only.** 3×384=1,152 source records. Worst104-byte slots need ceil(1,152/38)=31 sectors=126,976 B (119,808 body,1,984 headers,5,184 padding/unused slots). Fixed other reservation excluding ordinary pool is122,880 B, already including active, state/daily/routine, roots, critical and GC. Required total **249,856 B (244 KiB)**; existing128 KiB deficit **118,784 B (116 KiB)**. Thus72H_NORMAL_FITS_128K=NO under this conservative independent-backlog reservation. Sharing current active occupants may reduce peak but cannot be promised before allocator/credit/COW proof. A precise mixed variable-record implementation could use less; do not promote this upper-bound allocation to a mathematically minimal requirement.
+
+| Partition | Incremental normal sectors after fixed120 KiB | Full-detail records | NORMAL /HIGH /STRESS hours |
+|---|---:|---:|---|
+| 128 KiB | 2 | 76 | 4.75 /1.027 /0.079 |
+| 192 KiB | 18 | 684 | 42.75 /9.243 /0.707 |
+| 256 KiB | 34 | 1,292 | 80.75 /17.459 /1.335 |
+| 384 KiB | 66 | 2,508 | 156.75 /33.892 /2.591 |
+
+No locked offline horizon proves resizing necessary. Minimum for the above72-hour bound is244 KiB raw, rounded to256 KiB among compared layouts; not a production recommendation. 256 KiB would permit two0x1D0000 slots at0x020000/0x1F0000 and lifecycle0x3C0000/0x040000. 192 KiB can retain current first slot and shrink second to0x1D0000, lifecycle0x3D0000/0x030000; asymmetric OTA capacities must be respected. 384 KiB stays the earlier conditional layout. **Recommendation: keep128 KiB and existing CSV until policy, allocator proof and image evidence show a necessary resize.** 128K_FITS_LOCKED_R1_REQUIREMENTS=CONDITIONAL, not YES; maximum critical/backfill obligations remain undefined.
+
+### 21.8 Failure matrices and recovery expectations
+
+All rows describe required/proposed behavior, **NOT_TESTED as a new integrated engine**. PWA effects require future backend contract/vertical validation. No Node/Hub failure may manufacture inactivity from missing coverage.
+
+| Node case | Local durability / recovery | Routine / coverage | Backend / PWA |
+|---|---|---|---|
+| Power before retained transmit | No Hub ACK; restore only durably retained input; unsaved repeats may be lost | no fabricated activity; sensing reset/gap means uncertain coverage | explicit quality/gap where supported, no complete-day claim |
+| Power after retain before ACK | Retry same origin key after rejoin | apply once after commit; downtime unavailable | stable source identity |
+| ACK loss then reboot | exact authenticated duplicate ACK; saved retirement/report then progress | no second learner update | no second caregiver effect |
+| Offline minutes /hours | keep exact pending and report credits | unavailable interval, positive evidence elsewhere remains usable | connectivity/partial confidence, not resident inactive |
+| Offline across day | retain supported source input; complete-day claim withheld | separate each day's missing duration/reason | stable partial daily conclusions |
+| Rejoin retained | old origin survives newer transport session | delayed occurrence if time trusted; no retroactive blanket coverage | backfill original immutable payload |
+| Duplicate on rejoin | exact key + payload verification | zero new contribution | idempotent retry |
+| Out-of-order | certificate membership and sparse gaps preserved | commutative daily counts/min/max; order-sensitive rules need explicit bounded chronology policy | occurrence + receive order preserved |
+| Six simultaneous rejoin | fixed per-source quotas, fair bounded drain | independent coverage recovery | fair backfill, critical live service |
+| One Node unavailable | other five continue | affected required-zone/windows partial; do not suppress positive evidence globally | explicit missing source/zone |
+
+| Hub case | Durable recovery | Routine / coverage | Backend / PWA |
+|---|---|---|---|
+| Before event commit | torn/uncommitted record ignored; no durable ACK | no application | Node retries |
+| After commit before ACK | reconstruct exact key and replay covered tail once | same canonical input | same identity |
+| After reducer RAM update | root/tail ordinal selects state | redo only not-covered inputs; RAM updates not authority | durable intent remains pending |
+| During routine update | old selected snapshot + input, or new valid child/root | never double baseline/event | no invented conclusion |
+| During checkpoint | child hashes/root validation chooses complete state | old root retains necessary tail | no missing acknowledged work |
+| While backend pending | pending owner recovered | learning independent of cloud | automatic identical retry |
+| Backend accepted, response lost | leave pending until authenticated receipt durably selected | no local repeat | backend conflict/dedupe prevents duplication |
+| During reclaim | state machine below | selected reachable state survives | live pending payload survives |
+| Repeated reboot | preserve credit, nonce reservation and ordinals | leases UNKNOWN until fresh contact; boot count not activity | no identity renewal per boot |
+| Across midnight | trusted date gaps synthesized only as unavailable | bounded day closing; unknown time quarantined | one logical day/revision, no false inactivity |
+| Return with many retained Nodes | six independent exact/certificate paths | correct delayed evidence with partial coverage | fair bounded backfill |
+
+| Internet/backend case | Local effect | Retry / caregiver effect |
+|---|---|---|
+| Internet unavailable /backend unavailable | sensing/alerts/learning and source ACK unchanged within independent reserve | pending backlog; stale backend status, no PWA-open trigger |
+| Timeout /durable acceptance response lost | completion not inferred | identical request/identity, retry accepted once |
+| Partial upload then outage | persist only verified accepted completion bits | resume remaining stable pending identities |
+| Hours /multiple days | detail ages only under approved substitution | retain daily conclusions independently, bounded pressure flagged |
+| Large reconnect backlog | bounded oldest-first normal + critical/fresh service | no starvation; explicit backend rate/backoff budget needed |
+| New live event during drain | normal local durable commit | near-real-time scheduling remains enabled |
+| Retry after Hub reboot | selected outbox and exact canonical body recovered | no new receive timestamp, no duplicate timeline |
+
+Example Day1/Day2 backend outage: local coverage-aware daily aggregates remain pending; on Day3 submit both stable daily identities/revisions, retained meaningful detail and current Day3 state automatically. Backend acknowledgements are separate per immutable object. Unknown/missing detail is flagged; aggregates do not claim a reconstructed full timeline.
+
+### 21.9 Time, daily finalization and identity contracts
+
+Boot without trusted time keeps monotonic activity in a bounded unassigned-time bucket; no dated no-activity daily conclusion. NTP restoration creates a versioned mapping with uncertainty; only records whose interval falls unambiguously in a day may be assigned. Cannot reconstruct time across reboot from Node monotonic alone. Unresolvable positive activity remains undated evidence, not an inactive day. Bounded overflow/retention of unassigned items needs policy.
+
+Clock forward jump closes only trusted contiguous days; skipped intervals are unavailable. Backward jump never reopens a finalized day as a new day; monotonic processing and versioned clock mapping prevent negative durations. Timezone change becomes effective at an explicit config boundary; do not relabel old finalized days. Local-day lengths use actual UTC start/end, including DST; sentinel first/last is not midnight zero. Event uncertainty straddling midnight is ambiguous rather than counted twice.
+
+Proposed bounded lateness mechanism: current-day state plus one retained previous-day revision workspace, with a product-approved grace horizon (NOT selected). Within it, late input makes a new immutable revision; outside it preserve delayed positive detail/quality, do not silently rewrite local baseline. Arbitrary multi-day delayed corrections cannot all reside in512-byte current state. Exact late-window/historical rule retraction and sample correction policy remains OPEN. Order-sensitive door/morning sequence cannot be made correct by blindly replaying receive order; bounded reorder/correction semantics must be specified separately from commutative daily counters.
+
+Daily transaction: OPEN -> PREPARED aggregate child -> committed authenticated aggregate -> updated model child with `(DayKey, applied_revision)` -> selected root referencing aggregate, model, backend intent and new OPEN day -> RAM activation. Aggregate preparation is unreachable until root; baseline update is COW, never in-place before selection. One root publication selects all changes. Before publication failure selects old day/model; afterward selects new complete day/model. The old root retains inputs needed to finish again. Backend dispatch only selected intents. Repeated finalization uses the same DayKey/revision and skips an already applied revision. For late correction, replace the prior day's contribution exactly or rebuild a bounded sufficient-statistic correction; EWMA subtraction is not generally reversible. Do not claim correction safety without a specific model contract.
+
+Stable logical identities (full tuples, no fingerprint-only equality):
+
+| Object | Proposed identity | Existing production status |
+|---|---|---|
+| SOURCE_EVENT_ID | household/installation + physical/logical source + enrollment + origin + sequence | existing backend subset key and canonical conflict semantics implemented; installation/enrollment API extensions need review |
+| CAREGIVER_EFFECT_ID | installation + rule schema/config + full source/window cause tuple + effect kind | derived-effect ACK/API incomplete |
+| ACTIVITY_SUMMARY_ID | source EventKey for existing Node summary; new compaction object uses installation + exact source-range manifest + compaction generation | Node summary canonical event supported; substitution manifest contract OPEN |
+| DAILY_AGGREGATE_ID | installation + household + local date + day-schema; revision separate immutable upload identity | OPEN backend API |
+| DEVICE_STATE_TRANSITION_ID | installation + bound device/enrollment + durable transition generation + state kind | OPEN backend API |
+
+Node application ACK = locally committed correctness obligation only. BACKEND_DURABLE_ACK = authenticated matching application acceptance of exact object ID/revision/payload, not HTTP transport success/PUBACK/provider acceptance. Backend day table should upsert logicalDayKey with monotonic accepted revisions while preserving immutable revision fingerprints; same revision/different payload conflicts. Atomic receipt selection makes completion durable. Current event COMMITTED contract is source-backed; proposed summary/daily/effect contracts are not approved or deployed.
+
+### 21.10 Pressure, reclaim and formal proof obligations
+
+P0 correctness/dedupe; P1 unsynced critical effects; P2 meaningful unsynced detail; P3 daily/routine aggregates; P4 synced recent history; P5 diagnostics. This is a proposed class map, not a newly locked total priority order: P3 necessary for current recovery is P0, and unsynced critical aggregates may be P1. Ownership beats labels. Thresholds should be free-sector/next-admission-cost based, not guessed percentage constants.
+
+NORMAL: all admitted committed objects retained, sync immediately. HIGH: required admission+worst victim-copy+root reserve approaching available free sectors; reclaim P4/P5, batch routine checkpoints within proven replay bound. CRITICAL: protect P0/P1 and aggregate recovery; compact P2 only under backend substitution/approved product semantics; drain control/report to release exact evidence. SATURATED: no unsafe durable ACK, no silent critical loss; sensing/local rules continue using their independent reserve, expose storage/backlog quality. An indefinitely pinned P1/P0 workload can exhaust any finite reserve; the continuing-locally-safe critical effect saturation policy is still REQUIREMENT_GAP. Refusing every local safety event permanently would violate GS-D009/012.
+
+Reclaim state machine: SEGMENT_ACTIVE -> SEGMENT_CANDIDATE (all current owners catalogued) -> LIVE_COPY_STARTED (source pinned; destination reserved) -> LIVE_COPY_COMMITTED (all live bodies authenticated/re-encrypted, logical identity unchanged) -> ROOT_UPDATED (all child refs/completions/certificates verified) -> RETIREMENT_COMMITTED (both surviving recovery roots or their replay mappings no longer require victim) -> ERASE_ALLOWED -> ERASED. Physical address references never survive reuse without matching serial. One reserve destination must fit worst live victim; additional roots/COW/report space charged separately.
+
+Before record commit failure ignores tail; after commit replay recovers it; before state application recover tail; after RAM application without checkpoint redo from old root exactly once; before checkpoint activation preserve old children/tail. During live-copy failure keep source and ignore unselected destination. After root update but before retirement keep source and destination; older root cannot point to erased victim. After retirement before erase source unnecessary; during erase recover from selected destinations and quarantine/finish erased sector. After erase before allocator metadata commit, reserved unique serial is burned and sector reused only after complete erase/verified header. Backend receipt loss before selection causes duplicate idempotent upload, not local loss. Every ACKed event must be reachable from each permitted recovery root or its retained replay tail; every backend pending identity has reachable canonical content.
+
+This is an invariant argument, **not an executable crash proof**. Need inject failure after every flash program/erase byte boundary, AEAD/length/tag/root faults, report/completion publication, nonce reservation, sector reuse and double reboot. Arbitrary malicious rollback of valid flash is not solved by AEAD alone; domain epoch/counter/security threat model must match existing authenticated storage. Fail closed on contradictory valid roots or missing pinned children; older snapshot fallback is forbidden if it loses acknowledged work.
+
+### 21.11 Wear, rollback and build status
+
+Do not checkpoint full6,144 B per ordinary event. Candidate cadence32 dirty events or bounded tail pressure and six-hour dirty timeout; root rotation/report batching and dirty-child updates require actual proof. At conservative twice6,144 writes per32 events, snapshot pairs/day12 /56 /726; daily aggregate320 B/day plus committed revision changes. Node bodies/day34,656 /163,584 /2,181,888. At full32 completion batches,44 B×12/56/726=528 /2,464 /31,944. Logical total excluding report/credit/dictionary/root/GC traffic:182,960 /854,496 /11,135,240 B/day. Sparse receipts/report deltas can cost more; aggregate aging reduces history footprint, not necessarily ingest/checkpoint wear.
+
+Root publication at least one per selected checkpoint (12/56/726) plus report/COW/day/receipt transactions, not every poll. Roots rotate across three reserved sectors; peak pins may prevent perfectly equal wear. Divide baseline writes by4,032 usable bytes gives lower-bound45.38 /211.93 /2,761.72 sector fills/day. Uniform32-sector distribution would be1.42 /6.62 /86.30 cycles/sector/day before GC and excluded metadata. This is a workload warning, not endurance qualification. GC write amplification approximates1/(1-live_fraction) for repeated relocation; at50% live2×, at90%10×, no universal2× bound. Need admission selectability proof limiting maximum live victim, measured actual physical writes/erases and flash-chip rated endurance. Stress cannot yet be called indefinitely supported.
+
+New sector format cannot be enabled as an irreversible OTA side effect. Existing firmware expects current NVS/native checkpoint <=4,549 B and cannot read this log. Fresh-install native format and legacy dev-format scope stay distinct (legacy migration remains HISTORICAL_LEGACY /optional DEFER_POST_R1). For current supported deployed format, require backward-readable transition or staged migration with old firmware rollback barred only after new image marked valid and compatible roots verified; preserve rollback-readable source until then. Never silently erase old state or reset epoch to free capacity. FOTA minimum-compatible reader/writer must be enforced by boot/install path, not merely stored in a new root old firmware ignores. Partition resizing needs a separate service/deployment decision; dual OTA app update alone does not relocate partitions safely.
+
+Hub production build attempted with installed ESP-IDF6.0.3, no HIL flags, /tmp build directory. CMake stops at main/CMakeLists.txt:11: missing embedded node_firmware.bin. Initial Node build defaulted to esp32 and was stopped; explicit C3 rebuild uses isolated SDKCONFIG and must be assessed separately. No wrong-target binary is accepted. Explicit C3 build succeeded and supplied the generated embedded image. Current Hub build then PASS: app1,864,624 B (actual .bin), existing OTA slot1,966,080 B, margin101,456 B. Static DRAM45,783 B (134,953 remaining in reported linker region), IRAM87,359 B (43,713 remaining). These static section figures exclude runtime task stacks/heap and are not runtime headroom. Build/size provenance is preserved in the refinement evidence. Historical image sizes are no longer needed for this baseline comparison.
+
+### 21.12 Validation and production gate
+
+Future safe host/model tests must parameterize unresolved lease/lateness/retention values rather than choose product policy. Extend existing fixed primitive fixture with: certificate/credit induction across six sources, report loss and reboot (no credit reset), repeated exact retry with changed payload rejection, all old/new-root crash boundaries, active reference relocation, unique nonce reservation/reboot, backend accepted-response-lost and stable daily revisions, Day1/Day2 outage backfill, midnight finalization crashes/repeat, late previous-day correction, trusted/untrusted time, one missing zone vs healthy quiet zone, DST/clock changes, partial-window coverage, saturation/critical admission and million-event bounded metadata. Assert NO_ACTIVITY only in fully eligible observed windows; NO_OBSERVATION must not increment inactive baseline samples. Assert each DayKey/revision contributes once and each ACK-required input stays reachable. Cryptographic flash integration and target power failures are later qualification, not covered by symbolic old/new selection.
+
+| Gate | Status | Closure needed |
+|---|---|---|
+| OFFLINE_POLICY | OPEN | approved detail/aggregate horizon and prolonged-outage behavior |
+| STORAGE_PRIORITY_POLICY | OPEN | compaction substitutions and saturated critical behavior |
+| RETIREMENT_BOUND | CONDITIONAL, production OPEN | credit/report protocol progress and six-source enforcement |
+| BACKEND_IDENTITY | source-event existing; derived OPEN | daily/effect/substitution full identity/revision API |
+| BACKEND_COMPLETION | source COMMITTED verified; derived OPEN | production caller + durable aggregate/effect acceptance |
+| ROUTINE_MODEL_BOUND | candidate bounded; proof OPEN | complete codec/config/overflow/correction limits |
+| COVERAGE_MODEL | requirement LOCKED; implementation OPEN | window coverage/time/reboot proof and eligibility criteria |
+| DAILY_CONCLUSION | candidate transaction; OPEN | backend revisions and baseline correction/finalization tests |
+| TIME_RECOVERY | OPEN | trusted clock mapping, lateness/timezone boundaries |
+| ROLLBACK_SAFETY | OPEN | compatible transition and enforced minimum-reader gate |
+| CRASH_RECLAIM_PROOF | OPEN | real authenticated flash fault model and allocator invariant proof |
+| FLASH_WEAR | OPEN | chip rating, physical amplification and supported load |
+| IMAGE_FIT | CLOSED current baseline; future engine OPEN | current app fits existing slots; new code/growth and signing reserve unproven |
+| PARTITION_DECISION | UNDECIDED | prove128 KiB first; resize only approved need/current image |
+
+ARCHITECTURE_READY_FOR_PRODUCTION_INTEGRATION=NO. Even after all gates close, this run does not authorize production integration. Next action is context promotion/reconciliation by explicit authorized workflow, then isolated failure-model tests and authenticated allocator proof, then product/backend decisions, target size/wear measurement and relevant physical qualification. No firmware/ACK/backend/PWA/partition behavior changed.
+
+Refinement verification: unchanged storage-efficiency million-event test, existing Hub backend COMMITTED and journal/reboot/tamper/full129 regressions PASS. ASan/UBSan re-run uses leak detection disabled for the environment restriction; no LeakSanitizer claim. Static reservation sums, slot packing,72-hour calculation, workload/write arithmetic and relative Markdown document paths checked. These checks do not prove allocator, flash wear, time/coverage recovery or authenticated reclamation.
+
+Nonce proof obligation: reserve a monotonic serial range durably in all recovery roots permitted after a crash before using any serial from that range. A single latest-root counter with fallback to a lower old counter is unsafe. Recovery skips/burns all potentially used reservations; destination erase/reuse must allocate a new serial. Sector erase/program alignment must be confirmed against ESP32 driver and any platform flash-encryption alignment before accepting84/104-byte physical sizes; additional alignment can invalidate retention arithmetic.
+
+Daily-history requirement interpretation requiring product closure: correct daily conclusions during multi-day outage does not establish an unlimited duration promise. If it is intended to require every distinct day retained through arbitrarily long backend outage, finite4 MB flash cannot meet it. Preserve bounded current state/model and explicit quality; do not silently merge/drop daily backlog until approved sufficient-statistic/revision semantics define which distinctions may be retired. This is an OPEN retention/overflow question, not authority to weaken GS-D023.
+
+RAM retrieval refinement: ordinary variable-size bodies may pack densely;104-byte cells are only conservative capacity accounting. The exact index's4-byte handle can be a RAM-only physical sector/offset cache under exclusive owner control; it is not a durable reference or complete generation. Read/authenticate the full segment serial before resolving it, and never reuse a sector while any selected reference remains. Stable persisted references contain full serial/offset/length. Pending bitmaps/directories reconstructed from at most38 Node records per candidate sector allow bounded scans without persisting a second full EventKey list for outbox/history. Additional directory/coverage RAM must be included in a complete target budget before integration.
+
+Current image invalidates the earlier384 KiB recommendation: its0x1C0000 OTA slots are29,616 bytes smaller than the current1,864,624-byte image. Both256 KiB layout slots0x1D0000 leave35,920 bytes each, only1.89% of slot;192 KiB asymmetric layout has the same limiting margin. Neither resize is approved without future-engine code growth and required signing/FOTA reserve. Existing slots leave101,456 bytes (5.16%). Bootloader26,304 B leaves2,368 B before partition-table offset; table binary3,072 B stays within its4,096-byte sector. Generated table confirms current end0x400000 exactly. See [refinement evidence](../evidence/R1_STORAGE_FIRST_REFINEMENT_20261007.md).

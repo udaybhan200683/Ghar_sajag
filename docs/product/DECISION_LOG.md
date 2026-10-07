@@ -88,6 +88,21 @@ BAT-C8 is an `R1_REQUIRED_FEATURE_WITH_PENDING_QUALIFICATION`. Before R1 product
 
 **Jira traceability:** GS-114 covers implementation/focused qualification; GS-146 covers final R1 battery closure. These links do not assert either issue or the physical qualification is complete.
 
+### GS-D021 — Storage and retrieval take priority over CPU optimization
+**Status:** LOCKED
+
+First satisfy correctness, durability, security/authentication, crash recovery, product stability, scalability and caregiver/user experience. Among qualifying designs prioritize useful information retained per flash byte, efficient deterministic retrieval, bounded RAM, and low flash write amplification/long flash lifetime, in that order. CPU-cycle efficiency is secondary. A faster host benchmark alone does not justify larger persistent records, less offline retention, weaker retrieval, durability, recovery, routine learning or caregiver behavior, or added complexity. A larger/faster representation needs strong justification and measurements showing the smaller design cannot meet realtime requirements. No product behavior, stability, scalability or UX degradation is authorized.
+
+### GS-D022 — Missing observation is not resident inactivity
+**Status:** LOCKED
+
+The Hub routine learner and caregiver PWA must distinguish NO_ACTIVITY during adequately observed intervals from NO_OBSERVATION / SENSOR_UNAVAILABLE / HUB_UNAVAILABLE. Failed/offline sensors must not cause an inactivity conclusion. Coverage, confidence, time trust and data quality are part of current and daily routine state; positive delayed activity does not prove continuous sensor availability. Existing privacy/mode exclusions remain in force. Coverage thresholds/formulas and exact encodings remain OPEN.
+
+### GS-D023 — Routine and daily-state failure recovery
+**Status:** LOCKED
+
+Bounded local routine learning must maintain correct current state, daily conclusions, coverage/confidence and recovery through Node power failure/reboot/rejoin, Hub power failure/reboot, radio interruption, internet/backend outages, lost backend ACK, backlog re-sync, multi-day outage, local-day rollover, delayed events, partial coverage and storage pressure. Recovery must not double-apply a logical event/baseline contribution, fabricate activity, duplicate caregiver history/daily conclusions, or lose ACK-required input. Backend retries use stable logical identities; exactly-once transport is not assumed. Daily time assignment must not fabricate trusted time. Exact retention, lateness, critical-overflow, backend effect/revision and rollback contracts remain OPEN; these decisions do not approve a partition change or production integration.
+
 ## Reconciliation status — 2026-10-07
 
 The already-qualified native fresh-install and empty-AEAD/recovery changes are
@@ -126,3 +141,7 @@ backend, critical-overflow, crash/reclaim, image-size, wear or rollback gates.
 ## Maintenance
 
 Append a new GS-Dxxx entry when a new product/architecture decision must survive future sessions. Never silently rewrite a LOCKED decision; supersede it explicitly.
+
+## Storage-first refinement status — 2026-10-07
+
+GS-D021/022/023 are the only new LOCKED decisions in this checkpoint. Proposed84/104-byte authenticated records and128 KiB budgets remain gated; no72-hour guarantee, critical overflow policy or partition change is approved. Current reproduced Hub image1,864,624 B fits existing slots with101,456 B margin; the old384 KiB candidate does not fit. Retirement credit/progress, coverage/time/day finalization, derived backend completion, authenticated GC and rollback remain open. Existing host regressions pass; new failure models are specified but not implemented.
