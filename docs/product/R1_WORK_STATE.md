@@ -180,3 +180,26 @@ rollback and target RAM/wear/OTA growth before production integration.
 
 Production integration NO; partition CSV/ACK/backend/PWA unchanged; hardware
 unused; BAT-C8/Jira untouched. Existing physical fresh-install gates stay closed.
+
+
+## 2026-10-07 lifecycle proof checkpoint (context .003)
+
+Canonical promotion is complete; storage preflight PASS at2026-10-07.003.
+The [focused lifecycle evidence](../exec-plans/evidence/R1_STORAGE_RETIREMENT_RECLAIM_PROOF_20261007.md)
+and ExecPlan section23 preserve the new host-only findings. Node pending192 is
+source-proven; historical Hub exact evidence has no finite current protocol
+progress bound when event ACKs succeed and reports are lost. A proposed32-credit
+per-owner gate gives384 live witnesses in a fixed host model, not production.
+4,325 abstract COW cuts, million-event bounded run, sanitizers and relevant
+existing regressions PASS. Full authenticated allocator/root/nonce/erase/rollback
+and credit durability/fairness/critical policy remain OPEN. No hardware used.
+
+A conditional53-byte dedupe-only witness raw ledger frees one sector: fixed
+98,304 +shared32,768 =131,072. Synthetic72h NORMAL sample/max raw sizes
+126,976/131,072 B; NVS pool tax and simultaneous192-body worst case prevent
+a production guarantee.128 KiB remains CONDITIONAL; enlargement not proven
+necessary. Native retry digest includes Hub receive time; outer journal key-only
+duplicate bypass versus component digest checking needs end-to-end investigation.
+Next close progress/admission and authenticated peak allocator proofs, then
+explicit backend/offline/critical decisions; do not production-integrate.
+No new locked requirement or CONTEXT_VERSION change.

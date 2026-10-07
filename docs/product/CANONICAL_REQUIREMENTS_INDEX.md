@@ -328,3 +328,11 @@ numeric/historical budget comparisons, and cannot establish full-source
 production retention. Sample/max-name timing scenarios and current blocker
 status are recorded in [R1_WORK_STATE.md](R1_WORK_STATE.md). No competing
 master requirements source or production format is introduced.
+
+
+### Lifecycle-bound/reclamation evidence checkpoint
+
+| Document | Authority | Valid use / limitations |
+|---|---|---|
+| `docs/exec-plans/evidence/R1_STORAGE_RETIREMENT_RECLAIM_PROOF_20261007.md` | TEST_EVIDENCE / DERIVED / HOST-MODELED | Source pending192 bound, unreported-history counterexample, proposed384-credit lemma, abstract COW cuts and NVS/raw capacity sensitivity; no product retention/partition/production proof authority |
+| `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` section23 | IMPLEMENTATION_DESIGN / PROPOSED | Qualifies old416-body/100KiB fixed ledger with conditional dedupe-only witnesses; progress/admission, allocator/crypto/rollback, backend and saturation remain open |

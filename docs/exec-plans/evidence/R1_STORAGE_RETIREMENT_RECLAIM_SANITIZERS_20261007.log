@@ -1,0 +1,11 @@
+COMMAND=c++ -std=c++17 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I. tests/cpp/storage_lifecycle_validation.cpp -o /tmp/gs-lifecycle-san
+RUN=ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 /tmp/gs-lifecycle-san
+REPORT_LOSS_COUNTEREXAMPLE pending_peak=1 history_required=100000 no-protocol-finite-bound
+CREDIT_BOUND_PASS peak=384 copied-ledger-reboot/no-credit-reset/exact-conflict/no-resurrection
+GAP_SESSION_PASS pending-hole/old-origin/rejoin/replacement-rejected
+COW_FAULT_PASS cuts=4325 selected-corruption-fail-closed body-or-certificate-or-retirement
+BACKEND_LOST_ACK_PASS retain-body/retry-stable-source/local-receipt-before-release
+LIFETIME_PASS events=1000000 peak=89 ledger_RAM=26368 fixed_capacity=384 atomic-snapshot-assumption
+STORAGE_LIFECYCLE_HOST_PASS
+
+PROCESS_EXIT=0

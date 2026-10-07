@@ -160,3 +160,14 @@ Append a new GS-Dxxx entry when a new product/architecture decision must survive
 ## Storage-first refinement status — 2026-10-07
 
 GS-D021/022/023 are the only new LOCKED decisions in this checkpoint. Proposed84/104-byte authenticated records and128 KiB budgets remain gated; no72-hour guarantee, critical overflow policy or partition change is approved. Current reproduced Hub image1,864,624 B fits existing slots with101,456 B margin; the old384 KiB candidate does not fit. Retirement credit/progress, coverage/time/day finalization, derived backend completion, authenticated GC and rollback remain open. Existing host regressions pass; new failure models are specified but not implemented.
+
+
+### 2026-10-07 lifecycle investigation status (no new decision)
+
+GS-D016/021/024 remain unchanged. [Lifecycle proof evidence](../exec-plans/evidence/R1_STORAGE_RETIREMENT_RECLAIM_PROOF_20261007.md)
+separates the source-proven192 Node pending keys from unbounded historical Hub
+evidence under lost retirement reports.384 witnesses is conditional on a new
+persisted admission/progress invariant, not an approved product policy. Host
+COW/million-event tests pass within explicit model assumptions; physical
+allocator/crypto/rollback and saturation/backend gates stay open.128 KiB remains
+conditional; no partition decision,72h guarantee or new LOCKED requirement.

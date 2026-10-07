@@ -72,6 +72,16 @@ BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCE
 
 all: verify
 
+# Lifecycle proof fixture only; no production source/ACK wiring.
+.PHONY: storage-lifecycle-host-test storage-lifecycle-sizing
+storage-lifecycle-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_lifecycle_validation.cpp -o build/storage_lifecycle_validation
+	./build/storage_lifecycle_validation
+
+storage-lifecycle-sizing: build
+	$(HOST_CXX) $(CXXFLAGS) -I. tests/cpp/storage_lifecycle_sizing.cpp -o build/storage_lifecycle_sizing
+	./build/storage_lifecycle_sizing
+
 # Information-density experiments only; excluded from firmware source lists.
 .PHONY: storage-density-host-test storage-density-benchmark
 storage-density-host-test: build

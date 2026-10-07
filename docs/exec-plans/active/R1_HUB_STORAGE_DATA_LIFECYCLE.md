@@ -1146,3 +1146,83 @@ requirement or proof that every locked R1 requirement fits. Source/config/name
 serialization, authenticated allocator/root/nonce/COW, retirement credits,
 backend derived completion, overflow/retention, coverage/time/day recovery,
 rollback and target RAM/wear remain STOP gates.
+
+
+## 23. Active/retirement bound and reclamation proof checkpoint
+
+See [focused lifecycle evidence](../evidence/R1_STORAGE_RETIREMENT_RECLAIM_PROOF_20261007.md)
+for source trace, per-transition lifecycle table, proof/counterexample, exact
+certificate format, COW cut matrix, ESP-IDF NVS physical accounting, raw byte
+ledger and frozen-codec retention sensitivity. **Codec frozen; host-only.**
+
+PROVEN: six production Node queues/recovery permit32 sequenced pending keys
+each (192), including sequenced Heartbeat, excluding unsequenced NodeHealth.
+A complete selected pending set retires its covered complement without losing
+sequence holes. Current event ACKs do not guarantee report progress: one-slot
+Node plus successful ACKs/lost reports produces arbitrarily growing Hub
+unreported evidence. **192 is not a historical Hub evidence/body bound.**
+Current128 archive limit remains unchanged; event129 still Full.
+
+HOST-MODELED conditional finite invariant: per owner at most32 reported pending
+keys plus32 new uncovered admissions, persisted with report/evidence state;
+reboot/new transport/report generation alone never refills credit. Six owners
+=>384 live exact witnesses, not416 full bodies. Thirty-two COW witness copies
+belong to GC reserve. Stalled reports then stop uncovered admission: report
+fairness/critical admission and local-safety saturation semantics are OPEN.
+No production credit rule was implemented or silently approved.
+
+Proposed dedupe-only witness53 B = exact owner slot1 +enrollment4 +origin8
++sequence8 +full source HMAC32, within authenticated page/root. It may replace
+body only after backend/replay/history owners finish and canonical immutable
+retry projection is proven. Compared with frozen36-byte typical HOT entry,
+55-byte framed witness is19 B larger; do not force certificate conversion when
+the complete encoded body/context is smaller. Existing native digest includes
+Hub received_at; journal outer duplicate is key-only while durable component
+compares digests. End-to-end conflict/retry projection remains INVESTIGATE_ONLY,
+not an implemented fix. No finite current historical exact-key or backend-body
+bound is established.
+
+Abstract COW state: prepare/verify destination or certificate ->select/readback
+new root ->release ALL old recovery references ->erase victim ->verify blank
+before reuse. Five transitions,865 cut points each (4,325 total) recover old or
+new complete state. Selected corrupt child fails closed rather than using an
+older root that may lose ACKed responsibility. CRC mock pages/roots, atomic
+ledger snapshots and selected retirement flags are model assumptions; AEAD,
+nonce reservation, real sector root rotation, interrupted recovery/resume,
+rollback and simultaneous live allocator proof remain OPEN. Million-event
+randomized six-owner run peak89, fixed384 ledger26,368 model RAM. Existing
+million-event density, source-backend, journal recovery, Node retirement and
+Hub snapshot regressions PASS; ASan/UBSan PASS, LeakSanitizer not claimed.
+
+This subsection adds a **conditional raw-partition sensitivity**, replacing
+section22's old witness reserve only if the53-byte projection/credit/allocator
+assumptions close: certificates24,576; report banks12,288; routine/day/stateCOW
+20,480; roots8,192; lifecycle metadata8,192; GC12,288; critical placeholder8,192;
+engineering4,096 =fixed98,304. Shared bodies/outbox/history/daily32,768; total
+131,072. No separate full-body or backend payload copy; zero separate body
+reserve does not mean zero bodies required. Gap exceptions already in reports.
+Worst192 maximal HOT124-byte events +1370 header require10 sectors40,960,
+exceeding the8-sector pool before older outbox/day data. Thus arithmetic alone
+is not guaranteed active-body admission.
+
+Frozen jittered full-source sample/max-name eight-sector retention:
+NORMAL1472/1197 events (92/74.8125h), HIGH1539/1261 (20.797297/17.040541h),
+STRESS1667/1351 (1.722107/1.395661h). Synthetic72h NORMAL sample126,976 B,
+4096 margin; max131,072 B,zero margin. **No production72-hour guarantee.**
+NVS4096-byte segment blob instead needs at least13132-byte entries; seven/eight
+whole blobs require optimistic9/10-sector windows with namespace/free page.
+Holding raw fixed ledger constant only for sensitivity: sample135,168 B
+(deficit4096), max139,264 (deficit8192). Shared scratch/fixed-object NVS mapping
+needs proof; these are estimates, not complete target allocation measurements.
+Existing dedicated8-sector NVS window fits at most6whole blobs in ideal packing.
+Do not equate entry occupancy with physical write amplification or wear.
+
+CURRENT_128K_FEASIBILITY=CONDITIONAL; PARTITION_CHANGE_PROVEN_NECESSARY=NO;
+MINIMUM_REQUIRED_PARTITION=UNDETERMINED. Offline/critical/substitution policy,
+report-bound admission/progress, full retry/conflict digest projection,
+backend-derived completion, authenticated allocator/root/nonce/rollback,
+materialized routine/day/config recovery and target physical peak/wear/RAM remain
+STOP gates. No new locked requirement/context version, partition, production
+integration or hardware operation. Next work is the bounded authenticated
+allocator/progress proof plus requested product/backend decisions, not another
+codec optimization or larger journal constant.

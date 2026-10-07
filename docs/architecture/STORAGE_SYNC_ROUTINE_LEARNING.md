@@ -174,3 +174,18 @@ completion, time/coverage/late recovery, authenticated nonce/root/reclaim,
 rollback and target RAM/wear remain STOP gates. Keep near-real-time connected
 sync, one shared event body where safe, bounded routine state and
 NO_ACTIVITY distinct from NO_OBSERVATION under GS-D021/022/023.
+
+
+## Lifecycle proof status at context2026-10-07.003
+
+The [focused host lifecycle evidence](../exec-plans/evidence/R1_STORAGE_RETIREMENT_RECLAIM_PROOF_20261007.md)
+proves the32-key Node pending bound, not a finite historical Hub evidence bound.
+Report loss can coexist with continued event ACKs; complete-set retirement is
+gap-safe but requires bounded admission/report progress for a finite Hub ledger.
+A384-witness credit-gated model is proposed and host-tested only. Backend
+completion and Node retirement remain independent owners. A dedupe-only53-byte
+certificate cannot replace unsynced source/replay information. Root release
+before erase is host-modeled; authenticated allocator/nonce/rollback/physical
+peak proof remains open. Raw conditional128 KiB sizing does not include NVS
+entry tax by implication; no production capacity/retention guarantee is closed.
+No policy change or new requirement; use ExecPlan section23 for the next proof.

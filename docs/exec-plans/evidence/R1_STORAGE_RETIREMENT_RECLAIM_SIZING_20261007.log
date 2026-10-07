@@ -1,0 +1,17 @@
+make: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -I. tests/cpp/storage_lifecycle_sizing.cpp -o build/storage_lifecycle_sizing
+./build/storage_lifecycle_sizing
+LIFECYCLE_SIZING rate=384 header=728 pool_sectors=8 fit=1472 hours=92.000000 days=3.833333 three_day_sectors=7 fixed98304_total=126976
+LIFECYCLE_SIZING rate=384 header=728 pool_sectors=6 fit=1104 hours=69.000000 days=2.875000 three_day_sectors=7 fixed98304_total=126976
+LIFECYCLE_SIZING rate=384 header=1370 pool_sectors=8 fit=1197 hours=74.812500 days=3.117188 three_day_sectors=8 fixed98304_total=131072
+LIFECYCLE_SIZING rate=384 header=1370 pool_sectors=6 fit=900 hours=56.250000 days=2.343750 three_day_sectors=8 fixed98304_total=131072
+LIFECYCLE_SIZING rate=1776 header=728 pool_sectors=8 fit=1539 hours=20.797297 days=0.866554 three_day_sectors=28 fixed98304_total=212992
+LIFECYCLE_SIZING rate=1776 header=728 pool_sectors=6 fit=1154 hours=15.594595 days=0.649775 three_day_sectors=28 fixed98304_total=212992
+LIFECYCLE_SIZING rate=1776 header=1370 pool_sectors=8 fit=1261 hours=17.040541 days=0.710023 three_day_sectors=34 fixed98304_total=237568
+LIFECYCLE_SIZING rate=1776 header=1370 pool_sectors=6 fit=945 hours=12.770270 days=0.532095 three_day_sectors=34 fixed98304_total=237568
+LIFECYCLE_SIZING rate=23232 header=728 pool_sectors=8 fit=1667 hours=1.722107 days=0.071754 three_day_sectors=333 fixed98304_total=1462272
+LIFECYCLE_SIZING rate=23232 header=728 pool_sectors=6 fit=1247 hours=1.288223 days=0.053676 three_day_sectors=333 fixed98304_total=1462272
+LIFECYCLE_SIZING rate=23232 header=1370 pool_sectors=8 fit=1351 hours=1.395661 days=0.058153 three_day_sectors=412 fixed98304_total=1785856
+LIFECYCLE_SIZING rate=23232 header=1370 pool_sectors=6 fit=1012 hours=1.045455 days=0.043561 three_day_sectors=412 fixed98304_total=1785856
+STATIC_BUDGET_PASS fixed=98304 pool=32768 384_witnesses_plus_framing_fit_six_sectors
+make: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2'
