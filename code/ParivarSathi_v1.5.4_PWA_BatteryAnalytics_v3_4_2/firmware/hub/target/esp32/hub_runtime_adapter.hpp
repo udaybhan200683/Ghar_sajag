@@ -64,6 +64,8 @@ bool wait_fota_owner_ack(FotaOwnerAck& ack, std::uint32_t timeout_ms);
 #endif
 
 #if GS_HIL_CONTROL
+// One-shot qualification fault: drop ACK after durable commit, then reboot.
+void hil_reboot_after_next_durable_commit();
 void hil_set_logical_online(bool online);
 void hil_log_state();
 void hil_log_test_identity();

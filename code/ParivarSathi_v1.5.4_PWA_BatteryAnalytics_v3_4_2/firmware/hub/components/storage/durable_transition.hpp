@@ -122,6 +122,8 @@ struct Checkpoint {
     std::array<std::uint8_t, 32> registry_table_digest{};
     std::uint16_t migration_frontier{0};
     bool migration_view{false};
+    // Authenticated native installation; no legacy ownership or migration root.
+    bool fresh_registry_domain{false};
     bool registry_owner_domain{false};
     bool allow_legacy_event_tail{false};
     bool allow_legacy_event_slots{false};

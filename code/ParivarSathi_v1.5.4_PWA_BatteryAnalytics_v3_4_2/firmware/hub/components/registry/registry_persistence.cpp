@@ -68,14 +68,22 @@ void append_array(Bytes& out, const std::array<std::uint8_t, N>& value) {
     out.insert(out.end(), value.begin(), value.end());
 }
 
+bool fresh_registry_metadata(const RegistryMigrationBarrier& barrier) {
+    return barrier.phase == RegistryMigrationPhase::FreshInstallation &&
+        barrier.source_epoch == 0 && barrier.source_checkpoint_generation == 0 &&
+        std::all_of(barrier.target_checkpoint_digest.begin(), barrier.target_checkpoint_digest.end(),
+                    [](std::uint8_t b) { return b == 0; });
+}
+
 bool encode_v2(const HubRegistryState& state, Bytes& out) {
     if (!append_string(out, state.registry.home_id, 64) ||
         !append_string(out, state.registry.hub_id, 64) ||
         state.registry.active.size() > 255 ||
         state.registry.revoked_device_ids.size() > 255 ||
         state.migration.phase == RegistryMigrationPhase::Uninitialized ||
-        state.migration.source_epoch == 0 ||
-        state.migration.source_checkpoint_generation == 0) return false;
+        (state.migration.phase == RegistryMigrationPhase::FreshInstallation
+            ? !fresh_registry_metadata(state.migration)
+            : state.migration.source_epoch == 0 || state.migration.source_checkpoint_generation == 0)) return false;
     out.push_back(static_cast<std::uint8_t>(state.registry.active.size()));
     out.push_back(static_cast<std::uint8_t>(state.registry.revoked_device_ids.size()));
     for (const auto& record : state.registry.active) {
@@ -200,11 +208,13 @@ bool decode(const Bytes& in, std::uint8_t schema, HubRegistryState& state) {
         if (cursor >= in.size()) return false;
         phase = in[cursor++];
         if (phase < static_cast<std::uint8_t>(RegistryMigrationPhase::Prepared) ||
-            phase > static_cast<std::uint8_t>(RegistryMigrationPhase::Activated) ||
+            phase > static_cast<std::uint8_t>(RegistryMigrationPhase::FreshInstallation) ||
             !read_u32(in, cursor, state.migration.source_epoch) ||
             !read_u64(in, cursor, state.migration.source_checkpoint_generation) ||
             !read_array(in, cursor, state.migration.target_checkpoint_digest)) return false;
         state.migration.phase = static_cast<RegistryMigrationPhase>(phase);
+        if (state.migration.phase == RegistryMigrationPhase::FreshInstallation &&
+            !fresh_registry_metadata(state.migration)) return false;
         const bool target_digest_present=std::any_of(state.migration.target_checkpoint_digest.begin(),
             state.migration.target_checkpoint_digest.end(),[](std::uint8_t b){return b!=0;});
         if ((state.migration.phase == RegistryMigrationPhase::Activated) != target_digest_present)
@@ -549,6 +559,13 @@ bool HubRegistryRepository::save(const HubRegistryState& state) {
     auto previous = load();
     if (previous.status != HubRegistryLoadStatus::Missing &&
         previous.status != HubRegistryLoadStatus::Ready) return false;
+    if (previous.status == HubRegistryLoadStatus::Missing &&
+        prepared.migration.phase == RegistryMigrationPhase::Uninitialized) {
+        if (prepared.migration.source_epoch != 0 || prepared.migration.source_checkpoint_generation != 0 ||
+            std::any_of(prepared.migration.target_checkpoint_digest.begin(), prepared.migration.target_checkpoint_digest.end(),
+                        [](std::uint8_t b) { return b != 0; })) return false;
+        prepared.migration.phase = RegistryMigrationPhase::FreshInstallation;
+    }
     const bool allowed = previous.status == HubRegistryLoadStatus::Missing ||
         (previous.generation < std::numeric_limits<std::uint64_t>::max() &&
          preserves_security_state(*previous.state, prepared));

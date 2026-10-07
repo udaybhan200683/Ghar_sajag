@@ -59,6 +59,14 @@ bool HubDurabilityOwner::commit_candidate_epoch(const Checkpoint& replacement) {
             std::numeric_limits<std::uint64_t>::max() - 2) return false;
     const auto first_generation = latest.checkpoint_generation + 1;
     Checkpoint first = replacement;
+    if (old.fresh_registry_domain) {
+        if (replacement.migration_view || replacement.migration_frontier != 0 ||
+            replacement.allow_legacy_event_tail || replacement.allow_legacy_event_slots ||
+            replacement.protected_live_tail_count != 0 ||
+            std::any_of(replacement.registry_table_digest.begin(), replacement.registry_table_digest.end(),
+                        [](std::uint8_t b) { return b != 0; })) return false;
+        first.fresh_registry_domain = true; first.registry_owner_domain = true;
+    }
     first.storage_epoch = *candidate; first.generation = first_generation;
     Checkpoint second = first; second.generation = first_generation + 1;
     security::Bytes first_blob, second_blob;
@@ -224,9 +232,11 @@ bool HubDurabilityOwner::inventory_chunks_owned(const InventorySnapshot& snapsho
     return true;
 }
 
-bool HubDurabilityOwner::initialize_epoch_one() {
+bool HubDurabilityOwner::initialize_epoch_one(bool fresh_registry_domain) {
     durable_ = std::make_unique<DurableStore>(blobs_, crypto_, key_, 1);
     Checkpoint cp; cp.storage_epoch = 1; cp.generation = 1;
+    cp.fresh_registry_domain = fresh_registry_domain;
+    cp.registry_owner_domain = fresh_registry_domain;
     if (!durable_->checkpoint(cp)) { durable_.reset(); return false; }
     cp.generation = 2;
     if (!durable_->checkpoint(cp)) { durable_.reset(); return false; }
@@ -337,7 +347,7 @@ DurabilityOwnerState HubDurabilityOwner::recover(
         if (freshness_ != InstallationFreshness::FreshInstallation) {
             error_ = DurabilityOwnerError::FreshnessMismatch; state_ = DurabilityOwnerState::FailedClosed; return state_;
         }
-        if (!initialize_epoch_one()) {
+        if (!initialize_epoch_one(true)) {
             error_ = DurabilityOwnerError::BootstrapWriteFailure; state_ = DurabilityOwnerState::FailedClosed; return state_;
         }
     } else {
@@ -373,7 +383,8 @@ DurabilityOwnerState HubDurabilityOwner::recover(
         error_ = DurabilityOwnerError::RecoveryFailure; state_ = DurabilityOwnerState::FailedClosed; return state_;
     }
     retirement_ = std::make_unique<RetirementSnapshotRepository>(blobs_, crypto_, key_, epoch_);
-    if (recovered_->checkpoint.registry_owner_domain) {
+    if (recovered_->checkpoint.registry_owner_domain &&
+        !recovered_->checkpoint.fresh_registry_domain) {
         // A v2 checkpoint is not independently sufficient to authorize runtime
         // writes. GMM2 Activated plus the separately authenticated GSRG table
         // binding must be checked together by the caller.

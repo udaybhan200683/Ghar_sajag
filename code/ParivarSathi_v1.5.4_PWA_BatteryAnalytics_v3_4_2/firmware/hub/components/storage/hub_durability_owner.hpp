@@ -102,7 +102,7 @@ public:
 
 private:
     friend class DurableJournalSlotStore;
-    bool initialize_epoch_one();
+    bool initialize_epoch_one(bool fresh_registry_domain = false);
     bool inspect_checkpoint_set(std::uint32_t& epoch, bool& can_resume_genesis,
                                RecoveryState& recovered);
     bool inventory_chunks_owned(const InventorySnapshot&,

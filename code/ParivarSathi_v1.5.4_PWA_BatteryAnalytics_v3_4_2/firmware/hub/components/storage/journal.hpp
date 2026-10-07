@@ -46,9 +46,12 @@ public:
     HubJournal& operator=(const HubJournal&) = delete;
     // A failed or ambiguous load locks the journal closed until repaired.
     // Existing prototype callers remain volatile until they opt in.
+    // Optional startup scheduling hook: called between independent slot operations.
+    // The owner must keep event admission closed until attachment succeeds.
     bool attach_persistence(security::CommissioningCrypto& crypto,
                             JournalSlotStore& store,
-                            const security::Key32& protected_key);
+                            const security::Key32& protected_key,
+                            void (*recovery_cooperate)() = nullptr);
     // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
     // Return Stored, Duplicate, Full, or StorageFault. Target persistence writes
     // and verifies a slot before Stored is returned.

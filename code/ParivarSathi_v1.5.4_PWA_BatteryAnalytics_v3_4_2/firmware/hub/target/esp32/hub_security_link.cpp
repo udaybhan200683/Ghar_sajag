@@ -168,11 +168,12 @@ bool HubSecurityLink::authenticated_enrollment_table_digest(
 }
 
 bool HubSecurityLink::attach_event_journal(hub::HubJournal& journal,
-                                           hub::JournalSlotStore& store) {
+                                           hub::JournalSlotStore& store,
+                                           void (*recovery_cooperate)()) {
     return !faulted_ && registry_ && repository_ &&
            std::any_of(journal_key_.begin(), journal_key_.end(),
                        [](std::uint8_t byte) { return byte != 0; }) &&
-           journal.attach_persistence(crypto_, store, journal_key_);
+           journal.attach_persistence(crypto_, store, journal_key_, recovery_cooperate);
 }
 
 bool HubSecurityLink::persist_candidate(

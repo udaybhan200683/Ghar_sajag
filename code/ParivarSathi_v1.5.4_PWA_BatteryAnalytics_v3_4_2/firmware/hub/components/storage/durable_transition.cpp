@@ -12,6 +12,7 @@ constexpr std::uint8_t kTransitionLegacyOwnedSchema = 2;
 constexpr std::uint8_t kTransitionSchema = 3;
 constexpr std::uint8_t kCheckpointLegacySchema = 2;
 constexpr std::uint8_t kCheckpointSchema = 3;
+constexpr std::uint8_t kFreshCheckpointSchema = 4;
 constexpr std::uint8_t kEvidenceSchema = 2;
 constexpr std::size_t kMigrationManifestHeaderBytes = 18;
 constexpr std::size_t kMigrationManifestBodyBytes = 184;
@@ -103,6 +104,12 @@ bool nonzero(const std::uint8_t* p, std::size_t n) {
 }
 bool all_zero(const std::uint8_t* p, std::size_t n) {
     return std::all_of(p, p + n, [](std::uint8_t b) { return b == 0; });
+}
+bool valid_fresh_domain(const Checkpoint& cp) {
+    return cp.registry_owner_domain && !cp.migration_view &&
+        cp.migration_frontier == 0 && all_zero(cp.registry_table_digest.data(), 32) &&
+        !cp.allow_legacy_event_tail && !cp.allow_legacy_event_slots &&
+        cp.protected_live_tail_count == 0;
 }
 bool same_manifest(const MigrationManifest& a, const MigrationManifest& b) {
     return a.epoch==b.epoch&&a.migration_id==b.migration_id&&a.phase==b.phase&&
@@ -288,22 +295,23 @@ bool Codec::decode_transition(security::CommissioningCrypto& c,const security::K
 bool Codec::encode_checkpoint(security::CommissioningCrypto& c,const security::Key32& key,const Checkpoint& cp,Bytes& out){
     out.clear();if(cp.storage_epoch==0||cp.generation==0||cp.reducer_state.size()>kMaxCheckpointBytes||cp.pending_effects.size()>kMaxCheckpointEffectRefs||cp.pending_chunks.size()>kMaxCheckpointChunkRefs||cp.dedupe_evidence_chunks.size()>kMaxDedupeEvidenceRefs||cp.legacy_dedupe_unverified||cp.migration_frontier>128)return false;
     if(cp.protected_live_tail_count>4)return false;
-    if(cp.registry_owner_domain){if(cp.migration_frontier==0||!nonzero(cp.registry_table_digest.data(),32))return false;}
+    if(cp.fresh_registry_domain){if(!valid_fresh_domain(cp))return false;}
+    else if(cp.registry_owner_domain){if(cp.migration_frontier==0||!nonzero(cp.registry_table_digest.data(),32))return false;}
     else if(cp.migration_frontier!=0||!all_zero(cp.registry_table_digest.data(),32)||
             cp.allow_legacy_event_tail||cp.allow_legacy_event_slots||cp.protected_live_tail_count!=0)return false;
     if(cp.migration_view&&!cp.registry_owner_domain)return false;
-    Writer w;w.raw(reinterpret_cast<const std::uint8_t*>("GCP1"),4);w.u8(kCheckpointSchema);w.u32(cp.storage_epoch);w.u64(cp.generation);w.u64(cp.covered_ordinal);w.u32(cp.config_version);w.raw(cp.config_hash.data(),32);w.u16(static_cast<std::uint16_t>(cp.reducer_state.size()));w.raw(cp.reducer_state);w.u8(static_cast<std::uint8_t>(cp.pending_effects.size()));for(const auto& ref:cp.pending_effects){w.u64(ref.ordinal);w.u8(ref.index);w.u8(ref.location);}w.u8(static_cast<std::uint8_t>(cp.pending_chunks.size()));for(const auto& ref:cp.pending_chunks)w.u64(ref.chunk_id);w.u8(static_cast<std::uint8_t>(cp.dedupe_evidence_chunks.size()));for(const auto& ref:cp.dedupe_evidence_chunks){if(!nonzero(ref.digest.data(),ref.digest.size()))return false;w.u64(ref.chunk_id);w.raw(ref.digest.data(),ref.digest.size());}w.u8(cp.report_snapshot.has_value()?1:0);if(cp.report_snapshot){if(!cp.report_snapshot->valid())return false;w.u8(cp.report_snapshot->bank);w.u64(cp.report_snapshot->generation);w.raw(cp.report_snapshot->digest.data(),cp.report_snapshot->digest.size());}
+    Writer w;w.raw(reinterpret_cast<const std::uint8_t*>("GCP1"),4);w.u8(cp.fresh_registry_domain ? kFreshCheckpointSchema : kCheckpointSchema);w.u32(cp.storage_epoch);w.u64(cp.generation);w.u64(cp.covered_ordinal);w.u32(cp.config_version);w.raw(cp.config_hash.data(),32);w.u16(static_cast<std::uint16_t>(cp.reducer_state.size()));w.raw(cp.reducer_state);w.u8(static_cast<std::uint8_t>(cp.pending_effects.size()));for(const auto& ref:cp.pending_effects){w.u64(ref.ordinal);w.u8(ref.index);w.u8(ref.location);}w.u8(static_cast<std::uint8_t>(cp.pending_chunks.size()));for(const auto& ref:cp.pending_chunks)w.u64(ref.chunk_id);w.u8(static_cast<std::uint8_t>(cp.dedupe_evidence_chunks.size()));for(const auto& ref:cp.dedupe_evidence_chunks){if(!nonzero(ref.digest.data(),ref.digest.size()))return false;w.u64(ref.chunk_id);w.raw(ref.digest.data(),ref.digest.size());}w.u8(cp.report_snapshot.has_value()?1:0);if(cp.report_snapshot){if(!cp.report_snapshot->valid())return false;w.u8(cp.report_snapshot->bank);w.u64(cp.report_snapshot->generation);w.raw(cp.report_snapshot->digest.data(),cp.report_snapshot->digest.size());}
     w.raw(cp.registry_table_digest.data(),cp.registry_table_digest.size());w.u16(cp.migration_frontier);
     const std::uint8_t flags=static_cast<std::uint8_t>((cp.registry_owner_domain?1U:0U)|
         (cp.migration_view?2U:0U)|(cp.allow_legacy_event_tail?4U:0U)|
-        (cp.allow_legacy_event_slots?8U:0U)|(cp.protected_live_tail_count<<4));w.u8(flags);
+        (cp.allow_legacy_event_slots?8U:0U)|(cp.protected_live_tail_count<<4)|(cp.fresh_registry_domain?0x80U:0U));w.u8(flags);
     return seal(c,key,"hub-checkpoint-v1",w.b,out,kMaxCheckpointBytes);
 }
 bool Codec::decode_checkpoint(security::CommissioningCrypto& c,const security::Key32& key,const Bytes& blob,Checkpoint& cp){
     Bytes p;if(!open(c,key,"hub-checkpoint-v1",blob,p,kMaxCheckpointBytes))return false;Reader r{p};std::uint8_t magic[4]{},ver=0,n8=0;std::uint16_t n16=0;
     if (!r.raw(magic, 4) ||
         !std::equal(magic, magic + 4, reinterpret_cast<const std::uint8_t*>("GCP1")) ||
-        !r.u8(ver) || (ver != kSchema && ver != kCheckpointLegacySchema && ver != kCheckpointSchema) || !r.u32(cp.storage_epoch) ||
+        !r.u8(ver) || (ver != kSchema && ver != kCheckpointLegacySchema && ver != kCheckpointSchema && ver != kFreshCheckpointSchema) || !r.u32(cp.storage_epoch) ||
         !r.u64(cp.generation) || !r.u64(cp.covered_ordinal) ||
         !r.u32(cp.config_version) || !r.raw(cp.config_hash.data(), 32) ||
         !r.u16(n16) || n16 > kMaxCheckpointBytes || !r.room(n16)) return false;
@@ -339,17 +347,21 @@ bool Codec::decode_checkpoint(security::CommissioningCrypto& c,const security::K
         if(has_report){ReportSnapshotReference ref;if(!r.u8(ref.bank)||!r.u64(ref.generation)||!r.raw(ref.digest.data(),ref.digest.size())||!ref.valid())return false;cp.report_snapshot=ref;}
     }
     cp.registry_table_digest.fill(0);cp.migration_frontier=0;cp.migration_view=false;
-    cp.registry_owner_domain=false;cp.allow_legacy_event_tail=false;
+    cp.registry_owner_domain=false;cp.fresh_registry_domain=false;cp.allow_legacy_event_tail=false;
     cp.allow_legacy_event_slots=false;cp.protected_live_tail_count=0;
-    if(ver==kCheckpointSchema){
+    if(ver==kCheckpointSchema || ver==kFreshCheckpointSchema){
         std::uint8_t flags=0;
         if(!r.raw(cp.registry_table_digest.data(),cp.registry_table_digest.size())||
-           !r.u16(cp.migration_frontier)||!r.u8(flags)||(flags&0x80U)!=0||cp.migration_frontier>128)return false;
+           !r.u16(cp.migration_frontier)||!r.u8(flags)||
+           (ver==kCheckpointSchema && (flags&0x80U)!=0)||cp.migration_frontier>128)return false;
+        cp.fresh_registry_domain=(flags&0x80U)!=0;
+        if(ver==kFreshCheckpointSchema && !cp.fresh_registry_domain)return false;
         cp.registry_owner_domain=(flags&1U)!=0;cp.migration_view=(flags&2U)!=0;
         cp.allow_legacy_event_tail=(flags&4U)!=0;cp.allow_legacy_event_slots=(flags&8U)!=0;
         cp.protected_live_tail_count=static_cast<std::uint8_t>((flags>>4)&7U);
         if(cp.protected_live_tail_count>4)return false;
-        if(cp.registry_owner_domain){if(cp.migration_frontier==0||!nonzero(cp.registry_table_digest.data(),32))return false;}
+        if(cp.fresh_registry_domain){if(!valid_fresh_domain(cp))return false;}
+        else if(cp.registry_owner_domain){if(cp.migration_frontier==0||!nonzero(cp.registry_table_digest.data(),32))return false;}
         else if(cp.migration_frontier!=0||!all_zero(cp.registry_table_digest.data(),32)||
                 cp.allow_legacy_event_tail||cp.allow_legacy_event_slots||cp.protected_live_tail_count!=0)return false;
         if(cp.migration_view&&!cp.registry_owner_domain)return false;
@@ -615,6 +627,8 @@ bool DurableStore::recover(RecoveryState& state){
     if(manifest_status==MigrationManifestStatus::IoError||
        manifest_status==MigrationManifestStatus::Corrupt||
        manifest_status==MigrationManifestStatus::Conflict)return false;
+    for(std::size_t i=0;i<2;++i)
+        if(valid[i] && cps[i].fresh_registry_domain && manifest_status!=MigrationManifestStatus::Missing)return false;
     int selected=-1;
     if(manifest_status==MigrationManifestStatus::Ready){
         if(manifest.phase<=MigrationPhase::TargetVerified){
@@ -738,8 +752,16 @@ CommitStatus DurableStore::commit(Transition candidate){
         if(s.checkpoint.report_snapshot){RetirementSnapshotRepository reports(store_,crypto_,key_,epoch_);RetirementSnapshot snapshot;if(!reports.load(*s.checkpoint.report_snapshot,snapshot))return CommitStatus::StorageFault;
             const auto&report= snapshot.nodes[candidate.enrollment_slot];
             if(report.enrollment_generation==candidate.enrollment_generation&&candidate.event.session_id<=report.current_origin_session){
-                for(std::size_t i=0;i<report.pending_count;++i)if(report.pending[i].origin_session==candidate.event.session_id&&report.pending[i].sequence==candidate.event.sequence)return CommitStatus::Conflict;
-                if(candidate.event.session_id<report.current_origin_session||candidate.event.sequence<=report.durable_admission_highwater)return CommitStatus::NotCommitted;
+                // Pending means the Node still retains this key for delivery,
+                // not that a conflicting event was committed. Exact duplicate
+                // digests were checked above. Only covered, absent keys are
+                // retired and must not be admitted again.
+                bool pending=false;
+                for(std::size_t i=0;i<report.pending_count;++i)
+                    if(report.pending[i].origin_session==candidate.event.session_id&&
+                       report.pending[i].sequence==candidate.event.sequence)pending=true;
+                if(!pending&&(candidate.event.session_id<report.current_origin_session||
+                              candidate.event.sequence<=report.durable_admission_highwater))return CommitStatus::NotCommitted;
             }
         }
     }
@@ -762,6 +784,16 @@ bool DurableStore::checkpoint(const Checkpoint& input){
        manifest_status==MigrationManifestStatus::IoError||
        (manifest_status==MigrationManifestStatus::Ready&&active_manifest.phase!=MigrationPhase::Activated))return false;
     Checkpoint cp=input;
+    // Native ownership may originate only at an empty genesis, never by
+    // relabeling an existing legacy/migration root.
+    if(cp.fresh_registry_domain && s.checkpoint_generation != 0 &&
+       !s.checkpoint.fresh_registry_domain)return false;
+    if(s.checkpoint.fresh_registry_domain){
+        if(cp.migration_view || cp.migration_frontier != 0 ||
+           !all_zero(cp.registry_table_digest.data(),32) || cp.allow_legacy_event_tail ||
+           cp.allow_legacy_event_slots || cp.protected_live_tail_count != 0)return false;
+        cp.fresh_registry_domain=true; cp.registry_owner_domain=true;
+    }
     if(s.checkpoint.registry_owner_domain){
         if((cp.registry_owner_domain&&cp.registry_table_digest!=s.checkpoint.registry_table_digest)||
            (cp.migration_frontier!=0&&cp.migration_frontier<s.checkpoint.migration_frontier))return false;

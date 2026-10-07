@@ -245,7 +245,8 @@ bool HubJournal::verify_completion_receipt(security::CommissioningCrypto& crypto
 
 bool HubJournal::attach_persistence(security::CommissioningCrypto& crypto,
                                     JournalSlotStore& store,
-                                    const security::Key32& protected_key) {
+                                    const security::Key32& protected_key,
+                                    void (*recovery_cooperate)()) {
     if (store_ || !records_.empty() || capacity_ != 128 ||
         !std::any_of(protected_key.begin(), protected_key.end(),
                      [](std::uint8_t byte) { return byte != 0; })) {
@@ -257,6 +258,7 @@ bool HubJournal::attach_persistence(security::CommissioningCrypto& crypto,
     storage_key_ = protected_key;
     bool saw_empty = false;
     for (std::size_t slot = 0; slot < capacity_; ++slot) {
+        if (recovery_cooperate) recovery_cooperate();
         security::Bytes blob;
         bool found = false;
         if (!store.read(slot, blob, found)) { storage_fault_ = true; break; }
@@ -267,6 +269,7 @@ bool HubJournal::attach_persistence(security::CommissioningCrypto& crypto,
         records_.push_back(std::move(event));
     }
     if (!storage_fault_) for (std::size_t slot = 0; slot < capacity_; ++slot) {
+        if (recovery_cooperate) recovery_cooperate();
         security::Bytes receipt;
         bool found = false;
         if (!store.read_completion(slot, receipt, found)) { storage_fault_ = true; break; }

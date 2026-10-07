@@ -27,6 +27,7 @@
 #include <array>
 #include <algorithm>
 #include <atomic>
+#include <cstdio>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -43,6 +44,10 @@ constexpr UBaseType_t kDataQueueDepth = 16U;
 constexpr UBaseType_t kControlQueueDepth = 8U;
 constexpr UBaseType_t kHealthQueueDepth = 1U;
 constexpr UBaseType_t kSecurityQueueDepth = 8U;
+// ESP-IDF task stack sizes are bytes. The qualified Xtensa owner entry frame
+// alone is 23456 bytes; recovery/checkpoint calls need additional stack.
+// tests/test_hub_runtime_stack.py checks the actual target frame budgets.
+constexpr std::uint32_t kSecureOwnerStackBytes = 81920;
 
 durable::DurableJournalSlotStore::EnrollmentOwnerResolver registry_owner_resolver(
         HubSecurityLink& security_link) {
@@ -104,6 +109,7 @@ std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<bool> g_control_plane_active{false};
 #if GS_HIL_CONTROL
 std::atomic<bool> g_hil_logical_online{true};
+std::atomic<bool> g_hil_reboot_after_commit{false};
 std::atomic<std::uint32_t> g_hil_processed{0};
 std::atomic<std::uint32_t> g_hil_durable_ack{0};
 std::atomic<std::uint32_t> g_hil_health_received{0};
@@ -488,6 +494,16 @@ void secure_owner_task(void*) {
         return;
     }
 
+#if GS_HIL_CONTROL
+    if (!migration_required) {
+        const auto* state = durability_owner.recovery_state();
+        ESP_LOGI(kTag, "HIL_DURABILITY owner=Ready epoch=%u generation=%llu native=%d migration=NONE",
+                 *durability_owner.epoch(),
+                 static_cast<unsigned long long>(state->checkpoint_generation),
+                 state->checkpoint.fresh_registry_domain);
+    }
+#endif
+
     // Upgrade old e/c journal slots into the authenticated durable owner before
     // allowing the runtime to attach. Source slots stay present until the copy
     // has been checkpointed and verified.
@@ -536,12 +552,20 @@ void secure_owner_task(void*) {
     commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
     HubRuntime runtime(32, 128);
     runtime.bind_durability_owner(durability_owner);
-    if (!security_link.attach_event_journal(runtime.journal(), journal_store) ||
+    // Admission is still closed; let the lower-priority idle task run between
+    // complete authenticated slot reads. taskYIELD alone cannot release CPU1
+    // to IDLE1 while this higher-priority owner remains ready.
+    if (!security_link.attach_event_journal(runtime.journal(), journal_store,
+                                           [] { vTaskDelay(1); }) ||
         !runtime.restore_from_journal()) {
         ESP_LOGE(kTag, "Hub durable event store unavailable; refusing event admission");
         vTaskDelete(nullptr);
         return;
     }
+#if GS_HIL_CONTROL
+    ESP_LOGI(kTag, "HIL_JOURNAL_RECOVERED records=%u", static_cast<unsigned>(runtime.journal().size()));
+#endif
+
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
     std::map<HubSecurityLink::Mac, std::pair<std::uint64_t, std::uint32_t>> epoch_confirmed;
     struct RetirementRxState {
@@ -590,6 +614,10 @@ void secure_owner_task(void*) {
     ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u storage_epoch=%u",
              static_cast<unsigned>(security_link.enrolled_macs().size()),
              static_cast<unsigned>(*runtime.authoritative_storage_epoch()));
+#if GS_HIL_CONTROL
+    ESP_LOGI(kTag, "HIL_STACK role=hub task=owner stage=startup minimum_free_bytes=%u",
+             static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+#endif
     for (;;) {
         if (security_link.faulted()) {
             ESP_LOGE(kTag, "Hub security owner faulted; refusing event admission");
@@ -705,6 +733,10 @@ void secure_owner_task(void*) {
                 ESP_LOGW(kTag, "Exact-node commissioning request rejected");
             }
             std::fill(exact->installer_code.begin(), exact->installer_code.end(), 0);
+#if GS_HIL_CONTROL
+            ESP_LOGI(kTag, "HIL_STACK role=hub task=owner stage=commissioning minimum_free_bytes=%u",
+                     static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+#endif
         }
         ReceivedFrame control;
         if (xQueueReceive(g_security_queue, &control, pdMS_TO_TICKS(20)) == pdTRUE) {
@@ -913,6 +945,21 @@ void secure_owner_task(void*) {
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) continue;
         const auto processed = runtime.run_state_once();
         if (!processed) continue;
+#if GS_HIL_CONTROL
+        ESP_LOGI(kTag, "HIL_EVENT_RESULT event_id=%s ack=%u state_changed=%d records=%u",
+                 processed->key.str().c_str(), static_cast<unsigned>(processed->ack),
+                 processed->state_changed, static_cast<unsigned>(runtime.journal().size()));
+        // Explicit one-shot fault injection after verified durable commit.
+        // No false ACK: reboot with the application ACK deliberately unsent.
+        if (processed->ack == AckClass::Durable && processed->state_changed &&
+            g_hil_reboot_after_commit.exchange(false, std::memory_order_acq_rel)) {
+            ESP_LOGI(kTag, "HIL_LOST_ACK_REBOOT event_id=%s durable=YES ack_sent=NO records=%u",
+                     processed->key.str().c_str(), static_cast<unsigned>(runtime.journal().size()));
+            std::fflush(stdout);
+            vTaskDelay(pdMS_TO_TICKS(50));
+            esp_restart();
+        }
+#endif
         const auto ack = make_node_ack(processed->key, processed->ack,
                                        hub_received_at, ack_reason(*processed));
         const auto encoded = transport::encode_node_ack(ack);
@@ -1015,6 +1062,10 @@ bool wait_fota_owner_ack(FotaOwnerAck& ack, std::uint32_t timeout_ms) {
 #endif
 
 #if GS_HIL_CONTROL
+void hil_reboot_after_next_durable_commit() {
+    g_hil_reboot_after_commit.store(true, std::memory_order_release);
+}
+
 void hil_set_logical_online(bool online) {
     g_hil_logical_online.store(online, std::memory_order_release);
     ESP_LOGI(kTag, "HIL hub logical state online=%d", online);
@@ -1098,7 +1149,7 @@ esp_err_t start_runtime_adapter() {
 #if GS_HIL_BUILD
     if (xTaskCreate(owner_task, "gs_hub_owner", 8192, nullptr, 8, nullptr) != pdPASS) {
 #else
-    if (xTaskCreate(secure_owner_task, "gs_hub_owner", 16384, nullptr, 8, nullptr) != pdPASS) {
+    if (xTaskCreate(secure_owner_task, "gs_hub_owner", kSecureOwnerStackBytes, nullptr, 8, nullptr) != pdPASS) {
 #endif
         return ESP_ERR_NO_MEM;
     }

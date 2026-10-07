@@ -66,7 +66,8 @@ public:
     // Attach the existing bounded encrypted event journal using a key derived
     // from this Hub/Home wrapping key. Failure keeps event admission closed.
     bool attach_event_journal(hub::HubJournal& journal,
-                              hub::JournalSlotStore& store);
+                              hub::JournalSlotStore& store,
+                              void (*recovery_cooperate)() = nullptr);
     std::optional<Outbound> begin_commissioning(const ExpectedNode& exact,
                                                  std::uint64_t now_ms);
     std::optional<Outbound> begin_replacement(const std::string& old_device_id,

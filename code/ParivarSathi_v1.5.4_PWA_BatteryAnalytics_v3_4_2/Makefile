@@ -50,7 +50,9 @@ CPP_SOURCES := \
 # Reuse the large production translation units across host validation binaries.
 # Include the selected product/trace flags in the object directory so switching
 # validation modes cannot silently reuse objects built with different defines.
-CPP_OBJECT_DIR := build/obj/$(PRODUCT)/$(TRACE_FLAGS)
+# An equals sign in a dependency target is parsed as a make assignment.
+# Keep generated .d target paths usable when a checkpoint header changes.
+CPP_OBJECT_DIR := build/obj/$(PRODUCT)/$(subst =,_,$(TRACE_FLAGS))
 CPP_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(CPP_SOURCES))
 CPP_EXTRA_SOURCES := firmware/common/transport/fota_secure_wire.cpp firmware/node/fota/boot_health_gate.cpp
 CPP_EXTRA_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(CPP_EXTRA_SOURCES))
@@ -63,7 +65,7 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
 
-.PHONY: all verify cpp-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
+.PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 
 BATTERY_C8_SOURCES := shared/src/logging.cpp firmware/node/components/sensing/sensing.cpp firmware/node/components/power/power.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp
 BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCES))
@@ -122,6 +124,14 @@ hub-journal-persistence-host-test: build
 hub-durable-storage-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_storage_validation.cpp -lcrypto -o build/hub_durable_storage_validation
 	./build/hub_durable_storage_validation
+
+hub-fresh-install-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_fresh_install_validation
+	./build/hub_fresh_install_validation
+
+hub-recovery-scheduling-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) -DGS_RECOVERY_SCHEDULING_TEST=1 $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_recovery_scheduling_validation
+	./build/hub_recovery_scheduling_validation
 
 hub-durable-provider-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_provider_validation.cpp -lcrypto -o build/hub_durable_provider_validation
@@ -250,7 +260,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test
+validation-fast: hub-fresh-install-host-test hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately

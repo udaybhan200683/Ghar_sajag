@@ -11,7 +11,9 @@ namespace gs::hub {
 enum class RegistryMigrationPhase : std::uint8_t {
     Uninitialized = 0,
     Prepared = 1,
-    Activated = 2
+    Activated = 2,
+    // Native installation, not a completed legacy migration.
+    FreshInstallation = 3
 };
 
 struct RegistryMigrationBarrier {

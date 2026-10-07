@@ -17,7 +17,10 @@ namespace {
 constexpr char kTag[] = "gs_hil_control";
 
 void dispatch_command(const char* command) {
-    if (std::strcmp(command, "SET_HUB_LOGICAL_ONLINE") == 0) {
+    if (std::strcmp(command, "REBOOT_AFTER_NEXT_DURABLE_COMMIT") == 0) {
+        gs::hub::target::hil_reboot_after_next_durable_commit();
+        ESP_LOGI(kTag, "HIL_OK command=REBOOT_AFTER_NEXT_DURABLE_COMMIT");
+    } else if (std::strcmp(command, "SET_HUB_LOGICAL_ONLINE") == 0) {
         gs::hub::target::hil_set_logical_online(true);
         ESP_LOGI(kTag, "HIL_OK command=SET_HUB_LOGICAL_ONLINE");
     } else if (std::strcmp(command, "SET_HUB_LOGICAL_OFFLINE") == 0) {
