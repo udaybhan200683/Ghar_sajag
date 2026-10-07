@@ -255,7 +255,7 @@ Decision text remains authoritative in `DECISION_LOG.md`; this table points to t
 | GS-D012 | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` |
 | GS-D016 | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`, `docs/product/R1_WORK_STATE.md` |
 | GS-D018 | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/features/CAREGIVER_ACTIONS_AND_NOTIFICATIONS.md` |
-| GS-D020 | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/product/R1_WORK_STATE.md`, battery feature guide |
+| GS-D020 | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/product/R1_WORK_STATE.md`, battery feature guide; GS-114 implementation/focused qualification, GS-146 final R1 battery closure |
 
 ## Context version and canonical worktree
 

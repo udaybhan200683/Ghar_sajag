@@ -86,6 +86,8 @@ This prior open classification is closed by the explicit production requirement 
 **Status:** LOCKED  
 BAT-C8 is an `R1_REQUIRED_FEATURE_WITH_PENDING_QUALIFICATION`. Before R1 production release, physical qualification must prove the intended production sleep entry; required GPIO/timer wake; bounded wake/resume; sensing/runtime restoration; required radio restoration; fail-awake/safe failure behavior; and no regression of required event processing. This requirement does not make final battery-life optimization or long-duration endurance characterization an R1 blocker unless R1 makes an explicit battery-life claim. BAT-C8 test cases P1–P10 remain NOT_RUN until separately authorized; those labels are test IDs, not priority levels.
 
+**Jira traceability:** GS-114 covers implementation/focused qualification; GS-146 covers final R1 battery closure. These links do not assert either issue or the physical qualification is complete.
+
 ## Maintenance
 
 Append a new GS-Dxxx entry when a new product/architecture decision must survive future sessions. Never silently rewrite a LOCKED decision; supersede it explicitly.
