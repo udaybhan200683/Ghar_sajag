@@ -320,3 +320,36 @@ must preserve canonical work and avoid importing host-model/production changes
 merely to synchronize context. Resolve reviewed documentation differences,
 commit canonical governance, then rerun preflight and require PASS before
 substantive work. Never weaken the guard or auto-promote.
+
+## Current security-scope governance — GS-D029, 2026-10-08
+
+Product-owner approval locks ordinary power-failure/interrupted-flash crash consistency,
+detected-corruption/missing/inconsistent-state fail-closed recovery, and no silent
+stale/uncertain routine state. Ownership, durable-before-ACK, retry/deduplication,
+retirement credits and protected dependencies are preserved.
+
+Deliberate restoration of an otherwise valid older flash image is outside R1's
+data-freshness detection guarantee; AES-GCM is not malicious full-flash rollback
+protection. Automatic signed FOTA APPLICATION rollback through ESP-IDF remains
+MANDATORY, including firmware validation and compatibility with storage created
+by an unsuccessful upgrade. Data rollback exclusion does not waive application
+rollback or permit silent erase/reset/stale recovery.
+
+Context advances2026-10-08.001 ->2026-10-08.002. This task explicitly authorizes
+reviewed promotion of only these new governance edits into canonical; independent
+worktree history is preserved. No storage experiment, code, test, evidence or
+ExecPlan is promoted. Previous governance preparation/promotion notes above are
+historical checkpoints. Both worktrees must PASS preflight at the new version
+before implementation; no guard bypass or new qualification is claimed.
+
+The deliberate older-image replay limitation no longer establishes an R1 requirement
+for an independent malicious-data-rollback anchor. Stronger historical host-authority
+assumptions remain valid in their stated proof scope. Ordinary power-failure/corruption
+freshness, production mapping and FOTA/storage compatibility still require evidence;
+this approval does not declare those implementation gates or Gate C passed.
+
+**Next:** resume Gate C protected NVS admission and progress implementation, retaining
+ordinary crash/corruption and dependency regressions. Protected reserve/progress,
+supported event volumes, critical saturation and the 72-hour capacity guarantee
+remain OPEN. No new security hardware, ESP32-S3 or partition change; existing 4 MB
+Hub/ESP32-C3 baseline and BAT-C8 requirements/pending qualification remain unchanged.

@@ -193,6 +193,41 @@ unqualified door/button hardware has been installed or qualified. R1 retains
 the existing 4 MB ESP32 Hub and ESP32-C3 Nodes; ESP32-S3 upgrade, final NVS size
 and any hardware-scope change remain unapproved.
 
+### GS-D029 — R1 durable-storage security scope and mandatory application rollback
+**Status:** LOCKED
+
+**Approved:** 2026-10-08, explicitly by the product owner
+
+R1 must provide crash-consistent durable storage through ordinary power failures
+and interrupted flash operations. Detect corrupted, missing or inconsistent durable
+state and fail closed when trustworthy recovery is impossible. The Hub must never
+silently present stale or uncertain routine state as current. Preserve authenticated
+Node ownership/domain checks, durable-before-ACK, lost-ACK retry and exact deduplication,
+retirement-credit correctness and every protected recovery dependency.
+
+Deliberate restoration of an older, otherwise valid flash image is outside the R1
+stored-data freshness detection guarantee. Document this limitation explicitly;
+AES-GCM authenticates data but must not be represented as malicious full-flash
+rollback protection. This exclusion does not permit stale fallback after ordinary
+power interruption or detected corruption, or bypass uncertainty handling.
+
+Automatic FOTA APPLICATION rollback remains MANDATORY: a failed firmware update
+must normally return to the previous valid firmware through ESP-IDF OTA rollback.
+Preserve signed FOTA, firmware validation and compatibility with durable storage
+created by an unsuccessful upgrade. Previous valid firmware must be able to recover
+that supported state correctly or fail closed; silent erase/reset or stale state
+is not a compatibility solution. Application rollback and stored-data rollback
+are separate concepts; the data-freshness exclusion does not waive firmware rollback.
+
+No new security hardware, ESP32-S3 migration or flash partition change is authorized.
+The existing 4 MB ESP32 Hub and ESP32-C3 Node baseline, BAT-C8 requirements and
+qualification status remain unchanged. Gate C protected NVS capacity/progress,
+supported event volumes and the 72-hour capacity guarantee remain unresolved.
+This locks product/security scope, not a storage format, reserve, implementation
+readiness or new qualification result. It resolves the previously OPEN security/
+rollback scope in GS-D023/024 only to this extent; remaining technical recovery,
+storage-format/FOTA compatibility, capacity and qualification gates stay open.
+
 ## Reconciliation status — 2026-10-07
 
 The already-qualified native fresh-install and empty-AEAD/recovery changes are

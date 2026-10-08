@@ -283,3 +283,34 @@ frequency; final summary encoding/backend protocol; final NVS partition size.
 The existing 4 MB ESP32 Hub remains the baseline pending technical qualification;
 ESP32-S3 migration and any R1 hardware scope change are not approved. Existing
 host models remain conditional evidence, not capacity or battery qualification.
+
+## R1 storage-security scope and FOTA compatibility — GS-D029
+
+**LOCKED:** durable storage must be crash-consistent under ordinary power failure
+and interrupted flash operations. Detect corrupted, missing or inconsistent durable
+state; recover trustworthy committed state or fail closed. Never silently expose
+stale or uncertain routine state as current. Preserve authenticated ownership,
+durable-before-ACK, exact retry/deduplication, persisted retirement-credit correctness
+and all still-required recovery dependencies. Missing observation remains distinct
+from no activity; this decision does not approve older-root fallback after data loss.
+
+Deliberate restoration of an otherwise valid older flash image is outside the R1
+stored-data freshness detection guarantee. Document that limitation explicitly.
+AES-GCM/authentication alone does not detect malicious full-flash rollback. R1 does
+not acquire a new independent monotonic security-hardware requirement for that
+excluded threat. Ordinary crash consistency, detected-corruption handling and
+trustworthy recovery remain required; a scope decision does not prove them implemented.
+
+Automatic FOTA APPLICATION rollback remains MANDATORY. A failed update must normally
+return to the previous valid firmware through ESP-IDF OTA rollback. Preserve signed
+FOTA, firmware validation and compatibility with durable storage created by the
+unsuccessful upgrade. Storage-format transitions must preserve a correct recovery
+path for previous valid firmware, or fail closed if trustworthy recovery is impossible;
+silent erase/reset and stale successful recovery are prohibited. Application rollback
+is distinct from stored-data rollback. No particular migration mechanism is approved.
+
+Gate C protected next-operation NVS capacity/progress and the 72-hour supported-volume/
+capacity guarantee remain OPEN. No new security hardware, ESP32-S3 upgrade, partition
+change or production integration is approved. Existing 4 MB Hub/ESP32-C3 and BAT-C8
+scope/qualification remain unchanged. Historical stronger nonrollback host-authority
+assumptions are evidence for their stated model, not additional R1 requirements.

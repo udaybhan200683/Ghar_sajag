@@ -101,3 +101,25 @@ Prepared storage-worktree context: `2026-10-08.001`; canonical remains
 `2026-10-07.003` until explicitly authorized promotion. Preflight therefore
 reports STALE after the increment. Stop substantive work until the coherent
 canonical documentation is promoted and preflight PASS is restored.
+
+## Current storage-security scope — GS-D029, context2026-10-08.002
+
+R1 requires crash-consistent storage through ordinary power failures/interrupted
+flash operations and detected-corruption/missing/inconsistent-state fail-closed
+recovery. Never silently present stale or uncertain routine state as current;
+preserve ownership, durable-before-ACK, retry/deduplication, retirement credits
+and protected recovery dependencies.
+
+Deliberate restoration of an otherwise valid older flash image is outside R1's
+stored-data freshness detection guarantee. Document the limitation; AES-GCM is
+not malicious full-flash rollback protection. Automatic FOTA APPLICATION rollback
+is still MANDATORY through ESP-IDF OTA rollback, with signed FOTA, firmware validation
+and compatibility with storage created by an unsuccessful upgrade preserved.
+Application rollback is distinct from stored-data rollback.
+
+The approved governance edits are explicitly synchronized to canonical at
+2026-10-08.002; require both worktree preflights PASS before substantive work.
+Earlier preparation/promotion paragraphs above are historical. No experimental
+code/evidence is promoted or qualification inferred. Next resume Gate C protected
+NVS admission/progress; the 72-hour event-volume/capacity guarantee remains OPEN.
+No new security hardware, ESP32-S3 or partition change is authorized.

@@ -289,8 +289,9 @@ This register records requirements explicitly present in canonical sources. `UNK
 | GS-POWER-02 | Battery-first observation-triggered Node interpretation; no new 40–120-second periodic consolidation wakes (GS-D027) | `docs/product/DECISION_LOG.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED direction; R1 | Proposed new protocols unimplemented/unqualified | Preserve BAT-C8; prove battery/correctness impact before implementation |
 | GS-SENSOR-02 | Safe PIR grouping; identifiable door OPEN/CLOSE; future bed sessions excluded from R1 (GS-D028) | `docs/product/DECISION_LOG.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED boundaries; R1 | No new hardware qualification | Occupancy does not imply sleep or identity |
 | GS-SEC-01 | Authenticated ownership/domain validation and versioned storage/FOTA behavior | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | PARTIAL; ownership qualification passed | No weakened fallback |
+| GS-SEC-02 | Ordinary crash consistency; detected corruption/missing/inconsistent state fail closed; no silent stale routine state; deliberate valid-image data rollback excluded (GS-D029) | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED scope; R1 | Implementation/qualification remains open | AES-GCM is not malicious full-flash rollback protection; application rollback mandatory |
 | GS-PRIV-01 | No generic ordinary PWA Privacy ON/OFF control; consent withdrawal may enforce internal privacy state that suppresses passive routine evidence | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/product/DECISION_LOG.md` (GS-D018) | LOCKED; P0/R1 | PWA/current guide behavior documented; no new UX implementation | Privacy and notification preferences remain separate |
-| GS-FOTA-01 | Preserve signed/versioned FOTA and recovery semantics | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/features/FOTA_ENGINEERING_FLASHING_SECURITY_AND_RECOVERY_GUIDE.md` | LOCKED; R1 | UNKNOWN here; consult FOTA evidence | No new qualification claimed |
+| GS-FOTA-01 | Mandatory automatic application rollback via ESP-IDF; signed/versioned FOTA, validation and failed-upgrade storage compatibility (GS-D029) | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/features/FOTA_ENGINEERING_FLASHING_SECURITY_AND_RECOVERY_GUIDE.md` | LOCKED; R1 | UNKNOWN here; consult FOTA evidence | No new qualification claimed |
 | GS-POWER-01 | Production-critical BAT-C8 sleep/wake behavior, with physical qualification pending | `docs/product/DECISION_LOG.md` GS-D020, `docs/product/R1_RELEASE_CONTRACT.md`, `docs/features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md` | LOCKED; R1_REQUIRED_FEATURE_WITH_PENDING_QUALIFICATION | C8A software policy implemented; C8B physical qualification pending | Final battery-life optimization/endurance excluded absent an explicit R1 claim |
 | GS-PWA-01 | Backend-first PWA shows already-current caregiver data | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN against current backend contract | Dashboard-open is not primary sync |
 | GS-CLOUD-01 | Connected Hub sync near-real-time, independent of storage pressure/PWA open | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | PARTIAL/UNKNOWN; production contract details open | Exact protocol/backlog policy open |
@@ -400,3 +401,31 @@ Storage-worktree preparation requires explicit canonical promotion of the eight
 governance files listed in R1_WORK_STATE. Version mismatch must report STALE;
 substantive work stops until canonical governance is committed and preflight
 PASS restored. No source or evidence synchronization is implied.
+
+## Storage-security scope authority — GS-D029
+
+Context2026-10-08.002 locks the product-owner-approved distinction between required
+ordinary crash/detected-corruption recovery and excluded deliberate restoration of
+an otherwise valid older flash image. Canonical authority is DECISION_LOG GS-D029,
+R1_RELEASE_CONTRACT, P0_PRODUCT_REQUIREMENTS and STORAGE_SYNC_ROUTINE_LEARNING.
+Automatic signed FOTA APPLICATION rollback through ESP-IDF, firmware validation
+and storage compatibility after an unsuccessful upgrade remain mandatory.
+
+This partially resolves only older OPEN storage-security/rollback scope in GS-D023/024.
+It does not supersede ordinary crash consistency, fail-closed corruption/missing/
+inconsistent-state recovery, no silent stale routine state, ownership/ACK/retry/
+dedupe/retirement or dependency protection. Application rollback and stored-data
+rollback are distinct. Hardware/BAT-C8, partition policy and Gate C/72-hour volume/
+capacity qualification remain unchanged/open.
+
+Earlier storage-worktree ExecPlan and native/compact-NVS evidence checkpoints remain
+IMPLEMENTATION_DESIGN / TEST_EVIDENCE for their stated failure/threat models. Only
+an implication that R1 must add an independent malicious full-flash data-rollback
+anchor is superseded by GS-D029. Their crash/corruption counterexamples, capacity/
+reserve failures, stronger conditional host proofs and qualification limitations
+remain valid. No prototype, test, evidence or ExecPlan is imported into canonical,
+and this decision does not claim Gate C or production integration PASS.
+
+This task explicitly authorizes promotion of only the reviewed eight-file governance
+change. Preserve each worktree's independent historical content; increment context
+once, commit both branches and require both unchanged preflights PASS at2026-10-08.002.
