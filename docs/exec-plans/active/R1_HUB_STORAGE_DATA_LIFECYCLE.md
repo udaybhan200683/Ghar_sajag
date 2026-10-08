@@ -1654,3 +1654,53 @@ canonical governance, Jira or hardware changes; no push. Next bounded Hub work i
 persisted authenticated admission/retirement credits/report/root and protected
 next-operation COW/GC progress on the existing event stream, with policy closure
 before production. STOP after the coherent supporting-investigation commit.
+
+## 31. Bounded Hub implementation readiness — 2026-10-08
+
+[Focused readiness evidence](../evidence/R1_HUB_STORAGE_IMPLEMENTATION_READINESS_20261008.md)
+and its raw log retain NVS/the4 MiB Hub/current PIR and ESP-NOW delivery. The
+starting reviewed3201886 checkpoint was explicitly pushed and verified; new
+host proof changes are not pushed. Context2026-10-08.001 preflight PASS; canonical
+governance and all production/partition/BAT-C8 files remain unchanged.
+
+**Gates A/B/C FAIL for integration; conditional primitives PASS.** Finite tests
+prove6*(32+W) exact identities only with complete selected reports, persisted
+uncovered credits and at most six retained authenticated enrollment owners.
+W32 gives384 identities, not bodies or physical admission rights. Current exact
+ledger accepts33 uncovered keys for one owner without report progress; ten-owner
+production enrollment capacity and old-enrollment revocation need bounded R1
+enforcement. Lost reports stop new uncovered admission under the candidate gate;
+retries retain identity and report generations/reboots do not refill credit.
+No final W, reserve or critical saturation policy is approved.
+
+Actual authenticated DurableStore counterexamples publish reducer generation2,
+then corrupt/remove its checkpoint child: recovery silently selects generation1.
+This is a root-freshness blocker for the new reclaiming/credit engine, not evidence
+of observed physical ACK loss. The report adapter protects only the selected
+bank; a torn candidate can overwrite an older recoverable root's child. Passing
+the union of old/selected report references to the existing three-bank repository
+preserves both in the focused test. Complete publication freshness, credit/class
+serialization and all-authorized-root ownership remain unproved.
+
+One new SDK NVS pressure/remount case preserves all30 existing dummy blobs but
+fails three bounded next-report/root attempts with NOT_ENOUGH_SPACE. A free GC
+page/entry total does not protect metadata progress. Prior supported-cut/GC
+results are reused, with no full72h matrix or million-event rerun. Next work must
+prove the native authenticated transaction and protected next-operation admission,
+then integrate durable admission/recovery at the current Hub ACK boundary.
+
+Current128 KiB does not fit the tested complete72h fixtures; no guaranteed volume
+is approved. The narrower nine-segment/192-max-HOT peak remains152 KiB (24 KiB
+gap). Latest source-derived conditional ordinary NORMAL is244 KiB (116 KiB gap),
+mixed NORMAL272 KiB, HIGH624/728 KiB; no Node event reduction is assumed.256 KiB
+passes only a scoped ordinary NORMAL witness, not mixed/HIGH/STRESS. Current OTA
+margin101456 B and reviewed192/256 limiting margin35920 B are inherited image
+facts; integrated code/RAM/wear/rollback remains unqualified. Raise a workload/
+partition/hardware decision if the approved envelope cannot fit4 MiB; no automatic
+partition or S3 choice. Urgent delivery, BAT-C8 physical wake/current, retransmission
+energy and coverage freshness remain separate Node qualification.
+
+Focused C++ and ASan+UBSan checks PASS, including explicitly expected blockers;
+SDK preservation case PASS with progress BLOCKED. Production integration remains
+NO. STOP after host-only validation/evidence commit; no new-proof push or canonical
+promotion.

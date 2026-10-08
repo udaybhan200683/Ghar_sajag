@@ -168,6 +168,12 @@ hub-durable-storage-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_storage_validation.cpp -lcrypto -o build/hub_durable_storage_validation
 	./build/hub_durable_storage_validation
 
+# Bounded host readiness checks; reported counterexamples are integration blockers.
+.PHONY: storage-readiness-host-test
+storage-readiness-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/storage_readiness_validation.cpp -lcrypto -o build/storage_readiness_validation
+	./build/storage_readiness_validation
+
 hub-fresh-install-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_fresh_install_validation
 	./build/hub_fresh_install_validation

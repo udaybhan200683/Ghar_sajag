@@ -249,6 +249,50 @@ int main(int argc, char** argv) {
             cycle_count,groups,logical,programmed,double(programmed)/logical,diag::entry_writes-iw,esp_partition_get_erase_ops()-eb,mx);
         nvs_close(handle);REQUIRE(nvs_flash_deinit_partition(part_name)==ESP_OK);return 0;
     }
+    if (argc > 4 && std::strcmp(argv[4], "progress") == 0) {
+        // One targeted saturation/restart check, not a capacity matrix. Preserve
+        // every existing dummy owner; never delete accepted data to make room.
+        REQUIRE(segment_count == 9);
+        for (unsigned i = 9; i < 12; ++i)
+            REQUIRE(put(handle, "seg", i, 4096, cycle_count + i) == ESP_OK);
+        struct Saved { std::array<char,16> key{}; std::vector<std::uint8_t> bytes; };
+        std::vector<Saved> saved;
+        for (const auto& family : std::array<std::pair<const char*,unsigned>,7>{{
+                {"cert",6},{"ret",3},{"state",3},{"root",2},
+                {"meta",2},{"crit",2},{"seg",12}}}) {
+            for (unsigned i = 0; i < family.second; ++i) {
+                Saved item;
+                std::snprintf(item.key.data(), item.key.size(), "%s%u", family.first, i);
+                size_t length = 0;
+                REQUIRE(nvs_get_blob(handle,item.key.data(),nullptr,&length)==ESP_OK);
+                item.bytes.resize(length);
+                REQUIRE(nvs_get_blob(handle,item.key.data(),item.bytes.data(),&length)==ESP_OK);
+                saved.push_back(std::move(item));
+            }
+        }
+        for (unsigned attempt = 1; attempt <= 3; ++attempt) {
+            auto rc = put(handle,"candidate",0,3485,cycle_count+77);
+            if (rc == ESP_OK) rc = put(handle,"select",0,512,cycle_count+77);
+            std::printf("PROTECTED_PROGRESS attempt=%u result=%s ack_allowed=0\n",
+                        attempt,esp_err_to_name(rc));
+            REQUIRE(rc == ESP_ERR_NVS_NOT_ENOUGH_SPACE);
+        }
+        nvs_close(handle);
+        REQUIRE(nvs_flash_deinit_partition(part_name)==ESP_OK);
+        REQUIRE(nvs_flash_init_partition_ptr(part)==ESP_OK);
+        REQUIRE(nvs_open_from_partition(part_name,"life",NVS_READONLY,&handle)==ESP_OK);
+        for (const auto& item : saved) {
+            size_t length = item.bytes.size();
+            std::vector<std::uint8_t> value(length);
+            REQUIRE(nvs_get_blob(handle,item.key.data(),value.data(),&length)==ESP_OK);
+            REQUIRE(length == item.bytes.size() && value == item.bytes);
+        }
+        std::printf("PROTECTED_PROGRESS_HOST_PASS preserved_blobs=%zu remount=PASS bounded_attempts=3 progress=BLOCKED\n",saved.size());
+        metric("protected_progress_recovery",cycle_count,part);
+        nvs_close(handle);
+        REQUIRE(nvs_flash_deinit_partition(part_name)==ESP_OK);
+        return 0;
+    }
     if (fault || banks) {
         const size_t cut = argc > 5 ? std::strtoul(argv[5], nullptr, 10) : 0;
         std::vector<std::uint8_t> report(3485);

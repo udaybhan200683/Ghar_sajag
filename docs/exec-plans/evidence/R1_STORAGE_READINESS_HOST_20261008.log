@@ -1,0 +1,44 @@
+START_HEAD=3201886636807925f84478e88edd8dc9cc2a4731
+SCOPE=focused host invariants/counterexamples; not firmware qualification
+PROBE_BINARY_SHA256=37609e3fe69d0fdc8860db8aaff4ad5f28edb51cd086600d6cb3ce99a980cd77
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/storage_readiness_validation
+EXIT=0
+CONDITIONAL_ADMISSION_PASS keys=384 lost_report=stop retry=preserved atomic_model_only=1
+PRODUCTION_CREDIT_BLOCKER uncovered_one_owner=33 node_queue_peak_can_be=1
+ROOT_FRESHNESS_BLOCKER selected_child=corrupt published_generation=2 recovered_generation=1 reducer=old
+ROOT_FRESHNESS_BLOCKER selected_child=missing published_generation=2 recovered_generation=1 reducer=old
+REPORT_OWNER_BLOCKER selected_only_mask=old_root_child_damaged selected_child=valid
+REPORT_UNION_MASK_PASS both_old_and_selected_children_survive=1
+STORAGE_READINESS_HOST_PASS readiness=NO blockers_reproduced=4
+
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 progress
+EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-7dkK7d
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+PROTECTED_PROGRESS attempt=1 result=ESP_ERR_NVS_NOT_ENOUGH_SPACE ack_allowed=0
+PROTECTED_PROGRESS attempt=2 result=ESP_ERR_NVS_NOT_ENOUGH_SPACE ack_allowed=0
+PROTECTED_PROGRESS attempt=3 result=ESP_ERR_NVS_NOT_ENOUGH_SPACE ack_allowed=0
+PROTECTED_PROGRESS_HOST_PASS preserved_blobs=30 remount=PASS bounded_attempts=3 progress=BLOCKED
+NVS_RUNTIME phase=protected_progress_recovery iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30462672 erase_ops=7101 min_sector_erases=0 max_sector_erases=316
+
+FOCUSED_HOST_CHECKS=PASS; PRODUCTION_READINESS=NO
+COMMAND=/tmp/gs_storage_readiness_sanitized SANITIZERS=ASan+UBSan
+EXIT=1
+==4==LeakSanitizer has encountered a fatal error.
+==4==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
+==4==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)
+SOURCE_SHA256=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/storage_readiness_validation.cpp cbd3f9d969a67b9fe0c6c6f723a9c555db48c85ec79ca3d978fef3a835fc5684
+SOURCE_SHA256=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/main/probe.cpp 9f77e2ab3b0b4192cc8afdcdd33f3c02db7be5ef8fc4bb41da5c9162be248b13
+COMMAND=/tmp/gs_storage_readiness_sanitized SANITIZERS=ASan+UBSan EXECUTION=outside_sandbox
+CAPTURE=stdout and exit from authorized exec_command rerun after ptrace failure
+EXIT=0
+CONDITIONAL_ADMISSION_PASS keys=384 lost_report=stop retry=preserved atomic_model_only=1
+PRODUCTION_CREDIT_BLOCKER uncovered_one_owner=33 node_queue_peak_can_be=1
+ROOT_FRESHNESS_BLOCKER selected_child=corrupt published_generation=2 recovered_generation=1 reducer=old
+ROOT_FRESHNESS_BLOCKER selected_child=missing published_generation=2 recovered_generation=1 reducer=old
+REPORT_OWNER_BLOCKER selected_only_mask=old_root_child_damaged selected_child=valid
+REPORT_UNION_MASK_PASS both_old_and_selected_children_survive=1
+STORAGE_READINESS_HOST_PASS readiness=NO blockers_reproduced=4
+FINAL_FOCUSED_HOST_AND_ASAN_UBSAN=PASS

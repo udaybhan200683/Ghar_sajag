@@ -95,3 +95,13 @@ old-body retirement. The scalar summary model excludes native Node MotionSummary
 because its millisecond fields must remain in the frozen exact representation.
 See `R1_STORAGE_72H_AGGREGATION_CAPACITY_20261008.md` for the supported model
 limits, actual measurement categories and remaining policy/target gates.
+
+## Bounded readiness pressure check
+
+Run `build/gs_nvs_runtime_probe.elf 9 1000 20 progress` after building with the
+environment above. This one fixture retains twelve segments, makes three bounded
+independent next-report/root attempts, then remounts and verifies all30 pre-existing
+dummy blobs byte-for-byte. Expected PASS includes `progress=BLOCKED` and
+`ESP_ERR_NVS_NOT_ENOUGH_SPACE`; it proves preservation in this case, not a protected
+allocator reserve or production readiness. See
+`R1_HUB_STORAGE_IMPLEMENTATION_READINESS_20261008.md` and its focused host log.
