@@ -15,7 +15,7 @@ Current P0 household, sensor/event, caregiver, privacy and implementation bounda
 ## Supported hardware and architecture
 
 - R1 Hub baseline: existing 4 MB ESP32 Hub. ESP32-S3-N16R8 is not an R1 dependency unless explicitly approved.
-- R1 Nodes: ESP32-C3. Six Nodes share Hub storage/resources.
+- R1 Nodes: battery-operated ESP32-C3 (GS-D027). Six Nodes share Hub storage/resources.
 - Nodes sense locally, retain/retry events, and retire them only after a valid application ACK.
 - Hub authenticates/owns Nodes, processes events, runs local safety and bounded routine logic, commits before ACK, and buffers/synchronizes caregiver-relevant data.
 - Backend owns long-term caregiver history and richer long-range analytics. The PWA is backend-first and should open on current backend data.
@@ -24,7 +24,7 @@ Current P0 household, sensor/event, caregiver, privacy and implementation bounda
 
 The Hub is not the long-term caregiver database. When internet is available it syncs continuously/near-real-time; upload does not wait for storage pressure or PWA open. During backend outage, local sensing, alerts, event durability, and routine learning continue. The PWA must show stale/offline status; backlog is uploaded after connectivity returns.
 
-Separate correctness-critical journal/dedupe, materialized reducer/routine state, backend outbox, and short local history/cache. Reclaim or coalesce low-value history under pressure without stopping safety operation. Basic AI/routine learning runs locally using bounded state/aggregates; richer long-term analytics may run in the backend. Coalesce repeated PIR/raw chatter where semantics allow. Exact retention durations, offline guarantee, byte budgets, and pressure thresholds remain open.
+Separate correctness-critical journal/dedupe, materialized reducer/routine state, backend outbox, and short local history/cache. Reclaim or coalesce low-value history under pressure without stopping safety operation. Basic AI/routine learning runs locally using bounded state/aggregates; richer long-term analytics may run in the backend. Coalesce repeated PIR/raw chatter where semantics allow. GS-D025 locks a 72-hour internet-only outage design target with powered, locally connected Hub and Nodes; supported volume, critical saturation behavior and an unconditional capacity guarantee remain open. Exact retention durations, byte budgets and pressure thresholds remain open.
 
 Preserve authenticated ownership, durable-before-ACK, lost-ACK retry safety, duplicate suppression across reboot, Node retirement, current-format recovery, fail-closed corruption behavior, and versioned storage/FOTA behavior.
 
@@ -53,7 +53,7 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 
 ## Next engineering priority
 
-Close the storage/data-lifecycle proof gates and its explicit product decisions before production implementation. The exact retention and backend-outage policies remain open; derive a bounded design and byte/wear/OTA budget from actual hardware and six-Node behavior. Then host-test the design, build/measure the Hub target, and qualify only the changes that can invalidate existing physical gates.
+Close the storage/data-lifecycle proof gates and its explicit product decisions before production implementation. The 72-hour internet-only outage design target is locked; exact retention, supported volumes, critical saturation and backend summary protocol remain open; derive a bounded design and byte/wear/OTA budget from actual hardware and six-Node behavior. Then host-test the design, build/measure the Hub target, and qualify only the changes that can invalidate existing physical gates.
 
 ## Storage-first and failure-aware learning priority
 
@@ -75,6 +75,29 @@ CONDITIONAL: sample-name timing variation uses all128 KiB for the synthetic
 unproven reserve ledger. No72-hour guarantee, partition or production change.
 Next close authenticated append/root/nonce/reclaim, retirement credits,
 backend derived completion, coverage/time/day recovery and rollback/RAM/wear
-proofs. Local context is2026-10-07.003; canonical remains.002 at this checkpoint.
+proofs. At that historical checkpoint, local context was2026-10-07.003 and canonical remained.002.
 Require authorized canonical promotion and preflight PASS before further
 substantive work; never auto-promote or bypass the guard.
+
+## Approved governance checkpoint — 2026-10-08
+
+GS-D025–028 lock the 72-hour outage design target, loss-aware eligible ordinary
+motion aggregation, battery-first intelligent Nodes and sensor boundaries.
+Avoid unnecessary Node wake-ups, Wi-Fi and flash writes; processing should prefer
+meaningful observations. No new 40–120-second periodic consolidation wake-ups.
+Sensor-specific interpretation may run at Nodes; household routine learning and
+cross-sensor decisions remain at Hub. Preserve individually identifiable door
+OPEN/CLOSE, important user actions/safety evidence, observation gaps and all
+durability/recovery invariants. Future bed occupancy sessions are outside R1 and
+establish neither sleep nor identity. Preserve BAT-C8; new Node protocols must
+prove battery and correctness impact before implementation.
+
+Quiet gap, progress frequency, critical classes/reserve, guaranteed workload
+bounds, backend summary protocol and final NVS allocation remain OPEN. No
+unconditional capacity, battery qualification, partition or hardware change is
+claimed. See the decision log and canonical storage contract for details.
+
+Prepared storage-worktree context: `2026-10-08.001`; canonical remains
+`2026-10-07.003` until explicitly authorized promotion. Preflight therefore
+reports STALE after the increment. Stop substantive work until the coherent
+canonical documentation is promoted and preflight PASS is restored.

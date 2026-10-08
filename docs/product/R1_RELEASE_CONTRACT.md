@@ -100,6 +100,37 @@ Do not introduce heavyweight ML infrastructure merely because the feature is cal
 
 Current P0 behavior and implementation boundaries are summarized in `docs/product/P0_PRODUCT_REQUIREMENTS.md`. It distinguishes domain/application behavior from physical qualification and names unresolved semantics; domain guides retain detailed behavior.
 
+## Approved storage and Node design direction — GS-D025–028
+
+R1 targets 72 hours of internet-only outage resilience with powered Hub/Nodes
+and functional local connectivity. Local monitoring and routine learning continue,
+essential safety evidence and observation coverage stay durable, and pending
+information synchronizes when the backend returns. This design target is not an
+unconditional qualified capacity guarantee; supported volume and critical
+saturation remain OPEN.
+
+Eligible ordinary PIR history may be grouped without losing required routine,
+inactivity or timely safety evidence. Important door transitions, user actions
+and safety events remain exact; NO_OBSERVATION is never NO_ACTIVITY. Existing
+durability/retry/deduplication/recovery and durable backend acceptance requirements
+remain mandatory. Encoding, intervals, quiet gap, progress cadence and backend
+summary contract remain unapproved.
+
+ESP32-C3 Nodes are battery-operated. Prefer meaningful-observation processing
+and avoid unnecessary wake-ups, Wi-Fi transmissions and flash writes. Do not add
+40–120-second periodic wake-ups for activity consolidation. Sensor-specific
+interpretation/episode tracking may be local; household/cross-sensor decisions
+stay at Hub. Any new Node protocol must prove battery and correctness impact
+before implementation. GS-D020 BAT-C8 requirements and pending qualification
+status are unchanged; this does not establish a battery-life claim.
+
+Door OPEN/CLOSE remain individually identifiable. Future bed occupancy sessions
+may track START/END/duration at Node, but bed sensing is excluded from R1 and is
+not proof of sleep or identity. Existing 4 MB Hub/ESP32-C3 hardware scope stays
+in force. Final critical classes/reserves, NORMAL/HIGH/STRESS guaranteed bounds,
+NVS partition and ESP32-S3 upgrade are not approved. Requirement approval does
+not close technical proof gates or authorize production integration in this task.
+
 ## Release discipline
 
 Do not rerun passed physical gates unless a later change can invalidate them.

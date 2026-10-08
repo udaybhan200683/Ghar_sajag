@@ -129,7 +129,9 @@ Do not choose arbitrary event-count targets first.
 The [R1 Hub storage/data-lifecycle ExecPlan](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md)
 contains the 2026-10-07 source audit, derived workload scenarios, candidate byte
 budgets/layouts and implementation STOP gates. It is a **proposal**, not an
-approved retention/outage/priority or partition requirement. Its current-image,
+approved retention, guaranteed outage capacity, priority or partition requirement.
+GS-D025 separately locks the 72-hour design target; GS-D026–028 lock aggregation,
+Node and sensor boundaries without approving these proposed mechanisms. Its current-image,
 protocol-progress, backend-contract, rollback and crash/wear limits remain
 explicit. This canonical contract and LOCKED decisions retain authority.
 
@@ -141,7 +143,7 @@ durability, backend-first sync and independent lifecycle requirements remain.
 
 Before final storage implementation, calculate and approve:
 - worst-case six-Node semantic event rate;
-- offline outage survival target;
+- supported volume and critical saturation behavior against the approved 72-hour internet-only outage design target;
 - outbox/event record encoding and size;
 - exact flash budget;
 - active durability bound;
@@ -156,7 +158,7 @@ Before final storage implementation, calculate and approve:
 
 GS-D021 requires the mandatory correctness/durability/security/recovery/stability/scalability/UX gate before optimization. Then prioritize useful information per flash byte, deterministic retrieval, bounded RAM and flash lifetime; CPU optimization is secondary. Preserve one immutable event body shared by lifecycle owners where safe. Larger records require measured realtime justification, not a host microbenchmark advantage.
 
-GS-D022/023 require bounded current-day and daily routine state, coverage/confidence and recovery through Node/Hub/radio/cloud failures, reboot/rejoin, lost ACK, delayed events, midnight, multi-day backlog and pressure. NO_ACTIVITY requires adequate observation; NO_OBSERVATION, sensor/Hub unavailability and untrusted time must remain distinguishable locally and in backend/PWA effects. Missing observation cannot train an inactive baseline. Stable daily identity and durable finalization must prevent double baseline application and duplicate backend days. Exact coverage sufficiency, late revision policy, offline horizon and overflow semantics remain OPEN. The ExecPlan contains proposed formats and proof obligations, not additional locked numerical policy.
+GS-D022/023 require bounded current-day and daily routine state, coverage/confidence and recovery through Node/Hub/radio/cloud failures, reboot/rejoin, lost ACK, delayed events, midnight, multi-day backlog and pressure. NO_ACTIVITY requires adequate observation; NO_OBSERVATION, sensor/Hub unavailability and untrusted time must remain distinguishable locally and in backend/PWA effects. Missing observation cannot train an inactive baseline. Stable daily identity and durable finalization must prevent double baseline application and duplicate backend days. Exact coverage sufficiency, late revision policy, guaranteed offline capacity and overflow semantics remain OPEN; GS-D025 locks the 72-hour design target only. The ExecPlan contains proposed formats and proof obligations, not additional locked numerical policy.
 
 ## Information-density principle — GS-D024
 
@@ -235,3 +237,49 @@ nine-segment128 KiB mapping fails maximum192-HOT+report/checkpoint progress;
 tested152 KiB or fewer history segments can progress conditionally. No offline
 horizon, saturation policy, partition/backend approval or target wear/RAM claim.
 NVS remains the technical candidate; production implementation remains gated.
+
+## Approved outage and sensor-processing requirements — GS-D025–028
+
+**LOCKED design target (GS-D025):** R1 targets 72 hours of internet-only outage
+resilience with Hub and Nodes powered and locally connected. Local monitoring
+and routine learning continue without internet. Essential safety evidence and
+observation coverage remain durable; pending information is synchronized when
+the backend becomes available. This is not an unconditional capacity guarantee
+or a promise covering power loss or local radio failure. Supported event volume
+and critical saturation behavior require separate closure.
+
+**LOCKED aggregation direction (GS-D026):** Eligible ordinary motion observations
+may be grouped or summarized to avoid unnecessary repeated PIR history. Preserve
+information needed for routine learning, inactivity evaluation and timely safety
+decisions, including necessary observation timing and coverage. Preserve exact
+important door transitions, user actions (Call Family and I Am OK) and safety
+events. Never equate NO_ACTIVITY with NO_OBSERVATION or infer continuous presence
+from an episode. Preserve authenticated ownership, durable-before-ACK, lost-ACK
+retry safety, deduplication and reboot/recovery correctness. Backend delivery is
+complete only for information durably accepted by the backend. Summary encoding,
+intervals and the backend contract remain unapproved.
+
+**LOCKED battery-first Nodes (GS-D027):** ESP32-C3 Nodes are battery-operated.
+Avoid unnecessary wake-ups, Wi-Fi transmissions and flash writes; prefer
+processing triggered by meaningful sensor observations. Do not introduce
+40–120-second periodic wake-ups for activity consolidation. Nodes may perform
+sensor-specific interpretation and episode tracking; household routine learning
+and cross-sensor decisions remain at the Hub. Preserve BAT-C8 sleep/wake
+requirements and necessary health, retry and recovery behavior. A new Node
+protocol must prove battery and correctness impact before implementation. This
+direction does not change BAT-C8 qualification status or override GS-D021's
+mandatory correctness gate and storage/retrieval priority.
+
+**LOCKED sensor boundaries (GS-D028):** Ordinary PIR motion may be consolidated
+where safe. Door OPEN/CLOSE transitions remain individually identifiable. Future
+bed sensors may track occupancy START/END sessions and duration at the Node,
+with observation availability and uncertainty preserved. Bed sensing is excluded
+from R1; occupancy establishes neither sleep nor occupant identity. No new
+hardware or physical sensor qualification is implied.
+
+Still **OPEN**: final critical-event classification and reserve size; guaranteed
+NORMAL/HIGH/STRESS event-volume bounds; motion quiet gap; progress-update
+frequency; final summary encoding/backend protocol; final NVS partition size.
+The existing 4 MB ESP32 Hub remains the baseline pending technical qualification;
+ESP32-S3 migration and any R1 hardware scope change are not approved. Existing
+host models remain conditional evidence, not capacity or battery qualification.

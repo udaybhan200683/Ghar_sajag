@@ -55,8 +55,12 @@ Repeated low-value raw transitions may be coalesced when correctness allows.
 Prefer reclaim/compress lower-value history while preserving correctness-critical state and continuing operation.
 
 ### GS-D013 — Exact retention values
-**Status:** OPEN  
-Previously discussed 72 h / 90 d / 5k / 50k / 100k values are not locked. Derive them from actual 4 MB budget, six-Node worst case, outage target, OTA needs, and crash-safety reserve.
+**Status:** OPEN; partially superseded by GS-D025 for the internet-only outage design target
+
+GS-D025 locks the 72-hour design target, not a guaranteed capacity or exact local
+retention policy. Other durations/counts (including 90 d / 5k / 50k / 100k),
+supported event volumes and per-class retention remain OPEN. Derive them from
+the actual 4 MB budget, six-Node workload, OTA needs and crash-safety reserve.
 
 ### GS-D014 — Backend outbox policy
 **Status:** OPEN  
@@ -71,8 +75,16 @@ Do not alter partitions until byte budget and OTA impact are reviewed.
 The shared 128-event lifetime ceiling is commercially unacceptable. The next design must derive active correctness/dedupe state, materialized reducer state, backend outbox, short history/cache, safe reclamation, offline capacity, flash wear, and OTA fit for the existing 4 MB Hub and six shared Nodes. Do not increase the event constant as the fix or repeat the already-passed fresh-install/lost-ACK physical qualification absent an invalidating change.
 
 ### GS-D017 — Storage retention and outage limits remain undecided
-**Status:** OPEN  
-No exact retention duration, offline guarantee, per-class byte budget, outbox overflow policy, or history-pressure threshold is approved. Derive options from the actual six-Node workload and 4 MB partition/OTA budget, then record the product decision before implementing policy.
+**Status:** OPEN; partially superseded by GS-D025/026 for approved direction
+
+The 72-hour internet-only outage design target and eligible loss-aware ordinary
+motion aggregation are now LOCKED by GS-D025/026. An unconditional offline
+capacity guarantee, exact retention duration, supported event-volume envelope,
+critical classification/reserve/saturation behavior, per-class byte budget,
+outbox overflow policy and history-pressure threshold remain OPEN. Derive these
+from the actual six-Node workload and 4 MB partition/OTA budget and record the
+decision before implementing policy. Summary encoding/interval/backend contract,
+motion quiet gap and progress-update frequency are not approved.
 
 ### GS-D018 — Ordinary PWA privacy toggle is not supported
 **Status:** LOCKED  
@@ -117,6 +129,69 @@ checkpoint `74c4b99` provides evidence for numeric codec/restart behavior and
 conditional density; full-source serialization, target crypto/allocator,
 retirement progress, derived backend effects, rollback and wear remain OPEN.
 No production integration or partition change is authorized by this decision.
+
+### GS-D025 — 72-hour internet-only outage design target
+**Status:** LOCKED (design target); capacity guarantee and volume policy OPEN
+
+**Approved:** 2026-10-08
+
+R1 targets 72 elapsed hours of internet-only outage resilience with Hub and Nodes
+powered and locally connected for the baseline scenario. Local monitoring and
+routine learning continue without internet; essential safety evidence and
+observation coverage remain durable. Pending information is synchronized when
+the backend becomes available. This is a design target, not yet an unconditional
+capacity guarantee. Supported event volume and critical saturation behavior
+remain OPEN. It does not promise monitoring through power/sensor/local-radio
+failure or approve a partition change. GS-D003/004/007/009/022/023 remain in force.
+Only the previously undecided outage-target scope of GS-D013/017 is superseded.
+
+### GS-D026 — Loss-aware ordinary motion aggregation
+**Status:** LOCKED (product direction); representation and protocol OPEN
+
+**Approved:** 2026-10-08
+
+Eligible ordinary motion observations may be grouped or summarized; do not store
+unnecessary repeated ordinary PIR history. Preserve information required for
+routine learning, inactivity monitoring and timely safety decisions. Preserve
+exact important door transitions, user actions (including Call Family and I Am
+OK) and safety events. Never confuse NO_ACTIVITY with NO_OBSERVATION. Maintain
+authenticated ownership, durable-before-ACK, retry, deduplication and recovery
+correctness. Do not claim successful backend synchronization for data not
+durably accepted by the backend. Specific summary encoding, interval, eligibility
+details and backend contract remain unapproved. This refines GS-D011/024 without
+approving endpoint-only substitution or weakening GS-D021/022/023.
+
+### GS-D027 — Battery-first intelligent ESP32-C3 Nodes
+**Status:** LOCKED (design requirement); new protocol and measured impact OPEN
+
+**Approved:** 2026-10-08
+
+R1 ESP32-C3 Nodes are battery-operated. Avoid unnecessary wake-ups, Wi-Fi
+transmissions and flash writes; prefer processing triggered by meaningful sensor
+observations. Do not introduce 40–120-second periodic wake-ups for activity
+consolidation. Nodes may perform sensor-specific interpretation and episode
+tracking; the Hub remains responsible for cross-sensor routine learning and
+household decisions. Preserve GS-D020 BAT-C8 sleep/wake requirements and all
+correctness/durability invariants. Any new Node protocol must prove its battery
+and correctness impact before implementation. Required GPIO/timer wake,
+health/retry/recovery work remains required; no new fixed progress frequency,
+quiet gap, battery-life claim or qualified energy saving is established here.
+Battery-first Node processing does not override GS-D021's mandatory quality gate
+or authorize a competing routine-learning engine at every Node.
+
+### GS-D028 — Sensor-specific motion, door and future bed semantics
+**Status:** LOCKED (semantic boundaries); bed sensing excluded from R1
+
+**Approved:** 2026-10-08
+
+Ordinary PIR motion may be consolidated where safe under GS-D026. Door OPEN/CLOSE
+transitions remain individually identifiable. Future bed sensors may support
+occupancy START/END and duration tracking at the Node. Bed sensing is NOT being
+added to R1; occupancy is not automatically equivalent to sleep or occupant
+identity. This does not add bed hardware/protocol or claim that currently
+unqualified door/button hardware has been installed or qualified. R1 retains
+the existing 4 MB ESP32 Hub and ESP32-C3 Nodes; ESP32-S3 upgrade, final NVS size
+and any hardware-scope change remain unapproved.
 
 ## Reconciliation status — 2026-10-07
 

@@ -1,6 +1,6 @@
 # R1 Current Work State
 
-**Updated:** 2026-10-07
+**Updated:** 2026-10-08
 
 ## Authoritative work line
 - Worktree: `/home/udaybhan/projects/Ghar_sajag_r1`
@@ -69,7 +69,7 @@ Known requirements:
 - cloud outage does not stop local safety/routine learning;
 - repetitive raw sensor detail can be coalesced;
 - design must first fit the existing 4 MB Hub;
-- exact retention/offline-capacity numbers are not yet locked.
+- GS-D025 locks the 72-hour internet-only outage design target; exact retention, supported volume and guaranteed offline capacity remain open.
 
 ## Initial storage architecture checkpoint (historical proposal)
 
@@ -110,7 +110,7 @@ Derive and close the storage/data-lifecycle design for the existing 4 MB Hub and
 5. offline capacity and six-Node worst-case event rates;
 6. flash wear, crash-safe cleanup reserve and OTA budget.
 
-Do not implement a guessed retention policy or merely increase the 128-event constant. Exact retention/offline-capacity numbers and partition-layout changes remain open decisions. See `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` and `docs/product/DECISION_LOG.md`.
+Do not implement a guessed retention policy or merely increase the 128-event constant. The 72-hour outage design target is LOCKED by GS-D025; exact retention, supported volume, guaranteed offline capacity and partition-layout changes remain open decisions. See `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` and `docs/product/DECISION_LOG.md`.
 
 ## BAT-C8
 
@@ -273,3 +273,50 @@ Next is policy closure plus persisted authenticated credit/root/guarded allocati
 then target RAM/code/wear/rollback gates; no new architecture campaign or codec
 redesign. READY_TO_START_PRODUCTION_STORAGE_IMPLEMENTATION=NO. Context.003 and
 all LOCKED decisions unchanged; no product code/hardware/partition change.
+
+## Product governance prepared — 2026-10-08
+
+Documentation-only governance at starting HEAD
+`d8631e656bd37f05294853de40cec93d65f0cec6`, storage branch
+`feature/r1-hub-storage-lifecycle`. Initial preflight PASS and context
+`2026-10-07.003`; only user-owned untracked `prompt.txt` was present.
+
+GS-D025–028 now LOCK the approved 72-hour internet-only outage design target,
+loss-aware eligible ordinary-motion aggregation, battery-first ESP32-C3 Node
+processing and PIR/door/future-bed boundaries. GS-D013/017 are only partially
+superseded for these approved directions; their numerical/protocol decisions
+remain OPEN. Context advances to `2026-10-08.001`. This preparation does not
+authorize production integration or claim capacity/battery qualification.
+Existing host evidence is preserved; simulations, hardware and release gates
+were not repeated. No production, partition, BAT-C8 or hardware scope changes.
+
+OPEN: critical-event classification/reserve, NORMAL/HIGH/STRESS guaranteed
+volumes, critical saturation behavior, quiet gap, progress frequency, final
+backend summary protocol and final NVS size. The 4 MB ESP32 Hub remains baseline.
+New Node protocol work must prove battery and correctness impact before
+implementation; no 40–120-second periodic consolidation wake-ups are approved.
+BAT-C8 physical qualification remains pending, with its requirements unchanged.
+
+**Promotion requirement:** the canonical source remains
+`/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`,
+initially clean at `5dcd2f7c10682bd1f6801821deaff20ad4a803e4` and context
+`2026-10-07.003`. It is not modified by this task. After the local increment,
+preflight STALE / CONTEXT_VERSION_MISMATCH is expected. Stop substantive work.
+Explicitly authorize review/apply/commit of the governance commit's documentation
+patch to these eight canonical files as one coherent change:
+
+- `docs/product/DECISION_LOG.md`
+- `docs/product/R1_RELEASE_CONTRACT.md`
+- `docs/product/R1_WORK_STATE.md`
+- `docs/product/P0_PRODUCT_REQUIREMENTS.md`
+- `docs/product/CANONICAL_REQUIREMENTS_INDEX.md`
+- `docs/product/GHAR_SAJAG_PROJECT_CONTEXT.md`
+- `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`
+- `docs/product/CONTEXT_VERSION`
+
+Review ExecPlan section29 separately as implementation-design status; canonical
+does not yet contain the linked storage-worktree checkpoint evidence. Promotion
+must preserve canonical work and avoid importing host-model/production changes
+merely to synchronize context. Resolve reviewed documentation differences,
+commit canonical governance, then rerun preflight and require PASS before
+substantive work. Never weaken the guard or auto-promote.

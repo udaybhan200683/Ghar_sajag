@@ -1586,3 +1586,32 @@ coverage/time/backend/partition details OPEN, update canonical documents/index,
 increment CONTEXT_VERSION and commit before dependent implementation. This run
 does none of that. Node proposal needs separate semantic approval/proof. After
 the coherent host-only investigation commit, STOP; production integration NO.
+
+## 29. Approved product governance preparation — 2026-10-08
+
+Documentation-only follow-up locks GS-D025–028: 72-hour internet-only outage
+design target; loss-aware eligible ordinary-motion aggregation; battery-first
+intelligent ESP32-C3 Nodes; safe PIR, identifiable door and future-bed boundaries.
+GS-D013/017 are partially superseded for direction only. These decisions do not
+approve an unconditional capacity guarantee, Node protocol or partition change.
+
+Section28's START/PROGRESS/END model remains proposed. Quiet gap, progress
+frequency, final summary/backend encoding, critical classes/reserve/saturation
+and guaranteed workload bounds remain OPEN. Do not introduce 40–120-second
+periodic Node wake-ups for consolidation. Preserve BAT-C8 requirements and
+prove any new protocol's battery and correctness impact before implementation.
+Hub retains household/cross-sensor learning; future bed sensing is excluded
+from R1 and occupancy establishes neither sleep nor identity.
+
+Progress: minimum canonical governance documents updated; context advances
+from `2026-10-07.003` to `2026-10-08.001`. Earlier evidence and proposals remain
+intact under the partial-supersession notes in the canonical index. No storage
+simulations, host-model tests, hardware or release gates repeated; production,
+partition and BAT-C8 changes NO.
+
+STOP after this coherent documentation commit. Canonical remains `.003`, so
+preflight STALE is expected until explicitly authorized review/apply/commit of
+the eight governance files listed in R1_WORK_STATE on the canonical branch.
+Review this implementation-design status section separately from canonical
+governance promotion. Do not weaken preflight, auto-promote, begin the Node
+semantic proof or integrate storage in this run.
