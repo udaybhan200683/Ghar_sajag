@@ -53,8 +53,9 @@ Bytes domain(const char* label,const Bytes& b) {
 }
 }
 Transaction::Transaction(hub::durable::BlobStore& b,security::CommissioningCrypto& c,
-        PublicationAuthority& a,Key32 key,std::uint32_t epoch,unsigned window)
-    :blobs_(b),crypto_(c),authority_(a),key_(key),epoch_(epoch),window_(window){}
+        PublicationAuthority& a,Key32 key,std::uint32_t epoch,unsigned window,
+        BankRepresentation* representation)
+    :blobs_(b),crypto_(c),authority_(a),key_(key),epoch_(epoch),window_(window),representation_(representation){}
 Transaction::~Transaction(){crypto_.secure_zero(key_.data(),key_.size());
     for(auto& o:state_.owners)crypto_.secure_zero(o.report_key.data(),o.report_key.size());}
 
@@ -140,6 +141,10 @@ bool Transaction::encode(const State& s,unsigned bank,Bytes& blob) {
         w.raw(r.digest.data(),32);w.number(r.retry|(r.local<<1)|(r.backend<<2),1);w.bytes(r.body);
     }
     w.bytes(s.reducer);
+    if(representation_) {
+        Bytes packed;if(!representation_->pack(w.b,packed))return false;
+        w.b=std::move(packed);
+    }
     security::Nonce12 nonce{};security::GcmTag tag{};Bytes cipher;
     if(!crypto_.random_bytes(nonce.data(),nonce.size())||
        !crypto_.seal_aes256_gcm(key_,nonce,domain(kAad,{}),w.b,cipher,tag))return false;
@@ -153,6 +158,10 @@ bool Transaction::decode(const Bytes& blob,unsigned bank,State& s) {
     std::copy_n(blob.begin(),12,nonce.begin());std::copy_n(blob.end()-16,16,tag.begin());
     Bytes cipher(blob.begin()+12,blob.end()-16),plain;
     if(!crypto_.open_aes256_gcm(key_,nonce,domain(kAad,{}),cipher,tag,plain))return false;
+    if(representation_) {
+        Bytes restored;if(!representation_->unpack(plain,restored))return false;
+        plain=std::move(restored);
+    }
     Reader r{plain};
     if(r.number(4)!=0x474e5431||r.number(1)!=1||r.number(4)!=epoch_||
        r.number(1)!=window_||r.number(1)!=bank)return false;
@@ -222,8 +231,11 @@ bool Transaction::provision_fresh() {
 Result Transaction::publish(State next) {
     if(!ready_||state_.generation==std::numeric_limits<std::uint64_t>::max())return Result::Fault;
     next.generation=state_.generation+1;const unsigned bank=1-bank_;
-    Bytes blob,published;Key32 binding{};if(!encode(next,bank,blob))return Result::Invalid;
-    // Two bounded persistence operations: candidate bank, then trusted authority.
+    Bytes blob,published;Key32 binding{};
+    if(!validate(next))return Result::Invalid;
+    if(!encode(next,bank,blob))return Result::Fault;
+    // After optional immutable-dependency preparation: candidate bank, then
+    // trusted authority. The full reference has exactly these two operations.
     // An API failure may have persisted; exact bank/authority readback decides.
     (void)blobs_.replace(bank_key(bank),blob);
     Bytes check;bool found=false;State verified;

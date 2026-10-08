@@ -66,11 +66,21 @@ struct State {
     // Fresh boot cannot infer current observation coverage from persisted silence.
 };
 
+// Optional host/SDK representation adapter. The transaction still authenticates
+// its bank and validates the complete reconstructed native state. pack may write
+// immutable dependencies; it must never reclaim a dependency of a published root.
+class BankRepresentation {
+public:
+    virtual ~BankRepresentation() = default;
+    virtual bool pack(const Bytes& native_plain, Bytes& compact_plain) = 0;
+    virtual bool unpack(const Bytes& compact_plain, Bytes& native_plain) = 0;
+};
+
 class Transaction {
 public:
     Transaction(hub::durable::BlobStore&, security::CommissioningCrypto&,
                 PublicationAuthority&, Key32 storage_key, std::uint32_t epoch,
-                unsigned window);
+                unsigned window, BankRepresentation* representation = nullptr);
     ~Transaction();
     Transaction(const Transaction&) = delete;
     Transaction& operator=(const Transaction&) = delete;
@@ -114,6 +124,7 @@ private:
     bool ready_{false};
     State state_;
     Bytes head_;
+    BankRepresentation* representation_;
 };
 // Header33 + six bounded owner records + row count2 + rows + reducer length2.
 constexpr std::size_t Transaction::maximum_bank_bytes() {

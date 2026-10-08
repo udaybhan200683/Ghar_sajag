@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <unistd.h>
 
 #define REQUIRE(expression) do { if (!(expression)) { \
     std::fprintf(stderr, "PROBE_FAIL %s:%d: %s\n", __FILE__, __LINE__, #expression); \
@@ -26,6 +27,9 @@ extern "C" int __wrap_mkstemp(char* path) {
 }
 namespace diag {
 bool active = false, frozen = false, latch = false, verbose = false;
+// New compact tests terminate the child immediately at a cut. No SDK cleanup,
+// read, commit, or application operation runs on a supposedly powered-off device.
+bool hard_stop = false;
 size_t units = 0, calls = 0, entry_writes = 0, logical_bytes = 0;
 const esp_partition_t* part = nullptr;
 unsigned peak_live=0, peak_pages=0;
@@ -63,6 +67,7 @@ extern "C" esp_err_t __wrap_esp_partition_write(const esp_partition_t* p, size_t
         return ESP_ERR_FLASH_OP_FAIL;
     }
     auto rc = __real_esp_partition_write(p,o,d,n);
+    if(diag::hard_stop && rc!=ESP_OK){std::printf("COMPACT_POWER_CUT operation=write offset=%zu bytes=%zu\n",o,n);_exit(77);}
     if (rc == ESP_OK && o % 4096 >= 64) diag::entry_writes += (n + 31)/32;
     if (diag::active) {
         diag::units += n/4; ++diag::calls;
@@ -82,6 +87,7 @@ extern "C" esp_err_t __wrap_esp_partition_write_raw(const esp_partition_t* p, si
         std::printf("PAGE_TRANSITION page=%zu state=%08x\n",o/4096,state);
     }
     auto rc = __real_esp_partition_write_raw(p,o,d,n);
+    if(diag::hard_stop && rc!=ESP_OK){std::printf("COMPACT_POWER_CUT operation=raw_write offset=%zu bytes=%zu\n",o,n);_exit(77);}
     if (rc == ESP_OK && o % 4096 >= 64) diag::entry_writes += (n + 31)/32;
     if (diag::active) {
         diag::units += n/4; ++diag::calls;
@@ -94,6 +100,7 @@ extern "C" esp_err_t __wrap_esp_partition_write_raw(const esp_partition_t* p, si
 extern "C" esp_err_t __wrap_esp_partition_erase_range(const esp_partition_t* p,size_t o,size_t n) {
     if (diag::active && diag::frozen) return ESP_ERR_FLASH_OP_FAIL;
     auto rc=__real_esp_partition_erase_range(p,o,n);
+    if(diag::hard_stop && rc!=ESP_OK){std::printf("COMPACT_POWER_CUT operation=erase offset=%zu bytes=%zu\n",o,n);_exit(77);}
     if (diag::active) {
         diag::units += n/4096; ++diag::calls;
         if (diag::verbose) std::printf("IO erase call=%zu units=%zu offset=%zu size=%zu result=%s\n",diag::calls,diag::units,o,n,esp_err_to_name(rc));
@@ -160,9 +167,11 @@ void metric(const char* phase, unsigned iteration, const esp_partition_t* part) 
 }
 
 #include "offline_probe.hpp"
+#include "compact_probe.hpp"
 
 int main(int argc, char** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);
+    if(argc>1 && std::strcmp(argv[1],"compact")==0)return compact_probe(argc,argv);
     if(argc>1 && std::strcmp(argv[1],"offline")==0)return offline_probe(argc,argv);
     const unsigned segment_count = argc > 1 ? static_cast<unsigned>(std::strtoul(argv[1], nullptr, 10)) : 7;
     const unsigned cycle_count = argc > 2 ? static_cast<unsigned>(std::strtoul(argv[2], nullptr, 10)) : 100;

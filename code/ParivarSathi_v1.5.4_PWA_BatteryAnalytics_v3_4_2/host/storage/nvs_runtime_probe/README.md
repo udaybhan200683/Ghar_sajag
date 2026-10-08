@@ -5,6 +5,12 @@ emulated flash partition. It does not enter a firmware target. Values are
 length-matched dummy blobs, not the frozen codec or an authenticated lifecycle
 transaction. `partitions.csv` allocates a 128 KiB test NVS partition only.
 
+The separate `compact` mode now links the native transaction, compact representation,
+canonical retirement validation and OpenSSL host crypto to real SDK NVS. Original
+dummy-value modes remain unchanged. Its ordinary-flash publication provider is an
+explicit **negative candidate** for the native non-rollback authority contract.
+SDK PASS does not mean production GO.
+
 Build from this probe directory with ESP-IDF's Linux target:
 
 ```sh
@@ -105,3 +111,28 @@ dummy blobs byte-for-byte. Expected PASS includes `progress=BLOCKED` and
 `ESP_ERR_NVS_NOT_ENOUGH_SPACE`; it proves preservation in this case, not a protected
 allocator reserve or production readiness. See
 `R1_HUB_STORAGE_IMPLEMENTATION_READINESS_20261008.md` and its focused host log.
+
+## Compact transaction feasibility
+
+After the existing build, run `run_compact.py --suite basic --output /tmp/compact-basic.log`,
+`--suite cuts --output /tmp/compact-cuts.log`, or `--suite capacity --output /tmp/compact-capacity.log`.
+Use `--case fault 1087 gc` for one targeted cut, `--case cfault 2` for collection,
+or `--case rfault 64` for retirement. `--binary` accepts the existing host sanitizer
+probe. The capacity suite is four coexistence fixtures (36/448-byte bodies), **not**
+the72-hour matrix. Each log includes the executable hash; synthetic48/64-page
+descriptors do not modify CSVs. Each child-emitted emulator image alone is removed.
+
+Cuts fork a process sharing the SDK's flash image. On the first injected write/
+erase failure the child exits immediately, prohibiting every subsequent simulated
+operation. Parent RAM was deinitialized before fork and mounts persisted bytes
+afresh. Tests require exact old/new state, credit/report recovery and retry effects.
+GC-primed fixtures exercise actual SDK page copying/erases; direct cuts2/1087 hit
+erase operations. Collection protects the authenticated selected root's dependencies.
+Older candidate banks have no recovery authority.
+
+`rollback` restores an intact older partition after a later successful admission,
+demonstrating stale authenticated recovery. `pressure` demonstrates repeated no-ACK
+space rejection while preserving an accepted body, plus failed checkpoint progress.
+There is **no qualified protected allocator reserve**. Object counts, attempts and
+reclamation are bounded, but this is a NO-GO witness, not a deployment provider.
+See `docs/exec-plans/evidence/R1_STORAGE_COMPACT_NVS_FEASIBILITY_20261008.md`.

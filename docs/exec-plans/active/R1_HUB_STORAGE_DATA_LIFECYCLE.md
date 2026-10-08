@@ -1744,3 +1744,40 @@ the complete next-operation reservation and all recovery dependencies, and
 separately provide the trusted publication primitive. Supported-volume/saturation,
 target RAM/OTA/rollback and remaining product/Node qualification are still open.
 STOP after host code/tests/evidence commit; production integration remains NO.
+
+## 33. Compact real-SDK transaction feasibility — 2026-10-08
+
+[Focused executable evidence](../evidence/R1_STORAGE_COMPACT_NVS_FEASIBILITY_20261008.md)
+and [raw tests](../evidence/R1_STORAGE_COMPACT_NVS_FEASIBILITY_20261008.log)
+reuse native admission/report/credit validation with immutable encrypted bodies,
+independent reducer objects and smaller authenticated manifests. Reviewed2b3c673
+was pushed/fetched/verified; the new experiment is not pushed. Context.001 PASS;
+canonical, production, partitions and BAT-C8 unchanged.
+
+**Outcome BLOCKED_PUBLICATION_AUTHORITY; production integration NO.** Real NVS
+single-key publication is not atomic multi-key CAS or independent monotonic
+authority. Restoring an intact old flash image after successful admission recovers
+stale authenticated state. Detected selected dependency/head damage fails closed;
+do not generalize those cases to valid older-state replay. An explicit trusted
+publication primitive or product/security threat-model decision is required;
+larger flash/MCU alone cannot solve it. Native Gate A/B remain PASS only in their
+declared owner/report/independent-authority host scope.
+
+**Gate C protected progress FAIL.** Near-full NVS preserves an accepted body,
+credit/root and reducer through three no-ACK admission failures, but required
+checkpoint replacement still fails NOT_ENOUGH_SPACE. No protected application
+reserve/guard is qualified. Scoped event/report/GC/reclamation cuts pass old/new
+recovery and exact retries; child execution stops immediately on injected cut.
+Host compact384 maximum manifest16649 B, retained payload241379 B; conservative
+max logical COW coexistence266926 B excludes NVS overhead/anchor. Real SDK384-body
+fixtures stop at369(128 KiB/36 B),151(128/448),242(192/448),332(256/448), safely
+preserving accepted rows. These exclude full production allocations and are not
+72h guarantees or admission thresholds. No broad capacity matrix was repeated.
+
+Existing qualified image1864624 B remains prior evidence; available canonical
+artifact now measures1865616 B without requalified build provenance. Arithmetic
+OTA margin100464 B current /34928 B limiting reviewed192/256 layouts; integrated
+growth/RAM unknown. Supported-volume/saturation/backend/time/coverage and Node
+qualification stay open. Stop after the host/SDK/evidence commit. Next obtain the
+freshness/anchor and operational flash/OTA envelope decisions before further
+allocator optimization or any production admission/recovery integration.
