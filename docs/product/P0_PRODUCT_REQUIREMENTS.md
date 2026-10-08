@@ -124,3 +124,30 @@ quiet gap, progress frequency, backend summary protocol and NVS partition size
 remain OPEN. These requirements do not qualify capacity/hardware or approve
 production integration. Detailed authority: [Decision Log](DECISION_LOG.md) and
 [storage/sync contract](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md).
+
+## Durable-storage security and FOTA recovery — GS-D029
+
+**LOCKED; R1:** crash-consistent durable storage is required through ordinary power
+failures and interrupted flash operations. Detect corrupted, missing or inconsistent
+state and fail closed when trustworthy recovery is impossible. Stale or uncertain
+routine state must never silently appear current; preserve NO_ACTIVITY versus
+NO_OBSERVATION. Authenticated Node ownership, durable-before-ACK, retry/deduplication,
+retirement-credit correctness and protected recovery dependencies remain mandatory.
+
+Deliberate restoration of an otherwise valid older flash image is outside R1's
+stored-data freshness detection guarantee. This limitation must be explicit;
+AES-GCM must not be described as malicious full-flash rollback protection.
+The exclusion does not relax ordinary crash recovery or detected-corruption rules.
+
+Automatic FOTA APPLICATION rollback remains MANDATORY: a failed update must normally
+return to the previous valid firmware using ESP-IDF OTA rollback. Preserve signed
+FOTA, firmware validation and compatibility with storage written by an unsuccessful
+upgrade; the prior valid firmware must recover supported state correctly or fail
+closed. Do not erase accepted evidence or report stale state to manufacture recovery.
+Application rollback is distinct from deliberate stored-data rollback.
+
+No security hardware, ESP32-S3 upgrade or partition change is approved. Gate C
+protected NVS capacity/progress and the 72-hour volume/capacity guarantee remain
+OPEN; BAT-C8 and existing hardware/qualification scope are unchanged. Product approval
+is not new implementation or physical qualification. Authority: [Decision Log](DECISION_LOG.md)
+and [storage contract](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md).

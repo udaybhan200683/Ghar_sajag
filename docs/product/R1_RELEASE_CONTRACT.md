@@ -62,6 +62,32 @@ Preserve:
 - versioned storage/FOTA behavior;
 - no silent erase/reset as recovery policy.
 
+## Durable-storage security and application rollback — GS-D029
+
+**LOCKED:** R1 storage must remain crash-consistent during ordinary power failures
+and interrupted flash operations. Detect corrupted, missing or inconsistent state;
+if trustworthy recovery is impossible, fail closed. Never silently present stale
+or uncertain routine state as current. Preserve authenticated ownership, durable-
+before-ACK, retry/deduplication, retirement credits and protected recovery dependencies.
+
+Deliberate restoration of an otherwise valid older flash image is outside R1's
+stored-data freshness detection guarantee. State this limitation explicitly;
+AES-GCM is not malicious full-flash rollback protection. Ordinary power-failure
+recovery and detected-corruption handling remain mandatory; this exclusion is not
+permission for stale fallback, fabricated observation or erased accepted evidence.
+
+Automatic FOTA APPLICATION rollback is MANDATORY. Failed firmware updates must
+normally return to the previous valid firmware through ESP-IDF OTA rollback.
+Preserve signed FOTA, firmware validation and compatibility with storage created
+by an unsuccessful upgrade. The previous valid firmware must recover supported
+state correctly or fail closed, without silent erase/reset or stale-state success.
+Application rollback is separate from stored-data rollback and is not waived.
+
+No new security hardware, MCU upgrade or partition change is approved. Gate C
+protected NVS capacity/progress and the 72-hour event-volume/capacity guarantee
+remain unresolved. This decision does not establish production integration or
+physical firmware/storage qualification.
+
 ## Hardware scope
 
 - Hub: existing 4 MB target.
