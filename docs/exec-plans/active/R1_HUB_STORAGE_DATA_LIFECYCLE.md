@@ -1615,3 +1615,42 @@ the eight governance files listed in R1_WORK_STATE on the canonical branch.
 Review this implementation-design status section separately from canonical
 governance promotion. Do not weaken preflight, auto-promote, begin the Node
 semantic proof or integrate storage in this run.
+
+## 30. Bounded battery-first delivery finding — 2026-10-08
+
+[Focused delivery evidence](../evidence/R1_NODE_DELIVERY_PRIORITY_STORAGE_IMPACT_20261008.md)
+recommends **RETAIN_CURRENT_DELIVERY** for Hub storage. Existing ESP-NOW single-event
+frames, PIR coalescing, authenticated-contact health suppression and ACK-driven
+pending drain already supply reusable mechanisms. No AP association per Motion;
+light-sleep returns restore Wi-Fi/ESP-NOW even without an application frame.
+Holding pending records presently inhibits sleep and suppresses health, so a
+standalone defer-to-health optimization is not safe or a demonstrated battery win.
+
+Batching original events leaves semantic identities, Hub durable admissions,
+backend backlog and logical persistence work unchanged. Reuse source-derived72h
+Node inputs1152/5328/10452 (literal45s STRESS, not a worst-case promise) and Hub
+inputs1176/5352/10476 with24 local outcomes; adverse46s and earlier abstract stress
+fixtures retain their stated limits. No changes to128/192/256 KiB capacity results,
+retained-history summary counts, record sizes or write/wear estimates. No full
+storage matrix or compression work rerun.
+
+If future Node power work batches deferred releases, separately prove temporal
+arrival/admission peaks:32 pending per Node,192 across six, callback16/ingest32,
+per-event durable ACK and report/COW/GC interleaving. Unchanged A needs no new
+burst experiment. Never reduce admission credits or claim fewer NVS writes from
+shared RF sessions. Current quiet Node retries without new PIR; new holding must
+also guarantee bounded expiry, urgent selection, sleep-safe persistence and health.
+
+Ten focused unchanged-component host counterexample groups PASS: limited priority,
+28+4 reserve, exact reboot/ACK drain, pending sleep/health inhibition, late morning
+and inactivity, event-time night classification and reordered door/motion effects.
+Deferred equivalence requires approved deadline/time/coverage/late-order contracts;
+current secure target trusted time/timer and learned daily state remain unqualified.
+Keep this in separate BAT-C8/Node work; no new Node protocol blocks Hub storage.
+
+Canonical promotion3b72892 is complete; source/canonical context2026-10-08.001
+preflight PASS. GS-D025–028 unchanged. No production/partition/BAT-C8/backend/PWA,
+canonical governance, Jira or hardware changes; no push. Next bounded Hub work is
+persisted authenticated admission/retirement credits/report/root and protected
+next-operation COW/GC progress on the existing event stream, with policy closure
+before production. STOP after the coherent supporting-investigation commit.
