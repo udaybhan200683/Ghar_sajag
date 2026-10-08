@@ -1704,3 +1704,43 @@ Focused C++ and ASan+UBSan checks PASS, including explicitly expected blockers;
 SDK preservation case PASS with progress BLOCKED. Production integration remains
 NO. STOP after host-only validation/evidence commit; no new-proof push or canonical
 promotion.
+
+## 32. Host-native Gate A/B corrective transaction — 2026-10-08
+
+[Corrective evidence](../evidence/R1_STORAGE_NATIVE_TRANSACTION_CORRECTION_20261008.md)
+and [raw regressions/sanitizers](../evidence/R1_STORAGE_NATIVE_TRANSACTION_20261008.log)
+record actual host implementation in `P/host/storage/native_transaction.{hpp,cpp}`.
+The reviewed readiness3d63505 checkpoint was pushed and verified at origin;
+new experimental changes are not pushed. Context2026-10-08.001 remains PASS;
+canonical/production/partition/BAT-C8 files are unchanged.
+
+**Gate A PASS in defined host scope:** six retained Active/Retiring owners,
+globally nonreused generation, complete authenticated32-key reports and explicit
+persisted W32 uncovered credit. Encoded authenticated bank recovery validates
+charged counts against exact rows. Tested maximum384 exact identities; missing
+reports stop new admission, duplicates spend nothing, generation/reboot/rejoin
+never refill. Revocation keeps accepted rows/dependencies and consumes an owner
+slot until a complete drained report plus no required rows permit release.
+Seventh owner is Full. This is no product W/reserve/volume approval.
+
+**Gate B host PASS with explicit trusted publication authority; target primitive
+BLOCKED.** Inactive full bank is written/authenticated/read back before CAS
+publication of a versioned exact-bank head. Recovery never scans/falls back to
+an older bank; corrupt/missing latest data, false credit metadata or uncertain
+authority fail closed without ACK. Eight event/report crash points, old-head
+replay, report conflicts, exact reboot/rejoin retries and live dependency cases
+PASS with ASan+UBSan. Original legacy regressions remain intact. BlobStore alone
+does not supply durable non-rollback CAS authority; the fixed-size independent
+host witness is an explicit test assumption, not an ESP32 implementation.
+
+**Gate C OPEN.** No NVS matrix rerun or allocator progress claim. One candidate
+bank write plus one authority publication per mutation, no internal retry/erase
+loop. The conservative complete reference bank maximum201573 B is measured by
+the maximal serialized fixture; head86 B. Two banks+head403232 logical B; a
+three-blob COW plus old/new head allowance604891 B before provider/entry/page/GC
+cost. This reference cannot be copied into current128 KiB production. Next map
+its proven logical invariants onto existing compact NVS objects, bound/protect
+the complete next-operation reservation and all recovery dependencies, and
+separately provide the trusted publication primitive. Supported-volume/saturation,
+target RAM/OTA/rollback and remaining product/Node qualification are still open.
+STOP after host code/tests/evidence commit; production integration remains NO.

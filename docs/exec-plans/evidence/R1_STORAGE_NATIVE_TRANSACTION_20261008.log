@@ -1,0 +1,41 @@
+START_HEAD=3d63505067024be92b719f89fc4195c2f90544c8
+CONTEXT=2026-10-08.001
+SCOPE=host-native corrective transaction; trusted publication authority required; Gate C OPEN
+SOURCE_SHA256=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/native_transaction.hpp b14bf23017a51fea69a66b31dccd374e37f0ace3231dbbfeb0c1afeefc94ea82
+SOURCE_SHA256=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/native_transaction.cpp 740b99cbf09e9442b534a68e5e8a3e5d3c5bee7ee87bff179cc5b84ab00b8d9a
+SOURCE_SHA256=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/storage_native_transaction_validation.cpp 41c8578ab3f64c29e2f43e30d1d1581555094232fd37f784b6e485df85139f37
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/storage_readiness_validation LABEL=ORIGINAL_REGRESSIONS EXECUTION=outside_sandbox
+BINARY_SHA256=942c1a75a515cfe88d1bf72cf79e3093a95ef224217f02e6505504bb3dd98328
+EXIT=0
+CONDITIONAL_ADMISSION_PASS keys=384 lost_report=stop retry=preserved atomic_model_only=1
+PRODUCTION_CREDIT_BLOCKER uncovered_one_owner=33 node_queue_peak_can_be=1
+ROOT_FRESHNESS_BLOCKER selected_child=corrupt published_generation=2 recovered_generation=1 reducer=old
+ROOT_FRESHNESS_BLOCKER selected_child=missing published_generation=2 recovered_generation=1 reducer=old
+REPORT_OWNER_BLOCKER selected_only_mask=old_root_child_damaged selected_child=valid
+REPORT_UNION_MASK_PASS both_old_and_selected_children_survive=1
+STORAGE_READINESS_HOST_PASS readiness=NO blockers_reproduced=4
+
+COMMAND=/tmp/gs_native_transaction_sanitized LABEL=ASAN_UBSAN EXECUTION=outside_sandbox
+BINARY_SHA256=ce3784a6e356522dcb2a5e83b1b79a7436190e54545abb0c5e53dc33e33ace2f
+EXIT=0
+ADMISSION_REPORT_PASS W=32 credit_reboot=32 report_progress=only_auth_complete forged=reject
+OWNER_BOUND_PASS retained=6 seventh=Full retiring=charged release=dependency_gated
+FULL_BOUND_PASS exact_identities=384 owners=6 W=32 fixed_keys=2 banks_max_bytes=201573 authority_bytes=86
+CRASH_PASS cut=1 recovery=valid notification=none
+CRASH_PASS cut=2 recovery=valid notification=none
+CRASH_PASS cut=3 recovery=valid notification=none
+CRASH_PASS cut=4 recovery=valid notification=none
+CRASH_PASS cut=5 recovery=fail_closed notification=none
+CRASH_PASS cut=6 recovery=valid notification=none
+STALE_ROOT_REGRESSION_PASS child=corrupt old_bank_present=1 fallback=forbidden
+STALE_ROOT_REGRESSION_PASS child=missing old_bank_present=1 fallback=forbidden
+FRESHNESS_PRIMITIVE_PASS old_authenticated_head=reject unavailable_authority=fail_closed
+RETIREMENT_CRASH_PASS cut=3 accepted_body=preserved credit=1
+RETIREMENT_CRASH_PASS cut=6 accepted_body=preserved credit=0
+CREDIT_CONTRADICTION_PASS valid_aead_and_head=1 false_credit_reset=fail_closed
+DEPENDENCY_FAILURE_PASS no_unsafe_reclaim=1 api_ambiguity=resolved partial_credit=not_selected
+NATIVE_TRANSACTION_HOST_PASS gate_A=PASS_DEFINED_SCOPE gate_B=PASS_WITH_TRUSTED_AUTHORITY gate_C=OPEN
+
+FOCUSED_REGRESSIONS_AND_NATIVE_ASAN_UBSAN=PASS
+TARGET_PUBLICATION_AUTHORITY=UNIMPLEMENTED
+GATE_C=OPEN
