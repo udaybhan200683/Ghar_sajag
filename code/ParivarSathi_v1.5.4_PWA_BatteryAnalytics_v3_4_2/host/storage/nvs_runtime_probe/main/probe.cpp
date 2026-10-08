@@ -171,6 +171,13 @@ void metric(const char* phase, unsigned iteration, const esp_partition_t* part) 
 
 int main(int argc, char** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);
+    if(argc>1 && std::strcmp(argv[1],"offline")==0) {
+        if(const auto* size=std::getenv("GS_EMULATOR_FLASH_BYTES")) {
+            const auto bytes=std::strtoul(size,nullptr,10);
+            REQUIRE(bytes==4194304); // Capacity-only host mapping, no target I/O.
+            esp_partition_get_file_mmap_ctrl_input()->flash_file_size=bytes;
+        }
+    }
     if(argc>1 && std::strcmp(argv[1],"compact")==0)return compact_probe(argc,argv);
     if(argc>1 && std::strcmp(argv[1],"offline")==0)return offline_probe(argc,argv);
     const unsigned segment_count = argc > 1 ? static_cast<unsigned>(std::strtoul(argv[1], nullptr, 10)) : 7;

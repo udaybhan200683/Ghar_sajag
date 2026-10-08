@@ -1818,3 +1818,28 @@ change or experimental push. Existing4 MiB/128 KiB workload and OTA limitations
 remain. Next decide supported workload and feasible flash/OTA engineering envelope
 before production integration; any relaxed/replenished workspace boundary needs
 its own focused SDK proof. No automatic new investigation or MCU selection.
+
+## 35. Flash/OTA capacity decision — 2026-10-08
+
+[Focused decision and SDK evidence](../evidence/R1_FLASH_OTA_CAPACITY_DECISION_20261008.md):
+**EVALUATE_8MB_FOR_R1**, classic ESP32 with proposed2 MiB journal and two2.5 MiB
+OTA slots. Not product approval, a partition change or production readiness.
+Available Hub artifact1865616 B leaves755824 B per proposed slot; current4 MiB
+margin100464 B. A4 MiB/512 KiB journal layout cannot fit that image. Five temporary
+layouts validate SDK alignment/flash limits. Frozen512 KiB NORMAL mixed,
+1 MiB HIGH door/user and2 MiB literal STRESS mixed capacity fixtures pass load,
+32 updates and remount; conditional histories/critical placeholders remain unapproved.
+384 unretired identities are not1176/5352/10476+ offline records; the candidate's
+384 pinned-body cap still needs durable history/outbox separation.
+
+New authenticated SDK counterexample:26 fully retired/consumer-complete bodies,
+one backend-pinned body remaining,5320 logical bytes; admission rejects because
+only14 erased pages certify against15 required. Logical collection does not
+replenish the guard's workspace. Three rejects/remount preserve current root/body
+without writes; lost-ACK effects remain deduplicated. Gate C safe rejection proof
+stands; **sustained progress remains unimplemented**. Next bounded SDK correction
+is reserve restoration with dependency protection and interruption proof, alongside
+explicit workload/critical/saturation and flash/growth approval. No raw-flash erase,
+Node redesign, new timestamp compression, purchase, production integration or push.
+Target RAM, integrated/signed image, real flash endurance and storage-compatible
+failed-update rollback remain qualification gates. GS-D025–029/context.002 unchanged.

@@ -1,0 +1,176 @@
+[
+  {
+    "source_sha256": "57463dfa70abe25331d1f959259a2b1a059e46b9488e981e901d734da09fd1a5",
+    "source_model": "gs-node-motion-cases.json",
+    "scenario": "NORMAL",
+    "profile": "mixed",
+    "pages": 128,
+    "inputs": 1176,
+    "history_segments": 33,
+    "cow_segments": 8,
+    "reserve_events": 32,
+    "protected_peak_bytes": 278528,
+    "object_size_runs": [
+      [
+        4079,
+        6
+      ],
+      [
+        3485,
+        3
+      ],
+      [
+        6144,
+        3
+      ],
+      [
+        512,
+        2
+      ],
+      [
+        4096,
+        2
+      ],
+      [
+        320,
+        4
+      ],
+      [
+        4096,
+        43
+      ],
+      [
+        3485,
+        1
+      ],
+      [
+        6144,
+        1
+      ],
+      [
+        512,
+        2
+      ],
+      [
+        124,
+        32
+      ]
+    ]
+  },
+  {
+    "source_sha256": "7b5a4365628447c5d76e42e9a4caacbd3f0dbf085d45c3aa402c30aea286090b",
+    "source_model": "gs-72h-cases.json",
+    "scenario": "HIGH",
+    "profile": "door_user",
+    "pages": 256,
+    "inputs": 5352,
+    "history_segments": 182,
+    "cow_segments": 8,
+    "reserve_events": 32,
+    "protected_peak_bytes": 913408,
+    "object_size_runs": [
+      [
+        4079,
+        6
+      ],
+      [
+        3485,
+        3
+      ],
+      [
+        6144,
+        3
+      ],
+      [
+        512,
+        2
+      ],
+      [
+        4096,
+        2
+      ],
+      [
+        320,
+        4
+      ],
+      [
+        4096,
+        192
+      ],
+      [
+        3485,
+        1
+      ],
+      [
+        6144,
+        1
+      ],
+      [
+        512,
+        2
+      ],
+      [
+        124,
+        32
+      ]
+    ]
+  },
+  {
+    "source_sha256": "57463dfa70abe25331d1f959259a2b1a059e46b9488e981e901d734da09fd1a5",
+    "source_model": "gs-node-motion-cases.json",
+    "scenario": "STRESS",
+    "profile": "mixed",
+    "pages": 512,
+    "inputs": 10476,
+    "history_segments": 293,
+    "cow_segments": 8,
+    "reserve_events": 32,
+    "protected_peak_bytes": 1384448,
+    "object_size_runs": [
+      [
+        4079,
+        6
+      ],
+      [
+        3485,
+        3
+      ],
+      [
+        6144,
+        3
+      ],
+      [
+        512,
+        2
+      ],
+      [
+        4096,
+        2
+      ],
+      [
+        320,
+        4
+      ],
+      [
+        4096,
+        303
+      ],
+      [
+        3485,
+        1
+      ],
+      [
+        6144,
+        1
+      ],
+      [
+        512,
+        2
+      ],
+      [
+        124,
+        32
+      ]
+    ]
+  }
+]

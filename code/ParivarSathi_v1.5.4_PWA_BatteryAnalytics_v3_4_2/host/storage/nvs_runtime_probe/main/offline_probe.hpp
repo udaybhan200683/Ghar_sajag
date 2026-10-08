@@ -23,7 +23,9 @@ int offline_probe(int argc,char** argv) {
     const auto* original=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_NVS,part_name);
     REQUIRE(original);auto synthetic=*original;
     if(const char* p=std::getenv("GS_DIAG_PAGES"))synthetic.size=std::strtoul(p,nullptr,10)*4096;
-    pages=synthetic.size/4096;REQUIRE(pages>=32 && pages<=64);
+    // Capacity-only emulator fixtures may explore larger flash proposals.
+    // This descriptor is not a production partition table or guard approval.
+    pages=synthetic.size/4096;REQUIRE(pages>=32 && pages<=512);
     const auto* part=&synthetic;diag::part=part;
     REQUIRE(esp_partition_erase_range(part,0,part->size)==ESP_OK);
     esp_partition_clear_stats();REQUIRE(nvs_flash_init_partition_ptr(part)==ESP_OK);

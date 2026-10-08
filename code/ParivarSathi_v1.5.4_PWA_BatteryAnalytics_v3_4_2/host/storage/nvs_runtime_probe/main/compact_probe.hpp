@@ -195,6 +195,7 @@ int compact_probe(int argc,char** argv) {
     REQUIRE(part.size>=131072&&part.size<=262144);pages=part.size/4096;diag::part=&part;
     REQUIRE(esp_partition_erase_range(&part,0,part.size)==ESP_OK);
     REQUIRE(nvs_flash_init_partition_ptr(&part)==ESP_OK);
+    if(mode=="reclaim")return protected_reclamation_probe(&part);
     if(mode=="gmax")return protected_max_report_probe(&part);
     if(mode=="gio")return protected_io_probe();
     if(mode=="guard"||mode=="guardfull"||mode=="guardbusy")return protected_probe(&part,mode=="guardfull",

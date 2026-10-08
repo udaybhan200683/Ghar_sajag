@@ -1,4 +1,64 @@
 // Included after the real NVS Store/Fixture definitions, never a firmware TU.
+int protected_reclamation_probe(const esp_partition_t* part) {
+    using namespace compact_sdk;
+    // The SDK emulator allocates per-sector counters without initializing
+    // them. Establish the measurement baseline before this focused fixture.
+    esp_partition_clear_stats();
+    Proof owner;unsigned completed=0,next=2;std::uint64_t generation=0;
+    {
+        Fixture f(true);owner=f.enroll(0);
+        REQUIRE(f.tx.checkpoint_reducer(Bytes(4096,0x11))==Result::Committed);f.collect();
+        // Keep one acknowledged body pinned by a pending backend dependency.
+        REQUIRE(f.admit(owner,1,Bytes(448,0x42),Bytes(4096,0x11))==Result::Committed);f.collect();
+        f.s.protected_space=true;diag::active=true;
+        diag::peak_live=0;diag::peak_pages=0;diag::observe();
+        const auto erases=esp_partition_get_erase_ops();
+        bool rejected=false;
+        for(;next<=128;++next) {
+            const auto r=f.admit(owner,next,Bytes(448,0x43),Bytes(4096,0x11));
+            if(r!=Result::Committed) {
+                REQUIRE(f.s.result(r)==SpaceOutcome::InsufficientProtectedSpace);
+                rejected=true;break;
+            }
+            f.collect();
+            const auto writes=f.s.writes;
+            REQUIRE(f.tx.recover());
+            REQUIRE(f.admit(owner,next,Bytes(448,0x43),Bytes{})==Result::Duplicate);
+            REQUIRE(f.s.writes==writes); // Lost ACK, no second business effect.
+            REQUIRE(f.report(owner,next-1,next)==Result::Committed);f.collect();
+            // Host caller supplies trusted local completion and durable backend
+            // acceptance. This models a receipt, not a backend implementation.
+            REQUIRE(f.tx.dependencies_complete(owner,1,next,true,true)==Result::Committed);f.collect();
+            REQUIRE(f.tx.recover()&&f.tx.state()->rows.size()==1&&
+                f.tx.state()->rows[0].sequence==1&&f.tx.state()->rows[0].backend&&
+                f.tx.state()->rows[0].body==Bytes(448,0x42)&&f.tx.state()->owners[0].charged==0);
+            ++completed;
+        }
+        REQUIRE(rejected&&completed>0);
+        generation=f.tx.state()->generation;
+        const auto writes=f.s.writes;
+        for(unsigned retry=0;retry<3;++retry) {
+            REQUIRE(f.s.result(f.admit(owner,next,Bytes(448,0x43),Bytes(4096,0x11)))==
+                SpaceOutcome::InsufficientProtectedSpace);
+            REQUIRE(f.s.writes==writes&&f.tx.recover()&&f.tx.state()->generation==generation);
+        }
+        REQUIRE(esp_partition_get_erase_ops()==erases);
+        std::printf("RECLAMATION_COUNTEREXAMPLE completed=%u live_rows=1 payload=%zu certified_free_pages=%zu required_pages=%zu gc_erases=0 repeated_reject_writes=0 peak_pages=%u peak_live_entries=%u\n",
+            completed,payload(f.s),f.s.certified_free,f.s.reservation.required_free_pages,
+            diag::peak_pages,diag::peak_live);
+        metric("reclamation_rejected",completed,part);
+    }
+    remount(part);Fixture f(false);f.s.protected_space=true;
+    REQUIRE(f.tx.state()->generation==generation&&f.tx.state()->rows.size()==1&&
+        f.tx.state()->rows[0].body==Bytes(448,0x42)&&f.tx.state()->reducer==Bytes(4096,0x11));
+    const auto writes=f.s.writes;
+    REQUIRE(f.s.result(f.admit(owner,next,Bytes(448,0x43),Bytes(4096,0x11)))==
+        SpaceOutcome::InsufficientProtectedSpace);
+    REQUIRE(f.s.writes==writes);
+    std::printf("RECLAMATION_SAFE_REJECTION_PASS current_root=valid pinned_body=preserved restart=verified sustainable_progress=NOT_IMPLEMENTED\n");
+    return 0;
+}
+
 int protected_io_probe() {
     using namespace compact_sdk;
     Fixture f(true);const auto owner=f.enroll(0);

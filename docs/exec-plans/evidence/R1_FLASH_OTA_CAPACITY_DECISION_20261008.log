@@ -1,0 +1,243 @@
+START_HEAD=17ebe081c90d586e70f8a904c20392bc77af604d
+CONTEXT=2026-10-08.002
+HARDWARE_USED=NO
+PRODUCTION_INTEGRATION=NO
+
+Initial 2MiB mmap boundary failure (corrected in host harness)
+IMAGE_BYTES=1865616
+IMAGE_PATH=/home/udaybhan/projects/Ghar_sajag_r1/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/build/gs_hw_m1_hub.bin
+IMAGE_SHA256=8a3a91baf00a2fb4480b5afae31e9cbc40bc253800d751abdb815d5046e787fe
+FIXTURES_SHA256=645ab1339c945b5a83fef279a473bf8b76c277f7ae2482b54f0fc1e2caf698f1
+SDK_BINARY_SHA256=641dc864b46275134afbd4f360d425bfe7043bce1216a8bff12fca8c7fe521f0
+LAYOUT={"name": "4MB_current", "flash_bytes": 4194304, "ota_slot_bytes": 1966080, "journal_bytes": 131072, "image_margin": 100464, "spare_bytes": 0, "ota0": "0x20000", "ota1": "0x200000", "journal_offset": "0x3e0000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x1e0000
+ota_1,app,ota_1,0x200000,0x1e0000
+gs_journal,data,nvs,0x3e0000,0x20000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "4MB_512K_witness", "flash_bytes": 4194304, "ota_slot_bytes": 1769472, "journal_bytes": 524288, "image_margin": -96144, "spare_bytes": 0, "ota0": "0x20000", "ota1": "0x1d0000", "journal_offset": "0x380000", "image_fits": false}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x1b0000
+ota_1,app,ota_1,0x1d0000,0x1b0000
+gs_journal,data,nvs,0x380000,0x80000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "8MB_1M_option", "flash_bytes": 8388608, "ota_slot_bytes": 3145728, "journal_bytes": 1048576, "image_margin": 1280112, "spare_bytes": 917504, "ota0": "0x20000", "ota1": "0x320000", "journal_offset": "0x620000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x300000
+ota_1,app,ota_1,0x320000,0x300000
+gs_journal,data,nvs,0x620000,0x100000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "8MB_recommended", "flash_bytes": 8388608, "ota_slot_bytes": 2621440, "journal_bytes": 2097152, "image_margin": 755824, "spare_bytes": 917504, "ota0": "0x20000", "ota1": "0x2a0000", "journal_offset": "0x520000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x280000
+ota_1,app,ota_1,0x2a0000,0x280000
+gs_journal,data,nvs,0x520000,0x200000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "16MB_comparison", "flash_bytes": 16777216, "ota_slot_bytes": 3145728, "journal_bytes": 8388608, "image_margin": 1280112, "spare_bytes": 1966080, "ota0": "0x20000", "ota1": "0x320000", "journal_offset": "0x620000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x300000
+ota_1,app,ota_1,0x320000,0x300000
+gs_journal,data,nvs,0x620000,0x800000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+CASE={"source_sha256": "57463dfa70abe25331d1f959259a2b1a059e46b9488e981e901d734da09fd1a5", "source_model": "gs-node-motion-cases.json", "scenario": "NORMAL", "profile": "mixed", "pages": 128, "inputs": 1176, "history_segments": 33, "cow_segments": 8, "reserve_events": 32, "protected_peak_bytes": 278528}
+LOGICAL_OBJECT_BYTES=254606
+FIXTURE_SHA256=3490cd9f2a8aa07c1e9985bb5e2b013cc5fbcf54fc54a91abe8b538348d4ec5e
+NVS_RUNTIME phase=offline_loaded iteration=99 allocated_pages=66 free_erased_pages=62 live_entries=8222 erased_entries=0 stats_used=8222 stats_free=7906 write_bytes=269068 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=offline_recovered iteration=32 allocated_pages=127 free_erased_pages=1 live_entries=7879 erased_entries=7992 stats_used=7879 stats_free=8249 write_bytes=612984 erase_ops=22 min_sector_erases=0 max_sector_erases=1
+OFFLINE_PASS pages=128 peak_pages=127 peak_live_entries=8222 history=33 cow=8 arrivals=1176
+EMULATOR_IMAGE=/tmp/idf-partition-pMnzqv
+SDK_EXIT=0
+CASE={"source_sha256": "7b5a4365628447c5d76e42e9a4caacbd3f0dbf085d45c3aa402c30aea286090b", "source_model": "gs-72h-cases.json", "scenario": "HIGH", "profile": "door_user", "pages": 256, "inputs": 5352, "history_segments": 182, "cow_segments": 8, "reserve_events": 32, "protected_peak_bytes": 913408}
+LOGICAL_OBJECT_BYTES=864910
+FIXTURE_SHA256=4f8a8f0bda9bc7baf3e801b9a5f9bdc95b7387a55094afa0b449253092ce9d7c
+NVS_RUNTIME phase=offline_loaded iteration=248 allocated_pages=222 free_erased_pages=34 live_entries=27742 erased_entries=0 stats_used=27742 stats_free=4514 write_bytes=906552 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=offline_recovered iteration=32 allocated_pages=255 free_erased_pages=1 live_entries=27398 erased_entries=4489 stats_used=27398 stats_free=4858 write_bytes=1250584 erase_ops=50 min_sector_erases=0 max_sector_erases=2
+OFFLINE_PASS pages=256 peak_pages=255 peak_live_entries=27742 history=182 cow=8 arrivals=5352
+EMULATOR_IMAGE=/tmp/idf-partition-fEXwFb
+SDK_EXIT=0
+CASE={"source_sha256": "57463dfa70abe25331d1f959259a2b1a059e46b9488e981e901d734da09fd1a5", "source_model": "gs-node-motion-cases.json", "scenario": "STRESS", "profile": "mixed", "pages": 512, "inputs": 10476, "history_segments": 293, "cow_segments": 8, "reserve_events": 32, "protected_peak_bytes": 1384448}
+LOGICAL_OBJECT_BYTES=1319566
+FIXTURE_SHA256=128f2d424201ca87f412ce5efd985837433da8627e1ec68372dfeb9d304b08e9
+
+EMULATOR_IMAGE=/tmp/idf-partition-dfDx80
+PROBE_FAIL ./main/offline_probe.hpp:30: esp_partition_erase_range(part,0,part->size)==ESP_OK
+SDK_EXIT=-6
+
+Final aligned layouts and frozen capacity fixtures
+IMAGE_BYTES=1865616
+IMAGE_PATH=/home/udaybhan/projects/Ghar_sajag_r1/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/build/gs_hw_m1_hub.bin
+IMAGE_SHA256=8a3a91baf00a2fb4480b5afae31e9cbc40bc253800d751abdb815d5046e787fe
+FIXTURES_SHA256=c8ef134fe1120504c35ec423f1e9968b1a8f26e715a5a309eccb7a5775bb45be
+SDK_BINARY_SHA256=80eb2a0446b931084f4e26f6617aa226a81aeab68d488936d4eea0e79b98f278
+LAYOUT={"name": "4MB_current", "flash_bytes": 4194304, "ota_slot_bytes": 1966080, "journal_bytes": 131072, "image_margin": 100464, "spare_bytes": 0, "ota0": "0x20000", "ota1": "0x200000", "journal_offset": "0x3e0000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x1e0000
+ota_1,app,ota_1,0x200000,0x1e0000
+gs_journal,data,nvs,0x3e0000,0x20000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "4MB_512K_witness", "flash_bytes": 4194304, "ota_slot_bytes": 1769472, "journal_bytes": 524288, "image_margin": -96144, "spare_bytes": 0, "ota0": "0x20000", "ota1": "0x1d0000", "journal_offset": "0x380000", "image_fits": false}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x1b0000
+ota_1,app,ota_1,0x1d0000,0x1b0000
+gs_journal,data,nvs,0x380000,0x80000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "8MB_1M_option", "flash_bytes": 8388608, "ota_slot_bytes": 3145728, "journal_bytes": 1048576, "image_margin": 1280112, "spare_bytes": 917504, "ota0": "0x20000", "ota1": "0x320000", "journal_offset": "0x620000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x300000
+ota_1,app,ota_1,0x320000,0x300000
+gs_journal,data,nvs,0x620000,0x100000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "8MB_recommended", "flash_bytes": 8388608, "ota_slot_bytes": 2621440, "journal_bytes": 2097152, "image_margin": 755824, "spare_bytes": 917504, "ota0": "0x20000", "ota1": "0x2a0000", "journal_offset": "0x520000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x280000
+ota_1,app,ota_1,0x2a0000,0x280000
+gs_journal,data,nvs,0x520000,0x200000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+LAYOUT={"name": "16MB_comparison", "flash_bytes": 16777216, "ota_slot_bytes": 3145728, "journal_bytes": 8388608, "image_margin": 1280112, "spare_bytes": 1966080, "ota0": "0x20000", "ota1": "0x320000", "journal_offset": "0x620000", "image_fits": true}
+nvs,data,nvs,0x9000,0x6000
+otadata,data,ota,0xf000,0x2000
+phy_init,data,phy,0x11000,0x1000
+ota_0,app,ota_0,0x20000,0x300000
+ota_1,app,ota_1,0x320000,0x300000
+gs_journal,data,nvs,0x620000,0x800000
+
+Parsing CSV input...
+Verifying table...
+PARTITION_TOOL_EXIT=0
+CASE={"source_sha256": "57463dfa70abe25331d1f959259a2b1a059e46b9488e981e901d734da09fd1a5", "source_model": "gs-node-motion-cases.json", "scenario": "NORMAL", "profile": "mixed", "pages": 128, "inputs": 1176, "history_segments": 33, "cow_segments": 8, "reserve_events": 32, "protected_peak_bytes": 278528}
+LOGICAL_OBJECT_BYTES=254606
+FIXTURE_SHA256=3490cd9f2a8aa07c1e9985bb5e2b013cc5fbcf54fc54a91abe8b538348d4ec5e
+NVS_RUNTIME phase=offline_loaded iteration=99 allocated_pages=66 free_erased_pages=62 live_entries=8222 erased_entries=0 stats_used=8222 stats_free=7906 write_bytes=269068 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=offline_recovered iteration=32 allocated_pages=127 free_erased_pages=1 live_entries=7879 erased_entries=7992 stats_used=7879 stats_free=8249 write_bytes=612984 erase_ops=22 min_sector_erases=0 max_sector_erases=1
+OFFLINE_PASS pages=128 peak_pages=127 peak_live_entries=8222 history=33 cow=8 arrivals=1176
+EMULATOR_IMAGE=/tmp/idf-partition-LnNGES
+SDK_EXIT=0
+CASE={"source_sha256": "7b5a4365628447c5d76e42e9a4caacbd3f0dbf085d45c3aa402c30aea286090b", "source_model": "gs-72h-cases.json", "scenario": "HIGH", "profile": "door_user", "pages": 256, "inputs": 5352, "history_segments": 182, "cow_segments": 8, "reserve_events": 32, "protected_peak_bytes": 913408}
+LOGICAL_OBJECT_BYTES=864910
+FIXTURE_SHA256=4f8a8f0bda9bc7baf3e801b9a5f9bdc95b7387a55094afa0b449253092ce9d7c
+NVS_RUNTIME phase=offline_loaded iteration=248 allocated_pages=222 free_erased_pages=34 live_entries=27742 erased_entries=0 stats_used=27742 stats_free=4514 write_bytes=906552 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=offline_recovered iteration=32 allocated_pages=255 free_erased_pages=1 live_entries=27398 erased_entries=4489 stats_used=27398 stats_free=4858 write_bytes=1250584 erase_ops=50 min_sector_erases=0 max_sector_erases=2
+OFFLINE_PASS pages=256 peak_pages=255 peak_live_entries=27742 history=182 cow=8 arrivals=5352
+EMULATOR_IMAGE=/tmp/idf-partition-ITX1In
+SDK_EXIT=0
+CASE={"source_sha256": "57463dfa70abe25331d1f959259a2b1a059e46b9488e981e901d734da09fd1a5", "source_model": "gs-node-motion-cases.json", "scenario": "STRESS", "profile": "mixed", "pages": 512, "inputs": 10476, "history_segments": 293, "cow_segments": 8, "reserve_events": 32, "protected_peak_bytes": 1384448}
+LOGICAL_OBJECT_BYTES=1319566
+FIXTURE_SHA256=128f2d424201ca87f412ce5efd985837433da8627e1ec68372dfeb9d304b08e9
+NVS_RUNTIME phase=offline_loaded iteration=359 allocated_pages=337 free_erased_pages=175 live_entries=42283 erased_entries=0 stats_used=42283 stats_free=22229 write_bytes=1381392 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=offline_recovered iteration=32 allocated_pages=421 free_erased_pages=91 live_entries=41939 erased_entries=10757 stats_used=41939 stats_free=22573 write_bytes=1725252 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_PASS pages=512 peak_pages=421 peak_live_entries=42283 history=293 cow=8 arrivals=10476
+EMULATOR_IMAGE=/tmp/idf-partition-TgMd77
+SDK_EXIT=0
+FLASH_REVIEW_PASS layouts=5 capacity_fixtures=3
+BOUNDARY=length-matched objects; not authenticated 72h storage or target qualification; dummy emulator app unused
+
+Final protected reclamation counterexample
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=d9e555026107690d01f8c64aec887e4859fb0dbd4e7e3038969e940f65c0fb04
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact reclaim
+RECLAMATION_COUNTEREXAMPLE completed=26 live_rows=1 payload=5320 certified_free_pages=14 required_pages=15 gc_erases=0 repeated_reject_writes=0 peak_pages=17 peak_live_entries=211
+NVS_RUNTIME phase=reclamation_rejected iteration=26 allocated_pages=17 free_erased_pages=15 live_entries=180 erased_entries=1822 stats_used=180 stats_free=3852 write_bytes=69692 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+RECLAMATION_SAFE_REJECTION_PASS current_root=valid pinned_body=preserved restart=verified sustainable_progress=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-96rwUw
+EXIT=0
+COMPACT_SUITE_PASS cases=1
+
+Native/compact host regressions
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp host/storage/native_transaction.cpp tests/cpp/storage_native_transaction_validation.cpp -lcrypto -o build/storage_native_transaction_validation
+./build/storage_native_transaction_validation
+ADMISSION_REPORT_PASS W=32 credit_reboot=32 report_progress=only_auth_complete forged=reject
+OWNER_BOUND_PASS retained=6 seventh=Full retiring=charged release=dependency_gated
+FULL_BOUND_PASS exact_identities=384 owners=6 W=32 fixed_keys=2 banks_max_bytes=201573 authority_bytes=86
+CRASH_PASS cut=1 recovery=valid notification=none
+CRASH_PASS cut=2 recovery=valid notification=none
+CRASH_PASS cut=3 recovery=valid notification=none
+CRASH_PASS cut=4 recovery=valid notification=none
+CRASH_PASS cut=5 recovery=fail_closed notification=none
+CRASH_PASS cut=6 recovery=valid notification=none
+STALE_ROOT_REGRESSION_PASS child=corrupt old_bank_present=1 fallback=forbidden
+STALE_ROOT_REGRESSION_PASS child=missing old_bank_present=1 fallback=forbidden
+FRESHNESS_PRIMITIVE_PASS old_authenticated_head=reject unavailable_authority=fail_closed
+RETIREMENT_CRASH_PASS cut=3 accepted_body=preserved credit=1
+RETIREMENT_CRASH_PASS cut=6 accepted_body=preserved credit=0
+CREDIT_CONTRADICTION_PASS valid_aead_and_head=1 false_credit_reset=fail_closed
+DEPENDENCY_FAILURE_PASS no_unsafe_reclaim=1 api_ambiguity=resolved partial_credit=not_selected
+NATIVE_TRANSACTION_HOST_PASS gate_A=PASS_DEFINED_SCOPE gate_B=PASS_WITH_TRUSTED_AUTHORITY gate_C=OPEN
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp host/storage/native_transaction.cpp host/storage/compact_nvs_representation.cpp tests/cpp/storage_compact_representation_validation.cpp -lcrypto -o build/storage_compact_representation_validation
+./build/storage_compact_representation_validation
+PROTECTED_PLAN_HOST_PASS actual_max_report_plan=verified rejected_write_count=0 dependency_error=fail_closed
+COMPACT_HOST_PASS exact_identities=384 charged_per_owner=32 manifest_bytes=16649 retained_payload=241379 dependency_corruption=fail_closed malformed_manifest=reject authority=INDEPENDENT_HOST_WITNESS_ONLY
+
+Final ASan/UBSan reclamation fixture
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=026bf313a1044c8b2476f7678fe5b725c35b65e6fde734068bfffc2db906d4bf
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-flash-asan-final/probe.elf compact reclaim
+RECLAMATION_COUNTEREXAMPLE completed=26 live_rows=1 payload=5320 certified_free_pages=14 required_pages=15 gc_erases=0 repeated_reject_writes=0 peak_pages=17 peak_live_entries=211
+NVS_RUNTIME phase=reclamation_rejected iteration=26 allocated_pages=17 free_erased_pages=15 live_entries=180 erased_entries=1822 stats_used=180 stats_free=3852 write_bytes=69692 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+RECLAMATION_SAFE_REJECTION_PASS current_root=valid pinned_body=preserved restart=verified sustainable_progress=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-kDqAQC
+EXIT=0
+COMPACT_SUITE_PASS cases=1
+
+SANITIZER_SCOPE=probe/adapter/native/compact; SDK and OpenSSL archives uninstrumented; leak detection disabled
+
+COMMAND=tools/context/ghar_sajag_context_preflight.sh
+GHAR_SAJAG_CONTEXT_PREFLIGHT=PASS
+LOCAL_CONTEXT_VERSION=2026-10-08.002
+CANONICAL_CONTEXT_VERSION=2026-10-08.002
+CANONICAL_SOURCE=/home/udaybhan/projects/Ghar_sajag_r1@feature/r1-commercial-baseline
+WORKTREE=/home/udaybhan/projects/Ghar_sajag_r1_storage
+BRANCH=feature/r1-hub-storage-lifecycle
+HEAD=17ebe081c90d586e70f8a904c20392bc77af604d
+EXIT=0
+
+COMMAND=git diff --check
+EXIT=0
+FROZEN_VECTOR_MATCH=3/3
+PYTHON_COMPILE=PASS
