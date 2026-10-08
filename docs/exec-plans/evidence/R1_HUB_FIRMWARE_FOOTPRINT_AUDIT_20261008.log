@@ -1,0 +1,187 @@
+R1 HUB FOOTPRINT AUDIT; 2026-10-08; no hardware or optimization implementation
+START_HEAD=1c3727db2f15122f02e3cf1db7f31b53add5876f
+CONTEXT=2026-10-08.002
+SDK=/home/udaybhan/.espressif/v6.0.3/esp-idf
+SDK_COMMIT=76f5dedd9950a3012fee8fb7d5586df21fc67802
+SNAPSHOT: git archive HEAD -- code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2; extract into /tmp/gs-hub-footprint-1c3727d
+INPUTS: canonical target sdkconfig; storage target ignored main/node_firmware.bin; hashes in JSON
+BUILD_COMMAND:
+source /home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh
+idf.py -C /tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf -B /tmp/gs-hub-footprint-1c3727d/build -D SDKCONFIG=/tmp/gs-hub-footprint-1c3727d/sdkconfig.baseline -D GS_HIL_BUILD=OFF -D GS_HIL_CONTROL=OFF -D PROJECT_VER=1c3727d-footprint build
+BUILD_RESULT (bounded excerpt; full log /tmp/gs-hub-footprint-build.log):
+[1051/1055] Generating esp-idf/esp_system/ld/sections.ld
+NOTE: /home/udaybhan/.espressif/v6.0.3/esp-idf/components/bt/host/nimble/Kconfig.in:1453: BT_NIMBLE_MESH_PROVISIONER: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: /home/udaybhan/.espressif/v6.0.3/esp-idf/components/bt/controller/esp32/Kconfig.in:177: BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: /home/udaybhan/.espressif/v6.0.3/esp-idf/components/fatfs/Kconfig:230: FATFS_PRINT_LLI: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: /home/udaybhan/.espressif/v6.0.3/esp-idf/components/fatfs/Kconfig:235: FATFS_PRINT_FLOAT: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+[1052/1055] Building C object CMakeFiles/gs_hw_m1_hub.elf.dir/project_elf_src_esp32.c.obj
+[1053/1055] Linking CXX executable gs_hw_m1_hub.elf; Checking ioctl definition overlaps
+[1054/1055] Generating binary image from built executable
+Creating ESP32 image...
+Merged 3 ELF sections.
+Successfully created ESP32 image.
+Generated /tmp/gs-hub-footprint-1c3727d/build/gs_hw_m1_hub.bin
+[1055/1055] cd /tmp/gs-hub-footprint-1c3727d/build && /home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /tmp/gs-hub-footprint-1c3727d/build/partition_table/partition-table.bin /tmp/gs-hub-footprint-1c3727d/build/gs_hw_m1_hub.bin
+gs_hw_m1_hub.bin binary size 0x1c73b0 bytes. Smallest app partition is 0x1e0000 bytes. 0x18c50 bytes (5%) free.
+
+or
+or
+SIZE_COMMANDS (IDF Python):
+python -m esp_idf_size --format json2 gs_hw_m1_hub.map
+python -m esp_idf_size --format json2 --archives gs_hw_m1_hub.map
+python -m esp_idf_size --format json2 --files gs_hw_m1_hub.map
+SYMBOLS: xtensa-esp32-elf-nm -S --size-sort -C --defined-only; readelf -SW; objdump -dC
+TARGET_SIZE_PROBE (measurement object only, NOT linked into app):
+#include "firmware/hub/target/esp32/hub_runtime_adapter.hpp"
+#include "firmware/hub/runtime/hub_runtime.hpp"
+#include "firmware/hub/components/storage/hub_durability_owner.hpp"
+#include "firmware/common/transport/node_retirement_protocol.hpp"
+extern "C" const unsigned audit_sizes[] = {
+sizeof(gs::hub::target::ReceivedFrame),sizeof(StaticQueue_t),sizeof(gs::DomainEvent),
+sizeof(gs::hub::durable::InventoryRecord),sizeof(gs::hub::durable::InventorySnapshot),
+sizeof(gs::hub::durable::RecoveryState),sizeof(gs::hub::HubRuntime),
+sizeof(gs::hub::target::HubSecurityLink),sizeof(gs::transport::RetirementReportReassembler),
+sizeof(gs::hub::target::FotaOwnerCommand),sizeof(gs::hub::target::FotaOwnerAck),sizeof(std::string)};
+
+TARGET_SIZE_PROBE_COMPILE_COMMAND:
+/home/udaybhan/.espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin/xtensa-esp32-elf-g++ -DESP_PLATFORM -DESP_PSA_ITS_AVAILABLE -DGS_HIL_BUILD=0 -DGS_HIL_CONTROL=0 '-DIDF_VER="v6.0.3"' '-DMBEDTLS_CONFIG_FILE="mbedtls/esp_config.h"' -DMBEDTLS_MAJOR_VERSION=4 -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE -DSOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ '-DTF_PSA_CRYPTO_USER_CONFIG_FILE="mbedtls/esp_config.h"' -D_GLIBCXX_HAVE_POSIX_SEMAPHORE -D_GLIBCXX_USE_POSIX_SEMAPHORE -D_GNU_SOURCE -D_POSIX_READER_WRITER_LOCKS -D__STDC_WANT_LIB_EXT1__=0 -I/tmp/gs-hub-footprint-1c3727d/build/config -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/main -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/include -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/components -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_libc/platform_include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/xtensa/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/include/soc -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/ldo/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/debug_probe/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/etm/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/mspi_timing_tuning/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/mspi_timing_tuning/tuning_scheme_impl/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/power_supply/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/modem/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/port/esp32/. -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/port/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/heap/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/heap/tlsf -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/log/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/esp32 -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/esp32/register -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/platform_port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/esp32/include/esp32 -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/esp32 -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_common/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/port/soc -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/port/include/private -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_stdio/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/deprecated_include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_gpio/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_gpio/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_usb/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_pmu/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_pmu/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_ana_conv/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_ana_conv/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_dma/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_i2s/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_i2s/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/include/apps -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/lwip/src/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/freertos/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/esp32xx/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/esp32xx/include/arch -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/esp32xx/include/sys -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/app_update/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/bootloader_support/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/bootloader_support/bootloader_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_app_format/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_bootloader_format/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_partition/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_blockdev/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_driver_gpio/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_event/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_netif/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_timer/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/include/local -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/wifi_apps/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/wifi_apps/nan_app/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_phy/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_phy/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/nvs_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/library -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/esp_crt_bundle/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/port/psa_driver/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/port/psa_crypto_storage/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_security/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_security/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_security/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/include -I/tmp/gs-hub-footprint-1c3727d/build/esp-idf/mbedtls/mbedtls/tf-psa-crypto/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/everest/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/p256-m/p256-m -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/pqcp/include @/tmp/gs-hub-footprint-1c3727d/build/toolchain/cxxflags -fdiagnostics-color=always -ffunction-sections -fdata-sections -Wall -Werror -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=deprecated-declarations -Wextra -Wno-error=extra -Wno-unused-parameter -Wno-sign-compare -Wno-enum-conversion -gdwarf-4 -ggdb -Og -fno-shrink-wrap -fmacro-prefix-map=/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf=. -fmacro-prefix-map=/home/udaybhan/.espressif/v6.0.3/esp-idf=/IDF -fstrict-volatile-bitfields -fno-jump-tables -fno-tree-switch-conversion -std=gnu++26 -fno-exceptions -fuse-cxa-atexit -o /tmp/gs-hub-ram-layout.o -c /tmp/gs-hub-ram-layout.cpp
+
+SIZE_PROBE_VALUES={"ReceivedFrame": 260, "StaticQueue_t": 84, "DomainEvent": 168, "InventoryRecord": 16, "InventorySnapshot": 6160, "RecoveryState": 256, "HubRuntime": 848, "HubSecurityLink": 680, "RetirementReportReassembler": 744, "FotaOwnerCommand": 368, "FotaOwnerAck": 328, "std::string": 24}
+STACK_TEST_COMMAND (from project code root):
+env GS_HUB_STACK_ELF=/tmp/gs-hub-footprint-1c3727d/build/gs_hw_m1_hub.elf python3 -m unittest discover -s tests -p test_hub_runtime_stack.py -v
+STACK_TEST_UNMODIFIED_RESULT; exit=1:
+test_corrected_target_allocation_covers_nested_frames_and_reserve (test_hub_runtime_stack.TargetStackBudget.test_corrected_target_allocation_covers_nested_frames_and_reserve) ... ok
+test_original_owner_frame_alone_exceeds_allocation (test_hub_runtime_stack.TargetStackBudget.test_original_owner_frame_alone_exceeds_allocation) ... skipped 'Requires original Hub target ELF (GS_HUB_OLD_STACK_ELF)'
+test_recovery_hook_really_blocks_for_one_tick_in_target_elf (test_hub_runtime_stack.TargetStackBudget.test_recovery_hook_really_blocks_for_one_tick_in_target_elf) ... FAIL
+
+======================================================================
+FAIL: test_recovery_hook_really_blocks_for_one_tick_in_target_elf (test_hub_runtime_stack.TargetStackBudget.test_recovery_hook_really_blocks_for_one_tick_in_target_elf)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/test_hub_runtime_stack.py", line 51, in test_recovery_hook_really_blocks_for_one_tick_in_target_elf
+    self.assertRegex(hooks[0], r'movi\.n\s+a10, 1')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Regex didn't match: 'movi\\.n\\s+a10, 1' not found in '400db2b8 <gs::hub::target::(anonymous namespace)::secure_owner_task(void*)::{lambda()#2}::_FUN()>:\n400db2b8:\t004136        \tentry\ta1, 32\n400db2bb:\t01a0a2        \tmovi\ta10, 1\n400db2be:\td37e81        \tl32r\ta8, 400d00b8 <_stext+0x98> (4017c7c8 <vTaskDelay>)\n400db2c1:\t0008e0        \tcallx8\ta8\n400db2c4:\tf01d      \tretw.n\n\t...\n\n'
+
+----------------------------------------------------------------------
+Ran 3 tests in 1.587s
+
+FAILED (failures=1, skipped=1)
+HUB TARGET STACK frames=52640 allocation=81920 reserve=29280
+
+INDEPENDENT_READ_ONLY_HOOK_CHECK: PASS vTaskDelay(1); existing test FAILS on movi versus movi.n encoding assertion
+400db2b8 <gs::hub::target::(anonymous namespace)::secure_owner_task(void*)::{lambda()#2}::_FUN()>:
+400db2b8:	004136        	entry	a1, 32
+400db2bb:	01a0a2        	movi	a10, 1
+400db2be:	d37e81        	l32r	a8, 400d00b8 <_stext+0x98> (4017c7c8 <vTaskDelay>)
+400db2c1:	0008e0        	callx8	a8
+400db2c4:	f01d      	retw.n
+	...
+
+
+AUDIT_ANALYSIS_SOURCE (one-off read-only ELF/map analysis; not production code):
+import hashlib, json, re, struct, subprocess
+from pathlib import Path
+from elftools.elf.elffile import ELFFile
+
+BUILD = Path('/tmp/gs-hub-footprint-1c3727d/build')
+TOOL = Path('/home/udaybhan/.espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin')
+def artifact(path):
+    data = path.read_bytes()
+    return {'path':str(path),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+
+report = {'source_head':'1c3727db2f15122f02e3cf1db7f31b53add5876f',
+          'context':'2026-10-08.002','idf':'6.0.3','hardware_used':False,
+          'optimization_variants_built':False,'measured_optimization_savings':0}
+report['artifacts'] = [artifact(BUILD/p) for p in
+    ('gs_hw_m1_hub.bin','gs_hw_m1_hub.elf','gs_hw_m1_hub.map','bootloader/bootloader.bin')]
+report['size_summary'] = json.load(open('/tmp/gs-hub-audit-summary.json'))
+archives = json.load(open('/tmp/gs-hub-audit-archives.json'))
+def costs(entry):
+    memory = entry['memory_types']
+    flash = sum(memory.get(k,{}).get('size',0) for k in ('Flash Data','Flash Code','IRAM'))
+    flash += sum(v['size'] for n,v in memory.get('DRAM',{}).get('sections',{}).items() if n.endswith('.data'))
+    # RTC initialized data is included; reserved NOBITS state is not.
+    flash += sum(v['size'] for n,v in memory.get('RTC SLOW',{}).get('sections',{}).items() if 'force_slow' in n)
+    ram = sum(memory.get(k,{}).get('size',0) for k in ('DRAM','IRAM'))
+    return flash,ram
+archive_rows=[];components={}
+for path, entry in archives.items():
+    flash,ram=costs(entry)
+    if '/components/' in path:
+        component=path.split('/components/')[1].split('/')[0]
+    elif path.startswith('esp-idf/'):
+        component=path.split('/')[1]
+    else:
+        component=Path(path).name
+    archive_rows.append({'archive':path,'component':component,'flash':flash,'static_ram':ram})
+    row=components.setdefault(component,{'component':component,'flash':0,'static_ram':0,'archives':[]})
+    row['flash']+=flash;row['static_ram']+=ram;row['archives'].append(Path(path).name)
+report['archives']=sorted(archive_rows,key=lambda x:x['flash'],reverse=True)
+report['top20_components']=sorted(components.values(),key=lambda x:x['flash'],reverse=True)[:20]
+report['merged_string_attribution_warning']='46,345 B shared merged strings attributed to stdio_vfs input; not independently removable stdio code'
+files=json.load(open('/tmp/gs-hub-audit-files.json'))
+report['top_main_objects']=sorted([{'object':p,'flash':costs(v)[0],'static_ram':costs(v)[1]}
+    for p,v in files.items() if 'libmain.a:' in p],key=lambda x:x['flash'],reverse=True)[:20]
+with (BUILD/'gs_hw_m1_hub.elf').open('rb') as f:
+    elf=ELFFile(f);sections=list(elf.iter_sections());symtab=elf.get_section_by_name('.symtab')
+    report['allocated_sections']=[{'name':s.name,'type':s['sh_type'],'bytes':s['sh_size'],
+        'address':hex(s['sh_addr'])} for s in sections if s['sh_flags']&2 and s['sh_size']]
+    rows=[];ram_rows=[];unique=set()
+    for symbol in symtab.iter_symbols():
+        index=symbol['st_shndx'];size=symbol['st_size'];kind=symbol['st_info']['type']
+        if not isinstance(index,int) or not size or kind not in ('STT_FUNC','STT_OBJECT'):continue
+        section=sections[index]
+        if not section['sh_flags']&2:continue
+        signature=(symbol['st_value'],size)
+        if signature in unique:continue
+        unique.add(signature)
+        row={'symbol':symbol.name,'bytes':size,'section':section.name,'kind':kind,'address':hex(symbol['st_value'])}
+        if section['sh_type']=='SHT_PROGBITS':rows.append(row)
+        if section.name in ('.dram0.bss','.dram0.data','.iram0.text','.iram0.vectors'):
+            ram_rows.append(row)
+    names=[row['symbol'] for row in rows+ram_rows]
+    demangled=subprocess.check_output([str(TOOL/'xtensa-esp32-elf-c++filt'),*names],text=True).splitlines()
+    for row, name in zip(rows+ram_rows,demangled):row['name']=name
+    asset=symtab.get_symbol_by_name('node_firmware_bin')[0]
+    rows.append({'symbol':asset.name,'name':asset.name,'bytes':symtab.get_symbol_by_name('_binary_node_firmware_bin_end')[0]['st_value']-asset['st_value'],
+        'section':sections[asset['st_shndx']].name,'kind':'KNOWN_EMBEDDED_NOTYPE','address':hex(asset['st_value'])})
+    report['top30_flash_symbols']=sorted(rows,key=lambda x:x['bytes'],reverse=True)[:30]
+    report['top20_static_ram_symbols']=sorted(ram_rows,key=lambda x:x['bytes'],reverse=True)[:20]
+    # Count absence using retained executable/data symbol tables, not build lists.
+    all_names=[s.name for s in symtab.iter_symbols()]
+    report['symbol_searches']={term:[n for n in all_names if term in n][:20] for term in
+        ('boost','iostream','basic_ostream','basic_stringstream','__cxa_throw','__dynamic_cast',
+         '_binary_x509','node_firmware_bin','hil_log_state','hil_control','esp_http_client','esp_https_ota')}
+    templates=[row for row in rows if row['symbol'].startswith(('_ZNSt','_ZNKSt','_ZSt','_ZN9__gnu_cxx','_ZNK9__gnu_cxx'))]
+    report['cpp_template_total_named_bytes']=sum(row['bytes'] for row in templates)
+    report['cpp_template_symbol_bytes']={term:sum(row['bytes'] for row in templates if term in row['name'])
+        for term in ('std::vector','std::map','std::deque','std::__cxx11::basic_string','std::_Rb_tree')}
+with open('/tmp/gs-hub-ram-layout.o','rb') as f:
+    elf=ELFFile(f);symbol=elf.get_section_by_name('.symtab').get_symbol_by_name('audit_sizes')[0]
+    data=elf.get_section(symbol['st_shndx']).data()[symbol['st_value']:symbol['st_value']+symbol['st_size']]
+    names=('ReceivedFrame','StaticQueue_t','DomainEvent','InventoryRecord','InventorySnapshot','RecoveryState',
+           'HubRuntime','HubSecurityLink','RetirementReportReassembler','FotaOwnerCommand','FotaOwnerAck','std::string')
+    report['xtensa_type_sizes']=dict(zip(names,struct.unpack('<'+'I'*len(names),data)))
+disassembly=subprocess.check_output([str(TOOL/'xtensa-esp32-elf-objdump'),'-dC',str(BUILD/'gs_hw_m1_hub.elf')],text=True)
+frames={m[1]:int(m[2],0) for m in re.finditer(r'^[0-9a-f]+ <([^\n]+)>:\n[^\n]*entry\s+a1,\s+(0x[0-9a-f]+|[0-9]+)',disassembly,re.M)}
+report['recovery_frames']={name:size for name,size in frames.items() if any(t in name for t in
+    ('secure_owner_task(void*)','HubDurabilityOwner::recover','HubDurabilityOwner::initialize_epoch_one','DurableStore::checkpoint','DurableStore::recover')) and 'lambda' not in name and name.startswith('gs::')}
+report['top_stack_frames']=sorted([{'function':name,'entry_frame':size} for name,size in frames.items()],key=lambda x:x['entry_frame'],reverse=True)[:12]
+blocks=re.split(r'(?m)^(?=[0-9a-f]+ <)',disassembly)
+hooks=[b for b in blocks if 'secure_owner_task(void*)::{lambda()' in b.split('\n',1)[0] and '::_FUN()>' in b.split('\n',1)[0]]
+assert len(hooks)==1 and '<vTaskDelay>' in hooks[0] and re.search(r'movi(?:\.n)?\s+a10, 1',hooks[0])
+report['manual_recovery_hook_check']='PASS vTaskDelay(1); existing test FAILS on movi versus movi.n encoding assertion'
+report['recovery_hook_disassembly']=hooks[0]
+commands=json.load(open(BUILD/'compile_commands.json'))
+report['app_sources']=[row['file'] for row in commands if '/__idf_main.dir/' in row.get('output','')]
+description=json.load(open(BUILD/'project_description.json'))
+report['built_components']=description['build_components']
+report['retained_components']=sorted(components)
+report['compiled_only_components']=sorted(set(description['build_components'])-set(components))
+report['provenance']={'project_version':description['project_version'],'build_path':str(BUILD),
+    'sdkconfig':artifact(Path('/tmp/gs-hub-footprint-1c3727d/sdkconfig.baseline')),
+    'embedded_node':artifact(Path('/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/main/node_firmware.bin'))}
+Path('/tmp/gs-hub-footprint-audit.json').write_text(json.dumps(report,indent=2)+'\n')
+for key in ('top20_components','top30_flash_symbols','xtensa_type_sizes','recovery_frames','top_main_objects','cpp_template_symbol_bytes','manual_recovery_hook_check'):
+    print(key+'='+json.dumps(report[key]))

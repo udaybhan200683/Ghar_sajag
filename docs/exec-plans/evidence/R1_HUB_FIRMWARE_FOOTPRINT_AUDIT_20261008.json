@@ -1,0 +1,1701 @@
+{
+  "source_head": "1c3727db2f15122f02e3cf1db7f31b53add5876f",
+  "context": "2026-10-08.002",
+  "idf": "6.0.3",
+  "hardware_used": false,
+  "optimization_variants_built": false,
+  "measured_optimization_savings": 0,
+  "artifacts": [
+    {
+      "path": "/tmp/gs-hub-footprint-1c3727d/build/gs_hw_m1_hub.bin",
+      "bytes": 1864624,
+      "sha256": "d17a638e1ab45475335bf120e6fd0111d9855838d912ce91f83c2d9d3ffa391e"
+    },
+    {
+      "path": "/tmp/gs-hub-footprint-1c3727d/build/gs_hw_m1_hub.elf",
+      "bytes": 18451228,
+      "sha256": "b66dbe311403e441321f44426bc545a6061b4e9a7f10601dd81fadc07fc9c426"
+    },
+    {
+      "path": "/tmp/gs-hub-footprint-1c3727d/build/gs_hw_m1_hub.map",
+      "bytes": 11870897,
+      "sha256": "6cb12fdc2ae59c0a57f2608213a87e1d5a207f560091cfad2cc6025af284f8d5"
+    },
+    {
+      "path": "/tmp/gs-hub-footprint-1c3727d/build/bootloader/bootloader.bin",
+      "bytes": 26304,
+      "sha256": "e4fe51270134b0866e669a5fa36e5f3313a2da3b4d14636e31b0411baacc7a95"
+    }
+  ],
+  "size_summary": {
+    "version": "1.2",
+    "total_size": 1864512,
+    "layout": [
+      {
+        "name": "Flash Data",
+        "total": 0,
+        "used": 1042312,
+        "free": 0,
+        "parts": {
+          ".rodata": {
+            "size": 1042040
+          },
+          ".appdesc": {
+            "size": 256
+          },
+          ".tdata": {
+            "size": 16
+          }
+        }
+      },
+      {
+        "name": "Flash Code",
+        "total": 0,
+        "used": 717098,
+        "free": 0,
+        "parts": {
+          ".text": {
+            "size": 717098
+          }
+        }
+      },
+      {
+        "name": "IRAM",
+        "total": 131072,
+        "used": 87359,
+        "free": 43713,
+        "parts": {
+          ".text": {
+            "size": 86331
+          },
+          ".vectors": {
+            "size": 1028
+          }
+        }
+      },
+      {
+        "name": "DRAM",
+        "total": 180736,
+        "used": 45783,
+        "free": 134953,
+        "parts": {
+          ".bss": {
+            "size": 28080
+          },
+          ".data": {
+            "size": 17703
+          }
+        }
+      },
+      {
+        "name": "RTC SLOW",
+        "total": 8192,
+        "used": 64,
+        "free": 8128,
+        "parts": {
+          ".force_slow": {
+            "size": 40
+          },
+          ".rtc_slow_reserved": {
+            "size": 24
+          }
+        }
+      }
+    ]
+  },
+  "archives": [
+    {
+      "archive": "esp-idf/main/libmain.a",
+      "component": "main",
+      "flash": 1097855,
+      "static_ram": 9933
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/lib/esp32/libnet80211.a",
+      "component": "esp_wifi",
+      "flash": 146783,
+      "static_ram": 14917
+    },
+    {
+      "archive": "esp-idf/mbedtls/mbedtls/tf-psa-crypto/core/libtfpsacrypto.a",
+      "component": "mbedtls",
+      "flash": 115089,
+      "static_ram": 337
+    },
+    {
+      "archive": "esp-idf/wpa_supplicant/libwpa_supplicant.a",
+      "component": "wpa_supplicant",
+      "flash": 78553,
+      "static_ram": 1371
+    },
+    {
+      "archive": "esp-idf/lwip/liblwip.a",
+      "component": "lwip",
+      "flash": 76260,
+      "static_ram": 2482
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/lib/esp32/libpp.a",
+      "component": "esp_wifi",
+      "flash": 71159,
+      "static_ram": 25738
+    },
+    {
+      "archive": "esp-idf/esp_stdio/libesp_stdio.a",
+      "component": "esp_stdio",
+      "flash": 46885,
+      "static_ram": 16
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_phy/lib/esp32/libphy.a",
+      "component": "esp_phy",
+      "flash": 44220,
+      "static_ram": 10352
+    },
+    {
+      "archive": "esp-idf/freertos/libfreertos.a",
+      "component": "freertos",
+      "flash": 20862,
+      "static_ram": 9371
+    },
+    {
+      "archive": "esp-idf/spi_flash/libspi_flash.a",
+      "component": "spi_flash",
+      "flash": 18572,
+      "static_ram": 16141
+    },
+    {
+      "archive": "esp-idf/nvs_flash/libnvs_flash.a",
+      "component": "nvs_flash",
+      "flash": 15717,
+      "static_ram": 24
+    },
+    {
+      "archive": "esp-idf/esp_hw_support/libesp_hw_support.a",
+      "component": "esp_hw_support",
+      "flash": 15239,
+      "static_ram": 7498
+    },
+    {
+      "archive": "esp-idf/esp_system/libesp_system.a",
+      "component": "esp_system",
+      "flash": 13268,
+      "static_ram": 4691
+    },
+    {
+      "archive": "esp-idf/heap/libheap.a",
+      "component": "heap",
+      "flash": 12307,
+      "static_ram": 7511
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin/../xtensa-esp-elf/../picolibc/xtensa-esp-elf/lib/esp32/no-rtti/libc.a",
+      "component": "libc.a",
+      "flash": 10630,
+      "static_ram": 388
+    },
+    {
+      "archive": "esp-idf/esp_rom/libesp_rom.a",
+      "component": "esp_rom",
+      "flash": 8549,
+      "static_ram": 245
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin/../xtensa-esp-elf/../picolibc/xtensa-esp-elf/lib/esp32/no-rtti/libstdc++.a",
+      "component": "libstdc++.a",
+      "flash": 5627,
+      "static_ram": 57
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/lib/esp32/libespnow.a",
+      "component": "esp_wifi",
+      "flash": 4075,
+      "static_ram": 71
+    },
+    {
+      "archive": "esp-idf/esp_mm/libesp_mm.a",
+      "component": "esp_mm",
+      "flash": 4046,
+      "static_ram": 1082
+    },
+    {
+      "archive": "esp-idf/vfs/libvfs.a",
+      "component": "vfs",
+      "flash": 3734,
+      "static_ram": 236
+    },
+    {
+      "archive": "esp-idf/esp_driver_uart/libesp_driver_uart.a",
+      "component": "esp_driver_uart",
+      "flash": 3448,
+      "static_ram": 360
+    },
+    {
+      "archive": "esp-idf/esp_wifi/libesp_wifi.a",
+      "component": "esp_wifi",
+      "flash": 3438,
+      "static_ram": 793
+    },
+    {
+      "archive": "esp-idf/esp_timer/libesp_timer.a",
+      "component": "esp_timer",
+      "flash": 3422,
+      "static_ram": 1550
+    },
+    {
+      "archive": "esp-idf/xtensa/libxtensa.a",
+      "component": "xtensa",
+      "flash": 3417,
+      "static_ram": 3264
+    },
+    {
+      "archive": "esp-idf/esp_libc/libesp_libc.a",
+      "component": "esp_libc",
+      "flash": 3369,
+      "static_ram": 2197
+    },
+    {
+      "archive": "esp-idf/esp_hal_mspi/libesp_hal_mspi.a",
+      "component": "esp_hal_mspi",
+      "flash": 2901,
+      "static_ram": 2381
+    },
+    {
+      "archive": "esp-idf/esp_phy/libesp_phy.a",
+      "component": "esp_phy",
+      "flash": 2694,
+      "static_ram": 333
+    },
+    {
+      "archive": "esp-idf/hal/libhal.a",
+      "component": "hal",
+      "flash": 2279,
+      "static_ram": 2288
+    },
+    {
+      "archive": "esp-idf/bootloader_support/libbootloader_support.a",
+      "component": "bootloader_support",
+      "flash": 2190,
+      "static_ram": 2041
+    },
+    {
+      "archive": "esp-idf/esp_partition/libesp_partition.a",
+      "component": "esp_partition",
+      "flash": 2055,
+      "static_ram": 8
+    },
+    {
+      "archive": "esp-idf/esp_event/libesp_event.a",
+      "component": "esp_event",
+      "flash": 1874,
+      "static_ram": 4
+    },
+    {
+      "archive": "esp-idf/esp_common/libesp_common.a",
+      "component": "esp_common",
+      "flash": 1793,
+      "static_ram": 0
+    },
+    {
+      "archive": "esp-idf/log/liblog.a",
+      "component": "log",
+      "flash": 1626,
+      "static_ram": 757
+    },
+    {
+      "archive": "esp-idf/efuse/libefuse.a",
+      "component": "efuse",
+      "flash": 1611,
+      "static_ram": 74
+    },
+    {
+      "archive": "esp-idf/esp_hal_wdt/libesp_hal_wdt.a",
+      "component": "esp_hal_wdt",
+      "flash": 1534,
+      "static_ram": 1534
+    },
+    {
+      "archive": "esp-idf/pthread/libpthread.a",
+      "component": "pthread",
+      "flash": 1204,
+      "static_ram": 20
+    },
+    {
+      "archive": "esp-idf/esp_hal_security/libesp_hal_security.a",
+      "component": "esp_hal_security",
+      "flash": 1069,
+      "static_ram": 0
+    },
+    {
+      "archive": "esp-idf/esp_hal_gpio/libesp_hal_gpio.a",
+      "component": "esp_hal_gpio",
+      "flash": 1048,
+      "static_ram": 40
+    },
+    {
+      "archive": "esp-idf/esp_app_format/libesp_app_format.a",
+      "component": "esp_app_format",
+      "flash": 681,
+      "static_ram": 10
+    },
+    {
+      "archive": "esp-idf/esp_security/libesp_security.a",
+      "component": "esp_security",
+      "flash": 486,
+      "static_ram": 4
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/esp32/libxt_hal.a",
+      "component": "xtensa",
+      "flash": 475,
+      "static_ram": 443
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_phy/lib/esp32/librtc.a",
+      "component": "esp_phy",
+      "flash": 459,
+      "static_ram": 459
+    },
+    {
+      "archive": "esp-idf/soc/libsoc.a",
+      "component": "soc",
+      "flash": 420,
+      "static_ram": 77
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/lib/esp32/libcore.a",
+      "component": "esp_wifi",
+      "flash": 318,
+      "static_ram": 9
+    },
+    {
+      "archive": "esp-idf/esp_netif/libesp_netif.a",
+      "component": "esp_netif",
+      "flash": 270,
+      "static_ram": 168
+    },
+    {
+      "archive": "esp-idf/esp_coex/libesp_coex.a",
+      "component": "esp_coex",
+      "flash": 262,
+      "static_ram": 118
+    },
+    {
+      "archive": "esp-idf/app_update/libapp_update.a",
+      "component": "app_update",
+      "flash": 196,
+      "static_ram": 4
+    },
+    {
+      "archive": "esp-idf/esp_hal_pmu/libesp_hal_pmu.a",
+      "component": "esp_hal_pmu",
+      "flash": 196,
+      "static_ram": 0
+    },
+    {
+      "archive": "esp-idf/esp_hal_uart/libesp_hal_uart.a",
+      "component": "esp_hal_uart",
+      "flash": 166,
+      "static_ram": 0
+    },
+    {
+      "archive": "/home/udaybhan/.espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin/../xtensa-esp-elf/../picolibc/lib/gcc/xtensa-esp-elf/15.2.0/esp32/no-rtti/libgcc.a",
+      "component": "libgcc.a",
+      "flash": 89,
+      "static_ram": 0
+    },
+    {
+      "archive": "esp-idf/cxx/libcxx.a",
+      "component": "cxx",
+      "flash": 68,
+      "static_ram": 4
+    },
+    {
+      "archive": "esp-idf/mbedtls/libmbedtls.a",
+      "component": "mbedtls",
+      "flash": 44,
+      "static_ram": 0
+    },
+    {
+      "archive": "esp-idf/mbedtls/mbedtls/library/libmbedtls.a",
+      "component": "mbedtls",
+      "flash": 29,
+      "static_ram": 0
+    },
+    {
+      "archive": "esp-idf/nvs_sec_provider/libnvs_sec_provider.a",
+      "component": "nvs_sec_provider",
+      "flash": 5,
+      "static_ram": 0
+    }
+  ],
+  "top20_components": [
+    {
+      "component": "main",
+      "flash": 1097855,
+      "static_ram": 9933,
+      "archives": [
+        "libmain.a"
+      ]
+    },
+    {
+      "component": "esp_wifi",
+      "flash": 225773,
+      "static_ram": 41528,
+      "archives": [
+        "libnet80211.a",
+        "libpp.a",
+        "libespnow.a",
+        "libesp_wifi.a",
+        "libcore.a"
+      ]
+    },
+    {
+      "component": "mbedtls",
+      "flash": 115162,
+      "static_ram": 337,
+      "archives": [
+        "libtfpsacrypto.a",
+        "libmbedtls.a",
+        "libmbedtls.a"
+      ]
+    },
+    {
+      "component": "wpa_supplicant",
+      "flash": 78553,
+      "static_ram": 1371,
+      "archives": [
+        "libwpa_supplicant.a"
+      ]
+    },
+    {
+      "component": "lwip",
+      "flash": 76260,
+      "static_ram": 2482,
+      "archives": [
+        "liblwip.a"
+      ]
+    },
+    {
+      "component": "esp_phy",
+      "flash": 47373,
+      "static_ram": 11144,
+      "archives": [
+        "libphy.a",
+        "libesp_phy.a",
+        "librtc.a"
+      ]
+    },
+    {
+      "component": "esp_stdio",
+      "flash": 46885,
+      "static_ram": 16,
+      "archives": [
+        "libesp_stdio.a"
+      ]
+    },
+    {
+      "component": "freertos",
+      "flash": 20862,
+      "static_ram": 9371,
+      "archives": [
+        "libfreertos.a"
+      ]
+    },
+    {
+      "component": "spi_flash",
+      "flash": 18572,
+      "static_ram": 16141,
+      "archives": [
+        "libspi_flash.a"
+      ]
+    },
+    {
+      "component": "nvs_flash",
+      "flash": 15717,
+      "static_ram": 24,
+      "archives": [
+        "libnvs_flash.a"
+      ]
+    },
+    {
+      "component": "esp_hw_support",
+      "flash": 15239,
+      "static_ram": 7498,
+      "archives": [
+        "libesp_hw_support.a"
+      ]
+    },
+    {
+      "component": "esp_system",
+      "flash": 13268,
+      "static_ram": 4691,
+      "archives": [
+        "libesp_system.a"
+      ]
+    },
+    {
+      "component": "heap",
+      "flash": 12307,
+      "static_ram": 7511,
+      "archives": [
+        "libheap.a"
+      ]
+    },
+    {
+      "component": "libc.a",
+      "flash": 10630,
+      "static_ram": 388,
+      "archives": [
+        "libc.a"
+      ]
+    },
+    {
+      "component": "esp_rom",
+      "flash": 8549,
+      "static_ram": 245,
+      "archives": [
+        "libesp_rom.a"
+      ]
+    },
+    {
+      "component": "libstdc++.a",
+      "flash": 5627,
+      "static_ram": 57,
+      "archives": [
+        "libstdc++.a"
+      ]
+    },
+    {
+      "component": "esp_mm",
+      "flash": 4046,
+      "static_ram": 1082,
+      "archives": [
+        "libesp_mm.a"
+      ]
+    },
+    {
+      "component": "xtensa",
+      "flash": 3892,
+      "static_ram": 3707,
+      "archives": [
+        "libxtensa.a",
+        "libxt_hal.a"
+      ]
+    },
+    {
+      "component": "vfs",
+      "flash": 3734,
+      "static_ram": 236,
+      "archives": [
+        "libvfs.a"
+      ]
+    },
+    {
+      "component": "esp_driver_uart",
+      "flash": 3448,
+      "static_ram": 360,
+      "archives": [
+        "libesp_driver_uart.a"
+      ]
+    }
+  ],
+  "merged_string_attribution_warning": "46,345 B shared merged strings attributed to stdio_vfs input; not independently removable stdio code",
+  "top_main_objects": [
+    {
+      "object": "esp-idf/main/libmain.a:node_firmware.bin.S.obj",
+      "flash": 931412,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:durable_transition.cpp.obj",
+      "flash": 31686,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:hub_runtime_adapter.cpp.obj",
+      "flash": 19912,
+      "static_ram": 9921
+    },
+    {
+      "object": "esp-idf/main/libmain.a:hub_security_link.cpp.obj",
+      "flash": 18282,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:registry_persistence.cpp.obj",
+      "flash": 11878,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:node_registry.cpp.obj",
+      "flash": 10315,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:durable_journal_slot_store.cpp.obj",
+      "flash": 9049,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:hub_durability_owner.cpp.obj",
+      "flash": 6485,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:hub_runtime.cpp.obj",
+      "flash": 6428,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:data_plane_codec.cpp.obj",
+      "flash": 5875,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:journal.cpp.obj",
+      "flash": 5869,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:node_retirement_snapshot.cpp.obj",
+      "flash": 4814,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:ingest.cpp.obj",
+      "flash": 3852,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:commissioning_wire.cpp.obj",
+      "flash": 3779,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:node_retirement_protocol.cpp.obj",
+      "flash": 3163,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:commissioning_protocol.cpp.obj",
+      "flash": 2697,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:runtime_frame_security.cpp.obj",
+      "flash": 2495,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:rules.cpp.obj",
+      "flash": 2318,
+      "static_ram": 0
+    },
+    {
+      "object": "esp-idf/main/libmain.a:fota_sender.cpp.obj",
+      "flash": 2256,
+      "static_ram": 4
+    },
+    {
+      "object": "esp-idf/main/libmain.a:psa_commissioning_crypto.cpp.obj",
+      "flash": 2241,
+      "static_ram": 0
+    }
+  ],
+  "allocated_sections": [
+    {
+      "name": ".rtc.force_slow",
+      "type": "SHT_PROGBITS",
+      "bytes": 40,
+      "address": "0x50000000"
+    },
+    {
+      "name": ".rtc_slow_reserved",
+      "type": "SHT_NOBITS",
+      "bytes": 24,
+      "address": "0x50001fe8"
+    },
+    {
+      "name": ".iram0.vectors",
+      "type": "SHT_PROGBITS",
+      "bytes": 1028,
+      "address": "0x40080000"
+    },
+    {
+      "name": ".iram0.text",
+      "type": "SHT_PROGBITS",
+      "bytes": 86331,
+      "address": "0x40080404"
+    },
+    {
+      "name": ".dram0.data",
+      "type": "SHT_PROGBITS",
+      "bytes": 17703,
+      "address": "0x3ffb0000"
+    },
+    {
+      "name": ".noinit",
+      "type": "SHT_NOBITS",
+      "bytes": 1,
+      "address": "0x3ffb4527"
+    },
+    {
+      "name": ".dram0.bss",
+      "type": "SHT_NOBITS",
+      "bytes": 28080,
+      "address": "0x3ffb4528"
+    },
+    {
+      "name": ".flash.appdesc",
+      "type": "SHT_PROGBITS",
+      "bytes": 256,
+      "address": "0x3f400020"
+    },
+    {
+      "name": ".flash.rodata",
+      "type": "SHT_PROGBITS",
+      "bytes": 1042040,
+      "address": "0x3f400120"
+    },
+    {
+      "name": ".flash.tdata",
+      "type": "SHT_PROGBITS",
+      "bytes": 16,
+      "address": "0x3f4fe798"
+    },
+    {
+      "name": ".flash.rodata_noload",
+      "type": "SHT_NOBITS",
+      "bytes": 13965,
+      "address": "0x3f4fe7a8"
+    },
+    {
+      "name": ".flash.text",
+      "type": "SHT_PROGBITS",
+      "bytes": 717098,
+      "address": "0x400d0020"
+    },
+    {
+      "name": ".iram0.text_end",
+      "type": "SHT_NOBITS",
+      "bytes": 1,
+      "address": "0x4009553f"
+    }
+  ],
+  "top30_flash_symbols": [
+    {
+      "symbol": "node_firmware_bin",
+      "name": "node_firmware_bin",
+      "bytes": 931408,
+      "section": ".flash.rodata",
+      "kind": "KNOWN_EMBEDDED_NOTYPE",
+      "address": "0x3f40f064"
+    },
+    {
+      "symbol": "_ZN2gs3hub6target12_GLOBAL__N_1L17secure_owner_taskEPv",
+      "bytes": 6808,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x400de1f8",
+      "name": "gs::hub::target::(anonymous namespace)::secure_owner_task(void*)"
+    },
+    {
+      "symbol": "esp_internal_sha1_parallel_engine_process$isra$0",
+      "bytes": 4820,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4010e000",
+      "name": "esp_internal_sha1_parallel_engine_process$isra$0"
+    },
+    {
+      "symbol": "hostap_recv_mgmt",
+      "bytes": 4434,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x401296f0",
+      "name": "hostap_recv_mgmt"
+    },
+    {
+      "symbol": "_ZN2gs3hub7durable12DurableStore10checkpointERKNS1_10CheckpointE",
+      "bytes": 3579,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x400f7a50",
+      "name": "gs::hub::durable::DurableStore::checkpoint(gs::hub::durable::Checkpoint const&)"
+    },
+    {
+      "symbol": "ieee80211_sta_new_state",
+      "bytes": 3524,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4013eb44",
+      "name": "ieee80211_sta_new_state"
+    },
+    {
+      "symbol": "scan_parse_beacon",
+      "bytes": 3456,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4012ea6c",
+      "name": "scan_parse_beacon"
+    },
+    {
+      "symbol": "nd6_input",
+      "bytes": 3391,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4015acc4",
+      "name": "nd6_input"
+    },
+    {
+      "symbol": "tcp_receive",
+      "bytes": 3294,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40151658",
+      "name": "tcp_receive"
+    },
+    {
+      "symbol": "_ZN2gs3hub7durable12DurableStore7recoverERNS1_13RecoveryStateE",
+      "bytes": 3184,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x400f64d4",
+      "name": "gs::hub::durable::DurableStore::recover(gs::hub::durable::RecoveryState&)"
+    },
+    {
+      "symbol": "port_IntStack",
+      "bytes": 3072,
+      "section": ".dram0.data",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb1bb0",
+      "name": "port_IntStack"
+    },
+    {
+      "symbol": "wifi_nvs_cfg_init",
+      "bytes": 3064,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40133d64",
+      "name": "wifi_nvs_cfg_init"
+    },
+    {
+      "symbol": "esp_sha512_software_process",
+      "bytes": 2940,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4010c684",
+      "name": "esp_sha512_software_process"
+    },
+    {
+      "symbol": "_ZN2gs3hub7durable12DurableStore20compound_root_digestEhRSt5arrayIhLj32EEhb",
+      "bytes": 2847,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x400f59b4",
+      "name": "gs::hub::durable::DurableStore::compound_root_digest(unsigned char, std::array<unsigned char, 32u>&, unsigned char, bool)"
+    },
+    {
+      "symbol": "vfprintf",
+      "bytes": 2825,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4017146c",
+      "name": "vfprintf"
+    },
+    {
+      "symbol": "wifi_softap_set_config",
+      "bytes": 2786,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40136c88",
+      "name": "wifi_softap_set_config"
+    },
+    {
+      "symbol": "sta_recv_mgmt",
+      "bytes": 2671,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x401405a8",
+      "name": "sta_recv_mgmt"
+    },
+    {
+      "symbol": "ieee80211_parse_rsn",
+      "bytes": 2550,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40130864",
+      "name": "ieee80211_parse_rsn"
+    },
+    {
+      "symbol": "_ZN2gs3hub6target15HubSecurityLink6acceptERKSt5arrayIhLj6EEPKhjy",
+      "bytes": 2367,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x400e36f4",
+      "name": "gs::hub::target::HubSecurityLink::accept(std::array<unsigned char, 6u> const&, unsigned char const*, unsigned int, unsigned long long)"
+    },
+    {
+      "symbol": "scan_profile_check",
+      "bytes": 2344,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4012d594",
+      "name": "scan_profile_check"
+    },
+    {
+      "symbol": "_ZN2gs3hub7durable12DurableStore6commitENS1_10TransitionE",
+      "bytes": 2314,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x400f7144",
+      "name": "gs::hub::durable::DurableStore::commit(gs::hub::durable::Transition)"
+    },
+    {
+      "symbol": "tcp_input",
+      "bytes": 2199,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x401529f0",
+      "name": "tcp_input"
+    },
+    {
+      "symbol": "mbedtls_internal_sha256_process$isra$0",
+      "bytes": 2167,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40115cb8",
+      "name": "mbedtls_internal_sha256_process$isra$0"
+    },
+    {
+      "symbol": "esp_sha256_software_process",
+      "bytes": 2159,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4010ba6c",
+      "name": "esp_sha256_software_process"
+    },
+    {
+      "symbol": "sswu",
+      "bytes": 1973,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40166224",
+      "name": "sswu"
+    },
+    {
+      "symbol": "hostap_input",
+      "bytes": 1948,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4012a864",
+      "name": "hostap_input"
+    },
+    {
+      "symbol": "ip6_input",
+      "bytes": 1844,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40158ba8",
+      "name": "ip6_input"
+    },
+    {
+      "symbol": "psa_key_derivation_output_bytes",
+      "bytes": 1830,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x4010970c",
+      "name": "psa_key_derivation_output_bytes"
+    },
+    {
+      "symbol": "psa_key_derivation_input_internal",
+      "bytes": 1740,
+      "section": ".flash.text",
+      "kind": "STT_FUNC",
+      "address": "0x40109040",
+      "name": "psa_key_derivation_input_internal"
+    },
+    {
+      "symbol": "esp_err_msg_table",
+      "bytes": 1736,
+      "section": ".flash.rodata",
+      "kind": "STT_OBJECT",
+      "address": "0x3f4f2b1c",
+      "name": "esp_err_msg_table"
+    }
+  ],
+  "top20_static_ram_symbols": [
+    {
+      "symbol": "_ZN2gs3hub6target12_GLOBAL__N_1L14g_data_storageE",
+      "bytes": 4160,
+      "section": ".dram0.bss",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb5f10",
+      "name": "gs::hub::target::(anonymous namespace)::g_data_storage"
+    },
+    {
+      "symbol": "g_cnxMgr",
+      "bytes": 3944,
+      "section": ".dram0.bss",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb8730",
+      "name": "g_cnxMgr"
+    },
+    {
+      "symbol": "port_IntStack",
+      "bytes": 3072,
+      "section": ".dram0.data",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb1bb0",
+      "name": "port_IntStack"
+    },
+    {
+      "symbol": "_ZN2gs3hub6target12_GLOBAL__N_1L17g_control_storageE",
+      "bytes": 2080,
+      "section": ".dram0.bss",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb56f0",
+      "name": "gs::hub::target::(anonymous namespace)::g_control_storage"
+    },
+    {
+      "symbol": "_ZN2gs3hub6target12_GLOBAL__N_1L18g_security_storageE",
+      "bytes": 2080,
+      "section": ".dram0.bss",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb4dcc",
+      "name": "gs::hub::target::(anonymous namespace)::g_security_storage"
+    },
+    {
+      "symbol": "tlsf_memalign_offs",
+      "bytes": 1699,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008bf90",
+      "name": "tlsf_memalign_offs"
+    },
+    {
+      "symbol": "sta_input",
+      "bytes": 1418,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008db9c",
+      "name": "sta_input"
+    },
+    {
+      "symbol": "tlsf_realloc",
+      "bytes": 1402,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008c634",
+      "name": "tlsf_realloc"
+    },
+    {
+      "symbol": "s_wifi_nvs",
+      "bytes": 1316,
+      "section": ".dram0.bss",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb80d0",
+      "name": "s_wifi_nvs"
+    },
+    {
+      "symbol": "ieee80211_encap_esfbuf",
+      "bytes": 1235,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008cdcc",
+      "name": "ieee80211_encap_esfbuf"
+    },
+    {
+      "symbol": "ppRxFragmentProc",
+      "bytes": 1109,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x400909ac",
+      "name": "ppRxFragmentProc"
+    },
+    {
+      "symbol": "tlsf_free",
+      "bytes": 1028,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008b788",
+      "name": "tlsf_free"
+    },
+    {
+      "symbol": "tlsf_malloc",
+      "bytes": 1014,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008bb98",
+      "name": "tlsf_malloc"
+    },
+    {
+      "symbol": "ppResortTxAMPDU",
+      "bytes": 1010,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008efbc",
+      "name": "ppResortTxAMPDU"
+    },
+    {
+      "symbol": "TxRxCxt",
+      "bytes": 972,
+      "section": ".dram0.data",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffb0eec",
+      "name": "TxRxCxt"
+    },
+    {
+      "symbol": "tx_pwctrl_cal",
+      "bytes": 894,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x400857a4",
+      "name": "tx_pwctrl_cal"
+    },
+    {
+      "symbol": "wDev_ProcessRxSucData",
+      "bytes": 888,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x40092a9c",
+      "name": "wDev_ProcessRxSucData"
+    },
+    {
+      "symbol": "gWpaSm",
+      "bytes": 852,
+      "section": ".dram0.bss",
+      "kind": "STT_OBJECT",
+      "address": "0x3ffbab6c",
+      "name": "gWpaSm"
+    },
+    {
+      "symbol": "rcUpdateTxDoneAmpdu2",
+      "bytes": 807,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x4008fe10",
+      "name": "rcUpdateTxDoneAmpdu2"
+    },
+    {
+      "symbol": "bootloader_flash_execute_command_common",
+      "bytes": 748,
+      "section": ".iram0.text",
+      "kind": "STT_FUNC",
+      "address": "0x40083988",
+      "name": "bootloader_flash_execute_command_common"
+    }
+  ],
+  "symbol_searches": {
+    "boost": [],
+    "iostream": [],
+    "basic_ostream": [],
+    "basic_stringstream": [],
+    "__cxa_throw": [
+      "__wrap___cxa_throw"
+    ],
+    "__dynamic_cast": [],
+    "_binary_x509": [],
+    "node_firmware_bin": [
+      "_binary_node_firmware_bin_end",
+      "node_firmware_bin",
+      "_binary_node_firmware_bin_start",
+      "node_firmware_bin_length"
+    ],
+    "hil_log_state": [],
+    "hil_control": [],
+    "esp_http_client": [],
+    "esp_https_ota": []
+  },
+  "cpp_template_total_named_bytes": 54863,
+  "cpp_template_symbol_bytes": {
+    "std::vector": 18911,
+    "std::map": 1252,
+    "std::deque": 2260,
+    "std::__cxx11::basic_string": 15857,
+    "std::_Rb_tree": 18170
+  },
+  "xtensa_type_sizes": {
+    "ReceivedFrame": 260,
+    "StaticQueue_t": 84,
+    "DomainEvent": 168,
+    "InventoryRecord": 16,
+    "InventorySnapshot": 6160,
+    "RecoveryState": 256,
+    "HubRuntime": 848,
+    "HubSecurityLink": 680,
+    "RetirementReportReassembler": 744,
+    "FotaOwnerCommand": 368,
+    "FotaOwnerAck": 328,
+    "std::string": 24
+  },
+  "recovery_frames": {
+    "gs::hub::target::(anonymous namespace)::secure_owner_task(void*)": 23584,
+    "gs::hub::durable::DurableStore::recover(gs::hub::durable::RecoveryState&)": 7168,
+    "gs::hub::durable::DurableStore::checkpoint(gs::hub::durable::Checkpoint const&)": 14688,
+    "gs::hub::durable::HubDurabilityOwner::initialize_epoch_one(bool)": 512,
+    "gs::hub::durable::HubDurabilityOwner::recover(std::array<unsigned char, 32u> const*)": 6688
+  },
+  "top_stack_frames": [
+    {
+      "function": "gs::hub::target::(anonymous namespace)::secure_owner_task(void*)",
+      "entry_frame": 23584
+    },
+    {
+      "function": "gs::hub::durable::DurableStore::checkpoint(gs::hub::durable::Checkpoint const&)",
+      "entry_frame": 14688
+    },
+    {
+      "function": "gs::hub::durable::DurableStore::commit(gs::hub::durable::Transition)",
+      "entry_frame": 7376
+    },
+    {
+      "function": "gs::hub::durable::DurableStore::recover(gs::hub::durable::RecoveryState&)",
+      "entry_frame": 7168
+    },
+    {
+      "function": "gs::hub::durable::HubDurabilityOwner::recover(std::array<unsigned char, 32u> const*)",
+      "entry_frame": 6688
+    },
+    {
+      "function": "gs::hub::durable::RetirementSnapshotRepository::prepare_bank(gs::hub::durable::RetirementSnapshot const&, unsigned char, gs::hub::durable::ReportSnapshotReference&)",
+      "entry_frame": 6320
+    },
+    {
+      "function": "gs::hub::HubRegistryRepository::save(gs::hub::HubRegistryState const&)",
+      "entry_frame": 3328
+    },
+    {
+      "function": "gs::hub::target::HubSecurityLink::persist_candidate(gs::hub::NodeRegistry&, std::vector<gs::security::CommissioningBinding, std::allocator<gs::security::CommissioningBinding> > const&)",
+      "entry_frame": 2464
+    },
+    {
+      "function": "gs::hub::target::HubSecurityLink::accept(std::array<unsigned char, 6u> const&, unsigned char const*, unsigned int, unsigned long long)",
+      "entry_frame": 1456
+    },
+    {
+      "function": "gs::hub::durable::DurableJournalSlotStore::flush()",
+      "entry_frame": 1328
+    },
+    {
+      "function": "gs::hub::NodeRegistry::restore(gs::hub::RegistrySnapshot const&)",
+      "entry_frame": 1216
+    },
+    {
+      "function": "gs::hub::HubRegistryRepository::valid(gs::hub::HubRegistryState const&, unsigned char) const",
+      "entry_frame": 1168
+    }
+  ],
+  "manual_recovery_hook_check": "PASS vTaskDelay(1); existing test FAILS on movi versus movi.n encoding assertion",
+  "recovery_hook_disassembly": "400db2b8 <gs::hub::target::(anonymous namespace)::secure_owner_task(void*)::{lambda()#2}::_FUN()>:\n400db2b8:\t004136        \tentry\ta1, 32\n400db2bb:\t01a0a2        \tmovi\ta10, 1\n400db2be:\td37e81        \tl32r\ta8, 400d00b8 <_stext+0x98> (4017c7c8 <vTaskDelay>)\n400db2c1:\t0008e0        \tcallx8\ta8\n400db2c4:\tf01d      \tretw.n\n\t...\n\n",
+  "app_sources": [
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/main/app_main.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/main/fota_sender.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/src/logging.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/src/rules.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/transport/data_plane_codec.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/transport/node_retirement_protocol.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/transport/fota_secure_wire.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/psa_commissioning_crypto.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/target_identity_signer.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/target_wrapping_key.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/commissioning_protocol.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/commissioning_wire.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/rejoin_protocol.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/association_persistence.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/nvs_association_blob_store.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/security/runtime_frame_security.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/ingest/ingest.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/registry/node_registry.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/registry/registry_persistence.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/fota/hub_fota_guard.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/journal.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/durable_transition.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/node_retirement_snapshot.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/hub_durability_owner.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/durable_journal_slot_store.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/coverage/coverage.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/rules/routine_service.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/runtime/hub_runtime.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/hub_security_link.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/nvs_journal_slot_store.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/nvs_durable_key_codec.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/nvs_durable_blob_store.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/nvs_store_inventory.cpp",
+    "/tmp/gs-hub-footprint-1c3727d/build/node_firmware.bin.S"
+  ],
+  "built_components": [
+    "app_trace",
+    "app_update",
+    "bootloader",
+    "bootloader_support",
+    "bt",
+    "cmock",
+    "console",
+    "cxx",
+    "driver",
+    "efuse",
+    "esp-tls",
+    "esp_adc",
+    "esp_app_format",
+    "esp_blockdev",
+    "esp_blockdev_util",
+    "esp_bootloader_format",
+    "esp_coex",
+    "esp_common",
+    "esp_driver_ana_cmpr",
+    "esp_driver_bitscrambler",
+    "esp_driver_cam",
+    "esp_driver_dac",
+    "esp_driver_dma",
+    "esp_driver_gpio",
+    "esp_driver_gptimer",
+    "esp_driver_i2c",
+    "esp_driver_i2s",
+    "esp_driver_i3c",
+    "esp_driver_isp",
+    "esp_driver_jpeg",
+    "esp_driver_ledc",
+    "esp_driver_mcpwm",
+    "esp_driver_parlio",
+    "esp_driver_pcnt",
+    "esp_driver_ppa",
+    "esp_driver_rmt",
+    "esp_driver_sd_intf",
+    "esp_driver_sdio",
+    "esp_driver_sdm",
+    "esp_driver_sdmmc",
+    "esp_driver_sdspi",
+    "esp_driver_spi",
+    "esp_driver_touch_sens",
+    "esp_driver_tsens",
+    "esp_driver_twai",
+    "esp_driver_uart",
+    "esp_driver_usb_serial_jtag",
+    "esp_eth",
+    "esp_event",
+    "esp_gdbstub",
+    "esp_hal_ana_cmpr",
+    "esp_hal_ana_conv",
+    "esp_hal_cam",
+    "esp_hal_clock",
+    "esp_hal_dma",
+    "esp_hal_gpio",
+    "esp_hal_gpspi",
+    "esp_hal_i2c",
+    "esp_hal_i2s",
+    "esp_hal_ieee802154",
+    "esp_hal_jpeg",
+    "esp_hal_lcd",
+    "esp_hal_ledc",
+    "esp_hal_mcpwm",
+    "esp_hal_mspi",
+    "esp_hal_parlio",
+    "esp_hal_pcnt",
+    "esp_hal_pmu",
+    "esp_hal_ppa",
+    "esp_hal_rmt",
+    "esp_hal_rtc_timer",
+    "esp_hal_sd",
+    "esp_hal_security",
+    "esp_hal_timg",
+    "esp_hal_touch_sens",
+    "esp_hal_twai",
+    "esp_hal_uart",
+    "esp_hal_usb",
+    "esp_hal_wdt",
+    "esp_hid",
+    "esp_http_client",
+    "esp_http_server",
+    "esp_https_ota",
+    "esp_https_server",
+    "esp_hw_support",
+    "esp_lcd",
+    "esp_libc",
+    "esp_local_ctrl",
+    "esp_mm",
+    "esp_netif",
+    "esp_netif_stack",
+    "esp_partition",
+    "esp_phy",
+    "esp_pm",
+    "esp_psram",
+    "esp_ringbuf",
+    "esp_rom",
+    "esp_security",
+    "esp_stdio",
+    "esp_system",
+    "esp_timer",
+    "esp_trace",
+    "esp_usb_cdc_rom_console",
+    "esp_wifi",
+    "espcoredump",
+    "esptool_py",
+    "fatfs",
+    "freertos",
+    "hal",
+    "heap",
+    "http_parser",
+    "idf_test",
+    "ieee802154",
+    "log",
+    "lwip",
+    "main",
+    "mbedtls",
+    "nvs_flash",
+    "nvs_sec_provider",
+    "openthread",
+    "partition_table",
+    "perfmon",
+    "protobuf-c",
+    "protocomm",
+    "pthread",
+    "rt",
+    "sdmmc",
+    "soc",
+    "spi_flash",
+    "spiffs",
+    "tcp_transport",
+    "ulp",
+    "unity",
+    "vfs",
+    "wear_levelling",
+    "wpa_supplicant",
+    "xtensa",
+    ""
+  ],
+  "retained_components": [
+    "app_update",
+    "bootloader_support",
+    "cxx",
+    "efuse",
+    "esp_app_format",
+    "esp_coex",
+    "esp_common",
+    "esp_driver_uart",
+    "esp_event",
+    "esp_hal_gpio",
+    "esp_hal_mspi",
+    "esp_hal_pmu",
+    "esp_hal_security",
+    "esp_hal_uart",
+    "esp_hal_wdt",
+    "esp_hw_support",
+    "esp_libc",
+    "esp_mm",
+    "esp_netif",
+    "esp_partition",
+    "esp_phy",
+    "esp_rom",
+    "esp_security",
+    "esp_stdio",
+    "esp_system",
+    "esp_timer",
+    "esp_wifi",
+    "freertos",
+    "hal",
+    "heap",
+    "libc.a",
+    "libgcc.a",
+    "libstdc++.a",
+    "log",
+    "lwip",
+    "main",
+    "mbedtls",
+    "nvs_flash",
+    "nvs_sec_provider",
+    "pthread",
+    "soc",
+    "spi_flash",
+    "vfs",
+    "wpa_supplicant",
+    "xtensa"
+  ],
+  "compiled_only_components": [
+    "",
+    "app_trace",
+    "bootloader",
+    "bt",
+    "cmock",
+    "console",
+    "driver",
+    "esp-tls",
+    "esp_adc",
+    "esp_blockdev",
+    "esp_blockdev_util",
+    "esp_bootloader_format",
+    "esp_driver_ana_cmpr",
+    "esp_driver_bitscrambler",
+    "esp_driver_cam",
+    "esp_driver_dac",
+    "esp_driver_dma",
+    "esp_driver_gpio",
+    "esp_driver_gptimer",
+    "esp_driver_i2c",
+    "esp_driver_i2s",
+    "esp_driver_i3c",
+    "esp_driver_isp",
+    "esp_driver_jpeg",
+    "esp_driver_ledc",
+    "esp_driver_mcpwm",
+    "esp_driver_parlio",
+    "esp_driver_pcnt",
+    "esp_driver_ppa",
+    "esp_driver_rmt",
+    "esp_driver_sd_intf",
+    "esp_driver_sdio",
+    "esp_driver_sdm",
+    "esp_driver_sdmmc",
+    "esp_driver_sdspi",
+    "esp_driver_spi",
+    "esp_driver_touch_sens",
+    "esp_driver_tsens",
+    "esp_driver_twai",
+    "esp_driver_usb_serial_jtag",
+    "esp_eth",
+    "esp_gdbstub",
+    "esp_hal_ana_cmpr",
+    "esp_hal_ana_conv",
+    "esp_hal_cam",
+    "esp_hal_clock",
+    "esp_hal_dma",
+    "esp_hal_gpspi",
+    "esp_hal_i2c",
+    "esp_hal_i2s",
+    "esp_hal_ieee802154",
+    "esp_hal_jpeg",
+    "esp_hal_lcd",
+    "esp_hal_ledc",
+    "esp_hal_mcpwm",
+    "esp_hal_parlio",
+    "esp_hal_pcnt",
+    "esp_hal_ppa",
+    "esp_hal_rmt",
+    "esp_hal_rtc_timer",
+    "esp_hal_sd",
+    "esp_hal_timg",
+    "esp_hal_touch_sens",
+    "esp_hal_twai",
+    "esp_hal_usb",
+    "esp_hid",
+    "esp_http_client",
+    "esp_http_server",
+    "esp_https_ota",
+    "esp_https_server",
+    "esp_lcd",
+    "esp_local_ctrl",
+    "esp_netif_stack",
+    "esp_pm",
+    "esp_psram",
+    "esp_ringbuf",
+    "esp_trace",
+    "esp_usb_cdc_rom_console",
+    "espcoredump",
+    "esptool_py",
+    "fatfs",
+    "http_parser",
+    "idf_test",
+    "ieee802154",
+    "openthread",
+    "partition_table",
+    "perfmon",
+    "protobuf-c",
+    "protocomm",
+    "rt",
+    "sdmmc",
+    "spiffs",
+    "tcp_transport",
+    "ulp",
+    "unity",
+    "wear_levelling"
+  ],
+  "provenance": {
+    "project_version": "1c3727d-footprint",
+    "build_path": "/tmp/gs-hub-footprint-1c3727d/build",
+    "sdkconfig": {
+      "path": "/tmp/gs-hub-footprint-1c3727d/sdkconfig.baseline",
+      "bytes": 78785,
+      "sha256": "f3ffa60f215f26ef230f50e034f5cc2378a9000e6f27b0d830c74157201ff33a"
+    },
+    "embedded_node": {
+      "path": "/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/main/node_firmware.bin",
+      "bytes": 931408,
+      "sha256": "ffaefebce02db03bea320b9a86898459b1a53ad864d23fa35ab2eaf9f8984772"
+    }
+  },
+  "measurement_method": {
+    "component_flash": "Flash Code + Flash Data + IRAM + initialized DRAM/RTC; BSS excluded",
+    "component_ram": "DRAM + IRAM; dynamic heap excluded",
+    "template_bytes": "unique retained standard-library-mangled STT_FUNC/OBJECT symbols; category membership may overlap",
+    "embedded_asset_bytes": "ELF end minus start labels, verified equal input length",
+    "top_symbols": "unique address/size retained PROGBITS functions/objects plus known embedded image"
+  },
+  "build_configuration": {
+    "main_compile_command": "/home/udaybhan/.espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin/xtensa-esp32-elf-g++ -DESP_PLATFORM -DESP_PSA_ITS_AVAILABLE -DGS_HIL_BUILD=0 -DGS_HIL_CONTROL=0 -DIDF_VER=\\\"v6.0.3\\\" -DMBEDTLS_CONFIG_FILE=\\\"mbedtls/esp_config.h\\\" -DMBEDTLS_MAJOR_VERSION=4 -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE -DSOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ -DTF_PSA_CRYPTO_USER_CONFIG_FILE=\\\"mbedtls/esp_config.h\\\" -D_GLIBCXX_HAVE_POSIX_SEMAPHORE -D_GLIBCXX_USE_POSIX_SEMAPHORE -D_GNU_SOURCE -D_POSIX_READER_WRITER_LOCKS -D__STDC_WANT_LIB_EXT1__=0 -I/tmp/gs-hub-footprint-1c3727d/build/config -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/main -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/include -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components -I/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/components -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_libc/platform_include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/xtensa/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/include/soc -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/ldo/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/debug_probe/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/etm/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/mspi_timing_tuning/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/mspi_timing_tuning/tuning_scheme_impl/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/power_supply/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/modem/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/port/esp32/. -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/port/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/heap/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/heap/tlsf -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/log/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/esp32 -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/esp32/register -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/platform_port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/esp32/include/esp32 -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/esp32 -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_common/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/port/soc -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/port/include/private -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_stdio/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/deprecated_include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_gpio/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_gpio/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_usb/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_pmu/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_pmu/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_ana_conv/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_ana_conv/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_dma/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_i2s/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_i2s/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/include/apps -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/lwip/src/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/freertos/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/esp32xx/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/esp32xx/include/arch -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/lwip/port/esp32xx/include/sys -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/app_update/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/bootloader_support/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/bootloader_support/bootloader_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_app_format/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_bootloader_format/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_partition/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_blockdev/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_driver_gpio/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_event/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_netif/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_timer/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/include/local -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/wifi_apps/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_wifi/wifi_apps/nan_app/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_phy/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_phy/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/nvs_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/library -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/esp_crt_bundle/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/port/psa_driver/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/port/psa_crypto_storage/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_security/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_security/esp32/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_security/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/include -I/tmp/gs-hub-footprint-1c3727d/build/esp-idf/mbedtls/mbedtls/tf-psa-crypto/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/everest/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/p256-m/p256-m -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/pqcp/include @\"/tmp/gs-hub-footprint-1c3727d/build/toolchain/cxxflags\" -fdiagnostics-color=always -ffunction-sections -fdata-sections -Wall -Werror -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=deprecated-declarations -Wextra -Wno-error=extra -Wno-unused-parameter -Wno-sign-compare -Wno-enum-conversion -gdwarf-4 -ggdb -Og -fno-shrink-wrap -fmacro-prefix-map=/tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf=. -fmacro-prefix-map=/home/udaybhan/.espressif/v6.0.3/esp-idf=/IDF -fstrict-volatile-bitfields -fno-jump-tables -fno-tree-switch-conversion -std=gnu++26 -fno-exceptions -fuse-cxa-atexit -o esp-idf/main/CMakeFiles/__idf_main.dir/app_main.cpp.obj -c /tmp/gs-hub-footprint-1c3727d/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf/main/app_main.cpp",
+    "cxxflags_response": "-Wno-frame-address\n-mlongcalls\n-fno-builtin-memcpy\n-fno-builtin-memset\n-fno-builtin-bzero\n\"-specs=/tmp/gs-hub-footprint-1c3727d/build/specs/picolibc.specs\"\n-fno-rtti\n",
+    "app_link_flags": "LINK_FLAGS = @\"/tmp/gs-hub-footprint-1c3727d/build/toolchain/ldflags\" -Wl,--cref -Wl,--defsym=IDF_TARGET_ESP32=0 -Wl,--Map=/tmp/gs-hub-footprint-1c3727d/build/gs_hw_m1_hub.map -Wl,--no-warn-rwx-segments -Wl,--orphan-handling=error -fno-lto -Wl,--gc-sections -Wl,--warn-common -T esp32.peripherals.ld -T esp32.rom.ld -T esp32.rom.api.ld -T esp32.rom.libgcc.ld -T esp32.rom.libc-funcs.ld -T memory.ld -T sections.ld -u include_esp_phy_override",
+    "sdkconfig_selected": [
+      "CONFIG_SOC_BLE_MULTI_CONN_OPTIMIZATION=y",
+      "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y",
+      "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE=y",
+      "CONFIG_BOOTLOADER_LOG_VERSION_1=y",
+      "CONFIG_BOOTLOADER_LOG_VERSION=1",
+      "CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y",
+      "CONFIG_BOOTLOADER_LOG_LEVEL=3",
+      "CONFIG_BOOTLOADER_LOG_TIMESTAMP_SOURCE_CPU_TICKS=y",
+      "CONFIG_BOOTLOADER_LOG_MODE_TEXT_EN=y",
+      "CONFIG_BOOTLOADER_LOG_MODE_TEXT=y",
+      "CONFIG_COMPILER_OPTIMIZATION_DEBUG=y",
+      "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y",
+      "CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL=2",
+      "CONFIG_COMPILER_CXX_GLIBCXX_CONSTEXPR_NO_CHANGE=y",
+      "CONFIG_LIBC_PICOLIBC=y",
+      "CONFIG_LIBC_PICOLIBC_NEWLIB_COMPATIBILITY=y",
+      "CONFIG_LIBC_MISC_IN_IRAM=y",
+      "CONFIG_LIBC_LOCKS_PLACE_IN_IRAM=y",
+      "CONFIG_LIBC_STDOUT_LINE_ENDING_CRLF=y",
+      "CONFIG_LIBC_STDIN_LINE_ENDING_CR=y",
+      "CONFIG_LIBC_TIME_SYSCALL_USE_RTC_HRT=y",
+      "CONFIG_LIBC_ASSERT_BUFFER_SIZE=200",
+      "CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10",
+      "CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32",
+      "CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32",
+      "CONFIG_ESP_WIFI_SOFTAP_SUPPORT=y",
+      "CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT=y",
+      "CONFIG_LOG_VERSION_1=y",
+      "CONFIG_LOG_VERSION=1",
+      "CONFIG_LOG_DEFAULT_LEVEL_INFO=y",
+      "CONFIG_LOG_DEFAULT_LEVEL=3",
+      "CONFIG_LOG_MAXIMUM_EQUALS_DEFAULT=y",
+      "CONFIG_LOG_MAXIMUM_LEVEL=3",
+      "CONFIG_LOG_DYNAMIC_LEVEL_CONTROL=y",
+      "CONFIG_LOG_TAG_LEVEL_IMPL_CACHE_AND_LINKED_LIST=y",
+      "CONFIG_LOG_TAG_LEVEL_CACHE_BINARY_MIN_HEAP=y",
+      "CONFIG_LOG_TAG_LEVEL_IMPL_CACHE_SIZE=31",
+      "CONFIG_LOG_TIMESTAMP_SOURCE_RTOS=y",
+      "CONFIG_LOG_MODE_TEXT_EN=y",
+      "CONFIG_LOG_MODE_TEXT=y",
+      "CONFIG_LOG_IN_IRAM=y",
+      "CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_SIZE=y",
+      "CONFIG_APP_ROLLBACK_ENABLE=y",
+      "CONFIG_LOG_BOOTLOADER_LEVEL_INFO=y",
+      "CONFIG_LOG_BOOTLOADER_LEVEL=3",
+      "CONFIG_OPTIMIZATION_LEVEL_DEBUG=y",
+      "CONFIG_COMPILER_OPTIMIZATION_LEVEL_DEBUG=y",
+      "CONFIG_COMPILER_OPTIMIZATION_DEFAULT=y",
+      "CONFIG_OPTIMIZATION_ASSERTIONS_ENABLED=y",
+      "CONFIG_OPTIMIZATION_ASSERTION_LEVEL=2",
+      "CONFIG_ESP32_WIFI_STATIC_RX_BUFFER_NUM=10",
+      "CONFIG_ESP32_WIFI_DYNAMIC_RX_BUFFER_NUM=32",
+      "CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER_NUM=32"
+    ]
+  },
+  "validation": {
+    "isolated_build": "PASS",
+    "stack_test": "1 PASS, 1 FAIL (instruction-encoding assertion), 1 SKIP (original ELF absent)",
+    "context_preflight": "PASS 2026-10-08.002",
+    "no_optimization_savings_measured": true
+  }
+}
