@@ -1,6 +1,6 @@
 # R1 Current Work State
 
-**Updated:** 2026-10-07
+**Updated:** 2026-10-08
 
 ## Authoritative work line
 - Worktree: `/home/udaybhan/projects/Ghar_sajag_r1`
@@ -69,7 +69,7 @@ Known requirements:
 - cloud outage does not stop local safety/routine learning;
 - repetitive raw sensor detail can be coalesced;
 - design must first fit the existing 4 MB Hub;
-- exact retention/offline-capacity numbers are not yet locked.
+- GS-D025 locks the 72-hour internet-only outage design target; exact retention, supported volume and guaranteed offline capacity remain open.
 
 ## Initial storage architecture checkpoint (historical proposal)
 
@@ -110,7 +110,7 @@ Derive and close the storage/data-lifecycle design for the existing 4 MB Hub and
 5. offline capacity and six-Node worst-case event rates;
 6. flash wear, crash-safe cleanup reserve and OTA budget.
 
-Do not implement a guessed retention policy or merely increase the 128-event constant. Exact retention/offline-capacity numbers and partition-layout changes remain open decisions. See `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` and `docs/product/DECISION_LOG.md`.
+Do not implement a guessed retention policy or merely increase the 128-event constant. The 72-hour outage design target is LOCKED by GS-D025; exact retention, supported volume, guaranteed offline capacity and partition-layout changes remain open decisions. See `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` and `docs/product/DECISION_LOG.md`.
 
 ## BAT-C8
 
@@ -180,3 +180,51 @@ rollback and target RAM/wear/OTA growth before production integration.
 
 Production integration NO; partition CSV/ACK/backend/PWA unchanged; hardware
 unused; BAT-C8/Jira untouched. Existing physical fresh-install gates stay closed.
+
+## Product governance preparation and canonical promotion — 2026-10-08
+
+Storage-worktree preparation (historical checkpoint) at starting HEAD
+`d8631e656bd37f05294853de40cec93d65f0cec6`, storage branch
+`feature/r1-hub-storage-lifecycle`. Initial preflight PASS and context
+`2026-10-07.003`; only user-owned untracked `prompt.txt` was present.
+
+GS-D025–028 now LOCK the approved 72-hour internet-only outage design target,
+loss-aware eligible ordinary-motion aggregation, battery-first ESP32-C3 Node
+processing and PIR/door/future-bed boundaries. GS-D013/017 are only partially
+superseded for these approved directions; their numerical/protocol decisions
+remain OPEN. Context advances to `2026-10-08.001`. This preparation does not
+authorize production integration or claim capacity/battery qualification.
+Existing host evidence is preserved; simulations, hardware and release gates
+were not repeated. No production, partition, BAT-C8 or hardware scope changes.
+
+OPEN: critical-event classification/reserve, NORMAL/HIGH/STRESS guaranteed
+volumes, critical saturation behavior, quiet gap, progress frequency, final
+backend summary protocol and final NVS size. The 4 MB ESP32 Hub remains baseline.
+New Node protocol work must prove battery and correctness impact before
+implementation; no 40–120-second periodic consolidation wake-ups are approved.
+BAT-C8 physical qualification remains pending, with its requirements unchanged.
+
+**Authorized canonical promotion:** promote only the reviewed governance edits
+from source commit `4732679aabbe354bb6c771a4b8ac81437d8c45c5` to
+`/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`,
+starting clean at `5dcd2f7c10682bd1f6801821deaff20ad4a803e4` and context
+`2026-10-07.003`. Canonical context becomes `2026-10-08.001`, matching storage.
+The promoted scope is exactly these eight governance files:
+
+- `docs/product/DECISION_LOG.md`
+- `docs/product/R1_RELEASE_CONTRACT.md`
+- `docs/product/R1_WORK_STATE.md`
+- `docs/product/P0_PRODUCT_REQUIREMENTS.md`
+- `docs/product/CANONICAL_REQUIREMENTS_INDEX.md`
+- `docs/product/GHAR_SAJAG_PROJECT_CONTEXT.md`
+- `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`
+- `docs/product/CONTEXT_VERSION`
+
+
+Existing canonical content is preserved. Storage-only technical checkpoint
+notes, ExecPlan section29, prototype code, tests and evidence files are excluded.
+The source branch and user-owned untracked `prompt.txt` remain unchanged.
+Validate both worktrees with the existing preflight, commit canonical governance,
+and push only the canonical branch to the verified origin using a fast-forward
+update. Do not weaken the guard. No capacity/battery/hardware qualification or
+production implementation is implied; subsequent work requires a separate task.

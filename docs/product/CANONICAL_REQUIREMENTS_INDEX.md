@@ -279,19 +279,22 @@ This register records requirements explicitly present in canonical sources. `UNK
 | GS-HW-01 | Existing 4 MB Hub and ESP32-C3 Node baseline; S3-N16R8 not dependency | `docs/product/DECISION_LOG.md` | LOCKED; R1 | UNKNOWN; not requalified here | Six Nodes share Hub resources |
 | GS-HUB-01 | Hub owns authenticated ingestion, local safety/routine decisions, durable processing and ACK | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | PARTIAL; selected gates passed | See Hub and protocol designs |
 | GS-NODE-01 | Node senses, retains/retries, and retires only on valid application ACK | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/R1_WORK_STATE.md` | LOCKED; R1 | IMPLEMENTED; physical gate passed | Do not repeat absent invalidation |
-| GS-EVENT-01 | Repeated raw PIR/sensor chatter coalesced where semantics permit | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN; validation not recorded | Preserve safety-relevant identity/meaning |
+| GS-EVENT-01 | Loss-aware eligible ordinary motion/PIR consolidation preserves routine, safety and observation meaning (GS-D026) | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN; validation not recorded | Preserve safety-relevant identity/meaning |
 | GS-SENSOR-01 | PIR is the established physical Node sensor; Reed/button categories in software are not proof of installed/qualified physical sources | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/features/ROUTINE_ACTIVITY_AND_INCIDENT_RULES.md` | LOCKED distinction; P0/R1 | PIR physical path exercised; Reed/button end-to-end support OPEN | Keep product vocabulary distinct from target hardware evidence |
 | GS-CARE-01 | I Am OK and Call Family remain distinct app events; no emergency dispatch or production provider is implied | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/features/CAREGIVER_ACTIONS_AND_NOTIFICATIONS.md` | LOCKED boundary; P0 | Application model present; physical controls/live provider unproven | Caregiver claim/acknowledge/resolve are separate |
 | GS-STORE-01 | Durable-before-ACK, duplicate/lost-ACK safety, reboot recovery, fail closed | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | IMPLEMENTED; physical durability/lost-ACK gate passed | Current-format path |
 | GS-STORE-02 | Shared 128-event lifetime ceiling unacceptable; simply raising it is not a fix | `docs/product/DECISION_LOG.md`, `docs/product/R1_WORK_STATE.md` | LOCKED; R1 | UNIMPLEMENTED; blocker open | Current top product blocker |
 | GS-STORE-03 | Separate correctness state, reducer state, backend backlog, short history; safe reclamation | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | PROVISIONAL/OPEN details; R1 | UNIMPLEMENTED; design open | Exact bytes/retention not locked |
+| GS-STORE-04 | 72-hour internet-only outage resilience design target; powered/local-connected baseline (GS-D025) | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED target; R1 | UNQUALIFIED; supported volumes/saturation OPEN | Not an unconditional capacity guarantee |
+| GS-POWER-02 | Battery-first observation-triggered Node interpretation; no new 40–120-second periodic consolidation wakes (GS-D027) | `docs/product/DECISION_LOG.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED direction; R1 | Proposed new protocols unimplemented/unqualified | Preserve BAT-C8; prove battery/correctness impact before implementation |
+| GS-SENSOR-02 | Safe PIR grouping; identifiable door OPEN/CLOSE; future bed sessions excluded from R1 (GS-D028) | `docs/product/DECISION_LOG.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED boundaries; R1 | No new hardware qualification | Occupancy does not imply sleep or identity |
 | GS-SEC-01 | Authenticated ownership/domain validation and versioned storage/FOTA behavior | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | PARTIAL; ownership qualification passed | No weakened fallback |
 | GS-PRIV-01 | No generic ordinary PWA Privacy ON/OFF control; consent withdrawal may enforce internal privacy state that suppresses passive routine evidence | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/product/DECISION_LOG.md` (GS-D018) | LOCKED; P0/R1 | PWA/current guide behavior documented; no new UX implementation | Privacy and notification preferences remain separate |
 | GS-FOTA-01 | Preserve signed/versioned FOTA and recovery semantics | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/features/FOTA_ENGINEERING_FLASHING_SECURITY_AND_RECOVERY_GUIDE.md` | LOCKED; R1 | UNKNOWN here; consult FOTA evidence | No new qualification claimed |
 | GS-POWER-01 | Production-critical BAT-C8 sleep/wake behavior, with physical qualification pending | `docs/product/DECISION_LOG.md` GS-D020, `docs/product/R1_RELEASE_CONTRACT.md`, `docs/features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md` | LOCKED; R1_REQUIRED_FEATURE_WITH_PENDING_QUALIFICATION | C8A software policy implemented; C8B physical qualification pending | Final battery-life optimization/endurance excluded absent an explicit R1 claim |
 | GS-PWA-01 | Backend-first PWA shows already-current caregiver data | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN against current backend contract | Dashboard-open is not primary sync |
 | GS-CLOUD-01 | Connected Hub sync near-real-time, independent of storage pressure/PWA open | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | PARTIAL/UNKNOWN; production contract details open | Exact protocol/backlog policy open |
-| GS-CLOUD-02 | Cloud outage leaves local sensing/safety/learning active; show stale/offline; backfill on return | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN; validation not recorded | Offline capacity target open |
+| GS-CLOUD-02 | Cloud outage leaves local sensing/safety/learning active; show stale/offline; backfill on return | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN; validation not recorded | GS-D025: 72-hour design target LOCKED; guaranteed capacity and volume OPEN |
 | GS-AI-01 | Basic routine/baseline/trend learning local and bounded; richer analytics may be backend | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | PARTIAL/UNKNOWN; bounded persistence design open | No heavyweight ML requirement |
 | GS-OFF-01 | Storage pressure may reduce low-value history but cannot stop core safety operation | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNIMPLEMENTED design details; open | Priority thresholds open |
 | GS-VAL-01 | Host tests first, then target size/build, then relevant physical gates | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | IMPLEMENTED as process; per-change | Do not repeat passed hardware gate without invalidation |
@@ -301,7 +304,7 @@ This register records requirements explicitly present in canonical sources. `UNK
 
 ## Open decisions
 
-See `DECISION_LOG.md`: exact local retention, offline duration, outbox policy, record encoding, active durability capacity, pressure thresholds, and partition-layout acceptability are not locked. Do not copy candidate numbers from historical plans into requirements without a decision.
+See `DECISION_LOG.md`: GS-D025 locks the 72-hour internet-only outage design target with powered, locally connected Hub and Nodes. Exact retention, unconditional offline capacity guarantees, supported NORMAL/HIGH/STRESS volumes, critical classification/reserve/saturation, outbox policy, record encoding, quiet gap, progress frequency, backend summary protocol, active durability capacity, pressure thresholds and final partition size remain OPEN. Do not promote candidate model numbers to requirements.
 
 ## Storage-first requirement additions — 2026-10-07
 
@@ -328,3 +331,32 @@ numeric/historical budget comparisons, and cannot establish full-source
 production retention. Sample/max-name timing scenarios and current blocker
 status are recorded in [R1_WORK_STATE.md](R1_WORK_STATE.md). No competing
 master requirements source or production format is introduced.
+
+## Approved direction and partial supersession — GS-D025–028
+
+Context revision `2026-10-08.001` records four new LOCKED directions in
+`DECISION_LOG.md`: GS-D025 (72-hour design target), GS-D026 (loss-aware ordinary
+motion aggregation), GS-D027 (battery-first intelligent Nodes), GS-D028 (sensor
+semantics and future-bed exclusion). Canonical requirements are carried by
+`STORAGE_SYNC_ROUTINE_LEARNING.md`, `P0_PRODUCT_REQUIREMENTS.md` and
+`R1_RELEASE_CONTRACT.md`; orientation and status are in
+`GHAR_SAJAG_PROJECT_CONTEXT.md` and `R1_WORK_STATE.md`.
+
+GS-D013/017 are partially superseded only for the approved target/direction.
+Their remaining numerical, critical, saturation and protocol choices stay OPEN.
+GS-D003/020/021 and hardware/BAT-C8 scope and qualification remain unchanged.
+The ExecPlan remains IMPLEMENTATION_DESIGN / PROPOSED for mechanisms, formats,
+intervals, byte budgets and implementation proofs.
+
+| Supporting source | Valid uses | Partially superseded claim / replacement |
+|---|---|---|
+| `R1_STORAGE_72H_CHECKPOINT_HANDOFF_20261008.md` and `R1_STORAGE_72H_AGGREGATION_CAPACITY_20261008.md` under `docs/exec-plans/evidence/` | TEST_EVIDENCE: checkpoint, conditional host capacity and remaining technical gates | Statements that the approved 72-hour/aggregation direction still awaits locking are historical; replaced by GS-D025/026, not by a capacity guarantee |
+| `R1_NODE_MOTION_CONSOLIDATION_20261008.md` under `docs/exec-plans/evidence/` | TEST_EVIDENCE: actual-code audit, host replay, proposal limits and open proof obligations | Pending direction-governance statements replaced by GS-D025–028; START/PROGRESS/END, quiet gap and protocol remain proposals |
+| Earlier dated context/work-state/density evidence checkpoints | Historical version and conditional modeling facts remain valid for their stated checkpoint | Any open outage-target claim is replaced only by GS-D025's design target; guaranteed capacity, retention, partition and qualification remain open |
+
+The eight-file governance patch from storage commit `4732679` is explicitly
+promoted to canonical context `2026-10-08.001`; see R1_WORK_STATE for scope.
+The cited later checkpoint evidence remains on the storage branch and is not
+imported here. No prototype, test, evidence or ExecPlan synchronization is
+implied. Both worktrees must pass the unchanged context guard before substantive
+work; implementation and capacity qualification remain open.

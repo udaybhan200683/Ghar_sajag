@@ -13,7 +13,7 @@
 ## Hub and Node responsibilities
 
 - The Hub authenticates enrolled Nodes, accepts their events, applies local product rules, commits required event state before application ACK, and buffers/synchronizes caregiver-relevant data. Cloud outage must not stop local sensing, safety behavior or routine processing. **LOCKED; R1.** See [release contract](R1_RELEASE_CONTRACT.md) and [storage/sync contract](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md).
-- Sensor Nodes use ESP32-C3 for the R1 baseline. The Node samples its configured sensor, creates identified events, retains/retries them, and retires them only on a valid application ACK or explicit discard-policy result. **LOCKED; R1.** Physical fresh-install, retry, ACK retirement and lost-ACK gates are closed per [R1 work state](R1_WORK_STATE.md).
+- Sensor Nodes use battery-operated ESP32-C3 for the R1 baseline (GS-D027). The Node samples its configured sensor, creates identified events, retains/retries them, and retires them only on a valid application ACK or explicit discard-policy result. **LOCKED; R1.** Physical fresh-install, retry, ACK retirement and lost-ACK gates are closed per [R1 work state](R1_WORK_STATE.md).
 - The physically established current Node input is PIR motion on GPIO4. The production target is PIR-focused. Other event types in the shared domain model do not by themselves prove that a corresponding physical sensor/button is installed or qualified.
 
 ## Sensor and event categories
@@ -28,7 +28,7 @@ The shared event model names motion, door-open/closed, resident OK, Call Family,
 | `OK_PRESSED` | Explicit resident check-in evidence, separate from motion | P0 application event/routine input. Production physical button input is **not established**; host/simulator entry exists. |
 | `CALL_FAMILY` | Explicit assistance request, creates a distinct caregiver-facing concern in the application model | P0 feature flag is enabled by default. Physical resident control and live notification-provider delivery are **not established**. It is not emergency dispatch. |
 | Privacy events/mode | Internal consent/privacy enforcement and rule suppression | See the locked privacy rule below. A privacy event enum does not authorize a public toggle or imply physical input. |
-| Gap/motion summary | Transport/storage diagnostics or coalesced motion representation | Product use and caregiver visibility beyond existing application semantics are **OPEN**; preserve loss/correctness meaning. |
+| Gap/motion summary | Explicit loss/observation-quality evidence or eligible ordinary motion grouping | Loss-aware aggregation direction is **LOCKED**, GS-D026; eligibility details, encoding/interval/backend contract and caregiver rendering remain **OPEN**. Never infer observed inactivity from missing observation. |
 
 ## Main door, room activity, bathroom and kitchen
 
@@ -46,7 +46,7 @@ The shared event model names motion, door-open/closed, resident OK, Call Family,
 ## Device offline and battery health
 
 - No motion is not evidence that a Node is offline. Device liveness/coverage derives from authenticated health/event contact separately from resident activity. Unknown coverage suppresses time-based “no activity” conclusions. **LOCKED safety rule;** exact target clock/coverage integration has limitations documented in the [device health guide](../features/DEVICE_HEALTH_LIVENESS_AND_OFFLINE_DETECTION.md).
-- During Hub/backend outage, local sensing and Node retry/retention continue; PWA/backend freshness must be shown as stale/offline where connectivity is unavailable. **LOCKED architecture behavior.** Exact supported outage duration/backlog guarantee is **OPEN**.
+- During Hub/backend outage, local sensing and Node retry/retention continue; PWA/backend freshness must be shown as stale/offline where connectivity is unavailable. **LOCKED architecture behavior.** GS-D025 locks a 72-hour internet-only outage design target with powered, locally connected Hub/Nodes; supported volume, critical saturation and unconditional backlog/capacity guarantee remain **OPEN/unqualified**.
 - Node health diagnostics expose runtime/contact and queue information, not a qualified battery gauge. Battery voltage/SOC, remaining-life claims and a commercial battery-life number are **OPEN/unqualified** unless supported by calibrated hardware evidence. See [battery/power guide](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md).
 - Production-critical BAT-C8 power behavior is an **R1-required feature with physical qualification pending** (GS-D020). Qualification must prove intended production sleep entry, required GPIO/timer wake, bounded wake/resume, sensing/runtime restoration, required radio restoration, safe fail-awake behavior, and no required event-processing regression. Final battery-life optimization and long-duration endurance are not R1 blockers without an explicit R1 battery-life claim. Test details are in the BAT-C8 plan; P1–P10 are test-case identifiers.
 
@@ -90,5 +90,37 @@ caregiver behavior. CPU remains secondary under GS-D021.
 
 This is the design principle in [GS-D024](DECISION_LOG.md), detailed by the
 [storage/sync contract](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md);
-it does not approve an exact format,72-hour outage promise, semantic
-substitution, partition enlargement or production integration.
+GS-D024 alone does not approve an exact format, outage guarantee, semantic
+substitution, partition enlargement or production integration. GS-D025–028 below
+now lock the specified product directions without qualifying their implementation.
+
+## Approved offline, aggregation and Node requirements — GS-D025–028
+
+- **GS-D025, LOCKED target:** 72 elapsed hours of internet-only outage resilience
+  assumes powered Hub/Nodes and local connectivity. Monitoring and routine learning
+  continue; essential safety evidence and observation coverage remain durable.
+  Synchronize pending information when backend returns. Supported volume and
+  critical saturation remain OPEN; no unconditional capacity guarantee is claimed.
+- **GS-D026, LOCKED direction:** eligible ordinary motion may be grouped or
+  summarized to avoid unnecessary repeated PIR history. Preserve required routine,
+  inactivity and timely safety information, exact important door transitions,
+  user actions and safety events, and NO_ACTIVITY/NO_OBSERVATION distinction.
+  Preserve durable-before-ACK, authentication, retry/deduplication/recovery and
+  actual durable backend acceptance. Summary encoding/interval/contract remains OPEN.
+- **GS-D027, LOCKED requirement:** battery-operated ESP32-C3 Nodes avoid unnecessary
+  wake-ups, Wi-Fi transmissions and flash writes, preferring meaningful sensor
+  observations. Do not introduce 40–120-second periodic wake-ups for consolidation.
+  Nodes may interpret sensors and track episodes; Hub owns household/cross-sensor
+  routine decisions. New Node protocols must prove battery/correctness impact
+  before implementation. BAT-C8 requirements/status and required wake/retry/health
+  behavior remain unchanged; no measured energy or battery-life claim is approved.
+- **GS-D028, LOCKED boundary:** ordinary PIR may consolidate safely; door OPEN/CLOSE
+  remains individually identifiable. Future bed occupancy START/END/duration may
+  be tracked at Node, but bed sensing is excluded from R1. Occupancy does not imply
+  sleep or identity. Existing 4 MB Hub/ESP32-C3 scope remains; no S3 migration.
+
+Final critical classification/reserve, NORMAL/HIGH/STRESS guaranteed volumes,
+quiet gap, progress frequency, backend summary protocol and NVS partition size
+remain OPEN. These requirements do not qualify capacity/hardware or approve
+production integration. Detailed authority: [Decision Log](DECISION_LOG.md) and
+[storage/sync contract](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md).
