@@ -1,0 +1,26 @@
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/storage_lifecycle_validation
+REPORT_LOSS_COUNTEREXAMPLE pending_peak=1 history_required=100000 no-protocol-finite-bound
+CREDIT_BOUND_PASS peak=384 copied-ledger-reboot/no-credit-reset/exact-conflict/no-resurrection
+GAP_SESSION_PASS pending-hole/old-origin/rejoin/replacement-rejected
+COW_FAULT_PASS cuts=4325 selected-corruption-fail-closed body-or-certificate-or-retirement
+BACKEND_LOST_ACK_PASS retain-body/retry-stable-source/local-receipt-before-release
+LIFETIME_PASS events=1000000 peak=89 ledger_RAM=26368 fixed_capacity=384 atomic-snapshot-assumption
+STORAGE_LIFECYCLE_HOST_PASS
+EXIT=0
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/storage_density_validation
+DENSITY_LONG_RUN events=1000000 peak_keys=192 fixed_pool_RAM=34080 index_RAM=12452 hot_new=0
+STORAGE_DENSITY_HOST_PASS codec/context/random-access/AEAD-binding/byte-tears/COW-model/bounded-lifetime
+EXIT=0
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/storage_admission_validation
+ADMISSION_BOUND W=1 C=1 maximum=198 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=8 C=2 maximum=240 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=1 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=4 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=16 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_BOUND W=32 C=32 maximum=384 reserve-survives-normal-saturation PASS
+ADMISSION_LIFETIME events=1000000 peak=139 fixed_RAM=37384 atomic-snapshot-assumption PASS
+STORAGE_ADMISSION_HOST_PASS no-false-ACK report-replay/gaps/session/no-credit-reset
+EXIT=0
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/hub_backend_commit_validation
+HUB-BACKEND-COMMIT HOST PASS
+EXIT=0

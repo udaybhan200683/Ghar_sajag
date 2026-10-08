@@ -1,0 +1,28 @@
+SDK_BINARY_SHA256=63ab5c93beebbfd912fd9175142500539936a9de5031d4816d162198647df667
+SDK_SOURCE_COMMIT=76f5dedd9950a3012fee8fb7d5586df21fc67802
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-qvuzlqdd/fixture.txt schedule
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=22 allocated_pages=19 free_erased_pages=45 live_entries=2316 erased_entries=0 stats_used=2316 stats_free=5748 write_bytes=75720 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_SCHEDULE scenario_records=1176 days=3 logical_bytes=816209 programmed_bytes=970944 write_amplification=1.189578 entries_written=28656 page_erases=185 max_sector_erases=7 checkpoints=18 reports=37 history=24 peak_pages=0
+OFFLINE_BACKFILL chunks=24 programmed_bytes=24020 page_erases=5
+EMULATOR_IMAGE=/tmp/idf-partition-nQeVif
+EXIT=0
+CASE={"scenario": "HIGH", "profile": "ordinary", "worst": true, "history_segments": 94, "cow_segments": 8, "protected_peak_bytes": 536576}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-qvuzlqdd/fixture.txt schedule
+FIXTURE_SHA256=571fb7322b482903ad6b678a56f1a090dff6b0e134730c0ea277d70a16c79fc2
+NVS_RUNTIME phase=offline_loaded iteration=22 allocated_pages=19 free_erased_pages=45 live_entries=2316 erased_entries=0 stats_used=2316 stats_free=5748 write_bytes=75720 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_SCHEDULE_STOP phase=source_seal_second completed=2048 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=offline_schedule_stop iteration=2048 allocated_pages=63 free_erased_pages=1 live_entries=7904 erased_entries=3 stats_used=7904 stats_free=160 write_bytes=1919608 erase_ops=385 min_sector_erases=0 max_sector_erases=15
+EMULATOR_IMAGE=/tmp/idf-partition-Ihg11f
+EXIT=4
+CASE={"scenario": "STRESS", "profile": "ordinary", "worst": true, "history_segments": 1173, "cow_segments": 8, "protected_peak_bytes": 5132288}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-qvuzlqdd/fixture.txt schedule
+FIXTURE_SHA256=b69c643ab3b91edd9671754c93fe1ce7e231a367b81d5d16403a56f354f28cad
+NVS_RUNTIME phase=offline_loaded iteration=22 allocated_pages=19 free_erased_pages=45 live_entries=2316 erased_entries=0 stats_used=2316 stats_free=5748 write_bytes=75720 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_SCHEDULE_STOP phase=report completed=2048 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=offline_schedule_stop iteration=2048 allocated_pages=63 free_erased_pages=1 live_entries=7893 erased_entries=6 stats_used=7893 stats_free=171 write_bytes=1760868 erase_ops=350 min_sector_erases=0 max_sector_erases=16
+EMULATOR_IMAGE=/tmp/idf-partition-KWtch6
+EXIT=4
+RUNNER_RESULT={"runs": 3, "passes": 1, "capacity_stops": 2}
+BOUNDARY=SDK NVS EMULATED; dummy bodies/selectors; TARGET HARDWARE UNPROVEN

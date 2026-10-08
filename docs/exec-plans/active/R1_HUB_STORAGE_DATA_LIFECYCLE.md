@@ -1448,3 +1448,59 @@ implementation is a separate task after product policy, authenticated persisted
 admission/root, guarded peak allocation, target wear/RAM/OTA and rollback gates.
 READY_TO_START_PRODUCTION_STORAGE_IMPLEMENTATION=NO. No context/partition,
 production firmware, ACK, backend/PWA, BAT-C8 or hardware change.
+
+## 27. 72-hour offline direction and loss-aware aggregation analysis — 2026-10-08
+
+[Focused evidence](../evidence/R1_STORAGE_72H_AGGREGATION_CAPACITY_20261008.md)
+refines the user-approved72h internet-offline target and ordinary-motion aggregation
+under all existing safety/authentication/coverage invariants. This section is
+IMPLEMENTATION_DESIGN/PROPOSED, not a partition/critical quota/backend guarantee.
+Product-decision/context governance recording is deferred by the user-directed
+checkpoint; bounds remain OPEN. No new LOCKED decision/context version has been
+committed. Prior codec and production code are unchanged. Work is paused; see the
+[checkpoint handoff](../evidence/R1_STORAGE_72H_CHECKPOINT_HANDOFF_20261008.md).
+
+Candidate B uses immutable bounded containers of separate ordinary Motion points
+with source membership, original monotonic/receive timing, coverage/context and
+selected processed-state dependency. Keep Call Family/I Am OK, important door/
+alert/fault/window dependencies exactly. **Keep native Node MotionSummary exact**;
+its millisecond endpoints/count cannot become a seconds-only history summary.
+Unknown/delayed/unclosed/inflight exact sources remain exact. A public history
+summary is not fed to the existing MotionSummary rule enum. Four calendar dates,
+coverage and day/clock revisions remain explicit. Full routine-learning/time/
+finalization semantics are not newly invented or qualified.
+
+Worst-size NORMAL mostly ordinary430 exact originals (candidate essential53,
+native aggregates374 with overlapping anchor subset),288 new summaries needs
+237568 B protected modeled peak. It passes256 KiB SDK update/reclaim/remount.
+Mixed NORMAL728 exact/197 summaries needs282624 B and fails256 KiB. Typical NORMAL
+passes192; all final128 fixtures fail. HIGH mostly ordinary worst536576 B and
+STRESS5132288 B fail all reviewed sizes. Earlier narrower128/optimistic HIGH
+observations remain scoped evidence, not a guarantee. Physical passing churn
+uses all but one erased page; admission must reserve actual next operations,
+not assume that page is application headroom.
+
+Six384-key witness banks and all old report/state owners remain charged; serial32
+HOT admission, two max source extents/32 arrivals, eight source-stage extents/128
+checkpoint inputs, separate next report/checkpoint/selectors, four day states and
+critical32/64/128 alternatives are included. Those credits/reserves are conditional,
+not deployed policy.192 pending Nodes can be drained serially in the host model;
+192 standalone Hub HOT is a different and larger allocator obligation. No source
+body disappears before selected summary+checkpoint, and Node retirement cannot
+stand for cloud completion. Exact first-send must be durably fenced against later
+compaction; backend exclusive source claims and manifest receipts need a new API.
+
+NORMAL full72h dummy schedule:1176 source+local inputs,970944 programmed B,
+WA1.189578 versus all changed values (6.658328 versus124-byte input bodies),185
+erases, max7/sector. HIGH/STRESS full-day/outage wear UNPROVEN after capacity stops.
+Application RAM42749 B plus NVS internals is a bound proposal; target heap/image/
+endurance/brownout/rollback remain UNPROVEN. Fourteen semantic tests, actual rules,
+60 sampled GC-primed fault cases, relevant regressions and scoped ASan/UBSan pass.
+
+256 KiB is a safer candidate than192 at the same35920 B limiting current-image
+OTA margin; neither guarantees the declared max mixed workload. Retain4 MB ESP32
+and NVS candidate/raw fallback. Final partition UNDECIDED. Stop additional backend/
+compression exploration; resolve supported volume/critical/late/coverage/API/OTA
+policy, authenticated persisted root/admission and target qualification before
+freezing or phased production implementation. No partition/firmware/backend/PWA,
+BAT-C8, hardware or canonical-branch change occurs in this run.

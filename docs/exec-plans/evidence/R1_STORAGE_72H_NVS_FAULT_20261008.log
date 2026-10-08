@@ -1,0 +1,485 @@
+SDK_BINARY_SHA256=63ab5c93beebbfd912fd9175142500539936a9de5031d4816d162198647df667
+SDK_SOURCE_COMMIT=76f5dedd9950a3012fee8fb7d5586df21fc67802
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 0
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=0 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=0 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-LwgMy6
+libgcov profiling error:/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.gcda:overwriting an existing profile data with a different checksum
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-8b4vXH
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 8
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=8 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=8 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-G7uBZj
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 16
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=16 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=16 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-fPIeD4
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 31
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=31 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=31 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-pJfk6F
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 32
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=32 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=32 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-4a4Uwv
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 63
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=63 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=63 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-NgdPhH
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 64
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=64 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=64 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-keBXEK
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 127
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=127 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=127 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-vluV0o
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 512
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=512 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=512 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-8mynOr
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1023
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1023 units=1060 calls=17 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1023 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-ZJn3NQ
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1024
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1024 units=1060 calls=17 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1024 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-ovVb5Z
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1071
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1071 units=1071 calls=21 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1071 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-mC0Ctk
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1072
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1072 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1072 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Fwm9ZS
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1073
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1073 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1073 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-AICxWz
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1080
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1080 units=1080 calls=23 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1080 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-orCOoi
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1081
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1081 units=1896 calls=24 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1081 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-AFgspl
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1536
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1536 units=1896 calls=24 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1536 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-ZCvrpm
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2047
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2047 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2047 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-rIgit1
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2048
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2048 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2048 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-9MiZsA
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2560
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2560 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2560 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-7nw0tz
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2600
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2600 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2600 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-WAgYVe
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2687
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2687 units=2795 calls=49 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2687 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Xq6feo
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2688
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2688 units=2795 calls=49 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2688 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-QcQ3U3
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2750
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2750 units=2795 calls=49 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2750 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-UgHqdS
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 3000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=3000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=3000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-0fJRrb
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 4000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=4000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-N5Xq30
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 4096
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4096 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=4096 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-Jtmxla
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 6000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=6000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=6000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-MVJta2
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 100000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=100000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=100000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-IoG7RH
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 0
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=0 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=0 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-A9WPLg
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-N46wzr
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 8
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=8 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=8 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-JjCZxP
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 16
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=16 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=16 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-pzuSPZ
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 31
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=31 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=31 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-KVyO0U
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 32
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=32 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=32 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-XiBpdO
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 63
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=63 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=63 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-OUzVQ1
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 64
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=64 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=64 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-OQXYhJ
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 127
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=127 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=127 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-DbRvCA
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 512
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=512 units=1055 calls=12 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=512 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-n08XWe
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1023
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1023 units=1055 calls=12 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1023 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-7WlBcb
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1024
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1024 units=1055 calls=12 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1024 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-zEHHg1
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1071
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1071 units=1071 calls=21 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1071 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-3bIVoa
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1072
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1072 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1072 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-sTxb4q
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1073
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1073 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1073 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-tzJDTi
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1080
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1080 units=1080 calls=23 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1080 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-PUbgJG
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1081
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1081 units=1208 calls=24 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1081 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-LSeH1F
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 1536
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1536 units=2230 calls=33 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1536 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Dj3P3j
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2047
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2047 units=2230 calls=33 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2047 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-ZmnqJu
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2048
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2048 units=2230 calls=33 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2048 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-LF2GFt
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2560
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2560 units=2666 calls=48 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2560 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-tH8fIJ
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2600
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2600 units=2666 calls=48 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2600 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-SaIjNB
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2687
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2687 units=2687 calls=55 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2687 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-mlNFZc
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2688
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2688 units=2688 calls=56 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2688 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-BxzjgM
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 2750
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2750 units=2816 calls=57 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2750 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-9GWOxW
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 3000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=3000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=3000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-LZcsuc
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 4000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=4000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-0KMMWn
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 4096
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4096 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=4096 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-Wgscyq
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 6000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=6000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=6000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-1sE9tu
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-tr_upw2l/fixture.txt fault 100000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=100000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=100000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-OsvHpm
+EXIT=0
+RUNNER_RESULT={"runs": 60, "passes": 60, "capacity_stops": 0}
+BOUNDARY=SDK NVS EMULATED; dummy bodies/selectors; TARGET HARDWARE UNPROVEN

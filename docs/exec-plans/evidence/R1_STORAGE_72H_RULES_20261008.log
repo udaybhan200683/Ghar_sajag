@@ -1,0 +1,10 @@
+COMMAND=g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -Icode/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/include code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/src/rules.cpp code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/src/logging.cpp code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/storage_offline_rules_validation.cpp -o /tmp/gs-offline-rules
+EXIT=0
+COMMAND=/tmp/gs-offline-rules
+OFFLINE_RULES_HOST_PASS actual RulesCore; sparse-point equivalence, source-summary ignored, covered-vs-unknown, exact anchors/door; copied checkpoint only
+EXIT=0
+COMMAND=g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -Icode/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/include code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/src/rules.cpp code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/src/logging.cpp code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/storage_offline_rules_validation.cpp -fsanitize=address,undefined -fno-omit-frame-pointer -o /tmp/gs-offline-rules-san
+EXIT=0
+COMMAND=/tmp/gs-offline-rules-san
+OFFLINE_RULES_HOST_PASS actual RulesCore; sparse-point equivalence, source-summary ignored, covered-vs-unknown, exact anchors/door; copied checkpoint only
+EXIT=0

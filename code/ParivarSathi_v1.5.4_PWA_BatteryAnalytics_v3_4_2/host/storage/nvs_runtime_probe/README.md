@@ -76,3 +76,22 @@ main with sanitizer flags and link against unchanged SDK archives; full commands
 are preserved in the sanitizer evidence. SDK internals are not instrumented.
 See the focused diagnosis for limits: these values are dummy lengths, credits
 and whole authenticated lifecycle transactions are not implemented.
+
+## 72-hour ordinary-motion analysis
+
+`../offline_72h_model.py --output /tmp/gs-72h-cases.json` produces candidate
+whole-object ledgers; `../test_offline_72h_model.py` checks semantic/dependency
+models. From repository root use `python3 <this-directory>/run_offline.py
+--cases /tmp/gs-72h-cases.json --suite capacity`, `schedule`, or `fault`.
+`build_host_sanitizer.py --output /tmp/gs-72h-san` instruments the probe main/header;
+pass `--binary /tmp/gs-72h-san/probe.elf` to the runner with ASan/UBSan environment.
+SDK archives remain uninstrumented.
+
+The new `offline FIXTURE [schedule|fault CUT]` mode uses the same SDK, latch and
+synthetic descriptor. Fixtures are regenerated from explicit JSON scenario
+parameters, not production serializers. Capacity stops are expected evidence.
+Fault tests prime GC then append independent summary/checkpoint/selector before
+old-body retirement. The scalar summary model excludes native Node MotionSummary
+because its millisecond fields must remain in the frozen exact representation.
+See `R1_STORAGE_72H_AGGREGATION_CAPACITY_20261008.md` for the supported model
+limits, actual measurement categories and remaining policy/target gates.

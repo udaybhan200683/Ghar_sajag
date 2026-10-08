@@ -1,0 +1,491 @@
+COMMAND=ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 python3 build_host_sanitizer.py --output /tmp/gs-72h-san; then run_offline.py --suite fault --binary /tmp/gs-72h-san/probe.elf (full paths below/in evidence)
+COMMAND=/usr/bin/c++ -DESP_PLATFORM '-DIDF_VER="v6.0.3"' -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE -DSOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ -DUNITY_INCLUDE_CONFIG_H -D_GLIBCXX_HAVE_POSIX_SEMAPHORE -D_GLIBCXX_USE_POSIX_SEMAPHORE -D_GNU_SOURCE -DprojCOVERAGE_TEST=0 -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/config -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/linux/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include/freertos -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/esp-idf/freertos/mocks -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/etm/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/heap/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/log/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/platform_port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux/include/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_common/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/linux/linux_include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/cmock/CMock/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/unity/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/unity/unity/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/nvs_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_partition/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_blockdev/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/spi_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_mspi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_mspi/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_gpspi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_dma/include -I/tmp/gs-libbsd-dev/usr/include/x86_64-linux-gnu -fdiagnostics-color=always -ffunction-sections -fdata-sections -Wall -Werror -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=deprecated-declarations -Wextra -Wno-error=extra -Wno-unused-parameter -Wno-sign-compare -Wno-enum-conversion -gdwarf-4 -ggdb -Og -fmacro-prefix-map=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe=. -fmacro-prefix-map=/home/udaybhan/.espressif/v6.0.3/esp-idf=/IDF -fstrict-volatile-bitfields -fno-jump-tables -fno-tree-switch-conversion -std=gnu++26 -fno-exceptions -fno-rtti -fuse-cxa-atexit -DLINUX_TARGET --coverage -MD -MT esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.o -MF esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.o.d -o /tmp/gs-72h-san/probe.o -c /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/main/probe.cpp -fsanitize=address,undefined -fno-omit-frame-pointer
+EXIT=0
+COMMAND=/usr/bin/c++ /tmp/gs-72h-san/probe.o -I/tmp/gs-libbsd-dev/usr/include/x86_64-linux-gnu -Wl,--cref -Wl,--defsym=IDF_TARGET_LINUX=0 -Wl,--Map=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.map -Wl,--no-warn-rwx-segments -fno-rtti -fno-lto -Wl,--gc-sections -Wl,--warn-common -Wl,--wrap=esp_partition_write -Wl,--wrap=esp_partition_write_raw -Wl,--wrap=esp_partition_erase_range -Wl,--wrap=mkstemp -Wl,--dependency-file=CMakeFiles/gs_nvs_runtime_probe.elf.dir/link.d CMakeFiles/gs_nvs_runtime_probe.elf.dir/project_elf_src_linux.c.o -o /tmp/gs-72h-san/probe.elf -L/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu -Wl,-rpath,/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/main/libmain.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a -lbsd -u __assert_func --coverage -fsanitize=address,undefined
+EXIT=0
+SANITIZER_SCOPE=isolated probe/main + offline header only; SDK archives uninstrumented; LeakSanitizer disabled during run
+SDK_BINARY_SHA256=2c41123e9c82e239fa8f8c44f90e8556de6c7c235ebcd43021c48731b3324633
+SDK_SOURCE_COMMIT=76f5dedd9950a3012fee8fb7d5586df21fc67802
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 0
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=0 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=0 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-vOgVKr
+libgcov profiling error:/tmp/gs-72h-san/probe.gcda:overwriting an existing profile data with a different checksum
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-EXENtf
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 8
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=8 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=8 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-aMVfKC
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 16
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=16 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=16 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-LMYpm9
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 31
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=31 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=31 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-u12s02
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 32
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=32 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=32 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-gcVvOl
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 63
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=63 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=63 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-01ZjJe
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 64
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=64 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=64 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-aB5pyc
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 127
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=127 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=127 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-V3q1ZV
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 512
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=512 units=865 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=512 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Icy73K
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1023
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1023 units=1060 calls=17 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1023 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-kKo1xP
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1024
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1024 units=1060 calls=17 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1024 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-ndRYrf
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1071
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1071 units=1071 calls=21 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1071 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Mu7S3F
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1072
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1072 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1072 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-mQ1vxq
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1073
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1073 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1073 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Ubwznh
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1080
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1080 units=1080 calls=23 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1080 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-1uNo9q
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1081
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1081 units=1896 calls=24 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1081 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-PAGceO
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1536
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1536 units=1896 calls=24 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=1536 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-m0jeWW
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2047
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2047 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2047 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Et3sWw
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2048
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2048 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2048 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-gmktKy
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2560
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2560 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2560 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-zfsK33
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2600
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2600 units=2643 calls=38 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2600 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-QrwBoA
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2687
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2687 units=2795 calls=49 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2687 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-lcOy6K
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2688
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2688 units=2795 calls=49 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2688 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-4ZMOOK
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2750
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2750 units=2795 calls=49 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=2750 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-faFOlk
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 3000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=3000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=3000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-C9oTn5
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 4000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=4000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-5s7hwU
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 4096
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4096 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=4096 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-ZbcUxv
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 6000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=6000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=6000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-eftxLg
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "ordinary", "worst": true, "history_segments": 24, "cow_segments": 8, "protected_peak_bytes": 237568}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 100000
+FIXTURE_SHA256=730cc97aa5cb1a058c3cb4301410c49d357766e47643c9522b2320656e44b45b
+NVS_RUNTIME phase=offline_loaded iteration=90 allocated_pages=57 free_erased_pages=7 live_entries=7043 erased_entries=0 stats_used=7043 stats_free=1021 write_bytes=230580 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=100000 units=2811 calls=58 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=2 priming_erases=36
+OFFLINE_FAULT_RECOVERY cut=100000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-1KMtUj
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 0
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=0 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=0 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-YjNfNS
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-hpk3Ag
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 8
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=8 units=8 calls=1 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=8 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-PjlFSS
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 16
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=16 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=16 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-nnqLw0
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 31
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=31 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=31 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-XSrsiK
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 32
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=32 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=32 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-wBug5R
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 63
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=63 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=63 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-GDeQns
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 64
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=64 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=64 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-5y045S
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 127
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=127 units=177 calls=3 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=0 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=127 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-YOk8xm
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 512
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=512 units=1055 calls=12 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=512 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-ngCXgK
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1023
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1023 units=1055 calls=12 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1023 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-nk7xXX
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1024
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1024 units=1055 calls=12 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1024 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-tfj4K3
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1071
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1071 units=1071 calls=21 summary_result=ESP_ERR_FLASH_OP_FAIL checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1071 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-mBcB5Z
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1072
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1072 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1072 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Z0cXfW
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1073
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1073 units=1079 calls=22 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1073 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-3c9w5W
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1080
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1080 units=1080 calls=23 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1080 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-xeiQ1c
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1081
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1081 units=1208 calls=24 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=1 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1081 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-1caOMN
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 1536
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=1536 units=2230 calls=33 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=1536 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-kbvEqm
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2047
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2047 units=2230 calls=33 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2047 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-Y2AF6f
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2048
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2048 units=2230 calls=33 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=2 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2048 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-IHwxt1
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2560
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2560 units=2666 calls=48 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2560 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-JJRIl3
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2600
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2600 units=2666 calls=48 summary_result=ESP_OK checkpoint_result=ESP_ERR_FLASH_OP_FAIL final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2600 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-UQTftx
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2687
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2687 units=2687 calls=55 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2687 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-jOGswn
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2688
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2688 units=2688 calls=56 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2688 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-lLHsWM
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 2750
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=2750 units=2816 calls=57 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_ERR_FLASH_OP_FAIL frozen=1 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=2750 old_valid=1 new_valid=0
+EMULATOR_IMAGE=/tmp/idf-partition-v6KfdC
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 3000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=3000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=3000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-34JTDh
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 4000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=4000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-ze6Dpl
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 4096
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=4096 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=4096 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-8QBc7O
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 6000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=6000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=6000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-Utk0nl
+EXIT=0
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": false, "history_segments": 7, "cow_segments": 4, "protected_peak_bytes": 147456}
+COMMAND=GS_DIAG_PAGES=64 /tmp/gs-72h-san/probe.elf offline /tmp/gs-72h-nvs-isljas3c/fixture.txt fault 100000
+FIXTURE_SHA256=e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4
+NVS_RUNTIME phase=offline_loaded iteration=69 allocated_pages=34 free_erased_pages=30 live_entries=4227 erased_entries=0 stats_used=4227 stats_free=3837 write_bytes=138600 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+OFFLINE_FAULT_IO cut=100000 units=2832 calls=66 summary_result=ESP_OK checkpoint_result=ESP_OK final_result=ESP_OK frozen=0 transaction_erases=3 priming_erases=13
+OFFLINE_FAULT_RECOVERY cut=100000 old_valid=0 new_valid=1
+EMULATOR_IMAGE=/tmp/idf-partition-WNJ2pU
+EXIT=0
+RUNNER_RESULT={"runs": 60, "passes": 60, "capacity_stops": 0}
+BOUNDARY=SDK NVS EMULATED; dummy bodies/selectors; TARGET HARDWARE UNPROVEN

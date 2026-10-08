@@ -1,0 +1,22 @@
+HOST_ONLY; COMMANDS documented in focused evidence
+test_192_node_pending_serialized_32_input_flights (__main__.OfflineTests.test_192_node_pending_serialized_32_input_flights) ... ok
+test_72h_all_rates_profiles_and_four_days (__main__.OfflineTests.test_72h_all_rates_profiles_and_four_days) ... ok
+test_ack_loss_retry_conflict_and_report_retirement (__main__.OfflineTests.test_ack_loss_retry_conflict_and_report_retirement) ... ok
+test_backend_lost_ack_and_source_overlap (__main__.OfflineTests.test_backend_lost_ack_and_source_overlap) ... ok
+test_bounded_summary_and_sparse_sequence_spill (__main__.OfflineTests.test_bounded_summary_and_sparse_sequence_spill) ... ok
+test_context_epoch_midnight_clock_and_delay_split (__main__.OfflineTests.test_context_epoch_midnight_clock_and_delay_split) ... ok
+test_crashes_twice_at_all_compaction_points (__main__.OfflineTests.test_crashes_twice_at_all_compaction_points) ... ok
+test_exact_inflight_exclusion_and_exclusive_backend_claim (__main__.OfflineTests.test_exact_inflight_exclusion_and_exclusive_backend_claim) ... ok
+test_exact_safety_classes_and_motion_exclusions (__main__.OfflineTests.test_exact_safety_classes_and_motion_exclusions) ... ok
+test_native_source_summary_preserves_frozen_exact_body (__main__.OfflineTests.test_native_source_summary_preserves_frozen_exact_body) ... ok
+test_no_activity_vs_no_observation_reboot_and_cloud (__main__.OfflineTests.test_no_activity_vs_no_observation_reboot_and_cloud) ... ok
+test_node_report_is_not_backend_history_completion (__main__.OfflineTests.test_node_report_is_not_backend_history_completion) ... ok
+test_normal_saturation_preserves_critical_and_fails_closed (__main__.OfflineTests.test_normal_saturation_preserves_critical_and_fails_closed) ... ok
+test_sparse_points_and_source_membership (__main__.OfflineTests.test_sparse_points_and_source_membership) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 8.582s
+
+OK
+
+EXIT=0

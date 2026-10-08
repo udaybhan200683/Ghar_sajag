@@ -1,0 +1,16 @@
+HOST_ONLY; COMMANDS documented in focused evidence
+[1/12] Try to find ruby. If this fails, you need to install ruby
+ruby 3.3.8 (2025-04-09 revision b200bad6cd) [x86_64-linux-gnu]
+[2/5] cd /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/esp-idf/partition_table && /usr/bin/cmake -E echo "Partition table binary generated. Contents:" && /usr/bin/cmake -E echo "*******************************************************************************" && /home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py -q --offset 0x8000 --primary-bootloader-offset 0 --disable-md5sum -- /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/partition_table/partition-table.bin && /usr/bin/cmake -E echo "*******************************************************************************"
+Partition table binary generated. Contents:
+*******************************************************************************
+# ESP-IDF Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+life,data,nvs,0x9000,128K,
+factory,app,factory,0x30000,1M,
+*******************************************************************************
+[3/5] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.o
+[4/5] Linking C static library esp-idf/main/libmain.a
+[5/5] Linking CXX executable gs_nvs_runtime_probe.elf; Checking ioctl definition overlaps
+
+EXIT=0
