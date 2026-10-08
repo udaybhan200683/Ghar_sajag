@@ -208,3 +208,18 @@ three6144-byte images; shared20 KiB arena needs a release/allocator proof. Curre
 product guarantee, partition enlargement or hardware migration. Next host step
 is actual IDF NVS runtime tail/promotion/GC peak proof; no production integration
 or new numerical requirement/context version.
+
+## NVS runtime proof status at context2026-10-07.003 (technical findings only)
+
+The [installed-IDF host runtime evidence](../exec-plans/evidence/R1_STORAGE_NVS_RUNTIME_PROOF_20261008.md)
+supersedes only the assumption that fresh-image NVS free pages remain reserved
+under churn. Nine sealed segments can churn for10,000 modeled heavy cycles,
+but the application COW/engineering reserve is consumed; at higher occupancy
+retirement-report replacement returns not-enough-space with one NVS free page.
+A 192 maximum-HOT standalone-tail coexistence fixture fails before complete
+admission, and a sampled report-blob write cut remounts without that key.
+Authenticated selected/previous report banks and durable root/credit selection
+are still required. No full NVS workload/flash-life/RAM/rollback proof exists.
+NVS is the preferred R1 backend candidate, raw is fallback; current128 KiB
+and4 MB Hub viability remain conditional, and no numerical product policy or
+partition/hardware change is approved.

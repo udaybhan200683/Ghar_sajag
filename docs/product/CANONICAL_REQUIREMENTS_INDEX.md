@@ -347,3 +347,14 @@ ExecPlan section24 refines section23's event-pool-only NVS sensitivity and
 conservative independent raw bank allocation. Preserve prior source/codec facts;
 whole fresh NVS packing does not establish runtime GC/peak progress. Context
 revision remains2026-10-07.003; no new LOCKED decision or authority promotion.
+
+### NVS runtime/saturation evidence checkpoint
+
+| Path | Classification | Authority boundary |
+|---|---|---|
+| `docs/exec-plans/evidence/R1_STORAGE_NVS_RUNTIME_PROOF_20261008.md` and linked raw logs | TEST_EVIDENCE / HOST-MEASURED | Installed-IDF Linux 128 KiB NVS churn, saturation, tail coexistence, selected fault cuts and write/erase counters for dummy length-matched objects; no product retention, authenticated whole-transaction, target RAM/wear or hardware claim |
+| `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` section25 | IMPLEMENTATION_DESIGN / PROPOSED | Replaces the fresh-image reserve assumption with a conditional physical admission/progress obligation; does not approve W/C, partition, backend or production integration |
+
+GS-D013/014/015/017 remain OPEN and GS-D016/021/024 unchanged. The new
+evidence does not alter canonical requirement authority or context version
+`2026-10-07.003`; NVS is a candidate rather than an approved backend.

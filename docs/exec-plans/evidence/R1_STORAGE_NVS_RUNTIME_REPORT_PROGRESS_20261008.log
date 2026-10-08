@@ -1,0 +1,11 @@
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION append_segment=9 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=10 result=ESP_OK
+NVS_RUNTIME phase=after_append_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3712 erased_entries=179 stats_used=3712 stats_free=320 write_bytes=30432872 erase_ops=7094 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION report_before_reclaim=ESP_OK root_after_report=ESP_OK
+NVS_RUNTIME phase=after_report_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3713 erased_entries=168 stats_used=3713 stats_free=319 write_bytes=30445836 erase_ops=7097 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION erase_old=ESP_OK commit=ESP_OK
+NVS_RUNTIME_SATURATION append_after_erase=ESP_OK
+NVS_RUNTIME phase=after_reclaim iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3713 erased_entries=76 stats_used=3713 stats_free=319 write_bytes=30451244 erase_ops=7099 min_sector_erases=0 max_sector_erases=316

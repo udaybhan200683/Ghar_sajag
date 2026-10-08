@@ -182,3 +182,19 @@ runtime/GC peaks remain unproved. Conservative independent raw state banks
 correct the old20 KiB reservation to24 KiB; raw sample/max comparison
 131072/135168 B.128 KiB remains conditional; no partition/hardware migration or
 storage backend selection approved. No new LOCKED requirement/CONTEXT_VERSION.
+
+### 2026-10-08 NVS runtime/saturation evidence (no new decision)
+
+GS-D013/014/015/017 and GS-D016/021/024 keep their status. The
+[installed-IDF NVS runtime probe](../exec-plans/evidence/R1_STORAGE_NVS_RUNTIME_PROOF_20261008.md)
+completes 10,000 heavy replacement cycles with nine sealed segments but uses
+all previously counted application COW/engineering pages as allocator churn.
+At higher live occupancy, a retirement-report replacement fails even while
+NVS retains one erased page; a tested write cut also leaves the replaced
+report key absent after remount. A 192-maximum-HOT coexistence fixture fails
+before all 192 can be admitted. These are technical counterexamples to the
+current fresh-image reserve proof, not a new product capacity policy or a
+general rejection of NVS/128 KiB. NVS stays the preferred candidate; raw is
+fallback only. Exact offline/critical/saturation/backend policy and technical
+credit/root/physical guard/wear/RAM closure remain OPEN. No partition,
+hardware, production implementation or CONTEXT_VERSION decision is made.

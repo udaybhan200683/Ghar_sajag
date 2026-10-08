@@ -1361,3 +1361,57 @@ current image OTA fits. Hardware upgrade is not proven required. Production
 integration remains NO pending product saturation/substitution/critical decisions,
 persisted report/admission fairness and source binding, physical peak allocator,
 authenticated root/nonce/freshness/FOTA and target RAM/code/wear. No context bump.
+
+## 25. Installed-IDF NVS runtime/saturation checkpoint — 2026-10-08
+
+[Focused host evidence and raw logs](../evidence/R1_STORAGE_NVS_RUNTIME_PROOF_20261008.md)
+use the actual installed ESP-IDF6.0.3 NVS allocator on a Linux emulated128 KiB
+partition. The length-matched dummy objects are the section24 whole-object
+map; no production codec, ACK, partition, BAT-C8 or hardware change.
+
+Nine sealed4096-byte segments plus fixed objects take28 nonblank NVS pages
+fresh. After10,000 deliberately heavy tail/segment/report/state/meta/root
+replacement cycles,31 pages are nonblank and one erased page remains at call
+boundaries;69,755 page erases and297,789,032 bytes programmed are measured.
+The three pages previously called two application COW plus one engineering
+reserve become NVS churn space, so that reserve ledger is invalid at runtime.
+The NVS free page is internal GC workspace, not report/root headroom. At12
+live segments, retirement-report replacement fails; deleting an old segment
+allows an append, but report-driven retirement cannot rely on that order.
+At11 segments the report/root update succeeds in one measured state, not as a
+proven admission threshold. An allocator guard must reserve a complete next
+report/root/GC operation under worst allowed live/fragmented layout.
+
+With192 old exact keys retained as certificates and192 maximum HOT bodies
+attempted as separate blobs, only138 new bodies admit at nine segments. The
+384 exact-key lemma does not imply all six Node pending flights can become
+independent NVS HOT blobs while retaining the proposed history. Limit hot-tail
+coexistence through bounded authenticated promotion and credit/physical
+admission; never ACK on failed write. The32-HOT promotion fixture succeeds at
+nine segments, but this is only one page-layout witness.
+
+Sampled NVS report-blob failure cuts recover old or new at most points; cut1072
+returns `ESP_ERR_NVS_NOT_FOUND` after successful remount, reproducibly. Do not
+overwrite a selected report key in place. Authenticated old/selected/candidate
+bank selection and root release ordering need explicit crash tests. The host
+admission model still copies atomic state; durable class/credit bytes beyond a
+48-byte candidate bitmap and report/root association are not fixed. A three-
+bank report candidate costs10455 logical bytes and at least10656 NVS entry
+bytes before page/GC overhead.
+
+The heavy cycle programs29,767.64 bytes and erases6.9755 pages on average
+after setup, against18,457 changed-value bytes/cycle (ratio1.613). It is not
+an approved per-event schedule. Actual NORMAL/HIGH/STRESS write amplification,
+flash lifetime/hot pages, NVS-specific engine RAM and firmware OTA growth are
+still OPEN. Existing39,017-byte raw-sector candidate RAM is not a measured NVS
+budget. Current image OTA margin101,456 bytes is prior evidence only.
+
+`READY_TO_START_PRODUCTION_STORAGE_IMPLEMENTATION=NO`.
+`CURRENT_128K_FEASIBILITY=CONDITIONAL` overall; section24's unrestricted
+nine-segment reserve map fails. No partition change or hardware migration is
+proven necessary. NVS stays preferred candidate; raw stays fallback. Next
+technical proof needs persisted authenticated credit/report/root recovery,
+physical admission with protected report/GC/COW space, final bounded tail/
+checkpoint/report schedule and wear/RAM/rollback measurements. Product critical,
+offline, overflow and backend substitution decisions remain separate STOP gates.
+Context stays.003 and no LOCKED decision is added.

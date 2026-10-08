@@ -1,0 +1,8 @@
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION hot_admitted=32 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3642 erased_entries=179 stats_used=3642 stats_free=390 write_bytes=30431052 erase_ops=7094 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3643 erased_entries=205 stats_used=3643 stats_free=389 write_bytes=30440748 erase_ops=7096 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME phase=after_hot_retire iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3451 erased_entries=397 stats_used=3451 stats_free=581 write_bytes=30441032 erase_ops=7096 min_sector_erases=0 max_sector_erases=316

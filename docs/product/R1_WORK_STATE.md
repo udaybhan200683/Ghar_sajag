@@ -224,3 +224,31 @@ are locked.128 KiB remains CONDITIONAL; enlargement not proven necessary;
 backend UNDECIDED. Next host-only step: actual IDF NVS runtime/GC/tail/promotion
 peak proof and explicit product critical/offline/substitution decisions.
 Codec/production/ACK/backend/partition unchanged; no hardware or context bump.
+
+## 2026-10-08 final NVS runtime/saturation checkpoint — NOT CLOSED
+
+[Host-only installed-IDF evidence](../exec-plans/evidence/R1_STORAGE_NVS_RUNTIME_PROOF_20261008.md)
+and ExecPlan section25 close the *fresh-image-only* evidence gap with actual
+Linux NVS allocation/GC, but **do not close the final storage proof**. A nine-
+segment candidate completes 10,000 heavy replacement cycles with one erased
+NVS page at operation boundaries and 69,755 erases; the prior two application
+COW plus one engineering pages are consumed by churn. After three more live
+segments, report replacement fails with `ESP_ERR_NVS_NOT_ENOUGH_SPACE`.
+After replacing 192 certificate keys with full-HOT bodies, only 138/192
+maximum124-byte HOT blobs admit in the nine-segment fixture. An injected
+report replacement cut1072 remounts with `ret0` absent, reproduced three
+times. Other sampled cuts recover old or new single-key values. An application
+authenticated bank/root protocol is required; there is no final credit or
+NVS crash proof.
+
+The384 exact-key bound remains conditional on durable admission/report
+selection and actual body/GC capacity. NORMAL/HIGH/STRESS write amplification,
+target engine RAM, rollback, and OTA growth are not established. Current128 KiB
+remains CONDITIONAL overall; the unrestricted nine-segment fresh-image reserve
+mapping fails. Partition enlargement and a4 MB Hub upgrade are not proven
+necessary, and current image OTA fit is unchanged prior evidence. NVS remains
+preferred candidate; raw remains fallback. `READY_TO_START_PRODUCTION_STORAGE_IMPLEMENTATION=NO`.
+No production code, partition, hardware or BAT-C8 change. Context stays
+`2026-10-07.003`; no new LOCKED decision. Next resolve product critical/offline/
+overflow/backend substitution semantics and close the persisted credit/root,
+physical admission guard, bounded NVS wear and target RAM/rollback proofs.

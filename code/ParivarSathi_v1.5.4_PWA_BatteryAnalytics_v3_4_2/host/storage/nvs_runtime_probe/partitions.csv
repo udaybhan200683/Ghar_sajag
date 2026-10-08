@@ -1,0 +1,3 @@
+# Name, Type, SubType, Offset, Size, Flags
+life, data, nvs, , 0x20000,
+factory, app, factory, , 1M,

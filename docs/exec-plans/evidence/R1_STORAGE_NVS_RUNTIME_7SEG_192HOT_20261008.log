@@ -1,0 +1,8 @@
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3185 erased_entries=593 stats_used=3185 stats_free=847 write_bytes=123656 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3186 erased_entries=690 stats_used=3186 stats_free=846 write_bytes=21071312 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2793 erased_entries=1083 stats_used=2793 stats_free=1239 write_bytes=21071432 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION hot_admitted=182 hot_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=21157036 erase_ops=5045 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=21157036 erase_ops=5045 min_sector_erases=0 max_sector_erases=218
