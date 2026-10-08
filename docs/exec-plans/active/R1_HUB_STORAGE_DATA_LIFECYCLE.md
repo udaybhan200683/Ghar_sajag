@@ -1504,3 +1504,85 @@ compression exploration; resolve supported volume/critical/late/coverage/API/OTA
 policy, authenticated persisted root/admission and target qualification before
 freezing or phased production implementation. No partition/firmware/backend/PWA,
 BAT-C8, hardware or canonical-branch change occurs in this run.
+
+## 28. Node-local PIR consolidation investigation — 2026-10-08
+
+[Focused source audit, proposal and host evidence](../evidence/R1_NODE_MOTION_CONSOLIDATION_20261008.md)
+resume checkpoint `dc4eb0c61419cdf0e0e64074638fc1f43289cfa1` with preflight
+PASS at context `2026-10-07.003`. This is INVESTIGATE_ONLY / PROPOSED; no canonical
+decision promotion, production integration, partition, backend/PWA, BAT-C8,
+Jira or hardware change. User-owned `prompt.txt` is preserved untracked.
+
+Existing production ActivityEpisode already retains a durable first Motion,
+coalesces repeats in RAM, and emits a separate durable MotionSummary after
+connected quiet45s or max300s closure. Radio-outage idle1800s is different from
+internet-only outage. Qualified input uses150ms debounce/1000ms retrigger and
+fresh rising transitions; raw edges were never all permanent event records.
+At40s repeated observations can merge;60–120s typically become separate Motion
+events. Native summaries contain repeat first/last/count, can span separate
+closed episodes while pending, and have no first-Motion episode linkage. They
+cannot establish continuous presence or occupancy duration.
+
+Actual Hub RulesCore ignores native MotionSummary. First/last/count cannot
+preserve all morning-window interior points, night visit spacing, last-motion
+anchors or motion after another Node's door close. Current Node recovery saves
+immutable pending events/report state but not ActivityEpisode: uncommitted
+repeat/last-motion information can disappear on reboot. Secure target has no
+trusted absolute event clock/local-minute timer integration; source events
+have occurred_at0/uncertainty86400s. Host trusted-time results are conditional.
+
+Propose IDLE -> ACTIVE -> IDLE with durable linked START, bounded recoverable
+observations, timely immutable PROGRESS and validated quiet END. ACTIVE never
+means continuous presence. Keep required intermediate points and original
+times/identity; timer health is not motion. Hub owns eligibility, household
+routine learning, cross-sensor rules and history grouping. New protocol remains
+unimplemented. Fixed quiet gap and progress delay are UNDETERMINED pending
+sensor/meaning, applied rule deadlines, coverage/time and alert-latency contract.
+Use exact current semantic inputs when safe eligibility/delay cannot be proved.
+Future bed VACANT/OCCUPIED sessions need availability/uncertainty and interrupted
+recovery; bed hardware/identity/sleep inference are outside R1 and this task.
+
+Source-derived host replay realizes NORMAL/HIGH's original40/160 sessions per
+Node/day with1152/5328 total Node source events in72h (native summaries360/2160,
+other source events72/288). Four repeats in the repeated episodes are explicit
+synthetic inputs, not measured household pulses. The literal STRESS paired45s
+attempt schedule coalesces to10452 source events, whereas paired46s sensitivity
+produces68196. This qualifies only section6's literal45s two-record-per-episode
+attribution; the prior69696 abstract semantic stress fixture and its capacity
+results remain valid for their declared inputs. Do not use10452 as a safe
+commercial worst-case bound or claim a newly implemented reduction.
+
+Working8h/day at40/80/120s for six Nodes produces3240/6480/4320 current semantic
+records in72h. No universal reduction factor is derived. Proposed Node protocol
+reduced counts remain UNDETERMINED; its exact fallback retains current counts.
+Each current source event implies two logical recovery save operations under
+prompt durable ACK, not two measured flash program/erase operations. New durable
+repeat state/progress can add writes and energy compared with today's RAM repeats.
+
+Unchanged72h ledger fed source-derived records: ordinary NORMAL retains462 exact
+originals (360 native) plus442 point summaries, modeled protected peak249856 B;
+mixed NORMAL278528 B, HIGH ordinary638976 B and literal STRESS ordinary1204224 B.
+New SDK fixtures:15 cases,1 passing256 KiB NORMAL ordinary witness and14 expected
+capacity stops.128/192 KiB fail these new worst-size cases;256 KiB still fails
+mixed NORMAL/HIGH/STRESS. Passing physical peak258048 B leaves only internal GC
+page. No general72h guarantee or partition decision follows. Prior narrower
+typical results, OTA margins and fault evidence are preserved; no broad old
+qualification or wear campaign was repeated. NVS remains candidate/raw fallback.
+
+Host compile/behavioral counterexamples, seven deterministic replays, inherited
+capacity ledgers and scoped ASan+UBSan PASS. Complete Node progress/root/cursor,
+Hub coverage/time/reducer recovery, backend exclusive representation/revision
+completion, protected NVS admission and target RAM/OTA/wear/BAT-C8 remain OPEN.
+Planning only: Node workspaces1772 B before pending payloads/platform overhead;
+Hub proposed episode/decode additions800 B beyond prior42749 B+NVS internals.
+Neither is measured target RAM or a final allocation. BAT-C8 is unchanged;
+later sensing/deadline/sleep integration requires relevant requalification.
+
+Required next governance action is an explicitly authorized review/promotion on
+the designated canonical source: record already approved72h internet-only and
+eligible loss-aware ordinary-motion direction as LOCKED, partially supersede
+only approved GS-D013/017 scope, keep remaining volume/critical/saturation/
+coverage/time/backend/partition details OPEN, update canonical documents/index,
+increment CONTEXT_VERSION and commit before dependent implementation. This run
+does none of that. Node proposal needs separate semantic approval/proof. After
+the coherent host-only investigation commit, STOP; production integration NO.

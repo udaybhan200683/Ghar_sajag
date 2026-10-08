@@ -1,0 +1,15 @@
+SCOPED ASan+UBSan of unchanged host components and new audit; LeakSanitizer disabled
+COMMAND=['g++', '-std=c++17', '-O1', '-g', '-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-Wall', '-Wextra', '-Werror', '-I.', '-Ishared/include', '-Ifirmware/node/components', 'host/storage/node_motion_audit.cpp', 'firmware/node/components/sensing/sensing.cpp', 'firmware/node/components/power/power.cpp', 'firmware/node/components/storage/node_store.cpp', 'firmware/node/components/radio/node_radio.cpp', 'firmware/node/runtime/node_runtime.cpp', 'shared/src/rules.cpp', 'shared/src/logging.cpp', '-o', '/tmp/gs-node-motion-audit-san']
+COMPILE_EXIT=0
+COMMAND=['/tmp/gs-node-motion-audit-san', '/tmp/gs-node-motion-events-san.csv']
+ACTUAL_COMPONENT_COUNTEREXAMPLES=PASS boot/debounce/retrigger; quiet/max/outage; sparse-pending gap; RAM recovery limit; retry identity; inactivity/window/night/door
+REPLAY NORMAL qualified=2160 Motion=720 MotionSummary=360 source_motion_records=1080 ideal_recovery_saves=2160
+REPLAY HIGH qualified=11520 Motion=2880 MotionSummary=2160 source_motion_records=5040 ideal_recovery_saves=10080
+REPLAY STRESS qualified=69120 Motion=4938 MotionSummary=4938 source_motion_records=9876 ideal_recovery_saves=19752
+REPLAY PAIRED46 qualified=67644 Motion=33810 MotionSummary=33810 source_motion_records=67620 ideal_recovery_saves=135240
+REPLAY BUSY40 qualified=12960 Motion=1620 MotionSummary=1620 source_motion_records=3240 ideal_recovery_saves=6480
+REPLAY BUSY80 qualified=6480 Motion=6480 MotionSummary=0 source_motion_records=6480 ideal_recovery_saves=12960
+REPLAY BUSY120 qualified=4320 Motion=4320 MotionSummary=0 source_motion_records=4320 ideal_recovery_saves=8640
+REPLAY_EXIT=0; HOST sizeof(ActivityEpisode)=152; physical RF/NVS/battery UNPROVEN
+SANITIZER_EXIT=0
+SANITIZED_REPLAY_BYTE_IDENTICAL=YES
