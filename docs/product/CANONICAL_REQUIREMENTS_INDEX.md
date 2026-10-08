@@ -358,3 +358,15 @@ revision remains2026-10-07.003; no new LOCKED decision or authority promotion.
 GS-D013/014/015/017 remain OPEN and GS-D016/021/024 unchanged. The new
 evidence does not alter canonical requirement authority or context version
 `2026-10-07.003`; NVS is a candidate rather than an approved backend.
+
+### NVS blocker diagnosis evidence refinement
+
+`docs/exec-plans/evidence/R1_STORAGE_NVS_BLOCKER_DIAGNOSIS_20261008.md` and its
+linked diagnostic logs are TEST_EVIDENCE: actual installed-IDF Linux fault,
+capacity and connected-schedule measurements plus explicitly derived budgets.
+ExecPlan section26 is IMPLEMENTATION_DESIGN/PROPOSED. This partially supersedes
+only section25/runtime-proof's cut1072 power-loss inference with the reproduced
+FAULT_INJECTION_MODEL_DEFECT cause. Preserve original one-shot-error failure,
+capacity failures, source facts and heavy-cycle measurements. No canonical
+requirement authority, LOCKED decision or context version changes. Complete
+production admission/credit/root/authentication, policy and target gates remain.

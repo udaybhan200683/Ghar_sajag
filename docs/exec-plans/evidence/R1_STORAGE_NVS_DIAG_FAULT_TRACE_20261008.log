@@ -1,0 +1,460 @@
+BINARY_SHA256=8cd039074899dc4a5ffdd9295e319fcf8e1d329bd851efac9ee14f1dccc84190
+PROBE_SHA256=230667aa57682127c05e9b989c1fe8ca2aaa5db46b28de1b6073bb0ee7903b46
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 fault 1072 resume GS_DIAG_TRACE=1
+EXIT=-6
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=before_cut page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=before_cut page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=before_cut page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_set_blob key=ret0 bytes=3485 generation=127
+IO write call=1 units=8 offset=51872 size=32 result=ESP_OK
+IO rawwrite call=2 units=9 offset=49204 size=4 result=ESP_OK
+IO write call=3 units=345 offset=51904 size=1344 result=ESP_OK
+IO rawwrite call=4 units=346 offset=49212 size=4 result=ESP_OK
+IO rawwrite call=5 units=347 offset=49208 size=4 result=ESP_OK
+IO rawwrite call=6 units=348 offset=49204 size=4 result=ESP_OK
+PAGE_TRANSITION page=12 state=fffffffc
+IO rawwrite call=7 units=349 offset=49152 size=4 result=ESP_OK
+PAGE_TRANSITION page=13 state=fffffff8
+IO rawwrite call=8 units=350 offset=53248 size=4 result=ESP_OK
+PAGE_TRANSITION page=22 state=fffffffe
+IO rawwrite call=9 units=358 offset=90112 size=32 result=ESP_OK
+IO write call=10 units=366 offset=90176 size=32 result=ESP_OK
+IO rawwrite call=11 units=367 offset=90144 size=4 result=ESP_OK
+IO write call=12 units=375 offset=90208 size=32 result=ESP_OK
+IO rawwrite call=13 units=376 offset=90144 size=4 result=ESP_OK
+IO write call=14 units=384 offset=90240 size=32 result=ESP_OK
+IO rawwrite call=15 units=385 offset=90144 size=4 result=ESP_OK
+IO write call=16 units=393 offset=90272 size=32 result=ESP_OK
+IO rawwrite call=17 units=394 offset=90144 size=4 result=ESP_OK
+IO write call=18 units=402 offset=90304 size=32 result=ESP_OK
+IO rawwrite call=19 units=403 offset=90144 size=4 result=ESP_OK
+IO write call=20 units=411 offset=90336 size=32 result=ESP_OK
+IO rawwrite call=21 units=412 offset=90144 size=4 result=ESP_OK
+IO write call=22 units=420 offset=90368 size=32 result=ESP_OK
+IO rawwrite call=23 units=421 offset=90144 size=4 result=ESP_OK
+IO write call=24 units=429 offset=90400 size=32 result=ESP_OK
+IO rawwrite call=25 units=430 offset=90144 size=4 result=ESP_OK
+IO write call=26 units=438 offset=90432 size=32 result=ESP_OK
+IO rawwrite call=27 units=439 offset=90144 size=4 result=ESP_OK
+IO write call=28 units=447 offset=90464 size=32 result=ESP_OK
+IO rawwrite call=29 units=448 offset=90144 size=4 result=ESP_OK
+IO write call=30 units=456 offset=90496 size=32 result=ESP_OK
+IO rawwrite call=31 units=457 offset=90144 size=4 result=ESP_OK
+IO write call=32 units=465 offset=90528 size=32 result=ESP_OK
+IO rawwrite call=33 units=466 offset=90144 size=4 result=ESP_OK
+IO write call=34 units=474 offset=90560 size=32 result=ESP_OK
+IO rawwrite call=35 units=475 offset=90144 size=4 result=ESP_OK
+IO write call=36 units=483 offset=90592 size=32 result=ESP_OK
+IO rawwrite call=37 units=484 offset=90144 size=4 result=ESP_OK
+IO write call=38 units=492 offset=90624 size=32 result=ESP_OK
+IO rawwrite call=39 units=493 offset=90144 size=4 result=ESP_OK
+IO write call=40 units=501 offset=90656 size=32 result=ESP_OK
+IO rawwrite call=41 units=502 offset=90144 size=4 result=ESP_OK
+IO write call=42 units=510 offset=90688 size=32 result=ESP_OK
+IO rawwrite call=43 units=511 offset=90148 size=4 result=ESP_OK
+IO erase call=44 units=512 offset=53248 size=4096 result=ESP_OK
+IO write call=45 units=520 offset=90720 size=32 result=ESP_OK
+IO rawwrite call=46 units=521 offset=90148 size=4 result=ESP_OK
+IO write call=47 units=1049 offset=90752 size=2112 result=ESP_OK
+IO rawwrite call=48 units=1050 offset=90164 size=4 result=ESP_OK
+IO rawwrite call=49 units=1051 offset=90160 size=4 result=ESP_OK
+IO rawwrite call=50 units=1052 offset=90156 size=4 result=ESP_OK
+IO rawwrite call=51 units=1053 offset=90152 size=4 result=ESP_OK
+IO rawwrite call=52 units=1054 offset=90148 size=4 result=ESP_OK
+IO write call=53 units=1062 offset=92864 size=32 result=ESP_OK
+IO rawwrite call=54 units=1063 offset=90164 size=4 result=ESP_OK
+IO write call=55 units=1071 offset=92896 size=32 result=ESP_OK
+IO rawwrite call=56 units=1072 offset=90164 size=4 result=ESP_ERR_FLASH_OP_FAIL
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=12 entry=83 state=2 type=42 span=43 chunk=0 size=1344 count=138 start=187
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+ITEM phase=first_failure page=22 entry=17 state=2 type=42 span=68 chunk=1 size=2141 count=7 start=112
+ITEM phase=first_failure page=22 entry=85 state=2 type=48 span=1 chunk=255 size=3485 count=2 start=0
+IO rawwrite call=57 units=1073 offset=49212 size=4 result=ESP_OK
+IO rawwrite call=58 units=1074 offset=49208 size=4 result=ESP_OK
+IO rawwrite call=59 units=1075 offset=49204 size=4 result=ESP_OK
+ITEM phase=after_api page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=after_api page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_api page=12 entry=83 state=0 type=42 span=43 chunk=0 size=1344 count=138 start=187
+ITEM phase=after_api page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+ITEM phase=after_api page=22 entry=17 state=2 type=42 span=68 chunk=1 size=2141 count=7 start=112
+ITEM phase=after_api page=22 entry=85 state=2 type=48 span=1 chunk=255 size=3485 count=2 start=0
+API remount
+DIAG_OPERATION mode=inplace calls=59 units=1075 latch=0
+ITEM phase=after_remount page=12 entry=83 state=0 type=42 span=43 chunk=0 size=1344 count=138 start=187
+ITEM phase=after_remount page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_get_blob key=ret0
+NVS_RUNTIME_FAULT_READ_FAIL cut=1072 write=ESP_ERR_FLASH_OP_FAIL read=ESP_ERR_NVS_NOT_FOUND length=3485
+NVS_RUNTIME phase=fault_read_fail iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3341 erased_entries=500 stats_used=3341 stats_free=691 write_bytes=1532340 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-5kOgWV
+PROBE_FAIL ./main/probe.cpp:311: read == ESP_OK
+
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 fault 1072 freeze GS_DIAG_TRACE=1
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=before_cut page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=before_cut page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=before_cut page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_set_blob key=ret0 bytes=3485 generation=127
+IO write call=1 units=8 offset=51872 size=32 result=ESP_OK
+IO rawwrite call=2 units=9 offset=49204 size=4 result=ESP_OK
+IO write call=3 units=345 offset=51904 size=1344 result=ESP_OK
+IO rawwrite call=4 units=346 offset=49212 size=4 result=ESP_OK
+IO rawwrite call=5 units=347 offset=49208 size=4 result=ESP_OK
+IO rawwrite call=6 units=348 offset=49204 size=4 result=ESP_OK
+PAGE_TRANSITION page=12 state=fffffffc
+IO rawwrite call=7 units=349 offset=49152 size=4 result=ESP_OK
+PAGE_TRANSITION page=13 state=fffffff8
+IO rawwrite call=8 units=350 offset=53248 size=4 result=ESP_OK
+PAGE_TRANSITION page=22 state=fffffffe
+IO rawwrite call=9 units=358 offset=90112 size=32 result=ESP_OK
+IO write call=10 units=366 offset=90176 size=32 result=ESP_OK
+IO rawwrite call=11 units=367 offset=90144 size=4 result=ESP_OK
+IO write call=12 units=375 offset=90208 size=32 result=ESP_OK
+IO rawwrite call=13 units=376 offset=90144 size=4 result=ESP_OK
+IO write call=14 units=384 offset=90240 size=32 result=ESP_OK
+IO rawwrite call=15 units=385 offset=90144 size=4 result=ESP_OK
+IO write call=16 units=393 offset=90272 size=32 result=ESP_OK
+IO rawwrite call=17 units=394 offset=90144 size=4 result=ESP_OK
+IO write call=18 units=402 offset=90304 size=32 result=ESP_OK
+IO rawwrite call=19 units=403 offset=90144 size=4 result=ESP_OK
+IO write call=20 units=411 offset=90336 size=32 result=ESP_OK
+IO rawwrite call=21 units=412 offset=90144 size=4 result=ESP_OK
+IO write call=22 units=420 offset=90368 size=32 result=ESP_OK
+IO rawwrite call=23 units=421 offset=90144 size=4 result=ESP_OK
+IO write call=24 units=429 offset=90400 size=32 result=ESP_OK
+IO rawwrite call=25 units=430 offset=90144 size=4 result=ESP_OK
+IO write call=26 units=438 offset=90432 size=32 result=ESP_OK
+IO rawwrite call=27 units=439 offset=90144 size=4 result=ESP_OK
+IO write call=28 units=447 offset=90464 size=32 result=ESP_OK
+IO rawwrite call=29 units=448 offset=90144 size=4 result=ESP_OK
+IO write call=30 units=456 offset=90496 size=32 result=ESP_OK
+IO rawwrite call=31 units=457 offset=90144 size=4 result=ESP_OK
+IO write call=32 units=465 offset=90528 size=32 result=ESP_OK
+IO rawwrite call=33 units=466 offset=90144 size=4 result=ESP_OK
+IO write call=34 units=474 offset=90560 size=32 result=ESP_OK
+IO rawwrite call=35 units=475 offset=90144 size=4 result=ESP_OK
+IO write call=36 units=483 offset=90592 size=32 result=ESP_OK
+IO rawwrite call=37 units=484 offset=90144 size=4 result=ESP_OK
+IO write call=38 units=492 offset=90624 size=32 result=ESP_OK
+IO rawwrite call=39 units=493 offset=90144 size=4 result=ESP_OK
+IO write call=40 units=501 offset=90656 size=32 result=ESP_OK
+IO rawwrite call=41 units=502 offset=90144 size=4 result=ESP_OK
+IO write call=42 units=510 offset=90688 size=32 result=ESP_OK
+IO rawwrite call=43 units=511 offset=90148 size=4 result=ESP_OK
+IO erase call=44 units=512 offset=53248 size=4096 result=ESP_OK
+IO write call=45 units=520 offset=90720 size=32 result=ESP_OK
+IO rawwrite call=46 units=521 offset=90148 size=4 result=ESP_OK
+IO write call=47 units=1049 offset=90752 size=2112 result=ESP_OK
+IO rawwrite call=48 units=1050 offset=90164 size=4 result=ESP_OK
+IO rawwrite call=49 units=1051 offset=90160 size=4 result=ESP_OK
+IO rawwrite call=50 units=1052 offset=90156 size=4 result=ESP_OK
+IO rawwrite call=51 units=1053 offset=90152 size=4 result=ESP_OK
+IO rawwrite call=52 units=1054 offset=90148 size=4 result=ESP_OK
+IO write call=53 units=1062 offset=92864 size=32 result=ESP_OK
+IO rawwrite call=54 units=1063 offset=90164 size=4 result=ESP_OK
+IO write call=55 units=1071 offset=92896 size=32 result=ESP_OK
+IO rawwrite call=56 units=1072 offset=90164 size=4 result=ESP_ERR_FLASH_OP_FAIL
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=12 entry=83 state=2 type=42 span=43 chunk=0 size=1344 count=138 start=187
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+ITEM phase=first_failure page=22 entry=17 state=2 type=42 span=68 chunk=1 size=2141 count=7 start=112
+ITEM phase=first_failure page=22 entry=85 state=2 type=48 span=1 chunk=255 size=3485 count=2 start=0
+IO BLOCKED write offset=49212 size=4
+ITEM phase=after_api page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=after_api page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_api page=12 entry=83 state=2 type=42 span=43 chunk=0 size=1344 count=138 start=187
+ITEM phase=after_api page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+ITEM phase=after_api page=22 entry=17 state=2 type=42 span=68 chunk=1 size=2141 count=7 start=112
+ITEM phase=after_api page=22 entry=85 state=2 type=48 span=1 chunk=255 size=3485 count=2 start=0
+API remount
+DIAG_OPERATION mode=inplace calls=56 units=1072 latch=1
+ITEM phase=after_remount page=12 entry=83 state=2 type=42 span=43 chunk=0 size=1344 count=138 start=187
+ITEM phase=after_remount page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+ITEM phase=after_remount page=22 entry=17 state=2 type=42 span=68 chunk=1 size=2141 count=7 start=112
+ITEM phase=after_remount page=22 entry=85 state=2 type=48 span=1 chunk=255 size=3485 count=2 start=0
+API nvs_get_blob key=ret0
+NVS_RUNTIME_FAULT cut=1072 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=127
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3453 erased_entries=388 stats_used=3453 stats_free=579 write_bytes=1530096 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-jH374X
+
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 banks 1072 resume GS_DIAG_TRACE=1
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=before_cut page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=before_cut page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=before_cut page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_set_blob key=r127 bytes=3485 generation=127
+IO write call=1 units=8 offset=52448 size=32 result=ESP_OK
+IO rawwrite call=2 units=9 offset=49208 size=4 result=ESP_OK
+IO write call=3 units=201 offset=52480 size=768 result=ESP_OK
+IO rawwrite call=4 units=202 offset=49212 size=4 result=ESP_OK
+IO rawwrite call=5 units=203 offset=49208 size=4 result=ESP_OK
+PAGE_TRANSITION page=12 state=fffffffc
+IO rawwrite call=6 units=204 offset=49152 size=4 result=ESP_OK
+PAGE_TRANSITION page=13 state=fffffff8
+IO rawwrite call=7 units=205 offset=53248 size=4 result=ESP_OK
+PAGE_TRANSITION page=22 state=fffffffe
+IO rawwrite call=8 units=213 offset=90112 size=32 result=ESP_OK
+IO write call=9 units=221 offset=90176 size=32 result=ESP_OK
+IO rawwrite call=10 units=222 offset=90144 size=4 result=ESP_OK
+IO write call=11 units=230 offset=90208 size=32 result=ESP_OK
+IO rawwrite call=12 units=231 offset=90144 size=4 result=ESP_OK
+IO write call=13 units=239 offset=90240 size=32 result=ESP_OK
+IO rawwrite call=14 units=240 offset=90144 size=4 result=ESP_OK
+IO write call=15 units=248 offset=90272 size=32 result=ESP_OK
+IO rawwrite call=16 units=249 offset=90144 size=4 result=ESP_OK
+IO write call=17 units=257 offset=90304 size=32 result=ESP_OK
+IO rawwrite call=18 units=258 offset=90144 size=4 result=ESP_OK
+IO write call=19 units=266 offset=90336 size=32 result=ESP_OK
+IO rawwrite call=20 units=267 offset=90144 size=4 result=ESP_OK
+IO write call=21 units=275 offset=90368 size=32 result=ESP_OK
+IO rawwrite call=22 units=276 offset=90144 size=4 result=ESP_OK
+IO write call=23 units=284 offset=90400 size=32 result=ESP_OK
+IO rawwrite call=24 units=285 offset=90144 size=4 result=ESP_OK
+IO write call=25 units=293 offset=90432 size=32 result=ESP_OK
+IO rawwrite call=26 units=294 offset=90144 size=4 result=ESP_OK
+IO write call=27 units=302 offset=90464 size=32 result=ESP_OK
+IO rawwrite call=28 units=303 offset=90144 size=4 result=ESP_OK
+IO write call=29 units=311 offset=90496 size=32 result=ESP_OK
+IO rawwrite call=30 units=312 offset=90144 size=4 result=ESP_OK
+IO write call=31 units=320 offset=90528 size=32 result=ESP_OK
+IO rawwrite call=32 units=321 offset=90144 size=4 result=ESP_OK
+IO write call=33 units=329 offset=90560 size=32 result=ESP_OK
+IO rawwrite call=34 units=330 offset=90144 size=4 result=ESP_OK
+IO write call=35 units=338 offset=90592 size=32 result=ESP_OK
+IO rawwrite call=36 units=339 offset=90144 size=4 result=ESP_OK
+IO write call=37 units=347 offset=90624 size=32 result=ESP_OK
+IO rawwrite call=38 units=348 offset=90144 size=4 result=ESP_OK
+IO write call=39 units=356 offset=90656 size=32 result=ESP_OK
+IO rawwrite call=40 units=357 offset=90144 size=4 result=ESP_OK
+IO write call=41 units=365 offset=90688 size=32 result=ESP_OK
+IO rawwrite call=42 units=366 offset=90148 size=4 result=ESP_OK
+IO erase call=43 units=367 offset=53248 size=4096 result=ESP_OK
+IO write call=44 units=375 offset=90720 size=32 result=ESP_OK
+IO rawwrite call=45 units=376 offset=90148 size=4 result=ESP_OK
+IO write call=46 units=1048 offset=90752 size=2688 result=ESP_OK
+IO rawwrite call=47 units=1049 offset=90168 size=4 result=ESP_OK
+IO rawwrite call=48 units=1050 offset=90164 size=4 result=ESP_OK
+IO rawwrite call=49 units=1051 offset=90160 size=4 result=ESP_OK
+IO rawwrite call=50 units=1052 offset=90156 size=4 result=ESP_OK
+IO rawwrite call=51 units=1053 offset=90152 size=4 result=ESP_OK
+IO rawwrite call=52 units=1054 offset=90148 size=4 result=ESP_OK
+IO write call=53 units=1062 offset=93440 size=32 result=ESP_OK
+IO rawwrite call=54 units=1063 offset=90168 size=4 result=ESP_OK
+IO write call=55 units=1071 offset=93472 size=32 result=ESP_OK
+IO rawwrite call=56 units=1072 offset=90168 size=4 result=ESP_ERR_FLASH_OP_FAIL
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+IO rawwrite call=57 units=1073 offset=49212 size=4 result=ESP_OK
+IO rawwrite call=58 units=1074 offset=49208 size=4 result=ESP_OK
+ITEM phase=after_api page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=after_api page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_api page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API remount
+DIAG_OPERATION mode=banks calls=58 units=1074 latch=0
+ITEM phase=after_remount page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=after_remount page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_remount page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_get_blob key=ret0
+NVS_RUNTIME_FAULT cut=1072 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=49
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3470 erased_entries=389 stats_used=3470 stats_free=562 write_bytes=1529924 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-aoggQO
+
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 banks 1072 freeze GS_DIAG_TRACE=1
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=before_cut page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=before_cut page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=before_cut page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_set_blob key=r127 bytes=3485 generation=127
+IO write call=1 units=8 offset=52448 size=32 result=ESP_OK
+IO rawwrite call=2 units=9 offset=49208 size=4 result=ESP_OK
+IO write call=3 units=201 offset=52480 size=768 result=ESP_OK
+IO rawwrite call=4 units=202 offset=49212 size=4 result=ESP_OK
+IO rawwrite call=5 units=203 offset=49208 size=4 result=ESP_OK
+PAGE_TRANSITION page=12 state=fffffffc
+IO rawwrite call=6 units=204 offset=49152 size=4 result=ESP_OK
+PAGE_TRANSITION page=13 state=fffffff8
+IO rawwrite call=7 units=205 offset=53248 size=4 result=ESP_OK
+PAGE_TRANSITION page=22 state=fffffffe
+IO rawwrite call=8 units=213 offset=90112 size=32 result=ESP_OK
+IO write call=9 units=221 offset=90176 size=32 result=ESP_OK
+IO rawwrite call=10 units=222 offset=90144 size=4 result=ESP_OK
+IO write call=11 units=230 offset=90208 size=32 result=ESP_OK
+IO rawwrite call=12 units=231 offset=90144 size=4 result=ESP_OK
+IO write call=13 units=239 offset=90240 size=32 result=ESP_OK
+IO rawwrite call=14 units=240 offset=90144 size=4 result=ESP_OK
+IO write call=15 units=248 offset=90272 size=32 result=ESP_OK
+IO rawwrite call=16 units=249 offset=90144 size=4 result=ESP_OK
+IO write call=17 units=257 offset=90304 size=32 result=ESP_OK
+IO rawwrite call=18 units=258 offset=90144 size=4 result=ESP_OK
+IO write call=19 units=266 offset=90336 size=32 result=ESP_OK
+IO rawwrite call=20 units=267 offset=90144 size=4 result=ESP_OK
+IO write call=21 units=275 offset=90368 size=32 result=ESP_OK
+IO rawwrite call=22 units=276 offset=90144 size=4 result=ESP_OK
+IO write call=23 units=284 offset=90400 size=32 result=ESP_OK
+IO rawwrite call=24 units=285 offset=90144 size=4 result=ESP_OK
+IO write call=25 units=293 offset=90432 size=32 result=ESP_OK
+IO rawwrite call=26 units=294 offset=90144 size=4 result=ESP_OK
+IO write call=27 units=302 offset=90464 size=32 result=ESP_OK
+IO rawwrite call=28 units=303 offset=90144 size=4 result=ESP_OK
+IO write call=29 units=311 offset=90496 size=32 result=ESP_OK
+IO rawwrite call=30 units=312 offset=90144 size=4 result=ESP_OK
+IO write call=31 units=320 offset=90528 size=32 result=ESP_OK
+IO rawwrite call=32 units=321 offset=90144 size=4 result=ESP_OK
+IO write call=33 units=329 offset=90560 size=32 result=ESP_OK
+IO rawwrite call=34 units=330 offset=90144 size=4 result=ESP_OK
+IO write call=35 units=338 offset=90592 size=32 result=ESP_OK
+IO rawwrite call=36 units=339 offset=90144 size=4 result=ESP_OK
+IO write call=37 units=347 offset=90624 size=32 result=ESP_OK
+IO rawwrite call=38 units=348 offset=90144 size=4 result=ESP_OK
+IO write call=39 units=356 offset=90656 size=32 result=ESP_OK
+IO rawwrite call=40 units=357 offset=90144 size=4 result=ESP_OK
+IO write call=41 units=365 offset=90688 size=32 result=ESP_OK
+IO rawwrite call=42 units=366 offset=90148 size=4 result=ESP_OK
+IO erase call=43 units=367 offset=53248 size=4096 result=ESP_OK
+IO write call=44 units=375 offset=90720 size=32 result=ESP_OK
+IO rawwrite call=45 units=376 offset=90148 size=4 result=ESP_OK
+IO write call=46 units=1048 offset=90752 size=2688 result=ESP_OK
+IO rawwrite call=47 units=1049 offset=90168 size=4 result=ESP_OK
+IO rawwrite call=48 units=1050 offset=90164 size=4 result=ESP_OK
+IO rawwrite call=49 units=1051 offset=90160 size=4 result=ESP_OK
+IO rawwrite call=50 units=1052 offset=90156 size=4 result=ESP_OK
+IO rawwrite call=51 units=1053 offset=90152 size=4 result=ESP_OK
+IO rawwrite call=52 units=1054 offset=90148 size=4 result=ESP_OK
+IO write call=53 units=1062 offset=93440 size=32 result=ESP_OK
+IO rawwrite call=54 units=1063 offset=90168 size=4 result=ESP_OK
+IO write call=55 units=1071 offset=93472 size=32 result=ESP_OK
+IO rawwrite call=56 units=1072 offset=90168 size=4 result=ESP_ERR_FLASH_OP_FAIL
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+IO BLOCKED write offset=49212 size=4
+ITEM phase=after_api page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=after_api page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_api page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API remount
+DIAG_OPERATION mode=banks calls=56 units=1072 latch=1
+ITEM phase=after_remount page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=after_remount page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_remount page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_get_blob key=ret0
+NVS_RUNTIME_FAULT cut=1072 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=49
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3582 erased_entries=277 stats_used=3582 stats_free=450 write_bytes=1527104 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-DomI6f
+
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 banks 1227 freeze GS_DIAG_TRACE=1
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=before_cut page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=before_cut page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=before_cut page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_set_blob key=r127 bytes=3485 generation=127
+IO write call=1 units=8 offset=52448 size=32 result=ESP_OK
+IO rawwrite call=2 units=9 offset=49208 size=4 result=ESP_OK
+IO write call=3 units=201 offset=52480 size=768 result=ESP_OK
+IO rawwrite call=4 units=202 offset=49212 size=4 result=ESP_OK
+IO rawwrite call=5 units=203 offset=49208 size=4 result=ESP_OK
+PAGE_TRANSITION page=12 state=fffffffc
+IO rawwrite call=6 units=204 offset=49152 size=4 result=ESP_OK
+PAGE_TRANSITION page=13 state=fffffff8
+IO rawwrite call=7 units=205 offset=53248 size=4 result=ESP_OK
+PAGE_TRANSITION page=22 state=fffffffe
+IO rawwrite call=8 units=213 offset=90112 size=32 result=ESP_OK
+IO write call=9 units=221 offset=90176 size=32 result=ESP_OK
+IO rawwrite call=10 units=222 offset=90144 size=4 result=ESP_OK
+IO write call=11 units=230 offset=90208 size=32 result=ESP_OK
+IO rawwrite call=12 units=231 offset=90144 size=4 result=ESP_OK
+IO write call=13 units=239 offset=90240 size=32 result=ESP_OK
+IO rawwrite call=14 units=240 offset=90144 size=4 result=ESP_OK
+IO write call=15 units=248 offset=90272 size=32 result=ESP_OK
+IO rawwrite call=16 units=249 offset=90144 size=4 result=ESP_OK
+IO write call=17 units=257 offset=90304 size=32 result=ESP_OK
+IO rawwrite call=18 units=258 offset=90144 size=4 result=ESP_OK
+IO write call=19 units=266 offset=90336 size=32 result=ESP_OK
+IO rawwrite call=20 units=267 offset=90144 size=4 result=ESP_OK
+IO write call=21 units=275 offset=90368 size=32 result=ESP_OK
+IO rawwrite call=22 units=276 offset=90144 size=4 result=ESP_OK
+IO write call=23 units=284 offset=90400 size=32 result=ESP_OK
+IO rawwrite call=24 units=285 offset=90144 size=4 result=ESP_OK
+IO write call=25 units=293 offset=90432 size=32 result=ESP_OK
+IO rawwrite call=26 units=294 offset=90144 size=4 result=ESP_OK
+IO write call=27 units=302 offset=90464 size=32 result=ESP_OK
+IO rawwrite call=28 units=303 offset=90144 size=4 result=ESP_OK
+IO write call=29 units=311 offset=90496 size=32 result=ESP_OK
+IO rawwrite call=30 units=312 offset=90144 size=4 result=ESP_OK
+IO write call=31 units=320 offset=90528 size=32 result=ESP_OK
+IO rawwrite call=32 units=321 offset=90144 size=4 result=ESP_OK
+IO write call=33 units=329 offset=90560 size=32 result=ESP_OK
+IO rawwrite call=34 units=330 offset=90144 size=4 result=ESP_OK
+IO write call=35 units=338 offset=90592 size=32 result=ESP_OK
+IO rawwrite call=36 units=339 offset=90144 size=4 result=ESP_OK
+IO write call=37 units=347 offset=90624 size=32 result=ESP_OK
+IO rawwrite call=38 units=348 offset=90144 size=4 result=ESP_OK
+IO write call=39 units=356 offset=90656 size=32 result=ESP_OK
+IO rawwrite call=40 units=357 offset=90144 size=4 result=ESP_OK
+IO write call=41 units=365 offset=90688 size=32 result=ESP_OK
+IO rawwrite call=42 units=366 offset=90148 size=4 result=ESP_OK
+IO erase call=43 units=367 offset=53248 size=4096 result=ESP_OK
+IO write call=44 units=375 offset=90720 size=32 result=ESP_OK
+IO rawwrite call=45 units=376 offset=90148 size=4 result=ESP_OK
+IO write call=46 units=1048 offset=90752 size=2688 result=ESP_OK
+IO rawwrite call=47 units=1049 offset=90168 size=4 result=ESP_OK
+IO rawwrite call=48 units=1050 offset=90164 size=4 result=ESP_OK
+IO rawwrite call=49 units=1051 offset=90160 size=4 result=ESP_OK
+IO rawwrite call=50 units=1052 offset=90156 size=4 result=ESP_OK
+IO rawwrite call=51 units=1053 offset=90152 size=4 result=ESP_OK
+IO rawwrite call=52 units=1054 offset=90148 size=4 result=ESP_OK
+IO write call=53 units=1062 offset=93440 size=32 result=ESP_OK
+IO rawwrite call=54 units=1063 offset=90168 size=4 result=ESP_OK
+IO write call=55 units=1071 offset=93472 size=32 result=ESP_OK
+IO rawwrite call=56 units=1072 offset=90168 size=4 result=ESP_OK
+API nvs_commit key=r127
+API nvs_set_blob key=pick1 bytes=512 generation=127
+IO write call=57 units=1080 offset=93504 size=32 result=ESP_OK
+IO rawwrite call=58 units=1081 offset=90168 size=4 result=ESP_OK
+IO write call=59 units=1209 offset=93536 size=512 result=ESP_OK
+IO rawwrite call=60 units=1210 offset=90172 size=4 result=ESP_OK
+IO rawwrite call=61 units=1211 offset=90168 size=4 result=ESP_OK
+IO write call=62 units=1219 offset=94048 size=32 result=ESP_OK
+IO rawwrite call=63 units=1220 offset=90172 size=4 result=ESP_OK
+API nvs_commit key=pick1
+API nvs_erase_key key=ret0 after_new_selection
+IO rawwrite call=64 units=1221 offset=28728 size=4 result=ESP_OK
+IO rawwrite call=65 units=1222 offset=28728 size=4 result=ESP_OK
+IO rawwrite call=66 units=1223 offset=28724 size=4 result=ESP_OK
+IO rawwrite call=67 units=1224 offset=28720 size=4 result=ESP_OK
+IO rawwrite call=68 units=1225 offset=28716 size=4 result=ESP_OK
+IO rawwrite call=69 units=1226 offset=28712 size=4 result=ESP_OK
+IO rawwrite call=70 units=1227 offset=28708 size=4 result=ESP_ERR_FLASH_OP_FAIL
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=0 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+ITEM phase=after_api page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=after_api page=7 entry=110 state=0 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_api page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API remount
+DIAG_OPERATION mode=banks calls=70 units=1227 latch=1
+ITEM phase=after_remount page=7 entry=110 state=0 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=after_remount page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+API nvs_get_blob key=r127
+NVS_RUNTIME_FAULT cut=1227 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=127
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3489 erased_entries=388 stats_used=3489 stats_free=543 write_bytes=1531272 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-JM0D24
+
+DIAGNOSTIC_CAPTURE=FAULT_TRACE COMPLETE (see commands and exit statuses above)

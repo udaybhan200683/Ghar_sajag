@@ -223,3 +223,15 @@ are still required. No full NVS workload/flash-life/RAM/rollback proof exists.
 NVS is the preferred R1 backend candidate, raw is fallback; current128 KiB
 and4 MB Hub viability remain conditional, and no numerical product policy or
 partition/hardware change is approved.
+
+## NVS diagnostic refinement (technical evidence, no requirement change)
+
+[Cut1072 follow-up](../exec-plans/evidence/R1_STORAGE_NVS_BLOCKER_DIAGNOSIS_20261008.md)
+corrects the prior power-loss interpretation: the emulator resumes writes after
+one failure, permitting destructive error cleanup; a latched interruption
+recovers complete old/new. An independent report/selection prototype passes
+focused cuts, while authenticated credit/root persistence remains open. Existing
+nine-segment128 KiB mapping fails maximum192-HOT+report/checkpoint progress;
+tested152 KiB or fewer history segments can progress conditionally. No offline
+horizon, saturation policy, partition/backend approval or target wear/RAM claim.
+NVS remains the technical candidate; production implementation remains gated.

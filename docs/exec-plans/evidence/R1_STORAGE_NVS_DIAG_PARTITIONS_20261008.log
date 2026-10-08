@@ -1,0 +1,40 @@
+COMMAND=/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py --flash-size 4MB /tmp/gs-nvs-partition-review/128.csv /tmp/gs-nvs-partition-review/128.bin
+EXIT=0
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+otadata,    data, ota,     0xF000,   0x2000
+phy_init,   data, phy,     0x11000,  0x1000
+ota_0,app,ota_0,0x20000,0x1E0000
+ota_1,app,ota_1,0x200000,0x1E0000
+gs_journal,data,nvs,0x3E0000,0x20000
+Parsing CSV input...
+Verifying table...
+
+CURRENT_IMAGE=1864624 LIMITING_MARGIN=101456
+COMMAND=/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py --flash-size 4MB /tmp/gs-nvs-partition-review/192.csv /tmp/gs-nvs-partition-review/192.bin
+EXIT=0
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+otadata,    data, ota,     0xF000,   0x2000
+phy_init,   data, phy,     0x11000,  0x1000
+ota_0,app,ota_0,0x20000,0x1E0000
+ota_1,app,ota_1,0x200000,0x1D0000
+gs_journal,data,nvs,0x3D0000,0x30000
+Parsing CSV input...
+Verifying table...
+
+CURRENT_IMAGE=1864624 LIMITING_MARGIN=35920
+COMMAND=/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py --flash-size 4MB /tmp/gs-nvs-partition-review/256.csv /tmp/gs-nvs-partition-review/256.bin
+EXIT=0
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+otadata,    data, ota,     0xF000,   0x2000
+phy_init,   data, phy,     0x11000,  0x1000
+ota_0,app,ota_0,0x20000,0x1D0000
+ota_1,app,ota_1,0x1F0000,0x1D0000
+gs_journal,data,nvs,0x3C0000,0x40000
+Parsing CSV input...
+Verifying table...
+
+CURRENT_IMAGE=1864624 LIMITING_MARGIN=35920
+DIAGNOSTIC_CAPTURE=PARTITIONS COMPLETE (see commands and exit statuses above)

@@ -252,3 +252,24 @@ No production code, partition, hardware or BAT-C8 change. Context stays
 `2026-10-07.003`; no new LOCKED decision. Next resolve product critical/offline/
 overflow/backend substitution semantics and close the persisted credit/root,
 physical admission guard, bounded NVS wear and target RAM/rollback proofs.
+
+## 2026-10-08 NVS blocker root cause — technical diagnosis checkpoint
+
+[Focused evidence](../exec-plans/evidence/R1_STORAGE_NVS_BLOCKER_DIAGNOSIS_20261008.md)
+resolves cut1072 as FAULT_INJECTION_MODEL_DEFECT: one-shot emulator failure
+allows cleanup writes after the supposed power cut. Blocking subsequent writes
+recovers new; independent report/selection keys pass2702 focused cut/remount
+checks. This corrects only the earlier SDK power-loss inference; actual
+saturation and192-HOT failures remain. Nine-segment maximum coexistence needs
+a modeled155648 B; three-segment fixture progresses at128 KiB. R1 minimum and
+128 KiB viability remain UNPROVEN pending policy and complete admission proof.
+
+NVS is the technical candidate; raw advantage is not demonstrated. Retain4 MB
+Hub.192/256 KiB review layouts fit the current image with35920 B limiting margin;
+no partition decision. Connected checkpoint32 sensitivities reduce erases to
+90/461/6089 per modeled day but do not qualify outage/rejoin/target endurance.
+Application RAM allowance49648+NVS internals and target headroom are unproven.
+Next is policy closure plus persisted authenticated credit/root/guarded allocation,
+then target RAM/code/wear/rollback gates; no new architecture campaign or codec
+redesign. READY_TO_START_PRODUCTION_STORAGE_IMPLEMENTATION=NO. Context.003 and
+all LOCKED decisions unchanged; no product code/hardware/partition change.

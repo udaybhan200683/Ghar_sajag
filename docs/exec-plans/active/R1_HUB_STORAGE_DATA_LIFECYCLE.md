@@ -1415,3 +1415,36 @@ physical admission with protected report/GC/COW space, final bounded tail/
 checkpoint/report schedule and wear/RAM/rollback measurements. Product critical,
 offline, overflow and backend substitution decisions remain separate STOP gates.
 Context stays.003 and no LOCKED decision is added.
+
+## 26. NVS blocker diagnosis and bounded next decision — 2026-10-08
+
+[Focused diagnosis](../evidence/R1_STORAGE_NVS_BLOCKER_DIAGNOSIS_20261008.md)
+corrects section25's cut1072 inference: the installed Linux emulator resumes
+writes after one failure. New-index publication succeeds physically, cleanup
+then removes a new chunk, and remount removes both incomplete/duplicate indexes.
+Latching all writes/erases off until remount recovers generation127. Classification
+is FAULT_INJECTION_MODEL_DEFECT, not a demonstrated SDK power-loss bug. The
+independent report/new-selector/old-retirement prototype passes2702 supported
+cut/recovery checks. Full authenticated credit/class/root persistence remains OPEN.
+
+Report replacement needs at least4128 entry bytes of candidate report+root,
+plus4096 internal GC and sector/fragmentation allowance; three free/reserved
+physical pages (12288 B) are a lower reservation obligation, not a guaranteed
+allocator threshold. Nine-segment192 maximum-HOT coexistence with independent
+next report/checkpoint/roots needs a modeled155648 B (24576 deficit at128 KiB),
+and first passes in the tested38-page fixture. Three history segments also pass
+at128 KiB without discarding required report/state copies. Thus128 KiB R1 is
+UNPROVEN, not categorically impossible; choosing fewer pending/history owners
+requires the open offline/information contract.192/256 KiB review layouts pass
+the generator/current image, but their limiting OTA margin is only35920 B.
+
+Checkpoint-every32 sensitivity measures90/461/6089 erases for NORMAL/HIGH/STRESS,
+with programmed/value ratios1.641702/1.728766/1.745295. These connected dummy
+schedules are not outage/rejoin production wear evidence.49648 B application
+RAM planning allowance plus NVS internals is not target RAM/headroom measurement.
+NVS remains the recommended technical candidate, raw fallback; retain4 MB Hub.
+No further broad backend exploration is warranted by these findings. Production
+implementation is a separate task after product policy, authenticated persisted
+admission/root, guarded peak allocation, target wear/RAM/OTA and rollback gates.
+READY_TO_START_PRODUCTION_STORAGE_IMPLEMENTATION=NO. No context/partition,
+production firmware, ACK, backend/PWA, BAT-C8 or hardware change.

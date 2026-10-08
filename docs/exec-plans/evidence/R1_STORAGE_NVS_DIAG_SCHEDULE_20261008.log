@@ -1,0 +1,33 @@
+BINARY_SHA256=8cd039074899dc4a5ffdd9295e319fcf8e1d329bd851efac9ee14f1dccc84190
+PROBE_SHA256=230667aa57682127c05e9b989c1fe8ca2aaa5db46b28de1b6073bb0ee7903b46
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 7 384 20 schedule ENV={} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-K3oiw4
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=schedule_day iteration=384 allocated_pages=31 free_erased_pages=1 live_entries=3201 erased_entries=641 stats_used=3201 stats_free=831 write_bytes=518712 erase_ops=90 min_sector_erases=0 max_sector_erases=5
+SCHEDULE records=384 groups=12 logical_bytes=252572 programmed_bytes=414648 amplification=1.641702 entries_written=11884 page_erases=90 max_sector_erases=5
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 7 1776 20 schedule ENV={} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-EWRhFl
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=schedule_day iteration=1776 allocated_pages=31 free_erased_pages=1 live_entries=3199 erased_entries=590 stats_used=3199 stats_free=833 write_bytes=2137356 erase_ops=461 min_sector_erases=0 max_sector_erases=24
+SCHEDULE records=1776 groups=56 logical_bytes=1176152 programmed_bytes=2033292 amplification=1.728766 entries_written=58160 page_erases=461 max_sector_erases=24
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 7 23232 20 schedule ENV={} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-F6FxUK
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=schedule_day iteration=23232 allocated_pages=31 free_erased_pages=1 live_entries=3200 erased_entries=654 stats_used=3200 stats_free=832 write_bytes=26739996 erase_ops=6089 min_sector_erases=0 max_sector_erases=267
+SCHEDULE records=23232 groups=726 logical_bytes=15261566 programmed_bytes=26635932 amplification=1.745295 entries_written=761482 page_erases=6089 max_sector_erases=267
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 12 ENV={} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-ta66ug
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION append_segment=9 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=10 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=11 result=ESP_OK
+NVS_RUNTIME phase=after_append_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=38 stats_used=3844 stats_free=188 write_bytes=30445808 erase_ops=7097 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION report_before_reclaim=ESP_ERR_NVS_NOT_ENOUGH_SPACE root_after_report=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=after_report_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30454240 erase_ops=7099 min_sector_erases=0 max_sector_erases=316
+REPORT_IO_PEAK live_entries=0 allocated_pages=0
+NVS_RUNTIME_SATURATION erase_old=ESP_OK commit=ESP_OK
+NVS_RUNTIME_SATURATION append_after_erase=ESP_OK
+NVS_RUNTIME phase=after_reclaim iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=22 stats_used=3844 stats_free=188 write_bytes=30462740 erase_ops=7101 min_sector_erases=0 max_sector_erases=316
+DIAGNOSTIC_SUITE=schedule CHECKS=4 PASS

@@ -1,0 +1,40 @@
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 fault 1072
+EXIT=-6
+PROBE_FAIL ./main/probe.cpp:140: read == ESP_OK
+
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 fault 1072
+EXIT=-6
+PROBE_FAIL ./main/probe.cpp:140: read == ESP_OK
+
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 50 20 fault 1072
+EXIT=-6
+PROBE_FAIL ./main/probe.cpp:140: read == ESP_OK
+
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 13
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION append_segment=9 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=10 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=11 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=12 result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=after_append_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30454240 erase_ops=7099 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION report_before_reclaim=ESP_ERR_NVS_NOT_ENOUGH_SPACE root_after_report=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=after_report_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30458456 erase_ops=7100 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION erase_old=ESP_OK commit=ESP_OK
+NVS_RUNTIME_SATURATION append_after_erase=ESP_OK
+NVS_RUNTIME phase=after_reclaim iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=22 stats_used=3844 stats_free=188 write_bytes=30466956 erase_ops=7102 min_sector_erases=0 max_sector_erases=316
+
+COMMAND=code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 promotion 192
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3057 erased_entries=789 stats_used=3057 stats_free=975 write_bytes=30423164 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION hot_admitted=138 hot_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=30500848 erase_ops=7109 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=30500848 erase_ops=7109 min_sector_erases=0 max_sector_erases=316
+
+DIAGNOSTIC_CAPTURE=BASELINE COMPLETE (see commands and exit statuses above)

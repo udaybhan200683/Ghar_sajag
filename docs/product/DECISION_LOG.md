@@ -198,3 +198,18 @@ general rejection of NVS/128 KiB. NVS stays the preferred candidate; raw is
 fallback only. Exact offline/critical/saturation/backend policy and technical
 credit/root/physical guard/wear/RAM closure remain OPEN. No partition,
 hardware, production implementation or CONTEXT_VERSION decision is made.
+
+### 2026-10-08 NVS blocker diagnosis (technical findings, no new decision)
+
+[Follow-up evidence](../exec-plans/evidence/R1_STORAGE_NVS_BLOCKER_DIAGNOSIS_20261008.md)
+classifies cut1072 as FAULT_INJECTION_MODEL_DEFECT; corrected power-off latching
+and independent report/selector host transactions recover old/new across2702
+checks. The capacity failures remain: nine segments+192 maximal HOT+report/
+checkpoint progress first completes in the152 KiB fixture; a three-segment
+fixture also completes at128 KiB. No product horizon/overflow policy or universal
+minimum is inferred. NVS remains the technical candidate; raw fallback and4 MB
+Hub remain.192/256 KiB review layouts/current-image fit do not approve partition
+changes or future firmware growth. GS-D013/014/015/017 remain OPEN; GS-D016/021/
+024 and other LOCKED decisions remain unchanged. Production readiness remains
+NO pending policy, authenticated persisted admission/root/physical guard, target
+RAM/OTA/wear and rollback. CONTEXT_VERSION remains2026-10-07.003.

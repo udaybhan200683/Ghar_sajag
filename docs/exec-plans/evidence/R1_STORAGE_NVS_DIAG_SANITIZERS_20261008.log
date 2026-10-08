@@ -1,0 +1,108 @@
+PROBE_SHA256=230667aa57682127c05e9b989c1fe8ca2aaa5db46b28de1b6073bb0ee7903b46
+SCOPE=ASan/UBSan diagnostic main only; installed SDK libraries unsanitized
+COMMAND=/usr/bin/c++ -DESP_PLATFORM '-DIDF_VER="v6.0.3"' -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE -DSOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ -DUNITY_INCLUDE_CONFIG_H -D_GLIBCXX_HAVE_POSIX_SEMAPHORE -D_GLIBCXX_USE_POSIX_SEMAPHORE -D_GNU_SOURCE -DprojCOVERAGE_TEST=0 -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/config -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/linux/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include/freertos -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/esp-idf/freertos/mocks -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/etm/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/heap/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/log/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/platform_port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux/include/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_common/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/linux/linux_include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/cmock/CMock/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/unity/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/unity/unity/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/nvs_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_partition/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_blockdev/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/spi_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_mspi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_mspi/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_gpspi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_dma/include -I/tmp/gs-libbsd-dev/usr/include/x86_64-linux-gnu -fdiagnostics-color=always -ffunction-sections -fdata-sections -Wall -Werror -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=deprecated-declarations -Wextra -Wno-error=extra -Wno-unused-parameter -Wno-sign-compare -Wno-enum-conversion -gdwarf-4 -ggdb -Og -fmacro-prefix-map=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe=. -fmacro-prefix-map=/home/udaybhan/.espressif/v6.0.3/esp-idf=/IDF -fstrict-volatile-bitfields -fno-jump-tables -fno-tree-switch-conversion -std=gnu++26 -fno-exceptions -fno-rtti -fuse-cxa-atexit -DLINUX_TARGET --coverage -MD -MT esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.o -MF esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.o.d -o /tmp/gs-nvs-diag-sanitized.o -c /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/main/probe.cpp -fsanitize=address,undefined -fno-omit-frame-pointer
+EXIT=0
+
+COMMAND=/usr/bin/c++ /tmp/gs-nvs-diag-sanitized.o -I/tmp/gs-libbsd-dev/usr/include/x86_64-linux-gnu -Wl,--cref -Wl,--defsym=IDF_TARGET_LINUX=0 -Wl,--Map=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.map -Wl,--no-warn-rwx-segments -fno-rtti -fno-lto -Wl,--gc-sections -Wl,--warn-common -Wl,--wrap=esp_partition_write -Wl,--wrap=esp_partition_write_raw -Wl,--wrap=esp_partition_erase_range -Wl,--wrap=mkstemp -Wl,--dependency-file=CMakeFiles/gs_nvs_runtime_probe.elf.dir/link.d CMakeFiles/gs_nvs_runtime_probe.elf.dir/project_elf_src_linux.c.o -o /tmp/gs-nvs-diag-sanitized.elf -L/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu -Wl,-rpath,/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/main/libmain.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a -lbsd -u __assert_func --coverage -fsanitize=address,undefined
+EXIT=0
+
+COMMAND=/tmp/gs-nvs-diag-sanitized.elf 9 50 20 fault 1072 freeze ENV={} ASAN_OPTIONS=detect_leaks=0
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=12 entry=83 state=2 type=42 span=43 chunk=0 size=1344 count=138 start=187
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+ITEM phase=first_failure page=22 entry=17 state=2 type=42 span=68 chunk=1 size=2141 count=7 start=112
+ITEM phase=first_failure page=22 entry=85 state=2 type=48 span=1 chunk=255 size=3485 count=2 start=0
+DIAG_OPERATION mode=inplace calls=56 units=1072 latch=1
+NVS_RUNTIME_FAULT cut=1072 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=127
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3453 erased_entries=388 stats_used=3453 stats_free=579 write_bytes=1530096 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-irEAdA
+
+COMMAND=/tmp/gs-nvs-diag-sanitized.elf 9 50 20 banks 1072 ENV={} ASAN_OPTIONS=detect_leaks=0
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+DIAG_OPERATION mode=banks calls=56 units=1072 latch=1
+NVS_RUNTIME_FAULT cut=1072 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=49
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3582 erased_entries=277 stats_used=3582 stats_free=450 write_bytes=1527104 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-wtC3bx
+
+COMMAND=/tmp/gs-nvs-diag-sanitized.elf 9 50 20 banks 1072 resume ENV={} ASAN_OPTIONS=detect_leaks=0
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=2 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+DIAG_OPERATION mode=banks calls=58 units=1074 latch=0
+NVS_RUNTIME_FAULT cut=1072 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=49
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3470 erased_entries=389 stats_used=3470 stats_free=562 write_bytes=1529924 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-p1Yy35
+
+COMMAND=/tmp/gs-nvs-diag-sanitized.elf 9 50 20 banks 1227 ENV={'GS_RECOVERY_CUT': '0'} ASAN_OPTIONS=detect_leaks=0
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3452 erased_entries=386 stats_used=3452 stats_free=580 write_bytes=1522232 erase_ops=328 min_sector_erases=0 max_sector_erases=18
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=0 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+DIAG_OPERATION mode=banks calls=70 units=1227 latch=1
+ITEM phase=first_failure page=7 entry=0 state=2 type=42 span=110 chunk=128 size=3485 count=193 start=120
+ITEM phase=first_failure page=7 entry=110 state=0 type=48 span=1 chunk=255 size=3485 count=1 start=128
+ITEM phase=first_failure page=20 entry=112 state=0 type=42 span=14 chunk=128 size=416 count=251 start=98
+RECOVERY_INTERRUPTION cut=0 result=ESP_OK reboot_again
+NVS_RUNTIME_FAULT cut=1227 write=ESP_ERR_FLASH_OP_FAIL old=49 new=127 recovered=127
+NVS_RUNTIME phase=after_recovery iteration=50 allocated_pages=31 free_erased_pages=1 live_entries=3489 erased_entries=388 stats_used=3489 stats_free=543 write_bytes=1531272 erase_ops=329 min_sector_erases=0 max_sector_erases=18
+EMULATOR_IMAGE=/tmp/idf-partition-2Cis5O
+
+COMMAND=/tmp/gs-nvs-diag-sanitized.elf 9 1000 13 ENV={} ASAN_OPTIONS=detect_leaks=0
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION append_segment=9 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=10 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=11 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=12 result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=after_append_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30454240 erase_ops=7099 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION report_before_reclaim=ESP_ERR_NVS_NOT_ENOUGH_SPACE root_after_report=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=after_report_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30458456 erase_ops=7100 min_sector_erases=0 max_sector_erases=316
+REPORT_IO_PEAK live_entries=0 allocated_pages=0
+NVS_RUNTIME_SATURATION erase_old=ESP_OK commit=ESP_OK
+NVS_RUNTIME_SATURATION append_after_erase=ESP_OK
+NVS_RUNTIME phase=after_reclaim iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=22 stats_used=3844 stats_free=188 write_bytes=30466956 erase_ops=7102 min_sector_erases=0 max_sector_erases=316
+EMULATOR_IMAGE=/tmp/idf-partition-HuwnIt
+
+COMMAND=/tmp/gs-nvs-diag-sanitized.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '48'} ASAN_OPTIONS=detect_leaks=0
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=20 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=2601 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=15 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=2600 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=3447 erased_entries=2365 stats_used=3447 stats_free=2601 write_bytes=19715576 erase_ops=4731 min_sector_erases=0 max_sector_erases=125
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=3054 erased_entries=2758 stats_used=3054 stats_free=2994 write_bytes=19715696 erase_ops=4731 min_sector_erases=0 max_sector_erases=125
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=4206 erased_entries=1632 stats_used=4206 stats_free=1842 write_bytes=19756068 erase_ops=4740 min_sector_erases=0 max_sector_erases=125
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=4206 erased_entries=1637 stats_used=4206 stats_free=1842 write_bytes=19760392 erase_ops=4741 min_sector_erases=0 max_sector_erases=125
+CAPACITY pages=48 hot_bytes=124 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=4550 erased_entries=1271 stats_used=4550 stats_free=1498 write_bytes=19771664 erase_ops=4744 min_sector_erases=0 max_sector_erases=126
+CAPACITY_IO_PEAK live_entries=0 allocated_pages=0
+EMULATOR_IMAGE=/tmp/idf-partition-H2kzVY
+
+COMMAND=/tmp/gs-nvs-diag-sanitized.elf 7 1776 20 schedule ENV={} ASAN_OPTIONS=detect_leaks=0
+EXIT=0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=schedule_day iteration=1776 allocated_pages=31 free_erased_pages=1 live_entries=3199 erased_entries=590 stats_used=3199 stats_free=833 write_bytes=2137356 erase_ops=461 min_sector_erases=0 max_sector_erases=24
+SCHEDULE records=1776 groups=56 logical_bytes=1176152 programmed_bytes=2033292 amplification=1.728766 entries_written=58160 page_erases=461 max_sector_erases=24
+EMULATOR_IMAGE=/tmp/idf-partition-jrNyvp
+
+SANITIZER_FOCUSED_CHECKS=7 PASS

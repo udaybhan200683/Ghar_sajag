@@ -39,3 +39,40 @@ coverage-file collisions.
 See `docs/exec-plans/evidence/R1_STORAGE_NVS_RUNTIME_PROOF_20261008.md` at
 the repository root for measurements and proof limits. No compiler output,
 `sdkconfig`, or generated image is tracked.
+
+## Focused blocker diagnosis
+
+From repository root run `python3 <this-directory>/run_diagnostics.py fault`,
+`capacity`, or `schedule`. The runner records hashes, commands, exit status and
+results. Temporary SDK emulator files are removed by the exact child-emitted
+path; it never deletes earlier evidence or glob-cleans `/tmp`.
+
+Additional modes: `banks CUT` (independent report and selection keys, then old
+retirement); `fault CUT freeze` (latch every later write/erase off until reboot);
+`capacity HOT_COUNT` (HOT, seal, next report/root/checkpoint/root coexistence);
+`schedule` (cycle-count argument becomes one day's semantic-record count).
+`banks CUT resume` deliberately models a one-shot I/O error for comparison.
+`GS_RECOVERY_CUT` interrupts the first remount then remounts again.
+`GS_DIAG_TRACE=1` prints API/flash/page transitions and raw ret0 indices/chunks.
+`GS_PEAK=1` inspects physical entries/pages after each program/erase.
+`GS_HOT_BYTES=36/44/124` selects typical/P95/global-max dummy sizes.
+`GS_DIAG_PAGES=32..64` passes a copied partition descriptor to IDF in the isolated
+Linux image. Its extended area may overlap the unused dummy app; this is not a
+production partition layout. CSVs are unchanged.
+
+Existing staged local build environment (reuse; no dependency reinstall):
+
+```sh
+export IDF_PATH=/home/udaybhan/.espressif/v6.0.3/esp-idf
+export PATH=/tmp/gs-diag-bin:$PATH
+export RUBYLIB=/tmp/gs-ruby/usr/lib/ruby/3.3.0:/tmp/gs-ruby/usr/lib/x86_64-linux-gnu/ruby/3.3.0
+export LD_LIBRARY_PATH=/tmp/gs-ruby/usr/lib/x86_64-linux-gnu:/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu
+cmake --build code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build
+```
+
+`/tmp/gs-diag-bin/ruby` links to the previously staged ruby3.3. Normal platforms
+with Ruby/libbsd installed need no such paths. ASan/UBSan compile the diagnostic
+main with sanitizer flags and link against unchanged SDK archives; full commands
+are preserved in the sanitizer evidence. SDK internals are not instrumented.
+See the focused diagnosis for limits: these values are dummy lengths, credits
+and whole authenticated lifecycle transactions are not implemented.

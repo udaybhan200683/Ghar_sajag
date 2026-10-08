@@ -1,0 +1,44 @@
+DERIVED hot_size=36 components_entry_bytes={'certificates': 12576, 'reports': 10656, 'state': 18720, 'roots': 1152, 'metadata': 8384, 'critical': 8384, 'backend_history': 37728, 'namespace': 32} hot_bytes=24576 cow_bytes=10944 page_metadata=2176 gc_bytes=4096 tail_rounding=3936 minimum_partition=143360 deficit=12288
+DERIVED hot_size=44 components_entry_bytes={'certificates': 12576, 'reports': 10656, 'state': 18720, 'roots': 1152, 'metadata': 8384, 'critical': 8384, 'backend_history': 37728, 'namespace': 32} hot_bytes=24576 cow_bytes=10944 page_metadata=2176 gc_bytes=4096 tail_rounding=3936 minimum_partition=143360 deficit=12288
+DERIVED hot_size=124 components_entry_bytes={'certificates': 12576, 'reports': 10656, 'state': 18720, 'roots': 1152, 'metadata': 8384, 'critical': 8384, 'backend_history': 37728, 'namespace': 32} hot_bytes=36864 cow_bytes=10944 page_metadata=2368 gc_bytes=4096 tail_rounding=3744 minimum_partition=155648 deficit=24576
+BOUNDARY=entry/page lower bounds only; fragmentation, authenticated grammar and product policy unproven
+COMMAND=/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py --flash-size 4MB /tmp/gs-nvs-layout-review-0w97i04q/128.csv /tmp/gs-nvs-layout-review-0w97i04q/128.bin
+EXIT=0
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+otadata,    data, ota,     0xF000,   0x2000
+phy_init,   data, phy,     0x11000,  0x1000
+ota_0,app,ota_0,0x20000,0x1E0000
+ota_1,app,ota_1,0x200000,0x1E0000
+gs_journal,data,nvs,0x3E0000,0x20000
+  Parsing CSV input...
+Verifying table...
+
+LAYOUT storage_kib=128 ota_sizes=1966080,1966080 current_image=1864624 limiting_margin=101456
+COMMAND=/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py --flash-size 4MB /tmp/gs-nvs-layout-review-0w97i04q/192.csv /tmp/gs-nvs-layout-review-0w97i04q/192.bin
+EXIT=0
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+otadata,    data, ota,     0xF000,   0x2000
+phy_init,   data, phy,     0x11000,  0x1000
+ota_0,app,ota_0,0x20000,0x1E0000
+ota_1,app,ota_1,0x200000,0x1D0000
+gs_journal,data,nvs,0x3D0000,0x30000
+  Parsing CSV input...
+Verifying table...
+
+LAYOUT storage_kib=192 ota_sizes=1966080,1900544 current_image=1864624 limiting_margin=35920
+COMMAND=/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py --flash-size 4MB /tmp/gs-nvs-layout-review-0w97i04q/256.csv /tmp/gs-nvs-layout-review-0w97i04q/256.bin
+EXIT=0
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+otadata,    data, ota,     0xF000,   0x2000
+phy_init,   data, phy,     0x11000,  0x1000
+ota_0,app,ota_0,0x20000,0x1D0000
+ota_1,app,ota_1,0x1F0000,0x1D0000
+gs_journal,data,nvs,0x3C0000,0x40000
+  Parsing CSV input...
+Verifying table...
+
+LAYOUT storage_kib=256 ota_sizes=1900544,1900544 current_image=1864624 limiting_margin=35920
+PARTITION_REVIEW_PASS temporary layouts only; current image evidence reused, no integrated image qualification

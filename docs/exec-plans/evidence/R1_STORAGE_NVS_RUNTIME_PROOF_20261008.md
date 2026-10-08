@@ -155,3 +155,26 @@ Raw outputs: [10,000-cycle/saturation](R1_STORAGE_NVS_RUNTIME_CHURN_20261008.log
 [32 HOT promotion](R1_STORAGE_NVS_RUNTIME_32HOT_20261008.log),
 [192 HOT attempt](R1_STORAGE_NVS_RUNTIME_192HOT_20261008.log), and
 [selected flash cuts](R1_STORAGE_NVS_RUNTIME_FAULT_20261008.log).
+
+## Root-cause correction — 2026-10-08
+
+The [focused follow-up](R1_STORAGE_NVS_BLOCKER_DIAGNOSIS_20261008.md) supersedes
+only the inference that cut1072 demonstrates single-key power-loss recovery
+insufficiency. The original failure/logs remain accurate for a one-shot I/O
+error: the emulator resumes writes after failing the index bitmap write, NVS
+cleanup erases a new chunk, and recovery discards both indexes. A power-off
+latch prevents those cleanup writes and recovers complete generation127 at the
+same cut. Classification: FAULT_INJECTION_MODEL_DEFECT.2702 focused corrected
+cut/selection/remount checks pass. Independent selected/old authority is still
+required for the application multi-key/ambiguous-error transaction; this is not
+a whole authenticated NVS credit/root proof.
+
+Capacity failures remain real. Nine segments+192 maximum HOT+next report/state/
+roots need a modeled155648 B and pass the tested152 KiB fixture, while128 KiB
+passes a three-segment version. Neither is a product capacity guarantee.
+Connected32-event checkpoint sensitivities produce90/461/6089 erases at the
+three engineering rates; full production wear/RAM/admission remain UNPROVEN.
+Original297789032 write counter includes112616 setup bytes; post-setup traffic
+is297676416, preserving rounded ratio1.613. Keep both3844 (1000-cycle) and3848
+(10000-cycle)12-segment observations. No evidence is overwritten or hardware/
+partition/backend/production integration decision made.

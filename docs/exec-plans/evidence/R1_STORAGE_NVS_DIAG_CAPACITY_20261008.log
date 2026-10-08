@@ -1,0 +1,344 @@
+BINARY_SHA256=8cd039074899dc4a5ffdd9295e319fcf8e1d329bd851efac9ee14f1dccc84190
+PROBE_SHA256=230667aa57682127c05e9b989c1fe8ca2aaa5db46b28de1b6073bb0ee7903b46
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 13 ENV={'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-KZZ2r9
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION append_segment=9 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=10 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=11 result=ESP_OK
+NVS_RUNTIME_SATURATION append_segment=12 result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=after_append_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30454240 erase_ops=7099 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_SATURATION report_before_reclaim=ESP_ERR_NVS_NOT_ENOUGH_SPACE root_after_report=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=after_report_attempt iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=28 stats_used=3844 stats_free=188 write_bytes=30458456 erase_ops=7100 min_sector_erases=0 max_sector_erases=316
+REPORT_IO_PEAK live_entries=3960 allocated_pages=32
+NVS_RUNTIME_SATURATION erase_old=ESP_OK commit=ESP_OK
+NVS_RUNTIME_SATURATION append_after_erase=ESP_OK
+NVS_RUNTIME phase=after_reclaim iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3844 erased_entries=22 stats_used=3844 stats_free=188 write_bytes=30466956 erase_ops=7102 min_sector_erases=0 max_sector_erases=316
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 3 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '36', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-xcP0Pb
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=22 free_erased_pages=10 live_entries=2661 erased_entries=0 stats_used=2661 stats_free=1371 write_bytes=86956 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=26 free_erased_pages=6 live_entries=2661 erased_entries=593 stats_used=2661 stats_free=1371 write_bytes=106508 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2661 erased_entries=1120 stats_used=2661 stats_free=1371 write_bytes=19689916 erase_ops=4741 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2268 erased_entries=1513 stats_used=2268 stats_free=1764 write_bytes=19690036 erase_ops=4741 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3036 erased_entries=757 stats_used=3036 stats_free=996 write_bytes=19717924 erase_ops=4747 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3036 erased_entries=762 stats_used=3036 stats_free=996 write_bytes=19722248 erase_ops=4748 min_sector_erases=0 max_sector_erases=216
+CAPACITY pages=32 hot_bytes=36 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3379 erased_entries=413 stats_used=3379 stats_free=653 write_bytes=19734244 erase_ops=4751 min_sector_erases=0 max_sector_erases=216
+CAPACITY_IO_PEAK live_entries=3381 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 4 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '36', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-ojudCy
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=23 free_erased_pages=9 live_entries=2792 erased_entries=0 stats_used=2792 stats_free=1240 write_bytes=91232 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=28 free_erased_pages=4 live_entries=2793 erased_entries=593 stats_used=2793 stats_free=1239 write_bytes=110860 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2792 erased_entries=989 stats_used=2792 stats_free=1240 write_bytes=19694236 erase_ops=4742 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2399 erased_entries=1382 stats_used=2399 stats_free=1633 write_bytes=19694356 erase_ops=4742 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3167 erased_entries=634 stats_used=3167 stats_free=865 write_bytes=19722244 erase_ops=4748 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3167 erased_entries=640 stats_used=3167 stats_free=865 write_bytes=19726608 erase_ops=4749 min_sector_erases=0 max_sector_erases=216
+CAPACITY pages=32 hot_bytes=36 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3510 erased_entries=282 stats_used=3510 stats_free=522 write_bytes=19738568 erase_ops=4752 min_sector_erases=0 max_sector_erases=216
+CAPACITY_IO_PEAK live_entries=3512 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 5 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '36', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-9fCuLf
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=24 free_erased_pages=8 live_entries=2923 erased_entries=0 stats_used=2923 stats_free=1109 write_bytes=95508 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=29 free_erased_pages=3 live_entries=2923 erased_entries=593 stats_used=2923 stats_free=1109 write_bytes=115104 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2923 erased_entries=891 stats_used=2923 stats_free=1109 write_bytes=19698480 erase_ops=4743 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2530 erased_entries=1284 stats_used=2530 stats_free=1502 write_bytes=19698600 erase_ops=4743 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3298 erased_entries=541 stats_used=3298 stats_free=734 write_bytes=19726524 erase_ops=4749 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3298 erased_entries=566 stats_used=3298 stats_free=734 write_bytes=19731564 erase_ops=4750 min_sector_erases=0 max_sector_erases=216
+CAPACITY pages=32 hot_bytes=36 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3642 erased_entries=219 stats_used=3642 stats_free=390 write_bytes=19743960 erase_ops=4753 min_sector_erases=0 max_sector_erases=216
+CAPACITY_IO_PEAK live_entries=3642 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 7 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '36', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-PCF2iq
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3185 erased_entries=593 stats_used=3185 stats_free=847 write_bytes=123656 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3186 erased_entries=690 stats_used=3186 stats_free=846 write_bytes=21071312 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2793 erased_entries=1083 stats_used=2793 stats_free=1239 write_bytes=21071432 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3561 erased_entries=280 stats_used=3561 stats_free=471 write_bytes=21102204 erase_ops=5033 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3562 erased_entries=278 stats_used=3562 stats_free=470 write_bytes=21110892 erase_ops=5035 min_sector_erases=0 max_sector_erases=218
+CAPACITY pages=32 hot_bytes=36 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3894 erased_entries=0 stats_used=3894 stats_free=138 write_bytes=21161876 erase_ops=5046 min_sector_erases=0 max_sector_erases=218
+CAPACITY_IO_PEAK live_entries=4018 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '36', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-GM5usL
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3057 erased_entries=789 stats_used=3057 stats_free=975 write_bytes=30423164 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3825 erased_entries=54 stats_used=3825 stats_free=207 write_bytes=30460960 erase_ops=7100 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3825 erased_entries=78 stats_used=3825 stats_free=207 write_bytes=30515664 erase_ops=7112 min_sector_erases=0 max_sector_erases=317
+CAPACITY pages=32 hot_bytes=36 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3825 erased_entries=78 stats_used=3825 stats_free=207 write_bytes=30515664 erase_ops=7112 min_sector_erases=0 max_sector_erases=317
+CAPACITY_IO_PEAK live_entries=4028 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 3 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '44', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-Se2cIg
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=22 free_erased_pages=10 live_entries=2661 erased_entries=0 stats_used=2661 stats_free=1371 write_bytes=86956 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=26 free_erased_pages=6 live_entries=2661 erased_entries=593 stats_used=2661 stats_free=1371 write_bytes=106508 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2661 erased_entries=1120 stats_used=2661 stats_free=1371 write_bytes=19689916 erase_ops=4741 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2268 erased_entries=1513 stats_used=2268 stats_free=1764 write_bytes=19690036 erase_ops=4741 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3036 erased_entries=757 stats_used=3036 stats_free=996 write_bytes=19717924 erase_ops=4747 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3036 erased_entries=762 stats_used=3036 stats_free=996 write_bytes=19722248 erase_ops=4748 min_sector_erases=0 max_sector_erases=216
+CAPACITY pages=32 hot_bytes=44 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3379 erased_entries=413 stats_used=3379 stats_free=653 write_bytes=19734244 erase_ops=4751 min_sector_erases=0 max_sector_erases=216
+CAPACITY_IO_PEAK live_entries=3381 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 4 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '44', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-fLwGZ5
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=23 free_erased_pages=9 live_entries=2792 erased_entries=0 stats_used=2792 stats_free=1240 write_bytes=91232 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=28 free_erased_pages=4 live_entries=2793 erased_entries=593 stats_used=2793 stats_free=1239 write_bytes=110860 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2792 erased_entries=989 stats_used=2792 stats_free=1240 write_bytes=19694236 erase_ops=4742 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2399 erased_entries=1382 stats_used=2399 stats_free=1633 write_bytes=19694356 erase_ops=4742 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3167 erased_entries=634 stats_used=3167 stats_free=865 write_bytes=19722244 erase_ops=4748 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3167 erased_entries=640 stats_used=3167 stats_free=865 write_bytes=19726608 erase_ops=4749 min_sector_erases=0 max_sector_erases=216
+CAPACITY pages=32 hot_bytes=44 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3510 erased_entries=282 stats_used=3510 stats_free=522 write_bytes=19738568 erase_ops=4752 min_sector_erases=0 max_sector_erases=216
+CAPACITY_IO_PEAK live_entries=3512 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 5 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '44', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-wiWH2l
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=24 free_erased_pages=8 live_entries=2923 erased_entries=0 stats_used=2923 stats_free=1109 write_bytes=95508 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=29 free_erased_pages=3 live_entries=2923 erased_entries=593 stats_used=2923 stats_free=1109 write_bytes=115104 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2923 erased_entries=891 stats_used=2923 stats_free=1109 write_bytes=19698480 erase_ops=4743 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2530 erased_entries=1284 stats_used=2530 stats_free=1502 write_bytes=19698600 erase_ops=4743 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3298 erased_entries=541 stats_used=3298 stats_free=734 write_bytes=19726524 erase_ops=4749 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3298 erased_entries=566 stats_used=3298 stats_free=734 write_bytes=19731564 erase_ops=4750 min_sector_erases=0 max_sector_erases=216
+CAPACITY pages=32 hot_bytes=44 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3642 erased_entries=219 stats_used=3642 stats_free=390 write_bytes=19743960 erase_ops=4753 min_sector_erases=0 max_sector_erases=216
+CAPACITY_IO_PEAK live_entries=3642 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 7 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '44', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-Q9EA5F
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3185 erased_entries=593 stats_used=3185 stats_free=847 write_bytes=123656 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3186 erased_entries=690 stats_used=3186 stats_free=846 write_bytes=21071312 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2793 erased_entries=1083 stats_used=2793 stats_free=1239 write_bytes=21071432 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3561 erased_entries=280 stats_used=3561 stats_free=471 write_bytes=21102204 erase_ops=5033 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3562 erased_entries=278 stats_used=3562 stats_free=470 write_bytes=21110892 erase_ops=5035 min_sector_erases=0 max_sector_erases=218
+CAPACITY pages=32 hot_bytes=44 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3894 erased_entries=0 stats_used=3894 stats_free=138 write_bytes=21161876 erase_ops=5046 min_sector_erases=0 max_sector_erases=218
+CAPACITY_IO_PEAK live_entries=4018 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '44', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-gkpaHV
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3057 erased_entries=789 stats_used=3057 stats_free=975 write_bytes=30423164 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3825 erased_entries=54 stats_used=3825 stats_free=207 write_bytes=30460960 erase_ops=7100 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3825 erased_entries=78 stats_used=3825 stats_free=207 write_bytes=30515664 erase_ops=7112 min_sector_erases=0 max_sector_erases=317
+CAPACITY pages=32 hot_bytes=44 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3825 erased_entries=78 stats_used=3825 stats_free=207 write_bytes=30515664 erase_ops=7112 min_sector_erases=0 max_sector_erases=317
+CAPACITY_IO_PEAK live_entries=4028 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 3 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '124', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-XE7U2j
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=22 free_erased_pages=10 live_entries=2661 erased_entries=0 stats_used=2661 stats_free=1371 write_bytes=86956 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=26 free_erased_pages=6 live_entries=2661 erased_entries=593 stats_used=2661 stats_free=1371 write_bytes=106508 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2661 erased_entries=1120 stats_used=2661 stats_free=1371 write_bytes=19689916 erase_ops=4741 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2268 erased_entries=1513 stats_used=2268 stats_free=1764 write_bytes=19690036 erase_ops=4741 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3420 erased_entries=388 stats_used=3420 stats_free=612 write_bytes=19730444 erase_ops=4750 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3420 erased_entries=413 stats_used=3420 stats_free=612 write_bytes=19735492 erase_ops=4751 min_sector_erases=0 max_sector_erases=216
+CAPACITY pages=32 hot_bytes=124 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3765 erased_entries=83 stats_used=3765 stats_free=267 write_bytes=19753112 erase_ops=4755 min_sector_erases=0 max_sector_erases=217
+CAPACITY_IO_PEAK live_entries=3800 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 4 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '124', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-nzOA3y
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=23 free_erased_pages=9 live_entries=2792 erased_entries=0 stats_used=2792 stats_free=1240 write_bytes=91232 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=28 free_erased_pages=4 live_entries=2793 erased_entries=593 stats_used=2793 stats_free=1239 write_bytes=110860 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2792 erased_entries=989 stats_used=2792 stats_free=1240 write_bytes=19694236 erase_ops=4742 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2399 erased_entries=1382 stats_used=2399 stats_free=1633 write_bytes=19694356 erase_ops=4742 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3551 erased_entries=305 stats_used=3551 stats_free=481 write_bytes=19736496 erase_ops=4751 min_sector_erases=0 max_sector_erases=217
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3552 erased_entries=249 stats_used=3552 stats_free=480 write_bytes=19743240 erase_ops=4753 min_sector_erases=0 max_sector_erases=217
+CAPACITY pages=32 hot_bytes=124 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3880 erased_entries=6 stats_used=3880 stats_free=152 write_bytes=19776452 erase_ops=4760 min_sector_erases=0 max_sector_erases=217
+CAPACITY_IO_PEAK live_entries=3996 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 5 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '124', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-raOtW0
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=24 free_erased_pages=8 live_entries=2923 erased_entries=0 stats_used=2923 stats_free=1109 write_bytes=95508 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=29 free_erased_pages=3 live_entries=2923 erased_entries=593 stats_used=2923 stats_free=1109 write_bytes=115104 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2923 erased_entries=891 stats_used=2923 stats_free=1109 write_bytes=19698480 erase_ops=4743 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2530 erased_entries=1284 stats_used=2530 stats_free=1502 write_bytes=19698600 erase_ops=4743 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3682 erased_entries=180 stats_used=3682 stats_free=350 write_bytes=19744208 erase_ops=4753 min_sector_erases=0 max_sector_erases=216
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3684 erased_entries=186 stats_used=3684 stats_free=348 write_bytes=19757792 erase_ops=4756 min_sector_erases=0 max_sector_erases=217
+CAPACITY pages=32 hot_bytes=124 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3814 erased_entries=92 stats_used=3814 stats_free=218 write_bytes=19798408 erase_ops=4765 min_sector_erases=0 max_sector_erases=218
+CAPACITY_IO_PEAK live_entries=4026 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 7 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '124', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-IlQ6G6
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=26 free_erased_pages=6 live_entries=3185 erased_entries=0 stats_used=3185 stats_free=847 write_bytes=104064 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3185 erased_entries=593 stats_used=3185 stats_free=847 write_bytes=123656 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3186 erased_entries=690 stats_used=3186 stats_free=846 write_bytes=21071312 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=2793 erased_entries=1083 stats_used=2793 stats_free=1239 write_bytes=21071432 erase_ops=5026 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION hot_admitted=182 hot_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=21157036 erase_ops=5045 min_sector_erases=0 max_sector_erases=218
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=21157036 erase_ops=5045 min_sector_erases=0 max_sector_erases=218
+CAPACITY pages=32 hot_bytes=124 admitted=182 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=21157036 erase_ops=5045 min_sector_erases=0 max_sector_erases=218
+CAPACITY_IO_PEAK live_entries=4007 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_HOT_BYTES': '124', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-y18K67
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=4 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=585 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=3448 erased_entries=361 stats_used=3448 stats_free=584 write_bytes=132968 erase_ops=2 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3450 erased_entries=396 stats_used=3450 stats_free=582 write_bytes=30423044 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3057 erased_entries=789 stats_used=3057 stats_free=975 write_bytes=30423164 erase_ops=7092 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION hot_admitted=138 hot_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=30500848 erase_ops=7109 min_sector_erases=0 max_sector_erases=316
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=30500848 erase_ops=7109 min_sector_erases=0 max_sector_erases=316
+CAPACITY pages=32 hot_bytes=124 admitted=138 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=31 free_erased_pages=1 live_entries=3885 erased_entries=0 stats_used=3885 stats_free=147 write_bytes=30500848 erase_ops=7109 min_sector_erases=0 max_sector_erases=316
+CAPACITY_IO_PEAK live_entries=4007 allocated_pages=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '33', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-l2fIoL
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=5 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=711 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=32 free_erased_pages=1 live_entries=3448 erased_entries=467 stats_used=3448 stats_free=710 write_bytes=132248 erase_ops=1 min_sector_erases=0 max_sector_erases=1
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=32 free_erased_pages=1 live_entries=3451 erased_entries=545 stats_used=3451 stats_free=707 write_bytes=22979852 erase_ops=5451 min_sector_erases=0 max_sector_erases=233
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=32 free_erased_pages=1 live_entries=3058 erased_entries=938 stats_used=3058 stats_free=1100 write_bytes=22979972 erase_ops=5451 min_sector_erases=0 max_sector_erases=233
+NVS_RUNTIME_PROMOTION hot_admitted=156 hot_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=32 free_erased_pages=1 live_entries=3994 erased_entries=0 stats_used=3994 stats_free=164 write_bytes=23065164 erase_ops=5470 min_sector_erases=0 max_sector_erases=234
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=32 free_erased_pages=1 live_entries=3994 erased_entries=0 stats_used=3994 stats_free=164 write_bytes=23065164 erase_ops=5470 min_sector_erases=0 max_sector_erases=234
+CAPACITY pages=33 hot_bytes=124 admitted=156 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=32 free_erased_pages=1 live_entries=3994 erased_entries=0 stats_used=3994 stats_free=164 write_bytes=23065164 erase_ops=5470 min_sector_erases=0 max_sector_erases=234
+CAPACITY_IO_PEAK live_entries=4116 allocated_pages=33
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '34', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-L1e8BF
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=6 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=837 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=1 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=836 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=33 free_erased_pages=1 live_entries=3451 erased_entries=690 stats_used=3451 stats_free=833 write_bytes=21870416 erase_ops=5202 min_sector_erases=0 max_sector_erases=213
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=33 free_erased_pages=1 live_entries=3058 erased_entries=1083 stats_used=3058 stats_free=1226 write_bytes=21870536 erase_ops=5202 min_sector_erases=0 max_sector_erases=213
+NVS_RUNTIME_PROMOTION hot_admitted=178 hot_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=33 free_erased_pages=1 live_entries=4126 erased_entries=0 stats_used=4126 stats_free=158 write_bytes=21968888 erase_ops=5224 min_sector_erases=0 max_sector_erases=213
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=33 free_erased_pages=1 live_entries=4126 erased_entries=0 stats_used=4126 stats_free=158 write_bytes=21968888 erase_ops=5224 min_sector_erases=0 max_sector_erases=213
+CAPACITY pages=34 hot_bytes=124 admitted=178 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=33 free_erased_pages=1 live_entries=4126 erased_entries=0 stats_used=4126 stats_free=158 write_bytes=21968888 erase_ops=5224 min_sector_erases=0 max_sector_erases=213
+CAPACITY_IO_PEAK live_entries=4248 allocated_pages=34
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '35', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-VDgIng
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=7 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=963 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=2 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=962 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=34 free_erased_pages=1 live_entries=3447 erased_entries=705 stats_used=3447 stats_free=963 write_bytes=20687944 erase_ops=4956 min_sector_erases=0 max_sector_erases=187
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=34 free_erased_pages=1 live_entries=3054 erased_entries=1098 stats_used=3054 stats_free=1356 write_bytes=20688064 erase_ops=4956 min_sector_erases=0 max_sector_erases=187
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=34 free_erased_pages=1 live_entries=4206 erased_entries=32 stats_used=4206 stats_free=204 write_bytes=20762532 erase_ops=4972 min_sector_erases=0 max_sector_erases=188
+NVS_RUNTIME_PROMOTION seal_result=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=34 free_erased_pages=1 live_entries=4206 erased_entries=73 stats_used=4206 stats_free=204 write_bytes=20808080 erase_ops=4982 min_sector_erases=0 max_sector_erases=188
+CAPACITY pages=35 hot_bytes=124 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=34 free_erased_pages=1 live_entries=4206 erased_entries=73 stats_used=4206 stats_free=204 write_bytes=20808080 erase_ops=4982 min_sector_erases=0 max_sector_erases=188
+CAPACITY_IO_PEAK live_entries=4404 allocated_pages=35
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '36', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-fzKmY3
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=8 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=1089 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=3 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=1088 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=35 free_erased_pages=1 live_entries=3449 erased_entries=861 stats_used=3449 stats_free=1087 write_bytes=20569328 erase_ops=4916 min_sector_erases=0 max_sector_erases=183
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=35 free_erased_pages=1 live_entries=3056 erased_entries=1254 stats_used=3056 stats_free=1480 write_bytes=20569448 erase_ops=4916 min_sector_erases=0 max_sector_erases=183
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=35 free_erased_pages=1 live_entries=4208 erased_entries=157 stats_used=4208 stats_free=328 write_bytes=20628884 erase_ops=4929 min_sector_erases=0 max_sector_erases=184
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=35 free_erased_pages=1 live_entries=4211 erased_entries=180 stats_used=4211 stats_free=325 write_bytes=20647700 erase_ops=4933 min_sector_erases=0 max_sector_erases=184
+CAPACITY pages=36 hot_bytes=124 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=35 free_erased_pages=1 live_entries=4341 erased_entries=66 stats_used=4341 stats_free=195 write_bytes=20697144 erase_ops=4944 min_sector_erases=0 max_sector_erases=184
+CAPACITY_IO_PEAK live_entries=4532 allocated_pages=36
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '37', 'GS_PEAK': '1'} EXIT=2
+EMULATOR_IMAGE=/tmp/idf-partition-3N9Gs1
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=9 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=1215 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=4 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=1214 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=36 free_erased_pages=1 live_entries=3447 erased_entries=993 stats_used=3447 stats_free=1215 write_bytes=20145408 erase_ops=4822 min_sector_erases=0 max_sector_erases=178
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=36 free_erased_pages=1 live_entries=3054 erased_entries=1386 stats_used=3054 stats_free=1608 write_bytes=20145528 erase_ops=4822 min_sector_erases=0 max_sector_erases=178
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=36 free_erased_pages=1 live_entries=4206 erased_entries=248 stats_used=4206 stats_free=456 write_bytes=20194348 erase_ops=4833 min_sector_erases=0 max_sector_erases=178
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=36 free_erased_pages=1 live_entries=4207 erased_entries=283 stats_used=4207 stats_free=455 write_bytes=20204364 erase_ops=4835 min_sector_erases=0 max_sector_erases=178
+CAPACITY pages=37 hot_bytes=124 admitted=192 progress=ESP_ERR_NVS_NOT_ENOUGH_SPACE
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=36 free_erased_pages=1 live_entries=4338 erased_entries=197 stats_used=4338 stats_free=324 write_bytes=20272836 erase_ops=4850 min_sector_erases=0 max_sector_erases=179
+CAPACITY_IO_PEAK live_entries=4660 allocated_pages=37
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '38', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-d8W3Fx
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=10 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=1341 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=5 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=1340 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=37 free_erased_pages=1 live_entries=3447 erased_entries=1133 stats_used=3447 stats_free=1341 write_bytes=19803916 erase_ops=4741 min_sector_erases=0 max_sector_erases=250
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=37 free_erased_pages=1 live_entries=3054 erased_entries=1526 stats_used=3054 stats_free=1734 write_bytes=19804036 erase_ops=4741 min_sector_erases=0 max_sector_erases=250
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=37 free_erased_pages=1 live_entries=4206 erased_entries=420 stats_used=4206 stats_free=582 write_bytes=19849572 erase_ops=4751 min_sector_erases=0 max_sector_erases=250
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=37 free_erased_pages=1 live_entries=4207 erased_entries=427 stats_used=4207 stats_free=581 write_bytes=19858576 erase_ops=4753 min_sector_erases=0 max_sector_erases=250
+CAPACITY pages=38 hot_bytes=124 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=37 free_erased_pages=1 live_entries=4553 erased_entries=77 stats_used=4553 stats_free=235 write_bytes=19889248 erase_ops=4760 min_sector_erases=0 max_sector_erases=250
+CAPACITY_IO_PEAK live_entries=4632 allocated_pages=38
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '39', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-razMMD
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=11 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=1467 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=6 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=1466 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=38 free_erased_pages=1 live_entries=3447 erased_entries=1249 stats_used=3447 stats_free=1467 write_bytes=19760252 erase_ops=4740 min_sector_erases=0 max_sector_erases=250
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=38 free_erased_pages=1 live_entries=3054 erased_entries=1642 stats_used=3054 stats_free=1860 write_bytes=19760372 erase_ops=4740 min_sector_erases=0 max_sector_erases=250
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=38 free_erased_pages=1 live_entries=4206 erased_entries=512 stats_used=4206 stats_free=708 write_bytes=19804864 erase_ops=4750 min_sector_erases=0 max_sector_erases=250
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=38 free_erased_pages=1 live_entries=4206 erased_entries=551 stats_used=4206 stats_free=708 write_bytes=19810408 erase_ops=4751 min_sector_erases=0 max_sector_erases=250
+CAPACITY pages=39 hot_bytes=124 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=38 free_erased_pages=1 live_entries=4551 erased_entries=206 stats_used=4551 stats_free=363 write_bytes=19832064 erase_ops=4756 min_sector_erases=0 max_sector_erases=250
+CAPACITY_IO_PEAK live_entries=4568 allocated_pages=39
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '40', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-D0hM94
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=12 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=1593 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=7 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=1592 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=39 free_erased_pages=1 live_entries=3447 erased_entries=1365 stats_used=3447 stats_free=1593 write_bytes=19715608 erase_ops=4739 min_sector_erases=0 max_sector_erases=159
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=39 free_erased_pages=1 live_entries=3054 erased_entries=1758 stats_used=3054 stats_free=1986 write_bytes=19715728 erase_ops=4739 min_sector_erases=0 max_sector_erases=159
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=39 free_erased_pages=1 live_entries=4206 erased_entries=602 stats_used=4206 stats_free=834 write_bytes=19759100 erase_ops=4749 min_sector_erases=0 max_sector_erases=159
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=39 free_erased_pages=1 live_entries=4206 erased_entries=638 stats_used=4206 stats_free=834 write_bytes=19764536 erase_ops=4750 min_sector_erases=0 max_sector_erases=159
+CAPACITY pages=40 hot_bytes=124 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=39 free_erased_pages=1 live_entries=4551 erased_entries=319 stats_used=4551 stats_free=489 write_bytes=19782556 erase_ops=4754 min_sector_erases=0 max_sector_erases=160
+CAPACITY_IO_PEAK live_entries=4577 allocated_pages=40
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '48', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-D8YK2x
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=20 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=2601 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=15 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=2600 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=3447 erased_entries=2365 stats_used=3447 stats_free=2601 write_bytes=19715576 erase_ops=4731 min_sector_erases=0 max_sector_erases=125
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=3054 erased_entries=2758 stats_used=3054 stats_free=2994 write_bytes=19715696 erase_ops=4731 min_sector_erases=0 max_sector_erases=125
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=4206 erased_entries=1632 stats_used=4206 stats_free=1842 write_bytes=19756068 erase_ops=4740 min_sector_erases=0 max_sector_erases=125
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=4206 erased_entries=1637 stats_used=4206 stats_free=1842 write_bytes=19760392 erase_ops=4741 min_sector_erases=0 max_sector_erases=125
+CAPACITY pages=48 hot_bytes=124 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=47 free_erased_pages=1 live_entries=4550 erased_entries=1271 stats_used=4550 stats_free=1498 write_bytes=19771664 erase_ops=4744 min_sector_erases=0 max_sector_erases=126
+CAPACITY_IO_PEAK live_entries=4550 allocated_pages=47
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf 9 1000 20 capacity 192 ENV={'GS_DIAG_PAGES': '64', 'GS_PEAK': '1'} EXIT=0
+EMULATOR_IMAGE=/tmp/idf-partition-AVQVMf
+NVS_RUNTIME phase=fresh iteration=0 allocated_pages=28 free_erased_pages=36 live_entries=3447 erased_entries=0 stats_used=3447 stats_free=4617 write_bytes=112616 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1 allocated_pages=33 free_erased_pages=31 live_entries=3448 erased_entries=593 stats_used=3448 stats_free=4616 write_bytes=132244 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=churn iteration=1000 allocated_pages=63 free_erased_pages=1 live_entries=3447 erased_entries=4359 stats_used=3447 stats_free=4617 write_bytes=19715512 erase_ops=4715 min_sector_erases=0 max_sector_erases=88
+NVS_RUNTIME phase=certs_released iteration=1000 allocated_pages=63 free_erased_pages=1 live_entries=3054 erased_entries=4752 stats_used=3054 stats_free=5010 write_bytes=19715632 erase_ops=4715 min_sector_erases=0 max_sector_erases=88
+NVS_RUNTIME_PROMOTION hot_admitted=192 hot_result=ESP_OK
+NVS_RUNTIME phase=hot_peak iteration=1000 allocated_pages=63 free_erased_pages=1 live_entries=4206 erased_entries=3636 stats_used=4206 stats_free=3858 write_bytes=19756004 erase_ops=4724 min_sector_erases=0 max_sector_erases=88
+NVS_RUNTIME_PROMOTION seal_result=ESP_OK
+NVS_RUNTIME phase=seal_peak iteration=1000 allocated_pages=63 free_erased_pages=1 live_entries=4206 erased_entries=3641 stats_used=4206 stats_free=3858 write_bytes=19760328 erase_ops=4725 min_sector_erases=0 max_sector_erases=88
+CAPACITY pages=64 hot_bytes=124 admitted=192 progress=ESP_OK
+NVS_RUNTIME phase=capacity_peak iteration=1000 allocated_pages=63 free_erased_pages=1 live_entries=4550 erased_entries=3263 stats_used=4550 stats_free=3514 write_bytes=19771600 erase_ops=4728 min_sector_erases=0 max_sector_erases=88
+CAPACITY_IO_PEAK live_entries=4550 allocated_pages=63
+DIAGNOSTIC_SUITE=capacity CHECKS=26 PASS
