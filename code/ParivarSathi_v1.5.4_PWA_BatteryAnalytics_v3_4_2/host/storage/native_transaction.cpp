@@ -228,12 +228,17 @@ bool Transaction::provision_fresh() {
        !crypto_.hmac_sha256(key_,blob,binding)||!make_head(1,0,binding,published))return false;
     (void)authority_.provision(published);return recover();
 }
-Result Transaction::publish(State next) {
+Result Transaction::publish(State next, bool ordinary_admission) {
     if(!ready_||state_.generation==std::numeric_limits<std::uint64_t>::max())return Result::Fault;
     next.generation=state_.generation+1;const unsigned bank=1-bank_;
     Bytes blob,published;Key32 binding{};
     if(!validate(next))return Result::Invalid;
-    if(!encode(next,bank,blob))return Result::Fault;
+    if(representation_&&!representation_->begin_publication(state_,next,ordinary_admission))return Result::Fault;
+    if(!encode(next,bank,blob)) {
+        // A space refusal is effect-free; authentication/read failure may mean
+        // a published dependency is damaged. Revalidate before exposing state.
+        (void)recover();return Result::Fault;
+    }
     // After optional immutable-dependency preparation: candidate bank, then
     // trusted authority. The full reference has exactly these two operations.
     // An API failure may have persisted; exact bank/authority readback decides.
@@ -245,6 +250,12 @@ Result Transaction::publish(State next) {
     (void)authority_.compare_publish(head_,published);
     if(!recover())return Result::Fault;
     return head_==published ? Result::Committed : Result::Fault;
+}
+Result Transaction::durable_duplicate() {
+    // Cached event/report identity is not an ACK certificate after corruption.
+    // Revalidate the selected root/closure without writes or stale fallback.
+    const auto selected=head_;
+    return recover()&&head_==selected ? Result::Duplicate : Result::Fault;
 }
 bool Transaction::owner_matches(const Proof& p) const {
     return ready_&&p.slot<kOwners&&state_.owners[p.slot].phase!=Phase::Empty&&
@@ -291,7 +302,7 @@ Result Transaction::report(const Proof& p,const NodeRetirementReportV1& incoming
     const auto applied=repository.apply_authenticated_report(current,p.binding,p.slot,p.generation,
         p.transport_session,incoming,verified,candidate);
     using Apply=hub::durable::RetirementReportApply;
-    if(applied==Apply::Duplicate)return Result::Duplicate;
+    if(applied==Apply::Duplicate)return durable_duplicate();
     if(applied==Apply::Conflict)return Result::Conflict;
     if(applied!=Apply::Prepared)return Result::Invalid;
     State next=state_;next.owners[p.slot].report=incoming;next.owners[p.slot].report_mac=verified;
@@ -304,14 +315,16 @@ Result Transaction::admit(const Event& e,const Key32& mac,const Bytes& reducer) 
     if(!event_mac(owner.report_key,e,verified)||!crypto_.constant_time_equal(verified.data(),mac.data(),32))return Result::Invalid;
     Row row;row.slot=e.owner.slot;row.owner_generation=e.owner.generation;row.origin=e.origin;
     row.sequence=e.sequence;row.body=e.body;if(!digest(row,owner,row.digest))return Result::Fault;
-    for(const auto& r:state_.rows)if(r.slot==row.slot&&r.owner_generation==row.owner_generation&&r.origin==row.origin&&r.sequence==row.sequence)
-        return crypto_.constant_time_equal(r.digest.data(),row.digest.data(),32) ? Result::Duplicate : Result::Conflict;
+    for(const auto& r:state_.rows)if(r.slot==row.slot&&r.owner_generation==row.owner_generation&&r.origin==row.origin&&r.sequence==row.sequence) {
+        if(!crypto_.constant_time_equal(r.digest.data(),row.digest.data(),32))return Result::Conflict;
+        return durable_duplicate();
+    }
     if(owner.phase!=Phase::Active)return Result::Retired;
     if(covers(owner,row)&&!contains(owner,row))return Result::Retired;
     if(!covers(owner,row)&&owner.charged>=window_)return Result::Full;
     if(state_.rows.size()==kRows)return Result::Full;
     State next=state_;next.rows.push_back(std::move(row));next.reducer=reducer;recompute(next);
-    return publish(std::move(next));
+    return publish(std::move(next),true);
 }
 Result Transaction::dependencies_complete(const Proof& p,std::uint64_t origin,std::uint64_t sequence,bool local,bool backend) {
     if(!owner_matches(p))return Result::Invalid;

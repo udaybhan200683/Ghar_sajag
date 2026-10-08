@@ -12,9 +12,11 @@ Key32 key(unsigned v){Key32 k{};k.fill(v);return k;}
 class Store final : public CompactObjectStore {
 public:
     gs::hub::durable::MemoryBlobStore media;std::set<std::string> names;
+    bool deny_plan=false;unsigned writes=0;PublicationPlan plan;
+    bool prepare_publication(const PublicationPlan& p)override{plan=p;return !deny_plan;}
     bool read(const std::string& k,Bytes& b,bool& f)override{return media.read(k,b,f);}
-    bool replace(const std::string& k,const Bytes& b)override{names.insert(k);return media.replace(k,b);}
-    bool write_immutable(const std::string& k,const Bytes& b)override{names.insert(k);return media.write_immutable(k,b);}
+    bool replace(const std::string& k,const Bytes& b)override{++writes;names.insert(k);return media.replace(k,b);}
+    bool write_immutable(const std::string& k,const Bytes& b)override{++writes;names.insert(k);return media.write_immutable(k,b);}
     bool erase_if_equals(const std::string& k,const Bytes& b)override{
         if(!media.erase_if_equals(k,b))return false;
         names.erase(k);return true;
@@ -47,6 +49,17 @@ int main() {
         Bytes logical;Key32 mac{};check(gs::transport::encode_retirement_report(r,logical)&&c.hmac_sha256(key(30+n),logical,mac));
         check(t.report(owners[n],r,mac)==Result::Committed);check(compact.collect_selected(*t.state()));
     }
+    // Refusal uses the actual six-owner/max-report encoding before any object
+    // write; original max384 and corruption regressions below remain unchanged.
+    Event first{owners[0],1,1,Bytes(448,0x42)};Key32 first_mac{};
+    check(t.event_mac(key(30),first,first_mac));
+    s.deny_plan=true;const auto writes=s.writes;const auto generation=t.state()->generation;
+    check(t.admit(first,first_mac,Bytes(4096,0x11))==Result::Fault);
+    check(s.writes==writes&&t.state()&&t.state()->generation==generation&&t.state()->rows.empty());
+    check(s.plan.ordinary_admission&&s.plan.blobs==std::vector<std::size_t>({531,4124,4010,86}));
+    const auto reserve=workspace(s.plan);
+    check(reserve.operation_pages==10&&reserve.control_pages==8&&reserve.required_free_pages==19);
+    s.deny_plan=false;
     for(const auto& p:owners)for(unsigned seq=1;seq<=64;++seq) {
         Event e{p,1,seq,Bytes(448,0x42)};Key32 mac{};check(t.event_mac(key(30+p.slot),e,mac));
         check(t.admit(e,mac,Bytes(4096,0x11))==Result::Committed);check(compact.collect_selected(*t.state()));
@@ -63,6 +76,8 @@ int main() {
     std::vector<std::string> names;check(s.objects(names));
     const auto event=*std::find_if(names.begin(),names.end(),[](const auto& k){return k[0]=='e';});
     Bytes body;check(s.read(event,body,found)&&found);body.back()^=1;check(s.replace(event,body));
+    check(t.checkpoint_reducer(Bytes{0x33})==Result::Fault&&!t.state());
     check(!t.recover()&&!t.state());
+    std::cout<<"PROTECTED_PLAN_HOST_PASS actual_max_report_plan=verified rejected_write_count=0 dependency_error=fail_closed\n";
     std::cout<<"COMPACT_HOST_PASS exact_identities=384 charged_per_owner=32 manifest_bytes=16649 retained_payload=241379 dependency_corruption=fail_closed malformed_manifest=reject authority=INDEPENDENT_HOST_WITNESS_ONLY\n";
 }

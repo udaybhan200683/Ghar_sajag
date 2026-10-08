@@ -1,0 +1,800 @@
+START_HEAD=7c424f6f817133b775b9aa4b9b85f1df51a9482b
+CONTEXT=2026-10-08.002
+CONTEXT_PREFLIGHT=PASS
+REMOTE_HEAD=2b3c6730f8c490ba88a13ba2c23d6674c4c30fa8
+REMOTE_AHEAD_BEFORE=2
+REMOTE_BEHIND_BEFORE=0
+CANONICAL_HEAD=f27d6ab0944bf3c1871d6185a7cd4ebef357a149
+GATE_C_RESULT=GATE_C_PASS_SDK
+GATE_C_SCOPE=explicit workspace limits; completion or safe rejection, not sustained replenishment
+PRODUCTION_READY=NO
+SANITIZER_SCOPE=host compiled sources; SDK probe/adapter/native/compact; SDK/OpenSSL archives uninstrumented; LeakSanitizer disabled
+
+SECTION=PRE_FIX_EXPECTED_COUNTEREXAMPLE_FAILURE_CACHED_DUPLICATE_MISSING_BODY
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=0e6c4ee313c39c787789acf0811a668310e1663afc649dd34b7bfe7533381e0a
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact dupmissing
+
+EMULATOR_IMAGE=/tmp/idf-partition-5DtmnR
+PROBE_FAIL ./main/compact_probe.hpp:276: f.admit(owner,1,Bytes(448,0x42),Bytes(4096,0x22))==Result::Fault
+EXIT=-6
+
+SECTION=FINAL_SDK_PROTECTED_SUITE
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=688db0c657dcabf97b4a3d1ee75b5b914f9f149d3a8c5bf0c8530e30b051eb57
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact guard 448
+PROTECTED_BOUNDARY pages=32 body=448 accepted=34 payload=24955 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=19 bytes=77824 live_entries=1055 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=34 allocated_pages=19 free_erased_pages=13 live_entries=878 erased_entries=1367 stats_used=878 stats_free=3154 write_bytes=75812 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+PROTECTED_SDK_PASS restart_preserved=34 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-7euFTQ
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact guard 36
+PROTECTED_BOUNDARY pages=32 body=36 accepted=42 payload=12427 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=19 bytes=77824 live_entries=681 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=42 allocated_pages=19 free_erased_pages=13 live_entries=496 erased_entries=1808 stats_used=496 stats_free=3536 write_bytes=78316 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+PROTECTED_SDK_PASS restart_preserved=42 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-Z1QE4v
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact guardbusy 448
+PROTECTED_BOUNDARY pages=32 body=448 accepted=9 payload=9970 certified_free=17 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=9 control_pages=8 required_free_pages=18 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=16 bytes=65536 live_entries=499 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=9 allocated_pages=16 free_erased_pages=16 live_entries=349 erased_entries=1538 stats_used=349 stats_free=3683 write_bytes=62888 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+PROTECTED_SDK_PASS restart_preserved=9 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-5imayc
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact guardfull 448
+COMPACT_GC_PRIME pads=28
+PROTECTED_BOUNDARY pages=32 body=448 accepted=1 payload=5194 certified_free=0 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_PEAK nonblank_pages=31 bytes=126976 live_entries=2010 gc_erases=0 credit_checkpoint=safe_rejection
+NVS_RUNTIME phase=protected_boundary iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=2010 erased_entries=1896 stats_used=2010 stats_free=2022 write_bytes=141504 erase_ops=35 min_sector_erases=0 max_sector_erases=1
+PROTECTED_SDK_PASS restart_preserved=1 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-hgwbNa
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gmax
+PROTECTED_MAX_REPORT_PASS six_owners=1 max_pending_reports=1 manifest_crosses_4000=1 old_new_dependencies=protected peak_pages=13 peak_live_entries=674
+NVS_RUNTIME phase=protected_max_report iteration=1 allocated_pages=13 free_erased_pages=19 live_entries=399 erased_entries=1166 stats_used=399 stats_free=3633 write_bytes=52064 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-mJ115F
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gio
+PROTECTED_TYPED_IO_PASS dependency_refusal=restart_required manifest_head_refusal=metadata_failure reducer_slot_reserve=protected authorized_collection=resumed ack=only_after_publication
+EMULATOR_IMAGE=/tmp/idf-partition-fuCB5L
+EXIT=0
+GS_DIAG_PAGES=48
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact guard 448
+PROTECTED_BOUNDARY pages=48 body=448 accepted=57 payload=38686 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=35 bytes=143360 live_entries=1568 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=57 allocated_pages=35 free_erased_pages=13 live_entries=1366 erased_entries=2876 stats_used=1366 stats_free=4682 write_bytes=142616 erase_ops=48 min_sector_erases=0 max_sector_erases=0
+PROTECTED_SDK_PASS restart_preserved=57 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-AnSImF
+EXIT=0
+GS_DIAG_PAGES=64
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact guard 448
+PROTECTED_BOUNDARY pages=64 body=448 accepted=76 payload=50029 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=52 bytes=212992 live_entries=1987 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=76 allocated_pages=52 free_erased_pages=12 live_entries=1767 erased_entries=4561 stats_used=1767 stats_free=6297 write_bytes=212140 erase_ops=64 min_sector_erases=0 max_sector_erases=0
+PROTECTED_SDK_PASS restart_preserved=76 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-HEP49P
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact damage
+COMPACT_FAIL_CLOSED_PASS mode=damage older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-cVLVHd
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact missing
+COMPACT_FAIL_CLOSED_PASS mode=missing older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-h1XHs4
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact child
+COMPACT_FAIL_CLOSED_PASS mode=child older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-7p4F2F
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact head
+COMPACT_FAIL_CLOSED_PASS mode=head older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-ZEoo5m
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact dupmissing
+COMPACT_FAIL_CLOSED_PASS mode=dupmissing older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-us4LnP
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact reportmissing
+COMPACT_FAIL_CLOSED_PASS mode=reportmissing older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-8AxvGL
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact basic
+COMPACT_BASIC_PASS credit_reports_lost_ack_dependency_owners_revocation payload=7360
+NVS_RUNTIME phase=compact_basic iteration=32 allocated_pages=14 free_erased_pages=18 live_entries=312 erased_entries=1401 stats_used=312 stats_free=3720 write_bytes=58564 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-2x5p0C
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 0
+COMPACT_POWER_CUT operation=write offset=5728 bytes=32
+COMPACT_POWERFAIL_PASS cut=0 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=11388 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-PXqu56
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1
+COMPACT_POWER_CUT operation=write offset=5728 bytes=32
+COMPACT_POWERFAIL_PASS cut=1 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=166 stats_used=176 stats_free=3856 write_bytes=11424 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-aEi8Iv
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 128
+COMPACT_POWER_CUT operation=write offset=5760 bytes=512
+COMPACT_POWERFAIL_PASS cut=128 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=183 stats_used=176 stats_free=3856 write_bytes=12512 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-PIAouZ
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 144
+COMPACT_POWER_CUT operation=write offset=6272 bytes=32
+COMPACT_POWERFAIL_PASS cut=144 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=183 stats_used=176 stats_free=3856 write_bytes=12008 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-MZSbJi
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1080
+COMPACT_POWER_CUT operation=write offset=8288 bytes=2272
+COMPACT_POWERFAIL_PASS cut=1080 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=4 free_erased_pages=28 live_entries=176 erased_entries=296 stats_used=176 stats_free=3856 write_bytes=16964 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-TAZO6Y
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1100
+COMPACT_POWER_CUT operation=write offset=8288 bytes=2272
+COMPACT_POWERFAIL_PASS cut=1100 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=4 free_erased_pages=28 live_entries=176 erased_entries=296 stats_used=176 stats_free=3856 write_bytes=17036 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-JC67pK
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1200
+COMPACT_POWER_CUT operation=write offset=8288 bytes=2272
+COMPACT_POWERFAIL_PASS cut=1200 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=4 free_erased_pages=28 live_entries=176 erased_entries=296 stats_used=176 stats_free=3856 write_bytes=17504 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-at1X4R
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1280
+COMPACT_POWER_CUT operation=write offset=10656 bytes=224
+COMPACT_POWERFAIL_PASS cut=1280 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=174 stats_used=176 stats_free=3856 write_bytes=6920 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-qXw1Zk
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1312
+COMPACT_POWER_CUT operation=write offset=10912 bytes=32
+COMPACT_POWERFAIL_PASS cut=1312 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=175 stats_used=176 stats_free=3856 write_bytes=6780 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-5kBmKJ
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1344
+COMPACT_POWER_CUT operation=write offset=10976 bytes=64
+COMPACT_POWERFAIL_PASS cut=1344 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=179 stats_used=176 stats_free=3856 write_bytes=6648 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-aB7jq7
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1360
+COMPACT_POWER_CUT operation=write offset=11072 bytes=32
+COMPACT_POWERFAIL_PASS cut=1360 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=180 stats_used=176 stats_free=3856 write_bytes=6616 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-6cW1I6
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1368
+COMPACT_POWER_CUT operation=raw_write offset=4140 bytes=4
+COMPACT_POWERFAIL_PASS cut=1368 child_exit=77 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=6044 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-bzrnIN
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1369
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_POWERFAIL_PASS cut=1369 child_exit=77 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=5912 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-G6TwkX
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1370
+COMPACT_CHILD result=0 io_units=1369 io_calls=52 gc_erase_delta=0 peak_allocated_pages=3 peak_live_entries=317
+COMPACT_POWERFAIL_PASS cut=1370 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=5912 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-ckcPGH
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 999999
+COMPACT_CHILD result=0 io_units=1369 io_calls=52 gc_erase_delta=0 peak_allocated_pages=3 peak_live_entries=317
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=5912 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-q8ic2U
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact rfault 0
+COMPACT_POWER_CUT operation=write offset=6816 bytes=32
+COMPACT_POWERFAIL_PASS cut=0 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=47 stats_used=178 stats_free=3854 write_bytes=7600 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-Ipo4Du
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact rfault 1
+COMPACT_POWER_CUT operation=write offset=6816 bytes=32
+COMPACT_POWERFAIL_PASS cut=1 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=48 stats_used=178 stats_free=3854 write_bytes=7632 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-aa5Bj1
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact rfault 64
+COMPACT_POWER_CUT operation=write offset=6848 bytes=256
+COMPACT_POWERFAIL_PASS cut=64 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=57 stats_used=178 stats_free=3854 write_bytes=8176 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-iN04Dx
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact rfault 128
+COMPACT_POWER_CUT operation=write offset=7264 bytes=32
+COMPACT_POWERFAIL_PASS cut=128 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=62 stats_used=178 stats_free=3854 write_bytes=7768 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-b9Ro5o
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact rfault 256
+COMPACT_CHILD result=0 io_units=142 io_calls=22 gc_erase_delta=0 peak_allocated_pages=2 peak_live_entries=187
+COMPACT_POWERFAIL_PASS cut=256 child_exit=0 recovered=new retry=duplicate payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=47 stats_used=178 stats_free=3854 write_bytes=7032 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-7xZwiU
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact rfault 999999
+COMPACT_CHILD result=0 io_units=142 io_calls=22 gc_erase_delta=0 peak_allocated_pages=2 peak_live_entries=187
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=47 stats_used=178 stats_free=3854 write_bytes=7032 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-bWyH3H
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcrecover 0
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=0 bytes=4
+PROTECTED_GC_RESTART_SAFE_REJECT cut=0 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=0 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=1990 erased_entries=1916 stats_used=1990 stats_free=2042 write_bytes=136956 erase_ops=34 min_sector_erases=0 max_sector_erases=1
+EMULATOR_IMAGE=/tmp/idf-partition-7Jpmz0
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcrecover 1
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=0 bytes=4
+PROTECTED_GC_RESTART_SAFE_REJECT cut=1 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=1 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=35
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=30 free_erased_pages=2 live_entries=1990 erased_entries=1790 stats_used=1990 stats_free=2042 write_bytes=136956 erase_ops=35 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-O3cx0P
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcrecover 2
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=erase offset=0 bytes=4096
+PROTECTED_GC_RESTART_SAFE_REJECT cut=2 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=2 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=30 free_erased_pages=2 live_entries=1990 erased_entries=1790 stats_used=1990 stats_free=2042 write_bytes=136956 erase_ops=34 min_sector_erases=0 max_sector_erases=1
+EMULATOR_IMAGE=/tmp/idf-partition-X1Q6z4
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcrecover 1086
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=32 bytes=4
+PROTECTED_GC_RESTART_SAFE_REJECT cut=1086 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=1086 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=36
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=1990 erased_entries=1795 stats_used=1990 stats_free=2042 write_bytes=140632 erase_ops=36 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-fUih6l
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcrecover 1087
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=erase offset=65536 bytes=4096
+PROTECTED_GC_RESTART_SAFE_REJECT cut=1087 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=1087 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=1990 erased_entries=1795 stats_used=1990 stats_free=2042 write_bytes=140420 erase_ops=34 min_sector_erases=0 max_sector_erases=1
+EMULATOR_IMAGE=/tmp/idf-partition-jBBePD
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcrecover 1425
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_POWERFAIL_PASS cut=1425 child_exit=77 recovered=new retry=duplicate payload=5194 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=2010 erased_entries=1815 stats_used=2010 stats_free=2022 write_bytes=137000 erase_ops=34 min_sector_erases=0 max_sector_erases=1
+EMULATOR_IMAGE=/tmp/idf-partition-T77xzI
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcrecover 999999
+COMPACT_GC_PRIME pads=28
+COMPACT_CHILD result=0 io_units=1425 io_calls=66 gc_erase_delta=2 peak_allocated_pages=32 peak_live_entries=2151
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=2010 erased_entries=1815 stats_used=2010 stats_free=2022 write_bytes=137000 erase_ops=34 min_sector_erases=0 max_sector_erases=1
+EMULATOR_IMAGE=/tmp/idf-partition-qziQHW
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact cfault 0
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-AES7KH
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact cfault 1
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-2grOir
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact cfault 2
+COMPACT_POWER_CUT operation=raw_write offset=60 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-BhSEuq
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact cfault 4
+COMPACT_POWER_CUT operation=raw_write offset=52 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-qZwmVO
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact cfault 999999
+COMPACT_CHILD result=0 io_units=14 io_calls=14 gc_erase_delta=0 peak_allocated_pages=4 peak_live_entries=328
+COMPACT_COLLECTION_CUT_PASS child_exit=0 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-918bLU
+EXIT=0
+COMPACT_SUITE_PASS cases=48
+
+SECTION=HOST_NATIVE_AND_COMPACT_SANITIZERS
+g++ -B/usr/bin -std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp host/storage/native_transaction.cpp tests/cpp/storage_native_transaction_validation.cpp -lcrypto -o build/storage_native_transaction_validation
+./build/storage_native_transaction_validation
+ADMISSION_REPORT_PASS W=32 credit_reboot=32 report_progress=only_auth_complete forged=reject
+OWNER_BOUND_PASS retained=6 seventh=Full retiring=charged release=dependency_gated
+FULL_BOUND_PASS exact_identities=384 owners=6 W=32 fixed_keys=2 banks_max_bytes=201573 authority_bytes=86
+CRASH_PASS cut=1 recovery=valid notification=none
+CRASH_PASS cut=2 recovery=valid notification=none
+CRASH_PASS cut=3 recovery=valid notification=none
+CRASH_PASS cut=4 recovery=valid notification=none
+CRASH_PASS cut=5 recovery=fail_closed notification=none
+CRASH_PASS cut=6 recovery=valid notification=none
+STALE_ROOT_REGRESSION_PASS child=corrupt old_bank_present=1 fallback=forbidden
+STALE_ROOT_REGRESSION_PASS child=missing old_bank_present=1 fallback=forbidden
+FRESHNESS_PRIMITIVE_PASS old_authenticated_head=reject unavailable_authority=fail_closed
+RETIREMENT_CRASH_PASS cut=3 accepted_body=preserved credit=1
+RETIREMENT_CRASH_PASS cut=6 accepted_body=preserved credit=0
+CREDIT_CONTRADICTION_PASS valid_aead_and_head=1 false_credit_reset=fail_closed
+DEPENDENCY_FAILURE_PASS no_unsafe_reclaim=1 api_ambiguity=resolved partial_credit=not_selected
+NATIVE_TRANSACTION_HOST_PASS gate_A=PASS_DEFINED_SCOPE gate_B=PASS_WITH_TRUSTED_AUTHORITY gate_C=OPEN
+g++ -B/usr/bin -std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp host/storage/native_transaction.cpp host/storage/compact_nvs_representation.cpp tests/cpp/storage_compact_representation_validation.cpp -lcrypto -o build/storage_compact_representation_validation
+./build/storage_compact_representation_validation
+PROTECTED_PLAN_HOST_PASS actual_max_report_plan=verified rejected_write_count=0 dependency_error=fail_closed
+COMPACT_HOST_PASS exact_identities=384 charged_per_owner=32 manifest_bytes=16649 retained_payload=241379 dependency_corruption=fail_closed malformed_manifest=reject authority=INDEPENDENT_HOST_WITNESS_ONLY
+
+SECTION=SDK_ADAPTER_TRANSACTION_SANITIZERS
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=3f7cbb3465ba4eb7137f571e9fde9b83ef0c7d774cfb0bf9e6cfd24100b5def3
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact guard 448
+PROTECTED_BOUNDARY pages=32 body=448 accepted=34 payload=24955 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=19 bytes=77824 live_entries=1055 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=34 allocated_pages=19 free_erased_pages=13 live_entries=878 erased_entries=1367 stats_used=878 stats_free=3154 write_bytes=75812 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+PROTECTED_SDK_PASS restart_preserved=34 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-lfDOKC
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact guard 36
+PROTECTED_BOUNDARY pages=32 body=36 accepted=42 payload=12427 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=19 bytes=77824 live_entries=681 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=42 allocated_pages=19 free_erased_pages=13 live_entries=496 erased_entries=1808 stats_used=496 stats_free=3536 write_bytes=78316 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+PROTECTED_SDK_PASS restart_preserved=42 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-mvdfYq
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact guardbusy 448
+PROTECTED_BOUNDARY pages=32 body=448 accepted=9 payload=9970 certified_free=17 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=9 control_pages=8 required_free_pages=18 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=16 bytes=65536 live_entries=499 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=9 allocated_pages=16 free_erased_pages=16 live_entries=349 erased_entries=1538 stats_used=349 stats_free=3683 write_bytes=62888 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+PROTECTED_SDK_PASS restart_preserved=9 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-4JZ2lg
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact guardfull 448
+COMPACT_GC_PRIME pads=28
+PROTECTED_BOUNDARY pages=32 body=448 accepted=1 payload=5194 certified_free=0 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_PEAK nonblank_pages=31 bytes=126976 live_entries=2010 gc_erases=0 credit_checkpoint=safe_rejection
+NVS_RUNTIME phase=protected_boundary iteration=1 allocated_pages=31 free_erased_pages=1 live_entries=2010 erased_entries=1896 stats_used=2010 stats_free=2022 write_bytes=141504 erase_ops=35 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567872
+PROTECTED_SDK_PASS restart_preserved=1 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-OuKXxA
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gmax
+PROTECTED_MAX_REPORT_PASS six_owners=1 max_pending_reports=1 manifest_crosses_4000=1 old_new_dependencies=protected peak_pages=13 peak_live_entries=674
+NVS_RUNTIME phase=protected_max_report iteration=1 allocated_pages=13 free_erased_pages=19 live_entries=399 erased_entries=1166 stats_used=399 stats_free=3633 write_bytes=52064 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-LwZDfo
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gio
+PROTECTED_TYPED_IO_PASS dependency_refusal=restart_required manifest_head_refusal=metadata_failure reducer_slot_reserve=protected authorized_collection=resumed ack=only_after_publication
+EMULATOR_IMAGE=/tmp/idf-partition-mf7Iks
+EXIT=0
+GS_DIAG_PAGES=48
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact guard 448
+PROTECTED_BOUNDARY pages=48 body=448 accepted=57 payload=38686 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=35 bytes=143360 live_entries=1568 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=57 allocated_pages=35 free_erased_pages=13 live_entries=1366 erased_entries=2876 stats_used=1366 stats_free=4682 write_bytes=142616 erase_ops=48 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+PROTECTED_SDK_PASS restart_preserved=57 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-SKY4jl
+EXIT=0
+GS_DIAG_PAGES=64
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact guard 448
+PROTECTED_BOUNDARY pages=64 body=448 accepted=76 payload=50029 certified_free=14 operation_pages=9 control_pages=8 required_free_pages=18 repeated_reject_writes=0
+PROTECTED_ORDINARY_LIMIT operation_pages=6 control_pages=8 required_free_pages=15 reserve_bytes=36864
+PROTECTED_PEAK nonblank_pages=52 bytes=212992 live_entries=1987 gc_erases=0 credit_checkpoint=committed
+NVS_RUNTIME phase=protected_boundary iteration=76 allocated_pages=52 free_erased_pages=12 live_entries=1767 erased_entries=4561 stats_used=1767 stats_free=6297 write_bytes=212140 erase_ops=64 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+PROTECTED_SDK_PASS restart_preserved=76 unsupported_reject=1 lost_ack_duplicate=1
+EMULATOR_IMAGE=/tmp/idf-partition-ELepw2
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact damage
+COMPACT_FAIL_CLOSED_PASS mode=damage older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-xVkmbd
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact missing
+COMPACT_FAIL_CLOSED_PASS mode=missing older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-ouSCGt
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact child
+COMPACT_FAIL_CLOSED_PASS mode=child older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-LRkDsj
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact head
+COMPACT_FAIL_CLOSED_PASS mode=head older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-Dneiq5
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact dupmissing
+COMPACT_FAIL_CLOSED_PASS mode=dupmissing older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-nYAKgX
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact reportmissing
+COMPACT_FAIL_CLOSED_PASS mode=reportmissing older_bank_present=1
+EMULATOR_IMAGE=/tmp/idf-partition-kmZ9O5
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact basic
+COMPACT_BASIC_PASS credit_reports_lost_ack_dependency_owners_revocation payload=7360
+NVS_RUNTIME phase=compact_basic iteration=32 allocated_pages=14 free_erased_pages=18 live_entries=312 erased_entries=1401 stats_used=312 stats_free=3720 write_bytes=58564 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-gn9ePb
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 0
+COMPACT_POWER_CUT operation=write offset=5728 bytes=32
+COMPACT_POWERFAIL_PASS cut=0 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=11388 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-FpZrvm
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1
+COMPACT_POWER_CUT operation=write offset=5728 bytes=32
+COMPACT_POWERFAIL_PASS cut=1 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=166 stats_used=176 stats_free=3856 write_bytes=11424 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-uWKd9y
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 128
+COMPACT_POWER_CUT operation=write offset=5760 bytes=512
+COMPACT_POWERFAIL_PASS cut=128 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=183 stats_used=176 stats_free=3856 write_bytes=12512 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-cQOh1J
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 144
+COMPACT_POWER_CUT operation=write offset=6272 bytes=32
+COMPACT_POWERFAIL_PASS cut=144 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=183 stats_used=176 stats_free=3856 write_bytes=12008 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-hhhy8J
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1080
+COMPACT_POWER_CUT operation=write offset=8288 bytes=2272
+COMPACT_POWERFAIL_PASS cut=1080 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=4 free_erased_pages=28 live_entries=176 erased_entries=296 stats_used=176 stats_free=3856 write_bytes=16964 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-ffRopp
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1100
+COMPACT_POWER_CUT operation=write offset=8288 bytes=2272
+COMPACT_POWERFAIL_PASS cut=1100 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=4 free_erased_pages=28 live_entries=176 erased_entries=296 stats_used=176 stats_free=3856 write_bytes=17036 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-zizuKr
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1200
+COMPACT_POWER_CUT operation=write offset=8288 bytes=2272
+COMPACT_POWERFAIL_PASS cut=1200 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=4 free_erased_pages=28 live_entries=176 erased_entries=296 stats_used=176 stats_free=3856 write_bytes=17504 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-kqpTx6
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1280
+COMPACT_POWER_CUT operation=write offset=10656 bytes=224
+COMPACT_POWERFAIL_PASS cut=1280 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=174 stats_used=176 stats_free=3856 write_bytes=6920 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-M4MxhE
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1312
+COMPACT_POWER_CUT operation=write offset=10912 bytes=32
+COMPACT_POWERFAIL_PASS cut=1312 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=175 stats_used=176 stats_free=3856 write_bytes=6780 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-7Dvh83
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1344
+COMPACT_POWER_CUT operation=write offset=10976 bytes=64
+COMPACT_POWERFAIL_PASS cut=1344 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=179 stats_used=176 stats_free=3856 write_bytes=6648 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-0Ke0lK
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1360
+COMPACT_POWER_CUT operation=write offset=11072 bytes=32
+COMPACT_POWERFAIL_PASS cut=1360 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=180 stats_used=176 stats_free=3856 write_bytes=6616 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-TkqCnY
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1368
+COMPACT_POWER_CUT operation=raw_write offset=4140 bytes=4
+COMPACT_POWERFAIL_PASS cut=1368 child_exit=77 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=6044 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-S9rZmj
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1369
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_POWERFAIL_PASS cut=1369 child_exit=77 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=5912 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-kg4yEC
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 1370
+COMPACT_CHILD result=0 io_units=1369 io_calls=52 gc_erase_delta=0 peak_allocated_pages=3 peak_live_entries=317
+COMPACT_POWERFAIL_PASS cut=1370 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=5912 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-zRfdNn
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcut 999999
+COMPACT_CHILD result=0 io_units=1369 io_calls=52 gc_erase_delta=0 peak_allocated_pages=3 peak_live_entries=317
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=5912 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-f5J35G
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact rfault 0
+COMPACT_POWER_CUT operation=write offset=6816 bytes=32
+COMPACT_POWERFAIL_PASS cut=0 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=47 stats_used=178 stats_free=3854 write_bytes=7600 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-xvFtzx
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact rfault 1
+COMPACT_POWER_CUT operation=write offset=6816 bytes=32
+COMPACT_POWERFAIL_PASS cut=1 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=48 stats_used=178 stats_free=3854 write_bytes=7632 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-iwprnq
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact rfault 64
+COMPACT_POWER_CUT operation=write offset=6848 bytes=256
+COMPACT_POWERFAIL_PASS cut=64 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=57 stats_used=178 stats_free=3854 write_bytes=8176 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-qbKvFp
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact rfault 128
+COMPACT_POWER_CUT operation=write offset=7264 bytes=32
+COMPACT_POWERFAIL_PASS cut=128 child_exit=77 recovered=old retry=commit payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=62 stats_used=178 stats_free=3854 write_bytes=7768 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-yOQc9F
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact rfault 256
+COMPACT_CHILD result=0 io_units=142 io_calls=22 gc_erase_delta=0 peak_allocated_pages=2 peak_live_entries=187
+COMPACT_POWERFAIL_PASS cut=256 child_exit=0 recovered=new retry=duplicate payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=47 stats_used=178 stats_free=3854 write_bytes=7032 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-SrOH3B
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact rfault 999999
+COMPACT_CHILD result=0 io_units=142 io_calls=22 gc_erase_delta=0 peak_allocated_pages=2 peak_live_entries=187
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5257 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=2 free_erased_pages=30 live_entries=178 erased_entries=47 stats_used=178 stats_free=3854 write_bytes=7032 erase_ops=32 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567871
+EMULATOR_IMAGE=/tmp/idf-partition-yLkL77
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcrecover 0
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=0 bytes=4
+PROTECTED_GC_RESTART_SAFE_REJECT cut=0 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=0 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=1990 erased_entries=1916 stats_used=1990 stats_free=2042 write_bytes=136956 erase_ops=34 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567872
+EMULATOR_IMAGE=/tmp/idf-partition-h5wWMZ
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcrecover 1
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=0 bytes=4
+PROTECTED_GC_RESTART_SAFE_REJECT cut=1 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=1 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=35
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=30 free_erased_pages=2 live_entries=1990 erased_entries=1790 stats_used=1990 stats_free=2042 write_bytes=136956 erase_ops=35 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567873
+EMULATOR_IMAGE=/tmp/idf-partition-Cdm4Yj
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcrecover 2
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=erase offset=0 bytes=4096
+PROTECTED_GC_RESTART_SAFE_REJECT cut=2 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=2 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=30 free_erased_pages=2 live_entries=1990 erased_entries=1790 stats_used=1990 stats_free=2042 write_bytes=136956 erase_ops=34 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567872
+EMULATOR_IMAGE=/tmp/idf-partition-PKmQbL
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcrecover 1086
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=32 bytes=4
+PROTECTED_GC_RESTART_SAFE_REJECT cut=1086 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=1086 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=36
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=1990 erased_entries=1795 stats_used=1990 stats_free=2042 write_bytes=140632 erase_ops=36 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567873
+EMULATOR_IMAGE=/tmp/idf-partition-jrsZkM
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcrecover 1087
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=erase offset=65536 bytes=4096
+PROTECTED_GC_RESTART_SAFE_REJECT cut=1087 ack=0 retry_writes=0
+COMPACT_POWERFAIL_PASS cut=1087 child_exit=77 recovered=old retry=space_rejected payload=4630 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=1990 erased_entries=1795 stats_used=1990 stats_free=2042 write_bytes=140420 erase_ops=34 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567872
+EMULATOR_IMAGE=/tmp/idf-partition-M6xg4g
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcrecover 1425
+COMPACT_GC_PRIME pads=28
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_POWERFAIL_PASS cut=1425 child_exit=77 recovered=new retry=duplicate payload=5194 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=2010 erased_entries=1815 stats_used=2010 stats_free=2022 write_bytes=137000 erase_ops=34 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567872
+EMULATOR_IMAGE=/tmp/idf-partition-MzVsh9
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact gcrecover 999999
+COMPACT_GC_PRIME pads=28
+COMPACT_CHILD result=0 io_units=1425 io_calls=66 gc_erase_delta=2 peak_allocated_pages=32 peak_live_entries=2151
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=34
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=31 free_erased_pages=1 live_entries=2010 erased_entries=1815 stats_used=2010 stats_free=2022 write_bytes=137000 erase_ops=34 min_sector_erases=13744632839234567871 max_sector_erases=13744632839234567872
+EMULATOR_IMAGE=/tmp/idf-partition-HvcJNU
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact cfault 0
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-yMPJzp
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact cfault 1
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-yIbcg3
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact cfault 2
+COMPACT_POWER_CUT operation=raw_write offset=60 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-ElUm7G
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact cfault 4
+COMPACT_POWER_CUT operation=raw_write offset=52 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-A0Qd02
+EXIT=0
+GS_DIAG_PAGES=32
+COMMAND=/tmp/gs-gate-c-sdk-asan/probe.elf compact cfault 999999
+COMPACT_CHILD result=0 io_units=14 io_calls=14 gc_erase_delta=0 peak_allocated_pages=4 peak_live_entries=328
+COMPACT_COLLECTION_CUT_PASS child_exit=0 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-96WZY0
+EXIT=0
+COMPACT_SUITE_PASS cases=48
+
+SECTION=PUBLICATION_IO_TRACE
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=688db0c657dcabf97b4a3d1ee75b5b914f9f149d3a8c5bf0c8530e30b051eb57
+GS_DIAG_PAGES=32
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 999999
+IO write call=1 units=8 offset=5728 size=32 result=ESP_OK
+IO rawwrite call=2 units=9 offset=4140 size=4 result=ESP_OK
+IO write call=3 units=137 offset=5760 size=512 result=ESP_OK
+IO rawwrite call=4 units=138 offset=4144 size=4 result=ESP_OK
+IO rawwrite call=5 units=139 offset=4140 size=4 result=ESP_OK
+IO write call=6 units=147 offset=6272 size=32 result=ESP_OK
+IO rawwrite call=7 units=148 offset=4144 size=4 result=ESP_OK
+IO write call=8 units=156 offset=6304 size=32 result=ESP_OK
+IO rawwrite call=9 units=157 offset=4144 size=4 result=ESP_OK
+IO write call=10 units=165 offset=6336 size=32 result=ESP_OK
+IO rawwrite call=11 units=166 offset=4144 size=4 result=ESP_OK
+IO write call=12 units=622 offset=6368 size=1824 result=ESP_OK
+IO rawwrite call=13 units=623 offset=4156 size=4 result=ESP_OK
+IO rawwrite call=14 units=624 offset=4152 size=4 result=ESP_OK
+IO rawwrite call=15 units=625 offset=4148 size=4 result=ESP_OK
+IO rawwrite call=16 units=626 offset=4144 size=4 result=ESP_OK
+PAGE_TRANSITION page=1 state=fffffffc
+IO rawwrite call=17 units=627 offset=4096 size=4 result=ESP_OK
+PAGE_TRANSITION page=2 state=fffffffe
+IO rawwrite call=18 units=635 offset=8192 size=32 result=ESP_OK
+IO write call=19 units=643 offset=8256 size=32 result=ESP_OK
+IO rawwrite call=20 units=644 offset=8224 size=4 result=ESP_OK
+IO write call=21 units=1212 offset=8288 size=2272 result=ESP_OK
+IO rawwrite call=22 units=1213 offset=8240 size=4 result=ESP_OK
+IO rawwrite call=23 units=1214 offset=8236 size=4 result=ESP_OK
+IO rawwrite call=24 units=1215 offset=8232 size=4 result=ESP_OK
+IO rawwrite call=25 units=1216 offset=8228 size=4 result=ESP_OK
+IO rawwrite call=26 units=1217 offset=8224 size=4 result=ESP_OK
+IO write call=27 units=1225 offset=10560 size=32 result=ESP_OK
+IO rawwrite call=28 units=1226 offset=8240 size=4 result=ESP_OK
+IO write call=29 units=1234 offset=10592 size=32 result=ESP_OK
+IO rawwrite call=30 units=1235 offset=8240 size=4 result=ESP_OK
+IO write call=31 units=1243 offset=10624 size=32 result=ESP_OK
+IO rawwrite call=32 units=1244 offset=8240 size=4 result=ESP_OK
+IO write call=33 units=1300 offset=10656 size=224 result=ESP_OK
+IO rawwrite call=34 units=1301 offset=8244 size=4 result=ESP_OK
+IO rawwrite call=35 units=1302 offset=8240 size=4 result=ESP_OK
+IO write call=36 units=1310 offset=10880 size=32 result=ESP_OK
+IO rawwrite call=37 units=1311 offset=8244 size=4 result=ESP_OK
+IO write call=38 units=1319 offset=10912 size=32 result=ESP_OK
+IO rawwrite call=39 units=1320 offset=8244 size=4 result=ESP_OK
+IO rawwrite call=40 units=1321 offset=36 size=4 result=ESP_OK
+IO rawwrite call=41 units=1322 offset=36 size=4 result=ESP_OK
+IO rawwrite call=42 units=1323 offset=32 size=4 result=ESP_OK
+IO write call=43 units=1331 offset=10944 size=32 result=ESP_OK
+IO rawwrite call=44 units=1332 offset=8244 size=4 result=ESP_OK
+IO write call=45 units=1348 offset=10976 size=64 result=ESP_OK
+IO rawwrite call=46 units=1349 offset=8244 size=4 result=ESP_OK
+IO write call=47 units=1357 offset=11040 size=32 result=ESP_OK
+IO rawwrite call=48 units=1358 offset=8244 size=4 result=ESP_OK
+IO write call=49 units=1366 offset=11072 size=32 result=ESP_OK
+IO rawwrite call=50 units=1367 offset=8244 size=4 result=ESP_OK
+IO rawwrite call=51 units=1368 offset=4140 size=4 result=ESP_OK
+IO rawwrite call=52 units=1369 offset=4136 size=4 result=ESP_OK
+COMPACT_CHILD result=0 io_units=1369 io_calls=52 gc_erase_delta=0 peak_allocated_pages=3 peak_live_entries=317
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=32
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=29 live_entries=176 erased_entries=165 stats_used=176 stats_free=3856 write_bytes=5912 erase_ops=32 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-gjhqft
+EXIT=0
+COMPACT_SUITE_PASS cases=1

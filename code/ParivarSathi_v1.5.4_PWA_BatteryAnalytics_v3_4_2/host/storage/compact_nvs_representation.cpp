@@ -78,17 +78,42 @@ bool CompactRepresentation::pack(const Bytes& input,Bytes& out) {
     out={'C','N','P','1'};number(out,c.p,2);
     out.insert(out.end(),input.begin(),input.begin()+c.p);
     const auto rows=c.number(2);if(rows>kRows)return false;number(out,rows,2);
+    // Read/authenticate every reused object and build the complete write set
+    // before any write. A rejected plan leaves the committed root untouched.
+    std::vector<std::pair<char,Bytes>> missing;
+    PublicationPlan plan;plan.ordinary_admission=ordinary_;
+    plan.control_manifest_bytes=control_manifest_bound(rows);
+    auto prepare=[&](char kind,const Bytes& plain,Key32& digest) {
+        if(!id(kind,plain,digest))return false;
+        Bytes b;bool found=false;
+        if(!store_.read(object_name(kind,digest),b,found))return false;
+        if(found){Bytes check;return get(kind,digest,check)&&check==plain;}
+        missing.emplace_back(kind,plain);plan.blobs.push_back(plain.size()+28);return true;
+    };
     for(unsigned i=0;i<rows;++i) {
         Bytes body=c.take(53);const auto flags=c.number(1),len=c.number(2);
         if(flags>7||len>hub::durable::kMaxCausalInputBytes)return false;
         number(body,len,2);append(body,c.take(len));if(!c.ok)return false;
-        Key32 digest{};if(!put('e',body,digest))return false;
+        Key32 digest{};if(!prepare('e',body,digest))return false;
         out.push_back(flags);out.insert(out.end(),digest.begin(),digest.end());
     }
     const auto len=c.number(2);if(len>kReducerBytes)return false;
     const auto reducer=c.take(len);if(!c.ok||c.p!=input.size())return false;
-    Key32 digest{};if(!put('r',reducer,digest))return false;
-    out.insert(out.end(),digest.begin(),digest.end());return true;
+    Key32 digest{};if(!prepare('r',reducer,digest))return false;
+    out.insert(out.end(),digest.begin(),digest.end());
+    std::vector<std::string> objects;if(!store_.objects(objects))return false;
+    for(const auto& name:objects) {
+        plan.event_objects_after+=!name.empty()&&name[0]=='e';
+        plan.reducer_objects_after+=!name.empty()&&name[0]=='r';
+    }
+    for(const auto& object:missing) {
+        plan.event_objects_after+=object.first=='e';
+        plan.reducer_objects_after+=object.first=='r';
+    }
+    plan.blobs.push_back(out.size()+28);plan.blobs.push_back(Transaction::head_bytes);
+    if(!store_.prepare_publication(plan))return false;
+    for(const auto& object:missing)if(!put(object.first,object.second,digest))return false;
+    return true;
 }
 bool CompactRepresentation::unpack(const Bytes& input,Bytes& out) {
     Cursor c{input};if(c.take(4)!=Bytes({'C','N','P','1'}))return false;

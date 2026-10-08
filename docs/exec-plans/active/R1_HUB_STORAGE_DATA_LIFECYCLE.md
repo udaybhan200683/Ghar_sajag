@@ -1781,3 +1781,40 @@ growth/RAM unknown. Supported-volume/saturation/backend/time/coverage and Node
 qualification stay open. Stop after the host/SDK/evidence commit. Next obtain the
 freshness/anchor and operational flash/OTA envelope decisions before further
 allocator optimization or any production admission/recovery integration.
+
+## 34. Protected compact NVS admission boundary — 2026-10-08
+
+[Executable Gate C evidence](../evidence/R1_STORAGE_PROTECTED_NVS_GATE_C_20261008.md)
+and [raw validation](../evidence/R1_STORAGE_PROTECTED_NVS_GATE_C_20261008.log).
+Start7c424f6, context.002 PASS; GS-D029 now excludes adversarial intact-image
+restoration from R1 freshness guarantees while preserving ordinary crash/
+corruption recovery and mandatory application FOTA rollback. The stronger native
+independent-authority regressions remain unchanged; no new governance or format.
+
+**GATE_C_PASS_SDK only for certified workspace or bounded safe rejection;
+production integration NO.** Compact preparation authenticates reused objects
+and presents a complete write plan before any write. The SDK adapter certifies
+erased physical pages (subtracting one possible lazy active page), bounds blob
+page activations, and protects a maximum next control publication plus NVS's free
+page and a reducer-object slot. Event/report duplicate ACK eligibility now
+revalidates the selected durable closure without writing. Three rejected attempts
+are effect-free; controls/recovery preserve accepted bodies and credits.
+48 focused SDK cases and33 interruption/no-cut fixtures PASS; scoped host native/
+compact regressions and ASan/UBSan PASS. Actual GC interruption resumes into exact
+selected recovery followed by duplicate or space rejection, not optimistic ACK.
+
+128 KiB fixtures reject at34(max body/fixed reducer),42(small body),9(changing
+reducer) events, then publish retirement/checkpoint controls. Protected workspace
+is9 pages/36864 B at these boundaries; max384-row conservative control reserve
+is12 pages/49152 B. Reviewed192/256 fixtures reject at57/76 max-body records.
+These are deliberately conservative transaction fixtures, NOT product thresholds
+or72-hour qualification. Guarded publication avoids GC; automatic replenishment
+of erased workspace remains unqualified and could leave a healthy online Hub
+safely rejected despite logically reclaimed entries. Do not infer sustained
+allocator progress, critical-event fit, target RAM/OTA sufficiency or readiness.
+
+No full capacity matrix, production/partition/Node/BAT-C8/backend/canonical/context
+change or experimental push. Existing4 MiB/128 KiB workload and OTA limitations
+remain. Next decide supported workload and feasible flash/OTA engineering envelope
+before production integration; any relaxed/replenished workspace boundary needs
+its own focused SDK proof. No automatic new investigation or MCU selection.

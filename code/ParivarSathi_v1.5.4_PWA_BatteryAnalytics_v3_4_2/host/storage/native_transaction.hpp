@@ -74,6 +74,7 @@ public:
     virtual ~BankRepresentation() = default;
     virtual bool pack(const Bytes& native_plain, Bytes& compact_plain) = 0;
     virtual bool unpack(const Bytes& compact_plain, Bytes& native_plain) = 0;
+    virtual bool begin_publication(const State&, const State&, bool) { return true; }
 };
 
 class Transaction {
@@ -113,7 +114,8 @@ private:
     bool make_head(std::uint64_t, unsigned, const Key32&, Bytes&);
     bool digest(const Row&, const Owner&, Key32&) const;
     bool owner_matches(const Proof&) const;
-    Result publish(State);
+    Result publish(State, bool ordinary_admission = false);
+    Result durable_duplicate();
     void recompute(State&) const;
     hub::durable::BlobStore& blobs_;
     security::CommissioningCrypto& crypto_;

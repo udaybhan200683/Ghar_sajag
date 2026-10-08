@@ -133,6 +133,41 @@ Older candidate banks have no recovery authority.
 `rollback` restores an intact older partition after a later successful admission,
 demonstrating stale authenticated recovery. `pressure` demonstrates repeated no-ACK
 space rejection while preserving an accepted body, plus failed checkpoint progress.
-There is **no qualified protected allocator reserve**. Object counts, attempts and
+In that earlier experiment there was **no qualified protected allocator reserve**. Object counts, attempts and
 reclamation are bounded, but this is a NO-GO witness, not a deployment provider.
 See `docs/exec-plans/evidence/R1_STORAGE_COMPACT_NVS_FEASIBILITY_20261008.md`.
+
+## Protected publication workspace (Gate C)
+
+Run `run_compact.py --suite protected --output /tmp/protected.log` for48 focused
+SDK cases. `--case guard 448` / `guard 36` fills the guarded128 KiB fixture;
+`guardbusy` changes the4 KiB reducer on every admission. `guardfull` verifies
+effect-free rejection of an already fragmented legacy fixture. `gmax` exercises
+six maximal pending reports and a manifest crossing4000 B. `gio` tests typed API
+refusals (these are not power cuts). `gcut 1360` cuts protected publication;
+`gcrecover 1087` interrupts real SDK GC in a legacy fixture, then mounts and
+enables the guard: retry is duplicate or space-rejected, never a false ACK.
+
+The guard authenticates reused objects, plans missing bodies/reducer + bank +
+head, and certifies fully erased physical pages under an exclusive partition
+writer. It subtracts one possible lazily activated page. The conservative bound
+per blob is `ceil(bytes/4000)+1` page activations. Ordinary admission additionally
+protects one maximum control transaction (4 KiB reducer, worst six-owner manifest
+at the candidate row count,86 B head), plus NVS's own free page. Certified
+publication avoids GC; mounted garbage/fragmentation is never counted as clean
+workspace. No `nvs_get_stats()` free-byte promise or multi-key CAS is assumed.
+
+This permits bounded progress **or zero-write safe rejection**, not continuous
+workspace replenishment or72-hour capacity. At128 KiB these fixtures reject
+after34(max-body),42(small-body), or9(changing-reducer) admissions. A retirement
+report and checkpoint still commit at the guarded boundary. Do not reuse these
+fixture counts as product admission thresholds. Once clean workspace is depleted,
+this prototype may remain safely rejected even after logical dependency deletion.
+Production integration/RAM/OTA/FOTA and sustained reclamation remain unqualified.
+The previous intact-image rollback witness remains valid and is explicitly
+outside the R1 freshness guarantee under LOCKED GS-D029.
+
+`build_host_sanitizer.py` now instruments probe/adapter, native transaction and
+compact codec. SDK/OpenSSL archives remain uninstrumented; separate host native/
+compact sanitizer targets cover their compiled host dependencies. See
+`R1_STORAGE_PROTECTED_NVS_GATE_C_20261008.md` and its raw log for proof limits.

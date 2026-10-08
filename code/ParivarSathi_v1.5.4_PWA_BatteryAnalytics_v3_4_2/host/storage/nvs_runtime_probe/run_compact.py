@@ -10,7 +10,7 @@ import tempfile
 
 HERE = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser()
-parser.add_argument('--suite', choices=('basic', 'cuts', 'capacity'), default='basic')
+parser.add_argument('--suite', choices=('basic', 'cuts', 'capacity', 'protected'), default='basic')
 parser.add_argument('--binary', type=Path, default=HERE/'build/gs_nvs_runtime_probe.elf')
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--case', nargs='+', help='One targeted compact mode and arguments')
@@ -32,6 +32,15 @@ with args.output.open('w') as log:
                  for cut in (*cuts, 999999)]
     if args.suite == 'capacity':
         cases = [(str(pages), str(body)) for pages, body in ((32,36),(32,448),(48,448),(64,448))]
+    if args.suite == 'protected':
+        cases = [('guard','448'),('guard','36'),('guardbusy','448'),('guardfull','448'),('gmax',),('gio',),
+                 ('pages','48','guard','448'),('pages','64','guard','448'),
+                 ('damage',),('missing',),('child',),('head',),('dupmissing',),('reportmissing',),('basic',)]
+        cases += [('gcut',str(cut)) for cut in
+                  (0,1,128,144,1080,1100,1200,1280,1312,1344,1360,1368,1369,1370,999999)]
+        cases += [('rfault',str(cut)) for cut in (0,1,64,128,256,999999)]
+        cases += [('gcrecover',str(cut)) for cut in (0,1,2,1086,1087,1425,999999)]
+        cases += [('cfault',str(cut)) for cut in (0,1,2,4,999999)]
     if args.case:
         if args.suite == 'capacity':
             parser.error('--case uses basic/cuts, not the capacity suite')
@@ -45,7 +54,11 @@ with args.output.open('w') as log:
                 env['GS_DIAG_PAGES'] = case[0]
                 command = [str(binary), 'compact', 'capacity', case[1]]
             else:
+                if case[0] == 'pages':
+                    env['GS_DIAG_PAGES'] = case[1]
+                    case = case[2:]
                 command = [str(binary), 'compact', *case]
+            emit('GS_DIAG_PAGES='+env.get('GS_DIAG_PAGES','32'))
             emit('COMMAND='+' '.join(command))
             result = subprocess.run(command, cwd=HERE, env=env, capture_output=True, text=True, timeout=60)
             emit(result.stdout.rstrip())

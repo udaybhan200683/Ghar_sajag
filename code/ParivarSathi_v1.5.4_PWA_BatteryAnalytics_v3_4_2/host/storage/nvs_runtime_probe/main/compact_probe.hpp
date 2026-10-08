@@ -13,6 +13,53 @@ class Store final : public CompactObjectStore {
 public:
     nvs_handle_t h{};esp_err_t error=ESP_OK,last_write_error=ESP_OK;
     unsigned writes=0;std::size_t payload_written=0;
+    bool protected_space=false;
+    SpaceOutcome outcome=SpaceOutcome::Ready;
+    Workspace reservation{};
+    std::size_t certified_free=0, plan_index=0;
+    std::vector<std::size_t> planned_blobs;
+    enum class RefuseIO { None, Immutable, Manifest, Head };
+    RefuseIO refuse_io=RefuseIO::None; // Explicit API refusal, NOT a power cut.
+    bool prepare_publication(const PublicationPlan& plan) override {
+        if(!protected_space)return true;
+        outcome=SpaceOutcome::Ready;plan_index=0;planned_blobs.clear();
+        reservation=workspace(plan);
+        // Protect the bounded reducer-object slot as well as physical pages.
+        // Failed publications can leave authenticated but unselected orphans.
+        if(plan.event_objects_after>CompactRepresentation::event_objects||
+           plan.reducer_objects_after+unsigned(plan.ordinary_admission)>
+               CompactRepresentation::reducer_objects) {
+            outcome=SpaceOutcome::InsufficientProtectedSpace;return false;
+        }
+        // Read-only physical certificate. NVS has already completed mount and
+        // recovery; every namespace on this partition shares the writer lock.
+        // An activated, lazily initialized page can still be entirely 0xff.
+        // Subtract one such page, never counting garbage/corrupt/torn pages.
+        if(!diag::part||diag::part->size%4096||diag::part->size<131072||
+           diag::part->size>262144) {
+            outcome=SpaceOutcome::UnsupportedConfiguration;return false;
+        }
+        std::array<std::uint8_t,4096> raw{};std::size_t erased=0;
+        for(std::size_t at=0;at<diag::part->size;at+=raw.size()) {
+            if(esp_partition_read_raw(diag::part,at,raw.data(),raw.size())!=ESP_OK) {
+                outcome=SpaceOutcome::IntegrityRecoveryFailure;return false;
+            }
+            erased+=std::all_of(raw.begin(),raw.end(),[](auto b){return b==255;});
+        }
+        certified_free=erased?erased-1:0;
+        if(certified_free<reservation.required_free_pages) {
+            outcome=SpaceOutcome::InsufficientProtectedSpace;return false;
+        }
+        planned_blobs=plan.blobs;return true;
+    }
+    SpaceOutcome result(Result r) {
+        if(r==Result::Committed)return outcome=SpaceOutcome::Committed;
+        if(r==Result::Duplicate)return outcome=SpaceOutcome::Duplicate;
+        if(r==Result::Full)return outcome=SpaceOutcome::AdmissionLimit;
+        if(r!=Result::Fault)return outcome=SpaceOutcome::InvalidRequest;
+        if(outcome==SpaceOutcome::Ready)outcome=SpaceOutcome::IntegrityRecoveryFailure;
+        return outcome;
+    }
     void open(){REQUIRE(nvs_open_from_partition("life","compact",NVS_READWRITE,&h)==ESP_OK);}
     void close(){nvs_close(h);h=0;}
     static std::string mapped(const std::string& k) {
@@ -27,10 +74,26 @@ public:
         b.resize(n);error=nvs_get_blob(h,name.c_str(),b.data(),&n);return error==ESP_OK&&n==b.size();
     }
     bool replace(const std::string& k,const Bytes& b) override {
+        if(protected_space) {
+            if(plan_index>=planned_blobs.size()||planned_blobs[plan_index++]!=b.size()) {
+                outcome=SpaceOutcome::IntegrityRecoveryFailure;return false;
+            }
+            const bool metadata=k=="head"||k=="hn_bank0"||k=="hn_bank1";
+            if((refuse_io==RefuseIO::Immutable&&!metadata)||
+               (refuse_io==RefuseIO::Manifest&&k.starts_with("hn_bank"))||
+               (refuse_io==RefuseIO::Head&&k=="head")) {
+                error=last_write_error=ESP_ERR_FLASH_OP_FAIL;
+                outcome=metadata?SpaceOutcome::MetadataPublicationFailure:SpaceOutcome::RestartRequired;
+                return false;
+            }
+        }
         ++writes;payload_written+=b.size();const auto name=mapped(k);
         error=nvs_set_blob(h,name.c_str(),b.data(),b.size());
         if(error==ESP_OK)error=nvs_commit(h);
         last_write_error=error;
+        if(protected_space&&error!=ESP_OK)outcome=
+            (k=="head"||k=="hn_bank0"||k=="hn_bank1")?
+            SpaceOutcome::MetadataPublicationFailure:SpaceOutcome::RestartRequired;
         return error==ESP_OK;
     }
     bool write_immutable(const std::string& k,const Bytes& b) override {
@@ -86,10 +149,12 @@ struct Fixture {
         const auto& o=tx.state()->owners[n];return {static_cast<std::uint8_t>(n),o.generation,o.binding,10};
     }
     Result admit(const Proof& p,unsigned seq,const Bytes& body,const Bytes& reducer) {
+        s.outcome=SpaceOutcome::Ready;
         Event e{p,1,seq,body};Key32 mac{};
         REQUIRE(tx.event_mac(key(30+p.slot),e,mac));return tx.admit(e,mac,reducer);
     }
     Result report(const Proof& p,unsigned gen,unsigned high,bool pending=false) {
+        s.outcome=SpaceOutcome::Ready;
         NodeRetirementReportV1 r;r.epoch=7;r.generation=gen;r.current_origin_session=1;
         r.durable_admission_highwater=high;Bytes bytes;Key32 mac{};
         if(pending){r.pending_count=32;for(unsigned i=0;i<32;++i)r.pending[i]={1,i+1};}
@@ -119,6 +184,8 @@ void prime_gc(Store& s) {
 }
 }
 
+#include "protected_probe.hpp"
+
 int compact_probe(int argc,char** argv) {
     using namespace compact_sdk;
     const std::string mode=argc>2?argv[2]:"basic";
@@ -128,6 +195,10 @@ int compact_probe(int argc,char** argv) {
     REQUIRE(part.size>=131072&&part.size<=262144);pages=part.size/4096;diag::part=&part;
     REQUIRE(esp_partition_erase_range(&part,0,part.size)==ESP_OK);
     REQUIRE(nvs_flash_init_partition_ptr(&part)==ESP_OK);
+    if(mode=="gmax")return protected_max_report_probe(&part);
+    if(mode=="gio")return protected_io_probe();
+    if(mode=="guard"||mode=="guardfull"||mode=="guardbusy")return protected_probe(&part,mode=="guardfull",
+        argc>3?std::strtoul(argv[3],nullptr,10):448,mode=="guardbusy");
     Proof owner;std::uint64_t baseline=0;Bytes flash;
     {
         Fixture f(true);owner=f.enroll(0);
@@ -186,15 +257,27 @@ int compact_probe(int argc,char** argv) {
             flash.resize(part.size);REQUIRE(esp_partition_read(&part,0,flash.data(),flash.size())==ESP_OK);
             REQUIRE(f.admit(owner,1,Bytes(448,0x42),Bytes(4096,0x22))==Result::Committed);f.collect();
             REQUIRE(f.tx.state()->generation==baseline+1);
-        } else if(mode=="damage"||mode=="missing"||mode=="child"||mode=="head") {
+        } else if(mode=="damage"||mode=="missing"||mode=="child"||mode=="head"||mode=="dupmissing"||mode=="reportmissing") {
             REQUIRE(f.admit(owner,1,Bytes(448,0x42),Bytes(4096,0x22))==Result::Committed);
-            // Older complete bank and its dependencies still physically exist.
+            if(mode=="reportmissing")REQUIRE(f.report(owner,1,1)==Result::Committed);
+            // Older bank bytes remain. Selected dependency loss forbids fallback.
             Bytes head;REQUIRE(f.a.read(head));const auto bank=head[18];
             Bytes b;bool found=false;const auto k="hn_bank"+std::to_string(bank);
             REQUIRE(f.s.read(k,b,found)&&found);
             if(mode=="damage"){b.back()^=1;REQUIRE(f.s.replace(k,b));}
             else if(mode=="missing"){REQUIRE(f.s.erase_if_equals(k,b));}
             else if(mode=="head"){REQUIRE(f.s.erase_if_equals("head",head));}
+            else if(mode=="dupmissing"||mode=="reportmissing") {
+                std::vector<std::string> objects;REQUIRE(f.s.objects(objects));
+                for(const auto& object:objects)if(object[0]=='e') {
+                    Bytes body;bool exists=false;REQUIRE(f.s.read(object,body,exists)&&exists);
+                    REQUIRE(f.s.erase_if_equals(object,body));
+                }
+                const auto writes=f.s.writes;
+                REQUIRE((mode=="reportmissing"?f.report(owner,1,1):
+                    f.admit(owner,1,Bytes(448,0x42),Bytes(4096,0x22)))==Result::Fault);
+                REQUIRE(!f.tx.state()&&f.s.writes==writes);
+            }
             else {
                 // Remove only new reducer dependency; keep the older complete bank.
                 std::vector<std::string> objects;REQUIRE(f.s.objects(objects));
@@ -233,7 +316,7 @@ int compact_probe(int argc,char** argv) {
             std::printf("COMPACT_PRESSURE_CONTROL report=%u report_error=%s checkpoint=%u checkpoint_error=%s accepted_body_preserved=1\n",unsigned(report),esp_err_to_name(report_error),unsigned(cp),esp_err_to_name(cp_error));
             std::printf("COMPACT_PRESSURE_PASS attempts=3 ack=0 committed_payload_before=%zu payload_after=%zu protected_progress=UNPROVEN\n",saved,payload(f.s));
             metric("compact_pressure",n,&part);return 0;
-        } else if(argc>4&&std::strcmp(argv[4],"gc")==0)prime_gc(f.s);
+        } else if(mode=="gcrecover"||(argc>4&&std::strcmp(argv[4],"gc")==0))prime_gc(f.s);
     }
     REQUIRE(nvs_flash_deinit_partition("life")==ESP_OK);
     if(mode=="rollback") {
@@ -243,9 +326,10 @@ int compact_probe(int argc,char** argv) {
         REQUIRE(replay.tx.state()->generation==baseline&&replay.tx.state()->rows.empty());
         std::printf("COMPACT_ROLLBACK_WITNESS old_authentic_image_accepted=1 latest_ack_eligible_event_missing=1 independent_anchor=ABSENT\n");return 0;
     }
-    REQUIRE(mode=="fault"||mode=="rfault"||mode=="cfault");const auto child=fork();REQUIRE(child>=0);
+    REQUIRE(mode=="fault"||mode=="rfault"||mode=="cfault"||mode=="gcut"||mode=="gcrecover");const auto child=fork();REQUIRE(child>=0);
     if(child==0) {
         REQUIRE(nvs_flash_init_partition_ptr(&part)==ESP_OK);Fixture f(false);
+        if(mode=="gcut")f.s.protected_space=true;
         diag::active=true;diag::hard_stop=true;diag::units=0;diag::calls=0;
         diag::verbose=std::getenv("GS_DIAG_TRACE")!=nullptr;
         const auto cut=argc>3?std::strtoul(argv[3],nullptr,10):999999;
@@ -258,6 +342,7 @@ int compact_probe(int argc,char** argv) {
     }
     int status=0;REQUIRE(waitpid(child,&status,0)==child&&WIFEXITED(status));
     REQUIRE(nvs_flash_init_partition_ptr(&part)==ESP_OK);Fixture recovered(false);
+    if(mode=="gcut"||mode=="gcrecover")recovered.s.protected_space=true;
     const auto* state=recovered.tx.state();REQUIRE(state);
     if(mode=="cfault") {
         REQUIRE(state->generation==baseline&&state->rows.size()==1&&state->rows[0].sequence==2&&
@@ -272,10 +357,15 @@ int compact_probe(int argc,char** argv) {
         REQUIRE(recovered.report(owner,1,1)==(committed?Result::Duplicate:Result::Committed));
     } else {
         REQUIRE(state->reducer==Bytes(4096,committed?0x22:0x11)&&state->rows.size()==unsigned(committed)&&state->owners[0].charged==unsigned(committed));
-        REQUIRE(recovered.admit(owner,1,Bytes(448,0x42),Bytes(4096,0x22))==(committed?Result::Duplicate:Result::Committed));
+        const auto retry=recovered.admit(owner,1,Bytes(448,0x42),Bytes(4096,0x22));
+        if(mode=="gcrecover"&&!committed) {
+            REQUIRE(recovered.s.result(retry)==SpaceOutcome::InsufficientProtectedSpace);
+            REQUIRE(recovered.s.writes==0&&recovered.tx.state()->generation==baseline);
+            std::printf("PROTECTED_GC_RESTART_SAFE_REJECT cut=%s ack=0 retry_writes=0\n",argv[3]);
+        } else REQUIRE(retry==(committed?Result::Duplicate:Result::Committed));
     }
     REQUIRE(WEXITSTATUS(status)!=0||committed);
     recovered.collect();
-    std::printf("COMPACT_POWERFAIL_PASS cut=%s child_exit=%d recovered=%s retry=%s payload=%zu gc_erases=%zu\n",argc>3?argv[3]:"none",WEXITSTATUS(status),committed?"new":"old",committed?"duplicate":"commit",payload(recovered.s),esp_partition_get_erase_ops());
+    std::printf("COMPACT_POWERFAIL_PASS cut=%s child_exit=%d recovered=%s retry=%s payload=%zu gc_erases=%zu\n",argc>3?argv[3]:"none",WEXITSTATUS(status),committed?"new":"old",committed?"duplicate":mode=="gcrecover"?"space_rejected":"commit",payload(recovered.s),esp_partition_get_erase_ops());
     metric("compact_recovery",0,&part);return 0;
 }
