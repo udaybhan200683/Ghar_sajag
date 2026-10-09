@@ -388,3 +388,16 @@ Existing host1479 checks, fresh-install, FOTA guard and retirement pass.
 Canonical receives governance only; storage worktree/history and C3/BAT-C8 remain
 unchanged. No commercial partition/retention decision or new R1 qualification.
 Next bring up one authenticated S3-Hub/C3 pair and prove durable ACK/retry/reboot.
+
+### First S3/C3 pair preflight — 2026-10-09
+
+[Pair evidence](../exec-plans/evidence/R1_S3_C3_FIRST_PAIR_20261009.md) records
+both boards accessible, but C3 `c3-146393c5d158` is still authenticated as Paired
+to `hub-5c013bbeb9f8` with seven persisted retained Motion records. Private full
+flash backup/device verification and before/after-restart record comparison pass;
+original S3 NVS/VFS remain unchanged. Stop before commissioning, disposal or
+flashing. RAM retained=0 during unauthenticated rejoin does not mean empty storage.
+Four focused existing host authentication/association/rejoin/recovery targets pass;
+physical S3 product boot, authenticated interchange and durable ACK/reboot dedupe
+remain unqualified. No production/Node/partition/BAT-C8/context changes. Resolve
+the existing Node ownership and pending records before resuming this pair.

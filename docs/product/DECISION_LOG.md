@@ -261,6 +261,11 @@ validation and automatic application rollback; unsigned diagnostics are only
 development artifacts and do not establish production FOTA qualification.
 No hardware purchase, Node changes or production storage integration is implied.
 
+Implementation evidence (2026-10-09): the first S3/C3 pair stopped at ownership
+preflight; the available C3 remains paired to its previous Hub with seven retained
+records. No reset/disposal or new decision. See
+[pair evidence](../exec-plans/evidence/R1_S3_C3_FIRST_PAIR_20261009.md).
+
 ## Reconciliation status — 2026-10-07
 
 The already-qualified native fresh-install and empty-AEAD/recovery changes are
