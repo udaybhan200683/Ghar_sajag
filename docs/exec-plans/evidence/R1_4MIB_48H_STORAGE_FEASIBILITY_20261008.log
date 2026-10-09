@@ -1,0 +1,181 @@
+R1 4 MiB /48-hour bounded retention comparison; 2026-10-08
+START_HEAD=e548fedb7ecf59a4e2d0b201a3100c07eb6b35df
+CONTEXT_PREFLIGHT=PASS; context2026-10-08.002
+WORKTREE_STATUS_BEFORE=only protected untracked prompt.txt; never read/changed/staged
+PRODUCTION_CHANGED=NO; CANONICAL_CHANGED=NO; PARTITION_CHANGED=NO; HARDWARE_USED=NO
+COMPILER_CANDIDATE=-Os; image1789456 B; OTA margins176624 B (128 KiB journal) /111088 B (256 KiB)
+RECOMMENDATION=INSUFFICIENT_EVIDENCE for qualified commercial capacity; NORMAL48h/256KiB is byte-fit candidate
+MODEL_SHA256=e87594df9e6fef160ef6bdda66ea146cd1de80181516427677f05ad2ee71120c
+SDK_BINARY_SHA256=d9e555026107690d01f8c64aec887e4859fb0dbd4e7e3038969e940f65c0fb04
+SDK_COMMIT=76f5dedd9950a3012fee8fb7d5586df21fc67802
+CLOUD_ACKNOWLEDGMENTS=0
+PREFIX_POLICY=unchanged 72h timeline truncated at source-time cutoff; same six last-source anchors re-applied; no rate rescaling; fixed four-day and recovery budgets unchanged
+Existing normal/high mixed workloads; original103-byte maximum/16-byte typical assumptions; no codec/rate changes.
+16 host ledgers calculated (including ordinary sensitivity); main mixed results below. No full matrix.
+Entry bound after one GC page=(pages-1)*126*32:124992 /254016 B, not usable blob payload or space certificate.
+Current compact control reserve36864..49152 B; maximum whole operation102400 B certified workspace, possible lazy page excluded.
+These are separate formats/budgets; not summed into an unproven combined peak.
+
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 433, "exact": 728, "fixed_logical_bytes": 63857, "fixture_sha256": "56a80ad2dd36747db651114750d2a9efffc2a9dd884e338ed271c69217742ca5", "history_segments": 34, "hot_entry_bytes": 6144, "hours": 72, "inputs": 1176, "live_entry_bytes": 267168, "local_outcomes": 24, "logical_all_object_bytes": 258702, "nvs_lower_bound": 278528, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 44], [3485, 1], [6144, 1], [512, 2], [124, 32]], "payload_bytes": 86108, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 282624, "reserve_events": 32, "retained_pending_sources": 1176, "scenario": "NORMAL", "source_events": 1152, "source_summary_exact": 338, "summaries": 197, "summarized_sources": 448, "summary_max": 61, "summary_min": 43, "summary_plain_bytes": 10730, "worst": true}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 16384, "cow_segments": 4, "critical_logical_bytes": 8192, "essential_exact": 433, "exact": 728, "fixed_logical_bytes": 63857, "fixture_sha256": "e3d7bb5a9e4bd35f8559c3cb9b27985debe08848c5d054a50e346d8d6095efd4", "history_segments": 7, "hot_entry_bytes": 4096, "hours": 72, "inputs": 1176, "live_entry_bytes": 135168, "local_outcomes": 24, "logical_all_object_bytes": 128910, "nvs_lower_bound": 143360, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 13], [3485, 1], [6144, 1], [512, 2], [36, 32]], "payload_bytes": 22772, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 147456, "reserve_events": 32, "retained_pending_sources": 1176, "scenario": "NORMAL", "source_events": 1152, "source_summary_exact": 338, "summaries": 197, "summarized_sources": 448, "summary_max": 61, "summary_min": 43, "summary_plain_bytes": 10730, "worst": false}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 295, "exact": 492, "fixed_logical_bytes": 63857, "fixture_sha256": "1f9da309e5099f87a8197f1294c3021994d771d075966bb926dfaa7041a5d9fa", "history_segments": 23, "hot_entry_bytes": 6144, "hours": 48, "inputs": 784, "live_entry_bytes": 221056, "local_outcomes": 16, "logical_all_object_bytes": 213646, "nvs_lower_bound": 229376, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 33], [3485, 1], [6144, 1], [512, 2], [124, 32]], "payload_bytes": 58020, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 233472, "reserve_events": 32, "retained_pending_sources": 784, "scenario": "NORMAL", "source_events": 768, "source_summary_exact": 226, "summaries": 131, "summarized_sources": 292, "summary_max": 61, "summary_min": 43, "summary_plain_bytes": 7082, "worst": true}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 16384, "cow_segments": 4, "critical_logical_bytes": 8192, "essential_exact": 295, "exact": 492, "fixed_logical_bytes": 63857, "fixture_sha256": "d0887c177b7787a959f73d65a966a6caf9da068612f3b5da9e322278aa680cf5", "history_segments": 5, "hot_entry_bytes": 4096, "hours": 48, "inputs": 784, "live_entry_bytes": 126784, "local_outcomes": 16, "logical_all_object_bytes": 120718, "nvs_lower_bound": 135168, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 11], [3485, 1], [6144, 1], [512, 2], [36, 32]], "payload_bytes": 15216, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 139264, "reserve_events": 32, "retained_pending_sources": 784, "scenario": "NORMAL", "source_events": 768, "source_summary_exact": 226, "summaries": 131, "summarized_sources": 292, "summary_max": 61, "summary_min": 43, "summary_plain_bytes": 7082, "worst": false}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 1921, "exact": 3278, "fixed_logical_bytes": 63857, "fixture_sha256": "9cc129935fc616a9245377419822a729af7612cc5b1070aff77e13999ecf9801", "history_segments": 143, "hot_entry_bytes": 6144, "hours": 72, "inputs": 5352, "live_entry_bytes": 724096, "local_outcomes": 24, "logical_all_object_bytes": 705166, "nvs_lower_bound": 741376, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 153], [3485, 1], [6144, 1], [512, 2], [124, 32]], "payload_bytes": 367028, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 745472, "reserve_events": 32, "retained_pending_sources": 5352, "scenario": "HIGH", "source_events": 5328, "source_summary_exact": 1538, "summaries": 298, "summarized_sources": 2074, "summary_max": 151, "summary_min": 43, "summary_plain_bytes": 28798, "worst": true}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 16384, "cow_segments": 4, "critical_logical_bytes": 8192, "essential_exact": 1921, "exact": 3278, "fixed_logical_bytes": 63857, "fixture_sha256": "3455c6ac7d6a4e1befa1c559629db31bf20999dd8d8bfe01936558209b68e7d6", "history_segments": 25, "hot_entry_bytes": 4096, "hours": 72, "inputs": 5352, "live_entry_bytes": 210624, "local_outcomes": 24, "logical_all_object_bytes": 202638, "nvs_lower_bound": 221184, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 31], [3485, 1], [6144, 1], [512, 2], [36, 32]], "payload_bytes": 81842, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 225280, "reserve_events": 32, "retained_pending_sources": 5352, "scenario": "HIGH", "source_events": 5328, "source_summary_exact": 1538, "summaries": 298, "summarized_sources": 2074, "summary_max": 151, "summary_min": 43, "summary_plain_bytes": 28798, "worst": false}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 1290, "exact": 2197, "fixed_logical_bytes": 63857, "fixture_sha256": "fe87ef80710904b1a7a8af0ee3577cb6383ed7bf259c4c67d9bfe9053786e1df", "history_segments": 96, "hot_entry_bytes": 6144, "hours": 48, "inputs": 3568, "live_entry_bytes": 527072, "local_outcomes": 16, "logical_all_object_bytes": 512654, "nvs_lower_bound": 540672, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 106], [3485, 1], [6144, 1], [512, 2], [124, 32]], "payload_bytes": 245794, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 544768, "reserve_events": 32, "retained_pending_sources": 3568, "scenario": "HIGH", "source_events": 3552, "source_summary_exact": 1030, "summaries": 199, "summarized_sources": 1371, "summary_max": 151, "summary_min": 43, "summary_plain_bytes": 19105, "worst": true}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 16384, "cow_segments": 4, "critical_logical_bytes": 8192, "essential_exact": 1290, "exact": 2197, "fixed_logical_bytes": 63857, "fixture_sha256": "01a69f5109f50534e0781e1666530ad4c9fba0cb15f42c26ae4416cdd2823584", "history_segments": 17, "hot_entry_bytes": 4096, "hours": 48, "inputs": 3568, "live_entry_bytes": 177088, "local_outcomes": 16, "logical_all_object_bytes": 169870, "nvs_lower_bound": 184320, "object_size_runs": [[4079, 6], [3485, 3], [6144, 3], [512, 2], [4096, 2], [320, 4], [4096, 23], [3485, 1], [6144, 1], [512, 2], [36, 32]], "payload_bytes": 54655, "profile": "mixed", "progress_entry_bytes": 10944, "protected_peak_bytes": 188416, "reserve_events": 32, "retained_pending_sources": 3568, "scenario": "HIGH", "source_events": 3552, "source_summary_exact": 1030, "summaries": 199, "summarized_sources": 1371, "summary_max": 151, "summary_min": 43, "summary_plain_bytes": 19105, "worst": false}
+
+NEW_REAL_SDK_RUNS=4; 48h maximum mixed fixtures only. No schedule/backfill/fault mode.
+Environment: GS_DIAG_PAGES=32/64 GS_PEAK=1 GS_EMULATOR_FLASH_BYTES=4194304 GCOV_PREFIX=<private temporary directory>
+LD_LIBRARY_PATH=/tmp/gs-ruby/usr/lib/x86_64-linux-gnu:/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu
+Existing SDK binary path: code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf
+CASE={"scenario": "NORMAL", "hours": 48, "partition_bytes": 131072, "fixture_sha256": "1f9da309e5099f87a8197f1294c3021994d771d075966bb926dfaa7041a5d9fa", "exit": 2, "history_pinned": true, "backend_acknowledgments": 0}
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-dVxJyt
+EXIT=2
+CASE={"scenario": "NORMAL", "hours": 48, "partition_bytes": 262144, "fixture_sha256": "1f9da309e5099f87a8197f1294c3021994d771d075966bb926dfaa7041a5d9fa", "exit": 0, "history_pinned": true, "backend_acknowledgments": 0}
+NVS_RUNTIME phase=offline_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+NVS_RUNTIME phase=offline_recovered iteration=32 allocated_pages=63 free_erased_pages=1 live_entries=6569 erased_entries=1236 stats_used=6569 stats_free=1495 write_bytes=570512 erase_ops=76 min_sector_erases=0 max_sector_erases=8
+OFFLINE_PASS pages=64 peak_pages=63 peak_live_entries=6913 history=23 cow=8 arrivals=784
+EMULATOR_IMAGE=/tmp/idf-partition-MfTnv3
+EXIT=0
+CASE={"scenario": "HIGH", "hours": 48, "partition_bytes": 131072, "fixture_sha256": "fe87ef80710904b1a7a8af0ee3577cb6383ed7bf259c4c67d9bfe9053786e1df", "exit": 2, "history_pinned": true, "backend_acknowledgments": 0}
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-bFY0jd
+EXIT=2
+CASE={"scenario": "HIGH", "hours": 48, "partition_bytes": 262144, "fixture_sha256": "fe87ef80710904b1a7a8af0ee3577cb6383ed7bf259c4c67d9bfe9053786e1df", "exit": 2, "history_pinned": true, "backend_acknowledgments": 0}
+OFFLINE_STOP phase=load object=64 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=64 peak_live_entries=8048
+NVS_RUNTIME phase=offline_stop iteration=64 allocated_pages=63 free_erased_pages=1 live_entries=7818 erased_entries=120 stats_used=7818 stats_free=246 write_bytes=276068 erase_ops=4 min_sector_erases=0 max_sector_erases=1
+EMULATOR_IMAGE=/tmp/idf-partition-AgmqIr
+EXIT=2
+
+REUSED_72H_LOG=docs/exec-plans/evidence/R1_STORAGE_72H_NVS_CAPACITY_20261008.log
+REUSED_72H_LOG_SHA256=83280569477eefbf4ceda8c62d4ab261c1bd7c5e1559568796ba527767c8a816
+72h cases not rerun. Regenerated object vectors have identical original fixture hashes. Original blocks:
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": true, "history_segments": 34, "cow_segments": 8, "protected_peak_bytes": 282624}
+COMMAND=GS_DIAG_PAGES=32 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-bdorc2j1/fixture.txt
+FIXTURE_SHA256=56a80ad2dd36747db651114750d2a9efffc2a9dd884e338ed271c69217742ca5
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-NeC30i
+EXIT=2
+CASE={"scenario": "NORMAL", "profile": "mixed", "worst": true, "history_segments": 34, "cow_segments": 8, "protected_peak_bytes": 282624}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-bdorc2j1/fixture.txt
+FIXTURE_SHA256=56a80ad2dd36747db651114750d2a9efffc2a9dd884e338ed271c69217742ca5
+OFFLINE_STOP phase=load object=65 bytes=6144 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=64 peak_live_entries=8054
+NVS_RUNTIME phase=offline_stop iteration=65 allocated_pages=63 free_erased_pages=1 live_entries=7933 erased_entries=0 stats_used=7933 stats_free=131 write_bytes=280268 erase_ops=5 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-d0f2Yw
+EXIT=2
+CASE={"scenario": "HIGH", "profile": "mixed", "worst": true, "history_segments": 143, "cow_segments": 8, "protected_peak_bytes": 745472}
+COMMAND=GS_DIAG_PAGES=32 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-bdorc2j1/fixture.txt
+FIXTURE_SHA256=9cc129935fc616a9245377419822a729af7612cc5b1070aff77e13999ecf9801
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-m80Hqs
+EXIT=2
+CASE={"scenario": "HIGH", "profile": "mixed", "worst": true, "history_segments": 143, "cow_segments": 8, "protected_peak_bytes": 745472}
+COMMAND=GS_DIAG_PAGES=64 /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf offline /tmp/gs-72h-nvs-bdorc2j1/fixture.txt
+FIXTURE_SHA256=9cc129935fc616a9245377419822a729af7612cc5b1070aff77e13999ecf9801
+OFFLINE_STOP phase=load object=64 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=64 peak_live_entries=8048
+NVS_RUNTIME phase=offline_stop iteration=64 allocated_pages=63 free_erased_pages=1 live_entries=7818 erased_entries=120 stats_used=7818 stats_free=246 write_bytes=276068 erase_ops=4 min_sector_erases=0 max_sector_erases=1
+EMULATOR_IMAGE=/tmp/idf-partition-bh7BNG
+EXIT=2
+
+SEMANTIC_MODEL_CHECKS=PASS; complete key union exactly once; important/native summaries exact; summary encoding bounds; no backend acknowledgments
+NEW_SDK_RESULTS=1 byte-fit/update/remount PASS;3 expected storage-full counterexamples
+CONTROL_WORKSPACE=UNQUALIFIED; NORMAL48h/256KiB raw erased8 after load,1 after churn; no protected integrated-history run
+OLD_GATE_C=unchanged SDK completion or safe-rejection envelope; sustainable erased-page replenishment unqualified
+SAFE_REJECTION=existing guard returns no durable ACK and zero writes when certificate unavailable; history not silently discarded
+HARDWARE_RUNTIME_QUALIFICATION=PENDING; no target power-cut/heap/stack/latency/endurance result
+STOP=No end-to-end48h protected history/outbox run exists in current fixtures; do not build new architecture to hide gap
+
+Reproduction helper used (measurement-only, no repository implementation changes):
+SCRIPT_SHA256=b1897fd0322a79d4bf0a032070c2f2f0bfd718cd4e062718e2aa0d60e8372c42
+Run: python3 /tmp/gs-r1-48h-e548fed/measure.py
+"""Bounded measurement only: existing deterministic prefix, unchanged ledger/SDK."""
+from pathlib import Path
+from dataclasses import replace
+import hashlib,importlib.util,json,os,re,subprocess,sys,tempfile
+ROOT=Path('/home/udaybhan/projects/Ghar_sajag_r1_storage')
+TMP=Path('/tmp/gs-r1-48h-e548fed')
+PRODUCT=ROOT/'code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2'
+SOURCE=PRODUCT/'host/storage/offline_72h_model.py'
+BINARY=PRODUCT/'host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf'
+spec=importlib.util.spec_from_file_location('offline_model',SOURCE)
+m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+report={'head':'e548fedb7ecf59a4e2d0b201a3100c07eb6b35df','context':'2026-10-08.002',
+        'model_sha256':sha(SOURCE),'sdk_binary_sha256':sha(BINARY),
+        'sdk_commit':'76f5dedd9950a3012fee8fb7d5586df21fc67802','cloud_acknowledgments':0,
+        'prefix_policy':'unchanged 72h timeline truncated at source-time cutoff; same six last-source anchors re-applied; no rate rescaling; fixed four-day and recovery budgets unchanged',
+        'rows':[],'sdk_48h':[]}
+with (TMP/'measure.log').open('w') as log:
+ def emit(x):
+  print(x,file=log,flush=True)
+  print(x,flush=True)
+ emit('INPUTS='+json.dumps({k:v for k,v in report.items() if k not in ('rows','sdk_48h')}))
+ for scenario in ('NORMAL','HIGH'):
+  for profile in ('mixed','ordinary'):
+   full=m.workload(m.RATES[scenario],profile)
+   for hours in (72,48):
+    end=43200+hours*3600
+    events=[e for e in full if e.at<end]
+    if hours==48:
+     # Match workload() anchoring exactly: final source event for each Node,
+     # before the separately appended origin=4 local outcomes.
+     for node in range(6):
+      i=max(i for i,e in enumerate(events) if e.node==node and e.origin in (1,2))
+      events[i]=replace(events[i],safety=True)
+    assert len(events)==m.RATES[scenario]*hours//24+hours//3
+    exact,summaries=m.summarize(events)
+    represented={e.key for e in exact}
+    for summary in summaries:
+     assert not represented.intersection(summary.sources)
+     represented.update(summary.sources)
+     summary.encode()
+    assert represented=={e.key for e in events}
+    required={e.key for e in events if e.safety or e.kind not in ('motion','source_summary')}
+    assert required<={e.key for e in exact}
+    assert all(e in exact for e in events if e.kind=='source_summary')
+    for worst in (True,False):
+     row=m.ledger(events,worst=worst)
+     row.update(scenario=scenario,profile=profile,hours=hours,worst=worst,inputs=len(events),
+                source_events=m.RATES[scenario]*hours//24,local_outcomes=hours//3,
+                retained_pending_sources=len(represented),cloud_acknowledgments=0,
+                logical_all_object_bytes=sum(row['object_sizes']))
+     if hours==72 and profile=='mixed':
+      expected={('NORMAL',True):282624,('NORMAL',False):147456,('HIGH',True):745472,('HIGH',False):225280}
+      assert row['protected_peak_bytes']==expected[scenario,worst]
+     fixture=TMP/f'{scenario}-{profile}-{hours}h-{"max" if worst else "typical"}.txt'
+     fixture.write_text(f"{row['history_segments']} {row['cow_segments']} {2*row['reserve_events']//32} {row['inputs']}\n"+'\n'.join(map(str,row['object_sizes']))+'\n')
+     row['fixture_sha256']=sha(fixture);row['fixture_path']=str(fixture)
+     report['rows'].append(row)
+     emit('MODEL='+json.dumps({k:v for k,v in row.items() if k not in ('object_sizes','boundary')}))
+ # Only four NEW worst-size 48h SDK cases; established 72h outcomes reused.
+ # Capacity mode retains all history blobs; it removes only candidate/temporary
+ # metadata after verified updates. No backend accept/backfill/schedule mode.
+ for row in report['rows']:
+  if row['hours']!=48 or row['profile']!='mixed' or not row['worst']:continue
+  for pages in (32,64):
+   with tempfile.TemporaryDirectory(prefix='gs-r1-48h-cov-') as scratch:
+    env=os.environ.copy();env.update(GS_DIAG_PAGES=str(pages),GS_PEAK='1',GCOV_PREFIX=scratch,
+                                    GS_EMULATOR_FLASH_BYTES='4194304')
+    env['LD_LIBRARY_PATH']='/tmp/gs-ruby/usr/lib/x86_64-linux-gnu:/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu'+(':'+env['LD_LIBRARY_PATH'] if env.get('LD_LIBRARY_PATH') else '')
+    command=[str(BINARY),'offline',row['fixture_path']]
+    emit('SDK_CASE='+json.dumps({'scenario':row['scenario'],'hours':48,'pages':pages,'fixture_sha256':row['fixture_sha256'],'command':command}))
+    result=subprocess.run(command,env=env,text=True,capture_output=True,timeout=60,cwd=PRODUCT/'host/storage/nvs_runtime_probe')
+    emit(result.stdout.rstrip());emit(result.stderr.rstrip());emit('EXIT='+str(result.returncode))
+    assert result.returncode in (0,2,3)
+    if result.returncode:assert 'OFFLINE_STOP' in result.stdout
+    else:assert 'OFFLINE_PASS' in result.stdout
+    report['sdk_48h'].append({'scenario':row['scenario'],'hours':48,'partition_bytes':pages*4096,'fixture_sha256':row['fixture_sha256'],
+                             'exit':result.returncode,'stdout':result.stdout,'stderr':result.stderr,
+                             'history_pinned':True,'backend_acknowledgments':0})
+    # Match existing runner: remove only completed child's precisely emitted image.
+    for name in re.findall(r'^EMULATOR_IMAGE=(/tmp/idf-partition-[A-Za-z0-9]+)$',result.stderr,re.M):
+     Path(name).unlink(missing_ok=True)
+ emit('SEMANTIC_LEDGER_CHECKS=PASS; all sources retained, exact important/native summaries, no backend ACKs')
+ emit('NEW_SDK_CASES=4; hardware and authenticated aggregate integration UNQUALIFIED')
+(TMP/'measurements.json').write_text(json.dumps(report,indent=2)+'\n')
