@@ -431,6 +431,199 @@ void complete_outbox_cycle(gs::hub::HubRuntime& runtime, std::uint64_t first,
     }
 }
 
+struct RetainedIdentityCapture {
+    std::vector<gs::hub::storage::IdentityCompactionRecord> records;
+};
+bool capture_retained_identity(void* opaque,
+        const gs::hub::storage::IdentityCompactionRecord& record) {
+    static_cast<RetainedIdentityCapture*>(opaque)->records.push_back(record);
+    return true;
+}
+
+void identity_compaction_planning_test() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    StateFiles files;
+    DurableEventOutbox outbox(segments, crypto, key);
+    require(outbox.recover() == OutboxRecovery::Empty,
+            "identity plan fixture starts with empty outbox");
+    RuntimeStateStore state(files, crypto, key);
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubRuntime runtime(32, backend);
+    runtime.bind_runtime_state(state);
+    runtime.authorize_node("room1", 42, true);
+    require(runtime.restore_from_journal(), "identity plan runtime recovery");
+
+    auto legacy = gs::domain_event_from_node_message(make_message(1), 0);
+    legacy.key.physical_device_id = "device-room1";
+    require(runtime.radio_callback(legacy) &&
+            runtime.run_state_once(100)->ack == gs::AckClass::Durable,
+            "legacy identity row admitted before owner fence and retained in plan");
+    std::array<std::uint8_t, 32> binding{};
+    binding.fill(0x3d);
+    const auto second = make_message(2);
+    require(runtime.authenticated_radio_message_callback(second, "room1", "device-room1",
+                42, 0, 2000, 0, 3, binding) &&
+            runtime.run_state_once(200)->ack == gs::AckClass::Durable,
+            "owner-bound identity row admitted after legacy row");
+
+    gs::hub::durable::RetirementSnapshot snapshot;
+    snapshot.storage_epoch = 7;
+    snapshot.generation = 1;
+    snapshot.occupancy_mask = 1;
+    auto& node = snapshot.nodes[0];
+    node.binding_digest = binding;
+    node.enrollment_generation = 3;
+    node.report_generation = 1;
+    node.report_hmac.fill(0x22);
+    node.current_origin_session = 42;
+    node.durable_admission_highwater = 2;
+    node.pending_count = 1;
+    node.pending[0] = {42, 2};
+    gs::hub::durable::ReportSnapshotReference reference;
+    reference.bank = 0;
+    reference.generation = 1;
+    reference.digest.fill(0x44);
+    require(outbox.publish_replay_fence(7, reference, 2) &&
+            runtime.bind_replay_fence(snapshot, 7, reference, outbox),
+            "identity plan is bound to the selected durable fence");
+    complete_outbox_cycle(runtime, 1, 2);
+
+    RetainedIdentityCapture retained;
+    IdentityCompactionPlan plan;
+    const auto original_bytes = state.identity_bytes();
+    const auto original_log = files.files.at("identity.log");
+    const auto original_head = files.files.at("identity.head");
+    require(runtime.plan_identity_compaction(capture_retained_identity, &retained, plan) &&
+            plan.complete && plan.source_records == 2 && plan.retained_records == 2 &&
+            plan.fenced_records == 0 && retained.records.size() == 2,
+            "pending owner-bound and legacy rows are retained");
+    require(plan.candidate_record_bytes == original_bytes &&
+            retained.records[0].original_ordinal == 1 &&
+            retained.records[1].original_ordinal == 2 &&
+            retained.records[0].local_minute == std::optional<std::uint16_t>{100} &&
+            retained.records[1].local_minute == std::optional<std::uint16_t>{200} &&
+            retained.records[1].event_key == gs::EventKey(
+                "room1", 42, 2, "device-room1").str() &&
+            retained.records[1].owner.authenticated() &&
+            retained.records[1].owner.enrollment_generation == 3 &&
+            std::any_of(retained.records[1].payload_digest.begin(),
+                retained.records[1].payload_digest.end(), [](std::uint8_t b) { return b != 0; }),
+            "pending and legacy metadata remain ordered in planned output");
+
+    node.pending_count = 0;
+    node.durable_admission_highwater = 1;
+    reference.generation = 2;
+    reference.bank = 1;
+    reference.digest.fill(0x55);
+    snapshot.generation = 2;
+    require(outbox.publish_replay_fence(7, reference, 2) &&
+            runtime.bind_replay_fence(snapshot, 7, reference, outbox),
+            "retirement high-water advances only through the covered prefix");
+    retained.records.clear();
+    require(runtime.plan_identity_compaction(capture_retained_identity, &retained, plan) &&
+            plan.fenced_records == 0 && plan.retained_records == 2,
+            "sequence above a gap boundary remains retained");
+
+    node.durable_admission_highwater = 2;
+    reference.generation = 3;
+    reference.bank = 2;
+    reference.digest.fill(0x56);
+    snapshot.generation = 3;
+    require(outbox.publish_replay_fence(7, reference, 2) &&
+            runtime.bind_replay_fence(snapshot, 7, reference, outbox),
+            "drained authenticated report advances the retirement fence");
+    retained.records.clear();
+    require(runtime.plan_identity_compaction(capture_retained_identity, &retained, plan) &&
+            plan.complete && plan.source_records == 2 && plan.retained_records == 1 &&
+            plan.fenced_records == 1 && retained.records.size() == 1 &&
+            retained.records[0].original_ordinal == 1 &&
+            plan.candidate_record_bytes < plan.source_bytes,
+            "mixed plan retains legacy exact identity and excludes only fenced identity");
+    require(files.files.at("identity.log") == original_log &&
+            files.files.at("identity.head") == original_head &&
+            state.identity_bytes() == original_bytes,
+            "planning does not modify the authoritative original ledger");
+    const auto successful_plan = plan;
+    std::cout << "identity_plan_original_bytes=" << successful_plan.source_bytes
+              << " candidate_record_bytes=" << successful_plan.candidate_record_bytes
+              << " retained=" << successful_plan.retained_records
+              << " fenced=" << successful_plan.fenced_records
+              << " extra_flash_reclaimed=0\n";
+    retained.records.clear();
+    require(runtime.plan_identity_compaction(capture_retained_identity, &retained, plan) &&
+            plan.candidate_digest == successful_plan.candidate_digest &&
+            plan.source_head_digest == successful_plan.source_head_digest &&
+            plan.candidate_record_bytes == successful_plan.candidate_record_bytes,
+            "repeated preparation is deterministic and leaves original authoritative");
+
+    DurableEventOutbox reboot_outbox(segments, crypto, key);
+    require(reboot_outbox.recover() == OutboxRecovery::Ready,
+            "identity plan reboot recovers current outbox");
+    OutboxJournalBackend reboot_backend(reboot_outbox);
+    RuntimeStateStore reboot_state(files, crypto, key);
+    gs::hub::HubRuntime reboot_runtime(32, reboot_backend);
+    reboot_runtime.bind_runtime_state(reboot_state);
+    reboot_runtime.authorize_node("room1", 42, true);
+    require(reboot_runtime.restore_from_journal() &&
+            reboot_runtime.bind_replay_fence(snapshot, 7, reference, reboot_outbox),
+            "identity plan reboot restores selected fence and exact identities");
+    retained.records.clear();
+    IdentityCompactionPlan reboot_plan;
+    require(reboot_runtime.plan_identity_compaction(capture_retained_identity,
+                &retained, reboot_plan) &&
+            reboot_plan.candidate_digest == successful_plan.candidate_digest,
+            "reboot reproduces the same guarded compaction plan");
+
+    auto changed_reference = reference;
+    changed_reference.generation = 4;
+    changed_reference.bank = 0;
+    changed_reference.digest.fill(0x66);
+    struct FenceChangeContext {
+        gs::hub::HubRuntime* runtime;
+        DurableEventOutbox* outbox;
+        gs::hub::durable::RetirementSnapshot snapshot;
+        gs::hub::durable::ReportSnapshotReference reference;
+        bool changed{false};
+    } change{&reboot_runtime, &reboot_outbox, snapshot, changed_reference};
+    auto change_fence_during_visit = [](void* opaque,
+            const IdentityCompactionRecord& record) {
+        auto& state = *static_cast<FenceChangeContext*>(opaque);
+        if (!state.changed) {
+            state.snapshot.generation = state.reference.generation;
+            if (state.outbox->publish_replay_fence(7, state.reference, 2) &&
+                state.runtime->bind_replay_fence(state.snapshot, 7,
+                    state.reference, *state.outbox)) state.changed = true;
+        }
+        return state.changed && !record.event_key.empty();
+    };
+    require(!reboot_runtime.plan_identity_compaction(change_fence_during_visit,
+                &change, reboot_plan) && change.changed && !reboot_plan.complete,
+            "fence change during iteration invalidates the plan");
+    require(files.files.at("identity.log") == original_log &&
+            files.files.at("identity.head") == original_head,
+            "invalidated plan leaves the authoritative original unchanged");
+
+    // The plan is a lower bound on temporary bytes: any available space below
+    // this amount is necessarily insufficient even before envelope overhead.
+    retained.records.clear();
+    require(reboot_runtime.plan_identity_compaction(capture_retained_identity,
+                &retained, reboot_plan), "plan can be regenerated after fence change");
+    require(reboot_plan.candidate_record_bytes > 0 &&
+            reboot_plan.minimum_temporary_bytes == reboot_plan.candidate_record_bytes &&
+            reboot_plan.minimum_temporary_bytes - 1U < reboot_plan.minimum_temporary_bytes,
+            "temporary capacity below the record lower bound is insufficient");
+
+    auto& corrupt_log = files.files.at("identity.log");
+    corrupt_log[4] ^= 0x80;
+    retained.records.clear();
+    require(!reboot_runtime.plan_identity_compaction(capture_retained_identity,
+                &retained, reboot_plan) && reboot_plan.blocked_records != 0,
+            "corrupt authenticated identity row blocks planning");
+}
+
 void replay_fence_and_eligibility_tests() {
     using namespace gs::hub::storage;
     gs::host::security::OpenSslCommissioningCrypto crypto;
@@ -1094,6 +1287,7 @@ int main(int argc, char** argv) {
 checkpoint_tests();interruption_tests();published_checkpoint_interruption();timer_and_scale_tests();
         backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
         segmented_lifecycle_reuse_tests();
+        identity_compaction_planning_test();
         replay_fence_and_eligibility_tests();
         replay_fence_publication_cut_tests();
         lifecycle_publication_cut_tests();

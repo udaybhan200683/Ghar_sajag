@@ -558,3 +558,22 @@ No identities or bodies were deleted. Production deletion is disabled. P2-A3
 identity compaction, mixed-segment body compaction, production cloud transport,
 retention policy and physical S3 qualification remain open. Phase 2 remains
 IN_PROGRESS; no product decision, context version, C3/BAT-C8 or hardware changed.
+
+### S3 identity compaction candidate planning — 2026-10-09
+
+P2-A3a now has a read-only streaming planner over authenticated identity rows.
+It classifies exact rows through the P2-A1 replay-fence predicate, retains
+pending, legacy-owner, gap, and otherwise unproven rows, and fingerprints the
+source head and ordered retained output. Host coverage demonstrates a mixed
+plan with one retained legacy row and one fenced row excluded; repeated planning
+and reboot reproduce the digest without changing `identity.log` or
+`identity.head`. Corrupt source rows and a replay-fence change during planning
+fail closed. The S3 `RuntimeStateFiles` interface has no isolated candidate
+writer or free-space query, so this slice emits no candidate file; candidate
+bytes are a record-only lower bound. The mixed fixture measured 292 original
+identity bytes and 146 retained-row bytes (one retained, one fenced); no
+physical bytes were reclaimed. The planner streams one row at a time (maximum
+516-byte stored frame and 256-byte key, with bounded crypto scratch), rather
+than materializing the ledger in RAM. Durable staging, incomplete-candidate
+recovery, authority switch and deletion remain P2-A3b scope. Reclaimed
+physical bytes are zero; production deletion remains disabled.

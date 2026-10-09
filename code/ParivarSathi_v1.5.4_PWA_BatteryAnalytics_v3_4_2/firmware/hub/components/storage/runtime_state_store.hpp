@@ -3,6 +3,7 @@
 #include "gs/domain.hpp"
 #include <array>
 #include <optional>
+#include <string>
 
 namespace gs::hub::storage {
 struct IdentityOwnerEvidence {
@@ -11,6 +12,35 @@ struct IdentityOwnerEvidence {
     std::array<std::uint8_t, 32> binding_digest{};
     bool authenticated() const;
 };
+struct IdentityCompactionRecord {
+    std::string event_key;
+    std::uint64_t original_ordinal{0};
+    std::uint32_t encoded_bytes{0};
+    std::optional<std::uint16_t> local_minute;
+    security::Key32 payload_digest{};
+    IdentityOwnerEvidence owner{};
+};
+enum class IdentityCompactionDisposition : std::uint8_t { Retain, Fenced, Blocked };
+struct IdentityCompactionPlan {
+    std::uint64_t source_records{0};
+    std::uint32_t source_bytes{0};
+    std::uint64_t retained_records{0};
+    std::uint64_t fenced_records{0};
+    std::uint64_t blocked_records{0};
+    std::uint32_t candidate_record_bytes{0};
+    // Record-only lower bound; staging format and filesystem overhead are not
+    // available until a candidate-file protocol is added.
+    std::uint32_t minimum_temporary_bytes{0};
+    // Authenticated fingerprints of the exact source head and ordered future
+    // retained-row stream. These are planning evidence, not publication roots.
+    security::Key32 source_head_digest{};
+    security::Key32 candidate_digest{};
+    bool complete{false};
+};
+using IdentityCompactionClassifier = IdentityCompactionDisposition (*)(
+    void*, const IdentityCompactionRecord&);
+using IdentityCompactionRetainedVisitor = bool (*)(
+    void*, const IdentityCompactionRecord&);
 // All files belong to the SAME serialized LittleFS writer as the event log.
 // replace is atomic old-or-new with a durability barrier; append_sync may tear.
 class RuntimeStateFiles {
@@ -49,11 +79,18 @@ public:
     bool lookup_identity(const DomainEvent&, std::uint64_t& ordinal,
                          std::optional<std::uint16_t>& local_minute,
                          bool& found, bool& payload_matches,
-                         IdentityOwnerEvidence* owner = nullptr);
+                         IdentityOwnerEvidence* owner = nullptr,
+                         security::Key32* payload_digest = nullptr);
     // Exact identities, no contiguous watermark across sequence gaps. Body
     // eligibility is separate; this ledger never expires evidence in Phase 1.
     bool contains_identity(const EventKey&, bool& found);
     bool verify_event_identity(const DomainEvent&, std::uint64_t ordinal);
+    // Read-only streaming plan. The visitor sees retained rows in original
+    // order; no identity or authority file is changed. Candidate bytes are a
+    // lower bound because a future manifest/publication format is not defined.
+    bool plan_identity_compaction(IdentityCompactionClassifier,
+                                 IdentityCompactionRetainedVisitor,
+                                 void* context, IdentityCompactionPlan&);
     // Called only after the event outbox's authenticated publication succeeds.
     bool confirm_event_publication(std::uint64_t boundary);
     bool healthy() const { return ready_ && !faulted_; }
