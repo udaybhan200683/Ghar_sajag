@@ -62,7 +62,10 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
         next_sequence_ == std::numeric_limits<std::uint64_t>::max() ||
         report_generation_ == std::numeric_limits<std::uint64_t>::max() ||
         pending_generation_ == std::numeric_limits<std::uint64_t>::max()) return std::nullopt;
-    EventKey key{node_id_, session_id_, next_sequence_++};
+    // Keep the per-session admitted prefix contiguous. The Hub uses the
+    // authenticated retirement high-water as a boundary, so failed local
+    // admission must not consume a sequence and create an unreported gap.
+    EventKey key{node_id_, session_id_, next_sequence_};
     const auto resolved_sensor = sensor_type == SensorType::Unknown ? sensor_type_for(kind) : sensor_type;
     DomainEvent event{key, kind, location, monotonic_ms, occurred_at, occurred_at,
                       uncertainty_s, battery_mv, is_test, resolved_sensor, rssi_dbm,
@@ -83,6 +86,10 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
         GS_ERROR(gs::log::Category::Storage, "N00", "record.failed", "node_journal_full");
         return std::nullopt;
     }
+    ++next_sequence_;
+    durable_admission_highwater_ = key.sequence;
+    ++report_generation_;
+    ++pending_generation_;
     if (!radio_.enqueue(event, monotonic_ms)) {
         // Single-owner preflight makes this defensive path unexpected, but
         // preserve the store/radio invariant if capacities ever diverge.
@@ -93,9 +100,6 @@ std::optional<EventKey> NodeRuntime::record(EventKind kind, const std::string& l
         GS_ERROR(gs::log::Category::Radio, "N00", "record.failed", "tx_queue_full");
         return std::nullopt;
     }
-    durable_admission_highwater_ = key.sequence;
-    ++report_generation_;
-    ++pending_generation_;
     ++stats_.accepted;
     return key;
 }

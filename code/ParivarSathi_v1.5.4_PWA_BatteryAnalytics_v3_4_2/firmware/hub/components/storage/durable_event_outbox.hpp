@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firmware/common/security/commissioning_crypto.hpp"
+#include "storage/durable_transition.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -152,6 +153,14 @@ public:
     IdentityLookup contains(const std::string& canonical_event_key, bool& found);
     bool mark_backend_completed(const std::string& canonical_event_key);
     bool backend_completed(const std::string& canonical_event_key, bool& completed);
+    // Atomically witnesses an already-selected authenticated NVS retirement
+    // bank in the lifecycle root. Admission must remain closed until this
+    // reference matches the selected NVS checkpoint after recovery.
+    bool publish_replay_fence(std::uint32_t storage_epoch,
+                              const durable::ReportSnapshotReference& reference,
+                              std::uint64_t reducer_checkpoint_boundary);
+    bool replay_fence_matches(std::uint32_t storage_epoch,
+                              const durable::ReportSnapshotReference& reference) const;
     // Replaces receipts with an authenticated exact completion bitmap bound to
     // retained event bodies. Does not authorize body or identity deletion.
     ReclaimResult reclaim_completion_metadata(const RetirementAuthorization& authorization);
@@ -221,6 +230,8 @@ private:
     std::uint64_t completion_snapshot_boundary_{0};
     security::Key32 completion_snapshot_binding_{};
     bool completion_reset_pending_{false};
+    std::uint32_t replay_fence_epoch_{0};
+    std::uint8_t replay_fence_bank_{0xff};
     bool publish_completion_through(std::uint64_t ordinal,
                                     const std::uint8_t frame_digest[32]);
     bool encode_record(std::uint64_t ordinal, const std::string& key,

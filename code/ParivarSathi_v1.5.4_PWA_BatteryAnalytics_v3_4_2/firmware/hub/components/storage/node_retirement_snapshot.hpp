@@ -10,8 +10,8 @@
 namespace gs::hub::durable {
 
 constexpr std::size_t kMaxRetirementNodes = 10;
-constexpr std::size_t kRetirementSnapshotBankBytes = 5777;
-constexpr std::size_t kRetirementLegacyInspectionBytes = 6096;
+constexpr std::size_t kRetirementSnapshotBankBytes = 6100;
+constexpr std::size_t kRetirementLegacyInspectionBytes = 6200;
 constexpr std::size_t kRetirementSnapshotBankCount = 3;
 constexpr std::size_t kMaxExactEventEvidence = 128;
 

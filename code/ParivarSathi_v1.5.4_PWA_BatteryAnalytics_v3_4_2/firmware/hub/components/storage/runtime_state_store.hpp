@@ -1,9 +1,16 @@
 #pragma once
 #include "firmware/common/security/commissioning_crypto.hpp"
 #include "gs/domain.hpp"
+#include <array>
 #include <optional>
 
 namespace gs::hub::storage {
+struct IdentityOwnerEvidence {
+    std::uint8_t enrollment_slot{0xff};
+    std::uint32_t enrollment_generation{0};
+    std::array<std::uint8_t, 32> binding_digest{};
+    bool authenticated() const;
+};
 // All files belong to the SAME serialized LittleFS writer as the event log.
 // replace is atomic old-or-new with a durability barrier; append_sync may tear.
 class RuntimeStateFiles {
@@ -31,7 +38,8 @@ public:
     bool load_checkpoint(security::Bytes&, std::uint64_t& boundary, bool& found);
     bool save_checkpoint(const security::Bytes&, std::uint64_t boundary);
     bool prepare_identity(const DomainEvent&, std::uint64_t ordinal,
-                          std::optional<std::uint16_t> local_minute);
+                          std::optional<std::uint16_t> local_minute,
+                          const IdentityOwnerEvidence* owner = nullptr);
     bool identity_context(const EventKey&, std::uint64_t ordinal,
                           std::optional<std::uint16_t>& local_minute,
                           const DomainEvent* expected_event = nullptr);
@@ -40,7 +48,8 @@ public:
     // different immutable event contents; callers must reject that conflict.
     bool lookup_identity(const DomainEvent&, std::uint64_t& ordinal,
                          std::optional<std::uint16_t>& local_minute,
-                         bool& found, bool& payload_matches);
+                         bool& found, bool& payload_matches,
+                         IdentityOwnerEvidence* owner = nullptr);
     // Exact identities, no contiguous watermark across sequence gaps. Body
     // eligibility is separate; this ledger never expires evidence in Phase 1.
     bool contains_identity(const EventKey&, bool& found);
@@ -58,7 +67,8 @@ private:
     bool read_object(const char*, security::Bytes&, bool&, std::size_t maximum);
     bool record_at(std::uint32_t offset, std::uint64_t expected, std::string& key,
                    std::optional<std::uint16_t>& minute, security::Bytes& frame,
-                   security::Key32* event_digest = nullptr);
+                   security::Key32* event_digest = nullptr,
+                   IdentityOwnerEvidence* owner = nullptr);
     bool reserve_identity_index(std::size_t required);
     bool insert_identity_index(const std::string& key, std::uint64_t ordinal,
                                std::uint32_t offset);
