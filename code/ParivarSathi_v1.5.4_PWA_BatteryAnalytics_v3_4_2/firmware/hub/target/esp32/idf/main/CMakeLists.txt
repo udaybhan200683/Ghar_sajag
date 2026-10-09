@@ -7,6 +7,11 @@ if(GS_HIL_BUILD OR GS_HIL_CONTROL)
     list(APPEND GS_HUB_SRCS "hil_control.cpp")
 endif()
 
+set(GS_TARGET_STORAGE_REQUIRES)
+if(IDF_TARGET STREQUAL "esp32s3")
+    list(APPEND GS_TARGET_STORAGE_REQUIRES s3_storage)
+endif()
+
 if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/node_firmware.bin")
     message(FATAL_ERROR
         "Missing node_firmware.bin. Build the C3 product and copy its app binary here before configuring the Hub.")
@@ -64,6 +69,7 @@ idf_component_register(
         esp_wifi
         nvs_flash
         mbedtls
+        ${GS_TARGET_STORAGE_REQUIRES}
     EMBED_FILES
         "node_firmware.bin"
 )

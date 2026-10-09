@@ -326,3 +326,21 @@ rollback and storage schema compatibility. Actual S3 image, internal/PSRAM heap,
 stack, radio, boot and crash behavior require independent measurement; classic
 ESP32 size and physical results do not qualify S3. No new format, protocol,
 critical reserve, capacity guarantee or camera/AI feature is authorized here.
+
+### S3 outbox implementation status — first source slice, 2026-10-09
+
+The S3 target now has a tested append-only `DurableEventOutbox` core and a
+LittleFS 1.20.4 adapter candidate. Event payloads are AES-GCM protected, identity
+lookups are keyed and reconstructible, and an authenticated publication marker
+anchors the latest visible record. A missing/corrupt root fails closed; one
+unpublished tail record can be finalized only by its exact retry. The target
+adapter does not format on mount failure. See [focused evidence](../exec-plans/evidence/R1_S3_SEGMENTED_OUTBOX_SLICE_20261009.md).
+
+This is not yet the deployed Hub storage path. `HubRuntime(32, 128)`, the
+authenticated NVS provider, existing ACK behavior, backend completion and
+retirement remain active. The candidate 4 MiB LittleFS partition and 512 KiB
+ordinary-admission reserve are unqualified engineering values, not product
+policy. No segment reuse, sustained reclamation, reducer checkpoint adapter,
+LittleFS flash fault test, actual workload fixture or physical S3 qualification
+has been completed. Keep the old 4 MiB classic-Hub budgets historical under
+GS-D030, but do not infer that larger S3 flash alone closes the 72-hour target.

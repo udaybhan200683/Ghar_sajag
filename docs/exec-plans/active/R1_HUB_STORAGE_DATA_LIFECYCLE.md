@@ -1882,3 +1882,29 @@ pending. The immediate blocker is to set the supported 72-hour volume and
 critical saturation/retention plus backend replay contract, then implement and
 qualify sustained reclamation under that policy. No CONTEXT_VERSION or product
 requirement changed.
+
+## 38. S3 segmented outbox first implementation slice — 2026-10-09
+
+[Implementation evidence](../evidence/R1_S3_SEGMENTED_OUTBOX_SLICE_20261009.md)
+adds a byte-budgeted encrypted append-only outbox core, a pinned ESP-IDF
+LittleFS 1.20.4 S3 adapter and an authenticated per-record publication marker.
+Host testing covers 6,556 generated event records and torn append/publication,
+retry, dedupe and fail-closed root cases; the ESP-IDF 6.0.3 S3 target and an
+isolated 16 MiB candidate partition table build/parse successfully.
+
+This is a source-level backend slice, not runtime integration or a capacity
+qualification. The S3 app still uses the old 128-slot Hub runtime and its
+durability/ACK path. No backend completion ledger, event-body retirement,
+segment reuse, reducer checkpoint separation or actual LittleFS power-cut/GC
+proof is present. The 3.75 MiB logical frame budget, 256 KiB filesystem
+workspace and 512 KiB ordinary-admission reserve are engineering candidates;
+physical LittleFS overhead and reserve restoration remain unmeasured. Do not
+infer 728-record NORMAL, 3,278-record HIGH, 2×HIGH, 72-hour capacity or
+commercial readiness from the generated-record host test. The candidate
+partition CSV is not active and must not be flashed over preserved board data.
+
+The next code slice is an authenticated Hub durability-owner/runtime adapter
+that calls the outbox before ACK, restores by streaming rather than rebuilding
+an unbounded `HubJournal`, and preserves exact lost-ACK retry semantics. Backend
+completion/reclamation follows only after a durable completion/identity contract
+is connected and tested. Context and product requirements are unchanged.

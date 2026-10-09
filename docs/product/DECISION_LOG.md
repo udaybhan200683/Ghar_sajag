@@ -274,6 +274,15 @@ volume/critical saturation/backend replay semantics remain open. The development
 partition map overlaps the preserved NVS/VFS regions, so no physical product
 image was flashed. See [storage closure evidence](../exec-plans/evidence/R1_S3_DURABLE_STORAGE_CLOSURE_20261009.md).
 
+S3 outbox implementation checkpoint (2026-10-09; no new product decision): a
+LittleFS 1.20.4 segmented append-only outbox core, authenticated publication
+marker and isolated 16 MiB candidate partition table now compile in the S3
+target; focused host tests pass through 6,556 generated records. The runtime
+still uses 128 NVS slots; backend completion, reclamation, fixture-based 72-hour
+capacity and physical flash recovery are not integrated or qualified. The
+candidate table is not active and no board flash was changed. See [outbox slice
+evidence](../exec-plans/evidence/R1_S3_SEGMENTED_OUTBOX_SLICE_20261009.md).
+
 ## Reconciliation status — 2026-10-07
 
 The already-qualified native fresh-install and empty-AEAD/recovery changes are

@@ -415,3 +415,17 @@ power-failure behavior, target runtime memory, reconnect catch-up and FOTA remai
 unqualified. No board write was made because the current development map
 overlaps preserved NVS/VFS data. Storage closure is BLOCKED; BAT-C8 has not
 started.
+
+### S3 segmented outbox source slice — 2026-10-09
+
+The [focused implementation evidence](../exec-plans/evidence/R1_S3_SEGMENTED_OUTBOX_SLICE_20261009.md)
+records a new encrypted, append-only outbox core and pinned LittleFS adapter,
+authenticated event publication marker, 6,556-record host stress test and clean
+ESP-IDF 6.0.3 S3 build. The S3 Hub runtime is still `HubRuntime(32, 128)` and
+continues using the old NVS slot provider; no Node Durable ACK flows through the
+new outbox yet. Backend completion, safe retirement, segment reuse, reducer
+checkpoint separation, workload fixtures and physical flash qualification are
+not complete. This implementation does not close the 72-hour target or change
+product policy. Next: integrate outbox admission/replay behind the authenticated
+Hub durability boundary with ACK-after-publication tests, then implement
+completion and reclamation without dropping dependencies.
