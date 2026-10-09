@@ -246,4 +246,53 @@ bool LittleFsSegmentStore::publish_completion_publication(
     return publication_synced && publication_closed;
 }
 
+namespace {
+bool state_path(const char* name, char* path, std::size_t capacity) {
+    if(std::strcmp(name,"identity.log")!=0 && std::strcmp(name,"identity.head")!=0 &&
+       std::strcmp(name,"application.head")!=0)return false;
+    const int n=std::snprintf(path,capacity,"/gsoutbox/%s",name);
+    return n>0 && static_cast<std::size_t>(n)<capacity;
+}
+}
+bool LittleFsSegmentStore::state_size(const char* name, bool& found, std::uint32_t& size) {
+    found=false;size=0;char path[64];struct stat st{};
+    if(!mounted_ || !state_path(name,path,sizeof(path)))return false;
+    if(stat(path,&st)!=0)return errno==ENOENT;
+    if(st.st_size<0 || static_cast<std::uint64_t>(st.st_size)>UINT32_MAX)return false;
+    found=true;size=st.st_size;return true;
+}
+bool LittleFsSegmentStore::state_read(const char* name, std::uint32_t offset,
+                                      std::uint8_t* out, std::size_t size) {
+    char path[64];if(!mounted_ || !state_path(name,path,sizeof(path)))return false;
+    FILE* file=std::fopen(path,"rb");if(!file)return false;
+    const bool ok=std::fseek(file,offset,SEEK_SET)==0 && std::fread(out,1,size,file)==size &&
+                  std::ferror(file)==0;
+    return std::fclose(file)==0 && ok;
+}
+bool LittleFsSegmentStore::state_append_sync(const char* name, const security::Bytes& data) {
+    char path[64];if(!mounted_ || !state_path(name,path,sizeof(path)))return false;
+    FILE* file=std::fopen(path,"ab");if(!file)return false;
+    const bool ok=std::fwrite(data.data(),1,data.size(),file)==data.size() &&
+                  std::fflush(file)==0 && ::fsync(fileno(file))==0;
+    return std::fclose(file)==0 && ok;
+}
+bool LittleFsSegmentStore::state_replace(const char* name, const security::Bytes& data) {
+    char path[64],temporary[72];if(!mounted_ || !state_path(name,path,sizeof(path)))return false;
+    std::snprintf(temporary,sizeof(temporary),"%s.new",path);
+    FILE* file=std::fopen(temporary,"wb");if(!file)return false;
+    const bool ok=std::fwrite(data.data(),1,data.size(),file)==data.size() &&
+                  std::fflush(file)==0 && ::fsync(fileno(file))==0;
+    const bool closed=std::fclose(file)==0;
+    if(!ok || !closed || std::rename(temporary,path)!=0)return false;
+    file=std::fopen(path,"r+");if(!file)return false;
+    const bool synced=::fsync(fileno(file))==0;
+    return std::fclose(file)==0 && synced;
+}
+bool LittleFsSegmentStore::state_truncate(const char* name, std::uint32_t size) {
+    char path[64];if(!mounted_ || !state_path(name,path,sizeof(path)))return false;
+    FILE* file=std::fopen(path,"r+");if(!file)return size==0 && errno==ENOENT;
+    const bool ok=::ftruncate(fileno(file),size)==0 && ::fsync(fileno(file))==0;
+    return std::fclose(file)==0 && ok;
+}
+
 }  // namespace gs::hub::storage::s3

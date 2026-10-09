@@ -1,6 +1,7 @@
 #pragma once
 
 #include "storage/durable_event_outbox.hpp"
+#include "storage/runtime_state_store.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +10,7 @@ namespace gs::hub::storage::s3 {
 
 // ESP-IDF LittleFS VFS adapter. It never formats on mount failure. Callers must
 // use the reviewed `gs_outbox` partition and keep this writer serialized.
-class LittleFsSegmentStore final : public SegmentStore {
+class LittleFsSegmentStore final : public SegmentStore, public RuntimeStateFiles {
 public:
     bool mount();
     bool mounted() const { return mounted_; }
@@ -34,6 +35,11 @@ public:
     bool read_completion_publication(security::Bytes& marker, bool& found) override;
     bool publish_completion_publication(const security::Bytes& marker) override;
 
+    bool state_size(const char* name, bool& found, std::uint32_t& size) override;
+    bool state_read(const char* name, std::uint32_t offset, std::uint8_t* out, std::size_t size) override;
+    bool state_append_sync(const char* name, const security::Bytes& data) override;
+    bool state_replace(const char* name, const security::Bytes& data) override;
+    bool state_truncate(const char* name, std::uint32_t size) override;
 private:
     bool path_for(std::uint16_t segment, char* path, std::size_t capacity) const;
 

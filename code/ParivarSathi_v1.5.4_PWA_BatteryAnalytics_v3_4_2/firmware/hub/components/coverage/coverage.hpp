@@ -40,6 +40,7 @@ public:
     std::vector<std::string> reasons(EpochSeconds now) const;
 
 private:
+    friend class HubCheckpointCodec;
     EpochSeconds lease_seconds_;
     std::set<std::string> required_nodes_;
     std::map<std::string, NodeHealth> health_;

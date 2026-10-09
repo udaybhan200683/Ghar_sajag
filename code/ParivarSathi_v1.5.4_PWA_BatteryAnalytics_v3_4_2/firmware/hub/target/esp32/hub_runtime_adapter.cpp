@@ -573,8 +573,13 @@ void secure_owner_task(void*) {
         vTaskDelete(nullptr);
         return;
     }
+    storage::OutboxLimits limits;
+    // 2 MiB bodies + 1 MiB identities + 512 KiB completions + 128 KiB
+    // checkpoint COW + 384 KiB filesystem overhead in the 4 MiB candidate.
+    limits.segment_bytes=128U*1024U;
+    storage::RuntimeStateStore runtime_state(outbox_storage,commissioning_crypto,journal_key);
     storage::DurableEventOutbox durable_outbox(
-        outbox_storage, commissioning_crypto, journal_key);
+        outbox_storage, commissioning_crypto, journal_key,limits);
     commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
     const auto outbox_recovery = durable_outbox.recover();
     if ((outbox_recovery != storage::OutboxRecovery::Ready &&
@@ -587,6 +592,7 @@ void secure_owner_task(void*) {
     }
     storage::OutboxJournalBackend event_backend(durable_outbox);
     HubRuntime runtime(32, event_backend);
+    runtime.bind_runtime_state(runtime_state);
 #else
     durable::DurableJournalSlotStore journal_store(
         durability_owner, commissioning_crypto, journal_key,

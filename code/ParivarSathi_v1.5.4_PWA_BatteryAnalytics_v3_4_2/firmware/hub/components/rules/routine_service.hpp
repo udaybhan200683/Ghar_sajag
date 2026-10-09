@@ -32,6 +32,7 @@ public:
     const RoutineState& state() const { return state_; }
 
 private:
+    friend class HubCheckpointCodec;
     RoutineConfig config_;
     RoutineState state_;
 };
