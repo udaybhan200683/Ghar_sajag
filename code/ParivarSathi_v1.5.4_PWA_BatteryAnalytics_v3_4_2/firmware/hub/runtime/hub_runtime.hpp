@@ -18,7 +18,10 @@
 #include "storage/hub_durability_owner.hpp"
 #include "gs/rules.hpp"
 #include "storage/runtime_state_store.hpp"
+#include "storage/node_retirement_snapshot.hpp"
+#include "storage/durable_event_outbox.hpp"
 
+#include <array>
 #include <cstddef>
 #include <map>
 #include <optional>
@@ -37,6 +40,11 @@ struct ProcessResult {
 struct AuthenticatedNodeHealth {
     NodeHealthSnapshot snapshot;
     std::uint64_t last_seen_monotonic_ms{0};
+};
+
+enum class IdentityRetirementEligibility : std::uint8_t {
+    NotEligible,
+    EligibleWithDurableReplayFence
 };
 
 class HubRuntime {
@@ -83,7 +91,10 @@ public:
                                               const std::string& authenticated_device_id,
                                               std::uint64_t transport_session,
                                               EpochSeconds hub_received_at,
-                                              std::uint64_t now_monotonic_ms = 0);
+                                              std::uint64_t now_monotonic_ms = 0,
+                                              std::uint8_t enrollment_slot = 0xff,
+                                              std::uint32_t enrollment_generation = 0,
+                                              std::array<std::uint8_t, 32> owner_binding_digest = {});
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Consume one admitted event, apply privacy policy, commit and update the reducer.
     // A duplicate journal identity does not repeat reducer effects.
@@ -108,6 +119,14 @@ public:
     bool restore_from_journal();
     // Bind before replay. Registry authentication remains a separate authority.
     void bind_runtime_state(storage::RuntimeStateStore& store) { runtime_state_ = &store; }
+    bool bind_replay_fence(const durable::RetirementSnapshot& snapshot,
+                           std::uint32_t storage_epoch,
+                           const durable::RetirementSnapshotReference& reference,
+                           storage::DurableEventOutbox& outbox);
+    IdentityRetirementEligibility identity_retirement_eligibility(
+        const DomainEvent&, std::uint8_t enrollment_slot,
+        std::uint32_t enrollment_generation,
+        const std::array<std::uint8_t, 32>& owner_binding_digest);
     bool checkpoint_state();
 
     std::size_t ingest_depth() const { return ingest_.size(); }
@@ -117,11 +136,20 @@ public:
     const RoutineState& routine_state() const { return routine_.state(); }
 
 private:
+    struct IngressIdentityOwner {
+        std::string source_id;
+        storage::IdentityOwnerEvidence evidence;
+    };
     friend class HubCheckpointCodec;
     std::vector<RuleSignalDecision> apply_committed_event(
         const DomainEvent& event, std::optional<std::uint16_t> local_minute);
     storage::RuntimeStateStore* runtime_state_{nullptr};
     bool checkpoint_fault_{false};
+    bool replay_fence_ready_{false};
+    durable::RetirementSnapshot replay_snapshot_{};
+    durable::RetirementSnapshotReference replay_reference_{};
+    std::uint32_t replay_epoch_{0};
+    std::map<std::string, IngressIdentityOwner> ingress_identity_owners_;
     std::uint64_t applied_boundary_{0};
     PeerRegistry peers_;
     IngestQueue ingest_;
@@ -135,6 +163,7 @@ private:
     std::map<std::string, std::uint64_t> last_authenticated_contact_ms_;
     bool state_applied_{false};
     bool journal_replayed_{false};
+    bool replay_fence_fault_{false};
     durable::HubDurabilityOwner* durability_owner_{nullptr};
 };
 

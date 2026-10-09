@@ -1,6 +1,7 @@
 #include "nvs_store_inventory.hpp"
 
 #include "nvs_durable_key_codec.hpp"
+#include "storage/node_retirement_snapshot.hpp"
 #include "nvs.h"
 #include "nvs_flash.h"
 
@@ -24,7 +25,7 @@ std::size_t max_length(DurablePhysicalKeyKind kind) {
         case K::EffectChunk: return 1260;
         case K::EvidenceChunk: return 320;
         case K::Bitmap: return 384;
-        case K::RetirementBank: return 6096;
+        case K::RetirementBank: return durable::kRetirementLegacyInspectionBytes;
         case K::LegacyEvent: return 284;
         case K::LegacyCompletion: return 32;
         case K::MigrationMetadata: return 218;

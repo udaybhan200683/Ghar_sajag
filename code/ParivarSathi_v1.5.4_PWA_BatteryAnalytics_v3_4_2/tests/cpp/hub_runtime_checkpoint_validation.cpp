@@ -431,6 +431,161 @@ void complete_outbox_cycle(gs::hub::HubRuntime& runtime, std::uint64_t first,
     }
 }
 
+void replay_fence_and_eligibility_tests() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    StateFiles files;
+    DurableEventOutbox outbox(segments, crypto, key);
+    require(outbox.recover() == OutboxRecovery::Empty, "replay fence empty outbox");
+    RuntimeStateStore state(files, crypto, key);
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubRuntime runtime(32, backend);
+    runtime.bind_runtime_state(state);
+    runtime.authorize_node("room1", 42, true);
+    require(runtime.restore_from_journal(), "replay fence runtime recovery");
+
+    std::array<std::uint8_t, 32> binding_digest{};
+    binding_digest.fill(0x2d);
+    const auto message = make_message(1);
+    require(runtime.authenticated_radio_message_callback(message, "room1", "device-room1",
+                42, 0, 1000, 0, 3, binding_digest), "authenticated owner event accepted");
+    const auto processed = runtime.run_state_once();
+    require(processed && processed->ack == gs::AckClass::Durable,
+            "event and identity are durable before ACK");
+    gs::hub::durable::RetirementSnapshot snapshot;
+    snapshot.storage_epoch = 7;
+    snapshot.generation = 2;
+    snapshot.occupancy_mask = 1;
+    auto& node = snapshot.nodes[0];
+    node.binding_digest = binding_digest;
+    node.enrollment_generation = 3;
+    node.current_origin_session = 42;
+    node.durable_admission_highwater = 3;
+    auto exact = gs::domain_event_from_node_message(message, 0);
+    exact.key.physical_device_id = "device-room1";
+    require(runtime.identity_retirement_eligibility(exact, 0, 3, binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::NotEligible,
+            "missing persisted Node retirement proof fails closed");
+    gs::hub::durable::ReportSnapshotReference reference;
+    reference.bank = 1;
+    reference.generation = 2;
+    reference.digest.fill(0x5a);
+    require(outbox.publish_replay_fence(snapshot.storage_epoch, reference, 1) &&
+            runtime.bind_replay_fence(snapshot, snapshot.storage_epoch, reference, outbox),
+            "selected retirement reference is witnessed by lifecycle root");
+
+    std::array<std::uint8_t, 32> wrong_binding{};
+    wrong_binding.fill(0xee);
+    require(runtime.identity_retirement_eligibility(exact, 0, 3, wrong_binding) ==
+                gs::hub::IdentityRetirementEligibility::NotEligible,
+            "retirement eligibility requires the authenticated owner binding digest");
+    require(runtime.identity_retirement_eligibility(exact, 0, 3, binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::NotEligible,
+            "missing durable backend completion blocks identity eligibility");
+    complete_outbox_cycle(runtime, 1, 1);
+    require(runtime.identity_retirement_eligibility(exact, 0, 3, binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::EligibleWithDurableReplayFence,
+            "exact completed identity with checkpoint, retirement and replay fence is eligible");
+    DurableEventOutbox owner_reboot_outbox(segments, crypto, key);
+    require(owner_reboot_outbox.recover() == OutboxRecovery::Ready,
+            "replay fence recovers before restart eligibility check");
+    OutboxJournalBackend owner_reboot_backend(owner_reboot_outbox);
+    RuntimeStateStore owner_reboot_state(files, crypto, key);
+    gs::hub::HubRuntime owner_reboot_runtime(32, owner_reboot_backend);
+    owner_reboot_runtime.bind_runtime_state(owner_reboot_state);
+    require(owner_reboot_runtime.restore_from_journal() &&
+            owner_reboot_runtime.bind_replay_fence(snapshot, snapshot.storage_epoch,
+                reference, owner_reboot_outbox) &&
+            owner_reboot_runtime.identity_retirement_eligibility(exact, 0, 3,
+                binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::EligibleWithDurableReplayFence,
+            "restart preserves authenticated identity owner and eligibility proof");
+    auto wrong_session = exact;
+    wrong_session.key.session_id = 41;
+    require(runtime.identity_retirement_eligibility(wrong_session, 0, 3, binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::NotEligible,
+            "wrong original EventKey session is not eligible");
+    require(runtime.authenticated_radio_message_callback(message, "room1", "device-room1",
+                42, 0, 2000, 0, 3, binding_digest),
+            "retained exact duplicate keeps ordinary duplicate handling");
+    const auto duplicate = runtime.run_state_once();
+    require(duplicate && duplicate->ack == gs::AckClass::Durable && !duplicate->state_changed,
+            "exact retry after fence does not reapply effects");
+
+    auto stale = make_message(3);
+    require(!runtime.authenticated_radio_message_callback(stale, "room1", "device-room1",
+                42, 0, 3000, 0, 3, binding_digest),
+            "covered retired key without retained identity is rejected before admission");
+    require(runtime.identity_retirement_eligibility(exact, 1, 3, binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::NotEligible &&
+            runtime.identity_retirement_eligibility(exact, 0, 4, binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::NotEligible,
+            "wrong owner slot or stale enrollment generation fails eligibility closed");
+
+    snapshot.generation = 3;
+    snapshot.nodes[0].pending_count = 1;
+    snapshot.nodes[0].pending[0] = {42, 1};
+    reference.generation = 3;
+    reference.bank = 2;
+    reference.digest.fill(0x6b);
+    require(outbox.publish_replay_fence(snapshot.storage_epoch, reference, 1) &&
+            runtime.bind_replay_fence(snapshot, snapshot.storage_epoch, reference, outbox),
+            "pending exception is published in next bounded fence snapshot");
+    require(runtime.identity_retirement_eligibility(exact, 0, 3, binding_digest) ==
+                gs::hub::IdentityRetirementEligibility::NotEligible,
+            "pending exact key blocks identity eligibility");
+
+    Bytes first_root;
+    bool root_found = false;
+    require(segments.read_lifecycle_root(first_root, root_found) && root_found,
+            "bounded replay fence lifecycle root exists");
+    for (std::uint64_t generation = 4; generation <= 20; ++generation) {
+        snapshot.generation = generation;
+        reference.generation = generation;
+        reference.bank = static_cast<std::uint8_t>(generation % 3U);
+        reference.digest.fill(static_cast<std::uint8_t>(generation));
+        require(outbox.publish_replay_fence(snapshot.storage_epoch, reference, 1) &&
+                runtime.bind_replay_fence(snapshot, snapshot.storage_epoch, reference, outbox),
+                "bounded NVS bank rotation and fence advance");
+        Bytes observed;
+        require(segments.read_lifecycle_root(observed, root_found) && root_found &&
+                observed.size() == first_root.size(),
+                "repeated fence advances reuse fixed-size lifecycle metadata");
+    }
+
+    DurableEventOutbox recovered(segments, crypto, key);
+    require(recovered.recover() == OutboxRecovery::Ready &&
+            recovered.replay_fence_matches(snapshot.storage_epoch, reference),
+            "replay fence authority survives restart");
+}
+
+void replay_fence_publication_cut_tests() {
+    using namespace gs::hub::storage;
+    for (bool fail_after_write : {false, true}) {
+        gs::host::security::OpenSslCommissioningCrypto crypto;
+        const auto key = storage_key();
+        MemorySegments segments(4U * 1024U * 1024U);
+        DurableEventOutbox outbox(segments, crypto, key);
+        require(outbox.recover() == OutboxRecovery::Empty, "fence cut starts empty");
+        gs::hub::durable::ReportSnapshotReference reference;
+        reference.bank = 0;
+        reference.generation = 1;
+        reference.digest.fill(0x3c);
+        segments.fail_lifecycle_publication_after_write_once = fail_after_write;
+        segments.fail_lifecycle_publication_once = !fail_after_write;
+        require(!outbox.publish_replay_fence(9, reference, 0),
+                "ambiguous lifecycle publication does not open the writer");
+        DurableEventOutbox rebooted(segments, crypto, key);
+        const auto recovered = rebooted.recover();
+        require(recovered == OutboxRecovery::Empty,
+                "publication cut recovers without fabricated outbox data");
+        require(rebooted.replay_fence_matches(9, reference) == fail_after_write,
+                "pre-publication cut keeps old authority; post-publication cut selects new fence");
+    }
+}
+
 void segmented_lifecycle_reuse_tests() {
     using namespace gs::hub::storage;
     gs::host::security::OpenSslCommissioningCrypto crypto;
@@ -939,6 +1094,8 @@ int main(int argc, char** argv) {
 checkpoint_tests();interruption_tests();published_checkpoint_interruption();timer_and_scale_tests();
         backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
         segmented_lifecycle_reuse_tests();
+        replay_fence_and_eligibility_tests();
+        replay_fence_publication_cut_tests();
         lifecycle_publication_cut_tests();
         high_volume_lifecycle_test();
         std::cout<<"PASS: runtime checkpoint, replay, exact identity, crash boundaries\n";return 0;

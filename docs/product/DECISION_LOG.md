@@ -416,3 +416,18 @@ retained in production; deletion stays disabled. Identity compaction, mixed-
 segment body compaction, production cloud transport, retention policy and physical
 qualification remain open. Phase 2 remains IN_PROGRESS; no Phase 3, C3/BAT-C8,
 hardware or product-policy change. Context remains `2026-10-09.001`.
+
+### S3 durable replay fence and identity eligibility — 2026-10-09 (no new product decision)
+
+The [protocol note](../exec-plans/evidence/R1_S3_REPLAY_FENCE_PROTOCOL_20261009.md)
+records the cross-storage publication order. The selected encrypted NVS report
+bank is witnessed by a versioned LittleFS lifecycle root before admission can
+use its bounded pending-key and retirement boundary. New encrypted identity rows
+bind the authenticated enrollment slot, generation and binding digest. Eligibility
+also requires exact payload identity, backend completion and reducer checkpoint
+coverage. Failed Node admission no longer consumes a sequence, keeping the
+current-session high-water a contiguous admitted prefix. Focused host tests,
+ASan/UBSan and a clean isolated ESP-IDF 6.0.3 S3 build pass. Identity rows and
+event bodies remain undeleted; production deletion is disabled. P2-A3 identity
+compaction, production cloud transport, retention policy and physical S3
+qualification remain open. Existing decisions and context version are unchanged.

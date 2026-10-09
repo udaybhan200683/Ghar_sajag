@@ -1,6 +1,7 @@
 #include "nvs_durable_blob_store.hpp"
 
 #include "nvs_durable_key_codec.hpp"
+#include "storage/node_retirement_snapshot.hpp"
 #include "nvs.h"
 #include "nvs_flash.h"
 
@@ -29,7 +30,8 @@ std::size_t maximum_for(const DurablePhysicalKeyRecord& r) {
         case DurablePhysicalKeyKind::EffectChunk: return 1260;
         case DurablePhysicalKeyKind::EvidenceChunk: return 320;
         case DurablePhysicalKeyKind::Bitmap: return 384;
-        case DurablePhysicalKeyKind::RetirementBank: return 6096;
+        case DurablePhysicalKeyKind::RetirementBank:
+            return durable::kRetirementLegacyInspectionBytes;
         case DurablePhysicalKeyKind::LegacyEvent: return 284;
         case DurablePhysicalKeyKind::LegacyCompletion: return 32;
         case DurablePhysicalKeyKind::MigrationMetadata: return 218;
@@ -37,7 +39,8 @@ std::size_t maximum_for(const DurablePhysicalKeyRecord& r) {
     return 0;
 }
 std::size_t maximum_write_for(const DurablePhysicalKeyRecord& r) {
-    return r.kind == DurablePhysicalKeyKind::RetirementBank ? 5777 : maximum_for(r);
+    return r.kind == DurablePhysicalKeyKind::RetirementBank
+        ? durable::kRetirementSnapshotBankBytes : maximum_for(r);
 }
 }
 

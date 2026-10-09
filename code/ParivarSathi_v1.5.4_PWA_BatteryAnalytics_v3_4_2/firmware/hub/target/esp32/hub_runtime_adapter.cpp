@@ -641,6 +641,34 @@ void secure_owner_task(void*) {
         vTaskDelete(nullptr);
         return;
     }
+#if CONFIG_IDF_TARGET_ESP32S3
+    // Reconcile the selected NVS retirement bank into the authenticated
+    // LittleFS lifecycle root before any event admission can open.
+    {
+        auto* report_repository = durability_owner.retirement_repository();
+        auto* durable_store = durability_owner.durable_store();
+        const auto* recovered = durability_owner.recovery_state();
+        if (recovered != nullptr && recovered->checkpoint.report_snapshot) {
+            durable::RetirementSnapshot selected_snapshot;
+            security::Bytes app_checkpoint;
+            std::uint64_t checkpoint_boundary = 0;
+            bool checkpoint_found = false;
+            const auto reference = *recovered->checkpoint.report_snapshot;
+            if (report_repository == nullptr || durable_store == nullptr ||
+                !report_repository->load(reference, selected_snapshot) ||
+                !runtime_state.load_checkpoint(app_checkpoint, checkpoint_boundary,
+                    checkpoint_found) || !checkpoint_found ||
+                !durable_outbox.publish_replay_fence(*authoritative_epoch, reference,
+                    checkpoint_boundary) ||
+                !runtime.bind_replay_fence(selected_snapshot, *authoritative_epoch,
+                    reference, durable_outbox)) {
+                ESP_LOGE(kTag, "S3 replay-fence recovery failed; admission closed");
+                vTaskDelete(nullptr);
+                return;
+            }
+        }
+    }
+#endif
 #if GS_HIL_CONTROL
     ESP_LOGI(kTag, "HIL_JOURNAL_RECOVERED records=%u", static_cast<unsigned>(runtime.journal().size()));
 #endif
@@ -968,6 +996,28 @@ void secure_owner_task(void*) {
             }
             if (!durable_report_ready) continue;
 #if CONFIG_IDF_TARGET_ESP32S3
+            // NVS selection is the authority. Publish its exact reference in
+            // LittleFS, then bind the in-memory gate before handling more data.
+            {
+                durable::RecoveryState selected_state;
+                durable::RetirementSnapshot selected_snapshot;
+                security::Bytes app_checkpoint;
+                std::uint64_t checkpoint_boundary = 0;
+                bool checkpoint_found = false;
+                if (!durable_store->recover(selected_state) ||
+                    !selected_state.checkpoint.report_snapshot ||
+                    !report_repository->load(*selected_state.checkpoint.report_snapshot,
+                                             selected_snapshot) ||
+                    !runtime_state.load_checkpoint(app_checkpoint,
+                        checkpoint_boundary, checkpoint_found) || !checkpoint_found ||
+                    !durable_outbox.publish_replay_fence(*epoch,
+                        *selected_state.checkpoint.report_snapshot, checkpoint_boundary) ||
+                    !runtime.bind_replay_fence(selected_snapshot, *epoch,
+                        *selected_state.checkpoint.report_snapshot, durable_outbox)) {
+                    ESP_LOGE(kTag, "S3 replay-fence publication failed; admission closed");
+                    continue;
+                }
+            }
             if (limits.body_retirement_enabled || durable_outbox.completion_reclamation_needed()) {
                 // NVS publishes the authenticated Node snapshot first. The
                 // LittleFS lifecycle root can only follow that selected,
@@ -1067,11 +1117,14 @@ void secure_owner_task(void*) {
         if (classification != transport::FrameClass::NodeMessage) continue;
         const auto decoded = transport::decode_node_message(plain.bytes.data(), plain.size);
         if (!decoded || decoded.value->node_id != node->logical_id) continue;
+        transport::RetirementEnrollmentBinding event_owner{};
+        if (!security_link.retirement_enrollment_binding(frame.source_mac, event_owner)) continue;
         constexpr EpochSeconds hub_received_at = 0;  // No trusted clock yet.
         if (!runtime.authenticated_radio_message_callback(
                 *decoded.value, node->logical_id, node->device_id,
                 node->last_session, hub_received_at,
-                static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) continue;
+                static_cast<std::uint64_t>(esp_timer_get_time() / 1000),
+                event_owner.slot, event_owner.generation, event_owner.digest)) continue;
         const auto processed = runtime.run_state_once();
         if (!processed) continue;
 #if GS_HIL_CONTROL

@@ -7,7 +7,7 @@
 namespace gs::hub::durable {
 namespace {
 using security::Bytes;
-constexpr std::uint8_t kSchema = 2;
+constexpr std::uint8_t kSchema = 3;
 constexpr std::size_t kSnapshotHeaderBytes = 19;
 constexpr std::size_t kAeadOverhead = 28;
 constexpr char kAadLabelV1[] = "hub-retirement-snapshot-v1";
@@ -137,6 +137,7 @@ bool RetirementSnapshotRepository::encode(security::CommissioningCrypto& crypto,
         if ((snapshot.occupancy_mask & (1U << i)) == 0) continue;
         const auto& node = snapshot.nodes[i];
         plain.u32(node.enrollment_generation);
+        plain.raw(node.binding_digest.data(), node.binding_digest.size());
         plain.u64(node.report_generation);
         plain.raw(node.report_hmac.data(), node.report_hmac.size());
         plain.u64(node.current_origin_session);
@@ -157,7 +158,7 @@ bool RetirementSnapshotRepository::encode(security::CommissioningCrypto& crypto,
     blob.insert(blob.end(), cipher.begin(), cipher.end());
     blob.insert(blob.end(), tag.begin(), tag.end());
     return blob.size() == plain.bytes.size() + kAeadOverhead &&
-           blob.size() <= 5777 && blob.size() <= kRetirementSnapshotBankBytes;
+           blob.size() <= kRetirementSnapshotBankBytes;
 }
 
 bool RetirementSnapshotRepository::decode(security::CommissioningCrypto& crypto,
@@ -178,7 +179,7 @@ bool RetirementSnapshotRepository::decode(security::CommissioningCrypto& crypto,
     std::uint8_t schema = 0;
     if (!reader.raw(magic.data(), magic.size()) ||
         magic != std::array<std::uint8_t, 4>{'G','R','S','1'} ||
-        !reader.u8(schema) || (schema != 1 && schema != kSchema) ||
+        !reader.u8(schema) || (schema < 1 || schema > kSchema) ||
         !reader.u32(snapshot.storage_epoch) || !reader.u64(snapshot.generation))
         return false;
     snapshot.legacy_binding_domain = schema == 1;
@@ -205,7 +206,9 @@ bool RetirementSnapshotRepository::decode(security::CommissioningCrypto& crypto,
         for (std::size_t i = 0; i < kMaxRetirementNodes; ++i) {
             if ((snapshot.occupancy_mask & (1U << i)) == 0) continue;
             auto& node = snapshot.nodes[i];
-            if (!reader.u32(node.enrollment_generation) || !reader.u64(node.report_generation) ||
+            if (!reader.u32(node.enrollment_generation) ||
+                (schema >= 3 && !reader.raw(node.binding_digest.data(), node.binding_digest.size())) ||
+                !reader.u64(node.report_generation) ||
                 !reader.raw(node.report_hmac.data(), node.report_hmac.size()) ||
                 !reader.u64(node.current_origin_session) ||
                 !reader.u64(node.durable_admission_highwater) || !reader.u8(node.pending_count) ||
@@ -313,7 +316,8 @@ RetirementReportApply RetirementSnapshotRepository::apply_authenticated_report(
     }
     const std::size_t index = enrollment_slot;
     const bool occupied = (current.occupancy_mask & (1U << index)) != 0;
-    if (occupied && current.nodes[index].enrollment_generation != enrollment_generation)
+    if (occupied && (current.nodes[index].enrollment_generation != enrollment_generation ||
+        current.nodes[index].binding_digest != binding_digest))
         return RetirementReportApply::Conflict;
     if (!occupied && current.node_count() == kMaxRetirementNodes) return RetirementReportApply::Full;
     if (occupied) {
@@ -345,6 +349,7 @@ RetirementReportApply RetirementSnapshotRepository::apply_authenticated_report(
     candidate.legacy_binding_domain = false;
     auto& saved = candidate.nodes[index];
     saved = {};
+    saved.binding_digest = binding_digest;
     saved.enrollment_generation = enrollment_generation;
     saved.report_generation = report.generation;
     saved.report_hmac = verified_report_hmac;

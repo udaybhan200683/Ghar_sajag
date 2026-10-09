@@ -175,13 +175,27 @@ void heartbeat_retirement_and_admission() {
             "zero-capacity business admission unexpectedly succeeded");
     const auto failed_state = failed.recovery_snapshot();
     require(failed_state.durable_admission_highwater == 0 &&
-            failed_state.pending.empty(),
+            failed_state.pending.empty() && failed.next_sequence() == 1,
             "failed admission advanced durable highwater or became retryable");
     NodeRuntime failed_reboot("sensor", 31);
     require(failed_reboot.restore_recovery(failed_state, 0) &&
             failed_reboot.pending() == 0 &&
             failed_reboot.recovery_snapshot().durable_admission_highwater == 0,
             "failed sequence became retransmittable after reboot");
+
+    NodeRuntime queue_full("sensor", 50, 8, 1);
+    require(queue_full.set_retirement_epoch(7), "queue-full retirement epoch setup failed");
+    const auto first = queue_full.record(EventKind::Motion, "room", 1, 0);
+    require(first && !queue_full.record(EventKind::Motion, "room", 2, 0) &&
+            queue_full.next_sequence() == 2 && queue_full.acknowledge(*first, AckClass::Durable),
+            "transport-capacity refusal did not consume a Node EventKey sequence");
+    const auto contiguous = queue_full.record(EventKind::Motion, "room", 3, 0);
+    NodeRetirementReportV1 contiguous_report;
+    require(contiguous && contiguous->sequence == 2,
+            "transport refusal created a sequence gap");
+    require(make_retirement_report(queue_full.recovery_snapshot(), contiguous_report) &&
+            contiguous_report.durable_admission_highwater == 2,
+            "retirement high-water remains a contiguous admitted prefix after local refusal");
 }
 
 void highwater_and_health_scope(OpenSslCommissioningCrypto& crypto) {

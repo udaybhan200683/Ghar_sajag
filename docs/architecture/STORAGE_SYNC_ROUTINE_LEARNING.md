@@ -376,3 +376,20 @@ retained in production; deletion stays disabled. Identity compaction, mixed-
 segment body compaction, production cloud transport, retention policy and physical
 qualification remain open. Phase 2 remains IN_PROGRESS; no Phase 3, C3/BAT-C8,
 hardware or product-policy change. Context remains `2026-10-09.001`.
+
+### S3 replay fence and identity retirement eligibility — 2026-10-09
+
+The [cross-storage protocol note](../exec-plans/evidence/R1_S3_REPLAY_FENCE_PROTOCOL_20261009.md)
+documents the current implementation. The selected encrypted NVS Node-retirement
+snapshot remains authoritative; an authenticated, versioned LittleFS lifecycle
+root witnesses its epoch, bank, generation and digest before the Hub uses its
+retirement boundary during admission. A key is fenced only for the matching
+authenticated owner tuple and when it is covered and absent from the bounded
+pending list. Node sequence allocation preserves a contiguous admitted prefix.
+New identity rows bind owner slot, generation and enrollment digest. Eligibility
+also requires exact payload identity, durable backend completion and reducer
+checkpoint coverage. This is an eligibility prerequisite only: identities and
+event bodies remain retained, production deletion is disabled, and physical
+power-cut qualification remains open. Host test results, including 975,737
+identity bytes at 6,556 events, are implementation evidence rather than a
+capacity guarantee. See the protocol note for publication and crash recovery.

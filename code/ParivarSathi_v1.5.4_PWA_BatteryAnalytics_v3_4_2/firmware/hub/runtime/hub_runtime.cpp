@@ -39,6 +39,10 @@ void HubRuntime::revoke_node(const std::string& node_id) {
     power_telemetry_.erase(node_id);
     node_health_.erase(node_id);
     last_authenticated_contact_ms_.erase(node_id);
+    for (auto it = ingress_identity_owners_.begin(); it != ingress_identity_owners_.end();) {
+        if (it->second.source_id == node_id) it = ingress_identity_owners_.erase(it);
+        else ++it;
+    }
     if (journal_replayed_) (void)checkpoint_state();
 }
 
@@ -96,14 +100,75 @@ void HubRuntime::start_window(const RoutineConfig& config, HomeMode mode) {
 }
 
 bool HubRuntime::durable_admission_open() const {
-    if (checkpoint_fault_ || (runtime_state_ && !runtime_state_->healthy())) return false;
+    if (checkpoint_fault_ || replay_fence_fault_ ||
+        (runtime_state_ && !runtime_state_->healthy())) return false;
     if (durability_owner_ == nullptr) return true;
+    const auto* recovered = durability_owner_->recovery_state();
+    if (recovered != nullptr && recovered->checkpoint.report_snapshot &&
+        !replay_fence_ready_) return false;
+    if (replay_fence_ready_ && (recovered == nullptr ||
+        !recovered->checkpoint.report_snapshot ||
+        recovered->checkpoint.report_snapshot->bank != replay_reference_.bank ||
+        recovered->checkpoint.report_snapshot->generation != replay_reference_.generation ||
+        recovered->checkpoint.report_snapshot->digest != replay_reference_.digest)) return false;
     const auto epoch = durability_owner_->epoch();
     return durability_owner_->state() == durable::DurabilityOwnerState::Ready &&
            epoch.has_value() && *epoch != 0 &&
            durability_owner_->durable_store() != nullptr &&
            durability_owner_->retirement_repository() != nullptr &&
            journal_.persistent();
+}
+
+bool HubRuntime::bind_replay_fence(const durable::RetirementSnapshot& snapshot,
+        std::uint32_t storage_epoch,
+        const durable::RetirementSnapshotReference& reference,
+        storage::DurableEventOutbox& outbox) {
+    const auto* recovered = durability_owner_ ? durability_owner_->recovery_state() : nullptr;
+    if (!reference.valid() || storage_epoch == 0 || snapshot.storage_epoch != storage_epoch ||
+        snapshot.generation == 0 || snapshot.generation != reference.generation ||
+        !outbox.replay_fence_matches(storage_epoch, reference) ||
+        (durability_owner_ != nullptr && (recovered == nullptr ||
+         !recovered->checkpoint.report_snapshot ||
+         recovered->checkpoint.report_snapshot->bank != reference.bank ||
+         recovered->checkpoint.report_snapshot->generation != reference.generation ||
+         recovered->checkpoint.report_snapshot->digest != reference.digest))) {
+        replay_fence_fault_ = true;
+        replay_fence_ready_ = false;
+        return false;
+    }
+    replay_snapshot_ = snapshot;
+    replay_reference_ = reference;
+    replay_epoch_ = storage_epoch;
+    replay_fence_ready_ = true;
+    replay_fence_fault_ = false;
+    return true;
+}
+
+IdentityRetirementEligibility HubRuntime::identity_retirement_eligibility(
+        const DomainEvent& event, std::uint8_t enrollment_slot,
+        std::uint32_t enrollment_generation,
+        const std::array<std::uint8_t, 32>& owner_binding_digest) {
+    if (!durable_admission_open() || !replay_fence_ready_ || runtime_state_ == nullptr ||
+        enrollment_generation == 0 || enrollment_slot >= durable::kMaxRetirementNodes ||
+        event.key.source_id.empty() || event.key.session_id == 0 || event.key.sequence == 0 ||
+        !journal_.cloud_completed(event.key) ||
+        replay_snapshot_.nodes[enrollment_slot].enrollment_generation != enrollment_generation ||
+        replay_snapshot_.nodes[enrollment_slot].binding_digest != owner_binding_digest ||
+        !retirement_proves_node_durable_retirement(replay_snapshot_, enrollment_slot,
+            enrollment_generation, event.key.session_id, event.key.sequence))
+        return IdentityRetirementEligibility::NotEligible;
+    bool found = false, payload_matches = false;
+    std::uint64_t ordinal = 0;
+    std::optional<std::uint16_t> minute;
+    storage::IdentityOwnerEvidence persisted_owner;
+    if (!runtime_state_->lookup_identity(event, ordinal, minute, found, payload_matches,
+            &persisted_owner) || !found || !payload_matches || ordinal == 0 ||
+        ordinal > applied_boundary_ || !persisted_owner.authenticated() ||
+        persisted_owner.enrollment_slot != enrollment_slot ||
+        persisted_owner.enrollment_generation != enrollment_generation ||
+        persisted_owner.binding_digest != owner_binding_digest)
+        return IdentityRetirementEligibility::NotEligible;
+    return IdentityRetirementEligibility::EligibleWithDurableReplayFence;
 }
 
 std::optional<std::uint32_t> HubRuntime::authoritative_storage_epoch() const {
@@ -113,7 +178,7 @@ std::optional<std::uint32_t> HubRuntime::authoritative_storage_epoch() const {
 
 bool HubRuntime::radio_callback(const DomainEvent& event) {
     GS_TRACE(gs::log::Category::Hub, "H00", "radio_callback.enter", "-");
-    if (!durable_admission_open()) return false;
+    if (!durable_admission_open() || replay_fence_ready_) return false;
     return ingest_.callback_copy(event, peers_);
 }
 
@@ -133,7 +198,9 @@ bool HubRuntime::radio_message_callback(const NodeMessage& message, EpochSeconds
 bool HubRuntime::authenticated_radio_message_callback(
     const NodeMessage& message, const std::string& authenticated_node_id,
     const std::string& authenticated_device_id, std::uint64_t transport_session,
-    EpochSeconds hub_received_at, std::uint64_t now_monotonic_ms) {
+    EpochSeconds hub_received_at, std::uint64_t now_monotonic_ms,
+    std::uint8_t enrollment_slot, std::uint32_t enrollment_generation,
+    std::array<std::uint8_t, 32> owner_binding_digest) {
     if (!durable_admission_open()) return false;
     if (!valid_node_message(message) || message.node_id != authenticated_node_id ||
         authenticated_device_id.empty()) {
@@ -143,9 +210,42 @@ bool HubRuntime::authenticated_radio_message_callback(
     }
     auto event = domain_event_from_node_message(message, hub_received_at);
     event.key.physical_device_id = authenticated_device_id;
+    const bool report_owner_matches = replay_fence_ready_ &&
+        enrollment_slot < durable::kMaxRetirementNodes && enrollment_generation != 0 &&
+        (replay_snapshot_.occupancy_mask & (1U << enrollment_slot)) != 0 &&
+        replay_snapshot_.nodes[enrollment_slot].enrollment_generation == enrollment_generation &&
+        replay_snapshot_.nodes[enrollment_slot].binding_digest == owner_binding_digest;
+    if (replay_fence_ready_ && (enrollment_slot >= durable::kMaxRetirementNodes ||
+        enrollment_generation == 0 || std::all_of(owner_binding_digest.begin(),
+            owner_binding_digest.end(), [](std::uint8_t b) { return b == 0; }))) return false;
+    if (report_owner_matches && retirement_proves_node_durable_retirement(
+            replay_snapshot_, enrollment_slot, enrollment_generation,
+            event.key.session_id, event.key.sequence)) {
+        bool found = false, payload_matches = false;
+        std::uint64_t ordinal = 0;
+        std::optional<std::uint16_t> minute;
+        if (!runtime_state_ || !runtime_state_->lookup_identity(event, ordinal, minute,
+                found, payload_matches)) {
+            replay_fence_fault_ = true;
+            return false;
+        }
+        // Retained exact identities preserve ordinary duplicate and conflict
+        // behavior. Once a body/identity is ever reclaimed, the fence remains
+        // authoritative and rejects this stale key before new admission.
+        if (!found) return false;
+    }
     const bool accepted = ingest_.callback_copy_authenticated(
         event, peers_,
         authenticated_node_id, transport_session);
+    if (accepted && enrollment_generation != 0 && enrollment_slot < durable::kMaxRetirementNodes &&
+        std::any_of(owner_binding_digest.begin(), owner_binding_digest.end(),
+                    [](std::uint8_t b) { return b != 0; })) {
+        storage::IdentityOwnerEvidence owner;
+        owner.enrollment_slot = enrollment_slot;
+        owner.enrollment_generation = enrollment_generation;
+        owner.binding_digest = owner_binding_digest;
+        ingress_identity_owners_[event.key.str()] = {event.key.source_id, owner};
+    }
     if (accepted && now_monotonic_ms != 0)
         (void)observe_authenticated_contact(authenticated_node_id,
                                             transport_session, now_monotonic_ms);
@@ -232,6 +332,12 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     if (!durable_admission_open()) return std::nullopt;
     const auto event = ingest_.pop();
     if (!event) return std::nullopt;
+    storage::IdentityOwnerEvidence ingress_owner;
+    const auto owner_it = ingress_identity_owners_.find(event->key.str());
+    if (owner_it != ingress_identity_owners_.end()) {
+        ingress_owner = owner_it->second.evidence;
+        ingress_identity_owners_.erase(owner_it);
+    }
     const bool passive = is_passive_sensor_event(event->kind);
     if (routine_.state().mode == HomeMode::Privacy && passive) {
         return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {}};
@@ -270,7 +376,8 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
             identity_already_prepared = true;
         }
         if (duplicate || (!identity_already_prepared && !runtime_state_->prepare_identity(
-                *event, journal_.size() + 1U, local_minute))) {
+                *event, journal_.size() + 1U, local_minute,
+                ingress_owner.authenticated() ? &ingress_owner : nullptr))) {
             if (duplicate) checkpoint_fault_ = true;
             return ProcessResult{event->key, AckClass::Rejected, false, {}};
         }

@@ -47,6 +47,11 @@ struct RuntimeStateStore::IdentityIndexEntry {
     std::uint32_t offset{0};
     bool occupied{false};
 };
+bool IdentityOwnerEvidence::authenticated() const {
+    return enrollment_slot < 10 && enrollment_generation != 0 &&
+        std::any_of(binding_digest.begin(), binding_digest.end(),
+                    [](std::uint8_t b) { return b != 0; });
+}
 RuntimeStateStore::RuntimeStateStore(RuntimeStateFiles& f, security::CommissioningCrypto& c,
         const security::Key32& master) : files_(f), crypto_(c) {
     const Bytes label{'g','s','-','r','u','n','t','i','m','e','-','v','1'};
@@ -205,7 +210,8 @@ bool RuntimeStateStore::save_checkpoint(const Bytes& plain, std::uint64_t bounda
     checkpoint_bytes_=blob.size(); return true;
 }
 bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
-        std::string& key, std::optional<std::uint16_t>& minute, Bytes& frame, security::Key32* event_digest) {
+        std::string& key, std::optional<std::uint16_t>& minute, Bytes& frame,
+        security::Key32* event_digest, IdentityOwnerEvidence* owner) {
     std::uint8_t prefix[4]{};
     if(!files_.state_read(kIdentities,offset,prefix,4)) return false;
     const std::uint32_t n=std::uint32_t(prefix[0])|(std::uint32_t(prefix[1])<<8)|
@@ -216,12 +222,34 @@ bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
     std::uint64_t ordinal=0; Bytes plain;
     if(!open(1,Bytes(frame.begin()+4,frame.end()),ordinal,plain)||ordinal!=expected||plain.size()<35)
         return false;
-    if(plain[0]>1) return false;
+    const bool owner_format = (plain[0] & 0x80U) != 0;
+    if ((owner_format && (plain[0] & 0x7eU) != 0) || (!owner_format && plain[0] > 1))
+        return false;
     const auto m=std::uint16_t(plain[1])|(std::uint16_t(plain[2])<<8);
-    if(plain[0] && m>=1440) return false;
-    minute=plain[0] ? std::optional<std::uint16_t>(m) : std::nullopt;
+    const bool has_minute = (plain[0] & 1U) != 0;
+    if(has_minute && m>=1440) return false;
+    minute=has_minute ? std::optional<std::uint16_t>(m) : std::nullopt;
     if(event_digest)std::copy_n(plain.begin()+3,32,event_digest->begin());
-    key.assign(plain.begin()+35,plain.end()); return !key.empty() && key.size()<=256;
+    std::size_t key_offset = 35;
+    if (owner != nullptr) *owner = {};
+    if (owner_format) {
+        if (plain.size() < 72) return false;
+        IdentityOwnerEvidence parsed;
+        parsed.enrollment_slot = plain[35];
+        parsed.enrollment_generation = static_cast<std::uint32_t>(plain[36]) |
+            (static_cast<std::uint32_t>(plain[37]) << 8) |
+            (static_cast<std::uint32_t>(plain[38]) << 16) |
+            (static_cast<std::uint32_t>(plain[39]) << 24);
+        std::copy_n(plain.begin() + 40, 32, parsed.binding_digest.begin());
+        if (parsed.enrollment_slot == 0xff) {
+            if (parsed.enrollment_generation != 0 || std::any_of(
+                    parsed.binding_digest.begin(), parsed.binding_digest.end(),
+                    [](std::uint8_t b) { return b != 0; })) return false;
+        } else if (!parsed.authenticated()) return false;
+        if (owner != nullptr) *owner = parsed;
+        key_offset = 72;
+    }
+    key.assign(plain.begin()+key_offset,plain.end()); return !key.empty() && key.size()<=256;
 }
 bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
     ready_=false; faulted_=false; count_=0; bytes_=0; cursor_ordinal_=0; cursor_offset_=0;
@@ -254,9 +282,11 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
     committed_highwater_=published_event_highwater; ready_=true; return true;
 }
 bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t ordinal,
-                                         std::optional<std::uint16_t> minute) {
+                                         std::optional<std::uint16_t> minute,
+                                         const IdentityOwnerEvidence* owner) {
     const auto& key=event.key;
-    if(!healthy() || !ordinal || (minute && *minute>=1440)) return false;
+    if(!healthy() || !ordinal || (minute && *minute>=1440) ||
+       (owner != nullptr && !owner->authenticated())) return false;
     if(ordinal<=count_) {
         std::optional<std::uint16_t> existing;
         return identity_context(key,ordinal,existing) && verify_event_identity(event,ordinal);
@@ -266,13 +296,24 @@ bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t
     const auto canonical=key.str();
     if(canonical.empty() || canonical.size()>256) return false;
     if(!reserve_identity_index(identity_index_size_ + 1U)) return false;
-    Bytes plain{std::uint8_t(minute.has_value()),std::uint8_t(minute.value_or(0)),
+    Bytes plain{static_cast<std::uint8_t>(0x80U | (minute.has_value() ? 1U : 0U)),
+                std::uint8_t(minute.value_or(0)),
                 std::uint8_t(minute.value_or(0)>>8)},blob,frame;
     Bytes payload;security::Key32 digest_of_event{};
     if(!HubJournal::encode_event_payload(event,payload)||
        !crypto_.hmac_sha256(key_,payload,digest_of_event))return fault();
     crypto_.secure_zero(payload.data(),payload.size());
     plain.insert(plain.end(),digest_of_event.begin(),digest_of_event.end());
+    if (owner != nullptr) {
+        plain.push_back(owner->enrollment_slot);
+        for (unsigned i = 0; i < 4; ++i)
+            plain.push_back(static_cast<std::uint8_t>(owner->enrollment_generation >> (i * 8U)));
+        plain.insert(plain.end(), owner->binding_digest.begin(), owner->binding_digest.end());
+    } else {
+        plain.push_back(0xff);
+        plain.insert(plain.end(), 4, 0);
+        plain.insert(plain.end(), 32, 0);
+    }
     plain.insert(plain.end(),canonical.begin(),canonical.end());
     if(!seal(1,ordinal,plain,blob)) return fault();
     const auto n=blob.size(); frame={std::uint8_t(n),std::uint8_t(n>>8),std::uint8_t(n>>16),std::uint8_t(n>>24)};
@@ -311,11 +352,13 @@ bool RuntimeStateStore::identity_context(const EventKey& key, std::uint64_t ordi
     return exact==key.str() || fault();
 }
 bool RuntimeStateStore::lookup_identity(const DomainEvent& event, std::uint64_t& ordinal,
-        std::optional<std::uint16_t>& local_minute, bool& found, bool& payload_matches) {
+        std::optional<std::uint16_t>& local_minute, bool& found, bool& payload_matches,
+        IdentityOwnerEvidence* owner) {
     ordinal = 0;
     local_minute.reset();
     found = false;
     payload_matches = false;
+    if (owner != nullptr) *owner = {};
     if (!healthy()) return false;
     Bytes event_payload;
     security::Key32 expected_digest{};
@@ -338,7 +381,7 @@ bool RuntimeStateStore::lookup_identity(const DomainEvent& event, std::uint64_t&
     std::string exact;
     std::optional<std::uint16_t> minute;
     security::Key32 stored_digest{};
-    if (!record_at(offset, ordinal, exact, minute, frame, &stored_digest) ||
+    if (!record_at(offset, ordinal, exact, minute, frame, &stored_digest, owner) ||
         exact != event.key.str()) {
         crypto_.secure_zero(expected_digest.data(), expected_digest.size());
         crypto_.secure_zero(stored_digest.data(), stored_digest.size());

@@ -48,7 +48,8 @@ void report_replay_and_ledger(OpenSslCommissioningCrypto& crypto,
             "verified report bank was not prepared");
     RetirementSnapshot restored;
     require(repository.load(ref, restored) && restored.generation == staged.generation &&
-            restored.nodes[0].pending_count == 3,
+            restored.nodes[0].pending_count == 3 &&
+            restored.nodes[0].binding_digest == binding,
             "selected report snapshot reference did not verify");
     require(!retirement_proves_node_durable_retirement(restored, 0, 3, 10, 11) &&
             retirement_proves_node_durable_retirement(restored, 0, 3, 10, 9) &&
@@ -59,6 +60,10 @@ void report_replay_and_ledger(OpenSslCommissioningCrypto& crypto,
     require(repository.apply_authenticated_report(restored, binding, 0, 3, 10,
                 first, mac1, staged) == RetirementReportApply::Duplicate,
             "same-generation identical report was not idempotent");
+    auto wrong_binding = binding; wrong_binding[0] ^= 1;
+    require(repository.apply_authenticated_report(restored, wrong_binding, 0, 3, 10,
+                first, mac1, staged) == RetirementReportApply::Conflict,
+            "retirement report from a different owner binding was accepted");
     auto conflict = first; conflict.durable_admission_highwater = 13;
     Key32 mac2{}; mac2.fill(0x22);
     require(repository.apply_authenticated_report(restored, binding, 0, 3, 10,
@@ -116,12 +121,13 @@ void bounds_and_crashes(OpenSslCommissioningCrypto& crypto, const Key32& key) {
     }
     Bytes blob;
     require(RetirementSnapshotRepository::encode(crypto, key, full, blob) &&
-            blob.size() == kRetirementSnapshotBankBytes && blob.size() == 5777,
-            "maximum compact report bank byte size changed");
+            blob.size() == 6097 && blob.size() <= kRetirementSnapshotBankBytes,
+            "maximum owner-bound report bank byte size changed");
     RetirementSnapshot decoded;
     require(RetirementSnapshotRepository::decode(crypto, key, blob, decoded) &&
             decoded.node_count() == 10 && decoded.nodes[9].pending_count == 32 &&
-            blob.size() <= 5777,
+            decoded.nodes[9].binding_digest == full.nodes[9].binding_digest &&
+            blob.size() <= kRetirementSnapshotBankBytes,
             "maximum report bank failed authenticated roundtrip");
 
     MemoryBlobStore blobs;

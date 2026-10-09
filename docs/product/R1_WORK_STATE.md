@@ -539,3 +539,22 @@ retained in production; deletion stays disabled. Identity compaction, mixed-
 segment body compaction, production cloud transport, retention policy and physical
 qualification remain open. Phase 2 remains IN_PROGRESS; no Phase 3, C3/BAT-C8,
 hardware or product-policy change. Context remains `2026-10-09.001`.
+
+### S3 durable replay fence and identity eligibility — 2026-10-09
+
+The [protocol note](../exec-plans/evidence/R1_S3_REPLAY_FENCE_PROTOCOL_20261009.md)
+records the selected-NVS-first, lifecycle-root-second publication and recovery
+order. Production S3 admission now consults the recovered authenticated fence;
+new encrypted identity rows preserve owner slot, enrollment generation and
+binding digest. Eligibility requires exact identity/content, matching owner,
+retirement proof without a pending-key exception, backend completion, reducer
+checkpoint coverage and the selected lifecycle-root witness. Node EventKey
+allocation no longer consumes a sequence after local admission refusal, so the
+current-session high-water remains a contiguous admitted prefix. Focused host
+tests, ASan/UBSan and a clean isolated ESP-IDF 6.0.3 S3 build pass. Host stress
+reports 487,464 identity bytes at 3,278 events and 975,737 bytes at 6,556; the
+1 MiB identity cap remains close to the latter and is not a capacity guarantee.
+No identities or bodies were deleted. Production deletion is disabled. P2-A3
+identity compaction, mixed-segment body compaction, production cloud transport,
+retention policy and physical S3 qualification remain open. Phase 2 remains
+IN_PROGRESS; no product decision, context version, C3/BAT-C8 or hardware changed.
