@@ -1,0 +1,306 @@
+R1 bounded256KiB NORMAL48h protected workspace qualification;2026-10-09
+START_HEAD=92e4e1c926b11cb4e17c1afb0c6fad1fec17501e
+CONTEXT_PREFLIGHT=PASS; context2026-10-08.002; branch feature/r1-hub-storage-lifecycle
+QUALIFICATION_RESULT=FAIL_CAPACITY for frozen retained map + current certificate; production integration NO
+TEST_JOURNAL_SIZE=262144; TEST_OFFLINE_DURATION=48H; TEST_WORKLOAD=NORMAL_MIXED
+PROMPT_PRESERVED=YES; PRODUCTION/PARTITION/NODE/BAT-C8/CONTEXT/CANONICAL_CHANGED=NO; PUSHED=NO
+FIXTURE_SOURCE=docs/exec-plans/evidence/R1_4MIB_48H_STORAGE_FEASIBILITY_20261008.log
+FIXTURE_SHA256=1f9da309e5099f87a8197f1294c3021994d771d075966bb926dfaa7041a5d9fa
+No workload generator, HIGH case,72h comparison, full Gate C matrix or million-event fuzz rerun.
+Only original four unselected metadata values removed;85 other blobs stay pinned; cloud acknowledgments=0.
+Bank activation bound in lower plan is optimistic, not a new codec or complete authenticated48h representation.
+Actual compact SDK Store certifies physical erased pages; failed prepare authorizes no write/ACK.
+Raw logs report COUNTEREXAMPLE_PASS/EXIT=0 for verified failure, NOT qualified48h PASS.
+
+REPRODUCTION: from repository root:
+export IDF_PATH=/home/udaybhan/.espressif/v6.0.3/esp-idf
+export PATH=/tmp/gs-diag-bin:$PATH
+export RUBYLIB=/tmp/gs-ruby/usr/lib/ruby/3.3.0:/tmp/gs-ruby/usr/lib/x86_64-linux-gnu/ruby/3.3.0
+export LD_LIBRARY_PATH=/tmp/gs-ruby/usr/lib/x86_64-linux-gnu:/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu
+cmake --build code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build
+SDK_BUILD_EXIT=0; production firmware not built or modified
+ruby 3.3.8 (2025-04-09 revision b200bad6cd) [x86_64-linux-gnu]
+[2/5] cd /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/esp-idf/partition_table && /usr/bin/cmake -E echo "Partition table binary generated. Contents:" && /usr/bin/cmake -E echo "*******************************************************************************" && /home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py -q --offset 0x8000 --primary-bootloader-offset 0 --disable-md5sum -- /home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/partition_table/partition-table.bin && /usr/bin/cmake -E echo "*******************************************************************************"
+Partition table binary generated. Contents:
+*******************************************************************************
+# ESP-IDF Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+life,data,nvs,0x9000,128K,
+factory,app,factory,0x30000,1M,
+*******************************************************************************
+[3/5] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.o
+[4/5] Linking C static library esp-idf/main/libmain.a
+[5/5] Linking CXX executable gs_nvs_runtime_probe.elf; Checking ioctl definition overlaps
+
+Fixture reconstruction used (no workload simulation):
+from pathlib import Path
+import hashlib,json
+p=Path('docs/exec-plans/evidence/R1_4MIB_48H_STORAGE_FEASIBILITY_20261008.log')
+rows=[json.loads(x[6:]) for x in p.read_text().splitlines() if x.startswith('MODEL=')]
+r=next(x for x in rows if x['scenario']=='NORMAL' and x['hours']==48 and x['worst'])
+sizes=[size for size,count in r['object_size_runs'] for _ in range(count)]
+fixture=f"{r['history_segments']} {r['cow_segments']} {2*r['reserve_events']//32} {r['inputs']}\n"+'\n'.join(map(str,sizes))+'\n'
+assert hashlib.sha256(fixture.encode()).hexdigest()==r['fixture_sha256']
+Path('/tmp/gs-workspace48-fixture.txt').write_text(fixture)
+
+New workspace tests: final executable and exact command/outcomes:
+SDK_BINARY_SHA256=c0e7a94732d66d9aba9a4c2374313d33a77bc16663c230c5423c7a7d5b4efbb6
+FIXTURE_SHA256=1f9da309e5099f87a8197f1294c3021994d771d075966bb926dfaa7041a5d9fa
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf workspace48 /tmp/gs-workspace48-fixture.txt
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_CERT phase=temporaries_removed occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=temporaries_removed control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_collected iteration=85 allocated_pages=56 free_erased_pages=8 live_entries=6569 erased_entries=344 stats_used=6569 stats_free=1495 write_bytes=226448 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_CERT phase=purged_deleted_metadata occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=purged_deleted_metadata control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_purged iteration=85 allocated_pages=56 free_erased_pages=8 live_entries=6569 erased_entries=344 stats_used=6569 stats_free=1495 write_bytes=237456 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-BmQrAg
+EXIT=0
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 0
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+COMPACT_POWER_CUT operation=raw_write offset=208948 bytes=4
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=77 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-XWwTJ6
+EXIT=0
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 1
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+COMPACT_POWER_CUT operation=raw_write offset=208948 bytes=4
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=77 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-X9cP7b
+EXIT=0
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 8
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+COMPACT_POWER_CUT operation=raw_write offset=208932 bytes=4
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=77 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-XFE2aI
+EXIT=0
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 999999
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_RECLAIM_IO cut=999999 units=29 calls=29
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=0 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-ApFBQq
+EXIT=0
+FOCUSED_WORKSPACE_TESTS_PASS=5; QUALIFICATION_RESULT=FAIL_CAPACITY for frozen retained map + current certificate; not end-to-end qualification
+
+Existing authenticated subset checks (not the48h history mapping):
+Environment GS_DIAG_PAGES=64; LD_LIBRARY_PATH as above. Collection dependency-completion fixture is independent of outage history.
+python3 code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/run_compact.py --output /tmp/gs-workspace48-auth-<case>.log --case <case>
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=c0e7a94732d66d9aba9a4c2374313d33a77bc16663c230c5423c7a7d5b4efbb6
+GS_DIAG_PAGES=64
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gio
+PROTECTED_TYPED_IO_PASS dependency_refusal=restart_required manifest_head_refusal=metadata_failure reducer_slot_reserve=protected authorized_collection=resumed ack=only_after_publication
+EMULATOR_IMAGE=/tmp/idf-partition-Gw2aH3
+EXIT=0
+COMPACT_SUITE_PASS cases=1
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=c0e7a94732d66d9aba9a4c2374313d33a77bc16663c230c5423c7a7d5b4efbb6
+GS_DIAG_PAGES=64
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact cfault 1
+COMPACT_POWER_CUT operation=raw_write offset=4136 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-z1hs3N
+EXIT=0
+COMPACT_SUITE_PASS cases=1
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=c0e7a94732d66d9aba9a4c2374313d33a77bc16663c230c5423c7a7d5b4efbb6
+GS_DIAG_PAGES=64
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact cfault 2
+COMPACT_POWER_CUT operation=raw_write offset=60 bytes=4
+COMPACT_COLLECTION_CUT_PASS child_exit=77 selected_dependencies_preserved=1 retry=duplicate
+EMULATOR_IMAGE=/tmp/idf-partition-T2w5p5
+EXIT=0
+COMPACT_SUITE_PASS cases=1
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=c0e7a94732d66d9aba9a4c2374313d33a77bc16663c230c5423c7a7d5b4efbb6
+GS_DIAG_PAGES=64
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 1360
+COMPACT_POWER_CUT operation=write offset=11072 bytes=32
+COMPACT_POWERFAIL_PASS cut=1360 child_exit=77 recovered=old retry=commit payload=5194 gc_erases=64
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=61 live_entries=176 erased_entries=180 stats_used=176 stats_free=7888 write_bytes=6616 erase_ops=64 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-KMCYs8
+EXIT=0
+COMPACT_SUITE_PASS cases=1
+SDK=ESP-IDF6.0.3 commit76f5dedd9950a3012fee8fb7d5586df21fc67802
+BINARY_SHA256=c0e7a94732d66d9aba9a4c2374313d33a77bc16663c230c5423c7a7d5b4efbb6
+GS_DIAG_PAGES=64
+COMMAND=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.elf compact gcut 999999
+COMPACT_CHILD result=0 io_units=1369 io_calls=52 gc_erase_delta=0 peak_allocated_pages=3 peak_live_entries=317
+COMPACT_POWERFAIL_PASS cut=999999 child_exit=0 recovered=new retry=duplicate payload=5194 gc_erases=64
+NVS_RUNTIME phase=compact_recovery iteration=0 allocated_pages=3 free_erased_pages=61 live_entries=176 erased_entries=165 stats_used=176 stats_free=7888 write_bytes=5912 erase_ops=64 min_sector_erases=0 max_sector_erases=0
+EMULATOR_IMAGE=/tmp/idf-partition-AWtys3
+EXIT=0
+COMPACT_SUITE_PASS cases=1
+
+Native/compact host regression commands and complete outputs:
+cd code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2
+make storage-native-transaction-host-test storage-compact-representation-host-test
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp host/storage/native_transaction.cpp tests/cpp/storage_native_transaction_validation.cpp -lcrypto -o build/storage_native_transaction_validation
+./build/storage_native_transaction_validation
+ADMISSION_REPORT_PASS W=32 credit_reboot=32 report_progress=only_auth_complete forged=reject
+OWNER_BOUND_PASS retained=6 seventh=Full retiring=charged release=dependency_gated
+FULL_BOUND_PASS exact_identities=384 owners=6 W=32 fixed_keys=2 banks_max_bytes=201573 authority_bytes=86
+CRASH_PASS cut=1 recovery=valid notification=none
+CRASH_PASS cut=2 recovery=valid notification=none
+CRASH_PASS cut=3 recovery=valid notification=none
+CRASH_PASS cut=4 recovery=valid notification=none
+CRASH_PASS cut=5 recovery=fail_closed notification=none
+CRASH_PASS cut=6 recovery=valid notification=none
+STALE_ROOT_REGRESSION_PASS child=corrupt old_bank_present=1 fallback=forbidden
+STALE_ROOT_REGRESSION_PASS child=missing old_bank_present=1 fallback=forbidden
+FRESHNESS_PRIMITIVE_PASS old_authenticated_head=reject unavailable_authority=fail_closed
+RETIREMENT_CRASH_PASS cut=3 accepted_body=preserved credit=1
+RETIREMENT_CRASH_PASS cut=6 accepted_body=preserved credit=0
+CREDIT_CONTRADICTION_PASS valid_aead_and_head=1 false_credit_reset=fail_closed
+DEPENDENCY_FAILURE_PASS no_unsafe_reclaim=1 api_ambiguity=resolved partial_credit=not_selected
+NATIVE_TRANSACTION_HOST_PASS gate_A=PASS_DEFINED_SCOPE gate_B=PASS_WITH_TRUSTED_AUTHORITY gate_C=OPEN
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp host/storage/native_transaction.cpp host/storage/compact_nvs_representation.cpp tests/cpp/storage_compact_representation_validation.cpp -lcrypto -o build/storage_compact_representation_validation
+./build/storage_compact_representation_validation
+PROTECTED_PLAN_HOST_PASS actual_max_report_plan=verified rejected_write_count=0 dependency_error=fail_closed
+COMPACT_HOST_PASS exact_identities=384 charged_per_owner=32 manifest_bytes=16649 retained_payload=241379 dependency_corruption=fail_closed malformed_manifest=reject authority=INDEPENDENT_HOST_WITNESS_ONLY
+HOST_EXIT=0
+
+Sanitizer build:
+python3 code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build_host_sanitizer.py --output /tmp/gs-workspace48-san
+ASan/UBSan scope=probe/adapter,new header,native transaction,compact codec; SDK/OpenSSL archives uninstrumented; LeakSanitizer disabled.
+SANITIZER_BUILD_EXIT=0
+Sanitizer runtime commands/output (ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1):
+SDK_BINARY_SHA256=c33cd1fb765eca3a5d2637aecb8d18fcd2ce31600b53ef38eb0a02fdefdbd6b0
+FIXTURE_SHA256=1f9da309e5099f87a8197f1294c3021994d771d075966bb926dfaa7041a5d9fa
+COMMAND=/tmp/gs-workspace48-san/probe.elf workspace48 /tmp/gs-workspace48-fixture.txt
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_CERT phase=temporaries_removed occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=temporaries_removed control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_collected iteration=85 allocated_pages=56 free_erased_pages=8 live_entries=6569 erased_entries=344 stats_used=6569 stats_free=1495 write_bytes=226448 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_CERT phase=purged_deleted_metadata occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=purged_deleted_metadata control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_purged iteration=85 allocated_pages=56 free_erased_pages=8 live_entries=6569 erased_entries=344 stats_used=6569 stats_free=1495 write_bytes=237456 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-ExQsK6
+EXIT=0
+COMMAND=/tmp/gs-workspace48-san/probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 0
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+COMPACT_POWER_CUT operation=raw_write offset=208948 bytes=4
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=77 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-11Z7x5
+EXIT=0
+COMMAND=/tmp/gs-workspace48-san/probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 1
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+COMPACT_POWER_CUT operation=raw_write offset=208948 bytes=4
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=77 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-MTUVHw
+EXIT=0
+COMMAND=/tmp/gs-workspace48-san/probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 8
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+COMPACT_POWER_CUT operation=raw_write offset=208932 bytes=4
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=77 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6801 deleted_entries=112 certified_pages=7 required_pages=15 minimum_live_pages=54 ideal_packed_shortfall_pages=6 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-WFnoDu
+EXIT=0
+COMMAND=/tmp/gs-workspace48-san/probe.elf workspace48 /tmp/gs-workspace48-fixture.txt 999999
+WORKSPACE48_CERT phase=loaded occupied_pages=56 raw_erased_pages=8 live_entries=6913 deleted_entries=0 certified_pages=7 required_pages=15 minimum_live_pages=55 ideal_packed_shortfall_pages=7 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=loaded control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+NVS_RUNTIME phase=workspace48_loaded iteration=89 allocated_pages=56 free_erased_pages=8 live_entries=6913 erased_entries=0 stats_used=6913 stats_free=1151 write_bytes=226332 erase_ops=0 min_sector_erases=0 max_sector_erases=0
+WORKSPACE48_RECLAIM_IO cut=999999 units=29 calls=29
+WORKSPACE48_CERT phase=interrupted_reclaim_recovered occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=interrupted_reclaim_recovered control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_RECLAIM_RECOVERY child_exit=0 pinned_blobs=85 preserved=1
+WORKSPACE48_CERT phase=restart occupied_pages=56 raw_erased_pages=8 live_entries=6569 deleted_entries=344 certified_pages=7 required_pages=15 minimum_live_pages=53 ideal_packed_shortfall_pages=5 attempts=3 reject_writes=0 ack_eligible=0
+WORKSPACE48_MAXIMUM phase=restart control_reserve_bytes=49152 complete_plan_pages=25 available_certified_pages=7
+WORKSPACE48_COUNTEREXAMPLE_PASS history_preserved=1 cloud_receipts=0 workspace_restoration=FAILED repeated_admission=REJECTED authenticated_history_mapping=NOT_IMPLEMENTED
+EMULATOR_IMAGE=/tmp/idf-partition-xIebq2
+EXIT=0
+FOCUSED_WORKSPACE_TESTS_PASS=5; QUALIFICATION_RESULT=FAIL_CAPACITY for frozen retained map + current certificate; not end-to-end qualification
+
+Source/provenance:
+SDK_COMMIT=76f5dedd9950a3012fee8fb7d5586df21fc67802
+TEST_HEADER_SHA256=70079cbafbed1ae7a4aad280b2c2824c89d1889d4291a84ddb9f03e58cf3feff
+All final SDK cases use the final executable hash. Earlier development logs remain preserved under/tmp, not used for the qualification.
+Installed SDK nvs_purge_all -> purgeNamespace -> purgeEntryRange programs zeros, not erased pages.
+TEST_RAM_BOUND=fixed89 unsigned sizes;3/4 planned blob sizes; existing4KiB certificate buffer; single<=6144-byte readback buffer; SDK caches not measured on hardware.
+ADDITIONAL_PRODUCTION_FLASH_RAM=0; no production path includes the host test header.
+CAPACITY_LOWER_BOUND=53 live pages +15 certificate pages +1 lazy page =69 pages=282624; deficit20480 relative262144.
+CURRENT_CERTIFICATE_SHORTFALL=15-7=8 pages=32768; removal/purge/remount leave certified7 pages.
+PROGRESS=NO;3 bounded refusals per phase; zero rejected writes/no ACK eligibility; all85 pinned blobs preserve/recover.
+KNOWN_LIMITATIONS=opaque frozen size objects; authenticated48h history bridge and sustainable replenishment absent; no physical Hub/OTA/heap/stack/endurance qualification.
+72H_REQUIREMENT=LOCKED; OS_SETTING=UNPROMOTED; PARTITION_CHANGED=NO
+
+New workspace test runner used (no general framework or production interface):
+from pathlib import Path
+import argparse,hashlib,os,re,subprocess,tempfile
+p=argparse.ArgumentParser();p.add_argument('--binary',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+with a.output.open('w') as log:
+ def emit(s):print(s,file=log,flush=True)
+ emit('SDK_BINARY_SHA256='+hashlib.sha256(a.binary.read_bytes()).hexdigest())
+ emit('FIXTURE_SHA256='+hashlib.sha256(Path('/tmp/gs-workspace48-fixture.txt').read_bytes()).hexdigest())
+ for cut in (None,0,1,8,999999):
+  with tempfile.TemporaryDirectory(prefix='gs-workspace48-cov-') as scratch:
+   env=os.environ.copy();env.update(GS_PEAK='1',GCOV_PREFIX=scratch)
+   env['LD_LIBRARY_PATH']='/tmp/gs-ruby/usr/lib/x86_64-linux-gnu:/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu'
+   if 'san' in str(a.binary):env.update(ASAN_OPTIONS='detect_leaks=0:halt_on_error=1',UBSAN_OPTIONS='halt_on_error=1')
+   cmd=[str(a.binary.resolve()),'workspace48','/tmp/gs-workspace48-fixture.txt']+([] if cut is None else [str(cut)])
+   emit('COMMAND='+' '.join(cmd));r=subprocess.run(cmd,env=env,text=True,capture_output=True,timeout=60)
+   emit(r.stdout.rstrip());emit(r.stderr.rstrip());emit('EXIT='+str(r.returncode))
+   assert r.returncode==0 and 'WORKSPACE48_COUNTEREXAMPLE_PASS' in r.stdout
+   if cut in (0,1,8):assert 'child_exit=77' in r.stdout and 'COMPACT_POWER_CUT' in r.stdout
+   if cut==999999:assert 'child_exit=0' in r.stdout
+   for name in re.findall(r'^EMULATOR_IMAGE=(/tmp/idf-partition-[A-Za-z0-9]+)$',r.stderr,re.M):Path(name).unlink(missing_ok=True)
+ emit('FOCUSED_WORKSPACE_TESTS_PASS=5; QUALIFICATION_RESULT=FAIL_CAPACITY for frozen retained map + current certificate; not end-to-end qualification')
+print('LOG='+str(a.output))

@@ -168,6 +168,7 @@ void metric(const char* phase, unsigned iteration, const esp_partition_t* part) 
 
 #include "offline_probe.hpp"
 #include "compact_probe.hpp"
+#include "workspace_48h_probe.hpp"
 
 int main(int argc, char** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);
@@ -179,6 +180,7 @@ int main(int argc, char** argv) {
         }
     }
     if(argc>1 && std::strcmp(argv[1],"compact")==0)return compact_probe(argc,argv);
+    if(argc>1 && std::strcmp(argv[1],"workspace48")==0)return workspace_48h_probe(argc,argv);
     if(argc>1 && std::strcmp(argv[1],"offline")==0)return offline_probe(argc,argv);
     const unsigned segment_count = argc > 1 ? static_cast<unsigned>(std::strtoul(argv[1], nullptr, 10)) : 7;
     const unsigned cycle_count = argc > 2 ? static_cast<unsigned>(std::strtoul(argv[2], nullptr, 10)) : 100;

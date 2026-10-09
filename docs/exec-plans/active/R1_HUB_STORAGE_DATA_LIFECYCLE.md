@@ -1843,3 +1843,19 @@ explicit workload/critical/saturation and flash/growth approval. No raw-flash er
 Node redesign, new timestamp compression, purchase, production integration or push.
 Target RAM, integrated/signed image, real flash endurance and storage-compatible
 failed-update rollback remain qualification gates. GS-D025–029/context.002 unchanged.
+
+## 36. Bounded 256 KiB / NORMAL48h workspace qualification — 2026-10-09
+
+[Focused SDK counterexample](../evidence/R1_256K_48H_WORKSPACE_QUALIFICATION_20261009.md):
+**FAIL_CAPACITY for the frozen retained map plus existing certificate**, not a
+universal lower bound for future formats. Removing four unselected temporary
+metadata objects preserves85 pinned objects but leaves6569 live entries and
+only7 certified pages against at least15 needed for an ordinary publication.
+Even ideal packing requires69 pages/282624 B,20480 B above256 KiB. Public SDK
+purge zeros deleted data, restores no erased pages, and is not a lifecycle fix.
+Five negative workspace/interruption cases, five authenticated subset checks,
+host Gate A/B/compact and scoped ASan/UBSan pass preservation/refusal; no repeated
+post-load admission succeeds. Authenticated48h history transfer and sustained
+reclamation remain unimplemented. Stop; resolve additional journal/OTA envelope
+before integration rather than weaken the guard. No production/partition/Node/
+BAT-C8/governance/context change, hardware test, HIGH/72h comparison or push.
