@@ -6,5 +6,5 @@ phy_init,    data, phy,     0x11000,  0x1000,
 ota_0,       app,  ota_0,   0x20000,  0x400000,
 ota_1,       app,  ota_1,   0x420000, 0x400000,
 gs_outbox,   data, littlefs,0x820000, 0x400000,
-gs_state,    data, nvs,     0xC20000, 0x20000,
-# 0xC40000-0x1000000 remains unallocated for product assets/system reserves.
+gs_state,    data, nvs,     0xC20000, 0x40000,
+# 0xC60000-0x1000000 remains unallocated for product assets/system reserves.

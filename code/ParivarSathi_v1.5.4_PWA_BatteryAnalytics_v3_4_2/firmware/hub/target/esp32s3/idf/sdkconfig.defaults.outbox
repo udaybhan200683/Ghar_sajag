@@ -1,0 +1,4 @@
+# Isolated development profile. Select explicitly with build-outbox.sh; do not
+# apply this partition table to the connected board without a preservation plan.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.s3-outbox-candidate.csv"
