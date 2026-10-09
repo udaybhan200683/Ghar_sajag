@@ -1946,3 +1946,32 @@ Next: select/qualify the partition map with preserved-board-data migration,
 then add a separately durable backend completion/identity ledger and prove
 repeated safe reclamation before workload qualification. Product requirements
 and context version remain unchanged.
+
+## 40. S3 durable completion and candidate partition profile — 2026-10-09
+
+The focused [completion and partition evidence](../evidence/R1_S3_OUTBOX_COMPLETION_PARTITION_20261009.md)
+records an encrypted, separately published backend-completion stream behind
+the existing authenticated `CloudSync::handle_backend_reply` exact-COMMITTED
+receipt check. Completion survives host restart and is idempotent; event bodies
+remain retained and are still the exact dedupe evidence and reducer replay
+source. The completion stream has a bounded 512 KiB logical budget and rejects
+additional completion writes at exhaustion.
+
+The isolated ESP-IDF 6.0.3 `build-outbox.sh` profile selects `gs_outbox` (4 MiB
+LittleFS), `gs_state` (256 KiB NVS), two 4 MiB OTA slots, and retains 3.625 MiB
+unallocated in the 16 MiB map. Full candidate-profile build passes at
+1,824,896-byte `.bin`; no board flash, format or partition operation occurred.
+
+Host coverage admits/replays 6,556 exact events, crosses 129/385/3278, and
+publishes 3,278 host-controlled authenticated completion receipts with torn
+append/marker and reboot cases. This is not proof of physical LittleFS power-cut
+behavior, a production backend transport, or the locked 72-hour workload.
+Completed event bodies cannot yet be deleted safely: `HubRuntime` reconstructs
+routine/coverage state by replaying them, and no persistent reducer checkpoint
+or independent post-retirement identity ledger is connected. The backend
+completion contract defines no identity-expiration floor, so identities are
+retained conservatively. Segment reclamation, repeatable space reuse and full
+offline/online cycles remain OPEN. Next: add and recover a complete materialized
+reducer/coverage checkpoint, then define and test safe identity retirement
+before body/segment reclamation. Product policy, CONTEXT_VERSION, C3 and board
+data are unchanged.

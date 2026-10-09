@@ -1,7 +1,9 @@
 # Isolated R1 ESP32-S3 N16R8 target
 
-Authority: GS-D030. ESP-IDF v6.0.3; two 4 MiB OTA slots and a 2 MiB journal
-are a **development layout**, not an approved commercial partition/capacity.
+Authority: GS-D030. ESP-IDF v6.0.3. The default target profile still uses the
+historical 2 MiB `gs_journal` map. `build-outbox.sh` selects the separate
+4 MiB `gs_outbox` plus 256 KiB `gs_state` candidate map and two 4 MiB OTA slots.
+Both are development layouts, not approved commercial capacity guarantees.
 The original classic target and C3 firmware are unchanged. Product composition
 reuses the entire classic target's `main` component and shared application;
 a configuration-only S3 component enables native ESP-IDF PSRAM startup.
@@ -37,6 +39,13 @@ idf.py -C firmware/hub/target/esp32s3/idf -B /tmp/gs-s3-diagnostic-build \
   -D 'SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.diagnostic.defaults' \
   -D GS_S3_DIAGNOSTIC_ONLY=ON build size
 ```
+
+From this directory, `./build-outbox.sh` builds the full Hub against the
+explicit `gs_outbox` / `gs_state` candidate profile in an isolated build tree
+under `/home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build`. It does
+not flash or format a device. The selected profile is source-controlled in
+`sdkconfig.defaults.outbox`; the generated sdkconfig and build files stay
+outside the repository.
 
 The diagnostic verifies PSRAM startup/scratch, heap, Wi-Fi STA and ESP-NOW init
 with no association, peers, application transmissions, ownership enrollment or

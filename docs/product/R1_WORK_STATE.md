@@ -450,3 +450,21 @@ sustained reclamation, NORMAL/HIGH 72-hour capacity, actual LittleFS power-cut,
 PSRAM/internal-heap/stack qualification and physical validation remain open.
 This source integration does not close the locked72-hour design target or alter
 product requirements.
+
+### S3 outbox completion and candidate partition profile — 2026-10-09
+
+[Focused evidence](../exec-plans/evidence/R1_S3_OUTBOX_COMPLETION_PARTITION_20261009.md)
+records durable authenticated backend-completion publication in the S3 outbox
+and an isolated, build-selectable ESP-IDF 6.0.3 partition profile. Host tests
+admit/recover 6,556 records and persist 3,278 authenticated host-controlled
+COMMITTED receipts. The candidate map builds with two 4 MiB OTA slots, 4 MiB
+`gs_outbox`, 256 KiB `gs_state`, and 3.625 MiB unallocated. No board flash or
+format operation was performed.
+
+This does not close storage: completed bodies are not retired, exact EventKey
+identity still resides with retained bodies, and Hub routine/coverage state is
+reconstructed by replay without a persistent materialized checkpoint. The
+completion stream is bounded and has no compaction. Physical LittleFS recovery,
+production backend transport, sustained reclamation, 72-hour NORMAL/HIGH
+capacity and S3 runtime resource qualification remain open. No product decision,
+context version, C3 data or physical S3 data changed.
