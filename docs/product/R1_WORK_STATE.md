@@ -525,3 +525,17 @@ build passes at 1,843,728 bytes. Phase 2 remains open; identity-safe compaction,
 partial completion/segment reclamation, production cloud transport and physical
 qualification remain. No product policy, partition, C3, flash or context version
 changed.
+
+### S3 incremental completion reclamation — 2026-10-09
+
+[Focused evidence](../exec-plans/evidence/R1_S3_INCREMENTAL_COMPLETION_RECLAMATION_20261009.md)
+records exact completion snapshots in the existing authenticated lifecycle root,
+proof/checkpoint-gated receipt-log reuse with pending bodies retained, and
+fail-closed generation-bound completion heads. Host tests pass 6,556 cumulative
+completions, actual receipt-stream recovery from 524,262 bytes to zero (883-byte
+replacement root), six publication/reclamation cuts and ASan/UBSan. The isolated
+ESP-IDF 6.0.3 S3 build passes at 1,849,056 bytes. Event bodies and identities remain
+retained in production; deletion stays disabled. Identity compaction, mixed-
+segment body compaction, production cloud transport, retention policy and physical
+qualification remain open. Phase 2 remains IN_PROGRESS; no Phase 3, C3/BAT-C8,
+hardware or product-policy change. Context remains `2026-10-09.001`.

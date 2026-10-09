@@ -152,6 +152,9 @@ public:
     IdentityLookup contains(const std::string& canonical_event_key, bool& found);
     bool mark_backend_completed(const std::string& canonical_event_key);
     bool backend_completed(const std::string& canonical_event_key, bool& completed);
+    // Replaces receipts with an authenticated exact completion bitmap bound to
+    // retained event bodies. Does not authorize body or identity deletion.
+    ReclaimResult reclaim_completion_metadata(const RetirementAuthorization& authorization);
     ReclaimResult reclaim_completed_history(const RetirementAuthorization& authorization);
     std::uint64_t retired_through() const { return retired_through_; }
     std::size_t backend_completed_count() const { return completed_count_; }
@@ -161,6 +164,11 @@ public:
     std::uint64_t committed_frame_bytes() const { return committed_frame_bytes_; }
     std::uint64_t capacity_budget_used_bytes() const { return capacity_budget_used_bytes_; }
     std::uint64_t completion_bytes() const { return completion_bytes_; }
+    bool completion_reclamation_needed() const {
+        const auto maximum_receipt = static_cast<std::uint32_t>(limits_.maximum_key_bytes) + 62U;
+        return completion_bytes_ != 0 && (maximum_receipt > limits_.filesystem_workspace_bytes ||
+            completion_bytes_ > limits_.filesystem_workspace_bytes - maximum_receipt);
+    }
     std::uint64_t log_capacity_bytes() const { return log_capacity_bytes_; }
     // Allocated reconstructible index bytes (PSRAM on ESP32-S3; host heap in tests).
     std::size_t index_memory_bytes() const;
@@ -205,6 +213,14 @@ private:
                                std::uint64_t& publication_ordinal,
                                std::uint8_t publication_digest[32], bool& reset_pending);
     bool complete_pending_reclaim();
+    bool complete_pending_completion_reclaim();
+    bool snapshot_completed(std::uint64_t ordinal) const;
+    bool fold_snapshot_binding(security::Key32& binding, std::uint64_t ordinal,
+                               const std::string& key, const security::Bytes& payload);
+    security::Bytes completion_snapshot_;
+    std::uint64_t completion_snapshot_boundary_{0};
+    security::Key32 completion_snapshot_binding_{};
+    bool completion_reset_pending_{false};
     bool publish_completion_through(std::uint64_t ordinal,
                                     const std::uint8_t frame_digest[32]);
     bool encode_record(std::uint64_t ordinal, const std::string& key,

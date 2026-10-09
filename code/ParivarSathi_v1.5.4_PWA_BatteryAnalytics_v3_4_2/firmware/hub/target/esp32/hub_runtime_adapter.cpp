@@ -968,7 +968,7 @@ void secure_owner_task(void*) {
             }
             if (!durable_report_ready) continue;
 #if CONFIG_IDF_TARGET_ESP32S3
-            if (limits.body_retirement_enabled) {
+            if (limits.body_retirement_enabled || durable_outbox.completion_reclamation_needed()) {
                 // NVS publishes the authenticated Node snapshot first. The
                 // LittleFS lifecycle root can only follow that selected,
                 // recoverable report, so a crash between partitions is safe:
@@ -1001,6 +1001,14 @@ void secure_owner_task(void*) {
                     &security_link, &selected_snapshot};
                 authorization.node_retired = outbox_event_retired_by_node_report;
                 authorization.context = &retirement_context;
+                // Reuse the selected Node proof and reducer checkpoint only when
+                // the receipt stream cannot fit its maximum next receipt. Bodies
+                // and exact identity evidence remain retained in production.
+                if (durable_outbox.completion_reclamation_needed()) {
+                    const auto metadata_reclaim = durable_outbox.reclaim_completion_metadata(authorization);
+                    if (metadata_reclaim == storage::ReclaimResult::Reclaimed)
+                        ESP_LOGI(kTag, "Reclaimed completion metadata with exact replay snapshot");
+                }
                 const auto reclaim = durable_outbox.reclaim_completed_history(authorization);
                 if (reclaim == storage::ReclaimResult::Reclaimed)
                     ESP_LOGI(kTag, "Retired synchronized outbox generation=%llu through=%llu",

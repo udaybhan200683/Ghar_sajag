@@ -77,11 +77,15 @@ public:
         marker = lifecycle_root_; found = lifecycle_root_found_; return true;
     }
     bool publish_lifecycle_root(const Bytes& marker) override {
+        ++lifecycle_publish_count;
+        const bool scripted_failure = fail_lifecycle_at == lifecycle_publish_count;
+        if (scripted_failure && !fail_lifecycle_at_after_write) return false;
         if (fail_lifecycle_publication_once) {
             fail_lifecycle_publication_once = false;
             return false;
         }
         lifecycle_root_ = marker; lifecycle_root_found_ = true;
+        if (scripted_failure) return false;
         if (fail_lifecycle_publication_after_write_once) {
             fail_lifecycle_publication_after_write_once = false;
             return false;
@@ -106,6 +110,11 @@ public:
         return true;
     }
     bool append_completion(const std::uint8_t* data, std::size_t length) override {
+        if (length >= 32) {
+            std::array<std::uint8_t, 12> nonce{};
+            std::copy_n(data + 20, nonce.size(), nonce.begin());
+            if (!all_completion_nonces.insert(nonce).second) reused_completion_nonce = true;
+        }
         if (partial_completion_append_bytes_ != static_cast<std::size_t>(-1)) {
             const auto partial = std::min(partial_completion_append_bytes_, length);
             completion_.insert(completion_.end(), data, data + partial);
@@ -142,7 +151,15 @@ public:
         completion_publication_found_ = true;
         return true;
     }
+    void forget_lifecycle_root() { lifecycle_root_.clear(); lifecycle_root_found_ = false; }
+    void forget_completion_head() { completion_publication_.clear(); completion_publication_found_ = false; }
+    void corrupt_completion_receipt() { completion_.at(32) ^= 1; }
     void fail_next_publication() { fail_publication_once = true; }
+    std::set<std::array<std::uint8_t, 12>> all_completion_nonces;
+    bool reused_completion_nonce{false};
+    unsigned lifecycle_publish_count{0};
+    unsigned fail_lifecycle_at{0};
+    bool fail_lifecycle_at_after_write{false};
     bool fail_remove_once{false};
     bool fail_lifecycle_publication_once{false};
     bool fail_lifecycle_publication_after_write_once{false};
