@@ -1,6 +1,6 @@
 # R1 Current Work State
 
-**Updated:** 2026-10-08
+**Updated:** 2026-10-09
 
 ## Authoritative work line
 - Worktree: `/home/udaybhan/projects/Ghar_sajag_r1`
@@ -68,7 +68,7 @@ Known requirements:
 - PWA reads already-current backend data;
 - cloud outage does not stop local safety/routine learning;
 - repetitive raw sensor detail can be coalesced;
-- design must first fit the existing 4 MB Hub;
+- new Hub work targets ESP32-S3 N16R8 under GS-D030; preserve prior 4 MiB evidence;
 - GS-D025 locks the 72-hour internet-only outage design target; exact retention, supported volume and guaranteed offline capacity remain open.
 
 ## Initial storage architecture checkpoint (historical proposal)
@@ -101,7 +101,7 @@ and backend completion host regressions pass. These are host results, not
 physical durability/GC/rollback qualification. See ExecPlan section 20 and its
 host evidence for exact byte budgets, benchmark scope and remaining STOP gates.
 
-Derive and close the storage/data-lifecycle design for the existing 4 MB Hub and six-Node worst case before implementation. Separate:
+Derive and close the storage/data-lifecycle design for the GS-D030 S3 Hub and six-Node worst case before production storage integration. Separate:
 
 1. active correctness journal and dedupe state;
 2. materialized routine/reducer state;
@@ -261,3 +261,20 @@ ordinary crash/corruption and dependency regressions. Protected reserve/progress
 supported event volumes, critical saturation and the 72-hour capacity guarantee
 remain OPEN. No new security hardware, ESP32-S3 or partition change; existing 4 MB
 Hub/ESP32-C3 baseline and BAT-C8 requirements/pending qualification remain unchanged.
+
+## Current Hub development direction — GS-D030
+
+Context2026-10-09.001 records the explicit S3 N16R8 selection. Canonical governance
+remains in this worktree; new Hub target work is in `/home/udaybhan/projects/Ghar_sajag_r1_s3`
+on `feature/r1-s3-hub-bringup`, based on storage checkpoint `389ffd3`. Preserve
+independent worktree content and historical evidence; no experimental storage
+code or evidence is promoted to canonical. The preserved storage worktree may
+remain at context2026-10-08.002 and therefore STALE until separately synchronized.
+
+The 4 MiB classic Hub is retired from active development, not deleted. Existing
+physical PASS results remain valid only for their original hardware/configuration.
+S3 target/PSRAM/ESP-NOW/FOTA/heap-stack/recovery qualification is pending.
+Initial bring-up must identify and preserve existing device firmware/data before
+writing flash. Commercial partitions, sustainable storage reclamation, supported
+72-hour volume, critical saturation and R1 end-to-end qualification remain open.
+Do not resume classic-ESP32 footprint/capacity optimization or change C3/BAT-C8.

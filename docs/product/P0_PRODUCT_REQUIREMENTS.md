@@ -117,7 +117,7 @@ now lock the specified product directions without qualifying their implementatio
 - **GS-D028, LOCKED boundary:** ordinary PIR may consolidate safely; door OPEN/CLOSE
   remains individually identifiable. Future bed occupancy START/END/duration may
   be tracked at Node, but bed sensing is excluded from R1. Occupancy does not imply
-  sleep or identity. Existing 4 MB Hub/ESP32-C3 scope remains; no S3 migration.
+  sleep or identity. Sensor scope remains; Hub hardware direction is now GS-D030.
 
 Final critical classification/reserve, NORMAL/HIGH/STRESS guaranteed volumes,
 quiet gap, progress frequency, backend summary protocol and NVS partition size
@@ -146,8 +146,18 @@ upgrade; the prior valid firmware must recover supported state correctly or fail
 closed. Do not erase accepted evidence or report stale state to manufacture recovery.
 Application rollback is distinct from deliberate stored-data rollback.
 
-No security hardware, ESP32-S3 upgrade or partition change is approved. Gate C
+GS-D029 approves no new security hardware or partitions; GS-D030 separately selects the S3 Hub. Gate C
 protected NVS capacity/progress and the 72-hour volume/capacity guarantee remain
 OPEN; BAT-C8 and existing hardware/qualification scope are unchanged. Product approval
 is not new implementation or physical qualification. Authority: [Decision Log](DECISION_LOG.md)
 and [storage contract](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md).
+
+## Approved Hub platform — GS-D030
+
+R1 Hub development targets ESP32-S3 N16R8 (16 MiB flash, 8 MiB PSRAM), with
+ESP32-C3 Nodes and existing product/event/battery contracts preserved. Retire
+classic 4 MiB Hub development without deleting code/tests/history. Two OTA slots,
+signed FOTA, automatic application rollback and versioned storage compatibility
+remain mandatory. Camera and future Edge AI are not added to R1. Actual board
+memory, pinout, runtime, storage and FOTA qualification remain pending; final
+commercial partitions and offline supported-volume/saturation policy remain open.

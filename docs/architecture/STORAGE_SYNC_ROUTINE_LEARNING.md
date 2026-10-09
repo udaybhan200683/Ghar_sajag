@@ -108,7 +108,7 @@ All persistent learning structures must have explicit fixed bounds.
 
 ## Hardware constraint
 
-R1 is constrained to the existing 4 MB Hub unless hardware migration is explicitly approved.
+GS-D030 explicitly selects ESP32-S3 N16R8 (16 MiB flash, 8 MiB PSRAM) for new Hub development. Preserve the classic 4 MiB target/evidence as historical sources; capacity and physical qualification must use the actual S3 configuration.
 
 Therefore derive capacity from:
 - actual partition table;
@@ -219,8 +219,8 @@ hardware or physical sensor qualification is implied.
 Still **OPEN**: final critical-event classification and reserve size; guaranteed
 NORMAL/HIGH/STRESS event-volume bounds; motion quiet gap; progress-update
 frequency; final summary encoding/backend protocol; final NVS partition size.
-The existing 4 MB ESP32 Hub remains the baseline pending technical qualification;
-ESP32-S3 migration and any R1 hardware scope change are not approved. Existing
+The Hub baseline is now the separately approved GS-D030 S3 N16R8 direction;
+final commercial partitions and storage capacity remain unqualified. Existing
 host models remain conditional evidence, not capacity or battery qualification.
 
 ## R1 storage-security scope and FOTA compatibility — GS-D029
@@ -249,7 +249,19 @@ silent erase/reset and stale successful recovery are prohibited. Application rol
 is distinct from stored-data rollback. No particular migration mechanism is approved.
 
 Gate C protected next-operation NVS capacity/progress and the 72-hour supported-volume/
-capacity guarantee remain OPEN. No new security hardware, ESP32-S3 upgrade, partition
-change or production integration is approved. Existing 4 MB Hub/ESP32-C3 and BAT-C8
-scope/qualification remain unchanged. Historical stronger nonrollback host-authority
+capacity guarantee remain OPEN. GS-D029 approves no new security hardware, partition
+change or production integration; GS-D030 separately selects the S3 Hub. ESP32-C3
+and BAT-C8 scope/qualification remain unchanged. Historical stronger nonrollback host-authority
 assumptions are evidence for their stated model, not additional R1 requirements.
+
+## S3 target development and qualification boundary — GS-D030
+
+Keep existing NVS candidates and invariants; more flash/PSRAM is not a substitute
+for sustainable reclamation, protected workspace, recovery, dedupe, retention and
+backend completion proofs. Six C3 Nodes and the 72-hour internet-only target remain.
+An isolated dual-OTA S3 development layout is permitted for bring-up, without
+locking commercial partition sizes. Preserve signed FOTA, automatic application
+rollback and storage schema compatibility. Actual S3 image, internal/PSRAM heap,
+stack, radio, boot and crash behavior require independent measurement; classic
+ESP32 size and physical results do not qualify S3. No new format, protocol,
+critical reserve, capacity guarantee or camera/AI feature is authorized here.
