@@ -468,3 +468,19 @@ completion stream is bounded and has no compaction. Physical LittleFS recovery,
 production backend transport, sustained reclamation, 72-hour NORMAL/HIGH
 capacity and S3 runtime resource qualification remain open. No product decision,
 context version, C3 data or physical S3 data changed.
+
+### S3 storage Phase 1 — 2026-10-09
+
+[Phase 1 evidence](../exec-plans/evidence/R1_S3_STORAGE_PHASE1_20261009.md) records encrypted reducer/coverage/configuration
+checkpoints and an independent exact-identity/payload/context ledger connected to
+the S3 authenticated event path. Host checkpoint-plus-tail equivalence, timer
+latches, gaps/retries, interruption/corruption handling and 2,048-event recovery
+pass; ASan/UBSan and the full S3 build pass. The image is 1,839,392 bytes. The
+legacy slot migration test remains a traced development-format ownership-domain
+FAIL; fresh-install owner tests pass. Existing body-only development installations
+fail closed without the new auxiliary evidence. Bodies are retained; no expiry
+policy is invented. Identity/reducer byte budgets are finite, physical heap/stack
+and LittleFS power-cut behavior remain pending, and cross-version upgrade/rollback
+compatibility is unqualified. Phase 2 reclamation and Phase 3 workload/physical
+qualification were not started. No policy, context version, C3 or physical flash
+change. Next: Phase 2 with protected checkpoint/identity dependencies.

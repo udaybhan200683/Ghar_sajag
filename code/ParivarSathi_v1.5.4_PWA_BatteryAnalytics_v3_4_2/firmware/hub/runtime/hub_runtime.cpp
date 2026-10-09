@@ -8,6 +8,7 @@
 // but the current code has no autonomous timer, calendar scheduler or prompt/grace coordinator.
 
 #include "hub_runtime.hpp"
+#include "hub_checkpoint_codec.hpp"
 #include "gs/logging.hpp"
 
 namespace gs::hub {
@@ -28,6 +29,7 @@ void HubRuntime::authorize_node(const std::string& node_id, std::uint64_t sessio
     last_authenticated_contact_ms_.erase(node_id);
     peers_.authorize(node_id, session_id);
     if (required_for_routine) coverage_.require_node(node_id);
+    if (journal_replayed_) (void)checkpoint_state();
 }
 
 void HubRuntime::revoke_node(const std::string& node_id) {
@@ -37,6 +39,7 @@ void HubRuntime::revoke_node(const std::string& node_id) {
     power_telemetry_.erase(node_id);
     node_health_.erase(node_id);
     last_authenticated_contact_ms_.erase(node_id);
+    if (journal_replayed_) (void)checkpoint_state();
 }
 
 bool HubRuntime::observe_authenticated_health(
@@ -89,9 +92,11 @@ bool HubRuntime::node_online(const std::string& node_id,
 void HubRuntime::start_window(const RoutineConfig& config, HomeMode mode) {
     GS_TRACE(gs::log::Category::Hub, "H00", "start_window.enter", "-");
     routine_.start_window(config, mode);
+    if (journal_replayed_) (void)checkpoint_state();
 }
 
 bool HubRuntime::durable_admission_open() const {
+    if (checkpoint_fault_ || (runtime_state_ && !runtime_state_->healthy())) return false;
     if (durability_owner_ == nullptr) return true;
     const auto epoch = durability_owner_->epoch();
     return durability_owner_->state() == durable::DurabilityOwnerState::Ready &&
@@ -149,17 +154,46 @@ bool HubRuntime::authenticated_radio_message_callback(
     return accepted;
 }
 
+bool HubRuntime::checkpoint_state() {
+    if (!runtime_state_) return true;
+    security::Bytes bytes;
+    if (checkpoint_fault_ || !HubCheckpointCodec::encode(*this, bytes) ||
+        !runtime_state_->save_checkpoint(bytes, applied_boundary_)) {
+        checkpoint_fault_ = true;
+        return false;
+    }
+    return true;
+}
+
 bool HubRuntime::restore_from_journal() {
-    if (journal_replayed_ || state_applied_ || ingest_.size() != 0 ||
-        !journal_.persistent()) return false;
-    struct ReplayContext { HubRuntime* runtime; } context{this};
+    if (journal_replayed_ || state_applied_ || ingest_.size() != 0 || !journal_.persistent()) return false;
+    if (runtime_state_) {
+        // Fresh ledger is allowed only for a genuinely empty outbox. Existing
+        // body-only installations require explicit migration, never auto-reset.
+        if (!runtime_state_->recover(journal_.size())) { checkpoint_fault_=true; return false; }
+        security::Bytes bytes; bool found=false; std::uint64_t boundary=0;
+        if (!runtime_state_->load_checkpoint(bytes,boundary,found)) { checkpoint_fault_=true; return false; }
+        if (found && !HubCheckpointCodec::restore(*this,bytes)) { checkpoint_fault_=true; return false; }
+        applied_boundary_=boundary;
+        if (!found && !checkpoint_state()) return false;
+    }
+    struct ReplayContext { HubRuntime* runtime; std::uint64_t ordinal{0}; } context{this};
     const auto replay_event = [](void* opaque, const DomainEvent& event) -> bool {
         auto& replay = *static_cast<ReplayContext*>(opaque);
-        (void)replay.runtime->apply_committed_event(event, std::nullopt);
-        return true;
+        auto& runtime = *replay.runtime;
+        ++replay.ordinal;
+        std::optional<std::uint16_t> minute;
+        if (runtime.runtime_state_ &&
+            !runtime.runtime_state_->identity_context(event.key,replay.ordinal,minute,&event)) return false;
+        if (replay.ordinal <= runtime.applied_boundary_) return true;
+        (void)runtime.apply_committed_event(event,minute);
+        runtime.applied_boundary_=replay.ordinal;
+        return true; // Recovery never routes historical notification effects.
     };
-    if (!journal_.for_each(replay_event, &context)) return false;
-    journal_replayed_ = true;
+    if (!journal_.for_each(replay_event,&context) || !checkpoint_state()) {
+        checkpoint_fault_=true; return false;
+    }
+    journal_replayed_=true;
     return true;
 }
 
@@ -195,6 +229,16 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     if (routine_.state().mode == HomeMode::Privacy && passive) {
         return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {}};
     }
+    const bool duplicate = journal_.contains(event->key);
+    if(runtime_state_ && duplicate) {
+        bool found=false;
+        if(!runtime_state_->contains_identity(event->key,found) || !found)
+            return ProcessResult{event->key,AckClass::Rejected,false,{}};
+    }
+    if (runtime_state_ && !duplicate &&
+        !runtime_state_->prepare_identity(*event,journal_.size()+1,local_minute)) {
+        return ProcessResult{event->key,AckClass::Rejected,false,{}};
+    }
     const auto committed = journal_.commit(*event);
     if (committed == CommitResult::Full || committed == CommitResult::StorageFault) {
         GS_ERROR(gs::log::Category::Storage, "H00", "event.rejected",
@@ -206,7 +250,13 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
         // Acknowledge the known identity without applying rules a second time.
         return ProcessResult{event->key, AckClass::Durable, false, {}};
     }
+    if(runtime_state_ && (!runtime_state_->confirm_event_publication(journal_.size()) ||
+        !runtime_state_->identity_context(event->key,journal_.size(),local_minute,&*event))) {
+        checkpoint_fault_=true; return ProcessResult{event->key,AckClass::Rejected,false,{}};
+    }
     auto signals = apply_committed_event(*event, local_minute);
+    applied_boundary_=journal_.size();
+    if (!checkpoint_state()) return ProcessResult{event->key,AckClass::Rejected,false,{}};
     return ProcessResult{event->key, AckClass::Durable, committed == CommitResult::Stored, signals};
 }
 
@@ -216,7 +266,28 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
 IncidentDecision HubRuntime::deadline(EpochSeconds now, bool clock_trusted) {
     GS_TRACE(gs::log::Category::Hub, "H00", "deadline.enter", "-");
     routine_.set_coverage(coverage_.current(now));
-    return routine_.deadline(now, clock_trusted);
+    auto decision=routine_.deadline(now,clock_trusted);
+    if (!checkpoint_state()) decision.create=false;
+    return decision;
+}
+
+void HubRuntime::configure_activity_rules(const ActivityRuleConfig& config) {
+    activity_config_=config; if(journal_replayed_) (void)checkpoint_state();
+}
+void HubRuntime::set_mode(HomeMode mode) {
+    routine_.set_mode(mode); if(journal_replayed_) (void)checkpoint_state();
+}
+void HubRuntime::start_activity_monitor(EpochSeconds at) {
+    RulesCore::start_activity_monitor(activity_state_,at);
+    if(journal_replayed_) (void)checkpoint_state();
+}
+std::vector<RuleSignalDecision> HubRuntime::activity_timers(EpochSeconds now,
+        std::uint16_t local_minute, bool clock_trusted) {
+    if(checkpoint_fault_) return {};
+    const RuleEvaluationContext context{routine_.state().mode,coverage_.current(now),clock_trusted};
+    auto signals=RulesCore::evaluate_activity_timers(activity_state_,activity_config_,now,local_minute,context);
+    if(!checkpoint_state()) return {};
+    return signals;
 }
 
 }  // namespace gs::hub

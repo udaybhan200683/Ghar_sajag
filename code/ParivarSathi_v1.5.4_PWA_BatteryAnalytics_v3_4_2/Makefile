@@ -45,6 +45,8 @@ CPP_SOURCES := \
 	firmware/hub/components/lifecycle/config_service.cpp \
 	firmware/hub/components/cloud/cloud_sync.cpp \
 	firmware/hub/runtime/hub_runtime.cpp \
+	firmware/hub/runtime/hub_checkpoint_codec.cpp \
+	firmware/hub/components/storage/runtime_state_store.cpp \
 	firmware/common/security/security.cpp
 
 # Reuse the large production translation units across host validation binaries.
@@ -162,7 +164,7 @@ registry-persistence-host-test: build
 	./build/registry_persistence_validation
 
 hub-journal-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp firmware/hub/runtime/hub_checkpoint_codec.cpp firmware/hub/components/storage/runtime_state_store.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
 	./build/hub_journal_persistence_validation
 
 hub-durable-storage-host-test: build
@@ -456,3 +458,8 @@ validation-coverage: build
 # Production completion coverage shares the real journal/provider migration fixture.
 .PHONY: hub-backend-completion-host-test
 hub-backend-completion-host-test: hub-journal-migration-host-test
+
+.PHONY: hub-runtime-checkpoint-host-test
+hub-runtime-checkpoint-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_runtime_checkpoint_validation
+	./build/hub_runtime_checkpoint_validation

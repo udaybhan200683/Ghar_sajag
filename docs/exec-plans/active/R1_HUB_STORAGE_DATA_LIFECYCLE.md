@@ -1975,3 +1975,19 @@ offline/online cycles remain OPEN. Next: add and recover a complete materialized
 reducer/coverage checkpoint, then define and test safe identity retirement
 before body/segment reclamation. Product policy, CONTEXT_VERSION, C3 and board
 data are unchanged.
+
+## 41. S3 Phase 1 durable application state and identity — 2026-10-09
+
+[Phase 1 evidence](../evidence/R1_S3_STORAGE_PHASE1_20261009.md) records encrypted reducer/coverage/configuration
+checkpoints and an independent exact-identity/payload/context ledger connected to
+the S3 authenticated event path. Host checkpoint-plus-tail equivalence, timer
+latches, gaps/retries, interruption/corruption handling and 2,048-event recovery
+pass; ASan/UBSan and the full S3 build pass. The image is 1,839,392 bytes. The
+legacy slot migration test remains a traced development-format ownership-domain
+FAIL; fresh-install owner tests pass. Existing body-only development installations
+fail closed without the new auxiliary evidence. Bodies are retained; no expiry
+policy is invented. Identity/reducer byte budgets are finite, physical heap/stack
+and LittleFS power-cut behavior remain pending, and cross-version upgrade/rollback
+compatibility is unqualified. Phase 2 reclamation and Phase 3 workload/physical
+qualification were not started. No policy, context version, C3 or physical flash
+change. Next: Phase 2 with protected checkpoint/identity dependencies.

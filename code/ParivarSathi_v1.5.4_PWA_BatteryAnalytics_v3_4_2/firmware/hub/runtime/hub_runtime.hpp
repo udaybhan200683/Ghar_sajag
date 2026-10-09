@@ -17,6 +17,7 @@
 #include "storage/journal.hpp"
 #include "storage/hub_durability_owner.hpp"
 #include "gs/rules.hpp"
+#include "storage/runtime_state_store.hpp"
 
 #include <cstddef>
 #include <map>
@@ -91,16 +92,11 @@ public:
     // Evaluate absence only with explicit clock and coverage state; full prompt/grace orchestration is
     // still G06.
     IncidentDecision deadline(EpochSeconds now, bool clock_trusted);
-    void configure_activity_rules(const ActivityRuleConfig& config) { activity_config_ = config; }
-    void set_mode(HomeMode mode) { routine_.set_mode(mode); }
-    // Called by the trusted scheduler when daytime observation becomes eligible. This is intentionally
-    // independent of the morning-routine window.
-    void start_activity_monitor(EpochSeconds at) { RulesCore::start_activity_monitor(activity_state_, at); }
+    void configure_activity_rules(const ActivityRuleConfig& config);
+    void set_mode(HomeMode mode);
+    void start_activity_monitor(EpochSeconds at);
     std::vector<RuleSignalDecision> activity_timers(EpochSeconds now, std::uint16_t local_minute,
-                                                   bool clock_trusted = true) {
-        const RuleEvaluationContext context{routine_.state().mode, coverage_.current(now), clock_trusted};
-        return RulesCore::evaluate_activity_timers(activity_state_, activity_config_, now, local_minute, context);
-    }
+                                                   bool clock_trusted = true);
     const ActivityRuleState& activity_state() const { return activity_state_; }
     std::optional<NodePowerTelemetry> latest_power_telemetry(const std::string& node_id) const {
         const auto it = power_telemetry_.find(node_id);
@@ -110,6 +106,10 @@ public:
     // Rebuild event-derived state once after attaching a persistent journal,
     // before processing any new event. It emits no rule signals.
     bool restore_from_journal();
+    // Bind before replay. Registry authentication remains a separate authority.
+    void bind_runtime_state(storage::RuntimeStateStore& store) { runtime_state_ = &store; }
+    bool checkpoint_state();
+
     std::size_t ingest_depth() const { return ingest_.size(); }
     std::size_t ingest_capacity() const { return ingest_.capacity(); }
     std::size_t ingest_high_water() const { return ingest_.high_water(); }
@@ -117,8 +117,12 @@ public:
     const RoutineState& routine_state() const { return routine_.state(); }
 
 private:
+    friend class HubCheckpointCodec;
     std::vector<RuleSignalDecision> apply_committed_event(
         const DomainEvent& event, std::optional<std::uint16_t> local_minute);
+    storage::RuntimeStateStore* runtime_state_{nullptr};
+    bool checkpoint_fault_{false};
+    std::uint64_t applied_boundary_{0};
     PeerRegistry peers_;
     IngestQueue ingest_;
     HubJournal journal_;
