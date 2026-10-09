@@ -1,0 +1,22 @@
+cmake_minimum_required(VERSION 3.16)
+option(GS_S3_DIAGNOSTIC_ONLY "Build a development-only memory/radio diagnostic" OFF)
+if(DEFINED IDF_TARGET AND NOT IDF_TARGET STREQUAL "esp32s3")
+    message(FATAL_ERROR "This isolated Hub target requires IDF_TARGET=esp32s3")
+endif()
+set(IDF_TARGET esp32s3 CACHE STRING "Selected Hub chip")
+if(GS_HIL_BUILD OR GS_HIL_CONTROL)
+    message(FATAL_ERROR "S3 board-specific HIL GPIO/control qualification is pending")
+endif()
+set(GS_HIL_BUILD OFF CACHE BOOL "Legacy insecure HIL composition" FORCE)
+set(GS_HIL_CONTROL OFF CACHE BOOL "Legacy HIL controls" FORCE)
+if(GS_S3_DIAGNOSTIC_ONLY)
+    set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/diagnostic")
+    set(COMPONENTS diagnostic)
+else()
+    # Reuse the complete existing product composition, including its C3 asset.
+    set(EXTRA_COMPONENT_DIRS
+        "${CMAKE_CURRENT_LIST_DIR}/../../esp32/idf/main"
+        "${CMAKE_CURRENT_LIST_DIR}/s3_board")
+endif()
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(gs_r1_s3_hub)

@@ -370,3 +370,21 @@ Initial bring-up must identify and preserve existing device firmware/data before
 writing flash. Commercial partitions, sustainable storage reclamation, supported
 72-hour volume, critical saturation and R1 end-to-end qualification remain open.
 Do not resume classic-ESP32 footprint/capacity optimization or change C3/BAT-C8.
+
+### S3 bring-up checkpoint — 2026-10-09
+
+[S3 evidence](../exec-plans/evidence/R1_S3_HUB_BRINGUP_20261009.md) records
+GS-D030 governance, direct reuse of the existing Hub composition and unchanged
+C3 asset, successful ESP-IDF6.0.3 S3 builds and a physical diagnostic PASS.
+Actual board: ESP32-S3rev0.2,16 MiB flash,8 MiB Octal PSRAM40 MHz; startup/scratch
+memory, Wi-Fi and ESP-NOW init and six10-second heartbeats pass. Full private
+flash backup verified before writing; original NVS/VFS digests still match.
+Final Hub composition1791792 B; development dual4 MiB OTA slots/2 MiB journal
+leave2402512 B current unsigned-image margin per slot. The product image was
+not flashed. Module/PCB GPIO mapping, provisioning/C3 application interchange,
+storage/reclaim/72-hour volume, signed FOTA/rollback and full runtime remain
+unqualified; diagnostic heap values do not qualify product peak memory.
+Existing host1479 checks, fresh-install, FOTA guard and retirement pass.
+Canonical receives governance only; storage worktree/history and C3/BAT-C8 remain
+unchanged. No commercial partition/retention decision or new R1 qualification.
+Next bring up one authenticated S3-Hub/C3 pair and prove durable ACK/retry/reboot.

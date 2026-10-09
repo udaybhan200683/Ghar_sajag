@@ -1,0 +1,2 @@
+# The diagnostic deliberately uses no persisted Wi-Fi configuration/calibration.
+# CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE is not set
