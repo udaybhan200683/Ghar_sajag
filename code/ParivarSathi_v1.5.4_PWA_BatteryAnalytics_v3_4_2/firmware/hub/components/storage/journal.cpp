@@ -10,6 +10,7 @@
 #include "gs/logging.hpp"
 
 #include <algorithm>
+#include <limits>
 
 namespace {
 using gs::security::Bytes;
@@ -185,6 +186,22 @@ bool open_slot(gs::security::CommissioningCrypto& crypto,
 }  // namespace
 
 namespace gs::hub {
+
+bool JournalEventBackend::for_each_with_ordinal(OrdinalEventVisitor visitor,
+                                                void* context) {
+    if (visitor == nullptr) return false;
+    struct OrderedVisitor {
+        OrdinalEventVisitor visitor;
+        void* context;
+        std::uint64_t ordinal{0};
+    } ordered{visitor, context};
+    const auto adapt = [](void* opaque, const DomainEvent& event) -> bool {
+        auto& state = *static_cast<OrderedVisitor*>(opaque);
+        if (state.ordinal == std::numeric_limits<std::uint64_t>::max()) return false;
+        return state.visitor(state.context, ++state.ordinal, event);
+    };
+    return for_each(adapt, &ordered);
+}
 
 HubJournal::HubJournal(std::size_t capacity) : capacity_(capacity) {
     GS_TRACE(gs::log::Category::Storage, "H02", "HubJournal.enter", "-");}
@@ -446,6 +463,19 @@ bool HubJournal::for_each(JournalEventBackend::EventVisitor visitor,
         return backend_->healthy() && backend_->for_each(visitor, context);
     for (const auto& event : records_)
         if (!visitor(context, event)) return false;
+    return !storage_fault_;
+}
+
+bool HubJournal::for_each_with_ordinal(
+        JournalEventBackend::OrdinalEventVisitor visitor, void* context) const {
+    if (visitor == nullptr) return false;
+    if (backend_ != nullptr)
+        return backend_->healthy() && backend_->for_each_with_ordinal(visitor, context);
+    std::uint64_t ordinal = 0;
+    for (const auto& event : records_) {
+        if (ordinal == std::numeric_limits<std::uint64_t>::max() ||
+            !visitor(context, ++ordinal, event)) return false;
+    }
     return !storage_fault_;
 }
 

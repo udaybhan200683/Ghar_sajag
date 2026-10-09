@@ -205,7 +205,8 @@ bool validate_visit(void* context, std::uint64_t ordinal, const std::string& key
 }
 
 std::uint64_t scalable_append_and_reboot(
-    gs::host::security::OpenSslCommissioningCrypto& crypto, const Key32& key) {
+    gs::host::security::OpenSslCommissioningCrypto& crypto, const Key32& key,
+    std::uint64_t& completed_count, std::uint64_t& completion_bytes) {
     MemorySegments flash(4U * 1024U * 1024U);
     OutboxLimits limits;
     DurableEventOutbox outbox(flash, crypto, key, limits);
@@ -253,6 +254,33 @@ std::uint64_t scalable_append_and_reboot(
     VisitState visited;
     require(rebooted.for_each(validate_visit, &visited) && visited.valid &&
             visited.count == checkpoints[4], "stream iteration preserves ordered exact payloads");
+
+    for (std::uint64_t sequence = 1; sequence <= checkpoints[4]; ++sequence) {
+        std::string completed_key;
+        Bytes payload;
+        require(make_event(sequence, completed_key, payload), "completion event fixture");
+        if (!rebooted.mark_backend_completed(completed_key)) break;
+        ++completed_count;
+    }
+    completion_bytes = rebooted.completion_bytes();
+    require(completed_count > 0 && completed_count < checkpoints[4] &&
+            completion_bytes <= limits.filesystem_workspace_bytes && rebooted.healthy(),
+            "completion stream rejects safely at its bounded workspace capacity");
+    std::string blocked_key;
+    Bytes blocked_payload;
+    require(make_event(completed_count + 1, blocked_key, blocked_payload),
+            "blocked completion fixture");
+    const auto before_reject_bytes = rebooted.completion_bytes();
+    require(!rebooted.mark_backend_completed(blocked_key) &&
+            rebooted.completion_bytes() == before_reject_bytes && rebooted.healthy(),
+            "repeated completion rejection performs no further append");
+    DurableEventOutbox completion_reboot(flash, crypto, key, limits);
+    require(completion_reboot.recover() == OutboxRecovery::Ready &&
+            completion_reboot.backend_completed_count() == completed_count,
+            "completion prefix survives reboot after capacity rejection");
+    bool completed = false;
+    require(completion_reboot.backend_completed(blocked_key, completed) && !completed,
+            "capacity-rejected completion remains pending after reboot");
     return rebooted.committed_frame_bytes();
 }
 
@@ -480,13 +508,17 @@ int main() {
     try {
         gs::host::security::OpenSslCommissioningCrypto crypto;
         const auto key = test_key();
-        const auto stress_frame_bytes = scalable_append_and_reboot(crypto, key);
+        std::uint64_t completion_records = 0;
+        std::uint64_t completion_bytes = 0;
+        const auto stress_frame_bytes = scalable_append_and_reboot(
+            crypto, key, completion_records, completion_bytes);
         capacity_reserve(crypto, key);
         interrupted_write_and_sync(crypto, key);
         publication_recovery(crypto, key);
         corruption_fails_closed(crypto, key);
         std::cout << "durable_event_outbox_validation=PASS records=6556 frame_bytes="
-                  << stress_frame_bytes << " scenarios=5\n";
+                  << stress_frame_bytes << " completion_records=" << completion_records
+                  << " completion_bytes=" << completion_bytes << " scenarios=6\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "durable_event_outbox_validation=FAIL reason=" << error.what() << '\n';

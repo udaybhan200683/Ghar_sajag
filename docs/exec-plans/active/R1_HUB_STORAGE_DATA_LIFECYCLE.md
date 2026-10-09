@@ -1991,3 +1991,26 @@ and LittleFS power-cut behavior remain pending, and cross-version upgrade/rollba
 compatibility is unqualified. Phase 2 reclamation and Phase 3 workload/physical
 qualification were not started. No policy, context version, C3 or physical flash
 change. Next: Phase 2 with protected checkpoint/identity dependencies.
+
+## 42. S3 Phase 2 implementation checkpoint — 2026-10-09
+
+[Evidence](../evidence/R1_S3_STORAGE_PHASE2_20261009.md) records an ordinal-aware
+streaming replay interface. Recovery can skip absent bodies only through the
+authenticated checkpoint boundary; any gap in the uncheckpointed tail fails
+closed. The state store treats the outbox publication high-water separately from
+the physical retained-body count. Host tests cover 3,278/6,556 identities,
+checkpoint-plus-sparse-tail equivalence, gap rejection, and authenticated
+completion retry/reboot behavior.
+
+Current measured logical identity size is 733,165 bytes at 6,556 fixture records;
+the reconstructible host outbox index allocates 372,992 bytes. The existing
+512 KiB completion stream safely rejects the 5,473rd completion at 524,205 bytes
+and has no compaction path. Identity reports are stored by the separate NVS owner
+and are not joined to the LittleFS ledger. The S3 target has no production
+CloudBackendTransport caller. Body retirement, identity expiry, completion-log
+compaction and segment reuse remain unimplemented; do not mark Phase 2 complete.
+The next implementation unit is a crash-consistent lifecycle publication root
+that binds retained segment ordinal ranges, completion compaction and the
+checkpoint/identity high-waters before any delete/reuse operation. Existing
+local post-sync retention policy remains open. No product decision, context
+version, physical flash or C3 data changed.

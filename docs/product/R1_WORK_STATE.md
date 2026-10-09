@@ -484,3 +484,27 @@ and LittleFS power-cut behavior remain pending, and cross-version upgrade/rollba
 compatibility is unqualified. Phase 2 reclamation and Phase 3 workload/physical
 qualification were not started. No policy, context version, C3 or physical flash
 change. Next: Phase 2 with protected checkpoint/identity dependencies.
+
+### S3 storage Phase 2 — bounded lifecycle progress, NOT CLOSED
+
+[Phase 2 evidence](../exec-plans/evidence/R1_S3_STORAGE_PHASE2_20261009.md)
+records ordinal-preserving checkpoint replay, host completion-path coverage, and
+measured identity/completion pressure. Identity remains on `gs_outbox` LittleFS:
+733,165 logical bytes at 6,556 fixture events, with a 372,992-byte reconstructed
+index allocation on the host (S3 mapping uses PSRAM). The 256 KiB `gs_state` NVS
+partition does not hold this ledger. The 512 KiB logical completion stream
+rejects the 5,473rd receipt after 5,472 published receipts / 524,205 bytes; the
+rejection is restart-safe but space is not reclaimed. S3 has no production
+CloudBackendTransport caller. Authenticated retirement snapshots are not joined
+to the LittleFS identity ledger, so identities and event bodies remain retained.
+No segment or completion compaction, sustained reuse, body-retention policy,
+72-hour capacity, physical flash behavior or runtime memory has been qualified.
+The known body-only/development migration remains fail-closed, and the legacy
+registry-domain migration test still fails before and after this slice. Focused
+outbox, runtime checkpoint, backend receipt, retirement snapshot and Node
+retirement protocol tests pass; the checkpoint test also passes ASan/UBSan. A
+clean isolated ESP-IDF 6.0.3 S3 build passes at 1,839,504 bytes with 2,354,800
+bytes of 4 MiB OTA-slot headroom. Runtime heap, PSRAM and physical power-failure
+behavior remain unqualified. No product policy, C3, physical flash or context
+version changed. Phase 2 remains open; do not begin Phase 3 until completion
+transport, identity retirement, crash-safe compaction and repeated refill pass.

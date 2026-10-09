@@ -16,6 +16,7 @@ public:
     CommitResult commit(const DomainEvent& event) override;
     bool contains(const EventKey& key) override;
     bool for_each(EventVisitor visitor, void* context) override;
+    bool for_each_with_ordinal(OrdinalEventVisitor visitor, void* context) override;
     bool cloud_completed(const EventKey& key) const override;
     std::size_t cloud_completed_count() const override;
     bool acknowledge_cloud(const EventKey& key) override;

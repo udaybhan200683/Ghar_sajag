@@ -378,3 +378,15 @@ changes or future firmware growth. GS-D013/014/015/017 remain OPEN; GS-D016/021/
 024 and other LOCKED decisions remain unchanged. Production readiness remains
 NO pending policy, authenticated persisted admission/root/physical guard, target
 RAM/OTA/wear and rollback. CONTEXT_VERSION remains2026-10-07.003.
+
+## S3 storage Phase 2 engineering checkpoint — 2026-10-09 (no new decision)
+
+The source/test checkpoint preserves immutable event ordinals through streaming
+recovery and rejects uncheckpointed replay gaps. Host evidence measures 733,165
+identity bytes at 6,556 records and safe completion-stream rejection at 5,472
+receipts / 524,205 logical bytes. These are not capacity guarantees. Production
+backend transport, authenticated retirement-to-identity compaction, body and
+completion reclamation, repeated capacity reuse, local post-sync retention policy,
+72-hour workload and physical S3 qualification remain open. Existing LOCKED
+decisions and `CONTEXT_VERSION=2026-10-09.001` are unchanged; see
+`R1_S3_STORAGE_PHASE2_20261009.md` for tests and concrete blockers.
