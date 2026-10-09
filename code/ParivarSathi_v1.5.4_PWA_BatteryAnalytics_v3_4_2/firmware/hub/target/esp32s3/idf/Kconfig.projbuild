@@ -10,4 +10,12 @@ config GS_OUTBOX_BODY_RETIREMENT_ENABLED
         backend completion and an authenticated Node retirement report are
         still required for any deletion.
 
+config GS_IDENTITY_COMPACTION_ENABLED
+    bool "Enable durable identity compaction and deletion"
+    default n
+    help
+        Keep disabled until replay-fence and identity-generation cutover are
+        power-cut qualified on physical S3 LittleFS and retention approval is
+        recorded. Host tests do not enable firmware deletion.
+
 endmenu

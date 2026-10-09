@@ -102,6 +102,10 @@ std::size_t OutboxJournalBackend::cloud_completed_count() const {
     return outbox_.healthy() ? outbox_.backend_completed_count() : 0;
 }
 
+std::uint64_t OutboxJournalBackend::backend_completion_retired_through() const {
+    return outbox_.healthy() ? outbox_.retired_through() : 0;
+}
+
 bool OutboxJournalBackend::acknowledge_cloud(const EventKey& key) {
     return outbox_.healthy() && outbox_.mark_backend_completed(key.str());
 }

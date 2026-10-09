@@ -4,6 +4,11 @@
 #undef main
 #include "firmware/hub/runtime/hub_checkpoint_codec.hpp"
 #include "storage/runtime_state_store.hpp"
+#include <fcntl.h>
+#include <filesystem>
+#include <memory>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace {
 class StateFiles final : public gs::hub::storage::RuntimeStateFiles {
@@ -11,7 +16,9 @@ public:
     std::map<std::string,Bytes> files;
     std::string fail_replace;
     bool partial_append=false;
+    bool corrupt_candidate_sync=false;
     std::string persist_then_fail;
+    std::string fail_remove;
     bool halted=false;
     std::size_t writes=0;
     bool state_size(const char* n,bool& found,std::uint32_t& size) override {
@@ -41,6 +48,122 @@ public:
         if(halted || (files.count(n) && files[n].size()<size))return false;
         files[n].resize(size);return true;
     }
+    bool state_capacity(std::uint64_t& total,std::uint64_t& used) override {
+        total=capacity_bytes;used=0;
+        for(const auto& file:files)used+=file.second.size();
+        return used<=total;
+    }
+    bool state_remove(const char* n) override {
+        if(halted || fail_remove==n){halted=true;return false;}
+        files.erase(n);return true;
+    }
+    bool state_sync(const char* n) override {
+        if(halted || !files.count(n))return false;
+        if(corrupt_candidate_sync && (std::string(n)=="identity.a" ||
+                                      std::string(n)=="identity.b")) {
+            if(files[n].size()>8)files[n][8]^=0x40;
+            corrupt_candidate_sync=false;
+        }
+        return true;
+    }
+    std::uint64_t capacity_bytes{4U*1024U*1024U};
+};
+
+class PosixStateFiles final : public gs::hub::storage::RuntimeStateFiles {
+public:
+    explicit PosixStateFiles(std::uint64_t capacity) : capacity_(capacity) {
+        char pattern[]="/tmp/gs_identity_compaction_XXXXXX";
+        const auto* created=::mkdtemp(pattern);
+        if(created==nullptr)throw std::runtime_error("mkdtemp identity adapter");
+        directory_=created;
+    }
+    ~PosixStateFiles() override { std::error_code error;std::filesystem::remove_all(directory_,error); }
+    bool state_size(const char* name,bool& found,std::uint32_t& size) override {
+        const auto path=path_for(name);if(path.empty())return false;
+        struct stat info{};
+        if(::stat(path.c_str(),&info)!=0){found=false;size=0;return errno==ENOENT;}
+        if(info.st_size<0 || static_cast<std::uint64_t>(info.st_size)>UINT32_MAX)return false;
+        found=true;size=static_cast<std::uint32_t>(info.st_size);return true;
+    }
+    bool state_read(const char* name,std::uint32_t offset,std::uint8_t* output,
+                    std::size_t requested) override {
+        const auto path=path_for(name);if(path.empty() || (requested && !output))return false;
+        FILE* file=std::fopen(path.c_str(),"rb");if(!file)return false;
+        const bool okay=std::fseek(file,static_cast<long>(offset),SEEK_SET)==0 &&
+            std::fread(output,1,requested,file)==requested && std::ferror(file)==0;
+        return std::fclose(file)==0 && okay;
+    }
+    bool state_append_sync(const char* name,const Bytes& data) override {
+        const auto path=path_for(name);if(path.empty() || !can_add(data.size()))return false;
+        FILE* file=std::fopen(path.c_str(),"ab");if(!file)return false;
+        const bool okay=(data.empty() || std::fwrite(data.data(),1,data.size(),file)==data.size()) &&
+            std::fflush(file)==0 && ::fsync(::fileno(file))==0;
+        const bool closed=std::fclose(file)==0;update_peak();return okay && closed;
+    }
+    bool state_replace(const char* name,const Bytes& data) override {
+        const auto path=path_for(name);if(path.empty() || !can_add(data.size()))return false;
+        const auto temporary=path+".new";
+        FILE* file=std::fopen(temporary.c_str(),"wb");if(!file)return false;
+        const bool okay=(data.empty() || std::fwrite(data.data(),1,data.size(),file)==data.size()) &&
+            std::fflush(file)==0 && ::fsync(::fileno(file))==0;
+        const bool closed=std::fclose(file)==0;
+        if(!okay || !closed || std::rename(temporary.c_str(),path.c_str())!=0)return false;
+        const auto directory_fd=::open(directory_.c_str(),O_RDONLY);
+        const bool synced=directory_fd>=0 && ::fsync(directory_fd)==0;
+        if(directory_fd>=0)::close(directory_fd);
+        update_peak();return synced;
+    }
+    bool state_truncate(const char* name,std::uint32_t size) override {
+        const auto path=path_for(name);if(path.empty())return false;
+        const auto fd=::open(path.c_str(),O_WRONLY);if(fd<0)return size==0 && errno==ENOENT;
+        const bool okay=::ftruncate(fd,static_cast<off_t>(size))==0 && ::fsync(fd)==0;
+        ::close(fd);return okay;
+    }
+    bool state_capacity(std::uint64_t& total,std::uint64_t& used) override {
+        total=capacity_;used=file_bytes();update_peak();return used<=total;
+    }
+    bool state_remove(const char* name) override {
+        const auto path=path_for(name);if(path.empty())return false;
+        if(std::remove(path.c_str())==0 || errno==ENOENT){update_peak();return true;}
+        return false;
+    }
+    bool state_sync(const char* name) override {
+        const auto path=path_for(name);if(path.empty())return false;
+        FILE* file=std::fopen(path.c_str(),"r+");if(!file)return false;
+        const bool okay=::fsync(::fileno(file))==0;return std::fclose(file)==0 && okay;
+    }
+    std::uint64_t logical_file_bytes() const { return file_bytes(); }
+    std::uint64_t allocated_file_bytes() const {
+        std::uint64_t bytes=0;
+        for(const auto& entry:std::filesystem::directory_iterator(directory_)) {
+            struct stat info{};
+            if(::stat(entry.path().c_str(),&info)==0 && info.st_blocks>0)
+                bytes+=static_cast<std::uint64_t>(info.st_blocks)*512U;
+        }
+        return bytes;
+    }
+    std::uint64_t peak_logical_file_bytes() const { return peak_used_; }
+private:
+    std::string path_for(const char* name) const {
+        const std::string leaf=name?name:"";
+        if(leaf!="identity.log" && leaf!="identity.head" && leaf!="application.head" &&
+           leaf!="identity.a" && leaf!="identity.b")return {};
+        return directory_+"/"+leaf;
+    }
+    std::uint64_t file_bytes() const {
+        std::uint64_t bytes=0;
+        for(const auto& entry:std::filesystem::directory_iterator(directory_)) {
+            std::error_code error;bytes+=std::filesystem::file_size(entry.path(),error);
+            if(error)return UINT64_MAX;
+        }
+        return bytes;
+    }
+    bool can_add(std::uint64_t bytes) const {
+        const auto used=file_bytes();return used<=capacity_ && bytes<=capacity_-used;
+    }
+    void update_peak() { peak_used_=std::max(peak_used_,file_bytes()); }
+    std::string directory_;
+    std::uint64_t capacity_{0},peak_used_{0};
 };
 using gs::hub::storage::RuntimeStateStore;
 
@@ -446,7 +569,9 @@ void identity_compaction_planning_test() {
     const auto key = storage_key();
     MemorySegments segments(4U * 1024U * 1024U);
     StateFiles files;
-    DurableEventOutbox outbox(segments, crypto, key);
+    OutboxLimits outbox_limits;
+    outbox_limits.body_retirement_enabled=true;
+    DurableEventOutbox outbox(segments, crypto, key, outbox_limits);
     require(outbox.recover() == OutboxRecovery::Empty,
             "identity plan fixture starts with empty outbox");
     RuntimeStateStore state(files, crypto, key);
@@ -537,11 +662,12 @@ void identity_compaction_planning_test() {
             "drained authenticated report advances the retirement fence");
     retained.records.clear();
     require(runtime.plan_identity_compaction(capture_retained_identity, &retained, plan) &&
-            plan.complete && plan.source_records == 2 && plan.retained_records == 1 &&
-            plan.fenced_records == 1 && retained.records.size() == 1 &&
+            plan.complete && plan.source_records == 2 && plan.retained_records == 2 &&
+            plan.fenced_records == 0 && retained.records.size() == 2 &&
             retained.records[0].original_ordinal == 1 &&
-            plan.candidate_record_bytes < plan.source_bytes,
-            "mixed plan retains legacy exact identity and excludes only fenced identity");
+            retained.records[1].original_ordinal == 2 &&
+            plan.candidate_record_bytes == plan.source_bytes,
+            "eligible identity remains exact while its event body is still retained");
     require(files.files.at("identity.log") == original_log &&
             files.files.at("identity.head") == original_head &&
             state.identity_bytes() == original_bytes,
@@ -551,7 +677,7 @@ void identity_compaction_planning_test() {
               << " candidate_record_bytes=" << successful_plan.candidate_record_bytes
               << " retained=" << successful_plan.retained_records
               << " fenced=" << successful_plan.fenced_records
-              << " extra_flash_reclaimed=0\n";
+              << " event_body_dependency=retained extra_flash_reclaimed=0\n";
     retained.records.clear();
     require(runtime.plan_identity_compaction(capture_retained_identity, &retained, plan) &&
             plan.candidate_digest == successful_plan.candidate_digest &&
@@ -622,6 +748,306 @@ void identity_compaction_planning_test() {
     require(!reboot_runtime.plan_identity_compaction(capture_retained_identity,
                 &retained, reboot_plan) && reboot_plan.blocked_records != 0,
             "corrupt authenticated identity row blocks planning");
+}
+
+void identity_generation_compaction_test() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key=storage_key();
+    const auto classify=[](void*,const IdentityCompactionRecord& record) {
+        return (record.original_ordinal==1 || record.original_ordinal==3)
+            ? IdentityCompactionDisposition::Fenced : IdentityCompactionDisposition::Retain;
+    };
+    const auto authority_ok=[](void*) { return true; };
+    gs::security::Key32 fence_digest{};fence_digest[0]=0x71;
+    IdentityOwnerEvidence owner;owner.enrollment_slot=0;owner.enrollment_generation=9;
+    owner.binding_digest[0]=0x44;
+
+    StateFiles files;
+    RuntimeStateStore state(files,crypto,key);
+    require(state.recover(0),"compaction source recovery");
+    for(std::uint64_t ordinal=1;ordinal<=3;++ordinal)
+        require(state.prepare_identity(event(ordinal),ordinal,
+            static_cast<std::uint16_t>(ordinal),&owner),"compaction identity append");
+    require(state.confirm_event_publication(3),"compaction source publication");
+    require(state.save_checkpoint(Bytes{1,2,3},3),"compaction checkpoint prerequisite");
+    std::uint64_t total=0,used_before=0,used_after=0;
+    require(files.state_capacity(total,used_before),"capacity before compaction");
+    const auto original_bytes=state.identity_bytes();
+    IdentityCompactionPlan plan;
+    require(state.compact_identity(classify,nullptr,Bytes{'R','F',1},7,4,0,fence_digest,
+                authority_ok,nullptr,4096,plan),"identity generation cutover");
+    require(plan.complete && plan.retained_records==1 && plan.fenced_records==2,
+            "mixed generation classification");
+    require(state.identity_bytes()<original_bytes,"compacted generation is smaller");
+    bool found=false;
+    require(state.contains_identity(event(1).key,found)&&!found,"fenced identity omitted");
+    require(state.contains_identity(event(2).key,found)&&found,"required identity retained");
+    require(state.contains_identity(event(3).key,found)&&!found,"second fenced identity omitted");
+    std::optional<std::uint16_t> minute;
+    require(state.identity_context(event(2).key,2,minute)&&minute==2,
+            "sparse original ordinal and timing retained");
+    require(files.state_capacity(total,used_after)&&used_after<used_before,
+            "host storage adapter reports released file capacity");
+    require(files.files.count("identity.log")==0 && files.files.count("identity.a")==1,
+            "new generation authoritative and old file removed");
+    RuntimeStateStore reboot(files,crypto,key);
+    require(reboot.recover(3),"compacted generation reboot");
+    require(reboot.compaction_authority_matches(7,4,0,fence_digest),
+            "reboot preserves fence authority binding");
+    auto conflicting_fence_digest=fence_digest;conflicting_fence_digest[0]^=0x80;
+    require(!reboot.compaction_authority_matches(7,3,0,fence_digest) &&
+            !reboot.compaction_authority_matches(8,4,0,fence_digest) &&
+            !reboot.compaction_authority_matches(7,4,0,conflicting_fence_digest),
+            "stale generation, different epoch, or conflicting NVS fence fails closed");
+    require(reboot.identity_context(event(2).key,2,minute)&&minute==2,
+            "reboot sparse ordinal lookup");
+    StateFiles corrupt_root_files=files;
+    corrupt_root_files.files.at("identity.head")[45]^=0x80;
+    RuntimeStateStore corrupt_root(corrupt_root_files,crypto,key);
+    require(!corrupt_root.recover(3),"corrupt compacted authority root fails closed");
+
+    const auto crash_case=[&](const std::string& point,bool root_published) {
+        StateFiles crash_files;
+        RuntimeStateStore writer(crash_files,crypto,key);
+        require(writer.recover(0),"crash source recover");
+        for(std::uint64_t ordinal=1;ordinal<=3;++ordinal)
+            require(writer.prepare_identity(event(ordinal),ordinal,{},&owner),"crash source append");
+        require(writer.confirm_event_publication(3),"crash source highwater");
+        require(writer.save_checkpoint(Bytes{4,5,6},3),"crash source checkpoint");
+        if(point=="during_candidate")crash_files.partial_append=true;
+        if(point=="candidate_corrupt")crash_files.corrupt_candidate_sync=true;
+        if(point=="before_root")crash_files.fail_replace="identity.head";
+        if(point=="after_root")crash_files.persist_then_fail="identity.head";
+        if(point=="during_cleanup")crash_files.fail_remove="identity.log";
+        IdentityCompactionPlan interrupted;
+        require(!writer.compact_identity(classify,nullptr,Bytes{'R','F',1},7,4,0,
+                    fence_digest,authority_ok,nullptr,4096,interrupted),
+                "crash cut returns interrupted operation");
+        crash_files.halted=false;crash_files.fail_replace.clear();
+        crash_files.persist_then_fail.clear();crash_files.fail_remove.clear();
+        RuntimeStateStore recovered(crash_files,crypto,key);
+        require(recovered.recover(3),"interrupted compaction recovers deterministically");
+        require(recovered.contains_identity(event(2).key,found)&&found,
+                "recovery preserves required exact identity");
+        require(recovered.contains_identity(event(1).key,found)&&
+                    found==!root_published,
+                "authority selection follows durable root publication");
+        if(root_published)
+            require(recovered.identity_bytes()<original_bytes,
+                    "published generation survives cleanup interruption");
+    };
+    crash_case("during_candidate",false);
+    crash_case("candidate_corrupt",false);
+    crash_case("before_root",false);
+    crash_case("after_root",true);
+    crash_case("during_cleanup",true);
+
+    StateFiles limited;
+    RuntimeStateStore limited_state(limited,crypto,key);
+    require(limited_state.recover(0),"limited source recover");
+    for(std::uint64_t ordinal=1;ordinal<=3;++ordinal)
+        require(limited_state.prepare_identity(event(ordinal),ordinal,{},&owner),
+                "limited source append");
+    require(limited_state.confirm_event_publication(3) &&
+            limited_state.save_checkpoint(Bytes{9},3),"limited source checkpoint");
+    std::uint64_t limited_total=0,limited_used=0;
+    require(limited.state_capacity(limited_total,limited_used),"limited capacity read");
+    limited.capacity_bytes=limited_used+1;
+    require(!limited_state.compact_identity(classify,nullptr,Bytes{'R','F',1},7,4,0,
+                fence_digest,authority_ok,nullptr,4096,plan),
+            "insufficient temporary capacity fails before staging");
+    require(limited.files.count("identity.log")==1,"capacity failure preserves source ledger");
+    std::cout << "identity_generation_original_bytes=" << original_bytes
+              << " compacted_bytes=" << state.identity_bytes()
+              << " host_used_before=" << used_before << " host_used_after=" << used_after
+              << " host_file_bytes_recovered=" << (used_before-used_after) << '\n';
+}
+
+void runtime_identity_compaction_and_replay_test() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key=storage_key();
+    MemorySegments segments(4U*1024U*1024U);
+    StateFiles files;
+    OutboxLimits limits;limits.body_retirement_enabled=true;
+    DurableEventOutbox outbox(segments,crypto,key,limits);
+    require(outbox.recover()==OutboxRecovery::Empty,"runtime compaction empty outbox");
+    RuntimeStateStore state(files,crypto,key);
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubRuntime runtime(32,backend);runtime.bind_runtime_state(state);
+    require(runtime.restore_from_journal(),"runtime compaction initial restore");
+    runtime.authorize_node("room1",42,true);
+    std::array<std::uint8_t,32> binding{};binding.fill(0x5a);
+    const auto message=make_message(1);
+    require(runtime.authenticated_radio_message_callback(message,"room1","device-room1",
+                42,0,1000,0,9,binding) &&
+            runtime.run_state_once(100)->ack==gs::AckClass::Durable,
+            "owner-authenticated event committed before retirement");
+
+    gs::hub::durable::RetirementSnapshot snapshot;
+    snapshot.storage_epoch=7;snapshot.generation=1;snapshot.occupancy_mask=1;
+    auto& node=snapshot.nodes[0];node.binding_digest=binding;
+    node.enrollment_generation=9;node.report_generation=1;node.report_hmac.fill(0x22);
+    node.current_origin_session=42;node.durable_admission_highwater=1;
+    gs::hub::durable::ReportSnapshotReference reference;
+    reference.bank=0;reference.generation=1;reference.digest.fill(0x45);
+    require(outbox.publish_replay_fence(7,reference,1) &&
+            runtime.bind_replay_fence(snapshot,7,reference,outbox),
+            "runtime compaction binds authenticated retirement snapshot");
+    complete_outbox_cycle(runtime,1,1);
+    NodeRetirementProof proof{1,true,42};
+    RetirementAuthorization authorization;
+    authorization.checkpoint_boundary=1;authorization.authenticated_report_generation=1;
+    authorization.authenticated_report_digest=reference.digest;
+    authorization.post_sync_retention_satisfied=true;
+    authorization.node_retired=node_report_covers_event;authorization.context=&proof;
+    require(outbox.reclaim_completed_history(authorization)==ReclaimResult::Reclaimed,
+            "host fixture retires completed event body before identity compaction");
+    RetainedIdentityCapture retained;IdentityCompactionPlan plan;
+    auto candidate_event=gs::domain_event_from_node_message(message,0);
+    candidate_event.key.physical_device_id="device-room1";
+    const auto eligibility=runtime.identity_retirement_eligibility(candidate_event,0,9,binding);
+    const bool planned=runtime.plan_identity_compaction(capture_retained_identity,&retained,plan);
+    if(!planned || plan.fenced_records!=1)
+        std::cerr << "DEBUG compaction eligible=" << static_cast<int>(eligibility)
+                  << " planned=" << planned << " retained=" << plan.retained_records
+                  << " fenced=" << plan.fenced_records << " body="
+                  << runtime.journal().contains(candidate_event.key) << " cloud="
+                  << runtime.journal().cloud_completed(candidate_event.key)
+                  << " owner_generation=" << state.identities() << '\n';
+    require(planned &&
+            plan.retained_records==0 && plan.fenced_records==1,
+            "retired body and authenticated proof make identity compaction eligible");
+    require(runtime.compact_identity_generation(4096,plan) &&
+            plan.retained_records==0 && plan.fenced_records==1 &&
+            state.identity_bytes()==0,"runtime publishes empty fenced identity generation");
+    require(!runtime.authenticated_radio_message_callback(message,"room1","device-room1",
+                42,0,2000,0,9,binding),
+            "stale exact EventKey rejected after source identity deletion");
+
+    DurableEventOutbox reboot_outbox(segments,crypto,key,limits);
+    const auto recovered_outbox=reboot_outbox.recover();
+    require(recovered_outbox==OutboxRecovery::Empty || recovered_outbox==OutboxRecovery::Ready,
+            "replay-fenced retired outbox recovers");
+    OutboxJournalBackend reboot_backend(reboot_outbox);
+    RuntimeStateStore reboot_state(files,crypto,key);
+    gs::hub::HubRuntime reboot(32,reboot_backend);reboot.bind_runtime_state(reboot_state);
+    require(reboot.bind_replay_fence(snapshot,7,reference,reboot_outbox) &&
+            reboot.restore_from_journal(),"compacted authority recovers after reboot");
+    require(!reboot.authenticated_radio_message_callback(message,"room1","device-room1",
+                42,0,3000,0,9,binding),
+            "reboot preserves stale EventKey replay suppression");
+}
+
+void identity_generation_filesystem_test() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key=storage_key();
+    PosixStateFiles files(2U*1024U*1024U);
+    RuntimeStateStore state(files,crypto,key);
+    require(state.recover(0),"filesystem adapter initial recovery");
+    IdentityOwnerEvidence owner;owner.enrollment_slot=0;owner.enrollment_generation=17;
+    owner.binding_digest[0]=0x91;
+    constexpr std::uint64_t workload=1200;
+    for(std::uint64_t ordinal=1;ordinal<=workload;++ordinal)
+        require(state.prepare_identity(event(ordinal),ordinal,
+            static_cast<std::uint16_t>(ordinal%1440),&owner),"filesystem identity workload append");
+    require(state.confirm_event_publication(workload) &&
+            state.save_checkpoint(Bytes{0x21,0x22},workload),
+            "filesystem workload publication and checkpoint");
+    const auto original_logical=state.identity_bytes();
+    const auto original_allocated=files.allocated_file_bytes();
+    const auto before_used=files.logical_file_bytes();
+    const auto classifier=[](void*,const IdentityCompactionRecord& record) {
+        return record.original_ordinal%2==0 ? IdentityCompactionDisposition::Fenced
+                                             : IdentityCompactionDisposition::Retain;
+    };
+    const auto authority_ok=[](void*) { return true; };
+    gs::security::Key32 fence_digest{};fence_digest[0]=0x62;
+    IdentityCompactionPlan first;
+    require(state.compact_identity(classifier,nullptr,Bytes{'R','F',1},7,5,1,fence_digest,
+                authority_ok,nullptr,32U*1024U,first),"filesystem compact first generation");
+    const auto compacted_logical=state.identity_bytes();
+    const auto compacted_allocated=files.allocated_file_bytes();
+    const auto compacted_used=files.logical_file_bytes();
+    require(first.retained_records==workload/2 && first.fenced_records==workload/2 &&
+            compacted_logical<original_logical && compacted_allocated<original_allocated &&
+            compacted_used<before_used,
+            "real host filesystem allocated capacity falls after source unlink");
+    RuntimeStateStore reboot(files,crypto,key);
+    require(reboot.recover(workload),"filesystem compacted generation recovery");
+    bool found=false;
+    require(reboot.contains_identity(event(2).key,found)&&!found &&
+            reboot.contains_identity(event(3).key,found)&&found,
+            "filesystem reboot preserves sparse exact-key membership");
+    require(reboot.prepare_identity(event(workload+1),workload+1,{},&owner) &&
+            reboot.confirm_event_publication(workload+1) &&
+            reboot.save_checkpoint(Bytes{0x23},workload+1),
+            "append and refill after compacted recovery");
+    IdentityCompactionPlan second;
+    require(reboot.compact_identity(classifier,nullptr,Bytes{'R','F',1},7,6,0,fence_digest,
+                authority_ok,nullptr,32U*1024U,second),"repeated filesystem compaction");
+    RuntimeStateStore final_reboot(files,crypto,key);
+    require(final_reboot.recover(workload+1) &&
+            final_reboot.contains_identity(event(workload+1).key,found)&&found,
+            "repeated compact/reboot/refill retains newest event");
+    std::cout << "filesystem_identity_original_logical=" << original_logical
+              << " compacted_logical=" << compacted_logical
+              << " allocated_before=" << original_allocated
+              << " allocated_after=" << compacted_allocated
+              << " allocated_recovered=" << (original_allocated-compacted_allocated)
+              << " temporary_peak_logical=" << files.peak_logical_file_bytes()
+              << " temporary_amplification=" << (files.peak_logical_file_bytes()-before_used)
+              << '\n';
+}
+
+void identity_generation_multiwindow_test() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key=storage_key();
+    StateFiles files;
+    auto state=std::make_unique<RuntimeStateStore>(files,crypto,key);
+    require(state->recover(0),"multiwindow identity initial recovery");
+    const auto fence_everything=[](void*,const IdentityCompactionRecord&) {
+        return IdentityCompactionDisposition::Fenced;
+    };
+    const auto authority_ok=[](void*) { return true; };
+    gs::security::Key32 digest{};digest[0]=0x39;
+    constexpr std::uint64_t per_window=6000;
+    constexpr std::uint64_t windows=2;
+    std::uint64_t cumulative=0,peak_logical=0;
+    for(std::uint64_t window=0;window<windows;++window) {
+        const auto first=cumulative+1;
+        const auto last=cumulative+per_window;
+        for(std::uint64_t ordinal=first;ordinal<=last;++ordinal)
+            require(state->prepare_identity(event(ordinal),ordinal,{},nullptr),
+                    "multiwindow identity refill");
+        cumulative=last;
+        require(state->confirm_event_publication(cumulative) &&
+                state->save_checkpoint(Bytes{0x31,0x32},cumulative),
+                "multiwindow identity lifecycle checkpoint");
+        peak_logical=std::max<std::uint64_t>(peak_logical,state->identity_bytes());
+        require(state->identity_bytes()<=RuntimeStateStore::maximum_identity_bytes,
+                "single lifecycle window stays within identity limit");
+        IdentityCompactionPlan plan;
+        require(state->compact_identity(fence_everything,nullptr,Bytes{'R','F',1},7,
+                    window+1,static_cast<std::uint8_t>(window%3),digest,
+                    authority_ok,nullptr,4096,plan) && plan.complete &&
+                plan.fenced_records==per_window && plan.retained_records==0 &&
+                state->identity_bytes()==0,
+                "replay-fenced generation fully compacts before next refill");
+        RuntimeStateStore reboot(files,crypto,key);
+        require(reboot.recover(cumulative) && reboot.identity_bytes()==0,
+                "empty compacted identity generation recovers between windows");
+        state=std::make_unique<RuntimeStateStore>(files,crypto,key);
+        require(state->recover(cumulative),"new store instance opens latest generation");
+    }
+    require(cumulative==12000 && cumulative>6556,
+            "cumulative identity admissions exceed prior 6,556-row limit");
+    std::cout << "identity_multiwindow_cumulative=" << cumulative
+              << " per_window_peak_logical=" << peak_logical
+              << " identity_generation_bytes_after=" << state->identity_bytes() << '\n';
 }
 
 void replay_fence_and_eligibility_tests() {
@@ -1278,6 +1704,14 @@ void incremental_completion_cut_tests() {
 }
 int main(int argc, char** argv) {
     try {
+        if (argc == 2 && std::string(argv[1]) == "--identity-generation") {
+            identity_generation_compaction_test();
+            runtime_identity_compaction_and_replay_test();
+            identity_generation_filesystem_test();
+            identity_generation_multiwindow_test();
+            std::cout << "PASS: durable identity generation compaction and replay protection\n";
+            return 0;
+        }
         if (argc == 2 && std::string(argv[1]) == "--incremental-completion") {
             backend_completion_lifecycle_tests();
             incremental_completion_reuse_test(); incremental_completion_cut_tests();
@@ -1288,6 +1722,9 @@ checkpoint_tests();interruption_tests();published_checkpoint_interruption();time
         backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
         segmented_lifecycle_reuse_tests();
         identity_compaction_planning_test();
+        identity_generation_compaction_test();
+        runtime_identity_compaction_and_replay_test();
+        identity_generation_filesystem_test();
         replay_fence_and_eligibility_tests();
         replay_fence_publication_cut_tests();
         lifecycle_publication_cut_tests();

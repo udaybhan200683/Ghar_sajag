@@ -46,6 +46,9 @@ public:
     // alone never authorizes event-body retirement.
     virtual bool cloud_completed(const EventKey&) const { return false; }
     virtual std::size_t cloud_completed_count() const { return 0; }
+    // Authenticated lifecycle prefix whose bodies were retired only after all
+    // exact backend receipts and Node/checkpoint proofs were verified.
+    virtual std::uint64_t backend_completion_retired_through() const { return 0; }
     virtual bool acknowledge_cloud(const EventKey&) { return false; }
 };
 
@@ -93,6 +96,7 @@ public:
     bool contains(const EventKey& key) const;
     bool cloud_completed(const EventKey& key) const;
     std::size_t cloud_completed_count() const;
+    std::uint64_t backend_completion_retired_through() const;
     std::size_t size() const;
     bool storage_fault() const;
     bool persistent() const;
