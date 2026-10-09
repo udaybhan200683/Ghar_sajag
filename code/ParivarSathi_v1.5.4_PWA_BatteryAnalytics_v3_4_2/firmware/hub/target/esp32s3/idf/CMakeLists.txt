@@ -16,7 +16,8 @@ else()
     # Reuse the complete existing product composition, including its C3 asset.
     set(EXTRA_COMPONENT_DIRS
         "${CMAKE_CURRENT_LIST_DIR}/../../esp32/idf/main"
-        "${CMAKE_CURRENT_LIST_DIR}/s3_board")
+        "${CMAKE_CURRENT_LIST_DIR}/s3_board"
+        "${CMAKE_CURRENT_LIST_DIR}/s3_storage")
 endif()
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(gs_r1_s3_hub)
