@@ -1,0 +1,149 @@
+R1 bounded128KiB NORMAL/HIGH12h/24h experiment;2026-10-09
+START_HEAD=394050ddfea8ff1d1286ab8c1fac8064f95e33de
+CONTEXT_PREFLIGHT=PASS; CONTEXT_VERSION=2026-10-08.002
+QUALIFICATION_RESULTS=FAIL_CAPACITY for all four unchanged maximum-size mixed fixtures
+No production/partition/compiler/BAT-C8/context/canonical changes; no cloud acknowledgments; no push.
+SDK EXIT=2 means observed ESP_ERR_NVS_NOT_ENOUGH_SPACE, not PASS. Runner EXIT=0 means all negative/prefix-preservation/refusal assertions passed.
+No chronological safe-admission failure time established; frozen object load order cannot infer it.
+Authenticated history/owner/credit/routine-root recovery and workload interruption unqualified.
+
+EXACT_MEASUREMENTS_AND_SDK_OUTPUT:
+{"cloud_acknowledgments": 0, "context": "2026-10-08.002", "model_sha256": "e87594df9e6fef160ef6bdda66ea146cd1de80181516427677f05ad2ee71120c", "offline_probe_sha256": "ac1355f3d27b3743cb5414f8c72a8e8e2af4e41fc7d992e33572f59d69d17c81", "probe_sha256": "abc1a2a8fac5193bf3f3a16858a719ce24a3dc6a995c9d6f59ec26788e1cb3d3", "sdk": "ESP-IDF6.0.3", "sdk_binary_sha256": "8ed21e0da38fc3aacb58ff4fc7f34faa0fc15c7ede1343fa180189a404135375", "start_head": "394050ddfea8ff1d1286ab8c1fac8064f95e33de"}
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 48, "exact": 102, "exact_motion_count": 16, "fixed_logical_bytes": 63857, "fixture_sha256": "d4989f6a03524c150ebe72c71f7fea9aef6fe6d76796299d7fa5f98f351d29fc", "history_segments": 5, "hot_entry_bytes": 6144, "hours": 12, "inputs": 196, "live_entry_bytes": 145600, "local_dates": 1, "local_outcomes": 4, "logical_all_object_bytes": 139918, "nvs_lower_bound": 155648, "ordinary_motion_eligible": 94, "partition_bytes": 131072, "payload_bytes": 12828, "pending_unsynchronized_observations": 196, "progress_entry_bytes": 10944, "protected_peak_bytes": 159744, "reserve_events": 32, "scenario": "NORMAL", "source_events": 192, "source_kind_counts": {"call_family": 6, "door_closed": 9, "door_open": 2, "i_am_ok": 10, "local_outcome": 4, "motion": 110, "source_summary": 55}, "source_summary_exact": 55, "summaries": 41, "summarized_sources": 94, "summary_max": 61, "summary_min": 43, "summary_plain_bytes": 2240}
+COMMAND=/tmp/gs-r1-128k-short/probe.elf offline /tmp/gs-r1-128k-short/NORMAL-12h.txt
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+SHORT_PREFIX_RECOVERY loaded_objects=34 byte_verified=1 restart=PASS certified_pages=0 required_pages=15 reject_writes=0 ack_eligible=0 attempts=3 authenticated_history=NOT_IMPLEMENTED
+NVS_RUNTIME phase=short_recovered iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-WpipZ6
+EXIT=2
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 152, "exact": 247, "exact_motion_count": 74, "fixed_logical_bytes": 63857, "fixture_sha256": "c405bbeedcb142fa4e223b03259d860824afc5a2bc68c73aa951fcd0bdb1ca23", "history_segments": 12, "hot_entry_bytes": 6144, "hours": 24, "inputs": 392, "live_entry_bytes": 174944, "local_dates": 2, "local_outcomes": 8, "logical_all_object_bytes": 168590, "nvs_lower_bound": 184320, "ordinary_motion_eligible": 145, "partition_bytes": 131072, "payload_bytes": 29086, "pending_unsynchronized_observations": 392, "progress_entry_bytes": 10944, "protected_peak_bytes": 188416, "reserve_events": 32, "scenario": "NORMAL", "source_events": 384, "source_kind_counts": {"call_family": 14, "door_closed": 16, "door_open": 10, "i_am_ok": 15, "local_outcome": 8, "motion": 219, "source_summary": 110}, "source_summary_exact": 110, "summaries": 65, "summarized_sources": 145, "summary_max": 61, "summary_min": 43, "summary_plain_bytes": 3515}
+COMMAND=/tmp/gs-r1-128k-short/probe.elf offline /tmp/gs-r1-128k-short/NORMAL-24h.txt
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+SHORT_PREFIX_RECOVERY loaded_objects=34 byte_verified=1 restart=PASS certified_pages=0 required_pages=15 reject_writes=0 ack_eligible=0 attempts=3 authenticated_history=NOT_IMPLEMENTED
+NVS_RUNTIME phase=short_recovered iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-hhsezB
+EXIT=2
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 195, "exact": 459, "exact_motion_count": 65, "fixed_logical_bytes": 63857, "fixture_sha256": "bb3a1dd75b321f71709a9b58c981e105cb7f645f75a6d9b4ce2942b5928af401", "history_segments": 21, "hot_entry_bytes": 6144, "hours": 12, "inputs": 892, "live_entry_bytes": 212672, "local_dates": 1, "local_outcomes": 4, "logical_all_object_bytes": 205454, "nvs_lower_bound": 221184, "ordinary_motion_eligible": 433, "partition_bytes": 131072, "payload_bytes": 53442, "pending_unsynchronized_observations": 892, "progress_entry_bytes": 10944, "protected_peak_bytes": 225280, "reserve_events": 32, "scenario": "HIGH", "source_events": 888, "source_kind_counts": {"call_family": 37, "door_closed": 26, "door_open": 30, "i_am_ok": 32, "local_outcome": 4, "motion": 498, "source_summary": 265}, "source_summary_exact": 265, "summaries": 63, "summarized_sources": 433, "summary_max": 151, "summary_min": 43, "summary_plain_bytes": 6039}
+COMMAND=/tmp/gs-r1-128k-short/probe.elf offline /tmp/gs-r1-128k-short/HIGH-12h.txt
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+SHORT_PREFIX_RECOVERY loaded_objects=34 byte_verified=1 restart=PASS certified_pages=0 required_pages=15 reject_writes=0 ack_eligible=0 attempts=3 authenticated_history=NOT_IMPLEMENTED
+NVS_RUNTIME phase=short_recovered iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-Sm8GR9
+EXIT=2
+MODEL={"cloud_acknowledgments": 0, "cow_logical_bytes": 32768, "cow_segments": 8, "critical_logical_bytes": 8192, "essential_exact": 635, "exact": 1099, "exact_motion_count": 321, "fixed_logical_bytes": 63857, "fixture_sha256": "23da147a8057c84b3cd51e3cff0aaed19d72d13f01881edb923f451086c56167", "history_segments": 48, "hot_entry_bytes": 6144, "hours": 24, "inputs": 1784, "live_entry_bytes": 325856, "local_dates": 2, "local_outcomes": 8, "logical_all_object_bytes": 316046, "nvs_lower_bound": 335872, "ordinary_motion_eligible": 685, "partition_bytes": 131072, "payload_bytes": 122890, "pending_unsynchronized_observations": 1784, "progress_entry_bytes": 10944, "protected_peak_bytes": 339968, "reserve_events": 32, "scenario": "HIGH", "source_events": 1776, "source_kind_counts": {"call_family": 67, "door_closed": 58, "door_open": 60, "i_am_ok": 58, "local_outcome": 8, "motion": 1006, "source_summary": 527}, "source_summary_exact": 527, "summaries": 98, "summarized_sources": 685, "summary_max": 151, "summary_min": 43, "summary_plain_bytes": 9497}
+COMMAND=/tmp/gs-r1-128k-short/probe.elf offline /tmp/gs-r1-128k-short/HIGH-24h.txt
+OFFLINE_STOP phase=load object=34 bytes=4096 error=ESP_ERR_NVS_NOT_ENOUGH_SPACE peak_pages=32 peak_live_entries=4006
+NVS_RUNTIME phase=offline_stop iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+SHORT_PREFIX_RECOVERY loaded_objects=34 byte_verified=1 restart=PASS certified_pages=0 required_pages=15 reject_writes=0 ack_eligible=0 attempts=3 authenticated_history=NOT_IMPLEMENTED
+NVS_RUNTIME phase=short_recovered iteration=34 allocated_pages=31 free_erased_pages=1 live_entries=3889 erased_entries=0 stats_used=3889 stats_free=143 write_bytes=139584 erase_ops=3 min_sector_erases=0 max_sector_erases=2
+EMULATOR_IMAGE=/tmp/idf-partition-KzXWkg
+EXIT=2
+BOUNDED_MEASUREMENT_CHECKS=PASS; capacity results FAIL_CAPACITY; four new short-window cases only; no authenticated-history success or hardware result
+
+REPRODUCTION: measurement-only runner (python3 /tmp/gs-r1-128k-short/measure.py):
+from pathlib import Path
+from dataclasses import replace
+from collections import Counter
+import hashlib, importlib.util, json, os, re, subprocess, sys
+
+ROOT=Path('/home/udaybhan/projects/Ghar_sajag_r1_storage')
+PRODUCT=ROOT/'code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2'
+OUT=Path('/tmp/gs-r1-128k-short')
+SOURCE=PRODUCT/'host/storage/offline_72h_model.py'
+BINARY=OUT/'probe.elf'
+spec=importlib.util.spec_from_file_location('offline_model',SOURCE)
+m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+report=[]
+with (OUT/'measure.log').open('w') as log:
+ def emit(value):
+  text=value if isinstance(value,str) else json.dumps(value,sort_keys=True)
+  print(text,file=log,flush=True);print(text,flush=True)
+ emit(dict(start_head='394050ddfea8ff1d1286ab8c1fac8064f95e33de',context='2026-10-08.002',model_sha256=sha(SOURCE),sdk_binary_sha256=sha(BINARY),probe_sha256=sha(OUT/'main/probe.cpp'),offline_probe_sha256=sha(OUT/'main/offline_probe.hpp'),sdk='ESP-IDF6.0.3',cloud_acknowledgments=0))
+ for scenario in ('NORMAL','HIGH'):
+  full=m.workload(m.RATES[scenario],'mixed')
+  for hours in (12,24):
+   end=43200+hours*3600
+   events=[e for e in full if e.at<end]
+   for node in range(6):
+    i=max(i for i,e in enumerate(events) if e.node==node and e.origin in (1,2))
+    events[i]=replace(events[i],safety=True)
+   assert len(events)==m.RATES[scenario]*hours//24+hours//3
+   exact,summaries=m.summarize(events)
+   represented={e.key for e in exact}
+   for summary in summaries:
+    summary.encode();assert not represented.intersection(summary.sources)
+    represented.update(summary.sources)
+   assert represented=={e.key for e in events}
+   important={e.key for e in events if e.safety or e.kind not in ('motion','source_summary')}
+   assert important<={e.key for e in exact}
+   assert all(e in exact for e in events if e.kind=='source_summary')
+   row=m.ledger(events,worst=True)
+   row.update(scenario=scenario,hours=hours,inputs=len(events),source_events=m.RATES[scenario]*hours//24,local_outcomes=hours//3,source_kind_counts=dict(Counter(e.kind for e in events)),exact_motion_count=sum(e.kind=='motion' for e in exact),ordinary_motion_eligible=sum(e.eligible for e in events),pending_unsynchronized_observations=len(represented),logical_all_object_bytes=sum(row['object_sizes']),cloud_acknowledgments=0,local_dates=len({e.at//86400 for e in events}),partition_bytes=131072)
+   fixture=OUT/f'{scenario}-{hours}h.txt'
+   fixture.write_text(f"{row['history_segments']} {row['cow_segments']} {2*row['reserve_events']//32} {row['inputs']}\n"+'\n'.join(map(str,row['object_sizes']))+'\n')
+   row['fixture_sha256']=sha(fixture)
+   emit('MODEL='+json.dumps({k:v for k,v in row.items() if k not in ('object_sizes','boundary')},sort_keys=True))
+   cov=OUT/f'gcov-{scenario}-{hours}';cov.mkdir(exist_ok=True)
+   env=os.environ.copy();env.update(GS_DIAG_PAGES='32',GS_PEAK='1',GCOV_PREFIX=str(cov),GS_EMULATOR_FLASH_BYTES='4194304',LD_LIBRARY_PATH='/tmp/gs-ruby/usr/lib/x86_64-linux-gnu:/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu')
+   command=[str(BINARY),'offline',str(fixture)]
+   emit('COMMAND='+' '.join(command))
+   r=subprocess.run(command,cwd=PRODUCT/'host/storage/nvs_runtime_probe',env=env,text=True,capture_output=True,timeout=60)
+   emit(r.stdout.rstrip());emit(r.stderr.rstrip());emit('EXIT='+str(r.returncode))
+   # All unchanged maximum-size logical vectors already exceed128KiB;
+   # verify actual SDK failure and accepted-prefix restart/guard refusal.
+   assert row['logical_all_object_bytes']>131072
+   assert r.returncode==2 and 'OFFLINE_STOP phase=load' in r.stdout
+   assert 'SHORT_PREFIX_RECOVERY' in r.stdout and 'restart=PASS' in r.stdout
+   assert 'reject_writes=0 ack_eligible=0 attempts=3' in r.stdout
+   row.update(result='FAIL_CAPACITY',sdk_exit=r.returncode,sdk_stdout=r.stdout,sdk_stderr=r.stderr)
+   report.append(row)
+   for image in re.findall(r'^EMULATOR_IMAGE=(/tmp/idf-partition-[A-Za-z0-9]+)$',r.stderr,re.M):Path(image).unlink(missing_ok=True)
+ emit('BOUNDED_MEASUREMENT_CHECKS=PASS; capacity results FAIL_CAPACITY; four new short-window cases only; no authenticated-history success or hardware result')
+(OUT/'measurements.json').write_text(json.dumps(report,indent=2)+'\n')
+
+TEMPORARY_CALLBACK: copy probe/main headers to /tmp/gs-r1-128k-short/main, keep repository headers unchanged.
+Declare short_prefix_restart before offline_probe.hpp inclusion; insert this callback before main.
+Change ONLY the first offline load-failure metric/close path to:
+metric("offline_stop",i,part);short_prefix_restart(h,part,sizes,i);nvs_close(h);return 2;
+// Measurement-only callback: verify accepted size-fixture prefix after failed load.
+// No authenticated history serializer or new storage implementation.
+void short_prefix_restart(nvs_handle_t& h,const esp_partition_t* part,
+                          const std::vector<unsigned>& sizes,unsigned loaded) {
+    for(unsigned i=0;i<loaded;++i)REQUIRE(offline_verify(h,"o",i,sizes[i],0));
+    nvs_close(h);REQUIRE(nvs_flash_deinit_partition(part_name)==ESP_OK);
+    REQUIRE(nvs_flash_init_partition_ptr(part)==ESP_OK);
+    REQUIRE(nvs_open_from_partition(part_name,"life",NVS_READWRITE,&h)==ESP_OK);
+    for(unsigned i=0;i<loaded;++i)REQUIRE(offline_verify(h,"o",i,sizes[i],0));
+    using namespace compact_sdk;
+    Store adapter;adapter.protected_space=true;
+    PublicationPlan lower;lower.ordinary_admission=true;
+    lower.blobs={531,4000,Transaction::head_bytes};
+    lower.control_manifest_bytes=control_manifest_bound(1);
+    lower.event_objects_after=1;lower.reducer_objects_after=1;
+    REQUIRE(workspace(lower).required_free_pages==15);
+    const auto wb=esp_partition_get_write_bytes(),eb=esp_partition_get_erase_ops();
+    for(unsigned attempt=0;attempt<3;++attempt){
+        REQUIRE(!adapter.prepare_publication(lower));
+        REQUIRE(adapter.outcome==SpaceOutcome::InsufficientProtectedSpace);
+        REQUIRE(adapter.writes==0&&esp_partition_get_write_bytes()==wb&&esp_partition_get_erase_ops()==eb);
+    }
+    std::printf("SHORT_PREFIX_RECOVERY loaded_objects=%u byte_verified=1 restart=PASS certified_pages=%zu required_pages=%zu reject_writes=0 ack_eligible=0 attempts=3 authenticated_history=NOT_IMPLEMENTED\n",loaded,adapter.certified_free,adapter.reservation.required_free_pages);
+    metric("short_recovered",loaded,part);
+}
+
+
+TEMPORARY_BUILD: derive existing compile/link flags from ninja -t commands gs_nvs_runtime_probe.elf in host/storage/nvs_runtime_probe/build; replace probe.cpp input, -o and -MF with temporary paths. Insert temporary probe.o before existing main archive; no SDK/library rebuild.
+COMMAND=/usr/bin/c++ -DESP_PLATFORM '-DIDF_VER="v6.0.3"' -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE -DSOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ -DUNITY_INCLUDE_CONFIG_H -D_GLIBCXX_HAVE_POSIX_SEMAPHORE -D_GLIBCXX_USE_POSIX_SEMAPHORE -D_GNU_SOURCE -DprojCOVERAGE_TEST=0 -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/config -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/include -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/components -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/config/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/esp_additions/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/portable/linux/include/freertos -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/freertos/FreeRTOS-Kernel/include/freertos -I/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/esp-idf/freertos/mocks -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hw_support/etm/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/heap/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/log/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/soc/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/platform_port/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/hal/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux/include/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_rom/linux -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_common/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/linux/linux_include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/cmock/CMock/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/unity/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/unity/unity/src -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/nvs_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_partition/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_blockdev/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/spi_flash/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_mspi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_mspi/linux/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_gpspi/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_hal_dma/include -I/tmp/gs-libbsd-dev/usr/include/x86_64-linux-gnu -fdiagnostics-color=always -ffunction-sections -fdata-sections -Wall -Werror -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=deprecated-declarations -Wextra -Wno-error=extra -Wno-unused-parameter -Wno-sign-compare -Wno-enum-conversion -gdwarf-4 -ggdb -Og -fmacro-prefix-map=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe=. -fmacro-prefix-map=/home/udaybhan/.espressif/v6.0.3/esp-idf=/IDF -fstrict-volatile-bitfields -fno-jump-tables -fno-tree-switch-conversion -std=gnu++26 -fno-exceptions -fno-rtti -fuse-cxa-atexit -DGS_ENABLE_TRACE=0 -DLINUX_TARGET --coverage -MD -MT esp-idf/main/CMakeFiles/__idf_main.dir/probe.cpp.o -MF /tmp/gs-r1-128k-short/probe.o.d -o /tmp/gs-r1-128k-short/probe.o -c /tmp/gs-r1-128k-short/main/probe.cpp
+EXIT=0
+COMMAND=/usr/bin/c++ /tmp/gs-r1-128k-short/probe.o -I/tmp/gs-libbsd-dev/usr/include/x86_64-linux-gnu -Wl,--cref -Wl,--defsym=IDF_TARGET_LINUX=0 -Wl,--Map=/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/storage/nvs_runtime_probe/build/gs_nvs_runtime_probe.map -Wl,--no-warn-rwx-segments -fno-rtti -fno-lto -Wl,--gc-sections -Wl,--warn-common -Wl,--wrap=esp_partition_write -Wl,--wrap=esp_partition_write_raw -Wl,--wrap=esp_partition_erase_range -Wl,--wrap=mkstemp -Wl,--dependency-file=CMakeFiles/gs_nvs_runtime_probe.elf.dir/link.d CMakeFiles/gs_nvs_runtime_probe.elf.dir/project_elf_src_linux.c.o -o /tmp/gs-r1-128k-short/probe.elf -L/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu -Wl,-rpath,/tmp/gs-libbsd-dev/usr/lib/x86_64-linux-gnu esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/main/libmain.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a esp-idf/linux/liblinux.a esp-idf/spi_flash/libspi_flash.a esp-idf/esp_system/libesp_system.a esp-idf/esp_rom/libesp_rom.a esp-idf/hal/libhal.a esp-idf/log/liblog.a esp-idf/heap/libheap.a esp-idf/esp_hw_support/libesp_hw_support.a esp-idf/esp_common/libesp_common.a esp-idf/unity/libunity.a esp-idf/cmock/libcmock.a esp-idf/freertos/libfreertos.a esp-idf/efuse/libefuse.a esp-idf/esp_partition/libesp_partition.a esp-idf/nvs_flash/libnvs_flash.a -lbsd -u __assert_func --coverage -lcrypto
+EXIT=0
+
+PRIOR_EVIDENCE_REUSED=R1_STORAGE_PROTECTED_NVS_GATE_C_20261008.md/.log for authenticated duplicate/root/credit/hard-stop interruption scope; historical suites not rerun.
+NEW_WORKLOAD_INTERRUPTION_TESTS=NOT_RUN; all complete loads fail capacity, no legal complete-history next operation.
+HARDWARE_RUNTIME_POWER_CUT_AND_COMMERCIAL_RETENTION=UNQUALIFIED
+MAX_DEMONSTRATED_OFFLINE_DURATION=NONE within these four complete protected envelopes
+RECOMMENDATION=EVALUATE_8MB_CLASSIC_ESP32; engineering candidate only;72h remains LOCKED
