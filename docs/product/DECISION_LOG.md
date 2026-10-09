@@ -266,6 +266,14 @@ preflight; the available C3 remains paired to its previous Hub with seven retain
 records. No reset/disposal or new decision. See
 [pair evidence](../exec-plans/evidence/R1_S3_C3_FIRST_PAIR_20261009.md).
 
+S3 storage implementation checkpoint (2026-10-09): the clean ESP-IDF build and
+focused host storage regressions pass, but this does not close GS-D025's 72-hour
+target. The current product runtime remains fixed at 128 event slots, Gate C
+sustained protected-workspace restoration is unproven, and supported event
+volume/critical saturation/backend replay semantics remain open. The development
+partition map overlaps the preserved NVS/VFS regions, so no physical product
+image was flashed. See [storage closure evidence](../exec-plans/evidence/R1_S3_DURABLE_STORAGE_CLOSURE_20261009.md).
+
 ## Reconciliation status — 2026-10-07
 
 The already-qualified native fresh-install and empty-AEAD/recovery changes are

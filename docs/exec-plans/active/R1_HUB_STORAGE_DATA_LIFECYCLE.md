@@ -1859,3 +1859,26 @@ post-load admission succeeds. Authenticated48h history transfer and sustained
 reclamation remain unimplemented. Stop; resolve additional journal/OTA envelope
 before integration rather than weaken the guard. No production/partition/Node/
 BAT-C8/governance/context change, hardware test, HIGH/72h comparison or push.
+
+## 37. S3 durable-storage closure checkpoint — 2026-10-09
+
+[S3 closure evidence](../evidence/R1_S3_DURABLE_STORAGE_CLOSURE_20261009.md)
+records a clean ESP-IDF 6.0.3 product build (1,791,792-byte `.bin`; the isolated
+development CSV has two 4 MiB OTA slots and a 2 MiB `gs_journal`) and the focused
+host durability suite. This is **not storage closure**. The S3 composition reuses
+the existing authenticated `HubDurabilityOwner`/NVS provider and durable ACK
+path, but it remains `HubRuntime(32, 128)` with slot scans bounded to 0–127; the
+compact host lifecycle is not integrated in target code. Host Gate A/B evidence
+passes only within its recorded contracts; Gate C explicitly remains OPEN and
+does not prove sustained workspace restoration. Existing modeled NORMAL mixed
+and HIGH mixed 72-hour protected peaks are 282,624 B and 745,472 B, respectively;
+they are not product-guaranteed workload bounds. No capacity pass is inferred
+from the 2 MiB development partition. Product event-volume, critical reserve/
+saturation and offline backend replay semantics remain open. The development
+layout overlaps the board's preserved NVS/VFS ranges; no hardware flash or
+partition operation was performed. Runtime memory, actual power-cut, repeated
+outage/reconnect, signed FOTA rollback and production storage closure remain
+pending. The immediate blocker is to set the supported 72-hour volume and
+critical saturation/retention plus backend replay contract, then implement and
+qualify sustained reclamation under that policy. No CONTEXT_VERSION or product
+requirement changed.

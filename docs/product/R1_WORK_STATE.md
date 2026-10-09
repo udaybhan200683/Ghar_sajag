@@ -401,3 +401,17 @@ Four focused existing host authentication/association/rejoin/recovery targets pa
 physical S3 product boot, authenticated interchange and durable ACK/reboot dedupe
 remain unqualified. No production/Node/partition/BAT-C8/context changes. Resolve
 the existing Node ownership and pending records before resuming this pair.
+
+### S3 durable-storage closure checkpoint — 2026-10-09
+
+[Storage evidence](../exec-plans/evidence/R1_S3_DURABLE_STORAGE_CLOSURE_20261009.md)
+records a clean ESP-IDF 6.0.3 S3 Hub build and focused host storage regressions.
+The built runtime includes the authenticated NVS durability owner and
+durable-before-ACK path, but still constructs a 128-record `HubRuntime`; the
+compact host representation is not integrated into the target lifecycle. Host
+Gate A/B checks pass within their assumptions, while Gate C reserve restoration
+and sustained reclamation remain open. NORMAL/HIGH 72-hour storage, physical
+power-failure behavior, target runtime memory, reconnect catch-up and FOTA remain
+unqualified. No board write was made because the current development map
+overlaps preserved NVS/VFS data. Storage closure is BLOCKED; BAT-C8 has not
+started.
