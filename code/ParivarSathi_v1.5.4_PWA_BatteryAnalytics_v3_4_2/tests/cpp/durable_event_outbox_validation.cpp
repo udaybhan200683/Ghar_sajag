@@ -79,6 +79,16 @@ public:
         publication_found_ = true;
         return true;
     }
+    bool read_lifecycle_root(Bytes& marker, bool& found) override {
+        marker = lifecycle_root_; found = lifecycle_root_found_; return true;
+    }
+    bool publish_lifecycle_root(const Bytes& marker) override {
+        lifecycle_root_ = marker; lifecycle_root_found_ = true; return true;
+    }
+    bool remove_segment(std::uint16_t segment) override {
+        if (segment >= files_.size()) return false;
+        files_[segment].clear(); exists_[segment] = false; return true;
+    }
     bool completion_size(bool& exists, std::uint32_t& bytes) override {
         exists = completion_found_;
         bytes = static_cast<std::uint32_t>(completion_.size());
@@ -140,6 +150,8 @@ private:
     std::vector<bool> exists_;
     Bytes publication_;
     bool publication_found_{false};
+    Bytes lifecycle_root_;
+    bool lifecycle_root_found_{false};
     Bytes completion_;
     bool completion_found_{false};
     Bytes completion_publication_;

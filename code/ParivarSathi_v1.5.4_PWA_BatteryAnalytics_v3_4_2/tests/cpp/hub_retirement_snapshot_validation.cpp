@@ -50,6 +50,12 @@ void report_replay_and_ledger(OpenSslCommissioningCrypto& crypto,
     require(repository.load(ref, restored) && restored.generation == staged.generation &&
             restored.nodes[0].pending_count == 3,
             "selected report snapshot reference did not verify");
+    require(!retirement_proves_node_durable_retirement(restored, 0, 3, 10, 11) &&
+            retirement_proves_node_durable_retirement(restored, 0, 3, 10, 9) &&
+            !retirement_proves_node_durable_retirement(restored, 0, 3, 10, 13) &&
+            !retirement_proves_node_durable_retirement(restored, 0, 4, 10, 9) &&
+            !retirement_proves_node_durable_retirement(restored, 1, 3, 10, 9),
+            "authenticated owner report did not preserve pending keys and owner scope");
     require(repository.apply_authenticated_report(restored, binding, 0, 3, 10,
                 first, mac1, staged) == RetirementReportApply::Duplicate,
             "same-generation identical report was not idempotent");
@@ -80,6 +86,9 @@ void report_replay_and_ledger(OpenSslCommissioningCrypto& crypto,
     require(repository.apply_authenticated_report(restored, binding, 0, 3, 10,
                 drained, mac3, retired) == RetirementReportApply::Prepared,
             "newer complete drained report was rejected");
+    require(retirement_proves_node_durable_retirement(retired, 0, 3, 10, 11) &&
+            !retirement_proves_node_durable_retirement(retired, 0, 3, 11, 1),
+            "authenticated drained report did not bound retired keys by session and highwater");
     require(ledger.classify(retired, 0, 3, 10, 11, digest) == ExactEventResult::Stale &&
             ledger.erase_retirement_eligible(retired) && ledger.size() == 0,
             "report absence did not retire exact digest evidence");

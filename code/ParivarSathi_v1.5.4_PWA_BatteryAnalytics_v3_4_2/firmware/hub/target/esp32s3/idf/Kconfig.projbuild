@@ -1,0 +1,13 @@
+menu "Ghar Sajag S3 storage lifecycle"
+
+config GS_OUTBOX_BODY_RETIREMENT_ENABLED
+    bool "Enable event body retirement requests"
+    default n
+    help
+        Enables the outbox lifecycle retirement code path. Keep disabled until
+        the product post-sync retention policy and physical recovery behavior
+        are qualified. A separate runtime retention-satisfied authorization,
+        backend completion and an authenticated Node retirement report are
+        still required for any deletion.
+
+endmenu

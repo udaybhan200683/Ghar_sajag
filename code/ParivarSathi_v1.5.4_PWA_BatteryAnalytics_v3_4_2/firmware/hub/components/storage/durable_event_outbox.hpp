@@ -56,6 +56,11 @@ public:
     // beside any record is recovery uncertainty and must fail closed.
     virtual bool read_publication(security::Bytes& marker, bool& found) = 0;
     virtual bool publish_publication(const security::Bytes& marker) = 0;
+    // Authenticated lifecycle root. It is published before reclaiming data and
+    // records the external retirement proof digest and checkpoint boundary.
+    virtual bool read_lifecycle_root(security::Bytes& marker, bool& found) = 0;
+    virtual bool publish_lifecycle_root(const security::Bytes& marker) = 0;
+    virtual bool remove_segment(std::uint16_t segment) = 0;
     // Backend completion is a second append-only stream in the same filesystem.
     // Its own authenticated head makes a torn receipt invisible until published.
     virtual bool completion_size(bool& exists, std::uint32_t& bytes) = 0;
@@ -68,6 +73,32 @@ public:
     virtual bool publish_completion_publication(const security::Bytes& marker) = 0;
 };
 
+struct RetirementAuthorization {
+    std::uint64_t checkpoint_boundary{0};
+    std::uint64_t authenticated_report_generation{0};
+    security::Key32 authenticated_report_digest{};
+    // This gate is deliberately explicit. Firmware leaves it false until the
+    // post-sync retention policy is approved and physically qualified.
+    bool post_sync_retention_satisfied{false};
+    bool (*node_retired)(void* context, std::uint64_t ordinal,
+                         const std::string& canonical_event_key,
+                         const security::Bytes& payload){nullptr};
+    void* context{nullptr};
+};
+
+enum class ReclaimResult : std::uint8_t {
+    Reclaimed,
+    DisabledByRetentionGate,
+    NoRecords,
+    PendingBackendCompletion,
+    CheckpointBehind,
+    MissingNodeRetirementProof,
+    InvalidAuthorization,
+    StorageFailure,
+    IntegrityFailure,
+    RestartRequired,
+};
+
 struct OutboxLimits {
     // The 4 MiB S3 candidate budgets 16 bounded 208 KiB event segments,
     // 512 KiB for the completion stream, and 256 KiB for filesystem overhead.
@@ -76,6 +107,9 @@ struct OutboxLimits {
     std::uint32_t filesystem_workspace_bytes{512U * 1024U};
     // Engineering candidate only; this is not a product critical-event guarantee.
     std::uint32_t protected_capacity_bytes{512U * 1024U};
+    // Product default stays fail-safe: event bodies cannot be deleted until a
+    // retention policy and physical recovery qualification enable this gate.
+    bool body_retirement_enabled{false};
     std::uint16_t maximum_key_bytes{256};
     std::uint16_t maximum_payload_bytes{1024};
 };
@@ -118,6 +152,8 @@ public:
     IdentityLookup contains(const std::string& canonical_event_key, bool& found);
     bool mark_backend_completed(const std::string& canonical_event_key);
     bool backend_completed(const std::string& canonical_event_key, bool& completed);
+    ReclaimResult reclaim_completed_history(const RetirementAuthorization& authorization);
+    std::uint64_t retired_through() const { return retired_through_; }
     std::size_t backend_completed_count() const { return completed_count_; }
     bool for_each(RecordVisitor visitor, void* context);
 
@@ -154,6 +190,21 @@ private:
     bool decode_completion_publication(const security::Bytes& marker,
                                        std::uint64_t& ordinal,
                                        std::uint8_t frame_digest[32]);
+    bool encode_lifecycle_root(std::uint64_t generation, std::uint64_t retired_through,
+                               std::uint64_t checkpoint_boundary,
+                               std::uint64_t report_generation,
+                               const security::Key32& report_digest,
+                               std::uint64_t publication_ordinal,
+                               const std::uint8_t publication_digest[32], bool reset_pending,
+                               security::Bytes& marker);
+    bool decode_lifecycle_root(const security::Bytes& marker, std::uint64_t& generation,
+                               std::uint64_t& retired_through,
+                               std::uint64_t& checkpoint_boundary,
+                               std::uint64_t& report_generation,
+                               security::Key32& report_digest,
+                               std::uint64_t& publication_ordinal,
+                               std::uint8_t publication_digest[32], bool& reset_pending);
+    bool complete_pending_reclaim();
     bool publish_completion_through(std::uint64_t ordinal,
                                     const std::uint8_t frame_digest[32]);
     bool encode_record(std::uint64_t ordinal, const std::string& key,
@@ -182,6 +233,7 @@ private:
     security::Key32 publication_key_{};
     security::Key32 completion_key_{};
     security::Key32 completion_publication_key_{};
+    security::Key32 lifecycle_key_{};
     IndexEntry** index_blocks_{nullptr};
     std::size_t index_size_{0};
     std::size_t index_block_count_{0};
@@ -191,6 +243,14 @@ private:
     std::uint64_t capacity_budget_used_bytes_{0};
     std::uint64_t next_ordinal_{1};
     std::uint64_t published_ordinal_{0};
+    std::uint64_t retired_through_{0};
+    std::uint64_t lifecycle_generation_{0};
+    std::uint64_t lifecycle_checkpoint_boundary_{0};
+    std::uint64_t lifecycle_report_generation_{0};
+    security::Key32 lifecycle_report_digest_{};
+    std::uint64_t lifecycle_publication_ordinal_{0};
+    std::uint8_t lifecycle_publication_digest_[32]{};
+    bool lifecycle_reset_pending_{false};
     std::uint64_t completion_bytes_{0};
     std::uint64_t next_completion_ordinal_{1};
     std::uint64_t published_completion_ordinal_{0};

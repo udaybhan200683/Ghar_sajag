@@ -26,6 +26,9 @@ public:
     bool sync(std::uint16_t segment) override;
     bool read_publication(security::Bytes& marker, bool& found) override;
     bool publish_publication(const security::Bytes& marker) override;
+    bool read_lifecycle_root(security::Bytes& marker, bool& found) override;
+    bool publish_lifecycle_root(const security::Bytes& marker) override;
+    bool remove_segment(std::uint16_t segment) override;
     bool completion_size(bool& exists, std::uint32_t& bytes) override;
     bool read_completion(std::uint32_t offset, std::uint8_t* output,
                          std::size_t requested, std::size_t& actual) override;

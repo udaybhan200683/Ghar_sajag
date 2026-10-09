@@ -54,6 +54,28 @@ constexpr UBaseType_t kSecurityQueueDepth = 8U;
 // tests/test_hub_runtime_stack.py checks the actual target frame budgets.
 constexpr std::uint32_t kSecureOwnerStackBytes = 81920;
 
+#if CONFIG_IDF_TARGET_ESP32S3
+struct OutboxNodeRetirementContext {
+    HubSecurityLink* security_link{nullptr};
+    const durable::RetirementSnapshot* snapshot{nullptr};
+};
+
+bool outbox_event_retired_by_node_report(void* opaque, std::uint64_t,
+        const std::string& canonical_key, const security::Bytes& payload) {
+    auto& context = *static_cast<OutboxNodeRetirementContext*>(opaque);
+    if (context.security_link == nullptr || context.snapshot == nullptr) return false;
+    DomainEvent event;
+    if (!HubJournal::decode_event_payload(payload, event) ||
+        event.key.str() != canonical_key || event.key.physical_device_id.empty()) return false;
+    transport::RetirementEnrollmentBinding binding;
+    if (!context.security_link->resolve_enrollment_binding(event.key.physical_device_id,
+            event.key.source_id, binding)) return false;
+    return durable::retirement_proves_node_durable_retirement(
+        *context.snapshot, binding.slot, binding.generation,
+        event.key.session_id, event.key.sequence);
+}
+#endif
+
 #if !CONFIG_IDF_TARGET_ESP32S3
 durable::DurableJournalSlotStore::EnrollmentOwnerResolver registry_owner_resolver(
         HubSecurityLink& security_link) {
@@ -577,6 +599,10 @@ void secure_owner_task(void*) {
     // 2 MiB bodies + 1 MiB identities + 512 KiB completions + 128 KiB
     // checkpoint COW + 384 KiB filesystem overhead in the 4 MiB candidate.
     limits.segment_bytes=128U*1024U;
+#if defined(CONFIG_GS_OUTBOX_BODY_RETIREMENT_ENABLED) && \
+    CONFIG_GS_OUTBOX_BODY_RETIREMENT_ENABLED
+    limits.body_retirement_enabled = true;
+#endif
     storage::RuntimeStateStore runtime_state(outbox_storage,commissioning_crypto,journal_key);
     storage::DurableEventOutbox durable_outbox(
         outbox_storage, commissioning_crypto, journal_key,limits);
@@ -941,6 +967,48 @@ void secure_owner_task(void*) {
                 }
             }
             if (!durable_report_ready) continue;
+#if CONFIG_IDF_TARGET_ESP32S3
+            if (limits.body_retirement_enabled) {
+                // NVS publishes the authenticated Node snapshot first. The
+                // LittleFS lifecycle root can only follow that selected,
+                // recoverable report, so a crash between partitions is safe:
+                // it leaves bodies retained until this join is retried.
+                durable::RecoveryState selected_state;
+                durable::RetirementSnapshot selected_snapshot;
+                security::Bytes app_checkpoint;
+                std::uint64_t checkpoint_boundary = 0;
+                bool checkpoint_found = false;
+                if (!durable_store->recover(selected_state) ||
+                    !selected_state.checkpoint.report_snapshot ||
+                    !report_repository->load(*selected_state.checkpoint.report_snapshot,
+                                             selected_snapshot) ||
+                    !runtime_state.load_checkpoint(app_checkpoint,
+                        checkpoint_boundary, checkpoint_found) || !checkpoint_found) {
+                    continue;
+                }
+                storage::RetirementAuthorization authorization;
+                authorization.checkpoint_boundary = checkpoint_boundary;
+                authorization.authenticated_report_generation =
+                    selected_state.checkpoint.report_snapshot->generation;
+                authorization.authenticated_report_digest =
+                    selected_state.checkpoint.report_snapshot->digest;
+                // No product post-sync retention interval or persistent
+                // completion-time policy is approved yet. Host qualification
+                // may explicitly satisfy this gate; firmware keeps deletion
+                // disabled until that policy is implemented and qualified.
+                authorization.post_sync_retention_satisfied = false;
+                OutboxNodeRetirementContext retirement_context{
+                    &security_link, &selected_snapshot};
+                authorization.node_retired = outbox_event_retired_by_node_report;
+                authorization.context = &retirement_context;
+                const auto reclaim = durable_outbox.reclaim_completed_history(authorization);
+                if (reclaim == storage::ReclaimResult::Reclaimed)
+                    ESP_LOGI(kTag, "Retired synchronized outbox generation=%llu through=%llu",
+                        static_cast<unsigned long long>(
+                            authorization.authenticated_report_generation),
+                        static_cast<unsigned long long>(authorization.checkpoint_boundary));
+            }
+#endif
             epoch_confirmed[frame.source_mac] = {node->last_session, report.epoch};
             transport::NodeRetirementAckV1 ack;
             ack.epoch = report.epoch;
