@@ -353,12 +353,13 @@ bool RuntimeStateStore::identity_context(const EventKey& key, std::uint64_t ordi
 }
 bool RuntimeStateStore::lookup_identity(const DomainEvent& event, std::uint64_t& ordinal,
         std::optional<std::uint16_t>& local_minute, bool& found, bool& payload_matches,
-        IdentityOwnerEvidence* owner) {
+        IdentityOwnerEvidence* owner, security::Key32* payload_digest) {
     ordinal = 0;
     local_minute.reset();
     found = false;
     payload_matches = false;
     if (owner != nullptr) *owner = {};
+    if (payload_digest != nullptr) payload_digest->fill(0);
     if (!healthy()) return false;
     Bytes event_payload;
     security::Key32 expected_digest{};
@@ -388,6 +389,7 @@ bool RuntimeStateStore::lookup_identity(const DomainEvent& event, std::uint64_t&
         return fault();
     }
     local_minute = minute;
+    if (payload_digest != nullptr) *payload_digest = stored_digest;
     payload_matches = crypto_.constant_time_equal(expected_digest.data(),
                                                    stored_digest.data(),
                                                    expected_digest.size());
@@ -418,5 +420,105 @@ bool RuntimeStateStore::verify_event_identity(const DomainEvent& event, std::uin
        !crypto_.hmac_sha256(key_,payload,digest))return fault();
     crypto_.secure_zero(payload.data(),payload.size());
     return crypto_.constant_time_equal(digest.data(),expected.data(),32) || fault();
+}
+bool RuntimeStateStore::plan_identity_compaction(
+        IdentityCompactionClassifier classify,
+        IdentityCompactionRetainedVisitor visit_retained,
+        void* context, IdentityCompactionPlan& plan) {
+    plan = {};
+    if (!healthy() || classify == nullptr || visit_retained == nullptr) return false;
+    bool head_found = false, log_found = false;
+    Bytes source_head;
+    std::uint32_t log_size = 0;
+    if (!read_object(kHead, source_head, head_found, 128) ||
+        !files_.state_size(kIdentities, log_found, log_size) ||
+        log_size != bytes_ || (count_ != 0 && (!head_found || !log_found))) {
+        plan.blocked_records = 1;
+        return fault();
+    }
+    if (!crypto_.hmac_sha256(key_, source_head, plan.source_head_digest)) return fault();
+    plan.source_records = count_;
+    plan.source_bytes = bytes_;
+    Bytes chain{'G','S','I','C',1};
+    chain.insert(chain.end(), plan.source_head_digest.begin(), plan.source_head_digest.end());
+    if (!crypto_.hmac_sha256(key_, chain, plan.candidate_digest)) return fault();
+
+    std::uint32_t offset = 0;
+    for (std::uint64_t ordinal = 1; ordinal <= count_; ++ordinal) {
+        IdentityCompactionRecord record;
+        Bytes frame;
+        if (!record_at(offset, ordinal, record.event_key, record.local_minute, frame,
+                       &record.payload_digest, &record.owner)) {
+            plan.blocked_records = 1;
+            crypto_.secure_zero(chain.data(), chain.size());
+            return fault();
+        }
+        record.original_ordinal = ordinal;
+        record.encoded_bytes = static_cast<std::uint32_t>(frame.size());
+        offset += record.encoded_bytes;
+        const auto disposition = classify(context, record);
+        if (disposition == IdentityCompactionDisposition::Blocked) {
+            ++plan.blocked_records;
+            crypto_.secure_zero(chain.data(), chain.size());
+            return false;
+        }
+        if (disposition == IdentityCompactionDisposition::Fenced) {
+            ++plan.fenced_records;
+            continue;
+        }
+        if (record.encoded_bytes > UINT32_MAX - plan.candidate_record_bytes ||
+            !visit_retained(context, record)) {
+            ++plan.blocked_records;
+            crypto_.secure_zero(chain.data(), chain.size());
+            return false;
+        }
+        ++plan.retained_records;
+        plan.candidate_record_bytes += record.encoded_bytes;
+
+        Bytes next(plan.candidate_digest.begin(), plan.candidate_digest.end());
+        u64(next, record.original_ordinal);
+        u64(next, plan.retained_records);
+        for (unsigned i = 0; i < 4; ++i)
+            next.push_back(static_cast<std::uint8_t>(record.encoded_bytes >> (i * 8U)));
+        next.push_back(static_cast<std::uint8_t>(record.event_key.size() >> 8U));
+        next.push_back(static_cast<std::uint8_t>(record.event_key.size()));
+        next.insert(next.end(), record.event_key.begin(), record.event_key.end());
+        next.push_back(record.local_minute ? 1 : 0);
+        const auto minute = record.local_minute.value_or(0);
+        next.push_back(static_cast<std::uint8_t>(minute));
+        next.push_back(static_cast<std::uint8_t>(minute >> 8U));
+        next.insert(next.end(), record.payload_digest.begin(), record.payload_digest.end());
+        next.push_back(record.owner.enrollment_slot);
+        for (unsigned i = 0; i < 4; ++i)
+            next.push_back(static_cast<std::uint8_t>(record.owner.enrollment_generation >> (i * 8U)));
+        next.insert(next.end(), record.owner.binding_digest.begin(), record.owner.binding_digest.end());
+        if (!crypto_.hmac_sha256(key_, next, plan.candidate_digest)) {
+            crypto_.secure_zero(chain.data(), chain.size());
+            crypto_.secure_zero(next.data(), next.size());
+            return fault();
+        }
+        crypto_.secure_zero(next.data(), next.size());
+    }
+    bool final_head_found = false, final_log_found = false;
+    Bytes final_head;
+    std::uint32_t final_log_size = 0;
+    security::Key32 final_head_digest{};
+    const bool stable = read_object(kHead, final_head, final_head_found, 128) &&
+        files_.state_size(kIdentities, final_log_found, final_log_size) &&
+        final_head_found == head_found && final_log_found == log_found &&
+        final_log_size == log_size && final_head == source_head &&
+        crypto_.hmac_sha256(key_, final_head, final_head_digest) &&
+        crypto_.constant_time_equal(final_head_digest.data(),
+            plan.source_head_digest.data(), plan.source_head_digest.size());
+    crypto_.secure_zero(chain.data(), chain.size());
+    crypto_.secure_zero(final_head_digest.data(), final_head_digest.size());
+    if (!stable || offset != bytes_ ||
+        plan.retained_records + plan.fenced_records != plan.source_records) {
+        ++plan.blocked_records;
+        return fault();
+    }
+    plan.minimum_temporary_bytes = plan.candidate_record_bytes;
+    plan.complete = true;
+    return true;
 }
 } // namespace gs::hub::storage

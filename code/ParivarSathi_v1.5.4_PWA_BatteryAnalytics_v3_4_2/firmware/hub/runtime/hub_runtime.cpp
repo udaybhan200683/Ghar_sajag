@@ -11,7 +11,58 @@
 #include "hub_checkpoint_codec.hpp"
 #include "gs/logging.hpp"
 
+#include <algorithm>
+#include <charconv>
+
 namespace gs::hub {
+namespace {
+bool parse_unsigned(const std::string& text, std::size_t begin, std::size_t end,
+                    std::uint64_t& value) {
+    if (begin >= end) return false;
+    const auto parsed = std::from_chars(text.data() + begin, text.data() + end, value);
+    return parsed.ec == std::errc{} && parsed.ptr == text.data() + end;
+}
+
+bool parse_identity_event_key(const std::string& text, EventKey& key) {
+    if (text.empty()) return false;
+    if (text[0] != 'p') {
+        const auto last = text.rfind(':');
+        if (last == std::string::npos || last == 0) return false;
+        const auto prior = text.rfind(':', last - 1U);
+        if (prior == std::string::npos || prior == 0) return false;
+        std::uint64_t session = 0, sequence = 0;
+        if (!parse_unsigned(text, prior + 1U, last, session) ||
+            !parse_unsigned(text, last + 1U, text.size(), sequence)) return false;
+        key = EventKey{text.substr(0, prior), session, sequence};
+        return key.str() == text;
+    }
+    const auto physical_colon = text.find(':', 1U);
+    std::uint64_t physical_size = 0;
+    if (physical_colon == std::string::npos ||
+        !parse_unsigned(text, 1U, physical_colon, physical_size) ||
+        physical_size > text.size() - physical_colon - 1U) return false;
+    const auto physical_begin = physical_colon + 1U;
+    const auto source_marker = physical_begin + static_cast<std::size_t>(physical_size);
+    if (source_marker >= text.size() || text[source_marker] != 'n') return false;
+    const auto source_colon = text.find(':', source_marker + 1U);
+    std::uint64_t source_size = 0;
+    if (source_colon == std::string::npos ||
+        !parse_unsigned(text, source_marker + 1U, source_colon, source_size) ||
+        source_size > text.size() - source_colon - 1U) return false;
+    const auto source_begin = source_colon + 1U;
+    const auto session_marker = source_begin + static_cast<std::size_t>(source_size);
+    if (session_marker >= text.size() || text[session_marker] != 's') return false;
+    const auto sequence_marker = text.find('q', session_marker + 1U);
+    std::uint64_t session = 0, sequence = 0;
+    if (sequence_marker == std::string::npos ||
+        !parse_unsigned(text, session_marker + 1U, sequence_marker, session) ||
+        !parse_unsigned(text, sequence_marker + 1U, text.size(), sequence)) return false;
+    key = EventKey{text.substr(source_begin, static_cast<std::size_t>(source_size)),
+        session, sequence,
+        text.substr(physical_begin, static_cast<std::size_t>(physical_size))};
+    return key.str() == text;
+}
+}
 
 HubRuntime::HubRuntime(std::size_t ingest_capacity, std::size_t journal_capacity)
     : ingest_(ingest_capacity), journal_(journal_capacity), coverage_(NodeProtocolPolicy::coverage_after_seconds) {
@@ -148,27 +199,84 @@ IdentityRetirementEligibility HubRuntime::identity_retirement_eligibility(
         const DomainEvent& event, std::uint8_t enrollment_slot,
         std::uint32_t enrollment_generation,
         const std::array<std::uint8_t, 32>& owner_binding_digest) {
-    if (!durable_admission_open() || !replay_fence_ready_ || runtime_state_ == nullptr ||
-        enrollment_generation == 0 || enrollment_slot >= durable::kMaxRetirementNodes ||
-        event.key.source_id.empty() || event.key.session_id == 0 || event.key.sequence == 0 ||
-        !journal_.cloud_completed(event.key) ||
-        replay_snapshot_.nodes[enrollment_slot].enrollment_generation != enrollment_generation ||
-        replay_snapshot_.nodes[enrollment_slot].binding_digest != owner_binding_digest ||
-        !retirement_proves_node_durable_retirement(replay_snapshot_, enrollment_slot,
-            enrollment_generation, event.key.session_id, event.key.sequence))
-        return IdentityRetirementEligibility::NotEligible;
     bool found = false, payload_matches = false;
     std::uint64_t ordinal = 0;
     std::optional<std::uint16_t> minute;
     storage::IdentityOwnerEvidence persisted_owner;
-    if (!runtime_state_->lookup_identity(event, ordinal, minute, found, payload_matches,
-            &persisted_owner) || !found || !payload_matches || ordinal == 0 ||
-        ordinal > applied_boundary_ || !persisted_owner.authenticated() ||
-        persisted_owner.enrollment_slot != enrollment_slot ||
+    security::Key32 persisted_digest{};
+    if (runtime_state_ == nullptr ||
+        !runtime_state_->lookup_identity(event, ordinal, minute, found, payload_matches,
+            &persisted_owner, &persisted_digest) || !found || !payload_matches ||
+        !persisted_owner.authenticated() || persisted_owner.enrollment_slot != enrollment_slot ||
         persisted_owner.enrollment_generation != enrollment_generation ||
-        persisted_owner.binding_digest != owner_binding_digest)
+        persisted_owner.binding_digest != owner_binding_digest) {
+        return IdentityRetirementEligibility::NotEligible;
+    }
+    storage::IdentityCompactionRecord record;
+    record.event_key = event.key.str();
+    record.original_ordinal = ordinal;
+    record.local_minute = minute;
+    record.payload_digest = persisted_digest;
+    record.owner = persisted_owner;
+    return identity_record_retirement_eligibility(record);
+}
+
+IdentityRetirementEligibility HubRuntime::identity_record_retirement_eligibility(
+        const storage::IdentityCompactionRecord& record) {
+    EventKey key;
+    if (!durable_admission_open() || !replay_fence_ready_ || runtime_state_ == nullptr ||
+        record.original_ordinal == 0 || record.original_ordinal > applied_boundary_ ||
+        !record.owner.authenticated() ||
+        std::all_of(record.payload_digest.begin(), record.payload_digest.end(),
+                    [](std::uint8_t b) { return b == 0; }) ||
+        !parse_identity_event_key(record.event_key, key) || key.source_id.empty() ||
+        key.session_id == 0 || key.sequence == 0 || !journal_.cloud_completed(key) ||
+        replay_snapshot_.nodes[record.owner.enrollment_slot].enrollment_generation !=
+            record.owner.enrollment_generation ||
+        replay_snapshot_.nodes[record.owner.enrollment_slot].binding_digest !=
+            record.owner.binding_digest ||
+        !retirement_proves_node_durable_retirement(replay_snapshot_,
+            record.owner.enrollment_slot, record.owner.enrollment_generation,
+            key.session_id, key.sequence))
         return IdentityRetirementEligibility::NotEligible;
     return IdentityRetirementEligibility::EligibleWithDurableReplayFence;
+}
+
+bool HubRuntime::plan_identity_compaction(storage::IdentityCompactionRetainedVisitor visitor,
+        void* visitor_context, storage::IdentityCompactionPlan& plan) {
+    plan = {};
+    if (!durable_admission_open() || !replay_fence_ready_ || runtime_state_ == nullptr ||
+        visitor == nullptr) return false;
+    const auto fence_reference = replay_reference_;
+    const auto fence_epoch = replay_epoch_;
+    struct PlanContext {
+        HubRuntime* runtime;
+        storage::IdentityCompactionRetainedVisitor visitor;
+        void* visitor_context;
+    } context{this, visitor, visitor_context};
+    auto classifier = [](void* context, const storage::IdentityCompactionRecord& record) {
+        auto* plan_context = static_cast<PlanContext*>(context);
+        if (!record.owner.authenticated()) return storage::IdentityCompactionDisposition::Retain;
+        return plan_context->runtime->identity_record_retirement_eligibility(record) ==
+                IdentityRetirementEligibility::EligibleWithDurableReplayFence
+            ? storage::IdentityCompactionDisposition::Fenced
+            : storage::IdentityCompactionDisposition::Retain;
+    };
+    auto visit = [](void* context, const storage::IdentityCompactionRecord& record) {
+        auto* plan_context = static_cast<PlanContext*>(context);
+        return plan_context->visitor(plan_context->visitor_context, record);
+    };
+    const bool planned = runtime_state_->plan_identity_compaction(
+        classifier, visit, &context, plan);
+    if (!planned || !durable_admission_open() || !replay_fence_ready_ ||
+        replay_epoch_ != fence_epoch || replay_reference_.bank != fence_reference.bank ||
+        replay_reference_.generation != fence_reference.generation ||
+        replay_reference_.digest != fence_reference.digest) {
+        plan.complete = false;
+        if (plan.blocked_records == 0) ++plan.blocked_records;
+        return false;
+    }
+    return true;
 }
 
 std::optional<std::uint32_t> HubRuntime::authoritative_storage_epoch() const {

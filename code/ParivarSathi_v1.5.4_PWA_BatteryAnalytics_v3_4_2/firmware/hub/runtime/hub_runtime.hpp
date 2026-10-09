@@ -127,6 +127,11 @@ public:
         const DomainEvent&, std::uint8_t enrollment_slot,
         std::uint32_t enrollment_generation,
         const std::array<std::uint8_t, 32>& owner_binding_digest);
+    // Read-only P2-A3a plan. Retained rows are visited in source order; this
+    // does not write a candidate or alter the active identity authority.
+    bool plan_identity_compaction(storage::IdentityCompactionRetainedVisitor,
+                                  void* visitor_context,
+                                  storage::IdentityCompactionPlan&);
     bool checkpoint_state();
 
     std::size_t ingest_depth() const { return ingest_.size(); }
@@ -140,6 +145,8 @@ private:
         std::string source_id;
         storage::IdentityOwnerEvidence evidence;
     };
+    IdentityRetirementEligibility identity_record_retirement_eligibility(
+        const storage::IdentityCompactionRecord&);
     friend class HubCheckpointCodec;
     std::vector<RuleSignalDecision> apply_committed_event(
         const DomainEvent& event, std::optional<std::uint16_t> local_minute);
