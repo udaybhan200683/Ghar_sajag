@@ -14,7 +14,7 @@ Current P0 household, sensor/event, caregiver, privacy and implementation bounda
 
 ## Supported hardware and architecture
 
-- R1 Hub baseline: existing 4 MB ESP32 Hub. ESP32-S3-N16R8 is not an R1 dependency unless explicitly approved.
+- R1 Hub development baseline: ESP32-S3 N16R8 (16 MiB flash, 8 MiB PSRAM), explicitly approved by GS-D030; physical qualification pending.
 - R1 Nodes: battery-operated ESP32-C3 (GS-D027). Six Nodes share Hub storage/resources.
 - Nodes sense locally, retain/retry events, and retire them only after a valid application ACK.
 - Hub authenticates/owns Nodes, processes events, runs local safety and bounded routine logic, commits before ACK, and buffers/synchronizes caregiver-relevant data.
@@ -32,7 +32,7 @@ Preserve authenticated ownership, durable-before-ACK, lost-ACK retry safety, dup
 
 Closed physical fresh-install durability gates include ownership/enrollment, Node runtime/rejoin, first durable commit, Hub reboot recovery, ACK class 0 and retirement, duplicate ACK safety, and lost-ACK/retry/duplicate qualification with empty final Node queues. Do not repeat those gates unless a later change can invalidate them. See [R1 work state](R1_WORK_STATE.md) for the latest record.
 
-The current R1 product blocker is Hub storage/data-lifecycle architecture. A shared 128-event lifetime ceiling is unacceptable; merely increasing 128 is not a fix. Next design the lifecycle against the actual 4 MB Hub and six-Node case: active correctness journal/dedupe, materialized state, backend outbox, short history/cache, safe reclamation, offline capacity, flash wear, and OTA limits. Do not implement a guessed capacity or retention policy.
+The current R1 product blocker is Hub storage/data-lifecycle architecture. A shared 128-event lifetime ceiling is unacceptable; merely increasing 128 is not a fix. Next qualify the lifecycle against the selected S3 Hub and six-Node case: active correctness journal/dedupe, materialized state, backend outbox, short history/cache, safe reclamation, offline capacity, flash wear, and OTA limits. Do not implement a guessed capacity or retention policy.
 
 BAT-C8 is an R1-required feature with physical qualification pending (GS-D020). Qualification must prove required production sleep/wake/resume, sensing/runtime and radio restoration, safe fail-awake behavior, and event-processing regression safety. Final battery-life optimization and long-duration endurance are not blockers absent an explicit R1 battery-life claim. USB zero-touch automation is convenience tooling, not an R1 product blocker. See the index for other deferred work and qualification evidence.
 
@@ -47,7 +47,7 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 ## Do not reopen without reason
 
 - Passed fresh-install durability, lost-ACK, retry, duplicate, ACK-retirement, and reboot-recovery qualification.
-- R1 hardware baseline (4 MB Hub and ESP32-C3 Nodes) or approved ownership/security invariants.
+- Approved S3 N16R8 Hub / ESP32-C3 Node direction (GS-D030) or ownership/security invariants.
 - The decision that 128 events is not an acceptable lifetime and cannot be fixed by increasing the constant alone.
 - USB automation as a product requirement, development-era migration as an R1 requirement, or completed historical evidence.
 
@@ -123,3 +123,15 @@ Earlier preparation/promotion paragraphs above are historical. No experimental
 code/evidence is promoted or qualification inferred. Next resume Gate C protected
 NVS admission/progress; the 72-hour event-volume/capacity guarantee remains OPEN.
 No new security hardware, ESP32-S3 or partition change is authorized.
+
+## Current Hub platform — GS-D030, context2026-10-09.001
+
+New Hub development uses `/home/udaybhan/projects/Ghar_sajag_r1_s3` on
+`feature/r1-s3-hub-bringup`; classic 4 MiB code/history and storage-worktree work
+are preserved. Do not continue retired-target capacity optimization. Verify
+actual S3 flash/PSRAM/pinout and preserve existing device contents before flashing.
+Camera/AI are not included in R1. The 72-hour target, C3/BAT-C8 and all durability,
+routine/coverage and signed-FOTA/application-rollback contracts remain unchanged.
+More memory does not qualify sustainable storage, OTA or physical/end-to-end R1.
+Historical no-S3-approval statements above apply to their dated checkpoints;
+current hardware authority is GS-D030. Final commercial partitions remain open.

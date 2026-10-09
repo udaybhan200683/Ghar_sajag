@@ -83,17 +83,21 @@ by an unsuccessful upgrade. The previous valid firmware must recover supported
 state correctly or fail closed, without silent erase/reset or stale-state success.
 Application rollback is separate from stored-data rollback and is not waived.
 
-No new security hardware, MCU upgrade or partition change is approved. Gate C
+GS-D029 itself approves no new security hardware or partitions; GS-D030 separately
+selects the S3 Hub. Gate C
 protected NVS capacity/progress and the 72-hour event-volume/capacity guarantee
 remain unresolved. This decision does not establish production integration or
 physical firmware/storage qualification.
 
-## Hardware scope
+## Hardware scope — GS-D030
 
-- Hub: existing 4 MB target.
-- Nodes: ESP32-C3.
-- ESP32-S3-N16R8 migration is not R1 unless explicitly approved.
-- First prove whether approved R1 behavior fits safely on 4 MB.
+- Hub development baseline: ESP32-S3 N16R8, 16 MiB flash and 8 MiB PSRAM.
+- Nodes: battery-operated ESP32-C3; existing six-Node and ESP-NOW contracts remain.
+- Classic 4 MiB ESP32 code/history are preserved; it is no longer the active target.
+- Verify each board's real memory/pinout; camera/AI/bed features are not added to R1.
+- Preserve two OTA slots, signed FOTA and automatic application rollback.
+- Isolated development partitions are permitted; commercial layout/capacity remain open.
+- Previous physical classic-ESP32 qualification does not establish S3 qualification.
 
 ## BAT-C8 required feature and qualification
 
@@ -152,9 +156,9 @@ status are unchanged; this does not establish a battery-life claim.
 
 Door OPEN/CLOSE remain individually identifiable. Future bed occupancy sessions
 may track START/END/duration at Node, but bed sensing is excluded from R1 and is
-not proof of sleep or identity. Existing 4 MB Hub/ESP32-C3 hardware scope stays
-in force. Final critical classes/reserves, NORMAL/HIGH/STRESS guaranteed bounds,
-NVS partition and ESP32-S3 upgrade are not approved. Requirement approval does
+not proof of sleep or identity. Hub hardware direction is now GS-D030; ESP32-C3 scope stays
+in force. Final critical classes/reserves, NORMAL/HIGH/STRESS guaranteed bounds
+and commercial NVS partition remain unapproved. Requirement approval does
 not close technical proof gates or authorize production integration in this task.
 
 ## Release discipline

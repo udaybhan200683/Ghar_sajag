@@ -15,7 +15,7 @@ R1 is a commercially installable fresh baseline. Arbitrary dev-era persistence m
 Reduce scope, not correctness/security/durability standards.
 
 ### GS-D003 — Hub hardware baseline
-**Status:** LOCKED  
+**Status:** SUPERSEDED for the Hub baseline by GS-D030; retained for history
 Design R1 for the existing 4 MB Hub first. ESP32-S3-N16R8 remains future/optional unless explicitly approved.
 
 ### GS-D004 — Six Nodes share Hub storage
@@ -227,6 +227,39 @@ This locks product/security scope, not a storage format, reserve, implementation
 readiness or new qualification result. It resolves the previously OPEN security/
 rollback scope in GS-D023/024 only to this extent; remaining technical recovery,
 storage-format/FOTA compatibility, capacity and qualification gates stay open.
+
+### GS-D030 — Approved ESP32-S3 N16R8 Hub development platform
+**Status:** LOCKED (hardware direction); implementation and physical qualification pending
+
+**Approved:** 2026-10-09, explicitly by the product owner
+
+The R1 Hub development platform is ESP32-S3 N16R8: 16 MiB flash and 8 MiB
+PSRAM. New Hub target development takes place on `feature/r1-s3-hub-bringup`
+in `/home/udaybhan/projects/Ghar_sajag_r1_s3`. Retire the classic 4 MiB ESP32
+as an active Hub development target; preserve its code, tests, evidence and Git
+history. ESP32-C3 sensor Nodes, the six-Node model, ESP-NOW protocol, PIR
+coalescing, ACK/retry/retirement and BAT-C8 requirements remain unchanged.
+
+This explicitly supersedes GS-D003's former Hub baseline and only the 4 MiB
+hardware-budget restrictions in GS-D013/016/017 and the unchanged-Hub-baseline
+statements in GS-D028/029. All other locked functionality, routine/coverage,
+ownership, durability, deduplication, security and FOTA contracts remain in force.
+The 72-hour internet-only outage target remains LOCKED, not a capacity guarantee.
+More flash/PSRAM does not qualify storage progress, runtime memory, signed FOTA,
+automatic application rollback, schema compatibility or end-to-end R1 behavior.
+
+Bring up the existing camera development board without adding camera/AI/ML or
+bed features to R1. Verify chip, flash, PSRAM initialization and actual board
+pinout; do not assume another board has the same GPIO mapping. Do not assign
+Octal PSRAM pins GPIO35–37 to sensors. Preserve existing device firmware/data
+before any flash writes; do not erase the whole flash or burn security eFuses.
+
+An isolated S3 development partition layout with two OTA slots is authorized for
+bring-up. Final commercial partitions, retention volumes, critical reserve and
+saturation policy remain OPEN under GS-D015/025. Preserve signed firmware
+validation and automatic application rollback; unsigned diagnostics are only
+development artifacts and do not establish production FOTA qualification.
+No hardware purchase, Node changes or production storage integration is implied.
 
 ## Reconciliation status — 2026-10-07
 

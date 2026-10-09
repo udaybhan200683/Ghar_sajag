@@ -58,10 +58,11 @@ If product semantics are missing, classify `REQUIREMENT_GAP`; do not invent them
 
 ## Current hardware baseline
 
-- R1 design target remains the existing 4 MB Hub unless the user explicitly approves hardware migration.
-- Sensor Nodes remain ESP32-C3 unless explicitly changed.
-- ESP32-S3-N16R8 is a future option, not an approved R1 dependency.
-- Storage and routine-learning design must first be optimized for the actual 4 MB Hub.
+- GS-D030 selects ESP32-S3 N16R8 (16 MiB flash, 8 MiB PSRAM) for new R1 Hub development.
+- Sensor Nodes remain ESP32-C3; preserve their protocol and BAT-C8 behavior.
+- New Hub target work uses `/home/udaybhan/projects/Ghar_sajag_r1_s3` on `feature/r1-s3-hub-bringup`.
+- Preserve the classic ESP32 target and evidence as historical sources; do not resume 4 MiB capacity optimization.
+- Verify actual board flash, PSRAM and pinout before hardware bring-up; commercial partitions and capacity qualification remain open.
 
 ## Non-negotiable durability invariants
 

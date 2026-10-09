@@ -276,7 +276,7 @@ This register records requirements explicitly present in canonical sources. `UNK
 | GS-PROD-01 | Commercially installable fresh baseline; reduce scope, not quality | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; P0/R1 | PARTIAL; fresh-install durability gates passed | R1 release objective |
 | GS-P0-01 | P0 household, Hub/Node, event, caregiver, privacy, offline and deferral behavior plus evidence boundaries | `docs/product/P0_PRODUCT_REQUIREMENTS.md` | LOCKED where marked; OPEN items remain explicit; P0/R1 | PARTIAL; physical/app paths have separate evidence status | Canonical summary; domain details stay in guides |
 | GS-R1-01 | Support current approved fresh-install persistent format; arbitrary abandoned-format migration deferred | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | IMPLEMENTED for qualified path; gate passed | Migration-only work post-R1 absent fresh-path impact |
-| GS-HW-01 | Existing 4 MB Hub and ESP32-C3 Node baseline; S3-N16R8 not dependency | `docs/product/DECISION_LOG.md` | LOCKED; R1 | UNKNOWN; not requalified here | Six Nodes share Hub resources |
+| GS-HW-01 | S3 N16R8 Hub development platform; ESP32-C3 Nodes (GS-D030) | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | S3 implementation/physical qualification pending | Six Nodes; classic target preserved as history |
 | GS-HUB-01 | Hub owns authenticated ingestion, local safety/routine decisions, durable processing and ACK | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | PARTIAL; selected gates passed | See Hub and protocol designs |
 | GS-NODE-01 | Node senses, retains/retries, and retires only on valid application ACK | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/R1_WORK_STATE.md` | LOCKED; R1 | IMPLEMENTED; physical gate passed | Do not repeat absent invalidation |
 | GS-EVENT-01 | Loss-aware eligible ordinary motion/PIR consolidation preserves routine, safety and observation meaning (GS-D026) | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN; validation not recorded | Preserve safety-relevant identity/meaning |
@@ -429,3 +429,15 @@ and this decision does not claim Gate C or production integration PASS.
 This task explicitly authorizes promotion of only the reviewed eight-file governance
 change. Preserve each worktree's independent historical content; increment context
 once, commit both branches and require both unchanged preflights PASS at2026-10-08.002.
+
+## Approved S3 hardware direction — GS-D030
+
+Context2026-10-09.001 supersedes only GS-D003's former Hub baseline and related
+4 MiB-only hardware constraints in GS-D013/016/017/028/029. DECISION_LOG,
+R1_RELEASE_CONTRACT, P0_PRODUCT_REQUIREMENTS and STORAGE_SYNC_ROUTINE_LEARNING
+carry current authority. Older 4 MiB capacity, OTA and physical evidence remains
+valid for its stated hardware; it cannot define the current Hub or qualify S3.
+New target work uses the isolated S3 worktree. No storage prototype/evidence is
+promoted to canonical. GS-D020/025/026/027/028 sensor semantics and GS-D029 security
+and application rollback remain in force. Commercial partition/volume policy,
+sustainable reclamation and S3 physical/end-to-end qualification remain open.
