@@ -230,7 +230,9 @@ IdentityRetirementEligibility HubRuntime::identity_record_retirement_eligibility
         std::all_of(record.payload_digest.begin(), record.payload_digest.end(),
                     [](std::uint8_t b) { return b == 0; }) ||
         !parse_identity_event_key(record.event_key, key) || key.source_id.empty() ||
-        key.session_id == 0 || key.sequence == 0 || !journal_.cloud_completed(key) ||
+        key.session_id == 0 || key.sequence == 0 ||
+        (!journal_.cloud_completed(key) &&
+         record.original_ordinal > journal_.backend_completion_retired_through()) ||
         replay_snapshot_.nodes[record.owner.enrollment_slot].enrollment_generation !=
             record.owner.enrollment_generation ||
         replay_snapshot_.nodes[record.owner.enrollment_slot].binding_digest !=
@@ -257,6 +259,11 @@ bool HubRuntime::plan_identity_compaction(storage::IdentityCompactionRetainedVis
     auto classifier = [](void* context, const storage::IdentityCompactionRecord& record) {
         auto* plan_context = static_cast<PlanContext*>(context);
         if (!record.owner.authenticated()) return storage::IdentityCompactionDisposition::Retain;
+        EventKey key;
+        if (!parse_identity_event_key(record.event_key, key))
+            return storage::IdentityCompactionDisposition::Blocked;
+        if (plan_context->runtime->journal_.contains(key))
+            return storage::IdentityCompactionDisposition::Retain;
         return plan_context->runtime->identity_record_retirement_eligibility(record) ==
                 IdentityRetirementEligibility::EligibleWithDurableReplayFence
             ? storage::IdentityCompactionDisposition::Fenced
@@ -277,6 +284,53 @@ bool HubRuntime::plan_identity_compaction(storage::IdentityCompactionRetainedVis
         return false;
     }
     return true;
+}
+
+bool HubRuntime::compact_identity_generation(std::uint32_t safety_reserve_bytes,
+        storage::IdentityCompactionPlan& plan) {
+#if defined(ESP_PLATFORM) && (!defined(CONFIG_GS_IDENTITY_COMPACTION_ENABLED) || \
+                              !CONFIG_GS_IDENTITY_COMPACTION_ENABLED)
+    (void)safety_reserve_bytes;(void)plan;
+    return false;
+#endif
+    plan={};
+    if(!durable_admission_open() || !replay_fence_ready_ || runtime_state_==nullptr)
+        return false;
+    const auto reference=replay_reference_;
+    const auto epoch=replay_epoch_;
+    struct Context { HubRuntime* runtime; durable::RetirementSnapshotReference reference;
+                     std::uint64_t epoch; } context{this,reference,epoch};
+    const auto still_current=[](void* opaque) {
+        const auto& current=*static_cast<Context*>(opaque);
+        return current.runtime->durable_admission_open() &&
+            current.runtime->replay_fence_ready_ && current.runtime->replay_epoch_==current.epoch &&
+            current.runtime->replay_reference_.bank==current.reference.bank &&
+            current.runtime->replay_reference_.generation==current.reference.generation &&
+            current.runtime->replay_reference_.digest==current.reference.digest;
+    };
+    const auto classify=[](void* opaque,const storage::IdentityCompactionRecord& record) {
+        auto& runtime=*static_cast<Context*>(opaque)->runtime;
+        if(!record.owner.authenticated())return storage::IdentityCompactionDisposition::Retain;
+        EventKey key;
+        if(!parse_identity_event_key(record.event_key,key))
+            return storage::IdentityCompactionDisposition::Blocked;
+        // A retained body still participates in outbox replay and must keep its
+        // exact identity row even when the backend and Node have completed.
+        if(runtime.journal_.contains(key))return storage::IdentityCompactionDisposition::Retain;
+        return runtime.identity_record_retirement_eligibility(record)==
+                IdentityRetirementEligibility::EligibleWithDurableReplayFence
+            ? storage::IdentityCompactionDisposition::Fenced
+            : storage::IdentityCompactionDisposition::Retain;
+    };
+    security::Bytes authority{'R','F',1};
+    const auto epoch_wide=static_cast<std::uint64_t>(epoch);
+    for(unsigned i=0;i<8;++i)authority.push_back(static_cast<std::uint8_t>(epoch_wide>>(i*8U)));
+    for(unsigned i=0;i<8;++i)authority.push_back(
+        static_cast<std::uint8_t>(reference.generation>>(i*8U)));
+    authority.push_back(reference.bank);
+    authority.insert(authority.end(),reference.digest.begin(),reference.digest.end());
+    return runtime_state_->compact_identity(classify,&context,authority,epoch,reference.generation,
+        reference.bank,reference.digest,still_current,&context,safety_reserve_bytes,plan);
 }
 
 std::optional<std::uint32_t> HubRuntime::authoritative_storage_epoch() const {
@@ -378,7 +432,14 @@ bool HubRuntime::restore_from_journal() {
     if (runtime_state_) {
         // Fresh ledger is allowed only for a genuinely empty outbox. Existing
         // body-only installations require explicit migration, never auto-reset.
-        if (!runtime_state_->recover(journal_.size())) { checkpoint_fault_=true; return false; }
+        if (!runtime_state_->recover(journal_.size()) ||
+            !runtime_state_->compaction_authority_matches(
+                replay_fence_ready_ ? replay_epoch_ : 0,
+                replay_fence_ready_ ? replay_reference_.generation : 0,
+                replay_fence_ready_ ? replay_reference_.bank : 0,
+                replay_fence_ready_ ? replay_reference_.digest : security::Key32{})) {
+            checkpoint_fault_=true; return false;
+        }
         security::Bytes bytes; bool found=false; std::uint64_t boundary=0;
         if (!runtime_state_->load_checkpoint(bytes,boundary,found)) { checkpoint_fault_=true; return false; }
         if (found && !HubCheckpointCodec::restore(*this,bytes)) { checkpoint_fault_=true; return false; }

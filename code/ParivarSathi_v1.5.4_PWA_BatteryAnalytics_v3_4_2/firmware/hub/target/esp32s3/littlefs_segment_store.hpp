@@ -43,6 +43,9 @@ public:
     bool state_append_sync(const char* name, const security::Bytes& data) override;
     bool state_replace(const char* name, const security::Bytes& data) override;
     bool state_truncate(const char* name, std::uint32_t size) override;
+    bool state_capacity(std::uint64_t& total, std::uint64_t& used) override;
+    bool state_remove(const char* name) override;
+    bool state_sync(const char* name) override;
 private:
     bool path_for(std::uint16_t segment, char* path, std::size_t capacity) const;
 

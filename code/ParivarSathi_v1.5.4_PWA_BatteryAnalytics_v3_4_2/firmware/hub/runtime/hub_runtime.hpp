@@ -132,6 +132,8 @@ public:
     bool plan_identity_compaction(storage::IdentityCompactionRetainedVisitor,
                                   void* visitor_context,
                                   storage::IdentityCompactionPlan&);
+    bool compact_identity_generation(std::uint32_t safety_reserve_bytes,
+                                     storage::IdentityCompactionPlan&);
     bool checkpoint_state();
 
     std::size_t ingest_depth() const { return ingest_.size(); }

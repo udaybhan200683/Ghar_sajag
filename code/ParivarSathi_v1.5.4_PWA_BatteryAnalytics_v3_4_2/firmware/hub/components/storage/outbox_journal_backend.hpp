@@ -19,6 +19,7 @@ public:
     bool for_each_with_ordinal(OrdinalEventVisitor visitor, void* context) override;
     bool cloud_completed(const EventKey& key) const override;
     std::size_t cloud_completed_count() const override;
+    std::uint64_t backend_completion_retired_through() const override;
     bool acknowledge_cloud(const EventKey& key) override;
 
 private:

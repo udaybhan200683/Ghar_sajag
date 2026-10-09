@@ -28,9 +28,10 @@ struct IdentityCompactionPlan {
     std::uint64_t fenced_records{0};
     std::uint64_t blocked_records{0};
     std::uint32_t candidate_record_bytes{0};
-    // Record-only lower bound; staging format and filesystem overhead are not
-    // available until a candidate-file protocol is added.
+    // During planning this is the record-only lower bound. A compaction run
+    // raises it to candidate bytes plus the enforced free-space reserve.
     std::uint32_t minimum_temporary_bytes{0};
+    std::uint32_t temporary_safety_reserve_bytes{0};
     // Authenticated fingerprints of the exact source head and ordered future
     // retained-row stream. These are planning evidence, not publication roots.
     security::Key32 source_head_digest{};
@@ -41,6 +42,7 @@ using IdentityCompactionClassifier = IdentityCompactionDisposition (*)(
     void*, const IdentityCompactionRecord&);
 using IdentityCompactionRetainedVisitor = bool (*)(
     void*, const IdentityCompactionRecord&);
+using IdentityCompactionAuthorityValidator = bool (*)(void*);
 // All files belong to the SAME serialized LittleFS writer as the event log.
 // replace is atomic old-or-new with a durability barrier; append_sync may tear.
 class RuntimeStateFiles {
@@ -52,6 +54,11 @@ public:
     virtual bool state_append_sync(const char* name, const security::Bytes& data) = 0;
     virtual bool state_replace(const char* name, const security::Bytes& data) = 0;
     virtual bool state_truncate(const char* name, std::uint32_t size) = 0;
+    // Identity generation staging primitives. Capacity is filesystem free
+    // space from the backing adapter, not a logical quota estimate.
+    virtual bool state_capacity(std::uint64_t& total, std::uint64_t& used) = 0;
+    virtual bool state_remove(const char* name) = 0;
+    virtual bool state_sync(const char* name) = 0;
 };
 
 class RuntimeStateStore {
@@ -59,6 +66,7 @@ public:
     static constexpr std::size_t maximum_checkpoint_bytes = 64U * 1024U;
     // Candidate byte budget, not an identity expiration/event-count policy.
     static constexpr std::uint32_t maximum_identity_bytes = 1024U * 1024U;
+    static constexpr std::uint32_t minimum_compaction_safety_reserve_bytes = 16U * 1024U;
     RuntimeStateStore(RuntimeStateFiles&, security::CommissioningCrypto&, const security::Key32&);
     ~RuntimeStateStore();
     // The argument is the outbox publication high-water mark, not the count of
@@ -91,10 +99,24 @@ public:
     bool plan_identity_compaction(IdentityCompactionClassifier,
                                  IdentityCompactionRetainedVisitor,
                                  void* context, IdentityCompactionPlan&);
+    bool compact_identity(IdentityCompactionClassifier, void* classifier_context,
+                          const security::Bytes& replay_authority,
+                          std::uint64_t replay_epoch,
+                          std::uint64_t replay_generation,
+                          std::uint8_t replay_bank,
+                          const security::Key32& replay_digest,
+                          IdentityCompactionAuthorityValidator authority_current,
+                          void* authority_context,
+                          std::uint32_t safety_reserve_bytes,
+                          IdentityCompactionPlan&);
+    bool compaction_authority_matches(std::uint64_t replay_epoch,
+                                      std::uint64_t replay_generation,
+                                      std::uint8_t replay_bank,
+                                      const security::Key32& replay_digest) const;
     // Called only after the event outbox's authenticated publication succeeds.
     bool confirm_event_publication(std::uint64_t boundary);
     bool healthy() const { return ready_ && !faulted_; }
-    std::uint64_t identities() const { return count_; }
+    std::size_t identities() const { return identity_index_size_; }
     std::uint32_t identity_bytes() const { return bytes_; }
     std::size_t checkpoint_bytes() const { return checkpoint_bytes_; }
 private:
@@ -105,7 +127,9 @@ private:
     bool record_at(std::uint32_t offset, std::uint64_t expected, std::string& key,
                    std::optional<std::uint16_t>& minute, security::Bytes& frame,
                    security::Key32* event_digest = nullptr,
-                   IdentityOwnerEvidence* owner = nullptr);
+                   IdentityOwnerEvidence* owner = nullptr,
+                   std::uint64_t* actual_ordinal = nullptr,
+                   const char* file = "identity.log");
     bool reserve_identity_index(std::size_t required);
     bool insert_identity_index(const std::string& key, std::uint64_t ordinal,
                                std::uint32_t offset);
@@ -122,6 +146,13 @@ private:
     std::uint64_t count_{0};
     std::uint64_t committed_highwater_{0};
     std::uint32_t bytes_{0};
+    std::uint8_t active_slot_{0};
+    std::string active_identity_file_{"identity.log"};
+    std::uint64_t replay_epoch_{0}, replay_generation_{0};
+    std::uint8_t replay_bank_{0};
+    security::Key32 replay_digest_{};
+    security::Key32 compacted_plan_digest_{};
+    bool compacted_{false};
     std::size_t checkpoint_bytes_{0};
     std::uint64_t cursor_ordinal_{0};
     std::uint32_t cursor_offset_{0};

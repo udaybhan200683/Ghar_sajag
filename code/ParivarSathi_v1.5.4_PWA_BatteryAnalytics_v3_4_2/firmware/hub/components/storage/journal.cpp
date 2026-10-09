@@ -441,6 +441,10 @@ std::size_t HubJournal::cloud_completed_count() const {
     return cloud_acked_.size();
 }
 
+std::uint64_t HubJournal::backend_completion_retired_through() const {
+    return backend_ != nullptr ? backend_->backend_completion_retired_through() : 0;
+}
+
 std::size_t HubJournal::size() const {
     if (backend_ != nullptr) return backend_->size();
     return records_.size();

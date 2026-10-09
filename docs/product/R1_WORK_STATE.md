@@ -577,3 +577,32 @@ physical bytes were reclaimed. The planner streams one row at a time (maximum
 than materializing the ledger in RAM. Durable staging, incomplete-candidate
 recovery, authority switch and deletion remain P2-A3b scope. Reclaimed
 physical bytes are zero; production deletion remains disabled.
+
+### S3 durable identity compaction and host reclamation — 2026-10-09
+
+P2-A3b adds encrypted alternating identity generations and an authenticated
+generation root that binds the selected slot, original ordinal high-water,
+source/retained-plan digest, and replay-fence authority. The candidate is
+streamed, synced, reread and compared against the retained source rows before
+root publication. Recovery accepts only the selected generation, preserves
+sparse original ordinals, and removes stale or orphan generations only after
+validating the selected source. Hub compaction retains identities with pending
+event bodies and excludes only rows proven covered by durable completion and
+replay-fence evidence. Firmware compaction remains disabled by default behind
+`GS_IDENTITY_COMPACTION_ENABLED` pending physical power-cut qualification and
+retention approval.
+
+Focused host tests pass deterministic interruption/corruption/capacity cases,
+stale replay after reboot, mixed retained/fenced rows, and two 6,000-event
+append/compact/reboot windows (12,000 cumulative identities). The POSIX host
+filesystem fixture measured a 177,693-byte original ledger and an 88,845-byte
+compacted ledger; allocated file blocks fell from 188,416 to 98,304 bytes,
+recovering 90,112 host-filesystem bytes. Its peak temporary file usage was
+266,752 logical bytes (88,943 bytes above the original). The compaction working
+set streams at most two 516-byte frames and bounded row/crypto scratch beyond
+the pre-existing identity index; target peak RAM was not measured. Existing
+3,278-event lifecycle and 6,556 cumulative completion-reclamation regressions,
+focused ASan/UBSan, and an ESP-IDF 6.0.3 S3 build pass. Physical LittleFS
+allocation and power-cut qualification have not been run; host block counts do
+not represent flash-chip measurements. No event bodies were deleted and no
+physical bytes are claimed reclaimed.
