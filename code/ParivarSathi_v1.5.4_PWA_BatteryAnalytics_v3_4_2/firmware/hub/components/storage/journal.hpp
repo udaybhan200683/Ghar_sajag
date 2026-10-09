@@ -22,6 +22,25 @@ namespace gs::hub {
 enum class CommitResult { Stored, Duplicate, Full, StorageFault };
 class CloudSync;
 
+// Streaming event backend used by scalable target stores. The interface keeps
+// runtime/reducer code independent from a physical slot count. Implementations
+// must return Stored only after the event and its recovery identity are durable.
+class JournalEventBackend {
+public:
+    using EventVisitor = bool (*)(void* context, const DomainEvent& event);
+    virtual ~JournalEventBackend() = default;
+    virtual bool healthy() const = 0;
+    virtual std::size_t size() const = 0;
+    virtual CommitResult commit(const DomainEvent& event) = 0;
+    virtual bool contains(const EventKey& key) = 0;
+    virtual bool for_each(EventVisitor visitor, void* context) = 0;
+    // The first S3 outbox slice intentionally has no backend-completion ledger.
+    // Until one is integrated, it cannot mark or retire uploaded records.
+    virtual bool cloud_completed(const EventKey&) const { return false; }
+    virtual std::size_t cloud_completed_count() const { return 0; }
+    virtual bool acknowledge_cloud(const EventKey&) { return false; }
+};
+
 // One immutable record per slot. Target implementation commits and verifies
 // each NVS blob in the dedicated journal partition before returning success.
 class JournalSlotStore {
@@ -52,6 +71,9 @@ public:
                             JournalSlotStore& store,
                             const security::Key32& protected_key,
                             void (*recovery_cooperate)() = nullptr);
+    // Attach a recovered streaming backend before any event admission. Unlike
+    // the legacy slot store this has no event-count-derived storage capacity.
+    bool attach_backend(JournalEventBackend& backend);
     // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
     // Return Stored, Duplicate, Full, or StorageFault. Target persistence writes
     // and verifies a slot before Stored is returned.
@@ -61,12 +83,13 @@ public:
     std::vector<DomainEvent> pending_cloud(std::size_t limit) const;
     // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
     bool contains(const EventKey& key) const;
-    bool cloud_completed(const EventKey& key) const { return cloud_acked_.count(key.str()) != 0; }
-    std::size_t cloud_completed_count() const { return cloud_acked_.size(); }
-    std::size_t size() const { return records_.size(); }
-    bool storage_fault() const { return storage_fault_; }
-    bool persistent() const { return store_ != nullptr && !storage_fault_; }
+    bool cloud_completed(const EventKey& key) const;
+    std::size_t cloud_completed_count() const;
+    std::size_t size() const;
+    bool storage_fault() const;
+    bool persistent() const;
     const std::vector<DomainEvent>& records() const { return records_; }
+    bool for_each(JournalEventBackend::EventVisitor visitor, void* context) const;
     static bool encode_event_payload(const DomainEvent&, security::Bytes&);
     static bool decode_event_payload(const security::Bytes&, DomainEvent&);
     static bool encode_slot_blob(security::CommissioningCrypto&, const security::Key32&,
@@ -91,6 +114,7 @@ private:
     std::set<std::string> cloud_acked_;
     security::CommissioningCrypto* crypto_{nullptr};
     JournalSlotStore* store_{nullptr};
+    JournalEventBackend* backend_{nullptr};
     security::Key32 storage_key_{};
     bool storage_fault_{false};
 };

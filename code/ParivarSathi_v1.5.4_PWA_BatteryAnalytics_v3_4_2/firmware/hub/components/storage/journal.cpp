@@ -247,7 +247,7 @@ bool HubJournal::attach_persistence(security::CommissioningCrypto& crypto,
                                     JournalSlotStore& store,
                                     const security::Key32& protected_key,
                                     void (*recovery_cooperate)()) {
-    if (store_ || !records_.empty() || capacity_ != 128 ||
+    if (store_ || backend_ || !records_.empty() || capacity_ != 128 ||
         !std::any_of(protected_key.begin(), protected_key.end(),
                      [](std::uint8_t byte) { return byte != 0; })) {
         storage_fault_ = true;
@@ -286,10 +286,22 @@ bool HubJournal::attach_persistence(security::CommissioningCrypto& crypto,
     return !storage_fault_;
 }
 
+bool HubJournal::attach_backend(JournalEventBackend& backend) {
+    if (store_ || backend_ || !records_.empty() || !ids_.empty() ||
+        !backend.healthy()) {
+        storage_fault_ = true;
+        return false;
+    }
+    backend_ = &backend;
+    return true;
+}
+
 // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
 // Persistent target writes and verifies a slot before returning Stored.
 CommitResult HubJournal::commit(const DomainEvent& event) {
     GS_TRACE(gs::log::Category::Storage, "H02", "commit.enter", "-");
+    if (backend_ != nullptr)
+        return backend_->healthy() ? backend_->commit(event) : CommitResult::StorageFault;
     if (storage_fault_) return CommitResult::StorageFault;
     const auto id = event.key.str();
     if (ids_.count(id)) return CommitResult::Duplicate;
@@ -343,6 +355,22 @@ CommitResult HubJournal::commit(const DomainEvent& event) {
 std::vector<DomainEvent> HubJournal::pending_cloud(std::size_t limit) const {
     GS_TRACE(gs::log::Category::Storage, "H02", "pending_cloud.enter", "-");
     std::vector<DomainEvent> result;
+    if (backend_ != nullptr) {
+        struct PendingContext {
+            JournalEventBackend* backend;
+            std::vector<DomainEvent>* result;
+            std::size_t limit;
+        } context{backend_, &result, limit};
+        const auto append_pending = [](void* opaque, const DomainEvent& event) -> bool {
+            auto& state = *static_cast<PendingContext*>(opaque);
+            if (state.result->size() < state.limit &&
+                !state.backend->cloud_completed(event.key))
+                state.result->push_back(event);
+            return true;
+        };
+        if (limit != 0) (void)backend_->for_each(append_pending, &context);
+        return result;
+    }
     for (const auto& event : records_) {
         if (!cloud_acked_.count(event.key.str())) result.push_back(event);
         if (result.size() >= limit) break;
@@ -354,6 +382,8 @@ std::vector<DomainEvent> HubJournal::pending_cloud(std::size_t limit) const {
 // Persist backend completion in a bounded receipt slot without reclaiming the event.
 bool HubJournal::acknowledge_cloud(const EventKey& key) {
     GS_TRACE(gs::log::Category::Storage, "H02", "acknowledge_cloud.enter", "-");
+    if (backend_ != nullptr)
+        return backend_->healthy() && backend_->acknowledge_cloud(key);
     if (!ids_.count(key.str())) return false;
     if (cloud_acked_.count(key.str())) return true;
     if (storage_fault_) return false;
@@ -380,7 +410,43 @@ bool HubJournal::acknowledge_cloud(const EventKey& key) {
 
 bool HubJournal::contains(const EventKey& key) const {
     GS_TRACE(gs::log::Category::Storage, "H02", "contains.enter", "-");
+    if (backend_ != nullptr) return backend_->healthy() && backend_->contains(key);
     return ids_.count(key.str()) > 0;
+}
+
+bool HubJournal::cloud_completed(const EventKey& key) const {
+    if (backend_ != nullptr) return backend_->cloud_completed(key);
+    return cloud_acked_.count(key.str()) != 0;
+}
+
+std::size_t HubJournal::cloud_completed_count() const {
+    if (backend_ != nullptr) return backend_->cloud_completed_count();
+    return cloud_acked_.size();
+}
+
+std::size_t HubJournal::size() const {
+    if (backend_ != nullptr) return backend_->size();
+    return records_.size();
+}
+
+bool HubJournal::storage_fault() const {
+    if (backend_ != nullptr) return !backend_->healthy();
+    return storage_fault_;
+}
+
+bool HubJournal::persistent() const {
+    if (backend_ != nullptr) return backend_->healthy();
+    return store_ != nullptr && !storage_fault_;
+}
+
+bool HubJournal::for_each(JournalEventBackend::EventVisitor visitor,
+                          void* context) const {
+    if (visitor == nullptr) return false;
+    if (backend_ != nullptr)
+        return backend_->healthy() && backend_->for_each(visitor, context);
+    for (const auto& event : records_)
+        if (!visitor(context, event)) return false;
+    return !storage_fault_;
 }
 
 }  // namespace gs::hub

@@ -16,6 +16,12 @@ HubRuntime::HubRuntime(std::size_t ingest_capacity, std::size_t journal_capacity
     : ingest_(ingest_capacity), journal_(journal_capacity), coverage_(NodeProtocolPolicy::coverage_after_seconds) {
     GS_TRACE(gs::log::Category::Hub, "H00", "HubRuntime.enter", "-");}
 
+HubRuntime::HubRuntime(std::size_t ingest_capacity, JournalEventBackend& backend)
+    : ingest_(ingest_capacity), journal_(0), coverage_(NodeProtocolPolicy::coverage_after_seconds) {
+    GS_TRACE(gs::log::Category::Hub, "H00", "HubRuntime.scalable_storage.enter", "-");
+    (void)journal_.attach_backend(backend);
+}
+
 void HubRuntime::authorize_node(const std::string& node_id, std::uint64_t session_id, bool required_for_routine) {
     GS_TRACE(gs::log::Category::Hub, "H00", "authorize_node.enter", "-");
     node_health_.erase(node_id);
@@ -91,7 +97,8 @@ bool HubRuntime::durable_admission_open() const {
     return durability_owner_->state() == durable::DurabilityOwnerState::Ready &&
            epoch.has_value() && *epoch != 0 &&
            durability_owner_->durable_store() != nullptr &&
-           durability_owner_->retirement_repository() != nullptr;
+           durability_owner_->retirement_repository() != nullptr &&
+           journal_.persistent();
 }
 
 std::optional<std::uint32_t> HubRuntime::authoritative_storage_epoch() const {
@@ -145,8 +152,13 @@ bool HubRuntime::authenticated_radio_message_callback(
 bool HubRuntime::restore_from_journal() {
     if (journal_replayed_ || state_applied_ || ingest_.size() != 0 ||
         !journal_.persistent()) return false;
-    for (const auto& event : journal_.records())
-        (void)apply_committed_event(event, std::nullopt);
+    struct ReplayContext { HubRuntime* runtime; } context{this};
+    const auto replay_event = [](void* opaque, const DomainEvent& event) -> bool {
+        auto& replay = *static_cast<ReplayContext*>(opaque);
+        (void)replay.runtime->apply_committed_event(event, std::nullopt);
+        return true;
+    };
+    if (!journal_.for_each(replay_event, &context)) return false;
     journal_replayed_ = true;
     return true;
 }
