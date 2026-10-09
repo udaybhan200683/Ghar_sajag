@@ -24,7 +24,10 @@ public:
     static constexpr std::uint32_t maximum_identity_bytes = 1024U * 1024U;
     RuntimeStateStore(RuntimeStateFiles&, security::CommissioningCrypto&, const security::Key32&);
     ~RuntimeStateStore();
-    bool recover(std::uint64_t body_count);
+    // The argument is the outbox publication high-water mark, not the count of
+    // physical bodies currently retained. A durable reducer checkpoint may
+    // cover bodies that a later lifecycle phase safely retires.
+    bool recover(std::uint64_t published_event_highwater);
     bool load_checkpoint(security::Bytes&, std::uint64_t& boundary, bool& found);
     bool save_checkpoint(const security::Bytes&, std::uint64_t boundary);
     bool prepare_identity(const DomainEvent&, std::uint64_t ordinal,
@@ -54,7 +57,7 @@ private:
     security::CommissioningCrypto& crypto_;
     security::Key32 key_{};
     std::uint64_t count_{0};
-    std::uint64_t committed_count_{0};
+    std::uint64_t committed_highwater_{0};
     std::uint32_t bytes_{0};
     std::size_t checkpoint_bytes_{0};
     std::uint64_t cursor_ordinal_{0};

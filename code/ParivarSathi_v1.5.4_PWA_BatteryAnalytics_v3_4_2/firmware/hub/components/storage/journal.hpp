@@ -12,6 +12,7 @@
 #include "firmware/common/security/commissioning_crypto.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <set>
@@ -28,12 +29,18 @@ class CloudSync;
 class JournalEventBackend {
 public:
     using EventVisitor = bool (*)(void* context, const DomainEvent& event);
+    using OrdinalEventVisitor = bool (*)(void* context, std::uint64_t ordinal,
+                                         const DomainEvent& event);
     virtual ~JournalEventBackend() = default;
     virtual bool healthy() const = 0;
     virtual std::size_t size() const = 0;
     virtual CommitResult commit(const DomainEvent& event) = 0;
     virtual bool contains(const EventKey& key) = 0;
     virtual bool for_each(EventVisitor visitor, void* context) = 0;
+    // ordinal is the immutable publication ordinal, not the position in this
+    // iteration. Sparse backends may omit bodies covered by a durable reducer
+    // checkpoint while retaining the lifetime high-water mark returned by size().
+    virtual bool for_each_with_ordinal(OrdinalEventVisitor visitor, void* context);
     // Scalable backends may persist authenticated completion independently.
     // The compatibility defaults keep unsupported backends pending; completion
     // alone never authorizes event-body retirement.
@@ -89,8 +96,12 @@ public:
     std::size_t size() const;
     bool storage_fault() const;
     bool persistent() const;
+    // For scalable backends this is the immutable publication high-water mark;
+    // it may exceed the count of currently retained bodies after retirement.
     const std::vector<DomainEvent>& records() const { return records_; }
     bool for_each(JournalEventBackend::EventVisitor visitor, void* context) const;
+    bool for_each_with_ordinal(JournalEventBackend::OrdinalEventVisitor visitor,
+                               void* context) const;
     static bool encode_event_payload(const DomainEvent&, security::Bytes&);
     static bool decode_event_payload(const security::Bytes&, DomainEvent&);
     static bool encode_slot_blob(security::CommissioningCrypto&, const security::Key32&,

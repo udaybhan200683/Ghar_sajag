@@ -216,6 +216,11 @@ bool DurableEventOutbox::reserve_index(std::size_t required) {
     return true;
 }
 
+std::size_t DurableEventOutbox::index_memory_bytes() const {
+    return index_block_count_ * kIndexBlockEntries * sizeof(IndexEntry) +
+           index_table_capacity_ * sizeof(IndexEntry*);
+}
+
 DurableEventOutbox::IndexEntry& DurableEventOutbox::entry_at(std::size_t index) {
     return index_blocks_[index / kIndexBlockEntries][index % kIndexBlockEntries];
 }

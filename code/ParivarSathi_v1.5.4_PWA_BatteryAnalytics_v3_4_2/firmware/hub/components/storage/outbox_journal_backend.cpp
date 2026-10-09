@@ -12,17 +12,28 @@ void clear_plaintext(security::Bytes& bytes) {
 }
 
 struct VisitContext {
-    JournalEventBackend::EventVisitor visitor;
+    JournalEventBackend::OrdinalEventVisitor visitor;
     void* context;
 };
 
-bool decode_and_visit(void* opaque, std::uint64_t,
+bool decode_and_visit(void* opaque, std::uint64_t ordinal,
                       const std::string& canonical_key,
                       const security::Bytes& payload) {
     auto& visit = *static_cast<VisitContext*>(opaque);
     DomainEvent event;
     if (!HubJournal::decode_event_payload(payload, event) ||
         event.key.str() != canonical_key) return false;
+    return visit.visitor(visit.context, ordinal, event);
+}
+
+struct SequentialVisitContext {
+    JournalEventBackend::EventVisitor visitor;
+    void* context;
+};
+
+bool drop_ordinal(void* opaque, std::uint64_t,
+                  const DomainEvent& event) {
+    auto& visit = *static_cast<SequentialVisitContext*>(opaque);
     return visit.visitor(visit.context, event);
 }
 }  // namespace
@@ -69,6 +80,13 @@ bool OutboxJournalBackend::contains(const EventKey& key) {
 }
 
 bool OutboxJournalBackend::for_each(EventVisitor visitor, void* context) {
+    if (visitor == nullptr) return false;
+    SequentialVisitContext visit{visitor, context};
+    return for_each_with_ordinal(drop_ordinal, &visit);
+}
+
+bool OutboxJournalBackend::for_each_with_ordinal(OrdinalEventVisitor visitor,
+                                                void* context) {
     if (!outbox_.healthy() || visitor == nullptr) return false;
     VisitContext visit{visitor, context};
     return outbox_.for_each(decode_and_visit, &visit);

@@ -96,14 +96,15 @@ bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
     if(event_digest)std::copy_n(plain.begin()+3,32,event_digest->begin());
     key.assign(plain.begin()+35,plain.end()); return !key.empty() && key.size()<=256;
 }
-bool RuntimeStateStore::recover(std::uint64_t body_count) {
+bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
     ready_=false; faulted_=false; count_=0; bytes_=0; cursor_ordinal_=0; cursor_offset_=0;
     if(!key_valid_) return fault();
     Bytes head,plain; bool found=false,exists=false; std::uint32_t size=0;
     if(!read_object(kHead,head,found,128)||!files_.state_size(kIdentities,exists,size)) return fault();
     if(found) {
-        if(!open(2,head,count_,plain)||plain.size()!=32||count_<body_count||
-           count_-body_count>1) return fault();
+        if(!open(2,head,count_,plain)||plain.size()!=32||
+           count_<published_event_highwater||
+           count_-published_event_highwater>1) return fault();
         Bytes frame; std::string key; std::optional<std::uint16_t> minute;
         for(std::uint64_t i=1;i<=count_;++i) {
             if(!record_at(bytes_,i,key,minute,frame)) return fault();
@@ -112,15 +113,16 @@ bool RuntimeStateStore::recover(std::uint64_t body_count) {
         security::Key32 digest{};
         if(count_!=0 && !crypto_.hmac_sha256(key_,frame,digest))return fault();
         if(!crypto_.constant_time_equal(digest.data(),plain.data(),32))return fault();
-    } else if(body_count!=0) {
+    } else if(published_event_highwater!=0) {
         // Only an explicit retained-body migration may create the independent ledger.
         return fault();
     }
     if(size<bytes_ || size-bytes_>516) return fault();
     if(size>bytes_ && !files_.state_truncate(kIdentities,bytes_)) return fault();
     Bytes checkpoint; std::uint64_t boundary=0; bool cp=false;
-    if(!load_checkpoint(checkpoint,boundary,cp)||boundary>body_count||(!cp && (count_!=0 || found))) return fault();
-    committed_count_=body_count; ready_=true; return true;
+    if(!load_checkpoint(checkpoint,boundary,cp)||boundary>published_event_highwater||
+       (!cp && (count_!=0 || found))) return fault();
+    committed_highwater_=published_event_highwater; ready_=true; return true;
 }
 bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t ordinal,
                                          std::optional<std::uint16_t> minute) {
@@ -180,7 +182,7 @@ bool RuntimeStateStore::identity_context(const EventKey& key, std::uint64_t ordi
 bool RuntimeStateStore::contains_identity(const EventKey& key, bool& found) {
     found=false; if(!healthy()) return false;
     std::uint32_t offset=0; Bytes frame; std::string exact; std::optional<std::uint16_t> minute;
-    for(std::uint64_t i=1;i<=committed_count_;++i) {
+    for(std::uint64_t i=1;i<=committed_highwater_;++i) {
         if(!record_at(offset,i,exact,minute,frame)) return fault();
         if(exact==key.str()) found=true;
         offset+=frame.size();
@@ -188,8 +190,8 @@ bool RuntimeStateStore::contains_identity(const EventKey& key, bool& found) {
     return true;
 }
 bool RuntimeStateStore::confirm_event_publication(std::uint64_t boundary) {
-    if(!healthy() || boundary<committed_count_ || boundary>count_)return fault();
-    committed_count_=boundary;return true;
+    if(!healthy() || boundary<committed_highwater_ || boundary>count_)return fault();
+    committed_highwater_=boundary;return true;
 }
 bool RuntimeStateStore::verify_event_identity(const DomainEvent& event, std::uint64_t ordinal) {
     if(!healthy() || ordinal==0 || ordinal>count_)return false;

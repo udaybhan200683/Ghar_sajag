@@ -43,6 +43,41 @@ public:
     }
 };
 using gs::hub::storage::RuntimeStateStore;
+
+class ScriptedBackendTransport final : public gs::hub::CloudBackendTransport {
+public:
+    gs::hub::BackendCommitReply reply;
+    std::size_t calls{0};
+    gs::hub::BackendCommitReply submit(const gs::hub::BackendCommitRequest&) override {
+        ++calls;
+        return reply;
+    }
+};
+
+class SparseOrdinalBackend final : public gs::hub::JournalEventBackend {
+public:
+    std::uint64_t highwater{0};
+    std::vector<std::pair<std::uint64_t,gs::DomainEvent>> retained;
+    bool healthy() const override { return true; }
+    std::size_t size() const override { return static_cast<std::size_t>(highwater); }
+    gs::hub::CommitResult commit(const gs::DomainEvent&) override {
+        return gs::hub::CommitResult::StorageFault;
+    }
+    bool contains(const gs::EventKey& key) override {
+        return std::any_of(retained.begin(),retained.end(),[&](const auto& row) {
+            return row.second.key.str()==key.str();
+        });
+    }
+    bool for_each(EventVisitor visitor,void* context) override {
+        for(const auto& row:retained) if(!visitor(context,row.second)) return false;
+        return true;
+    }
+    bool for_each_with_ordinal(OrdinalEventVisitor visitor,void* context) override {
+        for(const auto& row:retained)
+            if(!visitor(context,row.first,row.second)) return false;
+        return true;
+    }
+};
 gs::DomainEvent event(std::uint64_t sequence) {
     gs::DomainEvent e; e.key={"room1",42,sequence,"device-room1"};
     e.kind=gs::EventKind::Motion;e.location="bedroom";
@@ -198,22 +233,146 @@ void timer_and_scale_tests() {
     // No active evidence-collecting window: test scalable storage rather than
     // silently enlarge the bounded routine checkpoint schema.
     config.enabled=false;runtime.start_window(config,gs::HomeMode::Home);
-    for(std::uint64_t i=2;i<=2048;++i) {
+    std::uint32_t identity_at_high_records=0;
+    for(std::uint64_t i=2;i<=6556;++i) {
         auto e=event(i);require(runtime.radio_callback(e),"scale queues");
         auto r=runtime.run_state_once(100);
         require(r && r->ack==gs::AckClass::Durable,"scale checkpoint admission");
+        if(i==3278) identity_at_high_records=state.identity_bytes();
     }
     RuntimeStateStore scale(files,crypto,key);gs::hub::HubRuntime rr(32,backend);rr.bind_runtime_state(scale);
-    require(rr.restore_from_journal(),"2048 checkpoint recovery");
+    require(rr.restore_from_journal(),"6556 checkpoint recovery");
     bool found=false;require(scale.contains_identity(event(129).key,found)&&found,"identity 129");
     require(scale.contains_identity(event(385).key,found)&&found,"identity 385");
-    std::cout<<"scale_records=2048 identity_bytes="<<scale.identity_bytes()<<" checkpoint_bytes="<<scale.checkpoint_bytes()
+    require(scale.contains_identity(event(3278).key,found)&&found,"identity 3278");
+    require(scale.contains_identity(event(6556).key,found)&&found,"identity 6556");
+    std::cout<<"identity_3278_bytes="<<identity_at_high_records
+             <<" identity_6556_bytes="<<scale.identity_bytes()
+             <<" checkpoint_bytes="<<scale.checkpoint_bytes()
+             <<" outbox_index_bytes="<<outbox.index_memory_bytes()
              <<" runtime_object_bytes="<<sizeof(gs::hub::HubRuntime)<<"\n";
+}
+
+void backend_completion_lifecycle_tests() {
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key=storage_key();
+    MemorySegments segments(4U*1024U*1024U);
+    DurableEventOutbox outbox(segments,crypto,key);
+    require(outbox.recover()==OutboxRecovery::Empty,"completion fixture empty");
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubJournal journal(0);
+    require(journal.attach_backend(backend),"completion backend attached");
+    const auto committed=event(9001);
+    require(journal.commit(committed)==gs::hub::CommitResult::Stored,"completion body durable");
+    gs::hub::CloudSync cloud(journal);
+    cloud.set_connected(true,0);
+    require(cloud.next_batch(0,4).size()==1,"pending body selected");
+
+    ScriptedBackendTransport transport;
+    transport.reply={gs::hub::BackendReplyStatus::NetworkFailure,committed.key,false,false};
+    require(cloud.drive_batch(transport,"home",0,4)==1,"network attempt executed");
+    bool completed=false;
+    require(outbox.backend_completed(committed.key.str(),completed)&&!completed,
+            "network attempt does not complete body");
+    require(cloud.next_batch(1001,4).size()==1,"lost reply remains retryable");
+
+    auto wrong=committed.key;wrong.sequence++;
+    transport.reply={gs::hub::BackendReplyStatus::Committed,wrong,true,false};
+    require(cloud.drive_batch(transport,"home",1001,4)==1,"wrong-key reply processed");
+    require(outbox.backend_completed(committed.key.str(),completed)&&!completed,
+            "wrong identity cannot complete body");
+
+    transport.reply={gs::hub::BackendReplyStatus::Committed,committed.key,true,true};
+    require(cloud.drive_batch(transport,"home",6001,4)==1,"authenticated duplicate commit retry");
+    require(outbox.backend_completed(committed.key.str(),completed)&&completed,
+            "exact authenticated completion published");
+    const auto completion_count=outbox.backend_completed_count();
+    require(cloud.handle_backend_reply(committed.key,transport.reply,6002)==
+                gs::hub::BackendReceiptResult::Completed &&
+            outbox.backend_completed_count()==completion_count,
+            "duplicate receipt is idempotent");
+    require(cloud.next_batch(6002,4).empty(),"completed body omitted from pending sync");
+
+    DurableEventOutbox rebooted(segments,crypto,key);
+    require(rebooted.recover()==OutboxRecovery::Ready,"completion survives outbox reboot");
+    OutboxJournalBackend reboot_backend(rebooted);
+    gs::hub::HubJournal reboot_journal(0);
+    require(reboot_journal.attach_backend(reboot_backend),"reboot completion backend attached");
+    gs::hub::CloudSync reboot_cloud(reboot_journal);
+    reboot_cloud.set_connected(true,6000);
+    require(reboot_cloud.next_batch(6000,4).empty() &&
+            reboot_journal.cloud_completed(committed.key),
+            "reboot preserves completion and suppresses replay");
+}
+
+void sparse_checkpoint_replay_tests() {
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key=storage_key();
+    MemorySegments segments(4U*1024U*1024U);StateFiles files;
+    DurableEventOutbox outbox(segments,crypto,key);
+    require(outbox.recover()==OutboxRecovery::Empty,"sparse source empty");
+    OutboxJournalBackend backend(outbox);RuntimeStateStore state(files,crypto,key);
+    gs::hub::HubRuntime source(32,backend);source.bind_runtime_state(state);
+    require(source.restore_from_journal(),"sparse source initialized");
+    source.authorize_node("room1",42,true);
+    for(std::uint64_t sequence=1;sequence<=3;++sequence) {
+        auto e=event(sequence);
+        e.kind=sequence==1 ? gs::EventKind::Heartbeat :
+              sequence==2 ? gs::EventKind::DoorOpen : gs::EventKind::CallFamily;
+        require(source.radio_callback(e)&&source.run_state_once(100)->ack==gs::AckClass::Durable,
+                "checkpoint prefix event committed");
+    }
+    const auto prefix_segments=segments;
+    const auto prefix_files=files;
+    auto fourth=event(4);
+    fourth.kind=gs::EventKind::DoorClosed;
+
+    MemorySegments expected_segments=prefix_segments;StateFiles expected_files=prefix_files;
+    DurableEventOutbox expected_outbox(expected_segments,crypto,key);
+    require(expected_outbox.recover()==OutboxRecovery::Ready,"expected prefix recovered");
+    OutboxJournalBackend expected_backend(expected_outbox);
+    RuntimeStateStore expected_state(expected_files,crypto,key);
+    gs::hub::HubRuntime uninterrupted(32,expected_backend);
+    uninterrupted.bind_runtime_state(expected_state);
+    require(uninterrupted.restore_from_journal(),"expected prefix runtime restored");
+    uninterrupted.authorize_node("room1",42,true);
+    require(uninterrupted.radio_callback(fourth)&&
+            uninterrupted.run_state_once(100)->ack==gs::AckClass::Durable,
+            "uninterrupted fourth transition");
+    Bytes expected;require(gs::hub::HubCheckpointCodec::encode(uninterrupted,expected),
+                           "uninterrupted checkpoint encoded");
+
+    RuntimeStateStore staged_state(files,crypto,key);
+    require(staged_state.recover(3)&&staged_state.prepare_identity(fourth,4,100)&&
+            staged_state.confirm_event_publication(4),"sparse event identity committed");
+    SparseOrdinalBackend sparse;
+    sparse.highwater=4;sparse.retained.push_back({4,fourth});
+    RuntimeStateStore sparse_state(files,crypto,key);
+    gs::hub::HubRuntime recovered(32,sparse);recovered.bind_runtime_state(sparse_state);
+    require(recovered.restore_from_journal(),"checkpoint plus sparse ordinal tail recovered");
+    Bytes actual;require(gs::hub::HubCheckpointCodec::encode(recovered,actual)&&actual==expected,
+                         "sparse replay equals uninterrupted state");
+
+    auto gap_files=prefix_files;
+    RuntimeStateStore gap_writer(gap_files,crypto,key);
+    require(gap_writer.recover(3),"gap fixture recovered");
+    require(gap_writer.prepare_identity(fourth,4,100)&&gap_writer.confirm_event_publication(4),
+            "missing checkpoint-tail body identity committed");
+    const auto fifth=event(5);
+    require(gap_writer.prepare_identity(fifth,5,100)&&gap_writer.confirm_event_publication(5),
+            "uncheckpointed gap identity staged");
+    SparseOrdinalBackend gap;
+    gap.highwater=5;gap.retained.push_back({5,fifth});
+    RuntimeStateStore gap_state(gap_files,crypto,key);
+    gs::hub::HubRuntime rejected(32,gap);rejected.bind_runtime_state(gap_state);
+    require(!rejected.restore_from_journal()&&!rejected.durable_admission_open(),
+            "uncheckpointed missing body fails closed");
 }
 
 }
 int main() {
     try {checkpoint_tests();interruption_tests();published_checkpoint_interruption();timer_and_scale_tests();
+        backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
         std::cout<<"PASS: runtime checkpoint, replay, exact identity, crash boundaries\n";return 0;
     } catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
 }

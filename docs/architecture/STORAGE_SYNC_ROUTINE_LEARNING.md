@@ -285,3 +285,21 @@ policy. No segment reuse, sustained reclamation, reducer checkpoint adapter,
 LittleFS flash fault test, actual workload fixture or physical S3 qualification
 has been completed. Keep the old 4 MiB classic-Hub budgets historical under
 GS-D030, but do not infer that larger S3 flash alone closes the 72-hour target.
+
+### S3 storage Phase 2 status — implementation progress, 2026-10-09
+
+The checkpoint/replay adapter now preserves immutable event ordinals and fails
+closed on an uncovered ordinal gap. The LittleFS identity log has no per-event
+RAM index, but remains conservatively retained with a 1 MiB logical limit. A
+6,556-record host fixture uses 733,165 identity bytes and a 372,992-byte outbox
+index allocation mapped to PSRAM on S3. Backend COMMITTED handling passes the
+host `CloudSync` fixture, but the S3 target still has no production transport
+caller. The 512 KiB completion stream safely refuses its 5,473rd receipt after
+5,472 published receipts; neither it nor completed event bodies can yet be
+compacted. The existing authenticated Node retirement snapshot remains in the
+separate NVS state owner and is not joined to the LittleFS identity ledger.
+Therefore identity expiry, body retirement, completion compaction, and reusable
+segment publication remain unimplemented. No local post-sync body-retention
+floor or commercial capacity policy is inferred; the 72-hour design target and
+all existing product decisions remain unchanged. See
+`../exec-plans/evidence/R1_S3_STORAGE_PHASE2_20261009.md`.

@@ -126,6 +126,8 @@ public:
     std::uint64_t capacity_budget_used_bytes() const { return capacity_budget_used_bytes_; }
     std::uint64_t completion_bytes() const { return completion_bytes_; }
     std::uint64_t log_capacity_bytes() const { return log_capacity_bytes_; }
+    // Allocated reconstructible index bytes (PSRAM on ESP32-S3; host heap in tests).
+    std::size_t index_memory_bytes() const;
     bool healthy() const { return initialized_ && !faulted_; }
 
 private:

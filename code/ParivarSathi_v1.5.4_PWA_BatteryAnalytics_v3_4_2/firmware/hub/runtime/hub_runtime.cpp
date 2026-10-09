@@ -177,20 +177,27 @@ bool HubRuntime::restore_from_journal() {
         applied_boundary_=boundary;
         if (!found && !checkpoint_state()) return false;
     }
-    struct ReplayContext { HubRuntime* runtime; std::uint64_t ordinal{0}; } context{this};
-    const auto replay_event = [](void* opaque, const DomainEvent& event) -> bool {
+    struct ReplayContext { HubRuntime* runtime; std::uint64_t last_ordinal{0}; } context{this};
+    const auto replay_event = [](void* opaque, std::uint64_t ordinal,
+                                 const DomainEvent& event) -> bool {
         auto& replay = *static_cast<ReplayContext*>(opaque);
         auto& runtime = *replay.runtime;
-        ++replay.ordinal;
+        if (ordinal == 0 || ordinal <= replay.last_ordinal) return false;
+        replay.last_ordinal = ordinal;
         std::optional<std::uint16_t> minute;
         if (runtime.runtime_state_ &&
-            !runtime.runtime_state_->identity_context(event.key,replay.ordinal,minute,&event)) return false;
-        if (replay.ordinal <= runtime.applied_boundary_) return true;
+            !runtime.runtime_state_->identity_context(event.key,ordinal,minute,&event)) return false;
+        if (ordinal <= runtime.applied_boundary_) return true;
+        // A checkpoint permits absence only through its own boundary. Any gap
+        // after that boundary leaves an uncheckpointed reducer transition
+        // unprovable, so recovery must fail closed rather than skip it.
+        if (ordinal != runtime.applied_boundary_ + 1U) return false;
         (void)runtime.apply_committed_event(event,minute);
-        runtime.applied_boundary_=replay.ordinal;
+        runtime.applied_boundary_=ordinal;
         return true; // Recovery never routes historical notification effects.
     };
-    if (!journal_.for_each(replay_event,&context) || !checkpoint_state()) {
+    if (!journal_.for_each_with_ordinal(replay_event,&context) ||
+        applied_boundary_ != journal_.size() || !checkpoint_state()) {
         checkpoint_fault_=true; return false;
     }
     journal_replayed_=true;
