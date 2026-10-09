@@ -508,3 +508,20 @@ bytes of 4 MiB OTA-slot headroom. Runtime heap, PSRAM and physical power-failure
 behavior remain unqualified. No product policy, C3, physical flash or context
 version changed. Phase 2 remains open; do not begin Phase 3 until completion
 transport, identity retirement, crash-safe compaction and repeated refill pass.
+
+### S3 Phase 2 lifecycle implementation update — 2026-10-09
+
+[Lifecycle evidence](../exec-plans/evidence/R1_S3_PHASE2_LIFECYCLE_PROGRESS_20261009.md)
+records a recoverable authenticated lifecycle root joining the selected NVS
+Node-retirement report and reducer checkpoint to LittleFS body reclamation.
+Three 100-event refill cycles and a 3,278-event mixed lifecycle pass in host
+tests, including a restart after an interrupted reclaim. The outbox completion
+log is compacted only after full-history retirement; exact identity evidence is
+still retained and uncompacted. The 6,556-record admission/recovery stress
+passes, while full stress retirement exceeds current completion workspace.
+Production body deletion remains disabled because post-sync retention/time
+semantics and physical S3 power-cut qualification are open. The isolated S3
+build passes at 1,843,728 bytes. Phase 2 remains open; identity-safe compaction,
+partial completion/segment reclamation, production cloud transport and physical
+qualification remain. No product policy, partition, C3, flash or context version
+changed.

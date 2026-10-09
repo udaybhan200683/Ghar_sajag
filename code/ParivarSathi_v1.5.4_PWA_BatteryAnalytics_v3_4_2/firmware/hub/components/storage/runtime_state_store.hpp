@@ -35,6 +35,12 @@ public:
     bool identity_context(const EventKey&, std::uint64_t ordinal,
                           std::optional<std::uint16_t>& local_minute,
                           const DomainEvent* expected_event = nullptr);
+    // Finds exact retry identities independently of outbox body retention.
+    // `payload_matches` is false when an authenticated key is reused with
+    // different immutable event contents; callers must reject that conflict.
+    bool lookup_identity(const DomainEvent&, std::uint64_t& ordinal,
+                         std::optional<std::uint16_t>& local_minute,
+                         bool& found, bool& payload_matches);
     // Exact identities, no contiguous watermark across sequence gaps. Body
     // eligibility is separate; this ledger never expires evidence in Phase 1.
     bool contains_identity(const EventKey&, bool& found);
@@ -46,16 +52,26 @@ public:
     std::uint32_t identity_bytes() const { return bytes_; }
     std::size_t checkpoint_bytes() const { return checkpoint_bytes_; }
 private:
+    struct IdentityIndexEntry;
     bool seal(std::uint8_t type, std::uint64_t ordinal, const security::Bytes&, security::Bytes&);
     bool open(std::uint8_t type, const security::Bytes&, std::uint64_t&, security::Bytes&);
     bool read_object(const char*, security::Bytes&, bool&, std::size_t maximum);
     bool record_at(std::uint32_t offset, std::uint64_t expected, std::string& key,
                    std::optional<std::uint16_t>& minute, security::Bytes& frame,
                    security::Key32* event_digest = nullptr);
+    bool reserve_identity_index(std::size_t required);
+    bool insert_identity_index(const std::string& key, std::uint64_t ordinal,
+                               std::uint32_t offset);
+    bool find_identity_index(const std::string& key, std::uint64_t& ordinal,
+                             std::uint32_t& offset, bool& found);
+    void clear_identity_index();
     bool fault() { faulted_ = true; return false; }
     RuntimeStateFiles& files_;
     security::CommissioningCrypto& crypto_;
     security::Key32 key_{};
+    IdentityIndexEntry* identity_index_{nullptr};
+    std::size_t identity_index_capacity_{0};
+    std::size_t identity_index_size_{0};
     std::uint64_t count_{0};
     std::uint64_t committed_highwater_{0};
     std::uint32_t bytes_{0};

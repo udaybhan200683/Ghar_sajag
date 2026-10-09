@@ -174,6 +174,10 @@ void interruption_tests() {
     DurableEventOutbox outbox(segments,crypto,key);require(outbox.recover()==OutboxRecovery::Empty,"empty");
     OutboxJournalBackend backend(outbox);RuntimeStateStore state(files,crypto,key);gs::hub::HubRuntime runtime(32,backend);
     runtime.bind_runtime_state(state);require(runtime.restore_from_journal(),"init");
+    gs::ActivityRuleConfig activity_config;
+    activity_config.morning_start_minute = 0;
+    activity_config.morning_end_minute = 200;
+    runtime.configure_activity_rules(activity_config);
     auto first=event(1);runtime.authorize_node(first.key.source_id,first.key.session_id,true);
     require(runtime.radio_callback(first)&&runtime.run_state_once(100)->ack==gs::AckClass::Durable,"first publication");
     auto e=event(3);segments.fail_next_publication();
@@ -183,6 +187,34 @@ void interruption_tests() {
     require(rr.restore_from_journal(),"staged identity recovery");rr.authorize_node(e.key.source_id,e.key.session_id,true);
     require(rr.radio_callback(e)&&rr.run_state_once(999)->ack==gs::AckClass::Durable,"original context retry");
     require(rs.identities()==2,"retry no duplicate identity");
+
+    MemorySegments reference_segments(4U*1024U*1024U);StateFiles reference_files;
+    DurableEventOutbox reference_outbox(reference_segments,crypto,key);
+    require(reference_outbox.recover()==OutboxRecovery::Empty,"reference begins empty");
+    OutboxJournalBackend reference_backend(reference_outbox);
+    RuntimeStateStore reference_state(reference_files,crypto,key);
+    gs::hub::HubRuntime reference(32,reference_backend);
+    reference.bind_runtime_state(reference_state);
+    require(reference.restore_from_journal(),"reference checkpoint initializes");
+    reference.configure_activity_rules(activity_config);
+    auto reference_first=event(1);
+    reference.authorize_node(reference_first.key.source_id,reference_first.key.session_id,true);
+    require(reference.radio_callback(reference_first) &&
+            reference.run_state_once(100)->ack==gs::AckClass::Durable,
+            "reference first event commits with original local-time context");
+    reference.authorize_node(e.key.source_id,e.key.session_id,true);
+    require(reference.radio_callback(e) && reference.run_state_once(100)->ack==gs::AckClass::Durable,
+            "reference retry event commits with persisted local-time context");
+    Bytes recovered_checkpoint, reference_checkpoint;
+    std::uint64_t recovered_boundary=0, reference_boundary=0;
+    bool recovered_checkpoint_found=false, reference_checkpoint_found=false;
+    require(rs.load_checkpoint(recovered_checkpoint,recovered_boundary,recovered_checkpoint_found) &&
+            reference_state.load_checkpoint(reference_checkpoint,reference_boundary,
+                                             reference_checkpoint_found) &&
+            recovered_checkpoint_found && reference_checkpoint_found &&
+            recovered_boundary==reference_boundary &&
+            recovered_checkpoint==reference_checkpoint,
+            "retry uses the original persisted time context for reducer state");
 }
 void published_checkpoint_interruption() {
     gs::host::security::OpenSslCommissioningCrypto crypto;const auto key=storage_key();
@@ -369,10 +401,303 @@ void sparse_checkpoint_replay_tests() {
             "uncheckpointed missing body fails closed");
 }
 
+struct NodeRetirementProof {
+    std::uint64_t highwater{0};
+    bool allow{true};
+};
+bool node_report_covers_event(void* opaque, std::uint64_t,
+        const std::string& canonical_key, const Bytes& payload) {
+    const auto& proof = *static_cast<NodeRetirementProof*>(opaque);
+    gs::DomainEvent event;
+    if (!proof.allow || !gs::hub::HubJournal::decode_event_payload(payload, event) ||
+        event.key.str() != canonical_key || event.key.source_id != "room1" ||
+        event.key.physical_device_id != "device-room1" || event.key.session_id != 42 ||
+        event.key.sequence > proof.highwater) return false;
+    return true;
+}
+
+void complete_outbox_cycle(gs::hub::HubRuntime& runtime, std::uint64_t first,
+                           std::uint64_t last) {
+    gs::hub::CloudSync cloud(runtime.journal());
+    cloud.set_connected(true, first);
+    for (std::uint64_t sequence = first; sequence <= last; ++sequence) {
+        const gs::EventKey key("room1", 42, sequence, "device-room1");
+        const gs::hub::BackendCommitReply receipt{
+            gs::hub::BackendReplyStatus::Committed, key, true, false};
+        require(cloud.handle_backend_reply(key, receipt, sequence) ==
+                    gs::hub::BackendReceiptResult::Completed,
+                "only exact authenticated backend receipts publish completion");
+    }
+}
+
+void segmented_lifecycle_reuse_tests() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    StateFiles files;
+    OutboxLimits limits;
+    limits.segment_count = 16;
+    limits.segment_bytes = 16U * 1024U;
+    limits.filesystem_workspace_bytes = 128U * 1024U;
+    limits.protected_capacity_bytes = 0;
+    limits.body_retirement_enabled = true;  // Host-only approved retention gate fixture.
+
+    for (std::uint64_t cycle = 0; cycle < 3; ++cycle) {
+        const std::uint64_t first = cycle * 100U + 1U;
+        const std::uint64_t last = first + 99U;
+        DurableEventOutbox outbox(segments, crypto, key, limits);
+        const auto recovery = outbox.recover();
+        require(recovery == OutboxRecovery::Empty &&
+                outbox.record_count() == first - 1U &&
+                outbox.retired_through() == first - 1U,
+                "outbox recovers before each refill cycle");
+        RuntimeStateStore state(files, crypto, key);
+        OutboxJournalBackend backend(outbox);
+        gs::hub::HubRuntime runtime(32, backend);
+        runtime.bind_runtime_state(state);
+        require(runtime.restore_from_journal(), "runtime restores checkpoint before refill");
+        runtime.authorize_node("room1", 42, true);
+        for (std::uint64_t sequence = first; sequence <= last; ++sequence) {
+            const auto message = make_message(sequence);
+            require(runtime.authenticated_radio_message_callback(message, "room1",
+                        "device-room1", 42, 0, sequence * 1000U),
+                    "Node event enters authenticated production runtime path");
+            const auto processed = runtime.run_state_once(100);
+            require(processed && processed->ack == gs::AckClass::Durable,
+                    "runtime ACK follows event, identity and reducer checkpoint publication");
+        }
+        require(outbox.record_count() == last && outbox.capacity_budget_used_bytes() != 0,
+                "refill cycle stores exact event bodies in segment capacity");
+
+        NodeRetirementProof node_proof{last, true};
+        RetirementAuthorization authorization;
+        authorization.checkpoint_boundary = last;
+        authorization.authenticated_report_generation = cycle + 1;
+        authorization.authenticated_report_digest.fill(
+            static_cast<std::uint8_t>(0x41U + cycle));
+        authorization.post_sync_retention_satisfied = true;
+        authorization.node_retired = node_report_covers_event;
+        authorization.context = &node_proof;
+        require(outbox.reclaim_completed_history(authorization) ==
+                    ReclaimResult::PendingBackendCompletion,
+                "Node report and checkpoint cannot retire backend-pending bodies");
+
+        complete_outbox_cycle(runtime, first, last);
+        authorization.post_sync_retention_satisfied = false;
+        require(outbox.reclaim_completed_history(authorization) ==
+                    ReclaimResult::DisabledByRetentionGate,
+                "default post-sync retention gate blocks deletion");
+        authorization.post_sync_retention_satisfied = true;
+        node_proof.allow = false;
+        require(outbox.reclaim_completed_history(authorization) ==
+                    ReclaimResult::MissingNodeRetirementProof,
+                "missing authenticated Node retirement coverage blocks deletion");
+        node_proof.allow = true;
+        if (cycle == 0) segments.fail_remove_once = true;
+        const auto reclaimed = outbox.reclaim_completed_history(authorization);
+        if (cycle == 0) {
+            require(reclaimed == ReclaimResult::RestartRequired,
+                    "interruption after lifecycle-root publication is not reported complete");
+        } else {
+            require(reclaimed == ReclaimResult::Reclaimed,
+                    "completed/checkpointed/Node-retired bodies are reclaimed");
+        }
+    }
+
+    // The first reclamation was interrupted after publishing the lifecycle root.
+    // Recovery completes completion-log reset and segment removal idempotently.
+    DurableEventOutbox recovered(segments, crypto, key, limits);
+    require(recovered.recover() == OutboxRecovery::Empty &&
+            recovered.record_count() == 300 && recovered.retired_through() == 300 &&
+            recovered.capacity_budget_used_bytes() == 0 && recovered.completion_bytes() == 0,
+            "recovery finishes pending lifecycle transaction and restores capacity");
+    RuntimeStateStore state(files, crypto, key);
+    OutboxJournalBackend backend(recovered);
+    gs::hub::HubRuntime runtime(32, backend);
+    runtime.bind_runtime_state(state);
+    require(runtime.restore_from_journal(),
+            "retired body prefix restores from checkpoint and exact identity log");
+    runtime.authorize_node("room1", 42, true);
+    const auto old_retry = make_message(17);
+    require(runtime.authenticated_radio_message_callback(old_retry, "room1",
+                "device-room1", 42, 0, 999999) ,
+            "retry after body retirement reaches identity ledger");
+    const auto duplicate = runtime.run_state_once(100);
+    require(duplicate && duplicate->ack == gs::AckClass::Durable &&
+            !duplicate->state_changed && runtime.journal().size() == 300,
+            "retired-body retry is ACKed from exact identity without reapplying effects");
+}
+
+void lifecycle_publication_cut_tests() {
+    using namespace gs::hub::storage;
+    for (unsigned cut = 0; cut < 3; ++cut) {
+        gs::host::security::OpenSslCommissioningCrypto crypto;
+        const auto key = storage_key();
+        MemorySegments segments(4U * 1024U * 1024U);
+        StateFiles files;
+        OutboxLimits limits;
+        limits.protected_capacity_bytes = 0;
+        limits.body_retirement_enabled = true;
+        DurableEventOutbox outbox(segments, crypto, key, limits);
+        require(outbox.recover() == OutboxRecovery::Empty, "cut fixture starts empty");
+        RuntimeStateStore state(files, crypto, key);
+        OutboxJournalBackend backend(outbox);
+        gs::hub::HubRuntime runtime(32, backend);
+        runtime.bind_runtime_state(state);
+        require(runtime.restore_from_journal(), "cut fixture runtime recovers");
+        runtime.authorize_node("room1", 42, true);
+        for (std::uint64_t sequence = 1; sequence <= 2; ++sequence) {
+            const auto message = make_message(sequence);
+            require(runtime.authenticated_radio_message_callback(message, "room1",
+                        "device-room1", 42, 0, sequence * 1000U) &&
+                    runtime.run_state_once(100)->ack == gs::AckClass::Durable,
+                    "cut fixture event admission is durable");
+        }
+        complete_outbox_cycle(runtime, 1, 2);
+
+        NodeRetirementProof node_proof{2, true};
+        RetirementAuthorization authorization;
+        authorization.checkpoint_boundary = 2;
+        authorization.authenticated_report_generation = 1;
+        authorization.authenticated_report_digest.fill(0x73);
+        authorization.post_sync_retention_satisfied = true;
+        authorization.node_retired = node_report_covers_event;
+        authorization.context = &node_proof;
+        if (cut == 0) segments.fail_lifecycle_publication_once = true;
+        if (cut == 1) segments.fail_lifecycle_publication_after_write_once = true;
+        if (cut == 2) segments.fail_truncate_after_write_once = true;
+        const auto result = outbox.reclaim_completed_history(authorization);
+        require(result != ReclaimResult::Reclaimed,
+                "injected lifecycle cut cannot report reclamation complete");
+
+        // Stop using the failed instance immediately, then recover through the
+        // production outbox API as after a power interruption.
+        DurableEventOutbox recovered(segments, crypto, key, limits);
+        const auto recovery = recovered.recover();
+        const bool recovered_valid = recovery == OutboxRecovery::Ready ||
+            (cut != 0 && recovery == OutboxRecovery::Empty);
+        if (!recovered_valid)
+            std::cerr << "lifecycle_cut=" << cut << " recovery="
+                      << static_cast<unsigned>(recovery) << "\n";
+        require(recovered_valid,
+                "lifecycle cut recovers a valid committed generation");
+        if (cut == 0) {
+            require(recovered.retired_through() == 0 && recovered.record_count() == 2 &&
+                    recovered.capacity_budget_used_bytes() != 0 &&
+                    recovered.backend_completed_count() == 2,
+                    "pre-publication failure preserves all completed bodies");
+        } else {
+            require(recovered.retired_through() == 2 && recovered.record_count() == 2 &&
+                    recovered.capacity_budget_used_bytes() == 0 &&
+                    recovered.backend_completed_count() == 0,
+                    "published lifecycle root completes reset and body reclaim on restart");
+        }
+    }
+}
+
+void high_volume_lifecycle_test() {
+    using namespace gs::hub::storage;
+    constexpr std::uint64_t count = 3278;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    StateFiles files;
+    OutboxLimits limits;
+    limits.protected_capacity_bytes = 0;
+    limits.body_retirement_enabled = true;  // Deterministic host authorization fixture.
+    DurableEventOutbox outbox(segments, crypto, key, limits);
+    require(outbox.recover() == OutboxRecovery::Empty, "HIGH lifecycle starts empty");
+    RuntimeStateStore state(files, crypto, key);
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubRuntime runtime(32, backend);
+    runtime.bind_runtime_state(state);
+    require(runtime.restore_from_journal(), "HIGH lifecycle runtime restores");
+    runtime.authorize_node("room1", 42, true);
+    for (std::uint64_t sequence = 1; sequence <= count; ++sequence) {
+        auto fixture_event = event(sequence);
+        switch (sequence % 8U) {
+            case 0: fixture_event.kind = gs::EventKind::Motion; break;
+            case 1: fixture_event.kind = gs::EventKind::DoorOpen;
+                    fixture_event.sensor_type = gs::SensorType::Reed; break;
+            case 2: fixture_event.kind = gs::EventKind::DoorClosed;
+                    fixture_event.sensor_type = gs::SensorType::Reed; break;
+            case 3: fixture_event.kind = gs::EventKind::CallFamily;
+                    fixture_event.sensor_type = gs::SensorType::Button; break;
+            case 4: fixture_event.kind = gs::EventKind::OkPressed;
+                    fixture_event.sensor_type = gs::SensorType::Button; break;
+            case 5: fixture_event.kind = gs::EventKind::Gap;
+                    fixture_event.sensor_type = gs::SensorType::System; break;
+            case 6: fixture_event.kind = gs::EventKind::Heartbeat;
+                    fixture_event.sensor_type = gs::SensorType::Heartbeat; break;
+            default:
+                fixture_event.kind = gs::EventKind::MotionSummary;
+                fixture_event.sensor_type = gs::SensorType::Pir;
+                fixture_event.motion_aggregate = gs::DomainEvent::MotionAggregate{
+                    3, fixture_event.monotonic_ms - 1500, fixture_event.monotonic_ms};
+                break;
+        }
+        const auto message = gs::node_message_from_event(fixture_event);
+        require(runtime.authenticated_radio_message_callback(message, "room1",
+                    "device-room1", 42, 0, sequence * 1000U),
+                "HIGH mixed exact event admitted through authenticated runtime path");
+        const auto processed = runtime.run_state_once(100);
+        require(processed && processed->ack == gs::AckClass::Durable,
+                "HIGH Durable ACK follows event publication");
+    }
+    bool first_identity_found = false;
+    bool last_identity_found = false;
+    require(outbox.record_count() == count && state.identity_bytes() != 0 &&
+            state.contains_identity(event(1).key, first_identity_found) && first_identity_found &&
+            state.contains_identity(event(count).key, last_identity_found) && last_identity_found,
+            "HIGH body and independent identities both retained");
+    const auto high_event_bytes = outbox.capacity_budget_used_bytes();
+
+    gs::hub::CloudSync cloud(runtime.journal());
+    cloud.set_connected(true, count);
+    for (std::uint64_t sequence = 1; sequence <= count; ++sequence) {
+        const auto event_key = event(sequence).key;
+        const gs::hub::BackendCommitReply receipt{
+            gs::hub::BackendReplyStatus::Committed, event_key, true, false};
+        require(cloud.handle_backend_reply(event_key, receipt, sequence) ==
+                    gs::hub::BackendReceiptResult::Completed,
+                "HIGH event retirement requires exact authenticated backend receipt");
+    }
+    const auto high_completion_bytes = outbox.completion_bytes();
+
+    NodeRetirementProof node_proof{count, true};
+    RetirementAuthorization authorization;
+    authorization.checkpoint_boundary = count;
+    authorization.authenticated_report_generation = 1;
+    authorization.authenticated_report_digest.fill(0x65);
+    authorization.post_sync_retention_satisfied = true;
+    authorization.node_retired = node_report_covers_event;
+    authorization.context = &node_proof;
+    require(outbox.reclaim_completed_history(authorization) == ReclaimResult::Reclaimed &&
+            outbox.retired_through() == count && outbox.capacity_budget_used_bytes() == 0,
+            "HIGH completed history reclaims physical segment capacity");
+
+    const auto refill = make_message(count + 1);
+    require(runtime.authenticated_radio_message_callback(refill, "room1",
+                "device-room1", 42, 0, (count + 1U) * 1000U) &&
+            runtime.run_state_once(100)->ack == gs::AckClass::Durable &&
+            outbox.record_count() == count + 1U && outbox.capacity_budget_used_bytes() != 0,
+            "HIGH reclaimed capacity accepts a new durable event");
+    std::cout << "high_lifecycle_records=" << count
+              << " event_bytes_before_reclaim=" << high_event_bytes
+              << " retained_identity_bytes=" << state.identity_bytes()
+              << " completion_bytes_before_reclaim=" << high_completion_bytes
+              << " completion_bytes_after_reclaim=" << outbox.completion_bytes()
+              << " refill_bytes=" << outbox.capacity_budget_used_bytes() << "\n";
+}
+
 }
 int main() {
     try {checkpoint_tests();interruption_tests();published_checkpoint_interruption();timer_and_scale_tests();
         backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
+        segmented_lifecycle_reuse_tests();
+        lifecycle_publication_cut_tests();
+        high_volume_lifecycle_test();
         std::cout<<"PASS: runtime checkpoint, replay, exact identity, crash boundaries\n";return 0;
     } catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
 }

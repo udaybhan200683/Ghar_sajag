@@ -355,6 +355,22 @@ RetirementReportApply RetirementSnapshotRepository::apply_authenticated_report(
     return RetirementReportApply::Prepared;
 }
 
+bool retirement_proves_node_durable_retirement(const RetirementSnapshot& snapshot,
+        std::uint8_t enrollment_slot, std::uint32_t enrollment_generation,
+        std::uint64_t origin_session, std::uint64_t sequence) {
+    if (enrollment_slot >= kMaxRetirementNodes || enrollment_generation == 0 ||
+        origin_session == 0 || sequence == 0 ||
+        (snapshot.occupancy_mask & (1U << enrollment_slot)) == 0) return false;
+    const auto& node = snapshot.nodes[enrollment_slot];
+    if (node.enrollment_generation != enrollment_generation ||
+        origin_session > node.current_origin_session) return false;
+    for (std::size_t i = 0; i < node.pending_count; ++i)
+        if (node.pending[i].origin_session == origin_session &&
+            node.pending[i].sequence == sequence) return false;
+    return origin_session < node.current_origin_session ||
+        sequence <= node.durable_admission_highwater;
+}
+
 ExactEventResult ExactEventKeyLedger::classify(const RetirementSnapshot& snapshot,
         std::uint8_t slot, std::uint32_t enrollment_generation,
         std::uint64_t origin_session, std::uint64_t sequence,

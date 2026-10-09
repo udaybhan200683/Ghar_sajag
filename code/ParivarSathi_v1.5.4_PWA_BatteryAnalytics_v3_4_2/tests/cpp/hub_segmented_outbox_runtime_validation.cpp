@@ -73,6 +73,26 @@ public:
         publication_found_ = true;
         return true;
     }
+    bool read_lifecycle_root(Bytes& marker, bool& found) override {
+        marker = lifecycle_root_; found = lifecycle_root_found_; return true;
+    }
+    bool publish_lifecycle_root(const Bytes& marker) override {
+        if (fail_lifecycle_publication_once) {
+            fail_lifecycle_publication_once = false;
+            return false;
+        }
+        lifecycle_root_ = marker; lifecycle_root_found_ = true;
+        if (fail_lifecycle_publication_after_write_once) {
+            fail_lifecycle_publication_after_write_once = false;
+            return false;
+        }
+        return true;
+    }
+    bool remove_segment(std::uint16_t segment) override {
+        if (segment >= segments_.size()) return false;
+        if (fail_remove_once) { fail_remove_once = false; return false; }
+        segments_[segment].clear(); exists_[segment] = false; return true;
+    }
     bool completion_size(bool& exists, std::uint32_t& bytes) override {
         exists = completion_exists_;
         bytes = static_cast<std::uint32_t>(completion_.size());
@@ -102,6 +122,10 @@ public:
         if (bytes > completion_.size()) return false;
         completion_.resize(bytes);
         completion_exists_ = !completion_.empty();
+        if (fail_truncate_after_write_once) {
+            fail_truncate_after_write_once = false;
+            return false;
+        }
         return true;
     }
     bool read_completion_publication(Bytes& marker, bool& found) override {
@@ -119,6 +143,10 @@ public:
         return true;
     }
     void fail_next_publication() { fail_publication_once = true; }
+    bool fail_remove_once{false};
+    bool fail_lifecycle_publication_once{false};
+    bool fail_lifecycle_publication_after_write_once{false};
+    bool fail_truncate_after_write_once{false};
     void fail_next_completion_publication() { fail_completion_publication_once = true; }
     void fail_completion_append_after(std::size_t bytes) {
         partial_completion_append_bytes_ = bytes;
@@ -171,9 +199,11 @@ private:
     std::vector<Bytes> segments_;
     std::vector<bool> exists_;
     Bytes publication_;
+    Bytes lifecycle_root_;
     Bytes completion_;
     Bytes completion_publication_;
     bool publication_found_{false};
+    bool lifecycle_root_found_{false};
     bool completion_exists_{false};
     bool completion_publication_found_{false};
     bool fail_publication_once{false};

@@ -1,7 +1,14 @@
 #include "storage/runtime_state_store.hpp"
 #include "storage/journal.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <new>
+
+#ifdef ESP_PLATFORM
+#include "esp_heap_caps.h"
+#endif
 
 namespace gs::hub::storage {
 namespace {
@@ -13,14 +20,134 @@ std::uint64_t get(const Bytes& b, std::size_t p) {
 constexpr const char* kIdentities="identity.log";
 constexpr const char* kHead="identity.head";
 constexpr const char* kCheckpoint="application.head";
+void* allocate_identity_index(std::size_t bytes) {
+#ifdef ESP_PLATFORM
+    return heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+#else
+    return std::malloc(bytes);
+#endif
 }
+void free_identity_index(void* memory) {
+#ifdef ESP_PLATFORM
+    heap_caps_free(memory);
+#else
+    std::free(memory);
+#endif
+}
+std::size_t digest_slot(const security::Key32& digest) {
+    std::size_t value = 0;
+    for (std::size_t i = 0; i < sizeof(value); ++i)
+        value = (value << 8U) | digest[i];
+    return value;
+}
+}
+struct RuntimeStateStore::IdentityIndexEntry {
+    security::Key32 digest{};
+    std::uint64_t ordinal{0};
+    std::uint32_t offset{0};
+    bool occupied{false};
+};
 RuntimeStateStore::RuntimeStateStore(RuntimeStateFiles& f, security::CommissioningCrypto& c,
         const security::Key32& master) : files_(f), crypto_(c) {
     const Bytes label{'g','s','-','r','u','n','t','i','m','e','-','v','1'};
     key_valid_=std::any_of(master.begin(),master.end(),[](std::uint8_t b){return b!=0;}) &&
         crypto_.hkdf_sha256(master,label,label,key_);
 }
-RuntimeStateStore::~RuntimeStateStore() { crypto_.secure_zero(key_.data(),key_.size()); }
+RuntimeStateStore::~RuntimeStateStore() {
+    clear_identity_index();
+    if (identity_index_ != nullptr) free_identity_index(identity_index_);
+    crypto_.secure_zero(key_.data(),key_.size());
+}
+void RuntimeStateStore::clear_identity_index() {
+    if (identity_index_ != nullptr)
+        crypto_.secure_zero(identity_index_, identity_index_capacity_ * sizeof(IdentityIndexEntry));
+    identity_index_size_ = 0;
+}
+bool RuntimeStateStore::reserve_identity_index(std::size_t required) {
+    if (required > std::numeric_limits<std::size_t>::max() / 2U) return false;
+    const auto minimum = std::max<std::size_t>(64U, required * 2U);
+    if (identity_index_capacity_ >= minimum) return true;
+    std::size_t next = identity_index_capacity_ == 0 ? 64U : identity_index_capacity_;
+    while (next < minimum) {
+        if (next > std::numeric_limits<std::size_t>::max() / 2U) return false;
+        next *= 2U;
+    }
+    if (next > std::numeric_limits<std::size_t>::max() / sizeof(IdentityIndexEntry))
+        return false;
+    auto* replacement = static_cast<IdentityIndexEntry*>(
+        allocate_identity_index(next * sizeof(IdentityIndexEntry)));
+    if (replacement == nullptr) return false;
+    for (std::size_t i = 0; i < next; ++i)
+        ::new (static_cast<void*>(replacement + i)) IdentityIndexEntry{};
+    for (std::size_t i = 0; i < identity_index_capacity_; ++i) {
+        const auto& old = identity_index_[i];
+        if (!old.occupied) continue;
+        auto at = digest_slot(old.digest) & (next - 1U);
+        while (replacement[at].occupied) at = (at + 1U) & (next - 1U);
+        replacement[at] = old;
+    }
+    if (identity_index_ != nullptr) {
+        crypto_.secure_zero(identity_index_, identity_index_capacity_ * sizeof(IdentityIndexEntry));
+        free_identity_index(identity_index_);
+    }
+    identity_index_ = replacement;
+    identity_index_capacity_ = next;
+    return true;
+}
+bool RuntimeStateStore::insert_identity_index(const std::string& key,
+        std::uint64_t ordinal, std::uint32_t offset) {
+    if (key.empty() || ordinal == 0 || !reserve_identity_index(identity_index_size_ + 1U))
+        return false;
+    security::Key32 digest{};
+    const auto key_bytes = security::Bytes(key.begin(), key.end());
+    if (!crypto_.hmac_sha256(key_, key_bytes, digest)) return false;
+    auto at = digest_slot(digest) & (identity_index_capacity_ - 1U);
+    while (identity_index_[at].occupied) {
+        if (identity_index_[at].digest == digest) {
+            crypto_.secure_zero(digest.data(), digest.size());
+            return false;
+        }
+        at = (at + 1U) & (identity_index_capacity_ - 1U);
+    }
+    identity_index_[at].digest = digest;
+    identity_index_[at].ordinal = ordinal;
+    identity_index_[at].offset = offset;
+    identity_index_[at].occupied = true;
+    ++identity_index_size_;
+    crypto_.secure_zero(digest.data(), digest.size());
+    return true;
+}
+bool RuntimeStateStore::find_identity_index(const std::string& key,
+        std::uint64_t& ordinal, std::uint32_t& offset, bool& found) {
+    ordinal = 0; offset = 0; found = false;
+    if (key.empty()) return false;
+    if (identity_index_size_ == 0) return true;
+    security::Key32 digest{};
+    const auto key_bytes = security::Bytes(key.begin(), key.end());
+    if (!crypto_.hmac_sha256(key_, key_bytes, digest)) return fault();
+    auto at = digest_slot(digest) & (identity_index_capacity_ - 1U);
+    for (std::size_t probes = 0; probes < identity_index_capacity_; ++probes) {
+        const auto& entry = identity_index_[at];
+        if (!entry.occupied) break;
+        if (entry.digest == digest) {
+            std::string stored_key;
+            std::optional<std::uint16_t> minute;
+            security::Bytes frame;
+            if (!record_at(entry.offset, entry.ordinal, stored_key, minute, frame) ||
+                stored_key != key) {
+                crypto_.secure_zero(digest.data(), digest.size());
+                return fault();
+            }
+            ordinal = entry.ordinal;
+            offset = entry.offset;
+            found = true;
+            break;
+        }
+        at = (at + 1U) & (identity_index_capacity_ - 1U);
+    }
+    crypto_.secure_zero(digest.data(), digest.size());
+    return true;
+}
 bool RuntimeStateStore::seal(std::uint8_t type, std::uint64_t ordinal,
         const Bytes& plain, Bytes& out) {
     if(!key_valid_) return false;
@@ -98,6 +225,7 @@ bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
 }
 bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
     ready_=false; faulted_=false; count_=0; bytes_=0; cursor_ordinal_=0; cursor_offset_=0;
+    clear_identity_index();
     if(!key_valid_) return fault();
     Bytes head,plain; bool found=false,exists=false; std::uint32_t size=0;
     if(!read_object(kHead,head,found,128)||!files_.state_size(kIdentities,exists,size)) return fault();
@@ -108,6 +236,7 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
         Bytes frame; std::string key; std::optional<std::uint16_t> minute;
         for(std::uint64_t i=1;i<=count_;++i) {
             if(!record_at(bytes_,i,key,minute,frame)) return fault();
+            if(!insert_identity_index(key,i,bytes_)) return fault();
             bytes_+=frame.size();
         }
         security::Key32 digest{};
@@ -136,6 +265,7 @@ bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t
     if(ordinal!=count_+1) return fault();
     const auto canonical=key.str();
     if(canonical.empty() || canonical.size()>256) return false;
+    if(!reserve_identity_index(identity_index_size_ + 1U)) return false;
     Bytes plain{std::uint8_t(minute.has_value()),std::uint8_t(minute.value_or(0)),
                 std::uint8_t(minute.value_or(0)>>8)},blob,frame;
     Bytes payload;security::Key32 digest_of_event{};
@@ -157,6 +287,7 @@ bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t
        !files_.state_replace(kHead,head)) return fault();
     bool found=false;
     if(!read_object(kHead,verify,found,128)||!found||verify!=head) return fault();
+    if(!insert_identity_index(canonical, ordinal, bytes_)) return fault();
     count_=ordinal; bytes_+=frame.size(); return true;
 }
 bool RuntimeStateStore::identity_context(const EventKey& key, std::uint64_t ordinal,
@@ -179,15 +310,52 @@ bool RuntimeStateStore::identity_context(const EventKey& key, std::uint64_t ordi
     cursor_ordinal_=ordinal; cursor_offset_=offset;
     return exact==key.str() || fault();
 }
+bool RuntimeStateStore::lookup_identity(const DomainEvent& event, std::uint64_t& ordinal,
+        std::optional<std::uint16_t>& local_minute, bool& found, bool& payload_matches) {
+    ordinal = 0;
+    local_minute.reset();
+    found = false;
+    payload_matches = false;
+    if (!healthy()) return false;
+    Bytes event_payload;
+    security::Key32 expected_digest{};
+    if (!HubJournal::encode_event_payload(event, event_payload) ||
+        !crypto_.hmac_sha256(key_, event_payload, expected_digest)) {
+        crypto_.secure_zero(event_payload.data(), event_payload.size());
+        return fault();
+    }
+    crypto_.secure_zero(event_payload.data(), event_payload.size());
+    std::uint32_t offset = 0;
+    if (!find_identity_index(event.key.str(), ordinal, offset, found)) {
+        crypto_.secure_zero(expected_digest.data(), expected_digest.size());
+        return false;
+    }
+    if (!found) {
+        crypto_.secure_zero(expected_digest.data(), expected_digest.size());
+        return true;
+    }
+    Bytes frame;
+    std::string exact;
+    std::optional<std::uint16_t> minute;
+    security::Key32 stored_digest{};
+    if (!record_at(offset, ordinal, exact, minute, frame, &stored_digest) ||
+        exact != event.key.str()) {
+        crypto_.secure_zero(expected_digest.data(), expected_digest.size());
+        crypto_.secure_zero(stored_digest.data(), stored_digest.size());
+        return fault();
+    }
+    local_minute = minute;
+    payload_matches = crypto_.constant_time_equal(expected_digest.data(),
+                                                   stored_digest.data(),
+                                                   expected_digest.size());
+    crypto_.secure_zero(expected_digest.data(), expected_digest.size());
+    crypto_.secure_zero(stored_digest.data(), stored_digest.size());
+    return true;
+}
 bool RuntimeStateStore::contains_identity(const EventKey& key, bool& found) {
     found=false; if(!healthy()) return false;
-    std::uint32_t offset=0; Bytes frame; std::string exact; std::optional<std::uint16_t> minute;
-    for(std::uint64_t i=1;i<=committed_highwater_;++i) {
-        if(!record_at(offset,i,exact,minute,frame)) return fault();
-        if(exact==key.str()) found=true;
-        offset+=frame.size();
-    }
-    return true;
+    std::uint64_t ordinal=0;std::uint32_t offset=0;
+    return find_identity_index(key.str(),ordinal,offset,found);
 }
 bool RuntimeStateStore::confirm_event_publication(std::uint64_t boundary) {
     if(!healthy() || boundary<committed_highwater_ || boundary>count_)return fault();

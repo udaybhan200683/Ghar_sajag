@@ -25,14 +25,18 @@ constexpr std::uint8_t kMagic[4] = {'G', 'S', 'O', 'X'};
 constexpr std::uint8_t kPublicationMagic[4] = {'G', 'S', 'H', 'D'};
 constexpr std::uint8_t kCompletionMagic[4] = {'G', 'S', 'C', 'R'};
 constexpr std::uint8_t kCompletionPublicationMagic[4] = {'G', 'S', 'C', 'H'};
+constexpr std::uint8_t kLifecycleMagic[4] = {'G', 'S', 'L', 'R'};
 constexpr std::size_t kPublicationBodyBytes = 48;
 constexpr std::size_t kPublicationBytes = kPublicationBodyBytes + 32;
+constexpr std::size_t kLifecycleBodyBytes = 112;
+constexpr std::size_t kLifecycleBytes = kLifecycleBodyBytes + 32;
 constexpr std::size_t kIndexBlockEntries = 256;
 constexpr char kKeyContext[] = "GharSajag/HubOutbox/EventEncryption/v1";
 constexpr char kIdentityContext[] = "GharSajag/HubOutbox/EventIdentity/v1";
 constexpr char kPublicationContext[] = "GharSajag/HubOutbox/Publication/v1";
 constexpr char kCompletionContext[] = "GharSajag/HubOutbox/BackendCompletion/v1";
 constexpr char kCompletionPublicationContext[] = "GharSajag/HubOutbox/CompletionPublication/v1";
+constexpr char kLifecycleContext[] = "GharSajag/HubOutbox/LifecycleRoot/v1";
 
 void put_u16(security::Bytes& out, std::uint16_t value) {
     out.push_back(static_cast<std::uint8_t>(value >> 8));
@@ -141,8 +145,11 @@ DurableEventOutbox::~DurableEventOutbox() {
     crypto_.secure_zero(publication_key_.data(), publication_key_.size());
     crypto_.secure_zero(completion_key_.data(), completion_key_.size());
     crypto_.secure_zero(completion_publication_key_.data(), completion_publication_key_.size());
+    crypto_.secure_zero(lifecycle_key_.data(), lifecycle_key_.size());
     crypto_.secure_zero(staged_frame_digest_, sizeof(staged_frame_digest_));
     crypto_.secure_zero(staged_completion_digest_, sizeof(staged_completion_digest_));
+    crypto_.secure_zero(lifecycle_report_digest_.data(), lifecycle_report_digest_.size());
+    crypto_.secure_zero(lifecycle_publication_digest_, sizeof(lifecycle_publication_digest_));
 }
 
 bool DurableEventOutbox::derive_keys(const security::Key32& master_storage_key) {
@@ -167,6 +174,10 @@ bool DurableEventOutbox::derive_keys(const security::Key32& master_storage_key) 
         kCompletionPublicationContext + sizeof(kCompletionPublicationContext) - 1);
     const bool completion_publication_ok = crypto_.hkdf_sha256(
         master, salt, completion_publication_context, completion_publication_key_);
+    const security::Bytes lifecycle_context(kLifecycleContext,
+        kLifecycleContext + sizeof(kLifecycleContext) - 1);
+    const bool lifecycle_ok = crypto_.hkdf_sha256(master, salt, lifecycle_context,
+                                                    lifecycle_key_);
     crypto_.secure_zero(master.data(), master.size());
     const auto nonzero = [](const security::Key32& key) {
         return std::any_of(key.begin(), key.end(), [](std::uint8_t value) {
@@ -174,9 +185,9 @@ bool DurableEventOutbox::derive_keys(const security::Key32& master_storage_key) 
         });
     };
     key_valid_ = event_ok && identity_ok && publication_ok && nonzero(event_key_) &&
-                 completion_ok && completion_publication_ok && nonzero(identity_key_) &&
+                 completion_ok && completion_publication_ok && lifecycle_ok && nonzero(identity_key_) &&
                  nonzero(publication_key_) && nonzero(completion_key_) &&
-                 nonzero(completion_publication_key_);
+                 nonzero(completion_publication_key_) && nonzero(lifecycle_key_);
     return key_valid_;
 }
 
@@ -453,7 +464,7 @@ bool DurableEventOutbox::decode_completion(std::uint32_t offset,
 
 bool DurableEventOutbox::encode_completion_publication(std::uint64_t ordinal,
         const std::uint8_t frame_digest[32], security::Bytes& marker) {
-    if (!key_valid_ || ordinal == 0 || frame_digest == nullptr) return false;
+    if (!key_valid_ || frame_digest == nullptr) return false;
     marker.assign(kPublicationBytes, 0);
     std::copy_n(kCompletionPublicationMagic, 4, marker.begin());
     marker[4] = kFormatVersion;
@@ -485,8 +496,106 @@ bool DurableEventOutbox::decode_completion_publication(const security::Bytes& ma
     crypto_.secure_zero(expected.data(), expected.size());
     if (!valid) return false;
     ordinal = get_u64(marker.data() + 8);
-    if (ordinal == 0) return false;
+    if (ordinal == 0 && std::any_of(marker.begin() + 16, marker.begin() + 48,
+                                   [](std::uint8_t b) { return b != 0; })) return false;
     std::copy_n(marker.data() + 16, 32, frame_digest);
+    return true;
+}
+
+bool DurableEventOutbox::encode_lifecycle_root(
+        std::uint64_t generation, std::uint64_t retired_through,
+        std::uint64_t checkpoint_boundary, std::uint64_t report_generation,
+        const security::Key32& report_digest, std::uint64_t publication_ordinal,
+        const std::uint8_t publication_digest[32], bool reset_pending,
+        security::Bytes& marker) {
+    if (!key_valid_ || generation == 0 || retired_through == 0 ||
+        checkpoint_boundary < retired_through || report_generation == 0 ||
+        publication_ordinal < retired_through || publication_digest == nullptr ||
+        std::all_of(report_digest.begin(), report_digest.end(),
+                    [](std::uint8_t b) { return b == 0; })) return false;
+    marker.assign(kLifecycleBytes, 0);
+    std::copy_n(kLifecycleMagic, 4, marker.begin());
+    marker[4] = kFormatVersion;
+    marker[5] = reset_pending ? 1 : 0;
+    put_u64(marker.data() + 8, generation);
+    put_u64(marker.data() + 16, retired_through);
+    put_u64(marker.data() + 24, checkpoint_boundary);
+    put_u64(marker.data() + 32, report_generation);
+    std::copy(report_digest.begin(), report_digest.end(), marker.begin() + 40);
+    put_u64(marker.data() + 72, publication_ordinal);
+    std::copy_n(publication_digest, 32, marker.begin() + 80);
+    security::Bytes authenticated(marker.begin(), marker.begin() + kLifecycleBodyBytes);
+    security::Key32 mac{};
+    const bool okay = crypto_.hmac_sha256(lifecycle_key_, authenticated, mac);
+    crypto_.secure_zero(authenticated.data(), authenticated.size());
+    if (!okay) {
+        crypto_.secure_zero(mac.data(), mac.size());
+        marker.clear();
+        return false;
+    }
+    std::copy(mac.begin(), mac.end(), marker.begin() + kLifecycleBodyBytes);
+    crypto_.secure_zero(mac.data(), mac.size());
+    return true;
+}
+
+bool DurableEventOutbox::decode_lifecycle_root(
+        const security::Bytes& marker, std::uint64_t& generation,
+        std::uint64_t& retired_through, std::uint64_t& checkpoint_boundary,
+        std::uint64_t& report_generation, security::Key32& report_digest,
+        std::uint64_t& publication_ordinal, std::uint8_t publication_digest[32],
+        bool& reset_pending) {
+    if (!key_valid_ || marker.size() != kLifecycleBytes || publication_digest == nullptr ||
+        !std::equal(std::begin(kLifecycleMagic), std::end(kLifecycleMagic), marker.begin()) ||
+        marker[4] != kFormatVersion || marker[5] > 1 || marker[6] != 0 || marker[7] != 0)
+        return false;
+    security::Bytes authenticated(marker.begin(), marker.begin() + kLifecycleBodyBytes);
+    security::Key32 expected{};
+    const bool okay = crypto_.hmac_sha256(lifecycle_key_, authenticated, expected);
+    crypto_.secure_zero(authenticated.data(), authenticated.size());
+    const bool valid = okay && crypto_.constant_time_equal(expected.data(),
+        marker.data() + kLifecycleBodyBytes, expected.size());
+    crypto_.secure_zero(expected.data(), expected.size());
+    if (!valid) return false;
+    generation = get_u64(marker.data() + 8);
+    retired_through = get_u64(marker.data() + 16);
+    checkpoint_boundary = get_u64(marker.data() + 24);
+    report_generation = get_u64(marker.data() + 32);
+    std::copy_n(marker.begin() + 40, report_digest.size(), report_digest.begin());
+    publication_ordinal = get_u64(marker.data() + 72);
+    std::copy_n(marker.begin() + 80, 32, publication_digest);
+    reset_pending = marker[5] == 1;
+    return generation != 0 && retired_through != 0 &&
+        checkpoint_boundary >= retired_through && report_generation != 0 &&
+        publication_ordinal >= retired_through &&
+        std::any_of(report_digest.begin(), report_digest.end(),
+                    [](std::uint8_t b) { return b != 0; });
+}
+
+bool DurableEventOutbox::complete_pending_reclaim() {
+    if (!lifecycle_reset_pending_) return true;
+    if (lifecycle_generation_ == 0 || retired_through_ == 0 ||
+        lifecycle_publication_ordinal_ != retired_through_ ||
+        published_ordinal_ != retired_through_) return false;
+    std::uint8_t empty_digest[32]{};
+    security::Bytes empty_completion_head;
+    if (!encode_completion_publication(0, empty_digest, empty_completion_head) ||
+        !storage_.publish_completion_publication(empty_completion_head) ||
+        !storage_.truncate_completion(0) || !storage_.sync_completion()) return false;
+    for (std::uint16_t segment = 0; segment < limits_.segment_count; ++segment)
+        if (!storage_.remove_segment(segment)) return false;
+    security::Bytes root;
+    if (lifecycle_generation_ == std::numeric_limits<std::uint64_t>::max() ||
+        !encode_lifecycle_root(lifecycle_generation_ + 1, retired_through_,
+            lifecycle_checkpoint_boundary_, lifecycle_report_generation_,
+            lifecycle_report_digest_, lifecycle_publication_ordinal_,
+            lifecycle_publication_digest_, false, root) ||
+        !storage_.publish_lifecycle_root(root)) return false;
+    security::Bytes verified;
+    bool found = false;
+    if (!storage_.read_lifecycle_root(verified, found) || !found || verified != root)
+        return false;
+    ++lifecycle_generation_;
+    lifecycle_reset_pending_ = false;
     return true;
 }
 
@@ -625,6 +734,14 @@ OutboxRecovery DurableEventOutbox::recover() {
     crypto_.secure_zero(staged_completion_digest_, sizeof(staged_completion_digest_));
     next_ordinal_ = 1;
     published_ordinal_ = 0;
+    retired_through_ = 0;
+    lifecycle_generation_ = 0;
+    lifecycle_checkpoint_boundary_ = 0;
+    lifecycle_report_generation_ = 0;
+    lifecycle_publication_ordinal_ = 0;
+    lifecycle_reset_pending_ = false;
+    crypto_.secure_zero(lifecycle_report_digest_.data(), lifecycle_report_digest_.size());
+    crypto_.secure_zero(lifecycle_publication_digest_, sizeof(lifecycle_publication_digest_));
     crypto_.secure_zero(staged_frame_digest_, sizeof(staged_frame_digest_));
     append_segment_ = 0;
     append_offset_ = 0;
@@ -652,6 +769,28 @@ OutboxRecovery DurableEventOutbox::recover() {
                                                   publication_digest))
         return fail(OutboxRecovery::IntegrityFailure);
 
+    security::Bytes lifecycle_root;
+    bool lifecycle_found = false;
+    if (!storage_.read_lifecycle_root(lifecycle_root, lifecycle_found))
+        return fail(OutboxRecovery::StorageFailure);
+    if (lifecycle_found && !decode_lifecycle_root(lifecycle_root,
+            lifecycle_generation_, retired_through_, lifecycle_checkpoint_boundary_,
+            lifecycle_report_generation_, lifecycle_report_digest_,
+            lifecycle_publication_ordinal_, lifecycle_publication_digest_,
+            lifecycle_reset_pending_))
+        return fail(OutboxRecovery::IntegrityFailure);
+    if (retired_through_ > publication_ordinal ||
+        (lifecycle_found && (lifecycle_publication_ordinal_ != retired_through_ ||
+         lifecycle_publication_ordinal_ > publication_ordinal ||
+         (lifecycle_publication_ordinal_ == publication_ordinal &&
+          !crypto_.constant_time_equal(lifecycle_publication_digest_, publication_digest,
+                                       sizeof(publication_digest))))) ||
+        (!lifecycle_found && retired_through_ != 0))
+        return fail(OutboxRecovery::IntegrityFailure);
+    published_ordinal_ = publication_ordinal;
+    if (lifecycle_reset_pending_ && !complete_pending_reclaim())
+        return fail(OutboxRecovery::StorageFailure);
+
     std::int32_t last_existing = -1;
     bool gap = false;
     std::uint64_t physical_file_bytes = 0;
@@ -667,7 +806,7 @@ OutboxRecovery DurableEventOutbox::recover() {
         physical_file_bytes += bytes;
     }
 
-    std::uint64_t expected_ordinal = 1;
+    std::uint64_t expected_ordinal = retired_through_ + 1U;
     bool torn_tail = false;
     bool last_segment_torn_tail = false;
     std::uint64_t last_torn_ordinal = 0;
@@ -754,10 +893,15 @@ OutboxRecovery DurableEventOutbox::recover() {
         // Without an authenticated publication record, even a well-formed
         // event could have been acknowledged before its marker disappeared.
         if (complete_records != 0) return fail(OutboxRecovery::IntegrityFailure);
-    } else if (publication_ordinal > complete_records || !publication_record_seen ||
+    } else if (publication_ordinal > complete_records ||
+               (publication_ordinal > retired_through_ && !publication_record_seen) ||
                complete_records - publication_ordinal > 1) {
         return fail(OutboxRecovery::IntegrityFailure);
     }
+    if (lifecycle_found && publication_ordinal == retired_through_ &&
+        !crypto_.constant_time_equal(lifecycle_publication_digest_, publication_digest,
+                                     sizeof(publication_digest)))
+        return fail(OutboxRecovery::IntegrityFailure);
     // A single complete record beyond the publication marker can only be the
     // interrupted next admission. Keep its identity so an exact Node retry can
     // finish publication; never expose it to replay or ACK it as committed.
@@ -765,7 +909,7 @@ OutboxRecovery DurableEventOutbox::recover() {
         last_torn_ordinal > complete_records)
         return fail(OutboxRecovery::IntegrityFailure);
     published_ordinal_ = publication_found ? publication_ordinal : 0;
-    has_records_ = published_ordinal_ != 0;
+    has_records_ = published_ordinal_ > retired_through_;
     if (last_existing < 0) {
         append_segment_ = 0;
         append_offset_ = 0;
@@ -905,7 +1049,7 @@ OutboxRecovery DurableEventOutbox::recover() {
     if ((!completion_publication_found && completion_publication_ordinal != 0) ||
         (completion_publication_found &&
          (completion_publication_ordinal > complete_completion_records ||
-          !completion_publication_record_seen ||
+          (completion_publication_ordinal != 0 && !completion_publication_record_seen) ||
           complete_completion_records - completion_publication_ordinal > 1)))
         return fail(OutboxRecovery::IntegrityFailure);
     if (completion_torn_tail) {
@@ -1187,9 +1331,135 @@ bool DurableEventOutbox::mark_backend_completed(const std::string& canonical_eve
     return true;
 }
 
+ReclaimResult DurableEventOutbox::reclaim_completed_history(
+        const RetirementAuthorization& authorization) {
+    if (!initialized_ || faulted_) return ReclaimResult::RestartRequired;
+    if (!limits_.body_retirement_enabled || !authorization.post_sync_retention_satisfied)
+        return ReclaimResult::DisabledByRetentionGate;
+    if (index_size_ == 0 || published_ordinal_ <= retired_through_)
+        return ReclaimResult::NoRecords;
+    if (authorization.checkpoint_boundary < published_ordinal_)
+        return ReclaimResult::CheckpointBehind;
+    if (authorization.authenticated_report_generation == 0 ||
+        std::all_of(authorization.authenticated_report_digest.begin(),
+                    authorization.authenticated_report_digest.end(),
+                    [](std::uint8_t b) { return b == 0; }) ||
+        authorization.node_retired == nullptr)
+        return ReclaimResult::InvalidAuthorization;
+
+    for (std::size_t i = 0; i < index_size_; ++i) {
+        const auto& entry = entry_at(i);
+        if (entry.ordinal > published_ordinal_) return ReclaimResult::IntegrityFailure;
+        if (!entry.completed) return ReclaimResult::PendingBackendCompletion;
+    }
+    struct ProofContext {
+        const RetirementAuthorization* authorization;
+        std::uint64_t visited{0};
+        bool valid{true};
+    } proof{&authorization};
+    const auto check_proof = [](void* opaque, std::uint64_t ordinal,
+            const std::string& key, const security::Bytes& payload) -> bool {
+        auto& state = *static_cast<ProofContext*>(opaque);
+        ++state.visited;
+        if (!state.authorization->node_retired(state.authorization->context,
+                                                ordinal, key, payload)) {
+            state.valid = false;
+            return false;
+        }
+        return true;
+    };
+    if (!for_each(check_proof, &proof))
+        return proof.valid ? ReclaimResult::IntegrityFailure
+                           : ReclaimResult::MissingNodeRetirementProof;
+    if (!proof.valid || proof.visited != index_size_)
+        return proof.valid ? ReclaimResult::IntegrityFailure
+                           : ReclaimResult::MissingNodeRetirementProof;
+
+    security::Bytes publication;
+    bool publication_found = false;
+    std::uint64_t publication_ordinal = 0;
+    std::uint8_t publication_digest[32]{};
+    if (!storage_.read_publication(publication, publication_found))
+        return ReclaimResult::StorageFailure;
+    if (!publication_found || !decode_publication(publication, publication_ordinal,
+                                                   publication_digest) ||
+        publication_ordinal != published_ordinal_) {
+        crypto_.secure_zero(publication_digest, sizeof(publication_digest));
+        return ReclaimResult::IntegrityFailure;
+    }
+    if (lifecycle_generation_ == std::numeric_limits<std::uint64_t>::max()) {
+        crypto_.secure_zero(publication_digest, sizeof(publication_digest));
+        return ReclaimResult::InvalidAuthorization;
+    }
+    security::Bytes root;
+    const auto next_generation = lifecycle_generation_ + 1U;
+    if (!encode_lifecycle_root(next_generation, published_ordinal_,
+            authorization.checkpoint_boundary,
+            authorization.authenticated_report_generation,
+            authorization.authenticated_report_digest, publication_ordinal,
+            publication_digest, true, root) || !storage_.publish_lifecycle_root(root)) {
+        crypto_.secure_zero(publication_digest, sizeof(publication_digest));
+        return ReclaimResult::StorageFailure;
+    }
+    security::Bytes verified_root;
+    bool found = false;
+    std::uint64_t generation = 0, retired = 0, boundary = 0, report_generation = 0,
+                  root_publication = 0;
+    security::Key32 report_digest{};
+    std::uint8_t root_publication_digest[32]{};
+    bool pending = false;
+    const bool published = storage_.read_lifecycle_root(verified_root, found) && found &&
+        verified_root == root && decode_lifecycle_root(verified_root, generation, retired,
+            boundary, report_generation, report_digest, root_publication,
+            root_publication_digest, pending) && generation == next_generation &&
+        retired == published_ordinal_ && boundary == authorization.checkpoint_boundary &&
+        report_generation == authorization.authenticated_report_generation &&
+        report_digest == authorization.authenticated_report_digest && pending &&
+        root_publication == publication_ordinal &&
+        crypto_.constant_time_equal(root_publication_digest, publication_digest,
+                                    sizeof(publication_digest));
+    if (published)
+        std::copy_n(root_publication_digest, sizeof(lifecycle_publication_digest_),
+                    lifecycle_publication_digest_);
+    crypto_.secure_zero(report_digest.data(), report_digest.size());
+    crypto_.secure_zero(root_publication_digest, sizeof(root_publication_digest));
+    crypto_.secure_zero(publication_digest, sizeof(publication_digest));
+    if (!published) {
+        faulted_ = true;
+        return ReclaimResult::RestartRequired;
+    }
+    lifecycle_generation_ = generation;
+    retired_through_ = retired;
+    lifecycle_checkpoint_boundary_ = boundary;
+    lifecycle_report_generation_ = report_generation;
+    lifecycle_report_digest_ = authorization.authenticated_report_digest;
+    lifecycle_publication_ordinal_ = root_publication;
+    lifecycle_reset_pending_ = true;
+    if (!complete_pending_reclaim()) {
+        faulted_ = true;
+        return ReclaimResult::RestartRequired;
+    }
+    clear_index();
+    committed_frame_bytes_ = 0;
+    capacity_budget_used_bytes_ = 0;
+    append_segment_ = 0;
+    append_offset_ = 0;
+    next_ordinal_ = published_ordinal_ + 1U;
+    has_records_ = false;
+    completed_count_ = 0;
+    completion_bytes_ = 0;
+    next_completion_ordinal_ = 1;
+    published_completion_ordinal_ = 0;
+    staged_completion_event_ordinal_ = 0;
+    staged_completion_offset_ = 0;
+    staged_completion_bytes_ = 0;
+    crypto_.secure_zero(staged_completion_digest_, sizeof(staged_completion_digest_));
+    return ReclaimResult::Reclaimed;
+}
+
 bool DurableEventOutbox::for_each(RecordVisitor visitor, void* context) {
     if (!initialized_ || faulted_ || visitor == nullptr) return false;
-    std::uint64_t ordinal = 1;
+    std::uint64_t ordinal = retired_through_ + 1U;
     for (std::uint16_t segment = 0; segment < limits_.segment_count; ++segment) {
         bool exists = false;
         std::uint32_t bytes = 0;

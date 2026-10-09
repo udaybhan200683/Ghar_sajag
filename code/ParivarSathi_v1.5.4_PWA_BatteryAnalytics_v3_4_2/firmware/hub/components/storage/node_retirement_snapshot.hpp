@@ -35,6 +35,13 @@ struct RetirementSnapshot {
     std::size_t node_count() const;
 };
 
+// True only when an authenticated, selected report proves that the Node no
+// longer retains this exact EventKey. Backend completion remains a separate
+// prerequisite for event-body retirement.
+bool retirement_proves_node_durable_retirement(const RetirementSnapshot&,
+        std::uint8_t enrollment_slot, std::uint32_t enrollment_generation,
+        std::uint64_t origin_session, std::uint64_t sequence);
+
 using RetirementSnapshotReference = ReportSnapshotReference;
 
 enum class RetirementReportApply {

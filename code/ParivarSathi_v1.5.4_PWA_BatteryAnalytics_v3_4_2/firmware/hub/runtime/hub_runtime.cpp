@@ -236,15 +236,48 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     if (routine_.state().mode == HomeMode::Privacy && passive) {
         return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {}};
     }
-    const bool duplicate = journal_.contains(event->key);
-    if(runtime_state_ && duplicate) {
-        bool found=false;
-        if(!runtime_state_->contains_identity(event->key,found) || !found)
-            return ProcessResult{event->key,AckClass::Rejected,false,{}};
-    }
-    if (runtime_state_ && !duplicate &&
-        !runtime_state_->prepare_identity(*event,journal_.size()+1,local_minute)) {
-        return ProcessResult{event->key,AckClass::Rejected,false,{}};
+    bool duplicate = false;
+    bool identity_already_prepared = false;
+    if (runtime_state_) {
+        bool identity_found = false, payload_matches = false;
+        std::uint64_t identity_ordinal = 0;
+        std::optional<std::uint16_t> original_minute;
+        if (!runtime_state_->lookup_identity(*event, identity_ordinal,
+                original_minute, identity_found, payload_matches)) {
+            checkpoint_fault_ = true;
+            return ProcessResult{event->key, AckClass::Rejected, false, {}};
+        }
+        duplicate = journal_.contains(event->key);
+        if (identity_found) {
+            if (!payload_matches) {
+                return ProcessResult{event->key, AckClass::Rejected, false, {}};
+            }
+            // Exact identities remain durable after their backend-synchronized
+            // bodies have been reclaimed. A retry for an identity covered by
+            // the durable reducer checkpoint is acknowledged without replaying
+            // business effects. A missing body beyond that boundary is corrupt.
+            if (duplicate || identity_ordinal <= applied_boundary_)
+                return ProcessResult{event->key, AckClass::Durable, false, {}};
+            if (identity_ordinal != journal_.size() + 1U) {
+                checkpoint_fault_ = true;
+                return ProcessResult{event->key, AckClass::Rejected, false, {}};
+            }
+            // A prepared identity can outlive a failed/unpublished event head.
+            // Continue the same transaction so the outbox can finish publication.
+            // Its original local-time context is part of the durable identity
+            // row; a retry may arrive after the Hub's clock context changed.
+            local_minute = original_minute;
+            identity_already_prepared = true;
+        }
+        if (duplicate || (!identity_already_prepared && !runtime_state_->prepare_identity(
+                *event, journal_.size() + 1U, local_minute))) {
+            if (duplicate) checkpoint_fault_ = true;
+            return ProcessResult{event->key, AckClass::Rejected, false, {}};
+        }
+    } else {
+        duplicate = journal_.contains(event->key);
+        if (duplicate)
+            return ProcessResult{event->key, AckClass::Durable, false, {}};
     }
     const auto committed = journal_.commit(*event);
     if (committed == CommitResult::Full || committed == CommitResult::StorageFault) {

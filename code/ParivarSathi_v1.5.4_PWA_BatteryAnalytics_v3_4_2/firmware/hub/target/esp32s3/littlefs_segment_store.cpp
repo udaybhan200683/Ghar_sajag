@@ -17,8 +17,11 @@ constexpr char kPublicationTemporaryPath[] = "/gsoutbox/head.new";
 constexpr char kCompletionPath[] = "/gsoutbox/completion.log";
 constexpr char kCompletionPublicationPath[] = "/gsoutbox/completion.head";
 constexpr char kCompletionPublicationTemporaryPath[] = "/gsoutbox/completion.head.new";
+constexpr char kLifecycleRootPath[] = "/gsoutbox/lifecycle.root";
+constexpr char kLifecycleRootTemporaryPath[] = "/gsoutbox/lifecycle.root.new";
 constexpr std::size_t kPathCapacity = 32;
 constexpr std::size_t kPublicationMaximumBytes = 128;
+constexpr std::size_t kLifecycleRootMaximumBytes = 192;
 }
 
 bool LittleFsSegmentStore::mount() {
@@ -148,6 +151,51 @@ bool LittleFsSegmentStore::publish_publication(const security::Bytes& marker) {
     const bool publication_synced = ::fsync(fileno(file)) == 0;
     const bool publication_closed = std::fclose(file) == 0;
     return publication_synced && publication_closed;
+}
+
+bool LittleFsSegmentStore::read_lifecycle_root(security::Bytes& marker, bool& found) {
+    found = false;
+    marker.clear();
+    if (!mounted_) return false;
+    struct stat info{};
+    if (stat(kLifecycleRootPath, &info) != 0) return errno == ENOENT;
+    found = true;
+    if (info.st_size <= 0 ||
+        static_cast<std::uint64_t>(info.st_size) > kLifecycleRootMaximumBytes)
+        return true;
+    FILE* file = std::fopen(kLifecycleRootPath, "rb");
+    if (file == nullptr) return false;
+    marker.resize(static_cast<std::size_t>(info.st_size));
+    const auto read = std::fread(marker.data(), 1, marker.size(), file);
+    const bool read_ok = read == marker.size() && std::ferror(file) == 0;
+    const bool close_ok = std::fclose(file) == 0;
+    if (!read_ok || !close_ok) { marker.clear(); return false; }
+    return true;
+}
+
+bool LittleFsSegmentStore::publish_lifecycle_root(const security::Bytes& marker) {
+    if (!mounted_ || marker.empty() || marker.size() > kLifecycleRootMaximumBytes)
+        return false;
+    FILE* file = std::fopen(kLifecycleRootTemporaryPath, "wb");
+    if (file == nullptr) return false;
+    const auto written = std::fwrite(marker.data(), 1, marker.size(), file);
+    const bool flushed = written == marker.size() && std::fflush(file) == 0;
+    const bool synced = flushed && ::fsync(fileno(file)) == 0;
+    const bool closed = std::fclose(file) == 0;
+    if (!synced || !closed ||
+        std::rename(kLifecycleRootTemporaryPath, kLifecycleRootPath) != 0) return false;
+    file = std::fopen(kLifecycleRootPath, "r+");
+    if (file == nullptr) return false;
+    const bool publication_synced = ::fsync(fileno(file)) == 0;
+    const bool publication_closed = std::fclose(file) == 0;
+    return publication_synced && publication_closed;
+}
+
+bool LittleFsSegmentStore::remove_segment(std::uint16_t segment) {
+    char path[kPathCapacity]{};
+    if (!path_for(segment, path, sizeof(path))) return false;
+    if (std::remove(path) == 0) return true;
+    return errno == ENOENT;
 }
 
 bool LittleFsSegmentStore::completion_size(bool& exists, std::uint32_t& bytes) {

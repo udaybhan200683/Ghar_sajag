@@ -2014,3 +2014,30 @@ that binds retained segment ordinal ranges, completion compaction and the
 checkpoint/identity high-waters before any delete/reuse operation. Existing
 local post-sync retention policy remains open. No product decision, context
 version, physical flash or C3 data changed.
+
+## 43. S3 Phase 2 lifecycle progress — 2026-10-09
+
+[Lifecycle progress evidence](../evidence/R1_S3_PHASE2_LIFECYCLE_PROGRESS_20261009.md)
+supersedes the preceding checkpoint's implementation-status claims only. An
+authenticated LittleFS lifecycle root now binds the checkpoint boundary,
+selected NVS retirement-report generation/digest and publication ordinal. The
+S3 adapter joins the persisted Node report to each exact body using its
+enrollment slot/generation, session, high-water and pending-key set. A
+root-first, restartable whole-history reclaim resets completion metadata and
+reuses segments only after exact authenticated backend completion, checkpoint,
+Node-retirement proof and retention authorization.
+
+Host PASS: three 100-event fill/complete/reclaim/refill cycles (including
+interruption recovery), one 3,278-event mixed semantic lifecycle with capacity
+refill, post-retirement identity retry, retirement report predicates, and the
+existing 6,556-record outbox admission/recovery. The isolated ESP-IDF 6.0.3 S3
+candidate build passes at 1,843,728 bytes. Focused host tests pass ASan/UBSan.
+The whole-history implementation is deliberately constrained: completion reset
+cannot advance until every body is completed; 6,556 completions exceed the
+current completion workspace, and identity evidence is not compacted because
+the ledger lacks persisted per-row enrollment generation and a stale-key gate.
+S3 production deletion remains disabled because post-sync retention policy/time
+semantics and physical power-cut qualification are open. No physical S3 write,
+partition activation, product decision, or CONTEXT_VERSION change occurred.
+Phase 2 is NOT CLOSED; do not start Phase 3 until identity-safe compaction and
+incremental completion/segment reclamation are implemented and validated.

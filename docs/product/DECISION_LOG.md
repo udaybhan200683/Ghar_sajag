@@ -390,3 +390,15 @@ completion reclamation, repeated capacity reuse, local post-sync retention polic
 72-hour workload and physical S3 qualification remain open. Existing LOCKED
 decisions and `CONTEXT_VERSION=2026-10-09.001` are unchanged; see
 `R1_S3_STORAGE_PHASE2_20261009.md` for tests and concrete blockers.
+
+### S3 lifecycle implementation update — 2026-10-09 (no new product decision)
+
+[Focused evidence](../exec-plans/evidence/R1_S3_PHASE2_LIFECYCLE_PROGRESS_20261009.md)
+records restartable lifecycle-root publication, report/checkpoint-gated whole-
+history body reclamation, completion-log reset and host capacity refill. Three
+100-event cycles and a 3,278-event mixed lifecycle pass under deterministic host
+receipts; the 6,556-record admission/recovery stress remains separate from full
+retirement. Exact identities are not compacted, partial completion/segment
+reclamation is not implemented, and production body deletion is disabled pending
+retention policy and physical qualification. Existing product decisions and
+`CONTEXT_VERSION=2026-10-09.001` are unchanged.
