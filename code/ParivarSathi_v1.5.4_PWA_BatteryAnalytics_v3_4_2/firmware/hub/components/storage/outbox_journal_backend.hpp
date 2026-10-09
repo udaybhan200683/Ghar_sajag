@@ -5,10 +5,8 @@
 
 namespace gs::hub::storage {
 
-// Bridges the authenticated HubJournal event boundary to the encrypted,
-// publication-verified segmented outbox. It deliberately does not implement
-// backend completion or body retirement; until that ledger is integrated all
-// records remain pending and protected from reclamation.
+// Bridges the authenticated HubJournal boundary to the encrypted segmented
+// outbox, including independently published backend completion receipts.
 class OutboxJournalBackend final : public JournalEventBackend {
 public:
     explicit OutboxJournalBackend(DurableEventOutbox& outbox) : outbox_(outbox) {}
@@ -18,6 +16,9 @@ public:
     CommitResult commit(const DomainEvent& event) override;
     bool contains(const EventKey& key) override;
     bool for_each(EventVisitor visitor, void* context) override;
+    bool cloud_completed(const EventKey& key) const override;
+    std::size_t cloud_completed_count() const override;
+    bool acknowledge_cloud(const EventKey& key) override;
 
 private:
     DurableEventOutbox& outbox_;

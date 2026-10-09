@@ -79,6 +79,48 @@ public:
         publication_found_ = true;
         return true;
     }
+    bool completion_size(bool& exists, std::uint32_t& bytes) override {
+        exists = completion_found_;
+        bytes = static_cast<std::uint32_t>(completion_.size());
+        return true;
+    }
+    bool read_completion(std::uint32_t offset, std::uint8_t* output,
+                         std::size_t requested, std::size_t& actual) override {
+        if (offset > completion_.size()) { actual = 0; return true; }
+        actual = std::min(requested, completion_.size() - offset);
+        if (actual != 0) std::copy_n(completion_.data() + offset, actual, output);
+        return true;
+    }
+    bool append_completion(const std::uint8_t* data, std::size_t length) override {
+        if (completion_append_failure_once) {
+            completion_append_failure_once = false;
+            return false;
+        }
+        completion_.insert(completion_.end(), data, data + length);
+        completion_found_ = true;
+        return true;
+    }
+    bool sync_completion() override { return true; }
+    bool truncate_completion(std::uint32_t bytes) override {
+        if (bytes > completion_.size()) return false;
+        completion_.resize(bytes);
+        completion_found_ = !completion_.empty();
+        return true;
+    }
+    bool read_completion_publication(Bytes& marker, bool& found) override {
+        marker = completion_publication_;
+        found = completion_publication_found_;
+        return true;
+    }
+    bool publish_completion_publication(const Bytes& marker) override {
+        if (completion_publication_failure_once) {
+            completion_publication_failure_once = false;
+            return false;
+        }
+        completion_publication_ = marker;
+        completion_publication_found_ = true;
+        return true;
+    }
     void corrupt(std::uint16_t segment, std::size_t offset) {
         files_.at(segment).at(offset) ^= 0x80U;
     }
@@ -89,6 +131,8 @@ public:
     std::size_t partial_append_bytes{0};
     bool sync_failure_once{false};
     bool publication_failure_once{false};
+    bool completion_append_failure_once{false};
+    bool completion_publication_failure_once{false};
 
 private:
     std::uint64_t capacity_;
@@ -96,6 +140,10 @@ private:
     std::vector<bool> exists_;
     Bytes publication_;
     bool publication_found_{false};
+    Bytes completion_;
+    bool completion_found_{false};
+    Bytes completion_publication_;
+    bool completion_publication_found_{false};
 };
 
 Key32 test_key() {

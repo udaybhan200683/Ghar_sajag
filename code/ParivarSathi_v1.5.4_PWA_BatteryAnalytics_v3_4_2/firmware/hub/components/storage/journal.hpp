@@ -34,8 +34,9 @@ public:
     virtual CommitResult commit(const DomainEvent& event) = 0;
     virtual bool contains(const EventKey& key) = 0;
     virtual bool for_each(EventVisitor visitor, void* context) = 0;
-    // The first S3 outbox slice intentionally has no backend-completion ledger.
-    // Until one is integrated, it cannot mark or retire uploaded records.
+    // Scalable backends may persist authenticated completion independently.
+    // The compatibility defaults keep unsupported backends pending; completion
+    // alone never authorizes event-body retirement.
     virtual bool cloud_completed(const EventKey&) const { return false; }
     virtual std::size_t cloud_completed_count() const { return 0; }
     virtual bool acknowledge_cloud(const EventKey&) { return false; }

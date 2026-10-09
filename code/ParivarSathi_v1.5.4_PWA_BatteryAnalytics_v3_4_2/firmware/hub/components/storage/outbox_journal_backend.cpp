@@ -74,4 +74,18 @@ bool OutboxJournalBackend::for_each(EventVisitor visitor, void* context) {
     return outbox_.for_each(decode_and_visit, &visit);
 }
 
+bool OutboxJournalBackend::cloud_completed(const EventKey& key) const {
+    if (!outbox_.healthy()) return false;
+    bool completed = false;
+    return outbox_.backend_completed(key.str(), completed) && completed;
+}
+
+std::size_t OutboxJournalBackend::cloud_completed_count() const {
+    return outbox_.healthy() ? outbox_.backend_completed_count() : 0;
+}
+
+bool OutboxJournalBackend::acknowledge_cloud(const EventKey& key) {
+    return outbox_.healthy() && outbox_.mark_backend_completed(key.str());
+}
+
 }  // namespace gs::hub::storage
