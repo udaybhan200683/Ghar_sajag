@@ -23,12 +23,16 @@ constexpr std::uint8_t kFormatVersion = 1;
 constexpr std::uint8_t kEventRecord = 1;
 constexpr std::uint8_t kMagic[4] = {'G', 'S', 'O', 'X'};
 constexpr std::uint8_t kPublicationMagic[4] = {'G', 'S', 'H', 'D'};
+constexpr std::uint8_t kCompletionMagic[4] = {'G', 'S', 'C', 'R'};
+constexpr std::uint8_t kCompletionPublicationMagic[4] = {'G', 'S', 'C', 'H'};
 constexpr std::size_t kPublicationBodyBytes = 48;
 constexpr std::size_t kPublicationBytes = kPublicationBodyBytes + 32;
 constexpr std::size_t kIndexBlockEntries = 256;
 constexpr char kKeyContext[] = "GharSajag/HubOutbox/EventEncryption/v1";
 constexpr char kIdentityContext[] = "GharSajag/HubOutbox/EventIdentity/v1";
 constexpr char kPublicationContext[] = "GharSajag/HubOutbox/Publication/v1";
+constexpr char kCompletionContext[] = "GharSajag/HubOutbox/BackendCompletion/v1";
+constexpr char kCompletionPublicationContext[] = "GharSajag/HubOutbox/CompletionPublication/v1";
 
 void put_u16(security::Bytes& out, std::uint16_t value) {
     out.push_back(static_cast<std::uint8_t>(value >> 8));
@@ -100,7 +104,8 @@ struct DurableEventOutbox::IndexEntry {
     std::uint32_t offset{0};
     std::uint32_t frame_bytes{0};
     std::uint16_t segment{0};
-    std::uint16_t reserved{0};
+    bool completed{false};
+    std::uint8_t reserved{0};
 };
 
 bool StorageCapacityPolicy::permits(AdmissionClass admission_class,
@@ -134,7 +139,10 @@ DurableEventOutbox::~DurableEventOutbox() {
     crypto_.secure_zero(event_key_.data(), event_key_.size());
     crypto_.secure_zero(identity_key_.data(), identity_key_.size());
     crypto_.secure_zero(publication_key_.data(), publication_key_.size());
+    crypto_.secure_zero(completion_key_.data(), completion_key_.size());
+    crypto_.secure_zero(completion_publication_key_.data(), completion_publication_key_.size());
     crypto_.secure_zero(staged_frame_digest_, sizeof(staged_frame_digest_));
+    crypto_.secure_zero(staged_completion_digest_, sizeof(staged_completion_digest_));
 }
 
 bool DurableEventOutbox::derive_keys(const security::Key32& master_storage_key) {
@@ -151,6 +159,14 @@ bool DurableEventOutbox::derive_keys(const security::Key32& master_storage_key) 
     const bool publication_ok = crypto_.hkdf_sha256(master, salt,
                                                       publication_context,
                                                       publication_key_);
+    const security::Bytes completion_context(kCompletionContext,
+        kCompletionContext + sizeof(kCompletionContext) - 1);
+    const bool completion_ok = crypto_.hkdf_sha256(master, salt, completion_context,
+                                                     completion_key_);
+    const security::Bytes completion_publication_context(kCompletionPublicationContext,
+        kCompletionPublicationContext + sizeof(kCompletionPublicationContext) - 1);
+    const bool completion_publication_ok = crypto_.hkdf_sha256(
+        master, salt, completion_publication_context, completion_publication_key_);
     crypto_.secure_zero(master.data(), master.size());
     const auto nonzero = [](const security::Key32& key) {
         return std::any_of(key.begin(), key.end(), [](std::uint8_t value) {
@@ -158,7 +174,9 @@ bool DurableEventOutbox::derive_keys(const security::Key32& master_storage_key) 
         });
     };
     key_valid_ = event_ok && identity_ok && publication_ok && nonzero(event_key_) &&
-                 nonzero(identity_key_) && nonzero(publication_key_);
+                 completion_ok && completion_publication_ok && nonzero(identity_key_) &&
+                 nonzero(publication_key_) && nonzero(completion_key_) &&
+                 nonzero(completion_publication_key_);
     return key_valid_;
 }
 
@@ -345,6 +363,151 @@ bool DurableEventOutbox::decode_publication(
     return true;
 }
 
+bool DurableEventOutbox::encode_completion(std::uint64_t completion_ordinal,
+        std::uint64_t event_ordinal, const std::string& key, security::Bytes& frame) {
+    if (!key_valid_ || completion_ordinal == 0 || event_ordinal == 0 || key.empty() ||
+        key.size() > limits_.maximum_key_bytes || key.size() > 0xffffU) return false;
+    security::Bytes plain;
+    plain.reserve(10 + key.size());
+    for (int shift = 56; shift >= 0; shift -= 8)
+        plain.push_back(static_cast<std::uint8_t>(event_ordinal >> shift));
+    put_u16(plain, static_cast<std::uint16_t>(key.size()));
+    plain.insert(plain.end(), key.begin(), key.end());
+    std::array<std::uint8_t, kPrefixBytes> prefix{};
+    std::copy_n(kCompletionMagic, sizeof(kCompletionMagic), prefix.begin());
+    prefix[4] = kFormatVersion;
+    prefix[5] = 1;
+    put_u64(prefix.data() + 8, completion_ordinal);
+    put_u32(prefix.data() + 16, static_cast<std::uint32_t>(plain.size()));
+    security::Nonce12 nonce{};
+    security::GcmTag tag{};
+    security::Bytes cipher;
+    const security::Bytes aad(prefix.begin(), prefix.end());
+    const bool sealed = crypto_.random_bytes(nonce.data(), nonce.size()) &&
+        crypto_.seal_aes256_gcm(completion_key_, nonce, aad, plain, cipher, tag);
+    crypto_.secure_zero(plain.data(), plain.size());
+    if (!sealed) return false;
+    frame.clear();
+    frame.reserve(prefix.size() + nonce.size() + cipher.size() + tag.size() + kCrcBytes);
+    frame.insert(frame.end(), prefix.begin(), prefix.end());
+    frame.insert(frame.end(), nonce.begin(), nonce.end());
+    frame.insert(frame.end(), cipher.begin(), cipher.end());
+    frame.insert(frame.end(), tag.begin(), tag.end());
+    const auto crc = crc32(frame.data(), frame.size());
+    frame.push_back(static_cast<std::uint8_t>(crc >> 24));
+    frame.push_back(static_cast<std::uint8_t>(crc >> 16));
+    frame.push_back(static_cast<std::uint8_t>(crc >> 8));
+    frame.push_back(static_cast<std::uint8_t>(crc));
+    return true;
+}
+
+bool DurableEventOutbox::decode_completion(std::uint32_t offset,
+        std::uint32_t frame_bytes, std::uint64_t expected_completion_ordinal,
+        std::uint64_t& event_ordinal, std::string& key,
+        std::uint8_t frame_digest[32]) {
+    if (frame_bytes < kMinimumFrameBytes || frame_digest == nullptr) return false;
+    security::Bytes frame(frame_bytes);
+    std::size_t actual = 0;
+    if (!storage_.read_completion(offset, frame.data(), frame.size(), actual) ||
+        actual != frame.size() || std::memcmp(frame.data(), kCompletionMagic, 4) != 0 ||
+        frame[4] != kFormatVersion || frame[5] != 1 || frame[6] != 0 || frame[7] != 0 ||
+        get_u64(frame.data() + 8) != expected_completion_ordinal ||
+        static_cast<std::uint64_t>(get_u32(frame.data() + 16)) + kFrameOverheadBytes !=
+            frame_bytes || crc32(frame.data(), frame.size() - kCrcBytes) !=
+                get_u32(frame.data() + frame.size() - kCrcBytes)) return false;
+    const auto plain_bytes = get_u32(frame.data() + 16);
+    security::Nonce12 nonce{};
+    std::copy_n(frame.data() + kPrefixBytes, nonce.size(), nonce.begin());
+    security::GcmTag tag{};
+    std::copy_n(frame.data() + kPrefixBytes + nonce.size() + plain_bytes,
+                tag.size(), tag.begin());
+    const security::Bytes aad(frame.begin(), frame.begin() + kPrefixBytes);
+    const security::Bytes cipher(frame.begin() + kPrefixBytes + nonce.size(),
+        frame.begin() + kPrefixBytes + nonce.size() + plain_bytes);
+    security::Bytes plain;
+    if (!crypto_.open_aes256_gcm(completion_key_, nonce, aad, cipher, tag, plain) ||
+        plain.size() < 11) {
+        crypto_.secure_zero(plain.data(), plain.size());
+        return false;
+    }
+    event_ordinal = get_u64(plain.data());
+    const auto key_bytes = get_u16(plain.data() + 8);
+    if (event_ordinal == 0 || key_bytes == 0 || key_bytes > limits_.maximum_key_bytes ||
+        static_cast<std::size_t>(key_bytes) + 10 != plain.size()) {
+        crypto_.secure_zero(plain.data(), plain.size());
+        return false;
+    }
+    key.assign(reinterpret_cast<const char*>(plain.data() + 10), key_bytes);
+    crypto_.secure_zero(plain.data(), plain.size());
+    security::Key32 digest{};
+    if (!crypto_.hmac_sha256(completion_publication_key_, frame, digest)) return false;
+    std::copy(digest.begin(), digest.end(), frame_digest);
+    crypto_.secure_zero(digest.data(), digest.size());
+    return true;
+}
+
+bool DurableEventOutbox::encode_completion_publication(std::uint64_t ordinal,
+        const std::uint8_t frame_digest[32], security::Bytes& marker) {
+    if (!key_valid_ || ordinal == 0 || frame_digest == nullptr) return false;
+    marker.assign(kPublicationBytes, 0);
+    std::copy_n(kCompletionPublicationMagic, 4, marker.begin());
+    marker[4] = kFormatVersion;
+    put_u64(marker.data() + 8, ordinal);
+    std::copy_n(frame_digest, 32, marker.begin() + 16);
+    security::Bytes authenticated(marker.begin(), marker.begin() + kPublicationBodyBytes);
+    security::Key32 mac{};
+    const bool okay = crypto_.hmac_sha256(completion_publication_key_, authenticated, mac);
+    crypto_.secure_zero(authenticated.data(), authenticated.size());
+    if (!okay) { marker.clear(); crypto_.secure_zero(mac.data(), mac.size()); return false; }
+    std::copy(mac.begin(), mac.end(), marker.begin() + kPublicationBodyBytes);
+    crypto_.secure_zero(mac.data(), mac.size());
+    return true;
+}
+
+bool DurableEventOutbox::decode_completion_publication(const security::Bytes& marker,
+        std::uint64_t& ordinal, std::uint8_t frame_digest[32]) {
+    if (!key_valid_ || marker.size() != kPublicationBytes || frame_digest == nullptr ||
+        !std::equal(std::begin(kCompletionPublicationMagic),
+                    std::end(kCompletionPublicationMagic), marker.begin()) ||
+        marker[4] != kFormatVersion || marker[5] != 0 || marker[6] != 0 || marker[7] != 0)
+        return false;
+    security::Bytes authenticated(marker.begin(), marker.begin() + kPublicationBodyBytes);
+    security::Key32 expected{};
+    const bool okay = crypto_.hmac_sha256(completion_publication_key_, authenticated, expected);
+    crypto_.secure_zero(authenticated.data(), authenticated.size());
+    const bool valid = okay && crypto_.constant_time_equal(expected.data(),
+        marker.data() + kPublicationBodyBytes, expected.size());
+    crypto_.secure_zero(expected.data(), expected.size());
+    if (!valid) return false;
+    ordinal = get_u64(marker.data() + 8);
+    if (ordinal == 0) return false;
+    std::copy_n(marker.data() + 16, 32, frame_digest);
+    return true;
+}
+
+bool DurableEventOutbox::publish_completion_through(std::uint64_t ordinal,
+        const std::uint8_t frame_digest[32]) {
+    security::Bytes marker;
+    if (!encode_completion_publication(ordinal, frame_digest, marker) ||
+        !storage_.publish_completion_publication(marker)) return false;
+    security::Bytes observed;
+    bool found = false;
+    std::uint64_t observed_ordinal = 0;
+    std::uint8_t observed_digest[32]{};
+    const bool read = storage_.read_completion_publication(observed, found);
+    const bool valid = read && found && observed == marker &&
+        decode_completion_publication(observed, observed_ordinal, observed_digest) &&
+        observed_ordinal == ordinal && crypto_.constant_time_equal(
+            observed_digest, frame_digest, sizeof(observed_digest));
+    crypto_.secure_zero(observed_digest, sizeof(observed_digest));
+    if (!valid) return false;
+    published_completion_ordinal_ = ordinal;
+    crypto_.secure_zero(staged_completion_digest_, sizeof(staged_completion_digest_));
+    staged_completion_event_ordinal_ = 0;
+    staged_completion_bytes_ = 0;
+    return true;
+}
+
 bool DurableEventOutbox::publish_through(
     std::uint64_t ordinal, const std::uint8_t frame_digest[32]) {
     security::Bytes marker;
@@ -447,6 +610,14 @@ OutboxRecovery DurableEventOutbox::recover() {
     has_records_ = false;
     committed_frame_bytes_ = 0;
     capacity_budget_used_bytes_ = 0;
+    completion_bytes_ = 0;
+    next_completion_ordinal_ = 1;
+    published_completion_ordinal_ = 0;
+    staged_completion_event_ordinal_ = 0;
+    staged_completion_offset_ = 0;
+    staged_completion_bytes_ = 0;
+    completed_count_ = 0;
+    crypto_.secure_zero(staged_completion_digest_, sizeof(staged_completion_digest_));
     next_ordinal_ = 1;
     published_ordinal_ = 0;
     crypto_.secure_zero(staged_frame_digest_, sizeof(staged_frame_digest_));
@@ -616,6 +787,141 @@ OutboxRecovery DurableEventOutbox::recover() {
             append_offset_ = bytes;
         }
     }
+
+    bool completion_exists = false;
+    std::uint32_t completion_file_bytes = 0;
+    if (!storage_.completion_size(completion_exists, completion_file_bytes))
+        return fail(OutboxRecovery::StorageFailure);
+    if (!completion_exists && completion_file_bytes != 0)
+        return fail(OutboxRecovery::IntegrityFailure);
+    if (completion_file_bytes > limits_.filesystem_workspace_bytes)
+        return fail(OutboxRecovery::UnsupportedConfiguration);
+    completion_bytes_ = completion_file_bytes;
+    security::Bytes completion_publication;
+    bool completion_publication_found = false;
+    if (!storage_.read_completion_publication(completion_publication,
+                                               completion_publication_found))
+        return fail(OutboxRecovery::StorageFailure);
+    std::uint64_t completion_publication_ordinal = 0;
+    std::uint8_t completion_publication_digest[32]{};
+    if (completion_publication_found && !decode_completion_publication(
+            completion_publication, completion_publication_ordinal,
+            completion_publication_digest))
+        return fail(OutboxRecovery::IntegrityFailure);
+    std::uint32_t completion_offset = 0;
+    std::uint32_t published_completion_bytes = 0;
+    std::uint64_t complete_completion_records = 0;
+    bool completion_publication_record_seen = false;
+    bool completion_torn_tail = false;
+    while (completion_offset < completion_file_bytes) {
+        const auto remaining = completion_file_bytes - completion_offset;
+        if (remaining < kPrefixBytes) { completion_torn_tail = true; break; }
+        std::array<std::uint8_t, kPrefixBytes> prefix{};
+        std::size_t actual = 0;
+        if (!storage_.read_completion(completion_offset, prefix.data(), prefix.size(), actual) ||
+            actual != prefix.size()) return fail(OutboxRecovery::StorageFailure);
+        if (std::memcmp(prefix.data(), kCompletionMagic, 4) != 0 ||
+            prefix[4] != kFormatVersion || prefix[5] != 1 || prefix[6] != 0 ||
+            prefix[7] != 0 || get_u64(prefix.data() + 8) != complete_completion_records + 1)
+            return fail(OutboxRecovery::IntegrityFailure);
+        const auto plain_bytes = get_u32(prefix.data() + 16);
+        const std::uint64_t frame_size_wide = plain_bytes + kFrameOverheadBytes;
+        if (plain_bytes < 11 || plain_bytes > limits_.maximum_key_bytes + 10U ||
+            frame_size_wide > completion_file_bytes - completion_offset) {
+            completion_torn_tail = true;
+            break;
+        }
+        const auto frame_size = static_cast<std::uint32_t>(frame_size_wide);
+        std::uint64_t event_ordinal = 0;
+        std::string event_key;
+        std::uint8_t frame_digest[32]{};
+        if (!decode_completion(completion_offset, frame_size,
+                complete_completion_records + 1, event_ordinal, event_key, frame_digest))
+            return fail(OutboxRecovery::IntegrityFailure);
+        std::uint8_t identity_digest[32]{};
+        if (event_ordinal > published_ordinal_ ||
+            !digest_identity(event_key, identity_digest)) {
+            crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+            return fail(OutboxRecovery::IntegrityFailure);
+        }
+        const auto identity_at = find_index(identity_digest);
+        if (identity_at >= index_size_ || compare_digest(
+                entry_at(identity_at).identity_digest, identity_digest) != 0) {
+            crypto_.secure_zero(identity_digest, sizeof(identity_digest));
+            crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+            return fail(OutboxRecovery::IntegrityFailure);
+        }
+        crypto_.secure_zero(identity_digest, sizeof(identity_digest));
+        auto& event_entry = entry_at(identity_at);
+        std::string stored_key;
+        security::Bytes event_payload;
+        if (event_entry.ordinal != event_ordinal ||
+            !decode_record(event_entry.segment, event_entry.offset, event_entry.frame_bytes,
+                           event_entry.ordinal, nullptr, stored_key, event_payload) ||
+            stored_key != event_key) {
+            crypto_.secure_zero(event_payload.data(), event_payload.size());
+            crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+            return fail(OutboxRecovery::IntegrityFailure);
+        }
+        crypto_.secure_zero(event_payload.data(), event_payload.size());
+        const auto completion_record_ordinal = complete_completion_records + 1;
+        if (completion_publication_found &&
+            completion_record_ordinal == completion_publication_ordinal) {
+            if (!crypto_.constant_time_equal(frame_digest,
+                    completion_publication_digest, sizeof(frame_digest))) {
+                crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+                return fail(OutboxRecovery::IntegrityFailure);
+            }
+            completion_publication_record_seen = true;
+        }
+        if (completion_record_ordinal <= completion_publication_ordinal) {
+            if (event_entry.completed) {
+                crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+                return fail(OutboxRecovery::IntegrityFailure);
+            }
+            event_entry.completed = true;
+            ++completed_count_;
+            published_completion_bytes = completion_offset + frame_size;
+        } else if (completion_record_ordinal == completion_publication_ordinal + 1 &&
+                   staged_completion_event_ordinal_ == 0) {
+            staged_completion_event_ordinal_ = event_ordinal;
+            staged_completion_offset_ = completion_offset;
+            staged_completion_bytes_ = frame_size;
+            std::copy_n(frame_digest, sizeof(staged_completion_digest_),
+                        staged_completion_digest_);
+        } else {
+            crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+            return fail(OutboxRecovery::IntegrityFailure);
+        }
+        crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+        ++complete_completion_records;
+        completion_offset += frame_size;
+    }
+    if ((!completion_publication_found && completion_publication_ordinal != 0) ||
+        (completion_publication_found &&
+         (completion_publication_ordinal > complete_completion_records ||
+          !completion_publication_record_seen ||
+          complete_completion_records - completion_publication_ordinal > 1)))
+        return fail(OutboxRecovery::IntegrityFailure);
+    if (completion_torn_tail) {
+        // Drop only unpublished tail bytes. The authenticated completion head
+        // continues to cover every accepted backend receipt.
+        const auto truncate_to = staged_completion_event_ordinal_ != 0
+            ? staged_completion_offset_ + staged_completion_bytes_
+            : published_completion_bytes;
+        if (truncate_to > completion_file_bytes ||
+            !storage_.truncate_completion(truncate_to) || !storage_.sync_completion())
+            return fail(OutboxRecovery::StorageFailure);
+        completion_file_bytes = truncate_to;
+        completion_bytes_ = truncate_to;
+    }
+    published_completion_ordinal_ = completion_publication_found
+        ? completion_publication_ordinal : 0;
+    next_completion_ordinal_ = published_completion_ordinal_ + 1;
+    if (staged_completion_event_ordinal_ != 0)
+        next_completion_ordinal_ = published_completion_ordinal_ + 1;
+    else if (complete_completion_records != published_completion_ordinal_)
+        return fail(OutboxRecovery::IntegrityFailure);
     (void)physical_file_bytes;  // Kept separate from logical budget for future health reporting.
     initialized_ = true;
     return has_records_ ? OutboxRecovery::Ready : OutboxRecovery::Empty;
@@ -768,6 +1074,112 @@ IdentityLookup DurableEventOutbox::contains(const std::string& canonical_event_k
     found = true;
     return entry.ordinal <= published_ordinal_ ? IdentityLookup::Found
                                                : IdentityLookup::Staged;
+}
+
+bool DurableEventOutbox::backend_completed(const std::string& canonical_event_key,
+                                            bool& completed) {
+    completed = false;
+    if (!initialized_ || faulted_ || canonical_event_key.empty() ||
+        canonical_event_key.size() > limits_.maximum_key_bytes) return false;
+    std::uint8_t digest[32]{};
+    if (!digest_identity(canonical_event_key, digest)) { faulted_ = true; return false; }
+    const auto at = find_index(digest);
+    const bool found = at < index_size_ &&
+        compare_digest(entry_at(at).identity_digest, digest) == 0;
+    crypto_.secure_zero(digest, sizeof(digest));
+    if (!found) return true;
+    const auto& entry = entry_at(at);
+    std::string stored_key;
+    security::Bytes payload;
+    if (!decode_record(entry.segment, entry.offset, entry.frame_bytes, entry.ordinal,
+                       nullptr, stored_key, payload) || stored_key != canonical_event_key) {
+        crypto_.secure_zero(payload.data(), payload.size());
+        faulted_ = true;
+        return false;
+    }
+    crypto_.secure_zero(payload.data(), payload.size());
+    completed = entry.completed && entry.ordinal <= published_ordinal_;
+    return true;
+}
+
+bool DurableEventOutbox::mark_backend_completed(const std::string& canonical_event_key) {
+    if (!initialized_ || faulted_ || canonical_event_key.empty() ||
+        canonical_event_key.size() > limits_.maximum_key_bytes) return false;
+    std::uint8_t digest[32]{};
+    if (!digest_identity(canonical_event_key, digest)) { faulted_ = true; return false; }
+    const auto at = find_index(digest);
+    if (at >= index_size_ || compare_digest(entry_at(at).identity_digest, digest) != 0) {
+        crypto_.secure_zero(digest, sizeof(digest));
+        return false;
+    }
+    crypto_.secure_zero(digest, sizeof(digest));
+    auto& event_entry = entry_at(at);
+    if (event_entry.ordinal > published_ordinal_) return false;
+    std::string stored_key;
+    security::Bytes payload;
+    const bool exact = decode_record(event_entry.segment, event_entry.offset,
+        event_entry.frame_bytes, event_entry.ordinal, nullptr, stored_key, payload) &&
+        stored_key == canonical_event_key;
+    crypto_.secure_zero(payload.data(), payload.size());
+    if (!exact) { faulted_ = true; return false; }
+    if (event_entry.completed) return true;
+
+    if (staged_completion_event_ordinal_ != 0) {
+        if (staged_completion_event_ordinal_ != event_entry.ordinal) return false;
+        std::uint64_t staged_event_ordinal = 0;
+        std::string staged_key;
+        std::uint8_t staged_digest[32]{};
+        const bool staged_valid = decode_completion(staged_completion_offset_,
+            staged_completion_bytes_, published_completion_ordinal_ + 1,
+            staged_event_ordinal, staged_key, staged_digest) &&
+            staged_event_ordinal == event_entry.ordinal && staged_key == canonical_event_key &&
+            crypto_.constant_time_equal(staged_digest, staged_completion_digest_,
+                                        sizeof(staged_digest));
+        crypto_.secure_zero(staged_digest, sizeof(staged_digest));
+        if (!staged_valid || !publish_completion_through(
+                published_completion_ordinal_ + 1, staged_completion_digest_)) {
+            faulted_ = true;
+            return false;
+        }
+        event_entry.completed = true;
+        ++completed_count_;
+        return true;
+    }
+
+    security::Bytes frame;
+    const auto completion_ordinal = published_completion_ordinal_ + 1;
+    if (!encode_completion(completion_ordinal, event_entry.ordinal,
+                           canonical_event_key, frame)) return false;
+    if (frame.size() > limits_.filesystem_workspace_bytes ||
+        completion_bytes_ > limits_.filesystem_workspace_bytes - frame.size())
+        return false;
+    if (!storage_.append_completion(frame.data(), frame.size()) ||
+        !storage_.sync_completion()) {
+        faulted_ = true;
+        return false;
+    }
+    std::uint64_t verified_event_ordinal = 0;
+    std::string verified_key;
+    std::uint8_t frame_digest[32]{};
+    if (!decode_completion(static_cast<std::uint32_t>(completion_bytes_),
+            static_cast<std::uint32_t>(frame.size()), completion_ordinal,
+            verified_event_ordinal, verified_key, frame_digest) ||
+        verified_event_ordinal != event_entry.ordinal || verified_key != canonical_event_key) {
+        crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+        faulted_ = true;
+        return false;
+    }
+    staged_completion_event_ordinal_ = event_entry.ordinal;
+    staged_completion_offset_ = static_cast<std::uint32_t>(completion_bytes_);
+    staged_completion_bytes_ = static_cast<std::uint32_t>(frame.size());
+    std::copy_n(frame_digest, sizeof(staged_completion_digest_), staged_completion_digest_);
+    completion_bytes_ += frame.size();
+    const bool published = publish_completion_through(completion_ordinal, frame_digest);
+    crypto_.secure_zero(frame_digest, sizeof(frame_digest));
+    if (!published) { faulted_ = true; return false; }
+    event_entry.completed = true;
+    ++completed_count_;
+    return true;
 }
 
 bool DurableEventOutbox::for_each(RecordVisitor visitor, void* context) {

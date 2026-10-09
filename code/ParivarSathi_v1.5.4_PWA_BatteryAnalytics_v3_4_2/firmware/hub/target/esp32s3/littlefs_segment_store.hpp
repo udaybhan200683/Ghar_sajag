@@ -25,6 +25,14 @@ public:
     bool sync(std::uint16_t segment) override;
     bool read_publication(security::Bytes& marker, bool& found) override;
     bool publish_publication(const security::Bytes& marker) override;
+    bool completion_size(bool& exists, std::uint32_t& bytes) override;
+    bool read_completion(std::uint32_t offset, std::uint8_t* output,
+                         std::size_t requested, std::size_t& actual) override;
+    bool append_completion(const std::uint8_t* data, std::size_t length) override;
+    bool sync_completion() override;
+    bool truncate_completion(std::uint32_t bytes) override;
+    bool read_completion_publication(security::Bytes& marker, bool& found) override;
+    bool publish_completion_publication(const security::Bytes& marker) override;
 
 private:
     bool path_for(std::uint16_t segment, char* path, std::size_t capacity) const;

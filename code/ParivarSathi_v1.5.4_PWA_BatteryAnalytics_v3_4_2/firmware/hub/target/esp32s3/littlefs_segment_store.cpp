@@ -14,6 +14,9 @@ constexpr char kMountPath[] = "/gsoutbox";
 constexpr char kPartitionLabel[] = "gs_outbox";
 constexpr char kPublicationPath[] = "/gsoutbox/head";
 constexpr char kPublicationTemporaryPath[] = "/gsoutbox/head.new";
+constexpr char kCompletionPath[] = "/gsoutbox/completion.log";
+constexpr char kCompletionPublicationPath[] = "/gsoutbox/completion.head";
+constexpr char kCompletionPublicationTemporaryPath[] = "/gsoutbox/completion.head.new";
 constexpr std::size_t kPathCapacity = 32;
 constexpr std::size_t kPublicationMaximumBytes = 128;
 }
@@ -141,6 +144,102 @@ bool LittleFsSegmentStore::publish_publication(const security::Bytes& marker) {
     // the caller still verifies the exact marker by reading it back.
     if (std::rename(kPublicationTemporaryPath, kPublicationPath) != 0) return false;
     file = std::fopen(kPublicationPath, "r+");
+    if (file == nullptr) return false;
+    const bool publication_synced = ::fsync(fileno(file)) == 0;
+    const bool publication_closed = std::fclose(file) == 0;
+    return publication_synced && publication_closed;
+}
+
+bool LittleFsSegmentStore::completion_size(bool& exists, std::uint32_t& bytes) {
+    exists = false;
+    bytes = 0;
+    if (!mounted_) return false;
+    struct stat info{};
+    if (stat(kCompletionPath, &info) != 0) return errno == ENOENT;
+    if (info.st_size < 0 || static_cast<std::uint64_t>(info.st_size) > UINT32_MAX)
+        return false;
+    exists = true;
+    bytes = static_cast<std::uint32_t>(info.st_size);
+    return true;
+}
+
+bool LittleFsSegmentStore::read_completion(std::uint32_t offset,
+        std::uint8_t* output, std::size_t requested, std::size_t& actual) {
+    actual = 0;
+    if (!mounted_ || (requested != 0 && output == nullptr)) return false;
+    FILE* file = std::fopen(kCompletionPath, "rb");
+    if (file == nullptr) return false;
+    const bool sought = std::fseek(file, static_cast<long>(offset), SEEK_SET) == 0;
+    if (sought) actual = std::fread(output, 1, requested, file);
+    const bool read_ok = sought && std::ferror(file) == 0;
+    const bool close_ok = std::fclose(file) == 0;
+    return read_ok && close_ok;
+}
+
+bool LittleFsSegmentStore::append_completion(const std::uint8_t* data,
+                                               std::size_t length) {
+    if (!mounted_ || (length != 0 && data == nullptr)) return false;
+    FILE* file = std::fopen(kCompletionPath, "ab");
+    if (file == nullptr) return false;
+    const auto written = std::fwrite(data, 1, length, file);
+    const bool flushed = std::fflush(file) == 0;
+    const bool close_ok = std::fclose(file) == 0;
+    return written == length && flushed && close_ok;
+}
+
+bool LittleFsSegmentStore::sync_completion() {
+    if (!mounted_) return false;
+    FILE* file = std::fopen(kCompletionPath, "r+");
+    if (file == nullptr) return false;
+    const bool synced = ::fsync(fileno(file)) == 0;
+    const bool close_ok = std::fclose(file) == 0;
+    return synced && close_ok;
+}
+
+bool LittleFsSegmentStore::truncate_completion(std::uint32_t bytes) {
+    if (!mounted_) return false;
+    FILE* file = std::fopen(kCompletionPath, "r+");
+    if (file == nullptr) return bytes == 0 && errno == ENOENT;
+    const bool truncated = ::ftruncate(fileno(file), static_cast<off_t>(bytes)) == 0;
+    const bool synced = truncated && ::fsync(fileno(file)) == 0;
+    const bool close_ok = std::fclose(file) == 0;
+    return truncated && synced && close_ok;
+}
+
+bool LittleFsSegmentStore::read_completion_publication(security::Bytes& marker,
+                                                        bool& found) {
+    found = false;
+    marker.clear();
+    if (!mounted_) return false;
+    struct stat info{};
+    if (stat(kCompletionPublicationPath, &info) != 0) return errno == ENOENT;
+    found = true;
+    if (info.st_size <= 0 ||
+        static_cast<std::uint64_t>(info.st_size) > kPublicationMaximumBytes) return true;
+    FILE* file = std::fopen(kCompletionPublicationPath, "rb");
+    if (file == nullptr) return false;
+    marker.resize(static_cast<std::size_t>(info.st_size));
+    const auto read = std::fread(marker.data(), 1, marker.size(), file);
+    const bool read_ok = read == marker.size() && std::ferror(file) == 0;
+    const bool close_ok = std::fclose(file) == 0;
+    if (!read_ok || !close_ok) { marker.clear(); return false; }
+    return true;
+}
+
+bool LittleFsSegmentStore::publish_completion_publication(
+        const security::Bytes& marker) {
+    if (!mounted_ || marker.empty() || marker.size() > kPublicationMaximumBytes)
+        return false;
+    FILE* file = std::fopen(kCompletionPublicationTemporaryPath, "wb");
+    if (file == nullptr) return false;
+    const auto written = std::fwrite(marker.data(), 1, marker.size(), file);
+    const bool flushed = written == marker.size() && std::fflush(file) == 0;
+    const bool synced = flushed && ::fsync(fileno(file)) == 0;
+    const bool closed = std::fclose(file) == 0;
+    if (!synced || !closed ||
+        std::rename(kCompletionPublicationTemporaryPath,
+                    kCompletionPublicationPath) != 0) return false;
+    file = std::fopen(kCompletionPublicationPath, "r+");
     if (file == nullptr) return false;
     const bool publication_synced = ::fsync(fileno(file)) == 0;
     const bool publication_closed = std::fclose(file) == 0;
