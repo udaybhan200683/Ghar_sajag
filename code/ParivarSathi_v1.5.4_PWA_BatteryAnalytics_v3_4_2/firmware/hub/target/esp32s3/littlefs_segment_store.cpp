@@ -21,7 +21,7 @@ constexpr char kLifecycleRootPath[] = "/gsoutbox/lifecycle.root";
 constexpr char kLifecycleRootTemporaryPath[] = "/gsoutbox/lifecycle.root.new";
 constexpr std::size_t kPathCapacity = 32;
 constexpr std::size_t kPublicationMaximumBytes = 128;
-constexpr std::size_t kLifecycleRootMaximumBytes = 192;
+constexpr std::size_t kLifecycleRootMaximumBytes = 8192;
 }
 
 bool LittleFsSegmentStore::mount() {

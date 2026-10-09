@@ -404,6 +404,7 @@ void sparse_checkpoint_replay_tests() {
 struct NodeRetirementProof {
     std::uint64_t highwater{0};
     bool allow{true};
+    std::uint32_t owner_session{42};
 };
 bool node_report_covers_event(void* opaque, std::uint64_t,
         const std::string& canonical_key, const Bytes& payload) {
@@ -411,7 +412,7 @@ bool node_report_covers_event(void* opaque, std::uint64_t,
     gs::DomainEvent event;
     if (!proof.allow || !gs::hub::HubJournal::decode_event_payload(payload, event) ||
         event.key.str() != canonical_key || event.key.source_id != "room1" ||
-        event.key.physical_device_id != "device-room1" || event.key.session_id != 42 ||
+        event.key.physical_device_id != "device-room1" || event.key.session_id != proof.owner_session ||
         event.key.sequence > proof.highwater) return false;
     return true;
 }
@@ -691,9 +692,251 @@ void high_volume_lifecycle_test() {
               << " refill_bytes=" << outbox.capacity_budget_used_bytes() << "\n";
 }
 
+void incremental_completion_reuse_test() {
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    StateFiles files;
+    std::uint64_t cumulative = 0;
+    constexpr std::uint64_t total = 6556;
+    for (std::uint64_t window = 0; cumulative < total; ++window) {
+        DurableEventOutbox outbox(segments, crypto, key);
+        require(outbox.recover() == (window == 0 ? OutboxRecovery::Empty : OutboxRecovery::Ready),
+                "incremental window recovers retained mixed history");
+        RuntimeStateStore state(files, crypto, key);
+        OutboxJournalBackend backend(outbox);
+        gs::hub::HubRuntime runtime(32, backend);
+        runtime.bind_runtime_state(state);
+        require(runtime.restore_from_journal(), "incremental reducer checkpoint restores");
+        runtime.authorize_node("room1", 42, true);
+        if (window != 0) {
+            require(outbox.backend_completed_count() == cumulative, "snapshot completions survive reboot");
+            const auto duplicate = make_message(2);
+            require(runtime.authenticated_radio_message_callback(duplicate, "room1", "device-room1",
+                        42, 0, 999999) && !runtime.run_state_once(100)->state_changed,
+                    "ACK-loss duplicate after compaction does not reapply reducer effect");
+            gs::hub::CloudSync cloud(runtime.journal());
+            cloud.set_connected(true, 0);
+            const auto pending = cloud.next_batch(0, total + 1);
+            require(pending.size() == (window == 1 ? 2U : 1U) && pending.front().key.sequence == 1,
+                    "reboot selects only pending event; completed backend operations are suppressed");
+        }
+        const auto count = std::min<std::uint64_t>(window == 0 ? 5589 : 500, total - cumulative);
+        const auto first = cumulative + 2;
+        const auto last = cumulative + count + 1;
+        for (auto sequence = window == 0 ? 1 : first; sequence <= last; ++sequence) {
+            const auto message = make_message(sequence);
+            require(runtime.authenticated_radio_message_callback(message, "room1", "device-room1",
+                        42, 0, sequence * 1000) &&
+                    runtime.run_state_once(100)->ack == gs::AckClass::Durable,
+                    "refill appends authenticated bodies and exact identities without deleting any");
+        }
+        complete_outbox_cycle(runtime, first, last);
+        cumulative += count;
+        if (window == 0) {
+            const auto extra = make_message(last + 1);
+            require(runtime.authenticated_radio_message_callback(extra, "room1", "device-room1", 42,
+                        0, (last + 1) * 1000) && runtime.run_state_once(100)->ack == gs::AckClass::Durable,
+                    "append pending body beside a full completion stream");
+            require(outbox.completion_reclamation_needed() &&
+                    !outbox.mark_backend_completed(event(last + 1).key.str()) && outbox.healthy(),
+                    "receipt stream is actually full before capacity reclamation");
+        }
+        const auto body_bytes = outbox.committed_frame_bytes();
+        const auto identity_bytes = state.identity_bytes();
+        bool exists = false;
+        std::uint32_t before = 0, after = 0;
+        require(segments.completion_size(exists, before) && exists && before == outbox.completion_bytes(),
+                "measure actual adapter receipt bytes before reclaim");
+        NodeRetirementProof proof{last, true};
+        RetirementAuthorization authorization;
+        authorization.checkpoint_boundary = outbox.record_count();
+        authorization.authenticated_report_generation = window + 1;
+        authorization.authenticated_report_digest.fill(static_cast<std::uint8_t>(0x71 + window));
+        authorization.node_retired = node_report_covers_event;
+        authorization.context = &proof;
+        if (window == 0) {
+            proof.allow = false;
+            require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::MissingNodeRetirementProof &&
+                    outbox.completion_bytes() == before, "missing retirement proof preserves authoritative receipts");
+            proof.allow = true;
+            proof.owner_session = 41;
+            require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::MissingNodeRetirementProof,
+                    "stale owner generation in Node proof cannot replace an exact completion");
+            proof.owner_session = 42;
+            proof.highwater = last - 1;
+            require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::MissingNodeRetirementProof,
+                    "incomplete report cannot substitute a later completion");
+            proof.highwater = last;
+            --authorization.checkpoint_boundary;
+            require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::CheckpointBehind,
+                    "checkpoint dependency must cover snapshot boundary");
+            ++authorization.checkpoint_boundary;
+        } else {
+            --authorization.authenticated_report_generation;
+            require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::InvalidAuthorization,
+                    "same generation with different report digest cannot replace ownership fence");
+            if (window > 1) {
+                --authorization.authenticated_report_generation;
+                require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::InvalidAuthorization,
+                        "stale report generation cannot replace retirement fence");
+                ++authorization.authenticated_report_generation;
+            }
+            ++authorization.authenticated_report_generation;
+        }
+        require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::Reclaimed,
+                "mixed pending and completed history reclaims receipts with body deletion disabled");
+        require(segments.completion_size(exists, after) && after == 0 && outbox.completion_bytes() == 0 &&
+                outbox.backend_completed_count() == cumulative && outbox.retired_through() == 0 &&
+                outbox.committed_frame_bytes() == body_bytes && state.identity_bytes() == identity_bytes,
+                "actual writable receipt bytes recovered; bodies and identity evidence stay intact");
+        Bytes root; bool found = false;
+        require(segments.read_lifecycle_root(root, found) && found && root.size() < 1100,
+                "replacement root has bounded compact actual byte size");
+        std::cout << "incremental_window=" << window << " cumulative_completions=" << cumulative
+                  << " completion_bytes_before=" << before << " completion_bytes_after=" << after
+                  << " lifecycle_root_bytes=" << root.size() << " retained_body_bytes=" << body_bytes
+                  << " retained_identity_bytes=" << identity_bytes << "\n";
+    }
+    require(!segments.reused_completion_nonce && segments.all_completion_nonces.size() == total,
+            "completion nonce uniqueness survives ordinal reuse across reclamation windows");
+    DurableEventOutbox reboot(segments, crypto, key);
+    require(reboot.recover() == OutboxRecovery::Ready && reboot.backend_completed_count() == total,
+            "6556 cumulative completions recover after repeated append, compact and refill");
 }
-int main() {
-    try {checkpoint_tests();interruption_tests();published_checkpoint_interruption();timer_and_scale_tests();
+
+void incremental_completion_cut_tests() {
+    using namespace gs::hub::storage;
+    for (unsigned cut = 0; cut < 6; ++cut) {
+        gs::host::security::OpenSslCommissioningCrypto crypto;
+        const auto key = storage_key();
+        MemorySegments segments(4U * 1024U * 1024U);
+        StateFiles files;
+        DurableEventOutbox outbox(segments, crypto, key);
+        require(outbox.recover() == OutboxRecovery::Empty, "incremental crash fixture empty");
+        RuntimeStateStore state(files, crypto, key);
+        OutboxJournalBackend backend(outbox);
+        gs::hub::HubRuntime runtime(32, backend);
+        runtime.bind_runtime_state(state);
+        require(runtime.restore_from_journal(), "incremental crash fixture checkpoint");
+        runtime.authorize_node("room1", 42, true);
+        for (std::uint64_t sequence = 1; sequence <= 3; ++sequence) {
+            require(runtime.radio_callback(event(sequence)) && runtime.run_state_once(100)->ack == gs::AckClass::Durable,
+                    "mixed crash events durably admitted");
+        }
+        gs::hub::CloudSync cloud(runtime.journal()); cloud.set_connected(true, 0);
+        auto wrong = event(2).key; wrong.session_id = 41;
+        require(cloud.handle_backend_reply(event(2).key,
+                    {gs::hub::BackendReplyStatus::Committed, wrong, true, false}, 0) !=
+                    gs::hub::BackendReceiptResult::Completed,
+                "wrong owner generation receipt cannot set snapshot bit");
+        wrong = event(2).key; wrong.sequence = 3;
+        require(cloud.handle_backend_reply(event(2).key,
+                    {gs::hub::BackendReplyStatus::Committed, wrong, true, false}, 0) !=
+                    gs::hub::BackendReceiptResult::Completed, "wrong-key receipt rejected");
+        complete_outbox_cycle(runtime, 2, 2);
+        NodeRetirementProof proof{3, true};
+        RetirementAuthorization authorization;
+        authorization.checkpoint_boundary = 3;
+        authorization.authenticated_report_generation = 1;
+        authorization.authenticated_report_digest.fill(0x61);
+        authorization.node_retired = node_report_covers_event; authorization.context = &proof;
+        const auto body_bytes = outbox.committed_frame_bytes();
+        if (cut == 0) segments.fail_lifecycle_publication_once = true;
+        if (cut == 1) segments.fail_lifecycle_publication_after_write_once = true;
+        if (cut == 2) segments.fail_next_completion_publication();
+        if (cut == 3) segments.fail_truncate_after_write_once = true;
+        if (cut == 4) segments.fail_lifecycle_at = 2;
+        if (cut == 5) { segments.fail_lifecycle_at = 2; segments.fail_lifecycle_at_after_write = true; }
+        require(outbox.reclaim_completion_metadata(authorization) == ReclaimResult::RestartRequired &&
+                !outbox.healthy(), "ambiguous completion compaction requires recovery");
+        DurableEventOutbox recovered(segments, crypto, key);
+        require(recovered.recover() == OutboxRecovery::Ready && recovered.backend_completed_count() == 1 &&
+                recovered.committed_frame_bytes() == body_bytes && recovered.retired_through() == 0,
+                "each completion publication cut preserves completed effect and pending bodies");
+        bool completed = false;
+        require(recovered.backend_completed(event(2).key.str(), completed) && completed &&
+                recovered.backend_completed(event(1).key.str(), completed) && !completed &&
+                recovered.backend_completed(event(3).key.str(), completed) && !completed,
+                "cut recovery restores exact mixed completion identities");
+        require(recovered.mark_backend_completed(event(2).key.str()) && recovered.backend_completed_count() == 1,
+                "duplicate completion after crash is idempotent");
+        require(recovered.mark_backend_completed(event(3).key.str()) && recovered.backend_completed_count() == 2,
+                "recovered capacity accepts new completion receipt");
+        if (cut == 0) require(recovered.reclaim_completion_metadata(authorization) == ReclaimResult::Reclaimed,
+                              "prepublication failure can retry safely");
+        if (cut != 0) require(recovered.reclaim_completion_metadata(authorization) == ReclaimResult::Reclaimed,
+                              "repeated compaction joins snapshot with new receipt");
+        Bytes root; bool found = false;
+        require(segments.read_lifecycle_root(root, found) && found, "snapshot present");
+        if (cut == 0) {
+            auto reused_segments = segments;
+            OutboxLimits host_limits; host_limits.body_retirement_enabled = true;
+            DurableEventOutbox reused(reused_segments, crypto, key, host_limits);
+            require(reused.recover() == OutboxRecovery::Ready &&
+                    reused.mark_backend_completed(event(1).key.str()) &&
+                    ([&]() { auto body_authorization = authorization;
+                        body_authorization.post_sync_retention_satisfied = true;
+                        return reused.reclaim_completed_history(body_authorization); })() == ReclaimResult::Reclaimed,
+                    "host-only body retirement supersedes completion snapshot safely");
+            OutboxJournalBackend reuse_backend(reused);
+            gs::hub::HubJournal reuse_journal(0);
+            require(reuse_journal.attach_backend(reuse_backend) &&
+                    reuse_journal.commit(event(4)) == gs::hub::CommitResult::Stored &&
+                    reused.mark_backend_completed(event(4).key.str()),
+                    "segment reuse preserves monotonic event ordinals after snapshot retirement");
+            proof.highwater = 4;
+            auto next_authorization = authorization;
+            next_authorization.post_sync_retention_satisfied = true;
+            next_authorization.checkpoint_boundary = 4;
+            next_authorization.authenticated_report_generation = 2;
+            next_authorization.authenticated_report_digest.fill(0x62);
+            require(reused.reclaim_completion_metadata(next_authorization) == ReclaimResult::Reclaimed,
+                    "receipt snapshot can restart after segment reuse with a nonzero retired prefix");
+            DurableEventOutbox reuse_reboot(reused_segments, crypto, key, host_limits);
+            require(reuse_reboot.recover() == OutboxRecovery::Ready && reuse_reboot.retired_through() == 3 &&
+                    reuse_reboot.record_count() == 4 && reuse_reboot.backend_completed_count() == 1,
+                    "nonzero-prefix snapshot and reused segment recover exact completion");
+        }
+        auto missing_root = segments;
+        missing_root.forget_lifecycle_root();
+        DurableEventOutbox no_root(missing_root, crypto, key);
+        require(no_root.recover() == OutboxRecovery::IntegrityFailure,
+                "missing completion snapshot cannot turn completed effects into pending retries");
+        auto missing_head = segments;
+        missing_head.forget_completion_head();
+        DurableEventOutbox no_head(missing_head, crypto, key);
+        require(no_head.recover() == OutboxRecovery::IntegrityFailure,
+                "missing generation-bound head fails closed beside a snapshot");
+        require(recovered.mark_backend_completed(event(1).key.str()), "new receipt after snapshot");
+        auto missing_root_with_receipt = segments;
+        missing_root_with_receipt.forget_lifecycle_root();
+        DurableEventOutbox missing_with_tail(missing_root_with_receipt, crypto, key);
+        require(missing_with_tail.recover() == OutboxRecovery::IntegrityFailure,
+                "appended heads also require their exact snapshot generation");
+        segments.corrupt_completion_receipt();
+        require(recovered.reclaim_completion_metadata(authorization) == ReclaimResult::IntegrityFailure,
+                "compaction revalidates durable receipts; corrupt evidence cannot be hidden by RAM bits");
+        root.back() ^= 1;
+        require(segments.publish_lifecycle_root(root), "inject corrupted root");
+        DurableEventOutbox corrupt(segments, crypto, key);
+        require(corrupt.recover() == OutboxRecovery::IntegrityFailure,
+                "corrupt completion snapshot cannot fall back to empty log");
+    }
+    std::cout << "incremental_crash_cuts=6 wrong_key_and_owner=PASS missing_proof=PASS\n";
+}
+
+}
+int main(int argc, char** argv) {
+    try {
+        if (argc == 2 && std::string(argv[1]) == "--incremental-completion") {
+            backend_completion_lifecycle_tests();
+            incremental_completion_reuse_test(); incremental_completion_cut_tests();
+            std::cout << "PASS: incremental completion reclamation, mixed replay and crash recovery\n";
+            return 0;
+        }
+checkpoint_tests();interruption_tests();published_checkpoint_interruption();timer_and_scale_tests();
         backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
         segmented_lifecycle_reuse_tests();
         lifecycle_publication_cut_tests();

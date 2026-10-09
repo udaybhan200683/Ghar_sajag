@@ -404,3 +404,8 @@ hub-backend-completion-host-test: hub-journal-migration-host-test
 hub-runtime-checkpoint-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_runtime_checkpoint_validation
 	./build/hub_runtime_checkpoint_validation
+
+.PHONY: hub-incremental-completion-host-test
+hub-incremental-completion-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_incremental_completion_validation
+	./build/hub_incremental_completion_validation --incremental-completion
