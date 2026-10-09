@@ -8,7 +8,11 @@
 
 namespace gs::hub::target {
 namespace {
+#if CONFIG_IDF_TARGET_ESP32S3
+constexpr const char* kPartition = "gs_state";
+#else
 constexpr const char* kPartition = "gs_journal";
+#endif
 constexpr const char* kOwnedNamespace = "events";
 
 std::size_t max_length(DurablePhysicalKeyKind kind) {

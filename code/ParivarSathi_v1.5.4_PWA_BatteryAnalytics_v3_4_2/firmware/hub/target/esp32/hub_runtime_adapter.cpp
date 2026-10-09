@@ -11,6 +11,11 @@
 #include "firmware/hub/target/esp32/nvs_journal_slot_store.hpp"
 #include "firmware/hub/target/esp32/nvs_store_inventory.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
+#if CONFIG_IDF_TARGET_ESP32S3
+#include "firmware/hub/components/storage/durable_event_outbox.hpp"
+#include "firmware/hub/components/storage/outbox_journal_backend.hpp"
+#include "firmware/hub/target/esp32s3/littlefs_segment_store.hpp"
+#endif
 
 #include "esp_event.h"
 #include "esp_idf_version.h"
@@ -49,6 +54,7 @@ constexpr UBaseType_t kSecurityQueueDepth = 8U;
 // tests/test_hub_runtime_stack.py checks the actual target frame budgets.
 constexpr std::uint32_t kSecureOwnerStackBytes = 81920;
 
+#if !CONFIG_IDF_TARGET_ESP32S3
 durable::DurableJournalSlotStore::EnrollmentOwnerResolver registry_owner_resolver(
         HubSecurityLink& security_link) {
     return [&security_link](const std::string& physical_device_id,
@@ -63,6 +69,7 @@ durable::DurableJournalSlotStore::EnrollmentOwnerResolver registry_owner_resolve
         return true;
     };
 }
+#endif
 
 StaticQueue_t g_data_queue_state{};
 StaticQueue_t g_control_queue_state{};
@@ -509,6 +516,14 @@ void secure_owner_task(void*) {
     // has been checkpointed and verified.
     NvsJournalSlotStore legacy_store;
     if (migration_required) {
+#if CONFIG_IDF_TARGET_ESP32S3
+        // The S3 outbox has a separately versioned publication format. Never
+        // report the old NVS migration complete while leaving those recovered
+        // event bodies outside the active replay path.
+        ESP_LOGE(kTag, "Legacy slot migration to S3 outbox is unsupported; admission closed");
+        vTaskDelete(nullptr);
+        return;
+#else
         HubJournal legacy_journal(128);
         security::Key32 journal_key{};
         if (!security_link.event_journal_key(journal_key)) {
@@ -529,6 +544,7 @@ void secure_owner_task(void*) {
             vTaskDelete(nullptr);
             return;
         }
+#endif
     }
 
     const auto authoritative_epoch = durability_owner.epoch();
@@ -546,18 +562,49 @@ void secure_owner_task(void*) {
         vTaskDelete(nullptr);
         return;
     }
+#if CONFIG_IDF_TARGET_ESP32S3
+    // Explicit S3 backend selection. Mount never formats and a missing
+    // gs_outbox partition is fatal; this source path has no volatile/NVS
+    // fallback that could issue a false Durable ACK.
+    storage::s3::LittleFsSegmentStore outbox_storage;
+    if (!outbox_storage.mount()) {
+        commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
+        ESP_LOGE(kTag, "gs_outbox LittleFS partition unavailable; admission closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+    storage::DurableEventOutbox durable_outbox(
+        outbox_storage, commissioning_crypto, journal_key);
+    commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
+    const auto outbox_recovery = durable_outbox.recover();
+    if ((outbox_recovery != storage::OutboxRecovery::Ready &&
+         outbox_recovery != storage::OutboxRecovery::Empty) ||
+        !durable_outbox.healthy()) {
+        ESP_LOGE(kTag, "S3 event outbox recovery failed state=%u; admission closed",
+                 static_cast<unsigned>(outbox_recovery));
+        vTaskDelete(nullptr);
+        return;
+    }
+    storage::OutboxJournalBackend event_backend(durable_outbox);
+    HubRuntime runtime(32, event_backend);
+#else
     durable::DurableJournalSlotStore journal_store(
         durability_owner, commissioning_crypto, journal_key,
         registry_owner_resolver(security_link));
     commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
     HubRuntime runtime(32, 128);
+#endif
     runtime.bind_durability_owner(durability_owner);
+#if !CONFIG_IDF_TARGET_ESP32S3
     // Admission is still closed; let the lower-priority idle task run between
     // complete authenticated slot reads. taskYIELD alone cannot release CPU1
     // to IDLE1 while this higher-priority owner remains ready.
-    if (!security_link.attach_event_journal(runtime.journal(), journal_store,
-                                           [] { vTaskDelay(1); }) ||
-        !runtime.restore_from_journal()) {
+    const bool journal_attached = security_link.attach_event_journal(
+        runtime.journal(), journal_store, [] { vTaskDelay(1); });
+#else
+    const bool journal_attached = runtime.journal().persistent();
+#endif
+    if (!journal_attached || !runtime.restore_from_journal()) {
         ESP_LOGE(kTag, "Hub durable event store unavailable; refusing event admission");
         vTaskDelete(nullptr);
         return;

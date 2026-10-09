@@ -429,3 +429,24 @@ not complete. This implementation does not close the 72-hour target or change
 product policy. Next: integrate outbox admission/replay behind the authenticated
 Hub durability boundary with ACK-after-publication tests, then implement
 completion and reclamation without dropping dependencies.
+
+### S3 segmented outbox runtime integration — 2026-10-09
+
+[Runtime integration evidence](../exec-plans/evidence/R1_S3_SEGMENTED_OUTBOX_RUNTIME_INTEGRATION_20261009.md)
+records the first S3 HubRuntime path backed by the encrypted LittleFS outbox.
+Authenticated event admission now commits and publishes the exact EventKey and
+event body before returning the existing Durable ACK; retries are deduplicated,
+and reducer state is rebuilt by bounded streaming replay. The S3 path no longer
+uses the legacy 128-slot event journal. Focused host coverage admits 2,048
+records, including events 129/385, and verifies lost-ACK/reboot retry, interrupted
+publication, storage-full rejection, owner mismatch and bounded cloud batches.
+The existing 6,556-record outbox and storage regressions remain passing.
+
+ESP-IDF 6.0.3 clean S3 build passes at 1,818,352 bytes; the isolated development map
+has 4 MiB OTA slots and a 2 MiB `gs_journal`, not the required `gs_outbox` plus
+`gs_state` labels. Runtime therefore fails closed on the current board layout;
+no flash or partition operation was performed. Backend completion/retirement,
+sustained reclamation, NORMAL/HIGH 72-hour capacity, actual LittleFS power-cut,
+PSRAM/internal-heap/stack qualification and physical validation remain open.
+This source integration does not close the locked72-hour design target or alter
+product requirements.

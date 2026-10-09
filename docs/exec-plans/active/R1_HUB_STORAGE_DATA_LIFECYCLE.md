@@ -1908,3 +1908,41 @@ that calls the outbox before ACK, restores by streaming rather than rebuilding
 an unbounded `HubJournal`, and preserves exact lost-ACK retry semantics. Backend
 completion/reclamation follows only after a durable completion/identity contract
 is connected and tested. Context and product requirements are unchanged.
+
+## 39. S3 authenticated runtime outbox integration — 2026-10-09
+
+[Runtime integration evidence](../evidence/R1_S3_SEGMENTED_OUTBOX_RUNTIME_INTEGRATION_20261009.md)
+connects `OutboxJournalBackend` to the authenticated S3 `HubRuntime` path. The
+bridge serializes the exact existing event payload and canonical EventKey,
+classifies only ordinary Motion/MotionSummary as ordinary admission, and maps
+outbox results to the existing `CommitResult`. `run_state_once()` therefore
+returns the unchanged Durable ACK only after the outbox reports a fully
+published commit; duplicate identities ACK without applying reducer effects a
+second time. Startup mounts without formatting, recovers the authenticated
+published outbox, attaches it before admission and streams records back through
+the existing reducer. An unavailable or incompatible partition fails closed.
+
+The S3 target now constructs `HubRuntime(32, event_backend)`; the 128-slot
+provider remains only in the classic ESP32 branch. The 32-entry volatile ingest
+queue is unchanged. Cloud batch selection also scans the event stream while
+retaining at most the requested priority-ordered batch. Focused host runtime
+coverage admits 2,048 exact records, crosses event 129 and 385, restores reducer
+state after restart, deduplicates lost-ACK retries, rejects failed publication
+and storage-full admission without Durable ACK, and checks authenticated owner
+binding. Existing 6,556-record outbox, legacy journal and backend commit tests
+pass. Clean ESP-IDF 6.0.3 S3 build measures a 1,818,352-byte image and
+2,375,952-byte headroom in the isolated 4 MiB OTA slot; static size report is
+DIRAM 107,761 bytes (including 26,520 BSS) plus 16,384 bytes IRAM.
+
+The build used the existing development CSV (`gs_journal`, 2 MiB); target code
+selects `gs_outbox` and `gs_state`, which exist only in the candidate map. It was
+not flashed, and runtime startup with the current table safely fails closed.
+LittleFS physical power-cut behavior, PSRAM peak, internal heap/stack, signed
+FOTA and device recovery remain unqualified. Backend completion/retirement is
+deliberately unsupported by this slice (`acknowledge_cloud()` returns false),
+so no event bodies are reclaimed and capacity remains finite. This does not
+qualify NORMAL/HIGH 72-hour workloads or close the product storage lifecycle.
+Next: select/qualify the partition map with preserved-board-data migration,
+then add a separately durable backend completion/identity ledger and prove
+repeated safe reclamation before workload qualification. Product requirements
+and context version remain unchanged.

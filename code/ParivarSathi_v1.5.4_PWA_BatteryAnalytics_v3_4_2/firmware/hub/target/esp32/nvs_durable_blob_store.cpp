@@ -10,7 +10,14 @@
 
 namespace gs::hub::target {
 namespace {
+#if CONFIG_IDF_TARGET_ESP32S3
+// S3 candidate layouts keep small owner/checkpoint metadata separate from the
+// LittleFS event outbox. The active development map still lacks gs_outbox and
+// therefore fails closed at startup until an approved map is selected.
+constexpr const char* kPartition = "gs_state";
+#else
 constexpr const char* kPartition = "gs_journal";
+#endif
 constexpr const char* kNamespace = "events";
 std::mutex kJournalMutationMutex;
 

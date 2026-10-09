@@ -47,6 +47,13 @@ gs::Milliseconds backoff(std::size_t failures) {
     const gs::Milliseconds delays[] = {1000, 5000, 30000, 120000, 300000};
     return delays[std::min(failures, static_cast<std::size_t>(4))];
 }
+
+bool batch_before(const gs::DomainEvent& left, const gs::DomainEvent& right) {
+    const bool left_urgent = left.kind == gs::EventKind::CallFamily;
+    const bool right_urgent = right.kind == gs::EventKind::CallFamily;
+    if (left_urgent != right_urgent) return left_urgent;
+    return left.occurred_at < right.occurred_at;
+}
 }  // namespace
 
 namespace gs::hub {
@@ -100,22 +107,37 @@ void CloudSync::set_connected(bool connected, Milliseconds now_ms) {
 
 std::vector<DomainEvent> CloudSync::next_batch(Milliseconds now_ms, std::size_t limit) {
     GS_TRACE(gs::log::Category::Hub, "H08", "next_batch.enter", "-");
-    if (!connected_ || journal_.storage_fault() || now_ms < retry_after_ms_) return {};
-    auto batch = journal_.pending_cloud(journal_.size());
-    batch.erase(std::remove_if(batch.begin(), batch.end(), [this, now_ms](const DomainEvent& event) {
+    if (!connected_ || journal_.storage_fault() || now_ms < retry_after_ms_ || limit == 0)
+        return {};
+
+    // Scan durable storage without materializing the complete backlog. Keep
+    // only the globally highest-priority `limit` events, preserving the old
+    // urgent-first/occurred-time ordering and stable order for ties.
+    struct BatchContext {
+        CloudSync* sync;
+        Milliseconds now_ms;
+        std::size_t limit;
+        std::vector<DomainEvent>* batch;
+    } context{this, now_ms, limit, nullptr};
+    std::vector<DomainEvent> batch;
+    context.batch = &batch;
+    const auto select = [](void* opaque, const DomainEvent& event) -> bool {
+        auto& state = *static_cast<BatchContext*>(opaque);
+        if (state.sync->journal_.cloud_completed(event.key)) return true;
         const auto id = event.key.str();
-        const auto retry = event_retry_after_.find(id);
-        return permanent_errors_.count(id) != 0 ||
-               (retry != event_retry_after_.end() && now_ms < retry->second);
-    }), batch.end());
-    std::stable_sort(batch.begin(), batch.end(), [](const DomainEvent& left, const DomainEvent& right) {
-    GS_TRACE(gs::log::Category::Hub, "H08", "stable_sort.enter", "-");
-        const bool left_urgent = left.kind == EventKind::CallFamily;
-        const bool right_urgent = right.kind == EventKind::CallFamily;
-        if (left_urgent != right_urgent) return left_urgent;
-        return left.occurred_at < right.occurred_at;
-    });
-    if (batch.size() > limit) batch.resize(limit);
+        const auto retry = state.sync->event_retry_after_.find(id);
+        if (state.sync->permanent_errors_.count(id) != 0 ||
+            (retry != state.sync->event_retry_after_.end() &&
+             state.now_ms < retry->second)) return true;
+
+        auto& selected = *state.batch;
+        const auto position = std::find_if(selected.begin(), selected.end(),
+            [&event](const DomainEvent& current) { return batch_before(event, current); });
+        selected.insert(position, event);
+        if (selected.size() > state.limit) selected.pop_back();
+        return true;
+    };
+    if (!journal_.for_each(select, &context)) return {};
     return batch;
 }
 

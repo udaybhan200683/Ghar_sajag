@@ -41,6 +41,9 @@ struct AuthenticatedNodeHealth {
 class HubRuntime {
 public:
     HubRuntime(std::size_t ingest_capacity = 32, std::size_t journal_capacity = 1024);
+    // Production scalable-storage constructor. The journal has no physical
+    // record count; its bounded durable backend owns capacity accounting.
+    HubRuntime(std::size_t ingest_capacity, JournalEventBackend& backend);
     // Bind the production runtime to the owner recovered during target boot.
     // While bound, event ingress and processing remain closed unless the owner
     // currently exposes a Ready state and a nonzero authoritative epoch.
