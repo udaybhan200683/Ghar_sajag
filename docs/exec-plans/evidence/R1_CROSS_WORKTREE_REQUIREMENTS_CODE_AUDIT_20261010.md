@@ -165,4 +165,4 @@ Review/approve or revise queue; identify C8 image/source and code-reconciliation
 
 ## Provenance and checks
 
-Inventory used `git worktree list --porcelain`, each worktree status/HEAD/log, actual `git ls-remote`, ancestry/diff and targeted source/document searches. Jira search returned 142 issues; targeted descriptions/links/comments as stated above. Context preflight PASS in canonical R1 and S3 at `2026-10-09.001`. No build, test, flash, hardware, Jira mutation, merge, rebase, reset or cleanup was run.
+Inventory used `git worktree list --porcelain`, each worktree status/HEAD/log, actual `git ls-remote`, ancestry/diff and targeted source/document searches. Jira search returned 142 issues; targeted descriptions/links/comments as stated above. Dated proposed-audit references were added after the first push: GS-110 comment 10317 and GS-131 comment 10318; no Jira status, rank, link or scope field changed. Context preflight PASS in canonical R1 and S3 at `2026-10-09.001`. No build, test, flash, hardware, merge, rebase, reset or cleanup was run.
