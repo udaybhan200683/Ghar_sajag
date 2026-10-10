@@ -102,6 +102,10 @@ std::size_t OutboxJournalBackend::cloud_completed_count() const {
     return outbox_.healthy() ? outbox_.backend_completed_count() : 0;
 }
 
+std::uint64_t OutboxJournalBackend::absent_body_retirement_boundary() const {
+    return outbox_.healthy() ? outbox_.body_retirement_boundary() : 0;
+}
+
 std::uint64_t OutboxJournalBackend::backend_completion_retired_through() const {
     return outbox_.healthy() ? outbox_.retired_through() : 0;
 }

@@ -1702,7 +1702,11 @@ void incremental_completion_cut_tests() {
 }
 
 }
+#ifdef GS_CHECKPOINT_EMBEDDED
+int checkpoint_fixture_main(int argc, char** argv) {
+#else
 int main(int argc, char** argv) {
+#endif
     try {
         if (argc == 2 && std::string(argv[1]) == "--identity-generation") {
             identity_generation_compaction_test();
