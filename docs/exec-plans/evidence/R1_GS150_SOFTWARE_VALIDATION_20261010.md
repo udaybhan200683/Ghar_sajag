@@ -332,3 +332,15 @@ GS-114 image-matched P1–P9 is next, on a separately authorized safe fixture.
 GS-149 remains quantitative P10; GS-146 requires both. S3/backend gates remain
 independently open. Jira status/rank/dependencies are preserved. Final committed,
 pushed and remote-verified provenance is recorded in R1_WORK_STATE and Jira.
+
+## Verified implementation delivery
+
+Commit `1262400408e780044d928d84286d9b6f392b9d5a` includes the validated code,
+regressions and evidence. Normal push exit 0; actual remote branch HEAD equals
+that local HEAD on 2026-10-10. Tracked status clean, original untracked S3
+managed_components preserved. Mandatory preflight and staged diff check PASS;
+15 explicitly reviewed files exclude generated binaries/SDK configuration,
+credentials and unrelated work. The only generated artifact committed is the
+requested reproducible software metrics CSV. This documentation-only closeout
+records the delivery; final closeout HEAD and dated Jira comment IDs appear in
+the session handoff/Jira. Physical qualification remains NOT_RUN.

@@ -45,6 +45,28 @@ excluded. No LOCKED decision/context revision change. Next sequential task is
 GS-114 image-matched physical functional P1–P9, requiring separately authorized
 fixture/board actions. GS-149 quantitative P10 and GS-146 closure remain open.
 
+### Delivery and sequential handoff
+
+Implementation commit `1262400408e780044d928d84286d9b6f392b9d5a`
+was pushed normally to `origin/feature/r1-commercial-baseline` on 2026-10-10;
+actual `git ls-remote --heads` equals local HEAD at that checkpoint. Tracked
+tree was clean; only the original S3 `managed_components/` was untracked.
+This subsequent documentation-only closeout records that verified delivery;
+the final closeout HEAD is reported in GS-150 Jira and the session handoff.
+No firmware source changed after the validated clean image.
+
+No GS-150 software blocker remains. Read this section, the battery guide,
+linked validation/CSV and latest GS-150/GS-114 comments before resuming.
+The precise next action is GS-114 fixture/image preparation and separately
+authorized P1–P9 qualification, including pending-event outage sleep,
+missed-ACK replay, held-HIGH/overnight PIR, radio restore and FOTA/control
+entry races. Rebuild the approved qualification profile from the final
+checkpoint, record its hash and fixture readiness. Do not use protected
+original paired boards or treat this handoff as hardware authorization.
+GS-149 P10 current/residency and GS-146 final closure follow their existing
+dependencies. GS-147 remains gated; no new scope or security decision needed
+to resume GS-150 software.
+
 
 ## Historical GS-150 ACK-boundary blocker, 2026-10-10
 
