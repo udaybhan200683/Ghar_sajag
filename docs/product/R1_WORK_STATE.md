@@ -1,5 +1,42 @@
 # R1 Current Work State
 
+## GS-150 — ACK-boundary blocker, 2026-10-10
+
+GS-150 is a user-approved narrow C3 software implementation exception to the
+broader GS-147 hold. Source verification reached its explicit stop condition:
+there is no source-defined maximum authenticated application Durable-ACK
+arrival time. The Node's 1,000 ms timeout covers its local MAC send callback
+only; after that callback, `NodeRadio` schedules the existing retry ladder. The
+Hub authenticates/processes the Node event, completes the durable runtime step,
+then submits the application ACK, but does not publish a maximum arrival bound.
+The existing retry deadline cannot create a safe interval to sleep before the
+same retry is due. Do not repurpose the MAC timeout or change retry/ACK policy.
+
+**GS150_RESULT=BLOCKED** before production behavior changes. The needed product
+input is an approved end-to-end application Durable-ACK listening maximum,
+measured from Node MAC callback completion, with a source/build-supported Hub
+commit/ACK path bound that leaves time to sleep before the unchanged retry. This
+must preserve exact EventKey, authenticated Durable ACK retirement, first-event
+and critical-event priority, health/freshness, FOTA/control, GPIO4 and radio
+restoration. No firmware behavior changed; no GS-147 queue/journal, protocol,
+retry or deep-sleep work was added.
+
+Validation on canonical source HEAD `f245eebcd80c9e43a230ae0ee814f59a37adefd0`:
+`make -j2 battery-c8-host-test node-recovery-persistence-host-test
+node-retirement-protocol-host-test rejoin-host-test secure-fota-adapter-host-test`
+PASS; `make cpp-test` PASS (1,479); `make python-test` PASS (344, one scoped
+skip). No source changed, so existing clean C3 ESP-IDF 6.0.3 build evidence
+remains applicable. GS-150-specific new behavior tests/simulation and final
+candidate build are blocked; no hardware action. Exact source analysis and
+validation are recorded in the [battery guide](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md).
+
+Starting local/remote checkpoint: `f245eebcd80c9e43a230ae0ee814f59a37adefd0`
+on `feature/r1-commercial-baseline`; pre-existing untracked S3
+`managed_components/` preserved. After documenting and commenting this stop,
+commit/push the handoff. Next action: approve the ACK receive bound and validate
+it against the Hub durable commit and Node existing retry schedule. GS-150
+blocks final-candidate GS-114 physical qualification; GS-149 remains pending.
+
 ## C3 software-first battery audit — 2026-10-10
 
 At canonical start HEAD `3279294e31345f0ff34d5d97ee456145375eb46a`, the

@@ -934,3 +934,72 @@ ESP-IDF 6.0.3 C3 build evidence remains applicable because no firmware source
 changed; the recorded image is 931,424 bytes. No hardware was touched. The
 latest Jira-approved BAT-C8 split assigns functional non-power P1–P9 to GS-114
 and quantitative P10 power acceptance to GS-149; GS-146 still requires both.
+
+## GS-150 ACK-boundary source verification — 2026-10-10
+
+GS-150 Option A is approved as a narrow implementation exception, but its
+explicit Phase 1 stop condition applies: do not choose an arbitrary ACK timeout.
+Current source does not provide a finite authenticated application-ACK receive
+window that leaves a safe interval to sleep before the existing retry.
+
+Evidence:
+
+- The Node adapter's `kSendCallbackTimeoutMs` is 1,000 ms
+  (`firmware/node/target/esp32c3/node_runtime_adapter.cpp:55`). It bounds only
+  the Node's local ESP-NOW send callback while an attempt is `in_flight`
+  (1015–1031). Once that callback is processed, `runtime.transport_result()` is
+  called and `in_flight` is cleared (973–993). This timeout does not bound the
+  Hub's authenticated application Durable ACK.
+- `NodeRadio::record_transport_result()` establishes the existing next retry
+  at 200/600/1,800/10,000/60,000 ms, with deterministic EventKey jitter up to
+  100 ms; confirmed outage uses the existing 60,000 ms rung (node_radio.cpp:
+  102–133; `shared/include/gs/protocol.hpp:34–36`). No separate ACK expiry is
+  stored. `next_due_at()` is the retry deadline, not an application-ACK
+  timeout.
+- The Hub authenticates and accepts the Node message, calls
+  `runtime.run_state_once()` (which returns after the durable transition), then
+  seals and submits the Node ACK using `esp_now_send()`
+  (`firmware/hub/target/esp32/hub_runtime_adapter.cpp:1141–1179`). The Hub path
+  specifies ordering, but no maximum time from Node MAC completion to durable
+  ACK arrival at the Node. `esp_now_send()` submission success is not an
+  application delivery receipt.
+- The Node's event is retired only by the matching application ACK, and the
+  ACK-driven pending/recovery persistence remains in the existing owner
+  (`node_runtime_adapter.cpp:895–947`; `node_runtime.cpp:110–140`). Existing
+  sleep policy treats every pending event as `ack_wait` and blocks sleep.
+
+Therefore the 1,000 ms callback timeout cannot be reused as an application-ACK
+window. Using `next_retry_deadline()` as the window end also does not create a
+safe sleep interval: at that boundary the unchanged retry is due and must be
+offered; sleeping earlier would stop receiving an ACK still accepted by the
+current behavior. Making the Hub promise and meet a new maximum Durable-ACK
+arrival time would add a timing contract that neither source nor a LOCKED
+decision currently supplies.
+
+**GS-150 disposition: BLOCKED before production behavior changes.** Required
+product input: approve a maximum end-to-end interval, measured from Node MAC
+callback completion, in which the Node must listen for a matching authenticated
+application Durable ACK; the Hub implementation must demonstrate its durable
+commit and ACK submission/arrival fit that interval under supported runtime
+conditions. The bound must end early enough to provide a nonzero sleep window
+before the existing retry deadline, while preserving retry timing. Until that
+contract is approved and supportable, keep the current behavior. No timer,
+radio, event, ACK, queue or security code changed; no GS-147 journal feature
+was implemented.
+
+Validation at the unchanged firmware source HEAD `f245eebcd80c9e43a230ae0ee814f59a37adefd0`:
+
+| COMMAND | EXIT | RESULT |
+|---|---:|---|
+| `make -j2 battery-c8-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test rejoin-host-test secure-fota-adapter-host-test` | 0 | PASS: BAT-C8 72 C++ / 9 Python; encrypted Node recovery; authenticated retirement; session rejoin; secure FOTA adapter/hash |
+| `make cpp-test` | 0 | PASS: 1,479 checks |
+| `make python-test` | 0 | PASS: 344 tests, one scoped skip |
+
+Firmware was unchanged, so a C3 rebuild was not required; the clean IDF 6.0.3
+build evidence above remains applicable. GS-150 scenario-specific new tests,
+before/after activity simulation and final-candidate physical qualification
+were not run because no safe ACK boundary exists yet. The previous 20 ms versus
+60 s logical-poll comparison remains a baseline; no post-change metric or
+physical battery benefit is claimed. GS-150 blocks final-candidate GS-114
+physical tests; GS-149 remains a later quantitative gate. Original paired
+hardware and its pending events were not touched.
