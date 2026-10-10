@@ -79,7 +79,7 @@ build:
 	mkdir -p build logs
 
 cpp-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/test_main.cpp -o build/cpp_tests
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/test_main.cpp -lcrypto -o build/cpp_tests
 	./build/cpp_tests
 
 master-validation: build $(CPP_OBJECTS)
@@ -420,3 +420,15 @@ MIXED_BODY_TEST_BINARY ?= build/hub_mixed_body_compaction_validation
 hub-mixed-body-compaction-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_mixed_body_compaction_validation.cpp -lcrypto -o $(MIXED_BODY_TEST_BINARY)
 	$(MIXED_BODY_TEST_BINARY)
+
+P2D_TEST_BINARY ?= build/p2d_cloud_contract_validation
+.PHONY: p2d-cloud-contract-host-test
+p2d-cloud-contract-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/cloud/http_backend_transport.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o $(P2D_TEST_BINARY)
+	$(P2D_TEST_BINARY)
+
+P2D_HTTPS_TEST_BINARY ?= build/p2d_https_channel_validation
+.PHONY: p2d-https-channel-host-test
+p2d-https-channel-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -Itests/cpp/p2d_idf_fake $(CPP_OBJECTS) firmware/hub/components/cloud/http_backend_transport.cpp firmware/hub/target/esp32s3/https_backend_channel.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/p2d_https_channel_validation.cpp -lcrypto -o $(P2D_HTTPS_TEST_BINARY)
+	$(P2D_HTTPS_TEST_BINARY)

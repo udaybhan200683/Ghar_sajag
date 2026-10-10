@@ -1,0 +1,12 @@
+test_api_requires_authorized_hub_and_durable_store (test_durable_event_commit.DurableEventCommitTest.test_api_requires_authorized_hub_and_durable_store) ... ok
+test_conflicting_type_timestamp_payload_and_identity (test_durable_event_commit.DurableEventCommitTest.test_conflicting_type_timestamp_payload_and_identity) ... ok
+test_faults_rollback_all_effects_then_retry (test_durable_event_commit.DurableEventCommitTest.test_faults_rollback_all_effects_then_retry) ... ok
+test_first_duplicate_lost_response_and_restart (test_durable_event_commit.DurableEventCommitTest.test_first_duplicate_lost_response_and_restart) ... ok
+test_sessions_nodes_high_rate_and_quiet_door (test_durable_event_commit.DurableEventCommitTest.test_sessions_nodes_high_rate_and_quiet_door) ... ok
+test_sqlite_commit_failure_rolls_back (test_durable_event_commit.DurableEventCommitTest.test_sqlite_commit_failure_rolls_back) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 2.005s
+
+OK
+EXIT_CODE=0

@@ -98,11 +98,11 @@ CloudSync::CloudSync(HubJournal& journal) : journal_(journal) {
 
 void CloudSync::set_connected(bool connected, Milliseconds now_ms) {
     GS_TRACE(gs::log::Category::Hub, "H08", "set_connected.enter", "-");
-    connected_ = connected;
-    if (connected) {
+    if (connected && !connected_) {
         failures_ = 0;
         retry_after_ms_ = now_ms;
     }
+    connected_ = connected;
 }
 
 std::vector<DomainEvent> CloudSync::next_batch(Milliseconds now_ms, std::size_t limit) {
@@ -110,6 +110,7 @@ std::vector<DomainEvent> CloudSync::next_batch(Milliseconds now_ms, std::size_t 
     if (!connected_ || journal_.storage_fault() || now_ms < retry_after_ms_ || limit == 0)
         return {};
 
+    limit = std::min(limit, kMaximumBatch);
     // Scan durable storage without materializing the complete backlog. Keep
     // only the globally highest-priority `limit` events, preserving the old
     // urgent-first/occurred-time ordering and stable order for ties.
@@ -120,6 +121,7 @@ std::vector<DomainEvent> CloudSync::next_batch(Milliseconds now_ms, std::size_t 
         std::vector<DomainEvent>* batch;
     } context{this, now_ms, limit, nullptr};
     std::vector<DomainEvent> batch;
+    batch.reserve(limit);
     context.batch = &batch;
     const auto select = [](void* opaque, const DomainEvent& event) -> bool {
         auto& state = *static_cast<BatchContext*>(opaque);
@@ -133,8 +135,12 @@ std::vector<DomainEvent> CloudSync::next_batch(Milliseconds now_ms, std::size_t 
         auto& selected = *state.batch;
         const auto position = std::find_if(selected.begin(), selected.end(),
             [&event](const DomainEvent& current) { return batch_before(event, current); });
-        selected.insert(position, event);
-        if (selected.size() > state.limit) selected.pop_back();
+        const auto index = static_cast<std::size_t>(position - selected.begin());
+        if (selected.size() == state.limit) {
+            if (position == selected.end()) return true;
+            selected.pop_back();
+        }
+        selected.insert(selected.begin() + index, event);
         return true;
     };
     if (!journal_.for_each(select, &context)) return {};
@@ -147,7 +153,31 @@ std::optional<BackendCommitRequest> CloudSync::request_for(const std::string& ho
         journal_.cloud_completed(event.key)) return std::nullopt;
     BackendCommitRequest request{home_id, event};
     if (request.json_body().empty()) return std::nullopt;
+    // The caller cannot substitute new content under an existing EventKey.
+    // The original journal body is the only retry/serialization authority.
+    struct Match { const DomainEvent* event; bool found{false}; bool exact{false}; } match{&event};
+    const auto verify = [](void* opaque, const DomainEvent& stored) {
+        auto& state = *static_cast<Match*>(opaque);
+        if (stored.key.str() != state.event->key.str()) return true;
+        security::Bytes original, supplied;
+        state.found = true;
+        state.exact = HubJournal::encode_event_payload(stored, original) &&
+            HubJournal::encode_event_payload(*state.event, supplied) && original == supplied;
+        return true;
+    };
+    if (!journal_.for_each(verify, &match) || !match.found || !match.exact) return std::nullopt;
     return request;
+}
+
+void CloudSync::make_retry_room(const std::string& id) {
+    if (event_failures_.count(id) || permanent_errors_.count(id)) return;
+    if (retry_entries() < kMaximumRetryEntries) return;
+    // Eviction only forgets a scheduling hint. Durable pending/completion state
+    // remains authoritative; retrying an evicted conflict is backend-idempotent.
+    if (!event_failures_.empty()) {
+        event_retry_after_.erase(event_failures_.begin()->first);
+        event_failures_.erase(event_failures_.begin());
+    } else permanent_errors_.erase(permanent_errors_.begin());
 }
 
 BackendReceiptResult CloudSync::handle_backend_reply(const EventKey& requested,
@@ -162,15 +192,24 @@ BackendReceiptResult CloudSync::handle_backend_reply(const EventKey& requested,
         if (!journal_.acknowledge_cloud(requested)) return BackendReceiptResult::StorageFault;
         event_failures_.erase(id);
         event_retry_after_.erase(id);
+        permanent_errors_.erase(id);
         return BackendReceiptResult::Completed;
     }
     if (reply.authenticated_backend && reply.key.str() == id &&
         reply.status == BackendReplyStatus::Conflict) {
+        event_failures_.erase(id);
+        event_retry_after_.erase(id);
+        make_retry_room(id);
         permanent_errors_.insert(id);
         return BackendReceiptResult::PermanentError;
     }
-    const auto failures = event_failures_[id]++;
-    event_retry_after_[id] = now_ms + backoff(failures);
+    if (permanent_errors_.count(id)) return BackendReceiptResult::PermanentError;
+    make_retry_room(id);
+    auto& failures = event_failures_[id];
+    const auto delay = backoff(failures);
+    failures = std::min(failures + 1, std::size_t{4});
+    event_retry_after_[id] = now_ms > std::numeric_limits<Milliseconds>::max() - delay
+        ? std::numeric_limits<Milliseconds>::max() : now_ms + delay;
     return BackendReceiptResult::RetryScheduled;
 }
 
@@ -180,6 +219,9 @@ std::size_t CloudSync::drive_batch(CloudBackendTransport& transport, const std::
     for (const auto& event : next_batch(now_ms, limit)) {
         const auto request = request_for(home_id, event);
         if (!request) {
+            event_failures_.erase(event.key.str());
+            event_retry_after_.erase(event.key.str());
+            make_retry_room(event.key.str());
             permanent_errors_.insert(event.key.str());
             continue;
         }
@@ -195,8 +237,9 @@ void CloudSync::record_failure(Milliseconds now_ms) {
     connected_ = false;
     const Milliseconds delays[] = {1000, 5000, 30000, 120000, 300000};
     const auto index = std::min(failures_, static_cast<std::size_t>(4));
-    retry_after_ms_ = now_ms + delays[index];
-    ++failures_;
+    retry_after_ms_ = now_ms > std::numeric_limits<Milliseconds>::max() - delays[index]
+        ? std::numeric_limits<Milliseconds>::max() : now_ms + delays[index];
+    failures_ = std::min(failures_ + 1, std::size_t{4});
 }
 
 }  // namespace gs::hub
