@@ -200,8 +200,9 @@ is not claimed to equal the later documentation delivery commit.
 
 No board was flashed/reset/erased/re-enrolled; original authenticated pair and
 historical pending records untouched. GS-40 remains In Progress for real-target
-NodeHealth and caregiver offline-visibility acceptance. Next sequential GS-114
-P1–P9 requires separately authorized fixture preparation and matched GS-40/GS-150
+NodeHealth and caregiver offline-visibility acceptance. Earlier immediate GS-114
+planning is superseded by user comment10366: next GS-116, then GS-130, then GS-114.
+GS-114 P1–P9 requires separately authorized fixture preparation and matched GS-40/GS-150
 candidate images/profile map; reuse traceable overlapping evidence only. GS-149
 power measurement waits its dependencies (GS-144/GS-51); GS-146 full physical/HIL
 closure retains its existing gates. GS-128/GS-126 OnHold unchanged.
@@ -273,3 +274,100 @@ port ownership and process cleanup helpers start an isolated in-memory lab;
 'required-node lease expiry'` exit0,2/2 desktop/mobile PASS. No persistent helper
 script or test suppression was added; final `make playwright-gate` runs all86
 again.
+
+Final `make playwright-gate`: **exit0 / PASS86 of86**, desktop/mobile,12.8 minutes.
+No test skipped or removed. The correct last-received-contact boundary fixture
+passed in both browser profiles. Final full aggregate success supersedes the
+earlier browser failures; it does not substitute for the still-failing expanded
+validation-fast aggregate or physical acceptance.
+
+## Follow-on policy reconciliation and traceability
+
+GS-40 comment10366 (2026-10-10), received during this execution, supersedes only
+the earlier immediate-GS-114 planning phrase. The new approved order is **GS-116
+→ GS-130 → GS-114**. The new top sections of GS-116/GS-130 were read. Their
+permanent engineering policy starts with the next session; its repository
+AGENTS/master-policy implementation belongs to GS-116, not this configuration
+change. No Jira workflow/rank/dependency was edited.
+
+Review against that policy: changed Node, Hub, Node↔Hub and backend/PWA contracts
+received new tests plus the recorded prior regressions, sanitizer runs and target
+builds. GS-40's cheap deterministic model/configuration gates are permanently
+registered in `validation-fast`; the Python configuration cases also run in full
+Python discovery. **All-green affected-component closure is not asserted**:
+the migration prerequisite fails, exhaustive previous-feature inventory is not
+yet audited, and existing `release-gate-final` does not automatically depend on
+the expanded `validation-fast` prerequisites. Quick release/browser PASS is not
+proof that the final release gate dominates those tests. GS-116 owns runner,
+failure-propagation and component-suite registration; GS-130 owns exhaustive
+feature/test/physical traceability. No third generic ticket was created.
+
+This is scoped GS-40 evidence, not a replacement for the canonical master matrix:
+
+| Requirement / owner | Executed test identity | Gate registration / current result | Remaining proof |
+|---|---|---|---|
+| GS-D031 JSON / NODE_HUB | `test_default_and_derived_examples`, `test_invalid_fields`, `test_corrupt_missing_duplicate_json`, `test_json_changes_compiled_startup_policy`, `test_build_and_startup_share_input`, packaging rejection | `gs40-config-test`, full Python; fast registered / PASS15 | GS-116 full-release registration; actual startup/image verification NOT_RUN |
+| GS-D031 cadence/piggyback / NODE | `health_matrix`, quiet/night/frequent/sporadic paired workloads | `gs40-host-test`; fast registered / PASS1320 including contract matrix | Real 300-second quiet cadence and event suppression NOT_RUN |
+| GS-D031 mixed leases / HUB, NODE_HUB | `health_matrix` 190/310/910/1810 and unknown identity | `gs40-host-test`; fast registered / PASS | Authenticated real mixed installation/profile proof NOT_RUN |
+| GS-D031 received freshness / BACKEND,PWA | `test_backend_mixed_silent_nodes`, `test_received_contact_not_render_time_renews_freshness`, `test_silent_rf_expiry_boundary_and_automatic_health_return`, `test_internet_loss_does_not_expire_locally_healthy_nodes` | `gs40-config-test`, full Python / PASS; API/frontend scenarios and browser boundary separately executed | Production epoch/cloud integration and caregiver real-target visibility NOT_RUN |
+| GS-150 / NODE,NODE_HUB | Existing 19 paired GS-150 workloads, BAT-C8, encrypted recovery/retirement/rejoin and secure-FOTA | Named host targets; fast registered / recorded PASS | Actual GPIO4/RF/radio restoration/long run/OTA physical proof NOT_RUN |
+| Durable ownership/reboot / HUB | Fresh-install, recovery scheduling, journal persistence, retirement, checkpoint/outbox/segmented runtime gates | Named host gates / recorded PASS; registration completeness belongs GS-116/130 | Legacy migration assertion FAIL; physical storage/power-cut NOT_RUN |
+| Caregiver coverage/chronology / BACKEND,PWA | API92/frontend92, bridge12, full desktop/mobile contract suite | Named API/PWA/Playwright and quick browser gates / recorded PASS | Real C3→S3→backend→PWA acceptance NOT_RUN |
+
+Source implementation/profile: `e36bd88371449421420ec86995e82d3695a680d5`,
+schema1/configured300/910, existing GS-150 10-second ACK policy. Physical status
+for every row is NOT_RUN. Full inventory/gate architecture remains GS-116/130
+work; product release approval is not claimed.
+
+## Committed-source build and package refresh
+
+After the implementation was committed, normally pushed and verified as
+`e36bd88371449421420ec86995e82d3695a680d5`, the same clean task build directories
+were reconfigured and rebuilt to refresh application Git metadata from that
+committed source. Firmware modules did not change after the earlier clean builds.
+Both commands exit0 / PASS:
+
+```sh
+source /home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh
+idf.py -C firmware/node/target/esp32c3/idf -B /var/tmp/gs40-c3-build \
+ -D SDKCONFIG=/var/tmp/gs40-c3-sdkconfig -D IDF_TARGET=esp32c3 reconfigure build size
+cp /var/tmp/gs40-c3-build/gs_hw_m1_node.bin /var/tmp/gs40-assets/node_firmware.bin
+idf.py -C firmware/hub/target/esp32s3/idf -B /var/tmp/gs40-s3-build \
+ -D SDKCONFIG=/var/tmp/gs40-s3-sdkconfig -D IDF_TARGET=esp32s3 \
+ -D GS_NODE_FIRMWARE_ASSET=/var/tmp/gs40-assets/node_firmware.bin reconfigure build size
+python3 scripts/package_node_health_firmware.py \
+ --c3-build /var/tmp/gs40-c3-build --s3-build /var/tmp/gs40-s3-build
+```
+
+Copy/package exit0. Both project metadata versions are `e36bd88`. Final package
+was created before closeout Markdown edits: manifest source_head is full
+implementation `e36bd88371449421420ec86995e82d3695a680d5`, tracked_source_dirty=false.
+No later documentation-only commit is represented as the binary Git metadata.
+Config fingerprint and exact C3-in-Hub membership validated again; partitions
+and sizes unchanged. Final SHA256 values supersede the earlier metadata build:
+
+| Artifact | Bytes | SHA256 |
+|---|---:|---|
+| C3 application |934192| `f7bae5675657411f524f50f1d8fc2235e222e7d12848f00983fd4b3ab2cb46bf` |
+| S3 application |1868800| `3a43579ffe138ee2b7f08b2de42d3f60fba8821a2024da662c71d9f49c32073a` |
+| Configuration |—| `fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862` |
+
+Bundle remains ignored `build/gs40_bundle`, software-only unsigned development
+packaging; no deployment/signature/physical qualification. Original ignored
+Node asset is preserved. GS-114 qualification wake profile must be separately
+built/hashed and authorized as documented in its test plan.
+
+GS-40 design comment10360 and pushed-implementation comment10363 record their
+actual milestones. GS-114 comment10368 records these final candidate artifacts
+and the new GS-116→GS-130→GS-114 planning order without changing workflow, rank
+or dependencies. Final GS-40 delivery comment follows documentation push and
+remote verification. GS-40 stays In Progress.
+
+Final closeout documentation validation: context preflight exit0/PASS,
+`git diff --check` exit0/PASS after correcting one extra EOF blank line, and the
+existing inline path check from the GS-150 evidence with GS-40 file selection
+exit0/PASS21 relative-path links (anchors not checked). Final selection is
+current `git diff --name-only` Markdown plus this evidence and config/README.md,
+deduplicated before checking. No missing-script recreation or third-party
+managed-components scan. Only work-state/evidence Markdown is staged for the
+final closeout; source binaries and generated outputs remain excluded.

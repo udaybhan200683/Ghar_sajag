@@ -12,8 +12,11 @@ No wire/storage migration, retry changes, GS-150 rewrite or hardware action.
 
 Starting local/remote checkpoint `913b1dedb483ca63aff7244dbbd224053206c7f2`;
 approved canonical policy commit `821da80b25dc11c8a01252333abc9734036fc66b`.
-Implementation delivery checkpoint/comment verification is recorded below after
-normal push. Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+Implementation `e36bd88371449421420ec86995e82d3695a680d5` was normally pushed;
+actual origin branch HEAD matched local HEAD with tracked cleanliness. GS-40
+design/implementation comments10360/10363 and GS-114 candidate comment10368
+record the milestones. Final documentation closeout HEAD is recorded in Jira
+after its own normal push/verification. Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
 `feature/r1-commercial-baseline`. Original untracked S3 managed_components and
 original ignored Node asset are preserved; bundle/build directories are generated.
 
@@ -28,7 +31,9 @@ Quiet 30 minutes health 15→6, night 8 hours 240→96: 60% fewer standalone hea
 actual120 baseline. Event identities/effects/retry and recovery latencies unchanged;
 physical current/endurance unmeasured. Quick release gate with mandatory Chromium
 passes 17 stages (master 49/49, FOTA 34/34). Extended validation-fast exit2 is
-retained below; comprehensive desktop/mobile browser record follows.
+retained below. Final `make playwright-gate` exit0: all86 desktop/mobile cases
+PASS after exact received-contact boundary fixture correction; the earlier
+failed/interrupted runs remain recorded in the evidence.
 
 Expanded regression fixture corrections were TEST_INFRA_ONLY /
 VALID_TEST_EXPECTATION_MISMATCH under R1 release gates and GS-D031: missing six
@@ -47,7 +52,15 @@ fresh-install, current S3 durability/replay and GS-40 gates are recorded separat
 Secure target trusted-epoch and production cloud-contract limitations remain open;
 host backend/PWA validation does not qualify real-target caregiver visibility.
 
-**Next sequential task: GS-114 BAT-C8 P1–P9**, only after separate authorization of
+**Next sequential task: GS-116, then GS-130, then GS-114 BAT-C8 P1–P9.** Latest
+user GS-40 comment10366 supersedes the earlier immediate-GS-114 plan. GS-116
+owns component/contract gates and permanent AGENTS/master validation policy;
+GS-130 owns exhaustive feature/test/physical traceability. Their new policy
+sections were read and this deliverable reviewed: GS-40 deterministic gates are
+registered in validation-fast, but remaining migration failure, full inventory
+and release-gate dominance gaps prevent an all-green product release claim.
+Do not start those follow-on implementations automatically in this GS-40 task.
+GS-114 remains conditional on those audits and separate authorization of
 fixture/image preparation and hardware actions. Include matched GS-40/GS-150 images,
 startup config SHA/profile map, actual GPIO4/held-HIGH, timer/radio restoration,
 NodeHealth 300/910, Hub outage/rejoin without new motion and honest coverage cases.
@@ -56,6 +69,12 @@ visibility acceptance; overlapping evidence may be reused only when traceable.
 No protected board flash/reset/erase/re-enrollment is authorized here. GS-149 power
 acceptance follows existing GS-144/GS-51 prerequisites; GS-146 full physical/HIL
 closure retains all dependencies. GS-126/128 statuses/ranks/dependencies unchanged.
+
+The final committed-source bundle records implementation HEAD `e36bd883`,
+tracked_source_dirty=false; C3/S3 image Git metadata is `e36bd88`. Hashes and
+package commands are in the evidence. It is a production software candidate,
+not a signed/physical-wake-qualified image. Documentation-only closeout preserves
+the validated firmware source and existing runtime/storage/wire contracts.
 
 ## GS-150 software implementation — 2026-10-10
 
