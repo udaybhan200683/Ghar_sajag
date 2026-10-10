@@ -14,7 +14,11 @@ Untracked user files remain at their original worktrees: battery HIL scripts; S3
 
 ## Latest delivery closeout
 
-Final canonical integration commit, actual remote verification, Jira comment IDs and exact final test/build results are recorded here after validation completes.
+**CONSOLIDATION_STATUS=PARTIAL.** Commit `ed6cffcdbfcbd69118e41b436ef616a0bea927db` (`Record R1 source consolidation and validation handoff`) is pushed to `origin/feature/r1-commercial-baseline`; at verification, local HEAD and actual GitHub ref both equaled that hash. The tracked worktree is clean; generated untracked S3 `managed_components/` remains preserved.
+
+Focused BAT-C8, S3 storage/security/recovery, P2-D HTTP/HTTPS and ASan/UBSan checks passed; clean isolated ESP-IDF 6.0.3 C3 and S3 builds passed. Aggregate gates remain partial: `make cpp-test` fails on the documented Node sequence assertion; `make python-test` has 341/344 passing with one G01 failure and two G01/HIL errors; PWA bridge/API/frontend activity/door assertions fail. These are not represented as passes. Production P2-D authentication/receipt/connectivity, canonical workload, live backend E2E, capacity/retention and physical qualification remain open. No hardware actions occurred; production destructive event/identity reclamation remains disabled.
+
+Jira synchronization comments were added and read back successfully, without workflow or ranking changes: GS-110 comment 10321, GS-114 10322, GS-115 10323, GS-131 10324, GS-147 10325, and GS-148 10326. Evidence and source provenance are in the [dated integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). The six-worktree inventory and exact validation details are recorded there.
 
 ## Cross-worktree audit handoff — 2026-10-10
 
