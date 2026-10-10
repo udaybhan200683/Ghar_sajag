@@ -1,5 +1,35 @@
 # R1 Current Work State
 
+## C3 software-first battery audit — 2026-10-10
+
+At canonical start HEAD `3279294e31345f0ff34d5d97ee456145375eb46a`, the
+confirmed Hub-outage/backlog software gap remains: C3 light sleep is inhibited
+by outage, every pending TX/ACK and retained event, so the single owner falls
+back to a 20 ms poll while the existing retry/rejoin schedules remain much
+slower. GS-D027 supports avoiding unnecessary Node wake-ups, but sleep with an
+unacknowledged EventKey would stop authenticated ACK reception until radio
+restore; the locked requirements do not define an ACK receive-window boundary
+or a Hub-power-off recovery target. GS-D025 is only a powered Hub/local-radio
+internet outage target. GS-147 remains design-only, blocked by GS-146, and its
+expanded journal, offline envelope and ACK/retirement scope are not approved.
+No firmware behavior or requirement changed pending that decision.
+
+Read-only scope review and validation: `make battery-c8-host-test` PASS (72
+C++ checks / 9 Python invariants); `make cpp-test` PASS (1,479); `make
+python-test` PASS (344, one documented skip). Existing C3 ESP-IDF 6.0.3 clean
+build evidence (931,424-byte image) remains applicable because no firmware
+changed. No hardware actions. Diagnostics limitations, source references,
+modeled wake frequency and C9–C12 disposition are in the existing
+[battery/power guide](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md).
+
+The 2026-10-10 latest Jira decision splits functional BAT-C8 P1–P9 to GS-114
+and quantitative P10 to GS-149; GS-146 requires both. BAT-C12 deep sleep is
+explicitly deferred. Next software action is to obtain an approved ACK-window
+and Hub-off recovery/service contract before changing offline sleep eligibility;
+then add deterministic outage/backlog/rejoin tests and rebuild C3. Preserve the
+existing untracked S3 `managed_components/` directory. No branch/worktree
+change, hardware work or journal expansion.
+
 ## Integrated software regression closure — 2026-10-10
 
 Starting at canonical HEAD `5648d90426fb12b584a009eac0a88e754ad909c6`, the

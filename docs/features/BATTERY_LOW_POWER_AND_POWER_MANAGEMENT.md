@@ -837,3 +837,100 @@ For battery state, inspect the raw sample and calibration/profile metadata;
 the current target has no ADC value to inspect. A frequent radio retry loop
 usually points to ACK/session/Hub reachability, while a steadily active CPU is
 expected with the present 20 ms poll design.
+
+## Canonical R1 C3 offline-idle audit — 2026-10-10
+
+This is a current-source audit, not approval of the separate GS-147 sleep-first
+and expanded-journal design. On the current canonical branch, a ready Node with
+an admitted event in confirmed outage cannot light-sleep between retries:
+`node_runtime_adapter.cpp` sets `pending_tx` and `ack_wait` whenever
+`runtime.pending() != 0` (around lines 1559–1562), sets `recovery_work` while
+`runtime.persisted() != 0` (1564–1569), and sets `outage_active` from the
+outage profile (1599). `power.cpp` maps each condition to an inhibitor
+(107–134). When no sleep is entered, the owner uses the 20 ms PIR poll delay
+(1626). Thus the confirmed-offline backlog path performs about 50 owner/PIR
+poll iterations per second while the existing outage retry opportunity remains
+about 60 seconds apart. Retry time is still owned by `NodeRadio`; its current
+ladder and deterministic jitter are in `components/radio/node_radio.cpp`
+(102–133). The session-recovery ladder remains owned by
+`SessionRecoveryPolicy` and the existing owner loop.
+
+`PowerPolicy::evaluate()` (power.cpp 239–269) computes a passive diagnostic
+decision that the adapter explicitly discards (node_runtime_adapter.cpp 1519–1520).
+The active sleep decision is `evaluate_light_sleep()` (1528–1600), still called
+by the same `gs_node_owner`; there is no second power task, but the diagnostic
+policy result is not the eligibility authority.
+
+This behavior is directly covered by the current BAT-C8 focused test:
+`battery_c8_validation.cpp` asserts pending transmission, application ACK wait,
+retained recovery work and outage each inhibit sleep (113–130). The current
+runtime also stops Wi-Fi/ESP-NOW for light sleep and restores them before the
+owner loop resumes. GPIO4 HIGH wake feeds the existing qualified PIR path; a
+held HIGH remains sleep-ineligible. Timer wake is bounded by the earliest
+health/retry/maintenance/security deadline and the existing 30-second cap.
+Unauthenticated rejoin backoff can already sleep to its scheduled security
+retry; active security exchange remains inhibited.
+
+The relevant locked sources are GS-D020 (safe production light-sleep/wake and
+event-processing behavior) and GS-D027 (avoid unnecessary Node wake-ups while
+preserving required retry/recovery work). GS-D025 covers a powered, locally
+connected Hub during an internet-only outage; it does not define a Hub-power-off
+Node retention or recovery target. GS-147 records that target, event workload,
+recovery latency and retirement/ACK interoperability as open, and remains a
+proposed design blocked by GS-146. In addition, current code has no separate
+application-ACK receive-window deadline: a pending EventKey remains eligible
+for authenticated ACK while the radio is on, until its retry becomes due. Going
+to light sleep during that interval would stop RX and could defer receipt until
+the next exact-key retry. The retry/duplicate and durable-before-ACK invariants
+remain intact, but whether that receive deferral is allowed is not defined by a
+locked requirement.
+
+**Disposition:** SOFTWARE_GAP_CONFIRMED=YES for awake polling between recovery
+opportunities. SLEEP_FIRST_CHANGE_AUTHORIZED=NO while the ACK receive window and
+Hub-off recovery/service expectations remain undefined. `BUG_CLASSIFICATION=INVESTIGATE_ONLY`;
+`REQUIREMENT_SOURCE=GS-D020, GS-D027; REQUIREMENT_GAP=ACK receive-window and
+Hub-power-off recovery contract`; `DECISION_IDS=GS-D020, GS-D027`;
+`TASK_SCOPE=C3 software audit and safe, bounded battery improvement`;
+`OUT_OF_SCOPE=GS-147 journal expansion/protocol changes, retry interval changes,
+deep sleep and physical actions`. No production behavior was changed. The exact
+product decision needed before a future behavior patch is whether the existing
+retry deadline is an approved end of the ACK receive window (with retransmission
+of the same EventKey/original timestamp after wake), and which existing
+authenticated recovery deadline governs Hub return without a new PIR. The
+approved GS-147 Hub-off duration/event envelope remains a separate open decision.
+
+The current software-only model is limited to logical scheduler behavior: while
+this path stays awake it polls at 20 ms (3,000 nominal poll intervals per
+minute), while the outage radio gate allows roughly one scheduled retry
+opportunity per 60 seconds. After the ACK-window decision, the existing 30 s
+sleep cap would imply at most two timer-bounded waits per 60-second interval,
+plus GPIO/event and required control/security work; this is a schedule estimate,
+not measured active time or current. No validated battery-life gain is claimed.
+
+Existing counters are not sufficient for physical-energy or full write-rate
+claims. `awake_ms` is assigned monotonic uptime in `node_runtime_adapter.cpp`
+(779), not accumulated awake residency; light-sleep telemetry stores entry/wake
+counts and only the last requested/elapsed duration; ineligible decisions are
+not counted; `radio_tx_ms`/`radio_rx_ms` have no target updates. The RAM
+`recovery_nvs_commits` counter records event admission, ACK retirement, gap and
+summary sites, but misses the boot-generation and Hub-epoch recovery writes.
+These counters do not add persistent writes and are not current measurement.
+Do not optimize NVS until target write frequency/erase behavior is measured.
+
+BAT-C9 is `PRODUCT_DECISION_REQUIRED` (calibrated voltage hardware is absent;
+define warning/QoS behavior without suppressing critical PIR/ACK/rejoin).
+BAT-C10 is `MEASUREMENT_REQUIRED` (complete target NVS-write frequency and
+erase-amplification evidence before selecting a safe reduction).
+BAT-C11 is `POST_R1` by default (retain fixed 10 dBm until RF margin, retries,
+latency and energy have been measured and a scoped need is approved).
+BAT-C12 deep sleep is `POST_R1` / explicitly deferred by the user in latest
+GS-115/GS-110/GS-146 comments; do not implement it under this task.
+
+Validation on the unchanged firmware source at canonical start HEAD
+`3279294e31345f0ff34d5d97ee456145375eb46a`: `make battery-c8-host-test`
+PASS (72 C++ checks and 9 Python invariants); `make cpp-test` PASS (1,479
+checks); `make python-test` PASS (344 tests, one documented skip). Existing
+ESP-IDF 6.0.3 C3 build evidence remains applicable because no firmware source
+changed; the recorded image is 931,424 bytes. No hardware was touched. The
+latest Jira-approved BAT-C8 split assigns functional non-power P1–P9 to GS-114
+and quantitative P10 power acceptance to GS-149; GS-146 still requires both.
