@@ -226,7 +226,7 @@ clean:
 # T01: local integration adapter; the original component suites remain unchanged.
 .PHONY: lab-build lab e2e-test
 lab-build: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) host/simulator/interactive.cpp -o build/ghar_sajag_interactive
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp host/simulator/interactive.cpp -o build/ghar_sajag_interactive
 
 lab: lab-build
 	python3 tools/sim/local_lab.py

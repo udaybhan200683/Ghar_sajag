@@ -76,6 +76,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/design/HUB_REDUCER_CHECKPOINT.md` | IMPLEMENTATION_DESIGN | Reducer checkpoint audit/design | Materialized state/checkpoint work |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/runtime/FREERTOS_BINDING.md` | IMPLEMENTATION_DESIGN | Hub runtime/FreeRTOS binding | Hub task and scheduling work |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/README.md` | SUPPORTING | Hub target adapter notes | Hub target build/configuration |
+| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32s3/idf/README.md` | SUPPORTING | S3 target, development partition profiles and non-destructive build instructions; commercial capacity remains unqualified | S3 target/build work |
 
 ### NODE
 
@@ -98,6 +99,9 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABILITY_ARCHITECTURE_CLOSURE_AUDIT.md` | SUPPORTING | Detailed durability audit and evidence | Audit current-format implementation |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABLE_BACKEND_COMPLETION_CONTRACT.md` | IMPLEMENTATION_DESIGN | Backend completion receipt contract | Outbox completion/reclamation work |
 | `docs/features/HUB_PERSISTENCE_AND_RECOVERY.md` | IMPLEMENTATION_DESIGN | Hub storage/recovery detail | Persistence implementation |
+| `docs/exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md` | INTEGRATION_PROVENANCE / EVIDENCE | Cross-worktree dispositions, source commit provenance and preserved unmerged work | Resumption after the one-time source consolidation |
+| `docs/exec-plans/evidence/R1_S3_P2C_FINAL_VALIDATION_20261010.md` | TEST_EVIDENCE | Host mixed-segment reclamation, reserve and target-build evidence; production deletion disabled | P2-C source/evidence review |
+| `docs/exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md` | TEST_EVIDENCE / PARTIAL | HTTP/HTTPS and deterministic fixture evidence; production gates remain open | P2-D resumption; does not prove live backend |
 
 ### CLOUD/PWA
 
@@ -237,7 +241,7 @@ Supersession is section-specific. The following documents retain useful implemen
 | `docs/design/HUB_DURABLE_STATE_TRANSITIONS.md` | IMPLEMENTATION_DESIGN (partial supersession) | Transition/checkpoint detail and explicitly proposed bound | Approved commercial lifetime/capacity/reclamation policy | Current storage architecture contract and approved lifecycle design | GS-D005, GS-D016 |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/SIMULATION_LLD_v1.0.md` | HISTORICAL | Simulator-only Hub journal capacity 4096 and old simulator constraints | Physical Hub capacity or product retention | Current R1 contract and storage architecture contract | GS-D005, GS-D016 |
 
-The production 0..127 slot range and event-129 admission failure are `CURRENT_IMPLEMENTATION_FACT` / `STILL_VALID_IMPLEMENTATION_DETAIL`. Acceptance of a 128-entry commercial lifetime is a `SUPERSEDED_PRODUCT_REQUIREMENT`; phase proposals are `HISTORICAL_DESIGN`. The simulator's 4096 capacity is a lab-only implementation detail. Current product requirement: finite 128-event lifetime is unacceptable; increasing only the constant is not an architecture fix; replacement capacity and retention remain OPEN pending the 4 MB/six-Node design.
+The classic Hub's 0..127 slot range and event-129 admission failure are historical `CURRENT_IMPLEMENTATION_FACT` for that target, not the selected S3 runtime. S3 now has a segmented durable outbox and host evidence; production capacity, commercial partition, retention and physical behavior remain unqualified. Acceptance of a 128-entry commercial lifetime is a `SUPERSEDED_PRODUCT_REQUIREMENT`; the simulator's 4096 capacity is lab-only. Current requirement: finite 128-event lifetime is unacceptable; simply raising a constant is not an architecture fix; supported volume, reserve and retention remain OPEN under GS-D025/030.
 
 ## Locked-decision traceability
 
@@ -276,14 +280,14 @@ This register records requirements explicitly present in canonical sources. `UNK
 | GS-PROD-01 | Commercially installable fresh baseline; reduce scope, not quality | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; P0/R1 | PARTIAL; fresh-install durability gates passed | R1 release objective |
 | GS-P0-01 | P0 household, Hub/Node, event, caregiver, privacy, offline and deferral behavior plus evidence boundaries | `docs/product/P0_PRODUCT_REQUIREMENTS.md` | LOCKED where marked; OPEN items remain explicit; P0/R1 | PARTIAL; physical/app paths have separate evidence status | Canonical summary; domain details stay in guides |
 | GS-R1-01 | Support current approved fresh-install persistent format; arbitrary abandoned-format migration deferred | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | IMPLEMENTED for qualified path; gate passed | Migration-only work post-R1 absent fresh-path impact |
-| GS-HW-01 | S3 N16R8 Hub development platform; ESP32-C3 Nodes (GS-D030) | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | S3 implementation/physical qualification pending | Six Nodes; classic target preserved as history |
+| GS-HW-01 | S3 N16R8 Hub development platform; ESP32-C3 Nodes (GS-D030) | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | S3 target/storage implementation integrated; physical qualification pending and production acceptance open | Six Nodes; classic target preserved as history |
 | GS-HUB-01 | Hub owns authenticated ingestion, local safety/routine decisions, durable processing and ACK | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | PARTIAL; selected gates passed | See Hub and protocol designs |
 | GS-NODE-01 | Node senses, retains/retries, and retires only on valid application ACK | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/R1_WORK_STATE.md` | LOCKED; R1 | IMPLEMENTED; physical gate passed | Do not repeat absent invalidation |
 | GS-EVENT-01 | Loss-aware eligible ordinary motion/PIR consolidation preserves routine, safety and observation meaning (GS-D026) | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN; validation not recorded | Preserve safety-relevant identity/meaning |
 | GS-SENSOR-01 | PIR is the established physical Node sensor; Reed/button categories in software are not proof of installed/qualified physical sources | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/features/ROUTINE_ACTIVITY_AND_INCIDENT_RULES.md` | LOCKED distinction; P0/R1 | PIR physical path exercised; Reed/button end-to-end support OPEN | Keep product vocabulary distinct from target hardware evidence |
 | GS-CARE-01 | I Am OK and Call Family remain distinct app events; no emergency dispatch or production provider is implied | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/features/CAREGIVER_ACTIONS_AND_NOTIFICATIONS.md` | LOCKED boundary; P0 | Application model present; physical controls/live provider unproven | Caregiver claim/acknowledge/resolve are separate |
 | GS-STORE-01 | Durable-before-ACK, duplicate/lost-ACK safety, reboot recovery, fail closed | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | IMPLEMENTED; physical durability/lost-ACK gate passed | Current-format path |
-| GS-STORE-02 | Shared 128-event lifetime ceiling unacceptable; simply raising it is not a fix | `docs/product/DECISION_LOG.md`, `docs/product/R1_WORK_STATE.md` | LOCKED; R1 | UNIMPLEMENTED; blocker open | Current top product blocker |
+| GS-STORE-02 | Shared 128-event lifetime ceiling unacceptable; simply raising it is not a fix | `docs/product/DECISION_LOG.md`, `docs/product/R1_WORK_STATE.md` | LOCKED; R1 | S3 segmented outbox/reclamation implementation integrated; production capacity, retention, backend and physical acceptance remain open | Current storage release blocker |
 | GS-STORE-03 | Separate correctness state, reducer state, backend backlog, short history; safe reclamation | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | PROVISIONAL/OPEN details; R1 | UNIMPLEMENTED; design open | Exact bytes/retention not locked |
 | GS-STORE-04 | 72-hour internet-only outage resilience design target; powered/local-connected baseline (GS-D025) | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED target; R1 | UNQUALIFIED; supported volumes/saturation OPEN | Not an unconditional capacity guarantee |
 | GS-POWER-02 | Battery-first observation-triggered Node interpretation; no new 40–120-second periodic consolidation wakes (GS-D027) | `docs/product/DECISION_LOG.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED direction; R1 | Proposed new protocols unimplemented/unqualified | Preserve BAT-C8; prove battery/correctness impact before implementation |
@@ -397,8 +401,7 @@ Context2026-10-09.001 supersedes only GS-D003's former Hub baseline and related
 R1_RELEASE_CONTRACT, P0_PRODUCT_REQUIREMENTS and STORAGE_SYNC_ROUTINE_LEARNING
 carry current authority. Older 4 MiB capacity, OTA and physical evidence remains
 valid for its stated hardware; it cannot define the current Hub or qualify S3.
-New target work uses the isolated S3 worktree. No storage prototype/evidence is
-promoted to canonical. GS-D020/025/026/027/028 sensor semantics and GS-D029 security
+New R1 work uses the approved canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`; the S3 feature branch remains source provenance. Reviewed S3 implementation/evidence is integrated; no storage-lifecycle experiment or unapproved capacity policy is promoted. GS-D020/025/026/027/028 sensor semantics and GS-D029 security
 and application rollback remain in force. Commercial partition/volume policy,
 sustainable reclamation and S3 physical/end-to-end qualification remain open.
 
@@ -406,4 +409,5 @@ sustainable reclamation and S3 physical/end-to-end qualification remain open.
 
 | Document | Authority / use | Scope boundary |
 |---|---|---|
-| `docs/exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md` | Dated proposed cross-worktree source/code/Jira audit and dependency queue | Evidence and recommendations awaiting user review; not a new requirement, Jira rank, workflow transition, branch merge, or implementation authorization |
+| `docs/exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md` | Dated pre-integration source/code/Jira audit and proposed dependency queue | Historical inventory/proposal; source-absence claims are superseded by the later integration manifest and current work state |
+| `docs/exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md` | Current source integration provenance | Authoritative disposition of one-time consolidation; no product requirement or Jira rank change |

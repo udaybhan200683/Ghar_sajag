@@ -1,10 +1,26 @@
 # R1 Current Work State
 
+## One-time source consolidation — current checkpoint, 2026-10-10
+
+The user-approved destination is this canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch `feature/r1-commercial-baseline`. Starting local and remote HEAD were `f6e949a79354ebd1a25c55a9b9a9b750bf387dac`; context preflight passed at `2026-10-09.001`. C3 BAT-C8 implementation is already in canonical history through ancestor `808080e`. Reviewed S3 target, P2-A/B/C and partial P2-D code/evidence were selectively cherry-picked with provenance; see [source integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). Integration source checkpoint before final handoff: `1febcf027baea892b95ed3a57615a4a562ee9b82`.
+
+Fresh host results: BAT-C8 focused C++ (72 checks) and nine Python power-policy invariants PASS; S3 outbox, segmented runtime, replay/checkpoint, identity, completion, mixed-body and P2-D HTTP/HTTPS suites PASS. The P2-D SQLite bridge processed 300 events with no pending records; catch-up measured 26,458 ms in that host fixture. `make cpp-test` FAILS at `test_node_offline_resilience` expecting `next_sequence()==1001` after 1000 attempts; this same assertion is in the source P2-D evidence. `make python-test` ran 344 tests after the simulator link fix: 341 PASS, 1 FAIL, 2 ERROR in untouched G01/HIL checks (details in the integration manifest). Those failures are not reported as PASS. No Node/BAT-C8 edit was made to silence tests. Clean S3 and C3 ESP-IDF 6.0.3 builds PASS in isolated `/tmp` build directories; sanitizer outcomes are recorded in the integration manifest. No hardware validation was performed.
+
+**Active next product work remains BAT-C8 physical qualification** (GS-114), plus GS-144 target, GS-140/B0–B4 and matched AFTER measurements, GS-119 residual cases/12-hour soak, and GS-146 closure. No hardware action was taken. GS-115 C9–C12 remains conditional and measurement/decision-only; current boundaries are in [battery power management](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md). GS-147 remains a proposed sleep-first/offline-journal design only, not implementation approval; retain its Hub-off target, retirement/ACK interoperability and capacity requirements as unresolved until the issue contract is approved (audit findings: [C3/GS-147 section](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md)). S3 GS-148 and parent GS-131 remain intentionally OnHold as a workstream; P2-D remains partial, production deletion disabled, and P2-E/F/Phase 3 gates open. The pre-integration cross-worktree audit is historical for source-absence claims; this manifest and checkpoint supersede those claims.
+
+Cross-component follow-up remains open: production backend authentication/COMMITTED ownership and live Hub-to-backend-to-PWA flows (GS-117/121) are not proven; S3 storage/FOTA interruption and rollback compatibility (GS-118) remains unqualified. Current local PWA bridge/API/frontend tests also have failing activity/door assertions; see the integration manifest. The P2-D handoff documents missing production contracts and the supported host fixture without representing it as live deployment evidence.
+
+Untracked user files remain at their original worktrees: battery HIL scripts; S3 `sdkconfig` and `managed_components/`; storage `prompt.txt`; and Phase 2 generated build directories. No code from the unpublished 11-commit classic-storage range was merged.
+
+## Latest delivery closeout
+
+Final canonical integration commit, actual remote verification, Jira comment IDs and exact final test/build results are recorded here after validation completes.
+
 ## Cross-worktree audit handoff — 2026-10-10
 
 The active priority is BAT-C8 physical qualification (GS-114), with GS-144 target, GS-140/B0–B4 and matched AFTER power measurements, GS-119 remaining physical evidence/12-hour soak, and GS-146 C1–C8 closure. Reuse valid battery-branch physical PIR/GPIO4/ACK evidence only when image and setup provenance match. BAT-C8 software/host/build are complete; physical gate remains open. GS-115 stays conditional and To Do.
 
-S3 GS-148/GS-131 are intentionally paused, not cancelled or complete. S3 branch `feature/r1-s3-hub-bringup` is pushed at `5b8b1485f80b5989db0fbbd77588c91986fc6ca9`; P2-D is partial and production auth/receipt/connectivity/workload acceptance remains open. GS-148 is still In Progress in Jira while its description/comments document the pause; no workflow transition is made here. Production destructive reclamation remains disabled. See [cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md). This audit makes no product decision, does not change context version, and proposes a queue for user review only.
+S3 GS-148/GS-131 are intentionally paused, not cancelled or complete. The reviewed source branch checkpoint is `e1941d7136c43fe6e21f4eff42527aa2d0de9a9a`; P2-D remains partial and production auth/receipt/connectivity/workload acceptance remains open. GS-148 is still In Progress in Jira while its description/comments document the pause; no workflow transition is made here. Production destructive reclamation remains disabled. The [cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md) is preserved as historical triage; current source dispositions are in the [integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). No product decision or context-version change is made here.
 
 **Updated:** 2026-10-10
 
@@ -83,15 +99,18 @@ Architecture analysis at storage-worktree baseline
 `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b` is recorded in
 [R1_HUB_STORAGE_DATA_LIFECYCLE.md](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md).
 It recommends a **conditional** 384 KiB lifecycle allocation with dual OTA,
-not an approved partition change. Current secure target uses the durability
-owner/slot adapter and persisted receipts/reports, but retains 128 immutable
-events. The 192 simultaneous Node-pending-key bound does not bound accumulated
-ACKed-but-unreported Hub evidence without a report/admission window.
+not an approved partition change. Those implementation observations describe
+the historical classic ESP32 target at that checkpoint. The canonical branch
+now includes the selected S3 segmented encrypted outbox, checkpoint/replay
+recovery, completion/identity metadata, mixed-segment host reclamation and
+partial P2-D HTTP/HTTPS adapters. The 192 simultaneous Node-pending-key bound
+still does not by itself bound accumulated ACKed-but-unreported Hub evidence.
 
-Implementation remains STOP pending product outage/overflow decisions, bounded
-retirement progress, reducer/model limits, backend summary/effect completion,
-safe rollback/format transition, current image fit and crash/wear proof.
-Historical build sizes do not establish current-baseline OTA margin.
+S3 production acceptance remains STOP pending product outage/overflow decisions,
+bounded retirement progress, reducer/model limits, backend summary/effect
+completion, safe rollback/format transition, commercial image/partition fit and
+crash/wear proof. Historical classic-target build sizes do not establish the
+current S3 commercial OTA margin.
 Existing physical qualification and deferred legacy migration classification
 are unchanged; no firmware, physical event or new qualification was performed.
 
@@ -101,13 +120,15 @@ the code project's `host/storage/`, with dedicated tests and benchmarks. No
 production target lists or ACK path are changed. The optimized candidate shares
 one immutable event across lifecycle owners; existing 128 KiB feasibility is
 **CONDITIONAL**, so partition enlargement remains UNDECIDED rather than assumed.
-The current 128-event production limit is unchanged. One million simulated events
+The 128-event production limit describes the historical classic target, not the
+integrated S3 segmented outbox. S3 commercial capacity and lifetime guarantees
+remain unqualified. One million simulated events
 show fixed 192-record storage and allocation-free primitives; existing journal
 and backend completion host regressions pass. These are host results, not
 physical durability/GC/rollback qualification. See ExecPlan section 20 and its
 host evidence for exact byte budgets, benchmark scope and remaining STOP gates.
 
-Derive and close the storage/data-lifecycle design for the GS-D030 S3 Hub and six-Node worst case before production storage integration. Separate:
+Complete S3 production storage/data-lifecycle qualification for the GS-D030 Hub and six-Node worst case. The following accepted implementation areas are integrated, but remain subject to product acceptance and physical proof:
 
 1. active correctness journal and dedupe state;
 2. materialized routine/reducer state;
@@ -270,12 +291,13 @@ Hub/ESP32-C3 baseline and BAT-C8 requirements/pending qualification remain uncha
 
 ## Current Hub development direction — GS-D030
 
-Context2026-10-09.001 records the explicit S3 N16R8 selection. Canonical governance
-remains in this worktree; new Hub target work is in `/home/udaybhan/projects/Ghar_sajag_r1_s3`
-on `feature/r1-s3-hub-bringup`, based on storage checkpoint `389ffd3`. Preserve
-independent worktree content and historical evidence; no experimental storage
-code or evidence is promoted to canonical. The preserved storage worktree may
-remain at context2026-10-08.002 and therefore STALE until separately synchronized.
+Context2026-10-09.001 records the explicit S3 N16R8 selection. By the user-approved
+one-time consolidation on 2026-10-10, reviewed S3 source/evidence is integrated
+into this canonical worktree and `feature/r1-commercial-baseline`; see the
+[source integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md).
+The former S3 worktree and storage branch are preserved as provenance; do not
+resume development there. No experimental storage lifecycle code or unapproved
+capacity policy was promoted.
 
 The 4 MiB classic Hub is retired from active development, not deleted. Existing
 physical PASS results remain valid only for their original hardware/configuration.
@@ -289,7 +311,9 @@ Do not resume classic-ESP32 footprint/capacity optimization or change C3/BAT-C8.
 
 [S3 evidence](../exec-plans/evidence/R1_S3_HUB_BRINGUP_20261009.md) records
 GS-D030 governance, direct reuse of the existing Hub composition and unchanged
-C3 asset, successful ESP-IDF6.0.3 S3 builds and a physical diagnostic PASS.
+C3 asset, successful ESP-IDF6.0.3 S3 builds and a physical diagnostic PASS at
+that historical checkpoint. No physical tests were performed during the
+2026-10-10 consolidation.
 Actual board: ESP32-S3rev0.2,16 MiB flash,8 MiB Octal PSRAM40 MHz; startup/scratch
 memory, Wi-Fi and ESP-NOW init and six10-second heartbeats pass. Full private
 flash backup verified before writing; original NVS/VFS digests still match.

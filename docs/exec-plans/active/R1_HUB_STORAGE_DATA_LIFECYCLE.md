@@ -1,6 +1,6 @@
 # R1 Hub storage and data lifecycle — architecture ExecPlan
 
-**Current status — 2026-10-10:** This S3/storage execution plan is ON HOLD by intentional priority switch, not cancelled or complete. Resume only after explicit reprioritization and GS-148 contract/workload blockers. BAT-C8 physical qualification is next; production deletion remains disabled. Historical plan/evidence below retain original scope/date. See [cross-worktree audit](../evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md).
+**Current status — 2026-10-10:** This S3/storage execution plan is ON HOLD by intentional priority switch, not cancelled or complete. Reviewed S3 P2-A/B/C and partial P2-D source/evidence are now integrated into canonical `feature/r1-commercial-baseline`; the [source integration manifest](../evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md) supersedes the earlier audit's source-absence findings. Resume only after explicit reprioritization and GS-148 contract/workload blockers. BAT-C8 physical qualification is next; production deletion remains disabled. Historical plan/evidence below retain original scope/date. See also the [P2-D handoff](../evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
 
 Date: 2026-10-07. Source: `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b`, branch `feature/r1-hub-storage-lifecycle`.
 Context preflight: **PASS**, local/canonical context `2026-10-07.001`.
@@ -581,7 +581,7 @@ All section 18 integration STOP gates remain. In particular, the million-event f
 
 GS-D021/022/023 lock the new engineering order and failure-aware current/daily routine behavior. They do **not** close GS-D013/014/015/017. Sections 8/9/10/20 remain useful historical proposals; the alternatives below supersede their numerical recommendations only for this sizing comparison. No proposed codec, retention threshold, critical quota, coverage formula or backend revision API is approved by being described here.
 
-Qualified isolated core is committed as `45f6b00`. Its unchanged million-event fixture passed again: 192 records, 17,088-byte record pool, 12,452-byte exact index, zero hot C++ new calls. Production remains the current 128-event journal. No new failure simulator has been implemented in this refinement checkpoint. Model tests described below are required future work, not PASS evidence.
+Qualified isolated core is committed as `45f6b00`. Its unchanged million-event fixture passed again: 192 records, 17,088-byte record pool, 12,452-byte exact index, zero hot C++ new calls. At that classic-ESP32 checkpoint, the production implementation still had a 128-event journal; this is a historical implementation fact and does not describe the integrated S3 segmented outbox. No new failure simulator had been implemented at that refinement checkpoint. Model tests described below were required future work there, not PASS evidence.
 
 ### 21.2 Field audit and one-body lifecycle
 

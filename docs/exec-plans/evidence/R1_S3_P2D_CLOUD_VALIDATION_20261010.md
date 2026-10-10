@@ -1,5 +1,26 @@
 # P2-D cloud implementation checkpoint — 2026-10-10
 
+## Canonical source handoff — 2026-10-10
+
+The reviewed P2-A/B/C and partial P2-D source/evidence are now selectively
+integrated into `/home/udaybhan/projects/Ghar_sajag_r1` on
+`feature/r1-commercial-baseline` (integration source checkpoint
+`1febcf027baea892b95ed3a57615a4a562ee9b82`; final validation/delivery pending).
+Continue future R1 work only in that canonical worktree. This P2-D handoff remains
+the current technical source for GS-148; the separate S3 branch and generated
+`sdkconfig`/`managed_components/` are preserved and must not be treated as the
+development destination.
+
+Status remains PARTIAL: production authentication/provisioning and
+owner/enrollment-generation-bound durable COMMITTED contract, configured trusted
+endpoint, active S3 connectivity worker and canonical 72-hour workload contract
+are missing. Live production backend E2E, canonical 72-hour cases and physical S3
+qualification are NOT_RUN. Production body/identity deletion is DISABLED. The
+current integrated core test still reports the known Node sequence assertion as
+FAIL; preserve that result without changing C3/BAT-C8 behavior to clear it.
+Resume only after the BAT-C8 priority switch ends and the required backend and
+workload contracts are supplied/approved.
+
 Authority: IMPLEMENTATION_DESIGN / TEST_EVIDENCE; no new product decision.
 START_HEAD=17c5cfded8d809535bc846fbf8108a9b8cca0e1a. Context preflight PASS at
 2026-10-09.001. Actual origin feature/r1-s3-hub-bringup matched START_HEAD.

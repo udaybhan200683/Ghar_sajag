@@ -60,7 +60,7 @@ If product semantics are missing, classify `REQUIREMENT_GAP`; do not invent them
 
 - GS-D030 selects ESP32-S3 N16R8 (16 MiB flash, 8 MiB PSRAM) for new R1 Hub development.
 - Sensor Nodes remain ESP32-C3; preserve their protocol and BAT-C8 behavior.
-- New Hub target work uses `/home/udaybhan/projects/Ghar_sajag_r1_s3` on `feature/r1-s3-hub-bringup`.
+- All new R1 target work, including ESP32-S3 Hub work, uses `/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`. Historical feature worktrees are provenance/evidence sources only; do not resume development there.
 - Preserve the classic ESP32 target and evidence as historical sources; do not resume 4 MiB capacity optimization.
 - Verify actual board flash, PSRAM and pinout before hardware bring-up; commercial partitions and capacity qualification remain open.
 
@@ -102,3 +102,13 @@ Do not create another competing master requirements document.
 ## Canonical worktree source
 
 The designated canonical R1 source is `/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`. The preflight script checks this source without modifying either worktree. If the canonical repository location or ref changes, update the script's two source constants and this paragraph; do not copy requirement text into worktree-specific configuration.
+
+## Permanent single-worktree and pause/resume policy
+
+R1 is developed sequentially in this one approved worktree and branch. Do not create another branch, worktree, clone or feature directory without explicit user approval. Keep one authoritative requirements index and `R1_WORK_STATE.md`; link topic designs and dated evidence instead of creating competing master documents.
+
+Before substantive work, verify canonical path/branch/HEAD/status and remote, read applicable agent instructions, canonical requirements, current work state, latest Jira comments and the relevant handoff, then require context preflight PASS. Never infer that a newer branch contains all approved work; inspect commit ancestry and file-level differences before integration.
+
+When work pauses, is interrupted or changes priority, update its existing canonical handoff and `R1_WORK_STATE.md`, and add a dated owning-Jira comment. Include current implementation/evidence, exact local and remote checkpoint, validation state, preserved uncommitted/untracked files, blockers, safety limits and the next exact action. Resume by reading the newest handoff and checking current source before continuing.
+
+After validation, commit and push to `feature/r1-commercial-baseline`, verify `git ls-remote` equals local HEAD, and confirm tracked cleanliness while preserving generated/untracked files. Do not perform destructive Git or hardware operations without explicit authorization. Stop on unresolved product, security, protocol or storage-format conflicts; do not invent requirements.

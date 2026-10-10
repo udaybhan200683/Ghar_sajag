@@ -5,6 +5,31 @@ procedure and preparation record only. It contains no fabricated physical
 results. Capture each eventual run in a dated subdirectory beneath this
 directory.
 
+## Canonical pause/resume checkpoint — 2026-10-10
+
+Owning issue: GS-114 under GS-110. Current canonical source is
+`/home/udaybhan/projects/Ghar_sajag_r1`, branch `feature/r1-commercial-baseline`.
+The BAT-C8 C3 software is already integrated in canonical history (battery source
+commit `808080e94b6958153952ce16eb56c1ad37a9ad01` is an ancestor). Focused host
+validation passed during source consolidation: 72 C++ checks and 9 Python power
+invariants. Qualification image build evidence is the prepared artifact below;
+no physical qualification was run during consolidation.
+
+Next exact work: resume only remaining physical P1–P10 and GS-140/B0–B4/GS-51
+matched AFTER measurement gaps after checking latest Jira and safe bench plan.
+GS-144 numeric target/workload, GS-119 residual C1–C4 plus 12-hour soak with
+end-of-soak real PIR-to-ACK, and GS-146 final C1–C8 closure remain open. Reuse
+prior evidence only when board/image/setup hashes match. Do not flash, reset,
+erase, repartition or re-enroll either protected S3 or the paired C3 with its
+historically observed seven pending events. BAT-C8 remains software/host complete
+and physically unqualified. No new changes to `GS-115` C9–C12 are authorized;
+they remain measurement/decision-only.
+
+The S3 pause is intentional: GS-148 P2-D remains partial with production
+authentication/COMMITTED ownership, active connectivity, canonical 72-hour trace
+and physical gates open. The next R1 priority is the battery qualification queue,
+not S3 or GS-147 implementation.
+
 ## Preparation record
 
 ### Qualification image

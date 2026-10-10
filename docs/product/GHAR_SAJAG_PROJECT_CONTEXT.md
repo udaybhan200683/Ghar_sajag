@@ -32,7 +32,7 @@ Preserve authenticated ownership, durable-before-ACK, lost-ACK retry safety, dup
 
 Closed physical fresh-install durability gates include ownership/enrollment, Node runtime/rejoin, first durable commit, Hub reboot recovery, ACK class 0 and retirement, duplicate ACK safety, and lost-ACK/retry/duplicate qualification with empty final Node queues. Do not repeat those gates unless a later change can invalidate them. See [R1 work state](R1_WORK_STATE.md) for the latest record.
 
-The current R1 product blocker is Hub storage/data-lifecycle architecture. A shared 128-event lifetime ceiling is unacceptable; merely increasing 128 is not a fix. Next qualify the lifecycle against the selected S3 Hub and six-Node case: active correctness journal/dedupe, materialized state, backend outbox, short history/cache, safe reclamation, offline capacity, flash wear, and OTA limits. Do not implement a guessed capacity or retention policy.
+The current R1 product blocker is Hub storage/data-lifecycle qualification. A shared 128-event lifetime ceiling is unacceptable; merely increasing 128 is not a fix. Reviewed S3 segmented-outbox, reducer checkpoint, replay-fence and host-reclamation implementation is now present on the canonical R1 branch; production backend completion, retention/capacity and physical qualification remain open. Do not infer a capacity guarantee or retention policy from host evidence.
 
 BAT-C8 is an R1-required feature with physical qualification pending (GS-D020). Qualification must prove required production sleep/wake/resume, sensing/runtime and radio restoration, safe fail-awake behavior, and event-processing regression safety. Final battery-life optimization and long-duration endurance are not blockers absent an explicit R1 battery-life claim. USB zero-touch automation is convenience tooling, not an R1 product blocker. See the index for other deferred work and qualification evidence.
 
@@ -53,7 +53,7 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 
 ## Next engineering priority — 2026-10-10
 
-Resume BAT-C8 physical qualification under GS-114, then close the battery target, B0–B4/matched AFTER measurements and C1–C8 release gate in the current Jira handoff. This is a workstream priority, not a change to GS-D030 or storage requirements. S3 GS-148 remains an open, intentionally paused R1 blocker with P2-D partial; its exact resume gates and proposed dependency queue are in [the cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md). No capacity, retention, backend contract or GS-147 policy is newly approved.
+Resume BAT-C8 physical qualification under GS-114, then close the battery target, B0–B4/matched AFTER measurements and C1–C8 release gate in the current Jira handoff. This is a workstream priority, not a change to GS-D030 or storage requirements. S3 GS-148 remains an open, intentionally paused R1 blocker with P2-D partial; its implementation is integrated into the canonical branch and its exact resume gates are in [the S3 P2-D handoff](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md) and [source integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). The audit is retained as historical triage. No capacity, retention, backend contract or GS-147 policy is newly approved.
 
 ## Storage-first and failure-aware learning priority
 
@@ -127,9 +127,11 @@ No new security hardware, ESP32-S3 or partition change is authorized.
 
 ## Current Hub platform — GS-D030, context2026-10-09.001
 
-New Hub development uses `/home/udaybhan/projects/Ghar_sajag_r1_s3` on
-`feature/r1-s3-hub-bringup`; classic 4 MiB code/history and storage-worktree work
-are preserved. Do not continue retired-target capacity optimization. Verify
+New Hub development uses the canonical R1 worktree
+`/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`.
+The S3 feature branch is retained as source provenance; classic 4 MiB code/history
+and storage-worktree experiments are preserved. Do not continue retired-target
+capacity optimization. Verify
 actual S3 flash/PSRAM/pinout and preserve existing device contents before flashing.
 Camera/AI are not included in R1. The 72-hour target, C3/BAT-C8 and all durability,
 routine/coverage and signed-FOTA/application-rollback contracts remain unchanged.
