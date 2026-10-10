@@ -1904,9 +1904,10 @@ ReclaimResult DurableEventOutbox::compact_event_bodies(
         if (planned.sizes[i] != 0)
             stats.temporary_required_bytes += ((planned.sizes[i] + 4095ULL) / 4096ULL) * 4096ULL;
     std::uint64_t total = 0, used = 0;
+    const auto reserve = std::max(safety_reserve_bytes, limits_.protected_capacity_bytes);
     if (!storage_.filesystem_usage(total, used) || used > total ||
-        safety_reserve_bytes > total - used ||
-        stats.temporary_required_bytes > total - used - safety_reserve_bytes)
+        reserve > total - used ||
+        stats.temporary_required_bytes > total - used - reserve)
         return ReclaimResult::InsufficientWorkspace;
     if (!cleanup_inactive_body_bank()) return ReclaimResult::StorageFailure;
 

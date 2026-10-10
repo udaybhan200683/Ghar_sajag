@@ -1,0 +1,7 @@
+GHAR_SAJAG_CONTEXT_PREFLIGHT=PASS
+LOCAL_CONTEXT_VERSION=2026-10-09.001
+CANONICAL_CONTEXT_VERSION=2026-10-09.001
+CANONICAL_SOURCE=/home/udaybhan/projects/Ghar_sajag_r1@feature/r1-commercial-baseline
+WORKTREE=/home/udaybhan/projects/Ghar_sajag_r1_s3
+BRANCH=feature/r1-s3-hub-bringup
+HEAD=984913a7194439d628598b5d79adbb156ed9c25d
