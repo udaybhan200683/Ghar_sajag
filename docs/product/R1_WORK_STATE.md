@@ -19,13 +19,16 @@ replay/reclamation, P2-D HTTP/HTTPS, Node recovery/retirement and commissioning
 crypto host gates pass. Firmware source is unchanged, so the existing clean
 ESP-IDF 6.0.3 C3/S3 builds and selected ASan/UBSan evidence remain applicable;
 no physical, production backend or OTA result is claimed. GitHub DNS was
-unavailable at intake; final push/remote equality is pending recheck.
+unavailable at intake; the normal push then succeeded and actual remote HEAD
+matched `dfc24d1db88fe6cd0fa7a51232a10f4152a4d5ae`.
 
 **SOFTWARE_REGRESSION_STATUS=PASS_WITH_ONE_SCOPED_SKIP.** This does not close
 S3 production backend authentication/receipt/connectivity, capacity/retention,
 physical storage/FOTA qualification, or BAT-C8 physical P1–P10. No hardware was
-touched. `READY_FOR_GS_114_PHYSICAL=CONDITIONAL`: software gates in this task
+touched. `READY_FOR_GS_114_PHYSICAL=YES`: software gates in this task
 pass, but this work does not authorize or start physical qualification.
+Jira comments for this closure were added to GS-110/10327, GS-114/10328,
+GS-131/10329 and GS-148/10330; no status or rank changed.
 
 ## One-time source consolidation — snapshot at initial closeout, 2026-10-10
 
@@ -35,7 +38,7 @@ At initial consolidation closeout (the aggregate results are superseded by the r
 
 **Active next product work remains BAT-C8 physical qualification** (GS-114), plus GS-144 target, GS-140/B0–B4 and matched AFTER measurements, GS-119 residual cases/12-hour soak, and GS-146 closure. No hardware action was taken. GS-115 C9–C12 remains conditional and measurement/decision-only; current boundaries are in [battery power management](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md). GS-147 remains a proposed sleep-first/offline-journal design only, not implementation approval; retain its Hub-off target, retirement/ACK interoperability and capacity requirements as unresolved until the issue contract is approved (audit findings: [C3/GS-147 section](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md)). S3 GS-148 and parent GS-131 remain intentionally OnHold as a workstream; P2-D remains partial, production deletion disabled, and P2-E/F/Phase 3 gates open. The pre-integration cross-worktree audit is historical for source-absence claims; this manifest and checkpoint supersede those claims.
 
-Cross-component follow-up remains open: production backend authentication/COMMITTED ownership and live Hub-to-backend-to-PWA flows (GS-117/121) are not proven; S3 storage/FOTA interruption and rollback compatibility (GS-118) remains unqualified. Current local PWA bridge/API/frontend tests also have failing activity/door assertions; see the integration manifest. The P2-D handoff documents missing production contracts and the supported host fixture without representing it as live deployment evidence.
+Cross-component follow-up remains open: production backend authentication/COMMITTED ownership and live Hub-to-backend-to-PWA flows (GS-117/121) are not proven; S3 storage/FOTA interruption and rollback compatibility (GS-118) remains unqualified. The activity/door assertion failures recorded at the initial integration snapshot are closed as a host fixture defect in the updated integration manifest. The P2-D handoff documents missing production contracts and the supported host fixture without representing it as live deployment evidence.
 
 Untracked user files remain at their original worktrees: battery HIL scripts; S3 `sdkconfig` and `managed_components/`; storage `prompt.txt`; and Phase 2 generated build directories. No code from the unpublished 11-commit classic-storage range was merged.
 

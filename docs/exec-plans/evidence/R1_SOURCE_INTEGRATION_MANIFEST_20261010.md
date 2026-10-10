@@ -153,3 +153,17 @@ unchanged. BAT-C8 physical qualification is separately gated by its existing
 approved plan. Overall source consolidation remains partial for the unrelated
 open production backend, 72-hour workload/capacity, S3 physical durability/FOTA
 and physical battery gates.
+
+### Regression-closure delivery and Jira sync
+
+Validated regression changes were committed as
+`dfc24d1db88fe6cd0fa7a51232a10f4152a4d5ae` (`Close integrated host regression
+failures`) and pushed normally to
+`origin/feature/r1-commercial-baseline`. The actual remote ref was read back as
+the same hash. `git status --porcelain` showed only the pre-existing untracked
+S3 `managed_components/` directory; tracked files are clean. No generated file,
+secret, hardware artifact or unrelated modification was staged.
+
+Dated Jira comments were added without changing issue rank/status: GS-110/10327,
+GS-114/10328, GS-131/10329 and GS-148/10330. GS-114 records software readiness
+for its separately planned physical qualification; no physical test was started.
