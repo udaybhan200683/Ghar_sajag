@@ -1,5 +1,7 @@
 # R1 Hub storage and data lifecycle — architecture ExecPlan
 
+**Current status — 2026-10-10:** This S3/storage execution plan is ON HOLD by intentional priority switch, not cancelled or complete. Resume only after explicit reprioritization and GS-148 contract/workload blockers. BAT-C8 physical qualification is next; production deletion remains disabled. Historical plan/evidence below retain original scope/date. See [cross-worktree audit](../evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md).
+
 Date: 2026-10-07. Source: `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b`, branch `feature/r1-hub-storage-lifecycle`.
 Context preflight: **PASS**, local/canonical context `2026-10-07.001`.
 Status: **PROPOSED; production integration STOP; isolated policy-neutral host primitives implemented**.

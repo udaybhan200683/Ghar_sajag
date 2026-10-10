@@ -51,9 +51,9 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 - The decision that 128 events is not an acceptable lifetime and cannot be fixed by increasing the constant alone.
 - USB automation as a product requirement, development-era migration as an R1 requirement, or completed historical evidence.
 
-## Next engineering priority
+## Next engineering priority — 2026-10-10
 
-Close the storage/data-lifecycle proof gates and its explicit product decisions before production implementation. The 72-hour internet-only outage design target is locked; exact retention, supported volumes, critical saturation and backend summary protocol remain open; derive a bounded design and byte/wear/OTA budget from actual hardware and six-Node behavior. Then host-test the design, build/measure the Hub target, and qualify only the changes that can invalidate existing physical gates.
+Resume BAT-C8 physical qualification under GS-114, then close the battery target, B0–B4/matched AFTER measurements and C1–C8 release gate in the current Jira handoff. This is a workstream priority, not a change to GS-D030 or storage requirements. S3 GS-148 remains an open, intentionally paused R1 blocker with P2-D partial; its exact resume gates and proposed dependency queue are in [the cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md). No capacity, retention, backend contract or GS-147 policy is newly approved.
 
 ## Storage-first and failure-aware learning priority
 

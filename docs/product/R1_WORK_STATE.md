@@ -1,6 +1,12 @@
 # R1 Current Work State
 
-**Updated:** 2026-10-09
+## Cross-worktree audit handoff — 2026-10-10
+
+The active priority is BAT-C8 physical qualification (GS-114), with GS-144 target, GS-140/B0–B4 and matched AFTER power measurements, GS-119 remaining physical evidence/12-hour soak, and GS-146 C1–C8 closure. Reuse valid battery-branch physical PIR/GPIO4/ACK evidence only when image and setup provenance match. BAT-C8 software/host/build are complete; physical gate remains open. GS-115 stays conditional and To Do.
+
+S3 GS-148/GS-131 are intentionally paused, not cancelled or complete. S3 branch `feature/r1-s3-hub-bringup` is pushed at `5b8b1485f80b5989db0fbbd77588c91986fc6ca9`; P2-D is partial and production auth/receipt/connectivity/workload acceptance remains open. GS-148 is still In Progress in Jira while its description/comments document the pause; no workflow transition is made here. Production destructive reclamation remains disabled. See [cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md). This audit makes no product decision, does not change context version, and proposes a queue for user review only.
+
+**Updated:** 2026-10-10
 
 ## Authoritative work line
 - Worktree: `/home/udaybhan/projects/Ghar_sajag_r1`
@@ -149,7 +155,7 @@ line-ending normalization. Only the missing fast one-day size comparison
 was completed with the unchanged codec.
 
 [ExecPlan sections22.10/22.11](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md)
-and [density evidence](../exec-plans/evidence/R1_STORAGE_ENCODING_DENSITY_20261007.md)
+and [density evidence](https://github.com/udaybhan200683/Ghar_sajag/blob/2b3c6730f8c490ba88a13ba2c23d6674c4c30fa8/docs/exec-plans/evidence/R1_STORAGE_ENCODING_DENSITY_20261007.md)
 supersede earlier density recommendations for current planning while
 preserving historical/numeric-only comparisons. Full self-contained identity
 and config context costs728 B sample /1370 B maximum per independently

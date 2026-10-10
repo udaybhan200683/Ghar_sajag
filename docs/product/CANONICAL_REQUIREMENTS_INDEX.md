@@ -401,3 +401,9 @@ New target work uses the isolated S3 worktree. No storage prototype/evidence is
 promoted to canonical. GS-D020/025/026/027/028 sensor semantics and GS-D029 security
 and application rollback remain in force. Commercial partition/volume policy,
 sustainable reclamation and S3 physical/end-to-end qualification remain open.
+
+## Cross-worktree audit checkpoint — 2026-10-10
+
+| Document | Authority / use | Scope boundary |
+|---|---|---|
+| `docs/exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md` | Dated proposed cross-worktree source/code/Jira audit and dependency queue | Evidence and recommendations awaiting user review; not a new requirement, Jira rank, workflow transition, branch merge, or implementation authorization |

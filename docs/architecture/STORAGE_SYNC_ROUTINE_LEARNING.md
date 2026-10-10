@@ -1,5 +1,7 @@
 # Hub Storage, Cloud Sync, PWA Freshness, and Routine-Learning Contract
 
+**Current execution status — 2026-10-10:** S3 storage work under GS-148 is intentionally paused after partial P2-D; BAT-C8 physical qualification is the active priority. This is an execution handoff, not a change to locked near-real-time sync, offline safety, retention-open or deletion-disabled requirements. See [R1 work state](../product/R1_WORK_STATE.md) and the [cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md).
+
 ## Architectural intent
 
 The Hub is not the long-term caregiver database.
@@ -165,7 +167,7 @@ GS-D022/023 require bounded current-day and daily routine state, coverage/confid
 **LOCKED:** Before increasing Hub storage allocation, storage design shall eliminate redundant persistent information and evaluate compact binary representation, shared bounded context, delta/change encoding, dictionary/reference encoding and safe semantic aggregation. Common context should be stored once where safe rather than repeated per record. Context-dependent formats must use bounded independently recoverable restart points. Storage optimization shall not weaken correctness, security, crash recovery, scalability, retrieval, routine learning or caregiver behavior.
 
 The [storage ExecPlan](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md)
-section22.10/22.11 and [density evidence](../exec-plans/evidence/R1_STORAGE_ENCODING_DENSITY_20261007.md)
+section22.10/22.11 and [density evidence](https://github.com/udaybhan200683/Ghar_sajag/blob/2b3c6730f8c490ba88a13ba2c23d6674c4c30fa8/docs/exec-plans/evidence/R1_STORAGE_ENCODING_DENSITY_20261007.md)
 separate numeric host results from proposed complete source/security formats.
 128 KiB remains CONDITIONAL. The72-hour NORMAL comparison with full name/config
 context and timing variation has zero spare for sample names and a4096-byte
