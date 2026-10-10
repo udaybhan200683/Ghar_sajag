@@ -606,3 +606,31 @@ focused ASan/UBSan, and an ESP-IDF 6.0.3 S3 build pass. Physical LittleFS
 allocation and power-cut qualification have not been run; host block counts do
 not represent flash-chip measurements. No event bodies were deleted and no
 physical bytes are claimed reclaimed.
+
+### P2-C mixed event-body compaction — 2026-10-10 implementation checkpoint
+
+Mixed-segment reclamation now streams individual bodies through the existing
+exact backend completion, checkpoint, owner and Node retirement predicates.
+Retained ciphertext is packed into an isolated alternate bank with original
+ordinals and immutable event bytes. A v4 authenticated lifecycle root selects
+and fingerprints the complete retained prefix and remaps completion bits by
+retained record position, bounding metadata even with an old pending event.
+Source dispositions, publication heads and retirement authority are rechecked
+before publication. Recovery verifies the selected bank before receipt reset or
+obsolete-bank cleanup; incomplete candidates never become authoritative.
+
+The S3 storage owner calls this production path with retention authorization
+still false. Both body-compaction requests and recovery cleanup obey the
+body-retirement enable gate. Firmware deletion remains disabled. Identity
+eligibility uses absence plus authenticated sparse-body retirement authority;
+retained pending bodies do not gain completion from a higher ordinal. Startup
+binds the selected replay fence before identity/reducer replay, as required for
+an already compacted identity generation.
+
+Initial host tests pass 84 publication/cleanup cuts, 32 mixed reuse windows
+(3,232 admissions with one permanently pending event), and 12 six-Node runtime
+windows (1,440 admissions, 31 pending bodies per window). Existing HIGH 3,278,
+6,556 cumulative completion and 12,000 identity regressions pass. Final empty-
+bank/admission cuts, sanitizers, final S3 build and evidence closeout are in
+progress at this implementation checkpoint. This is implementation status,
+not retention approval or physical qualification; context stays 2026-10-09.001.

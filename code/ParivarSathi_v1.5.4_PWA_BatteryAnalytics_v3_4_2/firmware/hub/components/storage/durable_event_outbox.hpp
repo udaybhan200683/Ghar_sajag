@@ -3,6 +3,8 @@
 #include "firmware/common/security/commissioning_crypto.hpp"
 #include "storage/durable_transition.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -62,6 +64,11 @@ public:
     virtual bool read_lifecycle_root(security::Bytes& marker, bool& found) = 0;
     virtual bool publish_lifecycle_root(const security::Bytes& marker) = 0;
     virtual bool remove_segment(std::uint16_t segment) = 0;
+    // Real filesystem occupancy, including identities, checkpoints and metadata.
+    // Unsupported adapters safely refuse compaction.
+    virtual bool filesystem_usage(std::uint64_t& total, std::uint64_t& used) {
+        total = used = 0; return false;
+    }
     // Backend completion is a second append-only stream in the same filesystem.
     // Its own authenticated head makes a torn receipt invisible until published.
     virtual bool completion_size(bool& exists, std::uint32_t& bytes) = 0;
@@ -85,12 +92,14 @@ struct RetirementAuthorization {
                          const std::string& canonical_event_key,
                          const security::Bytes& payload){nullptr};
     void* context{nullptr};
+    bool (*authority_current)(void* context){nullptr};
 };
 
 enum class ReclaimResult : std::uint8_t {
     Reclaimed,
     DisabledByRetentionGate,
     NoRecords,
+    InsufficientWorkspace,
     PendingBackendCompletion,
     CheckpointBehind,
     MissingNodeRetirementProof,
@@ -98,6 +107,14 @@ enum class ReclaimResult : std::uint8_t {
     StorageFailure,
     IntegrityFailure,
     RestartRequired,
+};
+
+struct BodyCompactionStats {
+    std::uint64_t original_body_bytes{0};
+    std::uint64_t retained_body_bytes{0};
+    std::uint64_t retained_records{0};
+    std::uint64_t retired_records{0};
+    std::uint64_t temporary_required_bytes{0};
 };
 
 struct OutboxLimits {
@@ -164,6 +181,14 @@ public:
     // Replaces receipts with an authenticated exact completion bitmap bound to
     // retained event bodies. Does not authorize body or identity deletion.
     ReclaimResult reclaim_completion_metadata(const RetirementAuthorization& authorization);
+    // Single writer operation: admission, receipts and fence publication are
+    // serialized with this call. Reentrant mutation is refused during copying.
+    ReclaimResult compact_event_bodies(const RetirementAuthorization& authorization,
+                                      BodyCompactionStats& stats,
+                                      std::uint32_t safety_reserve_bytes = 64U * 1024U);
+    std::uint64_t body_retirement_boundary() const {
+        return std::max(retired_through_, body_boundary_);
+    }
     ReclaimResult reclaim_completed_history(const RetirementAuthorization& authorization);
     std::uint64_t retired_through() const { return retired_through_; }
     std::size_t backend_completed_count() const { return completed_count_; }
@@ -185,6 +210,22 @@ public:
 
 private:
     struct IndexEntry;
+    static constexpr std::size_t kMaximumBodySegments = 32;
+    std::uint16_t physical_segment(std::uint16_t logical) const {
+        return static_cast<std::uint16_t>(body_bank_ * limits_.segment_count + logical);
+    }
+    bool fold_body_binding(security::Key32& binding, std::uint16_t logical,
+                           std::uint32_t offset, const security::Bytes& frame);
+    bool cleanup_inactive_body_bank();
+    bool body_manifest_{false};
+    bool compacting_{false};
+    std::uint8_t body_bank_{0};
+    std::uint64_t body_boundary_{0};
+    std::uint64_t body_records_{0};
+    security::Key32 body_binding_{};
+    std::array<std::uint32_t, kMaximumBodySegments> body_sizes_{};
+    std::uint64_t snapshot_records_{0};
+    std::uint64_t completion_generation_{0};
 
     bool derive_keys(const security::Key32& master_storage_key);
     bool reserve_index(std::size_t required);

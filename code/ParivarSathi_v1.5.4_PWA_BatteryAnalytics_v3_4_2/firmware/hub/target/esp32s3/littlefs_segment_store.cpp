@@ -198,6 +198,10 @@ bool LittleFsSegmentStore::remove_segment(std::uint16_t segment) {
     return errno == ENOENT;
 }
 
+bool LittleFsSegmentStore::filesystem_usage(std::uint64_t& total, std::uint64_t& used) {
+    return state_capacity(total, used);
+}
+
 bool LittleFsSegmentStore::completion_size(bool& exists, std::uint32_t& bytes) {
     exists = false;
     bytes = 0;

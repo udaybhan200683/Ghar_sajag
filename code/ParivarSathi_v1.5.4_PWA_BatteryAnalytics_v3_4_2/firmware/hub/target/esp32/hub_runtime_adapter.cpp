@@ -58,7 +58,17 @@ constexpr std::uint32_t kSecureOwnerStackBytes = 81920;
 struct OutboxNodeRetirementContext {
     HubSecurityLink* security_link{nullptr};
     const durable::RetirementSnapshot* snapshot{nullptr};
+    HubRuntime* runtime{nullptr};
+    storage::DurableEventOutbox* outbox{nullptr};
+    std::uint32_t epoch{0};
+    durable::ReportSnapshotReference reference{};
 };
+
+bool outbox_retirement_authority_current(void* opaque) {
+    const auto& context = *static_cast<OutboxNodeRetirementContext*>(opaque);
+    return context.runtime && context.outbox && context.runtime->durable_admission_open() &&
+        context.outbox->replay_fence_matches(context.epoch, context.reference);
+}
 
 bool outbox_event_retired_by_node_report(void* opaque, std::uint64_t,
         const std::string& canonical_key, const security::Bytes& payload) {
@@ -70,6 +80,10 @@ bool outbox_event_retired_by_node_report(void* opaque, std::uint64_t,
     transport::RetirementEnrollmentBinding binding;
     if (!context.security_link->resolve_enrollment_binding(event.key.physical_device_id,
             event.key.source_id, binding)) return false;
+    if (context.runtime == nullptr ||
+        context.runtime->identity_retirement_eligibility(event, binding.slot,
+            binding.generation, binding.digest) !=
+                IdentityRetirementEligibility::EligibleWithDurableReplayFence) return false;
     return durable::retirement_proves_node_durable_retirement(
         *context.snapshot, binding.slot, binding.generation,
         event.key.session_id, event.key.sequence);
@@ -636,7 +650,7 @@ void secure_owner_task(void*) {
 #else
     const bool journal_attached = runtime.journal().persistent();
 #endif
-    if (!journal_attached || !runtime.restore_from_journal()) {
+    if (!journal_attached) {
         ESP_LOGE(kTag, "Hub durable event store unavailable; refusing event admission");
         vTaskDelete(nullptr);
         return;
@@ -669,6 +683,13 @@ void secure_owner_task(void*) {
         }
     }
 #endif
+    // Compacted identity generations require the recovered owner fence during
+    // replay. Bind it before restoring; admission remains closed on any failure.
+    if (!runtime.restore_from_journal()) {
+        ESP_LOGE(kTag, "Hub durable event replay unavailable; refusing event admission");
+        vTaskDelete(nullptr);
+        return;
+    }
 #if GS_HIL_CONTROL
     ESP_LOGI(kTag, "HIL_JOURNAL_RECOVERED records=%u", static_cast<unsigned>(runtime.journal().size()));
 #endif
@@ -1048,9 +1069,11 @@ void secure_owner_task(void*) {
                 // disabled until that policy is implemented and qualified.
                 authorization.post_sync_retention_satisfied = false;
                 OutboxNodeRetirementContext retirement_context{
-                    &security_link, &selected_snapshot};
+                    &security_link, &selected_snapshot, &runtime, &durable_outbox, *epoch,
+                    *selected_state.checkpoint.report_snapshot};
                 authorization.node_retired = outbox_event_retired_by_node_report;
                 authorization.context = &retirement_context;
+                authorization.authority_current = outbox_retirement_authority_current;
                 // Reuse the selected Node proof and reducer checkpoint only when
                 // the receipt stream cannot fit its maximum next receipt. Bodies
                 // and exact identity evidence remain retained in production.
@@ -1059,7 +1082,8 @@ void secure_owner_task(void*) {
                     if (metadata_reclaim == storage::ReclaimResult::Reclaimed)
                         ESP_LOGI(kTag, "Reclaimed completion metadata with exact replay snapshot");
                 }
-                const auto reclaim = durable_outbox.reclaim_completed_history(authorization);
+                storage::BodyCompactionStats compaction_stats;
+                const auto reclaim = durable_outbox.compact_event_bodies(authorization, compaction_stats);
                 if (reclaim == storage::ReclaimResult::Reclaimed)
                     ESP_LOGI(kTag, "Retired synchronized outbox generation=%llu through=%llu",
                         static_cast<unsigned long long>(

@@ -232,7 +232,8 @@ IdentityRetirementEligibility HubRuntime::identity_record_retirement_eligibility
         !parse_identity_event_key(record.event_key, key) || key.source_id.empty() ||
         key.session_id == 0 || key.sequence == 0 ||
         (!journal_.cloud_completed(key) &&
-         record.original_ordinal > journal_.backend_completion_retired_through()) ||
+         (journal_.contains(key) ||
+          record.original_ordinal > journal_.absent_body_retirement_boundary())) ||
         replay_snapshot_.nodes[record.owner.enrollment_slot].enrollment_generation !=
             record.owner.enrollment_generation ||
         replay_snapshot_.nodes[record.owner.enrollment_slot].binding_digest !=

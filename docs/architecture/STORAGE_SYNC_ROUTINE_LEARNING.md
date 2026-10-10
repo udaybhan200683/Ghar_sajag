@@ -393,3 +393,21 @@ event bodies remain retained, production deletion is disabled, and physical
 power-cut qualification remains open. Host test results, including 975,737
 identity bytes at 6,556 events, are implementation evidence rather than a
 capacity guarantee. See the protocol note for publication and crash recovery.
+
+### P2-C mixed-body implementation boundary — 2026-10-10
+
+The S3 implementation now provides streaming mixed-body compaction and an
+HMAC-authenticated alternate-bank manifest in lifecycle root v4. Retained
+bodies keep their original encrypted frames, ordinals and event time; a dense
+completion bitmap follows retained records, rather than lifetime ordinal span.
+A retained pending body never acquires completion from the sparse retirement
+boundary. Source/eligibility and publication heads are rechecked before cutover;
+selected-bank validation precedes receipt reuse and obsolete-bank cleanup.
+The production writer remains serialized and body deletion stays disabled in
+both compaction and recovery. Actual filesystem occupancy, rounded replacement
+files, root workspace and an explicit reserve gate staging. Insufficient room
+refuses compaction without changing authoritative history. A mostly pending,
+near-full partition can therefore lack compaction workspace; there is no new
+capacity guarantee. Retention approval, physical LittleFS power-cut/wear,
+S3 RAM/PSRAM measurement, signed application rollback and production cloud
+transport remain separate qualification/integration gates.

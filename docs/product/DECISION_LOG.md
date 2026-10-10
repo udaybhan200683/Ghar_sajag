@@ -431,3 +431,20 @@ ASan/UBSan and a clean isolated ESP-IDF 6.0.3 S3 build pass. Identity rows and
 event bodies remain undeleted; production deletion is disabled. P2-A3 identity
 compaction, production cloud transport, retention policy and physical S3
 qualification remain open. Existing decisions and context version are unchanged.
+
+### P2-C mixed-body implementation checkpoint — 2026-10-10 (no new decision)
+
+The S3 outbox now has bounded alternate-bank body compaction with authenticated
+sparse manifests, stable original ordinals, retained-position completion bits,
+source/proof revalidation and verified publication before cleanup. Host reuse
+and runtime tests are being closed out; destructive firmware reclamation remains
+disabled. GS-D013/017 retention and capacity decisions remain OPEN, and
+GS-D021/023/024/029/030 and CONTEXT_VERSION are unchanged.
+
+Integration triage: BUG_CLASSIFICATION=R1_FIX;
+REQUIREMENT_SOURCE=docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md;
+DECISION_IDS=GS-D023,GS-D029; TASK_SCOPE=authorized P2-C runtime/recovery integration;
+OUT_OF_SCOPE=cloud transport, retention decisions, C3/BAT-C8 and physical work.
+S3 startup must bind the authenticated owner replay fence before restoring an
+already compacted identity generation. This corrects the startup order under
+the existing fail-closed recovery contract and adds no new product semantics.

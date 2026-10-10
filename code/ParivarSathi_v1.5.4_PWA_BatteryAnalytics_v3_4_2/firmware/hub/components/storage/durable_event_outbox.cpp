@@ -34,6 +34,7 @@ constexpr std::size_t kSnapshotHeaderBytes = kLifecycleBodyBytes + 40;
 constexpr std::size_t kReplayFenceBodyBytes = 120;
 constexpr std::size_t kReplayFenceSnapshotHeaderBytes = kReplayFenceBodyBytes + 40;
 constexpr std::size_t kLifecycleMaximumBytes = 8192;
+constexpr std::size_t kBodyHeaderBytes = 240;
 constexpr std::size_t kIndexBlockEntries = 256;
 constexpr char kKeyContext[] = "GharSajag/HubOutbox/EventEncryption/v1";
 constexpr char kIdentityContext[] = "GharSajag/HubOutbox/EventIdentity/v1";
@@ -120,7 +121,7 @@ struct DurableEventOutbox::IndexEntry {
     std::uint32_t frame_bytes{0};
     std::uint16_t segment{0};
     bool completed{false};
-    std::uint8_t reserved{0};
+    bool snapshot_completed{false};
 };
 
 bool StorageCapacityPolicy::permits(AdmissionClass admission_class,
@@ -476,14 +477,14 @@ bool DurableEventOutbox::decode_completion(std::uint32_t offset,
 bool DurableEventOutbox::encode_completion_publication(std::uint64_t ordinal,
         const std::uint8_t frame_digest[32], security::Bytes& marker) {
     if (!key_valid_ || frame_digest == nullptr) return false;
-    const bool snapshot = !completion_snapshot_.empty();
+    const bool snapshot = body_manifest_ || !completion_snapshot_.empty();
     const auto body_bytes = kPublicationBodyBytes + (snapshot ? 8 : 0);
     marker.assign(body_bytes + 32, 0);
     std::copy_n(kCompletionPublicationMagic, 4, marker.begin());
     marker[4] = snapshot ? 2 : kFormatVersion;
     put_u64(marker.data() + 8, ordinal);
     std::copy_n(frame_digest, 32, marker.begin() + 16);
-    if (snapshot) put_u64(marker.data() + 48, lifecycle_generation_);
+    if (snapshot) put_u64(marker.data() + 48, body_manifest_ ? completion_generation_ : lifecycle_generation_);
     security::Bytes authenticated(marker.begin(), marker.begin() + body_bytes);
     security::Key32 mac{};
     const bool okay = crypto_.hmac_sha256(completion_publication_key_, authenticated, mac);
@@ -502,7 +503,7 @@ bool DurableEventOutbox::decode_completion_publication(const security::Bytes& ma
         !std::equal(std::begin(kCompletionPublicationMagic),
                     std::end(kCompletionPublicationMagic), marker.begin()) ||
         (!snapshot && marker[4] != kFormatVersion) || marker[5] != 0 || marker[6] != 0 || marker[7] != 0 ||
-        snapshot != !completion_snapshot_.empty()) return false;
+        snapshot != (body_manifest_ || !completion_snapshot_.empty())) return false;
     security::Bytes authenticated(marker.begin(), marker.begin() + body_bytes);
     security::Key32 expected{};
     const bool okay = crypto_.hmac_sha256(completion_publication_key_, authenticated, expected);
@@ -516,7 +517,8 @@ bool DurableEventOutbox::decode_completion_publication(const security::Bytes& ma
         const auto generation = get_u64(marker.data() + 48);
         // The empty head is published in the pending generation; the finalized
         // root advances once. Later receipt heads bind the finalized generation.
-        if (generation == 0 || (generation != lifecycle_generation_ &&
+        if (body_manifest_ && generation != completion_generation_) return false;
+        if (generation == 0 || (!body_manifest_ && generation != lifecycle_generation_ &&
             !(ordinal == 0 && generation < lifecycle_generation_ &&
               lifecycle_generation_ - generation == 1))) return false;
     }
@@ -532,21 +534,21 @@ bool DurableEventOutbox::encode_lifecycle_root(
         const security::Key32& report_digest, std::uint64_t publication_ordinal,
         const std::uint8_t publication_digest[32], bool reset_pending,
         security::Bytes& marker) {
-    const bool snapshot = !reset_pending && !completion_snapshot_.empty();
+    const bool snapshot = !reset_pending && (body_manifest_ || !completion_snapshot_.empty());
     const bool replay_fence = replay_fence_epoch_ != 0;
     if (!key_valid_ || generation == 0 || (!snapshot && retired_through == 0 && !replay_fence) ||
         checkpoint_boundary < retired_through || report_generation == 0 ||
         publication_ordinal < retired_through || publication_digest == nullptr ||
         std::all_of(report_digest.begin(), report_digest.end(),
                     [](std::uint8_t b) { return b == 0; })) return false;
-    const auto header_bytes = replay_fence
+    const auto header_bytes = body_manifest_ ? kBodyHeaderBytes + limits_.segment_count * 4U : replay_fence
         ? (snapshot ? kReplayFenceSnapshotHeaderBytes : kReplayFenceBodyBytes)
         : (snapshot ? kSnapshotHeaderBytes : kLifecycleBodyBytes);
     const auto body_bytes = snapshot ? header_bytes + completion_snapshot_.size() : header_bytes;
     if (body_bytes + 32 > kLifecycleMaximumBytes) return false;
     marker.assign(body_bytes + 32, 0);
     std::copy_n(kLifecycleMagic, 4, marker.begin());
-    marker[4] = replay_fence ? 3 : (snapshot ? 2 : kFormatVersion);
+    marker[4] = body_manifest_ ? 4 : replay_fence ? 3 : (snapshot ? 2 : kFormatVersion);
     marker[5] = reset_pending ? 1 : 0;
     marker[6] = snapshot && completion_reset_pending_ ? 1 : 0;
     put_u64(marker.data() + 8, generation);
@@ -556,20 +558,32 @@ bool DurableEventOutbox::encode_lifecycle_root(
     std::copy(report_digest.begin(), report_digest.end(), marker.begin() + 40);
     put_u64(marker.data() + 72, publication_ordinal);
     std::copy_n(publication_digest, 32, marker.begin() + 80);
-    if (replay_fence) {
+    if (replay_fence || body_manifest_) {
         put_u32(marker.data() + 112, replay_fence_epoch_);
         marker[116] = replay_fence_bank_;
     }
     if (snapshot) {
-        const auto snapshot_offset = replay_fence ? kReplayFenceSnapshotHeaderBytes
+        const auto snapshot_offset = body_manifest_ ? kBodyHeaderBytes + limits_.segment_count * 4U : replay_fence ? kReplayFenceSnapshotHeaderBytes
                                                    : kSnapshotHeaderBytes;
-        const auto binding_offset = replay_fence ? 128U : 120U;
-        const auto boundary_offset = replay_fence ? 120U : 112U;
+        const auto binding_offset = (replay_fence || body_manifest_) ? 128U : 120U;
+        const auto boundary_offset = (replay_fence || body_manifest_) ? 120U : 112U;
         put_u64(marker.data() + boundary_offset, completion_snapshot_boundary_);
         std::copy(completion_snapshot_binding_.begin(), completion_snapshot_binding_.end(),
                   marker.begin() + binding_offset);
         std::copy(completion_snapshot_.begin(), completion_snapshot_.end(),
                   marker.begin() + snapshot_offset);
+    }
+    if (body_manifest_) {
+        marker[160] = body_bank_;
+        put_u32(marker.data() + 164, limits_.segment_count);
+        put_u64(marker.data() + 168, body_boundary_);
+        put_u64(marker.data() + 176, body_records_);
+        std::copy(body_binding_.begin(), body_binding_.end(), marker.begin() + 184);
+        put_u64(marker.data() + 216, snapshot_records_);
+        put_u32(marker.data() + 224, limits_.segment_bytes);
+        put_u64(marker.data() + 228, completion_generation_);
+        for (std::size_t i = 0; i < limits_.segment_count; ++i)
+            put_u32(marker.data() + kBodyHeaderBytes + i * 4, body_sizes_[i]);
     }
     security::Bytes authenticated(marker.begin(), marker.begin() + body_bytes);
     security::Key32 mac{};
@@ -591,12 +605,17 @@ bool DurableEventOutbox::decode_lifecycle_root(
         std::uint64_t& report_generation, security::Key32& report_digest,
         std::uint64_t& publication_ordinal, std::uint8_t publication_digest[32],
         bool& reset_pending) {
-    const bool replay_fence = marker.size() >= kReplayFenceBodyBytes + 32 && marker[4] == 3;
-    const bool snapshot = (marker.size() >= kSnapshotHeaderBytes + 33 && marker[4] == 2) ||
+    if (marker.size() < kLifecycleBytes || marker.size() > kLifecycleMaximumBytes)
+        return false;
+    const bool body = marker[4] == 4;
+    const auto body_header = kBodyHeaderBytes + limits_.segment_count * 4U;
+    if (body && (limits_.segment_count > kMaximumBodySegments ||
+                 marker.size() < body_header + 32)) return false;
+    const bool replay_fence = body || (marker.size() >= kReplayFenceBodyBytes + 32 && marker[4] == 3);
+    const bool snapshot = body || (marker.size() >= kSnapshotHeaderBytes + 33 && marker[4] == 2) ||
         (replay_fence && marker.size() >= kReplayFenceSnapshotHeaderBytes + 33);
-    const auto body_bytes = marker.size() >= 32 ? marker.size() - 32 : 0;
+    const auto body_bytes = marker.size() - 32;
     if (!key_valid_ || publication_digest == nullptr ||
-        marker.size() > kLifecycleMaximumBytes ||
         (!snapshot && !replay_fence && marker.size() != kLifecycleBytes) ||
         (replay_fence && !snapshot && marker.size() != kReplayFenceBodyBytes + 32) ||
         !std::equal(std::begin(kLifecycleMagic), std::end(kLifecycleMagic), marker.begin()) ||
@@ -621,30 +640,51 @@ bool DurableEventOutbox::decode_lifecycle_root(
     reset_pending = marker[5] == 1;
     replay_fence_epoch_ = replay_fence ? get_u32(marker.data() + 112) : 0;
     replay_fence_bank_ = replay_fence ? marker[116] : 0xff;
-    if (replay_fence && (replay_fence_epoch_ == 0 || replay_fence_bank_ >= 3 ||
+    if (replay_fence && ((!body && replay_fence_epoch_ == 0) ||
+        (replay_fence_epoch_ != 0 && replay_fence_bank_ >= 3) ||
         marker[117] != 0 || marker[118] != 0 || marker[119] != 0)) return false;
+    body_manifest_ = body;
+    if (body) {
+        body_bank_ = marker[160];
+        body_boundary_ = get_u64(marker.data() + 168);
+        body_records_ = get_u64(marker.data() + 176);
+        std::copy_n(marker.begin() + 184, 32, body_binding_.begin());
+        snapshot_records_ = get_u64(marker.data() + 216);
+        completion_generation_ = get_u64(marker.data() + 228);
+        if (body_bank_ > 1 || get_u32(marker.data() + 164) != limits_.segment_count ||
+            get_u32(marker.data() + 224) != limits_.segment_bytes ||
+            body_boundary_ == 0 || body_boundary_ > checkpoint_boundary ||
+            body_boundary_ > publication_ordinal || marker[161] || marker[162] || marker[163] ||
+            get_u32(marker.data() + 236) != 0 || completion_generation_ == 0 ||
+            completion_generation_ > generation) return false;
+        bool gap = false;
+        for (std::size_t i = 0; i < limits_.segment_count; ++i) {
+            body_sizes_[i] = get_u32(marker.data() + kBodyHeaderBytes + i * 4);
+            if (body_sizes_[i] > limits_.segment_bytes || (gap && body_sizes_[i] != 0)) return false;
+            gap = gap || body_sizes_[i] == 0;
+        }
+    }
     completion_snapshot_.clear();
     completion_snapshot_boundary_ = 0;
     completion_reset_pending_ = false;
     if (snapshot) {
-        const auto snapshot_offset = replay_fence ? kReplayFenceSnapshotHeaderBytes
-                                                   : kSnapshotHeaderBytes;
+        const auto snapshot_offset = body ? body_header : replay_fence
+            ? kReplayFenceSnapshotHeaderBytes : kSnapshotHeaderBytes;
         const auto binding_offset = replay_fence ? 128U : 120U;
         const auto boundary_offset = replay_fence ? 120U : 112U;
         completion_snapshot_boundary_ = get_u64(marker.data() + boundary_offset);
-        if (completion_snapshot_boundary_ <= retired_through ||
+        if ((!body && completion_snapshot_boundary_ <= retired_through) ||
             completion_snapshot_boundary_ != publication_ordinal ||
             checkpoint_boundary < completion_snapshot_boundary_) return false;
-        const auto bits = completion_snapshot_boundary_ - retired_through;
+        const auto bits = body ? snapshot_records_ : completion_snapshot_boundary_ - retired_through;
         const auto bytes = bits / 8 + (bits % 8 != 0);
-        if (bytes != body_bytes - snapshot_offset) return false;
-        completion_snapshot_.assign(marker.begin() + snapshot_offset,
-                                    marker.begin() + body_bytes);
-        if (bits % 8 != 0 &&
-            (completion_snapshot_.back() >> (bits % 8)) != 0) return false;
+        if (snapshot_offset > body_bytes || bytes != body_bytes - snapshot_offset) return false;
+        completion_snapshot_.assign(marker.begin() + snapshot_offset, marker.begin() + body_bytes);
+        if (bits % 8 != 0 && (completion_snapshot_.back() >> (bits % 8)) != 0) return false;
         std::copy_n(marker.begin() + binding_offset, 32, completion_snapshot_binding_.begin());
         completion_reset_pending_ = marker[6] == 1;
     }
+
     return generation != 0 && (snapshot || retired_through != 0 || replay_fence) &&
         checkpoint_boundary >= retired_through && report_generation != 0 &&
         publication_ordinal >= retired_through &&
@@ -800,6 +840,14 @@ OutboxRecovery DurableEventOutbox::fail(OutboxRecovery result) {
 }
 
 OutboxRecovery DurableEventOutbox::recover() {
+    if (compacting_) return OutboxRecovery::StorageFailure;
+    body_manifest_ = false;
+    body_bank_ = 0;
+    body_boundary_ = body_records_ = snapshot_records_ = completion_generation_ = 0;
+    body_binding_.fill(0);
+    body_sizes_.fill(0);
+    replay_fence_epoch_ = 0;
+    replay_fence_bank_ = 0xff;
     initialized_ = false;
     faulted_ = false;
     has_records_ = false;
@@ -866,7 +914,7 @@ OutboxRecovery DurableEventOutbox::recover() {
         return fail(OutboxRecovery::IntegrityFailure);
     if (retired_through_ > publication_ordinal ||
         (lifecycle_found && ((replay_fence_epoch_ == 0 && lifecycle_publication_ordinal_ !=
-             (completion_snapshot_.empty() ? retired_through_ : completion_snapshot_boundary_)) ||
+             ((body_manifest_ || !completion_snapshot_.empty()) ? completion_snapshot_boundary_ : retired_through_)) ||
          lifecycle_publication_ordinal_ > publication_ordinal ||
          (lifecycle_publication_ordinal_ == publication_ordinal &&
           !crypto_.constant_time_equal(lifecycle_publication_digest_, publication_digest,
@@ -883,8 +931,10 @@ OutboxRecovery DurableEventOutbox::recover() {
     for (std::uint16_t segment = 0; segment < limits_.segment_count; ++segment) {
         bool exists = false;
         std::uint32_t bytes = 0;
-        if (!storage_.segment_size(segment, exists, bytes))
+        if (!storage_.segment_size(physical_segment(segment), exists, bytes))
             return fail(OutboxRecovery::StorageFailure);
+        if (body_manifest_ && bytes < body_sizes_[segment])
+            return fail(OutboxRecovery::IntegrityFailure);
         if (!exists) { gap = true; continue; }
         if (gap || bytes > limits_.segment_bytes)
             return fail(OutboxRecovery::IntegrityFailure);
@@ -893,7 +943,10 @@ OutboxRecovery DurableEventOutbox::recover() {
     }
 
     security::Key32 recovered_snapshot_binding{};
-    bool snapshot_anchor_seen = completion_snapshot_.empty();
+    bool snapshot_anchor_seen = body_manifest_ || completion_snapshot_.empty();
+    security::Key32 recovered_body_binding{};
+    std::uint64_t recovered_body_records = 0;
+    std::uint64_t recovered_snapshot_records = 0;
     std::uint64_t expected_ordinal = retired_through_ + 1U;
     bool torn_tail = false;
     bool last_segment_torn_tail = false;
@@ -903,7 +956,7 @@ OutboxRecovery DurableEventOutbox::recover() {
         const auto segment = static_cast<std::uint16_t>(segment_i);
         bool exists = false;
         std::uint32_t bytes = 0;
-        if (!storage_.segment_size(segment, exists, bytes) || !exists)
+        if (!storage_.segment_size(physical_segment(segment), exists, bytes) || !exists)
             return fail(OutboxRecovery::StorageFailure);
         std::uint32_t offset = 0;
         while (offset < bytes) {
@@ -916,13 +969,25 @@ OutboxRecovery DurableEventOutbox::recover() {
             }
             std::array<std::uint8_t, kPrefixBytes> prefix{};
             std::size_t actual = 0;
-            if (!storage_.read(segment, offset, prefix.data(), prefix.size(), actual) ||
+            if (!storage_.read(physical_segment(segment), offset, prefix.data(), prefix.size(), actual) ||
                 actual != prefix.size()) return fail(OutboxRecovery::StorageFailure);
             if (std::memcmp(prefix.data(), kMagic, sizeof(kMagic)) != 0 ||
                 prefix[4] != kFormatVersion || prefix[5] != kEventRecord ||
                 prefix[6] != 0 || prefix[7] != 0 ||
-                get_u64(prefix.data() + 8) != expected_ordinal)
+                get_u64(prefix.data() + 8) == 0)
                 return fail(OutboxRecovery::IntegrityFailure);
+            const auto record_ordinal = get_u64(prefix.data() + 8);
+            const bool in_manifest = body_manifest_ && offset < body_sizes_[segment];
+            if (in_manifest) {
+                if (record_ordinal < expected_ordinal || record_ordinal > body_boundary_)
+                    return fail(OutboxRecovery::IntegrityFailure);
+                expected_ordinal = record_ordinal;
+            } else {
+                if (body_manifest_ && expected_ordinal <= body_boundary_)
+                    expected_ordinal = body_boundary_ + 1;
+                if (record_ordinal != expected_ordinal)
+                    return fail(OutboxRecovery::IntegrityFailure);
+            }
             const auto plain_bytes = get_u32(prefix.data() + 16);
             const std::uint64_t frame_size_wide =
                 static_cast<std::uint64_t>(plain_bytes) + kFrameOverheadBytes;
@@ -932,6 +997,8 @@ OutboxRecovery DurableEventOutbox::recover() {
                 frame_size_wide > limits_.segment_bytes)
                 return fail(OutboxRecovery::IntegrityFailure);
             const auto frame_size = static_cast<std::uint32_t>(frame_size_wide);
+            if (in_manifest && frame_size > body_sizes_[segment] - offset)
+                return fail(OutboxRecovery::IntegrityFailure);
             if (frame_size > remaining) {
                 torn_tail = true;
                 last_segment_torn_tail = segment_i == last_existing;
@@ -942,18 +1009,34 @@ OutboxRecovery DurableEventOutbox::recover() {
             std::string key;
             security::Bytes payload;
             std::uint8_t frame_digest[32]{};
-            if (!decode_record(segment, offset, frame_size, expected_ordinal,
+            if (!decode_record(physical_segment(segment), offset, frame_size, expected_ordinal,
                                &entry, key, payload, frame_digest))
                 return fail(OutboxRecovery::IntegrityFailure);
-            if (!completion_snapshot_.empty() && expected_ordinal == completion_snapshot_boundary_) {
+            if (!body_manifest_ && !completion_snapshot_.empty() && expected_ordinal == completion_snapshot_boundary_) {
                 if (!crypto_.constant_time_equal(frame_digest, lifecycle_publication_digest_, 32))
                     return fail(OutboxRecovery::IntegrityFailure);
                 snapshot_anchor_seen = true;
             }
-            if (snapshot_completed(expected_ordinal)) {
+            if (in_manifest) {
+                security::Bytes frame(frame_size);
+                if (!storage_.read(physical_segment(segment), offset, frame.data(), frame.size(), actual) ||
+                    actual != frame.size() || !fold_body_binding(recovered_body_binding, segment, offset, frame))
+                    return fail(OutboxRecovery::IntegrityFailure);
+                ++recovered_body_records;
+            }
+            const auto snapshot_position = recovered_snapshot_records;
+            if (body_manifest_ && expected_ordinal <= completion_snapshot_boundary_)
+                ++recovered_snapshot_records;
+            const bool completed_bit = body_manifest_
+                ? (expected_ordinal <= completion_snapshot_boundary_ &&
+                   snapshot_position < snapshot_records_ &&
+                   (completion_snapshot_[snapshot_position / 8] & (1U << (snapshot_position % 8))) != 0)
+                : snapshot_completed(expected_ordinal);
+            if (completed_bit) {
                 if (!fold_snapshot_binding(recovered_snapshot_binding, expected_ordinal, key, payload))
                     return fail(OutboxRecovery::IntegrityFailure);
                 entry.completed = true;
+                entry.snapshot_completed = true;
                 ++completed_count_;
             }
             if (publication_found && expected_ordinal == publication_ordinal) {
@@ -986,6 +1069,12 @@ OutboxRecovery DurableEventOutbox::recover() {
             offset += frame_size;
         }
     }
+    if (body_manifest_) {
+        if (recovered_body_records != body_records_ || recovered_body_binding != body_binding_ ||
+            recovered_snapshot_records != snapshot_records_)
+            return fail(OutboxRecovery::IntegrityFailure);
+        expected_ordinal = std::max(expected_ordinal, body_boundary_ + 1);
+    }
     next_ordinal_ = expected_ordinal;
     const auto complete_records = expected_ordinal - 1;
     if (!publication_found) {
@@ -993,7 +1082,7 @@ OutboxRecovery DurableEventOutbox::recover() {
         // event could have been acknowledged before its marker disappeared.
         if (complete_records != 0) return fail(OutboxRecovery::IntegrityFailure);
     } else if (publication_ordinal > complete_records ||
-               (publication_ordinal > retired_through_ && !publication_record_seen) ||
+               (publication_ordinal > std::max(retired_through_, body_boundary_) && !publication_record_seen) ||
                complete_records - publication_ordinal > 1) {
         return fail(OutboxRecovery::IntegrityFailure);
     }
@@ -1017,7 +1106,7 @@ OutboxRecovery DurableEventOutbox::recover() {
         const auto last = static_cast<std::uint16_t>(last_existing);
         bool exists = false;
         std::uint32_t bytes = 0;
-        if (!storage_.segment_size(last, exists, bytes) || !exists)
+        if (!storage_.segment_size(physical_segment(last), exists, bytes) || !exists)
             return fail(OutboxRecovery::StorageFailure);
         capacity_budget_used_bytes_ =
             static_cast<std::uint64_t>(last) * limits_.segment_bytes;
@@ -1179,6 +1268,9 @@ OutboxRecovery DurableEventOutbox::recover() {
     else if (complete_completion_records != published_completion_ordinal_)
         return fail(OutboxRecovery::IntegrityFailure);
     (void)physical_file_bytes;  // Kept separate from logical budget for future health reporting.
+    std::uint64_t cleanup_total = 0, cleanup_used = 0;
+    if ((body_manifest_ || storage_.filesystem_usage(cleanup_total, cleanup_used)) &&
+        !cleanup_inactive_body_bank()) return fail(OutboxRecovery::StorageFailure);
     initialized_ = true;
     return has_records_ ? OutboxRecovery::Ready : OutboxRecovery::Empty;
 }
@@ -1186,7 +1278,7 @@ OutboxRecovery DurableEventOutbox::recover() {
 OutboxAdmission DurableEventOutbox::append(
     const std::string& canonical_event_key, const security::Bytes& versioned_payload,
     AdmissionClass admission_class) {
-    if (!initialized_ || faulted_) return OutboxAdmission::RestartRequired;
+    if (!initialized_ || faulted_ || compacting_) return OutboxAdmission::RestartRequired;
     if (canonical_event_key.empty() || canonical_event_key.size() > limits_.maximum_key_bytes ||
         versioned_payload.size() > limits_.maximum_payload_bytes)
         return OutboxAdmission::InvalidRecord;
@@ -1257,11 +1349,11 @@ OutboxAdmission DurableEventOutbox::append(
         return OutboxAdmission::ReserveProtected;
 
     const auto target_offset32 = static_cast<std::uint32_t>(target_offset);
-    if (!storage_.append(target_segment, frame.data(), frame.size())) {
+    if (!storage_.append(physical_segment(target_segment), frame.data(), frame.size())) {
         faulted_ = true;
         return OutboxAdmission::RestartRequired;
     }
-    if (!storage_.sync(target_segment)) {
+    if (!storage_.sync(physical_segment(target_segment))) {
         faulted_ = true;
         return OutboxAdmission::RestartRequired;
     }
@@ -1270,7 +1362,7 @@ OutboxAdmission DurableEventOutbox::append(
     std::string verified_key;
     security::Bytes verified_payload;
     std::uint8_t frame_digest[32]{};
-    if (!decode_record(target_segment, target_offset32,
+    if (!decode_record(physical_segment(target_segment), target_offset32,
                        static_cast<std::uint32_t>(frame.size()), next_ordinal_,
                        &entry, verified_key, verified_payload, frame_digest) ||
         verified_key != canonical_event_key || verified_payload != versioned_payload ||
@@ -1369,7 +1461,7 @@ bool DurableEventOutbox::replay_fence_matches(std::uint32_t storage_epoch,
 bool DurableEventOutbox::publish_replay_fence(std::uint32_t storage_epoch,
         const durable::ReportSnapshotReference& reference,
         std::uint64_t reducer_checkpoint_boundary) {
-    if (!initialized_ || faulted_ || storage_epoch == 0 || !valid_report_reference(reference) ||
+    if (!initialized_ || faulted_ || compacting_ || storage_epoch == 0 || !valid_report_reference(reference) ||
         reducer_checkpoint_boundary > published_ordinal_ ||
         reference.generation < lifecycle_report_generation_ ||
         (reference.generation == lifecycle_report_generation_ &&
@@ -1395,8 +1487,10 @@ bool DurableEventOutbox::publish_replay_fence(std::uint32_t storage_epoch,
     security::Bytes root, observed;
     bool found = false;
     const auto boundary = std::max(lifecycle_checkpoint_boundary_, reducer_checkpoint_boundary);
-    const auto anchor = completion_snapshot_.empty() ? published_ordinal_
-                                                      : completion_snapshot_boundary_;
+    const auto anchor = (body_manifest_ || !completion_snapshot_.empty())
+        ? completion_snapshot_boundary_ : published_ordinal_;
+    if (anchor != published_ordinal_)
+        std::copy_n(lifecycle_publication_digest_, sizeof(digest), digest);
     if (!encode_lifecycle_root(lifecycle_generation_ + 1U, retired_through_, boundary,
             reference.generation, reference.digest, anchor, digest, false, root) ||
         !storage_.publish_lifecycle_root(root) ||
@@ -1416,7 +1510,7 @@ bool DurableEventOutbox::publish_replay_fence(std::uint32_t storage_epoch,
 }
 
 bool DurableEventOutbox::mark_backend_completed(const std::string& canonical_event_key) {
-    if (!initialized_ || faulted_ || canonical_event_key.empty() ||
+    if (!initialized_ || faulted_ || compacting_ || canonical_event_key.empty() ||
         canonical_event_key.size() > limits_.maximum_key_bytes) return false;
     std::uint8_t digest[32]{};
     if (!digest_identity(canonical_event_key, digest)) { faulted_ = true; return false; }
@@ -1497,6 +1591,11 @@ bool DurableEventOutbox::mark_backend_completed(const std::string& canonical_eve
 
 bool DurableEventOutbox::snapshot_completed(std::uint64_t ordinal) const {
     if (ordinal <= retired_through_ || ordinal > completion_snapshot_boundary_) return false;
+    if (body_manifest_) {
+        for (std::size_t i = 0; i < index_size_; ++i)
+            if (entry_at(i).ordinal == ordinal) return entry_at(i).snapshot_completed;
+        return false;
+    }
     const auto bit = ordinal - retired_through_ - 1;
     return (completion_snapshot_[bit / 8] & (1U << (bit % 8))) != 0;
 }
@@ -1524,6 +1623,7 @@ bool DurableEventOutbox::complete_pending_completion_reclaim() {
     if (!completion_reset_pending_) return true;
     // The authenticated snapshot is already authoritative. A crash at any step
     // below restarts this same transaction before accepting further receipts.
+    if (body_manifest_) completion_generation_ = lifecycle_generation_;
     std::uint8_t empty_digest[32]{};
     security::Bytes empty_head;
     if (!encode_completion_publication(0, empty_digest, empty_head) ||
@@ -1551,7 +1651,7 @@ bool DurableEventOutbox::complete_pending_completion_reclaim() {
 
 ReclaimResult DurableEventOutbox::reclaim_completion_metadata(
         const RetirementAuthorization& authorization) {
-    if (!initialized_ || faulted_) return ReclaimResult::RestartRequired;
+    if (!initialized_ || faulted_ || compacting_) return ReclaimResult::RestartRequired;
     if (completion_bytes_ == 0) return ReclaimResult::NoRecords;
     if (staged_completion_event_ordinal_ != 0) return ReclaimResult::RestartRequired;
     // Revalidate the authoritative receipt stream before replacing it. Detected
@@ -1574,11 +1674,11 @@ ReclaimResult DurableEventOutbox::reclaim_completion_metadata(
                     authorization.authenticated_report_digest.end(),
                     [](std::uint8_t b) { return b == 0; }) || !authorization.node_retired)
         return ReclaimResult::InvalidAuthorization;
-    const auto bits = published_ordinal_ - retired_through_;
+    const auto bits = body_manifest_ ? index_size_ : published_ordinal_ - retired_through_;
     const auto bytes = bits / 8 + (bits % 8 != 0);
-    const auto snapshot_header = replay_fence_epoch_ != 0
+    const auto snapshot_header = body_manifest_ ? kBodyHeaderBytes + limits_.segment_count * 4U : replay_fence_epoch_ != 0
         ? kReplayFenceSnapshotHeaderBytes : kSnapshotHeaderBytes;
-    if (bytes == 0 || bytes > kLifecycleMaximumBytes - snapshot_header - 32 ||
+    if ((!body_manifest_ && bytes == 0) || bytes > kLifecycleMaximumBytes - snapshot_header - 32 ||
         lifecycle_generation_ > std::numeric_limits<std::uint64_t>::max() - 2)
         return ReclaimResult::InvalidAuthorization;
     for (std::size_t i = 0; i < index_size_; ++i)
@@ -1591,12 +1691,14 @@ ReclaimResult DurableEventOutbox::reclaim_completion_metadata(
         security::Key32 binding{};
         std::size_t completed{0};
         bool missing_proof{false};
+        std::uint64_t position{0};
     } state{this, &authorization, security::Bytes(static_cast<std::size_t>(bytes), 0), {}, 0, false};
     const auto collect = [](void* opaque, std::uint64_t ordinal,
             const std::string& key, const security::Bytes& payload) -> bool {
         auto& state = *static_cast<SnapshotContext*>(opaque);
         bool completed = false;
         if (!state.outbox->backend_completed(key, completed)) return false;
+        const auto position = state.position++;
         if (!completed) return true;
         // Previously published snapshot bits retain their original report proof.
         // Newly substituted receipts must have exact authenticated Node proof.
@@ -1605,7 +1707,7 @@ ReclaimResult DurableEventOutbox::reclaim_completion_metadata(
             state.missing_proof = true;
             return false;
         }
-        const auto bit = ordinal - state.outbox->retired_through_ - 1;
+        const auto bit = state.outbox->body_manifest_ ? position : ordinal - state.outbox->retired_through_ - 1;
         state.bitmap[bit / 8] |= static_cast<std::uint8_t>(1U << (bit % 8));
         ++state.completed;
         return state.outbox->fold_snapshot_binding(state.binding, ordinal, key, payload);
@@ -1621,6 +1723,7 @@ ReclaimResult DurableEventOutbox::reclaim_completion_metadata(
     if (!found || !decode_publication(publication, ordinal, digest) || ordinal != published_ordinal_)
         return ReclaimResult::IntegrityFailure;
 
+    snapshot_records_ = state.position;
     completion_snapshot_ = std::move(state.bitmap);
     completion_snapshot_binding_ = state.binding;
     completion_snapshot_boundary_ = published_ordinal_;
@@ -1648,9 +1751,267 @@ ReclaimResult DurableEventOutbox::reclaim_completion_metadata(
     return ReclaimResult::Reclaimed;
 }
 
+bool DurableEventOutbox::fold_body_binding(security::Key32& binding,
+        std::uint16_t logical, std::uint32_t offset, const security::Bytes& frame) {
+    security::Bytes input(38, 0);
+    std::copy(binding.begin(), binding.end(), input.begin());
+    input[32] = static_cast<std::uint8_t>(logical >> 8);
+    input[33] = static_cast<std::uint8_t>(logical);
+    put_u32(input.data() + 34, offset);
+    input.insert(input.end(), frame.begin(), frame.end());
+    security::Key32 next{};
+    const bool okay = crypto_.hmac_sha256(lifecycle_key_, input, next);
+    crypto_.secure_zero(input.data(), input.size());
+    if (okay) binding = next;
+    crypto_.secure_zero(next.data(), next.size());
+    return okay;
+}
+
+bool DurableEventOutbox::cleanup_inactive_body_bank() {
+    if (!limits_.body_retirement_enabled) return true;
+    if (limits_.segment_count > kMaximumBodySegments) return false;
+    const auto inactive = static_cast<std::uint16_t>((1U - body_bank_) * limits_.segment_count);
+    for (std::uint16_t i = 0; i < limits_.segment_count; ++i)
+        if (!storage_.remove_segment(static_cast<std::uint16_t>(inactive + i))) return false;
+    return true;
+}
+
+ReclaimResult DurableEventOutbox::compact_event_bodies(
+        const RetirementAuthorization& authorization, BodyCompactionStats& stats,
+        std::uint32_t safety_reserve_bytes) {
+    stats = {};
+    if (!initialized_ || faulted_ || compacting_) return ReclaimResult::RestartRequired;
+    if (!limits_.body_retirement_enabled || !authorization.post_sync_retention_satisfied)
+        return ReclaimResult::DisabledByRetentionGate;
+    if (limits_.segment_count > kMaximumBodySegments || !authorization.node_retired ||
+        !authorization.authority_current || !authorization.authority_current(authorization.context))
+        return ReclaimResult::InvalidAuthorization;
+    // Reconstruct from durable receipt and event heads. RAM flags never replace
+    // authenticated completion evidence, and a staged append cannot be collected.
+    const auto recovered = recover();
+    if (recovered != OutboxRecovery::Ready && recovered != OutboxRecovery::Empty)
+        return recovered == OutboxRecovery::StorageFailure ? ReclaimResult::StorageFailure
+                                                           : ReclaimResult::IntegrityFailure;
+    if (index_size_ == 0) return ReclaimResult::NoRecords;
+    if (next_ordinal_ != published_ordinal_ + 1 || staged_completion_event_ordinal_ != 0)
+        return ReclaimResult::RestartRequired;
+    if (authorization.checkpoint_boundary < published_ordinal_ ||
+        authorization.checkpoint_boundary < lifecycle_checkpoint_boundary_)
+        return ReclaimResult::CheckpointBehind;
+    if (authorization.authenticated_report_generation == 0 ||
+        (replay_fence_epoch_ != 0 &&
+         (authorization.authenticated_report_generation != lifecycle_report_generation_ ||
+          authorization.authenticated_report_digest != lifecycle_report_digest_)) ||
+        authorization.authenticated_report_generation < lifecycle_report_generation_ ||
+        (authorization.authenticated_report_generation == lifecycle_report_generation_ &&
+         authorization.authenticated_report_digest != lifecycle_report_digest_) ||
+        std::all_of(authorization.authenticated_report_digest.begin(),
+                    authorization.authenticated_report_digest.end(), [](std::uint8_t b) { return b == 0; }) ||
+        lifecycle_generation_ > std::numeric_limits<std::uint64_t>::max() - 2)
+        return ReclaimResult::InvalidAuthorization;
+
+    // This is a synchronous operation in the Hub's serialized storage owner.
+    // Refuse reentrant mutation from callbacks; no heap-sized ledger is copied.
+    struct WriterGuard {
+        bool& busy;
+        explicit WriterGuard(bool& value) : busy(value) { busy = true; }
+        ~WriterGuard() { busy = false; }
+    } guard(compacting_);
+    security::Bytes original_root, original_head, original_completion_head;
+    bool root_found = false, head_found = false, completion_head_found = false;
+    if (!storage_.read_lifecycle_root(original_root, root_found) ||
+        !storage_.read_publication(original_head, head_found) || !head_found ||
+        !storage_.read_completion_publication(original_completion_head, completion_head_found))
+        return ReclaimResult::StorageFailure;
+
+    struct Pass {
+        DurableEventOutbox* outbox;
+        const RetirementAuthorization* authorization;
+        BodyCompactionStats stats{};
+        security::Key32 source_binding{}, body_binding{}, completion_binding{};
+        std::array<std::uint32_t, kMaximumBodySegments> sizes{};
+        security::Bytes bitmap{};
+        Pass(DurableEventOutbox* box, const RetirementAuthorization* auth) : outbox(box), authorization(auth) {}
+        std::uint16_t segment{0};
+        std::uint32_t offset{0};
+        std::uint8_t bank{0};
+        bool copy{false};
+    };
+    const auto candidate_bank = static_cast<std::uint8_t>(1U - body_bank_);
+    const auto visit = [](void* opaque, std::uint64_t ordinal,
+                          const std::string& key, const security::Bytes& payload) -> bool {
+        auto& pass = *static_cast<Pass*>(opaque);
+        auto& outbox = *pass.outbox;
+        if (!pass.authorization->authority_current(pass.authorization->context)) return false;
+        std::uint8_t digest[32]{};
+        if (!outbox.digest_identity(key, digest)) return false;
+        const auto at = outbox.find_index(digest);
+        if (at >= outbox.index_size_ || compare_digest(outbox.entry_at(at).identity_digest, digest) != 0)
+            return false;
+        const auto& entry = outbox.entry_at(at);
+        if (entry.ordinal != ordinal) return false;
+        security::Bytes frame(entry.frame_bytes);
+        std::size_t actual = 0;
+        if (!outbox.storage_.read(entry.segment, entry.offset, frame.data(), frame.size(), actual) ||
+            actual != frame.size()) return false;
+        const bool retire = entry.completed && ordinal <= pass.authorization->checkpoint_boundary &&
+            pass.authorization->node_retired(pass.authorization->context, ordinal, key, payload);
+        // Bind all source bytes, completion state and eligibility decisions.
+        // A proof or source change during copy cannot silently remove a body.
+        security::Bytes classified = frame;
+        classified.push_back(entry.completed ? 1 : 0);
+        classified.push_back(retire ? 1 : 0);
+        if (!outbox.fold_body_binding(pass.source_binding, entry.segment, entry.offset, classified))
+            return false;
+        pass.stats.original_body_bytes += frame.size();
+        if (retire) { ++pass.stats.retired_records; return true; }
+        if (frame.size() > outbox.limits_.segment_bytes - pass.offset) {
+            ++pass.segment;
+            pass.offset = 0;
+        }
+        if (pass.segment >= outbox.limits_.segment_count) return false;
+        const auto bit = pass.stats.retained_records++;
+        if (bit % 8 == 0) {
+            if (pass.bitmap.size() >= kLifecycleMaximumBytes - kBodyHeaderBytes -
+                    outbox.limits_.segment_count * 4U - 32) return false;
+            pass.bitmap.push_back(0);
+        }
+        if (entry.completed) {
+            pass.bitmap[bit / 8] |= static_cast<std::uint8_t>(1U << (bit % 8));
+            if (!outbox.fold_snapshot_binding(pass.completion_binding, ordinal, key, payload)) return false;
+        }
+        if (!outbox.fold_body_binding(pass.body_binding, pass.segment, pass.offset, frame)) return false;
+        if (pass.copy) {
+            const auto physical = static_cast<std::uint16_t>(pass.bank * outbox.limits_.segment_count + pass.segment);
+            // Copy ciphertext unchanged: no new encryption with an old nonce.
+            if (!outbox.storage_.append(physical, frame.data(), frame.size())) return false;
+        }
+        pass.offset += static_cast<std::uint32_t>(frame.size());
+        pass.sizes[pass.segment] = pass.offset;
+        pass.stats.retained_body_bytes += frame.size();
+        return true;
+    };
+    Pass planned{this, &authorization};
+    if (!for_each(visit, &planned)) return ReclaimResult::IntegrityFailure;
+    stats = planned.stats;
+    if (stats.retired_records == 0) return ReclaimResult::NoRecords;
+    const auto root_bytes = kBodyHeaderBytes + limits_.segment_count * 4U + planned.bitmap.size() + 32;
+    if (root_bytes > kLifecycleMaximumBytes) return ReclaimResult::InsufficientWorkspace;
+    // Two root writes plus rounded file blocks and explicit caller reserve.
+    // LittleFS reports block occupancy; POSIX tests measure st_blocks separately.
+    stats.temporary_required_bytes = 2U * kLifecycleMaximumBytes;
+    for (std::size_t i = 0; i < limits_.segment_count; ++i)
+        if (planned.sizes[i] != 0)
+            stats.temporary_required_bytes += ((planned.sizes[i] + 4095ULL) / 4096ULL) * 4096ULL;
+    std::uint64_t total = 0, used = 0;
+    if (!storage_.filesystem_usage(total, used) || used > total ||
+        safety_reserve_bytes > total - used ||
+        stats.temporary_required_bytes > total - used - safety_reserve_bytes)
+        return ReclaimResult::InsufficientWorkspace;
+    if (!cleanup_inactive_body_bank()) return ReclaimResult::StorageFailure;
+
+    Pass copied{this, &authorization};
+    copied.copy = true;
+    copied.bank = candidate_bank;
+    if (!for_each(visit, &copied)) { faulted_ = true; return ReclaimResult::RestartRequired; }
+    for (std::uint16_t i = 0; i < limits_.segment_count; ++i) {
+        if (copied.sizes[i] != 0 &&
+            !storage_.sync(static_cast<std::uint16_t>(candidate_bank * limits_.segment_count + i))) {
+            faulted_ = true; return ReclaimResult::RestartRequired;
+        }
+    }
+    // Revisit the complete source and reclassify with current authority. Verify
+    // candidate ciphertext, sizes and AEAD against the original retained frames.
+    Pass verified{this, &authorization};
+    if (!for_each(visit, &verified) || planned.source_binding != copied.source_binding ||
+        planned.source_binding != verified.source_binding || planned.body_binding != copied.body_binding ||
+        planned.body_binding != verified.body_binding || planned.sizes != copied.sizes ||
+        planned.bitmap != copied.bitmap || planned.completion_binding != copied.completion_binding) {
+        faulted_ = true; return ReclaimResult::RestartRequired;
+    }
+    security::Key32 candidate_binding{};
+    std::uint64_t candidate_records = 0;
+    for (std::uint16_t i = 0; i < limits_.segment_count; ++i) {
+        const auto physical = static_cast<std::uint16_t>(candidate_bank * limits_.segment_count + i);
+        bool exists = false;
+        std::uint32_t bytes = 0;
+        if (!storage_.segment_size(physical, exists, bytes) || bytes != planned.sizes[i] ||
+            exists != (bytes != 0)) { faulted_ = true; return ReclaimResult::RestartRequired; }
+        std::uint32_t offset = 0;
+        while (offset < bytes) {
+            std::array<std::uint8_t, kPrefixBytes> prefix{};
+            std::size_t actual = 0;
+            if (!storage_.read(physical, offset, prefix.data(), prefix.size(), actual) || actual != prefix.size()) {
+                faulted_ = true; return ReclaimResult::RestartRequired;
+            }
+            const auto length = static_cast<std::uint64_t>(get_u32(prefix.data() + 16)) + kFrameOverheadBytes;
+            if (length > bytes - offset || length < kMinimumFrameBytes) {
+                faulted_ = true; return ReclaimResult::RestartRequired;
+            }
+            security::Bytes frame(static_cast<std::size_t>(length)), payload;
+            std::string key;
+            if (!storage_.read(physical, offset, frame.data(), frame.size(), actual) || actual != frame.size() ||
+                !decode_record(physical, offset, static_cast<std::uint32_t>(length),
+                    get_u64(prefix.data() + 8), nullptr, key, payload) ||
+                !fold_body_binding(candidate_binding, i, offset, frame)) {
+                faulted_ = true; return ReclaimResult::RestartRequired;
+            }
+            crypto_.secure_zero(payload.data(), payload.size());
+            offset += static_cast<std::uint32_t>(length);
+            ++candidate_records;
+        }
+    }
+    security::Bytes observed;
+    bool found = false;
+    if (candidate_binding != planned.body_binding || candidate_records != stats.retained_records ||
+        !authorization.authority_current(authorization.context) ||
+        !storage_.read_lifecycle_root(observed, found) || found != root_found || observed != original_root ||
+        !storage_.read_publication(observed, found) || !found || observed != original_head ||
+        !storage_.read_completion_publication(observed, found) || found != completion_head_found ||
+        observed != original_completion_head) {
+        faulted_ = true; return ReclaimResult::RestartRequired;
+    }
+    std::uint64_t ordinal = 0;
+    std::uint8_t publication_digest[32]{};
+    if (!decode_publication(original_head, ordinal, publication_digest) || ordinal != published_ordinal_) {
+        faulted_ = true; return ReclaimResult::RestartRequired;
+    }
+    body_manifest_ = true;
+    body_bank_ = candidate_bank;
+    body_boundary_ = published_ordinal_;
+    body_records_ = stats.retained_records;
+    body_binding_ = planned.body_binding;
+    body_sizes_ = planned.sizes;
+    snapshot_records_ = stats.retained_records;
+    completion_snapshot_ = std::move(planned.bitmap);
+    completion_snapshot_binding_ = planned.completion_binding;
+    completion_snapshot_boundary_ = published_ordinal_;
+    completion_reset_pending_ = true;
+    completion_generation_ = lifecycle_generation_ + 1;
+    security::Bytes root;
+    if (!encode_lifecycle_root(lifecycle_generation_ + 1, retired_through_,
+            authorization.checkpoint_boundary, authorization.authenticated_report_generation,
+            authorization.authenticated_report_digest, ordinal, publication_digest, false, root) ||
+        !storage_.publish_lifecycle_root(root) ||
+        !storage_.read_lifecycle_root(observed, found) || !found || observed != root) {
+        // A failed return may follow a durable rename. Recover before mutation.
+        faulted_ = true; return ReclaimResult::RestartRequired;
+    }
+    // Recovery verifies the selected candidate before receipt reset and unlink.
+    compacting_ = false;
+    const auto result = recover();
+    if (result != OutboxRecovery::Ready && result != OutboxRecovery::Empty)
+        return ReclaimResult::RestartRequired;
+    return ReclaimResult::Reclaimed;
+}
+
 ReclaimResult DurableEventOutbox::reclaim_completed_history(
         const RetirementAuthorization& authorization) {
-    if (!initialized_ || faulted_) return ReclaimResult::RestartRequired;
+    if (!initialized_ || faulted_ || compacting_) return ReclaimResult::RestartRequired;
+    if (body_manifest_) {
+        BodyCompactionStats stats;
+        return compact_event_bodies(authorization, stats);
+    }
     if (!limits_.body_retirement_enabled || !authorization.post_sync_retention_satisfied)
         return ReclaimResult::DisabledByRetentionGate;
     if (index_size_ == 0 || published_ordinal_ <= retired_through_)
@@ -1790,7 +2151,7 @@ bool DurableEventOutbox::for_each(RecordVisitor visitor, void* context) {
     for (std::uint16_t segment = 0; segment < limits_.segment_count; ++segment) {
         bool exists = false;
         std::uint32_t bytes = 0;
-        if (!storage_.segment_size(segment, exists, bytes)) return false;
+        if (!storage_.segment_size(physical_segment(segment), exists, bytes)) return false;
         if (!exists) break;
         std::uint32_t offset = 0;
         bool partial_tail = false;
@@ -1801,8 +2162,16 @@ bool DurableEventOutbox::for_each(RecordVisitor visitor, void* context) {
             }
             std::array<std::uint8_t, kPrefixBytes> prefix{};
             std::size_t actual = 0;
-            if (!storage_.read(segment, offset, prefix.data(), prefix.size(), actual) ||
+            if (!storage_.read(physical_segment(segment), offset, prefix.data(), prefix.size(), actual) ||
                 actual != prefix.size()) return false;
+            const auto record_ordinal = get_u64(prefix.data() + 8);
+            if (body_manifest_ && offset < body_sizes_[segment]) {
+                if (record_ordinal < ordinal || record_ordinal > body_boundary_) return false;
+                ordinal = record_ordinal;
+            } else {
+                if (body_manifest_) ordinal = std::max(ordinal, body_boundary_ + 1);
+                if (record_ordinal != ordinal) return false;
+            }
             const auto plain_bytes = get_u32(prefix.data() + 16);
             const std::uint64_t frame_size_wide = plain_bytes + kFrameOverheadBytes;
             if (frame_size_wide > bytes - offset) {
@@ -1813,7 +2182,7 @@ bool DurableEventOutbox::for_each(RecordVisitor visitor, void* context) {
             std::string key;
             security::Bytes payload;
             if (ordinal > published_ordinal_) return true;
-            if (!decode_record(segment, offset, frame_size, ordinal, nullptr, key, payload) ||
+            if (!decode_record(physical_segment(segment), offset, frame_size, ordinal, nullptr, key, payload) ||
                 !visitor(context, ordinal, key, payload)) {
                 crypto_.secure_zero(payload.data(), payload.size());
                 return false;
@@ -1824,6 +2193,7 @@ bool DurableEventOutbox::for_each(RecordVisitor visitor, void* context) {
         }
         (void)partial_tail;  // Recovery already proved this is only an uncommitted tail.
     }
+    if (body_manifest_) ordinal = std::max(ordinal, body_boundary_ + 1);
     return ordinal == published_ordinal_ + 1;
 }
 

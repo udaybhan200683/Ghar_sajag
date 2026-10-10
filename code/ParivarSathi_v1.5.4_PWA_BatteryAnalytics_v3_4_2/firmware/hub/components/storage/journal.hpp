@@ -49,6 +49,12 @@ public:
     // Authenticated lifecycle prefix whose bodies were retired only after all
     // exact backend receipts and Node/checkpoint proofs were verified.
     virtual std::uint64_t backend_completion_retired_through() const { return 0; }
+    // Sparse retirement authority: ONLY an absent exact body at or below this
+    // checkpoint boundary is proven retired. Retained bodies remain pending
+    // unless their independent exact completion receipt says otherwise.
+    virtual std::uint64_t absent_body_retirement_boundary() const {
+        return backend_completion_retired_through();
+    }
     virtual bool acknowledge_cloud(const EventKey&) { return false; }
 };
 
@@ -97,6 +103,7 @@ public:
     bool cloud_completed(const EventKey& key) const;
     std::size_t cloud_completed_count() const;
     std::uint64_t backend_completion_retired_through() const;
+    std::uint64_t absent_body_retirement_boundary() const;
     std::size_t size() const;
     bool storage_fault() const;
     bool persistent() const;

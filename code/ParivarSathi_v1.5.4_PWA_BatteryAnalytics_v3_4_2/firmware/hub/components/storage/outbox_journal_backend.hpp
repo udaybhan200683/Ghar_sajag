@@ -20,6 +20,7 @@ public:
     bool cloud_completed(const EventKey& key) const override;
     std::size_t cloud_completed_count() const override;
     std::uint64_t backend_completion_retired_through() const override;
+    std::uint64_t absent_body_retirement_boundary() const override;
     bool acknowledge_cloud(const EventKey& key) override;
 
 private:
