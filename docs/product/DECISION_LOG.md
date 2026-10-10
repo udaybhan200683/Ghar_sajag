@@ -347,3 +347,9 @@ trusted identity/deployment information. Do not infer a new heartbeat from the
 existing health schema. Preserve resident inactivity versus absent observation,
 Hub cloud freshness versus local Node contact, and all GS-150 event/ACK/retry,
 security, FOTA and sleep contracts. Physical acceptance remains outstanding.
+
+GS-D031 implementation evidence (software scope):
+[GS-40 validation](../exec-plans/evidence/R1_GS40_SOFTWARE_VALIDATION_20261010.md)
+records JSON startup policy, trusted mixed-deployment profiles and the remaining
+real-target acceptance/extended historical migration gate limitation. LOCKED
+policy text above remains unchanged.

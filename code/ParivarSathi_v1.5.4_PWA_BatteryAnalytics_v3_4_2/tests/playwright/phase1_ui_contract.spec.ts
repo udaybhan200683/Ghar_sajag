@@ -198,7 +198,19 @@ test.describe('Phase 1 visible contract and contamination matrix',()=>{
     expect(immediate.device_health.offline_devices).toContain('kitchen');
     await expect(page.locator('.timeline')).not.toContainText('Monitoring coverage lost');
 
-    await post(request,'/sim/action',{action:'advance',seconds:191});
+    const profile=base.devices.find((d:any)=>d.id==='kitchen');
+    expect(profile.heartbeat_interval_seconds).toBe(300);
+    expect(profile.node_offline_timeout_seconds).toBe(910);
+    const current=await (await request.get('/sim/state')).json();
+    // Reset-to-PASS includes 60 s after Kitchen's last received contact.
+    // The lease is anchored to that contact, never the page/render clock.
+    const remaining=profile.last_seen_at+profile.node_offline_timeout_seconds-current.simulation.now;
+    expect(remaining).toBeGreaterThan(0);
+    await post(request,'/sim/action',{action:'advance',seconds:remaining});
+    const boundary=await (await request.get('/sim/state')).json();
+    expect(boundary.simulation.coverage).toBe('COVERED');
+    expect(boundary.timeline.some((e:any)=>e.kind==='COVERAGE_CHANGED'&&e.details.reason==='coverage_lost')).toBe(false);
+    await post(request,'/sim/action',{action:'advance',seconds:1});
     const domain=await (await request.get('/sim/state')).json();
     expect(domain.simulation.coverage).toBe('UNKNOWN');
     expect(domain.timeline.some((e:any)=>e.kind==='COVERAGE_CHANGED'&&e.details.reason==='coverage_lost')).toBe(true);

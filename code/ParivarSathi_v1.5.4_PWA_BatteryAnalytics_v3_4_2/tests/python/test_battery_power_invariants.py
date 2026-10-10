@@ -151,7 +151,7 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         self.assertIn("EnergyCounters energy;", adapter)
         self.assertNotIn("EnergyCounters", codec_header + codec_source)
         self.assertIn("NodeHealthCadence health_cadence", adapter)
-        self.assertIn("NodeProtocolPolicy::heartbeat_seconds", adapter)
+        self.assertIn("deployment::policy.heartbeat_seconds", adapter)
         self.assertIn("health_cadence.due(now, application_due", adapter)
         self.assertEqual(adapter.count("xTaskCreate("), 1)
         self.assertNotIn("esp_timer_create", adapter)
@@ -224,7 +224,7 @@ class BatteryPowerInvariantTest(unittest.TestCase):
         self.assertIn("node_health_sleep_wake_cause_name", hub)
         self.assertEqual(adapter.count("transport::encode_node_health(health)"), 1)
         self.assertIn("NodeHealthCadence health_cadence", adapter)
-        self.assertIn("NodeProtocolPolicy::heartbeat_seconds", adapter)
+        self.assertIn("deployment::policy.heartbeat_seconds", adapter)
         self.assertNotIn("esp_timer_create", adapter)
         self.assertNotIn("esp_timer_start", adapter)
 

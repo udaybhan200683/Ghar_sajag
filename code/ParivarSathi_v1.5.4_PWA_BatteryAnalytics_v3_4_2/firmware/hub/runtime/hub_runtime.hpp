@@ -74,8 +74,11 @@ public:
     // same monotonic lease without inventing a NodeHealth packet.
     bool observe_authenticated_contact(const std::string& node_id,
                                        std::uint64_t transport_session,
-                                       std::uint64_t now_monotonic_ms);
+                                       std::uint64_t now_monotonic_ms, EpochSeconds trusted_contact_at = 0);
     std::optional<AuthenticatedNodeHealth> node_health(const std::string& node_id) const;
+    // Trusted deployment profile, never selected by uplink payload.
+    void set_node_offline_timeout(const std::string& node_id, std::optional<std::uint32_t> seconds);
+    bool node_profile_known(const std::string& node_id) const;
     bool node_online(const std::string& node_id, std::uint64_t now_monotonic_ms) const;
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Replace the active window state; production must persist the transition and define mid-window
@@ -170,6 +173,7 @@ private:
     std::map<std::string, NodePowerTelemetry> power_telemetry_;
     std::map<std::string, AuthenticatedNodeHealth> node_health_;
     std::map<std::string, std::uint64_t> last_authenticated_contact_ms_;
+    std::map<std::string, std::optional<std::uint32_t>> node_offline_timeouts_;
     bool state_applied_{false};
     bool journal_replayed_{false};
     bool replay_fence_fault_{false};

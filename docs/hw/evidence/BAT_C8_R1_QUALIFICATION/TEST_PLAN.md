@@ -407,3 +407,18 @@ event-ledger view and verified post-commit ACK-loss fixture are prerequisites
 for P8 PASS. The C8 image may be used for P1–P7 and P9–P10 once hardware is
 available; overall C8 closure still requires every applicable gate including
 P8.
+
+
+## GS-40 candidate prerequisite — 2026-10-10
+
+The next separately authorized GS-114 P1–P9 fixture must include GS-150 and
+GS-40 matched C3/S3 images plus validated JSON/profile manifest. Default300s
+health and derived910s silent-Node lease replace historical target timing.
+Verify startup configuration fingerprints, five-minute idle opportunities,
+30-minute quiet six opportunities, authenticated event suppression, silent
+lease expiry/caregiver unknown-offline display, legacy profile mapping,
+Hub Internet versus local coverage, GPIO4/held-HIGH, timer/ESP-NOW restoration
+and automatic outage rejoin without new motion. Preserve critical events and
+original pending records. These are planned cases, not physical PASS evidence;
+GS-40 retains its own real-target/visibility acceptance. Board/image preparation
+and all hardware actions still require separate authorization.

@@ -19,16 +19,15 @@ struct NodeProtocolPolicy {
     static constexpr std::uint32_t wire_schema = 3;
     static constexpr std::uint32_t previous_wire_schema = 2;
     static constexpr std::uint32_t ack_schema = 1;
-    // Quiet Nodes offer authenticated health every 120 s. The Hub allows two
-    // opportunities plus 70 s (one 60 s outage probe and 10 s scheduling
-    // margin) before declaring an enrolled Node offline.
-    static constexpr std::uint32_t heartbeat_seconds = 120;
-    static constexpr std::uint32_t missed_heartbeats_before_offline = 2;
-    static constexpr std::uint32_t offline_grace_seconds = 70;
+    // GS-40 safe default. Target startup uses validated JSON deployment policy.
+    // Only the heartbeat is adjustable; offline lease is three intervals + 10 s.
+    static constexpr std::uint32_t heartbeat_seconds = 300;
+    static constexpr std::uint32_t missed_heartbeats_before_offline = 3;
+    static constexpr std::uint32_t offline_grace_seconds = 10;
     static constexpr EpochSeconds offline_after_seconds =
         static_cast<EpochSeconds>(heartbeat_seconds * missed_heartbeats_before_offline + offline_grace_seconds);
-    // Event-time routine coverage retains its existing 190 s contract. It is
-    // separate from the authenticated monotonic Node liveness lease above.
+    // Historical fallback for callers without a deployment profile. Production
+    // per-Node contact coverage uses its explicitly selected deployment lease.
     static constexpr EpochSeconds coverage_after_seconds = 190;
     // Fast recovery for transient loss, followed by a low-rate periodic probe.
     // The last delay repeats indefinitely; retries never depend on a new sensor event.

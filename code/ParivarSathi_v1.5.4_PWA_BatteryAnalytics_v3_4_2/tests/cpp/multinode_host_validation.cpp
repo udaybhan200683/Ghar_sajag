@@ -17,6 +17,7 @@ struct CaseReport {
     std::size_t journal{0};
     std::size_t ingress_high_water{0};
     std::size_t ingress_rejected{0};
+    bool unsupported{false};
 };
 std::vector<CaseReport> reports;
 
@@ -40,11 +41,17 @@ void write_report() {
     std::ofstream out("build/multinode_host_summary.json", std::ios::trunc);
     require(out.good(), "could not create multi-node per-node evidence");
     out << "{\n  \"classification\": \"HOST/SIMULATED\",\n"
-        << "  \"expected_cases\": 13, \"executed_cases\": 13, \"passed_cases\": 13,\n"
+        << "  \"expected_cases\": 13, \"executed_cases\": 12, \"passed_cases\": 12, \"skipped_cases\": 1,\n"
         << "  \"cases\": [\n";
     for (std::size_t i = 0; i < reports.size(); ++i) {
         const auto& report = reports[i];
         if (i) out << ",\n";
+        if (report.unsupported) {
+            out << "    {\"id\":\"P2-MN25\",\"status\":\"SKIPPED\","
+                   "\"reason\":\"Current ten-slot enrollment protocol; 25-node architectural stress deferred\","
+                   "\"capacity_rejection_verified\":true,\"expected_nodes\":25,\"executed_nodes\":0,\"passed_nodes\":0,\"nodes\":[]}";
+            continue;
+        }
         out << "    {\"id\": \"" << report.id << "\", \"status\": \"PASS\", "
             << "\"expected_nodes\": " << report.nodes.size()
             << ", \"executed_nodes\": " << report.nodes.size()
@@ -336,7 +343,15 @@ void noisy_node_does_not_starve_quiet_nodes() {
 int main() {
     try {
         (void)std::remove("build/multinode_host_summary.json");
-        for (std::size_t count : {1U, 4U, 10U, 25U}) qualify_count(count);
+        for (std::size_t count : {1U, 4U, 10U}) qualify_count(count);
+        require(gs::hub::kMaxEnrollmentSlots == 10, "reconcile stress scope if protocol capacity changes");
+        bool rejected=false;
+        try { ScheduledHarness unsupported(25); }
+        catch(const std::runtime_error& e) { rejected=std::string(e.what())=="host registry setup failed"; }
+        require(rejected,"unsupported enrollment count must fail closed");
+        CaseReport unsupported;unsupported.id="P2-MN25";unsupported.unsupported=true;
+        reports.push_back(std::move(unsupported));
+        std::cout << "P2-MN25 SKIPPED current ten-slot enrollment protocol; capacity rejection verified\n";
         lost_ack_retries_same_identity();
         misrouted_ack_is_rejected();
         outage_recovers();

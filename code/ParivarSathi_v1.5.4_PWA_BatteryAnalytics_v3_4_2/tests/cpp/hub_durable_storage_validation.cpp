@@ -215,6 +215,7 @@ void bitmap_and_stress(gs::host::security::OpenSslCommissioningCrypto& crypto,co
     RecoveryState final;require(stress.recover(final)&&final.last_ordinal==1000&&final.tail.size()<=4&&final.checkpoint.pending_effects.size()==10,"1000 transition bounded recovery with handed-off effects");for(std::uint64_t n=100;n<=1000;n+=100){PendingEffectChunk restored;require(stress.read_pending_chunk(n/2,restored)&&restored.effects.size()==1,"stress effect chunk restores");}CompletionBitmap final_receipt;std::array<std::uint8_t,32> last_mapping{};last_mapping.fill(63);require(stress.read_bitmap(last_mapping,final_receipt)&&final_receipt.committed_bits==0x00ff,"stress completion bitmap restores");auto after_stress=transition(1001);after_stress.type=TransitionType::Timer;require(stress.commit(after_stress)==CommitStatus::Committed,"timer transition follows stress");require(stress.recover(final)&&final.last_ordinal==1001,"next ordinal advances exactly once");
 }
 void modeled_migration_budget() {
+    // Historical classic-ESP32 migration certificate, not S3 capacity qualification.
     // Section 18's admitted-profile certificate counts all roots and the
     // existing c000-c127 receipts in the 3,206 source-family entries. The
     // only migration addition is the two 218-byte authenticated GMM2 banks.
@@ -230,7 +231,7 @@ void modeled_migration_budget() {
     require(peak_bytes==88976U&&131072U-peak_bytes==42096U,
             "GMM2 admitted-profile byte peak");
     require(kMigrationManifestTotalBytes==436&&kMigrationManifestTotalEntries==18&&
-            kMaxCheckpointBytes==4549&&kRetirementSnapshotBankBytes==5777,
+            kMaxCheckpointBytes==4549&&kRetirementSnapshotBankBytes==6100,
             "hard codec and migration caps");
 }
 void conditional_erase_contract() {

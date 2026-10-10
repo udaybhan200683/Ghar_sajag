@@ -394,3 +394,15 @@ digest. TLS/request association must not be described as that stronger proof.
 The [dated P2-D evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md)
 records validated scope and blockers. Production body and identity deletion gates
 remain disabled; post-sync local history retention remains P2-E.
+
+
+## GS-40 configuration and contact integration (2026-10-10)
+
+GS-D031 selects embedded validated JSON and RAM physical-identity deployment
+profiles for per-Node liveness/coverage. No checkpoint, storage partition, event
+identity, durable-before-ACK or cloud-completion contract changes. Backend/PWA
+consume the corresponding trusted profile and received-contact timestamp;
+render time and retained occurrence time cannot renew sensor freshness. Hub
+cloud freshness190s remains distinct from configured Node lease910s. Secure
+target epoch/cloud production gaps remain explicitly unqualified. See the
+[GS-40 software evidence](../exec-plans/evidence/R1_GS40_SOFTWARE_VALIDATION_20261010.md).

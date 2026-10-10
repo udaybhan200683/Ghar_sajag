@@ -1,5 +1,21 @@
 # Device Health, Liveness and Offline Detection
 
+## Current GS-40 configuration (GS-D031)
+
+The GS-40 candidate uses 300 s / derived 910 s by default, the same day/night
+algorithm, authenticated contact suppression and optional existing event power
+telemetry. Canonical JSON, strict validator, embedded typed C3/S3 startup policy,
+trusted per-device legacy/configured profile map and backend/PWA lease consumers
+are described in the [configuration guide](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/config/README.md).
+Prior 60/190 and BAT-C5 120/310 default statements below describe historical
+profiles; GS-112/150 evidence remains history, not GS-40 validation. GS-150
+receive, sleep, GPIO and recovery contracts are preserved. A missing deployment
+profile is unknown. Hub cloud freshness retains its separate 190 s lease.
+Per-device current coverage uses its selected lease only with trusted received
+time; target epoch and production cloud-path limitations remain explicit.
+Full real-target acceptance and physical power results are not claimed.
+
+
 Feature documentation type:
 ENGINEERING FUNCTIONAL GUIDE
 
@@ -7,7 +23,7 @@ This guide explains stable feature functionality and implementation.
 
 It is NOT the current project-status authority.
 
-For current status: `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`
+For current status: [R1 work state](../product/R1_WORK_STATE.md)
 For implementation/evidence traceability: `docs/validation/MASTER_TRACEABILITY.csv`
 For physical qualification: `docs/validation/` and `evidence/hil/runs/`
 

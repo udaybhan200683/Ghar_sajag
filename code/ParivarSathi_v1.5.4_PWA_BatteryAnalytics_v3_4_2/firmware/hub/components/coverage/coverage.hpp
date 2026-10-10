@@ -28,6 +28,8 @@ struct NodeHealth {
 class CoverageTracker {
 public:
     explicit CoverageTracker(EpochSeconds lease_seconds = NodeProtocolPolicy::coverage_after_seconds);
+    // RAM deployment policy, reconstructed at boot; not checkpoint schema.
+    void set_node_lease(const std::string& node_id, EpochSeconds seconds) { node_leases_[node_id] = seconds; }
     void require_node(const std::string& node_id);
     void forget_node(const std::string& node_id);
     // @requirements F08, E01, E03
@@ -42,6 +44,11 @@ public:
 private:
     friend class HubCheckpointCodec;
     EpochSeconds lease_seconds_;
+    std::map<std::string, EpochSeconds> node_leases_;
+    EpochSeconds lease(const std::string& node) const {
+        const auto it = node_leases_.find(node);
+        return it == node_leases_.end() ? lease_seconds_ : it->second;
+    }
     std::set<std::string> required_nodes_;
     std::map<std::string, NodeHealth> health_;
 };

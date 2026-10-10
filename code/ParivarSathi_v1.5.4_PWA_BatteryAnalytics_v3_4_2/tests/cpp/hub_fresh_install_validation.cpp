@@ -1,4 +1,5 @@
 #include "firmware/hub/components/storage/hub_durability_owner.hpp"
+#include "firmware/hub/components/storage/durable_event_outbox.hpp"
 #include "firmware/hub/components/storage/durable_journal_slot_store.hpp"
 #include "firmware/hub/components/registry/registry_persistence.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
@@ -100,6 +101,46 @@ public:
         out = data; found = !data.empty(); return true;
     }
     bool write(const Bytes& value) override { data = value; return true; }
+};
+
+// Volatile host storage exercises the real authenticated replay-fence codec.
+// No production partition or persistent-state contract is changed.
+class FenceSegments final : public storage::SegmentStore {
+public:
+    std::uint64_t partition_capacity_bytes() const override { return 4U * 1024U * 1024U; }
+    bool segment_size(std::uint16_t n, bool& found, std::uint32_t& size) override {
+        found = segments.count(n); size = found ? segments[n].size() : 0; return true;
+    }
+    bool read(std::uint16_t n, std::uint32_t offset, std::uint8_t* out,
+              std::size_t requested, std::size_t& actual) override {
+        const auto& bytes = segments[n];
+        actual = offset >= bytes.size() ? 0 : std::min(requested, bytes.size() - offset);
+        if (actual) std::copy_n(bytes.data() + offset, actual, out);
+        return true;
+    }
+    bool append(std::uint16_t n, const std::uint8_t* data, std::size_t length) override {
+        segments[n].insert(segments[n].end(), data, data + length); return true;
+    }
+    bool sync(std::uint16_t) override { return true; }
+    bool read_publication(Bytes& out, bool& found) override { out = publication; found = !out.empty(); return true; }
+    bool publish_publication(const Bytes& bytes) override { publication = bytes; return true; }
+    bool read_lifecycle_root(Bytes& out, bool& found) override { out = root; found = !out.empty(); return true; }
+    bool publish_lifecycle_root(const Bytes& bytes) override { root = bytes; return true; }
+    bool remove_segment(std::uint16_t n) override { segments.erase(n); return true; }
+    bool completion_size(bool& found, std::uint32_t& size) override { found = !completion.empty(); size = completion.size(); return true; }
+    bool read_completion(std::uint32_t offset, std::uint8_t* out, std::size_t requested, std::size_t& actual) override {
+        actual = offset >= completion.size() ? 0 : std::min(requested, completion.size() - offset);
+        if (actual) std::copy_n(completion.data() + offset, actual, out);
+        return true;
+    }
+    bool append_completion(const std::uint8_t* data, std::size_t length) override { completion.insert(completion.end(), data, data + length); return true; }
+    bool sync_completion() override { return true; }
+    bool truncate_completion(std::uint32_t size) override { if (size > completion.size()) return false; completion.resize(size); return true; }
+    bool read_completion_publication(Bytes& out, bool& found) override { out = completion_head; found = !out.empty(); return true; }
+    bool publish_completion_publication(const Bytes& bytes) override { completion_head = bytes; return true; }
+private:
+    std::map<std::uint16_t, Bytes> segments;
+    Bytes publication, root, completion, completion_head;
 };
 
 void gate(std::uint64_t origin = 7) {
@@ -247,6 +288,21 @@ void gate(std::uint64_t origin = 7) {
         auto retired = candidate; retired.event.session_id = 1501;
         check(probe.commit(retired) == CommitStatus::NotCommitted, "covered absent key remains retired");
     }
+    DurableJournalSlotStore::EnrollmentOwner event_owner;
+    check(resolver("device", "pir", event_owner), "event enrollment binding");
+    FenceSegments fence_segments;
+    storage::DurableEventOutbox fence_outbox(fence_segments, crypto, key);
+    check(fence_outbox.recover() == storage::OutboxRecovery::Empty, "empty fence outbox recovery");
+    const auto bind_selected_fence = [&](HubRuntime& target, HubDurabilityOwner& selected_owner) {
+        const auto& reference = selected_owner.recovery_state()->checkpoint.report_snapshot;
+        if (!reference) return;
+        check(!target.durable_admission_open(), "selected report requires recovered replay fence");
+        RetirementSnapshot snapshot;
+        check(selected_owner.retirement_repository()->load(*reference, snapshot) &&
+              fence_outbox.publish_replay_fence(*selected_owner.epoch(), *reference, 0) &&
+              target.bind_replay_fence(snapshot, *selected_owner.epoch(), *reference, fence_outbox),
+              "selected authenticated report bound before admission");
+    };
     DurableJournalSlotStore slots(first_boot, crypto, key, resolver);
     HubRuntime runtime(4, 128);
     runtime.bind_durability_owner(first_boot); runtime.authorize_node("pir", transport_session, true);
@@ -254,6 +310,7 @@ void gate(std::uint64_t origin = 7) {
     config.window_id = "morning"; config.end_at = 100; config.grace_end_at = 120;
     runtime.start_window(config, HomeMode::Home);
     check(runtime.journal().attach_persistence(crypto, slots, key), "production journal attached");
+    bind_selected_fence(runtime, first_boot);
     NodeMessage message;
     message.node_id = "pir"; message.session_id = origin; message.sequence_number = 1;
     message.sensor_type = SensorType::Pir; message.event_type = EventKind::Motion;
@@ -269,7 +326,8 @@ void gate(std::uint64_t origin = 7) {
               hub_radio.open(security::RuntimeDirection::Uplink, secure, plain), "uplink AEAD");
         auto decoded = transport::decode_node_message(plain.bytes.data(), plain.size);
         check(bool(decoded) && target.authenticated_radio_message_callback(
-                  *decoded.value, "pir", "device", transport_session, 11), "authenticated runtime admission");
+                  *decoded.value, "pir", "device", transport_session, 11, 0,
+                  event_owner.slot, event_owner.generation, event_owner.owner_digest), "authenticated runtime admission");
         return target.run_state_once();
     };
     auto first = admit(runtime);
@@ -292,7 +350,9 @@ void gate(std::uint64_t origin = 7) {
     HubRuntime restored(4, 128);
     restored.bind_durability_owner(reboot); restored.authorize_node("pir", transport_session + 1, true);
     restored.start_window(config, HomeMode::Home);
-    check(restored.journal().attach_persistence(crypto, restored_slots, key) &&
+    check(restored.journal().attach_persistence(crypto, restored_slots, key), "reboot journal attached");
+    bind_selected_fence(restored, reboot);
+    check(
           restored.restore_from_journal(), "durable event rebuilds reducer");
     check(node_radio.start(transport_session + 1, key) && hub_radio.start(transport_session + 1, key), "new transport session after reboot");
     auto replay = [&]() {
@@ -304,7 +364,8 @@ void gate(std::uint64_t origin = 7) {
               hub_radio.open(security::RuntimeDirection::Uplink, secure, plain), "retry AEAD");
         auto decoded = transport::decode_node_message(plain.bytes.data(), plain.size);
         check(bool(decoded) && restored.authenticated_radio_message_callback(
-                  *decoded.value, "pir", "device", transport_session + 1, 12), "old EventKey in new transport session");
+                  *decoded.value, "pir", "device", transport_session + 1, 12, 0,
+                  event_owner.slot, event_owner.generation, event_owner.owner_digest), "old EventKey in new transport session");
         return restored.run_state_once();
     };
     auto duplicate = replay();
@@ -349,7 +410,8 @@ void gate(std::uint64_t origin = 7) {
           hub_radio.open(security::RuntimeDirection::Uplink, secured, plain), "fault event AEAD");
     auto decoded = transport::decode_node_message(plain.bytes.data(), plain.size);
     check(bool(decoded) && failed_runtime.authenticated_radio_message_callback(
-              *decoded.value, "pir", "device", transport_session + 1, 12), "fault event admission");
+              *decoded.value, "pir", "device", transport_session + 1, 12, 0,
+                  event_owner.slot, event_owner.generation, event_owner.owner_digest), "fault event admission");
     auto rejected = failed_runtime.run_state_once();
     check(rejected && rejected->ack == AckClass::Rejected && !rejected->state_changed &&
           failed_runtime.journal().size() == 0, "failed commit never produces Durable ACK");

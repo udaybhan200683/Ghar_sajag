@@ -23,6 +23,7 @@ void CoverageTracker::require_node(const std::string& node_id) {
 void CoverageTracker::forget_node(const std::string& node_id) {
     required_nodes_.erase(node_id);
     health_.erase(node_id);
+    node_leases_.erase(node_id);
 }
 
 // @requirements F08, E01, E03
@@ -45,7 +46,7 @@ CoverageState CoverageTracker::current(EpochSeconds now) const {
     GS_TRACE(gs::log::Category::Hub, "H04", "current.enter", "-");
     for (const auto& node : required_nodes_) {
         const auto it = health_.find(node);
-        if (it == health_.end() || it->second.last_contact == 0 || now < it->second.last_contact || now - it->second.last_contact > lease_seconds_) {
+        if (it == health_.end() || it->second.last_contact == 0 || now < it->second.last_contact || lease(node) <= 0 || now - it->second.last_contact > lease(node)) {
             return CoverageState::Unknown;
         }
         if (it->second.sensor_fault) return CoverageState::Fault;
@@ -59,7 +60,7 @@ std::vector<std::string> CoverageTracker::reasons(EpochSeconds now) const {
     for (const auto& node : required_nodes_) {
         const auto it = health_.find(node);
         if (it == health_.end() || it->second.last_contact == 0) result.push_back(node + ":never_seen");
-        else if (now < it->second.last_contact || now - it->second.last_contact > lease_seconds_) result.push_back(node + ":lease_expired");
+        else if (now < it->second.last_contact || lease(node) <= 0 || now - it->second.last_contact > lease(node)) result.push_back(node + ":lease_expired");
         else if (it->second.sensor_fault) result.push_back(node + ":sensor_fault");
     }
     return result;

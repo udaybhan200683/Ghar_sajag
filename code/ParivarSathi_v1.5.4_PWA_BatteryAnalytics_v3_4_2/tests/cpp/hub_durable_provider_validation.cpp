@@ -1,4 +1,5 @@
 #include "firmware/hub/components/storage/hub_durability_owner.hpp"
+#include "firmware/hub/components/storage/durable_journal_slot_store.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
 #include "firmware/hub/target/esp32/nvs_durable_key_codec.hpp"
 #include "host/security/openssl_commissioning_crypto.hpp"
@@ -166,7 +167,7 @@ void codec_tests() {
 void owner_tests(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     const auto k=key();
     Fixture fresh; HubDurabilityOwner owner(fresh,fresh,crypto,k,InstallationFreshness::FreshInstallation);
-    gs::hub::HubRuntime gated_runtime;
+    gs::hub::HubRuntime gated_runtime(32, 128);
     gated_runtime.authorize_node("node", 7, false);
     gated_runtime.bind_durability_owner(owner);
     check(!gated_runtime.durable_admission_open() && !gated_runtime.authoritative_storage_epoch(),
@@ -175,17 +176,24 @@ void owner_tests(gs::host::security::OpenSslCommissioningCrypto& crypto) {
     check(!gated_runtime.radio_callback(sample) && !gated_runtime.run_state_once(),
           "event admission and processing cannot bypass an unready owner");
     check(owner.recover()==DurabilityOwnerState::Ready && owner.epoch()==1,"fresh empty starts epoch one");
+    check(!gated_runtime.durable_admission_open(), "Ready owner without persistent journal stays closed");
+    DurableJournalSlotStore gated_slots(owner, crypto, k);
+    check(gated_runtime.journal().attach_persistence(crypto, gated_slots, k), "persistent provider journal attached");
     check(gated_runtime.durable_admission_open() && gated_runtime.authoritative_storage_epoch()==1,
           "fresh owner Ready exposes authoritative epoch one to runtime");
-    check(gated_runtime.radio_callback(sample) && gated_runtime.run_state_once().has_value(),
-          "event admission opens only after fresh owner readiness");
+    check(gated_runtime.radio_callback(sample), "event queue opens only after owner and journal readiness");
+    const auto no_enrollment = gated_runtime.run_state_once();
+    check(no_enrollment && no_enrollment->ack == gs::AckClass::Rejected &&
+          gated_runtime.journal().size() == 0, "missing enrollment cannot produce a Durable ACK");
     check(owner.recover()==DurabilityOwnerState::Ready && owner.epoch()==1,"repeated recovery is deterministic");
     check(owner.durable_store() && owner.retirement_repository() && owner.recovery_state(),"repositories compose when ready");
     HubDurabilityOwner reboot(fresh,fresh,crypto,k,InstallationFreshness::ExistingInstallation);
     check(reboot.recover()==DurabilityOwnerState::Ready && reboot.epoch()==1,"reboot preserves epoch");
-    gs::hub::HubRuntime reboot_runtime;
+    gs::hub::HubRuntime reboot_runtime(32, 128);
     reboot_runtime.authorize_node("node", 7, false);
     reboot_runtime.bind_durability_owner(reboot);
+    DurableJournalSlotStore reboot_slots(reboot, crypto, k);
+    check(reboot_runtime.journal().attach_persistence(crypto, reboot_slots, k), "reboot persistent journal attached");
     check(reboot_runtime.authoritative_storage_epoch()==1 && reboot_runtime.radio_callback(sample),
           "valid existing store opens admission with the same recovered epoch");
     check(owner.candidate_next_epoch()==2,"candidate epoch increments");

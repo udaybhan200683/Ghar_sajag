@@ -116,7 +116,7 @@ class Phase2BNotificationsTest(unittest.TestCase):
 
         self.lab.pwa_reset_pass()
         self.call("POST", "/sim/action", {"action": "node", "node": "kitchen", "enabled": False})
-        self.call("POST", "/sim/action", {"action": "advance", "seconds": 191})
+        self.call("POST", "/sim/action", {"action": "advance", "seconds": 911})
         self.assertEqual(self.records()[0]["title"], "Monitoring coverage lost")
         self.call("POST", "/sim/action", {"action": "node", "node": "kitchen", "enabled": True})
         self.call("POST", "/sim/action", {"action": "advance", "seconds": 60})

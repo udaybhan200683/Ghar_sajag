@@ -6,6 +6,7 @@
 #include "cloud/cloud_sync.hpp"
 #include "host/logging/file_log_sink.hpp"
 #include "gs/feature_flags.hpp"
+#include "gs/node_health_config.hpp"
 #if GS_PRODUCT_AI || !GS_FEATURE_MORNING_ROUTINE || !GS_FEATURE_CALL_FAMILY || !GS_FEATURE_LOCAL_OFFLINE
 #error "The interactive lab requires the default Base P0 profile; use the component matrix for other flag combinations."
 #endif
@@ -48,7 +49,10 @@ struct Simulation {
     bool trusted{true};
     bool hub_online{true};
     std::array<bool,6> online{true,true,true,true,true,true};
+    std::array<bool,6> explicit_fault{};
     std::array<std::unique_ptr<node::NodeRuntime>,6> nodes;
+    std::array<EpochSeconds,6> next_health{};
+    std::array<EpochSeconds,6> last_model_contact{};
     hub::HubRuntime hub{64,4096};
     hub::CloudSync cloud{hub.journal()};
     std::optional<DomainEvent> last_business;
@@ -65,6 +69,8 @@ struct Simulation {
         for (std::size_t i=0;i<6;++i) {
             nodes[i]=std::make_unique<node::NodeRuntime>(names[i],1,128,128);
             hub.authorize_node(names[i],1,true);
+            hub.set_node_offline_timeout(names[i], deployment::policy.offline_seconds);
+            next_health[i] = now;
         }
         cloud.set_connected(true,now*1000);
         heartbeats();
@@ -87,6 +93,11 @@ struct Simulation {
             if (!result) break;
             ack=result->ack==AckClass::Durable?"DURABLE_MODEL":result->ack==AckClass::DiscardedPolicy?"DISCARDED_POLICY":"REJECTED";
             nodes[i]->acknowledge(result->key,result->ack);
+            if (result->ack == AckClass::Durable || result->ack == AckClass::DiscardedPolicy) {
+                last_model_contact[i] = now;
+                next_health[i] = now + deployment::policy.heartbeat_seconds;
+                hub.observe_authenticated_contact(names[i],1,now*1000,now);
+            }
             collect(result->rule_signals);
             if (is_business_event(event->kind)) last_business=event;
         }
@@ -95,7 +106,12 @@ struct Simulation {
         if (!nodes[i]->record(kind,names[i],now*1000,now,0,3800)) throw std::runtime_error("node_capacity");
         deliver(i);
     }
-    void heartbeats() { for(std::size_t i=0;i<6;++i) if(online[i]) event(i,EventKind::Heartbeat); }
+    void heartbeats() {
+        for(std::size_t i=0;i<6;++i) if(online[i] && hub_online && now >= next_health[i]) {
+            next_health[i] = now + deployment::policy.heartbeat_seconds;
+            event(i,EventKind::Heartbeat); // Explicit host contact model, not physical AEAD evidence.
+        }
+    }
     void deadline() {
         if (!hub_online) { reason="hub_offline"; return; }
         const auto d=hub.deadline(now,trusted); reason=d.reason;
@@ -104,7 +120,11 @@ struct Simulation {
     void advance(int seconds) {
         // Test clock advances in heartbeat-sized steps; no wall-clock wait and no new production scheduler.
         while(seconds>0) {
-            int step=seconds>60?60:seconds; now+=step; seconds-=step;
+            int step=seconds>60?60:seconds;
+            for (const auto due : next_health) {
+                if (due > now && due-now < step) step=static_cast<int>(due-now);
+            }
+            now+=step; seconds-=step;
             local_seconds_of_day=(local_seconds_of_day+static_cast<std::uint32_t>(step))%(24U*60U*60U);
             heartbeats();
             collect(hub.activity_timers(now,local_minute(),trusted));
@@ -138,7 +158,7 @@ struct Simulation {
           <<",\"nodes\":[";
         for(std::size_t i=0;i<6;++i) {
             if(i) std::cout<<',';
-            std::cout<<"{\"id\":\""<<names[i]<<"\",\"online\":"<<(online[i]?"true":"false")<<",\"retained\":"<<nodes[i]->persisted()<<'}';
+            std::cout<<"{\"id\":\""<<names[i]<<"\",\"online\":"<<(!explicit_fault[i] && hub_online && hub.node_online(names[i],now*1000)?"true":"false")<<",\"last_contact_at\":"<<last_model_contact[i]<<",\"retained\":"<<nodes[i]->persisted()<<'}';
         }
         std::cout<<"],\"rule_signals\":[";
         for(std::size_t i=0;i<pending_signals.size();++i) {
@@ -170,7 +190,13 @@ int main() {
             if(cmd=="reset") sim=std::make_unique<Simulation>();
             else if(cmd=="advance") {int n=-1;in>>n;if(n<0||n>3600)throw std::runtime_error("invalid_step");sim->advance(n);}
             else if(cmd=="event") {int i=-1,k=-1;in>>i>>k;if(i<0||i>5||k<0||k>8)throw std::runtime_error("invalid_event");sim->event(static_cast<std::size_t>(i),static_cast<EventKind>(k));sim->deadline();}
-            else if(cmd=="node") {int i=-1,v=-1;in>>i>>v;if(i<0||i>5||(v!=0&&v!=1))throw std::runtime_error("invalid_node");sim->online[static_cast<std::size_t>(i)]=v!=0;sim->deliver(static_cast<std::size_t>(i));sim->deadline();}
+            else if(cmd=="node") {int i=-1,v=-1;in>>i>>v;if(i<0||i>5||(v!=0&&v!=1))throw std::runtime_error("invalid_node");const auto index=static_cast<std::size_t>(i);
+                sim->online[index]=v!=0;
+                // Fixture link fault is known immediately; coverage still ages from received contact.
+                sim->explicit_fault[index]=v==0;
+                if(v) {sim->next_health[index]=sim->now;sim->heartbeats();sim->deliver(index);}
+                sim->deadline();}
+            else if(cmd=="silence") {int i=-1;in>>i;if(i<0||i>5)throw std::runtime_error("invalid_node");sim->online[static_cast<std::size_t>(i)]=false;sim->deadline();}
             else if(cmd=="wan"||cmd=="clock") {int v=-1;in>>v;if(v!=0&&v!=1)throw std::runtime_error("invalid_bool");if(cmd=="wan")sim->cloud.set_connected(v!=0,sim->now*1000);else sim->trusted=v!=0;sim->deadline();}
             else if(cmd=="hub") {int v=-1;in>>v;if(v!=0&&v!=1)throw std::runtime_error("invalid_hub");sim->hub_online=v!=0;if(sim->hub_online){for(std::size_t i=0;i<6;++i)sim->deliver(i);}sim->deadline();}
             else if(cmd=="config") {

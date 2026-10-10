@@ -396,8 +396,8 @@ void test_hub_modules() {
           !replacement_runtime.observe_authenticated_health(health_one, "node-1", 7, 2000) &&
           !replacement_runtime.observe_authenticated_health(health_one, "node-1", 8, 2000),
           "wrong identity/session or stale health sequence was accepted");
-    check(replacement_runtime.node_online("node-1", 310000) &&
-          !replacement_runtime.node_online("node-1", 311001),
+    check(replacement_runtime.node_online("node-1", 910000) &&
+          !replacement_runtime.node_online("node-1", 911001),
           "authenticated health lease did not expire");
     replacement_runtime.authorize_node("node-1", 9, true);
     check(!replacement_runtime.node_health("node-1") &&
@@ -415,9 +415,9 @@ void test_hub_modules() {
 
 void test_bat_c5_health_and_lease() {
     constexpr gs::Milliseconds quiet_ms =
-        static_cast<gs::Milliseconds>(gs::NodeProtocolPolicy::heartbeat_seconds) * 1000;
+        120000; // Historical BAT-C5 deployment profile
     constexpr gs::Milliseconds lease_ms =
-        gs::NodeProtocolPolicy::offline_after_seconds * 1000;
+        310000; // Historical BAT-C5 deployment profile
     check(quiet_ms == 120000 && lease_ms == 310000 &&
           lease_ms - 2 * quiet_ms == 70000,
           "quiet health and Hub lease have a retry/scheduling safety margin");
@@ -441,6 +441,7 @@ void test_bat_c5_health_and_lease() {
           "quiet health repeats without a new task or telemetry type");
 
     gs::hub::HubRuntime hub(4, 8);
+    hub.set_node_offline_timeout("quiet-node", 310);
     hub.authorize_node("quiet-node", 7, false);
     check(!hub.observe_authenticated_contact("unknown", 7, 1) &&
           !hub.observe_authenticated_contact("quiet-node", 8, 1) &&
@@ -476,10 +477,10 @@ void test_bat_c5_health_and_lease() {
 
 
 void test_protocol_and_generic_rules() {
-    check(gs::NodeProtocolPolicy::heartbeat_seconds == 120,
-          "quiet authenticated health interval is 120 seconds");
-    check(gs::NodeProtocolPolicy::offline_after_seconds == 310,
-          "Hub lease covers two quiet health opportunities plus 70 seconds");
+    check(gs::NodeProtocolPolicy::heartbeat_seconds == 300,
+          "configured authenticated health interval is 300 seconds");
+    check(gs::NodeProtocolPolicy::offline_after_seconds == 910,
+          "Hub lease covers three configured health opportunities plus 10 seconds");
     check(gs::NodeProtocolPolicy::retry_delays_ms[0] == 200 &&
           gs::NodeProtocolPolicy::retry_delays_ms[3] == 10000 &&
           gs::NodeProtocolPolicy::retry_delays_ms[4] == 60000,

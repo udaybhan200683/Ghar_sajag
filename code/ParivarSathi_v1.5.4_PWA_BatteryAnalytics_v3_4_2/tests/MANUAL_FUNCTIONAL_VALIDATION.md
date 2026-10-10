@@ -561,10 +561,10 @@ Scenario ID: `inactivity-coverage-gap-suppressed`
 Requirements: E01
 
 **Steps**
-1. Change household setting(s): {"daytime_inactivity_seconds": 300}
+1. Change household setting(s): {"daytime_inactivity_seconds": 1200}
 2. Set simulated local minute to 600
 3. Set node kitchen link unavailable
-4. Advance simulated clock by 300 seconds
+4. Advance simulated clock by 1211 seconds
 
 **Expected**
 - `timeline` contains 0 item(s) matching `{"kind": "DAYTIME_INACTIVITY"}`

@@ -50,6 +50,11 @@ struct EnergyCounters {
     std::uint64_t recovery_nvs_commits{0};
     std::uint64_t unexpected_resets{0};
     std::uint32_t queue_high_water{0};
+    NodePowerTelemetry telemetry() const {
+        return {deep_sleep_ms, awake_ms, sensor_active_ms, radio_tx_ms, radio_rx_ms,
+                radio_tx_packets, radio_retries, wake_count, heartbeat_count,
+                boot_count, brownout_count};
+    }
     void record_sensing_loop(std::uint64_t active_ms, bool qualified) {
         ++sensing_loops;
         sensor_active_ms += active_ms;

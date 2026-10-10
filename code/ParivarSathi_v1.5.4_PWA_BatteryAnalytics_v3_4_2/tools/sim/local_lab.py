@@ -31,6 +31,7 @@ from ghar_sajag.model import HomeMode, IncidentState
 from ghar_sajag.battery import BatteryPowerProfile, BatterySample, EnergyCounters
 from ghar_sajag.service import GharSajagService
 from ghar_sajag.foundation import FoundationService, FoundationError
+from ghar_sajag.node_health_policy import load as load_node_health_policy, DeploymentPolicy
 from ghar_sajag.sqlite_events import SQLiteEventMap
 from ghar_sajag.store import InMemoryStore
 
@@ -141,7 +142,13 @@ class Lab:
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.proc.stdout, selectors.EVENT_READ)
         self.report = {"status": "NOT_RUN", "cases": []}
-        self.foundation = FoundationService(data_path, HOME, OWNER, clock=lambda: getattr(self, "state", {}).get("now", 1000))
+        # Explicit simulated identities use the compiled candidate policy.
+        candidate_policy = load_node_health_policy()
+        model_profiles = dict(candidate_policy.profiles)
+        model_profiles.update({node: "configured" for node in NODES})
+        self.foundation = FoundationService(data_path, HOME, OWNER,
+            clock=lambda: getattr(self, "state", {}).get("now", 1000),
+            node_health_policy=DeploymentPolicy(candidate_policy.configured, model_profiles))
         self.foundation.seed(DEFAULT_HOUSEHOLD_SETTINGS, DEFAULT_REGISTRY)
         self.state_epoch = 0
         try:
@@ -790,7 +797,8 @@ class Lab:
                 code, message = ("GS-OK000", "No fault detected") if online else ("GS-N003", "Node-to-hub communication unavailable")
             devices.append({"id": node, "kind": "NODE", "location": NODE_LOCATIONS[node], "active": online,
                             "health": health, "code": code, "message": message,
-                            "diagnostic": self.diagnostics.get(node)})
+                            "diagnostic": self.diagnostics.get(node),
+                            "last_contact_at": self.state["nodes"][i].get("last_contact_at")})
         hub_info = self._fault_info("hub")
         hub_online = bool(self.state.get("hub_online", True))
         if hub_info:
@@ -1045,6 +1053,10 @@ class Lab:
             "common": ("Common Room Sensor","Motion Sensor"),
         }
         battery_estimates = snap.get("battery_analytics", {})
+        # Trusted simulator provisioning establishes this model's applied profile.
+        # Real physical identities still require the JSON deployment map.
+        for row in self.foundation.db.execute("SELECT device_id FROM device_registry WHERE kind='NODE' AND registration_source='SIMULATOR'"):
+            self.foundation.node_health_policy.profiles.setdefault(row["device_id"], "configured")
         self.foundation.expire_stale(now, exclude=NODES)
         registry = {d["device_id"]: d for d in self.foundation.devices(OWNER)}
         for d in snap["devices"]:
@@ -1056,12 +1068,18 @@ class Lab:
             nm = record["display_name"]
             active = bool(d["active"] and record["enabled"])
             health = d["health"] if active else "OFFLINE"
-            self.foundation.record_health(d["id"], active, health, estimate.get("battery_mv"), estimate.get("percent"), estimate.get("drain_status", "LEARNING"))
+            self.foundation.record_health(d["id"], active, health, estimate.get("battery_mv"), estimate.get("percent"), estimate.get("drain_status", "LEARNING"),
+                heartbeat=active and bool(d.get("last_contact_at")), received_contact_at=d.get("last_contact_at") or None)
+            if active and d.get("last_contact_at"):
+                record["last_seen_at"] = d["last_contact_at"]
             devices.append({
                 "id": d["id"], "name": nm, "type": typ, "active": active,
                 "kind": record["kind"], "capability": record["capability"], "room": record["room"],
                 "registered": True, "enabled": bool(record["enabled"]), "registration_source": record["registration_source"],
                 "firmware_version": record["firmware_version"], "last_seen_at": record["last_seen_at"],
+                "heartbeat_interval_seconds": record.get("heartbeat_interval_seconds"),
+                "node_offline_timeout_seconds": record.get("node_offline_timeout_seconds"),
+                "node_liveness": ("ONLINE" if active else "OFFLINE") if record.get("node_offline_timeout_seconds") else "UNKNOWN",
                 "health": health, "code": d["code"], "message": d["message"],
                 "battery": estimate.get("percent"),
                 "battery_mv": estimate.get("battery_mv"),
@@ -1081,8 +1099,11 @@ class Lab:
         for did, record in registry.items():
             if did in {d["id"] for d in devices}: continue
             devices.append({"id":did,"name":record["display_name"],"type":record["capability"],"kind":record["kind"],
-                            "capability":record["capability"],"room":record["room"],"active":bool(record["online"]),
-                            "health":record["health"],"battery":record["battery_percent"],"battery_mv":record["battery_mv"],
+                            "capability":record["capability"],"room":record["room"],"active":bool(record["online"]) and record.get("node_liveness") != "UNKNOWN",
+                            "health":"UNKNOWN" if record.get("node_liveness") == "UNKNOWN" else record["health"],
+                            "node_liveness":record.get("node_liveness"),
+                            "heartbeat_interval_seconds":record.get("heartbeat_interval_seconds"),
+                            "node_offline_timeout_seconds":record.get("node_offline_timeout_seconds"),"battery":record["battery_percent"],"battery_mv":record["battery_mv"],
                             "drain_status":record["drain_status"],"left":"calculating","daily_mah":None,"confidence":"LOW",
                             "registration_source":record["registration_source"],"registered":True,"enabled":bool(record["enabled"]),
                             "firmware_version":record["firmware_version"],"last_seen_at":record["last_seen_at"],"updated":"never"})
@@ -1091,7 +1112,7 @@ class Lab:
             d["battery_health"] = "UNKNOWN" if pct is None else "CRITICAL" if pct <= self.household_settings["critical_battery_percent"] else "LOW" if pct <= self.household_settings["battery_alert_percent"] else "NORMAL"
         low = min((d for d in devices if d["battery"] is not None), key=lambda d:d["battery"], default=None)
         drain_attention = [d for d in devices if d.get("drain_status") == "HIGH"] if self.household_settings["abnormal_drain_alert_enabled"] else []
-        offline_devices = [d for d in devices if not d["active"]]
+        offline_devices = [d for d in devices if not d["active"] and d.get("node_liveness") != "UNKNOWN"]
         morning_ok = (not self.household_settings["morning_sequence_enabled"] or bool(sim.get("morning_sequence_completed", False))) and not self.pwa_flags.get("morning_negative", False)
         ok = not (self.pwa_flags.get("ok_negative", False) or active_check_in_overdue)
         ok_status = "OVERDUE" if not ok else "ACKNOWLEDGED" if self.pwa_flags.get("ok_acknowledged", False) else "NORMAL"

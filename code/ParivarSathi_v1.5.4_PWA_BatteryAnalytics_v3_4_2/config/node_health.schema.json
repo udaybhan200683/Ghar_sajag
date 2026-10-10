@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GS-40 embedded NodeHealth deployment configuration",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "node_health", "deployment_profiles"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "node_health": {
+      "type": "object", "additionalProperties": false,
+      "required": ["heartbeat_interval_seconds", "piggyback_on_events"],
+      "properties": {
+        "heartbeat_interval_seconds": {"type": "integer", "minimum": 15, "maximum": 3600},
+        "piggyback_on_events": {"const": true}
+      }
+    },
+    "deployment_profiles": {
+      "type": "object", "maxProperties": 10,
+      "propertyNames": {"pattern": "^c3-[0-9a-f]{12}$"},
+      "additionalProperties": {"enum": ["configured", "legacy_60", "legacy_120"]}
+    }
+  }
+}

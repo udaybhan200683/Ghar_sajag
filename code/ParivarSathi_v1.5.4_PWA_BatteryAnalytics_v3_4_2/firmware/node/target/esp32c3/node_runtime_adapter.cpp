@@ -7,6 +7,7 @@
 #include "firmware/common/security/target_wrapping_key.hpp"
 #include "firmware/node/runtime/node_runtime.hpp"
 #include "power/power.hpp"
+#include "gs/node_health_config.hpp"
 #include "power/session_recovery_policy.hpp"
 #include "firmware/node/target/esp32c3/node_security_link.hpp"
 #include "firmware/node/target/esp32c3/physical_wake_capability.hpp"
@@ -65,7 +66,7 @@ constexpr Milliseconds kInitialAmbiguityWindowMs =
 constexpr Milliseconds kHealthIntervalMs = 60000;  // Keep the qualified raw HIL cadence.
 #else
 constexpr Milliseconds kHealthIntervalMs =
-    static_cast<Milliseconds>(NodeProtocolPolicy::heartbeat_seconds) * 1000;
+    static_cast<Milliseconds>(deployment::policy.heartbeat_seconds) * 1000;
 #endif
 #if GS_HIL_CONTROL
 #define GS_NODE_PROGRESS_LOG ESP_LOGI
@@ -478,6 +479,8 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound,
 #endif
 
 void owner_task(void*) {
+    ESP_LOGI(kTag, "GS40 config=%s heartbeat=%u offline=%u", deployment::sha256,
+             deployment::policy.heartbeat_seconds, deployment::policy.offline_seconds);
     PowerPolicy power_policy;
 #if !GS_HIL_BUILD
     ActivityEpisode activity_episode;
@@ -870,6 +873,7 @@ void owner_task(void*) {
                         security_link.health_ack_supported(),
                         outstanding_health_sequence, *health_ack.value)) {
                     outstanding_health_sequence.reset();
+                    health_cadence.observe_authenticated_contact(now);
                     last_authenticated_contact_ms = now;
                     first_event_attempt_ms = -1;
                     completed_event_attempts = 0;
@@ -1469,12 +1473,19 @@ void owner_task(void*) {
             !g_security_phase.load(std::memory_order_acquire)
 #endif
             ) {
-            const auto message = runtime.next_message(now);
+            auto message = runtime.next_message(now);
             if (message) {
                 breadcrumb = NodeBreadcrumb::TxPrepare;
                 const EventKey key{message->node_id, message->session_id,
                                    message->sequence_number};
-                const auto encoded = transport::encode_node_message(*message);
+                // Existing optional power carrier; no new health or event wire schema.
+                if (now >= health_cadence.next_due_ms()) message->power = energy.telemetry();
+                auto encoded = transport::encode_node_message(*message);
+                if (!encoded && message->power) {
+                    // Optional diagnostics must never block a critical/large event.
+                    message->power.reset();
+                    encoded = transport::encode_node_message(*message);
+                }
                 if (!encoded) {
                     ESP_LOGE(kTag, "NodeMessage encode failed error=%d", static_cast<int>(encoded.error));
                     runtime.transport_result(key, false, now);

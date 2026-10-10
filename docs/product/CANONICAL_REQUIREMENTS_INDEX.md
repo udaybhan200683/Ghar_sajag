@@ -421,3 +421,8 @@ policy claims in the battery/device-health guides. Their previous qualification
 and GS-112/150 completion records remain valid history. Device-health and
 battery guides describe the narrow GS-40 design; GS-128 broader configuration
 remains OnHold. Context version: 2026-10-10.001.
+
+GS-40 implementation evidence: [software validation](../exec-plans/evidence/R1_GS40_SOFTWARE_VALIDATION_20261010.md)
+and [metrics](../exec-plans/evidence/R1_GS40_SOFTWARE_METRICS_20261010.csv) are
+TEST_EVIDENCE, subordinate to LOCKED GS-D031. JSON engineering instructions:
+[configuration README](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/config/README.md).

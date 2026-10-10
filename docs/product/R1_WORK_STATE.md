@@ -1,15 +1,61 @@
 # R1 Current Work State
 
-## GS-40 active software milestone — 2026-10-10
+## GS-40 software delivery / physical handoff — 2026-10-10
 
-Starting local/remote checkpoint 913b1dedb483ca63aff7244dbbd224053206c7f2,
-canonical branch feature/r1-commercial-baseline. GS-D031 records user-approved
-300-second default / derived 910-second offline policy and narrow JSON packaging.
-Implementation/validation underway; no GS-40 behavior is yet validated. GS-150
-completion below remains unchanged. GS-128 remains OnHold. Next after software:
-GS-114 separately authorized P1–P9 with GS-40 + GS-150 candidate images; GS-40
-real-target heartbeat/offline PWA acceptance also remains. No hardware authorized.
+GS-40 source implementation is complete: default 300 s, internally derived 910 s,
+identical day/night authenticated-contact/piggyback cadence, validated schema 1
+JSON embedded into C3/S3 startup policy, trusted physical identity mixed-profile
+mapping, and per-device backend/PWA received-contact freshness. GS-D031/context
+2026-10-10.001 record the approved policy; GS-128 remains OnHold. Actual preceding
+production cadence was 120/310; historical 60/190 remains an explicit legacy profile.
+No wire/storage migration, retry changes, GS-150 rewrite or hardware action.
 
+Starting local/remote checkpoint `913b1dedb483ca63aff7244dbbd224053206c7f2`;
+approved canonical policy commit `821da80b25dc11c8a01252333abc9734036fc66b`.
+Implementation delivery checkpoint/comment verification is recorded below after
+normal push. Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`. Original untracked S3 managed_components and
+original ignored Node asset are preserved; bundle/build directories are generated.
+
+Evidence: [GS-40 software validation](../exec-plans/evidence/R1_GS40_SOFTWARE_VALIDATION_20261010.md),
+[paired software metrics](../exec-plans/evidence/R1_GS40_SOFTWARE_METRICS_20261010.csv),
+[JSON/build/profile guide](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/config/README.md).
+Host C++ 1,479, Python 361 with one historical skip, GS-40 model 1,320 / configuration 15,
+GS-150 1,481, BAT-C8 72+11, PWA bridge 12 / API 92 / frontend 92 and security/FOTA passed.
+ASan/UBSan CPP/model passed. Clean IDF 6.0.3 C3 app 934,192 bytes and S3 app 1,868,800 bytes
+pass existing slots; exact paired C3 asset/config fingerprint packaging passes.
+Quiet 30 minutes health 15→6, night 8 hours 240→96: 60% fewer standalone health transmissions versus
+actual120 baseline. Event identities/effects/retry and recovery latencies unchanged;
+physical current/endurance unmeasured. Quick release gate with mandatory Chromium
+passes 17 stages (master 49/49, FOTA 34/34). Extended validation-fast exit2 is
+retained below; comprehensive desktop/mobile browser record follows.
+
+Expanded regression fixture corrections were TEST_INFRA_ONLY /
+VALID_TEST_EXPECTATION_MISMATCH under R1 release gates and GS-D031: missing six
+host linker dependencies, current snapshot cap 6,100, persistent journal requirement,
+selected authenticated replay-fence/owner evidence and configured coverage timing (including browser boundary assertions).
+No storage/security production behavior was changed for these corrections. Historical
+25-Node stress is explicitly SKIPPED with ten-slot rejection verified; supported
+1/4/10 cases remain checked. Baseline source provenance is in the evidence.
+
+**Remaining software limitation:** extended `validation-fast` still fails historical
+`hub-journal-migration-host-test`: `clean migration commits` (line 194), unchanged
+storage path/fixture from starting HEAD; baseline execution unverified. Classification
+UNRESOLVED / INVESTIGATE_ONLY under deferred legacy storage work. Do not suppress
+this failure or change migration ownership/storage contracts under GS-40. Independent
+fresh-install, current S3 durability/replay and GS-40 gates are recorded separately.
+Secure target trusted-epoch and production cloud-contract limitations remain open;
+host backend/PWA validation does not qualify real-target caregiver visibility.
+
+**Next sequential task: GS-114 BAT-C8 P1–P9**, only after separate authorization of
+fixture/image preparation and hardware actions. Include matched GS-40/GS-150 images,
+startup config SHA/profile map, actual GPIO4/held-HIGH, timer/radio restoration,
+NodeHealth 300/910, Hub outage/rejoin without new motion and honest coverage cases.
+GS-40 stays In Progress pending its own real-target heartbeat and caregiver offline
+visibility acceptance; overlapping evidence may be reused only when traceable.
+No protected board flash/reset/erase/re-enrollment is authorized here. GS-149 power
+acceptance follows existing GS-144/GS-51 prerequisites; GS-146 full physical/HIL
+closure retains all dependencies. GS-126/128 statuses/ranks/dependencies unchanged.
 
 ## GS-150 software implementation — 2026-10-10
 

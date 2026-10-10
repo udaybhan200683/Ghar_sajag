@@ -1,4 +1,5 @@
 set(GS_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../../..")
+include("${GS_ROOT}/firmware/common/node_health_config.cmake")
 set(GS_NODE_SRCS
     "app_main.cpp"
     "fota_receiver.cpp"
@@ -38,6 +39,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/node/target/esp32c3/node_runtime_adapter.cpp"
         "${GS_ROOT}/firmware/node/target/esp32c3/node_security_link.cpp"
     INCLUDE_DIRS
+        "${GS_NODE_HEALTH_GENERATED}"
         "."
         "${GS_ROOT}"
         "${GS_ROOT}/shared/include"

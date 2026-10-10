@@ -1,5 +1,6 @@
 """SQLite-backed application domain for Phase 1 household, family, device and policy state."""
 from __future__ import annotations
+from .node_health_policy import load as load_node_health_policy
 
 import json
 import re
@@ -57,7 +58,7 @@ def synchronized(method):
 class FoundationService:
     """One transactional SQLite store. Device registry is shared by Devices and Manage Devices."""
 
-    def __init__(self, path: str | Path = ":memory:", home_id="simulation-home", owner_id="simulation-owner", clock=None, provisioning=None):
+    def __init__(self, path: str | Path = ":memory:", home_id="simulation-home", owner_id="simulation-owner", clock=None, provisioning=None, node_health_policy=None):
         self.lock = threading.RLock()
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.db.row_factory = sqlite3.Row
@@ -65,6 +66,7 @@ class FoundationService:
         self.home_id, self.owner_id = home_id, owner_id
         self.clock = clock or (lambda: int(time.time()))
         self.provisioning = provisioning or ProvisioningAdapter()
+        self.node_health_policy = node_health_policy or load_node_health_policy()
 
     @synchronized
     def close(self):
@@ -203,12 +205,21 @@ class FoundationService:
     def devices(self, actor, registered_only=True):
         self._authorize(actor)
         sql = "SELECT * FROM device_registry WHERE home_id=?" + (" AND registered=1" if registered_only else "") + " ORDER BY kind,created_at,device_id"
-        return [dict(r) for r in self.db.execute(sql, (self.home_id,))]
+        result = [dict(r) for r in self.db.execute(sql, (self.home_id,))]
+        return [self._node_health_view(device) for device in result]
+
+    def _node_health_view(self, device):
+        if device["kind"] != "NODE": return device
+        policy = self.node_health_policy.for_device(device["device_id"])
+        device["heartbeat_interval_seconds"] = policy.heartbeat_seconds if policy else None
+        device["node_offline_timeout_seconds"] = policy.offline_seconds if policy else None
+        device["node_liveness"] = ("ONLINE" if device["online"] else "OFFLINE") if policy and device["last_seen_at"] is not None else "UNKNOWN"
+        return device
 
     @synchronized
     def device(self, actor, did):
         self._authorize(actor)
-        return self._row("device_registry", "device_id", did)
+        return self._node_health_view(self._row("device_registry", "device_id", did))
 
     @synchronized
     def register_device(self, actor, body):
@@ -265,29 +276,40 @@ class FoundationService:
         if battery_percent is not None and (type(battery_percent) is not int or not 0 <= battery_percent <= 100): raise FoundationError("invalid_battery_percent")
 
     @synchronized
-    def record_health(self, did, online, health, battery_mv=None, battery_percent=None, drain_status="LEARNING", heartbeat=False):
+    def record_health(self, did, online, health, battery_mv=None, battery_percent=None, drain_status="LEARNING", heartbeat=False, received_contact_at=None):
         self.validate_health(online, health, battery_mv, battery_percent, drain_status)
         old = self._row("device_registry", "device_id", did)
+        if received_contact_at is not None and (type(received_contact_at) is not int or received_contact_at <= 0 or received_contact_at > self.clock()):
+            raise FoundationError("invalid_received_contact")
+        contact_at = self.clock() if received_contact_at is None else received_contact_at
+        if old["last_seen_at"] is not None and contact_at < old["last_seen_at"]:
+            contact_at = old["last_seen_at"]
         if not old["registered"]: raise FoundationError("device_unregistered")
         if (old["online"], old["health"], old["battery_mv"], old["battery_percent"], old["drain_status"]) == (int(online), health, battery_mv, battery_percent, drain_status):
-            if online and heartbeat and old["last_seen_at"] != self.clock():
+            if online and heartbeat and old["last_seen_at"] != contact_at:
                 with self.db:
-                    self.db.execute("UPDATE device_registry SET last_seen_at=?,updated_at=? WHERE device_id=? AND home_id=?", (self.clock(), self.clock(), did, self.home_id))
+                    self.db.execute("UPDATE device_registry SET last_seen_at=?,updated_at=? WHERE device_id=? AND home_id=?", (contact_at, self.clock(), did, self.home_id))
             return
         at = self.clock()
         with self.db:
             self.db.execute("UPDATE device_registry SET online=?,health=?,communication=?,last_seen_at=CASE WHEN ? THEN ? ELSE last_seen_at END,battery_mv=?,battery_percent=?,drain_status=?,updated_at=? WHERE device_id=? AND home_id=? AND registered=1",
-                            (int(online), health, "ONLINE" if online else "OFFLINE", int(online), at, battery_mv, battery_percent, drain_status, at, did, self.home_id))
+                            (int(online), health, "ONLINE" if online else "OFFLINE", int(online), contact_at, battery_mv, battery_percent, drain_status, at, did, self.home_id))
             self.db.execute("INSERT INTO device_health_history(home_id,device_type,device_id,sampled_at,status,battery_mv,details_json) SELECT home_id,kind,device_id,?,?,?,? FROM device_registry WHERE device_id=? AND home_id=? AND registered=1",
                             (at, health, battery_mv, json.dumps({"online": online, "battery_percent": battery_percent, "drain_status": drain_status}), did, self.home_id))
 
     @synchronized
-    def expire_stale(self, now, exclude=(), stale_seconds=190):
-        """Expire simulated devices without a heartbeat; baseline nodes use the C++ freshness path."""
+    def expire_stale(self, now, exclude=()):
+        """Per-Node trusted profile; Hub cloud lease is a separate 190 s policy.
+
+        Caller must supply received contact time, never retained occurrence time.
+        Unknown profiles do not invent an offline threshold.
+        """
         excluded = set(exclude)
-        rows = self.db.execute("SELECT device_id,battery_mv,battery_percent,drain_status FROM device_registry WHERE home_id=? AND registered=1 AND online=1 AND last_seen_at IS NOT NULL AND last_seen_at<?", (self.home_id, now-stale_seconds)).fetchall()
+        rows = self.db.execute("SELECT device_id,kind,last_seen_at,battery_mv,battery_percent,drain_status FROM device_registry WHERE home_id=? AND registered=1 AND online=1 AND last_seen_at IS NOT NULL", (self.home_id,)).fetchall()
         for row in rows:
-            if row["device_id"] not in excluded:
+            policy = self.node_health_policy.for_device(row["device_id"]) if row["kind"] == "NODE" else None
+            timeout = policy.offline_seconds if policy else 190 if row["kind"] == "HUB" else None
+            if timeout is not None and row["device_id"] not in excluded and now - row["last_seen_at"] > timeout:
                 self.record_health(row["device_id"], False, "OFFLINE", row["battery_mv"], row["battery_percent"], row["drain_status"])
 
     @synchronized

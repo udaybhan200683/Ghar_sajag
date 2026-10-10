@@ -1328,7 +1328,7 @@
         {
           "action": "settings_patch",
           "values": {
-            "daytime_inactivity_seconds": 300
+            "daytime_inactivity_seconds": 1200
           }
         },
         {
@@ -1342,7 +1342,7 @@
         },
         {
           "action": "advance",
-          "seconds": 300
+          "seconds": 1211
         }
       ],
       "assertions": [

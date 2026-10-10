@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "node_health": {
+    "heartbeat_interval_seconds": 300,
+    "piggyback_on_events": true
+  },
+  "deployment_profiles": {
+    "c3-146393c5d158": "configured"
+  }
+}

@@ -304,16 +304,22 @@ struct Scenario {
     bool callback_failed = false;
     bool repeated_outage = false;
     Milliseconds horizon_ms = 360000;
+    Milliseconds motion_period_ms = 10000;
 };
 struct Metrics {
     std::uint64_t loops=0, sleeps=0, timer=0, gpio=0, awake=0, listen=0;
     unsigned tx=0, retry=0, ack=0, missed=0, rejoin=0, admitted=0, retired=0, writes=0, effects=0, health=0, piggyback=0;
+    unsigned incorrect_offline=0;
     Milliseconds first_latency=-1, ack_latency=-1, return_latency=-1, drain=-1;
 };
 struct Reply { Milliseconds due; SecureFrame wire; Milliseconds admitted; };
-Metrics simulate(const Scenario& s, bool after) {
+Metrics simulate(const Scenario& s, bool after, Milliseconds heartbeat_ms = 120000, unsigned offline_seconds = 0) {
     Pair p; Metrics m; PowerPolicy power; AckListeningWindow window;
-    NodeHealthCadence health(120000,120000);
+    NodeHealthCadence health(heartbeat_ms,heartbeat_ms);
+    if (offline_seconds) {
+        p.hub->set_node_offline_timeout("room",offline_seconds);
+        if (s.return_ms == 0) require(p.hub->observe_authenticated_contact("room",p.session,1),"initial authenticated model session");
+    }
     ActivityEpisode episode; QualifiedInput pir(EventKind::Motion,std::nullopt,150,1000);
     pir.sample(false,0);
     for (int i=0;i<s.initial;++i) { p.admit(EventKind::Motion,i); ++m.admitted; }
@@ -323,6 +329,7 @@ Metrics simulate(const Scenario& s, bool after) {
     unsigned attempts=0, rejoin_stage=0;
     bool ready=true, raw=false, report_active=false, important_done=false;
     bool hub_context_valid=s.name!="idle_hub_reboot_return";
+    bool hub_seen_contact=s.return_ms==0;
     bool missed_return_callback=false, current_mac_success=false;
     std::vector<Reply> replies;
     std::map<std::string,unsigned> key_attempts;
@@ -335,7 +342,11 @@ Metrics simulate(const Scenario& s, bool after) {
             rejoin_listen=now+SessionRecoveryPolicy::retry_delay(0,p.session+1);
             window.require_until(rejoin_listen);
             if (online) {
-                p.rejoin(p.session+1); ready=true; hub_context_valid=true;
+                p.rejoin(p.session+1); ready=true; hub_context_valid=true; hub_seen_contact=true;
+                if (offline_seconds) {
+                    p.hub->set_node_offline_timeout("room",offline_seconds);
+                    require(p.hub->observe_authenticated_contact("room",p.session,static_cast<std::uint64_t>(now)),"authenticated model rejoin contact");
+                }
                 last_contact=now; attempts=0; first_attempt=-1;
                 p.node->set_outage_profile(false,now); health.observe_authenticated_contact(now);
                 window.authenticated_progress();
@@ -377,7 +388,7 @@ Metrics simulate(const Scenario& s, bool after) {
             first_attempt=-1; attempts=0;
             continue; // same required opportunity, no elapsed model time
         }
-        raw=s.motion && now>=20000 && now%10000<2000;
+        raw=s.motion && now>=20000 && now%s.motion_period_ms<2000;
         const auto sensed=pir.sample(raw,now);
         episode.poll(now,p.node->outage_profile());
         if(sensed) {
@@ -405,6 +416,7 @@ Metrics simulate(const Scenario& s, bool after) {
                     NodeHealthSnapshot hs; hs.node_id="room"; hs.session_id=p.session; hs.health_sequence=m.health;
                     require(p.hub->observe_authenticated_health(hs,"room",p.session,static_cast<std::uint64_t>(now)),
                         "authenticated health lease");
+                    hub_seen_contact=true;
                     if(s.health_ack) last_contact=now;
                 }
             }
@@ -423,6 +435,7 @@ Metrics simulate(const Scenario& s, bool after) {
                 if(m.first_latency<0) m.first_latency=now-msg->monotonic_ms;
                 if(online && hub_context_valid) {
                     bool changed=false; const auto ack=p.deliver(*msg,now,changed);
+                    hub_seen_contact=true;
                     if(changed) ++m.effects;
                     ++m.piggyback;
                     if(s.lost_first_ack && m.missed==0) ++m.missed;
@@ -431,6 +444,8 @@ Metrics simulate(const Scenario& s, bool after) {
                 }
             }
         }
+        if (offline_seconds && hub_seen_contact && online && hub_context_valid && ready && now>0 &&
+            !p.hub->node_online("room",static_cast<std::uint64_t>(now))) ++m.incorrect_offline;
         if(p.node->pending()==0 && m.admitted>0 && m.drain<0) m.drain=now-s.return_ms;
         auto o=observation(now);
         o.next_retry_ms=ready ? p.node->next_retry_deadline().value_or(-1):-1;
@@ -457,7 +472,7 @@ Metrics simulate(const Scenario& s, bool after) {
             ++m.sleeps; next=std::min(horizon,now+sleep.requested_sleep_ms);
             // Actual GPIO pulse wake model; important direct-owner input uses
             // an explicit wake at its injected time, not an invented door GPIO.
-            Milliseconds gpio_time=s.motion ? (now<20000?20000:((now/10000)+1)*10000):horizon;
+            Milliseconds gpio_time=s.motion ? (now<20000?20000:((now/s.motion_period_ms)+1)*s.motion_period_ms):horizon;
             if(s.critical && !important_done) gpio_time=std::min(gpio_time,Milliseconds{30000});
             if(gpio_time<next) {next=gpio_time;++m.gpio;} else ++m.timer;
             const auto start=now;

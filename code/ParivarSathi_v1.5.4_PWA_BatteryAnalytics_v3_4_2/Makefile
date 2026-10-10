@@ -15,7 +15,7 @@ else
 $(error PRODUCT must be base or ai)
 endif
 CXXFLAGS += $(PRODUCT_FLAGS)
-INCLUDES := -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security
+INCLUDES := -Ibuild/gs40_generated -I. -Ishared/include -Ifirmware/node/components -Ifirmware/hub/components -Ifirmware/common/security
 
 CPP_SOURCES := \
 	shared/src/rules.cpp \
@@ -62,7 +62,7 @@ CPP_DEPENDENCIES := $(CPP_OBJECTS:.o=.d) $(CPP_EXTRA_OBJECTS:.o=.d)
 
 -include $(CPP_DEPENDENCIES)
 
-$(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS): Makefile
+$(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS): Makefile build/gs40_generated/gs/node_health_config.hpp
 $(CPP_OBJECT_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
@@ -75,7 +75,11 @@ BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCE
 
 all: verify
 
-build:
+build/gs40_generated/gs/node_health_config.hpp: config/node_health.json scripts/generate_node_health_config.py backend/ghar_sajag/node_health_policy.py
+	python3 scripts/generate_node_health_config.py --output $@
+	touch $@
+
+build: build/gs40_generated/gs/node_health_config.hpp
 	mkdir -p build logs
 
 cpp-test: build $(CPP_OBJECTS)
@@ -91,13 +95,21 @@ battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
 	./build/battery_c8_validation
 	PYTHONPATH=tests/python python3 -m unittest test_battery_power_invariants -v
 
+.PHONY: gs40-host-test gs40-config-test
+gs40-config-test: build
+	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
+
+gs40-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/gs40_node_health_validation.cpp -lcrypto -o build/gs40_node_health_validation
+	./build/gs40_node_health_validation
+
 .PHONY: gs150-host-test
 gs150-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/gs150_offline_sleep_validation.cpp -lcrypto -o build/gs150_offline_sleep_validation
 	./build/gs150_offline_sleep_validation
 
 master-validation-self-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/master_validation.cpp -o build/master_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py --self-test
 
 fota-host-test: build $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS)
@@ -113,7 +125,7 @@ secure-fota-adapter-host-test: build
 	./build/secure_fota_adapter_validation
 
 multinode-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
 	./build/multinode_host_validation
 	python3 tools/validation/check_multinode_summary.py build/multinode_host_summary.json
 
@@ -134,19 +146,19 @@ hub-durable-storage-host-test: build
 	./build/hub_durable_storage_validation
 
 hub-fresh-install-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_fresh_install_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_fresh_install_validation
 	./build/hub_fresh_install_validation
 
 hub-recovery-scheduling-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) -DGS_RECOVERY_SCHEDULING_TEST=1 $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_recovery_scheduling_validation
+	$(HOST_CXX) $(CXXFLAGS) -DGS_RECOVERY_SCHEDULING_TEST=1 $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_recovery_scheduling_validation
 	./build/hub_recovery_scheduling_validation
 
 hub-durable-provider-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_provider_validation.cpp -lcrypto -o build/hub_durable_provider_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_provider_validation.cpp -lcrypto -o build/hub_durable_provider_validation
 	./build/hub_durable_provider_validation
 
 hub-journal-migration-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_migration_validation.cpp -lcrypto -o build/hub_journal_migration_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_migration_validation.cpp -lcrypto -o build/hub_journal_migration_validation
 	./build/hub_journal_migration_validation
 
 hub-backend-commit-host-test: build
@@ -276,7 +288,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hub-fresh-install-host-test hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test gs150-host-test
+validation-fast: hub-fresh-install-host-test hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test gs150-host-test gs40-host-test gs40-config-test
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately

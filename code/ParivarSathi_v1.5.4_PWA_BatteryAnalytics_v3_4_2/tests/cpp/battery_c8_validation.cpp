@@ -58,22 +58,22 @@ void test_health_timing_profiles() {
     constexpr Milliseconds now = 5000;
     constexpr Milliseconds interval =
         static_cast<Milliseconds>(NodeProtocolPolicy::heartbeat_seconds) * 1000;
-    check(initial_node_health_deadline(now, interval, false, false) == 125000,
-          "ordinary production first health remains 120 seconds after owner start");
+    check(initial_node_health_deadline(now, interval, false, false) == 305000,
+          "ordinary production first health remains 300 seconds after owner start");
     check(initial_node_health_deadline(now, interval, true, false) == 1000,
           "ordinary HIL control retains its absolute early first health deadline");
-    check(initial_node_health_deadline(now, interval, true, true) == 125000,
+    check(initial_node_health_deadline(now, interval, true, true) == 305000,
           "physical wake HIL profile uses ordinary battery first health deadline");
     NodeHealthCadence battery(interval,
         initial_node_health_deadline(now, interval, true, true));
-    check(!battery.due(124999, false, false, false, false) &&
-          battery.due(125000, false, false, false, false),
-          "physical wake quiet health opportunity remains at 120 seconds");
-    battery.observe_health_attempt(125000);
-    check(battery.next_due_ms() == 245000,
+    check(!battery.due(304999, false, false, false, false) &&
+          battery.due(305000, false, false, false, false),
+          "physical wake quiet health opportunity remains at 300 seconds");
+    battery.observe_health_attempt(305000);
+    check(battery.next_due_ms() == 605000,
           "repeated physical wake NodeHealth remains on the product interval");
     battery.observe_authenticated_contact(150000);
-    check(battery.next_due_ms() == 270000,
+    check(battery.next_due_ms() == 450000,
           "authenticated application contact defers quiet health normally");
     auto deadline = healthy_idle();
     deadline.next_health_ms = 4000;
@@ -86,7 +86,7 @@ void test_health_timing_profiles() {
     check(retry_bounded.eligible && retry_bounded.earliest_deadline_ms == 2000 &&
           retry_bounded.requested_sleep_ms == 500,
           "earlier retry deadline still bounds physical sleep");
-    check(NodeProtocolPolicy::offline_after_seconds == 310 &&
+    check(NodeProtocolPolicy::offline_after_seconds == 910 &&
           NodeProtocolPolicy::coverage_after_seconds == 190,
           "Hub lease and historical coverage contracts remain independent");
 }
@@ -244,10 +244,10 @@ void test_existing_health_and_motion_identity_contracts() {
     health.observe_authenticated_contact(1000);
     check(health.next_due_ms() == 121000,
           "authenticated application contact alone defers health");
-    check(NodeProtocolPolicy::offline_after_seconds == 310 &&
+    check(NodeProtocolPolicy::offline_after_seconds == 910 &&
           NodeProtocolPolicy::coverage_after_seconds == 190 &&
-          NodeProtocolPolicy::heartbeat_seconds == 120,
-          "120 s health, 310 s Hub liveness and 190 s coverage remain independent");
+          NodeProtocolPolicy::heartbeat_seconds == 300,
+          "300 s configured health, 910 s Node liveness and historical 190 s coverage default are distinct");
 
     ActivityEpisode episode;
     check(episode.needs_first("room", 1000, false), "new motion episode needs first event");

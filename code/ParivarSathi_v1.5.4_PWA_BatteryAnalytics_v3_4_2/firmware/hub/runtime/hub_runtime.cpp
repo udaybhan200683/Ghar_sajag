@@ -90,6 +90,7 @@ void HubRuntime::revoke_node(const std::string& node_id) {
     power_telemetry_.erase(node_id);
     node_health_.erase(node_id);
     last_authenticated_contact_ms_.erase(node_id);
+    node_offline_timeouts_.erase(node_id);
     for (auto it = ingress_identity_owners_.begin(); it != ingress_identity_owners_.end();) {
         if (it->second.source_id == node_id) it = ingress_identity_owners_.erase(it);
         else ++it;
@@ -115,13 +116,14 @@ bool HubRuntime::observe_authenticated_health(
 
 bool HubRuntime::observe_authenticated_contact(const std::string& node_id,
                                                 std::uint64_t transport_session,
-                                                std::uint64_t now_monotonic_ms) {
+                                                std::uint64_t now_monotonic_ms, EpochSeconds trusted_contact_at) {
     if (now_monotonic_ms == 0 ||
         !peers_.accepts_health(node_id, transport_session)) return false;
     const auto found = last_authenticated_contact_ms_.find(node_id);
     if (found != last_authenticated_contact_ms_.end() &&
         now_monotonic_ms < found->second) return false;
     last_authenticated_contact_ms_[node_id] = now_monotonic_ms;
+    if (trusted_contact_at > 0) coverage_.observe(node_id, trusted_contact_at);
     return true;
 }
 
@@ -132,13 +134,26 @@ std::optional<AuthenticatedNodeHealth> HubRuntime::node_health(
     return found->second;
 }
 
+void HubRuntime::set_node_offline_timeout(const std::string& node_id, std::optional<std::uint32_t> seconds) {
+    node_offline_timeouts_[node_id] = seconds;
+    coverage_.set_node_lease(node_id, seconds ? *seconds : 0);
+}
+bool HubRuntime::node_profile_known(const std::string& node_id) const {
+    const auto profile = node_offline_timeouts_.find(node_id);
+    return profile == node_offline_timeouts_.end() || profile->second.has_value();
+}
+
 bool HubRuntime::node_online(const std::string& node_id,
                              std::uint64_t now_monotonic_ms) const {
+    const auto profile = node_offline_timeouts_.find(node_id);
+    if (!node_profile_known(node_id)) return false;
+    const auto timeout = profile == node_offline_timeouts_.end()
+        ? NodeProtocolPolicy::offline_after_seconds : *profile->second;
     const auto found = last_authenticated_contact_ms_.find(node_id);
     return found != last_authenticated_contact_ms_.end() &&
            now_monotonic_ms >= found->second &&
            now_monotonic_ms - found->second <=
-               static_cast<std::uint64_t>(NodeProtocolPolicy::offline_after_seconds) * 1000U;
+               static_cast<std::uint64_t>(timeout) * 1000U;
 }
 
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01

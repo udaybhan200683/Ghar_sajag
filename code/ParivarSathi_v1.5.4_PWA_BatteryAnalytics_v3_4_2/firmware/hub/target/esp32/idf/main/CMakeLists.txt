@@ -1,4 +1,5 @@
 set(GS_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../../..")
+include("${GS_ROOT}/firmware/common/node_health_config.cmake")
 set(GS_HUB_SRCS
     "app_main.cpp"
     "fota_sender.cpp"
@@ -16,7 +17,12 @@ if(IDF_TARGET STREQUAL "esp32s3")
         "${GS_ROOT}/firmware/hub/target/esp32s3/https_backend_channel.cpp")
 endif()
 
-if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/node_firmware.bin")
+set(GS_NODE_FIRMWARE_ASSET "${CMAKE_CURRENT_LIST_DIR}/node_firmware.bin" CACHE FILEPATH "Validated paired C3 app asset (basename node_firmware.bin)")
+get_filename_component(GS_NODE_ASSET_NAME "${GS_NODE_FIRMWARE_ASSET}" NAME)
+if(NOT GS_NODE_ASSET_NAME STREQUAL "node_firmware.bin")
+    message(FATAL_ERROR "C3 asset basename must remain node_firmware.bin for existing embedded symbols")
+endif()
+if(NOT EXISTS "${GS_NODE_FIRMWARE_ASSET}")
     message(FATAL_ERROR
         "Missing node_firmware.bin. Build the C3 product and copy its app binary here before configuring the Hub.")
 endif()
@@ -59,6 +65,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/hub/target/esp32/nvs_durable_blob_store.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32/nvs_store_inventory.cpp"
     INCLUDE_DIRS
+        "${GS_NODE_HEALTH_GENERATED}"
         "."
         "${GS_ROOT}"
         "${GS_ROOT}/shared/include"
@@ -77,7 +84,7 @@ idf_component_register(
         mbedtls
         ${GS_TARGET_STORAGE_REQUIRES}
     EMBED_FILES
-        "node_firmware.bin"
+        "${GS_NODE_FIRMWARE_ASSET}"
 )
 
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)

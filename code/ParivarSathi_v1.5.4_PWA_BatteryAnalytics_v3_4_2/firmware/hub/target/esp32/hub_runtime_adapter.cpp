@@ -1,3 +1,4 @@
+#include "gs/node_health_config.hpp"
 #include "firmware/hub/target/esp32/hub_runtime_adapter.hpp"
 
 #include "firmware/common/transport/data_plane_codec.hpp"
@@ -468,6 +469,8 @@ bool send_security_message(const HubSecurityLink::Outbound& outbound) {
 }
 
 void secure_owner_task(void*) {
+    ESP_LOGI(kTag, "GS40 config=%s heartbeat=%u offline=%u", deployment::sha256,
+             deployment::policy.heartbeat_seconds, deployment::policy.offline_seconds);
     HubSecurityLink security_link;
     HubSecurityLink::Mac physical_mac{};
     if (esp_wifi_get_mac(WIFI_IF_STA, physical_mac.data()) != ESP_OK ||
@@ -887,6 +890,9 @@ void secure_owner_task(void*) {
                 const auto prior = authorized.find(control.source_mac);
                 if (prior == authorized.end() || prior->second != node->last_session) {
                     runtime.authorize_node(node->logical_id, node->last_session, true);
+                    const auto profile = deployment::for_device(node->device_id);
+                    runtime.set_node_offline_timeout(node->logical_id,
+                        profile ? std::optional<std::uint32_t>{profile->offline_seconds} : std::nullopt);
                     (void)runtime.observe_authenticated_contact(
                         node->logical_id, node->last_session, now_ms);
                     authorized[control.source_mac] = node->last_session;
@@ -907,8 +913,8 @@ void secure_owner_task(void*) {
                 const auto prior = reported_liveness.find(mac);
                 if (prior == reported_liveness.end() || prior->second != online) {
                     reported_liveness[mac] = online;
-                    ESP_LOGI(kTag, "Node liveness logical=%s online=%d session=%llu",
-                             node->logical_id.c_str(), online,
+                    ESP_LOGI(kTag, "Node liveness logical=%s online=%d profile_known=%d session=%llu",
+                             node->logical_id.c_str(), online, runtime.node_profile_known(node->logical_id),
                              static_cast<unsigned long long>(session));
                 }
             }
