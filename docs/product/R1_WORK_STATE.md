@@ -1,6 +1,6 @@
 # R1 Current Work State
 
-**Updated:** 2026-10-09
+**Updated:** 2026-10-10
 
 ## Authoritative work line
 - Worktree: `/home/udaybhan/projects/Ghar_sajag_r1`
@@ -634,3 +634,26 @@ windows (1,440 admissions, 31 pending bodies per window). Existing HIGH 3,278,
 bank/admission cuts, sanitizers, final S3 build and evidence closeout are in
 progress at this implementation checkpoint. This is implementation status,
 not retention approval or physical qualification; context stays 2026-10-09.001.
+
+### P2-C final validation complete — 2026-10-10
+
+The [final evidence](../exec-plans/evidence/R1_S3_P2C_FINAL_VALIDATION_20261010.md)
+closes the interrupted P2-C host/build validation following implementation commit
+`984913a7194439d628598b5d79adbb156ed9c25d`. Candidate staging now preserves the
+larger of caller reserve and configured protected capacity. Final boundary tests
+prove refusal without file changes, pending-body reboot recovery, exact-boundary
+success and fail-closed invalid partition capacity. Fresh focused, five regression
+targets, mixed-body and four additional ASan/UBSan targets all exit 0. The clean
+ESP-IDF 6.0.3 S3 build exits 0 with a 1,863,536-byte image. Context preflight and
+diff checks pass; code provenance and raw logs are preserved with the evidence.
+
+Host results reproduce 84 interruption checks, 32 mixed reuse windows / 3,232
+admissions, 12 six-Node windows / 1,440 authenticated admissions, 31 pending bodies
+preserved per window, and 3,278/6,556/12,000 regressions. POSIX allocated recovery
+is 32,768 bytes total, including 24,576 event-body bytes. Temporary peak is 35,694
+logical / 57,344 allocated bytes. These are host measurements, not physical flash
+qualification. Production body/identity deletion remains disabled. Physical
+power-cut/wear, target memory, rollback, retention, cloud transport and commercial
+capacity/72-hour workload qualification remain open; Phase 2 remains IN_PROGRESS.
+No physical device, C3 pending event, BAT-C8 or other worktree changed. Next task
+is P2-D; it was not started. No new product decision or context version change.

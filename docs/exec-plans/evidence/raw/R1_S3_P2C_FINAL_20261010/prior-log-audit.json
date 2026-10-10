@@ -1,0 +1,37 @@
+[
+  {
+    "path": "/tmp/p2c-final-focused.log",
+    "sha256": "4f571c9da692c85573c74bfa249a9cf53380cf7cd512ba25476937e8ef140820",
+    "last_line": "hub_mixed_body_compaction_validation=PASS",
+    "exit_code": "NOT_RECORDED; prior session handle unavailable",
+    "qualification": "Superseded for final-source validation by fresh runs"
+  },
+  {
+    "path": "/tmp/p2c-final-focused-asan.log",
+    "sha256": "0fc3e86be5559e63d3517a78340e0ff7db5fff6fe9eea9884a319361d1c37f7c",
+    "last_line": "hub_mixed_body_compaction_validation=PASS",
+    "exit_code": "NOT_RECORDED; prior session handle unavailable",
+    "qualification": "Superseded for final-source validation by fresh runs"
+  },
+  {
+    "path": "/tmp/p2c-sanitizers-final.log",
+    "sha256": "be909af96a2e8bb2ec3c899d0cfff35aefe8bef5b51e5406eefc5a70b0699da6",
+    "last_line": "hub_mixed_body_compaction_validation=PASS",
+    "exit_code": "NOT_RECORDED; prior session handle unavailable",
+    "qualification": "Superseded for final-source validation by fresh runs"
+  },
+  {
+    "path": "/tmp/p2c-s3-final.log",
+    "sha256": "818623cd18e46817ce31e825e7f31b09f0514d830a16dd23c70b4fc135c48355",
+    "last_line": " python -m esptool --chip esp32s3 -b 460800 --before default-reset --after hard-reset write-flash \"@flash_args\"",
+    "exit_code": "NOT_RECORDED; prior session handle unavailable",
+    "qualification": "Superseded for final-source validation by fresh runs"
+  },
+  {
+    "path": "/tmp/p2c-final-regressions.log",
+    "sha256": "b7f2c87a9bc8007ebb0b22f6a28065adf1ed9c3a9bbd3f0eba0b5b6acb2ad8f2",
+    "last_line": "PASS: runtime checkpoint, replay, exact identity, crash boundaries",
+    "exit_code": "NOT_RECORDED; prior session handle unavailable",
+    "qualification": "Superseded for final-source validation by fresh runs"
+  }
+]

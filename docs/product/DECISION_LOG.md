@@ -448,3 +448,16 @@ OUT_OF_SCOPE=cloud transport, retention decisions, C3/BAT-C8 and physical work.
 S3 startup must bind the authenticated owner replay fence before restoring an
 already compacted identity generation. This corrects the startup order under
 the existing fail-closed recovery contract and adds no new product semantics.
+
+### P2-C final safety validation — 2026-10-10 (no new decision)
+
+The [final-source evidence](../exec-plans/evidence/R1_S3_P2C_FINAL_VALIDATION_20261010.md)
+records configured-reserve enforcement, exact staging boundaries and unchanged
+files/pending bodies on refusal. Fresh focused/regression and ASan/UBSan batches,
+plus a clean ESP-IDF 6.0.3 S3 build, finish with exit 0. P2-C host/build validation
+is complete; production body/identity deletion remains disabled. Measured POSIX
+recovery is 32,768 allocated bytes, including 24,576 event-body bytes; no physical
+flash recovery is claimed. Retention/capacity policy and physical/production gates
+remain open. GS-D023/029 durability requirements are preserved; no reserve value,
+new product decision, context revision or physical operation is approved here.
+The final reserve fix is within the authorized P2-C R1_FIX scope. P2-D was not begun.

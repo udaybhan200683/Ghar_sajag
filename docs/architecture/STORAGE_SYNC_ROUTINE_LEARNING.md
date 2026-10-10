@@ -411,3 +411,18 @@ near-full partition can therefore lack compaction workspace; there is no new
 capacity guarantee. Retention approval, physical LittleFS power-cut/wear,
 S3 RAM/PSRAM measurement, signed application rollback and production cloud
 transport remain separate qualification/integration gates.
+
+### P2-C final reserve and validation status — 2026-10-10
+
+The [final evidence](../exec-plans/evidence/R1_S3_P2C_FINAL_VALIDATION_20261010.md)
+closes P2-C host/build validation. Staging enforces the larger of the configured
+protected-capacity reserve and caller reserve; a caller cannot lower protection.
+Actual usable-space exhaustion returns InsufficientWorkspace, while invalid
+partition capacity fails configuration recovery. Exact boundary tests preserve
+all fixture files and pending bodies on refusal. Fresh crash/recovery, sparse
+ordinal/completion mapping, replay-fence, six-Node/reuse and existing regression
+suites pass, including relevant ASan/UBSan; clean S3 build passes at 1,863,536 bytes.
+Production deletion remains disabled. Host allocated recovery and temporary peaks
+are evidence for the POSIX fixture only; physical LittleFS, target memory, rollback,
+retention, cloud transport and commercial/72-hour capacity gates remain open.
+No product reserve size, retention requirement or CONTEXT_VERSION is changed.

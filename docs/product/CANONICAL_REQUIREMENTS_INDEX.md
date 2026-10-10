@@ -441,3 +441,12 @@ New target work uses the isolated S3 worktree. No storage prototype/evidence is
 promoted to canonical. GS-D020/025/026/027/028 sensor semantics and GS-D029 security
 and application rollback remain in force. Commercial partition/volume policy,
 sustainable reclamation and S3 physical/end-to-end qualification remain open.
+
+### P2-C final-source validation evidence — 2026-10-10
+
+| Path | Classification | Valid use / limitations |
+|---|---|---|
+| `docs/exec-plans/evidence/R1_S3_P2C_FINAL_VALIDATION_20261010.md` and linked raw logs/source hashes | TEST_EVIDENCE / HOST-MEASURED / TARGET-BUILD | Final configured-reserve enforcement, crash/sparse completion/replay-fence/pending preservation, repeated mixed and six-Node host reclamation, regressions, ASan/UBSan and clean IDF 6.0.3 S3 build. Supersedes only the earlier P2-C validation-in-progress status; production deletion remains disabled. No physical flash, retention/capacity policy or new requirement authority. |
+
+Existing requirements, LOCKED decisions and context revision `2026-10-09.001`
+remain unchanged. P2-C host/build closeout does not close Phase 2 or begin P2-D.

@@ -1,5 +1,6 @@
 // Use the established runtime fixtures without rerunning their main here.
 #include <functional>
+#include <sys/resource.h>
 #define GS_CHECKPOINT_EMBEDDED
 #include "hub_runtime_checkpoint_validation.cpp"
 #undef GS_CHECKPOINT_EMBEDDED
@@ -21,6 +22,7 @@ public:
     }
     std::string directory;
     std::uint64_t capacity_;
+    std::uint64_t external_used{0};
     std::size_t mutations{0}, fail_at{0};
     bool fail_after{false}, halted{false}, partial{false};
     bool corrupt_sync{false}, bypass_fsync{false};
@@ -119,6 +121,16 @@ public:
         }
         return result;
     }
+    std::uint64_t body_allocated_bytes() const {
+        std::uint64_t result = 0;
+        for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+            if (entry.path().filename().string().front() != 's') continue;
+            struct stat info{};
+            require(::stat(entry.path().c_str(), &info) == 0, "measure body files");
+            result += static_cast<std::uint64_t>(info.st_blocks) * 512;
+        }
+        return result;
+    }
     void measure_peak() {
         peak_logical = std::max(peak_logical, bytes(false));
         peak_allocated = std::max(peak_allocated, bytes(true));
@@ -131,7 +143,7 @@ public:
     std::uint64_t partition_capacity_bytes() const override { return capacity_; }
     bool filesystem_usage(std::uint64_t& total, std::uint64_t& used) override {
         if (halted) return false;
-        total = capacity_; used = bytes(true); return used <= total;
+        total = capacity_; used = bytes(true) + external_used; return used <= total;
     }
     bool segment_size(std::uint16_t id, bool& exists, std::uint32_t& bytes) override {
         return size(segment(id), exists, bytes);
@@ -341,17 +353,64 @@ void negative_body_tests() {
         if (mode == 1) authorization.checkpoint_boundary = 23;
         if (mode == 2) authorization.authenticated_report_digest.fill(0);
         if (mode == 3) proof.current = false;
-        if (mode == 4) files.capacity_ = files.bytes(true) + 20 * 1024;
+        if (mode == 4) files.external_used = files.capacity_ - files.bytes(true) - 20 * 1024;
         if (mode == 5) files.corrupt_sync = true;
         if (mode == 6) proof.revoke_at = 15;
         if (mode == 7) files.partial = true;
         const auto result = outbox.compact_event_bodies(authorization, stats);
         require(result != ReclaimResult::Reclaimed, "invalid gate, reserve, authority or candidate cannot publish");
+        if (mode == 4) require(result == ReclaimResult::InsufficientWorkspace,
+                "actual occupancy exhaustion is distinct from an invalid partition configuration");
+        files.external_used = 0;
         files.halted = false; files.fail_at = 0; files.capacity_ = 8U * 1024U * 1024U;
         DurableEventOutbox rebooted(files, crypto, key, limits);
         require(rebooted.recover() == OutboxRecovery::Ready && capture(rebooted) == original,
                 "negative compaction leaves authoritative history intact");
     }
+    const auto snapshot = [](PosixSegments& files) {
+        std::map<std::string, Bytes> result;
+        for (const auto& entry : std::filesystem::directory_iterator(files.directory)) {
+            const auto name = entry.path().filename().string();
+            bool found = false; std::uint32_t size = 0; std::size_t actual = 0;
+            require(files.size(name, found, size) && found, "snapshot file size");
+            auto& bytes = result[name]; bytes.resize(size);
+            require(files.read_file(name, 0, bytes.data(), size, actual) && actual == size,
+                    "snapshot complete file bytes");
+        }
+        return result;
+    };
+    for (const std::uint32_t caller_reserve : {0U, 4096U, 16384U}) {
+        PosixSegments files; files.clone_from(baseline);
+        auto protected_limits = limits; protected_limits.protected_capacity_bytes = 8192;
+        DurableEventOutbox outbox(files, crypto, key, protected_limits);
+        require(outbox.recover() == OutboxRecovery::Ready, "protected reserve fixture recovers");
+        files.external_used = files.capacity_ - files.bytes(true) - 25 * 1024;
+        MixedProof proof; auto authorization = mixed_authorization(24, proof); BodyCompactionStats stats;
+        const auto before = snapshot(files);
+        require(outbox.compact_event_bodies(authorization, stats, caller_reserve) == ReclaimResult::InsufficientWorkspace &&
+                capture(outbox) == original, "compaction preserves protected reserve even with zero caller reserve");
+        require(snapshot(files) == before, "reserve refusal neither changes nor deletes any stored file");
+        const auto required = stats.temporary_required_bytes +
+            std::max(caller_reserve, protected_limits.protected_capacity_bytes);
+        files.external_used = files.capacity_ - files.bytes(true) - required + 1;
+        require(outbox.compact_event_bodies(authorization, stats, caller_reserve) == ReclaimResult::InsufficientWorkspace &&
+                snapshot(files) == before, "one byte below staging plus effective reserve refuses without mutation");
+        DurableEventOutbox rebooted(files, crypto, key, protected_limits);
+        require(rebooted.recover() == OutboxRecovery::Ready && capture(rebooted) == original,
+                "reserve refusal preserves pending bodies across reboot");
+        files.external_used = files.capacity_ - files.bytes(true) - required;
+        require(rebooted.compact_event_bodies(authorization, stats, caller_reserve) == ReclaimResult::Reclaimed,
+                "exact staging plus effective reserve boundary permits compaction");
+    }
+    {
+        PosixSegments files; files.clone_from(baseline);
+        const auto before = snapshot(files);
+        files.capacity_ = static_cast<std::uint64_t>(limits.segment_count) * limits.segment_bytes - 1;
+        DurableEventOutbox invalid(files, crypto, key, limits);
+        require(invalid.recover() == OutboxRecovery::UnsupportedConfiguration && snapshot(files) == before,
+                "invalid partition capacity fails closed without modifying storage");
+    }
+    std::cout << "reserve_boundaries=PASS caller_reserves=0,4096,16384 unchanged_files=PASS invalid_partition=PASS\n";
     // After publication selected candidate corruption/missing data fails closed;
     // obsolete or incomplete banks never substitute for it.
     for (bool missing : {false, true}) {
@@ -376,7 +435,7 @@ void repeated_body_capacity() {
     require(outbox.recover() == OutboxRecovery::Empty, "reuse fixture starts");
     MixedProof proof; BodyCompactionStats stats;
     std::uint64_t cumulative = 0, maximum_root = 0, maximum_retained = 0;
-    std::uint64_t original_allocated = 0, retained_allocated = 0, original_logical = 0;
+    std::uint64_t original_allocated = 0, retained_allocated = 0, original_logical = 0, original_body_allocated = 0;
     for (unsigned window = 0; window < 32; ++window) {
         const auto first = cumulative + 1;
         populate(outbox, first, 100, [](std::uint64_t i) { return i % 7 != 0; });
@@ -389,6 +448,7 @@ void repeated_body_capacity() {
                 require(outbox.mark_backend_completed(body.second.first), "complete older pending body");
         if (window == 1) {
             original_allocated = files.bytes(true); original_logical = files.bytes(false);
+            original_body_allocated = files.body_allocated_bytes();
             files.peak_allocated = original_allocated; files.peak_logical = original_logical;
         }
         auto authorization = mixed_authorization(cumulative, proof);
@@ -396,10 +456,15 @@ void repeated_body_capacity() {
                 "repeated mixed fill reclaim refill");
         if (window == 1) {
             retained_allocated = files.bytes(true);
-            require(retained_allocated < original_allocated, "POSIX allocated blocks recovered");
+            require(retained_allocated < original_allocated && files.body_allocated_bytes() < original_body_allocated,
+                    "POSIX allocated event-body blocks recovered independently of completion metadata");
             std::cout << "body_original_allocated=" << original_allocated
                       << " retained_allocated=" << retained_allocated
                       << " actual_host_bytes_recovered=" << original_allocated - retained_allocated
+                      << " original_body_allocated=" << original_body_allocated
+                      << " retained_body_allocated=" << files.body_allocated_bytes()
+                      << " body_allocated_recovered=" << original_body_allocated - files.body_allocated_bytes()
+                      << " original_body_logical=" << stats.original_body_bytes
                       << " original_logical=" << original_logical
                       << " retained_body_bytes=" << stats.retained_body_bytes
                       << " temporary_peak_logical=" << files.peak_logical
@@ -664,6 +729,10 @@ void six_node_runtime_mixed_cycles() {
         const auto retry = rebooted.run_state_once(900);
         require(retry && retry->ack == gs::AckClass::Durable && !retry->state_changed && outbox.record_count() == cumulative,
                 "lost ACK duplicate has no repeated reducer effect");
+        std::optional<std::uint16_t> original_minute;
+        require(reboot_state.identity_context(permanently_pending, 1, original_minute) &&
+                original_minute == std::optional<std::uint16_t>{1},
+                "pending retry keeps its original persisted local minute");
         duplicate.battery_mv++;
         require(rebooted.authenticated_radio_message_callback(duplicate, "room0", "device-room0", 42, 0, 999999, 0, 3, owner),
                 "conflicting pending retry enters validation");
@@ -691,6 +760,9 @@ int main() {
         repeated_body_capacity();
         subsequent_admission_and_generation_tests();
         six_node_runtime_mixed_cycles();
+        struct rusage usage{};
+        require(::getrusage(RUSAGE_SELF, &usage) == 0, "measure host process peak RSS");
+        std::cout << "host_process_peak_rss_kib=" << usage.ru_maxrss << "\n";
         std::cout << "hub_mixed_body_compaction_validation=PASS\n";
         return 0;
     } catch (const std::exception& error) {
