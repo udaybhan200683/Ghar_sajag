@@ -412,3 +412,12 @@ sustainable reclamation and S3 physical/end-to-end qualification remain open.
 |---|---|---|
 | `docs/exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md` | Dated pre-integration source/code/Jira audit and proposed dependency queue | Historical inventory/proposal; source-absence claims are superseded by the later integration manifest and current work state |
 | `docs/exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md` | Current source integration provenance | Authoritative disposition of one-time consolidation; no product requirement or Jira rank change |
+
+
+## GS-40 scope update — 2026-10-10
+
+GS-D031 supersedes historical 60/190 and BAT-C5 120/310 *default* health
+policy claims in the battery/device-health guides. Their previous qualification
+and GS-112/150 completion records remain valid history. Device-health and
+battery guides describe the narrow GS-40 design; GS-128 broader configuration
+remains OnHold. Context version: 2026-10-10.001.

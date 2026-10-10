@@ -325,3 +325,25 @@ persistent schema, queue size, retention guarantee or security change.
 
 Physical BAT-C8 qualification remains required. Evidence and software limits:
 [GS-150 validation](../exec-plans/evidence/R1_GS150_SOFTWARE_VALIDATION_20261010.md).
+
+
+### GS-D031 — GS-40 configurable authenticated NodeHealth policy
+
+**Status:** LOCKED — user approval in GS-40 description/comment 10359 and
+10 October 2026 task. **Scope:** narrow GS-40 firmware configuration; GS-128
+remains OnHold.
+
+Default heartbeat is 300 seconds, identical day/night. Authenticated application
+contact defers standalone health; local MAC success does not prove contact.
+Piggyback health using existing authenticated event capabilities where supported.
+One independently adjustable timing input: `heartbeat_interval_seconds`.
+Node-offline detection is internally derived as `3 * interval + 10` seconds;
+multiplier/grace/offline timeout are not configuration knobs. Invalid input must
+not disable health. Firmware must consume validated versioned configuration at
+startup; no new partition, persistence migration or runtime delivery protocol.
+
+Mixed installations require an explicit effective per-Node profile based on
+trusted identity/deployment information. Do not infer a new heartbeat from the
+existing health schema. Preserve resident inactivity versus absent observation,
+Hub cloud freshness versus local Node contact, and all GS-150 event/ACK/retry,
+security, FOTA and sleep contracts. Physical acceptance remains outstanding.

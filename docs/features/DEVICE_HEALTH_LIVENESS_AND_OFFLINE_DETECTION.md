@@ -237,3 +237,13 @@ absolute last-contact wall-clock is currently available on this path.
   local `node_online` query.
 - Future battery-saving health cadence is planned work, not implemented
   behavior in this target profile.
+
+
+## GS-40 approved policy — implementation underway, 2026-10-10
+
+GS-D031 supersedes this guide's historical 60/190 default with 300/910.
+The actual preceding BAT-C5 production profile was 120/310. Legacy deployments
+retain explicit profiles; existing health schema alone cannot identify them.
+Only heartbeat interval is adjustable, with offline timeout derived 3 × interval
++ 10. Hub cloud lease and resident inactivity remain distinct. Firmware applies
+validated embedded configuration at startup. Physical acceptance is pending.

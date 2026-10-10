@@ -1,5 +1,16 @@
 # R1 Current Work State
 
+## GS-40 active software milestone — 2026-10-10
+
+Starting local/remote checkpoint 913b1dedb483ca63aff7244dbbd224053206c7f2,
+canonical branch feature/r1-commercial-baseline. GS-D031 records user-approved
+300-second default / derived 910-second offline policy and narrow JSON packaging.
+Implementation/validation underway; no GS-40 behavior is yet validated. GS-150
+completion below remains unchanged. GS-128 remains OnHold. Next after software:
+GS-114 separately authorized P1–P9 with GS-40 + GS-150 candidate images; GS-40
+real-target heartbeat/offline PWA acceptance also remains. No hardware authorized.
+
+
 ## GS-150 software implementation — 2026-10-10
 
 The user clarified safe best-effort missed-ACK replay and confirmed-outage

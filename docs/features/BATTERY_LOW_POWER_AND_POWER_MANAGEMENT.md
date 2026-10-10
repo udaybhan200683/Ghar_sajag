@@ -1101,3 +1101,14 @@ GS-114 P1–P9 and GS-149 P10 work. No protected board was accessed. The 32-even
 pending limit remains; GS-147 journal/capacity/retention decisions remain gated.
 No deep sleep or C9–C12 work. See the evidence record for exact metrics and
 command exits, including modest added receive cost in already sleeping paths.
+
+
+## GS-40 approved policy — implementation underway, 2026-10-10
+
+GS-D031 approves a 300-second default NodeHealth opportunity and derived
+910-second Node-offline timeout, common day/night, authenticated event contact
+suppression/piggyback. The earlier BAT-C5 120/310 defaults remain history and
+a legacy deployment profile. GS-150 sleep/10-second receive/retry behavior is
+unchanged. One versioned JSON timing input is packaged as firmware configuration;
+no runtime configuration, partition or persistent migration is authorized.
+Software and real-target results must be reported separately.

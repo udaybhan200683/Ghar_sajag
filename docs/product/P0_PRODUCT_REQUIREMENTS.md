@@ -161,3 +161,13 @@ signed FOTA, automatic application rollback and versioned storage compatibility
 remain mandatory. Camera and future Edge AI are not added to R1. Actual board
 memory, pinout, runtime, storage and FOTA qualification remain pending; final
 commercial partitions and offline supported-volume/saturation policy remain open.
+
+
+## NodeHealth configuration — GS-D031 / GS-40
+
+LOCKED: default 300 s, common day/night authenticated contact and piggyback
+policy; one heartbeat timing input, derived Node-offline timeout 3 × interval
++ 10 s (default 910 s). Preserve distinct Hub/cloud freshness and resident
+inactivity. Explicit trusted deployment profiles support mixed Nodes. Firmware
+configuration is validated/versioned and applied at startup, without a new
+wire/storage contract. See the decision log and device health guide.
