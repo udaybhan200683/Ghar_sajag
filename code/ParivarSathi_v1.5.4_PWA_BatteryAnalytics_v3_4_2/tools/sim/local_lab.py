@@ -464,40 +464,51 @@ class Lab:
     def sync(self):
         if not self.state.get("hub_online", True) or not self.state["wan"]:
             return
-        events = list(self.state["events"])
         signals = list(self.state.get("rule_signals", []))
         unexpected_keys = {item["stable_key"].removeprefix("unexpected-door:") for item in signals if item["kind"] == "UNEXPECTED_DOOR_OPEN"}
         close_signals = [item for item in signals if item["kind"] == "DOOR_CLOSED_AFTER_LONG_OPEN"]
-        for event in events:
-            wire = dict(event)
-            context = self._context_for(event)
-            payload = dict(wire.get("payload", {}))
-            if event["kind"] == "DOOR_OPEN":
-                unexpected = event["event_id"] in unexpected_keys
-                payload.update({"quiet_hours": unexpected, "unexpected": unexpected,
-                                "left_open_timeout_s": self.household_settings["door_open_timeout_seconds"]})
-            elif event["kind"] == "DOOR_CLOSED":
-                matching = next((item for item in close_signals if item["stable_key"].startswith("door-left-open:")), None)
-                if matching is not None:
-                    payload.update({"open_duration_s": matching["duration_s"], "was_left_open": True,
-                                    "resolved_left_open": True, "unexpected": False})
-                else:
-                    for key in ("open_duration_s", "was_left_open", "resolved_left_open", "unexpected"):
-                        if key in context:
-                            payload[key] = context[key]
-            wire["payload"] = payload
-            had_check_in_overdue = self._has_active_check_in_overdue()
-            result = self.api_call("POST", f"/v1/homes/{HOME}/events", wire)
-            self.log.info("category=SIM module=B03 event=ingest id=%s duplicate=%s", wire["event_id"], result["duplicate"])
-            if result.get("commit") != "DURABLE_MODEL":
-                raise RuntimeError("Missing backend model acknowledgement")
-            self._apply_notification_for_event(wire["event_id"])
-            if event["kind"] == "OK_PRESSED" and (getattr(self, "pwa_flags", {}).get("ok_negative") or had_check_in_overdue):
-                self.pwa_flags["ok_negative"] = False
-                self.pwa_flags["ok_acknowledged"] = True
-            if event["kind"] == "OK_PRESSED":
-                self.check_in_pending = False
-            self.command("ack " + wire["event_id"])
+        while True:
+            events = list(self.state["events"])
+            if not events:
+                if self.state.get("pending_cloud", 0):
+                    raise RuntimeError("CloudSync backlog has no schedulable host batch")
+                break
+            for event in events:
+                wire = dict(event)
+                context = self._context_for(event)
+                payload = dict(wire.get("payload", {}))
+                if event["kind"] == "DOOR_OPEN":
+                    unexpected = event["event_id"] in unexpected_keys
+                    payload.update({"quiet_hours": unexpected, "unexpected": unexpected,
+                                    "left_open_timeout_s": self.household_settings["door_open_timeout_seconds"]})
+                elif event["kind"] == "DOOR_CLOSED":
+                    matching = next((item for item in close_signals if item["stable_key"].startswith("door-left-open:")), None)
+                    if matching is not None:
+                        payload.update({"open_duration_s": matching["duration_s"], "was_left_open": True,
+                                        "resolved_left_open": True, "unexpected": False})
+                    else:
+                        for key in ("open_duration_s", "was_left_open", "resolved_left_open", "unexpected"):
+                            if key in context:
+                                payload[key] = context[key]
+                wire["payload"] = payload
+                had_check_in_overdue = self._has_active_check_in_overdue()
+                result = self.api_call("POST", f"/v1/homes/{HOME}/events", wire)
+                self.log.info("category=SIM module=B03 event=ingest id=%s duplicate=%s", wire["event_id"], result["duplicate"])
+                if result.get("commit") != "DURABLE_MODEL":
+                    raise RuntimeError("Missing backend model acknowledgement")
+                self._apply_notification_for_event(wire["event_id"])
+                if event["kind"] == "OK_PRESSED" and (getattr(self, "pwa_flags", {}).get("ok_negative") or had_check_in_overdue):
+                    self.pwa_flags["ok_negative"] = False
+                    self.pwa_flags["ok_acknowledged"] = True
+                if event["kind"] == "OK_PRESSED":
+                    self.check_in_pending = False
+                self.command("ack " + wire["event_id"])
+            if self.state.get("pending_cloud", 0) == 0:
+                break
+            # CloudSync intentionally emits bounded batches. Refresh the host
+            # view after each durable completion so old heartbeats cannot hide
+            # a later door/motion event behind the one-batch test adapter.
+            self.state = self.command("state")
 
         for signal in signals:
             if signal["kind"] not in {"DOOR_LEFT_OPEN", "DAYTIME_INACTIVITY", "MORNING_ROUTINE_COMPLETED",

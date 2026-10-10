@@ -1,10 +1,37 @@
 # R1 Current Work State
 
-## One-time source consolidation — current checkpoint, 2026-10-10
+## Integrated software regression closure — 2026-10-10
+
+Starting at canonical HEAD `5648d90426fb12b584a009eac0a88e754ad909c6`, the
+confirmed C++ and PWA failures are closed with test-only/host-simulator fixes;
+no firmware behavior or product requirement changed. `make cpp-test` passes
+1,479 checks. `make python-test` passes 344 discovered tests with one explicit
+skip: the classic ESP32 NVS capacity/reserve model is historical under GS-D030,
+and S3 commercial capacity/reserve remain open. Its current source-bound parser
+and raw-profile test pass. The PWA bridge, API scenario catalogue and frontend
+suite pass after the host lab drains all bounded CloudSync batches, keeping
+later activity and door-close events visible to the backend fixture.
+
+The individual root causes, exact pre/post-fix exits, classifications, source
+locations and regression risks are recorded in the [dated integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md).
+Focused BAT-C8 (72 C++ checks / 9 Python invariants), S3 durability/security,
+replay/reclamation, P2-D HTTP/HTTPS, Node recovery/retirement and commissioning
+crypto host gates pass. Firmware source is unchanged, so the existing clean
+ESP-IDF 6.0.3 C3/S3 builds and selected ASan/UBSan evidence remain applicable;
+no physical, production backend or OTA result is claimed. GitHub DNS was
+unavailable at intake; final push/remote equality is pending recheck.
+
+**SOFTWARE_REGRESSION_STATUS=PASS_WITH_ONE_SCOPED_SKIP.** This does not close
+S3 production backend authentication/receipt/connectivity, capacity/retention,
+physical storage/FOTA qualification, or BAT-C8 physical P1–P10. No hardware was
+touched. `READY_FOR_GS_114_PHYSICAL=CONDITIONAL`: software gates in this task
+pass, but this work does not authorize or start physical qualification.
+
+## One-time source consolidation — snapshot at initial closeout, 2026-10-10
 
 The user-approved destination is this canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch `feature/r1-commercial-baseline`. Starting local and remote HEAD were `f6e949a79354ebd1a25c55a9b9a9b750bf387dac`; context preflight passed at `2026-10-09.001`. C3 BAT-C8 implementation is already in canonical history through ancestor `808080e`. Reviewed S3 target, P2-A/B/C and partial P2-D code/evidence were selectively cherry-picked with provenance; see [source integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). Integration source checkpoint before final handoff: `1febcf027baea892b95ed3a57615a4a562ee9b82`.
 
-Fresh host results: BAT-C8 focused C++ (72 checks) and nine Python power-policy invariants PASS; S3 outbox, segmented runtime, replay/checkpoint, identity, completion, mixed-body and P2-D HTTP/HTTPS suites PASS. The P2-D SQLite bridge processed 300 events with no pending records; catch-up measured 26,458 ms in that host fixture. `make cpp-test` FAILS at `test_node_offline_resilience` expecting `next_sequence()==1001` after 1000 attempts; this same assertion is in the source P2-D evidence. `make python-test` ran 344 tests after the simulator link fix: 341 PASS, 1 FAIL, 2 ERROR in untouched G01/HIL checks (details in the integration manifest). Those failures are not reported as PASS. No Node/BAT-C8 edit was made to silence tests. Clean S3 and C3 ESP-IDF 6.0.3 builds PASS in isolated `/tmp` build directories; sanitizer outcomes are recorded in the integration manifest. No hardware validation was performed.
+At initial consolidation closeout (the aggregate results are superseded by the regression-closure section above), BAT-C8 focused C++ (72 checks) and nine Python power-policy invariants passed; S3 outbox, segmented runtime, replay/checkpoint, identity, completion, mixed-body and P2-D HTTP/HTTPS suites passed. The P2-D SQLite bridge processed 300 events with no pending records; catch-up measured 26,458 ms in that host fixture. `make cpp-test` failed at `test_node_offline_resilience` expecting `next_sequence()==1001` after 1000 attempts; this same assertion is in the source P2-D evidence. `make python-test` ran 344 tests after the simulator link fix: 341 passed, one failed and two errored in G01/HIL checks (details in the integration manifest). Those historical results are not represented as passes. No Node/BAT-C8 production edit was made. Clean S3 and C3 ESP-IDF 6.0.3 builds passed in isolated `/tmp` build directories; sanitizer outcomes are recorded in the integration manifest. No hardware validation was performed.
 
 **Active next product work remains BAT-C8 physical qualification** (GS-114), plus GS-144 target, GS-140/B0–B4 and matched AFTER measurements, GS-119 residual cases/12-hour soak, and GS-146 closure. No hardware action was taken. GS-115 C9–C12 remains conditional and measurement/decision-only; current boundaries are in [battery power management](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md). GS-147 remains a proposed sleep-first/offline-journal design only, not implementation approval; retain its Hub-off target, retirement/ACK interoperability and capacity requirements as unresolved until the issue contract is approved (audit findings: [C3/GS-147 section](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md)). S3 GS-148 and parent GS-131 remain intentionally OnHold as a workstream; P2-D remains partial, production deletion disabled, and P2-E/F/Phase 3 gates open. The pre-integration cross-worktree audit is historical for source-absence claims; this manifest and checkpoint supersede those claims.
 
@@ -12,11 +39,11 @@ Cross-component follow-up remains open: production backend authentication/COMMIT
 
 Untracked user files remain at their original worktrees: battery HIL scripts; S3 `sdkconfig` and `managed_components/`; storage `prompt.txt`; and Phase 2 generated build directories. No code from the unpublished 11-commit classic-storage range was merged.
 
-## Latest delivery closeout
+## Initial integration delivery closeout — snapshot before regression follow-up
 
 **CONSOLIDATION_STATUS=PARTIAL.** Commit `ed6cffcdbfcbd69118e41b436ef616a0bea927db` (`Record R1 source consolidation and validation handoff`) is pushed to `origin/feature/r1-commercial-baseline`; at verification, local HEAD and actual GitHub ref both equaled that hash. The tracked worktree is clean; generated untracked S3 `managed_components/` remains preserved.
 
-Focused BAT-C8, S3 storage/security/recovery, P2-D HTTP/HTTPS and ASan/UBSan checks passed; clean isolated ESP-IDF 6.0.3 C3 and S3 builds passed. Aggregate gates remain partial: `make cpp-test` fails on the documented Node sequence assertion; `make python-test` has 341/344 passing with one G01 failure and two G01/HIL errors; PWA bridge/API/frontend activity/door assertions fail. These are not represented as passes. Production P2-D authentication/receipt/connectivity, canonical workload, live backend E2E, capacity/retention and physical qualification remain open. No hardware actions occurred; production destructive event/identity reclamation remains disabled.
+At this initial integration snapshot, focused BAT-C8, S3 storage/security/recovery, P2-D HTTP/HTTPS and ASan/UBSan checks passed; clean isolated ESP-IDF 6.0.3 C3 and S3 builds passed. The aggregate failure details are historical and are superseded by the regression-closure section above. Production P2-D authentication/receipt/connectivity, canonical workload, live backend E2E, capacity/retention and physical qualification remain open. No hardware actions occurred; production destructive event/identity reclamation remains disabled.
 
 Jira synchronization comments were added and read back successfully, without workflow or ranking changes: GS-110 comment 10321, GS-114 10322, GS-115 10323, GS-131 10324, GS-147 10325, and GS-148 10326. Evidence and source provenance are in the [dated integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). The six-worktree inventory and exact validation details are recorded there.
 

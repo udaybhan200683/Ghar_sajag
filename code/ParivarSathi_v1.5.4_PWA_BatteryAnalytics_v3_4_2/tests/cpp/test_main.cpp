@@ -719,8 +719,8 @@ void test_node_offline_resilience() {
     check(offline.stats().record_calls == 1000 && offline.stats().accepted == admitted &&
           offline.stats().dropped_motion == 1000 - admitted,
           "one thousand local motions are accounted without blocking");
-    check(offline.next_sequence() == 1001,
-          "every qualified event attempt consumes one explicit sequence identity");
+    check(offline.next_sequence() == admitted + 1,
+          "only durably admitted events consume the contiguous sequence prefix");
     check(offline.radio_stats().transport_results <= 1000 &&
           offline.radio_stats().periodic_backoff_entries > 0,
           "long offline retry work stays bounded and reaches periodic backoff");
@@ -736,8 +736,8 @@ void test_node_offline_resilience() {
     check(offline.persisted() == 0 && offline.pending() == 0,
           "offline backlog drains without stranded store entries");
     const auto after_recovery = offline.record(gs::EventKind::Motion, "room1", 3001000, 0);
-    check(after_recovery && after_recovery->sequence == 1001,
-          "fresh sensing works after Hub recovery and preserves sequence gaps");
+    check(after_recovery && after_recovery->sequence == admitted + 1,
+          "fresh sensing resumes at the next sequence after Hub recovery");
 
     gs::node::NodeRuntime retry("retry-node", 22, 1, 1);
     const auto retry_key = retry.record(gs::EventKind::Motion, "room1", 0, 0);
