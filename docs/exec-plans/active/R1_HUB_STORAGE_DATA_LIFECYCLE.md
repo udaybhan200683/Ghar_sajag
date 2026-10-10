@@ -1,6 +1,68 @@
 # R1 Hub storage and data lifecycle — architecture ExecPlan
 
-Date: 2026-10-07. Source: `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b`, branch `feature/r1-hub-storage-lifecycle`.
+## CURRENT WORKSTREAM HANDOFF — 10 October 2026
+
+**S3 workstream: ON HOLD, intentional priority switch.** This is not cancellation
+or completion and has no fixed resume date. GS-148 remains the single S3 release
+owner; GS-148 and GS-131 are On Hold, not Done. Preserve the GS-132–GS-139
+historical crosswalk below. Jira source: GS-148 comments 10308 and 10307, GS-131
+comment 10309, GS-114 comment 10310.
+
+**Active next workstream: GS-114 BAT-C8, In Progress.** BAT-C8 software, focused
+host validation and qualification-image build are complete; physical P1–P10
+qualification is pending. Use the existing
+[BAT-C8 physical qualification plan](../../hw/evidence/BAT_C8_R1_QUALIFICATION/TEST_PLAN.md),
+reuse valid physical evidence and complete only the remaining cases. Preserve and
+credit the already demonstrated AM312-to-GPIO4 real wake and authenticated Hub
+ACK; reconcile them against the plan and do not repeat unless invalidated. Close
+remaining timer-wake, first-event-latency, rejoin/recovery and critical/FOTA
+sleep-inhibition gaps, plus B0–B4 and matched AFTER power measurements. Reconcile
+the 12-hour reliability soak and end-of-soak real PIR evidence and complete only
+missing portions. Define the GS-144 battery endurance target and close GS-146
+C1–C8. Do not infer a battery-life PASS without its approved target and
+representative workload. Do not change or test a physical board as part of this
+documentation handoff.
+
+GS-115 BAT-C9–C12 is To Do; no automatic implementation. C9 depends on measured
+battery condition and product need. C10 begins with actual flash-write measurement.
+C11 adaptive TX power is deferred beyond R1 unless measured RF evidence justifies
+it. C12 deep sleep is conditional on measured endurance missing the approved
+target. Preserve all existing physical evidence and keep BAT-C8 work in its own
+workstream.
+
+**S3 acceptance at pause:** P2-A/B/C implementation and host/SDK validation are
+complete; physical qualification remains pending. P2-D is PARTIAL at pushed
+HEAD `e1941d7136c43fe6e21f4eff42527aa2d0de9a9a`; see the
+[dated evidence](../evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md). The local
+SQLite bridge processed 300 events and safely handled three duplicate submissions
+without duplicate business effects. Focused ASan/UBSan and a clean ESP-IDF 6.0.3
+S3 build passed. Production authenticated completion/reconnect gates were not
+passed; live backend E2E and the canonical 72-hour matrix were not run. The full
+core suite remains failed on a baseline-reproducible Node sequence assertion.
+Production destructive body/identity deletion remains **DISABLED**.
+
+Pause blockers: production Hub authentication/credential provisioning and
+owner/enrollment-generation-bound durable COMMITTED receipt; configured HTTPS
+origin/trust plus active S3 connectivity worker; canonical workload reconciliation
+(NORMAL 728 exact + 197 candidate summaries, HIGH 3,278 + 298, STRESS 42,679 +
+1,682); existing baseline Node assertion; product retention decisions, lifetime
+capacity and physical qualification. Historical 6,556-event engineering stress
+coverage is separate from the canonical STRESS trace. Do not invent missing
+backend or workload semantics.
+
+**Exact resume sequence after explicit user reprioritization:** read the latest
+Jira descriptions/comments, applicable AGENTS.md, canonical Markdown and Git state;
+run context preflight and reconcile local/remote HEAD without reset/rebase. Resolve
+P2-D authentication/provisioning, receipt ownership, active connectivity and
+workload contracts; resolve or correctly assign the baseline Node assertion;
+complete P2-D production/host acceptance; continue P2-E retention, migration and
+incarnation policy, reserve and lifetime memory/storage bounds; complete P2-F
+integrated six-Node capacity/regression qualification; then do Phase 3 physical S3
+validation only with explicit approved hardware-preservation procedures. Do not
+reopen P2-A/B/C without regression evidence. Keep GS-148/GS-131 and Phases 2/3 open.
+No product requirement changes; context remains `2026-10-09.001`.
+
+Original ExecPlan date/source: 2026-10-07, commit `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b`, branch `feature/r1-hub-storage-lifecycle`. The current 2026-10-10 workstream handoff above supersedes its former next-task/status guidance; the historical analysis below is preserved.
 Context preflight: **PASS**, local/canonical context `2026-10-07.001`.
 Status: **PROPOSED; production integration STOP; isolated policy-neutral host primitives implemented**.
 The initial architecture checkpoint changed documentation only. The later efficiency phase adds host-only primitives/tests/benchmarks and Makefile targets; production firmware, partitions, backend, PWA and hardware remain unchanged.

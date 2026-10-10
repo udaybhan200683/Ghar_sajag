@@ -1,5 +1,29 @@
 # Hub Storage, Cloud Sync, PWA Freshness, and Routine-Learning Contract
 
+## Current S3 workstream status — 2026-10-10
+
+S3 durable-storage implementation is **ON HOLD by an intentional priority
+switch**, not cancelled or complete. Resume BAT-C8 physical qualification under
+GS-114/GS-146 first; then evaluate GS-115 C9–C11 from measurements. GS-148 and
+GS-131 remain open acceptance owners in Jira On Hold status. See the current
+[work-state handoff](../product/R1_WORK_STATE.md)
+and [S3 execution plan](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md).
+
+P2-A/B/C implementation and host/SDK validation are complete, with physical
+qualification pending. P2-D remains partial at pushed HEAD
+`e1941d7136c43fe6e21f4eff42527aa2d0de9a9a`. Production authenticated completion
+and reconnect are not passed; live backend E2E and canonical 72-hour tests are
+not run. The full core test suite still has a baseline-reproducible Node sequence
+assertion failure. The canonical mixed trace includes NORMAL 728 exact events
+plus 197 candidate summaries, HIGH 3,278 plus 298, and STRESS 42,679 plus 1,682;
+6,556 is a separate historical engineering stress regression. Resolve these
+contracts and policy gaps before claiming the required production workload.
+
+**Production destructive event-body and identity deletion remains DISABLED.**
+S3 implementation/physical acceptance, retention and lifetime storage policy
+remain open; this priority checkpoint changes no sync, retention or product
+semantics. Context remains `2026-10-09.001`.
+
 ## Architectural intent
 
 The Hub is not the long-term caregiver database.

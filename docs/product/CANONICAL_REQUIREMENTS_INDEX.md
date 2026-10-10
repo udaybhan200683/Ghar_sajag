@@ -28,7 +28,7 @@ If two current documents conflict and no higher-authority LOCKED decision resolv
 | `docs/product/GHAR_SAJAG_PROJECT_CONTEXT.md` | CANONICAL | Concise product, architecture, status and priority orientation | Every substantive task |
 | `docs/product/P0_PRODUCT_REQUIREMENTS.md` | CANONICAL | Current P0 household, sensor/event, caregiver, privacy and implementation boundaries | P0/product behavior work |
 | `docs/product/R1_RELEASE_CONTRACT.md` | CANONICAL | Release scope, invariants, bug/scope classification | Any product, code, or validation task |
-| `docs/product/R1_WORK_STATE.md` | CANONICAL-LIVING | Current closed gates, blocker and next task | Resuming or changing R1 work |
+| `docs/product/R1_WORK_STATE.md` | CANONICAL-LIVING | Current closed gates, open blocker and dated workstream pause/resume handoff | Resuming or changing R1 work |
 | `docs/product/DECISION_LOG.md` | CANONICAL | Locked/provisional/open decisions | A decision could be affected |
 | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | CANONICAL | Hub storage classes, sync, offline, PWA freshness and local learning | Storage, cloud, PWA, or routine work |
 | `docs/product/CONTEXT_VERSION` | CANONICAL | Machine-readable canonical context revision | Worktree preflight/version governance |
@@ -51,7 +51,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 
 | Path | Classification | Use | Read when |
 |---|---|---|---|
-| `docs/product/R1_WORK_STATE.md` | CANONICAL-LIVING | Current gates, blocker, next design work | R1 execution/handoff |
+| `docs/product/R1_WORK_STATE.md` | CANONICAL-LIVING | Current gates and blocker; the 2026-10-10 S3 snapshot records the intentional BAT-C8 priority switch without changing designated canonical worktree | R1 execution/handoff |
 | `docs/progress/R1_WORKTREE_RECONCILIATION_20261007.md` | TEST_EVIDENCE | Reconciled source/tool/evidence attribution and focused validation snapshot | Audit the committed qualification baseline and known deferred test failure |
 | `docs/progress/CURRENT_STATUS_AND_ROADMAP.md` | HISTORICAL | Earlier roadmap snapshot | Trace earlier status; do not use as current status |
 | `docs/progress/FEATURE_IMPLEMENTATION_STATUS_AND_REMAINING_GAPS_AT_0608e2a.md` | HISTORICAL | Commit-specific implementation gap snapshot | Inspect that historical baseline |
@@ -93,7 +93,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 
 | Path | Classification | Use | Read when |
 |---|---|---|---|
-| `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` | IMPLEMENTATION_DESIGN / PROPOSED ExecPlan | Historical classic-ESP32 4 MB analysis remains useful as evidence; S3 sections track current implementation slices. Candidate formats, reserve/layout values and numeric workload policy remain unapproved; see GS-D030 and linked evidence | Review the S3 status and remaining STOP gates; do not apply old 4 MB allocations to the selected Hub |
+| `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` | IMPLEMENTATION_DESIGN / PROPOSED ExecPlan / CURRENT HANDOFF | Historical classic-ESP32 4 MB analysis remains useful as evidence; S3 sections track implementation slices. The 2026-10-10 opening handoff records the approved temporary S3 priority pause, active BAT-C8 sequence, partial P2-D status, blockers and exact resume order. Candidate formats, reserve/layout values and numeric workload policy remain unapproved; see GS-D030 and linked evidence | Review the latest handoff and S3 STOP gates; do not apply old 4 MB allocations to the selected Hub |
 | `docs/DURABLE_STORAGE_EPIC_PAUSE_HANDOFF.md` | HANDOFF/WORK_STATE | Paused durable-storage work context | Resume that historical workstream; reconcile with current state |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABILITY_ARCHITECTURE_CLOSURE_AUDIT.md` | SUPPORTING | Detailed durability audit and evidence | Audit current-format implementation |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABLE_BACKEND_COMPLETION_CONTRACT.md` | IMPLEMENTATION_DESIGN | Backend completion receipt contract | Outbox completion/reclamation work |
@@ -455,6 +455,6 @@ remain unchanged. P2-C host/build closeout does not close Phase 2 or begin P2-D.
 
 | Path | Classification | Valid use / limitations |
 |---|---|---|
-| `docs/exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md` and linked raw evidence | IMPLEMENTATION_DESIGN / TEST_EVIDENCE | Bounded existing-endpoint HTTP adapter and compiled S3 HTTPS channel, scheduling/recovery tests and explicit contract gaps. Does not establish active production caller, owner/generation receipt binding, canonical 72-hour matrix, live backend or physical qualification. |
+| `docs/exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md` and linked raw evidence | IMPLEMENTATION_DESIGN / TEST_EVIDENCE | Pushed partial P2-D checkpoint `e1941d7`: bounded existing-endpoint HTTP adapter and compiled S3 HTTPS channel, scheduling/recovery tests, measurements and explicit contract gaps. Current 2026-10-10 priority handoff pauses further S3 work for BAT-C8; no active production caller, owner/generation receipt binding, canonical 72-hour matrix, live backend or physical qualification is established. |
 
 No requirement authority changes. Context remains `2026-10-09.001`.

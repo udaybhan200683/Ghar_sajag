@@ -32,9 +32,9 @@ Preserve authenticated ownership, durable-before-ACK, lost-ACK retry safety, dup
 
 Closed physical fresh-install durability gates include ownership/enrollment, Node runtime/rejoin, first durable commit, Hub reboot recovery, ACK class 0 and retirement, duplicate ACK safety, and lost-ACK/retry/duplicate qualification with empty final Node queues. Do not repeat those gates unless a later change can invalidate them. See [R1 work state](R1_WORK_STATE.md) for the latest record.
 
-The current R1 product blocker is Hub storage/data-lifecycle architecture. A shared 128-event lifetime ceiling is unacceptable; merely increasing 128 is not a fix. Next qualify the lifecycle against the selected S3 Hub and six-Node case: active correctness journal/dedupe, materialized state, backend outbox, short history/cache, safe reclamation, offline capacity, flash wear, and OTA limits. Do not implement a guessed capacity or retention policy.
+The open R1 product blocker remains Hub storage/data-lifecycle architecture. A shared 128-event lifetime ceiling is unacceptable; merely increasing 128 is not a fix. Under the approved 10 October 2026 workstream handoff, further S3 storage implementation is temporarily ON HOLD while BAT-C8 physical qualification takes active priority. This is a priority switch, not storage completion/cancellation. Preserve the S3 blockers and exact resume sequence in [R1 work state](R1_WORK_STATE.md) and its active [storage handoff](../exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md). When S3 is explicitly resumed, qualify the lifecycle against the selected S3 Hub and six-Node case: active correctness journal/dedupe, materialized state, backend outbox, short history/cache, safe reclamation, offline capacity, flash wear, and OTA limits. Do not implement a guessed capacity or retention policy.
 
-BAT-C8 is an R1-required feature with physical qualification pending (GS-D020). Qualification must prove required production sleep/wake/resume, sensing/runtime and radio restoration, safe fail-awake behavior, and event-processing regression safety. Final battery-life optimization and long-duration endurance are not blockers absent an explicit R1 battery-life claim. USB zero-touch automation is convenience tooling, not an R1 product blocker. See the index for other deferred work and qualification evidence.
+BAT-C8 is an R1-required feature with physical qualification pending (GS-D020) and is the active next workstream per the 10 October 2026 priority handoff. Qualification must prove required production sleep/wake/resume, sensing/runtime and radio restoration, safe fail-awake behavior, and event-processing regression safety. Final battery-life optimization and long-duration endurance are not blockers absent an explicit R1 battery-life claim. USB zero-touch automation is convenience tooling, not an R1 product blocker. See the index for other deferred work and qualification evidence.
 
 ## Scope rules
 
@@ -51,7 +51,7 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 - The decision that 128 events is not an acceptable lifetime and cannot be fixed by increasing the constant alone.
 - USB automation as a product requirement, development-era migration as an R1 requirement, or completed historical evidence.
 
-## Next engineering priority
+## Next S3 engineering priority after explicit resume
 
 Close the storage/data-lifecycle proof gates and its explicit product decisions before production implementation. The 72-hour internet-only outage design target is locked; exact retention, supported volumes, critical saturation and backend summary protocol remain open; derive a bounded design and byte/wear/OTA budget from actual hardware and six-Node behavior. Then host-test the design, build/measure the Hub target, and qualify only the changes that can invalidate existing physical gates.
 

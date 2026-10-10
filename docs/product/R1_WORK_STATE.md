@@ -2,6 +2,78 @@
 
 **Updated:** 2026-10-10
 
+## Current priority handoff — 10 October 2026
+
+**S3 durable-storage workstream: ON HOLD by intentional priority switch.** This is
+not cancellation or completion, has no fixed resume date, and does not authorize
+background work. Jira GS-148 and parent GS-131 are On Hold, not Done. GS-148 remains
+the single owner of unfinished S3 release obligations; preserve the GS-132–GS-139
+historical crosswalk below unchanged.
+
+**Active next workstream: BAT-C8 physical qualification (GS-114, In Progress).**
+BAT-C8 software, host validation and qualification-image build are complete;
+physical P1–P10 qualification remains pending. Reuse valid physical evidence and
+run only remaining cases under the existing
+[BAT-C8 qualification plan](../hw/evidence/BAT_C8_R1_QUALIFICATION/TEST_PLAN.md).
+Preserve and credit the existing demonstrated AM312-to-GPIO4 real wake and
+authenticated Hub ACK evidence; reconcile it against the plan and do not repeat
+it unless a change invalidates it. Close the other remaining timer-wake,
+first-event-latency, rejoin/recovery and critical/FOTA sleep-inhibition gaps, plus
+B0 and B1–B4 power measurements with matched AFTER comparison. Reconcile the
+12-hour soak and end-of-soak real PIR evidence, completing only missing parts.
+Define the GS-144 battery-endurance target and close GS-146 C1–C8. The separate
+BAT-C8 worktree and all physical devices remain untouched by this documentation
+checkpoint.
+
+GS-115 BAT-C9–C12 remains To Do with no automatic implementation: C9 depends on
+battery measurement and product need; C10 starts by measuring actual flash writes;
+C11 adaptive TX power is deferred beyond R1 unless measured RF evidence justifies
+it; C12 deep sleep is considered only if measured endurance misses the approved
+target.
+
+**S3 status at pause:** P2-A/B/C implementation and host/SDK validation are
+complete; physical qualification remains pending. P2-D is PARTIAL at pushed
+HEAD `e1941d7136c43fe6e21f4eff42527aa2d0de9a9a`. The bounded HTTP/HTTPS adapters,
+strict COMMITTED parsing, CloudSync bounds and recovery tests are documented in
+the [P2-D evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
+Its deterministic local SQLite bridge processed 300 events; three duplicate
+submissions caused no duplicate business effects. Focused ASan/UBSan and clean
+ESP-IDF 6.0.3 S3 build passed. Production authenticated completion/reconnect
+gates did not pass; live backend E2E and canonical 72-hour workloads were not run.
+The full core suite still fails an existing baseline-reproducible Node sequence
+assertion. Production destructive identity/event-body deletion stays DISABLED.
+
+S3 is paused pending: (1) production Hub authentication/provisioning and
+owner/enrollment-generation-bound durable COMMITTED receipt contract; (2) configured
+HTTPS origin/trust and an active S3 connectivity worker; (3) approved canonical
+72-hour workload reconciliation; (4) correct ownership/resolution of the existing
+baseline Node sequence assertion; and (5) product retention decisions, lifetime
+capacity and physical qualification. The canonical mixed traces contain NORMAL
+728 exact events plus 197 candidate summaries, HIGH 3,278 plus 298, and STRESS
+42,679 plus 1,682. The historical 6,556-event engineering stress test is separate
+from the canonical stress trace. Do not invent backend or workload policy.
+
+**Exact S3 resume sequence, only after explicit user reprioritization:**
+
+1. Read latest Jira descriptions/comments, canonical Markdown, applicable
+   `AGENTS.md`, Git state and context preflight; reconcile local/remote HEAD
+   without reset or rebase.
+2. Resolve P2-D production authentication/provisioning, durable COMMITTED receipt
+   ownership, active connectivity and canonical workload contracts.
+3. Resolve or correctly assign the existing core Node assertion.
+4. Complete P2-D production/host acceptance, connectivity and receipt gates.
+5. Continue P2-E retention, migration/incarnation policy, reserve and lifetime
+   memory/storage bounds.
+6. Complete P2-F integrated six-Node host capacity/regression qualification.
+7. Perform Phase 3 physical S3 validation only under explicit approved
+   hardware-preservation procedures.
+
+Do not reopen completed P2-A/B/C without regression evidence. Keep GS-148, GS-131,
+Phase 2 and Phase 3 open. No product requirement changed and
+`CONTEXT_VERSION=2026-10-09.001` remains unchanged. This checkpoint follows GS-148
+comments 10308/10307, GS-131 comment 10309 and GS-114 comment 10310; it makes no
+Jira workflow transition.
+
 ## Authoritative work line
 - Worktree: `/home/udaybhan/projects/Ghar_sajag_r1`
 - Branch: `feature/r1-commercial-baseline`
@@ -116,7 +188,7 @@ Do not implement a guessed retention policy or merely increase the 128-event con
 
 GS-D020 traceability: GS-114 — implementation/focused qualification; GS-146 — final R1 battery closure. Issue completion is not inferred from this mapping.
 
-BAT-C8 is an R1-required feature with physical qualification pending (GS-D020). Physical cases P1–P10 remain NOT_RUN; these are test case IDs, not priority labels. Required production proof covers sleep entry, GPIO/timer wake, bounded resume, sensing/runtime and radio restoration, safe fail-awake behavior, and event-processing regression. Do not block on final battery-life optimization or long-duration endurance absent an explicit R1 battery-life claim. No BAT-C8 tests were run as part of the documentation decision.
+BAT-C8 is an R1-required feature with physical qualification not yet closed (GS-D020). P1–P10 are test case IDs, not priority labels. Preserve and credit prior valid physical evidence; after reviewing the plan and evidence, run only remaining or insufficiently evidenced cases. Required production proof covers sleep entry, GPIO/timer wake, bounded resume, sensing/runtime and radio restoration, safe fail-awake behavior, and event-processing regression. Do not block on final battery-life optimization or long-duration endurance absent an explicit R1 battery-life claim. No BAT-C8 tests were run as part of this documentation decision.
 
 ## Stop rule
 

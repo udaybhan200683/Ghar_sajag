@@ -6,6 +6,32 @@ Use:
 - OPEN = unresolved.
 - SUPERSEDED = replaced but retained for history.
 
+### Approved workstream priority handoff — 2026-10-10 (status only)
+
+Jira GS-148 comment 10308 and related GS-131 comment 10309 record the approved
+priority switch: temporarily pause further S3 durable-storage work and resume
+BAT-C8 physical qualification under GS-114/GS-146, followed by evidence-based
+BAT-C9–C11 evaluation under GS-115. GS-148 remains the single S3 acceptance owner;
+GS-148 and GS-131 are On Hold, not Done, and have no fixed automatic resume date.
+GS-114 is the active battery workstream; GS-115 remains To Do. Preserve the
+GS-132–GS-139 crosswalk.
+
+This is a workstream scheduling/status checkpoint, not a new LOCKED product
+decision and not approval of a battery target, retention policy, backend contract,
+workload distribution, hardware action or production deletion. P2-A/B/C have
+implementation and host/SDK validation evidence; physical qualification remains
+pending. P2-D remains partial at pushed checkpoint
+`e1941d7136c43fe6e21f4eff42527aa2d0de9a9a`; its production authenticated
+completion/reconnect gates remain unmet. See the [P2-D evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md)
+and current [pause/resume handoff](R1_WORK_STATE.md).
+
+No canonical product semantics or context version change. S3 resume requires
+explicit user reprioritization and resolution of the documented production
+authentication/provisioning, owner/generation COMMITTED receipt, configured
+connectivity worker, canonical workload, baseline Node assertion, retention,
+lifetime capacity and physical qualification gates. Production destructive
+identity/event-body deletion remains DISABLED.
+
 ### GS-D001 — R1 fresh-install scope
 **Status:** LOCKED  
 R1 is a commercially installable fresh baseline. Arbitrary dev-era persistence migration is post-R1 unless it blocks the fresh-install path.
