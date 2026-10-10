@@ -175,9 +175,9 @@ radio message or persistence path was added.
 
 Sleep is fail-awake. It is inhibited until authentication, sensing readiness,
 radio/session state and wake configuration are known; during rejoin,
-transmission, in-flight event or health send, ACK wait, any pending or retained
+transmission, in-flight event or health send, ACK wait, executable pending or retained
 recovery work, due retry/health/security work, FOTA or boot-health validation,
-maintenance, persistence uncertainty, callback queue work, outage, active
+maintenance, persistence uncertainty, callback queue work, unsafe outage reception, active
 status indication, unexpected runtime state, PIR HIGH, unstable LOW, unsafe
 debounce/retrigger state, missing deadline, or a window too short for the
 configured margin.
@@ -204,7 +204,7 @@ not synthesize Motion.
 ### Deadlines and radio/session behavior
 
 The timer deadline is the earliest available NodeHealth, event retry, security,
-maintenance or activity-episode deadline. Sleep subtracts a 500 ms execution
+maintenance, retirement-report or activity-episode deadline. Sleep subtracts a 500 ms execution
 margin, requires at least 500 ms remaining, and caps each request at 30 s so
 the existing owner rechecks runtime state regularly. The 30 s cap and margins
 are centralized in `power.hpp`. The owner does not use the Hub liveness lease
@@ -838,7 +838,10 @@ the current target has no ADC value to inspect. A frequent radio retry loop
 usually points to ACK/session/Hub reachability, while a steadily active CPU is
 expected with the present 20 ms poll design.
 
-## Canonical R1 C3 offline-idle audit — 2026-10-10
+## Historical canonical R1 C3 offline-idle audit — 2026-10-10
+
+This audit describes the pre-GS-150 source and authorization checkpoint. Read
+the delivered GS-150 section below for current behavior.
 
 This is a current-source audit, not approval of the separate GS-147 sleep-first
 and expanded-journal design. On the current canonical branch, a ready Node with
@@ -935,7 +938,11 @@ changed; the recorded image is 931,424 bytes. No hardware was touched. The
 latest Jira-approved BAT-C8 split assigns functional non-power P1–P9 to GS-114
 and quantitative P10 power acceptance to GS-149; GS-146 still requires both.
 
-## GS-150 ACK-boundary source verification — 2026-10-10
+## Historical GS-150 ACK-boundary stop — 2026-10-10
+
+The source observations below remain valid. Its requirement for a guaranteed
+Hub ACK-arrival maximum is superseded by the subsequent user clarification and
+the conservative implementation described in the GS-150 section below.
 
 GS-150 Option A is approved as a narrow implementation exception, but its
 explicit Phase 1 stop condition applies: do not choose an arbitrary ACK timeout.
@@ -1003,3 +1010,94 @@ were not run because no safe ACK boundary exists yet. The previous 20 ms versus
 physical battery benefit is claimed. GS-150 blocks final-candidate GS-114
 physical tests; GS-149 remains a later quantitative gate. Original paired
 hardware and its pending events were not touched.
+
+
+## GS-150 delivered software design — 2026-10-10
+
+The user clarified that approved Option A permits best-effort ACK reception
+with exact-key replay, and explicitly authorized a conservative confirmed-outage
+implementation. A guaranteed network ACK latency is not required to preserve
+retention. No LOCKED decision, wire/storage schema, retry interval, capacity or
+context revision changes. GS-D020/027 and the existing authenticated
+lost-ACK/deduplication contract remain authoritative. Detailed reproducible
+results are in [GS-150 software evidence](../exec-plans/evidence/R1_GS150_SOFTWARE_VALIDATION_20261010.md).
+
+### Selected policy and source-derived receive opportunities
+
+Select C plus a narrow B: connected/transient-failure pending events keep
+continuous reception. Only the existing three-unacknowledged-attempt outage
+profile may sleep with durably pending records after completed transport and a
+best-effort application receive opportunity. This opportunity is **10,000 ms
+from local callback completion or its existing 1,000 ms timeout**, taken from
+`SessionRecoveryPolicy::active_contact_timeout_ms`: the negotiated current
+protocol already permits replacement of an unanswered session after three
+completed attempts and 10 seconds. This is a conservative receive budget,
+not a guaranteed Hub completion time, ACK-validity expiry or retirement signal.
+The actual session-recovery deadline may preempt it, exactly as before.
+
+A successful application MAC callback additionally keeps continuous reception
+while pending: the peer may be reachable with slow durable processing. This
+inhibitor is not authenticated contact, does not clear outage or retire an
+event. It prevents periodically missing every delayed ACK from an otherwise
+reachable Hub. A valid matching ACK still works after the budget whenever RX
+is available. After a failed/ambiguous transport and sleeping, the original
+scheduled retry reseals the original event under the current session. The Hub
+commits/dedupes that identity and sends another authenticated response.
+
+Auxiliary health/retirement completion holds reception for **300 ms**, the
+whole earliest existing event-retry envelope (200 ms + maximum 100 ms jitter).
+Outstanding fragments also inhibit sleep until their callback/timeout. Their
+existing 1 s failure and 5 s report retries remain unchanged and are included
+as timer deadlines; a near 1 s retry may leave no profitable safe sleep.
+In-service rejoin stays awake for its existing first retry opportunity
+(1,500 ms + session jitter) after each submission. Bootstrap/provisioning stays
+awake. Existing 30 s fallback, ambiguity windows, active 10 s and idle 430 s
+contact deadlines are respected. Rejoin/session replacement abandons reception
+of old-session application frames, preserves every retained event and protects
+its new handshake reception. No faster/slower rejoin or new Hub-return SLA.
+
+Alternative A (guaranteed arrival bound) is unsupported by source and unnecessary
+for this design. General connected-mode B was rejected: deterministic slow-ACK
+simulation exposed repeated missed-ACK starvation. A first 300 ms application
+candidate was tightened to the existing 10 s recovery budget and successful-MAC
+receive inhibitor. Connected-mode reception therefore remains conservative.
+
+### One owner, retention and wake
+
+The same owner holds `AckListeningWindow`, builds its snapshot with
+`observe_retained_delivery`, and calls authoritative `evaluate_light_sleep`.
+Durably retained backlog is separate from executable recovery/persistence
+work. Offline RAM motion summaries remain deferred as in C7, and are not an
+executable sleep blocker until connected; gap/fault work remains an inhibitor.
+FOTA, boot-health, control, active TX, queued callbacks, unsettled persistence,
+unsafe runtime/radio state and due/near deadlines still inhibit sleep.
+
+The earliest health, event retry, retirement retry, episode, active/idle contact,
+rejoin/fallback/ambiguity deadline owns timer wake. The 30 s cap, 500 ms margin,
+500 ms minimum, powered GPIO4 HIGH wake, LOW stability and debounce/retrigger
+safeguards remain. PIR is rechecked around entry. Held HIGH stays awake and is
+sampled without duplicate admission. Important events retain their existing
+immediate admission/TX rules and queue reserve; no new door/button/SOS GPIO
+integration or event type was introduced.
+
+ESP-NOW/Wi-Fi stop and restore through the existing adapter, retaining RAM AEAD
+counters/session. Partial callback initialization cannot mark ESP-NOW ready;
+restore errors fail awake, retry restoration and keep sensing/durable admission
+running rather than skipping PIR. Original timestamps and EventKeys remain
+untouched. Only the existing verified application ACK handler retires records
+and persists the retirement; missed responses never fabricate completion.
+
+`LightSleepTelemetry` now accumulates successful monotonic sleep residence in
+RAM. `EnergyCounters.awake_ms` subtracts that residence from uptime instead of
+calling uptime awake duration. No new telemetry packet, wire field or NVS write.
+These counters do not measure physical radio energy or battery life.
+
+### Qualification boundary
+
+Host policy/security/persistence/replay/simulation and target compilation are
+software evidence. GPIO4 electrical pulses, wake/resume latency, session/RF
+continuity, failed restore on board, overnight motion and real current remain
+GS-114 P1–P9 and GS-149 P10 work. No protected board was accessed. The 32-event
+pending limit remains; GS-147 journal/capacity/retention decisions remain gated.
+No deep sleep or C9–C12 work. See the evidence record for exact metrics and
+command exits, including modest added receive cost in already sleeping paths.

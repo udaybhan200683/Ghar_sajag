@@ -305,8 +305,20 @@ std::vector<TestCase> catalog() {
     add("C3-STRESS-001", "C3_STRESS", "deterministic-outage-storm", [] {
         RuntimePair p; p.set_hub_online(false); for(int i=0;i<5000;++i){p.clock.advance(10);(void)p.motion();(void)p.attempt({false,true,false,true,false});}
         require(p.node.pending()<=32 && p.node.persisted()==p.node.pending(),"stress bounds/invariant failed");
-        require(p.node.stats().accepted+p.node.stats().dropped_motion==5000 && p.node.next_sequence()==5001,
+        // Rejected admission creates no EventKey: the retirement high-water
+        // describes a contiguous admitted prefix, not all sensor attempts.
+        require(p.node.stats().accepted+p.node.stats().dropped_motion==5000 &&
+                p.node.next_sequence()==p.node.stats().accepted+1,
                 "stress event accounting/identity progress failed");
+        require(p.node.stats().accepted==28 && p.node.stats().dropped_motion==4972,
+                "ordinary reserve/admission accounting changed");
+        const auto retained=p.node.recovery_snapshot();
+        require(retained.durable_admission_highwater==p.node.stats().accepted,
+                "retirement boundary must match admitted prefix");
+        for(std::size_t i=0;i<retained.retained.size();++i)
+            require(retained.retained[i].key.sequence==i+1 &&
+                    retained.retained[i].monotonic_ms==static_cast<gs::Milliseconds>((i+1)*10),
+                    "stress retained identity/timestamp changed");
         require(p.node.radio_stats().transport_results>0 && p.node.stats().store_full==0,"stress retry/admission counters invalid");
     });
     add("HUB-STRESS-001", "HUB_STRESS", "duplicate-volume", [] {

@@ -5,7 +5,26 @@ procedure and preparation record only. It contains no fabricated physical
 results. Capture each eventual run in a dated subdirectory beneath this
 directory.
 
-## Canonical pause/resume checkpoint — 2026-10-10
+## GS-150 final-candidate software handoff — 2026-10-10
+
+The GS-150 changed receive/sleep policy supersedes the earlier image for final
+candidate acceptance. Read [GS-150 evidence](../../../exec-plans/evidence/R1_GS150_SOFTWARE_VALIDATION_20261010.md)
+and the [current battery guide](../../../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md).
+Production build is software-only; rebuild the existing explicit physical-wake
+profile from the delivered commit before any separately authorized bench run.
+Record source/config/image hashes. Prior image evidence below is historical.
+
+GS-114 owns functional non-power P1–P9; GS-149 owns quantitative P10 and its
+B0–B4/GS-51 prerequisites. GS-146 still requires both. Focus P1–P9 on confirmed
+outage with retained events, absent/missed/late authenticated ACK, successful
+MAC with slow app ACK (continuous RX), exact-key replay, Hub reboot/return
+without PIR, held HIGH/bounce, deadline margin, radio restore failure, critical
+admission and FOTA/control/persistence boundaries. Host tests and target build
+are not physical acceptance. P8 still requires its explicit post-commit ACK-loss
+fixture and per-key ledger evidence. All physical cases remain NOT_RUN here;
+no authorization to modify protected boards is supplied by this handoff.
+
+## Historical canonical pause/resume checkpoint — 2026-10-10
 
 Owning issue: GS-114 under GS-110. Current canonical source is
 `/home/udaybhan/projects/Ghar_sajag_r1`, branch `feature/r1-commercial-baseline`.

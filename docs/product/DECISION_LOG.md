@@ -303,3 +303,25 @@ Append a new GS-Dxxx entry when a new product/architecture decision must survive
 ## Storage-first refinement status — 2026-10-07
 
 GS-D021/022/023 are the only new LOCKED decisions in this checkpoint. Proposed84/104-byte authenticated records and128 KiB budgets remain gated; no72-hour guarantee, critical overflow policy or partition change is approved. Current reproduced Hub image1,864,624 B fits existing slots with101,456 B margin; the old384 KiB candidate does not fit. Retirement credit/progress, coverage/time/day finalization, derived backend completion, authenticated GC and rollback remain open. Existing host regressions pass; new failure models are specified but not implemented.
+
+
+## GS-150 implementation interpretation — 2026-10-10
+
+User-approved Option A was clarified to permit bounded best-effort ACK
+reception and existing exact-EventKey missed-ACK recovery, or conservative
+confirmed-outage sleep. This records an implementation choice under GS-D020/027
+and the existing durability/authentication requirements, not a new LOCKED
+product decision. CONTEXT_VERSION remains 2026-10-09.001.
+
+The [battery design](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md)
+selects confirmed-outage-only retained sleep after the source-derived 10 s
+active-contact receive budget, keeps continuous reception after successful
+application MAC delivery, and preserves existing retry/rejoin/deadline rules.
+No Hub ACK-arrival guarantee is introduced. The earlier ff0f6f1 requirement for
+such a guarantee is superseded as an implementation blocker; its source finding
+that no guaranteed application ACK latency exists remains accurate. A missed
+ACK retains the event and uses authenticated same-key replay/dedupe. No wire,
+persistent schema, queue size, retention guarantee or security change.
+
+Physical BAT-C8 qualification remains required. Evidence and software limits:
+[GS-150 validation](../exec-plans/evidence/R1_GS150_SOFTWARE_VALIDATION_20261010.md).

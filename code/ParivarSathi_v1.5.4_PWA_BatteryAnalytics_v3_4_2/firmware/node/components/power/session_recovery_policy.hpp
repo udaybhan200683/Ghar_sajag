@@ -13,6 +13,16 @@ struct SessionRecoveryPolicy {
     static constexpr std::int64_t v2_fallback_ms = 30000;
     static constexpr std::int64_t initial_ambiguity_window_ms = 180000;
     static constexpr std::int64_t maximum_ambiguity_window_ms = 3600000;
+    static constexpr std::int64_t active_contact_timeout_ms = 10000;
+
+    static std::optional<std::int64_t> active_deadline(bool negotiated,
+                               std::int64_t first_attempt,
+                               unsigned completed_attempts,
+                               std::int64_t last_contact) {
+        if (!negotiated || first_attempt < 0 || completed_attempts < 3 ||
+            last_contact > first_attempt) return std::nullopt;
+        return first_attempt + active_contact_timeout_ms;
+    }
 
     static bool idle_expired(bool negotiated, std::int64_t now,
                              std::int64_t last_contact) {
@@ -32,7 +42,7 @@ struct SessionRecoveryPolicy {
                                unsigned completed_attempts,
                                std::int64_t last_contact) {
         return negotiated && first_attempt >= 0 && now >= first_attempt &&
-               completed_attempts >= 3 && now - first_attempt >= 10000 &&
+               completed_attempts >= 3 && now - first_attempt >= active_contact_timeout_ms &&
                last_contact <= first_attempt;
     }
 

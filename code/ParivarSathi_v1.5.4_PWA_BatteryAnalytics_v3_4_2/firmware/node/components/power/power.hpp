@@ -3,6 +3,8 @@
 #pragma once
 
 #include "gs/domain.hpp"
+#include "gs/protocol.hpp"
+#include "power/session_recovery_policy.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -90,6 +92,56 @@ inline constexpr Milliseconds kLightSleepMaximumMs = 30000;
 inline constexpr Milliseconds kLightSleepDeadlineMarginMs = 500;
 inline constexpr Milliseconds kLightSleepMinimumMs = 500;
 
+// Owner-held receive opportunity, not an application ACK expiry or a Hub SLA.
+// Application reception uses the existing 10 s active-contact recovery budget:
+// the negotiated protocol already permits session replacement after 3 missed
+// attempts and 10 s. Auxiliary completion uses the full earliest retry envelope.
+// These are best-effort receive opportunities, never deadlines for ACK validity.
+class AckListeningWindow {
+public:
+    static constexpr Milliseconds receive_budget_ms =
+        NodeProtocolPolicy::retry_delays_ms.front() +
+        NodeProtocolPolicy::retry_jitter_max_ms;
+    static constexpr Milliseconds application_receive_budget_ms =
+        SessionRecoveryPolicy::active_contact_timeout_ms;
+    void transport_completed(Milliseconds now_ms) {
+        require_until(now_ms < 0 ? -1 : now_ms + receive_budget_ms);
+    }
+    void application_transport_completed(Milliseconds now_ms, bool mac_success) {
+        application_until_ms_ = now_ms < 0 ? -1 : now_ms + application_receive_budget_ms;
+        // A reachable peer with slow durable storage must not miss every ACK
+        // on every retry. MAC success is only a receive inhibitor; it never
+        // marks Hub contact healthy, clears outage or retires an event.
+        awaiting_reachable_peer_ack_ = mac_success;
+    }
+    void authenticated_progress(bool all_pending_retired = true) {
+        awaiting_reachable_peer_ack_ = false;
+        if (all_pending_retired) application_until_ms_ = -1;
+    }
+    // Old application frames cannot be authenticated during session recovery.
+    // Rejoin establishes its own protected receive opportunity.
+    void session_replaced() {
+        awaiting_reachable_peer_ack_ = false;
+        application_until_ms_ = -1;
+    }
+    void require_until(Milliseconds deadline_ms) {
+        if (deadline_ms > until_ms_) until_ms_ = deadline_ms;
+    }
+    bool active(Milliseconds now_ms) const {
+        return now_ms < 0 || now_ms < until_ms_ || now_ms < application_until_ms_;
+    }
+    bool outage_quiet(Milliseconds now_ms, bool confirmed_outage,
+                      bool pending, std::optional<Milliseconds> retry_ms) const {
+        return confirmed_outage && !active(now_ms) &&
+            (!pending || !awaiting_reachable_peer_ack_) &&
+            (!pending || (retry_ms && *retry_ms > now_ms));
+    }
+private:
+    Milliseconds until_ms_{-1};
+    Milliseconds application_until_ms_{-1};
+    bool awaiting_reachable_peer_ack_{false};
+};
+
 enum LightSleepInhibitor : std::uint32_t {
     LightSleepInhibitNone = 0,
     LightSleepInhibitClock = 1U << 0,
@@ -126,6 +178,7 @@ struct LightSleepObservation {
     Milliseconds next_retry_ms{-1};
     Milliseconds next_maintenance_ms{-1};
     Milliseconds next_security_ms{-1};
+    Milliseconds next_radio_ms{-1};  // Existing retirement fragment/report retry.
     bool authenticated{false};
     bool rejoin_active{false};
     bool rejoin_backoff{false};
@@ -148,6 +201,7 @@ struct LightSleepObservation {
     bool runtime_state_known{false};
     bool other_owner_work{false};
     bool outage_active{false};
+    bool outage_quiet{false};  // Owner has completed TX and its receive budget.
 };
 
 struct LightSleepDecision {
@@ -182,6 +236,7 @@ inline const char* light_sleep_wake_name(LightSleepWakeKind kind) {
 // path immediately before esp_light_sleep_start(), after both wake sources are
 // armed and all final entry checks pass. Counts saturate rather than wrapping.
 struct LightSleepTelemetry {
+    std::uint64_t total_light_sleep_ms{0};  // Measured monotonic residence, RAM only.
     std::uint32_t light_sleep_entry_count{0};
     std::uint32_t timer_wake_count{0};
     std::uint32_t gpio_wake_count{0};
@@ -200,6 +255,7 @@ struct LightSleepTelemetry {
                              Milliseconds elapsed_ms) {
         last_sleep_elapsed_ms = bounded_ms(elapsed_ms);
         if (!entered) return;
+        total_light_sleep_ms += last_sleep_elapsed_ms;
         if (gpio_wake) increment(gpio_wake_count);
         if (timer_wake) increment(timer_wake_count);
         if (!gpio_wake && !timer_wake) increment(other_wake_count);
@@ -225,10 +281,18 @@ inline const char* light_sleep_deadline_name(const LightSleepObservation& o,
     if (deadline == o.next_retry_ms) return "retry";
     if (deadline == o.next_maintenance_ms) return "maintenance";
     if (deadline == o.next_security_ms) return "security";
+    if (deadline == o.next_radio_ms) return "retirement";
     return "none";
 }
 
 LightSleepDecision evaluate_light_sleep(const LightSleepObservation& observation);
+
+// Builds the retained-delivery part of the authoritative owner snapshot.
+// recovery_work already describes executable work (gap/summary/persistence),
+// distinct from committed records waiting for their unchanged future retry.
+void observe_retained_delivery(LightSleepObservation& observation,
+                               const AckListeningWindow& listening,
+                               bool pending, bool retained);
 
 // Owner-local PIR episode state. The first event is admitted by NodeRuntime
 // before note_first() is called. Repeats remain in RAM until emitted as a

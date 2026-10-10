@@ -1,6 +1,56 @@
 # R1 Current Work State
 
-## GS-150 — ACK-boundary blocker, 2026-10-10
+## GS-150 software implementation — 2026-10-10
+
+The user clarified safe best-effort missed-ACK replay and confirmed-outage
+alternatives, superseding the prior guaranteed-ACK-latency stop. Production C3
+now permits safe light sleep with committed pending events in the existing
+confirmed-outage profile after the existing 10 s active-contact receive budget.
+A successful application MAC result keeps continuous reception while pending;
+it never marks contact authenticated or retires work. Connected/transient
+pending reception, original retry/rejoin timing, EventKeys/timestamps, queue
+limits and ACK-driven durable retirement remain intact. Rejoin, retirement,
+active/idle contact, fallback and ambiguity deadlines bound the same owner
+sleep decision. Radio restore failure keeps PIR sensing running and fails awake.
+
+Current implementation/evidence: [battery design](../features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md),
+[GS-150 validation and scenario metrics](../exec-plans/evidence/R1_GS150_SOFTWARE_VALIDATION_20261010.md).
+GS-150 is SOFTWARE_IMPLEMENTED / HOST_TESTED / SIMULATED / TARGET_COMPILED.
+New deterministic gate PASS (1,481 checks / 19 paired workloads); BAT-C8 PASS
+(72 C++ / 11 Python); full C++ PASS (1,479); full Python PASS (346 run, one
+historical scoped skip); frontend 17/17 and contracts PASS; PWA bridge 12/12,
+API/frontend 92 canonical scenarios each PASS. Master runtime 49/49 and FOTA
+34/34 PASS after correcting its matching stale rejected-admission sequence
+assumption and host-only outbox link recipes. No production sequence change.
+Encrypted recovery,
+authenticated retirement/rejoin, security/FOTA and Hub persistent dedupe gates
+PASS. ASan/UBSan PASS for the new gate and full C++ suite. Clean C3 ESP-IDF
+6.0.3 PASS: 933,520-byte image, 53% OTA-slot free. Evidence records all actual
+commands and the corrected pre-existing Hub host-test link recipe. No physical
+actions, physical current measurement or battery-life claims.
+
+Identical six-minute outage workloads: one/eight pending records reduce owner
+loops 18,000→3,189/3,171 and modeled awake time 360,000→63,540/63,180 ms, with
+unchanged eight TX opportunities. One modeled sleeping ACK miss needs one
+additional same-key replay and preserves one logical effect. Protected rejoin
+and auxiliary receive windows add awake time in already sleeping paths; these
+costs and model limitations are explicit in the evidence.
+
+Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, starting local/remote
+`ff0f6f159890b86f26b998ca3d1218600ff34cc8`; the pre-existing untracked S3
+`managed_components/` remains preserved. This task is the narrow GS-150 exception
+to GS-147; expanded journal/retirement/capacity, deep sleep and C9–C12 remain
+excluded. No LOCKED decision/context revision change. Next sequential task is
+GS-114 image-matched physical functional P1–P9, requiring separately authorized
+fixture/board actions. GS-149 quantitative P10 and GS-146 closure remain open.
+
+
+## Historical GS-150 ACK-boundary blocker, 2026-10-10
+
+Superseded by the current GS-150 software delivery above. The absence of a
+guaranteed ACK-arrival maximum remains true; safe missed-ACK replay is now the
+approved basis for a conservative implementation.
 
 GS-150 is a user-approved narrow C3 software implementation exception to the
 broader GS-147 hold. Source verification reached its explicit stop condition:

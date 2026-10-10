@@ -102,6 +102,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md` | INTEGRATION_PROVENANCE / EVIDENCE | Cross-worktree dispositions, source commit provenance and preserved unmerged work | Resumption after the one-time source consolidation |
 | `docs/exec-plans/evidence/R1_S3_P2C_FINAL_VALIDATION_20261010.md` | TEST_EVIDENCE | Host mixed-segment reclamation, reserve and target-build evidence; production deletion disabled | P2-C source/evidence review |
 | `docs/exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md` | TEST_EVIDENCE / PARTIAL | HTTP/HTTPS and deterministic fixture evidence; production gates remain open | P2-D resumption; does not prove live backend |
+| `docs/exec-plans/evidence/R1_GS150_SOFTWARE_VALIDATION_20261010.md` and linked metrics CSV | TEST_EVIDENCE | Confirmed-outage C3 sleep, bounded best-effort reception, authenticated replay/dedupe, identical-workload software metrics and target compilation | GS-150 software delivery / GS-114 candidate handoff; no physical or endurance qualification |
 
 ### CLOUD/PWA
 

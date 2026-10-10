@@ -83,7 +83,7 @@ cpp-test: build $(CPP_OBJECTS)
 	./build/cpp_tests
 
 master-validation: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/master_validation.cpp -o build/master_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py
 
 battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
@@ -91,12 +91,17 @@ battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
 	./build/battery_c8_validation
 	PYTHONPATH=tests/python python3 -m unittest test_battery_power_invariants -v
 
+.PHONY: gs150-host-test
+gs150-host-test: build $(CPP_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/gs150_offline_sleep_validation.cpp -lcrypto -o build/gs150_offline_sleep_validation
+	./build/gs150_offline_sleep_validation
+
 master-validation-self-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py --self-test
 
 fota-host-test: build $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
 	./build/fota_host_validation
 
 hub-fota-guard-host-test: build
@@ -121,7 +126,7 @@ registry-persistence-host-test: build
 	./build/registry_persistence_validation
 
 hub-journal-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp firmware/hub/runtime/hub_checkpoint_codec.cpp firmware/hub/components/storage/runtime_state_store.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp firmware/hub/runtime/hub_checkpoint_codec.cpp firmware/hub/components/storage/runtime_state_store.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
 	./build/hub_journal_persistence_validation
 
 hub-durable-storage-host-test: build
@@ -271,7 +276,7 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hub-fresh-install-host-test hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test
+validation-fast: hub-fresh-install-host-test hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test gs150-host-test
 	python3 tools/validation/release_gate.py --quick
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately

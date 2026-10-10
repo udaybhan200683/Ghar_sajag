@@ -9,6 +9,35 @@ HUB_ADAPTER = ROOT / "firmware/hub/target/esp32/hub_runtime_adapter.cpp"
 
 
 class BatteryPowerInvariantTest(unittest.TestCase):
+    def test_gs150_target_uses_tested_retained_delivery_policy(self):
+        adapter = ADAPTER.read_text()
+        self.assertEqual(adapter.count("AckListeningWindow ack_listening;"), 1)
+        self.assertEqual(adapter.count("observe_retained_delivery(sleep_observation"), 1)
+        begin = adapter.index("sleep_observation.outage_active =")
+        self.assertLess(begin, adapter.index("observe_retained_delivery(sleep_observation", begin))
+        self.assertLess(adapter.index("observe_retained_delivery(sleep_observation", begin),
+                        adapter.index("evaluate_light_sleep(sleep_observation)", begin))
+        self.assertIn("application_transport_completed(now, send_result.accepted_by_radio)", adapter)
+        self.assertIn("SessionRecoveryPolicy::active_deadline", adapter)
+        self.assertIn("sleep_observation.next_radio_ms = next_retirement_retry_ms", adapter)
+        self.assertIn("!ack_listening.active(sleep_now)", adapter)
+        self.assertIn("ack_listening.session_replaced()", adapter)
+
+    def test_gs150_radio_resume_failure_preserves_sensing(self):
+        adapter = ADAPTER.read_text()
+        begin = adapter.index("if (radio_restore_pending || !g_wifi_active")
+        end = adapter.index("const Milliseconds now = monotonic_ms()", begin)
+        self.assertNotIn("continue;", adapter[begin:end])
+        self.assertNotIn("vTaskDelete", adapter[begin:end])
+        self.assertIn("!radio_restore_pending", adapter)
+        self.assertIn("pir.sample(raw_pir, now)", adapter[end:])
+        begin = adapter.index("esp_err_t initialize_esp_now() {")
+        end = adapter.index("[[maybe_unused]] bool queued_owner_work()", begin)
+        initialize = adapter[begin:end]
+        self.assertLess(initialize.index("esp_now_register_send_cb"),
+                        initialize.index("g_esp_now_active.store(true"))
+        self.assertIn("esp_now_deinit()", initialize)
+
     def test_session_recovery_has_no_periodic_or_retry_persistence(self):
         adapter = ADAPTER.read_text()
         link = (NODE / "target/esp32c3/node_security_link.cpp").read_text()

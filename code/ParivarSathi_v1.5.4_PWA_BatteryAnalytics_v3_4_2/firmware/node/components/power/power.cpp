@@ -104,6 +104,19 @@ bool NodeHealthCadence::due(Milliseconds now_ms, bool application_due,
            !outage && !maintenance;
 }
 
+void observe_retained_delivery(LightSleepObservation& input,
+                               const AckListeningWindow& listening,
+                               bool pending, bool retained) {
+    const std::optional<Milliseconds> retry = input.next_retry_ms >= 0
+        ? std::optional<Milliseconds>{input.next_retry_ms} : std::nullopt;
+    input.outage_quiet = listening.outage_quiet(input.now_ms,
+        input.outage_active, pending, retry);
+    input.pending_tx = input.authenticated && pending && !input.outage_quiet;
+    input.ack_wait = listening.active(input.now_ms) || input.pending_tx;
+    input.recovery_work = input.recovery_work ||
+        (input.authenticated && retained && !input.outage_quiet);
+}
+
 LightSleepDecision evaluate_light_sleep(const LightSleepObservation& input) {
     LightSleepDecision result;
     result.inhibitors = LightSleepInhibitNone;
@@ -130,7 +143,8 @@ LightSleepDecision evaluate_light_sleep(const LightSleepObservation& input) {
     if (!input.wake_source_ready) result.inhibitors |= LightSleepInhibitWakeUnavailable;
     if (!input.runtime_state_known) result.inhibitors |= LightSleepInhibitRuntimeUnknown;
     if (input.other_owner_work) result.inhibitors |= LightSleepInhibitOtherOwnerWork;
-    if (input.outage_active) result.inhibitors |= LightSleepInhibitOutage;
+    if (input.outage_active && !input.outage_quiet)
+        result.inhibitors |= LightSleepInhibitOutage;
 
     const auto consider_deadline = [&result](Milliseconds deadline) {
         if (deadline >= 0 &&
@@ -142,6 +156,7 @@ LightSleepDecision evaluate_light_sleep(const LightSleepObservation& input) {
     consider_deadline(input.next_retry_ms);
     consider_deadline(input.next_maintenance_ms);
     consider_deadline(input.next_security_ms);
+    consider_deadline(input.next_radio_ms);
     if (result.earliest_deadline_ms < 0 || input.now_ms < 0) {
         result.inhibitors |= LightSleepInhibitRuntimeUnknown;
     } else if (result.earliest_deadline_ms <= input.now_ms) {
