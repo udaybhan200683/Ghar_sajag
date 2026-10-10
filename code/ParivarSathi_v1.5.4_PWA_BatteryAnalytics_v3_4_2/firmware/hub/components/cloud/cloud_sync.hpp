@@ -48,6 +48,8 @@ public:
 
 class CloudSync {
 public:
+    static constexpr std::size_t kMaximumBatch = 16;
+    static constexpr std::size_t kMaximumRetryEntries = 64;
     explicit CloudSync(HubJournal& journal);
     void set_connected(bool connected, Milliseconds now_ms);
     std::vector<DomainEvent> next_batch(Milliseconds now_ms, std::size_t limit = 16);
@@ -60,8 +62,10 @@ public:
                             Milliseconds now_ms, std::size_t limit = 16);
     void record_failure(Milliseconds now_ms);
     bool connected() const { return connected_; }
+    std::size_t retry_entries() const { return event_failures_.size() + permanent_errors_.size(); }
 
 private:
+    void make_retry_room(const std::string& id);
     HubJournal& journal_;
     bool connected_{false};
     std::size_t failures_{0};

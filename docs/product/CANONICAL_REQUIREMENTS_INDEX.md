@@ -450,3 +450,11 @@ sustainable reclamation and S3 physical/end-to-end qualification remain open.
 
 Existing requirements, LOCKED decisions and context revision `2026-10-09.001`
 remain unchanged. P2-C host/build closeout does not close Phase 2 or begin P2-D.
+
+### P2-D supported-interface evidence — 2026-10-10
+
+| Path | Classification | Valid use / limitations |
+|---|---|---|
+| `docs/exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md` and linked raw evidence | IMPLEMENTATION_DESIGN / TEST_EVIDENCE | Bounded existing-endpoint HTTP adapter and compiled S3 HTTPS channel, scheduling/recovery tests and explicit contract gaps. Does not establish active production caller, owner/generation receipt binding, canonical 72-hour matrix, live backend or physical qualification. |
+
+No requirement authority changes. Context remains `2026-10-09.001`.

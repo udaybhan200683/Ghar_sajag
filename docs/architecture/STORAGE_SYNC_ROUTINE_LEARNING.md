@@ -426,3 +426,30 @@ Production deletion remains disabled. Host allocated recovery and temporary peak
 are evidence for the POSIX fixture only; physical LittleFS, target memory, rollback,
 retention, cloud transport and commercial/72-hour capacity gates remain open.
 No product reserve size, retention requirement or CONTEXT_VERSION is changed.
+
+### P2-D implementation boundary — 2026-10-10
+
+CloudSync still uses the durable journal as the sole pending/completion authority.
+A bounded synchronous HTTP adapter uses the established home-event endpoint and
+requires authenticated, complete HTTP 200/201 with an exact EventKey COMMITTED
+response. Send success, HTTP 202, partial responses and unverifiable replies
+never create local completion. Local completion-persistence failure remains a
+storage fault; reboot plus idempotent resubmission recovers uncertain outcomes.
+
+The S3 HTTPS channel takes externally supplied origin, public CA and opaque
+Authorization value. It enables certificate/hostname verification, disables
+redirects, uses 3-second blocking I/O timeouts and a 5-second soft transaction
+deadline checked between operations (one blocking call can exceed that deadline).
+Request/response limits are 2048/1024 bytes, with a 256-byte read staging buffer.
+CloudSync stages at most 16 events and retains at most 64 retry/conflict hints;
+hint eviction never deletes an event. Discovery and exact-content verification
+scan durable records, so host catch-up cost is not a physical throughput proof.
+
+Compilation of this channel does not establish a running production integration.
+Production principal provisioning, owner/generation binding, STA/ESP-NOW channel
+coordination and owner-task/worker ownership are missing essential contracts.
+The current response has no separately signed home, owner, generation or payload
+digest. TLS/request association must not be described as that stronger proof.
+The [dated P2-D evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md)
+records validated scope and blockers. Production body and identity deletion gates
+remain disabled; post-sync local history retention remains P2-E.

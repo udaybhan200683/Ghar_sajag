@@ -1,0 +1,8 @@
+test_real_commit_lost_reply_partial_catchup_reboots (test_p2d_cloud_contract.P2DCloudContractTest.test_real_commit_lost_reply_partial_catchup_reboots) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 28.491s
+
+OK
+RESULT p2d_bridge=PASS events=300 completed=300 pending=0 requests=304 rejected=3 logical_bytes=77452 allocated_bytes=90112 identity_logical_bytes=44046 offline_logical_bytes=49826 peak_logical_bytes=77452 peak_allocated_bytes=90112 catchup_ms=27098 configured_reserve=524288 backend_restarts=3 backend_duplicates=3 fixture_failures=4 wall_seconds=28.441
+EXIT_CODE=0

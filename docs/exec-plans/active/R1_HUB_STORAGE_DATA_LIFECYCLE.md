@@ -2041,3 +2041,19 @@ semantics and physical power-cut qualification are open. No physical S3 write,
 partition activation, product decision, or CONTEXT_VERSION change occurred.
 Phase 2 is NOT CLOSED; do not start Phase 3 until identity-safe compaction and
 incremental completion/segment reclamation are implemented and validated.
+
+## 44. P2-D supported cloud interface checkpoint — 2026-10-10
+
+[P2-D evidence](../evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md) describes the
+bounded existing-endpoint HTTP parser, S3 HTTPS channel and CloudSync scheduling
+changes. Existing encrypted outbox, completion ledger, identity authority and
+reclamation architecture are preserved. No production caller, new authentication
+scheme or retention policy is claimed. Missing production Hub provisioning and
+owner/generation contracts block that wiring. Complete canonical outage traces
+must also be reconciled before the requested total-event matrix can be asserted.
+
+Prioritized next work remains finishing P2-D after those essential contracts are
+resolved, including deployment configuration, connectivity ownership, required
+outage/catch-up matrix and live E2E. P2-E retention and Phase 3 physical 72-hour,
+power-cut, flash-wear, heap/PSRAM and signed OTA rollback gates remain separate.
+Protected S3/C3 hardware and BAT-C8 were not touched; deletion remains disabled.

@@ -752,7 +752,11 @@ void six_node_runtime_mixed_cycles() {
 
 } // namespace
 
+#ifdef GS_MIXED_BODY_EMBEDDED
+int mixed_body_compaction_fixture_main() {
+#else
 int main() {
+#endif
     try {
         normal_body_patterns();
         crash_body_boundaries();

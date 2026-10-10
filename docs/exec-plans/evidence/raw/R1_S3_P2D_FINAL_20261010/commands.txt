@@ -1,0 +1,21 @@
+Working directory: code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2
+START_HEAD=17c5cfded8d809535bc846fbf8108a9b8cca0e1a
+Source hashes identify final tested implementation. Only the cpp-test link recipe changed after the specialized regression invocation. No production code changed after compilation.
+
+make -j2 p2d-cloud-contract-host-test p2d-https-channel-host-test P2D_TEST_BINARY=/tmp/p2d-final-20261010/contract P2D_HTTPS_TEST_BINARY=/tmp/p2d-final-20261010/https
+make p2d-cloud-contract-host-test P2D_TEST_BINARY=/tmp/p2d-final-20261010/contract
+P2D_TEST_BINARY=/tmp/p2d-final-20261010/contract python3 -m unittest discover -s tests/python -p test_p2d_cloud_contract.py -v
+python3 -m unittest discover -s tests/python -p test_durable_event_commit.py -v
+python3 -m unittest discover -s tests/python -p test_hub_backend_commit_integration.py -v
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 make -j2 p2d-cloud-contract-host-test p2d-https-channel-host-test CPP_OBJECT_DIR=/tmp/p2d-final-20261010/asan-objects CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -fsanitize=address,undefined -fno-omit-frame-pointer' P2D_TEST_BINARY=/tmp/p2d-final-20261010/contract-asan P2D_HTTPS_TEST_BINARY=/tmp/p2d-final-20261010/https-asan
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 P2D_TEST_BINARY=/tmp/p2d-final-20261010/contract-asan python3 -m unittest discover -s tests/python -p test_p2d_cloud_contract.py -v
+make -j2 hub-mixed-body-compaction-host-test hub-incremental-completion-host-test hub-identity-compaction-host-test hub-runtime-checkpoint-host-test hub-backend-commit-host-test s3-durable-outbox-host-test hub-segmented-outbox-runtime-host-test commissioning-crypto-host-test node-recovery-persistence-host-test hub-retirement-snapshot-host-test cpp-test
+make -o Makefile cpp-test
+Baseline comparison: core-baseline.log records the exact compiler invocation, replacing only the CloudSync object with git show START_HEAD:.../cloud_sync.cpp. No other worktree was touched.
+cp firmware/hub/target/esp32s3/idf/sdkconfig /tmp/p2d-final-20261010/sdkconfig
+source /home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh
+idf.py -C firmware/hub/target/esp32s3/idf -B /tmp/p2d-final-20261010/s3-build -D SDKCONFIG=/tmp/p2d-final-20261010/sdkconfig build
+Root: git diff --check
+Root: tools/context/ghar_sajag_context_preflight.sh
+
+All shell runners capture $? immediately, append EXIT_CODE and propagate it, except the baseline audit runner records the binary exit separately and succeeds as an audit. Compiler output and final binary outputs are retained. Original aggregate regression failure is not relabeled PASS.

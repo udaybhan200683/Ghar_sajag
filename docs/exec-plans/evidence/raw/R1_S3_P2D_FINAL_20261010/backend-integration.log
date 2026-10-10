@@ -1,0 +1,7 @@
+test_lost_response_then_duplicate_commit_and_restart (test_hub_backend_commit_integration.HubBackendCommitIntegrationTest.test_lost_response_then_duplicate_commit_and_restart) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.866s
+
+OK
+EXIT_CODE=0

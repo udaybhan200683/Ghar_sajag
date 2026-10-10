@@ -461,3 +461,28 @@ flash recovery is claimed. Retention/capacity policy and physical/production gat
 remain open. GS-D023/029 durability requirements are preserved; no reserve value,
 new product decision, context revision or physical operation is approved here.
 The final reserve fix is within the authorized P2-C R1_FIX scope. P2-D was not begun.
+
+### P2-D supported-interface checkpoint — 2026-10-10 (no new decision)
+
+The established backend interface is `POST /v1/homes/{home}/events`, with a
+file-backed SQLite transaction completing before COMMITTED. The development
+`JsonApi` trust seam requires an injected Hub authorizer; client actor headers
+are not production authentication. No approved Hub credential/provisioning,
+owner/enrollment-generation receipt binding or active S3 connectivity worker
+contract was found. These are REQUIREMENT_GAP blockers, not permission to
+choose a new authentication scheme. P2-D remains partial.
+
+Independent changes add bounded HTTP receipt decoding and an S3 HTTPS adapter,
+compile the adapter, and bound CloudSync scheduling without limiting durable
+backlog count. The adapter is deliberately not an active production caller.
+The requested 728/3278/6556 total-event matrix cannot be derived from complete
+canonical traces: dated model rows count exact records separately from candidate
+summaries, and its STRESS volume differs. No workload truncation or summary
+substitution is approved. See the [P2-D checkpoint evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
+Production deletion remains disabled; P2-E retention and Phase 3 physical
+qualification remain open. No LOCKED decision or context-version change.
+
+Final supported-interface focused/SQLite/sanitizer and clean S3 build checks pass.
+The full core suite remains FAIL on an unchanged Node offline sequence assertion,
+reproduced with START_HEAD CloudSync; protected Node/BAT-C8 behavior was not changed.
+P2-D remains partial; see final evidence for actual exits and unverified gates.

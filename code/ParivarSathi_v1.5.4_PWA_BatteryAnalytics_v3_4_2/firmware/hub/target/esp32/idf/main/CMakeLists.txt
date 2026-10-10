@@ -9,7 +9,11 @@ endif()
 
 set(GS_TARGET_STORAGE_REQUIRES)
 if(IDF_TARGET STREQUAL "esp32s3")
-    list(APPEND GS_TARGET_STORAGE_REQUIRES s3_storage)
+    list(APPEND GS_TARGET_STORAGE_REQUIRES s3_storage esp_http_client)
+    list(APPEND GS_HUB_SRCS
+        "${GS_ROOT}/firmware/hub/components/cloud/cloud_sync.cpp"
+        "${GS_ROOT}/firmware/hub/components/cloud/http_backend_transport.cpp"
+        "${GS_ROOT}/firmware/hub/target/esp32s3/https_backend_channel.cpp")
 endif()
 
 if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/node_firmware.bin")

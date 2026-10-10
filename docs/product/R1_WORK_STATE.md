@@ -657,3 +657,25 @@ power-cut/wear, target memory, rollback, retention, cloud transport and commerci
 capacity/72-hour workload qualification remain open; Phase 2 remains IN_PROGRESS.
 No physical device, C3 pending event, BAT-C8 or other worktree changed. Next task
 is P2-D; it was not started. No new product decision or context version change.
+
+### P2-D implementation partial — 2026-10-10
+
+Starting from synchronized P2-C checkpoint `17c5cfd`, bounded HTTP receipt parsing,
+an S3 HTTPS channel and bounded CloudSync scheduling are implemented against the
+existing backend endpoint. The [P2-D evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md)
+is authoritative for exact validation scope/results. No live deployment or active
+production owner-task caller is established. Backend production Hub authentication,
+provisioning, owner/enrollment-generation binding and S3 connectivity ownership
+remain essential contract blockers. Requested total-event outage traces also need
+reconciliation against the complete canonical model; generic fixtures do not
+qualify NORMAL/HIGH/STRESS 72-hour requirements.
+
+P2-D and Phase 2 remain IN_PROGRESS. Finish the missing contracts and integration
+before P2-E retention and Phase 3 physical qualification. Production deletion stays
+disabled. Protected S3/C3 state, the C3's previously observed seven pending events,
+BAT-C8 and unrelated worktrees were not touched. No new product decision.
+
+Final supported-interface focused/SQLite/sanitizer and clean S3 build checks pass.
+The full core suite remains FAIL on an unchanged Node offline sequence assertion,
+reproduced with START_HEAD CloudSync; protected Node/BAT-C8 behavior was not changed.
+P2-D remains partial; see final evidence for actual exits and unverified gates.
