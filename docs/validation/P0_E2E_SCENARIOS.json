@@ -855,6 +855,20 @@
       "jira_owner": "GS-148"
     },
     {
+      "scenario_id": "P0-P2D-009",
+      "use_case_ids": ["P0-UC-04"],
+      "name": "Revoked Node is rejected by trusted authorization before durable commit",
+      "requirements": ["GS-D020", "GS-D026"],
+      "feature_ids": ["HUB-BRIDGE-01", "API-COMMIT"],
+      "production_sources": ["backend/ghar_sajag/http_api.py", "backend/ghar_sajag/durable_api.py"],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "403 from the trusted authorization callback and no durable commit for the revoked Node request",
+      "execution_status": "RUNTIME_REPORT",
+      "limitations": "Revocation state is fixture-only; production enrollment authority and revocation registry are not implemented.",
+      "jira_owner": "GS-148"
+    },
+    {
       "scenario_id": "P0-P2D-006",
       "use_case_ids": ["P0-UC-04"],
       "name": "Conflicting payload under an existing EventKey fails closed",

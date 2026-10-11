@@ -994,3 +994,46 @@ Uncommitted intended changes are limited to P2-D composition/tests, P0 scenario
 registration and related validation evidence. Existing unrelated S3
 `managed_components/`, GS-114 attempts and redacted logs remain untracked and
 preserved. No branch/worktree/history operation or hardware access was made.
+
+## GS-148 P2-D production trust contract checkpoint — 2026-10-11
+
+Scope resumed under GS-148 comment 10444 / GS-109 comment 10445 only. Starting
+local and origin HEAD: `18e542873ceec568f70a9358bae6845e39992a54`; preflight
+PASS (`2026-10-10.001`). No production firmware/backend security behavior or
+wire/storage format changed. Only P0/CloudSync regression tests, scenario
+registration, validation traceability and documentation changed. Untracked S3
+`managed_components/`, GS-114 attempt directories and redacted fixture logs are
+preserved; no physical device was accessed.
+
+The fail-closed API composition/transaction seam is testable and the previous
+503 was a harness omission, but the requested production authorization is not
+implementable under current approved contracts: no registered Hub principal
+issuer/verification and Home ownership authority, no backend Node-generation /
+revocation source, no defined retained-old-generation disposition, no approved
+receipt-authentication semantics beyond exact EventKey over verified TLS, and
+no deployed trusted middleware/database composition or active target CloudSync
+caller. The local Hub's persisted commissioning generation is not carried in
+the canonical CloudSync body. See the open security-contract entry in
+`DECISION_LOG.md` and the 2026-10-11 section of the existing GS-148 P2-D
+evidence. This is an explicit `REQUIREMENT_GAP`, not a production defect to
+patch by inventing credentials or protocol fields.
+
+Focused evidence: `make p2d-cloud-contract-host-test` PASS (15 invalid receipt
+modes and two completion interruption modes); focused durable API/commit/P2-D
+Python suite PASS (9 tests; 300/300 deterministic local fixture completions,
+three restarts); P0 revocation seam scenario PASS (1/1); P0 scenario registry
+integrity PASS (17 use cases/26 scenarios); HTTPS channel host test PASS (8
+modes). `make validation-p0-e2e` ran 26/26 scenario assertions and one Chromium
+test but exits 2 because complete-product status remains PARTIAL. Report:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791734099302365499/report.json`;
+source fingerprint `06487176039b60ddee4c368b72eea5b53c1616bfcd3987e285960c0ce94dd571`.
+The historical `hub-journal-migration-host-test` failure remains separately
+mandatory and unchanged; it was not rerun. Full P0/release is not approved;
+physical HIL is NOT_RUN.
+
+**Next action:** obtain one approved GS-109/GS-148 shared trust contract naming
+the Hub credential authority and lifecycle, Hub↔Home registry, Node
+generation/revocation source and pending-event behavior on replacement, exact
+COMMITTED receipt trust semantics, and production middleware/durable-store
+composition. Then implement only that approved slice and rerun focused P2-D/P0
+tests. Do not start P2-E/P2-F, hardware/HIL or release-gate-final.

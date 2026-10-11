@@ -1343,7 +1343,8 @@
         "^P0-P2D-005 PASS",
         "^P0-P2D-006 PASS",
         "^P0-P2D-007 PASS",
-        "^P0-P2D-008 PASS"
+        "^P0-P2D-008 PASS",
+        "^P0-P2D-009 PASS"
       ],
       "timeout": 360,
       "count_kind": "scenario_checks",

@@ -337,3 +337,23 @@ revoked/tombstone state, quarantine, Home/Hub/logical conflicts, installed
 capacity, and registry load status. If association decryption fails, preserve
 the blob and check format version, generation, nonce/tag, NVS readback and
 wrapping-key source; do not silently erase it and treat the device as new.
+
+## 18. CloudSync backend trust boundary — source audit, 2026-10-11
+
+The Hub's local commissioning/Node registry remains the source for exact
+`ExpectedNode` identity and its enrollment generation. The current production
+CloudSync request does not transport that generation, and no deployed backend
+registry currently resolves the Hub principal, Home ownership, current Node
+generation or revocation state. The S3 HTTPS adapter's opaque Authorization
+input is not an issuer or credential lifecycle. The host API requires a trusted
+internal Hub context and injected authorizer before durable commit; the
+file-backed SQLite composition is not a production identity registry or
+deployment service. Accordingly, local commissioning success does not prove
+backend ownership authorization.
+
+Do not infer production identity issuance, cross-system revocation, the fate of
+old-generation retained events, or signed-receipt semantics from the existing
+local registry. GS-109 must define the authorized onboarding authority and
+shared identity interface; GS-148 P2-D can then bind that approved authority to
+the backend commit path. The exact open questions and proposed options are in
+the [GS-148 P2-D trust-contract evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).

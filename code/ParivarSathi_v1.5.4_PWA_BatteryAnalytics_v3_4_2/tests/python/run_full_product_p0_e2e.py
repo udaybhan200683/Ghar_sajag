@@ -60,6 +60,10 @@ class LocalProductStack:
             "physical_device_id": cloud_event_key["physical_device_id"],
             "logical_node_id": cloud_event_key["logical_node_id"],
         }
+        # Fixture-only representation of the trusted enrollment resolver's
+        # current revocation state. This exercises JsonApi's production
+        # authorize_hub seam; it is not a production registry or issuer.
+        self.revoked_nodes: set[tuple[str, str]] = set()
         self.fixture_tokens = {
             secrets.token_urlsafe(32): dict(self.enrollment),
             secrets.token_urlsafe(32): {**self.enrollment, "generation": 6},
@@ -79,7 +83,8 @@ class LocalProductStack:
             claims.get("home_id") == home_id == expected["home_id"] and
             claims.get("generation") == expected["generation"] and
             claims.get("physical_device_id") == event_key.get("physical_device_id") == expected["physical_device_id"] and
-            claims.get("logical_node_id") == event_key.get("logical_node_id") == expected["logical_node_id"]
+            claims.get("logical_node_id") == event_key.get("logical_node_id") == expected["logical_node_id"] and
+            (claims.get("physical_device_id"), claims.get("logical_node_id")) not in self.revoked_nodes
         )
 
     def _open_durable_api(self):
@@ -314,6 +319,25 @@ def run(args) -> int:
                                               hub_token=wrong_identity_token)
         check_selected("P0-P2D-004", status == 403 and wrong_identity.get("error") == "hub_not_authorized",
               "Hub authorization is pinned to the enrolled physical and logical Node identity")
+
+        # Model a revocation decision delivered by the trusted authorizer. The
+        # API must reject before creating any durable event. The authoritative
+        # production revocation registry is not implemented by this fixture.
+        revoked_identity = (stack.enrollment["physical_device_id"],
+                           stack.enrollment["logical_node_id"])
+        stack.revoked_nodes.add(revoked_identity)
+        revoked_request = copy.deepcopy(cloud_request)
+        revoked_request["event_key"]["event_sequence"] += 1
+        status, revoked = request_json(base, "POST", event_path, revoked_request,
+                                       hub_token=stack.valid_fixture_token)
+        revoked_commit_count = stack.durable.db.execute(
+            "SELECT COUNT(*) FROM durable_event_commits WHERE home_id=? AND event_sequence=?",
+            (stack.home_id, revoked_request["event_key"]["event_sequence"]),
+        ).fetchone()[0]
+        check_selected("P0-P2D-009", status == 403 and revoked.get("error") == "hub_not_authorized" and
+                       revoked_commit_count == 0,
+              "trusted authorizer revocation rejects the Node before durable commit")
+        stack.revoked_nodes.remove(revoked_identity)
 
         # Reopen the same file to model backend restart, then retry the exact
         # request as if the first HTTP response had been lost. COMMITTED comes

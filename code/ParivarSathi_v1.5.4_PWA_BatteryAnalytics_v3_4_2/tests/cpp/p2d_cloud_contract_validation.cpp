@@ -45,7 +45,7 @@ void protocol_and_bounds() {
     channel.response = {201, true, true, receipt_json(request->event.key)};
     require(transport.submit(*request).status == gs::hub::BackendReplyStatus::Committed,
             "exact complete authenticated COMMITTED parses");
-    for (int mode = 0; mode < 14; ++mode) {
+    for (int mode = 0; mode < 15; ++mode) {
         auto response = channel.response;
         if (mode == 0) response.server_authenticated = false;
         if (mode == 1) response.message_complete = false;
@@ -61,6 +61,8 @@ void protocol_and_bounds() {
         if (mode == 11) response.body.insert(1, "\"status\":\"COMMITTED\",");
         if (mode == 12) response.body.replace(response.body.find("COMMITTED"), 9, "DURABLE_MODEL");
         if (mode == 13) response.body.replace(response.body.find("\"event_sequence\":1"), 18, "\"event_sequence\":1e0");
+        if (mode == 14) response.body.insert(response.body.rfind('}'),
+            ",\"home_id\":\"home-1\",\"generation\":8,\"receipt_signature\":\"untrusted\"");
         auto reply = gs::hub::HttpBackendTransport::decode(*request, response);
         require(reply.status != gs::hub::BackendReplyStatus::Committed && !reply.authenticated_backend,
                 "invalid/unbound response never becomes receipt");
@@ -88,7 +90,7 @@ void protocol_and_bounds() {
         require(!gs::hub::HttpBackendTransport::decode(*request,
                     {201, true, true, channel.response.body.substr(0, length)}).authenticated_backend,
                 "all response truncation boundaries fail closed");
-    std::cout << "p2d_protocol=PASS invalid_receipt_modes=14 pending=200 batch_peak=16 retry_peak=64\n";
+    std::cout << "p2d_protocol=PASS invalid_receipt_modes=15 pending=200 batch_peak=16 retry_peak=64\n";
 }
 void completion_failure() {
     gs::host::security::OpenSslCommissioningCrypto crypto; const auto key = storage_key();

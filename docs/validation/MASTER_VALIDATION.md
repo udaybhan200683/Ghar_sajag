@@ -130,6 +130,10 @@ The test middleware uses random per-run loopback fixture tokens and injects an
 internal trusted context; it does not implement or prove production Hub
 credential verification, enrollment-generation storage/revocation, caregiver
 OIDC, PostgreSQL deployment, or the production event/alert query service. The
+P2-D revocation scenario invokes this existing authorizer seam with fixture
+revocation state; it is not evidence of a production registry. The Hub parser
+test rejects unknown Home/generation/signature response fields, but does not
+verify a cryptographic receipt signature. The
 normal `JsonApi()` entry point remains the documented development adapter and
 continues to fail closed for EventKey requests without configured durable store
 and trusted authorizer. No fake COMMITTED response is used. The P0 report remains
@@ -143,14 +147,22 @@ fast and release metadata. It is a focused development target; do not run the
 entire release gate merely to execute it. Full product release remains a separate
 candidate gate and physical qualification remains separate.
 
-Latest execution: 25/25 scenario markers and one focused Chromium test passed;
+Latest execution: 26/26 scenario assertions and one focused Chromium test passed;
 the P2-D bridge committed 300/300 events, persisted across three restarts, and
 retained zero pending after catch-up. The complete-product stage command exited
 0 with valid test output but was adjudicated FAIL because `product_status=PARTIAL`;
 `make validation-p0-e2e` therefore exits nonzero. Scenario execution passed;
 production trust/deployment and complete product qualification did not. This
 remains the required gate result until GS-148 supplies and deploys trusted Hub,
-enrollment and durable-backend composition.
+enrollment and durable-backend composition. The 2026-10-11 report is
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791734099302365499/report.json`
+(source fingerprint `06487176039b60ddee4c368b72eea5b53c1616bfcd3987e285960c0ce94dd571`);
+the stage took 49.117 seconds and the outer command took 50.729 seconds. The
+new P0-P2D-009 assertion proves only rejection through a fixture-supplied
+revocation decision before SQLite commit. Production Hub principal issuance,
+Home ownership, enrollment-generation/revocation authority, receipt binding and
+deployed store remain unresolved under GS-148. The separate historical Hub
+journal migration failure remains a mandatory FAIL.
 The board runner integrity target has 15 hardware-free checks. Automated and
 manual HIL commands are opt-in and were NOT_RUN on hardware. Exact counts,
 registered report/log path, source fingerprint, limitations and inventory

@@ -310,3 +310,120 @@ qualification=`NOT_RUN`. P0 local scenario execution PASS is not full P0 product
 completion or production deployment proof. The GS-130 blocker handoff remains
 PARTIAL. Historical migration-failure evidence, 300-event prior P2-D evidence,
 and all raw logs are preserved; no secrets or physical boards were accessed.
+
+## GS-148 P2-D Hub trust contract and focused test checkpoint — 2026-10-11
+
+This checkpoint continues only GS-148 P2-D from canonical source/origin HEAD
+`18e542873ceec568f70a9358bae6845e39992a54`; origin matched before edits and
+context preflight PASS (`2026-10-10.001`). The only source changes are focused
+host-test/P0 scenario registration changes. Production firmware, backend trust
+behavior, wire formats, storage formats and physical devices were not changed.
+
+### Trust-boundary result
+
+The existing Hub identity owner is the right local source: S3
+`HubSecurityLink` maintains the Hub/Home values and persistent Node registry;
+`ExpectedNode` pins MAC, Device ID, public key, installer proof and logical
+assignment, and the local enrollment record has a generation. However, the
+Home value is generated locally, the Hub identifier is MAC-derived, and there
+is no approved backend registration authority binding that local identity to a
+commercial Home. Target P256 signing is gated on protected PSA key provisioning,
+Secure Boot and flash encryption; manufacturing/installer issuance, key-to-Home
+registration, rotation and revocation are not implemented. GS-109's authorized
+installer/service Add Device path is still not implemented and is not included
+in this task.
+
+The ESP32-S3 `HttpsBackendChannel` verifies the configured server CA and host,
+refuses redirects and accepts an injected opaque `Authorization` value. It does
+not issue or validate that credential. No target caller/composition invokes the
+channel or `CloudSync::drive_batch`; production connectivity ownership is
+therefore also absent. The API (`backend/ghar_sajag/http_api.py`, EventKey branch)
+accepts only an internal `gs.verified_hub` request context and an injected
+`authorize_hub` callback before invoking the durable transaction. That context
+must come from trusted server middleware, never a client header. The existing
+file-backed SQLite `durable_api` is a host composition, not a deployed service
+database or a source for ownership claims.
+
+The canonical CloudSync body carries its immutable EventKey, but not Hub identity
+or Node enrollment generation. The current strict Hub parser accepts only the
+existing exact COMMITTED response shape over server-authenticated TLS; it does
+not verify a separate signed receipt binding Home, Hub, generation and payload
+digest. Local revocation/tombstones exist in Hub commissioning state, but there
+is no backend revocation registry. Treatment of a retained old-generation event
+after revocation/replacement (reject it, allow a bounded drain, or another
+authorized disposition) is not specified. Changing request fields, credential
+scheme, backend owner registry, revocation policy or receipt format would create
+a security contract, so none was invented.
+
+### Decision boundary and recommendation (not an approved decision)
+
+The smallest coherent proposed path is to reuse the existing protected Hub P256
+identity: GS-109's authorized onboarding authority would register its public-key
+fingerprint to a Home and current Hub installation; an authenticated request
+would prove possession and bind the canonical request and freshness data; the
+backend would atomically resolve the Hub/Home and current Node identity,
+enrollment generation and revocation state before committing the exact
+EventKey. A narrowly defined old-generation pending-event disposition and
+replay/retry window must be approved. The API would commit durably before
+returning the existing exact EventKey receipt. If that receipt must carry
+independent cryptographic proof beyond the existing verified TLS channel, its
+signing authority, key lifecycle and canonical fields also need approval.
+
+Alternative: an issuer-managed short-lived device token can authenticate a Hub,
+but requires an approved issuer, audience/subject/Home claims, secure token
+storage, expiry, rotation, revocation and replay rules; it still does not solve
+Node enrollment authorization. Mutual TLS could reuse a protected identity key
+only after a certificate authority, certificate enrollment and revocation
+lifecycle are specified. Neither alternative is currently implemented or
+selected. These are proposals for the product/security owner, not permission to
+implement them.
+
+Before production integration can continue, approve/identify: (1) the authority
+that registers and revokes a Hub principal against a Home and the production
+credential/proof lifecycle; (2) the authoritative Node/Home enrollment
+generation and revocation source, including retained-event disposition across
+replacement; (3) whether authenticated TLS plus exact EventKey COMMITTED is the
+receipt contract or a separately signed owner/generation/payload-bound receipt
+is required; and (4) the deployable durable-store and trusted middleware
+composition. GS-109 retains ownership of its full Add Device workflow; this
+checkpoint asks only for the shared identity/authority contract it must expose.
+
+### Focused tests and result
+
+Added `P0-P2D-009`: the production `JsonApi` and durable commit path receive a
+fixture authorizer's revoked-Node decision, return 403, and create no durable
+commit. This proves the existing fail-closed authorization seam, not a
+production revocation registry. The C++ Hub receipt-parser test now rejects
+unrecognized Home/generation/signature fields instead of accepting an expanded
+receipt. It does not claim to verify a signature. Both tests are permanently
+registered in the P0 scenario document / GS-116 stage. Existing valid exact
+EventKey and lost-response retry tests remain unchanged.
+
+Evidence at source HEAD `18e542873ceec568f70a9358bae6845e39992a54` plus working
+tree (P0 source fingerprint
+`06487176039b60ddee4c368b72eea5b53c1616bfcd3987e285960c0ce94dd571`):
+
+| Command | Result |
+|---|---|
+| `make p2d-cloud-contract-host-test` | PASS; 15 invalid receipt modes, pending bound 200, batch peak 16, retry peak 64; completion interruption cuts PASS (2 modes) |
+| `PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_api tests.python.test_durable_event_commit tests.python.test_p2d_cloud_contract -v` | PASS; 9 tests; local fixture bridge 300/300 durable completions, 304 requests, 3 restarts, 3 duplicate responses, 4 injected failures, zero pending |
+| `python3 tests/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report /tmp/ghar_sajag_p0_revocation_report.json --scenarios=P0-P2D-009` | PASS; focused revoked-Node scenario 1/1 |
+| `python3 tools/validation/check_p0_e2e_scenarios.py` | PASS; 17 use cases, 26 scenarios, 26 executable source mappings |
+| `make p2d-https-channel-host-test` | PASS; 8 target-channel failure/framing modes; existing fake-IDF channel harness |
+| `make validation-p0-e2e` | **FAIL (exit 2)**; 26/26 scenario assertions and 1 Chromium test PASS, but `product_status=PARTIAL` is adjudicated as failure. Outer report total 50.729 s; P0 stage 49.117 s. Physical=`NOT_RUN`. |
+
+Full P0 report: `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791734099302365499/report.json`;
+P0 stage log SHA-256
+`fa9de98a04042edec6e44ed7053b44289b70fd226d1c8747abba688d1e735b99`.
+Source stayed unchanged during that run. The 26 executed scenario assertions
+and one Chromium assertion do not establish production Hub authentication,
+owner-generation enforcement, signed receipts, production database deployment,
+active target CloudSync or live service connectivity. The known historical
+`hub-journal-migration-host-test` failure remains a separate mandatory FAIL and
+was not rerun or suppressed. No production defect was demonstrated in this
+checkpoint; classification is `REQUIREMENT_GAP` for missing authority/receipt
+contracts and `TEST_INFRA_ONLY` for the added fixture coverage.
+
+P2-D remains PARTIAL/BLOCKED at the production trust contract. Physical HIL is
+`NOT_RUN`; full product/release qualification is `NOT_APPROVED`. P2-E/P2-F,
+production deletion/reclamation, GS-114 and hardware remain out of scope.

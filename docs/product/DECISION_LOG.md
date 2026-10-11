@@ -402,3 +402,37 @@ the locked requirements and context version remain unchanged. Full P0 status
 remains PARTIAL and the complete-product gate remains FAIL until the production
 trust/deployment contract is defined and implemented. See the P2-D evidence
 section in [the existing CloudSync validation record](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
+
+### GS-148 P2-D production identity and receipt contract — OPEN, 2026-10-11
+
+This is an unresolved security-contract record, **not a LOCKED decision** and
+does not change `CONTEXT_VERSION`. Source audit found no approved production
+Hub principal issuer/registration authority, Home↔Hub registry, backend
+Node-enrollment-generation/revocation registry, deployable trusted middleware
+or production database composition. The local commissioning registry's
+generation is not present in the current CloudSync request. The existing Hub
+HTTPS adapter takes an opaque deployment-supplied Authorization value and
+validates the server TLS identity; neither operation defines issuance or
+production principal verification. Current `COMMITTED` parsing checks the
+verified TLS response and exact EventKey but does not validate an independent
+signed Home/Hub/generation/payload-bound receipt.
+
+**Proposed direction for product/security review (not authorization to
+implement):** register the existing protected Hub P256 identity public key to a
+Home and Hub installation through the authorized GS-109 onboarding authority;
+prove possession on a canonical CloudSync request; have trusted backend
+middleware resolve current Hub/Home and Node generation/revocation state before
+the existing durable EventKey transaction. Approve how valid retained events
+from a replaced/revoked Node are treated. Keep the current exact EventKey
+receipt over verified TLS unless a separate signed receipt is explicitly
+required; if required, define signer custody, key rotation and receipt fields.
+
+Other candidate: issuer-managed short-lived device tokens, which require
+approved issuer, claims, audience, storage, rotation, replay and revocation
+rules and do not by themselves authorize a Node. Mutual TLS could use the
+protected identity only after a certificate issuer/enrollment/revocation
+lifecycle is specified. No option is selected. No bearer-token convention,
+wire field, receipt signature, enrollment policy, or production credential was
+invented. GS-109 owns the full Add Device workflow; this P2-D record requests
+only its authoritative identity/ownership interface. See the 2026-10-11
+[P2-D trust-contract evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
