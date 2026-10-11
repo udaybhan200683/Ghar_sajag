@@ -122,6 +122,30 @@ Cloud/backend sync is part of the product path because the caregiver PWA should 
 
 But cloud availability must not be required for local sensing, alerts, or routine learning.
 
+## Hub identity and Home ownership — GS-D032
+
+Each Hub retains one permanent physical identity and device-specific
+cryptographic identity across household transfers. Current Home ownership and
+the ownership/installation epoch are separate, backend-authorized state. A Hub
+can have only one active Home binding. Claim, transfer, ownership reset and
+re-registration require authenticated authorization and proof of possession of
+the exact Hub; MAC, printed serial, QR or factory reset alone is insufficient.
+
+CloudSync authorization binds the authenticated Hub to its current Home and
+epoch, and each Node event to the original Node identity and enrollment
+generation. The backend validates ownership/revocation before a durable
+transaction and returns completion only after durable commit. Exact EventKey
+retry remains idempotent; conflicting same-key content fails closed. Old-Home
+events are never reassigned to a new Home. Transfer remains blocked until pending
+old-Home data has an approved disposition and old authorization can be safely
+revoked before new ownership is activated.
+
+The lifecycle behavior is locked; credential issuance, root of trust, proof
+protocol, recovery authority, signed versus TLS-authenticated completion receipt,
+deployment middleware/database composition and old-generation backlog policy
+are not thereby selected. Those technical contracts must be supplied by their
+owning GS-109/GS-148 security authority before production trust can be claimed.
+
 ## Basic AI / routine learning
 
 R1 may include bounded, transparent statistical routine learning/baseline/trend logic using fixed-size state and aggregates.

@@ -403,10 +403,11 @@ remains PARTIAL and the complete-product gate remains FAIL until the production
 trust/deployment contract is defined and implemented. See the P2-D evidence
 section in [the existing CloudSync validation record](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
 
-### GS-148 P2-D production identity and receipt contract — OPEN, 2026-10-11
+### GS-148 P2-D production credential, registry and receipt mechanisms — OPEN, 2026-10-11
 
-This is an unresolved security-contract record, **not a LOCKED decision** and
-does not change `CONTEXT_VERSION`. Source audit found no approved production
+The product lifecycle behavior in this entry was approved and is now recorded
+as GS-D032 below. This entry remains open for the unresolved technical security
+mechanisms; it does not select a credential or receipt contract. Source audit found no approved production
 Hub principal issuer/registration authority, Home↔Hub registry, backend
 Node-enrollment-generation/revocation registry, deployable trusted middleware
 or production database composition. The local commissioning registry's
@@ -436,3 +437,38 @@ wire field, receipt signature, enrollment policy, or production credential was
 invented. GS-109 owns the full Add Device workflow; this P2-D record requests
 only its authoritative identity/ownership interface. See the 2026-10-11
 [P2-D trust-contract evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
+
+### GS-D032 — Permanent Hub identity and household ownership lifecycle
+
+**LOCKED product behavior, 2026-10-11 (GS-148 comment 10449; GS-109 comment
+10450; GS-130 comment 10451):** each Hub has one permanent unique physical
+identity and device-specific cryptographic identity, separate from its current
+Home ownership. A Hub has at most one active Home binding. Initial registration,
+ownership reset, transfer and re-registration require authenticated and
+authorized control plus proof of possession of the exact Hub identity. A factory
+reset, MAC address, serial number or QR scan alone never authorizes a claim or
+transfer. Ownership/installation epochs fence stale credentials and sessions;
+registration, revocation, replacement and transfer retain an audit history.
+
+Cloud event authorization binds the authenticated Hub to its registered Home
+and current ownership epoch, and each Node event to the Node's original identity
+and enrollment generation. Revoked/replaced identities cannot be authorized
+from current identity alone or from a client-supplied timestamp. EventKey and
+occurrence time remain immutable; backend persistence precedes COMMITTED; exact
+retries are idempotent and conflicting payloads fail closed.
+
+Transfer never changes permanent Hub identity or moves old-Home events into a
+new Home. Pending old-Home records remain protected. Transfer remains blocked
+while pending data lacks an approved disposition or the Hub cannot safely revoke
+old Home-scoped authorization and establish the new local ownership binding.
+Offline status or local factory reset is not transfer authorization.
+
+This decision locks product behavior, **not** a credential technology or
+commercial issuance lifecycle. Certificate/mTLS, token issuance, reuse of the
+local P256 key, proof freshness/challenge format, recovery authority, exact
+COMMITTED receipt authentication, production database/middleware deployment,
+and old-generation pending-event disposition remain OPEN until their secure
+interfaces and authorities are defined. Do not invent these mechanisms or
+credentials. GS-109 owns the full Add Device workflow; GS-148 P2-D implements
+the approved CloudSync/authorization integration at available trusted seams.
+Context version: `2026-10-11.001`.

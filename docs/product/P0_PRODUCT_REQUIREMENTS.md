@@ -171,3 +171,21 @@ policy; one heartbeat timing input, derived Node-offline timeout 3 × interval
 inactivity. Explicit trusted deployment profiles support mixed Nodes. Firmware
 configuration is validated/versioned and applied at startup, without a new
 wire/storage contract. See the decision log and device health guide.
+
+## Hub identity and ownership lifecycle — GS-D032
+
+Each Hub has one permanent physical and device-specific cryptographic identity,
+independent from its current Home binding. At most one Home may own a Hub at a
+time. Claim, transfer, ownership reset and re-registration require authenticated
+authorization and proof of possession of the exact Hub; MAC/serial/QR identity or
+factory reset alone cannot authorize ownership. Ownership epochs fence stale
+credentials. Backend event admission binds current Hub/Home ownership and the
+Node's original enrollment generation before durable commit. Retries preserve
+the exact EventKey and cannot duplicate caregiver effects. Pending events from
+an old Home are never reparented; transfer remains blocked until their approved
+data disposition and safe revocation/re-registration steps are complete.
+
+GS-D032 locks these product invariants, not a credential issuer, CA/key
+provisioning, proof freshness protocol, recovery authority, independent receipt
+signature, backend deployment composition or retained old-generation event
+policy. These remain security implementation gates owned by GS-109/GS-148.
