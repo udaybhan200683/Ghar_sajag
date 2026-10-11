@@ -715,3 +715,25 @@ Existing host1479 checks, fresh-install, FOTA guard and retirement pass.
 Canonical receives governance only; storage worktree/history and C3/BAT-C8 remain
 unchanged. No commercial partition/retention decision or new R1 qualification.
 Next bring up one authenticated S3-Hub/C3 pair and prove durable ACK/retry/reboot.
+
+## GS-114 Part 1 HIL source audit — 2026-10-11
+
+Source/compatibility audit is complete at `6d0318f644a400caa1f35d9bd0eb4dc9fcb0830b`.
+No serial port was opened and no board command was sent. Read-only USB
+enumeration was unavailable (`lsusb` is not installed and
+`/dev/serial/by-id` is absent), so connected hardware, ports, identities,
+firmware, and image hashes are unverified. The existing HIL supervisor remains
+incompatible with the selected S3 N16R8 target and has flash/reset/logical-state/
+motion-injection paths; the S3 target explicitly rejects legacy HIL controls.
+The detailed old-ESP32→S3 compatibility matrix and safe execution boundary are
+in [GS-114 Part 1 audit](../hw/evidence/GS114_PART1_HIL_AUDIT_20261011.md),
+with the historical HIL document applicability notice in
+[HIL automation](../validation/HIL_AUTOMATION.md).
+
+**Status: Part 1 hardware tests NOT_RUN / BLOCKED pending named fixture and
+explicit approval.** Before any port open or device interaction, obtain the
+five confirmations listed in the evidence record. No production source behavior
+changed. Preserve paired-device data and existing authenticated state. After
+approval, implement/verify a genuinely non-resetting observation path and an
+S3-aware identity/evidence adapter before running only the approved
+observational cases. GS-114 Part 2 physical PIR tests remain separate.

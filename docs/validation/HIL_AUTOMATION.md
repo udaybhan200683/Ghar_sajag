@@ -4,6 +4,36 @@ Status: implemented on `feature/hw-m1-4-hil-automation`. This phase is the
 bounded core regression; FOTA matrices, long stress/soak, advanced performance
 qualification and dashboard history are expressly out of scope.
 
+## Current R1 hardware applicability — 2026-10-11
+
+This document describes the historical automated fixture for a classic ESP32
+Hub and ESP32-C3 Node. It is **not currently compatible with the approved R1
+ESP32-S3 N16R8 Hub**. The code paths below are retained as provenance and are
+not permission to run the old campaign against R1 hardware. In particular,
+`hil-qualify` includes build/release stages and fixture discovery; discovery
+uses esptool identity probing, and campaign stages can flash, issue software
+resets, change logical Hub state, and inject motion. Opening a serial port can
+also toggle DTR/RTS. None of these commands is safe for observational Part 1
+without explicit fixture approval and a separately verified no-reset reader.
+
+The current S3 product target is
+`firmware/hub/target/esp32s3/idf` (`IDF_TARGET=esp32s3`, project
+`gs_r1_s3_hub`). Its CMake file rejects `GS_HIL_BUILD` and `GS_HIL_CONTROL`;
+the legacy Hub HIL source/controls are not part of this target. The old runner,
+pair builder, and ESP-IDF adapter still select
+`firmware/hub/target/esp32/idf`, expect the historical Hub station MAC, and
+assume the old USB identity. Do not use them to identify, compile for, or
+operate the S3 Hub. The S3 product target's `sdkconfig.defaults` selects a
+16 MiB flash profile, development-only custom partitions, OTA rollback, and
+octal 40 MHz PSRAM initialization; these are build settings, not observed
+physical board identity or qualification. The product README identifies the
+default UART0 pins as GPIO43 TX/GPIO44 RX; confirm actual board routing and
+USB/UART bridge from the named fixture before connection.
+
+See [GS-114 Part 1 audit and approval checkpoint](../hw/evidence/GS114_PART1_HIL_AUDIT_20261011.md)
+for the old-to-new compatibility matrix, source evidence, tests that are safe
+to consider after approval, and the exact current NOT_RUN/BLOCKED boundary.
+
 ## Commands
 
 The authoritative complete Phase-1 command is run from normal WSL Ubuntu:
