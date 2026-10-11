@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT))
+from tools.validation.component_gate import run_process, source_fingerprint
 REPO = ROOT.parents[1]
 EVIDENCE = ROOT / "evidence/validation_nightly"
 
@@ -32,21 +34,20 @@ def main() -> int:
     commit = git("rev-parse", "HEAD")
     branch = git("branch", "--show-current")
     dirty = bool(git("status", "--porcelain"))
-    # Expensive suites have one owner. The parent runs master/FOTA/MEDIUM, so
-    # release-gate-final records those as already passed and does not repeat
-    # them; its SMALL stress is superseded by MEDIUM here.
+    # Final release owns complete software validation. Extended diagnostics
+    # remain separate; no environment-only claim of already-passed stages.
+    fingerprint = source_fingerprint()
     stages = [
         ("hil-tooling", ["make", "hil-tooling-test"], 300),
         ("hil-host-isolation", ["make", "hil-host-check"], 300),
-        ("hil-target-build", ["make", "hil-target-build-check"], 3600),
+        ("production-target-build", [sys.executable, "scripts/build_validation_targets.py"], 3600),
         ("master-production-runtime", ["make", "master-validation"], 900),
         ("fota-host-state-machine", ["make", "fota-host-test"], 300),
         ("master-negative-self-test", ["make", "master-validation-self-test"], 300),
         ("deterministic-stress-medium", ["make", "stress-test", "STRESS_PROFILE=MEDIUM"], 1200),
         ("concurrency-household-isolation", ["make", "concurrency-test"], 1200),
         ("authoritative-release-gate-final",
-         ["make", "release-gate-final", "GS_RELEASE_GATE_SKIP_MASTER=1",
-          "GS_RELEASE_GATE_SKIP_FOTA_HOST=1", "RELEASE_GATE_FINAL_SKIP_PERFORMANCE=1"],
+         ["make", "release-gate-final"],
          3600),
         ("extended-100000-event-endurance", ["make", "endurance-test"], 7200),
         ("host-line-branch-coverage", ["make", "validation-coverage"], 1800),
@@ -59,18 +60,13 @@ def main() -> int:
     overall_start = time.monotonic()
     for index, (name, command, timeout) in enumerate(stages, 1):
         started = time.monotonic()
-        try:
-            cp = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, timeout=timeout,
-                                env={**os.environ, "PYTHONUNBUFFERED": "1"})
-            status = ("PASS" if cp.returncode == 0 else
-                      "BLOCKED" if name == "connected-target-hil-phase1" and cp.returncode == 2
-                      else "FAIL")
-            output = cp.stdout or ""
-            reason = "" if cp.returncode == 0 else f"exit {cp.returncode}"
-        except subprocess.TimeoutExpired as exc:
-            status, reason = "FAIL", f"timeout after {timeout}s"
-            output = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
+        executed = run_process(command, ROOT, {**os.environ, "PYTHONUNBUFFERED": "1"}, timeout)
+        cp = argparse.Namespace(returncode=executed["exit_code"])
+        status = ("PASS" if cp.returncode == 0 else
+                  "BLOCKED" if name == "connected-target-hil-phase1" and cp.returncode == 2
+                  else "FAIL")
+        output = executed["output"]
+        reason = "" if cp.returncode == 0 else f"exit {cp.returncode}"
         log = EVIDENCE / f"{index:02d}_{name}.log"
         log.write_text(output)
         row = {"suite": name, "status": status, "duration": round(time.monotonic()-started, 3),
@@ -82,19 +78,24 @@ def main() -> int:
         if status != "PASS" and not args.continue_on_failure:
             print("Fail-fast: later expensive stages were not run.", flush=True)
             return 2 if status == "BLOCKED" else 1
-    final_status = write_report(results, branch, commit, dirty, args.hil, overall_start)["status"]
+    if source_fingerprint() != fingerprint:
+        results.append({"suite":"source-integrity", "status":"FAIL", "duration":0,
+                        "failure_reason":"source changed during campaign", "log":""})
+    final_status = write_report(results, branch, commit, dirty, args.hil, overall_start, complete=True)["status"]
     return 0 if final_status == "PASS" else (2 if final_status == "BLOCKED" else 1)
 
 
 def write_report(results: list[dict[str, object]], branch: str, commit: str, dirty: bool,
-                 hil: bool, started: float) -> dict[str, object]:
+                 hil: bool, started: float, complete: bool = False) -> dict[str, object]:
     failed = sum(r["status"] == "FAIL" for r in results)
     blocked = sum(r["status"] == "BLOCKED" for r in results)
-    status = "FAIL" if failed else "BLOCKED" if blocked else "PASS"
+    status = "FAIL" if failed or not results else "BLOCKED" if blocked else "PASS" if complete else "RUNNING"
     report = {"schema": 1, "mode": "HIL_NIGHTLY" if hil else "SIMULATION_NIGHTLY",
               "status": status, "branch": branch,
               "commit": commit, "source_dirty_at_start": dirty, "hil_enabled": hil,
-              "total": len(results), "passed": len(results)-failed, "failed": failed,
+              "total": len(results), "passed": len(results)-failed-blocked, "failed": failed,
+              "complete":complete,"physical_status":"NOT_RUN" if not hil else "SEPARATE_HIL_EVIDENCE_REQUIRED",
+              "physically_qualified":False,"release_approved":False,
               "skipped": 0, "blocked": blocked, "duration": round(time.monotonic()-started, 3),
               "suites": results}
     (EVIDENCE / "summary.json").write_text(json.dumps(report, indent=2) + "\n")

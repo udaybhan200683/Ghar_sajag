@@ -1,4 +1,128 @@
+
 # Master automated validation and regression framework
+
+## Current canonical execution guide — GS-116, 2026-10-10
+
+Approved GS-116/130 engineering policies (comments10364/10365) are enforced by
+repository AGENTS.md. Use only the canonical R1 worktree/branch. Historical
+alternate-worktree instructions below are superseded.
+
+### Development versus release acceptance — GS-116 comment10405
+
+Development runs new and all prior affected Node/Hub regressions, affected shared
+contracts, framework integrity tests and relevant builds/sanitizers. Application
+suites run when their contracts change. Do not launch global validation-fast,
+release-gate-final or full browsers unconditionally for firmware/framework work.
+Verify release composition with deterministic registration and injected-failure
+self-tests; this proves wiring, not release acceptance. Full product gate execution
+is NOT_RUN/deferred until a genuine release candidate or explicit request. A release
+candidate must execute the complete gates, including backend and browsers.
+
+### Component ownership
+
+The single maintained executable registry is
+[suites.json](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/validation/suites.json).
+From repository root:
+
+| Command | Ownership and regression coverage |
+|---|---|
+| `make validation-node` | C3: sensing/runtime/event identity, battery/PowerPolicy/BAT-C8, GS-150/40, encrypted pending/recovery/retirement, security/rejoin and FOTA |
+| `make validation-hub` | S3: authenticated ingest/registry/journal/ACK/dedupe/reboot, liveness, storage/checkpoint/reclamation and implemented CloudSync/HTTP/HTTPS contracts |
+| `make validation-contract` | Node↔Hub/backend: authenticated ACK versus MAC, exact keys/replay, outage/rejoin/session/persistence, mixed health policy, FOTA and receipt parsing |
+| `make validation-backend` | Python discovery, configuration, API/HTTP/functional/bridge/frontend contracts |
+| `make validation-pwa` | JavaScript and backend-derived coverage/chronology/notification scenarios; browser separately when rendering is affected |
+| `make validation-tooling` | Framework self-tests, master negative injection, coverage registration and existing hardware-independent HIL tooling |
+| `make validation-fast` | Union of all registered fast component stages, preserving earlier API/PWA/security/FOTA/tool coverage |
+| `make release-gate-final` | All fast stages + product/feature/trace profiles, sanitizers, fresh C3/S3 production builds/config packaging, full desktop/mobile browser and bounded performance/SMALL stress |
+| `make validation-nightly` | Existing MEDIUM/concurrency/extended/coverage; explicit separate hardware authorization for physical mode |
+
+List actual selected stages from the application directory with
+`python3 tools/validation/component_gate.py --suite node --list`
+(or hub/contract/backend/pwa/fast/release). Registry selection deduplicates shared
+stages within each campaign. The real production runtime/codec harnesses are
+reused; there is no parallel protocol implementation. GS-148 host interfaces do
+not qualify unfinished production backend authentication/completion.
+
+### Gate graph and integrity
+
+```text
+root Makefile → product Makefile → registered runner
+  component = stages selected by ownership
+  fast      = union of every registered fast component stage
+  release   = fast ∪ mandatory release-only stages
+```
+
+Registration validates unique IDs, ownership, commands, required files, success
+records and timeouts. C++ main harnesses must be registered or have a specific
+separate-harness reason. Python discovery automatically includes new application
+tests; Node/Hub Python tests also need explicit component registration. New fast
+component registrations automatically join fast and release. GS-130 owns exhaustive
+feature→requirement→test mapping in [MASTER_TRACEABILITY.csv](MASTER_TRACEABILITY.csv);
+registration does not prove exhaustive feature coverage.
+
+Every stage must actually execute and report a positive count or explicit successful
+assertion group. Sanitizer diagnostics fail even with zero process exit; UBSan halts on errors. Lowercase browser/TAP skip, todo and unexecuted summaries also fail. Nonzero exit, zero/missing tests, unexpected skip/manual/already-
+passed markers, missing dependencies and timeout fail. Timeout kills only the owned
+subprocess group. Remaining stages continue to expose incomplete mandatory coverage.
+Source changes during a campaign invalidate its result, including partition/config CSV inputs. Cancellation kills owned children. Incomplete nightly reports use RUNNING and cannot claim PASS.
+
+Host object profiles include compiler identity, all product/trace/compiler flags and production source/header content (independent of mtimes);
+headers use generated dependencies. Shared production translation units are cached under that profile; phony test targets still relink and execute. Special compile definitions retain their dedicated recipes. Release
+variants/sanitizers use separate profiles without cleaning existing assets. Target
+builds create fresh owned directories and build C3/S3 IDF6.0.3, replacing the retired
+classic-ESP32 HIL prerequisite in final release. Historical HIL preparation remains
+available separately and does not imply hardware permission.
+
+No receipt reuse by default. Explicit example:
+`make validation-fast VALIDATION_REUSE_REPORTS='/absolute/report1.json /absolute/report2.json'`.
+Executed PASS receipts require identical source/build profile, positive valid evidence,
+intact log SHA and matching compiled artifact SHA (including target build reports/BIN images). Linker-guard/include overrides are part of the receipt profile. Missing/changed receipts fail;
+previously failed stages execute again. Reuse provenance is recorded, never labeled
+fresh execution. Environment-only mandatory-stage bypasses are rejected. Legacy
+`release_gate.py --quick` remains diagnostic, not final release readiness.
+
+Known scoped skips remain visible: historical classic-ESP32 reserve model under
+GS-D030 and unsupported25 stress with existing ten-slot rejection verified;
+supported1/4/10 stress remains asserted. **No migration skip:** its current mandatory
+failure prevents aggregate software PASS. Portable production-PSA reset qualification
+requires separately built TF-PSA libraries/compatibility headers; its existing
+diagnostic and release-registration gap are explicitly indexed for GS-130.
+
+### Permanent Definition of Done and impact examples
+
+Before implementation record owning Jira, affected components/interfaces, previous
+regressions, new positive/negative/boundary/fault/reboot tests, simulation/physical
+requirements, profile and release impact.
+
+- Node PowerPolicy: Node plus relevant recovery contracts; no unconditional browser.
+- GS-40 liveness: Node + Hub + contract + backend/PWA; browser for UI changes.
+- Product candidate: actual complete `make release-gate-final`.
+
+After implementation: new + prior affected-component/contract tests PASS, permanent
+registration verified, applicable builds/sanitizers PASS, traceability/evidence updated,
+normal commit/push/actual remote verified and precise handoff. Focused PASS is
+insufficient. Mandatory failures remain FAIL/PARTIAL/BLOCKED.
+
+Reports under ignored `evidence/validation_framework/<suite>-<campaign>` record source
+HEAD/fingerprint/dirty state, commands/durations/exits/count kinds, logs/artifact hashes,
+reuse provenance and software status. Physical is NOT_RUN; physically_qualified and
+release_approved are false. Do not log secrets or operate boards.
+
+Host simulation/compilation does not prove real PIR/GPIO4/RF/current, power-cut NVS,
+signed OTA/rollback, long sensing reliability or actual C3→S3→backend→PWA acceptance.
+Required physical rows stay open until authorized current-image/fixture evidence passes.
+Software PASS does not grant commercial release approval.
+
+[GS-116 evidence](../exec-plans/evidence/R1_GS116_VALIDATION_FRAMEWORK_20261010.md)
+records actual outcomes/remaining gaps. [R1 work state](../product/R1_WORK_STATE.md)
+is the handoff. Next: **GS-130**, then separately authorized GS-114.
+
+---
+
+## Historical framework at 0eb1324 — retained provenance
+
+Counts/branch/graphs below describe that checkpoint. Current guide above supersedes
+its execution claims; physical evidence is never upgraded to current-image PASS.
 
 **Baseline inspected:** `0eb1324c27ce3d6a2464627c6057b0cc68943c60`
 **Validation branch:** `feature/hw-m1-4-regression-framework`

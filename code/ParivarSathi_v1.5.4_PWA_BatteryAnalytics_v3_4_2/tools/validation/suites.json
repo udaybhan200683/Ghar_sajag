@@ -1,0 +1,1032 @@
+{
+  "schema_version": 1,
+  "stages": [
+    {
+      "id": "host-build",
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa",
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "validation-build"
+      ],
+      "inputs": [],
+      "success": "^VALIDATION BUILD PASS$",
+      "timeout": 600,
+      "count_kind": "builds"
+    },
+    {
+      "id": "framework",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_component_gate.py",
+        "-v"
+      ],
+      "inputs": [
+        "tests/python/test_component_gate.py"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 600,
+      "count_kind": "tests"
+    },
+    {
+      "id": "cpp",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "cpp-test"
+      ],
+      "inputs": [
+        "tests/cpp/test_main.cpp"
+      ],
+      "success": "^cpp: (\\d+) checks passed$",
+      "timeout": 600,
+      "count_kind": "checks"
+    },
+    {
+      "id": "battery-c8",
+      "components": [
+        "node"
+      ],
+      "command": [
+        "make",
+        "battery-c8-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/battery_c8_validation.cpp"
+      ],
+      "success": "^BAT-C8 focused validation PASS checks=(\\d+)$",
+      "timeout": 600,
+      "required_success": [
+        "^BAT-C8 focused validation PASS checks=(\\d+)$",
+        "Ran [1-9]\\d* tests?",
+        "^OK$"
+      ],
+      "count_kind": "checks"
+    },
+    {
+      "id": "gs150",
+      "components": [
+        "node",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "gs150-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/gs150_offline_sleep_validation.cpp"
+      ],
+      "success": "^GS-150 PASS checks=(\\d+)$",
+      "timeout": 600,
+      "count_kind": "checks"
+    },
+    {
+      "id": "gs40",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "gs40-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/gs40_node_health_validation.cpp"
+      ],
+      "success": "^GS-40 PASS checks=(\\d+)$",
+      "timeout": 600,
+      "count_kind": "checks"
+    },
+    {
+      "id": "commissioning",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "commissioning-crypto-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/commissioning_crypto_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "rejoin",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "rejoin-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/rejoin_host_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "association",
+      "components": [
+        "node"
+      ],
+      "command": [
+        "make",
+        "association-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/association_persistence_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "node-recovery",
+      "components": [
+        "node"
+      ],
+      "command": [
+        "make",
+        "node-recovery-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/node_runtime_recovery_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "node-persistence",
+      "components": [
+        "node",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "node-recovery-persistence-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/node_recovery_persistence_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "node-retirement",
+      "components": [
+        "node",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "node-retirement-protocol-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/node_retirement_protocol_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "secure-fota",
+      "components": [
+        "node",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "secure-fota-adapter-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/secure_fota_adapter_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "hub-fota",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-fota-guard-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_fota_guard_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "master-negative",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "master-validation-self-test"
+      ],
+      "inputs": [
+        "tests/cpp/master_validation.cpp"
+      ],
+      "success": "^VALIDATION NEGATIVE SELF-TEST: PASS",
+      "timeout": 600
+    },
+    {
+      "id": "fota",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "fota-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/fota_host_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "master",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "master-validation"
+      ],
+      "inputs": [
+        "tests/cpp/master_validation.cpp"
+      ],
+      "success": "^MASTER VALIDATION: PASS; tests=(\\d+)",
+      "timeout": 600
+    },
+    {
+      "id": "multinode",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "multinode-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/multinode_host_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600,
+      "allowed_skip_lines": [
+        "^P2-MULTINODE EVIDENCE PASS 12 supported cases.*25-node stress SKIPPED \\(capacity rejection verified\\)$",
+        "^P2-MN25 SKIPPED current ten-slot enrollment protocol; capacity rejection verified$"
+      ]
+    },
+    {
+      "id": "registry",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "registry-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/node_registry_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "registry-persistence",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "registry-persistence-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/registry_persistence_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "journal",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-journal-persistence-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_journal_persistence_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "durable-codec",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-durable-storage-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_durable_storage_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "fresh-install",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-fresh-install-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_fresh_install_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "recovery-scheduling",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-recovery-scheduling-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_fresh_install_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "provider",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-durable-provider-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_durable_provider_validation.cpp"
+      ],
+      "success": "^Hub durable provider validation passed$",
+      "timeout": 600
+    },
+    {
+      "id": "migration",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-journal-migration-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_journal_migration_validation.cpp"
+      ],
+      "success": "^Hub journal migration validation passed$",
+      "timeout": 600
+    },
+    {
+      "id": "hub-retirement",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-retirement-snapshot-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_retirement_snapshot_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "backend-receipts",
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ],
+      "command": [
+        "make",
+        "hub-backend-commit-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_backend_commit_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "s3-outbox",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "s3-durable-outbox-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/durable_event_outbox_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "segmented-runtime",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-segmented-outbox-runtime-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_segmented_outbox_runtime_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "checkpoint",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-runtime-checkpoint-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_runtime_checkpoint_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "identity-compaction",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-identity-compaction-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_runtime_checkpoint_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "incremental-completion",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-incremental-completion-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_runtime_checkpoint_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "mixed-compaction",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-mixed-body-compaction-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/hub_mixed_body_compaction_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "cloud-contract",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "p2d-cloud-contract-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/p2d_cloud_contract_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "https-channel",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "p2d-https-channel-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/p2d_https_channel_validation.cpp"
+      ],
+      "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "health-config",
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend"
+      ],
+      "command": [
+        "make",
+        "gs40-config-test"
+      ],
+      "inputs": [
+        "tests/python/test_node_health_config.py"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 600,
+      "count_kind": "tests"
+    },
+    {
+      "id": "contracts",
+      "components": [
+        "contract",
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "make",
+        "contracts"
+      ],
+      "inputs": [
+        "scripts/verify_contracts.py"
+      ],
+      "success": "^contracts: .*verified$",
+      "timeout": 600
+    },
+    {
+      "id": "lab-build",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "make",
+        "lab-build"
+      ],
+      "inputs": [],
+      "success": "^.*ghar_sajag_interactive.*$",
+      "timeout": 600,
+      "count_kind": "builds"
+    },
+    {
+      "id": "python",
+      "components": [
+        "backend",
+        "pwa",
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "inputs": [],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 600,
+      "count_kind": "tests",
+      "allowed_skips": [
+        "classic ESP32 NVS reserve model is historical under GS-D030; S3 commercial capacity and reserve qualification remain open"
+      ]
+    },
+    {
+      "id": "javascript",
+      "components": [
+        "pwa"
+      ],
+      "command": [
+        "make",
+        "app-test"
+      ],
+      "inputs": [],
+      "success": "^# pass (\\d+)",
+      "timeout": 600,
+      "count_kind": "tests"
+    },
+    {
+      "id": "functional",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "python3",
+        "tools/validation/run_functional_suite.py"
+      ],
+      "inputs": [
+        "tools/validation/run_functional_suite.py"
+      ],
+      "success": "^PASS (\\d+)/",
+      "timeout": 600
+    },
+    {
+      "id": "dummy-streams",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "python3",
+        "tools/validation/run_dummy_sensor_streams.py"
+      ],
+      "inputs": [],
+      "success": "^PASS dummy sensor streams (\\d+)/",
+      "timeout": 600
+    },
+    {
+      "id": "http",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "python3",
+        "tests/simulation_http_test.py"
+      ],
+      "inputs": [
+        "tests/simulation_http_test.py"
+      ],
+      "success": "(?i)^[^\\n]*(?:PASS|passed|OK)[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "bridge",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "python3",
+        "tests/pwa_bridge_test.py"
+      ],
+      "inputs": [
+        "tests/pwa_bridge_test.py"
+      ],
+      "success": "(?i)^[^\\n]*(?:PASS|passed|OK)[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "api",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "python3",
+        "tests/pwa_68_api_test.py"
+      ],
+      "inputs": [
+        "tests/pwa_68_api_test.py"
+      ],
+      "success": "(?i)^[^\\n]*(?:PASS|passed|OK)[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "frontend",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "python3",
+        "tests/pwa_68_frontend_test.py"
+      ],
+      "inputs": [
+        "tests/pwa_68_frontend_test.py"
+      ],
+      "success": "(?i)^[^\\n]*(?:PASS|passed|OK)[^\\n]*$",
+      "timeout": 600
+    },
+    {
+      "id": "coverage-registration",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "coverage-test"
+      ],
+      "inputs": [
+        "scripts/check_validation_coverage.py"
+      ],
+      "success": "^validation coverage: (\\d+)/",
+      "timeout": 600
+    },
+    {
+      "id": "hil-tooling",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "hil-tooling-test"
+      ],
+      "inputs": [],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 600,
+      "count_kind": "tests"
+    },
+    {
+      "id": "hil-host",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "hil-host-check"
+      ],
+      "inputs": [],
+      "success": "^HIL HOST GATE: PASS",
+      "timeout": 600
+    },
+    {
+      "id": "product-base",
+      "components": [
+        "node",
+        "hub"
+      ],
+      "command": [
+        "make",
+        "product-test",
+        "PRODUCT=base"
+      ],
+      "inputs": [
+        "tests/cpp/test_product.cpp"
+      ],
+      "success": "^.*product tests passed;",
+      "timeout": 600,
+      "fast": false,
+      "release": true
+    },
+    {
+      "id": "product-ai",
+      "components": [
+        "node",
+        "hub"
+      ],
+      "command": [
+        "make",
+        "product-test",
+        "PRODUCT=ai"
+      ],
+      "inputs": [
+        "tests/cpp/test_product.cpp"
+      ],
+      "success": "^.*product tests passed;",
+      "timeout": 600,
+      "fast": false,
+      "release": true
+    },
+    {
+      "id": "variant-default",
+      "components": [
+        "node",
+        "hub"
+      ],
+      "command": [
+        "make",
+        "simulator",
+        "TRACE_FLAGS=-DGS_FEATURE_MORNING_ROUTINE=1 -DGS_FEATURE_CALL_FAMILY=1 -DGS_FEATURE_LOCAL_OFFLINE=1"
+      ],
+      "inputs": [
+        "host/simulator/main.cpp"
+      ],
+      "success": "^  \"features\":",
+      "timeout": 600,
+      "fast": false,
+      "release": true
+    },
+    {
+      "id": "variant-routine-disabled",
+      "components": [
+        "node",
+        "hub"
+      ],
+      "command": [
+        "make",
+        "simulator",
+        "TRACE_FLAGS=-DGS_FEATURE_MORNING_ROUTINE=0"
+      ],
+      "inputs": [
+        "host/simulator/main.cpp"
+      ],
+      "success": "^  \"features\":",
+      "timeout": 600,
+      "fast": false,
+      "release": true
+    },
+    {
+      "id": "variant-call-disabled",
+      "components": [
+        "node",
+        "hub"
+      ],
+      "command": [
+        "make",
+        "simulator",
+        "TRACE_FLAGS=-DGS_FEATURE_CALL_FAMILY=0"
+      ],
+      "inputs": [
+        "host/simulator/main.cpp"
+      ],
+      "success": "^  \"features\":",
+      "timeout": 600,
+      "fast": false,
+      "release": true
+    },
+    {
+      "id": "variant-offline-disabled",
+      "components": [
+        "node",
+        "hub"
+      ],
+      "command": [
+        "make",
+        "simulator",
+        "TRACE_FLAGS=-DGS_FEATURE_LOCAL_OFFLINE=0"
+      ],
+      "inputs": [
+        "host/simulator/main.cpp"
+      ],
+      "success": "^  \"features\":",
+      "timeout": 600,
+      "fast": false,
+      "release": true
+    },
+    {
+      "id": "sanitizers",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "validation-sanitize"
+      ],
+      "inputs": [],
+      "success": "^VALIDATION SANITIZERS PASS$",
+      "timeout": 1800,
+      "fast": false,
+      "release": true,
+      "failure_patterns": [
+        "runtime error:",
+        "ERROR: AddressSanitizer"
+      ]
+    },
+    {
+      "id": "trace",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "cpp-test",
+        "TRACE_FLAGS=-DGS_ENABLE_TRACE=1"
+      ],
+      "inputs": [],
+      "success": "^cpp: (\\d+) checks passed$",
+      "timeout": 600,
+      "fast": false,
+      "release": true,
+      "count_kind": "checks"
+    },
+    {
+      "id": "target-builds",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "python3",
+        "scripts/build_validation_targets.py"
+      ],
+      "inputs": [
+        "scripts/build_validation_targets.py"
+      ],
+      "success": "^VALIDATION TARGET BUILDS PASS$",
+      "timeout": 3600,
+      "fast": false,
+      "release": true
+    },
+    {
+      "id": "browser",
+      "components": [
+        "pwa"
+      ],
+      "command": [
+        "make",
+        "playwright-gate"
+      ],
+      "inputs": [],
+      "success": "^\\s*(\\d+) passed\\b",
+      "timeout": 1800,
+      "fast": false,
+      "release": true,
+      "count_kind": "tests"
+    },
+    {
+      "id": "bounded-performance",
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "make",
+        "performance-test"
+      ],
+      "inputs": [],
+      "success": "(?i)^[^\\n]*PASS[^\\n]*$",
+      "timeout": 900,
+      "fast": false,
+      "release": true
+    }
+  ],
+  "separate_harnesses": {
+    "tests/cpp/factory_node_reset_validation.cpp": "Portable production PSA/IDF guard qualification requires a separately built TF-PSA library and compatibility headers (tools/factory/validate_node_reset.py). GS-130 must register/build this dependency as a portable release harness; not a physical PASS or an exemption from future feature regression."
+  }
+}

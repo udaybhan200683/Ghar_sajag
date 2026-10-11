@@ -147,18 +147,8 @@ ok &= run('contracts',[sys.executable,'scripts/verify_contracts.py'])
 ok &= run('cpp-unit',['make','cpp-test'])
 # Production NodeRuntime/HubRuntime virtual-time regression, including the
 # complete OR-001..OR-035 offline-resilience set and shared FOTA policy.
-if os.environ.get('GS_RELEASE_GATE_SKIP_MASTER') == '1':
-    stages.append({'name':'master-production-runtime','status':'ALREADY_PASSED','mandatory':False,
-                   'seconds':0,'command':['make','master-validation'],'log':None})
-    print('ALREADY_PASSED master-production-runtime (owned by parent validation campaign)')
-else:
-    ok &= run('master-production-runtime',['make','master-validation'],timeout=900)
-if os.environ.get('GS_RELEASE_GATE_SKIP_FOTA_HOST') == '1':
-    stages.append({'name':'fota-host-state-machine','status':'ALREADY_PASSED','mandatory':False,
-                   'seconds':0,'command':['make','fota-host-test'],'log':None})
-    print('ALREADY_PASSED fota-host-state-machine (owned by parent validation campaign)')
-else:
-    ok &= run('fota-host-state-machine',['make','fota-host-test'],timeout=300)
+ok &= run('master-production-runtime',['make','master-validation'],timeout=900)
+ok &= run('fota-host-state-machine',['make','fota-host-test'],timeout=300)
 # make python-test discovers all tests/python/test_*.py, including the Phase 1
 # FoundationService persistence/domain and WSGI application-path suites.
 ok &= run('javascript-app',['make','app-test'])
@@ -172,7 +162,6 @@ if not args.quick:
         ('feature-offline-disabled', '-DGS_FEATURE_LOCAL_OFFLINE=0'),
     ]
     for variant_name, flags in feature_variants:
-        ok &= run(variant_name + '-clean', ['make','clean'], timeout=60)
         ok &= run(variant_name, ['make','simulator', f'TRACE_FLAGS={flags}'], timeout=120)
 ok &= run('lab-build',['make','lab-build'])
 ok &= run('python-backend-db-logging',
@@ -196,7 +185,8 @@ status='PASS' if not mandatory_fail else 'FAIL'
 report={
     'release':'1.5.4','status':status,'quick':args.quick,'require_browser':args.require_browser,
     'stages':stages,
-    'host_release_ready':status=='PASS',
+    'host_release_ready':False,
+    'qualification':'LEGACY_DIAGNOSTIC_ONLY; use make release-gate-final',
     'physical_hardware_acceptance':'PENDING',
     'physical_pending':['real PIR/reed/buttons','ESP-NOW RF/RSSI/offline timing','battery/runtime/charging/UPS','brown-out/reset/watchdog','flash persistence/wear','OTA signing/rollback','real push/provider delivery','installed-home coverage'],
 }

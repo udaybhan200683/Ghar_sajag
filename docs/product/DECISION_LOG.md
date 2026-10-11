@@ -353,3 +353,17 @@ GS-D031 implementation evidence (software scope):
 records JSON startup policy, trusted mixed-deployment profiles and the remaining
 real-target acceptance/extended historical migration gate limitation. LOCKED
 policy text above remains unchanged.
+
+
+## GS-116 engineering policy implementation note — 2026-10-11
+
+The approved GS-116/130 permanent Definition of Done is implemented in AGENTS.md,
+MASTER_VALIDATION.md and the component registry/runner. This is an engineering
+process implementation, not a new product requirement or LOCKED decision;
+context remains 2026-10-10.001. Software, physical qualification and release
+approval remain distinct. Migration baseline evidence under GS-D001/029 is in
+[R1 GS-116 evidence](../exec-plans/evidence/R1_GS116_VALIDATION_FRAMEWORK_20261010.md).
+No security/storage contract, partition format or hardware authorization changes.
+GS-11610405 explicitly limits development to affected components/contracts and
+framework/build/sanitizer checks; full release execution is deferred to a genuine
+release candidate. Lightweight composition proof never establishes release PASS.

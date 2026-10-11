@@ -1,5 +1,54 @@
 # R1 Current Work State
 
+## GS-116 resumed framework delivery — 2026-10-11
+
+Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, starting/verified remote checkpoint
+`7b93dea9561ec4f0301ecd77a7b578bee8a1c36a`. Resumed preserved uncommitted
+framework from GS-116 comment10370; no new branch/worktree or hardware action.
+See [GS-116 execution evidence](../exec-plans/evidence/R1_GS116_VALIDATION_FRAMEWORK_20261010.md)
+and [permanent execution guide](../validation/MASTER_VALIDATION.md).
+
+Node/Hub/contract/backend/PWA commands share one executable stage registry;
+fast is their deterministic union; final release dominates fast and adds fresh
+C3/S3 production builds, sanitizer/trace/product variants, browser and bounded
+performance. AGENTS.md permanently enforces new plus prior-component regressions,
+contract impact, registration and distinct software/physical/release evidence.
+GS-130 owns exhaustive feature-to-test completeness, including the separately
+built portable PSA factory-reset harness and physical evidence definitions.
+
+**Migration diagnosis supersedes the GS-40 UNRESOLVED finding below:** current
+and independently compiled pre-GS-40 `913b1ded` reproduce `clean migration commits`
+at tests/cpp/hub_journal_migration_validation.cpp:194. Classification
+HISTORICAL_BASELINE_DEFECT: legacy checkpoint owner domain versus current
+registry-domain import; the durable-transition guard correctly rejects it before
+legacy erasure. GS-D001 defers arbitrary legacy migration; GS-D029 ownership
+safety is preserved. GS-148 receives the technical storage handoff; GS-126 is not
+the storage owner. No production migration fix or assertion weakening in GS-116.
+The test remains mandatory; aggregate Hub/fast/release cannot be PASS while it fails.
+
+GS-11610405 permanently distinguishes component development from release acceptance.
+Current work runs Node/Hub/shared security contracts, framework tests and relevant
+builds/sanitizers. Full release execution is NOT_RUN/deferred until a genuine
+release candidate; lightweight registration tests establish composition only.
+The pre-correction interrupted release attempt remains disclosed in evidence.
+
+Final component qualification: Node15/15PASS (280.585s), shared contracts23/23PASS
+(0.844s verified receipt campaign), Hub27/28PASS (374.234s), aggregate HubFAIL only
+for migration. Framework33testsPASS; simulator default link/runPASS. Sanitizer and
+target-build final results PASS: ASan/UBSan CPP1479/GS-401320; clean IDF6.0.3
+C3 934,192bytes and S3 1,868,800bytes, slots/config/exact embedding PASS. This is framework delivery
+with a known software qualification failure, not complete product release acceptance.
+
+Current qualification results and exact checkpoint are recorded in the linked
+evidence and final owning Jira delivery comment. Physical remains NOT_RUN.
+Next executable task **GS-130**, then separately authorized **GS-114 P1–P9**
+with matching GS-40/150 C3/S3 images/configuration; GS-149 power and GS-146 retain
+existing prerequisites. Preserve S3 managed_components and original ignored
+assets. GS-40 real-target heartbeat/offline visibility, GPIO4/radio/power-cut/
+signed-FOTA and endurance acceptance remain open. No workflow/rank/dependency change.
+
+
 ## GS-40 software delivery / physical handoff — 2026-10-10
 
 GS-40 source implementation is complete: default 300 s, internally derived 910 s,

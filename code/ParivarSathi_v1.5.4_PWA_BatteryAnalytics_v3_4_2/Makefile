@@ -54,9 +54,11 @@ CPP_SOURCES := \
 # validation modes cannot silently reuse objects built with different defines.
 # An equals sign in a dependency target is parsed as a make assignment.
 # Keep generated .d target paths usable when a checkpoint header changes.
-CPP_OBJECT_DIR := build/obj/$(PRODUCT)/$(subst =,_,$(TRACE_FLAGS))
+HOST_BUILD_PROFILE := $(shell python3 scripts/host_build_profile.py "$(HOST_CXX)" "$(CXXFLAGS)" "$(TRACE_FLAGS)" "$(INCLUDES)")
+CPP_OBJECT_DIR := build/obj/$(PRODUCT)/$(HOST_BUILD_PROFILE)
 CPP_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(CPP_SOURCES))
 CPP_EXTRA_SOURCES := firmware/common/transport/fota_secure_wire.cpp firmware/node/fota/boot_health_gate.cpp
+host_objects = $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(1))
 CPP_EXTRA_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(CPP_EXTRA_SOURCES))
 CPP_DEPENDENCIES := $(CPP_OBJECTS:.o=.d) $(CPP_EXTRA_OBJECTS:.o=.d)
 
@@ -82,12 +84,16 @@ build/gs40_generated/gs/node_health_config.hpp: config/node_health.json scripts/
 build: build/gs40_generated/gs/node_health_config.hpp
 	mkdir -p build logs
 
-cpp-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/test_main.cpp -lcrypto -o build/cpp_tests
+GS116_CPP_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES))
+cpp-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) tests/cpp/test_main.cpp -lcrypto -o build/cpp_tests
 	./build/cpp_tests
 
-master-validation: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp tests/cpp/master_validation.cpp -o build/master_validation
+GS116_MASTER_VALIDATION_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_MASTER_VALIDATION_HOST_SOURCES))
+master-validation: build $(CPP_OBJECTS) $(call host_objects,$(GS116_MASTER_VALIDATION_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_MASTER_VALIDATION_HOST_SOURCES)) tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py
 
 battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
@@ -99,110 +105,160 @@ battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
 gs40-config-test: build
 	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
 
-gs40-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/gs40_node_health_validation.cpp -lcrypto -o build/gs40_node_health_validation
+GS116_GS40_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_GS40_HOST_TEST_HOST_SOURCES))
+gs40-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_GS40_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_GS40_HOST_TEST_HOST_SOURCES)) tests/cpp/gs40_node_health_validation.cpp -lcrypto -o build/gs40_node_health_validation
 	./build/gs40_node_health_validation
 
 .PHONY: gs150-host-test
-gs150-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/gs150_offline_sleep_validation.cpp -lcrypto -o build/gs150_offline_sleep_validation
+GS116_GS150_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_GS150_HOST_TEST_HOST_SOURCES))
+gs150-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_GS150_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_GS150_HOST_TEST_HOST_SOURCES)) tests/cpp/gs150_offline_sleep_validation.cpp -lcrypto -o build/gs150_offline_sleep_validation
 	./build/gs150_offline_sleep_validation
 
-master-validation-self-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp tests/cpp/master_validation.cpp -o build/master_validation
+GS116_MASTER_VALIDATION_SELF_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_MASTER_VALIDATION_SELF_TEST_HOST_SOURCES))
+master-validation-self-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_MASTER_VALIDATION_SELF_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_MASTER_VALIDATION_SELF_TEST_HOST_SOURCES)) tests/cpp/master_validation.cpp -o build/master_validation
 	python3 tools/validation/master_validation.py --self-test
 
-fota-host-test: build $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
+GS116_FOTA_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_FOTA_HOST_TEST_HOST_SOURCES))
+fota-host-test: build $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) $(call host_objects,$(GS116_FOTA_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) $(call host_objects,$(GS116_FOTA_HOST_TEST_HOST_SOURCES)) tests/cpp/fota_host_validation.cpp -o build/fota_host_validation
 	./build/fota_host_validation
 
-hub-fota-guard-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/fota_secure_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/components/registry/node_registry.cpp firmware/hub/components/fota/hub_fota_guard.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fota_guard_validation.cpp -lcrypto -o build/hub_fota_guard_validation
+GS116_HUB_FOTA_GUARD_HOST_TEST_HOST_SOURCES := firmware/common/transport/fota_secure_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/components/registry/node_registry.cpp firmware/hub/components/fota/hub_fota_guard.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_FOTA_GUARD_HOST_TEST_HOST_SOURCES))
+hub-fota-guard-host-test: build $(call host_objects,$(GS116_HUB_FOTA_GUARD_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_HUB_FOTA_GUARD_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_fota_guard_validation.cpp -lcrypto -o build/hub_fota_guard_validation
 	./build/hub_fota_guard_validation
 
-secure-fota-adapter-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/fota_secure_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/node/fota/fota_receiver.cpp firmware/node/fota/secure_fota_adapter.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/secure_fota_adapter_validation.cpp -lcrypto -o build/secure_fota_adapter_validation
+GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES := firmware/common/transport/fota_secure_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/node/fota/fota_receiver.cpp firmware/node/fota/secure_fota_adapter.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES))
+secure-fota-adapter-host-test: build $(call host_objects,$(GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES)) tests/cpp/secure_fota_adapter_validation.cpp -lcrypto -o build/secure_fota_adapter_validation
 	./build/secure_fota_adapter_validation
 
-multinode-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
+GS116_MULTINODE_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/node/components/storage/node_recovery_persistence.cpp firmware/common/security/commissioning_protocol.cpp firmware/common/security/rejoin_protocol.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp host/multinode/scheduled_harness.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_MULTINODE_HOST_TEST_HOST_SOURCES))
+multinode-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_MULTINODE_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_MULTINODE_HOST_TEST_HOST_SOURCES)) tests/cpp/multinode_host_validation.cpp -lcrypto -o build/multinode_host_validation
 	./build/multinode_host_validation
 	python3 tools/validation/check_multinode_summary.py build/multinode_host_summary.json
 
-registry-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/hub/components/registry/node_registry.cpp tests/cpp/node_registry_validation.cpp -o build/node_registry_validation
+GS116_REGISTRY_HOST_TEST_HOST_SOURCES := firmware/hub/components/registry/node_registry.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_REGISTRY_HOST_TEST_HOST_SOURCES))
+registry-host-test: build $(call host_objects,$(GS116_REGISTRY_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_REGISTRY_HOST_TEST_HOST_SOURCES)) tests/cpp/node_registry_validation.cpp -o build/node_registry_validation
 	./build/node_registry_validation
 
-registry-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/hub/components/registry/node_registry.cpp firmware/hub/components/registry/registry_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/registry_persistence_validation.cpp -lcrypto -o build/registry_persistence_validation
+GS116_REGISTRY_PERSISTENCE_HOST_TEST_HOST_SOURCES := firmware/hub/components/registry/node_registry.cpp firmware/hub/components/registry/registry_persistence.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_REGISTRY_PERSISTENCE_HOST_TEST_HOST_SOURCES))
+registry-persistence-host-test: build $(call host_objects,$(GS116_REGISTRY_PERSISTENCE_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_REGISTRY_PERSISTENCE_HOST_TEST_HOST_SOURCES)) tests/cpp/registry_persistence_validation.cpp -lcrypto -o build/registry_persistence_validation
 	./build/registry_persistence_validation
 
-hub-journal-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp firmware/hub/runtime/hub_checkpoint_codec.cpp firmware/hub/components/storage/runtime_state_store.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
+GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES := shared/src/logging.cpp shared/src/rules.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp firmware/hub/components/storage/hub_durability_owner.cpp firmware/hub/components/ingest/ingest.cpp firmware/hub/components/coverage/coverage.cpp firmware/hub/components/rules/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp firmware/hub/runtime/hub_checkpoint_codec.cpp firmware/hub/components/storage/runtime_state_store.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES))
+hub-journal-persistence-host-test: build $(call host_objects,$(GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation
 	./build/hub_journal_persistence_validation
 
-hub-durable-storage-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_storage_validation.cpp -lcrypto -o build/hub_durable_storage_validation
+GS116_HUB_DURABLE_STORAGE_HOST_TEST_HOST_SOURCES := firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_DURABLE_STORAGE_HOST_TEST_HOST_SOURCES))
+hub-durable-storage-host-test: build $(call host_objects,$(GS116_HUB_DURABLE_STORAGE_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_HUB_DURABLE_STORAGE_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_durable_storage_validation.cpp -lcrypto -o build/hub_durable_storage_validation
 	./build/hub_durable_storage_validation
 
-hub-fresh-install-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_fresh_install_validation
+GS116_HUB_FRESH_INSTALL_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_FRESH_INSTALL_HOST_TEST_HOST_SOURCES))
+hub-fresh-install-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_FRESH_INSTALL_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_FRESH_INSTALL_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_fresh_install_validation
 	./build/hub_fresh_install_validation
 
 hub-recovery-scheduling-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) -DGS_RECOVERY_SCHEDULING_TEST=1 $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/common/security/rejoin_protocol.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_fresh_install_validation.cpp -lcrypto -o build/hub_recovery_scheduling_validation
 	./build/hub_recovery_scheduling_validation
 
-hub-durable-provider-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_durable_provider_validation.cpp -lcrypto -o build/hub_durable_provider_validation
+GS116_HUB_DURABLE_PROVIDER_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_DURABLE_PROVIDER_HOST_TEST_HOST_SOURCES))
+hub-durable-provider-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_DURABLE_PROVIDER_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_DURABLE_PROVIDER_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_durable_provider_validation.cpp -lcrypto -o build/hub_durable_provider_validation
 	./build/hub_durable_provider_validation
 
-hub-journal-migration-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_journal_migration_validation.cpp -lcrypto -o build/hub_journal_migration_validation
+GS116_HUB_JOURNAL_MIGRATION_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_JOURNAL_MIGRATION_HOST_TEST_HOST_SOURCES))
+hub-journal-migration-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_JOURNAL_MIGRATION_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_JOURNAL_MIGRATION_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_journal_migration_validation.cpp -lcrypto -o build/hub_journal_migration_validation
 	./build/hub_journal_migration_validation
 
-hub-backend-commit-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/cloud/cloud_sync.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_backend_commit_validation.cpp -lcrypto -o build/hub_backend_commit_validation
+GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES := shared/src/logging.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/cloud/cloud_sync.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES))
+hub-backend-commit-host-test: build $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_backend_commit_validation.cpp -lcrypto -o build/hub_backend_commit_validation
 	./build/hub_backend_commit_validation
 
-s3-durable-outbox-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/journal.cpp shared/src/logging.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/durable_event_outbox_validation.cpp -lcrypto -o build/durable_event_outbox_validation
+GS116_S3_DURABLE_OUTBOX_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/journal.cpp shared/src/logging.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_S3_DURABLE_OUTBOX_HOST_TEST_HOST_SOURCES))
+s3-durable-outbox-host-test: build $(call host_objects,$(GS116_S3_DURABLE_OUTBOX_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_S3_DURABLE_OUTBOX_HOST_TEST_HOST_SOURCES)) tests/cpp/durable_event_outbox_validation.cpp -lcrypto -o build/durable_event_outbox_validation
 	./build/durable_event_outbox_validation
 
-hub-segmented-outbox-runtime-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_segmented_outbox_runtime_validation.cpp -lcrypto -o build/hub_segmented_outbox_runtime_validation
+GS116_HUB_SEGMENTED_OUTBOX_RUNTIME_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_SEGMENTED_OUTBOX_RUNTIME_HOST_TEST_HOST_SOURCES))
+hub-segmented-outbox-runtime-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_SEGMENTED_OUTBOX_RUNTIME_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_SEGMENTED_OUTBOX_RUNTIME_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_segmented_outbox_runtime_validation.cpp -lcrypto -o build/hub_segmented_outbox_runtime_validation
 	./build/hub_segmented_outbox_runtime_validation
 
-commissioning-crypto-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/commissioning_protocol.cpp firmware/common/security/commissioning_wire.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
+GS116_COMMISSIONING_CRYPTO_HOST_TEST_HOST_SOURCES := firmware/common/security/commissioning_protocol.cpp firmware/common/security/commissioning_wire.cpp firmware/common/security/runtime_frame_security.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_COMMISSIONING_CRYPTO_HOST_TEST_HOST_SOURCES))
+commissioning-crypto-host-test: build $(call host_objects,$(GS116_COMMISSIONING_CRYPTO_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_COMMISSIONING_CRYPTO_HOST_TEST_HOST_SOURCES)) tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
 	./build/commissioning_crypto_validation
 
-rejoin-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/rejoin_protocol.cpp firmware/common/security/commissioning_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/transport/data_plane_codec.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/rejoin_host_validation.cpp -lcrypto -o build/rejoin_host_validation
+GS116_REJOIN_HOST_TEST_HOST_SOURCES := firmware/common/security/rejoin_protocol.cpp firmware/common/security/commissioning_wire.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/transport/data_plane_codec.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_REJOIN_HOST_TEST_HOST_SOURCES))
+rejoin-host-test: build $(call host_objects,$(GS116_REJOIN_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_REJOIN_HOST_TEST_HOST_SOURCES)) tests/cpp/rejoin_host_validation.cpp -lcrypto -o build/rejoin_host_validation
 	./build/rejoin_host_validation
 
-association-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/security/association_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/association_persistence_validation.cpp -lcrypto -o build/association_persistence_validation
+GS116_ASSOCIATION_HOST_TEST_HOST_SOURCES := firmware/common/security/association_persistence.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_ASSOCIATION_HOST_TEST_HOST_SOURCES))
+association-host-test: build $(call host_objects,$(GS116_ASSOCIATION_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_ASSOCIATION_HOST_TEST_HOST_SOURCES)) tests/cpp/association_persistence_validation.cpp -lcrypto -o build/association_persistence_validation
 	./build/association_persistence_validation
 
-node-recovery-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp tests/cpp/node_runtime_recovery_validation.cpp -o build/node_runtime_recovery_validation
+GS116_NODE_RECOVERY_HOST_TEST_HOST_SOURCES := shared/src/logging.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_NODE_RECOVERY_HOST_TEST_HOST_SOURCES))
+node-recovery-host-test: build $(call host_objects,$(GS116_NODE_RECOVERY_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_NODE_RECOVERY_HOST_TEST_HOST_SOURCES)) tests/cpp/node_runtime_recovery_validation.cpp -o build/node_runtime_recovery_validation
 	./build/node_runtime_recovery_validation
 
-node-recovery-persistence-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/node_recovery_persistence_validation.cpp -lcrypto -o build/node_recovery_persistence_validation
+GS116_NODE_RECOVERY_PERSISTENCE_HOST_TEST_HOST_SOURCES := shared/src/logging.cpp firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp firmware/node/components/storage/node_recovery_persistence.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_NODE_RECOVERY_PERSISTENCE_HOST_TEST_HOST_SOURCES))
+node-recovery-persistence-host-test: build $(call host_objects,$(GS116_NODE_RECOVERY_PERSISTENCE_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_NODE_RECOVERY_PERSISTENCE_HOST_TEST_HOST_SOURCES)) tests/cpp/node_recovery_persistence_validation.cpp -lcrypto -o build/node_recovery_persistence_validation
 	./build/node_recovery_persistence_validation
 
-node-retirement-protocol-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) shared/src/logging.cpp firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/common/security/runtime_frame_security.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/node_retirement_protocol_validation.cpp -lcrypto -o build/node_retirement_protocol_validation
+GS116_NODE_RETIREMENT_PROTOCOL_HOST_TEST_HOST_SOURCES := shared/src/logging.cpp firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/common/security/runtime_frame_security.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_NODE_RETIREMENT_PROTOCOL_HOST_TEST_HOST_SOURCES))
+node-retirement-protocol-host-test: build $(call host_objects,$(GS116_NODE_RETIREMENT_PROTOCOL_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_NODE_RETIREMENT_PROTOCOL_HOST_TEST_HOST_SOURCES)) tests/cpp/node_retirement_protocol_validation.cpp -lcrypto -o build/node_retirement_protocol_validation
 	./build/node_retirement_protocol_validation
 
-hub-retirement-snapshot-host-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_retirement_snapshot_validation.cpp -lcrypto -o build/hub_retirement_snapshot_validation
+GS116_HUB_RETIREMENT_SNAPSHOT_HOST_TEST_HOST_SOURCES := firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/components/storage/durable_transition.cpp firmware/hub/components/storage/node_retirement_snapshot.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_RETIREMENT_SNAPSHOT_HOST_TEST_HOST_SOURCES))
+hub-retirement-snapshot-host-test: build $(call host_objects,$(GS116_HUB_RETIREMENT_SNAPSHOT_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_HUB_RETIREMENT_SNAPSHOT_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_retirement_snapshot_validation.cpp -lcrypto -o build/hub_retirement_snapshot_validation
 	./build/hub_retirement_snapshot_validation
 
-simulator: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_SOURCES) host/simulator/main.cpp -o build/ghar_sajag_simulator
+GS116_SIMULATOR_HOST_SOURCES := host/simulator/main.cpp firmware/hub/components/storage/durable_event_outbox.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_SIMULATOR_HOST_SOURCES))
+simulator: build $(CPP_OBJECTS) $(call host_objects,$(GS116_SIMULATOR_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_SIMULATOR_HOST_SOURCES)) -o build/ghar_sajag_simulator
 	./build/ghar_sajag_simulator
 
 simulate-matrix:
@@ -221,8 +277,10 @@ contracts:
 verify: contracts cpp-test simulator simulate-matrix python-test app-test product-test
 
 .PHONY: product-test verify-products
-product-test: build
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) tests/cpp/test_product.cpp shared/src/logging.cpp -o build/product_tests_$(PRODUCT)
+GS116_PRODUCT_TEST_HOST_SOURCES := shared/src/logging.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_PRODUCT_TEST_HOST_SOURCES))
+product-test: build $(call host_objects,$(GS116_PRODUCT_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) tests/cpp/test_product.cpp $(call host_objects,$(GS116_PRODUCT_TEST_HOST_SOURCES)) -o build/product_tests_$(PRODUCT)
 	./build/product_tests_$(PRODUCT)
 
 verify-products:
@@ -230,11 +288,9 @@ verify-products:
 	$(MAKE) verify PRODUCT=ai
 
 verify-trace:
-	$(MAKE) clean
 	$(MAKE) verify TRACE_FLAGS=-DGS_ENABLE_TRACE=1 GS_TRACE=1
 
 verify-sanitize:
-	$(MAKE) clean
 	ASAN_OPTIONS=detect_leaks=0 $(MAKE) cpp-test CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer'
 
 clean:
@@ -242,8 +298,10 @@ clean:
 
 # T01: local integration adapter; the original component suites remain unchanged.
 .PHONY: lab-build lab e2e-test
-lab-build: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp host/simulator/interactive.cpp -o build/ghar_sajag_interactive
+GS116_LAB_BUILD_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp host/simulator/interactive.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_LAB_BUILD_HOST_SOURCES))
+lab-build: build $(CPP_OBJECTS) $(call host_objects,$(GS116_LAB_BUILD_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_LAB_BUILD_HOST_SOURCES)) -o build/ghar_sajag_interactive
 
 lab: lab-build
 	python3 tools/sim/local_lab.py
@@ -288,8 +346,24 @@ concurrency-test: lab-build
 endurance-test: lab-build
 	python3 tools/stress/run_stress.py --profile EXTENDED --allow-large
 
-validation-fast: hub-fresh-install-host-test hil-tooling-test hil-host-check multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test hub-fota-guard-host-test secure-fota-adapter-host-test battery-c8-host-test gs150-host-test gs40-host-test gs40-config-test
-	python3 tools/validation/release_gate.py --quick
+VALIDATION_REUSE_REPORTS ?=
+VALIDATION_RECEIPTS = $(foreach report,$(VALIDATION_REUSE_REPORTS),--reuse-report $(report))
+.PHONY: validation-node validation-hub validation-contract validation-backend validation-pwa validation-tooling validation-build validation-sanitize validation-framework-test
+validation-node validation-hub validation-contract validation-backend validation-pwa validation-tooling:
+	python3 tools/validation/component_gate.py --suite $(patsubst validation-%,%,$@) $(VALIDATION_RECEIPTS)
+
+validation-fast:
+	python3 tools/validation/component_gate.py --suite fast $(VALIDATION_RECEIPTS)
+
+validation-build: build $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS)
+	@echo "VALIDATION BUILD PASS"
+
+validation-framework-test:
+	PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_component_gate.py' -v
+
+validation-sanitize:
+	ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 $(MAKE) cpp-test gs40-host-test CXXFLAGS='-std=c++17 -O1 -g1 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer'
+	@echo "VALIDATION SANITIZERS PASS"
 
 # HW-M1 firmware regression/release gate. Physical acceptance is deliberately
 # reported as MANUAL_REQUIRED/PENDING; this target never flashes hardware.
@@ -392,7 +466,8 @@ release-gate-browser-mandatory: release-gate playwright-gate
 
 .PHONY: release-gate-final
 RELEASE_GATE_FINAL_SKIP_PERFORMANCE ?= 0
-release-gate-final: hil-tooling-test hil-host-check hil-target-build-check release-gate-browser-mandatory $(if $(filter 1,$(RELEASE_GATE_FINAL_SKIP_PERFORMANCE)),,performance-test)
+release-gate-final:
+	python3 tools/validation/component_gate.py --suite release $(VALIDATION_RECEIPTS)
 
 validation-nightly:
 	python3 tools/validation/nightly.py $(if $(filter 1,$(HIL)),--hil,) $(if $(HIL_SOAK_MINUTES),--hil-soak-minutes $(HIL_SOAK_MINUTES),)
@@ -418,30 +493,40 @@ validation-coverage: build
 hub-backend-completion-host-test: hub-journal-migration-host-test
 
 .PHONY: hub-runtime-checkpoint-host-test
-hub-runtime-checkpoint-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_runtime_checkpoint_validation
+GS116_HUB_RUNTIME_CHECKPOINT_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_RUNTIME_CHECKPOINT_HOST_TEST_HOST_SOURCES))
+hub-runtime-checkpoint-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_RUNTIME_CHECKPOINT_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_RUNTIME_CHECKPOINT_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_runtime_checkpoint_validation
 	./build/hub_runtime_checkpoint_validation
 
 .PHONY: hub-identity-compaction-host-test
-hub-identity-compaction-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_identity_compaction_validation
+GS116_HUB_IDENTITY_COMPACTION_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_IDENTITY_COMPACTION_HOST_TEST_HOST_SOURCES))
+hub-identity-compaction-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_IDENTITY_COMPACTION_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_IDENTITY_COMPACTION_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_identity_compaction_validation
 	./build/hub_identity_compaction_validation --identity-generation
 
 .PHONY: hub-incremental-completion-host-test
-hub-incremental-completion-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_incremental_completion_validation
+GS116_HUB_INCREMENTAL_COMPLETION_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_INCREMENTAL_COMPLETION_HOST_TEST_HOST_SOURCES))
+hub-incremental-completion-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_INCREMENTAL_COMPLETION_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_INCREMENTAL_COMPLETION_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_runtime_checkpoint_validation.cpp -lcrypto -o build/hub_incremental_completion_validation
 	./build/hub_incremental_completion_validation --incremental-completion
 
 MIXED_BODY_TEST_BINARY ?= build/hub_mixed_body_compaction_validation
 .PHONY: hub-mixed-body-compaction-host-test
-hub-mixed-body-compaction-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/hub_mixed_body_compaction_validation.cpp -lcrypto -o $(MIXED_BODY_TEST_BINARY)
+GS116_HUB_MIXED_BODY_COMPACTION_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_MIXED_BODY_COMPACTION_HOST_TEST_HOST_SOURCES))
+hub-mixed-body-compaction-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_MIXED_BODY_COMPACTION_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_MIXED_BODY_COMPACTION_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_mixed_body_compaction_validation.cpp -lcrypto -o $(MIXED_BODY_TEST_BINARY)
 	$(MIXED_BODY_TEST_BINARY)
 
 P2D_TEST_BINARY ?= build/p2d_cloud_contract_validation
 .PHONY: p2d-cloud-contract-host-test
-p2d-cloud-contract-host-test: build $(CPP_OBJECTS)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) firmware/hub/components/cloud/http_backend_transport.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o $(P2D_TEST_BINARY)
+GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES := firmware/hub/components/cloud/http_backend_transport.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES))
+p2d-cloud-contract-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES)) tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o $(P2D_TEST_BINARY)
 	$(P2D_TEST_BINARY)
 
 P2D_HTTPS_TEST_BINARY ?= build/p2d_https_channel_validation
@@ -449,3 +534,7 @@ P2D_HTTPS_TEST_BINARY ?= build/p2d_https_channel_validation
 p2d-https-channel-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -Itests/cpp/p2d_idf_fake $(CPP_OBJECTS) firmware/hub/components/cloud/http_backend_transport.cpp firmware/hub/target/esp32s3/https_backend_channel.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/p2d_https_channel_validation.cpp -lcrypto -o $(P2D_HTTPS_TEST_BINARY)
 	$(P2D_HTTPS_TEST_BINARY)
+
+# All cached production objects retain generated-header and source/header dependencies.
+$(HOST_TEST_OBJECTS): Makefile build/gs40_generated/gs/node_health_config.hpp
+-include $(HOST_TEST_OBJECTS:.o=.d)

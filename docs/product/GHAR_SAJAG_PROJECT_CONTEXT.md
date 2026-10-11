@@ -51,9 +51,9 @@ Start from [CANONICAL_REQUIREMENTS_INDEX.md](CANONICAL_REQUIREMENTS_INDEX.md) to
 - The decision that 128 events is not an acceptable lifetime and cannot be fixed by increasing the constant alone.
 - USB automation as a product requirement, development-era migration as an R1 requirement, or completed historical evidence.
 
-## Next engineering priority — 2026-10-10
+## Next engineering priority — 2026-10-11
 
-Resume BAT-C8 physical qualification under GS-114, then close the battery target, B0–B4/matched AFTER measurements and C1–C8 release gate in the current Jira handoff. This is a workstream priority, not a change to GS-D030 or storage requirements. S3 GS-148 remains an open, intentionally paused R1 blocker with P2-D partial; its implementation is integrated into the canonical branch and its exact resume gates are in [the S3 P2-D handoff](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md) and [source integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). The audit is retained as historical triage. No capacity, retention, backend contract or GS-147 policy is newly approved.
+The user-approved sequential order is GS-116 validation framework delivery, GS-130 exhaustive feature/test mapping and missing simulation closure, then separately authorized GS-114 physical qualification of matching GS-40/150 firmware. See R1_WORK_STATE.md and the GS-116 evidence for current qualification and mandatory migration failure. Then close the battery target, B0–B4/matched AFTER measurements and C1–C8 release gate in the current Jira handoff. This is a workstream priority, not a change to GS-D030 or storage requirements. S3 GS-148 remains an open, intentionally paused R1 blocker with P2-D partial; its implementation is integrated into the canonical branch and its exact resume gates are in [the S3 P2-D handoff](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md) and [source integration manifest](../exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md). The audit is retained as historical triage. No capacity, retention, backend contract or GS-147 policy is newly approved.
 
 ## Storage-first and failure-aware learning priority
 

@@ -158,7 +158,8 @@ Each canonical file is listed once in the canonical table above. The domain sect
 
 | Path | Classification | Use | Read when |
 |---|---|---|---|
-| `docs/validation/MASTER_VALIDATION.md` | TEST_PLAN | Host/simulation/validation framework | Choose validation gates |
+| `docs/validation/MASTER_VALIDATION.md` | TEST_PLAN / ENGINEERING_GUIDE | GS-116 component/fast/release execution and permanent DoD; historical inventory retained, exhaustive coverage owned by GS-130 | Every substantive feature/fix; choose validation gates |
+| `docs/exec-plans/evidence/R1_GS116_VALIDATION_FRAMEWORK_20261010.md` | TEST_EVIDENCE / HANDOFF | Current framework qualification, migration baseline diagnosis and GS-130 next action | Resume GS-116/130 or inspect aggregate failures |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/VALIDATION_FRAMEWORK.md` | TEST_PLAN | Reference-code validation framework | Reference application tests |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/SIMULATION_START_HERE.md` | TEST_PLAN | Hardware-independent verification entry | Host simulation workflow |
 | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/SIMULATION_LLD_v1.0.md` | IMPLEMENTATION_DESIGN | Simulation adapter low-level design | Simulator implementation |

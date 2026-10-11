@@ -2,6 +2,49 @@
 
 This file is the always-on repository guidance for Codex. Keep it short. Longer requirements live in the canonical documents linked below.
 
+## Permanent engineering Definition of Done — GS-116 / GS-130
+
+Read the current GS-116 and GS-130 Jira policies and
+`docs/validation/MASTER_VALIDATION.md` for every substantive feature/fix. Before
+editing, record owning Jira, affected Node/Hub/application components and shared
+interfaces, existing prior-feature suites, new positive/negative/recovery tests,
+simulation/physical requirements and release impact. Follow the canonical source
+and context rules below; historical validation-worktree instructions do not apply.
+
+Permanently register new deterministic tests in the component registry. Run new
+tests plus all prior affected-component regressions and impacted Node–Hub/API/PWA
+contracts using `make validation-node`, `validation-hub`, `validation-contract`,
+`validation-backend` and `validation-pwa`. Do not substitute focused PASS for these
+suites. Node-only sleep changes require Node and relevant contract tests; GS-40
+liveness changes also require Hub/backend/PWA coverage. Full browser validation
+is required for affected browser behavior and every product release candidate,
+not unconditionally for every isolated firmware developer loop.
+
+Verify registration/execution and nonzero failure propagation. Run applicable
+target builds/sanitizers. `make validation-fast` is the project deterministic gate;
+every product release candidate must run actual `make release-gate-final`, which
+includes all fast/component suites plus release builds, browser and quality gates.
+Missing/zero tests, unexpected skips, stale artifacts, timeouts and incomplete
+mandatory stages are failures. Record remaining failures honestly; never weaken
+requirements or assertions to report PASS.
+
+Software-delivered, physically qualified and release-approved are separate states.
+Simulation/compilation does not prove GPIO/RF/current/storage/OTA behavior. Keep
+required physical acceptance NOT_RUN/BLOCKED until real current-image evidence
+passes or an explicit approved scope decision removes it. Hardware authorization
+is still required. Record test commands/counts/exits/profile/source/evidence and
+remaining gaps in canonical Markdown/Jira; GS-130 owns exhaustive feature mapping.
+Commit validated changes, push normally, verify actual remote HEAD, preserve
+unrelated assets and provide a precise next-task pause/resume handoff.
+
+Development acceptance and release qualification are distinct (GS-116 comment10405).
+For development, run affected Node/Hub suites, shared contracts, framework tests and
+applicable builds/sanitizers. Do not unconditionally run validation-fast, complete
+release-gate-final, unrelated backend or full browser suites. Verify release-stage
+composition with lightweight framework tests. Execute complete product gates for a
+genuine release candidate or explicit user request; otherwise record NOT_RUN,
+deferred. Structural verification never establishes release PASS.
+
 ## Mandatory document precedence
 
 For substantive work, read these first:
