@@ -36,10 +36,13 @@ scoped `make p0-product-e2e P0_SCENARIOS=P0-E2E-002` passed its selected
 assertion and selection tests (3/3), with browser tests correctly omitted. The
 unfiltered registered `make validation-p0-e2e` then ran 17/17 assertions plus
 one Chromium test; its component command exited 0 but completeness adjudication
-returned FAIL / outer exit 2 because the product result is PARTIAL. Report
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791729468625457222/report.json`,
-source fingerprint `47153d5211ca70240caaaf631b6b411bb304c448880b23dc14bea99686693175`.
-The same fingerprint board-stack rerun passed at 8 groups/325 checks in 9.679 s.
+returned FAIL / outer exit 2 because the product result is PARTIAL. Final
+post-commit report at source HEAD
+`5e785b49839fc2fa914a3baf8886f6e707a3de3d`:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791729788813148262/report.json`,
+source fingerprint `add14d809ae6ee942f0d282a668bbe72e7071b6d25efb6353d24027f11f85285`,
+tracked source unchanged; stage 11.661 s, total 12.170 s. Board-stack rerun at
+the same source/fingerprint passed at 8 groups/325 checks in 6.681 s.
 
 Implementation commit `4fd36f31518cb5f7e3c33d0b62862d59813516ce` was pushed
 normally and the actual origin branch was verified equal. GS-130 comment 10436
