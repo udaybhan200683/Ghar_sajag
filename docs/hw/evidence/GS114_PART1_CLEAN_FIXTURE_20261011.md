@@ -311,7 +311,9 @@ GS-114 P1–P9 qualification remain open. No claim of complete physical
 qualification or commercial release approval is made. Part 2 real PIR motion
 remains a separately authorized activity.
 
-Repository checkpoint for this evidence began at
-`73e1e842ff843a696d592bd7c2004b72a512082c`; changes are being validated in the
-same canonical worktree/branch. The original untracked S3 `managed_components/`
-directory remains preserved.
+The validated implementation source began at
+`73e1e842ff843a696d592bd7c2004b72a512082c`. Implementation and evidence commit
+`fee4b230ce954ea8b429390f1d89c44f105458f0` was pushed normally to
+`origin/feature/r1-commercial-baseline`; the remote matched at verification.
+The original untracked S3 `managed_components/` and redacted earlier attempt
+logs remain preserved outside the commit.
