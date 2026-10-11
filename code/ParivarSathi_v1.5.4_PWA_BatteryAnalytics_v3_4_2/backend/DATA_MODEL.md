@@ -123,3 +123,15 @@ This SQLite contract does not configure a production Hub HTTP client, TLS
 identity, or a production PostgreSQL deployment. A production adapter must
 preserve the same transaction and uniqueness rules before the Hub may treat an
 HTTP response as `BACKEND_COMMIT_ACK`.
+
+### 2026-10-11 GS-148 P2-D host composition
+
+`ghar_sajag.durable_api.open_durable_event_api` composes the existing SQLite
+migrations, `DurableEventCommit`, and `SQLiteEventMap` for deterministic P2-D
+host validation. A committed Hub EventKey is therefore readable through the
+existing caregiver event projection after the transaction and after reopening
+the database file. The composition requires an injected trusted Hub authorizer;
+it does not authenticate the HTTP client, provision credentials, establish an
+enrollment-generation registry, persist the whole `GharSajagService`, or provide
+the production PostgreSQL deployment. P0 E2E uses a loopback-only ephemeral
+fixture credential and does not claim production trust or release acceptance.

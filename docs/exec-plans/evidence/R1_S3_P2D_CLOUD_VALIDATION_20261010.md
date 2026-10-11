@@ -206,3 +206,107 @@ Final commit/push verification and a final dated Jira comment follow this eviden
 checkpoint. GS-148/Phase 2 remain open; do not equate the pushed partial checkpoint
 with P2-D delivery. The final Jira comment records the commit and actual remote
 verification to avoid a self-referential commit hash in this document.
+
+## GS-148 P2-D CloudSync/API integration checkpoint — 2026-10-11
+
+Scope is limited to the user-approved P2-D durable CloudSync/API path. P2-E/F,
+physical Phase 3, GS-114, hardware, destructive reclamation and release campaign
+remain on hold. Starting canonical local/origin HEAD was
+`2b1c15c97a917521c142db1b3973382274c306ff`; context preflight passed at
+`2026-10-10.001`.
+
+### Reproduction and classification
+
+`make validation-p0-e2e` at the starting source reproduced the P0 failure:
+`POST /v1/homes/home-p0-e2e/events` with the exact production-shaped S3
+CloudSync EventKey body returned `503 durable_event_store_unavailable`. The
+request was scenario `P0-GAP-001`; the durable body carried structured physical
+device, logical Node, origin session and sequence identity. Reproduction report
+source fingerprint was
+`add14d809ae6ee942f0d282a668bbe72e7071b6d25efb6353d24027f11f85285`; its log
+SHA-256 was
+`dfaed9bd5b9049175b710753dec9ccea4e27094d25f4de32e6490aed589dabcb`.
+
+Root cause: `JsonApi._dispatch` correctly fails closed for an EventKey request
+when `durable_events` is unset. The P0 `LocalProductStack` constructed
+`JsonApi(service, now=...)` without the existing `DurableEventCommit` adapter.
+The default `http_api.main()` is explicitly the in-memory development adapter;
+there is no configured production service composition. This 503 occurred before
+Hub authorization or a SQLite transaction, so it was not an authentication
+rejection or storage commit failure. Classification: **production composition
+gap** (P2-D); no weak fallback to development event ingestion was made.
+
+### Safe implemented portion
+
+Added `backend/ghar_sajag/durable_api.py::open_durable_event_api`. It requires a
+file-backed database and an explicit Hub-authorizer callback, runs the existing
+migrations with foreign keys and SQLite FULL synchronous writes, composes the
+real `DurableEventCommit`, and maps `SQLiteEventMap` onto the existing caregiver
+query path. It does not authenticate a network request itself. Production
+deployment must supply trusted server-side middleware/context and an
+owner/enrollment authorizer. The normal development `JsonApi()` entry point was
+not changed and remains fail-closed for EventKey requests.
+
+The P0 harness now submits the generated CloudSync request unchanged to this
+file-backed API composition. A temporary loopback-only test authenticator uses
+random per-run tokens and an internal trusted context, then binds exact fixture
+Home, Hub, enrollment generation, physical device and logical Node. No token is
+printed or persisted. Tests observed the real API's `201 COMMITTED` only after
+the SQLite transaction; after backend reopen, exact retry returned `200` with
+`duplicate: true`. The committed event was read through `SQLiteEventMap` and
+rendered once in the actual Chromium caregiver timeline. Exact original event
+and Hub receipt timestamps, type, location and payload were asserted.
+
+Negative tests returned 403 for absent Hub context, wrong Home, stale fixture
+generation and wrong physical/logical identity; 409 for same EventKey with a
+conflicting payload; and 503 without a COMMITTED receipt when the backing
+connection was closed. Existing `tests/python/test_durable_event_commit.py`
+still verifies transaction rollback, conflict handling, duplicate effect
+suppression and restart. The integrated P2-D bridge used the production C++ Hub
+CloudSync serializer/HTTP receipt parser and real `JsonApi`/`DurableEventCommit`:
+300/300 events committed and completed, 304 requests, 3 Hub/backend restart
+boundaries, 3 duplicate responses, 4 injected response/framing/auth failures,
+0 pending after catch-up, 7.6 seconds measured catch-up in that host fixture.
+This is deterministic host timing, not a deployment or throughput claim.
+
+### Focused results and remaining boundary
+
+Latest `make validation-p0-e2e` report:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791733150540893734/report.json`;
+stage log SHA-256
+`b6177937e8dc376e6efc7330c9d1e05e8be727b8b38ef628db82b312b0fdff97`.
+The report records 121.558 seconds total (120.964-second stage), 25 scenario
+checks, stage subprocess exit 0, `source_unchanged=true`, and final gate
+`software_status=FAIL` because the complete-product result remains PARTIAL.
+The production-shaped request/PWA journey ran 25/25 scenario assertions and one
+Chromium reload PASS. The P2-D bridge committed 300/300 events, persisted across
+three restarts, and retained zero pending after catch-up. `make feature-coverage-test`
+passed: 149 features, 201 source modules, 14 physical cases, plus 19 framework
+integrity tests. Focused API/P2-D host tests passed. No firmware source changed,
+so no target build or sanitizer was rerun. The independent historical
+`hub-journal-migration-host-test` FAIL remains unchanged and was not rerun or
+hidden.
+
+The complete-product stage command exited 0 with valid test output but was
+adjudicated FAIL because the P0 report remains `PARTIAL`; the outer
+`make validation-p0-e2e` gate therefore fails. The scenario run passed; production
+trust/deployment and complete product qualification did not.
+
+Production completion remains blocked by the exact unimplemented trust boundary:
+the Hub HTTPS source verifies the server CA/hostname and sends an injected
+`Authorization` string, but no production credential provisioning/verification
+adapter is connected to the backend. No approved source of Hub/Home/Node
+enrollment-generation binding or revocation lifecycle is wired to the API.
+The CloudSync request and strict Hub receipt schema carry no generation claim,
+and the current SQLite event store is a host contract rather than the deployed
+PostgreSQL/service persistence. Do not add bearer-token semantics, new request or
+receipt fields, storage migration, or production identity policy by assumption.
+The remaining GS-148 decision must specify the trusted Hub principal source,
+Home/Node enrollment-generation lookup and revocation semantics, and the
+production durable-store deployment adapter before live production acceptance.
+
+Physical HIL=`NOT_RUN`; release=`NOT_APPROVED`; production trust and credential
+qualification=`NOT_RUN`. P0 local scenario execution PASS is not full P0 product
+completion or production deployment proof. The GS-130 blocker handoff remains
+PARTIAL. Historical migration-failure evidence, 300-event prior P2-D evidence,
+and all raw logs are preserved; no secrets or physical boards were accessed.

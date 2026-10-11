@@ -387,3 +387,18 @@ GS-148 authenticated durable-commit seam; the registered complete-product stage
 fails closed on that status. Physical runners are opt-in and no hardware was
 operated. See [dated GS-130 P0 evidence](../exec-plans/evidence/R1_GS130_P0_E2E_HIL_20261011.md).
 No new product decision or GS-D identifier is introduced.
+
+## GS-148 P2-D implementation note — 2026-10-11
+
+The P0 host harness now composes the existing file-backed SQLite
+`DurableEventCommit` and `SQLiteEventMap` for the exact CloudSync EventKey
+request. This closes the harness's unconfigured-store 503 in its isolated
+fixture and verifies the real commit/retry/query path. Production trust is not
+decided or implemented: Hub credential verification, trusted Home/Node
+enrollment-generation source/revocation, and deployment database composition
+remain open. The test-only principal is ephemeral and local. No request/receipt
+wire fields, ownership rules, persistence schema, or product semantics changed;
+the locked requirements and context version remain unchanged. Full P0 status
+remains PARTIAL and the complete-product gate remains FAIL until the production
+trust/deployment contract is defined and implemented. See the P2-D evidence
+section in [the existing CloudSync validation record](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).

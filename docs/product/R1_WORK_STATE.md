@@ -936,3 +936,61 @@ are pending focused final validation and commit. Existing untracked S3
 profile builds, run preflight/diff checks, commit and push, verify remote HEAD,
 then use the already installed disposable pair only for separately approved
 GS-114 Part 2 physical PIR qualification.
+
+## GS-148 P2-D CloudSync/API implementation checkpoint — 2026-10-11
+
+**Scope:** User-approved P2-D only. GS-148 P2-E/P2-F, physical Phase 3, GS-114,
+hardware, destructive event reclamation and release campaigns remain on hold.
+Starting canonical local and origin HEAD: `2b1c15c97a917521c142db1b3973382274c306ff`.
+Context preflight PASS (`2026-10-10.001`).
+
+The original P0 failure was reproduced: an unchanged CloudSync EventKey request
+reached `JsonApi` with `durable_events=None` and returned its intended
+fail-closed `503 durable_event_store_unavailable`. The P0 harness had never
+composed the existing file-backed `DurableEventCommit`; this was not a commit
+transaction failure or an authorization rejection. The default `http_api.main`
+remains the documented development adapter.
+
+Added `backend/ghar_sajag/durable_api.py` as an explicit file-backed composition
+of existing migrations, FULL-sync SQLite, `DurableEventCommit`, and
+`SQLiteEventMap` caregiver event queries. It requires an externally supplied
+authorizer and does not itself authenticate clients. P0 passes the exact
+production-shaped CloudSync request through this real API/store, using only an
+ephemeral loopback fixture authenticator. The committed exact EventKey is
+queryable in Chromium after backend reopen. Positive/negative tests cover
+commit-before-receipt, exact retry/restart, conflict, missing/wrong principal,
+Home, fixture generation, physical/logical identity, storage failure, timestamp
+and payload preservation. The P2-D bridge runs production C++ CloudSync/receipt
+code against the real API transaction for 300 events.
+
+**Validation:** latest `make validation-p0-e2e` ran 25/25 scenario assertions
+and one Chromium test PASS; its stage command exited 0 but the complete-product
+adjudicator and outer make gate FAIL because `product_status=PARTIAL`. P2-D
+bridge: 300/300 committed/completed, 3 restarts, 0 pending. Focused API/P2-D
+host regressions PASS. `make feature-coverage-test` PASS: 149 feature rows,
+201 source modules, 14 physical cases and 19 framework integrity tests. See
+[P2-D evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md)
+and report
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791733150540893734/report.json`.
+No firmware changed; no target build/sanitizer was necessary. No hardware
+operation occurred. The historical GS-148 journal-migration assertion FAIL is
+preserved and was not rerun.
+
+**Still blocked:** no production Hub credential provisioning/verification is
+connected. Hub HTTPS verifies the server CA/hostname and sends an injected
+`Authorization` value, while backend trusted middleware is absent. Current API
+and schema do not provide the production Hub/Home/Node enrollment-generation
+lookup or revocation lifecycle; the Hub request/receipt do not carry generation
+fields. File-backed SQLite composition is host validation and not a deployed
+PostgreSQL service or complete persistent backend. Do not invent a bearer
+credential policy, auth principal contract, generation storage, or wire/schema
+change. Exact next prerequisite: approve/document the trusted Hub principal
+source, ownership and enrollment-generation binding/revocation source, and
+production durable-store deployment adapter; then wire those existing approved
+contracts and rerun the P0 E2E. P2-D remains PARTIAL; full P0 and release remain
+NOT_APPROVED. Preserve any required GS-130 blocker disposition.
+
+Uncommitted intended changes are limited to P2-D composition/tests, P0 scenario
+registration and related validation evidence. Existing unrelated S3
+`managed_components/`, GS-114 attempts and redacted logs remain untracked and
+preserved. No branch/worktree/history operation or hardware access was made.

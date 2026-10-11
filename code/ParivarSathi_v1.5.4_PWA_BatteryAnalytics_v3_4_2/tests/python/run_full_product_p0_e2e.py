@@ -9,12 +9,17 @@ OIDC, the unfinished authenticated Hub commit worker, or physical qualification.
 from __future__ import annotations
 
 import argparse
+import copy
+import io
 import json
 import mimetypes
 import os
 from pathlib import Path
+import secrets
+import sqlite3
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from urllib.error import HTTPError
@@ -26,6 +31,7 @@ SCENARIO_REGISTRY = PRODUCT.parents[1] / "docs/validation/P0_E2E_SCENARIOS.json"
 sys.path.insert(0, str(PRODUCT / "backend"))
 from ghar_sajag.http_api import JsonApi  # noqa: E402
 from ghar_sajag.service import GharSajagService  # noqa: E402
+from ghar_sajag.durable_api import open_durable_event_api  # noqa: E402
 
 
 class QuietHandler(WSGIRequestHandler):
@@ -34,15 +40,78 @@ class QuietHandler(WSGIRequestHandler):
 
 
 class LocalProductStack:
-    """Isolated localhost static PWA + real JsonApi with a local test actor."""
+    """Isolated localhost PWA and real API with durable CloudSync commit.
 
-    def __init__(self, home_id: str, actor_id: str):
+    Hub auth is represented only by ephemeral local test credentials translated
+    by this fixture middleware into an internal trusted context. This does not
+    claim the missing production Hub authenticator or OIDC deployment adapter.
+    """
+
+    def __init__(self, home_id: str, actor_id: str, cloud_event_key: dict):
         self.home_id = home_id
         self.actor_id = actor_id
         self.now = 1_700_000_100
         self.service = GharSajagService()
-        self.api = JsonApi(self.service, now=lambda: self.now)
+        self.dev_api = JsonApi(self.service, now=lambda: self.now)
+        self._temp = tempfile.TemporaryDirectory(prefix="ghar-sajag-p0-durable-")
+        self.database_path = Path(self._temp.name) / "backend.sqlite"
+        self.enrollment = {
+            "home_id": home_id, "hub_id": "hub-p0-fixture", "generation": 7,
+            "physical_device_id": cloud_event_key["physical_device_id"],
+            "logical_node_id": cloud_event_key["logical_node_id"],
+        }
+        self.fixture_tokens = {
+            secrets.token_urlsafe(32): dict(self.enrollment),
+            secrets.token_urlsafe(32): {**self.enrollment, "generation": 6},
+            secrets.token_urlsafe(32): {**self.enrollment, "home_id": "another-home"},
+            secrets.token_urlsafe(32): {**self.enrollment, "physical_device_id": "wrong-device"},
+        }
+        self.valid_fixture_token = next(iter(self.fixture_tokens))
+        self.durable = self._open_durable_api()
         self.app_root = PRODUCT / "app"
+
+    def _authorize_fixture_hub(self, context: dict, home_id: str, event_key: dict) -> bool:
+        claims = context.get("gs.p0_fixture_hub_claims")
+        expected = self.enrollment
+        return bool(
+            isinstance(claims, dict) and isinstance(event_key, dict) and
+            context.get("gs.verified_hub") == expected["hub_id"] == claims.get("hub_id") and
+            claims.get("home_id") == home_id == expected["home_id"] and
+            claims.get("generation") == expected["generation"] and
+            claims.get("physical_device_id") == event_key.get("physical_device_id") == expected["physical_device_id"] and
+            claims.get("logical_node_id") == event_key.get("logical_node_id") == expected["logical_node_id"]
+        )
+
+    def _open_durable_api(self):
+        return open_durable_event_api(
+            self.service, self.database_path, self._authorize_fixture_hub,
+            now=lambda: self.now,
+        )
+
+    def _provision_test_household(self, home_id: str) -> None:
+        """Seed the already-enrolled household row required by the event fixture."""
+        with sqlite3.connect(self.database_path) as db:
+            db.execute("PRAGMA foreign_keys=ON")
+            db.execute(
+                "INSERT OR IGNORE INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES(?,?,?,?,?)",
+                (home_id, "P0 isolated test household", "Asia/Kolkata", self.now, self.now),
+            )
+            db.execute(
+                "INSERT OR IGNORE INTO caregivers(caregiver_id,display_name,created_at) VALUES(?,?,?)",
+                (self.actor_id, "P0 test owner", self.now),
+            )
+            db.execute(
+                "INSERT OR IGNORE INTO household_caregivers(home_id,caregiver_id,role) VALUES(?,?,'OWNER')",
+                (home_id, self.actor_id),
+            )
+
+    def restart_durable_backend(self) -> None:
+        self.durable.close()
+        self.durable = self._open_durable_api()
+
+    def close(self) -> None:
+        self.durable.close()
+        self._temp.cleanup()
 
     @staticmethod
     def _respond(start_response, status, body, content_type="application/json", extra=None):
@@ -62,12 +131,32 @@ class LocalProductStack:
                 "api_base": ".",
             }), extra=[("cache-control", "no-store")])
         if path.startswith("/v1/"):
-            # This localhost-only adapter supplies the identity for the prototype
-            # JsonApi. It is not exposed by the PWA and is not a production auth layer.
+            # The caregiver adapter is development-only. Hub auth below is a
+            # separate fixture credential and never comes from X-Actor-Id.
+            environ = dict(environ)
             if not environ.get("HTTP_X_ACTOR_ID"):
-                environ = dict(environ)
                 environ["HTTP_X_ACTOR_ID"] = self.actor_id
-            return self.api(environ, start_response)
+            body_bytes = b""
+            if method == "POST":
+                length = int(environ.get("CONTENT_LENGTH") or 0)
+                body_bytes = environ.get("wsgi.input", io.BytesIO()).read(length)
+                environ["wsgi.input"] = io.BytesIO(body_bytes)
+            body = json.loads(body_bytes) if body_bytes else {}
+            if method == "POST" and path == "/v1/homes":
+                status_line = []
+                result = self.dev_api(environ, lambda status, headers: status_line.append(status))
+                if status_line and status_line[0].startswith("201"):
+                    self._provision_test_household(body["home_id"])
+                return self._respond(start_response, status_line[0], b"".join(result))
+            if method == "POST" and path.endswith("/events") and "event_key" in body:
+                claims = self.fixture_tokens.get(environ.get("HTTP_X_P0_FIXTURE_AUTH", ""))
+                if claims is not None:
+                    # Only this loopback fixture middleware creates internal
+                    # trusted keys; production deployment must supply its own.
+                    environ["gs.verified_hub"] = claims["hub_id"]
+                    environ["gs.p0_fixture_hub_claims"] = claims
+                return self.durable.api(environ, start_response)
+            return self.dev_api(environ, start_response)
         if method not in {"GET", "HEAD"}:
             return self._respond(start_response, "405 Method Not Allowed", b"")
         if path in {"/", "/index.html"}:
@@ -90,12 +179,14 @@ class LocalProductStack:
                              [("cache-control", "no-cache")])
 
 
-def request_json(base: str, method: str, path: str, body=None, actor="owner-p0"):
+def request_json(base: str, method: str, path: str, body=None, actor="owner-p0", hub_token=None):
     headers = {"accept": "application/json", "x-actor-id": actor}
     data = None
     if body is not None:
         data = json.dumps(body, separators=(",", ":")).encode()
         headers["content-type"] = "application/json"
+    if hub_token is not None:
+        headers["x-p0-fixture-auth"] = hub_token
     req = Request(base + path, data=data, headers=headers, method=method)
     try:
         with urlopen(req, timeout=5) as response:
@@ -132,10 +223,19 @@ def run(args) -> int:
         raise ValueError("host-stack EventKey identity mismatch")
     if cloud_request.get("event_key", {}).get("event_sequence") is None:
         raise ValueError("production CloudSync request lacks EventKey")
-    if str(cloud_request["event_key"]["event_sequence"]) not in event["event_key"]:
+    node_parts = event["event_key"].rsplit(":", 2)
+    if len(node_parts) != 3 or node_parts != [
+        cloud_request["event_key"]["logical_node_id"],
+        str(cloud_request["event_key"]["origin_session_id"]),
+        str(cloud_request["event_key"]["event_sequence"]),
+    ]:
         raise ValueError("CloudSync request EventKey does not match Node event export")
+    if (event.get("kind") != cloud_request.get("event_type") or
+        event.get("occurred_at") != cloud_request.get("occurred_at") or
+        event.get("hub_received_at") != cloud_request.get("hub_received_at")):
+        raise ValueError("CloudSync event meaning/timestamps differ from Node event export")
 
-    stack = LocalProductStack("home-p0-e2e", "owner-p0")
+    stack = LocalProductStack("home-p0-e2e", "owner-p0", cloud_request["event_key"])
     stack.now = event["occurred_at"]
     server = make_server("127.0.0.1", 0, stack, handler_class=QuietHandler)
     base = f"http://127.0.0.1:{server.server_port}"
@@ -157,12 +257,93 @@ def run(args) -> int:
         check_selected("P0-E2E-001", status == 201 and created.get("home_id") == stack.home_id,
               "real JsonApi creates isolated household and owner authorization")
 
-        # Exercise the exact production S3 CloudSync body first. The current local
-        # API intentionally refuses it because the authenticated durable Hub commit
-        # middleware/store is not implemented in the production service composition.
-        status, rejected = request_json(base, "POST", f"/v1/homes/{stack.home_id}/events", cloud_request)
-        check_selected("P0-GAP-001", status == 503 and rejected.get("error") == "durable_event_store_unavailable",
-              "production-shaped CloudSync request is fail-closed at the documented GS-148 API seam")
+        # This is the exact body emitted by production Hub CloudSync. The API runs
+        # its real file-backed SQLite transaction. Only the upstream Hub principal
+        # is a local ephemeral test credential; no receipt is fabricated.
+        event_path = f"/v1/homes/{stack.home_id}/events"
+        status, committed = request_json(base, "POST", event_path, cloud_request,
+                                         hub_token=stack.valid_fixture_token)
+        check_selected("P0-GAP-001", status == 201 and committed.get("status") == "COMMITTED" and
+                       committed.get("event_key") == cloud_request["event_key"],
+              "production-shaped CloudSync request reaches the real durable API transaction and returns its committed exact EventKey")
+        committed_row = stack.durable.db.execute(
+            """SELECT e.canonical_event_id FROM events AS e
+                 JOIN durable_event_commits AS c ON c.event_id=e.event_id
+                WHERE c.home_id=? AND c.physical_device_id=? AND c.logical_node_id=?
+                  AND c.origin_session_id=? AND c.event_sequence=?""",
+            (stack.home_id, cloud_request["event_key"]["physical_device_id"],
+             cloud_request["event_key"]["logical_node_id"], cloud_request["event_key"]["origin_session_id"],
+             cloud_request["event_key"]["event_sequence"]),
+        ).fetchone()
+        if committed_row is None:
+            raise AssertionError("durable API returned COMMITTED before exact event row became queryable")
+        caregiver_event_id = committed_row[0]
+        immutable_row = stack.durable.db.execute(
+            "SELECT occurred_at,hub_received_at,event_type,location,payload_json FROM events WHERE home_id=? AND canonical_event_id=?",
+            (stack.home_id, caregiver_event_id),
+        ).fetchone()
+        check_selected("P0-P2D-008", immutable_row is not None and
+                       immutable_row[0] == cloud_request["occurred_at"] and
+                       immutable_row[1] == cloud_request["hub_received_at"] and
+                       immutable_row[2] == cloud_request["event_type"] and
+                       immutable_row[3] == cloud_request["location"] and
+                       json.loads(immutable_row[4]) == cloud_request["payload"],
+              "durable commit preserves the original EventKey payload and Node/Hub timestamps")
+
+        status, unauthorized = request_json(base, "POST", event_path, cloud_request)
+        check_selected("P0-P2D-001", status == 403 and unauthorized.get("error") == "hub_not_authorized",
+              "client actor identity without trusted Hub context cannot create a durable event")
+
+        wrong_owner_token = next(token for token, claims in stack.fixture_tokens.items()
+                                 if claims["home_id"] == "another-home")
+        status, wrong_owner = request_json(base, "POST", f"/v1/homes/another-home/events", cloud_request,
+                                           hub_token=wrong_owner_token)
+        check_selected("P0-P2D-002", status == 403 and wrong_owner.get("error") == "hub_not_authorized",
+              "Hub principal cannot commit an event to a different Home")
+
+        stale_token = next(token for token, claims in stack.fixture_tokens.items()
+                           if claims["generation"] == stack.enrollment["generation"] - 1)
+        status, stale_generation = request_json(base, "POST", event_path, cloud_request,
+                                                hub_token=stale_token)
+        check_selected("P0-P2D-003", status == 403 and stale_generation.get("error") == "hub_not_authorized",
+              "stale Hub enrollment generation cannot write current Home events")
+
+        wrong_identity_token = next(token for token, claims in stack.fixture_tokens.items()
+                                    if claims["physical_device_id"] == "wrong-device")
+        status, wrong_identity = request_json(base, "POST", event_path, cloud_request,
+                                              hub_token=wrong_identity_token)
+        check_selected("P0-P2D-004", status == 403 and wrong_identity.get("error") == "hub_not_authorized",
+              "Hub authorization is pinned to the enrolled physical and logical Node identity")
+
+        # Reopen the same file to model backend restart, then retry the exact
+        # request as if the first HTTP response had been lost. COMMITTED comes
+        # from the original transaction and the duplicate row is not rewritten.
+        stack.restart_durable_backend()
+        status, retry = request_json(base, "POST", event_path, cloud_request,
+                                     hub_token=stack.valid_fixture_token)
+        check_selected("P0-P2D-005", status == 200 and retry.get("status") == "COMMITTED" and
+                       retry.get("duplicate") is True,
+              "backend restart plus exact retry returns the persisted idempotent COMMITTED receipt")
+
+        conflicting = copy.deepcopy(cloud_request)
+        conflicting["location"] = str(conflicting.get("location", "")) + "-conflict"
+        status, conflict = request_json(base, "POST", event_path, conflicting,
+                                        hub_token=stack.valid_fixture_token)
+        committed_count = stack.durable.db.execute(
+            "SELECT COUNT(*) FROM durable_event_commits WHERE home_id=?", (stack.home_id,)
+        ).fetchone()[0]
+        check_selected("P0-P2D-006", status == 409 and conflict.get("error") == "event_key_payload_conflict" and
+                       committed_count == 1,
+              "conflicting content under the exact EventKey is rejected without replacing durable state")
+
+        # A closed connection simulates unavailable durable storage. It must not
+        # generate a successful receipt; then reopen so the remaining scenarios run.
+        stack.durable.close()
+        status, unavailable = request_json(base, "POST", event_path, cloud_request,
+                                           hub_token=stack.valid_fixture_token)
+        check_selected("P0-P2D-007", status == 503 and unavailable.get("error") == "event_commit_unavailable",
+              "database failure remains fail-closed with no COMMITTED receipt")
+        stack.durable = stack._open_durable_api()
 
         # This explicitly exercised heartbeat is an API freshness input only; it
         # does not claim C3 NodeHealth or ESP-NOW delivery.
@@ -177,16 +358,14 @@ def run(args) -> int:
         check_selected("P0-E2E-011", status == 202 and heartbeat_result.get("duplicate") is False,
               "API accepts the implemented Hub heartbeat observation record")
 
-        # Exercise the implemented local development event-ingestion route, preserving
-        # the immutable C3 EventKey string and original event time from the real C++ stack.
-        app_event = {key: event[key] for key in ("event_id", "kind", "location", "occurred_at", "hub_received_at", "uncertainty_s", "payload")}
-        stack.now = event["occurred_at"] + 1
-        status, accepted = request_json(base, "POST", f"/v1/homes/{stack.home_id}/events", app_event)
-        check_selected("P0-E2E-002", status == 202 and accepted.get("event_id") == event["event_key"],
-              "real application service ingests the original EventKey-derived activity")
-        status, duplicate = request_json(base, "POST", f"/v1/homes/{stack.home_id}/events", app_event)
-        check_selected("P0-E2E-003", status == 200 and duplicate.get("duplicate") is True,
-              "real application ingestion deduplicates repeated event identity")
+        check_selected("P0-E2E-002", retry.get("event_key") == cloud_request["event_key"] and
+                       retry.get("duplicate") is True,
+              "Hub retry preserves the structured EventKey and produces an idempotent durable response")
+        check_selected("P0-E2E-003", stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events WHERE home_id=? AND canonical_event_id=?",
+            (stack.home_id, caregiver_event_id),
+        ).fetchone()[0] == 1,
+              "exact retry yields one durable event visible to caregiver event queries")
 
         door_at = event["occurred_at"] + 2
         door_event = {
@@ -224,12 +403,12 @@ def run(args) -> int:
 
         status, snapshot = request_json(base, "GET", f"/v1/homes/{stack.home_id}/snapshot")
         ids = [row["event_id"] for row in snapshot.get("recent_events", [])]
-        check_selected("P0-E2E-007", status == 200 and ids.count(event["event_key"]) == 1 and
+        check_selected("P0-E2E-007", status == 200 and ids.count(caregiver_event_id) == 1 and
               snapshot["latest_activity"]["kind"] == "DOOR_OPEN" and snapshot["door_status"]["unexpected"],
-              "caregiver projection preserves exact motion identity, door meaning and latest activity")
+              "caregiver projection includes the durable CloudSync EventKey exactly once alongside door state")
         check_selected("P0-E2E-008", len(snapshot.get("active_incidents", [])) == 2 and
               ids.index("p0-call-family-01") < ids.index("p0-daytime-inactivity-01") <
-              ids.index("p0-door-open-01") < ids.index(event["event_key"]),
+              ids.index("p0-door-open-01") < ids.index(caregiver_event_id),
               "backend projection preserves resident-action incident state and event chronology")
         check_selected("P0-E2E-012", snapshot.get("hub_reachable") is True and
               snapshot.get("last_hub_at") == heartbeat_at,
@@ -276,7 +455,7 @@ def run(args) -> int:
         browser_tests = 0
         if selected is None or "P0-E2E-017" in selected:
             env = os.environ.copy()
-            env.update({"P0_E2E_BASE_URL": base, "P0_E2E_EVENT_ID": event["event_key"]})
+            env.update({"P0_E2E_BASE_URL": base, "P0_E2E_EVENT_ID": caregiver_event_id})
             playwright = PRODUCT / "node_modules" / ".bin" / "playwright"
             spec = PRODUCT / "tests" / "playwright" / "p0_full_product.spec.ts"
             completed = subprocess.run(
@@ -303,8 +482,8 @@ def run(args) -> int:
             "scenario_results": rows,
             "checks": len(rows), "test_count": browser_tests,
             "selected_scenarios": sorted(selected) if selected is not None else "ALL",
-            "product_gaps": ["P0-GAP-001: authenticated production Hub Durable-Commit API/store unavailable (GS-148)"],
-            "auth_boundary": "localhost-only X-Actor-Id adapter; production OIDC not claimed",
+            "product_gaps": ["GS-148: production Hub TLS/credential authenticator and enrollment-generation registry binding are not configured; local test credential only"],
+            "auth_boundary": "ephemeral loopback Hub fixture credential is translated by test middleware; production Hub trust and caregiver OIDC are not claimed",
             "physical_qualification": "NOT_RUN",
         }
         args.report.parent.mkdir(parents=True, exist_ok=True)
@@ -320,6 +499,7 @@ def run(args) -> int:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+        stack.close()
 
 
 def main():

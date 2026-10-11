@@ -575,8 +575,11 @@ p0-board-stack-event-host-test: build $(P0_BOARD_E2E_OBJECTS) tests/cpp/board_st
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(P0_BOARD_E2E_OBJECTS) tests/cpp/board_stack_e2e_validation.cpp -lcrypto -o build/p0_board_stack_e2e_validation
 	./build/p0_board_stack_e2e_validation --emit-p0-event build/p0_product_event.json build/p0_cloud_sync_request.json
 
-p0-product-e2e: p0-board-stack-event-host-test
+p0-product-e2e: p0-board-stack-event-host-test p2d-cloud-contract-host-test
 	PYTHONPATH=backend:. python3 -m unittest tests.python.test_p0_e2e_selection -v
+	PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_api -v
+	PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_event_commit -v
+	PYTHONPATH=backend:. python3 -m unittest tests.python.test_p2d_cloud_contract -v
 	python3 tools/validation/check_p0_e2e_scenarios.py
 	PYTHONPATH=backend:. python3 tests/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json $(if $(strip $(P0_SCENARIOS)),--scenarios=$(P0_SCENARIOS),)
 
