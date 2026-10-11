@@ -31,13 +31,15 @@ class JsonApi:
 
     def __init__(self, service: GharSajagService | None = None, now: Callable[[], int] | None = None,
                  durable_events: DurableEventCommit | None = None,
-                 authorize_hub: Callable[[dict, str, dict], bool] | None = None) -> None:
+                 authorize_hub: Callable[[dict, str, dict], bool] | None = None,
+                 hub_ownership_registry=None) -> None:
         import time
 
         self.service = service or GharSajagService()
         self.now = now or (lambda: int(time.time()))
         self.durable_events = durable_events
         self.authorize_hub = authorize_hub
+        self.hub_ownership_registry = hub_ownership_registry
 
     def __call__(self, environ: dict, start_response: Callable) -> Iterable[bytes]:
         try:
@@ -87,11 +89,20 @@ class JsonApi:
                 context = request_context or {}
                 # Trusted middleware sets this internal WSGI key; it must never
                 # be copied from a client-controlled HTTP header.
-                if (not isinstance(context.get("gs.verified_hub"), str) or
-                    self.authorize_hub is None or
-                    not self.authorize_hub(context, home_id, body.get("event_key"))):
+                if not isinstance(context.get("gs.verified_hub"), str):
                     raise PermissionError("hub_not_authorized")
-                result = self.durable_events.commit(home_id, body, at)
+                if self.hub_ownership_registry is not None:
+                    result = self.durable_events.commit(
+                        home_id, body, at,
+                        authorization_guard=lambda db, requested_home, request_body:
+                            self.hub_ownership_registry.authorize_cloud_event(
+                                db, context, requested_home, request_body),
+                    )
+                else:
+                    if (self.authorize_hub is None or
+                        not self.authorize_hub(context, home_id, body.get("event_key"))):
+                        raise PermissionError("hub_not_authorized")
+                    result = self.durable_events.commit(home_id, body, at)
                 return ("200 OK" if result["duplicate"] else "201 Created"), result
             event = CloudEvent(home_id, body["event_id"], body["kind"], body.get("location", ""), int(body["occurred_at"]), int(body["hub_received_at"]), at, int(body.get("uncertainty_s", 0)), bool(body.get("is_test", False)), body.get("payload", {}))
             _, duplicate = self.service.accept_hub_event(event)

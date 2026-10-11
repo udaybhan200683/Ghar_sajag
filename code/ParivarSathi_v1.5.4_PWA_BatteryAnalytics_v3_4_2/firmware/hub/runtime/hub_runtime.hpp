@@ -102,6 +102,10 @@ public:
     // Consume one admitted event, apply privacy policy, commit and update the reducer.
     // A duplicate journal identity does not repeat reducer effects.
     std::optional<ProcessResult> run_state_once(std::optional<std::uint16_t> local_minute = std::nullopt);
+    // Returns the original authenticated enrollment generation from the
+    // encrypted identity ledger for this exact persisted event body.
+    bool cloud_event_enrollment_generation(const DomainEvent& event,
+                                           std::uint32_t& generation) const;
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Evaluate absence only with explicit clock and coverage state; full prompt/grace orchestration is
     // still G06.

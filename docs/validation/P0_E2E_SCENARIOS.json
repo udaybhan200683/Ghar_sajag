@@ -3,6 +3,7 @@
   "authority": "docs/product/P0_PRODUCT_REQUIREMENTS.md",
   "executable_gate": "make validation-p0-e2e",
   "physical_qualification": "NOT_RUN",
+  "ownership_lifecycle_test_suite": "make hub-ownership-lifecycle-host-test",
   "use_cases": [
     {
       "use_case_id": "P0-UC-01",
@@ -38,7 +39,7 @@
         "PWA-ONBOARD"
       ],
       "classification": "PARTIAL",
-      "scenario_ids": [],
+      "scenario_ids": ["P0-P2D-010", "P0-P2D-012", "P0-P2D-013"],
       "gap": "Secure owner commissioning has host/GS-114 fixture evidence; production caregiver onboarding and claim flow are not represented by the PWA."
     },
     {
@@ -88,9 +89,10 @@
         "P0-P2D-005",
         "P0-P2D-006",
         "P0-P2D-007",
-        "P0-P2D-008"
+        "P0-P2D-008",
+        "P0-P2D-011"
       ],
-      "gap": "CloudSync-to-SQLite DurableEventCommit is exercised with the real API and projection. The production Hub authenticator, enrollment-generation registry and production database deployment adapter remain unavailable (GS-148)."
+      "gap": "The database-owned Hub/Home/Node registry and epoch/generation authorization guard are now exercised. Production Hub credential issuance/verification, installer authorization, target CloudSync caller and production DB deployment remain unavailable."
     },
     {
       "use_case_id": "P0-UC-05",
@@ -892,6 +894,62 @@
       "command": "make validation-p0-e2e",
       "expected": "503 with no committed receipt when the database connection is unavailable",
       "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-148"
+    }
+    ,{
+      "scenario_id": "P0-P2D-010",
+      "use_case_ids": ["P0-UC-02"],
+      "name": "Permanent Hub identity and Home claim are exact and fail closed",
+      "requirements": ["GS-HUB-02"],
+      "feature_ids": ["API-HUB-OWNERSHIP", "API-COMMIT"],
+      "production_sources": ["backend/ghar_sajag/ownership_registry.py", "backend/migrations/009_hub_ownership_registry.sql"],
+      "test_source": "tests/python/test_hub_ownership_registry.py",
+      "command": "make hub-ownership-lifecycle-host-test",
+      "expected": "one permanent Hub key fingerprint can claim one authorized Home; conflicting identity, Home, and untrusted request context cannot authorize a durable event",
+      "execution_status": "TEST_REPORT",
+      "limitations": "Proof records are constructed by isolated trusted-boundary fixtures; production credential issuance and verification remain blocked.",
+      "jira_owner": "GS-148"
+    },
+    {
+      "scenario_id": "P0-P2D-011",
+      "use_case_ids": ["P0-UC-04"],
+      "name": "Node generation replacement fences new old-generation events while preserving exact committed retries",
+      "requirements": ["GS-D020", "GS-D026", "GS-HUB-02"],
+      "feature_ids": ["HUB-BRIDGE-01", "API-COMMIT"],
+      "production_sources": ["backend/ghar_sajag/ownership_registry.py", "backend/ghar_sajag/durable_commit.py", "backend/migrations/010_durable_commit_ownership_provenance.sql"],
+      "test_source": "tests/python/test_hub_ownership_registry.py",
+      "command": "make hub-ownership-lifecycle-host-test",
+      "expected": "only the exact previously committed EventKey/payload/provenance may receive duplicate COMMITTED after replacement; a new stale-generation event or conflicting reuse is rejected",
+      "execution_status": "TEST_REPORT",
+      "limitations": "The external identity verifier and source of signed enrollment-generation assertions are not yet deployed.",
+      "jira_owner": "GS-148"
+    },
+    {
+      "scenario_id": "P0-P2D-012",
+      "use_case_ids": ["P0-UC-02"],
+      "name": "Transfer epoch blocks old and new Home writes until safe data disposition is defined",
+      "requirements": ["GS-HUB-02"],
+      "feature_ids": ["API-HUB-OWNERSHIP", "API-COMMIT"],
+      "production_sources": ["backend/ghar_sajag/ownership_registry.py", "backend/migrations/009_hub_ownership_registry.sql"],
+      "test_source": "tests/python/test_hub_ownership_registry.py",
+      "command": "make hub-ownership-lifecycle-host-test",
+      "expected": "transfer enters a fenced pending state, stale epochs and both Home write paths fail, old records remain owned by the old Home, and completion remains blocked",
+      "execution_status": "TEST_REPORT",
+      "limitations": "Transfer completion depends on unresolved old-Home journal disposition and trusted local rebind/credential revocation workflow.",
+      "jira_owner": "GS-148"
+    },
+    {
+      "scenario_id": "P0-P2D-013",
+      "use_case_ids": ["P0-UC-02"],
+      "name": "Permanent Node identity has one active Home and globally monotonic enrollment generation",
+      "requirements": ["GS-HUB-02"],
+      "feature_ids": ["API-HUB-OWNERSHIP", "API-COMMIT"],
+      "production_sources": ["backend/ghar_sajag/ownership_registry.py", "backend/migrations/009_hub_ownership_registry.sql"],
+      "test_source": "tests/python/test_hub_ownership_registry.py",
+      "command": "make hub-ownership-lifecycle-host-test",
+      "expected": "a Node cannot be concurrently active under two Hubs/Homes; after authorized revocation, a lower or reused enrollment generation is rejected and the higher-generation Home binding can accept new events without importing old-Home events",
+      "execution_status": "TEST_REPORT",
+      "limitations": "Authorized Node transfer/re-enrollment still requires its trusted commissioning authority; old-Home data and events are not moved.",
       "jira_owner": "GS-148"
     }
   ]

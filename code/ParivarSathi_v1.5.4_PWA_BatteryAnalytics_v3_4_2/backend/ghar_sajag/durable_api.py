@@ -18,6 +18,7 @@ from .durable_commit import DurableEventCommit
 from .http_api import JsonApi
 from .service import GharSajagService
 from .sqlite_events import SQLiteEventMap
+from .ownership_registry import HubOwnershipRegistry
 
 
 @dataclass
@@ -34,8 +35,9 @@ class DurableEventApi:
 def open_durable_event_api(
     service: GharSajagService,
     database_path: str | Path,
-    authorize_hub: Callable[[dict, str, dict], bool],
+    authorize_hub: Callable[[dict, str, dict], bool] | None = None,
     now: Callable[[], int] | None = None,
+    require_registered_ownership: bool = False,
 ) -> DurableEventApi:
     """Compose existing migrations, event projection and durable commit logic.
 
@@ -43,7 +45,7 @@ def open_durable_event_api(
     whose input context was populated by a trusted server-side authenticator.
     No HTTP header is promoted to a trusted identity here.
     """
-    if not callable(authorize_hub):
+    if not callable(authorize_hub) and not require_registered_ownership:
         raise ValueError("trusted_hub_authorizer_required")
     path = Path(database_path)
     if str(database_path) == ":memory:":
@@ -63,9 +65,10 @@ def open_durable_event_api(
         # and remains visible after this composition is reopened.
         service.store.events = event_map
         committer = DurableEventCommit(db, service.lock)
+        ownership_registry = HubOwnershipRegistry(db, service.lock) if require_registered_ownership else None
         return DurableEventApi(
             JsonApi(service=service, now=now, durable_events=committer,
-                    authorize_hub=authorize_hub),
+                    authorize_hub=authorize_hub, hub_ownership_registry=ownership_registry),
             db,
         )
     except BaseException:

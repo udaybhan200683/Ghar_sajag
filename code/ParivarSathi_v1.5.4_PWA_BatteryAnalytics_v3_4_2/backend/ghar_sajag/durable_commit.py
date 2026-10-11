@@ -9,6 +9,7 @@ import hashlib
 import json
 import sqlite3
 import threading
+from dataclasses import dataclass
 from typing import Callable
 
 from .ingest import IngestService
@@ -16,6 +17,14 @@ from .ingest import IngestService
 
 class EventCommitConflict(ValueError):
     pass
+
+
+@dataclass(frozen=True)
+class AuthorizationDecision:
+    """Current ownership decision returned by trusted policy inside commit tx."""
+    hub_device_id: str
+    ownership_epoch: int
+    node_enrollment_generation: int
 
 
 class DurableEventCommit:
@@ -55,9 +64,15 @@ class DurableEventCommit:
     @staticmethod
     def _payload(body: dict) -> tuple[dict, str]:
         allowed = {"event_key", "event_type", "occurred_at", "hub_received_at",
-                   "location", "uncertainty_s", "is_test", "payload"}
+                   "location", "uncertainty_s", "is_test", "payload",
+                   "cloudsync_version", "node_enrollment_generation"}
         if set(body) - allowed or not {"event_key", "event_type", "occurred_at", "hub_received_at"} <= set(body):
             raise ValueError("invalid_event_payload")
+        if ("cloudsync_version" in body or "node_enrollment_generation" in body) and (
+                body.get("cloudsync_version") != 2 or
+                type(body.get("node_enrollment_generation")) is not int or
+                body["node_enrollment_generation"] <= 0):
+            raise ValueError("invalid_cloudsync_provenance")
         kind = body["event_type"]
         if not isinstance(kind, str) or kind not in IngestService.ALLOWED_KINDS:
             raise ValueError("unknown_kind")
@@ -100,7 +115,8 @@ class DurableEventCommit:
         return prefix + hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     def commit(self, home_id: str, body: dict, received_at: int,
-               fail_at: str | None = None) -> dict:
+               fail_at: str | None = None,
+               authorization_guard: Callable[[sqlite3.Connection, str, dict], AuthorizationDecision | None] | None = None) -> dict:
         """Return COMMITTED only after commit; fail_at is a host fault-injection hook."""
         key, canonical = self._identity(body)
         payload, fingerprint = self._payload(body)
@@ -112,14 +128,25 @@ class DurableEventCommit:
                 raise RuntimeError("event_commit_requires_clean_transaction")
             self.db.execute("BEGIN IMMEDIATE")
             try:
+                authorization = None
+                if authorization_guard is not None:
+                    authorization = authorization_guard(self.db, home_id, body)
+                    if not isinstance(authorization, AuthorizationDecision):
+                        raise PermissionError("hub_not_authorized")
                 if not self.db.execute("SELECT 1 FROM households WHERE home_id=?", (home_id,)).fetchone():
                     raise ValueError("unknown_home")
                 prior = self.db.execute(
-                    "SELECT payload_sha256 FROM durable_event_commits WHERE home_id=? AND physical_device_id=? AND logical_node_id=? AND origin_session_id=? AND event_sequence=?",
+                    """SELECT payload_sha256,hub_device_id,ownership_epoch,node_enrollment_generation
+                       FROM durable_event_commits WHERE home_id=? AND physical_device_id=?
+                       AND logical_node_id=? AND origin_session_id=? AND event_sequence=?""",
                     identity).fetchone()
                 if prior is not None:
                     if prior[0] != fingerprint:
                         raise EventCommitConflict("event_key_payload_conflict")
+                    if authorization is not None and tuple(prior[1:]) != (
+                            authorization.hub_device_id, authorization.ownership_epoch,
+                            authorization.node_enrollment_generation):
+                        raise EventCommitConflict("event_key_authorization_provenance_conflict")
                     self.db.commit()
                     return {"event_key": key, "status": "COMMITTED", "duplicate": True}
                 self._fault(fail_at, "before_event")
@@ -134,8 +161,14 @@ class DurableEventCommit:
                      payload["hub_received_at"], payload["uncertainty_s"] * 1000,
                      int(payload["is_test"]), json.dumps(payload["payload"], sort_keys=True)))
                 self.db.execute(
-                    "INSERT INTO durable_event_commits VALUES(?,?,?,?,?,?,?,?)",
-                    (*identity, event_id, fingerprint, received_at))
+                    """INSERT INTO durable_event_commits
+                       (home_id,physical_device_id,logical_node_id,origin_session_id,event_sequence,
+                        event_id,payload_sha256,committed_at,hub_device_id,ownership_epoch,
+                        node_enrollment_generation) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                    (*identity, event_id, fingerprint, received_at,
+                     authorization.hub_device_id if authorization else None,
+                     authorization.ownership_epoch if authorization else None,
+                     authorization.node_enrollment_generation if authorization else None))
                 self._fault(fail_at, "after_event")
                 kind = payload["event_type"]
                 incident_id = None

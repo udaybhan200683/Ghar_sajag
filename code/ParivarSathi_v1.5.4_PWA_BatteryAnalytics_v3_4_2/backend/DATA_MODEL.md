@@ -103,9 +103,11 @@ returns a conflict without changing the original event.
 The configured durable event API responds with `201` and
 `{"event_key": ..., "status": "COMMITTED", "duplicate": false}` for first
 commit, `200` with `duplicate: true` for an exact retry, and `409` for a
-conflicting retry. Trusted middleware must set the internal WSGI
-`gs.verified_hub` field, and an injected authorizer must bind that identity,
-the home, and EventKey. A raw `X-Actor-Id` header is not Hub authentication.
+conflicting retry. Trusted middleware must populate the internal WSGI
+`gs.verified_hub` context (and the ownership-mode key fingerprint/epoch).
+Legacy callback composition uses an injected authorizer; registered-ownership
+composition applies the persistent registry guard in the commit transaction.
+A raw `X-Actor-Id` header is not Hub authentication.
 Without a configured durable store the structured EventKey
 request fails closed. The old local simulator API returns `DURABLE_MODEL`; it
 does not establish backend business commitment.
@@ -124,14 +126,43 @@ identity, or a production PostgreSQL deployment. A production adapter must
 preserve the same transaction and uniqueness rules before the Hub may treat an
 HTTP response as `BACKEND_COMMIT_ACK`.
 
-### 2026-10-11 GS-148 P2-D host composition
+### 2026-10-11 GS-148 P2-D legacy host composition
 
 `ghar_sajag.durable_api.open_durable_event_api` composes the existing SQLite
 migrations, `DurableEventCommit`, and `SQLiteEventMap` for deterministic P2-D
 host validation. A committed Hub EventKey is therefore readable through the
 existing caregiver event projection after the transaction and after reopening
-the database file. The composition requires an injected trusted Hub authorizer;
-it does not authenticate the HTTP client, provision credentials, establish an
-enrollment-generation registry, persist the whole `GharSajagService`, or provide
-the production PostgreSQL deployment. P0 E2E uses a loopback-only ephemeral
-fixture credential and does not claim production trust or release acceptance.
+the database file. This original callback mode does not authenticate the HTTP
+client, provision credentials, persist the whole `GharSajagService`, or provide
+the production PostgreSQL deployment. Registered-ownership mode is described
+below. P0 E2E uses a loopback-only ephemeral fixture credential and does not
+claim production trust or release acceptance.
+
+### 2026-10-11 GS-D032 ownership policy tables (host implementation)
+
+Migrations `009_hub_ownership_registry.sql` and
+`010_durable_commit_ownership_provenance.sql` add persistent Hub identity/key
+fingerprint, one current Home, installation epoch and transition history,
+Node enrollment-generation history, and Hub/epoch/generation provenance on
+each new ownership-authorized durable commit. The registry guard runs within
+the same `BEGIN IMMEDIATE` transaction as EventKey commit. Exact retries retain
+the original ownership provenance; same-key payload conflicts remain rejected.
+Replacement/revocation blocks new events from the old Node generation while
+allowing only an exact prior committed event to replay under the same active
+Hub epoch. A transfer-pending epoch fences writes from both Homes. Completing a
+transfer deliberately fails closed while old-Home event disposition and local
+Hub rebind remain unapproved; existing Home events are neither deleted nor
+reparented. A partial unique index prevents the same permanent Node identity
+from being actively bound to two Hubs/Homes at once. Rebinding requires an
+authorized revocation/recommissioning transition; the index does not provide
+that external authorization workflow.
+
+This code provides persistent policy and transaction enforcement only after a
+trusted caller supplies verified identity and authorization context. There is
+no production issuer/verifier, authorized caregiver/installer claim endpoint,
+deployment database/middleware composition, active S3 CloudSync worker, or
+receipt-signature contract. The capability records exercised by the new tests
+are test boundary inputs, not credentials or cryptographic proof. Therefore
+this schema and its host tests do not close commercial device authentication
+or deployment readiness. See `docs/product/DECISION_LOG.md` GS-D032 and the
+GS-148 P2-D evidence for the unresolved mechanisms.

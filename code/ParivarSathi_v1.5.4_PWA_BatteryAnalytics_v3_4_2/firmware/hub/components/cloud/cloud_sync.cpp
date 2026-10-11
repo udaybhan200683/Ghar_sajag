@@ -9,6 +9,7 @@
 
 #include "cloud/cloud_sync.hpp"
 #include "gs/logging.hpp"
+#include "../../runtime/hub_runtime.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -66,9 +67,16 @@ std::string BackendCommitRequest::json_body() const {
         key.session_id == 0 || key.session_id > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
         key.sequence == 0 || key.sequence > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
         kind == nullptr ||
+        (cloudsync_version != 1 && cloudsync_version != 2) ||
+        (cloudsync_version == 2 && node_enrollment_generation == 0) ||
+        (cloudsync_version == 1 && node_enrollment_generation != 0) ||
         (event.kind == EventKind::MotionSummary) != event.motion_aggregate.has_value()) return {};
     std::ostringstream out;
-    out << "{\"event_key\":{\"physical_device_id\":" << json_string(key.physical_device_id)
+    out << "{";
+    if (cloudsync_version == 2)
+        out << "\"cloudsync_version\":2,\"node_enrollment_generation\":"
+            << node_enrollment_generation << ",";
+    out << "\"event_key\":{\"physical_device_id\":" << json_string(key.physical_device_id)
         << ",\"logical_node_id\":" << json_string(key.source_id)
         << ",\"origin_session_id\":" << key.session_id
         << ",\"event_sequence\":" << key.sequence
@@ -95,6 +103,11 @@ std::string BackendCommitRequest::json_body() const {
 
 CloudSync::CloudSync(HubJournal& journal) : journal_(journal) {
     GS_TRACE(gs::log::Category::Hub, "H08", "CloudSync.enter", "-");}
+
+CloudSync::CloudSync(HubJournal& journal, HubRuntime& runtime)
+    : journal_(journal), runtime_(&runtime) {
+    GS_TRACE(gs::log::Category::Hub, "H08", "CloudSync.secure_provenance.enter", "-");
+}
 
 void CloudSync::set_connected(bool connected, Milliseconds now_ms) {
     GS_TRACE(gs::log::Category::Hub, "H08", "set_connected.enter", "-");
@@ -152,6 +165,11 @@ std::optional<BackendCommitRequest> CloudSync::request_for(const std::string& ho
     if (journal_.storage_fault() || !journal_.contains(event.key) ||
         journal_.cloud_completed(event.key)) return std::nullopt;
     BackendCommitRequest request{home_id, event};
+    if (runtime_ != nullptr) {
+        request.cloudsync_version = 2;
+        if (!runtime_->cloud_event_enrollment_generation(
+                event, request.node_enrollment_generation)) return std::nullopt;
+    }
     if (request.json_body().empty()) return std::nullopt;
     // The caller cannot substitute new content under an existing EventKey.
     // The original journal body is the only retry/serialization authority.

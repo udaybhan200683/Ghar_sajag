@@ -1037,3 +1037,129 @@ generation/revocation source and pending-event behavior on replacement, exact
 COMMITTED receipt trust semantics, and production middleware/durable-store
 composition. Then implement only that approved slice and rerun focused P2-D/P0
 tests. Do not start P2-E/P2-F, hardware/HIL or release-gate-final.
+
+## GS-148 P2-D ownership registry and original-generation provenance — 2026-10-11
+
+Implementation continuation from `ac70f82431c51cc9f7d2975cbc0d04dda4aecb1a`
+adds a persistent backend Hub/Home ownership registry, installation-epoch
+fencing, Node enrollment generation/revocation history, and a fail-closed
+CloudSync authorization guard inside the same durable commit transaction.
+Transfer start fences old epochs; transfer completion intentionally remains
+blocked until old-Home journal disposition and secure local rebind/reset are
+approved. Replaced-generation events cannot be newly admitted; only an exact
+already-committed EventKey with matching payload and provenance may replay
+under the same active Hub/Home epoch.
+
+S3 CloudSync now has a version-2 host-tested request path that obtains the
+original Node enrollment generation from persistent authenticated owner
+evidence bound to the event. It reproduces the same request after restart and
+fails closed when the evidence is absent. The version-1 compatibility path
+remains. No active S3 CloudSync worker calls this path today.
+
+Focused ownership/lifecycle tests pass (6/6), C++ runtime checkpoint and Hub
+backend-commit tests pass, P0 scenario registration passes (17 use cases / 30
+scenarios), and feature-mapping integrity passes (19 checks; 150 features,
+204 source modules, 14 physical cases). `make validation-hub` is FAIL (exit 1,
+403.934 s; 34/36 stages PASS) because the historical
+`hub-journal-migration-host-test` fails at `clean migration commits` (exit 2)
+and the required P0 product status is PARTIAL. `make validation-contract` is
+FAIL (exit 1, 264.616 s) at that same P0 PARTIAL status. `make validation-backend`
+with the registered command-line receipt reuse is FAIL (exit 1, 147.696 s):
+439 Python tests completed with 1 allowed skip and the registered API/frontend
+stages passed, but its required P0 product stage remains PARTIAL. After the
+final backend-only single-active-Node uniqueness constraint, current
+`make python-test` passed 440 tests with one allowed skip in 37.572 s and the
+registered ownership stage passed 6/6. Failures remain visible and are not
+treated as successful product qualification.
+The official clean ESP-IDF 6.0.3 `GS_HIL_BUILD=OFF` C3/S3 target build and
+image-capacity/package check passed: C3 934,192 bytes (1,966,080-byte OTA slot)
+and S3 1,868,880 bytes (4,194,304-byte OTA slot). Image hashes and build report
+are in the linked P2-D evidence record. The build fingerprint preceded the
+final backend-only active-Node uniqueness index and test addition; no
+Hub/C3/S3 firmware source changed after that build.
+
+The focused Hub runtime checkpoint and backend-commit tests also passed under
+ASan/UBSan using the documented `CXXFLAGS` sanitizer profile. After adding the
+single-active-Node binding constraint, its conflict test, scenario registration
+and GS-116 required marker, the ownership stage passed (6/6), and
+`make validation-p0-e2e` reran against source fingerprint
+`6af24081bcc769bd73c61cfb498dfa27e6308e63dbb47931ef207ad7cbc49729`. It
+completed in 42.025 seconds, executed all 26 full-P0 scenario assertions and
+one Chromium test, then exited 2 because product status remains PARTIAL. Current
+report: `evidence/validation_framework/p0-e2e-1791742316138312319/report.json`.
+The focused P0 registry checker reports 30 registered scenarios; three
+ownership scenarios are separately executed by the registered component test.
+
+The registry accepts verified-identity and authorized-operation capability
+objects from its caller; this code does not itself verify credentials, issue
+them, authenticate the caregiver/installer, or establish production
+middleware/deployment. Those trust boundaries remain `BLOCKED` by the open
+technical mechanism decisions in `DECISION_LOG.md`. SQLite and lifecycle
+behavior are host-tested, not deployed/authenticated production trust. The
+previously untracked S3 component directory and GS-114 evidence are preserved;
+no hardware or stored device data was touched. Full release is
+`NOT_APPROVED`; physical HIL is `NOT_RUN`.
+
+See the implementation and validation record in
+`docs/exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md`. After final
+target-build and remote verification, the next prerequisite is one approved
+GS-109/GS-148 technical trust contract for production Hub credential authority,
+authorized claim middleware, enrollment/revocation provenance and retained
+old-generation event disposition. Do not start P2-E/P2-F, HIL or release-gate.
+
+### GS-148 P2-D final implementation checkpoint — 2026-10-11
+
+This same-worktree continuation implements the approved Hub/Home ownership
+policy and original Node-generation provenance at fail-closed backend/Hub
+seams. Backend SQLite now records permanent Hub identity/key fingerprint,
+one active Home binding, ownership epoch/history, globally monotonic Node
+generation history and revocation. The authorization guard runs inside the
+durable EventKey commit transaction and stores Hub/epoch/generation provenance.
+Hub CloudSync has a host-tested v2 serializer that reads the original
+generation from persisted authenticated per-event owner evidence; v1 remains
+for compatibility. A single physical Node cannot have active enrollment rows
+under two Hubs/Homes. Re-home after explicit revocation requires a strictly
+higher generation; the old Home's event stays there and an old generation can
+only retry its exact matching previously committed key.
+
+The transition model safely starts and fences a transfer, but cannot complete
+it while retained old-Home journal data disposition and local association/key
+rebind remain undecided. Capability objects used by the policy are inputs from
+a future trusted adapter; their type names do not prove identity or authorization.
+No production issuer/verifier, caregiver/installer authorization, deployed
+trusted API middleware/database, active S3 CloudSync worker or generation
+allocation authority is configured. The existing protected local P256 key is
+not asserted to be a cloud credential. TLS plus exact EventKey COMMITTED
+remains the implementation's response check; whether production needs a
+separately signed owner/generation-bound receipt remains open.
+
+**Final focused evidence** (working-source fingerprint
+`dc8e0f8bc91cfcaab9a600e9904e124e5cd64162843b15d29ca1eb9709e9e517`, base
+HEAD `ac70f82431c51cc9f7d2975cbc0d04dda4aecb1a`): ownership lifecycle stage
+6/6 PASS; full Python suite 440 PASS / 1 allowed skip; feature traceability
+integrity 19/19 PASS (150 features, 204 modules, 14 physical cases); P0
+registry 17 use cases / 30 scenarios / 30 executable mappings PASS. Latest
+P0 run executes 26/26 assertions and one Chromium test successfully, but
+`make validation-p0-e2e` exits 2 because product status is PARTIAL; report is
+`p0-e2e-1791742681161360468/report.json`. Full Hub/contract/backend reports
+remain as earlier recorded; the Hub report includes the mandatory historical
+`hub-journal-migration-host-test` failure (`clean migration commits`). That
+failure is still FAIL and was not suppressed. Clean ESP-IDF 6.0.3 C3/S3 builds
+and targeted ASan/UBSan evidence remain applicable to unchanged firmware
+sources, but their earlier aggregate source fingerprint predates the final
+backend-only generation constraint.
+
+P0/production trust remains PARTIAL/BLOCKED; product release is
+`NOT_APPROVED`; physical HIL is `NOT_RUN`. No hardware, live cloud, production
+credential or stored device data was used. No workflow/status/rank/dependency,
+locked requirement, storage format or context version changed. Existing S3
+`managed_components/` and GS-114 untracked/redacted evidence are preserved.
+
+**Next action:** retain this implementation on the canonical branch, complete
+the pre-commit evidence checks, commit and push, verify local HEAD against
+GitHub, then update GS-148/GS-109/GS-130 comments. Before production trust can
+be completed, approve or identify the Hub credential issuer/key lifecycle,
+caregiver/installer claim authority, trusted runtime middleware/database
+composition, Node-generation allocation authority, COMMITTED receipt contract,
+and pending old-Home event disposition. GS-109 still owns full Add Device;
+GS-148 P2-E/P2-F and physical qualification remain on hold.

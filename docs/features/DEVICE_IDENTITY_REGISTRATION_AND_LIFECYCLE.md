@@ -218,9 +218,9 @@ implemented. Never infer it from deleting arbitrary NVS keys.
 
 ## 11. Hub replacement and recovery
 
-Current architecture binds Node association to a specific Hub and Home. A
-replacement Hub with a different identity cannot simply impersonate the old
-Hub or inherit the Nodes' sessions. The provisioning design says baseline
+Current architecture binds a Node association to one specific Hub and Home at
+a time. A replacement Hub with a different identity cannot simply impersonate
+the old Hub or inherit the Nodes' sessions. The provisioning design says baseline
 recovery requires explicit recommissioning. Automated Hub-key migration,
 escrow, restore authorization and registry transfer are not defined. A
 Hub's NVS snapshot is encrypted under its wrapping key; a copied blob without
@@ -338,17 +338,36 @@ capacity, and registry load status. If association decryption fails, preserve
 the blob and check format version, generation, nonce/tag, NVS readback and
 wrapping-key source; do not silently erase it and treat the device as new.
 
-## 18. CloudSync backend trust boundary — source audit, 2026-10-11
+## 18. CloudSync backend trust boundary — audit and implementation status, 2026-10-11
 
-The Hub's local commissioning/Node registry remains the source for exact
-`ExpectedNode` identity and its enrollment generation. The current production
-CloudSync request does not transport that generation, and no deployed backend
-registry currently resolves the Hub principal, Home ownership, current Node
-generation or revocation state. The S3 HTTPS adapter's opaque Authorization
-input is not an issuer or credential lifecycle. The host API requires a trusted
-internal Hub context and injected authorizer before durable commit; the
-file-backed SQLite composition is not a production identity registry or
-deployment service. Accordingly, local commissioning success does not prove
+At the initial audit point, the Hub's local commissioning/Node registry was the
+source for exact `ExpectedNode` identity and enrollment generation, but the
+CloudSync request did not carry that generation and no backend ownership
+registry existed. The S3 HTTPS adapter's opaque Authorization input was not an
+issuer or credential lifecycle. This source-audit finding is retained as
+historical provenance; the following host implementation updates those source
+facts without closing the production trust boundary.
+
+The current source adds persistent SQLite Hub identity/Home ownership and Node
+enrollment-generation/revocation policy. A unique active-enrollment constraint
+also prevents one permanent Node identity from being concurrently authorized
+under two Hubs/Homes; explicit authorized revocation/recommissioning is required
+before a new binding. A version-2 CloudSync serializer reads
+the original generation from Hub durable identity-owner evidence bound to the
+EventKey/payload. Backend authorization checks the current Home/Hub epoch and
+original Node generation inside the durable commit transaction. Transfer start
+fences the old epoch; transfer completion fails closed while old-Home event
+disposition and local Hub rebind are unresolved. Exact already committed
+EventKey/payload/provenance retries can complete after Node replacement; new
+events from stale/revoked generations cannot.
+
+This is host-tested policy/schema integration, not commercial authentication.
+No production component currently verifies the Hub credential or installer
+authorization, constructs trusted capability inputs, provisions/rotates
+credentials, deploys the ownership-aware DB composition, or calls the S3
+CloudSync worker. The S3 HTTPS adapter's Authorization value remains opaque and
+its receipt parser has no independent signature verifier. Thus local
+commissioning success and the new persistent policy do not prove production
 backend ownership authorization.
 
 Do not infer production identity issuance, cross-system revocation, the fate of
@@ -356,4 +375,4 @@ old-generation retained events, or signed-receipt semantics from the existing
 local registry. GS-109 must define the authorized onboarding authority and
 shared identity interface; GS-148 P2-D can then bind that approved authority to
 the backend commit path. The exact open questions and proposed options are in
-the [GS-148 P2-D trust-contract evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
+the [GS-148 P2-D trust-contract and implementation evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).

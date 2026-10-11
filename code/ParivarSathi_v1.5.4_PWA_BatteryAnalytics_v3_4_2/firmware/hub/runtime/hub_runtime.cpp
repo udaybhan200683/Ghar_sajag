@@ -592,6 +592,22 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     return ProcessResult{event->key, AckClass::Durable, committed == CommitResult::Stored, signals};
 }
 
+bool HubRuntime::cloud_event_enrollment_generation(const DomainEvent& event,
+                                                   std::uint32_t& generation) const {
+    generation = 0;
+    if (!runtime_state_ || !runtime_state_->healthy() || !durable_admission_open())
+        return false;
+    std::uint64_t ordinal = 0;
+    std::optional<std::uint16_t> minute;
+    bool found = false, payload_matches = false;
+    storage::IdentityOwnerEvidence owner;
+    if (!runtime_state_->lookup_identity(event, ordinal, minute, found,
+            payload_matches, &owner) || !found || !payload_matches ||
+        ordinal == 0 || !owner.authenticated()) return false;
+    generation = owner.enrollment_generation;
+    return generation != 0;
+}
+
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
 // Evaluate absence only with explicit clock and coverage state; full prompt/grace orchestration is
 // still G06.

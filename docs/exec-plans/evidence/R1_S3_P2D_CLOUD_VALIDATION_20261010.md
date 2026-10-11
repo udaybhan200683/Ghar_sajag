@@ -427,3 +427,192 @@ contracts and `TEST_INFRA_ONLY` for the added fixture coverage.
 P2-D remains PARTIAL/BLOCKED at the production trust contract. Physical HIL is
 `NOT_RUN`; full product/release qualification is `NOT_APPROVED`. P2-E/P2-F,
 production deletion/reclamation, GS-114 and hardware remain out of scope.
+
+### GS-148 P2-D ownership provenance implementation checkpoint — 2026-10-11
+
+Starting checkpoint for this implementation continuation was
+`ac70f82431c51cc9f7d2975cbc0d04dda4aecb1a` (local and origin agreed before
+editing; context preflight PASS). The approved GS-D032 lifecycle behavior is
+implemented at the trusted policy seams, without defining or fabricating a
+credential issuer:
+
+- Added SQLite Hub identity/Home ownership and Node enrollment-generation
+  records with unique permanent Hub identity/key fingerprint, single active
+  Home binding, monotonically increasing installation epochs, ownership audit
+  rows, monotonic Node generation replacement and explicit revocation.
+- Claims, transfer initiation, revocation and enrollment require explicit
+  verified-identity / authorized-operation capability inputs. No HTTP header,
+  QR, MAC, or serial is promoted to a verified identity. This module does not
+  authenticate caregivers, verify cryptographic proof, issue credentials, or
+  expose a claim endpoint; its direct test proofs are test inputs at the
+  trusted boundary, not production credential evidence.
+- Cloud event policy executes inside the same SQLite `BEGIN IMMEDIATE`
+  transaction as durable EventKey commit. It checks current Hub key/Home/epoch
+  and the original Node generation. New events from a replaced/revoked
+  generation fail closed. An exact already committed EventKey may retry under
+  the unchanged active Hub/Home epoch only when stored Hub/epoch/generation
+  provenance matches; immutable payload/provenance conflict checks remain in
+  the durable committer.
+- The S3 `CloudSync(HubJournal&, HubRuntime&)` path serializes a version-2
+  request with the generation read from persistent authenticated owner
+  evidence bound to that exact original event. The compatibility serializer
+  remains version 1. Restart/retry reproduces the same request; missing owner
+  evidence fails closed. No packet format or storage layout was changed.
+- Transfer can enter `TRANSFER_PENDING` and advances the authorization epoch,
+  immediately fencing old credentials in the registry. Completion is
+  deliberately blocked while retained old-Home data disposition and safe
+  local Hub rebind/reset are undecided. No pending event is erased, reassigned
+  or exported.
+
+This is a persistent policy/data-model implementation and host validation, not
+commercial production trust closure. The production Hub credential verifier,
+credential issuer/rotation/revocation authority, caregiver/installer
+authorization middleware, trusted runtime composition of this registry, and
+deployment database remain absent. The serializer is not currently called by
+an active S3 CloudSync worker. Exact COMMITTED over server-verified TLS remains
+the implemented response check; whether production additionally requires a
+separately signed receipt is unapproved. The actual S3 P256 key provisioning
+and protection state has not been proven as a cloud credential. New migration
+9/10 schemas are host-tested only; no deployed database was migrated.
+
+Focused implementation validation (source HEAD below plus dirty worktree):
+
+| Command | Result |
+|---|---|
+| `PYTHONPATH=backend:. python3 -m unittest tests.python.test_hub_ownership_registry -v` | PASS, 5 tests: unique permanent identity/Home claim, durable exact retry/reopen, wrong owner/epoch/context rejection, generation replacement/revocation, transfer-pending retention/block. |
+| `make hub-ownership-lifecycle-host-test` | PASS, 5 tests; GS-116 ownership lifecycle stage registered. |
+| `make feature-coverage-test` | PASS, 19 traceability-integrity checks; 150 features, 204 source modules, 14 physical cases. Registration integrity is not semantic coverage. |
+| `python3 tools/validation/check_p0_e2e_scenarios.py` | PASS, 17 use cases / 29 scenarios / 29 source mappings. |
+| `make -j2 hub-runtime-checkpoint-host-test hub-backend-commit-host-test` | PASS after adding the source dependency and recovery checkpoint fixture needed by the new exact-generation/restart assertion. |
+| `make validation-hub` | FAIL (exit 1, 403.934 s). 34/36 stages passed; `hub-journal-migration-host-test` fails at `clean migration commits` (test exit 2), and P0 product status is PARTIAL (26 assertions + 1 Chromium test executed). |
+| `make validation-contract` | FAIL (exit 1, 264.616 s) at full-product P0 status (`PARTIAL`); affected contract, runtime, security, ownership and board-stack stages passed. P0 substage: 26/26 assertions plus 1 Chromium test. |
+| `make VALIDATION_RECEIPTS='--reuse-report evidence/validation_framework/contract-1791739183540743883/report.json' validation-backend` | FAIL (exit 1, 147.696 s) at required P0 status; backend Python 439 tests completed (1 allowed skip), and API/frontend/component stages passed. P0 stage reran (receipt reuse does not cover it): 26 assertions + 1 Chromium test, product PARTIAL. |
+| `make validation-p0-e2e` | FAIL (exit 2, 48.941 s outer / 48.027 s stage) by product completeness adjudication; current test-source fingerprint `0a95002fe20e828be847fce7441f9e6b784144f3b752a189b1eb367e06e81b77`; 26/26 scenario assertions and 1 Chromium test passed, overall status remains PARTIAL. |
+| `python3 scripts/build_validation_targets.py` | PASS; clean isolated ESP-IDF 6.0.3 production-profile C3/S3 builds and packaging; C3 934,192 / 1,966,080 slot bytes, S3 1,868,880 / 4,194,304 OTA slot bytes. `GS_HIL_BUILD=OFF`; target compiled only. |
+
+Reports for Hub, contract, backend and P0 stages are under
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/`
+with run IDs `hub-1791738758385199801`,
+`contract-1791739183540743883`, `backend-1791739481827670450`, and
+`p0-e2e-1791739635817423714`. Their source HEAD is the starting commit plus the
+implementation worktree; the Hub report fingerprint is
+`750bbea4115ec3a823fc04dca045b478581eca69989c69303f00d470e6345ab9`. The
+historical migration assertion remains an independent required FAIL, owned by
+GS-148; this task did not change or suppress it. Physical HIL is `NOT_RUN`;
+full release remains `NOT_APPROVED`.
+
+Official clean target build report (ignored build evidence, retained locally):
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/validation_targets/gs116-k8zn86n2/report.json`.
+Both images have build version `ac70f82-gs116-750bbea4`; source fingerprint is
+`750bbea4115ec3a823fc04dca045b478581eca69989c69303f00d470e6345ab9`.
+
+| Target image | Size | OTA slot | SHA-256 |
+|---|---:|---:|---|
+| C3 `gs_hw_m1_node.bin` | 934,192 bytes | 1,966,080 bytes | `1454bf77c6fa8d2c821c2e738811074bcfacfeb021e74d91b54aa1f4eefda40b` |
+| S3 `gs_r1_s3_hub.bin` | 1,868,880 bytes | 4,194,304 bytes | `f9bb33ed8551a1f8829ac6fcb1196d6bf21b64e74b8edcc85c86079498d56ef8` |
+
+Post-build focused rerun after adding a conflicting second-Home claim assertion:
+`make hub-ownership-lifecycle-host-test` PASS, 5 tests. The final P0 E2E
+rerun on the strengthened test source completed in 48.027 seconds: 26/26
+scenario checks plus 1 Chromium test passed; outer command exits 2 because
+`product_status=PARTIAL`. Report:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791741994656470626/report.json`;
+log SHA-256 `5d76c069413467db432418793d1e6567e8e79f9359ad9509dc2d5e2ce1571de4`.
+The earlier Hub/contract/backend aggregate reports carry fingerprint
+`750bbea4…`, before that assertion-only change; current P0 carries the exact
+updated fingerprint above. No firmware source changed after the target build.
+
+Focused sanitizers also pass:
+`ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 make -j2 hub-runtime-checkpoint-host-test hub-backend-commit-host-test CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer'`
+— exit 0; both changed Hub runtime/CloudSync-related host executables completed.
+
+### Final backend Node-binding fence — 2026-10-11
+
+Final source review found the backend could hold the same permanent physical
+Node identity as ACTIVE under two separate Hub/Home rows. Existing device
+identity architecture binds a Node to one Hub/Home at a time, so migration
+`009` now adds a partial unique index on `physical_node_id WHERE state='ACTIVE'`.
+Enrollment translates that exact active-identity collision into a fail-closed
+ownership conflict; unrelated schema-integrity errors are not mislabeled.
+This does not implement Node transfer or authorization. The old binding must
+be explicitly revoked by the trusted commissioning owner before any new
+binding; old-Home events are untouched.
+
+Final focused evidence on source fingerprint
+`6af24081bcc769bd73c61cfb498dfa27e6308e63dbb47931ef207ad7cbc49729`:
+
+| Command | Result |
+|---|---|
+| `make hub-ownership-lifecycle-host-test` | PASS, 6/6 tests including concurrent cross-Hub/Home enrollment rejection; P0-P2D-010/011/012/013 markers emitted. |
+| `make python-test` | PASS, 440 tests in 37.572 s, 1 allowed skip. |
+| `make feature-coverage-test` | PASS, 19/19 framework/traceability tests; 150 features, 204 modules, 14 physical cases. |
+| `python3 tools/validation/check_p0_e2e_scenarios.py` | PASS, 17 use cases / 30 registered scenarios / 30 executable source mappings. |
+| `make validation-p0-e2e` | FAIL as complete-product gate (exit 2; outer 42.025 s, P0 stage 41.312 s): all 26 executed scenario assertions and one Chromium test PASS; adjudicator retains `product_status=PARTIAL`. Report `p0-e2e-1791742316138312319/report.json`, log SHA-256 `868be9666881d0b55b491bab1f83276e150286e1df3436d8753d783857fad611`. |
+
+The preceding complete Hub/contract/backend aggregates were run before this
+last backend-only index/test addition; their earlier source fingerprint and
+reports remain identified above. The current full Python backend suite, new
+ownership stage, framework traceability checks and P0 E2E were rerun after the
+addition. No Hub/C3/S3 firmware source changed after the clean ESP-IDF target
+builds, so the built image hashes remain valid for the firmware source. The
+build report's aggregate suite fingerprint predates the final backend-only
+change and is not represented as a fingerprint of this final complete
+worktree. The historical Hub journal migration failure remains FAIL from the
+mandatory Hub gate run. No physical operation occurred; release remains
+`NOT_APPROVED`.
+
+### Final P2-D lifecycle/provenance checkpoint — 2026-10-11
+
+The final focused policy change makes Node enrollment generation monotonic
+across the permanent physical Node identity, including a re-home to a different
+Hub/Home. A Node identity cannot be active under two Hub/Home bindings at once.
+After the old binding is explicitly revoked, a new binding must use a higher
+generation; the old generation cannot create a new event. Only its exact,
+already-committed EventKey may receive an idempotent retry under the same
+active Hub ownership epoch and matching stored payload/provenance. Old-Home
+event rows remain attached to the old Home. This is fail-closed backend policy;
+it does not provide the commercial enrollment authority or an automatic
+transfer path.
+
+Latest focused evidence uses dirty-source fingerprint
+`dc8e0f8bc91cfcaab9a600e9904e124e5cd64162843b15d29ca1eb9709e9e517` over base
+HEAD `ac70f82431c51cc9f7d2975cbc0d04dda4aecb1a`:
+
+| Command | Result |
+|---|---|
+| `make hub-ownership-lifecycle-host-test` | PASS, 6/6 tests; claims, transaction guard, durable retry/reopen, revocation, transfer pending, cross-Hub/Home exclusion and globally increasing re-home generation. Markers P0-P2D-010/011/012/013 emitted. |
+| `make python-test` | PASS, 440 tests, one allowed skip. |
+| `make feature-coverage-test` | PASS, 19/19 traceability/framework checks; 150 features, 204 modules, 14 physical cases. |
+| `python3 code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/validation/check_p0_e2e_scenarios.py` | PASS, 17 use cases / 30 registered scenarios / 30 executable source mappings. |
+| `make validation-p0-e2e` | **FAIL as product gate, exit 2.** The production-shaped scenario stage exited 0 and executed 26/26 assertions plus one Chromium test, all PASS; the report adjudicates `product_status=PARTIAL`, so the outer validation gate correctly fails. Outer duration 41.893 s, stage 41.290 s. Physical=`NOT_RUN`. |
+
+Latest P0 report:
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791742681161360468/report.json`;
+stage log SHA-256
+`be2272f3301e8047b7f97d592eacfb626d2daf0c9806010df1ff9af67c7738eb`.
+The 30-case registry includes four ownership IDs; the four ownership behavior
+markers are executed in the separate required `hub-ownership-lifecycle`
+component stage. P0's 26 assertions plus its one actual Chromium test do not
+prove production credential issuance, trusted claim middleware, an active S3
+CloudSync worker, a deployed durable service, or physical behavior.
+
+The current full backend Python suite and ownership component test were rerun
+after the global generation/index change. The complete Hub, contract and
+backend aggregate reports recorded earlier in this evidence remain valid for
+their then-current fingerprints but were not rerun after that backend-only
+change. The Hub aggregate remains a recorded FAIL due to the unchanged
+historical `hub-journal-migration-host-test` assertion `clean migration
+commits`; it was not skipped, weakened or rerun in this focused continuation.
+Firmware source was unchanged after the recorded clean ESP-IDF 6.0.3 C3/S3
+builds, though those reports do not fingerprint the final backend-only tree.
+
+Still open under GS-109/GS-148: production device identity verifier and
+credential issuer/key lifecycle; trusted caregiver/installer claim authority;
+deployment composition that supplies trusted Hub/Home/epoch context; the
+production source/allocation authority for globally monotonic Node generations;
+receipt trust semantics; and disposition of old-Home pending journal records
+before transfer can complete. Existing P256 local commissioning identity is
+not claimed as a cloud credential. No live credentials/service, physical
+board, real transfer, data deletion, full release gate, P2-E or P2-F was used.
+Production trust=`BLOCKED`; P2-D=`PARTIAL`; P0 gate=`FAIL/PARTIAL`;
+physical HIL=`NOT_RUN`; product release=`NOT_APPROVED`.

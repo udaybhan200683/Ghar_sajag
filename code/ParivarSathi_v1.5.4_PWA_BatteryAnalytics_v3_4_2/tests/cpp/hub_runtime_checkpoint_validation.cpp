@@ -3,6 +3,7 @@
 #include "hub_segmented_outbox_runtime_validation.cpp"
 #undef main
 #include "firmware/hub/runtime/hub_checkpoint_codec.hpp"
+#include "firmware/hub/components/cloud/cloud_sync.hpp"
 #include "storage/runtime_state_store.hpp"
 #include <fcntl.h>
 #include <filesystem>
@@ -864,6 +865,54 @@ void identity_generation_compaction_test() {
               << " host_file_bytes_recovered=" << (used_before-used_after) << '\n';
 }
 
+void cloudsync_generation_provenance_test() {
+    using namespace gs::hub;
+    using namespace gs::hub::storage;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    StateFiles files;
+    RuntimeStateStore state(files, crypto, key);
+    require(state.recover(0), "cloud provenance identity recovery");
+    auto original = event(1);
+    IdentityOwnerEvidence owner;
+    owner.enrollment_slot = 2;
+    owner.enrollment_generation = 9;
+    owner.binding_digest[0] = 0x73;
+    require(state.prepare_identity(original, 1, {}, &owner) &&
+            state.confirm_event_publication(1) &&
+            state.save_checkpoint(gs::security::Bytes{0x01}, 1),
+            "cloud provenance durable owner source");
+    HubJournal journal(8);
+    require(journal.commit(original) == CommitResult::Stored, "cloud provenance event journal");
+    HubRuntime runtime;
+    runtime.bind_runtime_state(state);
+    CloudSync cloud(journal, runtime);
+    auto request = cloud.request_for("home-1", original);
+    require(request && request->cloudsync_version == 2 &&
+            request->node_enrollment_generation == 9,
+            "CloudSync reads original owner generation");
+    const auto wire = request->json_body();
+    require(wire.find("\"cloudsync_version\":2") != std::string::npos &&
+            wire.find("\"node_enrollment_generation\":9") != std::string::npos &&
+            wire.find("\"event_sequence\":1") != std::string::npos,
+            "versioned CloudSync provenance retains exact EventKey");
+
+    RuntimeStateStore restored(files, crypto, key);
+    require(restored.recover(1), "cloud provenance identity restart");
+    HubRuntime rebooted_runtime;
+    rebooted_runtime.bind_runtime_state(restored);
+    CloudSync rebooted_cloud(journal, rebooted_runtime);
+    const auto replay = rebooted_cloud.request_for("home-1", original);
+    require(replay && replay->node_enrollment_generation == 9 &&
+            replay->json_body() == wire,
+            "retry after reboot preserves original generation and request");
+
+    HubRuntime without_identity;
+    CloudSync fail_closed(journal, without_identity);
+    require(!fail_closed.request_for("home-1", original),
+            "secure CloudSync refuses event without authenticated owner provenance");
+}
+
 void runtime_identity_compaction_and_replay_test() {
     using namespace gs::hub::storage;
     gs::host::security::OpenSslCommissioningCrypto crypto;
@@ -1713,6 +1762,7 @@ int main(int argc, char** argv) {
             runtime_identity_compaction_and_replay_test();
             identity_generation_filesystem_test();
             identity_generation_multiwindow_test();
+            cloudsync_generation_provenance_test();
             std::cout << "PASS: durable identity generation compaction and replay protection\n";
             return 0;
         }
@@ -1727,6 +1777,7 @@ checkpoint_tests();interruption_tests();published_checkpoint_interruption();time
         segmented_lifecycle_reuse_tests();
         identity_compaction_planning_test();
         identity_generation_compaction_test();
+        cloudsync_generation_provenance_test();
         runtime_identity_compaction_and_replay_test();
         identity_generation_filesystem_test();
         replay_fence_and_eligibility_tests();

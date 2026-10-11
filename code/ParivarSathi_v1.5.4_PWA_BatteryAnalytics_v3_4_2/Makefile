@@ -195,11 +195,15 @@ hub-journal-migration-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS11
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_JOURNAL_MIGRATION_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_journal_migration_validation.cpp -lcrypto -o build/hub_journal_migration_validation
 	./build/hub_journal_migration_validation
 
-GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES := shared/src/logging.cpp firmware/hub/components/storage/journal.cpp firmware/hub/components/cloud/cloud_sync.cpp host/security/openssl_commissioning_crypto.cpp
+GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp
 HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES))
-hub-backend-commit-host-test: build $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES))
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_backend_commit_validation.cpp -lcrypto -o build/hub_backend_commit_validation
+hub-backend-commit-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_BACKEND_COMMIT_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_backend_commit_validation.cpp -lcrypto -o build/hub_backend_commit_validation
 	./build/hub_backend_commit_validation
+
+.PHONY: hub-ownership-lifecycle-host-test
+hub-ownership-lifecycle-host-test:
+	PYTHONPATH=backend:. python3 -m unittest tests.python.test_hub_ownership_registry -v
 
 GS116_S3_DURABLE_OUTBOX_HOST_TEST_HOST_SOURCES := firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/journal.cpp shared/src/logging.cpp host/security/openssl_commissioning_crypto.cpp
 HOST_TEST_OBJECTS += $(call host_objects,$(GS116_S3_DURABLE_OUTBOX_HOST_TEST_HOST_SOURCES))
@@ -575,7 +579,7 @@ p0-board-stack-event-host-test: build $(P0_BOARD_E2E_OBJECTS) tests/cpp/board_st
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(P0_BOARD_E2E_OBJECTS) tests/cpp/board_stack_e2e_validation.cpp -lcrypto -o build/p0_board_stack_e2e_validation
 	./build/p0_board_stack_e2e_validation --emit-p0-event build/p0_product_event.json build/p0_cloud_sync_request.json
 
-p0-product-e2e: p0-board-stack-event-host-test p2d-cloud-contract-host-test
+p0-product-e2e: p0-board-stack-event-host-test p2d-cloud-contract-host-test hub-ownership-lifecycle-host-test
 	PYTHONPATH=backend:. python3 -m unittest tests.python.test_p0_e2e_selection -v
 	PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_api -v
 	PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_event_commit -v

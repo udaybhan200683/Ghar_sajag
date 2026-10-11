@@ -438,6 +438,19 @@ invented. GS-109 owns the full Add Device workflow; this P2-D record requests
 only its authoritative identity/ownership interface. See the 2026-10-11
 [P2-D trust-contract evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
 
+**Implementation checkpoint, 2026-10-11:** GS-148 has now added a persistent
+SQLite ownership-policy registry, single active Home/Hub and Node bindings,
+ownership-epoch fencing, globally monotonic Node enrollment generations, and
+durable CloudSync provenance checks inside the event transaction. The S3
+host serializer can include the original generation from persisted owner
+evidence. These are policy/storage seams, not authenticators: verified identity
+and authorized-operation inputs are supplied by the caller, the production
+caller/credential issuer is absent, and the v2 serializer is not connected to
+an active S3 CloudSync worker. Transfer completion remains blocked until old
+Home pending-event disposition and secure local rebind are approved. This
+implementation does not close any of the open mechanism choices above or
+change the GS-D032 product behavior/context version.
+
 ### GS-D032 — Permanent Hub identity and household ownership lifecycle
 
 **LOCKED product behavior, 2026-10-11 (GS-148 comment 10449; GS-109 comment

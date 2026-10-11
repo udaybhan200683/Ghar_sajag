@@ -13,6 +13,7 @@
 #include "storage/journal.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <map>
 #include <set>
@@ -21,9 +22,13 @@
 
 namespace gs::hub {
 
+class HubRuntime;
+
 struct BackendCommitRequest {
     std::string home_id;
     DomainEvent event;
+    std::uint32_t cloudsync_version{1};
+    std::uint32_t node_enrollment_generation{0};
     // Deterministic JSON for POST /v1/homes/{home_id}/events.
     std::string json_body() const;
 };
@@ -51,6 +56,9 @@ public:
     static constexpr std::size_t kMaximumBatch = 16;
     static constexpr std::size_t kMaximumRetryEntries = 64;
     explicit CloudSync(HubJournal& journal);
+    // Secure CloudSync uses the Hub's encrypted original-owner identity ledger.
+    // If provenance is absent/corrupt, this path refuses to build a request.
+    CloudSync(HubJournal& journal, HubRuntime& runtime);
     void set_connected(bool connected, Milliseconds now_ms);
     std::vector<DomainEvent> next_batch(Milliseconds now_ms, std::size_t limit = 16);
     std::optional<BackendCommitRequest> request_for(const std::string& home_id,
@@ -67,6 +75,7 @@ public:
 private:
     void make_retry_room(const std::string& id);
     HubJournal& journal_;
+    HubRuntime* runtime_{nullptr};
     bool connected_{false};
     std::size_t failures_{0};
     Milliseconds retry_after_ms_{0};
