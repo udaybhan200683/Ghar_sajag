@@ -583,3 +583,24 @@ HIL-OR-001..020, HIL-HUB-RST-001..010, HIL-C3-RST-001..008 and
 HIL-BOTH-RST-001..006 (71 automated real-target cases). Six electrical,
 optical, RF/current/battery/thermal boundaries remain explicit extra-fixture
 rows. FOTA and extended stress/soak remain Phase 2.
+
+## GS-130 application lifecycle regressions
+
+The PWA feature rows `PWA-ONBOARD`, `PWA-SCHEDULE`, `PWA-CLAIM`, `PWA-NOTIFY`,
+`PWA-ACTIVITY` and `PWA-CACHE` in `MASTER_TRACEABILITY.csv` map focused assertions
+to the existing `javascript` and, where applicable, `python` stages. The JavaScript
+suite registers `tests/js/application_lifecycle.test.mjs` through the existing
+`make app-test` glob and stage input; backend tests remain under normal Python
+discovery. For focused app changes use `node --test tests/js/application_lifecycle.test.mjs`
+and only directly affected Python unittest methods/modules. This does not require
+Node/Hub/contract or release gates unless a shared contract changes.
+
+The service-worker harness executes the production worker source with controlled
+worker globals/cache/fetch, covering activation, offline shell fallback, missing
+assets, recovery and cache-read failure. It does not prove browser cache eviction,
+quota or installed-device lifecycle. The current lightweight PWA feature modules
+do not implement durable interrupted-onboarding recovery or an offline settings
+queue; notification subscription and activity persistence across a real browser
+restart remain partial and explicitly tracked rather than inferred from helper
+tests. Full browser validation remains a release/affected-browser gate and was not
+executed by the focused GS-130 continuation.

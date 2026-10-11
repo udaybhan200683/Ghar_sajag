@@ -389,13 +389,59 @@ canonical branch and original untracked S3 managed_components/ignored assets.
 Final Git commit/push/remote verification and GS130 comment IDs are recorded in
 the delivery closeout below. No statuses/ranks/dependencies changed.
 
-Resume with context preflight, current branch/status/head/Jira10409/10413 and this
-record. Do not rebuild the new boundary/board/PSA framework from scratch. Remaining
-GS130 work: exact application lifecycle/worker/cache mappings and feasible focused
-tests; review incomplete category scopes rather than equate file accounting with
-semantic coverage. Target-only GS114/GS108 fixture actions require separate scope
-approval; existing HIL must gain safe observation/manual optical handling through
-its supervisor before any invocation under non-destructive authorization.
+Resume with context preflight, current branch/status/head/Jira10418 and this record.
+Do not rebuild the delivered boundary/board/PSA framework from scratch. The focused
+application lifecycle continuation and its results are appended below.
+
+## Focused application lifecycle continuation — 2026-10-11
+
+Start HEAD/local/remote `17fb074cdb1caa5ff1a08135222b29ec502c1dda`; clean tracked
+tree, preserved original untracked S3 `managed_components/`; preflight PASS. Scope
+was limited to six existing PWA matrix rows, targeted app/backend tests and the
+service-worker fallback defect. No Node/Hub/board-stack/release/browser campaign,
+hardware, Jira status/rank or product requirement changes.
+
+Added `tests/js/application_lifecycle.test.mjs` with six stable cases registered by
+the existing `javascript` suite (`make app-test`, registry now fingerprints this
+test file), and one Python lease-expiry test under the existing `python` discovery
+stage. No new validation runner or copy of product logic was created. The SW test
+loads the actual `app/public/service-worker.mjs` into a worker-scope harness and
+exercises install/activate, old-cache removal, online recovery, cached route,
+deep-link fallback, missing assets and cache read failure. It exposed rejected
+cache lookup behavior; worker now serves cached `index.html` for navigation and
+returns explicit no-store 503 for unavailable/corrupt content.
+
+Focused final executions:
+
+| Gap | Test ID | Execution and result | Classification/limit |
+|---|---|---|---|
+| Service-worker navigation/recovery | PWA-GS130-SW-01 | `node --test tests/js/application_lifecycle.test.mjs`; included in app suite 23/23 PASS, exit0 | PASS for production worker logic under VM; real browser cache quota/eviction remains unproven |
+| Interrupted onboarding | PWA-GS130-ONBOARD-01 | same app suite; retry regenerates identical create command/key and invalid consent remains rejected | PARTIAL: current feature exports validation/command helpers only; no persisted onboarding transaction/UI recovery flow to execute |
+| Offline settings/reconnect | PWA-GS130-SCHEDULE-01 | same app suite; targeted schedule persistence tests 2/2 PASS, exit0 | PARTIAL: network failure is not false success and retry works; no durable offline settings queue exists |
+| Claim expiry/reconnect | PWA-GS130-CLAIM-01 | app suite plus four backend claim/identity/replay/activity methods 4/4 PASS, exit0; API permits reclaim at exact lease expiry | PASS for deterministic policy/API model; real multi-browser concurrency remains unproven |
+| Notification permission/restart | PWA-GS130-NOTIFY-01 | app suite plus notification lifecycle regression 8/8 PASS, exit0 | PARTIAL: permission states, subscription readiness, persisted preferences/records, provider failure and duplicate suppression covered; live browser subscription/service restart not exercised |
+| Activity reload/cache mapping | PWA-GS130-ACTIVITY-01 | app suite plus four backend event identity/activity regressions 4/4 PASS, exit0 | PARTIAL: versioned cache, ordering/identity/presentation and backend replay behavior covered; actual browser IndexedDB/service-worker page reload not exercised |
+
+Exact focused commands and exits: `make app-test` 23 tests PASS/0 skip, exit0,
+1.70s; `PYTHONPATH=backend python3 -m unittest tests.python.test_backend.BackendTest.test_GS130_claim_expiry_boundary_allows_reconnection_retry tests.python.test_backend.BackendTest.test_B04_claim_lease_prevents_double_ownership tests.python.test_backend.BackendTest.test_B03_ingest_is_idempotent tests.python.test_backend.BackendTest.test_B07_B08_snapshot_separates_activity_from_reachability -v`
+4 tests PASS/0 skip, exit0, 0.41s; `PYTHONPATH=backend python3 -m unittest
+discover -s tests/python -p test_phase2b_notifications.py -v` 8/8 PASS/0 skip,
+exit0, 2.15s; `PYTHONPATH=backend python3 -m unittest
+tests.python.test_phase1_application.Phase1ApplicationTest.test_pwa_schedule_action_round_trips_exact_value
+tests.python.test_phase1_application.Phase1ApplicationTest.test_policy_persistence_and_backend_effect -v`
+2/2 PASS/0 skip, exit0, 1.00s. No live browser or physical execution.
+
+The six feature rows now link stable assertions and existing app/backend registry
+stages. Registration consistency remains distinct from semantic completeness:
+onboarding transaction persistence, offline settings queue, real browser push
+subscription restart and browser-persisted activity reload remain explicit partial
+gaps (no unsupported behavior invented). Existing Hub journal migration failure
+remains mandatory FAIL, GS-148-owned `HISTORICAL_BASELINE_DEFECT`; this continuation
+did not rerun or suppress it. Full validation-fast, release-gate-final, unrelated
+backend/PWA, full browser, board-stack E2E, C3/S3, physical/HIL all NOT_RUN here.
+Recommendation: software test gaps received focused coverage, but GS-130 remains
+PARTIAL until the four lifecycle limitations above are addressed/accepted; release
+remains NOT_APPROVED. Existing GS-114 physical scope is unchanged.
 
 ### Verified implementation delivery
 

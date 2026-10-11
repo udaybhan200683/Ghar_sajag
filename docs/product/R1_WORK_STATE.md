@@ -1,5 +1,32 @@
 # R1 Current Work State
 
+## GS-130 focused application lifecycle continuation — 2026-10-11
+
+Starting local and GitHub HEAD: `17fb074cdb1caa5ff1a08135222b29ec502c1dda`,
+branch `feature/r1-commercial-baseline`. Focused app lifecycle continuation
+added six stable application regression cases and one Python claim-expiry case.
+`make app-test` passes 23/23, notification backend regressions 8/8, related claim/
+identity/activity backend tests 4/4, and settings persistence tests 2/2. Direct
+service-worker script execution exposed and fixed unsafe rejected-cache behavior:
+navigation now falls back to the cached shell and unavailable/corrupt resources
+return explicit 503. Details and limitations are in the linked dated GS-130
+evidence section below.
+
+Gap disposition: worker navigation/recovery PASS in a deterministic VM harness;
+claim expiry/reconnection PASS in UI-policy and API model tests. Onboarding,
+offline settings and notification/activity browser lifecycle are PARTIAL because
+the current app has no persisted onboarding transaction or durable offline settings
+queue, and live browser storage/push subscription lifecycle remains untested. No
+broader feature was invented. Full PWA/browser, full release and physical suites
+remain NOT_RUN. Historical GS-148 Hub migration FAIL remains unchanged; no Node,
+Hub, contract or 325-check board-stack suite was rerun. Jira status/rank/dependencies
+and product requirements are unchanged.
+
+Next: finish the targeted matrix/evidence integrity check, commit/push the focused
+app changes, verify remote HEAD, add GS-130 delivery comment. GS-130 remains
+PARTIAL pending the listed lifecycle gaps and historical migration disposition;
+then separately authorized GS-114 P1–P9 remains the next physical qualification.
+
 ## GS-130 feature regressions / board-stack checkpoint — 2026-10-11
 
 Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
