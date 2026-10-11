@@ -737,3 +737,23 @@ changed. Preserve paired-device data and existing authenticated state. After
 approval, implement/verify a genuinely non-resetting observation path and an
 S3-aware identity/evidence adapter before running only the approved
 observational cases. GS-114 Part 2 physical PIR tests remain separate.
+
+## GS-114 authorized clean-fixture checkpoint — 2026-10-11
+
+After explicit user authorization, exact stable USB links and user-designated
+ports were checked. esptool confirmed `/dev/ttyACM1` is the dedicated C3
+(`14:63:93:c5:d1:58`, 4 MB) and `/dev/ttyACM0` is the dedicated S3
+(`7c:4f:ad:b7:2a:20`, 16 MB, 8 MB PSRAM); Secure Boot and flash encryption are
+disabled. Fresh matching ESP-IDF 6.0.3 C3/S3 production-profile images and GS-40
+configuration bundle built and their image headers, hashes, and partition
+tables were verified. No erase/write occurred. The setup stopped before erase
+because current R1 commissioning requires an exact authorized `ExpectedNode`
+and installer code, but kit provisioning/external authorization is incomplete
+and the S3 target lacks the legacy HIL commissioning control. No credentials or
+protocol were invented. Detailed source/image evidence, per-test status, RTS
+reset disclosure, and the precise prerequisite are in [the clean-fixture
+checkpoint](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md). Latest Jira
+comment records this blocker and required resume action. GS-114 Part 1 A01 has
+identity evidence only; A02–A08 remain blocked/not run as listed. No erase/write
+occurred, but the dedicated Node's pending-event contents and post-probe runtime
+state were not inspected. No Part 2 motion test.

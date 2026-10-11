@@ -33,6 +33,11 @@ USB/UART bridge from the named fixture before connection.
 See [GS-114 Part 1 audit and approval checkpoint](../hw/evidence/GS114_PART1_HIL_AUDIT_20261011.md)
 for the old-to-new compatibility matrix, source evidence, tests that are safe
 to consider after approval, and the exact current NOT_RUN/BLOCKED boundary.
+The authorized clean-fixture identity and image preparation attempt is recorded
+in [the follow-up evidence](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
+Both board identities and matching production images were verified, but erase
+and flashing were stopped before execution because no supported S3 test-only
+commissioning procedure is available.
 
 ## Commands
 
