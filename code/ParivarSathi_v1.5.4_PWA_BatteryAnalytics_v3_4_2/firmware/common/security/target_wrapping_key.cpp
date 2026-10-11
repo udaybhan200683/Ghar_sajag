@@ -5,6 +5,10 @@
 
 #include <algorithm>
 
+#ifndef GS_HIL_COMMISSIONING
+#define GS_HIL_COMMISSIONING 0
+#endif
+
 namespace gs::security {
 
 bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out) {
@@ -17,7 +21,7 @@ PersistentKeyLoadResult load_or_create_target_wrapping_key_with_result(
     out.fill(0);
 // HIL_CONTROL supports the secure-runtime test profile without enabling the
 // legacy raw-FOTA GS_HIL_BUILD path. Both remain disabled in release builds.
-#if !GS_HIL_BUILD && !GS_HIL_CONTROL
+#if !GS_HIL_BUILD && !GS_HIL_CONTROL && !GS_HIL_COMMISSIONING
 #if !defined(CONFIG_SECURE_BOOT) || !defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
     return PersistentKeyLoadResult::Error;
 #endif
@@ -62,7 +66,7 @@ PersistentKeyLoadResult load_or_create_target_wrapping_key_with_result(
 
 bool load_target_installer_code(CommissioningCrypto& crypto, Key32& out) {
     out.fill(0);
-#if !GS_HIL_BUILD && !GS_HIL_CONTROL
+#if !GS_HIL_BUILD && !GS_HIL_CONTROL && !GS_HIL_COMMISSIONING
 #if !defined(CONFIG_SECURE_BOOT) || !defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
     return false;
 #endif
@@ -79,7 +83,7 @@ bool load_target_installer_code(CommissioningCrypto& crypto, Key32& out) {
         crypto.secure_zero(out.data(), out.size());
         return false;
     }
-#if GS_HIL_BUILD || GS_HIL_CONTROL
+#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING
     if (read == ESP_ERR_NVS_NOT_FOUND &&
         crypto.random_bytes(out.data(), out.size()) &&
         nvs_set_blob(handle, "install_code", out.data(), out.size()) == ESP_OK &&

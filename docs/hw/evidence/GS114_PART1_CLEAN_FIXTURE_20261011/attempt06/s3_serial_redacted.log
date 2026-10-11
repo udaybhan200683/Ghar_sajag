@@ -1,0 +1,6 @@
+I (240254) gs_fixture_commissioning: HIL_FIXTURE_STATUS state=timed_out commissioning_window_ms=120000
+I (241034) gs_fixture_commissioning: HIL_FIXTURE_OK request=exact_node
+I (241444) gs_hub_runtime: Exact-node commissioning offer sent
+I (243784) gs_hub_runtime: Authenticated rejoin device=c3-146393c5d158 logical=hil-c3-01 session=3
+I (243864) gs_hub_runtime: Node liveness logical=hil-c3-01 online=1 profile_known=1 session=3
+I (244834) gs_hub_runtime: Authenticated rejoin device=c3-146393c5d158 logical=hil-c3-01 session=4

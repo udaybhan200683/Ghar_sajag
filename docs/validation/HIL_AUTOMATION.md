@@ -1,5 +1,25 @@
 # Hub + ESP32-C3 unattended HIL automation — Phase 1
 
+## GS-114 S3 fixture commissioning (2026-10-11)
+
+The dedicated S3 fixture may be built with `GS_HIL_COMMISSIONING=ON` only for
+the explicit disposable-fixture pairing procedure documented in
+`docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md`. This opt-in profile
+adds a separate UART dispatcher with only `COMMISSION_EXPECTED_NODE` and
+`FIXTURE_STATUS`; it uses `request_node_commissioning()` and the existing
+`HubSecurityLink` owner/protocol. The built-in offer window remains 120 seconds.
+The S3 project's legacy `GS_HIL_BUILD`/`GS_HIL_CONTROL` rejection is unchanged.
+
+The fixture UART is a local engineering authorization boundary only. It is not
+the authenticated installer-to-Hub control path tracked by GS-109. Test key
+material is disposable and uses development NVS; redact installer code from
+captured serial/evidence. The existing C3 `GET_TEST_QR` is used only on the
+authorized C3 fixture. Never issue the other C3 HIL commands for this pairing
+step. The S3 fixture must use the isolated `sdkconfig.defaults.outbox` profile
+because the default development table lacks runtime-required `gs_state` and
+`gs_outbox`; this profile is not commercially qualified. No broad HIL campaign,
+synthetic motion, physical Part 2, or power test is implied by this adapter.
+
 Status: implemented on `feature/hw-m1-4-hil-automation`. This phase is the
 bounded core regression; FOTA matrices, long stress/soak, advanced performance
 qualification and dashboard history are expressly out of scope.
@@ -273,3 +293,24 @@ fixture. USB/software reset tests are not power-cycle tests.
 Phase 2 owns FOTA fault matrices, extended stress/soak, advanced performance
 qualification and dashboard history. No scheduler, cron entry or Windows Task
 Scheduler configuration is installed by Phase 1.
+
+### GS-114 disposable S3 commissioning fixture (2026-10-11)
+
+The approved GS-114 Option A adapter is a narrow, opt-in `GS_HIL_COMMISSIONING`
+profile on the ESP32-S3 only. It is OFF by default, cannot be combined with
+legacy broad HIL controls, and must never be included in release builds. The
+UART trust boundary applies only to explicitly identified disposable boards.
+It accepts one exact `ExpectedNode` via the existing HubSecurityLink owner and
+does not replace GS-109's production Add Device authorization. Do not log or
+retain the C3 installer code, private identity scalars, wrapping keys, or
+session material.
+
+Fixture build invocation and observed image profile are documented in the
+[GS-114 clean-fixture evidence](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
+The registered `s3-fixture-commissioning-test` validates bounded command
+parsing and build isolation. Physical Part 1 observed exact secure association,
+authenticated rejoin, one 300-second NodeHealth opportunity and timer-wake
+telemetry. It did not exercise a real PIR, event Durable ACK, 910-second outage
+transition, fault injection, physical FOTA, or battery/current behavior. Keep
+those criteria open. The Hub aggregate still fails the historical GS-148
+journal migration assertion; the fixture work does not suppress it.

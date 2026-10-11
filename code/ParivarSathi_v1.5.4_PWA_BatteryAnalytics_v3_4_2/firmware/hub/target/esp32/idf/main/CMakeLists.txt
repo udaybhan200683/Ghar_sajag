@@ -7,6 +7,12 @@ set(GS_HUB_SRCS
 if(GS_HIL_BUILD OR GS_HIL_CONTROL)
     list(APPEND GS_HUB_SRCS "hil_control.cpp")
 endif()
+if(GS_HIL_COMMISSIONING)
+    if(NOT IDF_TARGET STREQUAL "esp32s3" OR GS_HIL_BUILD OR GS_HIL_CONTROL)
+        message(FATAL_ERROR "GS_HIL_COMMISSIONING is limited to the isolated S3 fixture profile")
+    endif()
+    list(APPEND GS_HUB_SRCS "fixture_commissioning_control.cpp")
+endif()
 
 set(GS_TARGET_STORAGE_REQUIRES)
 if(IDF_TARGET STREQUAL "esp32s3")
@@ -90,4 +96,5 @@ idf_component_register(
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
     GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>
-    GS_HIL_CONTROL=$<BOOL:${GS_HIL_CONTROL}>)
+    GS_HIL_CONTROL=$<BOOL:${GS_HIL_CONTROL}>
+    GS_HIL_COMMISSIONING=$<BOOL:${GS_HIL_COMMISSIONING}>)

@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <string>
 #include "firmware/hub/target/esp32/hub_security_link.hpp"
+#include "firmware/hub/target/esp32/fixture_commissioning_status.hpp"
 #include "firmware/common/transport/fota_secure_wire.hpp"
 
 namespace gs::hub::target {
@@ -32,6 +33,7 @@ void set_control_plane_active(bool active);
 // Installer-facing product boundary. Ownership of the exact candidate is
 // transferred to the Hub owner only when the bounded request queue accepts it.
 bool request_node_commissioning(HubSecurityLink::ExpectedNode exact);
+FixtureCommissioningStatus fixture_commissioning_status();
 // Preserve the logical slot while a new physical identity proves possession
 // of its key. Queue acceptance is not a completed replacement.
 bool request_node_replacement(const std::string& old_physical_device_id,

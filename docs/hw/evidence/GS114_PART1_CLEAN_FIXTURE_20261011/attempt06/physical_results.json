@@ -1,0 +1,113 @@
+{
+  "campaign": "GS-114 Part 1 focused clean-fixture HIL",
+  "date_utc": "2026-10-11",
+  "source_head_at_build": "73e1e842ff843a696d592bd7c2004b72a512082c",
+  "idf": "6.0.3",
+  "boards": {
+    "c3": {
+      "profile": "ESP32-C3 disposable Node",
+      "port": "/dev/ttyACM1",
+      "mac": "14:63:93:c5:d1:58",
+      "flash_mb": 4,
+      "firmware_version": "73e1e842ff84-gs114-16fca85b",
+      "configuration": "C3 HIL controls + physical wake test profile; USB Serial/JTAG console",
+      "built_app_sha256": "b03b3b2ed7996b594f9fe7d59241f558a6af82774db07a661e5346731db83014",
+      "flash_readback_hash_verified": false
+    },
+    "s3": {
+      "profile": "ESP32-S3 N16R8 disposable Hub",
+      "port": "/dev/ttyACM0",
+      "mac": "7c:4f:ad:b7:2a:20",
+      "flash_mb": 16,
+      "psram_mb": 8,
+      "firmware_version": "73e1e842ff84-gs114-16fca85b",
+      "configuration": "GS_HIL_COMMISSIONING only; legacy broad HIL disabled; candidate outbox/state partitions",
+      "built_app_sha256": "f9608d77230f136abea5794329c1a98be4062419383a1a6dbbfd29a6c793a2d1",
+      "flash_readback_hash_verified": false
+    }
+  },
+  "observations": {
+    "initial_pair_and_rejoin": {
+      "start_utc": "2026-10-11T09:27:12.027276+00:00",
+      "end_utc": "2026-10-11T09:27:16.834413+00:00",
+      "result": "PASS",
+      "evidence": "commissioning_result.json; redacted C3/S3 serial logs"
+    },
+    "hub_health_after_application_update": {
+      "start_utc": "2026-10-11T09:41:16.156044+00:00",
+      "end_utc": "2026-10-11T09:46:46.347314+00:00",
+      "result": "PASS",
+      "log": "s3_post_update_observation_redacted.log",
+      "authenticated_node_health_count": 1,
+      "session": 5,
+      "node_reported_sleep_entries": 149,
+      "node_reported_timer_wakes": 149,
+      "node_reported_gpio_wakes": 0,
+      "node_reported_other_wakes": 0,
+      "new_pir_required": false
+    }
+  },
+  "tests": [
+    {
+      "id": "HIL-A01",
+      "result": "PASS",
+      "limitation": "S3 post-update boot banner was not captured; active adapter and runtime are evidenced by status and authenticated NodeHealth."
+    },
+    {
+      "id": "HIL-A02",
+      "result": "PASS",
+      "limitation": "One dedicated fixture pair only; no multi-node qualification."
+    },
+    {
+      "id": "HIL-A03",
+      "result": "PASS",
+      "limitation": "One authenticated 300-second health opportunity; no long-duration liveness qualification."
+    },
+    {
+      "id": "HIL-A04",
+      "result": "NOT_RUN",
+      "limitation": "No outage or 910-second offline transition was induced."
+    },
+    {
+      "id": "HIL-A05",
+      "result": "NOT_RUN",
+      "limitation": "No event was generated; Durable ACK and EventKey retirement were not physically observed."
+    },
+    {
+      "id": "HIL-A06",
+      "result": "PASS",
+      "limitation": "Bounded observation only, not a soak/resource qualification."
+    },
+    {
+      "id": "HIL-A07",
+      "result": "PASS",
+      "limitation": "Firmware-reported timer wake/sleep counters only; GPIO4 wake not exercised."
+    },
+    {
+      "id": "HIL-A08",
+      "result": "BLOCKED",
+      "limitation": "Loss/replay/offline negative tests need deliberate stimulus or fault injection outside this Part 1 scope."
+    }
+  ],
+  "hardware_actions": [
+    "Full-chip erase and fresh complete image installation on the two specifically authorized disposable boards.",
+    "Initialized blank LittleFS only in the erased S3 test gs_outbox partition; production fail-closed storage behavior was unchanged.",
+    "Fresh test-only identity association through the existing secure commissioning owner.",
+    "One C3 software restart for authenticated rejoin/persistence observation.",
+    "S3 app update/restart to install the final embedded C3 image; C3 association was not cleared.",
+    "Read-only UART observation and status query."
+  ],
+  "explicitly_not_run": [
+    "Part 2 genuine PIR human-motion tests",
+    "Injected motion",
+    "Hub outage and offline-threshold induction",
+    "Durable event/ACK/EventKey test stimulus",
+    "Power/current measurement",
+    "Physical FOTA or rollback",
+    "Power interruption, eFuse write, broad GS-108 campaign"
+  ],
+  "secrets_retained": false,
+  "production_credentials_used": false,
+  "physical_qualification_complete": false,
+  "release_approved": false
+}

@@ -1,5 +1,44 @@
 # R1 Current Work State
 
+## GS-114 fixture commissioning and focused Part 1 result — 2026-10-11
+
+User-approved, S3-only `GS_HIL_COMMISSIONING` adapter reuses the existing
+HubSecurityLink commissioning owner and cryptographic protocol. It is opt-in
+and disabled by default; broad S3 HIL-control rejection remains. The two
+specifically authorized disposable boards were clean-installed after exact
+C3/S3 identity checks. Fresh association, authenticated rejoin, C3
+software-restart rejoin, and a subsequent authenticated NodeHealth from the
+same Node after the S3 app restart were observed. The five-minute health
+opportunity and timer-wake counters were captured without PIR stimulus.
+Detailed image hashes, logs and limitations are in [GS-114 Part 1 fixture
+evidence](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
+
+`make validation-node` and `make validation-contract` PASS. `make validation-hub`
+remains FAIL (exit 2) solely at the known GS-148 `hub-journal-migration-host-test`
+assertion `clean migration commits`; all other registered Hub stages passed.
+The test and ownership constraints remain unchanged. Focused adapter parser /
+isolation tests and existing commissioning crypto, rejoin, association and
+fresh-install checks pass. The ESP-IDF 6.0.3 production-profile C3/S3 builds
+pass (C3 934,192 B; S3 1,868,880 B); fixture UART command strings are absent
+from the production S3 image.
+
+Physical outcomes are bounded: HIL-A01/A02/A03/A06 PASS within stated scope,
+A07 PASS for timer-wake telemetry only, A04/A05 NOT_RUN, A08 BLOCKED. No genuine
+PIR exercise, event Durable ACK, offline threshold, FOTA, RF fault, current
+measurement, broad HIL or release gate was performed. GS-114 P1–P9 physical
+qualification remains open; Part 2 PIR and battery qualification are not
+started. The fixture adapter is not GS-109 product commissioning and uses
+unprotected development identity material; never ship or use it on protected
+or production devices.
+
+Work remains on `/home/udaybhan/projects/Ghar_sajag_r1`,
+`feature/r1-commercial-baseline`, starting at
+`73e1e842ff843a696d592bd7c2004b72a512082c`; source, tests and documentation
+passed focused validation and are staged for commit. Existing untracked S3
+`managed_components/` and prior redacted failed-attempt evidence are preserved.
+Next: finish Git/Jira delivery and verify the remote, then resume only separately
+authorized GS-114 Part 2 physical PIR work.
+
 ## GS-130 focused application lifecycle continuation — 2026-10-11
 
 Starting local and GitHub HEAD: `17fb074cdb1caa5ff1a08135222b29ec502c1dda`,
@@ -757,3 +796,40 @@ comment records this blocker and required resume action. GS-114 Part 1 A01 has
 identity evidence only; A02–A08 remain blocked/not run as listed. No erase/write
 occurred, but the dedicated Node's pending-event contents and post-probe runtime
 state were not inspected. No Part 2 motion test.
+## GS-114 fixture commissioning and focused Part 1 result — 2026-10-11
+
+User-approved, S3-only `GS_HIL_COMMISSIONING` adapter reuses the existing
+HubSecurityLink commissioning owner and cryptographic protocol. It is opt-in
+and disabled by default; broad S3 HIL-control rejection remains. The disposable
+pair was clean-installed after exact C3/S3 identity checks. Fresh association,
+authenticated rejoin, C3 software-restart rejoin, and a subsequent authenticated
+NodeHealth from the same Node after the S3 app restart were observed. The
+five-minute authenticated health cadence and timer-wake counters were captured
+without PIR stimulus. Detailed image hashes, logs, machine-readable outcomes,
+limitations and validation reports are in
+[GS-114 Part 1 fixture evidence](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
+
+`make validation-node` and `make validation-contract` PASS. `make validation-hub`
+remains FAIL (exit 2) solely at the known GS-148
+`hub-journal-migration-host-test` assertion `clean migration commits`; all
+other registered Hub stages passed. Do not suppress or relabel it. The focused
+adapter parser/isolation tests and existing commissioning crypto, rejoin,
+association and fresh-install checks pass. Production-profile C3/S3 target
+build outcome is recorded in the evidence after completion.
+
+Physical outcomes are bounded: HIL-A01/A02/A03/A06 PASS within the stated
+scope, A07 PASS for reported timer wakes only, A04/A05 NOT_RUN, A08 BLOCKED.
+No genuine PIR exercise, event Durable ACK, outage threshold, FOTA, RF fault,
+current measurement, broad HIL or release gate was performed. GS-114 P1–P9
+physical qualification remains open; Part 2 PIR and battery qualification are
+not started. The fixture adapter is not GS-109 product commissioning and uses
+unprotected development identity material; never ship or use it on protected
+or production devices.
+
+Current work remains on `feature/r1-commercial-baseline`, originally at
+`73e1e842ff843a696d592bd7c2004b72a512082c`; source, tests and documentation
+are pending focused final validation and commit. Existing untracked S3
+`managed_components/` is preserved. Next: finish the ESP-IDF 6.0.3 production
+profile builds, run preflight/diff checks, commit and push, verify remote HEAD,
+then use the already installed disposable pair only for separately approved
+GS-114 Part 2 physical PIR qualification.

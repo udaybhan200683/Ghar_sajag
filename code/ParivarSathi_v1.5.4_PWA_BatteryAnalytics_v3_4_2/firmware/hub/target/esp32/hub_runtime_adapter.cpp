@@ -148,6 +148,7 @@ QueueHandle_t g_health_queue = nullptr;
 QueueHandle_t g_security_queue = nullptr;
 QueueHandle_t g_request_queue = nullptr;
 QueueHandle_t g_security_send_queue = nullptr;
+FixtureCommissioningState g_fixture_commissioning_state{};
 std::atomic<std::uint32_t> g_data_queue_drops{0};
 std::atomic<std::uint32_t> g_control_queue_drops{0};
 std::atomic<bool> g_control_plane_active{false};
@@ -745,6 +746,10 @@ void secure_owner_task(void*) {
     ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u storage_epoch=%u",
              static_cast<unsigned>(security_link.enrolled_macs().size()),
              static_cast<unsigned>(*runtime.authoritative_storage_epoch()));
+#if GS_HIL_COMMISSIONING
+    ESP_LOGI(kTag, "HIL_FIXTURE_HOME hub_id=%s home_id=%s",
+             security_link.hub_id().c_str(), security_link.home_id().c_str());
+#endif
 #if GS_HIL_CONTROL
     ESP_LOGI(kTag, "HIL_STACK role=hub task=owner stage=startup minimum_free_bytes=%u",
              static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
@@ -758,6 +763,9 @@ void secure_owner_task(void*) {
         const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
         if (const auto expired = security_link.expire_candidate(now_ms)) {
             (void)esp_now_del_peer(expired->data());
+#if GS_HIL_COMMISSIONING
+            g_fixture_commissioning_state.publish(FixtureCommissioningStatus::TimedOut);
+#endif
             ESP_LOGI(kTag, "Expired uncommissioned peer removed");
         }
         if (fota_guard.active()) {
@@ -858,9 +866,18 @@ void secure_owner_task(void*) {
             std::unique_ptr<HubSecurityLink::ExpectedNode> exact(requested);
             const auto outbound = security_link.begin_commissioning(
                 *exact, static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
-            if (outbound && send_security_message(*outbound)) {
-                ESP_LOGI(kTag, "Exact-node commissioning offer sent");
+            if (outbound) {
+#if GS_HIL_COMMISSIONING
+                g_fixture_commissioning_state.publish(FixtureCommissioningStatus::OfferActive);
+#endif
+                if (send_security_message(*outbound))
+                    ESP_LOGI(kTag, "Exact-node commissioning offer sent");
+                else
+                    ESP_LOGW(kTag, "Exact-node commissioning offer transmission failed");
             } else {
+#if GS_HIL_COMMISSIONING
+                g_fixture_commissioning_state.publish(FixtureCommissioningStatus::Rejected);
+#endif
                 ESP_LOGW(kTag, "Exact-node commissioning request rejected");
             }
             std::fill(exact->installer_code.begin(), exact->installer_code.end(), 0);
@@ -889,6 +906,12 @@ void secure_owner_task(void*) {
             if (const auto* node = security_link.ready_node(control.source_mac)) {
                 const auto prior = authorized.find(control.source_mac);
                 if (prior == authorized.end() || prior->second != node->last_session) {
+#if GS_HIL_COMMISSIONING
+                    if (g_fixture_commissioning_state.status() ==
+                        FixtureCommissioningStatus::OfferActive)
+                        g_fixture_commissioning_state.publish(
+                            FixtureCommissioningStatus::AuthenticatedRejoin);
+#endif
                     runtime.authorize_node(node->logical_id, node->last_session, true);
                     const auto profile = deployment::for_device(node->device_id);
                     runtime.set_node_offline_timeout(node->logical_id,
@@ -1199,12 +1222,34 @@ void set_control_plane_active(bool active) {
 }
 
 bool request_node_commissioning(HubSecurityLink::ExpectedNode exact) {
-    if (g_request_queue == nullptr) return false;
+#if GS_HIL_COMMISSIONING
+    if (!g_fixture_commissioning_state.try_reserve_request()) {
+        std::fill(exact.installer_code.begin(), exact.installer_code.end(), 0);
+        return false;
+    }
+#endif
+    if (g_request_queue == nullptr) {
+        std::fill(exact.installer_code.begin(), exact.installer_code.end(), 0);
+#if GS_HIL_COMMISSIONING
+        g_fixture_commissioning_state.publish(FixtureCommissioningStatus::Rejected);
+#endif
+        return false;
+    }
     auto candidate = std::make_unique<HubSecurityLink::ExpectedNode>(std::move(exact));
     auto* pointer = candidate.get();
-    if (xQueueSend(g_request_queue, &pointer, 0) != pdTRUE) return false;
+    if (xQueueSend(g_request_queue, &pointer, 0) != pdTRUE) {
+        std::fill(candidate->installer_code.begin(), candidate->installer_code.end(), 0);
+#if GS_HIL_COMMISSIONING
+        g_fixture_commissioning_state.publish(FixtureCommissioningStatus::Rejected);
+#endif
+        return false;
+    }
     candidate.release();
     return true;
+}
+
+FixtureCommissioningStatus fixture_commissioning_status() {
+    return g_fixture_commissioning_state.status();
 }
 
 bool request_node_replacement(const std::string& old_physical_device_id,

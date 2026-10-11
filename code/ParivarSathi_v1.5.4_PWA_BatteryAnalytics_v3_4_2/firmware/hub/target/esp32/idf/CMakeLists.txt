@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 option(GS_HIL_BUILD "Enable the USB HIL control plane (never for release images)" OFF)
 option(GS_HIL_CONTROL "Enable test-only UART controls while retaining product security/runtime paths" OFF)
+option(GS_HIL_COMMISSIONING "Enable the isolated S3 fixture commissioning adapter (test only)" OFF)
 if(GS_HIL_BUILD)
     set(GS_HIL_CONTROL ON)
 endif()

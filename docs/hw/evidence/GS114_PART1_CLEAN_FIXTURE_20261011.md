@@ -151,3 +151,167 @@ original images and fixtures.
   ports/identities and hashes, erase/write only these two boards, boot/log,
   provision a test-only pair through the approved path, and run supported
   Part 1 cases only.
+
+## Approved fixture commissioning adapter — 2026-10-11
+
+Following user approval, a narrowly gated S3 UART adapter is being added for
+this disposable fixture only. It accepts an exact `ExpectedNode` commissioning
+request and a status query, calls the existing Hub owner API, and exposes the
+owner's queued/offer/rejected/timeout/authenticated-rejoin state. The Hub's
+existing 120-second commissioning window and the C3's existing test-only
+`GET_TEST_QR` flow supply fresh, per-board test identity material. No credentials
+are fixed in source or retained in logs/evidence. The UART boundary is permitted
+only for this isolated fixture and is not the authenticated installer control
+path owned by GS-109.
+
+The new `GS_HIL_COMMISSIONING` option defaults OFF. It is rejected on the legacy
+ESP32 target, cannot be combined with broad S3 `GS_HIL_CONTROL`/`GS_HIL_BUILD`,
+and compiles only the small commissioning/status adapter. Test identity scalar,
+installer code and wrapping key generation is enabled only in this test build;
+these values use development NVS and are not production-protected. Production
+defaults continue to require preprovisioned protected identity material.
+
+The standard S3 development partition map lacks `gs_state` and `gs_outbox`,
+which the current S3 runtime requires and therefore fails closed on. The fixture
+build must use the existing isolated `sdkconfig.defaults.outbox` candidate map
+so current runtime initialization can be tested. This remains a development
+candidate, not an approved commercial layout or storage-capacity qualification.
+No erase/flash is performed until production-default and fixture target builds,
+focused regressions, commit/push, and exact board re-identification are complete.
+
+Software adapter validation is recorded at the eventual committed checkpoint.
+Physical HIL-A01..A08 remain BLOCKED/NOT_RUN until the fresh fixture boots,
+commissioning and persistence/rejoin are observed, and each supported case is
+run with secret-bearing input redacted from retained evidence.
+
+## Final authorized fixture implementation and Part 1 observations — 2026-10-11
+
+This section supersedes the earlier “until ...” status above. The earlier
+attempt history is retained as provenance; the attempts before `attempt06`
+failed safely and contained only redacted output.
+
+### Fixture-only adapter and software checks
+
+The approved Option A adapter is implemented. It is S3-only, opt-in through
+`GS_HIL_COMMISSIONING=ON`, OFF by default, rejected with the legacy broad
+`GS_HIL_BUILD`/`GS_HIL_CONTROL` path, and unavailable in the production
+`scripts/build_validation_targets.py` profile. It provides only bounded
+`COMMISSION_EXPECTED_NODE` and `FIXTURE_STATUS` UART commands and calls the
+existing `request_node_commissioning(ExpectedNode)` owner. Exact public Node
+identity and installer-code proof continue through the existing commissioning
+crypto, identity pinning, ECDH/HKDF, secure-session, persistent association and
+authenticated-rejoin implementation. It adds no packet or storage format.
+The existing 120-second owner commissioning offer remains the timeout. The
+UART fixture is suitable only for these isolated disposable engineering
+boards; it is not GS-109 product authorization.
+
+The Node's existing test-only `GET_TEST_QR` supplied ephemeral exact identity
+material. The host bridge redacted the public-key/code fields before retaining
+logs and zeroed its code buffer. No installer code, private scalar, wrapping
+key, or session secret is in the repository evidence. Test-only S3 identity
+material is development-generated and stored in this disposable board's NVS;
+Secure Boot and flash encryption are disabled on both fixtures. This is not a
+production security profile.
+
+Focused software checks:
+
+| Command | Result |
+|---|---|
+| `python3 -m unittest tests.python.test_s3_fixture_commissioning -v` | PASS, 2 tests: exact bounded parser behavior, option-off/release-script isolation and broad-HIL rejection |
+| `make s3-fixture-commissioning-test` | PASS, same 2 registered focused tests |
+| `python3 -m unittest discover -s tests -p 'test_hub_hil_control.py' -v` | PASS, existing broad-HIL rejection test |
+| `make validation-node` | PASS; complete Node suite including fixture stage; evidence `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/node-1791713574444033429/report.json` |
+| `make validation-contract` | PASS; affected contract suite; evidence `.../contract-1791713664193996757/report.json` |
+| `make validation-hub` | FAIL, exit 2 only at the preserved historical `hub-journal-migration-host-test`, assertion `clean migration commits` in `tests/cpp/hub_journal_migration_validation.cpp:194`; evidence `.../hub-1791713842164674753/report.json` |
+| `make commissioning-crypto-host-test rejoin-host-test association-host-test hub-fresh-install-host-test` | PASS; exact identity/installer proof, association, authenticated rejoin and fresh-install regressions |
+| `source /home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh && python scripts/build_validation_targets.py` | PASS; production defaults, fixture option OFF; C3 934,192 bytes, S3 1,868,880 bytes; report `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/validation_targets/gs116-3fuypjmb/report.json` |
+| Production S3 image string check for `COMMISSION_EXPECTED_NODE` and `HIL_FIXTURE_READY` | PASS; neither fixture command string is present in the production app image |
+
+The registry executed 22 Node stages in 85.405 s (exit 0), 28 contract stages
+in 172.789 s (exit 0), and 34 Hub stages in 253.540 s (exit 2; 33 stages
+passed, migration failed). Registry stage `count` values combine different
+count kinds, so they are not presented as unique test-case totals. The JSON
+reports preserve per-stage command, count kind, elapsed time, exit and log
+hash.
+
+The migration failure remains owned by GS-148. The GS-114 adapter neither
+changes the journal importer nor relaxes the test or ownership checks.
+
+### Dedicated physical fixture and artifact evidence
+
+After software tests passed, the two previously authorized dedicated boards
+were reidentified on their explicitly named ports before the authorized erase
+and install. Observed profiles matched: C3 `14:63:93:c5:d1:58`, 4 MiB; S3
+`7c:4f:ad:b7:2a:20`, 16 MiB flash and 8 MiB PSRAM. Secure Boot and flash
+encryption were disabled; no eFuse writes occurred. The fixture uses ESP-IDF
+6.0.3 and the S3 outbox candidate partition map. Its empty LittleFS image was
+initialized only on the just-erased disposable S3 `gs_outbox` partition so the
+existing fail-closed runtime could mount it; production firmware was not
+changed to format storage automatically.
+
+Final fixture app artifacts:
+
+| Board | Firmware version string | App bytes | SHA-256 | Profile |
+|---|---|---:|---|---|
+| C3 | `73e1e842ff84-gs114-16fca85b` | 939,024 | `b03b3b2ed7996b594f9fe7d59241f558a6af82774db07a661e5346731db83014` | C3 HIL controls + physical-wake test profile, USB Serial/JTAG console |
+| S3 | `73e1e842ff84-gs114-16fca85b` | 1,877,344 | `f9608d77230f136abea5794329c1a98be4062419383a1a6dbbfd29a6c793a2d1` | S3 commissioning-only; candidate `gs_outbox`/`gs_state` partition layout |
+
+These are fixture-development images, not release artifacts. The C3 was
+full-erased and flashed with its complete bootable image; the S3 was full-erased
+and flashed with its bootloader, partition table, OTA metadata and app, then
+only its blank test outbox partition was initialized. The final embedded C3
+image was subsequently installed in the S3 app update. The C3 log reports
+ESP-IDF v6.0.3, C3 revision 0.4, 4 MiB flash, the expected OTA layout and
+NodeHealth interval 300 s / derived offline timeout 910 s. The S3 image
+contains the same version string and ran the fixture status adapter and
+authenticated Hub runtime. No production credential was reused.
+
+The hashes above identify the built fixture app artifacts, not flash readback
+hashes. The S3 app update completed and the Hub then ran the fixture status
+command and accepted an authenticated NodeHealth at session 5. Production
+profile artifact hashes from the post-change build are C3
+`7c8f4e0ab5f4afaf28dec4df7260d2cbcfb67ff4343f5ef3659d5f492ae04644` and S3
+`d286905bcf05a9a54f46e6504b4880d43644968b9807da4ba00b286e57ed6790`; these
+compile-only images were not flashed.
+
+### Physical observations
+
+`attempt06/commissioning_result.json` records the first exact-identity
+commissioning and authenticated rejoin. The C3 then received an authorized
+software-only restart. The S3 log records a second authenticated rejoin at
+session 4, with the same exact C3 identity/logical assignment. After the S3 app
+was updated/restarted, a 330-second read-only UART observation captured a new
+authenticated NodeHealth at Hub session 5, without new PIR activity. Reported
+Node telemetry was `sleep_entries=149`, `timer_wakes=149`,
+`gpio_wakes=0`, `other_wakes=0`, `last_wake=TIMER`; the Hub accepted that
+authenticated health report and reported heap/minimum-heap values. This
+demonstrates timer-scheduled Node wake and authenticated link recovery in this
+fixture. The C3 USB Serial/JTAG device disappeared while the Node entered
+light sleep, so no C3-side serial wake trace was available. The health log is
+retained at `attempt06/s3_post_update_observation_redacted.log`.
+
+Machine-readable observations and per-case statuses are in
+`attempt06/physical_results.json`. Summary:
+
+| Test | Result | Evidence limit |
+|---|---|---|
+| HIL-A01 firmware/board identity | PASS | Exact silicon/MAC/flash/PSRAM, build profile and artifact hashes recorded; C3 boot banner verified. S3 runtime is evidenced by active adapter/NodeHealth, but its post-update boot banner was not captured. |
+| HIL-A02 authenticated Node–Hub link | PASS | Exact pinned commissioning, authenticated rejoin, C3 software restart/rejoin, and S3 app restart followed by authenticated health contact. |
+| HIL-A03 NodeHealth | PASS | Authenticated NodeHealth observed at the configured 300-second opportunity; no MAC-only contact was counted. |
+| HIL-A04 910-second offline detection | NOT_RUN | No Hub outage/offline threshold was induced or observed. |
+| HIL-A05 durable ACK/EventKey | NOT_RUN | No genuine event transaction occurred; no ACK/EventKey retirement claim. |
+| HIL-A06 runtime stability | PASS (bounded observation) | No unexpected reset in the observation window; Hub heap reported. This is not a soak or resource qualification. |
+| HIL-A07 timer/light-sleep | PASS (timer evidence only) | Hub accepted Node telemetry showing timer wakes/sleep entries; GPIO4/PIR wake is not proven. |
+| HIL-A08 negative cases | BLOCKED | Lost-ACK/replay/outage tests require deliberate stimulus or fault injection outside this Part 1 scope. |
+
+No physical human-motion test, `INJECT_MOTION`, power interruption, FOTA,
+offline induction, RF fault injection, battery/current measurement, or broad
+GS-108 campaign was run. HIL-A05 genuine Durable ACK/EventKey evidence and
+GS-114 P1–P9 qualification remain open. No claim of complete physical
+qualification or commercial release approval is made. Part 2 real PIR motion
+remains a separately authorized activity.
+
+Repository checkpoint for this evidence began at
+`73e1e842ff843a696d592bd7c2004b72a512082c`; changes are being validated in the
+same canonical worktree/branch. The original untracked S3 `managed_components/`
+directory remains preserved.

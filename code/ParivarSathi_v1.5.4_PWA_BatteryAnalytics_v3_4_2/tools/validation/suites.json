@@ -2,6 +2,35 @@
   "schema_version": 1,
   "stages": [
     {
+      "id": "s3-fixture-commissioning",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "s3-fixture-commissioning-test"
+      ],
+      "inputs": [
+        "tests/python/test_s3_fixture_commissioning.py",
+        "scripts/build_gs114_fixture_pair.py",
+        "firmware/hub/target/esp32/fixture_commissioning_status.hpp",
+        "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+        "firmware/hub/target/esp32/hub_runtime_adapter.hpp",
+        "firmware/hub/target/esp32/idf/CMakeLists.txt",
+        "firmware/hub/target/esp32/idf/main/CMakeLists.txt",
+        "firmware/hub/target/esp32/idf/main/app_main.cpp",
+        "firmware/hub/target/esp32/idf/main/fixture_commissioning_control.cpp",
+        "firmware/hub/target/esp32s3/idf/CMakeLists.txt",
+        "firmware/common/security/target_identity_signer.cpp",
+        "firmware/common/security/target_wrapping_key.cpp"
+      ],
+      "success": "Ran 2 tests?",
+      "timeout": 120,
+      "count_kind": "tests"
+    },
+    {
       "id": "host-build",
       "components": [
         "node",

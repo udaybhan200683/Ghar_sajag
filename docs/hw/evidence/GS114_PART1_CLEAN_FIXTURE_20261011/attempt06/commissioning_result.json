@@ -1,0 +1,40 @@
+{
+  "started_utc": "2026-10-11T09:27:12.027276+00:00",
+  "ended_utc": "2026-10-11T09:27:16.834413+00:00",
+  "boards": {
+    "c3": {
+      "port": "/dev/ttyACM1",
+      "mac": "14:63:93:c5:d1:58",
+      "flash": "4MB"
+    },
+    "s3": {
+      "port": "/dev/ttyACM0",
+      "mac": "7c:4f:ad:b7:2a:20",
+      "flash": "16MB",
+      "psram": "8MB"
+    }
+  },
+  "firmware_source_head": "73e1e842ff843a696d592bd7c2004b72a512082c",
+  "firmware_profile": "GS-114 disposable C3 HIL_CONTROL + physical wake / S3 GS_HIL_COMMISSIONING + outbox candidate partition profile",
+  "node_device_id": "c3-146393c5d158",
+  "node_public_key": "REDACTED",
+  "installer_code": "REDACTED",
+  "checks": {
+    "first_authenticated_rejoin": true,
+    "second_authenticated_rejoin": true,
+    "hub_ready": true,
+    "adapter_ready": true,
+    "commission_accepted": true,
+    "authenticated_rejoin_lines": 2,
+    "node_runtime_starts": 2,
+    "node_runtime_ready_verified_by_authenticated_rejoin": true
+  },
+  "serial_evidence": {
+    "c3": "c3_serial_redacted.log",
+    "s3": "s3_serial_redacted.log"
+  },
+  "hardware_actions": "authorized clean erase and flash; test identity enrollment; disposable C3 software restart for persistence/rejoin; no PIR injection, no power interruption, no eFuse writes",
+  "observations": {
+    "c3_usb_jtag_console_after_sleep": "NOT_OBSERVED; console disappeared during a separate sleep capture window"
+  }
+}

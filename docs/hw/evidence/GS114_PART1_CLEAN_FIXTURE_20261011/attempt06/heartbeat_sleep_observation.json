@@ -1,0 +1,9 @@
+{
+  "started_utc": "2026-10-11T09:35:32.342022+00:00",
+  "duration_seconds": 315,
+  "events": [],
+  "captured_lines": {
+    "c3_lines": 0,
+    "s3_lines": 1
+  }
+}
