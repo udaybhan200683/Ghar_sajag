@@ -16,5 +16,22 @@ self.addEventListener("activate", (event) => event.waitUntil(
 ));
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+  event.respondWith(fetch(event.request).catch(async () => {
+    try {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      if (event.request.mode === "navigate") {
+        const shell = await caches.match("./index.html");
+        if (shell) return shell;
+      }
+    } catch {
+      // Cache storage can be unavailable or corrupt; fall through to an explicit
+      // unavailable response instead of rejecting with an unhandled cache error.
+    }
+    return new Response("Offline content is unavailable. Reconnect and retry.", {
+      status: 503,
+      statusText: "Service Unavailable",
+      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+    });
+  }));
 });

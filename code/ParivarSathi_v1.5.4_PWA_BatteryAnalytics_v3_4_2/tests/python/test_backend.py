@@ -89,6 +89,17 @@ class BackendTest(unittest.TestCase):
         self.assertEqual(acknowledged.state, IncidentState.ACKNOWLEDGED)
         self.assertEqual(self.service.notifications.due(500), [])
 
+    def test_GS130_claim_expiry_boundary_allows_reconnection_retry(self) -> None:
+        self.service.accept_hub_event(self.cloud_event("hub-1:1:11", "CALL_FAMILY"))
+        incident = next(iter(self.service.store.incidents.values()))
+        self.service.incidents.claim("home-1", incident.incident_id, "care-1", 110, lease_seconds=5)
+        with self.assertRaises(IncidentConflict):
+            self.service.incidents.claim("home-1", incident.incident_id, "care-2", 114)
+        reclaimed = self.service.incidents.claim("home-1", incident.incident_id, "care-2", 115)
+        self.assertEqual(reclaimed.owner_id, "care-2")
+        self.assertEqual(reclaimed.owner_lease_until, 415)
+        self.assertEqual(len(self.service.store.incidents), 1)
+
     def test_B06_config_version_and_device_binding(self) -> None:
         device = Device("hub-1", "home-1", "HUB", "esp32-devkit-v1", "common", "hub", 1, "0.1.0")
         self.service.fleet.register_device(device, "owner-1", 50)

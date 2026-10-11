@@ -801,7 +801,9 @@
         "make",
         "app-test"
       ],
-      "inputs": [],
+      "inputs": [
+        "tests/js/application_lifecycle.test.mjs"
+      ],
       "success": "^# pass (\\d+)",
       "timeout": 600,
       "count_kind": "tests"
