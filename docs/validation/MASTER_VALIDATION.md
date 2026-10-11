@@ -1,6 +1,54 @@
 
 # Master automated validation and regression framework
 
+## Physical HIL inventory and release evidence — 2026-10-11
+
+`PHYSICAL_HIL_CATALOGUE.csv` is the case-level physical checklist linked to
+`MASTER_TRACEABILITY.csv`; `PHYSICAL_QUALIFICATION.csv` retains the owner-level
+qualification campaigns and their Jira ownership. The traceability matrix now
+classifies implemented rows as `PHYSICAL_REQUIRED`, `PHYSICAL_CONDITIONAL` or
+`SOFTWARE_ONLY` (non-implemented/deferred/on-hold rows retain their implementation
+classification). The lightweight `make physical-hil-catalogue-test` checks IDs,
+evidence paths and every required/conditional feature mapping without accessing
+devices. The same checker runs under hardware-independent `hil-tooling-test`.
+The catalogue has 99 entries: 71 individually listed historical classic-target
+test IDs, 27 current/owner physical cases and one legacy suite summary.
+
+The GS-116 registry includes `physical-hil-release-evidence` as a release-only
+stage. It requires every `RELEASE_BLOCKING=YES` catalogue case to have actual
+PASS, exact source SHA, image SHA-256 and an evidence file. It never runs physical
+tests. `make release-gate-final` will therefore remain blocked while required
+physical cases are PARTIAL, NOT_RUN, BLOCKED or historical-only. This check is
+not proof of physical qualification by itself; review image/fixture compatibility
+and evidence before release approval. In the current catalogue, GS-114 Part 1
+HIL-A02/A03/A06 are bounded physical PASS, HIL-A01 is PARTIAL, A07 is timer-only
+PARTIAL, A04/A05 are NOT_RUN and A08 is BLOCKED. BAT-C8 C8-P1..P9 remain NOT_RUN.
+GS-148 migration remains a mandatory software failure and is separate from this
+physical checklist.
+
+Reuse the HW-M1.4 `tools/hil/phase1.py` supervisor and existing test IDs; do not
+invoke the connected classic-ESP32 `hil-smoke`/`hil-regression` against the S3
+fixture. They probe/reset boards, can build/flash and use `INJECT_MOTION`. The
+S3 commissioning-only adapter used for the dedicated fixture is not a general
+HIL control API; it uses the existing secure commissioning owner. Current
+observation evidence is recorded in
+[`GS114_PART1_CLEAN_FIXTURE_20261011.md`](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
+No physical tests were run for this catalogue integration task.
+
+There is no current S3-compatible unattended board-HIL runner or safe operator-
+prompting motion runner. `make hil-regression` is the historical destructive
+classic-target command; manual real-AM312 procedures are in the BAT-C8 plan.
+GS-114 owns BAT-C8 P1–P9; GS-108 owns later broad stable-head HIL. Both remain
+opt-in and separately authorized. Registration, command availability, simulation
+and historical PASS are distinct from executed current-image physical PASS.
+
+For every new feature, use three executed software layers as applicable:
+production unit/component tests, deterministic production-code simulation, and
+focused end-to-end trigger-to-outcome verification across affected components.
+Add/update permanent feature and physical traceability in the same change. Pure
+software behavior stays software-only; physical-dependent acceptance receives a
+catalogue test and retains NOT_RUN until actually qualified.
+
 ## Current canonical execution guide — GS-116, 2026-10-10
 
 Approved GS-116/130 engineering policies (comments10364/10365) are enforced by
@@ -22,6 +70,8 @@ coverage. The authoritative files are:
   its branches or hidden feature semantics were tested.
 - [Physical qualification catalogue](PHYSICAL_QUALIFICATION.csv): existing Jira
   owners, preconditions, procedures, failure criteria, required logs/image hashes.
+- [Case-level physical HIL catalogue](PHYSICAL_HIL_CATALOGUE.csv): permanent test
+  IDs, current/historical fixture compatibility, execution class and actual result.
 - [GS-130 evidence and resume](../exec-plans/evidence/R1_GS130_FEATURE_COVERAGE_20261011.md):
   executed results and unresolved semantic/application/target limitations.
 

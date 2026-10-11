@@ -60,6 +60,18 @@ Legacy `hil-smoke`/regression campaigns build and flash; never invoke them as
 non-destructive observation. Injected motion is not real AM312 optical evidence.
 GS-108/114 require separately authorized, identified fixtures and image evidence.
 
+For every feature or product fix, require actually executed production-code unit/
+component tests, deterministic production-code simulation, and focused trigger-
+to-outcome E2E across affected components. Add permanent IDs and requirement,
+source, gate and execution evidence to `MASTER_TRACEABILITY.csv`. Run the new
+tests and all prior affected-component/contract regressions. If target behavior
+requires hardware proof, classify it in `PHYSICAL_CLASS`, add/update its case in
+`PHYSICAL_HIL_CATALOGUE.csv` and keep physical status NOT_RUN/BLOCKED until a
+matched, authorized fixture run passes. Software gates never open ports or operate
+boards. Full release validation must execute the release-only physical evidence
+check; missing required evidence blocks release approval. Pure software features
+remain SOFTWARE_ONLY and do not receive artificial HIL tests.
+
 ## Mandatory document precedence
 
 For substantive work, read these first:

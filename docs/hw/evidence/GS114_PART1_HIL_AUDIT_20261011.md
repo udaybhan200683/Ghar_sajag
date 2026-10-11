@@ -80,6 +80,11 @@ evidence. Historical results retain their original image and fixture provenance.
 
 ## Approval checkpoint before any device interaction
 
+The following was the original approval checkpoint as of this audit's source
+HEAD. It was superseded by the dedicated-board authorization and completed
+fixture commissioning recorded in `GS114_PART1_CLEAN_FIXTURE_20261011.md`;
+retain it as historical provenance, not current status.
+
 Please confirm all of the following before any serial port is opened or any
 device interaction is attempted:
 

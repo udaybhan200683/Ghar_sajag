@@ -1,5 +1,38 @@
 # R1 Current Work State
 
+## Permanent physical HIL catalogue audit — 2026-10-11
+
+GS-114 coverage audit reuses GS-130's 149-row traceability matrix and 200-row
+source inventory (the two GS-114 fixture commissioning-adapter modules are now
+reciprocally mapped to secure commissioning). The matrix classifies implemented/partial features as 45
+`PHYSICAL_REQUIRED`, 40 `PHYSICAL_CONDITIONAL`, and 57 `SOFTWARE_ONLY`; the
+remaining seven are ON_HOLD/DEFERRED/NOT_IMPLEMENTED. Required and conditional
+rows resolve to case IDs in `docs/validation/PHYSICAL_HIL_CATALOGUE.csv`.
+Catalogue registration is separate from execution and physical acceptance.
+
+The case catalogue preserves the existing HW-M1.4 supervisor/71 test IDs and
+marks its classic ESP32 Hub campaign historical-only for current S3. It records
+the actual bounded GS-114 Part 1 observations: A02/A03/A06 PASS, A01 PARTIAL,
+A07 timer-counter-only PARTIAL, A04/A05 NOT_RUN, A08 BLOCKED. BAT-C8 C8-P1–P9
+remain NOT_RUN. No boards/serial ports were accessed in this audit. No current
+S3-compatible unattended or operator-prompting HIL runner exists; legacy
+`hil-regression` is not safe for this S3 fixture and can build/flash/reset/inject
+motion.
+
+Added hardware-independent catalogue mapping tests to `hil-tooling-test` and a
+release-only evidence checker in GS-116's registry. The release checker fails
+when mandatory physical rows are partial, missing or historical; it never
+operates hardware. See [dated HIL coverage evidence](../exec-plans/evidence/R1_HIL_COVERAGE_AUDIT_20261011.md)
+for commands and exact evidence. The full software release gate was not run;
+physical qualification and product release remain NOT_APPROVED. The existing
+GS-148 journal migration failure remains visible and unchanged.
+
+Next physical work remains **GS-114**, on the separately authorized matching
+fixture: current-image P1–P9, actual optical PIR/GPIO4, timer/radio restoration,
+event Durable ACK/EventKey, sleep/retry/rejoin, outage recovery and maintenance
+inhibitors. GS-108 later owns broad stable-head HIL after S3 runner compatibility
+work. No Jira workflow/rank/dependency changes are implied.
+
 ## GS-114 fixture commissioning and focused Part 1 result — 2026-10-11
 
 User-approved, S3-only `GS_HIL_COMMISSIONING` adapter reuses the existing

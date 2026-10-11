@@ -955,10 +955,18 @@
         "make",
         "hil-tooling-test"
       ],
-      "inputs": [],
+      "inputs": [
+        "tools/validation/physical_hil_catalogue.py",
+        "../../docs/validation/PHYSICAL_HIL_CATALOGUE.csv",
+        "../../docs/validation/MASTER_TRACEABILITY.csv",
+        "tests/python/test_physical_hil_catalogue.py"
+      ],
       "success": "Ran (\\d+) tests?",
       "timeout": 600,
-      "count_kind": "tests"
+      "count_kind": "tests",
+      "allowed_skip_lines": [
+        "^HIL-USB POWERSHELL CHECK: SKIP - Windows interop unavailable$"
+      ]
     },
     {
       "id": "hil-host",
@@ -1195,6 +1203,27 @@
       "timeout": 600,
       "count_kind": "checks",
       "required_success": []
+    },
+    {
+      "id": "physical-hil-release-evidence",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "tools/validation/physical_hil_catalogue.py",
+        "--release"
+      ],
+      "inputs": [
+        "tools/validation/physical_hil_catalogue.py",
+        "../../docs/validation/PHYSICAL_HIL_CATALOGUE.csv",
+        "../../docs/validation/MASTER_TRACEABILITY.csv"
+      ],
+      "success": "^PHYSICAL HIL RELEASE EVIDENCE: PASS mandatory=(\\d+)$",
+      "timeout": 60,
+      "fast": false,
+      "release": true,
+      "count_kind": "cases"
     }
   ],
   "separate_harnesses": {}

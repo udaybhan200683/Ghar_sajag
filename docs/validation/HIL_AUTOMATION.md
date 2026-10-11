@@ -1,5 +1,31 @@
 # Hub + ESP32-C3 unattended HIL automation — Phase 1
 
+## Canonical R1 status update — 2026-10-11
+
+This document preserves HW-M1.4/classic-ESP32 runner provenance. At canonical
+HEAD `622bdd87608081f802a7f36a1029f9559777ed6a`, the legacy connected campaign
+is still **not compatible** with the S3 N16R8 fixture and remains unsafe to use
+as observation: discovery may reset, the campaign can flash/restart/change
+logical state, and `INJECT_MOTION` is not optical PIR. A narrow S3
+`GS_HIL_COMMISSIONING` UART adapter was later implemented for the separately
+authorized disposable pair. It exposes only expected-identity commissioning
+and fixture status through the existing secure commissioning owner; it does
+not add general HIL controls or make the old campaign S3-compatible.
+
+The completed Part 1 observations supersede earlier statements in this file and
+the initial GS-114 audit that fresh pairing or a supported commissioning path
+was unavailable. Exact outcomes, build/image hashes and limits are in
+[GS-114 clean-fixture evidence](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md)
+and its `attempt06/physical_results.json`. A01 has limited identity evidence;
+A02/A03/A06 passed within stated scope; A07 is timer-counter-only; A04/A05 were
+NOT_RUN and A08 BLOCKED. C8-P1..P9 have not been executed. This does not qualify
+the production security profile or S3 commercial storage layout.
+
+For current suite ownership and release evidence enforcement, see
+[MASTER_VALIDATION.md](MASTER_VALIDATION.md) and
+[PHYSICAL_HIL_CATALOGUE.csv](PHYSICAL_HIL_CATALOGUE.csv). Physical campaigns
+remain outside software validation gates.
+
 ## GS-114 S3 fixture commissioning (2026-10-11)
 
 The dedicated S3 fixture may be built with `GS_HIL_COMMISSIONING=ON` only for
@@ -20,15 +46,16 @@ because the default development table lacks runtime-required `gs_state` and
 `gs_outbox`; this profile is not commercially qualified. No broad HIL campaign,
 synthetic motion, physical Part 2, or power test is implied by this adapter.
 
-Status: implemented on `feature/hw-m1-4-hil-automation`. This phase is the
+Status: originally implemented on `feature/hw-m1-4-hil-automation` and later
+integrated into canonical R1. This phase is the
 bounded core regression; FOTA matrices, long stress/soak, advanced performance
 qualification and dashboard history are expressly out of scope.
 
 ## Current R1 hardware applicability — 2026-10-11
 
 This document describes the historical automated fixture for a classic ESP32
-Hub and ESP32-C3 Node. It is **not currently compatible with the approved R1
-ESP32-S3 N16R8 Hub**. The code paths below are retained as provenance and are
+Hub and ESP32-C3 Node. The connected campaign is **not currently compatible
+with the approved R1 ESP32-S3 N16R8 Hub**. The code paths below are retained as provenance and are
 not permission to run the old campaign against R1 hardware. In particular,
 `hil-qualify` includes build/release stages and fixture discovery; discovery
 uses esptool identity probing, and campaign stages can flash, issue software
@@ -51,13 +78,12 @@ default UART0 pins as GPIO43 TX/GPIO44 RX; confirm actual board routing and
 USB/UART bridge from the named fixture before connection.
 
 See [GS-114 Part 1 audit and approval checkpoint](../hw/evidence/GS114_PART1_HIL_AUDIT_20261011.md)
-for the old-to-new compatibility matrix, source evidence, tests that are safe
-to consider after approval, and the exact current NOT_RUN/BLOCKED boundary.
-The authorized clean-fixture identity and image preparation attempt is recorded
-in [the follow-up evidence](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
-Both board identities and matching production images were verified, but erase
-and flashing were stopped before execution because no supported S3 test-only
-commissioning procedure is available.
+for the old-to-new compatibility matrix and source evidence. The initial audit's
+commissioning-unavailable finding is superseded by the later, approved fixture
+adapter and actual Part 1 observations in
+[the follow-up evidence](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
+That adapter remains fixture-only; it does not make the legacy connected
+campaign S3-compatible.
 
 ## Commands
 
