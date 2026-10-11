@@ -60,6 +60,21 @@ Legacy `hil-smoke`/regression campaigns build and flash; never invoke them as
 non-destructive observation. Injected motion is not real AM312 optical evidence.
 GS-108/114 require separately authorized, identified fixtures and image evidence.
 
+GS-130 also owns the P0 product vertical target `make validation-p0-e2e`, which
+joins the production C3/S3 host-stack event and CloudSync serializer to the real
+local API/service and caregiver PWA where those contracts exist. This target is
+registered through GS-116 for affected components and release composition; a
+scenario assertion PASS with `product_status=PARTIAL` is still a gate FAIL.
+The current local actor adapter is not OIDC and the unfinished GS-148 durable
+Hub-commit API must remain an explicit product gap. `make validation-board-hil`
+and `make validation-motion-hil` are separate opt-in physical commands. Their
+default invocation records NOT_RUN without opening a port. Before any `--observe`
+or `--run` use, obtain the user's explicit approval for the exact identified
+fixture and test plan in the current task; the runner's typed phrase is a second
+operator guard, not user approval. Do not treat a missing stimulus, image hash,
+running-image identity or reset-safe serial path as PASS. Preserve existing
+physical evidence and use unique evidence directories.
+
 For every feature or product fix, require actually executed production-code unit/
 component tests, deterministic production-code simulation, and focused trigger-
 to-outcome E2E across affected components. Add permanent IDs and requirement,

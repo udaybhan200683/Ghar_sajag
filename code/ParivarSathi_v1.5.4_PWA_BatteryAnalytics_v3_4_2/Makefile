@@ -69,7 +69,7 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
 
-.PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test physical-hil-catalogue-test
+.PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test physical-hil-catalogue-test validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test
 .PHONY: s3-durable-outbox-host-test hub-segmented-outbox-runtime-host-test
 
 BATTERY_C8_SOURCES := shared/src/logging.cpp firmware/node/components/sensing/sensing.cpp firmware/node/components/power/power.cpp firmware/node/components/radio/node_radio.cpp firmware/node/components/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp
@@ -566,6 +566,31 @@ board-stack-e2e-host-test: build $(BOARD_E2E_OBJECTS)
 	./build/board_stack_e2e_validation
 validation-board-e2e:
 	python3 tools/validation/component_gate.py --suite board-e2e $(VALIDATION_RECEIPTS)
+
+.PHONY: validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test p0-product-e2e
+P0_BOARD_E2E_SOURCES := $(sort $(CPP_SOURCES) $(GS116_MULTINODE_HOST_TEST_HOST_SOURCES) $(GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES) firmware/hub/components/storage/outbox_journal_backend.cpp firmware/node/fota/boot_health_gate.cpp)
+P0_BOARD_E2E_OBJECTS := $(call host_objects,$(P0_BOARD_E2E_SOURCES))
+HOST_TEST_OBJECTS += $(P0_BOARD_E2E_OBJECTS)
+p0-board-stack-event-host-test: build $(P0_BOARD_E2E_OBJECTS) tests/cpp/board_stack_e2e_validation.cpp
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(P0_BOARD_E2E_OBJECTS) tests/cpp/board_stack_e2e_validation.cpp -lcrypto -o build/p0_board_stack_e2e_validation
+	./build/p0_board_stack_e2e_validation --emit-p0-event build/p0_product_event.json build/p0_cloud_sync_request.json
+
+p0-product-e2e: p0-board-stack-event-host-test
+	PYTHONPATH=backend:. python3 -m unittest tests.python.test_p0_e2e_selection -v
+	python3 tools/validation/check_p0_e2e_scenarios.py
+	PYTHONPATH=backend:. python3 tests/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json $(if $(strip $(P0_SCENARIOS)),--scenarios=$(P0_SCENARIOS),)
+
+validation-p0-e2e:
+	python3 tools/validation/component_gate.py --suite p0-e2e $(VALIDATION_RECEIPTS)
+
+gs130-hil-runner-test:
+	PYTHONPATH=tools/hil python3 -m unittest discover -s tools/hil -p test_gs130_runners.py -v
+
+validation-board-hil:
+	python3 tools/hil/gs130_board_hil.py $(HIL_ARGS)
+
+validation-motion-hil:
+	python3 tools/hil/gs130_motion_hil.py $(HIL_ARGS)
 
 s3-fixture-commissioning-test:
 	python3 -m unittest tests.python.test_s3_fixture_commissioning -v

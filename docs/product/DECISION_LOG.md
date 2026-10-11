@@ -380,3 +380,10 @@ This records engineering implementation only. No LOCKED decision, product
 contract, context version, wire/schema/partition or physical authorization changes.
 GS-D001 deferred legacy migration remains distinct from GS-D029 current-format
 ownership safety; its mandatory failing test is preserved under GS-148.
+
+The 2026-10-11 P0 software and HIL-runner implementation records a validation
+checkpoint only. Its local product stack remains PARTIAL at the existing
+GS-148 authenticated durable-commit seam; the registered complete-product stage
+fails closed on that status. Physical runners are opt-in and no hardware was
+operated. See [dated GS-130 P0 evidence](../exec-plans/evidence/R1_GS130_P0_E2E_HIL_20261011.md).
+No new product decision or GS-D identifier is introduced.

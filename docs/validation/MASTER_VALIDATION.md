@@ -35,9 +35,17 @@ observation evidence is recorded in
 [`GS114_PART1_CLEAN_FIXTURE_20261011.md`](../hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011.md).
 No physical tests were run for this catalogue integration task.
 
-There is no current S3-compatible unattended board-HIL runner or safe operator-
-prompting motion runner. `make hil-regression` is the historical destructive
-classic-target command; manual real-AM312 procedures are in the BAT-C8 plan.
+At the time of the original catalogue audit there was no S3-compatible
+unattended board-HIL runner or safe operator-prompting motion runner. GS-130 has
+since added `make validation-board-hil` and `make validation-motion-hil`; see
+the dated P0 E2E/HIL evidence below. Their default invocation writes a
+machine-readable NOT_RUN report without opening a port. The automated runner
+uses exact fixture by-id paths, read-only udev USB-serial matching and supplied
+image SHA-256 checks; current firmware does not expose a verifiable running-image
+hash/config fingerprint, so HIL-A01 cannot pass from this harness. The motion
+runner requires operator-confirmed genuine AM312 movement and rejects
+`INJECT_MOTION`. Neither runner was used on a board for this software task.
+`make hil-regression` remains the historical destructive classic-target command.
 GS-114 owns BAT-C8 P1–P9; GS-108 owns later broad stable-head HIL. Both remain
 opt-in and separately authorized. Registration, command availability, simulation
 and historical PASS are distinct from executed current-image physical PASS.
@@ -85,6 +93,56 @@ execute ESP-IDF task startup/interrupts, flash electrical barriers, RF, bootload
 or production cloud credentials. Inspect those boundaries and physical cases
 before claiming target acceptance. New tests must exercise production code and
 meaningful assertions; no independent protocol/policy replica is acceptable.
+
+### GS-130 P0 full-product E2E — 2026-10-11
+
+`docs/validation/P0_E2E_SCENARIOS.json` maps the canonical 17 P0 use-case groups
+to stable scenario IDs, requirements, traceability feature IDs, production
+sources and executable test sources. `make p0-product-e2e` runs the focused
+end-to-end chain: production C3/S3 host runtime with virtual GPIO/time/ESP-NOW
+and file-backed storage → production Hub journal/outbox/CloudSync request → the
+real local JsonApi/service → the shipped static PWA in Chromium. This is distinct
+from the existing 8-group/325-check board-stack suite. `make validation-p0-e2e`
+uses the single GS-116 registry and requires every scenario marker. A passing
+scenario harness with `product_status=PARTIAL` is deliberately adjudicated as a
+failed complete-product stage. It must not be reported as full P0 completion.
+
+For focused local iteration, `make p0-product-e2e
+P0_SCENARIOS=P0-E2E-002,P0-E2E-017` selects scenario assertions; Chromium runs only
+when P0-E2E-017 is selected. Fixture preparation still exercises the isolated
+real service flow. Unknown, duplicate and empty selections fail. The registered
+complete stage sets `P0_SCENARIOS=` explicitly, so developer filters cannot
+reduce mandatory coverage in `validation-p0-e2e`, fast or release composition.
+
+The current E2E asserts same EventKey replay after MAC success with a lost
+application ACK, Hub dedupe and Durable ACK retirement; the event reaches the
+local API development event route and caregiver timeline, where chronology,
+door/Call-Family/inactivity presentation, household access/isolation, policy
+versioning, Hub lease freshness and reload behavior are checked. The production
+CloudSync event-key body is also submitted unchanged and currently receives the
+API's fail-closed 503 `durable_event_store_unavailable`. This is an existing
+GS-148 production integration gap, not adapted around as a success. The local
+WSGI actor injection is test-only and is not production OIDC. The service's
+in-memory state does not prove process-restart durability. Inactivity concern
+events are accepted as event inputs; no autonomous production scheduler or
+resume-within-window suppression is claimed. Remaining P0 use-case gaps are
+listed in the machine-readable registry and dated evidence.
+
+The new P0 stage is owned by Node/Hub/contract/backend/PWA and joins the existing
+fast and release metadata. It is a focused development target; do not run the
+entire release gate merely to execute it. Full product release remains a separate
+candidate gate and physical qualification remains separate.
+
+Latest execution: 17/17 scenario markers and one focused Chromium test ran, but
+`make validation-p0-e2e` returns nonzero because the real production-shaped
+CloudSync event still fails closed at the documented GS-148 durable API seam and
+the declared vertical result is PARTIAL. This is the required gate outcome; do
+not convert the scenario harness's PASS markers into full product acceptance.
+The board runner integrity target has 15 hardware-free checks. Automated and
+manual HIL commands are opt-in and were NOT_RUN on hardware. Exact counts,
+registered report/log path, source fingerprint, limitations and inventory
+reconciliation are in
+[`R1_GS130_P0_E2E_HIL_20261011.md`](../exec-plans/evidence/R1_GS130_P0_E2E_HIL_20261011.md).
 
 The portable factory-reset stage now reproducibly builds installed TF-PSA Crypto
 and executes production PSA/reset code plus the actual IDF null-pointer guard.

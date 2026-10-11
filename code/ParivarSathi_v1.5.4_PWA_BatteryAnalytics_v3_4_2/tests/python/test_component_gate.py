@@ -205,5 +205,30 @@ class ComponentGateTest(unittest.TestCase):
             (root/"tests/cpp/unregistered.cpp").unlink()
             d["stages"][0]["inputs"]=["missing.cpp"];reg.write_text(json.dumps(d))
             with self.assertRaisesRegex(ValueError,"missing dependency"): gate.load_registry(reg,root)
+    def test_p0_e2e_registration_reaches_affected_components_and_release(self):
+        data=gate.load_registry();stage=next(s for s in data["stages"] if s["id"]=="p0-full-product-e2e")
+        self.assertIn("P0_SCENARIOS=",stage["command"],"official gate must clear developer-only scenario filters")
+        for suite in ("node","hub","contract","backend","pwa","fast","release","p0-e2e"):
+            self.assertIn(stage,gate.select(data,suite))
+    def test_partial_p0_product_cannot_be_adjudicated_as_complete(self):
+        stage=next(s for s in gate.load_registry()["stages"] if s["id"]=="p0-full-product-e2e")
+        output="P0 E2E EXECUTION PASS scenarios=10 checks=10 browser_tests=1 product_status=PARTIAL physical=NOT_RUN"
+        self.assertEqual(gate.adjudicate(stage,self.result(output)),"FAIL")
+    def test_physical_hil_is_registered_opt_in_and_not_in_software_suites(self):
+        data=gate.load_registry()
+        physical=data["opt_in_physical_suites"]
+        self.assertEqual(set(physical),{"validation-board-hil","validation-motion-hil"})
+        makefile=(ROOT/"Makefile").read_text()
+        for name, item in physical.items():
+            self.assertFalse(item["automatic"])
+            self.assertFalse(item["included_in_software_gates"])
+            self.assertTrue(item["requires_operator_confirmation"])
+            self.assertEqual(item["command"],["make",name])
+            self.assertTrue((ROOT/item["runner"]).is_file())
+            self.assertIn(name+":",makefile)
+        for suite in ("node","hub","contract","backend","pwa","fast","release"):
+            ids={stage["id"] for stage in gate.select(data,suite)}
+            self.assertNotIn("validation-board-hil",ids)
+            self.assertNotIn("validation-motion-hil",ids)
 
 if __name__=="__main__":unittest.main()

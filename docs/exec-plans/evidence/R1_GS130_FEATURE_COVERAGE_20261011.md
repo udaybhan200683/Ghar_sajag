@@ -461,6 +461,29 @@ remains the sole failing final Hub stage. This checkpoint is not a GS130 complet
 or product release-approved claim. Resume the remaining GS130 coverage work;
 GS114/GS108 require separately authorized fixture/current-image qualification.
 
+## P0 full-product vertical and opt-in HIL runner implementation — 2026-10-11
+
+Follow-on evidence and the exact final P0 stage log/hash are in
+[R1_GS130_P0_E2E_HIL_20261011.md](R1_GS130_P0_E2E_HIL_20261011.md). All17
+canonical P0 groups are mapped; the production C3/S3 motion/retry/ACK/CloudSync
+stack was joined to real local JsonApi/service behavior and the shipped PWA in
+Chromium. The focused scenario execution passed17 markers and one browser test,
+but the GS116 complete-product stage correctly FAILs because the product vertical
+is PARTIAL: production authenticated durable CloudSync commit composition is
+unavailable and remains GS148-owned. No production authorization contract was
+invented. The local development ingestion path is identified as such.
+
+The existing `make validation-board-e2e` was rerun after adding an independent
+P0 export mode and passed8 groups/325 checks. Separate registered
+`validation-board-hil` and `validation-motion-hil` runners pass15 hardware-free
+integrity tests. They remain opt-in; no serial interface or physical stimulus
+was used. Historical GS148 migration FAIL and all earlier evidence remain intact.
+Inventory arithmetic reconciles149 rows:142 have one of the three physical
+classes (45 required,40 conditional,57 software-only); the other7 rows are one
+not-implemented, three on-hold and three deferred items, not missing physical
+classifications. Full release remains NOT_RUN/NOT_APPROVED and physical
+qualification remains NOT_RUN.
+
 ### Focused application continuation delivery
 
 Implementation commit `a0452084b50d2d720010719cbc3a5d18ccd71b8b` and matrix/evidence

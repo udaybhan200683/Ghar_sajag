@@ -1224,7 +1224,140 @@
       "fast": false,
       "release": true,
       "count_kind": "cases"
+    },
+    {
+      "id": "p0-scenario-registry",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "tools/validation/check_p0_e2e_scenarios.py"
+      ],
+      "inputs": [
+        "tools/validation/check_p0_e2e_scenarios.py",
+        "../../docs/validation/P0_E2E_SCENARIOS.json"
+      ],
+      "success": "^P0 SCENARIO REGISTRY PASS use_cases=(\\d+) scenarios=(\\d+) executable_sources=(\\d+)$",
+      "timeout": 60,
+      "count_kind": "use_cases",
+      "fast": true,
+      "release": true
+    },
+    {
+      "id": "gs130-hil-runner-integrity",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "gs130-hil-runner-test"
+      ],
+      "inputs": [
+        "tools/hil/gs130_fixture.json",
+        "tools/hil/gs130_hil_common.py",
+        "tools/hil/gs130_board_hil.py",
+        "tools/hil/gs130_motion_hil.py",
+        "tools/hil/test_gs130_runners.py",
+        "../../docs/validation/PHYSICAL_HIL_CATALOGUE.csv"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 120,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true
+    },
+    {
+      "id": "p0-full-product-e2e",
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "make",
+        "p0-product-e2e",
+        "P0_SCENARIOS="
+      ],
+      "inputs": [
+        "tests/cpp/board_stack_e2e_validation.cpp",
+        "tests/python/run_full_product_p0_e2e.py",
+        "tests/python/test_p0_e2e_selection.py",
+        "tests/playwright/p0_full_product.spec.ts",
+        "app/public/app.mjs",
+        "app/public/index.html",
+        "app/src/features/home/index.mjs",
+        "backend/ghar_sajag/http_api.py",
+        "backend/ghar_sajag/service.py",
+        "backend/ghar_sajag/queries.py",
+        "backend/ghar_sajag/identity.py",
+        "backend/ghar_sajag/homes.py",
+        "backend/ghar_sajag/fleet.py",
+        "backend/ghar_sajag/ingest.py",
+        "backend/ghar_sajag/incidents.py",
+        "backend/ghar_sajag/notifications.py",
+        "backend/ghar_sajag/model.py",
+        "backend/ghar_sajag/store.py",
+        "backend/ghar_sajag/durable_commit.py",
+        "firmware/hub/components/cloud/cloud_sync.cpp",
+        "firmware/hub/components/cloud/cloud_sync.hpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/node/runtime/node_runtime.cpp",
+        "tools/validation/check_p0_e2e_scenarios.py",
+        "../../docs/validation/P0_E2E_SCENARIOS.json"
+      ],
+      "success": "^P0 E2E EXECUTION PASS scenarios=(\\d+) checks=(\\d+) browser_tests=(\\d+) product_status=(PARTIAL|PASS) physical=NOT_RUN$",
+      "required_success": [
+        "^P0-E2E-001 PASS",
+        "^P0-E2E-002 PASS",
+        "^P0-E2E-003 PASS",
+        "^P0-E2E-004 PASS",
+        "^P0-E2E-005 PASS",
+        "^P0-E2E-006 PASS",
+        "^P0-E2E-007 PASS",
+        "^P0-E2E-008 PASS",
+        "^P0-E2E-009 PASS",
+        "^P0-E2E-011 PASS",
+        "^P0-E2E-012 PASS",
+        "^P0-E2E-013 PASS",
+        "^P0-E2E-014 PASS",
+        "^P0-E2E-015 PASS",
+        "^P0-E2E-016 PASS",
+        "^P0-E2E-017 PASS",
+        "^P0-GAP-001 PASS"
+      ],
+      "timeout": 360,
+      "count_kind": "scenario_checks",
+      "fast": true,
+      "release": true,
+      "require_complete_product": true
     }
   ],
-  "separate_harnesses": {}
+  "separate_harnesses": {},
+  "opt_in_physical_suites": {
+    "validation-board-hil": {
+      "command": [
+        "make",
+        "validation-board-hil"
+      ],
+      "automatic": false,
+      "included_in_software_gates": false,
+      "requires_operator_confirmation": true,
+      "runner": "tools/hil/gs130_board_hil.py",
+      "scope": "read-only serial observation only"
+    },
+    "validation-motion-hil": {
+      "command": [
+        "make",
+        "validation-motion-hil"
+      ],
+      "automatic": false,
+      "included_in_software_gates": false,
+      "requires_operator_confirmation": true,
+      "runner": "tools/hil/gs130_motion_hil.py",
+      "scope": "operator-confirmed genuine AM312 motion with read-only serial capture"
+    }
+  }
 }

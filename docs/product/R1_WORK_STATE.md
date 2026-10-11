@@ -1,12 +1,64 @@
 # R1 Current Work State
 
+## GS-130 P0 full-product E2E and HIL runner checkpoint — 2026-10-11
+
+Current implementation adds `make validation-p0-e2e` to the existing GS-116
+registry, joining the production C3/S3 host event path and S3 CloudSync serializer
+to the actual local API/service and shipped caregiver PWA in one focused
+Chromium scenario. The separate GS-116 opt-in `make validation-board-hil` and
+`make validation-motion-hil` runners are implemented with no-run JSON evidence,
+fixture/image/USB-serial preflight, operator confirmation, no UART writes and
+unique evidence directories. Their unit tests exercise safe-block/NOT_RUN paths
+only. **No physical ports were opened and no physical stimulus occurred.**
+
+The initial product vertical test is PARTIAL. It proves C3/S3 host stack
+EventKey retry/dedupe/Durable ACK, local API activity and incident processing,
+Hub API lease projection, household isolation, configuration validation and
+Chromium timeline/door/connectivity/alert rendering. The production-shaped Hub
+CloudSync event-key request receives fail-closed 503
+`durable_event_store_unavailable`; the local API test route is not the unfinished
+GS-148 authenticated COMMITTED contract or production OIDC. The official
+`make validation-p0-e2e` stage therefore reports FAIL when the harness's
+`product_status=PARTIAL`. This is intentional release safety, not a failed
+scenario assertion. No product feature coverage or release qualification is
+claimed complete. Exact scenario/gap mapping, outputs, gate results and physical
+limits are in [dated GS-130 P0 E2E/HIL evidence](../exec-plans/evidence/R1_GS130_P0_E2E_HIL_20261011.md).
+
+Final focused checkpoint: the P0 stage executed 17/17 scenario markers and one
+Chromium case, then correctly exited nonzero at the PARTIAL completeness check;
+the existing board-stack suite reran PASS at 8 groups/325 checks. Runner
+integrity is 15/15, component-gate integrity 39/39, feature mapping 19/19,
+focused API/durable regressions 19/19 and app tests 23/23. No serial port or
+board was accessed; physical status stays NOT_RUN.
+
+Latest same-source verification after adding exact scenario selection: the
+scoped `make p0-product-e2e P0_SCENARIOS=P0-E2E-002` passed its selected
+assertion and selection tests (3/3), with browser tests correctly omitted. The
+unfiltered registered `make validation-p0-e2e` then ran 17/17 assertions plus
+one Chromium test; its component command exited 0 but completeness adjudication
+returned FAIL / outer exit 2 because the product result is PARTIAL. Report
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791729468625457222/report.json`,
+source fingerprint `47153d5211ca70240caaaf631b6b411bb304c448880b23dc14bea99686693175`.
+The same fingerprint board-stack rerun passed at 8 groups/325 checks in 9.679 s.
+
+GS-148 retains the CloudSync commit integration gap and historical journal
+migration FAIL. GS-130 still has partial P0 use cases where production scheduler,
+provider, persistent backend, OIDC, firmware lifecycle or physical acceptance is
+not implemented/testable in this vertical. `make release-gate-final` and broad
+unchanged suites remain NOT_RUN. No product requirement/context version, Jira
+workflow/rank, firmware behavior or physical authorization changed. Next
+software handoff remains GS-130 gap closure; next physical campaign remains
+separately authorized GS-114.
+
 ## Permanent physical HIL catalogue audit — 2026-10-11
 
 GS-114 coverage audit reuses GS-130's 149-row traceability matrix and 200-row
 source inventory (the two GS-114 fixture commissioning-adapter modules are now
 reciprocally mapped to secure commissioning). The matrix classifies implemented/partial features as 45
 `PHYSICAL_REQUIRED`, 40 `PHYSICAL_CONDITIONAL`, and 57 `SOFTWARE_ONLY`; the
-remaining seven are ON_HOLD/DEFERRED/NOT_IMPLEMENTED. Required and conditional
+remaining seven are one `NOT_IMPLEMENTED` (FOTA-HUB-SELF-01), three `ON_HOLD`
+(BAT-C9, GS128-RUNTIME-CONFIG, GS147-JOURNAL), and three `DEFERRED` (BAT-C11,
+BAT-C12, P1-TEMP-CAMERA), not rows missing physical classification. Required and conditional
 rows resolve to case IDs in `docs/validation/PHYSICAL_HIL_CATALOGUE.csv`.
 Catalogue registration is separate from execution and physical acceptance.
 
@@ -15,9 +67,10 @@ marks its classic ESP32 Hub campaign historical-only for current S3. It records
 the actual bounded GS-114 Part 1 observations: A02/A03/A06 PASS, A01 PARTIAL,
 A07 timer-counter-only PARTIAL, A04/A05 NOT_RUN, A08 BLOCKED. BAT-C8 C8-P1–P9
 remain NOT_RUN. No boards/serial ports were accessed in this audit. No current
-S3-compatible unattended or operator-prompting HIL runner exists; legacy
-`hil-regression` is not safe for this S3 fixture and can build/flash/reset/inject
-motion.
+S3-compatible unattended or operator-prompting HIL runner existed at that audit
+checkpoint; GS-130 later added separate opt-in observational and genuine-motion
+runners, documented in the current section above. Legacy `hil-regression` is not
+safe for this S3 fixture and can build/flash/reset/inject motion.
 
 Added hardware-independent catalogue mapping tests to `hil-tooling-test` and a
 release-only evidence checker in GS-116's registry. The release checker fails

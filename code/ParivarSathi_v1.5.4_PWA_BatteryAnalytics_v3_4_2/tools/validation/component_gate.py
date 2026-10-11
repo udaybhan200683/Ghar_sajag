@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 REGISTRY=ROOT/"tools/validation/suites.json"
 COMPONENTS={"node","hub","contract","backend","pwa","tooling"}
+SPECIAL_SUITES={"fast","release","board-e2e","p0-e2e"}
 CLASSIC_SKIP="classic ESP32 NVS reserve model is historical under GS-D030; S3 commercial capacity and reserve qualification remain open"
 
 def load_registry(path=REGISTRY, root=ROOT):
@@ -26,6 +27,15 @@ def load_registry(path=REGISTRY, root=ROOT):
             raise ValueError("missing success evidence or timeout")
         for f in s.get("inputs",[]):
             if not (root/f).is_file(): raise ValueError("missing dependency: "+f)
+        if s.get("require_complete_product") and not (s.get("fast") and s.get("release", True)):
+            raise ValueError("complete product stage must belong to developer and release gates: "+s["id"])
+    for name, suite in data.get("opt_in_physical_suites", {}).items():
+        if name not in {"validation-board-hil", "validation-motion-hil"}:
+            raise ValueError("unknown physical suite: "+name)
+        if suite.get("automatic") is not False or suite.get("included_in_software_gates") is not False:
+            raise ValueError("physical suites must remain explicitly opt-in: "+name)
+        if not suite.get("requires_operator_confirmation") or not suite.get("command"):
+            raise ValueError("physical suite missing command/confirmation boundary: "+name)
     if not COMPONENTS.issubset({c for s in data["stages"] for c in s["components"]}):
         raise ValueError("required component suite missing")
     owned={f for s in data["stages"] for f in s.get("inputs",[])}
@@ -38,9 +48,10 @@ def load_registry(path=REGISTRY, root=ROOT):
     return data
 
 def select(data,suite):
-    if suite not in COMPONENTS|{"fast","release","board-e2e"}: raise ValueError("unknown suite")
+    if suite not in COMPONENTS|SPECIAL_SUITES: raise ValueError("unknown suite")
     selected=[s for s in data["stages"] if
         (suite=="board-e2e" and s["id"]=="board-stack-e2e") or
+        (suite=="p0-e2e" and s["id"]=="p0-full-product-e2e") or
         (suite=="release" and (s.get("fast",True) or s.get("release",False))) or
         (suite=="fast" and s.get("fast",True)) or
         suite in s["components"] and s.get("fast",True)]
@@ -96,6 +107,7 @@ def adjudicate(stage,result):
     if re.search(r"Ran 0 tests|(?:tests|checks)=0\b|^\s*0 passed\b",out,re.M): return "FAIL"
     matches=list(re.finditer(stage["success"],out,re.M))
     if not matches: return "FAIL"
+    if stage.get("require_complete_product") and re.search(r"product_status=(?:PARTIAL|BLOCKED|NOT_RUN)",out): return "FAIL"
     if any(not re.search(pattern,out,re.M) for pattern in stage.get("required_success",[])):
         return "FAIL"
     for m in matches:
@@ -158,7 +170,7 @@ def build_profile(env):
 
 def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--suite",required=True,choices=sorted(COMPONENTS|{"fast","release","board-e2e"}))
+    p.add_argument("--suite",required=True,choices=sorted(COMPONENTS|SPECIAL_SUITES))
     p.add_argument("--list",action="store_true")
     p.add_argument("--reuse-report",type=Path,action="append",default=[],
         help="explicit same-source/profile executed prerequisites, verified logs and binaries")

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "fixture_id": "GS114-DISPOSABLE-C3-S3",
+  "source_evidence": "../../../../docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/attempt06/physical_results.json",
+  "firmware_source_head": "73e1e842ff843a696d592bd7c2004b72a512082c",
+  "firmware_version": "73e1e842ff84-gs114-16fca85b",
+  "boards": {
+    "c3": {
+      "target": "ESP32-C3",
+      "mac": "14:63:93:c5:d1:58",
+      "usb_serial_short": "14:63:93:C5:D1:58",
+      "by_id": "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+      "flash_mb": 4,
+      "image_sha256": "b03b3b2ed7996b594f9fe7d59241f558a6af82774db07a661e5346731db83014"
+    },
+    "s3": {
+      "target": "ESP32-S3",
+      "mac": "7c:4f:ad:b7:2a:20",
+      "usb_serial_short": "5CBC401023",
+      "by_id": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+      "flash_mb": 16,
+      "psram_mb": 8,
+      "image_sha256": "f9608d77230f136abea5794329c1a98be4062419383a1a6dbbfd29a6c793a2d1"
+    }
+  },
+  "limitations": [
+    "Image hashes identify historical build artifacts; flash readback was not verified.",
+    "UART startup logs do not provide a cryptographic running-image hash or current config fingerprint.",
+    "Ports are historical observations; runtime requires explicit stable by-id paths and human authorization."
+  ]
+}

@@ -10,6 +10,7 @@
 #include "firmware/node/fota/boot_health_gate.hpp"
 #include <openssl/evp.h>
 #include <functional>
+#include <fstream>
 
 namespace {
 struct BoardStack:Pair{
@@ -211,8 +212,62 @@ void fota_interruption(){
     bool changed=false;auto ack=b.send_at(31000,changed);require(changed&&b.ack(ack),"event delivery resumes after maintenance interruption");
     node::fota::BootHealthObservation health;require(node::fota::evaluate_boot_health(health,90000)==node::fota::BootHealthDecision::Rollback,"unhealthy boot selects rollback policy; no physical bootloader claim");
 }
+void export_product_motion_event(const std::string& path,const std::string& cloud_path){
+    BoardStack b;
+    const auto key=b.admit(EventKind::Motion,1000);
+    const auto first=b.node->next_message(1000);
+    require(first&&first->event_type==EventKind::Motion&&first->location=="room",
+            "production Node runtime creates the P0 PIR event");
+    bool changed=false;
+    b.deliver(*first,1000,changed);
+    require(changed&&b.outbox->record_count()==1&&b.node->pending()==1,
+            "production S3 durably commits before lost application ACK");
+    // The radio callback succeeds, but the authenticated application Durable
+    // ACK is deliberately dropped at the Node. The retry must remain same-key.
+    b.node->transport_result(key,true,1000);
+    require(b.node->radio_stats().mac_success==1&&b.node->pending()==1,
+            "MAC success without application ACK does not retire the durable event");
+    const auto retry_deadline=b.node->next_retry_deadline();
+    require(retry_deadline.has_value(),"retained event has existing retry deadline");
+    const auto retry=b.node->next_message(*retry_deadline);
+    require(retry&&retry->sequence_number==key.sequence&&retry->session_id==key.session_id,
+            "retry preserves the immutable Node EventKey");
+    const auto durable_ack=b.deliver(*retry,*retry_deadline,changed);
+    require(!changed&&b.outbox->record_count()==1,
+            "Hub deduplicates same EventKey after ACK loss");
+    require(b.ack(durable_ack)&&b.node->pending()==0,
+            "only authenticated Durable ACK retires the persisted Node event");
+    const auto occurred_at=b.hub->activity_state().last_activity_at;
+    require(occurred_at.has_value()&&*occurred_at==1700000001,
+            "Hub reducer preserves the original occurrence timestamp through retry");
+    std::ofstream out(path,std::ios::binary|std::ios::trunc);
+    require(bool(out),"open isolated P0 event export");
+    out << "{\"event_id\":\"" << key.str()
+        << "\",\"event_key\":\"" << key.str()
+        << "\",\"kind\":\"MOTION\",\"location\":\"" << first->location
+        << "\",\"occurred_at\":" << *occurred_at << ",\"hub_received_at\":" << *occurred_at
+        << ",\"uncertainty_s\":0,\"payload\":{\"source\":\"production_c3_pir_runtime\"} }\n";
+    out.close();require(bool(out),"flush isolated P0 event export");
+    hub::CloudSync cloud(b.hub->journal());
+    cloud.set_connected(true,*retry_deadline);
+    const auto batch=cloud.next_batch(*retry_deadline);
+    require(batch.size()==1,"production S3 CloudSync selects the committed motion event");
+    const auto request=cloud.request_for("home",batch.front());
+    require(request.has_value()&&!request->json_body().empty(),
+            "production S3 CloudSync serializes its backend commit request");
+    std::ofstream cloud_out(cloud_path,std::ios::binary|std::ios::trunc);
+    require(bool(cloud_out),"open isolated CloudSync request export");
+    cloud_out<<request->json_body()<<'\n';cloud_out.close();
+    require(bool(cloud_out),"flush isolated CloudSync request export");
+    std::cout << "P0-STACK-EVENT PASS retries=1 durable_effects=1 key=" << key.str()
+              << " physical=NOT_RUN\n";
+}
 }
 int main(int argc,char** argv){
+    if(argc==4&&std::string(argv[1])=="--emit-p0-event"){
+        try{export_product_motion_event(argv[2],argv[3]);return 0;}
+        catch(const std::exception& error){std::cerr<<"P0-STACK-EVENT FAIL "<<error.what()<<'\n';return 1;}
+    }
     const std::vector<std::pair<std::string,std::function<void()>>> cases={
         {"BOARD-TC-130-001",motion_to_ack},{"BOARD-TC-130-002",lossy_channel},
         {"BOARD-TC-130-003",restarts_without_pir},{"BOARD-TC-130-004",sleep_and_outage},

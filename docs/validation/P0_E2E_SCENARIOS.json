@@ -1,0 +1,770 @@
+{
+  "schema_version": 1,
+  "authority": "docs/product/P0_PRODUCT_REQUIREMENTS.md",
+  "executable_gate": "make validation-p0-e2e",
+  "physical_qualification": "NOT_RUN",
+  "use_cases": [
+    {
+      "use_case_id": "P0-UC-01",
+      "name": "Household creation, caregiver roles and authorization",
+      "requirements": [
+        "Household and caregiver",
+        "F01",
+        "E08"
+      ],
+      "feature_ids": [
+        "API-HOME",
+        "API-AUTH",
+        "API-FAMILY"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-001",
+        "P0-E2E-009",
+        "P0-E2E-014"
+      ],
+      "gap": "Local JsonApi identity adapter is not production OIDC; caregiver invitation/role lifecycle is not exercised."
+    },
+    {
+      "use_case_id": "P0-UC-02",
+      "name": "Device onboarding, pairing, identity and lifecycle",
+      "requirements": [
+        "Hub and Node responsibilities",
+        "GS-109"
+      ],
+      "feature_ids": [
+        "PAIR-01",
+        "HUB-IDENTITY",
+        "PWA-ONBOARD"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [],
+      "gap": "Secure owner commissioning has host/GS-114 fixture evidence; production caregiver onboarding and claim flow are not represented by the PWA."
+    },
+    {
+      "use_case_id": "P0-UC-03",
+      "name": "PIR, door and room activity",
+      "requirements": [
+        "Sensor and event categories",
+        "Main door, room activity, bathroom and kitchen"
+      ],
+      "feature_ids": [
+        "NODE-SENSE-01",
+        "NODE-EVENT-01",
+        "HUB-RULE-DOOR",
+        "PWA-ACTIVITY"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-002",
+        "P0-E2E-004",
+        "P0-E2E-017"
+      ],
+      "gap": "PIR motion vertical path is exercised in simulation; door/Reed sensing and room-specific sensor mapping are not physically integrated."
+    },
+    {
+      "use_case_id": "P0-UC-04",
+      "name": "Event identity, durable journal, delivery and ACK",
+      "requirements": [
+        "Hub and Node responsibilities",
+        "GS-D020",
+        "GS-D026"
+      ],
+      "feature_ids": [
+        "NODE-ACK-01",
+        "HUB-DEDUPE-01",
+        "HUB-JOURNAL-01",
+        "HUB-BRIDGE-01"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-002",
+        "P0-E2E-003",
+        "P0-GAP-001"
+      ],
+      "gap": "Node/S3 durable ACK and CloudSync serialization run in production host code; secure durable backend commit endpoint is unavailable (GS-148)."
+    },
+    {
+      "use_case_id": "P0-UC-05",
+      "name": "Routine learning and baseline behavior",
+      "requirements": [
+        "Routine behavior"
+      ],
+      "feature_ids": [
+        "HUB-ROUTINE-01",
+        "ROUTINE-LEARNING"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [],
+      "gap": "Rule/reducer code is simulated in component E2E; autonomous backend learning/scheduler-to-caregiver behavior is not a complete production workflow."
+    },
+    {
+      "use_case_id": "P0-UC-06",
+      "name": "Activity coverage, inactivity thresholds and configuration",
+      "requirements": [
+        "Device offline and battery health",
+        "GS40 derived Node offline timeout"
+      ],
+      "feature_ids": [
+        "HUB-COVERAGE-01",
+        "HUB-TIME-01",
+        "API-COVERAGE",
+        "GS40-CONFIG"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-005",
+        "P0-E2E-011",
+        "P0-E2E-012",
+        "P0-E2E-013",
+        "P0-E2E-015",
+        "P0-E2E-016"
+      ],
+      "gap": "The scenario accepts a Hub concern event; it does not claim the complete secure target timer/coverage scheduler generated it."
+    },
+    {
+      "use_case_id": "P0-UC-07",
+      "name": "Expected/unexpected activity classification",
+      "requirements": [
+        "Main door, room activity, bathroom and kitchen",
+        "Resident interactions, caregiver concerns and notifications"
+      ],
+      "feature_ids": [
+        "HUB-RULE-DOOR",
+        "HUB-RULE-NIGHT",
+        "API-INCIDENT",
+        "PWA-ACTIVITY"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-004",
+        "P0-E2E-005"
+      ],
+      "gap": "Concern rendering is exercised; end-to-end target rule classification and door/reed physical semantics remain open."
+    },
+    {
+      "use_case_id": "P0-UC-08",
+      "name": "NodeHealth, offline/online transitions and recovery",
+      "requirements": [
+        "Device offline and battery health",
+        "GS40 NodeHealth"
+      ],
+      "feature_ids": [
+        "NODE-HEALTH-01",
+        "HUB-HEALTH-01",
+        "GS40-CONTACT",
+        "GS40-MIXED"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-011",
+        "P0-E2E-012",
+        "P0-E2E-013"
+      ],
+      "gap": "API Hub heartbeat lease is exercised. C3 NodeHealth profile transitions are not joined to a production backend contract."
+    },
+    {
+      "use_case_id": "P0-UC-09",
+      "name": "Hub outage versus Internet-only outage",
+      "requirements": [
+        "Hub and Node responsibilities",
+        "Storage/sync separation"
+      ],
+      "feature_ids": [
+        "OFFLINE-01",
+        "GS150-SLEEP",
+        "HUB-BRIDGE-01",
+        "API-COVERAGE"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-GAP-001"
+      ],
+      "gap": "Node/Hub host E2E covers outage distinctions; authenticated backend CloudSync commit is unavailable and returns 503 (GS-148)."
+    },
+    {
+      "use_case_id": "P0-UC-10",
+      "name": "Buffering, retry, deduplication and rejoin",
+      "requirements": [
+        "GS-150",
+        "GS-D020"
+      ],
+      "feature_ids": [
+        "NODE-STORE-01",
+        "NODE-ACK-01",
+        "GS150-REPLAY",
+        "HUB-DEDUPE-01"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-003"
+      ],
+      "gap": "C3/S3 host E2E proves same-key lost-ACK retry; application dedupe is tested separately through its local development route."
+    },
+    {
+      "use_case_id": "P0-UC-11",
+      "name": "Caregiver alerts, notifications and alert recovery",
+      "requirements": [
+        "Resident interactions, caregiver concerns and notifications"
+      ],
+      "feature_ids": [
+        "API-INCIDENT",
+        "API-NOTIFICATION",
+        "PWA-NOTIFY",
+        "PWA-CARE-ACTIONS"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-005",
+        "P0-E2E-006",
+        "P0-E2E-008",
+        "P0-E2E-017"
+      ],
+      "gap": "Incident records reach the browser; external provider delivery and caregiver receipt are not implemented/proven."
+    },
+    {
+      "use_case_id": "P0-UC-12",
+      "name": "Activity history, chronology, status and dashboard",
+      "requirements": [
+        "PWA event/timeline presentation retains meaning and chronology"
+      ],
+      "feature_ids": [
+        "API-INGEST",
+        "PWA-ACTIVITY",
+        "API-REPORTS"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-007",
+        "P0-E2E-008",
+        "P0-E2E-017"
+      ],
+      "gap": "Browser uses the real local API projection; the service store is in-memory and does not establish restart-durable product history."
+    },
+    {
+      "use_case_id": "P0-UC-13",
+      "name": "Caregiver settings and household policy persistence",
+      "requirements": [
+        "Household and caregiver"
+      ],
+      "feature_ids": [
+        "API-CONFIG",
+        "PWA-SCHEDULE"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-015",
+        "P0-E2E-016"
+      ],
+      "gap": "API validation/versioning is exercised in its reference in-memory store; durable configuration/application acknowledgement and settings UI workflow remain open."
+    },
+    {
+      "use_case_id": "P0-UC-14",
+      "name": "Battery/device health and sleep policy",
+      "requirements": [
+        "Device offline and battery health",
+        "BAT-C1 through BAT-C12"
+      ],
+      "feature_ids": [
+        "BAT-C1",
+        "BAT-C2",
+        "BAT-C3",
+        "BAT-C4",
+        "BAT-C5",
+        "BAT-C6",
+        "BAT-C7",
+        "BAT-C8",
+        "GS150-SLEEP"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [],
+      "gap": "C3 production host policies run in registered suites; actual battery telemetry, RF/current and PWA projection are not joined in this vertical test."
+    },
+    {
+      "use_case_id": "P0-UC-15",
+      "name": "Security, authorization, replay and invalid identities",
+      "requirements": [
+        "Hub and Node responsibilities",
+        "E08",
+        "NFR-06"
+      ],
+      "feature_ids": [
+        "API-AUTH",
+        "SEC-RECOVERY-01",
+        "LINK-OWNER-01",
+        "PROTO-01"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-003",
+        "P0-E2E-009",
+        "P0-E2E-014"
+      ],
+      "gap": "API household denial and production Node/Hub replay tests run separately; no production OIDC-to-Hub credential chain exists here."
+    },
+    {
+      "use_case_id": "P0-UC-16",
+      "name": "FOTA/control and recovery",
+      "requirements": [
+        "GS-150 maintenance safety",
+        "FOTA lifecycle"
+      ],
+      "feature_ids": [
+        "FOTA-C3-01",
+        "FOTA-HUB-01",
+        "MAINT-01"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [],
+      "gap": "Production host protocol/state tests exist; bootloader, signed target image, rollback and caregiver status are not part of this local E2E."
+    },
+    {
+      "use_case_id": "P0-UC-17",
+      "name": "Multiple devices/households, isolation and bounded operation",
+      "requirements": [
+        "Household and caregiver",
+        "Multi-node ownership"
+      ],
+      "feature_ids": [
+        "HUB-IDENTITY",
+        "HUB-DEDUPE-01",
+        "API-AUTH",
+        "P2-MN10-01"
+      ],
+      "classification": "PARTIAL",
+      "scenario_ids": [
+        "P0-E2E-014"
+      ],
+      "gap": "API events and incident state are isolated across two homes; multi-node ownership and production-scale load remain separately covered or open."
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "P0-E2E-001",
+      "use_case_ids": [
+        "P0-UC-01"
+      ],
+      "name": "Create isolated home and owner membership",
+      "requirements": [
+        "Household and caregiver"
+      ],
+      "feature_ids": [
+        "API-HOME",
+        "API-AUTH"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/http_api.py",
+        "backend/ghar_sajag/homes.py",
+        "backend/ghar_sajag/identity.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "201 with created home and owner membership",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-002",
+      "use_case_ids": [
+        "P0-UC-03",
+        "P0-UC-04"
+      ],
+      "name": "C3 PIR event through S3 Durable ACK to caregiver timeline",
+      "requirements": [
+        "Hub and Node responsibilities",
+        "Sensor and event categories",
+        "GS-D020"
+      ],
+      "feature_ids": [
+        "NODE-SENSE-01",
+        "NODE-EVENT-01",
+        "NODE-ACK-01",
+        "HUB-JOURNAL-01",
+        "HUB-BRIDGE-01",
+        "API-INGEST",
+        "PWA-ACTIVITY"
+      ],
+      "production_sources": [
+        "firmware/node/runtime/node_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/components/cloud/cloud_sync.cpp",
+        "backend/ghar_sajag/http_api.py",
+        "app/src/features/home/index.mjs",
+        "app/public/app.mjs"
+      ],
+      "test_source": "tests/cpp/board_stack_e2e_validation.cpp;tests/python/run_full_product_p0_e2e.py;tests/playwright/p0_full_product.spec.ts",
+      "command": "make validation-p0-e2e",
+      "expected": "same immutable EventKey, original timestamp and event meaning are visible once in Chromium caregiver timeline",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130",
+      "limitations": "Hub CloudSync commit body is fail-closed at the current API durable-auth seam; browser path uses explicitly local development event ingestion."
+    },
+    {
+      "scenario_id": "P0-E2E-003",
+      "use_case_ids": [
+        "P0-UC-04",
+        "P0-UC-10"
+      ],
+      "name": "Lost ACK, exact-key retry and duplicate suppression",
+      "requirements": [
+        "GS-D020",
+        "GS-150"
+      ],
+      "feature_ids": [
+        "NODE-ACK-01",
+        "GS150-REPLAY",
+        "HUB-DEDUPE-01",
+        "API-INGEST"
+      ],
+      "production_sources": [
+        "firmware/node/runtime/node_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "backend/ghar_sajag/ingest.py"
+      ],
+      "test_source": "tests/cpp/board_stack_e2e_validation.cpp;tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "Hub has one logical event and API duplicate retry creates no second activity row",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-004",
+      "use_case_ids": [
+        "P0-UC-06",
+        "P0-UC-07",
+        "P0-UC-11"
+      ],
+      "name": "Unexpected door activity derives caregiver door state",
+      "requirements": [
+        "Resident interactions, caregiver concerns and notifications"
+      ],
+      "feature_ids": [
+        "API-INGEST",
+        "API-INCIDENT",
+        "PWA-ACTIVITY",
+        "PWA-NOTIFY"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/service.py",
+        "backend/ghar_sajag/incidents.py",
+        "backend/ghar_sajag/queries.py",
+        "app/public/app.mjs"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py;tests/playwright/p0_full_product.spec.ts",
+      "command": "make validation-p0-e2e",
+      "expected": "Door event appears with unexpected semantics in actual API/PWA projection; physical door sensing remains NOT_RUN.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130",
+      "limitations": "Concern event is accepted at actual API ingress; autonomous secure target rule scheduling is not asserted."
+    },
+    {
+      "scenario_id": "P0-E2E-005",
+      "use_case_ids": [
+        "P0-UC-12"
+      ],
+      "name": "Accepted inactivity concern creates an incident visible to caregiver",
+      "requirements": [
+        "PWA event/timeline presentation retains meaning and chronology"
+      ],
+      "feature_ids": [
+        "API-INGEST",
+        "PWA-ACTIVITY"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/queries.py",
+        "app/src/features/home/index.mjs"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "latest motion type is retained and newer concern sorts before older motion",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-006",
+      "use_case_ids": [
+        "P0-UC-11"
+      ],
+      "name": "Resident Call Family event creates caregiver incident",
+      "requirements": [
+        "Resident interactions, caregiver concerns and notifications"
+      ],
+      "feature_ids": [
+        "API-INCIDENT",
+        "API-NOTIFICATION"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/service.py",
+        "backend/ghar_sajag/incidents.py",
+        "app/src/features/home/index.mjs"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "Call Family event creates a real service incident and that state appears in the authorized snapshot.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-007",
+      "use_case_ids": [
+        "P0-UC-01",
+        "P0-UC-15",
+        "P0-UC-17"
+      ],
+      "name": "Unauthorized caregiver cannot read another home",
+      "requirements": [
+        "Household and caregiver",
+        "E08",
+        "NFR-06"
+      ],
+      "feature_ids": [
+        "API-AUTH",
+        "API-HOME"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/identity.py",
+        "backend/ghar_sajag/http_api.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "Snapshot retains the exact motion EventKey once and projects latest typed door activity.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130",
+      "limitations": "The actor adapter is local-development-only, not OIDC validation."
+    },
+    {
+      "scenario_id": "P0-E2E-008",
+      "use_case_ids": [
+        "P0-UC-11",
+        "P0-UC-12"
+      ],
+      "name": "Chromium caregiver view displays API state and incident after reload",
+      "requirements": [
+        "PWA event/timeline presentation retains meaning and chronology"
+      ],
+      "feature_ids": [
+        "PWA-ACTIVITY",
+        "API-INCIDENT"
+      ],
+      "production_sources": [
+        "app/public/app.mjs",
+        "app/src/features/home/index.mjs",
+        "backend/ghar_sajag/http_api.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "Call Family and inactivity incidents remain active with chronological recent activity.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-009",
+      "use_case_ids": [
+        "P0-UC-13"
+      ],
+      "name": "Valid caregiver policy is versioned and returned by API",
+      "requirements": [
+        "Household and caregiver"
+      ],
+      "feature_ids": [
+        "API-CONFIG"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/fleet.py",
+        "backend/ghar_sajag/http_api.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "validated desired policy reads back at same version",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130",
+      "limitations": "Reference store is in-memory; no restart durability claim."
+    },
+    {
+      "scenario_id": "P0-E2E-011",
+      "use_case_ids": [
+        "P0-UC-08"
+      ],
+      "name": "Hub heartbeat observation ingress",
+      "requirements": [
+        "Hub liveness contract"
+      ],
+      "feature_ids": [
+        "HUB-HEALTH-01",
+        "API-COVERAGE"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/http_api.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make p0-product-e2e",
+      "expected": "Hub heartbeat is accepted as API freshness evidence; no C3 NodeHealth claim.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-012",
+      "use_case_ids": [
+        "P0-UC-08"
+      ],
+      "name": "Fresh Hub lease in caregiver snapshot",
+      "requirements": [
+        "Hub liveness contract"
+      ],
+      "feature_ids": [
+        "HUB-HEALTH-01",
+        "API-COVERAGE"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/queries.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make p0-product-e2e",
+      "expected": "Fresh heartbeat makes hub_reachable true and carries received timestamp.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-013",
+      "use_case_ids": [
+        "P0-UC-06",
+        "P0-UC-08"
+      ],
+      "name": "Hub lease expiry boundary",
+      "requirements": [
+        "Hub liveness contract"
+      ],
+      "feature_ids": [
+        "HUB-HEALTH-01",
+        "API-COVERAGE"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/queries.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make p0-product-e2e",
+      "expected": "At age 191 seconds the existing 190-second Hub lease is unavailable.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-014",
+      "use_case_ids": [
+        "P0-UC-01",
+        "P0-UC-17"
+      ],
+      "name": "Multi-household event and incident isolation",
+      "requirements": [
+        "Household and caregiver"
+      ],
+      "feature_ids": [
+        "API-HOME",
+        "API-AUTH"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/homes.py",
+        "backend/ghar_sajag/identity.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make p0-product-e2e",
+      "expected": "Second home snapshot exposes no first-home events or incidents.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-015",
+      "use_case_ids": [
+        "P0-UC-13"
+      ],
+      "name": "Valid caregiver policy version/readback",
+      "requirements": [
+        "Household caregiver configuration"
+      ],
+      "feature_ids": [
+        "API-CONFIG"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/fleet.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make p0-product-e2e",
+      "expected": "Valid policy returns the published version and effective body.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-016",
+      "use_case_ids": [
+        "P0-UC-13"
+      ],
+      "name": "Invalid caregiver policy rejection",
+      "requirements": [
+        "Household caregiver configuration"
+      ],
+      "feature_ids": [
+        "API-CONFIG"
+      ],
+      "production_sources": [
+        "backend/ghar_sajag/fleet.py"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py",
+      "command": "make p0-product-e2e",
+      "expected": "Invalid policy returns 400, not a success response.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-E2E-017",
+      "use_case_ids": [
+        "P0-UC-03",
+        "P0-UC-11",
+        "P0-UC-12"
+      ],
+      "name": "Chromium caregiver state after reload",
+      "requirements": [
+        "Caregiver activity projection"
+      ],
+      "feature_ids": [
+        "PWA-ACTIVITY",
+        "API-INCIDENT"
+      ],
+      "production_sources": [
+        "app/public/app.mjs",
+        "app/src/features/home/index.mjs"
+      ],
+      "test_source": "tests/python/run_full_product_p0_e2e.py;tests/playwright/p0_full_product.spec.ts",
+      "command": "make p0-product-e2e",
+      "expected": "Chromium renders actual API activity, door state, connectivity, incidents and timeline after page reload.",
+      "execution_status": "RUNTIME_REPORT",
+      "jira_owner": "GS-130"
+    },
+    {
+      "scenario_id": "P0-GAP-001",
+      "use_case_ids": [
+        "P0-UC-04",
+        "P0-UC-09"
+      ],
+      "name": "Production CloudSync Durable commit request to current local API",
+      "requirements": [
+        "Hub and Node responsibilities",
+        "Storage/sync separation"
+      ],
+      "feature_ids": [
+        "HUB-BRIDGE-01",
+        "API-COMMIT",
+        "GS148-PRODUCTION"
+      ],
+      "production_sources": [
+        "firmware/hub/components/cloud/cloud_sync.cpp",
+        "backend/ghar_sajag/http_api.py",
+        "backend/ghar_sajag/durable_commit.py"
+      ],
+      "test_source": "tests/cpp/board_stack_e2e_validation.cpp;tests/python/run_full_product_p0_e2e.py",
+      "command": "make validation-p0-e2e",
+      "expected": "authenticated backend durable commit and matching owner-bound receipt",
+      "execution_status": "PRODUCT_GAP",
+      "jira_owner": "GS-148",
+      "actual_observed": "Current API returns durable_event_store_unavailable (503) when presented the production CloudSync event_key shape; test asserts fail-closed behavior rather than translating away this contract gap."
+    }
+  ]
+}
