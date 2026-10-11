@@ -1,5 +1,39 @@
 # R1 Current Work State
 
+## GS-114 Part 2 physical preflight — 2026-10-11
+
+Preflight at source checkpoint `02d7a12bd0f523a3acf7b80bfc06ac996fd14c76`
+found no `/dev/serial/by-id` directory or `/dev/ttyACM*` interfaces in the
+current WSL environment. No board was opened or otherwise interacted with. The
+existing genuine-motion observer sets DTR/RTS low and sends no bytes, but its
+own safety note says serial open may affect an unverified adapter; the S3
+fixture is CH343 and a non-reset guarantee is not established. Real PIR
+qualification is therefore **BLOCKED before stimulus**. Operator still needs
+to confirm the exact disposable pair is attached, the AM312 is already safely
+wired to C3 GPIO4, and they are available for prompted motion; a verified
+no-reset observer or explicit approval for the bounded DTR/RTS-low serial open
+is also required.
+
+Part 1 hashes remain the recorded build artifacts from source
+`73e1e842ff843a696d592bd7c2004b72a512082c` (C3
+`b03b3b2ed7996b594f9fe7d59241f558a6af82774db07a661e5346731db83014`, S3
+`f9608d77230f136abea5794329c1a98be4062419383a1a6dbbfd29a6c793a2d1`), not
+verified flash readbacks. C3 firmware sources are unchanged through this
+checkpoint; the intervening S3 delta adds CloudSync generation provenance and
+does not affect GS-114 local event/ACK/sleep behavior. This does not establish
+which images currently run on the fixture. No motion, reset, outage, FOTA,
+storage operation or physical measurement occurred. Exact case dispositions
+and the next safe action are in
+[`GS114_PART2_PREFLIGHT_20261011.md`](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2_PREFLIGHT_20261011.md).
+
+**GS-114 remains In Progress and is not eligible for closure.** P1 is NOT_RUN;
+P2–P9 remain NOT_RUN/BLOCKED as mapped in the preflight record; P10 belongs to
+GS-149. The preserved Part 1 evidence remains limited to its recorded scopes.
+Local/remote HEAD at preflight was `02d7a12bd0f523a3acf7b80bfc06ac996fd14c76`;
+only this work-state/evidence documentation is intended to change. Untracked
+S3 `managed_components/` and prior redacted Part 1 logs remain preserved.
+
+
 ## GS-130 P0 full-product E2E and HIL runner checkpoint — 2026-10-11
 
 Current implementation adds `make validation-p0-e2e` to the existing GS-116
