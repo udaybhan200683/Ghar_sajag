@@ -38,8 +38,9 @@ def load_registry(path=REGISTRY, root=ROOT):
     return data
 
 def select(data,suite):
-    if suite not in COMPONENTS|{"fast","release"}: raise ValueError("unknown suite")
+    if suite not in COMPONENTS|{"fast","release","board-e2e"}: raise ValueError("unknown suite")
     selected=[s for s in data["stages"] if
+        (suite=="board-e2e" and s["id"]=="board-stack-e2e") or
         (suite=="release" and (s.get("fast",True) or s.get("release",False))) or
         (suite=="fast" and s.get("fast",True)) or
         suite in s["components"] and s.get("fast",True)]
@@ -148,12 +149,16 @@ def build_profile(env):
         "CXXFLAGS","TRACE_FLAGS","INCLUDES","PRODUCT","GS_IDF_EXPORT")}
     profile["host_compiler"]=subprocess.check_output(
         [sys.executable,"scripts/host_build_profile.py","--compiler-only",env.get("CXX","g++")],cwd=ROOT,text=True).strip()
+    import importlib.util
+    spec=importlib.util.spec_from_file_location("portable_psa_dependency",ROOT/"scripts/build_portable_psa_reset.py")
+    dependency=importlib.util.module_from_spec(spec);spec.loader.exec_module(dependency)
+    profile["portable_crypto_sources"]=dependency.dependency_fingerprint(env)
     profile["python"]=sys.version
     return profile
 
 def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--suite",required=True,choices=sorted(COMPONENTS|{"fast","release"}))
+    p.add_argument("--suite",required=True,choices=sorted(COMPONENTS|{"fast","release","board-e2e"}))
     p.add_argument("--list",action="store_true")
     p.add_argument("--reuse-report",type=Path,action="append",default=[],
         help="explicit same-source/profile executed prerequisites, verified logs and binaries")

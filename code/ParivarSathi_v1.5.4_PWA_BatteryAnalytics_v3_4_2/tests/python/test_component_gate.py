@@ -10,6 +10,26 @@ class ComponentGateTest(unittest.TestCase):
         return {"id":"sample","success":r"^PASS tests=(\d+)$","allowed_skips":[],**kwargs}
     def result(self,output="PASS tests=1\n",rc=0):
         return {"exit_code":rc,"output":output,"seconds":0}
+    def test_external_crypto_and_idf_guard_invalidate_receipts(self):
+        from scripts.build_portable_psa_reset import dependency_fingerprint
+        with tempfile.TemporaryDirectory() as t:
+            sdk=Path(t);crypto=sdk/'components/mbedtls/mbedtls/tf-psa-crypto'
+            crypto.mkdir(parents=True);(crypto/'CMakeLists.txt').write_text('cmake')
+            guard=sdk/'components/mbedtls/port/aes/esp_aes_gcm.c'
+            guard.parent.mkdir(parents=True);guard.write_text('guard')
+            env={'IDF_PATH':t};before=dependency_fingerprint(env)
+            guard.write_text('changed guard');self.assertNotEqual(before,dependency_fingerprint(env))
+            before=dependency_fingerprint(env);(crypto/'source.c').write_text('crypto')
+            self.assertNotEqual(before,dependency_fingerprint(env))
+            guard.unlink();self.assertTrue(dependency_fingerprint(env).startswith('MISSING:'))
+    def test_partial_board_case_selection_cannot_satisfy_complete_gate(self):
+        stage=next(s for s in gate.load_registry()['stages'] if s['id']=='board-stack-e2e')
+        out='BOARD-TC-130-001 PASS\nBOARD STACK E2E PASS cases=1 checks=20 failed=0 physical=NOT_RUN\n'
+        self.assertEqual(gate.adjudicate(stage,self.result(out)),'FAIL')
+    def test_profile_initialization_works_without_pythonpath(self):
+        script="import importlib.util; s=importlib.util.spec_from_file_location('gate',"+repr(str(ROOT/'tools/validation/component_gate.py'))+"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.build_profile({})['portable_crypto_sources']"
+        result=subprocess.run([sys.executable,'-I','-c',script],cwd=ROOT,capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
     def test_failure_propagates_even_with_pass_text(self):
         self.assertEqual(gate.adjudicate(self.stage(),self.result(rc=3)),"FAIL")
     def test_zero_tests_and_missing_records_fail(self):

@@ -7,8 +7,12 @@ from pathlib import Path
 import os
 import subprocess
 import tempfile
+import shlex
 
-def run(argv):subprocess.run([str(a) for a in argv],check=True)
+def run(argv):
+    argv=[str(a) for a in argv]
+    print(shlex.join(argv), flush=True)
+    subprocess.run(argv,check=True)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
@@ -16,6 +20,7 @@ def main():
     p.add_argument('--compat-include',type=Path,required=True)
     p.add_argument('--post-records',type=Path)
     p.add_argument('--psa-source',type=Path)
+    p.add_argument('--output',type=Path,help='Retain executable for validation receipt hashing')
     args=p.parse_args()
     root=Path(__file__).resolve().parents[2]
     idf=Path(os.environ.get('IDF_PATH','/home/udaybhan/.espressif/v6.0.3/esp-idf'))
@@ -29,7 +34,7 @@ def main():
         guard=folder/'idf_guard.c'
         guard.write_text('#include <stddef.h>\n#include <stdint.h>\n#define ESP_LOGE(...) ((void)0)\n#define TAG "test"\n#define PSA_ERROR_INVALID_ARGUMENT (-135)\n#define AES_BLOCK_BYTES 16\nint idf_gcm_pointer_guard(const unsigned char *input,size_t input_length,unsigned char *output,size_t output_size){\nint dummy=0;void *ctx=&dummy;size_t result=0;size_t *output_length=&result;\n'+prefix+'\nreturn 0;}\n')
         obj=folder/'guard.o'
-        run(['cc','-c',guard,'-o',obj])
+        run(['cc','-B/usr/bin','-c',guard,'-o',obj])
         includes=[root,root/'shared/include',mbed/'include',mbed/'drivers/builtin/include',args.crypto_build/'include',args.compat_include]
         libraries=list(args.crypto_build.rglob('*.a'))
         assert libraries,'No portable PSA libraries found'
@@ -48,7 +53,8 @@ extern "C" psa_status_t __wrap_psa_aead_decrypt(mbedtls_svc_key_id_t key,psa_alg
     return __real_psa_aead_decrypt(key,alg,nonce,nn,aad,an,input,in,output,on,written);
 }
 """)
-        exe=folder/'validation'
-        run(['g++','-std=c++17','-O2','-Wall','-Wextra','-Werror',*[f'-I{i}' for i in includes],root/'firmware/common/security/association_persistence.cpp',args.psa_source or root/'firmware/common/security/psa_commissioning_crypto.cpp',wrapper,'-Wl,--wrap=psa_aead_encrypt','-Wl,--wrap=psa_aead_decrypt',root/'tests/cpp/factory_node_reset_validation.cpp',obj,'-Wl,--start-group',*libraries,'-Wl,--end-group','-o',exe])
+        exe=args.output.resolve() if args.output else folder/'validation'
+        exe.parent.mkdir(parents=True,exist_ok=True)
+        run(['g++','-B/usr/bin','-std=c++17','-O2','-Wall','-Wextra','-Werror',*[f'-I{i}' for i in includes],root/'firmware/common/security/association_persistence.cpp',args.psa_source or root/'firmware/common/security/psa_commissioning_crypto.cpp',wrapper,'-Wl,--wrap=psa_aead_encrypt','-Wl,--wrap=psa_aead_decrypt',root/'tests/cpp/factory_node_reset_validation.cpp',obj,'-Wl,--start-group',*libraries,'-Wl,--end-group','-o',exe])
         run([exe,*([args.post_records] if args.post_records else [])])
 if __name__=='__main__':main()

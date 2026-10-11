@@ -535,6 +535,32 @@ p2d-https-channel-host-test: build $(CPP_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -Itests/cpp/p2d_idf_fake $(CPP_OBJECTS) firmware/hub/components/cloud/http_backend_transport.cpp firmware/hub/target/esp32s3/https_backend_channel.cpp firmware/hub/components/storage/durable_event_outbox.cpp firmware/hub/components/storage/outbox_journal_backend.cpp host/security/openssl_commissioning_crypto.cpp tests/cpp/p2d_https_channel_validation.cpp -lcrypto -o $(P2D_HTTPS_TEST_BINARY)
 	$(P2D_HTTPS_TEST_BINARY)
 
+
+# GS-130 permanent production boundary and portable PSA regressions.
+.PHONY: feature-boundary-host-test factory-node-reset-host-test
+FEATURE_BOUNDARY_OBJECTS := $(call host_objects,firmware/hub/components/storage/durable_event_outbox.cpp)
+HOST_TEST_OBJECTS += $(FEATURE_BOUNDARY_OBJECTS)
+feature-boundary-host-test: build $(CPP_OBJECTS) $(FEATURE_BOUNDARY_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(FEATURE_BOUNDARY_OBJECTS) tests/cpp/feature_boundary_validation.cpp -o build/feature_boundary_validation
+	./build/feature_boundary_validation
+
+factory-node-reset-host-test:
+	python3 scripts/build_portable_psa_reset.py
+
+.PHONY: feature-coverage-test
+feature-coverage-test:
+	python3 scripts/check_feature_traceability.py
+	PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p test_feature_traceability.py -v
+
+.PHONY: board-stack-e2e-host-test validation-board-e2e
+BOARD_E2E_SOURCES := $(sort $(CPP_SOURCES) $(GS116_MULTINODE_HOST_TEST_HOST_SOURCES) $(GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES) firmware/hub/components/storage/outbox_journal_backend.cpp firmware/node/fota/boot_health_gate.cpp)
+BOARD_E2E_OBJECTS := $(call host_objects,$(BOARD_E2E_SOURCES))
+HOST_TEST_OBJECTS += $(BOARD_E2E_OBJECTS)
+board-stack-e2e-host-test: build $(BOARD_E2E_OBJECTS)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(BOARD_E2E_OBJECTS) tests/cpp/board_stack_e2e_validation.cpp -lcrypto -o build/board_stack_e2e_validation
+	./build/board_stack_e2e_validation
+validation-board-e2e:
+	python3 tools/validation/component_gate.py --suite board-e2e $(VALIDATION_RECEIPTS)
 # All cached production objects retain generated-header and source/header dependencies.
 $(HOST_TEST_OBJECTS): Makefile build/gs40_generated/gs/node_health_config.hpp
 -include $(HOST_TEST_OBJECTS:.o=.d)

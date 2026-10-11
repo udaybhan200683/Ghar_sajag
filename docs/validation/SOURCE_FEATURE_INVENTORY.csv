@@ -1,0 +1,199 @@
+MODULE,FEATURE_IDS,ROLE,REVIEW_STATUS,GAP
+backend/ghar_sajag/__init__.py,API-01;API-RECONCILE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/battery.py,API-BATTERY,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/database.py,API-SQLITE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/durable_commit.py,API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/feature_flags.py,SHARED-FLAGS,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/fleet.py,API-DEVICES;API-CONFIG,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/foundation.py,API-HOME;API-FAMILY;API-DEVICES,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/homes.py,API-CONSENT;API-HOME,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/http_api.py,API-01;API-RECONCILE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/identity.py,API-AUTH,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/incidents.py,API-INCIDENT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/ingest.py,API-INGEST,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/logging_config.py,API-LOG,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/model.py,API-01;API-RECONCILE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/node_health_policy.py,GS40-CONFIG;GS40-MIXED,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/notifications.py,API-NOTIFICATION,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/operations.py,API-01;API-RECONCILE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/queries.py,API-REPORTS;API-COVERAGE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/service.py,API-01;API-RECONCILE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/sqlite_events.py,API-SQLITE;API-REPORTS,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/store.py,API-01;API-RECONCILE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/001_p0_core.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/002_battery_analytics.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/003_phase1_application.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/004_cloud_event_history.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/005_phase2b_notifications.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/006_phase3b_event_query_indexes.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/007_phase3b_household_event_identity.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/migrations/008_durable_event_commit.sql,API-SQLITE;API-COMMIT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+firmware/common/security/association_persistence.cpp,P2-PERSIST-ASSOC-HOST-01;NODE-RESET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/association_persistence.hpp,P2-PERSIST-ASSOC-HOST-01;NODE-RESET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/commissioning_crypto.hpp,P2-COM-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/commissioning_protocol.cpp,P2-COM-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/commissioning_protocol.hpp,P2-COM-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/commissioning_wire.cpp,P2-COM-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/commissioning_wire.hpp,P2-COM-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/nvs_association_blob_store.cpp,P2-PERSIST-ASSOC-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/nvs_association_blob_store.hpp,P2-PERSIST-ASSOC-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/psa_commissioning_crypto.cpp,P2-PSA-TARGET-01;NODE-RESET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/psa_commissioning_crypto.hpp,P2-PSA-TARGET-01;NODE-RESET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/rejoin_protocol.cpp,P2-REJOIN-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/rejoin_protocol.hpp,P2-REJOIN-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/runtime_frame_security.cpp,P2-RUNTIME-SEC-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/runtime_frame_security.hpp,P2-RUNTIME-SEC-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/security.cpp,NODE-ACK-01;P2-FOTA-SIGN-GATE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/security.hpp,NODE-ACK-01;P2-FOTA-SIGN-GATE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/target_identity_signer.cpp,P2-PSA-TARGET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/target_identity_signer.hpp,P2-PSA-TARGET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/target_wrapping_key.cpp,P2-PSA-TARGET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/security/target_wrapping_key.hpp,P2-PSA-TARGET-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/data_plane_codec.cpp,PROTO-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/data_plane_codec.hpp,PROTO-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/fota_protocol.hpp,P2-FOTA-PROTOCOL-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/fota_secure_wire.cpp,P2-FOTA-PROTOCOL-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/fota_secure_wire.hpp,P2-FOTA-PROTOCOL-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/node_retirement_protocol.cpp,NODE-RETIREMENT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/node_retirement_protocol.hpp,NODE-RETIREMENT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/session_id.cpp,NODE-RESTART-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/common/transport/session_id.hpp,NODE-RESTART-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/cloud/cloud_sync.cpp,HUB-BRIDGE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/cloud/cloud_sync.hpp,HUB-BRIDGE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/cloud/http_backend_transport.cpp,HUB-HTTP,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/cloud/http_backend_transport.hpp,HUB-HTTP,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/coverage/coverage.cpp,HUB-COVERAGE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/coverage/coverage.hpp,HUB-COVERAGE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/fota/hub_fota_guard.cpp,P2-FOTA-S2-HUB-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/fota/hub_fota_guard.hpp,P2-FOTA-S2-HUB-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/ingest/ingest.cpp,HUB-RX-01;LINK-OWNER-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/ingest/ingest.hpp,HUB-RX-01;LINK-OWNER-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/lifecycle/config_service.cpp,HUB-CONFIG-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/lifecycle/config_service.hpp,HUB-CONFIG-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/registry/node_registry.cpp,P2-REG-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/registry/node_registry.hpp,P2-REG-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/registry/registry_persistence.cpp,P2-PERSIST-HUB-REG-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/registry/registry_persistence.hpp,P2-PERSIST-HUB-REG-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/rules/routine_service.cpp,HUB-ROUTINE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/rules/routine_service.hpp,HUB-ROUTINE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/durable_event_outbox.cpp,HUB-OUTBOX;HUB-IDENTITY;HUB-COMPLETION;HUB-BODY-COMPACTION,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/durable_event_outbox.hpp,HUB-OUTBOX;HUB-IDENTITY;HUB-COMPLETION;HUB-BODY-COMPACTION,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/durable_journal_slot_store.cpp,HUB-PROVIDER;HUB-LEGACY-MIGRATION,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/durable_journal_slot_store.hpp,HUB-PROVIDER;HUB-LEGACY-MIGRATION,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/durable_transition.cpp,HUB-JOURNAL-01;HUB-FRESH;HUB-DURABLE-CODEC,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/durable_transition.hpp,HUB-JOURNAL-01;HUB-FRESH;HUB-DURABLE-CODEC,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/hub_durability_owner.cpp,HUB-JOURNAL-01;HUB-FRESH;HUB-DURABLE-CODEC,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/hub_durability_owner.hpp,HUB-JOURNAL-01;HUB-FRESH;HUB-DURABLE-CODEC,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/journal.cpp,HUB-JOURNAL-01;HUB-FRESH;HUB-DURABLE-CODEC,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/journal.hpp,HUB-JOURNAL-01;HUB-FRESH;HUB-DURABLE-CODEC,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/node_retirement_snapshot.cpp,HUB-RETIREMENT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/node_retirement_snapshot.hpp,HUB-RETIREMENT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/outbox_journal_backend.cpp,HUB-OUTBOX-RUNTIME,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/outbox_journal_backend.hpp,HUB-OUTBOX-RUNTIME,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/runtime_state_store.cpp,HUB-CHECKPOINT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/storage/runtime_state_store.hpp,HUB-CHECKPOINT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/time/clock.cpp,HUB-TIME-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/time/clock.hpp,HUB-TIME-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/ui/resident_ui.cpp,HUB-RESIDENT-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/components/ui/resident_ui.hpp,HUB-RESIDENT-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/runtime/hub_checkpoint_codec.cpp,HUB-CHECKPOINT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/runtime/hub_checkpoint_codec.hpp,HUB-CHECKPOINT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/runtime/hub_event_log.hpp,HUB-HEALTH-01;SHARED-LOG,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/runtime/hub_runtime.cpp,HUB-RX-01;HUB-DEDUPE-01;HUB-RULE-DOOR;HUB-RULE-INACTIVITY;GS40-MIXED,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/runtime/hub_runtime.hpp,HUB-RX-01;HUB-DEDUPE-01;HUB-RULE-DOOR;HUB-RULE-INACTIVITY;GS40-MIXED,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/target/esp32/hub_runtime_adapter.cpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/hub_runtime_adapter.hpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/hub_security_link.cpp,P2-RUNTIME-SEC-HOST-01;P2-REG-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/hub_security_link.hpp,P2-RUNTIME-SEC-HOST-01;P2-REG-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/hub_target_config.hpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/idf/main/app_main.cpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/idf/main/fota_sender.cpp,FOTA-HUB-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/idf/main/fota_sender.hpp,FOTA-HUB-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/idf/main/hil_control.cpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_durable_blob_store.cpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_durable_blob_store.hpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_durable_key_codec.cpp,HUB-DURABLE-CODEC,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_durable_key_codec.hpp,HUB-DURABLE-CODEC,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_journal_slot_store.cpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_journal_slot_store.hpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_store_inventory.cpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32/nvs_store_inventory.hpp,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32s3/https_backend_channel.cpp,HUB-HTTPS,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32s3/https_backend_channel.hpp,HUB-HTTPS,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32s3/idf/diagnostic/app_main.c,HUB-JOURNAL-01;HUB-OUTBOX;GS40-MIXED;PAIR-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32s3/littlefs_segment_store.cpp,HUB-OUTBOX;HUB-CHECKPOINT,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/hub/target/esp32s3/littlefs_segment_store.hpp,HUB-OUTBOX;HUB-CHECKPOINT,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/components/lifecycle/lifecycle.cpp,NODE-CONFIG-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/lifecycle/lifecycle.hpp,NODE-CONFIG-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/power/power.cpp,BAT-C2;GS40-CONTACT;GS150-SLEEP;BAT-C1;BAT-C3,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/power/power.hpp,BAT-C2;GS40-CONTACT;GS150-SLEEP;BAT-C1;BAT-C3,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/power/session_recovery_policy.hpp,SEC-RECOVERY-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/radio/node_radio.cpp,NODE-RADIO-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/radio/node_radio.hpp,NODE-RADIO-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/sensing/sensing.cpp,NODE-SENSE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/sensing/sensing.hpp,NODE-SENSE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/storage/node_recovery_persistence.cpp,P2-PERSIST-NODE-REC-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/storage/node_recovery_persistence.hpp,P2-PERSIST-NODE-REC-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/storage/node_store.cpp,NODE-STORE-01;NODE-ACK-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/components/storage/node_store.hpp,NODE-STORE-01;NODE-ACK-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/fota/boot_health_gate.cpp,P2-FOTA-BOOT-HEALTH-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/fota/boot_health_gate.hpp,P2-FOTA-BOOT-HEALTH-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/fota/fota_receiver.cpp,FOTA-C3-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/fota/fota_receiver.hpp,FOTA-C3-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/fota/secure_fota_adapter.cpp,P2-FOTA-S3-NODE-01;P2-FOTA-S4-HASH-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/fota/secure_fota_adapter.hpp,P2-FOTA-S3-NODE-01;P2-FOTA-S4-HASH-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/runtime/node_runtime.cpp,NODE-EVENT-01;NODE-PRIORITY-01;NODE-RESTART-02;BAT-C6;BAT-C7;GS150-REPLAY,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/runtime/node_runtime.hpp,NODE-EVENT-01;NODE-PRIORITY-01;NODE-RESTART-02;BAT-C6;BAT-C7;GS150-REPLAY,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/node/target/esp32c3/idf/main/app_main.cpp,BAT-C8;GS40-CONFIG;GS150-SLEEP;MAINT-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/idf/main/fota_receiver.cpp,FOTA-C3-02;P2-FOTA-SIGN-GATE-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/idf/main/fota_receiver.hpp,FOTA-C3-02;P2-FOTA-SIGN-GATE-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/idf/main/hil_control.cpp,BAT-C8;GS40-CONFIG;GS150-SLEEP;MAINT-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/node_runtime_adapter.cpp,BAT-C8;GS40-CONFIG;GS150-SLEEP;MAINT-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/node_runtime_adapter.hpp,BAT-C8;GS40-CONFIG;GS150-SLEEP;MAINT-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/node_security_link.cpp,P2-RUNTIME-SEC-HOST-01;P2-REJOIN-HOST-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/node_security_link.hpp,P2-RUNTIME-SEC-HOST-01;P2-REJOIN-HOST-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/node_target_config.hpp,BAT-C8;GS40-CONFIG;GS150-SLEEP;MAINT-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/nvs_session_provider.cpp,NODE-RESTART-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/nvs_session_provider.hpp,NODE-RESTART-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/physical_wake_capability.hpp,BAT-C8;GS40-CONFIG;GS150-SLEEP;MAINT-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/zero_length_aead_qualification.cpp,NODE-RESET-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+firmware/node/target/esp32c3/zero_length_aead_qualification.hpp,NODE-RESET-01,TARGET_ADAPTER,ACCOUNTED_WITH_LIMITATIONS,SDK/FreeRTOS GPIO/radio/NVS/task scheduling not exercised by host portable-policy tests
+host/logging/file_log_sink.cpp,SHARED-LOG,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+host/logging/file_log_sink.hpp,SHARED-LOG,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+host/multinode/scheduled_harness.cpp,P2-MN-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+host/multinode/scheduled_harness.hpp,P2-MN-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+host/security/openssl_commissioning_crypto.cpp,P2-COM-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+host/security/openssl_commissioning_crypto.hpp,P2-COM-HOST-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+host/simulator/interactive.cpp,PWA-01;API-01;OFFLINE-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+host/simulator/main.cpp,PWA-01;API-01;OFFLINE-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/domain.hpp,PROTO-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/feature_flags.hpp,SHARED-FLAGS,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/interaction.hpp,AI-REFERENCE,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/logging.hpp,SHARED-LOG,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/node_health_policy.hpp,GS40-CONFIG;GS40-MIXED,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/ports.hpp,PROTO-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/product.hpp,BASE-PROFILE;AI-REFERENCE,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/protocol.hpp,PROTO-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/include/gs/rules.hpp,HUB-ROUTINE-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/src/logging.cpp,SHARED-LOG,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+shared/src/rules.cpp,HUB-ROUTINE-01;HUB-RULE-DOOR;HUB-RULE-NIGHT;HUB-RULE-SEQUENCE;HUB-RULE-INACTIVITY;HUB-PRIVACY,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+tools/sim/pwa/app.js,PWA-01;PWA-ACTIVITY;PWA-CARE-ACTIONS;PWA-SCHEDULE;PWA-REPORT;PWA-POLL,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+tools/sim/pwa/index.html,PWA-01;PWA-ACTIVITY;PWA-CARE-ACTIONS;PWA-SCHEDULE;PWA-REPORT;PWA-POLL,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+tools/sim/pwa/sw.js,PWA-OFFLINE-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+app/public/app.mjs,PWA-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/public/index.html,PWA-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/public/service-worker.mjs,PWA-OFFLINE-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/src/features/home/index.mjs,PWA-ACTIVITY,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/src/features/incidents/index.mjs,PWA-CLAIM,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/src/features/onboarding/index.mjs,PWA-ONBOARD,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/src/features/routines/index.mjs,PWA-SCHEDULE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/src/platform/feature_flags.mjs,SHARED-FLAGS,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/src/platform/index.mjs,PWA-CACHE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+app/src/platform/logging.mjs,SHARED-LOG,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+tools/sim/local_lab.py,API-01;PWA-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+tools/sim/pwa/performance_runtime.mjs,PWA-POLL;PWA-NOTIFY,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+tools/sim/pwa/schedule_feedback.mjs,PWA-SCHEDULE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+tools/sim/pwa/validation_engine.mjs,GATE-SELF-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+tools/sim/scenario_matrix.py,GATE-SELF-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+tools/sim/web/index.html,PWA-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+tools/sim/web/lab.mjs,PWA-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate

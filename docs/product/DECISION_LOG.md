@@ -367,3 +367,16 @@ No security/storage contract, partition format or hardware authorization changes
 GS-11610405 explicitly limits development to affected components/contracts and
 framework/build/sanitizer checks; full release execution is deferred to a genuine
 release candidate. Lightweight composition proof never establishes release PASS.
+
+## GS-130 regression and board-stack evidence note — 2026-10-11
+
+Comment10409 requires independent feature/category coverage and portable C3/S3
+application-stack E2E assessment. The existing registry now owns both, with
+production runtime/security/durable-storage logic and host hardware boundaries.
+The matrix, source inventory and physical catalogue are linked from
+[MASTER_VALIDATION](../validation/MASTER_VALIDATION.md); current outcomes and
+explicit gaps are in [GS-130 evidence](../exec-plans/evidence/R1_GS130_FEATURE_COVERAGE_20261011.md).
+This records engineering implementation only. No LOCKED decision, product
+contract, context version, wire/schema/partition or physical authorization changes.
+GS-D001 deferred legacy migration remains distinct from GS-D029 current-format
+ownership safety; its mandatory failing test is preserved under GS-148.

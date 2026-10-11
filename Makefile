@@ -7,3 +7,7 @@ validation-node validation-hub validation-contract validation-backend validation
 .PHONY: validation-fast release-gate-final hw-pair-build hw-release-gate validation-nightly hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-fota hil-secure-signed-fota hil-checkpoint-fota hil-checkpoint-secure-signed-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check
 validation-fast release-gate-final hw-pair-build hw-release-gate validation-nightly hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-fota hil-secure-signed-fota hil-checkpoint-fota hil-checkpoint-secure-signed-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check:
 	$(MAKE) -C $(PRODUCT_DIR) $@
+
+.PHONY: validation-board-e2e feature-coverage-test
+validation-board-e2e feature-coverage-test:
+	$(MAKE) -C $(PRODUCT_DIR) $@

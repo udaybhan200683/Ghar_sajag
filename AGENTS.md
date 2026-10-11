@@ -45,6 +45,21 @@ composition with lightweight framework tests. Execute complete product gates for
 genuine release candidate or explicit user request; otherwise record NOT_RUN,
 deferred. Structural verification never establishes release PASS.
 
+GS-130 keeps feature-level regressions and the portable C3/S3 board-stack E2E
+simulation separate. Maintain `docs/validation/MASTER_TRACEABILITY.csv`, the
+source inventory and physical catalogue when features change. Run affected
+component suites and `make validation-board-e2e` for shared runtime/security/
+durability/sleep changes; use verified receipts to avoid duplicate execution.
+Run `make feature-coverage-test` for mapping integrity. A resolved source anchor
+proves registration consistency, not exhaustive semantic coverage. Report feature
+coverage, board-stack simulation, physical qualification and release approval
+independently; keep explicit gaps and mandatory failing tests visible.
+GS-130 physical-track comment10413 requires reuse/inventory of existing HIL,
+not a second framework. Physical commands stay opt-in and outside software gates.
+Legacy `hil-smoke`/regression campaigns build and flash; never invoke them as
+non-destructive observation. Injected motion is not real AM312 optical evidence.
+GS-108/114 require separately authorized, identified fixtures and image evidence.
+
 ## Mandatory document precedence
 
 For substantive work, read these first:

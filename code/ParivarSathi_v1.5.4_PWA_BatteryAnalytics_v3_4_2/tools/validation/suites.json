@@ -44,6 +44,128 @@
       "count_kind": "tests"
     },
     {
+      "id": "board-stack-e2e",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "board-stack-e2e-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/board_stack_e2e_validation.cpp",
+        "tests/support/authenticated_pair.hpp",
+        "tests/support/file_flash.hpp"
+      ],
+      "success": "^BOARD STACK E2E PASS cases=(\\d+) checks=\\d+ failed=0 physical=NOT_RUN$",
+      "timeout": 600,
+      "count_kind": "scenario_groups",
+      "required_success": [
+        "^BOARD-TC-130-001 PASS$",
+        "^BOARD-TC-130-002 PASS$",
+        "^BOARD-TC-130-003 PASS$",
+        "^BOARD-TC-130-004 PASS$",
+        "^BOARD-TC-130-005 PASS$",
+        "^BOARD-TC-130-006 PASS$",
+        "^BOARD-TC-130-007 PASS$",
+        "^BOARD-TC-130-008 PASS$"
+      ]
+    },
+    {
+      "id": "feature-boundaries",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "feature-boundary-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/feature_boundary_validation.cpp"
+      ],
+      "success": "^GS130 FEATURE BOUNDARIES PASS checks=(\\d+)$",
+      "timeout": 600,
+      "count_kind": "checks",
+      "required_success": []
+    },
+    {
+      "id": "factory-reset",
+      "components": [
+        "node",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "factory-node-reset-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/factory_node_reset_validation.cpp",
+        "tools/factory/validate_node_reset.py",
+        "scripts/build_portable_psa_reset.py"
+      ],
+      "success": "^FACTORY NODE RESET PASS ",
+      "required_success": [
+        "^NODE EMPTY AEAD SHARED CHECKS PASS checks=[1-9]\\d*$",
+        "^FACTORY NODE RESET PASS "
+      ],
+      "timeout": 600
+    },
+    {
+      "id": "signed-fota-tooling",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_secure_signed_fota_fixture.py",
+        "-v"
+      ],
+      "inputs": [
+        "tests/python/test_secure_signed_fota_fixture.py"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 600,
+      "count_kind": "tests",
+      "required_success": []
+    },
+    {
+      "id": "feature-traceability",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "feature-coverage-test"
+      ],
+      "inputs": [
+        "scripts/check_feature_traceability.py",
+        "tests/python/test_feature_traceability.py",
+        "../../docs/validation/MASTER_TRACEABILITY.csv",
+        "../../docs/validation/SOURCE_FEATURE_INVENTORY.csv",
+        "../../docs/validation/PHYSICAL_QUALIFICATION.csv"
+      ],
+      "success": "^GS130 TRACEABILITY PASS features=(\\d+)",
+      "required_success": [
+        "^GS130 TRACEABILITY PASS features=[1-9]\\d*",
+        "Ran [1-9]\\d* tests?",
+        "^OK$"
+      ],
+      "timeout": 120,
+      "count_kind": "features"
+    },
+    {
       "id": "cpp",
       "components": [
         "node",
@@ -836,7 +958,7 @@
       ],
       "success": "^.*product tests passed;",
       "timeout": 600,
-      "fast": false,
+      "fast": true,
       "release": true
     },
     {
@@ -855,7 +977,7 @@
       ],
       "success": "^.*product tests passed;",
       "timeout": 600,
-      "fast": false,
+      "fast": true,
       "release": true
     },
     {
@@ -1024,9 +1146,25 @@
       "timeout": 900,
       "fast": false,
       "release": true
+    },
+    {
+      "id": "board-e2e-negative",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "scripts/check_board_e2e_negative.py"
+      ],
+      "inputs": [
+        "scripts/check_board_e2e_negative.py",
+        "tests/cpp/board_stack_e2e_validation.cpp"
+      ],
+      "success": "^BOARD E2E NEGATIVE PASS checks=(\\d+)$",
+      "timeout": 600,
+      "count_kind": "checks",
+      "required_success": []
     }
   ],
-  "separate_harnesses": {
-    "tests/cpp/factory_node_reset_validation.cpp": "Portable production PSA/IDF guard qualification requires a separately built TF-PSA library and compatibility headers (tools/factory/validate_node_reset.py). GS-130 must register/build this dependency as a portable release harness; not a physical PASS or an exemption from future feature regression."
-  }
+  "separate_harnesses": {}
 }

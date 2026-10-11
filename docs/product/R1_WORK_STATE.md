@@ -1,5 +1,59 @@
 # R1 Current Work State
 
+## GS-130 feature regressions / board-stack checkpoint — 2026-10-11
+
+Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`; starting local/remote
+`d3857fd76aff71b58287bee72aaa3b36b6042d89`. The implementation is preserved
+sequentially; no new branch/worktree or physical action. Resume at actual verified
+branch HEAD, recorded in the final GS-130 Jira delivery comment.
+
+[GS-130 evidence and exact resume](../exec-plans/evidence/R1_GS130_FEATURE_COVERAGE_20261011.md)
+and [MASTER_VALIDATION](../validation/MASTER_VALIDATION.md) index the existing
+feature matrix (149 behavior/validation rows), source inventory (198 files) and
+14 physical campaigns. These counts do not prove 100% semantic coverage.
+
+**A: feature/category coverage PARTIAL.** New production boundary regressions,
+real portable TF-PSA reset execution, prior Node/Hub/contract regressions and
+permanent mapping/integrity enforcement are delivered. Specific application
+offline/cache/onboarding/config/claim/notification lifecycle gaps remain mapped
+under GS-130; unchanged application execution is NOT_RUN by focused user policy.
+
+**B: portable C3/S3 E2E executable PASS, eight groups/325 checks.** Real sensing,
+runtime, crypto/session, encrypted Node recovery, S3 outbox/journal/reducers,
+health/piggyback, outage/sleep/priority and FOTA interruption run through host
+hardware boundaries. Complete target-stack acceptance remains PARTIAL: target
+app_main/task/callback/radio suspension-restoration orchestration is not executed
+by this driver. Do not equate policy/runtime simulation with every firmware entry
+point. Target-only qualification belongs to GS-114/108; any future host seam must
+exercise production orchestration. Physical proof remains separate.
+
+Focused Node and contract gates PASS; Hub FAIL only for mandatory historical
+`clean migration commits` (line194), owned by GS-148. GS-D001 deferred arbitrary
+legacy migration and GS-D029 fail-closed ownership remain unchanged. Fresh current-
+format/S3 recovery passes separately. The test is neither skipped nor weakened.
+Evidence records exact final commands/counts/durations/exits/profile/fingerprint.
+Framework/traceability and new focused ASan/UBSan checks pass. Firmware/config/
+partition bodies unchanged; existing verified IDF6.0.3 GS-116 C3/S3 image/build
+evidence still applies. Fresh target builds NOT_RUN; full fast/release/browser
+NOT_RUN; product release NOT_APPROVED; physical qualification NOT_RUN.
+
+**Next executable action: finish GS-130 coverage gaps**, starting with precise application lifecycle mappings
+and tests when within the authorized validation scope. Target-only owner/radio
+qualification remains with GS-114/108; do not create a second business algorithm. Do not rediscover/restart
+the delivered boundary/board/PSA framework. Then **GS-114 P1–P9** requires separately
+authorized fixtures and current matched GS-40/150 firmware/config. GS-40 actual
+heartbeat/offline caregiver acceptance remains open; GS-149/146 retain their
+existing dependencies. Preserve original S3 managed_components and ignored assets.
+No requirement/context, Jira status/rank/dependency or production behavior change.
+
+New GS-130 comments10411/10413 were reconciled during delivery: Track C is an
+inventory/reuse handoff of existing canonical HIL, not greenfield implementation.
+GS-108 owns broad stable-head HIL; GS-114 owns P1–P9. Existing supervisor motion
+is synthetic INJECT_MOTION and campaign defaults flash. C1/C2 actual execution
+NOT_RUN without approved safe fixture; genuine optical evidence and historical
+image-matched traces remain distinct. No serial/USB/board command was invoked.
+
 ## GS-116 resumed framework delivery — 2026-10-11
 
 Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch

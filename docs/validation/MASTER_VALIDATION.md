@@ -7,6 +7,61 @@ Approved GS-116/130 engineering policies (comments10364/10365) are enforced by
 repository AGENTS.md. Use only the canonical R1 worktree/branch. Historical
 alternate-worktree instructions below are superseded.
 
+### GS-130 feature coverage and separate board stack — 2026-10-11
+
+Two independent assessments are required (GS-130 comment10409): **A**, feature
+regression/category coverage; **B**, portable C3/S3 production application E2E.
+Neither test registration nor the board simulation establishes exhaustive feature
+coverage. The authoritative files are:
+
+- [Feature/test matrix](MASTER_TRACEABILITY.csv): stable feature IDs, requirements,
+  implementation status, actual assertion anchors, commands, category scope,
+  registration, execution provenance and explicit gaps.
+- [Owned source inventory](SOURCE_FEATURE_INVENTORY.csv): reciprocal feature links
+  for production and reference modules. Accounting for a file does not prove all
+  its branches or hidden feature semantics were tested.
+- [Physical qualification catalogue](PHYSICAL_QUALIFICATION.csv): existing Jira
+  owners, preconditions, procedures, failure criteria, required logs/image hashes.
+- [GS-130 evidence and resume](../exec-plans/evidence/R1_GS130_FEATURE_COVERAGE_20261011.md):
+  executed results and unresolved semantic/application/target limitations.
+
+`make feature-coverage-test` verifies matrix/registry/source consistency and its
+negative self-tests. `make validation-board-e2e` uses the **same** GS-116 registry
+and receipt executor. The board stage also belongs to Node, Hub, contract, fast
+and release metadata. It compiles the real sensing/runtime/power/rejoin/AEAD,
+encrypted Node recovery, S3 outbox/journal/reducer and FOTA policies; adapters
+replace clocks, GPIO, ESP-NOW delivery, byte storage and OTA writer. It does not
+execute ESP-IDF task startup/interrupts, flash electrical barriers, RF, bootloader
+or production cloud credentials. Inspect those boundaries and physical cases
+before claiming target acceptance. New tests must exercise production code and
+meaningful assertions; no independent protocol/policy replica is acceptable.
+
+The portable factory-reset stage now reproducibly builds installed TF-PSA Crypto
+and executes production PSA/reset code plus the actual IDF null-pointer guard.
+Compatibility headers expose upstream declarations only. Missing dependencies
+fail visibly. External crypto/guard content participates in receipt provenance;
+cached PASS cannot survive source changes. The distinct board stage requires all
+eight case markers: selecting one passing case cannot satisfy the complete gate.
+
+### Physical Track C inventory — GS-130 comments10411/10413
+
+Comment10413 supersedes greenfield HIL creation: reuse the canonical
+`tools/hil/phase1.py` Campaign/SerialCapture/FixtureLock/Results supervisor,
+`usb_attach.py`, `identity_probe.py`, `runner.py`/`core.py`, signed-FOTA tooling
+and existing physical case/evidence records. These files are already in this
+branch, not available only in historical worktrees. GS-108 owns broad stable-HEAD
+HIL; GS-114 owns BAT-C8 P1–P9. The GS-130 evidence inventories actual commands,
+case families, provenance and unsafe defaults.
+
+C1 board-automated and C2 genuine manual AM312 motion remain NOT_RUN: no fixture
+authorization. `Campaign.motion()` sends `INJECT_MOTION`; it cannot prove optical
+PIR. `hil-smoke`/regression invoke paired build and flash, and signed-FOTA tooling
+includes resets/erase/flash; do not invoke them under a non-destructive scope.
+Reuse the supervisor later with an explicitly authorized current-S3 fixture,
+safe observation mode and genuine operator motion steps. Historical classic-ESP32
+images/60s health evidence are not GS-40/150 qualification. Physical campaigns
+never run implicitly in Node/Hub/contract/fast/release software gates.
+
 ### Development versus release acceptance — GS-116 comment10405
 
 Development runs new and all prior affected Node/Hub regressions, affected shared
@@ -29,6 +84,8 @@ From repository root:
 | `make validation-node` | C3: sensing/runtime/event identity, battery/PowerPolicy/BAT-C8, GS-150/40, encrypted pending/recovery/retirement, security/rejoin and FOTA |
 | `make validation-hub` | S3: authenticated ingest/registry/journal/ACK/dedupe/reboot, liveness, storage/checkpoint/reclamation and implemented CloudSync/HTTP/HTTPS contracts |
 | `make validation-contract` | Node↔Hub/backend: authenticated ACK versus MAC, exact keys/replay, outage/rejoin/session/persistence, mixed health policy, FOTA and receipt parsing |
+| `make validation-board-e2e` | Separate portable C3+S3 production application stack, eight scenario groups; hardware boundaries simulated, physical NOT_RUN |
+| `make feature-coverage-test` | Matrix/source/registry integrity and controlled missing-mapping/physical-claim failures; semantic coverage remains an engineering assessment |
 | `make validation-backend` | Python discovery, configuration, API/HTTP/functional/bridge/frontend contracts |
 | `make validation-pwa` | JavaScript and backend-derived coverage/chronology/notification scenarios; browser separately when rendering is affected |
 | `make validation-tooling` | Framework self-tests, master negative injection, coverage registration and existing hardware-independent HIL tooling |
@@ -84,9 +141,9 @@ fresh execution. Environment-only mandatory-stage bypasses are rejected. Legacy
 Known scoped skips remain visible: historical classic-ESP32 reserve model under
 GS-D030 and unsupported25 stress with existing ten-slot rejection verified;
 supported1/4/10 stress remains asserted. **No migration skip:** its current mandatory
-failure prevents aggregate software PASS. Portable production-PSA reset qualification
-requires separately built TF-PSA libraries/compatibility headers; its existing
-diagnostic and release-registration gap are explicitly indexed for GS-130.
+failure prevents aggregate software PASS. Portable production-PSA reset is now
+an executable Node/contract/fast/release stage; see the GS-130 evidence for its
+dependency provenance and host-only limits.
 
 ### Permanent Definition of Done and impact examples
 
