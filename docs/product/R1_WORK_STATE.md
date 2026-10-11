@@ -7,6 +7,9 @@ Canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
 `d3857fd76aff71b58287bee72aaa3b36b6042d89`. The implementation is preserved
 sequentially; no new branch/worktree or physical action. Resume at actual verified
 branch HEAD, recorded in the final GS-130 Jira delivery comment.
+Validated implementation checkpoint `9349ed33ba72b7cf80d35a87c4108d4a9b1bda66` is normally
+pushed; actual local/remote HEAD matched. The subsequent Markdown closeout
+revision is recorded in Jira. Tracked tree clean; original S3 untracked assets preserved.
 
 [GS-130 evidence and exact resume](../exec-plans/evidence/R1_GS130_FEATURE_COVERAGE_20261011.md)
 and [MASTER_VALIDATION](../validation/MASTER_VALIDATION.md) index the existing
