@@ -317,3 +317,7 @@ The validated implementation source began at
 `origin/feature/r1-commercial-baseline`; the remote matched at verification.
 The original untracked S3 `managed_components/` and redacted earlier attempt
 logs remain preserved outside the commit.
+
+Jira closeout: GS-114 comment `10428`; GS-109 cross-reference comment `10429`.
+The GS-114↔GS-109 issue link records the limited fixture dependency only; it
+does not imply GS-109 product acceptance or change either ticket status/rank.
