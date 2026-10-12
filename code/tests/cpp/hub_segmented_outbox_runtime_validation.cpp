@@ -60,6 +60,10 @@ public:
     }
     bool sync(std::uint16_t segment) override { return segment < segments_.size(); }
     bool read_publication(Bytes& marker, bool& found) override {
+        if (fail_read_publication_once) {
+            fail_read_publication_once = false;
+            return false;
+        }
         marker = publication_;
         found = publication_found_;
         return true;
@@ -74,7 +78,21 @@ public:
         return true;
     }
     bool read_lifecycle_root(Bytes& marker, bool& found) override {
-        marker = lifecycle_root_; found = lifecycle_root_found_; return true;
+        if (fail_read_lifecycle_root_once) {
+            fail_read_lifecycle_root_once = false;
+            return false;
+        }
+        marker = lifecycle_root_;
+        found = lifecycle_root_found_;
+        if (report_lifecycle_root_missing_once) {
+            report_lifecycle_root_missing_once = false;
+            found = false;
+        }
+        if (corrupt_lifecycle_root_readback_once && found && !marker.empty()) {
+            corrupt_lifecycle_root_readback_once = false;
+            marker.back() ^= 0x01;
+        }
+        return true;
     }
     bool publish_lifecycle_root(const Bytes& marker) override {
         ++lifecycle_publish_count;
@@ -152,6 +170,8 @@ public:
         return true;
     }
     void forget_lifecycle_root() { lifecycle_root_.clear(); lifecycle_root_found_ = false; }
+    void forget_publication() { publication_.clear(); publication_found_ = false; }
+    void set_publication(const Bytes& marker) { publication_ = marker; publication_found_ = true; }
     void forget_completion_head() { completion_publication_.clear(); completion_publication_found_ = false; }
     void corrupt_completion_receipt() { completion_.at(32) ^= 1; }
     void fail_next_publication() { fail_publication_once = true; }
@@ -163,6 +183,10 @@ public:
     bool fail_remove_once{false};
     bool fail_lifecycle_publication_once{false};
     bool fail_lifecycle_publication_after_write_once{false};
+    bool fail_read_publication_once{false};
+    bool fail_read_lifecycle_root_once{false};
+    bool report_lifecycle_root_missing_once{false};
+    bool corrupt_lifecycle_root_readback_once{false};
     bool fail_truncate_after_write_once{false};
     void fail_next_completion_publication() { fail_completion_publication_once = true; }
     void fail_completion_append_after(std::size_t bytes) {

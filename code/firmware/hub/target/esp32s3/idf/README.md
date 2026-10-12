@@ -66,3 +66,44 @@ separate qualification gates. No security eFuse changes are part of bring-up.
 Next milestones: product integration, secure C3 ESP-NOW interchange, sustainable
 NVS lifecycle/retention, signed dual-OTA rollback, routines/alerts, peak memory
 and endurance, BAT-C8 and full R1 qualification. Do not execute them automatically.
+
+## GS-114 RPF fixture diagnostic build — build only
+
+From the repository root, run:
+
+~~~sh
+make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 gs114-s3-rpf-diagnostic-build
+~~~
+
+This uses the existing paired fixture builder in a fresh unique output
+directory. It rebuilds the C3 app as the embedded Node firmware asset, then
+builds the S3 product composition with GS_HIL_BUILD=OFF,
+GS_HIL_CONTROL=OFF, GS_HIL_COMMISSIONING=ON, and
+GS_S3_DIAGNOSTIC_ONLY=OFF. The S3 uses sdkconfig.defaults plus
+sdkconfig.defaults.outbox, selecting the 16 MiB / Octal 40 MHz profile and
+the candidate ota_0/ota_1, gs_outbox, and gs_state table. The builder
+checks the generated CMake options, sdkconfig, source and compiled partition
+table, OTA-slot fit, RPF00–RPF08 strings, commissioning command strings, and
+absence of broad HIL markers. It writes a JSON report beside the build.
+
+The standalone app is s3/gs_r1_s3_hub.bin; its hash, size, version metadata,
+source fingerprint, flags, table digest and image information are in
+fixture_pair_report.json. ESP-IDF also generates a complete-device
+flasher_args.json as a build byproduct. That bundle is
+NOT_AUTHORIZED_FOR_DEPLOYMENT; this command invokes only build size, never
+flash, app-flash, erase, reset, OTA or provisioning.
+The paired C3 output exists only to reproduce the S3 embedded-node-asset input;
+it is not a C3 deployment recommendation or a separately authorized deliverable.
+
+The profile guard treats the S3's embedded C3 image separately from S3 runtime
+bytes. The paired C3 image may contain the HIL UART token `INJECT_MOTION`, but
+the checker requires its physical-wake-disabled diagnostic and rejects the
+synthetic-motion success path; the same token in S3 runtime bytes fails the
+build. The candidate partition file is not proof of the connected fixture's current
+partition table. A standalone application image and a successful target build
+do not establish safe installation, persistent-state preservation or rollback.
+The current S3 application has no implemented S3 OTA receiver; ESP-IDF's
+app-flash target is a separate host command which writes the configured
+default app partition and resets the target. Do not run it under this
+build-only task. Physical deployment needs separate authorization and verified
+device/slot/storage provenance.

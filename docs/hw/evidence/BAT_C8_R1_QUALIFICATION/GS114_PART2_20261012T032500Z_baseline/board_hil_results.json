@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "campaign": "GS-130 automated observational board HIL",
+  "fixture_id": "GS114-DISPOSABLE-C3-S3",
+  "source_head": "09bc8cd8b7baab0674bbe03157b7b50bab28e51e",
+  "firmware_source_head": "73e1e842ff843a696d592bd7c2004b72a512082c",
+  "firmware_version_expected": "73e1e842ff84-gs114-16fca85b",
+  "image_sha256_expected": {
+    "c3": "b03b3b2ed7996b594f9fe7d59241f558a6af82774db07a661e5346731db83014",
+    "s3": "f9608d77230f136abea5794329c1a98be4062419383a1a6dbbfd29a6c793a2d1"
+  },
+  "flash_readback_hash_verified": false,
+  "config_fingerprint_observed": false,
+  "start_utc": "2026-10-12T03:24:46.921554+00:00",
+  "end_utc": "2026-10-12T03:25:47.126059+00:00",
+  "duration_seconds": 60,
+  "ports": {
+    "c3": "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+    "s3": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00"
+  },
+  "cases": [
+    {
+      "test_id": "HIL-A01",
+      "status": "BLOCKED",
+      "detail": "Identity/version banner observed; running image hash and config fingerprint are not emitted by firmware."
+    },
+    {
+      "test_id": "HIL-A02",
+      "status": "NOT_RUN",
+      "detail": "Both C3 and S3 authenticated-link markers are required."
+    },
+    {
+      "test_id": "HIL-A03",
+      "status": "NOT_RUN",
+      "detail": "No accepted authenticated NodeHealth evidence was observed."
+    },
+    {
+      "test_id": "HIL-A04",
+      "status": "NOT_RUN",
+      "detail": "Offline threshold requires outage stimulus, excluded from observational run."
+    },
+    {
+      "test_id": "HIL-A05",
+      "status": "NOT_RUN",
+      "detail": "No identifiable EventKey was observed."
+    },
+    {
+      "test_id": "HIL-A06",
+      "status": "PARTIAL",
+      "detail": "No fatal marker appeared, but this capture cannot establish reset-counter continuity, heap/resource trend or queue/in-flight stability."
+    },
+    {
+      "test_id": "HIL-A07",
+      "status": "NOT_RUN",
+      "detail": "No target sleep/timer telemetry was observed."
+    },
+    {
+      "test_id": "HIL-A08",
+      "status": "NOT_RUN",
+      "detail": "Loss/replay/offline negative stimulus is not permitted in this runner."
+    }
+  ],
+  "overall": "PARTIAL",
+  "hardware_actions": [
+    "UART open/read only after typed confirmation"
+  ],
+  "physical_qualification_complete": false,
+  "release_approved": false
+}

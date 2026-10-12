@@ -3,12 +3,110 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "firmware/hub/target/esp32/idf/main/fixture_commissioning_control.cpp"
+sys.path.insert(0, str(ROOT))
+from scripts.build_gs114_fixture_pair import parse_partitions_from_text, validate_s3_fixture_artifact
 
 
 class S3FixtureCommissioning(unittest.TestCase):
+    def test_idf_partition_decoder_size_suffixes_are_supported(self):
+        parsed = parse_partitions_from_text("nvs,data,nvs,0x9000,24K\nota_0,app,ota_0,0x20000,4M\n")
+        self.assertEqual(parsed["nvs"][3], 24 * 1024)
+        self.assertEqual(parsed["ota_0"][3], 4 * 1024 * 1024)
+
+    def _profile_files(self, root: Path):
+        sdkconfig = root / "sdkconfig"
+        sdkconfig.write_text('''CONFIG_ESPTOOLPY_FLASHSIZE=\"16MB\"
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.s3-outbox-candidate.csv\"
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED=40
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+CONFIG_ESPTOOLPY_FLASHMODE=\"dio\"
+CONFIG_ESPTOOLPY_FLASHFREQ=\"40m\"
+# CONFIG_SECURE_BOOT is not set
+# CONFIG_FLASH_ENCRYPTION_ENABLED is not set
+# CONFIG_APP_ANTI_ROLLBACK is not set
+''')
+        cmake = root / "CMakeCache.txt"
+        cmake.write_text('''GS_HIL_BUILD:BOOL=OFF
+GS_HIL_CONTROL:BOOL=OFF
+GS_HIL_COMMISSIONING:BOOL=ON
+GS_S3_DIAGNOSTIC_ONLY:BOOL=OFF
+''')
+        partitions = root / "partitions.s3-outbox-candidate.csv"
+        partitions.write_text('''nvs, data, nvs, 0x9000, 0x6000,
+otadata, data, ota, 0xf000, 0x2000,
+phy_init, data, phy, 0x11000, 0x1000,
+ota_0, app, ota_0, 0x20000, 0x400000,
+ota_1, app, ota_1, 0x420000, 0x400000,
+gs_outbox, data, littlefs, 0x820000, 0x400000,
+gs_state, data, nvs, 0xC20000, 0x40000,
+''')
+        node_asset = root / "node.bin"
+        node_asset.write_bytes(b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake")
+        app = root / "app.bin"
+        app.write_bytes(b"image" + b" ".join(
+            [*(f"RPF0{i}".encode() for i in range(9)),
+             b"S3 replay fence failed stage=%s",
+             b"COMMISSION_EXPECTED_NODE", b"FIXTURE_STATUS", b"HIL_FIXTURE_READY"])
+            + node_asset.read_bytes())
+        return sdkconfig, cmake, partitions, app, node_asset
+
+    def test_fixture_rpf_profile_accepts_matching_app_and_partitions(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_profile_") as temp:
+            paths = self._profile_files(Path(temp))
+            result = validate_s3_fixture_artifact(*paths)
+            self.assertEqual(result["ota_slot_capacity_bytes"], 0x400000)
+            self.assertEqual(result["app_free_bytes"], 0x400000 - paths[3].stat().st_size)
+            self.assertEqual(result["rpf_markers_present"], [f"RPF0{i}" for i in range(9)])
+            self.assertTrue(result["s3_runtime_image_broad_hil_markers_absent"])
+
+    def test_fixture_rpf_profile_rejects_wrong_build_flags(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_flags_") as temp:
+            paths = self._profile_files(Path(temp))
+            paths[1].write_text(paths[1].read_text().replace(
+                "GS_HIL_COMMISSIONING:BOOL=ON", "GS_HIL_COMMISSIONING:BOOL=OFF"))
+            with self.assertRaisesRegex(ValueError, "CMake options"):
+                validate_s3_fixture_artifact(*paths)
+
+    def test_fixture_rpf_profile_rejects_development_partition_map(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_partition_") as temp:
+            paths = self._profile_files(Path(temp))
+            paths[2].write_text(paths[2].read_text().replace("gs_outbox, data, littlefs",
+                                                              "gs_journal, data, nvs"))
+            with self.assertRaisesRegex(ValueError, "partition table"):
+                validate_s3_fixture_artifact(*paths)
+
+    def test_fixture_rpf_profile_rejects_missing_diagnostics_or_oversized_app(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_image_") as temp:
+            paths = self._profile_files(Path(temp))
+            paths[3].write_bytes(b"RPF00" + b"COMMISSION_EXPECTED_NODE" + paths[4].read_bytes())
+            with self.assertRaisesRegex(ValueError, "RPF diagnostics missing"):
+                validate_s3_fixture_artifact(*paths)
+            paths[3].write_bytes(b"x" * (0x400000 + 1))
+            with self.assertRaisesRegex(ValueError, "outside OTA slot"):
+                validate_s3_fixture_artifact(*paths)
+
+    def test_fixture_rpf_profile_rejects_hub_control_outside_embedded_node_asset(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_hub_control_") as temp:
+            paths = self._profile_files(Path(temp))
+            paths[3].write_bytes(paths[3].read_bytes() + b" INJECT_MOTION")
+            with self.assertRaisesRegex(ValueError, "broad HIL control marker"):
+                validate_s3_fixture_artifact(*paths)
+
+    def test_fixture_rpf_profile_rejects_unproven_embedded_node_guard(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_node_guard_") as temp:
+            paths = self._profile_files(Path(temp))
+            paths[4].write_bytes(b"INJECT_MOTION")
+            paths[3].write_bytes(paths[3].read_bytes().replace(
+                b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake",
+                paths[4].read_bytes()))
+            with self.assertRaisesRegex(ValueError, "physical-wake motion guard"):
+                validate_s3_fixture_artifact(*paths)
+
     def test_command_parser_is_exact_and_limited_to_commissioning_and_status(self):
         self.assertEqual(subprocess.run(["g++", "--version"], capture_output=True).returncode, 0,
                          "g++ is mandatory for this adapter test")

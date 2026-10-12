@@ -368,6 +368,24 @@ are evidence for the POSIX fixture only; physical LittleFS, target memory, rollb
 retention, cloud transport and commercial/72-hour capacity gates remain open.
 No product reserve size, retention requirement or CONTEXT_VERSION is changed.
 
+### Replay-fence diagnostic checkpoint — 2026-10-12
+
+GS-148's narrow diagnostic adds sanitized stage/result reporting around the
+existing selected retirement-snapshot → checkpoint → LittleFS replay-fence →
+HubRuntime-bind reconciliation. Host fault tests use production reconciliation
+and storage code with failures injected at provider boundaries. This change
+does not alter the persistent formats, write order, admission/ACK behavior or
+recovery policy. The physical S3 failure remains unlocalized; the backing
+interfaces expose boolean failures rather than a native LittleFS error. See
+the [dated diagnostic evidence](../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md).
+
+Storage history is also reconciled there: the classic ESP32 128-slot NVS
+journal and the S3 bounded segmented LittleFS outbox are different
+implementations. The S3 engineering partition, finite workspaces and host
+cumulative-count tests do not establish commercial capacity, retention,
+physical endurance or unlimited event lifetime. Those acceptance gaps remain
+with GS-145/GS-148/GS-138; this diagnostic does not start P2-E/P2-F.
+
 ### P2-D implementation boundary — 2026-10-10
 
 CloudSync still uses the durable journal as the sole pending/completion authority.

@@ -1461,26 +1461,48 @@ bool DurableEventOutbox::replay_fence_matches(std::uint32_t storage_epoch,
 bool DurableEventOutbox::publish_replay_fence(std::uint32_t storage_epoch,
         const durable::ReportSnapshotReference& reference,
         std::uint64_t reducer_checkpoint_boundary) {
-    if (!initialized_ || faulted_ || compacting_ || storage_epoch == 0 || !valid_report_reference(reference) ||
-        reducer_checkpoint_boundary > published_ordinal_ ||
-        reference.generation < lifecycle_report_generation_ ||
-        (reference.generation == lifecycle_report_generation_ &&
-         lifecycle_report_generation_ != 0 &&
-         (reference.digest != lifecycle_report_digest_ ||
-          (replay_fence_epoch_ != 0 &&
-           (replay_fence_epoch_ != storage_epoch || replay_fence_bank_ != reference.bank)))) ||
-        lifecycle_generation_ == std::numeric_limits<std::uint64_t>::max()) return false;
-    if (replay_fence_matches(storage_epoch, reference)) return true;
+    const auto result = publish_replay_fence_diagnostic(storage_epoch, reference,
+                                                        reducer_checkpoint_boundary);
+    return result == ReplayFencePublishResult::Published ||
+           result == ReplayFencePublishResult::AlreadyPublished;
+}
+
+ReplayFencePublishResult DurableEventOutbox::publish_replay_fence_diagnostic(
+        std::uint32_t storage_epoch,
+        const durable::ReportSnapshotReference& reference,
+        std::uint64_t reducer_checkpoint_boundary) {
+    if (!initialized_) return ReplayFencePublishResult::NotInitialized;
+    if (faulted_) return ReplayFencePublishResult::OutboxFaulted;
+    if (compacting_) return ReplayFencePublishResult::MutationInProgress;
+    if (storage_epoch == 0) return ReplayFencePublishResult::InvalidEpoch;
+    if (!valid_report_reference(reference)) return ReplayFencePublishResult::InvalidReference;
+    if (reducer_checkpoint_boundary > published_ordinal_)
+        return ReplayFencePublishResult::CheckpointBeyondPublished;
+    if (reference.generation < lifecycle_report_generation_)
+        return ReplayFencePublishResult::StaleReferenceGeneration;
+    if (reference.generation == lifecycle_report_generation_ &&
+        lifecycle_report_generation_ != 0 &&
+        (reference.digest != lifecycle_report_digest_ ||
+         (replay_fence_epoch_ != 0 &&
+          (replay_fence_epoch_ != storage_epoch || replay_fence_bank_ != reference.bank))))
+        return ReplayFencePublishResult::ConflictingReferenceGeneration;
+    if (lifecycle_generation_ == std::numeric_limits<std::uint64_t>::max())
+        return ReplayFencePublishResult::LifecycleGenerationExhausted;
+    if (replay_fence_matches(storage_epoch, reference))
+        return ReplayFencePublishResult::AlreadyPublished;
     security::Bytes publication;
     bool publication_found = false;
     std::uint64_t ordinal = 0;
     std::uint8_t digest[32]{};
-    if (!storage_.read_publication(publication, publication_found)) return false;
+    if (!storage_.read_publication(publication, publication_found))
+        return ReplayFencePublishResult::PublicationReadFailed;
     if (publication_found) {
-        if (!decode_publication(publication, ordinal, digest) || ordinal != published_ordinal_)
-            return false;
+        if (!decode_publication(publication, ordinal, digest))
+            return ReplayFencePublishResult::PublicationMalformed;
+        if (ordinal != published_ordinal_)
+            return ReplayFencePublishResult::PublicationOrdinalMismatch;
     } else if (published_ordinal_ != 0) {
-        return false;
+        return ReplayFencePublishResult::PublicationMissingForRecords;
     }
     replay_fence_epoch_ = storage_epoch;
     replay_fence_bank_ = reference.bank;
@@ -1492,13 +1514,27 @@ bool DurableEventOutbox::publish_replay_fence(std::uint32_t storage_epoch,
     if (anchor != published_ordinal_)
         std::copy_n(lifecycle_publication_digest_, sizeof(digest), digest);
     if (!encode_lifecycle_root(lifecycle_generation_ + 1U, retired_through_, boundary,
-            reference.generation, reference.digest, anchor, digest, false, root) ||
-        !storage_.publish_lifecycle_root(root) ||
-        !storage_.read_lifecycle_root(observed, found) || !found || observed != root) {
+            reference.generation, reference.digest, anchor, digest, false, root)) {
+        faulted_ = true;
+        return ReplayFencePublishResult::LifecycleRootEncodeFailed;
+    }
+    if (!storage_.publish_lifecycle_root(root)) {
         // A publication may have reached storage despite a failed readback.
         // Recover before accepting another admission.
         faulted_ = true;
-        return false;
+        return ReplayFencePublishResult::LifecycleRootPublishFailed;
+    }
+    if (!storage_.read_lifecycle_root(observed, found)) {
+        faulted_ = true;
+        return ReplayFencePublishResult::LifecycleRootReadbackFailed;
+    }
+    if (!found) {
+        faulted_ = true;
+        return ReplayFencePublishResult::LifecycleRootMissingAfterPublish;
+    }
+    if (observed != root) {
+        faulted_ = true;
+        return ReplayFencePublishResult::LifecycleRootReadbackMismatch;
     }
     ++lifecycle_generation_;
     lifecycle_checkpoint_boundary_ = boundary;
@@ -1506,7 +1542,33 @@ bool DurableEventOutbox::publish_replay_fence(std::uint32_t storage_epoch,
     lifecycle_report_digest_ = reference.digest;
     lifecycle_publication_ordinal_ = anchor;
     std::copy_n(digest, sizeof(lifecycle_publication_digest_), lifecycle_publication_digest_);
-    return true;
+    return ReplayFencePublishResult::Published;
+}
+
+const char* replay_fence_publish_result_name(ReplayFencePublishResult result) {
+    switch (result) {
+        case ReplayFencePublishResult::Published: return "PUBLISHED";
+        case ReplayFencePublishResult::AlreadyPublished: return "ALREADY_PUBLISHED";
+        case ReplayFencePublishResult::NotInitialized: return "OUTBOX_NOT_INITIALIZED";
+        case ReplayFencePublishResult::OutboxFaulted: return "OUTBOX_FAULTED";
+        case ReplayFencePublishResult::MutationInProgress: return "MUTATION_IN_PROGRESS";
+        case ReplayFencePublishResult::InvalidEpoch: return "INVALID_EPOCH";
+        case ReplayFencePublishResult::InvalidReference: return "INVALID_REFERENCE";
+        case ReplayFencePublishResult::CheckpointBeyondPublished: return "CHECKPOINT_BEYOND_PUBLISHED";
+        case ReplayFencePublishResult::StaleReferenceGeneration: return "STALE_REFERENCE_GENERATION";
+        case ReplayFencePublishResult::ConflictingReferenceGeneration: return "CONFLICTING_REFERENCE_GENERATION";
+        case ReplayFencePublishResult::LifecycleGenerationExhausted: return "LIFECYCLE_GENERATION_EXHAUSTED";
+        case ReplayFencePublishResult::PublicationReadFailed: return "EVENT_PUBLICATION_READ_FAILED";
+        case ReplayFencePublishResult::PublicationMalformed: return "EVENT_PUBLICATION_INVALID";
+        case ReplayFencePublishResult::PublicationOrdinalMismatch: return "EVENT_PUBLICATION_ORDINAL_MISMATCH";
+        case ReplayFencePublishResult::PublicationMissingForRecords: return "EVENT_PUBLICATION_MISSING";
+        case ReplayFencePublishResult::LifecycleRootEncodeFailed: return "FENCE_ROOT_ENCODE_FAILED";
+        case ReplayFencePublishResult::LifecycleRootPublishFailed: return "FENCE_ROOT_PUBLISH_FAILED";
+        case ReplayFencePublishResult::LifecycleRootReadbackFailed: return "FENCE_ROOT_READBACK_FAILED";
+        case ReplayFencePublishResult::LifecycleRootMissingAfterPublish: return "FENCE_ROOT_READBACK_MISSING";
+        case ReplayFencePublishResult::LifecycleRootReadbackMismatch: return "FENCE_ROOT_READBACK_MISMATCH";
+    }
+    return "UNKNOWN";
 }
 
 bool DurableEventOutbox::mark_backend_completed(const std::string& canonical_event_key) {

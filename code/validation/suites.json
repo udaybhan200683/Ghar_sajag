@@ -24,7 +24,11 @@
         "firmware/hub/target/esp32/idf/main/fixture_commissioning_control.cpp",
         "firmware/hub/target/esp32s3/idf/CMakeLists.txt",
         "firmware/common/security/target_identity_signer.cpp",
-        "firmware/common/security/target_wrapping_key.cpp"
+        "firmware/common/security/target_wrapping_key.cpp",
+        "firmware/hub/target/esp32s3/idf/sdkconfig.defaults",
+        "firmware/hub/target/esp32s3/idf/sdkconfig.defaults.outbox",
+        "firmware/hub/target/esp32s3/idf/partitions.s3-outbox-candidate.csv",
+        "firmware/hub/runtime/hub_runtime.cpp"
       ],
       "success": "Ran 2 tests?",
       "timeout": 120,
@@ -696,7 +700,11 @@
         "firmware/hub/cloud_sync/cloud_sync.hpp",
         "firmware/hub/runtime/hub_runtime.cpp",
         "firmware/hub/runtime/hub_runtime.hpp",
-        "firmware/hub/storage/runtime_state_store.hpp"
+        "firmware/hub/storage/runtime_state_store.hpp",
+        "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+        "firmware/hub/storage/durable_event_outbox.cpp",
+        "firmware/hub/storage/durable_event_outbox.hpp",
+        "firmware/hub/storage/node_retirement_snapshot.hpp"
       ],
       "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
       "timeout": 600
@@ -1181,7 +1189,12 @@
         "scripts/build_validation_targets.py"
       ],
       "inputs": [
-        "scripts/build_validation_targets.py"
+        "scripts/build_validation_targets.py",
+        "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/storage/durable_event_outbox.cpp",
+        "firmware/hub/storage/durable_event_outbox.hpp"
       ],
       "success": "^VALIDATION TARGET BUILDS PASS$",
       "timeout": 3600,

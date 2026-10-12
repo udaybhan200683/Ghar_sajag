@@ -1,5 +1,186 @@
 # R1 Current Work State
 
+## GS-114 Part 2D — fixture-compatible S3 RPF diagnostic build — 2026-10-12
+
+At source HEAD `e31e8ef6314abcc777eb5979c3d33939cdb7b296` (source fingerprint
+`f54e3162160d4f9e96a61ed60575f434c2a33c73a866b85789cd5bce610e0dce`), the
+new explicit `make gs114-s3-rpf-diagnostic-build` target completed successfully
+with ESP-IDF 6.0.3. The standalone local S3 app is
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/gs114_fixture_pair/build-kvi2pcxe/s3/gs_r1_s3_hub.bin`,
+1,879,392 bytes, SHA-256
+`48d08726d3acb686466fc8ef056609efe2b0148719ea89943bbe3e48a72c1f09`; it fits
+the candidate 4 MiB OTA slot with 2,314,912 bytes free. The build checks the
+Part 1 `GS_HIL_COMMISSIONING=ON`, broad S3 HIL-off, 16 MiB/Octal PSRAM and
+`gs_outbox`/`gs_state` profile; all RPF00–RPF08 diagnostics and bounded fixture
+commissioning strings are present. It decodes the compiled partition table and
+confirms it matches the candidate CSV. The generated full-device flash bundle
+is not authorized for deployment.
+
+Focused validation: fixture/profile test 9/9 PASS; validation framework
+39/39 PASS; seven focused Hub retirement/checkpoint/storage/fresh-install/
+rejoin/association/protocol targets PASS. The historical GS-148 journal
+migration failure remains an independent known FAIL and was not rerun or
+changed. No production runtime/storage/security C++ source changed; no physical
+device or data was accessed. The new S3 image is not installed. Actual fixture
+image, active OTA slot, partition contents, eFuse state, retained events and
+safe rollback remain unverified; first-boot replay-fence reconciliation can
+write persistent state. Deployment and GS-114 physical qualification remain
+**BLOCKED / NO-GO** pending separate preservation review and installation
+authorization. The exact comparison, successful build JSON and caveats are in
+[GS-114 Part 2D evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2D_FIXTURE_DIAGNOSTIC_BUILD_20261012.md).
+
+The Part 1 provenance note below is corrected: its later retained local app
+binaries match `physical_results.json`, while the `fixture_pair_report.json`
+at the same paths records earlier different hashes and is stale relative to
+those files. Neither source is physical flash readback. No previous physical
+PASS is upgraded.
+
+**Part 2D delivery checkpoint:** commit `2545e9a94e6fc87f43ec8a3b672e88dbb1fcbbae`
+is pushed to `origin/feature/r1-commercial-baseline`. Local and remote HEAD
+matched at verification. No fixture deployment or physical qualification was
+performed. The pre-existing untracked S3 `managed_components/` and redacted
+Part 1 evidence remain unmodified; the separate GS-152 worktree remains
+isolated and unchanged.
+
+## GS-114 Part 2C — supervised diagnostic deployment plan — 2026-10-12
+
+Planning-only review was performed at canonical source/remote checkpoint
+`cbbf12d1b4fba9cd1e38730685ccede32f23f558` on
+`feature/r1-commercial-baseline`. Context preflight passed. No USB, serial,
+target storage, build, or physical device was accessed. See the dated
+[GS-114 Part 2C deployment plan](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2C_DIAGNOSTIC_DEPLOYMENT_PLAN_20261012.md).
+
+The saved GS-148 diagnostic S3 image hash was verified locally and contains
+RPF stage strings, but it is not suitable for the commissioned fixture:
+`GS_HIL_COMMISSIONING=OFF` does not use the fixture's persisted development
+identity, and its packaged partition table is the development `gs_journal`
+map, not the fixture's `gs_outbox`/`gs_state` map. Its complete flash bundle
+also rewrites bootloader, partition table and OTA metadata and resets the
+target. The current source fingerprint differs from the report fingerprint.
+There is no proven S3 app-only update path, storage backup/restore, or
+reset-safe two-board observation route. Normal rejoin may attempt replay-fence
+publication, which can write LittleFS; this diagnostic is not application-level
+read-only. Therefore deployment, observation and real PIR qualification remain
+**NO-GO**. The physical failure root cause remains unknown.
+
+The saved Part 1 C3/S3 application artifacts are present in the ignored local
+fixture-pair build directory. Their hashes match Part 1 `physical_results.json`,
+but the colocated `fixture_pair_report.json` records earlier different hashes
+for those same paths and is stale relative to the retained binaries. Neither is
+flash readback; installed image, partition table, OTA slot and live persistent-
+state provenance remain unknown.
+The deployment plan records this distinction and the required separate
+approval gates. GS-114 planning result is in Jira comment 10504; the diagnostic
+profile incompatibility is cross-referenced to GS-148 in comment 10505. The
+deployment plan is documentation-only and records the exact source checkpoint,
+offline artifact checks and future approval gates.
+
+Plan/documentation commit `c077bee73befac3afc9bbdb50f9234ac46fe2b18` was pushed
+normally; local HEAD and `origin/feature/r1-commercial-baseline` matched at
+that delivery checkpoint. Only the plan and this work-state file were staged.
+The pre-existing untracked S3 `managed_components/` and redacted fixture
+evidence remain untouched.
+
+GS-114 remains In Progress; GS-148 remains OnHold; GS-145 remains a separate
+fresh-format durability gate. Next action is user review of the state
+preservation strategy, corrected fixture image profile, installation method
+and reset-safe observation candidate. No hardware action is authorized by the
+plan. Preserve the untracked S3 `managed_components/`, all redacted fixture
+evidence, and the isolated GS-152 worktree.
+
+## GS-148 narrow replay-fence diagnostic checkpoint — 2026-10-12
+
+Authorized by GS-148 comment 10499. On the canonical
+`feature/r1-commercial-baseline` branch, production Hub replay-fence failure
+diagnostics now distinguish selected-state/checkpoint recovery, witness
+prevalidation/publication/readback, and runtime binding stages with sanitized
+stable codes. Production-code host fault tests cover valid Prepared/Duplicate
+reports, failure boundaries and restart selection. The error remains fail
+closed and does not send a retirement-report ACK. No storage format, ownership,
+durable-before-ACK, event identity or recovery policy changed.
+
+Focused Hub/Node retirement, outbox, checkpoint, rejoin, framework and
+traceability tests passed; the checkpoint suite also passed ASan/UBSan. Clean
+ESP-IDF 6.0.3 paired C3/S3 production-profile builds passed (C3 934,192 bytes;
+S3 1,870,944 bytes) with matching embedded Node image provenance; no flash
+target ran. See the dated [GS-148 replay-fence diagnostic evidence](../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md)
+for image hashes and the exact target report. The historical Hub journal
+migration assertion remains an independent FAIL. No physical devices, USB,
+serial, storage or HIL interfaces were accessed. Physical root cause remains
+unknown and GS-114 remains physical NO-GO.
+
+The storage reconciliation confirms the old classic ESP32 fixed 128-slot
+NVS journal is not the active S3 outbox implementation. S3 uses bounded
+segmented LittleFS plus checkpointed identity/completion state; its current
+candidate capacity, retention and physical endurance are not qualified. This
+checkpoint does not start GS-148 P2-E/P2-F. After final validation and push,
+GS-148 returns to OnHold. Preserve the untracked S3 `managed_components/` and
+existing redacted GS-114 evidence. Next action: review this diagnostic and
+authorize a separate, state-preserving physical diagnostic plan before any
+GS-114 retest.
+
+## GS-114 Part 2B — software-only root-cause investigation — 2026-10-12
+
+Investigation source HEAD was `7c1fee29e17fc3fe12c840e0afef5fa6b7217b68`;
+canonical local and origin refs matched before the tooling/documentation
+checkpoint. No board, USB or serial interface was accessed. The saved C3
+`USB_UART_CHIP_RESET` is most likely associated with opening its native USB
+Serial/JTAG console: pySerial 3.5 applies DTR/RTS after `os.open()`, and prior
+fixture notes document monitor-attachment resets. Exact causation/timing is
+not proven by the captured logs. The HIL-A06 classifier was corrected and its
+registered host test now fails on this marker.
+
+The S3 replay-fence error occurs while handling an authenticated Node
+retirement report after rejoin/epoch advertisement. The source emits this error
+only after report application returned Duplicate or a Prepared snapshot passed
+NVS checkpoint recovery/reference verification. The later selected-state or
+reducer-checkpoint reload, LittleFS fence validation/publication/readback, or
+runtime bind remains the unresolved step. Admission correctly fails closed
+and the report ACK is not sent on this error path. A C3 reset/rejoin may have
+triggered the report, but the report fragments are not directly observed. This
+is not the separate historical GS-148 journal-migration assertion failure.
+
+Host-only `make gs130-hil-runner-test` passed 17 tests, `make
+validation-framework-test` passed 39 registration/failure-propagation tests,
+and `make hub-runtime-checkpoint-host-test` passed its synthetic publication-
+cut, recovery and mismatch checks. These tests do not reproduce the fixture's
+persistent state. Production security/storage semantics and device data were
+not changed. The physical retest is **NO-GO** until the S3
+failure is localized without clearing storage and the capture path is
+independently assessed for reset risk. Details and exact future gates are in
+[GS-114 Part 2B evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2B_ROOT_CAUSE_20261012.md).
+
+## GS-114 Part 2 — observer stopped on reset and Hub admission error — 2026-10-12
+
+At canonical source `09bc8cd8b7baab0674bbe03157b7b50bab28e51e`, read-only
+USB/sysfs/udevadm preflight found the approved C3 USB identity on
+`/dev/ttyACM0` and the approved S3 USB-UART identity on `/dev/ttyACM1`; neither
+port was already open. The user authorized opening only their two stable by-id
+interfaces for DTR/RTS-low receive-only capture. The existing observer verified
+the by-id serials and Part 1 candidate artifact hashes, then captured 60 seconds
+without sending serial bytes.
+
+The capture reported C3 boot reason `USB_UART_CHIP_RESET` during the observation
+window. The cause is consistent with opening the UART but cannot be proven. S3
+reported `S3 replay-fence publication failed; admission closed`. Per operator
+instruction, the physical campaign stopped immediately; no recovery or further
+device access occurred and no real PIR movement was requested. Logs are retained
+at [GS-114 Part 2 stopped baseline](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2_20261012T032500Z_baseline/STOP_REPORT.md).
+
+Boot banners show the fixture's expected C3/S3 MACs, chip revisions, flash/PSRAM
+profiles, ESP-IDF 6.0.3, and app version `73e1e842ff84-gs114-16fca85b`; installed
+image hashes are not proven. Authenticated rejoin and online liveness appeared,
+but no EventKey-to-durable-commit-to-application-ACK-to-retirement chain was
+observed. The observer's aggregate `PARTIAL` is overridden by the explicit
+stop-condition evidence; HIL-A06 is FAIL. GS-114 P1 is NOT_RUN, P2–P4 BLOCKED,
+P5–P9 remain BLOCKED/NOT_RUN as detailed in the stop report, and P10 belongs to
+GS-149. No PIR physical PASS is claimed. GS-114 remains In Progress.
+
+Next action requires a verified non-resetting receive path and resolution of
+the S3 replay-fence admission failure; do not reopen the ports, reset, reflash,
+or modify stored state without a new explicit authorization. Isolated GS-152
+and protected original boards were not accessed.
+
 ## GS-114 Part 2 physical preflight — 2026-10-11
 
 Preflight at source checkpoint `02d7a12bd0f523a3acf7b80bfc06ac996fd14c76`

@@ -39,6 +39,34 @@ enum class OutboxRecovery : std::uint8_t {
 
 enum class IdentityLookup : std::uint8_t { Found, Staged, Missing, IntegrityFailure };
 
+// Stable, sanitized result categories for the authenticated Node retirement
+// replay-fence publication path. These are diagnostics only; callers that
+// need the historical bool contract can continue using publish_replay_fence.
+enum class ReplayFencePublishResult : std::uint8_t {
+    Published,
+    AlreadyPublished,
+    NotInitialized,
+    OutboxFaulted,
+    MutationInProgress,
+    InvalidEpoch,
+    InvalidReference,
+    CheckpointBeyondPublished,
+    StaleReferenceGeneration,
+    ConflictingReferenceGeneration,
+    LifecycleGenerationExhausted,
+    PublicationReadFailed,
+    PublicationMalformed,
+    PublicationOrdinalMismatch,
+    PublicationMissingForRecords,
+    LifecycleRootEncodeFailed,
+    LifecycleRootPublishFailed,
+    LifecycleRootReadbackFailed,
+    LifecycleRootMissingAfterPublish,
+    LifecycleRootReadbackMismatch
+};
+
+const char* replay_fence_publish_result_name(ReplayFencePublishResult result);
+
 // SegmentStore owns the block/filesystem adapter. Append is allowed to leave a
 // torn tail when it returns false; the outbox never ACKs that operation and
 // requires recovery before another admission. sync() is the durability barrier.
@@ -174,6 +202,10 @@ public:
     // bank in the lifecycle root. Admission must remain closed until this
     // reference matches the selected NVS checkpoint after recovery.
     bool publish_replay_fence(std::uint32_t storage_epoch,
+                              const durable::ReportSnapshotReference& reference,
+                              std::uint64_t reducer_checkpoint_boundary);
+    ReplayFencePublishResult publish_replay_fence_diagnostic(
+                              std::uint32_t storage_epoch,
                               const durable::ReportSnapshotReference& reference,
                               std::uint64_t reducer_checkpoint_boundary);
     bool replay_fence_matches(std::uint32_t storage_epoch,
