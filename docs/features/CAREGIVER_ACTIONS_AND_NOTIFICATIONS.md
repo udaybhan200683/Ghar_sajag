@@ -213,13 +213,13 @@ Do not infer consent or access controls from a notification toggle.
 
 ## Source map and verification boundaries
 
-- `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/include/gs/domain.hpp` — event and incident vocabulary.
+- `code/firmware/common/shared/include/gs/domain.hpp` — event and incident vocabulary.
 - `.../backend/ghar_sajag/ingest.py`, `.../backend/ghar_sajag/incidents.py` — event admission, dedupe and incident lifecycle.
 - `.../backend/ghar_sajag/notifications.py` — scheduler, due jobs, provider result and human acknowledgement semantics.
 - `.../backend/ghar_sajag/foundation.py`, `.../backend/ghar_sajag/sqlite_events.py` — PWA foundation and notification record persistence.
-- `.../app/src/features/home/index.mjs` — event, freshness, tone and timeline text.
-- `.../app/src/features/incidents/index.mjs` — incident actions and delivery labels.
-- `.../app/src/platform/index.mjs` — browser platform boundary, including push subscription versus delivery evidence.
+- `.../frontend/src/features/home/index.mjs` — event, freshness, tone and timeline text.
+- `.../frontend/src/features/incidents/index.mjs` — incident actions and delivery labels.
+- `.../frontend/src/platform/index.mjs` — browser platform boundary, including push subscription versus delivery evidence.
 - `.../tools/sim/local_lab.py`, `.../tests/MANUAL_FUNCTIONAL_VALIDATION.md` — simulator actions and documented scenarios M006–M008.
 - `.../tests/python/test_phase1_application.py`, `.../tests/python/test_notifications.py`, `.../tests/playwright/phase1_ui_contract.spec.ts`, `.../tests/playwright/phase2b_notifications.spec.ts` — host/application/browser behavior.
 

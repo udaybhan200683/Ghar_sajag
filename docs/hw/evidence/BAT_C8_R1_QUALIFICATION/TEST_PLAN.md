@@ -73,12 +73,12 @@ Exact configuration and build commands (ESP-IDF export was sourced first):
 source /home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh
 idf.py -B /tmp/ghar_sajag_r1_bat_c8_physical_wake_qual \
   -DSDKCONFIG=/tmp/ghar_sajag_r1_bat_c8_physical_wake_qual/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=/home/udaybhan/projects/Ghar_sajag_r1/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/target/esp32c3/idf/sdkconfig.defaults \
+  -DSDKCONFIG_DEFAULTS=/home/udaybhan/projects/Ghar_sajag_r1/code/firmware/node/target/esp32c3/idf/sdkconfig.defaults \
   -DGS_HIL_BUILD=OFF -DGS_HIL_CONTROL=ON \
   -DGS_BAT_C8_PHYSICAL_WAKE=ON set-target esp32c3
 idf.py -B /tmp/ghar_sajag_r1_bat_c8_physical_wake_qual \
   -DSDKCONFIG=/tmp/ghar_sajag_r1_bat_c8_physical_wake_qual/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=/home/udaybhan/projects/Ghar_sajag_r1/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/target/esp32c3/idf/sdkconfig.defaults \
+  -DSDKCONFIG_DEFAULTS=/home/udaybhan/projects/Ghar_sajag_r1/code/firmware/node/target/esp32c3/idf/sdkconfig.defaults \
   -DGS_HIL_BUILD=OFF -DGS_HIL_CONTROL=ON \
   -DGS_BAT_C8_PHYSICAL_WAKE=ON build
 ```
@@ -98,7 +98,7 @@ error was observed; `check_sizes.py` passed.
 
 ### Focused host gates
 
-Run from the product root `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2`:
+Run from the product root `code`:
 
 | Command | Result |
 |---|---|
@@ -377,10 +377,9 @@ proof of a particular inhibitor.
 
 ## Diagnostics and known instrumentation limits
 
-The three diagnostic scripts are in the battery reference tree under
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/hil/`; the paths
-without that product subdirectory do not exist. They are untracked there and
-were inspected read-only.
+An earlier audit observed three untracked diagnostic scripts in a legacy
+battery reference tree. That observation is historical and does not establish
+active runnable paths. The maintained R1 HIL tools are under `code/tools/hil/`.
 
 - `single_owner_hub_capture.py`: useful optional raw-byte Hub UART capture,
   with exclusive ownership, fsync, malformed/NUL/duplicate-line counts, and

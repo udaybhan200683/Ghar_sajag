@@ -238,17 +238,17 @@ stamping. Do not sort solely by wall-clock fields when they are untrusted.
 
 ## 12. Important source files/classes
 
-Paths are relative to `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`.
+Paths are relative to `code/`.
 
 - `firmware/node/runtime/node_runtime.*` — `NodeRuntime::record`, ACK and recovery snapshot/restore.
-- `firmware/node/components/storage/node_store.*` — bounded retained business events and gap marker.
-- `firmware/node/components/radio/node_radio.*` — `PendingTx`, retry schedule, queue admission and reboot deadline reset.
-- `firmware/node/components/storage/node_recovery_persistence.*` — encrypted `GSNR` snapshot and generation.
+- `firmware/node/storage/node_store.*` — bounded retained business events and gap marker.
+- `firmware/node/communication/radio/node_radio.*` — `PendingTx`, retry schedule, queue admission and reboot deadline reset.
+- `firmware/node/storage/node_recovery_persistence.*` — encrypted `GSNR` snapshot and generation.
 - `firmware/node/target/esp32c3/node_runtime_adapter.cpp` — sensing, persist-before-send, ACK retirement, health and radio queue.
 - `firmware/node/target/esp32c3/node_security_link.*` — rejoin and recovery restore/persist boundary.
-- `firmware/hub/components/ingest/ingest.*` — authorized bounded ingest queue.
+- `firmware/hub/event_processing/ingest/ingest.*` — authorized bounded ingest queue.
 - `firmware/hub/runtime/hub_runtime.*` — authenticated admission, journal commit/dedupe, reducer and ACK result.
-- `firmware/hub/components/storage/journal.*` and `firmware/hub/target/esp32/nvs_journal_slot_store.*` — 128-slot encrypted journal.
+- `firmware/hub/storage/journal.*` and `firmware/hub/target/esp32/nvs_journal_slot_store.*` — 128-slot encrypted journal.
 - `firmware/hub/target/esp32/hub_runtime_adapter.cpp` and `hub_security_link.*` — secure frame admission, per-Node session and ACK transmission.
 
 ## 13. Verification boundaries

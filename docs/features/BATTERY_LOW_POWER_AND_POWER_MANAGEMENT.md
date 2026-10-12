@@ -6,7 +6,7 @@ The GS-40 candidate uses 300 s / derived 910 s by default, the same day/night
 algorithm, authenticated contact suppression and optional existing event power
 telemetry. Canonical JSON, strict validator, embedded typed C3/S3 startup policy,
 trusted per-device legacy/configured profile map and backend/PWA lease consumers
-are described in the [configuration guide](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/config/README.md).
+are described in the [configuration guide](../../code/config/README.md).
 Prior 60/190 and BAT-C5 120/310 default statements below describe historical
 profiles; GS-112/150 evidence remains history, not GS-40 validation. GS-150
 receive, sleep, GPIO and recovery contracts are preserved. A missing deployment
@@ -445,12 +445,12 @@ battery/endurance qualification. See
 
 Key implementation locations:
 
-- `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/target/esp32c3/node_runtime_adapter.cpp` — target task, PIR polling, health cadence and radio initialization.
+- `code/firmware/node/target/esp32c3/node_runtime_adapter.cpp` — target task, PIR polling, health cadence and radio initialization.
 - `.../firmware/node/target/esp32c3/node_target_config.hpp` — GPIOs, poll/debounce/stabilization, channel and TX power.
-- `.../firmware/node/components/power/power.hpp` and `power.cpp` — portable battery classification, percent estimate, sleep plan and energy model.
+- `.../firmware/node/power/power.hpp` and `power.cpp` — portable battery classification, percent estimate, sleep plan and energy model.
 - `.../firmware/node/runtime/node_runtime.cpp` — event generation and runtime flow.
-- `.../firmware/node/components/radio/node_radio.cpp` and `.../shared/include/gs/protocol.hpp` — bounded send queue and retry policy.
-- `.../firmware/node/components/storage/node_recovery_persistence.cpp` — encrypted pending-event recovery record.
+- `.../firmware/node/communication/radio/node_radio.cpp` and `.../firmware/common/shared/include/gs/protocol.hpp` — bounded send queue and retry policy.
+- `.../firmware/node/storage/node_recovery_persistence.cpp` — encrypted pending-event recovery record.
 - `.../backend/ghar_sajag/battery.py`, `.../tools/sim/local_lab.py` — supplied-sample energy analytics and simulator thresholds.
 - `.../tests/cpp/battery_c8_validation.cpp`, `.../tests/cpp/test_main.cpp` and `.../tests/python/test_battery_power_invariants.py` — BAT-C8, host policy and source invariants.
 
@@ -975,7 +975,7 @@ Evidence:
 - `NodeRadio::record_transport_result()` establishes the existing next retry
   at 200/600/1,800/10,000/60,000 ms, with deterministic EventKey jitter up to
   100 ms; confirmed outage uses the existing 60,000 ms rung (node_radio.cpp:
-  102–133; `shared/include/gs/protocol.hpp:34–36`). No separate ACK expiry is
+  102–133; `firmware/common/shared/include/gs/protocol.hpp:34–36`). No separate ACK expiry is
   stored. `next_due_at()` is the retry deadline, not an application-ACK
   timeout.
 - The Hub authenticates and accepts the Node message, calls

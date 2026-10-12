@@ -255,11 +255,11 @@ chronological event and incident until caregiver workflow resolves it.
 
 Main locations:
 
-- `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/shared/include/gs/domain.hpp` — event, routine, mode, coverage and household rule contracts/defaults.
-- `.../shared/include/gs/rules.hpp` and `.../shared/src/rules.cpp` — deterministic routine/activity state and timer logic.
+- `code/firmware/common/shared/include/gs/domain.hpp` — event, routine, mode, coverage and household rule contracts/defaults.
+- `.../firmware/common/shared/include/gs/rules.hpp` and `.../firmware/common/shared/src/rules.cpp` — deterministic routine/activity state and timer logic.
 - `.../firmware/hub/runtime/hub_runtime.cpp` — event application and rule invocation boundary.
 - `.../backend/ghar_sajag/foundation.py`, `.../backend/ghar_sajag/sqlite_events.py` — PWA household policy, event and persisted foundation paths.
-- `.../app/src/features/home/index.mjs` — readable event/timeline semantics and presentation tones.
+- `.../frontend/src/features/home/index.mjs` — readable event/timeline semantics and presentation tones.
 - `.../tools/sim/local_lab.py` — simulator events, derived concern and dashboard mapping.
 - `.../tests/cpp/test_main.cpp`, `.../tests/python/test_phase1_application.py`, `.../tests/playwright/phase1_ui_contract.spec.ts`, `.../tests/MANUAL_FUNCTIONAL_VALIDATION.md` — deterministic rule, application and browser contract coverage.
 

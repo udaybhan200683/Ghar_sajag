@@ -1,4 +1,4 @@
-PRODUCT_DIR := code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2
+PRODUCT_DIR := code
 
 .PHONY: validation-node validation-hub validation-contract validation-backend validation-pwa validation-tooling validation-framework-test
 validation-node validation-hub validation-contract validation-backend validation-pwa validation-tooling validation-framework-test:

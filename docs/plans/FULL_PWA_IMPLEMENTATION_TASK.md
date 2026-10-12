@@ -51,7 +51,7 @@ Repository root:
 
 Active implementation directory:
 
-    code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2
+    code
 
 IMPORTANT:
 

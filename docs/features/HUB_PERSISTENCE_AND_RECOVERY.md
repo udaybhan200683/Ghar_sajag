@@ -203,13 +203,13 @@ retry into a second event.
 
 ## 11. Source files/classes
 
-Paths are relative to `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`.
+Paths are relative to `code/`.
 
 - `firmware/hub/target/esp32/hub_security_link.*` — `HubSecurityLink::initialize`, registry restore, Home ID and journal-key derivation.
-- `firmware/hub/components/registry/node_registry.*` — active/tombstone bounds, admission, rejoin, revoke and replacement.
-- `firmware/hub/components/registry/registry_persistence.*` — `HubRegistryRepository` encrypted `GSRG` record and generation.
+- `firmware/hub/commissioning/registry/node_registry.*` — active/tombstone bounds, admission, rejoin, revoke and replacement.
+- `firmware/hub/commissioning/registry/registry_persistence.*` — `HubRegistryRepository` encrypted `GSRG` record and generation.
 - `firmware/common/security/nvs_association_blob_store.*` — target NVS wrapped-blob adapter.
-- `firmware/hub/components/storage/journal.*` — `HubJournal` slots, dedupe, commit status and cloud pending state.
+- `firmware/hub/storage/journal.*` — `HubJournal` slots, dedupe, commit status and cloud pending state.
 - `firmware/hub/target/esp32/nvs_journal_slot_store.*` — `gs_journal` append-only NVS slot implementation.
 - `firmware/hub/runtime/hub_runtime.*` — durable commit, reducer replay and volatile health/liveness maps.
 - `firmware/hub/target/esp32/hub_runtime_adapter.cpp` — startup ordering, fail-closed admission and per-Node rejoin.

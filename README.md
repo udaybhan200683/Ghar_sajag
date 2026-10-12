@@ -62,15 +62,23 @@ commit does not change the firmware provenance recorded in the run.
 
 | Area | Location |
 |---|---|
-| Node firmware | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/` |
-| Hub firmware | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/` |
-| Shared runtime, codecs and security | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/common/` and the Node/Hub firmware trees |
-| Backend and PWA | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/backend/`, `app/`, and `shared/` |
-| Simulation | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/host/`, `tools/`, and backend/PWA simulation code |
-| HIL tooling | root WSL/USB helpers in `tools/hil/`; campaign supervisor and target test support in `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/hil/` |
-| Validation and tests | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/`, `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/validation/`, `docs/validation/` |
+| Node firmware | `code/firmware/node/` |
+| Hub firmware | `code/firmware/hub/` |
+| Shared runtime, codecs and security | `code/firmware/common/` and the Node/Hub firmware trees |
+| Backend | `code/backend/` |
+| Caregiver PWA | `code/frontend/` |
+| Shared runtime, protocol and security | `code/firmware/common/` |
+| Host simulation | `code/tests/support/host/`, `code/tools/sim/` |
+| HIL tooling | `code/tools/hil/` and repository-level USB helpers under `tools/hil/` |
+| Validation and tests | `code/tests/`, `code/validation/`, `docs/validation/` |
 | Qualification evidence | `evidence/` |
 | Project documentation | `docs/` |
+
+Active application and tooling sources are grouped under the stable `code/`
+layout. ESP-IDF target roots remain in their target-specific directories. See
+[`GS-152 source ownership and build roots`](docs/architecture/GS152_STABLE_REPOSITORY_LAYOUT.md)
+for the current module map; versioned release documentation is retained under
+`docs/archive/` with its historical provenance.
 
 ## Documentation ownership and where to continue
 

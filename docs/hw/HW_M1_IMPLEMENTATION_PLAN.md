@@ -69,7 +69,7 @@ or QUALIFIED.
   HW-M1`).
 - Stable software/PWA reference: `feature/full-pwa-e2e`.
 - Active product code directory:
-  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2`.
+  `code`.
 
 HW-M1 documents the deltas from the frozen software/PWA branch point. It does
 not replace the Phase 3A/3B host qualification anchors or duplicate the full
@@ -325,7 +325,7 @@ reports automated software/target results separately from physical evidence;
 its HIL stages remain manual-evidence inputs, power/performance remains
 `NOT_BASELINED`, and physical endurance is recorded separately as HW-M1.4A
 PASS. The implementation is
-`tools/validation/hw_release_gate.py`, with focused self-tests in
+`validation/hw_release_gate.py`, with focused self-tests in
 `tests/python/test_hw_release_gate.py`.
 
 ### HW-M1.3C — Physical target qualification — QUALIFIED / PASS

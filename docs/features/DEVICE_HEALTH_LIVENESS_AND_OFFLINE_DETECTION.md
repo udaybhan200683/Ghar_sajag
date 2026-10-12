@@ -6,7 +6,7 @@ The GS-40 candidate uses 300 s / derived 910 s by default, the same day/night
 algorithm, authenticated contact suppression and optional existing event power
 telemetry. Canonical JSON, strict validator, embedded typed C3/S3 startup policy,
 trusted per-device legacy/configured profile map and backend/PWA lease consumers
-are described in the [configuration guide](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/config/README.md).
+are described in the [configuration guide](../../code/config/README.md).
 Prior 60/190 and BAT-C5 120/310 default statements below describe historical
 profiles; GS-112/150 evidence remains history, not GS-40 validation. GS-150
 receive, sleep, GPIO and recovery contracts are preserved. A missing deployment
@@ -189,15 +189,15 @@ behavior require physical qualification.
 
 ## 11. Important source files/classes
 
-Paths are relative to `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`.
+Paths are relative to `code/`.
 
-- `shared/include/gs/protocol.hpp` — `NodeHealthSnapshot`, `NodeHealthError`, `NodeProtocolPolicy` and 60 s/190 s constants.
+- `firmware/common/shared/include/gs/protocol.hpp` — `NodeHealthSnapshot`, `NodeHealthError`, `NodeProtocolPolicy` and 60 s/190 s constants.
 - `firmware/common/transport/data_plane_codec.*` — NodeHealth encoding, decoding and schema validation.
 - `firmware/node/target/esp32c3/node_runtime_adapter.cpp` — 60 s schedule, snapshot population, secure send and diagnostics.
 - `firmware/hub/target/esp32/hub_runtime_adapter.cpp` — secure open, health/event routing and target logs.
 - `firmware/hub/runtime/hub_runtime.*` — `observe_authenticated_health`, `node_health`, `node_online`, event contact refresh and per-Node maps.
-- `firmware/hub/components/coverage/coverage.*` — epoch-time coverage lease and Unknown/Fault calculation.
-- `firmware/hub/components/registry/node_registry.*` — physical/logical identity and session authorization backing health mapping.
+- `firmware/hub/event_processing/coverage/coverage.*` — epoch-time coverage lease and Unknown/Fault calculation.
+- `firmware/hub/commissioning/registry/node_registry.*` — physical/logical identity and session authorization backing health mapping.
 - `tests/cpp/multinode_host_validation.cpp` and `tests/cpp/test_main.cpp` — host health/liveness and threshold behavior.
 
 ## 12. Verification boundaries

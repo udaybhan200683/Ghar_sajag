@@ -45,7 +45,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/product/P0_PRODUCT_REQUIREMENTS.md` | CANONICAL | Supported P0 product behavior and explicit gaps | P0/product behavior changes |
 | `docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md` | HISTORICAL | P0 software gap audit and transition | Trace original P0 gap closure |
 | `docs/progress/Phase_0_Current_Baseline_Reconciliation_v1.5.4.md` | HISTORICAL | Version-specific baseline reconciliation | Understand that release-era snapshot |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/backend/DATA_MODEL.md` | SUPPORTING | Backend data model from v1.5.4 | Backend schema work; check canonical contract first |
+| `code/backend/DATA_MODEL.md` | SUPPORTING | Backend data model from v1.5.4 | Backend schema work; check canonical contract first |
 
 ### R1
 
@@ -55,7 +55,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/progress/R1_WORKTREE_RECONCILIATION_20261007.md` | TEST_EVIDENCE | Reconciled source/tool/evidence attribution and focused validation snapshot | Audit the committed qualification baseline and known deferred test failure |
 | `docs/progress/CURRENT_STATUS_AND_ROADMAP.md` | HISTORICAL | Earlier roadmap snapshot | Trace earlier status; do not use as current status |
 | `docs/progress/FEATURE_IMPLEMENTATION_STATUS_AND_REMAINING_GAPS_AT_0608e2a.md` | HISTORICAL | Commit-specific implementation gap snapshot | Inspect that historical baseline |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/IMPLEMENTATION_STATUS.md` | SUPPORTING | Release-code implementation notes | Investigate reference implementation; verify against R1 state |
+| `code/IMPLEMENTATION_STATUS.md` | SUPPORTING | Release-code implementation notes | Investigate reference implementation; verify against R1 state |
 | `docs/progress/PROJECT_HISTORY.md` | HISTORICAL | Engineering chronology | Trace why an approach changed |
 
 ### ARCHITECTURE
@@ -63,8 +63,8 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | Path | Classification | Use | Read when |
 |---|---|---|---|
 | `docs/PHASE2_ARCHITECTURE_AND_GAP_ANALYSIS.md` | HISTORICAL | Phase 2 architecture/gap analysis | Trace prior phase; canonical R1 decisions win |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PRODUCT_ARCHITECTURE_v1.4.md` | SUPERSEDED | v1.4 product architecture/status snapshot | Historical only; use current product context and domain contracts |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/README.md` | SUPPORTING | Reference implementation structure and commands | Working in embedded code project |
+| `code/docs/PRODUCT_ARCHITECTURE_v1.4.md` | SUPERSEDED | v1.4 product architecture/status snapshot | Historical only; use current product context and domain contracts |
+| `code/README.md` | SUPPORTING | Reference implementation structure and commands | Working in embedded code project |
 | `WHATS_CHANGED.md` | HISTORICAL | Documentation-edition change note | Documentation provenance |
 
 ### HUB
@@ -74,9 +74,9 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/features/HUB_PERSISTENCE_AND_RECOVERY.md` | IMPLEMENTATION_DESIGN | Hub persistence/recovery behavior | Hub journal/recovery changes |
 | `docs/design/HUB_DURABLE_STATE_TRANSITIONS.md` | IMPLEMENTATION_DESIGN | Durable transitions/effect intent | Durable transition or recovery changes |
 | `docs/design/HUB_REDUCER_CHECKPOINT.md` | IMPLEMENTATION_DESIGN | Reducer checkpoint audit/design | Materialized state/checkpoint work |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/runtime/FREERTOS_BINDING.md` | IMPLEMENTATION_DESIGN | Hub runtime/FreeRTOS binding | Hub task and scheduling work |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/README.md` | SUPPORTING | Hub target adapter notes | Hub target build/configuration |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32s3/idf/README.md` | SUPPORTING | S3 target, development partition profiles and non-destructive build instructions; commercial capacity remains unqualified | S3 target/build work |
+| `code/firmware/hub/runtime/FREERTOS_BINDING.md` | IMPLEMENTATION_DESIGN | Hub runtime/FreeRTOS binding | Hub task and scheduling work |
+| `code/firmware/hub/target/esp32/README.md` | SUPPORTING | Hub target adapter notes | Hub target build/configuration |
+| `code/firmware/hub/target/esp32s3/idf/README.md` | SUPPORTING | S3 target, development partition profiles and non-destructive build instructions; commercial capacity remains unqualified | S3 target/build work |
 
 ### NODE
 
@@ -87,8 +87,8 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/features/DEVICE_IDENTITY_REGISTRATION_AND_LIFECYCLE.md` | IMPLEMENTATION_DESIGN | Device enrollment and identity lifecycle | Ownership/rejoin work |
 | `docs/features/DEVICE_HEALTH_LIVENESS_AND_OFFLINE_DETECTION.md` | SUPPORTING | Health and offline semantics | Liveness or caregiver status |
 | `docs/features/HUB_NODE_SECURE_COMMUNICATION.md` | IMPLEMENTATION_DESIGN | Hub/Node secure communication | Transport/authentication changes |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/contracts/NODE_TO_HUB_PROTOCOL.md` | SUPPORTING | Earlier P0 protocol contract | Protocol details; verify against current implementation/design |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/node/target/esp32c3/README.md` | SUPPORTING | ESP32-C3 target adapter notes | Node target build/configuration |
+| `code/contracts/NODE_TO_HUB_PROTOCOL.md` | SUPPORTING | Earlier P0 protocol contract | Protocol details; verify against current implementation/design |
+| `code/firmware/node/target/esp32c3/README.md` | SUPPORTING | ESP32-C3 target adapter notes | Node target build/configuration |
 
 ### STORAGE
 
@@ -96,8 +96,8 @@ Each canonical file is listed once in the canonical table above. The domain sect
 |---|---|---|---|
 | `docs/exec-plans/active/R1_HUB_STORAGE_DATA_LIFECYCLE.md` | IMPLEMENTATION_DESIGN / PROPOSED ExecPlan | Historical classic-ESP32 4 MB analysis remains useful as evidence; S3 sections track current implementation slices. Candidate formats, reserve/layout values and numeric workload policy remain unapproved; see GS-D030 and linked evidence | Review the S3 status and remaining STOP gates; do not apply old 4 MB allocations to the selected Hub |
 | `docs/DURABLE_STORAGE_EPIC_PAUSE_HANDOFF.md` | HANDOFF/WORK_STATE | Paused durable-storage work context | Resume that historical workstream; reconcile with current state |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABILITY_ARCHITECTURE_CLOSURE_AUDIT.md` | SUPPORTING | Detailed durability audit and evidence | Audit current-format implementation |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABLE_BACKEND_COMPLETION_CONTRACT.md` | IMPLEMENTATION_DESIGN | Backend completion receipt contract | Outbox completion/reclamation work |
+| `code/docs/DURABILITY_ARCHITECTURE_CLOSURE_AUDIT.md` | SUPPORTING | Detailed durability audit and evidence | Audit current-format implementation |
+| `code/docs/DURABLE_BACKEND_COMPLETION_CONTRACT.md` | IMPLEMENTATION_DESIGN | Backend completion receipt contract | Outbox completion/reclamation work |
 | `docs/features/HUB_PERSISTENCE_AND_RECOVERY.md` | IMPLEMENTATION_DESIGN | Hub storage/recovery detail | Persistence implementation |
 | `docs/exec-plans/evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md` | INTEGRATION_PROVENANCE / EVIDENCE | Cross-worktree dispositions, source commit provenance and preserved unmerged work | Resumption after the one-time source consolidation |
 | `docs/exec-plans/evidence/R1_S3_P2C_FINAL_VALIDATION_20261010.md` | TEST_EVIDENCE | Host mixed-segment reclamation, reserve and target-build evidence; production deletion disabled | P2-C source/evidence review |
@@ -109,21 +109,21 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | Path | Classification | Use | Read when |
 |---|---|---|---|
 | `docs/features/CAREGIVER_ACTIONS_AND_NOTIFICATIONS.md` | SUPPORTING | Caregiver actions and notification intent | Caregiver-facing behavior |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/contracts/PHASE1_APPLICATION_API.md` | SUPPORTING | Earlier local integrated-lab API | API compatibility/implementation work |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_CONCURRENT_API_ISOLATION.md` | IMPLEMENTATION_DESIGN | Phase 3B API concurrency/isolation | Backend scalability work; not an R1 scope authority |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_REPORT_SCALABILITY.md` | IMPLEMENTATION_DESIGN | Phase 3B report scalability | Report query work |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3B_SCALE_OPTIMIZATION.md` | IMPLEMENTATION_DESIGN | Durable history read optimization | Backend query work |
+| `code/contracts/PHASE1_APPLICATION_API.md` | SUPPORTING | Earlier local integrated-lab API | API compatibility/implementation work |
+| `code/docs/PHASE3B_CONCURRENT_API_ISOLATION.md` | IMPLEMENTATION_DESIGN | Phase 3B API concurrency/isolation | Backend scalability work; not an R1 scope authority |
+| `code/docs/PHASE3B_REPORT_SCALABILITY.md` | IMPLEMENTATION_DESIGN | Phase 3B report scalability | Report query work |
+| `code/docs/PHASE3B_SCALE_OPTIMIZATION.md` | IMPLEMENTATION_DESIGN | Durable history read optimization | Backend query work |
 | `docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md` | HISTORICAL | Large prototype implementation plan | Historical PWA scope only; not current R1 contract |
 | `ParivarSathi_PWA_Prototype_v6/README.md` | HISTORICAL | Standalone PWA prototype | Prototype provenance |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/sim/pwa/README.md` | SUPPORTING | Integrated PWA simulator | PWA simulator use |
+| `code/tools/sim/pwa/README.md` | SUPPORTING | Integrated PWA simulator | PWA simulator use |
 
 ### ROUTINE LEARNING
 
 | Path | Classification | Use | Read when |
 |---|---|---|---|
 | `docs/features/ROUTINE_ACTIVITY_AND_INCIDENT_RULES.md` | IMPLEMENTATION_DESIGN | Routine and incident rule details | Routine logic work |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/BATTERY_ANALYTICS_DESIGN.md` | SUPPORTING | Battery analytics implementation design | Battery analytics only; not R1 scope authority |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/PATCH_NOTES_v3.3_ROUTINE_RULES.md` | HISTORICAL | Routine rule expansion note | Change provenance |
+| `code/docs/BATTERY_ANALYTICS_DESIGN.md` | SUPPORTING | Battery analytics implementation design | Battery analytics only; not R1 scope authority |
+| `code/PATCH_NOTES_v3.3_ROUTINE_RULES.md` | HISTORICAL | Routine rule expansion note | Change provenance |
 
 ### POWER/BATTERY
 
@@ -134,7 +134,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md` | TEST_PLAN | HW-M1.4 power/performance plan | Power/performance qualification |
 | `docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md` | BACKLOG/FUTURE | Post-resilience roadmap, including future work | Future planning; filter against R1 scope |
 | `docs/hw/evidence/BAT_C8_R1_QUALIFICATION/TEST_PLAN.md` | TEST_PLAN | BAT-C8 R1 physical qualification procedure (P1–P10 are test case labels) | For the required production-critical qualification in GS-D020 |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/PATCH_NOTES_v3.4.0_BATTERY_ANALYTICS.md` | HISTORICAL | Battery analytics patch note | Release history |
+| `code/PATCH_NOTES_v3.4.0_BATTERY_ANALYTICS.md` | HISTORICAL | Battery analytics patch note | Release history |
 
 ### FOTA
 
@@ -151,8 +151,8 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/features/HUB_NODE_SECURE_COMMUNICATION.md` | IMPLEMENTATION_DESIGN | Secure transport and identity detail | Hub/Node security changes |
 | `docs/features/DEVICE_IDENTITY_REGISTRATION_AND_LIFECYCLE.md` | IMPLEMENTATION_DESIGN | Identity ownership/lifecycle | Enrollment/rejoin changes |
 | `docs/hw/PHASE2_DEVICE_IDENTITY_PROVISIONING.md` | IMPLEMENTATION_DESIGN | Phase 2 provisioning design | Provisioning work; validate R1 scope |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md` | SUPPORTING | Detailed enrollment/ownership contract and migration history | Ownership migration audit; fresh-install contract wins for scope |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/SESSION_RECOVERY_PROTOCOL.md` | IMPLEMENTATION_DESIGN | Authenticated session recovery detail | Session/rejoin work |
+| `code/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md` | SUPPORTING | Detailed enrollment/ownership contract and migration history | Ownership migration audit; fresh-install contract wins for scope |
+| `code/docs/SESSION_RECOVERY_PROTOCOL.md` | IMPLEMENTATION_DESIGN | Authenticated session recovery detail | Session/rejoin work |
 
 ### VALIDATION
 
@@ -160,17 +160,17 @@ Each canonical file is listed once in the canonical table above. The domain sect
 |---|---|---|---|
 | `docs/validation/MASTER_VALIDATION.md` | TEST_PLAN / ENGINEERING_GUIDE | GS-116 component/fast/release execution and permanent DoD; historical inventory retained, exhaustive coverage owned by GS-130 | Every substantive feature/fix; choose validation gates |
 | `docs/exec-plans/evidence/R1_GS116_VALIDATION_FRAMEWORK_20261010.md` | TEST_EVIDENCE / HANDOFF | Current framework qualification, migration baseline diagnosis and GS-130 next action | Resume GS-116/130 or inspect aggregate failures |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/VALIDATION_FRAMEWORK.md` | TEST_PLAN | Reference-code validation framework | Reference application tests |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/SIMULATION_START_HERE.md` | TEST_PLAN | Hardware-independent verification entry | Host simulation workflow |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/SIMULATION_LLD_v1.0.md` | IMPLEMENTATION_DESIGN | Simulation adapter low-level design | Simulator implementation |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/FEATURE_FLAGS.md` | SUPPORTING | Build/runtime simulation flags | Configure supported simulation |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3_STRESS_FRAMEWORK.md` | TEST_PLAN | Phase 3 stress framework | Stress qualification; check scope first |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3A_PERFORMANCE.md` | TEST_PLAN | Phase 3A performance budgets | Performance qualification; check R1 priority |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/MANUAL_FUNCTIONAL_VALIDATION.md` | TEST_PLAN | Manual app validation scenarios | Manual PWA/product validation |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/PWA_E2E_68_VALIDATION_REPORT.md` | TEST_EVIDENCE | PWA end-to-end report (title says 92 scenarios) | Historical browser proof; reconcile report details before citing |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/VERIFICATION_REPORT.md` | TEST_EVIDENCE | Reference-code verification report | Reference code only |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/hw/evidence/FRESH_R1_HOST_20261005/RESULTS.md` | TEST_EVIDENCE | Fresh R1 runtime host gate | Verify this host gate |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/MANUAL_FUNCTIONAL_VALIDATION.md` | TEST_PLAN | Manual functional validation | PWA validation |
+| `code/docs/VALIDATION_FRAMEWORK.md` | TEST_PLAN | Reference-code validation framework | Reference application tests |
+| `code/SIMULATION_START_HERE.md` | TEST_PLAN | Hardware-independent verification entry | Host simulation workflow |
+| `code/docs/SIMULATION_LLD_v1.0.md` | IMPLEMENTATION_DESIGN | Simulation adapter low-level design | Simulator implementation |
+| `code/docs/FEATURE_FLAGS.md` | SUPPORTING | Build/runtime simulation flags | Configure supported simulation |
+| `code/docs/PHASE3_STRESS_FRAMEWORK.md` | TEST_PLAN | Phase 3 stress framework | Stress qualification; check scope first |
+| `code/docs/PHASE3A_PERFORMANCE.md` | TEST_PLAN | Phase 3A performance budgets | Performance qualification; check R1 priority |
+| `code/tests/MANUAL_FUNCTIONAL_VALIDATION.md` | TEST_PLAN | Manual app validation scenarios | Manual PWA/product validation |
+| `code/PWA_E2E_68_VALIDATION_REPORT.md` | TEST_EVIDENCE | PWA end-to-end report (title says 92 scenarios) | Historical browser proof; reconcile report details before citing |
+| `code/VERIFICATION_REPORT.md` | TEST_EVIDENCE | Reference-code verification report | Reference code only |
+| `code/docs/hw/evidence/FRESH_R1_HOST_20261005/RESULTS.md` | TEST_EVIDENCE | Fresh R1 runtime host gate | Verify this host gate |
+| `code/tests/MANUAL_FUNCTIONAL_VALIDATION.md` | TEST_PLAN | Manual functional validation | PWA validation |
 
 ### HIL
 
@@ -178,10 +178,10 @@ Each canonical file is listed once in the canonical table above. The domain sect
 |---|---|---|---|
 | `docs/validation/HIL_AUTOMATION.md` | TEST_PLAN | HIL automation procedure | HIL orchestration changes |
 | `docs/hw/HW_M1_3_HIL_VALIDATION.md` | TEST_PLAN | HW-M1.3 HIL plan | That hardware gate |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/hil/installation_checklist.md` | TEST_PLAN | Installation preflight checklist | Physical installation |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/factory/README.md` | SUPPORTING | Development bench initialization commands | Factory bench operation; never infer product behavior |
+| `code/tools/hil/installation_checklist.md` | TEST_PLAN | Installation preflight checklist | Physical installation |
+| `code/tools/factory/README.md` | SUPPORTING | Development bench initialization commands | Factory bench operation; never infer product behavior |
 | `tools/usb/README_ZERO_TOUCH.md` | BACKLOG/FUTURE | Optional USB automation setup | Only when explicitly working on USB convenience tooling |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/MANUAL_FUNCTIONAL_VALIDATION.md` | TEST_PLAN | Product functional scenarios | Manual validation, not hardware HIL |
+| `code/tests/MANUAL_FUNCTIONAL_VALIDATION.md` | TEST_PLAN | Product functional scenarios | Manual validation, not hardware HIL |
 
 ### HARDWARE
 
@@ -211,9 +211,9 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | Path family | Classification | Use | Read when |
 |---|---|---|---|
 | `docs/progress/PROJECT_HISTORY.md`, `docs/progress/CURRENT_BASELINE.md`, `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`, `docs/progress/Phase_0_Current_Baseline_Reconciliation_v1.5.4.md` | HISTORICAL | Earlier snapshots and chronology | Understand provenance; do not treat as current state |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/PATCH_NOTES*.md`, `CHANGELOG.md`, `VERIFICATION_REPORT.md`, `PWA_E2E_68_VALIDATION_REPORT.md` | HISTORICAL / TEST_EVIDENCE | Versioned application changes and reported checks | Investigate the named app version only |
-| `docs/hw/evidence/**`, `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/hw/evidence/**` | TEST_EVIDENCE | Preserved physical/host results | Cite only for the exact gate, build and date recorded |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/PHASE3*.md` | IMPLEMENTATION_DESIGN / TEST_PLAN | Later-phase backend scalability/performance work | Explicit future/backend task only |
+| `code/PATCH_NOTES*.md`, `CHANGELOG.md`, `VERIFICATION_REPORT.md`, `PWA_E2E_68_VALIDATION_REPORT.md` | HISTORICAL / TEST_EVIDENCE | Versioned application changes and reported checks | Investigate the named app version only |
+| `docs/hw/evidence/**`, `code/docs/hw/evidence/**` | TEST_EVIDENCE | Preserved physical/host results | Cite only for the exact gate, build and date recorded |
+| `code/docs/PHASE3*.md` | IMPLEMENTATION_DESIGN / TEST_PLAN | Later-phase backend scalability/performance work | Explicit future/backend task only |
 
 The complete per-file scan, including title, purpose, area, era, relevance, authority class, duplicate and conflict notes, is in [DOCUMENTATION_INVENTORY.md](DOCUMENTATION_INVENTORY.md). No historical document or evidence should be deleted or silently promoted.
 
@@ -225,7 +225,7 @@ The complete per-file scan, including title, purpose, area, era, relevance, auth
 | `docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md` | Same document; `CHANGELOG.md`; caregiver and routine guides | The historical plan contradicts itself about a global user-facing Privacy ON/OFF control. Later release notes and current guides agree the generic control is absent and consent enforcement remains internal. | GS-D018, now stated canonically in `P0_PRODUCT_REQUIREMENTS.md` | `DECISION_LOG.md`, `P0_PRODUCT_REQUIREMENTS.md` | NO for existing behavior; new privacy behavior requires an explicit decision |
 | `docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md`, `ParivarSathi_PWA_Prototype_v6/README.md` | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | Prototype-era local/demo state and dashboard integration assumptions overlap with the current backend-first, continuously synchronized product contract. | Current backend-first contract and GS-D007/008 | `STORAGE_SYNC_ROUTINE_LEARNING.md` | NO for R1 source precedence; prototype remains historical |
 | `docs/progress/CURRENT_BASELINE.md`, `docs/PHASE2_ARCHITECTURE_AND_GAP_ANALYSIS.md`, phase plans | `docs/product/DECISION_LOG.md` | Older release snapshots and proposals can describe phase scope, capacities or hardware options that are not current R1 commitments. No specific contrary approved hardware decision was found in the inspected excerpts. | Locked 4 MB Hub / ESP32-C3 decision; future hardware is not an R1 dependency | `DECISION_LOG.md`, `R1_RELEASE_CONTRACT.md` | NO unless proposing a hardware change; then approval is required |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md`, `docs/DURABLE_STORAGE_EPIC_PAUSE_HANDOFF.md` | `R1_RELEASE_CONTRACT.md` | Older migration design/material includes compatibility work beyond supported fresh-install R1. Migration remains post-R1 unless it blocks fresh install. | Fresh-install boundary in R1 release contract | `R1_RELEASE_CONTRACT.md` | NO for current scope; YES to expand R1 migration support |
+| `code/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md`, `docs/DURABLE_STORAGE_EPIC_PAUSE_HANDOFF.md` | `R1_RELEASE_CONTRACT.md` | Older migration design/material includes compatibility work beyond supported fresh-install R1. Migration remains post-R1 unless it blocks fresh install. | Fresh-install boundary in R1 release contract | `R1_RELEASE_CONTRACT.md` | NO for current scope; YES to expand R1 migration support |
 | `docs/hw/evidence/BAT_C8_R1_QUALIFICATION/TEST_PLAN.md` | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/DECISION_LOG.md` GS-D020, battery guide | The plan's physical qualification scope is required for production-critical sleep/wake behavior; final battery-life optimization and endurance remain outside absent an explicit claim. | GS-D020 resolves/supersedes GS-D019 | `DECISION_LOG.md`, `R1_RELEASE_CONTRACT.md`, `P0_PRODUCT_REQUIREMENTS.md` | NO; classification resolved |
 
 ## Partial supersession and 128-entry journal references
@@ -234,14 +234,14 @@ Supersession is section-specific. The following documents retain useful implemen
 
 | PATH | CLASSIFICATION | STILL_VALID_FOR | NO_LONGER_AUTHORITATIVE_FOR | SUPERSEDED_BY | DECISION_IDS |
 |---|---|---|---|---|---|
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABLE_BACKEND_COMPLETION_CONTRACT.md` | IMPLEMENTATION_DESIGN (partial supersession) | Current append-only slot mapping 0..127, completion receipt behavior, and current admission limit | Desired commercial capacity, retention/lifetime, future reclamation | Current storage architecture contract and approved lifecycle design | GS-D005, GS-D006, GS-D016 |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/DURABILITY_ARCHITECTURE_CLOSURE_AUDIT.md` | SUPPORTING (partial supersession; audit snapshot) | Code-path findings and “not implemented/untested” observations, subject to rechecking current code | Product acceptance of 128-event lifetime | `R1_RELEASE_CONTRACT.md`, `R1_WORK_STATE.md`, storage architecture contract | GS-D005, GS-D016 |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md` | IMPLEMENTATION_DESIGN (partial supersession) | Ownership/migration implementation detail and historical 128-bound assumptions | R1 requirement for a fixed 128-entry lifetime | `R1_RELEASE_CONTRACT.md`, current storage architecture contract | GS-D001, GS-D005, GS-D016 |
+| `code/docs/DURABLE_BACKEND_COMPLETION_CONTRACT.md` | IMPLEMENTATION_DESIGN (partial supersession) | Current append-only slot mapping 0..127, completion receipt behavior, and current admission limit | Desired commercial capacity, retention/lifetime, future reclamation | Current storage architecture contract and approved lifecycle design | GS-D005, GS-D006, GS-D016 |
+| `code/docs/DURABILITY_ARCHITECTURE_CLOSURE_AUDIT.md` | SUPPORTING (partial supersession; audit snapshot) | Code-path findings and “not implemented/untested” observations, subject to rechecking current code | Product acceptance of 128-event lifetime | `R1_RELEASE_CONTRACT.md`, `R1_WORK_STATE.md`, storage architecture contract | GS-D005, GS-D016 |
+| `code/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md` | IMPLEMENTATION_DESIGN (partial supersession) | Ownership/migration implementation detail and historical 128-bound assumptions | R1 requirement for a fixed 128-entry lifetime | `R1_RELEASE_CONTRACT.md`, current storage architecture contract | GS-D001, GS-D005, GS-D016 |
 | `docs/DURABLE_STORAGE_EPIC_PAUSE_HANDOFF.md` | HANDOFF/WORK_STATE (partial supersession) | Historical pause, migration scope and test state at handoff | Its statement that removing the 128-event limit is post-R1 | `R1_RELEASE_CONTRACT.md`, `R1_WORK_STATE.md`, `DECISION_LOG.md` | GS-D001, GS-D005, GS-D016 |
 | `docs/PHASE2_ARCHITECTURE_AND_GAP_ANALYSIS.md` | HISTORICAL (partial supersession) | Phase-2 architecture and old target sizing facts | Current R1 capacity/retention requirement | `DECISION_LOG.md`, storage architecture contract | GS-D003, GS-D005, GS-D016 |
 | `docs/design/NODE_RETIREMENT_REPORT_PROTOCOL.md` | IMPLEMENTATION_DESIGN (partial supersession) | Retirement proof mechanics and implementation-era ledger bound | Overall Hub capacity/lifetime requirement | Current storage architecture contract and approved lifecycle design | GS-D005, GS-D016 |
 | `docs/design/HUB_DURABLE_STATE_TRANSITIONS.md` | IMPLEMENTATION_DESIGN (partial supersession) | Transition/checkpoint detail and explicitly proposed bound | Approved commercial lifetime/capacity/reclamation policy | Current storage architecture contract and approved lifecycle design | GS-D005, GS-D016 |
-| `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/SIMULATION_LLD_v1.0.md` | HISTORICAL | Simulator-only Hub journal capacity 4096 and old simulator constraints | Physical Hub capacity or product retention | Current R1 contract and storage architecture contract | GS-D005, GS-D016 |
+| `code/docs/SIMULATION_LLD_v1.0.md` | HISTORICAL | Simulator-only Hub journal capacity 4096 and old simulator constraints | Physical Hub capacity or product retention | Current R1 contract and storage architecture contract | GS-D005, GS-D016 |
 
 The classic Hub's 0..127 slot range and event-129 admission failure are historical `CURRENT_IMPLEMENTATION_FACT` for that target, not the selected S3 runtime. S3 now has a segmented durable outbox and host evidence; production capacity, commercial partition, retention and physical behavior remain unqualified. Acceptance of a 128-entry commercial lifetime is a `SUPERSEDED_PRODUCT_REQUIREMENT`; the simulator's 4096 capacity is lab-only. Current requirement: finite 128-event lifetime is unacceptable; simply raising a constant is not an architecture fix; supported volume, reserve and retention remain OPEN under GS-D025/030.
 
@@ -308,7 +308,7 @@ This register records requirements explicitly present in canonical sources. `UNK
 | GS-VAL-01 | Host tests first, then target size/build, then relevant physical gates | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | IMPLEMENTED as process; per-change | Do not repeat passed hardware gate without invalidation |
 | GS-HIL-01 | Fresh-install/lost-ACK physical qualification closed | `docs/product/R1_WORK_STATE.md` | LOCKED status; R1 | IMPLEMENTED; physical PASS | Existing evidence preserved; BAT-C8 remains pending |
 | GS-TOOL-01 | USB zero-touch setup is convenience tooling, not R1 blocker | `docs/product/R1_WORK_STATE.md` | LOCKED; post-R1 | Not required for product release | Avoid critical-path investment |
-| GS-FUTURE-03 | Feature flags mark temperature context and external camera as P1 experiments | `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/FEATURE_FLAGS.md` | DEFERRED; P1 | Disabled; not an R1 requirement | Preserve flag defaults; new acceptance review required |
+| GS-FUTURE-03 | Feature flags mark temperature context and external camera as P1 experiments | `code/docs/FEATURE_FLAGS.md` | DEFERRED; P1 | Disabled; not an R1 requirement | Preserve flag defaults; new acceptance review required |
 
 ## Open decisions
 
@@ -427,4 +427,4 @@ remains OnHold. Context version: 2026-10-10.001.
 GS-40 implementation evidence: [software validation](../exec-plans/evidence/R1_GS40_SOFTWARE_VALIDATION_20261010.md)
 and [metrics](../exec-plans/evidence/R1_GS40_SOFTWARE_METRICS_20261010.csv) are
 TEST_EVIDENCE, subordinate to LOCKED GS-D031. JSON engineering instructions:
-[configuration README](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/config/README.md).
+[configuration README](../../code/config/README.md).

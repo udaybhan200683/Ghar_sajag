@@ -51,11 +51,11 @@ write. The regular HIL FOTA path is a separate legacy raw-packet route; see
 | Responsibility | Owner |
 |---|---|
 | Session authentication and replay state | Node security owner in `firmware/node/target/esp32c3/node_runtime_adapter.cpp` and `node_security_link.cpp`. It opens authenticated frames and submits accepted FOTA plaintext through a bounded control queue. |
-| FOTA receiver state | Worker in `firmware/node/target/esp32c3/idf/main/fota_receiver.cpp`, using `firmware/node/fota/secure_fota_adapter.*` and the shared bounded receiver in `firmware/node/fota/fota_receiver.*`. |
+| FOTA receiver state | Worker in `firmware/node/target/esp32c3/idf/main/fota_receiver.cpp`, using `firmware/node/lifecycle/fota/secure_fota_adapter.*` and the shared bounded receiver in `firmware/node/lifecycle/fota/fota_receiver.*`. |
 | Flash writing and finalization | `EspIdfOtaWriter` in the target FOTA receiver. It uses `esp_ota_begin`, `esp_ota_write`, `esp_ota_end`, and `esp_ota_set_boot_partition`. |
 | Image digest | Streaming SHA-256 adapter in the C3 target FOTA receiver; the secure adapter compares the computed digest with the authenticated `BEGIN` metadata before it finalizes the image. |
 | Signature verification | ESP-IDF image verification reached by `esp_ota_end()` when the signed-app-on-update profile is enabled. |
-| Pending-image health | `firmware/node/fota/boot_health_gate.*` plus the target health task in `firmware/node/target/esp32c3/idf/main/fota_receiver.cpp`. |
+| Pending-image health | `firmware/node/lifecycle/fota/boot_health_gate.*` plus the target health task in `firmware/node/target/esp32c3/idf/main/fota_receiver.cpp`. |
 
 The secure sender API currently has no authorized cloud, app, or installer
 caller. The in-firmware API is not itself a production user authorization
@@ -139,7 +139,7 @@ application-level authenticated Hub ACK.
 ## 7. Engineering Prerequisites
 
 - Repository product directory:
-  `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2`.
+  `code`.
 - ESP-IDF v6.0.3 and its activated Python/toolchain environment.
 - Compatible ESP32 Hub and ESP32-C3 Node; the focused physical plan uses one
   of each.
@@ -529,28 +529,28 @@ signed path; it remains unqualified until actually run on the fixture.
 ## 22. Related Files and References
 
 Paths below are relative to
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/` unless marked
+`code/` unless marked
 repository-root.
 
 - `firmware/common/transport/fota_secure_wire.hpp/.cpp` — secure-v2 framing
   and bounds.
 - `firmware/common/security/runtime_frame_security.hpp/.cpp` — runtime
   authenticated-frame security and freshness.
-- `firmware/hub/components/fota/hub_fota_guard.hpp/.cpp` — exact enrolled
+- `firmware/hub/lifecycle/fota/hub_fota_guard.hpp/.cpp` — exact enrolled
   Node/session authorization and transfer guard.
 - `firmware/hub/target/esp32/hub_runtime_adapter.cpp` and
   `hub_security_link.cpp` — Hub owner, secure session, and radio route.
 - `firmware/hub/target/esp32/idf/main/fota_sender.cpp/.hpp` — Hub sender,
   retries, embedded image, and internal request API.
 - `firmware/hub/target/esp32/idf/main/CMakeLists.txt` — C3 image embedding.
-- `firmware/node/fota/fota_receiver.cpp` and
+- `firmware/node/lifecycle/fota/fota_receiver.cpp` and
   `secure_fota_adapter.cpp` — chunk receiver, digest, and secure protocol
   adaptation.
 - `firmware/node/target/esp32c3/node_runtime_adapter.cpp` and
   `node_security_link.cpp` — C3 security owner and authenticated runtime.
 - `firmware/node/target/esp32c3/idf/main/fota_receiver.cpp` — ESP-IDF OTA
   writer, signed-image fail-closed gate, and boot-health task.
-- `firmware/node/fota/boot_health_gate.hpp/.cpp` — boot-health conditions.
+- `firmware/node/lifecycle/fota/boot_health_gate.hpp/.cpp` — boot-health conditions.
 - `firmware/node/target/esp32c3/idf/partitions.csv` — C3 OTA layout.
 - `firmware/node/target/esp32c3/idf/sdkconfig.defaults` — ordinary C3 and
   rollback configuration.

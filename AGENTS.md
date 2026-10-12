@@ -89,6 +89,11 @@ remain SOFTWARE_ONLY and do not receive artificial HIL tests.
 
 ## Mandatory document precedence
 
+The active source tree is organized under `code/` by product responsibility;
+the former version-stamped source wrapper is historical and must not be used in
+new paths. See [`docs/architecture/GS152_STABLE_REPOSITORY_LAYOUT.md`](docs/architecture/GS152_STABLE_REPOSITORY_LAYOUT.md)
+for ownership boundaries and build-root conventions.
+
 For substantive work, read these first:
 
 1. `docs/product/GHAR_SAJAG_PROJECT_CONTEXT.md`

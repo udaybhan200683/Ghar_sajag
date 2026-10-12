@@ -1,6 +1,16 @@
 
 # Master automated validation and regression framework
 
+## Active source root and GS-152 layout
+
+The active product source root is `code/`; the repository root Makefile delegates
+to that directory. Stable ownership is grouped under `code/firmware/node/`,
+`code/firmware/hub/`, `code/firmware/common/`, `code/backend/`,
+`code/frontend/`, `code/tests/`, `code/validation/` and `code/tools/`. ESP-IDF
+target project roots remain under `code/firmware/*/target/`; physical suites
+remain opt-in. The old version-stamped active source wrapper is not a supported
+build root. See [GS-152 layout and migration rationale](../architecture/GS152_STABLE_REPOSITORY_LAYOUT.md).
+
 ## Physical HIL inventory and release evidence — 2026-10-11
 
 `PHYSICAL_HIL_CATALOGUE.csv` is the case-level physical checklist linked to
@@ -155,7 +165,7 @@ retained zero pending after catch-up. The complete-product stage command exited
 production trust/deployment and complete product qualification did not. This
 remains the required gate result until GS-148 supplies and deploys trusted Hub,
 enrollment and durable-backend composition. The 2026-10-11 report is
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791734099302365499/report.json`
+`code/evidence/validation_framework/p0-e2e-1791734099302365499/report.json`
 (source fingerprint `06487176039b60ddee4c368b72eea5b53c1616bfcd3987e285960c0ce94dd571`);
 the stage took 49.117 seconds and the outer command took 50.729 seconds. The
 new P0-P2D-009 assertion proves only rejection through a fixture-supplied
@@ -209,7 +219,7 @@ candidate must execute the complete gates, including backend and browsers.
 ### Component ownership
 
 The single maintained executable registry is
-[suites.json](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tools/validation/suites.json).
+[suites.json](../../code/validation/suites.json).
 From repository root:
 
 | Command | Ownership and regression coverage |
@@ -227,7 +237,7 @@ From repository root:
 | `make validation-nightly` | Existing MEDIUM/concurrency/extended/coverage; explicit separate hardware authorization for physical mode |
 
 List actual selected stages from the application directory with
-`python3 tools/validation/component_gate.py --suite node --list`
+`python3 validation/component_gate.py --suite node --list`
 (or hub/contract/backend/pwa/fast/release). Registry selection deduplicates shared
 stages within each campaign. The real production runtime/codec harnesses are
 reused; there is no parallel protocol implementation. GS-148 host interfaces do
@@ -316,7 +326,7 @@ its execution claims; physical evidence is never upgraded to current-image PASS.
 
 **Baseline inspected:** `0eb1324c27ce3d6a2464627c6057b0cc68943c60`
 **Validation branch:** `feature/hw-m1-4-regression-framework`
-**Product tree:** `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2`
+**Product tree:** `code`
 **Scope:** current implemented behavior only; no HW-M1.4C low-power, future
 aggregation, chronology redesign, retry redesign, deep sleep, BLE, or routine
 learning was implemented by this framework.
@@ -387,8 +397,8 @@ evidence. “Release” describes the pre-framework `release-gate-final` behavio
 | JavaScript | `make app-test` | `node --test`/L0-L4 | 17 tests | Yes | No | new Node process | TAP/exit | Yes | PWA logic; not browser rendering |
 | Product variants | `make product-test PRODUCT=base`; `... PRODUCT=ai` | C++17/L0 | one executable each | Yes | No | rebuild/process | console/exit | Yes | build flags only |
 | Feature variants | four `make simulator TRACE_FLAGS=...` invocations in `release_gate.py` | C++17/L2 | 4 builds/runs | Yes | No | `make clean` each | per-stage logs | Yes | compile-time combinations |
-| Dummy streams | `python3 tools/validation/run_dummy_sensor_streams.py` | Python/L3 | 5 JSON streams | Yes | No | lab build/new process | console/exit | Yes | downstream behavior, not radio |
-| Functional catalog | `python3 tools/validation/run_functional_suite.py` | Python/L3 | 92 scenarios | Yes | No | scenario fixture reset | JSON/console | Yes | canonical catalog; metadata was not rich enough for firmware OR IDs |
+| Dummy streams | `python3 validation/run_dummy_sensor_streams.py` | Python/L3 | 5 JSON streams | Yes | No | lab build/new process | console/exit | Yes | downstream behavior, not radio |
+| Functional catalog | `python3 validation/run_functional_suite.py` | Python/L3 | 92 scenarios | Yes | No | scenario fixture reset | JSON/console | Yes | canonical catalog; metadata was not rich enough for firmware OR IDs |
 | HTTP integration | `python3 tests/simulation_http_test.py` | Python/HTTP/L4 | script assertions | Yes | No | owned lab/in-memory state | console/exit | Yes | overlaps API and PWA bridge |
 | PWA bridge/API/frontend | `python3 tests/pwa_bridge_test.py`; `pwa_68_api_test.py`; `pwa_68_frontend_test.py` | Python+Node/L4 | script assertions | Yes | No | owned process/temp state | console/exit | Yes | broad application bridge |
 | Legacy browser simulation | `node tests/simulation_browser_test.cjs` | Playwright/L5 | one legacy flow | Yes | No | owned port 8765, memory DB | stage log | Yes | overlaps mandatory Playwright specs |
@@ -470,7 +480,7 @@ chronology/episode redesign and personalized routine learning are not included.
 
 All `OR-001` through `OR-035` are L2 release-blocking master cases. Run one
 with `./build/master_validation --id OR-011` or
-`python3 tools/validation/master_validation.py --id OR-011`. They cover, in
+`python3 validation/master_validation.py --id OR-011`. They cover, in
 the requested numeric order: online delivery; Hub loss; offline acceptance;
 multiple events; retention; coherent store/retry state; first/subsequent/
 periodic retry; MAC failure; ACK loss; MAC-success/no-ACK; duplicate packet;

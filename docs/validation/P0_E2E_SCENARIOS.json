@@ -397,10 +397,10 @@
       "production_sources": [
         "firmware/node/runtime/node_runtime.cpp",
         "firmware/hub/runtime/hub_runtime.cpp",
-        "firmware/hub/components/cloud/cloud_sync.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.cpp",
         "backend/ghar_sajag/http_api.py",
-        "app/src/features/home/index.mjs",
-        "app/public/app.mjs"
+        "frontend/src/features/home/index.mjs",
+        "frontend/public/app.mjs"
       ],
       "test_source": "tests/cpp/board_stack_e2e_validation.cpp;tests/python/run_full_product_p0_e2e.py;tests/playwright/p0_full_product.spec.ts",
       "command": "make validation-p0-e2e",
@@ -458,7 +458,7 @@
         "backend/ghar_sajag/service.py",
         "backend/ghar_sajag/incidents.py",
         "backend/ghar_sajag/queries.py",
-        "app/public/app.mjs"
+        "frontend/public/app.mjs"
       ],
       "test_source": "tests/python/run_full_product_p0_e2e.py;tests/playwright/p0_full_product.spec.ts",
       "command": "make validation-p0-e2e",
@@ -482,7 +482,7 @@
       ],
       "production_sources": [
         "backend/ghar_sajag/queries.py",
-        "app/src/features/home/index.mjs"
+        "frontend/src/features/home/index.mjs"
       ],
       "test_source": "tests/python/run_full_product_p0_e2e.py",
       "command": "make validation-p0-e2e",
@@ -506,7 +506,7 @@
       "production_sources": [
         "backend/ghar_sajag/service.py",
         "backend/ghar_sajag/incidents.py",
-        "app/src/features/home/index.mjs"
+        "frontend/src/features/home/index.mjs"
       ],
       "test_source": "tests/python/run_full_product_p0_e2e.py",
       "command": "make validation-p0-e2e",
@@ -557,8 +557,8 @@
         "API-INCIDENT"
       ],
       "production_sources": [
-        "app/public/app.mjs",
-        "app/src/features/home/index.mjs",
+        "frontend/public/app.mjs",
+        "frontend/src/features/home/index.mjs",
         "backend/ghar_sajag/http_api.py"
       ],
       "test_source": "tests/python/run_full_product_p0_e2e.py",
@@ -739,8 +739,8 @@
         "API-INCIDENT"
       ],
       "production_sources": [
-        "app/public/app.mjs",
-        "app/src/features/home/index.mjs"
+        "frontend/public/app.mjs",
+        "frontend/src/features/home/index.mjs"
       ],
       "test_source": "tests/python/run_full_product_p0_e2e.py;tests/playwright/p0_full_product.spec.ts",
       "command": "make p0-product-e2e",
@@ -765,7 +765,7 @@
         "GS148-PRODUCTION"
       ],
       "production_sources": [
-        "firmware/hub/components/cloud/cloud_sync.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.cpp",
         "backend/ghar_sajag/http_api.py",
         "backend/ghar_sajag/durable_commit.py",
         "backend/ghar_sajag/durable_api.py",

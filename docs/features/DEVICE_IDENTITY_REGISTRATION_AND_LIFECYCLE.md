@@ -259,7 +259,7 @@ ownership-transfer behavior remain incomplete.
 ## 14. Important source files/classes
 
 Paths below are relative to
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`.
+`code/`.
 
 - `firmware/common/security/commissioning_protocol.*` — `HubCommissioning`,
   `NodeCommissioning`, transcript binding and derived binding.
@@ -272,14 +272,14 @@ Paths below are relative to
 - `firmware/common/security/target_identity_signer.*`,
   `target_wrapping_key.*` — target identity and wrapping-key sources.
 - `firmware/common/security/rejoin_protocol.*` — authenticated rejoin proof.
-- `firmware/hub/components/registry/node_registry.*` and
+- `firmware/hub/commissioning/registry/node_registry.*` and
   `registry_persistence.*` — capacity, assignment, session floor, revoke,
   replace, encrypted snapshot.
 - `firmware/hub/target/esp32/hub_security_link.*` — target commissioning,
   rejoin, registry persistence and active sessions.
 - `firmware/node/target/esp32c3/node_security_link.*` — Node boot state,
   association load, first commissioning or rejoin, READY transition.
-- `firmware/node/components/storage/node_recovery_persistence.*` — retained
+- `firmware/node/storage/node_recovery_persistence.*` — retained
   event/retry recovery, distinct from ownership association.
 
 ## 15. Tests and qualification boundary

@@ -18,36 +18,36 @@ completion.
 
 Modified before adding this handoff:
 
-1. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md`
-2. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/registry/node_registry.cpp`
-3. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/registry/node_registry.hpp`
-4. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/registry/registry_persistence.cpp`
-5. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/registry/registry_persistence.hpp`
-6. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/durable_journal_slot_store.cpp`
-7. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/durable_journal_slot_store.hpp`
-8. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/durable_transition.cpp`
-9. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/durable_transition.hpp`
-10. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/hub_durability_owner.cpp`
-11. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/hub_durability_owner.hpp`
-12. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/node_retirement_snapshot.cpp`
-13. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/components/storage/node_retirement_snapshot.hpp`
-14. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/hub_runtime_adapter.cpp`
-15. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/hub_security_link.cpp`
-16. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/hub_security_link.hpp`
-17. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/nvs_durable_blob_store.cpp`
-18. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/nvs_durable_blob_store.hpp`
-19. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/nvs_store_inventory.cpp`
-20. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/hub_durable_provider_validation.cpp`
-21. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/hub_durable_storage_validation.cpp`
-22. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/hub_journal_migration_validation.cpp`
-23. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/hub_retirement_snapshot_validation.cpp`
-24. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/node_registry_validation.cpp`
-25. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/cpp/registry_persistence_validation.cpp`
-26. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/python/test_node_retirement_protocol_model.py`
+1. `code/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md`
+2. `code/firmware/hub/commissioning/registry/node_registry.cpp`
+3. `code/firmware/hub/commissioning/registry/node_registry.hpp`
+4. `code/firmware/hub/commissioning/registry/registry_persistence.cpp`
+5. `code/firmware/hub/commissioning/registry/registry_persistence.hpp`
+6. `code/firmware/hub/storage/durable_journal_slot_store.cpp`
+7. `code/firmware/hub/storage/durable_journal_slot_store.hpp`
+8. `code/firmware/hub/storage/durable_transition.cpp`
+9. `code/firmware/hub/storage/durable_transition.hpp`
+10. `code/firmware/hub/storage/hub_durability_owner.cpp`
+11. `code/firmware/hub/storage/hub_durability_owner.hpp`
+12. `code/firmware/hub/storage/node_retirement_snapshot.cpp`
+13. `code/firmware/hub/storage/node_retirement_snapshot.hpp`
+14. `code/firmware/hub/target/esp32/hub_runtime_adapter.cpp`
+15. `code/firmware/hub/target/esp32/hub_security_link.cpp`
+16. `code/firmware/hub/target/esp32/hub_security_link.hpp`
+17. `code/firmware/hub/target/esp32/nvs_durable_blob_store.cpp`
+18. `code/firmware/hub/target/esp32/nvs_durable_blob_store.hpp`
+19. `code/firmware/hub/target/esp32/nvs_store_inventory.cpp`
+20. `code/tests/cpp/hub_durable_provider_validation.cpp`
+21. `code/tests/cpp/hub_durable_storage_validation.cpp`
+22. `code/tests/cpp/hub_journal_migration_validation.cpp`
+23. `code/tests/cpp/hub_retirement_snapshot_validation.cpp`
+24. `code/tests/cpp/node_registry_validation.cpp`
+25. `code/tests/cpp/registry_persistence_validation.cpp`
+26. `code/tests/python/test_node_retirement_protocol_model.py`
 
 Untracked before adding this handoff:
 
-27. `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/python/test_g01_coordinator_crash_model.py`
+27. `code/tests/python/test_g01_coordinator_crash_model.py`
 
 This handoff is the additional checkpoint file:
 
@@ -55,9 +55,9 @@ This handoff is the additional checkpoint file:
 
 ## Architecture authority and test state
 
-- Architecture contract: `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md`
+- Architecture contract: `code/docs/G01_ENROLLMENT_OWNERSHIP_MIGRATION_CONTRACT.md`
 - Final coordinator closure and implementation handoff: contract §20, especially §20.10.
-- Abstract crash model: `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/tests/python/test_g01_coordinator_crash_model.py`
+- Abstract crash model: `code/tests/python/test_g01_coordinator_crash_model.py`
 
 Focused passing gates:
 
@@ -175,7 +175,7 @@ where the required coordinator is absent.
 
 When post-R1 legacy migration is explicitly resumed, use contract §20.10 in order. The
 exact first migration implementation step is §20.10 item 1:
-`firmware/hub/components/storage/durable_transition.{hpp,cpp}` — finish manifest/root
+`firmware/hub/storage/durable_transition.{hpp,cpp}` — finish manifest/root
 recovery and implement exact candidate staging, verification, publication, shadowing,
 release and bounded coordinator resume. Continue with registry persistence/NodeRegistry,
 retirement snapshot, durability owner, runtime/security integration, and production crash

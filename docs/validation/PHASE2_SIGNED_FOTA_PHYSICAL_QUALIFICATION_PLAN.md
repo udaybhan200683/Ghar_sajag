@@ -33,7 +33,7 @@ and test results establish the bounded physical claims listed there.
 The existing command:
 
 ```bash
-make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 hil-checkpoint-fota
+make -C code hil-checkpoint-fota
 ```
 
 refreshes the fixture setup and preflight, then runs the Phase-1 smoke and the
@@ -74,7 +74,7 @@ is:
 ```bash
 GS_HIL_SIGNED_FOTA_KEY=/absolute/path/test-a-b-key.pem \
 GS_HIL_SIGNED_FOTA_NEGATIVE_KEY=/absolute/path/test-negative-key.pem \
-make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 hil-checkpoint-secure-signed-fota
+make -C code hil-checkpoint-secure-signed-fota
 ```
 
 The supervisor performs fixture readiness, setup, preflight, then the secure
@@ -308,10 +308,10 @@ Status: **PASS — bounded one-Hub/one-C3 physical campaign**
 - `docs/validation/MASTER_TRACEABILITY.csv` — FOTA implementation and
   qualification status.
 - `firmware/common/transport/fota_secure_wire.*` — secure FOTA v2 framing.
-- `firmware/hub/components/fota/hub_fota_guard.*` and
+- `firmware/hub/lifecycle/fota/hub_fota_guard.*` and
   `firmware/hub/target/esp32/idf/main/fota_sender.cpp` — Hub authorization,
   sender, and secure routing.
-- `firmware/node/fota/secure_fota_adapter.*` and
+- `firmware/node/lifecycle/fota/secure_fota_adapter.*` and
   `firmware/node/target/esp32c3/idf/main/fota_receiver.cpp` — C3 admission,
   integrity, and OTA receiver path.
 - `firmware/node/target/esp32c3/idf/sdkconfig.signed.defaults` and

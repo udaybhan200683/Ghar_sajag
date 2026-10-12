@@ -140,7 +140,7 @@ ESP-NOW v1 application payloads are limited to 250 bytes. The 28-byte secure env
 
 ## 16. Important source files/classes
 
-Paths below are relative to `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`.
+Paths below are relative to `code/`.
 
 - `firmware/common/security/runtime_frame_security.*` — `RuntimeFrameSecurity`, key derivation, envelope, AEAD and replay window.
 - `firmware/common/security/rejoin_protocol.*` — authenticated session creation and fresh salt.
@@ -149,9 +149,9 @@ Paths below are relative to `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_
 - `firmware/hub/target/esp32/hub_security_link.*` — registry lookup, rejoin/session state, per-MAC routing context and removal.
 - `firmware/node/target/esp32c3/node_runtime_adapter.cpp` — secure uplink event/health, downlink ACK/control opening, authenticated FOTA ACK routing.
 - `firmware/hub/target/esp32/hub_runtime_adapter.cpp` — secure receive, authenticated health/event routing and ACK/control/FOTA sealing.
-- `firmware/common/transport/data_plane_codec.*` — event, NodeHealth and ACK wire codec; `firmware/hub/components/ingest/ingest.*` owns event admission.
-- `firmware/node/runtime/node_runtime.*` and `firmware/node/components/storage/node_recovery_persistence.*` — event identity, retry/retention and recovery state.
-- `firmware/common/transport/fota_secure_wire.*` and `firmware/node/fota/secure_fota_adapter.*` — secure FOTA framing/adaptation.
+- `firmware/common/transport/data_plane_codec.*` — event, NodeHealth and ACK wire codec; `firmware/hub/event_processing/ingest/ingest.*` owns event admission.
+- `firmware/node/runtime/node_runtime.*` and `firmware/node/storage/node_recovery_persistence.*` — event identity, retry/retention and recovery state.
+- `firmware/common/transport/fota_secure_wire.*` and `firmware/node/lifecycle/fota/secure_fota_adapter.*` — secure FOTA framing/adaptation.
 
 ## 17. Diagnostics
 

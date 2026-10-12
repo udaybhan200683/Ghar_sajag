@@ -73,7 +73,7 @@ one Chromium test; its component command exited 0 but completeness adjudication
 returned FAIL / outer exit 2 because the product result is PARTIAL. Final
 post-commit report at source HEAD
 `5e785b49839fc2fa914a3baf8886f6e707a3de3d`:
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791729788813148262/report.json`,
+`code/evidence/validation_framework/p0-e2e-1791729788813148262/report.json`,
 source fingerprint `add14d809ae6ee942f0d282a668bbe72e7071b6d25efb6353d24027f11f85285`,
 tracked source unchanged; stage 11.661 s, total 12.170 s. Board-stack rerun at
 the same source/fingerprint passed at 8 groups/325 checks in 6.681 s.
@@ -338,7 +338,7 @@ original ignored Node asset are preserved; bundle/build directories are generate
 
 Evidence: [GS-40 software validation](../exec-plans/evidence/R1_GS40_SOFTWARE_VALIDATION_20261010.md),
 [paired software metrics](../exec-plans/evidence/R1_GS40_SOFTWARE_METRICS_20261010.csv),
-[JSON/build/profile guide](../../code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/config/README.md).
+[JSON/build/profile guide](../../code/config/README.md).
 Host C++ 1,479, Python 361 with one historical skip, GS-40 model 1,320 / configuration 15,
 GS-150 1,481, BAT-C8 72+11, PWA bridge 12 / API 92 / frontend 92 and security/FOTA passed.
 ASan/UBSan CPP/model passed. Clean IDF 6.0.3 C3 app 934,192 bytes and S3 app 1,868,800 bytes
@@ -1005,7 +1005,7 @@ host regressions PASS. `make feature-coverage-test` PASS: 149 feature rows,
 201 source modules, 14 physical cases and 19 framework integrity tests. See
 [P2-D evidence](../exec-plans/evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md)
 and report
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791733150540893734/report.json`.
+`code/evidence/validation_framework/p0-e2e-1791733150540893734/report.json`.
 No firmware changed; no target build/sanitizer was necessary. No hardware
 operation occurred. The historical GS-148 journal-migration assertion FAIL is
 preserved and was not rerun.
@@ -1059,7 +1059,7 @@ three restarts); P0 revocation seam scenario PASS (1/1); P0 scenario registry
 integrity PASS (17 use cases/26 scenarios); HTTPS channel host test PASS (8
 modes). `make validation-p0-e2e` ran 26/26 scenario assertions and one Chromium
 test but exits 2 because complete-product status remains PARTIAL. Report:
-`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/evidence/validation_framework/p0-e2e-1791734099302365499/report.json`;
+`code/evidence/validation_framework/p0-e2e-1791734099302365499/report.json`;
 source fingerprint `06487176039b60ddee4c368b72eea5b53c1616bfcd3987e285960c0ce94dd571`.
 The historical `hub-journal-migration-host-test` failure remains separately
 mandatory and unchanged; it was not rerun. Full P0/release is not approved;
@@ -1203,3 +1203,59 @@ and pending old-Home event disposition. GS-109 still owns full Add Device;
 GS-148 P2-E/P2-F and physical qualification remain on hold. Product P0 remains
 PARTIAL/FAIL, the historical journal migration gate remains FAIL, physical HIL
 is NOT_RUN, and release is NOT_APPROVED.
+
+## GS-152 isolated repository restructuring — 2026-10-11
+
+GS-152 is active only on the isolated worktree
+`/home/udaybhan/projects/Ghar_sajag_r1_gs152`, branch
+`feature/r1-gs152-repository-refactor`, based on canonical source HEAD
+`09bc8cd8b7baab0674bbe03157b7b50bab28e51e`. No canonical files, GS-114
+fixtures, boards, USB devices or serial ports were changed or accessed.
+
+The active version-stamped source wrapper has been moved to the stable `code/`
+layout. Node, Hub, common firmware, backend, frontend, tests, validation and tools
+are grouped by responsibility; ESP-IDF target roots remain in place. See
+[GS-152 repository layout](../architecture/GS152_STABLE_REPOSITORY_LAYOUT.md)
+and [GS-152 baseline evidence](../exec-plans/evidence/GS152_RESTRUCTURE_BASELINE_20261011.md).
+The 499-entry source move map records pre-move SHA-256 for tracked files.
+
+Before/after results and baseline failures are recorded in the evidence document.
+Baseline `validation-node`, `validation-hub` and `validation-contract` exited 2
+before relocation due to four existing NodeHealth-config simulator setup errors
+and a missing Playwright dependency; Hub also retained the known
+`hub-journal-migration-host-test` assertion failure. The migration test remains
+mandatory and must not be suppressed. Post-migration verification is in progress;
+this isolated branch is not canonical delivery or release qualification.
+
+### GS-152 resumption checkpoint — 2026-10-12
+
+Post-migration verification is complete on the isolated worktree. The 499-entry
+move map has 499/499 baseline hashes verified, 499/499 destinations present,
+374 byte-identical files and 125 path/build/documentation adaptations. The
+active version-named source wrapper is absent. The archived release manifest
+matches its baseline SHA-256 exactly; the prior `UNCHANGED=0` diagnostic was
+consistent with the successful `git diff --quiet` return code and did not
+indicate an edit.
+
+The corrected `python3 scripts/build_validation_targets.py` workflow passed
+end-to-end under ESP-IDF 6.0.3 with `GS_HIL_BUILD=OFF`, building and packaging
+the C3 and S3 images from one source fingerprint. The separate report and image
+hashes are in [GS-152 migration evidence](../exec-plans/evidence/GS152_RESTRUCTURE_BASELINE_20261011.md).
+`make validation-sanitize` passed the C++ 1,479-check and GS-40 1,320-check
+ASan/UBSan runs. Host, app, configuration, traceability, board-stack, HIL
+tooling and framework checks passed as itemized there.
+
+The Node/Hub/contract/backend/PWA aggregate reports retain their correct FAIL
+status because the production P0 product outcome is still `PARTIAL`; Hub also
+retains the pre-existing GS-148 `clean migration commits` assertion failure.
+No GS-152 regression was found. Release gate execution and physical HIL remain
+NOT_RUN. No serial port or device was accessed. The canonical GS-114 worktree
+and its fixture data remain unchanged; the pre-existing untracked S3
+`managed_components/` and redacted evidence are preserved.
+
+Source layout, reference migration and validation evidence are ready for
+integration review only. This GS-152 worktree remains separate from canonical
+R1; its final commit, isolated-branch push and exact remote HEAD are recorded
+in the GS-152 Jira delivery comment after Git verification. GS-114 hardware
+qualification remains untouched and must resume only when its operator
+availability and fixture requirements are satisfied.

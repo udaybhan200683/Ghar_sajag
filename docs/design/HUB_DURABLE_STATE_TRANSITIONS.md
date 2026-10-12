@@ -11,7 +11,7 @@ must be settled before firmware is written. It does not design reclamation.
 
 ## Actual mutation inventory
 
-Code paths are relative to `code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/`.
+Code paths are relative to `code/`.
 "Ordered" below means ordered with respect to *all* other Hub product
 transitions, not merely ordered within one store.
 
@@ -819,7 +819,7 @@ methods in `firmware/hub/target/esp32/nvs_journal_slot_store.cpp`
 and `HubRuntime(32, 128)` construction); `NvsRegistryBlobStore` in
 `firmware/common/security/nvs_association_blob_store.cpp` (ordinary NVS);
 and `durable::BlobStore`, `DurableStore`, `Codec` and
-`RetirementSnapshotRepository` in `firmware/hub/components/storage/`.
+`RetirementSnapshotRepository` in `firmware/hub/storage/`.
 
 #### Physical NVS key schema and compatibility
 
@@ -987,7 +987,7 @@ No reclamation is implemented here.
 ### Durable storage foundation implementation
 
 The portable `HubDurabilityOwner` is in
-`firmware/hub/components/storage/hub_durability_owner.{hpp,cpp}`. It owns the
+`firmware/hub/storage/hub_durability_owner.{hpp,cpp}`. It owns the
 existing `DurableStore` and creates `RetirementSnapshotRepository` only after
 inventory and checkpoint recovery succeed. Its states are `Uninitialized`,
 `Recovering`, `MigrationRequired`, `Ready`, and `FailedClosed`; the epoch and
