@@ -746,3 +746,16 @@ queue; notification subscription and activity persistence across a real browser
 restart remain partial and explicitly tracked rather than inferred from helper
 tests. Full browser validation remains a release/affected-browser gate and was not
 executed by the focused GS-130 continuation.
+
+## GS-114 fixture-compatible RPF diagnostic build — 2026-10-12
+
+make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 gs114-s3-rpf-diagnostic-build
+is an explicit build-only target. It uses the existing S3 fixture commissioning
+test stage, whose nine tests are registered for Node, Hub and contract gates.
+The target builds the C3 embedded asset and S3 product composition, validates
+the commissioned candidate gs_outbox/gs_state partition profile and a
+standalone S3 app, and writes artifact provenance under the ignored unique
+build/gs114_fixture_pair/build-* directory. It is not part of routine component
+gates and never invokes a flash or device command. ESP-IDF's generated full
+bundle remains NOT_AUTHORIZED_FOR_DEPLOYMENT; physical installation, state
+preservation and rollback are separate approval/qualification gates.

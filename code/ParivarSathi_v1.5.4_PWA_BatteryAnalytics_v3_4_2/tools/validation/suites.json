@@ -23,10 +23,14 @@
         "firmware/hub/target/esp32/idf/main/app_main.cpp",
         "firmware/hub/target/esp32/idf/main/fixture_commissioning_control.cpp",
         "firmware/hub/target/esp32s3/idf/CMakeLists.txt",
+        "firmware/hub/target/esp32s3/idf/sdkconfig.defaults",
+        "firmware/hub/target/esp32s3/idf/sdkconfig.defaults.outbox",
+        "firmware/hub/target/esp32s3/idf/partitions.s3-outbox-candidate.csv",
+        "firmware/hub/runtime/hub_runtime.cpp",
         "firmware/common/security/target_identity_signer.cpp",
         "firmware/common/security/target_wrapping_key.cpp"
       ],
-      "success": "Ran 2 tests?",
+      "success": "Ran 9 tests?",
       "timeout": 120,
       "count_kind": "tests"
     },

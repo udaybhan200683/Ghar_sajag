@@ -1,5 +1,40 @@
 # R1 Current Work State
 
+## GS-114 Part 2D — fixture-compatible S3 RPF diagnostic build — 2026-10-12
+
+At source HEAD `e31e8ef6314abcc777eb5979c3d33939cdb7b296` (source fingerprint
+`f54e3162160d4f9e96a61ed60575f434c2a33c73a866b85789cd5bce610e0dce`), the
+new explicit `make gs114-s3-rpf-diagnostic-build` target completed successfully
+with ESP-IDF 6.0.3. The standalone local S3 app is
+`code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/gs114_fixture_pair/build-kvi2pcxe/s3/gs_r1_s3_hub.bin`,
+1,879,392 bytes, SHA-256
+`48d08726d3acb686466fc8ef056609efe2b0148719ea89943bbe3e48a72c1f09`; it fits
+the candidate 4 MiB OTA slot with 2,314,912 bytes free. The build checks the
+Part 1 `GS_HIL_COMMISSIONING=ON`, broad S3 HIL-off, 16 MiB/Octal PSRAM and
+`gs_outbox`/`gs_state` profile; all RPF00–RPF08 diagnostics and bounded fixture
+commissioning strings are present. It decodes the compiled partition table and
+confirms it matches the candidate CSV. The generated full-device flash bundle
+is not authorized for deployment.
+
+Focused validation: fixture/profile test 9/9 PASS; validation framework
+39/39 PASS; seven focused Hub retirement/checkpoint/storage/fresh-install/
+rejoin/association/protocol targets PASS. The historical GS-148 journal
+migration failure remains an independent known FAIL and was not rerun or
+changed. No production runtime/storage/security C++ source changed; no physical
+device or data was accessed. The new S3 image is not installed. Actual fixture
+image, active OTA slot, partition contents, eFuse state, retained events and
+safe rollback remain unverified; first-boot replay-fence reconciliation can
+write persistent state. Deployment and GS-114 physical qualification remain
+**BLOCKED / NO-GO** pending separate preservation review and installation
+authorization. The exact comparison, successful build JSON and caveats are in
+[GS-114 Part 2D evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2D_FIXTURE_DIAGNOSTIC_BUILD_20261012.md).
+
+The Part 1 provenance note below is corrected: its later retained local app
+binaries match `physical_results.json`, while the `fixture_pair_report.json`
+at the same paths records earlier different hashes and is stale relative to
+those files. Neither source is physical flash readback. No previous physical
+PASS is upgraded.
+
 ## GS-114 Part 2C — supervised diagnostic deployment plan — 2026-10-12
 
 Planning-only review was performed at canonical source/remote checkpoint
@@ -22,9 +57,11 @@ read-only. Therefore deployment, observation and real PIR qualification remain
 **NO-GO**. The physical failure root cause remains unknown.
 
 The saved Part 1 C3/S3 application artifacts are present in the ignored local
-fixture-pair build directory and their SHA-256 values match the recorded Part 1
-report. They are build artifacts, not current flash readbacks; installed image,
-partition table, OTA slot and live persistent-state provenance remain unknown.
+fixture-pair build directory. Their hashes match Part 1 `physical_results.json`,
+but the colocated `fixture_pair_report.json` records earlier different hashes
+for those same paths and is stale relative to the retained binaries. Neither is
+flash readback; installed image, partition table, OTA slot and live persistent-
+state provenance remain unknown.
 The deployment plan records this distinction and the required separate
 approval gates. GS-114 planning result is in Jira comment 10504; the diagnostic
 profile incompatibility is cross-referenced to GS-148 in comment 10505. The
