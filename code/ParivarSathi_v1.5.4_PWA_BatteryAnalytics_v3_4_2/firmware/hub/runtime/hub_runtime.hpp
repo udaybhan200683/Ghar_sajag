@@ -47,6 +47,40 @@ enum class IdentityRetirementEligibility : std::uint8_t {
     EligibleWithDurableReplayFence
 };
 
+enum class ReplayFenceBindResult : std::uint8_t {
+    Bound,
+    InvalidReference,
+    InvalidEpoch,
+    SnapshotEpochMismatch,
+    SnapshotGenerationMissing,
+    SnapshotGenerationMismatch,
+    OutboxFenceMismatch,
+    SelectedCheckpointMissing,
+    SelectedCheckpointMismatch
+};
+
+enum class ReplayFenceReconcileStage : std::uint8_t {
+    Ready,
+    SelectedStateReload,
+    SnapshotReferenceMissing,
+    SnapshotReload,
+    ReducerCheckpointReload,
+    ReducerCheckpointMissing,
+    OutboxPublication,
+    RuntimeBinding,
+    DependenciesUnavailable
+};
+
+struct ReplayFenceReconcileResult {
+    ReplayFenceReconcileStage stage{ReplayFenceReconcileStage::Ready};
+    storage::ReplayFencePublishResult publication{storage::ReplayFencePublishResult::Published};
+    ReplayFenceBindResult binding{ReplayFenceBindResult::Bound};
+    bool succeeded() const { return stage == ReplayFenceReconcileStage::Ready; }
+};
+
+const char* replay_fence_bind_result_name(ReplayFenceBindResult result);
+const char* replay_fence_reconcile_stage_id(ReplayFenceReconcileStage stage);
+
 class HubRuntime {
 public:
     HubRuntime(std::size_t ingest_capacity = 32, std::size_t journal_capacity = 1024);
@@ -129,6 +163,27 @@ public:
     bool bind_replay_fence(const durable::RetirementSnapshot& snapshot,
                            std::uint32_t storage_epoch,
                            const durable::RetirementSnapshotReference& reference,
+                           storage::DurableEventOutbox& outbox);
+    ReplayFenceBindResult bind_replay_fence_diagnostic(
+                           const durable::RetirementSnapshot& snapshot,
+                           std::uint32_t storage_epoch,
+                           const durable::RetirementSnapshotReference& reference,
+                           storage::DurableEventOutbox& outbox);
+    // Production helper for the authenticated Node-retirement report path.
+    // The selected state has already been recovered by DurableStore; this
+    // method performs the same ordered snapshot/checkpoint reload, LittleFS
+    // witness publication/readback and runtime bind, returning one safe stage.
+    ReplayFenceReconcileResult reconcile_selected_replay_fence(
+                           const durable::RecoveryState& selected_state,
+                           durable::RetirementSnapshotRepository& repository,
+                           storage::RuntimeStateStore& runtime_state,
+                           std::uint32_t storage_epoch,
+                           storage::DurableEventOutbox& outbox);
+    ReplayFenceReconcileResult reconcile_replay_fence(
+                           durable::DurableStore& durable_store,
+                           durable::RetirementSnapshotRepository& repository,
+                           storage::RuntimeStateStore& runtime_state,
+                           std::uint32_t storage_epoch,
                            storage::DurableEventOutbox& outbox);
     IdentityRetirementEligibility identity_retirement_eligibility(
         const DomainEvent&, std::uint8_t enrollment_slot,

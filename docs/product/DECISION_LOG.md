@@ -500,3 +500,17 @@ observation path is separately assessed. No product requirement, security
 contract, retry schedule, or storage format changed. This is a status/evidence
 record, not a new GS-D decision; context remains `2026-10-11.001`. See
 [`GS114_PART2B_ROOT_CAUSE_20261012.md`](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2B_ROOT_CAUSE_20261012.md).
+
+## GS-148 replay-fence diagnostic status — 2026-10-12 (evidence; no new locked decision)
+
+Under GS-148 authorization comment 10499, the authenticated Node-retirement
+replay-fence path gained stable sanitized failure-stage diagnostics and
+production-code host fault injection. Failures still close admission and
+withhold the retirement-report ACK. No ordering, persistent encoding,
+ownership, event-retirement or recovery semantics changed. The diagnostics can
+identify the failed interface-level stage; storage providers expose booleans,
+so they cannot report an underlying physical filesystem errno. The original
+S3 fixture failure remains unlocalized without a separately authorized,
+state-preserving observation/deployment plan. This is an evidence update, not a
+new product/storage decision; context version remains `2026-10-11.001`. See
+[`GS-148 diagnostic evidence`](../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md).

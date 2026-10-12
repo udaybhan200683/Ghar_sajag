@@ -189,25 +189,138 @@ bool HubRuntime::bind_replay_fence(const durable::RetirementSnapshot& snapshot,
         std::uint32_t storage_epoch,
         const durable::RetirementSnapshotReference& reference,
         storage::DurableEventOutbox& outbox) {
+    return bind_replay_fence_diagnostic(snapshot, storage_epoch, reference, outbox) ==
+           ReplayFenceBindResult::Bound;
+}
+
+ReplayFenceBindResult HubRuntime::bind_replay_fence_diagnostic(
+        const durable::RetirementSnapshot& snapshot,
+        std::uint32_t storage_epoch,
+        const durable::RetirementSnapshotReference& reference,
+        storage::DurableEventOutbox& outbox) {
     const auto* recovered = durability_owner_ ? durability_owner_->recovery_state() : nullptr;
-    if (!reference.valid() || storage_epoch == 0 || snapshot.storage_epoch != storage_epoch ||
-        snapshot.generation == 0 || snapshot.generation != reference.generation ||
-        !outbox.replay_fence_matches(storage_epoch, reference) ||
-        (durability_owner_ != nullptr && (recovered == nullptr ||
-         !recovered->checkpoint.report_snapshot ||
-         recovered->checkpoint.report_snapshot->bank != reference.bank ||
-         recovered->checkpoint.report_snapshot->generation != reference.generation ||
-         recovered->checkpoint.report_snapshot->digest != reference.digest))) {
+    const auto fail = [this](ReplayFenceBindResult result) {
         replay_fence_fault_ = true;
         replay_fence_ready_ = false;
-        return false;
+        return result;
+    };
+    if (!reference.valid()) return fail(ReplayFenceBindResult::InvalidReference);
+    if (storage_epoch == 0) return fail(ReplayFenceBindResult::InvalidEpoch);
+    if (snapshot.storage_epoch != storage_epoch)
+        return fail(ReplayFenceBindResult::SnapshotEpochMismatch);
+    if (snapshot.generation == 0)
+        return fail(ReplayFenceBindResult::SnapshotGenerationMissing);
+    if (snapshot.generation != reference.generation)
+        return fail(ReplayFenceBindResult::SnapshotGenerationMismatch);
+    if (!outbox.replay_fence_matches(storage_epoch, reference))
+        return fail(ReplayFenceBindResult::OutboxFenceMismatch);
+    if (durability_owner_ != nullptr) {
+        if (recovered == nullptr || !recovered->checkpoint.report_snapshot)
+            return fail(ReplayFenceBindResult::SelectedCheckpointMissing);
+        if (recovered->checkpoint.report_snapshot->bank != reference.bank ||
+            recovered->checkpoint.report_snapshot->generation != reference.generation ||
+            recovered->checkpoint.report_snapshot->digest != reference.digest)
+            return fail(ReplayFenceBindResult::SelectedCheckpointMismatch);
     }
     replay_snapshot_ = snapshot;
     replay_reference_ = reference;
     replay_epoch_ = storage_epoch;
     replay_fence_ready_ = true;
     replay_fence_fault_ = false;
-    return true;
+    return ReplayFenceBindResult::Bound;
+}
+
+ReplayFenceReconcileResult HubRuntime::reconcile_selected_replay_fence(
+        const durable::RecoveryState& selected_state,
+        durable::RetirementSnapshotRepository& repository,
+        storage::RuntimeStateStore& runtime_state,
+        std::uint32_t storage_epoch,
+        storage::DurableEventOutbox& outbox) {
+    ReplayFenceReconcileResult result;
+    if (!selected_state.checkpoint.report_snapshot) {
+        result.stage = ReplayFenceReconcileStage::SnapshotReferenceMissing;
+        return result;
+    }
+
+    const auto& reference = *selected_state.checkpoint.report_snapshot;
+    durable::RetirementSnapshot snapshot;
+    if (!repository.load(reference, snapshot)) {
+        result.stage = ReplayFenceReconcileStage::SnapshotReload;
+        return result;
+    }
+
+    security::Bytes reducer_checkpoint;
+    std::uint64_t checkpoint_boundary = 0;
+    bool checkpoint_found = false;
+    if (!runtime_state.load_checkpoint(reducer_checkpoint, checkpoint_boundary,
+                                       checkpoint_found)) {
+        result.stage = ReplayFenceReconcileStage::ReducerCheckpointReload;
+        return result;
+    }
+    if (!checkpoint_found) {
+        result.stage = ReplayFenceReconcileStage::ReducerCheckpointMissing;
+        return result;
+    }
+
+    result.publication = outbox.publish_replay_fence_diagnostic(
+        storage_epoch, reference, checkpoint_boundary);
+    if (result.publication != storage::ReplayFencePublishResult::Published &&
+        result.publication != storage::ReplayFencePublishResult::AlreadyPublished) {
+        result.stage = ReplayFenceReconcileStage::OutboxPublication;
+        return result;
+    }
+
+    result.binding = bind_replay_fence_diagnostic(snapshot, storage_epoch,
+                                                   reference, outbox);
+    if (result.binding != ReplayFenceBindResult::Bound)
+        result.stage = ReplayFenceReconcileStage::RuntimeBinding;
+    return result;
+}
+
+ReplayFenceReconcileResult HubRuntime::reconcile_replay_fence(
+        durable::DurableStore& durable_store,
+        durable::RetirementSnapshotRepository& repository,
+        storage::RuntimeStateStore& runtime_state,
+        std::uint32_t storage_epoch,
+        storage::DurableEventOutbox& outbox) {
+    durable::RecoveryState selected_state;
+    if (!durable_store.recover(selected_state)) {
+        ReplayFenceReconcileResult result;
+        result.stage = ReplayFenceReconcileStage::SelectedStateReload;
+        return result;
+    }
+    return reconcile_selected_replay_fence(selected_state, repository,
+                                           runtime_state, storage_epoch, outbox);
+}
+
+const char* replay_fence_bind_result_name(ReplayFenceBindResult result) {
+    switch (result) {
+        case ReplayFenceBindResult::Bound: return "BOUND";
+        case ReplayFenceBindResult::InvalidReference: return "INVALID_REFERENCE";
+        case ReplayFenceBindResult::InvalidEpoch: return "INVALID_EPOCH";
+        case ReplayFenceBindResult::SnapshotEpochMismatch: return "SNAPSHOT_EPOCH_MISMATCH";
+        case ReplayFenceBindResult::SnapshotGenerationMissing: return "SNAPSHOT_GENERATION_MISSING";
+        case ReplayFenceBindResult::SnapshotGenerationMismatch: return "SNAPSHOT_GENERATION_MISMATCH";
+        case ReplayFenceBindResult::OutboxFenceMismatch: return "OUTBOX_FENCE_MISMATCH";
+        case ReplayFenceBindResult::SelectedCheckpointMissing: return "SELECTED_CHECKPOINT_MISSING";
+        case ReplayFenceBindResult::SelectedCheckpointMismatch: return "SELECTED_CHECKPOINT_MISMATCH";
+    }
+    return "UNKNOWN";
+}
+
+const char* replay_fence_reconcile_stage_id(ReplayFenceReconcileStage stage) {
+    switch (stage) {
+        case ReplayFenceReconcileStage::Ready: return "RPF00";
+        case ReplayFenceReconcileStage::SelectedStateReload: return "RPF01";
+        case ReplayFenceReconcileStage::SnapshotReferenceMissing: return "RPF02";
+        case ReplayFenceReconcileStage::SnapshotReload: return "RPF03";
+        case ReplayFenceReconcileStage::ReducerCheckpointReload: return "RPF04";
+        case ReplayFenceReconcileStage::ReducerCheckpointMissing: return "RPF05";
+        case ReplayFenceReconcileStage::OutboxPublication: return "RPF06";
+        case ReplayFenceReconcileStage::RuntimeBinding: return "RPF07";
+        case ReplayFenceReconcileStage::DependenciesUnavailable: return "RPF08";
+    }
+    return "RPF99";
 }
 
 IdentityRetirementEligibility HubRuntime::identity_retirement_eligibility(

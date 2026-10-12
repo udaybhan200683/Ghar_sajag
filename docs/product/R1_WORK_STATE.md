@@ -1,5 +1,36 @@
 # R1 Current Work State
 
+## GS-148 narrow replay-fence diagnostic checkpoint — 2026-10-12
+
+Authorized by GS-148 comment 10499. On the canonical
+`feature/r1-commercial-baseline` branch, production Hub replay-fence failure
+diagnostics now distinguish selected-state/checkpoint recovery, witness
+prevalidation/publication/readback, and runtime binding stages with sanitized
+stable codes. Production-code host fault tests cover valid Prepared/Duplicate
+reports, failure boundaries and restart selection. The error remains fail
+closed and does not send a retirement-report ACK. No storage format, ownership,
+durable-before-ACK, event identity or recovery policy changed.
+
+Focused Hub/Node retirement, outbox, checkpoint, rejoin, framework and
+traceability tests passed; the checkpoint suite also passed ASan/UBSan. Clean
+ESP-IDF 6.0.3 paired C3/S3 production-profile builds passed (C3 934,192 bytes;
+S3 1,870,944 bytes) with matching embedded Node image provenance; no flash
+target ran. See the dated [GS-148 replay-fence diagnostic evidence](../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md)
+for image hashes and the exact target report. The historical Hub journal
+migration assertion remains an independent FAIL. No physical devices, USB,
+serial, storage or HIL interfaces were accessed. Physical root cause remains
+unknown and GS-114 remains physical NO-GO.
+
+The storage reconciliation confirms the old classic ESP32 fixed 128-slot
+NVS journal is not the active S3 outbox implementation. S3 uses bounded
+segmented LittleFS plus checkpointed identity/completion state; its current
+candidate capacity, retention and physical endurance are not qualified. This
+checkpoint does not start GS-148 P2-E/P2-F. After final validation and push,
+GS-148 returns to OnHold. Preserve the untracked S3 `managed_components/` and
+existing redacted GS-114 evidence. Next action: review this diagnostic and
+authorize a separate, state-preserving physical diagnostic plan before any
+GS-114 retest.
+
 ## GS-114 Part 2B — software-only root-cause investigation — 2026-10-12
 
 Investigation source HEAD was `7c1fee29e17fc3fe12c840e0afef5fa6b7217b68`;

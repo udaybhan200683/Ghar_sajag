@@ -20,6 +20,7 @@ public:
     bool corrupt_candidate_sync=false;
     std::string persist_then_fail;
     std::string fail_remove;
+    std::string fail_read;
     bool halted=false;
     std::size_t writes=0;
     bool state_size(const char* n,bool& found,std::uint32_t& size) override {
@@ -27,7 +28,7 @@ public:
         found=files.count(n);size=found?files[n].size():0;return true;
     }
     bool state_read(const char* n,std::uint32_t offset,std::uint8_t* out,std::size_t size) override {
-        if(halted || !files.count(n) || offset+size>files[n].size())return false;
+        if(halted || fail_read==n || !files.count(n) || offset+size>files[n].size())return false;
         std::copy_n(files[n].data()+offset,size,out);return true;
     }
     bool state_append_sync(const char* n,const Bytes& data) override {
@@ -167,6 +168,84 @@ private:
     std::uint64_t capacity_{0},peak_used_{0};
 };
 using gs::hub::storage::RuntimeStateStore;
+
+class FaultableBlobStore final : public gs::hub::durable::BlobStore {
+public:
+    bool read(const std::string& key, Bytes& value, bool& found) override {
+        if (fail_all_reads || (fail_retirement_reads && key.rfind("ret", 0) == 0))
+            return false;
+        return backing.read(key, value, found);
+    }
+    bool write_immutable(const std::string& key, const Bytes& value) override {
+        return backing.write_immutable(key, value);
+    }
+    bool replace(const std::string& key, const Bytes& value) override {
+        return backing.replace(key, value);
+    }
+    bool erase_if_equals(const std::string& key, const Bytes& value) override {
+        return backing.erase_if_equals(key, value);
+    }
+    gs::hub::durable::MemoryBlobStore backing;
+    bool fail_all_reads{false};
+    bool fail_retirement_reads{false};
+};
+
+struct ReplayFenceReconcileFixture {
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const gs::security::Key32 key{storage_key()};
+    FaultableBlobStore blobs;
+    MemorySegments segments{4U * 1024U * 1024U};
+    StateFiles files;
+    DurableEventOutbox outbox{segments, crypto, key};
+    RuntimeStateStore runtime_state{files, crypto, key};
+    OutboxJournalBackend backend{outbox};
+    gs::hub::HubRuntime runtime{32, backend};
+    gs::hub::durable::RetirementSnapshotRepository repository{blobs, crypto, key, 7};
+    gs::hub::durable::DurableStore durable_store{blobs, crypto, key, 7};
+    gs::hub::durable::RecoveryState selected_state;
+    gs::hub::durable::RetirementSnapshot snapshot;
+    gs::hub::durable::RetirementSnapshotReference reference;
+    std::array<std::uint8_t, 32> binding_digest{};
+    gs::security::Key32 report_hmac{};
+    gs::transport::NodeRetirementReportV1 report;
+
+    ReplayFenceReconcileFixture() {
+        require(outbox.recover() == OutboxRecovery::Empty,
+                "diagnostic fixture empty event outbox");
+        require(runtime_state.recover(0), "diagnostic fixture runtime-state recovery");
+        require(runtime_state.save_checkpoint(Bytes{0x47}, 0),
+                "diagnostic fixture reducer checkpoint save");
+        gs::hub::durable::RetirementSnapshot current;
+        current.storage_epoch = 7;
+        current.generation = 1;
+        binding_digest.fill(0x44);
+        report_hmac.fill(0x11);
+        report.epoch = 7;
+        report.generation = 1;
+        report.current_origin_session = 10;
+        report.durable_admission_highwater = 12;
+        report.pending_count = 3;
+        report.pending[0] = {10, 10};
+        report.pending[1] = {10, 11};
+        report.pending[2] = {10, 12};
+        require(repository.apply_authenticated_report(current, binding_digest, 0, 3, 10,
+                    report, report_hmac, snapshot) ==
+                    gs::hub::durable::RetirementReportApply::Prepared,
+                "diagnostic fixture production report preparation");
+        require(repository.prepare_bank(snapshot, 0, reference),
+                "diagnostic fixture retirement snapshot prepare");
+        gs::hub::durable::Checkpoint checkpoint;
+        checkpoint.storage_epoch = 7;
+        checkpoint.generation = 1;
+        checkpoint.report_snapshot = reference;
+        require(durable_store.checkpoint(checkpoint),
+                "diagnostic fixture selected checkpoint commit");
+        require(durable_store.recover(selected_state) &&
+                selected_state.checkpoint.report_snapshot.has_value(),
+                "diagnostic fixture selected checkpoint recovery");
+        runtime.bind_runtime_state(runtime_state);
+    }
+};
 
 class ScriptedBackendTransport final : public gs::hub::CloudBackendTransport {
 public:
@@ -1243,14 +1322,207 @@ void replay_fence_publication_cut_tests() {
         reference.digest.fill(0x3c);
         segments.fail_lifecycle_publication_after_write_once = fail_after_write;
         segments.fail_lifecycle_publication_once = !fail_after_write;
-        require(!outbox.publish_replay_fence(9, reference, 0),
-                "ambiguous lifecycle publication does not open the writer");
+        require(outbox.publish_replay_fence_diagnostic(9, reference, 0) ==
+                    ReplayFencePublishResult::LifecycleRootPublishFailed &&
+                !outbox.healthy() && outbox.record_count() == 0,
+                "ambiguous lifecycle publication has a stable failure category and closes mutation");
         DurableEventOutbox rebooted(segments, crypto, key);
         const auto recovered = rebooted.recover();
         require(recovered == OutboxRecovery::Empty,
                 "publication cut recovers without fabricated outbox data");
         require(rebooted.replay_fence_matches(9, reference) == fail_after_write,
                 "pre-publication cut keeps old authority; post-publication cut selects new fence");
+    }
+}
+
+void replay_fence_diagnostic_tests() {
+    using namespace gs::hub::storage;
+    using gs::hub::ReplayFenceReconcileStage;
+    using gs::hub::storage::ReplayFencePublishResult;
+
+    require(gs::hub::replay_fence_reconcile_stage_id(ReplayFenceReconcileStage::SelectedStateReload) ==
+                std::string("RPF01") &&
+            gs::hub::replay_fence_reconcile_stage_id(ReplayFenceReconcileStage::OutboxPublication) ==
+                std::string("RPF06") &&
+            gs::hub::replay_fence_reconcile_stage_id(ReplayFenceReconcileStage::RuntimeBinding) ==
+                std::string("RPF07") &&
+            gs::hub::replay_fence_reconcile_stage_id(ReplayFenceReconcileStage::DependenciesUnavailable) ==
+                std::string("RPF08"),
+            "replay-fence failure stages retain stable externally visible IDs");
+    require(replay_fence_publish_result_name(ReplayFencePublishResult::LifecycleRootPublishFailed) ==
+                std::string("FENCE_ROOT_PUBLISH_FAILED") &&
+            gs::hub::replay_fence_bind_result_name(gs::hub::ReplayFenceBindResult::SnapshotEpochMismatch) ==
+                std::string("SNAPSHOT_EPOCH_MISMATCH"),
+            "publication and runtime-binding diagnostics retain sanitized categories");
+
+    {
+        ReplayFenceReconcileFixture fixture;
+        gs::hub::durable::RetirementSnapshot duplicate_candidate;
+        require(fixture.repository.apply_authenticated_report(
+                    fixture.snapshot, fixture.binding_digest, 0, 3, 10,
+                    fixture.report, fixture.report_hmac, duplicate_candidate) ==
+                    gs::hub::durable::RetirementReportApply::Duplicate,
+                "valid repeated authenticated report is classified as duplicate");
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.succeeded() && result.publication == ReplayFencePublishResult::Published &&
+                fixture.outbox.replay_fence_matches(7, fixture.reference),
+                "valid selected report publishes and binds the exact replay fence");
+        const auto duplicate = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(duplicate.succeeded() &&
+                duplicate.publication == ReplayFencePublishResult::AlreadyPublished,
+                "duplicate selected state is idempotent and reports already-published fence");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.blobs.fail_all_reads = true;
+        const auto result = fixture.runtime.reconcile_replay_fence(
+            fixture.durable_store, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::SelectedStateReload &&
+                fixture.outbox.healthy() && fixture.outbox.record_count() == 0,
+                "selected checkpoint reload failure is diagnosed before outbox mutation");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.blobs.fail_retirement_reads = true;
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::SnapshotReload &&
+                fixture.outbox.healthy(),
+                "selected authenticated retirement snapshot reload failure has its own stage");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.files.fail_read = "application.head";
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::ReducerCheckpointReload &&
+                fixture.outbox.healthy(),
+                "reducer checkpoint read failure has its own stage");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.files.files.erase("application.head");
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::ReducerCheckpointMissing,
+                "missing reducer checkpoint differs from checkpoint read failure");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        auto selected = fixture.selected_state;
+        selected.checkpoint.report_snapshot.reset();
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            selected, fixture.repository, fixture.runtime_state, 7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::SnapshotReferenceMissing,
+                "selected checkpoint without retirement reference is diagnosed");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.segments.fail_read_publication_once = true;
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::OutboxPublication &&
+                result.publication == ReplayFencePublishResult::PublicationReadFailed &&
+                fixture.outbox.healthy(),
+                "event-publication read failure is distinguished without changing stored state");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.segments.fail_lifecycle_publication_once = true;
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::OutboxPublication &&
+                result.publication == ReplayFencePublishResult::LifecycleRootPublishFailed &&
+                !fixture.outbox.healthy() && fixture.outbox.record_count() == 0,
+                "lifecycle root publication failure remains fail-closed without retiring events");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.segments.fail_read_lifecycle_root_once = true;
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::OutboxPublication &&
+                result.publication == ReplayFencePublishResult::LifecycleRootReadbackFailed &&
+                !fixture.outbox.healthy(),
+                "lifecycle readback I/O failure is distinct and fences further mutation");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.segments.report_lifecycle_root_missing_once = true;
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::OutboxPublication &&
+                result.publication == ReplayFencePublishResult::LifecycleRootMissingAfterPublish &&
+                !fixture.outbox.healthy(),
+                "missing lifecycle readback is distinct from read I/O failure");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        fixture.segments.corrupt_lifecycle_root_readback_once = true;
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            7, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::OutboxPublication &&
+                result.publication == ReplayFencePublishResult::LifecycleRootReadbackMismatch &&
+                !fixture.outbox.healthy(),
+                "lifecycle readback integrity mismatch is distinct and fail-closed");
+    }
+    {
+        ReplayFenceReconcileFixture fixture;
+        const auto result = fixture.runtime.reconcile_selected_replay_fence(
+            fixture.selected_state, fixture.repository, fixture.runtime_state,
+            8, fixture.outbox);
+        require(result.stage == ReplayFenceReconcileStage::RuntimeBinding &&
+                result.binding == gs::hub::ReplayFenceBindResult::SnapshotEpochMismatch &&
+                !fixture.runtime.durable_admission_open() &&
+                fixture.outbox.record_count() == 0,
+                "snapshot and installation epoch disagreement prevents runtime admission");
+    }
+
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    gs::hub::durable::RetirementSnapshotReference ref;
+    ref.bank = 0;
+    ref.generation = 1;
+    ref.digest.fill(0x72);
+    {
+        MemorySegments segments(4U * 1024U * 1024U);
+        DurableEventOutbox not_initialized(segments, crypto, key);
+        require(not_initialized.publish_replay_fence_diagnostic(7, ref, 0) ==
+                    ReplayFencePublishResult::NotInitialized,
+                "uninitialized outbox returns stable diagnostic category");
+    }
+    {
+        MemorySegments segments(4U * 1024U * 1024U);
+        DurableEventOutbox outbox(segments, crypto, key);
+        require(outbox.recover() == OutboxRecovery::Empty, "precondition fixture recovers");
+        auto invalid = ref;
+        invalid.bank = 0xff;
+        require(outbox.publish_replay_fence_diagnostic(7, invalid, 0) ==
+                    ReplayFencePublishResult::InvalidReference &&
+                outbox.publish_replay_fence_diagnostic(0, ref, 0) ==
+                    ReplayFencePublishResult::InvalidEpoch,
+                "invalid reference and zero epoch have distinct stable categories");
+        segments.fail_read_publication_once = true;
+        require(outbox.publish_replay_fence_diagnostic(7, ref, 0) ==
+                    ReplayFencePublishResult::PublicationReadFailed,
+                "publication-head read failure has stable diagnostic category");
+        segments.set_publication(Bytes{0x01, 0x02});
+        require(outbox.publish_replay_fence_diagnostic(7, ref, 0) ==
+                    ReplayFencePublishResult::PublicationMalformed,
+                "malformed publication head has stable diagnostic category");
     }
 }
 
@@ -1782,6 +2054,7 @@ checkpoint_tests();interruption_tests();published_checkpoint_interruption();time
         identity_generation_filesystem_test();
         replay_fence_and_eligibility_tests();
         replay_fence_publication_cut_tests();
+        replay_fence_diagnostic_tests();
         lifecycle_publication_cut_tests();
         high_volume_lifecycle_test();
         std::cout<<"PASS: runtime checkpoint, replay, exact identity, crash boundaries\n";return 0;

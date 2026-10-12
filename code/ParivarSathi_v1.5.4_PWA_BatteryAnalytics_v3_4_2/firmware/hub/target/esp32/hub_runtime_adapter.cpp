@@ -667,20 +667,30 @@ void secure_owner_task(void*) {
         auto* durable_store = durability_owner.durable_store();
         const auto* recovered = durability_owner.recovery_state();
         if (recovered != nullptr && recovered->checkpoint.report_snapshot) {
-            durable::RetirementSnapshot selected_snapshot;
-            security::Bytes app_checkpoint;
-            std::uint64_t checkpoint_boundary = 0;
-            bool checkpoint_found = false;
-            const auto reference = *recovered->checkpoint.report_snapshot;
-            if (report_repository == nullptr || durable_store == nullptr ||
-                !report_repository->load(reference, selected_snapshot) ||
-                !runtime_state.load_checkpoint(app_checkpoint, checkpoint_boundary,
-                    checkpoint_found) || !checkpoint_found ||
-                !durable_outbox.publish_replay_fence(*authoritative_epoch, reference,
-                    checkpoint_boundary) ||
-                !runtime.bind_replay_fence(selected_snapshot, *authoritative_epoch,
-                    reference, durable_outbox)) {
-                ESP_LOGE(kTag, "S3 replay-fence recovery failed; admission closed");
+            const auto reconciliation = report_repository == nullptr || durable_store == nullptr
+                ? ReplayFenceReconcileResult{ReplayFenceReconcileStage::DependenciesUnavailable}
+                : runtime.reconcile_selected_replay_fence(*recovered,
+                    *report_repository, runtime_state, *authoritative_epoch,
+                    durable_outbox);
+            if (!reconciliation.succeeded()) {
+                const char* result = "RECONCILIATION_FAILED";
+                if (reconciliation.stage == ReplayFenceReconcileStage::OutboxPublication)
+                    result = storage::replay_fence_publish_result_name(reconciliation.publication);
+                else if (reconciliation.stage == ReplayFenceReconcileStage::RuntimeBinding)
+                    result = hub::replay_fence_bind_result_name(reconciliation.binding);
+                else if (reconciliation.stage == ReplayFenceReconcileStage::SnapshotReferenceMissing)
+                    result = "SELECTED_REFERENCE_MISSING";
+                else if (reconciliation.stage == ReplayFenceReconcileStage::SnapshotReload)
+                    result = "SNAPSHOT_READ_OR_AUTHENTICATION_FAILED";
+                else if (reconciliation.stage == ReplayFenceReconcileStage::ReducerCheckpointReload)
+                    result = "REDUCER_CHECKPOINT_READ_OR_AUTHENTICATION_FAILED";
+                else if (reconciliation.stage == ReplayFenceReconcileStage::ReducerCheckpointMissing)
+                    result = "REDUCER_CHECKPOINT_MISSING";
+                else if (reconciliation.stage == ReplayFenceReconcileStage::DependenciesUnavailable)
+                    result = "RETIREMENT_STORAGE_OWNER_UNAVAILABLE";
+                ESP_LOGE(kTag,
+                    "S3 replay fence failed stage=%s result=%s path=BOOT admission=CLOSED report_ack=NONE",
+                    replay_fence_reconcile_stage_id(reconciliation.stage), result);
                 vTaskDelete(nullptr);
                 return;
             }
@@ -1049,22 +1059,30 @@ void secure_owner_task(void*) {
             // NVS selection is the authority. Publish its exact reference in
             // LittleFS, then bind the in-memory gate before handling more data.
             {
-                durable::RecoveryState selected_state;
-                durable::RetirementSnapshot selected_snapshot;
-                security::Bytes app_checkpoint;
-                std::uint64_t checkpoint_boundary = 0;
-                bool checkpoint_found = false;
-                if (!durable_store->recover(selected_state) ||
-                    !selected_state.checkpoint.report_snapshot ||
-                    !report_repository->load(*selected_state.checkpoint.report_snapshot,
-                                             selected_snapshot) ||
-                    !runtime_state.load_checkpoint(app_checkpoint,
-                        checkpoint_boundary, checkpoint_found) || !checkpoint_found ||
-                    !durable_outbox.publish_replay_fence(*epoch,
-                        *selected_state.checkpoint.report_snapshot, checkpoint_boundary) ||
-                    !runtime.bind_replay_fence(selected_snapshot, *epoch,
-                        *selected_state.checkpoint.report_snapshot, durable_outbox)) {
-                    ESP_LOGE(kTag, "S3 replay-fence publication failed; admission closed");
+                const auto reconciliation = runtime.reconcile_replay_fence(
+                    *durable_store, *report_repository, runtime_state, *epoch,
+                    durable_outbox);
+                if (!reconciliation.succeeded()) {
+                    const char* result = "RECONCILIATION_FAILED";
+                    if (reconciliation.stage == ReplayFenceReconcileStage::SelectedStateReload)
+                        result = "DURABLE_CHECKPOINT_RECOVERY_FAILED";
+                    else if (reconciliation.stage == ReplayFenceReconcileStage::OutboxPublication)
+                        result = storage::replay_fence_publish_result_name(reconciliation.publication);
+                    else if (reconciliation.stage == ReplayFenceReconcileStage::RuntimeBinding)
+                        result = replay_fence_bind_result_name(reconciliation.binding);
+                    else if (reconciliation.stage == ReplayFenceReconcileStage::SnapshotReferenceMissing)
+                        result = "SELECTED_REFERENCE_MISSING";
+                    else if (reconciliation.stage == ReplayFenceReconcileStage::SnapshotReload)
+                        result = "SNAPSHOT_READ_OR_AUTHENTICATION_FAILED";
+                    else if (reconciliation.stage == ReplayFenceReconcileStage::ReducerCheckpointReload)
+                        result = "REDUCER_CHECKPOINT_READ_OR_AUTHENTICATION_FAILED";
+                    else if (reconciliation.stage == ReplayFenceReconcileStage::ReducerCheckpointMissing)
+                        result = "REDUCER_CHECKPOINT_MISSING";
+                    ESP_LOGE(kTag,
+                        "S3 replay fence failed stage=%s result=%s path=%s admission=%s report_ack=withheld",
+                        replay_fence_reconcile_stage_id(reconciliation.stage), result,
+                        applied == durable::RetirementReportApply::Duplicate ? "DUPLICATE" : "PREPARED",
+                        runtime.durable_admission_open() ? "PRIOR_FENCE_VALID" : "CLOSED");
                     continue;
                 }
             }

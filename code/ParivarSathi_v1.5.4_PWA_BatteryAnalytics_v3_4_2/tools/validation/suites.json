@@ -692,10 +692,14 @@
       ],
       "inputs": [
         "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+        "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
         "firmware/hub/components/cloud/cloud_sync.cpp",
         "firmware/hub/components/cloud/cloud_sync.hpp",
         "firmware/hub/runtime/hub_runtime.cpp",
         "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/components/storage/durable_event_outbox.cpp",
+        "firmware/hub/components/storage/durable_event_outbox.hpp",
+        "firmware/hub/components/storage/node_retirement_snapshot.hpp",
         "firmware/hub/components/storage/runtime_state_store.hpp"
       ],
       "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
@@ -1181,7 +1185,12 @@
         "scripts/build_validation_targets.py"
       ],
       "inputs": [
-        "scripts/build_validation_targets.py"
+        "scripts/build_validation_targets.py",
+        "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/components/storage/durable_event_outbox.cpp",
+        "firmware/hub/components/storage/durable_event_outbox.hpp"
       ],
       "success": "^VALIDATION TARGET BUILDS PASS$",
       "timeout": 3600,

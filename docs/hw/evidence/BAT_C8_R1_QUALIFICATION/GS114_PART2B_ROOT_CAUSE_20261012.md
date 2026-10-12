@@ -80,3 +80,14 @@ Do not resume PIR qualification yet.
 **After those gates:** capture separate C3 and S3 observations, request each genuine AM312 motion individually, and require the same EventKey to be correlated through GPIO4 wake/admission, Node persistence, authenticated S3 reception, S3 durable commit, matching application Durable ACK and C3 retirement. Stop on any reset, pairing/session loss, admission closure, unexplained storage error, or missing/mismatched ACK. Keep C8-P1 through P9 dispositions from the existing stop report until each applicable criterion has actual evidence; P10 remains GS-149.
 
 **Current decision:** NO-GO. No physical retest, recovery, board access or further fixture interaction is authorized by this investigation.
+
+## GS-148 diagnostic follow-up — 2026-10-12
+
+Under GS-148 comment 10499, Hub source now emits sanitized replay-fence
+failure-stage IDs and safe result categories, with production-code host fault
+coverage for selected-state load, checkpoint, witness publication/readback and
+runtime-bind failures. This localizes future observations to the failing
+software interface stage but does not reconstruct or prove the physical
+fixture's saved failure. No board or persistent state was accessed. Preserve
+the original NO-GO disposition and retest gates above; see the [GS-148
+diagnostic evidence](../../../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md).

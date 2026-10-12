@@ -448,6 +448,15 @@ journal/outbox across power loss, target Wi-Fi/backend vertical bridge, or
 cross-Hub-restart persistent dedupe. Host/backend components exist separately;
 the repository explicitly does not claim the target vertical slice complete.
 
+The `checkpoint` host stage also exercises GS-148 replay-fence reconciliation
+diagnostics through production HubRuntime/outbox code. Its 21 explicit
+diagnostic assertions distinguish selected-state/checkpoint loading, witness
+validation/publication/readback and runtime binding outcomes under injected
+host storage faults. The stage is registered in `validation-hub`; target build
+fingerprints include the changed Hub adapter/runtime/outbox sources. Passing
+host fault tests do not identify the saved physical S3 failure or qualify
+LittleFS hardware behavior. See the [GS-148 diagnostic evidence](../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md).
+
 ### Paired build
 
 Implemented by `scripts/build_hw_pair.py`: clean-tree refusal, fresh C3 and Hub
