@@ -1,0 +1,15 @@
+node:internal/fs/promises:637
+  return new FileHandle(await PromisePrototypeThen(
+                        ^
+
+Error: ENOENT: no such file or directory, open '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/docs/exec-plans/evidence/engineering_dashboard_20261012/REVIEW_FIXTURE.json'
+    at async open (node:internal/fs/promises:637:25)
+    at async readFile (node:internal/fs/promises:1249:14)
+    at async file:///home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tests/support/engineering_dashboard_review/review_browser.mjs:13:26 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/docs/exec-plans/evidence/engineering_dashboard_20261012/REVIEW_FIXTURE.json'
+}
+
+Node.js v20.20.2

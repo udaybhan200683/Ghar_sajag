@@ -1,0 +1,187 @@
+test_committed_event_survives_reopen_and_uses_existing_query_projection (tests.python.test_durable_api.DurableApiCompositionTest.test_committed_event_survives_reopen_and_uses_existing_query_projection) ... ok
+test_requires_file_store_and_trusted_authorizer (tests.python.test_durable_api.DurableApiCompositionTest.test_requires_file_store_and_trusted_authorizer) ... ok
+test_api_requires_authorized_hub_and_durable_store (tests.python.test_durable_event_commit.DurableEventCommitTest.test_api_requires_authorized_hub_and_durable_store) ... ok
+test_conflicting_type_timestamp_payload_and_identity (tests.python.test_durable_event_commit.DurableEventCommitTest.test_conflicting_type_timestamp_payload_and_identity) ... ok
+test_faults_rollback_all_effects_then_retry (tests.python.test_durable_event_commit.DurableEventCommitTest.test_faults_rollback_all_effects_then_retry) ... ok
+test_first_duplicate_lost_response_and_restart (tests.python.test_durable_event_commit.DurableEventCommitTest.test_first_duplicate_lost_response_and_restart) ... ok
+test_sessions_nodes_high_rate_and_quiet_door (tests.python.test_durable_event_commit.DurableEventCommitTest.test_sessions_nodes_high_rate_and_quiet_door) ... ok
+test_sqlite_commit_failure_rolls_back (tests.python.test_durable_event_commit.DurableEventCommitTest.test_sqlite_commit_failure_rolls_back) ... ok
+test_commit_guard_runs_inside_write_transaction (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_commit_guard_runs_inside_write_transaction) ... ok
+test_generation_replacement_revocation_and_old_event_replay (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_generation_replacement_revocation_and_old_event_replay) ... ok
+test_identity_and_authorization_fail_closed (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_identity_and_authorization_fail_closed) ... ok
+test_node_identity_cannot_be_active_under_two_homes (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_node_identity_cannot_be_active_under_two_homes) ... ok
+test_registered_home_node_commit_retry_and_restart (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_registered_home_node_commit_retry_and_restart) ... ok
+test_transfer_epoch_fences_old_home_and_preserves_old_data (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_transfer_epoch_fences_old_home_and_preserves_old_data) ... ok
+test_backend_mixed_silent_nodes (tests.python.test_node_health_config.NodeHealthConfigTest.test_backend_mixed_silent_nodes) ... ok
+test_build_and_startup_share_input (tests.python.test_node_health_config.NodeHealthConfigTest.test_build_and_startup_share_input) ... ok
+test_corrupt_missing_duplicate_json (tests.python.test_node_health_config.NodeHealthConfigTest.test_corrupt_missing_duplicate_json) ... ok
+test_default_and_derived_examples (tests.python.test_node_health_config.NodeHealthConfigTest.test_default_and_derived_examples) ... ok
+test_invalid_fields (tests.python.test_node_health_config.NodeHealthConfigTest.test_invalid_fields) ... ok
+test_invalid_profile (tests.python.test_node_health_config.NodeHealthConfigTest.test_invalid_profile) ... ok
+test_json_changes_compiled_startup_policy (tests.python.test_node_health_config.NodeHealthConfigTest.test_json_changes_compiled_startup_policy) ... ok
+test_missing_unknown_version_and_piggyback (tests.python.test_node_health_config.NodeHealthConfigTest.test_missing_unknown_version_and_piggyback) ... ok
+test_packaging_rejects_mismatched_image_or_configuration (tests.python.test_node_health_config.NodeHealthConfigTest.test_packaging_rejects_mismatched_image_or_configuration) ... ok
+test_range_and_profiles (tests.python.test_node_health_config.NodeHealthConfigTest.test_range_and_profiles) ... ok
+test_received_contact_not_render_time_renews_freshness (tests.python.test_node_health_config.NodeHealthConfigTest.test_received_contact_not_render_time_renews_freshness) ... ok
+test_internet_loss_does_not_expire_locally_healthy_nodes (tests.python.test_node_health_config.NodeHealthPwaTest.test_internet_loss_does_not_expire_locally_healthy_nodes) ... <frozen importlib._bootstrap>:491: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x711a4455cb80>
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ERROR
+/usr/lib/python3.14/unittest/case.py:668: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/logs/e2e_child_stderr.txt' mode='w' encoding='utf-8'>
+  with outcome.testPartExecutor(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+test_quiet_sleeping_resident_is_not_offline_day_or_night (tests.python.test_node_health_config.NodeHealthPwaTest.test_quiet_sleeping_resident_is_not_offline_day_or_night) ... 
+  test_quiet_sleeping_resident_is_not_offline_day_or_night (tests.python.test_node_health_config.NodeHealthPwaTest.test_quiet_sleeping_resident_is_not_offline_day_or_night) (minute=0) ... ERROR
+/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tests/python/test_node_health_config.py:152: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/logs/e2e_child_stderr.txt' mode='w' encoding='utf-8'>
+  with self.subTest(minute=minute):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+  test_quiet_sleeping_resident_is_not_offline_day_or_night (tests.python.test_node_health_config.NodeHealthPwaTest.test_quiet_sleeping_resident_is_not_offline_day_or_night) (minute=720) ... ERROR
+test_schema_matches_validator_and_unknown_ui_is_explicit (tests.python.test_node_health_config.NodeHealthPwaTest.test_schema_matches_validator_and_unknown_ui_is_explicit) ... ok
+test_silent_rf_expiry_boundary_and_automatic_health_return (tests.python.test_node_health_config.NodeHealthPwaTest.test_silent_rf_expiry_boundary_and_automatic_health_return) ... ERROR
+
+======================================================================
+ERROR: test_internet_loss_does_not_expire_locally_healthy_nodes (tests.python.test_node_health_config.NodeHealthPwaTest.test_internet_loss_does_not_expire_locally_healthy_nodes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tests/python/test_node_health_config.py", line 181, in test_internet_loss_does_not_expire_locally_healthy_nodes
+    lab=Lab()
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tools/sim/local_lab.py", line 139, in __init__
+    self.proc = subprocess.Popen([str(ROOT / "build/ghar_sajag_interactive")], cwd=ROOT,
+                ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr,
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 text=True, bufsize=1)
+                                 ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1990, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/ghar_sajag_interactive'
+
+======================================================================
+ERROR: test_quiet_sleeping_resident_is_not_offline_day_or_night (tests.python.test_node_health_config.NodeHealthPwaTest.test_quiet_sleeping_resident_is_not_offline_day_or_night) (minute=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tests/python/test_node_health_config.py", line 153, in test_quiet_sleeping_resident_is_not_offline_day_or_night
+    lab=Lab()
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tools/sim/local_lab.py", line 139, in __init__
+    self.proc = subprocess.Popen([str(ROOT / "build/ghar_sajag_interactive")], cwd=ROOT,
+                ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr,
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 text=True, bufsize=1)
+                                 ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1990, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/ghar_sajag_interactive'
+
+======================================================================
+ERROR: test_quiet_sleeping_resident_is_not_offline_day_or_night (tests.python.test_node_health_config.NodeHealthPwaTest.test_quiet_sleeping_resident_is_not_offline_day_or_night) (minute=720)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tests/python/test_node_health_config.py", line 153, in test_quiet_sleeping_resident_is_not_offline_day_or_night
+    lab=Lab()
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tools/sim/local_lab.py", line 139, in __init__
+    self.proc = subprocess.Popen([str(ROOT / "build/ghar_sajag_interactive")], cwd=ROOT,
+                ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr,
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 text=True, bufsize=1)
+                                 ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1990, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/ghar_sajag_interactive'
+
+======================================================================
+ERROR: test_silent_rf_expiry_boundary_and_automatic_health_return (tests.python.test_node_health_config.NodeHealthPwaTest.test_silent_rf_expiry_boundary_and_automatic_health_return)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tests/python/test_node_health_config.py", line 165, in test_silent_rf_expiry_boundary_and_automatic_health_return
+    lab=Lab()
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tools/sim/local_lab.py", line 139, in __init__
+    self.proc = subprocess.Popen([str(ROOT / "build/ghar_sajag_interactive")], cwd=ROOT,
+                ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr,
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 text=True, bufsize=1)
+                                 ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1990, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/ghar_sajag_interactive'
+
+----------------------------------------------------------------------
+Ran 29 tests in 14.000s
+
+FAILED (errors=4)
+P0-P2D-011 PASS Node generation fencing preserves only exact committed retries
+P0-P2D-010 PASS permanent identity, exact Home ownership and unverified claims fail closed
+P0-P2D-013 PASS Node re-home uses one active binding and globally monotonic generation
+P0-P2D-012 PASS transfer epoch blocks both Homes and preserves old-Home data
+{
+  "schema_version": 1,
+  "configuration_sha256": "fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862",
+  "heartbeat_interval_seconds": 300,
+  "node_offline_timeout_seconds": 910,
+  "deployment_profiles": {
+    "c3-146393c5d158": "configured"
+  },
+  "hardware_actions": "NONE",
+  "qualification": "SOFTWARE_ONLY",
+  "images": {
+    "c3": [
+      {
+        "offset": "0x20000",
+        "file": "c3/gs_hw_m1_node.bin",
+        "bytes": 72,
+        "sha256": "9058860423eb9742dae3e4f2ec677e59889d95a7e03a1cd3a8b57b6c5c7b0939"
+      }
+    ],
+    "s3": [
+      {
+        "offset": "0x20000",
+        "file": "s3/gs_r1_s3_hub.bin",
+        "bytes": 81,
+        "sha256": "18a72385344f1b6468313158db5802da6f83fe1ade10a36feb37f311cc1b6f73"
+      }
+    ]
+  },
+  "source_head": "77e29d44c57f0851f78358049c288323c985d2e7",
+  "tracked_source_dirty": false
+}

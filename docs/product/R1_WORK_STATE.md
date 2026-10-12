@@ -1446,3 +1446,32 @@ Canonical source integration is complete. GS-114 hardware qualification was
 not changed, and the pre-existing untracked S3 `managed_components/` and
 redacted physical evidence were preserved. GS-144 and GS-148 work/statuses were
 not changed by GS-152.
+
+### GS-122 Engineering Dashboard review checkpoint — 2026-10-12 (isolated proposal)
+
+The user explicitly authorized the isolated worktree
+`/home/udaybhan/projects/Ghar_sajag_r1_dashboard` and branch
+`feature/gs124-125-engineering-dashboard`, based on committed canonical/remote
+`77e29d44c57f0851f78358049c288323c985d2e7`. GS-148 continues to own canonical
+storage/runtime changes; its staged/unstaged code and evidence were not copied
+or modified. This status addition is proposed on the dashboard branch only;
+reconcile it with newer canonical work-state after GS-148 checkpoints.
+
+GS-120 architecture is complete as a **PROPOSED** review artifact. GS-124
+production remains **BLOCKED_DESIGN_APPROVAL**, as required by Jira comment10622.
+No explicit acceptance or new technician/security/retention contract is assumed.
+Inactive model/API preparation passes 45 tests; actual production host board
+simulation passes 8 groups / 325 checks; seven-screen static preview passes
+20 browser checks. Focused existing readiness passes 29 API/policy tests,
+39 framework tests and 17 no-port HIL safeguard tests. These are scoped evidence,
+not product dashboard, deployed authentication, physical or release PASS.
+
+New production registration and complete affected-component qualification await
+approved production source. Board/motion/product physical E2E remain BLOCKED /
+NOT_RUN under GS-114 NO-GO; full release gate NOT_RUN. Historical migration FAIL
+and full P0 PARTIAL/gate FAIL remain unchanged. No hardware was accessed.
+Next: accept a named design subset and provide verified technician permission,
+privacy/retention, installation policy and target export contracts before their
+dependent implementation. See the [campaign review package](../exec-plans/evidence/engineering_dashboard_20261012/README.md),
+[architecture](../architecture/GS120_ENGINEERING_DASHBOARD_ARCHITECTURE.md) and
+[resume handoff](../exec-plans/evidence/engineering_dashboard_20261012/CAMPAIGN_HANDOFF.md).

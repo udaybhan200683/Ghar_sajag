@@ -1,0 +1,21 @@
+proposed_feature_id,requirement,components,layers,registration_status,production_status,physical_class
+GS125-DIAG-SCHEMA,"Strict codec, invalid/bool/unknown input",backend;contract,unit,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-CORRELATION,Original physical/logical/session/sequence; replacement distinct,contract;backend;pwa,unit;integration,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-TIME,Original occurrence / observer time / unknown clocks,contract;backend;pwa,unit;integration,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-HEALTH,Existing trusted lease at equality/expiry and unknown profile,hub;backend;pwa,unit;simulation,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-ACK,MAC success cannot prove durable ACK or retirement,node;hub;contract;pwa,unit;simulation,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-DUPLICATE,One original event with multiple retry observations,node;hub;backend;pwa;contract,unit;simulation;integration,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-BOUNDS,"Count/byte caps, explicit gap, reject oversize record",backend;pwa,unit;simulation,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-AUTH,"Explicit diagnostic grant, expiry/revocation, caregiver denied",backend;pwa;contract,unit;integration;browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-HOME,Cross-Home queries/trace/session denied before lookup,backend;pwa;contract,unit;integration;browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-OVERVIEW,Hub/Node source ages and missing capability,pwa;backend,browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-LIVE,Device/room/kind/result filtering and cursor refresh,pwa;backend,browser;integration,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-TRACE,Independent stage evidence; unavailable UNKNOWN,pwa;backend;contract,unit;integration;browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-DEVICE,"NodeHealth counters, session vs original key, unavailable battery",pwa;backend,unit;browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-COMMS,Directional RSSI / MAC / ACK / cloud queue evidence,pwa;backend,unit;simulation;browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-INSTALL,"Exact manifest/node/generation/room/kind, arm fence",backend;pwa;contract,unit;simulation;integration;browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-ADVANCED,Allowlist redaction/XSS; disabled unavailable commands,backend;pwa,unit;browser,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-SIMULATOR,"Production host stack/API/query, same diagnostic codec",node;hub;backend;pwa;contract,simulation;integration,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-REGISTRY,Existing selected-stage marker/count/fingerprint/failure checks,tooling,meta,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,SOFTWARE_ONLY
+GS125-DIAG-PIR-PHYSICAL,Real optical edge original key authenticated RF to durable result,node;hub;contract,physical,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,PHYSICAL_REQUIRED
+GS125-DIAG-PRODUCT-PHYSICAL,Source matched target backend/engineering/caregiver observation,node;hub;backend;pwa;contract,physical,DRAFT_NOT_REGISTERED,BLOCKED_DESIGN_APPROVAL,PHYSICAL_REQUIRED

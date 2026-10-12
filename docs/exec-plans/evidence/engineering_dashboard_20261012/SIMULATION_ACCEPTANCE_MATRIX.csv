@@ -1,0 +1,30 @@
+proposed_case_id,scenario,trigger,positive_assertion,negative_assertion,production_execution,registration
+GS125-SIM-001,HEALTHY,Current authenticated contact plus no observed error,HEALTHY communication; unavailable sensor fields UNKNOWN,No total physical PASS,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-002,NODE-OFFLINE,Advance same-domain clock beyond trusted lease,OFFLINE at >lease; equality online,No-motion alone cannot expire health,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-003,NODE-RECOVERY,New authenticated contact after expiry,Online restored; event key unchanged,Unauthenticated/stale contact cannot refresh,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-004,WEAK-RF,Measured directional RSSI without approved weak threshold,Raw OBSERVED_RSSI; weakness inference explicit,No arbitrary WEAK_RADIO / packet loss %,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-005,LOST-ACK,Durable commit; Node ACK dropped; retry,Commit persists; retry same key; Node pending until ACK,MAC/Hub send cannot retire,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-006,DELAYED-ACK,Late verified application ACK of candidate,Exact pending key retires only per existing runtime,No unrelated key ACK/latency inference,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-007,RETRY,Existing retry ladder and stable original identity,Attempt observations attached to one key,No new caregiver event,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-008,DUPLICATE,Same-key same-payload replay after backend reopen,Duplicate COMMITTED and one persisted row,Conflicting payload raises 409,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-009,HUB-OFFLINE,Hub observation feed stale or actual link outage,Hub unavailable; Node state unknown where feed missing,Not all Nodes independently declared offline,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-010,HUB-RECOVERY,Recover production checkpoint with retained retry,One logical effect; new observer domain,Old clock not compared to new boot,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-011,BACKEND-OFFLINE,Network failure after local durable acceptance,Local durable stays PASS; backend stage FAIL/UNKNOWN by evidence,No fabricated backend completion,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-012,BACKEND-RECOVERY,Real durable API recovered and retry committed,Exact original key/query row appears once,No UI-only successful delivery,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-013,OUTBOX-BACKLOG,Same-domain queue samples increase then drain,Measured depth/age with provenance; zero after actual drain,No guessed storage capacity,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-014,NODE-REBOOT,New radio session replays retained old-origin key,Transport session differs; original EventKey preserved,Not a new event; counters reset baseline,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-015,REJOIN,Authenticated current session contact,"Contact fresh, retained identity stable",Old-session replay no health refresh,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-016,STORAGE-FAILURE,Real durable failure/replay-fence code,FAIL at observed stage; no ACK/COMMITTED,No root-cause errno invented,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-017,INSTALL-WRONG-NODE,Another physical/logical Node triggers,Armed expected step unchanged,No false PASS,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-018,INSTALL-TIMEOUT,Approved explicit deadline expires without candidate,TIMEOUT/FAIL non-pass,Retry does not discard prior evidence,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-019,INSTALL-INCOMPLETE,One required device untested,Overall PARTIAL; required NOT_TESTED,No overall PASS,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-020,INSTALL-MULTI,"Two required devices, candidate and commit for each",PASS only all required stages/devices,Duplicate from first cannot satisfy second,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-021,UNSUPPORTED,Missing mandatory diagnostic capability,UNSUPPORTED/UNKNOWN; step non-pass,No synthetic evidence,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-022,INSTALL-OLD-EVENT,Delayed old retained event arrives after arm,Reject as fresh stimulus without post-arm creation proof,No receive-time-only PASS,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-023,TIME-UNCERTAIN,Unsynchronized clocks/occurred_at=0,Original time retained unknown; conceptual ordering only,No subtraction across domains,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-024,GRANT-EXPIRES,Expiry/revoke while polling/installation,403 and clear state/end session,No retained secret/foreign household,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-025,CAREGIVER-DENIED,Generic caregiver/Owner read without diagnostic grant,403 before lookup and no data render,No unknown-permission-to-read fallback,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-026,CROSS-HOME,Valid grant for A requests B trace/device/session,403/no existence disclosure,No joined A/B keys,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-027,BOUNDARY,Fill count/byte window then exceed,Bounded storage + explicit dropped/gap counter,No product state eviction,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-028,INVALID,Wrong version/bool identity/extra field/invalid enum,Exact typed rejection,No rounding/silent acceptance,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED
+GS125-SIM-029,SAFE-CONTROLS,Restart/recommission/inject unsupported,Disabled with explanation; no network command,No HIL endpoint activation,BLOCKED_DESIGN_APPROVAL,DRAFT_NOT_REGISTERED

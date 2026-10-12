@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-12T18:53:07.155233+00:00",
+  "baseline_head": "77e29d44c57f0851f78358049c288323c985d2e7",
+  "worktree": "/home/udaybhan/projects/Ghar_sajag_r1_dashboard",
+  "working_directory": "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code",
+  "environment": {
+    "TMPDIR": "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/dashboard_review_tmp",
+    "target_hardware": "NOT_ACCESSED",
+    "profile": "base/O2/trace0; real host crypto; local SQLite; Chromium desktop/mobile"
+  },
+  "source_fingerprint_file": "PREPARATION_SOURCE_SHA256.csv",
+  "production_qualification": "BLOCKED_DESIGN_APPROVAL",
+  "physical_qualification": "NOT_RUN",
+  "full_release_gate": "NOT_RUN",
+  "executions": [
+    {
+      "command": "python3 tests/support/engineering_dashboard_review/prepare_host_event.py",
+      "exit_code": 0,
+      "counts": {
+        "scenario_groups": 8,
+        "checks": 325
+      },
+      "scope": "EXISTING_PRODUCTION_HOST_SIMULATION_WITH_OWNED_TMP_TEST_ADAPTER",
+      "status": "PASS",
+      "log": "production_host_fixture_owned_tmp_final.log",
+      "log_sha256": "ec6328aca1e65898f3c43ae3d85f76c8ba9bfab72875ff0e9746a15f1f7c35f5",
+      "evidence_log_mtime_utc": "2026-10-12T18:41:27.107936+00:00"
+    },
+    {
+      "command": "PYTHONPATH=backend:.:tests/support/engineering_dashboard_review python3 -m unittest discover -s tests/support/engineering_dashboard_review -p 'test_review_*.py' -v",
+      "exit_code": 0,
+      "counts": {
+        "tests": 45,
+        "draft_model": 37,
+        "actual_api": 8
+      },
+      "scope": "INACTIVE_DRAFT_MODEL_AND_REAL_LOCAL_API",
+      "status": "PASS",
+      "log": "review_tests_attempt03.log",
+      "log_sha256": "27b82e2d62f211e6b0a4cea64385a866d536b6495404c63d6fcce75a05b1eea0",
+      "evidence_log_mtime_utc": "2026-10-12T18:44:15.189893+00:00"
+    },
+    {
+      "command": "node tests/support/engineering_dashboard_review/review_browser.mjs",
+      "exit_code": 0,
+      "counts": {
+        "browser_checks": 20
+      },
+      "scope": "INACTIVE_REVIEW_ARTIFACT",
+      "status": "PASS",
+      "log": "review_browser_attempt02.log",
+      "log_sha256": "6988b130ecfe6395659b425728ad91253e3b00b27442566f851205a4e856e400",
+      "evidence_log_mtime_utc": "2026-10-12T18:44:56.585884+00:00"
+    },
+    {
+      "command": "make validation-framework-test gs130-hil-runner-test",
+      "exit_code": 0,
+      "counts": {
+        "framework_tests": 39,
+        "no_port_hil_tests": 17
+      },
+      "scope": "EXISTING_FRAMEWORK_AND_HARDWARE_FREE_RUNNER_READINESS",
+      "status": "PASS",
+      "log": "framework_hil_readiness.log",
+      "log_sha256": "6ff9a5338331dbde664958f449a760c0a5e1af6e30ce9d4a478ade19e7943b26",
+      "evidence_log_mtime_utc": "2026-10-12T18:37:48.663496+00:00"
+    },
+    {
+      "command": "make -j2 lab-build",
+      "exit_code": 0,
+      "counts": {
+        "builds": 1
+      },
+      "scope": "EXISTING_HOST_PREREQUISITE",
+      "status": "PASS",
+      "log": "lab_build_readiness.log",
+      "log_sha256": "8ef2e57ced9c6fcd02c187cb364f0fcbeadf18b14b1f4de7e31140c44dfd91f2",
+      "evidence_log_mtime_utc": "2026-10-12T18:44:11.933905+00:00"
+    },
+    {
+      "command": "PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_api tests.python.test_durable_event_commit tests.python.test_hub_ownership_registry tests.python.test_node_health_config -v",
+      "exit_code": 0,
+      "counts": {
+        "tests": 29
+      },
+      "scope": "FOCUSED_EXISTING_API_POLICY_READINESS",
+      "status": "PASS",
+      "log": "existing_api_policy_readiness_attempt02.log",
+      "log_sha256": "5ee732717d3e4795eb1d73e3e54a2bef40cfce95d18aa73b3ec5cb06c7afd3bf",
+      "evidence_log_mtime_utc": "2026-10-12T18:45:05.689885+00:00"
+    }
+  ],
+  "host_artifacts": {
+    "code/build/dashboard_review_host_event": "516b59bc91e2fb29c6d1955d00bf976b128cd6b8bc740e3101275b716e96b4f6",
+    "code/build/p0_product_event.json": "3285d733d7e7b944d3e49d38cdc43a169135040a3475f26b5aed294e1746bc43",
+    "code/build/p0_cloud_sync_request.json": "a9d33c2433fa22c44cc0a9349bded7b47b30b0400a12ba803347f0cdf4985c0a"
+  },
+  "existing_gs116_source_fingerprint": "b332266c0d3df6892d957d0f1043b1c4036dee0069cb0ca6731af4cc7b2d14a6",
+  "fingerprint_scope": "Existing source_fingerprint algorithm with explicit preparation source/review input extras; captured after final tests; no product gate PASS implied"
+}

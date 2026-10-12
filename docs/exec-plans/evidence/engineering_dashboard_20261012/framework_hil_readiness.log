@@ -1,0 +1,86 @@
+PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_component_gate.py' -v
+test_browser_and_tap_lowercase_skips_cannot_pass (test_component_gate.ComponentGateTest.test_browser_and_tap_lowercase_skips_cannot_pass) ... ok
+test_cached_host_objects_keep_generated_and_header_dependencies (test_component_gate.ComponentGateTest.test_cached_host_objects_keep_generated_and_header_dependencies) ... ok
+test_cancellation_reaps_owned_child_group (test_component_gate.ComponentGateTest.test_cancellation_reaps_owned_child_group) ... ok
+test_compiler_flags_have_distinct_cached_object_profiles (test_component_gate.ComponentGateTest.test_compiler_flags_have_distinct_cached_object_profiles) ... ok
+test_compound_stage_requires_every_execution_record (test_component_gate.ComponentGateTest.test_compound_stage_requires_every_execution_record) ... ok
+test_empty_report_fails_software_qualification (test_component_gate.ComponentGateTest.test_empty_report_fails_software_qualification) ... ok
+test_external_crypto_and_idf_guard_invalidate_receipts (test_component_gate.ComponentGateTest.test_external_crypto_and_idf_guard_invalidate_receipts) ... ok
+test_failure_propagates_even_with_pass_text (test_component_gate.ComponentGateTest.test_failure_propagates_even_with_pass_text) ... ok
+test_incomplete_nightly_never_reports_pass (test_component_gate.ComponentGateTest.test_incomplete_nightly_never_reports_pass) ... ok
+test_linker_guard_and_include_overrides_invalidate_receipts (test_component_gate.ComponentGateTest.test_linker_guard_and_include_overrides_invalidate_receipts) ... ok
+test_make_targets_delegate_to_registered_owner (test_component_gate.ComponentGateTest.test_make_targets_delegate_to_registered_owner) ... ok
+test_mandatory_skipped_or_manual_cannot_pass (test_component_gate.ComponentGateTest.test_mandatory_skipped_or_manual_cannot_pass) ... ok
+test_missing_skip_detail_fails (test_component_gate.ComponentGateTest.test_missing_skip_detail_fails) ... ok
+test_new_registered_component_test_automatically_joins_aggregates (test_component_gate.ComponentGateTest.test_new_registered_component_test_automatically_joins_aggregates) ... ok
+test_node_has_previous_safety_and_new_health_without_browser (test_component_gate.ComponentGateTest.test_node_has_previous_safety_and_new_health_without_browser) ... ok
+test_p0_e2e_registration_reaches_affected_components_and_release (test_component_gate.ComponentGateTest.test_p0_e2e_registration_reaches_affected_components_and_release) ... ok
+test_partial_board_case_selection_cannot_satisfy_complete_gate (test_component_gate.ComponentGateTest.test_partial_board_case_selection_cannot_satisfy_complete_gate) ... ok
+test_partial_p0_product_cannot_be_adjudicated_as_complete (test_component_gate.ComponentGateTest.test_partial_p0_product_cannot_be_adjudicated_as_complete) ... ok
+test_partition_csv_invalidates_source_receipts (test_component_gate.ComponentGateTest.test_partition_csv_invalidates_source_receipts) ... ok
+test_physical_hil_is_registered_opt_in_and_not_in_software_suites (test_component_gate.ComponentGateTest.test_physical_hil_is_registered_opt_in_and_not_in_software_suites) ... ok
+test_physical_not_run_never_means_qualified (test_component_gate.ComponentGateTest.test_physical_not_run_never_means_qualified) ... ok
+test_positive_execution_count_passes (test_component_gate.ComponentGateTest.test_positive_execution_count_passes) ... ok
+test_profile_initialization_works_without_pythonpath (test_component_gate.ComponentGateTest.test_profile_initialization_works_without_pythonpath) ... ok
+test_registry_rejects_missing_input_and_unregistered_harness (test_component_gate.ComponentGateTest.test_registry_rejects_missing_input_and_unregistered_harness) ... ok
+test_release_dominates_fast_and_all_components (test_component_gate.ComponentGateTest.test_release_dominates_fast_and_all_components) ... ok
+test_required_dependency_absence (test_component_gate.ComponentGateTest.test_required_dependency_absence) ... ok
+test_reuse_requires_current_source_logs_and_binary_hashes (test_component_gate.ComponentGateTest.test_reuse_requires_current_source_logs_and_binary_hashes) ... ok
+test_sanitizer_diagnostic_fails_even_with_zero_exit (test_component_gate.ComponentGateTest.test_sanitizer_diagnostic_fails_even_with_zero_exit) ... ok
+test_simulator_links_production_replay_fence_implementation (test_component_gate.ComponentGateTest.test_simulator_links_production_replay_fence_implementation) ... ok
+test_source_content_invalidates_cache_even_with_preserved_mtime (test_component_gate.ComponentGateTest.test_source_content_invalidates_cache_even_with_preserved_mtime) ... ok
+test_source_mutation_rejects_stale_fingerprint (test_component_gate.ComponentGateTest.test_source_mutation_rejects_stale_fingerprint) ... ok
+test_special_fake_idf_include_recipe_is_not_shared_cached (test_component_gate.ComponentGateTest.test_special_fake_idf_include_recipe_is_not_shared_cached) ... ok
+test_specific_approved_historical_skip_is_visible (test_component_gate.ComponentGateTest.test_specific_approved_historical_skip_is_visible) ... ok
+test_timeout_fails_and_retains_partial_output (test_component_gate.ComponentGateTest.test_timeout_fails_and_retains_partial_output) ... ok
+test_timeout_terminates_child_process_group (test_component_gate.ComponentGateTest.test_timeout_terminates_child_process_group) ... ok
+test_unexpected_python_skip_fails (test_component_gate.ComponentGateTest.test_unexpected_python_skip_fails) ... ok
+test_unknown_component_and_duplicate_registration_fail (test_component_gate.ComponentGateTest.test_unknown_component_and_duplicate_registration_fail) ... ok
+test_zero_selection_fails (test_component_gate.ComponentGateTest.test_zero_selection_fails) ... ok
+test_zero_tests_and_missing_records_fail (test_component_gate.ComponentGateTest.test_zero_tests_and_missing_records_fail) ... ok
+
+----------------------------------------------------------------------
+Ran 39 tests in 10.793s
+
+OK
+PYTHONPATH=tools/hil python3 -m unittest discover -s tools/hil -p test_gs130_runners.py -v
+test_default_board_command_never_opens_uart (test_gs130_runners.GS130RunnerTests.test_default_board_command_never_opens_uart) ... ok
+test_default_motion_command_never_requests_stimulus_or_opens_uart (test_gs130_runners.GS130RunnerTests.test_default_motion_command_never_requests_stimulus_or_opens_uart) ... ok
+test_evidence_directory_refuses_to_overwrite_existing_campaign (test_gs130_runners.GS130RunnerTests.test_evidence_directory_refuses_to_overwrite_existing_campaign) ... ok
+test_fixture_ports_must_match_exact_stable_identity_and_images (test_gs130_runners.GS130RunnerTests.test_fixture_ports_must_match_exact_stable_identity_and_images) ... ok
+test_genuine_gpio4_event_ack_markers_required (test_gs130_runners.GS130RunnerTests.test_genuine_gpio4_event_ack_markers_required) ... ok
+test_hil_a05_requires_same_key_authenticated_ack_and_retirement (test_gs130_runners.GS130RunnerTests.test_hil_a05_requires_same_key_authenticated_ack_and_retirement) ... ok
+test_hil_a06_does_not_treat_normal_poweron_reason_as_failure (test_gs130_runners.GS130RunnerTests.test_hil_a06_does_not_treat_normal_poweron_reason_as_failure) ... ok
+test_hil_a06_fails_on_usb_uart_chip_reset_and_hub_admission_error (test_gs130_runners.GS130RunnerTests.test_hil_a06_fails_on_usb_uart_chip_reset_and_hub_admission_error) ... ok
+test_link_needs_both_sides_and_runtime_stability_is_bounded_partial (test_gs130_runners.GS130RunnerTests.test_link_needs_both_sides_and_runtime_stability_is_bounded_partial) ... ok
+test_motion_failure_is_not_hidden_by_partial_or_abort (test_gs130_runners.GS130RunnerTests.test_motion_failure_is_not_hidden_by_partial_or_abort) ... ok
+test_motion_runner_wrong_confirmation_never_opens_uart (test_gs130_runners.GS130RunnerTests.test_motion_runner_wrong_confirmation_never_opens_uart) ... ok
+test_observational_gaps_never_become_pass (test_gs130_runners.GS130RunnerTests.test_observational_gaps_never_become_pass) ... ok
+test_only_complete_physical_pass_has_zero_exit (test_gs130_runners.GS130RunnerTests.test_only_complete_physical_pass_has_zero_exit) ... ok
+test_preflight_requires_exact_read_only_usb_serial_identity (test_gs130_runners.GS130RunnerTests.test_preflight_requires_exact_read_only_usb_serial_identity) ... ok
+test_runner_cases_resolve_to_permanent_physical_catalogue (test_gs130_runners.GS130RunnerTests.test_runner_cases_resolve_to_permanent_physical_catalogue) ... ok
+test_sensitive_uart_fields_are_redacted (test_gs130_runners.GS130RunnerTests.test_sensitive_uart_fields_are_redacted) ... ok
+test_wrong_operator_confirmation_is_rejected (test_gs130_runners.GS130RunnerTests.test_wrong_operator_confirmation_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.041s
+
+OK
+AUTOMATED BOARD HIL NOT_RUN: no UART was opened; explicit user fixture approval is required.
+Approved fixture identifier: GS114-DISPOSABLE-C3-S3; required runtime phrase: OBSERVE GS114-DISPOSABLE-C3-S3
+AUTOMATED BOARD HIL RESULT NOT_RUN cases=8 evidence=/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/dashboard_review_tmp/tmps8oy83z4/board
+MANUAL-ASSISTED MOTION HIL NOT_RUN: no port opened and no physical stimulus requested.
+C8-P2 NOT_RUN: Wait for BAT_SLEEP_ENTER. Move once through the installed AM312 field of view. Do not use INJECT_MOTION.
+C8-P3 NOT_RUN: After the first event, allow the AM312 output to return LOW; then create one real sustained HIGH episode and allow it to clear.
+C8-P4 NOT_RUN: After sleep eligibility is restored, create one real AM312 motion while the Node is asleep and capture wake, restore, EventKey and durable ACK.
+MANUAL-ASSISTED MOTION HIL RESULT NOT_RUN cases=3 evidence=/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/dashboard_review_tmp/tmp_u295jhm/motion
+BLOCKED: c3: stable fixture interface is unavailable
+BLOCKED: c3: matching image artifact was not supplied
+BLOCKED: s3: stable fixture interface is unavailable
+BLOCKED: s3: matching image artifact was not supplied
+MANUAL-ASSISTED MOTION HIL RESULT BLOCKED cases=3 evidence=/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/dashboard_review_tmp/tmpvie1z1v8/motion
+BLOCKED: c3: stable fixture interface is unavailable
+BLOCKED: c3: matching image artifact was not supplied
+BLOCKED: s3: stable fixture interface is unavailable
+BLOCKED: s3: matching image artifact was not supplied
+AUTOMATED BOARD HIL RESULT BLOCKED cases=8 evidence=/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/build/dashboard_review_tmp/tmptz_imo60/board

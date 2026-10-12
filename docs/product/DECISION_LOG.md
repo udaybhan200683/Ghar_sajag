@@ -514,3 +514,16 @@ S3 fixture failure remains unlocalized without a separately authorized,
 state-preserving observation/deployment plan. This is an evidence update, not a
 new product/storage decision; context version remains `2026-10-11.001`. See
 [`GS-148 diagnostic evidence`](../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md).
+
+## GS-122 dashboard proposal checkpoint — 2026-10-12 (no new locked decision)
+
+The campaign's explicit isolated-worktree exception permits proposed design and
+inactive preparation on `feature/gs124-125-engineering-dashboard`; it does not
+accept GS-120 or authorize new product/security/storage/device-control contracts.
+The completed [GS-120 architecture](../architecture/GS120_ENGINEERING_DASHBOARD_ARCHITECTURE.md)
+and [decision/blocker register](../exec-plans/evidence/engineering_dashboard_20261012/OPEN_DECISIONS_AND_BLOCKERS.md)
+remain proposed. GS-124 production is BLOCKED_DESIGN_APPROVAL. Technician grants,
+diagnostic privacy/retention, installation acceptance and target export require
+their respective explicit decisions. No GS-D identifier or context-version
+increment is appropriate: no new LOCKED requirement was approved. Canonical
+GS-148 source is untouched; this status entry exists only on the isolated branch.
