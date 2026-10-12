@@ -108,9 +108,19 @@ def status_from_logs(case_id, c3_text, s3_text):
                       for line in c3_text.splitlines())
         return ("PASS", "Same EventKey is present on authenticated Durable ACK and Node retirement evidence.") if ack and retired else ("NOT_RUN", "No correlated EventKey→authenticated Durable ACK→retirement transaction was observed.")
     if case_id == "HIL-A06":
-        bad = re.search(r"unexpected reset|panic|abort|fatal error", all_text, re.I)
+        # These markers are explicit stability failures even when the capture
+        # otherwise contains valid boot/session output. In particular, native
+        # C3 USB Serial/JTAG attachment can itself cause USB_UART_CHIP_RESET,
+        # so the observer must surface that event for operator disposition.
+        bad = re.search(
+            r"USB_UART_CHIP_RESET|panic|abort|fatal error|"
+            r"S3 replay-fence (?:publication|recovery) failed|"
+            r"admission closed",
+            all_text,
+            re.I,
+        )
         if bad:
-            return "FAIL", "Unexpected reset or fatal runtime marker observed."
+            return "FAIL", f"Reset or safety-critical runtime marker observed: {bad.group(0)}."
         if c3_text.strip() and s3_text.strip():
             return "PARTIAL", "No fatal marker appeared, but this capture cannot establish reset-counter continuity, heap/resource trend or queue/in-flight stability."
         return "NOT_RUN", "Both serial observations must contain runtime output."

@@ -1,5 +1,36 @@
 # R1 Current Work State
 
+## GS-114 Part 2B — software-only root-cause investigation — 2026-10-12
+
+Investigation source HEAD was `7c1fee29e17fc3fe12c840e0afef5fa6b7217b68`;
+canonical local and origin refs matched before the tooling/documentation
+checkpoint. No board, USB or serial interface was accessed. The saved C3
+`USB_UART_CHIP_RESET` is most likely associated with opening its native USB
+Serial/JTAG console: pySerial 3.5 applies DTR/RTS after `os.open()`, and prior
+fixture notes document monitor-attachment resets. Exact causation/timing is
+not proven by the captured logs. The HIL-A06 classifier was corrected and its
+registered host test now fails on this marker.
+
+The S3 replay-fence error occurs while handling an authenticated Node
+retirement report after rejoin/epoch advertisement. It means the selected
+retirement snapshot could not be published/bound to an exact LittleFS fence;
+admission correctly fails closed and the report ACK is not sent on this error
+path. The saved log has no lower-level return code, so whether the failed step
+was report/checkpoint loading, outbox validation/write/readback, or runtime
+binding remains unresolved. A C3 reset/rejoin may have triggered the report,
+but the report fragments are not directly observed. This is not the separate
+historical GS-148 journal-migration assertion failure.
+
+Host-only `make gs130-hil-runner-test` passed 17 tests, `make
+validation-framework-test` passed 39 registration/failure-propagation tests,
+and `make hub-runtime-checkpoint-host-test` passed its synthetic publication-
+cut, recovery and mismatch checks. These tests do not reproduce the fixture's
+persistent state. Production security/storage semantics and device data were
+not changed. The physical retest is **NO-GO** until the S3
+failure is localized without clearing storage and the capture path is
+independently assessed for reset risk. Details and exact future gates are in
+[GS-114 Part 2B evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2B_ROOT_CAUSE_20261012.md).
+
 ## GS-114 Part 2 — observer stopped on reset and Hub admission error — 2026-10-12
 
 At canonical source `09bc8cd8b7baab0674bbe03157b7b50bab28e51e`, read-only

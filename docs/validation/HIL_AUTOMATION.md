@@ -1,5 +1,25 @@
 # Hub + ESP32-C3 unattended HIL automation — Phase 1
 
+## GS-114 Part 2B diagnostic correction — 2026-10-12
+
+The saved receive-only attempt reported C3 `USB_UART_CHIP_RESET` and S3
+`S3 replay-fence publication failed; admission closed`. The original HIL-A06
+log classifier missed both and emitted PARTIAL; the operator's abort/FAIL
+disposition remains controlling. The classifier now makes either explicit
+reset/admission error a FAIL while ordinary POWERON boot text remains PARTIAL.
+Regression coverage is in `tools/hil/test_gs130_runners.py` and is run by
+`make gs130-hil-runner-test` (registered in the GS-116 tooling suite).
+
+This is a host-side classification correction only. It does not make the C3
+USB Serial/JTAG observer non-resetting. pySerial applies DTR/RTS after opening
+the POSIX device, and historical C3 fixture evidence records USB-UART resets on
+monitor attachment. Do not infer that another DTR/RTS-low serial open is safe.
+The S3 error is in the authenticated retirement-report/replay-fence path; see
+the [Part 2B root-cause record](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2B_ROOT_CAUSE_20261012.md).
+No physical retest is approved by this diagnostic update; HIL remains blocked
+until the saved-state failure is localized and an observation path is
+independently assessed.
+
 ## Canonical R1 status update — 2026-10-11
 
 This document preserves HW-M1.4/classic-ESP32 runner provenance. At canonical

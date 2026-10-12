@@ -120,6 +120,23 @@ class GS130RunnerTests(unittest.TestCase):
         self.assertEqual(common.status_from_logs("HIL-A02", "authenticated session", "authenticated Node")[0], "PASS")
         self.assertEqual(common.status_from_logs("HIL-A06", "boot log", "running log")[0], "PARTIAL")
 
+    def test_hil_a06_fails_on_usb_uart_chip_reset_and_hub_admission_error(self):
+        c3_reset = "rst:0x15 (USB_UART_CHIP_RESET),boot:0xd (SPI_FAST_FLASH_BOOT)"
+        status, detail = common.status_from_logs("HIL-A06", c3_reset, "authenticated Node liveness")
+        self.assertEqual(status, "FAIL")
+        self.assertIn("USB_UART_CHIP_RESET", detail)
+
+        replay_failure = "S3 replay-fence publication failed; admission closed"
+        status, detail = common.status_from_logs("HIL-A06", "authenticated session", replay_failure)
+        self.assertEqual(status, "FAIL")
+        self.assertIn("replay-fence publication failed", detail)
+
+    def test_hil_a06_does_not_treat_normal_poweron_reason_as_failure(self):
+        status, _ = common.status_from_logs(
+            "HIL-A06", "rst:0x1 (POWERON),boot:0xd", "Hub runtime online"
+        )
+        self.assertEqual(status, "PARTIAL")
+
     def test_hil_a05_requires_same_key_authenticated_ack_and_retirement(self):
         unrelated_c3 = "EventKey=room:10:1\nMAC send success\nEventKey=room:10:1 pending=0"
         unrelated_s3 = "Authenticated Durable ACK EventKey=room:10:2"
