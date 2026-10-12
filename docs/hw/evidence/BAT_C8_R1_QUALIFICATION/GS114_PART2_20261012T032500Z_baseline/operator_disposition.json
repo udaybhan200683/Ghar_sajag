@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "campaign": "GS-114 Part 2 receive-only baseline",
+  "fixture_id": "GS114-DISPOSABLE-C3-S3",
+  "source_head": "09bc8cd8b7baab0674bbe03157b7b50bab28e51e",
+  "start_utc": "2026-10-12T03:24:46.921554+00:00",
+  "end_utc": "2026-10-12T03:25:47.126059+00:00",
+  "ports": {
+    "c3": "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+    "s3": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00"
+  },
+  "operator_confirmed_motion": false,
+  "hardware_actions": ["authorized UART open/read only; no serial bytes sent"],
+  "overall": "ABORTED_UNEXPECTED_RESET_AND_HUB_ADMISSION_ERROR",
+  "dispositions": {
+    "C8-P1": "NOT_RUN",
+    "C8-P2": "BLOCKED",
+    "C8-P3": "BLOCKED",
+    "C8-P4": "BLOCKED",
+    "C8-P5": "BLOCKED",
+    "C8-P6": "BLOCKED",
+    "C8-P7": "BLOCKED",
+    "C8-P8": "BLOCKED",
+    "C8-P9": "BLOCKED",
+    "C8-P10": "NOT_APPLICABLE_GS-149"
+  },
+  "observed_stop_conditions": [
+    "C3 UART log begins with rst:0x15 (USB_UART_CHIP_RESET); reset occurred during the authorized observation window. Cause is consistent with UART open/reset-line interaction, but causation is not proven.",
+    "S3 log reports 'S3 replay-fence publication failed; admission closed'; Hub event admission was explicitly closed."
+  ],
+  "pass_claims": [],
+  "generated_observer_report": "board_hil_results.json",
+  "redacted_logs": {
+    "c3": "c3_serial_redacted.log",
+    "s3": "s3_serial_redacted.log"
+  },
+  "limitations": [
+    "Running application versions/target profiles are visible in boot output, but the firmware app SHA is abbreviated and flash readback is unavailable; installed image hashes are not proven.",
+    "Hub authenticated rejoin and online liveness markers were observed, but no event Durable ACK or Node retirement transaction occurred.",
+    "The observer's automated HIL-A06 result was PARTIAL; manual evidence review overrides it because the log contains the explicit USB_UART_CHIP_RESET reason and replay-fence admission error.",
+    "No real PIR movement was requested or performed. No recovery or additional UART interaction was attempted after the stop condition."
+  ]
+}

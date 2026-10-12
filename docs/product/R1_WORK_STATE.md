@@ -1,5 +1,36 @@
 # R1 Current Work State
 
+## GS-114 Part 2 — observer stopped on reset and Hub admission error — 2026-10-12
+
+At canonical source `09bc8cd8b7baab0674bbe03157b7b50bab28e51e`, read-only
+USB/sysfs/udevadm preflight found the approved C3 USB identity on
+`/dev/ttyACM0` and the approved S3 USB-UART identity on `/dev/ttyACM1`; neither
+port was already open. The user authorized opening only their two stable by-id
+interfaces for DTR/RTS-low receive-only capture. The existing observer verified
+the by-id serials and Part 1 candidate artifact hashes, then captured 60 seconds
+without sending serial bytes.
+
+The capture reported C3 boot reason `USB_UART_CHIP_RESET` during the observation
+window. The cause is consistent with opening the UART but cannot be proven. S3
+reported `S3 replay-fence publication failed; admission closed`. Per operator
+instruction, the physical campaign stopped immediately; no recovery or further
+device access occurred and no real PIR movement was requested. Logs are retained
+at [GS-114 Part 2 stopped baseline](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2_20261012T032500Z_baseline/STOP_REPORT.md).
+
+Boot banners show the fixture's expected C3/S3 MACs, chip revisions, flash/PSRAM
+profiles, ESP-IDF 6.0.3, and app version `73e1e842ff84-gs114-16fca85b`; installed
+image hashes are not proven. Authenticated rejoin and online liveness appeared,
+but no EventKey-to-durable-commit-to-application-ACK-to-retirement chain was
+observed. The observer's aggregate `PARTIAL` is overridden by the explicit
+stop-condition evidence; HIL-A06 is FAIL. GS-114 P1 is NOT_RUN, P2–P4 BLOCKED,
+P5–P9 remain BLOCKED/NOT_RUN as detailed in the stop report, and P10 belongs to
+GS-149. No PIR physical PASS is claimed. GS-114 remains In Progress.
+
+Next action requires a verified non-resetting receive path and resolution of
+the S3 replay-fence admission failure; do not reopen the ports, reset, reflash,
+or modify stored state without a new explicit authorization. Isolated GS-152
+and protected original boards were not accessed.
+
 ## GS-114 Part 2 physical preflight — 2026-10-11
 
 Preflight at source checkpoint `02d7a12bd0f523a3acf7b80bfc06ac996fd14c76`
