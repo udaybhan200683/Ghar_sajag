@@ -1,7 +1,8 @@
 # GS-152 Stable Repository Layout
 
-**Status:** isolated GS-152 implementation branch; integration review required.
+**Status:** integrated into canonical R1; source restructuring and clean-checkout acceptance complete.
 **Baseline:** `09bc8cd8b7baab0674bbe03157b7b50bab28e51e`.
+**Canonical integration:** fast-forwarded through GS-152 `d802485ee04227b6e1ca16810768e01f0da94009` after preserving newer canonical GS-114 commits.
 
 ## Why the layout changed
 
@@ -67,11 +68,19 @@ post-migration validation evidence and must not be reused as build proof.
 
 ## Migration and recovery
 
-Moves were performed within the isolated GS-152 worktree and are recorded as
-renames where Git can identify them. The move map lets reviewers verify the
-original bytes. If a path relocation must be undone before integration, use a
-reviewed revert of the GS-152 commit on its isolated branch; do not synchronize,
-reset or rewrite the canonical R1 worktree.
+Moves were performed in the isolated GS-152 worktree, reviewed against the
+499-entry source map, then integrated by a history-preserving merge of the
+latest canonical R1 branch followed by a canonical fast-forward. The move map
+lets reviewers verify original bytes. The merge retained newer GS-114
+fixture-compatible S3 diagnostics, commissioning configuration, RPF00–RPF08,
+and candidate partition profiles. It did not change storage format, security,
+protocol or firmware behavior.
+
+The integration commit and clean-checkout validation evidence are recorded in
+[`GS152_RESTRUCTURE_BASELINE_20261011.md`](../exec-plans/evidence/GS152_RESTRUCTURE_BASELINE_20261011.md).
+GS-152 made no hardware or release qualification claim. The historical Hub
+journal migration assertion and P0 `product_status=PARTIAL` remain visible as
+independent acceptance gaps.
 
 ## Retained boundaries
 

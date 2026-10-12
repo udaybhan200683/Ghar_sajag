@@ -172,3 +172,112 @@ independent failures, not GS-152 regressions. Source/module layout and build
 adaptation are complete on the isolated GS-152 branch; canonical R1 remains
 untouched. The branch is ready for integration review only. Product release and
 physical qualification remain unapproved / not run.
+
+## GS-152 approved final integration — 2026-10-12
+
+### Source and history
+
+The user-approved integration authorization is GS-152 Jira comment 10527.
+Before integration, canonical `feature/r1-commercial-baseline` was at
+`9272cc7efe171f6fc5f6ceb7fac4ad1c4924fd33`; the isolated GS-152 branch was at
+`79bc28dd9e623657cf9e43e37596fd281d3aab4a`. The GitHub `origin` was
+`https://github.com/udaybhan200683/Ghar_sajag.git`, and the live remote refs
+matched both local checkpoints. The canonical tracked worktree was clean.
+Untracked S3 `managed_components/` and protected GS-114 evidence were retained.
+
+The GS-152 branch merged canonical history using `--no-ff` (no rebase, reset or
+force push): merge commit
+`0ab12c38b8115c211b66b203289d77f8a835ec00`. Three registration conflicts were
+resolved: `code/validation/suites.json`,
+`docs/validation/MASTER_TRACEABILITY.csv` and
+`docs/validation/SOURCE_FEATURE_INVENTORY.csv`. Resolution retained the stable
+`code/` ownership paths and all newer canonical GS-114 registrations. The
+merged GS-114 work retains fixture-compatible S3 diagnostics, commissioning
+configuration, RPF00–RPF08, and the candidate `gs_outbox` / `gs_state` partition
+profile. No storage format, security, protocol or firmware behavior change was
+introduced. The isolated branch then added two validation/build-infrastructure
+commits: `fc9f0a71d9a071abbf4553ad4c606fec98f16089` and
+`d802485ee04227b6e1ca16810768e01f0da94009`.
+
+The 499-entry source map still has 499 unique destinations, 0 missing files and
+0 baseline hash mismatches. There are 368 byte-identical destinations, the 125
+original path/build/documentation adaptations, and six destinations changed by
+the newer canonical GS-114 work. The production source inventory has 204 unique
+modules, no missing or duplicate module. All 73 registered stage input lists
+resolve under the stable code root; the feature traceability check reports 151
+features, 204 modules, 14 physical cases and 19 checks. This is 499-file
+relocation plus newer canonical changes, not a claim that every post-merge file
+is byte-identical to the 2026-10-11 baseline.
+
+### Clean-checkout validation
+
+A detached fresh source checkout at the integrated branch tip was used for
+verification. `tools/context/ghar_sajag_context_preflight.sh` reported PASS at
+`0ab12c3` with context `2026-10-11.001`. Its later test/build commands ran on
+the same clean checkout advanced to `d802485`; only ignored build/evidence
+outputs and lockfile-installed frontend dependencies were generated. No
+untracked managed-components directory was deleted.
+
+| Validation | Result |
+|---|---|
+| Original 499-file mapping and source inventory | PASS; 499/499 hashes, 499/499 destinations; 204 unique production modules |
+| Validation input resolution | PASS; 73 stages, no missing or duplicate inputs |
+| `make validation-framework-test` | PASS, 39 tests |
+| `make feature-coverage-test` | PASS, 19 checks; 151 features / 204 modules / 14 physical cases |
+| `make -C code s3-fixture-commissioning-test` | PASS, 10 tests; registered in Node, Hub and contract suites |
+| `python3 code/scripts/build_validation_targets.py` | PASS on merge checkpoint; ESP-IDF 6.0.3 paired C3 934,192-byte and S3 1,870,896-byte production-profile builds |
+| `make gs114-s3-rpf-diagnostic-build` | PASS on `d802485` before a later redundant rebuild hit temporary-filesystem exhaustion; C3 939,024 bytes (SHA-256 `8ba895f6fe45483463d3e80efafcc069218d576b2ae72b65a9682b5dad4126a3`), S3 1,879,280 bytes (SHA-256 `0edbc1540a60243320d4671f8f1f19528fea50e83585e500ed3b583f86dca736`); fixture commissioning ON, broad HIL OFF, RPF00–RPF08 present, C3 guard verified, compiled partition table matches CSV |
+| Focused Node/Hub/contract/backend/PWA stage regressions | Individual regression stages PASS as listed below; aggregate gates retain required failures |
+| `make validation-board-e2e` | PASS, 8 groups; physical NOT_RUN |
+| `make -C code validation-sanitize` | PASS, ASan/UBSan; C++ 1,479 checks and GS-40 1,320 checks |
+| `make p0-product-e2e` | Scenario execution PASS, 26/26 scenarios and one Chromium test; product status PARTIAL |
+
+The Node gate passed its registered stage checks for GS-114 fixture commissioning
+(10), host build, board stack (8), feature boundaries (111), factory reset,
+signed FOTA tooling (16), C++ (1,479), BAT-C8 (72), GS-150 (1,481), GS-40
+(1,320), commissioning, rejoin, association, Node recovery/persistence/
+retirement, secure FOTA, FOTA (34), master (49), health configuration (15),
+product base and product AI. Its aggregate remains FAIL solely because the P0
+stage correctly reports `product_status=PARTIAL`.
+
+The Hub gate's registered checkpoint, retirement, replay-fence, registry,
+durable codec/provider, fresh-install, rejoin, CloudSync contract, HTTPS, health
+configuration and other listed Hub stages passed. Its required
+`hub-journal-migration-host-test` still fails at
+`tests/cpp/hub_journal_migration_validation.cpp:194`, assertion `clean migration
+commits`, unchanged from the pre-integration baseline. The Hub aggregate also
+retains the P0 `PARTIAL` failure. Contract, backend and PWA suites ran their
+registered stages: backend Python 448 tests, JavaScript 23 tests, functional 92,
+dummy-streams 5, HTTP 17, bridge 13, API 2 and frontend 2 all passed; aggregate
+gate status remains FAIL due to P0 `PARTIAL`. Each P0 invocation executed all
+26 scenario checks and the Chromium caregiver reload case successfully, while
+the product completeness requirement remains open. This status is not upgraded
+to PASS.
+
+Initial clean-checkout issues were corrected in the two test-infrastructure
+commits: the paired C3 asset is now exported before ESP-IDF component discovery;
+the NodeHealth gate builds its interactive simulator; GS-114 test-count parsing
+matches unittest output; and the root Makefile exposes the documented GS-114
+targets. The final redundant diagnostic rebuild attempt failed because `/tmp`
+was full (no space left on device); verified outputs from the earlier successful
+build were preserved. No cleanup/deletion was performed. This late resource
+limit did not invalidate the successful paired target build or the successful
+fixture diagnostic build at the final code commit.
+
+### Integration and delivery evidence
+
+The integrated branch contains all eight canonical GS-114 commits that were
+newer than the original GS-152 base. It contains no GS-144 forward-port. The
+existing common-baseline GS-148 files were not modified by this integration.
+No hardware, USB/serial, flash, erase, reset or storage operation ran. No full
+release gate ran; release approval and physical qualification remain NOT_RUN.
+
+The canonical branch was subsequently fast-forwarded from
+`9272cc7efe171f6fc5f6ceb7fac4ad1c4924fd33` to the final GS-152 tip after the
+isolated branch passed its source integrity, fresh-checkout and focused
+validation checks. Local and GitHub remote refs were verified to match after
+the push. The exact final commit and Jira closure evidence are recorded in the
+GS-152 delivery comment. GS-114, GS-144 and GS-148 Jira statuses were not
+changed. GS-152 is closed only for repository-layout restructuring; this does
+not claim product release readiness, P0 product acceptance, Hub journal
+migration repair, or physical qualification.

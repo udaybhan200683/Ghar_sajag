@@ -1401,42 +1401,48 @@ and [GS-152 baseline evidence](../exec-plans/evidence/GS152_RESTRUCTURE_BASELINE
 The 499-entry source move map records pre-move SHA-256 for tracked files.
 
 Before/after results and baseline failures are recorded in the evidence document.
-Baseline `validation-node`, `validation-hub` and `validation-contract` exited 2
-before relocation due to four existing NodeHealth-config simulator setup errors
-and a missing Playwright dependency; Hub also retained the known
-`hub-journal-migration-host-test` assertion failure. The migration test remains
-mandatory and must not be suppressed. Post-migration verification is in progress;
-this isolated branch is not canonical delivery or release qualification.
+At the 2026-10-11 implementation checkpoint, baseline `validation-node`,
+`validation-hub` and `validation-contract` exited 2 before relocation due to four
+existing NodeHealth-config simulator setup errors and a missing Playwright
+dependency; Hub also retained the known `hub-journal-migration-host-test`
+assertion failure. The migration test remains mandatory and must not be
+suppressed. Final post-migration and integration outcomes follow below.
 
-### GS-152 resumption checkpoint — 2026-10-12
+### GS-152 final integration checkpoint — 2026-10-12
 
-Post-migration verification is complete on the isolated worktree. The 499-entry
-move map has 499/499 baseline hashes verified, 499/499 destinations present,
-374 byte-identical files and 125 path/build/documentation adaptations. The
+The 499-entry move map has 499/499 baseline hashes verified and 499/499
+destinations present. It records the original 125 path/build/documentation
+adaptations; 6 additional destinations include newer canonical GS-114 changes,
+for 368 byte-identical destinations in the integrated source. The
 active version-named source wrapper is absent. The archived release manifest
 matches its baseline SHA-256 exactly; the prior `UNCHANGED=0` diagnostic was
 consistent with the successful `git diff --quiet` return code and did not
 indicate an edit.
 
-The corrected `python3 scripts/build_validation_targets.py` workflow passed
-end-to-end under ESP-IDF 6.0.3 with `GS_HIL_BUILD=OFF`, building and packaging
-the C3 and S3 images from one source fingerprint. The separate report and image
-hashes are in [GS-152 migration evidence](../exec-plans/evidence/GS152_RESTRUCTURE_BASELINE_20261011.md).
-`make validation-sanitize` passed the C++ 1,479-check and GS-40 1,320-check
-ASan/UBSan runs. Host, app, configuration, traceability, board-stack, HIL
-tooling and framework checks passed as itemized there.
+History-preserving merge commit `0ab12c38b8115c211b66b203289d77f8a835ec00`
+incorporated canonical GS-114 through `9272cc7efe171f6fc5f6ceb7fac4ad1c4924fd33`.
+The branch then added clean-checkout GS-114 build-discovery and validation
+runner fixes, ending at `d802485ee04227b6e1ca16810768e01f0da94009`. Canonical
+integration used a fast-forward; exact GitHub and test evidence is in the linked
+[GS-152 integration record](../exec-plans/evidence/GS152_RESTRUCTURE_BASELINE_20261011.md).
 
-The Node/Hub/contract/backend/PWA aggregate reports retain their correct FAIL
-status because the production P0 product outcome is still `PARTIAL`; Hub also
-retains the pre-existing GS-148 `clean migration commits` assertion failure.
-No GS-152 regression was found. Release gate execution and physical HIL remain
-NOT_RUN. No serial port or device was accessed. The canonical GS-114 worktree
-and its fixture data remain unchanged; the pre-existing untracked S3
-`managed_components/` and redacted evidence are preserved.
+The clean-checkout C3/S3 target pair and GS-114 S3 RPF diagnostic build passed
+under ESP-IDF 6.0.3; the diagnostic selected the fixture commissioning profile,
+validated RPF00–RPF08 and matched the candidate partition CSV to the compiled
+table. A later redundant rebuild attempt could not start to completion because
+the temporary filesystem filled after the earlier verified artifacts had been
+produced. No artifacts were deleted. Focused Node, Hub, backend, PWA and
+contract regressions ran; ASan/UBSan passed C++ 1,479 and GS-40 1,320 checks,
+and board-stack E2E passed all 8 groups.
 
-Source layout, reference migration and validation evidence are ready for
-integration review only. This GS-152 worktree remains separate from canonical
-R1; its final commit, isolated-branch push and exact remote HEAD are recorded
-in the GS-152 Jira delivery comment after Git verification. GS-114 hardware
-qualification remains untouched and must resume only when its operator
-availability and fixture requirements are satisfied.
+The aggregate Node/Hub/contract/backend/PWA gates correctly retain FAIL because
+P0 reports `product_status=PARTIAL`; all 26 P0 scenario checks and its Chromium
+case pass. Hub also retains the pre-existing `clean migration commits`
+assertion failure. Both failures remain mandatory and visible, and were present
+before this restructuring. No new regression was found. Release qualification
+and physical HIL remain NOT_RUN. No serial port or device was accessed.
+
+Canonical source integration is complete. GS-114 hardware qualification was
+not changed, and the pre-existing untracked S3 `managed_components/` and
+redacted physical evidence were preserved. GS-144 and GS-148 work/statuses were
+not changed by GS-152.

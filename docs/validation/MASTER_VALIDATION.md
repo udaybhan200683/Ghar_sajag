@@ -761,7 +761,7 @@ executed by the focused GS-130 continuation.
 
 make gs114-s3-rpf-diagnostic-build
 is an explicit build-only target. It uses the existing S3 fixture commissioning
-test stage, whose nine tests are registered for Node, Hub and contract gates.
+test stage, whose ten tests are registered for Node, Hub and contract gates.
 The target builds the C3 embedded asset and S3 product composition, validates
 the commissioned candidate gs_outbox/gs_state partition profile and a
 standalone S3 app, and writes artifact provenance under the ignored unique
