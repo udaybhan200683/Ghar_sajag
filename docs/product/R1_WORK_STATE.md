@@ -31,6 +31,12 @@ profile incompatibility is cross-referenced to GS-148 in comment 10505. The
 deployment plan is documentation-only and records the exact source checkpoint,
 offline artifact checks and future approval gates.
 
+Plan/documentation commit `c077bee73befac3afc9bbdb50f9234ac46fe2b18` was pushed
+normally; local HEAD and `origin/feature/r1-commercial-baseline` matched at
+that delivery checkpoint. Only the plan and this work-state file were staged.
+The pre-existing untracked S3 `managed_components/` and redacted fixture
+evidence remain untouched.
+
 GS-114 remains In Progress; GS-148 remains OnHold; GS-145 remains a separate
 fresh-format durability gate. Next action is user review of the state
 preservation strategy, corrected fixture image profile, installation method
