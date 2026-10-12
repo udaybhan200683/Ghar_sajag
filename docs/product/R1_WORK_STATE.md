@@ -35,6 +35,13 @@ at the same paths records earlier different hashes and is stale relative to
 those files. Neither source is physical flash readback. No previous physical
 PASS is upgraded.
 
+**Part 2D delivery checkpoint:** commit `2545e9a94e6fc87f43ec8a3b672e88dbb1fcbbae`
+is pushed to `origin/feature/r1-commercial-baseline`. Local and remote HEAD
+matched at verification. No fixture deployment or physical qualification was
+performed. The pre-existing untracked S3 `managed_components/` and redacted
+Part 1 evidence remain unmodified; the separate GS-152 worktree remains
+isolated and unchanged.
+
 ## GS-114 Part 2C — supervised diagnostic deployment plan — 2026-10-12
 
 Planning-only review was performed at canonical source/remote checkpoint
