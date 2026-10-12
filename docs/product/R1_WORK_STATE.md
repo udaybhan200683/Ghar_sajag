@@ -12,14 +12,14 @@ not proven by the captured logs. The HIL-A06 classifier was corrected and its
 registered host test now fails on this marker.
 
 The S3 replay-fence error occurs while handling an authenticated Node
-retirement report after rejoin/epoch advertisement. It means the selected
-retirement snapshot could not be published/bound to an exact LittleFS fence;
-admission correctly fails closed and the report ACK is not sent on this error
-path. The saved log has no lower-level return code, so whether the failed step
-was report/checkpoint loading, outbox validation/write/readback, or runtime
-binding remains unresolved. A C3 reset/rejoin may have triggered the report,
-but the report fragments are not directly observed. This is not the separate
-historical GS-148 journal-migration assertion failure.
+retirement report after rejoin/epoch advertisement. The source emits this error
+only after report application returned Duplicate or a Prepared snapshot passed
+NVS checkpoint recovery/reference verification. The later selected-state or
+reducer-checkpoint reload, LittleFS fence validation/publication/readback, or
+runtime bind remains the unresolved step. Admission correctly fails closed
+and the report ACK is not sent on this error path. A C3 reset/rejoin may have
+triggered the report, but the report fragments are not directly observed. This
+is not the separate historical GS-148 journal-migration assertion failure.
 
 Host-only `make gs130-hil-runner-test` passed 17 tests, `make
 validation-framework-test` passed 39 registration/failure-propagation tests,
