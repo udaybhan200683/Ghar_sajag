@@ -1,5 +1,43 @@
 # R1 Current Work State
 
+## GS-114 Part 2C — supervised diagnostic deployment plan — 2026-10-12
+
+Planning-only review was performed at canonical source/remote checkpoint
+`cbbf12d1b4fba9cd1e38730685ccede32f23f558` on
+`feature/r1-commercial-baseline`. Context preflight passed. No USB, serial,
+target storage, build, or physical device was accessed. See the dated
+[GS-114 Part 2C deployment plan](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_PART2C_DIAGNOSTIC_DEPLOYMENT_PLAN_20261012.md).
+
+The saved GS-148 diagnostic S3 image hash was verified locally and contains
+RPF stage strings, but it is not suitable for the commissioned fixture:
+`GS_HIL_COMMISSIONING=OFF` does not use the fixture's persisted development
+identity, and its packaged partition table is the development `gs_journal`
+map, not the fixture's `gs_outbox`/`gs_state` map. Its complete flash bundle
+also rewrites bootloader, partition table and OTA metadata and resets the
+target. The current source fingerprint differs from the report fingerprint.
+There is no proven S3 app-only update path, storage backup/restore, or
+reset-safe two-board observation route. Normal rejoin may attempt replay-fence
+publication, which can write LittleFS; this diagnostic is not application-level
+read-only. Therefore deployment, observation and real PIR qualification remain
+**NO-GO**. The physical failure root cause remains unknown.
+
+The saved Part 1 C3/S3 application artifacts are present in the ignored local
+fixture-pair build directory and their SHA-256 values match the recorded Part 1
+report. They are build artifacts, not current flash readbacks; installed image,
+partition table, OTA slot and live persistent-state provenance remain unknown.
+The deployment plan records this distinction and the required separate
+approval gates. GS-114 planning result is in Jira comment 10504; the diagnostic
+profile incompatibility is cross-referenced to GS-148 in comment 10505. The
+deployment plan is documentation-only and records the exact source checkpoint,
+offline artifact checks and future approval gates.
+
+GS-114 remains In Progress; GS-148 remains OnHold; GS-145 remains a separate
+fresh-format durability gate. Next action is user review of the state
+preservation strategy, corrected fixture image profile, installation method
+and reset-safe observation candidate. No hardware action is authorized by the
+plan. Preserve the untracked S3 `managed_components/`, all redacted fixture
+evidence, and the isolated GS-152 worktree.
+
 ## GS-148 narrow replay-fence diagnostic checkpoint — 2026-10-12
 
 Authorized by GS-148 comment 10499. On the canonical
