@@ -209,6 +209,12 @@ features, 204 modules, 14 physical cases and 19 checks. This is 499-file
 relocation plus newer canonical changes, not a claim that every post-merge file
 is byte-identical to the 2026-10-11 baseline.
 
+The final active-path audit found one stale root command in the newer GS-114
+S3 target README. It was corrected to the stable root target
+`make gs114-s3-rpf-diagnostic-build`; the repeat audit reports no references to
+the old wrapper under active `code/` sources or guidance. Historical provenance
+references remain in the migration evidence and archive as intended.
+
 ### Clean-checkout validation
 
 A detached fresh source checkout at the integrated branch tip was used for
@@ -273,7 +279,7 @@ No hardware, USB/serial, flash, erase, reset or storage operation ran. No full
 release gate ran; release approval and physical qualification remain NOT_RUN.
 
 The canonical branch was subsequently fast-forwarded from
-`9272cc7efe171f6fc5f6ceb7fac4ad1c4924fd33` to the final GS-152 tip after the
+`9272cc7efe171f6fc5f6ceb7fac4ad1c4924fd33` through the reviewed GS-152 tip after the
 isolated branch passed its source integrity, fresh-checkout and focused
 validation checks. Local and GitHub remote refs were verified to match after
 the push. The exact final commit and Jira closure evidence are recorded in the

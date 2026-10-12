@@ -72,7 +72,7 @@ and endurance, BAT-C8 and full R1 qualification. Do not execute them automatical
 From the repository root, run:
 
 ~~~sh
-make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 gs114-s3-rpf-diagnostic-build
+make gs114-s3-rpf-diagnostic-build
 ~~~
 
 This uses the existing paired fixture builder in a fresh unique output
