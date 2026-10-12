@@ -759,7 +759,7 @@ executed by the focused GS-130 continuation.
 
 ## GS-114 fixture-compatible RPF diagnostic build — 2026-10-12
 
-make -C code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2 gs114-s3-rpf-diagnostic-build
+make gs114-s3-rpf-diagnostic-build
 is an explicit build-only target. It uses the existing S3 fixture commissioning
 test stage, whose nine tests are registered for Node, Hub and contract gates.
 The target builds the C3 embedded asset and S3 product composition, validates

@@ -94,6 +94,10 @@ the former version-stamped source wrapper is historical and must not be used in
 new paths. See [`docs/architecture/GS152_STABLE_REPOSITORY_LAYOUT.md`](docs/architecture/GS152_STABLE_REPOSITORY_LAYOUT.md)
 for ownership boundaries and build-root conventions.
 
+For a fresh target-build checkout, activate ESP-IDF 6.0.3 and follow the paired
+C3/S3 and GS-114 diagnostic build commands in `code/README.md`. Those commands
+use unique ignored build directories and never flash or access hardware.
+
 For substantive work, read these first:
 
 1. `docs/product/GHAR_SAJAG_PROJECT_CONTEXT.md`

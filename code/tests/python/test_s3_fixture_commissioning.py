@@ -8,10 +8,19 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "firmware/hub/target/esp32/idf/main/fixture_commissioning_control.cpp"
 sys.path.insert(0, str(ROOT))
-from scripts.build_gs114_fixture_pair import parse_partitions_from_text, validate_s3_fixture_artifact
+from scripts.build_gs114_fixture_pair import (
+    build_environment,
+    parse_partitions_from_text,
+    validate_s3_fixture_artifact,
+)
 
 
 class S3FixtureCommissioning(unittest.TestCase):
+    def test_s3_build_exports_paired_asset_during_component_discovery(self):
+        env = build_environment(["GS_HIL_BUILD=OFF", "GS_NODE_FIRMWARE_ASSET=/tmp/node_firmware.bin"], {})
+        self.assertEqual(env["GS_NODE_FIRMWARE_ASSET"], "/tmp/node_firmware.bin")
+        self.assertNotIn("GS_NODE_FIRMWARE_ASSET", build_environment(["GS_HIL_BUILD=OFF"], {}))
+
     def test_idf_partition_decoder_size_suffixes_are_supported(self):
         parsed = parse_partitions_from_text("nvs,data,nvs,0x9000,24K\nota_0,app,ota_0,0x20000,4M\n")
         self.assertEqual(parsed["nvs"][3], 24 * 1024)

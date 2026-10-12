@@ -19,6 +19,14 @@ FORBIDDEN_HIL_MARKERS = (b"INJECT_MOTION", b"START_C3_FOTA", b"HIL_GPIO")
 BUILD_COMMANDS = {}
 
 
+def build_environment(options: list[str], base_environment=None) -> dict[str, str]:
+    env = dict(os.environ if base_environment is None else base_environment)
+    for option in options:
+        if option.startswith("GS_NODE_FIRMWARE_ASSET="):
+            env["GS_NODE_FIRMWARE_ASSET"] = option.split("=", 1)[1]
+    return env
+
+
 def parse_config(path: Path) -> dict[str, str]:
     result = {}
     for line in path.read_text().splitlines():
@@ -146,11 +154,14 @@ def build(export: Path, project: Path, build_dir: Path, sdkconfig: Path,
     args.extend(["build", "size"])
     BUILD_COMMANDS[name] = args
     shell = "source " + shlex.quote(str(export)) + " >/dev/null 2>&1 && idf.py --version && " + shlex.join(args)
+    # IDF may evaluate component requirements before the project's -D cache
+    # value is visible. Make the paired C3 image available during discovery.
+    build_env = build_environment(options)
     log = build_dir.parent / (name + ".log")
     build_dir.mkdir(parents=True, exist_ok=True)
     with log.open("w") as output:
         result = subprocess.run(["bash", "-c", shell], cwd=ROOT, stdout=output,
-                                 stderr=subprocess.STDOUT, timeout=1800)
+                                 stderr=subprocess.STDOUT, timeout=1800, env=build_env)
     if result.returncode != 0 or "ESP-IDF v6.0.3" not in log.read_text():
         raise RuntimeError(f"{name} build failed; see {log}")
     expected = "gs_hw_m1_node.bin" if name == "c3" else "gs_r1_s3_hub.bin"
