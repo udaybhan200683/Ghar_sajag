@@ -15,3 +15,7 @@ validation-board-e2e feature-coverage-test physical-hil-catalogue-test:
 .PHONY: validation-p0-e2e validation-board-hil validation-motion-hil
 validation-p0-e2e validation-board-hil validation-motion-hil:
 	$(MAKE) -C $(PRODUCT_DIR) $@
+
+.PHONY: s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build
+s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build:
+	$(MAKE) -C $(PRODUCT_DIR) $@

@@ -102,7 +102,7 @@ battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
 	PYTHONPATH=tests/python python3 -m unittest test_battery_power_invariants -v
 
 .PHONY: gs40-host-test gs40-config-test
-gs40-config-test: build
+gs40-config-test: lab-build
 	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
 
 GS116_GS40_HOST_TEST_HOST_SOURCES := firmware/hub/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/storage/node_recovery_persistence.cpp tests/support/host/security/openssl_commissioning_crypto.cpp

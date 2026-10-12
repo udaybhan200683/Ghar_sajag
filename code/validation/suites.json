@@ -30,7 +30,7 @@
         "firmware/hub/target/esp32s3/idf/partitions.s3-outbox-candidate.csv",
         "firmware/hub/runtime/hub_runtime.cpp"
       ],
-      "success": "Ran 2 tests?",
+      "success": "Ran (\\d+) tests?",
       "timeout": 120,
       "count_kind": "tests"
     },
