@@ -1,5 +1,17 @@
 # R1 Current Work State
 
+## GS-124/125 authorization foundation resumed — 2026-10-13 (isolated)
+
+Start dashboard branch/source 31822b1, canonical read-only source 371a560.
+Preflight PASS. ED-D01, ED-D02 and ED-D03-MIN policies approved by Jira
+10660/10670/10671/10672/10677 and the user's bounded launch. The previous
+BLOCKED_DESIGN_APPROVAL checkpoint is historical; production activation is now
+BLOCKED_PRODUCTION_ISSUER_AND_GRANTS, with privacy/ownership proof still required.
+Implement only the [non-active foundation scope](../architecture/GS124_AUTHORIZATION_FOUNDATION_20261013.md)
+on feature/gs124-125-engineering-dashboard. Canonical GS148 writer and untracked
+evidence remain untouched; no merge. Tests/results will follow in the existing
+campaign handoff. Physical NO-GO and full release NOT_RUN unchanged.
+
 ## GS-114 Part 2D — fixture-compatible S3 RPF diagnostic build — 2026-10-12
 
 At source HEAD `e31e8ef6314abcc777eb5979c3d33939cdb7b296` (source fingerprint

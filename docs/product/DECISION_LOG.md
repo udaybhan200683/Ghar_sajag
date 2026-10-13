@@ -1,5 +1,17 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## Dashboard scoped approvals — 2026-10-13, isolated implementation only
+
+ED-D01 APPROVED read-only design (GS120/10660), ED-D02 APPROVED explicit Home
+diagnostic permission policy (GS143/10670), ED-D03-MIN APPROVED privacy-minimal
+policy (GS65/10671). GS122/10672/10677 and the current user request authorize
+the bounded non-active foundation in the existing dashboard branch. Prior
+pending labels are historical. See [scope/impact record](../architecture/GS124_AUTHORIZATION_FOUNDATION_20261013.md).
+Production issuer, grantor/self-grant/TTL, durable grant/audit, numerical budgets,
+live routes and ED-D04–09 remain gated. No canonical GS148 files or LOCKED GS-D
+entries changed. Canonical promotion/versioning is reserved to the owner at
+ED-D09; isolated context remains preflight-matched 2026-10-11.001.
+
 Use:
 - LOCKED = approved; changing requires explicit approval.
 - PROVISIONAL = working direction.

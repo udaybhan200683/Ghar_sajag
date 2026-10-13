@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-13T03:19:42.042824+00:00",
+  "dashboard_head": "31822b1a6bd1a7fc11e00fb63805eb5110e444b2",
+  "dashboard_branch": "feature/gs124-125-engineering-dashboard",
+  "dashboard_status": "",
+  "remote_heads": "31822b1a6bd1a7fc11e00fb63805eb5110e444b2\trefs/heads/feature/gs124-125-engineering-dashboard\n371a560f04b99bce8fd86e58739a75184b555b55\trefs/heads/feature/r1-commercial-baseline\n",
+  "canonical_head": "371a560f04b99bce8fd86e58739a75184b555b55",
+  "canonical_status": "?? code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/\n?? code/firmware/hub/target/esp32s3/idf/managed_components/\n?? docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/attempt02/\n?? docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/attempt03/\n?? docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/attempt04/\n?? docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/attempt05/\n?? docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/c3_serial_redacted.log\n?? docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/diagnostics/\n?? docs/hw/evidence/GS114_PART1_CLEAN_FIXTURE_20261011/s3_serial_redacted.log\n",
+  "canonical_index_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "canonical_working_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "canonical_registry_sha256": "8fe9bf9bf2f40b22d0a3f9a89d9cc78484e665c4bdf67a6cf117d70bd31405c3",
+  "canonical_ownership": "GS148 EXCLUSIVE; READ ONLY",
+  "preflight": "31822b1a6bd1a7fc11e00fb63805eb5110e444b2"
+}
