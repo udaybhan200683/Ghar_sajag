@@ -45,6 +45,16 @@ std::size_t OutboxJournalBackend::size() const {
         : static_cast<std::size_t>(count);
 }
 
+bool OutboxJournalBackend::admission_ready(const DomainEvent& event, std::uint64_t workspace) {
+    security::Bytes payload;
+    if (!HubJournal::encode_event_payload(event, payload)) return false;
+    const bool ready = outbox_.admission_ready(event.key.str(), payload,
+        is_ordinary_motion(event.kind) ? AdmissionClass::Ordinary : AdmissionClass::Protected,
+        workspace);
+    clear_plaintext(payload);
+    return ready;
+}
+
 CommitResult OutboxJournalBackend::commit(const DomainEvent& event) {
     if (!outbox_.healthy()) return CommitResult::StorageFault;
     security::Bytes payload;

@@ -1029,10 +1029,11 @@ void secure_owner_task(void*) {
             bool durable_report_ready = applied == durable::RetirementReportApply::Duplicate;
             if (applied == durable::RetirementReportApply::Prepared &&
                 before.checkpoint_generation != UINT64_MAX) {
-                std::uint8_t referenced_banks = 0;
-                if (before.checkpoint.report_snapshot)
-                    referenced_banks = static_cast<std::uint8_t>(
-                        1U << before.checkpoint.report_snapshot->bank);
+                std::uint8_t referenced_banks = before.recovery_report_bank_mask;
+#if CONFIG_IDF_TARGET_ESP32S3
+                if (!durable_outbox.retirement_report_bank_mask(before, referenced_banks))
+                    continue;
+#endif
                 durable::RetirementSnapshotReference reference;
                 if (report_repository->prepare_bank(candidate, referenced_banks,
                                                     reference)) {

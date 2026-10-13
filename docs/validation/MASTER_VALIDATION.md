@@ -1,6 +1,21 @@
 
 # Master automated validation and regression framework
 
+## GS-148 bounded correctness registration — 2026-10-12
+
+`storage-correctness` and `storage-correctness-sanitizers` are permanent Hub and
+contract stages. Required markers prove execution of refusal/reducer boundaries,
+prepared exact-context retries, checkpoint/report cuts, all-root pinning and
+conflicting authority checks; incomplete/filtered execution fails adjudication.
+New scoped GS148-ARCH rows are in MASTER_TRACEABILITY and reciprocal source
+inventory. PHY-GS148 retains current-image cuts/allocator qualification NOT_RUN.
+The first-admission compatibility blocker is explicitly tested as fail closed,
+not labeled implemented recovery PASS. The historical 72-case architecture
+matrix remains proposed; focused assertions do not exhaust that specification.
+Use the [dated evidence](../exec-plans/evidence/R1_GS148_P0_P1_P2_20261012.md) for
+actual execution and failures. Historical migration FAIL and product P0 PARTIAL
+remain mandatory visible results; this package does not run the full release gate.
+
 ## Active source root and GS-152 layout
 
 The active product source root is `code/`; the repository root Makefile delegates

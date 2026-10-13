@@ -502,6 +502,17 @@ validation-coverage: build
 hub-backend-completion-host-test: hub-journal-migration-host-test
 
 .PHONY: hub-runtime-checkpoint-host-test
+.PHONY: hub-storage-correctness-host-test
+GS148_BINARY ?= build/hub_storage_correctness_validation
+hub-storage-correctness-host-test: build $(CPP_OBJECTS) $(call host_objects,firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp tests/support/host/security/openssl_commissioning_crypto.cpp)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp tests/support/host/security/openssl_commissioning_crypto.cpp) tests/cpp/hub_storage_correctness_validation.cpp -lcrypto -o $(GS148_BINARY)
+	./$(GS148_BINARY) $(GS148_CASE)
+
+.PHONY: hub-storage-correctness-sanitize
+hub-storage-correctness-sanitize:
+	ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 $(MAKE) hub-storage-correctness-host-test GS148_CASE=all GS148_BINARY=build/hub_storage_correctness_sanitized CXXFLAGS='-std=c++17 -O1 -g1 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer'
+	@echo "GS148 STORAGE SANITIZERS PASS"
+
 GS116_HUB_RUNTIME_CHECKPOINT_HOST_TEST_HOST_SOURCES := firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
 HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_RUNTIME_CHECKPOINT_HOST_TEST_HOST_SOURCES))
 hub-runtime-checkpoint-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_HUB_RUNTIME_CHECKPOINT_HOST_TEST_HOST_SOURCES))

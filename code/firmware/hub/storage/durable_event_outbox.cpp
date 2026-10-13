@@ -1275,6 +1275,69 @@ OutboxRecovery DurableEventOutbox::recover() {
     return has_records_ ? OutboxRecovery::Ready : OutboxRecovery::Empty;
 }
 
+OutboxAdmission DurableEventOutbox::admission_position(std::size_t frame_bytes,
+        AdmissionClass admission_class, std::uint16_t& segment,
+        std::uint32_t& offset, std::uint64_t& charge) const {
+    if (frame_bytes > limits_.segment_bytes || append_offset_ > limits_.segment_bytes)
+        return OutboxAdmission::InvalidRecord;
+    segment = append_segment_; offset = append_offset_; charge = frame_bytes;
+    if (frame_bytes > limits_.segment_bytes - offset) {
+        charge += limits_.segment_bytes - offset;
+        ++segment; offset = 0;
+    }
+    if (segment >= limits_.segment_count || capacity_budget_used_bytes_ > log_capacity_bytes_ ||
+        charge > log_capacity_bytes_ - capacity_budget_used_bytes_)
+        return OutboxAdmission::CapacityExhausted;
+    return capacity_policy_.permits(admission_class, charge,
+        capacity_budget_used_bytes_, log_capacity_bytes_)
+        ? OutboxAdmission::Committed : OutboxAdmission::ReserveProtected;
+}
+
+bool DurableEventOutbox::admission_ready(const std::string& canonical_key,
+        const security::Bytes& payload, AdmissionClass admission_class,
+        std::uint64_t workspace) {
+    if (!healthy() || compacting_ || canonical_key.empty() ||
+        canonical_key.size() > limits_.maximum_key_bytes ||
+        payload.size() > limits_.maximum_payload_bytes) return false;
+    std::uint8_t digest[32]{};
+    if (!digest_identity(canonical_key, digest)) { faulted_ = true; return false; }
+    const auto at = find_index(digest);
+    const bool existing = at < index_size_ &&
+        compare_digest(entry_at(at).identity_digest, digest) == 0;
+    crypto_.secure_zero(digest, sizeof(digest));
+    std::uint64_t body_growth = 0;
+    const auto rounded = [](std::uint64_t n) { return (n + 4095U) / 4096U * 4096U; };
+    if (existing) {
+        const auto& row = entry_at(at);
+        std::string key; security::Bytes stored;
+        const bool decoded = decode_record(row.segment, row.offset, row.frame_bytes,
+            row.ordinal, nullptr, key, stored);
+        const bool matches = decoded && key == canonical_key && stored == payload;
+        crypto_.secure_zero(stored.data(), stored.size());
+        if (!decoded || key != canonical_key) faulted_ = true;
+        if (!matches) return false;
+        if (row.ordinal <= published_ordinal_) return true;
+        if (row.ordinal != published_ordinal_ + 1U || next_ordinal_ != row.ordinal + 1U)
+            return false;
+        // The complete unpublished body is already charged. Only its head and
+        // the remaining runtime checkpoint need workspace for exact retry.
+    } else {
+        if (next_ordinal_ != published_ordinal_ + 1U) return false;
+        const std::size_t frame_bytes = 54U + canonical_key.size() + payload.size();
+        std::uint16_t segment = 0; std::uint32_t offset = 0; std::uint64_t charge = 0;
+        if (admission_position(frame_bytes, admission_class, segment, offset, charge) !=
+            OutboxAdmission::Committed) return false;
+        body_growth = rounded(offset + frame_bytes) - rounded(offset);
+        if (!reserve_index(index_size_ + 1U)) return false;
+    }
+    std::uint64_t total = 0, used = 0;
+    if (!storage_.filesystem_usage(total, used) || used > total) return false;
+    // One replacement event head. Whole-filesystem metadata/GC/completion
+    // lifetime escrow still belongs to the separately gated lifecycle package.
+    const std::uint64_t own_workspace = body_growth + 4096U;
+    return own_workspace <= total - used && workspace <= total - used - own_workspace;
+}
+
 OutboxAdmission DurableEventOutbox::append(
     const std::string& canonical_event_key, const security::Bytes& versioned_payload,
     AdmissionClass admission_class) {
@@ -1331,22 +1394,12 @@ OutboxAdmission DurableEventOutbox::append(
         return OutboxAdmission::InvalidRecord;
     if (frame.size() > limits_.segment_bytes) return OutboxAdmission::InvalidRecord;
 
-    auto target_segment = append_segment_;
-    auto target_offset = append_offset_;
-    std::uint64_t charge = frame.size();
-    if (target_offset > limits_.segment_bytes ||
-        frame.size() > limits_.segment_bytes - target_offset) {
-        charge += limits_.segment_bytes - target_offset;
-        ++target_segment;
-        target_offset = 0;
-    }
-    if (target_segment >= limits_.segment_count) return OutboxAdmission::CapacityExhausted;
-    if (capacity_budget_used_bytes_ > log_capacity_bytes_ ||
-        charge > log_capacity_bytes_ - capacity_budget_used_bytes_)
-        return OutboxAdmission::CapacityExhausted;
-    if (!capacity_policy_.permits(admission_class, charge,
-                                  capacity_budget_used_bytes_, log_capacity_bytes_))
-        return OutboxAdmission::ReserveProtected;
+    std::uint16_t target_segment = 0;
+    std::uint32_t target_offset = 0;
+    std::uint64_t charge = 0;
+    const auto capacity = admission_position(frame.size(), admission_class,
+        target_segment, target_offset, charge);
+    if (capacity != OutboxAdmission::Committed) return capacity;
 
     const auto target_offset32 = static_cast<std::uint32_t>(target_offset);
     if (!storage_.append(physical_segment(target_segment), frame.data(), frame.size())) {
@@ -1450,6 +1503,35 @@ bool DurableEventOutbox::backend_completed(const std::string& canonical_event_ke
     return true;
 }
 
+bool DurableEventOutbox::recovery_replay_fence(std::uint32_t& epoch,
+        durable::ReportSnapshotReference& reference) const {
+    epoch = 0; reference = {};
+    if (!healthy()) return false;
+    if (replay_fence_epoch_ != 0) {
+        epoch = replay_fence_epoch_; reference.bank = replay_fence_bank_;
+        reference.generation = lifecycle_report_generation_;
+        reference.digest = lifecycle_report_digest_;
+        return valid_report_reference(reference);
+    }
+    return true;
+}
+
+bool DurableEventOutbox::retirement_report_bank_mask(const durable::RecoveryState& state,
+        std::uint8_t& mask) const {
+    mask = state.recovery_report_bank_mask;
+    std::uint32_t epoch = 0; durable::ReportSnapshotReference witness;
+    if (!recovery_replay_fence(epoch, witness) || (mask & ~std::uint8_t{7}) != 0)
+        return false;
+    if (!valid_report_reference(witness)) return true;
+    const auto& selected = state.checkpoint.report_snapshot;
+    if (epoch != state.storage_epoch || !selected || !valid_report_reference(*selected) ||
+        witness.generation > selected->generation ||
+        (witness.generation == selected->generation &&
+         (witness.bank != selected->bank || witness.digest != selected->digest))) return false;
+    mask |= static_cast<std::uint8_t>(1U << witness.bank);
+    return true;
+}
+
 bool DurableEventOutbox::replay_fence_matches(std::uint32_t storage_epoch,
         const durable::ReportSnapshotReference& reference) const {
     return initialized_ && !faulted_ && valid_report_reference(reference) && storage_epoch != 0 &&
@@ -1475,6 +1557,8 @@ ReplayFencePublishResult DurableEventOutbox::publish_replay_fence_diagnostic(
     if (faulted_) return ReplayFencePublishResult::OutboxFaulted;
     if (compacting_) return ReplayFencePublishResult::MutationInProgress;
     if (storage_epoch == 0) return ReplayFencePublishResult::InvalidEpoch;
+    if (replay_fence_epoch_ != 0 && replay_fence_epoch_ != storage_epoch)
+        return ReplayFencePublishResult::ConflictingReferenceGeneration;
     if (!valid_report_reference(reference)) return ReplayFencePublishResult::InvalidReference;
     if (reducer_checkpoint_boundary > published_ordinal_)
         return ReplayFencePublishResult::CheckpointBeyondPublished;

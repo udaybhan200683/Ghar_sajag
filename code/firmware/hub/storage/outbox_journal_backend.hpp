@@ -14,6 +14,7 @@ public:
     bool healthy() const override { return outbox_.healthy(); }
     std::size_t size() const override;
     CommitResult commit(const DomainEvent& event) override;
+    bool admission_ready(const DomainEvent&, std::uint64_t additional_workspace_bytes = 0) override;
     bool contains(const EventKey& key) override;
     bool for_each(EventVisitor visitor, void* context) override;
     bool for_each_with_ordinal(OrdinalEventVisitor visitor, void* context) override;

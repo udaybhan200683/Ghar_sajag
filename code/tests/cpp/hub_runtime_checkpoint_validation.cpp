@@ -74,8 +74,8 @@ public:
 class PosixStateFiles final : public gs::hub::storage::RuntimeStateFiles {
 public:
     explicit PosixStateFiles(std::uint64_t capacity) : capacity_(capacity) {
-        char pattern[]="/tmp/gs_identity_compaction_XXXXXX";
-        const auto* created=::mkdtemp(pattern);
+        auto pattern=(std::filesystem::temp_directory_path()/"gs_identity_compaction_XXXXXX").string();
+        const auto* created=::mkdtemp(pattern.data());
         if(created==nullptr)throw std::runtime_error("mkdtemp identity adapter");
         directory_=created;
     }
@@ -1544,6 +1544,11 @@ void segmented_lifecycle_reuse_tests() {
         const std::uint64_t last = first + 99U;
         DurableEventOutbox outbox(segments, crypto, key, limits);
         const auto recovery = outbox.recover();
+        if (recovery != OutboxRecovery::Empty || outbox.record_count() != first - 1U ||
+            outbox.retired_through() != first - 1U)
+            std::cerr << "refill recovery cycle=" << cycle << " status=" << int(recovery)
+                      << " count=" << outbox.record_count() << " retired="
+                      << outbox.retired_through() << '\n';
         require(recovery == OutboxRecovery::Empty &&
                 outbox.record_count() == first - 1U &&
                 outbox.retired_through() == first - 1U,

@@ -1,5 +1,14 @@
 # Durable Storage Epic Pause Handoff
 
+**Current R1 pointer — 2026-10-12:** the worktree/branch checkpoint below is
+historical and read-only. Current development is canonical R1 on
+`feature/r1-commercial-baseline`; GS-152 is Done. The user authorized the
+[bounded GS-148 P0/P1/P2 package](exec-plans/evidence/R1_GS148_P0_P1_P2_20261012.md),
+whose latest implementation, validation, blockers and exact next action supersede
+this old handoff for local admission/recovery correctness. Legacy migration is
+not resumed or waived. Stop after that package; P3–P9 and hardware need their
+explicit prerequisites and authorization.
+
 **Status:** WIP checkpoint for an intentionally paused feature branch. The legacy
 migration coordinator is deferred beyond Ghar Sajag R1. This handoff preserves the
 current implementation and records where work resumes; it does not certify production

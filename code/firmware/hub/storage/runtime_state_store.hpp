@@ -75,6 +75,10 @@ public:
     bool recover(std::uint64_t published_event_highwater);
     bool load_checkpoint(security::Bytes&, std::uint64_t& boundary, bool& found);
     bool save_checkpoint(const security::Bytes&, std::uint64_t boundary);
+    // Reserve the immediate identity/head/checkpoint workspace under the
+    // existing single writer. Predictable refusal never publishes an identity.
+    bool admission_workspace(const DomainEvent&, std::uint64_t ordinal,
+                             std::size_t checkpoint_size, std::uint64_t& bytes);
     bool prepare_identity(const DomainEvent&, std::uint64_t ordinal,
                           std::optional<std::uint16_t> local_minute,
                           const IdentityOwnerEvidence* owner = nullptr);

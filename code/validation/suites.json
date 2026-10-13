@@ -710,6 +710,101 @@
       "timeout": 600
     },
     {
+      "id": "storage-correctness",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-storage-correctness-host-test",
+        "GS148_CASE=all"
+      ],
+      "inputs": [
+        "tests/cpp/hub_storage_correctness_validation.cpp",
+        "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+        "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/runtime/hub_checkpoint_codec.cpp",
+        "firmware/hub/runtime/hub_checkpoint_codec.hpp",
+        "firmware/hub/storage/runtime_state_store.cpp",
+        "firmware/hub/storage/runtime_state_store.hpp",
+        "firmware/hub/storage/durable_event_outbox.cpp",
+        "firmware/hub/storage/durable_event_outbox.hpp",
+        "firmware/hub/storage/outbox_journal_backend.cpp",
+        "firmware/hub/storage/outbox_journal_backend.hpp",
+        "firmware/hub/storage/journal.cpp",
+        "firmware/hub/storage/journal.hpp",
+        "firmware/hub/storage/durable_transition.cpp",
+        "firmware/hub/storage/durable_transition.hpp",
+        "firmware/hub/storage/node_retirement_snapshot.cpp",
+        "firmware/hub/storage/node_retirement_snapshot.hpp",
+        "firmware/hub/target/esp32/hub_runtime_adapter.cpp"
+      ],
+      "success": "^PASS: GS148 bounded admission and recovery correctness$",
+      "required_success": [
+        "^GS148-ARCH-010 PASS repeated_refusals=12 reboot_count=2$",
+        "^GS148-ARCH-012 PASS protected_selected_and_fallback=2$",
+        "^GS148-ARCH-016 PASS cross_epoch_higher_generation_refused$",
+        "^GS148-ARCH-030 PASS immediate_workspace=20480 boundary=one_byte$",
+        "^GS148-ARCH-002/003/004/005/006/007/008/009/010 PASS cuts=13 reboot_per_cut=2$",
+        "^GS148-ARCH-012/013 PASS publication_cuts=12 reboot_per_cut=2$",
+        "^GS148-ARCH-014/015/016/018 PASS all_roots_pinned_conflict_closed$",
+        "^GS148-ARCH-001/004/005 FIRST_ADMISSION_RECOVERY_BLOCKED cuts=3 fail_closed=PASS$",
+        "^GS148-ARCH-035 PASS accepted=749 checkpoint_bytes=65462 next_refused=1$",
+        "^GS148-ARCH-012/013 PASS halted_crashes=3 reboot_per_cut=2$"
+      ],
+      "timeout": 600
+    },
+    {
+      "id": "storage-correctness-sanitizers",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "hub-storage-correctness-sanitize"
+      ],
+      "inputs": [
+        "tests/cpp/hub_storage_correctness_validation.cpp",
+        "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+        "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/runtime/hub_checkpoint_codec.cpp",
+        "firmware/hub/runtime/hub_checkpoint_codec.hpp",
+        "firmware/hub/storage/runtime_state_store.cpp",
+        "firmware/hub/storage/runtime_state_store.hpp",
+        "firmware/hub/storage/durable_event_outbox.cpp",
+        "firmware/hub/storage/durable_event_outbox.hpp",
+        "firmware/hub/storage/outbox_journal_backend.cpp",
+        "firmware/hub/storage/outbox_journal_backend.hpp",
+        "firmware/hub/storage/journal.cpp",
+        "firmware/hub/storage/journal.hpp",
+        "firmware/hub/storage/durable_transition.cpp",
+        "firmware/hub/storage/durable_transition.hpp",
+        "firmware/hub/storage/node_retirement_snapshot.cpp",
+        "firmware/hub/storage/node_retirement_snapshot.hpp",
+        "firmware/hub/target/esp32/hub_runtime_adapter.cpp"
+      ],
+      "success": "^GS148 STORAGE SANITIZERS PASS$",
+      "required_success": [
+        "^GS148-ARCH-010 PASS repeated_refusals=12 reboot_count=2$",
+        "^GS148-ARCH-012 PASS protected_selected_and_fallback=2$",
+        "^GS148-ARCH-016 PASS cross_epoch_higher_generation_refused$",
+        "^GS148-ARCH-030 PASS immediate_workspace=20480 boundary=one_byte$",
+        "^GS148-ARCH-002/003/004/005/006/007/008/009/010 PASS cuts=13 reboot_per_cut=2$",
+        "^GS148-ARCH-012/013 PASS publication_cuts=12 reboot_per_cut=2$",
+        "^GS148-ARCH-014/015/016/018 PASS all_roots_pinned_conflict_closed$",
+        "^GS148-ARCH-001/004/005 FIRST_ADMISSION_RECOVERY_BLOCKED cuts=3 fail_closed=PASS$",
+        "^GS148-ARCH-035 PASS accepted=749 checkpoint_bytes=65462 next_refused=1$",
+        "^GS148-ARCH-012/013 PASS halted_crashes=3 reboot_per_cut=2$"
+      ],
+      "timeout": 600
+    },
+    {
       "id": "identity-compaction",
       "components": [
         "hub"

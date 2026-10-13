@@ -1,5 +1,31 @@
 # R1 Current Work State
 
+## GS-148 bounded P0/P1/P2 correctness checkpoint — 2026-10-12
+
+GS-152 is Done; bounded work resumes from canonical `77e29d4` on
+`feature/r1-commercial-baseline`, context PASS `2026-10-11.001`. Start comment
+10594 records the authorized software scope. The approved Sol direction is
+integrated with its historical source audit; D-A–D-M remain OPEN and no new
+LOCKED requirement/context version is introduced.
+
+Implemented: exact next-reducer/identity/body immediate admission checks before
+identity selection; active/fallback/witness report-bank protection; cross-epoch
+witness refusal; equal-generation checkpoint conflict rejection, permitting
+nonce-different identical authority. Permanent production tests cover 28 cuts,
+two-boot exact retry/original context, conflicting payload/lost ACK, repeated
+capacity refusal, all three bank pins and the existing 64-KiB reducer boundary.
+Final component/build/fixture/sanitizer/framework results and delivery checkpoint
+are in the [current package handoff](../exec-plans/evidence/R1_GS148_P0_P1_P2_20261012.md).
+
+**PARTIAL:** complete first body without its first v1 event head remains fail
+closed. The genesis/rollback format proposal is unimplemented pending approval.
+Immediate checking does not qualify lifetime completion/metadata/COW/GC reserve.
+Historical migration FAIL and product P0 PARTIAL remain visible. Physical
+NOT_RUN/BLOCKED; release approval NOT_RUN. GS-148 stays In Progress; other
+requested issue statuses are unchanged. Stop after this package. Next action:
+review/approve genesis compatibility and owning commercial prerequisites, then
+authorize a separate package. Do not resume the original audit or hardware.
+
 ## GS-114 Part 2D — fixture-compatible S3 RPF diagnostic build — 2026-10-12
 
 At source HEAD `e31e8ef6314abcc777eb5979c3d33939cdb7b296` (source fingerprint

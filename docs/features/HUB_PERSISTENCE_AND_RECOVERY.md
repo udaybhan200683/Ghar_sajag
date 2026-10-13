@@ -1,5 +1,37 @@
 # Hub Persistence and Recovery
 
+## GS-148 bounded local correctness implementation — 2026-10-12
+
+Active source is `code/firmware/hub/`. Before `prepare_identity`, the serialized
+runtime previews the real next reducer with `HubCheckpointCodec`, checks its
+existing 64-KiB/count limits, reserves reconstructible indexes and checks
+immediate rounded identity/head/checkpoint plus body/head growth. Predictable
+Full/reserve refusal does not select a prepared identity. An uncertain write
+retains the exact original EventKey, immutable payload and local minute for retry;
+another key cannot take that ordinal. No prepared abort or production deletion
+is introduced. This preflight is not durable evidence or authority for an ACK.
+
+`DurableStore::recover` derives an in-memory report-bank mask from both valid
+selector/checkpoint pairs. Target report staging combines it with the independent
+outbox witness using `retirement_report_bank_mask`; all three pinned banks refuse
+without mutation. Equal-generation checkpoints compare authenticated contents,
+allowing identical authority encrypted with different nonces and rejecting
+conflicts. Witness generation and epoch checks remain fail closed. RPF00–RPF08
+retain their stable IDs and the existing reconciliation sequence.
+
+Persistent formats/keys, Node wire, completion publication, FOTA/rollback and
+reclamation gates are unchanged. Whole-filesystem metadata/COW/GC/completion
+lifetime escrow is not qualified by the immediate check. First body persistence
+without its first v1 event head is a documented compatibility blocker; the
+existing missing-authority recovery failure is preserved.
+
+Run `make -C code hub-storage-correctness-host-test GS148_CASE=all` and
+`make -C code hub-storage-correctness-sanitize`; both are registered Hub/contract
+stages and future fast/release constituents. Exact scoped IDs, reproduction,
+regressions and remaining gaps are in the
+[dated package evidence](../exec-plans/evidence/R1_GS148_P0_P1_P2_20261012.md).
+Host assertions and compilation do not establish physical qualification.
+
 Feature documentation type:
 ENGINEERING FUNCTIONAL GUIDE
 

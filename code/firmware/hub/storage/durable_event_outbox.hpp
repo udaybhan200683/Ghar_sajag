@@ -192,6 +192,12 @@ public:
     DurableEventOutbox& operator=(const DurableEventOutbox&) = delete;
 
     OutboxRecovery recover();
+    // No persistent writes. Checks current quotas/segment slack and rounded
+    // filesystem workspace, reserving the reconstructible index in RAM. The
+    // existing owner must serialize this check through identity/body/checkpoint
+    // publication; it is not a concurrent reservation or a completion credit.
+    bool admission_ready(const std::string&, const security::Bytes&, AdmissionClass,
+                         std::uint64_t additional_workspace_bytes);
     OutboxAdmission append(const std::string& canonical_event_key,
                            const security::Bytes& versioned_payload,
                            AdmissionClass admission_class);
@@ -210,6 +216,10 @@ public:
                               std::uint64_t reducer_checkpoint_boundary);
     bool replay_fence_matches(std::uint32_t storage_epoch,
                               const durable::ReportSnapshotReference& reference) const;
+    // Absent witness is represented by an invalid reference; faulted/uncertain
+    // in-memory authority refuses inventory until reboot recovery.
+    bool recovery_replay_fence(std::uint32_t&, durable::ReportSnapshotReference&) const;
+    bool retirement_report_bank_mask(const durable::RecoveryState&, std::uint8_t&) const;
     // Replaces receipts with an authenticated exact completion bitmap bound to
     // retained event bodies. Does not authorize body or identity deletion.
     ReclaimResult reclaim_completion_metadata(const RetirementAuthorization& authorization);
@@ -260,6 +270,8 @@ private:
     std::uint64_t completion_generation_{0};
 
     bool derive_keys(const security::Key32& master_storage_key);
+    OutboxAdmission admission_position(std::size_t frame_bytes, AdmissionClass,
+        std::uint16_t& segment, std::uint32_t& offset, std::uint64_t& charge) const;
     bool reserve_index(std::size_t required);
     IndexEntry& entry_at(std::size_t index);
     const IndexEntry& entry_at(std::size_t index) const;

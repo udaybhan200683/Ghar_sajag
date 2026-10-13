@@ -353,6 +353,28 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
     }
     return true;
 }
+bool RuntimeStateStore::admission_workspace(const DomainEvent& event,
+        std::uint64_t ordinal, std::size_t checkpoint_size, std::uint64_t& workspace) {
+    workspace = 0;
+    if (!healthy() || ordinal == 0 || checkpoint_size > maximum_checkpoint_bytes)
+        return false;
+    const auto canonical = event.key.str();
+    if (canonical.empty() || canonical.size() > 256 || bytes_ > maximum_identity_bytes)
+        return false;
+    const auto rounded = [](std::uint64_t n) { return (n + 4095U) / 4096U * 4096U; };
+    workspace = rounded(checkpoint_size + 41U);
+    if (ordinal > count_) {
+        const auto row_bytes = 117U + canonical.size();
+        if (count_ == UINT64_MAX || ordinal != count_ + 1U ||
+            row_bytes > maximum_identity_bytes - bytes_) return false;
+        workspace += rounded(bytes_ + row_bytes) - rounded(bytes_) + 4096U;
+        if (!reserve_identity_index(identity_index_size_ + 1U)) return false;
+    }
+    std::uint64_t total = 0, used = 0;
+    if (!files_.state_capacity(total, used) || used > total) return fault();
+    return workspace <= total - used;
+}
+
 bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t ordinal,
                                          std::optional<std::uint16_t> minute,
                                          const IdentityOwnerEvidence* owner) {

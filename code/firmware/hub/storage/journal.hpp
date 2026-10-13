@@ -35,6 +35,9 @@ public:
     virtual bool healthy() const = 0;
     virtual std::size_t size() const = 0;
     virtual CommitResult commit(const DomainEvent& event) = 0;
+    // Serialized-owner preflight only: never establishes durability or an ACK.
+    // Additional workspace belongs to the same immediate admission transaction.
+    virtual bool admission_ready(const DomainEvent&, std::uint64_t = 0) { return healthy(); }
     virtual bool contains(const EventKey& key) = 0;
     virtual bool for_each(EventVisitor visitor, void* context) = 0;
     // ordinal is the immutable publication ordinal, not the position in this
@@ -95,6 +98,7 @@ public:
     // Return Stored, Duplicate, Full, or StorageFault. Target persistence writes
     // and verifies a slot before Stored is returned.
     CommitResult commit(const DomainEvent& event);
+    bool admission_ready(const DomainEvent&, std::uint64_t additional_workspace_bytes = 0);
     // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
     // Expose records without a backend application commit ACK; a transport PUBACK is insufficient.
     std::vector<DomainEvent> pending_cloud(std::size_t limit) const;

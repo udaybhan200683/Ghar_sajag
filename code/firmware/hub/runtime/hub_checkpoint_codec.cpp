@@ -1,5 +1,7 @@
 #include "hub_checkpoint_codec.hpp"
 #include <type_traits>
+#include <memory>
+#include <new>
 namespace gs::hub {
 namespace {
 // Explicit little-endian schema. Byte/count limits fail closed, never discard evidence.
@@ -48,6 +50,18 @@ struct Codec {
     }
 };
 }
+bool HubCheckpointCodec::encode_after_event(HubRuntime& r, const DomainEvent& event,
+        std::optional<std::uint16_t> minute, security::Bytes& bytes) {
+    // Keep the sizeable runtime object off the target owner's task stack.
+    std::unique_ptr<HubRuntime> preview(new (std::nothrow) HubRuntime(0, 0));
+    if (!preview) return false;
+    preview->routine_ = r.routine_; preview->coverage_ = r.coverage_;
+    preview->activity_config_ = r.activity_config_; preview->activity_state_ = r.activity_state_;
+    preview->power_telemetry_ = r.power_telemetry_;
+    (void)preview->apply_committed_event(event, minute);
+    return encode(*preview, bytes);
+}
+
 bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
     bytes.clear(); Codec c{bytes,false};
     std::uint32_t version=1; c.scalar(version); if(version!=1)c.ok=false;

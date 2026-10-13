@@ -272,6 +272,9 @@ struct RecoveryState {
     std::uint32_t storage_epoch{0};
     std::uint64_t last_ordinal{0};
     std::uint64_t checkpoint_generation{0};
+    // Derived from every authenticated selector/checkpoint pair, including
+    // fallback candidates. Not a new persisted field or schema.
+    std::uint8_t recovery_report_bank_mask{0};
     Checkpoint checkpoint;
     std::vector<Transition> tail;
 };

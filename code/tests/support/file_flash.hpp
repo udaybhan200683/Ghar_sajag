@@ -10,8 +10,8 @@ namespace gs::test {
 struct TempFlash {
     std::filesystem::path path;
     TempFlash() {
-        char name[]="/tmp/gs130-board-XXXXXX";
-        auto p=mkdtemp(name);
+        auto name=(std::filesystem::temp_directory_path()/"gs130-board-XXXXXX").string();
+        auto p=mkdtemp(name.data());
         if(!p)throw std::runtime_error("cannot create owned simulated flash");
         path=p;
     }

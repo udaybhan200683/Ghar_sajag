@@ -1,5 +1,13 @@
 # R1 Hub storage and data lifecycle — architecture ExecPlan
 
+**Latest bounded resume — 2026-10-12:** GS-152 Done; the user authorized P0
+current-source reconciliation and bounded software P1/P2 on canonical R1 only.
+See the [approved direction](../../architecture/GS148_ARCHITECTURE_REVIEW_DECISION_20261012.md)
+and [current package evidence / precise next action](../evidence/R1_GS148_P0_P1_P2_20261012.md).
+This supersedes the older ON HOLD statement only for that bounded package.
+Production lifecycle/deletion, security contract and physical work remain on
+hold. Do not resume P3–P9 automatically or repeat completed architecture review.
+
 **Current status — 2026-10-10:** This S3/storage execution plan is ON HOLD by intentional priority switch, not cancelled or complete. Reviewed S3 P2-A/B/C and partial P2-D source/evidence are now integrated into canonical `feature/r1-commercial-baseline`; the [source integration manifest](../evidence/R1_SOURCE_INTEGRATION_MANIFEST_20261010.md) supersedes the earlier audit's source-absence findings. Resume only after explicit reprioritization and GS-148 contract/workload blockers. BAT-C8 physical qualification is next; production deletion remains disabled. Historical plan/evidence below retain original scope/date. See also the [P2-D handoff](../evidence/R1_S3_P2D_CLOUD_VALIDATION_20261010.md).
 
 Date: 2026-10-07. Source: `cd8d126ab44689cc9c6ebbbe74e6dce058d4323b`, branch `feature/r1-hub-storage-lifecycle`.

@@ -1,5 +1,14 @@
 # P2-D cloud implementation checkpoint — 2026-10-10
 
+## Latest bounded storage handoff — 2026-10-12
+
+GS-152 is Done. The [P0/P1/P2 package evidence and next action](R1_GS148_P0_P1_P2_20261012.md)
+is the latest GS-148 checkpoint for local admission/root/witness correctness on
+canonical R1. This P2-D document remains the CloudSync/provenance/trust handoff;
+its production issuer/verifier/receipt/worker blockers are not closed by local
+storage fixes. Production deletion and physical qualification remain disabled /
+unqualified. No automatic P2-D policy implementation follows this package.
+
 ## Canonical source handoff — 2026-10-10
 
 The reviewed P2-A/B/C and partial P2-D source/evidence are now selectively

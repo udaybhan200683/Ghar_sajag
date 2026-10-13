@@ -11,8 +11,8 @@ using namespace gs::hub::storage;
 class PosixSegments final : public SegmentStore {
 public:
     explicit PosixSegments(std::uint64_t capacity = 8U * 1024U * 1024U) : capacity_(capacity) {
-        char pattern[] = "/tmp/gs_body_compaction_XXXXXX";
-        const auto* path = ::mkdtemp(pattern);
+        auto pattern = (std::filesystem::temp_directory_path() / "gs_body_compaction_XXXXXX").string();
+        const auto* path = ::mkdtemp(pattern.data());
         require(path != nullptr, "create isolated body store");
         directory = path;
     }

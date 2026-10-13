@@ -673,6 +673,19 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
             local_minute = original_minute;
             identity_already_prepared = true;
         }
+        // The single owner holds admission serialized through all writes below.
+        // Check exact next reducer bounds, both indexes and complete immediate
+        // workspace before publishing a new identity. Uncertain I/O still uses
+        // the existing exact prepared retry; no identity abort/deletion is added.
+        std::uint64_t workspace = 0;
+        {
+            security::Bytes next_checkpoint;
+            if (!HubCheckpointCodec::encode_after_event(*this, *event, local_minute,
+                    next_checkpoint) || !runtime_state_->admission_workspace(*event,
+                    journal_.size() + 1U, next_checkpoint.size(), workspace) ||
+                !journal_.admission_ready(*event, workspace))
+                return ProcessResult{event->key, AckClass::Rejected, false, {}};
+        }
         if (duplicate || (!identity_already_prepared && !runtime_state_->prepare_identity(
                 *event, journal_.size() + 1U, local_minute,
                 ingress_owner.authenticated() ? &ingress_owner : nullptr))) {

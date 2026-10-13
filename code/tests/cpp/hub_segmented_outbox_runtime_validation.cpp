@@ -30,10 +30,20 @@ void require(bool condition, const char* message) {
 
 class MemorySegments final : public SegmentStore {
 public:
-    explicit MemorySegments(std::uint64_t capacity, std::size_t segment_count = 16)
+    explicit MemorySegments(std::uint64_t capacity, std::size_t segment_count = 32)
         : capacity_(capacity), segments_(segment_count), exists_(segment_count, false) {}
 
     std::uint64_t partition_capacity_bytes() const override { return capacity_; }
+    bool filesystem_usage(std::uint64_t& total, std::uint64_t& used) override {
+        total = capacity_; used = 0;
+        const auto allocated = [](std::size_t n) { return (n + 4095U) / 4096U * 4096U; };
+        for (const auto& segment : segments_) used += allocated(segment.size());
+        used += allocated(publication_.size()) + allocated(lifecycle_root_.size()) +
+            allocated(completion_.size()) + allocated(completion_publication_.size());
+        used += additional_usage;
+        return true;
+    }
+    std::uint64_t additional_usage{0};
     bool segment_size(std::uint16_t segment, bool& exists,
                       std::uint32_t& bytes) override {
         if (segment >= segments_.size()) return false;
@@ -45,20 +55,33 @@ public:
               std::uint8_t* output, std::size_t requested,
               std::size_t& actual) override {
         if (segment >= segments_.size() || (requested != 0 && output == nullptr)) return false;
+        if (missing_read_once) { missing_read_once = false; actual = 0; return true; }
         const auto& bytes = segments_[segment];
         if (offset > bytes.size()) { actual = 0; return true; }
         actual = std::min(requested, bytes.size() - offset);
         std::copy_n(bytes.data() + offset, actual, output);
+        if (corrupt_read_once && actual != 0) { corrupt_read_once = false; output[0] ^= 1; }
         return true;
     }
     bool append(std::uint16_t segment, const std::uint8_t* data,
                 std::size_t length) override {
         if (segment >= segments_.size() || (length != 0 && data == nullptr)) return false;
-        segments_[segment].insert(segments_[segment].end(), data, data + length);
+        const auto fault = append_fault; append_fault = 0;
+        if (fault == 1) return false;
+        const auto written = fault == 2 ? length / 2U : length;
+        segments_[segment].insert(segments_[segment].end(), data, data + written);
         exists_[segment] = true;
-        return true;
+        return fault == 0;
     }
-    bool sync(std::uint16_t segment) override { return segment < segments_.size(); }
+    bool sync(std::uint16_t segment) override {
+        if (fail_sync_once) { fail_sync_once = false; return false; }
+        return segment < segments_.size();
+    }
+    // 1: before append; 2: prefix only; 3: complete append reports failure.
+    unsigned append_fault{0};
+    bool fail_sync_once{false};
+    bool missing_read_once{false};
+    bool corrupt_read_once{false};
     bool read_publication(Bytes& marker, bool& found) override {
         if (fail_read_publication_once) {
             fail_read_publication_once = false;

@@ -414,6 +414,24 @@ records validated scope and blockers. Production body and identity deletion gate
 remain disabled; post-sync local history retention remains P2-E.
 
 
+### Bounded GS-148 admission / recovery correctness — 2026-10-12
+
+The [approved architecture disposition](GS148_ARCHITECTURE_REVIEW_DECISION_20261012.md)
+and [current source/evidence reconciliation](../exec-plans/evidence/R1_GS148_P0_P1_P2_20261012.md)
+retain the existing persistent formats. Runtime admission now checks the exact
+next bounded reducer, reserves reconstructible identity/outbox indexes and
+checks rounded immediate identity/body/head/checkpoint workspace before a new
+identity write. A predictable refusal leaves no prepared identity; ambiguous
+writes retain the original prepared EventKey/context for exact retry.
+
+Report staging protects every authenticated NVS selector/checkpoint report bank
+and the independent LittleFS witness. Conflicting equal-generation checkpoint
+contents or cross-epoch/higher-floor incompatible witness authority fail closed.
+This is software correctness evidence, not an allocator/commercial capacity or
+physical qualification claim. Production deletion remains disabled. Whole-life
+completion/GC escrow and first-admission authenticated genesis compatibility
+remain explicit gaps; absent first publication authority is not weakened.
+
 ## GS-40 configuration and contact integration (2026-10-10)
 
 GS-D031 selects embedded validated JSON and RAM physical-identity deployment

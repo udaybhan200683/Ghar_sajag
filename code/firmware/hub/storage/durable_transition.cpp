@@ -617,10 +617,26 @@ bool DurableStore::recover(RecoveryState& state){
         const bool decoded=decode_selector_blob(crypto_,key_,b,selector_generation[i],selector_bank[i]);
         selector_valid[i]=decoded&&valid[selector_bank[i]]&&
             cps[selector_bank[i]].generation==selector_generation[i];
+        if (selector_valid[i] && cps[selector_bank[i]].report_snapshot)
+            state.recovery_report_bank_mask |= static_cast<std::uint8_t>(
+                1U << cps[selector_bank[i]].report_snapshot->bank);
         if(selector_valid[i]&&(!have_selector||selector_generation[i]>selected_selector_generation)){
             selected_selector_generation=selector_generation[i];
             selected_selector_bank=selector_bank[i];have_selector=true;
         }
+    }
+    if (selector_valid[0] && selector_valid[1] &&
+        selector_generation[0] == selector_generation[1] &&
+        cp_blobs[selector_bank[0]] != cp_blobs[selector_bank[1]]) {
+        // Random AEAD nonces may differ for identical checkpoint authority.
+        // Compare authenticated contents, not ciphertext or iteration order.
+        Bytes a, b;
+        const bool equal = open(crypto_, key_, "hub-checkpoint-v1",
+                cp_blobs[selector_bank[0]], a, kMaxCheckpointBytes) &&
+            open(crypto_, key_, "hub-checkpoint-v1",
+                cp_blobs[selector_bank[1]], b, kMaxCheckpointBytes) && a == b;
+        crypto_.secure_zero(a.data(), a.size()); crypto_.secure_zero(b.data(), b.size());
+        if (!equal) return false;
     }
     MigrationManifest manifest;MigrationManifestRepository manifests(store_,crypto_,key_,epoch_);
     const auto manifest_status=manifests.load(manifest,nullptr);

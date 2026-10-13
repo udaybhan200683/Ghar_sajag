@@ -315,6 +315,12 @@ bool HubJournal::attach_backend(JournalEventBackend& backend) {
 
 // @requirements F05, F06, F07, E02, E03, E05, E10, NFR-03, NFR-05
 // Persistent target writes and verifies a slot before returning Stored.
+bool HubJournal::admission_ready(const DomainEvent& event, std::uint64_t workspace) {
+    if (storage_fault()) return false;
+    if (backend_) return backend_->admission_ready(event, workspace);
+    return contains(event.key) || records_.size() < capacity_;
+}
+
 CommitResult HubJournal::commit(const DomainEvent& event) {
     GS_TRACE(gs::log::Category::Storage, "H02", "commit.enter", "-");
     if (backend_ != nullptr)
