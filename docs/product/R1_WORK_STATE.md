@@ -1,5 +1,33 @@
 # R1 Current Work State
 
+## GS-122/124/125 service workflow checkpoint — 2026-10-13
+
+Reconciled dashboard context preflight PASS at local/remote dashboard source
+`ebdec41fde2389a03974a57d30a0118c6adafeeb`; context
+`2026-10-13.001`. Canonical local/remote GS-148 source remains
+`774da5c2ee8073c535df2fe56ecdbf548c16ebf0`; its 35 dirty paths and all
+GS-114 evidence remain untouched. The 54 registered authorization/diagnostic
+foundation tests PASS, as does `make feature-coverage-test` (155 features, 206
+modules, 14 physical cases; 20 meta-tests). See the
+[service-workflow implementation report](../exec-plans/evidence/engineering_dashboard_20261013/GS124_SERVICE_WORKFLOW_IMPLEMENTATION_REPORT_20261013.md).
+
+Service-ticket production implementation is blocked at the verified identity
+and durable storage boundary. The local JSON API has only the development
+`X-Actor-Id` adapter; no production session provider or active staff directory
+exists. The public PWA has no composed token/session provider or admin/technician
+views. SQLite migrations are host schema contracts and the production database
+adapter is absent. Existing Hub ownership is reusable but cannot authenticate
+caregiver/staff consent. Therefore no live routes, persistent ticket/grant
+tables, role views or fake UI tests were added. Product behavior remains as
+approved by GS-122/10705, including the 30-minute JSON default and no OTP.
+
+Precise next action: obtain/identify the GS-76/GS-143 verified principal/session
+and staff-role source plus the deployed persistence transaction boundary; then
+compose service tickets and grants with existing Home/Hub/Node authorities and
+add production-source backend/PWA tests. Commercial diagnostic routes remain
+disabled. GS-122/124/125 are not Done. HIL, OTA, commissioning, production
+activation and GS-148 remain unchanged.
+
 ## Engineering Dashboard context reconciliation — 2026-10-13 (preflight passed)
 
 Dashboard baseline: branch `feature/gs124-125-engineering-dashboard`, local and

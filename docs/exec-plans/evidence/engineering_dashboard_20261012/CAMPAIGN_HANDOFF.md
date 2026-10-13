@@ -48,13 +48,32 @@ still require caregiver consent. Production identity/session, staff credentials,
 atomic persistent grant/revoke, trusted Hub source and live commercial routes
 remain unimplemented.
 
-Next: inspect current caregiver PWA, real JSON configuration, Home/Hub/Node
-ownership authorities, roles and backend persistence before the service-ticket
-implementation. Preserve `identity.py`, `diagnostic_authorization.py` and
-`diagnostics.py`; do not activate commercial routes via `X-Actor-Id`. After
-preflight, validate dashboard-scoped traceability and register eligible tests
-without importing GS-148 registry changes. No physical HIL, OTA, commissioning,
-production activation or GS-148 storage change.
+Latest source inventory and boundary checkpoint: `GS124_SERVICE_WORKFLOW_IMPLEMENTATION_REPORT_20261013.md`.
+The production workflow is BLOCKED at the missing verified principal/session,
+staff-role authority, actual production persistence transaction boundary and
+PWA session composition. `JsonApi` has only development `X-Actor-Id`; the public
+PWA does not compose the existing injectable token client. `HubOwnershipRegistry`
+can resolve device ownership but cannot authenticate caregiver or employee
+consent. No ticket/grant schema, route or role UI was added. Do not treat the
+54-case nonactive foundation suite as service-desk acceptance.
+
+Latest checkpoint after the post-reconciliation GS-116 compatibility fix:
+dashboard local/remote HEAD `ebdec41fde2389a03974a57d30a0118c6adafeeb`, clean;
+preflight PASS; `make feature-coverage-test` PASS (20 meta-tests); registered
+`tests/engineering_dashboard` PASS (54 tests). Canonical GS-148 local/remote
+HEAD `774da5c2ee8073c535df2fe56ecdbf548c16ebf0` and its 35 dirty paths remain
+untouched. No backend/PWA service-desk regression, simulation, integration or
+Playwright suite ran because the requested paths are not implemented. GS-114
+HIL remains NO-GO; no port or board was accessed. Full release remains NOT_RUN.
+
+Next exact action: resume when GS-76/GS-143 identity/session and caregiver/admin/
+technician authorities are available and the production storage owner provides
+the durable ticket/grant transaction interface. Integrate only with the existing
+Home/Hub/Node authorities; preserve in-app consent, 30-minute scope, no OTP,
+real-Home consent and synthetic-only admin bypass. Then add registered actual
+backend/PWA tests and Playwright. Do not enable commercial routes through
+`X-Actor-Id`, modify GS-148, perform HIL/OTA/commissioning, activate production,
+or transition any Jira issue to Done.
 
 ## Prior checkpoint — authorization foundation delivery snapshot
 
