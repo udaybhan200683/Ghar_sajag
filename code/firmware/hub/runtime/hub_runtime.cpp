@@ -284,7 +284,24 @@ ReplayFenceReconcileResult HubRuntime::reconcile_replay_fence(
         std::uint32_t storage_epoch,
         storage::DurableEventOutbox& outbox) {
     durable::RecoveryState selected_state;
-    if (!durable_store.recover(selected_state)) {
+    if (durability_owner_) {
+        if (durability_owner_->durable_store() != &durable_store ||
+            durability_owner_->epoch() != storage_epoch) {
+            replay_fence_fault_ = true;
+            return {ReplayFenceReconcileStage::DependenciesUnavailable};
+        }
+        if (!durability_owner_->refresh_recovery_state()) {
+            replay_fence_fault_ = true;
+            return {ReplayFenceReconcileStage::SelectedStateReload};
+        }
+        const auto* selected = durability_owner_->recovery_state();
+        if (!selected) {
+            replay_fence_fault_ = true;
+            return {ReplayFenceReconcileStage::SelectedStateReload};
+        }
+        selected_state = *selected;
+    } else if (!durable_store.recover(selected_state)) {
+        replay_fence_fault_ = true;
         ReplayFenceReconcileResult result;
         result.stage = ReplayFenceReconcileStage::SelectedStateReload;
         return result;

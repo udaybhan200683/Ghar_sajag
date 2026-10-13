@@ -111,6 +111,13 @@ bool HubDurabilityOwner::commit_candidate_epoch(const Checkpoint& replacement) {
 const RecoveryState* HubDurabilityOwner::recovery_state() const {
     return state_ == DurabilityOwnerState::Ready && recovered_ ? &*recovered_ : nullptr;
 }
+bool HubDurabilityOwner::refresh_recovery_state() {
+    if (state_ != DurabilityOwnerState::Ready || !durable_ || epoch_ == 0) return false;
+    RecoveryState selected;
+    if (!durable_->recover(selected) || selected.storage_epoch != epoch_) return false;
+    recovered_ = std::move(selected);
+    return true;
+}
 DurableStore* HubDurabilityOwner::durable_store() {
     return state_ == DurabilityOwnerState::Ready ? durable_.get() : nullptr;
 }

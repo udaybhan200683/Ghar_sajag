@@ -1,0 +1,100 @@
+2026-10-13T12:04:30.894+00:00 [c3] ESP-ROM:esp32c3-api1-20210207
+2026-10-13T12:04:30.894+00:00 [c3] Build:Feb  7 2021
+2026-10-13T12:04:30.894+00:00 [c3] rst:0x15 (USB_UART_CHIP_RESET),boot:0xd (SPI_FAST_FLASH_BOOT)
+2026-10-13T12:04:30.894+00:00 [c3] Saved PC:0x40385998
+2026-10-13T12:04:30.894+00:00 [c3] SPIWP:0xee
+2026-10-13T12:04:30.894+00:00 [c3] mode:DIO, clock div:1
+2026-10-13T12:04:30.894+00:00 [c3] load:0x3fcd5830,len:0x15e0
+2026-10-13T12:04:30.894+00:00 [c3] load:0x403cbf10,len:0xca0
+2026-10-13T12:04:30.895+00:00 [c3] load:0x403ce710,len:0x3114
+2026-10-13T12:04:30.901+00:00 [c3] entry 0x403cbf1a
+2026-10-13T12:04:30.901+00:00 [c3] I (24) boot: ESP-IDF v6.0.3 2nd stage bootloader
+2026-10-13T12:04:30.901+00:00 [c3] I (24) boot: compile time Oct 13 2026 07:13:12
+2026-10-13T12:04:30.901+00:00 [c3] I (24) boot: chip revision: v0.4
+2026-10-13T12:04:30.902+00:00 [c3] I (25) boot: efuse block revision: v1.3
+2026-10-13T12:04:30.902+00:00 [c3] I (25) boot.esp32c3: SPI Speed      : 80MHz
+2026-10-13T12:04:30.902+00:00 [c3] I (25) boot.esp32c3: SPI Mode       : DIO
+2026-10-13T12:04:30.902+00:00 [c3] I (25) boot.esp32c3: SPI Flash Size : 4MB
+2026-10-13T12:04:30.902+00:00 [c3] I (25) boot: Enabling RNG early entropy source...
+2026-10-13T12:04:30.903+00:00 [c3] I (25) boot: Partition Table:
+2026-10-13T12:04:30.903+00:00 [c3] I (25) boot: ## Label            Usage          Type ST Offset   Length
+2026-10-13T12:04:30.903+00:00 [c3] I (26) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+2026-10-13T12:04:30.903+00:00 [c3] I (26) boot:  1 otadata          OTA data         01 00 0000f000 00002000
+2026-10-13T12:04:30.903+00:00 [c3] I (26) boot:  2 phy_init         RF data          01 01 00011000 00001000
+2026-10-13T12:04:30.923+00:00 [c3] I (27) boot:  3 ota_0            OTA app          00 10 00020000 001e0000
+2026-10-13T12:04:30.923+00:00 [c3] I (27) boot:  4 ota_1            OTA app          00 11 00200000 001e0000
+2026-10-13T12:04:30.923+00:00 [c3] I (27) boot: End of partition table
+2026-10-13T12:04:30.923+00:00 [c3] I (27) esp_image: segment 0: paddr=00020020 vaddr=3c0c0020 size=1c530h (116016) map
+2026-10-13T12:04:31.046+00:00 [c3] I (47) esp_image: segment 1: paddr=0003c558 vaddr=3fc91e00 size=0353ch ( 13628) load
+2026-10-13T12:04:31.046+00:00 [c3] I (49) esp_image: segment 2: paddr=0003fa9c vaddr=40380000 size=0057ch (  1404) load
+2026-10-13T12:04:31.046+00:00 [c3] I (50) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b3b28h (736040) map
+2026-10-13T12:04:31.066+00:00 [c3] I (170) esp_image: segment 4: paddr=000f3b50 vaddr=4038057c size=11870h ( 71792) load
+2026-10-13T12:04:31.066+00:00 [c3] I (184) esp_image: segment 5: paddr=001053c8 vaddr=50000000 size=00024h (    36) load
+2026-10-13T12:04:31.066+00:00 [c3] I (190) boot: Loaded app from partition at offset 0x20000
+2026-10-13T12:04:31.066+00:00 [c3] I (190) boot: Disabling RNG early entropy source...
+2026-10-13T12:04:31.076+00:00 [c3] I (191) cpu_start: Unicore app
+2026-10-13T12:04:31.076+00:00 [c3] I (199) cpu_start: Pro cpu start user code
+2026-10-13T12:04:31.076+00:00 [c3] I (199) cpu_start: cpu freq: 160000000 Hz
+2026-10-13T12:04:31.076+00:00 [c3] I (199) app_init: Application information:
+2026-10-13T12:04:31.076+00:00 [c3] I (199) app_init: Project name:     gs_hw_m1_node
+2026-10-13T12:04:31.077+00:00 [c3] I (199) app_init: App version:      774da5c2ee80-gs114-rpfdiag-c07a
+2026-10-13T12:04:31.077+00:00 [c3] I (200) app_init: Compile time:     Oct 13 2026 07:12:00
+2026-10-13T12:04:31.077+00:00 [c3] I (200) app_init: ELF file SHA256:  c905a1a36...
+2026-10-13T12:04:31.077+00:00 [c3] I (200) app_init: ESP-IDF:          v6.0.3
+2026-10-13T12:04:31.077+00:00 [c3] I (200) efuse_init: Min chip rev:     v0.3
+2026-10-13T12:04:31.077+00:00 [c3] I (200) efuse_init: Max chip rev:     v1.99
+2026-10-13T12:04:31.077+00:00 [c3] I (200) efuse_init: Chip rev:         v0.4
+2026-10-13T12:04:31.078+00:00 [c3] I (200) heap_init: Initializing. RAM available for dynamic allocation:
+2026-10-13T12:04:31.078+00:00 [c3] I (201) heap_init: At 3FC9BD40 len 000242C0 (144 KiB): RAM
+2026-10-13T12:04:31.078+00:00 [c3] I (201) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+2026-10-13T12:04:31.079+00:00 [c3] I (201) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM
+2026-10-13T12:04:31.079+00:00 [c3] I (201) heap_init: At 50000024 len 00001FC4 (7 KiB): RTCRAM
+2026-10-13T12:04:31.079+00:00 [c3] I (202) spi_flash: detected chip: generic
+2026-10-13T12:04:31.079+00:00 [c3] I (202) spi_flash: flash io: dio
+2026-10-13T12:04:31.266+00:00 [c3] I (203) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+2026-10-13T12:04:31.266+00:00 [c3] I (203) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+2026-10-13T12:04:31.266+00:00 [c3] I (204) main_task: Started on CPU0
+2026-10-13T12:04:31.266+00:00 [c3] I (204) main_task: Calling app_main()
+2026-10-13T12:04:31.266+00:00 [c3] I (204) gs_node_product: Starting HW-M1.3 ESP32-C3 product composition
+2026-10-13T12:04:31.290+00:00 [c3] I (384) gs_empty_aead_target: NODE_EMPTY_AEAD_TARGET result=PASS backend=ESP_IDF_PSA_HARDWARE_AES checks=13 stage=complete minimum_free_bytes=16644
+2026-10-13T12:04:31.291+00:00 [c3] I (404) pp: pp rom version: 9387209
+2026-10-13T12:04:31.291+00:00 [c3] I (404) net80211: net80211 rom version: 9387209
+2026-10-13T12:04:31.295+00:00 [c3] I (414) wifi:wifi driver task: 3fca3998, prio:23, stack:6656, core=0
+2026-10-13T12:04:31.295+00:00 [c3] I (414) wifi:wifi firmware version: da143fa
+2026-10-13T12:04:31.296+00:00 [c3] I (414) wifi:wifi certification version: v7.0
+2026-10-13T12:04:31.296+00:00 [c3] I (414) wifi:config NVS flash: enabled
+2026-10-13T12:04:31.296+00:00 [c3] I (414) wifi:config nano formatting: disabled
+2026-10-13T12:04:31.297+00:00 [c3] I (414) wifi:Init data frame dynamic rx buffer num: 32
+2026-10-13T12:04:31.297+00:00 [c3] I (414) wifi:Init static rx mgmt buffer num: 5
+2026-10-13T12:04:31.297+00:00 [c3] I (414) wifi:Init management short buffer num: 32
+2026-10-13T12:04:31.298+00:00 [c3] I (414) wifi:Init dynamic tx buffer num: 32
+2026-10-13T12:04:31.298+00:00 [c3] I (414) wifi:Init static tx FG buffer num: 2
+2026-10-13T12:04:31.298+00:00 [c3] I (414) wifi:Init static rx buffer size: 1600
+2026-10-13T12:04:31.299+00:00 [c3] I (414) wifi:Init static rx buffer num: 10
+2026-10-13T12:04:31.299+00:00 [c3] I (414) wifi:Init dynamic rx buffer num: 32
+2026-10-13T12:04:31.300+00:00 [c3] I (414) wifi_init: rx ba win: 6
+2026-10-13T12:04:31.300+00:00 [c3] I (414) wifi_init: accept mbox: 6
+2026-10-13T12:04:31.300+00:00 [c3] I (414) wifi_init: tcpip mbox: 32
+2026-10-13T12:04:31.300+00:00 [c3] I (414) wifi_init: udp mbox: 6
+2026-10-13T12:04:31.300+00:00 [c3] I (414) wifi_init: tcp mbox: 6
+2026-10-13T12:04:31.332+00:00 [c3] I (414) wifi_init: tcp tx win: 5760
+2026-10-13T12:04:31.332+00:00 [c3] I (414) wifi_init: tcp rx win: 5760
+2026-10-13T12:04:31.333+00:00 [c3] I (414) wifi_init: tcp mss: 1440
+2026-10-13T12:04:31.334+00:00 [c3] I (414) wifi_init: WiFi IRAM OP enabled
+2026-10-13T12:04:31.334+00:00 [c3] I (414) wifi_init: WiFi RX IRAM OP enabled
+2026-10-13T12:04:31.334+00:00 [c3] I (414) phy_init: phy_version 1235,8bd8c6fc,Apr 13 2026,18:46:20
+2026-10-13T12:04:31.336+00:00 [c3] I (454) wifi:mode : sta (14:63:93:c5:d1:58)
+2026-10-13T12:04:31.337+00:00 [c3] I (454) wifi:enable tsf
+2026-10-13T12:04:31.337+00:00 [c3] I (454) wifi:Set ps type: 0, coexist: 0
+2026-10-13T12:04:31.337+00:00 [c3]
+2026-10-13T12:04:31.337+00:00 [c3] I (454) ESPNOW: espnow [version: 2.0] init
+2026-10-13T12:04:31.538+00:00 [c3] I (454) gs_node_runtime: GS40 config=fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862 heartbeat=300 offline=910
+2026-10-13T12:04:31.539+00:00 [c3] I (634) gs_hil_control: HIL_READY role=c3 protocol=1 version=774da5c2ee80-gs114-rpfdiag-c07a
+2026-10-13T12:04:31.539+00:00 [c3] I (634) main_task: Returned from app_main()
+2026-10-13T12:04:31.937+00:00 [c3] I (1054) gs_node_runtime: HIL_TEST_QR profile=TEST_ONLY device_id=c3-146393c5d158 public_key=REDACTED
+2026-10-13T12:04:32.138+00:00 [c3] I (1054) gs_node_runtime: HIL_TEST_CODE profile=TEST_ONLY device_id=c3-146393c5d158 installer_code=REDACTED
+2026-10-13T12:04:32.138+00:00 [c3] I (1054) gs_node_runtime: HIL_OK command=GET_TEST_QR
+2026-10-13T12:04:37.750+00:00 [c3] I (6774) gs_node_runtime: NodeRuntime owner started session=2 channel=1 tx_power_qdbm=40
+2026-10-13T12:04:45.568+00:00 [c3] I (14554) gs_node_runtime: HIL_STATE role=c3 session=2 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=196672 min_heap=190192 ota_slot=ota_0
+2026-10-13T12:04:45.568+00:00 [c3] I (14554) gs_hil_control: HIL_OK command=GET_STATE
+2026-10-13T12:04:47.773+00:00 [c3] I (16774) gs_node_runtime: PIR ready on GPIO4

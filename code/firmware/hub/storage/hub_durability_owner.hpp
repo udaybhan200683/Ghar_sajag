@@ -93,6 +93,10 @@ public:
     // intentionally a separate operation and cannot be requested here.
     bool commit_candidate_epoch(const Checkpoint& replacement);
     const RecoveryState* recovery_state() const;
+    // Refresh the selected, authenticated checkpoint after an in-boot
+    // publication. The boot snapshot is otherwise stale for replay-fence
+    // binding and admission checks.
+    bool refresh_recovery_state();
     DurableStore* durable_store();
     RetirementSnapshotRepository* retirement_repository();
     using InitialReportValidator = bool (*)(void*, const RetirementSnapshot&);

@@ -247,6 +247,79 @@ struct ReplayFenceReconcileFixture {
     }
 };
 
+void fresh_owner_report_reconcile_test() {
+    using namespace gs::hub::durable;
+    using namespace gs::hub::storage;
+    struct EmptyInventory final : StoreInventory {
+        InventorySnapshot scan() override {
+            InventorySnapshot snapshot;
+            snapshot.status = InventoryStatus::Empty;
+            return snapshot;
+        }
+    } inventory;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    FaultableBlobStore blobs;
+    HubDurabilityOwner owner(blobs, inventory, crypto, key,
+                             InstallationFreshness::FreshInstallation);
+    require(owner.recover() == DurabilityOwnerState::Ready &&
+            !owner.recovery_state()->checkpoint.report_snapshot,
+            "fresh owner starts with no selected retirement report");
+    RetirementSnapshot current;
+    current.storage_epoch = 1;
+    current.generation = 1;
+    std::array<std::uint8_t, 32> binding_digest{};
+    binding_digest.fill(0x44);
+    gs::security::Key32 report_hmac{};
+    report_hmac.fill(0x11);
+    gs::transport::NodeRetirementReportV1 report;
+    report.epoch = 1;
+    report.generation = 1;
+    report.current_origin_session = 10;
+    report.durable_admission_highwater = 12;
+    RetirementSnapshot candidate;
+    auto* repository = owner.retirement_repository();
+    require(repository->apply_authenticated_report(current, binding_digest, 0, 3, 10,
+                report, report_hmac, candidate) == RetirementReportApply::Prepared,
+            "authenticated first report prepares a retirement snapshot");
+    RetirementSnapshotReference reference;
+    require(repository->prepare_bank(candidate, 0, reference),
+            "first report bank is authenticated and read back");
+    RecoveryState before;
+    auto* durable_store = owner.durable_store();
+    require(durable_store->recover(before), "fresh selected checkpoint reload");
+    auto next = before.checkpoint;
+    next.generation = before.checkpoint_generation + 1;
+    next.report_snapshot = reference;
+    require(durable_store->checkpoint(next) &&
+            !owner.recovery_state()->checkpoint.report_snapshot,
+            "report checkpoint advances while owner's boot cache remains stale");
+
+    MemorySegments segments(4U * 1024U * 1024U);
+    DurableEventOutbox outbox(segments, crypto, key);
+    require(outbox.recover() == OutboxRecovery::Empty, "fresh report outbox initialized");
+    StateFiles files;
+    RuntimeStateStore state(files, crypto, key);
+    require(state.recover(0) && state.save_checkpoint(Bytes{0x47}, 0),
+            "fresh report reducer checkpoint available");
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubRuntime runtime(32, backend);
+    runtime.bind_runtime_state(state);
+    runtime.bind_durability_owner(owner);
+    const auto reconciled = runtime.reconcile_replay_fence(
+        *durable_store, *repository, state, 1, outbox);
+    require(reconciled.succeeded() && owner.recovery_state()->checkpoint.report_snapshot &&
+            owner.recovery_state()->checkpoint.report_snapshot->digest == reference.digest &&
+            runtime.durable_admission_open(),
+            "first in-boot report refreshes selected owner before fence binding");
+    blobs.fail_all_reads = true;
+    const auto failed = runtime.reconcile_replay_fence(
+        *durable_store, *repository, state, 1, outbox);
+    require(failed.stage == gs::hub::ReplayFenceReconcileStage::SelectedStateReload &&
+            !runtime.durable_admission_open(),
+            "failed selected checkpoint refresh closes admission");
+}
+
 class ScriptedBackendTransport final : public gs::hub::CloudBackendTransport {
 public:
     gs::hub::BackendCommitReply reply;
@@ -2060,6 +2133,7 @@ checkpoint_tests();interruption_tests();published_checkpoint_interruption();time
         replay_fence_and_eligibility_tests();
         replay_fence_publication_cut_tests();
         replay_fence_diagnostic_tests();
+        fresh_owner_report_reconcile_test();
         lifecycle_publication_cut_tests();
         high_volume_lifecycle_test();
         std::cout<<"PASS: runtime checkpoint, replay, exact identity, crash boundaries\n";return 0;

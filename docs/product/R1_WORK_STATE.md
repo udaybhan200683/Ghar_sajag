@@ -1,5 +1,69 @@
 # R1 Current Work State
 
+## GS-114 resumed software checkpoint — 2026-10-13 UTC
+
+Jira GS-114 comment 10800 and the pause handoff were reconciled. Canonical
+local and remote HEAD were both `93935e345a29e3b119f460fda5e9294477b6f798`
+at resume, branch `feature/r1-commercial-baseline`; preflight PASS. All
+uncommitted repair work and prior evidence were preserved. The old stuck S3
+esptool process exited, but neither `/dev/ttyACM0` nor `/dev/ttyACM1` exists
+in WSL. No port was reopened or hardware operation performed on resume.
+
+All nine repair artifacts have matching byte size and SHA-256; the repair
+manifest was corrected to reflect the actual 1,889,280-byte S3 app and its
+embedded new C3 image. `make validation-hub` completed: 38/40 stages PASS;
+the known journal migration test FAIL and product P0 `PARTIAL` classify the
+gate FAIL (exit 2). Affected checkpoint, fresh-install, board-stack, storage
+correctness and sanitizer stages PASS. `make validation-contract` completed
+33/34 stages PASS; only product P0 `PARTIAL` makes that gate FAIL (exit 2),
+while its contracts and affected component stages PASS. Both receipt reports
+are identified in the execution handoff.
+Physical repair retest and P1–P4 remain NOT_RUN/BLOCKED pending restored USB,
+renewed exact-board identity/power/wiring checks and the operator's requested
+pre-flash confirmation of the repaired image hashes. See the
+[consolidated GS-114 execution handoff](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
+
+
+## GS-114 paused at physical repair checkpoint — 2026-10-13 UTC
+
+The operator requested a logical pause before the session limit. The canonical
+worktree remains `/home/udaybhan/projects/Ghar_sajag_r1` on
+`feature/r1-commercial-baseline`; starting local HEAD was
+`93935e345a29e3b119f460fda5e9294477b6f798`, with no branch switch or
+destructive Git operation. Context preflight PASS `2026-10-13.001`. The existing
+nine unrelated untracked entries and prior failure evidence are preserved.
+
+The exact authorized C3 (`14:63:93:c5:d1:58`, 4 MiB, COM4/ttyACM0) and S3
+(`7c:4f:ad:b7:2a:20`, 16 MiB/8 MiB PSRAM, COM9/ttyACM1) were ROM-identified,
+clean erased, flashed and verified with the original manifest. Both booted;
+`GET_TEST_QR` → `COMMISSION_EXPECTED_NODE` produced authenticated rejoin,
+session 2. At 12:04:48.028 UTC the fresh S3 closed admission with `RPF07
+SELECTED_CHECKPOINT_MISSING`. Phase A therefore FAIL; P1–P9 have no current
+physical PASS. The [execution report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+contains redacted first-failure logs and the verified install receipts.
+
+A scoped Hub owner-cache refresh fix and production-code regression are in the
+canonical tree. Focused checkpoint and fresh-install host tests, feature
+coverage, target C3/S3 fixture build and `git diff --check` PASS. The full
+`validation-hub` run was stopped for this pause after reproducing the known
+`hub-journal-migration-host-test` failure; it is not a gate PASS. Rebuilt repair
+images (C3 `89b01dfa9c6b48d8430f5427f7f9f89a69b46330280f56923a73a093ffa73da6`,
+S3 `c7d63a9959b5df812cae14eb92edc4c18044608a7851fef54f55e8aea7e9a4a6`)
+are hash-checked but **not installed**. No repair erase/write occurred.
+
+At pause, a read-only S3 `flash-id` probe was hung in uninterruptible kernel
+I/O after its parent was terminated. S3 runtime state must be treated as
+unknown; do not infer stable serial observation or start qualification from
+this point. Next action on resume: check that probe/USB state first, then
+reidentify both exact chips/ports and image/profile hashes, perform the
+authorized controlled repair installation if safe, recommission with the
+supported fixture APIs, and physically retest healthy replay-fence admission
+and reliable dual logs before P1–P4. Preserve separate P5–P9 operator
+checkpoints. GS-114 stays In Progress; GS-149/GS-146/GS-115 remain dependent.
+
+The older GS-114 sections below describe prior checkpoints; this section is
+the current pause/resume state.
+
 ## GS-114 clean R&D execution — 2026-10-13
 
 Active task: actual C8 P1–P9 on the existing commissioned R&D pair, under

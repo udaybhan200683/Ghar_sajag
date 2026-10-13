@@ -1,0 +1,116 @@
+2026-10-13T12:01:31.088+00:00 [s3] ESP-ROM:esp32s3-20210327
+2026-10-13T12:01:31.088+00:00 [s3] Build:Mar 27 2021
+2026-10-13T12:01:31.089+00:00 [s3] rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+2026-10-13T12:01:31.089+00:00 [s3] SPIWP:0xee
+2026-10-13T12:01:31.089+00:00 [s3] mode:DIO, clock div:2
+2026-10-13T12:01:31.089+00:00 [s3] load:0x3fce2820,len:0x1534
+2026-10-13T12:01:31.089+00:00 [s3] load:0x403c8700,len:0xda0
+2026-10-13T12:01:31.089+00:00 [s3] load:0x403cb700,len:0x2fdc
+2026-10-13T12:01:31.089+00:00 [s3] entry 0x403c8908
+2026-10-13T12:01:31.111+00:00 [s3] I (30) boot: ESP-IDF v6.0.3 2nd stage bootloader
+2026-10-13T12:01:31.111+00:00 [s3] I (30) boot: compile time Oct 13 2026 07:19:30
+2026-10-13T12:01:31.111+00:00 [s3] I (30) boot: Multicore bootloader
+2026-10-13T12:01:31.111+00:00 [s3] I (30) boot: chip revision: v0.2
+2026-10-13T12:01:31.111+00:00 [s3] I (33) boot: efuse block revision: v1.4
+2026-10-13T12:01:31.111+00:00 [s3] I (36) boot.esp32s3: Boot SPI Speed : 40MHz
+2026-10-13T12:01:31.133+00:00 [s3] I (40) boot.esp32s3: SPI Mode       : DIO
+2026-10-13T12:01:31.133+00:00 [s3] I (44) boot.esp32s3: SPI Flash Size : 16MB
+2026-10-13T12:01:31.133+00:00 [s3] I (48) boot: Enabling RNG early entropy source...
+2026-10-13T12:01:31.133+00:00 [s3] I (52) boot: Partition Table:
+2026-10-13T12:01:31.133+00:00 [s3] I (55) boot: ## Label            Usage          Type ST Offset   Length
+2026-10-13T12:01:31.155+00:00 [s3] I (61) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+2026-10-13T12:01:31.155+00:00 [s3] I (68) boot:  1 otadata          OTA data         01 00 0000f000 00002000
+2026-10-13T12:01:31.155+00:00 [s3] I (74) boot:  2 phy_init         RF data          01 01 00011000 00001000
+2026-10-13T12:01:31.177+00:00 [s3] I (81) boot:  3 ota_0            OTA app          00 10 00020000 00400000
+2026-10-13T12:01:31.178+00:00 [s3] I (87) boot:  4 ota_1            OTA app          00 11 00420000 00400000
+2026-10-13T12:01:31.178+00:00 [s3] I (94) boot:  5 gs_outbox        Unknown data     01 83 00820000 00400000
+2026-10-13T12:01:31.178+00:00 [s3] I (100) boot:  6 gs_state         WiFi data        01 02 00c20000 00040000
+2026-10-13T12:01:31.378+00:00 [s3] I (107) boot: End of partition table
+2026-10-13T12:01:31.379+00:00 [s3] I (110) boot: No factory image, trying OTA 0
+2026-10-13T12:01:31.379+00:00 [s3] I (114) esp_image: segment 0: paddr=00020020 vaddr=3c0c0020 size=101f3ch (1056572) map
+2026-10-13T12:01:31.457+00:00 [s3] I (384) esp_image: segment 1: paddr=00121f64 vaddr=3fc96c00 size=05254h ( 21076) load
+2026-10-13T12:01:31.458+00:00 [s3] I (391) esp_image: segment 2: paddr=001271c0 vaddr=40374000 size=08e58h ( 36440) load
+2026-10-13T12:01:31.658+00:00 [s3] I (401) esp_image: segment 3: paddr=00130020 vaddr=42000020 size=b2fa4h (733092) map
+2026-10-13T12:01:31.659+00:00 [s3] I (584) esp_image: segment 4: paddr=001e2fcc vaddr=4037ce58 size=09cb0h ( 40112) load
+2026-10-13T12:01:31.676+00:00 [s3] I (596) esp_image: segment 5: paddr=001ecc84 vaddr=50000000 size=00024h (    36) load
+2026-10-13T12:01:31.679+00:00 [s3] I (604) boot: Loaded app from partition at offset 0x20000
+2026-10-13T12:01:31.679+00:00 [s3] I (605) boot: Set actual ota_seq=1 in otadata[0]
+2026-10-13T12:01:31.679+00:00 [s3] I (605) boot: Disabling RNG early entropy source...
+2026-10-13T12:01:31.680+00:00 [s3] I (619) octal_psram: vendor id    : 0x0d (AP)
+2026-10-13T12:01:31.701+00:00 [s3] I (619) octal_psram: dev id       : 0x02 (generation 3)
+2026-10-13T12:01:31.702+00:00 [s3] I (620) octal_psram: density      : 0x03 (64 Mbit)
+2026-10-13T12:01:31.702+00:00 [s3] I (622) octal_psram: good-die     : 0x01 (Pass)
+2026-10-13T12:01:31.702+00:00 [s3] I (626) octal_psram: Latency      : 0x01 (Fixed)
+2026-10-13T12:01:31.702+00:00 [s3] I (630) octal_psram: VCC          : 0x01 (3V)
+2026-10-13T12:01:31.723+00:00 [s3] I (634) octal_psram: SRF          : 0x01 (Fast Refresh)
+2026-10-13T12:01:31.724+00:00 [s3] I (639) octal_psram: BurstType    : 0x01 (Hybrid Wrap)
+2026-10-13T12:01:31.724+00:00 [s3] I (644) octal_psram: BurstLen     : 0x01 (32 Byte)
+2026-10-13T12:01:31.724+00:00 [s3] I (649) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)
+2026-10-13T12:01:31.724+00:00 [s3] I (654) octal_psram: DriveStrength: 0x00 (1/1)
+2026-10-13T12:01:31.925+00:00 [s3] I (658) esp_psram: Found 8MB PSRAM device
+2026-10-13T12:01:31.925+00:00 [s3] I (662) esp_psram: Speed: 40MHz
+2026-10-13T12:01:31.925+00:00 [s3] I (665) cpu_start: Multicore app
+2026-10-13T12:01:32.477+00:00 [s3] I (1399) esp_psram: SPI SRAM memory test OK
+2026-10-13T12:01:32.477+00:00 [s3] I (1407) cpu_start: GPIO 44 and 43 are used as console UART I/O pins
+2026-10-13T12:01:32.477+00:00 [s3] I (1408) cpu_start: Pro cpu start user code
+2026-10-13T12:01:32.477+00:00 [s3] I (1408) cpu_start: cpu freq: 160000000 Hz
+2026-10-13T12:01:32.477+00:00 [s3] I (1410) app_init: Application information:
+2026-10-13T12:01:32.499+00:00 [s3] I (1413) app_init: Project name:     gs_r1_s3_hub
+2026-10-13T12:01:32.499+00:00 [s3] I (1418) app_init: App version:      774da5c2ee80-gs114-rpfdiag-c07a
+2026-10-13T12:01:32.499+00:00 [s3] I (1424) app_init: Compile time:     Oct 13 2026 07:17:05
+2026-10-13T12:01:32.499+00:00 [s3] I (1429) app_init: ELF file SHA256:  82a6c45b6...
+2026-10-13T12:01:32.521+00:00 [s3] I (1433) app_init: ESP-IDF:          v6.0.3
+2026-10-13T12:01:32.522+00:00 [s3] I (1437) efuse_init: Min chip rev:     v0.0
+2026-10-13T12:01:32.522+00:00 [s3] I (1441) efuse_init: Max chip rev:     v0.99
+2026-10-13T12:01:32.522+00:00 [s3] I (1445) efuse_init: Chip rev:         v0.2
+2026-10-13T12:01:32.522+00:00 [s3] I (1449) heap_init: Initializing. RAM available for dynamic allocation:
+2026-10-13T12:01:32.544+00:00 [s3] I (1456) heap_init: At 3FCA25F0 len 00047120 (284 KiB): RAM
+2026-10-13T12:01:32.544+00:00 [s3] I (1461) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM
+2026-10-13T12:01:32.544+00:00 [s3] I (1466) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM
+2026-10-13T12:01:32.544+00:00 [s3] I (1471) heap_init: At 600FE000 len 00001FE8 (7 KiB): RTCRAM
+2026-10-13T12:01:32.565+00:00 [s3] I (1477) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+2026-10-13T12:01:32.565+00:00 [s3] I (1484) spi_flash: detected chip: boya
+2026-10-13T12:01:32.565+00:00 [s3] I (1487) spi_flash: flash io: dio
+2026-10-13T12:01:32.566+00:00 [s3] I (1491) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+2026-10-13T12:01:32.566+00:00 [s3] I (1497) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+2026-10-13T12:01:32.618+00:00 [s3] I (1504) main_task: Started on CPU0
+2026-10-13T12:01:32.618+00:00 [s3] I (1524) main_task: Calling app_main()
+2026-10-13T12:01:32.619+00:00 [s3] I (1524) gs_hub_product: Starting HW-M1.3 ESP32 Hub product composition
+2026-10-13T12:01:32.619+00:00 [s3] I (1544) pp: pp rom version: e7ae62f
+2026-10-13T12:01:32.619+00:00 [s3] I (1544) net80211: net80211 rom version: e7ae62f
+2026-10-13T12:01:32.640+00:00 [s3] I (1564) wifi:wifi driver task: 3fcee6a0, prio:23, stack:6656, core=0
+2026-10-13T12:01:32.641+00:00 [s3] I (1564) wifi:wifi firmware version: da143fa
+2026-10-13T12:01:32.641+00:00 [s3] I (1564) wifi:wifi certification version: v7.0
+2026-10-13T12:01:32.641+00:00 [s3] I (1564) wifi:config NVS flash: enabled
+2026-10-13T12:01:32.641+00:00 [s3] I (1564) wifi:config nano formatting: disabled
+2026-10-13T12:01:32.663+00:00 [s3] I (1574) wifi:Init data frame dynamic rx buffer num: 32
+2026-10-13T12:01:32.663+00:00 [s3] I (1574) wifi:Init static rx mgmt buffer num: 5
+2026-10-13T12:01:32.663+00:00 [s3] I (1584) wifi:Init management short buffer num: 32
+2026-10-13T12:01:32.663+00:00 [s3] I (1584) wifi:Init dynamic tx buffer num: 32
+2026-10-13T12:01:32.663+00:00 [s3] I (1584) wifi:Init static tx FG buffer num: 2
+2026-10-13T12:01:32.685+00:00 [s3] I (1594) wifi:Init static rx buffer size: 1600
+2026-10-13T12:01:32.685+00:00 [s3] I (1594) wifi:Init static rx buffer num: 10
+2026-10-13T12:01:32.685+00:00 [s3] I (1604) wifi:Init dynamic rx buffer num: 32
+2026-10-13T12:01:32.685+00:00 [s3] I (1604) wifi_init: rx ba win: 6
+2026-10-13T12:01:32.685+00:00 [s3] I (1604) wifi_init: accept mbox: 6
+2026-10-13T12:01:32.685+00:00 [s3] I (1614) wifi_init: tcpip mbox: 32
+2026-10-13T12:01:32.686+00:00 [s3] I (1614) wifi_init: udp mbox: 6
+2026-10-13T12:01:32.707+00:00 [s3] I (1614) wifi_init: tcp mbox: 6
+2026-10-13T12:01:32.707+00:00 [s3] I (1624) wifi_init: tcp tx win: 5760
+2026-10-13T12:01:32.708+00:00 [s3] I (1624) wifi_init: tcp rx win: 5760
+2026-10-13T12:01:32.708+00:00 [s3] I (1624) wifi_init: tcp mss: 1440
+2026-10-13T12:01:32.708+00:00 [s3] I (1624) wifi_init: WiFi IRAM OP enabled
+2026-10-13T12:01:32.708+00:00 [s3] I (1634) wifi_init: WiFi RX IRAM OP enabled
+2026-10-13T12:01:32.759+00:00 [s3] I (1634) phy_init: phy_version 712,87e8c20e,Apr 13 2026,18:51:10
+2026-10-13T12:01:32.759+00:00 [s3] W (1644) phy_init: failed to load RF calibration data (0x1102), falling back to full calibration
+2026-10-13T12:01:32.759+00:00 [s3] I (1684) phy_init: Saving new calibration data due to checksum failure or outdated calibration data, mode(2)
+2026-10-13T12:01:32.773+00:00 [s3] I (1704) wifi:mode : sta (7c:4f:ad:b7:2a:20)
+2026-10-13T12:01:32.773+00:00 [s3] I (1704) wifi:enable tsf
+2026-10-13T12:01:32.773+00:00 [s3] I (1704) wifi:Set ps type: 0, coexist: 0
+2026-10-13T12:01:32.773+00:00 [s3]
+2026-10-13T12:01:32.773+00:00 [s3] I (1704) ESPNOW: espnow [version: 2.0] init
+2026-10-13T12:01:32.974+00:00 [s3] I (1704) gs_hub_runtime: GS40 config=fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862 heartbeat=300 offline=910
+2026-10-13T12:01:33.375+00:00 [s3] I (2214) gs_fixture_commissioning: HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS
+2026-10-13T12:01:33.375+00:00 [s3] I (2214) main_task: Returned from app_main()
+2026-10-13T12:01:33.776+00:00 [s3] I (2604) gs_hub_runtime: Authenticated Hub owner started enrolled=0 storage_epoch=1
+2026-10-13T12:01:33.776+00:00 [s3] I (2604) gs_hub_runtime: HIL_FIXTURE_HOME hub_id=hub-7c4fadb72a20 home_id=home-87c96e6268f353319726da99ed1e8f9d
