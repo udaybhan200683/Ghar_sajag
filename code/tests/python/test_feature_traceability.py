@@ -21,6 +21,8 @@ class FeatureTraceabilityTest(unittest.TestCase):
         self.assertTrue(self.issues())
     def test_unknown_canonical_requirement_fails(self):
         self.rows[0]['REQUIREMENT_ID']='GS-NOT-A-REAL-REQUIREMENT';self.assertTrue(self.issues())
+    def test_dashboard_scoped_approvals_are_traceable_without_canonical_promotion(self):
+        self.assertTrue({'GS-DIAG-01','GS-DIAG-02'}<=coverage.known_requirement_ids())
     def test_current_mapping_and_source_inventory(self):self.assertEqual(self.issues(),[])
     def test_zero_rows_fails(self):self.rows=[];self.assertIn('zero feature rows',self.issues())
     def test_missing_registration_fails(self):

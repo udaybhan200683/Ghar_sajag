@@ -28,6 +28,17 @@ pushed normally; `git ls-remote` matched local HEAD and the tracked tree was
 clean. `git diff --check` and focused decision/version/link/document-scope checks
 also passed. Exact outputs are in the [validation receipt](../engineering_dashboard_20261013/CONTEXT_RECONCILIATION_VALIDATION_20261013.md).
 
+Post-preflight, the first `make feature-coverage-test` failed because its parser
+expected the exact established `Current requirement register` heading. After
+restoring that heading, the checker also needed to resolve the dashboard's
+explicitly scoped GS-DIAG-01/02 section without promoting it to canonical R1.
+Classified `TEST_INFRA_ONLY`; `check_feature_traceability.py` now reads the two
+separate sections and has a focused positive/negative meta-test. The rerun passed
+155 features, 206 modules and 14 physical cases; all 20 traceability meta-tests
+passed. No traceability CSV, suite registry, GS-148 source or canonical-worktree
+file was changed. Exact run receipt is in
+[the dashboard test evidence](../engineering_dashboard_20261013/CONTEXT_RECONCILIATION_VALIDATION_20261013.md).
+
 GS-122/10705 approves caregiver PWA ticket create/track; admin queue and manual
 or atomic round-robin assignment; assigned-only technician access; assigned
 technician Start; caregiver in-app Approve/Deny/Revoke; exact ticket/Home/Hub/

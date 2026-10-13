@@ -43,6 +43,19 @@ tests where the current identity boundary permits. Validate the scoped dashboard
 traceability adjustment within GS-116/GS-130 before adding eligible test IDs.
 GS-148 storage, registry and GS-114 physical evidence remain outside this branch.
 
+### Scoped requirement mapping compatibility — 2026-10-13
+
+The first post-reconciliation `make feature-coverage-test` failed because the
+checker required the old index heading and searched only canonical register rows.
+This was classified `TEST_INFRA_ONLY`: preserve dashboard GS-DIAG-01/02 as
+branch-scoped approvals without promoting them into canonical R1 requirements.
+The established heading was restored, and `check_feature_traceability.py` now
+resolves canonical and explicitly scoped dashboard IDs from their separate
+sections. `make feature-coverage-test` then PASS: 155 features, 206 modules, 14
+physical cases; 20 framework meta-tests PASS, including scoped-ID resolution and
+unknown-ID denial. No traceability CSV, GS-116 suite registry, GS-148 source or
+validation change, or canonical-worktree path was modified.
+
 ## GS-124/125 authorization foundation delivery checkpoint — prior source snapshot
 
 Start dashboard branch/source 31822b1, canonical read-only source 371a560.

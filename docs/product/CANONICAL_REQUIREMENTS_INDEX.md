@@ -313,9 +313,13 @@ administrator on an isolated synthetic/test Home can bypass household consent.
 This workflow does not establish production identity issuance or storage
 implementation.
 
-## Current canonical requirement register
+## Current requirement register
 
-This register records requirements explicitly present in canonical sources. `UNKNOWN` means the cited docs do not establish implementation/validation status; it is not a claim of failure. Detailed feature requirements remain in their linked source documents.
+This table records requirements explicitly present in canonical R1 sources.
+Dashboard-only approvals above are kept separate and are not promoted as
+canonical R1 requirements. `UNKNOWN` means the cited docs do not establish
+implementation/validation status; it is not a claim of failure. Detailed feature
+requirements remain in their linked source documents.
 
 | REQ_ID | Domain / requirement | Source | Status; priority; decision | Implementation / validation | Notes |
 |---|---|---|---|---|---|

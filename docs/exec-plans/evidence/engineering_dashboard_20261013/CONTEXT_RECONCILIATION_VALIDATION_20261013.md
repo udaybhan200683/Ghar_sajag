@@ -54,3 +54,35 @@ line-wrap-sensitive and failed their ad hoc assertions; the normalized check
 above passed. No product tests were run as part of this documentation-only step.
 No application, firmware, storage, test-registry or physical-evidence changes
 are part of this reconciliation.
+
+## Post-preflight GS-116/GS-130 mapping check
+
+The existing mapping check was run after preflight because the dashboard index
+now keeps GS-DIAG-01/02 separate from canonical R1 requirements:
+
+```text
+$ make feature-coverage-test
+exit=2
+IndexError: list index out of range
+```
+
+The checker searched for the index heading `Current requirement register`; the
+first reconciliation draft had called it `Current canonical requirement
+register`. The heading was restored. The checker was then updated to recognize
+the separate branch-scoped approval table while keeping that table outside the
+canonical R1 requirement register. A new positive meta-test confirms GS-DIAG-01
+and GS-DIAG-02 resolve; the existing unknown-ID negative test remains.
+
+```text
+$ make feature-coverage-test
+GS130 TRACEABILITY PASS features=155 modules=206 physical_cases=14; consistency only, not semantic/physical PASS
+Ran 20 tests
+OK
+exit=0
+```
+
+This is `TEST_INFRA_ONLY` compatibility work required to preserve dashboard
+traceability without promoting scoped approvals. `MASTER_TRACEABILITY.csv`,
+`validation/suites.json`, canonical worktree files and GS-148 registry/source
+changes remain untouched. The run does not establish semantic coverage or
+physical acceptance and is not a release gate.
