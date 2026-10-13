@@ -1,6 +1,22 @@
 
 # Master automated validation and regression framework
 
+## GS-124/125 isolated Stage 1 host service desk — 2026-10-13
+
+The existing GS-116 `diagnostic-foundation` backend/fast/release stage now runs
+84 cases: the preserved 54 read-policy/privacy/trace/registry cases and 30
+production-code host SQLite ticket/consent cases with an injected test authority.
+GS-130 maps the service-ticket and service-access features as SOFTWARE_ONLY with
+the absent production issuer, PostgreSQL adapter and PWA session explicitly
+recorded. The stage does not activate a service or diagnostic HTTP route and
+does not qualify commercial authentication. `make validation-backend` was
+executed and remains FAIL on the existing CloudSync bridge durable-before-ACK
+Python assertion and P0 initial file-backed Node recovery; its dashboard stage
+PASS does not override the aggregate failure. Full release and physical HIL
+remain NOT_RUN. The user paused at 2026-10-13 12:29 UTC after the final backend
+receipt; the PWA aggregate remains NOT_RUN for resume. See the dated Stage 1
+evidence and boundary documents.
+
 ## Canonical GS-148 context — committed source `774da5c`, 2026-10-13
 
 GS-148 comments 10688/10690 authorize bounded native-v1 Option A implementation

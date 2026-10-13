@@ -1,6 +1,73 @@
 # GS-122 campaign checkpoint and resume handoff
 
-## Latest checkpoint — 2026-10-13: context reconciled, preflight PASS
+## Latest checkpoint — PAUSED by user, 2026-10-13 12:29 UTC
+
+The user requested pause before the usage limit. Continue the existing recovered
+Stage 1 source; do not reconstruct it. Worktree
+`/home/udaybhan/projects/Ghar_sajag_r1_dashboard`, branch
+`feature/gs124-125-engineering-dashboard`. Startup local/actual remote HEAD was
+`a7b7470752a8470e73eb19806799989928556430`, with intact pending implementation.
+Context preflight PASS, local/canonical `2026-10-13.001`. The validated pause
+checkpoint is committed/pushed; its exact SHA, remote equality and Jira comments
+are recorded in `../engineering_dashboard_20261013/STAGE1_PAUSE_DELIVERY_20261013.md`.
+
+Implemented host SQLite ticket/queue/manual and atomic round-robin assignment,
+assigned-only technician Start, caregiver Approve/Deny/Revoke, fixed 1800-second
+JSON default and diagnostic read composition. Resume review additionally fenced
+Node enrollment generations and staff role changes, resolved actor+grant from
+one transaction, moved timestamps after the writer lock, and tested rollback,
+restart, concurrency and consent-to-read projection with in-flight revoke.
+No production authority/issuer, PostgreSQL adapter, HTTP/PWA activation, synthetic
+bypass, Class B source, OTP or diagnostic event pipeline was added.
+
+Validation: final diagnostic-foundation stage **84 PASS (54 + 30)**, exit 0;
+framework 39 PASS; feature mapping 157/208/14 and 20 meta-tests PASS.
+`make validation-backend` **FAIL, make exit 2**: Python 449 runs have one existing
+CloudSync bridge durable-before-ACK failure and one allowed historical skip;
+P0 initial file-backed Node recovery fails before scenarios. Other selected
+stages PASS. Final source fingerprint
+`195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965`,
+source_unchanged=true, native receipt
+`code/evidence/validation_framework/backend-1791894195720046816/report.json`.
+No owned validation process remains. **PWA aggregate NOT_RUN due to user pause**;
+full release/physical/deployment NOT_RUN. Tests/assertions were not weakened.
+
+`/tmp` is full by bytes, not inodes. Diagnostic observations recorded ENOSPC in
+both existing failing fixtures. No unrelated directory was deleted; ignored
+build helpers and evidence are preserved. Validation uses tracked registries,
+not the ignored append/repair scripts. The canonical GS-148 worktree (read-only
+snapshot HEAD `93935e3`) is active in another task; its source, documentation,
+untracked evidence and validation process were not modified or interrupted.
+
+Exact resume actions:
+
+1. Inspect status/diff/HEAD/actual remote and this latest handoff; preserve any
+   later edits. Read AGENTS/current canonical sources/Jira and require preflight
+   PASS. Do not synchronize/reset/stash either worktree.
+2. Read [the Stage 1 implementation report](../engineering_dashboard_20261013/GS124_STAGE1_IMPLEMENTATION_REPORT_20261013.md),
+   its source hashes and native/archived receipts. Do not repeat the completed
+   ticket/consent implementation or its existing passing cases without cause.
+3. From `code/`, run:
+
+   ```bash
+   TMPDIR="$PWD/build/gs124_stage1_resume_tmp" make validation-pwa      VALIDATION_REUSE_REPORTS=evidence/validation_framework/backend-1791894195720046816/report.json
+   ```
+
+   Only source/profile/log/binary-verified PASS prerequisites are reusable.
+   Invalid receipts require an ordinary affected-stage rerun. Keep both original
+   aggregate failures visible. Do not modify firmware or clean GS-148-owned data
+   to force PASS. No full release gate or physical command is authorized.
+4. Finish PWA evidence, registration/source integrity and final review; commit
+   only validated dashboard changes, push normally and verify remote equality.
+   Update GS-122/124/125 with final actual results and production blockers.
+
+Stage 2 prerequisites remain real GS-76/143 identity/staff/Home authority and
+consistency fences; reviewed PostgreSQL adapter/compatibility/retention; PWA
+verified session, CSRF, named staff/role views and browser tests; GS-65/109 source.
+They do not block completing the remaining bounded Stage 1 validation/handoff.
+Keep production routes disabled and Jira issues partial, not Done.
+
+## Prior checkpoint — 2026-10-13: context reconciled, preflight PASS
 
 One-time, documentation-only reconciliation authorized by the user for this
 isolated branch. Baseline dashboard local/remote HEAD was

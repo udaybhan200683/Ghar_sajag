@@ -27,6 +27,8 @@ class RegistrationTest(unittest.TestCase):
         prior=json.loads(subprocess.check_output(["git","show","31822b1:code/validation/suites.json"],cwd=gate.ROOT,text=True))
         current=gate.load_registry()
         self.assertEqual(current["stages"][:-1],prior["stages"])
+        self.assertIn("tests/engineering_dashboard/test_service_access.py",
+                      current["stages"][-1]["inputs"])
         for key in prior:
             if key!="stages":self.assertEqual(prior[key],current[key])
 

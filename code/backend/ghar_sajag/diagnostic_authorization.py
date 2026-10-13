@@ -40,6 +40,20 @@ class HomeMembership:
 
 
 @dataclass(frozen=True)
+class ServiceMembership:
+    """Ticket-bound staff membership; verified by the service authority."""
+    home_id: str
+    actor_id: str
+    role: str
+    version: int
+    active: bool
+    ticket_id: str
+    hub_device_id: str
+    node_scope: tuple[tuple[str, str, int], ...]
+    expires_at: int | None = None
+
+
+@dataclass(frozen=True)
 class DiagnosticGrant:
     home_id: str
     actor_id: str
@@ -54,7 +68,7 @@ class DiagnosticGrant:
 @dataclass(frozen=True)
 class TrustedAccessSnapshot:
     actor: ActorSession
-    membership: HomeMembership
+    membership: HomeMembership | ServiceMembership
     grant: DiagnosticGrant | None
     ownership_epoch: int
 
@@ -113,10 +127,21 @@ class DiagnosticAuthorizer:
                     for v in (a.actor_id, a.session_id, a.issuer_reference)) or
                 not positive(a.expires_at) or at >= a.expires_at):
             raise DiagnosticDenied(unauthenticated=True)
-        if (type(m) is not HomeMembership or type(g) is not DiagnosticGrant or
+        allowed_role = (type(m) is HomeMembership and type(m.role) is Role) or (
+            type(m) is ServiceMembership and m.role in ("ADMIN", "TECHNICIAN"))
+        if type(m) is ServiceMembership:
+            if (not all(type(v) is str and 0 < len(v) <= 160
+                        for v in (m.ticket_id, m.hub_device_id)) or
+                    type(m.node_scope) is not tuple or any(
+                        type(node) is not tuple or len(node) != 3 or
+                        not all(type(v) is str and 0 < len(v) <= 160 for v in node[:2]) or
+                        not positive(node[2]) for node in m.node_scope) or
+                    len({node[0] for node in m.node_scope}) != len(m.node_scope)):
+                raise DiagnosticDenied()
+        if (type(m) not in (HomeMembership, ServiceMembership) or type(g) is not DiagnosticGrant or
                 m.home_id != home_id or g.home_id != home_id or
                 m.actor_id != a.actor_id or g.actor_id != a.actor_id or
-                type(m.active) is not bool or not m.active or type(m.role) is not Role or
+                type(m.active) is not bool or not m.active or not allowed_role or
                 type(g.revoked) is not bool or g.revoked or
                 g.action is not DiagnosticAction.READ_DIAGNOSTICS or
                 not all(positive(v) for v in (state.ownership_epoch, m.version,

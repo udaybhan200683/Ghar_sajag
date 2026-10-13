@@ -1,5 +1,16 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-122/124/125 Stage 1 status — 2026-10-13 (no new decision)
+
+The approved GS-122/10705 service workflow now has a bounded host SQLite
+ticket, dispatch and in-app consent domain on the isolated dashboard branch.
+The JSON default is 1800 seconds and the existing ED-D02 diagnostic policy is
+composed in-process. The injected tests do not supply verified production
+sessions, staff authority, PostgreSQL transactions or PWA composition. No
+commercial route or synthetic-Home bypass was activated. The decisions below
+and their open production/physical gates remain unchanged; see the
+[Stage 1 boundary](../architecture/GS124_STAGE1_SERVICE_ACCESS_BOUNDARY_20261013.md).
+
 ## Dashboard approvals and reconciled R1 context — 2026-10-13
 
 ED-D01 APPROVED read-only design (GS120/10660), ED-D02 APPROVED explicit Home

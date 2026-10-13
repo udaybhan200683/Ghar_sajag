@@ -296,8 +296,9 @@ LOCKED R1 decisions and do not activate a production diagnostic route.
 
 | REQ_ID | Approved scoped behavior | Approval source | Current implementation status | Boundary |
 |---|---|---|---|---|
-| GS-DIAG-01 | Fail-closed Home-scoped READ_DIAGNOSTICS; no generic-role fallback; verified actor, grant and ownership epoch required | GS143/10670; GS120/10660 | NONACTIVE foundation; production identity/session and grant persistence are not integrated | Commercial routes remain disabled; service workflow does not make the development `X-Actor-Id` adapter production identity |
+| GS-DIAG-01 | Fail-closed Home-scoped READ_DIAGNOSTICS; no generic-role fallback; verified actor, grant and ownership epoch required | GS143/10670; GS120/10660; GS122/10705 | NONACTIVE foundation plus ticket-bound host SQLite grant composition; production identity/session and PostgreSQL adapter are absent | Commercial routes remain disabled; service workflow does not make the development `X-Actor-Id` adapter production identity |
 | GS-DIAG-02 | Allowlisted Class A technical metadata and exact-original-EventKey Class B traces; bounded, sanitized, no-store; no payload, export or privileged control | GS65/10671 | NONACTIVE projection; trusted production exporter and numeric query/privacy bounds remain unimplemented | No persistent diagnostics or browser activation |
+| GS-DIAG-03 | Caregiver Home ticket, admin manual/round-robin assignment, assigned-only technician Start, one-time in-app Approve/Deny/Revoke and fixed 30-minute scoped consent | GS122/10705 | Host SQLite domain with injected authority; 30 permanent service cases; no production session, PostgreSQL adapter or PWA composition | Commercial service and diagnostic routes remain disabled |
 
 The separate GS-122/10705 product decision also approves caregiver-created and
 tracked tickets for the server-derived Home/Hub/current Nodes; admin queue and
@@ -312,6 +313,11 @@ detailed diagnostics still require caregiver approval; only an authenticated
 administrator on an isolated synthetic/test Home can bypass household consent.
 This workflow does not establish production identity issuance or storage
 implementation.
+
+Stage 1 implements the approved workflow in the host SQLite domain only. See
+[`GS124_STAGE1_SERVICE_ACCESS_BOUNDARY_20261013.md`](../architecture/GS124_STAGE1_SERVICE_ACCESS_BOUNDARY_20261013.md)
+for exact deployment interfaces and remaining blockers; no new LOCKED R1 decision
+or production approval is created by this branch-scoped implementation.
 
 ## Current requirement register
 

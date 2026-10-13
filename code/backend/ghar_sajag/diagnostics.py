@@ -13,7 +13,8 @@ import secrets
 import sqlite3
 from typing import Protocol
 
-from .diagnostic_authorization import DiagnosticAction, DiagnosticAuthorizer, DiagnosticDenied, positive
+from .diagnostic_authorization import (DiagnosticAction, DiagnosticAuthorizer, DiagnosticDenied,
+                                       ServiceMembership, positive)
 from .durable_commit import DurableEventCommit
 
 STAGES = ("sensor", "node_created", "radio_tx", "hub_rx", "hub_validated",
@@ -54,6 +55,7 @@ class TechnicalRecord:
     source_fingerprint: str
     observed_at: int | None
     fields: dict
+    enrollment_generation: int | None = None
 
 
 @dataclass(frozen=True)
@@ -164,6 +166,16 @@ class DiagnosticReadService:
             if (type(record) is not TechnicalRecord or record.home_id != home or
                     not positive(record.ownership_epoch) or record.ownership_epoch != scope.ownership_epoch):
                 raise DiagnosticDenied()
+            if type(scope.membership) is ServiceMembership:
+                membership = scope.membership
+                if record.device_id == membership.hub_device_id:
+                    if record.enrollment_generation is not None:
+                        raise DiagnosticDenied()
+                elif not any(record.device_id == node[0] and
+                             type(record.enrollment_generation) is int and
+                             record.enrollment_generation == node[2]
+                             for node in membership.node_scope):
+                    raise DiagnosticDenied()
             body["devices"].append(self._technical(record, at))
         body.update(status="OBSERVED", gap=page.gap)
         pending = None
