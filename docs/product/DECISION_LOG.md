@@ -6,6 +6,27 @@ Use:
 - OPEN = unresolved.
 - SUPERSEDED = replaced but retained for history.
 
+## GS-148 Option A authorization — 2026-10-13
+
+**APPROVED ARCHITECTURE / IMPLEMENTATION AUTHORIZED:** GS-148 comments
+10688/10690 authorize only design E1/E2 native epoch-1 authenticated pending
+recovery and proven-empty checkpoint completion, preserving all v1 formats,
+keys and normal durable-before-ACK. Implementation and software evidence are
+pending. This supersedes the earlier approval gates, not historical test results.
+D-A–D-M remain OPEN; physical, signed-image and release qualification stay pending.
+
+### GS-D033 — Corrected readers in both supported commercial R1 S3 images
+
+**Status: LOCKED.** Product-owner approval: GS-145 comment 10689.
+Both supported commercial R1 S3 application images SHALL contain corrected v1
+first-event recovery logic. Backport before designating an older reader supported,
+or obtain a later explicit decision removing it from the supported image set.
+Old engineering readers' fail-closed pending-first-event limitation does not
+satisfy commercial rollback availability. No concrete signed image pair is
+selected or qualified; this decision authorizes no self-OTA, signing/installation,
+slot writes, actual rollback or physical operations. GS-D029/032 remain in force.
+Canonical context advances to `2026-10-13.001` before dependent implementation.
+
 ## GS-148 / GS-145 first-event recovery review — 2026-10-13
 
 **APPROVED DESIGN GUIDANCE:** the owner prioritizes reliability, simplicity,

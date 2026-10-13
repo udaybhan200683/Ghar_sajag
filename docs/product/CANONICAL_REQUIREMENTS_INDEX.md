@@ -30,10 +30,13 @@ only where the [post-GS-152 reconciliation](../exec-plans/evidence/R1_GS148_P0_P
 records current implementation. The audit remains useful for proposed lifecycle,
 capacity, compatibility, trust and qualification work; D-A–D-M are OPEN.
 The [2026-10-13 first-event recovery review](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
-is SUPPORTING / PROPOSED DESIGN, not an approved format or implementation.
+is SUPPORTING / APPROVED IMPLEMENTATION_DESIGN (GS-148 10688/10690).
+GS-D033 / GS-145 10689 is the approved supported-reader policy.
+No new persistent format is approved; implementation/evidence is pending.
 It supersedes the earlier assumption that a new genesis format is necessary for
 this bounded native first event; earlier implementation evidence remains valid.
-All new recovery/rollback cases are proposed and unexecuted.
+New recovery cases require execution in the authorized bounded package; physical
+rollback and commercial signed image selection remain pending.
 The dated reconciliation is TEST_EVIDENCE / IMPLEMENTATION_DESIGN and package
 handoff, subordinate to this index and canonical storage requirements.
 

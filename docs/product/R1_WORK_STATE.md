@@ -1,5 +1,20 @@
 # R1 Current Work State
 
+## GS-148 Option A implementation authorized — 2026-10-13
+
+GS-148 10688/10690 and GS-145 10689 approve bounded native-v1 recovery and
+software validation. GS-D033 locks corrected recovery in both supported S3
+images; exact signed pair and physical OTA remain pending. Start baseline local
+and actual GitHub `19ec67c365e1bdea8fce61fb46f481f407fa42b9`, canonical branch,
+tracked clean, nine preserved untracked entries. Other observed session writes
+only separate dashboard worktree; canonical writer is exclusive for GS-148.
+Context updated to `2026-10-13.001` for the approved policy before source work.
+[Implementation handoff](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md)
+records scope and required checks. Implementation/tests pending, physical and
+release NOT_RUN, historical migration FAIL and product P0 PARTIAL unchanged.
+GS-148 In Progress; GS-145 To Do; no status transition.
+
+
 ## GS-148 / GS-145 first-event design review — 2026-10-13
 
 **DESIGN_READY_FOR_APPROVAL**, documentation only. Reviewed actual canonical

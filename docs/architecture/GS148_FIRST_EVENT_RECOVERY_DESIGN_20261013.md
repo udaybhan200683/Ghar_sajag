@@ -5,7 +5,13 @@ Date: 2026-10-13 UTC. Source and actual GitHub baseline:
 `/home/udaybhan/projects/Ghar_sajag_r1`, `feature/r1-commercial-baseline`.
 Context preflight PASS, `2026-10-11.001`; tracked tree initially clean.
 
-**DESIGN_READY_FOR_APPROVAL. PROPOSED IMPLEMENTATION; NOT IMPLEMENTED OR TESTED.**
+**APPROVED OPTION A — 2026-10-13. IMPLEMENTATION / TESTS PENDING.**
+GS-148 10688/10690 authorize E1/E2 and bounded software validation; GS-145
+10689 approves corrected readers in both supported commercial S3 images
+(GS-D033). The review below records the original recommendation and rationale;
+its earlier approval gates are superseded by these owner records. No signed
+pair, physical action, new schema or release is approved by this authorization.
+[Current implementation handoff](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md).
 This supporting design does not change LOCKED requirements, approve its own
 implementation, establish an OTA support matrix, or qualify a release.
 The owner's approved design guidance is simplicity, reliability, affordability,

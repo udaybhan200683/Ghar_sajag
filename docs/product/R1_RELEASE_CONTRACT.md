@@ -12,6 +12,14 @@ R1 supports freshly installed Hub/Nodes using the current approved persistent fo
 
 Arbitrary migration from abandoned development-era formats is post-R1 unless it blocks the supported fresh-install path.
 
+## Supported S3 recovery readers — GS-D033
+
+Both supported commercial R1 S3 application images must contain corrected v1
+first-event recovery (GS-145 10689). Any older supported image requires backport
+or a later explicit support-set decision. Unchanged persistent bytes alone do
+not establish rollback availability. Exact signed-image pair, S3 self-OTA and
+physical rollback qualification remain separate and unqualified.
+
 ## Pre-R1 fix rule
 
 A defect is an R1 blocker only if it causes:
