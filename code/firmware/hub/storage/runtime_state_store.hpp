@@ -72,7 +72,13 @@ public:
     // The argument is the outbox publication high-water mark, not the count of
     // physical bodies currently retained. A durable reducer checkpoint may
     // cover bodies that a later lifecycle phase safely retires.
-    bool recover(std::uint64_t published_event_highwater);
+    using InitialEmptyValidator = bool (*)(void*);
+    bool recover(std::uint64_t published_event_highwater,
+                 InitialEmptyValidator = nullptr, void* context = nullptr);
+    // Read-only exact selected native initial inventory; no tail truncation or
+    // candidate cleanup. Null event proves empty, otherwise exactly identity 1.
+    bool inspect_initial(const DomainEvent*, security::Bytes& checkpoint,
+                         bool& checkpoint_found, IdentityOwnerEvidence&);
     bool load_checkpoint(security::Bytes&, std::uint64_t& boundary, bool& found);
     bool save_checkpoint(const security::Bytes&, std::uint64_t boundary);
     // Reserve the immediate identity/head/checkpoint workspace under the
@@ -121,6 +127,7 @@ public:
     bool confirm_event_publication(std::uint64_t boundary);
     bool healthy() const { return ready_ && !faulted_; }
     std::size_t identities() const { return identity_index_size_; }
+    bool has_prepared_identity() const { return healthy() && count_>committed_highwater_; }
     std::uint32_t identity_bytes() const { return bytes_; }
     std::size_t checkpoint_bytes() const { return checkpoint_bytes_; }
 private:

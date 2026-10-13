@@ -1,16 +1,25 @@
 # Hub Persistence and Recovery
 
-## First-event recovery design proposal — 2026-10-13
+## First-event recovery in native v1 storage — 2026-10-13
 
-The [GS-148 / GS-145 review](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
-proposes joining the current authenticated checkpoint 0, selected identity 1,
-exact body and native owner/fence state to recover one pending first transaction.
-The existing retry path would publish ordinary v1 state and checkpoint before
-ACK. Default standalone missing-head and populated/corrupt authority rejection
-remain mandatory. No genesis format or installation manifest is proposed for
-this bounded fix. This is NOT_IMPLEMENTED; the implementation facts below and
-existing P0/P1/P2 evidence remain unchanged. Supported S3 image compatibility
-and physical rollback acceptance are separate pending gates.
+The [approved GS-148 / GS-145 design](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
+is implemented in the existing v1 readers. Startup joins authenticated
+application checkpoint 0, selected identity 1 and its exact encrypted body with
+native epoch-1 ownership, current enrollment, NVS roots, retirement reports and
+replay fence. Only a genuinely absent first publication head permits the body
+to remain pending. Boot inspection issues no ACK or replay. An authenticated
+exact Node retry resyncs/readbacks the saved body, publishes the ordinary v1
+head, saves application checkpoint 1, then uses the normal Durable ACK path.
+Other identities, payloads and conflicting authority fail closed. The default
+standalone outbox reader remains strict. An absent initial application checkpoint
+is completed only after a read-only raw-inventory and authenticated zero-history
+proof, before ordinary recovery can truncate or clean any evidence.
+
+The [bounded software evidence](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md)
+records fault cuts, actual old/corrected reader bytes, sanitizer and target builds.
+No genesis format, installation manifest, key or persistent schema was added.
+Both supported commercial S3 images require the corrected reader under GS-D033;
+the signed image pair and physical rollback acceptance remain pending.
 
 ## GS-148 bounded local correctness implementation — 2026-10-12
 
@@ -33,9 +42,9 @@ retain their stable IDs and the existing reconciliation sequence.
 
 Persistent formats/keys, Node wire, completion publication, FOTA/rollback and
 reclamation gates are unchanged. Whole-filesystem metadata/COW/GC/completion
-lifetime escrow is not qualified by the immediate check. First body persistence
-without its first v1 event head is a documented compatibility blocker; the
-existing missing-authority recovery failure is preserved.
+lifetime escrow is not qualified by the immediate check. The historical reader's
+first-body/missing-head availability limit remains visible in the actual reader
+matrix; corrected native epoch-1 recovery is documented above.
 
 Run `make -C code hub-storage-correctness-host-test GS148_CASE=all` and
 `make -C code hub-storage-correctness-sanitize`; both are registered Hub/contract

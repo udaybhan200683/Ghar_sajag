@@ -117,6 +117,62 @@ DurableStore* HubDurabilityOwner::durable_store() {
 RetirementSnapshotRepository* HubDurabilityOwner::retirement_repository() {
     return state_ == DurabilityOwnerState::Ready ? retirement_.get() : nullptr;
 }
+bool HubDurabilityOwner::verify_native_zero_history(InitialReportValidator validate,
+        void* context, std::uint32_t witness_epoch, const ReportSnapshotReference& witness) {
+    if (state_!=DurabilityOwnerState::Ready || epoch_!=1 || !durable_ || !retirement_ ||
+        !recovered_ || !validate) return false;
+    const auto zero_history=[](const Checkpoint& cp) {
+        return cp.storage_epoch==1 && cp.fresh_registry_domain && cp.registry_owner_domain &&
+            !cp.migration_view && cp.migration_frontier==0 && !cp.allow_legacy_event_tail &&
+            !cp.allow_legacy_event_slots && !cp.legacy_dedupe_unverified &&
+            cp.covered_ordinal==0 && cp.protected_live_tail_count==0 &&
+            cp.reducer_state.empty() && cp.pending_effects.empty() &&
+            cp.pending_chunks.empty() && cp.dedupe_evidence_chunks.empty();
+    };
+    RecoveryState latest;
+    if (!durable_->recover(latest) || latest.last_ordinal!=0 || !latest.tail.empty() ||
+        latest.checkpoint_generation!=recovered_->checkpoint_generation ||
+        !zero_history(latest.checkpoint)) return false;
+    const auto inventory=inventory_.scan();
+    if (inventory.status!=InventoryStatus::KnownCurrentRecords ||
+        inventory.count>inventory.records.size()) return false;
+    for (std::size_t i=0;i<inventory.count;++i) {
+        const auto& record=inventory.records[i];
+        security::Bytes bytes; bool found=false;
+        if (record.kind==InventoryRecord::Checkpoint) {
+            Checkpoint cp;
+            if (record.id>1 || !blobs_.read(cp_key(record.id),bytes,found) || !found) return false;
+            // A damaged bank is not eligible; the existing selector recovery
+            // already proves the remaining root. Every valid bank must agree.
+            if (Codec::decode_checkpoint(crypto_,key_,bytes,cp)) {
+                if (!zero_history(cp) || cp.registry_table_digest!=latest.checkpoint.registry_table_digest)
+                    return false;
+                if (cp.report_snapshot) {
+                    RetirementSnapshot report;
+                    if (!retirement_->load(*cp.report_snapshot,report) || !validate(context,report))
+                        return false;
+                }
+            }
+        } else if (record.kind==InventoryRecord::RetirementBank) {
+            RetirementSnapshot report;
+            if (record.id>=kRetirementSnapshotBankCount ||
+                !blobs_.read("ret"+std::to_string(record.id),bytes,found) || !found ||
+                !RetirementSnapshotRepository::decode(crypto_,key_,bytes,report) ||
+                report.storage_epoch!=1 || report.legacy_binding_domain || !validate(context,report))
+                return false;
+        } else if (record.kind!=InventoryRecord::Selector) return false;
+    }
+    if (witness.valid()) {
+        if (witness_epoch!=1 || !latest.checkpoint.report_snapshot) return false;
+        const auto& selected=*latest.checkpoint.report_snapshot;
+        RetirementSnapshot report;
+        if (witness.generation>selected.generation ||
+            (witness.generation==selected.generation &&
+             (witness.bank!=selected.bank || witness.digest!=selected.digest)) ||
+            !retirement_->load(witness,report) || !validate(context,report)) return false;
+    } else if (witness_epoch!=0) return false;
+    return true;
+}
 DurableStore* HubDurabilityOwner::migration_store() {
     return (state_ == DurabilityOwnerState::Ready ||
             state_ == DurabilityOwnerState::MigrationRequired) ? durable_.get() : nullptr;

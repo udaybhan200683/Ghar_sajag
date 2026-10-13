@@ -95,6 +95,11 @@ public:
     const RecoveryState* recovery_state() const;
     DurableStore* durable_store();
     RetirementSnapshotRepository* retirement_repository();
+    using InitialReportValidator = bool (*)(void*, const RetirementSnapshot&);
+    // Read-only conjunction across native roots and the complete NVS inventory.
+    // No epoch/owner bootstrap or authority publication is performed here.
+    bool verify_native_zero_history(InitialReportValidator, void*,
+        std::uint32_t witness_epoch, const ReportSnapshotReference& witness);
     // Migration-only access. This never makes an epoch authoritative for
     // admission while legacy records remain.
     DurableStore* migration_store();

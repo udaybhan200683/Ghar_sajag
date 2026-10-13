@@ -541,9 +541,16 @@ void checkpoint_selection_crash_tests() {
 }
 }
 
+#include "hub_first_event_recovery_cases.inc"
+
 int main(int argc, char** argv) {
     try {
         const std::string selected = argc == 2 ? argv[1] : "all";
+        if (selected == "option-a-privacy") option_a_privacy_test();
+        if (selected == "option-a") option_a_tests();
+        if (selected == "all") option_a_tests();
+        if (selected == "first-repro") first_event_recovery_reproduction(false);
+        if (selected == "empty-repro") first_event_recovery_reproduction(true);
         if (selected == "all" || selected == "admission") admission_refusal_test();
         if (selected == "all" || selected == "roots") recovery_bank_test();
         if (selected == "all" || selected == "epoch") witness_epoch_test();
@@ -552,7 +559,7 @@ int main(int argc, char** argv) {
             all_roots_and_conflict_test(); checkpoint_selection_crash_tests();
             first_admission_recovery_gap_test(); reducer_bound_test();
         }
-        if (selected != "all" && selected != "admission" && selected != "roots" &&
+        if (selected != "option-a-privacy" && selected != "option-a" && selected != "first-repro" && selected != "empty-repro" && selected != "all" && selected != "admission" && selected != "roots" &&
             selected != "epoch") throw std::runtime_error("unknown correctness case");
         std::cout << "PASS: GS148 bounded admission and recovery correctness\n";
         return 0;

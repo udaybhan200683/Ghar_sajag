@@ -191,7 +191,14 @@ public:
     DurableEventOutbox(const DurableEventOutbox&) = delete;
     DurableEventOutbox& operator=(const DurableEventOutbox&) = delete;
 
-    OutboxRecovery recover();
+    using InitialCandidateValidator = bool (*)(void*, std::uint64_t,
+        const std::string&, const security::Bytes&, std::uint32_t,
+        const durable::ReportSnapshotReference&);
+    OutboxRecovery recover(InitialCandidateValidator = nullptr, void* context = nullptr);
+    // Read-only pre-scan proof: recovery cleanup cannot establish emptiness.
+    bool initial_storage_empty() const;
+    // Only meaningful after a complete healthy scan; includes unselected tails.
+    bool initial_inventory_empty() const;
     // No persistent writes. Checks current quotas/segment slack and rounded
     // filesystem workspace, reserving the reconstructible index in RAM. The
     // existing owner must serialize this check through identity/body/checkpoint

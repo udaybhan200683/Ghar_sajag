@@ -556,6 +556,79 @@ bool HubRuntime::checkpoint_state() {
     return true;
 }
 
+bool HubRuntime::recover_native_outbox(storage::DurableEventOutbox& outbox,
+        InitialEnrollmentResolver resolve, void* owner_context) {
+    if (!runtime_state_ || !durability_owner_ || !resolve || journal_replayed_ ||
+        state_applied_ || ingest_.size()!=0 ||
+        durability_owner_->state()!=durable::DurabilityOwnerState::Ready) return false;
+    security::Bytes initial_checkpoint; std::uint64_t initial_boundary=0; bool initial_found=false;
+    if (!runtime_state_->load_checkpoint(initial_checkpoint,initial_boundary,initial_found) ||
+        (!initial_found && !outbox.initial_storage_empty())) return false;
+    struct Context {
+        HubRuntime& runtime; storage::DurableEventOutbox& outbox;
+        InitialEnrollmentResolver resolve; void* owner_context;
+        const DomainEvent* event{nullptr}; storage::IdentityOwnerEvidence owner{};
+    } context{*this,outbox,resolve,owner_context,nullptr,{}};
+    // A noncapturing callback shares the existing runtime, not a second reducer.
+    struct Proof {
+        static bool candidate(void* opaque,std::uint64_t ordinal,const std::string& key,
+                const security::Bytes& payload,std::uint32_t epoch,
+                const durable::ReportSnapshotReference& witness) {
+            auto& c=*static_cast<Context*>(opaque);
+            DomainEvent event; security::Bytes checkpoint; bool found=false;
+            storage::IdentityOwnerEvidence current;
+            if (ordinal!=1 || !HubJournal::decode_event_payload(payload,event) ||
+                event.key.str()!=key || !c.runtime.runtime_state_->inspect_initial(
+                    &event,checkpoint,found,c.owner) || !found ||
+                !c.resolve(c.owner_context,event,current) || !current.authenticated() ||
+                current.enrollment_slot!=c.owner.enrollment_slot ||
+                current.enrollment_generation!=c.owner.enrollment_generation ||
+                current.binding_digest!=c.owner.binding_digest ||
+                !HubCheckpointCodec::restore(c.runtime,checkpoint)) return false;
+            c.event=&event;
+            const auto validator=[](void* p,const durable::RetirementSnapshot& report) {
+                auto& x=*static_cast<Context*>(p);
+                if (report.storage_epoch!=1 || report.legacy_binding_domain ||
+                    x.owner.enrollment_slot>=report.nodes.size()) return false;
+                const auto slot=x.owner.enrollment_slot;
+                if ((report.occupancy_mask & (1U<<slot))!=0 &&
+                    (report.nodes[slot].enrollment_generation!=x.owner.enrollment_generation ||
+                     report.nodes[slot].binding_digest!=x.owner.binding_digest)) return false;
+                return !durable::retirement_proves_node_durable_retirement(report,slot,
+                    x.owner.enrollment_generation,x.event->key.session_id,x.event->key.sequence);
+            };
+            const bool valid=c.runtime.durability_owner_->verify_native_zero_history(
+                validator,&c,epoch,witness);
+            c.event=nullptr;
+            return valid;
+        }
+    };
+    const auto recovery=outbox.recover(Proof::candidate,&context);
+    if ((recovery!=storage::OutboxRecovery::Ready && recovery!=storage::OutboxRecovery::Empty) ||
+        !outbox.healthy()) return false;
+    security::Bytes checkpoint; std::uint64_t boundary=0; bool found=false;
+    if (!runtime_state_->load_checkpoint(checkpoint,boundary,found)) return false;
+    if (!found) {
+        if (!outbox.initial_inventory_empty()) return false;
+        const auto empty=[](void* opaque) {
+            auto& c=*static_cast<Context*>(opaque);
+            security::Bytes checkpoint; bool found=false;
+            storage::IdentityOwnerEvidence unused;
+            if (!c.outbox.initial_inventory_empty() ||
+                !c.runtime.runtime_state_->inspect_initial(nullptr,checkpoint,found,unused) || found)
+                return false;
+            const auto report=[](void*,const durable::RetirementSnapshot& value) {
+                return value.storage_epoch==1 && !value.legacy_binding_domain && value.occupancy_mask==0;
+            };
+            return c.runtime.durability_owner_->verify_native_zero_history(report,nullptr,0,{});
+        };
+        if (!runtime_state_->recover(0,empty,&context) ||
+            !HubCheckpointCodec::encode(*this,checkpoint) ||
+            !runtime_state_->save_checkpoint(checkpoint,0)) return false;
+    }
+    return true;
+}
+
 bool HubRuntime::restore_from_journal() {
     if (journal_replayed_ || state_applied_ || ingest_.size() != 0 || !journal_.persistent()) return false;
     if (runtime_state_) {
@@ -637,7 +710,15 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
         ingress_identity_owners_.erase(owner_it);
     }
     const bool passive = is_passive_sensor_event(event->kind);
-    if (routine_.state().mode == HomeMode::Privacy && passive) {
+    // Identity selection happened after the original admission policy check.
+    // Finish that owned native first transaction, even if configuration changed
+    // while it was pending. Fresh passive evidence keeps the privacy policy;
+    // reducer interpretation remains suppressed by the current mode.
+    const auto* native = durability_owner_ ? durability_owner_->recovery_state() : nullptr;
+    const bool initial_prepared = runtime_state_ && runtime_state_->has_prepared_identity() &&
+        journal_.size()==0 && native && native->storage_epoch==1 &&
+        native->checkpoint.fresh_registry_domain && native->checkpoint.registry_owner_domain;
+    if (routine_.state().mode == HomeMode::Privacy && passive && !initial_prepared) {
         return ProcessResult{event->key, AckClass::DiscardedPolicy, false, {}};
     }
     bool duplicate = false;
@@ -646,12 +727,15 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
         bool identity_found = false, payload_matches = false;
         std::uint64_t identity_ordinal = 0;
         std::optional<std::uint16_t> original_minute;
+        storage::IdentityOwnerEvidence prepared_owner;
         if (!runtime_state_->lookup_identity(*event, identity_ordinal,
-                original_minute, identity_found, payload_matches)) {
+                original_minute, identity_found, payload_matches,&prepared_owner)) {
             checkpoint_fault_ = true;
             return ProcessResult{event->key, AckClass::Rejected, false, {}};
         }
         duplicate = journal_.contains(event->key);
+        if (!identity_found && runtime_state_->has_prepared_identity())
+            return ProcessResult{event->key,AckClass::Rejected,false,{}};
         if (identity_found) {
             if (!payload_matches) {
                 return ProcessResult{event->key, AckClass::Rejected, false, {}};
@@ -666,6 +750,12 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
                 checkpoint_fault_ = true;
                 return ProcessResult{event->key, AckClass::Rejected, false, {}};
             }
+            if (prepared_owner.authenticated() &&
+                (!ingress_owner.authenticated() ||
+                 prepared_owner.enrollment_slot!=ingress_owner.enrollment_slot ||
+                 prepared_owner.enrollment_generation!=ingress_owner.enrollment_generation ||
+                 prepared_owner.binding_digest!=ingress_owner.binding_digest))
+                return ProcessResult{event->key,AckClass::Rejected,false,{}};
             // A prepared identity can outlive a failed/unpublished event head.
             // Continue the same transaction so the outbox can finish publication.
             // Its original local-time context is part of the durable identity

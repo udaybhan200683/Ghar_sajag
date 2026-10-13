@@ -4,8 +4,10 @@
 bounded native-v1 Option A implementation, following
 [design E1/E2](GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md).
 Selected checkpoint 0, identity 1, exact body and authenticated native owner/root/
-fence evidence establish PENDING, never boot commit/ACK. Existing v1 writes only;
-standalone reader stays strict. Software execution is pending. GS-D033 requires
+fence evidence establish PENDING, never boot commit/ACK. This narrow recovery is
+implemented using existing v1 writes; the standalone reader stays strict.
+The [dated evidence](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md)
+records scoped software execution and remaining aggregate failures. GS-D033 requires
 corrected readers in both supported commercial S3 images; no signed pair is
 selected/qualified. Physical and release acceptance remain pending. Retention,
 overflow, deletion, CloudSync and D-A–D-M decisions remain separate.

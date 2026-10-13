@@ -8,11 +8,12 @@ Use:
 
 ## GS-148 Option A authorization — 2026-10-13
 
-**APPROVED ARCHITECTURE / IMPLEMENTATION AUTHORIZED:** GS-148 comments
+**APPROVED ARCHITECTURE / BOUNDED SOFTWARE IMPLEMENTED:** GS-148 comments
 10688/10690 authorize only design E1/E2 native epoch-1 authenticated pending
 recovery and proven-empty checkpoint completion, preserving all v1 formats,
-keys and normal durable-before-ACK. Implementation and software evidence are
-pending. This supersedes the earlier approval gates, not historical test results.
+keys and normal durable-before-ACK. The [Option A implementation evidence](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md)
+records scoped host/sanitizer/target PASS and remaining aggregate failures.
+This supersedes the earlier approval gates, not historical test results.
 D-A–D-M remain OPEN; physical, signed-image and release qualification stay pending.
 
 ### GS-D033 — Corrected readers in both supported commercial R1 S3 images
@@ -29,9 +30,10 @@ Canonical context advances to `2026-10-13.001` before dependent implementation.
 
 ## GS-148 / GS-145 first-event recovery review — 2026-10-13
 
-**APPROVED DESIGN GUIDANCE:** the owner prioritizes reliability, simplicity,
-affordability, maintainability and essential existing security (GS-148 10681;
-GS-145 10682). **PROPOSED, NOT IMPLEMENTED:**
+**HISTORICAL PREIMPLEMENTATION REVIEW:** the owner prioritizes reliability,
+simplicity, affordability, maintainability and essential existing security
+(GS-148 10681; GS-145 10682). The proposal below was later approved and
+implemented within the bounded scope recorded above:
 [the focused review](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
 recommends joining the existing authenticated checkpoint at boundary 0,
 selected identity 1, exact first body and current native owner/fence state to

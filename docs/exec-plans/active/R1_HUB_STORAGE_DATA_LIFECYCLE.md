@@ -1,5 +1,13 @@
 # R1 Hub storage and data lifecycle — architecture ExecPlan
 
+**Approved Option A delivery — 2026-10-13:** the narrow native-v1 first-event
+recovery implementation and software results are in the
+[current handoff](../evidence/R1_GS148_OPTION_A_20261013.md). It adds no lifecycle
+policy, retention period or production deletion. GS-D033 requires the corrected
+reader in both supported S3 images; the exact signed pair and physical acceptance
+remain separate. This pointer supersedes only the local first-event blocker in
+the 2026-10-12 checkpoint below. P3–P9 are still not authorized by this package.
+
 **Latest bounded resume — 2026-10-12:** GS-152 Done; the user authorized P0
 current-source reconciliation and bounded software P1/P2 on canonical R1 only.
 See the [approved direction](../../architecture/GS148_ARCHITECTURE_REVIEW_DECISION_20261012.md)

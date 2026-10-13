@@ -1,5 +1,13 @@
 # Durable Storage Epic Pause Handoff
 
+**Latest canonical pointer — 2026-10-13:** approved native-v1 first-event
+recovery and bounded software validation are recorded in the
+[Option A handoff](exec-plans/evidence/R1_GS148_OPTION_A_20261013.md).
+The former first-body/missing-head blocker is corrected only within that scope.
+The historical worktree and legacy migration notes below remain read-only
+provenance. Physical qualification, signed commercial images, P3–P9 and
+production reclamation remain separate work.
+
 **Current R1 pointer — 2026-10-12:** the worktree/branch checkpoint below is
 historical and read-only. Current development is canonical R1 on
 `feature/r1-commercial-baseline`; GS-152 is Done. The user authorized the

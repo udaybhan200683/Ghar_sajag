@@ -5,18 +5,19 @@ Date: 2026-10-13 UTC. Source and actual GitHub baseline:
 `/home/udaybhan/projects/Ghar_sajag_r1`, `feature/r1-commercial-baseline`.
 Context preflight PASS, `2026-10-11.001`; tracked tree initially clean.
 
-**APPROVED OPTION A — 2026-10-13. IMPLEMENTATION / TESTS PENDING.**
+**APPROVED OPTION A — 2026-10-13. NATIVE V1 SOFTWARE IMPLEMENTED; QUALIFICATION PENDING.**
 GS-148 10688/10690 authorize E1/E2 and bounded software validation; GS-145
 10689 approves corrected readers in both supported commercial S3 images
 (GS-D033). The review below records the original recommendation and rationale;
 its earlier approval gates are superseded by these owner records. No signed
 pair, physical action, new schema or release is approved by this authorization.
-[Current implementation handoff](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md).
+[Current implementation and software evidence](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md).
 This supporting design does not change LOCKED requirements, approve its own
 implementation, establish an OTA support matrix, or qualify a release.
 The owner's approved design guidance is simplicity, reliability, affordability,
 maintainability and proportional security (GS-148 10681; GS-145 10682).
-The recovery algorithm below remains a proposal requiring separate authorization.
+The recovery algorithm below was approved for the bounded native-v1 software
+implementation; its original review language is retained as design history.
 
 ## A. Executive recommendation
 
@@ -570,7 +571,9 @@ It deliberately resumes a transaction rather than inventing a completed commit.
 Approve the bounded implementation and corrected supported-image baseline
 separately before production work.
 
-Implementation/test status: NOT_IMPLEMENTED / proposed cases NOT_EXECUTED.
+Historical review status at this original verdict: NOT_IMPLEMENTED / proposed
+cases NOT_EXECUTED. Superseded by the dated approval and implementation evidence
+linked at the top of this document.
 Documentation checks passed: all 14 A–N sections, eight Markdown-only files,
 10 new relative links, `git diff --check`, unchanged production/registry/context
 files, and context preflight PASS. No software regression/build was repeated.

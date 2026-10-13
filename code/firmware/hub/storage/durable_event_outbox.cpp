@@ -839,7 +839,8 @@ OutboxRecovery DurableEventOutbox::fail(OutboxRecovery result) {
     return result;
 }
 
-OutboxRecovery DurableEventOutbox::recover() {
+OutboxRecovery DurableEventOutbox::recover(InitialCandidateValidator validate_initial,
+        void* initial_context) {
     if (compacting_) return OutboxRecovery::StorageFailure;
     body_manifest_ = false;
     body_bank_ = 0;
@@ -1048,7 +1049,7 @@ OutboxRecovery DurableEventOutbox::recover() {
                 }
                 publication_record_seen = true;
             }
-            if (publication_found && expected_ordinal > publication_ordinal)
+            if (expected_ordinal > publication_ordinal)
                 std::copy(frame_digest, frame_digest + sizeof(frame_digest),
                           staged_frame_digest_);
             crypto_.secure_zero(frame_digest, sizeof(frame_digest));
@@ -1080,7 +1081,12 @@ OutboxRecovery DurableEventOutbox::recover() {
     if (!publication_found) {
         // Without an authenticated publication record, even a well-formed
         // event could have been acknowledged before its marker disappeared.
-        if (complete_records != 0) return fail(OutboxRecovery::IntegrityFailure);
+        if (complete_records != 0 && (!validate_initial || complete_records!=1 ||
+            lifecycle_reset_pending_ || completion_reset_pending_ ||
+            retired_through_!=0 || lifecycle_checkpoint_boundary_!=0 || body_manifest_ ||
+            !completion_snapshot_.empty() || body_boundary_!=0 || index_size_!=1 ||
+            (lifecycle_found && replay_fence_epoch_==0)))
+            return fail(OutboxRecovery::IntegrityFailure);
     } else if (publication_ordinal > complete_records ||
                (publication_ordinal > std::max(retired_through_, body_boundary_) && !publication_record_seen) ||
                complete_records - publication_ordinal > 1) {
@@ -1090,6 +1096,9 @@ OutboxRecovery DurableEventOutbox::recover() {
         !crypto_.constant_time_equal(lifecycle_publication_digest_, publication_digest,
                                      sizeof(publication_digest)))
         return fail(OutboxRecovery::IntegrityFailure);
+    // Quarantined prefixes before that record still belong to its expected
+    // ordinal. They carry no authority and remain charged to capacity. An
+    // additional transaction tail after it is rejected, including at genesis.
     // A single complete record beyond the publication marker can only be the
     // interrupted next admission. Keep its identity so an exact Node retry can
     // finish publication; never expose it to replay or ACK it as committed.
@@ -1145,6 +1154,30 @@ OutboxRecovery DurableEventOutbox::recover() {
     if (!storage_.read_completion_publication(completion_publication,
                                                completion_publication_found))
         return fail(OutboxRecovery::StorageFailure);
+    if (!publication_found && complete_records==1) {
+        if (completion_file_bytes!=0 || completion_publication_found)
+            return fail(OutboxRecovery::IntegrityFailure);
+        // No hidden compaction generation may be erased or adopted while
+        // proving a native first transaction. Inspect before ordinary cleanup.
+        for (std::uint16_t n=0;n<limits_.segment_count;++n) {
+            bool exists=false; std::uint32_t size=0;
+            if (!storage_.segment_size(static_cast<std::uint16_t>(limits_.segment_count+n),exists,size))
+                return fail(OutboxRecovery::StorageFailure);
+            if (size!=0) return fail(OutboxRecovery::IntegrityFailure);
+        }
+        const auto& entry=entry_at(0);
+        std::string key; security::Bytes payload;
+        durable::ReportSnapshotReference witness;
+        if (replay_fence_epoch_!=0) {
+            witness.bank=replay_fence_bank_;
+            witness.generation=lifecycle_report_generation_;
+            std::copy_n(lifecycle_report_digest_.begin(),32,witness.digest.begin());
+        }
+        if (!decode_record(entry.segment,entry.offset,entry.frame_bytes,1,nullptr,key,payload) ||
+            !validate_initial(initial_context,1,key,payload,replay_fence_epoch_,witness))
+            return fail(OutboxRecovery::IntegrityFailure);
+        crypto_.secure_zero(payload.data(),payload.size());
+    }
     if (!completion_snapshot_.empty() && !completion_publication_found)
         return fail(OutboxRecovery::IntegrityFailure);
     std::uint64_t completion_publication_ordinal = 0;
@@ -1275,6 +1308,32 @@ OutboxRecovery DurableEventOutbox::recover() {
     return has_records_ ? OutboxRecovery::Ready : OutboxRecovery::Empty;
 }
 
+bool DurableEventOutbox::initial_storage_empty() const {
+    if (!key_valid_ || limits_.segment_count==0 || limits_.segment_bytes==0 ||
+        limits_.segment_count>std::numeric_limits<std::uint16_t>::max()/2U) return false;
+    for (std::uint16_t n=0;n<2U*limits_.segment_count;++n) {
+        bool exists=false; std::uint32_t size=0;
+        if (!storage_.segment_size(n,exists,size) || size!=0) return false;
+    }
+    bool found=false; std::uint32_t size=0; security::Bytes marker;
+    return storage_.completion_size(found,size) && size==0 &&
+        storage_.read_publication(marker,found) && !found &&
+        storage_.read_completion_publication(marker,found) && !found &&
+        storage_.read_lifecycle_root(marker,found) && !found;
+}
+
+bool DurableEventOutbox::initial_inventory_empty() const {
+    if (!(healthy() && index_size_==0 && next_ordinal_==1 && published_ordinal_==0 &&
+        capacity_budget_used_bytes_==0 && completion_bytes_==0 && published_completion_ordinal_==0 &&
+        lifecycle_generation_==0 && !body_manifest_ && retired_through_==0)) return false;
+    for (std::uint16_t n=0;n<limits_.segment_count;++n) {
+        bool exists=false; std::uint32_t size=0;
+        if (!storage_.segment_size(static_cast<std::uint16_t>(limits_.segment_count+n),exists,size) || size!=0)
+            return false;
+    }
+    return true;
+}
+
 OutboxAdmission DurableEventOutbox::admission_position(std::size_t frame_bytes,
         AdmissionClass admission_class, std::uint16_t& segment,
         std::uint32_t& offset, std::uint64_t& charge) const {
@@ -1378,6 +1437,19 @@ OutboxAdmission DurableEventOutbox::append(
         if (existing.ordinal != published_ordinal_ + 1 ||
             next_ordinal_ != existing.ordinal + 1)
             return OutboxAdmission::RestartRequired;
+        // A recovered frame may have persisted despite a failed barrier. Verify
+        // the same immutable bytes after a fresh sync before publishing it.
+        std::uint8_t readback_digest[32]{};
+        if (!storage_.sync(existing.segment) ||
+            !decode_record(existing.segment,existing.offset,existing.frame_bytes,
+                existing.ordinal,nullptr,stored_key,stored_payload,readback_digest) ||
+            stored_key!=canonical_event_key || stored_payload!=versioned_payload ||
+            !crypto_.constant_time_equal(readback_digest,staged_frame_digest_,32)) {
+            crypto_.secure_zero(stored_payload.data(),stored_payload.size());
+            faulted_=true;
+            return OutboxAdmission::IntegrityFailure;
+        }
+        crypto_.secure_zero(stored_payload.data(),stored_payload.size());
         if (!publish_through(existing.ordinal, staged_frame_digest_)) {
             faulted_ = true;
             return OutboxAdmission::MetadataPublicationFailure;

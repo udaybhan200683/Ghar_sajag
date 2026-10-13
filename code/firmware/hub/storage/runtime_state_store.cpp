@@ -260,7 +260,41 @@ bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
     }
     key.assign(plain.begin()+key_offset,plain.end()); return !key.empty() && key.size()<=256;
 }
-bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
+bool RuntimeStateStore::inspect_initial(const DomainEvent* event, Bytes& checkpoint,
+        bool& checkpoint_found, IdentityOwnerEvidence& owner) {
+    if (!key_valid_) return false;
+    Bytes head, plain; bool found=false; std::uint64_t ordinal=0, boundary=0;
+    if (!read_object(kHead,head,found,256) ||
+        (found && (!open(2,head,ordinal,plain) || plain.size()!=32)) ||
+        ordinal!=(event ? 1U : 0U) || (event && !found)) return false;
+    bool exists=false; std::uint32_t size=0;
+    if (!files_.state_size(kIdentities,exists,size)) return false;
+    if (event) {
+        Bytes frame,payload; std::string canonical;
+        std::optional<std::uint16_t> minute; security::Key32 digest{}, payload_digest{};
+        if (!exists || !record_at(0,1,canonical,minute,frame,&payload_digest,&owner) ||
+            frame.size()!=size || canonical!=event->key.str() || !owner.authenticated() ||
+            !crypto_.hmac_sha256(key_,frame,digest) ||
+            !crypto_.constant_time_equal(digest.data(),plain.data(),32) ||
+            !HubJournal::encode_event_payload(*event,payload) ||
+            !crypto_.hmac_sha256(key_,payload,digest) ||
+            !crypto_.constant_time_equal(digest.data(),payload_digest.data(),32)) return false;
+    } else if (size!=0 || (found && std::any_of(plain.begin(),plain.end(),
+                   [](std::uint8_t b){ return b!=0; }))) return false;
+    for (const auto* name : {"identity.a","identity.b"}) {
+        if (!files_.state_size(name,exists,size) || size!=0) return false;
+    }
+    if (!load_checkpoint(checkpoint,boundary,checkpoint_found) || boundary!=0 ||
+        (event && !checkpoint_found)) return false;
+    return true;
+}
+
+bool RuntimeStateStore::recover(std::uint64_t published_event_highwater,
+        InitialEmptyValidator validate_empty, void* context) {
+    // Evaluate the owner proof before ordinary recovery can truncate a tail.
+    const bool proven_empty = validate_empty && published_event_highwater==0 &&
+        validate_empty(context);
+    if (validate_empty && !proven_empty) return fault();
     ready_=false; faulted_=false; count_=0; bytes_=0; cursor_ordinal_=0; cursor_offset_=0;
     active_slot_=0;active_identity_file_="identity.log";compacted_=false;
     replay_epoch_=replay_generation_=0;replay_bank_=0;replay_digest_.fill(0);
@@ -339,7 +373,7 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater) {
     }
     Bytes checkpoint; std::uint64_t boundary=0; bool cp=false;
     if(!load_checkpoint(checkpoint,boundary,cp)||boundary>published_event_highwater||
-       (!cp && (count_!=0 || found))) return fault();
+       (!cp && (count_!=0 || (found && !proven_empty)))) return fault();
     committed_highwater_=published_event_highwater; ready_=true;
     // Non-authoritative candidate files are safe to remove only after the
     // selected generation has been authenticated and indexed successfully.

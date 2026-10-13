@@ -1,16 +1,23 @@
 
 # Master automated validation and regression framework
 
-## GS-148 / GS-145 first-event design specification — 2026-10-13
+## GS-148 / GS-145 first-event software registration — 2026-10-13
 
-[The design-only review](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
-maps proposed authenticated first-event recovery, initialization, negative and
-old/corrected v1 reader cases to existing GS148-ARCH IDs and registered stages.
-These extensions are PROPOSED_NOT_EXECUTED; registry/source inventory and existing
-execution evidence are unchanged. Standalone missing-head negatives remain
-required. No new recovery PASS, physical qualification or release claim follows
-from documentation checks; permanent case registration/execution belongs to the
-separately authorized implementation package.
+[Approved design](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
+E1/E2 is implemented in the existing v1 readers and registered as scoped
+GS148-ARCH assertions. `storage-correctness` and its ASan/UBSan twin require
+every native-owner fault, negative, capacity, report, privacy and repeated-prefix
+marker. `first-event-reader-compatibility` compiles the actual old reader and
+corrected reader against identical hashed v1 states, including mandatory output
+for the old reader's known first-event availability limitation.
+`first-event-recovery-projection` exercises the production C3 retained-event,
+Hub ACK/reboot, CloudSync serializer and real local API/caregiver projection.
+The stage registry, failure-propagation meta tests and source/physical traceability
+are checked by the existing GS-116/130 tools. Standalone missing-head and
+populated/corrupt-authority negatives remain mandatory. The
+[dated evidence](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md)
+records frozen source, actual receipts and remaining aggregate FAILs. Physical
+and full release qualification remain NOT_RUN.
 
 ## GS-148 bounded correctness registration — 2026-10-12
 

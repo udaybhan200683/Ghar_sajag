@@ -1,6 +1,6 @@
 # R1 Current Work State
 
-## GS-148 Option A implementation authorized — 2026-10-13
+## GS-148 Option A software delivered — 2026-10-13
 
 GS-148 10688/10690 and GS-145 10689 approve bounded native-v1 recovery and
 software validation. GS-D033 locks corrected recovery in both supported S3
@@ -10,9 +10,19 @@ tracked clean, nine preserved untracked entries. Other observed session writes
 only separate dashboard worktree; canonical writer is exclusive for GS-148.
 Context updated to `2026-10-13.001` for the approved policy before source work.
 [Implementation handoff](../exec-plans/evidence/R1_GS148_OPTION_A_20261013.md)
-records scope and required checks. Implementation/tests pending, physical and
-release NOT_RUN, historical migration FAIL and product P0 PARTIAL unchanged.
-GS-148 In Progress; GS-145 To Do; no status transition.
+records exact source, 59 primary fault cuts, 24 authority negatives, 22 actual
+old/corrected reader checks, real C3/S3/API projection, ASan/UBSan, framework
+and source-traceability PASS. Frozen fingerprint
+`c07ae9a0cb79491379d4de65f6c83d7b31b3c0d7613bc3d9e2f912c2c1fcce83`
+has Hub 38/40, Node 23/24 and contract 33/34 PASS. Only historical journal
+migration and product P0 PARTIAL stages fail. Board-stack E2E passed eight cases;
+ESP-IDF 6.0.3 S3 production and GS-114 fixture profiles compiled. Old reader
+availability on interrupted first events remains a known FAIL_CLOSED limitation;
+both commercial supported images must include the corrected reader (GS-D033).
+The concrete signed pair, physical reboot/OTA/rollback, lifetime storage capacity
+and full release qualification remain NOT_RUN/BLOCKED. GS-148 In Progress;
+GS-145 To Do; no status transition. Next action is separate image/physical and
+remaining commercial lifecycle qualification under its own authorization.
 
 
 ## GS-148 / GS-145 first-event design review — 2026-10-13

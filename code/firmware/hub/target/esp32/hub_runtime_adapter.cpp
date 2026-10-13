@@ -625,18 +625,27 @@ void secure_owner_task(void*) {
     storage::DurableEventOutbox durable_outbox(
         outbox_storage, commissioning_crypto, journal_key,limits);
     commissioning_crypto.secure_zero(journal_key.data(), journal_key.size());
-    const auto outbox_recovery = durable_outbox.recover();
-    if ((outbox_recovery != storage::OutboxRecovery::Ready &&
-         outbox_recovery != storage::OutboxRecovery::Empty) ||
-        !durable_outbox.healthy()) {
-        ESP_LOGE(kTag, "S3 event outbox recovery failed state=%u; admission closed",
-                 static_cast<unsigned>(outbox_recovery));
+    storage::OutboxJournalBackend event_backend(durable_outbox);
+    HubRuntime runtime(32, 0);
+    runtime.bind_runtime_state(runtime_state);
+    runtime.bind_durability_owner(durability_owner);
+    const auto resolve_initial_owner=[](void* context,const DomainEvent& event,
+            storage::IdentityOwnerEvidence& owner) {
+        auto& link=*static_cast<HubSecurityLink*>(context);
+        transport::RetirementEnrollmentBinding binding;
+        if (!link.resolve_enrollment_binding(event.key.physical_device_id,
+                event.key.source_id,binding)) return false;
+        owner.enrollment_slot=binding.slot;
+        owner.enrollment_generation=binding.generation;
+        owner.binding_digest=binding.digest;
+        return true;
+    };
+    if (!runtime.recover_native_outbox(durable_outbox,resolve_initial_owner,&security_link) ||
+        !runtime.journal().attach_backend(event_backend)) {
+        ESP_LOGE(kTag, "S3 authenticated native event recovery failed; admission closed");
         vTaskDelete(nullptr);
         return;
     }
-    storage::OutboxJournalBackend event_backend(durable_outbox);
-    HubRuntime runtime(32, event_backend);
-    runtime.bind_runtime_state(runtime_state);
 #else
     durable::DurableJournalSlotStore journal_store(
         durability_owner, commissioning_crypto, journal_key,

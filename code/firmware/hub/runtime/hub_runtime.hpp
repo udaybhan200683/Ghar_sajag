@@ -158,6 +158,12 @@ public:
     // Rebuild event-derived state once after attaching a persistent journal,
     // before processing any new event. It emits no rule signals.
     bool restore_from_journal();
+    using InitialEnrollmentResolver = bool (*)(void*, const DomainEvent&,
+                                               storage::IdentityOwnerEvidence&);
+    // Serialized owner startup only. Does not open ingress or replace replay:
+    // caller still reconciles the selected fence and restores the journal.
+    bool recover_native_outbox(storage::DurableEventOutbox&,
+                               InitialEnrollmentResolver, void* owner_context);
     // Bind before replay. Registry authentication remains a separate authority.
     void bind_runtime_state(storage::RuntimeStateStore& store) { runtime_state_ = &store; }
     bool bind_replay_fence(const durable::RetirementSnapshot& snapshot,

@@ -504,9 +504,21 @@ hub-backend-completion-host-test: hub-journal-migration-host-test
 .PHONY: hub-runtime-checkpoint-host-test
 .PHONY: hub-storage-correctness-host-test
 GS148_BINARY ?= build/hub_storage_correctness_validation
-hub-storage-correctness-host-test: build $(CPP_OBJECTS) $(call host_objects,firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp tests/support/host/security/openssl_commissioning_crypto.cpp)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp tests/support/host/security/openssl_commissioning_crypto.cpp) tests/cpp/hub_storage_correctness_validation.cpp -lcrypto -o $(GS148_BINARY)
+GS148_HOST_SOURCES := firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp firmware/hub/target/esp32/nvs_durable_key_codec.cpp firmware/hub/commissioning/registry/registry_persistence.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/storage/node_recovery_persistence.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS148_HOST_SOURCES))
+hub-storage-correctness-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS148_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS148_HOST_SOURCES)) tests/cpp/hub_storage_correctness_validation.cpp -lcrypto -o $(GS148_BINARY)
 	./$(GS148_BINARY) $(GS148_CASE)
+
+# Historical source snapshots are build inputs, never a development worktree.
+.PHONY: hub-first-event-reader-host-test hub-first-event-projection-host-test
+build/gs148_fixed_reader: $(CPP_OBJECTS) $(call host_objects,$(GS148_HOST_SOURCES)) tests/cpp/hub_first_event_reader_validation.cpp tests/cpp/hub_first_event_recovery_cases.inc tests/cpp/hub_runtime_checkpoint_validation.cpp tests/cpp/hub_segmented_outbox_runtime_validation.cpp
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS148_HOST_SOURCES)) tests/cpp/hub_first_event_reader_validation.cpp -lcrypto -o $@
+hub-first-event-reader-host-test: build/gs148_fixed_reader
+	python3 scripts/gs148_reader_compatibility.py
+hub-first-event-projection-host-test: build/gs148_fixed_reader
+	./build/gs148_fixed_reader projection build/gs148_projection_node.json build/gs148_projection_cloud.json
+	PYTHONPATH=backend:. python3 tests/python/run_gs148_first_event_projection.py --requests build/gs148_projection_cloud.json
 
 .PHONY: hub-storage-correctness-sanitize
 hub-storage-correctness-sanitize:

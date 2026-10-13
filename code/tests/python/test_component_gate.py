@@ -30,6 +30,23 @@ class ComponentGateTest(unittest.TestCase):
         script="import importlib.util; s=importlib.util.spec_from_file_location('gate',"+repr(str(ROOT/'validation/component_gate.py'))+"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.build_profile({})['portable_crypto_sources']"
         result=subprocess.run([sys.executable,'-I','-c',script],cwd=ROOT,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
+    def test_option_a_fault_matrix_and_old_reader_limit_are_mandatory(self):
+        stages={s['id']:s for s in gate.load_registry()['stages']}
+        storage=stages['storage-correctness']
+        lines=[p.removeprefix('^').removesuffix('$') for p in storage['required_success']]
+        complete='\n'.join(lines+['PASS: GS148 bounded admission and recovery correctness'])+'\n'
+        self.assertEqual(gate.adjudicate(storage,self.result(complete)),'PASS')
+        for line in lines:
+            if 'option_a_' in line or 'pending_privacy_context' in line:
+                self.assertEqual(gate.adjudicate(storage,self.result(complete.replace(line+'\n',''))),'FAIL')
+        reader=stages['first-event-reader-compatibility']
+        complete=('GS148-ARCH-049 PASS actual_readers=2 byte_states=11 reboot_per_reader=2\n'
+                  'OLD_READER_COMMERCIAL_ROLLBACK_AVAILABILITY=FAIL_KNOWN_FIRST_EVENT_LIMITATION\n'
+                  'GS148_READER_REPORT=build/gs148_reader_compatibility/reader-fixture/report.json\n')
+        self.assertEqual(gate.adjudicate(reader,self.result(complete)),'PASS')
+        self.assertEqual(gate.adjudicate(reader,self.result(complete.split('OLD_READER_')[0])),'FAIL')
+        self.assertEqual(gate.adjudicate(reader,self.result(complete,rc=2)),'FAIL')
+
     def test_failure_propagates_even_with_pass_text(self):
         self.assertEqual(gate.adjudicate(self.stage(),self.result(rc=3)),"FAIL")
     def test_zero_tests_and_missing_records_fail(self):
