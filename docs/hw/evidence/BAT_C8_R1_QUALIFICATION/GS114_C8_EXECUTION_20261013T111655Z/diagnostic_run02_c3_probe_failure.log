@@ -1,0 +1,73 @@
+esptool v5.4.0
+Serial port /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00:
+Connecting...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/__main__.py", line 9, in <module>
+    esptool._main()
+    ~~~~~~~~~~~~~^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/__init__.py", line 1367, in _main
+    main()
+    ~~~~^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/__init__.py", line 1317, in main
+    cli(args=args, esp=esp)
+    ~~~^^^^^^^^^^^^^^^^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/cli_util.py", line 274, in __call__
+    return super().__call__(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/rich_click/rich_command.py", line 401, in __call__
+    return super().__call__(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/click/core.py", line 1161, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/rich_click/rich_command.py", line 215, in main
+    rv = self.invoke(ctx)
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/click/core.py", line 1697, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/click/core.py", line 1443, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/click/core.py", line 788, in invoke
+    return __callback(*args, **kwargs)
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/click/decorators.py", line 33, in new_func
+    return f(get_current_context(), *args, **kwargs)
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/__init__.py", line 1012, in flash_id_cli
+    prepare_esp_object(ctx)
+    ~~~~~~~~~~~~~~~~~~^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/__init__.py", line 546, in prepare_esp_object
+    esp = connect_esp(
+        port=ctx.obj["port"],
+    ...<6 lines>...
+        open_port_attempts=open_port_attempts,
+    )
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/cmds.py", line 430, in connect_esp
+    esp = esp or connect_first_available(
+                 ~~~~~~~~~~~~~~~~~~~~~~~^
+        ser_list,
+        ^^^^^^^^^
+    ...<5 lines>...
+        before=before,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/cmds.py", line 335, in connect_first_available
+    esp.connect(before, connect_attempts)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/loader.py", line 888, in connect
+    last_error = self._connect_attempt(reset_strategy, mode)
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/loader.py", line 764, in _connect_attempt
+    reset_strategy()  # Reset the chip to bootloader (download mode)
+    ~~~~~~~~~~~~~~^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/reset.py", line 63, in __call__
+    self.port.open()
+    ~~~~~~~~~~~~~~^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/serial/serialposix.py", line 338, in open
+    self._update_rts_state()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/serial/serialposix.py", line 708, in _update_rts_state
+    fcntl.ioctl(self.fd, TIOCMBIC, TIOCM_RTS_str)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 62] Timer expired

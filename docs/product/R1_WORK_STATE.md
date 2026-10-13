@@ -1686,9 +1686,24 @@ logging authenticated NodeHealth detail, successful replay-fence reconciliation,
 retirement-ACK send result and per-key durable outbox lookup. The paired build
 and focused replay/checkpoint host regression passed; exact image hashes and
 partition profile are in the [diagnostic manifest](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/diagnostic_manifest.json).
-The next action is to confirm both by-id ports are unoccupied, re-probe exact
-authorized chips and security state, then perform the already approved fresh
-R&D installation and direct physical retest. The USB console observer may
-still require an independent 3.3 V UART/GPIO probe for literal C3 UART and
-held-HIGH acceptance. GS-114 and GS-146 remain open; GS-149 current and P10
-measurements were not made. No CloudSync or C9–C11 implementation was started.
+Both new diagnostic images were then clean installed and flash verified on the
+same identified R&D pair. A C3 read-only probe initially stopped at a WSL USB
+RTS ioctl timeout before C3 erase; operator C3-only reconnect and an exact
+Windows USBIP attach restored the interface, after which the C3-only guarded
+install passed. Fresh test-only commissioning succeeded. The first authenticated
+Node retirement report physically logged `RPF00 path=PREPARED admission=OPEN`
+and authenticated retirement ACK at 16:52:50 UTC: **RPF07 repair physical
+retest PASS**. The owner requested pause before the five-minute P1 health
+baseline and before any run-02 PIR stimulus. Capture was closed, both serial
+ports are unowned, and the installed images/commissioning remain on the boards.
+The latest full [pause handoff and results](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+preserve all redacted run-02 evidence and the exact resume action. Source/evidence
+commit `b3217b977b6bf77070bc1a52c0c6706eb9cf7a29` matched GitHub before
+the pause update; the handoff changes require their own commit/push verification.
+Jira GS-114 comment 10819 records the direct RPF00 milestone. The USB console
+observer may still require an independent 3.3 V UART/GPIO probe for literal C3
+UART and held-HIGH acceptance. GS-114 P1–P9 and GS-146 remain open; GS-149
+current/P10 measurements were not made. No CloudSync or C9–C11 implementation
+was started. At resume, recheck by-id ports/identity/power/wiring and capture
+with a live control channel; reuse installed images, wait for authenticated
+timer-wake health and then prompt for real P2 motion. Do not erase first.
