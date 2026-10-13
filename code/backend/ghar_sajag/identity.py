@@ -47,6 +47,10 @@ class IdentityService:
     # @requirements F01, E08, AI07, NFR-06
     # Check household membership and permission; the API adapter must supply an authenticated principal.
     def require(self, home_id: str, actor_id: str, permission: str, at: int) -> Membership:
+        # Exhaustive existing verbs. Diagnostics requires a separate explicit
+        # trusted Home grant; no new/unknown action can alias generic read.
+        if type(permission) is not str or permission not in ("read", "manage"):
+            raise AuthorizationError("not_authorized")
         membership = self.store.memberships.get((home_id, actor_id))
         allowed = self.MANAGE_ROLES if permission == "manage" else self.READ_ROLES
         if (

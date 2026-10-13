@@ -1406,6 +1406,37 @@
       "fast": true,
       "release": true,
       "require_complete_product": true
+    },
+    {
+      "id": "diagnostic-foundation",
+      "components": [
+        "backend"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/engineering_dashboard",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "inputs": [
+        "backend/ghar_sajag/diagnostic_authorization.py",
+        "backend/ghar_sajag/diagnostics.py",
+        "backend/ghar_sajag/identity.py",
+        "tests/engineering_dashboard/test_foundation.py",
+        "tests/engineering_dashboard/test_registration.py"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": [
+        "^OK$"
+      ],
+      "timeout": 180,
+      "count_kind": "tests",
+      "qualification_scope": "NONACTIVE_POLICY_AND_READ_PROJECTION; NOT_PRODUCTION_AUTHENTICATION"
     }
   ],
   "separate_harnesses": {},

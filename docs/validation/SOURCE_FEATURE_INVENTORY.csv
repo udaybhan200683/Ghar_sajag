@@ -9,7 +9,7 @@ backend/ghar_sajag/fleet.py,API-DEVICES;API-CONFIG,REFERENCE_APPLICATION,ACCOUNT
 backend/ghar_sajag/foundation.py,API-HOME;API-FAMILY;API-DEVICES,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
 backend/ghar_sajag/homes.py,API-CONSENT;API-HOME,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
 backend/ghar_sajag/http_api.py,API-01;API-RECONCILE,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
-backend/ghar_sajag/identity.py,API-AUTH,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
+backend/ghar_sajag/identity.py,API-AUTH;DASH-AUTH-FOUNDATION,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
 backend/ghar_sajag/incidents.py,API-INCIDENT,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
 backend/ghar_sajag/ingest.py,API-INGEST,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
 backend/ghar_sajag/logging_config.py,API-LOG,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference application inventoried; production deployment proof separate
@@ -203,3 +203,5 @@ tools/sim/pwa/validation_engine.mjs,GATE-SELF-01,REFERENCE_APPLICATION,ACCOUNTED
 tools/sim/scenario_matrix.py,GATE-SELF-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
 tools/sim/web/index.html,PWA-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
 tools/sim/web/lab.mjs,PWA-01,REFERENCE_APPLICATION,ACCOUNTED_WITH_LIMITATIONS,Reference modular application/web lab inventoried; outward deployed/current-browser acceptance separate
+backend/ghar_sajag/diagnostic_authorization.py,DASH-AUTH-FOUNDATION;DASH-TRACE-FOUNDATION;DASH-REGISTRY-FOUNDATION,NONACTIVE_DIAGNOSTIC_FOUNDATION,ACCOUNTED_WITH_LIMITATIONS,"Inactive foundation only; verified production issuer, grantor/TTL/durable grant lifecycle, trusted target exporter and HTTP/browser activation remain absent; no physical qualification"
+backend/ghar_sajag/diagnostics.py,DASH-PRIVACY-FOUNDATION;DASH-TRACE-FOUNDATION;DASH-REGISTRY-FOUNDATION,NONACTIVE_DIAGNOSTIC_FOUNDATION,ACCOUNTED_WITH_LIMITATIONS,"Inactive foundation only; verified production issuer, grantor/TTL/durable grant lifecycle, trusted target exporter and HTTP/browser activation remain absent; no physical qualification"
