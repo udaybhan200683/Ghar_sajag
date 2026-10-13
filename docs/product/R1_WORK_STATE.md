@@ -1,6 +1,43 @@
 # R1 Current Work State
 
-## GS-124/125 authorization foundation resumed — 2026-10-13 (isolated)
+## Engineering Dashboard context reconciliation — 2026-10-13 (preflight passed)
+
+Dashboard baseline: branch `feature/gs124-125-engineering-dashboard`, local and
+GitHub remote HEAD `4be09b2d9befa5ae7a726bb96e9fadee7e330a46`; clean before this
+documentation-only reconciliation. Canonical committed source: local and remote
+`feature/r1-commercial-baseline` HEAD
+`774da5c2ee8073c535df2fe56ecdbf548c16ebf0`, context
+`GHAR_SAJAG_CONTEXT_VERSION=2026-10-13.001`. The canonical working tree has 35
+staged/modified/untracked paths from the GS-148 writer and preserved GS-114
+evidence; none were changed or imported. The dashboard's initial context
+preflight was STALE because its marker was `2026-10-11.001`. After reconciling
+the applicable documentation, the marker was updated to the exact committed
+canonical value. The real preflight now reports PASS, with both versions
+`2026-10-13.001`, dashboard branch `feature/gs124-125-engineering-dashboard`
+and source HEAD `4be09b2d9befa5ae7a726bb96e9fadee7e330a46`. Focused checks passed:
+`git diff --check`; expected-decision/status checks; relative-link checks for new
+references; documentation-only changed paths; and equality of the untouched
+dashboard validation registry to HEAD. See the
+[reconciliation matrix](../exec-plans/evidence/engineering_dashboard_20261013/CONTEXT_RECONCILIATION_MATRIX_20261013.md)
+and [validation receipt](../exec-plans/evidence/engineering_dashboard_20261013/CONTEXT_RECONCILIATION_VALIDATION_20261013.md).
+
+ED-D01/02/03-MIN foundations remain delivered, nonactive and source-backed:
+54 new cases PASS; framework 39, feature mapping 19 and caregiver JavaScript 23
+PASS. Prior backend/PWA aggregate failures remain as recorded below and in the
+focused evidence. GS-122/10705 now approves caregiver PWA ticket creation and
+tracking, admin management/assignment, assigned-technician Start, and exact
+ticket/Home/Hub/current-Node in-app Approve/Deny/Revoke with a non-sliding
+30-minute product-JSON default; there is no email/SMS OTP. Production identity,
+session, staff credential lifecycle, atomic persistent grant/revoke, trusted
+Hub source and live commercial routes remain unimplemented.
+
+Current next action: commit and push only these isolated documentation changes,
+verify the dashboard remote equals local HEAD, and record the delivery checkpoint.
+Then resume the already authorized service-desk implementation and affected
+tests. GS-148 storage, registry and GS-114 physical evidence remain outside this
+branch.
+
+## GS-124/125 authorization foundation delivery checkpoint — prior source snapshot
 
 Start dashboard branch/source 31822b1, canonical read-only source 371a560.
 Preflight PASS. ED-D01, ED-D02 and ED-D03-MIN policies approved by Jira

@@ -1,6 +1,18 @@
 
 # Master automated validation and regression framework
 
+## Canonical GS-148 context — committed source `774da5c`, 2026-10-13
+
+GS-148 comments 10688/10690 authorize bounded native-v1 Option A implementation
+and software validation; execution and evidence are pending at that committed
+source. GS-D033 requires corrected v1 first-event recovery in both supported
+commercial R1 S3 images. The canonical validation document proposes new
+first-event cases but marks them NOT_EXECUTED. This dashboard branch does not
+import those source changes, test cases or canonical registry edits. Its existing
+GS-116/GS-130 policies below remain applicable; any dashboard cases must be
+registered and fingerprinted in this branch's current validation sources. No
+GS-148 implementation or validation PASS is claimed here.
+
 ## Active source root and GS-152 layout
 
 The active product source root is `code/`; the repository root Makefile delegates

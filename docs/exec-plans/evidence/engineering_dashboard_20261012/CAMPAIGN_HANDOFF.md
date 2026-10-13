@@ -1,6 +1,50 @@
 # GS-122 campaign checkpoint and resume handoff
 
-## Latest checkpoint — 2026-10-13: scoped foundation complete, activation blocked
+## Latest checkpoint — 2026-10-13: context reconciled, preflight PASS
+
+One-time, documentation-only reconciliation authorized by the user for this
+isolated branch. Baseline dashboard local/remote HEAD was
+`4be09b2d9befa5ae7a726bb96e9fadee7e330a46` on
+`feature/gs124-125-engineering-dashboard`; canonical local/remote HEAD was
+`774da5c2ee8073c535df2fe56ecdbf548c16ebf0` on
+`feature/r1-commercial-baseline`, context `2026-10-13.001`. The canonical working
+tree had 35 staged/modified/untracked entries, including GS-148 and GS-114 work;
+all were preserved and untouched. Only dashboard `docs/` files were changed.
+
+The stale `2026-10-11.001` dashboard context was reconciled file by file against
+committed canonical Decision Log, release contract, index, work-state, storage
+architecture and validation policy. GS-148 Option A is authorized for bounded
+native-v1 implementation and tests were pending at canonical commit 774da5c;
+GS-D033 is locked for both supported commercial S3 images, with signed image
+selection and physical/release qualification still pending. No GS-148 code,
+storage, registry changes or GS-114 evidence was copied. The dashboard marker
+now matches `2026-10-13.001`. See the
+[reconciliation matrix](../engineering_dashboard_20261013/CONTEXT_RECONCILIATION_MATRIX_20261013.md)
+and [validation receipt](../engineering_dashboard_20261013/CONTEXT_RECONCILIATION_VALIDATION_20261013.md).
+The real `bash tools/context/ghar_sajag_context_preflight.sh` returned PASS at
+baseline source HEAD `4be09b2d9befa5ae7a726bb96e9fadee7e330a46`. `git diff --check`
+and focused decision/version/link/document-scope checks also passed.
+
+GS-122/10705 approves caregiver PWA ticket create/track; admin queue and manual
+or atomic round-robin assignment; assigned-only technician access; assigned
+technician Start; caregiver in-app Approve/Deny/Revoke; exact ticket/Home/Hub/
+current-Node/owner-epoch scope; fixed non-sliding 30-minute JSON-configured
+default; fresh consent on expiry; and no email/SMS OTP. Real-Home diagnostics
+still require caregiver consent. Production identity/session, staff credentials,
+atomic persistent grant/revoke, trusted Hub source and live commercial routes
+remain unimplemented.
+
+Documentation commit/push is pending. Next: review and commit only the current
+documentation changes, push normally and verify actual remote HEAD equality.
+Then inspect current caregiver PWA, real JSON configuration, Home/Hub/Node
+ownership authorities, roles and backend persistence before the service-ticket
+implementation. Preserve `identity.py`, `diagnostic_authorization.py` and
+`diagnostics.py`; do not activate commercial routes via `X-Actor-Id`. After
+preflight, validate dashboard-scoped traceability and register eligible tests
+without importing GS-148 registry changes. No physical HIL, OTA, commissioning,
+production activation or GS-148 storage change.
+
+## Prior checkpoint — authorization foundation delivery snapshot
 
 ED-D01/ED-D02/ED-D03-MIN approved policies reconciled with Jira
 10660/10670/10671/10672/10677. Preflight PASS, context 2026-10-11.001.

@@ -1,17 +1,27 @@
 # GS-124 authorization/privacy foundation — scoped approval and impact
 
 2026-10-13. Owner GS-124/125; dependencies GS-76/143/65; coordination GS-122.
-Approved by the user's bounded implementation request and GS-122/10677.
 This is an IMPLEMENTATION_DESIGN and approval record for a non-active interface,
 not a second requirements master or production authentication authority.
 
-Approval sources: GS-120/10660 (ED-D01 read-only architecture), GS-143/10670
-(ED-D02 Home diagnostic permission), GS-65/10671 (ED-D03-MIN privacy),
-GS-122/10672 and 10677 (execution/ownership limits). Earlier pending-policy labels
-are superseded; provider, grantor/self-grant, TTL, audit/grant storage, numerical
-resource policy and production activation are NOT approved by these decisions.
-No canonical files are edited. Canonical policy promotion/context versioning is
-an ED-D09 owner boundary; context remains the preflight-matched 2026-10-11.001.
+Architecture/policy approval sources: GS-120/10660 (ED-D01 read-only architecture),
+GS-143/10670 (ED-D02 Home diagnostic permission), GS-65/10671 (ED-D03-MIN privacy),
+and GS-122/10672/10677. GS-122/10705 additionally approves the caregiver-created
+service ticket, administrator assignment, assigned-technician Start, and in-app
+caregiver Approve/Deny/Revoke workflow. No email/SMS OTP is used. The grant is
+limited to the exact ticket, Home, Hub and current Nodes; its non-sliding default
+duration is 30 minutes from product JSON configuration, and expiry requires new
+caregiver approval. Real-Home detailed diagnostics require caregiver approval;
+only an authenticated administrator on an isolated synthetic/test Home may use
+the approved bypass.
+
+The product workflow does not implement or select production identity/session
+issuance, employee credential lifecycle, atomic durable grant/revocation storage,
+trusted production Hub diagnostics, or commercial route activation. The service
+consent actor and 30-minute duration are approved; these implementation boundaries
+remain open. Operational numeric query/privacy limits remain unresolved. The
+one-time reconciliation is isolated to this dashboard branch; no canonical
+worktree source, GS-148 code/registry changes or GS-114 evidence are copied.
 
 ## Before-edit scope and interface contract
 
@@ -60,7 +70,7 @@ repeated without actual affected source. No C++ sanitizer/target build required
 for Python-only code. Full release NOT_RUN. SOFTWARE_ONLY foundation; existing
 physical mappings BLOCKED_GS114_NO_GO, no ports or hardware operations.
 
-## Ownership, triage and stopping point
+## Prior foundation checkpoint — historical source pointers
 
 Dashboard source/local/remote 31822b1a6bd1a7fc11e00fb63805eb5110e444b2 on existing
 feature/gs124-125-engineering-dashboard. Canonical advanced to
@@ -75,11 +85,12 @@ TASK_SCOPE=isolated non-active foundation; OUT_OF_SCOPE=issuer/provider,
 grantor/self-grant/TTL, durable grant/audit, activation, target exporter,
 GS148 persistence/CloudSync and hardware. No adjacent fixes.
 
-Next separate prerequisites: qualified GS-76 identity/session/issuer; approved
-GS-143 grantor/expiry and durable versioned revoke/member/epoch/audit; GS-65
-trusted exporter; actual operational rate/row/byte/window policy; production
-browser cancellation/cache proof; ED-D04–09. Historical journal migration FAIL
-and full P0 PARTIAL remain mandatory. Stop after this bounded package.
+At this checkpoint, the separate prerequisites were recorded as qualified GS-76
+identity/session/issuer; GS-143 durable revoke/member/epoch/audit; GS-65 trusted
+exporter; operational rate/row/byte/window policy; browser cancellation/cache
+proof; ED-D04–09. The later GS-122/10705 product workflow resolves the in-app
+consent and 30-minute duration policy only; it does not resolve production
+identity or storage implementation.
 
 ## Delivery checkpoint — 2026-10-13
 
@@ -91,3 +102,28 @@ file-backed fixtures in the full-/tmp environment; no aggregate/release PASS.
 Canonical advanced externally to 19ec67c, documentation-only storage proposal;
 current decisions/domain/status delta read, no requirements or source copied.
 Issuer/grant lifecycle, activated HTTP/browser and target evidence remain absent.
+
+## Context reconciliation and service-workflow continuation — 2026-10-13
+
+At dashboard baseline `4be09b2d9befa5ae7a726bb96e9fadee7e330a46`, local branch
+`feature/gs124-125-engineering-dashboard` matched GitHub remote and was clean.
+Canonical committed source was `774da5c2ee8073c535df2fe56ecdbf548c16ebf0` on
+`feature/r1-commercial-baseline`, with 35 staged/modified/untracked paths in its
+worktree; those GS-148 and GS-114 changes were preserved. The dashboard's initial
+preflight was STALE solely because its context marker was `2026-10-11.001` while
+the committed canonical marker was `2026-10-13.001`. See the
+[file-by-file reconciliation matrix](../exec-plans/evidence/engineering_dashboard_20261013/CONTEXT_RECONCILIATION_MATRIX_20261013.md)
+for the selective documentation changes. After updating only applicable
+documentation and then the marker, the real context preflight and focused
+documentation checks passed; exact commands/output and commit/remote status are
+recorded in the dated campaign handoff. No code or registry change occurred in
+this reconciliation.
+
+Next implementation: inspect current caregiver PWA, JSON configuration,
+authoritative Home/Hub/Node ownership, backend persistence and roles, then
+implement the GS-122/10705 service desk and consent lifecycle in production
+sources where current identity authority permits. Do not enable commercial
+diagnostic routes through `X-Actor-Id`. Preserve previous source-backed tests and
+failures; the 27-test SQLite reference is supporting material only. Physical HIL,
+OTA, commissioning, production activation and GS-148 storage changes remain
+separately gated.

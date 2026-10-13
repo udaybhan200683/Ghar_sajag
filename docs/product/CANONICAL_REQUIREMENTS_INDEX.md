@@ -33,6 +33,20 @@ If two current documents conflict and no higher-authority LOCKED decision resolv
 | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | CANONICAL | Hub storage classes, sync, offline, PWA freshness and local learning | Storage, cloud, PWA, or routine work |
 | `docs/product/CONTEXT_VERSION` | CANONICAL | Machine-readable canonical context revision | Worktree preflight/version governance |
 
+## Canonical GS-148 status and GS-D033
+
+At canonical committed source `774da5c2ee8073c535df2fe56ecdbf548c16ebf0`,
+GS-148 comments 10688/10690 authorize bounded native-v1 Option A implementation
+and software validation; execution/evidence are pending at that source. GS-D033,
+approved by GS-145 comment 10689, requires corrected v1 first-event recovery in
+both supported commercial R1 S3 images. The approved first-event review and
+bounded implementation handoff are SUPPORTING / APPROVED IMPLEMENTATION_DESIGN,
+not evidence of implementation or qualification. Their canonical paths are
+`docs/architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md` and
+`docs/exec-plans/evidence/R1_GS148_OPTION_A_20261013.md` in the canonical worktree.
+The dashboard branch reconciles this status only; it does not import GS-148 code,
+test cases, registry edits, or uncommitted canonical work.
+
 ## Document map
 
 Each canonical file is listed once in the canonical table above. The domain sections below map the supporting source documents.
@@ -264,6 +278,7 @@ Decision text remains authoritative in `DECISION_LOG.md`; this table points to t
 | GS-D016 | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`, `docs/product/R1_WORK_STATE.md` |
 | GS-D018 | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/features/CAREGIVER_ACTIONS_AND_NOTIFICATIONS.md` |
 | GS-D020 | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/product/R1_WORK_STATE.md`, battery feature guide; GS-114 implementation/focused qualification, GS-146 final R1 battery closure |
+| GS-D033 | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md` |
 
 ## Context version and canonical worktree
 
@@ -273,20 +288,44 @@ Decision text remains authoritative in `DECISION_LOG.md`; this table points to t
 
 The full inventory includes 104 Markdown files. Classes describe document use, not truth of every statement. Several old release notes are grouped in the inventory as historical or evidence; no historical result was edited. No inventory entry is currently classified `UNKNOWN_REQUIRES_REVIEW`; re-evaluate classification before promoting a source. Do not treat similar titles or repeated plans as proof that one document is a duplicate requirement.
 
-## Current requirement register
+## Dashboard-branch scoped approvals — not canonical requirement-register entries
+
+The following approvals apply to this isolated Engineering Dashboard branch and
+are recorded here for traceability. They are not represented as canonical
+LOCKED R1 decisions and do not activate a production diagnostic route.
+
+| REQ_ID | Approved scoped behavior | Approval source | Current implementation status | Boundary |
+|---|---|---|---|---|
+| GS-DIAG-01 | Fail-closed Home-scoped READ_DIAGNOSTICS; no generic-role fallback; verified actor, grant and ownership epoch required | GS143/10670; GS120/10660 | NONACTIVE foundation; production identity/session and grant persistence are not integrated | Commercial routes remain disabled; service workflow does not make the development `X-Actor-Id` adapter production identity |
+| GS-DIAG-02 | Allowlisted Class A technical metadata and exact-original-EventKey Class B traces; bounded, sanitized, no-store; no payload, export or privileged control | GS65/10671 | NONACTIVE projection; trusted production exporter and numeric query/privacy bounds remain unimplemented | No persistent diagnostics or browser activation |
+
+The separate GS-122/10705 product decision also approves caregiver-created and
+tracked tickets for the server-derived Home/Hub/current Nodes; admin queue and
+manual or atomic round-robin assignment among active staff; unassigned ADMIN
+ONLY access; assigned-only technician tickets; and technician Start followed by
+caregiver in-app Approve/Deny/Revoke. Consent is actor-bound and scoped to the
+exact ticket, Home, Hub, current Nodes and ownership epoch, with a non-sliding
+30-minute default from product JSON configuration and fresh approval after
+expiry. Closure, reassignment, offboarding, transfer, revocation and expiry
+invalidate access and active polling/caches. There is no email/SMS OTP. Real-Home
+detailed diagnostics still require caregiver approval; only an authenticated
+administrator on an isolated synthetic/test Home can bypass household consent.
+This workflow does not establish production identity issuance or storage
+implementation.
+
+## Current canonical requirement register
 
 This register records requirements explicitly present in canonical sources. `UNKNOWN` means the cited docs do not establish implementation/validation status; it is not a claim of failure. Detailed feature requirements remain in their linked source documents.
 
 | REQ_ID | Domain / requirement | Source | Status; priority; decision | Implementation / validation | Notes |
 |---|---|---|---|---|---|
-| GS-DIAG-01 | Explicit fail-closed Home READ_DIAGNOSTICS policy; no role fallback; verified issuer/grant/epoch required | `docs/architecture/GS124_AUTHORIZATION_FOUNDATION_20261013.md`; GS143/10670 | APPROVED scoped policy on isolated dashboard branch; canonical promotion gated ED-D09 | NONACTIVE foundation; production trust/grants unimplemented | No issuer/grantor/TTL/deployment approval |
-| GS-DIAG-02 | Class A technical metadata and narrow exact-event Class B; ephemeral bounded allowlist/no-store; no payload/export/control | `docs/architecture/GS124_AUTHORIZATION_FOUNDATION_20261013.md`; GS65/10671 | APPROVED scoped privacy policy on isolated branch; canonical promotion gated ED-D09 | NONACTIVE projection; operational numeric policy absent | No persistent diagnostics, target exporter or browser activation |
 | GS-PROD-01 | Commercially installable fresh baseline; reduce scope, not quality | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; P0/R1 | PARTIAL; fresh-install durability gates passed | R1 release objective |
 | GS-P0-01 | P0 household, Hub/Node, event, caregiver, privacy, offline and deferral behavior plus evidence boundaries | `docs/product/P0_PRODUCT_REQUIREMENTS.md` | LOCKED where marked; OPEN items remain explicit; P0/R1 | PARTIAL; physical/app paths have separate evidence status | Canonical summary; domain details stay in guides |
 | GS-R1-01 | Support current approved fresh-install persistent format; arbitrary abandoned-format migration deferred | `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | IMPLEMENTED for qualified path; gate passed | Migration-only work post-R1 absent fresh-path impact |
 | GS-HW-01 | S3 N16R8 Hub development platform; ESP32-C3 Nodes (GS-D030) | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | S3 target/storage implementation integrated; physical qualification pending and production acceptance open | Six Nodes; classic target preserved as history |
 | GS-HUB-01 | Hub owns authenticated ingestion, local safety/routine decisions, durable processing and ACK | `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; R1 | PARTIAL; selected gates passed | See Hub and protocol designs |
 | GS-HUB-02 | Permanent Hub identity is separate from single-Home ownership; authorized proof-of-possession transfer is epoch-fenced and never reparents old-Home events (GS-D032) | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/P0_PRODUCT_REQUIREMENTS.md` | LOCKED behavior; R1 | PARTIAL; production credential/registry integration open | Factory reset, MAC, serial or QR alone cannot claim/transfer; transfer blocks on unresolved old data |
+| GS-STORE-05 | Corrected v1 first-event recovery is required in both supported commercial R1 S3 images (GS-D033) | `docs/product/DECISION_LOG.md`, `docs/product/R1_RELEASE_CONTRACT.md` | LOCKED; implementation and image qualification pending at canonical source `774da5c` | No signed image pair selected; no self-OTA, signing/install, slot write or physical operation authorized |
 | GS-NODE-01 | Node senses, retains/retries, and retires only on valid application ACK | `docs/product/R1_RELEASE_CONTRACT.md`, `docs/product/R1_WORK_STATE.md` | LOCKED; R1 | IMPLEMENTED; physical gate passed | Do not repeat absent invalidation |
 | GS-EVENT-01 | Loss-aware eligible ordinary motion/PIR consolidation preserves routine, safety and observation meaning (GS-D026) | `docs/product/DECISION_LOG.md`, `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md` | LOCKED; R1 | UNKNOWN; validation not recorded | Preserve safety-relevant identity/meaning |
 | GS-SENSOR-01 | PIR is the established physical Node sensor; Reed/button categories in software are not proof of installed/qualified physical sources | `docs/product/P0_PRODUCT_REQUIREMENTS.md`, `docs/features/ROUTINE_ACTIVITY_AND_INCIDENT_RULES.md` | LOCKED distinction; P0/R1 | PIR physical path exercised; Reed/button end-to-end support OPEN | Keep product vocabulary distinct from target hardware evidence |
