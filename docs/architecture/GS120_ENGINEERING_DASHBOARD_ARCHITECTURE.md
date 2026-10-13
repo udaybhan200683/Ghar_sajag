@@ -1,5 +1,12 @@
 # GS-120 Engineering / Technician Dashboard architecture
 
+2026-10-13 approval checkpoint: ED-D01 read-only subset, ED-D02 Home diagnostic
+permission policy and ED-D03-MIN privacy are APPROVED by GS120/10660,
+GS143/10670, GS65/10671 and GS122/10672/10677. The following v1 proposal and
+baseline evidence remain historical. Approval does not authorize a production
+issuer, grant lifecycle, numeric limits, live routes or physical HIL.
+Current bounded implementation: [GS124 authorization foundation](GS124_AUTHORIZATION_FOUNDATION_20261013.md).
+
 Version: proposed v1, 2026-10-12 UTC. Owner: GS-120; delivery GS-122;
 implementation GS-124; validation GS-125; diagnostic requirement GS-65.
 **DESIGN_APPROVAL_REQUIRED. No production implementation authorization.**

@@ -1,0 +1,55 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/6685b3932a060e07/firmware/common/shared/src/rules.o build/obj/base/6685b3932a060e07/firmware/common/shared/src/logging.o build/obj/base/6685b3932a060e07/tests/support/host/logging/file_log_sink.o build/obj/base/6685b3932a060e07/firmware/common/transport/data_plane_codec.o build/obj/base/6685b3932a060e07/firmware/common/transport/node_retirement_protocol.o build/obj/base/6685b3932a060e07/firmware/common/transport/session_id.o build/obj/base/6685b3932a060e07/firmware/node/sensing/sensing.o build/obj/base/6685b3932a060e07/firmware/node/communication/radio/node_radio.o build/obj/base/6685b3932a060e07/firmware/node/power/power.o build/obj/base/6685b3932a060e07/firmware/node/lifecycle/lifecycle.o build/obj/base/6685b3932a060e07/firmware/node/storage/node_store.o build/obj/base/6685b3932a060e07/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/6685b3932a060e07/firmware/node/runtime/node_runtime.o build/obj/base/6685b3932a060e07/firmware/hub/event_processing/ingest/ingest.o build/obj/base/6685b3932a060e07/firmware/hub/commissioning/registry/node_registry.o build/obj/base/6685b3932a060e07/firmware/hub/storage/journal.o build/obj/base/6685b3932a060e07/firmware/hub/storage/durable_transition.o build/obj/base/6685b3932a060e07/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/6685b3932a060e07/firmware/hub/storage/hub_durability_owner.o build/obj/base/6685b3932a060e07/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/time/clock.o build/obj/base/6685b3932a060e07/firmware/hub/event_processing/coverage/coverage.o build/obj/base/6685b3932a060e07/firmware/hub/routines/routine_service.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/ui/resident_ui.o build/obj/base/6685b3932a060e07/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/6685b3932a060e07/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/hub_runtime.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/6685b3932a060e07/firmware/hub/storage/runtime_state_store.o build/obj/base/6685b3932a060e07/firmware/common/security/security.o build/obj/base/6685b3932a060e07/firmware/hub/storage/durable_event_outbox.o build/obj/base/6685b3932a060e07/tests/support/host/simulator/interactive.o -o build/ghar_sajag_interactive
+PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
+test_backend_mixed_silent_nodes (test_node_health_config.NodeHealthConfigTest.test_backend_mixed_silent_nodes) ... ok
+test_build_and_startup_share_input (test_node_health_config.NodeHealthConfigTest.test_build_and_startup_share_input) ... ok
+test_corrupt_missing_duplicate_json (test_node_health_config.NodeHealthConfigTest.test_corrupt_missing_duplicate_json) ... ok
+test_default_and_derived_examples (test_node_health_config.NodeHealthConfigTest.test_default_and_derived_examples) ... ok
+test_invalid_fields (test_node_health_config.NodeHealthConfigTest.test_invalid_fields) ... ok
+test_invalid_profile (test_node_health_config.NodeHealthConfigTest.test_invalid_profile) ... ok
+test_json_changes_compiled_startup_policy (test_node_health_config.NodeHealthConfigTest.test_json_changes_compiled_startup_policy) ... ok
+test_missing_unknown_version_and_piggyback (test_node_health_config.NodeHealthConfigTest.test_missing_unknown_version_and_piggyback) ... ok
+test_packaging_rejects_mismatched_image_or_configuration (test_node_health_config.NodeHealthConfigTest.test_packaging_rejects_mismatched_image_or_configuration) ... {
+  "schema_version": 1,
+  "configuration_sha256": "fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862",
+  "heartbeat_interval_seconds": 300,
+  "node_offline_timeout_seconds": 910,
+  "deployment_profiles": {
+    "c3-146393c5d158": "configured"
+  },
+  "hardware_actions": "NONE",
+  "qualification": "SOFTWARE_ONLY",
+  "images": {
+    "c3": [
+      {
+        "offset": "0x20000",
+        "file": "c3/gs_hw_m1_node.bin",
+        "bytes": 72,
+        "sha256": "9058860423eb9742dae3e4f2ec677e59889d95a7e03a1cd3a8b57b6c5c7b0939"
+      }
+    ],
+    "s3": [
+      {
+        "offset": "0x20000",
+        "file": "s3/gs_r1_s3_hub.bin",
+        "bytes": 81,
+        "sha256": "18a72385344f1b6468313158db5802da6f83fe1ade10a36feb37f311cc1b6f73"
+      }
+    ]
+  },
+  "source_head": "810209e9bbc469b003d1611a6d22c391365cf1c5",
+  "tracked_source_dirty": true
+}
+ok
+test_range_and_profiles (test_node_health_config.NodeHealthConfigTest.test_range_and_profiles) ... ok
+test_received_contact_not_render_time_renews_freshness (test_node_health_config.NodeHealthConfigTest.test_received_contact_not_render_time_renews_freshness) ... ok
+test_internet_loss_does_not_expire_locally_healthy_nodes (test_node_health_config.NodeHealthPwaTest.test_internet_loss_does_not_expire_locally_healthy_nodes) ... ok
+test_quiet_sleeping_resident_is_not_offline_day_or_night (test_node_health_config.NodeHealthPwaTest.test_quiet_sleeping_resident_is_not_offline_day_or_night) ... ok
+test_schema_matches_validator_and_unknown_ui_is_explicit (test_node_health_config.NodeHealthPwaTest.test_schema_matches_validator_and_unknown_ui_is_explicit) ... ok
+test_silent_rf_expiry_boundary_and_automatic_health_return (test_node_health_config.NodeHealthPwaTest.test_silent_rf_expiry_boundary_and_automatic_health_return) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 2.434s
+
+OK
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'

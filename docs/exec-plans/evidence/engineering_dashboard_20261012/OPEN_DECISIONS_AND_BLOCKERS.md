@@ -1,13 +1,14 @@
 # Engineering Dashboard open decisions and blockers
 
-2026-10-12 UTC; GS-122/120/124/125. All entries OPEN unless stated otherwise.
-No new LOCKED decision or context version. The architecture is proposed v1.
+Updated 2026-10-13 UTC; GS-122/120/124/125. ED-D01/02/03-MIN policies are
+approved; remaining implementation/deployment decisions remain OPEN.
+No new LOCKED GS-D decision or context version on this isolated branch.
 
 | ID | Decision / prerequisite | Owner | Affected implementation |
 |---|---|---|---|
-| ED-D01 | Explicit acceptance of GS120_ENGINEERING_DASHBOARD_ARCHITECTURE.md, selected subset and source ownership | User / GS-120 | GS-124 production BLOCKED_DESIGN_APPROVAL |
-| ED-D02 | Verified technician grant issuer, explicit Home READ_DIAGNOSTICS, expiry/revocation/epoch and deployment principal | GS-109 / GS-143 | All production diagnostic routes and technician browser access; existing generic read is insufficient |
-| ED-D03 | Authorized diagnostic privacy fields, export, RAM window and retention; installation result lifetime/store | Product / GS-65 / GS-109 | Durable history, export and installation certificate; no new storage policy selected |
+| ED-D01 | APPROVED bounded read-only architecture, GS120/10660 | User / GS-120 | Isolated inactive foundation authorized; production activation remains gated |
+| ED-D02 | APPROVED explicit Home READ_DIAGNOSTICS policy, GS143/10670. Production issuer, grantor/self-grant, TTL and durable atomic lifecycle OPEN | GS-76 / GS-143 | Fail-closed policy implemented in isolation; production trust infrastructure absent |
+| ED-D03-MIN | APPROVED Class A and narrow exact-event Class B allowlist/no-store, GS65/10671. Numeric bounds, audit storage/retention and any expanded diagnostics OPEN | Product / GS-65 | Inactive ephemeral projection only; target source and browser qualification absent |
 | ED-D04 | Installation deadline, required evidence stages/device manifest and fresh stimulus proof | Product / GS-120 | Production guided step PASS; no example timeout promoted to requirement |
 | ED-D05 | Authenticated Node/Hub observation export and target ownership/budget | GS-65 / GS-148 | Live RX/ACK/counter/outbox projection; no existing active endpoint |
 | ED-D06 | Exact physical fixture, source-matched running images, state preservation and reset-safe observation | User / GS-114 | Board/motion/physical product E2E BLOCKED; no hardware access |
@@ -15,11 +16,10 @@ No new LOCKED decision or context version. The architecture is proposed v1.
 | ED-D08 | Production CloudSync credential/deployment and durable trusted backend composition | GS-148 / GS-109 | Live S3→backend delivery UNKNOWN; local SQLite proof is not deployment |
 | ED-D09 | After GS-148 checkpoint, review shared registry/traceability/status files against actual newer canonical HEAD | GS-122 / GS-148 | No canonical merge or shared-file overwrite while writer active |
 
-Observed source issue: IdentityService.require selects read roles for every
-permission other than `manage`. Calling it with `READ_DIAGNOSTICS` would grant
-generic read users access. Classification INVESTIGATE_ONLY / REQUIREMENT_GAP
-for the new diagnostic permission; requested dashboard scope, no adjacent
-identity-policy fix performed. A new exact diagnostic gate needs approved D02.
+Previously observed unknown-action fallback is corrected under approved ED-D02
+in the isolated foundation. IdentityService.require now denies unknown actions;
+known read/manage behavior is regression-tested. Canonical GS-143 owner review
+remains required before integration; canonical source is untouched.
 
 Original identity range differs: C++ uint64 vs backend positive <2^63 and browser
 safe integers <2^53. Classification INVESTIGATE_ONLY for out-of-range production
@@ -31,11 +31,11 @@ Historical mandatory GS-148 journal migration FAIL (`clean migration commits`)
 and GS-130 complete-product PARTIAL/FAIL remain visible. They are not waived,
 rerun as unchanged failures, or represented as qualified authentication.
 
-Campaign authorization explicitly permits one isolated branch/worktree and saved
-review/test preparation. It overrides old single-worktree/no-artifact GS-120
-instructions only for this campaign. It does not approve the design itself.
+Campaign authorization explicitly permits the existing isolated branch/worktree
+and the named inactive foundation. It overrides single-worktree instructions
+only for this campaign; named approvals do not authorize production activation.
 Canonical storage/runtime/CloudSync changes and all untracked evidence are protected.
 
-Safe next action: review ED-D01 and accept a named subset; provide D02/D03/D04
-before activating corresponding production behavior. Inactive host preparation
-may continue while review is pending. Physical approval is a later separate gate.
+Next: qualified GS-76 identity, approved GS-143 lifecycle and GS-65 target source,
+then ED-D09 canonical ownership review. ED-D04/06/07/08 remain separate gates.
+See the updated CAMPAIGN_HANDOFF.md for exact implementation and test evidence.

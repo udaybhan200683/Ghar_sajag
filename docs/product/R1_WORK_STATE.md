@@ -7,10 +7,20 @@ Preflight PASS. ED-D01, ED-D02 and ED-D03-MIN policies approved by Jira
 10660/10670/10671/10672/10677 and the user's bounded launch. The previous
 BLOCKED_DESIGN_APPROVAL checkpoint is historical; production activation is now
 BLOCKED_PRODUCTION_ISSUER_AND_GRANTS, with privacy/ownership proof still required.
-Implement only the [non-active foundation scope](../architecture/GS124_AUTHORIZATION_FOUNDATION_20261013.md)
-on feature/gs124-125-engineering-dashboard. Canonical GS148 writer and untracked
-evidence remain untouched; no merge. Tests/results will follow in the existing
-campaign handoff. Physical NO-GO and full release NOT_RUN unchanged.
+Scoped foundation delivered at `bfcf293edaf538a68c61b654e8aee141429480ce`, pushed
+and actual remote equality verified. Source fingerprint
+`b532b27af35e8b1b3557651693dd6df1e8eb7b6a32d295d377b5fb974f219e23`.
+54 new cases PASS; framework 39, feature mapping 19 and caregiver JavaScript 23
+PASS. Backend/PWA gates FAIL on existing CloudSync bridge durable-before-ACK and
+P0 initial file-backed recovery in the full-/tmp environment. Caregiver/API
+stages pass; full Python 448 retains one failure/one allowed historical skip.
+See [focused report](../exec-plans/evidence/engineering_dashboard_20261013/GS124_AUTHORIZATION_FOUNDATION_REPORT.md)
+and [existing campaign handoff](../exec-plans/evidence/engineering_dashboard_20261012/CAMPAIGN_HANDOFF.md).
+Canonical advanced externally to 19ec67c during execution, documentation only;
+backend/frontend and registry unchanged. Its writer and evidence were untouched.
+No merge or live route/browser composition. Production issuer/grant lifecycle,
+trusted exporter/numeric bounds and ED-D09 remain prerequisites. Physical NO-GO,
+historical migration FAIL, product PARTIAL and full release NOT_RUN preserved.
 
 ## GS-114 Part 2D — fixture-compatible S3 RPF diagnostic build — 2026-10-12
 

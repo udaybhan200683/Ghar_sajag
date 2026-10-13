@@ -12,6 +12,15 @@ live routes and ED-D04–09 remain gated. No canonical GS148 files or LOCKED GS-
 entries changed. Canonical promotion/versioning is reserved to the owner at
 ED-D09; isolated context remains preflight-matched 2026-10-11.001.
 
+Bounded implementation checkpoint: `bfcf293edaf538a68c61b654e8aee141429480ce`,
+pushed with actual remote equality; 54 new cases PASS. Framework39/mapping19 and
+caregiver JS23 PASS; full affected backend/PWA FAIL on existing file-backed
+CloudSync/P0 fixtures in the full-/tmp environment. No production activation.
+See [focused evidence](../exec-plans/evidence/engineering_dashboard_20261013/README.md).
+Canonical GS148 advanced externally to 19ec67c (unimplemented storage proposal,
+no backend/frontend or registry change). This isolated decision/status update
+does not supersede that writer's newer canonical documents.
+
 Use:
 - LOCKED = approved; changing requires explicit approval.
 - PROVISIONAL = working direction.

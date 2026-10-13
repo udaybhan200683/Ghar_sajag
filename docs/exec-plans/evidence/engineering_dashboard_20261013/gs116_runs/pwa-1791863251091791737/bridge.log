@@ -1,0 +1,17 @@
+test_battery_is_health_only (__main__.PwaBridgeTests.test_battery_is_health_only) ... ok
+test_battery_prediction_fields_are_backend_driven (__main__.PwaBridgeTests.test_battery_prediction_fields_are_backend_driven) ... ok
+test_door_projection_includes_elapsed_duration (__main__.PwaBridgeTests.test_door_projection_includes_elapsed_duration) ... ok
+test_each_care_toggle_round_trips (__main__.PwaBridgeTests.test_each_care_toggle_round_trips) ... ok
+test_events_are_newest_first (__main__.PwaBridgeTests.test_events_are_newest_first) ... ok
+test_high_drain_is_device_health_only (__main__.PwaBridgeTests.test_high_drain_is_device_health_only) ... ok
+test_incomplete_morning_is_pending_not_missing (__main__.PwaBridgeTests.test_incomplete_morning_is_pending_not_missing) ... ok
+test_low_confidence_runtime_is_learning_not_overpromised (__main__.PwaBridgeTests.test_low_confidence_runtime_is_learning_not_overpromised) ... ok
+test_morning_in_progress_is_neutral_to_household_banner (__main__.PwaBridgeTests.test_morning_in_progress_is_neutral_to_household_banner) ... ok
+test_night_projection_is_domain_specific (__main__.PwaBridgeTests.test_night_projection_is_domain_specific) ... ok
+test_pwa_assets (__main__.PwaBridgeTests.test_pwa_assets) ... ok
+test_reset_is_pass (__main__.PwaBridgeTests.test_reset_is_pass) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 1.945s
+
+OK

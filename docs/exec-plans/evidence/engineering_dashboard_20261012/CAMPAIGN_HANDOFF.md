@@ -1,5 +1,59 @@
 # GS-122 campaign checkpoint and resume handoff
 
+## Latest checkpoint — 2026-10-13: scoped foundation complete, activation blocked
+
+ED-D01/ED-D02/ED-D03-MIN approved policies reconciled with Jira
+10660/10670/10671/10672/10677. Preflight PASS, context 2026-10-11.001.
+Existing isolated branch `feature/gs124-125-engineering-dashboard`, exact source
+commit/local and verified remote `bfcf293edaf538a68c61b654e8aee141429480ce` at
+`https://github.com/udaybhan200683/Ghar_sajag.git`. Documentation completion is a
+subsequent commit; final equality is recorded in the delivery/Jira receipt.
+
+Implemented fail-closed unknown-action denial and non-composed trusted Home grant
+policy; read-only Class A allowlist and Class B original-EventKey SQLite join;
+current owner/enrollment/session/member/grant fencing, expiry/revoke/cursor bounds,
+no-store and UNKNOWN/STALE/UNSUPPORTED. No production issuer, grant issuance,
+target observer, diagnostic route/browser or controls. Exact source fingerprint
+`b532b27af35e8b1b3557651693dd6df1e8eb7b6a32d295d377b5fb974f219e23` verified
+unchanged during final native runs and after the source commit.
+
+New 54 cases PASS (A18/P16/T14/R6); framework 39 PASS, mapping 19 PASS, caregiver
+JavaScript 23 PASS. Existing backend/PWA aggregates FAIL: Python 448 runs retain
+one CloudSync bridge durable-before-ACK failure and one allowed historical skip;
+P0 fails initial file-backed Node recovery before product/browser assertions.
+The initially missing bridge binary was built and protocol/completion checks pass.
+Fixtures hard-code /tmp and that filesystem is full. No tests/assertions weakened,
+no storage/fixture fix or cleanup. API/caregiver stages functional92, streams5,
+HTTP17, bridge13, API2, frontend2 PASS; eligible receipts reused for PWA.
+All source/logs/method IDs, exact commands and native receipts:
+[2026-10-13 evidence](../engineering_dashboard_20261013/README.md).
+
+GS148 canonical moved externally from 371a560 to
+`19ec67c365e1bdea8fce61fb46f481f407fa42b9`, a storage proposal/documentation
+commit. Read current decision/work-state/domain delta; no backend/frontend code
+or registry changes. Canonical tracked tree clean; prior untracked managed
+components, wrapper and physical evidence preserved. Its storage-correctness
+and storage-correctness-sanitizers registry additions remain separate; owner
+review must preserve them when eventually appending the diagnostic stage.
+No canonical write/merge, additional worktree or physical operation.
+
+Uncommitted files at the source checkpoint were owned approval/status/report/log
+updates only, completed by the subsequent documentation commit. Generated
+ignored code/build and code/evidence data are preserved. Final tracked cleanliness
+and actual remote are checked at delivery; no unrelated assets removed.
+
+STOP: overall GS124/125/122 PARTIAL, production BLOCKED_PRODUCTION_ISSUER_AND_GRANTS.
+GS76 issuer/session; GS143 grantor/self-grant/TTL/durable atomic revoke/audit;
+GS65 qualified binding/exporter and numeric window/rate/byte policy remain required.
+Next exact action: obtain those owner implementations/decisions, read this latest
+handoff and current canonical HEAD, then ED-D09 review before separately authorized
+route/browser composition and actual identity/browser negative tests. Do not
+repeat this completed foundation or substitute fixtures for production trust.
+Historical GS148 migration FAIL and GS130 product PARTIAL preserved. Board/motion/
+physical product E2E BLOCKED GS114 NO-GO; full release NOT_RUN. No Done transitions.
+
+---
+
 2026-10-12 UTC. User explicitly authorized isolated dashboard worktree and branch.
 Worktree `/home/udaybhan/projects/Ghar_sajag_r1_dashboard`, branch
 `feature/gs124-125-engineering-dashboard`, based on clean local/actual remote

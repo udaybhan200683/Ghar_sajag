@@ -1,0 +1,6 @@
+FEATURE,EXISTING_CASE,PHYSICAL_CLASS,STATUS,CURRENT_OPERATIONS,PREREQUISITES
+Inactive authorization/projection,NONE,SOFTWARE_ONLY,NOT_APPLICABLE,NONE,Production trust qualification is separate
+Authenticated transport/key/ACK,HIL-A02;HIL-A05;HIL-A08,PHYSICAL_REQUIRED,BLOCKED_GS114_NO_GO,NONE,Separate exact disposable fixture/image/operator approval; reset-safe observer; replay fence resolved; real optical PIR
+Real optical PIR and retained event,C8-P2;C8-P4,PHYSICAL_REQUIRED,BLOCKED_GS114_NO_GO,NONE,Separate exact disposable fixture/image/operator approval; reset-safe observer; replay fence resolved; real optical PIR
+Contact vs health/offline,HIL-A04,PHYSICAL_REQUIRED,BLOCKED_GS114_NO_GO,NONE,Separate exact disposable fixture/image/operator approval; reset-safe observer; replay fence resolved; real optical PIR
+Physical Node/Hub/backend/dashboard chain,Existing GS130 catalogue + prior campaign mapping,PHYSICAL_REQUIRED,BLOCKED_GS114_NO_GO,NONE,Separate exact disposable fixture/image/operator approval; reset-safe observer; replay fence resolved; real optical PIR

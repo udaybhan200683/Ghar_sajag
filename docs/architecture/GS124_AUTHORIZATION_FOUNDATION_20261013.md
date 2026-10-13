@@ -80,3 +80,14 @@ GS-143 grantor/expiry and durable versioned revoke/member/epoch/audit; GS-65
 trusted exporter; actual operational rate/row/byte/window policy; production
 browser cancellation/cache proof; ED-D04–09. Historical journal migration FAIL
 and full P0 PARTIAL remain mandatory. Stop after this bounded package.
+
+## Delivery checkpoint — 2026-10-13
+
+Source `bfcf293edaf538a68c61b654e8aee141429480ce`, isolated branch pushed and
+actual remote HEAD verified. 54 distinct source cases PASS; existing framework
+39 and mapping 19 PASS. Backend/PWA aggregates FAIL on existing CloudSync/P0
+file-backed fixtures in the full-/tmp environment; no aggregate/release PASS.
+[Report and exact receipts](../exec-plans/evidence/engineering_dashboard_20261013/README.md).
+Canonical advanced externally to 19ec67c, documentation-only storage proposal;
+current decisions/domain/status delta read, no requirements or source copied.
+Issuer/grant lifecycle, activated HTTP/browser and target evidence remain absent.
