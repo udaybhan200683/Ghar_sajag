@@ -1,5 +1,17 @@
 # GS-114 C8 physical readiness — offline decision
 
+## Superseding execution authority
+
+GS-114 comment 10732 and the later user execution instruction authorize deliberate
+clean reinstallation/recommissioning of the **existing** disposable R&D pair.
+No different spare pair or restore-capable preservation of temporary experimental
+state is required. This supersedes the preservation-first/preferred-spare
+preconditions below for that fixture. Existing failure evidence and physical
+acceptance remain valid records; exact target/port, electrical and operator
+operation checks still apply. Follow the active [consolidated execution report](GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+and [TEST_PLAN](TEST_PLAN.md). The rest of this file preserves the earlier offline
+decision and its historical evidence; it is not the current execution blocker.
+
 **Date:** 2026-10-13 UTC
 
 **Verdict:** **NO-GO for P1–P9 now; CONDITIONAL GO for a separately approved fixture-preparation task.**

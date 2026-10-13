@@ -1,0 +1,470 @@
+{
+  "created_utc": "2026-10-13T11:14:11.126503+00:00",
+  "source_head": "5ee96fd24b4a82b2a11b928cb40f2638eaee9616",
+  "source_fingerprint": "c07ae9a0cb79491379d4de65f6c83d7b31b3c0d7613bc3d9e2f912c2c1fcce83",
+  "build_receipt_head": "774da5c2ee8073c535df2fe56ecdbf548c16ebf0",
+  "receipt_path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/fixture_pair_report.json",
+  "idf": "6.0.3",
+  "esptool": "5.4.0",
+  "littlefs_python": "0.15.0",
+  "physical_status": "NOT_RUN",
+  "hardware_action": "NONE",
+  "deployment_status": "AWAITING_EXACT_TARGET_OPERATOR_CONFIRMATION",
+  "boards": {
+    "c3": {
+      "expected_mac": "14:63:93:c5:d1:58",
+      "expected_usb_serial": "14:63:93:C5:D1:58",
+      "stable_port": "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+      "live_identity": "NOT_VERIFIED",
+      "power_arrangement": "OPERATOR_CONFIRMATION_REQUIRED",
+      "chip": "esp32c3",
+      "artifacts": [
+        {
+          "offset": "0x0",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/bootloader/bootloader.bin",
+          "bytes": 21488,
+          "sha256": "03d87549648e4c66c4f05cfae3fc4a70fdb77ee52412636c0880534e5eca7f78"
+        },
+        {
+          "offset": "0x8000",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/partition_table/partition-table.bin",
+          "bytes": 3072,
+          "sha256": "1b86379629900670bd43147c3a873a424695a67765fd1bdb28b1bffc21be137a"
+        },
+        {
+          "offset": "0xf000",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/ota_data_initial.bin",
+          "bytes": 8192,
+          "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+        },
+        {
+          "offset": "0x20000",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/gs_hw_m1_node.bin",
+          "bytes": 939024,
+          "sha256": "ad173384e827614bcbb62c0deac60b5d866dd144088528523c5711e5c2409e43"
+        }
+      ],
+      "compiled_partitions": {
+        "nvs": {
+          "type": "data",
+          "subtype": "nvs",
+          "offset": "0x9000",
+          "size": 24576
+        },
+        "otadata": {
+          "type": "data",
+          "subtype": "ota",
+          "offset": "0xf000",
+          "size": 8192
+        },
+        "phy_init": {
+          "type": "data",
+          "subtype": "phy",
+          "offset": "0x11000",
+          "size": 4096
+        },
+        "ota_0": {
+          "type": "app",
+          "subtype": "ota_0",
+          "offset": "0x20000",
+          "size": 1966080
+        },
+        "ota_1": {
+          "type": "app",
+          "subtype": "ota_1",
+          "offset": "0x200000",
+          "size": 1966080
+        }
+      },
+      "planned_commands": {
+        "identity": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32c3",
+          "--port",
+          "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "flash-id"
+        ],
+        "security_read": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32c3",
+          "--port",
+          "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "get-security-info"
+        ],
+        "erase": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32c3",
+          "--port",
+          "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "erase-flash"
+        ],
+        "write": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32c3",
+          "--port",
+          "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "write-flash",
+          "--flash-mode",
+          "dio",
+          "--flash-freq",
+          "80m",
+          "--flash-size",
+          "4MB",
+          "0x0",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/bootloader/bootloader.bin",
+          "0x8000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/partition_table/partition-table.bin",
+          "0xf000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/ota_data_initial.bin",
+          "0x20000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/gs_hw_m1_node.bin"
+        ],
+        "verify": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32c3",
+          "--port",
+          "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "verify-flash",
+          "0x0",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/bootloader/bootloader.bin",
+          "0x8000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/partition_table/partition-table.bin",
+          "0xf000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/ota_data_initial.bin",
+          "0x20000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/c3/gs_hw_m1_node.bin"
+        ]
+      }
+    },
+    "s3": {
+      "expected_mac": "7c:4f:ad:b7:2a:20",
+      "expected_usb_serial": "5CBC401023",
+      "stable_port": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+      "live_identity": "NOT_VERIFIED",
+      "power_arrangement": "OPERATOR_CONFIRMATION_REQUIRED",
+      "chip": "esp32s3",
+      "artifacts": [
+        {
+          "offset": "0x0",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/bootloader/bootloader.bin",
+          "bytes": 21264,
+          "sha256": "a050abe9cc167f0825fe01bd0fbf16deabf52ac6327581fe74e64a22311c3578"
+        },
+        {
+          "offset": "0x8000",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/partition_table/partition-table.bin",
+          "bytes": 3072,
+          "sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a"
+        },
+        {
+          "offset": "0xf000",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/ota_data_initial.bin",
+          "bytes": 8192,
+          "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+        },
+        {
+          "offset": "0x20000",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/gs_r1_s3_hub.bin",
+          "bytes": 1887440,
+          "sha256": "8c53b999c001095030c7f150854b9637404b666364470131f1511cffdc34a4f7"
+        },
+        {
+          "offset": "0x820000",
+          "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_clean_install/prepare-20261013T111214Z/gs_outbox_empty.bin",
+          "bytes": 4194304,
+          "sha256": "faf2af9469fc2d5359bb18fa6ddfcd4de415c8d3cf070f8d332a9ee936655e28"
+        }
+      ],
+      "compiled_partitions": {
+        "nvs": {
+          "type": "data",
+          "subtype": "nvs",
+          "offset": "0x9000",
+          "size": 24576
+        },
+        "otadata": {
+          "type": "data",
+          "subtype": "ota",
+          "offset": "0xf000",
+          "size": 8192
+        },
+        "phy_init": {
+          "type": "data",
+          "subtype": "phy",
+          "offset": "0x11000",
+          "size": 4096
+        },
+        "ota_0": {
+          "type": "app",
+          "subtype": "ota_0",
+          "offset": "0x20000",
+          "size": 4194304
+        },
+        "ota_1": {
+          "type": "app",
+          "subtype": "ota_1",
+          "offset": "0x420000",
+          "size": 4194304
+        },
+        "gs_outbox": {
+          "type": "data",
+          "subtype": "littlefs",
+          "offset": "0x820000",
+          "size": 4194304
+        },
+        "gs_state": {
+          "type": "data",
+          "subtype": "nvs",
+          "offset": "0xc20000",
+          "size": 262144
+        }
+      },
+      "planned_commands": {
+        "identity": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32s3",
+          "--port",
+          "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "flash-id"
+        ],
+        "security_read": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32s3",
+          "--port",
+          "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "get-security-info"
+        ],
+        "erase": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32s3",
+          "--port",
+          "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "erase-flash"
+        ],
+        "write": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32s3",
+          "--port",
+          "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "write-flash",
+          "--flash-mode",
+          "dio",
+          "--flash-freq",
+          "40m",
+          "--flash-size",
+          "16MB",
+          "0x0",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/bootloader/bootloader.bin",
+          "0x8000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/partition_table/partition-table.bin",
+          "0xf000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/ota_data_initial.bin",
+          "0x20000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/gs_r1_s3_hub.bin",
+          "0x820000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_clean_install/prepare-20261013T111214Z/gs_outbox_empty.bin"
+        ],
+        "verify": [
+          "python",
+          "-m",
+          "esptool",
+          "--chip",
+          "esp32s3",
+          "--port",
+          "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+          "--baud",
+          "460800",
+          "--before",
+          "default-reset",
+          "--after",
+          "no-reset",
+          "verify-flash",
+          "0x0",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/bootloader/bootloader.bin",
+          "0x8000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/partition_table/partition-table.bin",
+          "0xf000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/ota_data_initial.bin",
+          "0x20000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_fixture_pair/build-jz5absi6/s3/gs_r1_s3_hub.bin",
+          "0x820000",
+          "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs114_clean_install/prepare-20261013T111214Z/gs_outbox_empty.bin"
+        ]
+      }
+    }
+  },
+  "s3_profile": {
+    "build_options": {
+      "GS_HIL_BUILD": "OFF",
+      "GS_HIL_CONTROL": "OFF",
+      "GS_HIL_COMMISSIONING": "ON",
+      "GS_S3_DIAGNOSTIC_ONLY": "OFF"
+    },
+    "sdkconfig": {
+      "CONFIG_ESPTOOLPY_FLASHSIZE": "16MB",
+      "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME": "partitions.s3-outbox-candidate.csv",
+      "CONFIG_SPIRAM_MODE_OCT": "y",
+      "CONFIG_SPIRAM_SPEED": "40",
+      "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE": "y",
+      "CONFIG_ESPTOOLPY_FLASHMODE": "dio",
+      "CONFIG_ESPTOOLPY_FLASHFREQ": "40m",
+      "CONFIG_SECURE_BOOT": "n",
+      "CONFIG_FLASH_ENCRYPTION_ENABLED": "n",
+      "CONFIG_APP_ANTI_ROLLBACK": "n"
+    },
+    "partitions": {
+      "nvs": {
+        "type": "data",
+        "subtype": "nvs",
+        "offset": "0x9000",
+        "size": 24576
+      },
+      "otadata": {
+        "type": "data",
+        "subtype": "ota",
+        "offset": "0xf000",
+        "size": 8192
+      },
+      "phy_init": {
+        "type": "data",
+        "subtype": "phy",
+        "offset": "0x11000",
+        "size": 4096
+      },
+      "ota_0": {
+        "type": "app",
+        "subtype": "ota_0",
+        "offset": "0x20000",
+        "size": 4194304
+      },
+      "ota_1": {
+        "type": "app",
+        "subtype": "ota_1",
+        "offset": "0x420000",
+        "size": 4194304
+      },
+      "gs_outbox": {
+        "type": "data",
+        "subtype": "littlefs",
+        "offset": "0x820000",
+        "size": 4194304
+      },
+      "gs_state": {
+        "type": "data",
+        "subtype": "nvs",
+        "offset": "0xc20000",
+        "size": 262144
+      }
+    },
+    "ota_slot_capacity_bytes": 4194304,
+    "app_bytes": 1887440,
+    "app_free_bytes": 2306864,
+    "rpf_markers_present": [
+      "RPF00",
+      "RPF01",
+      "RPF02",
+      "RPF03",
+      "RPF04",
+      "RPF05",
+      "RPF06",
+      "RPF07",
+      "RPF08"
+    ],
+    "commissioning_markers_present": [
+      "COMMISSION_EXPECTED_NODE",
+      "FIXTURE_STATUS",
+      "HIL_FIXTURE_READY"
+    ],
+    "broad_hil_markers_absent": [
+      "INJECT_MOTION",
+      "START_C3_FOTA",
+      "HIL_GPIO"
+    ],
+    "embedded_node_asset_bytes": 939024,
+    "embedded_node_asset_sha256": "ad173384e827614bcbb62c0deac60b5d866dd144088528523c5711e5c2409e43",
+    "embedded_node_asset_offset": 70344,
+    "embedded_node_asset_physical_wake_guard_verified": true,
+    "s3_runtime_image_broad_hil_markers_absent": true
+  }
+}

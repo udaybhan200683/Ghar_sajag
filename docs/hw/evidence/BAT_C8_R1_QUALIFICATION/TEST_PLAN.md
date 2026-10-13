@@ -5,6 +5,28 @@ procedure and preparation record only. It contains no fabricated physical
 results. Capture each eventual run in a dated subdirectory beneath this
 directory.
 
+## Current R&D execution authority — 2026-10-13
+
+GS-114 comment 10732 and the user execution instruction supersede preservation
+of old experimental flash/enrollment/pending state for the existing identified
+R&D C3/S3 pair. Deliberate clean erase/reinstallation/recommissioning is allowed
+after the supervising operator confirms exact connected targets, ports, safe
+power/wiring and the operation. Retain previous failure reports and redacted
+logs. The earlier protected-state warnings below describe their historical
+checkpoints; all authenticated durability and P1–P9 acceptance criteria remain.
+
+Current source-matched qualification apps: C3 939,024 bytes,
+SHA-256 `ad173384e827614bcbb62c0deac60b5d866dd144088528523c5711e5c2409e43`;
+S3 1,887,440 bytes,
+SHA-256 `8c53b999c001095030c7f150854b9637404b666364470131f1511cffdc34a4f7`.
+They include GS-150/GS-40 and GS-148 Option A, ESP-IDF 6.0.3, C3 physical wake
+and S3 commissioning/outbox-state profile. Reuse is verified against fingerprint
+`c07ae9a0cb79491379d4de65f6c83d7b31b3c0d7613bc3d9e2f912c2c1fcce83`.
+The [current execution report](GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+owns actual results, full artifacts/partitions and the exact resume action.
+Build hashes are not installed-image evidence. A documented setup reset is
+allowed; unexplained resets within a measurement window fail qualification.
+
 ## GS-150 final-candidate software handoff — 2026-10-10
 
 The GS-150 changed receive/sleep policy supersedes the earlier image for final

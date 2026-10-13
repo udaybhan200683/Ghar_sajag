@@ -1,0 +1,4 @@
+Read-only OS inventory; no serial port opened.
+C3 USB 303a:1001 serial 14:63:93:C5:D1:58; /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00 -> /dev/ttyACM0; Windows COM4 BUSID 3-4 Attached.
+S3 UART USB 1a86:55d3 serial 5CBC401023; /dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00 -> /dev/ttyACM1; Windows COM9 BUSID 3-1 Attached.
+Operator stated boards connected; exact Phase A/power/wiring confirmation pending. Live silicon/MAC/security NOT_VERIFIED.

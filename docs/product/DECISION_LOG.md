@@ -6,6 +6,21 @@ Use:
 - OPEN = unresolved.
 - SUPERSEDED = replaced but retained for history.
 
+## GS-114 disposable R&D fixture disposition — 2026-10-13
+
+**APPROVED fixture disposition, not a new product requirement:** GS-114 10732
+and the user's actual-execution instruction permit deliberate clean erase,
+reinstallation and recommissioning of the existing C3 `14:63:93:c5:d1:58` /
+S3 `7c:4f:ad:b7:2a:20` R&D pair. Earlier preservation-first instructions in
+10730/10731 and corresponding dated handoffs are superseded for their temporary
+experimental flash/enrollment/pending state. Preserve existing failure reports
+and redacted logs. Exact connected targets/ports, safe power/wiring and each
+operation still require supervising-operator confirmation. No production device,
+eFuse, authentication, durability or physical acceptance rule changes. A clean
+PASS would establish fresh installation only; earlier USB-reset/replay-fence
+failures remain unresolved historical regressions. CONTEXT_VERSION is unchanged.
+Current execution: [GS-114 report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
+
 ## GS-148 Option A authorization — 2026-10-13
 
 **APPROVED ARCHITECTURE / BOUNDED SOFTWARE IMPLEMENTED:** GS-148 comments

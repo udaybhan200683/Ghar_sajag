@@ -153,6 +153,7 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md` | TEST_PLAN | HW-M1.4 power/performance plan | Power/performance qualification |
 | `docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md` | BACKLOG/FUTURE | Post-resilience roadmap, including future work | Future planning; filter against R1 scope |
 | `docs/hw/evidence/BAT_C8_R1_QUALIFICATION/TEST_PLAN.md` | TEST_PLAN | BAT-C8 R1 physical qualification procedure (P1–P10 are test case labels) | For the required production-critical qualification in GS-D020 |
+| `docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md` | TEST_EVIDENCE / HANDOFF | Current reusable R&D clean-install preparation and actual GS-114 execution dispositions | Resume the connected C3/S3 fixture; GS-114 10732 supersedes old experimental-state preservation/spare-pair preconditions in prior readiness handoffs, while preserving their failure evidence and P1–P9 acceptance |
 | `code/PATCH_NOTES_v3.4.0_BATTERY_ANALYTICS.md` | HISTORICAL | Battery analytics patch note | Release history |
 
 ### FOTA

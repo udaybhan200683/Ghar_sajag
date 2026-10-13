@@ -1,6 +1,48 @@
 # R1 Current Work State
 
+## GS-114 clean R&D execution — 2026-10-13
+
+Active task: actual C8 P1–P9 on the existing commissioned R&D pair, under
+GS-114 comment 10732 and the user's execution instruction. Old experimental
+flash, enrollment and pending events may be deliberately erased/recommissioned.
+Earlier preservation-first gates below are superseded for these two fixtures;
+previous redacted failure evidence remains preserved. No spare pair is needed.
+
+Startup canonical/local/GitHub HEAD `5ee96fd24b4a82b2a11b928cb40f2638eaee9616`,
+branch `feature/r1-commercial-baseline`; tracked clean, original nine untracked
+entries preserved; context PASS `2026-10-13.001`. GS-148 Option A and GS-150
+source/artifacts reconciled without repeating their completed campaigns.
+Current fingerprint `c07ae9a0cb79491379d4de65f6c83d7b31b3c0d7613bc3d9e2f912c2c1fcce83`
+matches the retained commissioning-compatible C3/S3 fixture build. Full
+bootloader/partition/otadata/app hashes and fresh blank outbox are recorded in
+[the execution report and preparation manifest](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
+ESP-IDF 6.0.3/esptool 5.4.0 activated; offline image/profile/partition checks and
+host mount of the component-pinned empty LittleFS image PASS. No runtime source
+change, release/current campaign or repeated GS-148 fault injection.
+
+After the operator reported "boards connectd", read-only OS inventory matched
+C3 USB serial `14:63:93:C5:D1:58` at `/dev/ttyACM0` (COM4, BUSID 3-4) and
+S3 UART serial `5CBC401023` at `/dev/ttyACM1` (COM9, BUSID 3-1), both attached
+to WSL, with no other serial reader. Actual silicon/MAC/security, present safe
+power and AM312 wiring still need confirmation. **No port opened, probe/reset,
+erase/write, commissioning or physical test yet.** Exact Phase A confirmation
+requested under user section 3.6 / GS-114 10732; P1 NOT_RUN, P2–P9 BLOCKED.
+
+Next: confirm exact board/power/wiring/Phase A operation, probe identities and
+security on the stable named interfaces, stop on mismatch; then supervised clean
+erase/write/verification, boot and test-only secure commissioning. Establish
+stable independent timestamped capture before actual P1–P4 motion. A documented
+setup reset is permitted; unexpected measurement resets are failures. P5–P7
+power/reboot, P8 postcommit ACK loss/per-key ledger and P9 signed FOTA require
+their separate operator checkpoints. Prior USB reset/replay-fence faults remain
+unresolved historical regressions; clean fresh-install evidence cannot prove
+recovery of the discarded old state. GS-114 stays In Progress; GS-149/GS-146 and
+measured GS-115 decisions remain separate, with no invented current/endurance.
+
 ## GS-114 C8 physical readiness — 2026-10-13
+
+Historical offline checkpoint, superseded only where GS-114 10732 and the active
+clean R&D execution above remove experimental-state preservation prerequisites.
 
 Offline review at canonical/GitHub `ca87e2cd058586d9c7231df9ab313c4b237f8085`,
 context preflight PASS, found current source-matched C3/S3 fixture binaries and
