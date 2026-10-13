@@ -22,8 +22,11 @@ now matches `2026-10-13.001`. See the
 [reconciliation matrix](../engineering_dashboard_20261013/CONTEXT_RECONCILIATION_MATRIX_20261013.md)
 and [validation receipt](../engineering_dashboard_20261013/CONTEXT_RECONCILIATION_VALIDATION_20261013.md).
 The real `bash tools/context/ghar_sajag_context_preflight.sh` returned PASS at
-baseline source HEAD `4be09b2d9befa5ae7a726bb96e9fadee7e330a46`. `git diff --check`
-and focused decision/version/link/document-scope checks also passed.
+baseline source HEAD `4be09b2d9befa5ae7a726bb96e9fadee7e330a46` and again after
+commit. Documentation commit `da33023999af133b41b0539744584a9bde9d3df8` was
+pushed normally; `git ls-remote` matched local HEAD and the tracked tree was
+clean. `git diff --check` and focused decision/version/link/document-scope checks
+also passed. Exact outputs are in the [validation receipt](../engineering_dashboard_20261013/CONTEXT_RECONCILIATION_VALIDATION_20261013.md).
 
 GS-122/10705 approves caregiver PWA ticket create/track; admin queue and manual
 or atomic round-robin assignment; assigned-only technician access; assigned
@@ -34,9 +37,7 @@ still require caregiver consent. Production identity/session, staff credentials,
 atomic persistent grant/revoke, trusted Hub source and live commercial routes
 remain unimplemented.
 
-Documentation commit/push is pending. Next: review and commit only the current
-documentation changes, push normally and verify actual remote HEAD equality.
-Then inspect current caregiver PWA, real JSON configuration, Home/Hub/Node
+Next: inspect current caregiver PWA, real JSON configuration, Home/Hub/Node
 ownership authorities, roles and backend persistence before the service-ticket
 implementation. Preserve `identity.py`, `diagnostic_authorization.py` and
 `diagnostics.py`; do not activate commercial routes via `X-Actor-Id`. After

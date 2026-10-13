@@ -7,7 +7,8 @@ Canonical committed local/remote HEAD: `774da5c2ee8073c535df2fe56ecdbf548c16ebf0
 Canonical context: `2026-10-13.001`
 
 The actual context preflight was run after the documentation reconciliation and
-after updating the dashboard marker to the canonical value:
+after updating the dashboard marker to the canonical value, first at the clean
+source baseline and again after the documentation commit. Both executions passed.
 
 ```text
 $ bash tools/context/ghar_sajag_context_preflight.sh
@@ -17,9 +18,17 @@ CANONICAL_CONTEXT_VERSION=2026-10-13.001
 CANONICAL_SOURCE=/home/udaybhan/projects/Ghar_sajag_r1@feature/r1-commercial-baseline
 WORKTREE=/home/udaybhan/projects/Ghar_sajag_r1_dashboard
 BRANCH=feature/gs124-125-engineering-dashboard
-HEAD=4be09b2d9befa5ae7a726bb96e9fadee7e330a46
+HEAD=da33023999af133b41b0539744584a9bde9d3df8
 exit=0
 ```
+
+The first run at baseline HEAD `4be09b2d9befa5ae7a726bb96e9fadee7e330a46`
+returned the same PASS and versions. Documentation commit
+`da33023999af133b41b0539744584a9bde9d3df8` was pushed normally to
+`origin/feature/gs124-125-engineering-dashboard`; `git ls-remote` matched local
+HEAD and the tracked worktree was clean at verification. Canonical local and
+remote remained `774da5c2ee8073c535df2fe56ecdbf548c16ebf0`, with the same 35
+preserved working-tree paths.
 
 Focused documentation checks:
 
