@@ -84,9 +84,9 @@ the six existing registry cases remain, preserving all 54 completed cases.
 
 ## Executed validation
 
-The user requested a pause at 2026-10-13 12:29 UTC as the usage limit approached.
-The backend gate had just completed, giving a validated source checkpoint.
-PWA aggregate execution and the final completion handoff remain for resume.
+After the user resumed on 2026-10-13, the PWA aggregate was completed against
+the committed source. Source HEAD at validation was
+`58efb4da891690e3304b86a1e50243af6bf92108`; local tree was clean.
 Commands run from `code/`, with
 `TMPDIR=$PWD/build/gs124_stage1_resume_tmp`; standalone dashboard discovery also
 sets `PYTHONPATH=backend:.`.
@@ -98,12 +98,12 @@ sets `PYTHONPATH=backend:.`.
 | `make validation-framework-test` | PASS 39, exit 0 |
 | `make feature-coverage-test` | PASS 157 features / 208 modules / 14 physical catalogue cases and 20 meta-tests, exit 0; mapping consistency only |
 | `make validation-backend` | FAIL, make exit 2 / component runner exit 1; dashboard PASS 84 = 54 + 30, stage exit 0; Python FAIL 449 with one failure/one allowed historical skip; P0 FAIL exit 2 before scenarios |
-| `make validation-pwa VALIDATION_REUSE_REPORTS=<final-backend-report>` | NOT_RUN: explicitly paused by user; remaining resume action |
-| `git diff --check`, source/registration integrity and context preflight | PASS at review; repeated at delivery |
+| `TMPDIR="$PWD/build/gs124_stage1_resume_tmp" make validation-pwa VALIDATION_REUSE_REPORTS=evidence/validation_framework/backend-1791894195720046816/report.json` | FAIL, make exit 2 / component runner exit 1; 10 PASS stages (nine receipt-reused), Python FAIL 449 with one failure/one allowed historical skip, P0 FAIL exit 2 before scenarios |
+| `git diff --check`, source hashes, registration integrity and context preflight | PASS; source/registration/fingerprint reviewed after PWA; preflight PASS `2026-10-13.001` |
 
 Exact backend receipt:
 `code/evidence/validation_framework/backend-1791894195720046816/report.json`,
-archived with all 15 stage logs [here](stage1_resume/backend/report.json).
+archived with its stage logs [here](stage1_resume/backend/report.json).
 It records source HEAD `a7b7470752a8470e73eb19806799989928556430`, fingerprint
 `195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965`,
 `source_unchanged=true`, tracked dirty, elapsed 303.170 seconds. Profile: Python
@@ -129,6 +129,43 @@ The final dashboard stage took 55.344 seconds. Changed source hashes are in
 | frontend | PASS | 0 | 2 |
 | p0-full-product-e2e | FAIL | 2 | 0 scenarios |
 | diagnostic-foundation | PASS | 0 | 84 tests |
+
+PWA aggregate receipt:
+`code/evidence/validation_framework/pwa-1791905133444389112/report.json`,
+archived with its stage logs at [stage1_resume/pwa/report.json](stage1_resume/pwa/report.json)
+(and compressed command output at [pwa_console.log.gz](stage1_resume/pwa_console.log.gz)).
+It records source HEAD `58efb4da891690e3304b86a1e50243af6bf92108`, the same
+fingerprint `195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965`,
+`source_unchanged=true`, `tracked_dirty=false` and elapsed 161.341 seconds.
+The nine source/profile-verified backend PASS stages were reused. Python reran in
+146.610 seconds: 449 tests, one CloudSync bridge failure and one allowed
+historical skip. P0 reran and failed its first file-backed Node recovery assertion
+before scenarios. The PWA-owned stages passed: JavaScript 23 (fresh); functional 92, dummy
+streams 5, HTTP 17, bridge 13, API 2 and frontend 2 were verified/reused from
+the backend receipt. PWA overall FAIL;
+physical NOT_RUN and release approval false. Both official component aggregates
+therefore retain the same two failures. The PWA gate changed no tracked source.
+
+| PWA stage | Status | Exit | Count |
+|---|---|---:|---:|
+| host-build (reused) | PASS | 0 | 1 build |
+| contracts (reused) | PASS | 0 | 1 assertion group |
+| lab-build (reused) | PASS | 0 | 1 build |
+| python | FAIL | 1 | 449 tests; one failure, one allowed skip |
+| javascript | PASS | 0 | 23 |
+| functional (reused) | PASS | 0 | 92 |
+| dummy-streams (reused) | PASS | 0 | 5 |
+| http (reused) | PASS | 0 | 1 stage |
+| bridge (reused) | PASS | 0 | 1 stage |
+| api (reused) | PASS | 0 | 1 stage |
+| frontend (reused) | PASS | 0 | 1 stage |
+| p0-full-product-e2e | FAIL | 2 | 0 scenarios |
+
+The backend and PWA report fingerprints match. All six principal Stage 1 source
+SHA-256 values match the committed [source_sha256.json](stage1_resume/source_sha256.json).
+A direct comparison confirms the original 48 foundation test methods are byte
+unchanged. Registration still lists exactly two Stage 1 features and cases
+S01–S30. Final `git diff --check` and the repeat context preflight pass.
 
 No Node/Hub firmware, shared runtime/durability contract or browser behavior was
 changed. Unrelated Node/Hub aggregates, board simulation, target/sanitizer builds,
@@ -211,14 +248,10 @@ production principal/grant issuer, second device registry, persistent diagnostic
 event pipeline or service-email OTP is added. Stage 1 does not wait for Stage 2
 deployment infrastructure; GS-122/124/125 remain partial and are not moved to Done.
 
-The pause checkpoint commits/pushes validated source and this evidence; it is
-not a declaration that the complete Stage 1 task or aggregate gates passed.
-Delivery SHA, remote equality and owning Jira comment IDs are recorded in the
-pause delivery receipt/Jira handoff. The exact next step is startup status and
-preflight, then the PWA aggregate with the native backend receipt above (only
-same-source/profile PASS prerequisites are reusable). If receipt validation
-rejects the current source/profile, rerun the affected stages normally. Preserve
-both existing failures and all ignored evidence/helper files. Finish review,
-source integrity, final commit/push equality and GS-122/124/125 completion comments
-after remaining validation. No Stage 2 infrastructure is needed to finish that
-bounded work.
+Stage 1 host implementation and registered domain validation are complete.
+The affected backend and PWA aggregates both FAIL on the preserved CloudSync/P0
+fixture failures documented above; do not call the full regression gates PASS.
+Production deployment remains partial/disabled pending the verified identity,
+PostgreSQL compatibility review, authenticated PWA composition and qualified
+technical source. The next work is outside this bounded Stage 1 package; no Stage 2
+infrastructure was needed to complete it. Jira stays To Do.

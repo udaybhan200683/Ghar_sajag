@@ -1,46 +1,49 @@
 # R1 Current Work State
 
-## GS-122/124/125 Stage 1 PAUSED by user — 2026-10-13 12:29 UTC
+## GS-122/124/125 bounded Stage 1 host delivery — 2026-10-13
 
-Resume the existing dashboard branch `feature/gs124-125-engineering-dashboard`.
-The user requested a pause before the usage limit. The interrupted work was
-recovered intact from local/remote `a7b7470752a8470e73eb19806799989928556430`;
-context preflight PASS (`2026-10-13.001`). No restart, destructive Git operation,
-canonical GS-148 write or hardware operation was performed.
+Dashboard branch `feature/gs124-125-engineering-dashboard`. The source checkpoint
+`58efb4da891690e3304b86a1e50243af6bf92108` was locally clean and matched the
+actual remote at resume. Context preflight PASS (`2026-10-13.001`). The explicit
+user resume request superseded the earlier usage-limit pause; no implementation
+was restarted. Canonical GS-148 was read-only throughout. Its current writer and
+`make validation-hub` process are separate and were preserved.
 
-Host SQLite ticket/assignment/Start and one-time caregiver Approve/Deny/Revoke
-are implemented with a validated 1800-second fixed default. Per-request checks
-bind actor/staff role, ticket assignment version, Home/Hub/ownership epoch and
-physical/logical Node IDs plus enrollment generation. Writer-lock time,
-write rollback, concurrent operations, restart and diagnostic projection/revoke
-checks are covered. No production identity, PostgreSQL adapter, service HTTP
-route, PWA session/UI or Class B source is activated.
+Host SQLite service desk is implemented: caregiver Home-scoped tickets; admin
+queue/manual or atomic round-robin assignment; assigned-only technician Start;
+one-time caregiver Approve/Deny/Revoke; fixed 1800-second JSON policy; request
+binding to actor and staff role, ticket/assignment version, Home, Hub, epoch and
+current physical/logical Nodes/enrollment generation; transactional auditing,
+restart, concurrency and expiry. It composes the existing diagnostic policy and
+Node-aware Class A read projection. 30 new cases are permanently registered and
+pass with all 54 prior foundation cases: **84 PASS**. Framework 39 PASS. Mapping
+157 features / 208 modules / 14 physical entries, 20 meta-tests PASS.
 
-Final registered dashboard stage: **84 PASS = 54 preserved + 30 new**, exit 0.
-Framework 39 PASS; mapping 157 features/208 modules/14 physical cases and 20
-meta-tests PASS. Final `make validation-backend` FAIL (make exit 2): Python 449
-has one CloudSync bridge durable-before-ACK failure and one allowed historical
-skip; P0 fails initial file-backed Node recovery before scenarios. Diagnostic
-probes observed ENOSPC at both failing fixture write boundaries; original gates
-remain FAIL. Backend receipt source unchanged, fingerprint
-`195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965`.
-No owned validation process remains running. PWA aggregate **NOT_RUN at pause**.
-Full release, physical HIL, OTA and deployment NOT_RUN.
+`make validation-backend` FAIL (make exit 2); `make validation-pwa` FAIL (make
+exit 2, using nine verified same-source/profile PASS stage receipts). Each retained
+one failure in Python 449: CloudSync bridge durable-before-ACK; each had one
+allowed historical skip. Each also failed P0 initial file-backed Node recovery
+before scenarios, exit 2/count 0. ENOSPC probes identify full `/tmp` write errors
+at both fixture boundaries, but do not prove the entire regression would pass
+with space. All other selected backend/PWA stages pass. Reports and logs, source
+hashes and the precise tests are linked in the [Stage 1 report](../exec-plans/evidence/engineering_dashboard_20261013/GS124_STAGE1_IMPLEMENTATION_REPORT_20261013.md).
 
-See [the Stage 1 report](../exec-plans/evidence/engineering_dashboard_20261013/GS124_STAGE1_IMPLEMENTATION_REPORT_20261013.md)
-and [the existing campaign handoff](../exec-plans/evidence/engineering_dashboard_20261012/CAMPAIGN_HANDOFF.md)
-for changed files, archived/native logs, source hashes, exact next command and
-checkpoint delivery receipt. `/tmp` remains full; use the existing dashboard
-build scratch, do not delete unrelated/GS-148 files. Ignored mapping helpers and
-all native evidence are preserved and are not validation dependencies.
+The user-directed Stage 1 host implementation, registration, source integrity
+review, backend/PWA aggregate runs and Jira handoff are complete. Both aggregate
+FAILs remain visible; the feature is not production-delivered. Production issuer,
+current staff/Home authority with consistency fence, PostgreSQL schema/adapter
+compatibility review and retention policy, authenticated PWA/CSRF/role flow and
+qualified GS-65/109 technical source remain blockers. Production service and
+diagnostic routes remain disabled. Class B, full release and physical HIL are
+NOT_RUN. GS-122/124/125 remain To Do/partial. No hardware/firmware/OTA or canonical
+GS-148 changes were made. See latest campaign handoff for the exact source and
+remote delivery checkpoint.
 
-Next: verify actual checkpoint local/remote/status and require preflight PASS;
-run `make validation-pwa` with eligible same-source/profile backend receipts;
-finish final review/registration/evidence and GS-122/124/125 completion handoff.
-Production GS-76/143 identity/staff consistency, reviewed PostgreSQL persistence,
-PWA session/CSRF/browser composition, retention and GS-65/109 diagnostic source
-remain disabled/blockers. GS-122/124/125 stay partial/To Do. Do not repeat source
-implementation or move work into the actively changing canonical worktree.
+## Earlier Stage 1 pause checkpoint — 2026-10-13 12:29 UTC (resumed)
+
+The user paused before the limit while the PWA aggregate was still NOT_RUN. On
+resume it completed; see the current Stage 1 delivery and updated report/handoff
+above for actual results. No PWA skip is claimed.
 
 ## GS-122/124/125 service workflow checkpoint — 2026-10-13
 

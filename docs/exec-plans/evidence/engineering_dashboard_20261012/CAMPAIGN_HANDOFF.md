@@ -1,6 +1,39 @@
 # GS-122 campaign checkpoint and resume handoff
 
-## Latest checkpoint — PAUSED by user, 2026-10-13 12:29 UTC
+## Latest checkpoint — Stage 1 delivery complete; regression gates retain failures — 2026-10-13 15:28 UTC
+
+The user resumed the usage-limit pause and explicitly requested the pending PWA
+aggregate and final Stage 1 handoff. Dashboard source HEAD on resume was clean and
+matched local/remote `58efb4da891690e3304b86a1e50243af6bf92108`;
+context preflight PASS (`2026-10-13.001`). The PWA aggregate completed on the same
+source/fingerprint; see the final report, archived native reports/logs and this
+commit's Jira comments. Delivery commit/actual remote equality/Jira IDs are
+recorded after this documentation checkpoint.
+
+Final registered dashboard stage: **84 PASS (54 preserved + 30 new)**, exit 0.
+Framework 39 PASS; mapping 157/208/14 and 20 meta-tests PASS. Both
+`make validation-backend` and `make validation-pwa` **FAIL, make exit 2**. Each
+retains the Python 449 CloudSync bridge durable-before-ACK failure (one allowed
+historical skip) and P0 initial file-backed Node recovery failure, exit 2 before
+scenarios. The PWA run verified/reused nine same-source/profile backend PASS
+stage receipts; JavaScript and the other six PWA-owned stages passed (10 PASS stages total). ENOSPC was observed at both existing
+fixture write boundaries; these probes do not prove all product behavior would
+pass if storage were available. Source fingerprint for both reports is
+`195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965`, unchanged.
+
+Production session/active staff, PostgreSQL adapter/schema/retention review,
+authenticated PWA/CSRF and production diagnostic source remain blockers. Routes
+stay disabled; no X-Actor-Id bypass, OTP, firmware, physical HIL, OTA, full release
+or GS-148 edit. Statuses GS-122/124/125 stay To Do/partial. See
+[Stage 1 report](../engineering_dashboard_20261013/GS124_STAGE1_IMPLEMENTATION_REPORT_20261013.md),
+[backend receipt](../engineering_dashboard_20261013/stage1_resume/backend/report.json)
+and [PWA receipt](../engineering_dashboard_20261013/stage1_resume/pwa/report.json).
+
+The pre-resume pause handoff is retained below as historical evidence. Its
+PWA-NOT_RUN statement was true at the pause and is superseded by the completed
+PWA receipt above.
+
+## Earlier checkpoint — PAUSED by user, 2026-10-13 12:29 UTC (resumed)
 
 The user requested pause before the usage limit. Continue the existing recovered
 Stage 1 source; do not reconstruct it. Worktree
@@ -47,19 +80,18 @@ Exact resume actions:
 2. Read [the Stage 1 implementation report](../engineering_dashboard_20261013/GS124_STAGE1_IMPLEMENTATION_REPORT_20261013.md),
    its source hashes and native/archived receipts. Do not repeat the completed
    ticket/consent implementation or its existing passing cases without cause.
-3. From `code/`, run:
+3. The resumed PWA gate completed with this exact command from `code/`:
 
    ```bash
-   TMPDIR="$PWD/build/gs124_stage1_resume_tmp" make validation-pwa      VALIDATION_REUSE_REPORTS=evidence/validation_framework/backend-1791894195720046816/report.json
+   TMPDIR="$PWD/build/gs124_stage1_resume_tmp" make validation-pwa \
+     VALIDATION_REUSE_REPORTS=evidence/validation_framework/backend-1791894195720046816/report.json
    ```
 
-   Only source/profile/log/binary-verified PASS prerequisites are reusable.
-   Invalid receipts require an ordinary affected-stage rerun. Keep both original
-   aggregate failures visible. Do not modify firmware or clean GS-148-owned data
-   to force PASS. No full release gate or physical command is authorized.
-4. Finish PWA evidence, registration/source integrity and final review; commit
-   only validated dashboard changes, push normally and verify remote equality.
-   Update GS-122/124/125 with final actual results and production blockers.
+   Its native receipt verifies nine reusable PASS stage receipts and reruns
+   both failed stages. Do not repeat it unless source changes invalidate evidence.
+4. The current Stage 1 host delivery, registration, evidence and Jira handoff are
+   complete. Continue only separately authorized follow-up work; do not transition
+   these issues to Done until production prerequisites and approved acceptance exist.
 
 Stage 2 prerequisites remain real GS-76/143 identity/staff/Home authority and
 consistency fences; reviewed PostgreSQL adapter/compatibility/retention; PWA

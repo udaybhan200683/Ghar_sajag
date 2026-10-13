@@ -13,9 +13,10 @@ does not qualify commercial authentication. `make validation-backend` was
 executed and remains FAIL on the existing CloudSync bridge durable-before-ACK
 Python assertion and P0 initial file-backed Node recovery; its dashboard stage
 PASS does not override the aggregate failure. Full release and physical HIL
-remain NOT_RUN. The user paused at 2026-10-13 12:29 UTC after the final backend
-receipt; the PWA aggregate remains NOT_RUN for resume. See the dated Stage 1
-evidence and boundary documents.
+remain NOT_RUN. After resume, the PWA aggregate also ran and FAILS on the same Python
+CloudSync durable-before-ACK failure and P0 initial file-backed Node recovery;
+nine backend PASS stage receipts were source/profile verified and reused. Neither
+aggregate is relabeled PASS. See the dated Stage 1 report and archived receipts.
 
 ## Canonical GS-148 context — committed source `774da5c`, 2026-10-13
 
