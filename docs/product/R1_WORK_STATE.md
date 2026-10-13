@@ -1661,3 +1661,34 @@ Canonical source integration is complete. GS-114 hardware qualification was
 not changed, and the pre-existing untracked S3 `managed_components/` and
 redacted physical evidence were preserved. GS-144 and GS-148 work/statuses were
 not changed by GS-152.
+
+## GS-114 repaired C8 physical checkpoint — 2026-10-13
+
+Canonical branch `feature/r1-commercial-baseline` at initial local/remote HEAD
+`72a223fc3b290c01c9f93fbb90db83d87601ad54`; context preflight PASS
+`2026-10-13.001`. The authorized C3/S3 R&D pair was independently reidentified,
+and the RPF07 repair images were clean-installed and flash-verified. Fresh
+test-only commissioning and authenticated rejoin succeeded. A real AM312 motion
+produced EventKey `p15:c3-146393c5d158n8:gs114-c8s1q1`, authenticated Hub
+Durable ACK and one GPIO wake in post-event authenticated NodeHealth. Hub
+admission was operational; no RPF07 was logged. The exact successful `RPF00`
+reconciliation, C3 application-ACK retirement trace and per-key one-effect
+ledger remain unproved because the built-in C3 USB Serial/JTAG console stopped
+emitting after light sleep. P1/P2 have partial physical evidence, no PASS;
+P3–P9 remain pending or blocked by their specific fixtures. The complete
+timestamped redacted logs, hashes and dispositions are in the [GS-114 execution
+report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md),
+and GS-114 Jira comment 10818 records the same checkpoint. Prior migration FAIL
+and product P0 PARTIAL remain separate.
+
+A scoped `GS_HIL_COMMISSIONING` S3 diagnostic now builds under ESP-IDF 6.0.3,
+logging authenticated NodeHealth detail, successful replay-fence reconciliation,
+retirement-ACK send result and per-key durable outbox lookup. The paired build
+and focused replay/checkpoint host regression passed; exact image hashes and
+partition profile are in the [diagnostic manifest](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/diagnostic_manifest.json).
+The next action is to confirm both by-id ports are unoccupied, re-probe exact
+authorized chips and security state, then perform the already approved fresh
+R&D installation and direct physical retest. The USB console observer may
+still require an independent 3.3 V UART/GPIO probe for literal C3 UART and
+held-HIGH acceptance. GS-114 and GS-146 remain open; GS-149 current and P10
+measurements were not made. No CloudSync or C9–C11 implementation was started.

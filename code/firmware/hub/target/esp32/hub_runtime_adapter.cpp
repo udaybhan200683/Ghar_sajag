@@ -1095,6 +1095,14 @@ void secure_owner_task(void*) {
                         runtime.durable_admission_open() ? "PRIOR_FENCE_VALID" : "CLOSED");
                     continue;
                 }
+#if GS_HIL_COMMISSIONING
+                ESP_LOGI(kTag,
+                    "S3 replay fence healthy stage=%s path=%s admission=%s report_generation=%llu",
+                    replay_fence_reconcile_stage_id(reconciliation.stage),
+                    applied == durable::RetirementReportApply::Duplicate ? "DUPLICATE" : "PREPARED",
+                    runtime.durable_admission_open() ? "OPEN" : "CLOSED",
+                    static_cast<unsigned long long>(report.generation));
+#endif
             }
             if (limits.body_retirement_enabled || durable_outbox.completion_reclamation_needed()) {
                 // NVS publishes the authenticated Node snapshot first. The
@@ -1157,8 +1165,14 @@ void secure_owner_task(void*) {
             security::SecureFrame protected_ack;
             if (!encoded_ack || !frames->seal(security::RuntimeDirection::Downlink,
                                               encoded_ack.frame, protected_ack)) continue;
-            (void)esp_now_send(frame.source_mac.data(), protected_ack.bytes.data(),
-                               protected_ack.size);
+            const auto retirement_ack_sent = esp_now_send(
+                frame.source_mac.data(), protected_ack.bytes.data(), protected_ack.size);
+#if GS_HIL_COMMISSIONING
+            ESP_LOGI(kTag, "Authenticated retirement ACK session=%llu generation=%llu send=%s",
+                     static_cast<unsigned long long>(node->last_session),
+                     static_cast<unsigned long long>(report.generation),
+                     esp_err_to_name(retirement_ack_sent));
+#endif
             continue;
         }
         if (classification == transport::FrameClass::NodeHealth) {
@@ -1181,6 +1195,31 @@ void secure_owner_task(void*) {
                          static_cast<unsigned>(health.value->last_sleep_requested_ms),
                          static_cast<unsigned>(health.value->last_sleep_elapsed_ms),
                          frame.transport_rssi);
+#if GS_HIL_COMMISSIONING
+                ESP_LOGI(kTag,
+                         "HIL_AUTH_HEALTH logical=%s session=%llu health_seq=%llu reset=%u pir_raw=%d pir_edges=%u pir_ok=%u pir_rejected=%u retained=%u oldest_seq=%llu tx=%u mac_ok=%u mac_fail=%u durable_ack=%u retry=%u maintenance=%d sleep_entries=%u timer_wakes=%u gpio_wakes=%u other_wakes=%u last_wake=%s",
+                         node->logical_id.c_str(),
+                         static_cast<unsigned long long>(node->last_session),
+                         static_cast<unsigned long long>(health.value->health_sequence),
+                         static_cast<unsigned>(health.value->reset_reason),
+                         health.value->raw_pir_level,
+                         static_cast<unsigned>(health.value->raw_pir_edges),
+                         static_cast<unsigned>(health.value->accepted_pir),
+                         static_cast<unsigned>(health.value->rejected_pir),
+                         static_cast<unsigned>(health.value->retained_count),
+                         static_cast<unsigned long long>(health.value->oldest_sequence),
+                         static_cast<unsigned>(health.value->tx_attempts),
+                         static_cast<unsigned>(health.value->mac_success),
+                         static_cast<unsigned>(health.value->mac_failure),
+                         static_cast<unsigned>(health.value->durable_acks),
+                         static_cast<unsigned>(health.value->retries),
+                         health.value->maintenance_active,
+                         static_cast<unsigned>(health.value->light_sleep_entry_count),
+                         static_cast<unsigned>(health.value->timer_wake_count),
+                         static_cast<unsigned>(health.value->gpio_wake_count),
+                         static_cast<unsigned>(health.value->other_wake_count),
+                         node_health_sleep_wake_cause_name(health.value->last_wake_cause));
+#endif
                 if (security_link.health_ack_supported(frame.source_mac)) {
                     const auto encoded_ack = transport::encode_node_health_ack(
                         health.value->health_sequence);
@@ -1208,6 +1247,16 @@ void secure_owner_task(void*) {
                 event_owner.slot, event_owner.generation, event_owner.digest)) continue;
         const auto processed = runtime.run_state_once();
         if (!processed) continue;
+#if GS_HIL_COMMISSIONING && CONFIG_IDF_TARGET_ESP32S3
+        bool key_found = false;
+        const auto key_lookup = durable_outbox.contains(processed->key.str(), key_found);
+        ESP_LOGI(kTag,
+                 "HIL_AUTH_EVENT event_id=%s state_changed=%d records=%u outbox_lookup=%u outbox_found=%d admission=%s",
+                 processed->key.str().c_str(), processed->state_changed,
+                 static_cast<unsigned>(runtime.journal().size()),
+                 static_cast<unsigned>(key_lookup), key_found,
+                 runtime.durable_admission_open() ? "OPEN" : "CLOSED");
+#endif
 #if GS_HIL_CONTROL
         ESP_LOGI(kTag, "HIL_EVENT_RESULT event_id=%s ack=%u state_changed=%d records=%u",
                  processed->key.str().c_str(), static_cast<unsigned>(processed->ack),

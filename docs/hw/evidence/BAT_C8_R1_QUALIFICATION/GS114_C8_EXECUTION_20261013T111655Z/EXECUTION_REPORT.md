@@ -1,5 +1,21 @@
 # GS-114 C8 physical execution
 
+## Repaired-image physical run 01 — 2026-10-13 16:17–16:32 UTC
+
+The canonical local and remote HEAD matched `72a223fc3b290c01c9f93fbb90db83d87601ad54`; context preflight passed. Stable by-id ports had exchanged ttyACM numbers. Direct ROM probes verified the authorized C3 (`14:63:93:c5:d1:58`, 4 MiB) and S3 (`7c:4f:ad:b7:2a:20`, 16 MiB; 8 MiB PSRAM profile). The operator's USB-only supply and AM312 3.3 V/GND/GPIO4 arrangement remained the authorized setup. No other serial owner was present. The ignored installer guard was corrected to resolve stable by-id targets and reject occupied or non-ttyACM links; it no longer assumes fixed ttyACM numbering. All nine repair-manifest hashes and partition/profile bounds were rechecked before writing.
+
+Using the already authorized disposable R&D scope, the S3 was erased, written and `verify-flash` checked at 16:17:42–16:18:59 UTC; the C3 followed at 16:19:00–16:19:08 UTC. Both installer runs exited zero. The installed C3 application SHA-256 was `89b01dfa9c6b48d8430f5427f7f9f89a69b46330280f56923a73a093ffa73da6`; S3 was `c7d63a9959b5df812cae14eb92edc4c18044608a7851fef54f55e8aea7e9a4a6`. The S3 commissioning-only profile retained two 4 MiB OTA slots, `gs_outbox`, `gs_state`, and 16 MiB flash/8 MiB PSRAM. Installer transcripts and credential-bearing raw captures remain ignored under `code/build/gs114_clean_install/`; [C3 redacted log](repair_run01_c3_redacted.log) and [S3 redacted log](repair_run01_s3_redacted.log) are preserved here. Opening the capture caused setup resets before measurement; there was no observed reset afterward. Neither eFuses nor security settings were changed.
+
+Both devices booted. The supported `GET_TEST_QR` → `COMMISSION_EXPECTED_NODE` flow freshly commissioned exact device `c3-146393c5d158` as logical `gs114-c8`; the Hub logged authenticated rejoin session 1 at 16:19:26.333 UTC. The Node logged PIR ready at 16:19:36, then `BAT_SLEEP_DECISION eligible=1` and `BAT_SLEEP_ENTER gpio4=1 timer=1`. The authenticated Hub NodeHealth at 16:24:25 reported 10 light-sleep entries and 10 timer wakes, zero GPIO wakes, no retained event. This proves the Node remained operational and could restore its radio to transmit authenticated health.
+
+The operator performed one real AM312 motion episode for P2 and replied DONE. At 16:26:55.880 and 16:26:56.081 UTC, the Hub accepted the **same** exact EventKey `p15:c3-146393c5d158n8:gs114-c8s1q1` twice, both `ack=0` (`AckClass::Durable`) with `ESP_OK` send. At 16:31:55, authenticated NodeHealth showed `gpio_wakes=1`, `sleep_entries=26`, `timer_wakes=25`, `retained=0`. This is positive physical GPIO wake, authenticated PIR transport and durable ACK evidence. It does not alone prove the exact C3 ACK retirement or one authoritative logical effect. No RPF error appeared, and the successful event confirms admission was open, but this image emits no `RPF00` success record, so the exact first-retirement-report reconciliation remains unproven directly.
+
+The C3 native USB Serial/JTAG reader emitted no bytes after its first light-sleep entry, including after a queued `GET_STATE`, while authenticated radio health/events continued. ESP-IDF 6.0.3's USB Serial/JTAG documentation warns that light sleep can interrupt host enumeration. The continuous Node UART ordering and Hub counter snapshots required by the test plan therefore are unavailable. **P1/P2 remain BLOCKED on observer completeness, P3–P9 remain NOT_RUN/BLOCKED; no physical PASS is claimed.** Capture was closed at 16:32:21 without reopening either port. This is an observation failure; the live C3 did not show a runtime stall.
+
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`; `REQUIREMENT_SOURCE=docs/hw/evidence/BAT_C8_R1_QUALIFICATION/TEST_PLAN.md`; `DECISION_IDS=GS-D020`; `TASK_SCOPE=GS-114 physical observer and RPF07 retest`; `OUT_OF_SCOPE=CloudSync, storage redesign, C9–C11`. A commissioning-profile-only read-only S3 diagnostic was added to log authenticated NodeHealth detail, successful `RPF00`, retirement ACK send result, and authoritative per-key outbox lookup. It changes no protocol, eFuse, durable admission or production profile. Retest requires source-matched target build/hash/verify and a justified fresh R&D installation. If post-sleep Node UART is still required literally, an independent GPIO/UART measurement interface is an external fixture prerequisite.
+
+The paired diagnostic build subsequently passed with source fingerprint `1eec58fa1f77902c589e416db661b793d842320e33b1acc8073d677c460d1879`, ESP-IDF 6.0.3, C3 app SHA-256 `1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and S3 app SHA-256 `84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`. All nine exact artifacts passed independent manifest hash checks; S3 remains commissioning ON, broad HIL OFF, two 4 MiB OTA slots, `gs_outbox`/`gs_state` and 16 MiB/8 MiB PSRAM. Focused Hub replay/checkpoint host regression, 19 traceability framework tests and `git diff --check` passed. This new pair has **not** yet been installed; the boards still carry the run-01 repair images at this checkpoint.
+
 ## Resume checkpoint — 2026-10-13 UTC
 
 GS-114 Jira comment 10800 and the pause handoff were reconciled against the
@@ -120,9 +136,9 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 
 | Case | Disposition | Evidence / blocker |
 |---|---|---|
-| Phase A | FAIL; repair retest pending | Exact boards installed and authenticated commissioning succeeded, then fresh S3 `RPF07` closed admission |
-| P1 | NOT_RUN | Requires installed/commissioned pair and trustworthy continuous timer/wake logs |
-| P2 | BLOCKED | Requires P1 and real AM312 GPIO4 motion |
+| Phase A | PARTIAL; repaired run 01 durable admission observed | Clean repair install/verify and fresh authenticated commissioning passed; direct `RPF00` first-report and complete observer proof pending |
+| P1 | BLOCKED; physical partial evidence | C3 sleep entry and authenticated health proved 10/10 timer wakes, then 25 more; post-sleep C3 USB UART and Hub state snapshots unavailable |
+| P2 | BLOCKED; physical partial evidence | Operator real motion, one authenticated GPIO wake and exact PIR EventKey with Durable ACK observed; direct C3 retirement and one-effect ledger pending |
 | P3 | BLOCKED | Requires real held-HIGH/LOW episode and continuous level/sleep evidence |
 | P4 | BLOCKED | Requires exact EventKey, authenticated durable commit, ACK class and retirement |
 | P5 | BLOCKED | Requires separate Hub-only outage/return approval and operator stimulus |
@@ -133,7 +149,7 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | P9 FOTA | BLOCKED | Current S3 broad HIL control OFF; matched signed C3 test/recovery images and supported trigger/recovery plan unproven |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action: complete target rebuild/profile/hash verification and affected software regressions, then reidentify the same two authorized boards before the necessary clean physical retest. No GS-114 Done transition or C8 physical PASS.
+Next action: install the hash-verified [commissioning-profile diagnostic pair](diagnostic_manifest.json) on the same reidentified and unoccupied R&D boards, recommission, observe direct `RPF00` and per-key evidence, then resume real P1–P9 actions. No GS-114 Done transition or C8 physical PASS.
 
 ## Validation and precise operator checkpoint
 
