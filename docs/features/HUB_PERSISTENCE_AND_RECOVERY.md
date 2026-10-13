@@ -1,5 +1,17 @@
 # Hub Persistence and Recovery
 
+## First-event recovery design proposal — 2026-10-13
+
+The [GS-148 / GS-145 review](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
+proposes joining the current authenticated checkpoint 0, selected identity 1,
+exact body and native owner/fence state to recover one pending first transaction.
+The existing retry path would publish ordinary v1 state and checkpoint before
+ACK. Default standalone missing-head and populated/corrupt authority rejection
+remain mandatory. No genesis format or installation manifest is proposed for
+this bounded fix. This is NOT_IMPLEMENTED; the implementation facts below and
+existing P0/P1/P2 evidence remain unchanged. Supported S3 image compatibility
+and physical rollback acceptance are separate pending gates.
+
 ## GS-148 bounded local correctness implementation — 2026-10-12
 
 Active source is `code/firmware/hub/`. Before `prepare_identity`, the serialized

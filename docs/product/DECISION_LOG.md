@@ -6,6 +6,28 @@ Use:
 - OPEN = unresolved.
 - SUPERSEDED = replaced but retained for history.
 
+## GS-148 / GS-145 first-event recovery review — 2026-10-13
+
+**APPROVED DESIGN GUIDANCE:** the owner prioritizes reliability, simplicity,
+affordability, maintainability and essential existing security (GS-148 10681;
+GS-145 10682). **PROPOSED, NOT IMPLEMENTED:**
+[the focused review](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
+recommends joining the existing authenticated checkpoint at boundary 0,
+selected identity 1, exact first body and current native owner/fence state to
+recover a pending transaction. Exact authenticated retry uses the existing v1
+publication/checkpoint/ACK sequence. No new genesis record, key or schema is
+needed for this bounded native-epoch-1 case. Standalone missing-head and
+populated/corrupt authority failures remain required.
+
+The earlier 116-byte genesis candidate is unapproved and is superseded as the
+preferred solution for this specific first-event problem. Approval is still
+needed for the bounded implementation and supported corrected S3 reader/image
+pair. An old reader retains its existing pending-first-event fail-closed
+limitation; v1 bytes alone do not prove rollback availability. S3 self-OTA and
+signed-image boot health are not integrated/qualified by this design.
+GS-D029/032 remain LOCKED and unchanged; D-A–D-M stay OPEN. No new LOCKED
+requirement or CONTEXT_VERSION change. Physical/release acceptance remains pending.
+
 ## GS-148 architecture disposition and bounded implementation — 2026-10-12
 
 **APPROVED ARCHITECTURE, not a new LOCKED product decision:** integrate Jira
@@ -20,7 +42,8 @@ See [implementation and validation evidence](../exec-plans/evidence/R1_GS148_P0_
 D-A–D-M remain OPEN. Production deletion, numerical retention/overflow,
 CloudSync credentials/receipt contract, partitions, new schemas, hardware and
 P3–P9 execution remain excluded. Missing first v1 event publication authority
-requires a genesis-format/rollback compatibility decision; retain fail-closed
+was referred for an initial-authority/rollback decision (see the 2026-10-13
+design review above); retain fail-closed
 recovery until that approved correction exists. Historical migration FAIL and
 product P0 PARTIAL stay visible. CONTEXT_VERSION is unchanged because no new
 LOCKED requirement is created here.

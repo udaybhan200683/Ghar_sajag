@@ -1,6 +1,17 @@
 # Hub Storage, Cloud Sync, PWA Freshness, and Routine-Learning Contract
 
-**Current execution status — 2026-10-10:** S3 storage work under GS-148 is intentionally paused after partial P2-D; BAT-C8 physical qualification is the active priority. This is an execution handoff, not a change to locked near-real-time sync, offline safety, retention-open or deletion-disabled requirements. See [R1 work state](../product/R1_WORK_STATE.md) and the [cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md).
+**Current execution status — 2026-10-13:** GS-148 P0/P1/P2 software hardening is
+delivered PARTIAL; the remaining current-format first-event recovery defect has
+a [design-only recommendation](GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md).
+It proposes reusing authenticated v1 checkpoint/identity/body authority to resume
+one pending initial event, with no new format or manifest. This proposal is
+unimplemented pending separate approval; S3 signed rollback and physical
+durability remain unqualified. Retention/overflow decisions, production deletion
+and CloudSync trust/worker gaps remain separate. See
+[R1 work state](../product/R1_WORK_STATE.md). The
+[2026-10-10 cross-worktree audit](../exec-plans/evidence/R1_CROSS_WORKTREE_REQUIREMENTS_CODE_AUDIT_20261010.md)
+is historical execution evidence; locked sync/offline/storage requirements below
+are unchanged.
 
 ## Architectural intent
 

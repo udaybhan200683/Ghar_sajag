@@ -1,5 +1,39 @@
 # R1 Current Work State
 
+## GS-148 / GS-145 first-event design review — 2026-10-13
+
+**DESIGN_READY_FOR_APPROVAL**, documentation only. Reviewed actual canonical
+local/GitHub HEAD `371a560f04b99bce8fd86e58739a75184b555b55`, clean tracked
+tree, context PASS `2026-10-11.001`, current code and Jira 10678–10682.
+[Focused decision report](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
+recommends Option A: the existing authenticated zero-boundary application checkpoint,
+selected first identity/body and native owner/root/fence checks establish one
+pending transaction. Original authenticated retry finishes ordinary v1
+publication/checkpoint before Durable ACK. A narrowly proven interrupted empty
+checkpoint may be completed using its current format. No new persistent bytes,
+keys, partitions or installation manifest; all proposed logic remains unimplemented.
+
+This replaces the earlier assumption that the 116-byte genesis candidate is
+necessary for the demonstrated first event. It does not weaken current failure
+checks: standalone missing-head, populated history, missing/corrupt checkpoint,
+owner/epoch and inconsistent witness cases still fail closed. Native epoch-1
+scope is explicit; future transfer/incarnation remains separate.
+
+S3 uses the shared Hub-to-C3 FOTA sender, with rollback configured but no inspected
+Hub self-OTA receiver or pending-image health confirmation. Signed S3 rollback
+is not qualified. Recommend corrected v1 recovery in both supported R1 images;
+old engineering readers retain their existing fail-closed initial-pending limit.
+Image support approval and qualification cannot be inferred from unchanged bytes.
+
+No production code or validation registry changed; no completed test campaign
+repeated. New cases PROPOSED_NOT_EXECUTED; documentation checks only. Prior
+P0/P1/P2 PARTIAL, historical migration FAIL and product P0 PARTIAL remain.
+Physical NOT_RUN/BLOCKED; release NOT_RUN. GS-148 In Progress, GS-145 To Do;
+GS-152 Done. No issue transition or hardware action. Final docs commit/actual
+remote equality and Jira IDs are recorded in dated delivery comments.
+Next action: approve the bounded design and supported image recommendation,
+then separately authorize its ordered implementation package. Stop after review.
+
 ## GS-148 bounded P0/P1/P2 correctness checkpoint — 2026-10-13 (started 2026-10-12)
 
 Delivery: architecture `2b17924be86c7ce78f8e1ec1c7c03b402fc48a6c`, tested source `23636a921409b52afe56823ca4302d5fb09683cb`; normal push and actual

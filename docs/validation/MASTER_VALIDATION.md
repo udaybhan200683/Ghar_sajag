@@ -1,6 +1,17 @@
 
 # Master automated validation and regression framework
 
+## GS-148 / GS-145 first-event design specification — 2026-10-13
+
+[The design-only review](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
+maps proposed authenticated first-event recovery, initialization, negative and
+old/corrected v1 reader cases to existing GS148-ARCH IDs and registered stages.
+These extensions are PROPOSED_NOT_EXECUTED; registry/source inventory and existing
+execution evidence are unchanged. Standalone missing-head negatives remain
+required. No new recovery PASS, physical qualification or release claim follows
+from documentation checks; permanent case registration/execution belongs to the
+separately authorized implementation package.
+
 ## GS-148 bounded correctness registration — 2026-10-12
 
 `storage-correctness` and `storage-correctness-sanitizers` are permanent Hub and
