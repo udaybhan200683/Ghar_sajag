@@ -1,5 +1,20 @@
 # R1 Current Work State
 
+## GS-114 C8 physical readiness — 2026-10-13
+
+Offline review at canonical/GitHub `ca87e2cd058586d9c7231df9ab313c4b237f8085`,
+context preflight PASS, found current source-matched C3/S3 fixture binaries and
+RPF00–RPF08 but no installed-image/storage provenance, verified non-resetting
+C3 observer, safe state-preserving S3 app installation, or healthy physical
+replay-fence admission. The saved run stopped on `USB_UART_CHIP_RESET` and
+`admission closed`; no second spare pair is confirmed. [The dated readiness
+report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_PHYSICAL_READINESS_20261013.md)
+defines a preferred separately confirmed disposable-pair route and gated
+fallback for the commissioned fixture. **NO-GO** for P1–P9 now; P1 NOT_RUN,
+P2–P9 BLOCKED. Next action is separate approval for identified-fixture
+power-off visual inventory; no physical action, software rebuild, flash or
+serial access occurred here. GS-114 stays In Progress; P10 remains GS-149.
+
 ## GS-148 Option A software delivered — 2026-10-13
 
 GS-148 10688/10690 and GS-145 10689 approve bounded native-v1 recovery and
