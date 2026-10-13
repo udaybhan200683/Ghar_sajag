@@ -21,6 +21,17 @@ If two current documents conflict and no higher-authority LOCKED decision resolv
 
 ## Canonical documents
 
+GS-148 architecture integration (2026-10-12):
+[approval disposition](../architecture/GS148_ARCHITECTURE_REVIEW_DECISION_20261012.md)
+is SUPPORTING / approved architecture direction, not numerical or persistent
+schema requirements. [A–O audit](../architecture/GS148_ARCHITECTURE_REVIEW_20261012.md)
+is HISTORICAL source evidence at e31e8ef; old paths/status/findings are superseded
+only where the [post-GS-152 reconciliation](../exec-plans/evidence/R1_GS148_P0_P1_P2_20261012.md)
+records current implementation. The audit remains useful for proposed lifecycle,
+capacity, compatibility, trust and qualification work; D-A–D-M are OPEN.
+The dated reconciliation is TEST_EVIDENCE / IMPLEMENTATION_DESIGN and package
+handoff, subordinate to this index and canonical storage requirements.
+
 | Path | Classification | Purpose | Read when |
 |---|---|---|---|
 | `AGENTS.md` | CANONICAL | Codex source order, triage and closeout rules | Every substantive task |

@@ -1,0 +1,3 @@
+HEAD=e31e8ef6314abcc777eb5979c3d33939cdb7b296
+archive_sha256=e8be4af1ccf918d354006cd0665e89c537d59381c1706f963512da110ea11491
+Source permissions: directories 0555, files 0444. No Git worktree.

@@ -6,6 +6,25 @@ Use:
 - OPEN = unresolved.
 - SUPERSEDED = replaced but retained for history.
 
+## GS-148 architecture disposition and bounded implementation — 2026-10-12
+
+**APPROVED ARCHITECTURE, not a new LOCKED product decision:** integrate Jira
+10513–10523 through the [approval record](../architecture/GS148_ARCHITECTURE_REVIEW_DECISION_20261012.md)
+and historical A–O audit. GS-152 is Done; current-source reconciliation starts at
+`77e29d44c57f0851f78358049c288323c985d2e7` in the canonical R1 worktree.
+The user's later authorization covers software-only P0 and bounded P1/P2:
+before-identity capacity/bound checks, recovery-eligible report bank protection
+and fail-closed witness/root consistency, using existing persistent formats.
+See [implementation and validation evidence](../exec-plans/evidence/R1_GS148_P0_P1_P2_20261012.md).
+
+D-A–D-M remain OPEN. Production deletion, numerical retention/overflow,
+CloudSync credentials/receipt contract, partitions, new schemas, hardware and
+P3–P9 execution remain excluded. Missing first v1 event publication authority
+requires a genesis-format/rollback compatibility decision; retain fail-closed
+recovery until that approved correction exists. Historical migration FAIL and
+product P0 PARTIAL stay visible. CONTEXT_VERSION is unchanged because no new
+LOCKED requirement is created here.
+
 ### GS-D001 — R1 fresh-install scope
 **Status:** LOCKED  
 R1 is a commercially installable fresh baseline. Arbitrary dev-era persistence migration is post-R1 unless it blocks the fresh-install path.

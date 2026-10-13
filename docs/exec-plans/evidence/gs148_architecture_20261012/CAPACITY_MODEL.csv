@@ -1,0 +1,4 @@
+scenario,exact_events,candidate_summaries,total_events,events_per_day,body_bytes,identity_bytes,completion_bytes,pending_logical_bytes,completed_pre_gc_logical_bytes,outbox_index_estimate,identity_index_estimate,days_to_identity_quota_without_gc,node_32_slots_hours_if_uniform_no_coalescing
+NORMAL,728,197,925,308.3333333333333,178765,152625,101750,331390,433140,57344,98304,20.61081081081081,14.944864864864865
+HIGH,3278,298,3576,1192.0,681824,590040,393360,1271864,1665224,200704,393216,5.331375838926174,3.8657718120805376
+STRESS,42679,1682,44361,14787.0,8417869,7319565,4879710,15737434,20617144,2494464,6291456,0.429769392033543,0.31162507608034085
