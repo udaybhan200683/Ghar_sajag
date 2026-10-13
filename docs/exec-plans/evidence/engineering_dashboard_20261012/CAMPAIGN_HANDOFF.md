@@ -1,6 +1,34 @@
 # GS-122 campaign checkpoint and resume handoff
 
-## Latest checkpoint — Stage 1 delivery complete; regression gates retain failures — 2026-10-13 15:28 UTC
+## Latest checkpoint — post-ENOSPC full backend/PWA qualification — 2026-10-13
+
+Fresh full gates ran on `feature/gs124-125-engineering-dashboard`, source HEAD
+`aa7b19b13cef2d9c75096ab410c635e967671e90`; local and GitHub HEAD matched,
+working tree clean before validation. Context preflight PASS. Both aggregate
+reports match fingerprint `195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965`,
+`source_unchanged=true`, `tracked_dirty=false`, and same host/profile. `/tmp`
+started with 1.08 GB free and remained stable; no ENOSPC occurred.
+
+- `make validation-backend`: **FAIL, make exit 2**; 14/15 stages PASS. Python
+  449 PASS, one allowed historical skip; diagnostic-foundation 84/84 PASS.
+- `make validation-pwa VALIDATION_REUSE_REPORTS=evidence/validation_framework/backend-1791907554777890475/report.json`:
+  **FAIL, make exit 2**; 11/12 stages PASS. It reused ten source/profile/log/artifact
+  verified backend PASS receipts; JavaScript ran fresh, 23/23 PASS.
+- Both fail only `p0-full-product-e2e` completeness adjudication. Its command
+  exits 0 with 26/26 scenarios and one Chromium browser test passing, including
+  initial file-backed Node recovery. The report is `product_status=PARTIAL`, so
+  GS-116 marks the required-complete-product stage FAIL. The report names the
+  remaining gap: production Hub TLS/credential authenticator and enrollment-
+  generation registry binding are unconfigured; only local fixture credential
+  exists (GS-148 integration). This is not an ENOSPC or recovery assertion fail.
+
+No source/assertion changed. Physical HIL, full release and production auth remain
+unqualified. See the complete
+[post-ENOSPC receipt and logs](../engineering_dashboard_20261013/post_enospc/GS125_POST_ENOSPC_VALIDATION_20261013.md).
+The previous checkpoint below records the actual pre-recovery failures and is
+retained as historical evidence.
+
+## Previous checkpoint — Stage 1 delivery complete; initial full-/tmp failures — 2026-10-13 15:28 UTC
 
 The user resumed the usage-limit pause and explicitly requested the pending PWA
 aggregate and final Stage 1 handoff. Dashboard source HEAD on resume was clean and

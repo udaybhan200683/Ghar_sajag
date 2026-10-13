@@ -1,6 +1,37 @@
 # R1 Current Work State
 
-## GS-122/124/125 bounded Stage 1 host delivery — 2026-10-13
+## Latest GS-125 post-ENOSPC qualification — 2026-10-13
+
+Fresh full backend and PWA aggregate receipts were run from dashboard source
+`aa7b19b13cef2d9c75096ab410c635e967671e90`, with source fingerprint
+`195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965` matching
+between both reports. `source_unchanged=true`; tracked source remained clean.
+`/tmp` started with 1.08 GB free and stayed at about 1.08 GB during both runs.
+
+`make validation-backend`: aggregate **FAIL, make exit 2**, 14/15 stages PASS.
+Python 449 PASS with one allowed historical skip (CloudSync durable-before-ACK
+regression passes); `diagnostic-foundation` 84/84 PASS. `make validation-pwa`
+with the fresh backend report: aggregate **FAIL, make exit 2**, 11/12 stages
+PASS; 10 eligible backend PASS receipts reused, JavaScript ran fresh (23/23
+PASS). Both aggregates fail only the complete-product adjudication of
+`p0-full-product-e2e`: command exit 0 and all 26 scenarios/one Chromium check
+PASS, but required `product_status=PARTIAL` makes the stage FAIL. The P0 report
+identifies the remaining gap as production Hub TLS/credential authentication
+and enrollment-generation registry binding (local test credential only; GS-148
+integration). Initial file-backed Node recovery passes. No ENOSPC occurred and
+no assertions/source changed. Full aggregate native receipts, every stage log,
+P0 report and checksums are in the
+[post-ENOSPC qualification evidence](../exec-plans/evidence/engineering_dashboard_20261013/post_enospc/GS125_POST_ENOSPC_VALIDATION_20261013.md).
+
+Physical qualification, full release approval, GS-76/143 identity, PostgreSQL
+integration, authenticated service PWA routes and trusted diagnostic source
+remain unqualified/blocking. Production auth/routes remain disabled; no GS-148
+source was changed. Earlier Stage 1 aggregate failure statements below describe
+the pre-recovery run and are superseded for the CloudSync/P0 recovery diagnosis;
+the fresh aggregates still remain FAIL due to P0 product completeness.
+
+
+## Previous GS-122/124/125 Stage 1 checkpoint (pre-/tmp recovery) — 2026-10-13
 
 Dashboard branch `feature/gs124-125-engineering-dashboard`. The source checkpoint
 `58efb4da891690e3304b86a1e50243af6bf92108` was locally clean and matched the

@@ -1,0 +1,363 @@
+{
+  "software_status": "FAIL",
+  "physical_status": "NOT_RUN",
+  "physically_qualified": false,
+  "release_approved": false,
+  "suite": "backend",
+  "source_head": "aa7b19b13cef2d9c75096ab410c635e967671e90",
+  "source_fingerprint": "195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965",
+  "source_unchanged": true,
+  "build_profile": {
+    "CXX": "",
+    "HOST_CXX": "",
+    "HOST_TOOLCHAIN_GUARD": "",
+    "CXXFLAGS": "",
+    "TRACE_FLAGS": "",
+    "INCLUDES": "",
+    "PRODUCT": "",
+    "GS_IDF_EXPORT": "",
+    "host_compiler": "d3c02c2eb999e2ce",
+    "portable_crypto_sources": "ad5008d86e3a337d12bed44ce4e8d983db842db83ef0f245d6db69fb8b74bbd0",
+    "python": "3.14.4 (main, Aug 20 2026, 10:41:58) [GCC 15.2.0]"
+  },
+  "tracked_dirty": false,
+  "seconds": 112.457,
+  "stages": [
+    {
+      "exit_code": 0,
+      "seconds": 0.167,
+      "status": "PASS",
+      "id": "host-build",
+      "command": [
+        "make",
+        "validation-build"
+      ],
+      "count": 1,
+      "count_kind": "builds",
+      "log": "evidence/validation_framework/backend-1791907554777890475/host-build.log",
+      "log_sha256": "e8517a6b59d11eb981fefee8faa0eed4a77feb747abb3b8a6c553f63e0b47e78",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa",
+        "tooling"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 2.977,
+      "status": "PASS",
+      "id": "backend-receipts",
+      "command": [
+        "make",
+        "hub-backend-commit-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/backend-receipts.log",
+      "log_sha256": "0cd5eaac50094aa0cb0888297b3517f887bc3eb00c17960f1749ed8d431da328",
+      "artifacts": {
+        "build/hub_backend_commit_validation": "370c9ad58f4d01bc708e8ea56d42a8aeacdd23803bf3f7c64f75e0fb68f39e2c"
+      },
+      "reused_from": null,
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.679,
+      "status": "PASS",
+      "id": "hub-ownership-lifecycle",
+      "command": [
+        "make",
+        "hub-ownership-lifecycle-host-test"
+      ],
+      "count": 6,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/backend-1791907554777890475/hub-ownership-lifecycle.log",
+      "log_sha256": "ac3e888d875b9e18b8440c9e2d94e639a177aa7ccb34b3a30afdbcf09dab01c9",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 3.235,
+      "status": "PASS",
+      "id": "health-config",
+      "command": [
+        "make",
+        "gs40-config-test"
+      ],
+      "count": 15,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/backend-1791907554777890475/health-config.log",
+      "log_sha256": "5b23d17b8969710d740eccb53330e78a01d071ad16f04ed8e819b1829f5286d9",
+      "artifacts": {
+        "build/ghar_sajag_interactive": "465477228ec44dc7fb52a6ad8c48d5aea70c45027d231b566526565a346f51dd"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.191,
+      "status": "PASS",
+      "id": "contracts",
+      "command": [
+        "make",
+        "contracts"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/contracts.log",
+      "log_sha256": "05647a5e09ecfd0a7424a2e778ffa26af2ae7a8c4a3e4b790fb4879179e0a158",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "contract",
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.403,
+      "status": "PASS",
+      "id": "lab-build",
+      "command": [
+        "make",
+        "lab-build"
+      ],
+      "count": 1,
+      "count_kind": "builds",
+      "log": "evidence/validation_framework/backend-1791907554777890475/lab-build.log",
+      "log_sha256": "40647c61b1362d007ca9bb413490017dd02859834b9616b0a0e98683fa5ced2b",
+      "artifacts": {
+        "build/ghar_sajag_interactive": "465477228ec44dc7fb52a6ad8c48d5aea70c45027d231b566526565a346f51dd"
+      },
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 35.332,
+      "status": "PASS",
+      "id": "python",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "count": 449,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/backend-1791907554777890475/python.log",
+      "log_sha256": "ff5b39d904d3ad1eb689b21f3f0baa70bfd044e9f857b47b2f88055938c22416",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa",
+        "tooling"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 4.344,
+      "status": "PASS",
+      "id": "functional",
+      "command": [
+        "python3",
+        "validation/run_functional_suite.py"
+      ],
+      "count": 92,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/functional.log",
+      "log_sha256": "2a03038e995d2032a1c9850e8f40baa99e2a217820cbd8ac4547564a79739edf",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.502,
+      "status": "PASS",
+      "id": "dummy-streams",
+      "command": [
+        "python3",
+        "validation/run_dummy_sensor_streams.py"
+      ],
+      "count": 5,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/dummy-streams.log",
+      "log_sha256": "0e0637d2e52bc6ccdfe2c8974c271031d7d9e4d02125f32cd0b86200f8d65cb4",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 5.337,
+      "status": "PASS",
+      "id": "http",
+      "command": [
+        "python3",
+        "tests/simulation_http_test.py"
+      ],
+      "count": 17,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/http.log",
+      "log_sha256": "b6749a56f9d9c937b94883048922e92eb1f78970d8b2f0ef8c310cb13d14cbc0",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 1.822,
+      "status": "PASS",
+      "id": "bridge",
+      "command": [
+        "python3",
+        "tests/pwa_bridge_test.py"
+      ],
+      "count": 13,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/bridge.log",
+      "log_sha256": "e408e7216201ee745c7c883da345466aa9da09bc1f88031305a059f7eb213e95",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 5.113,
+      "status": "PASS",
+      "id": "api",
+      "command": [
+        "python3",
+        "tests/pwa_68_api_test.py"
+      ],
+      "count": 2,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/api.log",
+      "log_sha256": "6fdb59b21cdf17faf5abdffcac0e61fdeb8157368d85248a454de831dabc2136",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 5.829,
+      "status": "PASS",
+      "id": "frontend",
+      "command": [
+        "python3",
+        "tests/pwa_68_frontend_test.py"
+      ],
+      "count": 2,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791907554777890475/frontend.log",
+      "log_sha256": "671445612e7b6a0db6de35ff3a422ec2603ca41708de476b282c95b0d6ed0df0",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 42.223,
+      "status": "FAIL",
+      "id": "p0-full-product-e2e",
+      "command": [
+        "make",
+        "p0-product-e2e",
+        "P0_SCENARIOS="
+      ],
+      "count": 26,
+      "count_kind": "scenario_checks",
+      "log": "evidence/validation_framework/backend-1791907554777890475/p0-full-product-e2e.log",
+      "log_sha256": "6b922e6998572f51795643a3b3f424dbd38dbde02f629dbbb1807a60104f278d",
+      "artifacts": {
+        "build/p0_board_stack_e2e_validation": "a6630e6e9e416eed1dd73813821d4ddcc604f0d2eea0bcbaa7715d7ff9d61c7a",
+        "build/p2d_cloud_contract_validation": "c3cb4d85cbbff8ba1d5ae6b28cc118a60a31ee8c2d78bf11b9df52792f1b0933"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 2.415,
+      "status": "PASS",
+      "id": "diagnostic-foundation",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/engineering_dashboard",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "count": 84,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/backend-1791907554777890475/diagnostic-foundation.log",
+      "log_sha256": "488295e06c98f01808ec36b400ad2d21927b6054ac6555f71d2caeb0c045445a",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend"
+      ]
+    }
+  ]
+}

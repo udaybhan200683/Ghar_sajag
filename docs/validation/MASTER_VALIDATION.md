@@ -1,6 +1,25 @@
 
 # Master automated validation and regression framework
 
+## Latest GS-125 post-ENOSPC backend/PWA qualification — 2026-10-13
+
+Fresh backend and PWA reports share source fingerprint
+`195c3a82e7ceaf075d9edc4f8b087bc69f0be6c508476babc7f2130522d97965` at dashboard
+HEAD `aa7b19b13cef2d9c75096ab410c635e967671e90`, with `source_unchanged=true` and
+`tracked_dirty=false`. Backend aggregate remains FAIL (make exit 2, 14/15 stages
+PASS); Python 449 PASS with one allowed historical skip, diagnostic-foundation
+84/84 PASS, and CloudSync durable-before-ACK now passes. PWA remains FAIL (make
+exit 2, 11/12 stages PASS); ten eligible backend PASS receipts reused and fresh
+JavaScript 23/23 PASS. Both fail P0 complete-product adjudication only: all 26
+scenario checks and one browser test pass, including initial file-backed Node
+recovery, while the output remains `product_status=PARTIAL`. Native report names
+unconfigured production Hub TLS/credential authentication and enrollment-
+generation binding as the GS-148 gap. No ENOSPC occurred. Detailed native
+receipts, stage logs, source/profile details and checksums are in the
+[GS-125 post-ENOSPC evidence](../exec-plans/evidence/engineering_dashboard_20261013/post_enospc/GS125_POST_ENOSPC_VALIDATION_20261013.md).
+
+## Earlier Stage 1 validation checkpoint (before /tmp recovery; historical)
+
 ## GS-124/125 isolated Stage 1 host service desk — 2026-10-13
 
 The existing GS-116 `diagnostic-foundation` backend/fast/release stage now runs
