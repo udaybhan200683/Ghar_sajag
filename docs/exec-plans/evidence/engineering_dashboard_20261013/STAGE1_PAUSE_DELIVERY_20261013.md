@@ -19,3 +19,14 @@ All ignored evidence and one-time helper scripts are preserved. Both backend and
 PWA aggregates completed and retain their two existing failures; see the final
 [implementation report](GS124_STAGE1_IMPLEMENTATION_REPORT_20261013.md).
 No validation owned by this task remains running.
+
+## Final delivery receipt — 2026-10-13
+
+Documentation/evidence commit `fe8fe466f10361cac4daf317abdcf997b6fe8fb9`
+was pushed to `origin/feature/gs124-125-engineering-dashboard`; GitHub remote
+HEAD matched that commit and the tracked working tree was clean. Jira handoff
+comments were added without changing issue status: GS-122 comment 10804,
+GS-124 comment 10805, GS-125 comment 10806. These comments link the source
+checkpoint, validation receipts, actual aggregate failures and production
+blockers. The final handoff receipt is this documentation commit; its exact
+SHA and verified remote equality are reported with the Jira update.
