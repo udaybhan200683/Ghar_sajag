@@ -1,0 +1,575 @@
+{
+  "software_status": "FAIL",
+  "physical_status": "NOT_RUN",
+  "physically_qualified": false,
+  "release_approved": false,
+  "suite": "node",
+  "source_head": "ed1a7dfde0299e8c84e4f12a9f1dd48dd39836ed",
+  "source_fingerprint": "1d4752ea9d8bb3550693a37acb0bcbac7f338b2e42b36c99a98c9ed22ba847aa",
+  "source_unchanged": true,
+  "build_profile": {
+    "CXX": "",
+    "HOST_CXX": "",
+    "HOST_TOOLCHAIN_GUARD": "",
+    "CXXFLAGS": "",
+    "TRACE_FLAGS": "",
+    "INCLUDES": "",
+    "PRODUCT": "",
+    "GS_IDF_EXPORT": "",
+    "host_compiler": "d3c02c2eb999e2ce",
+    "portable_crypto_sources": "ad5008d86e3a337d12bed44ce4e8d983db842db83ef0f245d6db69fb8b74bbd0",
+    "python": "3.14.4 (main, Aug 20 2026, 10:41:58) [GCC 15.2.0]"
+  },
+  "tracked_dirty": true,
+  "seconds": 121.412,
+  "stages": [
+    {
+      "exit_code": 0,
+      "seconds": 1.533,
+      "status": "PASS",
+      "id": "s3-fixture-commissioning",
+      "command": [
+        "make",
+        "s3-fixture-commissioning-test"
+      ],
+      "count": 14,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/node-1791995852321902084/s3-fixture-commissioning.log",
+      "log_sha256": "041da5daf74b845d418a1a13cf307b548cac14c3c025a1f286bc4711732a6ed9",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.152,
+      "status": "PASS",
+      "id": "host-build",
+      "command": [
+        "make",
+        "validation-build"
+      ],
+      "count": 1,
+      "count_kind": "builds",
+      "log": "evidence/validation_framework/node-1791995852321902084/host-build.log",
+      "log_sha256": "9db568139d342ab46b1ae6c4c1184a94104b9bea6c4b883bd35c8b0e9d3cce02",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa",
+        "tooling"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 8.615,
+      "status": "PASS",
+      "id": "board-stack-e2e",
+      "command": [
+        "make",
+        "board-stack-e2e-host-test"
+      ],
+      "count": 10,
+      "count_kind": "scenario_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/board-stack-e2e.log",
+      "log_sha256": "48f01411b13035b91ba50b8e1d6460f69b6875af39c617e6e77b623fc918646d",
+      "artifacts": {
+        "build/board_stack_e2e_validation": "53bcf48dfb3547b9f8e3e86203c5c955ea165134dd940171d0056927796c08f8"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 3.431,
+      "status": "PASS",
+      "id": "feature-boundaries",
+      "command": [
+        "make",
+        "feature-boundary-host-test"
+      ],
+      "count": 133,
+      "count_kind": "checks",
+      "log": "evidence/validation_framework/node-1791995852321902084/feature-boundaries.log",
+      "log_sha256": "1682105d4b712b2e4998e730f83d45e8867b71ca87effd7631284e76ed59aaf8",
+      "artifacts": {
+        "build/feature_boundary_validation": "947d20ce4a7af859ea616892960486492c6ab973040337c1ef5ce1ae3adc75c0"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 9.606,
+      "status": "PASS",
+      "id": "factory-reset",
+      "command": [
+        "make",
+        "factory-node-reset-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/factory-reset.log",
+      "log_sha256": "938b3fafe9064fb7fc0f80d278d0abf82d511b5a99861070a4adf90b1490625e",
+      "artifacts": {
+        "/home/udaybhan/projects/Ghar_sajag_r1/code/build/factory_reset_validation": "507ac872a872ee7620ca6f9fa15358d6e8d8a2729b579aa6f1fb3dbc5b0e1d75"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.238,
+      "status": "PASS",
+      "id": "signed-fota-tooling",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_secure_signed_fota_fixture.py",
+        "-v"
+      ],
+      "count": 16,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/node-1791995852321902084/signed-fota-tooling.log",
+      "log_sha256": "634b4633a7e67d70274dc673daab89e0f4bd10567f9cca60abf123512d11a8af",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 8.413,
+      "status": "PASS",
+      "id": "cpp",
+      "command": [
+        "make",
+        "cpp-test"
+      ],
+      "count": 1483,
+      "count_kind": "checks",
+      "log": "evidence/validation_framework/node-1791995852321902084/cpp.log",
+      "log_sha256": "15f18f4e18da23a9cb89c40cf5dd353ebf3491802aec0891d6f31882588d742e",
+      "artifacts": {
+        "build/cpp_tests": "f1045fb4b39b6bea7eb32bb96710d6d60e8b79dd8e81338dfad1a9670934c758"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 1.991,
+      "status": "PASS",
+      "id": "battery-c8",
+      "command": [
+        "make",
+        "battery-c8-host-test"
+      ],
+      "count": 72,
+      "count_kind": "checks",
+      "log": "evidence/validation_framework/node-1791995852321902084/battery-c8.log",
+      "log_sha256": "df399a2e1cd479a3f860d24eaa5369777751565efe94fc4748d374072339c13b",
+      "artifacts": {
+        "build/battery_c8_validation": "d110b22101e2f88b48ef641d63956201f03fcac84a1e6db4d9282452b3ce6e88"
+      },
+      "reused_from": null,
+      "components": [
+        "node"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 6.401,
+      "status": "PASS",
+      "id": "gs150",
+      "command": [
+        "make",
+        "gs150-host-test"
+      ],
+      "count": 1500,
+      "count_kind": "checks",
+      "log": "evidence/validation_framework/node-1791995852321902084/gs150.log",
+      "log_sha256": "621cc16a1c1267c85c70021300dac050a7c5cf1636427d914d57caec0e1afe00",
+      "artifacts": {
+        "build/gs150_offline_sleep_validation": "f433041c69d381cd22cad75609083de6ced7dd1073eb5e820cb7598333379008"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 7.628,
+      "status": "PASS",
+      "id": "gs40",
+      "command": [
+        "make",
+        "gs40-host-test"
+      ],
+      "count": 1320,
+      "count_kind": "checks",
+      "log": "evidence/validation_framework/node-1791995852321902084/gs40.log",
+      "log_sha256": "0c39cb6a17d25cd7a187f3c237284d7fe358016e49f2ac89209613b1945c4c93",
+      "artifacts": {
+        "build/gs40_node_health_validation": "e04129b0ddefb3d8bf5ab706ea88deb0de47ccdfb40ad9941ccb1901f8c38816"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 2.646,
+      "status": "PASS",
+      "id": "commissioning",
+      "command": [
+        "make",
+        "commissioning-crypto-host-test"
+      ],
+      "count": 4,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/commissioning.log",
+      "log_sha256": "009e870d927018be46bb532c1aed0102e0eb1c4ca93335ae6f61a8adbb7a71de",
+      "artifacts": {
+        "build/commissioning_crypto_validation": "d3ff700b287f147964f55468a5673ef5615d4959ff74de9d467118b91e224d1e"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 1.894,
+      "status": "PASS",
+      "id": "rejoin",
+      "command": [
+        "make",
+        "rejoin-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/rejoin.log",
+      "log_sha256": "c50d91a1130a489cdeeaf9e2e5b138d18813e1888068087e37de5626f93ee5ff",
+      "artifacts": {
+        "build/rejoin_host_validation": "c0c4d62cd7e901ced2836fe4d1978974d4ebe7d07e5b096703ab3bbde6be6c49"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 1.489,
+      "status": "PASS",
+      "id": "association",
+      "command": [
+        "make",
+        "association-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/association.log",
+      "log_sha256": "0835cc67bdaaa68932deb2ee7bc9e8e7743b05c50a5db4acbc4fca8668daadb0",
+      "artifacts": {
+        "build/association_persistence_validation": "1d583f4357bcb5e3185b8529824ecda0074967d40ad53b5e6011572a44d2a157"
+      },
+      "reused_from": null,
+      "components": [
+        "node"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 2.027,
+      "status": "PASS",
+      "id": "node-recovery",
+      "command": [
+        "make",
+        "node-recovery-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/node-recovery.log",
+      "log_sha256": "5b3d31a4393dc9d6effd06241666390b6aa95269b57bb4707dbcd2b928186e5e",
+      "artifacts": {
+        "build/node_runtime_recovery_validation": "b9ca4d0fb7e596c92367a1261c9e3b8451d8f9d9edc334992c8823e05b05a4c0"
+      },
+      "reused_from": null,
+      "components": [
+        "node"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 2.978,
+      "status": "PASS",
+      "id": "node-persistence",
+      "command": [
+        "make",
+        "node-recovery-persistence-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/node-persistence.log",
+      "log_sha256": "5fd2336ea17d0b9598c1fb204d712d3c09b77755020d5d6801a4d6aafb34245c",
+      "artifacts": {
+        "build/node_recovery_persistence_validation": "0d6ce53b9b8ea0f0f86d62bb24b2255437ce252ce730aa8aa6bb8b91e3681657"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 2.128,
+      "status": "PASS",
+      "id": "node-retirement",
+      "command": [
+        "make",
+        "node-retirement-protocol-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/node-retirement.log",
+      "log_sha256": "4b30f8eb2b4a187320e75742ef37317b2870b6991de3e058dd1b76a1adf097f9",
+      "artifacts": {
+        "build/node_retirement_protocol_validation": "384019f2c293de1b4fe2c9860873563a8179a0dc1412fd95584f9e1a9c763e64"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 1.769,
+      "status": "PASS",
+      "id": "secure-fota",
+      "command": [
+        "make",
+        "secure-fota-adapter-host-test"
+      ],
+      "count": 2,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/secure-fota.log",
+      "log_sha256": "70b2b8c59eabc3add0f04a1d12f03f9d2c8a38ccafadcb3d09d6fdb85bc9ae7a",
+      "artifacts": {
+        "build/secure_fota_adapter_validation": "46fef80f4991149fd651fd0d99c4eba61ac39ed75638d9eb35d6dad35fa8ae0e"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 4.9,
+      "status": "PASS",
+      "id": "fota",
+      "command": [
+        "make",
+        "fota-host-test"
+      ],
+      "count": 34,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/fota.log",
+      "log_sha256": "b43cec45cfec00219231e8d68d4b29d8901c50aaf0ea61423001e3d6a2849a3c",
+      "artifacts": {
+        "build/fota_host_validation": "668a9b6abafd11d8a6dcbc05861785e1ac9f6a2b061e2f2cfef4ac64499868e1"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 6.695,
+      "status": "PASS",
+      "id": "master",
+      "command": [
+        "make",
+        "master-validation"
+      ],
+      "count": 49,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/master.log",
+      "log_sha256": "ffd0b53a92c2729bb11c90a500e83ec476626764a4b5a7c092f8347a44d99024",
+      "artifacts": {
+        "build/master_validation": "968df0438f7d634d4fbcc445f3d19e982b9f76266c54b7632157dbfa3a9ecdea"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.971,
+      "status": "PASS",
+      "id": "first-event-recovery-projection",
+      "command": [
+        "make",
+        "hub-first-event-projection-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/first-event-recovery-projection.log",
+      "log_sha256": "3c976d8067020d0b705d58e2a3bb43a27d46f784b4f8341ae09815346a5a8a84",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 3.018,
+      "status": "PASS",
+      "id": "health-config",
+      "command": [
+        "make",
+        "gs40-config-test"
+      ],
+      "count": 17,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/node-1791995852321902084/health-config.log",
+      "log_sha256": "2ccd9b470e33e690954a2b0d988136342ad0b3b3e4ff32c71298159a4fc19f73",
+      "artifacts": {
+        "build/ghar_sajag_interactive": "6eb99f842a8a8f77cb7963dba39b5771047a0063506b2c37845e3b1c493e0f41"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.918,
+      "status": "PASS",
+      "id": "product-base",
+      "command": [
+        "make",
+        "product-test",
+        "PRODUCT=base"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/product-base.log",
+      "log_sha256": "c0d62577319b117cd191a2355f11ac400c5dd6aeb90c494d25cc68f63a62bfbc",
+      "artifacts": {
+        "build/product_tests_base": "915da544477f66b8927313c1ab8a0ffeca64409c4bd42f5de0404deeba4555bb"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.985,
+      "status": "PASS",
+      "id": "product-ai",
+      "command": [
+        "make",
+        "product-test",
+        "PRODUCT=ai"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/node-1791995852321902084/product-ai.log",
+      "log_sha256": "75dbb1ea11c6b83c1be922ad36234f7b1234fdf0a51122cc441eb357284ee7ed",
+      "artifacts": {
+        "build/product_tests_ai": "3f27a35b0507abbf6046fc21e4e7e17ed3c7bda861dac6b2031530e2b73f3223"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 40.355,
+      "status": "FAIL",
+      "id": "p0-full-product-e2e",
+      "command": [
+        "make",
+        "p0-product-e2e",
+        "P0_SCENARIOS="
+      ],
+      "count": 26,
+      "count_kind": "scenario_checks",
+      "log": "evidence/validation_framework/node-1791995852321902084/p0-full-product-e2e.log",
+      "log_sha256": "ffd5ca74e40b9083d62c2b9fe673f91c07147ed0eb45b24b7270a47220e5b892",
+      "artifacts": {
+        "build/p2d_cloud_contract_validation": "5672c27ee14e0968eac0a77e95afd6bcc54b0f53e318dfb29a9a58cc1401de6f",
+        "build/p0_board_stack_e2e_validation": "53bcf48dfb3547b9f8e3e86203c5c955ea165134dd940171d0056927796c08f8"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa"
+      ]
+    }
+  ]
+}

@@ -166,6 +166,47 @@ void health_and_wan(){
     require(cloud.handle_backend_reply(batch[0].key,receipt,400000)==hub::BackendReceiptResult::Completed,"exact authenticated contract fixture durably completes backend interface only");
     b.restart_s3();require(b.hub->journal().cloud_completed(batch[0].key),"completion survives S3 simulated restart");
 }
+void health_replay_expiry_rejoin(){
+    BoardStack b;
+    NodeHealthSnapshot health;
+    health.node_id="room";health.session_id=b.session;health.health_sequence=5;
+    health.free_heap=50000;
+    auto receive=[&](const NodeHealthSnapshot& snapshot,std::uint64_t at){
+        const auto encoded=transport::encode_node_health(snapshot);
+        SecureFrame wire;transport::EncodedFrame opened;
+        require(encoded&&b.nf->seal(RuntimeDirection::Uplink,encoded.frame,wire)&&
+                b.hf->open(RuntimeDirection::Uplink,wire,opened),
+                "NodeHealth executes production codec and authenticated transport");
+        const auto decoded=transport::decode_node_health(opened.bytes.data(),opened.size);
+        require(bool(decoded),"authenticated NodeHealth decodes before admission");
+        return b.hub->observe_authenticated_health(*decoded.value,"room",b.session,at);
+    };
+    require(receive(health,1000),"initial valid health establishes contact");
+    auto newer=health;newer.health_sequence=6;newer.free_heap=40000;
+    require(!receive(newer,999),"backwards received clock rejects newer health without poisoning sequence");
+    auto wrong=health;wrong.node_id="other";wrong.health_sequence=99;
+    require(!receive(wrong,900000),"correct channel key does not authorize a different logical Node");
+    require(!receive(health,911000),"fresh authenticated envelope cannot refresh replayed health payload");
+    const auto baseline=b.hub->node_health("room");
+    require(baseline&&baseline->last_seen_monotonic_ms==1000&&
+            baseline->snapshot.health_sequence==5&&baseline->snapshot.free_heap==50000,
+            "rejected telemetry leaves exact prior snapshot and lease intact");
+    require(b.hub->node_online("room",911000)&&!b.hub->node_online("room",911001),
+            "replayed health cannot postpone the exact 910-second lease expiry");
+    require(receive(newer,911002)&&b.hub->node_online("room",911002),
+            "new health recovers offline Node without PIR or a business event");
+    const auto old_session=b.session;
+    b.rejoin(old_session+1);
+    require(!b.hub->node_health("room")&&!b.hub->node_online("room",911003),
+            "rejoin alone does not reuse old authenticated freshness");
+    require(!receive(newer,911004),"old payload session remains invalid under a new authenticated envelope");
+    health.session_id=b.session;health.health_sequence=1;
+    require(receive(health,911005)&&b.hub->node_health("room")->snapshot.health_sequence==1,
+            "fresh session can restart health sequence and recover without resetting Node events");
+    require(b.node->pending()==0&&b.outbox->record_count()==0&&
+            b.hub->routine_state().evidence_ids.empty(),
+            "health expiry/recovery cannot fabricate resident activity or durable effects");
+}
 void faults_and_priority(){
     { // Without any valid committed authority root, recovery must fail closed.
         gs::test::TempFlash files;gs::test::FileSegments flash(files.path/"first-root");
@@ -312,7 +353,8 @@ int main(int argc,char** argv){
         {"BOARD-TC-130-009",first_pir_after_hub_reboot},
         {"BOARD-TC-130-004",sleep_and_outage},{"BOARD-TC-130-005",health_and_wan},
         {"BOARD-TC-130-006",faults_and_priority},{"BOARD-TC-130-007",multiple_nodes},
-        {"BOARD-TC-130-008",fota_interruption}};
+        {"BOARD-TC-130-008",fota_interruption},
+        {"BOARD-TC-130-010",health_replay_expiry_rejoin}};
     std::string select=argc>1?argv[1]:"";unsigned selected=0,failed=0;
     for(const auto& item:cases){if(!select.empty()&&select!=item.first)continue;++selected;
         try{item.second();const char* injection=std::getenv("GS_BOARD_E2E_INJECT_FAILURE");if(injection&&item.first==injection)require(false,"controlled board-stack negative self-test");std::cout<<item.first<<" PASS\n";}

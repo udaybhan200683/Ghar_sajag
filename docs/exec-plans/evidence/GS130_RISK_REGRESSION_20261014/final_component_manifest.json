@@ -1,0 +1,95 @@
+{
+  "fingerprint": "11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574",
+  "results": [
+    {
+      "suite": "node",
+      "command": [
+        "make",
+        "validation-node"
+      ],
+      "make_exit": 2,
+      "report": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/node-1791996894897500075/report.json",
+      "source_fingerprint": "11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574",
+      "source_unchanged": true,
+      "passed": 23,
+      "total": 24,
+      "failed": [
+        "p0-full-product-e2e"
+      ],
+      "seconds": 137.555
+    },
+    {
+      "suite": "hub",
+      "command": [
+        "make",
+        "validation-hub",
+        "VALIDATION_REUSE_REPORTS=/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/node-1791996894897500075/report.json"
+      ],
+      "make_exit": 2,
+      "report": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/hub-1791997032849526799/report.json",
+      "source_fingerprint": "11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574",
+      "source_unchanged": true,
+      "passed": 39,
+      "total": 41,
+      "failed": [
+        "migration",
+        "p0-full-product-e2e"
+      ],
+      "seconds": 407.664
+    },
+    {
+      "suite": "contract",
+      "command": [
+        "make",
+        "validation-contract",
+        "VALIDATION_REUSE_REPORTS=/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/node-1791996894897500075/report.json /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/hub-1791997032849526799/report.json"
+      ],
+      "make_exit": 2,
+      "report": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json",
+      "source_fingerprint": "11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574",
+      "source_unchanged": true,
+      "passed": 33,
+      "total": 34,
+      "failed": [
+        "p0-full-product-e2e"
+      ],
+      "seconds": 45.714
+    },
+    {
+      "suite": "backend",
+      "command": [
+        "make",
+        "validation-backend",
+        "VALIDATION_REUSE_REPORTS=/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/node-1791996894897500075/report.json /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/hub-1791997032849526799/report.json /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json"
+      ],
+      "make_exit": 2,
+      "report": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/backend-1791997486997530132/report.json",
+      "source_fingerprint": "11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574",
+      "source_unchanged": true,
+      "passed": 13,
+      "total": 14,
+      "failed": [
+        "p0-full-product-e2e"
+      ],
+      "seconds": 110.465
+    },
+    {
+      "suite": "pwa",
+      "command": [
+        "make",
+        "validation-pwa",
+        "VALIDATION_REUSE_REPORTS=/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/node-1791996894897500075/report.json /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/hub-1791997032849526799/report.json /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/backend-1791997486997530132/report.json"
+      ],
+      "make_exit": 2,
+      "report": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/pwa-1791997597878044107/report.json",
+      "source_fingerprint": "11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574",
+      "source_unchanged": true,
+      "passed": 11,
+      "total": 12,
+      "failed": [
+        "p0-full-product-e2e"
+      ],
+      "seconds": 44.353
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+python3 scripts/build_portable_psa_reset.py
+PORTABLE PSA source SHA256=e9331d4e4fc8a22092cb9b6a6438c2fd5e37df8cb10085d534c4ed20d272a7b2
+PORTABLE PSA: cmake -S /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto -B /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220 -DENABLE_PROGRAMS=OFF -DENABLE_TESTING=OFF -DGEN_FILES=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-B/usr/bin -I/home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/compat
+-- Configuring done (0.4s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220
+PORTABLE PSA: cmake --build /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220 -j2
+gmake[3]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220'
+[  3%] Built target p256-m
+[  6%] Built target everest
+[  9%] Built target pqcp
+[ 10%] Building C object drivers/builtin/CMakeFiles/builtin.dir/src/bignum.c.o
+[ 23%] Built target extras
+[ 24%] Building C object drivers/builtin/CMakeFiles/builtin.dir/src/ecp.c.o
+[ 29%] Built target platform
+[ 38%] Built target utilities
+[ 39%] Linking C static library libbuiltin.a
+[ 87%] Built target builtin
+[ 89%] Linking C static library libtfpsacrypto.a
+[100%] Built target tfpsacrypto
+gmake[3]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220'
+PORTABLE PSA: /usr/bin/python3 /home/udaybhan/projects/Ghar_sajag_r1/code/tools/factory/validate_node_reset.py --crypto-build /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220 --compat-include /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/compat --output /home/udaybhan/projects/Ghar_sajag_r1/code/build/factory_reset_validation
+cc -B/usr/bin -c /tmp/gs_factory_reset_test_mv4zeyb0/idf_guard.c -o /tmp/gs_factory_reset_test_mv4zeyb0/guard.o
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -I/home/udaybhan/projects/Ghar_sajag_r1/code -I/home/udaybhan/projects/Ghar_sajag_r1/code/firmware/common/shared/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/include -I/home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/include -I/home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/include -I/home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/compat /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/common/security/association_persistence.cpp /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/common/security/psa_commissioning_crypto.cpp /tmp/gs_factory_reset_test_mv4zeyb0/psa_guard.cpp -Wl,--wrap=psa_aead_encrypt -Wl,--wrap=psa_aead_decrypt /home/udaybhan/projects/Ghar_sajag_r1/code/tests/cpp/factory_node_reset_validation.cpp /tmp/gs_factory_reset_test_mv4zeyb0/guard.o -Wl,--start-group /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/extras/libextras.a /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/core/libtfpsacrypto.a /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/utilities/libutilities.a /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/platform/libplatform.a /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/drivers/p256-m/libp256-m.a /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/drivers/everest/libeverest.a /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/drivers/pqcp/libpqcp.a /home/udaybhan/projects/Ghar_sajag_r1/code/build/portable_psa_e9331d4e4fc8a220/drivers/builtin/libbuiltin.a -Wl,--end-group -o /home/udaybhan/projects/Ghar_sajag_r1/code/build/factory_reset_validation
+/home/udaybhan/projects/Ghar_sajag_r1/code/build/factory_reset_validation
+NODE EMPTY AEAD SHARED CHECKS PASS checks=13
+FACTORY NODE RESET PASS exact IDF null-input guard / real PSA software reset / generation / reboot / tamper / write fault / idempotency; corrected PSA boundary supports empty reset/load
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

@@ -1,0 +1,10 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/hub/commissioning/registry/node_registry.o tests/cpp/node_registry_validation.cpp -o build/node_registry_validation
+./build/node_registry_validation
+P2-REG-CAPACITY HOST PASS max-1/max/max+1
+P2-REG-IDENTITY HOST PASS foreign/duplicate/rejoin/quarantine
+P2-COM-RETRY HOST PASS unactivated-only exact retry
+P2-REG-LIFECYCLE HOST PASS replace/remove/revoke
+P2-REG-REVOCATION HOST PASS max-1/max/max+1 and quarantine
+P2-REG-SNAPSHOT HOST PASS sessions/revocations/quarantine/atomicity
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

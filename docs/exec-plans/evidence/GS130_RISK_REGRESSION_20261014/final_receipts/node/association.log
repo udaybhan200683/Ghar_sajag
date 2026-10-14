@@ -1,0 +1,5 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/security/association_persistence.o build/obj/base/ed0b9d0aae893634/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/association_persistence_validation.cpp -lcrypto -o build/association_persistence_validation
+./build/association_persistence_validation
+P2-PERSIST-ASSOC HOST PASS reboot/write-failure/reset/corruption
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

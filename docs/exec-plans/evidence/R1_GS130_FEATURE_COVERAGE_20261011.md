@@ -1,5 +1,17 @@
 # GS-130 feature coverage implementation — 2026-10-11
 
+## Latest bounded continuation — 2026-10-14
+
+The current GS-130 comment 10932 pass starts at local/origin
+`ed1a7dfde0299e8c84e4f12a9f1dd48dd39836ed`. See
+[focused risk-regression report](GS130_RISK_REGRESSION_20261014.md) for the
+audited six-case addition, reproduced stale-health defect and targeted repair,
+per-priority outcomes, receipts and exact next GS-148 P4/P5-B1 handoff.
+Current inventory is 182 scenario/feature rows and 205 source modules; board
+E2E is ten groups after adding authenticated-health expiry/rejoin. The older
+counts and commands below remain dated historical evidence. No physical case
+is rerun or reclassified by this continuation.
+
 ## Scope before implementation
 
 FEATURE/JIRA=GS-130. Canonical worktree /home/udaybhan/projects/Ghar_sajag_r1,

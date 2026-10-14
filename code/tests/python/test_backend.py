@@ -10,12 +10,16 @@
 from __future__ import annotations
 
 import unittest
+import copy
+import json
+from io import BytesIO
 
 from ghar_sajag import GharSajagService
 from ghar_sajag.identity import AuthorizationError
 from ghar_sajag.ingest import EventValidationError
 from ghar_sajag.incidents import IncidentConflict
 from ghar_sajag.model import CloudEvent, Device, HomeMode, IncidentState, Resident
+from ghar_sajag.http_api import JsonApi
 
 
 class BackendTest(unittest.TestCase):
@@ -127,6 +131,46 @@ class BackendTest(unittest.TestCase):
         fresh = self.service.queries.snapshot("home-1", "care-1", 502)
         self.assertTrue(fresh["hub_reachable"])
         self.assertGreaterEqual(self.service.operations.diagnostics("home-1")["audit_entries"], 1)
+
+    def test_GS130_CONFIG_001_json_rejection_preserves_applied_policy(self) -> None:
+        api=JsonApi(self.service,now=lambda:100)
+        def request(body,actor='owner-1'):
+            raw=body.encode() if isinstance(body,str) else json.dumps(body).encode()
+            statuses=[]
+            response=b''.join(api({'REQUEST_METHOD':'POST','PATH_INFO':'/v1/homes/home-1/config',
+                'HTTP_X_ACTOR_ID':actor,'CONTENT_LENGTH':str(len(raw)),
+                'wsgi.input':BytesIO(raw)},lambda status,headers:statuses.append(status)))
+            return int(statuses[0][:3]),json.loads(response)
+        config={'morning':{'enabled':True,'start_minute':420,'end_minute':600},
+                'activity_rules':{'quiet_start_minute':1320,'quiet_end_minute':360,
+                    'daytime_start_minute':480,'daytime_end_minute':1260,
+                    'door_open_timeout_seconds':300,'daytime_inactivity_seconds':7200}}
+        self.assertEqual(request(config)[0],202)
+        self.service.fleet.record_applied('home-1',1,100)
+        baseline=copy.deepcopy(api.dispatch('GET','/v1/homes/home-1/config','owner-1',{})[1])
+        audits=len(self.service.store.audit)
+        invalid=[None,[],{},'{']
+        for field,values in {
+            'quiet_start_minute':[True,-1,1440,'0',0.5],
+            'daytime_end_minute':[None,1440],
+            'door_open_timeout_seconds':[True,29,86401],
+            'daytime_inactivity_seconds':[True,299,86401]
+        }.items():
+            for value in values:
+                bad=copy.deepcopy(config);bad['activity_rules'][field]=value;invalid.append(bad)
+        for bad in invalid:
+            with self.subTest(body=bad):
+                self.assertEqual(request(bad)[0],400)
+                self.assertEqual(api.dispatch('GET','/v1/homes/home-1/config','owner-1',{})[1],baseline)
+                self.assertEqual(len(self.service.store.audit),audits)
+        self.assertEqual(request(config,'care-1')[0],403)
+        self.assertEqual(len(self.service.store.audit),audits)
+        for index,(door,inactivity) in enumerate(((30,300),(86400,86400)),start=2):
+            accepted=copy.deepcopy(config)
+            accepted['activity_rules'].update(door_open_timeout_seconds=door,daytime_inactivity_seconds=inactivity)
+            status,version=request(accepted)
+            self.assertEqual((status,version['version'],version['applied_version']),(202,index,None))
+        self.assertEqual(self.service.fleet.record_applied('home-1',3,101).applied_version,3)
 
     def test_test_alert_never_creates_production_incident(self) -> None:
         self.service.accept_hub_event(self.cloud_event("hub-1:1:99", "CALL_FAMILY", is_test=True))

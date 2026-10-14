@@ -1,0 +1,20 @@
+test_GS130_HEALTH_002_stale_snapshot_cannot_revive_or_clear_fault (test_node_health_config.NodeHealthConfigTest.test_GS130_HEALTH_002_stale_snapshot_cannot_revive_or_clear_fault) ... FAIL
+
+======================================================================
+FAIL: test_GS130_HEALTH_002_stale_snapshot_cannot_revive_or_clear_fault (test_node_health_config.NodeHealthConfigTest.test_GS130_HEALTH_002_stale_snapshot_cannot_revive_or_clear_fault)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1/code/tests/python/test_node_health_config.py", line 147, in test_GS130_HEALTH_002_stale_snapshot_cannot_revive_or_clear_fault
+    self.assertEqual(stale['node_liveness'],'OFFLINE')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ONLINE' != 'OFFLINE'
+- ONLINE
+?  ^
++ OFFLINE
+?  ^^
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.019s
+
+FAILED (failures=1)

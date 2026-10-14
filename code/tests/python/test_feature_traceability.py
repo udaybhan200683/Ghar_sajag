@@ -11,6 +11,12 @@ class FeatureTraceabilityTest(unittest.TestCase):
     def setUp(self):
         self.rows,self.modules,self.physical,self.registry=copy.deepcopy(coverage.load())
     def issues(self):return coverage.errors(self.rows,self.modules,self.physical,self.registry)
+    def test_coverage_status_is_distinct_from_implementation_and_class(self):
+        for wrong in ('IMPLEMENTED','AUTOMATED_WITH_PHYSICAL_GAP'):
+            self.rows[0]['status']=wrong
+            self.assertTrue(any('unknown coverage status' in error for error in self.issues()))
+        self.rows[0]['status']='PARTIAL'
+        self.assertEqual(self.issues(),[])
     def test_future_board_case_requires_marker_and_matrix(self):
         stage=next(s for s in self.registry['stages'] if s['id']=='board-stack-e2e')
         source=(ROOT/'tests/cpp/board_stack_e2e_validation.cpp').read_text()

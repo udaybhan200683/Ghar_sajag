@@ -1,0 +1,50 @@
+[
+  {
+    "suite": "node",
+    "fingerprint": "1d4752ea9d8bb3550693a37acb0bcbac7f338b2e42b36c99a98c9ed22ba847aa",
+    "passed": 23,
+    "total": 24,
+    "failed": [
+      "p0-full-product-e2e"
+    ]
+  },
+  {
+    "suite": "hub",
+    "fingerprint": "1d4752ea9d8bb3550693a37acb0bcbac7f338b2e42b36c99a98c9ed22ba847aa",
+    "passed": 39,
+    "total": 41,
+    "failed": [
+      "migration",
+      "p0-full-product-e2e"
+    ]
+  },
+  {
+    "suite": "contract",
+    "fingerprint": "1d4752ea9d8bb3550693a37acb0bcbac7f338b2e42b36c99a98c9ed22ba847aa",
+    "passed": 33,
+    "total": 34,
+    "failed": [
+      "p0-full-product-e2e"
+    ]
+  },
+  {
+    "suite": "backend",
+    "fingerprint": "1d4752ea9d8bb3550693a37acb0bcbac7f338b2e42b36c99a98c9ed22ba847aa",
+    "passed": 12,
+    "total": 14,
+    "failed": [
+      "python",
+      "p0-full-product-e2e"
+    ]
+  },
+  {
+    "suite": "pwa",
+    "fingerprint": "1d4752ea9d8bb3550693a37acb0bcbac7f338b2e42b36c99a98c9ed22ba847aa",
+    "passed": 10,
+    "total": 12,
+    "failed": [
+      "python",
+      "p0-full-product-e2e"
+    ]
+  }
+]

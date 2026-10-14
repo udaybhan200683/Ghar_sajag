@@ -1,0 +1,131 @@
+make -C code validation-hub
+make[1]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+python3 validation/component_gate.py --suite hub --reuse-report /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/node-1791996894897500075/report.json
+START c8-ack-drop-gate timeout=120
+PASS c8-ack-drop-gate exit=0 count=16 1.35s
+START s3-fixture-commissioning timeout=120
+PASS s3-fixture-commissioning exit=0 count=14 0s
+START host-build timeout=600
+PASS host-build exit=0 count=1 0s
+START board-stack-e2e timeout=600
+PASS board-stack-e2e exit=0 count=10 0s
+START feature-boundaries timeout=600
+PASS feature-boundaries exit=0 count=133 0s
+START signed-fota-tooling timeout=600
+PASS signed-fota-tooling exit=0 count=16 0s
+START cpp timeout=600
+PASS cpp exit=0 count=1483 0s
+START gs40 timeout=600
+PASS gs40 exit=0 count=1320 0s
+START commissioning timeout=600
+PASS commissioning exit=0 count=4 0s
+START rejoin timeout=600
+PASS rejoin exit=0 count=1 0s
+START hub-fota timeout=600
+PASS hub-fota exit=0 count=1 1.973s
+START fota timeout=600
+PASS fota exit=0 count=34 0s
+START master timeout=600
+PASS master exit=0 count=49 0s
+START multinode timeout=600
+PASS multinode exit=0 count=14 4.235s
+START registry timeout=600
+PASS registry exit=0 count=6 3.18s
+START registry-persistence timeout=600
+PASS registry-persistence exit=0 count=1 4.79s
+START journal timeout=600
+PASS journal exit=0 count=1 3.893s
+START durable-codec timeout=600
+PASS durable-codec exit=0 count=3 5.486s
+START fresh-install timeout=600
+PASS fresh-install exit=0 count=3 7.039s
+START recovery-scheduling timeout=600
+PASS recovery-scheduling exit=0 count=4 38.984s
+START provider timeout=600
+PASS provider exit=0 count=1 5.262s
+START migration timeout=600
+FAIL migration exit=2 count=0 10.34s
+sr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/rules.o build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/logging.o build/obj/base/ed0b9d0aae893634/tests/support/host/logging/file_log_sink.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/data_plane_codec.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/node_retirement_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/session_id.o build/obj/base/ed0b9d0aae893634/firmware/node/sensing/sensing.o build/obj/base/ed0b9d0aae893634/firmware/node/communication/radio/node_radio.o build/obj/base/ed0b9d0aae893634/firmware/node/power/power.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/lifecycle.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_store.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/ed0b9d0aae893634/firmware/node/runtime/node_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/ingest/ingest.o build/obj/base/ed0b9d0aae893634/firmware/hub/commissioning/registry/node_registry.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/journal.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_transition.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/hub_durability_owner.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/time/clock.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/coverage/coverage.o build/obj/base/ed0b9d0aae893634/firmware/hub/routines/routine_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/ui/resident_ui.o build/obj/base/ed0b9d0aae893634/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/runtime_state_store.o build/obj/base/ed0b9d0aae893634/firmware/common/security/security.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_event_outbox.o build/obj/base/ed0b9d0aae893634/firmware/hub/target/esp32/nvs_durable_key_codec.o build/obj/base/ed0b9d0aae893634/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/hub_journal_migration_validation.cpp -lcrypto -o build/hub_journal_migration_validation
+./build/hub_journal_migration_validation
+Hub journal migration validation failed: clean migration commits
+make[2]: *** [Makefile:197: hub-journal-migration-host-test] Error 1
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+
+START hub-retirement timeout=600
+PASS hub-retirement exit=0 count=1 3.227s
+START backend-receipts timeout=600
+PASS backend-receipts exit=0 count=1 3.878s
+START hub-ownership-lifecycle timeout=120
+PASS hub-ownership-lifecycle exit=0 count=6 0.76s
+START s3-outbox timeout=600
+PASS s3-outbox exit=0 count=1 5.514s
+START segmented-runtime timeout=600
+PASS segmented-runtime exit=0 count=1 7.535s
+START checkpoint timeout=600
+PASS checkpoint exit=0 count=1 21.293s
+START storage-correctness timeout=600
+PASS storage-correctness exit=0 count=1 22.804s
+START first-event-reader-compatibility timeout=600
+PASS first-event-reader-compatibility exit=0 count=1 66.414s
+START first-event-recovery-projection timeout=600
+PASS first-event-recovery-projection exit=0 count=1 0s
+START storage-correctness-sanitizers timeout=600
+PASS storage-correctness-sanitizers exit=0 count=1 44.663s
+START identity-compaction timeout=600
+PASS identity-compaction exit=0 count=1 15.327s
+START incremental-completion timeout=600
+PASS incremental-completion exit=0 count=2 19.786s
+START mixed-compaction timeout=600
+PASS mixed-compaction exit=0 count=3 31.283s
+START cloud-contract timeout=600
+PASS cloud-contract exit=0 count=2 19.423s
+START https-channel timeout=600
+PASS https-channel exit=0 count=1 13.645s
+START health-config timeout=600
+PASS health-config exit=0 count=17 0s
+START product-base timeout=600
+PASS product-base exit=0 count=1 0s
+START product-ai timeout=600
+PASS product-ai exit=0 count=1 0s
+START p0-full-product-e2e timeout=360
+FAIL p0-full-product-e2e exit=0 count=26 44.411s
+ts/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 
+
+Running 1 test using 1 worker
+
+[1/1] [chromium-desktop] › ../tests/playwright/p0_full_product.spec.ts:3:5 › C3/S3 event and backend incident render consistently after caregiver reload
+  1 passed (3.3s)
+P0-E2E-001 PASS real JsonApi creates isolated household and owner authorization
+P0-GAP-001 PASS production-shaped CloudSync request reaches the real durable API transaction and returns its committed exact EventKey
+P0-P2D-008 PASS durable commit preserves the original EventKey payload and Node/Hub timestamps
+P0-P2D-001 PASS client actor identity without trusted Hub context cannot create a durable event
+P0-P2D-002 PASS Hub principal cannot commit an event to a different Home
+P0-P2D-003 PASS stale Hub enrollment generation cannot write current Home events
+P0-P2D-004 PASS Hub authorization is pinned to the enrolled physical and logical Node identity
+P0-P2D-009 PASS trusted authorizer revocation rejects the Node before durable commit
+P0-P2D-005 PASS backend restart plus exact retry returns the persisted idempotent COMMITTED receipt
+P0-P2D-006 PASS conflicting content under the exact EventKey is rejected without replacing durable state
+P0-P2D-007 PASS database failure remains fail-closed with no COMMITTED receipt
+P0-E2E-011 PASS API accepts the implemented Hub heartbeat observation record
+P0-E2E-002 PASS Hub retry preserves the structured EventKey and produces an idempotent durable response
+P0-E2E-003 PASS exact retry yields one durable event visible to caregiver event queries
+P0-E2E-004 PASS real API stores door event and derives caregiver door status
+P0-E2E-005 PASS real service evaluates an accepted implemented concern event and creates its effect
+P0-E2E-006 PASS resident Call Family event creates implemented caregiver incident state
+P0-E2E-007 PASS caregiver projection includes the durable CloudSync EventKey exactly once alongside door state
+P0-E2E-008 PASS backend projection preserves resident-action incident state and event chronology
+P0-E2E-012 PASS fresh Hub heartbeat updates Hub liveness independently of resident activity
+P0-E2E-013 PASS Hub freshness expires after the implemented 190-second API lease
+P0-E2E-009 PASS real API denies cross-household reads without an authorized role
+P0-E2E-014 PASS events and incidents remain isolated between multiple service homes
+P0-E2E-015 PASS implemented desired-policy API validates, versions and returns the same configuration
+P0-E2E-016 PASS invalid policy is rejected by the real API instead of receiving a false success
+P0-E2E-017 PASS actual Chromium app reload renders the live API timeline, door state, connectivity and concern
+P0 E2E EXECUTION PASS scenarios=26 checks=26 browser_tests=1 product_status=PARTIAL physical=NOT_RUN
+P0 E2E REPORT build/p0_product_e2e_report.json
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+
+SOFTWARE FAIL PHYSICAL NOT_RUN /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/hub-1791997032849526799/report.json
+make[1]: *** [Makefile:358: validation-hub] Error 1
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+make: *** [Makefile:5: validation-hub] Error 2

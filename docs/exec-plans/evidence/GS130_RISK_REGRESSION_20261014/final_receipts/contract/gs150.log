@@ -1,0 +1,24 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/rules.o build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/logging.o build/obj/base/ed0b9d0aae893634/tests/support/host/logging/file_log_sink.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/data_plane_codec.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/node_retirement_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/session_id.o build/obj/base/ed0b9d0aae893634/firmware/node/sensing/sensing.o build/obj/base/ed0b9d0aae893634/firmware/node/communication/radio/node_radio.o build/obj/base/ed0b9d0aae893634/firmware/node/power/power.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/lifecycle.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_store.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/ed0b9d0aae893634/firmware/node/runtime/node_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/ingest/ingest.o build/obj/base/ed0b9d0aae893634/firmware/hub/commissioning/registry/node_registry.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/journal.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_transition.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/hub_durability_owner.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/time/clock.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/coverage/coverage.o build/obj/base/ed0b9d0aae893634/firmware/hub/routines/routine_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/ui/resident_ui.o build/obj/base/ed0b9d0aae893634/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/runtime_state_store.o build/obj/base/ed0b9d0aae893634/firmware/common/security/security.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_event_outbox.o build/obj/base/ed0b9d0aae893634/firmware/common/security/runtime_frame_security.o build/obj/base/ed0b9d0aae893634/firmware/common/security/rejoin_protocol.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_recovery_persistence.o build/obj/base/ed0b9d0aae893634/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/gs150_offline_sleep_validation.cpp -lcrypto -o build/gs150_offline_sleep_validation
+./build/gs150_offline_sleep_validation
+connected_idle loops 95 -> 125 awake_ms 1660 -> 2260 tx 0 -> 0 retired 0
+offline_empty loops 95 -> 125 awake_ms 1660 -> 2260 tx 0 -> 0 retired 0
+offline_one loops 18000 -> 3189 awake_ms 360000 -> 63540 tx 8 -> 8 retired 0
+offline_many loops 18000 -> 3171 awake_ms 360000 -> 63180 tx 8 -> 8 retired 0
+hub_return loops 9087 -> 1674 awake_ms 181620 -> 33240 tx 13 -> 13 retired 8
+hub_return_v2 loops 708 -> 1213 awake_ms 13820 -> 23940 tx 11 -> 11 retired 8
+frequent_pir loops 4257 -> 4684 awake_ms 84340 -> 92880 tx 7 -> 7 retired 4
+critical_outage loops 696 -> 1214 awake_ms 13560 -> 23940 tx 5 -> 5 retired 2
+lost_ack loops 87 -> 117 awake_ms 1500 -> 2100 tx 2 -> 2 retired 1
+delayed_ack loops 112 -> 142 awake_ms 2000 -> 2600 tx 3 -> 3 retired 1
+outage_late_ack loops 9136 -> 1726 awake_ms 182600 -> 34280 tx 6 -> 6 retired 1
+ack_after_budget loops 9686 -> 2276 awake_ms 193600 -> 45280 tx 6 -> 6 retired 1
+missed_ack_in_sleep loops 9686 -> 2811 awake_ms 193600 -> 55980 tx 6 -> 7 retired 1
+retirement_outage loops 9088 -> 2465 awake_ms 181640 -> 48740 tx 13 -> 13 retired 8
+missing_callback loops 742 -> 1213 awake_ms 14500 -> 23940 tx 4 -> 4 retired 1
+failed_callback loops 694 -> 1213 awake_ms 13540 -> 23940 tx 4 -> 4 retired 1
+failed_mac_delayed_ack loops 9136 -> 1726 awake_ms 182600 -> 34280 tx 6 -> 6 retired 1
+repeated_outage loops 4384 -> 4885 awake_ms 86840 -> 96880 tx 7 -> 7 retired 4
+idle_hub_reboot_return loops 184 -> 335 awake_ms 3160 -> 6180 tx 0 -> 0 retired 0
+GS-150 PASS checks=1500
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

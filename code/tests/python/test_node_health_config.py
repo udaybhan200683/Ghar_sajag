@@ -133,6 +133,64 @@ class NodeHealthConfigTest(unittest.TestCase):
                 service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=1301)
         finally:service.close()
 
+    def test_GS130_HEALTH_002_stale_snapshot_cannot_revive_or_clear_fault(self):
+        clock=[1000];identity='c3-146393c5d158'
+        service=FoundationService(clock=lambda:clock[0])
+        try:
+            service.seed({},[])
+            service.register_device(service.owner_id,{'device_id':identity,'display_name':'Node','kind':'NODE','capability':'MOTION','room':'Kitchen'})
+            service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=1000)
+            clock[0]=1911;service.expire_stale(clock[0])
+            before=service.db.total_changes
+            service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=1000)
+            stale=service.device(service.owner_id,identity)
+            self.assertEqual(stale['node_liveness'],'OFFLINE')
+            self.assertEqual(stale['last_seen_at'],1000)
+            self.assertEqual(service.db.total_changes,before)
+            clock[0]=2000
+            service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=1010)
+            self.assertEqual(service.device(service.owner_id,identity)['node_liveness'],'OFFLINE')
+            self.assertEqual(service.db.total_changes,before)
+
+            clock[0]=2000
+            service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=2000)
+            self.assertEqual(service.device(service.owner_id,identity)['node_liveness'],'ONLINE')
+            clock[0]=2100
+            service.record_health(identity,True,'DEGRADED',heartbeat=True,received_contact_at=2100)
+            before=service.db.total_changes;clock[0]=2200
+            for contact in (2050,2100):
+                service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=contact)
+            recovered=service.device(service.owner_id,identity)
+            self.assertEqual((recovered['health'],recovered['last_seen_at']),('DEGRADED',2100))
+            self.assertEqual(service.db.total_changes,before)
+            with self.assertRaises(ValueError):
+                service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=2201)
+            clock[0]=3010;service.expire_stale(clock[0])
+            self.assertEqual(service.device(service.owner_id,identity)['node_liveness'],'ONLINE')
+            clock[0]=3011;service.expire_stale(clock[0])
+            self.assertEqual(service.device(service.owner_id,identity)['node_liveness'],'OFFLINE')
+            clock[0]=3030
+            service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=2120)
+            self.assertEqual(service.device(service.owner_id,identity)['node_liveness'],'ONLINE')
+            clock[0]=3031;service.expire_stale(clock[0])
+            self.assertEqual(service.device(service.owner_id,identity)['node_liveness'],'OFFLINE')
+            clock[0]=4000
+            service.register_device(service.owner_id,{'device_id':'hub-1','display_name':'Hub','kind':'HUB','capability':'HUB','room':'Central hub'})
+            service.record_health('hub-1',True,'ACTIVE',heartbeat=True,received_contact_at=4000)
+            clock[0]=4191;service.expire_stale(clock[0])
+            clock[0]=4301
+            service.record_health('hub-1',True,'ACTIVE',heartbeat=True,received_contact_at=4100)
+            self.assertEqual(service.device(service.owner_id,'hub-1')['online'],0)
+            clock[0]=4310
+            service.record_health('hub-1',True,'ACTIVE',heartbeat=True,received_contact_at=4120)
+            self.assertEqual(service.device(service.owner_id,'hub-1')['online'],1)
+            clock[0]=4311;service.expire_stale(clock[0])
+            self.assertEqual(service.device(service.owner_id,'hub-1')['online'],0)
+            service.unregister_device(service.owner_id,identity)
+            with self.assertRaisesRegex(ValueError,'device_unregistered'):
+                service.record_health(identity,True,'ACTIVE',heartbeat=True,received_contact_at=2120)
+        finally:service.close()
+
     def test_build_and_startup_share_input(self):
         for main in ['firmware/node/target/esp32c3/idf/main/CMakeLists.txt','firmware/hub/target/esp32/idf/main/CMakeLists.txt']:
             self.assertIn('node_health_config.cmake',(ROOT/main).read_text())
@@ -146,6 +204,32 @@ class NodeHealthConfigTest(unittest.TestCase):
 
 
 class NodeHealthPwaTest(unittest.TestCase):
+    def test_GS130_HEALTH_001_combined_wan_node_outage_and_recovery(self):
+        from tools.sim.local_lab import Lab, NODES
+        lab=Lab()
+        try:
+            lab.action({'action':'wan','enabled':False})
+            lab.command(f"silence {NODES.index('kitchen')}");lab.sync()
+            motion_count=sum(e['kind']=='MOTION' for e in lab.snapshot()['timeline'])
+            lab.action({'action':'advance','seconds':910})
+            self.assertEqual(lab.pwa_view()['coverage']['state'],'COVERED')
+            lab.action({'action':'advance','seconds':1})
+            lost=lab.pwa_view()
+            self.assertEqual(lost['coverage']['state'],'UNKNOWN')
+            self.assertIn('kitchen',lost['device_health']['offline_devices'])
+            self.assertTrue(lost['network']['hub_online'])
+            self.assertFalse(lost['network']['wan_online'])
+            self.assertTrue(all(d['active'] for d in lost['devices'] if d['kind']=='NODE' and d['id']!='kitchen'))
+            lab.action({'action':'node','node':'kitchen','enabled':True})
+            returned=lab.pwa_view()
+            self.assertEqual(returned['coverage']['state'],'COVERED')
+            self.assertNotIn('kitchen',returned['device_health']['offline_devices'])
+            self.assertFalse(returned['network']['wan_online'])
+            lab.action({'action':'wan','enabled':True})
+            self.assertTrue(lab.pwa_view()['network']['wan_online'])
+            self.assertEqual(sum(e['kind']=='MOTION' for e in lab.snapshot()['timeline']),motion_count)
+        finally:lab.close()
+
     def test_quiet_sleeping_resident_is_not_offline_day_or_night(self):
         from tools.sim.local_lab import Lab
         for minute in [0,720]:

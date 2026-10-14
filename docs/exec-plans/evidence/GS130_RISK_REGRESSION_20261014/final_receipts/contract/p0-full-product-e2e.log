@@ -1,0 +1,99 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/security/commissioning_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/security/rejoin_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/security/runtime_frame_security.o build/obj/base/ed0b9d0aae893634/firmware/common/security/security.o build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/logging.o build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/rules.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/data_plane_codec.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/fota_secure_wire.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/node_retirement_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/session_id.o build/obj/base/ed0b9d0aae893634/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/ed0b9d0aae893634/firmware/hub/commissioning/registry/node_registry.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/coverage/coverage.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/ingest/ingest.o build/obj/base/ed0b9d0aae893634/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/routines/routine_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/time/clock.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/ui/resident_ui.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_event_outbox.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_transition.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/hub_durability_owner.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/journal.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/outbox_journal_backend.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/runtime_state_store.o build/obj/base/ed0b9d0aae893634/firmware/node/communication/radio/node_radio.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/fota/boot_health_gate.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/fota/secure_fota_adapter.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/lifecycle.o build/obj/base/ed0b9d0aae893634/firmware/node/power/power.o build/obj/base/ed0b9d0aae893634/firmware/node/runtime/node_runtime.o build/obj/base/ed0b9d0aae893634/firmware/node/sensing/sensing.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_recovery_persistence.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_store.o build/obj/base/ed0b9d0aae893634/tests/support/host/logging/file_log_sink.o build/obj/base/ed0b9d0aae893634/tests/support/host/multinode/scheduled_harness.o build/obj/base/ed0b9d0aae893634/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/board_stack_e2e_validation.cpp -lcrypto -o build/p0_board_stack_e2e_validation
+./build/p0_board_stack_e2e_validation --emit-p0-event build/p0_product_event.json build/p0_cloud_sync_request.json
+P0-STACK-EVENT PASS retries=1 durable_effects=1 key=room:10:1 physical=NOT_RUN
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/rules.o build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/logging.o build/obj/base/ed0b9d0aae893634/tests/support/host/logging/file_log_sink.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/data_plane_codec.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/node_retirement_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/session_id.o build/obj/base/ed0b9d0aae893634/firmware/node/sensing/sensing.o build/obj/base/ed0b9d0aae893634/firmware/node/communication/radio/node_radio.o build/obj/base/ed0b9d0aae893634/firmware/node/power/power.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/lifecycle.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_store.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/ed0b9d0aae893634/firmware/node/runtime/node_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/ingest/ingest.o build/obj/base/ed0b9d0aae893634/firmware/hub/commissioning/registry/node_registry.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/journal.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_transition.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/hub_durability_owner.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/time/clock.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/coverage/coverage.o build/obj/base/ed0b9d0aae893634/firmware/hub/routines/routine_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/ui/resident_ui.o build/obj/base/ed0b9d0aae893634/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/runtime_state_store.o build/obj/base/ed0b9d0aae893634/firmware/common/security/security.o build/obj/base/ed0b9d0aae893634/firmware/hub/cloud_sync/http_backend_transport.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_event_outbox.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/outbox_journal_backend.o build/obj/base/ed0b9d0aae893634/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o build/p2d_cloud_contract_validation
+build/p2d_cloud_contract_validation
+p2d_protocol=PASS invalid_receipt_modes=15 pending=200 batch_peak=16 retry_peak=64
+p2d_completion_persistence_cuts=PASS modes=2
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_hub_ownership_registry -v
+test_commit_guard_runs_inside_write_transaction (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_commit_guard_runs_inside_write_transaction) ... ok
+test_generation_replacement_revocation_and_old_event_replay (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_generation_replacement_revocation_and_old_event_replay) ... P0-P2D-011 PASS Node generation fencing preserves only exact committed retries
+ok
+test_identity_and_authorization_fail_closed (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_identity_and_authorization_fail_closed) ... P0-P2D-010 PASS permanent identity, exact Home ownership and unverified claims fail closed
+ok
+test_node_identity_cannot_be_active_under_two_homes (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_node_identity_cannot_be_active_under_two_homes) ... P0-P2D-013 PASS Node re-home uses one active binding and globally monotonic generation
+ok
+test_registered_home_node_commit_retry_and_restart (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_registered_home_node_commit_retry_and_restart) ... ok
+test_transfer_epoch_fences_old_home_and_preserves_old_data (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_transfer_epoch_fences_old_home_and_preserves_old_data) ... P0-P2D-012 PASS transfer epoch blocks both Homes and preserves old-Home data
+ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.254s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_p0_e2e_selection -v
+test_known_selection_is_exact_and_deduplicated (tests.python.test_p0_e2e_selection.P0ScenarioSelectionTests.test_known_selection_is_exact_and_deduplicated) ... ok
+test_omitted_selection_means_all_registered_scenarios (tests.python.test_p0_e2e_selection.P0ScenarioSelectionTests.test_omitted_selection_means_all_registered_scenarios) ... ok
+test_unknown_duplicate_or_empty_selection_fails_closed (tests.python.test_p0_e2e_selection.P0ScenarioSelectionTests.test_unknown_duplicate_or_empty_selection_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.003s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_api -v
+test_GS130_DURABLE_001_backlog_delivery_restart_projection_and_privacy (tests.python.test_durable_api.DurableApiCompositionTest.test_GS130_DURABLE_001_backlog_delivery_restart_projection_and_privacy) ... ok
+test_committed_event_survives_reopen_and_uses_existing_query_projection (tests.python.test_durable_api.DurableApiCompositionTest.test_committed_event_survives_reopen_and_uses_existing_query_projection) ... ok
+test_requires_file_store_and_trusted_authorizer (tests.python.test_durable_api.DurableApiCompositionTest.test_requires_file_store_and_trusted_authorizer) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.083s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_event_commit -v
+test_api_requires_authorized_hub_and_durable_store (tests.python.test_durable_event_commit.DurableEventCommitTest.test_api_requires_authorized_hub_and_durable_store) ... ok
+test_conflicting_type_timestamp_payload_and_identity (tests.python.test_durable_event_commit.DurableEventCommitTest.test_conflicting_type_timestamp_payload_and_identity) ... ok
+test_faults_rollback_all_effects_then_retry (tests.python.test_durable_event_commit.DurableEventCommitTest.test_faults_rollback_all_effects_then_retry) ... ok
+test_first_duplicate_lost_response_and_restart (tests.python.test_durable_event_commit.DurableEventCommitTest.test_first_duplicate_lost_response_and_restart) ... ok
+test_sessions_nodes_high_rate_and_quiet_door (tests.python.test_durable_event_commit.DurableEventCommitTest.test_sessions_nodes_high_rate_and_quiet_door) ... ok
+test_sqlite_commit_failure_rolls_back (tests.python.test_durable_event_commit.DurableEventCommitTest.test_sqlite_commit_failure_rolls_back) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.248s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_p2d_cloud_contract -v
+test_real_commit_lost_reply_partial_catchup_reboots (tests.python.test_p2d_cloud_contract.P2DCloudContractTest.test_real_commit_lost_reply_partial_catchup_reboots) ... RESULT p2d_bridge=PASS events=300 completed=300 pending=0 requests=304 rejected=3 logical_bytes=77452 allocated_bytes=90112 identity_logical_bytes=44046 offline_logical_bytes=49826 peak_logical_bytes=77452 peak_allocated_bytes=90112 catchup_ms=9008 configured_reserve=524288 backend_restarts=3 backend_duplicates=3 fixture_failures=4 wall_seconds=9.237
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 9.275s
+
+OK
+python3 validation/check_p0_e2e_scenarios.py
+P0 SCENARIO REGISTRY PASS use_cases=17 scenarios=30 executable_sources=30
+PYTHONPATH=backend:. python3 tests/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 
+
+Running 1 test using 1 worker
+
+[1/1] [chromium-desktop] › ../tests/playwright/p0_full_product.spec.ts:3:5 › C3/S3 event and backend incident render consistently after caregiver reload
+  1 passed (3.0s)
+P0-E2E-001 PASS real JsonApi creates isolated household and owner authorization
+P0-GAP-001 PASS production-shaped CloudSync request reaches the real durable API transaction and returns its committed exact EventKey
+P0-P2D-008 PASS durable commit preserves the original EventKey payload and Node/Hub timestamps
+P0-P2D-001 PASS client actor identity without trusted Hub context cannot create a durable event
+P0-P2D-002 PASS Hub principal cannot commit an event to a different Home
+P0-P2D-003 PASS stale Hub enrollment generation cannot write current Home events
+P0-P2D-004 PASS Hub authorization is pinned to the enrolled physical and logical Node identity
+P0-P2D-009 PASS trusted authorizer revocation rejects the Node before durable commit
+P0-P2D-005 PASS backend restart plus exact retry returns the persisted idempotent COMMITTED receipt
+P0-P2D-006 PASS conflicting content under the exact EventKey is rejected without replacing durable state
+P0-P2D-007 PASS database failure remains fail-closed with no COMMITTED receipt
+P0-E2E-011 PASS API accepts the implemented Hub heartbeat observation record
+P0-E2E-002 PASS Hub retry preserves the structured EventKey and produces an idempotent durable response
+P0-E2E-003 PASS exact retry yields one durable event visible to caregiver event queries
+P0-E2E-004 PASS real API stores door event and derives caregiver door status
+P0-E2E-005 PASS real service evaluates an accepted implemented concern event and creates its effect
+P0-E2E-006 PASS resident Call Family event creates implemented caregiver incident state
+P0-E2E-007 PASS caregiver projection includes the durable CloudSync EventKey exactly once alongside door state
+P0-E2E-008 PASS backend projection preserves resident-action incident state and event chronology
+P0-E2E-012 PASS fresh Hub heartbeat updates Hub liveness independently of resident activity
+P0-E2E-013 PASS Hub freshness expires after the implemented 190-second API lease
+P0-E2E-009 PASS real API denies cross-household reads without an authorized role
+P0-E2E-014 PASS events and incidents remain isolated between multiple service homes
+P0-E2E-015 PASS implemented desired-policy API validates, versions and returns the same configuration
+P0-E2E-016 PASS invalid policy is rejected by the real API instead of receiving a false success
+P0-E2E-017 PASS actual Chromium app reload renders the live API timeline, door state, connectivity and concern
+P0 E2E EXECUTION PASS scenarios=26 checks=26 browser_tests=1 product_status=PARTIAL physical=NOT_RUN
+P0 E2E REPORT build/p0_product_e2e_report.json
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

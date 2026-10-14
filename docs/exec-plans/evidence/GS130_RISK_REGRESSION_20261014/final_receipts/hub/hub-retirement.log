@@ -1,0 +1,5 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/transport/data_plane_codec.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/node_retirement_protocol.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_transition.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/ed0b9d0aae893634/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/hub_retirement_snapshot_validation.cpp -lcrypto -o build/hub_retirement_snapshot_validation
+./build/hub_retirement_snapshot_validation
+HUB RETIREMENT SNAPSHOT HOST PASS bounded report bank and exact digest rules
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

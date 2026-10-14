@@ -18,6 +18,9 @@ PREFIXES=('firmware','backend','tests/support/host','tools/sim','frontend')
 SUFFIXES={'.cpp','.hpp','.c','.h','.py','.js','.mjs','.sql','.html'}
 REQUIRED=set('FEATURE_ID JIRA_KEY FEATURE_NAME COMPONENT MODULE REQUIREMENT_ID REQUIREMENT_OR_INVARIANT IMPLEMENTATION_STATUS TEST_CASE_ID TEST_CASE_NAME TEST_TYPE TEST_SOURCE EXACT_TEST_EXECUTION_COMMAND POSITIVE_COVERAGE NEGATIVE_COVERAGE BOUNDARY_COVERAGE RECOVERY_COVERAGE NODE_GATE HUB_GATE CONTRACT_GATE BACKEND_GATE PWA_GATE VALIDATION_FAST_REGISTERED RELEASE_GATE_REGISTERED EXTENDED_TEST_REQUIRED PHYSICAL_REQUIRED PHYSICAL_TEST_ID PHYSICAL_EVIDENCE_STATUS SOURCE_HEAD BUILD_PROFILE LATEST_EXECUTED_HEAD LATEST_TEST_RESULT COVERAGE_CLASS COVERAGE_GAP GAP_REASON REMAINING_OWNER PRIORITY STAGE_IDS ASSERTION_ANCHOR REQUIREMENT_SOURCE'.split())
 STATUSES={'IMPLEMENTED','PARTIALLY_IMPLEMENTED','NOT_IMPLEMENTED','DEFERRED','ON_HOLD','HISTORICAL_ONLY'}
+COVERAGE_STATUSES={'COVERED','PARTIAL','MISSING_PRODUCT_FEATURE',
+    'MISSING_PRODUCT_FEATURE_TARGET_VERTICAL_BRIDGE','PRODUCT_GAP','TEST_INFRA_GAP',
+    'HIL_ONLY_PHYSICAL','PARTIAL_BUT_SUFFICIENT'}
 
 def source_modules(root=ROOT):
     names=subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard','--',*PREFIXES],cwd=root,text=True).splitlines()
@@ -54,6 +57,7 @@ def errors(rows,ledger,physical,registry,modules=None,root=ROOT,repo=REPO):
     for row in rows:
         fid=row['FEATURE_ID']
         if not REQUIRED<=set(row):failures.append(fid+': missing columns');continue
+        if row.get('status') not in COVERAGE_STATUSES:failures.append(fid+': unknown coverage status')
         if row['IMPLEMENTATION_STATUS'] not in STATUSES:failures.append(fid+': unknown implementation status')
         if set(row['REQUIREMENT_ID'].split(';'))-known_requirements:failures.append(fid+': unknown canonical requirement ID')
         if not row['REQUIREMENT_ID'] or not (repo/row['REQUIREMENT_SOURCE'].split('#')[0]).is_file():failures.append(fid+': missing requirement source')

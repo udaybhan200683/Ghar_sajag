@@ -124,6 +124,66 @@ void routine_boundaries(){
  motion.is_test=false;RulesCore::apply_event(private_state,config,motion);require(private_state.activity_seen,"privacy withdrawal followed by real eligible observation recovers");
  require(RulesCore::minute_in_window(1439,1320,360)&&RulesCore::minute_in_window(0,1320,360)&&!RulesCore::minute_in_window(360,1320,360)&&!RulesCore::minute_in_window(1440,0,0),"midnight inclusive start exclusive end bounds");
 }
+void rule_toggle_recovery_boundaries(){
+ ActivityRuleConfig c;c.daytime_start_minute=480;c.daytime_end_minute=1260;
+ c.daytime_inactivity_seconds=300;c.daytime_inactivity_enabled=false;
+ ActivityRuleState s;RulesCore::start_activity_monitor(s,1000);
+ require(RulesCore::evaluate_activity_timers(s,c,1300,480).empty()&&!s.inactivity_alerted,
+         "disabled inactivity rule does not emit or consume its latch");
+ c.daytime_inactivity_enabled=true;
+ for(auto context:std::vector<RuleEvaluationContext>{
+     {HomeMode::Home,CoverageState::Unknown,true},{HomeMode::Home,CoverageState::Fault,true},
+     {HomeMode::Home,CoverageState::Covered,false},{HomeMode::Privacy,CoverageState::Covered,true},
+     {HomeMode::Away,CoverageState::Covered,true},{HomeMode::Paused,CoverageState::Covered,true}}){
+   require(RulesCore::evaluate_activity_timers(s,c,1300,480,context).empty()&&!s.inactivity_alerted,
+           "suppressed timer cannot consume a future eligible concern");
+ }
+ require(RulesCore::evaluate_activity_timers(s,c,1299,480).empty(),"one second before inactivity threshold remains quiet");
+ require(RulesCore::evaluate_activity_timers(s,c,1300,1260).empty(),"exact daytime end excludes inactivity concern");
+ const auto due=RulesCore::evaluate_activity_timers(s,c,1300,480);
+ require(due.size()==1&&due.front().kind==RuleSignalKind::DaytimeInactivity&&
+         due.front().duration_seconds==300&&RulesCore::evaluate_activity_timers(s,c,1301,481).empty(),
+         "eligible start and exact threshold emit one concern after suppression clears");
+ auto motion=event(40);motion.occurred_at=1400;
+ RulesCore::apply_activity_event(s,c,motion,500);
+ require(!s.inactivity_alerted&&RulesCore::evaluate_activity_timers(s,c,1699,500).empty()&&
+         RulesCore::evaluate_activity_timers(s,c,1700,500).size()==1,
+         "new observation rearms exactly one later inactivity interval");
+
+ c.night_activity_enabled=false;c.night_bathroom_visit_threshold=1;c.night_visit_merge_seconds=60;
+ ActivityRuleState night;motion.location=c.night_bathroom_location;motion.occurred_at=2000;
+ require(RulesCore::apply_activity_event(night,c,motion,1320).empty()&&night.night_bathroom_visits==0,
+         "disabled night rule does not accumulate visits");
+ c.night_activity_enabled=true;
+ require(RulesCore::apply_activity_event(night,c,motion,1320).empty()&&night.night_bathroom_visits==1,
+         "exact night start and threshold limit remain normal");
+ motion.key.sequence++;motion.occurred_at=2059;
+ require(RulesCore::apply_activity_event(night,c,motion,0).empty()&&night.night_bathroom_visits==1,
+         "midnight visit before merge boundary is the same episode");
+ motion.key.sequence++;motion.occurred_at=2060;
+ const auto concern=RulesCore::apply_activity_event(night,c,motion,0);
+ require(concern.size()==1&&concern.front().kind==RuleSignalKind::UnusualNightBathroomActivity&&
+         night.night_bathroom_visits==2,"exact merge boundary exceeds configured visit threshold once");
+ motion.key.sequence++;motion.occurred_at=2120;
+ require(RulesCore::apply_activity_event(night,c,motion,1).empty(),"further visits cannot duplicate latched night concern");
+ motion.key.sequence++;motion.occurred_at=2200;
+ require(RulesCore::apply_activity_event(night,c,motion,360).empty()&&night.night_bathroom_visits==0&&
+         !night.night_bathroom_alerted,"exact night end resets visit state and concern latch");
+ motion.key.sequence++;motion.occurred_at=90000;
+ require(RulesCore::apply_activity_event(night,c,motion,1320).empty()&&night.night_bathroom_visits==1,
+         "next night starts a fresh visit count");
+
+ c.quiet_start_minute=1320;c.quiet_end_minute=360;c.quiet_hours_enabled=false;
+ ActivityRuleState door;auto open=event(90);open.kind=EventKind::DoorOpen;open.occurred_at=100;
+ require(RulesCore::apply_activity_event(door,c,open,1320).empty(),"disabled quiet-hours flag suppresses concern");
+ c.quiet_hours_enabled=true;open.key.sequence++;
+ require(RulesCore::apply_activity_event(door,c,open,1320).size()==1,"enabled quiet-hours concern includes exact start");
+ open.key.sequence++;
+ require(RulesCore::apply_activity_event(door,c,open,360).empty(),"quiet-hours concern excludes exact end");
+ open.is_test=true;const auto prior=door.door_open_event_id;
+ require(RulesCore::apply_activity_event(door,c,open,0).empty()&&door.door_open_event_id==prior,
+         "test-only sensor input cannot mutate real rule state");
+}
 void resident_boundaries(){
  hub::ResidentUi ui;auto ok=ui.make_action(hub::ResidentAction::Ok,"hub",2,1,100);
  auto call=ui.make_action(hub::ResidentAction::CallFamily,"hub",2,2,101);
@@ -155,6 +215,7 @@ int main(){try{
  ingest_boundaries();std::cout<<"LINK-TC-130-001 PASS\n";
  coverage_boundaries();std::cout<<"HUB-TC-130-003 PASS\n";
  routine_boundaries();std::cout<<"HUB-TC-130-004 PASS\n";
+ rule_toggle_recovery_boundaries();std::cout<<"HUB-TC-130-006 PASS\n";
  resident_boundaries();std::cout<<"HUB-TC-130-005 PASS\n";
  recovery_boundaries();std::cout<<"SEC-TC-130-001 PASS\n";
  std::cout<<"GS130 FEATURE BOUNDARIES PASS checks="<<checks<<"\n";return 0;

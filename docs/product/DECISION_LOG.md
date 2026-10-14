@@ -1,5 +1,28 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-130 bounded regression and stale-health repair — 2026-10-14
+
+GS-130 comment 10932 authorizes a focused implemented-feature regression pass.
+An actual backend defect was reproduced: a duplicate cached received-contact
+timestamp could turn an expired OFFLINE Node back ONLINE, and older telemetry
+could clear a newer DEGRADED state. The existing Foundation consumer now ignores
+duplicate/older explicit online observations and observations already outside
+the selected Node/Hub lease. New still-fresh contact remains eligible for
+recovery. This implements GS-D022/031 and the canonical truthful-health rule;
+no new requirement, timeout, authentication policy or context version is added.
+
+Six production-source scenarios cover health replay/rejoin, combined WAN/Node
+outage recovery, stale backend reports, durable backlog/delivery/restart/privacy,
+JSON rejection and rule toggle boundaries. They extend existing GS-116/GS-130
+stages. Evidence and exact component results are recorded in
+[the focused report](../exec-plans/evidence/GS130_RISK_REGRESSION_20261014.md).
+Mandatory discovery also exposed six legacy rows with coverage class or
+implementation state in the coverage-status field. Those statuses are corrected
+to PARTIAL, and the mapping checker now rejects that metadata mix-up. Physical
+acceptance and independent product gaps are unchanged.
+GS-104/GS-89/GS-148 trust boundaries, Hub migration FAIL and product P0 PARTIAL
+remain open. No hardware/release operation or GS-148 implementation is included.
+
 Use:
 - LOCKED = approved; changing requires explicit approval.
 - PROVISIONAL = working direction.

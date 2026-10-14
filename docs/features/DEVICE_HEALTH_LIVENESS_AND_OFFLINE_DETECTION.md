@@ -15,6 +15,15 @@ Per-device current coverage uses its selected lease only with trusted received
 time; target epoch and production cloud-path limitations remain explicit.
 Full real-target acceptance and physical power results are not claimed.
 
+The backend Foundation consumer now discards explicit online observations whose
+received-contact timestamp is duplicate/older than its last accepted contact or
+already outside the selected lease. Cached ACTIVE telemetry cannot resurrect an
+expired device or clear newer DEGRADED telemetry. A newer still-fresh contact
+recovers availability; the configured Node lease and separate Hub 190 s lease
+remain unchanged. This is a consumer correctness guard, not a production Hub
+authenticator or a live WAN root-cause detector. See the
+[GS-130 focused regression evidence](../exec-plans/evidence/GS130_RISK_REGRESSION_20261014.md).
+
 
 Feature documentation type:
 ENGINEERING FUNCTIONAL GUIDE

@@ -26,6 +26,27 @@ class ComponentGateTest(unittest.TestCase):
         stage=next(s for s in gate.load_registry()['stages'] if s['id']=='board-stack-e2e')
         out='BOARD-TC-130-001 PASS\nBOARD STACK E2E PASS cases=1 checks=20 failed=0 physical=NOT_RUN\n'
         self.assertEqual(gate.adjudicate(stage,self.result(out)),'FAIL')
+    def test_gs130_priority_cases_cannot_be_omitted(self):
+        stages={s['id']:s for s in gate.load_registry()['stages']}
+        outputs={
+            'board-stack-e2e': ('BOARD STACK E2E PASS cases=10 checks=398 failed=0 physical=NOT_RUN',
+                               'BOARD-TC-130-010 PASS'),
+            'feature-boundaries': ('GS130 FEATURE BOUNDARIES PASS checks=133','HUB-TC-130-006 PASS'),
+            'health-config': ('Ran 18 tests','test_GS130_HEALTH_002_stale_snapshot_cannot_revive_or_clear_fault (fixture) ... ok'),
+            'python': ('Ran 400 tests','test_GS130_DURABLE_001_backlog_delivery_restart_projection_and_privacy (fixture) ... ok')}
+        for name,(summary,new_case) in outputs.items():
+            stage=stages[name]
+            lines=[]
+            for pattern in stage['required_success']:
+                if name in {'python','health-config'}:
+                    lines.append(pattern.split(' .*')[0].removeprefix('^')+' (fixture) ... ok')
+                else:
+                    lines.append(pattern.removeprefix('^').removesuffix('$'))
+            out='\n'.join(lines+[summary])+'\n'
+            with self.subTest(stage=name):
+                self.assertEqual(gate.adjudicate(stage,self.result(out)),'PASS')
+                self.assertEqual(gate.adjudicate(stage,self.result(out.replace(new_case+'\n',''))),'FAIL')
+                self.assertEqual(gate.adjudicate(stage,self.result(out,rc=1)),'FAIL')
     def test_profile_initialization_works_without_pythonpath(self):
         script="import importlib.util; s=importlib.util.spec_from_file_location('gate',"+repr(str(ROOT/'validation/component_gate.py'))+"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.build_profile({})['portable_crypto_sources']"
         result=subprocess.run([sys.executable,'-I','-c',script],cwd=ROOT,capture_output=True,text=True)

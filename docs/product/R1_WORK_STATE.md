@@ -1,5 +1,59 @@
 # R1 Current Work State
 
+## GS-130 bounded risk-prioritized regression checkpoint — 2026-10-14
+
+GS-130 comment 10932 was executed in the canonical worktree on
+`feature/r1-commercial-baseline`, starting at local/remote
+`ed1a7dfde0299e8c84e4f12a9f1dd48dd39836ed`; context preflight PASS,
+version `2026-10-13.001`. There was no competing canonical source writer.
+[Focused report and resume handoff](../exec-plans/evidence/GS130_RISK_REGRESSION_20261014.md)
+records scope, six added scenarios, original failures, repaired source,
+per-scenario assertions, registration, receipts and exact next action.
+
+One actual R1 blocker was reproduced and repaired in FoundationService: cached
+or old explicit received-contact telemetry could resurrect OFFLINE or clear a
+newer DEGRADED state. Duplicate/older and already-expired online observations
+are ignored; genuinely new, still-fresh contact recovers under the existing
+Node/Hub leases. Authentication, transport, EventKey, storage and target firmware
+are unchanged. No new product requirement or context version is introduced.
+
+Six permanent production-code scenarios extend existing board/health/rules/API
+harnesses. Board E2E is now 10 groups / 398 checks; feature boundaries 133;
+health-config 17; focused backend/durable API 17; framework 41; mapping integrity
+20, with 182 rows / 205 modules / 15 physical definitions. The 78-stage registry
+and local/release membership remain. Omitted/failed new cases propagate failure.
+Mandatory Python discovery found six legacy invalid coverage statuses; these
+are corrected to PARTIAL with an added schema regression. Physical results and
+implementation fields were preserved.
+
+Final affected gates ran at fingerprint
+`11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574`,
+all with source unchanged. Node 23/24, Hub 39/41, contract 33/34, backend
+13/14 and PWA 11/12 stages passed. **Every aggregate remains FAIL** because
+of mandatory P0 `product_status=PARTIAL`; Hub additionally retains migration
+`clean migration commits` FAIL. Full Python discovery is OK, 459 tests with
+one declared historical classic ESP32 skip; storage ASan/UBSan PASS. Existing
+P0 26 assertions plus one targeted Chromium case pass without closing its
+production trust gaps. No unexpected regression remains in these receipts.
+
+No hardware, USB/IP, reset, flash, commissioning or motion occurred. Existing
+untracked PWA assets, managed components and private GS-114 logs remain intact.
+Prior C8 physical results are reused: P3 catalogue remains PARTIAL for S3 image
+provenance; P9 ACK/FOTA physical BLOCKED; P10 GS-149. GS-104 R01–R09, GS-89,
+GS-148 production credentials, historical interval coverage, unconnected generic
+backend flags, human OIDC and external provider delivery remain genuine gaps.
+`validation-fast`, full browser campaign and `release-gate-final` were NOT_RUN.
+The implementation/closeout commit and verified remote are recorded in the
+latest Jira delivery comments and the Git checkpoint below.
+
+**Next separate task:** GS-148 P4/P5-B1 CloudSync under comments 10810/10933.
+Read its active lifecycle handoff, existing caller/worker, strict receipt parser
+and backend trusted ownership before implementation. Preserve exact key/time,
+Home/Hub/Node/enrollment binding and durable COMMITTED-before-completion. If
+production issuer/verifier authority is undefined, keep commercial sending
+not-ready and surface that precise security prerequisite. GS-148 implementation
+has not started; do not automatically begin unrelated work from this checkpoint.
+
 ## GS-116 / GS-130 BAT-C8 coverage integration — 2026-10-14
 
 Task-start canonical checkpoint was local/remote HEAD

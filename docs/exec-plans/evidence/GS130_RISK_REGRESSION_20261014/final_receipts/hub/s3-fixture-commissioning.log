@@ -1,0 +1,22 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+python3 -m unittest tests.python.test_s3_fixture_commissioning -v
+test_c8_ack_drop_is_postcommit_durable_and_profile_scoped (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_c8_ack_drop_is_postcommit_durable_and_profile_scoped) ... ok
+test_c8_p8_ack_drop_requires_explicit_profile_and_image_marker (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_c8_p8_ack_drop_requires_explicit_profile_and_image_marker) ... ok
+test_command_parser_is_exact_and_limited_to_commissioning_and_status (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_command_parser_is_exact_and_limited_to_commissioning_and_status) ... ok
+test_fixture_rpf_profile_accepts_matching_app_and_partitions (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_fixture_rpf_profile_accepts_matching_app_and_partitions) ... ok
+test_fixture_rpf_profile_rejects_development_partition_map (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_fixture_rpf_profile_rejects_development_partition_map) ... ok
+test_fixture_rpf_profile_rejects_hub_control_outside_embedded_node_asset (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_fixture_rpf_profile_rejects_hub_control_outside_embedded_node_asset) ... ok
+test_fixture_rpf_profile_rejects_missing_diagnostics_or_oversized_app (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_fixture_rpf_profile_rejects_missing_diagnostics_or_oversized_app) ... ok
+test_fixture_rpf_profile_rejects_unproven_embedded_node_guard (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_fixture_rpf_profile_rejects_unproven_embedded_node_guard) ... ok
+test_fixture_rpf_profile_rejects_wrong_build_flags (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_fixture_rpf_profile_rejects_wrong_build_flags) ... ok
+test_idf_partition_decoder_size_suffixes_are_supported (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_idf_partition_decoder_size_suffixes_are_supported) ... ok
+test_p8_existing_node_cli_requires_isolated_ack_drop_and_expected_hash (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_p8_existing_node_cli_requires_isolated_ack_drop_and_expected_hash) ... ok
+test_p8_s3_only_build_stages_exact_existing_c3_asset_and_rejects_mismatch (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_p8_s3_only_build_stages_exact_existing_c3_asset_and_rejects_mismatch) ... ok
+test_s3_build_exports_paired_asset_during_component_discovery (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_s3_build_exports_paired_asset_during_component_discovery) ... ok
+test_s3_option_is_opt_in_and_legacy_broad_hil_stays_rejected (tests.python.test_s3_fixture_commissioning.S3FixtureCommissioning.test_s3_option_is_opt_in_and_legacy_broad_hil_stays_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 1.487s
+
+OK
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

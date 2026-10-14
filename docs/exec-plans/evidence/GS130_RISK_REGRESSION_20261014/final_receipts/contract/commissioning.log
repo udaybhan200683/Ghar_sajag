@@ -1,0 +1,8 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/security/commissioning_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/security/commissioning_wire.o build/obj/base/ed0b9d0aae893634/firmware/common/security/runtime_frame_security.o build/obj/base/ed0b9d0aae893634/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/commissioning_crypto_validation.cpp -lcrypto -o build/commissioning_crypto_validation
+./build/commissioning_crypto_validation
+P2-COM-CRYPTO HOST PASS unique keys/signatures/ECDH/HKDF/AEAD/tamper
+P2-COM-HANDSHAKE HOST PASS exact identity/Home/Hub/window/replay
+P2-COM-WIRE HOST PASS fragmented offer/bounded packet/timeout/tamper
+P2-RUNTIME-AEAD HOST PASS uplink/ACK/tamper/replay/boundary
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

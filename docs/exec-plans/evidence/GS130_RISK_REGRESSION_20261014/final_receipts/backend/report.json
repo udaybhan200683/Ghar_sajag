@@ -1,0 +1,337 @@
+{
+  "software_status": "FAIL",
+  "physical_status": "NOT_RUN",
+  "physically_qualified": false,
+  "release_approved": false,
+  "suite": "backend",
+  "source_head": "ed1a7dfde0299e8c84e4f12a9f1dd48dd39836ed",
+  "source_fingerprint": "11b8ce399cce108c2dc2fedede0c54e31a31a6d45df05beef8539eba3d7fe574",
+  "source_unchanged": true,
+  "build_profile": {
+    "CXX": "",
+    "HOST_CXX": "",
+    "HOST_TOOLCHAIN_GUARD": "",
+    "CXXFLAGS": "",
+    "TRACE_FLAGS": "",
+    "INCLUDES": "",
+    "PRODUCT": "",
+    "GS_IDF_EXPORT": "",
+    "host_compiler": "d3c02c2eb999e2ce",
+    "portable_crypto_sources": "ad5008d86e3a337d12bed44ce4e8d983db842db83ef0f245d6db69fb8b74bbd0",
+    "python": "3.14.4 (main, Aug 20 2026, 10:41:58) [GCC 15.2.0]"
+  },
+  "tracked_dirty": true,
+  "seconds": 110.465,
+  "stages": [
+    {
+      "exit_code": 0,
+      "seconds": 0,
+      "status": "PASS",
+      "id": "host-build",
+      "command": [
+        "make",
+        "validation-build"
+      ],
+      "count": 1,
+      "count_kind": "builds",
+      "log": "evidence/validation_framework/backend-1791997486997530132/host-build.log",
+      "log_sha256": "9db568139d342ab46b1ae6c4c1184a94104b9bea6c4b883bd35c8b0e9d3cce02",
+      "artifacts": {},
+      "reused_from": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json",
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa",
+        "tooling"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0,
+      "status": "PASS",
+      "id": "backend-receipts",
+      "command": [
+        "make",
+        "hub-backend-commit-host-test"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/backend-receipts.log",
+      "log_sha256": "16b336c9504e6dfafc13b10de06014d37888529c0b7893d0602a70782ded9074",
+      "artifacts": {
+        "build/hub_backend_commit_validation": "8bffd03c6f371efc10e671cbe05b37255295ab19f3991e6fa8a7f5d35fc37fbb"
+      },
+      "reused_from": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json",
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0,
+      "status": "PASS",
+      "id": "hub-ownership-lifecycle",
+      "command": [
+        "make",
+        "hub-ownership-lifecycle-host-test"
+      ],
+      "count": 6,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/backend-1791997486997530132/hub-ownership-lifecycle.log",
+      "log_sha256": "fc804027af16d36471e21b7dda856f1e10c2c05b4a534f8b5f9ca884a07f4c7f",
+      "artifacts": {},
+      "reused_from": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json",
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0,
+      "status": "PASS",
+      "id": "health-config",
+      "command": [
+        "make",
+        "gs40-config-test"
+      ],
+      "count": 17,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/backend-1791997486997530132/health-config.log",
+      "log_sha256": "ee6aad84f89b9b5b377e1bc3a68b9073a5ba65e02eb03dfdcdfc70bb21c43d70",
+      "artifacts": {
+        "build/ghar_sajag_interactive": "6eb99f842a8a8f77cb7963dba39b5771047a0063506b2c37845e3b1c493e0f41"
+      },
+      "reused_from": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json",
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0,
+      "status": "PASS",
+      "id": "contracts",
+      "command": [
+        "make",
+        "contracts"
+      ],
+      "count": 1,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/contracts.log",
+      "log_sha256": "00ac87a6755356f2a4277f3bdd1e7f8612ecc5f7f06030e5d957b005a43bb777",
+      "artifacts": {},
+      "reused_from": "/home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/contract-1791997440912939614/report.json",
+      "components": [
+        "contract",
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.435,
+      "status": "PASS",
+      "id": "lab-build",
+      "command": [
+        "make",
+        "lab-build"
+      ],
+      "count": 1,
+      "count_kind": "builds",
+      "log": "evidence/validation_framework/backend-1791997486997530132/lab-build.log",
+      "log_sha256": "871773273af95fd44c1499cd9f369290e9f27d318dbbb20493fde2ff66221685",
+      "artifacts": {
+        "build/ghar_sajag_interactive": "6eb99f842a8a8f77cb7963dba39b5771047a0063506b2c37845e3b1c493e0f41"
+      },
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 40.175,
+      "status": "PASS",
+      "id": "python",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "count": 459,
+      "count_kind": "tests",
+      "log": "evidence/validation_framework/backend-1791997486997530132/python.log",
+      "log_sha256": "bca085f2a88efc10fa71104dec953c877e6f201670955c3cf086f46952f2265d",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa",
+        "tooling"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 5.081,
+      "status": "PASS",
+      "id": "functional",
+      "command": [
+        "python3",
+        "validation/run_functional_suite.py"
+      ],
+      "count": 92,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/functional.log",
+      "log_sha256": "2a03038e995d2032a1c9850e8f40baa99e2a217820cbd8ac4547564a79739edf",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.579,
+      "status": "PASS",
+      "id": "dummy-streams",
+      "command": [
+        "python3",
+        "validation/run_dummy_sensor_streams.py"
+      ],
+      "count": 5,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/dummy-streams.log",
+      "log_sha256": "0e0637d2e52bc6ccdfe2c8974c271031d7d9e4d02125f32cd0b86200f8d65cb4",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 6.388,
+      "status": "PASS",
+      "id": "http",
+      "command": [
+        "python3",
+        "tests/simulation_http_test.py"
+      ],
+      "count": 17,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/http.log",
+      "log_sha256": "9e2d2343189f618c1594dcd625100c4a28a6499b03c5a7e00696f9c66bb5f931",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 1.941,
+      "status": "PASS",
+      "id": "bridge",
+      "command": [
+        "python3",
+        "tests/pwa_bridge_test.py"
+      ],
+      "count": 13,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/bridge.log",
+      "log_sha256": "3f1aa5bfe49e33e3fa2211fd1f5b277bb9cc2aa0940c486a1c7973d088205292",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 5.549,
+      "status": "PASS",
+      "id": "api",
+      "command": [
+        "python3",
+        "tests/pwa_68_api_test.py"
+      ],
+      "count": 2,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/api.log",
+      "log_sha256": "5efc14fc1208ecdaeeb6ef90e42fd287043f1396b2664eed4be2c5d618540f40",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 5.991,
+      "status": "PASS",
+      "id": "frontend",
+      "command": [
+        "python3",
+        "tests/pwa_68_frontend_test.py"
+      ],
+      "count": 2,
+      "count_kind": "assertion_groups",
+      "log": "evidence/validation_framework/backend-1791997486997530132/frontend.log",
+      "log_sha256": "be125db5e1886c85b10d3d1289449c7d7d0674722c2e9733152bfeb43836734e",
+      "artifacts": {},
+      "reused_from": null,
+      "components": [
+        "backend",
+        "pwa"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "seconds": 43.628,
+      "status": "FAIL",
+      "id": "p0-full-product-e2e",
+      "command": [
+        "make",
+        "p0-product-e2e",
+        "P0_SCENARIOS="
+      ],
+      "count": 26,
+      "count_kind": "scenario_checks",
+      "log": "evidence/validation_framework/backend-1791997486997530132/p0-full-product-e2e.log",
+      "log_sha256": "accb9577b143baf302c920b7f1e12a20767454ef0334bafb6f928f0c4b13f061",
+      "artifacts": {
+        "build/p0_board_stack_e2e_validation": "53bcf48dfb3547b9f8e3e86203c5c955ea165134dd940171d0056927796c08f8",
+        "build/p2d_cloud_contract_validation": "5672c27ee14e0968eac0a77e95afd6bcc54b0f53e318dfb29a9a58cc1401de6f"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa"
+      ]
+    }
+  ]
+}

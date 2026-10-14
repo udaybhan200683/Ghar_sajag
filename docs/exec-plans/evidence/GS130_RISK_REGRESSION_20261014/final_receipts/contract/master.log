@@ -1,0 +1,55 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/rules.o build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/logging.o build/obj/base/ed0b9d0aae893634/tests/support/host/logging/file_log_sink.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/data_plane_codec.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/node_retirement_protocol.o build/obj/base/ed0b9d0aae893634/firmware/common/transport/session_id.o build/obj/base/ed0b9d0aae893634/firmware/node/sensing/sensing.o build/obj/base/ed0b9d0aae893634/firmware/node/communication/radio/node_radio.o build/obj/base/ed0b9d0aae893634/firmware/node/power/power.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/lifecycle.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_store.o build/obj/base/ed0b9d0aae893634/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/ed0b9d0aae893634/firmware/node/runtime/node_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/ingest/ingest.o build/obj/base/ed0b9d0aae893634/firmware/hub/commissioning/registry/node_registry.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/journal.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_transition.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/hub_durability_owner.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/time/clock.o build/obj/base/ed0b9d0aae893634/firmware/hub/event_processing/coverage/coverage.o build/obj/base/ed0b9d0aae893634/firmware/hub/routines/routine_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/ui/resident_ui.o build/obj/base/ed0b9d0aae893634/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/ed0b9d0aae893634/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_runtime.o build/obj/base/ed0b9d0aae893634/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/runtime_state_store.o build/obj/base/ed0b9d0aae893634/firmware/common/security/security.o build/obj/base/ed0b9d0aae893634/firmware/hub/storage/durable_event_outbox.o tests/cpp/master_validation.cpp -o build/master_validation
+python3 validation/master_validation.py
+PASS	C3-SMOKE-001	C3_SMOKE	0	sensing-to-durable-retirement	
+PASS	HUB-SMOKE-001	HUB_SMOKE	0	receive-process-dedupe-ack	
+PASS	SYSTEM-SMOKE-001	SYSTEM_SMOKE	0	synthetic-motion-node-hub	
+PASS	OR-001	OFFLINE_RESILIENCE	0	normal-online-delivery	
+PASS	OR-002	OFFLINE_RESILIENCE	0	hub-disappears-node-operational	
+PASS	OR-003	OFFLINE_RESILIENCE	0	offline-motion-acceptance	
+PASS	OR-004	OFFLINE_RESILIENCE	0	multiple-offline-events	
+PASS	OR-005	OFFLINE_RESILIENCE	0	retention-while-undeliverable	
+PASS	OR-006	OFFLINE_RESILIENCE	0	in-flight-coherence-after-failure	
+PASS	OR-007	OFFLINE_RESILIENCE	0	first-retry-stage	
+PASS	OR-008	OFFLINE_RESILIENCE	0	subsequent-retry-stages	
+PASS	OR-009	OFFLINE_RESILIENCE	0	periodic-offline-backoff	
+PASS	OR-010	OFFLINE_RESILIENCE	0	mac-failure-retry	
+PASS	OR-011	OFFLINE_RESILIENCE	0	ack-loss-retry	
+PASS	OR-012	OFFLINE_RESILIENCE	0	mac-success-without-app-ack	
+PASS	OR-013	OFFLINE_RESILIENCE	0	duplicate-transmission	
+PASS	OR-014	OFFLINE_RESILIENCE	0	duplicate-ack	
+PASS	OR-015	OFFLINE_RESILIENCE	0	same-session-replay	
+PASS	OR-016	OFFLINE_RESILIENCE	0	hub-restart-node-alive	
+PASS	OR-017	OFFLINE_RESILIENCE	0	hub-restoration	
+PASS	OR-018	OFFLINE_RESILIENCE	0	recovery-without-node-reboot	
+PASS	OR-019	OFFLINE_RESILIENCE	0	backlog-delivery	
+PASS	OR-020	OFFLINE_RESILIENCE	0	durable-ack-retirement	
+PASS	OR-021	OFFLINE_RESILIENCE	0	final-drain	
+PASS	OR-022	OFFLINE_RESILIENCE	0	motion-prolonged-outage	
+PASS	OR-023	OFFLINE_RESILIENCE	0	motion-during-drain	
+PASS	OR-024	OFFLINE_RESILIENCE	0	multiple-outage-cycles	
+PASS	OR-025	OFFLINE_RESILIENCE	0	six-hour-virtual-outage	
+PASS	OR-026	OFFLINE_RESILIENCE	0	deterministic-retry-jitter	
+PASS	OR-027	OFFLINE_RESILIENCE	0	session-identity	
+PASS	OR-028	OFFLINE_RESILIENCE	0	sequence-identity	
+PASS	OR-029	OFFLINE_RESILIENCE	0	no-simulated-node-reset	
+PASS	OR-030	OFFLINE_RESILIENCE	0	no-motion-drop-qualified-load	
+PASS	OR-031	OFFLINE_RESILIENCE	0	no-store-full-qualified-load	
+PASS	OR-032	OFFLINE_RESILIENCE	0	no-priority-rejection-qualified-load	
+PASS	OR-033	OFFLINE_RESILIENCE	0	node-health-online-offline-recovery	
+PASS	OR-034	OFFLINE_RESILIENCE	0	recovery-cycle-resource-bounds	
+PASS	OR-035	OFFLINE_RESILIENCE	0	qualified-resilience-invariants	
+PASS	FOTA-PROTOCOL-001	C3_FOTA	0	chunk-crc-and-wire-bounds	
+PASS	FOTA-POLICY-001	C3_FOTA	0	version-target-signature-policy	
+PASS	PROTO-ROBUST-001	PROTOCOL	0	malformed-node-message	
+PASS	QUEUE-BOUNDARY-001	C3_COMPLETE	0	queue-empty-one-near-full-full-drain	
+PASS	RESTART-001	RESTART_RECOVERY	0	hub-restart-with-inflight	
+PASS	C3-STRESS-001	C3_STRESS	1	deterministic-outage-storm	
+PASS	HUB-STRESS-001	HUB_STRESS	4	duplicate-volume	
+PASS	SYSTEM-STRESS-001	SYSTEM_STRESS	2	fixed-seed-chaos	
+PASS	C3-STABILITY-001	C3_STABILITY	43	long-logical-runtime	
+PASS	HUB-STABILITY-001	HUB_STABILITY	22	repeated-processing	
+PASS	SYSTEM-SOAK-001	SYSTEM_SOAK	7	virtual-six-hour-mixed-load	
+SUMMARY	49	49	0	seed=23063
+MASTER VALIDATION: PASS; tests=49 seed=23063 wall_seconds=0.09
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

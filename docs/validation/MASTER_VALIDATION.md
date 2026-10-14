@@ -1,6 +1,25 @@
 
 # Master automated validation and regression framework
 
+## GS-130 bounded risk-regression integration — 2026-10-14
+
+The [focused report](../exec-plans/evidence/GS130_RISK_REGRESSION_20261014.md)
+records six audited missing scenarios and the reproduced backend cached-health
+defect. `BOARD-TC-130-010`, `HUB-TC-130-006`, `GS130-HEALTH-001/002`,
+`GS130-DURABLE-001` and `GS130-CONFIG-001` execute in the existing board,
+feature-boundary, health-config and Python stages. Mandatory success markers
+reject omission or failure of these cases. No extra simulator or stage is added.
+The board stage now requires ten case markers, and traceability maps 182 rows /
+205 modules / 15 existing physical definitions. These are accounting counts,
+not a claim of 182 commercial features or complete product qualification.
+
+The only production correction is the Foundation received-contact consumer;
+Node/Hub firmware, wire formats, EventKey/ACK semantics and target images are
+unchanged. Component/contract/backend/PWA outcomes and preserved mandatory
+migration/P0 failures are in the report. Physical C8 evidence remains reused;
+P3 provenance, P9 fixtures and separate GS-149 P10 stay open. Full release is
+deferred; next separate task is GS-148 P4/P5-B1 under comments 10810/10933.
+
 ## GS-114 C8 coverage reconciliation — 2026-10-14
 
 The GS-116/GS-130 C8 audit maps P1–P10 to production sources, automated test

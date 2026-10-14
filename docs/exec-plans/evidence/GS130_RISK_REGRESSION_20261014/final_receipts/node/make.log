@@ -1,0 +1,91 @@
+make -C code validation-node
+make[1]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+python3 validation/component_gate.py --suite node 
+START s3-fixture-commissioning timeout=120
+PASS s3-fixture-commissioning exit=0 count=14 1.854s
+START host-build timeout=600
+PASS host-build exit=0 count=1 0.177s
+START board-stack-e2e timeout=600
+PASS board-stack-e2e exit=0 count=10 8.417s
+START feature-boundaries timeout=600
+PASS feature-boundaries exit=0 count=133 4.227s
+START factory-reset timeout=600
+PASS factory-reset exit=0 count=1 9.961s
+START signed-fota-tooling timeout=600
+PASS signed-fota-tooling exit=0 count=16 0.262s
+START cpp timeout=600
+PASS cpp exit=0 count=1483 9.202s
+START battery-c8 timeout=600
+PASS battery-c8 exit=0 count=72 2.325s
+START gs150 timeout=600
+PASS gs150 exit=0 count=1500 7.112s
+START gs40 timeout=600
+PASS gs40 exit=0 count=1320 8.347s
+START commissioning timeout=600
+PASS commissioning exit=0 count=4 3.143s
+START rejoin timeout=600
+PASS rejoin exit=0 count=1 2.297s
+START association timeout=600
+PASS association exit=0 count=1 1.813s
+START node-recovery timeout=600
+PASS node-recovery exit=0 count=1 2.449s
+START node-persistence timeout=600
+PASS node-persistence exit=0 count=1 4.927s
+START node-retirement timeout=600
+PASS node-retirement exit=0 count=1 2.809s
+START secure-fota timeout=600
+PASS secure-fota exit=0 count=2 2.109s
+START fota timeout=600
+PASS fota exit=0 count=34 5.945s
+START master timeout=600
+PASS master exit=0 count=49 7.967s
+START first-event-recovery-projection timeout=600
+PASS first-event-recovery-projection exit=0 count=1 1.053s
+START health-config timeout=600
+PASS health-config exit=0 count=17 3.554s
+START product-base timeout=600
+PASS product-base exit=0 count=1 1.076s
+START product-ai timeout=600
+PASS product-ai exit=0 count=1 1.181s
+START p0-full-product-e2e timeout=360
+FAIL p0-full-product-e2e exit=0 count=26 44.497s
+ts/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 
+
+Running 1 test using 1 worker
+
+[1/1] [chromium-desktop] › ../tests/playwright/p0_full_product.spec.ts:3:5 › C3/S3 event and backend incident render consistently after caregiver reload
+  1 passed (3.1s)
+P0-E2E-001 PASS real JsonApi creates isolated household and owner authorization
+P0-GAP-001 PASS production-shaped CloudSync request reaches the real durable API transaction and returns its committed exact EventKey
+P0-P2D-008 PASS durable commit preserves the original EventKey payload and Node/Hub timestamps
+P0-P2D-001 PASS client actor identity without trusted Hub context cannot create a durable event
+P0-P2D-002 PASS Hub principal cannot commit an event to a different Home
+P0-P2D-003 PASS stale Hub enrollment generation cannot write current Home events
+P0-P2D-004 PASS Hub authorization is pinned to the enrolled physical and logical Node identity
+P0-P2D-009 PASS trusted authorizer revocation rejects the Node before durable commit
+P0-P2D-005 PASS backend restart plus exact retry returns the persisted idempotent COMMITTED receipt
+P0-P2D-006 PASS conflicting content under the exact EventKey is rejected without replacing durable state
+P0-P2D-007 PASS database failure remains fail-closed with no COMMITTED receipt
+P0-E2E-011 PASS API accepts the implemented Hub heartbeat observation record
+P0-E2E-002 PASS Hub retry preserves the structured EventKey and produces an idempotent durable response
+P0-E2E-003 PASS exact retry yields one durable event visible to caregiver event queries
+P0-E2E-004 PASS real API stores door event and derives caregiver door status
+P0-E2E-005 PASS real service evaluates an accepted implemented concern event and creates its effect
+P0-E2E-006 PASS resident Call Family event creates implemented caregiver incident state
+P0-E2E-007 PASS caregiver projection includes the durable CloudSync EventKey exactly once alongside door state
+P0-E2E-008 PASS backend projection preserves resident-action incident state and event chronology
+P0-E2E-012 PASS fresh Hub heartbeat updates Hub liveness independently of resident activity
+P0-E2E-013 PASS Hub freshness expires after the implemented 190-second API lease
+P0-E2E-009 PASS real API denies cross-household reads without an authorized role
+P0-E2E-014 PASS events and incidents remain isolated between multiple service homes
+P0-E2E-015 PASS implemented desired-policy API validates, versions and returns the same configuration
+P0-E2E-016 PASS invalid policy is rejected by the real API instead of receiving a false success
+P0-E2E-017 PASS actual Chromium app reload renders the live API timeline, door state, connectivity and concern
+P0 E2E EXECUTION PASS scenarios=26 checks=26 browser_tests=1 product_status=PARTIAL physical=NOT_RUN
+P0 E2E REPORT build/p0_product_e2e_report.json
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+
+SOFTWARE FAIL PHYSICAL NOT_RUN /home/udaybhan/projects/Ghar_sajag_r1/code/evidence/validation_framework/node-1791996894897500075/report.json
+make[1]: *** [Makefile:358: validation-node] Error 1
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+make: *** [Makefile:5: validation-node] Error 2

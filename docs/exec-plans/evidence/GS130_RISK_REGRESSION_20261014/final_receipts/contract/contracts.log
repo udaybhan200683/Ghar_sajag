@@ -1,0 +1,4 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+python3 scripts/verify_contracts.py
+contracts: 4 JSON schemas, node/hub protocol examples, optional power telemetry, battery threshold config and OpenAPI verified
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

@@ -1,0 +1,22 @@
+test_GS130_DURABLE_001_backlog_delivery_restart_projection_and_privacy (test_durable_api.DurableApiCompositionTest.test_GS130_DURABLE_001_backlog_delivery_restart_projection_and_privacy) ... ok
+test_committed_event_survives_reopen_and_uses_existing_query_projection (test_durable_api.DurableApiCompositionTest.test_committed_event_survives_reopen_and_uses_existing_query_projection) ... ok
+test_requires_file_store_and_trusted_authorizer (test_durable_api.DurableApiCompositionTest.test_requires_file_store_and_trusted_authorizer) ... ok
+test_B01_F01_membership_is_tenant_scoped (test_backend.BackendTest.test_B01_F01_membership_is_tenant_scoped) ... ok
+test_B02_consent_withdrawal_enters_privacy (test_backend.BackendTest.test_B02_consent_withdrawal_enters_privacy) ... ok
+test_B03_ingest_is_idempotent (test_backend.BackendTest.test_B03_ingest_is_idempotent) ... ok
+test_B04_B05_call_creates_one_incident_and_two_bounded_routes (test_backend.BackendTest.test_B04_B05_call_creates_one_incident_and_two_bounded_routes) ... ok
+test_B04_claim_lease_prevents_double_ownership (test_backend.BackendTest.test_B04_claim_lease_prevents_double_ownership) ... ok
+test_B05_F09_quiet_door_notice_is_opt_in_and_idempotent (test_backend.BackendTest.test_B05_F09_quiet_door_notice_is_opt_in_and_idempotent) ... ok
+test_B05_F14_summary_is_opt_in_single_and_coverage_honest (test_backend.BackendTest.test_B05_F14_summary_is_opt_in_single_and_coverage_honest) ... ok
+test_B06_config_version_and_device_binding (test_backend.BackendTest.test_B06_config_version_and_device_binding) ... ok
+test_B07_B08_snapshot_separates_activity_from_reachability (test_backend.BackendTest.test_B07_B08_snapshot_separates_activity_from_reachability) ... ok
+test_GS130_CONFIG_001_json_rejection_preserves_applied_policy (test_backend.BackendTest.test_GS130_CONFIG_001_json_rejection_preserves_applied_policy) ... ok
+test_GS130_claim_expiry_boundary_allows_reconnection_retry (test_backend.BackendTest.test_GS130_claim_expiry_boundary_allows_reconnection_retry) ... ok
+test_daytime_inactivity_creates_one_checkin_incident_and_routes (test_backend.BackendTest.test_daytime_inactivity_creates_one_checkin_incident_and_routes) ... ok
+test_motion_summary_is_stored_once_without_second_activity_trigger (test_backend.BackendTest.test_motion_summary_is_stored_once_without_second_activity_trigger) ... ok
+test_test_alert_never_creates_production_incident (test_backend.BackendTest.test_test_alert_never_creates_production_incident) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.115s
+
+OK

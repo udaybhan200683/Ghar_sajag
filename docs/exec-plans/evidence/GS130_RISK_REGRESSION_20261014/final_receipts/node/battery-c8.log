@@ -1,0 +1,22 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/ed0b9d0aae893634/firmware/common/shared/src/logging.o build/obj/base/ed0b9d0aae893634/firmware/node/sensing/sensing.o build/obj/base/ed0b9d0aae893634/firmware/node/power/power.o build/obj/base/ed0b9d0aae893634/firmware/node/communication/radio/node_radio.o build/obj/base/ed0b9d0aae893634/firmware/node/storage/node_store.o build/obj/base/ed0b9d0aae893634/firmware/node/runtime/node_runtime.o tests/cpp/battery_c8_validation.cpp -o build/battery_c8_validation
+./build/battery_c8_validation
+BAT-C8 focused validation PASS checks=72
+PYTHONPATH=tests/python python3 -m unittest test_battery_power_invariants -v
+test_authenticated_application_ack_restores_outage_profile (test_battery_power_invariants.BatteryPowerInvariantTest.test_authenticated_application_ack_restores_outage_profile) ... ok
+test_energy_counters_are_owner_local_and_not_new_wire_telemetry (test_battery_power_invariants.BatteryPowerInvariantTest.test_energy_counters_are_owner_local_and_not_new_wire_telemetry) ... ok
+test_gs150_radio_resume_failure_preserves_sensing (test_battery_power_invariants.BatteryPowerInvariantTest.test_gs150_radio_resume_failure_preserves_sensing) ... ok
+test_gs150_target_uses_tested_retained_delivery_policy (test_battery_power_invariants.BatteryPowerInvariantTest.test_gs150_target_uses_tested_retained_delivery_policy) ... ok
+test_light_sleep_is_owner_local_radio_quiescent_and_ram_only (test_battery_power_invariants.BatteryPowerInvariantTest.test_light_sleep_is_owner_local_radio_quiescent_and_ram_only) ... ok
+test_nodehealth_schema_extension_is_logged_without_new_cadence (test_battery_power_invariants.BatteryPowerInvariantTest.test_nodehealth_schema_extension_is_logged_without_new_cadence) ... ok
+test_physical_wake_does_not_force_hil_health (test_battery_power_invariants.BatteryPowerInvariantTest.test_physical_wake_does_not_force_hil_health) ... ok
+test_physical_wake_uses_real_idf_and_pir_path (test_battery_power_invariants.BatteryPowerInvariantTest.test_physical_wake_uses_real_idf_and_pir_path) ... ok
+test_policy_and_retry_paths_do_not_add_nvs_writes (test_battery_power_invariants.BatteryPowerInvariantTest.test_policy_and_retry_paths_do_not_add_nvs_writes) ... ok
+test_session_recovery_has_no_periodic_or_retry_persistence (test_battery_power_invariants.BatteryPowerInvariantTest.test_session_recovery_has_no_periodic_or_retry_persistence) ... ok
+test_sleep_observability_is_only_updated_on_real_sleep_path (test_battery_power_invariants.BatteryPowerInvariantTest.test_sleep_observability_is_only_updated_on_real_sleep_path) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.009s
+
+OK
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

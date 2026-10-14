@@ -279,12 +279,20 @@ class FoundationService:
     def record_health(self, did, online, health, battery_mv=None, battery_percent=None, drain_status="LEARNING", heartbeat=False, received_contact_at=None):
         self.validate_health(online, health, battery_mv, battery_percent, drain_status)
         old = self._row("device_registry", "device_id", did)
+        if not old["registered"]: raise FoundationError("device_unregistered")
         if received_contact_at is not None and (type(received_contact_at) is not int or received_contact_at <= 0 or received_contact_at > self.clock()):
             raise FoundationError("invalid_received_contact")
         contact_at = self.clock() if received_contact_at is None else received_contact_at
+        if online and received_contact_at is not None:
+            # Re-rendering/replaying cached telemetry is not fresh contact and
+            # must not resurrect OFFLINE or clear a newer health fault.
+            if old["last_seen_at"] is not None and contact_at <= old["last_seen_at"]:
+                return
+            timeout = self._offline_timeout_seconds(old)
+            if timeout is not None and self.clock() - contact_at > timeout:
+                return
         if old["last_seen_at"] is not None and contact_at < old["last_seen_at"]:
             contact_at = old["last_seen_at"]
-        if not old["registered"]: raise FoundationError("device_unregistered")
         if (old["online"], old["health"], old["battery_mv"], old["battery_percent"], old["drain_status"]) == (int(online), health, battery_mv, battery_percent, drain_status):
             if online and heartbeat and old["last_seen_at"] != contact_at:
                 with self.db:
@@ -297,6 +305,10 @@ class FoundationService:
             self.db.execute("INSERT INTO device_health_history(home_id,device_type,device_id,sampled_at,status,battery_mv,details_json) SELECT home_id,kind,device_id,?,?,?,? FROM device_registry WHERE device_id=? AND home_id=? AND registered=1",
                             (at, health, battery_mv, json.dumps({"online": online, "battery_percent": battery_percent, "drain_status": drain_status}), did, self.home_id))
 
+    def _offline_timeout_seconds(self, device):
+        policy = self.node_health_policy.for_device(device["device_id"]) if device["kind"] == "NODE" else None
+        return policy.offline_seconds if policy else 190 if device["kind"] == "HUB" else None
+
     @synchronized
     def expire_stale(self, now, exclude=()):
         """Per-Node trusted profile; Hub cloud lease is a separate 190 s policy.
@@ -307,8 +319,7 @@ class FoundationService:
         excluded = set(exclude)
         rows = self.db.execute("SELECT device_id,kind,last_seen_at,battery_mv,battery_percent,drain_status FROM device_registry WHERE home_id=? AND registered=1 AND online=1 AND last_seen_at IS NOT NULL", (self.home_id,)).fetchall()
         for row in rows:
-            policy = self.node_health_policy.for_device(row["device_id"]) if row["kind"] == "NODE" else None
-            timeout = policy.offline_seconds if policy else 190 if row["kind"] == "HUB" else None
+            timeout = self._offline_timeout_seconds(row)
             if timeout is not None and row["device_id"] not in excluded and now - row["last_seen_at"] > timeout:
                 self.record_health(row["device_id"], False, "OFFLINE", row["battery_mv"], row["battery_percent"], row["drain_status"])
 
