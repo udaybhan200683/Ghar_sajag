@@ -1,10 +1,10 @@
 # GS-114 C8 physical execution
 
-## Latest run03 checkpoint — 2026-10-14 01:52 UTC (campaign active)
+## Latest run03 checkpoint — 2026-10-14 02:04 UTC (campaign active)
 
 The installed diagnostic firmware remains unchanged on the verified C3/S3 pair. The consolidated results now include actual P1/P2 PASS, P3 held-HIGH BLOCKED, P4 FAIL due three distinct qualified event keys during one requested motion episode, P5 BLOCKED/inconclusive because the S3 capture missed the first outage-recovery key, and P6 PASS for Hub-only reboot recovery. P6 established authenticated session 3 and healthy RPF00 admission without a C3 reset; the S3 boot banner was missed because capture attached after USB enumeration. Case records: [P1](run03_20261014/C8_P1.md), [P2](run03_20261014/C8_P2.md), [P3](run03_20261014/C8_P3.md), [P4](run03_20261014/C8_P4.md), [P5](run03_20261014/C8_P5.md), [P6](run03_20261014/C8_P6.md). The live single-reader S3 capture is `run03_20261014/s3_uart_timestamped.log`.
 
-P7 requires one real PIR event under the post-reboot session. Per the operator's instruction, do not request motion until the operator sends **available**. Do not reset/reflash/recommission; keep S3 capture running. P8/P9 fixture review follows P7. GS-114 remains In Progress; P10 remains separate under GS-149. No firmware defect has yet been demonstrated by the P4/P5 event anomalies, so no source change or new image was made.
+P7 requires one real PIR event under the post-reboot session. Authenticated NodeHealth at 01:58:46 UTC remained session 3 with no event/pending/reset changes and ten additional timer wakes. Per the operator's instruction, do not request motion until the operator sends **available**. The P8/P9 read-only fixture review found a narrow S3 ACK-drop test profile is feasible after P7, while the P9 ACK hold and signed FOTA image/trigger/recovery prerequisites remain unavailable. Do not reset/reflash/recommission; keep S3 capture running. GS-114 remains In Progress; P10 remains separate under GS-149. No firmware defect has yet been demonstrated by the P4/P5 event anomalies, so no source change or new image was made.
 
 ## Operator-requested pause handoff — 2026-10-13 16:56 UTC
 
@@ -172,9 +172,9 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | P5 | BLOCKED / inconclusive | Hub outage and return executed; Node stayed alive and one outage-period event was eventually retired by health counters, but exact initial EventKey/first Hub delivery fell in capture gap and q14 added another durable effect; see [P5](run03_20261014/C8_P5.md) |
 | P6 | PASS | Hub-only power interruption followed by authenticated session 3, RPF00 admission OPEN and stable Node reset/pending counters; boot banner missed at serial attach; see [P6](run03_20261014/C8_P6.md) |
 | P7 | NOT_RUN; ready | Post-reboot session 3 baseline at 01:53:46.306 UTC showed no new PIR/GPIO/ACK/pending work across 10 more timer wakes; waiting for operator `available` before real motion |
-| P8 | BLOCKED | Controlled postcommit ACK-loss fixture and authoritative per-key ledger unavailable/unproven |
-| P9 ACK | BLOCKED | Requires P8 link fixture and observed continuous receive during successful MAC/pending ACK |
-| P9 FOTA | BLOCKED | Current S3 broad HIL control OFF; matched signed C3 test/recovery images and supported trigger/recovery plan unproven |
+| P8 | BLOCKED; fixture review complete | Installed S3 profile deliberately omits broad HIL controls; the authenticated per-key outbox/effect log exists. A separate narrow one-shot postcommit ACK-drop build option and physical run are pending after P7; see [P8](run03_20261014/C8_P8.md) |
+| P9 ACK | BLOCKED | No qualified directional ACK hold fixture; P8 one-shot loss alone is shorter than the required pending-ACK observation window; see [P9](run03_20261014/C8_P9.md) |
+| P9 FOTA | BLOCKED | No matched signed C3 test/recovery image pair, supported signed trigger or known recovery procedure; see [P9](run03_20261014/C8_P9.md) |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
 Next action: keep the S3 capture active and verify post-reboot readiness; wait for the operator's `available` signal before the P7 real PIR prompt. Then finish P7 correlation and inspect P8/P9 fixtures. Do not move GS-114 to Done while P3–P5/P7–P9 remain incomplete or blocked.

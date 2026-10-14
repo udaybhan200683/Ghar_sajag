@@ -1,7 +1,7 @@
 {
   "run_id": "GS114-C8-run03-20261014",
   "started_utc": "2026-10-14T00:42:16.123Z",
-  "last_recorded_utc": "2026-10-14T01:53:46.306734733Z",
+  "last_recorded_utc": "2026-10-14T01:58:46.016044471Z",
   "source_checkpoint": "9674075f1911dbad076fdcdb1c541a283dfbb748",
   "source_branch": "feature/r1-commercial-baseline",
   "firmware_build_source": "72a223fc3b290c01c9f93fbb90db83d87601ad54",
@@ -79,9 +79,9 @@
     "P5": "BLOCKED_INCONCLUSIVE",
     "P6": "PASS",
     "P7": "READY_NOT_RUN_AWAITING_OPERATOR_AVAILABLE",
-    "P8": "BLOCKED_NOT_YET_REVIEWED_AFTER_P7",
-    "P9_ACK": "BLOCKED_NOT_YET_REVIEWED_AFTER_P7",
-    "P9_FOTA": "BLOCKED_NOT_YET_REVIEWED_AFTER_P7"
+    "P8": "BLOCKED_FIXTURE_REVIEW_COMPLETE_IMPLEMENTATION_PENDING_AFTER_P7",
+    "P9_ACK": "BLOCKED_NO_BOUNDED_PENDING_ACK_WINDOW_FIXTURE",
+    "P9_FOTA": "BLOCKED_NO_MATCHED_SIGNED_IMAGES_TRIGGER_OR_RECOVERY_PLAN"
   },
   "p7_pre_stimulus_node_health": {
     "utc": "2026-10-14T01:53:46.306734733Z",
@@ -109,6 +109,8 @@
     "C8_P4.md",
     "C8_P5.md",
     "C8_P6.md",
-    "C8_P7.md"
+    "C8_P7.md",
+    "C8_P8.md",
+    "C8_P9.md"
   ]
 }

@@ -1708,7 +1708,7 @@ was started. At resume, recheck by-id ports/identity/power/wiring and capture
 with a live control channel; reuse installed images, wait for authenticated
 timer-wake health and then prompt for real P2 motion. Do not erase first.
 
-## GS-114 C8 physical execution update — 2026-10-14 01:52 UTC
+## GS-114 C8 physical execution update — 2026-10-14 02:04 UTC
 
 The run03 campaign continued on the existing commissioned boards and diagnostic
 images without erase, reflash or recommission. Canonical branch
@@ -1734,4 +1734,12 @@ native USB console is silent during light sleep; authenticated NodeHealth over
 ESP-NOW is the deferred wake/sleep observer. P7 is ready for a physical
 post-reboot event but the operator instructed that motion prompts wait until
 they send `available`. Do not reset/reflash/recommission. P8 and P9 fixture
-inspection follows P7. GS-114 stays In Progress; P10 is separate under GS-149.
+inspection found that the broad HIL control is prohibited on the S3 target,
+although the commissioning profile emits exact-key durable outbox/effect
+evidence. P8 needs a separate narrow postcommit ACK-drop flag/command, to be
+implemented only after P7 and kept disabled in ordinary/production builds. P9's
+ACK hold needs a longer controlled window; no matched signed C3 test/recovery
+image or trigger was found for FOTA. GS-114 stays In Progress; P10 is separate
+under GS-149. Evidence/doc commit `1fb3a942a08157fbdb59e6a71b1b520bb59ce78f`
+was pushed and remote-verified before these new P8/P9 review notes; the live S3
+log remains intentionally untracked until capture ends.

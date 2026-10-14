@@ -606,3 +606,14 @@ by the S3 reader. No source behavior was changed and no product/security
 semantics are altered by this status update. The detailed case evidence and
 limitations are in the [GS-114 execution report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
 Context version remains `2026-10-13.001`; GS-114 remains In Progress.
+
+The current S3 commissioning image has broad `GS_HIL_CONTROL=OFF`; the target
+build rejects enabling it, so the existing broad postcommit reboot fault cannot
+be used as a directional ACK-loss fixture. A distinct build-only, default-off
+one-shot ACK suppression hook may be added for GS-114 P8 after P7 if it is
+compiled only with the isolated S3 commissioning profile and suppresses only
+after an authenticated durable effect/outbox check. This is bounded HIL test
+instrumentation, not a protocol/product decision, and it is not yet implemented
+or installed. P9 still lacks a longer controlled ACK hold, matched signed test
+and recovery images, a supported trigger, and a known recovery procedure; no
+FOTA operation was authorized or attempted. See the linked run03 P8/P9 evidence.
