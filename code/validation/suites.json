@@ -1427,10 +1427,12 @@
         "backend/ghar_sajag/diagnostic_authorization.py",
         "backend/ghar_sajag/diagnostics.py",
         "backend/ghar_sajag/identity.py",
+        "backend/ghar_sajag/human_authentication.py",
         "backend/ghar_sajag/service_access.py",
         "backend/migrations/011_service_access.sql",
         "config/service_access.json",
         "tests/engineering_dashboard/test_foundation.py",
+        "tests/engineering_dashboard/test_human_authentication.py",
         "tests/engineering_dashboard/test_registration.py",
         "tests/engineering_dashboard/test_service_access.py"
       ],
@@ -1440,7 +1442,7 @@
       ],
       "timeout": 600,
       "count_kind": "tests",
-      "qualification_scope": "NONACTIVE_POLICY_AND_READ_PROJECTION_PLUS_HOST_SQLITE_SERVICE_DESK; NOT_PRODUCTION_AUTHENTICATION_OR_POSTGRESQL"
+      "qualification_scope": "NONACTIVE_POLICY_AND_READ_PROJECTION_PLUS_HOST_SQLITE_SERVICE_DESK_AND_INJECTED_GS76_IDENTITY_BOUNDARY; NOT_PRODUCTION_AUTHENTICATION_OR_POSTGRESQL"
     }
   ],
   "separate_harnesses": {},

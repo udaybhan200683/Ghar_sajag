@@ -1,6 +1,22 @@
 
 # Master automated validation and regression framework
 
+## GS-76 Stage 2A inactive identity boundary — 2026-10-14
+
+`diagnostic-foundation` now includes 14 registered GS76-AUTH-H01..H14
+injected-verifier/session cases, preserving all 84 prior cases. This boundary
+does not verify real OIDC signatures or activate routes. Focused suite 98/98,
+framework 39/39 and feature mapping 158 features / 209 modules / 20 meta-tests
+PASS. Fresh `make validation-backend` remains FAIL, exit 2 (14/15 stages PASS);
+fresh `make validation-pwa` remains FAIL, exit 2 (11/12 stages PASS), with 10
+same-source/profile backend PASS receipts reused and JavaScript 23/23 fresh.
+Both fail only mandatory P0 full-product completeness: 26 scenario checks and
+one Chromium test execute PASS but `product_vertical_status=PARTIAL` at the
+separate GS-148 Hub credential/enrollment integration gap. Production identity,
+PostgreSQL, authenticated service routes and physical acceptance remain open.
+Native receipts and exact source fingerprint are in the
+[GS-76 Stage 2A handoff](../exec-plans/evidence/engineering_dashboard_20261014/GS76_STAGE2A_HANDOFF.md).
+
 ## Latest GS-125 post-ENOSPC backend/PWA qualification — 2026-10-13
 
 Fresh backend and PWA reports share source fingerprint

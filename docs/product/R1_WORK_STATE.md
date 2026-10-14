@@ -1,5 +1,26 @@
 # R1 Current Work State
 
+## GS-76 Stage 2A provider-neutral boundary — 2026-10-14
+
+The isolated dashboard branch now has a nonactive server human authentication
+boundary requiring an injected credential verifier and current authoritative
+session directory. It validates normalized issuer/audience/use/time/session
+assertions and maps to a server-owned actor; the 14 new fixture tests are
+registered in the backend diagnostic-foundation stage and GS-130 traceability.
+Focused dashboard tests PASS 98/98; framework 39/39 and feature mapping 20/20
+PASS. Fresh backend aggregate FAIL, exit 2 (14/15 stages PASS), and PWA
+aggregate FAIL, exit 2 (11/12 stages PASS). The only aggregate failure remains
+the mandatory P0 product completeness adjudication; 26 scenarios and one browser
+check execute PASS but production GS-148 Hub credential/enrollment integration
+keeps `product_vertical_status=PARTIAL`. No ENOSPC recurred.
+This does not verify real OIDC signatures, activate routes, supply Home/staff
+authority, compose PWA login or qualify PostgreSQL. Production auth and service
+routes stay disabled. The GS-76 provider and session-model recommendation,
+source audit, remaining decisions and exact validation receipts are in the
+[Stage 2A handoff](../exec-plans/evidence/engineering_dashboard_20261014/GS76_STAGE2A_HANDOFF.md).
+The GS-122/10705 in-app caregiver workflow remains the current product policy;
+no service OTP is introduced. GS-148 and physical qualification remain separate.
+
 ## Latest GS-125 post-ENOSPC qualification — 2026-10-13
 
 Fresh full backend and PWA aggregate receipts were run from dashboard source

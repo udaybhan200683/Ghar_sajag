@@ -1,0 +1,2 @@
+# Native test logs are byte-exact receipts; do not rewrite their trailing spaces.
+*.log whitespace=-trailing-space

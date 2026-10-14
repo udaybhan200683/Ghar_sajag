@@ -1,5 +1,14 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-76 Stage 2A status — 2026-10-14 (no new decision)
+
+The isolated dashboard branch now includes a provider-neutral, nonactive human
+credential/session verification boundary with injected tests. This records no
+vendor choice, deployed issuer, production session, staff/Home authority,
+PostgreSQL integration or route activation. The approved in-app caregiver
+Approve/Deny/Revoke workflow and no-service-OTP policy below are unchanged.
+See the [GS-76 Stage 2A handoff](../exec-plans/evidence/engineering_dashboard_20261014/GS76_STAGE2A_HANDOFF.md).
+
 ## GS-122/124/125 Stage 1 status — 2026-10-13 (no new decision)
 
 The approved GS-122/10705 service workflow now has a bounded host SQLite
