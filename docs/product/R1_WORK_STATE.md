@@ -24,6 +24,14 @@ sleep entries and timer wakes, last wake TIMER, radio restore OK and owner
 resumed. **C8-P3 physical behavior PASS.** Historical P3 windows remain
 separate. See [case evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_P3_CONTROLLED_20261014.md).
 
+The exclusive capture later recorded separate q3 `MOTION`, q4
+`MOTION_SUMMARY` and q5 `MOTION` keys at `09:58:48–10:01:33Z`, after the
+controlled run and the `09:56:40Z` LOW/timer-recovery sample. Three additional
+short GPIO4 HIGH episodes were authenticated. Each key produced one durable
+effect and ACK; the physical cause of this later activity is unknown. It is
+preserved separately from the q2 P3 stimulus, with no inferred false-alarm
+finding.
+
 The C3 installed app SHA-256 remains verified as
 `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
 Exact *running* S3 app hash remains unverified; its source-matched candidate

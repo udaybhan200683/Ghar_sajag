@@ -40,6 +40,15 @@ fixture OFF and the older ON build is source-mismatched, so no P8 flash/test
 has been attempted. P9 ACK/FOTA remain fixture-blocked and P10 is GS-149.
 GS-114 remains In Progress.
 
+Post-window observation: the same exclusive raw capture later received q3
+`MOTION`, q4 `MOTION_SUMMARY` and q5 `MOTION` at `09:58:48–10:01:33Z`, after
+the controlled q2 run and its `09:56:40Z` GPIO4 LOW/timer-recovery sample.
+Authenticated trace reported three separate short GPIO4 HIGH episodes and
+LOW between reports. Each distinct key had one durable logical effect and an
+authenticated ACK; the source of the later PIR activity is unknown. See the
+case report's later-activity section. These observations are not folded into
+the controlled P3 stimulus or represented as a false alarm finding.
+
 ## 2026-10-14 S3 USB/IP observation failure diagnosed
 
 Read-only Windows event evidence now explains the missing S3 UART output after

@@ -81,6 +81,30 @@ and pending/retained count remained zero. The Hub journal count increased only
 for the first q2 delivery. No unexpected reset or stall was observed in the
 authenticated session/uptime evidence.
 
+## Later activity outside the controlled window
+
+The exclusive capture continued after the `09:56:40Z` LOW/timer-wake recovery
+sample. It recorded later authenticated activity at `09:58:48–10:01:33Z`,
+starting nearly seven minutes after the operator's DONE reply. These lines are preserved
+separately; the source of the later PIR activity is unknown, and it is not
+attributed to the controlled 20–30-second movement:
+
+The timestamped selected lines are in `p3_postwindow_s3_excerpt.log`; the
+complete capture remains in the preserved local raw log.
+
+| UTC | Observation |
+|---|---|
+| 09:58:48–09:58:50 | New PIR `MOTION` key `p15:c3-146393c5d158n8:gs114-c8s16q3`; first durable effect `state_changed=1`, same-key repeat `state_changed=0`, RPF00 OPEN, Durable ACK, NodeHealth sequence 22 with HIGH episodes 3 and GPIO4 LOW. |
+| 09:59:20 | NodeHealth sequence 23: HIGH episodes 4, GPIO4 LOW, `pir_ok=4`; no Hub event for this episode yet. |
+| 10:00:02 | Distinct `MOTION_SUMMARY` key `p15:c3-146393c5d158n8:gs114-c8s16q4`; one durable effect, same-key repeat with no new effect, RPF00 OPEN and Durable ACK. This is a summary event, not evidence of another PIR rising edge at 10:00:02. |
+| 10:01:31–10:01:33 | New PIR `MOTION` key `p15:c3-146393c5d158n8:gs114-c8s16q5`; one durable effect, same-key repeat with no new effect, RPF00 OPEN and Durable ACK. NodeHealth sequence 24: HIGH episodes 5, GPIO4 LOW, `pir_ok=5`, `retained=0`, `durable_ack=5`, radio restore OK and owner resumed. |
+
+Between health sequences 21 and 24, sampled HIGH episodes increased from 2 to
+5. The later episodes lasted approximately 2,377, 3,680 and 2,378 ms from
+the cumulative HIGH counters; none altered the measured 28,518 ms maximum
+continuous HIGH interval in the controlled P3 run. Their cause requires
+separate physical context if false-activity diagnosis becomes necessary.
+
 ## Evidence and limits
 
 - Full timestamped S3 raw capture:
