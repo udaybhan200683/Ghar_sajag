@@ -1,14 +1,15 @@
 # R1 Current Work State
 
-## GS-114 C8 resume checkpoint — 2026-10-14 07:09 UTC
+## GS-114 C8 resume checkpoint — 2026-10-14 07:18 UTC
 
 Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch
-`feature/r1-commercial-baseline`; local and `origin` HEAD are
-`c69960fb064a60c3e6dc52b27d90fbbbe30b560a`. Context preflight PASS
-`2026-10-13.001`. The tracked worktree was clean before this checkpoint update.
-Existing untracked PWA assets, generated managed components, old failure
-reports, private logs and run04 binary/log evidence remain preserved. No
-destructive Git operation or source/image rebuild occurred.
+`feature/r1-commercial-baseline`; execution source is `c69960fb064a60c3e6dc52b27d90fbbbe30b560a`.
+At the start of this checkpoint update, documentation/evidence commit
+`81f4407afa824de8b63b3e5ba27bbf175ffa8604` matched `origin`; context preflight
+PASS `2026-10-13.001`, and the tracked worktree was clean. Existing untracked
+PWA assets, generated managed components, old failure reports, private logs
+and run04 binary/log evidence remain preserved. No destructive Git operation
+or firmware/source rebuild occurred.
 
 Windows reports only the intended fixtures attached: C3 `BUSID 3-3`,
 `303a:1001`, COM4; S3 `BUSID 3-1`, `1a86:55d3`, COM9. WSL stable links resolve
@@ -44,13 +45,24 @@ source checkpoint; P9 ACK/FOTA remain BLOCKED on distinct fixture/signing
 prerequisites. P10 remains under GS-149.
 
 Next action: wait for the operator's completion of the already-requested P3
-stimulus. If no authenticated data appears after confirmed movement, preserve
-the first failure and diagnose Node wake/rejoin before asking for any reset or
-additional motion. For P8, build a current-source S3 commissioning image with
-the isolated ACK-drop flag only after resolving the active slot/write plan;
-verify the exact image and operation before installing. No P1/P2/P4/P5/P6/P7
-retest, broad suite rerun, or FOTA operation is justified at this checkpoint.
-GS-114 remains In Progress; do not start GS-116/GS-130.
+stimulus; no DONE confirmation has arrived. If the motion occurred, inspect
+the existing S3 log before any new stimulus. If no authenticated data appeared
+after confirmed movement, preserve that first failure and diagnose Node
+wake/rejoin before asking for any reset or additional motion.
+
+P8's current-source S3 image is not available: the c699 Hub build has
+`GS_HIL_C8_ACK_DROP=OFF`, and the older ACK-drop artifact is not source-matched.
+The registered `gs114-s3-rpf-diagnostic-build` Make target invokes
+`python3 scripts/build_gs114_fixture_pair.py`; respecting the operator's
+instruction not to use Python3, no rebuild or flash was attempted. P8 requires
+a supported build path that avoids Python3 or a changed operator constraint,
+then exact image/slot verification before any installation. P9 ACK/FOTA remain
+blocked on their fixture/signing prerequisites. No P1/P2/P4/P5/P6/P7 retest,
+broad suite rerun or FOTA operation is justified at this checkpoint.
+
+Jira GS-114 comment 10873 records the install/trace milestone. The consolidated
+documentation commit `81f4407afa824de8b63b3e5ba27bbf175ffa8604` was pushed and
+remote-verified. GS-114 remains In Progress; do not start GS-116/GS-130.
 
 ## GS-114 C8 resumed execution checkpoint — 2026-10-14 05:20 UTC
 
