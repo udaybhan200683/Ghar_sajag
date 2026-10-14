@@ -27,6 +27,34 @@ def build_environment(options: list[str], base_environment=None) -> dict[str, st
     return env
 
 
+def stage_node_firmware_asset(work: Path, source: Path,
+                              expected_sha256: str | None = None) -> tuple[Path, dict]:
+    """Stage a byte-verified C3 app at the filename required by S3 component discovery."""
+    source = source.resolve()
+    if not source.is_file():
+        raise ValueError(f"C3 firmware asset does not exist: {source}")
+    data = source.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    if expected_sha256 is not None:
+        expected = expected_sha256.lower()
+        if len(expected) != 64 or any(ch not in "0123456789abcdef" for ch in expected):
+            raise ValueError("expected C3 firmware SHA-256 must be 64 hexadecimal characters")
+        if digest != expected:
+            raise ValueError(f"C3 firmware asset SHA-256 mismatch: expected {expected}, got {digest}")
+    asset = work / "assets" / "node_firmware.bin"
+    asset.parent.mkdir(parents=True, exist_ok=True)
+    asset.write_bytes(data)
+    staged_digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+    if staged_digest != digest:
+        raise RuntimeError("staged C3 firmware asset differs from its verified source")
+    return asset, {
+        "source_path": str(source), "staged_path": str(asset),
+        "bytes": len(data), "sha256": digest,
+        "expected_sha256": expected_sha256,
+        "reused_existing_image": expected_sha256 is not None,
+    }
+
+
 def parse_config(path: Path) -> dict[str, str]:
     result = {}
     for line in path.read_text().splitlines():
@@ -190,7 +218,17 @@ def main() -> int:
                        help="build the S3 RPF01-RPF08 diagnostic in the commissioned fixture profile")
     group.add_argument("--s3-c8-p8-ack-drop", action="store_true",
                        help="build the S3 commissioning profile with one-shot C8-P8 ACK suppression")
+    parser.add_argument("--s3-node-firmware-asset", type=Path,
+                        help="reuse a verified existing C3 app as the S3 embedded node asset; requires --s3-c8-p8-ack-drop")
+    parser.add_argument("--expected-node-sha256",
+                        help="required SHA-256 when reusing --s3-node-firmware-asset")
     args = parser.parse_args()
+    if args.s3_node_firmware_asset is not None and not args.s3_c8_p8_ack_drop:
+        parser.error("--s3-node-firmware-asset is only supported with --s3-c8-p8-ack-drop")
+    if args.s3_node_firmware_asset is not None and args.expected_node_sha256 is None:
+        parser.error("--expected-node-sha256 is required with --s3-node-firmware-asset")
+    if args.expected_node_sha256 is not None and args.s3_node_firmware_asset is None:
+        parser.error("--expected-node-sha256 requires --s3-node-firmware-asset")
     export = Path(os.environ.get("GS_IDF_EXPORT", str(Path.home() / ".espressif/v6.0.3/esp-idf/export.sh")))
     if not export.is_file():
         raise RuntimeError("ESP-IDF 6.0.3 activation missing: " + str(export))
@@ -206,14 +244,15 @@ def main() -> int:
     s3_project = ROOT / "firmware/hub/target/esp32s3/idf"
     c3_defaults = ";".join((str(c3_project / "sdkconfig.defaults"),
                             str(c3_project / "sdkconfig.hil.defaults")))
-    c3 = build(export, c3_project, work / "c3", work / "c3-sdkconfig", "esp32c3", "c3", version,
-               ["-D", "SDKCONFIG_DEFAULTS=" + c3_defaults,
-                "-D", "GS_HIL_CONTROL=ON", "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON"])
-    asset = work / "assets/node_firmware.bin"
-    asset.parent.mkdir()
-    asset.write_bytes(c3.read_bytes())
-    if asset.read_bytes() != c3.read_bytes():
-        raise RuntimeError("embedded C3 asset differs from the paired C3 application")
+    if args.s3_node_firmware_asset is not None:
+        c3 = None
+        asset, node_asset_report = stage_node_firmware_asset(
+            work, args.s3_node_firmware_asset, args.expected_node_sha256)
+    else:
+        c3 = build(export, c3_project, work / "c3", work / "c3-sdkconfig", "esp32c3", "c3", version,
+                   ["-D", "SDKCONFIG_DEFAULTS=" + c3_defaults,
+                    "-D", "GS_HIL_CONTROL=ON", "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON"])
+        asset, node_asset_report = stage_node_firmware_asset(work, c3)
     s3 = build(export, s3_project, work / "s3", work / "s3-sdkconfig", "esp32s3", "s3", version,
                ["-D", "GS_HIL_BUILD=OFF", "-D", "GS_HIL_CONTROL=OFF",
                 "-D", "GS_HIL_COMMISSIONING=ON", "-D", "GS_S3_DIAGNOSTIC_ONLY=OFF",
@@ -256,16 +295,18 @@ def main() -> int:
                     if args.s3_rpf_diagnostic else
                     "GS-114 disposable fixture; C3 HIL_CONTROL/physical wake; S3 commissioning-only"),
         "build_flags": {
-            "c3": ["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=ON", "GS_BAT_C8_PHYSICAL_WAKE=ON"],
+            "c3": (["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=ON", "GS_BAT_C8_PHYSICAL_WAKE=ON"]
+                   if c3 is not None else ["NOT_BUILT; verified existing image reused as S3 input"]),
             "s3": ["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=OFF", "GS_HIL_COMMISSIONING=ON",
                    "GS_S3_DIAGNOSTIC_ONLY=OFF",
                    "GS_HIL_C8_ACK_DROP=" + ("ON" if args.s3_c8_p8_ack_drop else "OFF")],
         },
         "build_commands": BUILD_COMMANDS,
         "build_logs": {
-            "c3": str(work / "c3.log"),
+            "c3": str(work / "c3.log") if c3 is not None else None,
             "s3": str(work / "s3.log"),
         },
+        "node_firmware_asset": node_asset_report,
         "configuration": ({
             "s3_sdkconfig": str(work / "s3-sdkconfig"),
             "sdkconfig_defaults": [str(s3_project / "sdkconfig.defaults"),
@@ -284,12 +325,15 @@ def main() -> int:
         "deployment": {"authorized": False, "status": "NOT_INSTALLED",
                        "full_device_bundle": "NOT_AUTHORIZED_FOR_DEPLOYMENT"},
     }
-    for role, image in (("c3", c3), ("s3", s3)):
+    built_images = ([ ("c3", c3) ] if c3 is not None else []) + [("s3", s3)]
+    for role, image in built_images:
         data = image.read_bytes()
         result["artifacts"][role] = {"path": str(image), "bytes": len(data),
                                       "sha256": hashlib.sha256(data).hexdigest()}
-    for role, image in (("c3", c3), ("s3", s3)):
+    for role, image in built_images:
         result["artifacts"][role]["image_info"] = idf_image_info(export, image)
+    if c3 is None:
+        result["node_firmware_asset"]["image_info"] = idf_image_info(export, asset)
     if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop:
         result["artifacts"]["s3"]["ota_slot_capacity_bytes"] = s3_profile["ota_slot_capacity_bytes"]
         result["artifacts"]["s3"]["ota_slot_free_bytes"] = s3_profile["app_free_bytes"]
@@ -298,7 +342,7 @@ def main() -> int:
     report.write_text(json.dumps(result, indent=2) + "\n")
     print("GS114 FIXTURE PAIR BUILDS PASS")
     print("FIXTURE BUILD REPORT", report)
-    print("C3", result["artifacts"]["c3"])
+    print("C3", result["artifacts"].get("c3", result["node_firmware_asset"]))
     print("S3", result["artifacts"]["s3"])
     return 0
 

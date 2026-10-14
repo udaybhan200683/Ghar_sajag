@@ -68,3 +68,18 @@ RPF00–RPF08 markers. ESP-IDF Component Manager resolves dependencies from the
 tracked manifests and lockfile; generated `managed_components/` content stays
 local. These commands compile and package only; they do not flash or access a
 device.
+
+For a P8 ACK-loss image that must embed the exact already-installed C3 app,
+use the same builder in S3-only mode. It verifies the supplied Node image's
+SHA-256, stages it under ESP-IDF's required `node_firmware.bin` name, skips the
+C3 build, and checks the isolated ACK-drop profile and compiled S3 partition
+table:
+
+```bash
+make -C code gs114-s3-c8-p8-build \
+  GS114_C3_APP=build/gs114_fixture_pair/build-8rqa0oi5/c3/gs_hw_m1_node.bin \
+  GS114_C3_SHA256=70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530
+```
+
+The P8 build produces only an S3 candidate app for later, separately authorized
+installation; it does not open serial ports or flash hardware.

@@ -1,5 +1,6 @@
 """Focused parser/build-isolation tests for the S3-only commissioning fixture."""
 from pathlib import Path
+import hashlib
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.build_gs114_fixture_pair import (
     build_environment,
     parse_partitions_from_text,
+    stage_node_firmware_asset,
     validate_s3_fixture_artifact,
 )
 
@@ -20,6 +22,34 @@ class S3FixtureCommissioning(unittest.TestCase):
         env = build_environment(["GS_HIL_BUILD=OFF", "GS_NODE_FIRMWARE_ASSET=/tmp/node_firmware.bin"], {})
         self.assertEqual(env["GS_NODE_FIRMWARE_ASSET"], "/tmp/node_firmware.bin")
         self.assertNotIn("GS_NODE_FIRMWARE_ASSET", build_environment(["GS_HIL_BUILD=OFF"], {}))
+
+    def test_p8_s3_only_build_stages_exact_existing_c3_asset_and_rejects_mismatch(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_p8_existing_node_") as temp:
+            root = Path(temp)
+            source = root / "installed_c3.bin"
+            source.write_bytes(b"verified installed C3 application")
+            expected = hashlib.sha256(source.read_bytes()).hexdigest()
+            staged, report = stage_node_firmware_asset(root / "build", source, expected)
+            self.assertEqual(staged.name, "node_firmware.bin")
+            self.assertEqual(staged.read_bytes(), source.read_bytes())
+            self.assertEqual(report["sha256"], expected)
+            self.assertTrue(report["reused_existing_image"])
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                stage_node_firmware_asset(root / "bad_build", source, "0" * 64)
+
+    def test_p8_existing_node_cli_requires_isolated_ack_drop_and_expected_hash(self):
+        script = ROOT / "scripts/build_gs114_fixture_pair.py"
+        invalid = subprocess.run(
+            [sys.executable, str(script), "--s3-node-firmware-asset", "/tmp/node_firmware.bin"],
+            capture_output=True, text=True)
+        self.assertEqual(invalid.returncode, 2)
+        self.assertIn("only supported with --s3-c8-p8-ack-drop", invalid.stderr)
+        missing_hash = subprocess.run(
+            [sys.executable, str(script), "--s3-c8-p8-ack-drop",
+             "--s3-node-firmware-asset", "/tmp/node_firmware.bin"],
+            capture_output=True, text=True)
+        self.assertEqual(missing_hash.returncode, 2)
+        self.assertIn("--expected-node-sha256 is required", missing_hash.stderr)
 
     def test_idf_partition_decoder_size_suffixes_are_supported(self):
         parsed = parse_partitions_from_text("nvs,data,nvs,0x9000,24K\nota_0,app,ota_0,0x20000,4M\n")
