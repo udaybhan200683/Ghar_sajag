@@ -1,6 +1,29 @@
 
 # Master automated validation and regression framework
 
+## GS-114 C8 coverage reconciliation — 2026-10-14
+
+The GS-116/GS-130 C8 audit maps P1–P10 to production sources, automated test
+IDs, executable targets, local gates, release membership and the latest actual
+result in the [dated coverage audit](../exec-plans/evidence/GS116_GS130_C8_COVERAGE_AUDIT_20261014.md).
+The 78-stage registry selects 68 fast stages and all 78 for release; the Node,
+Hub and contract component selectors contain 24, 41 and 34 stages respectively.
+Physical runners remain opt-in and outside software gates.
+
+The board-stack E2E suite has nine required case markers. `BOARD-TC-130-009`
+explicitly covers an event-free baseline, Hub restart, fresh authenticated link
+session, first qualified PIR event, one durable effect and authenticated
+retirement. This closes the automated first-event-after-reboot scenario gap
+without changing product code. Its physical counterpart remains the separately
+evidenced C8-P7 case.
+
+The physical catalogue now recognizes the latest C8 P1/P2/P4/P5/P6/P7/P8 PASS
+reports; P3 measured behavior PASS is catalogued PARTIAL because its running S3
+image hash is unavailable; P9 ACK/FOTA remain BLOCKED; P10 remains under
+GS-149. The GS-114 aggregate is PARTIAL. The Hub journal migration assertion
+failure and P0 `product_status=PARTIAL` remain independent release blockers.
+Neither `validation-fast` nor `release-gate-final` was run for this scoped audit.
+
 ## GS-148 / GS-145 first-event software registration — 2026-10-13
 
 [Approved design](../architecture/GS148_FIRST_EVENT_RECOVERY_DESIGN_20261013.md)
@@ -63,9 +86,12 @@ PASS, exact source SHA, image SHA-256 and an evidence file. It never runs physic
 tests. `make release-gate-final` will therefore remain blocked while required
 physical cases are PARTIAL, NOT_RUN, BLOCKED or historical-only. This check is
 not proof of physical qualification by itself; review image/fixture compatibility
-and evidence before release approval. In the current catalogue, GS-114 Part 1
-HIL-A02/A03/A06 are bounded physical PASS, HIL-A01 is PARTIAL, A07 is timer-only
-PARTIAL, A04/A05 are NOT_RUN and A08 is BLOCKED. BAT-C8 C8-P1..P9 remain NOT_RUN.
+and evidence before release approval. At the time of this 2026-10-11 inventory
+snapshot, GS-114 Part 1 HIL-A02/A03/A06 were bounded physical PASS, HIL-A01 was
+PARTIAL, A07 was timer-only PARTIAL, A04/A05 were NOT_RUN and A08 was BLOCKED;
+BAT-C8 C8-P1..P9 were then NOT_RUN. The newer 2026-10-14 case reconciliation
+above supersedes those C8 catalogue dispositions without deleting the dated
+historical snapshot.
 GS-148 migration remains a mandatory software failure and is separate from this
 physical checklist.
 
@@ -145,7 +171,8 @@ sources and executable test sources. `make p0-product-e2e` runs the focused
 end-to-end chain: production C3/S3 host runtime with virtual GPIO/time/ESP-NOW
 and file-backed storage → production Hub journal/outbox/CloudSync request → the
 real local JsonApi/service → the shipped static PWA in Chromium. This is distinct
-from the existing 8-group/325-check board-stack suite. `make validation-p0-e2e`
+from the current nine-group board-stack suite (latest check count is in the dated
+C8 coverage audit). `make validation-p0-e2e`
 uses the single GS-116 registry and requires every scenario marker. A passing
 scenario harness with `product_status=PARTIAL` is deliberately adjudicated as a
 failed complete-product stage. It must not be reported as full P0 completion.
@@ -217,7 +244,7 @@ and executes production PSA/reset code plus the actual IDF null-pointer guard.
 Compatibility headers expose upstream declarations only. Missing dependencies
 fail visibly. External crypto/guard content participates in receipt provenance;
 cached PASS cannot survive source changes. The distinct board stage requires all
-eight case markers: selecting one passing case cannot satisfy the complete gate.
+nine case markers: selecting one passing case cannot satisfy the complete gate.
 
 ### Physical Track C inventory — GS-130 comments10411/10413
 
@@ -260,7 +287,7 @@ From repository root:
 | `make validation-node` | C3: sensing/runtime/event identity, battery/PowerPolicy/BAT-C8, GS-150/40, encrypted pending/recovery/retirement, security/rejoin and FOTA |
 | `make validation-hub` | S3: authenticated ingest/registry/journal/ACK/dedupe/reboot, liveness, storage/checkpoint/reclamation and implemented CloudSync/HTTP/HTTPS contracts |
 | `make validation-contract` | Node↔Hub/backend: authenticated ACK versus MAC, exact keys/replay, outage/rejoin/session/persistence, mixed health policy, FOTA and receipt parsing |
-| `make validation-board-e2e` | Separate portable C3+S3 production application stack, eight scenario groups; hardware boundaries simulated, physical NOT_RUN |
+| `make validation-board-e2e` | Separate portable C3+S3 production application stack, nine scenario groups; hardware boundaries simulated, physical NOT_RUN |
 | `make feature-coverage-test` | Matrix/source/registry integrity and controlled missing-mapping/physical-claim failures; semantic coverage remains an engineering assessment |
 | `make validation-backend` | Python discovery, configuration, API/HTTP/functional/bridge/frontend contracts |
 | `make validation-pwa` | JavaScript and backend-derived coverage/chronology/notification scenarios; browser separately when rendering is affected |

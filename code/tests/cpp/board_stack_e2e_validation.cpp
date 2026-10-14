@@ -79,6 +79,44 @@ void restarts_without_pir(){
     auto restored=b.send_at(0,changed);require(!changed&&b.ack(restored),"automatic rejoin/retry retires backlog without new PIR");
     b.restart_s3();require(b.outbox->record_count()==1&&b.hub->routine_state().evidence_ids.size()==1,"repeated restart preserves one logical event");
 }
+void first_pir_after_hub_reboot(){
+    BoardStack b;
+    const auto previous_link_session=b.session;
+    require(b.node->pending()==0&&b.outbox->record_count()==0,
+            "P7 starts with no pending Node event or Hub logical effect");
+
+    b.restart_s3();
+    b.rejoin(previous_link_session+1);
+    require(b.session>previous_link_session&&b.node->pending()==0&&
+            b.outbox->record_count()==0,
+            "Hub restart establishes a newer authenticated link before the first PIR event");
+
+    QualifiedInput pir(EventKind::Motion,std::nullopt,150,1000);
+    require(!pir.sample(false,0)&&!pir.sample(true,200),
+            "post-reboot GPIO4 low baseline and real-edge qualification path");
+    const auto qualified=pir.sample(true,350);
+    require(qualified==EventKind::Motion,
+            "first post-reboot GPIO4 episode qualifies as Motion");
+    const auto key=b.admit(*qualified,350);
+    require(key.sequence==1&&b.node->pending()==1,
+            "first post-reboot event has the next Node EventKey and is durably retained");
+    const auto retained=b.repository->load();
+    require(retained.state&&retained.state->retained.size()==1&&
+            retained.state->retained.front().key.str()==key.str(),
+            "persisted Node record preserves the exact first-event key");
+
+    auto message=b.node->next_message(350);
+    require(message&&message->sequence_number==key.sequence,
+            "first event transmission matches the retained sequence");
+    bool changed=false;
+    const auto ack=b.deliver(*message,350,changed);
+    require(changed&&b.outbox->record_count()==1&&
+            b.hub->routine_state().evidence_ids.size()==1,
+            "Hub applies exactly one durable logical effect for the first event");
+    require(b.ack(ack)&&b.node->pending()==0&&
+            b.repository->load().state->retained.empty(),
+            "authenticated Durable ACK retires the first post-reboot EventKey");
+}
 void sleep_and_outage(){
     BoardStack b;auto key=b.admit(EventKind::Motion,1000);auto msg=b.node->next_message(1000);require(bool(msg),"outage transmission due");
     b.node->set_outage_profile(true,1000);b.node->transport_result(key,false,1000);
@@ -270,9 +308,11 @@ int main(int argc,char** argv){
     }
     const std::vector<std::pair<std::string,std::function<void()>>> cases={
         {"BOARD-TC-130-001",motion_to_ack},{"BOARD-TC-130-002",lossy_channel},
-        {"BOARD-TC-130-003",restarts_without_pir},{"BOARD-TC-130-004",sleep_and_outage},
-        {"BOARD-TC-130-005",health_and_wan},{"BOARD-TC-130-006",faults_and_priority},
-        {"BOARD-TC-130-007",multiple_nodes},{"BOARD-TC-130-008",fota_interruption}};
+        {"BOARD-TC-130-003",restarts_without_pir},
+        {"BOARD-TC-130-009",first_pir_after_hub_reboot},
+        {"BOARD-TC-130-004",sleep_and_outage},{"BOARD-TC-130-005",health_and_wan},
+        {"BOARD-TC-130-006",faults_and_priority},{"BOARD-TC-130-007",multiple_nodes},
+        {"BOARD-TC-130-008",fota_interruption}};
     std::string select=argc>1?argv[1]:"";unsigned selected=0,failed=0;
     for(const auto& item:cases){if(!select.empty()&&select!=item.first)continue;++selected;
         try{item.second();const char* injection=std::getenv("GS_BOARD_E2E_INJECT_FAILURE");if(injection&&item.first==injection)require(false,"controlled board-stack negative self-test");std::cout<<item.first<<" PASS\n";}

@@ -1,5 +1,44 @@
 # R1 Current Work State
 
+## GS-116 / GS-130 BAT-C8 coverage integration — 2026-10-14
+
+Task-start canonical checkpoint was local/remote HEAD
+`51ffc694308b16672c68e114c74deb8c96d36037` on
+`feature/r1-commercial-baseline`; context preflight PASS. The board-stack
+software suite and C8 P1–P10 test mapping were audited. Detailed matrix, actual
+receipts, provenance and physical limitations are in
+[GS-116/GS-130 C8 coverage audit](../exec-plans/evidence/GS116_GS130_C8_COVERAGE_AUDIT_20261014.md).
+
+The 78-stage registry currently selects 68 fast and 78 release stages, with
+Node/Hub/contract ownership counts 24/41/34. Added explicit production-code
+board-stack case `BOARD-TC-130-009` for the first newly qualified PIR event
+after Hub reboot; the existing board stage now requires all nine case markers.
+This fills a software simulation gap only. No product firmware behavior or
+requirement changed.
+
+Validation: `make validation-board-e2e` PASS, 9 groups / 358 checks;
+`make battery-c8-host-test` PASS, 72 C++ + 11 Python invariants;
+`make validation-framework-test` PASS, 40/40;
+`make feature-coverage-test` PASS, 176 rows / 205 modules / 15 physical cases
+and 19/19 tests; `make physical-hil-catalogue-test` PASS, 99 cases. Full
+`validation-fast` and `release-gate-final` were not run.
+
+The physical catalogue now maps individual GS-114 evidence: P1/P2/P4/P5/P6/P7/P8
+PASS, P3 physical behavior PASS but catalogue PARTIAL because the exact running
+S3 image SHA is unavailable, P9 ACK/FOTA BLOCKED, and P10 remains GS-149.
+Preserved P4 q10–q12 as an unresolved failed trial and P5's per-attempt retry
+key observation limitation. The historical Hub journal migration assertion
+`clean migration commits` still fails; P0 `product_status=PARTIAL` is a separate
+open release blocker. GS-114 stays In Progress.
+
+No hardware was accessed. At task start, tracked files were clean. Existing
+untracked PWA assets, managed ESP-IDF components and GS-114 raw logs/install
+evidence remain preserved. Work completed in this task touches the board-stack
+test, the existing suite registration, traceability, physical catalogue, master
+validation guide and this work-state handoff. Next GS-114 physical gaps are P3
+image provenance, P9 ACK-hold/signed-FOTA fixtures, and separate GS-149 P10
+measurement. Do not start another major implementation from this checkpoint.
+
 ## GS-114 P9 software validation complete; physical P9 fixtures outstanding — 2026-10-14 15:31 UTC
 
 The P9 ACK and FOTA software coverage audit is complete. Source checkpoint at

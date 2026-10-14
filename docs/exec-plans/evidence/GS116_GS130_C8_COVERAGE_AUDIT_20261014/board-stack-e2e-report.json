@@ -1,0 +1,50 @@
+{
+  "software_status": "PASS",
+  "physical_status": "NOT_RUN",
+  "physically_qualified": false,
+  "release_approved": false,
+  "suite": "board-e2e",
+  "source_head": "51ffc694308b16672c68e114c74deb8c96d36037",
+  "source_fingerprint": "7e190c8791d6409263ac55d5434947ada4a7e177869b65312d797cd847ed6aaa",
+  "source_unchanged": true,
+  "build_profile": {
+    "CXX": "",
+    "HOST_CXX": "",
+    "HOST_TOOLCHAIN_GUARD": "",
+    "CXXFLAGS": "",
+    "TRACE_FLAGS": "",
+    "INCLUDES": "",
+    "PRODUCT": "",
+    "GS_IDF_EXPORT": "",
+    "host_compiler": "d3c02c2eb999e2ce",
+    "portable_crypto_sources": "ad5008d86e3a337d12bed44ce4e8d983db842db83ef0f245d6db69fb8b74bbd0",
+    "python": "3.14.4 (main, Aug 20 2026, 10:41:58) [GCC 15.2.0]"
+  },
+  "tracked_dirty": true,
+  "seconds": 10.397,
+  "stages": [
+    {
+      "exit_code": 0,
+      "seconds": 9.714,
+      "status": "PASS",
+      "id": "board-stack-e2e",
+      "command": [
+        "make",
+        "board-stack-e2e-host-test"
+      ],
+      "count": 9,
+      "count_kind": "scenario_groups",
+      "log": "evidence/validation_framework/board-e2e-1791992741007793217/board-stack-e2e.log",
+      "log_sha256": "2ffd9d301241360381219afc94bb178321f0e92dc9941cf7ca6867e6c84c2df2",
+      "artifacts": {
+        "build/board_stack_e2e_validation": "e3a1ef20cde9b6d84ad4e94a3c917ed092cd4f72bcfb4310c7fd3055f141daa0"
+      },
+      "reused_from": null,
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ]
+    }
+  ]
+}
