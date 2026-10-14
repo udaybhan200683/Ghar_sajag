@@ -2596,7 +2596,8 @@ Commercial target sending remains disabled pending GS-109 decisions on
 credential issuance/verification, trusted Home/Hub/epoch authority and safe
 coordination between CloudSync networking and the ESP-NOW admission owner.
 P0 is PARTIAL, Hub journal migration is FAIL and release is not approved. No
-hardware or `release-gate-final` operation was run. Next: commit/push this
-validated software checkpoint, verify remote HEAD, keep GS-148 In Progress and
-carry the unresolved trust/runtime contracts to GS-109 before enabling target
-sending.
+hardware or `release-gate-final` operation was run. The validated checkpoint is
+committed as `3bf08d187e7be24e2cbbc83c3998ec31ee2de962` and pushed with local and
+remote HEAD matching. Keep GS-148 In Progress and carry the unresolved
+trust/runtime contracts to GS-109 before enabling target sending. GS-148 Jira
+comment 10974 records the resumed validation checkpoint.
