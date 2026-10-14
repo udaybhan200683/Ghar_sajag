@@ -1,35 +1,65 @@
 # GS-114 C8 physical execution
 
-## Latest run03 checkpoint — 2026-10-14 02:51 UTC (campaign active)
+## Latest run03 checkpoint — 2026-10-14 03:06 UTC (campaign active)
 
-The existing pair remains installed and commissioned; no reset, reflash or
-recommission occurred. The exclusive timestamped S3 capture remains active and
-records stable session-3 authenticated health through 02:48:43 UTC: reset=11,
-retained=0, durable_ack=14, gpio_wakes=19, timer_wakes=1183, with no new PIR
-event or pending event. The live capture is
-`run03_20261014/s3_uart_timestamped.log`. Per the operator's instruction,
-P7's required real motion remains pending until they send `available`.
+Canonical source HEAD `72716c141a788b251e6b630f4684df12028ea847` is pushed and
+matches GitHub. The bounded default-off P8 implementation and associated
+software/target evidence are committed. The existing physical pair remains on
+the previously verified commissioned images; no reset, reflash or
+recommission occurred. The exclusive timestamped S3 capture remains active.
 
-While waiting, the isolated default-off P8 ACK-loss fixture path was
-implemented and its C3/S3 target pair was built offline with ESP-IDF 6.0.3.
-The registered `make -C code c8-ack-drop-gate-host-test` passed 16 checks; the
-S3 fixture-profile suite passed 12/12 after a source-anchor assertion was
-corrected; GS-130 traceability passed (175 features, 205 modules, 15 physical
-cases) and its 19 unit tests passed; physical catalogue consistency passed for
-99 cases with no device access. Previous ASan/UBSan and TSan runs also passed.
-The C3 app SHA-256 is
-`5256779c8c0b592cea219f3e3a3d0c7da72892a37207399bfce388e549c25659`; the S3
-commissioning/ACK-drop app SHA-256 is
-`f94192a7c59fa1a7221a7dc4a8394c1bd8c448c2009553e35dfed2f074eccd08`. The
-S3 build uses `GS_HIL_CONTROL=OFF`, `GS_HIL_COMMISSIONING=ON`,
-`GS_HIL_C8_ACK_DROP=ON`, and the 16-MiB/8-MiB PSRAM fixture configuration with
-`ota_0`, `ota_1`, `gs_outbox`, and `gs_state`. Both images remain offline; the
-installed boards were not changed. P8 is physically NOT_RUN. Existing
-dispositions remain P1 PASS, P2 PASS, P3 BLOCKED, P4 FAIL,
-P5 BLOCKED/inconclusive and P6 PASS. P9 remains blocked on its independent
-ACK-hold and signed FOTA prerequisites. Jira GS-114 comment 10861 records this
-offline-build and validation milestone; comment 10860 remains the preceding
-host-fixture checkpoint.
+Authenticated NodeHealth at `2026-10-14T02:53:43.472786229Z` was session 3,
+health_seq=115, reset=11, retained=0, durable_ack=14, pir_ok=19, gpio_wakes=19,
+sleep_entries=1212, timer_wakes=1193, last_wake=TIMER. Four seconds later, with
+no controlled motion request/window established, the S3 recorded a qualified
+PIR event `p15:c3-146393c5d158n8:gs114-c8s1q15`: first authenticated durable
+effect at 02:53:47.987Z (`state_changed=1`, records=15, exact-key outbox found,
+admission OPEN), Durable event ACK `ESP_OK`, same-key repeat with
+`state_changed=0`, and RPF00 remaining OPEN. An authenticated retirement ACK
+send under Hub session 3 returned ESP_OK. The event is an unsolicited physical
+observation with no attributable operator stimulus; it is not counted as a
+controlled P7 PASS. Authenticated NodeHealth at `02:58:47.560721096Z`
+(health_seq=116) then confirmed `retained=0`, `durable_ack=15`, `pir_ok=20`,
+`gpio_wakes=20`, reset=11. q15's physical wake and Node retirement are
+confirmed; its external motion source and exact GPIO assertion time remain
+unknown. P7 stays BLOCKED for the controlled stimulus/timestamp evidence.
+
+The operator then completed one brief, controlled real motion episode for a P4
+retest (approximate chat action window 03:00:06–03:00:21 UTC; exact message
+receipt time is unavailable). At `03:00:23.713208665Z` the S3 accepted
+`p15:c3-146393c5d158n8:gs114-c8s1q16`: first delivery changed the durable
+state once (`records=16`, exact-key outbox found, admission OPEN); same-key
+delivery at `03:00:23.845314170Z` left `state_changed=0`. The Durable ACK send
+returned ESP_OK and the authenticated retirement ACK under Hub session 3
+returned ESP_OK at `03:00:24.164475782Z`, with RPF00 admission OPEN. NodeHealth
+at `03:05:23.259112457Z` (session 3 / health_seq 117) confirmed reset=11,
+retained=0, durable_ack=16, `pir_ok=21`, `gpio_wakes=21`, `last_wake=TIMER`.
+There was no additional EventKey during the three-minute post-DONE quiet
+window. This is a PASS for the controlled P4 retest; the earlier q10–q12
+multi-event FAIL remains preserved and its cause is unproven. No source/image
+change, reset or reflash occurred.
+
+Capture verification at 03:06 UTC found the original S3 reader (PID 283926)
+still owning the S3 stable by-id port; no C3 port reader was present. No new
+reader was opened. Installed hashes remain C3
+`1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and S3
+`84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`, with
+the diagnostic manifest's build source `72a223fc3b290c01c9f93fbb90db83d87601ad54`.
+
+The offline P8 ACK-loss target pair remains unflashed: C3 app
+SHA-256 `5256779c8c0b592cea219f3e3a3d0c7da72892a37207399bfce388e549c25659`,
+S3 commissioning/ACK-drop app SHA-256
+`f94192a7c59fa1a7221a7dc4a8394c1bd8c448c2009553e35dfed2f074eccd08`.
+`make -C code c8-ack-drop-gate-host-test` passed 16 checks; the S3 fixture
+profile suite passed 12/12; GS-130 traceability passed (175 features, 205
+modules, 15 physical cases) and its 19 tests passed; physical catalogue
+consistency passed for 99 cases with no device access. Previous ASan/UBSan and
+TSan runs passed. A Hub validation attempt was intentionally interrupted before
+the `host-build` stage could invoke Python: the ACK-drop gate passed 16 checks
+and S3 fixture commissioning passed 12 checks; the Hub gate is INCOMPLETE, not
+PASS (exit 130). P8 remains physically NOT_RUN; P9 remains blocked on its
+independent ACK-hold and signed FOTA prerequisites. Jira GS-114 comment 10861
+records the offline build/test milestone. GS-114 remains In Progress.
 
 ## Latest run03 checkpoint — 2026-10-14 02:04 UTC (campaign active)
 
@@ -199,16 +229,16 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | P1 | PASS | Ten timer sleep/wake cycles plus 25 more; authenticated post-wake health, no false PIR event or Node reset; see [P1](run03_20261014/C8_P1.md) |
 | P2 | PASS | Real AM312 motion, exact q1 EventKey, GPIO wake, one durable effect, authenticated Durable ACK and retained=0/durable_ack increment; see [P2](run03_20261014/C8_P2.md) |
 | P3 | BLOCKED | Sustained real movement produced multiple distinct qualified events and eventual LOW recovery; no trace proves GPIO4 remained HIGH or that sleep was inhibited while HIGH; see [P3](run03_20261014/C8_P3.md) |
-| P4 | FAIL | One requested physical episode followed by distinct q10, q11 and q12 accepted events, each durably ACKed; exact GPIO trace is unavailable; see [P4](run03_20261014/C8_P4.md) |
+| P4 | PASS on controlled retest; original trial FAIL retained | Controlled brief motion produced q16, one Hub durable effect, same-key duplicate suppression, authenticated Durable ACK and Node retirement; no extra key in the three-minute quiet window. Earlier q10/q11/q12 remain distinct durable events with unexplained cause; see [P4](run03_20261014/C8_P4.md) |
 | P5 | BLOCKED / inconclusive | Hub outage and return executed; Node stayed alive and one outage-period event was eventually retired by health counters, but exact initial EventKey/first Hub delivery fell in capture gap and q14 added another durable effect; see [P5](run03_20261014/C8_P5.md) |
 | P6 | PASS | Hub-only power interruption followed by authenticated session 3, RPF00 admission OPEN and stable Node reset/pending counters; boot banner missed at serial attach; see [P6](run03_20261014/C8_P6.md) |
-| P7 | NOT_RUN; ready | Post-reboot session 3 baseline remained stable through 02:18:45 UTC with no new PIR/GPIO/ACK/pending work across 40 more timer wakes; waiting for operator `available` before real motion |
+| P7 | BLOCKED for controlled stimulus attribution | First post-reboot physical GPIO/PIR-path key q15 was durably admitted and ACKed under Hub session 3; health_seq 116 confirms one GPIO/PIR/ACK increment and retained=0. No controlled stimulus timestamp; q16 was later P4 and is not the first post-reboot event; see [P7](run03_20261014/C8_P7.md) |
 | P8 | BLOCKED physically; fixture implemented | Default-off S3 commissioning-profile-only one-shot postcommit ACK suppression and 16-check normal/ASan/UBSan/TSan PASS; matched target build, installation and real same-key retry await P7; see [P8](run03_20261014/C8_P8.md) and [software validation](run03_20261014/C8_P8_SOFTWARE_VALIDATION_20261014.md) |
 | P9 ACK | BLOCKED | No qualified directional ACK hold fixture; P8 one-shot loss alone is shorter than the required pending-ACK observation window; see [P9](run03_20261014/C8_P9.md) |
 | P9 FOTA | BLOCKED | No matched signed C3 test/recovery image pair, supported signed trigger or known recovery procedure; see [P9](run03_20261014/C8_P9.md) |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action: keep the S3 capture active; wait for the operator's `available` signal before the P7 real PIR prompt. Then finish P7 correlation, build/install the separately matched P8 fixture and run its real same-key retry. Do not move GS-114 to Done while P3–P5/P7–P9 remain incomplete or blocked.
+Next action: keep the S3 capture active. P3 needs another real sustained-HIGH episode and direct evidence that sleep is inhibited while GPIO4 is HIGH; P7 needs an attributable first-motion stimulus/timestamp only if the owner requires controlled attribution after the already observed q15 event. Wait for a fresh operator `available` signal before another motion prompt. P8 requires exact target/partition/image confirmation and operator confirmation before any flash; then run the real one-shot postcommit ACK-loss retry. P5, P9 ACK and signed FOTA remain unresolved. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
 
 ## Validation and precise operator checkpoint
 

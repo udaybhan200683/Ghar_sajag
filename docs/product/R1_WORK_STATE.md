@@ -1,49 +1,63 @@
 # R1 Current Work State
 
-## GS-114 resumed C8 execution checkpoint — 2026-10-14 02:51 UTC
+## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:06 UTC
 
-The canonical worktree is `/home/udaybhan/projects/Ghar_sajag_r1` on
-`feature/r1-commercial-baseline`, local HEAD `ec469303d17ea2037019a5bb18d29ce070c249e2`,
-matching GitHub `origin`; context preflight PASS `2026-10-13.001`. The existing
-scoped P8 implementation/evidence changes remain uncommitted and unstaged.
-Pre-existing untracked PWA, managed-component and prior physical-evidence
-paths remain preserved. The active S3 timestamped capture is untracked and its
-single reader remains running; do not open a second reader or stop it.
+Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, source HEAD `72716c141a788b251e6b630f4684df12028ea847`;
+GitHub matched at startup. Context preflight passed `2026-10-13.001`. The P8
+implementation/target evidence at that source checkpoint is committed and
+pushed. Current scoped evidence edits are in the execution report, P4/P7 case
+records, run manifest and this work state; preserve them for the handoff commit.
+Existing untracked PWA, managed-component and historical physical-evidence
+paths remain preserved. The untracked raw S3 capture is still owned by its
+original single reader PID 283926. No C3 reader is present; do not open another
+S3 reader or stop the active capture.
 
-The installed C3/S3 pair remains unchanged and commissioned. Latest captured
-authenticated NodeHealth (2026-10-14 02:48:43 UTC) is session 3, health sequence
-114, reset 11, retained 0, durable ACK 14, GPIO wakes 19, timer wakes 1183,
-last wake TIMER. No event or pending work appeared during the latest interval.
-P7 is ready but requires one real PIR stimulus. By explicit operator request,
-do not ask for or cause motion until the operator sends `available`.
+The installed C3/S3 pair remains unchanged and commissioned. Authenticated
+NodeHealth at `2026-10-14T02:53:43.472786229Z` was Hub session 3 / health_seq
+115, reset 11, retained 0, durable ACK 14, accepted PIR 19, GPIO wakes 19,
+sleep entries 1212, timer wakes 1193, last wake TIMER. The first physical
+GPIO/PIR-path event after the Hub reboot was q15
+`p15:c3-146393c5d158n8:gs114-c8s1q15`; it was durably accepted once, same-key
+deduplicated and ACKed. NodeHealth at `02:58:47.560721096Z` (health_seq 116)
+confirmed retained=0 and durable_ack/pir_ok/gpio_wakes each incremented once.
+The event's external physical trigger and GPIO assertion time are unknown, so
+P7 remains BLOCKED for controlled stimulus attribution/timestamp evidence.
+
+The operator performed one brief controlled movement for the P4 retest after
+the q15 chain had completed. q16
+`p15:c3-146393c5d158n8:gs114-c8s1q16` produced one authenticated Hub durable
+effect, same-key duplicate suppression, successful Durable ACK and authenticated
+Node retirement; NodeHealth at `03:05:23.259112457Z` (health_seq 117) confirmed
+retained=0, durable_ack=16, `pir_ok=21`, `gpio_wakes=21`, reset=11. No extra key
+appeared during the three-minute post-DONE quiet window. P4 controlled retest
+PASS; retain the original q10–q12 multi-event FAIL and its unresolved cause.
+No source/image change, reflash or reset occurred.
 
 While waiting, ESP-IDF 6.0.3 built the matched P8 target pair offline under
 `code/build/gs114_c8_p8_20261014/`. C3 app SHA-256 is
 `5256779c8c0b592cea219f3e3a3d0c7da72892a37207399bfce388e549c25659`; S3 app
 SHA-256 is `f94192a7c59fa1a7221a7dc4a8394c1bd8c448c2009553e35dfed2f074eccd08`.
-The S3 profile uses `GS_HIL_CONTROL=OFF`, commissioning ON, the isolated P8
-ACK-drop option ON, 16-MiB flash, octal PSRAM configuration, and the expected
-`ota_0`/`ota_1`/`gs_outbox`/`gs_state` table. Both builds exited 0; the
-registered `make -C code c8-ack-drop-gate-host-test` passed 16 checks. Neither
-image was flashed. Offline `esptool image-info` detected the expected C3/4-MiB
-and S3/16-MiB image types and verified their checksums. The S3 fixture-profile
-suite passed 12/12 after one incorrect
-source-anchor assertion was corrected. Traceability consistency passed for 175
-features/205 modules/15 physical cases and its 19 tests passed; the physical
-catalogue check passed for 99 cases with no device access. Full artifact/profile
-hashes and commands are recorded in
-the [GS-114 P8 target evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run03_20261014/C8_P8.md).
+The S3 profile uses `GS_HIL_CONTROL=OFF`, commissioning ON, isolated P8 ACK-drop
+ON, 16-MiB flash, octal PSRAM configuration, and `ota_0`/`ota_1`/`gs_outbox`/
+`gs_state`. Both builds exited 0; `make -C code c8-ack-drop-gate-host-test`
+passed 16 checks. Neither image was flashed. Offline image-info checks matched
+the C3/4-MiB and S3/16-MiB target types and verified checksums. The S3 fixture
+profile suite passed 12/12; traceability passed for 175 features/205 modules/15
+physical cases and its 19 tests passed; the physical catalogue check passed for
+99 cases with no device access. Full artifact/profile hashes and commands are
+recorded in the [GS-114 P8 target evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run03_20261014/C8_P8.md).
 
-Physical dispositions remain RPF07 PASS, P1 PASS, P2 PASS, P3 BLOCKED, P4
-FAIL, P5 BLOCKED/inconclusive, P6 PASS, P7 NOT_RUN awaiting `available`, P8
-physical NOT_RUN, and P9 ACK/FOTA BLOCKED. Next action after `available` is one
-P7 real PIR episode under authenticated session 3, then automatically inspect
-the exact key, Hub durable effect/ACK and Node retirement. P8 installation
-requires presenting the exact prepared image/partition hashes for operator
-confirmation after P7. No P8/P9 physical stimulus, flash or reset has occurred.
-GS-114 remains In Progress; P10 remains separate under GS-149.
-Jira GS-114 comment 10861 records this offline P8 target-build and test
-milestone without changing issue workflow status.
+Physical dispositions: RPF07 PASS, P1 PASS, P2 PASS, P3 BLOCKED, P4 PASS on
+controlled retest (initial trial FAIL retained), P5 BLOCKED/inconclusive, P6
+PASS, P7 BLOCKED for missing controlled stimulus attribution/timestamp after
+q15's observed and retired first post-reboot event, P8 physical NOT_RUN, and P9
+ACK/FOTA BLOCKED. P8 installation requires presenting the exact prepared
+image/partition hashes for operator confirmation before flashing; no P8/P9
+image has been installed. Keep GS-114 In Progress; P10 remains separate under
+GS-149. Jira GS-114 comment 10861 records the P8 offline milestone; the next
+comment will record q15 retirement, q16 retest and this evidence commit without
+changing issue workflow status.
 
 ## GS-114 resumed software checkpoint — 2026-10-13 UTC
 

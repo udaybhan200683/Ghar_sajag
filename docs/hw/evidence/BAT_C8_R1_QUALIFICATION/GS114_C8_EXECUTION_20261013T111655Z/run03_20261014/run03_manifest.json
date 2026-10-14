@@ -2,8 +2,8 @@
   "run_id": "GS114-C8-run03-20261014",
   "latest_jira_comment": "10861",
   "started_utc": "2026-10-14T00:42:16.123Z",
-  "last_recorded_utc": "2026-10-14T02:51:35Z",
-  "source_checkpoint": "ec469303d17ea2037019a5bb18d29ce070c249e2",
+  "last_recorded_utc": "2026-10-14T03:06:58Z",
+  "source_checkpoint": "72716c141a788b251e6b630f4684df12028ea847",
   "source_branch": "feature/r1-commercial-baseline",
   "firmware_build_source": "72a223fc3b290c01c9f93fbb90db83d87601ad54",
   "idf": "ESP-IDF 6.0.3",
@@ -42,10 +42,22 @@
         "flash_frequency": "40 MHz",
         "commissioning": true,
         "partitions": {
-          "ota_0": {"offset": "0x20000", "size_bytes": 4194304},
-          "ota_1": {"offset": "0x420000", "size_bytes": 4194304},
-          "gs_outbox": {"offset": "0x820000", "size_bytes": 4194304},
-          "gs_state": {"offset": "0xc20000", "size_bytes": 262144}
+          "ota_0": {
+            "offset": "0x20000",
+            "size_bytes": 4194304
+          },
+          "ota_1": {
+            "offset": "0x420000",
+            "size_bytes": 4194304
+          },
+          "gs_outbox": {
+            "offset": "0x820000",
+            "size_bytes": 4194304
+          },
+          "gs_state": {
+            "offset": "0xc20000",
+            "size_bytes": 262144
+          }
         }
       }
     }
@@ -70,17 +82,19 @@
     },
     "hub_reader_owner_pid_at_checkpoint": 283926,
     "hub_current_tty": "/dev/ttyACM0",
-    "additional_active_reader_at_checkpoint": false
+    "additional_active_reader_at_checkpoint": false,
+    "s3_reader_owner_pid_at_2026_10_14T03_06Z": 283926,
+    "no_c3_reader_at_2026_10_14T03_06Z": true
   },
   "case_dispositions_at_checkpoint": {
     "RPF07_physical_retest": "PASS",
     "P1": "PASS",
     "P2": "PASS",
     "P3": "BLOCKED",
-    "P4": "FAIL",
+    "P4": "PASS_CONTROLLED_RETEST; ORIGINAL_RUN_FAIL_Q10_Q11_Q12_CAUSE_UNRESOLVED",
     "P5": "BLOCKED_INCONCLUSIVE",
     "P6": "PASS",
-    "P7": "READY_NOT_RUN_AWAITING_OPERATOR_AVAILABLE",
+    "P7": "BLOCKED_CONTROLLED_STIMULUS_ATTRIBUTION; Q15_PHYSICAL_PATH_AND_RETIREMENT_CONFIRMED",
     "P8": "TARGET_BUILD_PASS_PHYSICAL_NOT_RUN_WAITING_P7_AND_OPERATOR_CONFIRMATION",
     "P9_ACK": "BLOCKED_NO_BOUNDED_PENDING_ACK_WINDOW_FIXTURE",
     "P9_FOTA": "BLOCKED_NO_MATCHED_SIGNED_IMAGES_TRIGGER_OR_RECOVERY_PLAN"
@@ -110,6 +124,38 @@
     "sleep_entries": 1202,
     "timer_wakes": 1183,
     "last_wake": "TIMER"
+  },
+  "p7_unprompted_event_observation": {
+    "event_key": "p15:c3-146393c5d158n8:gs114-c8s1q15",
+    "baseline_health_utc": "2026-10-14T02:53:43.472786229Z",
+    "hub_durable_effect_utc": "2026-10-14T02:53:47.987197776Z",
+    "durable_ack_send_utc": "2026-10-14T02:53:48.004470676Z",
+    "same_key_repeat_utc": "2026-10-14T02:53:48.115025977Z",
+    "retirement_ack_send_utc": "2026-10-14T02:53:48.536532781Z",
+    "admission": "RPF00_OPEN",
+    "state_changed_first_delivery": true,
+    "state_changed_same_key_repeat": false,
+    "controlled_operator_stimulus": false,
+    "physical_trigger_attribution": "UNKNOWN; FIRST PHYSICAL GPIO/PIR-PATH EVENT AFTER HUB REBOOT",
+    "node_retirement_health_confirmation": {
+      "utc": "2026-10-14T02:58:47.560721096Z",
+      "session": 3,
+      "health_seq": 116,
+      "reset_reason": 11,
+      "retained": 0,
+      "durable_ack": 15,
+      "pir_ok": 20,
+      "gpio_wakes": 20,
+      "last_wake": "TIMER",
+      "delta_from_baseline": {
+        "retained": 0,
+        "durable_ack": 1,
+        "pir_ok": 1,
+        "gpio_wakes": 1
+      },
+      "pir_raw": 0,
+      "pir_edges": 40
+    }
   },
   "p8_software_fixture": {
     "source_base_head": "ec469303d17ea2037019a5bb18d29ce070c249e2",
@@ -168,5 +214,52 @@
     "C8_P8.md",
     "C8_P8_SOFTWARE_VALIDATION_20261014.md",
     "C8_P9.md"
-  ]
+  ],
+  "p4_controlled_retest": {
+    "operator_action_window_approx_utc": {
+      "start": "2026-10-14T03:00:06Z",
+      "done": "2026-10-14T03:00:21Z",
+      "basis": "Conversation timing estimate; exact DONE receipt time not present in serial capture"
+    },
+    "event_key": "p15:c3-146393c5d158n8:gs114-c8s1q16",
+    "hub_commit_utc": "2026-10-14T03:00:23.713208665Z",
+    "first_delivery": {
+      "state_changed": true,
+      "records": 16,
+      "outbox_found": true,
+      "admission": "OPEN"
+    },
+    "durable_event_send_utc": "2026-10-14T03:00:23.724201965Z",
+    "same_key_repeat_utc": "2026-10-14T03:00:23.845314170Z",
+    "same_key_repeat_state_changed": false,
+    "retirement_ack_send_utc": "2026-10-14T03:00:24.164475782Z",
+    "hub_session": 3,
+    "rpf00_admission": "OPEN",
+    "post_event_node_health": {
+      "utc": "2026-10-14T03:05:23.259112457Z",
+      "session": 3,
+      "health_seq": 117,
+      "reset_reason": 11,
+      "retained": 0,
+      "durable_ack": 16,
+      "pir_ok": 21,
+      "gpio_wakes": 21,
+      "sleep_entries": 1239,
+      "timer_wakes": 1218,
+      "last_wake": "TIMER",
+      "pir_raw": 0,
+      "pir_edges": 42
+    },
+    "quiet_window": {
+      "duration_seconds": 180,
+      "additional_event_keys": 0,
+      "end_approx_utc": "2026-10-14T03:03:21Z"
+    },
+    "disposition": "PASS_CONTROLLED_RETEST; INITIAL_Q10_Q11_Q12_FAIL_RETAINED_CAUSE_UNRESOLVED",
+    "firmware_unchanged": true,
+    "c3_application_sha256": "1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814",
+    "s3_application_sha256": "84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7",
+    "hub_first_delivery_to_retirement_ack_ms": 451.3,
+    "timing_note": "GPIO assertion timestamp unavailable; this is Hub first-delivery-to-ACK-send only, not PIR stimulus latency"
+  }
 }
