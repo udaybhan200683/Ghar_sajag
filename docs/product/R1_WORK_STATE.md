@@ -64,9 +64,9 @@ image has been installed. The next physical case is P3, which needs a real
 sustained-HIGH stimulus and an authenticated NodeHealth sample during the
 episode; the current P3 evidence remains blocked without a verified high-level
 interval. Keep GS-114 In Progress; P10 remains separate under
-GS-149. Jira GS-114 comment 10861 records the P8 offline milestone; the next
-comment will record q15 retirement, q16 retest and this evidence commit without
-changing issue workflow status.
+GS-149. Jira GS-114 comment 10862 records q15 retirement, the q16 controlled P4
+retest and both evidence commits. GS-114 remains In Progress; no issue workflow
+status changed.
 
 ## GS-114 resumed software checkpoint — 2026-10-13 UTC
 
