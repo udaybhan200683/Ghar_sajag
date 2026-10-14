@@ -1,12 +1,15 @@
 # GS-114 C8 physical execution
 
-## Latest run03 checkpoint — 2026-10-14 03:06 UTC (campaign active)
+## Latest run03 checkpoint — 2026-10-14 03:13 UTC (campaign active)
 
-Canonical source HEAD `72716c141a788b251e6b630f4684df12028ea847` is pushed and
-matches GitHub. The bounded default-off P8 implementation and associated
-software/target evidence are committed. The existing physical pair remains on
-the previously verified commissioned images; no reset, reflash or
-recommission occurred. The exclusive timestamped S3 capture remains active.
+The run03 code checkpoint is `72716c141a788b251e6b630f4684df12028ea847`; the
+bounded default-off P8 implementation and target evidence are committed there.
+The subsequent q15/q16 evidence and handoff commits are `610c3f3d754ef647d9b0ab0faa284b0465928470`,
+`9664b4b9848a67f290dabfe2108c8dd06051675c`, and
+`0ae61bd2234da0af8fb1a636cc58f4ef4380347d`; local and GitHub HEAD matched at
+the last check. The existing physical pair remains on the previously verified
+commissioned images; no reset, reflash or recommission occurred. The exclusive
+timestamped S3 capture remains active.
 
 Authenticated NodeHealth at `2026-10-14T02:53:43.472786229Z` was session 3,
 health_seq=115, reset=11, retained=0, durable_ack=14, pir_ok=19, gpio_wakes=19,

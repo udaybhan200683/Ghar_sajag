@@ -1,16 +1,18 @@
 # R1 Current Work State
 
-## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:06 UTC
+## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:13 UTC
 
 Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch
-`feature/r1-commercial-baseline`; source baseline `72716c141a788b251e6b630f4684df12028ea847`.
-The q15/q16 evidence update is committed and pushed as
-`610c3f3d754ef647d9b0ab0faa284b0465928470`; local and remote matched after the
-push. Context preflight passed `2026-10-13.001`. The report's next-action note
-and this work-state refresh are pending tracked changes. Existing untracked
-PWA, managed-component and historical physical-evidence paths remain preserved.
-The untracked raw S3 capture is still owned by its original single reader PID
-283926. No C3 reader is present; do not open another S3 reader or stop the
+`feature/r1-commercial-baseline`; run03 code checkpoint
+`72716c141a788b251e6b630f4684df12028ea847`. q15/q16 evidence and handoff
+updates were committed and pushed as `610c3f3d754ef647d9b0ab0faa284b0465928470`,
+`9664b4b9848a67f290dabfe2108c8dd06051675c`, and
+`0ae61bd2234da0af8fb1a636cc58f4ef4380347d`; local and remote matched at the
+last verified checkpoint. Context preflight passed `2026-10-13.001`. The
+tracked tree was clean after those commits. Existing untracked PWA,
+managed-component and historical physical-evidence paths remain preserved.
+The untracked raw S3 capture was owned by reader PID 283926 at 03:06 UTC. No C3
+reader was present at that check; do not open another S3 reader or stop the
 active capture.
 
 The installed C3/S3 pair remains unchanged and commissioned. Authenticated
