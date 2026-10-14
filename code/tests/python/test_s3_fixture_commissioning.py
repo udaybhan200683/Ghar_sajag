@@ -44,6 +44,7 @@ CONFIG_ESPTOOLPY_FLASHFREQ=\"40m\"
 GS_HIL_CONTROL:BOOL=OFF
 GS_HIL_COMMISSIONING:BOOL=ON
 GS_S3_DIAGNOSTIC_ONLY:BOOL=OFF
+GS_HIL_C8_ACK_DROP:BOOL=OFF
 ''')
         partitions = root / "partitions.s3-outbox-candidate.csv"
         partitions.write_text('''nvs, data, nvs, 0x9000, 0x6000,
@@ -115,6 +116,19 @@ gs_state, data, nvs, 0xC20000, 0x40000,
                 paths[4].read_bytes()))
             with self.assertRaisesRegex(ValueError, "physical-wake motion guard"):
                 validate_s3_fixture_artifact(*paths)
+
+    def test_c8_p8_ack_drop_requires_explicit_profile_and_image_marker(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_c8_ack_drop_") as temp:
+            paths = self._profile_files(Path(temp))
+            with self.assertRaisesRegex(ValueError, "CMake options"):
+                validate_s3_fixture_artifact(*paths, c8_ack_drop=True)
+            paths[1].write_text(paths[1].read_text().replace(
+                "GS_HIL_C8_ACK_DROP:BOOL=OFF", "GS_HIL_C8_ACK_DROP:BOOL=ON"))
+            with self.assertRaisesRegex(ValueError, "C8 ACK-drop command"):
+                validate_s3_fixture_artifact(*paths, c8_ack_drop=True)
+            paths[3].write_bytes(paths[3].read_bytes() + b" DROP_NEXT_DURABLE_ACK")
+            result = validate_s3_fixture_artifact(*paths, c8_ack_drop=True)
+            self.assertTrue(result["c8_ack_drop_fixture_enabled"])
 
     def test_command_parser_is_exact_and_limited_to_commissioning_and_status(self):
         self.assertEqual(subprocess.run(["g++", "--version"], capture_output=True).returncode, 0,
@@ -199,6 +213,8 @@ int main() {{
         state = (ROOT / "firmware/hub/target/esp32/fixture_commissioning_status.hpp").read_text()
         build_script = (ROOT / "scripts/build_validation_targets.py").read_text()
         self.assertIn('option(GS_HIL_COMMISSIONING', cmake)
+        self.assertIn('option(GS_HIL_C8_ACK_DROP', cmake)
+        self.assertRegex(cmake, r'if\(GS_HIL_C8_ACK_DROP AND \(NOT GS_HIL_COMMISSIONING')
         self.assertRegex(cmake, r'if\(GS_HIL_BUILD OR GS_HIL_CONTROL\)\s+message\(FATAL_ERROR')
         self.assertIn('if(GS_HIL_COMMISSIONING)', main_cmake)
         self.assertIn('if(GS_HIL_COMMISSIONING AND GS_S3_DIAGNOSTIC_ONLY)', cmake)
@@ -209,6 +225,25 @@ int main() {{
         self.assertIn('FixtureCommissioningStatus::AuthenticatedRejoin', owner)
         self.assertNotIn('GS_HIL_COMMISSIONING', build_script)
         self.assertNotIn('set(GS_HIL_COMMISSIONING ON', cmake)
+
+    def test_c8_ack_drop_is_postcommit_durable_and_profile_scoped(self):
+        owner = (ROOT / "firmware/hub/target/esp32/hub_runtime_adapter.cpp").read_text()
+        control = SOURCE.read_text()
+        gate = (ROOT / "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp").read_text()
+        self.assertIn('processed->ack == AckClass::Durable', owner)
+        self.assertIn('C8AckDropGate::eligible(', owner)
+        self.assertIn('key_lookup == storage::IdentityLookup::Found', owner)
+        self.assertIn('runtime.durable_admission_open()', owner)
+        self.assertIn('ack_sent=NO', owner)
+        self.assertIn('DROP_NEXT_DURABLE_ACK', control)
+        self.assertIn('if (next_token(cursor) != nullptr)', control)
+        self.assertIn('processed->state_changed', owner)
+        self.assertIn('state_changed &&', gate)
+
+        builder = (ROOT / "scripts/build_gs114_fixture_pair.py").read_text()
+        self.assertIn('"GS_HIL_C8_ACK_DROP": "ON" if c8_ack_drop else "OFF"', builder)
+        self.assertIn('if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop:', builder)
+        self.assertIn('"c8_ack_drop_fixture_enabled": c8_ack_drop', builder)
 
 
 if __name__ == "__main__":

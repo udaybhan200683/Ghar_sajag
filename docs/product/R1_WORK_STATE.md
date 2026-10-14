@@ -1,5 +1,50 @@
 # R1 Current Work State
 
+## GS-114 resumed C8 execution checkpoint — 2026-10-14 02:51 UTC
+
+The canonical worktree is `/home/udaybhan/projects/Ghar_sajag_r1` on
+`feature/r1-commercial-baseline`, local HEAD `ec469303d17ea2037019a5bb18d29ce070c249e2`,
+matching GitHub `origin`; context preflight PASS `2026-10-13.001`. The existing
+scoped P8 implementation/evidence changes remain uncommitted and unstaged.
+Pre-existing untracked PWA, managed-component and prior physical-evidence
+paths remain preserved. The active S3 timestamped capture is untracked and its
+single reader remains running; do not open a second reader or stop it.
+
+The installed C3/S3 pair remains unchanged and commissioned. Latest captured
+authenticated NodeHealth (2026-10-14 02:48:43 UTC) is session 3, health sequence
+114, reset 11, retained 0, durable ACK 14, GPIO wakes 19, timer wakes 1183,
+last wake TIMER. No event or pending work appeared during the latest interval.
+P7 is ready but requires one real PIR stimulus. By explicit operator request,
+do not ask for or cause motion until the operator sends `available`.
+
+While waiting, ESP-IDF 6.0.3 built the matched P8 target pair offline under
+`code/build/gs114_c8_p8_20261014/`. C3 app SHA-256 is
+`5256779c8c0b592cea219f3e3a3d0c7da72892a37207399bfce388e549c25659`; S3 app
+SHA-256 is `f94192a7c59fa1a7221a7dc4a8394c1bd8c448c2009553e35dfed2f074eccd08`.
+The S3 profile uses `GS_HIL_CONTROL=OFF`, commissioning ON, the isolated P8
+ACK-drop option ON, 16-MiB flash, octal PSRAM configuration, and the expected
+`ota_0`/`ota_1`/`gs_outbox`/`gs_state` table. Both builds exited 0; the
+registered `make -C code c8-ack-drop-gate-host-test` passed 16 checks. Neither
+image was flashed. Offline `esptool image-info` detected the expected C3/4-MiB
+and S3/16-MiB image types and verified their checksums. The S3 fixture-profile
+suite passed 12/12 after one incorrect
+source-anchor assertion was corrected. Traceability consistency passed for 175
+features/205 modules/15 physical cases and its 19 tests passed; the physical
+catalogue check passed for 99 cases with no device access. Full artifact/profile
+hashes and commands are recorded in
+the [GS-114 P8 target evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run03_20261014/C8_P8.md).
+
+Physical dispositions remain RPF07 PASS, P1 PASS, P2 PASS, P3 BLOCKED, P4
+FAIL, P5 BLOCKED/inconclusive, P6 PASS, P7 NOT_RUN awaiting `available`, P8
+physical NOT_RUN, and P9 ACK/FOTA BLOCKED. Next action after `available` is one
+P7 real PIR episode under authenticated session 3, then automatically inspect
+the exact key, Hub durable effect/ACK and Node retirement. P8 installation
+requires presenting the exact prepared image/partition hashes for operator
+confirmation after P7. No P8/P9 physical stimulus, flash or reset has occurred.
+GS-114 remains In Progress; P10 remains separate under GS-149.
+Jira GS-114 comment 10861 records this offline P8 target-build and test
+milestone without changing issue workflow status.
+
 ## GS-114 resumed software checkpoint — 2026-10-13 UTC
 
 Jira GS-114 comment 10800 and the pause handoff were reconciled. Canonical
@@ -1708,15 +1753,16 @@ was started. At resume, recheck by-id ports/identity/power/wiring and capture
 with a live control channel; reuse installed images, wait for authenticated
 timer-wake health and then prompt for real P2 motion. Do not erase first.
 
-## GS-114 C8 physical execution update — 2026-10-14 02:04 UTC
+## GS-114 C8 physical execution update — 2026-10-14 02:14 UTC
 
 The run03 campaign continued on the existing commissioned boards and diagnostic
 images without erase, reflash or recommission. Canonical branch
-`feature/r1-commercial-baseline` is at `9674075f1911dbad076fdcdb1c541a283dfbb748`,
-matching `origin`; tracked worktree changes are absent. Existing unrelated
-untracked PWA/build/evidence directories are preserved. The new run03 evidence
-is also currently untracked pending the scoped evidence commit. Context preflight
-PASS `2026-10-13.001` was verified at resume.
+`feature/r1-commercial-baseline` is at `ec469303d17ea2037019a5bb18d29ce070c249e2`,
+matching `origin` at this checkpoint. The P8 fixture, test registration and
+evidence updates are now tracked-file modifications in the working tree and
+remain unstaged/uncommitted. Existing unrelated untracked PWA/build/evidence
+directories are preserved. The new run03 raw capture is also untracked and
+active. Context preflight PASS `2026-10-13.001` was verified at resume.
 
 Physical dispositions: Phase A/RPF07 repair PASS; P1 PASS; P2 PASS; P3 BLOCKED
 because no GPIO4 level trace proves held-HIGH sleep inhibition; P4 FAIL because
@@ -1733,13 +1779,28 @@ The one-owner S3 capture remains active at the stable by-id path. The Node's
 native USB console is silent during light sleep; authenticated NodeHealth over
 ESP-NOW is the deferred wake/sleep observer. P7 is ready for a physical
 post-reboot event but the operator instructed that motion prompts wait until
-they send `available`. Do not reset/reflash/recommission. P8 and P9 fixture
-inspection found that the broad HIL control is prohibited on the S3 target,
-although the commissioning profile emits exact-key durable outbox/effect
-evidence. P8 needs a separate narrow postcommit ACK-drop flag/command, to be
-implemented only after P7 and kept disabled in ordinary/production builds. P9's
-ACK hold needs a longer controlled window; no matched signed C3 test/recovery
-image or trigger was found for FOTA. GS-114 stays In Progress; P10 is separate
-under GS-149. Evidence/doc commit `1fb3a942a08157fbdb59e6a71b1b520bb59ce78f`
-was pushed and remote-verified before these new P8/P9 review notes; the live S3
-log remains intentionally untracked until capture ends.
+they send `available`. The active S3 capture recorded stable session-3 health
+through 02:18:45 UTC: reset 11, retained 0, durable ACK 14, GPIO wakes 19 and 40
+additional timer wakes since 01:58:46, with no new event or pending work. Do not
+reset/reflash/recommission.
+
+While waiting for P7 motion, the separate S3 commissioning-profile-only
+`GS_HIL_C8_ACK_DROP` path was implemented in the working tree, default OFF and
+separate from broad `GS_HIL_CONTROL`. It requires an authenticated Durable ACK,
+new state effect, successful exact-key outbox lookup and OPEN admission before
+suppressing one ACK; the same-key duplicate remains on the normal ACK path. The
+registered C++ gate test passed 16 checks in ordinary, ASan/UBSan and TSan
+builds. The target P8 image has not been built or installed, and no P8 physical
+stimulus occurred. P7 still takes priority after the operator sends
+`available`. Current installed app hashes remain C3
+`1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and S3
+`84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`.
+
+At this checkpoint local and remote HEAD are both
+`ec469303d17ea2037019a5bb18d29ce070c249e2`; source and documentation changes
+are uncommitted and unstaged. The active raw S3 capture and pre-existing PWA,
+managed-component and historical evidence paths remain untracked and preserved.
+Context preflight PASS `2026-10-13.001`. P9's ACK hold still needs a longer
+controlled window; no matched signed C3 test/recovery image or trigger was found
+for FOTA. GS-114 stays In Progress; P10 is separate under GS-149.
+Jira GS-114 comment 10860 records this host-validation milestone and P7 wait.

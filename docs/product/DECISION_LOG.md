@@ -607,13 +607,27 @@ semantics are altered by this status update. The detailed case evidence and
 limitations are in the [GS-114 execution report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
 Context version remains `2026-10-13.001`; GS-114 remains In Progress.
 
-The current S3 commissioning image has broad `GS_HIL_CONTROL=OFF`; the target
-build rejects enabling it, so the existing broad postcommit reboot fault cannot
-be used as a directional ACK-loss fixture. A distinct build-only, default-off
-one-shot ACK suppression hook may be added for GS-114 P8 after P7 if it is
-compiled only with the isolated S3 commissioning profile and suppresses only
-after an authenticated durable effect/outbox check. This is bounded HIL test
-instrumentation, not a protocol/product decision, and it is not yet implemented
-or installed. P9 still lacks a longer controlled ACK hold, matched signed test
-and recovery images, a supported trigger, and a known recovery procedure; no
-FOTA operation was authorized or attempted. See the linked run03 P8/P9 evidence.
+The current installed S3 commissioning image has broad `GS_HIL_CONTROL=OFF`; the
+target build rejects enabling it, so the existing broad postcommit reboot fault
+cannot be used as a directional ACK-loss fixture. A distinct build-only,
+default-off one-shot ACK suppression hook is now implemented in the working
+tree. It is guarded to the isolated S3 commissioning profile and suppresses only
+after an authenticated durable new effect, OPEN admission and positive exact-key
+outbox lookup. Its 16-check host gate passes under AddressSanitizer,
+UndefinedBehaviorSanitizer and ThreadSanitizer; the test image is not yet built
+or installed, and physical P8 remains NOT_RUN until P7 is completed. This is
+bounded HIL instrumentation, not a protocol/product decision. P9 still lacks
+a longer controlled ACK hold, matched signed test and recovery images, a
+supported trigger, and a known recovery procedure; no FOTA operation was
+authorized or attempted. See the linked run03 P8/P9 evidence.
+
+Since the initial host-test note, the paired C3/S3 P8 target images have built
+successfully offline with ESP-IDF 6.0.3; the registered 16-check host target,
+12-test S3 fixture-profile suite, and 19 feature-traceability tests pass after
+correcting test-source/mapping assertions; the 99-case physical catalogue check
+and expected S3 partitions/profile were verified. No image was
+flashed and physical P8 remains NOT_RUN pending P7 and distinct operator
+confirmation for image installation. The installed diagnostic pair and active
+P7 capture are unchanged. This is a qualification/evidence update with no new
+product/security decision or context-version change. See the linked run03
+P8/P9 evidence and current `R1_WORK_STATE.md` checkpoint.

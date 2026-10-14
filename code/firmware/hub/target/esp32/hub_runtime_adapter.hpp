@@ -73,4 +73,10 @@ void hil_log_state();
 void hil_log_test_identity();
 #endif
 
+#if GS_HIL_C8_ACK_DROP
+// Isolated GS-114 fixture control; arms one bounded postcommit application-ACK
+// suppression. This symbol is absent from production/default target profiles.
+bool arm_c8_ack_drop_fixture();
+#endif
+
 }  // namespace gs::hub::target

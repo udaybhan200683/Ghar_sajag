@@ -2,6 +2,18 @@
   "schema_version": 1,
   "stages": [
     {
+      "id": "c8-ack-drop-gate",
+      "components": ["hub"],
+      "command": ["make", "c8-ack-drop-gate-host-test"],
+      "inputs": [
+        "tests/cpp/c8_ack_drop_gate_validation.cpp",
+        "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp"
+      ],
+      "success": "^C8 ACK-drop gate PASS checks=(\\d+)$",
+      "timeout": 120,
+      "count_kind": "checks"
+    },
+    {
       "id": "s3-fixture-commissioning",
       "components": [
         "node",
@@ -16,6 +28,7 @@
         "tests/python/test_s3_fixture_commissioning.py",
         "scripts/build_gs114_fixture_pair.py",
         "firmware/hub/target/esp32/fixture_commissioning_status.hpp",
+        "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp",
         "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
         "firmware/hub/target/esp32/hub_runtime_adapter.hpp",
         "firmware/hub/target/esp32/idf/CMakeLists.txt",

@@ -1,8 +1,9 @@
 {
   "run_id": "GS114-C8-run03-20261014",
+  "latest_jira_comment": "10861",
   "started_utc": "2026-10-14T00:42:16.123Z",
-  "last_recorded_utc": "2026-10-14T01:58:46.016044471Z",
-  "source_checkpoint": "9674075f1911dbad076fdcdb1c541a283dfbb748",
+  "last_recorded_utc": "2026-10-14T02:51:35Z",
+  "source_checkpoint": "ec469303d17ea2037019a5bb18d29ce070c249e2",
   "source_branch": "feature/r1-commercial-baseline",
   "firmware_build_source": "72a223fc3b290c01c9f93fbb90db83d87601ad54",
   "idf": "ESP-IDF 6.0.3",
@@ -36,6 +37,7 @@
         "GS_HIL_BUILD": "OFF",
         "GS_HIL_CONTROL": "OFF",
         "GS_HIL_COMMISSIONING": "ON",
+        "GS_HIL_C8_ACK_DROP": "OFF in installed image",
         "flash_mode": "DIO",
         "flash_frequency": "40 MHz",
         "commissioning": true,
@@ -79,7 +81,7 @@
     "P5": "BLOCKED_INCONCLUSIVE",
     "P6": "PASS",
     "P7": "READY_NOT_RUN_AWAITING_OPERATOR_AVAILABLE",
-    "P8": "BLOCKED_FIXTURE_REVIEW_COMPLETE_IMPLEMENTATION_PENDING_AFTER_P7",
+    "P8": "TARGET_BUILD_PASS_PHYSICAL_NOT_RUN_WAITING_P7_AND_OPERATOR_CONFIRMATION",
     "P9_ACK": "BLOCKED_NO_BOUNDED_PENDING_ACK_WINDOW_FIXTURE",
     "P9_FOTA": "BLOCKED_NO_MATCHED_SIGNED_IMAGES_TRIGGER_OR_RECOVERY_PLAN"
   },
@@ -96,6 +98,59 @@
     "timer_wakes": 1073,
     "last_wake": "TIMER"
   },
+  "p7_latest_pre_stimulus_node_health": {
+    "utc": "2026-10-14T02:48:43.705490101Z",
+    "session": 3,
+    "health_seq": 114,
+    "reset_reason": 11,
+    "retained": 0,
+    "durable_ack": 14,
+    "pir_ok": 19,
+    "gpio_wakes": 19,
+    "sleep_entries": 1202,
+    "timer_wakes": 1183,
+    "last_wake": "TIMER"
+  },
+  "p8_software_fixture": {
+    "source_base_head": "ec469303d17ea2037019a5bb18d29ce070c249e2",
+    "working_tree_uncommitted_at_test": true,
+    "gate_checks": 16,
+    "plain_build_and_run": "PASS",
+    "address_undefined_sanitizers": "PASS",
+    "thread_sanitizer": "PASS",
+    "invalid_profile_guard": "EXPECTED_REJECTION_PASS",
+    "fixture_profile_unittests": "PASS_12_OF_12; initial source-anchor assertion corrected and retested",
+    "feature_traceability": "PASS_175_features_205_modules_15_physical_cases; 19_unit_tests_PASS",
+    "physical_catalogue": "PASS_99_cases_device_access_NONE",
+    "target_image_built": true,
+    "target_build_status": "PASS_OFFLINE_NO_FLASH",
+    "build_root": "../../../../../../code/build/gs114_c8_p8_20261014",
+    "c3_application_sha256": "5256779c8c0b592cea219f3e3a3d0c7da72892a37207399bfce388e549c25659",
+    "s3_application_sha256": "f94192a7c59fa1a7221a7dc4a8394c1bd8c448c2009553e35dfed2f074eccd08",
+    "s3_bootloader_sha256": "8d1c38e09cfadf1ff04ebf9ea5a77f59eb6b45f4fdea3ea6ff5809ef6e6ba477",
+    "s3_partition_table_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a",
+    "s3_ota_data_initial_sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f",
+    "esptool_image_info": {
+      "esptool": "5.4.0",
+      "exit": 0,
+      "c3_detected": "ESP32-C3 4MB DIO/80MHz checksum-valid",
+      "c3_elf_sha256": "da0a1b3338aae8d71fe3ba571d83be70f1d0cc4d57765933dfc77e26421b34fa",
+      "s3_detected": "ESP32-S3 16MB DIO/40MHz checksum-valid",
+      "s3_elf_sha256": "62378445c691d6579c2be252f1e323f8488145cab0658a9cfd54d40c9e2f6b64"
+    },
+    "s3_profile": {
+      "GS_HIL_BUILD": "OFF",
+      "GS_HIL_CONTROL": "OFF",
+      "GS_HIL_COMMISSIONING": "ON",
+      "GS_HIL_C8_ACK_DROP": "ON",
+      "GS_S3_DIAGNOSTIC_ONLY": "OFF",
+      "flash": "16 MiB DIO/40 MHz",
+      "psram": "octal/40 MHz",
+      "partitions": "ota_0,ota_1,gs_outbox,gs_state"
+    },
+    "physical_ack_loss_run": "NOT_RUN",
+    "evidence": "C8_P8_SOFTWARE_VALIDATION_20261014.md"
+  },
   "known_capture_gaps": [
     "P5 Hub-unavailable window and initial event/recovery-key lines were not captured; see C8_P5.md.",
     "P6 Hub boot banner was missed because the single S3 serial reader attached after USB enumeration; authenticated rejoin and fresh-session evidence were captured.",
@@ -111,6 +166,7 @@
     "C8_P6.md",
     "C8_P7.md",
     "C8_P8.md",
+    "C8_P8_SOFTWARE_VALIDATION_20261014.md",
     "C8_P9.md"
   ]
 }

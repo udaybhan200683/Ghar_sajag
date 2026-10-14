@@ -1,4 +1,7 @@
 #include "firmware/hub/target/esp32/hub_runtime_adapter.hpp"
+#if GS_HIL_C8_ACK_DROP
+#include "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp"
+#endif
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -67,6 +70,20 @@ void dispatch(char* command) {
                  status_name(gs::hub::target::fixture_commissioning_status()));
         return;
     }
+#if GS_HIL_C8_ACK_DROP
+    if (std::strcmp(verb, "DROP_NEXT_DURABLE_ACK") == 0) {
+        if (next_token(cursor) != nullptr) {
+            ESP_LOGW(kTag, "HIL_FIXTURE_ERROR reason=invalid_arguments");
+            return;
+        }
+        const bool armed = gs::hub::target::arm_c8_ack_drop_fixture();
+        ESP_LOGI(kTag, "HIL_C8_ACK_DROP_%s window_ms=%llu",
+                 armed ? "ARMED" : "ARM_REJECTED",
+                 static_cast<unsigned long long>(
+                     gs::hub::target::C8AckDropGate::kWindowMs));
+        return;
+    }
+#endif
     if (std::strcmp(verb, "COMMISSION_EXPECTED_NODE") != 0) {
         ESP_LOGW(kTag, "HIL_FIXTURE_ERROR reason=unsupported_command");
         return;
@@ -109,7 +126,11 @@ void dispatch(char* command) {
 void control_task(void*) {
     std::array<char, kCommandCapacity> command{};
     std::size_t length = 0;
+#if GS_HIL_C8_ACK_DROP
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,DROP_NEXT_DURABLE_ACK");
+#else
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS");
+#endif
     for (;;) {
         const int value = std::fgetc(stdin);
         if (value == EOF) {

@@ -71,6 +71,7 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 
 .PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build physical-hil-catalogue-test validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test
 .PHONY: s3-durable-outbox-host-test hub-segmented-outbox-runtime-host-test
+.PHONY: c8-ack-drop-gate-host-test
 
 BATTERY_C8_SOURCES := firmware/common/shared/src/logging.cpp firmware/node/sensing/sensing.cpp firmware/node/power/power.cpp firmware/node/communication/radio/node_radio.cpp firmware/node/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp
 BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCES))
@@ -624,6 +625,11 @@ validation-motion-hil:
 
 s3-fixture-commissioning-test:
 	python3 -m unittest tests.python.test_s3_fixture_commissioning -v
+
+c8-ack-drop-gate-host-test:
+	mkdir -p build
+	$(HOST_CXX) $(CXXFLAGS) -pthread -I. tests/cpp/c8_ack_drop_gate_validation.cpp -o build/c8_ack_drop_gate_validation
+	./build/c8_ack_drop_gate_validation
 
 # Builds a standalone S3 fixture-profile RPF diagnostic app only. The IDF build
 # also emits a full-device bundle, which is expressly not authorized to flash.

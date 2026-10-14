@@ -1,5 +1,8 @@
 #include "gs/node_health_config.hpp"
 #include "firmware/hub/target/esp32/hub_runtime_adapter.hpp"
+#if GS_HIL_C8_ACK_DROP
+#include "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp"
+#endif
 
 #include "firmware/common/transport/data_plane_codec.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
@@ -44,6 +47,9 @@
 
 namespace gs::hub::target {
 namespace {
+#if GS_HIL_C8_ACK_DROP && CONFIG_IDF_TARGET_ESP32S3
+C8AckDropGate g_c8_ack_drop_gate;
+#endif
 
 constexpr char kTag[] = "gs_hub_runtime";
 constexpr UBaseType_t kDataQueueDepth = 16U;
@@ -1257,6 +1263,24 @@ void secure_owner_task(void*) {
                  static_cast<unsigned>(key_lookup), key_found,
                  runtime.durable_admission_open() ? "OPEN" : "CLOSED");
 #endif
+#if GS_HIL_C8_ACK_DROP && CONFIG_IDF_TARGET_ESP32S3
+        const bool c8_ack_drop_eligible = C8AckDropGate::eligible(
+            processed->ack == AckClass::Durable, processed->state_changed,
+            key_lookup == storage::IdentityLookup::Found, key_found,
+            runtime.durable_admission_open());
+        const auto c8_ack_drop = g_c8_ack_drop_gate.decide(
+            static_cast<std::uint64_t>(esp_timer_get_time() / 1000),
+            c8_ack_drop_eligible);
+        if (c8_ack_drop == C8AckDropDecision::SuppressOneAck) {
+            ESP_LOGW(kTag,
+                     "HIL_C8_ACK_DROP event_id=%s durable=YES state_changed=1 outbox_found=1 admission=OPEN ack_sent=NO",
+                     processed->key.str().c_str());
+            continue;
+        }
+        if (c8_ack_drop == C8AckDropDecision::Expired) {
+            ESP_LOGW(kTag, "HIL_C8_ACK_DROP_EXPIRED ack_sent=NORMAL");
+        }
+#endif
 #if GS_HIL_CONTROL
         ESP_LOGI(kTag, "HIL_EVENT_RESULT event_id=%s ack=%u state_changed=%d records=%u",
                  processed->key.str().c_str(), static_cast<unsigned>(processed->ack),
@@ -1297,6 +1321,13 @@ QueueHandle_t control_plane_queue() {
 void set_control_plane_active(bool active) {
     g_control_plane_active.store(active, std::memory_order_release);
 }
+
+#if GS_HIL_C8_ACK_DROP && CONFIG_IDF_TARGET_ESP32S3
+bool arm_c8_ack_drop_fixture() {
+    const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    return g_c8_ack_drop_gate.arm(now_ms);
+}
+#endif
 
 bool request_node_commissioning(HubSecurityLink::ExpectedNode exact) {
 #if GS_HIL_COMMISSIONING
