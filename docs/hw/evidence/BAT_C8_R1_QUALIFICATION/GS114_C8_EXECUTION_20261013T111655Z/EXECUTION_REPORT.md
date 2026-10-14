@@ -238,7 +238,7 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | P9 FOTA | BLOCKED | No matched signed C3 test/recovery image pair, supported signed trigger or known recovery procedure; see [P9](run03_20261014/C8_P9.md) |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action: keep the S3 capture active. P3 needs another real sustained-HIGH episode and direct evidence that sleep is inhibited while GPIO4 is HIGH; P7 needs an attributable first-motion stimulus/timestamp only if the owner requires controlled attribution after the already observed q15 event. Wait for a fresh operator `available` signal before another motion prompt. P8 requires exact target/partition/image confirmation and operator confirmation before any flash; then run the real one-shot postcommit ACK-loss retry. P5, P9 ACK and signed FOTA remain unresolved. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
+Next action: keep the S3 capture active. P3 needs another real sustained-HIGH episode and direct evidence that sleep is inhibited while GPIO4 is HIGH. To run the requested controlled P7 first-event test after q15 arrived without a controlled stimulus, repeat Hub-only P6, then prompt for the first real PIR motion after that reboot. Wait for operator availability before each new motion prompt. P8 requires exact target/partition/image confirmation and operator confirmation before any flash; then run the real one-shot postcommit ACK-loss retry. P5, P9 ACK and signed FOTA remain unresolved. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
 
 ## Validation and precise operator checkpoint
 
