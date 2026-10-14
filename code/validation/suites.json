@@ -739,6 +739,9 @@
         "firmware/hub/storage/node_retirement_snapshot.hpp"
       ],
       "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
+      "required_success": [
+        "^GS148-CLOUD-WORKER-001 PASS$"
+      ],
       "timeout": 600
     },
     {

@@ -74,8 +74,8 @@ firmware/common/transport/node_retirement_protocol.cpp,NODE-RETIREMENT,PRODUCTIO
 firmware/common/transport/node_retirement_protocol.hpp,NODE-RETIREMENT,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
 firmware/common/transport/session_id.cpp,NODE-RESTART-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
 firmware/common/transport/session_id.hpp,NODE-RESTART-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
-firmware/hub/cloud_sync/cloud_sync.cpp,HUB-BRIDGE-01;GS148-ARCH-051,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
-firmware/hub/cloud_sync/cloud_sync.hpp,HUB-BRIDGE-01;GS148-ARCH-051,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/cloud_sync/cloud_sync.cpp,HUB-BRIDGE-01;GS148-ARCH-051;GS148-CLOUD-WORKER-001,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
+firmware/hub/cloud_sync/cloud_sync.hpp,HUB-BRIDGE-01;GS148-ARCH-051;GS148-CLOUD-WORKER-001,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
 firmware/hub/cloud_sync/http_backend_transport.cpp,HUB-HTTP,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
 firmware/hub/cloud_sync/http_backend_transport.hpp,HUB-HTTP,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows
 firmware/hub/commissioning/registry/node_registry.cpp,P2-REG-01,PRODUCTION_POLICY,ACCOUNTED_WITH_LIMITATIONS,Mapping is traceability; semantic category limits remain in feature rows

@@ -1065,6 +1065,142 @@ void cloudsync_generation_provenance_test() {
             "secure CloudSync refuses event without authenticated owner provenance");
 }
 
+void cloudsync_worker_authority_test() {
+    using namespace gs::hub;
+    using namespace gs::hub::storage;
+    struct Slots final : JournalSlotStore {
+        std::array<Bytes, 128> events{}, completions{};
+        std::size_t completed{0};
+        bool read(std::size_t i, Bytes& blob, bool& found) override {
+            blob = events.at(i); found = !blob.empty(); return true;
+        }
+        bool write(std::size_t i, const Bytes& blob) override {
+            if (!events.at(i).empty()) return false;
+            events[i] = blob; return true;
+        }
+        bool read_completion(std::size_t i, Bytes& blob, bool& found) override {
+            blob = completions.at(i); found = !blob.empty(); return true;
+        }
+        bool write_completion(std::size_t i, const Bytes& blob) override {
+            if (!completions.at(i).empty()) return false;
+            completions[i] = blob; ++completed; return true;
+        }
+    } slots;
+    struct Authority final : CloudAuthoritySource {
+        CloudAuthorityBinding binding{"home-1", "hub-1", 3};
+        std::string original_key;
+        bool available{false}, owned{false};
+        bool current_binding(CloudAuthorityBinding& output) override {
+            if (!available) return false;
+            output = binding; return true;
+        }
+        bool original_event_owned(const gs::DomainEvent& item,
+                                  const CloudAuthorityBinding& requested) override {
+            return owned && requested == binding && item.key.str() == original_key;
+        }
+    } authority;
+    struct Transport final : CloudBackendTransport {
+        Authority& authority;
+        std::vector<std::string> bodies;
+        enum class Reply { Lost, WrongKey, Committed, ChangeOwner } reply{Reply::Lost};
+        explicit Transport(Authority& source) : authority(source) {}
+        BackendCommitReply submit(const BackendCommitRequest& request) override {
+            bodies.push_back(request.json_body());
+            if (reply == Reply::Lost) return {BackendReplyStatus::NetworkFailure,
+                                              request.event.key, false, false};
+            if (reply == Reply::ChangeOwner) {
+                authority.binding.ownership_epoch++;
+                return {BackendReplyStatus::Committed, request.event.key, true, false};
+            }
+            auto key = request.event.key;
+            if (reply == Reply::WrongKey) key.sequence++;
+            return {BackendReplyStatus::Committed, key, true, reply == Reply::Committed};
+        }
+    } transport(authority);
+
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    StateFiles files;
+    RuntimeStateStore state(files, crypto, key);
+    require(state.recover(0), "worker identity ledger starts clean");
+    const auto original = event(1);
+    IdentityOwnerEvidence owner;
+    owner.enrollment_slot = 2;
+    owner.enrollment_generation = 9;
+    owner.binding_digest[0] = 0x73;
+    require(state.prepare_identity(original, 1, {}, &owner) &&
+            state.confirm_event_publication(1) &&
+            state.save_checkpoint(gs::security::Bytes{0x01}, 1),
+            "worker has authenticated original owner generation");
+    authority.original_key = original.key.str();
+    HubJournal journal(128);
+    require(journal.attach_persistence(crypto, slots, key) &&
+            journal.commit(original) == CommitResult::Stored,
+            "worker starts with a durable original event");
+    HubRuntime runtime;
+    runtime.bind_runtime_state(state);
+    CloudSyncWorker worker(journal, runtime, authority, transport);
+    require(worker.run_once(false, 0).state == CloudWorkerState::Offline &&
+            worker.run_once(true, 0).state == CloudWorkerState::AuthorityUnavailable &&
+            transport.bodies.empty(), "offline or missing credential authority sends nothing");
+    authority.available = true;
+    auto blocked = worker.run_once(true, 0);
+    require(blocked.refused_original == 1 && transport.bodies.empty() &&
+            !journal.cloud_completed(original.key),
+            "wrong original owner cannot upload or complete retained data");
+    authority.owned = true;
+    auto first = worker.run_once(true, 0);
+    require(first.submitted == 1 && first.completed == 0 &&
+            !journal.cloud_completed(original.key) && slots.completed == 0,
+            "lost HTTP response retains durable original event");
+    require(worker.run_once(true, 999).submitted == 0,
+            "bounded retry deadline prevents early resend");
+    transport.reply = Transport::Reply::WrongKey;
+    require(worker.run_once(true, 1000).submitted == 1 &&
+            !journal.cloud_completed(original.key),
+            "wrong EventKey cannot complete original event");
+    require(transport.bodies.size() == 2 && transport.bodies[0] == transport.bodies[1] &&
+            transport.bodies[0].find("\"cloudsync_version\":2") != std::string::npos &&
+            transport.bodies[0].find("\"node_enrollment_generation\":9") != std::string::npos,
+            "retry preserves original request, time and owner generation");
+    transport.reply = Transport::Reply::ChangeOwner;
+    require(worker.run_once(true, 6000).submitted == 1 &&
+            !journal.cloud_completed(original.key) && slots.completed == 0 &&
+            worker.run_once(true, 7000).state == CloudWorkerState::AuthorityChanged,
+            "ownership transition during a committed response cannot close local event");
+    require(transport.bodies.size() == 3 && transport.bodies[2] == transport.bodies[0],
+            "uncertain ownership response preserves the exact original request");
+
+    // A new trusted installation source may resume only under the original
+    // unchanged binding, after an exact backend duplicate COMMITTED response.
+    HubJournal rebooted(128);
+    require(rebooted.attach_persistence(crypto, slots, key) &&
+            !rebooted.cloud_completed(original.key),
+            "reboot after lost/ambiguous reply retains cloud obligation");
+    RuntimeStateStore restored(files, crypto, key);
+    require(restored.recover(1), "worker restart restores original owner ledger");
+    HubRuntime rebooted_runtime;
+    rebooted_runtime.bind_runtime_state(restored);
+    Authority recovered_authority;
+    recovered_authority.binding = {"home-1", "hub-1", 3};
+    recovered_authority.original_key = original.key.str();
+    recovered_authority.available = recovered_authority.owned = true;
+    Transport recovered_transport(recovered_authority);
+    recovered_transport.reply = Transport::Reply::Committed;
+    CloudSyncWorker recovered_worker(rebooted, rebooted_runtime,
+                                      recovered_authority, recovered_transport);
+    const auto recovered = recovered_worker.run_once(true, 7001);
+    require(recovered.submitted == 1 && recovered.completed == 1 &&
+            slots.completed == 1 && rebooted.cloud_completed(original.key) &&
+            recovered_transport.bodies[0] == transport.bodies[0],
+            "authenticated duplicate COMMITTED durably retires exact event after reboot");
+    HubJournal final_boot(128);
+    require(final_boot.attach_persistence(crypto, slots, key) &&
+            final_boot.cloud_completed(original.key) && slots.completed == 1,
+            "completion survives another reboot without duplicate local effect");
+    std::cout << "GS148-CLOUD-WORKER-001 PASS\n";
+}
+
 void runtime_identity_compaction_and_replay_test() {
     using namespace gs::hub::storage;
     gs::host::security::OpenSslCommissioningCrypto crypto;
@@ -2116,6 +2252,10 @@ int main(int argc, char** argv) {
             std::cout << "PASS: durable identity generation compaction and replay protection\n";
             return 0;
         }
+        if (argc == 2 && std::string(argv[1]) == "--cloud-worker") {
+            cloudsync_worker_authority_test();
+            return 0;
+        }
         if (argc == 2 && std::string(argv[1]) == "--incremental-completion") {
             backend_completion_lifecycle_tests();
             incremental_completion_reuse_test(); incremental_completion_cut_tests();
@@ -2128,6 +2268,7 @@ checkpoint_tests();interruption_tests();published_checkpoint_interruption();time
         identity_compaction_planning_test();
         identity_generation_compaction_test();
         cloudsync_generation_provenance_test();
+        cloudsync_worker_authority_test();
         runtime_identity_compaction_and_replay_test();
         identity_generation_filesystem_test();
         replay_fence_and_eligibility_tests();

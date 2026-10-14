@@ -84,4 +84,56 @@ private:
     std::set<std::string> permanent_errors_;
 };
 
+// Only a trusted installation/credential owner may supply this capability.
+// The commercial S3 runtime has no such source until GS-109 issuance and
+// ownership binding are defined. In particular a Home ID, MAC or HTTP header
+// alone is not an authority to upload old durable events.
+struct CloudAuthorityBinding {
+    std::string home_id;
+    std::string hub_device_id;
+    std::uint64_t ownership_epoch{0};
+    bool operator==(const CloudAuthorityBinding& other) const {
+        return home_id == other.home_id && hub_device_id == other.hub_device_id &&
+               ownership_epoch == other.ownership_epoch;
+    }
+};
+
+class CloudAuthoritySource {
+public:
+    virtual ~CloudAuthoritySource() = default;
+    virtual bool current_binding(CloudAuthorityBinding& binding) = 0;
+    // Must compare the durable ORIGINAL event owner with the current binding.
+    // A replacement Node or a transferred Home cannot authorize old data.
+    virtual bool original_event_owned(const DomainEvent& event,
+                                      const CloudAuthorityBinding& binding) = 0;
+};
+
+enum class CloudWorkerState { Offline, AuthorityUnavailable, AuthorityChanged,
+                              Ready, StorageFault };
+struct CloudWorkerResult {
+    CloudWorkerState state{CloudWorkerState::AuthorityUnavailable};
+    std::size_t submitted{0};
+    std::size_t completed{0};
+    std::size_t refused_original{0};
+};
+
+// Call only from a separately owned, bounded network worker, never the ESP-NOW
+// admission task. No target task instantiates this until its trusted authority,
+// credential and owner/worker concurrency contracts exist.
+class CloudSyncWorker {
+public:
+    CloudSyncWorker(HubJournal& journal, HubRuntime& runtime,
+                    CloudAuthoritySource& authority, CloudBackendTransport& transport);
+    CloudWorkerResult run_once(bool network_ready, Milliseconds now_ms,
+                               std::size_t limit = 4);
+private:
+    bool same_authority(const CloudAuthorityBinding& expected);
+    HubJournal& journal_;
+    CloudSync sync_;
+    CloudAuthoritySource& authority_;
+    CloudBackendTransport& transport_;
+    std::optional<CloudAuthorityBinding> pinned_;
+    bool authority_changed_{false};
+};
+
 }  // namespace gs::hub

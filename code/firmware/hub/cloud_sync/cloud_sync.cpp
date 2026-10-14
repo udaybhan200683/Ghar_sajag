@@ -260,4 +260,91 @@ void CloudSync::record_failure(Milliseconds now_ms) {
     failures_ = std::min(failures_ + 1, std::size_t{4});
 }
 
+CloudSyncWorker::CloudSyncWorker(HubJournal& journal, HubRuntime& runtime,
+                                 CloudAuthoritySource& authority,
+                                 CloudBackendTransport& transport)
+    : journal_(journal), sync_(journal, runtime), authority_(authority),
+      transport_(transport) {}
+
+bool CloudSyncWorker::same_authority(const CloudAuthorityBinding& expected) {
+    CloudAuthorityBinding current;
+    if (!authority_.current_binding(current)) return false;
+    if (!(current == expected)) {
+        authority_changed_ = true;
+        return false;
+    }
+    return true;
+}
+
+CloudWorkerResult CloudSyncWorker::run_once(bool network_ready, Milliseconds now_ms,
+                                            std::size_t limit) {
+    CloudWorkerResult result;
+    if (journal_.storage_fault()) {
+        result.state = CloudWorkerState::StorageFault;
+        return result;
+    }
+    if (!network_ready) {
+        sync_.set_connected(false, now_ms);
+        result.state = CloudWorkerState::Offline;
+        return result;
+    }
+    CloudAuthorityBinding binding;
+    if (!authority_.current_binding(binding) || binding.home_id.empty() ||
+        binding.hub_device_id.empty() || binding.ownership_epoch == 0) {
+        sync_.set_connected(false, now_ms);
+        return result;
+    }
+    if (authority_changed_ || (pinned_ && !(*pinned_ == binding))) {
+        authority_changed_ = true;
+        sync_.set_connected(false, now_ms);
+        result.state = CloudWorkerState::AuthorityChanged;
+        return result;
+    }
+    if (!pinned_) pinned_ = binding;
+    sync_.set_connected(true, now_ms);
+    result.state = CloudWorkerState::Ready;
+    for (const auto& event : sync_.next_batch(now_ms, limit)) {
+        if (!same_authority(binding)) {
+            sync_.set_connected(false, now_ms);
+            result.state = CloudWorkerState::AuthorityUnavailable;
+            break;
+        }
+        if (!authority_.original_event_owned(event, binding)) {
+            ++result.refused_original;
+            continue;
+        }
+        const auto request = sync_.request_for(binding.home_id, event);
+        if (!request || request->cloudsync_version != 2 ||
+            request->node_enrollment_generation == 0) {
+            ++result.refused_original;
+            continue;
+        }
+        // Recheck immediately before I/O. Backend current-epoch policy is the
+        // final authority if ownership changes after this snapshot.
+        if (!same_authority(binding) ||
+            !authority_.original_event_owned(event, binding)) {
+            sync_.set_connected(false, now_ms);
+            result.state = CloudWorkerState::AuthorityUnavailable;
+            break;
+        }
+        const auto reply = transport_.submit(*request);
+        ++result.submitted;
+        // A response arriving after transfer/revocation cannot close the old
+        // Hub's local obligation even when the server committed it earlier.
+        if (!same_authority(binding) ||
+            !authority_.original_event_owned(event, binding)) {
+            sync_.set_connected(false, now_ms);
+            result.state = CloudWorkerState::AuthorityUnavailable;
+            break;
+        }
+        const auto outcome = sync_.handle_backend_reply(event.key, reply, now_ms);
+        if (outcome == BackendReceiptResult::Completed) ++result.completed;
+        if (outcome == BackendReceiptResult::StorageFault) {
+            result.state = CloudWorkerState::StorageFault;
+            break;
+        }
+    }
+    return result;
+}
+
 }  // namespace gs::hub

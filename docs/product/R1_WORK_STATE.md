@@ -1,5 +1,30 @@
 # R1 Current Work State
 
+## GS-148 P4/P5-B1 bounded CloudSync caller checkpoint — 2026-10-14
+
+On canonical `feature/r1-commercial-baseline`, starting local/remote HEAD
+`94c2c5e29838f05d37ac15ca4342e6784ae06d16`, context preflight PASS,
+the CloudSync worker gained a test-injected current Home/Hub/epoch and original
+event-owner authority gate. It preserves original EventKey and generation,
+requires exact backend COMMITTED via existing strict receipt handling, and
+refuses completion after authority transfer. It is not wired into the S3
+runtime: GS-109 commercial credential issuance/verification and target
+ownership/concurrency contracts remain open, so commercial sending stays
+disabled. No hardware or backend production configuration changed.
+
+[GS-148 execution and exact resume handoff](../exec-plans/evidence/R1_GS148_P4P5_B1_20261014.md)
+records source scope, prior audit, original fixture/mapping test failures,
+focused checkpoint PASS (`GS148-CLOUD-WORKER-001`), framework 41/41 and mapping
+20/20. Full affected component gates, backend trigger-to-caregiver E2E,
+sanitizer and S3 build remain NOT_RUN for this change; do not claim product
+completion or release PASS. Historical Hub migration FAIL, P0 PARTIAL and C8
+physical evidence remain unchanged. Untracked GS-114 logs, managed components
+and PWA assets are preserved. The next action is the affected gates and a real
+backend-path integration scenario, followed by sanitizer/target build where
+applicable; GS-109 authority and concurrency decisions are prerequisites for
+commercial target activation. Commit and remote checkpoint are recorded in
+the dated Jira GS-148 comment and Git history after this report is delivered.
+
 ## GS-130 bounded risk-prioritized regression checkpoint — 2026-10-14
 
 GS-130 comment 10932 was executed in the canonical worktree on
