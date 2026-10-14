@@ -77,12 +77,27 @@ enum class NodeHealthError : std::uint16_t {
 struct NodeHealthSnapshot {
     static constexpr std::uint32_t legacy_schema_version = 1;
     static constexpr std::uint32_t schema_version = 2;
+    static constexpr std::uint32_t c8_physical_trace_schema_version = 3;
 
     enum class SleepWakeCause : std::uint8_t {
         Unknown = 0,
         Timer = 1,
         Gpio = 2,
         Other = 3
+    };
+
+    struct C8PhysicalSleepTrace {
+        std::uint32_t pir_high_episodes{0};
+        std::uint32_t pir_high_total_ms{0};
+        std::uint32_t pir_high_max_episode_ms{0};
+        std::uint32_t sleep_decisions_inhibited_pir_high{0};
+        std::uint32_t entry_races_aborted_pir_high{0};
+        std::uint32_t sleep_entries_with_gpio4_high{0};
+        bool last_sleep_entry_gpio4_high{false};
+        bool last_wake_gpio4_high{false};
+        // 0=unknown/no wake observed, 1=radio restore succeeded, 2=failed.
+        std::uint8_t last_radio_restore_result{0};
+        bool last_owner_resumed{false};
     };
 
     std::uint32_t schema{schema_version};
@@ -124,15 +139,25 @@ struct NodeHealthSnapshot {
     SleepWakeCause last_wake_cause{SleepWakeCause::Unknown};
     std::uint32_t last_sleep_requested_ms{0};
     std::uint32_t last_sleep_elapsed_ms{0};
+    // Present only in the isolated GS-114 C8 physical HIL profile. It is
+    // carried inside the existing authenticated, non-business NodeHealth frame.
+    std::optional<C8PhysicalSleepTrace> c8_physical_sleep_trace;
 };
 
 inline bool valid_node_health(const NodeHealthSnapshot& health) {
     const bool supported_schema =
         health.schema == NodeHealthSnapshot::legacy_schema_version ||
-        health.schema == NodeHealthSnapshot::schema_version;
+        health.schema == NodeHealthSnapshot::schema_version ||
+        health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version;
     const auto wake_cause = static_cast<std::uint8_t>(health.last_wake_cause);
+    const bool trace_matches_schema =
+        (health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version) ==
+        health.c8_physical_sleep_trace.has_value();
     return supported_schema && !health.node_id.empty() &&
            health.session_id > 0 && health.health_sequence > 0 &&
+           trace_matches_schema &&
+           (!health.c8_physical_sleep_trace ||
+            health.c8_physical_sleep_trace->last_radio_restore_result <= 2U) &&
            (health.schema == NodeHealthSnapshot::legacy_schema_version ||
             wake_cause <= static_cast<std::uint8_t>(NodeHealthSnapshot::SleepWakeCause::Other));
 }

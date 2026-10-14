@@ -555,7 +555,8 @@ EncodeResult encode_node_health(const NodeHealthSnapshot& health) {
     if (!valid_node_health(health)) {
         const bool supported_schema =
             health.schema == NodeHealthSnapshot::legacy_schema_version ||
-            health.schema == NodeHealthSnapshot::schema_version;
+            health.schema == NodeHealthSnapshot::schema_version ||
+            health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version;
         result.error = supported_schema ? CodecError::InvalidValue
                                         : CodecError::UnsupportedSchema;
         return result;
@@ -594,7 +595,23 @@ EncodeResult encode_node_health(const NodeHealthSnapshot& health) {
          writer.u8(static_cast<std::uint8_t>(health.last_wake_cause)) &&
          writer.u32(health.last_sleep_requested_ms) &&
          writer.u32(health.last_sleep_elapsed_ms));
-    if (!ok || !telemetry_ok || !writer.finish(FrameType::NodeHealth)) {
+    bool c8_trace_ok = true;
+    if (ok && telemetry_ok &&
+        health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version) {
+        const auto& trace = *health.c8_physical_sleep_trace;
+        c8_trace_ok = writer.u32(trace.pir_high_episodes) &&
+            writer.u32(trace.pir_high_total_ms) &&
+            writer.u32(trace.pir_high_max_episode_ms) &&
+            writer.u32(trace.sleep_decisions_inhibited_pir_high) &&
+            writer.u32(trace.entry_races_aborted_pir_high) &&
+            writer.u32(trace.sleep_entries_with_gpio4_high) &&
+            writer.u8(trace.last_sleep_entry_gpio4_high ? 1U : 0U) &&
+            writer.u8(trace.last_wake_gpio4_high ? 1U : 0U) &&
+            writer.u8(trace.last_radio_restore_result) &&
+            writer.u8(trace.last_owner_resumed ? 1U : 0U);
+    }
+    if (!ok || !telemetry_ok || !c8_trace_ok ||
+        !writer.finish(FrameType::NodeHealth)) {
         result.error = CodecError::BufferTooSmall;
     }
     return result;
@@ -614,6 +631,10 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
     std::uint16_t last_error = 0;
     std::uint8_t maintenance = 0;
     std::uint8_t wake_cause = 0;
+    std::uint8_t last_entry_gpio4_high = 0;
+    std::uint8_t last_wake_gpio4_high = 0;
+    std::uint8_t last_radio_restore_result = 0;
+    std::uint8_t last_owner_resumed = 0;
     if (!reader.u32(health.schema) ||
         !reader.string8(health.node_id, kMaxSourceIdBytes) ||
         !reader.u64(health.session_id) || !reader.u64(health.health_sequence) ||
@@ -633,7 +654,8 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
         result.error = CodecError::Truncated;
         return result;
     }
-    if (health.schema == NodeHealthSnapshot::schema_version) {
+    if (health.schema == NodeHealthSnapshot::schema_version ||
+        health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version) {
         if (!reader.u32(health.light_sleep_entry_count) ||
             !reader.u32(health.timer_wake_count) ||
             !reader.u32(health.gpio_wake_count) ||
@@ -644,12 +666,39 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
             return result;
         }
     }
+    if (health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version) {
+        NodeHealthSnapshot::C8PhysicalSleepTrace trace;
+        if (!reader.u32(trace.pir_high_episodes) ||
+            !reader.u32(trace.pir_high_total_ms) ||
+            !reader.u32(trace.pir_high_max_episode_ms) ||
+            !reader.u32(trace.sleep_decisions_inhibited_pir_high) ||
+            !reader.u32(trace.entry_races_aborted_pir_high) ||
+            !reader.u32(trace.sleep_entries_with_gpio4_high) ||
+            !reader.u8(last_entry_gpio4_high) ||
+            !reader.u8(last_wake_gpio4_high) ||
+            !reader.u8(last_radio_restore_result) ||
+            !reader.u8(last_owner_resumed)) {
+            result.error = CodecError::Truncated;
+            return result;
+        }
+        if (last_entry_gpio4_high > 1U || last_wake_gpio4_high > 1U ||
+            last_radio_restore_result > 2U || last_owner_resumed > 1U) {
+            result.error = CodecError::InvalidValue;
+            return result;
+        }
+        trace.last_sleep_entry_gpio4_high = last_entry_gpio4_high != 0U;
+        trace.last_wake_gpio4_high = last_wake_gpio4_high != 0U;
+        trace.last_radio_restore_result = last_radio_restore_result;
+        trace.last_owner_resumed = last_owner_resumed != 0U;
+        health.c8_physical_sleep_trace = trace;
+    }
     if (!reader.at_end()) {
         result.error = CodecError::LengthMismatch;
         return result;
     }
     if (health.schema != NodeHealthSnapshot::legacy_schema_version &&
-        health.schema != NodeHealthSnapshot::schema_version) {
+        health.schema != NodeHealthSnapshot::schema_version &&
+        health.schema != NodeHealthSnapshot::c8_physical_trace_schema_version) {
         result.error = CodecError::UnsupportedSchema;
         return result;
     }
@@ -657,7 +706,8 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
         breadcrumb < static_cast<std::uint8_t>(NodeBreadcrumb::Boot) ||
         breadcrumb > static_cast<std::uint8_t>(NodeBreadcrumb::FotaResume) ||
         last_error > static_cast<std::uint16_t>(NodeHealthError::FotaTimeout) ||
-        (health.schema == NodeHealthSnapshot::schema_version &&
+        ((health.schema == NodeHealthSnapshot::schema_version ||
+          health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version) &&
          wake_cause > static_cast<std::uint8_t>(
              NodeHealthSnapshot::SleepWakeCause::Other))) {
         result.error = CodecError::InvalidValue;
@@ -668,7 +718,8 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
     health.maintenance_active = maintenance != 0U;
     health.last_breadcrumb = static_cast<NodeBreadcrumb>(breadcrumb);
     health.last_error = static_cast<NodeHealthError>(last_error);
-    if (health.schema == NodeHealthSnapshot::schema_version) {
+    if (health.schema == NodeHealthSnapshot::schema_version ||
+        health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version) {
         health.last_wake_cause =
             static_cast<NodeHealthSnapshot::SleepWakeCause>(wake_cause);
     }

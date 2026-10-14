@@ -1,0 +1,5 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 03
+operator_confirmation_received_utc=2026-10-14T04:16:13.371584404Z
+operator_reply=DONE
+observed_state=C3 stable by-id present; S3 stable by-id absent; reconnect-aware reader PID 302734 alive
+hub_off_observed_utc=2026-10-14T04:15:07.126314806Z

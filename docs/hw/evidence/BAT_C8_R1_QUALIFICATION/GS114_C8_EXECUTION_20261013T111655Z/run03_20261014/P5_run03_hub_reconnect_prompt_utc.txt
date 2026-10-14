@@ -1,0 +1,6 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 03
+operator_request_issued_utc=2026-10-14T04:17:20.042188670Z
+requested_action=reconnect only the S3 Hub USB; keep C3 powered and untouched
+hub_path_absent_at_request=yes
+node_path_present_at_request=yes
+reconnect_reader_pid_302734_alive=yes

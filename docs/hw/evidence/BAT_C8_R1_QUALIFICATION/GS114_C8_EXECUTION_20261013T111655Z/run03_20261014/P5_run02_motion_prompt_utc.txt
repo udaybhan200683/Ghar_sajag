@@ -1,0 +1,6 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 02
+operator_request_issued_utc=2026-10-14T04:04:36.763455500Z
+hub_by_id=ABSENT
+c3_by_id=PRESENT
+elapsed_since_hub_absent_observed=52 seconds; exceeds one observed Node timer-sleep interval of approximately 29 seconds
+requested_action=one real AM312 motion episode while Hub remains disconnected, then step away

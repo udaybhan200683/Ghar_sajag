@@ -1,0 +1,12 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 02
+hub_off_observed_utc=2026-10-14T04:03:44.865025871Z
+motion_prompt_utc=2026-10-14T04:04:36.763455500Z
+motion_done_received_utc=2026-10-14T04:05:11.116526687Z
+hub_reconnect_prompt_utc=2026-10-14T04:07:30.965043586Z
+capture_gap=the reader exited on SIGHUP at USB detach; operator restored Hub power before Windows COM9 was USBIP-attached to WSL, so the reader resumed only at 2026-10-14T04:09:27.328912946Z
+verified_recovery=authenticated NodeHealth at 2026-10-14T04:13:24.359098186Z; session 5 health_seq=127 reset=11 retained=0 durable_ack=23 pir_ok=28 gpio_wakes=28, compared with session 4 health_seq=126 reset=11 retained=0 durable_ack=22 pir_ok=27 gpio_wakes=27
+observed_delta=one PIR/GPIO event and one durable retirement after recovery; no Node reset or remaining pending event
+event_key=UNKNOWN because the only reader was not attached during first delivery; do not infer the sequence from counters
+disposition=BLOCKED_INCONCLUSIVE; firmware behavior is not shown to have failed, but exact EventKey, durable-effect line, and ACK correlation are absent
+root_cause=HIL reader did not ignore SIGHUP; WSL USBIP attachment was also missing after Hub physical reconnection
+corrective_action=existing reader now ignores SIGHUP; direct HUP survival passed; next attempt will reattach the exact Windows COM9 device to WSL before the Node's recovery window

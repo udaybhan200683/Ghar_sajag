@@ -827,6 +827,56 @@ void test_node_offline_resilience() {
           decoded_health.value->last_sleep_elapsed_ms == 30012,
           "schema-2 health round trip preserves endurance and sleep diagnostics");
 
+    gs::node::C8PhysicalSleepTraceRecorder c8_trace;
+    c8_trace.observe_gpio_level(false, 0);
+    c8_trace.observe_gpio_level(true, 100);
+    c8_trace.note_sleep_inhibited_by_gpio_high(true);
+    c8_trace.note_entry_race_aborted_by_gpio_high(true);
+    c8_trace.observe_gpio_level(false, 1100);
+    c8_trace.note_sleep_entry(false);
+    c8_trace.note_wake(true, 1U);
+    c8_trace.note_owner_resumed(true);
+    const auto trace_snapshot = c8_trace.snapshot(1100);
+    check(trace_snapshot.pir_high_episodes == 1 &&
+          trace_snapshot.pir_high_total_ms == 1000 &&
+          trace_snapshot.pir_high_max_episode_ms == 1000 &&
+          trace_snapshot.sleep_decisions_inhibited_pir_high == 1 &&
+          trace_snapshot.entry_races_aborted_pir_high == 1 &&
+          trace_snapshot.sleep_entries_with_gpio4_high == 0 &&
+          !trace_snapshot.last_sleep_entry_gpio4_high &&
+          trace_snapshot.last_wake_gpio4_high &&
+          trace_snapshot.last_radio_restore_result == 1U &&
+          trace_snapshot.last_owner_resumed,
+          "C8 observer measures actual high episodes, sleep inhibition, wake, restore, and resume");
+
+    auto c8_health = health;
+    c8_health.schema = gs::NodeHealthSnapshot::c8_physical_trace_schema_version;
+    c8_health.c8_physical_sleep_trace = trace_snapshot;
+    const auto encoded_c8_health = gs::transport::encode_node_health(c8_health);
+    const auto decoded_c8_health = encoded_c8_health
+        ? gs::transport::decode_node_health(encoded_c8_health.frame.bytes.data(),
+                                            encoded_c8_health.frame.size)
+        : gs::transport::DecodeResult<gs::NodeHealthSnapshot>{};
+    check(encoded_c8_health && decoded_c8_health &&
+          encoded_c8_health.frame.size <= gs::transport::kMaxFrameBytes &&
+          decoded_c8_health.value->schema ==
+              gs::NodeHealthSnapshot::c8_physical_trace_schema_version &&
+          decoded_c8_health.value->c8_physical_sleep_trace &&
+          decoded_c8_health.value->c8_physical_sleep_trace->pir_high_total_ms == 1000 &&
+          decoded_c8_health.value->c8_physical_sleep_trace->sleep_decisions_inhibited_pir_high == 1 &&
+          decoded_c8_health.value->c8_physical_sleep_trace->sleep_entries_with_gpio4_high == 0 &&
+          decoded_c8_health.value->c8_physical_sleep_trace->last_radio_restore_result == 1U &&
+          decoded_c8_health.value->c8_physical_sleep_trace->last_owner_resumed,
+          "schema-3 physical trace round trips in the bounded existing NodeHealth frame");
+    auto invalid_c8_health = c8_health;
+    invalid_c8_health.c8_physical_sleep_trace->last_radio_restore_result = 3U;
+    check(!gs::transport::encode_node_health(invalid_c8_health),
+          "C8 trace rejects an unknown radio-restore disposition");
+    auto missing_c8_trace_health = c8_health;
+    missing_c8_trace_health.c8_physical_sleep_trace.reset();
+    check(!gs::transport::encode_node_health(missing_c8_trace_health),
+          "schema-3 health cannot omit its declared physical trace");
+
     auto legacy_health = health;
     legacy_health.schema = gs::NodeHealthSnapshot::legacy_schema_version;
     const auto encoded_legacy_health = gs::transport::encode_node_health(legacy_health);

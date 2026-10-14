@@ -1,0 +1,4 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 02
+operator_request_issued_utc=2026-10-14T04:07:30.965043586Z
+reader=s3_reconnect_capture.sh PID 302734; HUP-survival verified while S3 by-id remained absent
+requested_action=reconnect only ESP32-S3 Hub USB power; leave C3 powered and PIR untouched

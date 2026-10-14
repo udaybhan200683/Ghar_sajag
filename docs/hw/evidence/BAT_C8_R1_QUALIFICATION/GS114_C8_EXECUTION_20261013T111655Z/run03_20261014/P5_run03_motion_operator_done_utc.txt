@@ -1,0 +1,5 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 03
+operator_confirmation_received_utc=2026-10-14T04:16:40.470528685Z
+operator_reply=DONE
+stimulus=one real hand-motion episode at AM312; exact optical transition time unavailable to millisecond precision
+power_state=C3 USB powered; S3 Hub USB disconnected

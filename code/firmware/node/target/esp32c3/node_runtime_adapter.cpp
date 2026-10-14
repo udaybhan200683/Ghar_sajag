@@ -367,7 +367,8 @@ struct LightSleepReturn {
 [[maybe_unused]] LightSleepReturn enter_light_sleep(Milliseconds requested_ms,
                                    Milliseconds deadline_ms,
                                    const std::array<std::uint8_t, 6>& application_peer,
-                                   LightSleepTelemetry& sleep_telemetry) {
+                                   LightSleepTelemetry& sleep_telemetry,
+                                   C8PhysicalSleepTraceRecorder* c8_trace) {
     LightSleepReturn outcome;
     outcome.error = configure_gpio_wake();
     if (outcome.error != ESP_OK) {
@@ -381,9 +382,13 @@ struct LightSleepReturn {
     }
     // The level check closes the configuration/entry race. If motion arrived,
     // resume the radio and let the next owner iteration sample GPIO4 normally.
+    const bool gpio_high_after_radio_stop =
+        gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
     if (queued_owner_work() ||
         g_control_plane_active.load(std::memory_order_acquire) ||
-        gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0) {
+        gpio_high_after_radio_stop) {
+        if (c8_trace != nullptr)
+            c8_trace->note_entry_race_aborted_by_gpio_high(gpio_high_after_radio_stop);
         clear_sleep_wake_sources();
         outcome.error = restore_radio_after_light_sleep(application_peer);
         return outcome;
@@ -405,12 +410,26 @@ struct LightSleepReturn {
     }
     // Recheck level after the final deadline calculation. A high level causes
     // immediate wake by design, then the ordinary owner sample admits Motion.
-    if (gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0 || queued_owner_work() ||
+    const bool gpio_high_after_timer_arm =
+        gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
+    if (gpio_high_after_timer_arm || queued_owner_work() ||
         g_control_plane_active.load(std::memory_order_acquire)) {
+        if (c8_trace != nullptr)
+            c8_trace->note_entry_race_aborted_by_gpio_high(gpio_high_after_timer_arm);
         clear_sleep_wake_sources();
         outcome.error = restore_radio_after_light_sleep(application_peer);
         return outcome;
     }
+    const bool gpio_high_at_entry =
+        gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
+    if (gpio_high_at_entry) {
+        if (c8_trace != nullptr)
+            c8_trace->note_entry_race_aborted_by_gpio_high(true);
+        clear_sleep_wake_sources();
+        outcome.error = restore_radio_after_light_sleep(application_peer);
+        return outcome;
+    }
+    if (c8_trace != nullptr) c8_trace->note_sleep_entry(gpio_high_at_entry);
     ESP_LOGI(kTag, "BAT_SLEEP_ENTER requested_ms=%lld armed_ms=%lld gpio4=1 timer=1",
              static_cast<long long>(requested_ms), static_cast<long long>(actual_ms));
     sleep_telemetry.record_sleep_attempt(requested_ms);
@@ -424,15 +443,18 @@ struct LightSleepReturn {
     const auto elapsed_ms = return_us >= entry_us ? (return_us - entry_us) / 1000 : -1;
     sleep_telemetry.record_sleep_return(outcome.entered, gpio_wake, timer_wake,
                                         elapsed_ms);
+    const bool gpio_high_at_wake =
+        gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
     ESP_LOGI(kTag, "BAT_SLEEP_WAKE result=%s cause=%s raw=0x%lx requested_ms=%lld armed_ms=%lld elapsed_ms=%lld gpio4=%d",
              esp_err_to_name(outcome.error),
              light_sleep_wake_name(classify_light_sleep_wake(gpio_wake, timer_wake)),
              static_cast<unsigned long>(outcome.wake_causes),
              static_cast<long long>(requested_ms), static_cast<long long>(actual_ms),
-             static_cast<long long>(elapsed_ms),
-             gpio_get_level(static_cast<gpio_num_t>(kPirGpio)));
+             static_cast<long long>(elapsed_ms), gpio_high_at_wake);
     clear_sleep_wake_sources();
     const auto radio_result = restore_radio_after_light_sleep(application_peer);
+    if (c8_trace != nullptr && outcome.entered)
+        c8_trace->note_wake(gpio_high_at_wake, radio_result == ESP_OK ? 1U : 2U);
     ESP_LOGI(kTag, "BAT_SLEEP_RESTORE radio=%s wifi=%d esp_now=%d owner=RESUMED",
              esp_err_to_name(radio_result),
              g_wifi_active.load(std::memory_order_acquire),
@@ -489,6 +511,10 @@ void owner_task(void*) {
     NodeLedPolicy led_policy;
     EnergyCounters energy;
     LightSleepTelemetry sleep_telemetry;
+#if GS_BAT_C8_PHYSICAL_WAKE
+    C8PhysicalSleepTraceRecorder c8_physical_sleep_trace;
+    bool c8_physical_trace_report_pending = false;
+#endif
     AckListeningWindow ack_listening;
     energy.boot_count = 1;
     const auto boot_reset = esp_reset_reason();
@@ -1136,6 +1162,9 @@ void owner_task(void*) {
             previous_maintenance = maintenance;
         }
         const bool raw_pir = gpio_get_level(static_cast<gpio_num_t>(kPirGpio)) != 0;
+#if GS_BAT_C8_PHYSICAL_WAKE
+        c8_physical_sleep_trace.observe_gpio_level(raw_pir, now);
+#endif
         if (!raw_initialized) {
             previous_raw_pir = raw_pir;
             raw_initialized = true;
@@ -1145,6 +1174,9 @@ void owner_task(void*) {
             pir_low_since_ms = raw_pir ? -1 : now;
             ++raw_pir_edges;
             breadcrumb = NodeBreadcrumb::PirRaw;
+#if GS_BAT_C8_PHYSICAL_WAKE
+            if (!raw_pir) c8_physical_trace_report_pending = true;
+#endif
         }
         auto sensed = pir.sample(raw_pir, now);
         if (pir_noise.observe(raw_pir, sensed.has_value(), now)) {
@@ -1296,6 +1328,10 @@ void owner_task(void*) {
         const bool suppress_for_pending = runtime.pending() != 0 && !boot_health_probe;
         const bool suppress_for_outage = runtime.outage_profile() && !boot_health_probe;
 #endif
+#if GS_BAT_C8_PHYSICAL_WAKE
+        const bool c8_physical_trace_due = c8_physical_trace_report_pending &&
+            runtime.pending() == 0 && !runtime.outage_profile() && !maintenance;
+#endif
         if (!in_flight && !health_in_flight && !maintenance && !application_due &&
 #if !GS_HIL_BUILD
             security_link.ready() && !radio_restore_pending &&
@@ -1305,6 +1341,9 @@ void owner_task(void*) {
             (health_cadence.due(now, application_due,
                                 suppress_for_pending, suppress_for_outage,
                                 maintenance)
+#if GS_BAT_C8_PHYSICAL_WAKE
+             || c8_physical_trace_due
+#endif
 #if GS_HIL_CONTROL && !GS_BAT_C8_PHYSICAL_WAKE
              || g_hil_force_health.load(std::memory_order_acquire)
 #endif
@@ -1316,6 +1355,9 @@ void owner_task(void*) {
             const auto& radio_stats = runtime.radio_stats();
             const auto oldest = runtime.oldest_pending_key();
             NodeHealthSnapshot health;
+#if GS_BAT_C8_PHYSICAL_WAKE
+            health.schema = NodeHealthSnapshot::c8_physical_trace_schema_version;
+#endif
 #if !GS_HIL_BUILD
             health.node_id = security_link.binding()->logical_id;
 #else
@@ -1358,6 +1400,9 @@ void owner_task(void*) {
                     sleep_telemetry.last_wake_cause);
             health.last_sleep_requested_ms = sleep_telemetry.last_sleep_requested_ms;
             health.last_sleep_elapsed_ms = sleep_telemetry.last_sleep_elapsed_ms;
+#if GS_BAT_C8_PHYSICAL_WAKE
+            health.c8_physical_sleep_trace = c8_physical_sleep_trace.snapshot(now);
+#endif
             ESP_LOGI(kTag,
                      "Power counters awake_ms=%llu loops=%llu pir=%llu app_tx=%llu "
                      "mac_attempt=%llu retry=%llu health=%llu rejoin=%llu "
@@ -1374,6 +1419,9 @@ void owner_task(void*) {
                      static_cast<unsigned>(energy.queue_high_water),
                      static_cast<unsigned long long>(energy.unexpected_resets));
             const auto encoded = transport::encode_node_health(health);
+#if GS_BAT_C8_PHYSICAL_WAKE
+            if (c8_physical_trace_due) c8_physical_trace_report_pending = false;
+#endif
             health_cadence.observe_health_attempt(now,
                 boot_health_probe ? 60000 : -1);
             if (encoded) {
@@ -1648,7 +1696,11 @@ void owner_task(void*) {
         sleep_observation.maintenance_active = maintenance;
         sleep_observation.health_due = security_link.ready() && (health_cadence.due(
             sleep_now, application_due, suppress_for_pending,
-            suppress_for_outage, maintenance) || fota_boot_health_active);
+            suppress_for_outage, maintenance) || fota_boot_health_active
+#if GS_BAT_C8_PHYSICAL_WAKE
+            || c8_physical_trace_due
+#endif
+            );
         sleep_observation.security_due = !security_link.ready() &&
             rejoin_next_attempt_ms <= sleep_now;
         sleep_observation.pir_high = raw_pir;
@@ -1675,6 +1727,10 @@ void owner_task(void*) {
         observe_retained_delivery(sleep_observation, ack_listening,
             runtime.pending() != 0, runtime.persisted() != 0);
         const auto sleep_decision = evaluate_light_sleep(sleep_observation);
+#if GS_BAT_C8_PHYSICAL_WAKE
+        c8_physical_sleep_trace.note_sleep_inhibited_by_gpio_high(
+            (sleep_decision.inhibitors & LightSleepInhibitPirHigh) != 0U);
+#endif
         if (sleep_decision.eligible) {
             ESP_LOGI(kTag, "BAT_SLEEP_DECISION state=%d eligible=1 inhibitors=0x%lx requested_ms=%lld deadline_ms=%lld deadline=%s pir_low_stable=%d debounce_safe=%d gpio4=%d pending=%d in_flight=%d ack_wait=%d recovery=%d queues=%d",
                      static_cast<int>(power_decision.state),
@@ -1689,8 +1745,17 @@ void owner_task(void*) {
             const auto outcome = enter_light_sleep(sleep_decision.requested_sleep_ms,
                                                     sleep_decision.earliest_deadline_ms,
                                                     security_link.hub_mac(),
-                                                    sleep_telemetry);
+                                                    sleep_telemetry,
+#if GS_BAT_C8_PHYSICAL_WAKE
+                                                    &c8_physical_sleep_trace);
+#else
+                                                    nullptr);
+#endif
             radio_restore_pending = outcome.error != ESP_OK;
+#if GS_BAT_C8_PHYSICAL_WAKE
+            if (outcome.entered)
+                c8_physical_sleep_trace.note_owner_resumed(true);
+#endif
             if (outcome.entered && outcome.error == ESP_OK) {
                 returned_from_light_sleep = true;
                 // The next owner iteration samples GPIO4 through QualifiedInput.

@@ -1,0 +1,7 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 02
+operator_done_received_utc=2026-10-14T04:03:44.865025871Z
+physical_action=operator disconnected only the ESP32-S3 Hub USB cable
+hub_stable_by_id_absent_observed_utc=2026-10-14T04:03:44.865025871Z
+c3_stable_by_id_present=true
+no_port_opened_during_outage=true
+next_step=wait at least one Node timer sleep/wake interval before real PIR stimulus

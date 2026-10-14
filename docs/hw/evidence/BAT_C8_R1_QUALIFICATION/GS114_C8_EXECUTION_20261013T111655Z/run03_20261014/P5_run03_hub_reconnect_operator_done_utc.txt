@@ -1,0 +1,6 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 03
+operator_confirmation_received_utc=2026-10-14T04:18:14.223600994Z
+operator_reply=DONE
+s3_by_id_present_at_confirmation=yes
+c3_by_id_present_at_confirmation=yes
+sole_s3_reader=PID 302734; attached to ttyACM0 via expected S3 stable path

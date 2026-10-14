@@ -1,0 +1,6 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 02
+operator_done_received_utc=2026-10-14T04:05:11.116526687Z
+physical_action=operator performed one real AM312 movement episode while Hub USB was disconnected
+hub_stable_by_id_absent=true
+c3_stable_by_id_present=true
+hub_was_not_available_to_receive_or_ack_during_motion_window=true

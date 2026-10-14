@@ -1,0 +1,6 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 02
+operator_request_issued_utc=2026-10-14T04:03:04.439920406Z
+pre_outage_node_health_utc=2026-10-14T04:02:15.166170567Z
+hub_session=4 health_seq=126 reset=11 retained=0 durable_ack=22 pir_ok=27 gpio_wakes=27 sleep_entries=1350 timer_wakes=1323 last_wake=TIMER
+hub_reader=single reconnect-aware S3 reader PID 302510 on stable by-id path
+requested_action=disconnect only S3 Hub USB; keep C3 Node powered

@@ -280,6 +280,104 @@ private:
             : static_cast<std::uint32_t>(unsigned_value);
     }
 };
+
+// Bounded RAM-only observer for the isolated BAT-C8 physical qualification
+// image. It measures the actual sampled GPIO4 level and sleep path; it does not
+// alter sensing decisions, event identity, persistence, or radio policy.
+struct C8PhysicalSleepTraceRecorder {
+    void observe_gpio_level(bool high, Milliseconds now_ms) {
+        if (now_ms < 0) return;
+        if (!gpio_initialized_) {
+            gpio_initialized_ = true;
+            last_gpio_high_ = high;
+            if (high) {
+                increment(trace_.pir_high_episodes);
+                gpio_high_since_ms_ = now_ms;
+            }
+            return;
+        }
+        if (high == last_gpio_high_) return;
+        if (high) {
+            increment(trace_.pir_high_episodes);
+            gpio_high_since_ms_ = now_ms;
+        } else {
+            close_gpio_high_episode(now_ms);
+        }
+        last_gpio_high_ = high;
+    }
+
+    void note_sleep_inhibited_by_gpio_high(bool high) {
+        if (high) increment(trace_.sleep_decisions_inhibited_pir_high);
+    }
+
+    void note_entry_race_aborted_by_gpio_high(bool high) {
+        if (high) increment(trace_.entry_races_aborted_pir_high);
+    }
+
+    void note_sleep_entry(bool gpio_high) {
+        trace_.last_sleep_entry_gpio4_high = gpio_high;
+        if (gpio_high) increment(trace_.sleep_entries_with_gpio4_high);
+    }
+
+    void note_wake(bool gpio_high, std::uint8_t radio_restore_result) {
+        trace_.last_wake_gpio4_high = gpio_high;
+        trace_.last_radio_restore_result = radio_restore_result <= 2U
+            ? radio_restore_result : 0U;
+        trace_.last_owner_resumed = false;
+    }
+
+    void note_owner_resumed(bool resumed) {
+        trace_.last_owner_resumed = resumed;
+    }
+
+    NodeHealthSnapshot::C8PhysicalSleepTrace snapshot(Milliseconds now_ms) const {
+        auto result = trace_;
+        std::uint64_t total = gpio_high_total_ms_;
+        std::uint64_t active = 0;
+        if (last_gpio_high_ && gpio_high_since_ms_ >= 0 && now_ms >= gpio_high_since_ms_)
+            active = static_cast<std::uint64_t>(now_ms - gpio_high_since_ms_);
+        if (active > std::numeric_limits<std::uint64_t>::max() - total)
+            total = std::numeric_limits<std::uint64_t>::max();
+        else
+            total += active;
+        result.pir_high_total_ms = bounded_ms(total);
+        if (active > result.pir_high_max_episode_ms)
+            result.pir_high_max_episode_ms = bounded_ms(active);
+        return result;
+    }
+
+private:
+    void close_gpio_high_episode(Milliseconds now_ms) {
+        if (gpio_high_since_ms_ < 0 || now_ms < gpio_high_since_ms_) {
+            gpio_high_since_ms_ = -1;
+            return;
+        }
+        const auto duration = static_cast<std::uint64_t>(now_ms - gpio_high_since_ms_);
+        const auto total = static_cast<std::uint64_t>(trace_.pir_high_total_ms) + duration;
+        trace_.pir_high_total_ms = bounded_ms(total);
+        if (duration > trace_.pir_high_max_episode_ms)
+            trace_.pir_high_max_episode_ms = bounded_ms(duration);
+        gpio_high_total_ms_ = total;
+        gpio_high_since_ms_ = -1;
+    }
+
+    static void increment(std::uint32_t& counter) {
+        if (counter != std::numeric_limits<std::uint32_t>::max()) ++counter;
+    }
+
+    static std::uint32_t bounded_ms(std::uint64_t value) {
+        return value > std::numeric_limits<std::uint32_t>::max()
+            ? std::numeric_limits<std::uint32_t>::max()
+            : static_cast<std::uint32_t>(value);
+    }
+
+    NodeHealthSnapshot::C8PhysicalSleepTrace trace_{};
+    bool gpio_initialized_{false};
+    bool last_gpio_high_{false};
+    Milliseconds gpio_high_since_ms_{-1};
+    std::uint64_t gpio_high_total_ms_{0};
+};
+
 inline const char* light_sleep_deadline_name(const LightSleepObservation& o,
                                              Milliseconds deadline) {
     if (deadline == o.next_health_ms) return "health";

@@ -21,6 +21,18 @@ PASS would establish fresh installation only; earlier USB-reset/replay-fence
 failures remain unresolved historical regressions. CONTEXT_VERSION is unchanged.
 Current execution: [GS-114 report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
 
+## GS-114 C8 physical sleep observer — 2026-10-14
+
+**TEST_INFRA_ONLY; no product decision or requirement change.** Because the C3
+native USB Serial/JTAG is silent during light sleep, a bounded optional schema-3
+trace was added to authenticated non-business NodeHealth in the existing
+`GS_BAT_C8_PHYSICAL_WAKE` qualification profile. The Hub prints it only in its
+commissioning fixture profile. Normal C3 builds omit the recorder object and
+owner-resume instrumentation. No EventKey, ACK, authentication, persistence or
+sleep-policy behavior changes. Host validation is complete; source-matched
+target build and physical P3 retest remain pending. `CONTEXT_VERSION` is
+unchanged. See [P3 evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run03_20261014/C8_P3.md).
+
 ## GS-148 Option A authorization — 2026-10-13
 
 **APPROVED ARCHITECTURE / BOUNDED SOFTWARE IMPLEMENTED:** GS-148 comments

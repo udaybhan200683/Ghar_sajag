@@ -1,0 +1,10 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 02
+failure_observed_utc=2026-10-14T04:05:58.214366919Z
+observer=s3_reconnect_capture.sh first revision, PID 302510
+result=reader process exited 129 after Hub USB interface detached; 129 is 128+SIGHUP
+physical_context=Hub by-id absent; C3 by-id remained present; operator motion had already been performed with Hub off
+impact=Hub was not reconnected yet; no post-recovery event/ACK evidence was missed; Node and pending event state were left powered and untouched
+root_cause=serial USB removal delivered SIGHUP to the shell observer, terminating the reconnect loop
+correction=ignore SIGHUP in the existing reconnect reader and verify its wait loop survives an explicit HUP before Hub restoration
+retest=after correction, bash -n passed and the reader survived an explicit HUP in an isolated no-device check; hardware reader PID 302734 was armed while the Hub remained off and survived a direct HUP at 2026-10-14T04:06:58Z
+recovery_state=at 2026-10-14T04:07:30.965043586Z reader remained alive, S3 by-id absent, C3 by-id present; safe to request Hub-only reconnection

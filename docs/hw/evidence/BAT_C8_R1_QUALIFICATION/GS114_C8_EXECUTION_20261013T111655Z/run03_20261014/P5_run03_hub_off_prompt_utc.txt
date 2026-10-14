@@ -1,0 +1,7 @@
+case=C8-P5 controlled Hub-unavailable while Node sleeps, run 03
+operator_request_issued_utc=2026-10-14T04:14:40.486657697Z
+pre_outage_node_health_utc=2026-10-14T04:13:24.359098186Z
+hub_session=5 health_seq=127 reset=11 retained=0 durable_ack=23 pir_ok=28 gpio_wakes=28 sleep_entries=1375 timer_wakes=1347 last_wake=TIMER
+hub_reader=single reconnect-aware S3 reader PID 302734 owns stable by-id path
+current_physical_paths=C3=/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00 S3=/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00
+requested_action=disconnect only S3 Hub USB; C3 remains powered

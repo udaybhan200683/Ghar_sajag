@@ -1,5 +1,56 @@
 # R1 Current Work State
 
+## GS-114 C8 resumed execution checkpoint — 2026-10-14 05:20 UTC
+
+Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, starting HEAD `988fa44ee1207ed67a3a253a5eb2c9dc7813277b`;
+context preflight PASS `2026-10-13.001`. The source/evidence modifications
+listed by `git status` are uncommitted; prior untracked P5 evidence, private
+historical logs, ignored target builds, PWA and generated managed components
+remain preserved. No destructive Git or hardware operation occurred in this
+checkpoint.
+
+The physical pair remains commissioned on C3 app
+`1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and S3 app
+`84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`. Stable
+paths remain C3
+`/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00`
+and S3
+`/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00`. The sole S3
+reader is PID 302734 and owns only S3; no C3 reader is open. USB-only power and
+AM312 3.3 V/GND/GPIO4 remain the previously operator-confirmed arrangement.
+No board has yet received the trace image.
+
+P5 run03 now PASSes: during Hub-only USB outage the real AM312 event q24 was
+retained, then admitted once after authenticated session-6 rejoin with RPF00
+OPEN; Hub durable state changed once, Durable ACK send succeeded, and NodeHealth
+confirmed reset unchanged, retained=0 and durable_ack +1. Retry identity is
+inferred from the single new pending event because the C3 native USB console is
+silent in light sleep; preserve that limitation and the earlier run02 capture
+gap. P6/P7, P1/P2 and controlled P4 retest remain PASS on the installed pair;
+P3 remains BLOCKED pending GPIO4 HIGH/sleep trace; P8 remains physical NOT_RUN;
+P9 ACK/FOTA remain fixture-blocked; P10 remains separate under GS-149.
+
+A TEST_INFRA_ONLY observer is implemented: C3's `GS_BAT_C8_PHYSICAL_WAKE`
+profile records sampled GPIO4 HIGH episodes, sleep inhibition/race counts,
+entry/wake GPIO levels, radio restore and owner resume in an optional bounded
+authenticated NodeHealth schema-3 trace. The S3 commissioning fixture prints
+the trace. Normal C3 builds exclude the recorder object and owner-resume call.
+Node/Hub/contract registered component stages pass, including 1,483 C++ checks,
+72 BAT-C8 checks and Hub storage ASan/UBSan. Aggregate gates exit 1: Node and
+contract on P0 `product_status=PARTIAL`/physical `NOT_RUN`; Hub also retains the
+known `hub-journal-migration-host-test` failure (`clean migration commits`).
+None is described as a full-gate PASS.
+
+Next exact action: commit and push only the scoped source, test mapping and
+current GS-114 evidence updates; build the source-matched C3/S3 commissioning
+pair with ESP-IDF 6.0.3 and verify the complete profile/hash manifest. Then
+stop PID 302734 after preserving its final log, verify exact chips/MAC/flash and
+ownerless stable ports, flash only the authorized two R&D fixtures, restart one
+S3 capture, and run P1 then P3 with actual AM312 motion. Do not claim P3 until
+authenticated trace shows HIGH/inhibition and LOW recovery without a HIGH sleep
+entry, reset or wake storm. GS-114 stays In Progress.
+
 ## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:58 UTC
 
 Controlled P7 now PASSes. The operator performed one real AM312 movement

@@ -1225,6 +1225,29 @@ void secure_owner_task(void*) {
                          static_cast<unsigned>(health.value->gpio_wake_count),
                          static_cast<unsigned>(health.value->other_wake_count),
                          node_health_sleep_wake_cause_name(health.value->last_wake_cause));
+                if (health.value->c8_physical_sleep_trace) {
+                    const auto& trace = *health.value->c8_physical_sleep_trace;
+                    const char* restore_result =
+                        trace.last_radio_restore_result == 1U ? "OK" :
+                        trace.last_radio_restore_result == 2U ? "FAIL" : "UNKNOWN";
+                    ESP_LOGI(kTag,
+                             "HIL_C8_SLEEP_TRACE schema=1 logical=%s session=%llu health_seq=%llu uptime_ms=%llu gpio4_now=%d high_episodes=%u high_total_ms=%u high_max_ms=%u sleep_inhibited_high=%u entry_race_abort_high=%u sleep_entries_gpio4_high=%u last_entry_gpio4_high=%d last_wake_gpio4_high=%d wake_cause=%s radio_restore=%s owner_resumed=%d",
+                             node->logical_id.c_str(),
+                             static_cast<unsigned long long>(node->last_session),
+                             static_cast<unsigned long long>(health.value->health_sequence),
+                             static_cast<unsigned long long>(health.value->uptime_ms),
+                             health.value->raw_pir_level,
+                             static_cast<unsigned>(trace.pir_high_episodes),
+                             static_cast<unsigned>(trace.pir_high_total_ms),
+                             static_cast<unsigned>(trace.pir_high_max_episode_ms),
+                             static_cast<unsigned>(trace.sleep_decisions_inhibited_pir_high),
+                             static_cast<unsigned>(trace.entry_races_aborted_pir_high),
+                             static_cast<unsigned>(trace.sleep_entries_with_gpio4_high),
+                             trace.last_sleep_entry_gpio4_high,
+                             trace.last_wake_gpio4_high,
+                             node_health_sleep_wake_cause_name(health.value->last_wake_cause),
+                             restore_result, trace.last_owner_resumed);
+                }
 #endif
                 if (security_link.health_ack_supported(frame.source_mac)) {
                     const auto encoded_ack = transport::encode_node_health_ack(
