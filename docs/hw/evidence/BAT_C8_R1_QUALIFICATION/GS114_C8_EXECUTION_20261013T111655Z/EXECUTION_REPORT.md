@@ -1,5 +1,45 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 11:07 UTC — source-matched P8 S3 candidate build PASS
+
+The operator approved Python 3 for the existing ESP-IDF 6.0.3 P8 build and
+offline validation. Tooling commit
+`ce9c436f0e9a8324c0785bad996ed9c4a421de3d` adds an S3-only mode to the
+existing builder: it verifies and embeds the installed C3 app by SHA-256,
+skips the C3 build, and does not access hardware. The current S3 image built
+successfully with ACK-drop ON and broad Hub HIL control OFF. Candidate app
+SHA-256:
+`f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`;
+size 1,894,496 bytes. Embedded C3 SHA-256 exactly matches installed C3
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+The generated and compiled S3 partition tables match the commissioned
+16-MiB/8-MiB PSRAM layout with `ota_0`/`ota_1`, `gs_outbox` and `gs_state`.
+
+Focused validation: S3 fixture suite 14/14 PASS, ACK-drop gate 16/16 PASS,
+ASan/UBSan 16/16 PASS, TSan 16/16 PASS, and offline ESP-IDF image/profile,
+embedded-asset and partition compatibility checks PASS. See [P8 build
+evidence](run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md) and local ignored
+build manifest `code/build/gs114_fixture_pair/build-snmafa7y/fixture_pair_report.json`.
+No device/serial access, reset, flash, erase, commissioning change or physical
+test occurred.
+
+The last captured S3 boot banner reports active app offset `0x20000` (`ota_0`)
+at 03:34:27 UTC, but its app version is
+`72a223fc3b29-gs114-rpfdiag-1eec`; exact current running S3 hash and a fresh
+post-detach OTA-selector readback are still unverified. The installation plan
+requires reattachment of only the identified S3, restored exclusive capture,
+fresh active-slot verification, then an S3 app-only write at `0x20000` only
+if that same `ota_0` selection is confirmed. No generated full-device flash
+bundle will be used. The detailed recovery and capture-restoration plan is in
+the P8 evidence and awaits explicit installation approval. C3 remains
+untouched.
+
+P3 remains a controlled physical PASS. Reuse previous RPF07/P1/P2/P4/P5/P6/P7
+PASS evidence. P8 is still physical NOT_RUN until the candidate is installed
+and an exact-key real ACK-loss/retry/durable-effect/retirement trace is
+captured. P9 ACK/FOTA remain blocked on their separate fixtures; P10 is
+GS-149. GS-114 remains In Progress.
+
 ## 2026-10-14 10:08 UTC repeat S3 USB/IP observation loss
 
 After P3, the S3 capture received authenticated session-16 health sequence 25
@@ -475,17 +515,17 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | Phase A | PASS for RPF07 repair / fresh authenticated fixture; C3 USB observer limitation remains | Repaired image install/verification and fresh commissioning; first authenticated retirement report produced `RPF00 admission=OPEN` and ACK send; continued physical event admission confirmed |
 | P1 | PASS | Ten timer sleep/wake cycles plus 25 more; authenticated post-wake health, no false PIR event or Node reset; see [P1](run03_20261014/C8_P1.md) |
 | P2 | PASS | Real AM312 motion, exact q1 EventKey, GPIO wake, one durable effect, authenticated Durable ACK and retained=0/durable_ack increment; see [P2](run03_20261014/C8_P2.md) |
-| P3 | BLOCKED / latest controlled window NOT RUN | Prior sustained movement produced multiple distinct qualified events and eventual LOW recovery, but did not prove a continuous GPIO4 HIGH interval. On 2026-10-14 at 07:55 UTC the operator confirmed the latest requested window had no motion; the Hub had marked session 15 offline at 06:52:38.225783443Z, beyond its configured 910-second lease, with no fresh authenticated NodeHealth/rejoin/event. USB enumeration remains present but does not prove application liveness. No P3 prompt was issued and no board operation was performed. See [P3](run03_20261014/C8_P3.md) and [run04](run04_20261014/C8_C3_DIAGNOSTIC_INSTALL_AND_TRACE.md). |
+| P3 | PASS — controlled physical retest 2026-10-14 | One measured continuous AM312 GPIO4 HIGH interval of 28,518 ms; 1,425 additional HIGH sleep-inhibition decisions; zero sleep entries while HIGH; one qualified event q2 with one durable effect, same-key idempotence, authenticated Durable ACK and retirement; LOW recovery with 11 timer sleep/wake cycles and radio/owner restoration. See [controlled P3](run04_20261014/C8_P3_CONTROLLED_20261014.md). |
 | P4 | PASS on controlled retest; original trial FAIL retained | Controlled brief motion produced q16, one Hub durable effect, same-key duplicate suppression, authenticated Durable ACK and Node retirement; no extra key in the three-minute quiet window. Earlier q10/q11/q12 remain distinct durable events with unexplained cause; see [P4](run03_20261014/C8_P4.md) |
 | P5 | PASS — controlled reconnect-aware run 03; initial run02 remains inconclusive | One real AM312 event during Hub power-off arrived as q24 after authenticated session 6, changed durable state once, received Durable ACK, and was retired with reset unchanged; post-ACK retained=0, durable_ack +1. See [P5](run03_20261014/C8_P5.md). |
 | P6 | PASS | Run 02 captured full Hub POWERON boot, authenticated session 4, RPF00 admission OPEN and Node reset counter unchanged at 11; see [P6](run03_20261014/C8_P6.md) |
 | P7 | PASS — controlled run 02 | First event q22 during prompted AM312 action window; one durable effect, two same-key idempotent repeats, authenticated retirement ACK, post-event health confirms retained=0 and durable_ack increment; see [P7](run03_20261014/C8_P7.md) |
-| P8 | BLOCKED physically; fixture implemented | Default-off S3 commissioning-profile-only one-shot postcommit ACK suppression and 16-check normal/ASan/UBSan/TSan PASS; matched target build, installation and real same-key retry await P7; see [P8](run03_20261014/C8_P8.md) and [software validation](run03_20261014/C8_P8_SOFTWARE_VALIDATION_20261014.md) |
+| P8 | Physical NOT_RUN; current-source S3 candidate built and validated, installation approval pending | ACK-drop ON S3 app `f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`, embedding the exact installed C3 app `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; fixture 14/14, gate 16/16, ASan/UBSan 16/16, TSan 16/16 and IDF image/partition checks PASS. S3 observer USB/IP recovery and app-only write remain unapproved; no hardware touched. See [P8 build/install plan](run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md). |
 | P9 ACK | BLOCKED | No qualified directional ACK hold fixture; P8 one-shot loss alone is shorter than the required pending-ACK observation window; see [P9](run03_20261014/C8_P9.md) |
 | P9 FOTA | BLOCKED | No matched signed C3 test/recovery image pair, supported signed trigger or known recovery procedure; see [P9](run03_20261014/C8_P9.md) |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action: the minimal HIL-only authenticated deferred C3 sleep/PIR trace is implemented and its Node/Hub/contract component stages pass. Commit and push this scoped change, build and hash-verify the source-matched C3/S3 commissioning pair, then install only on the identified R&D fixtures and physically retest P1/P3. P8 still needs physical ACK-loss qualification; P9 ACK and signed FOTA remain blocked on their specific fixtures. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
+Next action: obtain explicit approval for the documented exact S3-only observer recovery and app-only installation plan. After approved installation, verify fresh authenticated readiness and conduct the minimum physical P8 same-EventKey ACK-loss test. P9 ACK/FOTA remain blocked on their specific fixtures and P10 remains GS-149. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
 
 ## Validation and precise operator checkpoint
 

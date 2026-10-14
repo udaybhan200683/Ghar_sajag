@@ -1,5 +1,57 @@
 # R1 Current Work State
 
+## GS-114 C8-P8 candidate ready for S3-only installation approval — 2026-10-14 11:07 UTC
+
+The operator explicitly approved Python 3 for the existing ESP-IDF 6.0.3
+toolchain and approved offline build/software validation; this supersedes the
+earlier Python 3 restriction for this GS-114 P8 task only. The existing
+`gs114-s3-c8-p8-build` builder path reuses the exact installed C3 app and
+skips C3 compilation. Builder/tooling commit
+`ce9c436f0e9a8324c0785bad996ed9c4a421de3d` is pushed to the canonical branch.
+Context preflight passed at task startup, and no firmware source was changed
+by the builder extension.
+
+ESP-IDF 6.0.3 built an S3-only candidate with
+`GS_HIL_C8_ACK_DROP=ON`, broad Hub HIL control OFF, commissioning ON, and the
+16 MiB/8 MiB PSRAM fixture profile. S3 app SHA-256 is
+`f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`;
+candidate size is 1,894,496 bytes. Its embedded Node app SHA-256 exactly
+matches the installed C3 value
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+The compiled table matches the existing `ota_0`/`ota_1`, `gs_outbox` and
+`gs_state` layout; the complete build/profile and focused validation receipts
+are in [P8 build evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md).
+The S3 binary is built, not installed; no board or serial port was accessed.
+
+Focused results: S3 fixture suite 14/14 PASS; ACK-drop host gate 16/16 PASS;
+ASan/UBSan 16/16 PASS; TSan 16/16 PASS; image and compiled-partition
+compatibility checks PASS. Existing wider suites and firmware-source
+sanitizer evidence are reused because product/firmware source is unchanged.
+
+Active-slot limit: the last captured S3 boot banner reports app offset
+`0x20000` (`ota_0`) at 03:34:27 UTC, but reports app version
+`72a223fc3b29-gs114-rpfdiag-1eec`; the exact running S3 hash and a current
+post-detach selector readback remain unverified. The install plan therefore
+requires a fresh exact S3 identity/active-slot check before any write and stops
+if `ota_0`/`0x20000` is not confirmed. A stable S3 capture must also be
+restored before a P8 stimulus. No USB/IP reattachment, reset, firmware write,
+commissioning change or physical stimulus has been authorized yet. The C3
+descriptor-error device remains untouched.
+
+P3 remains controlled physical PASS; reuse RPF07/P1/P2/P4/P5/P6/P7 evidence.
+P8 remains physical NOT_RUN pending explicit approval of the S3-only observer
+recovery/app install plan and then a real same-EventKey retry test. P9 ACK is
+blocked on a validated long ACK-hold observation fixture; signed FOTA is
+blocked on matched signed test/recovery images, trusted provenance, a
+supported authenticated trigger and recovery procedure. P10 remains GS-149.
+GS-114 stays In Progress. Existing raw logs, generated managed components,
+untracked product asset directory and historical failure evidence remain
+preserved.
+
+Next action: obtain explicit approval for the exact bounded S3-only observer
+recovery and app-only install plan in the linked P8 evidence. Do not attach,
+reset, write or request physical P8 motion before that approval.
+
 ## GS-114 observer checkpoint — 2026-10-14 10:08 UTC
 
 The S3 USB/IP observer failed again after the controlled P3 PASS. Last fresh
