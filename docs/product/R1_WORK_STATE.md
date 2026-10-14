@@ -1,5 +1,41 @@
 # R1 Current Work State
 
+## GS-114 P3 readiness recheck — 2026-10-14 08:59 UTC
+
+The operator is available for the single controlled P3 movement episode, but
+the physical fixture is not ready. Existing S3 capture PID 324978 remains the
+sole reader/owner of `/dev/ttyACM0`, configured to append to the run04 log.
+The process is alive, but the log has no bytes after the authenticated
+session-16 health_seq-4 trace at `08:35:48.465006359Z`; current capture activity
+is not proven.
+
+Latest authenticated NodeHealth: session 16 / health_seq 4 at
+`08:35:48.443225859Z`; its schema-3 trace reports GPIO4 LOW, no retained event,
+timer wake, radio restoration OK, and owner resumed. Configured heartbeat is
+300 s; a new report was due around 08:40:48 UTC. No later authenticated health,
+trace, event or RPF00 OPEN line was captured. The 910 s lease elapsed at
+`08:50:58.443225859Z`. No explicit `online=0` transition is present, so the
+evidence does not identify whether the Node, Hub runtime or observation path
+stopped. Authenticated liveness is stale and P3 must not start.
+
+No movement prompt, port probe, fixture command, USB/IP attach, reset, flash,
+erase, recommission or power change occurred. The one authorized C3 reset has
+already been used. Keep the existing S3 reader and commissioned pair intact;
+continue passive observation for fresh authenticated liveness, schema-3 trace
+and OPEN replay admission. If none returns, identify a safe recovery action
+before any further reset. P3 remains BLOCKED / NOT RUN. Preserve prior RPF07,
+P1, P2, controlled P4/P5, P6 and P7 physical PASS evidence. P8 follows after
+P3; P9 remains fixture-blocked; P10 belongs to GS-149.
+
+Checkpoint: `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, local and remote HEAD
+`e4e036a5d3c92bd7d53ce478a5d4e8099cc957b9`; context preflight PASS
+`2026-10-13.001`. Existing untracked raw logs, readbacks, generated
+components and unrelated assets remain preserved. No source/image changed.
+The verified C3 app SHA remains
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; exact
+active S3 app SHA remains unverified.
+
 ## GS-114 controlled C3 reset recovery — 2026-10-14 08:31 UTC
 
 The operator authorized and completed one C3-only EN/RST reset after the

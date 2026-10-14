@@ -1,5 +1,42 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 P3 readiness recheck — movement deferred because liveness is stale
+
+The operator is available for one controlled AM312 movement episode. The
+fixture was not ready, so no movement request was issued. The exclusive S3
+capture PID 324978 remains the sole `/dev/ttyACM0` owner and targets the run04
+log, but it has received no bytes after the authenticated schema-3 trace at
+`08:35:48.465006359Z`; the log mtime is unchanged. A running reader process
+does not establish that serial output is arriving.
+
+The last authenticated NodeHealth is session 16 / health_seq 4 at
+`08:35:48.443225859Z`, followed by its trace at `08:35:48.465006359Z`. The
+trace reports GPIO4 LOW, no retained work, timer wake, radio restore OK and
+owner resumed. With heartbeat=300 s, another report was expected at about
+08:40:48 UTC. None was captured. The configured 910 s offline lease from the
+last health elapsed at `08:50:58.443225859Z`, before the 08:59:02 UTC check.
+There is no explicit `online=0` line, so current evidence cannot identify
+whether the Node stopped, Hub runtime stopped logging, or the observation path
+failed. Current authenticated liveness and fresh OPEN replay-admission evidence
+are unverified.
+
+No reset, USB/IP attach, port probe, Hub command, flash, erase, recommission,
+or power change occurred. The previously authorized single C3 reset has
+already been used; no repeat was made. **C8-P3 remains BLOCKED / NOT RUN.**
+Resume with passive capture until new authenticated session/health, schema-3
+trace and OPEN replay admission are observed. Then issue one 20–30 s movement
+request and correlate the actual GPIO4 HIGH duration, sleep inhibition, event
+keys, durable effects, ACK/retirement and LOW recovery. Preserve the known
+C3 image SHA; the exact running S3 image SHA remains unverified.
+
+At this checkpoint local and remote HEAD were both
+`e4e036a5d3c92bd7d53ce478a5d4e8099cc957b9`, and context preflight passed as
+`2026-10-13.001`. No code or firmware changed. Existing untracked evidence and
+unrelated assets remain preserved. GS-114 stays In Progress; prior RPF07, P1,
+P2, controlled P4/P5, P6 and P7 physical PASS evidence remains reused without
+retest. P8 remains next after P3; P9 ACK/FOTA stays blocked; P10 belongs to
+GS-149.
+
 ## 2026-10-14 controlled C3 reset recovery — P3 stimulus pending
 
 The operator authorized one C3-only EN/RST reset after the pre-reset Hub

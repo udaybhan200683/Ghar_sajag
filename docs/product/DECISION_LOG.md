@@ -675,3 +675,19 @@ USB identities remain enumerated, but this does not establish Node application
 liveness. No hardware operation or new motion request was performed. P3
 remains BLOCKED / NOT RUN pending safe restoration of authenticated liveness;
 see run04 evidence and `R1_WORK_STATE.md`. `CONTEXT_VERSION` is unchanged.
+
+### GS-114 P3 readiness observation — 2026-10-14 08:59 UTC (evidence only)
+
+The operator was available for the controlled movement action, but authenticated
+C3 liveness was stale. The last health was session 16 / health_seq 4 at
+`08:35:48.443225859Z`; no subsequent 300 s heartbeat or decoded sleep trace
+appeared. The configured 910 s lease elapsed at `08:50:58.443225859Z`. The S3
+capture process remained the sole serial owner, but its log received no bytes
+after `08:35:48.465006359Z`. No explicit `online=0` transition was captured,
+so the Node, Hub/runtime and observer failure modes remain indistinguishable.
+No motion, reset, port command, flash or storage operation occurred; the one
+previously authorized C3 reset was already used. P3 remains BLOCKED / NOT RUN
+pending fresh authenticated liveness, schema-3 trace and OPEN replay admission.
+This records test status only; GS-D031 timing and product behavior are
+unchanged and context version remains `2026-10-13.001`. See the run04 P3
+handoff and consolidated report.

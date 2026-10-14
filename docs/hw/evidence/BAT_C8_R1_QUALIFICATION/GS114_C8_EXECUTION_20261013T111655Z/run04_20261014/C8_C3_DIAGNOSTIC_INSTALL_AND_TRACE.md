@@ -61,3 +61,28 @@ is not treated as a running-image hash.
 **Disposition:** P3 BLOCKED / NOT RUN pending restored authenticated C3
 liveness and fresh schema-3 trace evidence. No new hardware action is justified
 under the current no-reset/no-reflash resume scope.
+
+## P3 readiness recheck — 2026-10-14 08:59 UTC
+
+The operator is now available for the one controlled P3 movement, but the
+fixture is not READY. The exclusive S3 reader PID 324978 remains attached to
+ACM0 and configured for this run's log; no serial bytes have arrived after
+`2026-10-14T08:35:48.465006359Z`, and the file mtime is unchanged. The process
+is present and remains the sole port owner, but fresh capture activity is not
+proven.
+
+The latest authenticated NodeHealth is session 16 / health_seq 4 at
+`08:35:48.443225859Z`; the decoded trace at `08:35:48.465006359Z` reports
+GPIO4 LOW, no retained work, timer wake, radio restoration OK and owner resume.
+At 300 s heartbeat, the next report was expected around 08:40:48 UTC. No
+subsequent health, trace, event, or RPF00 OPEN line was captured. The 910 s
+lease elapsed at `08:50:58.443225859Z`. No explicit `online=0` line appeared,
+so C3 failure cannot be separated from S3/runtime/capture failure on present
+evidence. Authenticated liveness is stale; no motion prompt was issued and no
+P3 stimulus occurred.
+
+No port was opened or probed, no fixture command was sent, and there was no
+reset, flash, erase, recommission, USB/IP attach, or power change. The one
+authorized C3 reset has already been used. Preserve this limitation and obtain
+fresh authenticated liveness, schema-3 trace timestamps and OPEN replay
+admission before P3. P3 remains BLOCKED / NOT RUN.

@@ -85,3 +85,31 @@ documentation checkpoint were both
 `2026-10-13.001`. Existing untracked PWA/build-managed-component files,
 historical failure reports, private/raw logs, install/selector readbacks, and
 other run evidence were preserved. No source/build artifact changed.
+
+## P3 readiness recheck — 2026-10-14 08:59 UTC
+
+The operator is now available for the controlled movement action. The existing
+S3 capture process (PID 324978) is still the sole owner of `/dev/ttyACM0` and
+is configured to append to this run's `s3_uart_timestamped.log`. The process
+is alive, but the capture has received no bytes after the schema-3 trace at
+`08:35:48.465006359Z`; the log mtime is unchanged. Thus the capture process
+ownership is intact, but current capture activity has not been demonstrated.
+
+The latest authenticated NodeHealth is session 16 / health_seq 4 at
+`08:35:48.443225859Z`; its trace reports GPIO4 LOW, no retained event, timer
+wake, radio restoration OK and owner resumed. The configured heartbeat is
+300 s and the offline lease is 910 s. The next health was due at approximately
+08:40:48 UTC and no health, trace, event, or new RPF00 OPEN evidence followed.
+The 910 s lease from the latest health elapsed at `08:50:58.443225859Z`, before
+this 08:59:02 UTC check. No explicit `online=0` transition was captured, so the
+evidence does not distinguish a stopped Node from an S3/runtime or observation
+gap. Authenticated Node liveness is stale and cannot qualify P3 readiness.
+
+No movement prompt was issued despite operator availability. No additional
+C3 reset, WSL attach, serial probe, S3 command, flash, erase, recommission, or
+power change occurred. The single previously authorized C3 reset has already
+been used; keep it that way while investigating the missing heartbeat/trace.
+**P3 remains BLOCKED / NOT RUN.** Retain the sole S3 reader and wait for fresh
+authenticated session/health, decoded schema-3 trace and OPEN replay admission
+before requesting one controlled 20–30 s AM312 movement episode. If those do
+not return, identify a safe recovery action before any further reset.
