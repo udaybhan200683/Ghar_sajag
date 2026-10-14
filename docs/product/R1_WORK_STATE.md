@@ -1,5 +1,49 @@
 # R1 Current Work State
 
+## GS-114 C8-P8 physical lost-ACK PASS; S3 capture transport paused — 2026-10-14 12:12 UTC
+
+The latest physical P8 run passed on the existing commissioned R&D pair. The
+S3 app-only P8 image was installed and write-verified at the read-back active
+`ota_0` slot, `0x20000`. Its app SHA-256 is
+`f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`; boot
+reported `ce9c436f0e9a-gs114-c8p8-59b8341`. The image embeds the installed C3
+app SHA-256 `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+
+At 12:11:57 UTC the S3 armed one-shot postcommit ACK loss. At 12:12:11 UTC it
+received real PIR EventKey `p15:c3-146393c5d158n8:gs114-c8s16q14`, found its
+durable outbox key under RPF00 OPEN, committed one effect (`state_changed=1`,
+`records=43`), and withheld the first application ACK. Same-key deliveries
+reported `state_changed=0` with unchanged record count. Authenticated Durable
+ACK sends returned `ESP_OK`; NodeHealth at 12:12:13 UTC showed
+`retained=0`, `durable_ack=14` (+1), `retry=15` (+2), GPIO wake, radio restore
+OK and owner resumed. **P8 physical PASS.** The operator said the physical
+movement preceded the direct prompt; its exact timestamp is unknown. The
+prompt is not attributed as the cause of q14, and no event latency is claimed.
+Full evidence is in [P8 physical run](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_P8_PHYSICAL_20261014.md)
+and its captured UART log.
+
+A separate later ACK-drop arm was captured at 12:14:59 UTC. The operator
+completed that requested movement and replied DONE, but no event/health report
+followed. WSL `vhci_hcd` logs show USB/IP URB errors `-104` from 12:12:37 UTC
+and the monitor later timed out on writes. The stale monitor was gracefully
+interrupted and no longer owns the serial device; it has no tty fd. No further
+attach, reset, flash, power operation or serial command was made. The q14
+evidence predates this transport gap and remains valid. Keep all untracked raw
+logs and prior evidence intact.
+
+P3 and prior RPF07/P1/P2/P4/P5/P6/P7 PASS evidence are reused; P4's earlier
+multi-key observation and P5's retry-identity observability limitation remain
+documented. P9 ACK is BLOCKED because no qualified prolonged ACK-hold fixture
+is available. P9 signed FOTA is BLOCKED pending matched signed test/recovery
+images, trusted provenance, authenticated trigger and safe recovery. P10 is
+GS-149. GS-114 remains In Progress.
+
+**Next action:** stop hardware work at this safe checkpoint after the USB/IP
+observer loss. Resume only with a fresh identified S3 capture path; do not
+repeat P1–P8. Keep P9 blockers explicit and report any fixture prerequisites.
+The latest source/docs checkpoint at execution start was local/remote HEAD
+`fd679334780f3bcbac3113554bd43d7e2916bdd8`, context preflight PASS.
+
 ## GS-114 C8-P8 S3 app write verified; runtime boot unresolved — 2026-10-14 11:32 UTC
 
 The operator approved the bounded S3-only P8 installation procedure. Starting

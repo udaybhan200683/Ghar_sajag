@@ -1,0 +1,15 @@
+2026-10-14T12:11:22 I (1215717) gs_fixture_commissioning: HIL_FIXTURE_STATUS state=idle commissioning_window_ms=120000
+2026-10-14T12:11:57 I (1250737) gs_fixture_commissioning: HIL_C8_ACK_DROP_ARMED window_ms=30000
+2026-10-14T12:12:10 I (1263557) gs_hub_runtime: S3 replay fence healthy stage=RPF00 path=PREPARED admission=OPEN report_generation=96
+2026-10-14T12:12:10 I (1263557) gs_hub_runtime: Authenticated retirement ACK session=17 generation=96 send=ESP_OK
+2026-10-14T12:12:11 I (1264137) gs_hub_runtime: HIL_AUTH_EVENT event_id=p15:c3-146393c5d158n8:gs114-c8s16q14 state_changed=1 records=43 outbox_lookup=0 outbox_found=1 admission=OPEN
+2026-10-14T12:12:11 W (1264137) gs_hub_runtime: HIL_C8_ACK_DROP event_id=p15:c3-146393c5d158n8:gs114-c8s16q14 durable=YES state_changed=1 outbox_found=1 admission=OPEN ack_sent=NO
+2026-10-14T12:12:11 I (1264237) gs_hub_runtime: HIL_AUTH_EVENT event_id=p15:c3-146393c5d158n8:gs114-c8s16q14 state_changed=0 records=43 outbox_lookup=0 outbox_found=1 admission=OPEN
+2026-10-14T12:12:11 I (1264237) gs_hub_runtime: Authenticated event logical=gs114-c8 session=16 seq=14 sensor=PIR event=MOTION event_id=p15:c3-146393c5d158n8:gs114-c8s16q14 room=test ack=0 send=ESP_OK
+2026-10-14T12:12:11 I (1264337) gs_hub_runtime: HIL_AUTH_EVENT event_id=p15:c3-146393c5d158n8:gs114-c8s16q14 state_changed=0 records=43 outbox_lookup=0 outbox_found=1 admission=OPEN
+2026-10-14T12:12:11 I (1264347) gs_hub_runtime: Authenticated event logical=gs114-c8 session=16 seq=14 sensor=PIR event=MOTION event_id=p15:c3-146393c5d158n8:gs114-c8s16q14 room=test ack=0 send=ESP_OK
+2026-10-14T12:12:11 I (1264607) gs_hub_runtime: S3 replay fence healthy stage=RPF00 path=PREPARED admission=OPEN report_generation=97
+2026-10-14T12:12:11 I (1264607) gs_hub_runtime: Authenticated retirement ACK session=17 generation=97 send=ESP_OK
+2026-10-14T12:12:13 I (1266337) gs_hub_runtime: Authenticated NodeHealth logical=gs114-c8 session=17 heap=196368 min_heap=189704 retained=0 sleep_entries=491 timer_wakes=473 gpio_wakes=18 other_wakes=0 last_wake=GPIO requested_ms=30000 elapsed_ms=26539 RSSI=-38
+2026-10-14T12:12:13 I (1266347) gs_hub_runtime: HIL_AUTH_HEALTH logical=gs114-c8 session=17 health_seq=52 reset=1 pir_raw=0 pir_edges=36 pir_ok=18 pir_rejected=0 retained=0 oldest_seq=0 tx=80 mac_ok=112 mac_fail=1 durable_ack=14 retry=15 maintenance=0 sleep_entries=491 timer_wakes=473 gpio_wakes=18 other_wakes=0 last_wake=GPIO
+2026-10-14T12:12:13 I (1266377) gs_hub_runtime: HIL_C8_SLEEP_TRACE schema=1 logical=gs114-c8 session=17 health_seq=52 uptime_ms=14206468 gpio4_now=0 high_episodes=18 high_total_ms=102481 high_max_ms=28518 sleep_inhibited_high=5114 entry_race_abort_high=0 sleep_entries_gpio4_high=0 last_entry_gpio4_high=0 last_wake_gpio4_high=1 wake_cause=GPIO radio_restore=OK owner_resumed=1

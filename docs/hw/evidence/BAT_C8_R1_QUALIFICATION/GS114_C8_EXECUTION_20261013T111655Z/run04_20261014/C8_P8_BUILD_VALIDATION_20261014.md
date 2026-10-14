@@ -1,5 +1,15 @@
 # GS-114 C8-P8 S3 candidate build and install approval — 2026-10-14
 
+## Later physical qualification result — 2026-10-14 12:12 UTC
+
+The following 11:32 UTC install observation is a historical checkpoint; the
+candidate later booted and completed physical C8-P8. See
+[`C8_P8_PHYSICAL_20261014.md`](C8_P8_PHYSICAL_20261014.md) for the real PIR
+EventKey, postcommit ACK-drop, same-key retry, one-effect durable ledger,
+authenticated retirement, stimulus-timing limitation, and subsequent S3
+USB/IP capture loss. The 11:32 statement that P8 had not started remains
+accurate for that time and is superseded only for current P8 disposition.
+
 ## 2026-10-14 physical installation follow-up
 
 **App-only write verified; runtime boot remains unverified. Physical P8 was

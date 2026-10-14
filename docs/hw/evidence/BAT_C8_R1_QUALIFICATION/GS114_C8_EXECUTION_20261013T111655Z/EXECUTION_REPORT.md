@@ -1,5 +1,38 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 12:12 UTC — C8-P8 physical lost-ACK PASS
+
+The source-matched S3 P8 fixture was installed app-only at the verified
+`ota_0` offset `0x20000`. The installed app write hash was verified by esptool;
+the boot log reports `ce9c436f0e9a-gs114-c8p8-59b8341` on that slot. Candidate
+S3 app SHA-256 is
+`f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`; its
+embedded C3 app SHA-256 matches the installed C3 diagnostic image
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+
+At `12:11:57Z`, the one-shot postcommit ACK-drop fixture armed for 30 seconds.
+At `12:12:11Z`, the Hub received EventKey
+`p15:c3-146393c5d158n8:gs114-c8s16q14` under OPEN RPF00 admission, committed it
+durably (`state_changed=1`, `records=43`, exact outbox key found), then withheld
+the application ACK. Same-key retransmissions were observed with
+`state_changed=0` and unchanged records. Authenticated Durable ACK sends
+returned `ESP_OK`; NodeHealth at `12:12:13Z` showed `retained=0`,
+`durable_ack=14` (+1), and `retry=15` (+2). The deferred GPIO trace reported a
+GPIO wake, radio restoration OK and owner resumed. This establishes **C8-P8
+physical PASS**: a single durable logical effect, same-key retry, duplicate
+idempotence, and eventual authenticated Node retirement.
+
+The operator later clarified that the real movement occurred before the direct
+action prompt. Its exact timestamp is unavailable, so the prompt is not claimed
+as the cause of q14 and no stimulus-to-event latency is claimed. The event and
+GPIO/PIR counters occurred inside the armed window. A separate later arm at
+`12:14:59Z` had no following event/health in its capture; USB/IP URB errors
+(`-104`) and serial write timeouts were observed. That later interval is not
+part of the PASS evidence. Logs and details are in
+[`C8_P8_PHYSICAL_20261014.md`](run04_20261014/C8_P8_PHYSICAL_20261014.md).
+No source code changed. After the later capture attempt stalled, no further
+reset, reattach, flash, power operation or serial command was performed.
+
 ## 2026-10-14 11:32 UTC — S3 P8 app write verified; runtime verification blocked
 
 The operator approved the bounded S3-only procedure. Windows identified the
@@ -572,12 +605,12 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | P5 | PASS — controlled reconnect-aware run 03; initial run02 remains inconclusive | One real AM312 event during Hub power-off arrived as q24 after authenticated session 6, changed durable state once, received Durable ACK, and was retired with reset unchanged; post-ACK retained=0, durable_ack +1. See [P5](run03_20261014/C8_P5.md). |
 | P6 | PASS | Run 02 captured full Hub POWERON boot, authenticated session 4, RPF00 admission OPEN and Node reset counter unchanged at 11; see [P6](run03_20261014/C8_P6.md) |
 | P7 | PASS — controlled run 02 | First event q22 during prompted AM312 action window; one durable effect, two same-key idempotent repeats, authenticated retirement ACK, post-event health confirms retained=0 and durable_ack increment; see [P7](run03_20261014/C8_P7.md) |
-| P8 | BLOCKED before stimulus; physical test NOT RUN | Exact active `ota_0` selector and partition table verified; current-source ACK-drop app was written app-only at `0x20000` and esptool verified the write hash. However, the S3 remained UART-silent during at least 300 seconds of exclusive `--no-reset` capture and did not answer `FIXTURE_STATUS`. Running image, authenticated C3 rejoin, schema-3 trace, RPF00 OPEN and P8 EventKey/ACK/retirement are unverified. No movement or ACK-drop arm was issued. See [P8 installation result](run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md). |
+| P8 | PASS — physical q14 lost-ACK/retry | S3 one-shot ACK-drop was armed; exact PIR EventKey `p15:c3-146393c5d158n8:gs114-c8s16q14` committed once, first ACK withheld, same-key duplicate deliveries had no second effect, and authenticated Durable ACK/retirement followed. Stimulus timestamp is imprecise because the operator moved before the direct prompt; the prompt is not attributed as the cause. See [P8 physical evidence](run04_20261014/C8_P8_PHYSICAL_20261014.md). |
 | P9 ACK | BLOCKED | No qualified directional ACK hold fixture; P8 one-shot loss alone is shorter than the required pending-ACK observation window; see [P9](run03_20261014/C8_P9.md) |
 | P9 FOTA | BLOCKED | No matched signed C3 test/recovery image pair, supported signed trigger or known recovery procedure; see [P9](run03_20261014/C8_P9.md) |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action: preserve the installed S3 state and obtain separate authorization before any further reset, recovery flash, or power operation. First resolve the silent post-write runtime using an authorized, non-destructive observation path. Only after boot/status, fresh authenticated C3 rejoin, schema-3 trace, and RPF00 OPEN are verified may the one-shot ACK-drop fixture be armed and one physical P8 event be requested. P9 ACK/FOTA remain blocked on their specific fixtures; P10 remains GS-149. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
+Next action: preserve the commissioned S3/C3 state and pause hardware interaction after the later USB/IP transport loss. P8 is physically PASS on the captured q14 transaction; the later `12:14:59Z` arm has no event evidence and is not counted. P9 ACK/FOTA remain blocked on their specific fixtures; P10 remains GS-149. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
 
 ## Validation and precise operator checkpoint
 

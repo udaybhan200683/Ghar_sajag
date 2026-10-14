@@ -1,5 +1,35 @@
 # GS-114 C3 reset recovery and P3 handoff — 2026-10-14
 
+## Latest resume checkpoint — P8 physical PASS, USB/IP capture stopped
+
+This dated handoff was originally written before the P3 retest. It now resumes
+from the later run04 evidence: P3 and P8 are physical PASS; reuse RPF07, P1,
+P2, P4, P5, P6 and P7 PASS evidence without repetition. P8's exact EventKey is
+`p15:c3-146393c5d158n8:gs114-c8s16q14`; its postcommit ACK suppression, same-key
+retries, single durable effect, authenticated ACK and Node retirement are
+recorded in [C8_P8_PHYSICAL_20261014.md](C8_P8_PHYSICAL_20261014.md).
+
+The operator clarified that real movement occurred before the direct prompt;
+its exact physical timestamp is unknown, and no latency or prompt causality is
+claimed. A separate arm at 12:14:59 UTC had no event/health evidence. The later
+S3 monitor reported write timeouts; read-only WSL kernel logs show USB/IP URB
+status `-104` beginning 12:12:37 UTC. After preserving logs, the monitor was
+gracefully interrupted; it held no serial fd and `fuser` found no tty owner.
+No reset, reattach, firmware write, power change or further serial command was
+performed. Do not repeat P1–P8 or try to recover USB/IP by blind attach.
+
+P9 ACK remains blocked on a validated, sufficiently long ACK-hold fixture.
+P9 signed FOTA remains blocked pending matched signed C3 images, trusted
+signing provenance, authenticated trigger and safe recovery. P10 remains
+GS-149. Leave GS-114 In Progress.
+
+**Next action:** use only a newly verified, exclusive S3 observer if further
+physical work is explicitly resumed; first action is passive identity/port
+ownership verification. Do not start a P9 physical test without its missing
+fixtures. All earlier raw evidence remains preserved. Documentation source
+checkpoint at this update began at `fd679334780f3bcbac3113554bd43d7e2916bdd8`
+with context preflight PASS.
+
 ## Scope and preserved state
 
 The operator authorized one C3-only EN/RST reset to diagnose the Node that the

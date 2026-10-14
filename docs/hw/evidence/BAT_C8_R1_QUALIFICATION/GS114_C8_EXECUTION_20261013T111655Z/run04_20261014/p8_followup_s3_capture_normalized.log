@@ -1,0 +1,2 @@
+2026-10-14T12:14:46 I (1419627) gs_fixture_commissioning: HIL_FIXTURE_STATUS state=idle commissioning_window_ms=120000
+2026-10-14T12:14:59 I (1432747) gs_fixture_commissioning: HIL_C8_ACK_DROP_ARMED window_ms=30000
