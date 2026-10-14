@@ -1,5 +1,48 @@
 # R1 Current Work State
 
+## GS-114 controlled C3 reset recovery — 2026-10-14 08:31 UTC
+
+The operator authorized and completed one C3-only EN/RST reset after the
+pre-reset S3 UART snapshot and log were preserved. No new `usbipd attach`, C3
+USB serial probe, flash, erase, S3 reset, recommission, or security change was
+performed. The user clarified that USB is currently only providing C3 power;
+WSL attachment is unnecessary unless a flash is planned.
+
+The existing exclusive S3 capture observed authenticated C3 rejoin as session
+16 at `08:15:49.543439605Z`, online liveness at `08:15:50.028801212Z`, RPF00
+`PREPARED admission=OPEN` at `08:15:59.778409608Z`, and an authenticated
+retirement ACK send of `ESP_OK` at `08:15:59.786565707Z`. Authenticated
+NodeHealth/schema-3 traces then arrived at `08:20:49.037–08:20:49.088Z`,
+`08:25:48.751–08:25:48.806Z`, and `08:30:48.571–08:30:48.626Z` (health_seq
+1–3), matching the configured 300 s heartbeat. Across these reports, retained
+events stayed at zero, GPIO4 stayed LOW with no PIR edges or GPIO wakes, timer
+sleep/wakes advanced 10→20→30, radio restoration was OK, owner resumed, and no
+session-16 offline transition appeared by `08:30:59Z`. This verifies
+post-reset application operation and sustained authenticated liveness. The
+raw health `reset=1` is retained without using it alone to attribute reset
+source: the same value was present before reset, and no C3 boot UART was
+captured.
+
+**P3 remains BLOCKED / NOT RUN.** The operator is currently away and no PIR
+motion was performed; the quiet GPIO4 trace is only a baseline. When the
+operator returns, preserve the current S3 capture and commissioned state,
+recheck fresh health/admission, and request one 20–30 s real AM312 stimulus
+only when ready. If continuous HIGH cannot be proved, retain BLOCKED. After
+P3, P8 is next. P9 ACK/FOTA remain blocked on their fixture/signing
+prerequisites; P10 remains separate under GS-149. Previously qualified RPF07,
+P1, P2, P4, P5, P6 and P7 evidence remains reused.
+
+Evidence: [C3 reset recovery and P3 handoff](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C3_RESET_RECOVERY_AND_P3_HANDOFF_20261014.md)
+and the live S3 capture
+`docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/s3_uart_timestamped.log`.
+At this checkpoint canonical branch is `feature/r1-commercial-baseline`,
+starting HEAD and remote both
+`8f911ba502d44e84f9cf61cd9dca8ed9e02d1a4d`; context preflight PASS
+`2026-10-13.001`. Existing untracked evidence and unrelated assets remain
+preserved. The S3 capture remains the sole reader of `/dev/ttyACM0` (PID
+324978, with log follower PID 300544); no port operation is required for this
+observation-only work.
+
 ## GS-114 P3 readiness checkpoint — 2026-10-14 07:55 UTC
 
 The requested P3 motion window was not performed, per operator confirmation;

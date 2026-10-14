@@ -1,5 +1,38 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 controlled C3 reset recovery — P3 stimulus pending
+
+The operator authorized one C3-only EN/RST reset after the pre-reset Hub
+capture was preserved. The existing S3 reader observed authenticated C3
+rejoin as session 16 at `08:15:49.543439605Z`, liveness online at
+`08:15:50.028801212Z`, RPF00 `PREPARED admission=OPEN` at
+`08:15:59.778409608Z`, and authenticated retirement ACK send `ESP_OK` at
+`08:15:59.786565707Z`. Authenticated NodeHealth and schema-3 sleep traces
+arrived on the configured heartbeat at 08:20:49, 08:25:48 and 08:30:48 UTC.
+Across health_seq 1–3 the Node remained in session 16 with no retained events,
+no PIR edges, GPIO4 LOW, no GPIO wakes, timer sleep/wake counts 10→20→30,
+radio restoration OK, owner resume OK, and no offline transition by 08:30:59.
+This verifies successful post-reset operation and sustained authenticated
+liveness. `reset=1` was preserved as the raw reported field; because it was
+also present before reset and there is no C3 boot UART for this action, it does
+not alone identify the physical reset source.
+
+The operator is away, so no P3 motion occurred. The zero-HIGH trace is a quiet
+baseline, not a P3 attempt; **P3 remains BLOCKED / NOT RUN** pending one
+controlled real AM312 stimulus after fresh readiness is confirmed. No new
+`usbipd attach`, C3 USB serial probe, flash, erase, S3 reset, recommission, or security
+change occurred. The current C3 app remains SHA-256
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; exact
+active S3 image hash remains unverified. See the [reset recovery evidence and
+resume handoff](run04_20261014/C3_RESET_RECOVERY_AND_P3_HANDOFF_20261014.md).
+
+**Current matrix:** RPF07 PASS (reused); P1 PASS (reused); P2 PASS (reused);
+P3 BLOCKED / NOT RUN awaiting operator stimulus; P4 PASS (controlled retest
+reused, earlier q10–q12 issue retained); P5 PASS (controlled outage retest
+reused, retry observability limitation retained); P6 PASS (reused); P7 PASS
+(reused); P8 physical NOT_RUN; P9 ACK and signed-FOTA BLOCKED; P10 remains
+separate under GS-149. GS-114 remains In Progress.
+
 ## 2026-10-14 diagnostic installation checkpoint — C3 image verified; physical P3 pending
 
 The committed c69960f observer build was verified against its manifest and the
