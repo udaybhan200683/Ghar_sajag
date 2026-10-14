@@ -109,3 +109,9 @@ Next: retain GS-114 In Progress until the P3 image-provenance gap and P9 physica
 fixtures are resolved; P10 remains GS-149. After this integration checkpoint,
 GS-116/GS-130 still owns broader implemented-feature simulation gaps, and the
 separately authorized GS-148 CloudSync scope remains distinct.
+
+The validated implementation and evidence were committed as
+`ab72ac2f141f32c375d9f7fe7598ef7456ce1a87` and pushed to
+`feature/r1-commercial-baseline`; origin was verified at that commit. A final
+documentation-only closeout records the exact resulting branch checkpoint in
+the Jira delivery comments.

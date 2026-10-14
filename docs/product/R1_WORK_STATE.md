@@ -8,6 +8,10 @@ Task-start canonical checkpoint was local/remote HEAD
 software suite and C8 P1–P10 test mapping were audited. Detailed matrix, actual
 receipts, provenance and physical limitations are in
 [GS-116/GS-130 C8 coverage audit](../exec-plans/evidence/GS116_GS130_C8_COVERAGE_AUDIT_20261014.md).
+The validated implementation/evidence commit is
+`ab72ac2f141f32c375d9f7fe7598ef7456ce1a87`; it was pushed and origin matched
+at verification. The final closeout documentation commit and remote checkpoint
+are recorded in the Jira delivery comments.
 
 The 78-stage registry currently selects 68 fast and 78 release stages, with
 Node/Hub/contract ownership counts 24/41/34. Added explicit production-code
