@@ -8,10 +8,11 @@ rejoin as session 16 at `08:15:49.543439605Z`, liveness online at
 `08:15:50.028801212Z`, RPF00 `PREPARED admission=OPEN` at
 `08:15:59.778409608Z`, and authenticated retirement ACK send `ESP_OK` at
 `08:15:59.786565707Z`. Authenticated NodeHealth and schema-3 sleep traces
-arrived on the configured heartbeat at 08:20:49, 08:25:48 and 08:30:48 UTC.
-Across health_seq 1–3 the Node remained in session 16 with no retained events,
-no PIR edges, GPIO4 LOW, no GPIO wakes, timer sleep/wake counts 10→20→30,
-radio restoration OK, owner resume OK, and no offline transition by 08:30:59.
+arrived on the configured heartbeat at 08:20:49, 08:25:48, 08:30:48 and
+08:35:48 UTC. Across health_seq 1–4 the Node remained in session 16 with no
+retained events, no PIR edges, GPIO4 LOW, no GPIO wakes, timer sleep/wake
+counts 10→20→30→40, radio restoration OK, owner resume OK, and no offline
+transition by 08:36:11.
 This verifies successful post-reset operation and sustained authenticated
 liveness. `reset=1` was preserved as the raw reported field; because it was
 also present before reset and there is no C3 boot UART for this action, it does

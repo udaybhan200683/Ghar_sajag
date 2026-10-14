@@ -29,23 +29,24 @@ The existing S3 capture at
 | 08:20:49.037122720–08:20:49.088271521 | Authenticated NodeHealth and decoded schema-3 sleep trace, session 16 / health sequence 1. |
 | 08:25:48.751715908–08:25:48.806355172 | Authenticated NodeHealth and decoded schema-3 sleep trace, session 16 / health sequence 2. |
 | 08:30:48.571278556–08:30:48.625590257 | Authenticated NodeHealth and decoded schema-3 sleep trace, session 16 / health sequence 3. |
+| 08:35:48.410252759–08:35:48.465006359 | Authenticated NodeHealth and decoded schema-3 sleep trace, session 16 / health sequence 4. |
 
-All three health reports show `reset=1`, `retained=0`, `pir_raw=0`, zero PIR
+All four health reports show `reset=1`, `retained=0`, `pir_raw=0`, zero PIR
 edges/accepted events, zero GPIO wakes, timer wake as the last wake, and no
 pending event. Sleep-entry and timer-wake counts advanced together from 10 to
-20 to 30. Each trace reports `gpio4_now=0`, no HIGH episodes, no sleep entries
+20 to 30 to 40. Each trace reports `gpio4_now=0`, no HIGH episodes, no sleep entries
 while GPIO4 HIGH, `wake_cause=TIMER`, `radio_restore=OK`, and
 `owner_resumed=1`. The health timestamps are spaced by the configured 300 s
 heartbeat. No session-16 offline transition is present through the last
-observation at 08:30:59 UTC. This establishes sustained authenticated Node
-liveness across three heartbeat reports after rejoin.
+observation at 08:36:11 UTC. This establishes sustained authenticated Node
+liveness across four heartbeat reports after rejoin.
 
 The application reports `reset=1` through the `esp_reset_reason()` value. The
 same raw value was present in session 15 before the operator action, and no C3
 boot console was captured during this reset. Therefore the observed field is
 recorded as raw value `1`; it is not used by itself to attribute the physical
 reset source. The new authenticated session, increasing uptime (300,734 ms,
-600,853 ms, 900,972 ms), health sequence and runtime counters establish that
+600,853 ms, 900,972 ms, 1,201,091 ms), health sequence and runtime counters establish that
 the Node application restarted and is operating.
 
 ## P3 disposition and next action

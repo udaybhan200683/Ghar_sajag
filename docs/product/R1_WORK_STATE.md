@@ -13,11 +13,12 @@ The existing exclusive S3 capture observed authenticated C3 rejoin as session
 `PREPARED admission=OPEN` at `08:15:59.778409608Z`, and an authenticated
 retirement ACK send of `ESP_OK` at `08:15:59.786565707Z`. Authenticated
 NodeHealth/schema-3 traces then arrived at `08:20:49.037–08:20:49.088Z`,
-`08:25:48.751–08:25:48.806Z`, and `08:30:48.571–08:30:48.626Z` (health_seq
-1–3), matching the configured 300 s heartbeat. Across these reports, retained
+`08:25:48.751–08:25:48.806Z`, `08:30:48.571–08:30:48.626Z`, and
+`08:35:48.410–08:35:48.465Z` (health_seq 1–4), matching the configured 300 s
+heartbeat. Across these reports, retained
 events stayed at zero, GPIO4 stayed LOW with no PIR edges or GPIO wakes, timer
-sleep/wakes advanced 10→20→30, radio restoration was OK, owner resumed, and no
-session-16 offline transition appeared by `08:30:59Z`. This verifies
+sleep/wakes advanced 10→20→30→40, radio restoration was OK, owner resumed, and no
+session-16 offline transition appeared by `08:36:11Z`. This verifies
 post-reset application operation and sustained authenticated liveness. The
 raw health `reset=1` is retained without using it alone to attribute reset
 source: the same value was present before reset, and no C3 boot UART was
@@ -40,7 +41,7 @@ starting HEAD and remote both
 `8f911ba502d44e84f9cf61cd9dca8ed9e02d1a4d`; context preflight PASS
 `2026-10-13.001`. Existing untracked evidence and unrelated assets remain
 preserved. The S3 capture remains the sole reader of `/dev/ttyACM0` (PID
-324978, with log follower PID 300544); no port operation is required for this
+324978); no port operation is required for this
 observation-only work.
 
 ## GS-114 P3 readiness checkpoint — 2026-10-14 07:55 UTC
