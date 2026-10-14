@@ -1,5 +1,44 @@
 # R1 Current Work State
 
+## GS-114 S3 USB/IP capture root-cause checkpoint — 2026-10-14 09:40 UTC
+
+The apparent loss of C3 NodeHealth after `08:35:48Z` is an **observation
+gap**, not evidence that either application stopped. Windows `usbipd-win`
+recorded a transport socket abort (10053) and release of the exact S3 CH343
+adapter `1a86:55d3` / `5CBC401023` at `08:37:43Z`, before the next C3
+heartbeat was due. Windows now shows S3 BUSID `3-1` `Shared`; WSL retains a
+stale `/dev/ttyACM0` and by-id link. The exclusive S3 capture PID 324978 has
+received no bytes since `08:35:48Z`. One allowed `FIXTURE_STATUS` attempt
+blocked while opening its stale fd and sent no command bytes; no further
+serial request is safe on this attachment. Windows also shows C3 USB as
+descriptor-error `0000:0002`; this does not prove C3 radio/app state.
+
+The Hub's source checks liveness every 1000 ms against the authenticated
+910-second lease. Its missing `online=0` UART line is explained by the broken
+S3 observer. C3 health scheduling and sleep deadlines were inspected; no
+firmware liveness defect is established. Nearby Windows WSL virtual-switch
+events support a host transport disruption; its initiating cause remains
+unproven. No firmware source/image, board power, commissioning or security
+state changed. The prior one-time C3 reset authorization is exhausted.
+
+Current safe action is S3-only observer recovery after explicit authorization:
+account for the stale capture/writer, reverify the exact CH343 serial identity,
+reattach only that identified S3 adapter to WSL, establish one fresh reader,
+and verify authenticated C3 health/schema-3 trace and OPEN replay admission.
+Do not request PIR motion or infer P3 readiness before those observations.
+Do not attach the C3 descriptor-error device. P3 remains BLOCKED / NOT RUN;
+P8 physical NOT_RUN; P9 ACK/FOTA BLOCKED. Prior RPF07/P1/P2/controlled
+P4/P5/P6/P7 physical PASS evidence remains valid and is not being repeated.
+P10 remains GS-149. See [diagnostic evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/S3_USBIP_CAPTURE_DIAGNOSIS_20261014.md).
+
+Local and remote HEAD at investigation start were both
+`cec251a96b30ca85ed1b256162b2a3f47317258b` on
+`feature/r1-commercial-baseline`; context preflight PASS
+`2026-10-13.001`. Untracked raw logs, generated components and unrelated
+assets remain preserved. Exact running S3 binary hash remains unverified; the
+previously verified installed C3 app SHA-256 remains
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+
 ## GS-114 P3 readiness recheck — 2026-10-14 08:59 UTC
 
 The operator is available for the single controlled P3 movement episode, but

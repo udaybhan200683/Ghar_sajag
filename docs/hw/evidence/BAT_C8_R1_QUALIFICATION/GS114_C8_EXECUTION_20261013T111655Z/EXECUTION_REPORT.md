@@ -1,5 +1,30 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 S3 USB/IP observation failure diagnosed
+
+Read-only Windows event evidence now explains the missing S3 UART output after
+the prior P3 readiness check. At `08:37:43Z`, `usbipd-win` recorded a socket
+abort (10053) and release of the exact CH343 S3 serial device
+`1a86:55d3` / `5CBC401023` on BUSID `3-1`. This occurred after the last
+authenticated session-16 NodeHealth/schema-3 trace at `08:35:48Z` and before
+the next 300-second heartbeat was due. Windows now reports the S3 as `Shared`,
+while WSL retains a stale by-id tty and capture PID 324978 still holds its old
+fd. A single attempted `FIXTURE_STATUS` through that fd blocked during open
+and **sent no bytes**. The absence of the later heartbeat or `online=0` UART
+line cannot be used to diagnose C3 or Hub firmware liveness. Source review
+found the expected 1000 ms Hub liveness check and 910-second authenticated
+contact lease; no firmware defect has been demonstrated.
+
+See [the dated S3 transport diagnosis](run04_20261014/S3_USBIP_CAPTURE_DIAGNOSIS_20261014.md)
+and preserved first-failure snapshot. The exact cause of the host USB/IP socket
+abort remains unknown. No reset, flash, erase, recommission or new physical
+test occurred. A bounded S3-only serial reattachment requires operator
+authorization because reopening the serial path may reset the Hub. C3's current
+Windows USB descriptor error is separate from its unverified ESP-NOW state;
+do not attach that unknown device. P3 remains BLOCKED / NOT RUN, P8 physical
+NOT_RUN, and P9 ACK/FOTA BLOCKED. Reuse the prior RPF07/P1/P2/controlled
+P4/P5/P6/P7 physical PASS evidence.
+
 ## 2026-10-14 P3 readiness recheck — movement deferred because liveness is stale
 
 The operator is available for one controlled AM312 movement episode. The
