@@ -1,5 +1,25 @@
 # GS-114 S3 capture and liveness diagnosis — 2026-10-14
 
+## Recovery addendum — 09:48–09:56 UTC
+
+The operator reattached **only** the identified S3 CH343 COM9 to WSL. At
+`09:48:53.644Z` the original capture PID 324978 logged reader detach from its
+stale tty and at `09:48:53.721Z` it reopened the stable by-id path, now
+`/dev/ttyACM1`. `fuser` confirmed it as the sole owner. The blocked status
+writer had exited; no forced kill, second reader, S3 reset or C3 USB operation
+was needed. Fresh Hub UART bytes followed at `09:49:04Z`.
+
+The recovered stream showed authenticated C3 session 16 / health sequence 19
+at `09:49:06Z` (up from sequence 4 before the gap), advancing C3 uptime and
+sleep/wake counters, decoded schema-3 trace and OPEN replay admission. Hub
+device timestamps also advanced continuously, with no boot banner. This
+confirms the application pair remained operational during the S3 USB/IP
+observation gap; the missing UART liveness transition was not a firmware
+failure. A separate controlled P3 physical run then passed; see
+[P3 evidence](C8_P3_CONTROLLED_20261014.md). The original socket-abort cause
+remains unknown. P8 is next and requires a source-matched S3 ACK-drop image;
+no flash or reset has been performed.
+
 ## Scope and preserved evidence
 
 `BUG_CLASSIFICATION=TEST_INFRA_ONLY` for the demonstrated serial observation

@@ -1,5 +1,45 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 controlled P3 physical retest — measured held HIGH PASS
+
+The operator reattached only the identified S3 CH343 to WSL. The existing
+exclusive capture PID 324978 recovered on `/dev/ttyACM1` without a competing
+reader or observed Hub reset; the previously blocked status writer had exited.
+The returning stream showed continuous Hub uptime, authenticated C3 session 16
+and health sequence 19 at `09:49:06Z`, decoded schema-3 trace and `RPF00`
+admission OPEN. Thus the earlier missing 300-second reports were a USB/IP
+observation gap, not evidence of a C3 or Hub application stoppage. C3 Windows
+USB remains descriptor-error `0000:0002` and was not accessed.
+
+One controlled real AM312 movement was prompted at `09:50:56.473Z`; the
+operator replied DONE at `09:51:50.807Z`. The authenticated C3 trace measured
+**one continuous GPIO4 HIGH episode of 28,518 ms** (total/highest duration
+delta), **1,425** additional sleep decisions inhibited by HIGH, and **zero**
+sleep entries with GPIO4 HIGH. Exactly one PIR event was qualified, EventKey
+`p15:c3-146393c5d158n8:gs114-c8s16q2`. The Hub recorded one new durable
+effect (`records=31`, exact outbox key found, admission OPEN); the same-key
+repeat had `state_changed=0` and unchanged record count. Both authenticated
+Durable ACK sends returned `ESP_OK`; Node health advanced durable ACK count by
+one and retained count stayed zero. At `09:56:40Z`, a fresh authenticated
+schema-3 trace showed GPIO4 LOW, **11** further sleep entries and **11** timer
+wakes after the previous sample, last wake TIMER, radio restore OK and owner
+resumed. No additional PIR event, GPIO wake, reset or stall was observed.
+
+**C8-P3 physical behavior PASS** under the test-only authenticated trace.
+See [controlled case evidence](run04_20261014/C8_P3_CONTROLLED_20261014.md),
+[focused S3 excerpt](run04_20261014/p3_run01_s3_excerpt.log) and the preserved
+untracked full raw capture. The C3 app SHA-256 is verified as
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+The exact running S3 app hash remains unverified; candidate build SHA-256
+`ca178fe30cc620d3fe0cb5817da9d8a98b07b70cb5f7c443045c85180dd46379`
+is not presented as installed-image proof. This provenance limit remains open
+for release reconciliation. Prior P3 unsuccessful/unstimulated windows remain
+separate evidence. RPF07/P1/P2/controlled P4/P5/P6/P7 PASS cases are reused.
+P8 physical ACK-loss is next; the currently paired S3 build has the ACK-drop
+fixture OFF and the older ON build is source-mismatched, so no P8 flash/test
+has been attempted. P9 ACK/FOTA remain fixture-blocked and P10 is GS-149.
+GS-114 remains In Progress.
+
 ## 2026-10-14 S3 USB/IP observation failure diagnosed
 
 Read-only Windows event evidence now explains the missing S3 UART output after

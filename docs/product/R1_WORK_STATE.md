@@ -1,5 +1,50 @@
 # R1 Current Work State
 
+## GS-114 controlled C8-P3 physical PASS — 2026-10-14 09:57 UTC
+
+After the operator reattached the exact S3 CH343 `1a86:55d3` /
+`5CBC401023`, the existing exclusive capture PID 324978 recovered on the new
+WSL `/dev/ttyACM1`. No second reader, board reset or C3 USB operation was
+needed. The post-gap stream at `09:49:04–09:49:06Z` showed OPEN RPF admission,
+authenticated C3 session 16, health sequence 19 and schema-3 GPIO/sleep trace.
+Hub uptime and C3 uptime/health progression through the gap show both target
+applications continued operating. The earlier absent heartbeat and Hub
+offline UART line were caused by the S3 USB/IP observation loss.
+
+One operator-controlled real AM312 movement window was prompted at
+`09:50:56.473Z`, DONE at `09:51:50.807Z`. The authenticated trace measured one
+continuous GPIO4 HIGH episode of **28,518 ms**, 1,425 additional HIGH sleep
+inhibitions, no sleep entry with GPIO4 HIGH, one additional GPIO wake and one
+qualified PIR event. Hub EventKey
+`p15:c3-146393c5d158n8:gs114-c8s16q2` produced one durable logical effect;
+same-key retry produced none. Authenticated Durable ACK was sent, C3 durable
+ACK count increased once and retained events stayed zero. The
+`09:56:40.800–09:56:40.855Z` health/trace showed GPIO4 LOW, 11 additional
+sleep entries and timer wakes, last wake TIMER, radio restore OK and owner
+resumed. **C8-P3 physical behavior PASS.** Historical P3 windows remain
+separate. See [case evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_P3_CONTROLLED_20261014.md).
+
+The C3 installed app SHA-256 remains verified as
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+Exact *running* S3 app hash remains unverified; its source-matched candidate
+hash must not be labeled as installed. This is a release-provenance gap. The
+only active capture is S3 PID 324978 on the stable CH343 by-id path, currently
+`/dev/ttyACM1`; its raw log remains untracked/preserved. The C3 USB descriptor
+error is irrelevant to the observed authenticated ESP-NOW liveness and was
+not probed. No image, commissioning, power or security state changed.
+
+RPF07/P1/P2/controlled P4/P5/P6/P7 physical PASS evidence remains reused.
+P8 physical lost-ACK is next: current S3 diagnostic build has
+`GS_HIL_C8_ACK_DROP=OFF`; the existing older ON image is not source-matched.
+Prepare a new exact image before requesting installation authorization. The
+operator's earlier Python 3 restriction is being clarified before any
+ESP-IDF rebuild. P9 ACK/FOTA remain independently BLOCKED on their fixtures;
+P10 is GS-149. GS-114 stays In Progress. Current source branch
+`feature/r1-commercial-baseline`; source at P3 test was
+`d18ed3e52d61a4f0f33f563eceb84f1d2f2294fb` (local/remote matched at
+start); context preflight PASS `2026-10-13.001`. Existing untracked files and
+raw evidence remain preserved.
+
 ## GS-114 S3 USB/IP capture root-cause checkpoint — 2026-10-14 09:40 UTC
 
 The apparent loss of C3 NodeHealth after `08:35:48Z` is an **observation
