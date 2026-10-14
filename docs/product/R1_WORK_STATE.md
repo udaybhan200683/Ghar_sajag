@@ -2574,7 +2574,12 @@ worker APIs; a `GS148_OLD_READER` guard fixed it and the focused compatibility
 retest passed 11 states for two readers. The new stage's initial matcher also
 missed its `unittest`-prefixed PASS line; the registry matcher was corrected and
 both affected gates then counted the stage as PASS. Hub storage ASan/UBSan
-passed.
+passed. An initial framework check also caught guessed migration input
+filenames; the stage was corrected to reference existing repository migrations
+before the passing contract/backend runs. Only the traceability result field and
+Markdown evidence changed after those component reports; their original source
+fingerprints remain recorded in the handoff, and framework, feature-mapping and
+worker/API checks were rerun on the final metadata tree.
 
 `validation-hub` aggregate remains FAIL: its first resumed run also reproduced
 the known `clean migration commits` assertion and P0 `product_status=PARTIAL`.
