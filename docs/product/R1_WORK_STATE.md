@@ -1707,3 +1707,31 @@ current/P10 measurements were not made. No CloudSync or C9–C11 implementation
 was started. At resume, recheck by-id ports/identity/power/wiring and capture
 with a live control channel; reuse installed images, wait for authenticated
 timer-wake health and then prompt for real P2 motion. Do not erase first.
+
+## GS-114 C8 physical execution update — 2026-10-14 01:52 UTC
+
+The run03 campaign continued on the existing commissioned boards and diagnostic
+images without erase, reflash or recommission. Canonical branch
+`feature/r1-commercial-baseline` is at `9674075f1911dbad076fdcdb1c541a283dfbb748`,
+matching `origin`; tracked worktree changes are absent. Existing unrelated
+untracked PWA/build/evidence directories are preserved. The new run03 evidence
+is also currently untracked pending the scoped evidence commit. Context preflight
+PASS `2026-10-13.001` was verified at resume.
+
+Physical dispositions: Phase A/RPF07 repair PASS; P1 PASS; P2 PASS; P3 BLOCKED
+because no GPIO4 level trace proves held-HIGH sleep inhibition; P4 FAIL because
+three distinct qualified EventKeys followed one requested motion episode; P5
+BLOCKED/inconclusive because first outage-recovery key traffic fell in the S3
+capture gap and another distinct durable event appeared; P6 PASS because the
+Hub-only restart led to authenticated session 3, RPF00 admission OPEN, and no
+Node reset/pending event. Detailed timestamped records are in the
+[GS-114 execution report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+and run03 per-case notes. No source/image change is justified by the observed
+P4/P5 anomalies; exact GPIO/event causation remains unproven.
+
+The one-owner S3 capture remains active at the stable by-id path. The Node's
+native USB console is silent during light sleep; authenticated NodeHealth over
+ESP-NOW is the deferred wake/sleep observer. P7 is ready for a physical
+post-reboot event but the operator instructed that motion prompts wait until
+they send `available`. Do not reset/reflash/recommission. P8 and P9 fixture
+inspection follows P7. GS-114 stays In Progress; P10 is separate under GS-149.

@@ -1,0 +1,114 @@
+{
+  "run_id": "GS114-C8-run03-20261014",
+  "started_utc": "2026-10-14T00:42:16.123Z",
+  "last_recorded_utc": "2026-10-14T01:53:46.306734733Z",
+  "source_checkpoint": "9674075f1911dbad076fdcdb1c541a283dfbb748",
+  "source_branch": "feature/r1-commercial-baseline",
+  "firmware_build_source": "72a223fc3b290c01c9f93fbb90db83d87601ad54",
+  "idf": "ESP-IDF 6.0.3",
+  "installed_images": {
+    "c3_application_sha256": "1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814",
+    "s3_application_sha256": "84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7",
+    "manifest": "../diagnostic_manifest.json",
+    "flash_verification": [
+      "../diagnostic_run02_c3_verify.log",
+      "../diagnostic_run02_s3_verify.log"
+    ],
+    "installation_during_run03": false
+  },
+  "boards": {
+    "node": {
+      "chip": "ESP32-C3",
+      "mac": "14:63:93:c5:d1:58",
+      "flash_bytes": 4194304,
+      "stable_usb_path": "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+      "power": "USB only",
+      "profile": "physical GPIO4 wake; embedded in S3 fixture bundle; see diagnostic_manifest.json"
+    },
+    "hub": {
+      "chip": "ESP32-S3",
+      "mac": "7c:4f:ad:b7:2a:20",
+      "flash_bytes": 16777216,
+      "psram_bytes": 8388608,
+      "stable_usb_path": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+      "power": "USB only",
+      "profile": {
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_HIL_COMMISSIONING": "ON",
+        "flash_mode": "DIO",
+        "flash_frequency": "40 MHz",
+        "commissioning": true,
+        "partitions": {
+          "ota_0": {"offset": "0x20000", "size_bytes": 4194304},
+          "ota_1": {"offset": "0x420000", "size_bytes": 4194304},
+          "gs_outbox": {"offset": "0x820000", "size_bytes": 4194304},
+          "gs_state": {"offset": "0xc20000", "size_bytes": 262144}
+        }
+      }
+    }
+  },
+  "sensor": {
+    "type": "AM312 PIR",
+    "vcc": "3.3 V",
+    "ground": "C3 GND",
+    "output": "C3 GPIO4",
+    "power_changes_during_run": false
+  },
+  "capture": {
+    "hub_reader_count": 1,
+    "hub_reader_path": "s3_uart_timestamped.log",
+    "hub_stable_path": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00",
+    "node_native_usb_console": "silent during light sleep; authenticated post-wake NodeHealth over ESP-NOW used as deferred runtime observer",
+    "node_console_probe": {
+      "attempted": true,
+      "attempt_count": 1,
+      "utc": "2026-10-14T01:00:40Z",
+      "result": "no bytes returned; port closed; no reset observed in Hub-side authenticated traffic"
+    },
+    "hub_reader_owner_pid_at_checkpoint": 283926,
+    "hub_current_tty": "/dev/ttyACM0",
+    "additional_active_reader_at_checkpoint": false
+  },
+  "case_dispositions_at_checkpoint": {
+    "RPF07_physical_retest": "PASS",
+    "P1": "PASS",
+    "P2": "PASS",
+    "P3": "BLOCKED",
+    "P4": "FAIL",
+    "P5": "BLOCKED_INCONCLUSIVE",
+    "P6": "PASS",
+    "P7": "READY_NOT_RUN_AWAITING_OPERATOR_AVAILABLE",
+    "P8": "BLOCKED_NOT_YET_REVIEWED_AFTER_P7",
+    "P9_ACK": "BLOCKED_NOT_YET_REVIEWED_AFTER_P7",
+    "P9_FOTA": "BLOCKED_NOT_YET_REVIEWED_AFTER_P7"
+  },
+  "p7_pre_stimulus_node_health": {
+    "utc": "2026-10-14T01:53:46.306734733Z",
+    "session": 3,
+    "health_seq": 103,
+    "reset_reason": 11,
+    "retained": 0,
+    "durable_ack": 14,
+    "pir_ok": 19,
+    "gpio_wakes": 19,
+    "sleep_entries": 1092,
+    "timer_wakes": 1073,
+    "last_wake": "TIMER"
+  },
+  "known_capture_gaps": [
+    "P5 Hub-unavailable window and initial event/recovery-key lines were not captured; see C8_P5.md.",
+    "P6 Hub boot banner was missed because the single S3 serial reader attached after USB enumeration; authenticated rejoin and fresh-session evidence were captured.",
+    "Native C3 USB Serial/JTAG emits no useful output while the Node is in light sleep on this fixture; do not infer firmware inactivity from its silence."
+  ],
+  "evidence_files": [
+    "s3_uart_timestamped.log",
+    "C8_P1.md",
+    "C8_P2.md",
+    "C8_P3.md",
+    "C8_P4.md",
+    "C8_P5.md",
+    "C8_P6.md",
+    "C8_P7.md"
+  ]
+}

@@ -1,0 +1,34 @@
+GS-114 C3 read-only serial observer result
+
+UTC date: 2026-10-14
+Stable path: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00
+Resolved path: /dev/ttyACM1
+USB serial: 14:63:93:C5:D1:58
+USB VID:PID: 303a:1001
+Target chip/MAC: ESP32-C3 / 14:63:93:c5:d1:58
+
+Port owner check immediately before open: no process owned the path.
+Open interval: approximately 2026-10-14 01:00:40–01:05:33 UTC.
+Configuration: 115200 baud, raw, no echo, -HUPCL; no DTR/RTS control-line request.
+Command sent once: GET_STATE followed by CRLF (read-only).
+Observed: no C3 bytes and no command response in the interval. The Hub continued
+receiving authenticated Node events in session 1, so the Node remained operational
+over ESP-NOW during the observer interval. No reset was indicated by this evidence.
+Close: reader process terminated at approximately 01:05:33 UTC; subsequent fuser
+check showed the stable path unowned. No port re-open or reset was attempted.
+
+Interpretation: this is insufficient live C3 UART evidence. The current physical
+image's authenticated NodeHealth telemetry remains the trusted post-wake observer,
+but its configured production cadence is long and does not sample a short PIR HIGH
+episode. Do not infer GPIO level or sleep inhibition from silence on this USB path.
+
+Configuration/root-cause check: the maintained C3 HIL sdkconfig defaults select
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y (code/firmware/node/target/esp32c3/idf/
+sdkconfig.hil.defaults). Espressif's ESP-IDF ESP32-C3 USB Serial/JTAG guide documents
+that APB and USB PHY clocks are gated during light sleep, making the controller
+unresponsive to host CDC transactions, and notes that after light sleep the host may
+not re-enumerate the device. This matches the observed sleep-time open failure and
+stale host-side endpoint. Do not enable USB-connected sleep inhibition for this
+qualification: it would prevent the target sleep behavior under test and change its
+power profile. Preserve light sleep and use authenticated NodeHealth as the
+post-wake observer. Reference: https://docs.espressif.com/projects/esp-idf/en/v5.2.1/esp32c3/api-guides/usb-serial-jtag-console.html

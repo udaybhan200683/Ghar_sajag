@@ -1,5 +1,13 @@
 # GS-114 C8 physical execution
 
+## Latest run03 checkpoint — 2026-10-14 01:52 UTC (campaign active)
+
+The installed diagnostic firmware remains unchanged on the verified C3/S3 pair. The consolidated results now include actual P1/P2 PASS, P3 held-HIGH BLOCKED, P4 FAIL due three distinct qualified event keys during one requested motion episode, P5 BLOCKED/inconclusive because the S3 capture missed the first outage-recovery key, and P6 PASS for Hub-only reboot recovery. P6 established authenticated session 3 and healthy RPF00 admission without a C3 reset; the S3 boot banner was missed because capture attached after USB enumeration. Case records: [P1](run03_20261014/C8_P1.md), [P2](run03_20261014/C8_P2.md), [P3](run03_20261014/C8_P3.md), [P4](run03_20261014/C8_P4.md), [P5](run03_20261014/C8_P5.md), [P6](run03_20261014/C8_P6.md). The live single-reader S3 capture is `run03_20261014/s3_uart_timestamped.log`.
+
+P7 requires one real PIR event under the post-reboot session. Per the operator's instruction, do not request motion until the operator sends **available**. Do not reset/reflash/recommission; keep S3 capture running. P8/P9 fixture review follows P7. GS-114 remains In Progress; P10 remains separate under GS-149. No firmware defect has yet been demonstrated by the P4/P5 event anomalies, so no source change or new image was made.
+
+## Operator-requested pause handoff — 2026-10-13 16:56 UTC
+
 ## Operator-requested pause handoff — 2026-10-13 16:56 UTC
 
 The owner requested a pause before the session limit. Physical measurement stopped at the logical checkpoint **after the repaired first-retirement RPF07 physical retest succeeded and before any run-02 PIR stimulus**. The run-02 capture process was closed with SIGINT; its C3/S3 serial readers exited and both ttyACM ports were unowned. The credential-bearing raw capture remains in ignored `code/build/gs114_clean_install/session-diagnostic-20261013T1653Z/`; [C3](diagnostic_run02_c3_redacted.log) and [S3](diagnostic_run02_s3_redacted.log) redacted copies are retained here, 108 and 122 lines respectively. No unexpected reset was logged during the run-02 measurement interval. The S3's `POWERON` and C3's `USB_UART_CHIP_RESET` occurred at initial setup capture opening before measurement. Capture stopped before the first five-minute authenticated NodeHealth report; do not infer P1 from that interrupted interval.
@@ -156,20 +164,20 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 
 | Case | Disposition | Evidence / blocker |
 |---|---|---|
-| Phase A | PARTIAL; RPF07 physical repair PASS | Diagnostic pair clean installed/verified and freshly commissioned; first authenticated retirement report produced `RPF00 admission=OPEN` and ACK send; post-sleep C3 USB observer remains unreliable |
-| P1 | BLOCKED; physical partial evidence | C3 sleep entry and authenticated health proved 10/10 timer wakes, then 25 more; post-sleep C3 USB UART and Hub state snapshots unavailable |
-| P2 | BLOCKED; physical partial evidence | Operator real motion, one authenticated GPIO wake and exact PIR EventKey with Durable ACK observed; direct C3 retirement and one-effect ledger pending |
-| P3 | NOT_RUN | Operator pause before held-HIGH/LOW episode; continuous GPIO4 observation still unresolved |
-| P4 | NOT_RUN | Operator pause before run-02 end-to-end motion/retirement measurement |
-| P5 | NOT_RUN | Operator pause before Hub-only outage/return and real motion |
-| P6 | NOT_RUN | Operator pause before Hub-only reboot |
-| P7 | NOT_RUN | Requires P6 and first real post-reboot PIR motion |
+| Phase A | PASS for RPF07 repair / fresh authenticated fixture; C3 USB observer limitation remains | Repaired image install/verification and fresh commissioning; first authenticated retirement report produced `RPF00 admission=OPEN` and ACK send; continued physical event admission confirmed |
+| P1 | PASS | Ten timer sleep/wake cycles plus 25 more; authenticated post-wake health, no false PIR event or Node reset; see [P1](run03_20261014/C8_P1.md) |
+| P2 | PASS | Real AM312 motion, exact q1 EventKey, GPIO wake, one durable effect, authenticated Durable ACK and retained=0/durable_ack increment; see [P2](run03_20261014/C8_P2.md) |
+| P3 | BLOCKED | Sustained real movement produced multiple distinct qualified events and eventual LOW recovery; no trace proves GPIO4 remained HIGH or that sleep was inhibited while HIGH; see [P3](run03_20261014/C8_P3.md) |
+| P4 | FAIL | One requested physical episode followed by distinct q10, q11 and q12 accepted events, each durably ACKed; exact GPIO trace is unavailable; see [P4](run03_20261014/C8_P4.md) |
+| P5 | BLOCKED / inconclusive | Hub outage and return executed; Node stayed alive and one outage-period event was eventually retired by health counters, but exact initial EventKey/first Hub delivery fell in capture gap and q14 added another durable effect; see [P5](run03_20261014/C8_P5.md) |
+| P6 | PASS | Hub-only power interruption followed by authenticated session 3, RPF00 admission OPEN and stable Node reset/pending counters; boot banner missed at serial attach; see [P6](run03_20261014/C8_P6.md) |
+| P7 | NOT_RUN; ready | Post-reboot session 3 baseline at 01:53:46.306 UTC showed no new PIR/GPIO/ACK/pending work across 10 more timer wakes; waiting for operator `available` before real motion |
 | P8 | BLOCKED | Controlled postcommit ACK-loss fixture and authoritative per-key ledger unavailable/unproven |
 | P9 ACK | BLOCKED | Requires P8 link fixture and observed continuous receive during successful MAC/pending ACK |
 | P9 FOTA | BLOCKED | Current S3 broad HIL control OFF; matched signed C3 test/recovery images and supported trigger/recovery plan unproven |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action after the requested pause: reuse the installed [commissioning-profile diagnostic pair](diagnostic_manifest.json); verify hardware/ports and authenticated recovery, capture the first five-minute timer-wake health baseline, then prompt the operator for real P2 motion and continue feasible P3–P9. No GS-114 Done transition or C8 physical PASS.
+Next action: keep the S3 capture active and verify post-reboot readiness; wait for the operator's `available` signal before the P7 real PIR prompt. Then finish P7 correlation and inspect P8/P9 fixtures. Do not move GS-114 to Done while P3–P5/P7–P9 remain incomplete or blocked.
 
 ## Validation and precise operator checkpoint
 

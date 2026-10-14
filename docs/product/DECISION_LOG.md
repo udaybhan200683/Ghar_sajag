@@ -594,3 +594,15 @@ S3 fixture failure remains unlocalized without a separately authorized,
 state-preserving observation/deployment plan. This is an evidence update, not a
 new product/storage decision; context version remains `2026-10-11.001`. See
 [`GS-148 diagnostic evidence`](../exec-plans/evidence/R1_GS148_REPLAY_FENCE_DIAGNOSTIC_20261012.md).
+
+## GS-114 C8 physical evidence update — 2026-10-14 (no new product decision)
+
+The active run03 campaign physically passed P1 timer sleep/wake, P2 real AM312
+wake and durable retirement, and P6 Hub-only reboot recovery after the RPF07
+repair retest. P3 remains blocked on direct GPIO4 held-HIGH observability; P4
+failed its single-stimulus criterion after three distinct qualified event keys;
+P5 remains inconclusive because the first outage-recovery event was not captured
+by the S3 reader. No source behavior was changed and no product/security
+semantics are altered by this status update. The detailed case evidence and
+limitations are in the [GS-114 execution report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
+Context version remains `2026-10-13.001`; GS-114 remains In Progress.
