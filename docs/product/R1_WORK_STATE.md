@@ -46,6 +46,14 @@ backend flags, human OIDC and external provider delivery remain genuine gaps.
 The implementation/closeout commit and verified remote are recorded in the
 latest Jira delivery comments and the Git checkpoint below.
 
+Git checkpoint: implementation/tests/evidence commit
+`df31bbda9e34bbd8640e232ab37ee1fe317f71d3` was pushed to the canonical branch;
+`git ls-remote origin refs/heads/feature/r1-commercial-baseline` matched local
+HEAD. Tracked files were clean after that push; pre-existing untracked assets
+and raw hardware evidence remained. The following documentation-only closeout
+records this verification; its exact final HEAD is in GS-130/GS-116 delivery
+comments. Resume from actual canonical HEAD, not an older prompt checkpoint.
+
 **Next separate task:** GS-148 P4/P5-B1 CloudSync under comments 10810/10933.
 Read its active lifecycle handoff, existing caller/worker, strict receipt parser
 and backend trusted ownership before implementation. Preserve exact key/time,
