@@ -1,5 +1,18 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 10:08 UTC repeat S3 USB/IP observation loss
+
+After P3, the S3 capture received authenticated session-16 health sequence 25
+at `10:06:33Z`, then stopped. Windows `usbipd-win` logged release of the exact
+S3 CH343 at `10:07:57Z` and socket abort 10053 at `10:07:58Z`; Windows now
+reports it **Shared** rather than Attached. WSL's by-id `/dev/ttyACM1` and
+capture PID 324978 remain visible but are stale observer evidence. This is a
+second host USB/IP transport interruption, not proof of Node/Hub firmware
+failure. No new attach, reset, port writer or physical test was attempted.
+See [repeat failure evidence](run04_20261014/S3_USBIP_CAPTURE_DIAGNOSIS_20261014.md).
+P3's completed controlled evidence remains valid; P8 must await a verified
+source-matched image and working S3 observer.
+
 ## 2026-10-14 controlled P3 physical retest — measured held HIGH PASS
 
 The operator reattached only the identified S3 CH343 to WSL. The existing

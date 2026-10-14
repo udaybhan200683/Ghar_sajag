@@ -1,5 +1,22 @@
 # R1 Current Work State
 
+## GS-114 observer checkpoint — 2026-10-14 10:08 UTC
+
+The S3 USB/IP observer failed again after the controlled P3 PASS. Last fresh
+authenticated C3 session-16 health/schema-3 trace was sequence 25 at
+`10:06:33Z`, showing GPIO4 LOW, retained zero and timer wake. Windows
+`usbipd-win` recorded release of the exact S3 CH343 COM9 at `10:07:57Z`
+and socket abort 10053 at `10:07:58Z`, alongside WSL virtual-switch NIC
+reinitialization. At `10:13:13Z`, Windows listed S3 BUSID `3-1` as Shared;
+C3 remained an unknown descriptor-error USB device. WSL's S3 by-id tty and
+capture PID 324978 were stale. The cause of the host socket abort remains
+unproven; no post-release Node/Hub application liveness inference is made.
+No board, serial or USB recovery operation was attempted. Preserve the sole
+capture and commissioned state. A working, operator-approved S3 observer is
+required before physical P8; the existing Python 3 build clarification also
+remains open. No additional PIR motion is needed now. See [transport
+evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/S3_USBIP_CAPTURE_DIAGNOSIS_20261014.md).
+
 ## GS-114 controlled C8-P3 physical PASS — 2026-10-14 09:57 UTC
 
 After the operator reattached the exact S3 CH343 `1a86:55d3` /

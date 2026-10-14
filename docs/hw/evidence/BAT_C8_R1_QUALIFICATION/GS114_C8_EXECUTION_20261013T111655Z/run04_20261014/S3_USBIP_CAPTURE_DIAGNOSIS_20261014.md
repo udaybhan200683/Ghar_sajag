@@ -1,5 +1,40 @@
 # GS-114 S3 capture and liveness diagnosis — 2026-10-14
 
+## Repeat transport loss after P3 — 10:07:57 UTC
+
+The operator-restored S3 capture continued through authenticated C3 session-16
+NodeHealth sequence 25 at `10:06:33.177–10:06:33.230Z`: GPIO4 LOW, retained
+zero, timer wake, radio restoration OK and owner resumed. The next 300-second
+heartbeat was due about `10:11:33Z` but the raw capture stopped at 10:06:33.
+At `10:13:13Z`, a fresh read-only Windows `usbipd list` showed the exact S3
+CH343 `1a86:55d3` COM9 BUSID `3-1` as **Shared**, not Attached; the C3 was
+still `0000:0002` descriptor error. WSL still exposed the stale S3 by-id link
+to `/dev/ttyACM1`, and the original capture PID 324978 was its sole apparent
+owner, blocked in its timed poll. Thus Linux tty existence and PID presence did
+not establish a working observer.
+
+Windows `usbipd-win` Application events show the same transport failure as
+before: client `172.17.152.10` released the exact S3
+`USB\\VID_1A86&PID_55D3\\5CBC401023` at **10:07:57 UTC** (Windows
+15:37:57), followed by socket-abort error **10053** at 10:07:58 UTC. System
+events at 10:07:54–10:07:57 UTC also show WSL virtual-switch NIC
+disconnect/reinitialization and a failed NIC connection. This directly
+explains the second missing S3 UART interval; the initiating cause of the
+host network/socket abort remains unproven. The [saved Windows event and USB
+status excerpt](s3_usbip_release_20261014T100758Z.log) preserves the original
+host evidence. No Node or Hub application failure follows from missing UART
+bytes after the USB/IP release.
+
+No serial command, new reader, USB attach, reset, flash, power change,
+recommission or PIR action was performed in this diagnosis. Leave the existing
+capture and commissioned devices intact. **Do not run a P8 physical test while
+the observer is detached.** Before P8, prepare the source-matched S3 image
+offline and choose an operator-approved stable S3 observation/installation
+operation; a Windows-native COM9 capture may avoid the recurring USB/IP path,
+but opening it can affect the Hub and requires a specific safety check and
+authorization. Do not attach the unknown C3 USB device. Revalidate live
+authenticated NodeHealth and OPEN admission after observer recovery.
+
 ## Recovery addendum — 09:48–09:56 UTC
 
 The operator reattached **only** the identified S3 CH343 COM9 to WSL. At

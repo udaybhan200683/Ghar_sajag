@@ -1,0 +1,97 @@
+
+
+TimeCreated  : 10/14/2026 3:37:58 PM
+Id           : 3
+ProviderName : usbipd-win
+Message      : Category: Usbipd.ConnectedClient
+               EventId: 3
+
+               An exception occurred while communicating with the client:
+
+               Exception:
+               System.IO.IOException: Unable to read data from the transport connection: An established connection was
+               aborted by the software in your host machine..
+                ---> System.Net.Sockets.SocketException (10053): An established connection was aborted by the software
+               in your host machine.
+                  --- End of inner exception stack trace ---
+                  at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError,
+               CancellationToken) + 0x4b
+                  at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskS
+               ource<System.Int32>.GetResult(Int16) + 0xbf
+                  at System.IO.Stream.<ReadAtLeastAsyncCore>d__46.MoveNext() + 0x82
+               --- End of stack trace from previous location ---
+                  at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Thre
+               ading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16) + 0x46
+                  at Usbipd.Tools.<ReadMessageAsync>d__0.MoveNext() + 0xb8
+               --- End of stack trace from previous location ---
+                  at Usbipd.Interop.UsbIp.<ReadUsbIpHeaderAsync>d__17.MoveNext() + 0x123
+               --- End of stack trace from previous location ---
+                  at Usbipd.AttachedClient.<RunAsync>d__12.MoveNext() + 0x293
+               --- End of stack trace from previous location ---
+                  at Usbipd.ConnectedClient.<HandleRequestImportAsync>d__8.MoveNext() + 0x1647
+               --- End of stack trace from previous location ---
+                  at Usbipd.ConnectedClient.<HandleRequestImportAsync>d__8.MoveNext() + 0x19af
+               --- End of stack trace from previous location ---
+                  at Usbipd.ConnectedClient.<HandleRequestImportAsync>d__8.MoveNext() + 0x1ae9
+               --- End of stack trace from previous location ---
+                  at Usbipd.ConnectedClient.<RunAsync>d__5.MoveNext() + 0x32f
+
+
+TimeCreated  : 10/14/2026 3:37:57 PM
+Id           : 2
+ProviderName : usbipd-win
+Message      : Category: Usbipd.ConnectedClient
+               EventId: 2
+
+               Client 172.17.152.10 released device at 3-1 (USB\VID_1A86&PID_55D3\5CBC401023).
+
+
+
+
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+3-1    1a86:55d3  USB-Enhanced-SERIAL CH343 (COM9)                              Shared
+3-3    0000:0002  Unknown USB Device (Device Descriptor Request Failed)         Shared (forced)
+4-3    0bda:0129  USB2.0-CRW                                                    Not shared
+4-5    0bda:58bf  Integrated Webcam                                             Not shared
+5-5    0a5c:21d7  BCM43142A0                                                    Not shared
+
+Persisted:
+GUID                                  DEVICE
+0255cc3b-c004-4104-98a9-dff1803950e9  Silicon Labs CP210x USB to UART Bridge (COM3)
+3330878f-8df0-4d6b-91c8-96391ab34594  Unknown USB Device (Device Descriptor Request Failed)
+3e7e373f-f274-4dd3-9689-b86cd5660613  USB Serial Device (COM4), USB JTAG/serial debug unit
+5fb9d470-628f-488e-94d6-e266e68e567f  USB Serial Device (COM5), USB JTAG/serial debug unit
+e3337eeb-f5a0-407f-949f-1bfc5410ec8b  USB-Enhanced-SERIAL CH343 (COM8)
+
+
+
+TimeCreated  : 10/14/2026 3:37:57 PM
+Id           : 32
+ProviderName : Microsoft-Windows-Hyper-V-VmSwitch
+Message      : Failed to connect NIC 133F2C23-3579-4B6D-A9D5-5167091A9153--1E884D53-A503-5AC9-85B0-968CBC2CFF1C
+               (Friendly Name: ) to port 6B20F888-7992-4862-BF19-F7A14F9CDFDD (Friendly Name: ) on switch
+               4D0C0A4C-D0B1-440B-A1FB-11A822207185 (Friendly Name: ), status = Object Name not found.. UniqueEvent =
+               80.
+
+TimeCreated  : 10/14/2026 3:37:54 PM
+Id           : 232
+ProviderName : Microsoft-Windows-Hyper-V-VmSwitch
+Message      : NIC D5B0B170-5C24-45D0-A92A-D49869A4FB8C (Friendly Name: WSL) successfully connected to port
+               3ABD2343-08C3-4DFE-9C9B-498B641A6927 (Friendly Name: Container NIC fb4919c8) on switch
+               4D0C0A4C-D0B1-440B-A1FB-11A822207185(Friendly Name: WSL).
+
+TimeCreated  : 10/14/2026 3:37:54 PM
+Id           : 5
+ProviderName : Microsoft-Windows-Hyper-V-VmSwitch
+Message      : Miniport NIC D5B0B170-5C24-45D0-A92A-D49869A4FB8C (Friendly Name: ) successfully enabled
+
+TimeCreated  : 10/14/2026 3:37:54 PM
+Id           : 7
+ProviderName : Microsoft-Windows-Hyper-V-VmSwitch
+Message      : Miniport NIC D5B0B170-5C24-45D0-A92A-D49869A4FB8C (Friendly Name: WSL) successfully initialized.
+
+TimeCreated  : 10/14/2026 3:37:54 PM
+Id           : 234
+ProviderName : Microsoft-Windows-Hyper-V-VmSwitch
+Message      : NIC D5B0B170-5C24-45D0-A92A-D49869A4FB8C successfully disconnected from port .
