@@ -1,5 +1,46 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 diagnostic installation checkpoint — C3 image verified; physical P3 pending
+
+The committed c69960f observer build was verified against its manifest and the
+C3 app-only update completed without erasing commissioning or durable state.
+The C3 image SHA-256 is
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; the
+actual C3 MAC/revision/flash were `14:63:93:c5:d1:58`, ESP32-C3 v0.4, 4 MiB.
+The active `ota_0` slot at `0x20000` was verified, the write hash matched,
+and a later partition/otadata read again selected `ota_0`. The C3 then sent
+authenticated NodeHealth schema 3 and a physical GPIO/sleep trace through the
+Hub. The Hub's S3 runtime decoded the trace and answered `FIXTURE_STATUS`.
+The candidate S3 image hash is
+`ca178fe30cc620d3fe0cb5817da9d8a98b07b70cb5f7c443045c85180dd46379`; its
+exact active flash hash was not read back, so it is not asserted as the exact
+running S3 SHA.
+
+The latest authenticated trace (session 15, health_seq 1 at 06:37:24.506Z)
+reported one sampled GPIO4 HIGH episode with 6,793 ms max duration, 339
+sleep-inhibition samples, zero sleep entries while HIGH, GPIO wake, successful
+radio restoration and owner resume. This proves the deferred trace is received
+and decoded. The associated setup events were unsolicited and have no
+controlled stimulus timestamp, so they are not counted as a P3 result. The Hub
+later reported Node liveness offline at 06:52:38.225Z. `FIXTURE_STATUS` at
+06:58:28.214Z returned `state=idle`. A later sustained-motion action was
+requested, but no completion confirmation or new authenticated Hub line was
+received; P3 therefore remains BLOCKED and no reset/reflash/recommission was
+performed. Full provenance and limits are in
+[the run04 installation/trace note](run04_20261014/C8_C3_DIAGNOSTIC_INSTALL_AND_TRACE.md).
+
+**Current matrix:** RPF07 PASS (reused); P1 PASS (reused); P2 PASS (reused);
+P3 BLOCKED; P4 PASS (controlled retest reused, earlier q10–q12 issue retained);
+P5 PASS (controlled outage retest reused, retry observability limitation
+retained); P6 PASS (reused); P7 PASS (reused); P8 physical NOT_RUN; P9 ACK and
+signed-FOTA BLOCKED; P10 is separate under GS-149. GS-114 remains In Progress.
+
+P8's c699 S3 image profile has ACK-drop disabled. The older ACK-drop image
+recorded in run03 is from a different source checkpoint and cannot be installed
+as the source-matched pair without a current-source build. P9 still lacks the
+long ACK-hold observation fixture and a qualified signed test/recovery image,
+authenticated trigger and recovery plan.
+
 ## Latest run03 checkpoint — 2026-10-14 03:58 UTC
 
 The controlled P7 first-event-after-reboot case now **PASSes**. Hub-only

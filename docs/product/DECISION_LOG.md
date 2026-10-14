@@ -643,3 +643,21 @@ confirmation for image installation. The installed diagnostic pair and active
 P7 capture are unchanged. This is a qualification/evidence update with no new
 product/security decision or context-version change. See the linked run03
 P8/P9 evidence and current `R1_WORK_STATE.md` checkpoint.
+
+## GS-114 observer image installation and run04 status — 2026-10-14 (evidence; no new product decision)
+
+The source-matched c699 C3 diagnostic application was installed app-only to
+verified active `ota_0` at `0x20000`; the write hash verified and read-only
+partition/otadata inspection confirmed the selected slot. Authenticated
+NodeHealth schema 3 and the physical GPIO/sleep trace were subsequently
+received and decoded by the Hub. The trace records one 6.793-second GPIO4 HIGH
+episode, GPIO-high sleep inhibition, no sleep entry while HIGH, GPIO wake,
+successful radio restoration and owner resume. These setup events were not
+associated with a controlled operator stimulus and do not change P3 status.
+The Hub later recorded Node session 15 offline; a controlled P3 stimulus is
+still needed after the Node returns to a verified authenticated test state.
+P8 remains physically NOT_RUN: the c699 S3 profile has `GS_HIL_C8_ACK_DROP=OFF`
+and the available ACK-drop binary is from an earlier source checkpoint. P9
+ACK/FOTA prerequisites remain blocked. No security, product, protocol,
+storage or sleep-policy decision changed; context version remains
+`2026-10-13.001`. See the [run04 evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_C3_DIAGNOSTIC_INSTALL_AND_TRACE.md).

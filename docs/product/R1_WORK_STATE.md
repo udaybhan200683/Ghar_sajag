@@ -1,5 +1,57 @@
 # R1 Current Work State
 
+## GS-114 C8 resume checkpoint — 2026-10-14 07:09 UTC
+
+Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`; local and `origin` HEAD are
+`c69960fb064a60c3e6dc52b27d90fbbbe30b560a`. Context preflight PASS
+`2026-10-13.001`. The tracked worktree was clean before this checkpoint update.
+Existing untracked PWA assets, generated managed components, old failure
+reports, private logs and run04 binary/log evidence remain preserved. No
+destructive Git operation or source/image rebuild occurred.
+
+Windows reports only the intended fixtures attached: C3 `BUSID 3-3`,
+`303a:1001`, COM4; S3 `BUSID 3-1`, `1a86:55d3`, COM9. WSL stable links resolve
+to C3 `/dev/ttyACM1` (USB serial `14:63:93:C5:D1:58`) and S3 `/dev/ttyACM0`
+(USB serial `5CBC401023`). The exclusive S3 capture is PID 324978 and owns
+ACM0; ACM1 was unowned. No `usbipd attach` or competing serial probe was used.
+
+The already-built c699 ESP-IDF 6.0.3 pair was hash-verified. C3 application
+`70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530` was
+installed app-only at verified active `ota_0` offset `0x20000`; esptool
+reported write verification success and partition/otadata reads confirmed
+`ota_seq=1`. NVS, commission, event data, security state, partition table and
+other OTA metadata were preserved. The C3 later authenticated under Hub session
+15 and delivered NodeHealth schema 3 with the physical GPIO/sleep trace. The
+S3 log proves trace decoding and a valid `FIXTURE_STATUS` response, but its
+exact active binary hash was not read back; the built S3 candidate is
+`ca178fe30cc620d3fe0cb5817da9d8a98b07b70cb5f7c443045c85180dd46379`.
+
+At 06:52:38Z the Hub marked Node session 15 offline after missed health. A
+06:58:28Z `FIXTURE_STATUS` returned `idle`. No later authenticated NodeHealth,
+GPIO trace or event was captured during the requested P3 movement window, and
+operator completion was not confirmed. Do not count it as a controlled test or
+PASS. No additional physical reset/reflash/recommission is justified yet.
+
+Evidence reuse ledger: RPF07 PASS; P1 PASS; P2 PASS; P4 controlled q16 retest
+PASS (retain the earlier q10–q12 multiplicity); P5 controlled outage/recovery
+q24 PASS (retain retry-key observability limitation); P6 PASS; P7 q22 PASS.
+The diagnostic change is bounded HIL telemetry, and these prior behaviors were
+not repeated. P3 remains BLOCKED on controlled high/low evidence; P8 remains
+physical NOT_RUN because the active c699 Hub profile has
+`GS_HIL_C8_ACK_DROP=OFF` and the available ACK-drop image is from an older
+source checkpoint; P9 ACK/FOTA remain BLOCKED on distinct fixture/signing
+prerequisites. P10 remains under GS-149.
+
+Next action: wait for the operator's completion of the already-requested P3
+stimulus. If no authenticated data appears after confirmed movement, preserve
+the first failure and diagnose Node wake/rejoin before asking for any reset or
+additional motion. For P8, build a current-source S3 commissioning image with
+the isolated ACK-drop flag only after resolving the active slot/write plan;
+verify the exact image and operation before installing. No P1/P2/P4/P5/P6/P7
+retest, broad suite rerun, or FOTA operation is justified at this checkpoint.
+GS-114 remains In Progress; do not start GS-116/GS-130.
+
 ## GS-114 C8 resumed execution checkpoint — 2026-10-14 05:20 UTC
 
 Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch
