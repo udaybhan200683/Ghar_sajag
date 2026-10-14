@@ -1027,6 +1027,54 @@
       "timeout": 600
     },
     {
+      "id": "cloud-worker-backend-integration",
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ],
+      "command": [
+        "make",
+        "gs148-cloud-worker-api-integration-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/p2d_cloud_contract_validation.cpp",
+        "tests/python/test_p2d_cloud_contract.py",
+        "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.hpp",
+        "firmware/hub/cloud_sync/http_backend_transport.cpp",
+        "firmware/hub/cloud_sync/http_backend_transport.hpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/storage/journal.cpp",
+        "firmware/hub/storage/journal.hpp",
+        "firmware/hub/storage/runtime_state_store.cpp",
+        "firmware/hub/storage/runtime_state_store.hpp",
+        "backend/ghar_sajag/durable_api.py",
+        "backend/ghar_sajag/durable_commit.py",
+        "backend/ghar_sajag/database.py",
+        "backend/ghar_sajag/homes.py",
+        "backend/ghar_sajag/http_api.py",
+        "backend/ghar_sajag/identity.py",
+        "backend/ghar_sajag/model.py",
+        "backend/ghar_sajag/ownership_registry.py",
+        "backend/ghar_sajag/queries.py",
+        "backend/ghar_sajag/service.py",
+        "backend/ghar_sajag/sqlite_events.py",
+        "backend/migrations/001_p0_core.sql",
+        "backend/migrations/003_phase1_application.sql",
+        "backend/migrations/004_cloud_event_history.sql",
+        "backend/migrations/005_phase2b_notifications.sql",
+        "backend/migrations/007_phase3b_household_event_identity.sql",
+        "backend/migrations/008_durable_event_commit.sql",
+        "backend/migrations/009_hub_ownership_registry.sql",
+        "backend/migrations/010_durable_commit_ownership_provenance.sql"
+      ],
+      "success": "^[^\\n]*GS148-CLOUD-WORKER-API-001 PASS retry_same_event=1 durable_effects=1 caregiver_projection=1[^\\n]*$",
+      "timeout": 900
+    },
+    {
       "id": "https-channel",
       "components": [
         "hub",

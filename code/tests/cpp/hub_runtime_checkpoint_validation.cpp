@@ -1065,6 +1065,7 @@ void cloudsync_generation_provenance_test() {
             "secure CloudSync refuses event without authenticated owner provenance");
 }
 
+#ifndef GS148_OLD_READER
 void cloudsync_worker_authority_test() {
     using namespace gs::hub;
     using namespace gs::hub::storage;
@@ -1200,6 +1201,7 @@ void cloudsync_worker_authority_test() {
             "completion survives another reboot without duplicate local effect");
     std::cout << "GS148-CLOUD-WORKER-001 PASS\n";
 }
+#endif
 
 void runtime_identity_compaction_and_replay_test() {
     using namespace gs::hub::storage;
@@ -2252,10 +2254,12 @@ int main(int argc, char** argv) {
             std::cout << "PASS: durable identity generation compaction and replay protection\n";
             return 0;
         }
+#ifndef GS148_OLD_READER
         if (argc == 2 && std::string(argv[1]) == "--cloud-worker") {
             cloudsync_worker_authority_test();
             return 0;
         }
+#endif
         if (argc == 2 && std::string(argv[1]) == "--incremental-completion") {
             backend_completion_lifecycle_tests();
             incremental_completion_reuse_test(); incremental_completion_cut_tests();
@@ -2268,7 +2272,9 @@ checkpoint_tests();interruption_tests();published_checkpoint_interruption();time
         identity_compaction_planning_test();
         identity_generation_compaction_test();
         cloudsync_generation_provenance_test();
+#ifndef GS148_OLD_READER
         cloudsync_worker_authority_test();
+#endif
         runtime_identity_compaction_and_replay_test();
         identity_generation_filesystem_test();
         replay_fence_and_eligibility_tests();

@@ -2549,3 +2549,54 @@ Context preflight PASS `2026-10-13.001`. P9's ACK hold still needs a longer
 controlled window; no matched signed C3 test/recovery image or trigger was found
 for FOTA. GS-114 stays In Progress; P10 is separate under GS-149.
 Jira GS-114 comment 10860 records this host-validation milestone and P7 wait.
+
+## GS-148 P4/P5-B1 CloudSync caller — resumed validation checkpoint, 2026-10-14
+
+Resumed at base HEAD `bac66ad3a2fb05307c5200fafd34925a04203d42`, with local
+and `origin/feature/r1-commercial-baseline` matching and context preflight PASS
+`2026-10-13.001`. Added a registered host production-path scenario joining the
+bounded C++ CloudSync worker and HTTP transport to the real local durable API,
+SQLite commit, ownership policy and caregiver projection. It covers wrong-Home
+and stale-epoch denial before writes, exact original EventKey/timestamps, loss
+of the first response after durable commit, backend reopen, byte-identical
+retry, duplicate COMMITTED, one durable logical effect and one caregiver
+projection. Registration is in the existing local/release stage for Hub,
+contract and backend. Full details, commands, source fingerprint, build hashes
+and component reports are in the [GS-148 resume execution
+record](../exec-plans/evidence/R1_GS148_P4P5_B1_20261014.md).
+
+The new worker/API stage passed in contract and backend component runs at source
+fingerprint `a6987bd82c8ce32e41522e030fa31e7e9eca3bb7b3e62550e48d60738a3efc15`.
+Framework tests passed 41/41 and feature mapping passed for 184 features, 205
+source modules and 15 physical cases. The legacy first-event reader
+compatibility test initially exposed a test-only compile dependency on new
+worker APIs; a `GS148_OLD_READER` guard fixed it and the focused compatibility
+retest passed 11 states for two readers. The new stage's initial matcher also
+missed its `unittest`-prefixed PASS line; the registry matcher was corrected and
+both affected gates then counted the stage as PASS. Hub storage ASan/UBSan
+passed.
+
+`validation-hub` aggregate remains FAIL: its first resumed run also reproduced
+the known `clean migration commits` assertion and P0 `product_status=PARTIAL`.
+The later contract/backend aggregates remain FAIL only because P0 remains
+PARTIAL; the registered worker/API stage and other selected software stages
+passed. The full Hub aggregate was not rerun after the two focused test-harness
+corrections. P0's 26 scenario checks and Chromium test pass but do not close the
+product gap. The Hub migration assertion remains mandatory and unchanged.
+
+An offline ESP-IDF 6.0.3 S3 RPF diagnostic build passed at that same source
+fingerprint. Candidate S3 app SHA-256 is
+`380790d92bb4ced76c716939d3789157c27ebe8ca1643057d066afa0ef1b5b11`; paired
+C3 build SHA-256 is
+`c46ceda27adac2175c041a6b0850fddd6d216a2745bb57bd381008e744fb2998`. This is
+not a P8 ACK-drop image (`GS_HIL_C8_ACK_DROP=OFF`), neither image was installed,
+and no running-image identity or physical CloudSync result is claimed.
+
+Commercial target sending remains disabled pending GS-109 decisions on
+credential issuance/verification, trusted Home/Hub/epoch authority and safe
+coordination between CloudSync networking and the ESP-NOW admission owner.
+P0 is PARTIAL, Hub journal migration is FAIL and release is not approved. No
+hardware or `release-gate-final` operation was run. Next: commit/push this
+validated software checkpoint, verify remote HEAD, keep GS-148 In Progress and
+carry the unresolved trust/runtime contracts to GS-109 before enabling target
+sending.

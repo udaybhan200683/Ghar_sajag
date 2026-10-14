@@ -396,6 +396,22 @@ cumulative-count tests do not establish commercial capacity, retention,
 physical endurance or unlimited event lifetime. Those acceptance gaps remain
 with GS-145/GS-148/GS-138; this diagnostic does not start P2-E/P2-F.
 
+### GS-148 worker/API host integration checkpoint — 2026-10-14 (evidence; no decision)
+
+The bounded injected-authority `CloudSyncWorker` now has a registered host
+integration scenario through the production HTTP transport into the local
+durable API and ownership registry. The test proves same-EventKey retry after a
+lost response and backend reopen, one durable logical effect, and caregiver
+projection; it rejects wrong-Home and stale-epoch requests before commit.
+The registered Hub/contract/backend stage passed in the contract and backend
+component runs. An offline ESP-IDF 6.0.3 S3 RPF diagnostic build also compiled
+the target-linked CloudSync sources. Neither the host capability fixture nor a
+target build proves deployed trust, and no S3 worker is activated. Production
+credential issuance/verification, trusted owner authority and safe network
+worker coordination with the ESP-NOW owner remain GS-109/GS-148 prerequisites.
+Commercial sending remains disabled; no protocol, receipt, storage or release
+decision changed. See the [GS-148 execution evidence](../exec-plans/evidence/R1_GS148_P4P5_B1_20261014.md).
+
 ### P2-D implementation boundary — 2026-10-10
 
 CloudSync still uses the durable journal as the sole pending/completion authority.

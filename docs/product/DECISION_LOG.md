@@ -714,3 +714,18 @@ pending fresh authenticated liveness, schema-3 trace and OPEN replay admission.
 This records test status only; GS-D031 timing and product behavior are
 unchanged and context version remains `2026-10-13.001`. See the run04 P3
 handoff and consolidated report.
+
+## GS-148 P4/P5-B1 host caller integration — 2026-10-14 (evidence; no decision)
+
+The production CloudSync worker and HTTP transport were exercised against the
+local durable backend API/ownership path by a registered host scenario. Exact
+EventKey retry after committed-response loss, backend reopen, one durable
+effect, and caregiver projection passed; wrong-Home and stale-epoch requests
+were denied. Hub/contract/backend registered worker stages passed after fixing
+a test-only historical-reader compile coupling and the stage-output matcher.
+The Hub storage sanitizer and offline ESP-IDF 6.0.3 S3 diagnostic build passed.
+Aggregate Hub remains FAIL for the existing migration assertion and P0
+`PARTIAL`; aggregate contract/backend remain FAIL for P0 `PARTIAL`. Target
+sending stays disabled pending GS-109 credential, trusted-owner and concurrency
+contracts. This is validation evidence only: no product/security decision or
+context version changed. Details: [GS-148 resumed execution record](../exec-plans/evidence/R1_GS148_P4P5_B1_20261014.md).

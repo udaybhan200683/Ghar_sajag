@@ -19,10 +19,141 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 from ghar_sajag.database import initialize_sqlite
 from ghar_sajag.durable_commit import DurableEventCommit
+from ghar_sajag.durable_api import open_durable_event_api
 from ghar_sajag.http_api import JsonApi
+from ghar_sajag.model import Resident
+from ghar_sajag.ownership_registry import (
+    AuthorizedHomeOperation,
+    VerifiedHubIdentity,
+    VerifiedNodeEnrollment,
+)
+from ghar_sajag.service import GharSajagService
 
 
 class P2DCloudContractTest(unittest.TestCase):
+    def test_worker_api_registered_ownership_lost_reply_retry_and_projection(self):
+        binary = os.environ.get("P2D_TEST_BINARY", str(ROOT / "build/p2d_cloud_contract_validation"))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "worker-api.sqlite"
+
+            def open_api(seed=False):
+                service = GharSajagService()
+                service.homes.create("home-a", "Fixture", "Asia/Kolkata", "en-IN", "care-1",
+                                     [Resident("resident-1", "Resident", True, 1)], 1)
+                composed = open_durable_event_api(
+                    service, path, now=lambda: 1800000999,
+                    require_registered_ownership=True)
+                if seed:
+                    with composed.db:
+                        for home in ("home-a", "home-b"):
+                            composed.db.execute(
+                                "INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES(?,?, 'UTC',1,1)",
+                                (home, "Fixture"),
+                            )
+                        composed.db.execute(
+                            "INSERT INTO caregivers(caregiver_id,display_name,created_at) VALUES('care-1','Caregiver',1)")
+                        composed.db.execute(
+                            "INSERT INTO household_caregivers(home_id,caregiver_id,role) VALUES('home-a','care-1','PRIMARY')")
+                    registry = composed.api.hub_ownership_registry
+                    identity = VerifiedHubIdentity("hub-permanent-1", "a" * 64,
+                                                   "fixture-hub-proof")
+                    registry.register_unclaimed_identity(identity, 2)
+                    registry.claim_home(identity,
+                        AuthorizedHomeOperation("installer-a", "home-a", "CLAIM_HUB",
+                                                "fixture-claim"), 3)
+                    registry.enroll_node(identity,
+                        AuthorizedHomeOperation("installer-a", "home-a", "ENROLL_NODE",
+                                                "fixture-node-enrollment"),
+                        VerifiedNodeEnrollment("device-room1", "room1", 3,
+                                               "b" * 64, "fixture-node-proof"), 4)
+                return service, composed
+
+            service, endpoint = open_api(seed=True)
+            process = subprocess.Popen([binary, "--worker-api-bridge"], stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                       text=True, bufsize=1)
+            selector = selectors.DefaultSelector()
+            selector.register(process.stdout, selectors.EVENT_READ)
+            try:
+                def read_bridge_line(message):
+                    self.assertTrue(selector.select(timeout=20), message)
+                    line = process.stdout.readline()
+                    self.assertTrue(line, message + ": bridge exited")
+                    return line.strip()
+
+                first_body = json.loads(read_bridge_line("worker did not submit original event"))
+                self.assertEqual(first_body["cloudsync_version"], 2)
+                self.assertEqual(first_body["node_enrollment_generation"], 3)
+                self.assertEqual(first_body["event_key"], {
+                    "physical_device_id": "device-room1", "logical_node_id": "room1",
+                    "origin_session_id": 42, "event_sequence": 1,
+                })
+                self.assertEqual((first_body["event_type"], first_body["occurred_at"],
+                                  first_body["hub_received_at"]),
+                                 ("CALL_FAMILY", 1800000001, 1800000901))
+                context = {"gs.verified_hub": "hub-permanent-1",
+                           "gs.hub_key_fingerprint": "a" * 64,
+                           "gs.installation_epoch": 1}
+
+                # Current registry policy rejects this exact original event
+                # when the URL selects another Home or the Hub epoch is stale.
+                with self.assertRaises(PermissionError):
+                    endpoint.api.dispatch("POST", "/v1/homes/home-b/events", "",
+                                          first_body, request_context=context)
+                stale = dict(context, **{"gs.installation_epoch": 2})
+                with self.assertRaises(PermissionError):
+                    endpoint.api.dispatch("POST", "/v1/homes/home-a/events", "",
+                                          first_body, request_context=stale)
+                self.assertEqual(endpoint.db.execute("SELECT COUNT(*) FROM events").fetchone()[0], 0)
+
+                status, receipt = endpoint.api.dispatch(
+                    "POST", "/v1/homes/home-a/events", "", first_body,
+                    request_context=context)
+                self.assertTrue(status.startswith("201"))
+                self.assertEqual((receipt["status"], receipt["duplicate"]), ("COMMITTED", False))
+                independent = sqlite3.connect(path)
+                self.assertEqual(independent.execute(
+                    "SELECT COUNT(*) FROM durable_event_commits WHERE home_id='home-a' AND physical_device_id='device-room1' AND logical_node_id='room1' AND origin_session_id=42 AND event_sequence=1"
+                ).fetchone()[0], 1)
+                independent.close()
+                # The simulated HTTP response is lost after the real DB commit.
+                process.stdin.write("0 0 0\n{}\n")
+                process.stdin.flush()
+                endpoint.close()
+
+                service, endpoint = open_api()
+                retry_body = json.loads(read_bridge_line("worker did not retry after lost response"))
+                self.assertEqual(retry_body, first_body, "worker changed immutable EventKey/body on retry")
+                retry_status, retry_receipt = endpoint.api.dispatch(
+                    "POST", "/v1/homes/home-a/events", "", retry_body,
+                    request_context=context)
+                self.assertTrue(retry_status.startswith("200"))
+                self.assertEqual((retry_receipt["status"], retry_receipt["duplicate"]),
+                                 ("COMMITTED", True))
+                process.stdin.write("200 1 1\n" + json.dumps(retry_receipt, separators=(",", ":")) + "\n")
+                process.stdin.flush()
+                result = read_bridge_line("worker did not report completed durable retry")
+                self.assertIn("RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2", result)
+                self.assertEqual(process.wait(timeout=10), 0, process.stderr.read())
+
+                for table in ("events", "durable_event_commits", "alerts", "notification_jobs",
+                              "durable_notification_outbox"):
+                    self.assertEqual(endpoint.db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0],
+                                     1, table + " must have one logical effect")
+                projection = service.queries.snapshot("home-a", "care-1", 1800001000)
+                self.assertEqual(projection["recent_events"][0]["kind"], "CALL_FAMILY")
+                self.assertEqual(projection["recent_events"][0]["occurred_at"], 1800000001)
+                print("GS148-CLOUD-WORKER-API-001 PASS retry_same_event=1 durable_effects=1 caregiver_projection=1")
+            finally:
+                selector.close()
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=5)
+                process.stdin.close()
+                process.stdout.close()
+                process.stderr.close()
+                endpoint.close()
+
     def test_real_commit_lost_reply_partial_catchup_reboots(self):
         binary = os.environ.get("P2D_TEST_BINARY", str(ROOT / "build/p2d_cloud_contract_validation"))
         with tempfile.TemporaryDirectory() as directory:

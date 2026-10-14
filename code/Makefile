@@ -562,6 +562,10 @@ p2d-cloud-contract-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_P
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES)) tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o $(P2D_TEST_BINARY)
 	$(P2D_TEST_BINARY)
 
+.PHONY: gs148-cloud-worker-api-integration-host-test
+gs148-cloud-worker-api-integration-host-test: p2d-cloud-contract-host-test
+	PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_p2d_cloud_contract.py' -k worker_api_registered -v
+
 P2D_HTTPS_TEST_BINARY ?= build/p2d_https_channel_validation
 .PHONY: p2d-https-channel-host-test
 p2d-https-channel-host-test: build $(CPP_OBJECTS)

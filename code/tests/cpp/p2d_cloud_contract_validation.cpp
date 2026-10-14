@@ -202,10 +202,97 @@ void durable_bridge() {
                      std::chrono::steady_clock::now() - catchup_started).count()
               << " configured_reserve=" << limits.protected_capacity_bytes << "\n" << std::flush;
 }
+
+class WorkerApiAuthority final : public gs::hub::CloudAuthoritySource {
+public:
+    bool current_binding(gs::hub::CloudAuthorityBinding& binding) override {
+        binding = {"home-a", "hub-permanent-1", 1};
+        return true;
+    }
+    bool original_event_owned(const gs::DomainEvent& item,
+                              const gs::hub::CloudAuthorityBinding& binding) override {
+        return binding == gs::hub::CloudAuthorityBinding{
+                   "home-a", "hub-permanent-1", 1} &&
+               item.key.physical_device_id == "device-room1" &&
+               item.key.source_id == "room1" && item.key.session_id == 42 &&
+               item.key.sequence == 1;
+    }
+};
+
+class WorkerApiChannel final : public gs::hub::BackendHttpChannel {
+public:
+    std::vector<std::string> bodies;
+    gs::hub::BackendHttpResponse post(const std::string& path,
+                                      const std::string& body) override {
+        require(path == "/v1/homes/home-a/events", "worker API endpoint binds original Home");
+        bodies.push_back(body);
+        std::cout << body << std::endl;
+        std::string metadata, response_body;
+        require(static_cast<bool>(std::getline(std::cin, metadata)) &&
+                static_cast<bool>(std::getline(std::cin, response_body)),
+                "worker API response frame");
+        unsigned authenticated = 0, complete = 0;
+        gs::hub::BackendHttpResponse response;
+        std::istringstream fields(metadata);
+        require(static_cast<bool>(fields >> response.status >> authenticated >> complete),
+                "worker API response metadata");
+        response.server_authenticated = authenticated == 1;
+        response.message_complete = complete == 1;
+        response.body = std::move(response_body);
+        return response;
+    }
+};
+
+void worker_api_bridge() {
+    using namespace gs::hub;
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    StateFiles files;
+    RuntimeStateStore state(files, crypto, key);
+    require(state.recover(0), "worker API identity ledger starts clean");
+    auto original = event(1);
+    original.kind = gs::EventKind::CallFamily;
+    original.sensor_type = gs::SensorType::Button;
+    original.occurred_at = 1800000001;
+    original.received_at = 1800000901;
+    IdentityOwnerEvidence owner;
+    owner.enrollment_slot = 1;
+    owner.enrollment_generation = 3;
+    owner.binding_digest[0] = 0x61;
+    require(state.prepare_identity(original, 1, {}, &owner) &&
+            state.confirm_event_publication(1) &&
+            state.save_checkpoint(gs::security::Bytes{0x01}, 1),
+            "worker API records original authenticated enrollment");
+
+    gs::hub::HubJournal journal(128);
+    require(journal.commit(original) == CommitResult::Stored,
+            "worker API starts from one durable queued event");
+    HubRuntime runtime;
+    runtime.bind_runtime_state(state);
+    WorkerApiAuthority authority;
+    WorkerApiChannel channel;
+    HttpBackendTransport transport(channel);
+    CloudSyncWorker worker(journal, runtime, authority, transport);
+
+    const auto lost = worker.run_once(true, 0, 1);
+    require(lost.submitted == 1 && lost.completed == 0 &&
+            !journal.cloud_completed(original.key),
+            "lost API response leaves Hub event pending");
+    require(worker.run_once(true, 999, 1).submitted == 0,
+            "worker observes original retry deadline");
+    const auto retried = worker.run_once(true, 1000, 1);
+    require(retried.submitted == 1 && retried.completed == 1 &&
+            journal.cloud_completed(original.key) && channel.bodies.size() == 2 &&
+            channel.bodies[0] == channel.bodies[1],
+            "duplicate durable API COMMITTED completes same original request");
+    std::cout << "RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2\n"
+              << std::flush;
+}
 }
 int main(int argc, char** argv) {
     try {
         if (argc == 2 && std::string(argv[1]) == "--bridge") durable_bridge();
+        else if (argc == 2 && std::string(argv[1]) == "--worker-api-bridge") worker_api_bridge();
         else { protocol_and_bounds(); completion_failure(); }
         return 0;
     } catch (const std::exception& error) { std::cerr << "p2d_cloud_contract_validation=FAIL " << error.what() << '\n'; return 1; }
