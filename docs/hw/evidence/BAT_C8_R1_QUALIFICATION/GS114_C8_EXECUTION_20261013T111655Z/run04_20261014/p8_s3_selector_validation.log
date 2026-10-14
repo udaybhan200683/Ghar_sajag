@@ -1,0 +1,8 @@
+PARTITION_PREFIX_SHA256=bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a
+PARTITION_TABLE_BINARY_MATCH=1; padding=0xff
+PARTITION_LAYOUT=PASS ota_0@0x20000 ota_1@0x420000 gs_outbox@0x820000 gs_state@0xc20000
+OTA_COPY=0 seq=0x00000001 state=0x00000002 stored_crc=0x4743989a calc_crc=0x4743989a valid=1
+OTA_COPY=1 seq=0xffffffff state=0xffffffff stored_crc=0xffffffff calc_crc=0x2144df1c valid=0
+OTA_SELECTOR_COPY=0 seq=1 SELECTED=ota_0
+APP_SHA256=f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8
+INSTALL_PRECONDITIONS=PASS; approved single app-only write target=0x20000

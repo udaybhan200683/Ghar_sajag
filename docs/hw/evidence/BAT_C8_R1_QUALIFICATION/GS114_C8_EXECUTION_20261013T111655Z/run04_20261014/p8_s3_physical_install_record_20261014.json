@@ -1,0 +1,115 @@
+{
+  "case": "GS-114 C8-P8",
+  "physical_test_disposition": "BLOCKED_BEFORE_STIMULUS_NOT_RUN",
+  "source_checkpoint_before_evidence_update": {
+    "branch": "feature/r1-commercial-baseline",
+    "head": "ead9a83b9df0a1cc928280760496747f1901e38e",
+    "remote_head_matched": true,
+    "candidate_build_source_commit": "ce9c436f0e9a8324c0785bad996ed9c4a421de3d",
+    "context_preflight": "PASS"
+  },
+  "windows_usbip": {
+    "hub": {
+      "busid": "3-1",
+      "vid_pid": "1a86:55d3",
+      "serial": "5CBC401023",
+      "com": "COM9",
+      "final_state": "Attached",
+      "final_check_utc": "2026-10-14T11:32:09Z"
+    },
+    "node": {
+      "busid": "3-3",
+      "vid_pid": "0000:0002",
+      "state": "descriptor_error_shared",
+      "wsl_attach_or_access_attempted": false
+    }
+  },
+  "hub_identity_readback": {
+    "chip": "ESP32-S3",
+    "revision": "0.2",
+    "mac": "7c:4f:ad:b7:2a:20",
+    "flash_id": "0x184068",
+    "flash_capacity": "16 MiB",
+    "psram": "8 MiB",
+    "secure_boot_enabled": false,
+    "secure_download_enabled": false,
+    "flash_crypt_count": "0x00",
+    "efuse_modified": false,
+    "identity_readback_completed_by_utc": "2026-10-14T11:21:22.945Z"
+  },
+  "actual_partition_and_selector": {
+    "partition_table_read_offset": "0x8000",
+    "partition_table_read_bytes": 4096,
+    "partition_table_read_sha256": "338f4a83ba90609b4ed0a04514f6378dc90b5d21769e186f49dc3086fd9feabc",
+    "compiled_table_payload_bytes": 3072,
+    "compiled_payload_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a",
+    "payload_matches_compiled": true,
+    "read_tail_padding_all_ff": true,
+    "decoded_layout_matches": true,
+    "ota_data_read_offset": "0xf000",
+    "ota_data_read_bytes": 8192,
+    "ota_data_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
+    "valid_selector_copy": 0,
+    "ota_sequence": 1,
+    "ota_state": 2,
+    "selector_crc_valid": true,
+    "selected_partition": "ota_0",
+    "selected_offset": "0x20000",
+    "readback_completed_utc": "2026-10-14T11:21:22.945Z"
+  },
+  "app_write": {
+    "image_path": "code/build/gs114_fixture_pair/build-snmafa7y/s3/gs_r1_s3_hub.bin",
+    "image_bytes": 1894496,
+    "image_sha256": "f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8",
+    "embedded_c3_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530",
+    "offset": "0x20000",
+    "esptool_reported_erase_range": "0x00020000-0x001eefff",
+    "esptool_write_verify": "Hash of data verified",
+    "expected_hard_reset_after_write": true,
+    "write_log_completed_utc": "2026-10-14T11:24:58.273Z",
+    "non_app_partitions_written_by_esptool": false,
+    "c3_touched": false,
+    "explicit_commissioning_or_storage_reset_operation": false,
+    "runtime_persistence_effects": "unknown because app boot/runtime was not observed"
+  },
+  "post_write_observation": {
+    "method": "idf.py monitor --no-reset --timestamps, one exclusive S3 port owner",
+    "capture_started_observed_by_utc": "2026-10-14T11:26:02.757Z",
+    "no_device_uart_bytes_through_utc": "2026-10-14T11:31:40Z",
+    "capture_log_closed_utc": "2026-10-14T11:32:01.913Z",
+    "usbip_disconnect_observed": false,
+    "fixture_status_attempts": 2,
+    "fixture_status_response_observed": false,
+    "boot_banner_observed": false,
+    "running_image_identity_verified": false,
+    "authenticated_c3_rejoin_verified": false,
+    "nodehealth_schema3_verified": false,
+    "rpf00_open_verified": false,
+    "durable_ack_verified": false,
+    "root_cause_of_uart_silence": "unknown"
+  },
+  "physical_stimulus": {
+    "ack_drop_armed": false,
+    "pir_motion_performed": false,
+    "p8_eventkey": null,
+    "p8_durable_effect": null,
+    "p8_retry": null,
+    "p8_authenticated_duplicate_ack": null,
+    "p8_node_retirement": null
+  },
+  "evidence_files": [
+    "p8_s3_rom_readback.py",
+    "p8_s3_rom_readback.log",
+    "p8_s3_rom_readback_retry1.log",
+    "p8_s3_rom_readback_retry2.log",
+    "p8_s3_rom_readback_retry3.log",
+    "p8_s3_partition_table_read.bin",
+    "p8_s3_partition_table_actual.csv",
+    "p8_candidate_partition_table.csv",
+    "p8_s3_otadata_read.bin",
+    "p8_s3_verify_selector.py",
+    "p8_s3_selector_validation.log",
+    "p8_s3_install.log",
+    "p8_s3_postboot_capture.log"
+  ]
+}

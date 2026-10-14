@@ -1,0 +1,10 @@
+Serial port /dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00:
+NOTE: Pre-connection option "no-reset" was selected. Connection may fail if the chip is not in bootloader or flasher stub mode.
+Connecting...
+PORT=/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00
+CHIP=ESP32-S3
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1/docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/p8_s3_rom_readback.py", line 25, in <module>
+    print(f"BASE_MAC={mac.hex(':')}")
+                      ^^^^^^^
+AttributeError: 'tuple' object has no attribute 'hex'

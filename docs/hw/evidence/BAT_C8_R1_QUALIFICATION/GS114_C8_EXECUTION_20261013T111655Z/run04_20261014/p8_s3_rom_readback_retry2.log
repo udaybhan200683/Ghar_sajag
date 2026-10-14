@@ -1,0 +1,11 @@
+Serial port /dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00:
+NOTE: Pre-connection option "no-reset" was selected. Connection may fail if the chip is not in bootloader or flasher stub mode.
+Connecting...
+PORT=/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00
+CHIP=ESP32-S3
+BASE_MAC=7c:4f:ad:b7:2a:20
+CHIP_ID=9
+SECURE_BOOT_EN=0
+SECURE_DOWNLOAD_ENABLE=0
+FLASH_CRYPT_CNT=0x00
+STOP: target chip/MAC did not match the approved S3

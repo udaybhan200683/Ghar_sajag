@@ -1,5 +1,57 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 11:32 UTC — S3 P8 app write verified; runtime verification blocked
+
+The operator approved the bounded S3-only procedure. Windows identified the
+S3 CH343 as BUSID `3-1`, COM9, VID:PID `1a86:55d3`, serial `5CBC401023`,
+`Attached`; WSL's stable by-id path mapped to `/dev/ttyACM0`. C3 remained the
+Windows `0000:0002` descriptor-error device and was not attached, opened,
+reset, flashed, or otherwise accessed.
+
+One controlled S3 ROM-mode entry identified ESP32-S3 revision 0.2, MAC
+`7c:4f:ad:b7:2a:20`, 16 MiB flash, and 8 MiB PSRAM. Read-only security
+information showed Secure Boot disabled, Secure Download disabled, and
+`FLASH_CRYPT_CNT=0`. The actual partition table matched the candidate's
+compiled table byte for byte over its 3,072-byte payload; the remainder of
+the 4,096-byte read region was erased `0xff`. The valid `otadata` copy 0 had
+sequence 1, state 2, and valid CRC, selecting `ota_0` at `0x20000`. The table
+retained `ota_1`, `gs_outbox`, and `gs_state` at their expected offsets.
+
+The selected current-source S3 app was written **only** at `0x20000`:
+`gs_r1_s3_hub.bin`, 1,894,496 bytes, source/build commit
+`ce9c436f0e9a8324c0785bad996ed9c4a421de3d`, SHA-256
+`f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`.
+Esptool reported the erase/write range as `0x00020000–0x001eefff`, verified
+the written data hash, and performed the expected hard reset. No bootloader,
+partition table, `otadata`, NVS, `gs_outbox`, `gs_state`, C3, commissioning,
+or security data was written.
+
+An exclusive ESP-IDF monitor was opened on the stable S3 by-id path with
+`--no-reset` and remained attached for at least one 300-second NodeHealth
+interval. The USB/IP device remained `Attached` and the monitor owned the
+port, but **no S3 UART bytes** were received. Two read-only `FIXTURE_STATUS`
+commands were attempted through that monitor and no response was observed.
+The monitor was then closed cleanly; the S3 port is now unowned. There is no
+boot banner, running app identity, fresh authenticated C3 rejoin, NodeHealth
+schema-3 trace, RPF00 OPEN evidence, or post-install Durable ACK evidence.
+The app-partition write is verified, but the running firmware and Hub runtime
+are **not verified**. The exact cause of the silence is unknown; it does not
+by itself prove a Hub crash or a USB/IP disconnect.
+
+**C8-P8 disposition: BLOCKED before physical stimulus / physical test NOT RUN.**
+No PIR movement or ACK-drop command was issued. P8 requires a verified running
+Hub, fresh authenticated C3 rejoin, schema-3 trace, and RPF00 OPEN before the
+one-shot postcommit ACK-drop fixture can be armed. No further reset, flash,
+power operation, or recovery image is authorized by the present scope. P3 and
+previous RPF07/P1/P2/P4/P5/P6/P7 PASS evidence is preserved and reused. P9
+ACK/FOTA remain BLOCKED; P10 remains under GS-149.
+
+Readback, selector validation, flash log and monitor capture are in
+[`run04_20261014`](run04_20261014); the detailed installation record is
+[`C8_P8_BUILD_VALIDATION_20261014.md`](run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md).
+No firmware source changed. Current local/remote source HEAD before this
+evidence update was `ead9a83b9df0a1cc928280760496747f1901e38e`.
+
 ## 2026-10-14 11:07 UTC — source-matched P8 S3 candidate build PASS
 
 The operator approved Python 3 for the existing ESP-IDF 6.0.3 P8 build and
@@ -520,12 +572,12 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | P5 | PASS — controlled reconnect-aware run 03; initial run02 remains inconclusive | One real AM312 event during Hub power-off arrived as q24 after authenticated session 6, changed durable state once, received Durable ACK, and was retired with reset unchanged; post-ACK retained=0, durable_ack +1. See [P5](run03_20261014/C8_P5.md). |
 | P6 | PASS | Run 02 captured full Hub POWERON boot, authenticated session 4, RPF00 admission OPEN and Node reset counter unchanged at 11; see [P6](run03_20261014/C8_P6.md) |
 | P7 | PASS — controlled run 02 | First event q22 during prompted AM312 action window; one durable effect, two same-key idempotent repeats, authenticated retirement ACK, post-event health confirms retained=0 and durable_ack increment; see [P7](run03_20261014/C8_P7.md) |
-| P8 | Physical NOT_RUN; current-source S3 candidate built and validated, installation approval pending | ACK-drop ON S3 app `f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`, embedding the exact installed C3 app `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; fixture 14/14, gate 16/16, ASan/UBSan 16/16, TSan 16/16 and IDF image/partition checks PASS. S3 observer USB/IP recovery and app-only write remain unapproved; no hardware touched. See [P8 build/install plan](run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md). |
+| P8 | BLOCKED before stimulus; physical test NOT RUN | Exact active `ota_0` selector and partition table verified; current-source ACK-drop app was written app-only at `0x20000` and esptool verified the write hash. However, the S3 remained UART-silent during at least 300 seconds of exclusive `--no-reset` capture and did not answer `FIXTURE_STATUS`. Running image, authenticated C3 rejoin, schema-3 trace, RPF00 OPEN and P8 EventKey/ACK/retirement are unverified. No movement or ACK-drop arm was issued. See [P8 installation result](run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md). |
 | P9 ACK | BLOCKED | No qualified directional ACK hold fixture; P8 one-shot loss alone is shorter than the required pending-ACK observation window; see [P9](run03_20261014/C8_P9.md) |
 | P9 FOTA | BLOCKED | No matched signed C3 test/recovery image pair, supported signed trigger or known recovery procedure; see [P9](run03_20261014/C8_P9.md) |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action: obtain explicit approval for the documented exact S3-only observer recovery and app-only installation plan. After approved installation, verify fresh authenticated readiness and conduct the minimum physical P8 same-EventKey ACK-loss test. P9 ACK/FOTA remain blocked on their specific fixtures and P10 remains GS-149. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
+Next action: preserve the installed S3 state and obtain separate authorization before any further reset, recovery flash, or power operation. First resolve the silent post-write runtime using an authorized, non-destructive observation path. Only after boot/status, fresh authenticated C3 rejoin, schema-3 trace, and RPF00 OPEN are verified may the one-shot ACK-drop fixture be armed and one physical P8 event be requested. P9 ACK/FOTA remain blocked on their specific fixtures; P10 remains GS-149. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
 
 ## Validation and precise operator checkpoint
 

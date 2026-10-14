@@ -1,0 +1,11 @@
+Serial port /dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00:
+Connecting....
+PORT=/dev/serial/by-id/usb-1a86_USB_Single_Serial_5CBC401023-if00
+CHIP=ESP32-S3
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1/docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/p8_s3_rom_readback.py", line 23, in <module>
+    print(f"CHIP_ID=0x{esp.chip_id():08x}")
+                       ~~~~~~~~~~~^^
+  File "/home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/lib/python3.14/site-packages/esptool/loader.py", line 1369, in chip_id
+    raise NotSupportedError(self, "Function chip_id")
+esptool.util.NotSupportedError: Function chip_id is not supported by ESP32-S3.

@@ -1,6 +1,51 @@
 # R1 Current Work State
 
-## GS-114 C8-P8 candidate ready for S3-only installation approval — 2026-10-14 11:07 UTC
+## GS-114 C8-P8 S3 app write verified; runtime boot unresolved — 2026-10-14 11:32 UTC
+
+The operator approved the bounded S3-only P8 installation procedure. Starting
+source checkpoint was local/remote HEAD
+`ead9a83b9df0a1cc928280760496747f1901e38e` on
+`feature/r1-commercial-baseline`; context preflight PASS. Existing untracked
+assets, managed components, and earlier raw C8 logs remain preserved.
+
+Windows reported the identified S3 CH343 (`1a86:55d3`, serial `5CBC401023`,
+COM9, BUSID `3-1`) Attached. Its WSL stable by-id path mapped to `/dev/ttyACM0`.
+The C3 remains the separate `0000:0002` descriptor-error device; it was not
+attached, opened, reset, flashed, or recommissioned. A stale capture had an
+old `/dev/ttyACM1` fd; normal TERM moved it to uninterruptible USB/IP kernel
+wait, so it was not force-killed. That stale process later disappeared. The
+current S3 port is now unowned; the device remained Windows Attached at the
+11:32 UTC final check.
+
+One authorized S3 ROM entry verified ESP32-S3 rev 0.2 / MAC
+`7c:4f:ad:b7:2a:20`, 16 MiB flash, 8 MiB PSRAM, Secure Boot/Secure Download
+disabled, and `FLASH_CRYPT_CNT=0`; no eFuse was modified. The actual table
+matches the candidate table payload and preserves `ota_0`, `ota_1`,
+`gs_outbox`, and `gs_state`. The valid `otadata` record selects `ota_0` at
+`0x20000` (sequence 1, state 2, CRC valid).
+
+The current-source ACK-drop S3 app was written only to `0x20000` and esptool
+reported `Hash of data verified`; candidate SHA-256 is
+`f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`.
+The expected hard reset ran. An exclusive ESP-IDF monitor with `--no-reset`
+then remained attached for at least 300 seconds while USB/IP stayed Attached,
+but no S3 UART bytes arrived and two read-only `FIXTURE_STATUS` attempts had
+no response. Monitor closed cleanly. **The flash write is verified; S3 app
+boot/running identity, fresh authenticated C3 rejoin, schema-3 NodeHealth,
+RPF00 OPEN, and Durable ACK are not verified.** The silence's cause is
+unknown. No further reset, recovery flash, power action, or PIR stimulus was
+performed. Evidence is in [P8 installation record](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md)
+and adjacent raw logs/readbacks.
+
+**C8-P8: BLOCKED before stimulus / physical test NOT RUN.** Do not arm
+`DROP_NEXT_DURABLE_ACK` or request motion until S3 runtime/status, authenticated
+C3 rejoin, schema-3 trace, and RPF00 OPEN are positively observed. Any further
+reset, firmware write, or power operation requires separate authorization.
+P3 controlled physical PASS and RPF07/P1/P2/P4/P5/P6/P7 PASS results remain
+preserved/reused without repetition. P9 ACK/FOTA remain BLOCKED on their own
+fixtures; P10 is GS-149. GS-114 remains In Progress.
+
+## GS-114 C8-P8 candidate build checkpoint — 2026-10-14 11:07 UTC
 
 The operator explicitly approved Python 3 for the existing ESP-IDF 6.0.3
 toolchain and approved offline build/software validation; this supersedes the
@@ -21,14 +66,17 @@ matches the installed C3 value
 The compiled table matches the existing `ota_0`/`ota_1`, `gs_outbox` and
 `gs_state` layout; the complete build/profile and focused validation receipts
 are in [P8 build evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_P8_BUILD_VALIDATION_20261014.md).
-The S3 binary is built, not installed; no board or serial port was accessed.
+At this 11:07 build checkpoint, the S3 binary was built but not yet installed;
+the later installation attempt is recorded above.
 
 Focused results: S3 fixture suite 14/14 PASS; ACK-drop host gate 16/16 PASS;
 ASan/UBSan 16/16 PASS; TSan 16/16 PASS; image and compiled-partition
 compatibility checks PASS. Existing wider suites and firmware-source
 sanitizer evidence are reused because product/firmware source is unchanged.
 
-Active-slot limit: the last captured S3 boot banner reports app offset
+At this build checkpoint, active-slot evidence was limited to the earlier
+boot banner. The subsequent actual selector readback is recorded above. The
+prior record stated: the last captured S3 boot banner reports app offset
 `0x20000` (`ota_0`) at 03:34:27 UTC, but reports app version
 `72a223fc3b29-gs114-rpfdiag-1eec`; the exact running S3 hash and a current
 post-detach selector readback remain unverified. The install plan therefore
