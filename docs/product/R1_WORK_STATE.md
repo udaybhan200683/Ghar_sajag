@@ -1,5 +1,49 @@
 # R1 Current Work State
 
+## GS-114 P9 software validation complete; physical P9 fixtures outstanding — 2026-10-14 15:31 UTC
+
+The P9 ACK and FOTA software coverage audit is complete. Source checkpoint at
+task start was local/remote HEAD
+`3c677f0b6fa2ed77405cd87905f9e80b71e89fbf` on
+`feature/r1-commercial-baseline`; context preflight passed. The only source
+change is a permanent GS-150 host regression plus its traceability mapping;
+production firmware did not change, and no hardware/serial/image/commissioning
+operation occurred.
+
+`ack_wait_sleep_transition()` exercises production NodeRuntime/HubRuntime. It
+proves an unresolved authenticated Durable ACK keeps the exact event pending
+and inhibits sleep beyond the 10,000 ms receive budget, then an authenticated
+exact-key ACK retires the event and restores normal idle sleep eligibility.
+`make gs150-host-test` PASS 1,500 checks; the focused ASan/UBSan rerun PASS
+1,500 checks. Reused tests also passed: BAT-C8 72 C++ + 11 Python,
+secure-FOTA adapter 2 groups, FOTA host 34, board-stack E2E 8 groups/325,
+signed-FOTA fixture orchestration 16/16, and feature coverage 175 features /
+205 modules / 15 physical cases (19 framework tests).
+
+P9 disposition: **ACK software PASS / physical BLOCKED, NOT_RUN** pending a
+bounded long ACK-hold or qualified directional RF fixture, target no-sleep
+observation and exact-key commit/ACK/retirement evidence. **FOTA software
+state-machine/host fixture coverage PASS / signed-target physical BLOCKED,
+NOT_RUN** pending matched signed test/recovery images, trusted signing
+provenance, authenticated trigger, and safe rollback/recovery. Host fixture
+orchestration does not prove ESP-IDF target signature acceptance. Prior RPF07
+and C8 P1–P8 physical PASS evidence is preserved and reused. P10 remains
+separate under GS-149.
+
+`make validation-node` and `make validation-contract` reached their registered
+P0 product E2E and returned gate FAIL because P0 reports
+`product_status=PARTIAL` / `physical=NOT_RUN`; the 26 P0 scenario assertions
+passed. This remains an independent release gap, not a P9 failure. The
+historical Hub journal migration assertion failure remains recorded and was
+not reclassified here. GS-114 remains In Progress.
+
+Evidence: [P9 software validation](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run05_software_20261014/C8_P9_SOFTWARE_VALIDATION_20261014.md), [consolidated GS-114 report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
+
+**Next priorities after this safe GS-114 checkpoint:** follow the user-approved
+sequence for GS-116/GS-130 comprehensive implemented-feature regression
+coverage, then authorized GS-148 CloudSync work as product priority directs.
+Do not begin either scope without its applicable explicit instruction.
+
 ## GS-114 C8-P8 physical lost-ACK PASS; S3 capture transport paused — 2026-10-14 12:12 UTC
 
 The latest physical P8 run passed on the existing commissioned R&D pair. The

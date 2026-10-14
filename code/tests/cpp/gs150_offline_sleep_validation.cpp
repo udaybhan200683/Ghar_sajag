@@ -142,6 +142,44 @@ void authenticated_matrix() {
     require(!bad.save(p.node->recovery_snapshot()), "failed persistence cannot authorize sleep/send");
 }
 
+void ack_wait_sleep_transition() {
+    Pair p;
+    PowerPolicy power;
+    const auto key = p.admit(EventKind::Motion, 1000);
+    const auto message = p.node->next_message(1000);
+    require(message.has_value(), "pending ACK transition starts with Node transmission");
+    bool changed = false;
+    const auto durable_ack = p.deliver(*message, 1020, changed);
+    require(changed && p.node->pending() == 1 && p.node->persisted() == 1,
+            "Hub durable effect exists before application ACK resolution");
+
+    p.node->transport_result(key, true, 1020);
+    AckListeningWindow listening;
+    listening.application_transport_completed(1020, true);
+    const auto now = Milliseconds{12000};
+    auto waiting = observation(now);
+    waiting.next_retry_ms = now + 60000;
+    observe_retained_delivery(waiting, listening, p.node->pending() != 0,
+                              p.node->persisted() != 0);
+    const auto waiting_decision = evaluate_light_sleep(waiting);
+    require(!waiting_decision.eligible &&
+                (waiting_decision.inhibitors & LightSleepInhibitPendingTx) != 0 &&
+                (waiting_decision.inhibitors & LightSleepInhibitAckWait) != 0 &&
+                p.node->has_pending_key(key),
+            "reachable pending Durable ACK remains awake beyond the 10 s receive budget");
+
+    require(p.ack(durable_ack) && p.node->pending() == 0 && p.node->persisted() == 0,
+            "authenticated Durable ACK retires the exact pending event");
+    listening.authenticated_progress(p.node->pending() == 0);
+    power.observe_authenticated_contact();
+    auto idle = observation(now + 1);
+    idle.next_retry_ms = p.node->next_retry_deadline().value_or(-1);
+    observe_retained_delivery(idle, listening, p.node->pending() != 0,
+                              p.node->persisted() != 0);
+    require(evaluate_light_sleep(idle).eligible,
+            "normal sleep eligibility returns after Durable ACK retirement");
+}
+
 struct Scenario {
     std::string name;
     int initial = 0;
@@ -389,7 +427,7 @@ void simulations(const char* output) {
 }
 int main(int argc,char** argv) {
     try {
-        policy_matrix(); authenticated_matrix();
+        policy_matrix(); authenticated_matrix(); ack_wait_sleep_transition();
         simulations(argc>1?argv[1]:"build/gs150_metrics.csv");
         std::cout<<"GS-150 PASS checks="<<checks<<'\n';
         return 0;

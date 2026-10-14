@@ -1,5 +1,36 @@
 # GS-114 C8 physical execution
 
+## 2026-10-14 — P9 software validation complete; physical fixtures remain blocked
+
+P9 software coverage was audited and completed without hardware access. The
+production-code GS-150 Node/Hub simulation now includes an explicit pending
+authenticated Durable ACK → sleep-inhibited beyond the 10,000 ms receive
+budget → exact-key retirement → normal idle sleep eligibility transition.
+`make gs150-host-test` and its ASan/UBSan run passed at 1,500 checks. Existing
+P9-related evidence was reused: BAT-C8 72 C++/11 Python checks, secure-FOTA
+adapter 2 groups, FOTA host 34 checks, board-stack E2E 8 groups/325 checks,
+signed-FOTA fixture orchestration 16/16 and feature-coverage mapping
+175 features/205 modules/15 physical cases passed. Details, commands, limits
+and fixture requirements are in
+[P9 software evidence](run05_software_20261014/C8_P9_SOFTWARE_VALIDATION_20261014.md).
+
+**P9 ACK software simulation: PASS; physical ACK sleep-inhibition: BLOCKED /
+NOT_RUN. P9 FOTA software state/signing-fixture coverage: PASS;
+physical signed-FOTA: BLOCKED / NOT_RUN.** The Python signed-FOTA fixture
+checks validate host orchestration and artifact guards, not cryptographic
+acceptance by an ESP32 target. No board, serial port, image or commissioning
+state was accessed or changed. A bounded long ACK-hold fixture with trusted
+per-key evidence is still required for physical ACK qualification. Signed FOTA
+still requires a matched signed test/recovery pair, trusted signer provenance,
+supported authenticated trigger and safe rollback plan. P10 remains GS-149.
+
+`make validation-node` and `make validation-contract` reached the registered
+P0 product E2E and returned gate FAIL because `product_status=PARTIAL` and
+`physical=NOT_RUN`, despite all 26 P0 scenario assertions passing. This
+existing release gap is independent of P9 and remains visible. GS-114 remains
+In Progress. Previous RPF07 and C8 P1–P8 physical PASS evidence is reused;
+none was repeated in this software-only run.
+
 ## 2026-10-14 12:12 UTC — C8-P8 physical lost-ACK PASS
 
 The source-matched S3 P8 fixture was installed app-only at the verified
