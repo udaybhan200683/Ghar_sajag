@@ -1,5 +1,40 @@
 # R1 Current Work State
 
+## GS-114 P3 readiness checkpoint — 2026-10-14 07:55 UTC
+
+The requested P3 motion window was not performed, per operator confirmation;
+it is not a physical test. No movement prompt was repeated. Read-only checks
+showed local `HEAD` and `origin/feature/r1-commercial-baseline` both at
+`27974e0759ac2aadf9886aaeb202d85dcd5998fe`, tracked worktree clean, and
+context preflight PASS (`2026-10-13.001`). Existing unrelated untracked assets
+and private/raw evidence remain untouched.
+
+The active S3 capture is still PID 324978, the sole owner of `/dev/ttyACM0`
+(stable S3 by-id path); its output is the run04 S3 log, whose last line is the
+read-only `FIXTURE_STATUS state=idle` at `06:58:28.214244408Z`. No later S3
+UART evidence has been captured. C3's stable by-id path resolves to
+`/dev/ttyACM1`; sysfs still identifies USB `303a:1001`, serial
+`14:63:93:C5:D1:58`, with runtime status `active`, and no process owns ACM1.
+This confirms USB enumeration only, not a running or authenticated Node.
+
+The newest authenticated C3 evidence remains session 15 / health_seq 1 at
+`06:37:24.484466352Z`, with its schema-3 sleep trace at
+`06:37:24.506002952Z`. The Hub marked session 15 offline at
+`06:52:38.225783443Z`. The configured heartbeat is 300 seconds and offline
+lease is 910 seconds; the lease has expired with no subsequent authenticated
+NodeHealth, rejoin or event. Therefore **P3 remains BLOCKED / NOT RUN** and the
+fixture is not ready for physical motion. No reset, port probe, flash, command
+or commissioning operation was performed. The exact active S3 binary hash
+also remains unverified; its candidate build hash must not be represented as
+the installed hash.
+
+Next action: recover C3 authenticated liveness through a separately authorized
+safe action while preserving the commissioned state and exclusive S3 capture.
+Only after fresh authenticated NodeHealth, current schema-3 trace decoding and
+OPEN admission are observed should the single controlled 20–30 second P3
+movement request be made. P8 remains the subsequent priority; P9 ACK/FOTA
+remain blocked on their specific fixtures, and P10 remains GS-149.
+
 ## GS-114 C8 resume checkpoint — 2026-10-14 07:18 UTC
 
 Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch

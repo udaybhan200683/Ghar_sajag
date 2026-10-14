@@ -661,3 +661,17 @@ and the available ACK-drop binary is from an earlier source checkpoint. P9
 ACK/FOTA prerequisites remain blocked. No security, product, protocol,
 storage or sleep-policy decision changed; context version remains
 `2026-10-13.001`. See the [run04 evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run04_20261014/C8_C3_DIAGNOSTIC_INSTALL_AND_TRACE.md).
+
+### P3 readiness recheck — 2026-10-14 07:55 UTC (evidence; no new product decision)
+
+The operator confirmed no motion occurred during the previously requested
+window. The active S3 capture produced no newer UART line after its
+`FIXTURE_STATUS state=idle` response at 06:58:28.214244408 UTC. The newest
+authenticated C3 health remains session 15 / health_seq 1 at
+06:37:24.484466352 UTC; the Hub marked the Node offline at
+06:52:38.225783443 UTC. The configured 300-second heartbeat and 910-second
+offline lease establish that the fixture is not currently ready for P3. Both
+USB identities remain enumerated, but this does not establish Node application
+liveness. No hardware operation or new motion request was performed. P3
+remains BLOCKED / NOT RUN pending safe restoration of authenticated liveness;
+see run04 evidence and `R1_WORK_STATE.md`. `CONTEXT_VERSION` is unchanged.

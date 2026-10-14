@@ -30,3 +30,34 @@
 - **P10:** separate GS-149 measurement scope; no current or battery-life values were measured here.
 
 The complete S3 capture and C3 installation outputs are retained locally in this run directory. The S3 log's unsolicited q1/q2 events during setup are not attributed to the controlled P3 window and are not used as a P3 result.
+
+## Read-only P3 readiness recheck — 2026-10-14 07:55 UTC
+
+The operator confirmed the previously requested movement window contained no
+PIR movement. It is not a physical P3 run, and no new movement request was
+made.
+
+The active exclusive S3 reader is PID 324978 on ACM0, configured to append to
+this run's `s3_uart_timestamped.log`; the capture process remains blocked
+waiting for serial input. Its last captured line is the read-only
+`FIXTURE_STATUS state=idle` at `2026-10-14T06:58:28.214244408Z`. The last
+authenticated NodeHealth is session 15 / health_seq 1 at
+`06:37:24.484466352Z`, with the schema-3 sleep trace at
+`06:37:24.506002952Z`. The Hub marked session 15 offline at
+`06:52:38.225783443Z`. The Hub's boot log specifies heartbeat 300 s and
+offline lease 910 s; there is no newer authenticated NodeHealth, rejoin or
+event after the offline indication.
+
+Both expected USB interfaces remain enumerated in WSL. C3 stable by-id resolves
+to ACM1 and sysfs reports `303a:1001`, serial `14:63:93:C5:D1:58`, runtime
+status active; ACM1 has no process owner. S3 stable by-id resolves to ACM0 and
+the existing capture is its only owner. USB enumeration does not establish
+application liveness. No port probe, reset, flash, S3 command or other board
+operation was performed. Since the authenticated offline lease expired, P3
+was not READY and no physical test window was opened. The exact installed S3
+application hash remains unverified; the source-matched build candidate hash
+is not treated as a running-image hash.
+
+**Disposition:** P3 BLOCKED / NOT RUN pending restored authenticated C3
+liveness and fresh schema-3 trace evidence. No new hardware action is justified
+under the current no-reset/no-reflash resume scope.
