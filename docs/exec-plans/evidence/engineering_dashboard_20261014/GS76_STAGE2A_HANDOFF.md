@@ -109,6 +109,14 @@ uncommitted during execution (`tracked_dirty=true`), then reviewed for commit.
 The native reports and all stage logs were copied byte-for-byte to
 [`validation/`](validation/); `validation/SHA256SUMS` verifies the copy.
 
+Validated source, registration, documentation and native evidence were committed
+and pushed as `8e1c11472c28b9d2bd3706d5c3b350be70e95db3`. Actual GitHub
+remote HEAD equaled local HEAD; the tracked dashboard worktree was clean after
+that push. Validation ran on the same source bytes before commit, with
+`tracked_dirty=true` truthfully retained in the native receipts. The only
+following change is this delivery-checkpoint documentation update. Ignored
+local build/report artifacts remain preserved; no canonical GS-148 file moved.
+
 | Command | Result | Exact evidence |
 |---|---|---|
 | `PYTHONPATH=backend:. python3 -m unittest discover -s tests/engineering_dashboard -p 'test_*.py' -v` from `code/` | PASS, exit 0, 98/98 (84 prior + 14 new) | `validation/dashboard_98.log` |
