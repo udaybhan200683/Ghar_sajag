@@ -1,5 +1,27 @@
 # GS-114 C8 physical execution
 
+## Latest run03 checkpoint — 2026-10-14 03:25 UTC
+
+The installed, commissioned R&D images remain unchanged. The operator completed
+another real sustained-movement P3 attempt. Four distinct PIR EventKeys q17–q20
+were durably accepted and ACKed, with same-key retries deduplicated. Authenticated
+NodeHealth at 03:25:04.945156252 UTC confirmed `pir_raw=0`, retained=0, reset=11,
+durable_ack=20, and continued timer/sleep counters. No C3 UART or direct GPIO4
+trace captured the active-HIGH interval, so P3 remains BLOCKED for held-HIGH
+sleep inhibition and the four distinct motion events remain unexplained. The
+post-stop LOW and normal timer/sleep recovery are observed. Details are in
+[C8-P3](run03_20261014/C8_P3.md); the complete live Hub capture is
+`run03_20261014/s3_uart_timestamped.log`.
+
+P4's controlled q16 retest remains PASS; its earlier q10–q12 one-stimulus
+multi-event failure remains separately preserved. P5 remains BLOCKED/inconclusive,
+P6 PASS, and P7 requires a controlled first motion after a new Hub-only reboot.
+Before P5, replace the current S3 reader with a single reconnect-capable reader;
+the current exclusive reader does not reopen after the Hub USB interface
+disappears. Keep P8 physical NOT_RUN and P9 ACK/FOTA blocked on their fixture
+prerequisites. No firmware change, reset, reflash or recommission occurred.
+GS-114 remains In Progress; P10 remains separate under GS-149.
+
 ## Latest run03 checkpoint — 2026-10-14 03:13 UTC (campaign active)
 
 The run03 code checkpoint is `72716c141a788b251e6b630f4684df12028ea847`; the

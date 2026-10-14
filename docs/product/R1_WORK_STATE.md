@@ -1,5 +1,38 @@
 # R1 Current Work State
 
+## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:25 UTC
+
+The R&D pair remains on its existing commissioned images; no source/image
+change, reset, reflash or recommission occurred. The operator completed another
+continuous real-motion P3 attempt. Hub events q17–q20 were four distinct keys,
+each durably accepted once, same-key deduplicated, and ACKed. Authenticated
+NodeHealth at `2026-10-14T03:25:04.945156252Z` (session 3, health_seq 120)
+reported reset=11, `pir_raw=0`, retained=0, durable_ack=20, pir_ok=25,
+gpio_wakes=25, sleep_entries=1273 and timer_wakes=1248. Relative to health_seq
+119 before the stimulus, GPIO wakes and accepted PIR events each increased by
+four, while sleep entries increased by 14 and timer wakes by 10.
+
+P3 remains BLOCKED for held-HIGH sleep-inhibition qualification: C3 native USB
+UART/direct GPIO4 did not expose HIGH during movement, and aggregate counters
+cannot identify sleep entries relative to the pin level. Post-stop LOW and
+timer/sleep recovery are observed. Four distinct EventKeys during continuous
+movement are preserved as unexplained physical event multiplicity, not
+same-key duplicate effects. See [C8-P3 evidence](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run03_20261014/C8_P3.md).
+
+Current physical statuses: RPF07 PASS; P1/P2 PASS; P3 BLOCKED; P4 controlled
+retest PASS with the original q10–q12 failure retained; P5 BLOCKED/inconclusive;
+P6 PASS; P7 requires a new Hub-only reboot followed by a controlled first real
+motion; P8 physical NOT_RUN; P9 ACK/FOTA BLOCKED. P5 requires a reconnect-capable
+exclusive S3 log reader before Hub power removal; the existing reader does not
+reopen after USB disconnect. Preserve installed image hashes C3
+`1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and S3
+`84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`. No C3
+reader is active. Keep GS-114 In Progress; P10 remains separate under GS-149.
+Next, repeat the Hub-only P6 reset needed to establish a fresh controlled P7
+first-event window, then run P7 after authenticated rejoin. Before the later P5
+Hub power-removal test, replace the S3 observer with a reconnect-capable single
+reader and verify the replacement does not reset the Hub.
+
 ## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:13 UTC
 
 Canonical path `/home/udaybhan/projects/Ghar_sajag_r1`, branch
