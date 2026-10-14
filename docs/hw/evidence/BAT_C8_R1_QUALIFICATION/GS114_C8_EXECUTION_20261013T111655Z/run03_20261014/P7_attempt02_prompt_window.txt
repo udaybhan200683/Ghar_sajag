@@ -1,0 +1,24 @@
+prompt_window_start_utc=2026-10-14T03:51:54.823181658Z
+case=C8-P7 controlled first real PIR after Hub-only reboot
+source_checkpoint=1e433477f67cbc01dad8cffa0655e2eec257d409
+C3_app_sha256=1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814
+S3_app_sha256=84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7
+hub_session=4
+authenticated_health_utc=2026-10-14T03:51:27.316759283Z
+reset=11 retained=0 durable_ack=21 pir_ok=26 gpio_wakes=26 last_wake=TIMER
+prior_and_only_post-reboot-eligible-event_check=no event after Hub boot at 03:34:26.983112060Z
+RPF00_admission=OPEN at 03:41:28.976278928Z
+operator_availability_signal=received
+operator_done_received_utc=2026-10-14T03:53:00.187309339Z
+operator_action=one prompted real AM312 movement episode, then step away
+observed_gpio_event_utc=2026-10-14T03:52:15.856561280Z
+event_key=p15:c3-146393c5d158n8:gs114-c8s1q22
+first_delivery=state_changed:1 records:22 outbox_found:1 admission:OPEN
+same_key_deliveries=2 state_changed:0 records:22
+authenticated_durable_ack_send=ESP_OK
+hub_authenticated_session=4
+hub_retirement_ack_utc=2026-10-14T03:52:16.317096491Z
+hub_retirement_ack=authenticated session=4 generation=46 send=ESP_OK
+post_event_node_health_utc=2026-10-14T03:57:15.413701666Z
+post_event_node_health=health_seq:125 reset:11 retained:0 durable_ack:22 pir_ok:27 gpio_wakes:27 last_wake:TIMER
+disposition=PASS_CONTROLLED_FIRST_EVENT_AFTER_HUB_REBOOT

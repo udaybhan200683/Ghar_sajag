@@ -1,0 +1,12 @@
+case=C8-P6 Hub-only reboot and authenticated recovery
+hub_boot_utc=2026-10-14T03:34:27.008018560Z
+hub_reset_reason=POWERON
+hub_authenticated_owner_ready_utc=2026-10-14T03:34:33.090619818Z
+hub_authenticated_node_rejoin_utc=2026-10-14T03:41:27.932196594Z
+new_authenticated_session=4
+hub_liveness_utc=2026-10-14T03:41:28.115397665Z online=1 profile_known=1 session=4
+rpf00_utc=2026-10-14T03:41:28.976278928Z path=DUPLICATE admission=OPEN generation=44
+retirement_ack_utc=2026-10-14T03:41:28.995413225Z session=4 generation=44 send=ESP_OK
+post_reboot_node_health_before_p7_utc=2026-10-14T03:51:27.316759283Z session=4 health_seq=124 reset=11 retained=0 durable_ack=21 pir_ok=26 gpio_wakes=26
+capture=s3_uart_timestamped.log; one S3 reader remained attached through power cycle
+disposition=PASS

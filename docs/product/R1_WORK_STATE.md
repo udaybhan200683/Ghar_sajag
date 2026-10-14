@@ -1,5 +1,29 @@
 # R1 Current Work State
 
+## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:58 UTC
+
+Controlled P7 now PASSes. The operator performed one real AM312 movement
+episode during the requested window after Hub-only reboot. Hub booted at
+03:34:27.008Z, authenticated Node rejoin advanced to session 4, and RPF00
+admission remained OPEN. First post-reboot key q22
+`p15:c3-146393c5d158n8:gs114-c8s1q22` produced one durable logical effect;
+two same-key retries were idempotent. Authenticated retirement ACK send
+returned `ESP_OK`; NodeHealth at 03:57:15.413Z confirmed reset=11, retained=0,
+durable_ack=22, pir_ok=27 and gpio_wakes=27. P6 also PASSes with the full S3
+boot banner captured. See [GS-114 P6](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run03_20261014/C8_P6.md)
+and [GS-114 P7](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/run03_20261014/C8_P7.md).
+
+P5 remains BLOCKED/inconclusive from its prior capture gap and is next for a
+controlled retest using the existing reconnect-aware exclusive S3 reader.
+P3 remains BLOCKED for direct GPIO4 HIGH/sleep-inhibition evidence; P4 passes
+on its controlled retest while the earlier q10–q12 multi-key result remains
+unexplained. P1/P2 PASS. P8 is still physical NOT_RUN pending installation of
+the isolated ACK-loss image set after exact-device/profile verification; P9
+ACK-window and signed FOTA subcases remain blocked by missing fixtures/images.
+RPF07 physical retest remains PASS. No source/image change, reset, reflash or
+recommission occurred in this checkpoint. GS-114 remains In Progress; GS-149
+P10 current measurement and other GS-146 evidence remain separate.
+
 ## GS-114 resumed C8 execution checkpoint — 2026-10-14 03:25 UTC
 
 The R&D pair remains on its existing commissioned images; no source/image

@@ -1,5 +1,28 @@
 # GS-114 C8 physical execution
 
+## Latest run03 checkpoint — 2026-10-14 03:58 UTC
+
+The controlled P7 first-event-after-reboot case now **PASSes**. Hub-only
+reboot booted with `POWERON` at 03:34:27.008Z; authenticated Node rejoin
+advanced to session 4 at 03:41:27.932Z; RPF00 remained OPEN. The first
+post-reboot event after pre-reboot q21 was the operator-requested real AM312
+event q22 `p15:c3-146393c5d158n8:gs114-c8s1q22` at 03:52:15.856Z. The Hub
+committed one effect, two same-key repeats made no further state changes, and
+authenticated retirement ACK send returned `ESP_OK`. NodeHealth at 03:57:15
+confirmed `reset=11 retained=0 durable_ack=22 pir_ok=27 gpio_wakes=27`.
+The Hub boot banner was captured in full. See [P6 run 02](run03_20261014/C8_P6.md)
+and [controlled P7 run 02](run03_20261014/C8_P7.md).
+
+Current statuses: P1/P2 PASS; P3 BLOCKED because the held-HIGH interval lacks
+direct GPIO-level/sleep-inhibition evidence; P4 PASS on controlled retest while
+the original q10–q12 multiplicity failure remains unresolved; P5 retest is
+pending a reconnect-aware exclusive S3 reader; P6/P7 PASS; P8 physical NOT_RUN;
+P9 ACK/FOTA blocked on separate fixture prerequisites. No firmware or image
+change occurred. Existing authenticated commissioning and image hashes remain
+unchanged. Next, transition the single S3 observer to reconnect-aware capture,
+then execute P5 with one isolated real motion while only the Hub USB is off.
+GS-114 remains In Progress; P10 remains separate under GS-149.
+
 ## Latest run03 checkpoint — 2026-10-14 03:25 UTC
 
 The installed, commissioned R&D images remain unchanged. The operator completed
@@ -255,15 +278,15 @@ Owning Jira GS-114; affected C3/S3 fixture setup, USB capture, authenticated com
 | P2 | PASS | Real AM312 motion, exact q1 EventKey, GPIO wake, one durable effect, authenticated Durable ACK and retained=0/durable_ack increment; see [P2](run03_20261014/C8_P2.md) |
 | P3 | BLOCKED | Sustained real movement produced multiple distinct qualified events and eventual LOW recovery; no trace proves GPIO4 remained HIGH or that sleep was inhibited while HIGH; see [P3](run03_20261014/C8_P3.md) |
 | P4 | PASS on controlled retest; original trial FAIL retained | Controlled brief motion produced q16, one Hub durable effect, same-key duplicate suppression, authenticated Durable ACK and Node retirement; no extra key in the three-minute quiet window. Earlier q10/q11/q12 remain distinct durable events with unexplained cause; see [P4](run03_20261014/C8_P4.md) |
-| P5 | BLOCKED / inconclusive | Hub outage and return executed; Node stayed alive and one outage-period event was eventually retired by health counters, but exact initial EventKey/first Hub delivery fell in capture gap and q14 added another durable effect; see [P5](run03_20261014/C8_P5.md) |
-| P6 | PASS | Hub-only power interruption followed by authenticated session 3, RPF00 admission OPEN and stable Node reset/pending counters; boot banner missed at serial attach; see [P6](run03_20261014/C8_P6.md) |
-| P7 | BLOCKED for controlled stimulus attribution | First post-reboot physical GPIO/PIR-path key q15 was durably admitted and ACKed under Hub session 3; health_seq 116 confirms one GPIO/PIR/ACK increment and retained=0. No controlled stimulus timestamp; q16 was later P4 and is not the first post-reboot event; see [P7](run03_20261014/C8_P7.md) |
+| P5 | BLOCKED / inconclusive; controlled retest pending | Previous outage capture missed the initial recovery key; retest will use reconnect-aware exclusive capture and one isolated real motion; see [P5](run03_20261014/C8_P5.md) |
+| P6 | PASS | Run 02 captured full Hub POWERON boot, authenticated session 4, RPF00 admission OPEN and Node reset counter unchanged at 11; see [P6](run03_20261014/C8_P6.md) |
+| P7 | PASS — controlled run 02 | First event q22 during prompted AM312 action window; one durable effect, two same-key idempotent repeats, authenticated retirement ACK, post-event health confirms retained=0 and durable_ack increment; see [P7](run03_20261014/C8_P7.md) |
 | P8 | BLOCKED physically; fixture implemented | Default-off S3 commissioning-profile-only one-shot postcommit ACK suppression and 16-check normal/ASan/UBSan/TSan PASS; matched target build, installation and real same-key retry await P7; see [P8](run03_20261014/C8_P8.md) and [software validation](run03_20261014/C8_P8_SOFTWARE_VALIDATION_20261014.md) |
 | P9 ACK | BLOCKED | No qualified directional ACK hold fixture; P8 one-shot loss alone is shorter than the required pending-ACK observation window; see [P9](run03_20261014/C8_P9.md) |
 | P9 FOTA | BLOCKED | No matched signed C3 test/recovery image pair, supported signed trigger or known recovery procedure; see [P9](run03_20261014/C8_P9.md) |
 | P10 | NOT_RUN | GS-149 owns quantitative acceptance; no instrument/current measurements |
 
-Next action: keep the S3 capture active. P3 needs another real sustained-HIGH episode and direct evidence that sleep is inhibited while GPIO4 is HIGH. To run the requested controlled P7 first-event test after q15 arrived without a controlled stimulus, repeat Hub-only P6, then prompt for the first real PIR motion after that reboot. Wait for operator availability before each new motion prompt. P8 requires exact target/partition/image confirmation and operator confirmation before any flash; then run the real one-shot postcommit ACK-loss retry. P5, P9 ACK and signed FOTA remain unresolved. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
+Next action: transition the sole S3 capture to reconnect-aware mode, then run the controlled P5 outage test. The operator is available for the required USB and PIR actions. P3 still needs direct GPIO4 HIGH and sleep-inhibition evidence. P8 requires exact target/partition/image confirmation before installing its isolated test profile. P9 ACK and signed FOTA remain blocked on fixtures. Do not move GS-114 to Done while applicable criteria remain incomplete or blocked.
 
 ## Validation and precise operator checkpoint
 

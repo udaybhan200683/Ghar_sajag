@@ -94,7 +94,7 @@
     "P4": "PASS_CONTROLLED_RETEST; ORIGINAL_RUN_FAIL_Q10_Q11_Q12_CAUSE_UNRESOLVED",
     "P5": "BLOCKED_INCONCLUSIVE",
     "P6": "PASS",
-    "P7": "BLOCKED_CONTROLLED_STIMULUS_ATTRIBUTION; Q15_PHYSICAL_PATH_AND_RETIREMENT_CONFIRMED",
+    "P7": "PASS_CONTROLLED_RUN02_FIRST_POST_REBOOT_EVENT_Q22; Q15_UNPROMPTED_OBSERVATION_EXCLUDED",
     "P8": "TARGET_BUILD_PASS_PHYSICAL_NOT_RUN_WAITING_P7_AND_OPERATOR_CONFIRMATION",
     "P9_ACK": "BLOCKED_NO_BOUNDED_PENDING_ACK_WINDOW_FIXTURE",
     "P9_FOTA": "BLOCKED_NO_MATCHED_SIGNED_IMAGES_TRIGGER_OR_RECOVERY_PLAN"
@@ -157,6 +157,51 @@
       "pir_edges": 40
     }
   },
+  "p6_run02": {
+    "hub_boot_utc": "2026-10-14T03:34:27.008018560Z",
+    "hub_reset_reason": "POWERON",
+    "hub_authenticated_owner_ready_utc": "2026-10-14T03:34:33.090619818Z",
+    "authenticated_node_rejoin_utc": "2026-10-14T03:41:27.932196594Z",
+    "authenticated_session": 4,
+    "rpf00_utc": "2026-10-14T03:41:28.976278928Z",
+    "rpf00_admission": "OPEN",
+    "retirement_ack_send": "ESP_OK",
+    "node_health_before_p7": {
+      "utc": "2026-10-14T03:51:27.316759283Z",
+      "health_seq": 124,
+      "reset_reason": 11,
+      "retained": 0,
+      "durable_ack": 21,
+      "pir_ok": 26,
+      "gpio_wakes": 26
+    },
+    "full_hub_boot_banner_captured": true,
+    "disposition": "PASS"
+  },
+  "p7_controlled_run02": {
+    "prompt_window_start_utc": "2026-10-14T03:51:54.823181658Z",
+    "operator_done_received_utc": "2026-10-14T03:53:00.187309339Z",
+    "event_key": "p15:c3-146393c5d158n8:gs114-c8s1q22",
+    "hub_authenticated_session": 4,
+    "hub_durable_effect_utc": "2026-10-14T03:52:15.856561280Z",
+    "first_delivery_state_changed": true,
+    "same_key_duplicate_deliveries": 2,
+    "same_key_duplicates_state_changed": false,
+    "rpf00_admission": "OPEN",
+    "retirement_ack_utc": "2026-10-14T03:52:16.317096491Z",
+    "retirement_ack_send": "ESP_OK",
+    "post_event_node_health": {
+      "utc": "2026-10-14T03:57:15.413701666Z",
+      "session": 4,
+      "health_seq": 125,
+      "reset_reason": 11,
+      "retained": 0,
+      "durable_ack": 22,
+      "pir_ok": 27,
+      "gpio_wakes": 27
+    },
+    "disposition": "PASS"
+  },
   "p8_software_fixture": {
     "source_base_head": "ec469303d17ea2037019a5bb18d29ce070c249e2",
     "working_tree_uncommitted_at_test": true,
@@ -199,7 +244,7 @@
   },
   "known_capture_gaps": [
     "P5 Hub-unavailable window and initial event/recovery-key lines were not captured; see C8_P5.md.",
-    "P6 Hub boot banner was missed because the single S3 serial reader attached after USB enumeration; authenticated rejoin and fresh-session evidence were captured.",
+    "An earlier P6 attempt missed the Hub boot banner after serial attach; run 02 captured the full Hub boot banner and authenticated fresh-session recovery.",
     "Native C3 USB Serial/JTAG emits no useful output while the Node is in light sleep on this fixture; do not infer firmware inactivity from its silence."
   ],
   "evidence_files": [
@@ -210,7 +255,9 @@
     "C8_P4.md",
     "C8_P5.md",
     "C8_P6.md",
+    "P6_run02_observed_utc.txt",
     "C8_P7.md",
+    "P7_attempt02_prompt_window.txt",
     "C8_P8.md",
     "C8_P8_SOFTWARE_VALIDATION_20261014.md",
     "C8_P9.md"
