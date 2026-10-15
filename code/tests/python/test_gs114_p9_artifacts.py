@@ -20,6 +20,12 @@ class SignedP9ArtifactSafety(unittest.TestCase):
         self.assertIn('b"COMMISSION_EXPECTED_NODE" in data', builder)
         self.assertIn('#if GS_HIL_COMMISSIONING\n    if (std::strcmp(verb, "COMMISSION_EXPECTED_NODE")', control)
 
+    def test_signed_p9_c3_images_keep_physical_wake_without_hil_controls(self):
+        prepare = (ROOT / "scripts/prepare_gs114_p9_signed_artifacts.py").read_text()
+        self.assertIn('"--build-dir", build_dir, "--physical-wake"', prepare)
+        self.assertNotIn('"--hil-control", "--physical-wake"', prepare)
+        self.assertIn('record.get("hil_control") is not False', prepare)
+
     def test_private_keys_must_stay_outside_repo(self):
         with self.assertRaisesRegex(ValueError, "outside the repository"):
             outside_repo(ROOT / "build" / "test_keys")

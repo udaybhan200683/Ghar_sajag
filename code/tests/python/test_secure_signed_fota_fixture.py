@@ -239,17 +239,24 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "requires --hil-control"):
             signed_profile_cmake_options(hil_control=False, force_boot_health_fail=True)
 
-    def test_physical_wake_signed_profile_is_explicitly_test_only(self):
-        with self.assertRaisesRegex(ValueError, "requires --hil-control"):
-            signed_profile_cmake_options(hil_control=False,
-                                         force_boot_health_fail=False,
-                                         physical_wake=True)
-        options = signed_profile_cmake_options(hil_control=True,
+    def test_physical_wake_signed_profile_needs_no_unrelated_hil_controls(self):
+        options = signed_profile_cmake_options(hil_control=False,
                                                force_boot_health_fail=False,
                                                physical_wake=True)
+        self.assertIn("-DGS_HIL_CONTROL=OFF", options)
         self.assertIn("-DGS_BAT_C8_PHYSICAL_WAKE=ON", options)
         self.assertIn("-DGS_HIL_BUILD=OFF", options)
-        self.assertIn("-DGS_HIL_CONTROL=ON", options)
+
+        cmake = (Path(__file__).resolve().parents[2] /
+                 "firmware/node/target/esp32c3/idf/CMakeLists.txt").read_text()
+        self.assertIn("if(GS_BAT_C8_PHYSICAL_WAKE AND GS_HIL_BUILD)", cmake)
+
+    def test_signed_non_hil_image_rejects_c3_uart_test_commands(self):
+        source = (Path(__file__).resolve().parents[2] / "scripts/build_signed_c3.py").read_text()
+        for marker in ("HIL_READY", "INJECT_MOTION", "GET_HEALTH", "GET_STATE",
+                       "GET_TEST_QR", "SOFTWARE_RESTART"):
+            self.assertIn(f'b"{marker}"', source)
+        self.assertIn("HIL command marker in signed non-HIL image", source)
 
     def test_cmake_rejects_forced_failure_in_production_profiles(self):
         root = Path(__file__).resolve().parents[2]

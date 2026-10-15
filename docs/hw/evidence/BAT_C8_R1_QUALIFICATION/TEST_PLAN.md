@@ -428,7 +428,11 @@ a bounded test stimulus, not a product maximum-ACK-latency promise.
 
 - Matched C3 and Hub firmware from the selected source checkpoint. The C3
   profile must keep the signed-app-on-update verifier enabled and trust the
-  recorded test public key. A narrow S3 commissioning fixture now exposes
+  recorded test public key. Signed C3 A/B/N/recovery images use
+  `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF` and the explicit
+  `GS_BAT_C8_PHYSICAL_WAKE=ON` telemetry profile, so they retain the real
+  GPIO4/timer sleep path without UART motion, identity or restart test commands.
+  A narrow S3 commissioning fixture now exposes
   `START_SIGNED_C3_FOTA` for the exact enrolled Node through the existing
   authenticated owner-task FOTA path. The test profile sets
   `GS_HIL_SIGNED_FOTA=ON` while keeping `GS_HIL_BUILD=OFF`,

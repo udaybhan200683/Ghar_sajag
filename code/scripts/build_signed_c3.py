@@ -55,8 +55,6 @@ def signed_profile_cmake_options(*, hil_control: bool,
     """Return signed C3 profile flags, rejecting the test fault in production."""
     if force_boot_health_fail and not hil_control:
         raise ValueError("forced boot-health failure requires --hil-control")
-    if physical_wake and not hil_control:
-        raise ValueError("physical wake requires --hil-control")
     options = ["-DGS_HIL_BUILD=OFF",
                f"-DGS_HIL_CONTROL={'ON' if hil_control else 'OFF'}"]
     if physical_wake:
@@ -136,8 +134,10 @@ def main() -> int:
     if args.hil_control:
         if b"HIL_READY" not in image or b"INJECT_MOTION" not in image or b"GET_TEST_QR" not in image:
             raise RuntimeError("secure HIL-control image is missing expected diagnostic controls")
-    elif b"HIL_READY" in image or b"INJECT_MOTION" in image:
-        raise RuntimeError("HIL marker in signed production image")
+    elif any(marker in image for marker in (
+            b"HIL_READY", b"INJECT_MOTION", b"GET_HEALTH", b"GET_STATE",
+            b"GET_TEST_QR", b"SOFTWARE_RESTART")):
+        raise RuntimeError("HIL command marker in signed non-HIL image")
     trusted_key = args.trusted_key.resolve() if args.trusted_key else key
     verify = subprocess.run([sys.executable, str(Path(os.environ["IDF_PATH"]) / "tools/idf.py"),
                              "-B", args.build_dir, "secure-verify-signature", "--keyfile",

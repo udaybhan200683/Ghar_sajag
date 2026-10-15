@@ -87,14 +87,14 @@ def prepare(key_dir: Path, generate: bool) -> Path:
         args = ["python", "scripts/build_signed_c3.py", "--signing-key",
                 str(negative if label == "N" else trusted),
                 "--version", versions[label], "--output", str(image),
-                "--build-dir", build_dir, "--hil-control", "--physical-wake"]
+                "--build-dir", build_dir, "--physical-wake"]
         if label == "N":
             args += ["--trusted-key", str(trusted)]
         activated(args, output / f"build_c3_{label.lower()}.log", (trusted, negative))
         record = json.loads(image.with_suffix(image.suffix + ".json").read_text())
-        if record.get("physical_wake") is not True or record.get("hil_control") is not True or \
+        if record.get("physical_wake") is not True or record.get("hil_control") is not False or \
                 record.get("sha256") != hashlib.sha256(image.read_bytes()).hexdigest():
-            raise RuntimeError(f"C3 {label} signed profile/provenance mismatch")
+            raise RuntimeError(f"C3 {label} signed no-HIL physical-wake profile/provenance mismatch")
         records[label] = {"version": record["version"], "sha256": record["sha256"],
                           "size": record["size"], "profile": record["profile"],
                           "physical_wake": True,
