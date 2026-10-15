@@ -34,6 +34,24 @@ def git(*args: str) -> str:
                           stdout=subprocess.PIPE).stdout.strip()
 
 
+def validate_c3_image_profile(node_record: dict, *, s3_fixture: bool) -> None:
+    """Keep the current S3 fixture on the no-HIL physical-wake C3 profile.
+
+    The legacy classic-Hub supervisor still requires its explicit C3 HIL
+    controls. The S3 owner-authenticated fixture uses a separate local trigger
+    and must not broaden the signed C3 image's UART/HIL surface.
+    """
+    if node_record.get("profile") != "signed-app-on-update" or \
+            node_record.get("gs_hil_build") is not False:
+        raise ValueError("C3 image must retain secure runtime and signed-update verification")
+    if s3_fixture:
+        if node_record.get("hil_control") is not False or \
+                node_record.get("physical_wake") is not True:
+            raise ValueError("S3 signed fixture requires C3 physical-wake profile with HIL controls OFF")
+    elif node_record.get("hil_control") is not True:
+        raise ValueError("classic Hub signed-FOTA fixture requires explicit C3 HIL controls")
+
+
 def build_s3_fixture(image: Path, node_record: dict, args: argparse.Namespace) -> dict:
     """Build the isolated S3 owner-authenticated fixture without touching boards.
 
@@ -135,8 +153,10 @@ def main() -> int:
     expected_hash = node_record.get("sha256")
     if expected_hash != sha256(image) or node_record.get("profile") != "signed-app-on-update":
         parser.error("signed image hash/profile does not match its provenance sidecar")
-    if node_record.get("gs_hil_build") is not False or node_record.get("hil_control") is not True:
-        parser.error("C3 image must retain secure runtime and explicit HIL-only controls")
+    try:
+        validate_c3_image_profile(node_record, s3_fixture=args.s3_fixture)
+    except ValueError as error:
+        parser.error(str(error))
     if args.s3_fixture:
         if args.build_dir and (Path(args.build_dir).is_absolute() or
                                any(part in (".", "..") for part in Path(args.build_dir).parts)):

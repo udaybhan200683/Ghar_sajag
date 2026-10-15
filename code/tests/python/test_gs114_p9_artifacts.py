@@ -9,6 +9,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
+from build_secure_fota_hub import validate_c3_image_profile
 from prepare_gs114_p9_signed_artifacts import activated, keys, outside_repo
 
 
@@ -24,7 +25,26 @@ class SignedP9ArtifactSafety(unittest.TestCase):
         prepare = (ROOT / "scripts/prepare_gs114_p9_signed_artifacts.py").read_text()
         self.assertIn('"--build-dir", build_dir, "--physical-wake"', prepare)
         self.assertNotIn('"--hil-control", "--physical-wake"', prepare)
-        self.assertIn('record.get("hil_control") is not False', prepare)
+        builder = (ROOT / "scripts/build_secure_fota_hub.py").read_text()
+        self.assertIn("validate_c3_image_profile(node_record, s3_fixture=args.s3_fixture)", builder)
+
+    def test_s3_fixture_accepts_only_signed_no_hil_physical_wake_c3(self):
+        profile = {"profile": "signed-app-on-update", "gs_hil_build": False,
+                   "hil_control": False, "physical_wake": True}
+        validate_c3_image_profile(profile, s3_fixture=True)
+        for changed in ({**profile, "hil_control": True},
+                        {**profile, "physical_wake": False},
+                        {**profile, "gs_hil_build": True},
+                        {**profile, "profile": "development"}):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                validate_c3_image_profile(changed, s3_fixture=True)
+
+    def test_classic_hub_profile_still_requires_explicit_c3_hil_controls(self):
+        profile = {"profile": "signed-app-on-update", "gs_hil_build": False,
+                   "hil_control": True, "physical_wake": False}
+        validate_c3_image_profile(profile, s3_fixture=False)
+        with self.assertRaisesRegex(ValueError, "requires explicit C3 HIL controls"):
+            validate_c3_image_profile({**profile, "hil_control": False}, s3_fixture=False)
 
     def test_private_keys_must_stay_outside_repo(self):
         with self.assertRaisesRegex(ValueError, "outside the repository"):
