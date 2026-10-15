@@ -1,0 +1,246 @@
+{
+  "artifacts": {
+    "p9_a_ack_hold": {
+      "build_source_head": "fbda53a32958cc3c428397f95d96687f77431c6e",
+      "bytes": 1891536,
+      "deployment": "NOT_INSTALLED; candidate only",
+      "embedded_c3_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530",
+      "fixture_controls": {
+        "arm_before_event": true,
+        "hold_ms": 12000,
+        "watchdog_ms": 15000
+      },
+      "path": "code/build/gs114_fixture_pair/build-msngt91w/s3/gs_r1_s3_hub.bin",
+      "profile": {
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_C8_ACK_DROP": "OFF",
+        "GS_HIL_C8_ACK_HOLD": "ON",
+        "GS_HIL_COMMISSIONING": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_HIL_SIGNED_FOTA": "OFF",
+        "flash": "16MB",
+        "psram": "8MB",
+        "target": "esp32s3"
+      },
+      "sha256": "c96bbdf91956a8e3fbc9245c272f69d5347a7468fd873e7e4aa215a9afb8890f",
+      "source_fingerprint": "6521afe43d237f13e5234b215f547ecac721a78680323b4cc5c74c0beaf76e77"
+    },
+    "p9_b_signed_fota": {
+      "c3_images": {
+        "A": {
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261015T185926Z/c3-a.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "a0d4be25077fb73fe378ae2b5ce814cdec5f5d5f5be3d96407a718ace4c384a5",
+          "signing_public_key_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+          "trusted_public_key_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+          "version": "gs114A-261015T185926"
+        },
+        "B": {
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261015T185926Z/c3-b.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "a06bf4dfb75a579bca7eb02f806b076982b22fa07432a686da840363547a55dc",
+          "signing_public_key_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+          "trusted_public_key_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+          "version": "gs114B-261015T185926"
+        },
+        "N": {
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261015T185926Z/c3-n.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "62aa81c957e59c90b3d1ccba76e8a57375a659e64fe34d232c6448a39fbe2574",
+          "signing_public_key_fingerprint_sha256": "f201abde5e129ed5fa1042dfcf07c903d5f7398b165a1c825683f8f858d4efa3",
+          "trusted_public_key_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+          "version": "gs114N-261015T185926"
+        },
+        "R": {
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261015T185926Z/c3-r.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "e39668ee0d79ef5e89ae58608f31eba8367c96daa2c4690271aecbec6ac980e7",
+          "signing_public_key_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+          "trusted_public_key_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+          "version": "gs114R-261015T185926"
+        }
+      },
+      "c3_ota_slot_capacity_bytes": 1966080,
+      "deployment": "All candidates NOT_INSTALLED; host artifacts only.",
+      "generated_manifest": "code/build/gs114_p9_signed/20261015T185926Z/gs114_p9_artifacts.json",
+      "private_keys": "External RSA-3072 test-only; private material and filesystem path omitted; directory/file permissions verified 0700/0600.",
+      "s3_firmware_profile": {
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_C8_ACK_DROP": "OFF",
+        "GS_HIL_C8_ACK_HOLD": "OFF",
+        "GS_HIL_COMMISSIONING": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_HIL_SIGNED_FOTA": "ON",
+        "flash": "16MB",
+        "psram": "8MB",
+        "target": "esp32s3"
+      },
+      "s3_hub_variants": {
+        "B": {
+          "app_version": "gs114p9B-261015T185926",
+          "bytes": 1936256,
+          "embedded_c3_sha256": "a06bf4dfb75a579bca7eb02f806b076982b22fa07432a686da840363547a55dc",
+          "hil_control": false,
+          "legacy_raw_fota": false,
+          "path": "code/build/gs114_p9_signed/20261015T185926Z/hub-b.bin",
+          "profile": "gs114-s3-signed-fota-fixture",
+          "sha256": "792518ba871b913456ae2f54aead1e08f0643041fc6de467d36fb150b6ac3d32",
+          "trusted_signer_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553"
+        },
+        "N": {
+          "app_version": "gs114p9N-261015T185926",
+          "bytes": 1936256,
+          "embedded_c3_sha256": "62aa81c957e59c90b3d1ccba76e8a57375a659e64fe34d232c6448a39fbe2574",
+          "hil_control": false,
+          "legacy_raw_fota": false,
+          "path": "code/build/gs114_p9_signed/20261015T185926Z/hub-n.bin",
+          "profile": "gs114-s3-signed-fota-fixture",
+          "sha256": "2d31bf0054709211b527f429d20b53564bb60c9a04cbe30cffbe5a915d8232ba",
+          "trusted_signer_fingerprint_sha256": "f201abde5e129ed5fa1042dfcf07c903d5f7398b165a1c825683f8f858d4efa3"
+        },
+        "R": {
+          "app_version": "gs114p9R-261015T185926",
+          "bytes": 1936256,
+          "embedded_c3_sha256": "e39668ee0d79ef5e89ae58608f31eba8367c96daa2c4690271aecbec6ac980e7",
+          "hil_control": false,
+          "legacy_raw_fota": false,
+          "path": "code/build/gs114_p9_signed/20261015T185926Z/hub-r.bin",
+          "profile": "gs114-s3-signed-fota-fixture",
+          "sha256": "de01236e48651c1316a9ab98b027a18de2f1062ee328987485341a01b3e7f45f",
+          "trusted_signer_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553"
+        }
+      },
+      "software_signature_checks": "C3 builder verified A/B/N/R signatures; wrong-key N was explicitly rejected using A trusted key. Hub builder checked exact embedded C3 bytes, S3 profile, image markers and slot size.",
+      "source_dirty": true,
+      "source_head": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
+      "trusted_signer_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
+      "wrong_signer_fingerprint_sha256": "f201abde5e129ed5fa1042dfcf07c903d5f7398b165a1c825683f8f858d4efa3"
+    }
+  },
+  "authorization": {
+    "existing": "GS-146 comment 10734 accepts reusable clean use of this named R&D pair.",
+    "missing": "GS-114 comments 11107/11109 clarify that the existing authorization is not blanket P9 authorization. Missing approval names exact P9-A/P9-B image installs, signed OTA triggers, real sensor stimulus, state reads, expected resets/reboots, selected ports, observer, backup/recovery, stop criteria and recovery route.",
+    "status": "EXACT_OPERATION_APPROVAL_REQUIRED_BEFORE_PHYSICAL_TEST"
+  },
+  "created_utc": "2026-10-15T19:23:10Z",
+  "fixture": {
+    "authorization_scope": "Only the existing R&D pair referenced by GS-146 comment 10734; it does not authorize P9 access, image install, FOTA or event stimulus without a P9-specific approval.",
+    "c3": {
+      "active_ota_slot_currently": "UNKNOWN; previous run04 readbacks are historical.",
+      "board": "ESP32-C3, expected 4 MiB",
+      "historical_serial_by_id": "usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+      "identity_reverified_this_session": false,
+      "installed_image_currently": "UNKNOWN; prior P8 evidence is historical and no current readback was performed.",
+      "last_accepted_installed_image_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530",
+      "last_verified_mac": "14:63:93:c5:d1:58",
+      "latest_read_only_host_enumeration": "Windows Win32_SerialPort query returned zero COM ports; no serial port was opened.",
+      "owner_reported_power": "Laptop USB port; may be in light sleep.",
+      "wsl_usb_attachment": "Not attached to WSL. This does not block host builds or test artifact preparation; no C3 binary flashing was needed for those operations."
+    },
+    "pending_event_inventory": "UNKNOWN; preserve every existing retained key and durable record. Do not clear/reset to establish baseline.",
+    "s3": {
+      "active_ota_slot_currently": "UNKNOWN; prior run04 readback/ota_0 install receipts are not a current readback.",
+      "board": "ESP32-S3 N16R8, expected 16 MiB flash / 8 MiB PSRAM",
+      "historical_serial_by_id": "usb-1a86_USB_Single_Serial_5CBC401023-if00",
+      "identity_reverified_this_session": false,
+      "installed_image_currently": "UNKNOWN; prior P8 image was f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8.",
+      "last_verified_mac": "7c:4f:ad:b7:2a:20",
+      "usb_uart_serial": "5CBC401023"
+    },
+    "serial_observer": "No C3 port was opened. Native USB Serial/JTAG previously stopped emitting after light-sleep entry; a reset-safe continuous Node sleep/reset observer has not been demonstrated.",
+    "wiring": "Prior accepted setup: AM312 VCC 3.3 V, common GND, OUT to C3 GPIO4; current wiring not reverified."
+  },
+  "last_historical_readbacks": {
+    "c3_otadata_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
+    "c3_partition_table_sha256": "219614d3586ae564ce51dfc462e6e7773b590abe41048a10bc513e1a7d799469",
+    "interpretation": "Run04/P8 readbacks and install receipts are historical evidence, not proof of present active slots or running bytes.",
+    "s3_otadata_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
+    "s3_partition_table_sha256": "338f4a83ba90609b4ed0a04514f6378dc90b5d21769e186f49dc3086fd9feabc"
+  },
+  "operations_performed": {
+    "hardware": [],
+    "host_only": [
+      "built signed C3 A/B/N/R and S3 N/B/R target images",
+      "verified candidate image hashes, profiles, C3 signatures, wrong-key rejection, S3 embedded-image identity and slot bounds",
+      "ran focused host validation and make validation-hub"
+    ],
+    "no_serial_flash_reset_erase_recommission_ota_power_or_sensor_stimulus": true
+  },
+  "physical_case_status": {
+    "P1": "PASS reused",
+    "P10": "GS-149",
+    "P2": "PASS reused",
+    "P3": "PARTIAL; measured behavior pass, exact running S3 hash unverified",
+    "P4": "controlled q16 PASS; historical q10-q12 anomaly OPEN",
+    "P5": "controlled q24 PASS; per-attempt retry identity LIMITED",
+    "P6": "PASS reused",
+    "P7": "PASS reused",
+    "P8": "controlled q14 PASS reused",
+    "P9-A": "BLOCKED / NOT_RUN",
+    "P9-B": "BLOCKED / NOT_RUN"
+  },
+  "proposed_physical_operations_require_explicit_p9_approval": {
+    "not_in_scope": [
+      "eFuse/Secure Boot/flash-encryption/trust-root changes",
+      "full-device erase, protected-state clear or factory recommission",
+      "commercial signing material or CloudSync RSA/mTLS changes"
+    ],
+    "p9_a": [
+      "passively reidentify both boards and record current ports/owners/security/slots without DTR/RTS reset",
+      "read-only pending EventKey inventory and authenticated session baseline",
+      "app-only install of S3 P9-A image if current image cannot run the fixture",
+      "arm exact-K ACK hold before one real AM312 event",
+      "capture authenticated durable commit/K, hold for 12000 ms (15000 ms watchdog), release/allow exact-key retry and verify retirement/effect count"
+    ],
+    "p9_a_c3_binary_flash": "NOT_PROPOSED; C3 remains powered from laptop USB. Host preparation required no C3 attachment to WSL.",
+    "p9_b": [
+      "read-only board identity, partition/slot and pending-key baseline",
+      "install signed C3 A baseline using an approved app-only procedure",
+      "install S3 hub-n, trigger wrong-key N and verify target rejection/no state change",
+      "install S3 hub-b, trigger valid signed B and verify sleep inhibition, boot health, rejoin and event recovery",
+      "use S3 hub-r/C3 R only for approved recovery if required; do not induce power loss or forced rollback"
+    ]
+  },
+  "qualification_status": "HOST_PREPARATION_COMPLETE_PHYSICAL_NOT_RUN",
+  "recovery_and_stop_conditions": {
+    "recovery": "Known-good signed C3 R and prior P8 S3 candidate artifacts exist, but current installed bytes/slots and safe restore path are unverified. GS-118 rollback task stack remains provisional 12 KiB with no measured high-water evidence. Confirm app-only backup/restore and event-state preservation before any physical operation.",
+    "stop": [
+      "board identity/port mismatch or port ownership uncertainty",
+      "unknown pending EventKey inventory or any need to clear state",
+      "unexpected reset, boot-health failure, session/ownership/admission loss",
+      "wrong-key N accepted; valid B rejected; embedded image or active slot mismatch",
+      "sleep entry during critical FOTA or ACK-wait contract violation",
+      "unmatched/changed K, false retirement, extra logical effect, duplicate caregiver effect",
+      "continuous observer loss or recovery requiring erase/eFuse/security/trust-root change"
+    ]
+  },
+  "schema": "GS114-P9-EXECUTION-MANIFEST-v1",
+  "source": {
+    "branch": "feature/r1-commercial-baseline",
+    "context_version": "2026-10-13.001",
+    "dirty_reason": "Pre-existing untracked evidence/PWA assets and the S3 managed_components dependency tree; no tracked source edits at artifact build. Preserve all untracked items.",
+    "git_worktree_dirty": true,
+    "idf_version": "6.0.3",
+    "preflight": "PASS",
+    "remote_head_verified_before_documentation": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
+    "repository": "/home/udaybhan/projects/Ghar_sajag_r1",
+    "source_head": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
+    "tracked_source_clean_at_artifact_build": true
+  }
+}

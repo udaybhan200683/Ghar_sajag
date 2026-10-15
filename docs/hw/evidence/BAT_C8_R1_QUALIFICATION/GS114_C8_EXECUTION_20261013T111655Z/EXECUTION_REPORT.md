@@ -1,5 +1,129 @@
 # GS-114 C8 physical execution
 
+## Resumed host execution checkpoint — 2026-10-15 19:26 UTC
+
+This checkpoint resumes the owner-requested GS-114 P9 work from the prior
+15:23 UTC pause. `/status` most recently reported 81% of the five-hour limit
+remaining; the owner requested continued three-minute checks and a pause below
+12%. The canonical worktree is `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, local and verified remote HEAD
+`a5428cfa97bb110573eea7d490ce1c0c0bbad2e9`; context preflight PASS at
+`2026-10-13.001`. Tracked source was clean at this checkpoint. All pre-existing
+untracked PWA files, managed components and physical logs/readbacks remain
+untouched; the host artifact manifest marks the worktree dirty because those
+untracked entries (including S3 managed components) exist.
+
+The C3 is connected to laptop USB power per the owner, may be in light sleep,
+and is not attached to WSL. That does **not** block host-side compilation,
+artifact generation, or host tests; no C3 binary flashing was required for any
+work in this checkpoint. A read-only Windows serial enumeration found zero COM
+ports. No serial port was opened and no board, power, reset, flash, erase,
+recommission, OTA or motion operation occurred.
+
+### P9 fixture and signed artifact results
+
+The first resumed signed-artifact attempt at
+`code/build/gs114_p9_signed/20261015T185114Z/` stopped at the S3 N profile
+guard. It exposed a real compatibility defect: the S3 packager required C3
+generic HIL controls even though the required C3 signed physical-wake profile
+deliberately disables them. The guard now accepts only the S3-specific
+`signed-app-on-update`, `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF`,
+`physical_wake=true` C3 profile; the legacy classic-Hub path still requires
+explicit C3 HIL controls. Commit `a5428cfa97bb110573eea7d490ce1c0c0bbad2e9`
+contains this narrow fix and its positive/negative regressions. It was pushed
+and remote HEAD was verified before rebuilding artifacts.
+
+The corrected run emitted the consolidated host-only manifest
+`code/build/gs114_p9_signed/20261015T185926Z/gs114_p9_artifacts.json` from
+source HEAD `a5428cfa97bb110573eea7d490ce1c0c0bbad2e9`. Signed C3 A/B/N/R are
+each 987,136 bytes (within the 1,966,080-byte historical C3 OTA app slot), use
+distinct versions and keep generic HIL controls OFF while preserving the real
+GPIO4/timer path. A/B/R use trusted test signer fingerprint
+`bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553`; N uses
+`f201abde5e129ed5fa1042dfcf07c903d5f7398b165a1c825683f8f858d4efa3`. The C3
+builder accepted A/B/R signatures and explicitly rejected N against A's trust
+key. Private keys are external test-only RSA-3072 material; no private path or
+key material is in the repository or report.
+
+Matching S3 Hub N/B/R apps are each 1,936,256 bytes, below their 4 MiB
+candidate OTA slot. The S3 profile has `GS_HIL_SIGNED_FOTA=ON` while broad HIL,
+commissioning, ACK-drop and ACK-hold controls are OFF. The image builder
+verified the exact embedded C3 SHA for each variant, the S3 app version and
+profile, and the narrow `START_SIGNED_C3_FOTA` marker without commissioning or
+legacy raw-FOTA controls. Independent manifest checks passed 7/7 image
+hash/profile/size/embed assertions. All artifacts are candidates only and are
+NOT_INSTALLED. Details and the fixture-specific physical boundary are in the
+[P9 execution manifest](P9_EXECUTION_MANIFEST_20261015.json). The previous
+`20261015T180941Z` artifacts remain preserved but superseded because their C3
+images carried unrelated HIL controls; do not use them physically.
+
+Focused validation after the guard fix: `PYTHONPATH=tests/python python3 -m
+unittest test_gs114_p9_artifacts test_secure_signed_fota_fixture -q` ran 29
+tests, PASS/exit 0; `make s3-fixture-commissioning-test` ran 15 tests, PASS/
+exit 0; the consolidated BAT-C8/GS-150/S3 fixture/signed-FOTA/artifact command
+ran 55 tests, PASS/exit 0. The P9-A ACK-hold host gate remains 34/34 PASS and
+its ASan/UBSan run 34/34 PASS from the previous checkpoint. The new P9-A S3
+candidate from source `fbda53a32958cc3c428397f95d96687f77431c6e` remains
+`c96bbdf91956a8e3fbc9245c272f69d5347a7468fd873e7e4aa215a9afb8890f`, embeds
+exact existing C3 candidate `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`,
+and is also NOT_INSTALLED.
+
+`make validation-hub` ran against unchanged committed source HEAD `a5428cf`
+with source fingerprint
+`e8e84609eacdc43bab27c23962d61490098e13dce7f4c4aad38b3d2f479c4092` and exited
+2: 42/44 registered stages PASS. The two failures are the preserved
+`hub-journal-migration-host-test` assertion `clean migration commits` (count
+0, exit 2) and required `p0-full-product-e2e` stage (runner exit 0, 26/26
+scenario checks plus browser test pass, but the aggregate correctly fails
+`product_status=PARTIAL`, `physical=NOT_RUN`). P9 ACK-hold 34, signed-artifact
+safety 7, ACK-drop 16, S3 fixture 15, target host build, board-stack E2E,
+FOTA/security, replay, persistence and sanitizer stages passed. Do not repair
+the unrelated migration/P0 issues in this GS-114 task or call the Hub gate an
+aggregate PASS. The prior Node gate remains 25/26 stages PASS; its sole
+aggregate failure is the same mandatory P0 PARTIAL condition.
+
+The canonical report, work state, traceability row, physical catalogue and
+qualification matrix are now updated. `make feature-coverage-test` passed with
+204 features, 211 modules, 17 physical definitions and 22 tests. The first
+physical-catalogue run rejected a semicolon-joined evidence field as one path;
+the entries now point to the report (which links this manifest), and the final
+`make physical-hil-catalogue-test` passed all 101 cases. JSON parsing,
+`git diff --check` and the context preflight pass. No physical disposition was
+changed by these documentation checks.
+
+### Physical disposition and exact resume boundary
+
+Physical dispositions are unchanged: P1/P2/P6/P7 PASS; controlled P4 q16,
+controlled P5 q24 and P8 q14 PASS; P3 remains PARTIAL because no trustworthy
+readback binds the S3 bytes actually running during the P3 trace; P4's
+historical q10–q12 extra-event observation remains OPEN; P5 retry identity
+per-attempt visibility remains LIMITED. P9-A and P9-B remain BLOCKED / NOT_RUN;
+P10 remains GS-149. Existing run04 partition/OTA readbacks and P8 installed
+hashes are historical and do not establish current running images, active
+slots or the current pending-EventKey inventory.
+
+GS-146 comment 10734 authorizes reusable clean use of the named R&D pair, but
+GS-114 comments 11107/11109 require exact P9 authorization. No P9 hardware
+operation is currently authorized. In addition, the C3 native USB console can
+go silent in light sleep and no reset-safe continuous C3 sleep/reset observer
+has been qualified. P9-A does not require C3 flashing, but still needs the S3
+fixture image, exact-key ledger baseline, safe target observation and explicit
+P9 scope approval. P9-B has host-signed artifacts, but actual image/trust/slot
+state and the safe restore route remain unknown; GS-118's rollback stack is
+provisional at 12 KiB and its stack high-water has not been measured. No Secure
+Boot, eFuse, commercial trust-root or production ACK/retry/sleep policy change
+was made.
+
+The precise proposed operations, board identities (historical, not reverified),
+image hashes, slot evidence limits, recovery plan, stop criteria and missing
+authorization are recorded in the linked JSON manifest. Next: review and
+commit only the scoped handoff/matrix files, push normally and verify remote
+HEAD, then add one consolidated GS-114/GS-110/GS-118 progress and exact
+P9-approval comment. Stop at the physical boundary until exact-operation
+authorization and the continuous observer/recovery prerequisites are accepted.
+Keep GS-114 In Progress; do not claim physical P9 PASS or transition GS-114 to
+Done.
+
 ## Pause/resume checkpoint — 2026-10-15 15:23 UTC
 
 The owner requested a `/status` check every three minutes and a pause below

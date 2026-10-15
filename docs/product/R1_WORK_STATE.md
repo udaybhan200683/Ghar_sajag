@@ -1,5 +1,51 @@
 # R1 Current Work State
 
+## GS-114 resumed P9 host engineering checkpoint — 2026-10-15 19:26 UTC
+
+Resumed the original GS-114 P1–P9 assignment from the 15:23 UTC quota pause.
+Latest manual `/status` was 81% of the five-hour limit remaining; the requested
+three-minute monitor remains active and the requested pause threshold is 12%.
+Canonical local and remote HEAD are `a5428cfa97bb110573eea7d490ce1c0c0bbad2e9`
+on `feature/r1-commercial-baseline`; context preflight PASS (`2026-10-13.001`).
+Tracked source is clean. Existing untracked PWA assets, Hub managed components,
+raw physical logs and readbacks remain preserved.
+
+Fixed the S3 signed-FOTA packager profile guard in `a5428cf`: it now accepts
+only signed C3 `physical_wake=true` with generic C3 HIL controls OFF for the
+S3-only fixture, while leaving the legacy classic-Hub profile rule unchanged.
+P9-B host artifacts are complete in ignored
+`code/build/gs114_p9_signed/20261015T185926Z/`: C3 signed A/B/N/R and matched
+S3 N/B/R. A/B/R trust fingerprints match; wrong-key N was rejected by the A
+trust key; all Hub variants contain the exact corresponding C3 bytes. Images
+fit the historical OTA app slots and remain **NOT_INSTALLED**. The external
+test keys remain outside the repository. The [fixture-specific manifest](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/P9_EXECUTION_MANIFEST_20261015.json)
+records hashes, profiles, board identity limits, physical scope and recovery.
+
+Focused P9 Python suites ran 55 tests, PASS/exit 0; S3 fixture suite ran
+15/15; `make validation-hub` ran 44 stages, 42 PASS and 2 FAIL (pre-existing
+Hub journal migration assertion and required P0 `product_status=PARTIAL`).
+The P9 ACK-hold, signed artifact, FOTA/security and storage/recovery stages
+passed. `make feature-coverage-test` passed (204 features, 211 modules, 17
+physical definitions, 22 tests); `make physical-hil-catalogue-test` passed 101
+cases after fixing an evidence-field path separator caught by its first run.
+JSON parsing, `git diff --check` and context preflight pass. This is
+software/build evidence only. No hardware operation occurred.
+
+C3 USB-power from the laptop and no WSL USB attachment do not block host
+builds; no C3 flash was needed. The boards were not reidentified, no serial
+port was opened, and current image hashes, active OTA slots, pending EventKeys
+and continuous reset-safe sleep observation were not verified. GS-146 comment
+10734 does not authorize P9 flashing/OTA/stimulus; the exact P9 scope approval
+and observer/recovery prerequisites remain missing. P9-A and P9-B physical
+remain BLOCKED / NOT_RUN. P3 provenance remains PARTIAL, P4 q10–q12 OPEN, P5
+retry identity LIMITED. GS-114 remains In Progress; P10 remains GS-149.
+
+**Next:** review/stage only the scoped report, state, manifest and matrix files;
+commit/push and verify remote HEAD; then add the consolidated GS-114/GS-110/
+GS-118 progress and exact P9 approval comment. Do not operate the boards until
+exact authorization and the observer/restore route are accepted. Resume
+physical work only after that boundary is cleared.
+
 ## GS-114 pause at five-hour limit threshold — 2026-10-15 15:23 UTC
 
 Per owner instruction, `/status` reported 6% of the five-hour limit remaining
