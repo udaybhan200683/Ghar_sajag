@@ -1,5 +1,48 @@
 # R1 Current Work State
 
+## GS-148 Hub gate and GS-109 production CloudSync decision map — 2026-10-15
+
+Resumed from canonical local/remote HEAD `6489b25670bade448e3fee4776a99ed804ca62d8`
+on `feature/r1-commercial-baseline`. Context preflight PASS
+(`2026-10-13.001`); tracked tree clean; existing untracked PWA assets,
+managed components and GS-114 raw logs preserved. No active competing source,
+build or serial-capture process was found. Read GS-148 comment 10974 and the
+existing GS-109 audit/register in comments 10595/10601; the 2026-10-12 decision
+register still marks D01–D16 open. No hardware operation or commercial sending
+occurred.
+
+The corrected current-source Hub gate ran as `make validation-hub` and exited 2
+after 439.371 s. Its report is
+`code/evidence/validation_framework/hub-1792022788167507214/report.json`;
+source HEAD `6489b25670bade448e3fee4776a99ed804ca62d8`, source fingerprint
+`505acbfc55d449dbc0b7a9f5720fb2acd09fd64e0223028dca93992a88ff24a0`,
+`source_unchanged=true`, 42 stages total: 40 PASS, 2 FAIL. Cloud contract
+passed with count 2; `cloud-worker-backend-integration` passed with count 1.
+The direct `make -C code gs148-cloud-worker-api-integration-host-test` also
+passed: protocol invalid-receipt modes 15, pending 200, peak batch 16, peak
+retry entries 64, persistence cuts 2; lost-response retry used the same key,
+with one durable effect and one caregiver projection. The lightweight
+validation-framework test passed 41/41, including explicit failure-propagation
+coverage. Contract/backend reports from the prior checkpoint remain separately
+identified at fingerprint `a6987bd82c8ce32e41522e030fa31e7e9eca3bb7b3e62550e48d60738a3efc15`:
+their worker/API stage passed count 1 and their only aggregate failure was P0
+PARTIAL. They are not relabeled as current-fingerprint reports. The current
+Hub run independently verified the cloud stages after the harness fixes.
+
+The Hub aggregate failures are the unchanged historical migration assertion
+`clean migration commits` (count 0) and required P0 full-product gate
+(`product_status=PARTIAL`, despite 26 software scenarios plus one Chromium test
+passing). No additional regression was found. Commercial sending remains
+disabled; the host injected authority and target TLS channel do not provide a
+production credential or authority source.
+
+The remaining production contract is assigned to GS-109/GS-148 decisions
+D03, D05, D07, D11 and D16, with supporting D04/D06/D12/D15 dependencies.
+Recommendations and affected modules are recorded in the dated GS-148 evidence
+handoff. No new product/security option was selected; owner approval remains
+required before target activation. GS-148 remains In Progress; P0 PARTIAL and
+the migration FAIL remain visible and independent.
+
 ## GS-148 P4/P5-B1 bounded CloudSync caller checkpoint — 2026-10-14
 
 On canonical `feature/r1-commercial-baseline`, starting local/remote HEAD
