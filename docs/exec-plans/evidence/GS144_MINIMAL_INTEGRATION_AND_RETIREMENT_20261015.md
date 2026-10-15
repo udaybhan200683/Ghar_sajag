@@ -186,8 +186,51 @@ claim is inferred from any host result.
    closure. GS-115 stays measurement-led; BAT-C12 remains deferred.
 
 The canonical validation work is software-complete for this small spec contract,
-but GS-144 product acceptance remains open. Retirement of the old branch and
-temporary clone is allowed only after the whole clone, including ignored
-build/log/cache/evidence files and `.git`, is copied and content/inventory
-checksums pass. Final cleanup state and backup location are to be appended after
-that gate.
+but GS-144 product acceptance remains open.
+
+## Preservation and retirement closeout
+
+After commit `9393ac8335e84582361642e2134ae3dc41567a5c` was pushed and its
+GitHub canonical ref verified, the exact standalone clone was copied in full
+(including `.git`, tracked source, ignored build output, logs, caches,
+configuration and evidence) to:
+
+`/home/udaybhan/projects/gs144_retirement_backup_20261015T130000Z`
+
+The backup occupies 59 MiB. The source clone occupied 58 MiB. Source and backup
+inventories matched across 1,347 entries: regular-file SHA-256, size and mode;
+directory inventory/mode; and symlink target/mode. The verification manifest is
+`/home/udaybhan/projects/gs144_retirement_backup_20261015T130000Z.manifest.json`.
+The manifest itself has also been rechecked against the retained backup after
+source-clone removal. The backup keeps a complete clone with the original local
+Git history and ignored artifacts.
+
+Final cleanup sequence and result:
+
+1. Reconfirmed no process cwd/open file or Git lock used
+   `/tmp/gs144_battery_workload`; confirmed it was not a registered worktree.
+2. Removed only that exact standalone clone after the complete backup verified.
+3. Deleted the canonical local branch ref at `9af8c4f97c3db2314075ce62be5b95cb34fab923`;
+   it had no commit absent from the remote historical tip.
+4. Deleted GitHub ref `gs144-workload-qualification` only with
+   `--force-with-lease=refs/heads/gs144-workload-qualification:ad7b9b7434246dd567ea0d800adccec65d724f00`.
+5. Verified the historical directory and live local/remote branch refs were
+   absent. Canonical remained on `feature/r1-commercial-baseline`; no other
+   branch ref was deleted.
+
+At preflight there were four registered worktrees: the original primary
+repository, FOTA phase2, canonical R1, and the integration worktree. All four
+remain registered at closeout. The dashboard worktree was not registered at
+preflight; its branch/worktree was not touched by this task. No existing
+canonical untracked evidence or managed components were staged or removed.
+The integration worktree/process and FOTA worktree were not modified. No Jira
+workflow status changed. GitHub returned no PR with the GS-144 branch as head;
+Jira results only referenced the existing GS-144/GS-152 history and expected
+GS-144 → GS-149 acceptance dependency.
+
+Canonical follow-up documentation commit and final GitHub equality are recorded
+in the closing Jira comment; this report's delivered source commit is
+`9393ac8335e84582361642e2134ae3dc41567a5c`. GS-144 remains In Progress pending
+the owner decisions listed above. The exact next action is one product decision
+for the workload schedule, battery/reserve and service/endurance bounds, then
+GS-140 instrument/boundary readiness before B1–B4 measurements.

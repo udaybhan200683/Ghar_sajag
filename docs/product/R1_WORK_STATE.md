@@ -31,8 +31,14 @@ were not run. Existing unrelated untracked PWA, managed-component and GS-114
 evidence remains preserved. Next: obtain one product approval for workload,
 battery/reserve, boundary/uncertainty, latency/reliability and endurance; then
 proceed through GS-140/B0, GS-41/42/141/43 BEFORE, GS-44, matched GS-51 and
-GS-149. Complete the clone backup and branch retirement only after final
-checksums and GitHub lease checks pass.
+GS-149. Canonical integration commit `9393ac8335e84582361642e2134ae3dc41567a5c`
+was pushed before cleanup. The complete standalone historical clone was
+verified in the external backup at
+`/home/udaybhan/projects/gs144_retirement_backup_20261015T130000Z`; its local
+ref at `9af8c4f97c3db2314075ce62be5b95cb34fab923` and GitHub ref at
+`ad7b9b7434246dd567ea0d800adccec65d724f00` were then retired. The temporary
+directory and live branch refs are absent. See the linked report for backup
+inventory verification and remaining worktrees.
 
 ## GS-114 BAT-C8 battery-first physical evidence handoff — 2026-10-15
 
