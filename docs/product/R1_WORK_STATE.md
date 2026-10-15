@@ -1,12 +1,14 @@
 # R1 Current Work State
 
-## GS-114 resumed P9 host engineering checkpoint — 2026-10-15 19:30 UTC
+## GS-114 resumed P9 host engineering checkpoint — 2026-10-15 19:31 UTC
 
 Resumed the original GS-114 P1–P9 assignment from the 15:23 UTC quota pause.
-Latest observed `/status` at 19:26 UTC was 81% of the five-hour limit remaining; the requested
-three-minute monitor remains active and the requested pause threshold is 12%.
-Canonical local and remote HEAD are `280fd44ce004b9ee68cc9f776c053ff3fcf6b9ff`
-on `feature/r1-commercial-baseline`; context preflight PASS (`2026-10-13.001`).
+Latest observed `/status` at 19:31 UTC was 80% of the five-hour limit remaining;
+the requested three-minute monitor remains active and the requested pause
+threshold is 12%. At the start of this final status refresh, local and remote
+HEAD matched `7775f0b5f7dbe5198eb761b68358f1ffee8c7099` on
+`feature/r1-commercial-baseline`; this refresh is being committed on that
+checkpoint. Context preflight PASS (`2026-10-13.001`).
 Tracked source is clean. Existing untracked PWA assets, Hub managed components,
 raw physical logs and readbacks remain preserved.
 
@@ -43,7 +45,7 @@ retry identity LIMITED. GS-114 remains In Progress; P10 remains GS-149.
 Jira progress comments are GS-114 #11110, GS-110 #11111 and GS-118 #11112.
 Commit `280fd44ce004b9ee68cc9f776c053ff3fcf6b9ff` includes the report, this
 handoff, P9 manifest and qualification matrices; the canonical origin HEAD was
-verified identical. Latest observed `/status` was 81% remaining at 19:26 UTC;
+verified identical. Latest observed `/status` was 80% remaining at 19:31 UTC;
 the requested monitor remains active with a 12% pause threshold.
 
 **Resume boundary:** wait for the owner's explicit response to the one
