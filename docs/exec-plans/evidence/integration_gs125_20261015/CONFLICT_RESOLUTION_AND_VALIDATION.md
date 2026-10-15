@@ -4,12 +4,19 @@
 
 - Integration worktree: `/home/udaybhan/projects/Ghar_sajag_r1_integration`
 - Integration branch: `integration/gs125-dashboard-r1-20261015`
-- Canonical starting commit and verified remote HEAD: `c48e0d2fa8e0bc9c0d0a1f5eccdef789ff0b02df`
+- Canonical source when integration began: `c48e0d2fa8e0bc9c0d0a1f5eccdef789ff0b02df`
+- Canonical tip at final recheck: `2c6797e36891303211262d43773920f531a3695c`
+- The new canonical tip adds only
+  `docs/exec-plans/evidence/STORAGE_BRANCH_RECONCILIATION_20261015.md`; that
+  additive report was merged into the candidate without conflict. It does not
+  overlap any of the 13 shared changed paths or alter test/code inputs.
 - Dashboard source commit and verified remote HEAD: `d6ea59a2e10691e2cb09af80f0794ead272342ce`
 - Merge base: `77e29d44c57f0851f78358049c288323c985d2e7`
 - Integrated code/evidence commit: `4e6236810484e4ab9de2cc55934dc0d7e5ad4ea4`
 - The post-validation documentation/evidence binding is a follow-up commit on this
   same isolated branch; it does not change production code or test inputs.
+- The canonical documentation-only advancement is included in the candidate
+  ancestry; both the canonical and isolated context preflights passed afterward.
 - Canonical context preflight: PASS; integration worktree context preflight: PASS.
 - Neither source worktree was modified. The canonical's untracked GS-114 evidence,
   managed components and historical PWA assets were not copied, cleaned or altered.

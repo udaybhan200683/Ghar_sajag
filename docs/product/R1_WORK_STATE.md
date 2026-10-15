@@ -2760,6 +2760,11 @@ An isolated candidate was prepared from canonical source
 Integrated source/evidence commit at validation was
 `4e6236810484e4ab9de2cc55934dc0d7e5ad4ea4`; the follow-up commit only binds the
 validation report, native receipts and this work-state update.
+At final source recheck canonical had advanced to
+`2c6797e36891303211262d43773920f531a3695c` through one storage-history
+documentation file. That file was added to the isolated candidate without source
+overlap. Canonical and integration context preflights both passed after this
+documentation-only advancement.
 The [conflict-resolution and validation report](../exec-plans/evidence/integration_gs125_20261015/CONFLICT_RESOLUTION_AND_VALIDATION.md)
 records the 13 shared paths, all six preserved canonical-only registry stages,
 native receipts and actual results.
