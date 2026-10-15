@@ -1,6 +1,6 @@
 # GS-114 C8 physical execution
 
-## Resumed host execution checkpoint — 2026-10-15 19:26 UTC
+## Resumed host execution checkpoint — 2026-10-15 19:30 UTC
 
 This checkpoint resumes the owner-requested GS-114 P9 work from the prior
 15:23 UTC pause. `/status` most recently reported 81% of the five-hour limit
@@ -116,13 +116,22 @@ was made.
 
 The precise proposed operations, board identities (historical, not reverified),
 image hashes, slot evidence limits, recovery plan, stop criteria and missing
-authorization are recorded in the linked JSON manifest. Next: review and
-commit only the scoped handoff/matrix files, push normally and verify remote
-HEAD, then add one consolidated GS-114/GS-110/GS-118 progress and exact
-P9-approval comment. Stop at the physical boundary until exact-operation
-authorization and the continuous observer/recovery prerequisites are accepted.
-Keep GS-114 In Progress; do not claim physical P9 PASS or transition GS-114 to
-Done.
+authorization are recorded in the linked JSON manifest. Report/work-state and
+matrix updates are committed as `280fd44ce004b9ee68cc9f776c053ff3fcf6b9ff`;
+local and remote HEAD match. Jira progress comments are GS-114 #11110, GS-110
+#11111 and GS-118 #11112. The latest observed `/status` was 81% remaining at
+19:26 UTC; the requested three-minute monitor remains active with a 12% pause
+threshold.
+
+**Resume boundary:** wait for the owner's explicit response to the single
+consolidated P9 approval request. Before any test, verify board identity/port,
+current image and slots, pending EventKeys, authenticated session, continuous
+reset-safe Node observation and app-only restore route. If any prerequisite
+fails or needs destructive state/security changes, stop and preserve evidence.
+The C3's laptop USB power and lack of WSL attachment do not block host builds;
+no C3 flash is proposed for P9-A. Do not open ports or operate boards before
+authorization. Keep GS-114 In Progress; do not claim physical P9 PASS or
+transition GS-114 to Done.
 
 ## Pause/resume checkpoint — 2026-10-15 15:23 UTC
 

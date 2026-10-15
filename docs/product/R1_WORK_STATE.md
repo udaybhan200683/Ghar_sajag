@@ -1,11 +1,11 @@
 # R1 Current Work State
 
-## GS-114 resumed P9 host engineering checkpoint — 2026-10-15 19:26 UTC
+## GS-114 resumed P9 host engineering checkpoint — 2026-10-15 19:30 UTC
 
 Resumed the original GS-114 P1–P9 assignment from the 15:23 UTC quota pause.
-Latest manual `/status` was 81% of the five-hour limit remaining; the requested
+Latest observed `/status` at 19:26 UTC was 81% of the five-hour limit remaining; the requested
 three-minute monitor remains active and the requested pause threshold is 12%.
-Canonical local and remote HEAD are `a5428cfa97bb110573eea7d490ce1c0c0bbad2e9`
+Canonical local and remote HEAD are `280fd44ce004b9ee68cc9f776c053ff3fcf6b9ff`
 on `feature/r1-commercial-baseline`; context preflight PASS (`2026-10-13.001`).
 Tracked source is clean. Existing untracked PWA assets, Hub managed components,
 raw physical logs and readbacks remain preserved.
@@ -40,11 +40,21 @@ and observer/recovery prerequisites remain missing. P9-A and P9-B physical
 remain BLOCKED / NOT_RUN. P3 provenance remains PARTIAL, P4 q10–q12 OPEN, P5
 retry identity LIMITED. GS-114 remains In Progress; P10 remains GS-149.
 
-**Next:** review/stage only the scoped report, state, manifest and matrix files;
-commit/push and verify remote HEAD; then add the consolidated GS-114/GS-110/
-GS-118 progress and exact P9 approval comment. Do not operate the boards until
-exact authorization and the observer/restore route are accepted. Resume
-physical work only after that boundary is cleared.
+Jira progress comments are GS-114 #11110, GS-110 #11111 and GS-118 #11112.
+Commit `280fd44ce004b9ee68cc9f776c053ff3fcf6b9ff` includes the report, this
+handoff, P9 manifest and qualification matrices; the canonical origin HEAD was
+verified identical. Latest observed `/status` was 81% remaining at 19:26 UTC;
+the requested monitor remains active with a 12% pause threshold.
+
+**Resume boundary:** wait for the owner's explicit response to the one
+consolidated P9 approval request. Before tests, verify board identity/port,
+current image/slots, pending EventKeys, authenticated session, continuous
+reset-safe Node observer and app-only restore route. Stop if any prerequisite
+fails or requires erase, recommissioning, eFuse, Secure Boot or production
+trust changes. C3 laptop USB power and no WSL attachment do not block host
+builds, and no C3 flash is proposed for P9-A. Do not open ports or operate
+boards before authorization. GS-114 remains In Progress; physical P9 remains
+BLOCKED / NOT_RUN.
 
 ## GS-114 pause at five-hour limit threshold — 2026-10-15 15:23 UTC
 
