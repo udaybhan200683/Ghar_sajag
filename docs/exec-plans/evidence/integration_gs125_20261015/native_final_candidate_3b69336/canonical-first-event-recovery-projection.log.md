@@ -1,0 +1,5 @@
+./build/gs148_fixed_reader projection build/gs148_projection_node.json build/gs148_projection_cloud.json
+GS148-ARCH-007/009/051 PASS production_c3_s3_recovery=1 lost_ack=1 committed_events=2
+PYTHONPATH=backend:. python3 tests/python/run_gs148_first_event_projection.py --requests build/gs148_projection_cloud.json
+GS148-ARCH-051 PASS recovered_caregiver_effects=1 fresh_effects=1 exact_commits=2 retries=2
+PRODUCTION_CLOUDSYNC=PENDING PRODUCT_P0=PARTIAL PHYSICAL=NOT_RUN

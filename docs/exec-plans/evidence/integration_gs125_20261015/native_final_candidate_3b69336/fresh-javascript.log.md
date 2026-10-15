@@ -1,0 +1,128 @@
+make[1]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1_integration/code'
+node --test tests/js/*.test.mjs
+TAP version 13
+# Subtest: A01 requires resident consent and distinct backup
+ok 1 - A01 requires resident consent and distinct backup
+  ---
+  duration_ms: 10.6839
+  ...
+# Subtest: A01 installation gate enumerates missing device tests
+ok 2 - A01 installation gate enumerates missing device tests
+  ---
+  duration_ms: 2.536201
+  ...
+# Subtest: A02 never converts absent evidence into wellbeing
+ok 3 - A02 never converts absent evidence into wellbeing
+  ---
+  duration_ms: 1.5579
+  ...
+# Subtest: A02 presents exact activity meaning and age
+ok 4 - A02 presents exact activity meaning and age
+  ---
+  duration_ms: 1.1901
+  ...
+# Subtest: A02 presents daytime inactivity as a concern
+ok 5 - A02 presents daytime inactivity as a concern
+  ---
+  duration_ms: 0.8999
+  ...
+# Subtest: A03 produces versioned routine and household-policy config
+ok 6 - A03 produces versioned routine and household-policy config
+  ---
+  duration_ms: 3.2114
+  ...
+# Subtest: A04 prevents action when another caregiver owns a live lease
+ok 7 - A04 prevents action when another caregiver owns a live lease
+  ---
+  duration_ms: 2.6654
+  ...
+# Subtest: A05 cache rejects older versions and reports push gaps
+ok 8 - A05 cache rejects older versions and reports push gaps
+  ---
+  duration_ms: 1.5609
+  ...
+# Subtest: A05 logger retains errors and applies the build trace gate
+ok 9 - A05 logger retains errors and applies the build trace gate
+  ---
+  duration_ms: 4.937101
+  ...
+# Subtest: feature flags keep unfinished capabilities disabled
+ok 10 - feature flags keep unfinished capabilities disabled
+  ---
+  duration_ms: 0.7138
+  ...
+# Subtest: A03 serializes configurable household routine thresholds
+ok 11 - A03 serializes configurable household routine thresholds
+  ---
+  duration_ms: 0.6366
+  ...
+# Subtest: PWA-GS130-ONBOARD-01 interrupted/reloaded create keeps retry idempotent
+ok 12 - PWA-GS130-ONBOARD-01 interrupted/reloaded create keeps retry idempotent
+  ---
+  duration_ms: 8.2543
+  ...
+# Subtest: PWA-GS130-SCHEDULE-01 offline settings do not report success and retry after reconnect
+ok 13 - PWA-GS130-SCHEDULE-01 offline settings do not report success and retry after reconnect
+  ---
+  duration_ms: 6.433401
+  ...
+# Subtest: PWA-GS130-CLAIM-01 another caregiver may claim only at lease expiry boundary
+ok 14 - PWA-GS130-CLAIM-01 another caregiver may claim only at lease expiry boundary
+  ---
+  duration_ms: 1.3975
+  ...
+# Subtest: PWA-GS130-NOTIFY-01 permission and subscription recovery are explicit and delivery IDs deduplicate
+ok 15 - PWA-GS130-NOTIFY-01 permission and subscription recovery are explicit and delivery IDs deduplicate
+  ---
+  duration_ms: 1.4426
+  ...
+# Subtest: PWA-GS130-ACTIVITY-01 cached reload and API reconciliation retain identity, order and age
+ok 16 - PWA-GS130-ACTIVITY-01 cached reload and API reconciliation retain identity, order and age
+  ---
+  duration_ms: 4.8472
+  ...
+# Subtest: PWA-GS130-SW-01 real service worker installs, updates, serves cache, falls back and reports corruption
+ok 17 - PWA-GS130-SW-01 real service worker installs, updates, serves cache, falls back and reports corruption
+  ---
+  duration_ms: 352.403921
+  ...
+# Subtest: poll policy prevents overlap and applies domain-specific throttles
+ok 18 - poll policy prevents overlap and applies domain-specific throttles
+  ---
+  duration_ms: 8.0239
+  ...
+# Subtest: browser notification delivery IDs remain bounded
+ok 19 - browser notification delivery IDs remain bounded
+  ---
+  duration_ms: 1.4167
+  ...
+# Subtest: render signatures are stable and change with caregiver state
+ok 20 - render signatures are stable and change with caregiver state
+  ---
+  duration_ms: 1.2579
+  ...
+# Subtest: stale home poll cannot overwrite a newer action state
+ok 21 - stale home poll cannot overwrite a newer action state
+  ---
+  duration_ms: 0.77
+  ...
+# Subtest: reset epoch accepts lower simulator time but rejects older epochs
+ok 22 - reset epoch accepts lower simulator time but rejects older epochs
+  ---
+  duration_ms: 0.7162
+  ...
+# Subtest: schedule feedback state is durable for success, rejection and reset
+ok 23 - schedule feedback state is durable for success, rejection and reset
+  ---
+  duration_ms: 4.711901
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 931.588255
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_integration/code'

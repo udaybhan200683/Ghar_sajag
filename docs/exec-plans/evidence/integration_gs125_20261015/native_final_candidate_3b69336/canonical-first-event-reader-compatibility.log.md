@@ -1,0 +1,4 @@
+python3 scripts/gs148_reader_compatibility.py
+GS148-ARCH-049 PASS actual_readers=2 byte_states=11 reboot_per_reader=2
+OLD_READER_COMMERCIAL_ROLLBACK_AVAILABILITY=FAIL_KNOWN_FIRST_EVENT_LIMITATION
+GS148_READER_REPORT=build/gs148_reader_compatibility/reader-8vxlsi8y/report.json
