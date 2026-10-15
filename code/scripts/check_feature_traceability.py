@@ -10,8 +10,9 @@ import re
 from pathlib import Path
 import subprocess
 import sys
-
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from validation import component_gate as gate
 REPO=ROOT.parent
 DOC=REPO/'docs/validation'
 PREFIXES=('firmware','backend','tests/support/host','tools/sim','frontend')
@@ -55,6 +56,7 @@ def errors(rows,ledger,physical,registry,modules=None,root=ROOT,repo=REPO):
     failures=[]
     if not rows:return ['zero feature rows']
     stages={s['id']:s for s in registry['stages']}
+    pwa_stage_ids={s['id'] for s in gate.select(registry,'pwa')}
     features={r['FEATURE_ID']:r for r in rows}
     board=stages.get('board-stack-e2e')
     source=root/'tests/cpp/board_stack_e2e_validation.cpp'
@@ -97,7 +99,10 @@ def errors(rows,ledger,physical,registry,modules=None,root=ROOT,repo=REPO):
                 if not owned:failures.append(fid+': test not owned/executed by mapped stage '+name)
             if not texts or row['ASSERTION_ANCHOR'] not in '\n'.join(texts):failures.append(fid+': test anchor does not resolve')
         for component,column in [('node','NODE_GATE'),('hub','HUB_GATE'),('contract','CONTRACT_GATE'),('backend','BACKEND_GATE'),('pwa','PWA_GATE')]:
-            actual={s['id'] for s in selected if component in s['components'] and s.get('fast',True)}
+            if component=='pwa':
+                actual={s['id'] for s in selected if s['id'] in pwa_stage_ids and component in s['components']}
+            else:
+                actual={s['id'] for s in selected if component in s['components'] and s.get('fast',True)}
             mapped=set(row[column].split(';'))-{'NO',''}
             if actual!=mapped:failures.append(fid+': incorrect '+column)
         fast=bool(selected) and all(s.get('fast',True) for s in selected)

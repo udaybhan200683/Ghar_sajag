@@ -1,6 +1,29 @@
 
 # Master automated validation and regression framework
 
+## Permanent combined Caregiver + Engineering PWA regression — 2026-10-15
+
+Dashboard branch work at `feature/gs124-125-engineering-dashboard` extends the
+existing GS-116 registry; it does not add a second runner. The PWA selector now
+includes the existing 98-case `diagnostic-foundation` host policy/auth/service
+suite, the caregiver desktop/mobile Playwright campaign, and the seven-screen
+Engineering Dashboard review smoke. The smoke is labeled `PREVIEW_ONLY`, uses
+the saved GS-120 review artifact, and writes screenshots/results only below
+ignored `code/build/engineering_dashboard_preview/`. Its 20 named assertions
+must all appear in the registered browser-stage output. The browser stage is a
+PWA and release member, but remains outside `validation-fast`.
+
+The caregiver JS/API/browser specs stay the production-code-backed regression
+suite. Engineering service-desk tests remain host SQLite/test-authority domain
+coverage. Live Engineering Dashboard UI, verified identity, production routes,
+PostgreSQL, CSRF/session flows, and cross-dashboard production data isolation
+remain `BLOCKED`; preview and fixture tests do not qualify those paths. The P0
+full-product stage remains mandatory and `PARTIAL` still fails complete-product
+adjudication. Physical qualification remains independent.
+
+The feature matrix and latest execution receipts are in
+[`engineering_dashboard_20261015`](../exec-plans/evidence/engineering_dashboard_20261015/REGRESSION_INTEGRATION.md).
+
 ## GS-76 Stage 2A inactive identity boundary — 2026-10-14
 
 `diagnostic-foundation` now includes 14 registered GS76-AUTH-H01..H14

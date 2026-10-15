@@ -19,14 +19,37 @@ class RegistrationTest(unittest.TestCase):
         data=gate.load_registry()
         for suite in ("backend","fast","release"):
             self.assertIn("diagnostic-foundation",{s["id"] for s in gate.select(data,suite)})
-        for suite in ("node","hub","contract","pwa"):
+        for suite in ("node","hub","contract"):
             self.assertNotIn("diagnostic-foundation",{s["id"] for s in gate.select(data,suite)})
+        self.assertIn("diagnostic-foundation",{s["id"] for s in gate.select(data,"pwa")})
         self.assertIn("NOT_PRODUCTION_AUTHENTICATION",self.stage()["qualification_scope"])
 
     def test_R02_all_parent_registry_stages_preserved_without_canonical_overwrite(self):
         prior=json.loads(subprocess.check_output(["git","show","31822b1:code/validation/suites.json"],cwd=gate.ROOT,text=True))
         current=gate.load_registry()
-        self.assertEqual(current["stages"][:-1],prior["stages"])
+        current_by_id={s['id']:s for s in current['stages']}
+        current_ids={s['id'] for s in current['stages']}
+        prior_ids={s['id'] for s in prior['stages']}
+        self.assertEqual(current_ids-prior_ids,{"diagnostic-foundation"})
+        self.assertEqual(prior_ids-current_ids,set())
+        for original in prior["stages"]:
+            updated=current_by_id[original['id']]
+            if original['id']=='javascript':
+                self.assertEqual({k:v for k,v in updated.items() if k!='inputs'},
+                                 {k:v for k,v in original.items() if k!='inputs'})
+                self.assertTrue(set(original['inputs'])<=set(updated['inputs']))
+            elif original['id']=='browser':
+                self.assertTrue(updated.get('pwa'))
+                self.assertEqual(updated['command'],original['command'])
+                self.assertEqual(updated['success'],original['success'])
+                self.assertTrue(set(original.get('inputs',[]))<=set(updated['inputs']))
+            elif original['id']=='p0-full-product-e2e':
+                self.assertEqual({k:v for k,v in updated.items() if k!='inputs'},
+                                 {k:v for k,v in original.items() if k!='inputs'})
+                self.assertTrue(set(original.get('inputs',[]))<=set(updated['inputs']))
+                self.assertIn('frontend/playwright.config.ts',updated['inputs'])
+            else:
+                self.assertEqual(updated,original)
         self.assertIn("tests/engineering_dashboard/test_service_access.py",
                       current["stages"][-1]["inputs"])
         for key in prior:

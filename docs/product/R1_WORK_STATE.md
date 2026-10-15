@@ -1,5 +1,21 @@
 # R1 Current Work State
 
+## Dashboard regression integration — 2026-10-15
+
+On the explicitly authorized isolated dashboard branch, GS-116 PWA selection
+now includes the caregiver desktop/mobile Playwright suite, the 98-case
+Engineering Dashboard backend/auth/service-domain suite, and the permanent
+seven-screen Engineering Dashboard `PREVIEW_ONLY` browser smoke. The browser
+stage also remains in release and is excluded from `validation-fast`. PREVIEW
+screenshots/results are isolated under ignored `code/build/` output. See
+`docs/exec-plans/evidence/engineering_dashboard_20261015/REGRESSION_INTEGRATION.md`
+for the source-to-case matrix, validation receipts and remaining gaps.
+
+This does not activate Engineering Dashboard authentication or HTTP/PWA routes.
+Production identity, PostgreSQL, CSRF/session flows, live diagnostic source and
+cross-dashboard session/data isolation remain blocked. The mandatory P0 product
+status is unchanged and must still fail closed while it is PARTIAL.
+
 ## GS-76 Stage 2A provider-neutral boundary — 2026-10-14
 
 The isolated dashboard branch now has a nonactive server human authentication

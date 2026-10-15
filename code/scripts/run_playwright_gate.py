@@ -185,6 +185,12 @@ def main() -> int:
         print(f"Lab ready: {BASE}", flush=True)
         result = subprocess.call(["npx", "playwright", "test"], cwd=ROOT / "frontend",
                                  env=playwright_environment(BASE))
+        if result == 0:
+            print("Running Engineering Dashboard PREVIEW_ONLY review suite...", flush=True)
+            result = subprocess.call(
+                ["node", "tests/support/engineering_dashboard_review/review_browser.mjs"],
+                cwd=ROOT, env=os.environ.copy(),
+            )
     finally:
         out = ""
         try:
