@@ -7,6 +7,9 @@
 - Canonical starting commit and verified remote HEAD: `c48e0d2fa8e0bc9c0d0a1f5eccdef789ff0b02df`
 - Dashboard source commit and verified remote HEAD: `d6ea59a2e10691e2cb09af80f0794ead272342ce`
 - Merge base: `77e29d44c57f0851f78358049c288323c985d2e7`
+- Integrated code/evidence commit: `4e6236810484e4ab9de2cc55934dc0d7e5ad4ea4`
+- The post-validation documentation/evidence binding is a follow-up commit on this
+  same isolated branch; it does not change production code or test inputs.
 - Canonical context preflight: PASS; integration worktree context preflight: PASS.
 - Neither source worktree was modified. The canonical's untracked GS-114 evidence,
   managed components and historical PWA assets were not copied, cleaned or altered.
@@ -64,7 +67,12 @@ Validation used the merged working source fingerprint
 `dfae841074fa8a39c669ea66da68c2faef8fdbbdee4dcd103d8b0b6318ac27e3`; the
 registered PWA receipt records its base `source_head` as the canonical starting
 commit and `source_unchanged=true` through execution. All copied native receipts
-and stage logs are retained beside this report.
+and stage logs are retained beside this report. Recomputing that fingerprint
+after commit `4e6236810484e4ab9de2cc55934dc0d7e5ad4ea4` produced the same value.
+The Engineering host suite (98), framework/feature-coverage suites (44/22),
+Python discovery rerun (465 with one approved skip), and all six canonical
+stages were also executed against this unchanged committed code tree. Their
+post-commit receipts and the evidence file hashes are included here.
 
 | Area / command | Result | Details |
 |---|---|---|

@@ -2757,6 +2757,9 @@ An isolated candidate was prepared from canonical source
 `d6ea59a2e10691e2cb09af80f0794ead272342ce`. The candidate worktree is
 `/home/udaybhan/projects/Ghar_sajag_r1_integration` on
 `integration/gs125-dashboard-r1-20261015`. Neither source worktree was modified.
+Integrated source/evidence commit at validation was
+`4e6236810484e4ab9de2cc55934dc0d7e5ad4ea4`; the follow-up commit only binds the
+validation report, native receipts and this work-state update.
 The [conflict-resolution and validation report](../exec-plans/evidence/integration_gs125_20261015/CONFLICT_RESOLUTION_AND_VALIDATION.md)
 records the 13 shared paths, all six preserved canonical-only registry stages,
 native receipts and actual results.
