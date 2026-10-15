@@ -146,5 +146,48 @@ the exact receipts below. Stop if any gate changes.
 
 ## Final retirement receipts
 
-PENDING — this report is prepared before any destructive operation. The final
-receipt is appended only after each operation and post-removal checks succeed.
+The initial report was committed and pushed at
+`05ccb298d9de889a17da9310abdf8e6d71c1ef03` before removal. Immediately
+before removal, `git worktree list --porcelain` registered exactly the expected
+Phase-2 path and branch. Local and GitHub historical refs were still
+`8f053b45b1c6b8ec772565336582c7e63a68a6a6`. The tracked historical tree
+was clean; the final Git inventory found 18,024 untracked and 18,282 ignored
+files, consistent with the fully verified backup. A `/proc` cwd/fd scan found
+no active process using the historical directory; the targeted GitHub PR query
+returned no open PR.
+
+Normal `git worktree remove /home/udaybhan/projects/Ghar_sajag_phase2`
+refused because of the preserved local files, as expected. After the backup
+gate passed, the owner-authorized
+`git worktree remove --force /home/udaybhan/projects/Ghar_sajag_phase2`
+completed with exit 0. The directory and its registration are absent. Git then
+deleted only local `feature/hw-m1-4-hil-phase2` at the recorded SHA. A fresh
+remote SHA check preceded this guarded remote deletion:
+
+```text
+git push --force-with-lease=refs/heads/feature/hw-m1-4-hil-phase2:8f053b45b1c6b8ec772565336582c7e63a68a6a6 origin :refs/heads/feature/hw-m1-4-hil-phase2
+```
+
+The command completed with `[deleted]`. Actual `git ls-remote --heads origin`
+now lists only `feature/r1-commercial-baseline` and `main`. Two worktrees
+remain registered: the untouched original primary repository (detached) and
+canonical R1. The restricted evidence backup and bundle remain present.
+
+With the historical directory absent, the signed-FOTA fixture suite passed
+again (20/20), and `make feature-coverage-test` passed again (22/22; 202
+features, 210 modules, 15 physical cases). Current C3 and S3 ESP-IDF project
+roots, build scripts and HIL tools remain present; no executable
+`Ghar_sajag_phase2`/old-branch path reference was found in tracked build,
+firmware, test, backend or PWA source. The ordinary Node/Hub host targets were
+verified by `make -n`; the target firmware builds were not repeated here.
+No release stage registration, product source or canonical untracked evidence
+was changed by this retirement. Canonical local/GitHub HEAD matched at the
+pre-final-document checkpoint `05ccb298d9de889a17da9310abdf8e6d71c1ef03`.
+
+**Source consolidation complete; physical qualification remains open.** GS-118
+owns clean signed failed-health rollback and stack high-water on an approved
+current fixture; GS-67 owns remaining FOTA requalification; GS-108 and GS-96
+own broad and multi-node physical HIL. GS-148/P0/Hub migration and current
+release gates retain their separately recorded status. Continue ordinary
+feature development on canonical without requiring signing keys, this former
+worktree or physical FOTA. No hardware was accessed.

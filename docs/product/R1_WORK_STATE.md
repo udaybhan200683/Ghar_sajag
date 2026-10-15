@@ -2923,3 +2923,41 @@ stack high-water and free heap. Keep physical status NOT_RUN until then. Track
 source-consolidation and historical-ref retirement decisions under GS-95;
 do not retire Phase-2 in this task. P0 PARTIAL and the existing Hub migration
 failure remain with their owning work.
+
+## GS-95 Phase-2 source retirement handoff — 2026-10-15
+
+All 11 historical `feature/hw-m1-4-hil-phase2` commits are reconciled in
+[`GS95_PHASE2_SOURCE_RETIREMENT_20261015.md`](../exec-plans/evidence/GS95_PHASE2_SOURCE_RETIREMENT_20261015.md).
+No required production source or regression remains exclusively historical.
+The C3 rollback-task stack remediation and guarded failed-health test path are
+already in canonical; physical stack margin and rollback remain NOT_QUALIFIED.
+The C3 still has 4 MiB flash; only the Hub baseline is S3 N16R8. Historical
+classic-Hub HIL results do not qualify current S3 hardware.
+
+The owner-authorized historical Phase-2 worktree and its local/GitHub branch
+were removed after full file-hash, inventory and Git-bundle verification.
+The deleted branch tip was `8f053b45b1c6b8ec772565336582c7e63a68a6a6`.
+Its complete source, ignored artifacts, logs, firmware images, historical
+commits and misleading September 27 rollback PASS record remain in the
+restricted backup at
+`/home/udaybhan/projects/phase2_evidence_backup_20261015T101912Z`.
+The original pre-regeneration C3 sdkconfig bytes were unavailable, as already
+documented under GS-118; the current file was preserved. No protected
+hardware was accessed.
+
+The initial GS-95 report was pushed at
+`05ccb298d9de889a17da9310abdf8e6d71c1ef03`; this handoff and final
+deletion receipts are a subsequent documentation-only update. The canonical
+tracked tree was clean before the handoff edit; pre-existing untracked PWA,
+S3 managed components and GS-114 raw evidence are untouched. After worktree
+removal, signed-FOTA fixture tests passed 20/20 and feature coverage passed
+22/22. No target build or full release gate was rerun. Existing P0 PARTIAL and
+Hub migration FAIL statuses remain, separate from GS-95 source retirement.
+
+**Next:** continue ordinary feature work in canonical without Phase-2 branch,
+worktree, signing credentials or HIL fixture. GS-118/67 need approved signed
+test images and a disposable current-pair fixture for clean failed-health,
+interruption/corruption and stack high-water qualification. GS-108 and GS-96
+retain broad and multi-node physical HIL. GS-148 and P0/migration remain with
+their own owners. Verify canonical local/GitHub HEAD equality after this
+documentation commit and record the GS-95 Jira handoff.
