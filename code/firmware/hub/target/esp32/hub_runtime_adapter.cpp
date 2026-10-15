@@ -3,6 +3,9 @@
 #if GS_HIL_C8_ACK_DROP
 #include "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp"
 #endif
+#if GS_HIL_C8_ACK_HOLD
+#include "firmware/hub/target/esp32/hil_c8_ack_hold_gate.hpp"
+#endif
 
 #include "firmware/common/transport/data_plane_codec.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
@@ -49,6 +52,9 @@ namespace gs::hub::target {
 namespace {
 #if GS_HIL_C8_ACK_DROP && CONFIG_IDF_TARGET_ESP32S3
 C8AckDropGate g_c8_ack_drop_gate;
+#endif
+#if GS_HIL_C8_ACK_HOLD && CONFIG_IDF_TARGET_ESP32S3
+C8AckHoldGate g_c8_ack_hold_gate;
 #endif
 
 constexpr char kTag[] = "gs_hub_runtime";
@@ -1304,6 +1310,33 @@ void secure_owner_task(void*) {
             ESP_LOGW(kTag, "HIL_C8_ACK_DROP_EXPIRED ack_sent=NORMAL");
         }
 #endif
+#if GS_HIL_C8_ACK_HOLD && CONFIG_IDF_TARGET_ESP32S3
+        const auto hold_decision = g_c8_ack_hold_gate.decide(
+            static_cast<std::uint64_t>(esp_timer_get_time() / 1000),
+            processed->key.str(), processed->ack == AckClass::Durable,
+            processed->state_changed,
+            key_lookup == storage::IdentityLookup::Found && key_found,
+            runtime.durable_admission_open());
+        if (hold_decision == C8AckHoldDecision::CapturedAndHeld ||
+            hold_decision == C8AckHoldDecision::SameKeyHeld) {
+            const auto held = g_c8_ack_hold_gate.snapshot(
+                static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+            ESP_LOGW(kTag,
+                "HIL_C8_ACK_HOLD event_id=%s decision=%s durable=YES state_changed=%d outbox_found=1 logical_effects=%u held_attempts=%u ack_sent=NO",
+                processed->key.str().c_str(),
+                hold_decision == C8AckHoldDecision::CapturedAndHeld ? "CAPTURE" : "SAME_KEY",
+                processed->state_changed,
+                static_cast<unsigned>(held.logical_effects),
+                static_cast<unsigned>(held.held_attempts));
+            continue;
+        }
+        if (hold_decision == C8AckHoldDecision::WatchdogExpired ||
+            hold_decision == C8AckHoldDecision::Released) {
+            ESP_LOGI(kTag, "HIL_C8_ACK_HOLD event_id=%s decision=%s ack_sent=NORMAL",
+                processed->key.str().c_str(),
+                hold_decision == C8AckHoldDecision::Released ? "RELEASED" : "WATCHDOG");
+        }
+#endif
 #if GS_HIL_CONTROL
         ESP_LOGI(kTag, "HIL_EVENT_RESULT event_id=%s ack=%u state_changed=%d records=%u",
                  processed->key.str().c_str(), static_cast<unsigned>(processed->ack),
@@ -1349,6 +1382,33 @@ void set_control_plane_active(bool active) {
 bool arm_c8_ack_drop_fixture() {
     const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
     return g_c8_ack_drop_gate.arm(now_ms);
+}
+#endif
+
+#if GS_HIL_C8_ACK_HOLD && CONFIG_IDF_TARGET_ESP32S3
+bool arm_c8_ack_hold_fixture() {
+    return g_c8_ack_hold_gate.arm(static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+}
+
+bool release_c8_ack_hold_fixture() {
+    return g_c8_ack_hold_gate.release(static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+}
+
+bool cancel_c8_ack_hold_fixture() {
+    return g_c8_ack_hold_gate.cancel(static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+}
+
+void log_c8_ack_hold_fixture() {
+    const auto state = g_c8_ack_hold_gate.snapshot(
+        static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+    ESP_LOGI(kTag,
+        "HIL_C8_ACK_HOLD_STATUS state=%u event_id=%s committed_ms=%llu ended_ms=%llu held_attempts=%u duplicate_deliveries=%u logical_effects=%u",
+        static_cast<unsigned>(state.state), state.key.c_str(),
+        static_cast<unsigned long long>(state.committed_at_ms),
+        static_cast<unsigned long long>(state.ended_at_ms),
+        static_cast<unsigned>(state.held_attempts),
+        static_cast<unsigned>(state.duplicate_deliveries),
+        static_cast<unsigned>(state.logical_effects));
 }
 #endif
 

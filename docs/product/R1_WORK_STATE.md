@@ -1,5 +1,36 @@
 # R1 Current Work State
 
+## GS-114 pause at five-hour limit threshold — 2026-10-15 15:23 UTC
+
+Per owner instruction, `/status` reported 6% of the five-hour limit remaining
+and GS-114 work paused. The [detailed execution handoff](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+records completed P9-A fixture/build/tests, completed signed C3 A/B/N/R host
+artifacts, the intentionally interrupted S3 N build and Hub aggregate gate,
+all preserved files, physical blockers and exact resume commands. P9-A/B
+physical remain BLOCKED / NOT_RUN; GS-114 remains In Progress. No hardware
+operation occurred.
+
+
+## GS-114 P9 fixture engineering — 2026-10-15
+
+Starting canonical local/remote HEAD `d0869cd6c128a61aff7fbc58ca448ebf439c33a9`,
+branch `feature/r1-commercial-baseline`, context preflight PASS. The exact-key
+bounded S3 P9-A ACK-hold fixture is implemented and its 34-check host gate and
+isolated S3 target build pass. A test-only S3 authenticated signed-C3 FOTA
+trigger and external test-key A/B/N/recovery artifact workflow are implemented;
+the first signed build uncovered and fixed an implicit wrong target selection.
+Signed artifact generation and affected component regressions are underway.
+The [current GS-114 execution handoff](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+records candidate hashes, source changes, safety boundaries, validation and the
+fixture-specific execution manifest. No hardware operation occurred. Physical
+P9-A/B remain BLOCKED / NOT_RUN pending exact-operation approval, current
+installed image/slot/pending-key evidence and reset-safe continuous C3
+observation. P3 PARTIAL, historical P4 anomaly OPEN and P5 per-attempt identity
+LIMITED are preserved; P1/P2/P6/P7 and controlled P4/P5/P8 physical PASS are
+reused. P10 remains GS-149 and GS-114 stays In Progress. Existing untracked
+evidence and unrelated files remain untouched.
+
+
 ## GS-144 minimal workload integration — 2026-10-15
 
 Reconciled historical `gs144-workload-qualification` against the canonical Node

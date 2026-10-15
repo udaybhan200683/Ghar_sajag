@@ -104,6 +104,24 @@ gs_state, data, nvs, 0xC20000, 0x40000,
             self.assertEqual(result["rpf_markers_present"], [f"RPF0{i}" for i in range(9)])
             self.assertTrue(result["s3_runtime_image_broad_hil_markers_absent"])
 
+    def test_p9_ack_hold_profile_requires_exact_marker_and_flags(self):
+        with tempfile.TemporaryDirectory(prefix="gs_s3_p9_hold_") as temp:
+            sdkconfig, cache, partitions, app, node = self._profile_files(Path(temp))
+            cache.write_text(cache.read_text() + "GS_HIL_C8_ACK_HOLD:BOOL=ON\nGS_HIL_SIGNED_FOTA:BOOL=OFF\n")
+            app.write_bytes(app.read_bytes() + b"ARM_C8_ACK_HOLD")
+            profile = validate_s3_fixture_artifact(sdkconfig, cache, partitions,
+                                                   app, node, c8_ack_hold=True)
+            self.assertTrue(profile["c8_ack_hold_fixture_enabled"])
+            app.write_bytes(app.read_bytes().replace(b"ARM_C8_ACK_HOLD", b""))
+            with self.assertRaisesRegex(ValueError, "ACK-hold command"):
+                validate_s3_fixture_artifact(sdkconfig, cache, partitions,
+                                             app, node, c8_ack_hold=True)
+            cache.write_text(cache.read_text().replace("GS_HIL_C8_ACK_HOLD:BOOL=ON",
+                                                       "GS_HIL_C8_ACK_HOLD:BOOL=OFF"))
+            with self.assertRaisesRegex(ValueError, "CMake options"):
+                validate_s3_fixture_artifact(sdkconfig, cache, partitions,
+                                             app, node, c8_ack_hold=True)
+
     def test_fixture_rpf_profile_rejects_wrong_build_flags(self):
         with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_flags_") as temp:
             paths = self._profile_files(Path(temp))
@@ -272,7 +290,7 @@ int main() {{
 
         builder = (ROOT / "scripts/build_gs114_fixture_pair.py").read_text()
         self.assertIn('"GS_HIL_C8_ACK_DROP": "ON" if c8_ack_drop else "OFF"', builder)
-        self.assertIn('if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop:', builder)
+        self.assertIn('if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop or args.s3_c8_p9_ack_hold:', builder)
         self.assertIn('"c8_ack_drop_fixture_enabled": c8_ack_drop', builder)
 
 

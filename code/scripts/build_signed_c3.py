@@ -50,13 +50,19 @@ def signed_hil_control_sdkconfig(config_text: str) -> str:
 
 
 def signed_profile_cmake_options(*, hil_control: bool,
-                                 force_boot_health_fail: bool) -> list[str]:
+                                 force_boot_health_fail: bool,
+                                 physical_wake: bool = False) -> list[str]:
     """Return signed C3 profile flags, rejecting the test fault in production."""
     if force_boot_health_fail and not hil_control:
         raise ValueError("forced boot-health failure requires --hil-control")
-    return ["-DGS_HIL_BUILD=OFF",
-            f"-DGS_HIL_CONTROL={'ON' if hil_control else 'OFF'}",
-            f"-DGS_HIL_FORCE_BOOT_HEALTH_FAIL={'ON' if force_boot_health_fail else 'OFF'}"]
+    if physical_wake and not hil_control:
+        raise ValueError("physical wake requires --hil-control")
+    options = ["-DGS_HIL_BUILD=OFF",
+               f"-DGS_HIL_CONTROL={'ON' if hil_control else 'OFF'}"]
+    if physical_wake:
+        options.append("-DGS_BAT_C8_PHYSICAL_WAKE=ON")
+    options.append(f"-DGS_HIL_FORCE_BOOT_HEALTH_FAIL={'ON' if force_boot_health_fail else 'OFF'}")
+    return options
 
 
 def main() -> int:
@@ -70,6 +76,8 @@ def main() -> int:
                         help="include HIL test controls while GS_HIL_BUILD remains OFF and secure runtime stays enabled")
     parser.add_argument("--force-boot-health-fail", action="store_true",
                         help="TEST ONLY: force rollback in a signed HIL candidate for a disposable fixture")
+    parser.add_argument("--physical-wake", action="store_true",
+                        help="TEST ONLY: retain real BAT-C8 GPIO4/timer light sleep in a signed HIL candidate")
     parser.add_argument("--trusted-key", type=Path,
                         help="optional existing trust-anchor key; verification must succeed for matching signer")
     parser.add_argument("--build-dir", default="build_signed",
@@ -78,7 +86,8 @@ def main() -> int:
     try:
         profile_options = signed_profile_cmake_options(
             hil_control=args.hil_control,
-            force_boot_health_fail=args.force_boot_health_fail)
+            force_boot_health_fail=args.force_boot_health_fail,
+            physical_wake=args.physical_wake)
     except ValueError as exc:
         parser.error(str(exc))
     key = args.signing_key.resolve()
@@ -93,10 +102,12 @@ def main() -> int:
         profile_build_dir = NODE_PROJECT / args.build_dir
         profile_build_dir.mkdir(parents=True, exist_ok=True)
         sdkconfig = profile_build_dir / "sdkconfig.signed.hil-control"
-        sdkconfig.write_text(signed_hil_control_sdkconfig(
-            (NODE_PROJECT / "sdkconfig.signed").read_text()))
+        existing_signed_config = NODE_PROJECT / "sdkconfig.signed"
+        if existing_signed_config.is_file():
+            sdkconfig.write_text(signed_hil_control_sdkconfig(
+                existing_signed_config.read_text()))
         defaults += ";sdkconfig.hil.defaults"
-    build_args = ["-B", args.build_dir, f"-DSDKCONFIG={sdkconfig}",
+    build_args = ["-B", args.build_dir, "-DIDF_TARGET=esp32c3", f"-DSDKCONFIG={sdkconfig}",
                   f"-DSDKCONFIG_DEFAULTS={defaults}", *profile_options]
     if args.version:
         if not args.version.strip() or len(args.version) > 31 or any(ch.isspace() for ch in args.version):
@@ -104,7 +115,7 @@ def main() -> int:
         build_args.append(f"-DPROJECT_VER={args.version}")
     build_args.append("build")
     run(*build_args)
-    config = (NODE_PROJECT / "sdkconfig.signed").read_text()
+    config = sdkconfig.read_text()
     required = ("CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y",
                 "CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y",
                 "CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y")
@@ -163,6 +174,7 @@ def main() -> int:
         shutil.copy2(signed, output)
     record = {"version": args.version or "unspecified", "profile": "signed-app-on-update",
               "hil_control": args.hil_control,
+              "physical_wake": args.physical_wake,
               "force_boot_health_fail": args.force_boot_health_fail,
               "gs_hil_build": False,
               "image": str(output), "size": output.stat().st_size,

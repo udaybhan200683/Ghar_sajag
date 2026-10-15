@@ -1,5 +1,148 @@
 # GS-114 C8 physical execution
 
+## Pause/resume checkpoint — 2026-10-15 15:23 UTC
+
+The owner requested a `/status` check every three minutes and a pause below
+8% of the five-hour limit. `/status` reported **6% remaining**; work stopped
+at that threshold. The host artifact driver and Hub component gate were
+interrupted intentionally, exit 130, after their partial logs were preserved.
+No board process was running or board interface opened. The S3 signed-FOTA N
+build had reached step 1052/1120; its `ninja process terminated` message is
+the deliberate interruption, **not** an established source compile failure.
+The completed signed C3 A/B/N/R files and their sidecars remain under ignored
+`code/build/gs114_p9_signed/20261015T150818Z/`; no S3 signed candidate BIN
+or consolidated manifest was produced. The incomplete N S3 build is preserved
+under ignored `code/build/gs114_signed_s3/gs114p9N-261015T150818/`.
+
+The Hub component gate passed its new ACK-hold gate (34 checks), signed
+artifact safety (3 tests), ACK-drop gate (16 checks), S3 fixture test (15
+tests) and host build (1 build). It was interrupted during board-stack E2E;
+there is **no aggregate Hub PASS**. Focused BAT-C8 72 C++/11 Python, GS-150
+1,500 checks, 39 fixture/signing Python tests, ACK-hold ASan/UBSan 34 checks,
+traceability 204 features/211 modules/17 definitions plus 22 tests, framework
+46 tests, physical catalogue 101 cases, P9-A S3 target build/profile checks,
+and context preflight all PASS. Physical P9-A/B stay BLOCKED / NOT_RUN.
+
+At pause, local/remote starting HEAD were still
+`d0869cd6c128a61aff7fbc58ca448ebf439c33a9`; all GS-114 edits are staged
+except this final handoff paragraph. Existing unrelated untracked PWA assets,
+managed components, physical logs, readbacks and manifests remain unstaged.
+No reset, cleanup, worktree switch, board operation or Jira workflow change.
+
+**Exact resume:** Verify canonical writer/branch/HEAD/remote, context preflight
+and this handoff; run the existing incremental S3 N build using
+`python scripts/build_secure_fota_hub.py --s3-fixture --build-dir gs114p9N-261015T150818 --node-image build/gs114_p9_signed/20261015T150818Z/c3-n.signed.bin --output build/gs114_p9_signed/20261015T150818Z/hub-n.bin --label gs114p9N-261015T150818`
+from `code/` with ESP-IDF 6.0.3 activated. Build B and R from the same reusable
+S3 build directory with corresponding C3 image, output and version labels;
+verify each exact embedded C3 hash, S3 profile and app version. If any build
+fails, debug and retest. Then rerun affected Node/Hub/contract regressions
+from a stable source snapshot, record genuine pass/fail counts, finish the
+fixture observer and physical manifest prerequisites, and seek one exact P9
+hardware approval. Do not mark physical PASS or deploy the dirty-source host
+candidates. Preserve all current partial build logs and artifacts.
+
+
+## 2026-10-15 — P9 fixture implementation and physical execution boundary
+
+Owning Jira GS-114; scope is the default-off S3 ACK-hold and signed-FOTA
+qualification fixtures. Canonical branch is `feature/r1-commercial-baseline` in
+`/home/udaybhan/projects/Ghar_sajag_r1`; starting local and remote HEAD were
+`d0869cd6c128a61aff7fbc58ca448ebf439c33a9`, tracked tree clean, context
+preflight PASS `2026-10-13.001`. A second Codex process with the canonical cwd
+was inspected and found quiescent without child work or tracked changes. All
+pre-existing untracked PWA files, managed components, raw physical logs,
+readbacks, manifests and firmware evidence were preserved. No board, serial,
+USB, power, flash, reset, storage, commissioning, sensor or OTA operation has
+been performed during this fixture implementation.
+
+### Software work and current evidence
+
+- The isolated S3 commissioning profile now offers `GS_HIL_C8_ACK_HOLD=ON` only
+  when explicitly selected; commercial/default builds keep it OFF. The gate
+  must be armed before a real PIR event. It binds the first authenticated,
+  durably committed, exact-outbox EventKey `K`, holds repeated application
+  Durable ACK attempts only for `K`, and restores the ordinary authenticated
+  ACK path after controlled release or a 15-second watchdog. Release permits a
+  freshly constructed ACK on the next exact-key retry; it does not cache or
+  synthesize an ACK. The 12-second hold and 15-second watchdog are fixture
+  intervals, not product latency rules. The existing GS-150 distinction between
+  successful MAC/pending ACK and confirmed outage retry sleep remains unchanged.
+- S3 P9-A candidate app SHA-256
+  `fd9fefaecdaf34b7dadaef764882a0119bd093a8a8151a2433f79aa9144e9222`
+  compiled with ESP-IDF 6.0.3, commissioning ON, broad HIL OFF, ACK-hold ON,
+  ACK-drop OFF and signed-FOTA OFF. The standalone app is 1,896,112 bytes and
+  embeds exactly one byte-identical existing C3 physical-wake app SHA-256
+  `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`.
+  The host build receipt is in ignored local
+  `code/build/gs114_fixture_pair/build-5ig83c8k/fixture_pair_report.json`;
+  the image is **not installed**. The S3 build version embeds the
+  starting Git HEAD plus the working-source fingerprint; it is not proof of a
+  current running image.
+- The S3 signed-FOTA profile has a narrow `START_SIGNED_C3_FOTA` UART command
+  for fixture C3 `c3-146393c5d158`; it queues the existing authenticated owner
+  FOTA path. The command's `QUEUED` response is not an update success. Broad
+  `GS_HIL_CONTROL`/`GS_HIL_BUILD` remain OFF. The host artifact workflow uses
+  external 0700/0600 RSA-3072 test keys, distinct A/B/N/R versions, exact
+  signed-C3 embedding and manifest hashes. It never changes commercial trust,
+  burns eFuses or opens a device. The first build exposed a missing explicit
+  C3 target selection; that failure log is preserved and the builder now sets
+  `IDF_TARGET=esp32c3`.
+- Host signed C3 candidates completed with RSA-3072 signed-on-update and
+  physical-wake test controls (987,136 bytes each): A version
+  `gs114A-261015T150818`, SHA `cc39459360da9bd2253c9f10254444d27b8abbeedaef46631a6f1d47561290b6`;
+  B version `gs114B-261015T150818`, SHA
+  `27cf9d4054bc8e4f08b1a9fd9dfbc0f2c45781ab4902fc568773f64532e94bee`;
+  wrong-key N version `gs114N-261015T150818`, SHA
+  `cf31eaae7f8e420b11bc36bc1f13acfa97ef4325562e264e3ec2b2ded07bf5b3`;
+  recovery R version `gs114R-261015T150818`, SHA
+  `6fd93f443181938e4c6efa4d1b23d6835adca0a20d7ff1b0cb4c7b2098b28dd1`.
+  A/B/R public-key SHA-256 fingerprint is
+  `ea49cb1b1828ec098939d3fc6c82be043713c1c213133900d61052f105b0af5f`;
+  N's is `cd005db6ad63162207ea6093592d8d9dec320c75e3446af29a6540344707be4d`.
+  N verification against the A trust key was rejected as expected by the host
+  tool. These candidates are ignored local artifacts built from a dirty source
+  checkpoint; they are not approved for target installation. S3 exact-image
+  variants and the consolidated manifest remain in progress.
+- Focused results so far: ACK-hold state machine 34 checks PASS; signed-FOTA and
+  S3 fixture Python tests 36 PASS; artifact safety 3 PASS; P9-A S3 target
+  build/profile/hash checks PASS; traceability consistency 204 features/211
+  modules/17 physical definitions and 22 mapping tests PASS; framework 46
+  tests PASS; physical catalogue 101 cases PASS. BAT-C8, GS-150, durable storage, recovery, FOTA and
+  rejoin host regressions are being executed separately. These are **software
+  and candidate-image** results, never physical P9 acceptance.
+- The same ACK-hold state-machine test under ASan/UBSan passed 34 checks (exit
+  0). Focused BAT-C8 passed 72 C++ checks and 11 Python tests; GS-150 passed
+  1,500 checks; Hub
+  durability, Node persistence, secure FOTA adapter and rejoin tests completed
+  with exit 0. The component Hub gate was started with registered P9 tests;
+  its final aggregate result is pending, and it cannot be reported PASS from
+  partial stage output.
+- Final focused Python fixture/signing/artifact-safety rerun: 39 tests PASS,
+  exit 0. `tools/context/ghar_sajag_context_preflight.sh` still PASS, context
+  `2026-10-13.001`. `git diff --check` and staged diff check PASS. The Hub
+  component gate and S3 signed-FOTA build remain running at this checkpoint.
+
+### Exact physical execution manifest and stop boundary
+
+| Item | Candidate / current evidence | Before-operation requirement |
+|---|---|---|
+| C3 Node | MAC `14:63:93:c5:d1:58`; prior run04 installed C3 SHA `70c638…d530`; AM312 OUT GPIO4, USB-only power | Reidentify actual chip/port, active OTA slot, running app and retained EventKeys without resetting it. |
+| S3 Hub | MAC `7c:4f:ad:b7:2a:20`, N16R8; prior P8 S3 app SHA `f296c984…69a8`; P9-A app candidate SHA `fd9fefae…9222` | Reidentify actual chip/port/slot and exact running bytes before any installation. Candidate build is not an installed hash. |
+| Serial | Prior by-id C3 `usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00`; S3 `usb-1a86_USB_Single_Serial_5CBC401023-if00` | Verify current mapping and prove reset-safe C3 observation; native USB silence after light sleep cannot prove sleep or wake. |
+| P9-A operations | Install only the exact approved S3 fixture image if required; observe both boards, arm ACK hold, one real PIR event, query exact K, wait 12 s, release, verify retry/retirement and one durable logical effect | Obtain exact-operation authorization, actual pending-key inventory, current-image and observer proof first. Preserve every pre-existing key. Stop on unexpected reset, session/admission loss, unmatched K, extra event/effect or observer gap. Cancel or watchdog restores normal ACK path; do not erase storage to recover. |
+| P9-B operations | Test-only signed C3 A baseline, negative N, distinct valid B, recovery R and matching S3 embedded images; authenticated trigger, target signature/slot/boot-health checks | Host artifacts are not permission to install or OTA. Verify trusted test signer fingerprint, actual C3 partition/slot, current identity/retained events, rollback route and known-good signed recovery before A/N/B/R hardware action. Stop on signer mismatch, slot uncertainty, retained-key mismatch, boot-health anomaly, observer loss or recovery unavailable. No Secure Boot/eFuse/trust-root changes. |
+| Authorization | GS-146 comment 10734 accepts repeated clean use of the named disposable pair, but GS-114 comment 11107 says this does not authorize P9 board access, flashing, OTA or signed target artifacts without a specific manifest/approval. | One consolidated exact P9-A/P9-B hardware approval remains required after current board state and observer/recovery prerequisites are known. |
+
+P9-A and P9-B remain **BLOCKED / NOT_RUN physically**. P3 remains PARTIAL
+because no trustworthy existing running-S3 readback binds its controlled trace
+to the candidate hash. P4's historical q10–q12 extra EventKeys remain OPEN;
+there is no GPIO-edge trace to assign a cause. P5's controlled outage/recovery
+PASS remains, with per-attempt retry identity LIMITED. P1/P2/P6/P7 and the
+controlled P4/P5/P8 results are reused without new physical runs. P10 stays
+under GS-149. GS-40 300-second heartbeat and 910-second offline threshold are
+not promoted from this fixture work; caregiver PWA visibility remains separate.
+
+
 ## 2026-10-15 — battery-first P1–P9 closure reconciliation and resume handoff
 
 This is the current evidence handoff following GS-114 comment 11029 and GS-110

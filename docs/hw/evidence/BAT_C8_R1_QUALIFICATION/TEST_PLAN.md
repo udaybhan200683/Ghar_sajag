@@ -391,23 +391,29 @@ sleep-inhibition case and does not close P9.
    event-ledger key set, Node retained count, reset count and sleep-entry count.
    Preserve every pre-existing pending key; if they prevent unambiguous case
    attribution, stop without clearing them.
-2. Create one real AM312/GPIO4 event. Record its exact EventKey `K` and require
-   the Hub's durable commit for `K` before arming the ACK hold. Confirm exactly
-   one logical ledger effect and that `K` remains pending on the Node.
+2. Arm the bounded ACK-hold fixture before stimulating the real AM312/GPIO4
+   event. Create one event; let the Hub capture its exact EventKey `K` only
+   after authenticated durable commit and exact-key outbox confirmation. The
+   fixture must suppress the immediately following application Durable ACK
+   and subsequent ACK attempts only for `K`. Confirm one logical ledger effect
+   and that `K` remains pending on the Node.
 3. Hold the valid application ACK for **12,000 ms after the durable commit**
    (longer than the existing 10,000 ms software receive-budget scenario), with
    a **15,000 ms fixture watchdog maximum**. Record actual start/end times.
    Keep the authenticated session and event identity unchanged.
-4. Capture continuously through the full hold. Require no sleep entry while
-   `K` is awaiting ACK, with target observation alive across the interval.
-   Release the original valid authenticated Durable ACK; do not synthesize a
-   success response or change `K`.
+4. Capture continuously through the full hold. Evaluate the actual transport
+   outcome: successful MAC delivery with pending Durable ACK retains the
+   existing receive/sleep contract; confirmed failed or ambiguous transport
+   may use its bounded receive period and sleep between retries. MAC success
+   never retires `K`. Release the hold and permit the next normal freshly
+   authenticated ACK on an exact-key retry; do not synthesize a response or
+   change `K`. If no retry arrives, the watchdog restores normal ACK behavior.
 5. Require authenticated ACK acceptance, exact-key retirement, retained count
    returning to baseline, one Hub logical effect for `K`, no reset, and later
    return to ordinary sleep eligibility after all work is idle.
 
 **PASS:** all five steps are evidenced on the matched target pair. **FAIL:**
-sleep begins during the hold, the ACK is unauthenticated/for a different key,
+sleep violates the applicable transport-specific receive contract, the ACK is unauthenticated/for a different key,
 the event is lost or duplicated, the session changes unexpectedly, or normal
 operation does not recover. **BLOCKED:** fixture release, exact-key ledger, or
 continuous reset-safe target observation is missing. The 12-second interval is

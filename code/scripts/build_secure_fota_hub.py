@@ -6,14 +6,17 @@ import argparse
 import atexit
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
+import shlex
 from pathlib import Path
 
 from build_hw_pair import HUB_PROJECT, ROOT, activation_script, run_esptool, shlex_quote
 
 REPO = ROOT.parent
+S3_PROJECT = ROOT / "firmware/hub/target/esp32s3/idf"
 EMBED = HUB_PROJECT / "main/node_firmware.bin"
 OTA_SLOT_BYTES = 0x1E0000
 
@@ -31,6 +34,80 @@ def git(*args: str) -> str:
                           stdout=subprocess.PIPE).stdout.strip()
 
 
+def build_s3_fixture(image: Path, node_record: dict, args: argparse.Namespace) -> dict:
+    """Build the isolated S3 owner-authenticated fixture without touching boards.
+
+    The signed asset is staged under a unique ignored build directory. The
+    classic Hub's shared embedded image and HIL profile are never changed.
+    """
+    activation = activation_script()
+    build_root = (ROOT / "build/gs114_signed_s3").resolve()
+    build_dir = (build_root / (args.build_dir or args.label)).resolve()
+    if not build_dir.is_relative_to(build_root) or (build_dir.exists() and not args.build_dir):
+        raise RuntimeError("S3 fixture label must select a new unique build directory")
+    build_dir.mkdir(parents=True, exist_ok=bool(args.build_dir))
+    asset = build_dir / "assets/node_firmware.bin"
+    asset.parent.mkdir(exist_ok=True)
+    shutil.copyfile(image, asset)
+    if sha256(asset) != node_record["sha256"]:
+        raise RuntimeError("staged S3 C3 asset differs from signed artifact")
+    sdkconfig = build_dir / "sdkconfig"
+    defaults = ";".join((str(S3_PROJECT / "sdkconfig.defaults"),
+                         str(S3_PROJECT / "sdkconfig.defaults.outbox")))
+    options = ["idf.py", "-C", str(S3_PROJECT), "-B", str(build_dir),
+               "-D", "IDF_TARGET=esp32s3", "-D", f"SDKCONFIG={sdkconfig}",
+               "-D", f"SDKCONFIG_DEFAULTS={defaults}",
+               "-D", f"PROJECT_VER={args.label}",
+               "-D", "GS_HIL_BUILD=OFF", "-D", "GS_HIL_CONTROL=OFF",
+               "-D", "GS_HIL_COMMISSIONING=ON", "-D", "GS_HIL_SIGNED_FOTA=ON",
+               "-D", "GS_HIL_C8_ACK_DROP=OFF", "-D", "GS_HIL_C8_ACK_HOLD=OFF",
+               "build"]
+    environment = dict(os.environ)
+    environment["GS_NODE_FIRMWARE_ASSET"] = str(asset)
+    command = "source " + shlex.quote(str(activation)) + " >/dev/null 2>&1 && " + shlex.join(options)
+    log = build_dir / "build.log"
+    with log.open("w") as output:
+        result = subprocess.run(["bash", "-c", command], cwd=ROOT, env=environment,
+                                stdout=output, stderr=subprocess.STDOUT, timeout=1800)
+    if result.returncode:
+        raise RuntimeError(f"S3 signed fixture build failed; see {log}")
+    built = build_dir / "gs_r1_s3_hub.bin"
+    if not built.is_file() or built.stat().st_size > 0x400000:
+        raise RuntimeError("S3 signed fixture is missing or exceeds its OTA slot")
+    cache = (build_dir / "CMakeCache.txt").read_text(errors="replace")
+    for required in ("GS_HIL_BUILD:BOOL=OFF", "GS_HIL_CONTROL:BOOL=OFF",
+                     "GS_HIL_COMMISSIONING:BOOL=ON", "GS_HIL_SIGNED_FOTA:BOOL=ON",
+                     "GS_HIL_C8_ACK_DROP:BOOL=OFF", "GS_HIL_C8_ACK_HOLD:BOOL=OFF"):
+        if required not in cache:
+            raise RuntimeError(f"S3 signed fixture profile mismatch: {required}")
+    data = built.read_bytes()
+    if data.count(asset.read_bytes()) != 1 or b"START_SIGNED_C3_FOTA" not in data or \
+            b"START_C3_FOTA" in data or b"START_AUTHENTICATED_SIGNED_C3_FOTA" in data:
+        raise RuntimeError("S3 signed fixture has wrong embedded image or UART controls")
+    shutil.copy2(built, args.output)
+    hub_metadata = run_esptool(args.output, activation)
+    if hub_metadata.version != args.label:
+        raise RuntimeError("S3 signed fixture version mismatch")
+    record = {"schema": 1, "profile": "gs114-s3-signed-fota-fixture",
+              "git_branch": git("branch", "--show-current"),
+              "git_commit": git("rev-parse", "HEAD"),
+              "git_dirty": bool(git("status", "--porcelain")),
+              "label": args.label, "hub_app_version": hub_metadata.version,
+              "idf_version": hub_metadata.idf_version, "build_dir": str(build_dir),
+              "hub_image": str(args.output), "hub_sha256": sha256(args.output),
+              "hub_size": args.output.stat().st_size,
+              "embedded_c3_image": str(image), "embedded_c3_sha256": sha256(asset),
+              "embedded_c3_size": asset.stat().st_size,
+              "c3_version": node_record.get("version"),
+              "signing_public_key_fingerprint_sha256":
+                  node_record.get("signing_public_key_fingerprint_sha256"),
+              "hil_control": False, "legacy_raw_fota": False,
+              "hardware_actions": "NONE", "physical_status": "NOT_RUN"}
+    args.output.with_suffix(args.output.suffix + ".json").write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return record
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--node-image", type=Path, required=True,
@@ -40,6 +117,8 @@ def main() -> int:
     parser.add_argument("--label", required=True,
                         help="artifact label containing only letters, digits, dash, underscore")
     parser.add_argument("--build-dir", help="reuse this secure-profile build directory")
+    parser.add_argument("--s3-fixture", action="store_true",
+                        help="build an isolated S3 commissioning/authenticated-FOTA fixture; never flash")
     args = parser.parse_args()
     if not args.label or any(not (ch.isalnum() or ch in "-_") for ch in args.label):
         parser.error("label may contain only letters, digits, dash, underscore")
@@ -57,6 +136,13 @@ def main() -> int:
         parser.error("signed image hash/profile does not match its provenance sidecar")
     if node_record.get("gs_hil_build") is not False or node_record.get("hil_control") is not True:
         parser.error("C3 image must retain secure runtime and explicit HIL-only controls")
+    if args.s3_fixture:
+        if args.build_dir and (Path(args.build_dir).is_absolute() or
+                               any(part in (".", "..") for part in Path(args.build_dir).parts)):
+            parser.error("S3 reuse build directory must be a simple relative name")
+        record = build_s3_fixture(image, node_record, args)
+        print(json.dumps(record, indent=2, sort_keys=True))
+        return 0
 
     activation = activation_script()
     build_root = (ROOT / "build").resolve()

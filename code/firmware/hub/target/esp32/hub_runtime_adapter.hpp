@@ -79,4 +79,11 @@ void hil_log_test_identity();
 bool arm_c8_ack_drop_fixture();
 #endif
 
+#if GS_HIL_C8_ACK_HOLD
+bool arm_c8_ack_hold_fixture();
+bool release_c8_ack_hold_fixture();
+bool cancel_c8_ack_hold_fixture();
+void log_c8_ack_hold_fixture();
+#endif
+
 }  // namespace gs::hub::target

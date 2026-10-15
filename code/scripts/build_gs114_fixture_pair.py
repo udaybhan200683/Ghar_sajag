@@ -101,7 +101,8 @@ def parse_partitions_from_text(text: str) -> dict[str, tuple[str, str, int, int]
 def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
                                  partition_csv: Path, app: Path,
                                  embedded_node_asset: Path,
-                                 c8_ack_drop: bool = False) -> dict:
+                                 c8_ack_drop: bool = False,
+                                 c8_ack_hold: bool = False) -> dict:
     """Fail closed unless the standalone app matches the commissioned S3 profile."""
     cfg = parse_config(sdkconfig)
     cache = parse_config(cmake_cache)
@@ -110,8 +111,13 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
         "GS_HIL_BUILD": "OFF", "GS_HIL_CONTROL": "OFF",
         "GS_HIL_COMMISSIONING": "ON", "GS_S3_DIAGNOSTIC_ONLY": "OFF",
         "GS_HIL_C8_ACK_DROP": "ON" if c8_ack_drop else "OFF",
+        "GS_HIL_C8_ACK_HOLD": "ON" if c8_ack_hold else "OFF",
+        "GS_HIL_SIGNED_FOTA": "OFF",
     }
-    if any(cache.get(key) != value for key, value in required_cache.items()):
+    # Older isolated fixture builds predate these two options; CMake's
+    # effective default was OFF. The P9 profile still requires an explicit ON.
+    if any(cache.get(key, "OFF" if key in {"GS_HIL_C8_ACK_HOLD", "GS_HIL_SIGNED_FOTA"} else None) != value
+           for key, value in required_cache.items()):
         raise ValueError("S3 fixture CMake options do not match the approved isolated profile")
     required_config = {
         "CONFIG_ESPTOOLPY_FLASHSIZE": "16MB",
@@ -156,6 +162,8 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
     ack_drop_marker = b"DROP_NEXT_DURABLE_ACK"
     if (ack_drop_marker in s3_runtime_image) != c8_ack_drop:
         raise ValueError("S3 C8 ACK-drop command does not match the selected fixture profile")
+    if (b"ARM_C8_ACK_HOLD" in s3_runtime_image) != c8_ack_hold:
+        raise ValueError("S3 C8 ACK-hold command does not match the selected fixture profile")
     if forbidden:
         raise ValueError(f"broad HIL control marker present in S3 app: {forbidden}")
     return {
@@ -170,6 +178,7 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
         "rpf_markers_present": [marker.decode() for marker in RPF_MARKERS],
         "commissioning_markers_present": [marker.decode() for marker in COMMISSIONING_MARKERS],
         "c8_ack_drop_fixture_enabled": c8_ack_drop,
+        "c8_ack_hold_fixture_enabled": c8_ack_hold,
         "broad_hil_markers_absent": [marker.decode() for marker in FORBIDDEN_HIL_MARKERS],
         "embedded_node_asset_bytes": len(node_image),
         "embedded_node_asset_sha256": hashlib.sha256(node_image).hexdigest(),
@@ -218,13 +227,15 @@ def main() -> int:
                        help="build the S3 RPF01-RPF08 diagnostic in the commissioned fixture profile")
     group.add_argument("--s3-c8-p8-ack-drop", action="store_true",
                        help="build the S3 commissioning profile with one-shot C8-P8 ACK suppression")
+    group.add_argument("--s3-c8-p9-ack-hold", action="store_true",
+                       help="build the S3 commissioning profile with bounded exact-key C8-P9 ACK hold")
     parser.add_argument("--s3-node-firmware-asset", type=Path,
-                        help="reuse a verified existing C3 app as the S3 embedded node asset; requires --s3-c8-p8-ack-drop")
+                        help="reuse a verified existing C3 app as the S3 embedded node asset; requires a focused C8 fixture")
     parser.add_argument("--expected-node-sha256",
                         help="required SHA-256 when reusing --s3-node-firmware-asset")
     args = parser.parse_args()
-    if args.s3_node_firmware_asset is not None and not args.s3_c8_p8_ack_drop:
-        parser.error("--s3-node-firmware-asset is only supported with --s3-c8-p8-ack-drop")
+    if args.s3_node_firmware_asset is not None and not (args.s3_c8_p8_ack_drop or args.s3_c8_p9_ack_hold):
+        parser.error("--s3-node-firmware-asset is only supported with --s3-c8-p8-ack-drop or --s3-c8-p9-ack-hold")
     if args.s3_node_firmware_asset is not None and args.expected_node_sha256 is None:
         parser.error("--expected-node-sha256 is required with --s3-node-firmware-asset")
     if args.expected_node_sha256 is not None and args.s3_node_firmware_asset is None:
@@ -238,7 +249,8 @@ def main() -> int:
     fingerprint = source_fingerprint(extra=["scripts/build_gs114_fixture_pair.py"])
     head = subprocess.check_output(["git", "rev-parse", "--short=12", "HEAD"], cwd=ROOT, text=True).strip()
     suffix = ("gs114-rpfdiag" if args.s3_rpf_diagnostic else
-              "gs114-c8p8" if args.s3_c8_p8_ack_drop else "gs114")
+              "gs114-c8p8" if args.s3_c8_p8_ack_drop else
+              "gs114-c8p9" if args.s3_c8_p9_ack_hold else "gs114")
     version = f"{head}-{suffix}-{fingerprint[:8]}"
     c3_project = ROOT / "firmware/node/target/esp32c3/idf"
     s3_project = ROOT / "firmware/hub/target/esp32s3/idf"
@@ -257,15 +269,18 @@ def main() -> int:
                ["-D", "GS_HIL_BUILD=OFF", "-D", "GS_HIL_CONTROL=OFF",
                 "-D", "GS_HIL_COMMISSIONING=ON", "-D", "GS_S3_DIAGNOSTIC_ONLY=OFF",
                 "-D", "GS_HIL_C8_ACK_DROP=" + ("ON" if args.s3_c8_p8_ack_drop else "OFF"),
+                "-D", "GS_HIL_C8_ACK_HOLD=" + ("ON" if args.s3_c8_p9_ack_hold else "OFF"),
+                "-D", "GS_HIL_SIGNED_FOTA=OFF",
                 "-D", "SDKCONFIG_DEFAULTS=" + str(s3_project / "sdkconfig.defaults") + ";" + str(s3_project / "sdkconfig.defaults.outbox"),
                 "-D", "GS_NODE_FIRMWARE_ASSET=" + str(asset)])
-    if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop:
+    if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop or args.s3_c8_p9_ack_hold:
         partition_csv = s3_project / "partitions.s3-outbox-candidate.csv"
         if not partition_csv.is_file():
             raise RuntimeError("GS-114 outbox/state candidate partition table is missing")
         s3_profile = validate_s3_fixture_artifact(
             work / "s3-sdkconfig", work / "s3" / "CMakeCache.txt", partition_csv,
-            s3, asset, c8_ack_drop=args.s3_c8_p8_ack_drop)
+            s3, asset, c8_ack_drop=args.s3_c8_p8_ack_drop,
+            c8_ack_hold=args.s3_c8_p9_ack_hold)
         compiled_table = work / "s3" / "partition_table" / "partition-table.bin"
         idf_path = os.environ.get("IDF_PATH", str(export.parent))
         converter = Path(idf_path or "") / "components/partition_table/gen_esp32part.py"
@@ -291,6 +306,8 @@ def main() -> int:
         "source_fingerprint": fingerprint, "idf": "6.0.3",
         "profile": ("GS-114 S3 commissioning + RPF01-RPF08 + isolated C8-P8 ACK-drop fixture"
                     if args.s3_c8_p8_ack_drop else
+                    "GS-114 S3 commissioning + bounded exact-key C8-P9 ACK-hold fixture"
+                    if args.s3_c8_p9_ack_hold else
                     "GS-114 S3 fixture commissioning + RPF01-RPF08 diagnostic"
                     if args.s3_rpf_diagnostic else
                     "GS-114 disposable fixture; C3 HIL_CONTROL/physical wake; S3 commissioning-only"),
@@ -299,7 +316,9 @@ def main() -> int:
                    if c3 is not None else ["NOT_BUILT; verified existing image reused as S3 input"]),
             "s3": ["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=OFF", "GS_HIL_COMMISSIONING=ON",
                    "GS_S3_DIAGNOSTIC_ONLY=OFF",
-                   "GS_HIL_C8_ACK_DROP=" + ("ON" if args.s3_c8_p8_ack_drop else "OFF")],
+                   "GS_HIL_C8_ACK_DROP=" + ("ON" if args.s3_c8_p8_ack_drop else "OFF"),
+                   "GS_HIL_C8_ACK_HOLD=" + ("ON" if args.s3_c8_p9_ack_hold else "OFF"),
+                   "GS_HIL_SIGNED_FOTA=OFF"],
         },
         "build_commands": BUILD_COMMANDS,
         "build_logs": {
@@ -315,7 +334,7 @@ def main() -> int:
             "partition_csv_sha256": hashlib.sha256(
                 (s3_project / "partitions.s3-outbox-candidate.csv").read_bytes()).hexdigest(),
             "s3_profile_validation": s3_profile,
-        } if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop else {}),
+        } if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop or args.s3_c8_p9_ack_hold else {}),
         "full_device_package": {
             "status": "NOT_AUTHORIZED_FOR_DEPLOYMENT",
             "flash_command_invoked": False,
@@ -334,7 +353,7 @@ def main() -> int:
         result["artifacts"][role]["image_info"] = idf_image_info(export, image)
     if c3 is None:
         result["node_firmware_asset"]["image_info"] = idf_image_info(export, asset)
-    if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop:
+    if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop or args.s3_c8_p9_ack_hold:
         result["artifacts"]["s3"]["ota_slot_capacity_bytes"] = s3_profile["ota_slot_capacity_bytes"]
         result["artifacts"]["s3"]["ota_slot_free_bytes"] = s3_profile["app_free_bytes"]
         result["artifacts"]["s3"]["status"] = "STANDALONE_APP_BUILT_NOT_INSTALLED"

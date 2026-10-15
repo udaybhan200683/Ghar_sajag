@@ -2,6 +2,12 @@
 #if GS_HIL_C8_ACK_DROP
 #include "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp"
 #endif
+#if GS_HIL_C8_ACK_HOLD
+#include "firmware/hub/target/esp32/hil_c8_ack_hold_gate.hpp"
+#endif
+#if GS_HIL_SIGNED_FOTA
+#include "fota_sender.hpp"
+#endif
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -84,6 +90,52 @@ void dispatch(char* command) {
         return;
     }
 #endif
+#if GS_HIL_SIGNED_FOTA
+    if (std::strcmp(verb, "START_SIGNED_C3_FOTA") == 0) {
+        char* device_id = next_token(cursor);
+        char* version = next_token(cursor);
+        if (device_id == nullptr || version == nullptr || next_token(cursor) != nullptr ||
+            std::strcmp(device_id, "c3-146393c5d158") != 0 ||
+            std::strlen(version) == 0 || std::strlen(version) > 31) {
+            ESP_LOGW(kTag, "HIL_SIGNED_FOTA_ERROR reason=invalid_exact_node_or_version");
+            return;
+        }
+        gs::hub::target::FotaStartRequest request;
+        request.physical_device_id = device_id;
+        request.board = "esp32c3";
+        request.version = version;
+        const bool queued = gs::hub::target::request_authenticated_fota(std::move(request));
+        ESP_LOGI(kTag, "HIL_SIGNED_FOTA_TRIGGER result=%s node=c3-146393c5d158 version=%s authentication=OWNER_REQUIRED",
+                 queued ? "QUEUED" : "REJECTED", version);
+        return;
+    }
+#endif
+#if GS_HIL_C8_ACK_HOLD
+    if (std::strcmp(verb, "ARM_C8_ACK_HOLD") == 0 ||
+        std::strcmp(verb, "RELEASE_C8_ACK_HOLD") == 0 ||
+        std::strcmp(verb, "CANCEL_C8_ACK_HOLD") == 0 ||
+        std::strcmp(verb, "C8_ACK_HOLD_STATUS") == 0) {
+        if (next_token(cursor) != nullptr) {
+            ESP_LOGW(kTag, "HIL_FIXTURE_ERROR reason=invalid_arguments");
+            return;
+        }
+        if (std::strcmp(verb, "C8_ACK_HOLD_STATUS") == 0) {
+            gs::hub::target::log_c8_ack_hold_fixture();
+            return;
+        }
+        const bool accepted = std::strcmp(verb, "ARM_C8_ACK_HOLD") == 0
+            ? gs::hub::target::arm_c8_ack_hold_fixture()
+            : std::strcmp(verb, "RELEASE_C8_ACK_HOLD") == 0
+            ? gs::hub::target::release_c8_ack_hold_fixture()
+            : gs::hub::target::cancel_c8_ack_hold_fixture();
+        ESP_LOGI(kTag, "HIL_C8_ACK_HOLD_COMMAND command=%s result=%s hold_ms=%llu watchdog_ms=%llu",
+                 verb, accepted ? "ACCEPTED" : "REJECTED",
+                 static_cast<unsigned long long>(gs::hub::target::C8AckHoldGate::kHoldMs),
+                 static_cast<unsigned long long>(gs::hub::target::C8AckHoldGate::kWatchdogMs));
+        gs::hub::target::log_c8_ack_hold_fixture();
+        return;
+    }
+#endif
     if (std::strcmp(verb, "COMMISSION_EXPECTED_NODE") != 0) {
         ESP_LOGW(kTag, "HIL_FIXTURE_ERROR reason=unsupported_command");
         return;
@@ -126,7 +178,13 @@ void dispatch(char* command) {
 void control_task(void*) {
     std::array<char, kCommandCapacity> command{};
     std::size_t length = 0;
-#if GS_HIL_C8_ACK_DROP
+#if GS_HIL_C8_ACK_HOLD && GS_HIL_SIGNED_FOTA
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,ARM_C8_ACK_HOLD,RELEASE_C8_ACK_HOLD,CANCEL_C8_ACK_HOLD,C8_ACK_HOLD_STATUS,START_SIGNED_C3_FOTA");
+#elif GS_HIL_C8_ACK_HOLD
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,ARM_C8_ACK_HOLD,RELEASE_C8_ACK_HOLD,CANCEL_C8_ACK_HOLD,C8_ACK_HOLD_STATUS");
+#elif GS_HIL_SIGNED_FOTA
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,START_SIGNED_C3_FOTA");
+#elif GS_HIL_C8_ACK_DROP
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,DROP_NEXT_DURABLE_ACK");
 #else
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS");
