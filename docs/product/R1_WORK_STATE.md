@@ -2782,3 +2782,23 @@ preserved and was not rewritten. No release-gate-final or hardware operation
 was run. Commercial auth, production Engineering routes and CloudSync remain
 disabled; GS-148 remains owner-controlled and In Progress. No canonical merge
 is authorized by this status entry.
+
+Final pre-merge follow-up on 2026-10-15: the Python test stage now has an
+explicit `backend-receipts` prerequisite, so a clean PWA validation builds
+`hub_backend_commit_validation` before Python discovery. The original 79
+canonical registry stages remain present with their commands, components,
+selectors and assertions preserved; the only additive change is Python's
+`backend-receipts` prerequisite. The candidate has 80 stages with only
+`diagnostic-foundation` added. Framework 44/44, engineering host 98/98,
+traceability 22/22, Python 465/465 with one approved skip, Caregiver browser
+86/86, and Engineering PREVIEW_ONLY 20/20 passed in fresh/focused executions.
+The final `make validation-pwa` aggregate could not complete because its default
+localhost port 8766 is held by an unrelated existing lab process; its browser
+stage passed separately on supported port 8767. The P0 stage remains PARTIAL,
+historical migration remains FAIL, first-event old-reader limitation remains
+known, and physical remains NOT_RUN. Canonical remote advanced to
+`1eba6c561e8a908fc899219cb7098af30ddcff80`; its tree delta from `2c6797e` is
+one additive storage reconciliation report only. Full details and receipts are
+in the linked integration report above. Merge recommendation remains BLOCKED
+until a complete normal-port PWA aggregate is captured and the owner reviews the
+candidate against the latest canonical tip.

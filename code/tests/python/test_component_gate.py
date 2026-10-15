@@ -143,6 +143,9 @@ class ComponentGateTest(unittest.TestCase):
         release={s["id"] for s in gate.select(data,"release")}
         self.assertIn("browser",pwa)
         self.assertIn("diagnostic-foundation",pwa)
+        self.assertIn("backend-receipts",pwa)
+        pwa_order=[s["id"] for s in gate.select(data,"pwa")]
+        self.assertLess(pwa_order.index("backend-receipts"),pwa_order.index("python"))
         self.assertIn("browser",release)
         self.assertNotIn("browser",fast)
         self.assertIn("diagnostic-foundation",fast)

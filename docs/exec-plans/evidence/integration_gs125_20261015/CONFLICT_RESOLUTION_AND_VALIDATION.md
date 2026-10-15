@@ -117,3 +117,75 @@ Service Desk routes remain BLOCKED; Engineering screens remain PREVIEW_ONLY.
 GS-148 P0 remains PARTIAL, historical migration remains FAIL, and physical
 qualification remains NOT_RUN. Owner review and coordination with GS-148 are
 required before any separate canonical merge approval.
+
+## Final pre-merge qualification follow-up — 2026-10-15
+
+The first Python discovery failure was a clean-checkout dependency-order defect:
+`test_hub_backend_commit_integration.py` launches
+`build/hub_backend_commit_validation`, but the PWA suite selected `python` without
+selecting the already registered `backend-receipts` build/test stage first. The
+registry now supports additive stage `prerequisites`; Python declares
+`backend-receipts`, and the existing stage order ensures that prerequisite runs
+first. This leaves all original canonical stage commands, component ownership,
+selectors and assertions intact. A framework regression checks inclusion and
+ordering. The one added dashboard stage remains `diagnostic-foundation`.
+
+On the final source tree, the registry has 80 stages: all 79 stages from canonical
+checkpoint `2c6797e` are present, with no missing IDs, and the sole added ID is
+`diagnostic-foundation`. `make feature-coverage-test` passed (198 feature rows,
+210 source modules, 15 physical cases; 22 mapping tests). The GS-116 framework
+passed 44/44; Engineering host foundation passed 98/98; Python discovery passed
+465 tests with the single approved historical skip. The focused prerequisite
+target built and ran `HUB-BACKEND-COMMIT HOST PASS`.
+Final deterministic source fingerprint: `79fac128bb75351097c322ab96e05f2578d5bad892f8391ae0328e75735c96cd`.
+
+The browser suite passed separately on its supported alternate local port 8767:
+86/86 Caregiver browser cases and all 20 Engineering `PREVIEW_ONLY` cases across
+seven screens and two viewports. The dedicated P0 stage ran 26/26 scenario checks
+and its Chromium check, with `product_status=PARTIAL` and `physical=NOT_RUN`.
+These results do not turn P0 into PASS.
+
+`make validation-pwa` was attempted with fresh stages and no receipt reuse. Its
+first invocation was blocked by sandbox socket restrictions. In an external
+execution, the normal browser port 8766 was already held by an existing
+`python3 tools/sim/local_lab.py --port 8766` process (PID 432418), which was left
+untouched. Running the entire aggregate with `PLAYWRIGHT_PORT=8767` is not a valid
+workaround because the Python runner tests intentionally assert the default port;
+that attempt recorded two environment-override test failures and was stopped.
+The browser stage itself passed on 8767, but there is no complete final
+`validation-pwa` aggregate receipt. Therefore the PWA aggregate remains
+**BLOCKED/NOT COMPLETE** pending an ordinary rerun after port 8766 is available;
+the known P0 PARTIAL completeness assertion remains an expected independent gate
+failure.
+
+Fresh final-tree C8/storage/CloudSync checks:
+
+- C8 ACK-drop: PASS, 16 checks.
+- Storage correctness: PASS, complete `GS148_CASE=all` matrix; explicit
+  `FIRST_ADMISSION_RECOVERY_BLOCKED` fail-closed cases remain in output.
+- Storage sanitizer: PASS after an initial sandbox LeakSanitizer startup failure
+  (`does not work under ptrace`) was confirmed environmental on external retry.
+- First-event reader: PASS for the scoped checks, with
+  `OLD_READER_COMMERCIAL_ROLLBACK_AVAILABILITY=FAIL_KNOWN_FIRST_EVENT_LIMITATION`
+  retained.
+- First-event recovery projection: PASS, with
+  `PRODUCTION_CLOUDSYNC=PENDING / PRODUCT_P0=PARTIAL / PHYSICAL=NOT_RUN` retained.
+- Cloud Worker backend API: PASS, one exact retry, durable effect and caregiver
+  projection.
+
+The historical migration result remains **FAIL**; no migration assertion was
+changed. Physical qualification remains **NOT_RUN**. No release gate, hardware,
+flash, production authentication or Jira workflow transition was performed.
+
+The remote canonical branch advanced to `1eba6c561e8a908fc899219cb7098af30ddcff80`.
+The fetched tree delta from the supplied canonical checkpoint `2c6797e` is only
+the additive `docs/exec-plans/evidence/S3_BRANCH_RECONCILIATION_20261015.md`;
+there are no changed code, registry, requirement or test files in that delta.
+This source comparison found no new product-code conflict, but this candidate has
+not been rebased/merged onto the newer canonical tip. Any eventual integration
+review must use that latest checkpoint and retain the new report.
+
+The imported historical native logs were not rewritten. The earlier report's
+trailing-whitespace finding for historical Dashboard stdout receipt copies remains
+documented; their original files and hashes are preserved. Current follow-up
+`git diff --check` is clean.

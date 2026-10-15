@@ -31,6 +31,10 @@ def load_registry(path=REGISTRY, root=ROOT):
             if not (root/f).is_file(): raise ValueError("missing dependency: "+f)
         if s.get("require_complete_product") and not (s.get("fast") and s.get("release", True)):
             raise ValueError("complete product stage must belong to developer and release gates: "+s["id"])
+    for s in data["stages"]:
+        prerequisites=s.get("prerequisites",[])
+        if len(prerequisites)!=len(set(prerequisites)) or s["id"] in prerequisites or set(prerequisites)-ids:
+            raise ValueError("missing, duplicate, or self prerequisite for stage: "+s["id"])
     for name, suite in data.get("opt_in_physical_suites", {}).items():
         if name not in {"validation-board-hil", "validation-motion-hil"}:
             raise ValueError("unknown physical suite: "+name)
@@ -51,13 +55,22 @@ def load_registry(path=REGISTRY, root=ROOT):
 
 def select(data,suite):
     if suite not in COMPONENTS|SPECIAL_SUITES: raise ValueError("unknown suite")
-    selected=[s for s in data["stages"] if
+    selected={s["id"] for s in data["stages"] if
         (suite=="board-e2e" and s["id"]=="board-stack-e2e") or
         (suite=="p0-e2e" and s["id"]=="p0-full-product-e2e") or
         (suite=="release" and (s.get("fast",True) or s.get("release",False))) or
         (suite=="fast" and s.get("fast",True)) or
         (suite in s["components"] and s.get("fast",True)) or
-        (suite=="pwa" and s.get("pwa",False))]
+        (suite=="pwa" and s.get("pwa",False))}
+    if not selected: raise ValueError("zero selected stages")
+    by_id={s["id"]:s for s in data["stages"]}
+    pending=list(selected)
+    while pending:
+        current=pending.pop()
+        for prerequisite in by_id[current].get("prerequisites",[]):
+            if prerequisite not in selected:
+                selected.add(prerequisite);pending.append(prerequisite)
+    selected=[s for s in data["stages"] if s["id"] in selected]
     if not selected: raise ValueError("zero selected stages")
     return selected
 

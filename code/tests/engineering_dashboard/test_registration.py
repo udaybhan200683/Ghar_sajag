@@ -57,7 +57,7 @@ class RegistrationTest(unittest.TestCase):
             self.assertTrue(set(original.get("inputs",[]))<=set(updated.get("inputs",[])))
             self.assertTrue(set(original.get("required_success",[]))<=
                             set(updated.get("required_success",[])))
-            allowed_additions={"inputs","required_success","pwa","qualification_scope"}
+            allowed_additions={"inputs","required_success","pwa","qualification_scope","prerequisites"}
             for field in original.keys()|updated.keys():
                 if field not in allowed_additions:
                     self.assertEqual(updated.get(field),original.get(field),
@@ -71,6 +71,7 @@ class RegistrationTest(unittest.TestCase):
         self.assertFalse(browser.get("fast",False))
         self.assertTrue(browser.get("release"))
         self.assertEqual(len(browser.get("required_success",[])),21)
+        self.assertEqual(current_by_id["python"].get("prerequisites"),["backend-receipts"])
         self.assertIn("tests/engineering_dashboard/test_service_access.py",
                       current["stages"][-1]["inputs"])
         for key in prior:

@@ -1152,6 +1152,9 @@
         "pwa",
         "tooling"
       ],
+      "prerequisites": [
+        "backend-receipts"
+      ],
       "command": [
         "python3",
         "-m",
