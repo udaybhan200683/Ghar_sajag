@@ -67,6 +67,66 @@ void install_v2_heartbeat(OpenSslCommissioningCrypto& crypto,const Key32& key,Me
     Bytes aad=blob;push_string(aad,"home-a");push_string(aad,"hub-a");push_string(aad,"bathroom");Bytes cipher;gs::security::GcmTag tag{};
     require(crypto.seal_aes256_gcm(key,nonce,aad,plain,cipher,tag),"legacy v2 fixture encryption");blob.insert(blob.end(),cipher.begin(),cipher.end());blob.insert(blob.end(),tag.begin(),tag.end());store.bytes=std::move(blob);store.present=true;
 }
+void install_legacy_motion(OpenSslCommissioningCrypto& crypto,const Key32& key,
+                           MemoryBlob& store,std::uint8_t version) {
+    require(version == 1 || version == 2, "legacy fixture version");
+    Bytes plain;
+    push_string(plain,"bathroom"); push_u64(plain,7); // node and prior boot session
+    plain.push_back(0); plain.push_back(1); // no gap marker; one pending event
+    push_string(plain,"Bathroom"); push_u64(plain,7); push_u64(plain,11);
+    plain.push_back(static_cast<std::uint8_t>(EventKind::Motion));
+    push_u64(plain,100); push_u64(plain,200); push_u64(plain,200);
+    push_u32(plain,0); plain.insert(plain.end(),2,0); // uncertainty and battery
+    plain.push_back(0); plain.push_back(static_cast<std::uint8_t>(gs::SensorType::Pir));
+    plain.insert(plain.end(),2,0); // semantic RSSI
+    plain.push_back(0); plain.push_back(0); plain.push_back(1); // attempt, backoff, retained
+    if (version >= 2) plain.push_back(0); // no motion aggregate in v2
+
+    Bytes blob{'G','S','N','R',version}; push_u64(blob,1);
+    gs::security::Nonce12 nonce{};
+    require(crypto.random_bytes(nonce.data(),nonce.size()),"legacy motion nonce");
+    blob.insert(blob.end(),nonce.begin(),nonce.end());
+    blob.push_back(static_cast<std::uint8_t>(plain.size() >> 8));
+    blob.push_back(static_cast<std::uint8_t>(plain.size()));
+    Bytes aad=blob;
+    for (const auto* value : {"home-a","hub-a","bathroom"}) push_string(aad,value);
+    Bytes cipher; gs::security::GcmTag tag{};
+    require(crypto.seal_aes256_gcm(key,nonce,aad,plain,cipher,tag),
+            "legacy motion fixture encryption");
+    blob.insert(blob.end(),cipher.begin(),cipher.end());
+    blob.insert(blob.end(),tag.begin(),tag.end());
+    store.bytes=std::move(blob); store.present=true;
+}
+
+void legacy_business_ack_retirement(OpenSslCommissioningCrypto& crypto,
+                                   const Key32& key,std::uint8_t version) {
+    MemoryBlob store; install_legacy_motion(crypto,key,store,version);
+    NodeRecoveryRepository repo(crypto,store,key,"home-a","hub-a","bathroom");
+    const auto loaded=repo.load();
+    require(loaded.status==NodeRecoveryLoadStatus::Ready && loaded.state &&
+            loaded.state->pending.size()==1 && loaded.state->retained.size()==1,
+            "legacy retained business event did not recover");
+    const gs::EventKey original{"bathroom",7,11};
+    NodeRuntime restored("bathroom",8);
+    require(restored.restore_recovery(*loaded.state,0),"legacy runtime restore");
+    const auto resend=restored.next_message(0);
+    require(resend && resend->node_id==original.source_id &&
+            resend->session_id==original.session_id && resend->sequence_number==original.sequence,
+            "legacy retry changed its original EventKey");
+    require(!restored.acknowledge(original,gs::AckClass::Rejected) &&
+            !restored.acknowledge(original,gs::AckClass::ReceivedVolatile) &&
+            !restored.acknowledge({"bathroom",7,12},gs::AckClass::Durable) &&
+            restored.pending()==1 && restored.persisted()==1,
+            "legacy rejected, volatile, or wrong-key ACK retired retained evidence");
+    require(restored.acknowledge(original,gs::AckClass::Durable) &&
+            restored.pending()==0 && restored.persisted()==0,
+            "matching Durable ACK did not retire legacy retained event");
+    require(repo.save(restored.recovery_snapshot()),"legacy retirement persistence");
+    const auto after=repo.load();
+    require(after.status==NodeRecoveryLoadStatus::Ready && after.state &&
+            after.state->pending.empty() && after.state->retained.empty(),
+            "legacy ACK retirement was not durable after repository reload");
+}
 }
 
 int main() {
@@ -83,6 +143,8 @@ int main() {
                 legacy.state->retirement_epoch==0&&legacy.state->durable_admission_highwater==0&&
                 legacy.state->pending.size()==1&&legacy.state->pending[0].event.kind==EventKind::Heartbeat,
                 "v2 migration fabricated retirement data or lost a retryable heartbeat");
+        legacy_business_ack_retirement(crypto,wrapping_key,1);
+        legacy_business_ack_retirement(crypto,wrapping_key,2);
         NodeRuntime migrated("bathroom",8);
         require(migrated.restore_recovery(*legacy.state,0)&&migrated.set_retirement_epoch(9)&&
                 legacy_repo.save(migrated.recovery_snapshot()),"v2 pending heartbeat did not migrate into v3");

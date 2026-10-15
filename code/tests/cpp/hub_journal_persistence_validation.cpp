@@ -1,5 +1,6 @@
 #include "firmware/hub/storage/journal.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
+#include "firmware/common/transport/data_plane_codec.hpp"
 #include "tests/support/host/security/openssl_commissioning_crypto.hpp"
 
 #include <array>
@@ -34,7 +35,66 @@ struct MemorySlots final : gs::hub::JournalSlotStore {
     }
 };
 
-gs::DomainEvent event(std::uint64_t sequence, const char* physical = "device-A") {
+gs::DomainEvent event(std::uint64_t sequence, const char* physical = "device-A");
+
+void require_wire_ack(gs::hub::ProcessResult const& result, gs::AckClass expected) {
+    const auto encoded = gs::transport::encode_node_ack(
+        gs::make_node_ack(result.key,result.ack,0,"journal_result"));
+    require(static_cast<bool>(encoded),"runtime ACK encoding");
+    const auto decoded = gs::transport::decode_node_ack(
+        encoded.frame.bytes.data(),encoded.frame.size);
+    require(static_cast<bool>(decoded) && decoded.value->ack_type==expected,
+            "serialized ACK class did not match journal result");
+}
+
+void runtime_ack_mapping(gs::host::security::OpenSslCommissioningCrypto& crypto,
+                         const gs::security::Key32& key) {
+    {
+        MemorySlots slots;
+        gs::hub::HubRuntime runtime(4,128);
+        require(runtime.journal().attach_persistence(crypto,slots,key),
+                "full mapping persistence setup");
+        runtime.authorize_node("bathroom",17,false);
+        require(runtime.radio_callback(event(1)),"full mapping first ingress");
+        const auto stored=runtime.run_state_once();
+        require(stored && stored->ack==gs::AckClass::Durable &&
+                runtime.journal().size()==1,"stored event did not commit before ACK");
+        require_wire_ack(*stored,gs::AckClass::Durable);
+        require(runtime.radio_callback(event(1)),"duplicate mapping ingress");
+        const auto duplicate=runtime.run_state_once();
+        require(duplicate && duplicate->ack==gs::AckClass::Durable &&
+                !duplicate->state_changed && runtime.journal().size()==1,
+                "duplicate did not retain durable idempotent outcome");
+        require_wire_ack(*duplicate,gs::AckClass::Durable);
+        for (std::uint64_t sequence=2;sequence<=128;++sequence) {
+            require(runtime.radio_callback(event(sequence)),"full mapping capacity ingress");
+            const auto capacity_result=runtime.run_state_once();
+            require(capacity_result && capacity_result->ack==gs::AckClass::Durable,
+                    "legacy journal capacity prefix failed to commit");
+        }
+        require(runtime.journal().size()==128,"legacy journal did not reach full capacity");
+        require(runtime.radio_callback(event(129)),"full mapping overflow ingress");
+        const auto full=runtime.run_state_once();
+        require(full && full->ack==gs::AckClass::Rejected &&
+                runtime.journal().size()==128,"Full outcome changed committed journal state");
+        require_wire_ack(*full,gs::AckClass::Rejected);
+    }
+    {
+        MemorySlots slots;
+        gs::hub::HubRuntime runtime(4,128);
+        require(runtime.journal().attach_persistence(crypto,slots,key),
+                "StorageFault mapping persistence setup");
+        runtime.authorize_node("bathroom",17,false);
+        slots.fail_write=true;
+        require(runtime.radio_callback(event(3)),"StorageFault mapping ingress");
+        const auto fault=runtime.run_state_once();
+        require(fault && fault->ack==gs::AckClass::Rejected &&
+                runtime.journal().size()==0,"StorageFault outcome changed committed journal state");
+        require_wire_ack(*fault,gs::AckClass::Rejected);
+    }
+}
+
+gs::DomainEvent event(std::uint64_t sequence, const char* physical) {
     gs::DomainEvent result;
     result.key = {"bathroom", 17, sequence, physical};
     result.kind = gs::EventKind::Motion;
@@ -51,6 +111,7 @@ int main() {
         gs::host::security::OpenSslCommissioningCrypto crypto;
         gs::security::Key32 key{};
         require(crypto.random_bytes(key.data(), key.size()), "test key generation");
+        runtime_ack_mapping(crypto,key);
         MemorySlots slots;
         {
             HubJournal journal(128);
