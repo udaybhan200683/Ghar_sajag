@@ -1,5 +1,27 @@
 # R1 Current Work State
 
+## GS-109 / GS-148 CloudSync security decision package — 2026-10-15
+
+Prepared [the consolidated implementation-ready decision package](../exec-plans/evidence/GS109_GS148_CLOUDSYNC_DECISION_PACKAGE_20261015.md)
+from verified local/remote checkpoint
+`bb2b77cb26ac88aaea244b7d1f73b124d18f6a3f` on
+`feature/r1-commercial-baseline`; context preflight PASS
+(`2026-10-13.001`). Reused GS-109 design review/register comments 10595/10601
+and GS-148 comment 11007. The package covers D03/D05/D07/D11/D16 and
+prerequisites D04/D06/D12/D15, distinguishing accepted GS-D032 invariants from
+new decisions. It checks the recommendations against the current CloudSync
+worker, backend ownership/durable-commit path and S3 single-radio/blocking HTTPS
+limitations. GS-109 comment 11008 contains the consolidated recommendation and
+approval request; GS-148 comment 11009 cross-references it.
+
+This is a proposal only. No new contract is approved or implemented; commercial
+target sending remains disabled. No tests or hardware operations were needed or
+performed. No credentials, roots, workflow states or accepted contracts changed.
+The previous GS-148 Hub gate status, historical journal migration assertion
+FAIL, and P0 `product_status=PARTIAL` remain unchanged. The next action is owner
+disposition of the nine decisions in the linked package; after approval, execute
+its staged D12/D04 → D03/D05 → D07/D15 → D11 → D06/D16 implementation order.
+
 ## GS-148 Hub gate and GS-109 production CloudSync decision map — 2026-10-15
 
 Resumed from canonical local/remote HEAD `6489b25670bade448e3fee4776a99ed804ca62d8`
