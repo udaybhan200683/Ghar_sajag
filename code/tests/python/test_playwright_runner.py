@@ -1,6 +1,7 @@
 """Socket-free diagnostics for the mandatory browser runner."""
 import errno
 import os
+import select
 import socket
 import subprocess
 import unittest
@@ -10,9 +11,12 @@ from pathlib import Path
 from scripts.run_playwright_gate import (
     BASE,
     LAB_PORT,
+    LabPortOccupiedError,
     assert_lab_port_available,
     lab_command,
     playwright_environment,
+    port_start_lock,
+    select_lab_port,
     terminate_process_group,
     validate_base_url,
     wait_for_port_available,
@@ -106,6 +110,54 @@ class PlaywrightRunnerTest(unittest.TestCase):
         validate_base_url(f"http://127.0.0.1:{LAB_PORT}")
         with self.assertRaisesRegex(RuntimeError, r"PWA_BASE_URL must target 127.0.0.1:8766"):
             validate_base_url("http://127.0.0.1:8765")
+
+    def test_occupied_default_selects_safe_alternate_only_when_automatic(self):
+        def port_probe(_host, port):
+            if port == 8766:
+                raise LabPortOccupiedError("default occupied")
+        with patch(
+            "scripts.run_playwright_gate.assert_lab_port_available",
+            side_effect=port_probe,
+        ), patch("scripts.run_playwright_gate.ephemeral_lab_port", return_value=49152):
+            self.assertEqual(select_lab_port(8766, allow_alternate=True), 49152)
+            with self.assertRaisesRegex(LabPortOccupiedError, "default occupied"):
+                select_lab_port(8766, allow_alternate=False)
+
+    def test_alternate_port_is_shared_by_lab_and_browser_endpoint(self):
+        port = 49152
+        base = f"http://127.0.0.1:{port}"
+        self.assertEqual(lab_command(port), ["python3", "tools/sim/local_lab.py", "--port", str(port)])
+        validate_base_url(base, port)
+        environment = playwright_environment(base, port)
+        self.assertEqual(environment["PWA_BASE_URL"], base)
+        with self.assertRaisesRegex(RuntimeError, r"must target 127.0.0.1:8766"):
+            validate_base_url(base, 8766)
+
+    def test_concurrent_worktree_startup_waits_for_shared_port_lock(self):
+        script = (
+            "from scripts.run_playwright_gate import port_start_lock; "
+            "print('WAITING', flush=True); "
+            "lock=port_start_lock(); lock.__enter__(); "
+            "print('ACQUIRED', flush=True); lock.__exit__(None, None, None)"
+        )
+        proc = None
+        try:
+            with port_start_lock():
+                proc = subprocess.Popen(
+                    [os.sys.executable, "-c", script], cwd=Path(__file__).resolve().parents[2],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                )
+                ready, _, _ = select.select([proc.stdout], [], [], 3)
+                self.assertTrue(ready, "child did not start its port-lock check")
+                self.assertEqual(proc.stdout.readline().strip(), "WAITING")
+                ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+                self.assertFalse(ready, "concurrent gate acquired the startup lock early")
+            remainder, _ = proc.communicate(timeout=3)
+            self.assertIn("ACQUIRED", remainder)
+        finally:
+            if proc is not None and proc.poll() is None:
+                proc.kill()
+                proc.communicate()
 
 
 if __name__ == "__main__":

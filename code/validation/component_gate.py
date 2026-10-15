@@ -113,6 +113,14 @@ def run_process(command,cwd,env,timeout):
         raise
     return {"exit_code":rc,"output":output,"seconds":round(time.monotonic()-started,3)}
 
+def stage_environment(stage,env):
+    """Keep browser endpoint overrides scoped to the registered browser stage."""
+    child=env.copy()
+    if stage["id"]!="browser":
+        child.pop("PLAYWRIGHT_PORT",None)
+        child.pop("PWA_BASE_URL",None)
+    return child
+
 def adjudicate(stage,result):
     out=result["output"]
     if result["exit_code"]: return "FAIL"
@@ -228,7 +236,7 @@ def main(argv=None):
             try: result=verify_receipt(stage,row,previous,stamp,profile)
             except (ValueError,OSError,KeyError) as error:
                 result={"exit_code":2,"output":str(error),"seconds":0}
-        else: result=run_process(stage["command"],ROOT,env,stage["timeout"])
+        else: result=run_process(stage["command"],ROOT,stage_environment(stage,env),stage["timeout"])
         result["status"]=adjudicate(stage,result)
         log=campaign/(stage["id"]+".log");log.write_text(result.pop("output"))
         text=log.read_text();count_matches=list(re.finditer(stage["success"],text,re.M))

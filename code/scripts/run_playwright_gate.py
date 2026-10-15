@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import errno, os, subprocess, time, urllib.request, signal, socket
+import errno, fcntl, os, stat, subprocess, time, urllib.request, signal, socket
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -12,6 +13,28 @@ BASE = os.environ.get("PWA_BASE_URL", DEFAULT_BASE)
 EVIDENCE = ROOT / "evidence"
 EVIDENCE.mkdir(exist_ok=True)
 LAB_LOG = EVIDENCE / "playwright-lab.log"
+PORT_START_LOCK = Path(f"/tmp/ghar_sajag_playwright_gate_port_{os.getuid()}.lock")
+
+
+class LabPortOccupiedError(RuntimeError):
+    """The requested browser-gate port is already owned by another process."""
+
+
+@contextmanager
+def port_start_lock():
+    """Serialize lab port selection and startup across worktrees on this host."""
+    flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW
+    descriptor = os.open(PORT_START_LOCK, flags, 0o600)
+    metadata = os.fstat(descriptor)
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
+        os.close(descriptor)
+        raise RuntimeError(f"ENVIRONMENT_BLOCKED: unsafe port-lock file {PORT_START_LOCK}")
+    with os.fdopen(descriptor, "a", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 def _bind_probe(host: str, port: int) -> None:
     """Probe with the same reuse policy as the owned ThreadingWSGIServer."""
@@ -28,9 +51,9 @@ def assert_lab_port_available(host: str = LAB_HOST, port: int = LAB_PORT) -> Non
         _bind_probe(host, port)
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
-            raise RuntimeError(
+            raise LabPortOccupiedError(
                 f"ENVIRONMENT_BLOCKED: {host}:{port} is already occupied. "
-                "Free the required validation port, then rerun make release-gate-final."
+                "Choose another validation port or let the browser gate select one."
             ) from exc
         if exc.errno in (errno.EPERM, errno.EACCES):
             raise RuntimeError(
@@ -38,6 +61,41 @@ def assert_lab_port_available(host: str = LAB_HOST, port: int = LAB_PORT) -> Non
                 "run make release-gate-final in the normal local terminal."
             ) from exc
         raise RuntimeError(f"ENVIRONMENT_BLOCKED: cannot bind {host}:{port}: {exc}") from exc
+
+
+def ephemeral_lab_port(host: str = LAB_HOST) -> int:
+    """Ask the OS for a currently unused loopback port for an owned lab."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind((host, 0))
+            return int(probe.getsockname()[1])
+    except OSError as exc:
+        if exc.errno in (errno.EPERM, errno.EACCES):
+            raise RuntimeError(
+                "ENVIRONMENT_BLOCKED: sandbox cannot allocate a loopback port; "
+                "run make release-gate-final in the normal local terminal."
+            ) from exc
+        raise RuntimeError(f"ENVIRONMENT_BLOCKED: cannot allocate loopback port: {exc}") from exc
+
+
+def select_lab_port(preferred: int = LAB_PORT, allow_alternate: bool = False) -> int:
+    """Use the preferred port, optionally falling back only on address-in-use."""
+    try:
+        assert_lab_port_available(LAB_HOST, preferred)
+        return preferred
+    except LabPortOccupiedError:
+        if not allow_alternate:
+            raise
+        for _ in range(8):
+            port = ephemeral_lab_port(LAB_HOST)
+            try:
+                assert_lab_port_available(LAB_HOST, port)
+            except LabPortOccupiedError:
+                continue
+            print(f"Preferred Playwright port {preferred} is occupied; selected {port}.", flush=True)
+            return port
+        raise RuntimeError("ENVIRONMENT_BLOCKED: could not reserve a free alternate Playwright port")
 
 
 def validate_base_url(base_url: str = BASE, port: int = LAB_PORT) -> None:
@@ -54,9 +112,9 @@ def lab_command(port: int = LAB_PORT) -> list[str]:
     return ["python3", "tools/sim/local_lab.py", "--port", str(port)]
 
 
-def playwright_environment(base_url: str = BASE) -> dict[str, str]:
+def playwright_environment(base_url: str = BASE, port: int = LAB_PORT) -> dict[str, str]:
     """Return the browser environment after validating its lab endpoint."""
-    validate_base_url(base_url)
+    validate_base_url(base_url, port)
     env = os.environ.copy()
     env["PWA_BASE_URL"] = base_url
     package_modules = str(ROOT / "frontend" / "node_modules")
@@ -164,27 +222,49 @@ def wait_http(url: str, proc: subprocess.Popen, timeout: int = 60) -> None:
     )
 
 def main() -> int:
+    automatic_port = "PLAYWRIGHT_PORT" not in os.environ and "PWA_BASE_URL" not in os.environ
     validate_base_url()
-    assert_lab_port_available(LAB_HOST, LAB_PORT)
+    if not automatic_port:
+        # Explicit port/base configuration remains a strict ownership contract.
+        assert_lab_port_available(LAB_HOST, LAB_PORT)
     # release-gate sanitizer/trace stages may clean the build. Build before
     # starting the HTTP-readiness timer; WSL builds can take ~40-60 seconds.
     print("Preparing Playwright lab build...", flush=True)
     subprocess.run(["make", "lab-build"], cwd=ROOT, check=True)
-    assert_lab_port_available(LAB_HOST, LAB_PORT)
-    print("Starting Parivar Sathi / Ghar Sajag local lab...", flush=True)
-    lab = subprocess.Popen(
-        lab_command(), cwd=ROOT,
-        env={**os.environ, "GS_APP_DB": ":memory:"},
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        bufsize=1, start_new_session=True,
-    )
+    port = LAB_PORT
+    base = BASE
+    lab = None
     result = 1
     cleanup_errors = []
     try:
-        wait_http(BASE, lab, timeout=60)
-        print(f"Lab ready: {BASE}", flush=True)
+        # Keep selection and startup under a host-wide lock so concurrent gate
+        # runs in separate worktrees cannot choose the same ephemeral port.
+        with port_start_lock():
+            port = select_lab_port(LAB_PORT, allow_alternate=automatic_port)
+            if automatic_port:
+                base = f"http://{LAB_HOST}:{port}"
+            validate_base_url(base, port)
+            assert_lab_port_available(LAB_HOST, port)
+            print("Starting Parivar Saathi / Ghar Sajag local lab...", flush=True)
+            lab = subprocess.Popen(
+                lab_command(port), cwd=ROOT,
+                env={**os.environ, "GS_APP_DB": ":memory:"},
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                bufsize=1, start_new_session=True,
+            )
+            try:
+                wait_http(base, lab, timeout=60)
+            except BaseException:
+                # Do not release the startup lock while an unsuccessful owned
+                # server could still hold its selected port.
+                out = terminate_process_group(lab)
+                LAB_LOG.write_text(out or "", encoding="utf-8")
+                wait_for_port_available(port=port, owner=lab)
+                lab = None
+                raise
+        print(f"Lab ready: {base}", flush=True)
         result = subprocess.call(["npx", "playwright", "test"], cwd=ROOT / "frontend",
-                                 env=playwright_environment(BASE))
+                                 env=playwright_environment(base, port))
         if result == 0:
             print("Running Engineering Dashboard PREVIEW_ONLY review suite...", flush=True)
             result = subprocess.call(
@@ -192,16 +272,17 @@ def main() -> int:
                 cwd=ROOT, env=os.environ.copy(),
             )
     finally:
-        out = ""
-        try:
-            out = terminate_process_group(lab)
-        except RuntimeError as exc:
-            cleanup_errors.append(str(exc))
-        LAB_LOG.write_text(out or "", encoding="utf-8")
-        try:
-            wait_for_port_available(owner=lab)
-        except RuntimeError as exc:
-            cleanup_errors.append(str(exc))
+        if lab is not None:
+            out = ""
+            try:
+                out = terminate_process_group(lab)
+            except RuntimeError as exc:
+                cleanup_errors.append(str(exc))
+            LAB_LOG.write_text(out or "", encoding="utf-8")
+            try:
+                wait_for_port_available(port=port, owner=lab)
+            except RuntimeError as exc:
+                cleanup_errors.append(str(exc))
     if cleanup_errors:
         print("\n".join(cleanup_errors), flush=True)
         return 1

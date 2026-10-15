@@ -103,6 +103,22 @@ class ComponentGateTest(unittest.TestCase):
         r=gate.run_process(["/nonexistent/gs116-required-tool"],ROOT,os.environ,1)
         self.assertEqual(r["exit_code"],127)
         self.assertIn("DEPENDENCY_ERROR",r["output"])
+    def test_browser_endpoint_overrides_are_scoped_to_browser_stage(self):
+        source={"PLAYWRIGHT_PORT":"8767","PWA_BASE_URL":"http://127.0.0.1:8767","KEEP":"value"}
+        python_env=gate.stage_environment({"id":"python"},source)
+        browser_env=gate.stage_environment({"id":"browser"},source)
+        self.assertNotIn("PLAYWRIGHT_PORT",python_env)
+        self.assertNotIn("PWA_BASE_URL",python_env)
+        self.assertEqual(python_env["KEEP"],"value")
+        self.assertEqual(browser_env["PLAYWRIGHT_PORT"],"8767")
+        self.assertEqual(browser_env["PWA_BASE_URL"],"http://127.0.0.1:8767")
+    def test_runner_default_contract_tests_pass_with_external_browser_override(self):
+        env=gate.stage_environment({"id":"python"},{**os.environ,"PLAYWRIGHT_PORT":"8767"})
+        result=subprocess.run(
+            [sys.executable,"-m","unittest","discover","-s","tests/python",
+             "-p","test_playwright_runner.py"],
+            cwd=ROOT,env=env,capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
     def test_timeout_fails_and_retains_partial_output(self):
         r=gate.run_process([sys.executable,"-c","import time; print('started',flush=True); time.sleep(10)"],ROOT,os.environ,2)
         self.assertEqual(r["exit_code"],124)
