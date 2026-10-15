@@ -49,6 +49,16 @@ def signed_hil_control_sdkconfig(config_text: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def signed_profile_cmake_options(*, hil_control: bool,
+                                 force_boot_health_fail: bool) -> list[str]:
+    """Return signed C3 profile flags, rejecting the test fault in production."""
+    if force_boot_health_fail and not hil_control:
+        raise ValueError("forced boot-health failure requires --hil-control")
+    return ["-DGS_HIL_BUILD=OFF",
+            f"-DGS_HIL_CONTROL={'ON' if hil_control else 'OFF'}",
+            f"-DGS_HIL_FORCE_BOOT_HEALTH_FAIL={'ON' if force_boot_health_fail else 'OFF'}"]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--signing-key", type=Path, required=True,
@@ -58,11 +68,19 @@ def main() -> int:
                         help="copy signed image here and write adjacent JSON provenance")
     parser.add_argument("--hil-control", action="store_true",
                         help="include HIL test controls while GS_HIL_BUILD remains OFF and secure runtime stays enabled")
+    parser.add_argument("--force-boot-health-fail", action="store_true",
+                        help="TEST ONLY: force rollback in a signed HIL candidate for a disposable fixture")
     parser.add_argument("--trusted-key", type=Path,
                         help="optional existing trust-anchor key; verification must succeed for matching signer")
     parser.add_argument("--build-dir", default="build_signed",
                         help="ESP-IDF build directory (default: build_signed)")
     args = parser.parse_args()
+    try:
+        profile_options = signed_profile_cmake_options(
+            hil_control=args.hil_control,
+            force_boot_health_fail=args.force_boot_health_fail)
+    except ValueError as exc:
+        parser.error(str(exc))
     key = args.signing_key.resolve()
     if not key.is_file() or key.is_relative_to(ROOT.parent):
         parser.error("signing key must exist outside the repository")
@@ -79,8 +97,7 @@ def main() -> int:
             (NODE_PROJECT / "sdkconfig.signed").read_text()))
         defaults += ";sdkconfig.hil.defaults"
     build_args = ["-B", args.build_dir, f"-DSDKCONFIG={sdkconfig}",
-                  f"-DSDKCONFIG_DEFAULTS={defaults}",
-                  "-DGS_HIL_BUILD=OFF", f"-DGS_HIL_CONTROL={'ON' if args.hil_control else 'OFF'}"]
+                  f"-DSDKCONFIG_DEFAULTS={defaults}", *profile_options]
     if args.version:
         if not args.version.strip() or len(args.version) > 31 or any(ch.isspace() for ch in args.version):
             parser.error("version must be 1..31 non-whitespace characters")
@@ -145,7 +162,9 @@ def main() -> int:
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(signed, output)
     record = {"version": args.version or "unspecified", "profile": "signed-app-on-update",
-              "hil_control": args.hil_control, "gs_hil_build": False,
+              "hil_control": args.hil_control,
+              "force_boot_health_fail": args.force_boot_health_fail,
+              "gs_hil_build": False,
               "image": str(output), "size": output.stat().st_size,
               "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
               "signing_public_key_fingerprint_sha256": fingerprint,

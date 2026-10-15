@@ -26,6 +26,18 @@ namespace {
 
 constexpr char kTag[] = "gs_node_fota";
 constexpr TickType_t kControlReceivePoll = pdMS_TO_TICKS(1000);
+// A historical ESP-IDF 6.0.3 rollback run panicked in this task with a 3 KiB
+// stack while unwinding esp_ota_mark_app_invalid_rollback_and_reboot(). Keep a
+// conservative 12 KiB allocation until a matched physical high-water run
+// establishes a smaller safe bound. xTaskCreate stack depth is bytes in ESP-IDF.
+constexpr std::uint32_t kImageValidationTaskStackBytes = 12U * 1024U;
+
+#ifndef GS_HIL_FORCE_BOOT_HEALTH_FAIL
+#define GS_HIL_FORCE_BOOT_HEALTH_FAIL 0
+#endif
+#if GS_HIL_FORCE_BOOT_HEALTH_FAIL && (!GS_HIL_CONTROL || GS_HIL_BUILD)
+#error "Forced OTA health failure is restricted to signed HIL-control test builds"
+#endif
 
 std::uint64_t monotonic_ms() {
     return static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
@@ -248,9 +260,17 @@ void validate_running_image(void*) {
     if (esp_ota_get_state_partition(running, &state) == ESP_OK &&
         state == ESP_OTA_IMG_PENDING_VERIFY) {
         ESP_LOGW(kTag, "OTA image pending health validation");
+#if GS_HIL_FORCE_BOOT_HEALTH_FAIL
+        ESP_LOGW(kTag, "HIL_BOOT_HEALTH_FAILURE_INJECTED: suppressing validation evidence");
+#endif
         const auto started_ms = monotonic_ms();
         for (;;) {
-            const auto observation = ota_boot_health_observation();
+            auto observation = ota_boot_health_observation();
+#if GS_HIL_FORCE_BOOT_HEALTH_FAIL
+            // This is built only into an explicit signed HIL candidate. It
+            // exercises the real pending-verify deadline and ROM rollback.
+            observation.post_sensing_radio_confirmed = false;
+#endif
             const auto decision = fota::evaluate_boot_health(
                 observation, monotonic_ms() - started_ms);
             if (decision == fota::BootHealthDecision::Validate) {
@@ -283,7 +303,8 @@ esp_err_t start_fota_receiver() {
     if (xTaskCreate(worker, "gs_node_fota", 6144, nullptr, 7, nullptr) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
-    if (xTaskCreate(validate_running_image, "gs_ota_validate", 3072, nullptr, 6,
+    if (xTaskCreate(validate_running_image, "gs_ota_validate",
+                    kImageValidationTaskStackBytes, nullptr, 6,
                     nullptr) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }

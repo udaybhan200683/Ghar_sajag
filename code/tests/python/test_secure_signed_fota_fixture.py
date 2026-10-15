@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -11,7 +12,7 @@ from unittest import mock
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-from build_signed_c3 import signed_hil_control_sdkconfig
+from build_signed_c3 import signed_hil_control_sdkconfig, signed_profile_cmake_options
 
 from tools.hil.secure_signed_fota import (NEGATIVE_ENV, SIGNING_ENV,
     SecureCampaign, activated_python_command, hub_flash_command,
@@ -216,6 +217,77 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertIn("#if !GS_HIL_BUILD && !GS_HIL_CONTROL", wrapping)
         self.assertIn('"gs_dev_ident"', identity)
         self.assertIn('"gs_security"', wrapping)
+
+    def test_rollback_stack_stays_at_conservative_bytes_value(self):
+        root = Path(__file__).resolve().parents[2]
+        receiver = (root / "firmware/node/target/esp32c3/idf/main/fota_receiver.cpp").read_text()
+        self.assertIn("constexpr std::uint32_t kImageValidationTaskStackBytes = 12U * 1024U;",
+                      receiver)
+        self.assertIn('xTaskCreate(validate_running_image, "gs_ota_validate",\n'
+                      '                    kImageValidationTaskStackBytes', receiver)
+        self.assertNotIn('"gs_ota_validate", 3072', receiver)
+
+    def test_boot_failure_injection_requires_explicit_signed_hil_control(self):
+        self.assertEqual(signed_profile_cmake_options(
+            hil_control=True, force_boot_health_fail=True), [
+                "-DGS_HIL_BUILD=OFF", "-DGS_HIL_CONTROL=ON",
+                "-DGS_HIL_FORCE_BOOT_HEALTH_FAIL=ON"])
+        self.assertEqual(signed_profile_cmake_options(
+            hil_control=False, force_boot_health_fail=False), [
+                "-DGS_HIL_BUILD=OFF", "-DGS_HIL_CONTROL=OFF",
+                "-DGS_HIL_FORCE_BOOT_HEALTH_FAIL=OFF"])
+        with self.assertRaisesRegex(ValueError, "requires --hil-control"):
+            signed_profile_cmake_options(hil_control=False, force_boot_health_fail=True)
+
+    def test_cmake_rejects_forced_failure_in_production_profiles(self):
+        root = Path(__file__).resolve().parents[2]
+        project = root / "firmware/node/target/esp32c3/idf"
+        profiles = (
+            ("OFF", "OFF"),
+            ("ON", "ON"),
+        )
+        for index, (hil_build, hil_control) in enumerate(profiles):
+            with self.subTest(hil_build=hil_build, hil_control=hil_control), \
+                 tempfile.TemporaryDirectory() as temporary:
+                result = subprocess.run([
+                    "cmake", "-S", str(project), "-B", str(Path(temporary) / f"bad-{index}"),
+                    f"-DGS_HIL_BUILD={hil_build}", f"-DGS_HIL_CONTROL={hil_control}",
+                    "-DGS_HIL_FORCE_BOOT_HEALTH_FAIL=ON"],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("GS_HIL_FORCE_BOOT_HEALTH_FAIL requires", result.stdout)
+
+    def test_failed_health_rollback_evidence_requires_fresh_recovery_and_same_event_key(self):
+        candidate = [
+            "rst:0x3 (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)\n",
+            "HIL_READY role=c3 protocol=1 version=sfR-test\n",
+            "HIL_BOOT_HEALTH_FAILURE_INJECTED: suppressing validation evidence\n",
+            "OTA health deadline expired; requesting rollback\n",
+        ]
+        recovery = ["rst:0x3 (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)\n",
+                    "HIL_READY role=c3 protocol=1 version=sfA-test\n"]
+        evidence = dict(candidate_lines=candidate, recovery_lines=recovery,
+            reset_lines=[candidate[0], recovery[0]], candidate_version="sfR-test",
+            known_good_version="sfA-test", previous_slot="ota_0", recovered_slot="ota_0",
+            previous_session="10", candidate_session="20", recovery_session="30",
+            pending_identity=("20", "7"), retry_identity=("20", "7"),
+            ack_identity=("20", "7"), ack_class=0, retired=1, retained_after_ack=0,
+            processed_before=4, processed_after=5)
+        SecureCampaign.validate_failed_health_rollback_evidence(**evidence)
+
+        stale = dict(evidence, recovery_session="20")
+        with self.assertRaisesRegex(RuntimeError, "stale authenticated session"):
+            SecureCampaign.validate_failed_health_rollback_evidence(**stale)
+        changed_key = dict(evidence, retry_identity=("20", "8"))
+        with self.assertRaisesRegex(RuntimeError, "event identity changed"):
+            SecureCampaign.validate_failed_health_rollback_evidence(**changed_key)
+        marked_healthy = dict(evidence, candidate_lines=candidate + [
+            "OTA image marked VALID after sensing/runtime/radio health\n"])
+        with self.assertRaisesRegex(RuntimeError, "incorrectly marked healthy"):
+            SecureCampaign.validate_failed_health_rollback_evidence(**marked_healthy)
+        panicked = dict(evidence, recovery_lines=recovery + ["Guru Meditation Error: Stack protection fault\n"])
+        with self.assertRaisesRegex(RuntimeError, "panic, stack fault"):
+            SecureCampaign.validate_failed_health_rollback_evidence(**panicked)
 
     def test_build_scripts_use_idf_activated_python_from_path(self):
         self.assertEqual(activated_python_command("scripts/build_signed_c3.py", "build"),

@@ -198,7 +198,12 @@
         "-v"
       ],
       "inputs": [
-        "tests/python/test_secure_signed_fota_fixture.py"
+        "tests/python/test_secure_signed_fota_fixture.py",
+        "scripts/build_signed_c3.py",
+        "firmware/node/target/esp32c3/idf/CMakeLists.txt",
+        "firmware/node/target/esp32c3/idf/main/CMakeLists.txt",
+        "firmware/node/target/esp32c3/idf/main/fota_receiver.cpp",
+        "tools/hil/secure_signed_fota.py"
       ],
       "success": "Ran (\\d+) tests?",
       "timeout": 600,

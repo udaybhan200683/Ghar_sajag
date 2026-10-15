@@ -2869,3 +2869,56 @@ The native PWA aggregate is preserved at the exact approved candidate source `3b
 Product/release status is unchanged: P0 PARTIAL; historical migration FAIL; known old-reader rollback limitation; production CloudSync PENDING; Engineering production UI/authentication BLOCKED; physical qualification NOT_RUN. Remaining Stage 2B production work includes production Hub TLS/credential trust and enrollment-generation binding for P0, production CloudSync credentials/worker deployment and durable COMMITTED receipt path, and production Engineering identity/authenticated routes. No production authentication or CloudSync was activated, no hardware operation or full release gate was run, and no Jira workflow status was changed.
 
 Detailed source/evidence results are in [the integration qualification report](../exec-plans/evidence/integration_gs125_20261015/CONFLICT_RESOLUTION_AND_VALIDATION.md). Context version and locked product decisions are unchanged.
+
+## GS-118 Phase-2 rollback remediation handoff — 2026-10-15
+
+The owner clarified that the ESP32-C3 Node is still the 4 MiB target; only the
+Hub is now ESP32-S3 N16R8 with 16 MiB flash and 8 MiB PSRAM. The C3 OTA
+partition geometry and rollback memory budget remain unchanged by the Hub
+upgrade. The historical Phase-2 audit identified a 3 KiB C3 rollback-task
+stack fault. Canonical now configures `gs_ota_validate` with a provisional
+12 KiB stack and includes guarded, opt-in signed-HIL failed-health injection
+plus rollback-evidence regression checks. This source change addresses the
+confirmed historical configuration gap; physical stack margin and rollback
+qualification remain open.
+
+The detailed reconciliation, historical commit dispositions, stack analysis,
+validation receipts, fixture limitation, and backup verification are in
+[`GS118_PHASE2_ROLLBACK_RECONCILIATION_20261015.md`](../exec-plans/evidence/GS118_PHASE2_ROLLBACK_RECONCILIATION_20261015.md).
+The complete Phase-2 worktree and commit history are preserved in the verified
+restricted backup at
+`/home/udaybhan/projects/phase2_evidence_backup_20261015T101912Z`. The Phase-2
+worktree and branch were not modified or removed. Existing untracked PWA
+assets, S3 `managed_components`, and GS-114 raw evidence in canonical remain
+untouched and must not be swept into this delivery.
+
+Canonical is `feature/r1-commercial-baseline`, based on
+`851a7fbcd3d9dd61a7b6329b5e86789b0403be47`; its GitHub ref matched that
+checkpoint before this remediation. The source/docs changes are still
+uncommitted at this handoff draft. The final delivery must record the commit
+and normal push in the Jira handoff and verify local HEAD equals the remote.
+
+Focused software results: signed-FOTA fixture tests 20/20 PASS; C3 production
+and explicit HIL-injection ESP-IDF 6.0.3 builds PASS; board-stack E2E 10 groups
+PASS; validation framework 46/46 PASS; traceability 22/22 PASS (202 features,
+210 modules, 15 physical cases). The signed-profile build is BLOCKED by absent
+local signed configuration and test signing credentials. `validation-node`
+and `validation-contract` aggregates remain FAIL because P0 is
+`product_status=PARTIAL`; `validation-hub` remains FAIL because the existing
+Hub journal migration stage fails, in addition to P0 PARTIAL. Those failures
+remain visible and are not GS-118 acceptance. Physical signed rollback is
+NOT_RUN. The current FOTA supervisor still targets a classic ESP32 Hub while
+the S3 Hub rejects legacy broad HIL controls, so S3-compatible fixture control
+or an approved alternate fixture is required before current-pair physical
+qualification. A first mistaken build invocation regenerated the ignored C3
+target-root `sdkconfig`; its current bytes are preserved externally, but its
+prior bytes were not captured and cannot be certified unchanged.
+
+**Exact next action:** finish report/work-state review, run `git diff --check`
+and the final traceability check, recheck canonical writer/remote state, stage
+only the nine GS-118 source/registry files plus this report and work-state
+handoff, then commit and push normally. Verify local/origin equality and post a
+dated factual GS-118 comment cross-referencing GS-95. Do not change Jira
+status, perform physical operations, or retire Phase-2. An authorized physical
+rollback run must later use a disposable C3, a compatible approved Hub/fixture,
+safe signed test artifacts, and capture task stack high-water and free heap.

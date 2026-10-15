@@ -35,6 +35,7 @@ LOCK = phase1.LOCK
 SIGNING_ENV = "GS_HIL_SIGNED_FOTA_KEY"
 NEGATIVE_ENV = "GS_HIL_SIGNED_FOTA_NEGATIVE_KEY"
 EXPECTED = ("SIGNED_FOTA_NEGATIVE", "SIGNED_FOTA_A_TO_B", "POST_UPDATE_RECOVERY")
+FAILED_HEALTH_ROLLBACK = "SIGNED_FOTA_FAILED_HEALTH_ROLLBACK"
 OTA_DATA_OFFSET = 0xF000
 OTA_DATA_SIZE = 0x2000
 
@@ -75,19 +76,25 @@ def validate_signing_inputs(config: dict[str, str]) -> tuple[Path, Path]:
     return signing, negative
 
 
-def build_images(run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
+def build_images(run_dir: Path, config: dict[str, str], *,
+                 rollback_only: bool = False) -> dict[str, dict]:
     signing, negative = validate_signing_inputs(config)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%y%m%d%H%M%S")
-    versions = {"A": f"sfA-{stamp}", "B": f"sfB-{stamp}", "NEG": f"sfN-{stamp}"}
+    labels = ("A", "R") if rollback_only else ("A", "B", "NEG")
+    versions = {label: f"sf{label}-{stamp}" for label in labels}
     out_dir = ARTIFACTS / stamp
     out_dir.mkdir(parents=True, exist_ok=False)
     records: dict[str, dict] = {}
-    for label, key in (("A", signing), ("B", signing), ("NEG", negative)):
+    keys = {"A": signing, "B": signing, "R": signing, "NEG": negative}
+    for label in labels:
+        key = keys[label]
         image = out_dir / f"c3-{label.lower()}.signed.bin"
         build_dir = f"build_secure_signed_fota_{stamp}"
         args = activated_python_command("scripts/build_signed_c3.py", "--signing-key", str(key),
                 "--version", versions[label], "--output", str(image), "--hil-control",
                 "--build-dir", build_dir)
+        if label == "R":
+            args.append("--force-boot-health-fail")
         if label == "NEG":
             args += ["--trusted-key", str(signing)]
         log = command(args, cwd=PRODUCT, config=config)
@@ -97,23 +104,27 @@ def build_images(run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
         record = json.loads(image.with_suffix(image.suffix + ".json").read_text(encoding="utf-8"))
         if record["version"] != versions[label] or record["hil_control"] is not True or record["gs_hil_build"] is not False:
             raise RuntimeError(f"C3 {label} artifact profile/version mismatch")
-        if label in ("A", "B") and record["signing_public_key_fingerprint_sha256"] != records.get("A", record)["signing_public_key_fingerprint_sha256"]:
+        if label in ("A", "B", "R") and record["signing_public_key_fingerprint_sha256"] != records.get("A", record)["signing_public_key_fingerprint_sha256"]:
             raise RuntimeError("signed A/B public key fingerprints differ")
         if label == "NEG" and record["signing_public_key_fingerprint_sha256"] == records["A"]["signing_public_key_fingerprint_sha256"]:
             raise RuntimeError("negative candidate unexpectedly uses A signing key")
+        if record.get("force_boot_health_fail") is not (label == "R"):
+            raise RuntimeError(f"C3 {label} artifact failed its boot-health profile check")
         records[label] = {**record, "path": str(image)}
-    if versions["A"] == versions["B"] or records["A"]["size"] > 0x1E0000 or records["B"]["size"] > 0x1E0000:
-        raise RuntimeError("A/B versions or OTA slot sizes are invalid")
+    if any(records[label]["size"] > 0x1E0000 for label in labels):
+        raise RuntimeError("C3 signed artifact does not fit the OTA slot")
     records["versions"] = versions
     return records
 
 
-def build_hubs(images: dict[str, dict], run_dir: Path, config: dict[str, str]) -> dict[str, dict]:
+def build_hubs(images: dict[str, dict], run_dir: Path, config: dict[str, str], *,
+               rollback_only: bool = False) -> dict[str, dict]:
     built: dict[str, dict] = {}
     embed = HUB_PROJECT / "main/node_firmware.bin"
     previous = embed.read_bytes() if embed.is_file() else None
     try:
-        for candidate in ("NEG", "B"):
+        candidates = ("R",) if rollback_only else ("NEG", "B")
+        for candidate in candidates:
             label = f"sfota-{candidate.lower()}-{images['versions'][candidate]}"
             output = ARTIFACTS / f"hub-{label}.bin"
             log = command(activated_python_command("scripts/build_secure_fota_hub.py", "--node-image",
@@ -396,6 +407,162 @@ class SecureCampaign:
         self.hub.wait_for(rf"SECURE_FOTA_TRANSFER_COMPLETE transfer={transfer_id} chunks=\d+", 30, cursor_hub)
         return transfer_id
 
+    @staticmethod
+    def _event_identity(line: str) -> tuple[str, str]:
+        match = re.search(r"session=(\d+) seq=(\d+)", line)
+        if not match:
+            raise RuntimeError("Node event evidence omitted its persisted session/sequence identity")
+        return match.groups()
+
+    @staticmethod
+    def validate_failed_health_rollback_evidence(*, candidate_lines: list[str],
+            recovery_lines: list[str], reset_lines: list[str], candidate_version: str,
+            known_good_version: str, previous_slot: str, recovered_slot: str,
+            previous_session: str, candidate_session: str, recovery_session: str,
+            pending_identity: tuple[str, str], retry_identity: tuple[str, str],
+            ack_identity: tuple[str, str], ack_class: int, retired: int,
+            retained_after_ack: int, processed_before: int, processed_after: int) -> None:
+        """Fail closed unless failed health rolls back and the same event recovers."""
+        candidate_text = "".join(candidate_lines)
+        combined = candidate_text + "".join(recovery_lines)
+        if not re.search(rf"HIL_READY role=c3 protocol=1 version={re.escape(candidate_version)}\b",
+                         candidate_text):
+            raise RuntimeError("the signed rollback candidate did not boot")
+        if "HIL_BOOT_HEALTH_FAILURE_INJECTED" not in candidate_text:
+            raise RuntimeError("the controlled test-only health failure was not observed")
+        rollback_at = candidate_text.find("OTA health deadline expired; requesting rollback")
+        if rollback_at < 0:
+            raise RuntimeError("the candidate did not request rollback at the health deadline")
+        candidate_ready_at = candidate_text.find(f"version={candidate_version}")
+        if (candidate_ready_at < 0 or candidate_ready_at > rollback_at or
+                "OTA image marked VALID after sensing/runtime/radio health" in candidate_text):
+            raise RuntimeError("the failed-health candidate was incorrectly marked healthy")
+        if not re.search(rf"HIL_READY role=c3 protocol=1 version={re.escape(known_good_version)}\b",
+                         "".join(recovery_lines)):
+            raise RuntimeError("the prior valid image did not return after rollback")
+        if previous_slot == "" or recovered_slot != previous_slot:
+            raise RuntimeError("rollback did not restore the previously valid OTA slot")
+        if not recovery_session or recovery_session in (previous_session, candidate_session):
+            raise RuntimeError("rollback recovery reused a stale authenticated session")
+        if pending_identity != retry_identity or pending_identity != ack_identity:
+            raise RuntimeError("the retained event identity changed during rollback recovery")
+        if ack_class != 0 or retired != 1 or retained_after_ack != 0:
+            raise RuntimeError("the recovered durable application event was not exactly ACK-retired")
+        if processed_after != processed_before + 1:
+            raise RuntimeError("Hub did not process exactly one post-rollback caregiver event")
+        if len(reset_lines) != 2 or any(
+                phase1.normalize_rom_reset_class(line) != phase1.SOFTWARE_RESET_EVIDENCE
+                for line in reset_lines):
+            raise RuntimeError("rollback produced an unexplained reset or unexpected reset count")
+        if re.search(r"Guru Meditation|Stack protection fault|abort\(\)|Brownout detector|\bPANIC\b",
+                     combined, re.IGNORECASE):
+            raise RuntimeError("panic, stack fault, abort, or brownout occurred during rollback")
+
+    def run_failed_health_rollback(self) -> dict:
+        """Run one bounded signed rollback case using the existing secure HIL fixture."""
+        self.active_case = FAILED_HEALTH_ROLLBACK
+        if self.config.get("HIL_IDF_ACTIVATE"):
+            os.environ.setdefault("HW_IDF_ACTIVATE", self.config["HIL_IDF_ACTIVATE"])
+        self.images = build_images(self.run_dir, self.config, rollback_only=True)
+        self.hubs = build_hubs(self.images, self.run_dir, self.config, rollback_only=True)
+        (self.run_dir / "signed_fota_artifacts.json").write_text(
+            json.dumps({"images": self.images, "hubs": self.hubs}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        flash_signed_a(self.config, self.devices["c3"].port, self.images["A"], self.run_dir)
+        flash_hub(self.config, self.devices["hub"].port, self.hubs["R"], self.run_dir, "rollback")
+        self.open()
+        self.establish_fresh_node_session(self.hubs["R"]["hub_app_version"],
+                                          self.images["A"]["version"])
+        initial_state = self.state()
+        self.before_slot = re.search(r"ota_slot=(ota_[01])", initial_state).group(1)
+        previous_session = self.before_session
+        hub_before = self.send(self.hub, "GET_STATE", r"HIL_STATE role=hub .*processed=\d+")
+        processed_before = int(re.search(r"processed=(\d+)", hub_before).group(1))
+
+        transfer_start = self.c3.cursor()
+        rejoin_start = self.hub.cursor()
+        transfer = self.secure_transfer(self.images["R"]["version"],
+                                        expect_signature_reject=False)
+        candidate_ready = self.c3.wait_for(
+            rf"HIL_READY role=c3 protocol=1 version={re.escape(self.images['R']['version'])}",
+            60, transfer_start)
+        candidate_join = self.hub.wait_for(
+            rf"Authenticated rejoin device={re.escape(self.node_id)} .*session=(\d+)",
+            45, rejoin_start)
+        candidate_session = re.search(r"session=(\d+)", candidate_join).group(1)
+        if candidate_session == previous_session:
+            raise RuntimeError("rollback candidate did not establish a fresh signed-image session")
+
+        self.send(self.hub, "SET_HUB_LOGICAL_OFFLINE", r"HIL_OK command=SET_HUB_LOGICAL_OFFLINE")
+        event_cursor = self.c3.cursor()
+        self.send(self.c3, "INJECT_MOTION", r"HIL_OK command=INJECT_MOTION")
+        pending_line = self.c3.wait_for(r"PIR -> NodeRuntime session=\d+ seq=\d+", 12,
+                                        event_cursor)
+        pending_identity = self._event_identity(pending_line)
+        self.c3.wait_for(rf"NodeMessage sent session={pending_identity[0]} seq={pending_identity[1]} bytes=\d+",
+                         15, event_cursor)
+        self.state(r"HIL_STATE role=c3 .*retained=[1-9]\d*.*ota_slot=ota_[01]")
+
+        self.c3.wait_for(r"OTA health deadline expired; requesting rollback", 120, transfer_start)
+        candidate_lines = self.c3.lines[transfer_start:]
+        recovery_start = self.c3.cursor()
+        self.c3.wait_for(
+            rf"HIL_READY role=c3 protocol=1 version={re.escape(self.images['A']['version'])}",
+            60, recovery_start)
+        recovery_lines = self.c3.lines[recovery_start:]
+        recovered_state = self.state()
+        recovered_slot = re.search(r"ota_slot=(ota_[01])", recovered_state).group(1)
+
+        hub_rejoin_cursor = self.hub.cursor()
+        self.send(self.hub, "SET_HUB_LOGICAL_ONLINE", r"HIL_OK command=SET_HUB_LOGICAL_ONLINE")
+        recovered_join = self.hub.wait_for(
+            rf"Authenticated rejoin device={re.escape(self.node_id)} .*session=(\d+)",
+            60, hub_rejoin_cursor)
+        recovery_session = re.search(r"session=(\d+)", recovered_join).group(1)
+        ack_line = self.c3.wait_for(
+            rf"Application ACK session={pending_identity[0]} seq={pending_identity[1]} class=(\d+) retired=(\d+)",
+            45, recovery_start)
+        ack_match = re.search(r"session=(\d+) seq=(\d+) class=(\d+) retired=(\d+)", ack_line)
+        ack_identity = ack_match.group(1), ack_match.group(2)
+        ack_class, retired = int(ack_match.group(3)), int(ack_match.group(4))
+        retry_line = self.c3.wait_for(
+            rf"NodeMessage sent session={pending_identity[0]} seq={pending_identity[1]} bytes=\d+",
+            20, recovery_start)
+        retry_identity = self._event_identity(retry_line)
+        # The Hub commit is logged before its authenticated ACK reaches the Node.
+        hub_event = self.hub.wait_for(
+            r"HIL_EVENT_RESULT event_id=[^ ]+ ack=0 state_changed=1 records=\d+",
+            30, rejoin_start)
+        final_state = self.state(r"HIL_STATE role=c3 .*retained=0 in_flight=0 .*ota_slot=ota_[01]")
+        retained_after_ack = int(re.search(r"retained=(\d+)", final_state).group(1))
+        hub_after = self.send(self.hub, "GET_STATE", r"HIL_STATE role=hub .*processed=\d+")
+        processed_after = int(re.search(r"processed=(\d+)", hub_after).group(1))
+        candidate_trace = self.c3.lines[transfer_start:recovery_start]
+        recovery_trace = self.c3.lines[recovery_start:]
+        reset_lines = [line for line in candidate_trace + recovery_trace
+                       if phase1.normalize_rom_reset_class(line) is not None]
+        self.validate_failed_health_rollback_evidence(
+            candidate_lines=candidate_lines, recovery_lines=recovery_trace,
+            reset_lines=reset_lines, candidate_version=self.images["R"]["version"],
+            known_good_version=self.images["A"]["version"], previous_slot=self.before_slot,
+            recovered_slot=recovered_slot, previous_session=previous_session,
+            candidate_session=candidate_session, recovery_session=recovery_session,
+            pending_identity=pending_identity, retry_identity=retry_identity,
+            ack_identity=ack_identity, ack_class=ack_class, retired=retired,
+            retained_after_ack=retained_after_ack, processed_before=processed_before,
+            processed_after=processed_after)
+        if not candidate_ready or not transfer or not hub_event:
+            raise RuntimeError("rollback evidence capture was incomplete")
+        self.results.add(FAILED_HEALTH_ROLLBACK, "PASS",
+            f"signed candidate={self.images['R']['version']} rolled back to A slot={recovered_slot}; "
+            f"fresh_session={recovery_session}; retained EventKey={pending_identity}; ACK retired=1")
+        return {"candidate_version": self.images["R"]["version"],
+                "known_good_version": self.images["A"]["version"],
+                "candidate_session": candidate_session, "recovery_session": recovery_session,
+                "pending_identity": pending_identity, "hub_event": hub_event,
+                "slot": recovered_slot,
+                "transfer_id": transfer}
+
     def run(self) -> dict:
         if self.config.get("HIL_IDF_ACTIVATE"):
             os.environ.setdefault("HW_IDF_ACTIVATE", self.config["HIL_IDF_ACTIVATE"])
@@ -473,6 +640,10 @@ class SecureCampaign:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--rollback-only", action="store_true",
+                        help="run only the signed failed-health rollback qualification case")
+    args = parser.parse_args()
     timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     run_dir = RUNS / timestamp
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -488,7 +659,8 @@ def main() -> int:
             metadata["fixture"] = {role: {"chip": device.chip, "mac": device.mac,
                                           "stable_path": device.stable_path}
                                    for role, device in devices.items()}
-            result = campaign.run()
+            result = (campaign.run_failed_health_rollback() if args.rollback_only
+                      else campaign.run())
             metadata["secure_fota"] = result
             metadata["images"] = campaign.images
             metadata["hub_images"] = campaign.hubs
@@ -500,10 +672,11 @@ def main() -> int:
         if campaign:
             campaign.close()
     results = campaign.results if campaign else Results()
+    expected_cases = ((FAILED_HEALTH_ROLLBACK,) if args.rollback_only else EXPECTED)
     if failure:
         results.add(campaign.active_case if campaign else "SIGNED_FOTA_SETUP", "FAIL", failure)
         recorded = {row["id"] for row in results.rows}
-        for tc in EXPECTED:
+        for tc in expected_cases:
             if tc not in recorded:
                 results.add(tc, "BLOCKED_BY_FIXTURE_STATE", "prerequisite campaign stage failed")
     counts = results.counts()
