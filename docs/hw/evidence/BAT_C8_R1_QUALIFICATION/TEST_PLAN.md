@@ -1,9 +1,19 @@
 # BAT-C8 R1 Physical Qualification Plan
 
-**Status: prepared; physical tests P1–P10 have NOT_RUN.** This file is a
-procedure and preparation record only. It contains no fabricated physical
-results. Capture each eventual run in a dated subdirectory beneath this
+**Status: current procedure; result dispositions are recorded in the
+[consolidated execution report](GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).**
+As of 2026-10-15, P1/P2/P4/P5/P6/P7/P8 have supported physical PASS evidence;
+P3 behavior passed with incomplete running-S3 provenance; P9 authenticated
+ACK-hold and signed-FOTA subcases are BLOCKED / NOT_RUN; P10 remains NOT_RUN
+under GS-149. This plan defines acceptance procedures and is not itself a
+physical result. Capture any future run in a dated subdirectory beneath this
 directory.
+
+**Current operation boundary — 2026-10-15:** this documentation update does
+not authorize board, USB/serial, reset, flash, erase, OTA, power-cycle, or
+recommissioning operations. Obtain separate authorization for the exact
+fixture, image hashes, physical action, observer path, stop conditions, and
+recovery procedure before any such operation.
 
 ## Current R&D execution authority — 2026-10-13
 
@@ -15,17 +25,20 @@ power/wiring and the operation. Retain previous failure reports and redacted
 logs. The earlier protected-state warnings below describe their historical
 checkpoints; all authenticated durability and P1–P9 acceptance criteria remain.
 
-Current source-matched qualification apps: C3 939,024 bytes,
+Prepared candidate pair recorded at that checkpoint (not evidence of a current
+installed/running image): C3 939,024 bytes,
 SHA-256 `ad173384e827614bcbb62c0deac60b5d866dd144088528523c5711e5c2409e43`;
 S3 1,887,440 bytes,
 SHA-256 `8c53b999c001095030c7f150854b9637404b666364470131f1511cffdc34a4f7`.
-They include GS-150/GS-40 and GS-148 Option A, ESP-IDF 6.0.3, C3 physical wake
-and S3 commissioning/outbox-state profile. Reuse is verified against fingerprint
+They were built with GS-150/GS-40 and GS-148 Option A, ESP-IDF 6.0.3, C3
+physical wake and S3 commissioning/outbox-state profile. Reuse was verified
+against fingerprint
 `c07ae9a0cb79491379d4de65f6c83d7b31b3c0d7613bc3d9e2f912c2c1fcce83`.
 The [current execution report](GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
-owns actual results, full artifacts/partitions and the exact resume action.
-Build hashes are not installed-image evidence. A documented setup reset is
-allowed; unexplained resets within a measurement window fail qualification.
+owns actual per-case images, installed/running provenance, results and the exact
+resume action. Candidate build hashes are not installed-image evidence. A
+documented setup reset is allowed; unexplained resets within a measurement
+window fail qualification.
 
 ## GS-150 final-candidate software handoff — 2026-10-10
 
@@ -339,35 +352,134 @@ proof of a particular inhibitor.
   P8 PASS until a read-only ledger inspection source and post-commit ACK-loss
   fixture are available.
 
-### C8-P9 — FOTA and ACK work inhibit sleep
+### C8-P9 — authenticated ACK hold and signed-FOTA sleep inhibition
 
-- **Setup:** Compatible Hub HIL-control image, C8 C3 image, enrolled Node, and
-  a valid signed C3 test image plus known rollback/recovery image. Capture the
-  initial Hub state. Run the pending-event ACK subcase and FOTA subcase
-  separately so each active condition is observable.
-- **Stimulus:** For the ACK subcase, produce one real PIR event and keep its
-  application ACK pending using the same controlled link fixture as P8; restore
-  the link after an observation interval. For the FOTA subcase, start an
-  authenticated signed update while the C3 is awake, then allow the transfer
-  and post-update validation to finish.
-- **Expected Node UART:** No `BAT_SLEEP_ENTER` while the event is in-flight/
-  awaiting application ACK or while FOTA maintenance is active. For FOTA,
-  retain `FOTA maintenance ACTIVE/INACTIVE`,
-  `SECURE_FOTA_IMAGE_SHA256_VERIFIED`, and `FOTA COMPLETE` (or explicit
-  failure/rollback markers). Hub logs should include
-  `SECURE_FOTA_SESSION_PINNED`, `SECURE_FOTA_BEGIN_ACK`, ACK progress, and
-  `SECURE_FOTA_TRANSFER_COMPLETE` for success.
-- **Hub evidence:** For the ACK case, matching Hub `Processed` and durable
-  ACK evidence after restoring the link. For FOTA, matching transfer/session
-  completion evidence and Node state after reboot/health validation.
-- **PASS:** Sleep remains inhibited during each active ACK/FOTA window; event
-  retirement and signed FOTA validation complete; sleep resumes only after the
-  work is idle and the normal policy becomes eligible.
-- **FAIL:** `BAT_SLEEP_ENTER` during active work, dropped/incorrect ACK,
-  failed signature/session validation, unexpected reset/rollback, or no return
-  to normal sensing/radio operation after maintenance ends.
-- **Retain:** Both UART logs, signed image hash, FOTA transfer/session IDs,
-  state snapshots, OTA slots before/after, and the ACK fixture record.
+P9 has two independent physical subcases. Both are currently **BLOCKED /
+NOT_RUN**. The 2026-10-14 host/state-machine PASS does not satisfy either
+physical result. The preserved 2026-09-25 signed-FOTA campaign is historical
+evidence for a different source/image profile; it did not measure this C8
+sleep-inhibition case and does not close P9.
+
+#### P9-A — held authenticated Durable ACK
+
+**Required fixture and image prerequisites:**
+
+- Named C3/S3 pair, exact MACs/serials, wiring, supply and active OTA slots;
+  healthy authenticated ownership/session and OPEN replay admission.
+- Source, clean/dirty state, C3/S3 BIN hashes, configuration hashes, build
+  profile, partition map and installed/running image identity captured before
+  the case. The C3 build must include the C8 physical-wake path and the
+  production ACK-wait/sleep policy under test.
+- A bounded test-only postcommit ACK-hold control that delays only the valid
+  authenticated Durable ACK for the selected new EventKey, or a qualified
+  directional RF fixture that suppresses Hub-to-Node application ACKs while
+  preserving Node-to-Hub traffic. The control must fail closed, be default-off,
+  have a watchdog release, and leave event admission, identity, session,
+  signature checks and persistence semantics unchanged. Do not enable broad
+  Hub HIL controls.
+- A read-only authoritative per-EventKey Hub ledger view. `GET_STATE` counters
+  alone cannot prove one logical effect. The existing P8 one-shot ACK-drop
+  image suppresses only one ACK and the confirmed fixture has no directional
+  attenuator/shield; neither provides this longer hold.
+- A continuously verified, non-resetting Node observation path that can show
+  the ACK-wait interval and any `BAT_SLEEP_ENTER` marker. Do not open a C3
+  console unless its DTR/RTS behavior is proven not to reset the target.
+
+**Procedure:**
+
+1. Record Hub/Node identity, authenticated session, replay admission, current
+   event-ledger key set, Node retained count, reset count and sleep-entry count.
+   Preserve every pre-existing pending key; if they prevent unambiguous case
+   attribution, stop without clearing them.
+2. Create one real AM312/GPIO4 event. Record its exact EventKey `K` and require
+   the Hub's durable commit for `K` before arming the ACK hold. Confirm exactly
+   one logical ledger effect and that `K` remains pending on the Node.
+3. Hold the valid application ACK for **12,000 ms after the durable commit**
+   (longer than the existing 10,000 ms software receive-budget scenario), with
+   a **15,000 ms fixture watchdog maximum**. Record actual start/end times.
+   Keep the authenticated session and event identity unchanged.
+4. Capture continuously through the full hold. Require no sleep entry while
+   `K` is awaiting ACK, with target observation alive across the interval.
+   Release the original valid authenticated Durable ACK; do not synthesize a
+   success response or change `K`.
+5. Require authenticated ACK acceptance, exact-key retirement, retained count
+   returning to baseline, one Hub logical effect for `K`, no reset, and later
+   return to ordinary sleep eligibility after all work is idle.
+
+**PASS:** all five steps are evidenced on the matched target pair. **FAIL:**
+sleep begins during the hold, the ACK is unauthenticated/for a different key,
+the event is lost or duplicated, the session changes unexpectedly, or normal
+operation does not recover. **BLOCKED:** fixture release, exact-key ledger, or
+continuous reset-safe target observation is missing. The 12-second interval is
+a bounded test stimulus, not a product maximum-ACK-latency promise.
+
+#### P9-B — signed FOTA maintenance sleep inhibition and recovery
+
+**Required signing, firmware and rollback prerequisites:**
+
+- Matched C3 and Hub firmware from the selected source checkpoint. The C3
+  profile must keep the signed-app-on-update verifier enabled and trust the
+  recorded test public key. The Hub must expose a supported authenticated
+  owner-task FOTA trigger for the exact enrolled Node and embed the exact C3
+  signed artifact bytes. Current GS-114 notes say the S3 profile has
+  `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF` and no supported physical trigger;
+  this must be resolved by an existing safe path or a separately reviewed,
+  narrow fixture-only control. Do not enable broad HIL control.
+- Signed baseline image **A**, valid update image **B** signed by A's trusted
+  test key with a distinct version, and wrong-key negative image **N** whose
+  authenticated transport and declared digest remain valid through the target
+  signature-verification step. Record hashes, sizes, versions, build profiles,
+  public-key fingerprints, C3 trust configuration, and Hub-embedded-image
+  hash. Use distinct disposable **RSA-3072** test keys stored outside the
+  repository; A/B share the target-trusted test key, and N uses the negative
+  key. Never copy private keys into source or evidence. The separate CloudSync
+  RSA/mTLS decision is not a FOTA signing authority.
+- Verify the exact on-device partition map and active slot using a read-only
+  method; confirm A/B fit the actual OTA slot and the Hub embeds the exact
+  selected image. Keep a known-good signed recovery image and a proven
+  app-level rollback path. Record boot-health/rollback behavior and how the
+  original authenticated identity and pending EventKeys survive. If recovery
+  would require erase, factory reset, eFuse change, or unapproved full-device
+  flashing, do not start.
+- A reset-safe continuous C3/S3 capture, fresh authenticated session, healthy
+  replay admission, and a baseline of retained/in-flight EventKeys. Do not
+  clear NVS, outbox/state, enrollment, or pending records to make the case pass.
+
+**Procedure:**
+
+1. Record the A baseline, Node/Hub identities and session, active OTA slots,
+   partition hashes, replay admission, retained EventKeys, reset counters,
+   sleep-entry counter, and current sensor/radio readiness.
+2. Run the wrong-key **N** transfer first. Require authenticated session and
+   image digest success followed by target signature rejection. Require the
+   active slot and A version to remain selected, all pre-existing retained
+   keys unchanged, and a normal application event to remain deliverable.
+3. Trigger authenticated FOTA for the exact Node using valid **B**. Capture
+   maintenance-active state, transfer/session IDs, authenticated ACK progress,
+   digest/signature acceptance, and continuous target sleep markers. Require
+   no `BAT_SLEEP_ENTER` while maintenance/transfer/persistence is active.
+4. Require the alternate slot selection, expected B boot, boot-health success,
+   fresh authenticated rejoin, sensing-ready state, unchanged pre-existing
+   EventKeys, then one new real application event with a Durable ACK.
+5. Verify sleep becomes eligible only after FOTA ends and the normal post-boot
+   readiness gates pass. Record whether rollback stayed unused or was invoked.
+   Do not force an unsafe power cut or boot failure as part of this case.
+
+**PASS:** N is rejected at target signature verification without slot/state
+change; B is accepted, boots and recovers under the exact signed-image
+provenance; sleep remains inhibited throughout active maintenance and resumes
+only after safe recovery. **FAIL:** sleep during active work, signature bypass,
+wrong slot/image, lost or changed retained key, failed boot-health/rejoin, or
+unsafe recovery. **BLOCKED:** missing trusted signing manifest, matched images,
+supported trigger, actual slot readback, reset-safe observer, or approved
+rollback/recovery route. Full physical operation still needs separate
+authorization naming the pair, exact image hashes, expected OTA/reset actions,
+observer wiring, stop conditions and recovery steps.
+
+**Retain:** both device logs; all A/B/N hashes, sizes and public-key
+fingerprints; source/config/profile/partition hashes; transfer/session IDs;
+active-slot before/after evidence; sleep markers/counters; exact EventKeys and
+ACKs; boot-health, rejoin, reset and rollback record; and unique run manifest.
 
 ### C8-P10 — Matched active versus light-sleep current
 

@@ -729,3 +729,25 @@ Aggregate Hub remains FAIL for the existing migration assertion and P0
 sending stays disabled pending GS-109 credential, trusted-owner and concurrency
 contracts. This is validation evidence only: no product/security decision or
 context version changed. Details: [GS-148 resumed execution record](../exec-plans/evidence/R1_GS148_P4P5_B1_20261014.md).
+
+## GS-114 battery-first P1–P9 evidence reconciliation — 2026-10-15 (evidence; no new product decision)
+
+GS-114 comment 11029 and GS-110 comment 11030 restore GS-114 non-power
+P1–P9 physical evidence as the primary engineering focus. The consolidated
+[execution handoff](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+records the case-by-case disposition against the current physical test plan.
+P1/P2/P4/P5/P6/P7/P8 retain PASS evidence; P3's measured behavior passes but
+the exact running S3 application hash is unavailable, so its catalogue remains
+PARTIAL; P9 ACK-hold and signed-FOTA physical cases remain BLOCKED / NOT_RUN.
+P4's initial q10–q12 extra-event trial and P5's missing per-attempt retry-key
+log remain visible. P10 remains with GS-149.
+
+The handoff also prepares separate, unexecuted P9-A authenticated ACK-hold and
+P9-B signed-FOTA procedures with exact fixture, signing, slot, rollback,
+observation and operation-authorization prerequisites. GS-40 actual 300-second
+heartbeat / derived 910-second offline visibility remains open. GS-144's
+representative workload, selected battery/reserve, measurement boundary,
+reliability/latency and endurance inputs remain product-PENDING. No hardware or
+software tests were run for this evidence reconciliation. No product, security,
+storage, protocol or power-policy decision changed; context version remains
+`2026-10-13.001`.

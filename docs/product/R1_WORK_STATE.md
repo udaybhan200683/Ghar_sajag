@@ -1,5 +1,45 @@
 # R1 Current Work State
 
+## GS-114 BAT-C8 battery-first physical evidence handoff — 2026-10-15
+
+Resumed from GS-114 comment 11029 and GS-110 comment 11030 on canonical branch
+`feature/r1-commercial-baseline`. Start local HEAD and actual origin HEAD were
+both `97eff6c2ed927d641cd3ee3b9854dd8c38cb176b`; context preflight PASS
+(`2026-10-13.001`). Tracked files were clean at start. Pre-existing untracked
+PWA assets, ESP-IDF managed components, and raw GS-114 logs/readbacks/manifests
+were preserved and not staged.
+
+The dated [GS-114 execution handoff](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+reconciles the current TEST_PLAN with physical evidence: P1/P2/P4/P5/P6/P7/P8
+PASS; P3 measured behavior PASS with the S3 running-image hash unverified, so
+the case/catalogue remains PARTIAL; P9 ACK hold/release and signed-FOTA
+sleep-inhibition remain BLOCKED / NOT_RUN; P10 remains GS-149. P4 q10–q12's
+unexplained extra events and P5's unlogged per-attempt retry key remain explicit
+limitations. No evidence was relabeled from software simulation.
+
+No board, USB/serial interface, firmware, power, reset, storage, OTA,
+commissioning or motion operation occurred. No tests, software gates or full
+release gate were rerun. The existing report now contains the case closure
+matrix, P3 provenance findings, P9 procedures/prerequisites, GS-40 acceptance
+mapping, GS-144 open owner inputs and the next plan. The qualification plan's
+stale all-NOT_RUN header and the aggregate/P8 status in `PHYSICAL_QUALIFICATION.csv`
+were reconciled; detailed catalogue case statuses were already consistent.
+
+**Next:** Keep GS-114 In Progress; close provenance only with truthful source
+evidence; obtain the missing P9 fixtures/signing/rollback/observer prerequisites
+before seeking exact-operation authorization. Coordinate matched real-target
+GS-40 300/910-second and caregiver-visibility acceptance. Prepare one GS-144
+owner decision for reproducible workload, selected battery/reserve, measurement
+boundary, latency/reliability and endurance target before GS-140/B0–B4/GS-51/
+GS-149 measurement. No hardware operation is authorized by this handoff.
+
+## Git handoff checkpoint
+
+The handoff's documentation changes are based on local/remote start checkpoint
+`97eff6c2ed927d641cd3ee3b9854dd8c38cb176b`; the final documentation commit and
+remote verification are recorded in the new GS-114/GS-110 Jira comments. The
+pre-existing untracked artifacts above remain preserved.
+
 ## GS-109 / GS-148 CloudSync security decision package — 2026-10-15
 
 Prepared [the consolidated implementation-ready decision package](../exec-plans/evidence/GS109_GS148_CLOUDSYNC_DECISION_PACKAGE_20261015.md)

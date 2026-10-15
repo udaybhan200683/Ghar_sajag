@@ -1,5 +1,148 @@
 # GS-114 C8 physical execution
 
+## 2026-10-15 — battery-first P1–P9 closure reconciliation and resume handoff
+
+This is the current evidence handoff following GS-114 comment 11029 and GS-110
+comment 11030. It reconciles the dated case reports with the current
+[qualification procedure](../TEST_PLAN.md). It is a documentation-only
+checkpoint: no USB/serial access, board operation, flash, reset, erase, OTA,
+power operation, motion stimulus, or commissioning was performed; no software
+tests or full release gate were rerun.
+
+**Checkpoint:** canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`,
+branch `feature/r1-commercial-baseline`, local HEAD and actual origin HEAD
+`97eff6c2ed927d641cd3ee3b9854dd8c38cb176b` before this documentation update;
+context preflight PASS (`2026-10-13.001`). Tracked tree was clean before edits.
+Pre-existing untracked PWA assets, ESP-IDF managed components, raw GS-114 logs,
+binary readbacks, manifests and installation evidence remain preserved and
+unstaged.
+
+### P1–P9 physical closure matrix
+
+The same R&D fixture is the C3 `14:63:93:c5:d1:58` with AM312 OUT on GPIO4 and
+the S3 `7c:4f:ad:b7:2a:20`, USB powered; the case reports retain run-specific
+power, wiring, source and image details. P1/P2 use test checkpoint
+`9674075f1911dbad076fdcdb1c541a283dfbb748`, firmware build source
+`72a223fc3b290c01c9f93fbb90db83d87601ad54`, C3 SHA-256
+`1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814`, and S3
+SHA-256 `84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`.
+The later case-specific provenance is kept in each linked report.
+
+| Case | Reconciled disposition | Preserved physical evidence and provenance | Limitation / blocker |
+|---|---|---|---|
+| P1 timer sleep/wake | **PASS** | 10 real timer sleep/wake cycles; radio/runtime recovery and no false event; same run03 image pair above. [Case report](run03_20261014/C8_P1.md) | C3 console unavailable during sleep; authenticated Hub NodeHealth used. |
+| P2 real AM312 wake | **PASS** | Real EventKey `p15:c3-146393c5d158n8:gs114-c8s1q1`; one durable effect, Durable ACK and Node retirement; same run03 pair. [Case report](run03_20261014/C8_P2.md) | No latency claim beyond the captured case timestamps. |
+| P3 held-HIGH inhibition | **PARTIAL — behavior PASS** | C3 installed SHA `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; measured 28,518 ms continuous GPIO4 HIGH, +1,425 inhibit samples, zero sleep entries while HIGH, one event/ACK/retirement, then 11 timer sleep/wake cycles after LOW. [Controlled report](run04_20261014/C8_P3_CONTROLLED_20261014.md) | S3 build candidate `ca178fe30cc620d3fe0cb5817da9d8a98b07b70cb5f7c443045c85180dd46379` is **not** the verified running S3 hash. Boot/UART and existing local build artifacts do not establish byte-for-byte running provenance. No hash is inferred; catalogue remains PARTIAL. |
+| P4 motion → ACK → retirement | **PASS for controlled q16 retest** | C3/S3 hashes are the run03 pair; checkpoint `72716c141a788b251e6b630f4684df12028ea847`; q16 durable effect, same-key duplicate idempotence, authenticated ACK and retirement. [Case report](run03_20261014/C8_P4.md) | Preserve the earlier q10–q12 three-event observation as an unresolved separate FAIL: exact GPIO edges were not captured and cause is unknown. Retest did not reproduce it. Light-sleep C3 UART is unavailable; GPIO wake counter proves functional path but not internal marker order or PIR-to-ACK latency. |
+| P5 Hub outage/recovery | **PASS for controlled run03 q24** | Checkpoint `988fa44ee1207ed67a3a253a5eb2c9dc7813277b`; run03 image pair above; one real event during Hub outage, newer authenticated session/RPF00 OPEN, one durable effect, ACK and retirement, no Node reset. [Case report](run03_20261014/C8_P5.md) | Retry aggregate advanced by three, but the exact key was observed at Hub admission, not logged on every failed Node radio attempt; per-attempt key identity is inferred. Preserve run02 as inconclusive. |
+| P6 Hub-only reboot/rejoin | **PASS** | Checkpoint `1e433477f67cbc01dad8cffa0655e2eec257d409`; run03 image pair; newer authenticated session and unchanged Node reset counter. [Case report](run03_20261014/C8_P6.md) | Earlier run01 startup-banner capture gap remains in its case report. |
+| P7 first PIR after Hub reboot | **PASS** | Same checkpoint and pair as P6; q22 first post-reboot event, one durable effect, authenticated ACK and retirement without Node reset. [Case report](run03_20261014/C8_P7.md) | Physical stimulus onset was not instrumented. |
+| P8 lost application ACK | **PASS for q14** | S3 image SHA `f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`, build source `ce9c436f0e9a8324c0785bad996ed9c4a421de3d`, C3 SHA `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; active `ota_0` app write was verified. q14 was durably committed once, first application ACK withheld, same key retried, duplicate effect suppressed and Node retired. [Physical report](run04_20261014/C8_P8_PHYSICAL_20261014.md) | Operator movement preceded the direct prompt; onset/latency unavailable. No separate post-run full-partition readback. Later capture failure is outside the PASS interval. |
+| P9-A authenticated ACK hold/release | **BLOCKED / NOT_RUN** | No qualifying physical run exists. Software regression is separately PASS and documented in [P9 software report](run05_software_20261014/C8_P9_SOFTWARE_VALIDATION_20261014.md). | Need bounded hold >10,000 ms, exact-key ledger view, continuously verified reset-safe target observation, then authenticated release/retirement. Existing P8 one-shot drop and fixture are insufficient. |
+| P9-B signed-FOTA sleep inhibition | **BLOCKED / NOT_RUN** | Host/state-machine coverage is PASS only; no current matched signed physical image campaign. | Need trusted A/B/N signing manifest and target trust config, exact Hub embedded image, supported authenticated trigger, actual slot readback, reset-safe capture, and proven signed recovery/rollback. |
+
+**Aggregate:** GS-114 is **PARTIAL / In Progress**. P1, P2, P4, P5, P6, P7 and P8 have reusable PASS evidence. P3 behavior passed but source/image provenance remains partial. P9 has two blocked physical subcases. P10 is separate under GS-149. No test case or overall ticket is promoted to PASS from host simulation.
+
+### P3 provenance investigation and P4/P5 limitations
+
+P3's controlled report ties the C3 trace to installed image SHA
+`70c638…d530` and source trace commit `c69960fb064a60c3e6dc52b27d90fbbbe30b560a`.
+The S3 candidate hash is recorded, but the S3 running app was not read back and
+the available boot/capture evidence does not bind the running bytes to that
+candidate. P3's measured GPIO behavior remains valid evidence for its observed
+run, but it is not an image-matched full qualification; do not replace the
+unknown hash with a build hash. Resolving this provenance would require a
+separately approved, read-only target identity/image observation or a focused
+repeat only if the provenance remains necessary and cannot be recovered safely.
+
+P4 retains its first q10–q12 single-reported-episode trial as a failed,
+unexplained observation while the later controlled q16 retest passed. Since
+GPIO4 transitions were not captured during the first trial, do not diagnose a
+sensor or firmware defect from it. P5's controlled run03 passes the outage and
+recovery behavior, but per-attempt retry-key identity was not directly logged;
+the exact key is visible at Hub admission. Preserve that evidence limit and the
+earlier run02 capture gap.
+
+### P9 fixture procedures and hard prerequisites
+
+The [C8-P9 procedure in TEST_PLAN](../TEST_PLAN.md#c8-p9--authenticated-ack-hold-and-signed-fota-sleep-inhibition)
+now defines separate P9-A ACK-hold/release and P9-B signed-FOTA cases. P9-A's
+fixture must hold the valid ACK for 12 seconds after durable commit, with a
+15-second watchdog, preserve Node-to-Hub uplink, prove one exact-key durable
+effect, continuously observe no Node sleep entry, then release the original
+authenticated ACK and prove retirement. The current P8 one-shot suppresses
+only one ACK and cannot supply that interval; the confirmed setup has no
+directional RF attenuator/shield or per-key read-only ledger.
+
+P9-B requires a signed baseline A, valid distinct-version B, wrong-key N,
+external disposable signing keys with public fingerprints, matching C3 trust
+configuration, exact B bytes embedded in the authenticated Hub image, actual
+OTA slot/partition verification, a supported authenticated target trigger,
+boot-health and rejoin observation, and known-good recovery/rollback that
+preserves identity and retained EventKeys. The current S3 fixture profile has
+no supported FOTA trigger. The older Phase-2 signed-FOTA physical campaign
+(target-qualified code `60f91b421cc244c2b12fd92c244683c7f69ce0a6`, evidence
+directory `evidence/hil/runs/20260925T194530.402772Z`) is retained as
+historical evidence only; it does not qualify current C8 P9 sleep inhibition or
+current firmware provenance. CloudSync RSA/mTLS work does not provide FOTA
+signing authority.
+
+No physical case may start until the applicable authorization names the exact
+C3/S3 pair and ports, image hashes and OTA/reset actions, power/wiring,
+reset-safe observer, pending-state checkpoint, stop conditions and recovery
+steps. No eFuse changes, factory reset, storage erase, full-device flash or
+recommissioning is part of this plan.
+
+### GS-40 heartbeat and GS-144 workload coordination
+
+**GS-40 remains open for real-target acceptance.** The C8 P1–P8 evidence proves
+its stated functional cases only; it does not prove a matched real-target
+300-second NodeHealth cadence over six quiet opportunities, event piggyback
+suppression, 910-second silent-Node expiry/recovery, mixed legacy identity
+profiles, or actual caregiver PWA visibility. `PHY-GS40` remains NOT_RUN.
+Reuse overlapping C8 evidence only when the exact GS-40 source/image/config and
+physical profile match; do not rerun completed GS-40 software tests.
+
+**GS-144 remains product-PENDING.** The 150–180-day aspiration, proposed
+`>=150 day` minimum, event rates, candidate DMEGC 18650 usable capacity/reserve,
+Hub-offline workload and numeric caregiver latency/reliability bounds are not
+approved. One consolidated owner decision sheet must resolve:
+
+| Owner input | Current state |
+|---|---|
+| Reproducible ordinary events/day, PIR bursts and time distribution | OPEN; define a representative household profile |
+| Idle health policy | GS-D031-approved 300-second standalone opportunity; validate event-contact piggyback under that profile |
+| Hub-offline/rejoin | OPEN; define outage frequency/duration, retry/recovery workload and installation/RF assumptions |
+| Battery and usable reserve | OPEN; choose the commercial cell and approve capacity, reserve, ageing and temperature basis; nominal 2,900 mAh and DMEGC candidate are not accepted values |
+| Measurement boundary | OPEN; include cell, regulator, C3 board, PIR, LEDs and other leakage; identify the instrument and calibration profile |
+| Caregiver reliability and latency | OPEN; set acceptable first-event delivery/ACK and offline/recovery visibility bounds |
+| Endurance target | 150–180 days remains aspiration; proposed `>=150 days` minimum is not approved; owner must select minimum and preferred target |
+
+After approval, follow the ordered prerequisites in GS-110: GS-140 instrument
+and measurement boundary; GS-41/GS-42/GS-141/GS-43 BEFORE cases; GS-44 baseline
+review; matched GS-51 AFTER; GS-119 residual C1–C4, GS-46 first-motion latency
+and GS-69 12-hour soak. Then feed qualified results to GS-149. No current or
+endurance is inferred from software counters.
+
+### Next Plan
+
+1. Keep GS-114 In Progress and reuse the valid P1/P2/P4–P8 evidence; keep P3
+   PARTIAL until exact S3 provenance is recovered or an approved focused run
+   supplies it; preserve P4's unresolved initial failure and P5's retry-key
+   visibility limitation.
+2. Resolve P9-A's bounded ACK fixture, read-only exact-key ledger and reset-safe
+   target observer; resolve P9-B's signed A/B/N artifacts, trusted verifier,
+   authenticated trigger, verified slots and recovery route. Submit one
+   fixture-specific operation request only after all non-hardware prerequisites
+   are reviewable.
+3. Coordinate GS-40's real-target 300/910-second plus caregiver-view evidence
+   without repeating completed software coverage. Prepare one GS-144 owner
+   approval sheet with the still-open workload, battery, reserve, measurement
+   boundary and reliability values before B0–B4/GS-51/GS-149 measurement work.
+4. Do not touch hardware or run a release gate as part of this handoff. No
+   software test was repeated; P10 remains GS-149 and C9–C11 remain out of this
+   task.
+
 ## 2026-10-14 — P9 software validation complete; physical fixtures remain blocked
 
 P9 software coverage was audited and completed without hardware access. The
