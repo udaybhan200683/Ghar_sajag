@@ -102,14 +102,16 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
                                  partition_csv: Path, app: Path,
                                  embedded_node_asset: Path,
                                  c8_ack_drop: bool = False,
-                                 c8_ack_hold: bool = False) -> dict:
+                                 c8_ack_hold: bool = False,
+                                 fixture_commissioning: bool = True) -> dict:
     """Fail closed unless the standalone app matches the commissioned S3 profile."""
     cfg = parse_config(sdkconfig)
     cache = parse_config(cmake_cache)
     partitions = parse_partitions(partition_csv)
     required_cache = {
         "GS_HIL_BUILD": "OFF", "GS_HIL_CONTROL": "OFF",
-        "GS_HIL_COMMISSIONING": "ON", "GS_S3_DIAGNOSTIC_ONLY": "OFF",
+        "GS_HIL_COMMISSIONING": "ON" if fixture_commissioning else "OFF",
+        "GS_S3_DIAGNOSTIC_ONLY": "OFF",
         "GS_HIL_C8_ACK_DROP": "ON" if c8_ack_drop else "OFF",
         "GS_HIL_C8_ACK_HOLD": "ON" if c8_ack_hold else "OFF",
         "GS_HIL_SIGNED_FOTA": "OFF",
@@ -151,14 +153,18 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
         raise ValueError("embedded C3 asset does not enforce the physical-wake motion guard")
     s3_runtime_image = image[:embedded_at] + image[embedded_at + len(node_image):]
     missing_rpf = [marker.decode() for marker in RPF_MARKERS if marker not in image]
-    missing_commissioning = [marker.decode() for marker in COMMISSIONING_MARKERS
-                             if marker not in image]
+    missing_commissioning = ([marker.decode() for marker in COMMISSIONING_MARKERS
+                              if marker not in image] if fixture_commissioning else [])
+    unexpected_commissioning = (not fixture_commissioning and any(
+        marker in image for marker in COMMISSIONING_MARKERS[:2]))
     forbidden = [marker.decode() for marker in FORBIDDEN_HIL_MARKERS
                  if marker in s3_runtime_image]
     if missing_rpf or b"S3 replay fence failed stage=%s" not in image:
         raise ValueError(f"RPF diagnostics missing from S3 app: {missing_rpf}")
     if missing_commissioning:
         raise ValueError(f"fixture commissioning adapter missing: {missing_commissioning}")
+    if unexpected_commissioning:
+        raise ValueError("P9 fixture unexpectedly contains node commissioning commands")
     ack_drop_marker = b"DROP_NEXT_DURABLE_ACK"
     if (ack_drop_marker in s3_runtime_image) != c8_ack_drop:
         raise ValueError("S3 C8 ACK-drop command does not match the selected fixture profile")
@@ -176,7 +182,8 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
         "app_bytes": size,
         "app_free_bytes": capacity - size,
         "rpf_markers_present": [marker.decode() for marker in RPF_MARKERS],
-        "commissioning_markers_present": [marker.decode() for marker in COMMISSIONING_MARKERS],
+        "commissioning_markers_present": [marker.decode() for marker in COMMISSIONING_MARKERS
+                                           if marker in image],
         "c8_ack_drop_fixture_enabled": c8_ack_drop,
         "c8_ack_hold_fixture_enabled": c8_ack_hold,
         "broad_hil_markers_absent": [marker.decode() for marker in FORBIDDEN_HIL_MARKERS],
@@ -190,13 +197,16 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
 
 def build(export: Path, project: Path, build_dir: Path, sdkconfig: Path,
           target: str, name: str, version: str, options: list[str]) -> Path:
+    idf_script = export.parent / "tools/idf.py"
     args = ["idf.py", "-C", str(project), "-B", str(build_dir),
             "-D", "SDKCONFIG=" + str(sdkconfig), "-D", "IDF_TARGET=" + target,
             "-D", "PROJECT_VER=" + version, "-D", "GS_HIL_BUILD=OFF"]
     args.extend(options)
     args.extend(["build", "size"])
     BUILD_COMMANDS[name] = args
-    shell = "source " + shlex.quote(str(export)) + " >/dev/null 2>&1 && idf.py --version && " + shlex.join(args)
+    idf_runner = '"$ESP_PYTHON" ' + shlex.quote(str(idf_script))
+    shell = ("source " + shlex.quote(str(export)) + " >/dev/null 2>&1 && "
+             + idf_runner + " --version && " + idf_runner + " " + shlex.join(args[1:]))
     # IDF may evaluate component requirements before the project's -D cache
     # value is visible. Make the paired C3 image available during discovery.
     build_env = build_environment(options)
@@ -265,9 +275,11 @@ def main() -> int:
                    ["-D", "SDKCONFIG_DEFAULTS=" + c3_defaults,
                     "-D", "GS_HIL_CONTROL=ON", "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON"])
         asset, node_asset_report = stage_node_firmware_asset(work, c3)
+    fixture_commissioning = not args.s3_c8_p9_ack_hold
     s3 = build(export, s3_project, work / "s3", work / "s3-sdkconfig", "esp32s3", "s3", version,
                ["-D", "GS_HIL_BUILD=OFF", "-D", "GS_HIL_CONTROL=OFF",
-                "-D", "GS_HIL_COMMISSIONING=ON", "-D", "GS_S3_DIAGNOSTIC_ONLY=OFF",
+                "-D", "GS_HIL_COMMISSIONING=" + ("ON" if fixture_commissioning else "OFF"),
+                "-D", "GS_S3_DIAGNOSTIC_ONLY=OFF",
                 "-D", "GS_HIL_C8_ACK_DROP=" + ("ON" if args.s3_c8_p8_ack_drop else "OFF"),
                 "-D", "GS_HIL_C8_ACK_HOLD=" + ("ON" if args.s3_c8_p9_ack_hold else "OFF"),
                 "-D", "GS_HIL_SIGNED_FOTA=OFF",
@@ -280,7 +292,8 @@ def main() -> int:
         s3_profile = validate_s3_fixture_artifact(
             work / "s3-sdkconfig", work / "s3" / "CMakeCache.txt", partition_csv,
             s3, asset, c8_ack_drop=args.s3_c8_p8_ack_drop,
-            c8_ack_hold=args.s3_c8_p9_ack_hold)
+            c8_ack_hold=args.s3_c8_p9_ack_hold,
+            fixture_commissioning=fixture_commissioning)
         compiled_table = work / "s3" / "partition_table" / "partition-table.bin"
         idf_path = os.environ.get("IDF_PATH", str(export.parent))
         converter = Path(idf_path or "") / "components/partition_table/gen_esp32part.py"
@@ -306,7 +319,7 @@ def main() -> int:
         "source_fingerprint": fingerprint, "idf": "6.0.3",
         "profile": ("GS-114 S3 commissioning + RPF01-RPF08 + isolated C8-P8 ACK-drop fixture"
                     if args.s3_c8_p8_ack_drop else
-                    "GS-114 S3 commissioning + bounded exact-key C8-P9 ACK-hold fixture"
+                    "GS-114 S3 bounded exact-key C8-P9 ACK-hold fixture"
                     if args.s3_c8_p9_ack_hold else
                     "GS-114 S3 fixture commissioning + RPF01-RPF08 diagnostic"
                     if args.s3_rpf_diagnostic else
@@ -314,7 +327,8 @@ def main() -> int:
         "build_flags": {
             "c3": (["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=ON", "GS_BAT_C8_PHYSICAL_WAKE=ON"]
                    if c3 is not None else ["NOT_BUILT; verified existing image reused as S3 input"]),
-            "s3": ["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=OFF", "GS_HIL_COMMISSIONING=ON",
+            "s3": ["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=OFF",
+                   "GS_HIL_COMMISSIONING=" + ("ON" if fixture_commissioning else "OFF"),
                    "GS_S3_DIAGNOSTIC_ONLY=OFF",
                    "GS_HIL_C8_ACK_DROP=" + ("ON" if args.s3_c8_p8_ack_drop else "OFF"),
                    "GS_HIL_C8_ACK_HOLD=" + ("ON" if args.s3_c8_p9_ack_hold else "OFF"),

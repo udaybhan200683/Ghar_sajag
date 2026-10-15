@@ -107,20 +107,27 @@ gs_state, data, nvs, 0xC20000, 0x40000,
     def test_p9_ack_hold_profile_requires_exact_marker_and_flags(self):
         with tempfile.TemporaryDirectory(prefix="gs_s3_p9_hold_") as temp:
             sdkconfig, cache, partitions, app, node = self._profile_files(Path(temp))
+            cache.write_text(cache.read_text().replace(
+                "GS_HIL_COMMISSIONING:BOOL=ON", "GS_HIL_COMMISSIONING:BOOL=OFF"))
             cache.write_text(cache.read_text() + "GS_HIL_C8_ACK_HOLD:BOOL=ON\nGS_HIL_SIGNED_FOTA:BOOL=OFF\n")
-            app.write_bytes(app.read_bytes() + b"ARM_C8_ACK_HOLD")
+            app.write_bytes(app.read_bytes().replace(
+                b"COMMISSION_EXPECTED_NODE FIXTURE_STATUS ", b"") + b"ARM_C8_ACK_HOLD")
             profile = validate_s3_fixture_artifact(sdkconfig, cache, partitions,
-                                                   app, node, c8_ack_hold=True)
+                                                   app, node, c8_ack_hold=True,
+                                                   fixture_commissioning=False)
             self.assertTrue(profile["c8_ack_hold_fixture_enabled"])
+            self.assertEqual(profile["commissioning_markers_present"], ["HIL_FIXTURE_READY"])
             app.write_bytes(app.read_bytes().replace(b"ARM_C8_ACK_HOLD", b""))
             with self.assertRaisesRegex(ValueError, "ACK-hold command"):
                 validate_s3_fixture_artifact(sdkconfig, cache, partitions,
-                                             app, node, c8_ack_hold=True)
+                                             app, node, c8_ack_hold=True,
+                                             fixture_commissioning=False)
             cache.write_text(cache.read_text().replace("GS_HIL_C8_ACK_HOLD:BOOL=ON",
                                                        "GS_HIL_C8_ACK_HOLD:BOOL=OFF"))
             with self.assertRaisesRegex(ValueError, "CMake options"):
                 validate_s3_fixture_artifact(sdkconfig, cache, partitions,
-                                             app, node, c8_ack_hold=True)
+                                             app, node, c8_ack_hold=True,
+                                             fixture_commissioning=False)
 
     def test_fixture_rpf_profile_rejects_wrong_build_flags(self):
         with tempfile.TemporaryDirectory(prefix="gs_s3_rpf_flags_") as temp:
@@ -246,7 +253,8 @@ int main() {{
  state.publish(FixtureCommissioningStatus::TimedOut); assert(state.try_reserve_request());
 }}
 '''.replace("\n+", "\n"))
-            built = subprocess.run(["g++", "-std=c++17", "-pthread", "-I", str(root), "-I", str(ROOT),
+            built = subprocess.run(["g++", "-std=c++17", "-pthread", "-DGS_HIL_COMMISSIONING=1",
+                                    "-I", str(root), "-I", str(ROOT),
                                     str(harness), "-o", str(root / "test")],
                                    capture_output=True, text=True)
             self.assertEqual(built.returncode, 0, built.stderr)
@@ -264,15 +272,17 @@ int main() {{
         self.assertIn('option(GS_HIL_C8_ACK_DROP', cmake)
         self.assertRegex(cmake, r'if\(GS_HIL_C8_ACK_DROP AND \(NOT GS_HIL_COMMISSIONING')
         self.assertRegex(cmake, r'if\(GS_HIL_BUILD OR GS_HIL_CONTROL\)\s+message\(FATAL_ERROR')
-        self.assertIn('if(GS_HIL_COMMISSIONING)', main_cmake)
+        self.assertIn('if(GS_HIL_COMMISSIONING OR GS_HIL_C8_ACK_HOLD OR GS_HIL_SIGNED_FOTA)', main_cmake)
         self.assertIn('if(GS_HIL_COMMISSIONING AND GS_S3_DIAGNOSTIC_ONLY)', cmake)
-        self.assertIn('#if GS_HIL_COMMISSIONING\n    start_fixture_commissioning_control();', app)
+        self.assertIn('#if GS_HIL_COMMISSIONING || GS_HIL_C8_ACK_HOLD || GS_HIL_SIGNED_FOTA\n    start_fixture_commissioning_control();', app)
         self.assertIn('try_reserve_request', owner)
         self.assertIn('compare_exchange_weak', state)
         self.assertIn('FixtureCommissioningStatus::TimedOut', owner)
         self.assertIn('FixtureCommissioningStatus::AuthenticatedRejoin', owner)
         self.assertNotIn('GS_HIL_COMMISSIONING', build_script)
         self.assertNotIn('set(GS_HIL_COMMISSIONING ON', cmake)
+        self.assertIn('GS_HIL_COMMISSIONING=OFF',
+                      (ROOT / "scripts/build_secure_fota_hub.py").read_text())
 
     def test_c8_ack_drop_is_postcommit_durable_and_profile_scoped(self):
         owner = (ROOT / "firmware/hub/target/esp32/hub_runtime_adapter.cpp").read_text()

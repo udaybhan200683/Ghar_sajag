@@ -13,6 +13,13 @@ from prepare_gs114_p9_signed_artifacts import activated, keys, outside_repo
 
 
 class SignedP9ArtifactSafety(unittest.TestCase):
+    def test_s3_signed_fota_profile_excludes_recommissioning_controls(self):
+        builder = (ROOT / "scripts/build_secure_fota_hub.py").read_text()
+        control = (ROOT / "firmware/hub/target/esp32/idf/main/fixture_commissioning_control.cpp").read_text()
+        self.assertIn('"-D", "GS_HIL_COMMISSIONING=OFF"', builder)
+        self.assertIn('b"COMMISSION_EXPECTED_NODE" in data', builder)
+        self.assertIn('#if GS_HIL_COMMISSIONING\n    if (std::strcmp(verb, "COMMISSION_EXPECTED_NODE")', control)
+
     def test_private_keys_must_stay_outside_repo(self):
         with self.assertRaisesRegex(ValueError, "outside the repository"):
             outside_repo(ROOT / "build" / "test_keys")

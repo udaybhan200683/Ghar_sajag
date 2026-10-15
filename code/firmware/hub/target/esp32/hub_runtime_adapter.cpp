@@ -1282,7 +1282,7 @@ void secure_owner_task(void*) {
                 event_owner.slot, event_owner.generation, event_owner.digest)) continue;
         const auto processed = runtime.run_state_once();
         if (!processed) continue;
-#if GS_HIL_COMMISSIONING && CONFIG_IDF_TARGET_ESP32S3
+#if (GS_HIL_COMMISSIONING || GS_HIL_C8_ACK_HOLD || GS_HIL_SIGNED_FOTA) && CONFIG_IDF_TARGET_ESP32S3
         bool key_found = false;
         const auto key_lookup = durable_outbox.contains(processed->key.str(), key_found);
         ESP_LOGI(kTag,

@@ -370,17 +370,20 @@ sleep-inhibition case and does not close P9.
   profile, partition map and installed/running image identity captured before
   the case. The C3 build must include the C8 physical-wake path and the
   production ACK-wait/sleep policy under test.
-- A bounded test-only postcommit ACK-hold control that delays only the valid
-  authenticated Durable ACK for the selected new EventKey, or a qualified
-  directional RF fixture that suppresses Hub-to-Node application ACKs while
-  preserving Node-to-Hub traffic. The control must fail closed, be default-off,
-  have a watchdog release, and leave event admission, identity, session,
-  signature checks and persistence semantics unchanged. Do not enable broad
-  Hub HIL controls.
-- A read-only authoritative per-EventKey Hub ledger view. `GET_STATE` counters
-  alone cannot prove one logical effect. The existing P8 one-shot ACK-drop
-  image suppresses only one ACK and the confirmed fixture has no directional
-  attenuator/shield; neither provides this longer hold.
+- A bounded, test-only S3 postcommit ACK-hold build is now implemented. Its
+  narrow `GS_HIL_C8_ACK_HOLD=ON` profile keeps `GS_HIL_BUILD=OFF`,
+  `GS_HIL_CONTROL=OFF` and `GS_HIL_COMMISSIONING=OFF`; node-recommissioning
+  commands are absent. It is default-off in commercial builds. Arm it before
+  the real event. The Hub captures K only after authenticated durable
+  processing and exact-key outbox confirmation, holds repeated Durable ACK
+  attempts for K, and provides controlled release/cancel plus the 15,000 ms
+  watchdog. Unrelated keys stay on the normal path. The 12,000 ms hold and
+  watchdog are fixture controls, not product latency requirements.
+- The S3 event log exposes exact `event_id`, `state_changed`, durable-outbox
+  lookup and admission result; `C8_ACK_HOLD_STATUS` exposes captured K, commit
+  time, held attempts, duplicate deliveries and logical-effect count. This is
+  read-only test observation of the committed key and fixture state. It does
+  not replace the required matched-image and full event-ledger evidence.
 - A continuously verified, non-resetting Node observation path that can show
   the ACK-wait interval and any `BAT_SLEEP_ENTER` marker. Do not open a C3
   console unless its DTR/RTS behavior is proven not to reset the target.
@@ -425,12 +428,17 @@ a bounded test stimulus, not a product maximum-ACK-latency promise.
 
 - Matched C3 and Hub firmware from the selected source checkpoint. The C3
   profile must keep the signed-app-on-update verifier enabled and trust the
-  recorded test public key. The Hub must expose a supported authenticated
-  owner-task FOTA trigger for the exact enrolled Node and embed the exact C3
-  signed artifact bytes. Current GS-114 notes say the S3 profile has
-  `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF` and no supported physical trigger;
-  this must be resolved by an existing safe path or a separately reviewed,
-  narrow fixture-only control. Do not enable broad HIL control.
+  recorded test public key. A narrow S3 commissioning fixture now exposes
+  `START_SIGNED_C3_FOTA` for the exact enrolled Node through the existing
+  authenticated owner-task FOTA path. The test profile sets
+  `GS_HIL_SIGNED_FOTA=ON` while keeping `GS_HIL_BUILD=OFF`,
+  `GS_HIL_CONTROL=OFF` and `GS_HIL_COMMISSIONING=OFF`; the UART command is a
+  local test-fixture trigger, and the existing owner task pins the authenticated
+  Node session before sending the signed transfer. The trigger is absent from
+  commercial builds. The S3
+  host artifact workflow creates signed C3 A/B/N/recovery candidates and Hub
+  variants embedding the exact corresponding C3 bytes. These artifacts are
+  host-built candidates only and are not installed or physically authorized.
 - Signed baseline image **A**, valid update image **B** signed by A's trusted
   test key with a distinct version, and wrong-key negative image **N** whose
   authenticated transport and declared digest remain valid through the target
@@ -476,11 +484,14 @@ change; B is accepted, boots and recovers under the exact signed-image
 provenance; sleep remains inhibited throughout active maintenance and resumes
 only after safe recovery. **FAIL:** sleep during active work, signature bypass,
 wrong slot/image, lost or changed retained key, failed boot-health/rejoin, or
-unsafe recovery. **BLOCKED:** missing trusted signing manifest, matched images,
-supported trigger, actual slot readback, reset-safe observer, or approved
-rollback/recovery route. Full physical operation still needs separate
-authorization naming the pair, exact image hashes, expected OTA/reset actions,
-observer wiring, stop conditions and recovery steps.
+unsafe recovery. **BLOCKED:** actual installed-image/slot and trusted-key
+readback, reset-safe continuous observer, measured rollback-task stack margin,
+proven recovery route, or exact P9 hardware authorization is missing. Full
+physical operation still needs authorization naming the pair, exact image
+hashes, expected OTA/reset actions, observer wiring, stop conditions and
+recovery steps. The GS-118 `gs_ota_validate` stack remains provisionally 12 KiB;
+runtime high-water is unmeasured, and this P9 procedure does not force a
+failed-boot rollback.
 
 **Retain:** both device logs; all A/B/N hashes, sizes and public-key
 fingerprints; source/config/profile/partition hashes; transfer/session IDs;

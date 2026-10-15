@@ -50,6 +50,7 @@ bool decode_hex(const char* encoded, std::uint8_t* output, std::size_t size) {
     return true;
 }
 
+#if GS_HIL_COMMISSIONING
 const char* status_name(gs::hub::target::FixtureCommissioningStatus status) {
     using S = gs::hub::target::FixtureCommissioningStatus;
     switch (status) {
@@ -62,11 +63,13 @@ const char* status_name(gs::hub::target::FixtureCommissioningStatus status) {
     }
     return "unknown";
 }
+#endif
 
 void dispatch(char* command) {
     char* cursor = command;
     char* verb = next_token(cursor);
     if (verb == nullptr) return;
+#if GS_HIL_COMMISSIONING
     if (std::strcmp(verb, "FIXTURE_STATUS") == 0) {
         if (next_token(cursor) != nullptr) {
             ESP_LOGW(kTag, "HIL_FIXTURE_ERROR reason=invalid_arguments");
@@ -76,6 +79,7 @@ void dispatch(char* command) {
                  status_name(gs::hub::target::fixture_commissioning_status()));
         return;
     }
+#endif
 #if GS_HIL_C8_ACK_DROP
     if (std::strcmp(verb, "DROP_NEXT_DURABLE_ACK") == 0) {
         if (next_token(cursor) != nullptr) {
@@ -136,6 +140,7 @@ void dispatch(char* command) {
         return;
     }
 #endif
+#if GS_HIL_COMMISSIONING
     if (std::strcmp(verb, "COMMISSION_EXPECTED_NODE") != 0) {
         ESP_LOGW(kTag, "HIL_FIXTURE_ERROR reason=unsupported_command");
         return;
@@ -173,21 +178,32 @@ void dispatch(char* command) {
     const bool accepted = gs::hub::target::request_node_commissioning(std::move(node));
     ESP_LOGI(kTag, "HIL_FIXTURE_%s request=exact_node",
              accepted ? "OK" : "ERROR");
+#else
+    ESP_LOGW(kTag, "HIL_FIXTURE_ERROR reason=unsupported_command");
+#endif
 }
 
 void control_task(void*) {
     std::array<char, kCommandCapacity> command{};
     std::size_t length = 0;
-#if GS_HIL_C8_ACK_HOLD && GS_HIL_SIGNED_FOTA
+#if GS_HIL_COMMISSIONING && GS_HIL_C8_ACK_HOLD && GS_HIL_SIGNED_FOTA
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,ARM_C8_ACK_HOLD,RELEASE_C8_ACK_HOLD,CANCEL_C8_ACK_HOLD,C8_ACK_HOLD_STATUS,START_SIGNED_C3_FOTA");
-#elif GS_HIL_C8_ACK_HOLD
+#elif GS_HIL_C8_ACK_HOLD && GS_HIL_SIGNED_FOTA
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=ARM_C8_ACK_HOLD,RELEASE_C8_ACK_HOLD,CANCEL_C8_ACK_HOLD,C8_ACK_HOLD_STATUS,START_SIGNED_C3_FOTA");
+#elif GS_HIL_COMMISSIONING && GS_HIL_C8_ACK_HOLD
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,ARM_C8_ACK_HOLD,RELEASE_C8_ACK_HOLD,CANCEL_C8_ACK_HOLD,C8_ACK_HOLD_STATUS");
-#elif GS_HIL_SIGNED_FOTA
+#elif GS_HIL_C8_ACK_HOLD
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=ARM_C8_ACK_HOLD,RELEASE_C8_ACK_HOLD,CANCEL_C8_ACK_HOLD,C8_ACK_HOLD_STATUS");
+#elif GS_HIL_COMMISSIONING && GS_HIL_SIGNED_FOTA
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,START_SIGNED_C3_FOTA");
+#elif GS_HIL_SIGNED_FOTA
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=START_SIGNED_C3_FOTA");
 #elif GS_HIL_C8_ACK_DROP
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS,DROP_NEXT_DURABLE_ACK");
-#else
+#elif GS_HIL_COMMISSIONING
     ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS");
+#else
+    ESP_LOGI(kTag, "HIL_FIXTURE_READY protocol=1 commands=NONE");
 #endif
     for (;;) {
         const int value = std::fgetc(stdin);

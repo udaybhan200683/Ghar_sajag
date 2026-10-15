@@ -9,7 +9,7 @@ constexpr char kTag[] = "gs_hub_product";
 #if GS_HIL_CONTROL
 void start_hil_control();
 #endif
-#if GS_HIL_COMMISSIONING
+#if GS_HIL_COMMISSIONING || GS_HIL_C8_ACK_HOLD || GS_HIL_SIGNED_FOTA
 void start_fixture_commissioning_control();
 #endif
 
@@ -20,7 +20,7 @@ extern "C" void app_main() {
 #if GS_HIL_CONTROL
     start_hil_control();
 #endif
-#if GS_HIL_COMMISSIONING
+#if GS_HIL_COMMISSIONING || GS_HIL_C8_ACK_HOLD || GS_HIL_SIGNED_FOTA
     start_fixture_commissioning_control();
 #endif
 }

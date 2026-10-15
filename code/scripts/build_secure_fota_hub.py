@@ -59,7 +59,7 @@ def build_s3_fixture(image: Path, node_record: dict, args: argparse.Namespace) -
                "-D", f"SDKCONFIG_DEFAULTS={defaults}",
                "-D", f"PROJECT_VER={args.label}",
                "-D", "GS_HIL_BUILD=OFF", "-D", "GS_HIL_CONTROL=OFF",
-               "-D", "GS_HIL_COMMISSIONING=ON", "-D", "GS_HIL_SIGNED_FOTA=ON",
+               "-D", "GS_HIL_COMMISSIONING=OFF", "-D", "GS_HIL_SIGNED_FOTA=ON",
                "-D", "GS_HIL_C8_ACK_DROP=OFF", "-D", "GS_HIL_C8_ACK_HOLD=OFF",
                "build"]
     environment = dict(os.environ)
@@ -76,13 +76,14 @@ def build_s3_fixture(image: Path, node_record: dict, args: argparse.Namespace) -
         raise RuntimeError("S3 signed fixture is missing or exceeds its OTA slot")
     cache = (build_dir / "CMakeCache.txt").read_text(errors="replace")
     for required in ("GS_HIL_BUILD:BOOL=OFF", "GS_HIL_CONTROL:BOOL=OFF",
-                     "GS_HIL_COMMISSIONING:BOOL=ON", "GS_HIL_SIGNED_FOTA:BOOL=ON",
+                     "GS_HIL_COMMISSIONING:BOOL=OFF", "GS_HIL_SIGNED_FOTA:BOOL=ON",
                      "GS_HIL_C8_ACK_DROP:BOOL=OFF", "GS_HIL_C8_ACK_HOLD:BOOL=OFF"):
         if required not in cache:
             raise RuntimeError(f"S3 signed fixture profile mismatch: {required}")
     data = built.read_bytes()
     if data.count(asset.read_bytes()) != 1 or b"START_SIGNED_C3_FOTA" not in data or \
-            b"START_C3_FOTA" in data or b"START_AUTHENTICATED_SIGNED_C3_FOTA" in data:
+            b"START_C3_FOTA" in data or b"START_AUTHENTICATED_SIGNED_C3_FOTA" in data or \
+            b"COMMISSION_EXPECTED_NODE" in data or b"FIXTURE_STATUS" in data:
         raise RuntimeError("S3 signed fixture has wrong embedded image or UART controls")
     shutil.copy2(built, args.output)
     hub_metadata = run_esptool(args.output, activation)
