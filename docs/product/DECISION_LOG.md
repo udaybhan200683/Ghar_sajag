@@ -841,3 +841,10 @@ diagnostic privacy/retention, installation acceptance and target export require
 their respective explicit decisions. No GS-D identifier or context-version
 increment is appropriate: no new LOCKED requirement was approved. Canonical
 GS-148 source is untouched; this status entry exists only on the isolated branch.
+
+
+## GS-125 port-coexistence qualification — 2026-10-15 (evidence; no product decision)
+
+The registered PWA gate now scopes `PLAYWRIGHT_PORT` and `PWA_BASE_URL` to its browser stage and automatically selects an OS-assigned loopback port when the preferred 8766 port is occupied. A per-user startup lock serializes selection/startup across worktrees. Explicit port overrides retain strict ownership checks. The Python default-port contract, alternate-port URL/command match, lock serialization and environment scoping have regression coverage.
+
+At source `63cf8d605db08ff5c9cec8e62729a437e234fd4d`, `make validation-pwa` ran all 15 registered stages fresh: 14 PASS, one expected required P0 completeness FAIL (`product_status=PARTIAL`), physical NOT_RUN. Caregiver browser 86, Engineering `PREVIEW_ONLY` 20, Engineering host 98, Python 470 (one approved historical skip), and the six canonical C8/storage/CloudSync stages passed. The old-reader rollback limitation and fail-closed storage admission gap remain explicit; historical migration remains FAIL. No product, security, storage, protocol or authentication behavior changed; context version remains `2026-10-13.001`. Details and preserved receipts are in the [GS-125 integration qualification report](../exec-plans/evidence/integration_gs125_20261015/CONFLICT_RESOLUTION_AND_VALIDATION.md).

@@ -189,3 +189,61 @@ The imported historical native logs were not rewritten. The earlier report's
 trailing-whitespace finding for historical Dashboard stdout receipt copies remains
 documented; their original files and hashes are preserved. Current follow-up
 `git diff --check` is clean.
+
+
+## Autonomous port-coexistence qualification — 2026-10-15
+
+The integration candidate was extended from `499aecb38752ed3a22c9bb78b32448af997b8b89` with the latest verified canonical tip `1eba6c561e8a908fc899219cb7098af30ddcff80` as an explicit merge parent. That canonical tip's only tree change since the supplied shared checkpoint was the additive S3 reconciliation report; the integration worktree contains it. Candidate source under validation: `63cf8d605db08ff5c9cec8e62729a437e234fd4d`, branch `integration/gs125-dashboard-r1-20261015`; source fingerprint `a468c9311fa3c9942c0485b52138574c1641026fc797400cc27ca6850bf949c9`.
+
+### Port conflict diagnosis and correction
+
+Linux diagnostics identified PID 432418 as `python3 tools/sim/local_lab.py --port 8766`, owned by the current user, with PPID 1, its own session/process group, and a backend child. It had been running since 05:32 UTC from this checkout. Because the parent was gone but recent log timestamps did not establish ownership or inactivity, it was left untouched. During the PWA run, the gate-owned lab used port 38633 while PID 432418 continued listening on 8766; the gate cleaned up only its own process group.
+
+The two Python failures under `PLAYWRIGHT_PORT=8767` came from `component_gate.py` passing the process-wide environment unchanged to every stage. Importing the browser runner in Python then changed its default `LAB_PORT`/`BASE` and the expected occupied-port diagnostic from 8766 to 8767. The correction scopes `PLAYWRIGHT_PORT` and `PWA_BASE_URL` to the registered `browser` stage. With no explicit override, the browser runner keeps 8766 as its preferred port and selects an OS-assigned loopback port only when that port is occupied. A per-user `flock` serializes selection and server startup across worktrees; explicit port/base overrides remain strict and fail if another process owns the requested port. URL, simulator command and cleanup all use the selected port.
+
+Permanent regression checks preserve the default-port contract, verify alternate-port command/URL consistency, verify concurrent worktree startup serialization, prove browser-only environment scoping, and run the default-contract tests with an externally supplied `PLAYWRIGHT_PORT=8767`.
+
+### Source-matched validation
+
+Focused checks on the corrected source:
+
+- `python3 -m unittest discover -s tests/python -p test_playwright_runner.py -v`: **12/12 PASS**.
+- `PLAYWRIGHT_PORT=8767 make validation-framework-test`: **46/46 PASS**, including the subprocess check that sanitizes the browser override before Python runner tests.
+- `make feature-coverage-test`: **GS130 TRACEABILITY PASS**, 198 feature rows, 210 source modules, 15 physical cases; mapping tests **22/22 PASS**.
+- Current `git diff --check`: **PASS**.
+
+`make validation-pwa` was executed fresh at source commit `63cf8d605db08ff5c9cec8e62729a437e234fd4d`, with no receipt reuse, source mutation, or tracked dirtiness. Native report: `code/evidence/validation_framework/pwa-1792046117596214866/report.json`; source unchanged: true; tracked dirty: false; result: aggregate exit 2, software **FAIL**, physical **NOT_RUN**. Fourteen of fifteen registered stages PASS. The only failing stage is the required P0 completeness stage:
+
+| Stage | Result |
+|---|---|
+| host-build / backend-receipts / contracts / lab-build | PASS |
+| Python discovery | PASS, 470 tests, one approved historical skip |
+| Caregiver JavaScript | PASS, 23 tests |
+| Functional / dummy streams / HTTP / bridge | PASS, 92 / 5 / 17 / 13 checks |
+| API / frontend | PASS, 2 / 2 checks |
+| Caregiver browser plus Engineering preview | PASS, 86 Playwright cases and all 20 `PREVIEW_ONLY` Engineering cases across 7 screens and 2 viewports; browser ran on auto-selected port 38633 |
+| Engineering host diagnostic foundation | PASS, 98 cases |
+| P0 full-product E2E | **FAIL for product completeness**: 26/26 scenario checks and 1 Chromium test PASS, but `product_vertical_status=PARTIAL` |
+
+P0's remaining product gap is unchanged: production Hub TLS/credential authentication and enrollment-generation registry binding are not configured; the local test credential/auth adapter is not production trust. Caregiver OIDC is not claimed. P0 must remain **PARTIAL** and the aggregate must remain FAIL.
+
+The six canonical C8/storage/CloudSync stages were rerun with their exact registered commands because the earlier stage receipts had a different source fingerprint:
+
+- C8 ACK-drop: **PASS**, 16 checks.
+- Storage correctness (`GS148_CASE=all`): **PASS**; `FIRST_ADMISSION_RECOVERY_BLOCKED cuts=3 fail_closed=PASS` remains visible.
+- Storage correctness ASan/UBSan: **PASS**.
+- First-event reader: scoped assertions **PASS**; `OLD_READER_COMMERCIAL_ROLLBACK_AVAILABILITY=FAIL_KNOWN_FIRST_EVENT_LIMITATION` remains visible.
+- First-event recovery projection: **PASS**; `PRODUCTION_CLOUDSYNC=PENDING PRODUCT_P0=PARTIAL PHYSICAL=NOT_RUN` remains visible.
+- Cloud Worker/backend API integration: **PASS**, same-event retry, durable effect and caregiver projection.
+
+Native logs and the PWA report are retained under `code/evidence/validation_framework/`; the 22-file SHA-256 manifest is `code/evidence/validation_framework/final-canonical-rerun-63cf8d6/SHA256SUMS`. Earlier failed receipts in this report and prior campaigns were not rewritten or deleted. The historical journal migration remains **FAIL** and was not rerun in this port qualification. Physical qualification remains **NOT_RUN**. No full release gate, hardware operation, production authentication activation or Jira workflow transition occurred.
+
+### Registry and merge compatibility
+
+Against latest canonical `1eba6c561e8a908fc899219cb7098af30ddcff80`, the candidate registry contains all **79/79** canonical stage IDs and one additive stage, `diagnostic-foundation` (**80 total**). No canonical stage was removed. Existing browser registration adds the PWA selector and required Engineering preview markers; Python adds the ordered `backend-receipts` prerequisite; JavaScript/P0 inputs are expanded. No command, component ownership, failure matcher, required success assertion, release selector or security requirement was weakened. Root and code Makefiles are unchanged from canonical. The six C8/storage/CloudSync stage IDs remain intact.
+
+The latest canonical commit is now an ancestor of the isolated integration branch. Canonical local HEAD and GitHub remote both remained `1eba6c561e8a908fc899219cb7098af30ddcff80`. The canonical worktree has clean tracked files and 272 pre-existing untracked paths, including GS-114 physical evidence and generated artifacts; none collide with candidate tracked paths. They were not touched. The integration correction is validation-runner/test-only and did not alter product, protocol, storage or authentication semantics.
+
+`git diff --check` on the current worktree is clean. A comparison against canonical still reports trailing whitespace in imported historical stdout receipts (including backend, dummy-stream and prior PWA/staged-check logs) documented above and in the earlier sections. Those native historical files were preserved byte-for-byte; no evidence was rewritten to hide the findings.
+
+**Source merge recommendation: GO**, independently of commercial release qualification. The integrated source is based on latest canonical, the corrected registered aggregate completed, every unexpected stage passed, and all six canonical C8/storage/CloudSync checks were rerun. This is not commercial release approval: P0 remains **PARTIAL**, historical migration remains **FAIL**, the old-reader rollback limitation remains known, Engineering production UI/auth routes remain preview/inactive, CloudSync remains **PENDING**, and physical qualification remains **NOT_RUN**. No canonical merge was performed.
