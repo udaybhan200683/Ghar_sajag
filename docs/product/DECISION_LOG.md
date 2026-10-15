@@ -23,6 +23,83 @@ acceptance and independent product gaps are unchanged.
 GS-104/GS-89/GS-148 trust boundaries, Hub migration FAIL and product P0 PARTIAL
 remain open. No hardware/release operation or GS-148 implementation is included.
 
+## GS-76 Stage 2A status — 2026-10-14 (no new decision)
+
+The isolated dashboard branch now includes a provider-neutral, nonactive human
+credential/session verification boundary with injected tests. This records no
+vendor choice, deployed issuer, production session, staff/Home authority,
+PostgreSQL integration or route activation. The approved in-app caregiver
+Approve/Deny/Revoke workflow and no-service-OTP policy below are unchanged.
+See the [GS-76 Stage 2A handoff](../exec-plans/evidence/engineering_dashboard_20261014/GS76_STAGE2A_HANDOFF.md).
+
+## GS-122/124/125 Stage 1 status — 2026-10-13 (no new decision)
+
+The approved GS-122/10705 service workflow now has a bounded host SQLite
+ticket, dispatch and in-app consent domain on the isolated dashboard branch.
+The JSON default is 1800 seconds and the existing ED-D02 diagnostic policy is
+composed in-process. The injected tests do not supply verified production
+sessions, staff authority, PostgreSQL transactions or PWA composition. No
+commercial route or synthetic-Home bypass was activated. The decisions below
+and their open production/physical gates remain unchanged; see the
+[Stage 1 boundary](../architecture/GS124_STAGE1_SERVICE_ACCESS_BOUNDARY_20261013.md).
+
+## Dashboard approvals and reconciled R1 context — 2026-10-13
+
+ED-D01 APPROVED read-only design (GS120/10660), ED-D02 APPROVED explicit Home
+diagnostic permission policy (GS143/10670), and ED-D03-MIN APPROVED privacy-minimal
+policy (GS65/10671). GS122/10672/10677/10705 authorize the scoped dashboard
+foundation and service-access workflow in this isolated branch. A signed-in
+caregiver creates and tracks a ticket for the server-derived authoritative Home,
+Hub and current Nodes. Authenticated admins see the queue and may assign manually
+or by atomic round-robin among active staff; an unassigned ticket is ADMIN ONLY.
+Technicians see assigned-only tickets. An assigned technician's Start creates a
+pending request; the caregiver reviews who/reason/ticket/Home/Hub/devices and
+approves, denies or revokes in-app. There is no email/SMS OTP. Approval creates
+an actor-bound, revocable READ_DIAGNOSTICS grant scoped to the exact ticket, Home,
+Hub, current Nodes and ownership epoch, with a fixed, non-sliding 30-minute
+default from product JSON configuration; expiry requires fresh approval. Closure,
+reassignment, employee offboarding, ownership transfer, revoke and expiry deny
+subsequent access and clear active diagnostic caches/polling. Admins can manage
+tickets without consent. Detailed diagnostics for a real Home still require
+caregiver approval; only authenticated admins on isolated synthetic/test Homes
+may use the approved bypass. See [dashboard approval and scope record](../architecture/GS124_AUTHORIZATION_FOUNDATION_20261013.md).
+
+These product decisions do not supply a production identity/session provider,
+staff credential lifecycle, atomic grant persistence/revocation implementation,
+trusted production Hub diagnostic source, or activated commercial routes. Those
+remain implementation boundaries; the development `X-Actor-Id` adapter cannot
+activate commercial diagnostics. Numerical privacy/query bounds and ED-D04–09
+remain unresolved where not covered by the approved policy.
+
+### Canonical GS-148 context — committed source `774da5c`
+
+The canonical committed Decision Log authorizes bounded GS-148 Option A
+implementation for native epoch-1 authenticated pending recovery and proven-empty
+checkpoint completion using existing v1 formats, keys and durable-before-ACK.
+Implementation and software evidence are pending at that committed source; D-A–D-M
+remain OPEN except for the explicitly approved Option A scope.
+
+### GS-D033 — Corrected v1 recovery in both supported commercial S3 images
+
+**Status: LOCKED.** Both supported commercial R1 S3 application images require
+corrected v1 first-event recovery before support designation, unless a later
+explicit decision removes an image. No signed image pair is selected or qualified;
+no self-OTA, signing/installing, slot write, physical rollback or hardware action
+is authorized. The earlier design-review text requesting approval is historical
+to that review; the later Option A authorization is current at the committed
+canonical source. This isolated reconciliation imports no GS-148 implementation
+or validation-registry change. The canonical worktree's uncommitted state is
+preserved and is not represented by this committed-source summary.
+
+Bounded implementation checkpoint: `bfcf293edaf538a68c61b654e8aee141429480ce`,
+pushed with actual remote equality; 54 new cases PASS. Framework39/mapping19 and
+caregiver JS23 PASS; full affected backend/PWA FAIL on existing file-backed
+CloudSync/P0 fixtures in the full-/tmp environment. No production activation.
+See [focused evidence](../exec-plans/evidence/engineering_dashboard_20261013/README.md).
+Canonical documentation was compared at local and remote commit
+`774da5c2ee8073c535df2fe56ecdbf548c16ebf0`; the dashboard context marker is
+updated only after this documentation reconciliation and a passing real preflight.
+
 Use:
 - LOCKED = approved; changing requires explicit approval.
 - PROVISIONAL = working direction.
@@ -751,3 +828,16 @@ reliability/latency and endurance inputs remain product-PENDING. No hardware or
 software tests were run for this evidence reconciliation. No product, security,
 storage, protocol or power-policy decision changed; context version remains
 `2026-10-13.001`.
+
+## GS-122 dashboard proposal checkpoint — 2026-10-12 (no new locked decision)
+
+The campaign's explicit isolated-worktree exception permits proposed design and
+inactive preparation on `feature/gs124-125-engineering-dashboard`; it does not
+accept GS-120 or authorize new product/security/storage/device-control contracts.
+The completed [GS-120 architecture](../architecture/GS120_ENGINEERING_DASHBOARD_ARCHITECTURE.md)
+and [decision/blocker register](../exec-plans/evidence/engineering_dashboard_20261012/OPEN_DECISIONS_AND_BLOCKERS.md)
+remain proposed. GS-124 production is BLOCKED_DESIGN_APPROVAL. Technician grants,
+diagnostic privacy/retention, installation acceptance and target export require
+their respective explicit decisions. No GS-D identifier or context-version
+increment is appropriate: no new LOCKED requirement was approved. Canonical
+GS-148 source is untouched; this status entry exists only on the isolated branch.

@@ -1,0 +1,11 @@
+make: TMPDIR value /home/udaybhan/projects/Ghar_sajag_r1_dashboard/build/dashboard_auth_tmp: No such file or directory
+make: using default temporary directory '/tmp'
+make -C code feature-coverage-test
+make: TMPDIR value /home/udaybhan/projects/Ghar_sajag_r1_dashboard/build/dashboard_auth_tmp: No such file or directory
+make: using default temporary directory '/tmp'
+make[1]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+python3 scripts/check_feature_traceability.py
+DASH-REGISTRY-FOUNDATION: unknown canonical requirement ID
+make[1]: *** [Makefile:561: feature-coverage-test] Error 1
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+make: *** [Makefile:13: feature-coverage-test] Error 2

@@ -1,0 +1,1 @@
+{"event_key":{"physical_device_id":"device","logical_node_id":"room","origin_session_id":10,"event_sequence":1},"event_type":"MOTION","occurred_at":1700000001,"hub_received_at":1700000001,"location":"room","uncertainty_s":0,"is_test":false,"payload":{"sensor_type":1,"battery_mv":0,"rssi_dbm":0,"monotonic_ms":1000}}

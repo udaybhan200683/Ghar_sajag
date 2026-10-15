@@ -1,0 +1,3 @@
+Owned one-byte probe of /tmp; no unrelated files removed.
+write+fsync FAIL errno=28 name=ENOSPC
+block_size=4096 total_blocks=494925 available_blocks=0 total_inodes=1048576 available_inodes=1026078

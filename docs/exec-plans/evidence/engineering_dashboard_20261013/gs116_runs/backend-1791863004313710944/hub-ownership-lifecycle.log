@@ -1,0 +1,18 @@
+make[2]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_hub_ownership_registry -v
+test_commit_guard_runs_inside_write_transaction (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_commit_guard_runs_inside_write_transaction) ... ok
+test_generation_replacement_revocation_and_old_event_replay (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_generation_replacement_revocation_and_old_event_replay) ... P0-P2D-011 PASS Node generation fencing preserves only exact committed retries
+ok
+test_identity_and_authorization_fail_closed (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_identity_and_authorization_fail_closed) ... P0-P2D-010 PASS permanent identity, exact Home ownership and unverified claims fail closed
+ok
+test_node_identity_cannot_be_active_under_two_homes (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_node_identity_cannot_be_active_under_two_homes) ... P0-P2D-013 PASS Node re-home uses one active binding and globally monotonic generation
+ok
+test_registered_home_node_commit_retry_and_restart (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_registered_home_node_commit_retry_and_restart) ... ok
+test_transfer_epoch_fences_old_home_and_preserves_old_data (tests.python.test_hub_ownership_registry.HubOwnershipRegistryTest.test_transfer_epoch_fences_old_home_and_preserves_old_data) ... P0-P2D-012 PASS transfer epoch blocks both Homes and preserves old-Home data
+ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 5.218s
+
+OK
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'

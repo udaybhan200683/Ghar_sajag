@@ -1,0 +1,66 @@
+make -C code validation-pwa
+make[1]: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+python3 validation/component_gate.py --suite pwa --reuse-report evidence/validation_framework/backend-1791863004313710944/report.json
+START host-build timeout=600
+PASS host-build exit=0 count=1 0s
+START contracts timeout=600
+PASS contracts exit=0 count=1 0s
+START lab-build timeout=600
+PASS lab-build exit=0 count=1 0s
+START python timeout=600
+FAIL python exit=1 count=448 112.469s
+rk.ValidationFrameworkTest.test_all_fault_codes_have_scenarios) ... ok
+test_catalog_has_required_categories_and_unique_ids (test_validation_framework.ValidationFrameworkTest.test_catalog_has_required_categories_and_unique_ids) ... ok
+test_complete_nightly_has_expensive_suites_once (test_validation_framework.ValidationFrameworkTest.test_complete_nightly_has_expensive_suites_once) ... ok
+test_dummy_streams_exist (test_validation_framework.ValidationFrameworkTest.test_dummy_streams_exist) ... ok
+test_fast_gate_keeps_fota_and_lab_build_coverage_without_browser_rebuild (test_validation_framework.ValidationFrameworkTest.test_fast_gate_keeps_fota_and_lab_build_coverage_without_browser_rebuild) ... ok
+test_fota_host_matrix_is_complete_and_uses_production_receiver (test_validation_framework.ValidationFrameworkTest.test_fota_host_matrix_is_complete_and_uses_production_receiver) ... ok
+test_hil_runner_is_fail_closed_when_unconfigured (test_validation_framework.ValidationFrameworkTest.test_hil_runner_is_fail_closed_when_unconfigured) ... ok
+test_manual_plan_is_generated (test_validation_framework.ValidationFrameworkTest.test_manual_plan_is_generated) ... ok
+test_master_traceability_rows_have_required_columns_and_explicit_status (test_validation_framework.ValidationFrameworkTest.test_master_traceability_rows_have_required_columns_and_explicit_status) ... ok
+test_master_validation_has_complete_offline_id_set (test_validation_framework.ValidationFrameworkTest.test_master_validation_has_complete_offline_id_set) ... ok
+test_phase1_ui_contract_has_mandatory_negative_and_viewport_rules (test_validation_framework.ValidationFrameworkTest.test_phase1_ui_contract_has_mandatory_negative_and_viewport_rules) ... ok
+test_release_gate_stage_success_and_failure_propagation_unchanged (test_validation_framework.ValidationFrameworkTest.test_release_gate_stage_success_and_failure_propagation_unchanged) ... ok
+test_release_gate_timeout_output_bytes_and_text_are_controlled_failures (test_validation_framework.ValidationFrameworkTest.test_release_gate_timeout_output_bytes_and_text_are_controlled_failures) ... ok
+
+======================================================================
+FAIL: test_real_commit_lost_reply_partial_catchup_reboots (test_p2d_cloud_contract.P2DCloudContractTest.test_real_commit_lost_reply_partial_catchup_reboots)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/tests/python/test_p2d_cloud_contract.py", line 61, in test_real_commit_lost_reply_partial_catchup_reboots
+    self.fail("Hub bridge ended unexpectedly: " + process.stderr.read())
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Hub bridge ended unexpectedly: p2d_cloud_contract_validation=FAIL bridge durable-before-ACK
+
+
+----------------------------------------------------------------------
+Ran 448 tests in 112.063s
+
+FAILED (failures=1, skipped=1)
+
+START javascript timeout=600
+PASS javascript exit=0 count=23 0.537s
+START functional timeout=600
+PASS functional exit=0 count=92 0s
+START dummy-streams timeout=600
+PASS dummy-streams exit=0 count=5 0s
+START http timeout=600
+PASS http exit=0 count=17 0s
+START bridge timeout=600
+PASS bridge exit=0 count=13 0s
+START api timeout=600
+PASS api exit=0 count=2 0s
+START frontend timeout=600
+PASS frontend exit=0 count=2 0s
+START p0-full-product-e2e timeout=360
+FAIL p0-full-product-e2e exit=2 count=0 7.229s
+transport/data_plane_codec.o build/obj/base/6685b3932a060e07/firmware/common/transport/fota_secure_wire.o build/obj/base/6685b3932a060e07/firmware/common/transport/node_retirement_protocol.o build/obj/base/6685b3932a060e07/firmware/common/transport/session_id.o build/obj/base/6685b3932a060e07/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/6685b3932a060e07/firmware/hub/commissioning/registry/node_registry.o build/obj/base/6685b3932a060e07/firmware/hub/event_processing/coverage/coverage.o build/obj/base/6685b3932a060e07/firmware/hub/event_processing/ingest/ingest.o build/obj/base/6685b3932a060e07/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/6685b3932a060e07/firmware/hub/routines/routine_service.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/hub_runtime.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/time/clock.o build/obj/base/6685b3932a060e07/firmware/hub/runtime/ui/resident_ui.o build/obj/base/6685b3932a060e07/firmware/hub/storage/durable_event_outbox.o build/obj/base/6685b3932a060e07/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/6685b3932a060e07/firmware/hub/storage/durable_transition.o build/obj/base/6685b3932a060e07/firmware/hub/storage/hub_durability_owner.o build/obj/base/6685b3932a060e07/firmware/hub/storage/journal.o build/obj/base/6685b3932a060e07/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/6685b3932a060e07/firmware/hub/storage/outbox_journal_backend.o build/obj/base/6685b3932a060e07/firmware/hub/storage/runtime_state_store.o build/obj/base/6685b3932a060e07/firmware/node/communication/radio/node_radio.o build/obj/base/6685b3932a060e07/firmware/node/lifecycle/fota/boot_health_gate.o build/obj/base/6685b3932a060e07/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/6685b3932a060e07/firmware/node/lifecycle/fota/secure_fota_adapter.o build/obj/base/6685b3932a060e07/firmware/node/lifecycle/lifecycle.o build/obj/base/6685b3932a060e07/firmware/node/power/power.o build/obj/base/6685b3932a060e07/firmware/node/runtime/node_runtime.o build/obj/base/6685b3932a060e07/firmware/node/sensing/sensing.o build/obj/base/6685b3932a060e07/firmware/node/storage/node_recovery_persistence.o build/obj/base/6685b3932a060e07/firmware/node/storage/node_store.o build/obj/base/6685b3932a060e07/tests/support/host/logging/file_log_sink.o build/obj/base/6685b3932a060e07/tests/support/host/multinode/scheduled_harness.o build/obj/base/6685b3932a060e07/tests/support/host/security/openssl_commissioning_crypto.o tests/cpp/board_stack_e2e_validation.cpp -lcrypto -o build/p0_board_stack_e2e_validation
+./build/p0_board_stack_e2e_validation --emit-p0-event build/p0_product_event.json build/p0_cloud_sync_request.json
+P0-STACK-EVENT FAIL initial file-backed Node recovery
+make[2]: *** [Makefile:580: p0-board-stack-event-host-test] Error 1
+make[2]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+
+SOFTWARE FAIL PHYSICAL NOT_RUN /home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/evidence/validation_framework/pwa-1791863251091791737/report.json
+make[1]: *** [Makefile:357: validation-pwa] Error 1
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+make: *** [Makefile:5: validation-pwa] Error 2

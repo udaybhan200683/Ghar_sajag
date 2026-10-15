@@ -1,0 +1,69 @@
+python3 validation/component_gate.py --suite backend 
+START host-build timeout=600
+PASS host-build exit=0 count=1 0.17s
+START backend-receipts timeout=600
+PASS backend-receipts exit=0 count=1 3.316s
+START hub-ownership-lifecycle timeout=120
+PASS hub-ownership-lifecycle exit=0 count=6 0.646s
+START health-config timeout=600
+PASS health-config exit=0 count=15 3.654s
+START contracts timeout=600
+PASS contracts exit=0 count=1 0.225s
+START lab-build timeout=600
+PASS lab-build exit=0 count=1 0.448s
+START python timeout=600
+PASS python exit=0 count=449 39.686s
+START functional timeout=600
+PASS functional exit=0 count=92 4.935s
+START dummy-streams timeout=600
+PASS dummy-streams exit=0 count=5 0.57s
+START http timeout=600
+PASS http exit=0 count=17 5.914s
+START bridge timeout=600
+PASS bridge exit=0 count=13 2.492s
+START api timeout=600
+PASS api exit=0 count=2 5.23s
+START frontend timeout=600
+PASS frontend exit=0 count=2 6.43s
+START p0-full-product-e2e timeout=360
+FAIL p0-full-product-e2e exit=0 count=26 48.059s
+run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 
+
+Running 1 test using 1 worker
+
+[1/1] [chromium-desktop] › ../tests/playwright/p0_full_product.spec.ts:3:5 › C3/S3 event and backend incident render consistently after caregiver reload
+  1 passed (3.2s)
+P0-E2E-001 PASS real JsonApi creates isolated household and owner authorization
+P0-GAP-001 PASS production-shaped CloudSync request reaches the real durable API transaction and returns its committed exact EventKey
+P0-P2D-008 PASS durable commit preserves the original EventKey payload and Node/Hub timestamps
+P0-P2D-001 PASS client actor identity without trusted Hub context cannot create a durable event
+P0-P2D-002 PASS Hub principal cannot commit an event to a different Home
+P0-P2D-003 PASS stale Hub enrollment generation cannot write current Home events
+P0-P2D-004 PASS Hub authorization is pinned to the enrolled physical and logical Node identity
+P0-P2D-009 PASS trusted authorizer revocation rejects the Node before durable commit
+P0-P2D-005 PASS backend restart plus exact retry returns the persisted idempotent COMMITTED receipt
+P0-P2D-006 PASS conflicting content under the exact EventKey is rejected without replacing durable state
+P0-P2D-007 PASS database failure remains fail-closed with no COMMITTED receipt
+P0-E2E-011 PASS API accepts the implemented Hub heartbeat observation record
+P0-E2E-002 PASS Hub retry preserves the structured EventKey and produces an idempotent durable response
+P0-E2E-003 PASS exact retry yields one durable event visible to caregiver event queries
+P0-E2E-004 PASS real API stores door event and derives caregiver door status
+P0-E2E-005 PASS real service evaluates an accepted implemented concern event and creates its effect
+P0-E2E-006 PASS resident Call Family event creates implemented caregiver incident state
+P0-E2E-007 PASS caregiver projection includes the durable CloudSync EventKey exactly once alongside door state
+P0-E2E-008 PASS backend projection preserves resident-action incident state and event chronology
+P0-E2E-012 PASS fresh Hub heartbeat updates Hub liveness independently of resident activity
+P0-E2E-013 PASS Hub freshness expires after the implemented 190-second API lease
+P0-E2E-009 PASS real API denies cross-household reads without an authorized role
+P0-E2E-014 PASS events and incidents remain isolated between multiple service homes
+P0-E2E-015 PASS implemented desired-policy API validates, versions and returns the same configuration
+P0-E2E-016 PASS invalid policy is rejected by the real API instead of receiving a false success
+P0-E2E-017 PASS actual Chromium app reload renders the live API timeline, door state, connectivity and concern
+P0 E2E EXECUTION PASS scenarios=26 checks=26 browser_tests=1 product_status=PARTIAL physical=NOT_RUN
+P0 E2E REPORT build/p0_product_e2e_report.json
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_dashboard/code'
+
+START diagnostic-foundation timeout=600
+PASS diagnostic-foundation exit=0 count=98 2.433s
+SOFTWARE FAIL PHYSICAL NOT_RUN /home/udaybhan/projects/Ghar_sajag_r1_dashboard/code/evidence/validation_framework/backend-1791993307048834831/report.json
+make: *** [Makefile:357: validation-backend] Error 1

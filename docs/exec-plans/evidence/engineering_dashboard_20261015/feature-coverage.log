@@ -1,0 +1,28 @@
+python3 scripts/check_feature_traceability.py
+GS130 TRACEABILITY PASS features=165 modules=209 physical_cases=14; consistency only, not semantic/physical PASS
+PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p test_feature_traceability.py -v
+test_board_gate_is_distinct_and_registered_in_components (test_feature_traceability.FeatureTraceabilityTest.test_board_gate_is_distinct_and_registered_in_components) ... ok
+test_current_mapping_and_source_inventory (test_feature_traceability.FeatureTraceabilityTest.test_current_mapping_and_source_inventory) ... ok
+test_dashboard_scoped_approvals_are_traceable_without_canonical_promotion (test_feature_traceability.FeatureTraceabilityTest.test_dashboard_scoped_approvals_are_traceable_without_canonical_promotion) ... ok
+test_future_board_case_requires_marker_and_matrix (test_feature_traceability.FeatureTraceabilityTest.test_future_board_case_requires_marker_and_matrix) ... ok
+test_implemented_unmapped_without_gap_fails (test_feature_traceability.FeatureTraceabilityTest.test_implemented_unmapped_without_gap_fails) ... ok
+test_migration_remains_mandatory_without_skip (test_feature_traceability.FeatureTraceabilityTest.test_migration_remains_mandatory_without_skip) ... ok
+test_missing_registration_fails (test_feature_traceability.FeatureTraceabilityTest.test_missing_registration_fails) ... ok
+test_missing_source_fails (test_feature_traceability.FeatureTraceabilityTest.test_missing_source_fails) ... ok
+test_module_feature_must_resolve (test_feature_traceability.FeatureTraceabilityTest.test_module_feature_must_resolve) ... ok
+test_new_component_registration_reaches_fast_release (test_feature_traceability.FeatureTraceabilityTest.test_new_component_registration_reaches_fast_release) ... ok
+test_omitted_board_case_mapping_fails (test_feature_traceability.FeatureTraceabilityTest.test_omitted_board_case_mapping_fails) ... ok
+test_omitted_new_module_fails (test_feature_traceability.FeatureTraceabilityTest.test_omitted_new_module_fails) ... ok
+test_physical_not_run_cannot_be_host_pass (test_feature_traceability.FeatureTraceabilityTest.test_physical_not_run_cannot_be_host_pass) ... ok
+test_release_still_includes_all_required_application_and_build_stages (test_feature_traceability.FeatureTraceabilityTest.test_release_still_includes_all_required_application_and_build_stages) ... ok
+test_row_cannot_claim_physical_pass (test_feature_traceability.FeatureTraceabilityTest.test_row_cannot_claim_physical_pass) ... ok
+test_test_id_must_resolve (test_feature_traceability.FeatureTraceabilityTest.test_test_id_must_resolve) ... ok
+test_unknown_canonical_requirement_fails (test_feature_traceability.FeatureTraceabilityTest.test_unknown_canonical_requirement_fails) ... ok
+test_wrong_command_fails (test_feature_traceability.FeatureTraceabilityTest.test_wrong_command_fails) ... ok
+test_wrong_component_gate_fails (test_feature_traceability.FeatureTraceabilityTest.test_wrong_component_gate_fails) ... ok
+test_zero_rows_fails (test_feature_traceability.FeatureTraceabilityTest.test_zero_rows_fails) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 2.120s
+
+OK

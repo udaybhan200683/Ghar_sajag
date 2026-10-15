@@ -27,6 +27,8 @@ class FeatureTraceabilityTest(unittest.TestCase):
         self.assertTrue(self.issues())
     def test_unknown_canonical_requirement_fails(self):
         self.rows[0]['REQUIREMENT_ID']='GS-NOT-A-REAL-REQUIREMENT';self.assertTrue(self.issues())
+    def test_dashboard_scoped_approvals_are_traceable_without_canonical_promotion(self):
+        self.assertTrue({'GS-DIAG-01','GS-DIAG-02'}<=coverage.known_requirement_ids())
     def test_current_mapping_and_source_inventory(self):self.assertEqual(self.issues(),[])
     def test_zero_rows_fails(self):self.rows=[];self.assertIn('zero feature rows',self.issues())
     def test_missing_registration_fails(self):
@@ -44,7 +46,12 @@ class FeatureTraceabilityTest(unittest.TestCase):
     def test_module_feature_must_resolve(self):
         self.modules[0]['FEATURE_IDS']='NEW-UNMAPPED';self.assertTrue(self.issues())
     def test_physical_not_run_cannot_be_host_pass(self):
-        self.physical[0]['EXECUTION_STATUS']='PASS';self.assertTrue(self.issues())
+        planned=next(row for row in self.physical if row['EXECUTION_STATUS']=='NOT_RUN')
+        planned['EXECUTION_STATUS']='PASS';self.assertTrue(any('lacks source/image evidence' in error for error in self.issues()))
+    def test_recorded_physical_outcomes_are_preserved(self):
+        self.assertTrue(any(row['TEST_ID']=='PHY-GS114' and row['EXECUTION_STATUS']=='PARTIAL' for row in self.physical))
+        self.assertTrue(any(row['TEST_ID']=='C8-P8' and row['EXECUTION_STATUS']=='PASS' for row in self.physical))
+        self.assertFalse(self.issues())
     def test_row_cannot_claim_physical_pass(self):
         self.rows[0]['PHYSICAL_EVIDENCE_STATUS']='PASS';self.assertTrue(self.issues())
     def test_implemented_unmapped_without_gap_fails(self):

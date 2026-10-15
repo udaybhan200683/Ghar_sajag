@@ -6,6 +6,9 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,
+  // The P0 full-product stage owns this spec and injects its isolated local
+  // stack. Generic caregiver browser runs must not launch it without that stack.
+  testIgnore: process.env.P0_E2E_BASE_URL ? [] : ['**/p0_full_product.spec.ts'],
   reporter: [
     ['list'],
     ['html', { outputFolder: '../evidence/playwright-report', open: 'never' }],

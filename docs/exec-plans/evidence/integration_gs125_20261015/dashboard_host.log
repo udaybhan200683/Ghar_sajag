@@ -1,0 +1,76 @@
+test_foundation (unittest.loader._FailedTest.test_foundation) ... ERROR
+test_human_authentication (unittest.loader._FailedTest.test_human_authentication) ... ERROR
+test_R01_selected_backend_fast_release_only_expected_ownership (test_registration.RegistrationTest.test_R01_selected_backend_fast_release_only_expected_ownership) ... ok
+test_R02_all_parent_registry_stages_preserved_without_canonical_overwrite (test_registration.RegistrationTest.test_R02_all_parent_registry_stages_preserved_without_canonical_overwrite) ... FAIL
+test_R03_actual_nonzero_exit_cannot_pass_despite_ok_marker (test_registration.RegistrationTest.test_R03_actual_nonzero_exit_cannot_pass_despite_ok_marker) ... ok
+test_R04_zero_or_missing_execution_and_missing_ok_marker_fail (test_registration.RegistrationTest.test_R04_zero_or_missing_execution_and_missing_ok_marker_fail) ... ok
+test_R05_missing_owned_test_input_rejected (test_registration.RegistrationTest.test_R05_missing_owned_test_input_rejected) ... ok
+test_R06_registered_sources_and_body_invalidate_fingerprint (test_registration.RegistrationTest.test_R06_registered_sources_and_body_invalidate_fingerprint) ... ok
+test_service_access (unittest.loader._FailedTest.test_service_access) ... ERROR
+
+======================================================================
+ERROR: test_foundation (unittest.loader._FailedTest.test_foundation)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_foundation
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/unittest/loader.py", line 426, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/usr/lib/python3.14/unittest/loader.py", line 367, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/home/udaybhan/projects/Ghar_sajag_r1_integration/code/tests/engineering_dashboard/test_foundation.py", line 14, in <module>
+    from ghar_sajag.database import initialize_sqlite
+ModuleNotFoundError: No module named 'ghar_sajag'
+
+
+======================================================================
+ERROR: test_human_authentication (unittest.loader._FailedTest.test_human_authentication)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_human_authentication
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/unittest/loader.py", line 426, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/usr/lib/python3.14/unittest/loader.py", line 367, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/home/udaybhan/projects/Ghar_sajag_r1_integration/code/tests/engineering_dashboard/test_human_authentication.py", line 5, in <module>
+    from ghar_sajag.human_authentication import (
+    ...<2 lines>...
+    )
+ModuleNotFoundError: No module named 'ghar_sajag'
+
+
+======================================================================
+ERROR: test_service_access (unittest.loader._FailedTest.test_service_access)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_service_access
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/unittest/loader.py", line 426, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/usr/lib/python3.14/unittest/loader.py", line 367, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/home/udaybhan/projects/Ghar_sajag_r1_integration/code/tests/engineering_dashboard/test_service_access.py", line 11, in <module>
+    from ghar_sajag.database import initialize_sqlite
+ModuleNotFoundError: No module named 'ghar_sajag'
+
+
+======================================================================
+FAIL: test_R02_all_parent_registry_stages_preserved_without_canonical_overwrite (test_registration.RegistrationTest.test_R02_all_parent_registry_stages_preserved_without_canonical_overwrite)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_integration/code/tests/engineering_dashboard/test_registration.py", line 33, in test_R02_all_parent_registry_stages_preserved_without_canonical_overwrite
+    self.assertEqual(current_ids-prior_ids,{"diagnostic-foundation"})
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Items in the first set but not the second:
+'storage-correctness-sanitizers'
+'first-event-recovery-projection'
+'c8-ack-drop-gate'
+'cloud-worker-backend-integration'
+'first-event-reader-compatibility'
+'storage-correctness'
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.503s
+
+FAILED (failures=1, errors=3)

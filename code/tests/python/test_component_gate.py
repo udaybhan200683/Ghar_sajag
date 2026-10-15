@@ -132,9 +132,41 @@ class ComponentGateTest(unittest.TestCase):
         fast={s["id"] for s in gate.select(data,"fast")}
         release={s["id"] for s in gate.select(data,"release")}
         self.assertLessEqual(fast,release)
-        for name in gate.COMPONENTS:
+        for name in gate.COMPONENTS-{"pwa"}:
             self.assertLessEqual({s["id"] for s in gate.select(data,name)},fast)
         self.assertLessEqual({"sanitizers","trace","target-builds","browser","bounded-performance"},release)
+        self.assertLessEqual({s["id"] for s in gate.select(data,"pwa")},release)
+    def test_pwa_suite_includes_registered_desktop_mobile_browser_without_fast_expansion(self):
+        data=gate.load_registry()
+        pwa={s["id"] for s in gate.select(data,"pwa")}
+        fast={s["id"] for s in gate.select(data,"fast")}
+        release={s["id"] for s in gate.select(data,"release")}
+        self.assertIn("browser",pwa)
+        self.assertIn("diagnostic-foundation",pwa)
+        self.assertIn("browser",release)
+        self.assertNotIn("browser",fast)
+        self.assertIn("diagnostic-foundation",fast)
+    def test_p0_browser_spec_has_one_mandatory_injected_stack_owner(self):
+        config=(ROOT/"frontend/playwright.config.ts").read_text()
+        runner=(ROOT/"tests/python/run_full_product_p0_e2e.py").read_text()
+        stage=next(s for s in gate.load_registry()["stages"] if s["id"]=="p0-full-product-e2e")
+        self.assertIn("P0_E2E_BASE_URL ? [] : ['**/p0_full_product.spec.ts']",config)
+        self.assertIn('"P0_E2E_BASE_URL": base',runner)
+        self.assertIn("tests/playwright/p0_full_product.spec.ts",stage["inputs"])
+        self.assertIn(stage,gate.select(gate.load_registry(),"pwa"))
+    def test_preview_browser_marker_and_every_named_case_are_mandatory(self):
+        data=gate.load_registry()
+        stage=next(s for s in data["stages"] if s["id"]=="browser")
+        output=("86 passed (generated Playwright summary)\n"
+                "ENGINEERING DASHBOARD PREVIEW PASS screens=7 viewports=2 cases=20 "
+                "scope=PREVIEW_ONLY production_qualification=BLOCKED physical=NOT_RUN "
+                "output=code/build/engineering_dashboard_preview\n")
+        output+="".join(pattern[1:-len(" PASS$")]+" PASS\n" for pattern in stage["required_success"] if pattern.startswith("^CASE "))
+        self.assertEqual(gate.adjudicate(stage,self.result(output)),"PASS")
+        missing=output.replace("CASE ED-PREVIEW-OVERVIEW-DESKTOP-001 PASS\n","")
+        self.assertEqual(gate.adjudicate(stage,self.result(missing)),"FAIL")
+        stale_scope=output.replace("scope=PREVIEW_ONLY","scope=PRODUCTION")
+        self.assertEqual(gate.adjudicate(stage,self.result(stale_scope)),"FAIL")
     def test_node_has_previous_safety_and_new_health_without_browser(self):
         ids={s["id"] for s in gate.select(gate.load_registry(),"node")}
         self.assertLessEqual({"cpp","battery-c8","gs150","gs40","node-persistence","node-retirement","rejoin","fota"},ids)

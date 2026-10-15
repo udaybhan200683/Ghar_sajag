@@ -1,0 +1,340 @@
+{
+  "source_commit": "bfcf293edaf538a68c61b654e8aee141429480ce",
+  "distinct_new_tests": 54,
+  "framework_tests": 39,
+  "mapping_meta_tests": 19,
+  "caregiver_js_tests": 23,
+  "production_authentication": "BLOCKED",
+  "live_diagnostics": "NOT_ACTIVATED",
+  "hardware": "BLOCKED_GS114_NO_GO",
+  "full_release": "NOT_RUN",
+  "native_reports": [
+    {
+      "archive": "gs116_runs/backend-1791862723356800603/report.json",
+      "suite": "backend",
+      "status": "FAIL",
+      "source_head": "810209e9bbc469b003d1611a6d22c391365cf1c5",
+      "fingerprint": "3a8772ac28c9d208557aa74fe3bff304a1aa2e1dc4226cc2c6e235bdf4adbb92",
+      "source_unchanged": true,
+      "seconds": 181.632,
+      "stages": [
+        {
+          "id": "host-build",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "backend-receipts",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "hub-ownership-lifecycle",
+          "status": "PASS",
+          "count": 6,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "health-config",
+          "status": "PASS",
+          "count": 15,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "contracts",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "lab-build",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "python",
+          "status": "FAIL",
+          "count": 448,
+          "exit_code": 1,
+          "reused_from": null
+        },
+        {
+          "id": "functional",
+          "status": "PASS",
+          "count": 92,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "dummy-streams",
+          "status": "PASS",
+          "count": 5,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "http",
+          "status": "PASS",
+          "count": 17,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "bridge",
+          "status": "PASS",
+          "count": 13,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "api",
+          "status": "PASS",
+          "count": 2,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "frontend",
+          "status": "PASS",
+          "count": 2,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "p0-full-product-e2e",
+          "status": "FAIL",
+          "count": 0,
+          "exit_code": 2,
+          "reused_from": null
+        },
+        {
+          "id": "diagnostic-foundation",
+          "status": "PASS",
+          "count": 54,
+          "exit_code": 0,
+          "reused_from": null
+        }
+      ]
+    },
+    {
+      "archive": "gs116_runs/backend-1791863004313710944/report.json",
+      "suite": "backend",
+      "status": "FAIL",
+      "source_head": "810209e9bbc469b003d1611a6d22c391365cf1c5",
+      "fingerprint": "b532b27af35e8b1b3557651693dd6df1e8eb7b6a32d295d377b5fb974f219e23",
+      "source_unchanged": true,
+      "seconds": 169.485,
+      "stages": [
+        {
+          "id": "host-build",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "backend-receipts",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "hub-ownership-lifecycle",
+          "status": "PASS",
+          "count": 6,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "health-config",
+          "status": "PASS",
+          "count": 15,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "contracts",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "lab-build",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "python",
+          "status": "FAIL",
+          "count": 448,
+          "exit_code": 1,
+          "reused_from": null
+        },
+        {
+          "id": "functional",
+          "status": "PASS",
+          "count": 92,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "dummy-streams",
+          "status": "PASS",
+          "count": 5,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "http",
+          "status": "PASS",
+          "count": 17,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "bridge",
+          "status": "PASS",
+          "count": 13,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "api",
+          "status": "PASS",
+          "count": 2,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "frontend",
+          "status": "PASS",
+          "count": 2,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "p0-full-product-e2e",
+          "status": "FAIL",
+          "count": 0,
+          "exit_code": 2,
+          "reused_from": null
+        },
+        {
+          "id": "diagnostic-foundation",
+          "status": "PASS",
+          "count": 54,
+          "exit_code": 0,
+          "reused_from": null
+        }
+      ]
+    },
+    {
+      "archive": "gs116_runs/pwa-1791863251091791737/report.json",
+      "suite": "pwa",
+      "status": "FAIL",
+      "source_head": "810209e9bbc469b003d1611a6d22c391365cf1c5",
+      "fingerprint": "b532b27af35e8b1b3557651693dd6df1e8eb7b6a32d295d377b5fb974f219e23",
+      "source_unchanged": true,
+      "seconds": 120.792,
+      "stages": [
+        {
+          "id": "host-build",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "contracts",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "lab-build",
+          "status": "PASS",
+          "count": 1,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "python",
+          "status": "FAIL",
+          "count": 448,
+          "exit_code": 1,
+          "reused_from": null
+        },
+        {
+          "id": "javascript",
+          "status": "PASS",
+          "count": 23,
+          "exit_code": 0,
+          "reused_from": null
+        },
+        {
+          "id": "functional",
+          "status": "PASS",
+          "count": 92,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "dummy-streams",
+          "status": "PASS",
+          "count": 5,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "http",
+          "status": "PASS",
+          "count": 17,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "bridge",
+          "status": "PASS",
+          "count": 13,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "api",
+          "status": "PASS",
+          "count": 2,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "frontend",
+          "status": "PASS",
+          "count": 2,
+          "exit_code": 0,
+          "reused_from": "evidence/validation_framework/backend-1791863004313710944/report.json"
+        },
+        {
+          "id": "p0-full-product-e2e",
+          "status": "FAIL",
+          "count": 0,
+          "exit_code": 2,
+          "reused_from": null
+        }
+      ]
+    }
+  ]
+}

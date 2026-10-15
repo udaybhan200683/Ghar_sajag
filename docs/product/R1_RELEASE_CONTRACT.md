@@ -154,6 +154,18 @@ deployment middleware/database composition and old-generation backlog policy
 are not thereby selected. Those technical contracts must be supplied by their
 owning GS-109/GS-148 security authority before production trust can be claimed.
 
+## Corrected v1 first-event recovery in supported commercial S3 images — GS-D033
+
+Both supported commercial R1 S3 application images SHALL contain corrected v1
+first-event recovery logic. Backport the correction before designating an older
+reader supported, or obtain a later explicit decision removing that image from
+the supported set. The old engineering reader's fail-closed pending-first-event
+limitation does not satisfy commercial rollback availability. No concrete signed
+image pair is selected or qualified. GS-D033 authorizes no self-OTA,
+signing/installation, slot writes, actual rollback or physical operation. The
+storage security and Hub ownership requirements in GS-D029 and GS-D032 remain
+unchanged. Source: canonical Decision Log, GS-145 comment 10689.
+
 ## Basic AI / routine learning
 
 R1 may include bounded, transparent statistical routine learning/baseline/trend logic using fixed-size state and aggregates.

@@ -1,0 +1,160 @@
+make: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1_integration/code'
+python3 validation/component_gate.py --suite pwa 
+START host-build timeout=600
+PASS host-build exit=0 count=1 87.371s
+START contracts timeout=600
+PASS contracts exit=0 count=1 0.243s
+START lab-build timeout=600
+PASS lab-build exit=0 count=1 103.016s
+START python timeout=600
+FAIL python exit=1 count=465 32.514s
+py", line 1875, in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                      p2cread, p2cwrite,
+                      ^^^^^^^^^^^^^^^^^^
+                      c2pread, c2pwrite,
+                      ^^^^^^^^^^^^^^^^^^
+                      errread, errwrite)
+                      ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1819, in _posix_spawn
+    self.pid = os.posix_spawn(executable, args, env, **kwargs)
+               ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/udaybhan/projects/Ghar_sajag_r1_integration/code/build/p2d_cloud_contract_validation'
+
+======================================================================
+ERROR: test_worker_api_registered_ownership_lost_reply_retry_and_projection (test_p2d_cloud_contract.P2DCloudContractTest.test_worker_api_registered_ownership_lost_reply_retry_and_projection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/udaybhan/projects/Ghar_sajag_r1_integration/code/tests/python/test_p2d_cloud_contract.py", line 72, in test_worker_api_registered_ownership_lost_reply_retry_and_projection
+    process = subprocess.Popen([binary, "--worker-api-bridge"], stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, bufsize=1)
+  File "/usr/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1875, in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                      p2cread, p2cwrite,
+                      ^^^^^^^^^^^^^^^^^^
+                      c2pread, c2pwrite,
+                      ^^^^^^^^^^^^^^^^^^
+                      errread, errwrite)
+                      ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1819, in _posix_spawn
+    self.pid = os.posix_spawn(executable, args, env, **kwargs)
+               ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/udaybhan/projects/Ghar_sajag_r1_integration/code/build/p2d_cloud_contract_validation'
+
+----------------------------------------------------------------------
+Ran 465 tests in 31.442s
+
+FAILED (errors=3, skipped=1)
+
+START javascript timeout=600
+PASS javascript exit=0 count=23 0.714s
+START functional timeout=600
+PASS functional exit=0 count=92 5.116s
+START dummy-streams timeout=600
+PASS dummy-streams exit=0 count=5 0.608s
+START http timeout=600
+PASS http exit=0 count=17 6.221s
+START bridge timeout=600
+PASS bridge exit=0 count=13 2.52s
+START api timeout=600
+PASS api exit=0 count=2 6.771s
+START frontend timeout=600
+PASS frontend exit=0 count=2 6.357s
+START browser timeout=1800
+FAIL browser exit=2 count=0 12.09s
+on/code'
+Starting Parivar Sathi / Ghar Sajag local lab...
+Lab ready: http://127.0.0.1:8766
+Error: Cannot find module '@playwright/test'
+Require stack:
+- /home/udaybhan/projects/Ghar_sajag_r1_integration/code/frontend/playwright.config.ts
+- /home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js
+- /home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/program.js
+- /home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/cli.js
+    at Function.Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Function.resolveFilename [as _resolveFilename] (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js:1134:36)
+    at Function.Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/udaybhan/projects/Ghar_sajag_r1_integration/code/frontend/playwright.config.ts:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module.newCompile2 (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js:875:29)
+    at Object.Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Object.newLoader2 [as .ts] (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js:881:22)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+    at requireOrImport (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js:1098:18)
+    at loadUserConfig (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js:1283:52)
+    at loadConfig (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js:1290:28)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at Object.loadConfigFromFile (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js:1508:10)
+    at runTests (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/cli/testActions.js:44:18)
+    at _Command.<anonymous> (/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/program.js:55:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/udaybhan/projects/Ghar_sajag_r1_integration/code/frontend/playwright.config.ts',
+    '/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/common/index.js',
+    '/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/lib/program.js',
+    '/home/udaybhan/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/cli.js'
+  ]
+}
+make[1]: *** [Makefile:471: playwright-gate] Error 1
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_integration/code'
+
+START p0-full-product-e2e timeout=360
+FAIL p0-full-product-e2e exit=2 count=0 68.31s
+ore_and_trusted_authorizer (tests.python.test_durable_api.DurableApiCompositionTest.test_requires_file_store_and_trusted_authorizer) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.093s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_durable_event_commit -v
+test_api_requires_authorized_hub_and_durable_store (tests.python.test_durable_event_commit.DurableEventCommitTest.test_api_requires_authorized_hub_and_durable_store) ... ok
+test_conflicting_type_timestamp_payload_and_identity (tests.python.test_durable_event_commit.DurableEventCommitTest.test_conflicting_type_timestamp_payload_and_identity) ... ok
+test_faults_rollback_all_effects_then_retry (tests.python.test_durable_event_commit.DurableEventCommitTest.test_faults_rollback_all_effects_then_retry) ... ok
+test_first_duplicate_lost_response_and_restart (tests.python.test_durable_event_commit.DurableEventCommitTest.test_first_duplicate_lost_response_and_restart) ... ok
+test_sessions_nodes_high_rate_and_quiet_door (tests.python.test_durable_event_commit.DurableEventCommitTest.test_sessions_nodes_high_rate_and_quiet_door) ... ok
+test_sqlite_commit_failure_rolls_back (tests.python.test_durable_event_commit.DurableEventCommitTest.test_sqlite_commit_failure_rolls_back) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.252s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest tests.python.test_p2d_cloud_contract -v
+test_real_commit_lost_reply_partial_catchup_reboots (tests.python.test_p2d_cloud_contract.P2DCloudContractTest.test_real_commit_lost_reply_partial_catchup_reboots) ... RESULT p2d_bridge=PASS events=300 completed=300 pending=0 requests=304 rejected=3 logical_bytes=77452 allocated_bytes=90112 identity_logical_bytes=44046 offline_logical_bytes=49826 peak_logical_bytes=77452 peak_allocated_bytes=90112 catchup_ms=11888 configured_reserve=524288 backend_restarts=3 backend_duplicates=3 fixture_failures=4 wall_seconds=12.110
+ok
+test_worker_api_registered_ownership_lost_reply_retry_and_projection (tests.python.test_p2d_cloud_contract.P2DCloudContractTest.test_worker_api_registered_ownership_lost_reply_retry_and_projection) ... GS148-CLOUD-WORKER-API-001 PASS retry_same_event=1 durable_effects=1 caregiver_projection=1
+ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 12.204s
+
+OK
+python3 validation/check_p0_e2e_scenarios.py
+P0 SCENARIO REGISTRY PASS use_cases=17 scenarios=30 executable_sources=30
+PYTHONPATH=backend:. python3 tests/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 
+P0 E2E FAIL [Errno 2] No such file or directory: '/home/udaybhan/projects/Ghar_sajag_r1_integration/code/frontend/node_modules/.bin/playwright'
+make[1]: *** [Makefile:616: p0-product-e2e] Error 1
+make[1]: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_integration/code'
+
+START diagnostic-foundation timeout=600
+PASS diagnostic-foundation exit=0 count=98 2.46s
+SOFTWARE FAIL PHYSICAL NOT_RUN /home/udaybhan/projects/Ghar_sajag_r1_integration/code/evidence/validation_framework/pwa-1792038071720697546/report.json
+make: *** [Makefile:358: validation-pwa] Error 1
+make: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1_integration/code'

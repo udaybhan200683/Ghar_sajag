@@ -1,0 +1,17 @@
+{
+  "source_head": "810209e9bbc469b003d1611a6d22c391365cf1c5+scoped-working-tree",
+  "registered_final_fingerprint": "b532b27af35e8b1b3557651693dd6df1e8eb7b6a32d295d377b5fb974f219e23",
+  "source_unchanged_during_backend_final": true,
+  "files": {
+    "code/backend/ghar_sajag/identity.py": "101ddb96e0aa503592ea70f77f2d60b313fc542998f790c674758240a31d26f3",
+    "code/backend/ghar_sajag/diagnostic_authorization.py": "baabd511675bfc4e1bba7ecd8ac37638298efc2e8efd24ff92e50d798a5814d5",
+    "code/backend/ghar_sajag/diagnostics.py": "87469eb600dd645b8c6303001d6b895956fe6f0d6ae2a8f48ef1c08805786ce6",
+    "code/tests/engineering_dashboard/test_foundation.py": "00cca13152fc74355824a266af73cc75e3bedaf5f52494adb25d412833e9cbe0",
+    "code/tests/engineering_dashboard/test_registration.py": "b5c07e187584356fd32ebda8e27826ff2af1c7d5a7260a6f8a6fd6630d8652a8",
+    "code/validation/suites.json": "eab5977989bf2b8e6eb69a5460703c62cf0c1150dc1a6f1a82bade68de016d82",
+    "docs/validation/MASTER_TRACEABILITY.csv": "35fddbc48615d2fe26119379a38a30468e381fcaa5467e9ffe2054300c983ee6",
+    "docs/validation/SOURCE_FEATURE_INVENTORY.csv": "b6201179d7105e52ea43fd8533c851aa7da277f1367da291f7b79a06c2964c83"
+  },
+  "source_commit": "bfcf293edaf538a68c61b654e8aee141429480ce",
+  "remote_source_head_verified": "bfcf293edaf538a68c61b654e8aee141429480ce"
+}

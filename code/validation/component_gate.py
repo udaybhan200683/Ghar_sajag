@@ -25,6 +25,8 @@ def load_registry(path=REGISTRY, root=ROOT):
             raise ValueError("missing command")
         if not s.get("success") or s.get("timeout",0)<=0:
             raise ValueError("missing success evidence or timeout")
+        if "pwa" in s and (s["pwa"] is not True or "pwa" not in s["components"]):
+            raise ValueError("PWA-only selector requires an explicit PWA-owned stage: "+s["id"])
         for f in s.get("inputs",[]):
             if not (root/f).is_file(): raise ValueError("missing dependency: "+f)
         if s.get("require_complete_product") and not (s.get("fast") and s.get("release", True)):
@@ -54,7 +56,8 @@ def select(data,suite):
         (suite=="p0-e2e" and s["id"]=="p0-full-product-e2e") or
         (suite=="release" and (s.get("fast",True) or s.get("release",False))) or
         (suite=="fast" and s.get("fast",True)) or
-        suite in s["components"] and s.get("fast",True)]
+        (suite in s["components"] and s.get("fast",True)) or
+        (suite=="pwa" and s.get("pwa",False))]
     if not selected: raise ValueError("zero selected stages")
     return selected
 

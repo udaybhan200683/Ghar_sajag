@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import shutil, subprocess, sys
+from pathlib import Path
 missing=[]
 for cmd in ("node","npm","npx"):
     if not shutil.which(cmd): missing.append(cmd)

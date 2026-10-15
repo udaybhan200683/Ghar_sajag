@@ -1,0 +1,288 @@
+{
+  "c8-ack-drop-gate": {
+    "id": "c8-ack-drop-gate",
+    "components": [
+      "hub"
+    ],
+    "command": [
+      "make",
+      "c8-ack-drop-gate-host-test"
+    ],
+    "inputs": [
+      "tests/cpp/c8_ack_drop_gate_validation.cpp",
+      "firmware/hub/target/esp32/hil_c8_ack_drop_gate.hpp"
+    ],
+    "success": "^C8 ACK-drop gate PASS checks=(\\d+)$",
+    "timeout": 120,
+    "count_kind": "checks"
+  },
+  "storage-correctness": {
+    "id": "storage-correctness",
+    "components": [
+      "hub",
+      "contract"
+    ],
+    "command": [
+      "make",
+      "hub-storage-correctness-host-test",
+      "GS148_CASE=all"
+    ],
+    "inputs": [
+      "tests/cpp/hub_storage_correctness_validation.cpp",
+      "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+      "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+      "firmware/hub/runtime/hub_runtime.cpp",
+      "firmware/hub/runtime/hub_runtime.hpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.cpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.hpp",
+      "firmware/hub/storage/runtime_state_store.cpp",
+      "firmware/hub/storage/runtime_state_store.hpp",
+      "firmware/hub/storage/durable_event_outbox.cpp",
+      "firmware/hub/storage/durable_event_outbox.hpp",
+      "firmware/hub/storage/outbox_journal_backend.cpp",
+      "firmware/hub/storage/outbox_journal_backend.hpp",
+      "firmware/hub/storage/journal.cpp",
+      "firmware/hub/storage/journal.hpp",
+      "firmware/hub/storage/durable_transition.cpp",
+      "firmware/hub/storage/durable_transition.hpp",
+      "firmware/hub/storage/node_retirement_snapshot.cpp",
+      "firmware/hub/storage/node_retirement_snapshot.hpp",
+      "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+      "tests/cpp/hub_first_event_recovery_cases.inc",
+      "firmware/hub/storage/hub_durability_owner.cpp",
+      "firmware/hub/storage/hub_durability_owner.hpp",
+      "firmware/hub/commissioning/registry/registry_persistence.cpp",
+      "firmware/common/security/runtime_frame_security.cpp",
+      "firmware/common/security/rejoin_protocol.cpp"
+    ],
+    "success": "^PASS: GS148 bounded admission and recovery correctness$",
+    "required_success": [
+      "^GS148-ARCH-010 PASS repeated_refusals=12 reboot_count=2$",
+      "^GS148-ARCH-012 PASS protected_selected_and_fallback=2$",
+      "^GS148-ARCH-016 PASS cross_epoch_higher_generation_refused$",
+      "^GS148-ARCH-030 PASS immediate_workspace=20480 boundary=one_byte$",
+      "^GS148-ARCH-002/003/004/005/006/007/008/009/010 PASS cuts=13 reboot_per_cut=2$",
+      "^GS148-ARCH-012/013 PASS publication_cuts=12 reboot_per_cut=2$",
+      "^GS148-ARCH-014/015/016/018 PASS all_roots_pinned_conflict_closed$",
+      "^GS148-ARCH-001/004/005 FIRST_ADMISSION_RECOVERY_BLOCKED cuts=3 fail_closed=PASS$",
+      "^GS148-ARCH-035 PASS accepted=749 checkpoint_bytes=65462 next_refused=1$",
+      "^GS148-ARCH-012/013 PASS halted_crashes=3 reboot_per_cut=2$",
+      "^GS148-ARCH-001/002/003/004/005/006 PASS option_a_fault_cuts=59 reboot_per_cut=2$",
+      "^GS148-ARCH-008/016/040/048 PASS option_a_negative_cases=24 reboot_per_case=2$",
+      "^GS148-ARCH-007/009/010 PASS option_a_exact_retry=1 staged_failures=6 capacity_refusals=8 second_event=1$",
+      "^GS148-ARCH-012/013/014/015/016 PASS option_a_report_cases=4 reboot_per_case=2$",
+      "^GS148-ARCH-007/009 PASS pending_privacy_context=1 fresh_privacy_suppressed=1$",
+      "^GS148-ARCH-004/005/009 PASS option_a_quarantine_cycles=3 publication_cut=1$",
+      "GS148-ARCH-001/008 PASS option_a_raw_empty_negatives=2 reboot_per_case=2"
+    ],
+    "timeout": 600
+  },
+  "first-event-reader-compatibility": {
+    "id": "first-event-reader-compatibility",
+    "components": [
+      "hub",
+      "contract"
+    ],
+    "command": [
+      "make",
+      "hub-first-event-reader-host-test"
+    ],
+    "inputs": [
+      "tests/cpp/hub_storage_correctness_validation.cpp",
+      "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+      "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+      "firmware/hub/runtime/hub_runtime.cpp",
+      "firmware/hub/runtime/hub_runtime.hpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.cpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.hpp",
+      "firmware/hub/storage/runtime_state_store.cpp",
+      "firmware/hub/storage/runtime_state_store.hpp",
+      "firmware/hub/storage/durable_event_outbox.cpp",
+      "firmware/hub/storage/durable_event_outbox.hpp",
+      "firmware/hub/storage/outbox_journal_backend.cpp",
+      "firmware/hub/storage/outbox_journal_backend.hpp",
+      "firmware/hub/storage/journal.cpp",
+      "firmware/hub/storage/journal.hpp",
+      "firmware/hub/storage/durable_transition.cpp",
+      "firmware/hub/storage/durable_transition.hpp",
+      "firmware/hub/storage/node_retirement_snapshot.cpp",
+      "firmware/hub/storage/node_retirement_snapshot.hpp",
+      "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+      "tests/cpp/hub_first_event_recovery_cases.inc",
+      "firmware/hub/storage/hub_durability_owner.cpp",
+      "firmware/hub/storage/hub_durability_owner.hpp",
+      "firmware/hub/commissioning/registry/registry_persistence.cpp",
+      "firmware/common/security/runtime_frame_security.cpp",
+      "firmware/common/security/rejoin_protocol.cpp",
+      "tests/cpp/hub_first_event_reader_validation.cpp",
+      "scripts/gs148_reader_compatibility.py"
+    ],
+    "success": "^GS148-ARCH-049 PASS actual_readers=2 byte_states=11 reboot_per_reader=2$",
+    "required_success": [
+      "^OLD_READER_COMMERCIAL_ROLLBACK_AVAILABILITY=FAIL_KNOWN_FIRST_EVENT_LIMITATION$",
+      "^GS148_READER_REPORT=build/gs148_reader_compatibility/.+/report.json$"
+    ],
+    "timeout": 600
+  },
+  "first-event-recovery-projection": {
+    "id": "first-event-recovery-projection",
+    "components": [
+      "node",
+      "hub",
+      "contract"
+    ],
+    "command": [
+      "make",
+      "hub-first-event-projection-host-test"
+    ],
+    "inputs": [
+      "tests/cpp/hub_storage_correctness_validation.cpp",
+      "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+      "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+      "firmware/hub/runtime/hub_runtime.cpp",
+      "firmware/hub/runtime/hub_runtime.hpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.cpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.hpp",
+      "firmware/hub/storage/runtime_state_store.cpp",
+      "firmware/hub/storage/runtime_state_store.hpp",
+      "firmware/hub/storage/durable_event_outbox.cpp",
+      "firmware/hub/storage/durable_event_outbox.hpp",
+      "firmware/hub/storage/outbox_journal_backend.cpp",
+      "firmware/hub/storage/outbox_journal_backend.hpp",
+      "firmware/hub/storage/journal.cpp",
+      "firmware/hub/storage/journal.hpp",
+      "firmware/hub/storage/durable_transition.cpp",
+      "firmware/hub/storage/durable_transition.hpp",
+      "firmware/hub/storage/node_retirement_snapshot.cpp",
+      "firmware/hub/storage/node_retirement_snapshot.hpp",
+      "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+      "tests/cpp/hub_first_event_recovery_cases.inc",
+      "firmware/hub/storage/hub_durability_owner.cpp",
+      "firmware/hub/storage/hub_durability_owner.hpp",
+      "firmware/hub/commissioning/registry/registry_persistence.cpp",
+      "firmware/common/security/runtime_frame_security.cpp",
+      "firmware/common/security/rejoin_protocol.cpp",
+      "tests/cpp/hub_first_event_reader_validation.cpp",
+      "scripts/gs148_reader_compatibility.py",
+      "tests/python/run_gs148_first_event_projection.py",
+      "tests/python/run_full_product_p0_e2e.py",
+      "firmware/node/storage/node_recovery_persistence.cpp",
+      "firmware/node/runtime/node_runtime.cpp",
+      "firmware/hub/cloud_sync/cloud_sync.cpp"
+    ],
+    "success": "^GS148-ARCH-051 PASS recovered_caregiver_effects=1 fresh_effects=1 exact_commits=2 retries=2$",
+    "required_success": [
+      "^GS148-ARCH-007/009/051 PASS production_c3_s3_recovery=1 lost_ack=1 committed_events=2$",
+      "^PRODUCTION_CLOUDSYNC=PENDING PRODUCT_P0=PARTIAL PHYSICAL=NOT_RUN$"
+    ],
+    "timeout": 600
+  },
+  "storage-correctness-sanitizers": {
+    "id": "storage-correctness-sanitizers",
+    "components": [
+      "hub",
+      "contract"
+    ],
+    "command": [
+      "make",
+      "hub-storage-correctness-sanitize"
+    ],
+    "inputs": [
+      "tests/cpp/hub_storage_correctness_validation.cpp",
+      "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+      "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+      "firmware/hub/runtime/hub_runtime.cpp",
+      "firmware/hub/runtime/hub_runtime.hpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.cpp",
+      "firmware/hub/runtime/hub_checkpoint_codec.hpp",
+      "firmware/hub/storage/runtime_state_store.cpp",
+      "firmware/hub/storage/runtime_state_store.hpp",
+      "firmware/hub/storage/durable_event_outbox.cpp",
+      "firmware/hub/storage/durable_event_outbox.hpp",
+      "firmware/hub/storage/outbox_journal_backend.cpp",
+      "firmware/hub/storage/outbox_journal_backend.hpp",
+      "firmware/hub/storage/journal.cpp",
+      "firmware/hub/storage/journal.hpp",
+      "firmware/hub/storage/durable_transition.cpp",
+      "firmware/hub/storage/durable_transition.hpp",
+      "firmware/hub/storage/node_retirement_snapshot.cpp",
+      "firmware/hub/storage/node_retirement_snapshot.hpp",
+      "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+      "tests/cpp/hub_first_event_recovery_cases.inc",
+      "firmware/hub/storage/hub_durability_owner.cpp",
+      "firmware/hub/storage/hub_durability_owner.hpp",
+      "firmware/hub/commissioning/registry/registry_persistence.cpp",
+      "firmware/common/security/runtime_frame_security.cpp",
+      "firmware/common/security/rejoin_protocol.cpp"
+    ],
+    "success": "^GS148 STORAGE SANITIZERS PASS$",
+    "required_success": [
+      "^GS148-ARCH-010 PASS repeated_refusals=12 reboot_count=2$",
+      "^GS148-ARCH-012 PASS protected_selected_and_fallback=2$",
+      "^GS148-ARCH-016 PASS cross_epoch_higher_generation_refused$",
+      "^GS148-ARCH-030 PASS immediate_workspace=20480 boundary=one_byte$",
+      "^GS148-ARCH-002/003/004/005/006/007/008/009/010 PASS cuts=13 reboot_per_cut=2$",
+      "^GS148-ARCH-012/013 PASS publication_cuts=12 reboot_per_cut=2$",
+      "^GS148-ARCH-014/015/016/018 PASS all_roots_pinned_conflict_closed$",
+      "^GS148-ARCH-001/004/005 FIRST_ADMISSION_RECOVERY_BLOCKED cuts=3 fail_closed=PASS$",
+      "^GS148-ARCH-035 PASS accepted=749 checkpoint_bytes=65462 next_refused=1$",
+      "^GS148-ARCH-012/013 PASS halted_crashes=3 reboot_per_cut=2$",
+      "^GS148-ARCH-001/002/003/004/005/006 PASS option_a_fault_cuts=59 reboot_per_cut=2$",
+      "^GS148-ARCH-008/016/040/048 PASS option_a_negative_cases=24 reboot_per_case=2$",
+      "^GS148-ARCH-007/009/010 PASS option_a_exact_retry=1 staged_failures=6 capacity_refusals=8 second_event=1$",
+      "^GS148-ARCH-012/013/014/015/016 PASS option_a_report_cases=4 reboot_per_case=2$",
+      "^GS148-ARCH-007/009 PASS pending_privacy_context=1 fresh_privacy_suppressed=1$",
+      "^GS148-ARCH-004/005/009 PASS option_a_quarantine_cycles=3 publication_cut=1$",
+      "GS148-ARCH-001/008 PASS option_a_raw_empty_negatives=2 reboot_per_case=2"
+    ],
+    "timeout": 600
+  },
+  "cloud-worker-backend-integration": {
+    "id": "cloud-worker-backend-integration",
+    "components": [
+      "hub",
+      "contract",
+      "backend"
+    ],
+    "command": [
+      "make",
+      "gs148-cloud-worker-api-integration-host-test"
+    ],
+    "inputs": [
+      "tests/cpp/p2d_cloud_contract_validation.cpp",
+      "tests/python/test_p2d_cloud_contract.py",
+      "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+      "firmware/hub/cloud_sync/cloud_sync.cpp",
+      "firmware/hub/cloud_sync/cloud_sync.hpp",
+      "firmware/hub/cloud_sync/http_backend_transport.cpp",
+      "firmware/hub/cloud_sync/http_backend_transport.hpp",
+      "firmware/hub/runtime/hub_runtime.cpp",
+      "firmware/hub/runtime/hub_runtime.hpp",
+      "firmware/hub/storage/journal.cpp",
+      "firmware/hub/storage/journal.hpp",
+      "firmware/hub/storage/runtime_state_store.cpp",
+      "firmware/hub/storage/runtime_state_store.hpp",
+      "backend/ghar_sajag/durable_api.py",
+      "backend/ghar_sajag/durable_commit.py",
+      "backend/ghar_sajag/database.py",
+      "backend/ghar_sajag/homes.py",
+      "backend/ghar_sajag/http_api.py",
+      "backend/ghar_sajag/identity.py",
+      "backend/ghar_sajag/model.py",
+      "backend/ghar_sajag/ownership_registry.py",
+      "backend/ghar_sajag/queries.py",
+      "backend/ghar_sajag/service.py",
+      "backend/ghar_sajag/sqlite_events.py",
+      "backend/migrations/001_p0_core.sql",
+      "backend/migrations/003_phase1_application.sql",
+      "backend/migrations/004_cloud_event_history.sql",
+      "backend/migrations/005_phase2b_notifications.sql",
+      "backend/migrations/007_phase3b_household_event_identity.sql",
+      "backend/migrations/008_durable_event_commit.sql",
+      "backend/migrations/009_hub_ownership_registry.sql",
+      "backend/migrations/010_durable_commit_ownership_provenance.sql"
+    ],
+    "success": "^[^\\n]*GS148-CLOUD-WORKER-API-001 PASS retry_same_event=1 durable_effects=1 caregiver_projection=1[^\\n]*$",
+    "timeout": 900
+  }
+}

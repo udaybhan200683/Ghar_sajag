@@ -1,0 +1,2 @@
+# Preserve byte-exact captured subprocess output, including line-end spaces.
+*.log whitespace=-blank-at-eol

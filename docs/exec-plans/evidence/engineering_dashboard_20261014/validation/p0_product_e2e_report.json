@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "source_head": "193b641d8ae49e50675716317ad2ad2bc564d9e9",
+  "execution": "PASS",
+  "product_vertical_status": "PARTIAL",
+  "scenario_results": [
+    {
+      "scenario_id": "P0-E2E-001",
+      "status": "PASS",
+      "detail": "real JsonApi creates isolated household and owner authorization"
+    },
+    {
+      "scenario_id": "P0-GAP-001",
+      "status": "PASS",
+      "detail": "production-shaped CloudSync request reaches the real durable API transaction and returns its committed exact EventKey"
+    },
+    {
+      "scenario_id": "P0-P2D-008",
+      "status": "PASS",
+      "detail": "durable commit preserves the original EventKey payload and Node/Hub timestamps"
+    },
+    {
+      "scenario_id": "P0-P2D-001",
+      "status": "PASS",
+      "detail": "client actor identity without trusted Hub context cannot create a durable event"
+    },
+    {
+      "scenario_id": "P0-P2D-002",
+      "status": "PASS",
+      "detail": "Hub principal cannot commit an event to a different Home"
+    },
+    {
+      "scenario_id": "P0-P2D-003",
+      "status": "PASS",
+      "detail": "stale Hub enrollment generation cannot write current Home events"
+    },
+    {
+      "scenario_id": "P0-P2D-004",
+      "status": "PASS",
+      "detail": "Hub authorization is pinned to the enrolled physical and logical Node identity"
+    },
+    {
+      "scenario_id": "P0-P2D-009",
+      "status": "PASS",
+      "detail": "trusted authorizer revocation rejects the Node before durable commit"
+    },
+    {
+      "scenario_id": "P0-P2D-005",
+      "status": "PASS",
+      "detail": "backend restart plus exact retry returns the persisted idempotent COMMITTED receipt"
+    },
+    {
+      "scenario_id": "P0-P2D-006",
+      "status": "PASS",
+      "detail": "conflicting content under the exact EventKey is rejected without replacing durable state"
+    },
+    {
+      "scenario_id": "P0-P2D-007",
+      "status": "PASS",
+      "detail": "database failure remains fail-closed with no COMMITTED receipt"
+    },
+    {
+      "scenario_id": "P0-E2E-011",
+      "status": "PASS",
+      "detail": "API accepts the implemented Hub heartbeat observation record"
+    },
+    {
+      "scenario_id": "P0-E2E-002",
+      "status": "PASS",
+      "detail": "Hub retry preserves the structured EventKey and produces an idempotent durable response"
+    },
+    {
+      "scenario_id": "P0-E2E-003",
+      "status": "PASS",
+      "detail": "exact retry yields one durable event visible to caregiver event queries"
+    },
+    {
+      "scenario_id": "P0-E2E-004",
+      "status": "PASS",
+      "detail": "real API stores door event and derives caregiver door status"
+    },
+    {
+      "scenario_id": "P0-E2E-005",
+      "status": "PASS",
+      "detail": "real service evaluates an accepted implemented concern event and creates its effect"
+    },
+    {
+      "scenario_id": "P0-E2E-006",
+      "status": "PASS",
+      "detail": "resident Call Family event creates implemented caregiver incident state"
+    },
+    {
+      "scenario_id": "P0-E2E-007",
+      "status": "PASS",
+      "detail": "caregiver projection includes the durable CloudSync EventKey exactly once alongside door state"
+    },
+    {
+      "scenario_id": "P0-E2E-008",
+      "status": "PASS",
+      "detail": "backend projection preserves resident-action incident state and event chronology"
+    },
+    {
+      "scenario_id": "P0-E2E-012",
+      "status": "PASS",
+      "detail": "fresh Hub heartbeat updates Hub liveness independently of resident activity"
+    },
+    {
+      "scenario_id": "P0-E2E-013",
+      "status": "PASS",
+      "detail": "Hub freshness expires after the implemented 190-second API lease"
+    },
+    {
+      "scenario_id": "P0-E2E-009",
+      "status": "PASS",
+      "detail": "real API denies cross-household reads without an authorized role"
+    },
+    {
+      "scenario_id": "P0-E2E-014",
+      "status": "PASS",
+      "detail": "events and incidents remain isolated between multiple service homes"
+    },
+    {
+      "scenario_id": "P0-E2E-015",
+      "status": "PASS",
+      "detail": "implemented desired-policy API validates, versions and returns the same configuration"
+    },
+    {
+      "scenario_id": "P0-E2E-016",
+      "status": "PASS",
+      "detail": "invalid policy is rejected by the real API instead of receiving a false success"
+    },
+    {
+      "scenario_id": "P0-E2E-017",
+      "status": "PASS",
+      "detail": "actual Chromium app reload renders the live API timeline, door state, connectivity and concern",
+      "test_count": 1
+    }
+  ],
+  "checks": 26,
+  "test_count": 1,
+  "selected_scenarios": "ALL",
+  "product_gaps": [
+    "GS-148: production Hub TLS/credential authenticator and enrollment-generation registry binding are not configured; local test credential only"
+  ],
+  "auth_boundary": "ephemeral loopback Hub fixture credential is translated by test middleware; production Hub trust and caregiver OIDC are not claimed",
+  "physical_qualification": "NOT_RUN"
+}

@@ -1,0 +1,8 @@
+CONTRACT,SOURCE,TRUST,ENFORCEMENT,LIMITATION
+READ_DIAGNOSTICS,DiagnosticAuthorizer.require,Trusted GS76/143 adapter; absent DENY,Current Home/session/member/grant/epoch versions,No authentication or issuance source; no deployed caller
+EVENT_BINDING,TrustedDiagnosticAuthority.event_access,Trusted ownership authority; absent no SQL,Home/current epoch/exact canonical EventKey/original generation,Production current binding adapter NOT_IMPLEMENTED
+CLASS_A,ScopedTechnicalSource.page,Authorized scoped bounded provider only,Allowlisted technical fields; missing UNKNOWN/STALE/UNSUPPORTED,Target exporter NOT_IMPLEMENTED; fixture source only
+CLASS_B,DiagnosticReadService._trace,Single exact existing durable commit/event join,No payload_json; strict Home/epoch/generation/recent window,Only read-only SQLite observation; 11 missing stages UNKNOWN
+LIMITS,DiagnosticLimits,Explicit trusted injected parameters; absent 503,Rows/response bytes/cursor count/recentness/freshness,No product numeric values selected; no rate policy qualification
+CACHE,DiagnosticResponse.headers,Success and safe errors,"Cache-Control no-store; Vary Authorization,Cookie",Actual HTTP/browser integration NOT_RUN
+ACTIVATION,JsonApi/main/frontend,No composition or new routes,Existing requests return route_not_found,Issuer/grants/operational/privacy proof gates remain BLOCKED

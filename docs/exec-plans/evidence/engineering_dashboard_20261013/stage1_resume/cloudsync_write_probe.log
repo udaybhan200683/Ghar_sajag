@@ -1,0 +1,2 @@
+GS124_TEMP_PROBE fclose errno=28
+p2d_cloud_contract_validation=FAIL bridge durable-before-ACK

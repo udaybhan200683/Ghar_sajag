@@ -1,0 +1,140 @@
+{
+  "scope": "INACTIVE_DESIGN_REVIEW",
+  "product_status": "PARTIAL",
+  "environment": "HOST_SIMULATION_AND_LOCAL_API",
+  "source_head": "77e29d44c57f0851f78358049c288323c985d2e7",
+  "trace": {
+    "schema_version": 1,
+    "home_id": "home",
+    "event_key": {
+      "physical_device_id": "device",
+      "logical_node_id": "room",
+      "origin_session_id": "10",
+      "event_sequence": "1"
+    },
+    "canonical_event_id": "p6:devicen4:rooms10q1",
+    "scope": "INACTIVE_REVIEW_PROTOTYPE",
+    "stages": [
+      {
+        "stage": "sensor",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "node_created",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "radio_tx",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "hub_rx",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "hub_validated",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "hub_persisted",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "rules_processed",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "backend_queued",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      },
+      {
+        "stage": "backend_committed",
+        "result": "PASS",
+        "reason_code": "OBSERVED",
+        "observations": [
+          {
+            "schema_version": 1,
+            "home": "home",
+            "key": "p6:devicen4:rooms10q1",
+            "stage": "backend_committed",
+            "result": "PASS",
+            "producer": "DurableEventCommit.commit",
+            "evidence": "actual isolated file-SQLite transaction and query",
+            "environment": "BACKEND_FIXTURE",
+            "cursor": 1,
+            "clock_domain": "fixture-backend",
+            "observed_ms": 100,
+            "reason_code": "OBSERVED"
+          }
+        ]
+      },
+      {
+        "stage": "dashboard_received",
+        "result": "UNKNOWN",
+        "reason_code": "EVIDENCE_UNAVAILABLE",
+        "observations": []
+      }
+    ]
+  },
+  "caregiver_snapshot": {
+    "home_id": "home",
+    "mode": "HOME",
+    "home_version": 1,
+    "hub_reachable": false,
+    "last_hub_at": null,
+    "latest_activity": {
+      "event_id": "p6:devicen4:rooms10q1",
+      "kind": "MOTION",
+      "location": "room",
+      "occurred_at": 1700000001,
+      "received_at": 1700000100,
+      "uncertainty_s": 0,
+      "delayed": true,
+      "tone": "positive",
+      "details": {}
+    },
+    "recent_events": [
+      {
+        "event_id": "p6:devicen4:rooms10q1",
+        "kind": "MOTION",
+        "location": "room",
+        "occurred_at": 1700000001,
+        "received_at": 1700000100,
+        "uncertainty_s": 0,
+        "delayed": true,
+        "tone": "positive",
+        "details": {}
+      }
+    ],
+    "door_status": null,
+    "active_incidents": [],
+    "event_counts": {
+      "MOTION": 1
+    },
+    "fetched_at": 1700000100
+  },
+  "node_local_event_id": "room:10:1",
+  "original_location": "room",
+  "original_occurred_at": 1700000001,
+  "original_hub_received_at": 1700000001,
+  "physical_status": "NOT_RUN",
+  "commercial_authentication": "BLOCKED",
+  "controls": "UNAVAILABLE",
+  "installation_result": "NOT_TESTED"
+}

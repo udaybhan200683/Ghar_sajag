@@ -1,0 +1,54 @@
+docs/exec-plans/evidence/engineering_dashboard_20261013/backend_final.log:3: trailing whitespace.
++python3 validation/component_gate.py --suite backend 
+docs/exec-plans/evidence/engineering_dashboard_20261013/backend_gate.log:3: trailing whitespace.
++python3 validation/component_gate.py --suite backend 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791862723356800603/dummy-streams.log:2: trailing whitespace.
++PASS stream-daytime-inactivity 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791862723356800603/dummy-streams.log:3: trailing whitespace.
++PASS stream-late-night-door 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791862723356800603/dummy-streams.log:4: trailing whitespace.
++PASS stream-missing-then-recovery 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791862723356800603/dummy-streams.log:5: trailing whitespace.
++PASS stream-normal-morning 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791862723356800603/dummy-streams.log:6: trailing whitespace.
++PASS stream-offline-replay 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791863004313710944/dummy-streams.log:2: trailing whitespace.
++PASS stream-daytime-inactivity 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791863004313710944/dummy-streams.log:3: trailing whitespace.
++PASS stream-late-night-door 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791863004313710944/dummy-streams.log:4: trailing whitespace.
++PASS stream-missing-then-recovery 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791863004313710944/dummy-streams.log:5: trailing whitespace.
++PASS stream-normal-morning 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/backend-1791863004313710944/dummy-streams.log:6: trailing whitespace.
++PASS stream-offline-replay 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/pwa-1791863251091791737/dummy-streams.log:2: trailing whitespace.
++PASS stream-daytime-inactivity 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/pwa-1791863251091791737/dummy-streams.log:3: trailing whitespace.
++PASS stream-late-night-door 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/pwa-1791863251091791737/dummy-streams.log:4: trailing whitespace.
++PASS stream-missing-then-recovery 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/pwa-1791863251091791737/dummy-streams.log:5: trailing whitespace.
++PASS stream-normal-morning 
+docs/exec-plans/evidence/engineering_dashboard_20261013/gs116_runs/pwa-1791863251091791737/dummy-streams.log:6: trailing whitespace.
++PASS stream-offline-replay 
+docs/exec-plans/evidence/integration_gs125_20261015/native-pwa-dummy-streams.log:2: trailing whitespace.
++PASS stream-daytime-inactivity 
+docs/exec-plans/evidence/integration_gs125_20261015/native-pwa-dummy-streams.log:3: trailing whitespace.
++PASS stream-late-night-door 
+docs/exec-plans/evidence/integration_gs125_20261015/native-pwa-dummy-streams.log:4: trailing whitespace.
++PASS stream-missing-then-recovery 
+docs/exec-plans/evidence/integration_gs125_20261015/native-pwa-dummy-streams.log:5: trailing whitespace.
++PASS stream-normal-morning 
+docs/exec-plans/evidence/integration_gs125_20261015/native-pwa-dummy-streams.log:6: trailing whitespace.
++PASS stream-offline-replay 
+docs/exec-plans/evidence/integration_gs125_20261015/native-pwa-p0-full-product-e2e.log:67: trailing whitespace.
++PYTHONPATH=backend:. python3 tests/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 
+docs/exec-plans/evidence/integration_gs125_20261015/validation_pwa.log:2: trailing whitespace.
++python3 validation/component_gate.py --suite pwa 
+docs/exec-plans/evidence/integration_gs125_20261015/validation_pwa.log:151: trailing whitespace.
++PYTHONPATH=backend:. python3 tests/python/run_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 
+docs/exec-plans/evidence/integration_gs125_20261015/validation_pwa_retest.log:1: trailing whitespace.
++python3 validation/component_gate.py --suite pwa 
+docs/exec-plans/evidence/integration_gs125_20261015/validation_pwa_retest.log:73: trailing whitespace.
++_full_product_p0_e2e.py --event build/p0_product_event.json --cloud-request build/p0_cloud_sync_request.json --report build/p0_product_e2e_report.json 

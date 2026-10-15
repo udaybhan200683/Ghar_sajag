@@ -1,0 +1,7 @@
+GHAR_SAJAG_CONTEXT_PREFLIGHT=PASS
+LOCAL_CONTEXT_VERSION=2026-10-11.001
+CANONICAL_CONTEXT_VERSION=2026-10-11.001
+CANONICAL_SOURCE=/home/udaybhan/projects/Ghar_sajag_r1@feature/r1-commercial-baseline
+WORKTREE=/home/udaybhan/projects/Ghar_sajag_r1_dashboard
+BRANCH=feature/gs124-125-engineering-dashboard
+HEAD=810209e9bbc469b003d1611a6d22c391365cf1c5

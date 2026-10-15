@@ -1,0 +1,19 @@
+{
+  "executed_at_utc": "2026-10-12T18:55:33.927687+00:00",
+  "exit_code": 0,
+  "scope": "STRUCTURAL_ARTIFACT_CHECK_NOT_PRODUCT_GATE",
+  "checks": [
+    "git diff --cached --check after explicit owned-file staging and CSV LF normalization; scoped captured-log whitespace attributes",
+    "all CSV files nonempty and row structure valid",
+    "all provenance paths/anchor ranges and SHA256 match",
+    "preparation source and saved fixture SHA256 match",
+    "all final execution log SHA256 match receipts",
+    "tracked production source diff zero",
+    "browser evidence exactly 20 checks",
+    "saved trace 9 UNKNOWN / 1 backend fixture PASS; physical NOT_RUN; product PARTIAL",
+    "Markdown code fences balanced"
+  ],
+  "result": "PASS",
+  "initial_staged_check": "FAIL: generated CSV CRLF and intentional raw log line-end space; evidence retained",
+  "final_staged_check_exit_code": 0
+}

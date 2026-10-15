@@ -848,3 +848,21 @@ build/gs114_fixture_pair/build-* directory. It is not part of routine component
 gates and never invokes a flash or device command. ESP-IDF's generated full
 bundle remains NOT_AUTHORIZED_FOR_DEPLOYMENT; physical installation, state
 preservation and rollback are separate approval/qualification gates.
+
+## GS-125 isolated Dashboard integration candidate — 2026-10-15
+
+The isolated Dashboard integration validation and exact 13-path conflict matrix
+are recorded in
+[`CONFLICT_RESOLUTION_AND_VALIDATION.md`](../exec-plans/evidence/integration_gs125_20261015/CONFLICT_RESOLUTION_AND_VALIDATION.md).
+The candidate used the latest reviewed canonical and Dashboard checkpoints and
+did not modify either source worktree. Engineering host (98), framework (44),
+traceability (22), Caregiver JavaScript (23), Caregiver browser (86),
+Engineering PREVIEW_ONLY browser (20), and the focused canonical C8/storage/
+Cloud Worker checks are recorded with their native receipts. This candidate's
+PWA aggregate remains FAIL: P0 product status is PARTIAL, and its initial Python
+attempt records a missing Hub test-binary prerequisite even though a subsequent
+full Python discovery passed after building that prerequisite. The original
+aggregate is preserved. Historical migration remains FAIL, physical qualification
+remains NOT_RUN, release approval remains false, and release-gate-final was not
+run. These results are integration-candidate evidence only; they do not change
+canonical release status or authorize a merge.

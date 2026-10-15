@@ -2749,3 +2749,28 @@ dependencies. Do not implement or issue credentials until those approvals are
 recorded. After the documentation push, the exact delivered local/origin SHA
 and new Jira comment IDs are the resume checkpoint; verify both the branch head
 and those comments before beginning any implementation.
+
+## GS-125 isolated Dashboard integration candidate — 2026-10-15
+
+An isolated candidate was prepared from canonical source
+`c48e0d2fa8e0bc9c0d0a1f5eccdef789ff0b02df`; the Dashboard source checkpoint was
+`d6ea59a2e10691e2cb09af80f0794ead272342ce`. The candidate worktree is
+`/home/udaybhan/projects/Ghar_sajag_r1_integration` on
+`integration/gs125-dashboard-r1-20261015`. Neither source worktree was modified.
+The [conflict-resolution and validation report](../exec-plans/evidence/integration_gs125_20261015/CONFLICT_RESOLUTION_AND_VALIDATION.md)
+records the 13 shared paths, all six preserved canonical-only registry stages,
+native receipts and actual results.
+
+Engineering host tests (98), GS-116 framework tests (44), GS-130 mapping tests
+(22), Caregiver JavaScript tests (23), Caregiver browser tests (86), Engineering
+PREVIEW_ONLY browser cases (20), and the focused canonical C8/storage/Cloud
+Worker stages passed. Storage sanitizers passed. P0 scenario assertions passed
+with `product_status=PARTIAL`; the PWA aggregate remains FAIL, the historical
+Hub migration remains FAIL, and physical qualification remains NOT_RUN. One
+native PWA aggregate Python attempt recorded a missing Hub test-binary setup
+error; after building its existing prerequisite, the full 465-test Python
+discovery passed with one approved skip. The original aggregate receipt is
+preserved and was not rewritten. No release-gate-final or hardware operation
+was run. Commercial auth, production Engineering routes and CloudSync remain
+disabled; GS-148 remains owner-controlled and In Progress. No canonical merge
+is authorized by this status entry.

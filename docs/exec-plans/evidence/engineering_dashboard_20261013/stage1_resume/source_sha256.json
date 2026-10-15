@@ -1,0 +1,13 @@
+{
+  "code/backend/ghar_sajag/service_access.py": "8747e7cca4043faa1ee11d61af3303dfa3351389a8fd47ea9d1af8eb82f49bd9",
+  "code/backend/ghar_sajag/database.py": "0bac8db6874eb8b29c77b4370e4dbc5b69b7e308094a1b3ac9542dc1ac700584",
+  "code/backend/ghar_sajag/diagnostic_authorization.py": "14676c746ddf82e9a260312f82ae4a2a14b2b5fb20d8ea9b1095564b4cbe11ed",
+  "code/backend/ghar_sajag/diagnostics.py": "65f2634bd73011627a3c7326a2e20e912789b04132d3a032241d9228c5d4d75c",
+  "code/backend/migrations/011_service_access.sql": "925db408f775955327966afc292513a6fd56d4792c9a013bdfadcb803f87efe7",
+  "code/config/service_access.json": "9cf0b80a0cb2cad37e6cc038439f1654b7fd979b01d57a46300a116117cb8388",
+  "code/tests/engineering_dashboard/test_service_access.py": "3c63edafee5e40a92ccc878680f462cf1af496f919ea94946ff3dde8d55b31df",
+  "code/tests/engineering_dashboard/test_registration.py": "b5edd0f5c47618174016d0de9ca9d19d7d27b7d9740ef579fb335b72dad48f03",
+  "code/validation/suites.json": "43c05cb0bf413b078f929daacf4ddc6dcdcb103b210a311ec38d9b6cd15c01f2",
+  "docs/validation/MASTER_TRACEABILITY.csv": "31f70ca386b0b53ab9a459e5f62377ce9e359cf1d93650839640db7a7efd3c19",
+  "docs/validation/SOURCE_FEATURE_INVENTORY.csv": "7118a7f042c6996f6fb8f0d3e07764e93b5a85ac41140b658b3e3219375d29c7"
+}

@@ -10,8 +10,9 @@ import re
 from pathlib import Path
 import subprocess
 import sys
-
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from validation import component_gate as gate
 REPO=ROOT.parent
 DOC=REPO/'docs/validation'
 PREFIXES=('firmware','backend','tests/support/host','tools/sim','frontend')
@@ -33,6 +34,18 @@ def load():
     return (read_csv(DOC/'MASTER_TRACEABILITY.csv'),read_csv(DOC/'SOURCE_FEATURE_INVENTORY.csv'),
             read_csv(DOC/'PHYSICAL_QUALIFICATION.csv'),json.loads((ROOT/'validation/suites.json').read_text()))
 
+def known_requirement_ids(repo=REPO):
+    index=(repo/'docs/product/CANONICAL_REQUIREMENTS_INDEX.md').read_text()
+    current='## Current requirement register'
+    scoped='## Dashboard-branch scoped approvals — not canonical requirement-register entries'
+    if current not in index:return set()
+    canonical_rows=index.split(current,1)[1].split('## Open decisions',1)[0]
+    scoped_rows=''
+    if scoped in index:
+        scoped_rows=index.split(scoped,1)[1].split(current,1)[0]
+    pattern=r'^\|\s*(GS-[A-Z0-9-]+)\s*\|'
+    return set(re.findall(pattern,canonical_rows+'\n'+scoped_rows,re.M))
+
 def board_registration_errors(source,stage,rows):
     cases=set(re.findall(r'\{"(BOARD-TC-[0-9-]+)"',source))
     markers={f'^{case} PASS$' for case in cases}
@@ -46,6 +59,7 @@ def errors(rows,ledger,physical,registry,modules=None,root=ROOT,repo=REPO):
     failures=[]
     if not rows:return ['zero feature rows']
     stages={s['id']:s for s in registry['stages']}
+    pwa_stage_ids={s['id'] for s in gate.select(registry,'pwa')}
     features={r['FEATURE_ID']:r for r in rows}
     board=stages.get('board-stack-e2e')
     source=root/'tests/cpp/board_stack_e2e_validation.cpp'
@@ -53,13 +67,13 @@ def errors(rows,ledger,physical,registry,modules=None,root=ROOT,repo=REPO):
         failures.extend(board_registration_errors(source.read_text(),board,rows))
     if len(features)!=len(rows):failures.append('duplicate feature ID')
     physical_ids={r['TEST_ID'] for r in physical}
-    known_requirements=set(re.findall(r'^\|\s*(GS-[A-Z0-9-]+)\s*\|',(repo/'docs/product/CANONICAL_REQUIREMENTS_INDEX.md').read_text().split('## Current requirement register',1)[1].split('## Open decisions',1)[0],re.M))
+    known_requirements=known_requirement_ids(repo)
     for row in rows:
         fid=row['FEATURE_ID']
         if not REQUIRED<=set(row):failures.append(fid+': missing columns');continue
         if row.get('status') not in COVERAGE_STATUSES:failures.append(fid+': unknown coverage status')
         if row['IMPLEMENTATION_STATUS'] not in STATUSES:failures.append(fid+': unknown implementation status')
-        if set(row['REQUIREMENT_ID'].split(';'))-known_requirements:failures.append(fid+': unknown canonical requirement ID')
+        if set(row['REQUIREMENT_ID'].split(';'))-known_requirements:failures.append(fid+': unknown requirement ID')
         if not row['REQUIREMENT_ID'] or not (repo/row['REQUIREMENT_SOURCE'].split('#')[0]).is_file():failures.append(fid+': missing requirement source')
         for name in ('POSITIVE_COVERAGE','NEGATIVE_COVERAGE','BOUNDARY_COVERAGE','RECOVERY_COVERAGE'):
             if not row[name]:failures.append(fid+': missing category assessment '+name)
@@ -89,7 +103,10 @@ def errors(rows,ledger,physical,registry,modules=None,root=ROOT,repo=REPO):
                 if not owned:failures.append(fid+': test not owned/executed by mapped stage '+name)
             if not texts or row['ASSERTION_ANCHOR'] not in '\n'.join(texts):failures.append(fid+': test anchor does not resolve')
         for component,column in [('node','NODE_GATE'),('hub','HUB_GATE'),('contract','CONTRACT_GATE'),('backend','BACKEND_GATE'),('pwa','PWA_GATE')]:
-            actual={s['id'] for s in selected if component in s['components'] and s.get('fast',True)}
+            if component=='pwa':
+                actual={s['id'] for s in selected if s['id'] in pwa_stage_ids and component in s['components']}
+            else:
+                actual={s['id'] for s in selected if component in s['components'] and s.get('fast',True)}
             mapped=set(row[column].split(';'))-{'NO',''}
             if actual!=mapped:failures.append(fid+': incorrect '+column)
         fast=bool(selected) and all(s.get('fast',True) for s in selected)
@@ -108,7 +125,15 @@ def errors(rows,ledger,physical,registry,modules=None,root=ROOT,repo=REPO):
     for row in physical:
         for key in ('TEST_ID','FEATURE_ID','JIRA_OWNER','HARDWARE_PROFILE','PRECONDITIONS','STEPS','EXPECTED_RESULT','FAILURE_CONDITIONS','REQUIRED_LOGS','SOURCE_HEAD_IMAGE_HASH','EXECUTION_STATUS'):
             if not row.get(key):failures.append(row.get('TEST_ID','physical')+': incomplete physical '+key)
-        if row.get('EXECUTION_STATUS') not in {'NOT_RUN','HISTORICAL_EVIDENCE_ONLY'}:failures.append(row['TEST_ID']+': host catalogue cannot qualify physical execution')
+        status=row.get('EXECUTION_STATUS')
+        if status not in {'NOT_RUN','HISTORICAL_EVIDENCE_ONLY','PASS','PARTIAL','FAIL','BLOCKED'}:
+            failures.append(row.get('TEST_ID','physical')+': unknown physical execution status')
+        # The catalogue records real, separately executed physical evidence as
+        # well as plans. A host traceability check may preserve a recorded
+        # outcome, but must not promote a plan-only row into an execution.
+        evidence=row.get('SOURCE_HEAD_IMAGE_HASH','')
+        if status in {'PASS','PARTIAL','FAIL'} and 'REQUIRED_AT_EXECUTION' in evidence:
+            failures.append(row['TEST_ID']+': physical execution status lacks source/image evidence')
     return failures
 
 def main():

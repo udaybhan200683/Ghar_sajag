@@ -1,0 +1,108 @@
+{
+  "scope": "INACTIVE_REVIEW_ARTIFACT",
+  "checks": 20,
+  "cases": [
+    {
+      "id": "REVIEW-1440-overview",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-live",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-trace",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-device",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-communication",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-installation",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-advanced",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-trace-original-key-unknown",
+      "result": "PASS",
+      "scope": "SAVED_REAL_API_EVIDENCE"
+    },
+    {
+      "id": "REVIEW-1440-filter-saved-evidence",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-1440-refresh-disabled-controls-layout",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-overview",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-live",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-trace",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-device",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-communication",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-installation",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-advanced",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-trace-original-key-unknown",
+      "result": "PASS",
+      "scope": "SAVED_REAL_API_EVIDENCE"
+    },
+    {
+      "id": "REVIEW-390-filter-saved-evidence",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    },
+    {
+      "id": "REVIEW-390-refresh-disabled-controls-layout",
+      "result": "PASS",
+      "scope": "REVIEW_ARTIFACT_ONLY"
+    }
+  ],
+  "production_playwright": "BLOCKED_DESIGN_APPROVAL",
+  "physical": "NOT_RUN"
+}

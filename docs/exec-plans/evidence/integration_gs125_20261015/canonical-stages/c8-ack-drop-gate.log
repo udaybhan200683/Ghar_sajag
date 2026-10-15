@@ -1,0 +1,4 @@
+mkdir -p build
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -pthread -I. tests/cpp/c8_ack_drop_gate_validation.cpp -o build/c8_ack_drop_gate_validation
+./build/c8_ack_drop_gate_validation
+C8 ACK-drop gate PASS checks=16
