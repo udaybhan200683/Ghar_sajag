@@ -2892,11 +2892,11 @@ worktree and branch were not modified or removed. Existing untracked PWA
 assets, S3 `managed_components`, and GS-114 raw evidence in canonical remain
 untouched and must not be swept into this delivery.
 
-Canonical is `feature/r1-commercial-baseline`, based on
-`851a7fbcd3d9dd61a7b6329b5e86789b0403be47`; its GitHub ref matched that
-checkpoint before this remediation. The source/docs changes are still
-uncommitted at this handoff draft. The final delivery must record the commit
-and normal push in the Jira handoff and verify local HEAD equals the remote.
+Canonical is `feature/r1-commercial-baseline`. Remediation commit
+`aab00e895e9a130c6c9b31b07e6ece11815f4f6c` was pushed normally and local
+HEAD matched GitHub at final verification. GS-118 handoff comment 11070 was
+posted with no workflow status change. A documentation-only follow-up records
+the exact isolated build commands and this final delivery checkpoint.
 
 Focused software results: signed-FOTA fixture tests 20/20 PASS; C3 production
 and explicit HIL-injection ESP-IDF 6.0.3 builds PASS; board-stack E2E 10 groups
@@ -2914,11 +2914,12 @@ qualification. A first mistaken build invocation regenerated the ignored C3
 target-root `sdkconfig`; its current bytes are preserved externally, but its
 prior bytes were not captured and cannot be certified unchanged.
 
-**Exact next action:** finish report/work-state review, run `git diff --check`
-and the final traceability check, recheck canonical writer/remote state, stage
-only the nine GS-118 source/registry files plus this report and work-state
-handoff, then commit and push normally. Verify local/origin equality and post a
-dated factual GS-118 comment cross-referencing GS-95. Do not change Jira
-status, perform physical operations, or retire Phase-2. An authorized physical
-rollback run must later use a disposable C3, a compatible approved Hub/fixture,
-safe signed test artifacts, and capture task stack high-water and free heap.
+**Exact next action:** owner/fixture authority must resolve an S3-compatible
+HIL control/profile or approve an alternate supported Hub fixture, then provide
+safe signed test artifacts and a disposable C3 for the bounded physical
+rollback test. That run must capture restored slot, fresh authenticated
+session, retained EventKey/Durable ACK, panic/reset evidence, rollback-task
+stack high-water and free heap. Keep physical status NOT_RUN until then. Track
+source-consolidation and historical-ref retirement decisions under GS-95;
+do not retire Phase-2 in this task. P0 PARTIAL and the existing Hub migration
+failure remain with their owning work.

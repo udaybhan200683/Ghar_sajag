@@ -173,8 +173,36 @@ was changed. No commercial signing or S3 HIL controls were enabled.
 | `make validation-node` | FAIL / exit 2 aggregate | Affected registered stages, including signed-FOTA tooling (20), passed. Aggregate remains blocked by required P0 `product_status=PARTIAL`. |
 | `make validation-contract` | FAIL / exit 2 aggregate | Affected signed-FOTA and contract stages passed; required P0 remains `product_status=PARTIAL`. |
 | `make validation-hub` | FAIL / exit 2 aggregate | Existing `hub-journal-migration-host-test` reports `clean migration commits` failure; P0 also remains PARTIAL. Relevant Hub FOTA/codec/rejoin/outbox stages passed. |
-| `git diff --check` | PASS before report addition | Re-run after final documentation edits before staging. |
+| `git diff --check` | PASS after final documentation edits | Covers the source/registry changes and the final report/work-state handoff. |
 | Full release gate / physical HIL | NOT RUN | Explicitly outside this task. No USB/serial access, flash, reset, erase, or provisioning occurred. |
+
+The isolated target-build commands were:
+
+```bash
+source /home/udaybhan/.espressif/tools/activate_idf_v6.0.3.sh && \
+idf.py -B build_gs118_c3_prod_20261015 \
+  -DIDF_TARGET=esp32c3 \
+  -DSDKCONFIG=build_gs118_c3_prod_20261015/sdkconfig \
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults \
+  -DGS_HIL_BUILD=OFF -DGS_HIL_CONTROL=OFF \
+  -DGS_HIL_FORCE_BOOT_HEALTH_FAIL=OFF build
+
+source /home/udaybhan/.espressif/tools/activate_idf_v6.0.3.sh && \
+idf.py -B build_gs118_c3_rollback_hil_20261015 \
+  -DIDF_TARGET=esp32c3 \
+  -DSDKCONFIG=build_gs118_c3_rollback_hil_20261015/sdkconfig \
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.hil.defaults' \
+  -DGS_HIL_BUILD=OFF -DGS_HIL_CONTROL=ON \
+  -DGS_HIL_FORCE_BOOT_HEALTH_FAIL=ON build
+```
+
+The validation targets run were `make validation-node`,
+`make validation-contract`, `make validation-hub`,
+`make validation-board-e2e`, `make validation-framework-test`,
+`make feature-coverage-test`, and `make physical-hil-catalogue-test` from
+`code/`. The focused Python command was
+`python3 -m unittest discover -s tests/python -p test_secure_signed_fota_fixture.py -v`
+from `code/`.
 
 The P0 gap and Hub migration failure are preserved as failures; they are not
 relabelled as PASS or repaired in this GS-118 task.
