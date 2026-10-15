@@ -80,6 +80,8 @@ Proposed canonical signed object:
 manifest_version: 1
 audience: "ghar-sajag-hub-binding"
 issuer_key_id: <selected D12/D05 authority key id>
+claim_id: <backend-unique idempotent ownership transaction>
+binding_state: PREPARED | ACTIVE | REVOKED
 hub_device_id: <permanent physical Hub identity>
 hub_key_id: <D05 client certificate fingerprint/key id>
 home_id: <backend Home identity>
@@ -93,7 +95,7 @@ manifest_digest: SHA256(canonical fields excluding digest/signature)
 signature: <selected D12/D05 authority signature>
 ```
 
-Issuance flow: authenticated owner action (GS-76 identity) and Hub possession proof → registry checks current ownership → registry reserves/advances epoch → issuer returns manifest → Hub verifies issuer/audience/Hub key/digest/version and anti-rollback revision → Hub stages and atomically activates it → backend confirms active binding. Reboot reads and verifies the last complete manifest. Missing, corrupt, stale, unknown-key, lower-revision or mismatched manifests enter `CLOUD_AUTHORITY_RECOVERY_REQUIRED`; never create a Home, reset an epoch, or erase outbox data to recover. Rebind is an explicit owner/factory-authorized operation with old data disposition under D10/GS-D032.
+Proposed claim protocol is two-phase: authenticated owner action (GS-76 identity) and Hub possession proof → registry reserves an epoch and returns a signed `PREPARED` manifest → Hub verifies issuer/audience/Hub key/digest/version/revision and durably stages it → Hub returns a D05-authenticated acknowledgement bound to `claim_id` and `manifest_digest` → registry atomically marks that revision `ACTIVE` and returns the signed active confirmation → Hub atomically activates only that confirmed revision. Until both sides report the same active revision, CloudSync stays off. Every step is idempotent by `claim_id`. Reboot reads and verifies the last complete manifest. Missing, corrupt, stale, unknown-key, lower-revision or mismatched manifests enter `CLOUD_AUTHORITY_RECOVERY_REQUIRED`; never create a Home, reset an epoch, or erase outbox data to recover. Rebind is an explicit owner/factory-authorized operation with old data disposition under D10/GS-D032.
 
 **D06 coupling:** lifetime/lease duration and offline validity are not selected here. If owner policy requires online revocation freshness, the backend remains authoritative on each commit; the manifest cannot permit an expired/revoked binding. Until a trusted clock/lease contract exists, do not infer time validity from the Hub wall clock.
 
@@ -136,7 +138,7 @@ installation_epoch
 binding_revision
 ```
 
-`request_digest = SHA256(exact canonical request bytes including all fields above)`. Proposed canonical encoding is UTF-8 JSON with the field order shown in the schema above, no insignificant whitespace, integer-only identity/time fields, and duplicate-key rejection; both sides hash the exact transmitted octets, and a retry must reproduce the same bytes. The backend validates TLS client principal, active Home/Hub/epoch, active Node generation and event ownership in the same transaction that writes the immutable event and logical effects. The EventKey is the idempotency key. New event/effects and the COMMITTED result become visible atomically; the response is sent after database commit.
+`request_digest = SHA256(exact canonical request bytes including all fields above)`. Proposed canonical encoding is UTF-8 JSON with the field order shown in the schema above, no insignificant whitespace, integer-only identity/time fields, and duplicate-key rejection; both sides hash the exact transmitted octets, and a retry must reproduce the same bytes. For a first-seen EventKey, the backend validates the TLS client principal, currently active Home/Hub/epoch, active Node generation and event ownership in the same transaction that writes the immutable event and logical effects. If the EventKey already exists, return a duplicate receipt only when its stored body, timestamp, complete original owner tuple and request digest match exactly; create no new effect and never reparent it. Any conflicting key/provenance is rejected. Whether a revoked/previous owner may fetch an exact prior COMMITTED result remains subject to D10/GS-D032 disposition and must not authorize a new effect. The EventKey is the idempotency key. New event/effects and the COMMITTED result become visible atomically; the response is sent after database commit.
 
 Proposed response:
 
