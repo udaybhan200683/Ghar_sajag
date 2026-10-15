@@ -102,6 +102,10 @@ battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
 	./build/battery_c8_validation
 	PYTHONPATH=tests/python python3 -m unittest test_battery_power_invariants -v
 
+.PHONY: gs144-workload-spec-test
+gs144-workload-spec-test:
+	python3 -m unittest discover -s tests/python -p test_gs144_workload_spec.py -v
+
 .PHONY: gs40-host-test gs40-config-test
 gs40-config-test: lab-build
 	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v

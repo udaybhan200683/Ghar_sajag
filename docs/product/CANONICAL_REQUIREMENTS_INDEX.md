@@ -163,6 +163,8 @@ Each canonical file is listed once in the canonical table above. The domain sect
 | Path | Classification | Use | Read when |
 |---|---|---|---|
 | `docs/features/BATTERY_LOW_POWER_AND_POWER_MANAGEMENT.md` | IMPLEMENTATION_DESIGN | Battery/power feature design | Power policy or battery behavior |
+| `code/tests/data/gs144_workload_spec.json` | TEST_INPUT / PROPOSED | Machine-readable proposed Node workload profiles and pending approval/measurement fields | GS-144 workload review; candidate values are not approved acceptance inputs |
+| `docs/exec-plans/evidence/GS144_MINIMAL_INTEGRATION_AND_RETIREMENT_20261015.md` | TEST_EVIDENCE / HANDOFF | Historical GS-144 branch reconciliation, minimal canonical integration, focused validation and retirement evidence | Resume GS-144 after owner input approval; does not establish battery-life acceptance |
 | `docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md` | TEST_PLAN | Pre-optimization power baseline | Resume/run that measurement plan |
 | `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md` | TEST_PLAN | HW-M1.4 power/performance plan | Power/performance qualification |
 | `docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md` | BACKLOG/FUTURE | Post-resilience roadmap, including future work | Future planning; filter against R1 scope |

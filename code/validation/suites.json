@@ -270,6 +270,28 @@
       "count_kind": "checks"
     },
     {
+      "id": "gs144-workload-spec",
+      "components": [
+        "node"
+      ],
+      "command": [
+        "make",
+        "gs144-workload-spec-test"
+      ],
+      "inputs": [
+        "tests/data/gs144_workload_spec.json",
+        "tests/python/test_gs144_workload_spec.py",
+        "config/node_health.json"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 120,
+      "count_kind": "tests",
+      "required_success": [
+        "Ran [1-9]\\d* tests?",
+        "^OK$"
+      ]
+    },
+    {
       "id": "gs150",
       "components": [
         "node",

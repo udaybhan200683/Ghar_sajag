@@ -1,5 +1,39 @@
 # R1 Current Work State
 
+## GS-144 minimal workload integration — 2026-10-15
+
+Reconciled historical `gs144-workload-qualification` against the canonical Node
+power, health, sleep, retry, ACK and recovery implementation. At start canonical
+local/remote were `12eae946db1ce8c810c9cc7df8e2c17d27d30889`. Historical GitHub
+tip was `ad7b9b7434246dd567ea0d800adccec65d724f00` (implementation
+`9af8c4f97c3db2314075ce62be5b95cb34fab923`); the separate `/tmp` clone was
+clean apart from ignored build/log/cache/evidence artifacts. Its preservation
+and final retirement checks are recorded in the [GS-144 integration and
+retirement report](../exec-plans/evidence/GS144_MINIMAL_INTEGRATION_AND_RETIREMENT_20261015.md).
+
+Canonical now has one machine-readable workload specification and a registered
+test contract; production runtime algorithms were not changed. Seven historical
+candidate profiles remain explicitly `PROPOSED_NOT_APPROVED`; the accepted
+profile, event schedule, outage/RF assumptions, commercial cell/capacity,
+reserve, measurement boundary/uncertainty, service limits and endurance target
+remain open. GS-D031's 300-second health and derived 910-second offline facts
+are captured separately. The optional historical battery estimator was not
+integrated: it is not required before the measured workflow and its flash-write
+conversion divides mA·s by 3,600,000 rather than 3,600 (1,000× undercount).
+No battery-life or commercial acceptance claim is made; GS-144 remains In
+Progress and GS-149 stays blocked on accepted GS-144 and measurement inputs.
+
+Focused validation passed: workload spec 4 tests; BAT-C8 72 C++ checks + 11
+Python invariants; GS-40 1,320; GS-150 1,500; Node runtime, persistence and
+retirement protocol host suites; feature traceability 199/210/15 with 22 tests;
+validation framework 46/46. Full component/release gates and physical testing
+were not run. Existing unrelated untracked PWA, managed-component and GS-114
+evidence remains preserved. Next: obtain one product approval for workload,
+battery/reserve, boundary/uncertainty, latency/reliability and endurance; then
+proceed through GS-140/B0, GS-41/42/141/43 BEFORE, GS-44, matched GS-51 and
+GS-149. Complete the clone backup and branch retirement only after final
+checksums and GitHub lease checks pass.
+
 ## GS-114 BAT-C8 battery-first physical evidence handoff — 2026-10-15
 
 Resumed from GS-114 comment 11029 and GS-110 comment 11030 on canonical branch
