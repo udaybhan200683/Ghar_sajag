@@ -191,3 +191,8 @@ own broad and multi-node physical HIL. GS-148/P0/Hub migration and current
 release gates retain their separately recorded status. Continue ordinary
 feature development on canonical without requiring signing keys, this former
 worktree or physical FOTA. No hardware was accessed.
+
+GS-95 Jira comment `11104` records the final handoff; GS-95 was transitioned
+from To Do to Done after the source/evidence/retirement criteria were verified.
+GS-118, GS-108 and GS-96 remain To Do. No physical or release ticket was
+closed by this source-retirement decision.

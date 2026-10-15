@@ -2961,3 +2961,8 @@ interruption/corruption and stack high-water qualification. GS-108 and GS-96
 retain broad and multi-node physical HIL. GS-148 and P0/migration remain with
 their own owners. Verify canonical local/GitHub HEAD equality after this
 documentation commit and record the GS-95 Jira handoff.
+
+GS-95 handoff comment `11104` was posted and its source-consolidation issue
+transitioned to Done after these gates passed. GS-118, GS-108 and GS-96 remain
+To Do for their distinct physical acceptance work. Their test results and
+workflow statuses were not changed by branch retirement.
