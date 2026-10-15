@@ -11,6 +11,8 @@ This package closes the source-to-decision gap for activating the existing GS-14
 
 At this checkpoint, the bounded `CloudSyncWorker` and its injected host path are implemented and the approved Hub validation has been completed. Target S3 does not instantiate that worker. The test-injected `CloudAuthoritySource` is not a production issuer or verifier. Commercial target sending must remain disabled until the authority, credential, receipt and runtime-coordination contracts below are approved and implemented.
 
+**Technical refinement:** The linked [2026-10-15 contract addendum](GS109_CLOUDSYNC_CONTRACT_ADDENDUM_20261015.md) records the source-grounded D12 key-custody findings and provides measurable D06/D16 proposals plus exact D03/D04/D07/D11/D15 schemas. It supersedes the earlier conditional P-256-reuse recommendation as the default D05 path: protected, non-exportable P-256 is not demonstrated in the current source or diagnostic profile. All alternatives and values remain unapproved.
+
 ## Accepted invariants — not reopened here
 
 - GS-D032 and the accepted GS-109 ownership policy distinguish permanent physical Hub identity, mutable Home binding and installation epoch, permanent Node identity, logical assignment, and Node enrollment generation.

@@ -2671,3 +2671,41 @@ committed as `3bf08d187e7be24e2cbbc83c3998ec31ee2de962` and pushed with local an
 remote HEAD matching. Keep GS-148 In Progress and carry the unresolved
 trust/runtime contracts to GS-109 before enabling target sending. GS-148 Jira
 comment 10974 records the resumed validation checkpoint.
+
+## GS-109 / GS-148 CloudSync security-contract addendum — 2026-10-15
+
+Resumed from canonical local/origin HEAD
+`3ddfabdb6d5ce1d33ea20dfc60714e8722a29493` on
+`feature/r1-commercial-baseline`; context preflight PASS
+`2026-10-13.001`. Jira work orders GS-68 comment 11014, GS-109 comment 11015
+and GS-148 comment 11016 were read. There is no competing canonical source
+writer. A pre-existing `validation-pwa` run is active in the surrounding
+workspace; it was left untouched and no source work was performed concurrently.
+
+The [CloudSync contract addendum](../exec-plans/evidence/GS109_CLOUDSYNC_CONTRACT_ADDENDUM_20261015.md)
+adds a source-grounded key-custody matrix, D12/D05 recommendation, exact
+proposed D03/D04/D07/D11 contracts, D06 expiry/time values, D15 rollback
+dependencies and measurable D16 runtime/memory/SLO bounds. It explicitly marks
+new values/fields unapproved and records actual S3 hardware/fuse state as
+unverified. The previous conditional recommendation to consider existing
+P-256 first is superseded: current HIL source exports P-256 into NVS, the
+production PSA path does not reject export usage or establish hardware
+backing, and the examined diagnostic build has Secure Boot, Flash Encryption
+and NVS Encryption disabled. ESP-IDF 6.0 S3 does document RSA DS/eFuse HMAC
+signing and DS data support in ESP-TLS, but the production client signer and
+factory provisioning path do not exist in the current CloudSync integration.
+
+Work remains documentation/decision preparation only. No source implementation,
+tests, hardware/eFuse changes, credentials, roots, trust settings, deployments or
+Jira workflow changes occurred. GS-148's validated host worker/API receipts are
+reused because source behavior is unchanged. Commercial S3 CloudSync remains
+disabled. Product P0 `PARTIAL`, Hub migration `FAIL`, GS-114 evidence and
+GS-146/GS-149 ownership remain unchanged. Existing untracked PWA assets,
+managed components and GS-114 raw/private evidence are preserved.
+
+**Next action:** route the addendum for owner disposition in GS-68/GS-109/GS-148.
+Resolve D12 before D05; then D03/D04/D06/D07/D11/D15/D16 and GS-76/GS-137
+dependencies. Do not implement or issue credentials until those approvals are
+recorded. After the documentation push, the exact delivered local/origin SHA
+and new Jira comment IDs are the resume checkpoint; verify both the branch head
+and those comments before beginning any implementation.
