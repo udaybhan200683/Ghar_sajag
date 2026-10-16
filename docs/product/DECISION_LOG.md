@@ -931,4 +931,18 @@ remains `2026-10-13.001`.
 
 The additive software implementation provides a typed mTLS-derived permanent Hub/Home/installation-epoch/time-readiness context, an existing-CloudSync status publication/transport interface, an authenticated bounded latest-state backend model, and caregiver PWA projection. It preserves existing durable EventKey and ACK semantics. ESP-IDF 6.0.3 C3/S3 production-profile builds pass; host/backend/PWA and runner-integrity tests pass as recorded in [the integration evidence](../exec-plans/evidence/GS40_GS109_GS68_GS148_SOFTWARE_INTEGRATION_20261016.md).
 
-The S3 product runtime does not yet instantiate the status publisher with an approved permanent Hub identity, trusted time and current authenticated NodeHealth authority source. D05/D12 identity/key custody and D06 time decisions remain open. No live credentials, production endpoint, board, serial/USB or physical HIL operation was used. GS-40 physical acceptance stays NOT_RUN; the required P0 product result remains PARTIAL and the existing Hub migration gate remains FAIL. This is implementation evidence only; no locked behavior or CONTEXT_VERSION changed.
+At that checkpoint the S3 product runtime did not instantiate the status publisher. D05/D12 identity/key custody and D06 time decisions remain open. No live credentials, production endpoint, board, serial/USB or physical HIL operation was used. GS-40 physical acceptance stays NOT_RUN; the required P0 product result remains PARTIAL and the existing Hub migration gate remains FAIL. This is implementation evidence only; no locked behavior or CONTEXT_VERSION changed.
+
+### GS-40 S3 runtime composition follow-up — 2026-10-16 (no new decision)
+
+The canonical S3 owner now schedules bounded HubRuntime NodeHealth snapshots and a
+separate network worker using the existing CloudSync authority and HTTPS transport.
+Configured 300/910 and trusted legacy 60/190 and 120/310 profiles are mapped from
+the installed Node policy. Current S3 authority, trusted-time and TLS identity
+providers deliberately return unavailable, so commercial status transmission
+remains disabled. EventKey, durable ACK, replay and retirement behavior is
+unchanged. Host integration and an ESP-IDF 6.0.3 non-flashing S3 build pass; the
+Hub gate still has its existing journal migration failure and the required P0
+stage remains PARTIAL. See the current work-state entry and follow-up in the
+GS-40 handoff and integration evidence. This records implementation status only;
+D05/D12/D06 and CONTEXT_VERSION are unchanged.

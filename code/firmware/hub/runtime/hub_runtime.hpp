@@ -42,6 +42,14 @@ struct AuthenticatedNodeHealth {
     std::uint64_t last_seen_monotonic_ms{0};
 };
 
+enum class CloudContactKind : std::uint8_t { NodeHealth, AuthenticatedEvent };
+struct AuthenticatedCloudContact {
+    std::uint64_t session_id{0};
+    std::uint64_t received_monotonic_ms{0};
+    std::uint64_t source_revision{0};
+    CloudContactKind kind{CloudContactKind::NodeHealth};
+};
+
 enum class IdentityRetirementEligibility : std::uint8_t {
     NotEligible,
     EligibleWithDurableReplayFence
@@ -108,11 +116,19 @@ public:
     // same monotonic lease without inventing a NodeHealth packet.
     bool observe_authenticated_contact(const std::string& node_id,
                                        std::uint64_t transport_session,
-                                       std::uint64_t now_monotonic_ms, EpochSeconds trusted_contact_at = 0);
+                                       std::uint64_t now_monotonic_ms, EpochSeconds trusted_contact_at = 0,
+                                       std::optional<CloudContactKind> cloud_contact_kind = std::nullopt);
     std::optional<AuthenticatedNodeHealth> node_health(const std::string& node_id) const;
+    // Only authenticated NodeHealth and admitted application events are exported
+    // to CloudSync. Authenticated control traffic can still renew local liveness.
+    std::optional<AuthenticatedCloudContact> cloud_contact(const std::string& node_id) const;
+    bool cloud_contact_online(const std::string& node_id,
+                              std::uint64_t now_monotonic_ms) const;
     // Trusted deployment profile, never selected by uplink payload.
     void set_node_offline_timeout(const std::string& node_id, std::optional<std::uint32_t> seconds);
     bool node_profile_known(const std::string& node_id) const;
+    std::optional<std::uint32_t> node_offline_timeout_seconds(
+        const std::string& node_id) const;
     bool node_online(const std::string& node_id, std::uint64_t now_monotonic_ms) const;
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Replace the active window state; production must persist the transition and define mid-window
@@ -238,6 +254,7 @@ private:
     std::map<std::string, NodePowerTelemetry> power_telemetry_;
     std::map<std::string, AuthenticatedNodeHealth> node_health_;
     std::map<std::string, std::uint64_t> last_authenticated_contact_ms_;
+    std::map<std::string, AuthenticatedCloudContact> cloud_contacts_;
     std::map<std::string, std::optional<std::uint32_t>> node_offline_timeouts_;
     bool state_applied_{false};
     bool journal_replayed_{false};

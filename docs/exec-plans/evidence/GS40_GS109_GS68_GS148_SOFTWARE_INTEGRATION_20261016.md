@@ -1,12 +1,58 @@
 # GS-40 NodeHealth software integration checkpoint — 2026-10-16
 
+## Follow-up — S3 runtime composition (2026-10-16)
+
+This follow-up supersedes the earlier statement below that the S3 product
+application had no CloudSync worker composition. The canonical S3 owner now
+refreshes a bounded immutable NodeHealth snapshot every five seconds and a
+separate five-second network worker publishes at most four current states per
+pass over the existing HTTPS CloudSync status channel. The adapter maps the
+configured 300/910 and trusted legacy 60/190 and 120/310 profiles from current
+installed policy and HubRuntime lease state. WAN association/IP, bounded retry
+and authority rechecks are integrated. Event transport and durable EventKey,
+ACK, replay and retirement behavior are unchanged.
+
+The current S3 `S3CloudTrustProvisioning` and TLS identity implementation are
+explicit unprovisioned stubs that return unavailable. Thus runtime wiring is
+software-complete, but commercial transmission stays disabled until D05/D12
+permanent Hub identity, key custody, verifier and current ownership/revocation
+source, plus D06 trusted Hub time, are approved and supplied through the
+thread-safe authority-provider seam. The provider may not use untrusted SNTP,
+MAC-derived identity or caller-supplied authority. No production credential,
+service or physical board was used.
+
+Latest validation on this change set: `make -C code cpp-test` 1,509 checks
+PASS; CloudSync adapter 8/8, mTLS tests 13/13, NodeHealth API/model 5/5, P2D
+EventKey/receipt contract PASS, app tests 24/24, backend Python 523 PASS,
+caregiver browser 86/86 PASS. Hub validation retains the existing migration
+assertion failure and P0 `PARTIAL`; contract/backend/PWA aggregates report the
+required P0 `PARTIAL` despite 26/26 assertions and the Chromium scenario
+passing. Final frozen-source Hub and contract reports are
+`code/evidence/validation_framework/hub-1792177423393802158/report.json` and
+`code/evidence/validation_framework/contract-1792177035924980667/report.json`;
+both have `source_unchanged=true` and fingerprint
+`478ca9b8d83835ebf5ebe4a9d3c500e1fc2cd54946573ba3bc770e9bccd9822c`. ESP-IDF
+6.0.3 non-flashing S3 production-profile build passes at
+2,166,688 bytes in a 4 MiB app slot, image SHA-256
+`e39dc13190b8f23d95a82f972ce9a896ce5c9f87a1ea33565ab31ff07e88e1d5`. Feature
+coverage integrity is 208 features, 218 modules, 24 physical cases and 22/22
+mapping tests. Physical
+cases remain NOT_RUN. Exact commit/push state and the dated Jira follow-up are
+recorded at delivery.
+
 ## Scope and status
 
 Owning issues: GS-109, GS-68, GS-148, GS-40. Jira inputs: GS-109 comment 11235, GS-68 comment 11236, GS-148 comment 11237, GS-40 comment 11238, and approved GS-68 architecture comment 11217. Canonical branch: `feature/r1-commercial-baseline`. Starting commit: `76516b963055977eab7cb2d2d084c69692d8690e`.
 
-This checkpoint implements a typed TLS-verified Hub/Home/installation-epoch/time-readiness context, an additive bounded per-Node CloudSync status publication and HTTPS transport contract, SQLite latest-state backend ingest/read model, and caregiver PWA projection. Existing EventKey durable event/ACK/retry behavior remains on its existing path. NodeHealth has no EventKey and does not retire event records.
+At this original checkpoint, the software implemented a typed TLS-verified Hub/Home/installation-epoch/time-readiness context, an additive bounded per-Node CloudSync status publication and HTTPS transport contract, SQLite latest-state backend ingest/read model, and caregiver PWA projection. The S3 runtime composition was still missing then and is described by the follow-up above. Existing EventKey durable event/ACK/retry behavior remains on its existing path. NodeHealth has no EventKey and does not retire event records.
 
-The software work is partial for production acceptance. The S3 product application still does not instantiate the CloudSync worker with an approved permanent Hub identity and trusted time/NodeHealth authority source. D05/D12 identity and key custody, D06 trusted-time behavior, and production S3 worker composition must be resolved before a real source-to-caregiver feed can run. No production credentials or endpoints were enabled. GS-40 software remains blocked from resuming physical acceptance.
+Production acceptance remains partial. At that original checkpoint the S3 product
+application did not instantiate the CloudSync worker with an approved permanent
+Hub identity and trusted time/NodeHealth authority source. The follow-up above
+composes the software worker, but D05/D12 identity and key custody and D06
+trusted-time behavior must be approved and supplied before a real
+source-to-caregiver feed can run. No production credentials or endpoints were
+enabled. GS-40 physical acceptance remains blocked.
 
 ## Implementation evidence
 
