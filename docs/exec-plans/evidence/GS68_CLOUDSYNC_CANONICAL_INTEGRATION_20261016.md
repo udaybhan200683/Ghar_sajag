@@ -214,3 +214,24 @@ The existing integration worktree is retained. Its untracked
 `managed_components/` and ignored generated/test artifacts were preserved. The
 active CloudSync development worktree and canonical/C8 worktree were not
 modified.
+
+
+**Committed-code target builds:** `idf.py ... build size` passed for both
+profiles on ESP-IDF v6.0.3, bound to implementation commit
+`ce6151fe1f387e867b1c6c17c0aa742550f3353a` / code tree
+`4e231de9eda47ede1398a6c8c6e05f33d0683673`. C3 observer-only profile: image
+948,112 bytes, SHA-256
+`17d9c1e43fd73ec8826b0c553405b2f440732b5151c2ea6b486738d26652bc5e`; profile
+`81ddcd270c3a7b6a46e6b983df7daa6df28ab780acaf6c5e6ff1f5f6df7d24a2`,
+sdkconfig `6a932842c7478cc16289706cb8409d373033c27a0d48b66b66a227f2a3c07a06`.
+C3 configured `GS_GS68_NODE_OBSERVER=ON`, `GS_HIL_BUILD/CONTROL=OFF` and
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`; console USB Serial/JTAG is enabled. S3 diagnostic
+image: 442,240 bytes, SHA-256
+`7eb6c8487edad0d6460d76c56ac1944e70b789d27982e312665c3dabf4c40fb5`; profile
+`00a8aefb20a6b67d34c6631128031d112ff091d3f255b21a7280db45a356b1d0`, sdkconfig
+`8e7b13e1989f4a102874370cb8d90ccb6716cb1df1f9316dbea0268e4916c6c8`. S3
+selects TLS 1.2 and DS peripheral but leaves hardware identity unprovisioned;
+TLS 1.3 is disabled. Reports and logs are preserved in `/tmp/gs68_cloudsync_
+c3_integration_20261016/` and `/tmp/gs68_cloudsync_s3_integration_20261016/`.
+Both are build-only, with no flashing/serial/hardware actions and physical
+qualification NOT_RUN.

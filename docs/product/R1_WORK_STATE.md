@@ -12,8 +12,10 @@ shared diagnostic protocol, TEST_ONLY backend readiness binding, runner tests,
 registrations, traceability and qualification plan are integrated in the
 existing candidate. Focused runner tests (16 C++ / 70 Python), backend self-test,
 registration checks (2 component / 1 dashboard) and traceability (22) passed.
-C3 and S3 non-flashing builds passed; committed-source-bound image reports are
-pending final candidate commit. Physical cases remain NOT_RUN; commercial
+C3 and S3 non-flashing ESP-IDF 6.0.3 builds passed, source-bound to
+implementation commit `ce6151fe1f387e867b1c6c17c0aa742550f3353a` (C3 948,112
+bytes; S3 442,240 bytes). Reports and logs are in the dated integration
+evidence and unique `/tmp` build directories. Physical cases remain NOT_RUN; commercial
 CloudSync remains disabled. Existing P0 `PARTIAL` and Hub migration failures
 remain blockers. See the dated canonical integration evidence for conflict
 resolutions, test logs and build artifact metadata.
