@@ -1,0 +1,32 @@
+{
+  "assumptions": {
+    "physical_bytes": 17,
+    "logical_bytes": 6,
+    "location_bytes": 8,
+    "session_decimal_digits": 10,
+    "sequence_decimal_digits": 6,
+    "summary_extra_bytes": 20,
+    "fs_bytes": 4194304,
+    "body_quota": 2097152,
+    "identity_quota": 1048576,
+    "completion_quota": 524288,
+    "protected_body_reserve": 524288
+  },
+  "record_bytes": {
+    "canonical_key": 48,
+    "event_payload": 87,
+    "body": 189,
+    "summary_body": 209,
+    "owner_identity": 165,
+    "completion": 110
+  },
+  "limits": {
+    "nominal_identity_rows": 6355,
+    "nominal_ordinary_bodies": 8322,
+    "nominal_receipts": 4766,
+    "max_length_identity_rows": 4112,
+    "max_length_summary_ordinary_bodies": 3744,
+    "root_v4_dense_bitmap_max_bodies": 62848
+  },
+  "warning": "Estimates only. Candidate summaries are included, not assumed to replace exact events. No allocator metadata, segment-tail quarantine, GC coexistence, NVS traffic or target measurements."
+}

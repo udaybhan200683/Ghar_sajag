@@ -1,0 +1,216 @@
+{
+  "release": "1.5.4",
+  "status": "PASS",
+  "quick": true,
+  "require_browser": false,
+  "stages": [
+    {
+      "name": "validation-coverage",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 0.04,
+      "command": [
+        "/usr/bin/python3",
+        "scripts/check_validation_coverage.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/01_validation-coverage.log"
+    },
+    {
+      "name": "contracts",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 0.04,
+      "command": [
+        "/usr/bin/python3",
+        "scripts/verify_contracts.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/02_contracts.log"
+    },
+    {
+      "name": "cpp-unit",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 6.71,
+      "command": [
+        "make",
+        "cpp-test"
+      ],
+      "log": "evidence/release_gate_v1.5.4/03_cpp-unit.log"
+    },
+    {
+      "name": "master-production-runtime",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 5.87,
+      "command": [
+        "make",
+        "master-validation"
+      ],
+      "log": "evidence/release_gate_v1.5.4/04_master-production-runtime.log"
+    },
+    {
+      "name": "fota-host-state-machine",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 4.46,
+      "command": [
+        "make",
+        "fota-host-test"
+      ],
+      "log": "evidence/release_gate_v1.5.4/05_fota-host-state-machine.log"
+    },
+    {
+      "name": "javascript-app",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 0.29,
+      "command": [
+        "make",
+        "app-test"
+      ],
+      "log": "evidence/release_gate_v1.5.4/06_javascript-app.log"
+    },
+    {
+      "name": "product-base",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 0.88,
+      "command": [
+        "make",
+        "product-test",
+        "PRODUCT=base"
+      ],
+      "log": "evidence/release_gate_v1.5.4/07_product-base.log"
+    },
+    {
+      "name": "product-ai",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 0.93,
+      "command": [
+        "make",
+        "product-test",
+        "PRODUCT=ai"
+      ],
+      "log": "evidence/release_gate_v1.5.4/08_product-ai.log"
+    },
+    {
+      "name": "lab-build",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 3.73,
+      "command": [
+        "make",
+        "lab-build"
+      ],
+      "log": "evidence/release_gate_v1.5.4/09_lab-build.log"
+    },
+    {
+      "name": "python-backend-db-logging",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 22.95,
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "log": "evidence/release_gate_v1.5.4/10_python-backend-db-logging.log"
+    },
+    {
+      "name": "dummy-sensor-streams",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 0.75,
+      "command": [
+        "/usr/bin/python3",
+        "tools/validation/run_dummy_sensor_streams.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/11_dummy-sensor-streams.log"
+    },
+    {
+      "name": "functional-catalog",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 12.16,
+      "command": [
+        "/usr/bin/python3",
+        "tools/validation/run_functional_suite.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/12_functional-catalog.log"
+    },
+    {
+      "name": "http-integration",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 13.31,
+      "command": [
+        "/usr/bin/python3",
+        "tests/simulation_http_test.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/13_http-integration.log"
+    },
+    {
+      "name": "pwa-bridge",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 6.21,
+      "command": [
+        "/usr/bin/python3",
+        "tests/pwa_bridge_test.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/14_pwa-bridge.log"
+    },
+    {
+      "name": "pwa-68-api",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 12.75,
+      "command": [
+        "/usr/bin/python3",
+        "tests/pwa_68_api_test.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/15_pwa-68-api.log"
+    },
+    {
+      "name": "pwa-68-frontend",
+      "status": "PASS",
+      "mandatory": true,
+      "seconds": 13.66,
+      "command": [
+        "/usr/bin/python3",
+        "tests/pwa_68_frontend_test.py"
+      ],
+      "log": "evidence/release_gate_v1.5.4/16_pwa-68-frontend.log"
+    },
+    {
+      "name": "browser-e2e",
+      "status": "MANUAL_REQUIRED",
+      "mandatory": false,
+      "seconds": 0,
+      "command": [
+        "node",
+        "tests/simulation_browser_test.cjs"
+      ],
+      "log": null
+    }
+  ],
+  "host_release_ready": true,
+  "physical_hardware_acceptance": "PENDING",
+  "physical_pending": [
+    "real PIR/reed/buttons",
+    "ESP-NOW RF/RSSI/offline timing",
+    "battery/runtime/charging/UPS",
+    "brown-out/reset/watchdog",
+    "flash persistence/wear",
+    "OTA signing/rollback",
+    "real push/provider delivery",
+    "installed-home coverage"
+  ]
+}

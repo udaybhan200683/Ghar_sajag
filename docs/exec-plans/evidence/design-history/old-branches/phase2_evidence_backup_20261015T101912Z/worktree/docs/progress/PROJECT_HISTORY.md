@@ -1,0 +1,1448 @@
+# Ghar Sajag / Parivar Saathi Engineering History
+
+**Document role:** append-only chronological project history
+**Current status and next work:** `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`
+**Historical entries below:** retained from earlier PWA and HW-M1.4 milestones;
+their branch/provenance snapshots are time-bound and are not the current
+Phase-2 state.
+**Latest Phase-2 history entry:** 2026-09-27
+
+This file is an append-only chronological engineering history.
+
+# Ghar Sajag / Parivar Saathi Engineering History
+
+This file is an append-only chronological engineering history.
+
+Do not delete or rewrite completed historical entries when later phases are
+implemented. Corrections and refinements should be recorded as later entries.
+
+For current implementation status, see:
+`docs/progress/CURRENT_STATUS_AND_ROADMAP.md`. The older
+`docs/progress/CURRENT_BASELINE.md` is retained as a dated HW-M1.4 snapshot.
+
+For intended scope and phase boundaries, see:
+`docs/plans/FULL_PWA_IMPLEMENTATION_TASK.md`
+
+## Phase 1 - Persistent Foundation
+
+Commit anchors:
+- `9cb3f4a` - persistent settings and device management
+- `959c854` - caregiver UI corrections and regression coverage
+- `9757791` - Phase 1 validation hardening
+
+Summary:
+- persistent household/settings foundation
+- Family Members and roles
+- authoritative device registry
+- Devices / Manage Devices
+- battery/device health
+- routine/activity configuration
+- Home caregiver behavior
+- deterministic simulator and validation framework
+
+Important validation hardening:
+- required + forbidden assertions
+- cross-card contamination checks
+- desktop/mobile browser coverage
+- release-gate process/port isolation
+
+Qualification:
+- `make release-gate-final`: PASS
+
+
+## Phase 2A - Reports and Durable Event History
+
+Commit:
+`97f004fbd64b6dbdce9f163bdb017b7909f14da1`
+
+Summary:
+- Today / Week / This Month reports
+- backend-derived Reports API
+- durable canonical CloudEvent history
+- SQLite event persistence
+- restart durability
+- removed-device historical reporting
+- persisted household-timezone report boundaries
+
+Important architectural decision:
+Canonical event history became durable and remained the source of truth for
+report projections.
+
+Validation:
+- backend Reports suite: PASS
+- desktop/mobile Reports Playwright: PASS
+
+
+## Phase 2B - Notifications
+
+Commit:
+`d43d999c7b84b107e63844d71144b6440e2bdd42`
+
+Summary:
+- persisted notification preferences
+- persisted notification records
+- care/safety classification
+- maintenance separation
+- dedupe/idempotency
+- FAILED / SUPPRESSED / RESOLVED states
+- backend-owned I-am-OK overdue evaluation
+- coverage-loss/restoration resolution
+- delivery-adapter boundary
+
+Validation:
+- notification backend suite: PASS
+- desktop/mobile notification Playwright: PASS
+
+
+## Phase 2C - PWA Integration
+
+Commit:
+`4d021cdd25024774375ccdbc8cef3de57a7ba420`
+
+Summary:
+- backend-owned I-am-OK state reflected on Home
+- backend-derived "Last confirmed" timing
+- Routines & Activity Rules caregiver-facing label
+- optional DEVICE_MAINTENANCE notifications
+- Home / Reports / Notifications classification consistency
+
+Validation:
+- targeted backend regressions: PASS
+- desktop/mobile Phase 2C Playwright: PASS
+
+
+## 2026-09-16 - Phase 2D Reconciliation and Qualification
+
+Purpose:
+Final Phase 2 reconciliation, performance trimming, cross-feature validation,
+and release qualification.
+
+Performance / architecture improvements:
+- compact `/pwa/state?scope=home`
+- Reports loaded on demand
+- notification polling throttled/cached
+- active-tab rendering
+- Phase 2D payload contract coverage
+- full device state fetched only when Devices requires it
+
+Regression 1 - Device Health display name:
+Compact Home state removed full `devices[]`, causing Device Health to render
+internal ID `kitchen` instead of caregiver-facing `Kitchen Node`.
+
+Resolution:
+- retained compact Home payload
+- added minimal caregiver-facing device-name maps
+- did not restore full devices/settings payload
+
+Regression 2 - Durable-history validation isolation:
+Dummy sensor/PWA validation scenarios reused durable canonical event history,
+causing previous MOTION events to leak into later assertions.
+
+Resolution:
+- validation runners use `reset(test_fixture=True)`
+- production durability behavior remains unchanged
+
+Regression 3 - Devices tab stale state:
+Phase 2D compact polling left `state.devices` stale while Devices was active.
+
+Symptoms:
+- newly registered device did not immediately appear
+- backend offline transition remained visually Active
+
+Resolution:
+- device create/edit/remove explicitly refreshes full state
+- polling uses full state only while Devices tab is active
+- Home polling remains compact
+- Reports/Notifications optimizations remain intact
+
+Final qualification:
+- focused Phase 1 UI contract: PASS
+- focused Phase 2 browser suite: PASS
+- host release gate: PASS
+- mandatory desktop/mobile Playwright gate: PASS
+- `make release-gate-final`: PASS
+
+Phase 2 status:
+COMPLETE / QUALIFIED
+
+## 2026-09-16 - Phase 2D Commit Anchor Recorded
+
+Implementation / qualification commit:
+`9499381` - Complete Phase 2D reconciliation and qualification
+
+Repository state at the Phase 2D implementation checkpoint:
+- branch: `feature/full-pwa-e2e`
+- implementation/qualification commit pushed to origin
+- Phase 2: COMPLETE / QUALIFIED
+- authoritative final qualification: `make release-gate-final` PASS
+
+This commit is the Phase 2D implementation/qualification anchor. Later
+documentation-only commits may become repository HEAD without changing this
+qualified implementation anchor.
+
+## 2026-09-16 - Phase 3A Performance and Stress-Foundation Checkpoint
+
+Document revision:
+`P3A-R1`
+
+Historical qualified baseline retained:
+`9499381` - Complete Phase 2D reconciliation and qualification
+
+Summary:
+- established deterministic static and API payload measurement with structural
+  regression budgets;
+- moved the engineering validation catalog off initial Home startup;
+- removed unnecessary full-state Settings hydration;
+- guarded and throttled polling without weakening backend-owned safety rules;
+- added change-aware active-tab rendering and visibility recovery;
+- changed durable history projections to indexed/range/limit-aware SQLite reads;
+- completed the bounded static-only service-worker module allowlist;
+- added isolated deterministic SMALL/MEDIUM/LARGE/EXTENDED stress profiles and
+  performance/stress/endurance Make targets;
+- added Python, JavaScript and desktop/mobile Playwright regression coverage.
+
+Checkpoint evidence:
+- profiler structural budgets: PASS;
+- SMALL deterministic stress: PASS;
+- MEDIUM deterministic stress: PASS;
+- targeted Phase 1/2 Python regressions: PASS;
+- full Python discovery: PASS (94/94);
+- JavaScript tests: PASS (3/3);
+- 20 socket-free/compiled release-gate stages: PASS;
+- Playwright desktop/mobile discovery: PASS (86 instances);
+- socket-bound HTTP/PWA/browser stages: ENVIRONMENT_BLOCKED by Codex loopback
+  EPERM and therefore still require WSL execution.
+
+Qualification status:
+IMPLEMENTED / QUALIFICATION PENDING. This entry does not replace or weaken the
+qualified Phase 2D anchor and does not claim Phase 3A QUALIFIED before the
+mandatory browser/final release gate is executed successfully.
+
+## 2026-09-16 - Phase 3A Final Qualification
+
+Document revision:
+`P3A-R1`
+
+Qualification result:
+COMPLETE / QUALIFIED
+
+Authoritative final qualification:
+- `make release-gate-final`: PASS;
+- mandatory Chromium desktop browser suite: PASS;
+- mandatory Chromium mobile browser suite: PASS;
+- performance profile: PASS;
+- SMALL deterministic stress: PASS;
+- MEDIUM deterministic stress: PASS;
+- Python regression suite: PASS (`96/96`);
+- JavaScript regression suite: PASS (`3/3`);
+- `git diff --check`: PASS.
+
+Performance / UX result:
+- the 28,770-byte engineering validation catalog remains removed from initial
+  Home startup;
+- compact Home state remains 1,216 B in the recorded deterministic baseline;
+- the post-fix profiler reported 80,542 B static total and remained within the
+  established Phase 3A structural budget;
+- Reports, Settings and Devices retain the Phase 3A lazy/bounded hydration and
+  active-domain refresh rules.
+
+Browser qualification found and corrected three sequencing defects:
+- Reports refresh used a deadline sampled from the Home poll loop, allowing an
+  effective delay beyond the intended active refresh interval;
+- an older Home poll response could overwrite a newer explicit action result;
+- simulator `simulation_now` can legitimately move backward after reset, so the
+  stale-response guard now uses a reset epoch before comparing simulator time.
+
+The Phase 2D qualified implementation anchor `9499381` remains historical
+evidence. The Phase 3A implementation/qualification commit anchor is pending
+creation of the qualified commit and will be recorded in a later append-only
+entry.
+
+## 2026-09-16 - Phase 3A Commit Anchor Recorded
+
+Implementation / qualification commit:
+
+`4dcaf99` - Complete Phase 3A performance and stress foundation
+
+Repository state at the Phase 3A implementation checkpoint:
+- branch: `feature/full-pwa-e2e`
+- implementation/qualification commit pushed to origin
+- Phase 3A: COMPLETE / QUALIFIED
+- authoritative final qualification: `make release-gate-final` PASS
+
+This commit is the Phase 3A implementation/qualification anchor. Later
+documentation-only commits may become repository HEAD without changing this
+qualified implementation anchor.
+
+## 2026-09-16 - Phase 3B Durable-History Read Optimization (In Progress)
+
+Status:
+IMPLEMENTED / MANUAL QUALIFICATION PENDING
+
+Summary:
+- confirmed temporary SQLite sort/group B-trees on representative hot event
+  queries and added migration-managed indexes matching their filters/orders;
+- replaced recursive per-poll conversion of the historical incident population
+  with the bounded active incident categories required by caregiver Home;
+- preserved public snapshot, durable history, Reports and caregiver-visible
+  care semantics;
+- added bounded stderr stage/milestone progress and diagnostic-only per-stage
+  timings to the stress runner;
+- added focused query-plan, ordering, projection-scale and JSON-stream tests.
+
+Host evidence:
+- focused Phase 3B tests: PASS (`5/5`);
+- full Python discovery: PASS (`101/101`);
+- JavaScript application tests: PASS (`3/3`);
+- performance/SMALL and MEDIUM stress gates: PASS;
+- explicit LARGE host diagnostic: PASS (25,000 accepted, 2,500 duplicates,
+  250 rejected, 5,000 notifications, zero request failures, 75.14 s wall time);
+- MEDIUM unprofiled diagnostic: 11.93 s before, 4.51 s after on the same host;
+- MEDIUM profiled diagnostic: supplied ~17.45 s before, 6.94 s after.
+
+This is not a Phase 3B completion or qualification entry. Manual acceptance and
+mandatory desktop/mobile browser qualification remain pending. Phase 3A remains
+COMPLETE / QUALIFIED at permanent implementation anchor `4dcaf99`.
+
+## 2026-09-17 - Phase 3B Scale/Read-Path Optimization Qualified Checkpoint
+
+Qualified checkpoint: `fee5854`.
+
+Phase 3B overall status remains IN PROGRESS. This checkpoint qualified the
+PWA/read-path optimization while preserving Phase 3A as COMPLETE / QUALIFIED at
+the permanent implementation/qualification anchor `4dcaf99`.
+
+Qualification evidence:
+- LARGE correctness: PASS;
+- LARGE runtime improved from approximately 461 s to approximately 72 s;
+- Playwright cleanup race fixed;
+- `make playwright-gate`: PASS, 86/86;
+- `make release-gate-final`: PASS.
+
+Remaining Phase 3B work includes Reports scaling, controlled concurrent API
+load, household isolation, notification storm qualification, and
+restart/recovery. EXTENDED/endurance remains pending.
+
+## 2026-09-17 - Phase 3B Reports Scalability (In Progress)
+
+Status:
+IMPLEMENTED / HOST VALIDATED / MANUAL QUALIFICATION PENDING
+
+Root cause and implementation:
+- repeated Today/Week/Month generation selected full durable event rows,
+  parsed every JSON payload, and materialized every matching `CloudEvent` before
+  Python filtering and aggregation;
+- the existing range query was indexed, so no new index was added;
+- report-specific SQLite reads now aggregate summary/trend facts, return
+  grouped motion timestamps for timezone-aware night classification, aggregate
+  bounded room activity, and materialize only six highlights;
+- no cache, second report store, migration, or API/schema change was introduced;
+- stress diagnostics now include non-gating Today/Week/Month subtotals.
+
+Host evidence:
+- optimized-versus-reference Today/Week/Month payload comparison: PASS;
+- focused report/Phase 2/Phase 3 regressions: PASS (`21/21`);
+- full Python discovery: PASS (`105/105`);
+- JavaScript application tests: PASS (`3/3`);
+- performance/SMALL and MEDIUM stress gates: PASS;
+- MEDIUM report stage: 675.680 ms before, 106.244 ms after;
+- explicit LARGE: PASS, 52.290 s total and 5.320 s Reports versus the qualified
+  baseline of approximately 72.2 s total and 27.3 s Reports;
+- LARGE retained 25,000 accepted, 2,500 duplicate, 250 malformed rejected,
+  zero request failures, and a 16,424,960-byte database.
+
+This entry does not qualify or complete Phase 3B. Manual/browser qualification
+and a committed checkpoint remain pending. `fee5854` remains the previous
+qualified Phase 3B checkpoint. Phase 3A remains COMPLETE / QUALIFIED at
+permanent anchor `4dcaf99`. Remaining Phase 3B scope is controlled concurrent
+API load, household isolation, notification-provider storm qualification, and
+restart/recovery; EXTENDED/endurance remains pending.
+
+## 2026-09-17 - Phase 3B Reports Scalability Qualified Checkpoint
+
+Qualified checkpoint: `0e5a9e3`.
+
+Phase 3B overall status remains IN PROGRESS. This checkpoint qualifies the
+Reports scalability work; it does not complete the broader Phase 3B scope.
+`fee5854` remains the earlier qualified Phase 3B scale/read-path checkpoint,
+and `4dcaf99` remains the permanent Phase 3A implementation/qualification
+anchor with Phase 3A COMPLETE / QUALIFIED.
+
+Manual LARGE qualification:
+- correctness: PASS;
+- Reports stage improved from approximately 27.3 s to approximately 4.9 s;
+- total LARGE runtime improved from approximately 72.2 s to approximately
+  47.6 s;
+- request failures: zero;
+- `make release-gate-final`: PASS.
+
+The final release gate now includes `performance-test` and its SMALL
+deterministic stress smoke. MEDIUM and LARGE remain outside the normal final
+gate, with LARGE reserved for explicit/manual milestone qualification.
+EXTENDED/endurance remains outside the normal final gate as endurance/soak
+work only.
+
+Remaining Phase 3B work is controlled concurrent API load, household
+isolation, notification storm qualification, and restart/recovery;
+EXTENDED/endurance remains pending.
+
+## 2026-09-17 - Phase 3B Controlled Concurrent API Load and Household Isolation
+
+Status:
+IMPLEMENTED / HOST VALIDATED / MANUAL QUALIFICATION PENDING
+
+Summary:
+- found that the Python event identity contract was household-local while the
+  SQLite `event_id` primary key was still global;
+- added migration-managed household-local canonical event identity without
+  rewriting existing relational foreign-key identifiers;
+- made durable event acceptance/duplicate detection atomic;
+- serialized complete core/local-lab requests through the existing shared
+  re-entrant lock while retaining threaded request dispatch;
+- added a fixed-seed, six-worker two-household WSGI/store harness covering
+  simultaneous event writes/replays, compact/full reads, snapshots,
+  Today/Week/Month Reports, device health, notifications/preferences and
+  caregiver acknowledgement;
+- deliberately reused canonical event IDs and caregiver-facing device names
+  across households and verified no cross-household event, snapshot, report,
+  incident, notification, device, preference or database-row leakage;
+- kept the explicit concurrency target outside `release-gate-final`.
+
+Focused host evidence:
+- concurrency plus Phase 3B projection/report regressions: PASS (`9/9`);
+- focused schema/migration suite: PASS (`9/9`), including explicit 006→007
+  preservation of history, reports, ordering and historical references;
+- full Python: PASS (`107/107`); JavaScript: PASS (`3/3`);
+- performance/SMALL and MEDIUM stress: PASS;
+- 12 accepted, 6 duplicate and 2 rejected requests per household;
+- 3 incidents and 3 persisted notifications per household;
+- zero unexpected failures and zero SQLite busy/lock failures;
+- no worker-thread leak; simulator process cleaned up;
+- 147.446 ms focused harness duration and 3,945.727 ms MEDIUM duration
+  (diagnostic only).
+
+This entry does not qualify or complete Phase 3B. Qualified Reports checkpoint
+`0e5a9e3`, earlier scale/read-path checkpoint `fee5854`, and permanent Phase 3A
+anchor `4dcaf99` remain unchanged. Notification-provider storm qualification,
+restart/recovery, later database/resource failure injection and
+EXTENDED/endurance remain pending.
+
+## 2026-09-17 - Phase 3B Concurrent API Load and Household Isolation Qualified
+
+Manual qualification is complete for the concurrent API and household-isolation
+checkpoint. `make concurrency-test`, `make release-gate-final`, Playwright
+(`86/86`), SMALL, MEDIUM and LARGE passed. LARGE recorded 25,000 accepted,
+2,500 duplicates, 250 rejected, zero request failures, `correctness_gate`
+PASS, a 20,828,160-byte database, approximately 64 MB maximum RSS and
+approximately 49.9 seconds wall time. The migration 006→007 preservation
+regression also passed.
+
+Phase 3B remains IN PROGRESS. The new checkpoint commit hash is intentionally
+not recorded yet; `0e5a9e3` and permanent Phase 3A anchor `4dcaf99` remain
+unchanged. Notification-provider storm qualification, restart/recovery, later
+database/resource failure injection and EXTENDED/endurance remain pending.
+
+## 2026-09-17 - Phase 3B Concurrent API Load and Household Isolation Pointer
+
+Qualified checkpoint: `0d6a2fc`.
+
+This documentation-only pointer records the completed concurrent API and
+household-isolation qualification. Phase 3B remains IN PROGRESS. `0e5a9e3`
+remains the qualified Reports scalability checkpoint, `fee5854` remains the
+earlier Phase 3B scale/read-path checkpoint, and `4dcaf99` remains the permanent
+Phase 3A anchor.
+
+Remaining Phase 3B work is unchanged: notification-provider storm/failure
+qualification, restart/recovery, DB/resource fault injection,
+EXTENDED/endurance and final Phase 3 qualification.
+
+## 2026-09-17 - P0 Software-Gap Audit and HW-M1 Transition
+
+The complete P0 software-gap audit is recorded in
+`docs/progress/P0_SOFTWARE_GAP_AUDIT_HW_M1.md`. The audit found no unresolved
+host/backend/PWA blocker, so HW-M1 is approved to start with one ESP32 DevKit
+hub, one ESP32-C3 node, and one PIR. F14 remains the open software gap and is
+not an HW-M1 blocker, but remains a pilot/commercial P0 blocker. Target ESP32
+adapters and HIL evidence are the next work. Phase 3B remains IN PROGRESS and
+its remaining work is unchanged.
+
+## 2026-09-17 - Phase 3B Paused for HW-M1 Integration
+
+Phase 3B is intentionally paused after qualified concurrent API and
+household-isolation checkpoint `0d6a2fc`. The completed P0 software-gap audit
+approved transition to HW-M1: no unresolved host/backend/PWA blocker was found;
+F14 remains an open software gap but does not block HW-M1. The stable qualified
+host/PWA baseline is retained on `feature/full-pwa-e2e`, with documented
+baseline `c43c829`; HW-M1 will use the intended `feature/hw-m1` branch.
+
+Target ESP32 adapters and HIL evidence are next. The remaining Phase 3 work is
+preserved for later reconciliation and resumption: notification-provider
+storm/failure qualification, restart/recovery qualification, DB/resource fault
+injection, EXTENDED/endurance / long-soak validation, and final Phase 3
+reconciliation and qualification. Resumption must first inspect HW-M1 history
+and changes, compare the integrated code with `0d6a2fc`, and rerun applicable
+release and Phase 3 gates before any new Phase 3 implementation.
+
+## 2026-09-17 - HW-M1 Working Branch Initialized
+
+The isolated `feature/hw-m1` branch was created from documented branch point
+`9b391fa`; stable host/PWA reference `feature/full-pwa-e2e` remains preserved.
+HW-M1 scope is frozen as one ESP32 DevKit hub, one ESP32-C3 node, and one PIR.
+The checkpoint breakdown, acceptance evidence, regression policy, and exit
+strategy are recorded in `docs/hw/HW_M1_IMPLEMENTATION_PLAN.md`.
+
+No target firmware implementation has started yet. Phase 3 historical anchors
+remain unchanged, and later Phase 3 work is preserved for reconciliation after
+the single-node hardware slice.
+
+## 2026-09-18 - HW-M1.0 and HW-M1.1 Physical Qualification
+
+The first physical HW-M1 slice was brought up on ESP-IDF v6.0.3 with one ESP32
+DevKit / ESP-WROOM-32 Hub and one ESP32-C3 node, both with 4 MB flash. The
+qualified board identities, Hub CP2102 interface, MAC addresses, node GPIO
+mapping and power baseline were recorded in the HW-M1.2 evidence snapshot.
+
+The SmartElex AM312 PIR was connected to C3 GPIO4 and the onboard active-low
+LED was used for indication on GPIO8. PIR sensing was physically demonstrated,
+including an observed approximately 12 ft / 3.7 m detection distance in the
+recorded test setup and battery-powered node operation. These results closed
+the bring-up and standalone sensing checkpoints because target electrical and
+sensor behavior had to be observed before qualifying the radio path.
+
+Evidence: `docs/hw/evidence/HW_M1_2/README.md`.
+
+## 2026-09-18 - HW-M1.2 ESP-NOW Path and RF Baseline Qualified
+
+Commit `3f02822` recorded the physically qualified path:
+
+`AM312 PIR -> ESP32-C3 -> ESP-NOW -> ESP32 Hub`
+
+The Hub received real PIR-generated motion events and the recorded C3 send
+callback reported successful delivery. The qualification baseline moved from
+initial channel 6 operation to channel 1 on both devices. This was tested
+because local Wi-Fi-channel congestion was suspected, but channel 1 produced
+no meaningful room-to-room range improvement. Therefore congestion was not
+established as the dominant range limitation and RF optimization remains open.
+
+The C3 was unstable at the higher/default configured TX power. Reducing the
+configured maximum to `esp_wifi_set_max_tx_power(40)` (10 dBm) produced much
+more stable behavior, so 10 dBm became the current qualified baseline. Any
+future increase requires controlled RF requalification. Hub RSSI and channel
+metadata logging was added to make later range work measurable, and cleaned
+single-line logging removed the earlier serial-garbage symptoms.
+
+This checkpoint qualified the physical link and logging behavior only. It did
+not qualify the portable runtime codec, durable business ACK semantics,
+backend/Wi-Fi delivery, PWA delivery or production RF optimization.
+
+## 2026-09-18 - HW-M1 Dual-Slot ESP-NOW Node FOTA Qualified
+
+Commit `50abdce` qualified the C3 control-plane FOTA path through the ESP32
+Hub. Both devices used 4 MB flash with custom dual-OTA partitions: `ota_0`
+and `ota_1` were each 1920 KB and rollback was enabled.
+
+The qualification started with a USB bootstrap into `ota_0`. FOTA #1 rotated
+`ota_0 -> ota_1`; the node rebooted into pending validation, was marked VALID,
+restored PIR operation and generated post-update motion received by the Hub.
+FOTA #2 rotated `ota_1 -> ota_0` and demonstrated the same validation, PIR
+restoration and post-update event behavior. The sequence therefore qualified
+dual-slot rotation in both directions.
+
+The demonstrated FOTA features were ESP-NOW transfer, application-level ACK,
+sequence handling, retry, duplicate handling, per-chunk CRC32, whole-image
+CRC32, inactive OTA partition selection, boot-partition switching,
+rollback-enabled boot and post-boot validation. FOTA is control-plane traffic;
+normal sensor/business events remain data-plane traffic and are not equivalent
+to FOTA acknowledgements.
+
+The qualification intentionally leaves production-security and distribution
+work open: CRC32 is corruption detection rather than authenticity, ESP-NOW
+peer encryption/key management is pending, signed firmware authenticity and
+anti-rollback/version policy are pending, backend firmware distribution is
+pending, and the C3 image embedded in the qualification Hub was only a
+bootstrap arrangement rather than the intended production architecture.
+
+Evidence: `docs/hw/evidence/HW_M1_FOTA/README.md`.
+
+## 2026-09-18 - Transition to Planned HW-M1.3 Runtime Integration
+
+After the HW-M1.2 link and separate FOTA qualification, the next milestone was
+defined as **HW-M1.3 — Target Runtime Integration**. It remains
+**PLANNED / NOT STARTED**. The purpose is to connect the proven hardware path
+to the existing portable `NodeRuntime` and `HubRuntime` architecture without
+redesigning ownership boundaries.
+
+The planned work is a common bounded `NodeMessage`/`NodeAckMessage` codec with
+magic, version and frame type; C3 AM312 GPIO4 -> sensing -> `NodeRuntime` ->
+`next_message()` -> ESP-NOW transport -> `transport_result()` and application
+ACK -> `acknowledge()`; and Hub callback -> bounded queue -> owner task ->
+decode -> `radio_message_callback()` -> `run_state_once()` -> application ACK
+back to the node. Host codec and regression tests must pass before target
+validation. FOTA remains separate control-plane traffic.
+
+HW-M1.3 cannot become HW VALIDATED or QUALIFIED from source inspection or the
+existing standalone evidence. Its physical exit criteria require real typed
+messages, bounded callback ownership, HubRuntime processing, application ACK,
+correct retained-event retirement, post-integration FOTA/PIR behavior and
+captured hardware evidence.
+
+## 2026-09-19 - HW-M1.3 Target Runtime Integration Implemented and Host Validated
+
+Status: **IMPLEMENTED / HOST VALIDATED / HARDWARE VALIDATION PENDING**.
+
+A bounded binary codec was introduced because C++ `std::string`,
+`std::optional` and object layouts cannot be copied safely or deterministically
+onto RF. The codec uses explicit big-endian fixed-width integers, bounded
+strings, magic, version, frame type, presence flags and exact payload length.
+It preserves every current `NodeMessage` field, including optional power
+telemetry and bounded `payload_json`, while keeping the maximum normal frame
+below the ESP-NOW v1 payload limit. `NodeAckMessage` uses the same data-plane
+envelope. Existing FOTA magic is recognized as control-plane traffic and is
+never decoded as a business message.
+
+Target code was isolated under `firmware/node/target/esp32c3/` and
+`firmware/hub/target/esp32/` so ESP-IDF headers and callback concerns do not
+enter the portable host build or redefine runtime ownership. C3 constants
+preserve GPIO4 PIR, active-low GPIO8 LED, channel 1, TX API value 40 (10 dBm)
+and both qualified MACs. The C3 owner task alone calls `NodeRuntime`; ESP-NOW
+callbacks only copy ACK/control frames or enqueue MAC results. The Hub callback
+only bounds/checks/copies bytes and transport metadata; one owner task decodes,
+admits through `radio_message_callback()`, processes through
+`run_state_once()`, creates `NodeAckMessage`, and transmits it.
+
+The ACK distinction remains explicit: ESP-NOW MAC success only enters
+`NodeRuntime::transport_result()` and cannot retire retained evidence. Only a
+matching application ACK enters `NodeRuntime::acknowledge()`;
+`ReceivedVolatile` does not retire business evidence and Durable may retire
+the exact EventKey. Transport RSSI/channel stay diagnostic and do not overwrite
+semantic RSSI.
+
+Reboot identity uses a portable fail-closed boot-session policy backed by an
+ESP32-C3 NVS counter. The counter is durably incremented before the runtime
+starts; failure prevents startup rather than knowingly reusing an EventKey.
+The Hub admits a newer monotonically increasing session from the qualified MAC
+and rejects stale prior sessions. NVS erase/reset behavior and secure
+provisioning remain future operational/security policy.
+
+Created target/portable files include:
+
+- `firmware/common/transport/data_plane_codec.{hpp,cpp}`;
+- `firmware/common/transport/session_id.{hpp,cpp}`;
+- `firmware/node/target/esp32c3/` configuration, session provider and adapter;
+- `firmware/hub/target/esp32/` configuration and adapter; and
+- `docs/hw/evidence/HW_M1_3_HOST/README.md`.
+
+Host test result: `make cpp-test` PASS with 124 checks using the system host
+compiler/linker. Codec round trips, malformed input, ACK policy, retry identity,
+session identity, stale-session rejection and FOTA separation are covered.
+The release-gate C++ unit, sanitizers, trace, Python, JavaScript, contracts,
+product/feature, simulator/lab, dummy-stream and functional stages passed.
+Complete `make release-gate-final` did not pass because the sandbox forbids
+localhost socket creation/binding; HTTP/PWA/browser stages could not start.
+This is recorded as ENVIRONMENT BLOCKED and must be rerun in a normal terminal.
+
+The repository has no unified ESP-IDF product project/CMake composition, so
+target-only adapter code was not target-built, flashed or physically exercised.
+The separate control-plane queues still need composition with the existing
+qualified FOTA maintenance implementation. HW-M1.3 therefore remains hardware
+validation pending and is not QUALIFIED.
+
+## 2026-09-19 - HW-M1.3 Checkpoint and Resume Taxonomy
+
+The repository checkpoint meanings were made explicit for future sessions.
+`4645098` is the documentation/resume baseline: it consolidated the HW-M1
+context but did not qualify new physical firmware behavior. The latest commit
+associated with physically demonstrated hardware remains `50abdce`, which
+qualified the dual-slot FOTA baseline and therefore remains the last physically
+qualified HW checkpoint.
+
+Commit `1d41864dd3d0004ed4dbfa608bb85baf3e35a91f` on
+`feature/hw-m1-runtime-integration` is the current HW-M1.3 implementation and
+host-validation checkpoint. It was pushed to
+`origin/feature/hw-m1-runtime-integration`. Its exact status is IMPLEMENTED /
+HOST VALIDATED / TARGET BUILD PENDING / HARDWARE VALIDATION PENDING. The
+focused host command passed 124 C++ checks and `git diff --check` passed; the
+complete release gate remained incomplete because localhost HTTP/PWA/browser
+stages were blocked by the sandbox socket policy.
+
+The immediate next task is HW-M1.3B — ESP-IDF target composition/build for the
+real C3 and Hub images, preserving the qualified 1920 KB dual-OTA layout,
+rollback and separate FOTA control plane. HW-M1.3C is the subsequent physical
+qualification step. No target build or HW-M1.3 physical validation is claimed
+by this checkpoint, and the immutable HW-M1.2/FOTA evidence snapshots remain
+unchanged.
+
+## 2026-09-19 - HW-M1.3B ESP-IDF Target Composition and Build Validated
+
+Status: **IMPLEMENTED / HOST VALIDATED / TARGET BUILD VALIDATED / HARDWARE
+VALIDATION PENDING**.
+
+Starting from documentation/resume checkpoint `0546b28`, real ESP-IDF v6.0.3
+product projects were added under `firmware/node/target/esp32c3/idf/` and
+`firmware/hub/target/esp32/idf/`. They compile the already host-validated
+adapters and portable NodeRuntime/HubRuntime dependencies; they do not create
+a second target-only business runtime. This isolation keeps ESP-IDF headers
+out of the host build and preserves callback -> bounded queue -> sole owner
+task ownership.
+
+The target compositions added a wire-compatible form of the qualified FOTA
+protocol under `firmware/common/transport/fota_protocol.hpp`, a C3 receiver,
+and a Hub sender with the temporary BOOT-button engineering trigger. The sole
+ESP-NOW callback on each target classifies and enqueues control frames. FOTA
+workers consume only the bounded control queues while normal data-plane work
+pauses, so FOTA cannot enter NodeRuntime, HubRuntime, journal, or rules. The Hub
+embeds the exact C3 application build artifact for engineering qualification;
+this is not backend firmware distribution or production authenticity.
+
+Both projects preserve the 4 MB partition map (`nvs` at `0x9000`, `otadata`
+at `0xF000`, `phy_init` at `0x11000`, `ota_0` at `0x20000`, and `ota_1` at
+`0x200000`), with each OTA slot `0x1E0000` and rollback enabled. Build results:
+
+- C3 target `esp32c3`: PASS; `gs_hw_m1_node.bin` = `0xC9430` (824,368
+  bytes), leaving `0x116BD0` (1,141,712 bytes, 58%).
+- Hub target `esp32`: PASS; `gs_hw_m1_hub.bin` = `0x184E10` (1,592,848
+  bytes), leaving `0x5B1F0` (373,232 bytes, 19%).
+- Host regression: `PATH=/usr/bin:/bin make cpp-test CXX=/usr/bin/g++` PASS,
+  124 checks under strict warnings.
+- `git diff --check`: PASS before checkpoint commit.
+
+No device was flashed. No target behavior or post-integration FOTA rotation
+was physically exercised. The last physically qualified commit therefore
+remains `50abdce`; the exact next task is HW-M1.3C physical target
+qualification with serial/configuration evidence.
+
+## 2026-09-19 - HW Firmware Regression and Release Gate Added
+
+The HW-M1.3B target-build checkpoint now has a repeatable gate invoked from the
+active product directory with `make hw-release-gate`; the fast subset is
+`make hw-validation-fast`. The gate reuses the existing 124 C++ checks and
+adds C3/Hub ESP-IDF build verification, target metadata and binary checks,
+exact 4 MB dual-OTA partition validation, rollback validation, qualified
+channel/GPIO/TX invariants, lightweight structural checks, and hard OTA image
+size limits. Hub headroom warning threshold defaults to 15% and is configurable
+without changing firmware behavior.
+
+The gate is fail-closed for missing ESP-IDF: target stages report
+`BLOCKED / ENVIRONMENT_MISSING` rather than being silently skipped. It reports
+functional and FOTA HIL as `MANUAL_REQUIRED`, power/performance as
+`NOT_BASELINED`, and endurance as `NOT_RUN`. It explicitly prints
+`SOFTWARE/TARGET GATE: PASS` separately from `PHYSICAL QUALIFICATION: PENDING`;
+it never prints HW QUALIFIED.
+
+Focused gate self-tests cover in-slot images, OTA overflow, warning thresholds,
+malformed partitions, wrong invariants, and missing ESP-IDF. The full gate was
+run successfully: host regression, C3 target build, Hub target build,
+partition layout, rollback, configuration invariants, static structure, and
+image size all passed. No board was flashed. The HIL matrix is
+`docs/hw/HW_M1_3_HIL_TEST_MATRIX.json` with the readable checklist in
+`docs/hw/HW_M1_3_HIL_VALIDATION.md`. Future power/performance measurements are
+reserved as NOT_BASELINED in `docs/hw/HW_M1_4_POWER_PERFORMANCE_PLAN.md`.
+
+## 2026-09-19 - HW-M1.3 Negative HIL Physically Exercised
+
+The temporary branch `test/hw-m1-3-negative-hil` physically exercised the
+remaining negative-HIL cases using the temporary compile-time harness. The
+drop-ACK retry path, same EventKey retry identity, wrong EventKey ACK, durable
+versus `ReceivedVolatile` retirement, duplicate current behavior, NVS session
+lifecycle, stale-session rejection, and separate semantic/transport RSSI
+diagnostics all passed. Exact artifacts, hashes, board identities, and
+observations are recorded in `docs/hw/evidence/HW_M1_3_HIL/README.md`.
+
+The tested binaries were built before the harness commit and therefore report
+`efbeaf9-dirty`; their recorded SHA-256 values are authoritative. Native USB
+monitor reconnects caused expected `USB_UART_CHIP_RESET` resets and new NVS
+sessions; this was not a firmware crash. The harness is temporary and must not
+be merged into the production runtime branch.
+
+HW-M1.3 now has implementation, host, target-build, automated-gate,
+positive-HIL, FOTA-HIL, and negative-HIL PASS evidence. Final clean-production
+restore/smoke verification remains pending, so final QUALIFIED status remains
+pending. HW-M1.4 power/performance remains separate.
+
+## 2026-09-19 - HW-M1.3 Clean-Production Restore Checkpoint
+
+The evidence-only negative-HIL qualification record was preserved on the
+production-development branch as `5aad7e6`,
+`Document HW-M1.3 negative HIL qualification`. The temporary HIL harness
+remains isolated on `test/hw-m1-3-negative-hil`; it is not present in the
+current production source.
+
+The repeatable `make hw-release-gate` result is **PASS** for host regression,
+partition layout, rollback configuration, HW invariants, target structure, C3
+and Hub builds, and image size. The clean production artifacts prepared for
+the next hardware session are:
+
+- C3 `gs_hw_m1_node.bin`: 824,368 bytes,
+  SHA-256 `20fbb95e118e8d5f3b0b2f350ee1ae066333a690fe3c1e7c304109c00cf91ec9`.
+- Hub embedded `node_firmware.bin`: 824,368 bytes, with the exact same
+  SHA-256 as the standalone C3 image.
+- Hub `gs_hw_m1_hub.bin`: 1,592,848 bytes,
+  SHA-256 `35cee47bb906e1c559c7f66a72e83d3b0682be2caf21302c44283f6e6a1c8f57`.
+
+All three production artifacts report embedded version `5aad7e6` where
+applicable. The production source contains no `GS_HW_M1_3_NEGATIVE_HIL` compile
+hook, and binary scans found no negative-HIL runtime strings. Hardware was
+disconnected after this provenance verification. No clean-production restore
+flash or final normal PIR smoke test has yet been performed.
+
+The exact resume sequence is recorded in `docs/progress/CURRENT_BASELINE.md`:
+reconnect the Hub and C3, attach USB devices if needed, detect actual serial
+ports, flash the verified artifacts without erasing, avoid Hub BOOT, open the
+correct monitors, verify version `5aad7e6` with no HIL logs, perform one
+controlled PIR event, verify the normal NodeRuntime/NodeMessage/Hub processing/
+Durable ACK/retirement/MAC path, and record Hub RSSI/channel. A
+`USB_UART_CHIP_RESET` and NVS session increment from opening the C3 native USB
+monitor is expected and is not by itself a smoke failure.
+
+Status remains: implementation PASS; host validation PASS; target build
+validation PASS; automated gate PASS; positive HIL PASS; FOTA HIL PASS;
+negative HIL PASS; clean-production artifact preparation/provenance PASS;
+clean-production hardware restore PENDING; final normal PIR smoke PENDING; and
+final HW-M1.3 QUALIFIED status PENDING. HW-M1.4 power/performance remains
+separate.
+
+## 2026-09-19 - HW-M1.3 Final Clean-Production Qualification
+
+The exact clean-production artifacts were rebuilt at documentation/provenance
+version `1dfa9c3` and physically qualified after the earlier checkpoint. The
+standalone C3 and Hub-embedded C3 images are each 824,368 bytes with SHA-256
+`f2c81ad8794fe766664ce253f588124665bb7c3e91da3b2b2ab4dc3b5c9104b2`; the Hub
+image is 1,592,848 bytes with SHA-256
+`f48a455658cf59d4f3e6a857bac36360ca045da2fd890d9b23ce7438e779a7f1`.
+The embedded C3 image exactly matched the standalone image. Production source
+contains no temporary negative-HIL implementation, and binary scans found no
+negative-HIL runtime strings.
+
+WSL plus USB-IP Hub flashing was unstable for sustained writes on this
+workstation (`urb->status -104` and serial drops). Native Windows serial access
+recovered the activity: Python 3.12.10, esptool 5.4.0, Hub COM3 and C3 COM4
+for this session. Both native flashes passed hash verification and hard reset;
+no erase-flash was used. The port names are historical and must be re-detected.
+
+The Hub clean boot physically reported version `1dfa9c3`, initialized ESP-NOW,
+started the `HubRuntime` owner on channel 1, and reported the embedded C3 image
+size of 824368 bytes. A clean C3 startup banner was not retained because
+native USB Serial/JTAG monitor/reset can reset or re-enumerate; its image
+provenance and esptool hash verification were captured instead. No
+negative-HIL logs were observed.
+
+The decisive matched normal event was C3 `session=17 seq=3`: PIR reached
+NodeRuntime, a 63-byte NodeMessage was sent, the Hub processed the matching
+event and returned `ack_send=ESP_OK` at RSSI `-69` on channel `1`, and the C3
+received Durable ACK class `0`, retired exactly once (`retired=1`), with MAC
+delivery `accepted=1`. Final evidence is
+`docs/hw/evidence/HW_M1_3_FINAL_SMOKE/README.md`.
+
+Qualification decision: **HW-M1.3 TARGET RUNTIME INTEGRATION: QUALIFIED / PASS**.
+HW-M1.0, HW-M1.1, HW-M1.2, and dual-slot C3 FOTA remain QUALIFIED / PASS.
+The temporary negative-HIL branch remains isolated and the PWA branch remains
+frozen at `9b391fa` on `feature/full-pwa-e2e`. Next engineering work is
+HW-M1.4 power/performance characterization; its measurements remain
+`NOT_BASELINED`.
+
+## 2026-09-21 - HW-M1.4A Offline Resilience / Physical Endurance Closure
+
+HW-M1.4A physical endurance/resilience qualification is **QUALIFIED / PASS**
+for the exact `bb34f5eb796d4975c7e8ab788ca638d9828a3996` Hub+C3 pair
+(`Enforce Hub and C3 firmware pair integrity`). Its runtime implementation is
+`cfcee972dab6045bbb8f7fbfeb51bf66097cfae9` (`Fix node operation during Hub
+outages`); no runtime logic changed between those commits.
+
+Under the documented HIL workload, the node was confirmed alive for at least
+19 h 54 min. The final health sample retained session 26, reset 1,
+`pir_ok=1545`, `pir_rejected=0`, `durable_ack=1545`, zero retained/in-flight
+backlog, zero motion drops, five matched MAC-failure retries, `error=0`, and
+stable heap evidence. The final successful motion was at
+`2026-09-21T20:00:43+05:30`; the final health sample was at
+`2026-09-21T20:01:20+05:30`.
+
+Approximately 15 minutes after operation stopped, the cell measured about
+2.80 V while the C3 3V3 and AM312 VCC were approximately 0 V. The exact
+cutoff component/path is intentionally unresolved and is carried to HW-M1.4B;
+this is not recorded as a battery-protection cutoff claim. Earlier 12-hour,
+14.5-hour, and 18-hour checkpoints remain historically valid. The dedicated record is
+`docs/hw/evidence/HW_M1_4A_ENDURANCE/README.md`.
+
+The run is not a commercial battery-life qualification or controlled
+power-consumption baseline. Next milestone: **HW-M1.4B — Power Baseline
+Characterization**. The planned HW-M1.4C low-power architecture and HW-M1.4D
+battery telemetry/energy model roadmap is recorded in
+`docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`.
+
+The node used one 18650 cell through the Robocraze `TIFC00389` shield; the
+authoritative product and wiring-boundary detail is recorded in the dedicated
+HW-M1.4A evidence README. The seller-advertised over-discharge protection is
+consistent with the observed endpoint but the actual cutoff mechanism and
+threshold remain unverified.
+
+## 2026-09-21 - HW-M1.4B Minimal Power Baseline Planned
+
+HW-M1.4B is **PLANNED / READY TO START**. The authoritative plan is
+`docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`. It establishes a minimal repeatable
+BEFORE baseline for the current `bb34f5e` software using the Robocraze
+`TIFC00389` fixture only as prototype test hardware: B0 measurement-path
+verification, B1 idle, B2 NodeHealth-inclusive normal activity, B3 controlled
+PIR workload, and B4 short Hub-offline/recovery behavior.
+
+No HW-M1.4B physical measurement has been performed or claimed by this
+planning checkpoint. After B0 measurement-path verification plus minimal B1–B4
+capture, HW-M1.4C1 Low-Power Software V1 may start immediately; full
+prototype-shield characterization is not a software start gate. HW-M1.4C2 remains deep-sleep/retained-state work and
+HW-M1.4D remains future battery telemetry and energy-model work.
+
+Detailed prototype hardware characterization is separate HW-PWR-PROT work.
+Future commercial battery/power-path selection and qualification is
+HW-PWR-COMM; the Robocraze fixture is not a frozen product architecture.
+
+## 2026-09-21 - HW-M1.4 Master Forward Roadmap Planning Pass
+
+The forward roadmap was expanded so a future session can resume from
+repository documentation alone. The authoritative current-state entry is
+`docs/progress/CURRENT_BASELINE.md`; the authoritative forward roadmap is
+`docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`; and the active milestone detail
+is `docs/hw/HW_M1_4B_POWER_BASELINE_PLAN.md`.
+
+The roadmap preserves HW-M1.4A **QUALIFIED / PASS**, sets the immediate action
+to B0 measurement-path verification followed by repeatable B1–B4 BEFORE
+measurements, and permits HW-M1.4C1 Low-Power Software V1 after that minimal
+baseline. It explicitly keeps Robocraze prototype characterization separate
+as HW-PWR-PROT and defers commercial hardware selection/qualification to
+HW-PWR-COMM.
+
+It also records planned activity-episode semantics, P0-SW-R0 event chronology
+dependencies for routine learning, C2 retained-state/recovery work, D battery
+telemetry, E installer observability, F RF/Wi-Fi/backend coexistence, G
+FOTA/maintenance/security closure, the BLE feasibility experiment, H extended
+reliability/soak, and explicit acceptance/evidence boundaries for each.
+
+## 2026-09-22 - Master Automated Validation Framework
+
+Work began on the dedicated
+`feature/hw-m1-4-regression-framework` branch from exact `0eb1324`. The
+repository's existing release, unit, component, scenario, API, PWA,
+Playwright, sanitizer, trace, stress, HW-build and pair-integrity suites were
+inventoried before framework changes.
+
+The validation foundation adds an ID-addressable host harness that runs the
+production sensing, NodeRuntime, NodeRadio, NodeStore, codec, HubRuntime,
+ingest, journal and ACK policies with virtual time and deterministic transport
+faults. It defines OR-001 through OR-035 plus smoke, protocol, queue, restart,
+FOTA shared-policy, stress and accelerated stability cases; JSON/JUnit
+aggregation; a fail-fast hardware-free nightly command; a controlled negative
+self-test; and a fail-closed optional HIL entry point. Target-only FOTA,
+restart persistence, RF/electrical and other physical gaps remain explicit and
+are not claimed as simulation PASS.
+
+Authoritative documentation and the machine-readable feature ownership matrix
+are under `docs/validation/`. No future HW-M1.4C or other product behavior was
+implemented. Historical qualification evidence was not rewritten.
+
+Project rule established: **NO FUTURE FEATURE IS COMPLETE UNTIL ITS POSITIVE,
+NEGATIVE, BOUNDARY, FAULT/RECOVERY AND APPLICABLE PERFORMANCE/REGRESSION TESTS
+ARE ADDED AND ALL MANDATORY GATES PASS.**
+
+## 2026-09-22 - Validation Architecture and Coverage Closure
+
+The final pre-feature closure pass preserved the 49-case production-runtime
+master and OR-001..OR-035, then removed the C3 receiver's ESP-IDF testability
+coupling. One production FOTA receiver now owns protocol, state, CRC, sequence,
+timeout, maintenance and failure policy behind `IOtaWriter`; the target adapter
+still calls the real ESP-IDF OTA APIs. A 22-case host matrix executes that same
+receiver with deterministic writer failures. The ESP32-C3 target composition
+compiled successfully with ESP-IDF 6.0.3.
+
+The complete hardware-free nightly now owns master, FOTA, negative self-test,
+MEDIUM stress, concurrency, the mandatory release gate (including desktop and
+mobile Playwright, sanitizers and trace), EXTENDED 100,000-event endurance, and
+LCOV line/branch reporting without duplicating expensive suite ownership.
+GCC/LCOV artifacts include human, JSON, LCOV and HTML forms. Stress/stability
+assertions and production retry-boundary checks were strengthened.
+
+The HIL entry point now has a concrete repository ESP-IDF adapter for MAC-based
+port discovery, clean paired provenance, flashing, serial readiness and
+NodeHealth capture. It remains fail-closed because the current targets do not
+expose safe software controls for logical Hub receive outage, synthetic motion,
+transport faults, FOTA trigger, deterministic restart/state query or final
+state collection. Electrical power cycling stays a separate fixture capability.
+Persistent C3 retained state, target Hub journal/dedupe, target backend bridge
+and Hub self-FOTA remain named product gaps; none was implemented here.
+
+## 2026-09-22 - Unattended Hub+C3 HIL Phase 1
+
+The `feature/hw-m1-4-hil-automation` checkpoint adds a complete bounded
+connected-target core gate: one-time MAC/chip/stable-USB setup, fail-closed
+preflight, exclusive fixture ownership, paired HIL builds and provenance,
+safe cached flashing, timestamped reconnecting serial capture, synthetic motion
+through the real production runtimes and ESP-NOW, logical Hub outage/recovery,
+Hub/C3/both software restart campaigns, short resource/reset checks, recovery,
+and machine/human evidence.
+
+The UART control surface is compiled only into explicit HIL images. Production
+pair builds now reject HIL command markers, while HIL builds require them.
+Seventy-one real-target IDs cover smoke, radio, OR-001..035-correlated outage,
+and restart behavior. Fake-device host tests cover fixture and report failure
+paths. True electrical power/brownout, measurement, PIR optics, house RF and
+thermal work remain extra-fixture/physical-only. FOTA matrices and long
+stress/soak remain Phase 2; no scheduler was installed and no prior evidence
+was rewritten.
+
+## 2026-09-22 - Phase-1 HIL Gate Integration
+
+The existing Phase-1 real-target suite remains single-owner `make
+hil-regression`. Hardware-independent HIL tooling, compile-time isolation and
+supervisor contract checks now run from `validation-fast`, with the HIL target
+build/provenance check added to `release-gate-final`. The HW release gate now
+reports `BLOCKED_HIL_FIXTURE_UNAVAILABLE` when connected hardware is not
+requested or unavailable, and runs the authoritative regression only when
+`HIL=1`. Hardware-free nightly validation includes the same HIL infrastructure
+checks; `validation-nightly HIL=1` adds the real Phase-1 suite without
+duplicating its test IDs. No Phase-2 FOTA, stress or soak work was started.
+
+## 2026-09-22 - WSL-first Phase-1 HIL orchestration
+
+Real Windows/WSL qualification showed that the PowerShell-master design spent
+too much control complexity on encoding, native argument parsing, process
+waiting, provider-qualified UNC paths and Windows-to-Linux repository paths.
+That implementation is preserved in project history but superseded. The one
+authoritative entry point is now `make hil-qualify` from normal WSL Ubuntu.
+WSL owns the software gates, fixture identity, make stages, evidence and final
+summary. Windows owns only a small, synchronous, bounded usbipd helper that
+attaches unique current VID:PID/BUSID matches when WSL cannot already see and
+verify both targets. Runtime serial recovery is likewise initiated by WSL and
+re-verifies chip/MAC before reconnecting capture. The 71 real-target cases
+remain single-owner `make hil-regression`; no Phase-2 FOTA, fault matrix,
+extended stress or soak behavior was added.
+
+## 2026-09-23 - Phase-1 real-HW qualification closure
+
+The authoritative WSL-first closure run completed with validation-fast,
+release-gate-final, USB fixture readiness, setup, preflight, smoke and
+regression all passing. The connected campaign recorded 71 real-target PASS,
+zero FAIL and six expected physical-fixture BLOCKED rows; unexpected resets
+were zero and final retained/in-flight state was zero. The browser gate also
+completed 86/86 PASS. This closes Phase 1 only; no Phase-2 implementation was
+started.
+
+## 2026-09-23 - Phase-2 architecture and gap-analysis baseline
+
+Documentation-only Phase-2 baseline recorded in
+`docs/PHASE2_ARCHITECTURE_AND_GAP_ANALYSIS.md`.
+
+The analysis preserves the `ae9b7dc` Phase-1 qualification boundary and
+records the current single hard-coded Hub/C3 target, commissioning and
+security gaps, effective ESP-NOW capacity questions, FOTA boundaries,
+target-to-application bridge gap, real-evidence replay requirement, staged
+4/10/25-node qualification plan, proposed command ownership and implementation
+order. No firmware, runtime, HIL behavior, configuration or evidence was
+changed. No Phase-2 implementation or real-hardware PASS is claimed.
+
+## 2026-09-23 - Phase-2 P2.1/P2.2 host foundation
+
+The Phase-1 physical run was reduced to portable replay fixtures for the
+observed ESP32/C3 reset forms, stale/fresh serial evidence, PIR readiness,
+UART truncation/interleaving and esptool 5.4 output. USB reconnect replay is
+explicitly synthetic because no raw physical trace was retained. The WSL HIL
+campaign now reuses authoritative identity across healthy capture startup,
+checking stable USB metadata, and reserves esptool re-verification for flash
+and recovery. The qualified Phase-1 test manifest is unchanged; physical
+regression of the discovery change remains pending.
+
+A scheduled host transport harness now runs independent NodeRuntime contexts
+through the production codec and HubRuntime for 1, 4, 10 and 25 simulated
+Nodes. Lost-ACK and logical-outage recovery cases are included. This is a
+host foundation only: commissioning, secure target peer capacity, target
+multi-node behavior and full ten-node qualification remain unimplemented.
+
+## 2026-09-23 - Phase-2 single-C3 smoke and setup recovery
+
+The connected checkpoint at `fc0776b` passed all 17 physical Phase-1 smoke
+cases with matching Hub/C3 firmware versions and no unexpected resets or
+retained/in-flight residue. A preceding bare smoke attempt correctly stopped
+before hardware tests because its saved setup referenced the prior branch.
+The existing WSL supervisor now offers a focused smoke profile that refreshes
+USB fixture readiness and setup, runs preflight, then invokes the unchanged
+smoke campaign. Host tests cover stage order, stale branch/commit/source
+rejection and fail-closed behavior. The focused profile has not yet itself
+been run on connected boards.
+
+## 2026-09-23 - Phase-2 asymmetric identity direction and registry foundation
+
+The product owner approved unique asymmetric production Node identities,
+QR-represented public identity and symmetric authenticated runtime traffic
+after commissioning. No prototype eFuse was programmed. A bounded Hub
+`NodeRegistry` foundation now separates physical, Home/Hub and logical
+identity and defines deterministic enrollment, rejoin, quarantine,
+remove/replace and capacity outcomes. Host tests cover the ten-slot boundary
+and simulated removal of one of ten NodeRuntime contexts without affecting
+the other nine. The test harness still supplies preauthenticated records;
+cryptographic commissioning, target peer wiring and persistent association
+remain open.
+
+## 2026-09-23 - Phase-2 host commissioning crypto and transcript foundation
+
+A shared commissioning protocol and host OpenSSL provider now exercise unique
+P-256 test identities, exact public-key pinning, bounded Hub/Node windows,
+fresh challenge and ephemeral ECDH exchange, HKDF installation keys and
+mutual signature/HMAC confirmations. The signed transcript binds the Home,
+Hub, Device and logical ID plus room/function. Host checks cover assignment
+tampering, wrong key, expiry and replay. The installer authorization code is
+separate from the Node identity key. This is a software-only partial P2.3
+checkpoint: no target pairing, protected credential storage, association
+persistence, rejoin or runtime AEAD is claimed.
+
+## 2026-09-23 - Phase-2 authenticated host multi-node transport
+
+The scheduled 1/4/10/25-node host harness now commissions each unique test
+identity before registry admission and carries production-codec events and
+ACKs inside a shared AES-256-GCM runtime envelope. Per-node installation keys,
+session salts, directional counters and replay windows are independent. Host
+tests reject tampering, replay, wrong logical association, old-session ACKs
+and a misrouted ACK, while the original sender retries successfully. This is
+host simulation only; target crypto/storage/ESP-NOW wiring, authenticated
+rejoin, RF timing and full ten-node release qualification are still open.
+
+The ESP-IDF 6.0.3 PSA crypto adapter and shared protocol/security sources
+compile in both the ESP32 Hub and ESP32-C3 target projects. Identity signing
+is an injected interface, with no production key store, target commissioning
+entry point or active secure radio path connected. This target-build result
+must not be read as target security or physical qualification.
+
+## 2026-09-23 - Phase-2 authenticated rejoin host foundation
+
+A symmetric challenge/response rejoin state machine uses the persisted
+installation key and a higher committed Node boot session to authenticate the
+bound physical/logical/Home/Hub identity and derive a fresh runtime salt.
+Host tests reject altered identity, foreign Home, wrong key, stale session,
+tampered challenge/final/ACK and replay. The 10-Node host harness now reboots
+one Node while the other nine continue, then verifies fresh-session event and
+ACK isolation. Association/session persistence, interrupted-ACK recovery and
+target radio wiring remain open.
+
+## 2026-09-23 - Phase-2 encrypted association-store foundation
+
+A common bounded association record now wraps Home/Hub/Node/logical identity
+and installation key using AES-256-GCM and an externally supplied wrapping
+key. Host tests reopen the record, reject wrong keys and corruption, preserve
+the old state on a failed write, and commit an authenticated factory-reset
+tombstone. The ESP-IDF NVS blob adapter compiles for both boards. No protected
+target wrapping-key provider, startup restore, Hub registry persistence or
+physical power-cut proof exists yet; production association remains partial.
+
+## 2026-09-24 - Phase-2 registry revocation capacity correction
+
+The bounded Hub registry no longer evicts the oldest revoked physical identity
+when its tombstone store fills. Remove/replace at capacity returns an explicit
+`RevocationCapacityFull` result, retains every existing tombstone, and
+quarantines the affected active Node so rejoin is rejected. Focused host tests
+cover max−1/max/max+1, oldest revoked identity rejection and no partial
+replacement. Durable Hub registry storage and service recovery are still open.
+
+## 2026-09-24 - Phase-2 registry snapshot validation foundation
+
+The existing `NodeRegistry` gained a bounded snapshot and all-or-nothing
+restore into a fresh instance. Host tests restore Home/Hub identity, active
+records, last authenticated session, revoked identities and quarantine, then
+reject stale and revoked rejoin attempts. Corrupt, conflicting and foreign
+snapshots leave the destination empty. This is memory-state validation only;
+protected Hub flash storage and installation-key recovery are pending.
+
+## 2026-09-24 - Phase-2 encrypted Hub registry snapshot foundation
+
+A bounded Hub registry repository now encrypts authorization, revocation,
+quarantine, last authenticated sessions and the per-Node installation keys in
+one authenticated snapshot. Ten-Node host tests reopen it, reject a wrong Hub
+key or public identity, tampering, old sessions, dropped revocations and
+unrevoked removal, and preserve the prior record after write failure. A
+25-Node simulated snapshot passes its configured bound and max+1 is rejected.
+A separate bounded NVS registry namespace compiles on the ESP32. Target startup
+does not load this record, the protected wrapping-key source is unresolved,
+and flash rollback/power-cut behavior is unqualified.
+
+## 2026-09-24 - Phase-2 Node event recovery host foundation
+
+NodeRuntime can snapshot retained business events, in-flight retry identities,
+retry attempts and the storage gap marker, then restore them under a strictly
+newer boot session. The old event key remains unchanged while new events use
+the new boot session. The authenticated Hub ingest path accepts old event keys
+only under a verified current transport session, and duplicate Hub journal
+records no longer repeat reducer effects. Host tests include one of ten Nodes
+restarting with an encrypted event in flight while the other nine continue.
+This does not persist Node events to flash or prove physical C3 restart
+recovery; target storage and ESP-NOW security wiring remain open.
+
+## 2026-09-24 - Phase-2 physical smoke and encrypted Node recovery record
+
+The self-contained `hil-checkpoint-smoke` run at commit `613dd45` passed:
+fixture/setup/preflight and 17/17 physical smoke cases, no failures or
+unexpected resets, and final retained/in-flight both zero. Hub and C3 both
+reported `613dd45-hil-e3b0c44`; the run is retained under
+`evidence/hil/runs/20260924T022030.632921Z`.
+
+A bounded encrypted Node recovery record now preserves event identity,
+retained/pending membership, retry attempt and gap marker across host-store
+reopen. It is bound to Home, Hub and logical Node IDs. Host tests cover the
+32-event boundary, write failure, wrong key/Hub, tampering, corruption and
+boot-session rollback. The 1/4/10/25-context scheduled harness now uses this
+record at Node restart. The dedicated target NVS namespace is compiled only;
+target startup/runtime, protected key sourcing, flash-wear policy, rollback
+resistance and physical power-cut proof are still outstanding.
+
+## 2026-09-24 - Phase-2 ten-Node host pressure and per-Node evidence
+
+The scheduled transport now models a bounded Hub processing budget after
+authenticated ingress. Ten-Node host tests fill the 32-entry ingress queue,
+observe explicit per-Node rejections, resume processing and drain all ten
+events. With journal capacity eight, the final two Nodes retain rejected
+evidence. A 20-event noisy Node does not starve nine quiet Nodes. The existing
+multi-Node host campaign now writes a fail-closed JSON detail artifact under
+`build/` with 13 case rows and per-Node identities, ACKs, retries, rejections,
+latency and retained/pending counts. This is host simulation only; target
+ESP-NOW admission, resource scaling and physical RF remain unqualified.
+
+## 2026-09-24 - Phase-2 bounded Hub event-history persistence foundation
+
+The 4 MiB Hub layout has two 1,920 KiB OTA slots and exactly 128 KiB free at
+`0x3e0000`; it cannot safely promise 1,024 worst-case durable events. The
+design reserves that space as a dedicated NVS partition with a 128-record
+active capacity and explicit full rejection. A host journal now encrypts
+individual append-only records, verifies storage readback before commitment,
+restores dedupe after restart and fails closed on wrong key, corruption or
+ambiguous write. Authenticated Hub admission namespaces journal identities by
+physical device, so replacement hardware cannot collide with its predecessor.
+The paired HIL target build passed, but the active target adapter remains on
+the Phase-1 volatile journal until protected Hub key sourcing, authenticated
+target admission and safe retirement are integrated. No new physical run or
+power-loss durability qualification occurred at this checkpoint.
+
+## 2026-09-24 - Phase-2 FOTA protocol negative-path hardening
+
+The existing C3 FOTA receiver now binds repeated Begin, Data and End frames to
+the same image size/CRC, requires the correct final sequence, rejects malformed
+reserved fields and zero sessions, and prevents rejected traffic from extending
+the transfer timeout. Existing host tests were extended with altered metadata,
+wrong End sequence and malformed-traffic timeout cases. This is host/target
+protocol correctness; image authenticity, post-update health, physical OTA and
+rollback qualification remain open.
+Repeated final End before reboot also returns Complete without a second OTA
+finalize or restart request.
+
+The existing Phase-1 WSL supervisor now has a focused `hil-checkpoint-fota`
+path with automatic fixture/setup/preflight, paired HIL flash, Phase-1 smoke
+and a same-image C3 OTA scenario. A HIL-only Hub UART trigger replaces manual
+BOOT pressing. The scenario checks fresh transfer/reset evidence, OTA slot
+change, exact image provenance, PIR readiness and functional ACK recovery.
+Host supervisor/replay tests passed before physical execution.
+
+## 2026-09-24 - Phase-2 same-image physical FOTA and checkpoint routing
+
+The first `hil-checkpoint-fota` attempt completed USB fixture, setup and
+preflight, then failed before FOTA because the repository root Makefile did not
+forward `hil-fota` to the product Makefile. The existing WSL-first supervisor
+and self-contained checkpoint ownership were retained. The root forwarding
+rule was added, and the supervisor now reports a run directory only when the
+hardware stage creates a fresh valid report. Focused host tests cover the
+exact missing-root-target failure, stage ordering, fail-closed setup/preflight,
+zero-stage execution and stale-report rejection.
+
+The rerun at `evidence/hil/runs/20260924T085804.060488Z` passed fixture,
+setup, preflight, 17/17 physical smoke cases and 3/3 same-image FOTA cases.
+The paired Hub/C3 version was `6ed7de7-hil-ae23023`; the C3 moved from
+`ota_0` to `ota_1`, rebooted with `RTC_SW_CPU_RST`, reached PIR readiness and
+retired a post-update motion event by application ACK. Final retained and
+in-flight counts were zero, with zero unexpected resets. The qualification
+covers same-image OTA and functional recovery. Version upgrade, image
+authenticity and rollback remain open.
+
+The raw C3 evidence also shows the previous fixed-delay validation occurred
+before PIR readiness. A bounded post-update health gate now waits for sensing,
+runtime liveness, post-sensing MAC delivery and heap headroom, or requests
+rollback at 90 seconds. `FOTA-HOST-028` and real-evidence replay cover the old
+ordering; the paired HIL target build passes. At that point the gate still
+awaited physical execution; the following entry records the result. No rollback
+or authenticated Hub admission qualification is claimed from the earlier
+same-image run.
+
+## 2026-09-24 - Phase-2 C3 OTA boot-health gate physical result
+
+The follow-up run at `evidence/hil/runs/20260924T094521.398370Z` passed the
+17-case smoke and all three same-image FOTA cases on clean commit `7bc2a33`.
+Hub/C3 firmware version was `7bc2a33-hil-e3b0c44` (ESP-IDF v6.0.3); Hub
+SHA-256 was `b713e7d983d5e343cea8b66581cac4dde56967b13a4b6a36e730b412446881ae`,
+and standalone/embedded C3 SHA-256 was
+`a439202c8e4231bc3c29a67ee2cc42ee90c4b5c6a33c7102f7859c1fba52d10b`.
+The C3 changed `ota_0` to `ota_1`, showed a fresh `RTC_SW_CPU_RST`, reached
+PIR readiness, then marked the image valid after runtime, post-sensing MAC
+delivery and heap criteria. Minimum free heap was 201,212 bytes at the
+post-update state observation. The post-OTA event received application ACK;
+unexpected resets, retained and in-flight counts were zero.
+
+The six blocked report rows are physical extra-fixture cases: Hub and C3 power
+cut, controlled brownout, current/battery measurement, optical PIR stimulus,
+and house-range RF/thermal. The focused FOTA report has no blocked radio,
+offline or restart-suite rows; those suites were not part of this run. Physical
+multi-C3 contention and target outage/restart storms remain separate Phase-2
+gaps. This result qualifies the same-image FOTA happy path and boot-health
+success branch only. Version upgrade, firmware authenticity and rollback
+remain unqualified.
+
+## 2026-09-24 - Documentation and provenance consolidation
+
+The authoritative present-status snapshot is now
+`docs/progress/CURRENT_STATUS_AND_ROADMAP.md`; this file remains the
+chronological history, and `docs/PHASE2_ARCHITECTURE_AND_GAP_ANALYSIS.md`
+remains the detailed architecture record. `README.md` is the project
+navigation entry point. The canonical battery/power roadmap remains
+`docs/hw/HW_M1_4_POST_RESILIENCE_ROADMAP.md`, with the HW-M1.4B measurement
+procedure in its existing plan.
+
+The current Phase-2 branch must not be confused with older PWA Phase 2A–2D
+history earlier in this file. The current repository HEAD before this
+documentation-only update was `6f49d28`; the latest physical firmware/code
+commit remains `7bc2a33`, as proven by the target versions and binary hashes
+in `evidence/hil/runs/20260924T094521.398370Z`. The new documentation commit is
+on top of that published history and does not change the tested firmware.
+
+Phase-1 historical HIL fixes and their regressions remain part of the
+engineering record: stale setup/provenance fails closed; esptool 5.x identity
+output is parsed; USB/D-state identity probing is bounded and metadata-first;
+healthy target identities are cached; UART fragmentation and reset-boundary
+truncation are handled; ESP32 and C3 software resets normalize correctly;
+fresh evidence cursors prevent stale readiness/reset evidence; C3
+`HIL_READY` is distinct from PIR sensing readiness; native USB/tty
+re-enumeration is reconciled without duplicate readers; browser/service-worker
+routing failures are treated as harness contamination when evidence supports
+that diagnosis; and HIL-only controls remain absent from production builds.
+The WSL supervisor remains authoritative, with PowerShell limited to USB
+fixture assistance.
+
+The current Phase-2 milestone history above records the asymmetric identity
+direction, host commissioning and authenticated runtime, registry tombstone
+capacity fix, encrypted association/registry/recovery records, 1/4/10/25
+logical-Node tests, ten-Node pressure/fairness evidence, bounded Hub journal
+design, and FOTA protocol/checkpoint work. The FOTA orchestration defect was
+that the root Makefile did not route `hil-fota` to the product Makefile; the
+existing WSL-first checkpoint ownership was retained, the root forwarding and
+fresh-report handling were fixed, and focused regressions were added. The
+first physical same-image FOTA run passed at
+`evidence/hil/runs/20260924T085804.060488Z`; the subsequent health-gate
+requalification passed at `evidence/hil/runs/20260924T094521.398370Z`.
+
+That latest run records 17/17 smoke and 3/3 same-image FOTA PASS, alternate
+OTA slot, fresh C3 reset, PIR readiness, post-boot health validity, functional
+post-OTA event ACK, zero unexpected resets and zero final retained/in-flight
+events. Six rows are `BLOCKED_EXTRA_FIXTURE`: Hub power, C3 power, controlled
+brownout, current/battery instrumentation, optical PIR stimulus and physical
+RF/environmental fixture. Radio-loss, offline, Hub restart, C3 restart, and
+both-target restart suites were outside this focused campaign; they are not
+reported as BLOCKED or passed by it. No real version upgrade, signature
+enforcement, rollback, failed-boot recovery, repeated A/B cycle, or physical
+multi-C3 RF qualification is claimed.
+
+The matching present-state, P0/P1 future work and remaining Phase-2 blockers
+are maintained in `docs/progress/CURRENT_STATUS_AND_ROADMAP.md`; requirement
+evidence classifications remain in `docs/validation/MASTER_TRACEABILITY.csv`.
+
+### 2026-09-25: attach bounded encrypted Hub journal to authenticated target owner
+
+The authenticated Hub owner now initializes the existing `gs_journal` NVS
+partition and attaches the existing encrypted 128-slot `HubJournal` before
+processing authenticated events. A domain-separated HKDF key is derived from
+the existing Hub wrapping key and Home/Hub identity context. Restore failure
+prevents the secure owner from starting; a runtime write/readback fault rejects
+the event without an accepted ACK and faults further journal commits. A
+distinct event is ACK-eligible only after append and readback, while a full
+journal rejects new events without overwriting old records. The focused
+`hub-journal-persistence-host-test`
+passed, and the Hub ESP-IDF production profile built with `GS_HIL_BUILD=OFF`.
+This is target-build, not physical restart/power-cut evidence. The journal is
+append-only with no reclamation, cloud-ACK status remains volatile, and
+production protected-key provisioning, endurance and power-cut behavior remain
+open. No hardware qualification is claimed for this change.
+
+### 2026-09-25: connect C3 retained-event recovery to authenticated owner
+
+After authenticated rejoin, the C3 owner now opens the existing encrypted
+Node recovery record and restores retained/pending event identities into its
+new boot session. It saves each newly admitted event before radio send, saves
+ACK retirement and the first store-full gap marker, and stops the owner on a
+restore or write fault. The recovery key is derived from the existing device
+wrapping key with a separate context. Focused host runtime/repository tests
+and C3 builds with `GS_HIL_BUILD` both OFF and ON passed. The HIL transport
+path remains separate. This is target-build evidence only; physical restart,
+power-cut atomicity, flash wear and production key protection remain open.
+
+### 2026-09-25: replay committed Hub events into local reducer after restart
+
+The authenticated Hub owner now replays the restored encrypted journal once
+before admitting new events. The same reducer path rebuilds basic
+event-derived state after a reset between durable append and in-memory
+reduction; a later retry receives a duplicate ACK without reapplying the
+event. A focused host crash-window regression, the C++ core suite (252
+checks), and the non-HIL Hub build passed. Full policy/timer state, target
+restart and power-cut behavior remain unqualified.
+
+### 2026-09-24: target security owner-path integration in progress
+
+The production Hub and C3 owner tasks were connected to the existing Phase-2
+commissioning, registry, association, rejoin and runtime AEAD components. The
+Hub now exposes an exact-candidate commissioning request boundary and restores
+enrolled ESP-NOW peers; the C3 restores its bound Hub and waits for
+authenticated rejoin before normal runtime. Production plaintext event/ACK
+admission and unauthenticated FOTA control were disabled. The default HIL
+build keeps the qualified Phase-1 transport path. Focused host crypto/rejoin/
+persistence tests and both target build profiles are the software evidence;
+physical target security qualification and installer UI integration remain
+open. This target change does not alter the latest physical evidence or its
+`7bc2a33` firmware provenance.
+
+### 2026-09-27: correct signed OTA rollback stack exhaustion
+
+The focused secure signed-FOTA run at
+`evidence/hil/runs/20260927T035855.644899Z` proved wrong-signer rejection,
+signed A-to-B update, post-boot health success, fresh authenticated rejoin,
+PIR readiness, and application ACK. Although its report marked the injected
+failed-health rollback case PASS, raw C3 serial evidence showed a stack
+protection panic in `gs_ota_validate` while ESP-IDF verified the previous
+signed image during rollback. The 3,072-byte validation-task stack was too
+small. Bootloader startup returned to known-good B on `ota_1`; the raw C3 log
+then proved session 345 and an application ACK, but this was not a clean
+rollback-call PASS. The fixture had also accepted candidate session 344 as the
+restored session. Commit `10f6af7` increases the bounded validation-task stack
+to 12 KiB, rejects target panic evidence, and requires the Hub rejoin cursor
+after the rollback deadline. The focused fixture suite passed 24/24 and the
+ESP-IDF 6.0.3 signed C3 build passed. Physical rollback requalification has
+not been run; no clean rollback qualification is claimed.
+
+### 2026-09-27: qualify Hub journal restore and duplicate ACK after restart
+
+The C3 runtime now detects a retained event that remains unacknowledged across
+a Hub outage and establishes a fresh authenticated runtime session using the
+existing monotonic NVS session allocator. Retained event identity remains
+unchanged and is retried through the new session. Commits `441643f`, `b131894`
+and `9bd131e` contain the runtime recovery and bounded HIL setup-identity reuse
+fixes. Focused Node recovery, authenticated rejoin, persistence, and HIL
+supervisor/Phase-1 infrastructure tests passed; the ESP-IDF 6.0.3 signed C3
+profile built.
+
+The physical checkpoint
+`evidence/hil/runs/20260927T085726.672075Z` passed on one Hub and one C3. Event
+session 376, sequence 2 was committed before the Hub software restart. The
+Hub restored its encrypted journal (`records=21`, `capacity=128`), the C3
+rejoined under session 377, and the Hub returned an `already_committed` ACK
+without reapplying the event; the C3 retired the event and ended with
+`retained=0`, `in_flight=0`. The test images were built from commit `9bd131e`
+with ESP-IDF 6.0.3; the C3 signed image SHA-256 was
+`43f34534ee812a7c8c7edf29512f093df7ee52afd782c990c6a7092368561b52`. This
+proves software-restart recovery for this event path only. Electrical power
+cut, torn-write atomicity, journal reclamation, full rule/timer-state restore,
+production protected-key provisioning, and endurance remain unqualified. The
+Hub image was `hub-journal-sjrA-260927085803` with SHA-256
+`e0d3bf064054c0e017eb85000d55d4c1bede77355f0abc135b7f8be7f1464037`.
+
+The fixture investigation also removed redundant esptool identity probes from
+the stable setup/preflight sequence. `hil-setup` remains authoritative;
+supervised preflight and the nested campaign may reuse its cached identity only
+when USB metadata and tty paths are unchanged. Standalone preflight and
+disappearance/re-enumeration retain authoritative discovery. The first retry
+failed before flashing because the external test signing key was not passed;
+that run is preserved separately and is not counted as product evidence.

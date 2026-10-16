@@ -1,0 +1,192 @@
+# Ghar Sajag R1 Release Contract
+
+## Objective
+
+Ship a commercially installable, stable fresh-install R1 quickly without weakening security, durability, correctness, or caregiver-visible behavior.
+
+> Preserve quality by reducing scope, not standards.
+
+## Supported baseline
+
+R1 supports freshly installed Hub/Nodes using the current approved persistent format.
+
+Arbitrary migration from abandoned development-era formats is post-R1 unless it blocks the supported fresh-install path.
+
+## Pre-R1 fix rule
+
+A defect is an R1 blocker only if it causes:
+1. essential product functionality failure;
+2. security/authentication failure;
+3. data loss/corruption;
+4. incorrect/unsafe caregiver-visible behavior;
+5. inability to use the supported fresh R1 system;
+6. failure of a required R1 gate.
+
+Everything else normally moves to backlog/post-R1.
+
+## Bug and scope triage contract
+
+Before acting on every newly discovered bug, classify it as exactly one of:
+
+- `R1_BLOCKER` — prevents a supported fresh R1 installation or a required release gate, or causes essential product failure, security/authentication failure, data loss/corruption, invalid durability, unsafe/incorrect caregiver-visible behavior, or commercial instability.
+- `R1_FIX` — within R1 scope and must be corrected before release, but does not meet the blocker threshold above.
+- `DEFER_POST_R1` — legacy/dev-format migration only, convenience tooling, diagnostic polish, nonessential optimization, unsupported configuration, future/P1/P2 work, cosmetic cleanup, or speculative refactor.
+- `INVESTIGATE_ONLY` — evidence is insufficient to classify implementation scope; investigate and report without changing product behavior.
+- `TEST_INFRA_ONLY` — a validation/tooling defect that does not itself change product behavior; keep the change limited to test infrastructure.
+
+State the classification before implementing a newly discovered adjacent bug when it would broaden the requested work. For `R1_BLOCKER` or `R1_FIX`, explain the applicable release rule. For `DEFER_POST_R1`, record it for later and do not implement it as part of the current task. Do not infer a product decision from an implementation convenience.
+
+Before implementing an adjacent or unrequested issue, record:
+
+```text
+BUG_CLASSIFICATION=R1_BLOCKER / R1_FIX / DEFER_POST_R1 / INVESTIGATE_ONLY / TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=<canonical path or REQUIREMENT_GAP>
+DECISION_IDS=<GS-Dxxx IDs or NONE>
+TASK_SCOPE=<requested and approved scope>
+OUT_OF_SCOPE=<adjacent work explicitly excluded>
+```
+
+If product semantics are missing, report `REQUIREMENT_GAP` and do not invent behavior. If two current requirements conflict without a resolving locked decision, report `REQUIREMENT_CONFLICT`, stop product-semantic implementation, and request a product decision. A test-plan title or pending test does not by itself establish product scope or a mandatory release gate; that gate must be identified by a locked decision or this contract.
+
+## Non-negotiable invariants
+
+Preserve:
+- authenticated Node/Hub ownership;
+- durable-before-ACK;
+- retry/duplicate protection;
+- lost-ACK safety;
+- Node retirement of acknowledged retained events;
+- reboot recovery of current-format state;
+- fail-closed corruption handling;
+- bounded CPU/memory/watchdog behavior;
+- versioned storage/FOTA behavior;
+- no silent erase/reset as recovery policy.
+
+## Durable-storage security and application rollback — GS-D029
+
+**LOCKED:** R1 storage must remain crash-consistent during ordinary power failures
+and interrupted flash operations. Detect corrupted, missing or inconsistent state;
+if trustworthy recovery is impossible, fail closed. Never silently present stale
+or uncertain routine state as current. Preserve authenticated ownership, durable-
+before-ACK, retry/deduplication, retirement credits and protected recovery dependencies.
+
+Deliberate restoration of an otherwise valid older flash image is outside R1's
+stored-data freshness detection guarantee. State this limitation explicitly;
+AES-GCM is not malicious full-flash rollback protection. Ordinary power-failure
+recovery and detected-corruption handling remain mandatory; this exclusion is not
+permission for stale fallback, fabricated observation or erased accepted evidence.
+
+Automatic FOTA APPLICATION rollback is MANDATORY. Failed firmware updates must
+normally return to the previous valid firmware through ESP-IDF OTA rollback.
+Preserve signed FOTA, firmware validation and compatibility with storage created
+by an unsuccessful upgrade. The previous valid firmware must recover supported
+state correctly or fail closed, without silent erase/reset or stale-state success.
+Application rollback is separate from stored-data rollback and is not waived.
+
+GS-D029 itself approves no new security hardware or partitions; GS-D030 separately
+selects the S3 Hub. Gate C
+protected NVS capacity/progress and the 72-hour event-volume/capacity guarantee
+remain unresolved. This decision does not establish production integration or
+physical firmware/storage qualification.
+
+## Hardware scope — GS-D030
+
+- Hub development baseline: ESP32-S3 N16R8, 16 MiB flash and 8 MiB PSRAM.
+- Nodes: battery-operated ESP32-C3; existing six-Node and ESP-NOW contracts remain.
+- Classic 4 MiB ESP32 code/history are preserved; it is no longer the active target.
+- Verify each board's real memory/pinout; camera/AI/bed features are not added to R1.
+- Preserve two OTA slots, signed FOTA and automatic application rollback.
+- Isolated development partitions are permitted; commercial layout/capacity remain open.
+- Previous physical classic-ESP32 qualification does not establish S3 qualification.
+
+## BAT-C8 required feature and qualification
+
+BAT-C8 production-critical power behavior is an R1-required feature with physical qualification pending (GS-D020). Qualification must cover intended production sleep entry, required GPIO/timer wake, bounded wake/resume, sensing/runtime and radio restoration, safe fail-awake behavior, and required event-processing regressions. Final battery-life optimization and long-duration endurance are not R1 blockers unless the product makes an explicit battery-life claim. See the battery guide and BAT-C8 qualification plan for test details; do not infer product scope from test case labels.
+
+## Current storage blocker
+
+The historical shared Hub journal has a finite append-only lifetime. This is not commercially acceptable.
+
+Do not fix it by simply increasing 128.
+
+The design must separate/reconcile:
+- correctness-critical durability/dedupe;
+- materialized/recoverable reducer/routine state;
+- backend-sync backlog;
+- short-term event/history retention;
+- safe reclamation.
+
+## Cloud/backend scope
+
+Cloud/backend sync is part of the product path because the caregiver PWA should see fresh information without waiting for dashboard-open synchronization.
+
+But cloud availability must not be required for local sensing, alerts, or routine learning.
+
+## Hub identity and Home ownership — GS-D032
+
+Each Hub retains one permanent physical identity and device-specific
+cryptographic identity across household transfers. Current Home ownership and
+the ownership/installation epoch are separate, backend-authorized state. A Hub
+can have only one active Home binding. Claim, transfer, ownership reset and
+re-registration require authenticated authorization and proof of possession of
+the exact Hub; MAC, printed serial, QR or factory reset alone is insufficient.
+
+CloudSync authorization binds the authenticated Hub to its current Home and
+epoch, and each Node event to the original Node identity and enrollment
+generation. The backend validates ownership/revocation before a durable
+transaction and returns completion only after durable commit. Exact EventKey
+retry remains idempotent; conflicting same-key content fails closed. Old-Home
+events are never reassigned to a new Home. Transfer remains blocked until pending
+old-Home data has an approved disposition and old authorization can be safely
+revoked before new ownership is activated.
+
+The lifecycle behavior is locked; credential issuance, root of trust, proof
+protocol, recovery authority, signed versus TLS-authenticated completion receipt,
+deployment middleware/database composition and old-generation backlog policy
+are not thereby selected. Those technical contracts must be supplied by their
+owning GS-109/GS-148 security authority before production trust can be claimed.
+
+## Basic AI / routine learning
+
+R1 may include bounded, transparent statistical routine learning/baseline/trend logic using fixed-size state and aggregates.
+
+Do not introduce heavyweight ML infrastructure merely because the feature is called AI.
+
+Current P0 behavior and implementation boundaries are summarized in `docs/product/P0_PRODUCT_REQUIREMENTS.md`. It distinguishes domain/application behavior from physical qualification and names unresolved semantics; domain guides retain detailed behavior.
+
+## Approved storage and Node design direction — GS-D025–028
+
+R1 targets 72 hours of internet-only outage resilience with powered Hub/Nodes
+and functional local connectivity. Local monitoring and routine learning continue,
+essential safety evidence and observation coverage stay durable, and pending
+information synchronizes when the backend returns. This design target is not an
+unconditional qualified capacity guarantee; supported volume and critical
+saturation remain OPEN.
+
+Eligible ordinary PIR history may be grouped without losing required routine,
+inactivity or timely safety evidence. Important door transitions, user actions
+and safety events remain exact; NO_OBSERVATION is never NO_ACTIVITY. Existing
+durability/retry/deduplication/recovery and durable backend acceptance requirements
+remain mandatory. Encoding, intervals, quiet gap, progress cadence and backend
+summary contract remain unapproved.
+
+ESP32-C3 Nodes are battery-operated. Prefer meaningful-observation processing
+and avoid unnecessary wake-ups, Wi-Fi transmissions and flash writes. Do not add
+40–120-second periodic wake-ups for activity consolidation. Sensor-specific
+interpretation/episode tracking may be local; household/cross-sensor decisions
+stay at Hub. Any new Node protocol must prove battery and correctness impact
+before implementation. GS-D020 BAT-C8 requirements and pending qualification
+status are unchanged; this does not establish a battery-life claim.
+
+Door OPEN/CLOSE remain individually identifiable. Future bed occupancy sessions
+may track START/END/duration at Node, but bed sensing is excluded from R1 and is
+not proof of sleep or identity. Hub hardware direction is now GS-D030; ESP32-C3 scope stays
+in force. Final critical classes/reserves, NORMAL/HIGH/STRESS guaranteed bounds
+and commercial NVS partition remain unapproved. Requirement approval does
+not close technical proof gates or authorize production integration in this task.
+
+## Release discipline
+
+Do not rerun passed physical gates unless a later change can invalidate them.
+
+Use host tests first for new storage/lifetime architecture, then target build/size checks, then physical qualification.

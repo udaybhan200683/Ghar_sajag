@@ -1,0 +1,1587 @@
+{
+  "inputs": {
+    "head": "574ba2a5e77b21c26702d635af99411d61fde558",
+    "source_date_epoch": "1791480245",
+    "source": "/tmp/gs-hub-os-574ba2a/src/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/firmware/hub/target/esp32/idf",
+    "project_version": "574ba2a-comparison",
+    "seed_sha256": "f3ffa60f215f26ef230f50e034f5cc2378a9000e6f27b0d830c74157201ff33a",
+    "asset_bytes": 931408,
+    "asset_sha256": "ffaefebce02db03bea320b9a86898459b1a53ad864d23fa35ab2eaf9f8984772",
+    "initial_sdkconfig_difference": "supported CONFIG_COMPILER_OPTIMIZATION_DEBUG -> CONFIG_COMPILER_OPTIMIZATION_SIZE; deprecated optimization aliases regenerated"
+  },
+  "hardware_used": false,
+  "production_configuration_changed": false,
+  "variants": {
+    "og": {
+      "artifacts": [
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-og/gs_hw_m1_hub.bin",
+          "bytes": 1864624,
+          "sha256": "1c8f1535b29f84b680438ff016ed5a81c6814b553c93d2c9ea57aa852c81131c"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-og/gs_hw_m1_hub.elf",
+          "bytes": 18450804,
+          "sha256": "f3e3dd404ec82e3354084a744d39e451034a9ae3de55f66625416a0894c78bc0"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-og/gs_hw_m1_hub.map",
+          "bytes": 11870897,
+          "sha256": "7c8bbce7d050fe48bac3b6933b10097e34c3db0e36f153f87860ebd9997c118b"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-og/bootloader/bootloader.bin",
+          "bytes": 26304,
+          "sha256": "23680e8899fdbc73f319df2370b1f576c316b654dd9ae4288c85bda9c9cc7b46"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-og/partition_table/partition-table.bin",
+          "bytes": 3072,
+          "sha256": "ea9cfa7831ef46afdb5c12299d23e93dc765dcdb796c13994d08d3a16223898a"
+        }
+      ],
+      "size_summary": {
+        "version": "1.2",
+        "total_size": 1864512,
+        "layout": [
+          {
+            "name": "Flash Data",
+            "total": 0,
+            "used": 1042312,
+            "free": 0,
+            "parts": {
+              ".rodata": {
+                "size": 1042040
+              },
+              ".appdesc": {
+                "size": 256
+              },
+              ".tdata": {
+                "size": 16
+              }
+            }
+          },
+          {
+            "name": "Flash Code",
+            "total": 0,
+            "used": 717098,
+            "free": 0,
+            "parts": {
+              ".text": {
+                "size": 717098
+              }
+            }
+          },
+          {
+            "name": "IRAM",
+            "total": 131072,
+            "used": 87359,
+            "free": 43713,
+            "parts": {
+              ".text": {
+                "size": 86331
+              },
+              ".vectors": {
+                "size": 1028
+              }
+            }
+          },
+          {
+            "name": "DRAM",
+            "total": 180736,
+            "used": 45783,
+            "free": 134953,
+            "parts": {
+              ".bss": {
+                "size": 28080
+              },
+              ".data": {
+                "size": 17703
+              }
+            }
+          },
+          {
+            "name": "RTC SLOW",
+            "total": 8192,
+            "used": 64,
+            "free": 8128,
+            "parts": {
+              ".force_slow": {
+                "size": 40
+              },
+              ".rtc_slow_reserved": {
+                "size": 24
+              }
+            }
+          }
+        ]
+      },
+      "metrics": {
+        "bin": 1864624,
+        "irom": 717098,
+        "drom": 1042312,
+        "dram": 45783,
+        "iram": 87359,
+        "bss": 28080,
+        "ota_margin": 101456
+      },
+      "main_objects": {
+        "node_firmware.bin.S.obj": {
+          "flash": 931412,
+          "static_ram": 0
+        },
+        "durable_transition.cpp.obj": {
+          "flash": 31686,
+          "static_ram": 0
+        },
+        "hub_runtime_adapter.cpp.obj": {
+          "flash": 19912,
+          "static_ram": 9921
+        },
+        "hub_security_link.cpp.obj": {
+          "flash": 18282,
+          "static_ram": 0
+        },
+        "registry_persistence.cpp.obj": {
+          "flash": 11878,
+          "static_ram": 0
+        },
+        "node_registry.cpp.obj": {
+          "flash": 10315,
+          "static_ram": 0
+        },
+        "durable_journal_slot_store.cpp.obj": {
+          "flash": 9049,
+          "static_ram": 0
+        },
+        "hub_durability_owner.cpp.obj": {
+          "flash": 6485,
+          "static_ram": 0
+        },
+        "hub_runtime.cpp.obj": {
+          "flash": 6428,
+          "static_ram": 0
+        },
+        "data_plane_codec.cpp.obj": {
+          "flash": 5875,
+          "static_ram": 0
+        }
+      },
+      "debug_sections": [
+        {
+          "name": ".debug_aranges",
+          "bytes": 80256,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_info",
+          "bytes": 7472154,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_abbrev",
+          "bytes": 478545,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_line",
+          "bytes": 3209988,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_frame",
+          "bytes": 214580,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_str",
+          "bytes": 2252115,
+          "flags": 48,
+          "address": 0
+        },
+        {
+          "name": ".debug_loc",
+          "bytes": 2159581,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_ranges",
+          "bytes": 112600,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_line_str",
+          "bytes": 7921,
+          "flags": 48,
+          "address": 0
+        },
+        {
+          "name": ".debug_loclists",
+          "bytes": 64688,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_rnglists",
+          "bytes": 11025,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".xt.prop",
+          "bytes": 58956,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".xt.lit",
+          "bytes": 1008,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".symtab",
+          "bytes": 143552,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".strtab",
+          "bytes": 301186,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".shstrtab",
+          "bytes": 546,
+          "flags": 0,
+          "address": 0
+        }
+      ],
+      "embedded_asset": {
+        "bytes": 931408,
+        "sha256": "ffaefebce02db03bea320b9a86898459b1a53ad864d23fa35ab2eaf9f8984772"
+      },
+      "allocated_sections": [
+        {
+          "name": ".rtc.force_slow",
+          "bytes": 40,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".rtc_slow_reserved",
+          "bytes": 24,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".iram0.vectors",
+          "bytes": 1028,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".iram0.text",
+          "bytes": 86331,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".dram0.data",
+          "bytes": 17703,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".noinit",
+          "bytes": 1,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".dram0.bss",
+          "bytes": 28080,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".flash.appdesc",
+          "bytes": 256,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".flash.rodata",
+          "bytes": 1042040,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".flash.tdata",
+          "bytes": 16,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".flash.rodata_noload",
+          "bytes": 13965,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".flash.text",
+          "bytes": 717098,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".iram0.text_end",
+          "bytes": 1,
+          "type": "SHT_NOBITS"
+        }
+      ],
+      "esptool_loadable_sections": [
+        ".rtc.force_slow",
+        ".iram0.vectors",
+        ".iram0.text",
+        ".dram0.data",
+        ".flash.appdesc",
+        ".flash.rodata",
+        ".flash.tdata",
+        ".flash.text"
+      ],
+      "bin_segments": [
+        {
+          "address": "0x3f400020",
+          "bytes": 1042312
+        },
+        {
+          "address": "0x3ffb0000",
+          "bytes": 6248
+        },
+        {
+          "address": "0x400d0020",
+          "bytes": 717100
+        },
+        {
+          "address": "0x3ffb1868",
+          "bytes": 11456
+        },
+        {
+          "address": "0x40080000",
+          "bytes": 87360
+        },
+        {
+          "address": "0x50000000",
+          "bytes": 40
+        }
+      ],
+      "description": {
+        "project_version": "574ba2a-comparison",
+        "target": "esp32",
+        "available_sdk_component_count": 138,
+        "available_sdk_component_list_sha256": "94cb30839bd2d31bec543b9db9e586711bb69e092f1c37f01deb28b649f624d9"
+      },
+      "warnings": [],
+      "recovery_frames": {
+        "gs::hub::target::(anonymous namespace)::secure_owner_task(void*)": 23584,
+        "gs::hub::durable::DurableStore::recover(gs::hub::durable::RecoveryState&)": 7168,
+        "gs::hub::durable::DurableStore::checkpoint(gs::hub::durable::Checkpoint const&)": 14688,
+        "gs::hub::durable::HubDurabilityOwner::initialize_epoch_one(bool)": 512,
+        "gs::hub::durable::HubDurabilityOwner::recover(std::array<unsigned char, 32u> const*)": 6688
+      },
+      "recovery_hook_blocks": [
+        "400db2b8 <gs::hub::target::(anonymous namespace)::secure_owner_task(void*)::{lambda()#2}::_FUN()>:\n400db2b8:\t004136        \tentry\ta1, 32\n400db2bb:\t01a0a2        \tmovi\ta10, 1\n400db2be:\td37e81        \tl32r\ta8, 400d00b8 <_stext+0x98> (4017c7c8 <vTaskDelay>)\n400db2c1:\t0008e0        \tcallx8\ta8\n400db2c4:\tf01d      \tretw.n\n\t...\n\n"
+      ],
+      "manual_hook_result": "PASS",
+      "sdkconfig_artifact": {
+        "path": "/tmp/gs-hub-os-574ba2a/sdkconfig.og",
+        "bytes": 78785,
+        "sha256": "f3ffa60f215f26ef230f50e034f5cc2378a9000e6f27b0d830c74157201ff33a"
+      },
+      "critical_config": {
+        "CONFIG_SOC_BLE_MULTI_CONN_OPTIMIZATION": "y",
+        "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE": "y",
+        "CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK": "n",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE": "y",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG": "n",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF": "n",
+        "CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_1MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_2MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_4MB": "y",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_8MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_16MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_32MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_64MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_128MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE": "\"4MB\"",
+        "CONFIG_PARTITION_TABLE_CUSTOM": "y",
+        "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME": "\"partitions.csv\"",
+        "CONFIG_COMPILER_OPTIMIZATION_DEBUG": "y",
+        "CONFIG_COMPILER_OPTIMIZATION_SIZE": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_PERF": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_NONE": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE": "y",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL": "2",
+        "CONFIG_COMPILER_OPTIMIZATION_CHECKS_SILENT": "n",
+        "CONFIG_COMPILER_CXX_EXCEPTIONS": "n",
+        "CONFIG_COMPILER_CXX_RTTI": "n",
+        "CONFIG_ETH_IRAM_OPTIMIZATION": "n",
+        "CONFIG_FREERTOS_TASK_FUNCTION_WRAPPER": "y",
+        "CONFIG_LOG_DEFAULT_LEVEL_NONE": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_ERROR": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_WARN": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_INFO": "y",
+        "CONFIG_LOG_DEFAULT_LEVEL_DEBUG": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_VERBOSE": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL": "3",
+        "CONFIG_LOG_MAXIMUM_LEVEL_DEBUG": "n",
+        "CONFIG_LOG_MAXIMUM_LEVEL_VERBOSE": "n",
+        "CONFIG_LOG_MAXIMUM_LEVEL": "3",
+        "CONFIG_LWIP_IRAM_OPTIMIZATION": "n",
+        "CONFIG_LWIP_EXTRA_IRAM_OPTIMIZATION": "n",
+        "CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_NONE": "n",
+        "CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_SIZE": "y",
+        "CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_PERF": "n",
+        "CONFIG_APP_ROLLBACK_ENABLE": "y",
+        "CONFIG_APP_ANTI_ROLLBACK": "n",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE": "n",
+        "CONFIG_OPTIMIZATION_LEVEL_DEBUG": "y",
+        "CONFIG_COMPILER_OPTIMIZATION_LEVEL_DEBUG": "y",
+        "CONFIG_COMPILER_OPTIMIZATION_DEFAULT": "y",
+        "CONFIG_OPTIMIZATION_LEVEL_RELEASE": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_LEVEL_RELEASE": "n",
+        "CONFIG_OPTIMIZATION_ASSERTIONS_ENABLED": "y",
+        "CONFIG_OPTIMIZATION_ASSERTIONS_SILENT": "n",
+        "CONFIG_OPTIMIZATION_ASSERTIONS_DISABLED": "n",
+        "CONFIG_OPTIMIZATION_ASSERTION_LEVEL": "2",
+        "CONFIG_CXX_EXCEPTIONS": "n"
+      },
+      "compile_command_sha256": "6fba9d5d7f35d6a887b12ad16d24dce71b7d5e1900cd970fb5ca56067c98d1ad",
+      "source_count": 920
+    },
+    "os": {
+      "artifacts": [
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-os/gs_hw_m1_hub.bin",
+          "bytes": 1789456,
+          "sha256": "129ef8e0ba72e3fb7d9d8618cfda92bb16cec19b1c4d684084db8fb90f368b0d"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-os/gs_hw_m1_hub.elf",
+          "bytes": 17727788,
+          "sha256": "0214da0e58e7904e1f8e7fccb32b65d6a88cb52a3809407338892d64df4a014a"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-os/gs_hw_m1_hub.map",
+          "bytes": 9772454,
+          "sha256": "5318c1b7ea3e66419cc801cf8698f30674af6bc9d12c4f2d9bc9d753209148dc"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-os/bootloader/bootloader.bin",
+          "bytes": 26304,
+          "sha256": "23680e8899fdbc73f319df2370b1f576c316b654dd9ae4288c85bda9c9cc7b46"
+        },
+        {
+          "path": "/tmp/gs-hub-os-574ba2a/build-os/partition_table/partition-table.bin",
+          "bytes": 3072,
+          "sha256": "ea9cfa7831ef46afdb5c12299d23e93dc765dcdb796c13994d08d3a16223898a"
+        }
+      ],
+      "size_summary": {
+        "version": "1.2",
+        "total_size": 1789338,
+        "layout": [
+          {
+            "name": "Flash Data",
+            "total": 0,
+            "used": 1035992,
+            "free": 0,
+            "parts": {
+              ".rodata": {
+                "size": 1035720
+              },
+              ".appdesc": {
+                "size": 256
+              },
+              ".tdata": {
+                "size": 16
+              }
+            }
+          },
+          {
+            "name": "Flash Code",
+            "total": 0,
+            "used": 655180,
+            "free": 0,
+            "parts": {
+              ".text": {
+                "size": 655180
+              }
+            }
+          },
+          {
+            "name": "IRAM",
+            "total": 131072,
+            "used": 80927,
+            "free": 50145,
+            "parts": {
+              ".text": {
+                "size": 79899
+              },
+              ".vectors": {
+                "size": 1028
+              }
+            }
+          },
+          {
+            "name": "DRAM",
+            "total": 180736,
+            "used": 45255,
+            "free": 135481,
+            "parts": {
+              ".bss": {
+                "size": 28056
+              },
+              ".data": {
+                "size": 17199
+              }
+            }
+          },
+          {
+            "name": "RTC SLOW",
+            "total": 8192,
+            "used": 64,
+            "free": 8128,
+            "parts": {
+              ".force_slow": {
+                "size": 40
+              },
+              ".rtc_slow_reserved": {
+                "size": 24
+              }
+            }
+          }
+        ]
+      },
+      "metrics": {
+        "bin": 1789456,
+        "irom": 655180,
+        "drom": 1035992,
+        "dram": 45255,
+        "iram": 80927,
+        "bss": 28056,
+        "ota_margin": 176624
+      },
+      "main_objects": {
+        "node_firmware.bin.S.obj": {
+          "flash": 931412,
+          "static_ram": 0
+        },
+        "durable_transition.cpp.obj": {
+          "flash": 28465,
+          "static_ram": 0
+        },
+        "hub_runtime_adapter.cpp.obj": {
+          "flash": 15669,
+          "static_ram": 9921
+        },
+        "hub_security_link.cpp.obj": {
+          "flash": 14498,
+          "static_ram": 0
+        },
+        "registry_persistence.cpp.obj": {
+          "flash": 11195,
+          "static_ram": 0
+        },
+        "durable_journal_slot_store.cpp.obj": {
+          "flash": 8542,
+          "static_ram": 0
+        },
+        "node_registry.cpp.obj": {
+          "flash": 7668,
+          "static_ram": 0
+        },
+        "journal.cpp.obj": {
+          "flash": 6001,
+          "static_ram": 0
+        },
+        "hub_runtime.cpp.obj": {
+          "flash": 5375,
+          "static_ram": 0
+        },
+        "hub_durability_owner.cpp.obj": {
+          "flash": 5191,
+          "static_ram": 0
+        }
+      },
+      "debug_sections": [
+        {
+          "name": ".debug_aranges",
+          "bytes": 64056,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_info",
+          "bytes": 7238356,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_abbrev",
+          "bytes": 501519,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_line",
+          "bytes": 2962646,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_frame",
+          "bytes": 166036,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_str",
+          "bytes": 2251394,
+          "flags": 48,
+          "address": 0
+        },
+        {
+          "name": ".debug_loc",
+          "bytes": 2018158,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_ranges",
+          "bytes": 296272,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_line_str",
+          "bytes": 7786,
+          "flags": 48,
+          "address": 0
+        },
+        {
+          "name": ".debug_loclists",
+          "bytes": 64625,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".debug_rnglists",
+          "bytes": 10976,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".xt.prop",
+          "bytes": 20616,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".xt.lit",
+          "bytes": 360,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".symtab",
+          "bytes": 124448,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".strtab",
+          "bytes": 199812,
+          "flags": 0,
+          "address": 0
+        },
+        {
+          "name": ".shstrtab",
+          "bytes": 546,
+          "flags": 0,
+          "address": 0
+        }
+      ],
+      "embedded_asset": {
+        "bytes": 931408,
+        "sha256": "ffaefebce02db03bea320b9a86898459b1a53ad864d23fa35ab2eaf9f8984772"
+      },
+      "allocated_sections": [
+        {
+          "name": ".rtc.force_slow",
+          "bytes": 40,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".rtc_slow_reserved",
+          "bytes": 24,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".iram0.vectors",
+          "bytes": 1028,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".iram0.text",
+          "bytes": 79899,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".dram0.data",
+          "bytes": 17199,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".noinit",
+          "bytes": 1,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".dram0.bss",
+          "bytes": 28056,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".flash.appdesc",
+          "bytes": 256,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".flash.rodata",
+          "bytes": 1035720,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".flash.tdata",
+          "bytes": 16,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".flash.rodata_noload",
+          "bytes": 13965,
+          "type": "SHT_NOBITS"
+        },
+        {
+          "name": ".flash.text",
+          "bytes": 655180,
+          "type": "SHT_PROGBITS"
+        },
+        {
+          "name": ".iram0.text_end",
+          "bytes": 1,
+          "type": "SHT_NOBITS"
+        }
+      ],
+      "esptool_loadable_sections": [
+        ".rtc.force_slow",
+        ".iram0.vectors",
+        ".iram0.text",
+        ".dram0.data",
+        ".flash.appdesc",
+        ".flash.rodata",
+        ".flash.tdata",
+        ".flash.text"
+      ],
+      "bin_segments": [
+        {
+          "address": "0x3f400020",
+          "bytes": 1035992
+        },
+        {
+          "address": "0x3ffb0000",
+          "bytes": 12568
+        },
+        {
+          "address": "0x400d0020",
+          "bytes": 655180
+        },
+        {
+          "address": "0x3ffb3118",
+          "bytes": 4632
+        },
+        {
+          "address": "0x40080000",
+          "bytes": 80928
+        },
+        {
+          "address": "0x50000000",
+          "bytes": 40
+        }
+      ],
+      "description": {
+        "project_version": "574ba2a-comparison",
+        "target": "esp32",
+        "available_sdk_component_count": 138,
+        "available_sdk_component_list_sha256": "94cb30839bd2d31bec543b9db9e586711bb69e092f1c37f01deb28b649f624d9"
+      },
+      "warnings": [],
+      "recovery_frames": {
+        "gs::hub::target::(anonymous namespace)::secure_owner_task(void*)": 23440,
+        "gs::hub::durable::DurableStore::recover(gs::hub::durable::RecoveryState&)": 7120,
+        "gs::hub::durable::DurableStore::checkpoint(gs::hub::durable::Checkpoint const&)": 13856,
+        "gs::hub::durable::HubDurabilityOwner::initialize_epoch_one(bool)": 560,
+        "gs::hub::durable::HubDurabilityOwner::recover(std::array<unsigned char, 32u> const*)": 6688
+      },
+      "recovery_hook_blocks": [
+        "400d9bf8 <gs::hub::target::(anonymous namespace)::secure_owner_task(void*)::{lambda()#2}::_FUN()>:\n400d9bf8:\t004136        \tentry\ta1, 32\n400d9bfb:\t1a0c      \tmovi.n\ta10, 1\n400d9bfd:\td92a81        \tl32r\ta8, 400d00a8 <_stext+0x88> (4016d8b0 <vTaskDelay>)\n400d9c00:\t0008e0        \tcallx8\ta8\n400d9c03:\tf01d      \tretw.n\n400d9c05:\t000000        \till\n\n"
+      ],
+      "manual_hook_result": "PASS",
+      "sdkconfig_artifact": {
+        "path": "/tmp/gs-hub-os-574ba2a/sdkconfig.os",
+        "bytes": 78745,
+        "sha256": "160118a68ce8dafbd00cead74c5332d44620f13e1b31b4ea07b6b13e9311cb51"
+      },
+      "critical_config": {
+        "CONFIG_SOC_BLE_MULTI_CONN_OPTIMIZATION": "y",
+        "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE": "y",
+        "CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK": "n",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE": "y",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG": "n",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF": "n",
+        "CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_1MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_2MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_4MB": "y",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_8MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_16MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_32MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_64MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE_128MB": "n",
+        "CONFIG_ESPTOOLPY_FLASHSIZE": "\"4MB\"",
+        "CONFIG_PARTITION_TABLE_CUSTOM": "y",
+        "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME": "\"partitions.csv\"",
+        "CONFIG_COMPILER_OPTIMIZATION_DEBUG": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_SIZE": "y",
+        "CONFIG_COMPILER_OPTIMIZATION_PERF": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_NONE": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE": "y",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL": "2",
+        "CONFIG_COMPILER_OPTIMIZATION_CHECKS_SILENT": "n",
+        "CONFIG_COMPILER_CXX_EXCEPTIONS": "n",
+        "CONFIG_COMPILER_CXX_RTTI": "n",
+        "CONFIG_ETH_IRAM_OPTIMIZATION": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_NONE": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_ERROR": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_WARN": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_INFO": "y",
+        "CONFIG_LOG_DEFAULT_LEVEL_DEBUG": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL_VERBOSE": "n",
+        "CONFIG_LOG_DEFAULT_LEVEL": "3",
+        "CONFIG_LOG_MAXIMUM_LEVEL_DEBUG": "n",
+        "CONFIG_LOG_MAXIMUM_LEVEL_VERBOSE": "n",
+        "CONFIG_LOG_MAXIMUM_LEVEL": "3",
+        "CONFIG_LWIP_IRAM_OPTIMIZATION": "n",
+        "CONFIG_LWIP_EXTRA_IRAM_OPTIMIZATION": "n",
+        "CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_NONE": "n",
+        "CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_SIZE": "y",
+        "CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_PERF": "n",
+        "CONFIG_APP_ROLLBACK_ENABLE": "y",
+        "CONFIG_APP_ANTI_ROLLBACK": "n",
+        "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE": "n",
+        "CONFIG_OPTIMIZATION_LEVEL_DEBUG": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_LEVEL_DEBUG": "n",
+        "CONFIG_COMPILER_OPTIMIZATION_DEFAULT": "n",
+        "CONFIG_OPTIMIZATION_LEVEL_RELEASE": "y",
+        "CONFIG_COMPILER_OPTIMIZATION_LEVEL_RELEASE": "y",
+        "CONFIG_OPTIMIZATION_ASSERTIONS_ENABLED": "y",
+        "CONFIG_OPTIMIZATION_ASSERTIONS_SILENT": "n",
+        "CONFIG_OPTIMIZATION_ASSERTIONS_DISABLED": "n",
+        "CONFIG_OPTIMIZATION_ASSERTION_LEVEL": "2",
+        "CONFIG_CXX_EXCEPTIONS": "n"
+      },
+      "compile_command_sha256": "6fba9d5d7f35d6a887b12ad16d24dce71b7d5e1900cd970fb5ca56067c98d1ad",
+      "source_count": 920
+    }
+  },
+  "sdkconfig_differences": [
+    {
+      "symbol": "CONFIG_COMPILER_OPTIMIZATION_DEBUG",
+      "og": "y",
+      "os": "n"
+    },
+    {
+      "symbol": "CONFIG_COMPILER_OPTIMIZATION_DEFAULT",
+      "og": "y",
+      "os": "n"
+    },
+    {
+      "symbol": "CONFIG_COMPILER_OPTIMIZATION_LEVEL_DEBUG",
+      "og": "y",
+      "os": "n"
+    },
+    {
+      "symbol": "CONFIG_COMPILER_OPTIMIZATION_LEVEL_RELEASE",
+      "og": "n",
+      "os": "y"
+    },
+    {
+      "symbol": "CONFIG_COMPILER_OPTIMIZATION_SIZE",
+      "og": "n",
+      "os": "y"
+    },
+    {
+      "symbol": "CONFIG_FREERTOS_TASK_FUNCTION_WRAPPER",
+      "og": "y",
+      "os": null
+    },
+    {
+      "symbol": "CONFIG_OPTIMIZATION_LEVEL_DEBUG",
+      "og": "y",
+      "os": "n"
+    },
+    {
+      "symbol": "CONFIG_OPTIMIZATION_LEVEL_RELEASE",
+      "og": "n",
+      "os": "y"
+    }
+  ],
+  "metric_changes_os_minus_og": {
+    "bin": -75168,
+    "irom": -61918,
+    "drom": -6320,
+    "dram": -528,
+    "iram": -6432,
+    "bss": -24,
+    "ota_margin": 75168
+  },
+  "savings_bytes": 75168,
+  "savings_percent": 4.031268502389758,
+  "component_changes": [
+    {
+      "component": "main",
+      "og": {
+        "flash": 1097855,
+        "static_ram": 9933
+      },
+      "os": {
+        "flash": 1074993,
+        "static_ram": 9933
+      },
+      "flash_change": -22862
+    },
+    {
+      "component": "lwip",
+      "og": {
+        "flash": 76260,
+        "static_ram": 2482
+      },
+      "os": {
+        "flash": 62578,
+        "static_ram": 2482
+      },
+      "flash_change": -13682
+    },
+    {
+      "component": "wpa_supplicant",
+      "og": {
+        "flash": 78553,
+        "static_ram": 1371
+      },
+      "os": {
+        "flash": 65829,
+        "static_ram": 1371
+      },
+      "flash_change": -12724
+    },
+    {
+      "component": "esp_rom",
+      "og": {
+        "flash": 8549,
+        "static_ram": 245
+      },
+      "os": {
+        "flash": 255,
+        "static_ram": 223
+      },
+      "flash_change": -8294
+    },
+    {
+      "component": "spi_flash",
+      "og": {
+        "flash": 18572,
+        "static_ram": 16141
+      },
+      "os": {
+        "flash": 14918,
+        "static_ram": 12634
+      },
+      "flash_change": -3654
+    },
+    {
+      "component": "nvs_flash",
+      "og": {
+        "flash": 15717,
+        "static_ram": 24
+      },
+      "os": {
+        "flash": 13286,
+        "static_ram": 24
+      },
+      "flash_change": -2431
+    },
+    {
+      "component": "heap",
+      "og": {
+        "flash": 12307,
+        "static_ram": 7511
+      },
+      "os": {
+        "flash": 9916,
+        "static_ram": 5777
+      },
+      "flash_change": -2391
+    },
+    {
+      "component": "esp_hw_support",
+      "og": {
+        "flash": 15239,
+        "static_ram": 7498
+      },
+      "os": {
+        "flash": 13085,
+        "static_ram": 6450
+      },
+      "flash_change": -2154
+    },
+    {
+      "component": "freertos",
+      "og": {
+        "flash": 20862,
+        "static_ram": 9371
+      },
+      "os": {
+        "flash": 18754,
+        "static_ram": 8804
+      },
+      "flash_change": -2108
+    },
+    {
+      "component": "mbedtls",
+      "og": {
+        "flash": 115162,
+        "static_ram": 337
+      },
+      "os": {
+        "flash": 113547,
+        "static_ram": 337
+      },
+      "flash_change": -1615
+    },
+    {
+      "component": "esp_system",
+      "og": {
+        "flash": 13268,
+        "static_ram": 4691
+      },
+      "os": {
+        "flash": 12289,
+        "static_ram": 4395
+      },
+      "flash_change": -979
+    },
+    {
+      "component": "esp_mm",
+      "og": {
+        "flash": 4046,
+        "static_ram": 1082
+      },
+      "os": {
+        "flash": 3284,
+        "static_ram": 892
+      },
+      "flash_change": -762
+    },
+    {
+      "component": "vfs",
+      "og": {
+        "flash": 3734,
+        "static_ram": 236
+      },
+      "os": {
+        "flash": 3136,
+        "static_ram": 236
+      },
+      "flash_change": -598
+    },
+    {
+      "component": "esp_driver_uart",
+      "og": {
+        "flash": 3448,
+        "static_ram": 360
+      },
+      "os": {
+        "flash": 2863,
+        "static_ram": 360
+      },
+      "flash_change": -585
+    },
+    {
+      "component": "esp_timer",
+      "og": {
+        "flash": 3422,
+        "static_ram": 1550
+      },
+      "os": {
+        "flash": 2943,
+        "static_ram": 1304
+      },
+      "flash_change": -479
+    },
+    {
+      "component": "esp_hal_mspi",
+      "og": {
+        "flash": 2901,
+        "static_ram": 2381
+      },
+      "os": {
+        "flash": 2592,
+        "static_ram": 2132
+      },
+      "flash_change": -309
+    },
+    {
+      "component": "hal",
+      "og": {
+        "flash": 2279,
+        "static_ram": 2288
+      },
+      "os": {
+        "flash": 1982,
+        "static_ram": 1991
+      },
+      "flash_change": -297
+    },
+    {
+      "component": "bootloader_support",
+      "og": {
+        "flash": 2190,
+        "static_ram": 2041
+      },
+      "os": {
+        "flash": 1915,
+        "static_ram": 1785
+      },
+      "flash_change": -275
+    },
+    {
+      "component": "efuse",
+      "og": {
+        "flash": 1611,
+        "static_ram": 74
+      },
+      "os": {
+        "flash": 1343,
+        "static_ram": 74
+      },
+      "flash_change": -268
+    },
+    {
+      "component": "esp_libc",
+      "og": {
+        "flash": 3369,
+        "static_ram": 2197
+      },
+      "os": {
+        "flash": 3116,
+        "static_ram": 2064
+      },
+      "flash_change": -253
+    },
+    {
+      "component": "esp_partition",
+      "og": {
+        "flash": 2055,
+        "static_ram": 8
+      },
+      "os": {
+        "flash": 1808,
+        "static_ram": 8
+      },
+      "flash_change": -247
+    },
+    {
+      "component": "log",
+      "og": {
+        "flash": 1626,
+        "static_ram": 757
+      },
+      "os": {
+        "flash": 1414,
+        "static_ram": 730
+      },
+      "flash_change": -212
+    },
+    {
+      "component": "esp_event",
+      "og": {
+        "flash": 1874,
+        "static_ram": 4
+      },
+      "os": {
+        "flash": 1685,
+        "static_ram": 4
+      },
+      "flash_change": -189
+    },
+    {
+      "component": "esp_wifi",
+      "og": {
+        "flash": 225773,
+        "static_ram": 41528
+      },
+      "os": {
+        "flash": 225604,
+        "static_ram": 41548
+      },
+      "flash_change": -169
+    },
+    {
+      "component": "pthread",
+      "og": {
+        "flash": 1204,
+        "static_ram": 20
+      },
+      "os": {
+        "flash": 1041,
+        "static_ram": 20
+      },
+      "flash_change": -163
+    },
+    {
+      "component": "esp_hal_security",
+      "og": {
+        "flash": 1069,
+        "static_ram": 0
+      },
+      "os": {
+        "flash": 911,
+        "static_ram": 0
+      },
+      "flash_change": -158
+    },
+    {
+      "component": "esp_hal_wdt",
+      "og": {
+        "flash": 1534,
+        "static_ram": 1534
+      },
+      "os": {
+        "flash": 1379,
+        "static_ram": 1379
+      },
+      "flash_change": -155
+    },
+    {
+      "component": "esp_security",
+      "og": {
+        "flash": 486,
+        "static_ram": 4
+      },
+      "os": {
+        "flash": 358,
+        "static_ram": 4
+      },
+      "flash_change": -128
+    },
+    {
+      "component": "libstdc++.a",
+      "og": {
+        "flash": 5627,
+        "static_ram": 57
+      },
+      "os": {
+        "flash": 5511,
+        "static_ram": 57
+      },
+      "flash_change": -116
+    },
+    {
+      "component": "esp_hal_uart",
+      "og": {
+        "flash": 166,
+        "static_ram": 0
+      },
+      "os": {
+        "flash": 88,
+        "static_ram": 0
+      },
+      "flash_change": -78
+    },
+    {
+      "component": "esp_coex",
+      "og": {
+        "flash": 262,
+        "static_ram": 118
+      },
+      "os": {
+        "flash": 234,
+        "static_ram": 97
+      },
+      "flash_change": -28
+    },
+    {
+      "component": "app_update",
+      "og": {
+        "flash": 196,
+        "static_ram": 4
+      },
+      "os": {
+        "flash": 171,
+        "static_ram": 4
+      },
+      "flash_change": -25
+    },
+    {
+      "component": "esp_netif",
+      "og": {
+        "flash": 270,
+        "static_ram": 168
+      },
+      "os": {
+        "flash": 248,
+        "static_ram": 168
+      },
+      "flash_change": -22
+    },
+    {
+      "component": "xtensa",
+      "og": {
+        "flash": 3892,
+        "static_ram": 3707
+      },
+      "os": {
+        "flash": 3878,
+        "static_ram": 3711
+      },
+      "flash_change": -14
+    },
+    {
+      "component": "libc.a",
+      "og": {
+        "flash": 10630,
+        "static_ram": 388
+      },
+      "os": {
+        "flash": 10622,
+        "static_ram": 388
+      },
+      "flash_change": -8
+    },
+    {
+      "component": "cxx",
+      "og": {
+        "flash": 68,
+        "static_ram": 4
+      },
+      "os": {
+        "flash": 62,
+        "static_ram": 4
+      },
+      "flash_change": -6
+    },
+    {
+      "component": "esp_common",
+      "og": {
+        "flash": 1793,
+        "static_ram": 0
+      },
+      "os": {
+        "flash": 1788,
+        "static_ram": 0
+      },
+      "flash_change": -5
+    },
+    {
+      "component": "soc",
+      "og": {
+        "flash": 420,
+        "static_ram": 77
+      },
+      "os": {
+        "flash": 418,
+        "static_ram": 77
+      },
+      "flash_change": -2
+    },
+    {
+      "component": "esp_hal_pmu",
+      "og": {
+        "flash": 196,
+        "static_ram": 0
+      },
+      "os": {
+        "flash": 195,
+        "static_ram": 0
+      },
+      "flash_change": -1
+    },
+    {
+      "component": "libgcc.a",
+      "og": {
+        "flash": 89,
+        "static_ram": 0
+      },
+      "os": {
+        "flash": 89,
+        "static_ram": 0
+      },
+      "flash_change": 0
+    },
+    {
+      "component": "nvs_sec_provider",
+      "og": {
+        "flash": 5,
+        "static_ram": 0
+      },
+      "os": {
+        "flash": 5,
+        "static_ram": 0
+      },
+      "flash_change": 0
+    },
+    {
+      "component": "esp_hal_gpio",
+      "og": {
+        "flash": 1048,
+        "static_ram": 40
+      },
+      "os": {
+        "flash": 1048,
+        "static_ram": 40
+      },
+      "flash_change": 0
+    },
+    {
+      "component": "esp_app_format",
+      "og": {
+        "flash": 681,
+        "static_ram": 10
+      },
+      "os": {
+        "flash": 694,
+        "static_ram": 10
+      },
+      "flash_change": 13
+    },
+    {
+      "component": "esp_phy",
+      "og": {
+        "flash": 47373,
+        "static_ram": 11144
+      },
+      "os": {
+        "flash": 48938,
+        "static_ram": 12966
+      },
+      "flash_change": 1565
+    },
+    {
+      "component": "esp_stdio",
+      "og": {
+        "flash": 46885,
+        "static_ram": 16
+      },
+      "os": {
+        "flash": 50140,
+        "static_ram": 16
+      },
+      "flash_change": 3255
+    }
+  ],
+  "ota_margins": {
+    "1966080": {
+      "og": 101456,
+      "os": 176624
+    },
+    "1900544": {
+      "og": 35920,
+      "os": 111088
+    },
+    "1769472": {
+      "og": -95152,
+      "os": -19984
+    },
+    "1507328": {
+      "og": -357296,
+      "os": -282128
+    },
+    "2621440": {
+      "og": 756816,
+      "os": 831984
+    }
+  },
+  "sdk_derived_codegen_changes": {
+    "og": [
+      "-Og",
+      "-fno-shrink-wrap"
+    ],
+    "os": [
+      "-Os",
+      "-freorder-blocks",
+      "-mno-target-align"
+    ],
+    "note": "supported optimization Kconfig selection controls these additional SDK flags; some crypto units override -O to -Os even in baseline"
+  },
+  "preserved_unstripped_artifacts": "/home/udaybhan/projects/Ghar_sajag_r1_storage/code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/build/optimization-comparison-574ba2a",
+  "sdk_commit": "76f5dedd9950a3012fee8fb7d5586df21fc67802",
+  "compiler": "Xtensa GCC 15.2.0 (esp-15.2.0_20251204)",
+  "validation": {
+    "target_builds": {
+      "og": "PASS",
+      "os": "PASS"
+    },
+    "idf_size_commands": {
+      "og": "PASS size/size-components/size-files",
+      "os": "PASS size/size-components/size-files"
+    },
+    "host_targets_per_mode": 14,
+    "host_targets": [
+      "cpp-test",
+      "hub-fresh-install-host-test",
+      "hub-recovery-scheduling-host-test",
+      "hub-durable-storage-host-test",
+      "hub-durable-provider-host-test",
+      "registry-persistence-host-test",
+      "commissioning-crypto-host-test",
+      "rejoin-host-test",
+      "hub-fota-guard-host-test",
+      "secure-fota-adapter-host-test",
+      "fota-host-test",
+      "hub-backend-commit-host-test",
+      "node-retirement-protocol-host-test",
+      "hub-retirement-snapshot-host-test"
+    ],
+    "host_og": "PASS exit0; core1479",
+    "host_os": "PASS exit0; core1479",
+    "target_stack_og": "1 PASS,1 FAIL known encoding assertion,1 SKIP old ELF absent",
+    "target_stack_os": "2 PASS,1 SKIP old ELF absent",
+    "signed_fota_fixture": "16 PASS; mocked tooling, no signing or hardware",
+    "hardware_runtime_qualification": "PENDING",
+    "new_regressions": "NONE observed in scoped checks; hardware behavior unqualified"
+  },
+  "component_attribution_caveat": "Merged strings move between owners. esp_rom delta mostly removes attribution of 8272-byte merged output (original string input240), not8272 bytes of ROM code. esp_stdio/esp_phy positive changes partly redistribution; whole-image section deltas authoritative.",
+  "controlled_comparison_checks": {
+    "identical_source_list": "PASS",
+    "identical_available_sdk_components": "PASS",
+    "identical_linked_component_set": "PASS",
+    "identical_partition_binary": "PASS",
+    "identical_normalized_nonoptimization_compiler_arguments": "PASS",
+    "only_supported_optimization_and_sdk_derived_config_differences": "PASS",
+    "byte_identical_single_embedded_node_asset": "PASS",
+    "nonallocated_elf_debug_sections_excluded_from_bin": "PASS"
+  },
+  "measurement_scope": "two fresh target builds; section/component measurements; native host regression comparison; no physical runtime qualification"
+}
