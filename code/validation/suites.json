@@ -383,6 +383,30 @@
       "count_kind": "checks"
     },
     {
+      "id": "gs40-qualification-host",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "make",
+        "gs40-qualification-test"
+      ],
+      "inputs": [
+        "tools/hil/gs40_qualification.py",
+        "tools/hil/gs40_cases.json",
+        "tests/fixtures/hil/gs40_mock_observations.json",
+        "tests/fixtures/hil/gs40_s3_capture_11158_replay.json",
+        "tests/python/test_gs40_qualification.py",
+        "config/node_health.json"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": [
+        "^OK$"
+      ],
+      "timeout": 120,
+      "count_kind": "tests"
+    },
+    {
       "id": "commissioning",
       "components": [
         "node",

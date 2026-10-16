@@ -11,6 +11,7 @@ import unittest
 from validation import component_gate as gate
 
 CANONICAL_BASELINE = "c48e0d2fa8e0bc9c0d0a1f5eccdef789ff0b02df"
+ACTIVE_BRANCH_BASELINE = "d738dc51a25e72de570a11fc39f0e26522ead3d8"
 PROTECTED_CANONICAL_STAGES = {
     "c8-ack-drop-gate",
     "storage-correctness",
@@ -35,17 +36,34 @@ class RegistrationTest(unittest.TestCase):
         self.assertIn("NOT_PRODUCTION_AUTHENTICATION",self.stage()["qualification_scope"])
 
     def test_R02_all_parent_registry_stages_preserved_without_canonical_overwrite(self):
-        # Pin the actual canonical integration parent, not the old dashboard
-        # branch baseline. This makes the six canonical-only stages part of the
-        # permanent no-loss assertion for this isolated candidate.
+        # Preserve both the canonical integration parent and the verified R1
+        # branch checkpoint. The active branch already carries four stages
+        # added after the canonical parent; this candidate adds only GS-40.
         prior=json.loads(subprocess.check_output(
             ["git","show",f"{CANONICAL_BASELINE}:code/validation/suites.json"],
+            cwd=gate.ROOT,text=True))
+        active=json.loads(subprocess.check_output(
+            ["git","show",f"{ACTIVE_BRANCH_BASELINE}:code/validation/suites.json"],
             cwd=gate.ROOT,text=True))
         current=gate.load_registry()
         current_by_id={s['id']:s for s in current['stages']}
         current_ids={s['id'] for s in current['stages']}
         prior_ids={s['id'] for s in prior['stages']}
-        self.assertEqual(current_ids-prior_ids,{"diagnostic-foundation"})
+        active_by_id={s['id']:s for s in active['stages']}
+        active_ids={s['id'] for s in active['stages']}
+        self.assertEqual(current_ids-active_ids,{"gs40-qualification-host"})
+        self.assertEqual(active_ids-current_ids,set())
+        for original in active["stages"]:
+            self.assertEqual(current_by_id[original['id']],original,
+                             f"active branch stage changed: {original['id']}")
+        self.assertEqual(current_ids-prior_ids,{
+            "diagnostic-foundation",
+            "gs114-p9-signed-artifact-safety",
+            "gs114-ack-wait-trace",
+            "gs144-workload-spec",
+            "c8-ack-hold-gate",
+            "gs40-qualification-host",
+        })
         self.assertEqual(prior_ids-current_ids,set())
         for original in prior["stages"]:
             updated=current_by_id[original['id']]

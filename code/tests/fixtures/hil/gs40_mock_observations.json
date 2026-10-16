@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "provenance": "SYNTHETIC_DETERMINISTIC_FIXTURE",
+  "source_comment": null,
+  "cases": {
+    "tc01_heartbeat": {
+      "heartbeat_interval_seconds": 300,
+      "offline_timeout_seconds": 910,
+      "quiet_opportunities": [
+        {
+          "at_seconds": 300,
+          "report_id": "health-1",
+          "authenticated": true
+        },
+        {
+          "at_seconds": 600,
+          "report_id": "health-2",
+          "authenticated": true
+        },
+        {
+          "at_seconds": 900,
+          "report_id": "health-3",
+          "authenticated": true
+        },
+        {
+          "at_seconds": 1200,
+          "report_id": "health-4",
+          "authenticated": true
+        },
+        {
+          "at_seconds": 1500,
+          "report_id": "health-5",
+          "authenticated": true
+        },
+        {
+          "at_seconds": 1800,
+          "report_id": "health-6",
+          "authenticated": true
+        }
+      ],
+      "negative_probes": {
+        "missing_report_rejected": true,
+        "duplicate_report_rejected": true,
+        "unauthenticated_report_rejected": true
+      }
+    },
+    "tc02_event_piggyback": {
+      "mac_only_contact": {
+        "mac_tx_success": true,
+        "application_authenticated": false,
+        "health_suppressed": false
+      },
+      "authenticated_event_contact": {
+        "event_key": "mock-session:41",
+        "mac_tx_success": true,
+        "application_authenticated": true,
+        "hub_accepted": true,
+        "health_suppressed": true,
+        "pending_event_retired": false
+      }
+    },
+    "tc03_offline_detection": {
+      "timeout_seconds": 910,
+      "node_age_boundaries": [
+        {
+          "age_seconds": 909,
+          "status": "ONLINE"
+        },
+        {
+          "age_seconds": 910,
+          "status": "ONLINE"
+        },
+        {
+          "age_seconds": 911,
+          "status": "OFFLINE"
+        }
+      ],
+      "unavailable_node": {
+        "node": "OFFLINE",
+        "hub": "ONLINE",
+        "wan": "ONLINE"
+      },
+      "unavailable_hub": {
+        "node": "UNKNOWN",
+        "hub": "OFFLINE",
+        "wan": "UNKNOWN"
+      },
+      "unavailable_internet": {
+        "node": "ONLINE",
+        "hub": "ONLINE",
+        "wan": "OFFLINE"
+      },
+      "unknown_profile": {
+        "node": "UNKNOWN",
+        "coverage": "UNKNOWN",
+        "healthy": false
+      }
+    },
+    "tc04_recovery": {
+      "event_keys_before": [
+        "mock-session:41",
+        "mock-session:42"
+      ],
+      "event_keys_after_rejoin": [
+        "mock-session:41",
+        "mock-session:42"
+      ],
+      "pending_before": 2,
+      "pending_after_rejoin": 2,
+      "authenticated_rejoin": true,
+      "replay_rejected": true,
+      "logical_effects_by_key": {
+        "mock-session:41": 1,
+        "mock-session:42": 1
+      },
+      "occurred_at_seconds": [
+        1710000001,
+        1710000002
+      ]
+    },
+    "tc05_mixed_profiles": {
+      "profiles": [
+        {
+          "profile": "legacy_60",
+          "heartbeat_seconds": 60,
+          "offline_seconds": 190,
+          "trusted": true
+        },
+        {
+          "profile": "legacy_120",
+          "heartbeat_seconds": 120,
+          "offline_seconds": 310,
+          "trusted": true
+        },
+        {
+          "profile": "configured",
+          "heartbeat_seconds": 300,
+          "offline_seconds": 910,
+          "trusted": true
+        }
+      ],
+      "unknown_identity": {
+        "trusted": false,
+        "profile": null,
+        "status": "UNKNOWN",
+        "healthy": false
+      },
+      "second_physical_node_available": false
+    },
+    "tc06_caregiver_pwa": {
+      "states": [
+        {
+          "name": "online",
+          "backend_node": "ONLINE",
+          "pwa_coverage": "COVERED",
+          "authenticated_contact": true
+        },
+        {
+          "name": "offline",
+          "backend_node": "OFFLINE",
+          "pwa_coverage": "UNKNOWN",
+          "authenticated_contact": false
+        },
+        {
+          "name": "unknown",
+          "backend_node": "UNKNOWN",
+          "pwa_coverage": "UNKNOWN",
+          "authenticated_contact": false
+        }
+      ],
+      "resident_inactive_does_not_change_node_status": true,
+      "online_requires_authenticated_received_contact": true
+    },
+    "tc07_serial_faults": {
+      "usb_identity_mismatch": {
+        "classification": "IDENTITY_MISMATCH",
+        "expected_open_count": 0,
+        "evidence": {
+          "expected_usb_identity": {
+            "vid_pid": "1a86:55d3",
+            "serial": "5CBC401023"
+          },
+          "observed_usb_identity": {
+            "vid_pid": "0000:0002",
+            "serial": null
+          }
+        }
+      },
+      "port_absent_or_stale": {
+        "classification": "PORT_UNAVAILABLE",
+        "expected_open_count": 0,
+        "evidence": {
+          "path_exists": false,
+          "mapping_current": false
+        }
+      },
+      "port_busy": {
+        "classification": "PORT_BUSY",
+        "expected_open_count": 0,
+        "evidence": {
+          "exclusive_owner_present": true
+        }
+      },
+      "transport_loss": {
+        "classification": "TRANSPORT_LOSS",
+        "expected_open_count": 1,
+        "evidence": {
+          "transport_lost": true
+        }
+      },
+      "truncated_log": {
+        "classification": "TRUNCATED_LOG",
+        "expected_open_count": 1,
+        "evidence": {
+          "record_complete": false
+        }
+      },
+      "reset_banner": {
+        "classification": "RESET_BANNER",
+        "expected_open_count": 1,
+        "evidence": {
+          "text": "rst:0x1 (POWERON)"
+        }
+      },
+      "timestamp_gap": {
+        "classification": "TIMESTAMP_GAP",
+        "expected_open_count": 1,
+        "evidence": {
+          "gap_seconds": 2.5,
+          "max_gap_seconds": 1.0
+        }
+      },
+      "c3_usb_sleep_disappearance": {
+        "sleep_entered": true,
+        "usb_endpoint_available_after_sleep": false,
+        "hub_authenticated_health_after_wake": true,
+        "node_offline_inferred_from_usb_loss": false,
+        "classification": "OBSERVER_LOSS_ONLY"
+      },
+      "side_effects": {
+        "transmit_bytes": 0,
+        "reopen_attempts": 0,
+        "usb_reattach_attempts": 0,
+        "resets_triggered": 0
+      },
+      "every_fault_stops_immediately_and_preserves_input": true,
+      "timeout": {
+        "classification": "OBSERVATION_TIMEOUT",
+        "expected_open_count": 1,
+        "evidence": {
+          "elapsed_seconds": 5.1,
+          "deadline_seconds": 5.0
+        }
+      },
+      "boot_generation_change": {
+        "classification": "BOOT_GENERATION_CHANGE",
+        "expected_open_count": 1,
+        "evidence": {
+          "start_generation": 8,
+          "end_generation": 9
+        }
+      },
+      "timestamp_wrap": {
+        "classification": "TIMESTAMP_WRAP",
+        "expected_open_count": 1,
+        "evidence": {
+          "boot_generation_start": 8,
+          "boot_generation_end": 8,
+          "timestamp_start": 4294967294,
+          "timestamp_end": 2
+        }
+      }
+    }
+  }
+}

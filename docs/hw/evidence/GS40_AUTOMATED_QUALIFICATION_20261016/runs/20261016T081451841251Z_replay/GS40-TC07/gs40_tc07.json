@@ -1,0 +1,91 @@
+{
+  "assertion_count": 6,
+  "assertions": [
+    {
+      "check": "historical_usb_identity",
+      "detail": "Historical input identifies CH343 VID:PID 1a86:55d3 / serial 5CBC401023.",
+      "result": "PASS"
+    },
+    {
+      "check": "historical_receive_only_setup",
+      "detail": "Capture records 115200 receive-only setup with DTR/RTS low requested and no app writes.",
+      "result": "PASS"
+    },
+    {
+      "check": "one_historical_open_zero_writes",
+      "detail": "Historical capture records at most one open and zero transmitted bytes.",
+      "result": "PASS"
+    },
+    {
+      "check": "reset_banner_fail_stop",
+      "detail": "POWERON boot banner was captured and the observer stopped immediately.",
+      "result": "PASS"
+    },
+    {
+      "check": "usb_transport_remained_attached",
+      "detail": "Post-capture USB/IP snapshot still showed the same CH343 attached.",
+      "result": "PASS"
+    },
+    {
+      "check": "no_current_application_evidence",
+      "detail": "Capture contains no GS-40 config/session/NodeHealth evidence.",
+      "result": "PASS"
+    }
+  ],
+  "assertions_failed": 0,
+  "assertions_passed": 6,
+  "cleanup": "No device handles, subprocesses, or temporary hardware state were created.",
+  "failure": null,
+  "generated_at_utc": "2026-10-16T08:14:51.842Z",
+  "hardware_actions": {
+    "flash_or_nvs_operations": 0,
+    "induced_outages": 0,
+    "motion_stimuli": 0,
+    "resets_triggered": 0,
+    "serial_open_attempts": 0,
+    "transmit_bytes": 0,
+    "usb_reattach_attempts": 0
+  },
+  "mode": "replay",
+  "physical_blocker": "No real-target operation was performed in this host/replay execution.",
+  "physical_case_id": null,
+  "physical_status": "NOT_RUN",
+  "provenance": {
+    "current_authenticated_session": "UNVERIFIED",
+    "current_hub_identity": "UNVERIFIED",
+    "current_node_identity": "UNVERIFIED",
+    "effective_running_config_sha256": null,
+    "input_path": "/home/udaybhan/projects/Ghar_sajag_r1/docs/hw/evidence/GS40_S3_READONLY_UART_20261016T060458Z/s3_receive_only.jsonl",
+    "input_sha256": "2ff1dab2e452883af97a3eec649f5d0b7da6984dc333b692d6c17af957cc2bc6",
+    "kind": "HISTORICAL_CAPTURE_REPLAY",
+    "qualification_source_fingerprint": "27b6ccd6034c8e8cf55a61c5d64e7730cf50af4541f7b7c6a2d6bdc7d30a4be5",
+    "replay": {
+      "application_level_gs40_evidence_present": false,
+      "capture_end_utc": "2026-10-16T06:04:59.654Z",
+      "capture_time_utc": "2026-10-16T06:04:58.086Z",
+      "capture_timestamp_classification": "RESET_BANNER",
+      "capture_timestamp_detail": "Reset/boot banner caused the observer to stop.",
+      "historical_open_attempts": 1,
+      "historical_transmit_bytes": 0,
+      "input_path": "/home/udaybhan/projects/Ghar_sajag_r1/docs/hw/evidence/GS40_S3_READONLY_UART_20261016T060458Z/s3_receive_only.jsonl",
+      "input_sha256": "2ff1dab2e452883af97a3eec649f5d0b7da6984dc333b692d6c17af957cc2bc6",
+      "post_usb_state_attached": true,
+      "record_count": 13,
+      "reset_banner": "POWERON",
+      "reset_cause": "UNPROVEN_SERIAL_OPEN_CAUSALITY",
+      "source_capture_sha256": "2ff1dab2e452883af97a3eec649f5d0b7da6984dc333b692d6c17af957cc2bc6",
+      "source_jira_comment": "11158"
+    },
+    "repository_branch": "codex/gs40-qualification-20261016",
+    "repository_config_path": "code/config/node_health.json",
+    "repository_config_sha256": "2e42da92784c6eed807d8df240d1c33a178c1c088a568cbf9cb6d5d20817aadb",
+    "repository_head": "d738dc51a25e72de570a11fc39f0e26522ead3d8",
+    "running_c3_image_sha256": null,
+    "running_s3_image_sha256": null
+  },
+  "run_id": "gs40-replay-20261016T081451842944Z",
+  "schema_version": 1,
+  "test_case_id": "GS40-TC07",
+  "title": "Serial observation reliability and fail-stop behavior",
+  "verdict": "HOST_PASS"
+}

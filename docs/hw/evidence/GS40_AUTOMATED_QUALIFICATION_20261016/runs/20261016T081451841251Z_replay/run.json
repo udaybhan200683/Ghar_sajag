@@ -1,0 +1,30 @@
+{
+  "case_count": 1,
+  "generated_at_utc": "2026-10-16T08:14:51.864Z",
+  "hardware_actions": {
+    "flash_or_nvs_operations": 0,
+    "induced_outages": 0,
+    "motion_stimuli": 0,
+    "resets_triggered": 0,
+    "serial_open_attempts": 0,
+    "transmit_bytes": 0,
+    "usb_reattach_attempts": 0
+  },
+  "mode": "replay",
+  "physical_status_counts": {
+    "BLOCKED": 0,
+    "FAIL": 0,
+    "HOST_PASS": 0,
+    "NOT_RUN": 1,
+    "PHYSICAL_PASS": 0
+  },
+  "run_directory": "/tmp/ghar-sajag-gs40-qualification/docs/hw/evidence/GS40_AUTOMATED_QUALIFICATION_20261016/runs/20261016T081451841251Z_replay",
+  "schema_version": 1,
+  "verdict_counts": {
+    "BLOCKED": 0,
+    "FAIL": 0,
+    "HOST_PASS": 1,
+    "NOT_RUN": 0,
+    "PHYSICAL_PASS": 0
+  }
+}

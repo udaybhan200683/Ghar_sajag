@@ -1,0 +1,60 @@
+{
+  "assertion_count": 3,
+  "assertions": [
+    {
+      "check": "mac_is_not_contact",
+      "detail": "MAC success alone does not create authenticated application contact or suppress health.",
+      "result": "PASS"
+    },
+    {
+      "check": "authenticated_event_suppresses_health",
+      "detail": "Accepted authenticated event contact suppresses redundant health.",
+      "result": "PASS"
+    },
+    {
+      "check": "piggyback_preserves_pending_event",
+      "detail": "Health piggyback does not retire an event without its durable application ACK.",
+      "result": "PASS"
+    }
+  ],
+  "assertions_failed": 0,
+  "assertions_passed": 3,
+  "cleanup": "No device handles, subprocesses, or temporary hardware state were created.",
+  "failure": null,
+  "generated_at_utc": "2026-10-16T08:14:51.463Z",
+  "hardware_actions": {
+    "flash_or_nvs_operations": 0,
+    "induced_outages": 0,
+    "motion_stimuli": 0,
+    "resets_triggered": 0,
+    "serial_open_attempts": 0,
+    "transmit_bytes": 0,
+    "usb_reattach_attempts": 0
+  },
+  "mode": "mock",
+  "physical_blocker": "No real-target operation was performed in this host/replay execution.",
+  "physical_case_id": "PHY-GS40-02",
+  "physical_status": "NOT_RUN",
+  "provenance": {
+    "current_authenticated_session": "UNVERIFIED",
+    "current_hub_identity": "UNVERIFIED",
+    "current_node_identity": "UNVERIFIED",
+    "effective_running_config_sha256": null,
+    "input_path": "/tmp/ghar-sajag-gs40-qualification/code/tests/fixtures/hil/gs40_mock_observations.json",
+    "input_sha256": "88b27294883f4169096f194802e1363250bb0b81d7125fd479a0ced084c9b9ff",
+    "kind": "SYNTHETIC_DETERMINISTIC_FIXTURE",
+    "qualification_source_fingerprint": "27b6ccd6034c8e8cf55a61c5d64e7730cf50af4541f7b7c6a2d6bdc7d30a4be5",
+    "replay": null,
+    "repository_branch": "codex/gs40-qualification-20261016",
+    "repository_config_path": "code/config/node_health.json",
+    "repository_config_sha256": "2e42da92784c6eed807d8df240d1c33a178c1c088a568cbf9cb6d5d20817aadb",
+    "repository_head": "d738dc51a25e72de570a11fc39f0e26522ead3d8",
+    "running_c3_image_sha256": null,
+    "running_s3_image_sha256": null
+  },
+  "run_id": "gs40-mock-20261016T081451463446Z",
+  "schema_version": 1,
+  "test_case_id": "GS40-TC02",
+  "title": "Authenticated event piggyback",
+  "verdict": "HOST_PASS"
+}

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "suite": "GS-40 automated qualification",
+  "cases": [
+    {
+      "id": "GS40-TC01",
+      "physical_id": "PHY-GS40-01",
+      "title": "300-second quiet NodeHealth cadence",
+      "host_assertion_group": "health_matrix",
+      "mock_fixture": "tc01_heartbeat",
+      "physical_prerequisite": "Matched current C3/S3 image, effective configuration, authenticated session, and reset-safe observer; observe six quiet opportunities over 30 minutes."
+    },
+    {
+      "id": "GS40-TC02",
+      "physical_id": "PHY-GS40-02",
+      "title": "Authenticated event piggyback",
+      "host_assertion_group": "health_matrix;authenticated_matrix",
+      "mock_fixture": "tc02_event_piggyback",
+      "physical_prerequisite": "Authorized genuine sensor event and correlated authenticated Hub acceptance; MAC success alone is insufficient."
+    },
+    {
+      "id": "GS40-TC03",
+      "physical_id": "PHY-GS40-03",
+      "title": "910-second offline detection and coverage classification",
+      "host_assertion_group": "health_matrix;backend-health;PWA-coverage",
+      "mock_fixture": "tc03_offline_detection",
+      "physical_prerequisite": "Matched current profile and authorized 910-second silent-Node interval with independent Hub/WAN evidence."
+    },
+    {
+      "id": "GS40-TC04",
+      "physical_id": "PHY-GS40-04",
+      "title": "Node return, rejoin, and pending-event preservation",
+      "host_assertion_group": "authenticated_matrix;GS-150-recovery",
+      "mock_fixture": "tc04_recovery",
+      "physical_prerequisite": "Authorized return/rejoin observation with pending EventKey ledger captured before and after; no board reset or NVS change."
+    },
+    {
+      "id": "GS40-TC05",
+      "physical_id": "PHY-GS40-05",
+      "title": "Legacy and configured profile compatibility",
+      "host_assertion_group": "health_matrix;health-config",
+      "mock_fixture": "tc05_mixed_profiles",
+      "physical_prerequisite": "Two independently identified/enrolled Nodes or an approved qualified profile fixture; one available Node is insufficient."
+    },
+    {
+      "id": "GS40-TC06",
+      "physical_id": "PHY-GS40-06",
+      "title": "Caregiver PWA online, offline, and unknown coverage",
+      "host_assertion_group": "backend-health;PWA-coverage",
+      "mock_fixture": "tc06_caregiver_pwa",
+      "physical_prerequisite": "Matched real Node/Hub observations and correlated actual backend/API/PWA timestamps and caregiver-visible states."
+    },
+    {
+      "id": "GS40-TC07",
+      "physical_id": null,
+      "title": "Serial observation reliability and fail-stop behavior",
+      "host_assertion_group": "read-only-observer-guard",
+      "mock_fixture": "tc07_serial_faults",
+      "physical_prerequisite": "Host/replay-only case. Any future live adapter needs separate exact authorization and a verified non-resetting source."
+    }
+  ]
+}

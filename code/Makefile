@@ -115,9 +115,12 @@ gs114-ack-wait-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_T
 gs144-workload-spec-test:
 	python3 -m unittest discover -s tests/python -p test_gs144_workload_spec.py -v
 
-.PHONY: gs40-host-test gs40-config-test
+.PHONY: gs40-host-test gs40-config-test gs40-qualification-test
 gs40-config-test: lab-build
 	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
+
+gs40-qualification-test:
+	PYTHONPATH=tools/hil python3 -m unittest tests.python.test_gs40_qualification -v
 
 GS116_GS40_HOST_TEST_HOST_SOURCES := firmware/hub/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/storage/node_recovery_persistence.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
 HOST_TEST_OBJECTS += $(call host_objects,$(GS116_GS40_HOST_TEST_HOST_SOURCES))

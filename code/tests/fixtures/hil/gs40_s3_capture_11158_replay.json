@@ -1,0 +1,11 @@
+{"host_utc":"2026-10-16T06:04:58.086Z","kind":"capture_created","path":"historical host capture","source_sha256":"2ff1dab2e452883af97a3eec649f5d0b7da6984dc333b692d6c17af957cc2bc6","source_jira_comment":"11158"}
+{"host_utc":"2026-10-16T06:04:58.596Z","kind":"usbipd_pre","exit_code":0,"output":"BUSID 3-1 1a86:55d3 USB-Enhanced-SERIAL CH343 (COM9) Attached"}
+{"host_utc":"2026-10-16T06:04:58.681Z","kind":"udev_pre","output":"ID_VENDOR_ID=1a86\nID_MODEL_ID=55d3\nID_SERIAL_SHORT=5CBC401023"}
+{"host_utc":"2026-10-16T06:04:58.808Z","kind":"method","implementation":"pySerial POSIX Serial.open","version":"3.5","dtr_rts_set_false_before_open":true,"exclusive":true,"baud":115200,"app_transmits":false,"open_uses_os_flags":"O_RDWR|O_NOCTTY|O_NONBLOCK","line_updates_after_reconfigure":"TIOCMBIC for DTR and RTS"}
+{"host_utc":"2026-10-16T06:04:58.811Z","kind":"open_attempt_start","dtr":false,"rts":false,"transmit_bytes":0}
+{"host_utc":"2026-10-16T06:04:58.972Z","kind":"open_success","is_open":true,"dtr":false,"rts":false,"transmit_bytes":0}
+{"host_utc":"2026-10-16T06:04:59.228Z","kind":"rx","bytes":18,"hex":"7273743a3078312028504f5745524f4e290d0a"}
+{"host_utc":"2026-10-16T06:04:59.229Z","kind":"anomaly_stop","reason":"reset/boot/panic marker received"}
+{"host_utc":"2026-10-16T06:04:59.323Z","kind":"serial_closed","dtr":false,"rts":false}
+{"host_utc":"2026-10-16T06:04:59.654Z","kind":"usbipd_post","exit_code":0,"output":"BUSID 3-1 1a86:55d3 USB-Enhanced-SERIAL CH343 (COM9) Attached"}
+{"host_utc":"2026-10-16T06:04:59.654Z","kind":"capture_end","result":"stopped on anomaly","anomaly":"reset/boot/panic marker received","received_bytes":1352,"elapsed_seconds":0.257,"transmit_bytes":0,"open_attempts":1}

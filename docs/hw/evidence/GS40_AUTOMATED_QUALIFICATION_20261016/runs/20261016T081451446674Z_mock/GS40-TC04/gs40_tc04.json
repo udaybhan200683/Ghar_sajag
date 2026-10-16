@@ -1,0 +1,65 @@
+{
+  "assertion_count": 4,
+  "assertions": [
+    {
+      "check": "authenticated_rejoin_preserves_keys",
+      "detail": "Authenticated rejoin preserves the exact pending EventKey set.",
+      "result": "PASS"
+    },
+    {
+      "check": "pending_event_conservation",
+      "detail": "Rejoin does not clear pending events before authenticated durable ACK.",
+      "result": "PASS"
+    },
+    {
+      "check": "replay_and_duplicate_safety",
+      "detail": "Replay is rejected and each EventKey has exactly one logical effect.",
+      "result": "PASS"
+    },
+    {
+      "check": "chronological_order",
+      "detail": "Original event chronology remains ordered across recovery.",
+      "result": "PASS"
+    }
+  ],
+  "assertions_failed": 0,
+  "assertions_passed": 4,
+  "cleanup": "No device handles, subprocesses, or temporary hardware state were created.",
+  "failure": null,
+  "generated_at_utc": "2026-10-16T08:14:51.494Z",
+  "hardware_actions": {
+    "flash_or_nvs_operations": 0,
+    "induced_outages": 0,
+    "motion_stimuli": 0,
+    "resets_triggered": 0,
+    "serial_open_attempts": 0,
+    "transmit_bytes": 0,
+    "usb_reattach_attempts": 0
+  },
+  "mode": "mock",
+  "physical_blocker": "No authorized return/rejoin scenario; pre/post pending EventKey baseline and safe observer are unavailable.",
+  "physical_case_id": "PHY-GS40-04",
+  "physical_status": "BLOCKED",
+  "provenance": {
+    "current_authenticated_session": "UNVERIFIED",
+    "current_hub_identity": "UNVERIFIED",
+    "current_node_identity": "UNVERIFIED",
+    "effective_running_config_sha256": null,
+    "input_path": "/tmp/ghar-sajag-gs40-qualification/code/tests/fixtures/hil/gs40_mock_observations.json",
+    "input_sha256": "88b27294883f4169096f194802e1363250bb0b81d7125fd479a0ced084c9b9ff",
+    "kind": "SYNTHETIC_DETERMINISTIC_FIXTURE",
+    "qualification_source_fingerprint": "27b6ccd6034c8e8cf55a61c5d64e7730cf50af4541f7b7c6a2d6bdc7d30a4be5",
+    "replay": null,
+    "repository_branch": "codex/gs40-qualification-20261016",
+    "repository_config_path": "code/config/node_health.json",
+    "repository_config_sha256": "2e42da92784c6eed807d8df240d1c33a178c1c088a568cbf9cb6d5d20817aadb",
+    "repository_head": "d738dc51a25e72de570a11fc39f0e26522ead3d8",
+    "running_c3_image_sha256": null,
+    "running_s3_image_sha256": null
+  },
+  "run_id": "gs40-mock-20261016T081451494398Z",
+  "schema_version": 1,
+  "test_case_id": "GS40-TC04",
+  "title": "Node return, rejoin, and pending-event preservation",
+  "verdict": "HOST_PASS"
+}

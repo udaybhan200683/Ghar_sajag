@@ -1,6 +1,60 @@
 
 # Master automated validation and regression framework
 
+## GS-40 mock/replay qualification runner — 2026-10-16
+
+The versioned case registry is `code/tools/hil/gs40_cases.json`; it registers
+GS40-TC01 through GS40-TC07 and links TC01–TC06 to six separate physical cases
+in both physical catalogues. Run `make gs40-qualification-test` from `code/` to
+exercise the runner, mock acceptance contracts, immutable report writer,
+Jira-11158 replay fixture, observer fault classifier and no-device live-mode
+gate. `python3 tools/hil/gs40_qualification.py` defaults to `mock`, which uses
+deterministic input only and creates unique per-case JSON and Markdown output
+under `docs/hw/evidence/GS40_AUTOMATED_QUALIFICATION_20261016/runs/`.
+
+Use `--mode replay --case GS40-TC07 --capture <existing-jsonl>` to analyze a
+preserved capture. Replay is read-only and reports `HOST_PASS` only when the
+capture is parsed as expected; it retains the source checksum and historical
+timestamp/provenance. Use `--mode live` only after a separately approved,
+verified, non-resetting telemetry provider exists. The current implementation
+does not enumerate USB, import/open serial, send network requests, or operate a
+board in live mode; it writes `BLOCKED` reports until that source is registered.
+Every report has a separate physical status. Mock/replay `HOST_PASS` never
+becomes `PHYSICAL_PASS`, and no real-target acceptance is implied by this
+runner.
+
+The C3 USB Serial/JTAG endpoint can disappear while the device remains USB
+connected: ESP-IDF light sleep gates the USB clocks, and existing C3 records
+show the native endpoint unavailable while authenticated Hub telemetry
+continued. This is observer loss, not evidence that the Node is offline. The
+single historical S3 receive-only capture is pinned by SHA-256 and stops at
+`rst:0x1 (POWERON)`. pySerial 3.5 opens the POSIX descriptor before applying
+requested DTR/RTS-low states (`TIOCMBIC`); a CH343/board reset path or driver
+line transition is therefore plausible. The capture does not show which cause
+occurred, and post-capture USB/IP remained attached. Its bytes stop before Hub
+application startup, so they contain no current GS-40 image/config/session or
+authenticated NodeHealth evidence. Hub NodeHealth is presently available in
+target logs; Hub CloudSync sends durable events and no verified read-only live
+Hub-to-backend health observation path is established.
+
+Existing production host assertions remain the behavior authority:
+`make gs40-host-test`, `make gs40-config-test`, and the registered
+Node/Hub/contract/backend/PWA component suites. The new case runner checks
+observation contracts and provenance rather than recreating firmware cadence,
+authentication, event durability, lease, or PWA product algorithms. The six
+physical rows remain `BLOCKED`/`NOT_RUN`; TC05 additionally needs a second valid
+Node or approved qualified fixture.
+
+Execution on 2026-10-16 is recorded in
+[`GS40_AUTOMATED_QUALIFICATION_20261016.md`](../exec-plans/evidence/GS40_AUTOMATED_QUALIFICATION_20261016.md)
+and the per-case JSON/Markdown run artifacts. Mock passed 7/7 host cases (26
+assertions); the historical Jira 11158 replay passed 6/6 host checks; live mode
+blocked all seven cases without device access. The tooling aggregate and
+46-test framework suite passed. Affected Node, Hub, contract, backend and PWA
+gates retain the known Hub migration and GS-148 P0 `product_status=PARTIAL`
+failures; the PWA browser suite passed 86 checks. No physical acceptance or
+release approval is inferred from these results.
+
 ## GS-130 bounded risk-regression integration — 2026-10-14
 
 The [focused report](../exec-plans/evidence/GS130_RISK_REGRESSION_20261014.md)
