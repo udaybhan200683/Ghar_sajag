@@ -1,5 +1,80 @@
 # GS-114 C8 physical execution
 
+## Stage 1 read-only hardware preflight — 2026-10-16 01:06 UTC
+
+Executed strictly under GS-114 Jira owner authorization comment 11145. Canonical
+worktree is `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`; local and origin HEAD both matched
+`1534b61fa3269bb0a3a01311906f040d41d4faa9` and context preflight passed.
+Existing untracked assets and physical evidence remain preserved. One older
+related Codex thread was idle; this was the sole active GS-114 task. No Git
+index/HEAD lock was present.
+
+**Stage 1 result: BLOCKED after safe passive enumeration.** No serial/device
+interface was opened. No DTR/RTS signal, command, WSL attachment, reset, boot
+mode change, firmware/state write, flash, erase, OTA, sensor stimulus, power
+change or security operation occurred.
+
+### Observed
+
+- Read-only `usbipd.exe list` returned exit 0. Windows lists BUSID `3-1`,
+  VID:PID `1a86:55d3`, `USB-Enhanced-SERIAL CH343 (COM9)`, state `Shared`.
+  Windows PnP reports the present COM9 device as
+  `USB\VID_1A86&PID_55D3\5CBC401023`, status OK, bus description `USB Single
+  Serial`, location `Port_#0001.Hub_#0003`. The USB serial matches the
+  historical S3 CH343 serial. This does not verify the Hub MAC or running app.
+- Windows also lists BUSID `3-3`, VID:PID `0000:0002`, `Unknown USB Device
+  (Device Descriptor Request Failed)`, state `Shared`; PnP status is Error.
+  No USB serial or C3 MAC is available for this device.
+- `Get-CimInstance Win32_SerialPort` returned no rows even though PnP lists
+  COM9. `usbipd` did not show either device Attached to WSL. WSL sysfs contains
+  only `vhci_hcd` root hubs; no physical target USB device, `/dev/serial/by-id`
+  link, `/dev/ttyUSB*` or `/dev/ttyACM*` was present. No WSL process had an open
+  fd for a serial device.
+- Manifest-listed host candidates were checked without device access: C3
+  A/B/N/R, S3 N/B/R and P9-A S3 image all exist and match their recorded size
+  and SHA-256. They remain host candidates only; this does not establish target
+  trust, installed image, or recovery readiness.
+
+### Historical, inferred and unknown
+
+- **Historical:** authorized expected C3 MAC `14:63:93:c5:d1:58`; expected S3
+  MAC `7c:4f:ad:b7:2a:20`; S3 USB serial `5CBC401023`; C3 last accepted P8
+  application `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`;
+  S3 P8 application
+  `f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8`.
+  Previous partition/otadata readbacks are historical and do not prove current
+  active slots or running bytes. The laptop USB power source is owner-reported,
+  not independently measured in this inspection.
+- **Inferred only:** COM9's CH343 serial descriptor corresponds to the
+  historical S3 USB adapter. The descriptor-error device may be the expected
+  C3 USB/JTAG path, but its identity is unverified.
+- **Unknown:** both actual board MACs (S3 MAC and C3 identity), Windows COM9
+  process ownership/exclusivity, COM9 DTR/RTS/open behavior, both current
+  firmware hashes, partition maps and active OTA slots, authenticated session
+  and replay admission, pending/in-flight EventKeys and retained count, C3
+  awake/sleep/reset state, current wiring/power, continuous reset-safe Node
+  observer, and target-specific trusted app-only recovery route.
+
+### Stop decision and Stage 2 prerequisites
+
+The C3 USB descriptor failure prevents identity verification. COM9 process
+ownership and exact-adapter open safety are also unverified. Since comment
+11145 requires stopping on identity, ownership or safety uncertainty, no active
+serial read was attempted. The lack of WSL attachment itself is not a blocker;
+host inspection completed without attaching or opening either target.
+
+Before any separately authorized Stage 2 P9 operation: safely verify the exact
+C3/S3 identities, selected ports and exclusive ownership; establish a
+read-only target method with proven no-reset/no-state-change behavior; obtain
+current firmware/slot/session/replay/EventKey baselines; qualify continuous
+reset-safe Node observation; and prove the signed-image trust and app-only
+restore path preserves identity and pending events. Stage 1 comment 11145 does
+not authorize P9-A/P9-B execution. Physical P9 dispositions remain BLOCKED /
+NOT_RUN. Exact command outputs, categorized values and recovery prerequisites
+are also recorded in `P9_EXECUTION_MANIFEST_20261015.json` under
+`stage1_inspection`.
+
 ## Resumed host execution checkpoint — 2026-10-15 19:31 UTC
 
 This checkpoint resumes the owner-requested GS-114 P9 work from the prior

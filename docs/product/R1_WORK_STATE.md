@@ -1,5 +1,39 @@
 # R1 Current Work State
 
+## GS-114 P9 Stage 1 read-only inspection — 2026-10-16 01:06 UTC
+
+Executed only the Stage 1 scope explicitly authorized in GS-114 Jira comment
+11145. Canonical branch `feature/r1-commercial-baseline` was at local/remote
+HEAD `1534b61fa3269bb0a3a01311906f040d41d4faa9`; context preflight PASS.
+Existing untracked files and raw evidence remain preserved. Current GS-114
+task is the sole active related Codex thread; an older related task is idle and
+no Git index/HEAD lock was present.
+
+**Result: BLOCKED after passive enumeration.** Windows reports S3 USB bridge
+CH343 `COM9`, serial descriptor `5CBC401023`, PnP status OK; this matches the
+historical S3 adapter but does not verify the S3 MAC or app. A second USB
+device is reported as `VID_0000:PID_0002` with a device descriptor failure
+and PnP status Error; it cannot be assigned to the C3, so C3 identity/port
+cannot be verified. WSL shows only USB/IP virtual root hubs, no target USB or
+serial nodes, and no serial fd owner. Windows COM9 process ownership and
+DTR/RTS/open safety remain unknown. No target interface was opened or modified.
+
+Current firmware hashes/slots, authenticated sessions/replay admission,
+pending EventKeys, C3 sleep/reset state, continuous reset-safe observer, and
+target-specific signed app-only recovery readiness remain UNKNOWN. Host P9
+candidate images were rehashed and match the manifest, but are not installed
+and do not prove the target trust or recovery path. Physical P9-A/B remain
+BLOCKED / NOT_RUN; no case disposition changed.
+
+**Next:** do not attach/open/restart the descriptor-failing C3 or open COM9.
+Stage 2 requires safe re-identification and exclusive port ownership, an
+independently proven no-reset read path, current target firmware/slot/session/
+EventKey baseline, qualified continuous observer, verified app-only recovery
+route, and a separate explicit Stage 2 owner authorization. Details and exact
+commands are in the [Stage 1 report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+and the manifest's `stage1_inspection` object. The existing P1–P8 dispositions
+and GS-114 In Progress state are unchanged.
+
 ## GS-114 resumed P9 host engineering checkpoint — 2026-10-15 19:31 UTC
 
 Resumed the original GS-114 P1–P9 assignment from the 15:23 UTC quota pause.

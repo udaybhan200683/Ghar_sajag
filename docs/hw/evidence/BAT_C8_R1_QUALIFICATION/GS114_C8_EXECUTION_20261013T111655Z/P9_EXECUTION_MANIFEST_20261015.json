@@ -242,5 +242,124 @@
     "repository": "/home/udaybhan/projects/Ghar_sajag_r1",
     "source_head": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
     "tracked_source_clean_at_artifact_build": true
+  },
+  "stage1_inspection": {
+    "authorization": "GS-114 Jira comment 11145; read-only Stage 1 only",
+    "recorded_utc": "2026-10-16T01:06:12Z",
+    "repository_checkpoint": {
+      "branch": "feature/r1-commercial-baseline",
+      "head": "1534b61fa3269bb0a3a01311906f040d41d4faa9",
+      "origin_head": "1534b61fa3269bb0a3a01311906f040d41d4faa9",
+      "context_preflight": "PASS"
+    },
+    "result": "BLOCKED_AFTER_SAFE_PASSIVE_ENUMERATION; no target interface opened",
+    "commands_and_methods": [
+      {
+        "method": "usbipd.exe list",
+        "exit": 0,
+        "effect": "Passive Windows USB/IP enumeration; no attach/detach or target I/O"
+      },
+      {
+        "method": "PowerShell Get-PnpDevice -PresentOnly; Get-PnpDeviceProperty; Get-CimInstance Win32_SerialPort",
+        "exit": 0,
+        "effect": "Read-only Windows device-tree enumeration; Win32_SerialPort returned no rows"
+      },
+      {
+        "method": "WSL sysfs USB and /dev/serial/tty node enumeration plus /proc fd-link scan",
+        "exit": 0,
+        "effect": "Read-only host inspection; no device node opened"
+      },
+      {
+        "method": "SHA-256 verification of manifest-listed candidate image files",
+        "exit": 0,
+        "effect": "Host files only; no target access"
+      }
+    ],
+    "observed": {
+      "windows_usbipd_connected": [
+        {
+          "busid": "3-1",
+          "vid_pid": "1a86:55d3",
+          "device": "USB-Enhanced-SERIAL CH343 (COM9)",
+          "state": "Shared"
+        },
+        {
+          "busid": "3-3",
+          "vid_pid": "0000:0002",
+          "device": "Unknown USB Device (Device Descriptor Request Failed)",
+          "state": "Shared"
+        }
+      ],
+      "windows_pnp": {
+        "s3_usb_serial_adapter": {
+          "friendly_name": "USB-Enhanced-SERIAL CH343 (COM9)",
+          "instance_id": "USB\\VID_1A86&PID_55D3\\5CBC401023",
+          "status": "OK",
+          "location": "Port_#0001.Hub_#0003",
+          "bus_reported_description": "USB Single Serial"
+        },
+        "unidentified_usb_device": {
+          "instance_id": "USB\\VID_0000&PID_0002\\5&25B61EF1&0&3",
+          "friendly_name": "Unknown USB Device (Device Descriptor Request Failed)",
+          "status": "Error"
+        },
+        "win32_serialport_query": "No rows returned, despite the PnP COM9 device"
+      },
+      "wsl": {
+        "kernel": "Linux 6.18.33.2-microsoft-standard-WSL2",
+        "usb_sysfs": "Only vhci_hcd root hubs usb1/usb2 (1d6b:0002/0003); no target USB device enumerated",
+        "serial_nodes": [],
+        "serial_fd_owners": []
+      },
+      "host_candidate_artifacts": {
+        "c3_a_b_n_r": "All four manifest-listed files exist; each size and SHA-256 matches the prior artifact manifest",
+        "s3_n_b_r": "All three manifest-listed files exist; each size and SHA-256 matches the prior artifact manifest",
+        "p9_a_s3": "File exists; size and SHA-256 match the prior artifact manifest",
+        "deployment": "All are host candidates, not evidence of installed target state"
+      },
+      "device_change": "None; no serial/device interface opened; no DTR/RTS change, command, reset, power change, attach, flash, erase, OTA, sensor stimulus, or security change"
+    },
+    "historical": {
+      "expected_c3_mac": "14:63:93:c5:d1:58; owner-authorized historical identity, not reverified",
+      "expected_s3_mac": "7c:4f:ad:b7:2a:20; owner-authorized historical identity, not reverified",
+      "s3_usb_serial": "5CBC401023; seen previously and observed again as COM9 PnP serial descriptor",
+      "c3_last_accepted_p8_image_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530; historical, not current",
+      "s3_p8_image_sha256": "f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8; historical, not current",
+      "prior_partition_and_otadata_readbacks": "Historical only; do not establish current active slot or running bytes",
+      "c3_power": "Owner previously reported laptop USB power; not independently measured in Stage 1"
+    },
+    "inferred": {
+      "s3_adapter_mapping": "COM9 USB serial descriptor matches the historical S3 CH343 serial 5CBC401023, but this does not verify S3 board MAC, running application, or application session",
+      "c3_usb_mapping": "The descriptor-error device may be the expected C3 USB/JTAG path; VID/PID and serial were not obtained, so no C3 identity is claimed"
+    },
+    "unknown": {
+      "c3_board_mac_and_port_identity": true,
+      "s3_board_mac": true,
+      "windows_com9_process_owner_or_exclusivity": true,
+      "safe_dtr_rts_and_open_behavior_for_com9": true,
+      "current_c3_and_s3_firmware_hashes": true,
+      "current_partition_maps_and_active_ota_slots": true,
+      "authenticated_session_ownership_and_replay_admission": true,
+      "pending_or_inflight_eventkeys_and_retained_count": true,
+      "current_c3_awake_sleep_reset_state": true,
+      "continuous_reset_safe_node_observer": true,
+      "target_trust_and_verified_app_only_recovery_route": true,
+      "current_wiring_and_power_measurement": true
+    },
+    "ownership_and_safety": {
+      "wsl_serial_owner": "No WSL serial device node or open serial fd observed",
+      "windows_com9_owner": "UNKNOWN; usbipd/PnP state and process-name inventory do not prove handle ownership",
+      "usbipd_shared_state": "COM9 and the descriptor-error device are Shared, not shown Attached to WSL",
+      "open_safety": "Not independently established for the exact adapter/endpoint; no interface opened",
+      "hard_stop_reason": "C3 enumeration failed with VID_0000/PID_0002 descriptor error, so exact pair identity and safe endpoint ownership cannot be established; comment 11145 requires stop on uncertainty"
+    },
+    "future_stage2_prerequisites": [
+      "Safely re-enumerate and verify both authorized board identities, USB serials, selected ports, and exclusive port ownership; do not attach/open the C3 endpoint while descriptor failure remains",
+      "Independently prove a read-only target observation method for the exact adapter/endpoint has no DTR/RTS, reset, boot-mode, application-command, or state-write side effect",
+      "Obtain current firmware/running-image identity, partition maps, active OTA slots, authenticated session/replay state, and preserved pending EventKey inventory through that safe method",
+      "Qualify a continuous reset-safe Node awake/sleep/reset/event observer; serial silence is insufficient",
+      "Verify signed test-image trust compatibility and a target-specific app-only recovery/restore route that preserves identity and pending events; candidate files alone do not qualify recovery",
+      "Obtain separate explicit owner authorization for exact Stage 2 P9-A/P9-B operations; comment 11145 authorizes Stage 1 only"
+    ]
   }
 }
