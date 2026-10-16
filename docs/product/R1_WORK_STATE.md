@@ -2,12 +2,15 @@
 
 ## GS-68 selective CloudSync canonical integration — 2026-10-16
 
-The isolated integration candidate is based on canonical remote
+The isolated integration candidate was based on canonical remote
 d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6 and selectively ports the latest
 validated committed CloudSync checkpoint
 44838da836d3014e606cfe2ee57ad624ee417240. GS-148 comment 11177 authorizes
-this software integration only. The separate CloudSync development branch and
-the active canonical/C8 worktree remain untouched.
+this software integration only. The software integration and evidence commits
+are included in canonical and the integration branch; GitHub verified both at
+52fca1bc4166acb2765378e2e3e2a2fc95b750e1 before this documentation update.
+The separate CloudSync development branch and the active canonical/C8 worktree
+remain untouched.
 
 Integrated scope, conflict resolutions, focused rerun results, remaining
 baseline failures, and delivery checkpoint are tracked in the dated

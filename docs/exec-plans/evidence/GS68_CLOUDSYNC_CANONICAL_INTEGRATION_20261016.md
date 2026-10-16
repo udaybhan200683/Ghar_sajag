@@ -140,10 +140,14 @@ limits remain pending.
 
 ## Delivery
 
-Integration candidate commit is
-3e4b163d8a0e7958e179686b3ea11a3d838488d1; push and final canonical-ref check
-remain. At the latest remote query canonical was still d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6;
-the separate CloudSync development branch had advanced to
+The implementation commit is
+3e4b163d8a0e7958e179686b3ea11a3d838488d1. The final validation evidence
+commit 52fca1bc4166acb2765378e2e3e2a2fc95b750e1 was pushed to
+integration/gs68-cloudsync-into-r1 and fast-forwarded to canonical after the
+remote canonical ref was confirmed unchanged at the approved starting SHA.
+GitHub then verified canonical and integration both at
+52fca1bc4166acb2765378e2e3e2a2fc95b750e1. The separate CloudSync development
+branch had advanced to
 e740f99d094b4a0ef7397f0a506e8f089fb5d261 after the selected validated source
 checkpoint. Commits after 44838da836d3014e606cfe2ee57ad624ee417240 remain
 unintegrated for a later batch.
