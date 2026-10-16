@@ -1,5 +1,81 @@
 # R1 Current Work State
 
+## GS-40 automated qualification and physical handoff — 2026-10-16 08:33 UTC
+
+Resumed from GS-40 Jira comments 11156, 11158 and 11162. The canonical R1
+worktree was actively owned, so the approved isolated candidate is
+`/tmp/ghar-sajag-gs40-qualification` on
+`codex/gs40-qualification-20261016`. Implementation/evidence commit
+`c32cf2fbe39011be5d6171e58243f666e5494626` was pushed to
+`origin/codex/gs40-qualification-20261016`; `git ls-remote` matched that SHA.
+The canonical `feature/r1-commercial-baseline` remains at
+`d738dc51a25e72de570a11fc39f0e26522ead3d8`, matching its remote. No canonical
+tracked files or pre-existing untracked assets/evidence were changed. This
+handoff update is being committed separately as documentation.
+
+Implemented the seven-case GS40 mock/replay/live framework and registered the
+host stage. No firmware/product behavior was changed. The isolated test setup
+installed the exact locked frontend dependencies with `npm ci`; generated
+build/framework outputs and `frontend/node_modules` are ignored. At the
+`c32cf2f` checkpoint the tracked worktree was clean.
+
+**Physical diagnosis:** C3 light sleep gates the native USB Serial/JTAG clocks,
+so the endpoint can disappear while the powered Node sleeps. This is observer
+loss and does not prove Node outage. Historical S3 evidence SHA-256
+`2ff1dab2e452883af97a3eec649f5d0b7da6984dc333b692d6c17af957cc2bc6` records
+one 115200 receive-only CH343 open with zero transmitted bytes, followed by
+`rst:0x1 (POWERON)` 257 ms into the captured receive interval. pySerial 3.5
+opened the descriptor before applying DTR/RTS-low using `TIOCMBIC`; with
+unverified CH343 reset wiring, line/driver/USB-IP initialization could explain
+the reset. An independent or already-running power/reboot event also remains
+possible. Because UART was not observed before open and USB/IP stayed Attached,
+causation is unproven. No repeat open or hardware operation occurred here.
+The capture has no current app/config/session/NodeHealth evidence. Hub-accepted
+health is logged locally; source inspection found no production
+Hub-to-backend NodeHealth view, so existing PWA models cannot prove live
+caregiver coverage.
+
+**Automated evidence:** Mock: seven `HOST_PASS`, 26/26 assertions. Replay:
+actual Jira 11158 source, six checks passed with historical provenance retained.
+Live: seven `BLOCKED`, zero device actions. No physical PASS was generated.
+The JSON and Markdown reports are under
+`docs/hw/evidence/GS40_AUTOMATED_QUALIFICATION_20261016/runs/`; full diagnosis,
+commands, counts and gate dispositions are in
+`docs/exec-plans/evidence/GS40_AUTOMATED_QUALIFICATION_20261016.md`.
+
+`make gs40-qualification-test` passed 12 tests; `make validation-tooling`
+passed including the registered GS-40 stage; `make validation-framework-test`
+passed 46; feature traceability passed 22 tests and the physical catalogue
+passed 107 cases (`device_access=NONE`). Node and contract gates passed their
+GS-40 1,320, health-config 17, security/storage/recovery and board-stack 10
+stages. Backend Python 503, functional 92, and PWA browser 86 passed. Component
+aggregates remain FAIL: mandatory P0 E2E has 26/26 assertions but
+`product_status=PARTIAL` because GS-148's durable Hub-commit API is incomplete;
+the Hub gate also reports the unchanged journal migration failure `clean
+migration commits`. No release gate ran.
+
+PHY-GS40-01 through PHY-GS40-06 remain BLOCKED; aggregate PHY-GS40 remains
+NOT_RUN. The currently available one C3 plus one S3 can support single-Node
+cases 01–04 and 06 only after exact identity/image/config/session, safe
+timestamped observation and recovery are established. TC05 needs a second
+valid C3 Node or approved qualified fixture. Liveness acceptance requires no
+oscilloscope/current profiler, but does require authenticated cross-layer
+timestamps. Installed firmware and effective device JSON remain unknown, so
+installation is not yet established as necessary.
+
+**Next action:** request one consolidated owner authorization naming the exact
+non-resetting read-only observer and preflight for both board identities,
+running images/effective configuration/session and pending EventKeys; if no
+such observer exists, explicitly decide whether to accept one new CH343
+receive-only open's reset risk and define permitted recovery. The same staged
+authorization must name the TC02 real sensor stimulus, TC03 controlled
+910-second silence method, TC04 return/rejoin procedure, caregiver/API
+observation, and TC05 second Node or qualified fixture. Stop before any case if
+image/config/session, identity-preserving recovery or the safe observation path
+cannot be established. Earlier serial-open approval is consumed. Keep GS-40 In
+Progress; Done criteria are unmet until all six real-target cases and caregiver
+visibility pass on matched current images with timestamped evidence.
+
 ## GS-114 P9 physical-readiness handoff — 2026-10-16 04:43 UTC
 
 Continued from GS-114 Jira comment 11150 in the canonical worktree
