@@ -1,6 +1,994 @@
 {
+  "ack_wait_trace_implementation": {
+    "branch": "feature/r1-commercial-baseline",
+    "changed_files": [
+      "code/firmware/node/power/power.hpp",
+      "code/firmware/node/target/esp32c3/node_runtime_adapter.cpp",
+      "code/firmware/node/target/esp32c3/idf/CMakeLists.txt",
+      "code/firmware/node/target/esp32c3/idf/main/CMakeLists.txt",
+      "code/firmware/common/shared/include/gs/protocol.hpp",
+      "code/firmware/common/transport/data_plane_codec.cpp",
+      "code/firmware/hub/runtime/hub_runtime.cpp",
+      "code/firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+      "code/scripts/build_gs114_fixture_pair.py",
+      "code/tests/cpp/gs114_ack_wait_trace_validation.cpp",
+      "code/tests/python/test_s3_fixture_commissioning.py",
+      "code/Makefile",
+      "code/validation/suites.json",
+      "docs/validation/MASTER_TRACEABILITY.csv",
+      "docs/validation/PHYSICAL_HIL_CATALOGUE.csv",
+      "docs/product/R1_WORK_STATE.md",
+      "docs/product/DECISION_LOG.md",
+      "docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md",
+      "docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/P9_EXECUTION_MANIFEST_20261015.json",
+      "code/tests/python/test_secure_signed_fota_fixture.py"
+    ],
+    "component_gate_reports": [
+      "code/evidence/validation_framework/node-1792118647395438180/report.json",
+      "code/evidence/validation_framework/hub-1792118788536319360/report.json",
+      "code/evidence/validation_framework/contract-1792119457567724338/report.json"
+    ],
+    "component_gate_results": [
+      {
+        "ack_trace_stage_checks": 34,
+        "ack_trace_stage_predates_final_two_test_assertions": true,
+        "command": "make validation-node",
+        "exit_code": 2,
+        "failure": "P0 E2E: 26/26 scenarios passed but product_status=PARTIAL and physical=NOT_RUN",
+        "passed_stages": 26,
+        "total_stages": 27
+      },
+      {
+        "ack_drop_gate_checks": 16,
+        "ack_hold_gate_checks": 34,
+        "ack_trace_stage_checks": 34,
+        "ack_trace_stage_predates_final_two_test_assertions": true,
+        "command": "make validation-hub",
+        "exit_code": 2,
+        "failures": [
+          "Existing Hub journal migration assertion clean migration commits (exit 2, zero matched assertion groups)",
+          "P0 E2E product_status=PARTIAL and physical=NOT_RUN"
+        ],
+        "passed_stages": 43,
+        "total_stages": 45
+      },
+      {
+        "ack_trace_stage_checks": 34,
+        "ack_trace_stage_predates_final_two_test_assertions": true,
+        "command": "make validation-contract",
+        "exit_code": 2,
+        "failure": "P0 E2E product_status=PARTIAL and physical=NOT_RUN",
+        "passed_stages": 36,
+        "total_stages": 37
+      }
+    ],
+    "context_preflight": "PASS; 2026-10-13.001",
+    "debugging_notes": [
+      "Initial S3 commissioning regression synthetic Node image lacked the new C3 trace marker; the test image was corrected and the final 15-test S3 fixture suite passed.",
+      "Initial feature-traceability recheck found unquoted commas in the updated CSV test-result field; the field was corrected and the final mapping/catalogue checks passed."
+    ],
+    "focused_validation": [
+      {
+        "checks": 36,
+        "command": "make gs114-ack-wait-host-test",
+        "exit_code": 0
+      },
+      {
+        "checks": 36,
+        "command": "ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 make CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0' gs114-ack-wait-host-test",
+        "exit_code": 0,
+        "sanitizers": [
+          "ASan",
+          "UBSan"
+        ]
+      },
+      {
+        "command": "make gs114-ack-wait-host-test battery-c8-host-test gs150-host-test s3-fixture-commissioning-test",
+        "exit_code": 0,
+        "results": {
+          "ack_trace_checks": 36,
+          "battery_c8_cpp_checks": 72,
+          "battery_c8_python_tests": 11,
+          "gs150_checks": 1500,
+          "s3_fixture_python_tests": 15
+        }
+      },
+      {
+        "ack_trace_profile_guard": "PASS; default OFF and invalid physical-wake/HIL-build combinations rejected",
+        "command": "python3 -m unittest discover -s tests/python -p test_secure_signed_fota_fixture.py -v",
+        "exit_code": 0,
+        "tests": 22
+      }
+    ],
+    "hardware_operations": [],
+    "host_target_build": {
+      "build_report": "code/build/gs114_fixture_pair/build-aq8ooz92/fixture_pair_report.json",
+      "c3": {
+        "bytes": 945760,
+        "profile": [
+          "GS_HIL_BUILD=OFF",
+          "GS_HIL_CONTROL=ON",
+          "GS_BAT_C8_PHYSICAL_WAKE=ON",
+          "GS_BAT_C8_ACK_TRACE=ON"
+        ],
+        "sha256": "57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354"
+      },
+      "command": "make gs114-c3-s3-c8-p9-build",
+      "deployment": "NOT_AUTHORIZED_FOR_DEPLOYMENT; no images installed",
+      "exit_code": 0,
+      "idf": "6.0.3",
+      "s3": {
+        "bytes": 1899136,
+        "compiled_partition_table_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a",
+        "embedded_c3_sha256": "57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354",
+        "profile": [
+          "GS_HIL_BUILD=OFF",
+          "GS_HIL_CONTROL=OFF",
+          "GS_HIL_COMMISSIONING=OFF",
+          "GS_HIL_C8_ACK_DROP=OFF",
+          "GS_HIL_C8_ACK_HOLD=ON",
+          "GS_HIL_SIGNED_FOTA=OFF"
+        ],
+        "sha256": "a4b3d7a3c27ac04c517967e9dde28c712f6febf21873c16809f89e32561a5146"
+      },
+      "source_fingerprint": "bcc0fe970e9c0789ce5b43a96a585262968f8dee8acc6b20a598f007f55f02d5"
+    },
+    "instrumentation": {
+      "ack_semantics": "Successful MAC leaves receive wait open until exact authenticated Durable ACK retires EventKey K; failed transport records bounded receive interval and existing eligible sleep-between-retries behavior",
+      "bounded_trace": "16 timestamped events; 3 distinct sleep-inhibitor masks; fixed 220-byte maximum plaintext at maximum Node ID",
+      "compile_guard": "GS_BAT_C8_ACK_TRACE defaults OFF; requires GS_BAT_C8_PHYSICAL_WAKE=ON and GS_HIL_BUILD=OFF",
+      "event_timing": "Boot-relative uint32 milliseconds; about 49.7-day bound; timestamp ordering checked",
+      "observer_qualification": "Not continuous or reset-safe; insufficient by itself for physical P9-A acceptance",
+      "report_latency": "Retrospective report uses existing NodeHealth cadence; it may lag to the existing 300-second cadence",
+      "reset_continuity": "Boot generation and reset reason accompany trace; trace is RAM-only and is lost if reset occurs before scheduled report",
+      "sleep_entry": "Timestamp sampled at sleep-call boundary and entry recorded only after esp_light_sleep_start() returns success; wake time sampled after return/radio restoration",
+      "transport": "Additive authenticated NodeHealth schema 4 on existing report cadence; schemas 1-3 unchanged"
+    },
+    "owner": "GS-114",
+    "physical_case_status": {
+      "P9-A": "BLOCKED / NOT_RUN",
+      "P9-B": "BLOCKED / NOT_RUN"
+    },
+    "purpose": "Test-profile-only retrospective instrumentation of existing Node ACK-wait, ACK retirement and sleep transitions; no policy feedback.",
+    "recorded_utc": "2026-10-16T03:14:20Z",
+    "remaining_physical_prerequisites": [
+      "Exact Stage 2 authorization",
+      "Verified current board identities, firmware/images, active slots, authenticated session and pending EventKeys through a proven no-reset read path",
+      "Verified identity/EventKey-preserving recovery route",
+      "Qualified independent reset-safe continuous observer",
+      "P9-B signed test-image trust, authenticated trigger, boot-health/session rejoin and rollback/recovery evidence"
+    ],
+    "source_head": "d992eee9475239474aca48c4bf28c0ee824f5590",
+    "status": "IMPLEMENTED_HOST_VALIDATED; PHYSICAL_NOT_RUN",
+    "supporting_validation": [
+      {
+        "command": "make validation-board-e2e",
+        "exit_code": 0,
+        "physical_status": "NOT_RUN",
+        "scenario_groups": 10
+      },
+      {
+        "command": "make validation-framework-test",
+        "exit_code": 0,
+        "tests": 46
+      },
+      {
+        "command": "make feature-coverage-test physical-hil-catalogue-test",
+        "exit_code": 0,
+        "feature_traceability": {
+          "features": 205,
+          "mapping_tests": 22,
+          "modules": 211,
+          "physical_definitions": 17
+        },
+        "physical_catalogue": {
+          "cases": 101,
+          "device_access": "NONE"
+        }
+      }
+    ],
+    "task_basis": "GS-114 comment 11149"
+  },
   "artifacts": {
     "p9_a_ack_hold": {
+      "c3_A_image": {
+        "ack_trace": true,
+        "bat_c8_fixture_security": true,
+        "physical_wake": true,
+        "profile": "signed-app-on-update",
+        "public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+        "sha256": "ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7",
+        "size": 987136,
+        "version": "gs114A-261016T040719"
+      },
+      "c3_profile": {
+        "GS_BAT_C8_ACK_TRACE": "ON",
+        "GS_BAT_C8_FIXTURE_SECURITY": "ON",
+        "GS_BAT_C8_PHYSICAL_WAKE": "ON",
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_HIL_FORCE_BOOT_HEALTH_FAIL": "OFF",
+        "console": "UART0 primary; no USB HIL command plane",
+        "target": "esp32c3"
+      },
+      "deployment": "NOT_INSTALLED; host candidate only",
+      "fixture_controls": {
+        "arm_before_event": true,
+        "hold_ms": 12000,
+        "watchdog_ms": 15000
+      },
+      "profile": "GS-114 S3 bounded exact-key C8-P9 ACK-hold fixture",
+      "s3_image": {
+        "build_log": "code/build/gs114_p9_signed/20261016T040719Z/build_s3_p9a_ack_hold.log",
+        "build_report": "code/build/gs114_fixture_pair/build-xfo_dgpi/fixture_pair_report.json",
+        "bytes": 1940512,
+        "compiled_partition_table_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a",
+        "embedded_c3_sha256": "ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7",
+        "ota_slot_capacity_bytes": 4194304,
+        "ota_slot_free_bytes": 2253792,
+        "partition_rows": {
+          "gs_outbox": {
+            "offset": "0x820000",
+            "size": 4194304,
+            "subtype": "littlefs",
+            "type": "data"
+          },
+          "gs_state": {
+            "offset": "0xc20000",
+            "size": 262144,
+            "subtype": "nvs",
+            "type": "data"
+          },
+          "nvs": {
+            "offset": "0x9000",
+            "size": 24576,
+            "subtype": "nvs",
+            "type": "data"
+          },
+          "ota_0": {
+            "offset": "0x20000",
+            "size": 4194304,
+            "subtype": "ota_0",
+            "type": "app"
+          },
+          "ota_1": {
+            "offset": "0x420000",
+            "size": 4194304,
+            "subtype": "ota_1",
+            "type": "app"
+          },
+          "otadata": {
+            "offset": "0xf000",
+            "size": 8192,
+            "subtype": "ota",
+            "type": "data"
+          },
+          "phy_init": {
+            "offset": "0x11000",
+            "size": 4096,
+            "subtype": "phy",
+            "type": "data"
+          }
+        },
+        "path": "code/build/gs114_fixture_pair/build-xfo_dgpi/s3/gs_r1_s3_hub.bin",
+        "profile_validation": {
+          "app_bytes": 1940512,
+          "app_free_bytes": 2253792,
+          "broad_hil_markers_absent": [
+            "INJECT_MOTION",
+            "START_C3_FOTA",
+            "HIL_GPIO"
+          ],
+          "build_options": {
+            "GS_HIL_BUILD": "OFF",
+            "GS_HIL_C8_ACK_DROP": "OFF",
+            "GS_HIL_C8_ACK_HOLD": "ON",
+            "GS_HIL_COMMISSIONING": "OFF",
+            "GS_HIL_CONTROL": "OFF",
+            "GS_HIL_SIGNED_FOTA": "OFF",
+            "GS_S3_DIAGNOSTIC_ONLY": "OFF"
+          },
+          "c8_ack_drop_fixture_enabled": false,
+          "c8_ack_hold_fixture_enabled": true,
+          "commissioning_markers_present": [
+            "HIL_FIXTURE_READY"
+          ],
+          "compiled_partition_rows": {
+            "gs_outbox": {
+              "offset": "0x820000",
+              "size": 4194304,
+              "subtype": "littlefs",
+              "type": "data"
+            },
+            "gs_state": {
+              "offset": "0xc20000",
+              "size": 262144,
+              "subtype": "nvs",
+              "type": "data"
+            },
+            "nvs": {
+              "offset": "0x9000",
+              "size": 24576,
+              "subtype": "nvs",
+              "type": "data"
+            },
+            "ota_0": {
+              "offset": "0x20000",
+              "size": 4194304,
+              "subtype": "ota_0",
+              "type": "app"
+            },
+            "ota_1": {
+              "offset": "0x420000",
+              "size": 4194304,
+              "subtype": "ota_1",
+              "type": "app"
+            },
+            "otadata": {
+              "offset": "0xf000",
+              "size": 8192,
+              "subtype": "ota",
+              "type": "data"
+            },
+            "phy_init": {
+              "offset": "0x11000",
+              "size": 4096,
+              "subtype": "phy",
+              "type": "data"
+            }
+          },
+          "compiled_partition_table_matches_csv": true,
+          "compiled_partition_table_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a",
+          "embedded_node_asset_ack_wait_trace_verified": true,
+          "embedded_node_asset_bytes": 987136,
+          "embedded_node_asset_fixture_security_verified": true,
+          "embedded_node_asset_hil_command_plane_absent": true,
+          "embedded_node_asset_offset": 71352,
+          "embedded_node_asset_physical_wake_guard_verified": true,
+          "embedded_node_asset_qualified_mac_guard_verified": true,
+          "embedded_node_asset_sha256": "ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7",
+          "ota_slot_capacity_bytes": 4194304,
+          "partitions": {
+            "gs_outbox": {
+              "offset": "0x820000",
+              "size": 4194304,
+              "subtype": "littlefs",
+              "type": "data"
+            },
+            "gs_state": {
+              "offset": "0xc20000",
+              "size": 262144,
+              "subtype": "nvs",
+              "type": "data"
+            },
+            "nvs": {
+              "offset": "0x9000",
+              "size": 24576,
+              "subtype": "nvs",
+              "type": "data"
+            },
+            "ota_0": {
+              "offset": "0x20000",
+              "size": 4194304,
+              "subtype": "ota_0",
+              "type": "app"
+            },
+            "ota_1": {
+              "offset": "0x420000",
+              "size": 4194304,
+              "subtype": "ota_1",
+              "type": "app"
+            },
+            "otadata": {
+              "offset": "0xf000",
+              "size": 8192,
+              "subtype": "ota",
+              "type": "data"
+            },
+            "phy_init": {
+              "offset": "0x11000",
+              "size": 4096,
+              "subtype": "phy",
+              "type": "data"
+            }
+          },
+          "rpf_markers_present": [
+            "RPF00",
+            "RPF01",
+            "RPF02",
+            "RPF03",
+            "RPF04",
+            "RPF05",
+            "RPF06",
+            "RPF07",
+            "RPF08"
+          ],
+          "s3_runtime_image_broad_hil_markers_absent": true,
+          "sdkconfig": {
+            "CONFIG_APP_ANTI_ROLLBACK": "n",
+            "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE": "y",
+            "CONFIG_ESPTOOLPY_FLASHFREQ": "40m",
+            "CONFIG_ESPTOOLPY_FLASHMODE": "dio",
+            "CONFIG_ESPTOOLPY_FLASHSIZE": "16MB",
+            "CONFIG_FLASH_ENCRYPTION_ENABLED": "n",
+            "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME": "partitions.s3-outbox-candidate.csv",
+            "CONFIG_SECURE_BOOT": "n",
+            "CONFIG_SPIRAM_MODE_OCT": "y",
+            "CONFIG_SPIRAM_SPEED": "40"
+          }
+        },
+        "sha256": "214bdaf7560d7fb4270908c13b6ddfc325a3e351eabd1ec0a2bc3e70e6db8469",
+        "status": "STANDALONE_APP_BUILT_NOT_INSTALLED"
+      },
+      "s3_profile": {
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_C8_ACK_DROP": "OFF",
+        "GS_HIL_C8_ACK_HOLD": "ON",
+        "GS_HIL_COMMISSIONING": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_HIL_SIGNED_FOTA": "OFF",
+        "GS_S3_DIAGNOSTIC_ONLY": "OFF",
+        "flash": "16MB",
+        "psram": "8MB",
+        "target": "esp32s3"
+      },
+      "source_fingerprint": "9794d902dbfffd5e102836518f772b335b3f3e4d136aa389568684b0fe2fd8ce",
+      "source_head": "9b22c13689e819743e57e2a847a65f476b94331f"
+    },
+    "p9_b_signed_fota": {
+      "c3_images": {
+        "A": {
+          "ack_trace": true,
+          "bat_c8_fixture_security": true,
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261016T040719Z/c3-a.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7",
+          "signing_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "trusted_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "version": "gs114A-261016T040719"
+        },
+        "B": {
+          "ack_trace": true,
+          "bat_c8_fixture_security": true,
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261016T040719Z/c3-b.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "82adde0e5c34a524cee2967f23f57dbbca3254b9d772f7affb432de616a1b6ce",
+          "signing_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "trusted_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "version": "gs114B-261016T040719"
+        },
+        "N": {
+          "ack_trace": true,
+          "bat_c8_fixture_security": true,
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261016T040719Z/c3-n.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "8e8d4d632bb22990cb747135a7bce8991ecee4c0008bed8ebe73e1a94f275625",
+          "signing_public_key_fingerprint_sha256": "dfd5a8ab1168f86423d709406292f0c2178456b25aafcd3484ae053592b15843",
+          "trusted_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "version": "gs114N-261016T040719"
+        },
+        "R": {
+          "ack_trace": true,
+          "bat_c8_fixture_security": true,
+          "bytes": 987136,
+          "gs_hil_build": false,
+          "hil_control": false,
+          "path": "code/build/gs114_p9_signed/20261016T040719Z/c3-r.signed.bin",
+          "physical_wake": true,
+          "profile": "signed-app-on-update",
+          "sha256": "2e852539d0e5dacaf28138b8a976d7e7858a57c0014cfcd7bb688652d751b437",
+          "signing_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "trusted_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "version": "gs114R-261016T040719"
+        }
+      },
+      "c3_ota_slot_capacity_bytes": 1966080,
+      "c3_profile": {
+        "GS_BAT_C8_ACK_TRACE": "ON",
+        "GS_BAT_C8_FIXTURE_SECURITY": "ON",
+        "GS_BAT_C8_PHYSICAL_WAKE": "ON",
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_HIL_FORCE_BOOT_HEALTH_FAIL": "OFF",
+        "console": "UART0 primary; no USB HIL command plane",
+        "target": "esp32c3"
+      },
+      "host_checks": {
+        "c3_app_slot_fit": true,
+        "c3_signature_verification": "A/B/N/R signatures verified with their signing keys; N rejected when checked against A trusted key",
+        "deployment": "All candidates NOT_INSTALLED; host artifacts only",
+        "hub_embedded_image_identity": "Exact C3 SHA-256 verified for each S3 N/B/R variant",
+        "s3_app_slot_fit": true
+      },
+      "s3_hub_variants": {
+        "B": {
+          "bytes": 1938864,
+          "embedded_c3_sha256": "82adde0e5c34a524cee2967f23f57dbbca3254b9d772f7affb432de616a1b6ce",
+          "embedded_c3_version": "gs114B-261016T040719",
+          "hil_control": false,
+          "legacy_raw_fota": false,
+          "path": "code/build/gs114_p9_signed/20261016T040719Z/hub-b.bin",
+          "physical_status": "NOT_RUN",
+          "profile": "gs114-s3-signed-fota-fixture",
+          "sha256": "96f387b209957c5f8ac6550c3c88b7705a0c4ed8a57be9950b0b1a94c0d22391",
+          "signing_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "version": "gs114p9B-261016T040719"
+        },
+        "N": {
+          "bytes": 1938864,
+          "embedded_c3_sha256": "8e8d4d632bb22990cb747135a7bce8991ecee4c0008bed8ebe73e1a94f275625",
+          "embedded_c3_version": "gs114N-261016T040719",
+          "hil_control": false,
+          "legacy_raw_fota": false,
+          "path": "code/build/gs114_p9_signed/20261016T040719Z/hub-n.bin",
+          "physical_status": "NOT_RUN",
+          "profile": "gs114-s3-signed-fota-fixture",
+          "sha256": "f0f9d6ef24a30bfb2824b9b61c1ddde04d9954e9774e43e4708e096f43be4433",
+          "signing_public_key_fingerprint_sha256": "dfd5a8ab1168f86423d709406292f0c2178456b25aafcd3484ae053592b15843",
+          "version": "gs114p9N-261016T040719"
+        },
+        "R": {
+          "bytes": 1938864,
+          "embedded_c3_sha256": "2e852539d0e5dacaf28138b8a976d7e7858a57c0014cfcd7bb688652d751b437",
+          "embedded_c3_version": "gs114R-261016T040719",
+          "hil_control": false,
+          "legacy_raw_fota": false,
+          "path": "code/build/gs114_p9_signed/20261016T040719Z/hub-r.bin",
+          "physical_status": "NOT_RUN",
+          "profile": "gs114-s3-signed-fota-fixture",
+          "sha256": "7ce89b003d05d6aa28671f973472295d080f47922f42a9d188629ffdb41477df",
+          "signing_public_key_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+          "version": "gs114p9R-261016T040719"
+        }
+      },
+      "s3_ota_slot_capacity_bytes": 4194304,
+      "s3_profile": {
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_C8_ACK_HOLD": "OFF",
+        "GS_HIL_COMMISSIONING": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_HIL_SIGNED_FOTA": "ON",
+        "flash": "16MB",
+        "legacy_raw_fota": false,
+        "profile": "gs114-s3-signed-fota-fixture",
+        "psram": "8MB",
+        "target": "esp32s3"
+      },
+      "signing": {
+        "A_B_R_same_trusted_signer": true,
+        "N_differs_from_A_trusted_signer": true,
+        "algorithm": "RSA-3072 signed-app-on-update test profile",
+        "private_keys": "EXTERNAL TEST ONLY; directory/files verified 0700/0600; private material and path omitted from repository/reports",
+        "trusted_A_B_R_fingerprint_sha256": "60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6",
+        "wrong_key_N_fingerprint_sha256": "dfd5a8ab1168f86423d709406292f0c2178456b25aafcd3484ae053592b15843"
+      },
+      "source_head": "9b22c13689e819743e57e2a847a65f476b94331f"
+    }
+  },
+  "authorization": {
+    "existing": "GS-146 comment 10734 covers clean reuse of the named R&D pair; GS-114 comment 11145 grants read-only Stage 1 only.",
+    "missing": "No Stage 2 authorization is recorded for active host/console access, observer attachment, app-only C3/S3 image installation, expected reboots, real AM312 stimulus, ACK-hold commands, signed-FOTA commands, or conditional recovery. See stage2_execution_package for exact boards, image hashes, commands, stop conditions and recovery prerequisites.",
+    "status": "EXPLICIT_STAGE2_OWNER_APPROVAL_REQUIRED_BEFORE_ANY_STAGE2_HARDWARE_OPERATION"
+  },
+  "created_utc": "2026-10-15T19:23:10Z",
+  "fixture": {
+    "authorization_scope": "Only the existing R&D pair referenced by GS-146 comment 10734; it does not authorize P9 access, image install, FOTA or event stimulus without a P9-specific approval.",
+    "c3": {
+      "active_ota_slot_currently": "UNKNOWN; previous run04 readbacks are historical.",
+      "board": "ESP32-C3, expected 4 MiB",
+      "historical_serial_by_id": "usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+      "identity_reverified_this_session": false,
+      "installed_image_currently": "UNKNOWN; prior P8 evidence is historical and no current readback was performed.",
+      "last_accepted_installed_image_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530",
+      "last_verified_mac": "14:63:93:c5:d1:58",
+      "latest_read_only_host_enumeration": "Windows Win32_SerialPort query returned zero COM ports; no serial port was opened.",
+      "owner_reported_power": "Laptop USB port; may be in light sleep.",
+      "wsl_usb_attachment": "Not attached to WSL. This does not block host builds or test artifact preparation; no C3 binary flashing was needed for those operations."
+    },
+    "pending_event_inventory": "UNKNOWN; preserve every existing retained key and durable record. Do not clear/reset to establish baseline.",
+    "s3": {
+      "active_ota_slot_currently": "UNKNOWN; prior run04 readback/ota_0 install receipts are not a current readback.",
+      "board": "ESP32-S3 N16R8, expected 16 MiB flash / 8 MiB PSRAM",
+      "historical_serial_by_id": "usb-1a86_USB_Single_Serial_5CBC401023-if00",
+      "identity_reverified_this_session": false,
+      "installed_image_currently": "UNKNOWN; prior P8 image was f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8.",
+      "last_verified_mac": "7c:4f:ad:b7:2a:20",
+      "usb_uart_serial": "5CBC401023"
+    },
+    "serial_observer": "No C3 port was opened. Native USB Serial/JTAG previously stopped emitting after light-sleep entry; a reset-safe continuous Node sleep/reset observer has not been demonstrated.",
+    "wiring": "Prior accepted setup: AM312 VCC 3.3 V, common GND, OUT to C3 GPIO4; current wiring not reverified."
+  },
+  "last_historical_readbacks": {
+    "c3_otadata_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
+    "c3_partition_table_sha256": "219614d3586ae564ce51dfc462e6e7773b590abe41048a10bc513e1a7d799469",
+    "interpretation": "Run04/P8 readbacks and install receipts are historical evidence, not proof of present active slots or running bytes.",
+    "s3_otadata_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
+    "s3_partition_table_sha256": "338f4a83ba90609b4ed0a04514f6378dc90b5d21769e186f49dc3086fd9feabc"
+  },
+  "operations_performed": {
+    "hardware": [],
+    "host_only": [
+      "built source-matched signed C3 A/B/N/R candidates with the narrow physical-wake/ACK-trace/read-only-identity profile",
+      "built S3 signed-FOTA N/B/R candidates embedding the exact corresponding C3 signed image",
+      "built P9-A S3 ACK-hold candidate embedding exact signed C3 A; verified fixture profile, embedded markers, partition table and slot capacity",
+      "verified C3 signatures, RSA-3072 signer continuity, wrong-key N rejection against A trusted key, exact hashes and candidate slot bounds",
+      "ran focused profile/fixture Python tests and syntax checks; no physical target access"
+    ],
+    "no_serial_flash_reset_erase_recommission_ota_power_or_sensor_stimulus": true
+  },
+  "physical_case_status": {
+    "P1": "PASS reused",
+    "P10": "GS-149",
+    "P2": "PASS reused",
+    "P3": "PARTIAL; measured behavior pass, exact running S3 hash unverified",
+    "P4": "controlled q16 PASS; historical q10-q12 anomaly OPEN",
+    "P5": "controlled q24 PASS; per-attempt retry identity LIMITED",
+    "P6": "PASS reused",
+    "P7": "PASS reused",
+    "P8": "controlled q14 PASS reused",
+    "P9-A": "BLOCKED / NOT_RUN",
+    "P9-B": "BLOCKED / NOT_RUN"
+  },
+  "proposed_physical_operations_require_explicit_p9_approval": {
+    "not_in_scope": [
+      "eFuse/Secure Boot/flash-encryption/trust-root changes",
+      "full-device erase, protected-state clear or factory recommission",
+      "commercial signing material or CloudSync RSA/mTLS changes"
+    ],
+    "p9_a": [
+      "passively reidentify both boards and record current ports/owners/security/slots without DTR/RTS reset",
+      "read-only pending EventKey inventory and authenticated session baseline",
+      "app-only install of S3 P9-A image if current image cannot run the fixture",
+      "arm exact-K ACK hold before one real AM312 event",
+      "capture authenticated durable commit/K, hold for 12000 ms (15000 ms watchdog), release/allow exact-key retry and verify retirement/effect count"
+    ],
+    "p9_a_c3_binary_flash": "NOT_PROPOSED; C3 remains powered from laptop USB. Host preparation required no C3 attachment to WSL.",
+    "p9_b": [
+      "read-only board identity, partition/slot and pending-key baseline",
+      "install signed C3 A baseline using an approved app-only procedure",
+      "install S3 hub-n, trigger wrong-key N and verify target rejection/no state change",
+      "install S3 hub-b, trigger valid signed B and verify sleep inhibition, boot health, rejoin and event recovery",
+      "use S3 hub-r/C3 R only for approved recovery if required; do not induce power loss or forced rollback"
+    ]
+  },
+  "qualification_status": "HOST_PREPARATION_COMPLETE_PHYSICAL_NOT_RUN",
+  "recovery_and_stop_conditions": {
+    "recovery": "Known-good signed C3 R and prior P8 S3 candidate artifacts exist, but current installed bytes/slots and safe restore path are unverified. GS-118 rollback task stack remains provisional 12 KiB with no measured high-water evidence. Confirm app-only backup/restore and event-state preservation before any physical operation.",
+    "stop": [
+      "board identity/port mismatch or port ownership uncertainty",
+      "unknown pending EventKey inventory or any need to clear state",
+      "unexpected reset, boot-health failure, session/ownership/admission loss",
+      "wrong-key N accepted; valid B rejected; embedded image or active slot mismatch",
+      "sleep entry during critical FOTA or ACK-wait contract violation",
+      "unmatched/changed K, false retirement, extra logical effect, duplicate caregiver effect",
+      "continuous observer loss or recovery requiring erase/eFuse/security/trust-root change"
+    ]
+  },
+  "schema": "GS114-P9-EXECUTION-MANIFEST-v1",
+  "source": {
+    "branch": "feature/r1-commercial-baseline",
+    "context_version": "2026-10-13.001",
+    "dirty_reason": "Pre-existing untracked evidence/assets and managed_components; the only tracked difference during artifact generation is this report-only TEST_PLAN clarification, excluded from firmware build inputs. Firmware/code build source is commit 9b22c13689e819743e57e2a847a65f476b94331f.",
+    "firmware_source_matches_commit": true,
+    "git_worktree_dirty": true,
+    "idf_version": "6.0.3",
+    "origin_head_before_this_delivery": "f6a23ecd8419e987ef3eca578e061d3ec3185cf5",
+    "preflight": "PASS",
+    "remote_head_verified_before_documentation": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
+    "repository": "/home/udaybhan/projects/Ghar_sajag_r1",
+    "source_dirty": true,
+    "source_head": "9b22c13689e819743e57e2a847a65f476b94331f",
+    "tracked_source_clean_at_artifact_build": true,
+    "untracked_evidence_and_assets_preserved": true
+  },
+  "stage1_additional_passive_diagnostics": {
+    "authorization": "GS-114 comment 11145; read-only Stage 1 only",
+    "com9_ownership": {
+      "exact_serial_handle_owner": "UNKNOWN; usbipd transport ownership does not prove a serial application handle, and local Windows handle enumeration was unavailable",
+      "handle_tool": "handle.exe/handle64.exe not found by command lookup or checked standard Windows/Sysinternals paths",
+      "open_or_dtr_rts_safety": "UNKNOWN; no port/interface opened",
+      "process_inventory": "usbipd.exe and wslhost.exe present; no named serial terminal/monitor process found",
+      "windows_openfiles": "Cannot enumerate local handles: maintain-objects-list flag disabled; query returned access denied",
+      "windows_pnp": "COM9 historical PnP instance is phantom/non-present while usbipd reports the matching CH343 attached to WSL",
+      "wsl_process_fd_owners": [],
+      "wsl_sysfs": "USB 1a86:55d3 serial 5CBC401023 at bus 1/device 21; /dev/serial/by-id resolves to /dev/ttyACM0"
+    },
+    "methods": [
+      "PowerShell usbipd.exe list; Get-PnpDevice and PnP properties for current descriptor-failure node and historical C3/S3 instances",
+      "Read-only Get-WinEvent queries for Kernel-PnP/Configuration and DeviceSetupManager/Admin; read-only Windows SetupAPI.dev.log search",
+      "WSL sysfs USB metadata, serial symlink listing, and /proc fd-link scan; no device node opened",
+      "Windows openfiles query, installed handle-tool lookup, and process-name inventory; no serial API called"
+    ],
+    "observed_usb_topology": {
+      "association_assessment": "Exact same Windows root-hub HSP3/port-3 topology plus descriptor-failure arrival two seconds after historical C3 removal strongly associates BUSID 3-3 with the USB endpoint historically used by the C3. Owner reports the pair remained connected. Likely C3 endpoint; current C3 MAC/board identity remains UNVERIFIED because its descriptor contains no serial or MAC.",
+      "current_descriptor_failure_pnp": {
+        "bus_serial_or_mac": "Unavailable",
+        "hardware_id": "USB\\DEVICE_DESCRIPTOR_FAILURE",
+        "instance_id": "USB\\VID_0000&PID_0002\\5&25B61EF1&0&3",
+        "last_arrival_windows_local": "2026-10-15 20:11:53",
+        "last_removal": "Not reported",
+        "location_info": "Port_#0003.Hub_#0003",
+        "location_paths": [
+          "ACPI(_SB_)#ACPI(PCI0)#ACPI(XHC_)#ACPI(RHUB)#ACPI(HSP3)"
+        ],
+        "parent": "USB\\ROOT_HUB30\\4&22895bf8&0&0",
+        "problem_code": 43
+      },
+      "event_records": [
+        "Kernel-PnP event 411 at 2026-10-15 20:10:21 Windows local: device had a problem starting, Problem 0x2B (43)",
+        "Kernel-PnP event 400: matching ID USB\\DEVICE_DESCRIPTOR_FAILURE",
+        "DeviceSetupManager event 112 at 2026-10-15 20:10:22 Windows local: failed descriptor device processed"
+      ],
+      "historical_c3_pnp": {
+        "bus_reported_description": "USB JTAG/serial debug unit",
+        "instance_id": "USB\\VID_303A&PID_1001\\14:63:93:C5:D1:58",
+        "last_arrival_windows_local": "2026-10-15 20:10:45",
+        "last_removal_windows_local": "2026-10-15 20:11:51",
+        "location_info": "Port_#0003.Hub_#0003",
+        "location_paths": [
+          "PCIROOT(0)#PCI(1400)#USBROOT(0)#USB(3)",
+          "ACPI(_SB_)#ACPI(PCI0)#ACPI(XHC_)#ACPI(RHUB)#ACPI(HSP3)"
+        ],
+        "parent": "USB\\ROOT_HUB30\\4&22895bf8&0&0"
+      },
+      "state_change_note": "BUSID 3-1 was Shared in the earlier Stage 1 snapshot and is Attached in this follow-up; this agent did not attach it",
+      "usbipd_current": [
+        {
+          "busid": "3-1",
+          "device": "USB-Enhanced-SERIAL CH343; serial 5CBC401023",
+          "state": "Attached",
+          "vid_pid": "1a86:55d3"
+        },
+        {
+          "busid": "3-3",
+          "device": "Unknown USB Device (Device Descriptor Request Failed)",
+          "state": "Shared",
+          "vid_pid": "0000:0002"
+        }
+      ]
+    },
+    "observer_assessment": {
+      "continuous_reset_safe_observer": "NOT_QUALIFIED",
+      "current_capture": "WSL /proc fd scan found no current S3 tty reader; Windows handle state cannot be conclusively enumerated; current S3 host serial open safety remains UNKNOWN",
+      "existing_path": "Authenticated ESP-NOW NodeHealth/schema-3 sleep trace from C3 to S3, then Hub log",
+      "limitation": "After-wake telemetry with default 300-second cadence, not continuous; cannot alone prove awake/sleep/reset state across a 12-second P9-A hold",
+      "previously_observed_fields": "Retained/durable-ACK counters, PIR/GPIO state and high episodes, sleep/timer/GPIO wake counters, radio restore, owner resume, and post-restart authenticated rejoin"
+    },
+    "recorded_utc": "2026-10-16T01:19:40Z",
+    "recovery_assessment": {
+      "current_recovery_readiness": "NOT_ESTABLISHED; current target identity/image/slot/trust/session/EventKey inventory and a presently safe restore route are unknown",
+      "gs118": "Rollback remains not physically qualified after the provisional 12 KiB gs_ota_validate stack setting; no measured stack high-water evidence",
+      "historical_c3": "2026-10-14 app-only image SHA-256 70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530 was installed at verified ota_0 offset 0x20000, ota_seq=1; record says partition table/otadata/NVS preserved and no erase",
+      "historical_c3_access_cost": "Related selector readback required controlled ROM reset and later RTS reset; not authorized or demonstrated safe now",
+      "historical_s3": "2026-10-14 readback verified expected S3 MAC, 16 MiB/8 MiB, actual partition table and ota_0 selector; Secure Boot off and eFuses unchanged at that time only",
+      "p9_artifacts": "C3 signed A/B/N/R and S3 B/N/R candidates plus host signature checks exist; candidates are not installed and current target trust compatibility is unverified"
+    },
+    "remaining_unknown": [
+      "Current C3 MAC/board identity despite likely same physical USB port association",
+      "Exact Windows COM9 serial handle owner and DTR/RTS/open behavior",
+      "Current C3/S3 running images, partition maps, active OTA slots, and signed-FOTA trust state",
+      "Current authenticated session/replay admission and pending/in-flight EventKeys",
+      "Current C3 sleep/reset state and causal link between sleep cycle and descriptor failure",
+      "Continuous reset-safe observation during the P9-A hold interval",
+      "Current target-specific recovery route preserving identity and pending events"
+    ],
+    "result": "BLOCKED; likely C3 USB-port association is now supported, but Stage 1 identity/state/observer/recovery prerequisites remain unverified and P9-A/P9-B remain BLOCKED/NOT_RUN",
+    "sleep_and_usb_assessment": {
+      "current_causal_link": "Plausible and consistent with documented light-sleep behavior, but no timestamp-correlated current sleep/wake trace and PnP event pair; causation UNKNOWN",
+      "historical_c3_log": "c3_uart_open_result.txt records no C3 USB bytes or GET_STATE response while the Hub received authenticated Node events; no reset was indicated by that observation",
+      "idf_6_documentation": "ESP32-C3 USB Serial/JTAG guide: light sleep gates APB and USB PHY clocks; host may report disconnect/error; after wake host may fail to re-enumerate while D+ remains pulled up. https://docs.espressif.com/projects/esp-idf/en/v6.0/esp32c3/api-guides/usb-serial-jtag-console.html",
+      "running_image_configuration": "UNKNOWN; source/profile is not current installed-image evidence",
+      "source": "node_runtime_adapter.cpp explicitly calls esp_light_sleep_start() in the C8 sleep path; sdkconfig.hil.defaults enables CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG and does not set CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION"
+    },
+    "target_operations": "None; no serial interface opened, no USB/IP attachment performed, no target command/state access, no DTR/RTS, reconnect, reset, wake, power change, flash, erase, OTA, stimulus, or security change"
+  },
+  "stage1_inspection": {
+    "authorization": "GS-114 Jira comment 11145; read-only Stage 1 only",
+    "commands_and_methods": [
+      {
+        "effect": "Passive Windows USB/IP enumeration; no attach/detach or target I/O",
+        "exit": 0,
+        "method": "usbipd.exe list"
+      },
+      {
+        "effect": "Read-only Windows device-tree enumeration; Win32_SerialPort returned no rows",
+        "exit": 0,
+        "method": "PowerShell Get-PnpDevice -PresentOnly; Get-PnpDeviceProperty; Get-CimInstance Win32_SerialPort"
+      },
+      {
+        "effect": "Read-only host inspection; no device node opened",
+        "exit": 0,
+        "method": "WSL sysfs USB and /dev/serial/tty node enumeration plus /proc fd-link scan"
+      },
+      {
+        "effect": "Host files only; no target access",
+        "exit": 0,
+        "method": "SHA-256 verification of manifest-listed candidate image files"
+      }
+    ],
+    "future_stage2_prerequisites": [
+      "Safely re-enumerate and verify both authorized board identities, USB serials, selected ports, and exclusive port ownership; do not attach/open the C3 endpoint while descriptor failure remains",
+      "Independently prove a read-only target observation method for the exact adapter/endpoint has no DTR/RTS, reset, boot-mode, application-command, or state-write side effect",
+      "Obtain current firmware/running-image identity, partition maps, active OTA slots, authenticated session/replay state, and preserved pending EventKey inventory through that safe method",
+      "Qualify a continuous reset-safe Node awake/sleep/reset/event observer; serial silence is insufficient",
+      "Verify signed test-image trust compatibility and a target-specific app-only recovery/restore route that preserves identity and pending events; candidate files alone do not qualify recovery",
+      "Obtain separate explicit owner authorization for exact Stage 2 P9-A/P9-B operations; comment 11145 authorizes Stage 1 only"
+    ],
+    "historical": {
+      "c3_last_accepted_p8_image_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530; historical, not current",
+      "c3_power": "Owner previously reported laptop USB power; not independently measured in Stage 1",
+      "expected_c3_mac": "14:63:93:c5:d1:58; owner-authorized historical identity, not reverified",
+      "expected_s3_mac": "7c:4f:ad:b7:2a:20; owner-authorized historical identity, not reverified",
+      "prior_partition_and_otadata_readbacks": "Historical only; do not establish current active slot or running bytes",
+      "s3_p8_image_sha256": "f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8; historical, not current",
+      "s3_usb_serial": "5CBC401023; seen previously and observed again as COM9 PnP serial descriptor"
+    },
+    "inferred": {
+      "c3_usb_mapping": "The descriptor-error device may be the expected C3 USB/JTAG path; VID/PID and serial were not obtained, so no C3 identity is claimed",
+      "s3_adapter_mapping": "COM9 USB serial descriptor matches the historical S3 CH343 serial 5CBC401023, but this does not verify S3 board MAC, running application, or application session"
+    },
+    "observed": {
+      "device_change": "None; no serial/device interface opened; no DTR/RTS change, command, reset, power change, attach, flash, erase, OTA, sensor stimulus, or security change",
+      "host_candidate_artifacts": {
+        "c3_a_b_n_r": "All four manifest-listed files exist; each size and SHA-256 matches the prior artifact manifest",
+        "deployment": "All are host candidates, not evidence of installed target state",
+        "p9_a_s3": "File exists; size and SHA-256 match the prior artifact manifest",
+        "s3_n_b_r": "All three manifest-listed files exist; each size and SHA-256 matches the prior artifact manifest"
+      },
+      "windows_pnp": {
+        "s3_usb_serial_adapter": {
+          "bus_reported_description": "USB Single Serial",
+          "friendly_name": "USB-Enhanced-SERIAL CH343 (COM9)",
+          "instance_id": "USB\\VID_1A86&PID_55D3\\5CBC401023",
+          "location": "Port_#0001.Hub_#0003",
+          "status": "OK"
+        },
+        "unidentified_usb_device": {
+          "friendly_name": "Unknown USB Device (Device Descriptor Request Failed)",
+          "instance_id": "USB\\VID_0000&PID_0002\\5&25B61EF1&0&3",
+          "status": "Error"
+        },
+        "win32_serialport_query": "No rows returned, despite the PnP COM9 device"
+      },
+      "windows_usbipd_connected": [
+        {
+          "busid": "3-1",
+          "device": "USB-Enhanced-SERIAL CH343 (COM9)",
+          "state": "Shared",
+          "vid_pid": "1a86:55d3"
+        },
+        {
+          "busid": "3-3",
+          "device": "Unknown USB Device (Device Descriptor Request Failed)",
+          "state": "Shared",
+          "vid_pid": "0000:0002"
+        }
+      ],
+      "wsl": {
+        "kernel": "Linux 6.18.33.2-microsoft-standard-WSL2",
+        "serial_fd_owners": [],
+        "serial_nodes": [],
+        "usb_sysfs": "Only vhci_hcd root hubs usb1/usb2 (1d6b:0002/0003); no target USB device enumerated"
+      }
+    },
+    "ownership_and_safety": {
+      "hard_stop_reason": "C3 enumeration failed with VID_0000/PID_0002 descriptor error, so exact pair identity and safe endpoint ownership cannot be established; comment 11145 requires stop on uncertainty",
+      "open_safety": "Not independently established for the exact adapter/endpoint; no interface opened",
+      "usbipd_shared_state": "COM9 and the descriptor-error device are Shared, not shown Attached to WSL",
+      "windows_com9_owner": "UNKNOWN; usbipd/PnP state and process-name inventory do not prove handle ownership",
+      "wsl_serial_owner": "No WSL serial device node or open serial fd observed"
+    },
+    "recorded_utc": "2026-10-16T01:06:12Z",
+    "repository_checkpoint": {
+      "branch": "feature/r1-commercial-baseline",
+      "context_preflight": "PASS",
+      "head": "1534b61fa3269bb0a3a01311906f040d41d4faa9",
+      "origin_head": "1534b61fa3269bb0a3a01311906f040d41d4faa9"
+    },
+    "result": "BLOCKED_AFTER_SAFE_PASSIVE_ENUMERATION; no target interface opened",
+    "unknown": {
+      "authenticated_session_ownership_and_replay_admission": true,
+      "c3_board_mac_and_port_identity": true,
+      "continuous_reset_safe_node_observer": true,
+      "current_c3_and_s3_firmware_hashes": true,
+      "current_c3_awake_sleep_reset_state": true,
+      "current_partition_maps_and_active_ota_slots": true,
+      "current_wiring_and_power_measurement": true,
+      "pending_or_inflight_eventkeys_and_retained_count": true,
+      "s3_board_mac": true,
+      "safe_dtr_rts_and_open_behavior_for_com9": true,
+      "target_trust_and_verified_app_only_recovery_route": true,
+      "windows_com9_process_owner_or_exclusivity": true
+    }
+  },
+  "stage2_execution_package": {
+    "authorization_status": "EXPLICIT_STAGE2_OWNER_APPROVAL_REQUIRED; exact current board identity, slot/session/pending-key state, reset-safe S3 console and qualified observer remain prerequisites.",
+    "current_owner_authorization": "GS-114 comment 11145 covers read-only Stage 1 only; it does not authorize Stage 2 active access, probe attachment, port opening, image installation, resets/reboots, real stimulus, FOTA or recovery.",
+    "explicit_stage2_authorization_must_name": [
+      "Both boards matching the exact historical identifiers above, current ports, and the named observer/electrical attachment points.",
+      "Passive observer attachment and any no-reset read-only access; exact serial endpoint and DTR/RTS isolation/behavior.",
+      "App-only C3 A and S3 P9-A/N/B/R installation hashes, selected app slots, expected Hub/Node reboots and backup/restore route.",
+      "S3 console commands and host port writes; one real PIR stimulus; P9-A 12 s ACK hold/15 s watchdog; authenticated C3 N/B FOTA triggers; conditional R recovery.",
+      "Stop limits and recovery procedure, preserving NVS, device identity, pending EventKeys and event chronology; no full erase, recommissioning, eFuse, Secure Boot, production trust-root or CloudSync security changes."
+    ],
+    "historical_pair_match_criteria_only_current_identity_unverified": {
+      "c3": {
+        "board": "ESP32-C3, expected 4 MiB",
+        "current_identity_image_slot_session_pending_keys": "UNKNOWN",
+        "expected_fixture_device_id": "c3-146393c5d158",
+        "historical_last_verified_mac": "14:63:93:c5:d1:58",
+        "historical_port": "Native USB/JTAG; current path/ownership UNKNOWN",
+        "historical_usb_jtag_serial_by_id": "usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
+        "owner_reported_state": "Powered from laptop USB; blue indicator responds to motion; may be in light sleep. Not reverified in this work."
+      },
+      "s3": {
+        "board": "ESP32-S3 N16R8, expected 16 MiB flash / 8 MiB PSRAM",
+        "current_identity_image_slot_session_pending_keys": "UNKNOWN",
+        "historical_by_id": "usb-1a86_USB_Single_Serial_5CBC401023-if00",
+        "historical_last_verified_mac": "7c:4f:ad:b7:2a:20",
+        "historical_port": "COM9 / WSL /dev/ttyACM0 in prior records; current mapping/owner UNKNOWN",
+        "historical_usb_uart_serial": "5CBC401023"
+      }
+    },
+    "minimum_independent_reset_safe_observer": {
+      "digital_channels": [
+        "C3 UART0 TX",
+        "C3 GPIO4",
+        "C3 EN/reset indication",
+        "S3 log UART TX"
+      ],
+      "electrical_limits": "Verified board pin map; 3.3 V compatible inputs >=1 MOhm; no pull-up or drive; no DTR/RTS control; no USB power interruption/change.",
+      "instrument": "Common-timebase passive DAQ/logic capture plus a non-invasive C3 current channel; exact equipment is not currently identified or qualified.",
+      "nodehealth_trace": "Authenticated NodeHealth schema-4 trace is retrospective only, delayed by existing health cadence, RAM-only and lost on reset; it cannot substitute for the independent continuous capture.",
+      "qualification": "Demonstrate non-overlapping awake and light-sleep current ranges on this board; maintain gap-free capture from before event TX through Hub commit, full 12 s hold, ACK release/retirement, and post-ACK sleep. Detect reset/boot changes. If current states cannot be separated or any channel gaps, P9-A is BLOCKED.",
+      "sampling": "At least 8x configured UART baud (>=1 MS/s at 115200 baud); C3 current >=1 kS/s; cross-channel alignment <=10 ms over the 15 s watchdog interval."
+    },
+    "stage2A_safe_identification_and_passive_readiness": [
+      "Before any port open, verify physical board markings and passive host USB/PnP ownership; match both boards to the historical identifiers above. VID:PID alone is insufficient. Stop on mismatch or ambiguity.",
+      "Do not reset, wake, reconnect, power-cycle, USB/IP attach or open the C3 USB interface. C3 light sleep/USB enumeration behavior is not a recovery authorization.",
+      "Determine S3 console ownership and DTR/RTS reset behavior without opening the current interface. If no reset-safe, exclusive command/log path can be proven, stop before commands.",
+      "With separate authorization, attach and qualify the independent observer; then obtain current read-only partition/active-slot, firmware hash, authenticated session/replay state and pending-EventKey inventory using a proven no-reset path. Preserve every pending key. If any value cannot be read safely, stop before installation."
+    ],
+    "stage2B_image_installations_after_stage2A_gates_and_explicit_approval": {
+      "c3": "First compare the proven current running C3 app hash and profile with signed C3 A ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7. Reuse it only if exact hash, profile, trusted-key state and boot health are verified. Otherwise install that signed image only to a verified app partition through an explicitly approved app-only method; preserve bootloader, partition table, NVS, otadata/event state and the other known-good app. Expected reboot requires explicit authorization. If current image/slot, backup, or app-only route is unknown, stop before install.",
+      "no_operations_performed": true,
+      "s3_p9a": "First compare the proven current S3 running app hash/profile and embedded C3 hash with P9-A S3 candidate 214bdaf7560d7fb4270908c13b6ddfc325a3e351eabd1ec0a2bc3e70e6db8469 and embedded C3 A ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7. Reuse only on exact match with verified boot health/session. Otherwise install only the matching app image(s) using an explicitly approved app-only method; no full-device erase or protected-state changes. Expected Hub reboot/rejoin requires authorization. Unknown image/slot/backup stops before install.",
+      "s3_p9b": "For each P9-B scenario, first compare current S3/C3 running hashes, profiles, signer/trusted-key state, versions and boot health with the exact scenario candidates. Reuse exact matches. Otherwise app-only install only the required signed S3/C3 candidate(s) after explicit approval, preserving the known-good app and all durable state. Unknown image/slot/backup or recovery route stops before installation. No bootloader/partition table/eFuse/Secure Boot/trust-root changes."
+    },
+    "stage2C_P9A_test_after_install_and_observer_pass": {
+      "commands": [
+        "ARM_C8_ACK_HOLD",
+        "C8_ACK_HOLD_STATUS",
+        "RELEASE_C8_ACK_HOLD (or CANCEL_C8_ACK_HOLD)"
+      ],
+      "sequence": "Open the verified exclusive S3 console with DTR/RTS unable to reset the board; arm before one real AM312/GPIO4 event; capture exact K after authenticated durable commit; hold all K ACK attempts 12000 ms (fixture watchdog 15000 ms); release and require exact-key authenticated ACK/retry, one logical Hub effect, Node retirement, no reset, and later ordinary sleep eligibility.",
+      "stop": "Abort on any identity/session/key mismatch, missed observer data, unexpected reset, false retirement, extra logical effect, watchdog without recovery, or unsafe recovery requirement."
+    },
+    "stage2D_P9B_test_after_P9A_and_recovery_gates": {
+      "rollback_limit": "GS-118 rollback-task stack remains provisional at 12 KiB with no measured high-water result; physical rollback/recovery is not proven.",
+      "sequence": [
+        "Start from signed C3 A `ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7` and exact authenticated session/state baseline.",
+        "With S3 `hub-n` `f0f9d6ef24a30bfb2824b9b61c1ddde04d9954e9774e43e4708e096f43be4433`, send `START_SIGNED_C3_FOTA c3-146393c5d158 gs114N-261016T040719`; require transfer/digest success followed by target signature rejection, unchanged selected slot/A version and unchanged retained keys.",
+        "With S3 `hub-b` `96f387b209957c5f8ac6550c3c88b7705a0c4ed8a57be9950b0b1a94c0d22391`, send `START_SIGNED_C3_FOTA c3-146393c5d158 gs114B-261016T040719`; require sleep inhibition through critical transfer/persistence, verified B, expected reboot/boot-health, fresh authenticated rejoin and unchanged old keys, then a new durable event/ACK.",
+        "Use C3 R `2e852539d0e5dacaf28138b8a976d7e7858a57c0014cfcd7bb688652d751b437` and S3 `hub-r` `7ce89b003d05d6aa28671f973472295d080f47922f42a9d188629ffdb41477df` only for a previously verified, explicitly authorized app-level recovery if required. Do not force rollback or power loss."
+      ]
+    },
+    "status": "PREPARED; PHYSICAL EXECUTION NOT AUTHORIZED"
+  },
+  "superseded_artifacts": {
+    "p9_a_ack_hold_candidate": {
       "build_source_head": "fbda53a32958cc3c428397f95d96687f77431c6e",
       "bytes": 1891536,
       "deployment": "NOT_INSTALLED; candidate only",
@@ -25,7 +1013,7 @@
       "sha256": "c96bbdf91956a8e3fbc9245c272f69d5347a7468fd873e7e4aa215a9afb8890f",
       "source_fingerprint": "6521afe43d237f13e5234b215f547ecac721a78680323b4cc5c74c0beaf76e77"
     },
-    "p9_b_signed_fota": {
+    "p9_b_signed_fota_candidates": {
       "c3_images": {
         "A": {
           "bytes": 987136,
@@ -131,526 +1119,8 @@
       "source_head": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
       "trusted_signer_fingerprint_sha256": "bba0cbb27599281bd3ed47ec3225b2df35e24215e88af8c3c98b5ade35bcb553",
       "wrong_signer_fingerprint_sha256": "f201abde5e129ed5fa1042dfcf07c903d5f7398b165a1c825683f8f858d4efa3"
-    }
+    },
+    "reason": "Older candidates used stale/unsigned C3 assets or a broader HIL profile; preserved as history and not installable for this P9 run."
   },
-  "authorization": {
-    "existing": "GS-146 comment 10734 accepts reusable clean use of this named R&D pair.",
-    "missing": "GS-114 comments 11107/11109 clarify that the existing authorization is not blanket P9 authorization. Missing approval names exact P9-A/P9-B image installs, signed OTA triggers, real sensor stimulus, state reads, expected resets/reboots, selected ports, observer, backup/recovery, stop criteria and recovery route.",
-    "status": "EXACT_OPERATION_APPROVAL_REQUIRED_BEFORE_PHYSICAL_TEST"
-  },
-  "created_utc": "2026-10-15T19:23:10Z",
-  "fixture": {
-    "authorization_scope": "Only the existing R&D pair referenced by GS-146 comment 10734; it does not authorize P9 access, image install, FOTA or event stimulus without a P9-specific approval.",
-    "c3": {
-      "active_ota_slot_currently": "UNKNOWN; previous run04 readbacks are historical.",
-      "board": "ESP32-C3, expected 4 MiB",
-      "historical_serial_by_id": "usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00",
-      "identity_reverified_this_session": false,
-      "installed_image_currently": "UNKNOWN; prior P8 evidence is historical and no current readback was performed.",
-      "last_accepted_installed_image_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530",
-      "last_verified_mac": "14:63:93:c5:d1:58",
-      "latest_read_only_host_enumeration": "Windows Win32_SerialPort query returned zero COM ports; no serial port was opened.",
-      "owner_reported_power": "Laptop USB port; may be in light sleep.",
-      "wsl_usb_attachment": "Not attached to WSL. This does not block host builds or test artifact preparation; no C3 binary flashing was needed for those operations."
-    },
-    "pending_event_inventory": "UNKNOWN; preserve every existing retained key and durable record. Do not clear/reset to establish baseline.",
-    "s3": {
-      "active_ota_slot_currently": "UNKNOWN; prior run04 readback/ota_0 install receipts are not a current readback.",
-      "board": "ESP32-S3 N16R8, expected 16 MiB flash / 8 MiB PSRAM",
-      "historical_serial_by_id": "usb-1a86_USB_Single_Serial_5CBC401023-if00",
-      "identity_reverified_this_session": false,
-      "installed_image_currently": "UNKNOWN; prior P8 image was f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8.",
-      "last_verified_mac": "7c:4f:ad:b7:2a:20",
-      "usb_uart_serial": "5CBC401023"
-    },
-    "serial_observer": "No C3 port was opened. Native USB Serial/JTAG previously stopped emitting after light-sleep entry; a reset-safe continuous Node sleep/reset observer has not been demonstrated.",
-    "wiring": "Prior accepted setup: AM312 VCC 3.3 V, common GND, OUT to C3 GPIO4; current wiring not reverified."
-  },
-  "last_historical_readbacks": {
-    "c3_otadata_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
-    "c3_partition_table_sha256": "219614d3586ae564ce51dfc462e6e7773b590abe41048a10bc513e1a7d799469",
-    "interpretation": "Run04/P8 readbacks and install receipts are historical evidence, not proof of present active slots or running bytes.",
-    "s3_otadata_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
-    "s3_partition_table_sha256": "338f4a83ba90609b4ed0a04514f6378dc90b5d21769e186f49dc3086fd9feabc"
-  },
-  "operations_performed": {
-    "hardware": [],
-    "host_only": [
-      "built signed C3 A/B/N/R and S3 N/B/R target images",
-      "verified candidate image hashes, profiles, C3 signatures, wrong-key rejection, S3 embedded-image identity and slot bounds",
-      "ran focused host validation and make validation-hub"
-    ],
-    "no_serial_flash_reset_erase_recommission_ota_power_or_sensor_stimulus": true
-  },
-  "physical_case_status": {
-    "P1": "PASS reused",
-    "P10": "GS-149",
-    "P2": "PASS reused",
-    "P3": "PARTIAL; measured behavior pass, exact running S3 hash unverified",
-    "P4": "controlled q16 PASS; historical q10-q12 anomaly OPEN",
-    "P5": "controlled q24 PASS; per-attempt retry identity LIMITED",
-    "P6": "PASS reused",
-    "P7": "PASS reused",
-    "P8": "controlled q14 PASS reused",
-    "P9-A": "BLOCKED / NOT_RUN",
-    "P9-B": "BLOCKED / NOT_RUN"
-  },
-  "proposed_physical_operations_require_explicit_p9_approval": {
-    "not_in_scope": [
-      "eFuse/Secure Boot/flash-encryption/trust-root changes",
-      "full-device erase, protected-state clear or factory recommission",
-      "commercial signing material or CloudSync RSA/mTLS changes"
-    ],
-    "p9_a": [
-      "passively reidentify both boards and record current ports/owners/security/slots without DTR/RTS reset",
-      "read-only pending EventKey inventory and authenticated session baseline",
-      "app-only install of S3 P9-A image if current image cannot run the fixture",
-      "arm exact-K ACK hold before one real AM312 event",
-      "capture authenticated durable commit/K, hold for 12000 ms (15000 ms watchdog), release/allow exact-key retry and verify retirement/effect count"
-    ],
-    "p9_a_c3_binary_flash": "NOT_PROPOSED; C3 remains powered from laptop USB. Host preparation required no C3 attachment to WSL.",
-    "p9_b": [
-      "read-only board identity, partition/slot and pending-key baseline",
-      "install signed C3 A baseline using an approved app-only procedure",
-      "install S3 hub-n, trigger wrong-key N and verify target rejection/no state change",
-      "install S3 hub-b, trigger valid signed B and verify sleep inhibition, boot health, rejoin and event recovery",
-      "use S3 hub-r/C3 R only for approved recovery if required; do not induce power loss or forced rollback"
-    ]
-  },
-  "qualification_status": "HOST_PREPARATION_COMPLETE_PHYSICAL_NOT_RUN",
-  "recovery_and_stop_conditions": {
-    "recovery": "Known-good signed C3 R and prior P8 S3 candidate artifacts exist, but current installed bytes/slots and safe restore path are unverified. GS-118 rollback task stack remains provisional 12 KiB with no measured high-water evidence. Confirm app-only backup/restore and event-state preservation before any physical operation.",
-    "stop": [
-      "board identity/port mismatch or port ownership uncertainty",
-      "unknown pending EventKey inventory or any need to clear state",
-      "unexpected reset, boot-health failure, session/ownership/admission loss",
-      "wrong-key N accepted; valid B rejected; embedded image or active slot mismatch",
-      "sleep entry during critical FOTA or ACK-wait contract violation",
-      "unmatched/changed K, false retirement, extra logical effect, duplicate caregiver effect",
-      "continuous observer loss or recovery requiring erase/eFuse/security/trust-root change"
-    ]
-  },
-  "schema": "GS114-P9-EXECUTION-MANIFEST-v1",
-  "source": {
-    "branch": "feature/r1-commercial-baseline",
-    "context_version": "2026-10-13.001",
-    "dirty_reason": "Pre-existing untracked evidence/PWA assets and the S3 managed_components dependency tree; no tracked source edits at artifact build. Preserve all untracked items.",
-    "git_worktree_dirty": true,
-    "idf_version": "6.0.3",
-    "preflight": "PASS",
-    "remote_head_verified_before_documentation": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
-    "repository": "/home/udaybhan/projects/Ghar_sajag_r1",
-    "source_head": "a5428cfa97bb110573eea7d490ce1c0c0bbad2e9",
-    "tracked_source_clean_at_artifact_build": true
-  },
-  "stage1_inspection": {
-    "authorization": "GS-114 Jira comment 11145; read-only Stage 1 only",
-    "recorded_utc": "2026-10-16T01:06:12Z",
-    "repository_checkpoint": {
-      "branch": "feature/r1-commercial-baseline",
-      "head": "1534b61fa3269bb0a3a01311906f040d41d4faa9",
-      "origin_head": "1534b61fa3269bb0a3a01311906f040d41d4faa9",
-      "context_preflight": "PASS"
-    },
-    "result": "BLOCKED_AFTER_SAFE_PASSIVE_ENUMERATION; no target interface opened",
-    "commands_and_methods": [
-      {
-        "method": "usbipd.exe list",
-        "exit": 0,
-        "effect": "Passive Windows USB/IP enumeration; no attach/detach or target I/O"
-      },
-      {
-        "method": "PowerShell Get-PnpDevice -PresentOnly; Get-PnpDeviceProperty; Get-CimInstance Win32_SerialPort",
-        "exit": 0,
-        "effect": "Read-only Windows device-tree enumeration; Win32_SerialPort returned no rows"
-      },
-      {
-        "method": "WSL sysfs USB and /dev/serial/tty node enumeration plus /proc fd-link scan",
-        "exit": 0,
-        "effect": "Read-only host inspection; no device node opened"
-      },
-      {
-        "method": "SHA-256 verification of manifest-listed candidate image files",
-        "exit": 0,
-        "effect": "Host files only; no target access"
-      }
-    ],
-    "observed": {
-      "windows_usbipd_connected": [
-        {
-          "busid": "3-1",
-          "vid_pid": "1a86:55d3",
-          "device": "USB-Enhanced-SERIAL CH343 (COM9)",
-          "state": "Shared"
-        },
-        {
-          "busid": "3-3",
-          "vid_pid": "0000:0002",
-          "device": "Unknown USB Device (Device Descriptor Request Failed)",
-          "state": "Shared"
-        }
-      ],
-      "windows_pnp": {
-        "s3_usb_serial_adapter": {
-          "friendly_name": "USB-Enhanced-SERIAL CH343 (COM9)",
-          "instance_id": "USB\\VID_1A86&PID_55D3\\5CBC401023",
-          "status": "OK",
-          "location": "Port_#0001.Hub_#0003",
-          "bus_reported_description": "USB Single Serial"
-        },
-        "unidentified_usb_device": {
-          "instance_id": "USB\\VID_0000&PID_0002\\5&25B61EF1&0&3",
-          "friendly_name": "Unknown USB Device (Device Descriptor Request Failed)",
-          "status": "Error"
-        },
-        "win32_serialport_query": "No rows returned, despite the PnP COM9 device"
-      },
-      "wsl": {
-        "kernel": "Linux 6.18.33.2-microsoft-standard-WSL2",
-        "usb_sysfs": "Only vhci_hcd root hubs usb1/usb2 (1d6b:0002/0003); no target USB device enumerated",
-        "serial_nodes": [],
-        "serial_fd_owners": []
-      },
-      "host_candidate_artifacts": {
-        "c3_a_b_n_r": "All four manifest-listed files exist; each size and SHA-256 matches the prior artifact manifest",
-        "s3_n_b_r": "All three manifest-listed files exist; each size and SHA-256 matches the prior artifact manifest",
-        "p9_a_s3": "File exists; size and SHA-256 match the prior artifact manifest",
-        "deployment": "All are host candidates, not evidence of installed target state"
-      },
-      "device_change": "None; no serial/device interface opened; no DTR/RTS change, command, reset, power change, attach, flash, erase, OTA, sensor stimulus, or security change"
-    },
-    "historical": {
-      "expected_c3_mac": "14:63:93:c5:d1:58; owner-authorized historical identity, not reverified",
-      "expected_s3_mac": "7c:4f:ad:b7:2a:20; owner-authorized historical identity, not reverified",
-      "s3_usb_serial": "5CBC401023; seen previously and observed again as COM9 PnP serial descriptor",
-      "c3_last_accepted_p8_image_sha256": "70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530; historical, not current",
-      "s3_p8_image_sha256": "f296c984dabda9fe537d2ae1c9d553af55287b5640b0ce34c48527dc50c369a8; historical, not current",
-      "prior_partition_and_otadata_readbacks": "Historical only; do not establish current active slot or running bytes",
-      "c3_power": "Owner previously reported laptop USB power; not independently measured in Stage 1"
-    },
-    "inferred": {
-      "s3_adapter_mapping": "COM9 USB serial descriptor matches the historical S3 CH343 serial 5CBC401023, but this does not verify S3 board MAC, running application, or application session",
-      "c3_usb_mapping": "The descriptor-error device may be the expected C3 USB/JTAG path; VID/PID and serial were not obtained, so no C3 identity is claimed"
-    },
-    "unknown": {
-      "c3_board_mac_and_port_identity": true,
-      "s3_board_mac": true,
-      "windows_com9_process_owner_or_exclusivity": true,
-      "safe_dtr_rts_and_open_behavior_for_com9": true,
-      "current_c3_and_s3_firmware_hashes": true,
-      "current_partition_maps_and_active_ota_slots": true,
-      "authenticated_session_ownership_and_replay_admission": true,
-      "pending_or_inflight_eventkeys_and_retained_count": true,
-      "current_c3_awake_sleep_reset_state": true,
-      "continuous_reset_safe_node_observer": true,
-      "target_trust_and_verified_app_only_recovery_route": true,
-      "current_wiring_and_power_measurement": true
-    },
-    "ownership_and_safety": {
-      "wsl_serial_owner": "No WSL serial device node or open serial fd observed",
-      "windows_com9_owner": "UNKNOWN; usbipd/PnP state and process-name inventory do not prove handle ownership",
-      "usbipd_shared_state": "COM9 and the descriptor-error device are Shared, not shown Attached to WSL",
-      "open_safety": "Not independently established for the exact adapter/endpoint; no interface opened",
-      "hard_stop_reason": "C3 enumeration failed with VID_0000/PID_0002 descriptor error, so exact pair identity and safe endpoint ownership cannot be established; comment 11145 requires stop on uncertainty"
-    },
-    "future_stage2_prerequisites": [
-      "Safely re-enumerate and verify both authorized board identities, USB serials, selected ports, and exclusive port ownership; do not attach/open the C3 endpoint while descriptor failure remains",
-      "Independently prove a read-only target observation method for the exact adapter/endpoint has no DTR/RTS, reset, boot-mode, application-command, or state-write side effect",
-      "Obtain current firmware/running-image identity, partition maps, active OTA slots, authenticated session/replay state, and preserved pending EventKey inventory through that safe method",
-      "Qualify a continuous reset-safe Node awake/sleep/reset/event observer; serial silence is insufficient",
-      "Verify signed test-image trust compatibility and a target-specific app-only recovery/restore route that preserves identity and pending events; candidate files alone do not qualify recovery",
-      "Obtain separate explicit owner authorization for exact Stage 2 P9-A/P9-B operations; comment 11145 authorizes Stage 1 only"
-    ]
-  },
-  "stage1_additional_passive_diagnostics": {
-    "recorded_utc": "2026-10-16T01:19:40Z",
-    "authorization": "GS-114 comment 11145; read-only Stage 1 only",
-    "methods": [
-      "PowerShell usbipd.exe list; Get-PnpDevice and PnP properties for current descriptor-failure node and historical C3/S3 instances",
-      "Read-only Get-WinEvent queries for Kernel-PnP/Configuration and DeviceSetupManager/Admin; read-only Windows SetupAPI.dev.log search",
-      "WSL sysfs USB metadata, serial symlink listing, and /proc fd-link scan; no device node opened",
-      "Windows openfiles query, installed handle-tool lookup, and process-name inventory; no serial API called"
-    ],
-    "target_operations": "None; no serial interface opened, no USB/IP attachment performed, no target command/state access, no DTR/RTS, reconnect, reset, wake, power change, flash, erase, OTA, stimulus, or security change",
-    "observed_usb_topology": {
-      "usbipd_current": [
-        {
-          "busid": "3-1",
-          "vid_pid": "1a86:55d3",
-          "device": "USB-Enhanced-SERIAL CH343; serial 5CBC401023",
-          "state": "Attached"
-        },
-        {
-          "busid": "3-3",
-          "vid_pid": "0000:0002",
-          "device": "Unknown USB Device (Device Descriptor Request Failed)",
-          "state": "Shared"
-        }
-      ],
-      "state_change_note": "BUSID 3-1 was Shared in the earlier Stage 1 snapshot and is Attached in this follow-up; this agent did not attach it",
-      "historical_c3_pnp": {
-        "instance_id": "USB\\VID_303A&PID_1001\\14:63:93:C5:D1:58",
-        "bus_reported_description": "USB JTAG/serial debug unit",
-        "location_paths": [
-          "PCIROOT(0)#PCI(1400)#USBROOT(0)#USB(3)",
-          "ACPI(_SB_)#ACPI(PCI0)#ACPI(XHC_)#ACPI(RHUB)#ACPI(HSP3)"
-        ],
-        "location_info": "Port_#0003.Hub_#0003",
-        "parent": "USB\\ROOT_HUB30\\4&22895bf8&0&0",
-        "last_arrival_windows_local": "2026-10-15 20:10:45",
-        "last_removal_windows_local": "2026-10-15 20:11:51"
-      },
-      "current_descriptor_failure_pnp": {
-        "instance_id": "USB\\VID_0000&PID_0002\\5&25B61EF1&0&3",
-        "hardware_id": "USB\\DEVICE_DESCRIPTOR_FAILURE",
-        "problem_code": 43,
-        "location_paths": [
-          "ACPI(_SB_)#ACPI(PCI0)#ACPI(XHC_)#ACPI(RHUB)#ACPI(HSP3)"
-        ],
-        "location_info": "Port_#0003.Hub_#0003",
-        "parent": "USB\\ROOT_HUB30\\4&22895bf8&0&0",
-        "last_arrival_windows_local": "2026-10-15 20:11:53",
-        "last_removal": "Not reported",
-        "bus_serial_or_mac": "Unavailable"
-      },
-      "event_records": [
-        "Kernel-PnP event 411 at 2026-10-15 20:10:21 Windows local: device had a problem starting, Problem 0x2B (43)",
-        "Kernel-PnP event 400: matching ID USB\\DEVICE_DESCRIPTOR_FAILURE",
-        "DeviceSetupManager event 112 at 2026-10-15 20:10:22 Windows local: failed descriptor device processed"
-      ],
-      "association_assessment": "Exact same Windows root-hub HSP3/port-3 topology plus descriptor-failure arrival two seconds after historical C3 removal strongly associates BUSID 3-3 with the USB endpoint historically used by the C3. Owner reports the pair remained connected. Likely C3 endpoint; current C3 MAC/board identity remains UNVERIFIED because its descriptor contains no serial or MAC."
-    },
-    "com9_ownership": {
-      "windows_pnp": "COM9 historical PnP instance is phantom/non-present while usbipd reports the matching CH343 attached to WSL",
-      "wsl_sysfs": "USB 1a86:55d3 serial 5CBC401023 at bus 1/device 21; /dev/serial/by-id resolves to /dev/ttyACM0",
-      "wsl_process_fd_owners": [],
-      "windows_openfiles": "Cannot enumerate local handles: maintain-objects-list flag disabled; query returned access denied",
-      "handle_tool": "handle.exe/handle64.exe not found by command lookup or checked standard Windows/Sysinternals paths",
-      "process_inventory": "usbipd.exe and wslhost.exe present; no named serial terminal/monitor process found",
-      "exact_serial_handle_owner": "UNKNOWN; usbipd transport ownership does not prove a serial application handle, and local Windows handle enumeration was unavailable",
-      "open_or_dtr_rts_safety": "UNKNOWN; no port/interface opened"
-    },
-    "sleep_and_usb_assessment": {
-      "source": "node_runtime_adapter.cpp explicitly calls esp_light_sleep_start() in the C8 sleep path; sdkconfig.hil.defaults enables CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG and does not set CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION",
-      "running_image_configuration": "UNKNOWN; source/profile is not current installed-image evidence",
-      "idf_6_documentation": "ESP32-C3 USB Serial/JTAG guide: light sleep gates APB and USB PHY clocks; host may report disconnect/error; after wake host may fail to re-enumerate while D+ remains pulled up. https://docs.espressif.com/projects/esp-idf/en/v6.0/esp32c3/api-guides/usb-serial-jtag-console.html",
-      "historical_c3_log": "c3_uart_open_result.txt records no C3 USB bytes or GET_STATE response while the Hub received authenticated Node events; no reset was indicated by that observation",
-      "current_causal_link": "Plausible and consistent with documented light-sleep behavior, but no timestamp-correlated current sleep/wake trace and PnP event pair; causation UNKNOWN"
-    },
-    "observer_assessment": {
-      "existing_path": "Authenticated ESP-NOW NodeHealth/schema-3 sleep trace from C3 to S3, then Hub log",
-      "previously_observed_fields": "Retained/durable-ACK counters, PIR/GPIO state and high episodes, sleep/timer/GPIO wake counters, radio restore, owner resume, and post-restart authenticated rejoin",
-      "limitation": "After-wake telemetry with default 300-second cadence, not continuous; cannot alone prove awake/sleep/reset state across a 12-second P9-A hold",
-      "current_capture": "WSL /proc fd scan found no current S3 tty reader; Windows handle state cannot be conclusively enumerated; current S3 host serial open safety remains UNKNOWN",
-      "continuous_reset_safe_observer": "NOT_QUALIFIED"
-    },
-    "recovery_assessment": {
-      "historical_c3": "2026-10-14 app-only image SHA-256 70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530 was installed at verified ota_0 offset 0x20000, ota_seq=1; record says partition table/otadata/NVS preserved and no erase",
-      "historical_c3_access_cost": "Related selector readback required controlled ROM reset and later RTS reset; not authorized or demonstrated safe now",
-      "historical_s3": "2026-10-14 readback verified expected S3 MAC, 16 MiB/8 MiB, actual partition table and ota_0 selector; Secure Boot off and eFuses unchanged at that time only",
-      "p9_artifacts": "C3 signed A/B/N/R and S3 B/N/R candidates plus host signature checks exist; candidates are not installed and current target trust compatibility is unverified",
-      "gs118": "Rollback remains not physically qualified after the provisional 12 KiB gs_ota_validate stack setting; no measured stack high-water evidence",
-      "current_recovery_readiness": "NOT_ESTABLISHED; current target identity/image/slot/trust/session/EventKey inventory and a presently safe restore route are unknown"
-    },
-    "remaining_unknown": [
-      "Current C3 MAC/board identity despite likely same physical USB port association",
-      "Exact Windows COM9 serial handle owner and DTR/RTS/open behavior",
-      "Current C3/S3 running images, partition maps, active OTA slots, and signed-FOTA trust state",
-      "Current authenticated session/replay admission and pending/in-flight EventKeys",
-      "Current C3 sleep/reset state and causal link between sleep cycle and descriptor failure",
-      "Continuous reset-safe observation during the P9-A hold interval",
-      "Current target-specific recovery route preserving identity and pending events"
-    ],
-    "result": "BLOCKED; likely C3 USB-port association is now supported, but Stage 1 identity/state/observer/recovery prerequisites remain unverified and P9-A/P9-B remain BLOCKED/NOT_RUN"
-  },
-  "ack_wait_trace_implementation": {
-    "recorded_utc": "2026-10-16T03:14:20Z",
-    "task_basis": "GS-114 comment 11149",
-    "owner": "GS-114",
-    "source_head": "d992eee9475239474aca48c4bf28c0ee824f5590",
-    "branch": "feature/r1-commercial-baseline",
-    "context_preflight": "PASS; 2026-10-13.001",
-    "status": "IMPLEMENTED_HOST_VALIDATED; PHYSICAL_NOT_RUN",
-    "purpose": "Test-profile-only retrospective instrumentation of existing Node ACK-wait, ACK retirement and sleep transitions; no policy feedback.",
-    "changed_files": [
-      "code/firmware/node/power/power.hpp",
-      "code/firmware/node/target/esp32c3/node_runtime_adapter.cpp",
-      "code/firmware/node/target/esp32c3/idf/CMakeLists.txt",
-      "code/firmware/node/target/esp32c3/idf/main/CMakeLists.txt",
-      "code/firmware/common/shared/include/gs/protocol.hpp",
-      "code/firmware/common/transport/data_plane_codec.cpp",
-      "code/firmware/hub/runtime/hub_runtime.cpp",
-      "code/firmware/hub/target/esp32/hub_runtime_adapter.cpp",
-      "code/scripts/build_gs114_fixture_pair.py",
-      "code/tests/cpp/gs114_ack_wait_trace_validation.cpp",
-      "code/tests/python/test_s3_fixture_commissioning.py",
-      "code/Makefile",
-      "code/validation/suites.json",
-      "docs/validation/MASTER_TRACEABILITY.csv",
-      "docs/validation/PHYSICAL_HIL_CATALOGUE.csv",
-      "docs/product/R1_WORK_STATE.md",
-      "docs/product/DECISION_LOG.md",
-      "docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md",
-      "docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/P9_EXECUTION_MANIFEST_20261015.json",
-      "code/tests/python/test_secure_signed_fota_fixture.py"
-    ],
-    "instrumentation": {
-      "compile_guard": "GS_BAT_C8_ACK_TRACE defaults OFF; requires GS_BAT_C8_PHYSICAL_WAKE=ON and GS_HIL_BUILD=OFF",
-      "transport": "Additive authenticated NodeHealth schema 4 on existing report cadence; schemas 1-3 unchanged",
-      "bounded_trace": "16 timestamped events; 3 distinct sleep-inhibitor masks; fixed 220-byte maximum plaintext at maximum Node ID",
-      "ack_semantics": "Successful MAC leaves receive wait open until exact authenticated Durable ACK retires EventKey K; failed transport records bounded receive interval and existing eligible sleep-between-retries behavior",
-      "event_timing": "Boot-relative uint32 milliseconds; about 49.7-day bound; timestamp ordering checked",
-      "sleep_entry": "Timestamp sampled at sleep-call boundary and entry recorded only after esp_light_sleep_start() returns success; wake time sampled after return/radio restoration",
-      "reset_continuity": "Boot generation and reset reason accompany trace; trace is RAM-only and is lost if reset occurs before scheduled report",
-      "report_latency": "Retrospective report uses existing NodeHealth cadence; it may lag to the existing 300-second cadence",
-      "observer_qualification": "Not continuous or reset-safe; insufficient by itself for physical P9-A acceptance"
-    },
-    "host_target_build": {
-      "command": "make gs114-c3-s3-c8-p9-build",
-      "exit_code": 0,
-      "idf": "6.0.3",
-      "build_report": "code/build/gs114_fixture_pair/build-aq8ooz92/fixture_pair_report.json",
-      "source_fingerprint": "bcc0fe970e9c0789ce5b43a96a585262968f8dee8acc6b20a598f007f55f02d5",
-      "c3": {
-        "bytes": 945760,
-        "sha256": "57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354",
-        "profile": [
-          "GS_HIL_BUILD=OFF",
-          "GS_HIL_CONTROL=ON",
-          "GS_BAT_C8_PHYSICAL_WAKE=ON",
-          "GS_BAT_C8_ACK_TRACE=ON"
-        ]
-      },
-      "s3": {
-        "bytes": 1899136,
-        "sha256": "a4b3d7a3c27ac04c517967e9dde28c712f6febf21873c16809f89e32561a5146",
-        "profile": [
-          "GS_HIL_BUILD=OFF",
-          "GS_HIL_CONTROL=OFF",
-          "GS_HIL_COMMISSIONING=OFF",
-          "GS_HIL_C8_ACK_DROP=OFF",
-          "GS_HIL_C8_ACK_HOLD=ON",
-          "GS_HIL_SIGNED_FOTA=OFF"
-        ],
-        "embedded_c3_sha256": "57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354",
-        "compiled_partition_table_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a"
-      },
-      "deployment": "NOT_AUTHORIZED_FOR_DEPLOYMENT; no images installed"
-    },
-    "focused_validation": [
-      {
-        "command": "make gs114-ack-wait-host-test",
-        "exit_code": 0,
-        "checks": 36
-      },
-      {
-        "command": "ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 make CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0' gs114-ack-wait-host-test",
-        "exit_code": 0,
-        "checks": 36,
-        "sanitizers": [
-          "ASan",
-          "UBSan"
-        ]
-      },
-      {
-        "command": "make gs114-ack-wait-host-test battery-c8-host-test gs150-host-test s3-fixture-commissioning-test",
-        "exit_code": 0,
-        "results": {
-          "ack_trace_checks": 36,
-          "battery_c8_cpp_checks": 72,
-          "battery_c8_python_tests": 11,
-          "gs150_checks": 1500,
-          "s3_fixture_python_tests": 15
-        }
-      },
-      {
-        "command": "python3 -m unittest discover -s tests/python -p test_secure_signed_fota_fixture.py -v",
-        "exit_code": 0,
-        "tests": 22,
-        "ack_trace_profile_guard": "PASS; default OFF and invalid physical-wake/HIL-build combinations rejected"
-      }
-    ],
-    "component_gate_results": [
-      {
-        "command": "make validation-node",
-        "exit_code": 2,
-        "passed_stages": 26,
-        "total_stages": 27,
-        "ack_trace_stage_checks": 34,
-        "ack_trace_stage_predates_final_two_test_assertions": true,
-        "failure": "P0 E2E: 26/26 scenarios passed but product_status=PARTIAL and physical=NOT_RUN"
-      },
-      {
-        "command": "make validation-hub",
-        "exit_code": 2,
-        "passed_stages": 43,
-        "total_stages": 45,
-        "ack_trace_stage_checks": 34,
-        "ack_trace_stage_predates_final_two_test_assertions": true,
-        "failures": [
-          "Existing Hub journal migration assertion clean migration commits (exit 2, zero matched assertion groups)",
-          "P0 E2E product_status=PARTIAL and physical=NOT_RUN"
-        ],
-        "ack_hold_gate_checks": 34,
-        "ack_drop_gate_checks": 16
-      },
-      {
-        "command": "make validation-contract",
-        "exit_code": 2,
-        "passed_stages": 36,
-        "total_stages": 37,
-        "ack_trace_stage_checks": 34,
-        "ack_trace_stage_predates_final_two_test_assertions": true,
-        "failure": "P0 E2E product_status=PARTIAL and physical=NOT_RUN"
-      }
-    ],
-    "component_gate_reports": [
-      "code/evidence/validation_framework/node-1792118647395438180/report.json",
-      "code/evidence/validation_framework/hub-1792118788536319360/report.json",
-      "code/evidence/validation_framework/contract-1792119457567724338/report.json"
-    ],
-    "hardware_operations": [],
-    "physical_case_status": {
-      "P9-A": "BLOCKED / NOT_RUN",
-      "P9-B": "BLOCKED / NOT_RUN"
-    },
-    "remaining_physical_prerequisites": [
-      "Exact Stage 2 authorization",
-      "Verified current board identities, firmware/images, active slots, authenticated session and pending EventKeys through a proven no-reset read path",
-      "Verified identity/EventKey-preserving recovery route",
-      "Qualified independent reset-safe continuous observer",
-      "P9-B signed test-image trust, authenticated trigger, boot-health/session rejoin and rollback/recovery evidence"
-    ],
-    "supporting_validation": [
-      {
-        "command": "make validation-board-e2e",
-        "exit_code": 0,
-        "scenario_groups": 10,
-        "physical_status": "NOT_RUN"
-      },
-      {
-        "command": "make validation-framework-test",
-        "exit_code": 0,
-        "tests": 46
-      },
-      {
-        "command": "make feature-coverage-test physical-hil-catalogue-test",
-        "exit_code": 0,
-        "feature_traceability": {
-          "features": 205,
-          "modules": 211,
-          "physical_definitions": 17,
-          "mapping_tests": 22
-        },
-        "physical_catalogue": {
-          "cases": 101,
-          "device_access": "NONE"
-        }
-      }
-    ],
-    "debugging_notes": [
-      "Initial S3 commissioning regression synthetic Node image lacked the new C3 trace marker; the test image was corrected and the final 15-test S3 fixture suite passed.",
-      "Initial feature-traceability recheck found unquoted commas in the updated CSV test-result field; the field was corrected and the final mapping/catalogue checks passed."
-    ]
-  }
+  "updated_utc": "2026-10-16T04:38:18Z"
 }

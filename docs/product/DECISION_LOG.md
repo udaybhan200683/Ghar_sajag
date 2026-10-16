@@ -874,3 +874,18 @@ journal migration failure, are detailed in the GS-114 execution report
 This is implementation and validation evidence only: no product, protocol,
 security, storage or power-policy decision changed. CONTEXT_VERSION remains
 2026-10-13.001.
+
+## GS-114 P9 profile/artifact readiness — 2026-10-16 (evidence only)
+
+The P9 C3 qualification candidate was narrowed from generic
+`GS_HIL_CONTROL=ON` to a test-only profile with generic HIL controls OFF while
+retaining physical GPIO4/timer light sleep, bounded authenticated ACK trace and
+read-only R&D identity loading. Host-built signed C3 A/B/N/R and matched S3
+P9-A ACK-hold and P9-B signed-FOTA N/B/R images now have exact source, profile,
+signature, embedding and partition evidence in the GS-114 execution report and
+P9 manifest. No image was installed and no physical P9 test was performed.
+P9-A/P9-B remain BLOCKED / NOT_RUN pending exact Stage 2 authorization, current
+board/slot/session/EventKey state, a reset-safe S3 command path, qualified
+independent continuous observation and a verified recovery route. No product,
+security, protocol, storage or power-policy decision changed; CONTEXT_VERSION
+remains `2026-10-13.001`.

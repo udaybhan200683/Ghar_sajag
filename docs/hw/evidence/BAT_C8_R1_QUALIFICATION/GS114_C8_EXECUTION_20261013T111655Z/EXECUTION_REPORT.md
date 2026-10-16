@@ -900,6 +900,136 @@ P2, controlled P4/P5, P6 and P7 physical PASS evidence remains reused without
 retest. P8 remains next after P3; P9 ACK/FOTA stays blocked; P10 belongs to
 GS-149.
 
+### P9 profile, artifact and Stage 2 readiness closure — 2026-10-16
+
+This update resumes from GS-114 comment 11150 and source commit
+`9b22c13689e819743e57e2a847a65f476b94331f` on
+`feature/r1-commercial-baseline`. The source commit is the parent of this
+documentation/evidence update. Firmware sources and configuration matched
+that commit during artifact generation. Sidecars report `source_dirty=true`
+because existing untracked evidence/assets and this documentation-only
+TEST_PLAN clarification are present; the exact firmware source commit is
+recorded. Existing untracked PWA assets, managed components and physical
+logs/readbacks remain preserved.
+
+#### Narrow P9 C3 profile
+
+The prior `GS_HIL_CONTROL=ON` C3 profile included a generic UART HIL command
+plane P9 does not need. The source-matched profile is narrower:
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF`,
+`GS_BAT_C8_PHYSICAL_WAKE=ON`, `GS_BAT_C8_ACK_TRACE=ON`, and
+`GS_BAT_C8_FIXTURE_SECURITY=ON`. It retains the real GPIO4/timer light-sleep
+path and unchanged production ACK/retry/sleep policy, without generic motion,
+state, identity or restart UART commands. The separate fixture-security
+option reads existing R&D identity/wrapping-key state read-only, creates or
+rotates no identity material, and fails closed if required state is absent.
+The flags default OFF in commercial builds. Signed C3 images select UART0 as
+primary console; no console was opened.
+
+The P9-A S3 image embeds the exact signed trace-enabled C3 A and verified the
+read-only identity/profile markers. Its narrow S3 profile enables only
+`GS_HIL_C8_ACK_HOLD=ON`; `GS_HIL_BUILD`, `GS_HIL_CONTROL`,
+`GS_HIL_COMMISSIONING`, ACK drop and signed FOTA are OFF. It is 1,940,512 bytes
+in a 4,194,304-byte app partition, with 2,253,792 bytes free. The compiled
+partition-table SHA-256 is
+`bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a`.
+
+#### Source-matched host artifacts
+
+Host-only generation completed under ESP-IDF 6.0.3 with exit 0 using
+`python3 scripts/prepare_gs114_p9_signed_artifacts.py --key-dir <external 0700 test-key directory> --generate-test-keys`.
+All candidates, hashes, profiles and embedding checks are in
+`P9_EXECUTION_MANIFEST_20261015.json`; none is installed.
+
+| Image | Version | SHA-256 | Bytes |
+|---|---|---|---:|
+| C3 A, trusted baseline | `gs114A-261016T040719` | `ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7` | 987,136 |
+| C3 B, valid update | `gs114B-261016T040719` | `82adde0e5c34a524cee2967f23f57dbbca3254b9d772f7affb432de616a1b6ce` | 987,136 |
+| C3 N, wrong-key negative | `gs114N-261016T040719` | `8e8d4d632bb22990cb747135a7bce8991ecee4c0008bed8ebe73e1a94f275625` | 987,136 |
+| C3 R, signed recovery candidate | `gs114R-261016T040719` | `2e852539d0e5dacaf28138b8a976d7e7858a57c0014cfcd7bb688652d751b437` | 987,136 |
+| S3 P9-A ACK-hold Hub embedding exact C3 A | source-matched ACK-hold build | `214bdaf7560d7fb4270908c13b6ddfc325a3e351eabd1ec0a2bc3e70e6db8469` | 1,940,512 |
+| S3 signed-FOTA Hub N embedding exact C3 N | `gs114p9N-261016T040719` | `f0f9d6ef24a30bfb2824b9b61c1ddde04d9954e9774e43e4708e096f43be4433` | 1,938,864 |
+| S3 signed-FOTA Hub B embedding exact C3 B | `gs114p9B-261016T040719` | `96f387b209957c5f8ac6550c3c88b7705a0c4ed8a57be9950b0b1a94c0d22391` | 1,938,864 |
+| S3 signed-FOTA Hub R embedding exact C3 R | `gs114p9R-261016T040719` | `7ce89b003d05d6aa28671f973472295d080f47922f42a9d188629ffdb41477df` | 1,938,864 |
+
+The C3 OTA slot is 1,966,080 bytes; every signed image fits. The S3 FOTA
+variants fit their 4,194,304-byte app slot. A/B/R share the external RSA-3072
+test signer fingerprint
+`60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6`; N uses
+`dfd5a8ab1168f86423d709406292f0c2178456b25aafcd3484ae053592b15843` and was
+rejected by the host verifier against A's trusted key. Private keys remain
+outside the repository; no private material/path appears in reports. No Secure
+Boot, eFuse, Flash Encryption or production trust-root setting was changed.
+
+#### Independent observer and Stage 2 package
+
+The authenticated NodeHealth schema-4 ACK trace is retrospective support only.
+It is RAM-only, delivered on the existing health cadence, lost on reset, and
+records successful sleep entry only after the light-sleep call returns. It
+cannot prove continuous state during the 12-second hold or reset continuity.
+
+Minimum independent observation is a common-timebase passive capture of C3
+UART0 TX, GPIO4, EN/reset indication, S3 log UART TX, and a non-invasive C3
+supply-current channel. Verify board pin maps before attachment. Digital
+inputs must be 3.3 V compatible, at least 1 MOhm, and have no pull-up or drive
+mode. Use at least eight samples per UART bit (at least 1 MS/s at 115200 baud),
+at least 1 kS/s current sampling and cross-channel alignment within 10 ms over
+the 15-second watchdog. Demonstrate non-overlapping awake/sleep current ranges
+on this board. Do not interrupt/change USB power. Any ambiguous channel or gap
+blocks physical acceptance. Suitable equipment and pin access are not
+established here.
+
+P9-A S3 control requires `ARM_C8_ACK_HOLD`, `C8_ACK_HOLD_STATUS`, then
+`RELEASE_C8_ACK_HOLD` (or cancel). P9-B uses
+`START_SIGNED_C3_FOTA c3-146393c5d158 <exact C3 version>`. These narrow
+commands use the S3 console with generic `GS_HIL_CONTROL` disabled. Current
+S3 port ownership and DTR/RTS behavior are UNKNOWN; do not open it or send
+commands unless an exclusive reset-safe path is proven.
+
+Historical match criteria for the named R&D pair are C3 MAC
+`14:63:93:c5:d1:58`, expected fixture ID `c3-146393c5d158`, USB-JTAG serial
+`usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00`; and S3 MAC
+`7c:4f:ad:b7:2a:20`, CH343 serial `5CBC401023`. Current board identity, ports,
+images, active slots, authenticated session, replay admission, pending keys,
+sensor wiring and recovery state remain UNKNOWN. These historical values are
+match criteria, not current identity evidence.
+
+The manifest contains one staged Stage 2 package: passively identify the
+boards and verify safe ownership; qualify the observer and obtain a no-reset
+state baseline; only after those gates and explicit approval may app-only
+images be installed with expected reboots; then run P9-A hold and the separate
+P9-B negative/update/recovery scenarios. Exact hashes, commands, stop criteria
+and preserved-state requirements are recorded there. P9-A installation now
+requires C3 A `ffc31d44da9990cdf5c6e5de0d8ffcddda71e7b543a41d53455fd57b1dfd17f7`
+because the S3 ACK-hold candidate embeds that same trace-enabled image. No
+image installation occurred here.
+
+Stage 1 authorization in comment 11145 does not authorize Stage 2 access or
+tests. No serial interface was opened; there was no USB/IP attach, probe
+connection, reset, wake, reconnect, power change, flash, erase, OTA, sensor
+stimulus, security operation or physical P9 execution. P9-A and P9-B remain
+**BLOCKED / NOT_RUN**; GS-114 remains In Progress. Signed R exists as a host
+candidate, but target app-only recovery is unverified and GS-118's provisional
+12 KiB rollback-task stack still has no measured high-water evidence.
+
+Focused host validation for the narrowed profile passed:
+
+| Command | Result |
+|---|---|
+| `python3 -m unittest tests.python.test_s3_fixture_commissioning tests.python.test_secure_signed_fota_fixture -v` | Exit 0; 40 tests PASS |
+| `python3 tests/test_node_usb_stable_profile.py -v` | Exit 0; 4 tests PASS |
+| `python3 -m py_compile scripts/build_gs114_fixture_pair.py scripts/build_signed_c3.py scripts/prepare_gs114_p9_signed_artifacts.py` | Exit 0 |
+| `python3 scripts/prepare_gs114_p9_signed_artifacts.py --key-dir <external 0700 test-key directory> --generate-test-keys` | Exit 0; eight C3/S3 target candidates built; profile/signature/embed/slot checks passed |
+| `git diff --check` | Exit 0 |
+| `make feature-coverage-test physical-hil-catalogue-test` | Exit 0; 22 traceability tests and 101 physical catalogue cases passed; `device_access=NONE` |
+
+No broad component/release gate was repeated. Previous focused ACK trace,
+BAT-C8, GS-150, Hub deduplication and target build results remain in the prior
+report section; aggregate P0/migration failures are unchanged. P1/P2/P6/P7 and
+controlled P4/P5/P8 dispositions are preserved. P3 remains PARTIAL, P4's
+historical q10-q12 anomaly remains OPEN, P5 retry identity remains LIMITED,
+and P10 remains GS-149.
+
 ## 2026-10-14 controlled C3 reset recovery — P3 stimulus pending
 
 The operator authorized one C3-only EN/RST reset after the pre-reset Hub

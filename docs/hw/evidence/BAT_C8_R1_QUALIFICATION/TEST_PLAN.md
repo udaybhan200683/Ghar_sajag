@@ -370,6 +370,16 @@ sleep-inhibition case and does not close P9.
   profile, partition map and installed/running image identity captured before
   the case. The C3 build must include the C8 physical-wake path and the
   production ACK-wait/sleep policy under test.
+- The source-matched P9 C3 candidate uses the narrower profile
+  `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF`,
+  `GS_BAT_C8_PHYSICAL_WAKE=ON`, `GS_BAT_C8_ACK_TRACE=ON`, and
+  `GS_BAT_C8_FIXTURE_SECURITY=ON`. This keeps real GPIO4/timer light sleep and
+  the production ACK/retry policy, while omitting the generic UART HIL command
+  plane. The fixture-security option reads the existing R&D identity and
+  wrapping-key state read-only; it creates or rotates no identity material and
+  fails closed if the required state is missing. Commercial defaults remain
+  OFF. P9-A's S3 candidate embeds this exact signed C3 image, so both image
+  hashes must match the execution manifest.
 - A bounded, test-only S3 postcommit ACK-hold build is now implemented. Its
   narrow `GS_HIL_C8_ACK_HOLD=ON` profile keeps `GS_HIL_BUILD=OFF`,
   `GS_HIL_CONTROL=OFF` and `GS_HIL_COMMISSIONING=OFF`; node-recommissioning
@@ -379,6 +389,14 @@ sleep-inhibition case and does not close P9.
   attempts for K, and provides controlled release/cancel plus the 15,000 ms
   watchdog. Unrelated keys stay on the normal path. The 12,000 ms hold and
   watchdog are fixture controls, not product latency requirements.
+- Arming/status/release use the narrow S3 console commands
+  `ARM_C8_ACK_HOLD`, `C8_ACK_HOLD_STATUS`, and
+  `RELEASE_C8_ACK_HOLD` (or `CANCEL_C8_ACK_HOLD`). P9-B's authenticated FOTA
+  request uses `START_SIGNED_C3_FOTA c3-146393c5d158 <version>`. The S3
+  candidate does not enable the generic HIL command plane, but these fixture
+  commands still require host input on the S3 console. Verify exclusive port
+  ownership and a no-reset DTR/RTS path before opening it; if that behavior
+  cannot be proven, do not send commands and keep the physical case BLOCKED.
 - The S3 event log exposes exact `event_id`, `state_changed`, durable-outbox
   lookup and admission result; `C8_ACK_HOLD_STATUS` exposes captured K, commit
   time, held attempts, duplicate deliveries and logical-effect count. This is
@@ -387,6 +405,21 @@ sleep-inhibition case and does not close P9.
 - A continuously verified, non-resetting Node observation path that can show
   the ACK-wait interval and any `BAT_SLEEP_ENTER` marker. Do not open a C3
   console unless its DTR/RTS behavior is proven not to reset the target.
+- The delayed authenticated NodeHealth ACK trace is retrospective support only:
+  it is RAM-only, may arrive on the existing heartbeat cadence, and is lost if
+  the Node resets before reporting. Independent continuous observation must
+  timestamp passive, high-impedance captures of the C3 UART0 TX, GPIO4 and EN
+  signals, the S3 log channel, and a non-invasive C3 supply-current channel on
+  one timebase. Verify the board pin map and electrical levels before attaching
+  probes; digital inputs must be 3.3 V compatible and at least 1 MΩ, with no
+  pull-up or drive mode. Probes must not drive target signals or interrupt or
+  change USB power.
+  Use digital sampling at least eight times the configured UART baud (at least
+  1 MS/s at 115200 baud), current sampling at least 1 kS/s, and cross-channel
+  time alignment within 10 ms over the 15-second fixture watchdog. Demonstrate
+  awake/sleep current separation on this board with adequate margin.
+  If any channel is unavailable, ambiguous, or has a gap during the hold, the
+  physical case is BLOCKED rather than inferred from a later heartbeat.
 
 **Procedure:**
 
@@ -430,8 +463,12 @@ a bounded test stimulus, not a product maximum-ACK-latency promise.
   profile must keep the signed-app-on-update verifier enabled and trust the
   recorded test public key. Signed C3 A/B/N/recovery images use
   `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF` and the explicit
-  `GS_BAT_C8_PHYSICAL_WAKE=ON` telemetry profile, so they retain the real
-  GPIO4/timer sleep path without UART motion, identity or restart test commands.
+  `GS_BAT_C8_PHYSICAL_WAKE=ON`, `GS_BAT_C8_ACK_TRACE=ON` and
+  `GS_BAT_C8_FIXTURE_SECURITY=ON` profile, so they retain the real GPIO4/timer
+  sleep path and ACK observation without the generic UART HIL command plane.
+  The fixture-security option only reads existing R&D identity state and fails
+  closed if it is unavailable; it makes no NVS changes. These are test-only
+  settings and remain OFF in commercial builds.
   A narrow S3 commissioning fixture now exposes
   `START_SIGNED_C3_FOTA` for the exact enrolled Node through the existing
   authenticated owner-task FOTA path. The test profile sets

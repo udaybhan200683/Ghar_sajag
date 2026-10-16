@@ -1,5 +1,74 @@
 # R1 Current Work State
 
+## GS-114 P9 profile/artifact and Stage 2 readiness closure — 2026-10-16 04:43 UTC
+
+Continued from GS-114 Jira comment 11150 in the canonical worktree
+`/home/udaybhan/projects/Ghar_sajag_r1` on
+`feature/r1-commercial-baseline`. Source code is committed at
+`9b22c13689e819743e57e2a847a65f476b94331f`; origin was still
+`f6a23ecd8419e987ef3eca578e061d3ec3185cf5` before this documentation delivery.
+The source commit has not yet been pushed. Current uncommitted tracked changes
+are the GS-114 test plan, execution report, P9 manifest, physical qualification
+matrices, this work-state update and the evidence-only Decision Log entry.
+Existing untracked PWA assets, managed components, logs and readbacks remain
+untouched.
+
+The former broad C3 qualification profile was narrowed to
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF`,
+`GS_BAT_C8_PHYSICAL_WAKE=ON`, `GS_BAT_C8_ACK_TRACE=ON`, and
+`GS_BAT_C8_FIXTURE_SECURITY=ON`. The narrow option reads existing R&D identity
+state without NVS mutation; missing state fails closed. The profile keeps the
+real GPIO4/timer light-sleep and production ACK/retry path, with no generic UART
+HIL command plane. Commercial defaults remain OFF. The P9-A S3 Hub has only
+the exact-key ACK-hold fixture enabled and embeds the exact signed C3 A image.
+
+Host generation completed with exit 0 under ESP-IDF 6.0.3. Signed C3 A/B/N/R
+are 987,136 bytes each and fit the 1,966,080-byte C3 OTA slot. A/B/R share
+RSA-3072 signer fingerprint `60d83d7e7b00c3c80a883f43546cc33d3f7e76c5e83ab2467cbb425a83586ef6`; wrong-key N uses
+`dfd5a8ab1168f86423d709406292f0c2178456b25aafcd3484ae053592b15843` and was
+rejected against A's trusted key. S3 signed-FOTA N/B/R embed their exact C3
+images and all fit 4 MiB app slots. The separate P9-A S3 ACK-hold image is
+1,940,512 bytes, embeds C3 A exactly and has 2,253,792 bytes free in its
+4,194,304-byte slot. All candidates remain host-only and NOT_INSTALLED. Hashes,
+versions, profile checks, partition rows, keys' public fingerprints and
+superseded artifacts are in the [P9 execution manifest](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/P9_EXECUTION_MANIFEST_20261015.json).
+
+Focused validation: S3 fixture plus signed-FOTA Python tests 40/40 PASS;
+stable profile tests 4/4 PASS; Python syntax checks PASS; eight C3/S3 candidate
+images compiled and profile/signature/embed/slot checks PASS; `git diff --check` PASS. The new test-plan section sets the independent observer minimum:
+passive common-timebase C3 UART0/GPIO4/EN and S3 UART capture plus a
+non-invasive C3 current channel, 1 MS/s digital at 115200 baud, 1 kS/s current,
+cross-channel alignment within 10 ms, no target drive/power interruption, and
+demonstrated awake/sleep current separation. `make feature-coverage-test
+physical-hil-catalogue-test` passed: 22 traceability tests and 101 catalogue
+cases; device_access=NONE. No observer equipment is currently identified or
+qualified.
+
+Stage 2 remains unauthorized. Stage 1 comment 11145 is read-only and does not
+cover observer attachment, serial opening, app-only installation, expected
+reboots, real AM312 stimulus, ACK-hold commands, signed-FOTA triggers or
+recovery. Historical match criteria are C3 MAC `14:63:93:c5:d1:58` / USB-JTAG
+serial `usb-Espressif_USB_JTAG_serial_debug_unit_14:63:93:C5:D1:58-if00` and S3
+MAC `7c:4f:ad:b7:2a:20` / CH343 serial `5CBC401023`; current identities, ports,
+images, slots, authenticated session, replay admission, pending EventKeys,
+wiring and recovery are UNKNOWN. The S3 console is needed for
+`ARM_C8_ACK_HOLD`, `RELEASE_C8_ACK_HOLD` and
+`START_SIGNED_C3_FOTA`; its ownership and DTR/RTS reset behavior remain
+unverified. The required staged package and exact image hashes are in the P9
+manifest. No board interface or observer was connected and no hardware
+operation occurred. P9-A/P9-B remain BLOCKED / NOT_RUN; GS-114 stays In
+Progress. P1/P2/P6/P7 and controlled P4/P5/P8 dispositions are preserved;
+P3 remains PARTIAL, P4 historical q10-q12 OPEN, P5 retry identity LIMITED, and
+P10 remains GS-149. GS-118 rollback stack is still provisional at 12 KiB with
+no measured high-water evidence.
+
+**Next:** stage only the seven intended tracked evidence/documentation files,
+review the staged diff, commit and push normally, verify `git ls-remote` against
+local HEAD, then add one GS-114 Jira comment with the host evidence and
+consolidated Stage 2 authorization/equipment prerequisites. Do not open ports or
+begin physical P9 until explicit Stage 2 authorization and all identity,
+observer, state and recovery gates pass.
+
 ## GS-114 P9-A ACK-wait instrumentation and host validation — 2026-10-16 03:14 UTC
 
 Resumed from GS-114 Jira comment 11149 on canonical branch
