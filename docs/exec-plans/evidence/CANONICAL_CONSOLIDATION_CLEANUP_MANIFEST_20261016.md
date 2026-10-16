@@ -69,3 +69,17 @@ Classification:
 - No board/USB/serial access, flash/reset, eFuse/security operation, production credential action or commercial endpoint connection occurred.
 
 Next action: when canonical and the CloudSync worktree are confirmed quiescent, re-fetch and verify all refs/statuses, merge the tested factory source normally into canonical, run the focused tests again on the integrated canonical tree, commit/push and verify exact remote SHA. Only then post factual GS-166/168 Jira comments. Reassess each candidate branch/worktree independently; retain anything whose process ownership or complete asset inventory is uncertain.
+
+## Completion addendum — 2026-10-16
+
+The previously live canonical and CloudSync Codex process IDs were rechecked. They showed no active Git/build/test operation, no repository files open, no Git/worktree locks, and no advancing write-I/O counters across an observation interval. The user also confirmed the GS-40 console is idle. Integration and validation therefore proceeded only in this isolated preparation worktree; neither existing worktree was edited during the integration.
+
+`git fetch origin --prune` confirmed the canonical, factory and CloudSync refs remained respectively `6ab7883d7edf0e56f60f80356f418824dd9a1721`, `4eab738e65fd393f8d866d0eeebdf9e060234df5`, and `e740f99d094b4a0ef7397f0a506e8f089fb5d261`. The prepared branch at `633e349cc4a8f700fcaaffd4e190ef86af3fbc38` is a normal merge of the factory branch into canonical plus this audit manifest. Canonical is an ancestor, and the five additions are exactly the four scoped factory files plus this manifest; no CloudSync/GS-40 source was changed.
+
+Focused validation was rerun on the prepared integration tree:
+
+- GS-168 issuer unit tests: **9/9 PASS**.
+- Sequential 100-device `TEST_ONLY` batch (same test module): **9/9 PASS**.
+- `py_compile`, direct issuer API import, `git diff --check`, and production-import boundary inspection: **PASS**.
+
+The source commits remain available through the factory branch until canonical push is verified. Cleanup remains conditional: CloudSync worktree contains ignored build/evidence/log/test assets whose uniqueness has not been established, so it and its branch are retained. `_artifacts` was not modified. No Jira workflow state, hardware, production authentication, or physical qualification state was changed.
