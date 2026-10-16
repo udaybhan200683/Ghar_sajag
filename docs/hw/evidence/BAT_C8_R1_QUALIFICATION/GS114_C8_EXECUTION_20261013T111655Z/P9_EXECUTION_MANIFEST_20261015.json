@@ -361,5 +361,106 @@
       "Verify signed test-image trust compatibility and a target-specific app-only recovery/restore route that preserves identity and pending events; candidate files alone do not qualify recovery",
       "Obtain separate explicit owner authorization for exact Stage 2 P9-A/P9-B operations; comment 11145 authorizes Stage 1 only"
     ]
+  },
+  "stage1_additional_passive_diagnostics": {
+    "recorded_utc": "2026-10-16T01:19:40Z",
+    "authorization": "GS-114 comment 11145; read-only Stage 1 only",
+    "methods": [
+      "PowerShell usbipd.exe list; Get-PnpDevice and PnP properties for current descriptor-failure node and historical C3/S3 instances",
+      "Read-only Get-WinEvent queries for Kernel-PnP/Configuration and DeviceSetupManager/Admin; read-only Windows SetupAPI.dev.log search",
+      "WSL sysfs USB metadata, serial symlink listing, and /proc fd-link scan; no device node opened",
+      "Windows openfiles query, installed handle-tool lookup, and process-name inventory; no serial API called"
+    ],
+    "target_operations": "None; no serial interface opened, no USB/IP attachment performed, no target command/state access, no DTR/RTS, reconnect, reset, wake, power change, flash, erase, OTA, stimulus, or security change",
+    "observed_usb_topology": {
+      "usbipd_current": [
+        {
+          "busid": "3-1",
+          "vid_pid": "1a86:55d3",
+          "device": "USB-Enhanced-SERIAL CH343; serial 5CBC401023",
+          "state": "Attached"
+        },
+        {
+          "busid": "3-3",
+          "vid_pid": "0000:0002",
+          "device": "Unknown USB Device (Device Descriptor Request Failed)",
+          "state": "Shared"
+        }
+      ],
+      "state_change_note": "BUSID 3-1 was Shared in the earlier Stage 1 snapshot and is Attached in this follow-up; this agent did not attach it",
+      "historical_c3_pnp": {
+        "instance_id": "USB\\VID_303A&PID_1001\\14:63:93:C5:D1:58",
+        "bus_reported_description": "USB JTAG/serial debug unit",
+        "location_paths": [
+          "PCIROOT(0)#PCI(1400)#USBROOT(0)#USB(3)",
+          "ACPI(_SB_)#ACPI(PCI0)#ACPI(XHC_)#ACPI(RHUB)#ACPI(HSP3)"
+        ],
+        "location_info": "Port_#0003.Hub_#0003",
+        "parent": "USB\\ROOT_HUB30\\4&22895bf8&0&0",
+        "last_arrival_windows_local": "2026-10-15 20:10:45",
+        "last_removal_windows_local": "2026-10-15 20:11:51"
+      },
+      "current_descriptor_failure_pnp": {
+        "instance_id": "USB\\VID_0000&PID_0002\\5&25B61EF1&0&3",
+        "hardware_id": "USB\\DEVICE_DESCRIPTOR_FAILURE",
+        "problem_code": 43,
+        "location_paths": [
+          "ACPI(_SB_)#ACPI(PCI0)#ACPI(XHC_)#ACPI(RHUB)#ACPI(HSP3)"
+        ],
+        "location_info": "Port_#0003.Hub_#0003",
+        "parent": "USB\\ROOT_HUB30\\4&22895bf8&0&0",
+        "last_arrival_windows_local": "2026-10-15 20:11:53",
+        "last_removal": "Not reported",
+        "bus_serial_or_mac": "Unavailable"
+      },
+      "event_records": [
+        "Kernel-PnP event 411 at 2026-10-15 20:10:21 Windows local: device had a problem starting, Problem 0x2B (43)",
+        "Kernel-PnP event 400: matching ID USB\\DEVICE_DESCRIPTOR_FAILURE",
+        "DeviceSetupManager event 112 at 2026-10-15 20:10:22 Windows local: failed descriptor device processed"
+      ],
+      "association_assessment": "Exact same Windows root-hub HSP3/port-3 topology plus descriptor-failure arrival two seconds after historical C3 removal strongly associates BUSID 3-3 with the USB endpoint historically used by the C3. Owner reports the pair remained connected. Likely C3 endpoint; current C3 MAC/board identity remains UNVERIFIED because its descriptor contains no serial or MAC."
+    },
+    "com9_ownership": {
+      "windows_pnp": "COM9 historical PnP instance is phantom/non-present while usbipd reports the matching CH343 attached to WSL",
+      "wsl_sysfs": "USB 1a86:55d3 serial 5CBC401023 at bus 1/device 21; /dev/serial/by-id resolves to /dev/ttyACM0",
+      "wsl_process_fd_owners": [],
+      "windows_openfiles": "Cannot enumerate local handles: maintain-objects-list flag disabled; query returned access denied",
+      "handle_tool": "handle.exe/handle64.exe not found by command lookup or checked standard Windows/Sysinternals paths",
+      "process_inventory": "usbipd.exe and wslhost.exe present; no named serial terminal/monitor process found",
+      "exact_serial_handle_owner": "UNKNOWN; usbipd transport ownership does not prove a serial application handle, and local Windows handle enumeration was unavailable",
+      "open_or_dtr_rts_safety": "UNKNOWN; no port/interface opened"
+    },
+    "sleep_and_usb_assessment": {
+      "source": "node_runtime_adapter.cpp explicitly calls esp_light_sleep_start() in the C8 sleep path; sdkconfig.hil.defaults enables CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG and does not set CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION",
+      "running_image_configuration": "UNKNOWN; source/profile is not current installed-image evidence",
+      "idf_6_documentation": "ESP32-C3 USB Serial/JTAG guide: light sleep gates APB and USB PHY clocks; host may report disconnect/error; after wake host may fail to re-enumerate while D+ remains pulled up. https://docs.espressif.com/projects/esp-idf/en/v6.0/esp32c3/api-guides/usb-serial-jtag-console.html",
+      "historical_c3_log": "c3_uart_open_result.txt records no C3 USB bytes or GET_STATE response while the Hub received authenticated Node events; no reset was indicated by that observation",
+      "current_causal_link": "Plausible and consistent with documented light-sleep behavior, but no timestamp-correlated current sleep/wake trace and PnP event pair; causation UNKNOWN"
+    },
+    "observer_assessment": {
+      "existing_path": "Authenticated ESP-NOW NodeHealth/schema-3 sleep trace from C3 to S3, then Hub log",
+      "previously_observed_fields": "Retained/durable-ACK counters, PIR/GPIO state and high episodes, sleep/timer/GPIO wake counters, radio restore, owner resume, and post-restart authenticated rejoin",
+      "limitation": "After-wake telemetry with default 300-second cadence, not continuous; cannot alone prove awake/sleep/reset state across a 12-second P9-A hold",
+      "current_capture": "WSL /proc fd scan found no current S3 tty reader; Windows handle state cannot be conclusively enumerated; current S3 host serial open safety remains UNKNOWN",
+      "continuous_reset_safe_observer": "NOT_QUALIFIED"
+    },
+    "recovery_assessment": {
+      "historical_c3": "2026-10-14 app-only image SHA-256 70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530 was installed at verified ota_0 offset 0x20000, ota_seq=1; record says partition table/otadata/NVS preserved and no erase",
+      "historical_c3_access_cost": "Related selector readback required controlled ROM reset and later RTS reset; not authorized or demonstrated safe now",
+      "historical_s3": "2026-10-14 readback verified expected S3 MAC, 16 MiB/8 MiB, actual partition table and ota_0 selector; Secure Boot off and eFuses unchanged at that time only",
+      "p9_artifacts": "C3 signed A/B/N/R and S3 B/N/R candidates plus host signature checks exist; candidates are not installed and current target trust compatibility is unverified",
+      "gs118": "Rollback remains not physically qualified after the provisional 12 KiB gs_ota_validate stack setting; no measured stack high-water evidence",
+      "current_recovery_readiness": "NOT_ESTABLISHED; current target identity/image/slot/trust/session/EventKey inventory and a presently safe restore route are unknown"
+    },
+    "remaining_unknown": [
+      "Current C3 MAC/board identity despite likely same physical USB port association",
+      "Exact Windows COM9 serial handle owner and DTR/RTS/open behavior",
+      "Current C3/S3 running images, partition maps, active OTA slots, and signed-FOTA trust state",
+      "Current authenticated session/replay admission and pending/in-flight EventKeys",
+      "Current C3 sleep/reset state and causal link between sleep cycle and descriptor failure",
+      "Continuous reset-safe observation during the P9-A hold interval",
+      "Current target-specific recovery route preserving identity and pending events"
+    ],
+    "result": "BLOCKED; likely C3 USB-port association is now supported, but Stage 1 identity/state/observer/recovery prerequisites remain unverified and P9-A/P9-B remain BLOCKED/NOT_RUN"
   }
 }

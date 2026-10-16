@@ -75,6 +75,131 @@ NOT_RUN. Exact command outputs, categorized values and recovery prerequisites
 are also recorded in `P9_EXECUTION_MANIFEST_20261015.json` under
 `stage1_inspection`.
 
+## Stage 1 passive diagnostic follow-up — 2026-10-16 01:18 UTC
+
+Performed only read-only Windows PnP/event-log/SetupAPI queries, `usbipd`
+enumeration, WSL sysfs and `/proc` descriptor inspection, existing source/log
+review, and host process/handle-tool queries. No serial interface was opened;
+no USB/IP attachment, reconnect, target command, DTR/RTS operation, reset,
+wake, power change, firmware/storage access, OTA, stimulus or security change
+was performed by this follow-up.
+
+### BUSID 3-3 association
+
+- Current BUSID `3-3` still fails USB descriptor enumeration. Windows PnP
+  instance `USB\VID_0000&PID_0002\5&25B61EF1&0&3` reports problem code 43,
+  hardware ID `USB\DEVICE_DESCRIPTOR_FAILURE`, no bus-reported product
+  descriptor, location `Port_#0003.Hub_#0003`, and parent
+  `USB\ROOT_HUB30\4&22895bf8&0&0`.
+- The historical C3 PnP instance
+  `USB\VID_303A&PID_1001\14:63:93:C5:D1:58` reports the same parent and
+  physical location path ending `USB(3)` / `ACPI(HSP3)`, location
+  `Port_#0003.Hub_#0003`, and bus description `USB JTAG/serial debug unit`.
+  Its recorded last arrival was 2026-10-15 20:10:45 and last removal was
+  20:11:51 Windows local time. The descriptor-failure instance's last arrival
+  was 20:11:53, two seconds after that removal.
+- Windows Kernel-PnP event 411 recorded a failed start for the descriptor
+  failure at 20:10:21 local time (problem `0x2B` / 43); event 400 matched
+  `USB\DEVICE_DESCRIPTOR_FAILURE`. DeviceSetupManager event 112 recorded
+  handling of that failed device. The sequence and exact shared HSP3/root-hub
+  port strongly associate BUSID 3-3 with the same physical USB endpoint
+  historically used by the C3. Given the owner's report that the pair remained
+  connected, the likely mapping is the C3's native USB Serial/JTAG connection.
+  The current descriptor still contains no board serial or MAC, so current C3
+  identity remains **UNVERIFIED**; this is not a VID:PID-only assignment.
+
+### COM9 ownership and current host attachment
+
+- `usbipd.exe list` now reports S3 CH343 BUSID `3-1`, serial `5CBC401023`, as
+  `Attached`. This differs from the earlier Stage 1 snapshot where it was
+  `Shared`; the follow-up did not perform the attachment. WSL sysfs now exposes
+  only that CH343 device (`1a86:55d3`, serial `5CBC401023`) as bus 1/device 21
+  with `/dev/ttyACM0`. The C3 descriptor-failure node is absent from WSL.
+- No WSL process file descriptor for `/dev/ttyACM0` was found. Windows PnP
+  retains COM9 only as a phantom/non-present port while `usbipd` reports the
+  device attached to WSL. A running `usbipd.exe` process is present, but that
+  identifies USB/IP forwarding, not a serial application owning COM9.
+- Windows `openfiles /query` reports local handle tracking is disabled and
+  returns access denied. No `handle.exe`/`handle64.exe` was found in the
+  standard Windows or Sysinternals locations. The process inventory showed no
+  named serial terminal/monitor client. Exact Windows serial-handle ownership
+  is therefore **UNKNOWN**; no ownership or DTR/RTS-safe-open claim is made.
+
+### C3 light-sleep and USB behavior
+
+- The inspected C8 node path in
+  `code/firmware/node/target/esp32c3/node_runtime_adapter.cpp` invokes
+  `esp_light_sleep_start()` directly after arming GPIO4/timer wake and before
+  logging wake/radio-restore results. The HIL defaults select
+  `CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y`; they do not select
+  `CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION`. These are source/profile findings,
+  not proof of the current installed image configuration.
+- ESP-IDF 6.0's [ESP32-C3 USB Serial/JTAG sleep-mode documentation](https://docs.espressif.com/projects/esp-idf/en/v6.0/esp32c3/api-guides/usb-serial-jtag-console.html)
+  states that light sleep gates the APB and USB PHY clocks, leaving the
+  controller unable to answer USB transactions. The host may report a
+  disconnect/error while the cable remains connected, and may not re-enumerate
+  after wake because D+ remains pulled up. The same guide states ESP-IDF does
+  not reject a manually requested light sleep merely because USB Serial/JTAG
+  is connected. This matches the C8 source policy and the historical
+  `c3_uart_open_result.txt` observation: no C3 bytes/GET_STATE response while
+  the Hub continued receiving authenticated Node traffic. It is also
+  consistent with the current Windows descriptor failure on the historical
+  C3 port.
+- There is no timestamp-correlated current Node sleep/wake trace and Windows
+  descriptor event pair. Thus the documented behavior explains a plausible
+  mechanism, but the current descriptor failure cannot be causally attributed
+  to a specific light-sleep cycle. Current sleep/reset state and installed
+  image/configuration remain **UNKNOWN**. Do not unplug/reconnect to recover
+  enumeration under the Stage 1 authorization.
+
+### Existing observer and recovery evidence
+
+- The existing reset-independent observation route is the C3's authenticated
+  ESP-NOW NodeHealth/schema-3 sleep trace received by the S3. Prior physical
+  evidence shows it can report retained/durable-ACK counters, PIR/GPIO state,
+  high-episode duration, sleep-entry/timer/GPIO-wake counters, radio restore,
+  and owner resume after wake/rejoin. The 2026-10-14 controlled P3 trace is
+  real-target evidence for that telemetry. It avoids opening the C3 USB
+  interface and has observed recovery after a C3 application restart.
+- This route is an after-wake summary, not continuous observation: the normal
+  NodeHealth cadence is 300 seconds and the trace is carried when the Node
+  reports. It cannot alone prove C3 awake/sleep/reset state continuously
+  throughout a 12-second P9-A hold. The WSL `/proc` fd scan found no current
+  S3 tty reader; Windows handle ownership cannot be conclusively enumerated.
+  The current S3 host serial path has not been proven safe to open. Continuous
+  observer safety therefore remains **UNKNOWN / NOT QUALIFIED**.
+- Historical C3 evidence supports only a possible app-only recovery method:
+  on 2026-10-14 the identified C3 had `ota_0` selected at `0x20000`,
+  `ota_seq=1`, and app SHA-256
+  `70c638b07b46981d6abba3031348449c5afcd2a25d3263cd1e3aa5dfb5d8d530`; the
+  install record says app-only with no erase and preserved partition table,
+  otadata and NVS. The related selector readback used a controlled ROM reset
+  and later RTS reset. It proves a historical operation on a then-identified
+  board, not a presently safe route under this authorization.
+- Historical S3 P8 readback identified the expected S3 MAC and 16 MiB/8 MiB
+  device, verified a partition table/OTA selector with `ota_0` selected, and
+  recorded Secure Boot off with eFuses unchanged. These October 14 values do
+  not establish current S3 identity, image, slot or trust state. P9 signed
+  C3 A/B/N/R and S3 B/N/R candidate artifacts (with matching C3 bytes) and
+  host signature checks exist. Test-only signing material is outside the
+  repository. Candidates are not installed and current target trust
+  compatibility is unverified.
+  GS-118 reconciliation records no physical rollback PASS after the
+  provisional `gs_ota_validate` task-stack increase and no measured stack
+  high-water result.
+- Consequently, existing evidence supports a recovery *plan* and historical
+  app-only/selector procedure, but does not establish current target recovery
+  readiness or EventKey preservation. Current active slots, retained/pending
+  EventKeys, firmware hashes, authenticated session, and target signing trust
+  remain **UNKNOWN**.
+
+**Follow-up result remains BLOCKED.** The host topology now makes the likely
+C3 port association credible, but current MAC verification, safe exclusive
+ownership, a qualified continuous observer, and current image/slot/session/
+EventKey/recovery baselines remain unavailable. No physical P9 disposition
+changed; P9-A/P9-B remain BLOCKED / NOT_RUN. Separate Stage 2 authorization is
+still required before any target-changing operation.
+
 ## Resumed host execution checkpoint — 2026-10-15 19:31 UTC
 
 This checkpoint resumes the owner-requested GS-114 P9 work from the prior

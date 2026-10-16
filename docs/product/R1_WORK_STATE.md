@@ -1,5 +1,59 @@
 # R1 Current Work State
 
+## GS-114 Stage 1 passive diagnostic follow-up — 2026-10-16 01:19 UTC
+
+Follow-up was performed under read-only Stage 1 authorization in GS-114 comment
+11145. It started from canonical `feature/r1-commercial-baseline` HEAD
+`fb78d85ca6a6b1413b066842f47b0327441ac720`; origin matched and context
+preflight passed. Existing untracked evidence/assets remain preserved.
+
+Windows PnP history establishes a strong likely association between current
+BUSID 3-3 and the historical C3 USB Serial/JTAG endpoint: both use root-hub
+HSP3 / port 3, and the descriptor-failure node arrived two seconds after the
+historical C3 instance was removed. Windows records problem 43 and
+`USB_DEVICE_DESCRIPTOR_FAILURE`; the current descriptor gives no C3 serial or
+MAC. The current C3 board identity therefore remains **UNVERIFIED**.
+
+The S3 CH343 `5CBC401023` is now listed by `usbipd` as `Attached` to WSL, while
+the earlier Stage 1 snapshot listed it as `Shared`; this follow-up did not
+attach it. WSL sysfs sees the S3 adapter at `/dev/ttyACM0` and no process owns
+that tty. Windows COM9 is non-present/phantom. `openfiles` cannot enumerate
+local handles (tracking disabled/access denied), and no Sysinternals handle
+tool is installed, so exact serial-handle ownership and DTR/RTS safety remain
+unknown.
+
+The C8 C3 source explicitly calls `esp_light_sleep_start()` and the HIL profile
+selects the native USB Serial/JTAG console. ESP-IDF 6.0 documents that light
+sleep gates the USB clocks, can make the device appear erroneous while still
+connected, and may prevent re-enumeration after wake. Prior C3 diagnostic logs
+showed USB silence while authenticated Hub traffic continued. This is a
+plausible explanation for the same-port failure, not proof of the current
+sleep cycle or current installed profile.
+
+The existing authenticated NodeHealth/schema-3 path through the S3 can report
+sleep/wake/event counters and post-rejoin status without opening C3 USB, as
+shown by prior physical evidence. Its normal 300-second cadence makes it an
+after-wake summary, not a continuous observer for a 12-second ACK hold. The
+WSL fd scan found no current Hub tty reader, and the S3 serial path has not
+been proven safe to open. A continuous reset-safe observer remains unqualified.
+
+Historical evidence includes a C3 app-only install/readback at `ota_0` with a
+known app hash and a prior S3 partition/selector readback. The C3 selector
+procedure used a ROM reset/RTS; these records do not establish a presently
+safe restore path. P9 signed test candidates and host checks exist but remain
+uninstalled, and current target trust is unknown. GS-118 rollback has no
+physical PASS or measured task-stack high-water result. Current image/slot,
+authenticated session, pending EventKeys, and recovery readiness remain
+**UNKNOWN**.
+
+No board interface was opened or changed, and no hardware operation occurred.
+P9-A/P9-B remain **BLOCKED / NOT_RUN**. Next eligible physical step requires a
+separate Stage 2 authorization plus safe identity/port verification, a
+no-reset current-state read path, a qualified observer, and a verified
+identity/EventKey-preserving recovery route. Do not wake or reconnect the C3.
+Detailed values and methods are in the [Stage 1 diagnostic addendum](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+and `stage1_additional_passive_diagnostics` in the P9 manifest.
+
 ## GS-114 P9 Stage 1 read-only inspection — 2026-10-16 01:06 UTC
 
 Executed only the Stage 1 scope explicitly authorized in GS-114 Jira comment
