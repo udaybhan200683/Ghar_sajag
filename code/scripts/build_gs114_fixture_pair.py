@@ -60,6 +60,62 @@ def stage_node_firmware_asset(work: Path, source: Path,
     }
 
 
+def c3_p9_build_profile() -> tuple[list[str], list[str]]:
+    """Return the minimal real-wake P9 C3 config without the UART HIL plane."""
+    defaults = ["sdkconfig.defaults"]
+    options = ["-D", "GS_HIL_CONTROL=OFF", "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON",
+               "-D", "GS_BAT_C8_ACK_TRACE=ON",
+               "-D", "GS_BAT_C8_FIXTURE_SECURITY=ON"]
+    return defaults, options
+
+
+def validate_c3_p9_ack_trace_profile(sdkconfig: Path, cmake_cache: Path,
+                                     app: Path) -> dict:
+    """Fail closed unless P9 embeds a real-wake trace app without UART controls."""
+    cfg = parse_config(sdkconfig)
+    cache = parse_config(cmake_cache)
+    required_cache = {
+        "GS_HIL_BUILD": "OFF",
+        "GS_HIL_CONTROL": "OFF",
+        "GS_BAT_C8_PHYSICAL_WAKE": "ON",
+        "GS_BAT_C8_ACK_TRACE": "ON",
+        "GS_BAT_C8_FIXTURE_SECURITY": "ON",
+    }
+    if any(cache.get(key) != value for key, value in required_cache.items()):
+        raise ValueError("C3 P9 profile must use physical wake and ACK trace with HIL controls off")
+    if cfg.get("CONFIG_ESPTOOLPY_FLASHSIZE") != "4MB" or \
+            cfg.get("CONFIG_PARTITION_TABLE_CUSTOM_FILENAME") != "partitions.csv":
+        raise ValueError("C3 P9 profile must retain the qualified 4 MiB partition configuration")
+    if cfg.get("CONFIG_ESP_CONSOLE_UART_DEFAULT") != "y" or \
+            cfg.get("CONFIG_ESP_CONSOLE_UART_NUM") != "0" or \
+            cfg.get("CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG") == "y":
+        raise ValueError("C3 P9 profile must select UART0 as primary console, not USB HIL console defaults")
+    data = app.read_bytes()
+    if b"GS114_ACK_WAIT_TRACE_SCHEMA=1" not in data:
+        raise ValueError("C3 P9 profile is missing the ACK-wait trace")
+    if b"STA MAC does not match qualified C3" not in data:
+        raise ValueError("C3 P9 profile is missing its exact-board identity guard")
+    if b"GS114_C8_FIXTURE_SECURITY=TEST_ONLY; UART_HIL_CONTROL=OFF" not in data or \
+            b"gs_dev_ident" not in data:
+        raise ValueError("C3 P9 profile is missing its explicitly test-only R&D identity path")
+    forbidden = (b"HIL_READY", b"INJECT_MOTION", b"GET_HEALTH", b"GET_STATE",
+                 b"GET_TEST_QR", b"SOFTWARE_RESTART")
+    present = [marker.decode() for marker in forbidden if marker in data]
+    if present:
+        raise ValueError(f"C3 P9 profile contains unrelated UART HIL controls: {present}")
+    return {
+        "build_options": required_cache,
+        "flash_bytes": 4 * 1024 * 1024,
+        "partition_table": "partitions.csv",
+        "primary_console": "UART0",
+        "usb_hil_console": False,
+        "qualified_node_mac_guard": True,
+        "test_identity_path": "gs_dev_ident; read-only existing NVS identity; HIL command plane disabled",
+        "ack_wait_trace": True,
+        "uart_hil_command_markers_absent": [marker.decode() for marker in forbidden],
+    }
+
+
 def parse_config(path: Path) -> dict[str, str]:
     result = {}
     for line in path.read_text().splitlines():
@@ -149,16 +205,22 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
     embedded_at = image.find(node_image)
     if not node_image or embedded_at < 0 or image.count(node_image) != 1:
         raise ValueError("S3 app does not contain exactly one byte-identical paired C3 asset")
-    # The complete S3 product image embeds its paired C3 firmware. A C3-only
-    # command string must not be mistaken for an S3 UART command surface.
-    # Verify that the paired C3 image has the physical-wake guard compiled in,
-    # and that its synthetic-motion success path is absent.
-    if (b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake" not in node_image
-            or b"I (%lu) %s: HIL_OK command=INJECT_MOTION" in node_image):
-        raise ValueError("embedded C3 asset does not enforce the physical-wake motion guard")
     ack_trace_profile_verified = b"GS114_ACK_WAIT_TRACE_SCHEMA=1" in node_image
     if c8_ack_hold and not ack_trace_profile_verified:
         raise ValueError("P9 S3 fixture must embed a C3 app with ACK-wait trace enabled")
+    c3_hil_markers = (b"HIL_READY", b"INJECT_MOTION", b"GET_HEALTH", b"GET_STATE",
+                      b"GET_TEST_QR", b"SOFTWARE_RESTART")
+    if c8_ack_hold:
+        if any(marker in node_image for marker in c3_hil_markers):
+            raise ValueError("embedded P9 C3 image must omit the unrelated UART HIL command plane")
+        if b"STA MAC does not match qualified C3" not in node_image:
+            raise ValueError("embedded P9 C3 image is missing its qualified-board identity guard")
+        if b"GS114_C8_FIXTURE_SECURITY=TEST_ONLY; UART_HIL_CONTROL=OFF" not in node_image or \
+                b"gs_dev_ident" not in node_image:
+            raise ValueError("embedded P9 C3 image is missing its test-only R&D identity profile")
+    elif (b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake" not in node_image
+          or b"I (%lu) %s: HIL_OK command=INJECT_MOTION" in node_image):
+        raise ValueError("embedded C3 asset does not enforce the physical-wake motion guard")
     s3_runtime_image = image[:embedded_at] + image[embedded_at + len(node_image):]
     missing_rpf = [marker.decode() for marker in RPF_MARKERS if marker not in image]
     missing_commissioning = ([marker.decode() for marker in COMMISSIONING_MARKERS
@@ -198,8 +260,16 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
         "embedded_node_asset_bytes": len(node_image),
         "embedded_node_asset_sha256": hashlib.sha256(node_image).hexdigest(),
         "embedded_node_asset_offset": embedded_at,
-        "embedded_node_asset_physical_wake_guard_verified": True,
+        "embedded_node_asset_physical_wake_guard_verified":
+            b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake" in node_image
+            or ack_trace_profile_verified,
         "embedded_node_asset_ack_wait_trace_verified": ack_trace_profile_verified,
+        "embedded_node_asset_hil_command_plane_absent": c8_ack_hold,
+        "embedded_node_asset_qualified_mac_guard_verified":
+            b"STA MAC does not match qualified C3" in node_image,
+        "embedded_node_asset_fixture_security_verified":
+            b"GS114_C8_FIXTURE_SECURITY=TEST_ONLY; UART_HIL_CONTROL=OFF" in node_image
+            and b"gs_dev_ident" in node_image,
         "s3_runtime_image_broad_hil_markers_absent": True,
     }
 
@@ -273,20 +343,28 @@ def main() -> int:
     version = f"{head}-{suffix}-{fingerprint[:8]}"
     c3_project = ROOT / "firmware/node/target/esp32c3/idf"
     s3_project = ROOT / "firmware/hub/target/esp32s3/idf"
-    c3_defaults = ";".join((str(c3_project / "sdkconfig.defaults"),
-                            str(c3_project / "sdkconfig.hil.defaults")))
+    c3_p9_defaults, c3_p9_options = c3_p9_build_profile()
+    c3_default_files = (c3_p9_defaults if args.s3_c8_p9_ack_hold else
+                        ["sdkconfig.defaults", "sdkconfig.hil.defaults"])
+    c3_defaults = ";".join(str(c3_project / item) for item in c3_default_files)
+    c3_profile = None
     if args.s3_node_firmware_asset is not None:
         c3 = None
         asset, node_asset_report = stage_node_firmware_asset(
             work, args.s3_node_firmware_asset, args.expected_node_sha256,
             require_ack_trace=args.s3_c8_p9_ack_hold)
     else:
-        c3_options = ["-D", "SDKCONFIG_DEFAULTS=" + c3_defaults,
-                      "-D", "GS_HIL_CONTROL=ON", "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON"]
+        c3_options = ["-D", "SDKCONFIG_DEFAULTS=" + c3_defaults]
         if args.s3_c8_p9_ack_hold:
-            c3_options.extend(["-D", "GS_BAT_C8_ACK_TRACE=ON"])
+            c3_options.extend(c3_p9_options)
+        else:
+            c3_options.extend(["-D", "GS_HIL_CONTROL=ON",
+                               "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON"])
         c3 = build(export, c3_project, work / "c3", work / "c3-sdkconfig", "esp32c3", "c3", version,
                    c3_options)
+        c3_profile = (validate_c3_p9_ack_trace_profile(
+            work / "c3-sdkconfig", work / "c3" / "CMakeCache.txt", c3)
+            if args.s3_c8_p9_ack_hold else None)
         asset, node_asset_report = stage_node_firmware_asset(
             work, c3, require_ack_trace=args.s3_c8_p9_ack_hold)
     fixture_commissioning = not args.s3_c8_p9_ack_hold
@@ -339,8 +417,11 @@ def main() -> int:
                     if args.s3_rpf_diagnostic else
                     "GS-114 disposable fixture; C3 HIL_CONTROL/physical wake; S3 commissioning-only"),
         "build_flags": {
-            "c3": (["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=ON", "GS_BAT_C8_PHYSICAL_WAKE=ON"] +
-                   (["GS_BAT_C8_ACK_TRACE=ON"] if args.s3_c8_p9_ack_hold else [])
+            "c3": (["GS_HIL_BUILD=OFF",
+                    "GS_HIL_CONTROL=" + ("OFF" if args.s3_c8_p9_ack_hold else "ON"),
+                    "GS_BAT_C8_PHYSICAL_WAKE=ON"] +
+                   (["GS_BAT_C8_ACK_TRACE=ON", "GS_BAT_C8_FIXTURE_SECURITY=ON"]
+                    if args.s3_c8_p9_ack_hold else [])
                    if c3 is not None else ["NOT_BUILT; verified existing image reused as S3 input"]),
             "s3": ["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=OFF",
                    "GS_HIL_COMMISSIONING=" + ("ON" if fixture_commissioning else "OFF"),
@@ -363,6 +444,7 @@ def main() -> int:
             "partition_csv_sha256": hashlib.sha256(
                 (s3_project / "partitions.s3-outbox-candidate.csv").read_bytes()).hexdigest(),
             "s3_profile_validation": s3_profile,
+            **({"c3_profile_validation": c3_profile} if c3_profile is not None else {}),
         } if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop or args.s3_c8_p9_ack_hold else {}),
         "full_device_package": {
             "status": "NOT_AUTHORIZED_FOR_DEPLOYMENT",

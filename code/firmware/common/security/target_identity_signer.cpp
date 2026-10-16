@@ -12,18 +12,35 @@
 #ifndef GS_HIL_COMMISSIONING
 #define GS_HIL_COMMISSIONING 0
 #endif
+#ifndef GS_BAT_C8_FIXTURE_SECURITY
+#define GS_BAT_C8_FIXTURE_SECURITY 0
+#endif
 
 namespace gs::security {
 namespace {
 constexpr auto kP256 = PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1);
 constexpr auto kEcdsaSha256 = PSA_ALG_ECDSA(PSA_ALG_SHA_256);
 
-// Both HIL profiles may generate disposable device identities. Release builds
-// leave both flags disabled and must use a protected provisioned PSA key.
-#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING
+// HIL and the separately guarded BAT-C8 fixture profile may use the existing
+// disposable R&D identity namespace. Release builds leave these flags disabled.
+#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING || GS_BAT_C8_FIXTURE_SECURITY
 constexpr char kDevelopmentNamespace[] = "gs_dev_ident";
 constexpr char kDevelopmentKey[] = "private_p256";
 
+#if GS_BAT_C8_FIXTURE_SECURITY
+bool read_existing_development_scalar(std::array<std::uint8_t, 32>& scalar) {
+    nvs_handle_t handle = 0;
+    if (nvs_open(kDevelopmentNamespace, NVS_READONLY, &handle) != ESP_OK) return false;
+    std::size_t length = scalar.size();
+    const auto read = nvs_get_blob(handle, kDevelopmentKey, scalar.data(), &length);
+    nvs_close(handle);
+    if (read != ESP_OK || length != scalar.size()) {
+        mbedtls_platform_zeroize(scalar.data(), scalar.size());
+        return false;
+    }
+    return true;
+}
+#else
 bool read_or_generate_development_scalar(std::array<std::uint8_t, 32>& scalar) {
     nvs_handle_t handle = 0;
     if (nvs_open(kDevelopmentNamespace, NVS_READWRITE, &handle) != ESP_OK) return false;
@@ -71,6 +88,7 @@ bool read_or_generate_development_scalar(std::array<std::uint8_t, 32>& scalar) {
     return committed;
 }
 #endif
+#endif
 }  // namespace
 
 TargetIdentitySigner::TargetIdentitySigner(std::string reference,
@@ -79,7 +97,7 @@ TargetIdentitySigner::TargetIdentitySigner(std::string reference,
 
 TargetIdentitySigner::~TargetIdentitySigner() {
     if (key_ == 0) return;
-#if GS_HIL_BUILD || GS_HIL_COMMISSIONING
+#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING || GS_BAT_C8_FIXTURE_SECURITY
     (void)psa_destroy_key(key_);
 #endif
 }
@@ -87,9 +105,13 @@ TargetIdentitySigner::~TargetIdentitySigner() {
 bool TargetIdentitySigner::initialize() {
     if (key_ != 0 || reference_.empty() || production_key_id_ == 0 ||
         psa_crypto_init() != PSA_SUCCESS) return false;
-#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING
+#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING || GS_BAT_C8_FIXTURE_SECURITY
     std::array<std::uint8_t, 32> scalar{};
+#if GS_BAT_C8_FIXTURE_SECURITY
+    const bool loaded = read_existing_development_scalar(scalar);
+#else
     const bool loaded = read_or_generate_development_scalar(scalar);
+#endif
     if (!loaded) {
         mbedtls_platform_zeroize(scalar.data(), scalar.size());
         return false;
@@ -130,7 +152,7 @@ bool TargetIdentitySigner::initialize() {
 #endif
     P256PublicKey checked{};
     if (!public_key(reference_, checked)) {
-#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING
+#if GS_HIL_BUILD || GS_HIL_CONTROL || GS_HIL_COMMISSIONING || GS_BAT_C8_FIXTURE_SECURITY
         (void)psa_destroy_key(key_);
 #endif
         key_ = 0;

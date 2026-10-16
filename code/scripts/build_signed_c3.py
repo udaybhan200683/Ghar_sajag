@@ -49,16 +49,50 @@ def signed_hil_control_sdkconfig(config_text: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def signed_uart0_console_sdkconfig(config_text: str) -> str:
+    """Select a UART0 primary console for signed, non-HIL physical profiles."""
+    values = {
+        "ESP_CONSOLE_UART_DEFAULT": "CONFIG_ESP_CONSOLE_UART_DEFAULT=y",
+        "ESP_CONSOLE_USB_SERIAL_JTAG": "# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set",
+        "ESP_CONSOLE_UART_CUSTOM": "# CONFIG_ESP_CONSOLE_UART_CUSTOM is not set",
+        "ESP_CONSOLE_NONE": "# CONFIG_ESP_CONSOLE_NONE is not set",
+        "ESP_CONSOLE_SECONDARY_NONE": "CONFIG_ESP_CONSOLE_SECONDARY_NONE=y",
+        "ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG":
+            "# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set",
+        "ESP_CONSOLE_UART": "CONFIG_ESP_CONSOLE_UART=y",
+        "ESP_CONSOLE_UART_NUM": "CONFIG_ESP_CONSOLE_UART_NUM=0",
+        "ESP_CONSOLE_ROM_SERIAL_PORT_NUM": "CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=0",
+    }
+    lines = config_text.splitlines()
+    for symbol, replacement in values.items():
+        pattern = re.compile(rf"^(?:# )?CONFIG_{re.escape(symbol)}(?:=.*| is not set)$")
+        matching = [index for index, line in enumerate(lines) if pattern.match(line)]
+        if len(matching) != 1:
+            raise RuntimeError(f"signed sdkconfig must contain exactly one CONFIG_{symbol} entry")
+        lines[matching[0]] = replacement
+    return "\n".join(lines) + "\n"
+
+
 def signed_profile_cmake_options(*, hil_control: bool,
                                  force_boot_health_fail: bool,
-                                 physical_wake: bool = False) -> list[str]:
+                                 physical_wake: bool = False,
+                                 ack_trace: bool = False,
+                                 bat_c8_fixture_security: bool = False) -> list[str]:
     """Return signed C3 profile flags, rejecting the test fault in production."""
     if force_boot_health_fail and not hil_control:
         raise ValueError("forced boot-health failure requires --hil-control")
+    if ack_trace and not physical_wake:
+        raise ValueError("BAT-C8 ACK trace requires --physical-wake")
+    if bat_c8_fixture_security and (not physical_wake or hil_control):
+        raise ValueError("BAT-C8 fixture security requires --physical-wake and HIL controls disabled")
     options = ["-DGS_HIL_BUILD=OFF",
                f"-DGS_HIL_CONTROL={'ON' if hil_control else 'OFF'}"]
     if physical_wake:
         options.append("-DGS_BAT_C8_PHYSICAL_WAKE=ON")
+    if ack_trace:
+        options.append("-DGS_BAT_C8_ACK_TRACE=ON")
+    if bat_c8_fixture_security:
+        options.append("-DGS_BAT_C8_FIXTURE_SECURITY=ON")
     options.append(f"-DGS_HIL_FORCE_BOOT_HEALTH_FAIL={'ON' if force_boot_health_fail else 'OFF'}")
     return options
 
@@ -76,6 +110,10 @@ def main() -> int:
                         help="TEST ONLY: force rollback in a signed HIL candidate for a disposable fixture")
     parser.add_argument("--physical-wake", action="store_true",
                         help="TEST ONLY: retain real BAT-C8 GPIO4/timer light sleep in a signed HIL candidate")
+    parser.add_argument("--ack-trace", action="store_true",
+                        help="TEST ONLY: include bounded P9-A ACK-wait diagnostics; requires --physical-wake")
+    parser.add_argument("--bat-c8-fixture-security", action="store_true",
+                        help="TEST ONLY: read existing R&D identity state without HIL commands or NVS creation")
     parser.add_argument("--trusted-key", type=Path,
                         help="optional existing trust-anchor key; verification must succeed for matching signer")
     parser.add_argument("--build-dir", default="build_signed",
@@ -85,7 +123,9 @@ def main() -> int:
         profile_options = signed_profile_cmake_options(
             hil_control=args.hil_control,
             force_boot_health_fail=args.force_boot_health_fail,
-            physical_wake=args.physical_wake)
+            physical_wake=args.physical_wake,
+            ack_trace=args.ack_trace,
+            bat_c8_fixture_security=args.bat_c8_fixture_security)
     except ValueError as exc:
         parser.error(str(exc))
     key = args.signing_key.resolve()
@@ -105,6 +145,25 @@ def main() -> int:
             sdkconfig.write_text(signed_hil_control_sdkconfig(
                 existing_signed_config.read_text()))
         defaults += ";sdkconfig.hil.defaults"
+    elif args.bat_c8_fixture_security:
+        profile_build_dir = NODE_PROJECT / args.build_dir
+        profile_build_dir.mkdir(parents=True, exist_ok=True)
+        sdkconfig = profile_build_dir / "sdkconfig.signed.c8-fixture"
+        base_signed = NODE_PROJECT / "sdkconfig.signed"
+        if not sdkconfig.exists() and base_signed.is_file():
+            sdkconfig.write_text(signed_uart0_console_sdkconfig(base_signed.read_text()))
+        c8_defaults = profile_build_dir / "sdkconfig.c8-fixture.defaults"
+        c8_defaults.write_text("""CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set
+# CONFIG_ESP_CONSOLE_UART_CUSTOM is not set
+# CONFIG_ESP_CONSOLE_NONE is not set
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set
+CONFIG_ESP_CONSOLE_UART=y
+CONFIG_ESP_CONSOLE_UART_NUM=0
+CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=0
+""")
+        defaults += ";" + str(c8_defaults)
     build_args = ["-B", args.build_dir, "-DIDF_TARGET=esp32c3", f"-DSDKCONFIG={sdkconfig}",
                   f"-DSDKCONFIG_DEFAULTS={defaults}", *profile_options]
     if args.version:
@@ -114,6 +173,14 @@ def main() -> int:
     build_args.append("build")
     run(*build_args)
     config = sdkconfig.read_text()
+    if args.bat_c8_fixture_security and any(
+            line not in config.splitlines() for line in (
+                "CONFIG_ESP_CONSOLE_UART_DEFAULT=y",
+                "CONFIG_ESP_CONSOLE_UART_NUM=0",
+                "CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=0")):
+        raise RuntimeError("signed BAT-C8 fixture must select UART0 as its primary console")
+    if args.bat_c8_fixture_security and "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y" in config.splitlines():
+        raise RuntimeError("signed BAT-C8 fixture must not use the USB HIL primary console")
     required = ("CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y",
                 "CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y",
                 "CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y")
@@ -138,6 +205,12 @@ def main() -> int:
             b"HIL_READY", b"INJECT_MOTION", b"GET_HEALTH", b"GET_STATE",
             b"GET_TEST_QR", b"SOFTWARE_RESTART")):
         raise RuntimeError("HIL command marker in signed non-HIL image")
+    if args.bat_c8_fixture_security and (
+            b"GS114_C8_FIXTURE_SECURITY=TEST_ONLY; UART_HIL_CONTROL=OFF" not in image or
+            b"gs_dev_ident" not in image):
+        raise RuntimeError("signed BAT-C8 image is missing its test-only identity profile marker")
+    if args.ack_trace and b"GS114_ACK_WAIT_TRACE_SCHEMA=1" not in image:
+        raise RuntimeError("signed BAT-C8 image is missing the ACK-wait trace marker")
     trusted_key = args.trusted_key.resolve() if args.trusted_key else key
     verify = subprocess.run([sys.executable, str(Path(os.environ["IDF_PATH"]) / "tools/idf.py"),
                              "-B", args.build_dir, "secure-verify-signature", "--keyfile",
@@ -172,9 +245,12 @@ def main() -> int:
     if output != signed.resolve():
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(signed, output)
-    record = {"version": args.version or "unspecified", "profile": "signed-app-on-update",
+    record = {"version": args.version or "unspecified",
+              "profile": "signed-app-on-update",
               "hil_control": args.hil_control,
               "physical_wake": args.physical_wake,
+              "ack_trace": args.ack_trace,
+              "bat_c8_fixture_security": args.bat_c8_fixture_security,
               "force_boot_health_fail": args.force_boot_health_fail,
               "gs_hil_build": False,
               "image": str(output), "size": output.stat().st_size,

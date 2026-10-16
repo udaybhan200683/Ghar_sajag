@@ -11,8 +11,10 @@ SOURCE = ROOT / "firmware/hub/target/esp32/idf/main/fixture_commissioning_contro
 sys.path.insert(0, str(ROOT))
 from scripts.build_gs114_fixture_pair import (
     build_environment,
+    c3_p9_build_profile,
     parse_partitions_from_text,
     stage_node_firmware_asset,
+    validate_c3_p9_ack_trace_profile,
     validate_s3_fixture_artifact,
 )
 
@@ -56,6 +58,51 @@ class S3FixtureCommissioning(unittest.TestCase):
         self.assertEqual(parsed["nvs"][3], 24 * 1024)
         self.assertEqual(parsed["ota_0"][3], 4 * 1024 * 1024)
 
+    def test_p9_c3_profile_omits_uart_hil_controls_and_hil_sdkconfig(self):
+        defaults, options = c3_p9_build_profile()
+        self.assertEqual(defaults, ["sdkconfig.defaults"])
+        self.assertEqual(options, ["-D", "GS_HIL_CONTROL=OFF",
+                                   "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON",
+                                   "-D", "GS_BAT_C8_ACK_TRACE=ON",
+                                   "-D", "GS_BAT_C8_FIXTURE_SECURITY=ON"])
+
+    def test_p9_c3_profile_validator_requires_sleep_trace_identity_and_no_commands(self):
+        with tempfile.TemporaryDirectory(prefix="gs_c3_p9_profile_") as temp:
+            root = Path(temp)
+            sdkconfig = root / "sdkconfig"
+            sdkconfig.write_text('''CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_NUM=0
+''')
+            cmake = root / "CMakeCache.txt"
+            cmake.write_text('''GS_HIL_BUILD:BOOL=OFF
+GS_HIL_CONTROL:BOOL=OFF
+GS_BAT_C8_PHYSICAL_WAKE:BOOL=ON
+GS_BAT_C8_ACK_TRACE:BOOL=ON
+GS_BAT_C8_FIXTURE_SECURITY:BOOL=ON
+''')
+            app = root / "app.bin"
+            app.write_bytes(b"GS114_ACK_WAIT_TRACE_SCHEMA=1STA MAC does not match qualified C3"
+                            b"GS114_C8_FIXTURE_SECURITY=TEST_ONLY; UART_HIL_CONTROL=OFF"
+                            b"gs_dev_ident")
+            profile = validate_c3_p9_ack_trace_profile(sdkconfig, cmake, app)
+            self.assertTrue(profile["qualified_node_mac_guard"])
+            self.assertTrue(profile["ack_wait_trace"])
+            self.assertFalse(profile["usb_hil_console"])
+
+            cmake.write_text(cmake.read_text().replace(
+                "GS_HIL_CONTROL:BOOL=OFF", "GS_HIL_CONTROL:BOOL=ON"))
+            with self.assertRaisesRegex(ValueError, "HIL controls off"):
+                validate_c3_p9_ack_trace_profile(sdkconfig, cmake, app)
+
+            cmake.write_text(cmake.read_text().replace(
+                "GS_HIL_CONTROL:BOOL=ON", "GS_HIL_CONTROL:BOOL=OFF"))
+            app.write_bytes(app.read_bytes() + b"SOFTWARE_RESTART")
+            with self.assertRaisesRegex(ValueError, "unrelated UART HIL controls"):
+                validate_c3_p9_ack_trace_profile(sdkconfig, cmake, app)
+
     def _profile_files(self, root: Path):
         sdkconfig = root / "sdkconfig"
         sdkconfig.write_text('''CONFIG_ESPTOOLPY_FLASHSIZE=\"16MB\"
@@ -88,6 +135,7 @@ gs_state, data, nvs, 0xC20000, 0x40000,
         node_asset = root / "node.bin"
         node_asset.write_bytes(
             b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake"
+            b"STA MAC does not match qualified C3"
             b"GS114_ACK_WAIT_TRACE_SCHEMA=1")
         app = root / "app.bin"
         app.write_bytes(b"image" + b" ".join(
@@ -109,17 +157,25 @@ gs_state, data, nvs, 0xC20000, 0x40000,
     def test_p9_ack_hold_profile_requires_exact_marker_and_flags(self):
         with tempfile.TemporaryDirectory(prefix="gs_s3_p9_hold_") as temp:
             sdkconfig, cache, partitions, app, node = self._profile_files(Path(temp))
+            node.write_bytes(b"GS114_ACK_WAIT_TRACE_SCHEMA=1STA MAC does not match qualified C3"
+                             b"GS114_C8_FIXTURE_SECURITY=TEST_ONLY; UART_HIL_CONTROL=OFF"
+                             b"gs_dev_ident")
+            app.write_bytes(b"image" + b" ".join(
+                [*(f"RPF0{i}".encode() for i in range(9)),
+                 b"S3 replay fence failed stage=%s", b"ARM_C8_ACK_HOLD"])
+                + node.read_bytes())
             cache.write_text(cache.read_text().replace(
                 "GS_HIL_COMMISSIONING:BOOL=ON", "GS_HIL_COMMISSIONING:BOOL=OFF"))
             cache.write_text(cache.read_text() + "GS_HIL_C8_ACK_HOLD:BOOL=ON\nGS_HIL_SIGNED_FOTA:BOOL=OFF\n")
-            app.write_bytes(app.read_bytes().replace(
-                b"COMMISSION_EXPECTED_NODE FIXTURE_STATUS ", b"") + b"ARM_C8_ACK_HOLD")
             profile = validate_s3_fixture_artifact(sdkconfig, cache, partitions,
                                                    app, node, c8_ack_hold=True,
                                                    fixture_commissioning=False)
             self.assertTrue(profile["c8_ack_hold_fixture_enabled"])
+            self.assertTrue(profile["embedded_node_asset_hil_command_plane_absent"])
+            self.assertTrue(profile["embedded_node_asset_qualified_mac_guard_verified"])
+            self.assertTrue(profile["embedded_node_asset_fixture_security_verified"])
             self.assertTrue(profile["embedded_node_asset_ack_wait_trace_verified"])
-            self.assertEqual(profile["commissioning_markers_present"], ["HIL_FIXTURE_READY"])
+            self.assertEqual(profile["commissioning_markers_present"], [])
             app.write_bytes(app.read_bytes().replace(b"ARM_C8_ACK_HOLD", b""))
             with self.assertRaisesRegex(ValueError, "ACK-hold command"):
                 validate_s3_fixture_artifact(sdkconfig, cache, partitions,

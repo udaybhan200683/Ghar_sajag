@@ -5,6 +5,7 @@ option(GS_HIL_CONTROL "Enable test-only UART controls while retaining product se
 option(GS_HIL_FORCE_BOOT_HEALTH_FAIL "Force failed OTA boot health for a disposable signed HIL candidate only" OFF)
 option(GS_BAT_C8_PHYSICAL_WAKE "Enable BAT-C8 physical-wake telemetry in a qualification image" OFF)
 option(GS_BAT_C8_ACK_TRACE "Enable bounded P9-A ACK-wait diagnostics in a qualification image" OFF)
+option(GS_BAT_C8_FIXTURE_SECURITY "Read existing R&D test identity state without HIL commands or NVS creation" OFF)
 if(GS_HIL_BUILD)
     set(GS_HIL_CONTROL ON)
 endif()
@@ -16,6 +17,10 @@ if(GS_BAT_C8_PHYSICAL_WAKE AND GS_HIL_BUILD)
 endif()
 if(GS_BAT_C8_ACK_TRACE AND (NOT GS_BAT_C8_PHYSICAL_WAKE OR GS_HIL_BUILD))
     message(FATAL_ERROR "GS_BAT_C8_ACK_TRACE requires GS_BAT_C8_PHYSICAL_WAKE=ON and GS_HIL_BUILD=OFF")
+endif()
+if(GS_BAT_C8_FIXTURE_SECURITY AND
+   (GS_HIL_BUILD OR GS_HIL_CONTROL OR NOT GS_BAT_C8_PHYSICAL_WAKE))
+    message(FATAL_ERROR "GS_BAT_C8_FIXTURE_SECURITY requires physical wake ON and HIL build/control OFF")
 endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

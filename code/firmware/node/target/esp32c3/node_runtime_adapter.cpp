@@ -242,7 +242,9 @@ esp_err_t initialize_wifi() {
 
     std::array<std::uint8_t, 6> actual_mac{};
     if ((result = esp_wifi_get_mac(WIFI_IF_STA, actual_mac.data())) != ESP_OK) return result;
-    #if GS_HIL_CONTROL
+    // Keep the qualified R&D-board identity guard in physical-wake images
+    // without enabling the unrelated UART command task.
+    #if GS_HIL_CONTROL || GS_BAT_C8_PHYSICAL_WAKE
     if (actual_mac != kQualifiedNodeMac) {
         ESP_LOGE(kTag, "STA MAC does not match qualified C3");
         return ESP_ERR_INVALID_STATE;

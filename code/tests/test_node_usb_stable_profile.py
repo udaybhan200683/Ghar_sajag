@@ -1,4 +1,4 @@
-"""USB-stable qualification profile keeps product runtime awake for HIL."""
+"""Physical-wake qualification can run without the unrelated UART HIL controls."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -13,7 +13,9 @@ class UsbStableProfile(unittest.TestCase):
 #include "firmware/node/target/esp32c3/physical_wake_capability.hpp"
 using gs::node::target::physical_wake_permitted;
 static_assert(physical_wake_permitted(false, false, false), "production default sleep remains available");
-static_assert(physical_wake_permitted(false, true, true), "C8 physical-wake build can sleep");
+static_assert(physical_wake_permitted(false, false, true), "minimal C8 qualification can use real wake and sleep");
+static_assert(physical_wake_permitted(false, false, true), "minimal C8 qualification can sleep");
+static_assert(physical_wake_permitted(false, true, true), "controlled C8 physical-wake build can sleep");
 static_assert(!physical_wake_permitted(false, true, false), "USB-stable HIL build stays awake");
 static_assert(!physical_wake_permitted(true, true, false), "legacy HIL build stays awake");
 int main() { return 0; }
@@ -29,10 +31,14 @@ int main() { return 0; }
         cmake=(NODE/'idf/CMakeLists.txt').read_text()
         self.assertIn('GS_HIL_BUILD "Enable the USB HIL control plane',cmake)
         self.assertIn('GS_HIL_CONTROL "Enable test-only UART controls',cmake)
-        self.assertIn('GS_BAT_C8_PHYSICAL_WAKE "Allow real GPIO4/timer light sleep',cmake)
-        self.assertIn('GS_BAT_C8_PHYSICAL_WAKE requires GS_HIL_CONTROL=ON and GS_HIL_BUILD=OFF',cmake)
+        self.assertIn('GS_BAT_C8_PHYSICAL_WAKE "Enable BAT-C8 physical-wake telemetry',cmake)
+        self.assertIn('GS_BAT_C8_PHYSICAL_WAKE requires GS_HIL_BUILD=OFF',cmake)
         self.assertIn('GS_BAT_C8_PHYSICAL_WAKE=$<BOOL:${GS_BAT_C8_PHYSICAL_WAKE}>',
                       (NODE/'idf/main/CMakeLists.txt').read_text())
+        adapter=(NODE/'node_runtime_adapter.cpp').read_text()
+        self.assertIn('#if GS_HIL_CONTROL || GS_BAT_C8_PHYSICAL_WAKE',adapter)
+        control=(NODE/'idf/main/app_main.cpp').read_text()
+        self.assertIn('#if GS_HIL_CONTROL\n    start_hil_control();',control)
 
     def test_get_state_remains_enabled_in_both_hil_profiles(self):
         source=(NODE/'idf/main/hil_control.cpp').read_text()

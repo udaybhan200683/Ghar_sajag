@@ -8,6 +8,9 @@
 #ifndef GS_HIL_COMMISSIONING
 #define GS_HIL_COMMISSIONING 0
 #endif
+#ifndef GS_BAT_C8_FIXTURE_SECURITY
+#define GS_BAT_C8_FIXTURE_SECURITY 0
+#endif
 
 namespace gs::security {
 
@@ -19,8 +22,21 @@ bool load_or_create_target_wrapping_key(CommissioningCrypto& crypto, Key32& out)
 PersistentKeyLoadResult load_or_create_target_wrapping_key_with_result(
         CommissioningCrypto& crypto, Key32& out) {
     out.fill(0);
-// HIL_CONTROL supports the secure-runtime test profile without enabling the
-// legacy raw-FOTA GS_HIL_BUILD path. Both remain disabled in release builds.
+#if GS_BAT_C8_FIXTURE_SECURITY
+    // Physical qualification must never create or rotate the pairing key.
+    nvs_handle_t handle = 0;
+    if (nvs_open("gs_security", NVS_READONLY, &handle) != ESP_OK)
+        return PersistentKeyLoadResult::Error;
+    std::size_t length = out.size();
+    const auto read = nvs_get_blob(handle, "wrap_key", out.data(), &length);
+    nvs_close(handle);
+    if (read == ESP_OK && length == out.size() &&
+        !std::all_of(out.begin(), out.end(), [](std::uint8_t byte) { return byte == 0; }))
+        return PersistentKeyLoadResult::Existing;
+    crypto.secure_zero(out.data(), out.size());
+    return PersistentKeyLoadResult::Error;
+#else
+// Default and legacy HIL path: retain the existing protected or test-key behavior.
 #if !GS_HIL_BUILD && !GS_HIL_CONTROL && !GS_HIL_COMMISSIONING
 #if !defined(CONFIG_SECURE_BOOT) || !defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
     return PersistentKeyLoadResult::Error;
@@ -62,17 +78,22 @@ PersistentKeyLoadResult load_or_create_target_wrapping_key_with_result(
     crypto.secure_zero(checked.data(), checked.size());
     if (!committed) crypto.secure_zero(out.data(), out.size());
     return committed ? PersistentKeyLoadResult::Created : PersistentKeyLoadResult::Error;
+#endif
 }
 
 bool load_target_installer_code(CommissioningCrypto& crypto, Key32& out) {
     out.fill(0);
-#if !GS_HIL_BUILD && !GS_HIL_CONTROL && !GS_HIL_COMMISSIONING
+#if !GS_HIL_BUILD && !GS_HIL_CONTROL && !GS_HIL_COMMISSIONING && !GS_BAT_C8_FIXTURE_SECURITY
 #if !defined(CONFIG_SECURE_BOOT) || !defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
     return false;
 #endif
 #endif
     nvs_handle_t handle = 0;
+#if GS_BAT_C8_FIXTURE_SECURITY
+    if (nvs_open("gs_factory", NVS_READONLY, &handle) != ESP_OK) return false;
+#else
     if (nvs_open("gs_factory", NVS_READWRITE, &handle) != ESP_OK) return false;
+#endif
     std::size_t length = out.size();
     const auto read = nvs_get_blob(handle, "install_code", out.data(), &length);
     if (read == ESP_OK) {

@@ -12,7 +12,8 @@ from unittest import mock
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-from build_signed_c3 import signed_hil_control_sdkconfig, signed_profile_cmake_options
+from build_signed_c3 import (signed_hil_control_sdkconfig, signed_profile_cmake_options,
+                             signed_uart0_console_sdkconfig)
 
 from tools.hil.secure_signed_fota import (NEGATIVE_ENV, SIGNING_ENV,
     SecureCampaign, activated_python_command, hub_flash_command,
@@ -209,6 +210,25 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertIn("CONFIG_ESP_CONSOLE_UART_NUM=-1", result)
         self.assertNotIn("CONFIG_ESP_CONSOLE_UART_DEFAULT=y", result)
 
+    def test_signed_c8_fixture_profile_selects_uart0_primary_console(self):
+        base = "\n".join((
+            "# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set",
+            "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+            "# CONFIG_ESP_CONSOLE_UART_CUSTOM is not set",
+            "# CONFIG_ESP_CONSOLE_NONE is not set",
+            "# CONFIG_ESP_CONSOLE_SECONDARY_NONE is not set",
+            "CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y",
+            "CONFIG_ESP_CONSOLE_UART=y",
+            "CONFIG_ESP_CONSOLE_UART_NUM=0",
+            "CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=3",
+        )) + "\n"
+        result = signed_uart0_console_sdkconfig(base)
+        self.assertIn("CONFIG_ESP_CONSOLE_UART_DEFAULT=y", result)
+        self.assertIn("CONFIG_ESP_CONSOLE_UART_NUM=0", result)
+        self.assertIn("CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=0", result)
+        self.assertIn("# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set", result)
+        self.assertIn("CONFIG_ESP_CONSOLE_SECONDARY_NONE=y", result)
+
     def test_secure_hil_control_profile_enables_only_existing_test_credentials(self):
         root = Path(__file__).resolve().parents[2]
         identity = (root / "firmware/common/security/target_identity_signer.cpp").read_text()
@@ -242,9 +262,13 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
     def test_physical_wake_signed_profile_needs_no_unrelated_hil_controls(self):
         options = signed_profile_cmake_options(hil_control=False,
                                                force_boot_health_fail=False,
-                                               physical_wake=True)
+                                               physical_wake=True,
+                                               ack_trace=True,
+                                               bat_c8_fixture_security=True)
         self.assertIn("-DGS_HIL_CONTROL=OFF", options)
         self.assertIn("-DGS_BAT_C8_PHYSICAL_WAKE=ON", options)
+        self.assertIn("-DGS_BAT_C8_FIXTURE_SECURITY=ON", options)
+        self.assertIn("-DGS_BAT_C8_ACK_TRACE=ON", options)
         self.assertIn("-DGS_HIL_BUILD=OFF", options)
 
         cmake = (Path(__file__).resolve().parents[2] /
@@ -252,6 +276,28 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         self.assertIn("if(GS_BAT_C8_PHYSICAL_WAKE AND GS_HIL_BUILD)", cmake)
         self.assertIn('option(GS_BAT_C8_ACK_TRACE "Enable bounded P9-A ACK-wait diagnostics in a qualification image" OFF)', cmake)
         self.assertIn("if(GS_BAT_C8_ACK_TRACE AND (NOT GS_BAT_C8_PHYSICAL_WAKE OR GS_HIL_BUILD))", cmake)
+        self.assertIn('option(GS_BAT_C8_FIXTURE_SECURITY "Read existing R&D test identity state without HIL commands or NVS creation" OFF)', cmake)
+        self.assertIn("GS_BAT_C8_FIXTURE_SECURITY requires physical wake ON and HIL build/control OFF", cmake)
+        identity = (Path(__file__).resolve().parents[2] /
+                    "firmware/common/security/target_identity_signer.cpp").read_text()
+        wrapping = (Path(__file__).resolve().parents[2] /
+                    "firmware/common/security/target_wrapping_key.cpp").read_text()
+        self.assertIn("nvs_open(kDevelopmentNamespace, NVS_READONLY, &handle)", identity)
+        self.assertIn("nvs_open(\"gs_security\", NVS_READONLY, &handle)", wrapping)
+        self.assertIn("nvs_open(\"gs_factory\", NVS_READONLY, &handle)", wrapping)
+        with self.assertRaisesRegex(ValueError, "requires --physical-wake"):
+            signed_profile_cmake_options(hil_control=False,
+                                         force_boot_health_fail=False,
+                                         bat_c8_fixture_security=True)
+        with self.assertRaisesRegex(ValueError, "ACK trace requires --physical-wake"):
+            signed_profile_cmake_options(hil_control=False,
+                                         force_boot_health_fail=False,
+                                         ack_trace=True)
+        with self.assertRaisesRegex(ValueError, "HIL controls disabled"):
+            signed_profile_cmake_options(hil_control=True,
+                                         force_boot_health_fail=False,
+                                         physical_wake=True,
+                                         bat_c8_fixture_security=True)
 
     def test_signed_non_hil_image_rejects_c3_uart_test_commands(self):
         source = (Path(__file__).resolve().parents[2] / "scripts/build_signed_c3.py").read_text()
@@ -298,6 +344,32 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
                 expected_error = ("GS_BAT_C8_PHYSICAL_WAKE requires"
                                   if physical_wake == "ON" and hil_build == "ON"
                                   else "GS_BAT_C8_ACK_TRACE requires")
+                self.assertIn(expected_error, result.stdout)
+
+        invalid_fixture_security_profiles = (
+            ("OFF", "OFF", "OFF", "ON",
+             "GS_BAT_C8_FIXTURE_SECURITY requires"),
+            ("ON", "OFF", "ON", "ON",
+             "GS_BAT_C8_FIXTURE_SECURITY requires"),
+            ("ON", "ON", "OFF", "ON",
+             "GS_BAT_C8_PHYSICAL_WAKE requires"),
+        )
+        for index, (physical_wake, hil_build, hil_control, fixture_security, expected_error) in enumerate(
+                invalid_fixture_security_profiles):
+            with self.subTest(physical_wake=physical_wake, hil_build=hil_build,
+                              hil_control=hil_control), \
+                 tempfile.TemporaryDirectory() as temporary:
+                result = subprocess.run([
+                    "cmake", "-S", str(project), "-B",
+                    str(Path(temporary) / f"invalid-fixture-security-{index}"),
+                    f"-DGS_BAT_C8_PHYSICAL_WAKE={physical_wake}",
+                    "-DGS_BAT_C8_ACK_TRACE=OFF",
+                    f"-DGS_HIL_BUILD={hil_build}",
+                    f"-DGS_HIL_CONTROL={hil_control}",
+                    f"-DGS_BAT_C8_FIXTURE_SECURITY={fixture_security}"],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, check=False)
+                self.assertNotEqual(result.returncode, 0)
                 self.assertIn(expected_error, result.stdout)
 
     def test_failed_health_rollback_evidence_requires_fresh_recovery_and_same_event_key(self):

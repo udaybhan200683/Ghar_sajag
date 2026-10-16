@@ -87,17 +87,21 @@ def prepare(key_dir: Path, generate: bool) -> Path:
         args = ["python", "scripts/build_signed_c3.py", "--signing-key",
                 str(negative if label == "N" else trusted),
                 "--version", versions[label], "--output", str(image),
-                "--build-dir", build_dir, "--physical-wake"]
+                "--build-dir", build_dir, "--physical-wake",
+                "--ack-trace", "--bat-c8-fixture-security"]
         if label == "N":
             args += ["--trusted-key", str(trusted)]
         activated(args, output / f"build_c3_{label.lower()}.log", (trusted, negative))
         record = json.loads(image.with_suffix(image.suffix + ".json").read_text())
         if record.get("physical_wake") is not True or record.get("hil_control") is not False or \
+                record.get("bat_c8_fixture_security") is not True or \
+                record.get("ack_trace") is not True or \
                 record.get("sha256") != hashlib.sha256(image.read_bytes()).hexdigest():
             raise RuntimeError(f"C3 {label} signed no-HIL physical-wake profile/provenance mismatch")
         records[label] = {"version": record["version"], "sha256": record["sha256"],
                           "size": record["size"], "profile": record["profile"],
-                          "physical_wake": True,
+                          "physical_wake": True, "ack_trace": True,
+                          "bat_c8_fixture_security": True,
                           "public_key_fingerprint_sha256": record["signing_public_key_fingerprint_sha256"],
                           "image": str(image)}
     if not (records["A"]["public_key_fingerprint_sha256"] ==
@@ -122,11 +126,49 @@ def prepare(key_dir: Path, generate: bool) -> Path:
             raise RuntimeError(f"S3 {label} embedded-image provenance mismatch")
         hubs[label] = {"image": str(image), "sha256": record["hub_sha256"],
                        "size": record["hub_size"], "embedded_c3_sha256": record["embedded_c3_sha256"]}
-    manifest = {"schema": 1, "owner": "GS-114 P9-B", "source_head": subprocess.run(
+
+    p9a_build_log = output / "build_s3_p9a_ack_hold.log"
+    activated(["python", "scripts/build_gs114_fixture_pair.py", "--s3-c8-p9-ack-hold",
+               "--s3-node-firmware-asset", records["A"]["image"],
+               "--expected-node-sha256", records["A"]["sha256"]],
+              p9a_build_log, (trusted, negative))
+    report_line = next((line for line in p9a_build_log.read_text().splitlines()
+                        if line.startswith("FIXTURE BUILD REPORT ")), None)
+    if report_line is None:
+        raise RuntimeError("P9-A matched S3 build did not report its fixture manifest")
+    p9a_pair_manifest = Path(report_line.removeprefix("FIXTURE BUILD REPORT ").strip())
+    p9a_pair = json.loads(p9a_pair_manifest.read_text())
+    p9a_s3 = p9a_pair["artifacts"]["s3"]
+    p9a_profile = p9a_pair["configuration"]["s3_profile_validation"]
+    if p9a_pair["node_firmware_asset"]["sha256"] != records["A"]["sha256"] or \
+            p9a_profile["embedded_node_asset_sha256"] != records["A"]["sha256"] or \
+            p9a_profile["c8_ack_hold_fixture_enabled"] is not True or \
+            p9a_profile["embedded_node_asset_fixture_security_verified"] is not True:
+        raise RuntimeError("P9-A S3 fixture does not embed the signed, trace-enabled C3 A image")
+    p9a_ack_hold = {
+        "profile": p9a_pair["profile"],
+        "source_head": p9a_pair["source_head"],
+        "c3_A_image": {key: records["A"][key] for key in
+                       ("image", "sha256", "size", "version", "profile",
+                        "physical_wake", "ack_trace", "bat_c8_fixture_security",
+                        "public_key_fingerprint_sha256")},
+        "s3_image": {key: p9a_s3[key] for key in
+                     ("path", "bytes", "sha256", "ota_slot_capacity_bytes",
+                      "ota_slot_free_bytes", "status")},
+        "embedded_c3_sha256": p9a_profile["embedded_node_asset_sha256"],
+        "compiled_partition_table_sha256":
+            p9a_profile["compiled_partition_table_sha256"],
+        "partition_rows": p9a_profile["compiled_partition_rows"],
+        "build_report": str(p9a_pair_manifest),
+        "build_log": str(p9a_build_log),
+        "deployment": "NOT_INSTALLED; candidate only",
+    }
+    manifest = {"schema": 1, "owner": "GS-114 P9-A/B", "source_head": subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=REPO, check=True, capture_output=True,
         text=True).stdout.strip(), "source_dirty": bool(subprocess.run(
         ["git", "status", "--porcelain"], cwd=REPO, check=True, capture_output=True,
         text=True).stdout.strip()), "images": records, "hubs": hubs,
+        "p9_a_ack_hold": p9a_ack_hold,
         "private_keys": "EXTERNAL_TEST_ONLY_NOT_RECORDED",
         "hardware_operations": "NONE", "physical_status": "NOT_RUN"}
     target = output / "gs114_p9_artifacts.json"
