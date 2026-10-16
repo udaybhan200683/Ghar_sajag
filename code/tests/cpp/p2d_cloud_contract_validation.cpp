@@ -221,7 +221,8 @@ public:
 
 class WorkerApiChannel final : public gs::hub::BackendHttpChannel {
 public:
-    std::vector<std::string> bodies;
+    explicit WorkerApiChannel(std::vector<std::string>& requests) : bodies(requests) {}
+    std::vector<std::string>& bodies;
     gs::hub::BackendHttpResponse post(const std::string& path,
                                       const std::string& body) override {
         require(path == "/v1/homes/home-a/events", "worker API endpoint binds original Home");
@@ -247,44 +248,74 @@ void worker_api_bridge() {
     using namespace gs::hub;
     gs::host::security::OpenSslCommissioningCrypto crypto;
     const auto key = storage_key();
-    StateFiles files;
-    RuntimeStateStore state(files, crypto, key);
-    require(state.recover(0), "worker API identity ledger starts clean");
-    auto original = event(1);
-    original.kind = gs::EventKind::CallFamily;
-    original.sensor_type = gs::SensorType::Button;
-    original.occurred_at = 1800000001;
-    original.received_at = 1800000901;
-    IdentityOwnerEvidence owner;
-    owner.enrollment_slot = 1;
-    owner.enrollment_generation = 3;
-    owner.binding_digest[0] = 0x61;
-    require(state.prepare_identity(original, 1, {}, &owner) &&
-            state.confirm_event_publication(1) &&
-            state.save_checkpoint(gs::security::Bytes{0x01}, 1),
-            "worker API records original authenticated enrollment");
+    using namespace gs::hub::storage;
+    MemorySegments flash(4U * 1024U * 1024U);
+    StateFiles state_files;
+    gs::DomainEvent original;
+    std::vector<std::string> request_bodies;
+    {
+        DurableEventOutbox outbox(flash, crypto, key);
+        require(outbox.recover() == OutboxRecovery::Empty,
+                "worker API segmented outbox starts empty");
+        OutboxJournalBackend backend(outbox);
+        RuntimeStateStore state(state_files, crypto, key);
+        HubRuntime runtime(32, backend);
+        runtime.bind_runtime_state(state);
+        runtime.authorize_node("room1", 42, true);
+        require(runtime.restore_from_journal(), "worker API runtime recovers clean state");
+        auto message = make_message(1);
+        message.event_type = gs::EventKind::CallFamily;
+        message.sensor_type = gs::SensorType::Button;
+        message.occurred_at = 1800000001;
+        message.location = "room1";
+        std::array<std::uint8_t, 32> owner_binding{};
+        owner_binding.fill(0x61);
+        require(runtime.authenticated_radio_message_callback(
+                    message, "room1", "device-room1", 42, 1800000901, 1000, 1, 3,
+                    owner_binding),
+                "worker API accepts authenticated Node ingress");
+        const auto admitted = runtime.run_state_once();
+        require(admitted && admitted->ack == gs::AckClass::Durable &&
+                admitted->key.str() == gs::EventKey("room1", 42, 1, "device-room1").str(),
+                "worker API persists the original EventKey before Durable ACK");
+        const auto pending = runtime.journal().pending_cloud(1);
+        require(pending.size() == 1 && pending.front().key.str() == admitted->key.str(),
+                "worker API reads the exact published outbox body");
+        original = pending.front();
+        WorkerApiAuthority authority;
+        WorkerApiChannel channel(request_bodies);
+        HttpBackendTransport transport(channel);
+        CloudSyncWorker worker(runtime.journal(), runtime, authority, transport);
 
-    gs::hub::HubJournal journal(128);
-    require(journal.commit(original) == CommitResult::Stored,
-            "worker API starts from one durable queued event");
-    HubRuntime runtime;
-    runtime.bind_runtime_state(state);
+        const auto lost = worker.run_once(true, 0, 1);
+        require(lost.submitted == 1 && lost.completed == 0 &&
+                !runtime.journal().cloud_completed(original.key),
+                "lost API response leaves Hub event pending");
+        require(worker.run_once(true, 999, 1).submitted == 0,
+                "worker observes original retry deadline");
+    }
+
+    DurableEventOutbox recovered(flash, crypto, key);
+    require(recovered.recover() == OutboxRecovery::Ready && recovered.record_count() == 1,
+            "Hub restart recovers the durable pending event");
+    OutboxJournalBackend recovered_backend(recovered);
+    RuntimeStateStore recovered_state(state_files, crypto, key);
+    HubRuntime restarted(32, recovered_backend);
+    restarted.bind_runtime_state(recovered_state);
+    restarted.authorize_node("room1", 42, true);
+    require(restarted.restore_from_journal(), "Hub restart restores runtime from segmented outbox");
+    const auto after_restart = restarted.journal().pending_cloud(1);
+    require(after_restart.size() == 1 && after_restart.front().key.str() == original.key.str(),
+            "Hub restart preserves the same pending EventKey");
     WorkerApiAuthority authority;
-    WorkerApiChannel channel;
-    HttpBackendTransport transport(channel);
-    CloudSyncWorker worker(journal, runtime, authority, transport);
-
-    const auto lost = worker.run_once(true, 0, 1);
-    require(lost.submitted == 1 && lost.completed == 0 &&
-            !journal.cloud_completed(original.key),
-            "lost API response leaves Hub event pending");
-    require(worker.run_once(true, 999, 1).submitted == 0,
-            "worker observes original retry deadline");
-    const auto retried = worker.run_once(true, 1000, 1);
+    WorkerApiChannel retry_channel(request_bodies);
+    HttpBackendTransport transport(retry_channel);
+    CloudSyncWorker worker(restarted.journal(), restarted, authority, transport);
+    const auto retried = worker.run_once(true, 0, 1);
     require(retried.submitted == 1 && retried.completed == 1 &&
-            journal.cloud_completed(original.key) && channel.bodies.size() == 2 &&
-            channel.bodies[0] == channel.bodies[1],
-            "duplicate durable API COMMITTED completes same original request");
+            restarted.journal().cloud_completed(original.key) && request_bodies.size() == 2 &&
+            request_bodies[0] == request_bodies[1],
+            "post-restart retry commits the exact original request once");
     std::cout << "RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2\n"
               << std::flush;
 }

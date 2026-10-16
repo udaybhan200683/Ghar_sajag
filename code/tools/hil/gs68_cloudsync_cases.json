@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "campaign_id": "GS68-CLOUDSYNC-DS-MTLS-PHYSICAL",
+  "cases": [
+    {
+      "case_id": "GS68-PHY-001",
+      "name": "S3 RSA-3072 DS signing",
+      "targets": ["s3"],
+      "prerequisites": ["dedicated disposable DS identity", "approved D12 key custody and provisioning plan", "exact S3 identity and source-matched image"],
+      "expected": "S3 completes a fresh RSA-3072 DS signature challenge without exporting private key material.",
+      "evidence_required": ["challenge_nonce", "signature_verification", "signer_profile", "image_provenance", "heap_before_after"],
+      "blocked_when": ["DS key is not provisioned under a separately approved procedure", "identity or image provenance is unknown"],
+      "separate_approval": ["D12", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-002",
+      "name": "TLS 1.2 mTLS using hardware signer",
+      "targets": ["s3", "test_backend"],
+      "prerequisites": ["GS68-PHY-001 PASS", "test-only backend readiness receipt", "TLS 1.2 DS diagnostic profile"],
+      "expected": "TLS 1.2 handshake authenticates the permanent Hub certificate using the S3 DS signer.",
+      "evidence_required": ["client_certificate_fingerprint", "server_certificate_chain", "tls_version", "handshake_result", "elapsed_ms"],
+      "blocked_when": ["handshake uses a host/mock signer", "server or client trust is not established"],
+      "separate_approval": ["D05", "D12", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-003",
+      "name": "Client and server certificate validation",
+      "targets": ["s3", "test_backend"],
+      "prerequisites": ["GS68-PHY-002 PASS", "approved test CA and trusted-time evidence"],
+      "expected": "Valid client/server chains pass; wrong CA, server name, purpose, validity interval, and unsupported TLS/signature profiles fail closed.",
+      "evidence_required": ["client_chain_case_results", "server_chain_case_results", "server_name", "trusted_time_reference", "unsupported_tls_profile_result"],
+      "blocked_when": ["trusted time or approved test trust bundle is unavailable", "target TLS/signature profile is not approved"],
+      "separate_approval": ["D05", "D06", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-004",
+      "name": "Unknown, revoked, expired, and invalid credentials",
+      "targets": ["s3", "test_backend"],
+      "prerequisites": ["GS68-PHY-003 PASS", "isolated negative-test identities and revocation fixture"],
+      "expected": "Unknown, revoked, expired, malformed, wrong-purpose, and wrong-key credentials are rejected without durable completion.",
+      "evidence_required": ["negative_identity_matrix", "backend_rejection_receipts", "outbox_pending_before_after"],
+      "blocked_when": ["test credentials can reach production services", "negative cases cannot be isolated"],
+      "separate_approval": ["D05", "D12", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-005",
+      "name": "Wrong Hub, Home, and installation epoch",
+      "targets": ["s3", "test_backend"],
+      "prerequisites": ["GS68-PHY-004 PASS", "isolated ownership registry with controlled Home/epoch fixtures"],
+      "expected": "Wrong Hub, Home, or stale epoch is rejected; no event is reparented or committed under another Home.",
+      "evidence_required": ["permanent_hub_identity", "home_epoch_before_after", "rejection_receipt", "durable_effect_count"],
+      "blocked_when": ["authoritative ownership fixture is not controlled or auditable"],
+      "separate_approval": ["D03", "D05", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-006",
+      "name": "Network outage and reconnect",
+      "targets": ["s3", "c3", "test_backend"],
+      "prerequisites": ["GS68-PHY-005 PASS", "approved bounded outage stimulus", "no unrelated network clients"],
+      "expected": "CloudSync pauses safely during outage, retains the exact pending event, and retries after secure reconnect.",
+      "evidence_required": ["outage_interval", "pending_event_before_after", "reconnect_tls_receipt", "retry_count"],
+      "blocked_when": ["outage stimulus may affect unrelated devices or production endpoints"],
+      "separate_approval": ["D16", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-007",
+      "name": "Hub restart and exact EventKey retry",
+      "targets": ["s3", "c3", "test_backend"],
+      "prerequisites": ["GS68-PHY-006 PASS", "approved restart method and pending-event ledger"],
+      "expected": "After an authorized restart, the original EventKey/body is retried byte-identically and not reparented.",
+      "evidence_required": ["event_key_before_after", "canonical_body_digest_before_after", "restart_cause", "backend_receipt"],
+      "blocked_when": ["restart procedure or event identity cannot be independently observed"],
+      "separate_approval": ["D11", "D15", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-008",
+      "name": "Duplicate suppression and durable backend completion",
+      "targets": ["s3", "c3", "test_backend"],
+      "prerequisites": ["GS68-PHY-007 PASS", "backend durable-commit receipt contract approved"],
+      "expected": "Repeated exact EventKey has one durable effect; only an exact durable receipt permits outbox completion.",
+      "evidence_required": ["exact_event_key", "durable_receipt_digest", "backend_effect_count", "outbox_completion_record"],
+      "blocked_when": ["receipt is not transaction-bound to the exact Home/Hub/epoch/EventKey"],
+      "separate_approval": ["D11", "GS-148 durable backend contract", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-009",
+      "name": "Heap, TLS timing, and runtime stability",
+      "targets": ["s3", "test_backend"],
+      "prerequisites": ["GS68-PHY-008 PASS", "approved D16 resource limits", "source-matched instrumented build"],
+      "expected": "Repeated TLS and CloudSync cycles remain within approved heap, timing, reset, and pending-work limits.",
+      "evidence_required": ["minimum_free_heap", "largest_free_block", "handshake_latency_samples", "reset_reason_delta", "run_duration"],
+      "blocked_when": ["numeric acceptance bounds or measurement methods remain unapproved"],
+      "separate_approval": ["D16", "fixture-specific physical authorization"]
+    },
+    {
+      "case_id": "GS68-PHY-010",
+      "name": "Signed firmware compatibility and rollback",
+      "targets": ["s3", "c3"],
+      "prerequisites": ["GS68-PHY-009 PASS", "approved signed image pair", "approved rollback and persistent-data recovery plan"],
+      "expected": "Authorized signed image update and failed-health rollback preserve identity, pending events, and durable completion state.",
+      "evidence_required": ["signed_image_manifest", "pre_post_slot_identity", "boot_health_record", "rollback_reason", "event_ledger_before_after"],
+      "blocked_when": ["signed images, rollback matrix, or destructive-operation authorization are absent"],
+      "separate_approval": ["D15", "GS-118", "fixture-specific physical authorization"]
+    }
+  ]
+}

@@ -4,10 +4,14 @@ using esp_err_t = int;
 constexpr esp_err_t ESP_OK = 0;
 enum esp_http_client_transport_t { HTTP_TRANSPORT_OVER_SSL };
 enum esp_http_client_method_t { HTTP_METHOD_POST };
+enum esp_http_client_tls_version_t { ESP_HTTP_CLIENT_TLS_VER_TLS_1_2 };
 struct esp_http_client_config_t {
     const char* url{};
     const char* cert_pem{};
+    const char* client_cert_pem{};
+    void* ds_data{};
     esp_http_client_transport_t transport_type{};
+    esp_http_client_tls_version_t tls_version{};
     bool skip_cert_common_name_check{};
     bool disable_auto_redirect{};
     int timeout_ms{}, buffer_size{}, buffer_size_tx{};

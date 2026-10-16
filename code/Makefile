@@ -69,7 +69,7 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
 
-.PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build gs114-s3-c8-p8-build gs114-s3-c8-p9-build physical-hil-catalogue-test validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test
+.PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build gs114-s3-c8-p8-build gs114-s3-c8-p9-build physical-hil-catalogue-test validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test gs68-cloudsync-diagnostic-build validation-cloudsync-hil
 .PHONY: s3-durable-outbox-host-test hub-segmented-outbox-runtime-host-test
 .PHONY: c8-ack-drop-gate-host-test
 .PHONY: c8-ack-hold-gate-host-test
@@ -574,9 +574,26 @@ P2D_TEST_BINARY ?= build/p2d_cloud_contract_validation
 .PHONY: p2d-cloud-contract-host-test
 GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES := firmware/hub/cloud_sync/http_backend_transport.cpp firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
 HOST_TEST_OBJECTS += $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES))
-p2d-cloud-contract-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES))
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES)) tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o $(P2D_TEST_BINARY)
+p2d-cloud-contract-host-test: $(P2D_TEST_BINARY)
 	$(P2D_TEST_BINARY)
+
+$(P2D_TEST_BINARY): $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES)) tests/cpp/p2d_cloud_contract_validation.cpp | build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES)) tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o $(P2D_TEST_BINARY)
+
+CLOUDSYNC_MTLS_ADAPTER_BINARY ?= build/cloudsync_mtls_adapter_validation
+.PHONY: cloudsync-security-ut cloudsync-security-sim-hil cloudsync-mtls-integration-test
+$(CLOUDSYNC_MTLS_ADAPTER_BINARY): firmware/hub/target/esp32s3/https_backend_channel.cpp firmware/hub/target/esp32s3/https_backend_channel.hpp tests/cpp/cloudsync_mtls_adapter_validation.cpp tests/cpp/p2d_idf_fake/esp_http_client.h | build
+	$(HOST_CXX) $(CXXFLAGS) -DCONFIG_ESP_TLS_USE_DS_PERIPHERAL=1 $(INCLUDES) -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o $@
+
+cloudsync-security-ut: $(CLOUDSYNC_MTLS_ADAPTER_BINARY)
+	$(CLOUDSYNC_MTLS_ADAPTER_BINARY)
+	PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_cloudsync_security.py' -v
+
+cloudsync-security-sim-hil:
+	PYTHONPATH=backend:. python3 tests/support/cloudsync_mtls_sim_hil.py
+
+cloudsync-mtls-integration-test: $(P2D_TEST_BINARY)
+	PYTHONPATH=backend:. python3 tests/support/cloudsync_mtls_sim_hil.py --integration-only
 
 .PHONY: gs148-cloud-worker-api-integration-host-test
 gs148-cloud-worker-api-integration-host-test: p2d-cloud-contract-host-test
@@ -635,7 +652,18 @@ validation-p0-e2e:
 	python3 validation/component_gate.py --suite p0-e2e $(VALIDATION_RECEIPTS)
 
 gs130-hil-runner-test:
-	PYTHONPATH=tools/hil python3 -m unittest discover -s tools/hil -p test_gs130_runners.py -v
+	PYTHONPATH=tools/hil python3 -m unittest discover -s tools/hil -p 'test_*_runners.py' -v
+
+# Isolated TEST_ONLY S3 diagnostic image. This target runs build+size only.
+gs68-cloudsync-diagnostic-build:
+	python3 scripts/build_gs68_cloudsync_diagnostic.py
+
+# GS-68 defaults to a local-only report. Physical execution is opt-in and checks
+# fixture/source/image/profile/backend authorization before exact by-id serial use.
+# The current diagnostic target has no approved DS identity and reports BLOCKED.
+# This target remains outside all unattended GS-116 software gates.
+validation-cloudsync-hil:
+	PYTHONPATH=tools/hil python3 tools/hil/gs68_cloudsync_hil.py $(GS68_HIL_ARGS)
 
 validation-board-hil:
 	python3 tools/hil/gs130_board_hil.py $(HIL_ARGS)

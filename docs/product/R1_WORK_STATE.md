@@ -1,5 +1,23 @@
 # R1 Current Work State
 
+## GS-68 selective CloudSync canonical integration — 2026-10-16
+
+The isolated integration candidate is based on canonical remote
+d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6 and selectively ports the latest
+validated committed CloudSync checkpoint
+44838da836d3014e606cfe2ee57ad624ee417240. GS-148 comment 11177 authorizes
+this software integration only. The separate CloudSync development branch and
+the active canonical/C8 worktree remain untouched.
+
+Integrated scope, conflict resolutions, focused rerun results, remaining
+baseline failures, and delivery checkpoint are tracked in the dated
+GS-68 CloudSync canonical integration evidence. The restricted S3 cloud
+identity/mTLS seam remains separate from commissioning identity; the TEST_ONLY
+diagnostic is opt-in and commercial CloudSync remains disabled. Physical cases
+remain NOT_RUN. Production trust/key custody, trusted time, rollback, and
+resource-limit decisions remain pending.
+
+
 ## GS-40 integration-readiness assessment — 2026-10-16 10:17 UTC
 
 Resumed from GS-40 Jira comment 11175 on canonical

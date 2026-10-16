@@ -1,0 +1,7 @@
+# Test-only S3 CloudSync DS/mTLS compilation profile.
+# This profile is NOT included by normal product builds and provisions no key.
+# GS-HIL-build/control flags remain OFF; no commissioning or ACK injection is enabled.
+CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y
+CONFIG_MBEDTLS_HARDWARE_RSA_DS_PERIPHERAL=y
+CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y
+# CONFIG_MBEDTLS_SSL_PROTO_TLS1_3 is not set

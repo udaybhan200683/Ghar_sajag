@@ -6,6 +6,33 @@ from validation import component_gate as gate
 ROOT=gate.ROOT
 
 class ComponentGateTest(unittest.TestCase):
+    def test_cloudsync_mtls_stages_are_mandatory_and_fail_closed(self):
+        data=gate.load_registry()
+        ids={"cloudsync-security-unit","cloudsync-security-sim-hil","cloudsync-mtls-integration"}
+        by_id={stage["id"]:stage for stage in data["stages"]}
+        for suite in ("fast","release","hub","contract","backend"):
+            self.assertLessEqual(ids,{stage["id"] for stage in gate.select(data,suite)})
+        self.assertEqual(by_id["cloudsync-mtls-integration"]["prerequisites"],
+                         ["cloudsync-security-sim-hil","cloud-contract"])
+        for name,count,marker in (("cloudsync-security-unit",8,"CLOUDSYNC MTLS ADAPTER"),
+                                  ("cloudsync-security-sim-hil",18,"CLOUDSYNC MTLS SIM HIL"),
+                                  ("cloudsync-mtls-integration",1,"CLOUDSYNC MTLS INTEGRATION")):
+            stage=by_id[name]
+            self.assertTrue(stage["fast"] and stage["release"])
+            summary=f"{marker} PASS cases={count} physical=NOT_RUN\n"
+            extras={
+                "cloudsync-security-unit":"Ran 12 tests\nGS-CLOUD-MTLS-UT-008 PASS\n",
+                "cloudsync-security-sim-hil":'"physical": "NOT_RUN", "status": "PASS"\n',
+                "cloudsync-mtls-integration":'RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2\n"physical": "NOT_RUN", "status": "PASS"\n',
+            }[name]
+            # The registered marker and every prerequisite evidence pattern are
+            # required even if the subprocess itself exits successfully.
+            self.assertEqual(gate.adjudicate(stage,self.result(summary)),"FAIL")
+            self.assertEqual(gate.adjudicate(stage,self.result(summary+extras)),"PASS")
+            self.assertEqual(gate.adjudicate(stage,self.result(summary+extras,rc=1)),"FAIL")
+            self.assertEqual(gate.adjudicate(stage,self.result(summary.replace(f"cases={count}","cases=0")+extras)),"FAIL")
+            self.assertEqual(gate.adjudicate(stage,self.result(summary.replace("physical=NOT_RUN","physical=PASS")+extras)),"FAIL")
+        self.assertFalse(gate.software_report_status([{"status":"PASS"}],physical="NOT_RUN")["physically_qualified"])
     def stage(self,**kwargs):
         return {"id":"sample","success":r"^PASS tests=(\d+)$","allowed_skips":[],**kwargs}
     def result(self,output="PASS tests=1\n",rc=0):
@@ -306,7 +333,13 @@ class ComponentGateTest(unittest.TestCase):
     def test_physical_hil_is_registered_opt_in_and_not_in_software_suites(self):
         data=gate.load_registry()
         physical=data["opt_in_physical_suites"]
-        self.assertEqual(set(physical),{"validation-board-hil","validation-motion-hil"})
+        self.assertEqual(set(physical),{"validation-board-hil","validation-motion-hil","validation-cloudsync-hil"})
+        runner_stage=next(s for s in data["stages"] if s["id"]=="gs130-hil-runner-integrity")
+        self.assertTrue(runner_stage.get("fast"))
+        self.assertTrue(runner_stage.get("release"))
+        self.assertTrue({"tooling","hub","contract","backend"}.issubset(runner_stage["components"]))
+        for suite in ("hub","contract","backend","tooling","fast","release"):
+            self.assertIn(runner_stage,gate.select(data,suite))
         makefile=(ROOT/"Makefile").read_text()
         for name, item in physical.items():
             self.assertFalse(item["automatic"])
@@ -319,5 +352,6 @@ class ComponentGateTest(unittest.TestCase):
             ids={stage["id"] for stage in gate.select(data,suite)}
             self.assertNotIn("validation-board-hil",ids)
             self.assertNotIn("validation-motion-hil",ids)
+            self.assertNotIn("validation-cloudsync-hil",ids)
 
 if __name__=="__main__":unittest.main()

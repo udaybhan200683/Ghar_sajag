@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "backend_id": null,
+  "environment": "TEST_ONLY",
+  "base_url": null,
+  "server_name": null,
+  "tls_version": "TLS1.2",
+  "trusted_ca_sha256": null,
+  "server_certificate_sha256": null,
+  "client_certificate_sha256": null,
+  "hub_id": null,
+  "home_id": null,
+  "installation_epoch": null,
+  "credential_reference": null,
+  "trusted_time_evidence_reference": null,
+  "ownership_fixture_reference": null,
+  "readiness_receipt": null,
+  "evidence_signing_public_key_path": null,
+  "evidence_signing_public_key_sha256": null,
+  "readiness_receipt_path": null,
+  "readiness_receipt_sha256": null,
+  "commercial_sending_enabled": false,
+  "production_credentials_used": false,
+  "notes": [
+    "Descriptor only: the dry-run runner does not contact this endpoint or retrieve credentials.",
+    "Use an isolated backend hostname under the reserved .test domain and secret references only.",
+    "Do not store private keys, bearer tokens, passwords, CA contents, or credential values here."
+  ]
+}

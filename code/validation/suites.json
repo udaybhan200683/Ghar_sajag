@@ -1113,6 +1113,116 @@
       "timeout": 600
     },
     {
+      "id": "cloudsync-security-unit",
+      "components": ["hub", "contract", "backend"],
+      "command": ["make", "cloudsync-security-ut"],
+      "inputs": [
+        "firmware/hub/target/esp32s3/https_backend_channel.cpp",
+        "firmware/hub/target/esp32s3/https_backend_channel.hpp",
+        "backend/ghar_sajag/cloud_client_identity.py",
+        "tests/cpp/cloudsync_mtls_adapter_validation.cpp",
+        "tests/cpp/p2d_idf_fake/esp_http_client.h",
+        "tests/support/test_cloudsync_security.py",
+        "tests/support/cloudsync_mtls_certs.py"
+      ],
+      "success": "^CLOUDSYNC MTLS ADAPTER PASS cases=(8) physical=NOT_RUN$",
+      "required_success": ["Ran 12 tests", "^GS-CLOUD-MTLS-UT-008 PASS$"],
+      "timeout": 600,
+      "count_kind": "cases",
+      "fast": true,
+      "release": true
+    },
+    {
+      "id": "cloudsync-security-sim-hil",
+      "components": ["hub", "contract", "backend"],
+      "prerequisites": ["cloudsync-security-unit"],
+      "command": ["make", "cloudsync-security-sim-hil"],
+      "inputs": [
+        "tests/support/cloudsync_mtls_sim_hil.py",
+        "tests/support/cloudsync_mtls_local.py",
+        "tests/support/cloudsync_mtls_certs.py",
+        "backend/ghar_sajag/cloud_client_identity.py",
+        "backend/ghar_sajag/durable_api.py",
+        "backend/ghar_sajag/durable_commit.py",
+        "backend/ghar_sajag/database.py",
+        "backend/ghar_sajag/homes.py",
+        "backend/ghar_sajag/http_api.py",
+        "backend/ghar_sajag/identity.py",
+        "backend/ghar_sajag/model.py",
+        "backend/ghar_sajag/ownership_registry.py",
+        "backend/ghar_sajag/queries.py",
+        "backend/ghar_sajag/service.py",
+        "backend/ghar_sajag/sqlite_events.py",
+        "backend/migrations/008_durable_event_commit.sql",
+        "backend/migrations/009_hub_ownership_registry.sql",
+        "backend/migrations/010_durable_commit_ownership_provenance.sql"
+      ],
+      "success": "^CLOUDSYNC MTLS SIM HIL PASS cases=(18) physical=NOT_RUN$",
+      "required_success": ["\"physical\": \"NOT_RUN\", \"status\": \"PASS\""],
+      "timeout": 600,
+      "count_kind": "cases",
+      "fast": true,
+      "release": true
+    },
+    {
+      "id": "cloudsync-mtls-integration",
+      "components": ["hub", "contract", "backend"],
+      "prerequisites": ["cloudsync-security-sim-hil", "cloud-contract"],
+      "command": ["make", "cloudsync-mtls-integration-test"],
+      "inputs": [
+        "tests/support/cloudsync_mtls_sim_hil.py",
+        "tests/support/cloudsync_mtls_local.py",
+        "tests/support/cloudsync_mtls_certs.py",
+        "tests/cpp/p2d_cloud_contract_validation.cpp",
+        "tests/cpp/hub_mixed_body_compaction_validation.cpp",
+        "tests/cpp/hub_runtime_checkpoint_validation.cpp",
+        "tests/cpp/hub_segmented_outbox_runtime_validation.cpp",
+        "tests/support/host/security/openssl_commissioning_crypto.cpp",
+        "firmware/hub/target/esp32s3/https_backend_channel.cpp",
+        "firmware/hub/target/esp32s3/https_backend_channel.hpp",
+        "firmware/hub/cloud_sync/cloud_sync.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.hpp",
+        "firmware/hub/cloud_sync/http_backend_transport.cpp",
+        "firmware/hub/cloud_sync/http_backend_transport.hpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/storage/journal.cpp",
+        "firmware/hub/storage/journal.hpp",
+        "firmware/hub/storage/durable_event_outbox.cpp",
+        "firmware/hub/storage/durable_event_outbox.hpp",
+        "firmware/hub/storage/outbox_journal_backend.cpp",
+        "firmware/hub/storage/outbox_journal_backend.hpp",
+        "firmware/hub/storage/runtime_state_store.cpp",
+        "firmware/hub/storage/runtime_state_store.hpp",
+        "backend/ghar_sajag/cloud_client_identity.py",
+        "backend/ghar_sajag/durable_api.py",
+        "backend/ghar_sajag/durable_commit.py",
+        "backend/ghar_sajag/database.py",
+        "backend/ghar_sajag/homes.py",
+        "backend/ghar_sajag/http_api.py",
+        "backend/ghar_sajag/identity.py",
+        "backend/ghar_sajag/model.py",
+        "backend/ghar_sajag/ownership_registry.py",
+        "backend/ghar_sajag/queries.py",
+        "backend/ghar_sajag/service.py",
+        "backend/ghar_sajag/sqlite_events.py",
+        "backend/migrations/001_p0_core.sql",
+        "backend/migrations/003_phase1_application.sql",
+        "backend/migrations/004_cloud_event_history.sql",
+        "backend/migrations/005_phase2b_notifications.sql",
+        "backend/migrations/007_phase3b_household_event_identity.sql",
+        "backend/migrations/008_durable_event_commit.sql",
+        "backend/migrations/009_hub_ownership_registry.sql",
+        "backend/migrations/010_durable_commit_ownership_provenance.sql"
+      ],
+      "success": "^CLOUDSYNC MTLS INTEGRATION PASS cases=(1) physical=NOT_RUN$",
+      "required_success": ["RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2", "\"physical\": \"NOT_RUN\", \"status\": \"PASS\""],
+      "timeout": 900,
+      "count_kind": "cases",
+      "fast": true,
+      "release": true
+    },
+    {
       "id": "cloud-contract",
       "components": [
         "hub",
@@ -1774,19 +1884,40 @@
     {
       "id": "gs130-hil-runner-integrity",
       "components": [
-        "tooling"
+        "tooling",
+        "hub",
+        "contract",
+        "backend"
       ],
       "command": [
         "make",
         "gs130-hil-runner-test"
       ],
       "inputs": [
+        "Makefile",
+        "validation/suites.json",
+        "validation/component_gate.py",
+        "tests/python/test_component_gate.py",
         "tools/hil/gs130_fixture.json",
         "tools/hil/gs130_hil_common.py",
         "tools/hil/gs130_board_hil.py",
         "tools/hil/gs130_motion_hil.py",
         "tools/hil/test_gs130_runners.py",
-        "../docs/validation/PHYSICAL_HIL_CATALOGUE.csv"
+        "tools/hil/gs68_cloudsync_hil.py",
+        "tools/hil/gs68_capture.py",
+        "tools/hil/gs68_test_backend.py",
+        "tools/hil/test_gs68_cloudsync_runners.py",
+        "tools/hil/test_gs68_physical_runners.py",
+        "tools/hil/gs68_cloudsync_cases.json",
+        "tools/hil/gs68_spare_fixture.template.json",
+        "tools/hil/gs68_test_backend.template.json",
+        "firmware/hub/target/esp32s3/idf/sdkconfig.gs68_cloudsync_hil.defaults",
+        "firmware/hub/target/esp32s3/idf/CMakeLists.txt",
+        "firmware/hub/target/esp32s3/idf/gs68_cloudsync_diagnostic/CMakeLists.txt",
+        "firmware/hub/target/esp32s3/idf/gs68_cloudsync_diagnostic/app_main.cpp",
+        "scripts/build_gs68_cloudsync_diagnostic.py",
+        "../docs/validation/PHYSICAL_HIL_CATALOGUE.csv",
+        "../docs/validation/PHYSICAL_QUALIFICATION.csv"
       ],
       "success": "Ran (\\d+) tests?",
       "timeout": 120,
@@ -1950,6 +2081,17 @@
       "requires_operator_confirmation": true,
       "runner": "tools/hil/gs130_motion_hil.py",
       "scope": "operator-confirmed genuine AM312 motion with read-only serial capture"
+    },
+    "validation-cloudsync-hil": {
+      "command": [
+        "make",
+        "validation-cloudsync-hil"
+      ],
+      "automatic": false,
+      "included_in_software_gates": false,
+      "requires_operator_confirmation": true,
+      "runner": "tools/hil/gs68_cloudsync_hil.py",
+      "scope": "safe local dry-run by default; physical mode is opt-in after exact fixture authorization and provenance checks; current S3 diagnostic fails closed without approved DS identity and paired C3 capture support"
     }
   }
 }

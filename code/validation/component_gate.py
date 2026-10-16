@@ -36,7 +36,7 @@ def load_registry(path=REGISTRY, root=ROOT):
         if len(prerequisites)!=len(set(prerequisites)) or s["id"] in prerequisites or set(prerequisites)-ids:
             raise ValueError("missing, duplicate, or self prerequisite for stage: "+s["id"])
     for name, suite in data.get("opt_in_physical_suites", {}).items():
-        if name not in {"validation-board-hil", "validation-motion-hil"}:
+        if name not in {"validation-board-hil", "validation-motion-hil", "validation-cloudsync-hil"}:
             raise ValueError("unknown physical suite: "+name)
         if suite.get("automatic") is not False or suite.get("included_in_software_gates") is not False:
             raise ValueError("physical suites must remain explicitly opt-in: "+name)

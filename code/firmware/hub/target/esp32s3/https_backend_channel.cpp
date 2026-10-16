@@ -8,6 +8,10 @@ HttpsBackendChannel::HttpsBackendChannel(std::string origin, std::string trusted
                                          std::string authorization)
     : origin_(std::move(origin)), trusted_ca_(std::move(trusted_ca)),
       authorization_(std::move(authorization)) {}
+HttpsBackendChannel::HttpsBackendChannel(std::string origin, std::string trusted_ca,
+                                         CloudTlsIdentityProvider& cloud_identity)
+    : origin_(std::move(origin)), trusted_ca_(std::move(trusted_ca)),
+      cloud_identity_(&cloud_identity) {}
 HttpsBackendChannel::~HttpsBackendChannel() {
     volatile char* secret = authorization_.data();
     for (std::size_t i = 0; i < authorization_.size(); ++i) secret[i] = 0;
@@ -15,10 +19,26 @@ HttpsBackendChannel::~HttpsBackendChannel() {
 BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std::string& body) {
     BackendHttpResponse result;
     const auto deadline = esp_timer_get_time() + 5000000;
+    CloudTlsIdentity identity;
+    if (cloud_identity_ != nullptr) {
+        if (!cloud_identity_->current_identity(identity) ||
+            identity.purpose != CloudTlsIdentity::Purpose::CloudTlsClient ||
+            identity.rsa_bits != 3072 || identity.ds_context == nullptr ||
+            identity.client_certificate_pem.empty() ||
+            identity.client_certificate_pem.size() > 8192 ||
+            identity.client_certificate_pem.find("-----BEGIN CERTIFICATE-----") != 0 ||
+            !authorization_.empty()) return result;
+#if !CONFIG_ESP_TLS_USE_DS_PERIPHERAL
+        // The SDK must be built with DS-backed ESP-TLS. Never fall back to a
+        // software key, commissioning key or bearer authorization.
+        return result;
+#endif
+    }
     // A fixed HTTPS origin; no userinfo, fragments, queries, redirects or paths.
     if (origin_.compare(0, 8, "https://") != 0 || origin_.size() > 256 ||
         origin_.size() == 8 || origin_.find_first_of("/@?#\r\n", 8) != std::string::npos ||
-        trusted_ca_.empty() || trusted_ca_.size() > 8192 || authorization_.empty() ||
+        trusted_ca_.empty() || trusted_ca_.size() > 8192 ||
+        (cloud_identity_ == nullptr && authorization_.empty()) ||
         authorization_.size() > 1024 || authorization_.find_first_of("\r\n") != std::string::npos ||
         path.compare(0, 10, "/v1/homes/") != 0 || path.size() > 128 ||
         body.empty() || body.size() > HttpBackendTransport::kMaximumRequestBytes) return result;
@@ -33,6 +53,15 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
     config.buffer_size = 1024;
     config.buffer_size_tx = 1024;
     config.method = HTTP_METHOD_POST;
+#if CONFIG_ESP_TLS_USE_DS_PERIPHERAL
+    if (cloud_identity_ != nullptr) {
+        // Candidate profile exercised by the host mTLS integration and current
+        // ESP-IDF 6.0.3 S3 build. Production TLS-profile approval is still pending.
+        config.tls_version = ESP_HTTP_CLIENT_TLS_VER_TLS_1_2;
+        config.client_cert_pem = identity.client_certificate_pem.c_str();
+        config.ds_data = identity.ds_context;
+    }
+#endif
     auto client = esp_http_client_init(&config);
     if (client == nullptr) return result;
     struct Cleanup {
@@ -40,7 +69,8 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
         ~Cleanup() { esp_http_client_close(client); esp_http_client_cleanup(client); }
     } cleanup{client};
     if (esp_http_client_set_header(client, "Content-Type", "application/json") != ESP_OK ||
-        esp_http_client_set_header(client, "Authorization", authorization_.c_str()) != ESP_OK ||
+        (cloud_identity_ == nullptr &&
+         esp_http_client_set_header(client, "Authorization", authorization_.c_str()) != ESP_OK) ||
         esp_http_client_open(client, static_cast<int>(body.size())) != ESP_OK) return result;
     std::size_t sent = 0;
     while (sent < body.size()) {

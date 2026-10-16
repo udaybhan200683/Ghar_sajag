@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "fixture_id": "GS68-SPARE-UNASSIGNED",
+  "fixture_class": "DISPOSABLE_RND_ONLY",
+  "purpose": "GS-68 RSA-3072 DS and TLS 1.2 mTLS physical qualification; not GS-114 C8",
+  "physical_authorization": {
+    "status": "NOT_AUTHORIZED",
+    "jira_comment": null,
+    "authorized_case_ids": []
+  },
+  "source_commit": null,
+  "identity_receipt": {
+    "method": "READ_ONLY_DEVICE_IDENTITY",
+    "path": null,
+    "sha256": null
+  },
+  "profile": {
+    "profile_id": "GS68_CLOUDSYNC_DS_MTLS_HIL",
+    "config_path": "code/firmware/hub/target/esp32s3/idf/sdkconfig.gs68_cloudsync_hil.defaults",
+    "profile_sha256": null,
+    "build_report": null
+  },
+  "diagnostic_identity_reference": null,
+  "test_network_profile_reference": null,
+  "boards": {
+    "s3": {
+      "target": "ESP32-S3",
+      "flash_mb": 16,
+      "psram_mb": 8,
+      "identity": {
+        "mac_address": null,
+        "usb_serial_short": null,
+        "port_by_id": null
+      },
+      "image": {
+        "path": null,
+        "sha256": null
+      }
+    },
+    "c3": {
+      "target": "ESP32-C3",
+      "flash_mb": null,
+      "psram_mb": 0,
+      "identity": {
+        "mac_address": null,
+        "usb_serial_short": null,
+        "port_by_id": null
+      },
+      "image": {
+        "path": null,
+        "sha256": null
+      }
+    }
+  },
+  "notes": [
+    "Fill only after separately authorized, read-only spare-board identity inspection; the runner never discovers ports.",
+    "Never copy identity or paths from tools/hil/gs130_fixture.json.",
+    "Keep credential references in approved secret storage; never place credential values here.",
+    "This template is intentionally incomplete and cannot authorize a run."
+  ]
+}
