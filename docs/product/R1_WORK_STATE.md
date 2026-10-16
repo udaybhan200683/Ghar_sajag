@@ -1,5 +1,47 @@
 # R1 Current Work State
 
+## GS-40 integration-readiness assessment — 2026-10-16 10:17 UTC
+
+Resumed from GS-40 Jira comment 11175 on canonical
+`feature/r1-commercial-baseline`, starting HEAD and verified remote HEAD
+`09fcb9421fafb949bc14a2c295517942c00b1308`. The separate GS-109/GS-68
+worktree remains unchanged. Existing untracked frontend assets, managed
+components, and BAT-C8/GS-40 evidence were preserved.
+
+Source review refined the backend finding: `FoundationService` already has
+host-side per-Node health storage, policy, expiry and a device view; configured
+300/910 and legacy 60/190, 120/310 profiles exist. This host model is not wired
+to authenticated S3 CloudSync publication, and the caregiver API/PWA snapshot
+still has no per-Node status/coverage projection. GS-109 owns the approved Hub
+identity/verifier/ownership and trusted-time decisions; GS-148 owns production
+CloudSync publication, backend ingest/read model, and PWA response integration.
+No parallel transport, credential, or event storage was added.
+
+The existing seven-case GS-40 runner accepts the normalized timing/status
+bundle without changing the 300/910 liveness rule. Its schema does not validate
+Hub principal/Home/ownership-epoch provenance; those fields and their
+verification must be finalized by GS-109/GS-148. Its live mode remains
+BLOCKED. No independent GS-40 product defect can be safely fixed until those
+owner contracts exist; no code or tests were changed or rerun in this
+assessment.
+
+The evidence report now defines the minimum semantic publication/caregiver
+contract, producer/consumer ownership, production integration checks, and exact
+TC01–TC06 order. Existing C8-P1/P2 are reused only for their image-scoped
+sleep/wake/ESP-NOW and real event durability subclaims; they do not satisfy
+GS-40 cadence, offline, mixed-profile, or PWA cases. All physical cases remain
+BLOCKED/NOT_RUN. Current bench is one C3 plus one S3; TC05 requires at least a
+second trusted Node or approved fixture (three Nodes/fixture if three profiles
+must run concurrently). A matched Hub image with the GS-148 path will be needed
+after that path is implemented; any install needs separate exact approval.
+
+No hardware, serial, USB, mock campaign, replay campaign, or code test was run.
+This documentation-only change passed `git diff --check`; no component or
+product test was applicable. The final commit and remote HEAD verification are
+recorded in the dated GS-40 Jira follow-up. The next action is owner delivery
+under GS-109/GS-148, not another independent GS-40 code change. Keep GS-40 In
+Progress; do not claim physical PASS or Done.
+
 ## GS-40 production-path readiness follow-up — 2026-10-16 09:50 UTC
 
 Resumed from GS-40 Jira comment 11170. The completed automation branch was

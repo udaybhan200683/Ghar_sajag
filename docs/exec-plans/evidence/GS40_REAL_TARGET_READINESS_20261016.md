@@ -42,15 +42,159 @@ preserved without rerun or modification.
 | S3 Hub ingress | `code/firmware/hub/target/esp32/hub_runtime_adapter.cpp` decodes NodeHealth and calls authenticated HubRuntime ingress after transport/session checks. | Present. |
 | Hub lease | `code/firmware/hub/runtime/hub_runtime.cpp` tracks NodeHealth and authenticated contact in volatile maps; target logs are local. | Present locally; restart persistence/cloud export are not established. |
 | CloudSync | `code/firmware/hub/cloud_sync/cloud_sync.*` implements durable event synchronization. `code/firmware/hub/target/esp32/idf/main/app_main.cpp` does not instantiate `CloudSyncWorker` or a trusted cloud authority source. No NodeHealth publisher exists. | Missing in production target. |
-| Backend | `code/backend/ghar_sajag/http_api.py` is a local WSGI host adapter. `durable_api.py` requires caller-provided trusted Hub authentication and does not implement it. `queries.py` has no NodeHealth projection. `DATA_MODEL.md` describes tables/target direction, not active S3 deployment composition. | No production authenticated health ingest or freshness read model. |
+| Backend | `FoundationService.record_health()`, `expire_stale()`, `devices()` and `node_health_policy.py` provide host-side health storage, per-device policy and views. They are not reached from authenticated S3 CloudSync. `http_api.py` is a local WSGI host adapter; `durable_api.py` requires caller-provided trusted Hub authentication. The caregiver `queries.snapshot()` projects Hub event reachability, not per-Node NodeHealth. | Reusable host policy/model exists; production authenticated ingest and caregiver read projection are missing. |
 | Caregiver PWA | `code/frontend/src/features/home/index.mjs` and `code/frontend/public/app.mjs` project Hub/events but no per-Node NodeHealth state. | No Node online/offline/unknown coverage projection from authenticated contact. |
 
 The existing Foundation and PWA host suites do not close this path: they
 exercise host/simulated state and cannot establish a running S3 publication,
-production Hub authentication, or caregiver visibility. Jira GS-109 comments
-11172 and GS-148 comment 11173 confirm the relevant identity/API ownership and
-that the related source remains incomplete. GS-40 leaves those decisions with
-their owners.
+production Hub authentication, or caregiver visibility. Jira GS-109 comment
+11172 and GS-148 comment 11173 confirm that the approved production identity,
+credential/verifier, and deployment contracts remain incomplete. GS-40 leaves
+those decisions and implementations with their owners.
+
+## Minimum authenticated publication and caregiver contract
+
+This is a semantic integration acceptance contract derived from the existing
+GS-40 300/910 policy, current coverage semantics, and GS-109/GS-148 ownership.
+It does not prescribe a new wire format, cryptographic scheme, credential
+lifecycle, or durable-event API.
+
+| Information required end-to-end | Existing source / state | Missing owner or boundary |
+|---|---|---|
+| Trusted Node identity, authenticated Node transport session, health sequence or authenticated application-contact reference, and contact kind (NodeHealth or already-authenticated event contact) | C3 protocol and Hub ingress decode these; `HubRuntime::observe_authenticated_health/contact()` verifies Node/session binding, monotonic sequence/contact time and maintains per-Node volatile state. | S3 publication must preserve the Hub-accepted identity/session/contact without treating MAC TX success as receipt. GS-148 owns the export; no cloud publisher exists today. |
+| Hub principal, Home binding and current ownership epoch, plus a verifier decision | Existing CloudSync authority interfaces model a binding, but the commercial S3 composition has no trusted authority source. A Home ID or HTTP header alone is not proof. | GS-109 D05/D12 owns the accepted Hub identity/key custody and verifier contract; GS-148 must consume that approved result. Candidate mTLS/DS work is not production approval. |
+| Effective per-Node timing profile and source of trust for that assignment | C3 config uses the configured 300-second interval and derives 910 seconds; Hub has a per-Node offline-timeout setter; backend `node_health_policy.py` already maps configured, legacy 60/190 and legacy 120/310 policy. | Integrate one trusted identity-to-profile assignment across Hub/backend. Unknown or untrusted identity/profile must remain UNKNOWN. Do not let a Node self-assert a profile. |
+| Hub receive timestamp and backend receive/snapshot timestamp, with session/sequence/contact correlation | Hub currently records monotonic receive time in volatile runtime state; backend host `record_health()` accepts a received-contact timestamp and prevents stale/out-of-order health from refreshing liveness. | GS-109 must settle any trusted-time basis needed by the cloud contract; GS-148 must preserve source receive time separately from server receive time and event occurrence time. Do not use send time, retained occurrence time, UI refresh time, or MAC success as a fresh Node contact. |
+| Hub Node lease state and source connectivity (Hub, Internet, backend) | Hub runtime has the per-Node lease/profile state. Backend host helpers derive Node status; caregiver snapshot currently has only Hub event reachability. | GS-148 must publish/read a per-Node status and independent Hub/cloud source freshness. Apply configured 300/910 (offline only at strict `age > 910s`), legacy 60/190, and 120/310; keep the separate 190-second Hub/cloud freshness from Node lease policy. |
+| Backend caregiver projection: Node ONLINE/OFFLINE/UNKNOWN, coverage COVERED/UNKNOWN, last authenticated contact, effective profile/lease, and freshness/source state | Backend host model has parts of the health policy/storage; `queries.snapshot()` does not return per-Node NodeHealth. | GS-148 owns authenticated health ingest, read model/API and caregiver projection. Health publication must be additive to CloudSync and must not create synthetic events, EventKeys, ACKs, or alter durable event commit/retirement. |
+| PWA rendering of the same per-Node identity/contact/status plus a distinct resident-activity signal | Current Home PWA shows Hub/event-derived home state, not per-Node NodeHealth or monitoring coverage. | GS-148 owns the production response contract and PWA projection. No resident motion must remain distinct from missing sensor coverage; stale/untrusted source is never shown covered. |
+
+The minimum end-to-end result is therefore: a currently authorized Hub
+publishes a newly authenticated Node application contact for the registered
+Node/profile; backend accepts it only under the approved Hub/Home/epoch
+authority and retains correlated source and server times; backend derives the
+per-Node lease and coverage without changing Node liveness policy; caregiver
+snapshot and PWA display that same identity/contact/status with Hub/cloud
+freshness independently visible. Event durability/ACK behavior remains on its
+existing path.
+
+### Existing seven-case runner compatibility
+
+`assess_observation_bundle()` already consumes a normalized timing/status view
+with `schema_version`, `captured_at_utc`, `node`, `hub`, `backend`, and `pwa`
+layers. The contact carries Node identity, authenticated flag, session,
+contact ID and Hub-received time; the downstream layers carry the matching
+contact, liveness/coverage state, source reachability, cloud contact time and
+PWA snapshot time. It applies the existing configured 300/910 and legacy
+60/190, 120/310 profiles, plus independent 190-second source freshness; this
+does not modify product policy.
+
+The normalized view is sufficient for the existing seven cases' timing,
+status, outage, recovery and UI assertions. It is **not** the complete trust
+evidence contract: schema v1 does not name/correlate the Hub principal, Home,
+ownership epoch, or verifiable provider attestation. Extra JSON fields are
+currently ignored by the pure validator. Jira/GS-109/GS-148 must settle and
+publish those provenance fields before a live collector can validate them.
+Until then `LIVE_CURRENT_TARGET` remains BLOCKED even if the status fields look
+consistent; no JSON assertion can promote itself to physical evidence. No
+liveness-policy or runner change is made in this assessment.
+
+### Integration acceptance checks for GS-109/GS-148 delivery
+
+1. Reject missing, untrusted, revoked or wrong-Home/epoch Hub authority; do not
+   update Node health or show the Node healthy.
+2. Bind every contact to the registered Node identity and authenticated
+   session. Reject stale/replayed health sequence/contact; MAC-level success
+   alone never refreshes the lease.
+3. Carry Hub receive time, backend receive time, health sequence/contact ID,
+   Node identity and effective trusted profile through backend and PWA. Keep
+   these separate from Node occurrence/send time and UI fetch time.
+4. Use configured 300/910, legacy 60/190 and legacy 120/310 per trusted Node;
+   keep unknown identity/profile UNKNOWN. Verify 910 is ONLINE at the
+   inclusive boundary and OFFLINE only after it.
+5. Show ONLINE only for a current authenticated contact; after a silent Node
+   lease expires, show Node OFFLINE while the Hub/cloud source remains
+   reachable. Do not confuse that with resident inactivity.
+6. Distinguish Hub unreachable from Internet/backend unreachable. When the
+   caregiver cannot receive a fresh authoritative projection, coverage is
+   UNKNOWN and must not remain falsely COVERED; preserve last-source ages.
+7. Verify authenticated event contact piggyback/suppression without changing
+   event priority, EventKey, durable-before-ACK, retry, replay, or retirement.
+8. Rejoin the same Node/session policy without a new motion requirement;
+   preserve pending EventKeys and chronological order, reject replay, and
+   restore caregiver status only after fresh authenticated contact.
+9. Verify backend's caregiver snapshot and actual PWA rendering for ONLINE,
+   OFFLINE and UNKNOWN, with the exact same Node/contact/profile and
+   timestamps. Prove resident inactivity does not change coverage.
+10. Run these as production-code Hub-to-CloudSync-to-backend-to-PWA contract
+    tests, including mixed profiles and missing/untrusted identity; synthetic
+    runner HOST_PASS does not satisfy this acceptance.
+
+### Existing evidence reuse and physical TC01–TC06 order
+
+Reuse, without rerunning, the recorded GS-114 C8 evidence only for the claims it
+actually establishes: C8-P1 is ten C3 timer sleep/wake cycles and authenticated
+post-wake NodeHealth at the Hub; C8-P2 is real AM312 motion with one durable
+EventKey admission, authenticated ACK and retirement over ESP-NOW while C3 USB
+was unavailable. These results show that native C3 USB disappearance does not
+mean Node/radio failure. They do not show six quiet opportunities, the 910-second
+lease, event-health suppression at a due opportunity, current image/config,
+mixed profiles, or caregiver visibility. Catalogue HIL-A03 additionally has
+one recorded 300-second authenticated health opportunity for its own attempt06
+fixture; it is at most one image-scoped sample, not a six-opportunity TC01
+result. None of these records identifies the presently installed images.
+
+After the GS-109/GS-148 contract tests pass, a non-resetting observer is
+available, and the board/image/config/session/pending-event provenance is
+verified, execute in this order. Capture one timestamped correlated evidence
+bundle continuously; keep each case's verdict separate:
+
+1. **TC01 / PHY-GS40-01:** baseline the enrolled C3/S3 identities, image
+   hashes, effective config/profile, session and pending EventKeys. Observe six
+   quiet 300-second opportunities (nominally 300 through 1800 seconds); record
+   schedule, Hub-authenticated receipt and backend/PWA observation for every
+   unique contact. Reject duplicate/missing/unauthenticated reports and false
+   offline transitions. C8-P1/HIL-A03 can only support their recorded
+   image-scoped subclaims.
+2. **TC02 / PHY-GS40-02:** at a due health opportunity, use one explicitly
+   approved real sensor motion and correlate the MAC result, authenticated Hub
+   application acceptance, EventKey/durable ACK state and health scheduler.
+   Prove only authenticated event contact suppresses the redundant standalone
+   health report. Reuse C8-P2 for its event/durability subclaims; do not repeat
+   that motion test merely to reprove EventKey ACK.
+3. **TC03 / PHY-GS40-03 then TC04 / PHY-GS40-04:** first record a non-empty
+   pending EventKey baseline if the case is to claim pending-event preservation.
+   With the Node powered and using a specifically approved NVS-preserving
+   silence method, retain the Hub and Internet as controls; observe immediately
+   before, at 910 seconds, and just after strict `>910s`. Then restore the same
+   Node through normal rejoin without new motion; correlate new authenticated
+   contact and restored PWA coverage, compare pending EventKeys before/after,
+   and verify chronology/replay rejection. If no pending key exists or the
+   authorized silence/recovery method cannot preserve identity, that subclaim
+   remains NOT_RUN; do not reset or clear storage.
+4. **TC05 / PHY-GS40-05:** require at least two independently identified and
+   enrolled C3 Nodes as the catalogue states, with trusted profile assignments
+   and the Hub observing them concurrently. Exercise legacy 60/190,
+   legacy 120/310 and configured 300/910 boundaries plus an unknown/untrusted
+   identity. If all three profiles must be concurrent, provide three Nodes or
+   an approved qualified fixture. Two Nodes cover all three across separate
+   rounds only if owner-approved trusted profile reassignment is available;
+   otherwise use three Nodes or the approved fixture.
+5. **TC06 / PHY-GS40-06:** use the actual caregiver account/PWA and production
+   API throughout TC01–TC05. Verify online, silent-Node offline, and unknown
+   coverage for Hub disconnection and Internet/backend outage; correlate
+   displayed status, identity, last authenticated contact and source ages to
+   backend. Network changes/outages require explicit approval; do not infer a
+   Node failure from an unreachable source.
+
+Stop before any physical case if identities, effective profile, running image,
+session, pending-event baseline or the trustworthy observer are unknown. The
+current one-C3/one-S3 bench can support TC01–TC04 and TC06 after those gates;
+it cannot meet TC05. The active Hub image must contain the GS-148 publication
+path; because that path is absent from current S3 composition, a matching Hub
+firmware installation is expected after implementation unless a future
+verified image already contains it. Any flash/install requires its own exact
+authorization. No hardware operation is authorized by this assessment.
 
 ## Reusable observation-bundle adapter
 
