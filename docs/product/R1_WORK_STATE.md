@@ -3728,10 +3728,14 @@ limits are in the [dated evidence report](../exec-plans/evidence/GS40_GS109_GS68
 
 This checkpoint is on the canonical `feature/r1-commercial-baseline` worktree;
 initial local and origin HEAD were both
-`76516b963055977eab7cb2d2d084c69692d8690e`. The pre-existing untracked PWA
-asset bundle, managed components, GS-114/C8 evidence and GS-40 UART evidence
-remain preserved and unstaged. Delivery commit/push, final remote equality, and
-GS-109/GS-68/GS-148/GS-40 comment IDs are to be recorded after review. No new
+`76516b963055977eab7cb2d2d084c69692d8690e`. Implementation commit
+`37556707cd03b84327e9a25b98a4c9e43f374abf` was pushed normally;
+`git ls-remote origin refs/heads/feature/r1-commercial-baseline` matched local
+HEAD at that checkpoint. Jira comments were added without workflow changes:
+GS-109 comment 11242, GS-68 comment 11239, GS-148 comment 11240 and GS-40
+comment 11241. A final documentation checkpoint records these delivery facts.
+The pre-existing untracked PWA asset bundle, managed components, GS-114/C8
+evidence and GS-40 UART evidence remain preserved and unstaged. No new
 product/security decision is made; CONTEXT_VERSION is unchanged.
 
 **Next action:** resolve D05/D12 and D06, then compose the S3 runtime's approved
