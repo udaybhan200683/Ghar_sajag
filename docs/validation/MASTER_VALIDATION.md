@@ -26,7 +26,12 @@ runner.
 The C3 USB Serial/JTAG endpoint can disappear while the device remains USB
 connected: ESP-IDF light sleep gates the USB clocks, and existing C3 records
 show the native endpoint unavailable while authenticated Hub telemetry
-continued. This is observer loss, not evidence that the Node is offline. The
+continued. Jira comments 11164–11165 preserve GS-114 C8-P1/P2 physical PASS on
+their recorded image pair: post-wake authenticated NodeHealth and a real
+authenticated AM312 event continued over ESP-NOW while native USB observation
+was unavailable. Those image-scoped results are not GS-40 cadence/offline/PWA
+acceptance and are not repeated here. This is observer loss, not evidence that
+the Node is offline. The
 single historical S3 receive-only capture is pinned by SHA-256 and stops at
 `rst:0x1 (POWERON)`. pySerial 3.5 opens the POSIX descriptor before applying
 requested DTR/RTS-low states (`TIOCMBIC`); a CH343/board reset path or driver

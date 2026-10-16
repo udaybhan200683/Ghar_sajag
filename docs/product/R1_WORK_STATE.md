@@ -1,6 +1,6 @@
 # R1 Current Work State
 
-## GS-40 automated qualification and physical handoff — 2026-10-16 08:33 UTC
+## GS-40 automated qualification and physical handoff — 2026-10-16 08:34 UTC
 
 Resumed from GS-40 Jira comments 11156, 11158 and 11162. The canonical R1
 worktree was actively owned, so the approved isolated candidate is
@@ -8,10 +8,14 @@ worktree was actively owned, so the approved isolated candidate is
 `codex/gs40-qualification-20261016`. Implementation/evidence commit
 `c32cf2fbe39011be5d6171e58243f666e5494626` was pushed to
 `origin/codex/gs40-qualification-20261016`; `git ls-remote` matched that SHA.
+The original handoff was pushed as `b943b061e410789ccd3127100a8e599b8fc03892`;
+after reconciling Jira comments 11164–11165, the current candidate/remote
+checkpoint is that same SHA and this evidence clarification is a follow-up
+documentation commit.
 The canonical `feature/r1-commercial-baseline` remains at
 `d738dc51a25e72de570a11fc39f0e26522ead3d8`, matching its remote. No canonical
 tracked files or pre-existing untracked assets/evidence were changed. This
-handoff update is being committed separately as documentation.
+follow-up does not modify product behavior.
 
 Implemented the seven-case GS40 mock/replay/live framework and registered the
 host stage. No firmware/product behavior was changed. The isolated test setup
@@ -34,6 +38,16 @@ The capture has no current app/config/session/NodeHealth evidence. Hub-accepted
 health is logged locally; source inspection found no production
 Hub-to-backend NodeHealth view, so existing PWA models cannot prove live
 caregiver coverage.
+
+Jira comments 11164–11165 also preserve the existing GS-114 C8-P1/P2 physical
+PASS: ten C3 timer sleep/wake cycles followed by authenticated Hub NodeHealth,
+and one real AM312 motion EventKey durably admitted/ACKed/retired over ESP-NOW
+while the native C3 USB console was unavailable. The recorded C3/S3 image hashes
+are `1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and
+`84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`. These
+image-scoped GS-114 results are reused only to disprove USB visibility as a
+proxy for Node liveness; they do not satisfy GS-40's 300/910, mixed-profile or
+caregiver criteria. They were not repeated.
 
 **Automated evidence:** Mock: seven `HOST_PASS`, 26/26 assertions. Replay:
 actual Jira 11158 source, six checks passed with historical provenance retained.

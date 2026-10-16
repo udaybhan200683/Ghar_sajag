@@ -55,9 +55,18 @@ The production Node enters light sleep through
 `esp_light_sleep_start()` call. The configured console is the native USB
 Serial/JTAG endpoint. ESP-IDF light sleep gates clocks used by that peripheral,
 so the host endpoint can disappear while the C3 remains powered and sleeps.
-Existing GS-40/GS-150 host evidence records authenticated Hub contact after
-wake while the C3 USB endpoint is unavailable. This is observer loss and cannot
-establish Node outage; the C3 USB interface was not opened during this task.
+Jira comments 11164–11165 point to existing image-scoped GS-114 physical
+evidence: C8-P1 recorded ten additional light-sleep/timer-wake cycles and an
+authenticated post-wake NodeHealth received by the Hub while C3 native USB
+Serial/JTAG could not be opened; C8-P2 recorded a real AM312 event, authenticated
+EventKey `p15:c3-146393c5d158n8:gs114-c8s1q1`, durable Hub ACK and Node
+retirement. Their C3/S3 image hashes are respectively
+`1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and
+`84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`.
+These are reused only to confirm that C3 USB unavailability did not prevent
+the ESP-NOW operational path on that exact GS-114 fixture; they are not GS-40
+300/910, mixed-profile or caregiver acceptance and do not verify today's
+installed image. The C3 USB interface and physical scenario were not repeated.
 
 ### S3 CH343 POWERON capture
 
