@@ -61,6 +61,14 @@ coverage integrity also passes: 208 features, 218 source modules, 24 physical
 cases and 22 mapping tests. These results do not qualify credentials, time,
 radio or board behavior.
 
+The validated implementation and handoff changes are committed locally as
+`65e6bb83b636e803ec647bbef40a03ce74cedfbe`. The validation campaign ran against
+that code change on the working tree based on checkpoint `9d16556bbfe741bd4aa59c3df88a0ba0addca3c8`; its exact frozen-source fingerprint is
+recorded above and in the traceability row. The origin branch was still at the
+starting checkpoint when this implementation commit was created. The final
+delivery comment records the documentation-receipt commit and verified remote
+HEAD after the normal push.
+
 Remaining prerequisites: approved D05/D12 permanent Hub identity issuance,
 protected key custody, verifier, current Home/ownership-epoch and revocation
 source; approved D06 trusted Hub time; deployment-bound software verification
