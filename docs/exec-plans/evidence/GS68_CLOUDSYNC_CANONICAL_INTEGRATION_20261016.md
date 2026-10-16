@@ -120,12 +120,11 @@ canonical d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6):
   `7e9088f0804c91de0530cb861a283e7c71b5cba2d41f27e562c98731754c5b77`),
   within its 4 MiB OTA slot.
 - Isolated GS-68 S3 diagnostic profile: build completed with ESP-IDF 6.0.3,
-  DS peripheral and TLS 1.2 enabled, TLS 1.3 disabled, image 442,496 bytes
-  (SHA-256 `ec81e89eefc3e7237ee347f4a02e014fbb3ec728a756d928d75fb23a25f16cea`).
-  This first direct build used the canonical base SHA as its app version while
-  the candidate changes were uncommitted; it is treated as a compiler check
-  only. Rebuild the isolated profile after commit with the exact integration
-  SHA before delivery. It did not flash or access hardware.
+  DS peripheral and TLS 1.2 enabled, TLS 1.3 disabled, image 442,512 bytes
+  (SHA-256 `84df600e9a13886b6dcb02e0eec20a0ce8c3002bf9e81c118d8461677bd3206b`).
+  This build used integration commit
+  `3e4b163d8a0e7958e179686b3ea11a3d838488d1` as the source identity. It did
+  not flash or access hardware.
 
 The current aggregate has no stages left to run. Its P0 scenarios and browser
 passed but `product_status=PARTIAL` remains a required gate failure. The
@@ -141,8 +140,9 @@ limits remain pending.
 
 ## Delivery
 
-Integration commit and remote refs: pending final review and commit. At the
-latest remote query canonical was still d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6;
+Integration candidate commit is
+3e4b163d8a0e7958e179686b3ea11a3d838488d1; push and final canonical-ref check
+remain. At the latest remote query canonical was still d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6;
 the separate CloudSync development branch had advanced to
 e740f99d094b4a0ef7397f0a506e8f089fb5d261 after the selected validated source
 checkpoint. Commits after 44838da836d3014e606cfe2ee57ad624ee417240 remain
