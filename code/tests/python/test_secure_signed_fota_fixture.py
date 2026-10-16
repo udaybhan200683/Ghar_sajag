@@ -250,6 +250,8 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
         cmake = (Path(__file__).resolve().parents[2] /
                  "firmware/node/target/esp32c3/idf/CMakeLists.txt").read_text()
         self.assertIn("if(GS_BAT_C8_PHYSICAL_WAKE AND GS_HIL_BUILD)", cmake)
+        self.assertIn('option(GS_BAT_C8_ACK_TRACE "Enable bounded P9-A ACK-wait diagnostics in a qualification image" OFF)', cmake)
+        self.assertIn("if(GS_BAT_C8_ACK_TRACE AND (NOT GS_BAT_C8_PHYSICAL_WAKE OR GS_HIL_BUILD))", cmake)
 
     def test_signed_non_hil_image_rejects_c3_uart_test_commands(self):
         source = (Path(__file__).resolve().parents[2] / "scripts/build_signed_c3.py").read_text()
@@ -275,6 +277,28 @@ class SecureSignedFotaFixtureTest(unittest.TestCase):
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("GS_HIL_FORCE_BOOT_HEALTH_FAIL requires", result.stdout)
+
+        invalid_ack_trace_profiles = (
+            ("OFF", "OFF", "ON"),
+            ("ON", "ON", "ON"),
+        )
+        for index, (physical_wake, hil_build, ack_trace) in enumerate(
+                invalid_ack_trace_profiles):
+            with self.subTest(physical_wake=physical_wake, hil_build=hil_build), \
+                 tempfile.TemporaryDirectory() as temporary:
+                result = subprocess.run([
+                    "cmake", "-S", str(project), "-B",
+                    str(Path(temporary) / f"invalid-ack-trace-{index}"),
+                    f"-DGS_BAT_C8_PHYSICAL_WAKE={physical_wake}",
+                    f"-DGS_HIL_BUILD={hil_build}",
+                    f"-DGS_BAT_C8_ACK_TRACE={ack_trace}"],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, check=False)
+                self.assertNotEqual(result.returncode, 0)
+                expected_error = ("GS_BAT_C8_PHYSICAL_WAKE requires"
+                                  if physical_wake == "ON" and hil_build == "ON"
+                                  else "GS_BAT_C8_ACK_TRACE requires")
+                self.assertIn(expected_error, result.stdout)
 
     def test_failed_health_rollback_evidence_requires_fresh_recovery_and_same_event_key(self):
         candidate = [

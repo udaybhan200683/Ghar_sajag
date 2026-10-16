@@ -1192,6 +1192,7 @@ void secure_owner_task(void*) {
             if (health && runtime.observe_authenticated_health(
                     *health.value, node->logical_id, node->last_session,
                     static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) {
+                if (!health.value->c8_ack_wait_trace) {
                 ESP_LOGI(kTag, "Authenticated NodeHealth logical=%s session=%llu heap=%u min_heap=%u retained=%u sleep_entries=%u timer_wakes=%u gpio_wakes=%u other_wakes=%u last_wake=%s requested_ms=%u elapsed_ms=%u RSSI=%d",
                          node->logical_id.c_str(),
                          static_cast<unsigned long long>(node->last_session),
@@ -1207,7 +1208,9 @@ void secure_owner_task(void*) {
                          static_cast<unsigned>(health.value->last_sleep_requested_ms),
                          static_cast<unsigned>(health.value->last_sleep_elapsed_ms),
                          frame.transport_rssi);
+                }
 #if GS_HIL_COMMISSIONING
+                if (!health.value->c8_ack_wait_trace) {
                 ESP_LOGI(kTag,
                          "HIL_AUTH_HEALTH logical=%s session=%llu health_seq=%llu reset=%u pir_raw=%d pir_edges=%u pir_ok=%u pir_rejected=%u retained=%u oldest_seq=%llu tx=%u mac_ok=%u mac_fail=%u durable_ack=%u retry=%u maintenance=%d sleep_entries=%u timer_wakes=%u gpio_wakes=%u other_wakes=%u last_wake=%s",
                          node->logical_id.c_str(),
@@ -1254,7 +1257,52 @@ void secure_owner_task(void*) {
                              node_health_sleep_wake_cause_name(health.value->last_wake_cause),
                              restore_result, trace.last_owner_resumed);
                 }
+                }
 #endif
+                if (health.value->c8_ack_wait_trace) {
+                    const auto& trace = *health.value->c8_ack_wait_trace;
+                    ESP_LOGI(kTag,
+                             "C8_ACK_TRACE schema=1 logical=%s transport_session=%llu health_seq=%llu uptime_ms=%llu reset=%u boot_generation=%u key_session=%llu key_sequence=%llu events=%u overflow=%u missing=%u complete=%d interval_open=%d sleep_inhibit_decisions=%u sleep_inhibitor_mask=0x%08lx sleep_entries_during_wait=%u post_ack_sleep_eligible=%u post_ack_sleep_entries=%u flags=0x%04x RSSI=%d",
+                             node->logical_id.c_str(),
+                             static_cast<unsigned long long>(health.value->session_id),
+                             static_cast<unsigned long long>(health.value->health_sequence),
+                             static_cast<unsigned long long>(health.value->uptime_ms),
+                             static_cast<unsigned>(health.value->reset_reason),
+                             static_cast<unsigned>(trace.boot_generation),
+                             static_cast<unsigned long long>(trace.event_key_session_id),
+                             static_cast<unsigned long long>(trace.event_key_sequence),
+                             static_cast<unsigned>(trace.event_count),
+                             static_cast<unsigned>(trace.overflow_count),
+                             static_cast<unsigned>(trace.missing_intervals),
+                             trace.evidence_complete, trace.interval_open,
+                             static_cast<unsigned>(trace.sleep_inhibit_decisions),
+                             static_cast<unsigned long>(trace.sleep_inhibitor_mask),
+                             static_cast<unsigned>(trace.sleep_entries_during_ack_wait),
+                             static_cast<unsigned>(trace.post_ack_sleep_eligible_count),
+                             static_cast<unsigned>(trace.post_ack_sleep_entries),
+                             static_cast<unsigned>(trace.flags), frame.transport_rssi);
+                    for (std::size_t i = 0; i < trace.event_count; ++i) {
+                        const auto& event = trace.events[i];
+                        ESP_LOGI(kTag,
+                                 "C8_ACK_TRACE_EVENT logical=%s key_session=%llu key_sequence=%llu ordinal=%u uptime_ms=%u kind=%u value=0x%08lx",
+                                 node->logical_id.c_str(),
+                                 static_cast<unsigned long long>(trace.event_key_session_id),
+                                 static_cast<unsigned long long>(trace.event_key_sequence),
+                                 static_cast<unsigned>(i),
+                                 static_cast<unsigned>(event.uptime_ms),
+                                 static_cast<unsigned>(event.kind),
+                                 static_cast<unsigned long>(event.value));
+                    }
+                    for (std::size_t i = 0; i < trace.sleep_reason_count; ++i) {
+                        ESP_LOGI(kTag,
+                                 "C8_ACK_TRACE_REASON logical=%s key_session=%llu key_sequence=%llu slot=%u inhibitors=0x%08lx",
+                                 node->logical_id.c_str(),
+                                 static_cast<unsigned long long>(trace.event_key_session_id),
+                                 static_cast<unsigned long long>(trace.event_key_sequence),
+                                 static_cast<unsigned>(i),
+                                 static_cast<unsigned long>(trace.sleep_reason_masks[i]));
+                    }
+                }
                 if (security_link.health_ack_supported(frame.source_mac)) {
                     const auto encoded_ack = transport::encode_node_health_ack(
                         health.value->health_sequence);

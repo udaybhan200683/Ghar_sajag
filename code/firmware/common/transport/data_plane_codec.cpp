@@ -556,13 +556,50 @@ EncodeResult encode_node_health(const NodeHealthSnapshot& health) {
         const bool supported_schema =
             health.schema == NodeHealthSnapshot::legacy_schema_version ||
             health.schema == NodeHealthSnapshot::schema_version ||
-            health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version;
+            health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version ||
+            health.schema == NodeHealthSnapshot::c8_ack_wait_trace_schema_version;
         result.error = supported_schema ? CodecError::InvalidValue
                                         : CodecError::UnsupportedSchema;
         return result;
     }
     if (health.node_id.size() > kMaxSourceIdBytes) {
         result.error = CodecError::FieldTooLong;
+        return result;
+    }
+
+    if (health.schema == NodeHealthSnapshot::c8_ack_wait_trace_schema_version) {
+        const auto& trace = *health.c8_ack_wait_trace;
+        Writer writer(result.frame);
+        bool ok = writer.reserve_header() &&
+            writer.u32(health.schema) &&
+            writer.string8(health.node_id, kMaxSourceIdBytes) &&
+            writer.u64(health.session_id) && writer.u64(health.health_sequence) &&
+            writer.u64(health.uptime_ms) && writer.u32(health.reset_reason) &&
+            writer.u16(health.retained_count) && writer.u64(health.oldest_sequence) &&
+            writer.u32(trace.boot_generation) &&
+            writer.u64(trace.event_key_session_id) &&
+            writer.u64(trace.event_key_sequence) &&
+            writer.u8(trace.event_count) && writer.u8(trace.overflow_count) &&
+            writer.u8(trace.missing_intervals) &&
+            writer.u8(trace.sleep_entries_during_ack_wait) &&
+            writer.u8(trace.post_ack_sleep_entries) &&
+            writer.u8(trace.post_ack_sleep_eligible_count) &&
+            writer.u16(trace.sleep_inhibit_decisions) &&
+            writer.u32(trace.sleep_inhibitor_mask) &&
+            writer.u8(trace.sleep_reason_count);
+        for (std::size_t i = 0; ok && i < trace.sleep_reason_masks.size(); ++i)
+            ok = writer.u32(trace.sleep_reason_masks[i]);
+        ok = ok && writer.u16(trace.flags) &&
+            writer.u8(trace.interval_open ? 1U : 0U) &&
+            writer.u8(trace.evidence_complete ? 1U : 0U);
+        for (std::size_t i = 0; ok && i < trace.event_count; ++i) {
+            const auto& event = trace.events[i];
+            ok = writer.u32(event.uptime_ms) &&
+                writer.u8(static_cast<std::uint8_t>(event.kind)) &&
+                writer.u8(event.value);
+        }
+        if (!ok || !writer.finish(FrameType::NodeHealth))
+            result.error = CodecError::BufferTooSmall;
         return result;
     }
 
@@ -635,8 +672,72 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
     std::uint8_t last_wake_gpio4_high = 0;
     std::uint8_t last_radio_restore_result = 0;
     std::uint8_t last_owner_resumed = 0;
-    if (!reader.u32(health.schema) ||
-        !reader.string8(health.node_id, kMaxSourceIdBytes) ||
+    if (!reader.u32(health.schema)) {
+        result.error = CodecError::Truncated;
+        return result;
+    }
+    if (health.schema == NodeHealthSnapshot::c8_ack_wait_trace_schema_version) {
+        NodeHealthSnapshot::C8AckWaitTrace trace;
+        std::uint8_t interval_open = 0;
+        std::uint8_t evidence_complete = 0;
+        if (!reader.string8(health.node_id, kMaxSourceIdBytes) ||
+            !reader.u64(health.session_id) || !reader.u64(health.health_sequence) ||
+            !reader.u64(health.uptime_ms) || !reader.u32(health.reset_reason) ||
+            !reader.u16(health.retained_count) || !reader.u64(health.oldest_sequence) ||
+            !reader.u32(trace.boot_generation) ||
+            !reader.u64(trace.event_key_session_id) ||
+            !reader.u64(trace.event_key_sequence) || !reader.u8(trace.event_count) ||
+            !reader.u8(trace.overflow_count) || !reader.u8(trace.missing_intervals) ||
+            !reader.u8(trace.sleep_entries_during_ack_wait) ||
+            !reader.u8(trace.post_ack_sleep_entries) ||
+            !reader.u8(trace.post_ack_sleep_eligible_count) ||
+            !reader.u16(trace.sleep_inhibit_decisions) ||
+            !reader.u32(trace.sleep_inhibitor_mask) ||
+            !reader.u8(trace.sleep_reason_count)) {
+            result.error = CodecError::Truncated;
+            return result;
+        }
+        for (auto& reason_mask : trace.sleep_reason_masks) {
+            if (!reader.u32(reason_mask)) {
+                result.error = CodecError::Truncated;
+                return result;
+            }
+        }
+        if (!reader.u16(trace.flags) || !reader.u8(interval_open) ||
+            !reader.u8(evidence_complete)) {
+            result.error = CodecError::Truncated;
+            return result;
+        }
+        if (interval_open > 1U || evidence_complete > 1U ||
+            trace.event_count > trace.events.size()) {
+            result.error = CodecError::InvalidValue;
+            return result;
+        }
+        trace.interval_open = interval_open != 0U;
+        trace.evidence_complete = evidence_complete != 0U;
+        for (std::size_t i = 0; i < trace.event_count; ++i) {
+            std::uint8_t kind = 0;
+            auto& event = trace.events[i];
+            if (!reader.u32(event.uptime_ms) || !reader.u8(kind) ||
+                !reader.u8(event.value)) {
+                result.error = CodecError::Truncated;
+                return result;
+            }
+            event.kind = static_cast<NodeHealthSnapshot::C8AckWaitTrace::EventKind>(kind);
+        }
+        if (!reader.at_end()) {
+            result.error = CodecError::LengthMismatch;
+            return result;
+        }
+        health.c8_ack_wait_trace = trace;
+        if (!valid_node_health(health)) {
+            result.error = CodecError::InvalidValue;
+            return result;
+        }
+        result.value = std::move(health);
+        return result;
+    }
+    if (!reader.string8(health.node_id, kMaxSourceIdBytes) ||
         !reader.u64(health.session_id) || !reader.u64(health.health_sequence) ||
         !reader.u64(health.uptime_ms) || !reader.u32(health.reset_reason) ||
         !reader.u8(raw_pir) || !reader.u32(health.raw_pir_edges) ||
@@ -698,7 +799,8 @@ DecodeResult<NodeHealthSnapshot> decode_node_health(const std::uint8_t* data,
     }
     if (health.schema != NodeHealthSnapshot::legacy_schema_version &&
         health.schema != NodeHealthSnapshot::schema_version &&
-        health.schema != NodeHealthSnapshot::c8_physical_trace_schema_version) {
+        health.schema != NodeHealthSnapshot::c8_physical_trace_schema_version &&
+        health.schema != NodeHealthSnapshot::c8_ack_wait_trace_schema_version) {
         result.error = CodecError::UnsupportedSchema;
         return result;
     }

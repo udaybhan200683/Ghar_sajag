@@ -303,6 +303,29 @@
       "count_kind": "checks"
     },
     {
+      "id": "gs114-ack-wait-trace",
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "gs114-ack-wait-host-test"
+      ],
+      "inputs": [
+        "tests/cpp/gs114_ack_wait_trace_validation.cpp",
+        "firmware/node/power/power.hpp",
+        "firmware/common/shared/include/gs/protocol.hpp",
+        "firmware/common/transport/data_plane_codec.cpp",
+        "firmware/common/security/runtime_frame_security.cpp",
+        "firmware/hub/runtime/hub_runtime.cpp"
+      ],
+      "success": "^GS114 ACK-wait trace PASS checks=(\\d+)$",
+      "timeout": 600,
+      "count_kind": "checks"
+    },
+    {
       "id": "gs144-workload-spec",
       "components": [
         "node"

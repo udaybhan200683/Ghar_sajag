@@ -1,5 +1,106 @@
 # R1 Current Work State
 
+## GS-114 P9-A ACK-wait instrumentation and host validation — 2026-10-16 03:14 UTC
+
+Resumed from GS-114 Jira comment 11149 on canonical branch
+`feature/r1-commercial-baseline`, source HEAD
+`d992eee9475239474aca48c4bf28c0ee824f5590`; context preflight PASS
+(`2026-10-13.001`). Two other Codex CLI sessions had the canonical directory
+as cwd but were idle: no active build/Git child, no repository file descriptor,
+and their open files were terminal/pipes or Codex logs. Existing untracked
+PWA assets, managed components and physical logs/readbacks remain preserved.
+
+Implemented a bounded, RAM-only `C8AckWaitTraceRecorder` in
+`code/firmware/node/power/power.hpp`, compiled into a C3 image only when
+`GS_BAT_C8_ACK_TRACE=ON` with `GS_BAT_C8_PHYSICAL_WAKE=ON` and
+`GS_HIL_BUILD=OFF`. It observes the existing Node send/ACK/sleep path without
+changing retry, ACK, persistence, radio or sleep decisions. MAC success keeps
+the current receive-wait interval open until the exact authenticated Durable
+ACK retires that EventKey. Confirmed failed transport closes the bounded
+receive interval and records sleep eligibility between retries. Wrong-key,
+volatile, unauthenticated, late/missing, session-replaced, overflowed or
+watchdog-expired traces cannot report complete.
+
+The trace carries exact Node/session/sequence identity, MAC outcome,
+boot-generation/reset reason, boot-relative ordered timestamps, sleep-inhibitor
+reason masks, sleep entry/wake and radio-restore outcomes. It is emitted as
+additive authenticated NodeHealth schema 4 on the existing health cadence;
+legacy schemas remain unchanged, and the Hub records the trace without
+replacing the last full operational NodeHealth snapshot. The fixed 16-event,
+three-reason trace is 220 plaintext bytes at maximum Node ID size and fits the
+secured frame. The trace is RAM-only, timestamps wrap after about 49.7 days,
+and its scheduled report may lag until the normal health interval (up to the
+existing 300-second cadence). A reset loses an open trace. This is retrospective
+supporting evidence, not a continuous reset-safe physical observer.
+
+Host-only matched C3/S3 candidates built with ESP-IDF 6.0.3. C3 app SHA-256
+`57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354`
+(945,760 bytes) is embedded byte-for-byte in S3 app SHA-256
+`a4b3d7a3c27ac04c517967e9dde28c712f6febf21873c16809f89e32561a5146`
+(1,899,136 bytes). C3 profile has HIL build OFF, HIL control ON, physical wake
+ON and ACK trace ON. S3 has broad HIL controls OFF and only the C8 ACK-hold
+fixture ON. The compiled S3 partition-table hash is
+`bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a` and
+matches its CSV. The local build report is
+`code/build/gs114_fixture_pair/build-aq8ooz92/fixture_pair_report.json`;
+deployment is unauthorized and no image was installed.
+
+Validation results:
+
+- `make gs114-ack-wait-host-test`: exit 0, 36 checks PASS. Includes success-MAC
+  wait beyond the 10-second bounded receive interval, exact Durable ACK
+  retirement, failed-transport bounded listen and retry sleep, late ACK marked
+  incomplete, wrong/foreign/unauthenticated/volatile/replayed ACK rejection,
+  watchdog, session replacement, overflow, boot generation, secure-report
+  tamper rejection and Hub health preservation.
+- `ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
+  make CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic
+  -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0'
+  gs114-ack-wait-host-test`: exit 0, 36 checks PASS under ASan/UBSan.
+- `make gs114-ack-wait-host-test battery-c8-host-test gs150-host-test
+  s3-fixture-commissioning-test`: exit 0; ACK trace 36, BAT-C8 72 C++ checks
+  and 11 Python tests, GS-150 1,500 checks, and S3 fixture 15 tests PASS.
+- `python3 -m unittest discover -s tests/python -p
+  test_secure_signed_fota_fixture.py -v`: exit 0; 22 tests PASS, including
+  the ACK-trace default-OFF and invalid-profile CMake guards.
+- `make gs114-c3-s3-c8-p9-build`: exit 0; both target apps compile, exact
+  embedded C3 hash/profile/partition checks pass. No hardware access.
+- `make validation-board-e2e`: exit 0; board-stack simulation 10/10 scenario
+  groups PASS. `make validation-framework-test`: 46/46 PASS.
+- `make feature-coverage-test physical-hil-catalogue-test`: exit 0; 205
+  features/211 modules/17 physical definitions, 22 mapping tests, and 101
+  physical catalogue cases pass with `device_access=NONE`.
+- `make validation-node`: exit 2; 26/27 stages PASS. The ACK trace stage passed
+  at 34 checks before the final two late-ACK assertions were added; the current
+  focused 36-check target and sanitizer both pass. Only the required P0 gate
+  failed: all 26 scenario checks pass, but `product_status=PARTIAL` and
+  `physical=NOT_RUN`.
+- `make validation-hub`: exit 2; 43/45 stages PASS. The existing Hub journal
+  C8 ACK-hold deduplication gate passed 34/34 and ACK-drop gate 16/16. The
+  journal migration assertion `clean migration commits` failed (exit 2, zero
+  matched assertion groups), and P0 failed on `product_status=PARTIAL` / physical
+  NOT_RUN. The ACK trace stage passed at 34 checks before the final test-only
+  assertions; current 36-check focused and sanitizer runs pass.
+- `make validation-contract`: exit 2; 36/37 stages PASS. P0 alone failed on
+  `product_status=PARTIAL` / physical NOT_RUN. The ACK trace stage passed at
+  34 checks before the final test-only assertions; current 36-check focused
+  and sanitizer runs pass.
+
+`GS-114` P9-A remains **BLOCKED / NOT_RUN**; P9-B remains **BLOCKED / NOT_RUN**.
+P1–P8 dispositions are unchanged. No board interface was opened, and there was
+no USB/IP attach, flash, reset, wake, reconnect, erase, OTA, sensor stimulus,
+recommissioning or security operation. Physical P9 still requires exact
+Stage 2 authorization, verified present board/image/slot/session/pending-key
+state, safe recovery, a qualified independent reset-safe continuous observer,
+and the separate signed-FOTA trust/rollback prerequisites for P9-B. GS-114
+stays In Progress; P10 remains GS-149. No product or security decision changed;
+context version remains `2026-10-13.001`.
+
+See the [GS-114 execution report](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md)
+and [P9 manifest](../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/P9_EXECUTION_MANIFEST_20261015.json)
+for exact source/profile hashes, test receipts, preserved dispositions and
+future physical prerequisites.
+
 ## GS-114 Stage 1 passive diagnostic follow-up — 2026-10-16 01:19 UTC
 
 Follow-up was performed under read-only Stage 1 authorization in GS-114 comment

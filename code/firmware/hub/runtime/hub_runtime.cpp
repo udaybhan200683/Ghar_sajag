@@ -110,7 +110,11 @@ bool HubRuntime::observe_authenticated_health(
          now_monotonic_ms < found->second.last_seen_monotonic_ms)) return false;
     if (!observe_authenticated_contact(authenticated_node_id, transport_session,
                                        now_monotonic_ms)) return false;
-    node_health_[authenticated_node_id] = {health, now_monotonic_ms};
+    // The compact C8 ACK trace deliberately omits unrelated health counters.
+    // It refreshes the authenticated contact lease but cannot overwrite the
+    // last complete NodeHealth snapshot used by operational status views.
+    if (health.schema != NodeHealthSnapshot::c8_ack_wait_trace_schema_version)
+        node_health_[authenticated_node_id] = {health, now_monotonic_ms};
     return true;
 }
 

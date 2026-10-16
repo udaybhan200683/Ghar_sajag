@@ -368,7 +368,9 @@ struct LightSleepReturn {
                                    Milliseconds deadline_ms,
                                    const std::array<std::uint8_t, 6>& application_peer,
                                    LightSleepTelemetry& sleep_telemetry,
-                                   C8PhysicalSleepTraceRecorder* c8_trace) {
+                                   C8PhysicalSleepTraceRecorder* c8_trace,
+                                   C8AckWaitTraceRecorder* c8_ack_trace,
+                                   bool ack_wait_active) {
     LightSleepReturn outcome;
     outcome.error = configure_gpio_wake();
     if (outcome.error != ESP_OK) {
@@ -437,6 +439,8 @@ struct LightSleepReturn {
     outcome.error = esp_light_sleep_start();
     const auto return_us = esp_timer_get_time();
     outcome.entered = outcome.error == ESP_OK;
+    if (outcome.entered && c8_ack_trace != nullptr)
+        c8_ack_trace->note_sleep_entry(entry_us / 1000, ack_wait_active);
     if (outcome.entered) outcome.wake_causes = esp_sleep_get_wakeup_causes();
     const bool gpio_wake = (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_GPIO)) != 0U;
     const bool timer_wake = (outcome.wake_causes & (1U << ESP_SLEEP_WAKEUP_TIMER)) != 0U;
@@ -455,6 +459,10 @@ struct LightSleepReturn {
     const auto radio_result = restore_radio_after_light_sleep(application_peer);
     if (c8_trace != nullptr && outcome.entered)
         c8_trace->note_wake(gpio_high_at_wake, radio_result == ESP_OK ? 1U : 2U);
+    if (outcome.entered && c8_ack_trace != nullptr)
+        c8_ack_trace->note_wake(return_us / 1000,
+            static_cast<std::uint8_t>(classify_light_sleep_wake(gpio_wake, timer_wake)),
+            radio_result == ESP_OK ? 1U : 2U);
     ESP_LOGI(kTag, "BAT_SLEEP_RESTORE radio=%s wifi=%d esp_now=%d owner=RESUMED",
              esp_err_to_name(radio_result),
              g_wifi_active.load(std::memory_order_acquire),
@@ -514,6 +522,13 @@ void owner_task(void*) {
 #if GS_BAT_C8_PHYSICAL_WAKE
     C8PhysicalSleepTraceRecorder c8_physical_sleep_trace;
     bool c8_physical_trace_report_pending = false;
+#endif
+#if GS_BAT_C8_ACK_TRACE
+    auto boot_generation = esp_random();
+    if (boot_generation == 0U) boot_generation = 1U;
+    C8AckWaitTraceRecorder c8_ack_wait_trace(kNodeId, boot_generation);
+    ESP_LOGI(kTag, "GS114_ACK_WAIT_TRACE_SCHEMA=1 boot_generation=%u",
+             static_cast<unsigned>(boot_generation));
 #endif
     AckListeningWindow ack_listening;
     energy.boot_count = 1;
@@ -969,6 +984,13 @@ void owner_task(void*) {
             const bool matched_pending = runtime.has_pending_key(key);
 #endif
             const bool retired = runtime.acknowledge(key, decoded.value->ack_type);
+#if GS_BAT_C8_ACK_TRACE
+            // Reaching this point in the non-HIL physical profile means the
+            // secure frame was authenticated/replay-checked and decoded.
+            // Record acceptance only when the exact Durable ACK retired K.
+            c8_ack_wait_trace.note_durable_ack(key, decoded.value->ack_type,
+                                               true, retired, now);
+#endif
 #if !GS_HIL_BUILD
             if (matched_pending) {
                 health_cadence.observe_authenticated_contact(now);
@@ -1033,6 +1055,11 @@ void owner_task(void*) {
         while (xQueueReceive(g_send_queue, &send_result, 0) == pdTRUE) {
             if (send_result.accepted_by_radio) ++mac_success_count;
             else ++mac_failure_count;
+#if GS_BAT_C8_ACK_TRACE
+            if (in_flight)
+                c8_ack_wait_trace.note_mac_result(*in_flight,
+                                                  send_result.accepted_by_radio, now);
+#endif
             if (in_flight) {
                 if (runtime.has_pending_key(*in_flight)) {
 #if !GS_HIL_BUILD
@@ -1086,6 +1113,9 @@ void owner_task(void*) {
                     runtime.set_outage_profile(true, now);
             }
             runtime.transport_result(*in_flight, false, now);
+#if GS_BAT_C8_ACK_TRACE
+            c8_ack_wait_trace.note_mac_result(*in_flight, false, now);
+#endif
             ESP_LOGW(kTag, "MAC callback timeout session=%llu seq=%llu",
                      static_cast<unsigned long long>(in_flight->session_id),
                      static_cast<unsigned long long>(in_flight->sequence));
@@ -1137,6 +1167,9 @@ void owner_task(void*) {
             }
             g_session_id = *candidate;
             g_security_phase.store(true, std::memory_order_release);
+#if GS_BAT_C8_ACK_TRACE
+            c8_ack_wait_trace.note_session_replaced(now);
+#endif
             ack_listening.session_replaced();
             xQueueReset(g_ack_queue);
             xQueueReset(g_send_queue);
@@ -1329,8 +1362,15 @@ void owner_task(void*) {
         const bool suppress_for_outage = runtime.outage_profile() && !boot_health_probe;
 #endif
 #if GS_BAT_C8_PHYSICAL_WAKE
+#if GS_BAT_C8_ACK_TRACE
+        // ACK diagnostics ride only on the already-scheduled health cadence.
+        // They never make health due or alter a sleep decision.
+        const bool c8_ack_trace_report_due = c8_ack_wait_trace.report_ready();
+        const bool c8_physical_trace_due = false;
+#else
         const bool c8_physical_trace_due = c8_physical_trace_report_pending &&
             runtime.pending() == 0 && !runtime.outage_profile() && !maintenance;
+#endif
 #endif
         if (!in_flight && !health_in_flight && !maintenance && !application_due &&
 #if !GS_HIL_BUILD
@@ -1357,6 +1397,10 @@ void owner_task(void*) {
             NodeHealthSnapshot health;
 #if GS_BAT_C8_PHYSICAL_WAKE
             health.schema = NodeHealthSnapshot::c8_physical_trace_schema_version;
+#endif
+#if GS_BAT_C8_ACK_TRACE
+            if (c8_ack_trace_report_due)
+                health.schema = NodeHealthSnapshot::c8_ack_wait_trace_schema_version;
 #endif
 #if !GS_HIL_BUILD
             health.node_id = security_link.binding()->logical_id;
@@ -1401,7 +1445,14 @@ void owner_task(void*) {
             health.last_sleep_requested_ms = sleep_telemetry.last_sleep_requested_ms;
             health.last_sleep_elapsed_ms = sleep_telemetry.last_sleep_elapsed_ms;
 #if GS_BAT_C8_PHYSICAL_WAKE
+#if GS_BAT_C8_ACK_TRACE
+            if (c8_ack_trace_report_due)
+                health.c8_ack_wait_trace = c8_ack_wait_trace.snapshot();
+            else
+                health.c8_physical_sleep_trace = c8_physical_sleep_trace.snapshot(now);
+#else
             health.c8_physical_sleep_trace = c8_physical_sleep_trace.snapshot(now);
+#endif
 #endif
             ESP_LOGI(kTag,
                      "Power counters awake_ms=%llu loops=%llu pir=%llu app_tx=%llu "
@@ -1420,7 +1471,11 @@ void owner_task(void*) {
                      static_cast<unsigned long long>(energy.unexpected_resets));
             const auto encoded = transport::encode_node_health(health);
 #if GS_BAT_C8_PHYSICAL_WAKE
-            if (c8_physical_trace_due) c8_physical_trace_report_pending = false;
+            if (c8_physical_trace_due
+#if GS_BAT_C8_ACK_TRACE
+                || c8_ack_trace_report_due
+#endif
+                ) c8_physical_trace_report_pending = false;
 #endif
             health_cadence.observe_health_attempt(now,
                 boot_health_probe ? 60000 : -1);
@@ -1571,6 +1626,9 @@ void owner_task(void*) {
                                  static_cast<unsigned>(encoded.frame.size));
                     } else {
                         runtime.transport_result(key, false, now);
+#if GS_BAT_C8_ACK_TRACE
+                        c8_ack_wait_trace.note_mac_result(key, false, now);
+#endif
 #if !GS_HIL_BUILD
                         ++completed_event_attempts;
 #endif
@@ -1727,6 +1785,14 @@ void owner_task(void*) {
         observe_retained_delivery(sleep_observation, ack_listening,
             runtime.pending() != 0, runtime.persisted() != 0);
         const auto sleep_decision = evaluate_light_sleep(sleep_observation);
+#if GS_BAT_C8_ACK_TRACE
+        const auto ack_trace_key = in_flight
+            ? in_flight : runtime.oldest_pending_key();
+        c8_ack_wait_trace.note_sleep_decision(
+            sleep_observation.ack_wait,
+            ack_trace_key ? &*ack_trace_key : nullptr,
+            sleep_decision, sleep_now);
+#endif
 #if GS_BAT_C8_PHYSICAL_WAKE
         c8_physical_sleep_trace.note_sleep_inhibited_by_gpio_high(
             (sleep_decision.inhibitors & LightSleepInhibitPirHigh) != 0U);
@@ -1747,9 +1813,15 @@ void owner_task(void*) {
                                                     security_link.hub_mac(),
                                                     sleep_telemetry,
 #if GS_BAT_C8_PHYSICAL_WAKE
-                                                    &c8_physical_sleep_trace);
+                                                    &c8_physical_sleep_trace,
 #else
-                                                    nullptr);
+                                                    nullptr,
+#endif
+#if GS_BAT_C8_ACK_TRACE
+                                                    &c8_ack_wait_trace,
+                                                    sleep_observation.ack_wait);
+#else
+                                                    nullptr, false);
 #endif
             radio_restore_pending = outcome.error != ESP_OK;
 #if GS_BAT_C8_PHYSICAL_WAKE

@@ -73,6 +73,8 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 .PHONY: s3-durable-outbox-host-test hub-segmented-outbox-runtime-host-test
 .PHONY: c8-ack-drop-gate-host-test
 .PHONY: c8-ack-hold-gate-host-test
+.PHONY: gs114-c3-s3-c8-p9-build
+.PHONY: gs114-ack-wait-host-test
 
 BATTERY_C8_SOURCES := firmware/common/shared/src/logging.cpp firmware/node/sensing/sensing.cpp firmware/node/power/power.cpp firmware/node/communication/radio/node_radio.cpp firmware/node/storage/node_store.cpp firmware/node/runtime/node_runtime.cpp
 BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCES))
@@ -102,6 +104,12 @@ battery-c8-host-test: build $(BATTERY_C8_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(BATTERY_C8_OBJECTS) tests/cpp/battery_c8_validation.cpp -o build/battery_c8_validation
 	./build/battery_c8_validation
 	PYTHONPATH=tests/python python3 -m unittest test_battery_power_invariants -v
+
+GS114_ACK_WAIT_TRACE_HOST_SOURCES := firmware/common/security/runtime_frame_security.cpp
+HOST_TEST_OBJECTS += $(call host_objects,$(GS114_ACK_WAIT_TRACE_HOST_SOURCES))
+gs114-ack-wait-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES) $(GS114_ACK_WAIT_TRACE_HOST_SOURCES))
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES) $(GS114_ACK_WAIT_TRACE_HOST_SOURCES)) tests/cpp/gs114_ack_wait_trace_validation.cpp -lcrypto -o build/gs114_ack_wait_trace_validation
+	./build/gs114_ack_wait_trace_validation
 
 .PHONY: gs144-workload-spec-test
 gs144-workload-spec-test:
@@ -661,6 +669,11 @@ gs114-s3-c8-p9-build:
 	test -n "$(GS114_C3_APP)" || (echo "Set GS114_C3_APP to the verified C3 app binary"; exit 2)
 	test -n "$(GS114_C3_SHA256)" || (echo "Set GS114_C3_SHA256 to its verified SHA-256"; exit 2)
 	python3 scripts/build_gs114_fixture_pair.py --s3-c8-p9-ack-hold --s3-node-firmware-asset "$(GS114_C3_APP)" --expected-node-sha256 "$(GS114_C3_SHA256)"
+
+# Source-matched P9-A Node+Hub candidates with test-only Node ACK-wait trace.
+# This compiles and embeds both apps; it does not access or flash a board.
+gs114-c3-s3-c8-p9-build:
+	python3 scripts/build_gs114_fixture_pair.py --s3-c8-p9-ack-hold
 # All cached production objects retain generated-header and source/header dependencies.
 $(HOST_TEST_OBJECTS): Makefile build/gs40_generated/gs/node_health_config.hpp
 -include $(HOST_TEST_OBJECTS:.o=.d)

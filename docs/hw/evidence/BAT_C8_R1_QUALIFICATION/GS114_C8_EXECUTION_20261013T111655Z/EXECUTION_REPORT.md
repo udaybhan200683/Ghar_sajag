@@ -1282,3 +1282,158 @@ The S3 commissioning-only image accepts `FIXTURE_STATUS`, **not** `GET_STATE`, b
 GS-144 still needs owner acceptance of representative event/outage workload rates, selected battery/power-path usable capacity and reserve, minimum endurance and caregiver latency/reliability bounds. The 150–180 day goal remains aspirational; no measured battery-life claim. Its separate historical workload branch is a read-only provenance source and was not integrated or recreated.
 
 GS-140/B0 requires a real identified instrument, range/burden/sample rate/uncertainty, voltage and measurement boundary. GS-41/42/141/43/44 own comparable B1–B4 BEFORE and GS-51 owns AFTER; current C3/S3 images are not interchangeable with the old `bb34f5e` baseline without a matched-profile decision. None was physically measured here. GS-149 P10 remains blocked by those inputs and GS-114 acceptance; GS-146 also needs GS-119, GS-46 and GS-69 accepted evidence. GS-115 decisions remain C9 REQUIRES_MEASUREMENT/product semantics, C10 MEASURE_ACTUAL_WRITES_FIRST, C11 POST_R1, C12 DEFERRED. No subsequent firmware implementation is approved by these statuses.
+
+
+## GS-114 P9-A ACK-wait instrumentation and host validation — 2026-10-16 03:14 UTC
+
+### Scope and ownership
+
+Resumed from GS-114 Jira comment 11149 at canonical
+`feature/r1-commercial-baseline` HEAD `d992eee9475239474aca48c4bf28c0ee824f5590`;
+context preflight PASS (`2026-10-13.001`). The two other Codex CLI sessions
+identified during ownership review had this repository as their cwd but were
+idle: no active build/Git process, no repository file descriptor, and open files
+limited to terminal/pipes and Codex logs. No other worktree or branch was
+created. Existing untracked PWA assets, managed components, and physical logs
+and readbacks were preserved.
+
+Owning work is GS-114. Affected components are the C3 Node power/ACK runtime,
+shared NodeHealth codec and frame authentication, and the S3 Hub's authenticated
+health receive/log path. Backend and PWA contracts were not changed. P1–P8 and
+their historical failures/limitations remain unchanged.
+
+### Implementation
+
+Added a bounded `C8AckWaitTraceRecorder` in
+`code/firmware/node/power/power.hpp`, emitted by
+`code/firmware/node/target/esp32c3/node_runtime_adapter.cpp`. The C3 build option
+`GS_BAT_C8_ACK_TRACE` defaults OFF and is rejected unless
+`GS_BAT_C8_PHYSICAL_WAKE=ON` and `GS_HIL_BUILD=OFF`. The C3 emits additive
+authenticated NodeHealth schema 4 using the existing report cadence; schemas
+1–3 remain unchanged. Hub code accepts the compact trace as an authenticated
+contact and logs it without replacing its last full operational NodeHealth
+snapshot.
+
+The recorder observes existing behavior only. A successful MAC result opens
+the ACK wait and the interval stays open until exact-key authenticated Durable
+ACK retirement. A confirmed failed transport has a bounded receive interval;
+after that interval, the existing GS-150 policy can permit sleep between
+eligible retries. The recorder never modifies send, retry, ACK, persistence,
+radio, or sleep decisions. It records boot generation, reset reason, exact
+source/session/sequence identity, MAC result, ordered boot-relative timestamps,
+distinct sleep-inhibitor masks, sleep eligibility, sleep-entry confirmation,
+wake cause, and radio-restore result. Wrong-key, unauthenticated, volatile,
+duplicate, late/missing, session-replaced, watchdog-expired, saturated or
+overflowed observations cannot report complete.
+
+The trace has a fixed 16-event buffer and three distinct inhibitor-reason
+masks. A maximum-size Node ID and full trace encode to 220 bytes before the
+28-byte security overhead, fitting the existing 250-byte secured frame. Timestamps
+are unsigned boot-relative milliseconds and become invalid beyond
+`UINT32_MAX` ms (about 49.7 days). Trace memory is RAM-only. Its authenticated
+NodeHealth report may be delayed until the existing 300-second health cadence,
+and an open trace is lost on reset. The sleep-entry timestamp is sampled at the
+sleep-call boundary and entry is confirmed only after `esp_light_sleep_start()`
+returns success; wake time is sampled after return/radio restoration. These
+events are retrospective evidence, not a continuous external observer. A
+reset-safe continuous physical observer is still required for P9-A acceptance.
+
+Added `tests/cpp/gs114_ack_wait_trace_validation.cpp`, permanently registered
+as `gs114-ack-wait-trace` for Node, Hub and contract suites. It tests successful
+MAC wait beyond the 10-second bounded-listen window; failed-transport bounded
+listening and sleep between retries; mandatory-window sleep inhibition;
+exact-key retirement; wrong/foreign/unauthenticated/volatile/replayed ACK
+rejection; duplicate retirement suppression; a late authenticated ACK marking
+the observation incomplete; watchdog and session-replacement behavior; fixed
+buffer overflow and boot-generation distinction; authenticated/tamper-rejected
+schema-4 reporting; maximum payload size; and Hub preservation of full health.
+The existing Hub ACK-hold gate also directly checks two held deliveries for one
+exact EventKey produce one logical effect and that release does not create a
+second effect.
+The builder validates that a P9 S3 candidate embeds a C3 image carrying the
+ACK-trace profile marker.
+
+Exact changed source/configuration/validation files:
+
+- `code/firmware/node/power/power.hpp`
+- `code/firmware/node/target/esp32c3/node_runtime_adapter.cpp`
+- `code/firmware/node/target/esp32c3/idf/CMakeLists.txt`
+- `code/firmware/node/target/esp32c3/idf/main/CMakeLists.txt`
+- `code/firmware/common/shared/include/gs/protocol.hpp`
+- `code/firmware/common/transport/data_plane_codec.cpp`
+- `code/firmware/hub/runtime/hub_runtime.cpp`
+- `code/firmware/hub/target/esp32/hub_runtime_adapter.cpp`
+- `code/scripts/build_gs114_fixture_pair.py`
+- `code/tests/cpp/gs114_ack_wait_trace_validation.cpp`
+- `code/tests/python/test_s3_fixture_commissioning.py`
+- `code/tests/python/test_secure_signed_fota_fixture.py`
+- `code/Makefile`
+- `code/validation/suites.json`
+- `docs/validation/MASTER_TRACEABILITY.csv`
+- `docs/validation/PHYSICAL_HIL_CATALOGUE.csv`
+- `docs/product/DECISION_LOG.md`
+- `docs/product/R1_WORK_STATE.md`
+- This report and `P9_EXECUTION_MANIFEST_20261015.json`
+
+### Source-matched host target candidates
+
+`make gs114-c3-s3-c8-p9-build` built both target applications with ESP-IDF
+6.0.3. The C3 profile uses `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=ON`, and `GS_BAT_C8_ACK_TRACE=ON`. The S3 profile has
+broad HIL controls OFF and only `GS_HIL_C8_ACK_HOLD=ON`. C3 application size is
+945,760 bytes, SHA-256
+`57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354`. S3
+application size is 1,899,136 bytes, SHA-256
+`a4b3d7a3c27ac04c517967e9dde28c712f6febf21873c16809f89e32561a5146`; it embeds
+that exact C3 SHA-256. The compiled partition-table SHA-256 is
+`bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a` and
+matches the selected CSV. Build report:
+`code/build/gs114_fixture_pair/build-aq8ooz92/fixture_pair_report.json`.
+Both apps are host-prepared candidates only, marked
+`NOT_AUTHORIZED_FOR_DEPLOYMENT`; they were not installed.
+
+### Debugging notes
+
+The first updated S3 fixture regression used a synthetic C3 image without the
+new ACK-trace profile marker. The synthetic fixture was updated to carry the
+marker and assert verification; the final S3 fixture suite passes 15/15. The
+first traceability recheck also caught unquoted commas inserted into the new
+CSV test-result field; the field was corrected and the final 22-test mapping
+suite and 101-case physical catalogue check pass.
+
+### Automated validation
+
+| Command | Result |
+|---|---|
+| `make gs114-ack-wait-host-test` | Exit 0; 36 checks PASS |
+| `ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 make CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0' gs114-ack-wait-host-test` | Exit 0; 36 checks PASS under ASan/UBSan |
+| `make gs114-ack-wait-host-test battery-c8-host-test gs150-host-test s3-fixture-commissioning-test` | Exit 0; ACK trace 36 checks, BAT-C8 72 C++ checks plus 11 Python tests, GS-150 1,500 checks, S3 fixture 15 tests PASS |
+| `make gs114-c3-s3-c8-p9-build` | Exit 0; C3/S3 builds, C3 embed hash, profile markers and partition checks PASS |
+| `python3 -m unittest discover -s tests/python -p test_secure_signed_fota_fixture.py -v` | Exit 0; 22 tests PASS, including default-OFF ACK-trace profile checks and CMake rejection when physical wake is OFF or `GS_HIL_BUILD=ON`. |
+| `make validation-node` | Exit 2; 26/27 stages PASS. P0 had 26/26 scenario checks but required gate status `product_status=PARTIAL`, `physical=NOT_RUN`. The registered ACK-trace stage passed 34 checks before two final late-ACK assertions were added; current focused and sanitizer test runs pass 36. |
+| `make validation-hub` | Exit 2; 43/45 stages PASS, including the existing C8 ACK-hold deduplication gate 34/34 and ACK-drop gate 16/16. Existing migration assertion `clean migration commits` failed with exit 2 and zero matched assertion groups; P0 also failed on `product_status=PARTIAL`, `physical=NOT_RUN`. The ACK-trace stage passed 34 checks before the final two test assertions; current focused and sanitizer runs pass 36. |
+| `make validation-contract` | Exit 2; 36/37 stages PASS. P0 failed on `product_status=PARTIAL`, `physical=NOT_RUN`. The ACK-trace stage passed 34 checks before the final two test assertions; current focused and sanitizer runs pass 36. |
+| `make validation-board-e2e` | Exit 0; board-stack E2E 10/10 scenario groups PASS; physical NOT_RUN. |
+| `make validation-framework-test` | Exit 0; 46/46 validation framework tests PASS. |
+| `make feature-coverage-test physical-hil-catalogue-test` | Exit 0; traceability 205 features/211 modules/17 physical definitions PASS; 22 mapping tests PASS; physical catalogue 101 cases PASS with `device_access=NONE`. |
+
+Component-gate receipts and stage logs are in the ignored local directories
+`code/evidence/validation_framework/node-1792118647395438180/`,
+`code/evidence/validation_framework/hub-1792118788536319360/`, and
+`code/evidence/validation_framework/contract-1792119457567724338/`. The
+component gates' P0 `PARTIAL` result is not converted to PASS; the Hub migration
+failure remains independently visible.
+
+### Physical status and next prerequisites
+
+No hardware interface was opened. No USB/IP attach, flash, reset, wake,
+reconnect, erase, OTA, sensor stimulus, recommissioning or security operation
+occurred. P9-A and P9-B remain **BLOCKED / NOT_RUN**; GS-114 remains In Progress.
+The new trace does not replace the missing current board/image/slot/session/
+pending-EventKey baseline or prove reset continuity. Before physical P9-A:
+obtain exact Stage 2 authorization, verify the identified pair and current
+state through a proven no-reset path, preserve pending EventKeys and verify
+recovery, and qualify an independent reset-safe continuous observer. P9-B
+continues to require its separate signed-image trust, authenticated trigger,
+slot, boot-health, retained-event and recovery prerequisites. P10 remains
+GS-149.

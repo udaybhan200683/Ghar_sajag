@@ -78,6 +78,10 @@ struct NodeHealthSnapshot {
     static constexpr std::uint32_t legacy_schema_version = 1;
     static constexpr std::uint32_t schema_version = 2;
     static constexpr std::uint32_t c8_physical_trace_schema_version = 3;
+    // Compact authenticated test-only report. The isolated C8 profile emits it
+    // only after an ACK-wait trace has closed; commercial images remain on the
+    // existing schema and wire layout.
+    static constexpr std::uint32_t c8_ack_wait_trace_schema_version = 4;
 
     enum class SleepWakeCause : std::uint8_t {
         Unknown = 0,
@@ -98,6 +102,72 @@ struct NodeHealthSnapshot {
         // 0=unknown/no wake observed, 1=radio restore succeeded, 2=failed.
         std::uint8_t last_radio_restore_result{0};
         bool last_owner_resumed{false};
+    };
+
+    struct C8AckWaitTrace {
+        static constexpr std::size_t event_capacity = 16U;
+        static constexpr std::size_t sleep_reason_capacity = 3U;
+
+        enum class EventKind : std::uint8_t {
+            MacResult = 1,
+            AckWaitStart = 2,
+            SleepInhibited = 3,
+            SleepAllowedDuringWait = 4,
+            DurableAckAccepted = 5,
+            AckWaitEnd = 6,
+            SleepEligibleAfterWait = 7,
+            SleepEntry = 8,
+            Wake = 9,
+            EventKeyMismatch = 10
+        };
+
+        enum class EndReason : std::uint8_t {
+            DurableAck = 1,
+            ReceiveWindowElapsed = 2,
+            SessionReplaced = 3,
+            Other = 4
+        };
+
+        enum Flag : std::uint16_t {
+            Overflow = 1U << 0U,
+            MissingInterval = 1U << 1U,
+            EventKeyMismatch = 1U << 2U,
+            WatchdogExpired = 1U << 3U,
+            SleepAllowedWhileWaiting = 1U << 4U,
+            CounterSaturated = 1U << 5U,
+            TimestampInvalid = 1U << 6U,
+            PostAckSleepEligible = 1U << 7U,
+            PostAckSleepObserved = 1U << 8U,
+            RadioRestoreFailed = 1U << 9U,
+            PostAckWakeObserved = 1U << 10U
+        };
+
+        struct Event {
+            // Monotonic milliseconds since this boot; event order is the array order.
+            std::uint32_t uptime_ms{0};
+            EventKind kind{EventKind::MacResult};
+            // Values are compact context codes: reason slot, result bit,
+            // sleep context, or packed wake/radio-restore nibbles.
+            std::uint8_t value{0};
+        };
+
+        std::uint32_t boot_generation{0};
+        std::uint64_t event_key_session_id{0};
+        std::uint64_t event_key_sequence{0};
+        std::uint8_t event_count{0};
+        std::uint8_t overflow_count{0};
+        std::uint8_t missing_intervals{0};
+        std::uint8_t sleep_entries_during_ack_wait{0};
+        std::uint8_t post_ack_sleep_entries{0};
+        std::uint8_t post_ack_sleep_eligible_count{0};
+        std::uint16_t sleep_inhibit_decisions{0};
+        std::uint32_t sleep_inhibitor_mask{0};
+        std::uint8_t sleep_reason_count{0};
+        std::array<std::uint32_t, sleep_reason_capacity> sleep_reason_masks{};
+        std::uint16_t flags{0};
+        bool interval_open{false};
+        bool evidence_complete{false};
+        std::array<Event, event_capacity> events{};
     };
 
     std::uint32_t schema{schema_version};
@@ -142,23 +212,143 @@ struct NodeHealthSnapshot {
     // Present only in the isolated GS-114 C8 physical HIL profile. It is
     // carried inside the existing authenticated, non-business NodeHealth frame.
     std::optional<C8PhysicalSleepTrace> c8_physical_sleep_trace;
+    // Present only in the isolated C8 ACK-wait qualification profile.
+    std::optional<C8AckWaitTrace> c8_ack_wait_trace;
 };
 
 inline bool valid_node_health(const NodeHealthSnapshot& health) {
     const bool supported_schema =
         health.schema == NodeHealthSnapshot::legacy_schema_version ||
         health.schema == NodeHealthSnapshot::schema_version ||
-        health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version;
+        health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version ||
+        health.schema == NodeHealthSnapshot::c8_ack_wait_trace_schema_version;
     const auto wake_cause = static_cast<std::uint8_t>(health.last_wake_cause);
     const bool trace_matches_schema =
         (health.schema == NodeHealthSnapshot::c8_physical_trace_schema_version) ==
-        health.c8_physical_sleep_trace.has_value();
+            health.c8_physical_sleep_trace.has_value() &&
+        (health.schema == NodeHealthSnapshot::c8_ack_wait_trace_schema_version) ==
+            health.c8_ack_wait_trace.has_value() &&
+        !(health.c8_physical_sleep_trace && health.c8_ack_wait_trace);
+    bool ack_trace_valid = true;
+    if (health.c8_ack_wait_trace) {
+        const auto& trace = *health.c8_ack_wait_trace;
+        constexpr std::uint16_t known_flags =
+            NodeHealthSnapshot::C8AckWaitTrace::Overflow |
+            NodeHealthSnapshot::C8AckWaitTrace::MissingInterval |
+            NodeHealthSnapshot::C8AckWaitTrace::EventKeyMismatch |
+            NodeHealthSnapshot::C8AckWaitTrace::WatchdogExpired |
+            NodeHealthSnapshot::C8AckWaitTrace::SleepAllowedWhileWaiting |
+            NodeHealthSnapshot::C8AckWaitTrace::CounterSaturated |
+            NodeHealthSnapshot::C8AckWaitTrace::TimestampInvalid |
+            NodeHealthSnapshot::C8AckWaitTrace::PostAckSleepEligible |
+            NodeHealthSnapshot::C8AckWaitTrace::PostAckSleepObserved |
+            NodeHealthSnapshot::C8AckWaitTrace::RadioRestoreFailed |
+            NodeHealthSnapshot::C8AckWaitTrace::PostAckWakeObserved;
+        std::uint32_t previous_ms = 0;
+        bool ordered = true;
+        std::size_t starts = 0;
+        std::size_t ends = 0;
+        std::size_t mac_results = 0;
+        std::size_t durable_acks = 0;
+        bool interval_open = false;
+        bool sleep_open = false;
+        for (std::size_t i = 0; i < trace.event_count &&
+             i < trace.events.size(); ++i) {
+            const auto& event = trace.events[i];
+            const auto kind = static_cast<std::uint8_t>(event.kind);
+            if (kind < static_cast<std::uint8_t>(
+                           NodeHealthSnapshot::C8AckWaitTrace::EventKind::MacResult) ||
+                kind > static_cast<std::uint8_t>(
+                           NodeHealthSnapshot::C8AckWaitTrace::EventKind::EventKeyMismatch) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::SleepInhibited &&
+                 event.value >= trace.sleep_reason_count) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::MacResult &&
+                 event.value > 1U) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::AckWaitStart &&
+                 event.value != 0U && event.value != 1U && event.value != 0xffU) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::AckWaitEnd &&
+                 event.value > static_cast<std::uint8_t>(
+                     NodeHealthSnapshot::C8AckWaitTrace::EndReason::Other)) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::SleepEligibleAfterWait &&
+                 event.value > 1U) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::SleepEntry &&
+                 event.value > 2U) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::Wake &&
+                 event.value > 0x33U) ||
+                (event.kind ==
+                     NodeHealthSnapshot::C8AckWaitTrace::EventKind::Wake &&
+                 (event.value & 0x0fU) != 1U && (event.value & 0x0fU) != 2U) ||
+                (i != 0U && event.uptime_ms < previous_ms)) ordered = false;
+            if (event.kind == NodeHealthSnapshot::C8AckWaitTrace::EventKind::MacResult)
+                ++mac_results;
+            if (event.kind == NodeHealthSnapshot::C8AckWaitTrace::EventKind::AckWaitStart) {
+                ++starts;
+                if (interval_open) ordered = false;
+                interval_open = true;
+            }
+            if (event.kind == NodeHealthSnapshot::C8AckWaitTrace::EventKind::AckWaitEnd) {
+                ++ends;
+                if (!interval_open) ordered = false;
+                interval_open = false;
+            }
+            if (event.kind == NodeHealthSnapshot::C8AckWaitTrace::EventKind::SleepEntry) {
+                if (sleep_open) ordered = false;
+                sleep_open = true;
+            }
+            if (event.kind == NodeHealthSnapshot::C8AckWaitTrace::EventKind::Wake) {
+                if (!sleep_open) ordered = false;
+                sleep_open = false;
+            }
+            if (event.kind ==
+                NodeHealthSnapshot::C8AckWaitTrace::EventKind::DurableAckAccepted)
+                ++durable_acks;
+            previous_ms = event.uptime_ms;
+        }
+        ack_trace_valid = trace.boot_generation != 0U &&
+            trace.event_count <= trace.events.size() &&
+            trace.sleep_reason_count <= trace.sleep_reason_masks.size() &&
+            trace.event_key_session_id != 0U && trace.event_key_sequence != 0U &&
+            (trace.flags & static_cast<std::uint16_t>(~known_flags)) == 0U && ordered &&
+            interval_open == trace.interval_open && ends <= starts &&
+            (!trace.evidence_complete || !sleep_open) &&
+            (!trace.evidence_complete ||
+             (!trace.interval_open && starts > 0U && starts == ends &&
+              mac_results > 0U && durable_acks == 1U &&
+              trace.post_ack_sleep_eligible_count > 0U &&
+              trace.post_ack_sleep_entries > 0U &&
+              trace.overflow_count == 0U &&
+              trace.missing_intervals == 0U &&
+              trace.sleep_entries_during_ack_wait == 0U &&
+              (trace.flags & (NodeHealthSnapshot::C8AckWaitTrace::Overflow |
+                              NodeHealthSnapshot::C8AckWaitTrace::MissingInterval |
+                              NodeHealthSnapshot::C8AckWaitTrace::EventKeyMismatch |
+                              NodeHealthSnapshot::C8AckWaitTrace::WatchdogExpired |
+                              NodeHealthSnapshot::C8AckWaitTrace::SleepAllowedWhileWaiting |
+                              NodeHealthSnapshot::C8AckWaitTrace::CounterSaturated |
+                              NodeHealthSnapshot::C8AckWaitTrace::TimestampInvalid |
+                              NodeHealthSnapshot::C8AckWaitTrace::RadioRestoreFailed)) == 0U &&
+              (trace.flags & (NodeHealthSnapshot::C8AckWaitTrace::PostAckSleepEligible |
+                              NodeHealthSnapshot::C8AckWaitTrace::PostAckSleepObserved |
+                              NodeHealthSnapshot::C8AckWaitTrace::PostAckWakeObserved)) ==
+                  (NodeHealthSnapshot::C8AckWaitTrace::PostAckSleepEligible |
+                   NodeHealthSnapshot::C8AckWaitTrace::PostAckSleepObserved |
+                   NodeHealthSnapshot::C8AckWaitTrace::PostAckWakeObserved)));
+    }
     return supported_schema && !health.node_id.empty() &&
            health.session_id > 0 && health.health_sequence > 0 &&
            trace_matches_schema &&
+           ack_trace_valid &&
            (!health.c8_physical_sleep_trace ||
             health.c8_physical_sleep_trace->last_radio_restore_result <= 2U) &&
            (health.schema == NodeHealthSnapshot::legacy_schema_version ||
+            health.schema == NodeHealthSnapshot::c8_ack_wait_trace_schema_version ||
             wake_cause <= static_cast<std::uint8_t>(NodeHealthSnapshot::SleepWakeCause::Other));
 }
 

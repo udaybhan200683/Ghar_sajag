@@ -86,7 +86,9 @@ gs_outbox, data, littlefs, 0x820000, 0x400000,
 gs_state, data, nvs, 0xC20000, 0x40000,
 ''')
         node_asset = root / "node.bin"
-        node_asset.write_bytes(b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake")
+        node_asset.write_bytes(
+            b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake"
+            b"GS114_ACK_WAIT_TRACE_SCHEMA=1")
         app = root / "app.bin"
         app.write_bytes(b"image" + b" ".join(
             [*(f"RPF0{i}".encode() for i in range(9)),
@@ -116,6 +118,7 @@ gs_state, data, nvs, 0xC20000, 0x40000,
                                                    app, node, c8_ack_hold=True,
                                                    fixture_commissioning=False)
             self.assertTrue(profile["c8_ack_hold_fixture_enabled"])
+            self.assertTrue(profile["embedded_node_asset_ack_wait_trace_verified"])
             self.assertEqual(profile["commissioning_markers_present"], ["HIL_FIXTURE_READY"])
             app.write_bytes(app.read_bytes().replace(b"ARM_C8_ACK_HOLD", b""))
             with self.assertRaisesRegex(ValueError, "ACK-hold command"):

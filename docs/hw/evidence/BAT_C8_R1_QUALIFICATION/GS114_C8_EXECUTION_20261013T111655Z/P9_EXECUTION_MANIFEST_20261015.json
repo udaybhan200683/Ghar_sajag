@@ -462,5 +462,195 @@
       "Current target-specific recovery route preserving identity and pending events"
     ],
     "result": "BLOCKED; likely C3 USB-port association is now supported, but Stage 1 identity/state/observer/recovery prerequisites remain unverified and P9-A/P9-B remain BLOCKED/NOT_RUN"
+  },
+  "ack_wait_trace_implementation": {
+    "recorded_utc": "2026-10-16T03:14:20Z",
+    "task_basis": "GS-114 comment 11149",
+    "owner": "GS-114",
+    "source_head": "d992eee9475239474aca48c4bf28c0ee824f5590",
+    "branch": "feature/r1-commercial-baseline",
+    "context_preflight": "PASS; 2026-10-13.001",
+    "status": "IMPLEMENTED_HOST_VALIDATED; PHYSICAL_NOT_RUN",
+    "purpose": "Test-profile-only retrospective instrumentation of existing Node ACK-wait, ACK retirement and sleep transitions; no policy feedback.",
+    "changed_files": [
+      "code/firmware/node/power/power.hpp",
+      "code/firmware/node/target/esp32c3/node_runtime_adapter.cpp",
+      "code/firmware/node/target/esp32c3/idf/CMakeLists.txt",
+      "code/firmware/node/target/esp32c3/idf/main/CMakeLists.txt",
+      "code/firmware/common/shared/include/gs/protocol.hpp",
+      "code/firmware/common/transport/data_plane_codec.cpp",
+      "code/firmware/hub/runtime/hub_runtime.cpp",
+      "code/firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+      "code/scripts/build_gs114_fixture_pair.py",
+      "code/tests/cpp/gs114_ack_wait_trace_validation.cpp",
+      "code/tests/python/test_s3_fixture_commissioning.py",
+      "code/Makefile",
+      "code/validation/suites.json",
+      "docs/validation/MASTER_TRACEABILITY.csv",
+      "docs/validation/PHYSICAL_HIL_CATALOGUE.csv",
+      "docs/product/R1_WORK_STATE.md",
+      "docs/product/DECISION_LOG.md",
+      "docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md",
+      "docs/hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/P9_EXECUTION_MANIFEST_20261015.json",
+      "code/tests/python/test_secure_signed_fota_fixture.py"
+    ],
+    "instrumentation": {
+      "compile_guard": "GS_BAT_C8_ACK_TRACE defaults OFF; requires GS_BAT_C8_PHYSICAL_WAKE=ON and GS_HIL_BUILD=OFF",
+      "transport": "Additive authenticated NodeHealth schema 4 on existing report cadence; schemas 1-3 unchanged",
+      "bounded_trace": "16 timestamped events; 3 distinct sleep-inhibitor masks; fixed 220-byte maximum plaintext at maximum Node ID",
+      "ack_semantics": "Successful MAC leaves receive wait open until exact authenticated Durable ACK retires EventKey K; failed transport records bounded receive interval and existing eligible sleep-between-retries behavior",
+      "event_timing": "Boot-relative uint32 milliseconds; about 49.7-day bound; timestamp ordering checked",
+      "sleep_entry": "Timestamp sampled at sleep-call boundary and entry recorded only after esp_light_sleep_start() returns success; wake time sampled after return/radio restoration",
+      "reset_continuity": "Boot generation and reset reason accompany trace; trace is RAM-only and is lost if reset occurs before scheduled report",
+      "report_latency": "Retrospective report uses existing NodeHealth cadence; it may lag to the existing 300-second cadence",
+      "observer_qualification": "Not continuous or reset-safe; insufficient by itself for physical P9-A acceptance"
+    },
+    "host_target_build": {
+      "command": "make gs114-c3-s3-c8-p9-build",
+      "exit_code": 0,
+      "idf": "6.0.3",
+      "build_report": "code/build/gs114_fixture_pair/build-aq8ooz92/fixture_pair_report.json",
+      "source_fingerprint": "bcc0fe970e9c0789ce5b43a96a585262968f8dee8acc6b20a598f007f55f02d5",
+      "c3": {
+        "bytes": 945760,
+        "sha256": "57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354",
+        "profile": [
+          "GS_HIL_BUILD=OFF",
+          "GS_HIL_CONTROL=ON",
+          "GS_BAT_C8_PHYSICAL_WAKE=ON",
+          "GS_BAT_C8_ACK_TRACE=ON"
+        ]
+      },
+      "s3": {
+        "bytes": 1899136,
+        "sha256": "a4b3d7a3c27ac04c517967e9dde28c712f6febf21873c16809f89e32561a5146",
+        "profile": [
+          "GS_HIL_BUILD=OFF",
+          "GS_HIL_CONTROL=OFF",
+          "GS_HIL_COMMISSIONING=OFF",
+          "GS_HIL_C8_ACK_DROP=OFF",
+          "GS_HIL_C8_ACK_HOLD=ON",
+          "GS_HIL_SIGNED_FOTA=OFF"
+        ],
+        "embedded_c3_sha256": "57273e8203179d32c4075f75e906444e8a35d628f2caf71b89cba6ab8e83b354",
+        "compiled_partition_table_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a"
+      },
+      "deployment": "NOT_AUTHORIZED_FOR_DEPLOYMENT; no images installed"
+    },
+    "focused_validation": [
+      {
+        "command": "make gs114-ack-wait-host-test",
+        "exit_code": 0,
+        "checks": 36
+      },
+      {
+        "command": "ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 make CXXFLAGS='-std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0' gs114-ack-wait-host-test",
+        "exit_code": 0,
+        "checks": 36,
+        "sanitizers": [
+          "ASan",
+          "UBSan"
+        ]
+      },
+      {
+        "command": "make gs114-ack-wait-host-test battery-c8-host-test gs150-host-test s3-fixture-commissioning-test",
+        "exit_code": 0,
+        "results": {
+          "ack_trace_checks": 36,
+          "battery_c8_cpp_checks": 72,
+          "battery_c8_python_tests": 11,
+          "gs150_checks": 1500,
+          "s3_fixture_python_tests": 15
+        }
+      },
+      {
+        "command": "python3 -m unittest discover -s tests/python -p test_secure_signed_fota_fixture.py -v",
+        "exit_code": 0,
+        "tests": 22,
+        "ack_trace_profile_guard": "PASS; default OFF and invalid physical-wake/HIL-build combinations rejected"
+      }
+    ],
+    "component_gate_results": [
+      {
+        "command": "make validation-node",
+        "exit_code": 2,
+        "passed_stages": 26,
+        "total_stages": 27,
+        "ack_trace_stage_checks": 34,
+        "ack_trace_stage_predates_final_two_test_assertions": true,
+        "failure": "P0 E2E: 26/26 scenarios passed but product_status=PARTIAL and physical=NOT_RUN"
+      },
+      {
+        "command": "make validation-hub",
+        "exit_code": 2,
+        "passed_stages": 43,
+        "total_stages": 45,
+        "ack_trace_stage_checks": 34,
+        "ack_trace_stage_predates_final_two_test_assertions": true,
+        "failures": [
+          "Existing Hub journal migration assertion clean migration commits (exit 2, zero matched assertion groups)",
+          "P0 E2E product_status=PARTIAL and physical=NOT_RUN"
+        ],
+        "ack_hold_gate_checks": 34,
+        "ack_drop_gate_checks": 16
+      },
+      {
+        "command": "make validation-contract",
+        "exit_code": 2,
+        "passed_stages": 36,
+        "total_stages": 37,
+        "ack_trace_stage_checks": 34,
+        "ack_trace_stage_predates_final_two_test_assertions": true,
+        "failure": "P0 E2E product_status=PARTIAL and physical=NOT_RUN"
+      }
+    ],
+    "component_gate_reports": [
+      "code/evidence/validation_framework/node-1792118647395438180/report.json",
+      "code/evidence/validation_framework/hub-1792118788536319360/report.json",
+      "code/evidence/validation_framework/contract-1792119457567724338/report.json"
+    ],
+    "hardware_operations": [],
+    "physical_case_status": {
+      "P9-A": "BLOCKED / NOT_RUN",
+      "P9-B": "BLOCKED / NOT_RUN"
+    },
+    "remaining_physical_prerequisites": [
+      "Exact Stage 2 authorization",
+      "Verified current board identities, firmware/images, active slots, authenticated session and pending EventKeys through a proven no-reset read path",
+      "Verified identity/EventKey-preserving recovery route",
+      "Qualified independent reset-safe continuous observer",
+      "P9-B signed test-image trust, authenticated trigger, boot-health/session rejoin and rollback/recovery evidence"
+    ],
+    "supporting_validation": [
+      {
+        "command": "make validation-board-e2e",
+        "exit_code": 0,
+        "scenario_groups": 10,
+        "physical_status": "NOT_RUN"
+      },
+      {
+        "command": "make validation-framework-test",
+        "exit_code": 0,
+        "tests": 46
+      },
+      {
+        "command": "make feature-coverage-test physical-hil-catalogue-test",
+        "exit_code": 0,
+        "feature_traceability": {
+          "features": 205,
+          "modules": 211,
+          "physical_definitions": 17,
+          "mapping_tests": 22
+        },
+        "physical_catalogue": {
+          "cases": 101,
+          "device_access": "NONE"
+        }
+      }
+    ],
+    "debugging_notes": [
+      "Initial S3 commissioning regression synthetic Node image lacked the new C3 trace marker; the test image was corrected and the final 15-test S3 fixture suite passed.",
+      "Initial feature-traceability recheck found unquoted commas in the updated CSV test-result field; the field was corrected and the final mapping/catalogue checks passed."
+    ]
   }
 }

@@ -852,3 +852,25 @@ At source `63cf8d605db08ff5c9cec8e62729a437e234fd4d`, `make validation-pwa` ran 
 ## 2026-10-15 — GS-125 source merge execution record
 
 Owner authorization: GS-125 Jira comment 11058. Canonical R1 was fast-forwarded to integration commit `5f58333548739a31c388a359f4a122dad20d2ed7`; no product-semantic decision or commercial release state changed. The authorized source integration, exact validation scope, native evidence archive and remaining product blockers are recorded in `docs/product/R1_WORK_STATE.md` under “GS-125 Dashboard source integration completed — 2026-10-15”. P0 remains PARTIAL, historical migration FAIL, old-reader rollback limitation remains known, production CloudSync remains PENDING, Engineering production UI/authentication remains BLOCKED, and physical qualification remains NOT_RUN. Context version unchanged.
+
+
+## GS-114 P9-A ACK-wait observer implementation — 2026-10-16 (evidence only)
+
+Following GS-114 comment 11149, a test-profile-only bounded Node ACK-wait trace
+was implemented and host-validated. It observes the existing MAC result,
+exact-key authenticated Durable ACK retirement, sleep decisions and sleep/wake
+path; it does not change ACK, retry, persistence, radio or sleep policy. The
+trace uses the existing authenticated NodeHealth cadence, remains RAM-only, and
+cannot establish reset continuity or continuous state during the 12-second
+hold. The source-matched C3/S3 candidates were built but not installed. No
+physical operation or P9 acceptance occurred. P9-A/P9-B remain BLOCKED / NOT_RUN
+and GS-114 remains In Progress.
+
+The focused ACK-wait test passes 36 checks normally and under ASan/UBSan.
+BAT-C8, GS-150 and S3 fixture regressions pass. The registered Node/Hub/contract
+stages and their separate P0 product_status=PARTIAL outcomes, plus the Hub
+journal migration failure, are detailed in the GS-114 execution report
+(../hw/evidence/BAT_C8_R1_QUALIFICATION/GS114_C8_EXECUTION_20261013T111655Z/EXECUTION_REPORT.md).
+This is implementation and validation evidence only: no product, protocol,
+security, storage or power-policy decision changed. CONTEXT_VERSION remains
+2026-10-13.001.

@@ -10,6 +10,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace gs::node {
 
@@ -376,6 +377,322 @@ private:
     bool last_gpio_high_{false};
     Milliseconds gpio_high_since_ms_{-1};
     std::uint64_t gpio_high_total_ms_{0};
+};
+
+// Test-profile-only observer state for the GS-114 P9-A receive/sleep contract.
+// Callers supply timestamps and already-computed policy decisions; this class
+// never drives ACK, retry, persistence, radio, or sleep behavior.
+class C8AckWaitTraceRecorder {
+public:
+    using Trace = NodeHealthSnapshot::C8AckWaitTrace;
+    using EventKind = Trace::EventKind;
+
+    static constexpr Milliseconds diagnostic_watchdog_ms = 30000;
+
+    C8AckWaitTraceRecorder(std::string expected_node_id,
+                           std::uint32_t boot_generation)
+        : expected_node_id_(std::move(expected_node_id)) {
+        trace_.boot_generation = boot_generation;
+        if (boot_generation == 0U) set_flag(Trace::TimestampInvalid);
+    }
+
+    void note_mac_result(const EventKey& key, bool accepted_by_radio,
+                         Milliseconds now_ms) {
+        bind_key(key, now_ms);
+        append(now_ms, EventKind::MacResult, accepted_by_radio ? 1U : 0U);
+        if (trace_.interval_open || has_durable_ack_) {
+            increment(trace_.missing_intervals);
+            set_flag(Trace::MissingInterval);
+            return;
+        }
+        awaiting_retry_sleep_ = false;
+        retry_sleep_eligible_reported_ = false;
+        interval_mac_success_ = accepted_by_radio;
+        open_interval(now_ms, accepted_by_radio ? 1U : 0U);
+    }
+
+    void observe_ack_wait(bool active, const EventKey* key, Milliseconds now_ms) {
+        if (active) {
+            if (!trace_.interval_open) {
+                if (key == nullptr) {
+                    increment(trace_.missing_intervals);
+                    set_flag(Trace::MissingInterval);
+                    return;
+                }
+                bind_key(*key, now_ms);
+                increment(trace_.missing_intervals);
+                set_flag(Trace::MissingInterval);
+                interval_mac_success_ = false;
+                open_interval(now_ms, 0xffU);
+            } else if (key != nullptr && !matches(*key)) {
+                mark_key_mismatch(*key, now_ms);
+            }
+            check_watchdog(now_ms);
+        } else if (trace_.interval_open) {
+            close_interval(now_ms, Trace::EndReason::ReceiveWindowElapsed);
+        }
+    }
+
+    void note_sleep_decision(bool ack_wait_active,
+                             const EventKey* key,
+                             const LightSleepDecision& decision,
+                             Milliseconds now_ms) {
+        observe_ack_wait(ack_wait_active, key, now_ms);
+        if (trace_.interval_open) {
+            increment(trace_.sleep_inhibit_decisions);
+            trace_.sleep_inhibitor_mask |= decision.inhibitors;
+            if (decision.eligible) {
+                set_flag(Trace::SleepAllowedWhileWaiting);
+                append(now_ms, EventKind::SleepAllowedDuringWait, 0U);
+            } else {
+                record_sleep_reason(decision.inhibitors, now_ms);
+            }
+            check_watchdog(now_ms);
+        } else if (awaiting_retry_sleep_ && decision.eligible &&
+                   !retry_sleep_eligible_reported_) {
+            append(now_ms, EventKind::SleepEligibleAfterWait, 0U);
+            retry_sleep_eligible_reported_ = true;
+        } else if (awaiting_post_ack_sleep_ && decision.eligible &&
+                   (trace_.flags & Trace::PostAckSleepEligible) == 0U) {
+            append(now_ms, EventKind::SleepEligibleAfterWait, 1U);
+            set_flag(Trace::PostAckSleepEligible);
+            increment(trace_.post_ack_sleep_eligible_count);
+        }
+    }
+
+    void note_sleep_entry(Milliseconds now_ms, bool ack_wait_active) {
+        if (ack_wait_active || trace_.interval_open) {
+            increment(trace_.sleep_entries_during_ack_wait);
+            set_flag(Trace::SleepAllowedWhileWaiting);
+            append(now_ms, EventKind::SleepEntry, 1U);
+            sleep_context_ = 1U;
+        } else if (awaiting_retry_sleep_ && retry_sleep_eligible_reported_) {
+            append(now_ms, EventKind::SleepEntry, 2U);
+            awaiting_retry_sleep_ = false;
+            retry_sleep_eligible_reported_ = false;
+            sleep_context_ = 2U;
+        } else if (awaiting_post_ack_sleep_ &&
+                   (trace_.flags & Trace::PostAckSleepEligible) != 0U &&
+                   (trace_.flags & Trace::PostAckSleepObserved) == 0U) {
+            increment(trace_.post_ack_sleep_entries);
+            set_flag(Trace::PostAckSleepObserved);
+            append(now_ms, EventKind::SleepEntry, 0U);
+            sleep_context_ = 0U;
+        } else {
+            return;
+        }
+        sleep_in_progress_ = true;
+    }
+
+    void note_wake(Milliseconds now_ms, std::uint8_t wake_cause,
+                   std::uint8_t radio_restore_result) {
+        if (!sleep_in_progress_) return;
+        const std::uint8_t value = static_cast<std::uint8_t>(
+            ((wake_cause & 0x0fU) << 4U) | (radio_restore_result & 0x0fU));
+        append(now_ms, EventKind::Wake, value);
+        if (radio_restore_result != 1U) set_flag(Trace::RadioRestoreFailed);
+        if (sleep_context_ == 0U) set_flag(Trace::PostAckWakeObserved);
+        sleep_in_progress_ = false;
+        sleep_context_ = 0xffU;
+    }
+
+    void note_durable_ack(const EventKey& key, AckClass ack,
+                          bool authenticated, bool retired,
+                          Milliseconds now_ms) {
+        if (!authenticated || ack != AckClass::Durable) return;
+        if (trace_.event_key_session_id == 0U) bind_key(key, now_ms);
+        if (!matches(key)) {
+            mark_key_mismatch(key, now_ms);
+            return;
+        }
+        if (!retired || has_durable_ack_) {
+            increment(trace_.missing_intervals);
+            set_flag(Trace::MissingInterval);
+            return;
+        }
+        append(now_ms, EventKind::DurableAckAccepted, 1U);
+        has_durable_ack_ = true;
+        if (trace_.interval_open)
+            close_interval(now_ms, Trace::EndReason::DurableAck);
+        else {
+            increment(trace_.missing_intervals);
+            set_flag(Trace::MissingInterval);
+        }
+        awaiting_post_ack_sleep_ = true;
+    }
+
+    void note_session_replaced(Milliseconds now_ms) {
+        if (!trace_.interval_open) return;
+        close_interval(now_ms, Trace::EndReason::SessionReplaced);
+        set_flag(Trace::MissingInterval);
+        increment(trace_.missing_intervals);
+    }
+
+    bool report_ready() const {
+        return has_durable_ack_ && !trace_.interval_open;
+    }
+
+    bool has_trace() const {
+        return trace_.event_key_session_id != 0U || trace_.event_count != 0U;
+    }
+
+    Trace snapshot() const {
+        Trace result = trace_;
+        result.evidence_complete = report_ready() && wait_intervals_started_ > 0U &&
+            wait_intervals_started_ == wait_intervals_ended_ &&
+            trace_.event_count != 0U && trace_.overflow_count == 0U &&
+            trace_.missing_intervals == 0U &&
+            trace_.sleep_entries_during_ack_wait == 0U &&
+            trace_.sleep_inhibit_decisions != 0U &&
+            (trace_.sleep_inhibitor_mask &
+             (LightSleepInhibitPendingTx | LightSleepInhibitAckWait)) != 0U &&
+            (trace_.flags & (Trace::Overflow | Trace::MissingInterval |
+                             Trace::EventKeyMismatch | Trace::WatchdogExpired |
+                             Trace::SleepAllowedWhileWaiting |
+                             Trace::CounterSaturated | Trace::TimestampInvalid |
+                             Trace::RadioRestoreFailed)) == 0U &&
+            (trace_.flags & (Trace::PostAckSleepEligible |
+                             Trace::PostAckSleepObserved |
+                             Trace::PostAckWakeObserved)) ==
+                (Trace::PostAckSleepEligible | Trace::PostAckSleepObserved |
+                 Trace::PostAckWakeObserved);
+        return result;
+    }
+
+private:
+    void set_flag(std::uint16_t flag) { trace_.flags |= flag; }
+
+    template <typename T>
+    void increment(T& value) {
+        if (value == std::numeric_limits<T>::max()) {
+            set_flag(Trace::CounterSaturated);
+        } else {
+            ++value;
+        }
+    }
+
+    bool valid_timestamp(Milliseconds now_ms) {
+        if (now_ms < 0 || static_cast<std::uint64_t>(now_ms) >
+                               std::numeric_limits<std::uint32_t>::max()) {
+            set_flag(Trace::TimestampInvalid);
+            increment(trace_.missing_intervals);
+            set_flag(Trace::MissingInterval);
+            return false;
+        }
+        return true;
+    }
+
+    void append(Milliseconds now_ms, EventKind kind, std::uint8_t value) {
+        if (!valid_timestamp(now_ms)) return;
+        if (trace_.event_count >= trace_.events.size()) {
+            if (trace_.overflow_count != std::numeric_limits<std::uint8_t>::max())
+                ++trace_.overflow_count;
+            else
+                set_flag(Trace::CounterSaturated);
+            set_flag(Trace::Overflow);
+            return;
+        }
+        auto& event = trace_.events[trace_.event_count++];
+        event.uptime_ms = static_cast<std::uint32_t>(now_ms);
+        event.kind = kind;
+        event.value = value;
+    }
+
+    void open_interval(Milliseconds now_ms, std::uint8_t mac_result) {
+        if (!valid_timestamp(now_ms)) return;
+        if (wait_intervals_started_ == std::numeric_limits<std::uint16_t>::max()) {
+            set_flag(Trace::CounterSaturated);
+            return;
+        }
+        trace_.interval_open = true;
+        interval_started_ms_ = now_ms;
+        ++wait_intervals_started_;
+        append(now_ms, EventKind::AckWaitStart, mac_result);
+    }
+
+    void record_sleep_reason(std::uint32_t inhibitors, Milliseconds now_ms) {
+        for (std::size_t i = 0; i < trace_.sleep_reason_count; ++i) {
+            if (trace_.sleep_reason_masks[i] == inhibitors) return;
+        }
+        if (trace_.sleep_reason_count >= trace_.sleep_reason_masks.size()) {
+            increment(trace_.overflow_count);
+            set_flag(Trace::Overflow);
+            return;
+        }
+        const auto slot = trace_.sleep_reason_count++;
+        trace_.sleep_reason_masks[slot] = inhibitors;
+        append(now_ms, EventKind::SleepInhibited, slot);
+    }
+
+    void bind_key(const EventKey& key, Milliseconds now_ms) {
+        if (key.source_id.empty() || key.session_id == 0U || key.sequence == 0U) {
+            increment(trace_.missing_intervals);
+            set_flag(Trace::MissingInterval);
+            return;
+        }
+        if (trace_.event_key_session_id == 0U) {
+            trace_.event_key_session_id = key.session_id;
+            trace_.event_key_sequence = key.sequence;
+            if (key.source_id != expected_node_id_) mark_key_mismatch(key, now_ms);
+            return;
+        }
+        if (!matches(key)) mark_key_mismatch(key, now_ms);
+    }
+
+    bool matches(const EventKey& key) const {
+        return key.source_id == expected_node_id_ &&
+            key.session_id == trace_.event_key_session_id &&
+            key.sequence == trace_.event_key_sequence;
+    }
+
+    void mark_key_mismatch(const EventKey&, Milliseconds now_ms) {
+        set_flag(Trace::EventKeyMismatch);
+        increment(trace_.missing_intervals);
+        append(now_ms, EventKind::EventKeyMismatch, 0U);
+    }
+
+    void close_interval(Milliseconds now_ms, Trace::EndReason reason) {
+        if (!trace_.interval_open) {
+            increment(trace_.missing_intervals);
+            set_flag(Trace::MissingInterval);
+            return;
+        }
+        append(now_ms, EventKind::AckWaitEnd, static_cast<std::uint8_t>(reason));
+        trace_.interval_open = false;
+        if (wait_intervals_ended_ == std::numeric_limits<std::uint16_t>::max())
+            set_flag(Trace::CounterSaturated);
+        else
+            ++wait_intervals_ended_;
+        if (reason == Trace::EndReason::ReceiveWindowElapsed) {
+            if (interval_mac_success_) {
+                increment(trace_.missing_intervals);
+                set_flag(Trace::MissingInterval);
+            }
+            awaiting_retry_sleep_ = !has_durable_ack_ && !interval_mac_success_;
+            retry_sleep_eligible_reported_ = false;
+        }
+        interval_started_ms_ = -1;
+    }
+
+    void check_watchdog(Milliseconds now_ms) {
+        if (trace_.interval_open && interval_started_ms_ >= 0 &&
+            now_ms >= interval_started_ms_ &&
+            now_ms - interval_started_ms_ > diagnostic_watchdog_ms)
+            set_flag(Trace::WatchdogExpired);
+    }
+
+    std::string expected_node_id_;
+    Trace trace_{};
+    Milliseconds interval_started_ms_{-1};
+    std::uint16_t wait_intervals_started_{0};
+    std::uint16_t wait_intervals_ended_{0};
+    bool interval_mac_success_{false};
+    bool has_durable_ack_{false};
+    bool awaiting_post_ack_sleep_{false};
+    bool awaiting_retry_sleep_{false};
+    bool retry_sleep_eligible_reported_{false};
+    bool sleep_in_progress_{false};
+    std::uint8_t sleep_context_{0xffU};
 };
 
 inline const char* light_sleep_deadline_name(const LightSleepObservation& o,

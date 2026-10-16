@@ -28,7 +28,8 @@ def build_environment(options: list[str], base_environment=None) -> dict[str, st
 
 
 def stage_node_firmware_asset(work: Path, source: Path,
-                              expected_sha256: str | None = None) -> tuple[Path, dict]:
+                              expected_sha256: str | None = None,
+                              require_ack_trace: bool = False) -> tuple[Path, dict]:
     """Stage a byte-verified C3 app at the filename required by S3 component discovery."""
     source = source.resolve()
     if not source.is_file():
@@ -47,11 +48,15 @@ def stage_node_firmware_asset(work: Path, source: Path,
     staged_digest = hashlib.sha256(asset.read_bytes()).hexdigest()
     if staged_digest != digest:
         raise RuntimeError("staged C3 firmware asset differs from its verified source")
+    ack_trace_marker = b"GS114_ACK_WAIT_TRACE_SCHEMA=1" in data
+    if require_ack_trace and not ack_trace_marker:
+        raise ValueError("P9 image requires a C3 app with the test-only ACK-wait trace profile")
     return asset, {
         "source_path": str(source), "staged_path": str(asset),
         "bytes": len(data), "sha256": digest,
         "expected_sha256": expected_sha256,
         "reused_existing_image": expected_sha256 is not None,
+        "ack_wait_trace_profile_verified": ack_trace_marker,
     }
 
 
@@ -151,6 +156,9 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
     if (b"W (%lu) %s: HIL_ERROR command=INJECT_MOTION disabled_for_physical_wake" not in node_image
             or b"I (%lu) %s: HIL_OK command=INJECT_MOTION" in node_image):
         raise ValueError("embedded C3 asset does not enforce the physical-wake motion guard")
+    ack_trace_profile_verified = b"GS114_ACK_WAIT_TRACE_SCHEMA=1" in node_image
+    if c8_ack_hold and not ack_trace_profile_verified:
+        raise ValueError("P9 S3 fixture must embed a C3 app with ACK-wait trace enabled")
     s3_runtime_image = image[:embedded_at] + image[embedded_at + len(node_image):]
     missing_rpf = [marker.decode() for marker in RPF_MARKERS if marker not in image]
     missing_commissioning = ([marker.decode() for marker in COMMISSIONING_MARKERS
@@ -191,6 +199,7 @@ def validate_s3_fixture_artifact(sdkconfig: Path, cmake_cache: Path,
         "embedded_node_asset_sha256": hashlib.sha256(node_image).hexdigest(),
         "embedded_node_asset_offset": embedded_at,
         "embedded_node_asset_physical_wake_guard_verified": True,
+        "embedded_node_asset_ack_wait_trace_verified": ack_trace_profile_verified,
         "s3_runtime_image_broad_hil_markers_absent": True,
     }
 
@@ -269,12 +278,17 @@ def main() -> int:
     if args.s3_node_firmware_asset is not None:
         c3 = None
         asset, node_asset_report = stage_node_firmware_asset(
-            work, args.s3_node_firmware_asset, args.expected_node_sha256)
+            work, args.s3_node_firmware_asset, args.expected_node_sha256,
+            require_ack_trace=args.s3_c8_p9_ack_hold)
     else:
+        c3_options = ["-D", "SDKCONFIG_DEFAULTS=" + c3_defaults,
+                      "-D", "GS_HIL_CONTROL=ON", "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON"]
+        if args.s3_c8_p9_ack_hold:
+            c3_options.extend(["-D", "GS_BAT_C8_ACK_TRACE=ON"])
         c3 = build(export, c3_project, work / "c3", work / "c3-sdkconfig", "esp32c3", "c3", version,
-                   ["-D", "SDKCONFIG_DEFAULTS=" + c3_defaults,
-                    "-D", "GS_HIL_CONTROL=ON", "-D", "GS_BAT_C8_PHYSICAL_WAKE=ON"])
-        asset, node_asset_report = stage_node_firmware_asset(work, c3)
+                   c3_options)
+        asset, node_asset_report = stage_node_firmware_asset(
+            work, c3, require_ack_trace=args.s3_c8_p9_ack_hold)
     fixture_commissioning = not args.s3_c8_p9_ack_hold
     s3 = build(export, s3_project, work / "s3", work / "s3-sdkconfig", "esp32s3", "s3", version,
                ["-D", "GS_HIL_BUILD=OFF", "-D", "GS_HIL_CONTROL=OFF",
@@ -325,7 +339,8 @@ def main() -> int:
                     if args.s3_rpf_diagnostic else
                     "GS-114 disposable fixture; C3 HIL_CONTROL/physical wake; S3 commissioning-only"),
         "build_flags": {
-            "c3": (["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=ON", "GS_BAT_C8_PHYSICAL_WAKE=ON"]
+            "c3": (["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=ON", "GS_BAT_C8_PHYSICAL_WAKE=ON"] +
+                   (["GS_BAT_C8_ACK_TRACE=ON"] if args.s3_c8_p9_ack_hold else [])
                    if c3 is not None else ["NOT_BUILT; verified existing image reused as S3 input"]),
             "s3": ["GS_HIL_BUILD=OFF", "GS_HIL_CONTROL=OFF",
                    "GS_HIL_COMMISSIONING=" + ("ON" if fixture_commissioning else "OFF"),
