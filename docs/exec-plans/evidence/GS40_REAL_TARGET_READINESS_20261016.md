@@ -343,7 +343,7 @@ create a separate product-approved task linked to GS-40/GS-148 to define
 recipient, delay, quiet hours, deduplication, recovery/clear and channel policy.
 No new Jira issue was created because those semantics are not specified.
 
-**Focused validation (current working tree):**
+**Focused validation (canonical source commit `a110228b22ff35d53e3ab709364c0ce21977cd92`, branch `feature/r1-commercial-baseline`):**
 
 ```text
 python3 -m py_compile tools/hil/gs40_qualification.py tests/python/test_gs40_qualification.py
@@ -356,7 +356,9 @@ python3 -m unittest -v \
   tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_live_mode_blocks_without_any_device_access_or_physical_pass
 ```
 
-Result: compile PASS; 6 focused test methods PASS. The observation matrix covers
+Result: compile PASS; 6 focused test methods PASS. Feature-map integrity
+also passed (207 features, 216 modules, 24 physical cases; 22/22 mapping
+tests). The observation matrix covers
 14 states, including configured 910 boundary, legacy 190/310, Hub disconnect,
 Internet loss, stale Hub/backend/cloud/PWA sources, missing/untrusted identity,
 unverified Hub/Home/epoch, missing application contact and recovery-safe

@@ -1,5 +1,52 @@
 # R1 Current Work State
 
+## GS-40 NodeHealth CloudSync evidence-contract increment — 2026-10-16
+
+The canonical source checkpoint before this increment was
+`ad6df017a7f7bf586a84beb5b54cea2ad74d5962` on
+`feature/r1-commercial-baseline`, with `origin` at the same SHA. The focused
+GS-40 evidence-contract change is source commit
+`a110228b22ff35d53e3ab709364c0ce21977cd92`. The implementation and architecture
+evidence follow-up records the resulting delivery checkpoint in its dated GS-40
+Jira comment. The separate, active GS-68 worktree
+`/home/udaybhan/projects/Ghar_sajag_r1_cloudsync_mtls` was not modified or
+merged; existing untracked assets and BAT-C8/GS-114/GS-40 evidence remain
+preserved.
+
+The only code change extends the existing GS-40 pure observation validator to
+schema v2. It now checks matching Hub/Home/ownership-epoch authority across
+Hub/backend/PWA, Hub-owned trusted Node profile, authenticated NodeHealth or
+event contact kind, Hub contact receive time carried separately from backend
+receive and PWA snapshot time, and fail-closed stale/untrusted source handling.
+This is `TEST_INFRA_ONLY`: no Node/Hub liveness algorithm, CloudSync endpoint,
+credential, verifier, backend schema/API, event/EventKey/ACK path or PWA product
+behavior changed. GS-148 architecture evidence now records the additive bounded
+status contract under GS-109/GS-68/GS-148 ownership. Configurable sensor-offline
+notification behavior is not found in current Jira/code; any alert is separate
+product scope and needs a new linked requirement.
+
+Focused validation at source commit `a110228b22ff35d53e3ab709364c0ce21977cd92`:
+
+- Python compile: PASS.
+- Six selected GS-40 adapter/source-audit/live-gate unit methods: PASS; 14
+  observation states/subcases. No full mock/replay case campaign was rerun.
+- `make feature-coverage-test`: PASS; 207 features, 216 modules, 24 physical
+  cases; 22 mapping tests PASS.
+- `git diff --check`: PASS.
+- No Node/Hub/backend/PWA product component changed; their component gates were
+  not rerun. No hardware, port, USB, power, stimulus or outage operation ran.
+- All PHY-GS40-01..06 remain BLOCKED/NOT_RUN; no physical PASS. BAT-C8 results
+  were not changed or repeated.
+
+Production readiness is still blocked on GS-109 production Hub verifier/key
+custody and D06 trusted-time decision; GS-68 additive status publication through
+the existing CloudSync channel; GS-148 authenticated ingest, freshness read
+model and caregiver PWA projection; and a verified safe observer plus current
+board/image/config/session provenance. GS-40 remains In Progress. Next action is
+owner delivery of those GS-109/GS-68/GS-148 contracts, then production source-to-
+caregiver end-to-end tests before physical TC01–TC06.
+
+
 ## GS-68 second incremental CloudSync integration — 2026-10-16
 
 The isolated integration candidate starts at canonical remote
