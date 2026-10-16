@@ -1,17 +1,17 @@
 # R1 Current Work State
 
-## GS-114 P9 profile/artifact and Stage 2 readiness closure — 2026-10-16 04:43 UTC
+## GS-114 P9 physical-readiness handoff — 2026-10-16 04:43 UTC
 
 Continued from GS-114 Jira comment 11150 in the canonical worktree
 `/home/udaybhan/projects/Ghar_sajag_r1` on
 `feature/r1-commercial-baseline`. Source code is committed at
 `9b22c13689e819743e57e2a847a65f476b94331f`; origin was still
 `f6a23ecd8419e987ef3eca578e061d3ec3185cf5` before this documentation delivery.
-The source commit has not yet been pushed. Current uncommitted tracked changes
-are the GS-114 test plan, execution report, P9 manifest, physical qualification
-matrices, this work-state update and the evidence-only Decision Log entry.
-Existing untracked PWA assets, managed components, logs and readbacks remain
-untouched.
+Source commit `9b22c13689e819743e57e2a847a65f476b94331f` and evidence/docs
+commit `4fa3f3fa5e07986b00d300f791a411cee6caaeae` were pushed normally;
+`git ls-remote origin refs/heads/feature/r1-commercial-baseline` matched the
+evidence/docs commit. Jira GS-114 comment 11154 records the result. At handoff authoring, the only tracked diff was this final update. Existing
+untracked PWA assets, managed components, logs and readbacks remain untouched.
 
 The former broad C3 qualification profile was narrowed to
 `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=OFF`,
@@ -62,12 +62,12 @@ P3 remains PARTIAL, P4 historical q10-q12 OPEN, P5 retry identity LIMITED, and
 P10 remains GS-149. GS-118 rollback stack is still provisional at 12 KiB with
 no measured high-water evidence.
 
-**Next:** stage only the seven intended tracked evidence/documentation files,
-review the staged diff, commit and push normally, verify `git ls-remote` against
-local HEAD, then add one GS-114 Jira comment with the host evidence and
-consolidated Stage 2 authorization/equipment prerequisites. Do not open ports or
-begin physical P9 until explicit Stage 2 authorization and all identity,
-observer, state and recovery gates pass.
+**Next:** obtain the single consolidated Stage 2 owner authorization for the
+exact identified pair and named observer/port/equipment scope in the manifest.
+Before any install or P9 stimulus, Stage 2A must verify both identities, safe
+exclusive no-reset observation, current image/slot/session/pending-key state,
+and an identity/EventKey-preserving app-only recovery route. Stop if any check
+remains unknown. No board or serial access is authorized meanwhile.
 
 ## GS-114 P9-A ACK-wait instrumentation and host validation — 2026-10-16 03:14 UTC
 
