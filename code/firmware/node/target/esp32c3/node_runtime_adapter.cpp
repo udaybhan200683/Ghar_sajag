@@ -13,6 +13,9 @@
 #include "firmware/node/target/esp32c3/physical_wake_capability.hpp"
 #include "firmware/node/target/esp32c3/node_target_config.hpp"
 #include "firmware/node/target/esp32c3/nvs_session_provider.hpp"
+#if GS_GS68_NODE_OBSERVER
+#include "firmware/node/target/esp32c3/gs68_node_observer.hpp"
+#endif
 #include "sensing/sensing.hpp"
 
 #include "driver/gpio.h"
@@ -1023,6 +1026,13 @@ void owner_task(void*) {
                 runtime.persisted() != retained_before)
                 energy.record_recovery_commit();
 #endif
+#if GS_GS68_NODE_OBSERVER
+            const auto* observed_binding = security_link.binding();
+            gs::node::target::gs68::publish_hub_ack(
+                key, observed_binding == nullptr ? nullptr : observed_binding->device_id.c_str(),
+                decoded.value->ack_type, true, matched_pending, retired,
+                matched_pending && retired && decoded.value->ack_type == AckClass::Durable);
+#endif
             breadcrumb = retired ? NodeBreadcrumb::EventRetired : NodeBreadcrumb::AppAck;
             GS_NODE_PROGRESS_LOG(kTag, "Application ACK session=%llu seq=%llu class=%d retired=%d",
                      static_cast<unsigned long long>(key.session_id),
@@ -1279,6 +1289,10 @@ void owner_task(void*) {
                         return;
                     }
                     energy.record_recovery_commit();
+#if GS_GS68_NODE_OBSERVER
+                    gs::node::target::gs68::publish_event_admitted(
+                        *key, security_link.binding()->device_id.c_str());
+#endif
                     if (*sensed == EventKind::Motion)
                         activity_episode.note_first(motion_room, now,
                                                     runtime.outage_profile());
@@ -1329,6 +1343,10 @@ void owner_task(void*) {
                     return;
                 }
                 energy.record_recovery_commit();
+#if GS_GS68_NODE_OBSERVER
+                gs::node::target::gs68::publish_event_admitted(
+                    *key, security_link.binding()->device_id.c_str());
+#endif
                 activity_episode.summary_committed();
                 ESP_LOGD(kTag, "Motion summary committed count=%u coalesced=%llu omitted=%llu",
                          static_cast<unsigned>(summary.aggregate.additional_count),
@@ -1607,6 +1625,10 @@ void owner_task(void*) {
                         continue;
                     }
                     ++send_attempts;
+#if GS_GS68_NODE_OBSERVER
+                    gs::node::target::gs68::publish_transmission_attempt(
+                        key, security_link.binding()->device_id.c_str());
+#endif
                     if (first_event_attempt_ms < 0) first_event_attempt_ms = now;
                     const esp_err_t sent = esp_now_send(security_link.hub_mac().data(),
                                                         protected_message.bytes.data(),
@@ -1649,6 +1671,18 @@ void owner_task(void*) {
         g_hil_in_flight.store(in_flight ? 1U : 0U, std::memory_order_release);
         g_hil_runtime_live.store(runtime_liveness, std::memory_order_release);
         g_hil_sensing_live.store(sensing_liveness, std::memory_order_release);
+#endif
+#if GS_GS68_NODE_OBSERVER
+        const auto* observer_binding = security_link.binding();
+        const auto oldest_observed_key = runtime.oldest_pending_key();
+        gs::node::target::gs68::publish_runtime_state(
+            observer_binding == nullptr ? nullptr : observer_binding->logical_id.c_str(),
+            observer_binding == nullptr ? nullptr : observer_binding->hub_id.c_str(),
+            observer_binding == nullptr ? nullptr : observer_binding->device_id.c_str(),
+            g_session_id, reset_reason, security_link.ready(), runtime.outage_profile(),
+            static_cast<std::uint32_t>(runtime.persisted()),
+            static_cast<std::uint32_t>(runtime.pending()), runtime.radio_stats().retries,
+            oldest_observed_key ? &*oldest_observed_key : nullptr);
 #endif
 
         energy.radio_retries = runtime.radio_stats().retries;
@@ -1955,6 +1989,11 @@ esp_err_t start_runtime_adapter() {
         return ESP_FAIL;
     }
     g_session_id = *session;
+#if GS_GS68_NODE_OBSERVER
+    gs::node::target::gs68::publish_runtime_state(
+        nullptr, nullptr, nullptr, g_session_id,
+        static_cast<std::uint32_t>(esp_reset_reason()), false, false, 0, 0, 0, nullptr);
+#endif
 
     g_ack_queue = xQueueCreateStatic(kAckQueueDepth, sizeof(ReceivedFrame),
                                      g_ack_storage.data(), &g_ack_queue_state);

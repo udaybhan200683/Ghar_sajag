@@ -1,0 +1,4 @@
+# Isolated GS-68 ESP32-C3 read-only observer profile. Not included by product defaults.
+# Legacy HIL controls, synthetic motion, and reset commands remain disabled.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y

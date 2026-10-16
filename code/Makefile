@@ -632,7 +632,7 @@ board-stack-e2e-host-test: build $(BOARD_E2E_OBJECTS)
 validation-board-e2e:
 	python3 validation/component_gate.py --suite board-e2e $(VALIDATION_RECEIPTS)
 
-.PHONY: validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test p0-product-e2e
+.PHONY: validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test gs68-node-diag-protocol-host-test p0-product-e2e
 P0_BOARD_E2E_SOURCES := $(sort $(CPP_SOURCES) $(GS116_MULTINODE_HOST_TEST_HOST_SOURCES) $(GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES) firmware/hub/storage/outbox_journal_backend.cpp firmware/node/lifecycle/fota/boot_health_gate.cpp)
 P0_BOARD_E2E_OBJECTS := $(call host_objects,$(P0_BOARD_E2E_SOURCES))
 HOST_TEST_OBJECTS += $(P0_BOARD_E2E_OBJECTS)
@@ -651,12 +651,18 @@ p0-product-e2e: p0-board-stack-event-host-test p2d-cloud-contract-host-test hub-
 validation-p0-e2e:
 	python3 validation/component_gate.py --suite p0-e2e $(VALIDATION_RECEIPTS)
 
-gs130-hil-runner-test:
+gs130-hil-runner-test: gs68-node-diag-protocol-host-test
 	PYTHONPATH=tools/hil python3 -m unittest discover -s tools/hil -p 'test_*_runners.py' -v
+
+gs68-node-diag-protocol-host-test:
+	python3 scripts/test_gs68_diag_protocol_host.py
 
 # Isolated TEST_ONLY S3 diagnostic image. This target runs build+size only.
 gs68-cloudsync-diagnostic-build:
 	python3 scripts/build_gs68_cloudsync_diagnostic.py
+
+gs68-cloudsync-c3-diagnostic-build:
+	python3 scripts/build_gs68_cloudsync_c3_diagnostic.py
 
 # GS-68 defaults to a local-only report. Physical execution is opt-in and checks
 # fixture/source/image/profile/backend authorization before exact by-id serial use.

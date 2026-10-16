@@ -1,14 +1,121 @@
 # R1 Current Work State
 
-## GS-68 selective CloudSync canonical integration — 2026-10-16
+## GS-68 second incremental CloudSync integration — 2026-10-16
+
+The isolated integration candidate starts at canonical remote
+`c0430b14bd0897de5d22f5ace073bf457302067c` and selectively integrates source
+checkpoint `e740f99d094b4a0ef7397f0a506e8f089fb5d261` from
+`feature/r1-gs68-gs109-mtls-feasibility`; prior integrated checkpoint:
+`44838da836d3014e606cfe2ee57ad624ee417240`. GS-148 comment 11216 authorizes
+this incremental software integration. The paired C3 read-only observer and
+shared diagnostic protocol, TEST_ONLY backend readiness binding, runner tests,
+registrations, traceability and qualification plan are integrated in the
+existing candidate. Focused runner tests (16 C++ / 70 Python), backend self-test,
+registration checks (2 component / 1 dashboard) and traceability (22) passed.
+C3 and S3 non-flashing builds passed; committed-source-bound image reports are
+pending final candidate commit. Physical cases remain NOT_RUN; commercial
+CloudSync remains disabled. Existing P0 `PARTIAL` and Hub migration failures
+remain blockers. See the dated canonical integration evidence for conflict
+resolutions, test logs and build artifact metadata.
+
+The older GS-68 S3 build evidence was verified and archived at
+`/home/udaybhan/projects/_artifacts/Ghar_sajag/GS68/20261016_M9cHfJ/`; the old
+path remains a compatibility symlink. The integration worktree is retained
+with its pre-existing untracked/ignored artifacts. CloudSync development and
+canonical/C8 worktrees remain untouched.
+## GS-68 CloudSync physical-HIL readiness — 2026-10-16 (latest checkpoint)
+
+Authority: GS-68 comment 11174. The isolated branch is
+`feature/r1-gs68-gs109-mtls-feasibility`; implementation source commit is
+`534701fe1ba873007468b6292a8229a92d87edb5`. The initial documentation
+closeout `f51b094c9eeeb5188c61267490769206743c84aa` was pushed normally and
+verified equal to origin. This final handoff receipt is a documentation-only
+follow-up; the latest remote SHA is reverified and carried by Jira comments
+11178/11179/11180. The canonical C8 worktree was not used. The pre-existing
+untracked `code/firmware/hub/target/esp32s3/idf/managed_components/` was
+preserved and excluded from staging.
+
+The C3 diagnostic interface is implemented and default-off in normal product
+builds. Its bounded case/nonce protocol supports only PING/OBSERVE, with
+source/profile/image binding, boot/reset observations, link/outage and
+retained-event counters, and authenticated Node/Hub EventKey/ACK trace. It has
+no event injection, network/power toggle, or Node reset command; paired physical
+stimulus needs an external fixture interface. The C3 profile compiled with ESP-IDF
+6.0.3. No production sleep, ACK, retry, or security algorithm was changed.
+The isolated TEST_ONLY backend readiness self-test passed with synthetic
+credentials, local TLS 1.2 mTLS, RSA-3072 checks, certificate-to-Hub/Home/epoch
+mapping, signed readiness, and duplicate-safe durable receipt retry. It did not
+connect to a production endpoint or deploy a service. It does not implement the
+unfinished GS-148 production durable Hub-commit API; P0 remains PARTIAL.
+
+Build-only reports for the implementation source commit:
+
+| Target | Result | Profile SHA-256 | sdkconfig SHA-256 | Image SHA-256 | Image bytes |
+|---|---|---|---|---|---:|
+| ESP32-S3 CloudSync diagnostic | BUILD_ONLY_PASS, ESP-IDF v6.0.3 | `00a8aefb20a6b67d34c6631128031d112ff091d3f255b21a7280db45a356b1d0` | `8e7b13e1989f4a102874370cb8d90ccb6716cb1df1f9316dbea0268e4916c6c8` | `f0eea28dfb50c6f6c896caa647d1da57ffc81bb7c8a3f8e5b5475d4964027e8a` | 442240 |
+| ESP32-C3 read-only observer | BUILD_ONLY_PASS, ESP-IDF v6.0.3 | `81ddcd270c3a7b6a46e6b983df7daa6df28ab780acaf6c5e6ff1f5f6df7d24a2` | `6a932842c7478cc16289706cb8409d373033c27a0d48b66b66a227f2a3c07a06` | `25322db1a3a3052f6812630bf34578f2d1fe43a3558730fd908ec1ef4c607481` | 945568 |
+
+Both reports bind source `534701fe1ba873007468b6292a8229a92d87edb5` and code-tree
+OID `88f4fc0fcbb4890b942c5c55b48ef07ad9d89926`. S3 configuration selects the
+ESP32-S3 diagnostic-only profile and TLS 1.2; GS HIL build/control,
+commissioning, and C8 ACK-drop are disabled; the DS peripheral is selected but
+unprovisioned. C3 enables only the observer in its separate ESP32-C3 profile;
+GS HIL build/control and BAT-C8 physical wake are disabled. C3
+`sdkconfig.defaults` and observer-overlay SHA-256 values are
+`44bd471e07c2597873704c8427ef3e986c6a0b474cbabd5bab9e1a56925ad8fa` and
+`0679dfa2078d757a3990f0766dea3c363c0a7e5ef5625d02994b13cf5575e664`.
+S3 JSON report/log:
+`/tmp/gs68_cloudsync_diag_9h385r_e/gs68_build_report.json` and `build.log`;
+C3 JSON report/log: `/tmp/gs68_cloudsync_c3_bsyj9zbz/gs68_c3_build_report.json`
+and `build.log`. The C3 profile selects `GS_GS68_NODE_OBSERVER=ON`, while
+`GS_HIL_BUILD/CONTROL=OFF`. Compilation does not demonstrate a running image,
+hardware RSA signing, target TLS, or physical qualification.
+
+Validation on the isolated candidate:
+
+- `make gs130-hil-runner-test`: PASS; C++ parser 16/16 and Python runner tests
+  70/70. Safe dry-run: ten cases, `physical=NOT_RUN`, zero hardware actions.
+- TEST_ONLY backend self-test: PASS; TLS 1.2, RSA-3072, signed readiness and
+  duplicate-safe durable retry. `cloudsync-security-ut` 20/20,
+  `cloudsync-security-sim-hil` 18/18, localhost mTLS integration 1/1.
+- GS-116/GS-130 framework tests: 53/53; feature coverage mapping: 199 features,
+  215 modules, 16 physical cases, 22 checks; physical catalogue: 100 cases.
+- Component gates: Node 24 PASS / 1 FAIL (P0); Hub 44 PASS / 2 FAIL (migration
+  and P0); Contract 38 PASS / 1 FAIL (P0); Backend 20 PASS / 1 FAIL (P0).
+  The required P0 scenario executed 26 checks but retains
+  `product_status=PARTIAL`, so its component stage remains FAIL. The Hub
+  `clean migration commits` stage remains FAIL. Node/Hub/Contract component
+  reports record HEAD `44838da836d3014e606cfe2ee57ad624ee417240` with
+  `tracked_dirty=true`, before the final C3-only compile portability commits;
+  Backend was run at source `534701fe1ba873007468b6292a8229a92d87edb5`. Neither
+gate was weakened.
+- Fast and full release gates were not executed; registration and release-stage
+  selection were verified. `PHY-GS68-CLOUD-MTLS` remains release-blocking and
+  `NOT_RUN`.
+
+Compile/test defects resolved: C3 ESP-IDF `spi_flash` dependency, removal of an
+S3-only PSRAM API on C3, portable `PRIu32` formatting, and a backend test setup
+KeyError. No board, USB/serial, production network, secret, or hardware security
+configuration was accessed. No flash, reset, eFuse/HMAC, Secure Boot, Flash
+Encryption, production credential, or commercial CloudSync operation occurred.
+
+The [S3-first qualification plan](GS68_S3_FIRST_PHYSICAL_QUALIFICATION_PLAN_20261016.md)
+is **BLOCKED** and says `S3-FIRST-CONNECTION-APPROVAL-READY=NO`: the exact spare
+board, revision, connector, power/adapter path, and stable USB identity have not
+been identified or verified. S3-only identity observation, later S3 RSA/mTLS,
+paired C3 cases, and GS-118/D15 OTA rollback have separate prerequisites.
+D05/D12/D06/D16 remain unresolved; OTA remains separately gated by D15. This
+entry records no product/security decision and does not increment
+`CONTEXT_VERSION`.
+
+## Prior GS-68 CloudSync integration — 2026-10-16
 
 The isolated integration candidate was based on canonical remote
-d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6 and selectively ports the latest
+d3a17df57e0cf82b598edbc862c7ef0bc0ed14b6 and selectively ports the first-batch
 validated committed CloudSync checkpoint
 44838da836d3014e606cfe2ee57ad624ee417240. GS-148 comment 11177 authorizes
-this software integration only. The software integration and evidence commits
-are included in canonical and the integration branch; GitHub verified both at
-52fca1bc4166acb2765378e2e3e2a2fc95b750e1 before this documentation update.
+this software integration only. The first-batch integration commit was verified at
+52fca1bc4166acb2765378e2e3e2a2fc95b750e1.
 The separate CloudSync development branch and the active canonical/C8 worktree
 remain untouched.
 

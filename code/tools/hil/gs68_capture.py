@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import time
+from datetime import datetime
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -52,7 +53,8 @@ def verify_backend_receipt(receipt: object, public_key_pem: bytes,
     errors: list[str] = []
     signature_text = receipt.get("signature_b64")
     unsigned = {key: value for key, value in receipt.items() if key != "signature_b64"}
-    if unsigned.get("schema") not in {"gs68.backend.receipt.v1", "gs68.backend.readiness.v1"}:
+    schema = unsigned.get("schema")
+    if schema not in {"gs68.backend.receipt.v1", "gs68.backend.readiness.v1"}:
         errors.append("backend receipt schema is invalid")
     try:
         signature = base64.b64decode(signature_text, validate=True)
@@ -70,6 +72,72 @@ def verify_backend_receipt(receipt: object, public_key_pem: bytes,
         errors.append("backend receipt lacks authenticated client certificate fingerprint")
     if not HEX64.fullmatch(str(unsigned.get("server_certificate_sha256", ""))):
         errors.append("backend receipt lacks server certificate fingerprint")
+    if schema == "gs68.backend.readiness.v1":
+        required = ("fixture_id", "source_commit", "image_sha256", "profile_sha256",
+                    "case_plan_sha256", "case_id", "challenge_nonce", "hub_id",
+                    "home_id", "installation_epoch", "trusted_time_utc")
+        for key in required:
+            if not unsigned.get(key):
+                errors.append(f"backend readiness evidence lacks {key}")
+        for key in ("image_sha256", "profile_sha256", "case_plan_sha256"):
+            if not HEX64.fullmatch(str(unsigned.get(key, ""))):
+                errors.append(f"backend readiness evidence has invalid {key}")
+        c3_hashes = ("c3_image_sha256", "c3_profile_sha256")
+        if any(key in unsigned for key in c3_hashes):
+            if any(not HEX64.fullmatch(str(unsigned.get(key, ""))) for key in c3_hashes):
+                errors.append("backend readiness C3 image/profile binding is incomplete or invalid")
+        if not re.fullmatch(r"[0-9a-f]{40}", str(unsigned.get("source_commit", ""))):
+            errors.append("backend readiness evidence has invalid source_commit")
+        if unsigned.get("status") != "READY" or unsigned.get("physical") != "NOT_RUN":
+            errors.append("backend readiness status or physical classification is invalid")
+        try:
+            trusted_time = datetime.fromisoformat(str(unsigned["trusted_time_utc"]).replace("Z", "+00:00"))
+            if trusted_time.tzinfo is None:
+                errors.append("backend readiness trusted time lacks an explicit UTC offset")
+        except (KeyError, ValueError):
+            errors.append("backend readiness trusted time is invalid")
+    return errors
+
+
+def verify_node_hub_event_key(node_observation: object, hub_event_key: object) -> list[str]:
+    """Require an authenticated, durable Node ACK for the exact Hub EventKey."""
+    if not isinstance(node_observation, dict) or not isinstance(hub_event_key, dict):
+        return ["Node/Hub EventKey correlation evidence is missing"]
+    errors: list[str] = []
+    fields = ("physical_device_id", "source_id", "session_id", "sequence")
+    node_key = node_observation.get("last_ack_event_key")
+    if not isinstance(node_key, dict):
+        return ["authenticated Node ACK EventKey is missing"]
+    for field in fields:
+        if str(node_key.get(field, "")) != str(hub_event_key.get(field, "")):
+            errors.append(f"Node/Hub EventKey mismatch: {field}")
+    for field in ("last_ack_authenticated", "last_ack_matched_pending",
+                  "last_ack_retired", "last_ack_durable"):
+        if node_observation.get(field) is not True:
+            errors.append(f"Node ACK lacks required {field[9:] if field.startswith('last_ack_') else field} proof")
+    return errors
+
+
+def verify_node_observation_frame(frame: object, *, case_id: str, nonce: str,
+                                  binding: dict[str, str]) -> list[str]:
+    """Check a bounded C3 response against its case challenge and image build."""
+    if not isinstance(frame, dict):
+        return ["C3 observation frame is not an object"]
+    errors: list[str] = []
+    if frame.get("schema") != "gs68.target.event.v1" or frame.get("event") != "node_observation":
+        errors.append("C3 observation frame schema or event type is invalid")
+    if frame.get("role") != "c3":
+        errors.append("C3 observation role is invalid")
+    if not CASE_ID.fullmatch(case_id) or frame.get("case_id") != case_id:
+        errors.append("C3 observation case ID does not match the requested case")
+    if not HEX64.fullmatch(nonce) or frame.get("challenge_nonce") != nonce:
+        errors.append("C3 observation challenge nonce does not match")
+    for field in ("source_commit", "profile_sha256", "running_image_sha256"):
+        expected = binding.get(field)
+        if not expected or frame.get(field) != expected:
+            errors.append(f"C3 observation binding mismatch: {field}")
+    if frame.get("physical") != "NOT_RUN":
+        errors.append("C3 software observer cannot declare physical execution")
     return errors
 
 
@@ -105,6 +173,8 @@ def verify_case_frame(frame: dict, *, case_id: str, nonce: str,
         observation_sha256 = _sha256(canonical_json(observation))
         if receipt.get("event_body_sha256") != observation_sha256:
             errors.append("signed backend receipt does not bind the exact target observation")
+        if isinstance(receipt.get("event_key"), dict):
+            errors.extend(verify_node_hub_event_key(observation, receipt["event_key"]))
     if not isinstance(receipt, dict) or receipt.get("case_id") != case_id:
         errors.append("backend receipt case ID does not match")
     if not isinstance(receipt, dict) or receipt.get("challenge_nonce") != nonce:
@@ -223,6 +293,16 @@ class BoundedCapture:
         if not raw.endswith(b"\n"):
             raise CaptureError("capture frame is truncated")
         return parse_device_frame(raw[:-1])
+
+    def request_node_observation(self, case_id: str, nonce: str,
+                                 binding: dict[str, str]) -> dict:
+        """Issue only the C3 read-only OBSERVE command and verify its binding."""
+        frame = self.request_case(case_id, nonce, {"operation": "OBSERVE"})
+        errors = verify_node_observation_frame(frame, case_id=case_id,
+            nonce=nonce, binding=binding)
+        if errors:
+            raise CaptureError("; ".join(errors))
+        return frame
 
     def close(self):
         self.transport.close()

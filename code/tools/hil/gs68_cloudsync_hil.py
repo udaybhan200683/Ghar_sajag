@@ -302,7 +302,8 @@ def validate_authorization(authorization, fixture_id, case_ids, plan_sha256, now
     return errors
 
 
-def validate_backend_descriptor(descriptor):
+def validate_backend_descriptor(descriptor, *, base_dir=None, fixture=None,
+                                expected_case_plan_sha256=None):
     """Offline-only checks; deliberately makes no request to the test service."""
     if not isinstance(descriptor, dict):
         return ["backend descriptor must be a JSON object"]
@@ -330,7 +331,7 @@ def validate_backend_descriptor(descriptor):
     credential_ref = descriptor.get("credential_reference")
     if not isinstance(credential_ref, str) or not re.match(r"^(vault|secret|test-secret)://[^\s]+$", credential_ref):
         errors.append("credential_reference must be a secret-store reference, not credential material")
-    for key in ("trusted_time_evidence_reference", "ownership_fixture_reference", "readiness_receipt"):
+    for key in ("trusted_time_evidence_reference", "ownership_fixture_reference"):
         if not isinstance(descriptor.get(key), str) or not descriptor[key].strip():
             errors.append(f"{key} is missing")
     for key in ("hub_id", "home_id"):
@@ -343,11 +344,92 @@ def validate_backend_descriptor(descriptor):
         errors.append("TEST_ONLY evidence signing public key path is missing")
     if not SHA256_RE.fullmatch(str(descriptor.get("evidence_signing_public_key_sha256", ""))):
         errors.append("TEST_ONLY evidence signing public key fingerprint is missing or invalid")
+    for key in ("fixture_id", "source_commit", "image_sha256", "profile_sha256", "case_plan_sha256"):
+        if not isinstance(descriptor.get(key), str) or not descriptor[key].strip():
+            errors.append(f"signed readiness {key} binding is missing")
+    if not COMMIT_RE.fullmatch(str(descriptor.get("source_commit", ""))):
+        errors.append("signed readiness source_commit is invalid")
+    for key in ("image_sha256", "profile_sha256", "case_plan_sha256"):
+        if not SHA256_RE.fullmatch(str(descriptor.get(key, ""))):
+            errors.append(f"signed readiness {key} is invalid")
+    c3_hashes = ("c3_image_sha256", "c3_profile_sha256")
+    if any(descriptor.get(key) for key in c3_hashes):
+        if any(not SHA256_RE.fullmatch(str(descriptor.get(key, ""))) for key in c3_hashes):
+            errors.append("signed readiness C3 image/profile binding is incomplete or invalid")
+    readiness_case = descriptor.get("readiness_case_id")
+    if not isinstance(readiness_case, str) or not capture.CASE_ID.fullmatch(readiness_case):
+        errors.append("readiness_case_id is missing or invalid")
+    readiness_nonce = descriptor.get("readiness_challenge_nonce")
+    if not isinstance(readiness_nonce, str) or not re.fullmatch(r"[0-9a-f]{64}", readiness_nonce):
+        errors.append("readiness_challenge_nonce is missing or invalid")
+    receipt_path_value = descriptor.get("readiness_receipt_path")
+    key_path_value = descriptor.get("evidence_signing_public_key_path")
+    receipt_sha = descriptor.get("readiness_receipt_sha256")
+    if not isinstance(receipt_path_value, str) or not receipt_path_value.strip():
+        errors.append("readiness_receipt_path is missing")
+    elif not SHA256_RE.fullmatch(str(receipt_sha or "")):
+        errors.append("readiness_receipt_sha256 is missing or invalid")
+    else:
+        root = Path(base_dir or ".").resolve()
+        receipt_path = Path(receipt_path_value)
+        if not receipt_path.is_absolute():
+            receipt_path = root / receipt_path
+        try:
+            receipt_bytes = receipt_path.read_bytes()
+            if _sha256_bytes(receipt_bytes) != receipt_sha:
+                errors.append("signed backend readiness receipt file hash mismatch")
+            receipt = json.loads(receipt_bytes)
+            key_path = Path(key_path_value) if isinstance(key_path_value, str) else Path()
+            if not key_path.is_absolute():
+                key_path = root / key_path
+            public_pem = key_path.read_bytes()
+            if _sha256_bytes(public_pem) != descriptor.get("evidence_signing_public_key_sha256"):
+                errors.append("TEST_ONLY evidence signing public key file hash mismatch")
+            expected = {field: descriptor[field] for field in (
+                "fixture_id", "source_commit", "image_sha256", "profile_sha256",
+                "case_plan_sha256", "hub_id", "home_id") if field in descriptor}
+            for field in c3_hashes:
+                if descriptor.get(field):
+                    expected[field] = descriptor[field]
+            expected["case_id"] = readiness_case
+            expected["challenge_nonce"] = readiness_nonce
+            expected["installation_epoch"] = str(descriptor.get("installation_epoch", ""))
+            if isinstance(fixture, dict):
+                fixture_expected = {
+                    "fixture_id": fixture.get("fixture_id"),
+                    "source_commit": fixture.get("source_commit"),
+                    "image_sha256": (fixture.get("boards", {}).get("s3", {})
+                                     .get("image", {}).get("sha256")),
+                    "profile_sha256": fixture.get("profile", {}).get("profile_sha256"),
+                    "c3_image_sha256": (fixture.get("boards", {}).get("c3", {})
+                                     .get("image", {}).get("sha256")),
+                    "c3_profile_sha256": (fixture.get("boards", {}).get("c3", {})
+                                     .get("profile", {}).get("profile_sha256")),
+                }
+                if expected_case_plan_sha256 is not None:
+                    fixture_expected["case_plan_sha256"] = expected_case_plan_sha256
+                for field, value in fixture_expected.items():
+                    if value is not None and descriptor.get(field) != value:
+                        errors.append(f"backend descriptor does not match fixture {field}")
+                    if value is not None:
+                        expected[field] = value
+            errors.extend(capture.verify_backend_receipt(receipt, public_pem, expected))
+            if isinstance(receipt, dict):
+                if receipt.get("client_certificate_sha256") != descriptor.get("client_certificate_sha256"):
+                    errors.append("readiness receipt client certificate does not match backend descriptor")
+                if receipt.get("server_certificate_sha256") != descriptor.get("server_certificate_sha256"):
+                    errors.append("readiness receipt server certificate does not match backend descriptor")
+        except (OSError, ValueError, json.JSONDecodeError):
+            errors.append("signed backend readiness receipt or verifier key is unavailable or invalid")
     if descriptor.get("commercial_sending_enabled") is not False:
         errors.append("commercial sending must remain disabled")
     if descriptor.get("production_credentials_used") is not False:
         errors.append("production credentials must not be used")
     return errors
+
+
+def _sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 def verify_evidence_artifacts(evidence_root, artifacts, capture_complete):
@@ -522,8 +604,9 @@ def main(argv=None):
     fixture, backend, case_plan, input_errors = _load_inputs(args.fixture, args.backend, args.cases)
     source_head = common.current_source_head()
     fixture_errors = input_errors + validate_fixture(fixture, source_head, case_plan)
-    backend_errors = validate_backend_descriptor(backend)
     plan_sha256 = _sha256(args.cases) if args.cases.is_file() else ""
+    backend_errors = validate_backend_descriptor(backend, base_dir=args.backend.parent,
+        fixture=fixture, expected_case_plan_sha256=plan_sha256)
     report = build_dry_run_report(fixture, backend, case_plan, source_head, fixture_errors, backend_errors, plan_sha256)
     evidence_dir = common.create_evidence_dir(args.evidence_dir, "GS68_CLOUDSYNC_HIL")
     if args.run_physical:

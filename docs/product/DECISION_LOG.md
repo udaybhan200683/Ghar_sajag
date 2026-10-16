@@ -1,5 +1,19 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-68 CloudSync physical-HIL software readiness — 2026-10-16 (evidence only)
+
+GS-68 comment 11174 authorized completion of isolated software readiness work
+on `feature/r1-gs68-gs109-mtls-feasibility`. Paired C3 diagnostic observation,
+TEST_ONLY backend checks, runner-integrity registration, and S3/C3 build-only
+reports are recorded in the [dated report](../exec-plans/evidence/GS68_CLOUDSYNC_PHYSICAL_HIL_AUTOMATION_20261016.md)
+and [S3-first plan](../exec-plans/evidence/GS68_S3_FIRST_PHYSICAL_QUALIFICATION_PLAN_20261016.md).
+This is validation evidence only; it approves no production security behavior,
+fixture connection, protected identity, credential, or physical operation.
+D05/D12/D06/D16 remain open and D15 remains separate for OTA. The required P0
+`PARTIAL` and existing Hub migration FAIL remain gate failures;
+`PHY-GS68-CLOUD-MTLS` remains release-blocking and NOT_RUN. No product decision
+or context version change is made.
+
 ## GS-130 bounded regression and stale-health repair — 2026-10-14
 
 GS-130 comment 10932 authorizes a focused implemented-feature regression pass.

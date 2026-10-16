@@ -337,9 +337,12 @@ class ComponentGateTest(unittest.TestCase):
         runner_stage=next(s for s in data["stages"] if s["id"]=="gs130-hil-runner-integrity")
         self.assertTrue(runner_stage.get("fast"))
         self.assertTrue(runner_stage.get("release"))
-        self.assertTrue({"tooling","hub","contract","backend"}.issubset(runner_stage["components"]))
-        for suite in ("hub","contract","backend","tooling","fast","release"):
+        self.assertTrue({"node","tooling","hub","contract","backend"}.issubset(runner_stage["components"]))
+        for suite in ("node","hub","contract","backend","tooling","fast","release"):
             self.assertIn(runner_stage,gate.select(data,suite))
+        self.assertIn("tests/cpp/gs68_diag_protocol_test.cpp",runner_stage["inputs"])
+        self.assertIn("firmware/node/target/esp32c3/gs68_node_observer.cpp",runner_stage["inputs"])
+        self.assertIn("scripts/build_gs68_cloudsync_c3_diagnostic.py",runner_stage["inputs"])
         makefile=(ROOT/"Makefile").read_text()
         for name, item in physical.items():
             self.assertFalse(item["automatic"])

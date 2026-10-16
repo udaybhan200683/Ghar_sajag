@@ -1,4 +1,5 @@
 #include "firmware/hub/target/esp32s3/https_backend_channel.hpp"
+#include "gs/gs68_diag_protocol.hpp"
 
 #include "esp_app_desc.h"
 #include "esp_chip_info.h"
@@ -85,88 +86,12 @@ void emit_ready() {
     std::fflush(stdout);
 }
 
-bool valid_nonce(const std::string& nonce) {
-    if (nonce.size() != 64) return false;
-    for (const char ch : nonce) {
-        if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) return false;
-    }
-    return true;
-}
-
-const char* skip_space(const char* cursor, const char* end) {
-    while (cursor < end && (*cursor == ' ' || *cursor == '\t' ||
-           *cursor == '\r' || *cursor == '\n')) ++cursor;
-    return cursor;
-}
-
-bool parse_ascii_string(const char*& cursor, const char* end, std::string& value) {
-    if (cursor >= end || *cursor != '"') return false;
-    ++cursor;
-    value.clear();
-    while (cursor < end && *cursor != '"') {
-        const auto ch = static_cast<unsigned char>(*cursor++);
-        // Commands use a deliberately narrow JSON subset: printable unescaped
-        // ASCII only. This rejects control characters, escapes, and ambiguity.
-        if (ch < 0x21 || ch > 0x7e || ch == '\\' || value.size() >= 128) return false;
-        value.push_back(static_cast<char>(ch));
-    }
-    if (cursor >= end || *cursor != '"') return false;
-    ++cursor;
-    return true;
-}
-
-bool parse_command(const char* command, std::string& nonce, std::string& case_id,
-                   std::string& operation) {
-    const char* cursor = command;
-    const char* end = command + std::strlen(command);
-    cursor = skip_space(cursor, end);
-    if (cursor >= end || *cursor++ != '{') return false;
-    bool schema_seen = false, nonce_seen = false, case_seen = false, operation_seen = false;
-    for (unsigned fields = 0; fields < 4; ++fields) {
-        cursor = skip_space(cursor, end);
-        std::string key, value;
-        if (!parse_ascii_string(cursor, end, key)) return false;
-        cursor = skip_space(cursor, end);
-        if (cursor >= end || *cursor++ != ':') return false;
-        cursor = skip_space(cursor, end);
-        if (!parse_ascii_string(cursor, end, value)) return false;
-        if (key == "schema" && !schema_seen) {
-            schema_seen = true;
-            if (value != "gs68.target.command.v1") return false;
-        } else if (key == "challenge_nonce" && !nonce_seen) {
-            nonce_seen = true;
-            nonce = value;
-        } else if (key == "case_id" && !case_seen) {
-            case_seen = true;
-            case_id = value;
-        } else if (key == "operation" && !operation_seen) {
-            operation_seen = true;
-            operation = value;
-        } else {
-            return false;
-        }
-        cursor = skip_space(cursor, end);
-        const char expected_separator = fields == 3 ? '}' : ',';
-        if (cursor >= end || *cursor++ != expected_separator) return false;
-    }
-    cursor = skip_space(cursor, end);
-    return cursor == end && schema_seen && nonce_seen && case_seen && operation_seen;
-}
-
-bool valid_case_id(const std::string& case_id) {
-    return case_id.size() == 12 && case_id.compare(0, 9, "GS68-PHY-") == 0 &&
-        ((case_id[9] == '0' && case_id[10] == '0' &&
-          case_id[11] >= '1' && case_id[11] <= '9') ||
-         (case_id[9] == '0' && case_id[10] == '1' && case_id[11] == '0'));
-}
-
 void handle_command(const char* command) {
-    std::string nonce;
-    std::string case_id;
-    std::string operation;
-    if (std::strlen(command) >= kCommandLimit ||
-        !parse_command(command, nonce, case_id, operation) || !valid_nonce(nonce) ||
-        !valid_case_id(case_id) || operation != "RUN_CASE") {
+    gs::diagnostic::TargetCommand parsed{};
+    const auto parse_result = gs::diagnostic::parse_target_command(
+        command, std::strlen(command), parsed);
+    if (parse_result != gs::diagnostic::TargetCommandError::Ok ||
+        std::strcmp(parsed.operation, "RUN_CASE") != 0) {
         std::printf("GS68/1 {\"schema\":\"gs68.target.event.v1\",\"event\":\"command_result\","
                     "\"case_id\":\"GS68-PHY-000\",\"case_outcome\":\"BLOCKED\","
                     "\"reason\":\"invalid_or_oversized_command\",\"physical\":\"NOT_RUN\"}\n");
@@ -186,7 +111,7 @@ void handle_command(const char* command) {
                 "\"case_outcome\":\"BLOCKED\",\"reason\":\"DS_TEST_IDENTITY_NOT_PROVISIONED\","
                 "\"signing\":\"BLOCKED_NO_DS_CONTEXT\",\"backend_authenticated\":false,"
                 "\"network_attempted\":false,\"private_key_exported\":false,\"tls_profile\":\"TLS1.2\","
-                "\"physical\":\"NOT_RUN\"}\n", case_id.c_str(), nonce.c_str());
+                "\"physical\":\"NOT_RUN\"}\n", parsed.case_id, parsed.challenge_nonce);
     std::fflush(stdout);
     ESP_LOGI(kTag, "diagnostic command blocked; test identity is not provisioned (channel_blocked=%s)",
              blocked ? "true" : "false");

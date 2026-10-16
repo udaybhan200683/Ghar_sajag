@@ -154,3 +154,63 @@ unintegrated for a later batch.
 
 No physical devices, ports, production endpoints or customer data were accessed.
 The active CloudSync and canonical/C8 worktrees were not edited or synchronized.
+
+
+## Second incremental batch — GS-68 paired C3 observer (2026-10-16)
+
+**Source checkpoint:** `e740f99d094b4a0ef7397f0a506e8f089fb5d261` on
+`feature/r1-gs68-gs109-mtls-feasibility`. The previous integrated CloudSync
+checkpoint is `44838da836d3014e606cfe2ee57ad624ee417240`. This batch was
+applied selectively to canonical target `c0430b14bd0897de5d22f5ace073bf457302067c`;
+no source development worktree files were copied.
+
+Integrated functionality includes the default-off ESP32-C3 read-only PING /
+OBSERVE diagnostic observer; shared bounded S3/C3 protocol; boot/reset, link,
+retained-event and authenticated EventKey/ACK observations; C3 source/profile
+metadata; TEST_ONLY backend signed readiness bound to source/image/profile/case
+plan; related capture, dry-run, runner-integrity and negative tests; GS-116/130
+registrations and S3-first qualification plan. The C3 observer excludes legacy
+HIL injection/reset controls, production Node algorithms are unchanged, and
+commercial CloudSync remains disabled. Physical cases remain NOT_RUN.
+
+**High-risk conflict resolutions:**
+
+- `code/Makefile`: kept canonical C8, GS-40, GS-114 and release targets; added
+  the C3 protocol host test/build targets and made the runner target depend on
+  the protocol test.
+- C3 root and component CMake files: retained canonical HIL/C8 qualification
+  options and compile definitions while adding the default-off observer, its
+  isolated control guard, source metadata, and SPI flash dependency.
+- `code/tests/engineering_dashboard/test_registration.py`: retained canonical
+  registry assertions and expanded its baseline allowlist for five newer
+  canonical stages; added CloudSync opt-in physical-suite checks.
+- `docs/product/R1_WORK_STATE.md`: kept canonical GS-40/C8 history, prior
+  CloudSync integration history, and the latest CloudSync readiness section.
+- `MASTER_TRACEABILITY.csv` and `PHYSICAL_HIL_CATALOGUE.csv`: kept every
+  canonical row and updated only the matching CloudSync feature/case rows.
+
+**Focused checks:** `make -C code gs130-hil-runner-test` PASS (protocol 16/16;
+Python runners 70/70; hardware actions 0; physical NOT_RUN);
+`PYTHONPATH=code/tools/hil python3 code/tools/hil/gs68_test_backend.py
+--self-test` PASS (TLS 1.2, RSA-3072, signed readiness, duplicate-safe durable
+retry; no external network); GS-116 stage-selection tests PASS (2/2); dashboard
+registration no-loss test PASS (1/1); `make -C code feature-coverage-test` PASS
+(22/22, 207 features / 216 modules / 24 physical cases). These focused checks do
+not rerun the unchanged CloudSync production security/mTLS suites or any broad
+component/release campaign. Historical P0 `product_status=PARTIAL` and Hub
+migration assertion FAIL remain existing release blockers.
+
+**Historical evidence archive:** The old S3 build evidence is classified
+`ARCHIVE_SAFE`. Its manifest and source/image/profile bindings verified before
+movement. Four files retain their original hashes and restrictive modes under
+`/home/udaybhan/projects/_artifacts/Ghar_sajag/GS68/20261016_M9cHfJ/`. The
+old path
+`/home/udaybhan/projects/gs68_hil_build_evidence_20261016_M9cHfJ` is a
+compatibility symlink to that directory. The image is bound to old source
+`c527f98c53916bfa6079a516b610f15fc83ffc1b` and remains historical evidence; it
+was not superseded or deleted.
+
+The existing integration worktree is retained. Its untracked
+`managed_components/` and ignored generated/test artifacts were preserved. The
+active CloudSync development worktree and canonical/C8 worktree were not
+modified.

@@ -175,8 +175,9 @@ now has a separate S3 diagnostic firmware command interface, an ESP-IDF
 mTLS backend, signed observation receipts, case binding, restricted atomic
 evidence and fail-closed adjudication. The image compiled successfully. There
 is no installed S3 DS identity provider or HMAC/eFuse context; firmware does
-not attempt a network request when those inputs are absent. The paired C3
-capture/control side is also absent, so physical cases GS68-PHY-006 through
+not attempt a network request when those inputs are absent. At that earlier checkpoint, the C3 side was absent. The later closeout below
+records the default-off read-only observer, but no identified physical C3
+fixture or external stimulus/controller; cases GS68-PHY-006 through
 GS68-PHY-010 remain blocked. All ten physical cases remain NOT_RUN.
 
 ### Exact latest validation
@@ -235,3 +236,54 @@ push normally and verify the isolated branch with git ls-remote. Then post the
 result to GS-68, GS-109 and GS-148 without changing workflow status.
 
 Canonical R1 and the active C8 worktree were not changed. No merge is authorized.
+
+
+## GS-68 readiness phase closeout — 2026-10-16 UTC
+
+Authority is GS-68 comment 11174. The implementation source checkpoint was
+`534701fe1ba873007468b6292a8229a92d87edb5` on
+`feature/r1-gs68-gs109-mtls-feasibility`, with source-tree OID
+`88f4fc0fcbb4890b942c5c55b48ef07ad9d89926`. The first documentation closeout
+`f51b094c9eeeb5188c61267490769206743c84aa` was pushed normally and verified
+equal to origin. This final handoff receipt is documentation-only; its remote
+SHA is reverified and recorded in Jira closeout comments GS-68/11178,
+GS-109/11179 and GS-148/11180. Tracked changes were documentation/traceability
+only. The pre-existing untracked
+`code/firmware/hub/target/esp32s3/idf/managed_components/` was preserved and
+not staged. The canonical R1/C8 worktree was not modified. TEST_ONLY duplicate-safe receipts
+do not implement the unfinished GS-148 production durable Hub-commit API; P0
+remains PARTIAL.
+
+The C3 diagnostic observer and shared bounded protocol are implemented,
+compiled, and covered by runner-integrity tests; it supports PING/OBSERVE only,
+and default product builds disable the observer. It has no event stimulus,
+network/power control, or Node reset command. TEST_ONLY backend self-test passes using temporary synthetic
+credentials and local TLS 1.2 mTLS. S3/C3 ESP-IDF 6.0.3 diagnostic builds pass
+with independent directories; exact profile/sdkconfig/image hashes and sizes
+are in the [latest physical-HIL report](GS68_CLOUDSYNC_PHYSICAL_HIL_AUTOMATION_20261016.md)
+and [R1 work state](../../product/R1_WORK_STATE.md#gs-68-cloudsync-physical-hil-readiness--2026-10-16-latest-checkpoint).
+No board, USB/serial, production network, secret, or hardware security
+configuration was accessed.
+
+Latest validation: runner parser 16/16 and Python integrity 70/70; backend
+self-test PASS; CloudSync unit 20/20, simulated HIL 18/18, localhost mTLS
+integration 1/1; framework 53/53; source/feature and physical catalogue
+checks pass. Component summaries: Node 24 PASS / 1 P0 FAIL, Hub 44 PASS / 2
+FAIL (existing migration plus P0), Contract 38 PASS / 1 P0 FAIL, Backend 20
+PASS / 1 P0 FAIL. Node/Hub/Contract reports were run against the modified
+working tree while recorded HEAD was `44838da836d3014e606cfe2ee57ad624ee417240`
+(`tracked_dirty=true`), before the final C3-only compile fixes; the Backend
+receipt used source `534701fe1ba873007468b6292a8229a92d87edb5`. Required P0 remains `product_status=PARTIAL` after 26 scenario
+checks; the gate remains FAIL. Fast and release gate runs are NOT_RUN; stage
+registration/selection is verified. Physical cases and `PHY-GS68-CLOUD-MTLS`
+remain release-blocking and NOT_RUN.
+
+`S3-FIRST-CONNECTION-APPROVAL-READY=NO`. The S3-first plan is a proposal only;
+exact spare board/revision, connector, cable/adapter, isolated power path and
+stable USB identity are unavailable for verification. The next user input is
+the exact spare S3 fixture/connection identity and fixture-specific written
+scope if connection is desired. S3 RSA/mTLS additionally waits for D05/D12/D06
+and a protected test identity; paired C3 cases wait for D16 and a separately
+identified C3/interface/stimulus plan. Signed OTA rollback is separately
+blocked on GS-118/D15. Preserve all prohibitions and the active GS-114 C8
+fixture. Jira workflow states remain unchanged.

@@ -81,6 +81,29 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
         session.close()
         self.assertTrue(transport.closed)
 
+    def test_c3_observation_command_is_read_only_and_source_image_bound(self):
+        case_id, nonce = "GS68-PHY-006", "a" * 64
+        binding = {"source_commit": "b" * 40, "profile_sha256": "c" * 64,
+                   "running_image_sha256": "d" * 64}
+        frame = {"schema": "gs68.target.event.v1", "event": "node_observation",
+            "role": "c3", "case_id": case_id, "challenge_nonce": nonce,
+            **binding, "physical": "NOT_RUN"}
+        transport = FakeTransport(b"GS68/1 " + capture.canonical_json(frame) + b"\n")
+        session = capture.BoundedCapture(transport, timeout_seconds=5)
+        session.open()
+        self.assertEqual(session.request_node_observation(case_id, nonce, binding), frame)
+        self.assertIn(b'"operation":"OBSERVE"', transport.writes[0])
+        self.assertNotIn(b'"operation":"RUN_CASE"', transport.writes[0])
+        session.close()
+
+        wrong_image = dict(frame, running_image_sha256="e" * 64)
+        bad = capture.BoundedCapture(FakeTransport(
+            b"GS68/1 " + capture.canonical_json(wrong_image) + b"\n"), timeout_seconds=5)
+        bad.open()
+        with self.assertRaisesRegex(capture.CaptureError, "running_image_sha256"):
+            bad.request_node_observation(case_id, nonce, binding)
+        bad.close()
+
     def test_truncated_oversized_and_invalid_frames_fail_closed(self):
         transport = FakeTransport(b"GS68/1 {\"schema\":\"gs68.target.event.v1\"}")
         session = capture.BoundedCapture(transport, timeout_seconds=5)
@@ -202,7 +225,8 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertTrue(path.read_bytes().endswith(b"\n"))
 
-    def _backend(self, temp, client_key_size=3072):
+    def _backend(self, temp, client_key_size=3072, *, revoked=False,
+                 trusted_time_delta=timedelta(0)):
         root = Path(temp)
         ca_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
         ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "GS68 TEST ONLY CA")])
@@ -259,7 +283,9 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
         signer = Ed25519PrivateKey.generate()
         backend = GS68TestBackend(server_cert=server_cert, server_key=server_key,
             client_ca=ca_path, signer=signer, sqlite_path=root / "commits.sqlite",
-            allowed_clients={client.fingerprint: {"hub_id": "hub-001", "home_id": "home-001", "installation_epoch": 7}})
+            allowed_clients={client.fingerprint: {"hub_id": "hub-001", "home_id": "home-001", "installation_epoch": 7}},
+            trusted_time_utc=now + trusted_time_delta,
+            revoked_client_fingerprints={client.fingerprint} if revoked else set())
         address = backend.start()
         return backend, address, ca_path, client_cert, client_key, client.fingerprint
 
@@ -325,13 +351,25 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
             backend, address, ca, cert, key, fingerprint = self._backend(temp)
             try:
                 nonce = "9" * 64
-                status, receipt = self._exchange(address, ca, cert, key, None, "GET", "/healthz",
-                                                 {"X-GS68-Nonce": nonce})
+                status, health = self._exchange(address, ca, cert, key, None, "GET", "/healthz",
+                                                {"X-GS68-Nonce": nonce})
                 self.assertEqual(status, 200)
+                self.assertEqual(health["schema"], "gs68.backend.health.v1")
+                request = self._request()
+                readiness_request = {field: request[field] for field in (
+                    "fixture_id", "source_commit", "image_sha256", "profile_sha256",
+                    "case_plan_sha256", "hub_id", "home_id", "installation_epoch", "case_id")}
+                readiness_request.update(c3_image_sha256="1" * 64, c3_profile_sha256="2" * 64)
+                readiness_request["challenge_nonce"] = nonce
+                status, receipt = self._exchange(address, ca, cert, key, readiness_request,
+                                                 "POST", "/v1/gs68/readiness")
+                self.assertEqual(status, 200)
+                binding = dict(readiness_request, installation_epoch="7")
                 self.assertEqual(capture.verify_backend_receipt(receipt,
-                    backend.public_signing_key_pem, {"challenge_nonce": nonce}), [])
+                    backend.public_signing_key_pem, binding), [])
                 self.assertEqual(receipt["client_certificate_sha256"], fingerprint)
                 self.assertEqual(receipt["status"], "READY")
+                self.assertEqual(receipt["physical"], "NOT_RUN")
             finally:
                 backend.close()
 
@@ -343,6 +381,48 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
                                                   {"X-GS68-Nonce": "8" * 64})
                 self.assertEqual(status, 403)
                 self.assertEqual(response["error"], "client_certificate_must_use_rsa3072")
+            finally:
+                backend.close()
+
+    def test_backend_tls_rejects_client_certificate_from_untrusted_ca(self):
+        with tempfile.TemporaryDirectory() as temp:
+            backend, address, ca, _, _, _ = self._backend(temp)
+            try:
+                now = datetime.now(timezone.utc)
+                foreign_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+                foreign_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "untrusted GS68 client")])
+                foreign_cert = (x509.CertificateBuilder().subject_name(foreign_name).issuer_name(foreign_name)
+                    .public_key(foreign_key.public_key()).serial_number(x509.random_serial_number())
+                    .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(hours=1))
+                    .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                    .add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False,
+                        key_encipherment=False, data_encipherment=False, key_agreement=False,
+                        key_cert_sign=True, crl_sign=True, encipher_only=False, decipher_only=False), critical=True)
+                    .add_extension(x509.SubjectKeyIdentifier.from_public_key(foreign_key.public_key()), critical=False)
+                    .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(foreign_key.public_key()), critical=False)
+                    .sign(foreign_key, hashes.SHA256()))
+                client_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+                client_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "foreign-hub")])
+                client_cert = (x509.CertificateBuilder().subject_name(client_name).issuer_name(foreign_name)
+                    .public_key(client_key.public_key()).serial_number(x509.random_serial_number())
+                    .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(hours=1))
+                    .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+                    .add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False,
+                        key_encipherment=True, data_encipherment=False, key_agreement=False,
+                        key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False), critical=True)
+                    .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]), critical=True)
+                    .add_extension(x509.SubjectKeyIdentifier.from_public_key(client_key.public_key()), critical=False)
+                    .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(foreign_key.public_key()), critical=False)
+                    .sign(foreign_key, hashes.SHA256()))
+                cert_path, key_path = Path(temp) / "foreign-client.pem", Path(temp) / "foreign-client.key"
+                cert_path.write_bytes(client_cert.public_bytes(serialization.Encoding.PEM))
+                fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(client_key.private_bytes(serialization.Encoding.PEM,
+                        serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+                with self.assertRaises(ssl.SSLError):
+                    self._exchange(address, ca, cert_path, key_path, None, "GET", "/healthz",
+                                   {"X-GS68-Nonce": "a" * 64})
             finally:
                 backend.close()
 
@@ -361,7 +441,12 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
                 conflict["event_body_sha256"] = _sha(capture.canonical_json(conflict["observation"]))
                 status, response = self._exchange(address, ca, cert, key, conflict)
                 self.assertEqual(status, 409)
-                self.assertEqual(response["error"], "event_key_payload_conflict")
+                self.assertEqual(response["error"], "event_key_binding_conflict")
+                wrong_epoch = self._request()
+                wrong_epoch["installation_epoch"] = 8
+                status, response = self._exchange(address, ca, cert, key, wrong_epoch)
+                self.assertEqual(status, 403)
+                self.assertEqual(response["error"], "ownership_epoch_mismatch")
             finally:
                 backend.close()
 
@@ -388,6 +473,75 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
                     GS68TestBackend(server_cert=Path("missing"), server_key=Path("missing"),
                         client_ca=Path("missing"), signer=Ed25519PrivateKey.generate(),
                         sqlite_path=Path("/tmp/missing.sqlite"), allowed_clients={}, bind="0.0.0.0")
+            finally:
+                backend.close()
+
+    def test_backend_rejects_revoked_and_synthetic_time_expired_client_certificates(self):
+        for options, expected in (({"revoked": True}, "client_certificate_revoked"),
+                                  ({"trusted_time_delta": timedelta(hours=13)},
+                                   "client_certificate_outside_synthetic_trusted_time")):
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp:
+                backend, address, ca, cert, key, _ = self._backend(temp, **options)
+                try:
+                    status, response = self._exchange(address, ca, cert, key, None,
+                        "GET", "/healthz", {"X-GS68-Nonce": "f" * 64})
+                    self.assertEqual(status, 403)
+                    self.assertEqual(response["error"], expected)
+                finally:
+                    backend.close()
+
+    def test_test_only_backend_lost_response_retry_is_durable_and_duplicate_safe(self):
+        with tempfile.TemporaryDirectory() as temp:
+            backend, address, ca, cert, key, _ = self._backend(temp)
+            try:
+                backend.set_case_control("GS68-PHY-008", "DROP_ONCE")
+                request = self._request()
+                with self.assertRaises((IndexError, ValueError)):
+                    self._exchange(address, ca, cert, key, request)
+                status, first_receipt = self._exchange(address, ca, cert, key, request)
+                self.assertEqual(status, 200)
+                self.assertFalse(first_receipt["duplicate"])
+                status, retry_receipt = self._exchange(address, ca, cert, key, request)
+                self.assertEqual(status, 200)
+                self.assertTrue(retry_receipt["duplicate"])
+                self.assertTrue(retry_receipt["durable"])
+                backend.close()
+                self.assertIsNone(backend._http)
+                self.assertIsNone(backend._thread)
+            finally:
+                backend.close()
+
+    def test_node_hub_exact_event_key_requires_authenticated_durable_ack(self):
+        key = {"physical_device_id": "node-01", "source_id": "node-logical-01",
+               "session_id": "7", "sequence": "19"}
+        observation = {"last_ack_event_key": dict(key), "last_ack_authenticated": True,
+            "last_ack_matched_pending": True, "last_ack_retired": True, "last_ack_durable": True}
+        self.assertEqual(capture.verify_node_hub_event_key(observation, key), [])
+        wrong = dict(key, sequence="20")
+        self.assertTrue(capture.verify_node_hub_event_key(observation, wrong))
+        unauthenticated = dict(observation, last_ack_authenticated=False)
+        self.assertTrue(capture.verify_node_hub_event_key(unauthenticated, key))
+
+    def test_backend_paired_commit_binds_exact_node_ack_event_key(self):
+        with tempfile.TemporaryDirectory() as temp:
+            backend, address, ca, cert, key, _ = self._backend(temp)
+            try:
+                event_key = {"physical_device_id": "node-01", "source_id": "node-logical-01",
+                    "session_id": "7", "sequence": "19"}
+                observation = {"case_id": "GS68-PHY-006", "last_ack_event_key": dict(event_key),
+                    "last_ack_authenticated": True, "last_ack_matched_pending": True,
+                    "last_ack_retired": True, "last_ack_durable": True}
+                request = dict(self._request(), case_id="GS68-PHY-006", event_key=event_key,
+                    observation=observation, event_body_sha256=_sha(capture.canonical_json(observation)))
+                status, receipt = self._exchange(address, ca, cert, key, request)
+                self.assertEqual(status, 200)
+                self.assertEqual(receipt["event_key"], event_key)
+                self.assertTrue(receipt["durable"])
+                forged = dict(request, event_key=dict(event_key, sequence="20"))
+                forged["event_body_sha256"] = _sha(capture.canonical_json(observation))
+                status, response = self._exchange(address, ca, cert, key, forged)
+                self.assertEqual(status, 400)
+                self.assertEqual(response["error"], "node_event_key_ack_mismatch")
             finally:
                 backend.close()
 

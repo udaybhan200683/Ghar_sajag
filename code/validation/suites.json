@@ -1884,6 +1884,7 @@
     {
       "id": "gs130-hil-runner-integrity",
       "components": [
+        "node",
         "tooling",
         "hub",
         "contract",
@@ -1916,6 +1917,17 @@
         "firmware/hub/target/esp32s3/idf/gs68_cloudsync_diagnostic/CMakeLists.txt",
         "firmware/hub/target/esp32s3/idf/gs68_cloudsync_diagnostic/app_main.cpp",
         "scripts/build_gs68_cloudsync_diagnostic.py",
+        "firmware/common/shared/include/gs/gs68_diag_protocol.hpp",
+        "tests/cpp/gs68_diag_protocol_test.cpp",
+        "scripts/test_gs68_diag_protocol_host.py",
+        "firmware/node/target/esp32c3/gs68_node_observer.hpp",
+        "firmware/node/target/esp32c3/gs68_node_observer.cpp",
+        "firmware/node/target/esp32c3/idf/sdkconfig.gs68_node_observer.defaults",
+        "firmware/node/target/esp32c3/idf/CMakeLists.txt",
+        "firmware/node/target/esp32c3/idf/main/CMakeLists.txt",
+        "firmware/node/target/esp32c3/idf/main/app_main.cpp",
+        "firmware/node/target/esp32c3/node_runtime_adapter.cpp",
+        "scripts/build_gs68_cloudsync_c3_diagnostic.py",
         "../docs/validation/PHYSICAL_HIL_CATALOGUE.csv",
         "../docs/validation/PHYSICAL_QUALIFICATION.csv"
       ],

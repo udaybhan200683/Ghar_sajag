@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import csv
 import json
@@ -8,7 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 from urllib.request import urlopen
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+import gs68_capture as capture
 import gs68_cloudsync_hil as runner
 
 
@@ -17,6 +21,8 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
         self.source = "a" * 40
         self.cases = json.loads(runner.CASE_PLAN.read_text(encoding="utf-8"))
         self.protected = json.loads(runner.PROTECTED_FIXTURE.read_text(encoding="utf-8"))
+        self.backend_dir = Path(tempfile.mkdtemp(prefix="gs68-backend-descriptor-"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.backend_dir, ignore_errors=True))
 
     def _sha(self, path):
         return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -81,6 +87,30 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
         return fixture, s3, c3, build
 
     def _valid_backend(self):
+        signer = Ed25519PrivateKey.generate()
+        public_pem = signer.public_key().public_bytes(serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo)
+        nonce = "9" * 64
+        unsigned = {
+            "schema": "gs68.backend.readiness.v1", "backend_id": "gs68-test-backend",
+            "environment": "TEST_ONLY", "status": "READY", "tls_version": "TLSv1.2",
+            "created_utc": "2026-10-16T00:00:00+00:00", "trusted_time_utc": "2026-10-16T00:00:00+00:00",
+            "physical": "NOT_RUN", "fixture_id": "GS68-SPARE-UNIT-001",
+            "source_commit": self.source, "image_sha256": "b" * 64,
+            "profile_sha256": self._sha(runner.PROFILE),
+            "c3_image_sha256": "f" * 64, "c3_profile_sha256": "1" * 64,
+            "case_plan_sha256": self._sha(runner.CASE_PLAN), "case_id": "GS68-PHY-001",
+            "challenge_nonce": nonce, "hub_id": "hub-001", "home_id": "home-001",
+            "installation_epoch": "7", "client_certificate_sha256": "2" * 64,
+            "server_certificate_sha256": "4" * 64,
+        }
+        receipt = dict(unsigned, signature_b64=base64.b64encode(
+            signer.sign(capture.canonical_json(unsigned))).decode("ascii"))
+        receipt_path = self.backend_dir / "readiness-receipt.json"
+        key_path = self.backend_dir / "readiness-verifier.pem"
+        receipt_bytes = capture.canonical_json(receipt) + b"\n"
+        receipt_path.write_bytes(receipt_bytes)
+        key_path.write_bytes(public_pem)
         return {
             "backend_id": "gs68-test-backend", "environment": "TEST_ONLY", "base_url": "https://cloudsync.gs68.test/api",
             "server_name": "cloudsync.gs68.test", "tls_version": "TLS1.2",
@@ -90,9 +120,15 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
             "credential_reference": "test-secret://gs68/fixture-001/client-key",
             "trusted_time_evidence_reference": "receipt:trusted-time-test-01",
             "ownership_fixture_reference": "fixture:hub-home-epoch-test-01",
-            "readiness_receipt": "receipt:backend-test-ready-01",
-            "evidence_signing_public_key_path": "backend-test-verifier.pem",
-            "evidence_signing_public_key_sha256": "3" * 64,
+            "fixture_id": "GS68-SPARE-UNIT-001", "source_commit": self.source,
+            "image_sha256": "b" * 64, "profile_sha256": self._sha(runner.PROFILE),
+            "c3_image_sha256": "f" * 64, "c3_profile_sha256": "1" * 64,
+            "case_plan_sha256": self._sha(runner.CASE_PLAN),
+            "readiness_case_id": "GS68-PHY-001", "readiness_challenge_nonce": nonce,
+            "evidence_signing_public_key_path": str(key_path),
+            "evidence_signing_public_key_sha256": hashlib.sha256(public_pem).hexdigest(),
+            "readiness_receipt_path": str(receipt_path),
+            "readiness_receipt_sha256": hashlib.sha256(receipt_bytes).hexdigest(),
             "commercial_sending_enabled": False, "production_credentials_used": False,
         }
 
@@ -221,21 +257,33 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
             self.assertTrue(any("code tree" in error for error in errors))
 
     def test_backend_descriptor_accepts_test_only_nonproduction_profile(self):
-        self.assertEqual(runner.validate_backend_descriptor(self._valid_backend()), [])
+        self.assertEqual(runner.validate_backend_descriptor(self._valid_backend(),
+            base_dir=self.backend_dir), [])
+
+    def test_backend_readiness_signature_and_source_binding_are_verified_offline(self):
+        backend = self._valid_backend()
+        receipt_path = Path(backend["readiness_receipt_path"])
+        receipt = json.loads(receipt_path.read_text())
+        receipt["image_sha256"] = "f" * 64
+        receipt_path.write_text(json.dumps(receipt))
+        backend["readiness_receipt_sha256"] = self._sha(receipt_path)
+        errors = runner.validate_backend_descriptor(backend, base_dir=self.backend_dir)
+        self.assertTrue(any("signature is invalid" in error for error in errors))
+        self.assertTrue(any("image_sha256" in error for error in errors))
 
     def test_missing_backend_credentials_and_readiness_are_blocked(self):
         backend = self._valid_backend()
         backend["credential_reference"] = None
-        backend["readiness_receipt"] = None
-        errors = runner.validate_backend_descriptor(backend)
+        backend["readiness_receipt_path"] = None
+        errors = runner.validate_backend_descriptor(backend, base_dir=self.backend_dir)
         self.assertTrue(any("credential_reference" in error for error in errors))
-        self.assertTrue(any("readiness_receipt" in error for error in errors))
+        self.assertTrue(any("readiness_receipt_path" in error for error in errors))
 
     def test_production_backend_endpoint_or_credentials_are_rejected(self):
         backend = self._valid_backend()
         backend.update(base_url="https://api.example.com", environment="PRODUCTION",
                        commercial_sending_enabled=True, production_credentials_used=True)
-        errors = runner.validate_backend_descriptor(backend)
+        errors = runner.validate_backend_descriptor(backend, base_dir=self.backend_dir)
         self.assertTrue(any("TEST_ONLY" in error for error in errors))
         self.assertTrue(any(".test" in error for error in errors))
         self.assertTrue(any("commercial sending" in error for error in errors))

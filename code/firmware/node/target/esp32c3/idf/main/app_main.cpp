@@ -3,6 +3,9 @@
 
 #include "esp_check.h"
 #include "esp_log.h"
+#if GS_GS68_NODE_OBSERVER
+#include "firmware/node/target/esp32c3/gs68_node_observer.hpp"
+#endif
 
 #ifndef GS_BAT_C8_FIXTURE_SECURITY
 #define GS_BAT_C8_FIXTURE_SECURITY 0
@@ -29,6 +32,9 @@ extern "C" void app_main() {
 #endif
     ESP_ERROR_CHECK(gs::node::target::start_runtime_adapter());
     ESP_ERROR_CHECK(gs::node::target::start_fota_receiver());
+#if GS_GS68_NODE_OBSERVER
+    gs::node::target::gs68::start_node_observer();
+#endif
 #if GS_HIL_CONTROL
     start_hil_control();
 #endif

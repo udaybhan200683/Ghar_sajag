@@ -1,16 +1,53 @@
 # GS-68 CloudSync Physical-HIL Automation — 2026-10-16
 
+## Latest closeout — paired C3 and TEST_ONLY backend readiness (2026-10-16)
+
+This section supersedes earlier claims in this report that the paired C3
+observer/control interface or final target builds were absent. Current software
+status is **PARTIAL** because no physical execution is proven; the S3-first
+connection proposal is **BLOCKED** pending exact fixture details and separate
+fixture-specific approval. The full evidence, target hashes, exact IDF build configuration, component gate
+results, and remaining decisions are recorded in the latest
+[R1 work-state checkpoint](../../product/R1_WORK_STATE.md#gs-68-cloudsync-physical-hil-readiness--2026-10-16-latest-checkpoint),
+[qualification plan](GS68_S3_FIRST_PHYSICAL_QUALIFICATION_PLAN_20261016.md),
+and [resume handoff](GS68_GS109_CLOUDSYNC_MTLS_RESUME_20261016.md).
+
+The C3 observer is default-off in product builds and accepts only bounded
+`PING`/`OBSERVE` commands, returning source/profile/image-bound observations and
+exact authenticated EventKey/ACK correlation. It does not inject events, toggle
+network/power, or reset the Node; an external paired-board stimulus/controller
+is still required for those cases. The TEST_ONLY backend passes isolated synthetic TLS 1.2 mTLS,
+RSA-3072 certificate policy, ownership mapping, signed readiness, and
+transactional duplicate-safe receipt checks. This is an isolated TEST_ONLY
+harness, not the unfinished GS-148 production durable Hub-commit API. These
+software checks do not prove target signing/TLS or physical outcomes. Both S3 and C3 ESP-IDF 6.0.3
+build-only reports pass for source `534701fe1ba873007468b6292a8229a92d87edb5`;
+profile, sdkconfig and image SHA-256 values and image sizes are in R1_WORK_STATE.
+
+Runner integrity passes C++ 16/16 and Python 70/70; CloudSync unit 20/20,
+simulation 18/18, localhost TLS integration 1/1, GS-116 framework 53/53, and
+feature/physical catalogue mapping checks pass. Node, Hub, Contract and Backend
+component reports retain the required P0 `product_status=PARTIAL` FAIL; Hub also
+retains its existing migration FAIL. Node/Hub/Contract reports were produced
+from the modified tree while git HEAD still reported `44838da836d3014e606cfe2ee57ad624ee417240`
+(`tracked_dirty=true`), before the final C3-only ESP-IDF portability commits;
+the final backend report used source `534701fe1ba873007468b6292a8229a92d87edb5`.
+Fast and full release gates were not run.
+All ten physical cases and `PHY-GS68-CLOUD-MTLS` remain release-blocking and
+`NOT_RUN`. No device, port, production endpoint, or hardware security feature
+was accessed or changed.
+
 ## Current disposition
 
 **Status: PARTIAL.** The software-side diagnostic image, controlled host capture adapter, TEST_ONLY mutual-TLS backend, case plan, evidence verification, dry-run, registry and negative tests are implemented and focused checks pass. A built image is preserved outside the worktree with checksums.
 
-**CONNECT-SPARE-S3-READY=NO.** GS-68 owner comment 11169 explicitly says no spare connection is needed or authorized yet. The fixture template remains unassigned; no target identity, spare-board image, DS identity provider, test-backend deployment receipt or paired C3 controller is present. All ten physical cases remain NOT_RUN. No USB/serial/board access or physical operation occurred.
+**S3-FIRST-CONNECTION-APPROVAL-READY=NO.** No fixture-specific connection approval is present. The fixture template remains unassigned; exact S3/C3 identities, target images, DS identity provider, deployed TEST_ONLY service receipt, and paired C3 fixture/stimulus interface remain unavailable. All ten physical cases remain NOT_RUN. No USB/serial/board access or physical operation occurred.
 
 The report replaces older sections in this file that said the capture adapter and target build did not exist. Those statements described earlier checkpoints and are no longer current.
 
 ## Authorization and boundaries
 
-GS-68 comment 11169 authorizes this software-only automation phase in the isolated branch. It explicitly prohibits USB/serial access, board attachment/operation, flashing/reset, DS/eFuse/HMAC provisioning, production credential issuance, Secure Boot/Flash Encryption changes, live CloudSync and production service use. A separate, fixture-specific written approval is required before connecting the spare S3 or C3.
+The earlier phase was authorized by GS-68 comment 11169; the current software-readiness phase is authorized by comment 11174. It explicitly prohibits USB/serial access, board attachment/operation, flashing/reset, DS/eFuse/HMAC provisioning, production credential issuance, Secure Boot/Flash Encryption changes, live CloudSync and production service use. A separate, fixture-specific written approval is required before connecting the spare S3 or C3.
 
 The implementation remains in /home/udaybhan/projects/Ghar_sajag_r1_cloudsync_mtls on feature/r1-gs68-gs109-mtls-feasibility. It is not merged into canonical. The GS-114 C8 fixture/worktree was not used or modified. Production CloudSync stays disabled, Jira statuses remain unchanged, and the existing P0 PARTIAL and Hub migration FAIL states were not changed. No full release gate was run.
 
@@ -54,7 +91,7 @@ All ten stable cases map through PHY-GS68-CLOUD-MTLS; release blocking remains Y
 | GS68-PHY-009 | Heap, handshake timing and runtime stability | NOT_RUN — D16 limits and source-matched physical instrumentation absent |
 | GS68-PHY-010 | Signed-image compatibility and failed-health rollback | NOT_RUN — separate GS-118/D15 approval, signed image pair and recovery plan absent |
 
-The paired C3 observation/control interface is not implemented in this phase; cases 006–010 need it. Existing host and simulated-HIL results are not physical case evidence.
+At this earlier checkpoint the paired C3 interface was not yet implemented; the latest checkpoint below records its software implementation and build. Cases 006–010 still require approved physical interfaces/stimulus. Existing host and simulated-HIL results are not physical case evidence.
 
 ## Build and artifact provenance
 
@@ -113,7 +150,7 @@ Before a later connection/execution checkpoint, all of the following must be tru
 1. A new written approval names the exact spare S3 and C3 identities, connection permission, case IDs, permitted operations, expiry, case-plan digest and recovery/preservation procedure. The existing approval explicitly says no device connection yet.
 2. The owner-approved D12 threat model, key custody and provisioning controls and D05 verifier/issuer/trust/rotation/revocation contracts are resolved. No eFuse/HMAC action is inferred from this software task.
 3. D06 trusted-time/validity behavior and D16 outage/resource/timing limits are approved.
-4. A paired C3 controller/capture interface and its fail-safe recovery checks are implemented and validated.
+4. The default-off C3 read-only observer and software capture validation are implemented and host-tested; a paired physical C3 fixture/stimulus controller and its recovery procedure remain to be identified and separately approved.
 5. A dedicated TEST_ONLY backend is configured under the approved trust profile, with readiness receipt and secret-store references only (no secrets in manifests).
 6. The actual spare fixture identity receipt, S3/C3 image hashes and source/profile/build reports are verified; C8 identity/port exclusion is confirmed.
 7. A separate GS-118/D15 authorization and signed-image recovery plan exists before case 010.

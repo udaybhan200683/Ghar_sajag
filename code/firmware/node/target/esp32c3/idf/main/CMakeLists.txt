@@ -4,6 +4,9 @@ set(GS_NODE_SRCS
     "app_main.cpp"
     "fota_receiver.cpp"
 )
+if(GS_GS68_NODE_OBSERVER)
+    list(APPEND GS_NODE_SRCS "${GS_ROOT}/firmware/node/target/esp32c3/gs68_node_observer.cpp")
+endif()
 if(GS_HIL_BUILD OR GS_HIL_CONTROL)
     list(APPEND GS_NODE_SRCS "hil_control.cpp"
         "${GS_ROOT}/firmware/node/target/esp32c3/zero_length_aead_qualification.cpp")
@@ -54,6 +57,7 @@ idf_component_register(
         esp_timer
         esp_wifi
         nvs_flash
+        spi_flash
         mbedtls
 )
 
@@ -64,4 +68,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     GS_HIL_FORCE_BOOT_HEALTH_FAIL=$<BOOL:${GS_HIL_FORCE_BOOT_HEALTH_FAIL}>
     GS_BAT_C8_PHYSICAL_WAKE=$<BOOL:${GS_BAT_C8_PHYSICAL_WAKE}>
     GS_BAT_C8_ACK_TRACE=$<BOOL:${GS_BAT_C8_ACK_TRACE}>
-    GS_BAT_C8_FIXTURE_SECURITY=$<BOOL:${GS_BAT_C8_FIXTURE_SECURITY}>)
+    GS_BAT_C8_FIXTURE_SECURITY=$<BOOL:${GS_BAT_C8_FIXTURE_SECURITY}>
+    GS_GS68_NODE_OBSERVER=$<BOOL:${GS_GS68_NODE_OBSERVER}>
+    GS68_NODE_SOURCE_COMMIT=\"${GS68_NODE_SOURCE_COMMIT}\"
+    GS68_NODE_PROFILE_SHA256=\"${GS68_NODE_PROFILE_SHA256}\")

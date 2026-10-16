@@ -49,6 +49,11 @@
       "image": {
         "path": null,
         "sha256": null
+      },
+      "profile": {
+        "profile_id": "GS68_C3_READ_ONLY_OBSERVER",
+        "profile_sha256": null,
+        "build_report": null
       }
     }
   },
