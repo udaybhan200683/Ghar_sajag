@@ -102,9 +102,10 @@ C3 NodeRuntime owner
   → HubRuntime stores per-node snapshot + monotonic last-seen time
 ```
 
-Node health is sent every 60 seconds in the current target adapter when the
-Node is not already waiting on event/health radio work and not in maintenance.
-It is best effort: the target health receive queue has depth one and overwrites
+For the configured GS-40 profile, standalone NodeHealth is due every 300 seconds
+unless a newer authenticated application contact has already refreshed the
+cadence. Existing explicit legacy profiles remain 60/190 and 120/310. Sending
+is best effort: the target health receive queue has depth one and overwrites
 older queued snapshots. After pending-image OTA boot, an immediate health send
 may be requested for the boot gate. None of this changes event ACK semantics.
 
@@ -136,25 +137,23 @@ adapter passes monotonic `esp_timer` milliseconds for contact.
 
 ## 7. Offline detection and thresholds
 
-The shared policy sets expected heartbeat/health cadence to 60 seconds, three
-missed intervals, plus a 10-second grace: `offline_after_seconds = 190`.
-`HubRuntime::node_online(node, now_monotonic_ms)` returns true while an
-authenticated health or admitted event contact is no more than 190 seconds
-old. Missing contact, an expired interval, or a time value earlier than the
-stored contact returns false. There is no background transition task in this
-class; callers query the derived result. Routine `CoverageTracker` similarly
-uses the 190-second lease but reports coverage Unknown/Fault, not PIR
-activity.
+For the configured GS-40 profile the lease is derived as
+`3 * 300 + 10 = 910` seconds. HubRuntime remains online through exactly 910
+seconds and expires strictly after 910 seconds. A trusted legacy profile uses
+its own 190- or 310-second lease; missing or untrusted identity/profile is
+UNKNOWN. Event contact refreshes liveness only after authenticated application
+admission; MAC send success alone does not.
 
-The target sends health at 60-second intervals in the current profile. No
-production battery-optimized cadence is implemented here. Any future slower
-cadence must be paired with a compatible offline lease; it must not be
-presented as current behavior.
+The local Hub lease and the 190-second Hub/cloud freshness lease answer
+different questions. A silent Node with a reachable Hub can become OFFLINE,
+with motion-monitoring coverage UNKNOWN. If Hub/cloud observation is missing
+or stale, caregiver-facing status is UNKNOWN because the source cannot confirm
+current coverage. None of these states describe resident activity.
 
 ## 8. Rejoin and recovery
 
 ```text
-Node disappears; last contact ages past 190 seconds
+Node disappears; last authenticated contact ages past its trusted profile lease
    ↓
 Hub query reports offline / coverage may become unknown
    ↓
@@ -182,7 +181,7 @@ again.
 | Hub reboot | Contact/health maps reset; registry/journal restore; Node rejoin required | Target startup integration; physical persistence qualification open | Check restore success then per-Node rejoin and first contact |
 | Session replacement | Clear old per-Node health/contact authorization; reject old frames | HubRuntime and security owner implementation; target build verified | Compare prior/current session and reauthorization event |
 | Event received but health missed | Accepted authenticated event refreshes contact even without health | HubRuntime path implemented; secure physical route pending | Inspect event admission and monotonic contact update |
-| Radio outage | Contact expires after 190 seconds absent authenticated traffic | Threshold implemented; current-HEAD physical secure outage not qualified | Check source queue drops, RF/channel, rejoin and last contact age |
+| Radio outage | Contact expires strictly after the trusted profile lease (910 s configured; 190/310 s legacy) | Threshold implemented; current-HEAD physical secure outage not qualified | Check source queue drops, RF/channel, rejoin and last contact age |
 | Queue pressure | Health queue depth one overwrites stale snapshot; data/control queues count drops | Target behavior implemented/build evidence; physical load pending | Check callback drop counters, health sequence and queue state |
 | Node genuinely offline | Query returns false after lease; no inference about resident motion | `node_online` implemented; product/backend presentation may differ | Check expected-node registration and Hub monotonic now/contact values |
 
@@ -200,9 +199,9 @@ behavior require physical qualification.
 
 Paths are relative to `code/`.
 
-- `firmware/common/shared/include/gs/protocol.hpp` — `NodeHealthSnapshot`, `NodeHealthError`, `NodeProtocolPolicy` and 60 s/190 s constants.
+- `firmware/common/shared/include/gs/protocol.hpp` — `NodeHealthSnapshot`, `NodeHealthError` and shared policy definitions.
 - `firmware/common/transport/data_plane_codec.*` — NodeHealth encoding, decoding and schema validation.
-- `firmware/node/target/esp32c3/node_runtime_adapter.cpp` — 60 s schedule, snapshot population, secure send and diagnostics.
+- `firmware/node/target/esp32c3/node_runtime_adapter.cpp` — configured schedule, snapshot population, secure send and diagnostics.
 - `firmware/hub/target/esp32/hub_runtime_adapter.cpp` — secure open, health/event routing and target logs.
 - `firmware/hub/runtime/hub_runtime.*` — `observe_authenticated_health`, `node_health`, `node_online`, event contact refresh and per-Node maps.
 - `firmware/hub/event_processing/coverage/coverage.*` — epoch-time coverage lease and Unknown/Fault calculation.
@@ -211,15 +210,16 @@ Paths are relative to `code/`.
 
 ## 12. Verification boundaries
 
-**IMPLEMENTED:** Schema-1 health snapshot, 60-second target cadence, secure
-target health frame path, per-Node strict health sequence/session checks,
-event-based contact refresh, monotonic 190-second online query, and
-epoch-based coverage lease.
+**IMPLEMENTED:** Schema-1 health snapshot, configured 300/910 and trusted
+legacy profiles, secure target health frame path, per-Node strict health
+sequence/session checks, authenticated event-based contact refresh, and
+monotonic Hub liveness queries.
 
 **HOST_VERIFIED:** Multi-node host validation exercises authenticated
-per-Node health and liveness behavior. Shared protocol tests assert the
-60-second cadence, three missed reports plus 10-second grace (190 seconds),
-and health codec fields.
+per-Node health and liveness behavior. GS-40 tests assert six 300-second quiet
+opportunities, 910-second strict expiry and mixed 60/190 and 120/310 legacy
+profiles. Host evidence does not establish physical delivery or caregiver cloud
+visibility.
 
 **TARGET_BUILD_VERIFIED:** Authenticated Hub/C3 health owner paths and
 diagnostic logging compile in ESP-IDF builds. Traceability records a recent
@@ -264,7 +264,7 @@ absolute last-contact wall-clock is currently available on this path.
   behavior in this target profile.
 
 
-## GS-40 approved policy — implementation underway, 2026-10-10
+## GS-40 approved policy — software implemented, real-target acceptance open
 
 GS-D031 supersedes this guide's historical 60/190 default with 300/910.
 The actual preceding BAT-C5 production profile was 120/310. Legacy deployments
@@ -287,3 +287,29 @@ credential, event commit, or trust contract. Caregiver visibility remains
 blocked until those owners expose the trusted source-to-snapshot path and it
 passes a real contract test. See the
 [GS-40 real-target readiness evidence](../exec-plans/evidence/GS40_REAL_TARGET_READINESS_20261016.md).
+
+### Required additive CloudSync-to-caregiver contract
+
+GS-40's existing policy requires the current GS-68/GS-148 path to carry only
+Hub-accepted authenticated Node application contact and its trusted per-Node
+profile. The status projection must bind the Hub, Home and current ownership
+epoch from GS-109, retain Node identity/session/contact sequence, and preserve
+Hub receive time separately from backend receive and caregiver snapshot time.
+No Node self-asserted profile, MAC-only success, synthetic event/EventKey, or
+durable event ACK may substitute for that status evidence. The backend/PWA
+must show Node ONLINE/OFFLINE/UNKNOWN separately from coverage COVERED/UNKNOWN
+and resident activity; a silent Node becomes OFFLINE only after its profile
+lease (strictly after 910 s for configured 300 s) while coverage becomes
+UNKNOWN. Missing/stale Hub, Internet, backend or PWA source means UNKNOWN.
+The Hub must publish an OFFLINE state after lease expiry without waiting for
+another NodeHealth packet, using the existing trusted CloudSync architecture.
+Event durability, replay, and ACK/retirement remain unchanged.
+
+No configurable caregiver sensor-offline notification has been identified in
+the current code or Jira search. Existing notification code schedules incident
+and door notices and daily summaries; it is not a sensor-coverage alert
+preference or delivery contract. If product wants a push/SMS alert in addition
+to visible PWA status, define it as a separate linked GS-40/GS-148 requirement
+(recipients, delay, quiet hours, deduplication and recovery/clear behavior) and
+obtain product approval before implementation. GS-40's current visibility
+acceptance does not itself promise a notification.

@@ -573,6 +573,16 @@ does not change GS-D031 product semantics or the 300/910 policy; it keeps the
 real-target visibility criterion open until the authorized trust path is
 implemented and source-to-PWA contract tests pass.
 
+**Evidence-adapter follow-up — 2026-10-16:** GS-40's host observation validator
+now requires correlated Hub/Home/ownership-epoch authority, a trusted Hub-owned
+Node profile, authenticated application contact kind, and separately preserved
+Hub/backend receive timestamps in observation-bundle schema v2. Focused tooling
+tests cover those checks and stale-source fail-closed behavior. This is
+`TEST_INFRA_ONLY`; it does not add a product endpoint, trust decision, timestamp
+authority, or liveness policy. GS-109 D05/D12 and D06 plus GS-148 production
+publication/read-model/PWA work remain open. No LOCKED decision or
+`CONTEXT_VERSION` change is introduced.
+
 
 ## GS-116 engineering policy implementation note — 2026-10-11
 

@@ -22,6 +22,23 @@ gap dispositions belong in the [dated evidence/handoff](../exec-plans/evidence/R
 - Finish trusted CloudSync, production credentials and domain/request-bound
   durable backend receipts only after the owning security decisions. Backend
   owns long-term history; Internet availability triggers continuous sync.
+- GS-40 NodeHealth visibility is an additive status projection on that same
+  trusted CloudSync architecture: export Hub-accepted authenticated Node
+  application contact and trusted per-Node profile in a bounded current-state
+  record; bind it to the current Hub/Home/ownership epoch; retain Hub receive
+  time separately from backend receive and caregiver snapshot time; and project
+  ONLINE/OFFLINE/UNKNOWN plus COVERED/UNKNOWN without manufacturing a domain
+  event or EventKey. Hub lease expiry must be publishable without another
+  NodeHealth packet. Set numeric payload/member caps from GS-148's accepted
+  registry and resource limits rather than introducing an unbounded health
+  history. Keep the 300/910 configured and 60/190, 120/310 legacy profiles,
+  separate 190-second Hub/cloud freshness, and existing durable
+  ACK/replay/retirement behavior. This records existing GS-D031 and GS-40
+  acceptance, not a new wire format or trust design.
+  GS-109 still owns the Hub verifier, identity/ownership and time decisions;
+  GS-148 owns the production publication, backend read model and PWA projection.
+  The exact source-to-caregiver contract and blockers are in the
+  [GS-40 readiness evidence](../exec-plans/evidence/GS40_REAL_TARGET_READINESS_20261016.md).
 - Six-Node HIGH is a qualification candidate, not a 72-hour commercial promise.
   STRESS measures honest saturation. Workload, field lengths, reserve, overflow,
   retention, latency, memory and endurance budgets need explicit decisions and

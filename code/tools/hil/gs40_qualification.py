@@ -169,7 +169,7 @@ def assess_observation_bundle(bundle: dict[str, Any], config: dict[str, Any]) ->
     def add(condition: bool, name: str, detail: str) -> None:
         checks.append({"check": name, "result": "PASS" if condition else "FAIL", "detail": detail})
 
-    if not isinstance(bundle, dict) or bundle.get("schema_version") != 1:
+    if not isinstance(bundle, dict) or bundle.get("schema_version") != 2:
         return {"verdict": "BLOCKED", "failure": "OBSERVATION_BUNDLE_SCHEMA_UNSUPPORTED",
                 "assertions": checks, "physical_pass_claimed": False}
     if any(not isinstance(bundle.get(layer), dict) for layer in ("node", *required_layers)):
@@ -209,6 +209,14 @@ def assess_observation_bundle(bundle: dict[str, Any], config: dict[str, Any]) ->
         pwa = layers["pwa"]
         identity = node.get("identity")
         profile = profiles.get(identity) if isinstance(identity, str) else None
+        declared_profile = hub.get("effective_profile")
+        profile_assignment_trusted = (
+            hub.get("profile_assignment_trusted") is True and
+            declared_profile == profile and
+            backend.get("effective_profile") == declared_profile and
+            pwa.get("effective_profile") == declared_profile and
+            profile in {"configured", "legacy_60", "legacy_120"}
+        )
         if profile == "configured" and type(heartbeat) is int:
             offline_after = 3 * heartbeat + 10
         elif profile == "legacy_60":
@@ -223,17 +231,33 @@ def assess_observation_bundle(bundle: dict[str, Any], config: dict[str, Any]) ->
                          contact.get("authenticated") is True and
                          contact.get("identity") == identity and
                          isinstance(contact.get("session_id"), str) and bool(contact.get("session_id")) and
+                         contact.get("contact_kind") in {"NODE_HEALTH", "AUTHENTICATED_EVENT"} and
                          ((isinstance(contact.get("contact_id"), str) and bool(contact.get("contact_id"))) or
                           (type(contact.get("contact_id")) is int and contact.get("contact_id") >= 0)))
-        contact_at = (_parse_utc(contact.get("received_at_utc"), "node.last_authenticated_contact.received_at_utc")
+        contact_at = (_parse_utc(contact.get("hub_received_at_utc"),
+                                 "node.last_authenticated_contact.hub_received_at_utc")
                       if contact_valid else None)
         age = (captured_at - contact_at).total_seconds() if contact_at else None
         if age is not None and age < 0:
             raise ValueError("authenticated contact is later than captured_at_utc")
 
+        authority = bundle.get("authority_binding")
+        authority_shape_valid = (
+            isinstance(authority, dict) and
+            isinstance(authority.get("hub_device_id"), str) and bool(authority.get("hub_device_id")) and
+            isinstance(authority.get("home_id"), str) and bool(authority.get("home_id")) and
+            type(authority.get("ownership_epoch")) is int and authority.get("ownership_epoch") > 0
+        )
+        bound_layers = (hub, backend, pwa)
+        authority_binding_consistent = authority_shape_valid and all(
+            layer.get("authority_binding") == authority for layer in bound_layers
+        )
+        authority_trusted = (authority_binding_consistent and authority.get("verified") is True and
+                             hub.get("authority_verified") is True and
+                             backend.get("authority_verified") is True)
         identity_trusted = node.get("trusted_identity") is True
-        profile_known = offline_after is not None
-        if not identity_trusted or not profile_known or not contact_valid:
+        profile_known = offline_after is not None and profile_assignment_trusted
+        if not authority_trusted or not identity_trusted or not profile_known or not contact_valid:
             expected_hub_status = "UNKNOWN"
         elif age <= offline_after:
             expected_hub_status = "ONLINE"
@@ -260,6 +284,22 @@ def assess_observation_bundle(bundle: dict[str, Any], config: dict[str, Any]) ->
                                pwa.get("reachable") is True and pwa_snapshot_fresh else "UNKNOWN")
         expected_pwa_coverage = "COVERED" if expected_pwa_status == "ONLINE" else "UNKNOWN"
 
+        # Keep Hub-local receive time separate from the backend's clock. D06
+        # does not authorize converting one clock into the other; this check
+        # validates preservation and binding only.
+        backend_received_at = _parse_utc(backend.get("backend_received_at_utc"),
+                                         "backend.backend_received_at_utc")
+        pwa_backend_received_at = _parse_utc(pwa.get("backend_received_at_utc"),
+                                             "pwa.backend_received_at_utc")
+        backend_hub_received_at = backend.get("hub_received_at_utc")
+        pwa_hub_received_at = pwa.get("hub_received_at_utc")
+        contact_hub_received_at = contact.get("hub_received_at_utc") if contact_valid else None
+        receive_time_binding = (
+            backend_hub_received_at == contact_hub_received_at and
+            pwa_hub_received_at == contact_hub_received_at and
+            backend_received_at == pwa_backend_received_at
+        )
+
         downstream_not_healthy = not (
             hub.get("node_status") == "ONLINE" or
             backend.get("node_status") == "ONLINE" or
@@ -268,10 +308,14 @@ def assess_observation_bundle(bundle: dict[str, Any], config: dict[str, Any]) ->
             pwa.get("coverage_status") == "COVERED")
         add(identity_trusted or downstream_not_healthy, "trusted_node_identity",
             "Untrusted identity must remain unknown and can never be shown healthy.")
-        add(profile_known or downstream_not_healthy, "known_deployment_profile",
+        add(authority_trusted or downstream_not_healthy, "trusted_hub_home_epoch_binding",
+            "Hub, Home and ownership epoch must match across Hub, backend and PWA; unverified authority must remain unknown.")
+        add(profile_known or downstream_not_healthy, "trusted_deployment_profile",
             "Unknown profiles must remain unknown; known identities use configured 300/910 or explicit legacy timing.")
         add(contact_valid or downstream_not_healthy, "authenticated_received_contact",
-            "Missing/unauthenticated contact must remain unknown; MAC send success is not accepted as received contact.")
+            "Contact must be authenticated application NodeHealth/event contact; MAC send success is not accepted as received contact.")
+        add(receive_time_binding, "hub_and_backend_receive_times_preserved",
+            "Hub receive time remains the Node contact time; backend receive time remains a separate server-clock observation.")
         add(hub.get("node_status") == expected_hub_status, "hub_lease_status",
             f"Hub status must be {expected_hub_status}; configured offline boundary is strictly greater than {offline_after}s." if offline_after else
             "Hub status must remain UNKNOWN for an untrusted or unknown-profile identity.")

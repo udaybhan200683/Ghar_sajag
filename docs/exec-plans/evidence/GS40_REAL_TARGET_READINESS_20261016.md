@@ -90,14 +90,24 @@ PWA snapshot time. It applies the existing configured 300/910 and legacy
 does not modify product policy.
 
 The normalized view is sufficient for the existing seven cases' timing,
-status, outage, recovery and UI assertions. It is **not** the complete trust
-evidence contract: schema v1 does not name/correlate the Hub principal, Home,
-ownership epoch, or verifiable provider attestation. Extra JSON fields are
-currently ignored by the pure validator. Jira/GS-109/GS-148 must settle and
-publish those provenance fields before a live collector can validate them.
-Until then `LIVE_CURRENT_TARGET` remains BLOCKED even if the status fields look
-consistent; no JSON assertion can promote itself to physical evidence. No
-liveness-policy or runner change is made in this assessment.
+status, outage, recovery and UI assertions. Schema v1 was not the complete
+trust evidence contract: it did not name/correlate the Hub principal, Home,
+ownership epoch, trusted profile assignment, contact kind, or separate backend
+receive timestamp. It was therefore superseded for correlated observations by
+observation-bundle schema v2. The v2 validator requires Hub/Home/epoch binding
+to match across Hub, backend and PWA; the trusted profile must be assigned by
+the Hub and preserved downstream; contact must be authenticated NodeHealth or
+authenticated event application traffic; and Hub receive time must remain
+separate from backend receive and PWA snapshot time. Older v1 bundles are
+BLOCKED, not silently accepted. This changes the evidence adapter only; it
+does not change Node cadence, Hub lease, backend product policy, or CloudSync.
+
+The schema remains a normalized assertion format, not an authenticator. A JSON
+claim cannot establish that the GS-109 Hub verifier approved the authority.
+`LIVE_CURRENT_TARGET` remains BLOCKED without an approved source provider, even
+when every field is internally consistent. The Hub UTC receive-time mapping
+also remains dependent on the unresolved D06 trusted-time contract; synthetic
+HOST_PASS does not validate that mapping for production.
 
 ### Integration acceptance checks for GS-109/GS-148 delivery
 
@@ -204,7 +214,11 @@ validator; it does not open a device or connect to a service. It checks:
 
 - common Node identity and Hub-accepted contact/session correlation through
   backend and PWA snapshots;
+- Hub, Home and ownership-epoch binding, Hub-assigned Node profile, and
+  authenticated authority state carried consistently through the projection;
 - explicit authenticated contact, so MAC send success cannot renew the lease;
+- contact kind and Hub receive time, retained separately from backend receive
+  time and caregiver snapshot time;
 - configured `>910s` offline boundary and legacy `>190s` / `>310s` boundaries;
 - the independent 190-second Hub/cloud freshness limit;
 - Hub disconnection, Internet outage, stale PWA data, unknown profile, missing
@@ -232,13 +246,9 @@ python3 -m unittest \
   tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_live_mode_blocks_without_any_device_access_or_physical_pass
 ```
 
-Result: Python compilation PASS; 4 focused tests PASS. The adapter truth table
-includes 10 states/subcases, including configured 910 boundary, silent Node,
-legacy 190/310 expiries, Hub disconnected, Internet outage, unknown profile,
-untrusted identity, missing authentication, stale PWA, and source/session
-mismatch. The live-mode unit test mocks Git identity reads and uses a temporary
-output directory; it records zero device actions. No full mock/replay campaign,
-backend suite, PWA browser suite, or hardware operation was repeated.
+At the original readiness checkpoint: Python compilation PASS; 4 focused tests
+PASS. Those results remain historical and were not rerun as a mock/replay
+campaign.
 
 The qualification source fingerprint for this validated working tree is
 `599baba2e682d65f4b21790e5f06b0dfd5b7f9e403d3c202c28d85ae37cbb97e`.
@@ -290,3 +300,75 @@ observer, and verify exact board/image/config/session/pending-event provenance.
 Then obtain one consolidated authorization for the specified real motion,
 silent interval and recovery procedure. No board operation is authorized by
 this readiness work. GS-40 remains In Progress and Done criteria are unmet.
+
+## Additive CloudSync integration contract and focused adapter validation — 2026-10-16
+
+**Scope classification:** `TEST_INFRA_ONLY`. Requirement sources are existing
+GS-D031 and GS-40 acceptance/comments 11175/11176. This increment changes the
+GS-40 observation evidence schema only. It does not add a CloudSync endpoint,
+credential/verifier, backend storage/API, product liveness policy, event, or
+PWA behavior.
+
+The production owner map remains: GS-109 supplies the verified current Hub,
+Home and ownership-epoch authority plus trusted identity/profile assignment;
+GS-68 carries additive bounded status through its existing trusted CloudSync
+channel; GS-148 owns production publication, backend ingest/read model and PWA
+projection. Each publication is one bounded current-state record for one
+registered Node; numeric payload and registry-member caps must follow GS-148's
+accepted storage/resource limits. Status is not a business event and cannot
+create an EventKey, durable ACK, replay entry, or event-retirement side effect.
+The Hub must be able to publish the derived OFFLINE transition after lease
+expiry without waiting for another NodeHealth report. No PWA/backend
+implementation exists in current production source, so a production
+end-to-end contract test is still blocked.
+
+Observation-bundle schema v2 now requires: a common Hub/Home/ownership-epoch
+binding across Hub/backend/PWA; the Hub-assigned profile to match the trusted
+deployment profile and be preserved by backend/PWA; Node identity, authenticated
+session, contact ID and contact kind (`NODE_HEALTH` or `AUTHENTICATED_EVENT`);
+explicit Hub contact receive time; a separate backend receive time carried into
+the PWA; and current source timestamps. Unverified authority/profile, MAC-only
+contact, source-binding mismatch or stale source cannot yield healthy/covered
+status. Configured 300/910, legacy 60/190 and 120/310 lease behavior and separate
+190-second Hub/cloud freshness are unchanged. Schema-v1 correlated bundles are
+BLOCKED rather than treated as sufficient. The adapter's UTC contact-age
+calculation is usable for deterministic fixtures only; D06 time authority and
+the production source attestation still block live evidence.
+
+**Notification requirement check:** Jira search found no dedicated configurable
+sensor-offline caregiver notification issue, and current `NotificationService`
+only schedules incident/door notices and daily summaries. GS-40 requires visible
+coverage state, not an implied push/SMS alert. If a configurable alert is wanted,
+create a separate product-approved task linked to GS-40/GS-148 to define
+recipient, delay, quiet hours, deduplication, recovery/clear and channel policy.
+No new Jira issue was created because those semantics are not specified.
+
+**Focused validation (current working tree):**
+
+```text
+python3 -m py_compile tools/hil/gs40_qualification.py tests/python/test_gs40_qualification.py
+python3 -m unittest -v \
+  tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_observation_adapter_correlates_300_910_status_and_separates_connectivity \
+  tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_observation_contract_binds_hub_home_epoch_node_profile_and_backend_time \
+  tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_observation_contract_rejects_contact_kind_and_receive_time_rewrite \
+  tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_observation_adapter_rejects_uncorrelated_or_live_unattested_status \
+  tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_source_audit_distinguishes_authenticated_radio_ingress_from_missing_cloud_path \
+  tests.python.test_gs40_qualification.GS40QualificationRunnerTests.test_live_mode_blocks_without_any_device_access_or_physical_pass
+```
+
+Result: compile PASS; 6 focused test methods PASS. The observation matrix covers
+14 states, including configured 910 boundary, legacy 190/310, Hub disconnect,
+Internet loss, stale Hub/backend/cloud/PWA sources, missing/untrusted identity,
+unverified Hub/Home/epoch, missing application contact and recovery-safe
+UNKNOWN. Negative checks reject mismatched Home, stale/untrusted profile,
+MAC-only contact-kind substitution, backend-time omission and receive-time
+rewriting. The live gate still reports BLOCKED with zero device actions. The
+seven-case mock campaign, Jira 11158 replay, Node/Hub/backend/PWA product suites
+and BAT-C8 physical results were not rerun or changed.
+
+**Remaining blockers:** production D05/D12 Hub authority/verifier and D06 time
+contract; GS-68 producer integration through the existing CloudSync transport;
+GS-148 authenticated ingest, freshness read model and PWA projection; verified
+current board image/config/session and safe observer; TC05 second trusted Node
+or fixture. All PHY-GS40-01..06 remain BLOCKED/NOT_RUN and GS-40 remains In
+Progress.

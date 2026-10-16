@@ -23,33 +23,51 @@ class GS40QualificationRunnerTests(unittest.TestCase):
     def observation_bundle(self, *, age_seconds=10, provenance="SYNTHETIC_DETERMINISTIC_FIXTURE",
                            hub_reachable=True, internet_connected=True, trusted=True,
                            identity="c3-146393c5d158", profile_known=True,
-                           profile="configured", authenticated=True, pwa_snapshot_age=0):
+                           profile="configured", authenticated=True, pwa_snapshot_age=0,
+                           hub_snapshot_age=0, backend_snapshot_age=0, cloud_contact_age=10,
+                           binding_verified=True):
         captured = datetime(2026, 10, 16, 12, 0, 0, tzinfo=timezone.utc)
         stamp = lambda age: (captured - timedelta(seconds=age)).isoformat().replace("+00:00", "Z")
+        authority = {"hub_device_id": "s3-000000000001", "home_id": "home-a",
+                     "ownership_epoch": 7, "verified": binding_verified}
         contact = None
         if identity is not None:
             contact = {"authenticated": authenticated, "identity": identity, "session_id": "sess-7",
-                       "contact_id": "health-8", "received_at_utc": stamp(age_seconds)}
+                       "contact_id": "health-8", "contact_kind": "NODE_HEALTH",
+                       "hub_received_at_utc": stamp(age_seconds)}
         node = {"identity": identity, "trusted_identity": trusted, "observed_at_utc": stamp(0),
                 "last_authenticated_contact": contact}
         offline_after = {"configured": 910, "legacy_60": 190, "legacy_120": 310}.get(profile)
-        hub_status = "ONLINE" if trusted and profile_known and contact and authenticated and offline_after is not None and age_seconds <= offline_after else \
-                     "OFFLINE" if trusted and profile_known and contact and authenticated and offline_after is not None and age_seconds > offline_after else "UNKNOWN"
-        if not hub_reachable:
+        hub_status = "ONLINE" if trusted and profile_known and binding_verified and contact and authenticated and offline_after is not None and age_seconds <= offline_after else \
+                     "OFFLINE" if trusted and profile_known and binding_verified and contact and authenticated and offline_after is not None and age_seconds > offline_after else "UNKNOWN"
+        if not hub_reachable or hub_snapshot_age > 190:
             hub_status = "UNKNOWN"
-        downstream_status = hub_status if hub_reachable and internet_connected else "UNKNOWN"
+        backend_path_current = (hub_reachable and internet_connected and
+                                cloud_contact_age <= 190 and backend_snapshot_age <= 190)
+        downstream_status = hub_status if backend_path_current else "UNKNOWN"
         downstream_coverage = "COVERED" if downstream_status == "ONLINE" else "UNKNOWN"
         pwa_status = downstream_status if pwa_snapshot_age <= 190 else "UNKNOWN"
         pwa_coverage = "COVERED" if pwa_status == "ONLINE" else "UNKNOWN"
-        hub = {"identity": identity, "reachable": hub_reachable,
-               "internet_connected": internet_connected, "observed_at_utc": stamp(0),
-               "last_backend_contact_at_utc": stamp(10), "node_status": hub_status,
+        hub_contact_time = stamp(age_seconds) if contact is not None and authenticated else None
+        hub = {"identity": identity, "authority_binding": json.loads(json.dumps(authority)),
+               "authority_verified": binding_verified, "reachable": hub_reachable,
+               "internet_connected": internet_connected, "observed_at_utc": stamp(hub_snapshot_age),
+               "effective_profile": profile if profile_known else None,
+               "profile_assignment_trusted": profile_known,
+               "last_backend_contact_at_utc": stamp(cloud_contact_age), "node_status": hub_status,
                "source_contact": json.loads(json.dumps(contact)) if contact is not None and authenticated else None}
-        backend = {"identity": identity, "reachable": True, "observed_at_utc": stamp(0),
+        backend = {"identity": identity, "authority_binding": json.loads(json.dumps(authority)),
+                   "authority_verified": binding_verified, "reachable": True,
+                   "observed_at_utc": stamp(backend_snapshot_age),
+                   "effective_profile": profile if profile_known else None,
+                   "hub_received_at_utc": hub_contact_time, "backend_received_at_utc": stamp(5),
                    "node_status": downstream_status, "coverage_status": downstream_coverage,
                    "source_contact": json.loads(json.dumps(contact)) if contact is not None and authenticated else None}
-        pwa = {"identity": identity, "reachable": True, "observed_at_utc": stamp(0),
+        pwa = {"identity": identity, "authority_binding": json.loads(json.dumps(authority)),
+               "reachable": True, "observed_at_utc": stamp(0),
+               "effective_profile": profile if profile_known else None,
                "backend_snapshot_observed_at_utc": stamp(pwa_snapshot_age),
+               "hub_received_at_utc": hub_contact_time, "backend_received_at_utc": stamp(5),
                "node_status": pwa_status, "coverage_status": pwa_coverage,
                "source_contact": json.loads(json.dumps(contact)) if contact is not None and authenticated else None}
         config = json.loads(json.dumps(self.config))
@@ -57,7 +75,8 @@ class GS40QualificationRunnerTests(unittest.TestCase):
             config["deployment_profiles"][identity] = profile
         else:
             config["deployment_profiles"].pop(identity, None)
-        return {"schema_version": 1, "provenance": provenance,
+        return {"schema_version": 2, "provenance": provenance,
+                "authority_binding": authority,
                 "captured_at_utc": stamp(0), "node": node, "hub": hub,
                 "backend": backend, "pwa": pwa}, config
 
@@ -172,8 +191,12 @@ class GS40QualificationRunnerTests(unittest.TestCase):
             ("silent-node", {"age_seconds": 911}, "OFFLINE", "UNKNOWN"),
             ("hub-disconnected", {"hub_reachable": False}, "UNKNOWN", "UNKNOWN"),
             ("internet-outage", {"internet_connected": False}, "UNKNOWN", "UNKNOWN"),
+            ("stale-hub-observation", {"hub_snapshot_age": 191}, "UNKNOWN", "UNKNOWN"),
+            ("stale-backend-observation", {"backend_snapshot_age": 191}, "UNKNOWN", "UNKNOWN"),
+            ("stale-cloud-contact", {"cloud_contact_age": 191}, "UNKNOWN", "UNKNOWN"),
             ("unknown-profile", {"profile_known": False}, "UNKNOWN", "UNKNOWN"),
             ("untrusted-identity", {"trusted": False}, "UNKNOWN", "UNKNOWN"),
+            ("unverified-hub-home-epoch", {"binding_verified": False}, "UNKNOWN", "UNKNOWN"),
             ("missing-contact", {"authenticated": False}, "UNKNOWN", "UNKNOWN"),
             ("stale-pwa-snapshot", {"pwa_snapshot_age": 191}, "UNKNOWN", "UNKNOWN"),
             ("legacy-60-expiry", {"profile": "legacy_60", "age_seconds": 191}, "OFFLINE", "UNKNOWN"),
@@ -207,6 +230,56 @@ class GS40QualificationRunnerTests(unittest.TestCase):
         malformed_config = qualification.assess_observation_bundle(bundle, config)
         self.assertEqual(malformed_config["verdict"], "BLOCKED")
         self.assertIn("effective NodeHealth configuration is invalid", malformed_config["failure"])
+
+    def test_observation_contract_binds_hub_home_epoch_node_profile_and_backend_time(self):
+        bundle, config = self.observation_bundle()
+        result = qualification.assess_observation_bundle(bundle, config)
+        self.assertEqual(result["verdict"], "HOST_PASS")
+        self.assertEqual(bundle["backend"]["hub_received_at_utc"],
+                         bundle["node"]["last_authenticated_contact"]["hub_received_at_utc"])
+        self.assertEqual(bundle["backend"]["backend_received_at_utc"],
+                         bundle["pwa"]["backend_received_at_utc"])
+
+        mismatched_home, config = self.observation_bundle()
+        mismatched_home["backend"]["authority_binding"]["home_id"] = "home-other"
+        rejected = qualification.assess_observation_bundle(mismatched_home, config)
+        self.assertEqual(rejected["verdict"], "FAIL")
+        self.assertTrue(any(row["check"] == "trusted_hub_home_epoch_binding" and row["result"] == "FAIL"
+                            for row in rejected["assertions"]))
+
+        mismatched_profile, config = self.observation_bundle()
+        mismatched_profile["hub"]["effective_profile"] = "legacy_60"
+        rejected_profile = qualification.assess_observation_bundle(mismatched_profile, config)
+        self.assertEqual(rejected_profile["verdict"], "FAIL")
+        self.assertTrue(any(row["check"] == "trusted_deployment_profile" and row["result"] == "FAIL"
+                            for row in rejected_profile["assertions"]))
+
+        missing_server_time, config = self.observation_bundle()
+        del missing_server_time["backend"]["backend_received_at_utc"]
+        blocked_time = qualification.assess_observation_bundle(missing_server_time, config)
+        self.assertEqual(blocked_time["verdict"], "BLOCKED")
+        self.assertIn("backend_received_at_utc", blocked_time["failure"])
+
+        legacy_bundle, config = self.observation_bundle()
+        legacy_bundle["schema_version"] = 1
+        legacy_result = qualification.assess_observation_bundle(legacy_bundle, config)
+        self.assertEqual(legacy_result["verdict"], "BLOCKED")
+        self.assertEqual(legacy_result["failure"], "OBSERVATION_BUNDLE_SCHEMA_UNSUPPORTED")
+
+    def test_observation_contract_rejects_contact_kind_and_receive_time_rewrite(self):
+        bundle, config = self.observation_bundle()
+        bundle["node"]["last_authenticated_contact"]["contact_kind"] = "MAC_TX_SUCCESS"
+        rejected_kind = qualification.assess_observation_bundle(bundle, config)
+        self.assertEqual(rejected_kind["verdict"], "FAIL")
+        self.assertTrue(any(row["check"] == "hub_lease_status" and row["result"] == "FAIL"
+                            for row in rejected_kind["assertions"]))
+
+        bundle, config = self.observation_bundle()
+        bundle["pwa"]["hub_received_at_utc"] = "2026-10-16T11:59:59Z"
+        rejected_time = qualification.assess_observation_bundle(bundle, config)
+        self.assertEqual(rejected_time["verdict"], "FAIL")
+        self.assertTrue(any(row["check"] == "hub_and_backend_receive_times_preserved" and
+                            row["result"] == "FAIL" for row in rejected_time["assertions"]))
 
     def test_report_output_is_immutable_and_has_json_and_markdown(self):
         case = self.registry["cases"][0]
