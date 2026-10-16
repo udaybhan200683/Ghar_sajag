@@ -1,5 +1,68 @@
 # R1 Current Work State
 
+## GS-40 production-path readiness follow-up — 2026-10-16 09:50 UTC
+
+Resumed from GS-40 Jira comment 11170. The completed automation branch was
+verified as a three-commit fast-forward from the starting canonical commit
+`d738dc51a25e72de570a11fc39f0e26522ead3d8` to
+`9453587383215e62628e436a20b10648a923410f` on
+`feature/r1-commercial-baseline`. The existing GS-109/GS-68 branch/worktree at
+`44838da836d3014e606cfe2ee57ad624ee417240` remains separate and untouched. The
+canonical worktree contains preserved pre-existing untracked frontend assets,
+managed components and GS-114/GS-40 hardware evidence; none were staged or
+modified. At authoring, origin still pointed to the starting canonical commit;
+the implementation delivery and its remote verification are recorded in the
+resulting GS-40 Jira update.
+
+**Production-path finding:** NodeHealth is decoded/authenticated at
+`code/firmware/hub/target/esp32/hub_runtime_adapter.cpp` and enters volatile
+HubRuntime lease/contact state. The active S3 entry point does not instantiate
+CloudSync; existing CloudSync is durable-event synchronization only. There is
+no production authenticated NodeHealth backend ingest/read-model projection or
+caregiver PWA projection. The backend's local event API requires a caller-owned
+Hub verifier and is not that provider. GS-109 D05/D12 owns trusted Hub identity
+and verification; GS-148 owns the durable CloudSync/API integration. GS-40 did
+not create a parallel credential, ingest route, event commit, or trust
+contract. Source evidence and exact paths are in
+`docs/exec-plans/evidence/GS40_REAL_TARGET_READINESS_20261016.md`.
+
+**Reusable observation adapter:** `assess_observation_bundle()` validates
+timestamped Node/Hub/backend/PWA snapshots, identity/session/contact
+correlation, authenticated contact, configured 300/910 and legacy 60/190 and
+120/310 boundaries, separate 190-second Hub/cloud freshness, stale PWA data,
+and fail-closed unknown coverage. It does not connect to hardware or a network.
+Synthetic valid bundles can only be `HOST_PASS`; untrusted/missing sources stay
+unknown; mismatched claims are `FAIL`; a JSON claim of current hardware remains
+`BLOCKED` because production provider attestation is not implemented. The
+source-gated `live` runner remains no-I/O and BLOCKED.
+
+**Focused validation:** Python syntax compilation passed. Four focused tests
+passed, covering the production-source audit, adapter timing/connectivity
+matrix (including 910 boundary and legacy 190/310), identity/contact mismatch,
+live-provider refusal, and the existing live no-device gate. The command and
+scope are recorded in the real-target evidence report. The completed mock and
+replay campaigns were not repeated. No production Hub/backend/PWA end-to-end
+test can pass against the current source because the path under test is absent;
+the existing synthetic TC06 is not promoted to production evidence.
+
+**Physical disposition:** No hardware operation was performed. All
+PHY-GS40-01..06 remain BLOCKED/NOT_RUN, with no new physical PASS. Existing
+BAT-C8 GS-114 physical evidence is unchanged. C3/S3 running image, effective
+device JSON, live session and pending EventKey baselines remain unverified.
+CH343 POWERON causality remains unproven; no serial interface was reopened.
+Ordinary ESP-NOW Node liveness does not require opening C3 native USB. PHY-GS40-05
+still requires a second identified C3 Node or approved fixture.
+
+**Next action and ownership:** GS-109 and GS-148 must first provide the
+approved authenticated Hub identity/publication path, backend projection and
+caregiver PWA contract; then add real production cross-layer contract tests and
+an approved non-resetting observer. Only after those prerequisites can a
+single consolidated owner authorization stage PHY-GS40-01..06: one 30-minute
+cadence observation, genuine authorized motion, a >910-second silent-Node
+method, Node return/rejoin with before/after pending EventKeys, caregiver/API
+evidence, and a second Node/qualified fixture for mixed profiles. Keep GS-40 In
+Progress; software evidence does not meet its physical Done criteria.
+
 ## GS-40 automated qualification and physical handoff — 2026-10-16 08:34 UTC
 
 Resumed from GS-40 Jira comments 11156, 11158 and 11162. The canonical R1

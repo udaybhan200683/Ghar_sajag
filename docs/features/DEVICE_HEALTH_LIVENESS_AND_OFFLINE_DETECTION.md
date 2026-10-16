@@ -272,3 +272,18 @@ retain explicit profiles; existing health schema alone cannot identify them.
 Only heartbeat interval is adjustable, with offline timeout derived 3 × interval
 + 10. Hub cloud lease and resident inactivity remain distinct. Firmware applies
 validated embedded configuration at startup. Physical acceptance is pending.
+
+### Production observation gap confirmed — 2026-10-16
+
+The Foundation/backend/PWA behavior described by the host suites does not
+establish a production S3 NodeHealth publisher or caregiver read path. The S3
+runtime authenticates NodeHealth into volatile HubRuntime lease state and
+local logs. Its target `app_main.cpp` does not instantiate the CloudSync worker;
+the existing worker synchronizes durable events only. The local backend adapter
+does not authenticate Hub requests, and the caregiver snapshot does not project
+per-Node health. GS-109 owns Hub identity/verifier decisions; GS-148 owns the
+durable CloudSync/backend integration. GS-40 must not add a parallel
+credential, event commit, or trust contract. Caregiver visibility remains
+blocked until those owners expose the trusted source-to-snapshot path and it
+passes a real contract test. See the
+[GS-40 real-target readiness evidence](../exec-plans/evidence/GS40_REAL_TARGET_READINESS_20261016.md).

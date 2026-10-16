@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +19,47 @@ class GS40QualificationRunnerTests(unittest.TestCase):
         self.registry = qualification.load_registry()
         self.fixture = qualification.load_mock_fixture()
         self.config = qualification.load_json(qualification.CONFIG_PATH)
+
+    def observation_bundle(self, *, age_seconds=10, provenance="SYNTHETIC_DETERMINISTIC_FIXTURE",
+                           hub_reachable=True, internet_connected=True, trusted=True,
+                           identity="c3-146393c5d158", profile_known=True,
+                           profile="configured", authenticated=True, pwa_snapshot_age=0):
+        captured = datetime(2026, 10, 16, 12, 0, 0, tzinfo=timezone.utc)
+        stamp = lambda age: (captured - timedelta(seconds=age)).isoformat().replace("+00:00", "Z")
+        contact = None
+        if identity is not None:
+            contact = {"authenticated": authenticated, "identity": identity, "session_id": "sess-7",
+                       "contact_id": "health-8", "received_at_utc": stamp(age_seconds)}
+        node = {"identity": identity, "trusted_identity": trusted, "observed_at_utc": stamp(0),
+                "last_authenticated_contact": contact}
+        offline_after = {"configured": 910, "legacy_60": 190, "legacy_120": 310}.get(profile)
+        hub_status = "ONLINE" if trusted and profile_known and contact and authenticated and offline_after is not None and age_seconds <= offline_after else \
+                     "OFFLINE" if trusted and profile_known and contact and authenticated and offline_after is not None and age_seconds > offline_after else "UNKNOWN"
+        if not hub_reachable:
+            hub_status = "UNKNOWN"
+        downstream_status = hub_status if hub_reachable and internet_connected else "UNKNOWN"
+        downstream_coverage = "COVERED" if downstream_status == "ONLINE" else "UNKNOWN"
+        pwa_status = downstream_status if pwa_snapshot_age <= 190 else "UNKNOWN"
+        pwa_coverage = "COVERED" if pwa_status == "ONLINE" else "UNKNOWN"
+        hub = {"identity": identity, "reachable": hub_reachable,
+               "internet_connected": internet_connected, "observed_at_utc": stamp(0),
+               "last_backend_contact_at_utc": stamp(10), "node_status": hub_status,
+               "source_contact": json.loads(json.dumps(contact)) if contact is not None and authenticated else None}
+        backend = {"identity": identity, "reachable": True, "observed_at_utc": stamp(0),
+                   "node_status": downstream_status, "coverage_status": downstream_coverage,
+                   "source_contact": json.loads(json.dumps(contact)) if contact is not None and authenticated else None}
+        pwa = {"identity": identity, "reachable": True, "observed_at_utc": stamp(0),
+               "backend_snapshot_observed_at_utc": stamp(pwa_snapshot_age),
+               "node_status": pwa_status, "coverage_status": pwa_coverage,
+               "source_contact": json.loads(json.dumps(contact)) if contact is not None and authenticated else None}
+        config = json.loads(json.dumps(self.config))
+        if profile_known:
+            config["deployment_profiles"][identity] = profile
+        else:
+            config["deployment_profiles"].pop(identity, None)
+        return {"schema_version": 1, "provenance": provenance,
+                "captured_at_utc": stamp(0), "node": node, "hub": hub,
+                "backend": backend, "pwa": pwa}, config
 
     def test_case_registry_has_seven_cases_and_six_physical_links(self):
         self.assertEqual([case["id"] for case in self.registry["cases"]], qualification.EXPECTED_CASE_IDS)
@@ -96,6 +138,10 @@ class GS40QualificationRunnerTests(unittest.TestCase):
             self.assertEqual(status, 3)
             self.assertTrue(all(report["verdict"] == "BLOCKED" for report in reports))
             self.assertTrue(all(report["physical_status"] != "PHYSICAL_PASS" for report in reports))
+            self.assertTrue(all(report["provenance"]["live_observation_source_inventory"][
+                "production_path_complete"] is False for report in reports))
+            self.assertTrue(all("s3_instantiates_cloudsync_worker" in report["failure"]
+                                for report in reports))
             commands = [call.args[0] for call in git_call.call_args_list]
             self.assertTrue(commands)
             self.assertTrue(all(command[0] == "git" and command[1] in {"rev-parse", "branch"} for command in commands))
@@ -104,6 +150,63 @@ class GS40QualificationRunnerTests(unittest.TestCase):
                 self.assertEqual(report["hardware_actions"]["usb_reattach_attempts"], 0)
             self.assertEqual(len(list(run_dir.rglob("*.json"))), 3)  # two case reports plus run index
             self.assertEqual(len(list(run_dir.rglob("*.md"))), 2)
+
+    def test_source_audit_distinguishes_authenticated_radio_ingress_from_missing_cloud_path(self):
+        inventory = qualification.inspect_live_observation_sources()
+        checks = inventory["checks"]
+        self.assertTrue(checks["hub_authenticates_and_records_node_health"])
+        self.assertFalse(checks["cloudsync_has_node_health_publication"])
+        self.assertFalse(checks["s3_instantiates_cloudsync_worker"])
+        self.assertFalse(checks["s3_has_trusted_cloud_authority_source"])
+        self.assertFalse(checks["backend_has_authenticated_node_health_ingest"])
+        self.assertFalse(checks["backend_snapshot_projects_node_health"])
+        self.assertFalse(checks["caregiver_pwa_projects_node_health"])
+        self.assertTrue(checks["backend_event_api_is_local_host_adapter"])
+        self.assertFalse(inventory["production_path_complete"])
+        self.assertEqual(inventory["device_access"], "NONE")
+        self.assertFalse(inventory["physical_pass_claimed"])
+
+    def test_observation_adapter_correlates_300_910_status_and_separates_connectivity(self):
+        cases = [
+            ("online", {"age_seconds": 910}, "ONLINE", "COVERED"),
+            ("silent-node", {"age_seconds": 911}, "OFFLINE", "UNKNOWN"),
+            ("hub-disconnected", {"hub_reachable": False}, "UNKNOWN", "UNKNOWN"),
+            ("internet-outage", {"internet_connected": False}, "UNKNOWN", "UNKNOWN"),
+            ("unknown-profile", {"profile_known": False}, "UNKNOWN", "UNKNOWN"),
+            ("untrusted-identity", {"trusted": False}, "UNKNOWN", "UNKNOWN"),
+            ("missing-contact", {"authenticated": False}, "UNKNOWN", "UNKNOWN"),
+            ("stale-pwa-snapshot", {"pwa_snapshot_age": 191}, "UNKNOWN", "UNKNOWN"),
+            ("legacy-60-expiry", {"profile": "legacy_60", "age_seconds": 191}, "OFFLINE", "UNKNOWN"),
+            ("legacy-120-expiry", {"profile": "legacy_120", "age_seconds": 311}, "OFFLINE", "UNKNOWN"),
+        ]
+        for label, options, expected_status, expected_coverage in cases:
+            with self.subTest(case=label):
+                bundle, config = self.observation_bundle(**options)
+                result = qualification.assess_observation_bundle(bundle, config)
+                self.assertEqual(result["verdict"], "HOST_PASS")
+                self.assertFalse(result["physical_pass_claimed"])
+                self.assertEqual(result["observed_caregiver_status"], expected_status)
+                self.assertEqual(result["observed_caregiver_coverage"], expected_coverage)
+
+    def test_observation_adapter_rejects_uncorrelated_or_live_unattested_status(self):
+        bundle, config = self.observation_bundle()
+        bundle["pwa"]["source_contact"]["session_id"] = "wrong-session"
+        result = qualification.assess_observation_bundle(bundle, config)
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertTrue(any(row["check"] == "pwa_contact_correlation" and row["result"] == "FAIL"
+                            for row in result["assertions"]))
+
+        live, config = self.observation_bundle(provenance="LIVE_CURRENT_TARGET")
+        live_result = qualification.assess_observation_bundle(live, config)
+        self.assertEqual(live_result["verdict"], "BLOCKED")
+        self.assertEqual(live_result["failure"], "LIVE_PROVIDER_ATTESTATION_UNAVAILABLE")
+        self.assertFalse(live_result["physical_pass_claimed"])
+
+        bundle, config = self.observation_bundle()
+        config["node_health"]["heartbeat_interval_seconds"] = True
+        malformed_config = qualification.assess_observation_bundle(bundle, config)
+        self.assertEqual(malformed_config["verdict"], "BLOCKED")
+        self.assertIn("effective NodeHealth configuration is invalid", malformed_config["failure"])
 
     def test_report_output_is_immutable_and_has_json_and_markdown(self):
         case = self.registry["cases"][0]

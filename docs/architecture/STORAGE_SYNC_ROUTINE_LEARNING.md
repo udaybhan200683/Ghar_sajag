@@ -463,8 +463,19 @@ remain explicit gaps; absent first publication authority is not weakened.
 GS-D031 selects embedded validated JSON and RAM physical-identity deployment
 profiles for per-Node liveness/coverage. No checkpoint, storage partition, event
 identity, durable-before-ACK or cloud-completion contract changes. Backend/PWA
-consume the corresponding trusted profile and received-contact timestamp;
-render time and retained occurrence time cannot renew sensor freshness. Hub
-cloud freshness190s remains distinct from configured Node lease910s. Secure
-target epoch/cloud production gaps remain explicitly unqualified. See the
+are required to consume the corresponding trusted profile and received-contact
+timestamp; render time and retained occurrence time cannot renew sensor
+freshness. Hub cloud freshness 190s remains distinct from configured Node lease
+910s. Secure target epoch/cloud production gaps remain explicitly unqualified.
+See the
 [GS-40 software evidence](../exec-plans/evidence/R1_GS40_SOFTWARE_VALIDATION_20261010.md).
+
+**Production integration status (2026-10-16):** target source audit confirms
+that authenticated NodeHealth currently terminates at HubRuntime's volatile
+lease/log path. The active S3 entry point does not construct CloudSync; the
+existing worker is event-only. No production authenticated NodeHealth ingest,
+read-model projection, or caregiver PWA projection is wired. This is an
+integration gap, not a change to the GS-D031 contract. GS-109 owns trusted Hub
+identity/verifier policy and GS-148 owns durable CloudSync/API work. GS-40
+evidence records the exact source findings and leaves physical visibility
+blocked until that path is implemented and exercised end to end.

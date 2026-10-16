@@ -546,6 +546,19 @@ records JSON startup policy, trusted mixed-deployment profiles and the remaining
 real-target acceptance/extended historical migration gate limitation. LOCKED
 policy text above remains unchanged.
 
+**Production-path audit — 2026-10-16:** The source-level authenticated
+NodeHealth ingress and local HubRuntime lease exist, but no production S3
+NodeHealth publication is connected through CloudSync to a backend read model
+or caregiver PWA projection. Existing Foundation/backend/PWA freshness
+behavior is host/simulator behavior. The backend event adapter explicitly
+requires a production-provided Hub verifier and does not itself authenticate
+Hub requests. Do not create a parallel Hub credential or trust contract under
+GS-40: GS-109 D05/D12 identity/verifier decisions and GS-148's production
+CloudSync/backend integration remain owners of that boundary. This finding
+does not change GS-D031 product semantics or the 300/910 policy; it keeps the
+real-target visibility criterion open until the authorized trust path is
+implemented and source-to-PWA contract tests pass.
+
 
 ## GS-116 engineering policy implementation note — 2026-10-11
 

@@ -43,6 +43,17 @@ SOURCE_INPUTS = [
     "code/config/node_health.json",
     "code/backend/ghar_sajag/node_health_policy.py",
     "code/backend/ghar_sajag/foundation.py",
+    "code/backend/ghar_sajag/http_api.py",
+    "code/backend/ghar_sajag/queries.py",
+    "code/backend/DATA_MODEL.md",
+    "code/firmware/hub/cloud_sync/cloud_sync.hpp",
+    "code/firmware/hub/cloud_sync/cloud_sync.cpp",
+    "code/firmware/hub/runtime/hub_runtime.hpp",
+    "code/firmware/hub/runtime/hub_runtime.cpp",
+    "code/firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+    "code/firmware/hub/target/esp32/idf/main/app_main.cpp",
+    "code/frontend/src/features/home/index.mjs",
+    "code/frontend/public/app.mjs",
     "code/tests/cpp/gs40_node_health_validation.cpp",
     "code/tests/cpp/gs150_offline_sleep_validation.cpp",
     "code/tests/python/test_node_health_config.py",
@@ -60,6 +71,254 @@ SOURCE_INPUTS = [
 
 class QualificationError(RuntimeError):
     """A classified failure in host-side setup, assertion, or evidence input."""
+
+
+def inspect_live_observation_sources() -> dict[str, Any]:
+    """Read-only source audit for the live NodeHealth-to-caregiver evidence path.
+
+    This is intentionally not a device probe. A source-level path is considered
+    ready only when the S3 runtime publishes through an instantiated trusted
+    CloudSync worker, the backend accepts and projects the publication, and the
+    caregiver PWA renders that projection. Host simulations are not counted as
+    production providers.
+    """
+    def read(relative: str) -> str:
+        path = REPO / relative
+        try:
+            return path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return ""
+
+    hub_runtime = read("code/firmware/hub/target/esp32/hub_runtime_adapter.cpp")
+    hub_entry = read("code/firmware/hub/target/esp32/idf/main/app_main.cpp")
+    cloud_sync = read("code/firmware/hub/cloud_sync/cloud_sync.hpp") + read(
+        "code/firmware/hub/cloud_sync/cloud_sync.cpp")
+    backend_api = read("code/backend/ghar_sajag/http_api.py")
+    backend_queries = read("code/backend/ghar_sajag/queries.py")
+    backend_model = read("code/backend/DATA_MODEL.md")
+    pwa_view = read("code/frontend/src/features/home/index.mjs")
+    durable_api = read("code/backend/ghar_sajag/durable_api.py")
+
+    checks = {
+        "hub_authenticates_and_records_node_health": (
+            "decode_node_health" in hub_runtime and
+            "observe_authenticated_health" in hub_runtime),
+        "cloudsync_has_node_health_publication": any(marker in cloud_sync for marker in (
+            "publish_node_health", "submit_node_health", "NodeHealthPublication")),
+        "s3_instantiates_cloudsync_worker": "CloudSyncWorker" in hub_entry,
+        "s3_has_trusted_cloud_authority_source": (
+            "CloudAuthoritySource" in hub_entry or
+            "CloudAuthoritySource" in hub_runtime),
+        "backend_has_authenticated_node_health_ingest": (
+            "node-health" in backend_api or "node_health" in backend_api),
+        "backend_snapshot_projects_node_health": (
+            "node_health" in backend_queries and
+            "node_health" in backend_model),
+        "caregiver_pwa_projects_node_health": "node_health" in pwa_view,
+        "backend_event_api_is_local_host_adapter": (
+            "Small WSGI adapter for local integration tests" in backend_api and
+            "deliberately does not authenticate Hub requests" in durable_api and
+            "local development" in durable_api),
+    }
+    complete = all(checks[key] for key in (
+        "hub_authenticates_and_records_node_health",
+        "cloudsync_has_node_health_publication",
+        "s3_instantiates_cloudsync_worker",
+        "s3_has_trusted_cloud_authority_source",
+        "backend_has_authenticated_node_health_ingest",
+        "backend_snapshot_projects_node_health",
+        "caregiver_pwa_projects_node_health",
+    ))
+    blockers = [key for key, passed in checks.items()
+                if key != "hub_authenticates_and_records_node_health" and not passed]
+    return {
+        "schema_version": 1,
+        "production_path_complete": complete,
+        "checks": checks,
+        "blockers": blockers,
+        "device_access": "NONE",
+        "physical_pass_claimed": False,
+    }
+
+
+def _parse_utc(value: Any, field: str) -> dt.datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be an ISO-8601 UTC timestamp")
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{field} must be an ISO-8601 UTC timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() != dt.timedelta(0):
+        raise ValueError(f"{field} must include a UTC timezone")
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def assess_observation_bundle(bundle: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    """Correlate normalized Hub, backend and caregiver observations.
+
+    This is a pure validator: it performs no device, USB, serial, network, or
+    filesystem access. A collector must preserve the original source evidence
+    and attest each live source through an approved provider. Provider
+    authentication is deliberately not inferred from JSON fields. Even a
+    valid synthetic bundle is only HOST_PASS; this function never promotes
+    evidence to PHYSICAL_PASS.
+    """
+    required_layers = ("hub", "backend", "pwa")
+    checks: list[dict[str, str]] = []
+
+    def add(condition: bool, name: str, detail: str) -> None:
+        checks.append({"check": name, "result": "PASS" if condition else "FAIL", "detail": detail})
+
+    if not isinstance(bundle, dict) or bundle.get("schema_version") != 1:
+        return {"verdict": "BLOCKED", "failure": "OBSERVATION_BUNDLE_SCHEMA_UNSUPPORTED",
+                "assertions": checks, "physical_pass_claimed": False}
+    if any(not isinstance(bundle.get(layer), dict) for layer in ("node", *required_layers)):
+        return {"verdict": "BLOCKED", "failure": "OBSERVATION_BUNDLE_LAYER_MISSING",
+                "assertions": checks, "physical_pass_claimed": False}
+
+    try:
+        health_config = config.get("node_health", {})
+        profiles = config.get("deployment_profiles", {})
+        heartbeat = health_config.get("heartbeat_interval_seconds") if isinstance(health_config, dict) else None
+        if (not isinstance(config, dict) or set(config) != {"schema_version", "node_health", "deployment_profiles"} or
+                type(config.get("schema_version")) is not int or config.get("schema_version") != 1 or
+                not isinstance(health_config, dict) or
+                set(health_config) != {"heartbeat_interval_seconds", "piggyback_on_events"} or
+                type(heartbeat) is not int or not 15 <= heartbeat <= 3600 or
+                health_config.get("piggyback_on_events") is not True or
+                not isinstance(profiles, dict) or len(profiles) > 10 or
+                any(not isinstance(key, str) or not re.fullmatch(r"c3-[0-9a-f]{12}", key) or
+                    value not in {"configured", "legacy_60", "legacy_120"}
+                    for key, value in profiles.items())):
+            raise ValueError("effective NodeHealth configuration is invalid")
+        captured_at = _parse_utc(bundle.get("captured_at_utc"), "captured_at_utc")
+        layers = {name: bundle[name] for name in ("node", *required_layers)}
+        observed_at: dict[str, dt.datetime] = {}
+        for name, layer in layers.items():
+            observed = _parse_utc(layer.get("observed_at_utc"), f"{name}.observed_at_utc")
+            if observed > captured_at:
+                raise ValueError(f"{name}.observed_at_utc is later than captured_at_utc")
+            observed_at[name] = observed
+        pwa_snapshot_at = _parse_utc(layers["pwa"].get("backend_snapshot_observed_at_utc"),
+                                     "pwa.backend_snapshot_observed_at_utc")
+        if pwa_snapshot_at > captured_at:
+            raise ValueError("pwa.backend_snapshot_observed_at_utc is later than captured_at_utc")
+        node = layers["node"]
+        hub = layers["hub"]
+        backend = layers["backend"]
+        pwa = layers["pwa"]
+        identity = node.get("identity")
+        profile = profiles.get(identity) if isinstance(identity, str) else None
+        if profile == "configured" and type(heartbeat) is int:
+            offline_after = 3 * heartbeat + 10
+        elif profile == "legacy_60":
+            offline_after = 190
+        elif profile == "legacy_120":
+            offline_after = 310
+        else:
+            offline_after = None
+
+        contact = node.get("last_authenticated_contact")
+        contact_valid = (isinstance(contact, dict) and
+                         contact.get("authenticated") is True and
+                         contact.get("identity") == identity and
+                         isinstance(contact.get("session_id"), str) and bool(contact.get("session_id")) and
+                         ((isinstance(contact.get("contact_id"), str) and bool(contact.get("contact_id"))) or
+                          (type(contact.get("contact_id")) is int and contact.get("contact_id") >= 0)))
+        contact_at = (_parse_utc(contact.get("received_at_utc"), "node.last_authenticated_contact.received_at_utc")
+                      if contact_valid else None)
+        age = (captured_at - contact_at).total_seconds() if contact_at else None
+        if age is not None and age < 0:
+            raise ValueError("authenticated contact is later than captured_at_utc")
+
+        identity_trusted = node.get("trusted_identity") is True
+        profile_known = offline_after is not None
+        if not identity_trusted or not profile_known or not contact_valid:
+            expected_hub_status = "UNKNOWN"
+        elif age <= offline_after:
+            expected_hub_status = "ONLINE"
+        else:  # Existing backend expiry uses a strict greater-than comparison.
+            expected_hub_status = "OFFLINE"
+        hub_observation_fresh = (captured_at - observed_at["hub"]).total_seconds() <= 190
+        if hub.get("reachable") is not True or not hub_observation_fresh:
+            expected_hub_status = "UNKNOWN"
+
+        cloud_contact = hub.get("last_backend_contact_at_utc")
+        cloud_fresh = False
+        if isinstance(cloud_contact, str):
+            cloud_age = (captured_at - _parse_utc(cloud_contact, "hub.last_backend_contact_at_utc")).total_seconds()
+            cloud_fresh = 0 <= cloud_age <= 190
+        backend_path_current = (hub.get("reachable") is True and
+                                hub_observation_fresh and
+                                hub.get("internet_connected") is True and
+                                backend.get("reachable") is True and cloud_fresh and
+                                (captured_at - observed_at["backend"]).total_seconds() <= 190)
+        expected_backend_status = expected_hub_status if backend_path_current else "UNKNOWN"
+        expected_backend_coverage = "COVERED" if expected_backend_status == "ONLINE" else "UNKNOWN"
+        pwa_snapshot_fresh = (captured_at - pwa_snapshot_at).total_seconds() <= 190
+        expected_pwa_status = (expected_backend_status if backend.get("reachable") is True and
+                               pwa.get("reachable") is True and pwa_snapshot_fresh else "UNKNOWN")
+        expected_pwa_coverage = "COVERED" if expected_pwa_status == "ONLINE" else "UNKNOWN"
+
+        downstream_not_healthy = not (
+            hub.get("node_status") == "ONLINE" or
+            backend.get("node_status") == "ONLINE" or
+            backend.get("coverage_status") == "COVERED" or
+            pwa.get("node_status") == "ONLINE" or
+            pwa.get("coverage_status") == "COVERED")
+        add(identity_trusted or downstream_not_healthy, "trusted_node_identity",
+            "Untrusted identity must remain unknown and can never be shown healthy.")
+        add(profile_known or downstream_not_healthy, "known_deployment_profile",
+            "Unknown profiles must remain unknown; known identities use configured 300/910 or explicit legacy timing.")
+        add(contact_valid or downstream_not_healthy, "authenticated_received_contact",
+            "Missing/unauthenticated contact must remain unknown; MAC send success is not accepted as received contact.")
+        add(hub.get("node_status") == expected_hub_status, "hub_lease_status",
+            f"Hub status must be {expected_hub_status}; configured offline boundary is strictly greater than {offline_after}s." if offline_after else
+            "Hub status must remain UNKNOWN for an untrusted or unknown-profile identity.")
+        add(backend.get("node_status") == expected_backend_status and
+            backend.get("coverage_status") == expected_backend_coverage,
+            "backend_status_and_coverage", "Backend must preserve the Node lease and report coverage UNKNOWN when its Hub/cloud source is unavailable.")
+        add(pwa.get("node_status") == expected_pwa_status and
+            pwa.get("coverage_status") == expected_pwa_coverage,
+            "caregiver_pwa_status_and_coverage", "Caregiver PWA must mirror backend status; no stale or disconnected source may appear covered.")
+
+        expected_contact = contact if contact_valid else None
+        for layer_name, layer in (("hub", hub), ("backend", backend), ("pwa", pwa)):
+            add(layer.get("source_contact") == expected_contact,
+                f"{layer_name}_contact_correlation", "Identity, session and contact identifier must match the Hub-accepted contact.")
+            add(layer.get("identity") == identity,
+                f"{layer_name}_identity_correlation", "All layers must refer to the same physical Node identity.")
+    except (AttributeError, TypeError, ValueError) as exc:
+        return {"verdict": "BLOCKED", "failure": f"OBSERVATION_BUNDLE_INVALID:{exc}",
+                "assertions": checks, "physical_pass_claimed": False}
+
+    assertions_passed = all(row["result"] == "PASS" for row in checks)
+    provenance = bundle.get("provenance")
+    if not assertions_passed:
+        verdict = "FAIL"
+    elif provenance == "SYNTHETIC_DETERMINISTIC_FIXTURE":
+        verdict = "HOST_PASS"
+    elif provenance == "LIVE_CURRENT_TARGET":
+        # No production provider currently attests the Hub/backend/PWA source
+        # chain. User-supplied JSON cannot grant itself physical provenance.
+        verdict = "BLOCKED"
+    else:
+        verdict = "BLOCKED"
+    return {
+        "verdict": verdict,
+        "failure": None if verdict == "HOST_PASS" else
+                   "LIVE_PROVIDER_ATTESTATION_UNAVAILABLE" if provenance == "LIVE_CURRENT_TARGET" and assertions_passed else
+                   "OBSERVATION_PROVENANCE_NOT_ACCEPTED" if assertions_passed else "OBSERVATION_ASSERTION_FAILED",
+        "assertions": checks,
+        "assertion_count": len(checks),
+        "assertions_passed": sum(row["result"] == "PASS" for row in checks),
+        "physical_pass_claimed": False,
+        "node_offline_after_seconds": offline_after,
+        "hub_cloud_freshness_seconds": 190,
+        "observed_node_status": expected_hub_status,
+        "observed_caregiver_status": expected_pwa_status,
+        "observed_caregiver_coverage": expected_pwa_coverage,
+    }
 
 
 def utc_now() -> str:
@@ -460,6 +719,8 @@ def make_report(case: dict[str, Any], mode: str, verdict: str, checks: list[dict
             "current_node_identity": "UNVERIFIED",
             "current_hub_identity": "UNVERIFIED",
             "current_authenticated_session": "UNVERIFIED",
+            "live_observation_source_inventory": (
+                inspect_live_observation_sources() if mode == "live" else None),
             "replay": replay,
         },
         "hardware_actions": {
@@ -567,10 +828,17 @@ def run(mode: str, selected: list[str], *, output_parent: Path, capture_path: Pa
                     checks, replay_data = analyze_s3_capture(capture_path)
                     input_hash = replay_data["input_sha256"]
             else:
+                source_inventory = inspect_live_observation_sources()
+                missing = source_inventory["blockers"]
                 verdict = "BLOCKED"
-                failure = ("NO_APPROVED_VERIFIED_NON_RESETTING_LIVE_TELEMETRY_PROVIDER; "
-                           "serial/USB enumeration and opening are disabled in this runner")
-                reason = "A separately authorized, board-identified, image/config/session-matched non-resetting observation source is not established."
+                failure = (
+                    "LIVE_SOURCE_CHAIN_INCOMPLETE:" + ",".join(missing) +
+                    "; no device/API connection attempted")
+                reason = (
+                    "Authenticated Hub NodeHealth has no active S3 CloudSync publisher, "
+                    "backend ingest/read model, or caregiver PWA projection. "
+                    "The host API context is not a production Hub identity provider. "
+                    "No device or network access was attempted.")
         except QualificationError as exc:
             verdict = "FAIL" if str(exc).startswith(("INPUT_INVALID", "MOCK_FIXTURE_INVALID", "CASE_REGISTRY_INVALID", "REPLAY_TRUNCATED_LOG")) else "BLOCKED"
             failure = str(exc)
