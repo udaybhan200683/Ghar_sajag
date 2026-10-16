@@ -43,6 +43,18 @@ test("A02 never converts absent evidence into wellbeing", () => {
   assert.match(view.activity.detail, /does not mean/);
 });
 
+test("GS148 caregiver NodeHealth stays unknown when its Hub/cloud source is stale", () => {
+  const source = {
+    mode: "HOME", hub_reachable: true, fetched_at: 2000,
+    node_health: [{ logical_node_id: "bathroom", status: "ONLINE", coverage: "COVERED",
+      source_fresh: true, cloud_source_age_seconds: 10, node_contact_age_seconds: 20 }],
+  };
+  assert.equal(buildHomeView(source, 2000).nodeHealth[0].status, "ONLINE");
+  assert.equal(buildHomeView({ ...source, hub_reachable: false }, 2000).nodeHealth[0].status, "UNKNOWN");
+  assert.equal(buildHomeView({ ...source, node_health: [{ ...source.node_health[0],
+    cloud_source_age_seconds: 191 }] }, 2000).nodeHealth[0].coverage, "UNKNOWN");
+});
+
 
 
 test("A02 presents exact activity meaning and age", () => {

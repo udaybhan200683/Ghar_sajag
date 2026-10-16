@@ -113,7 +113,7 @@ def inspect_live_observation_sources() -> dict[str, Any]:
             "node-health" in backend_api or "node_health" in backend_api),
         "backend_snapshot_projects_node_health": (
             "node_health" in backend_queries and
-            "node_health" in backend_model),
+            "node_health_latest" in read("code/backend/ghar_sajag/node_health_status.py")),
         "caregiver_pwa_projects_node_health": "node_health" in pwa_view,
         "backend_event_api_is_local_host_adapter": (
             "Small WSGI adapter for local integration tests" in backend_api and

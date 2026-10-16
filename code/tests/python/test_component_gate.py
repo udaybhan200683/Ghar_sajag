@@ -21,7 +21,7 @@ class ComponentGateTest(unittest.TestCase):
             self.assertTrue(stage["fast"] and stage["release"])
             summary=f"{marker} PASS cases={count} physical=NOT_RUN\n"
             extras={
-                "cloudsync-security-unit":"Ran 12 tests\nGS-CLOUD-MTLS-UT-008 PASS\n",
+                "cloudsync-security-unit":"Ran 13 tests\nRan 5 tests\nGS-CLOUD-MTLS-UT-008 PASS\n",
                 "cloudsync-security-sim-hil":'"physical": "NOT_RUN", "status": "PASS"\n',
                 "cloudsync-mtls-integration":'RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2\n"physical": "NOT_RUN", "status": "PASS"\n',
             }[name]

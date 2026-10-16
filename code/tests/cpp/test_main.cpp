@@ -1405,6 +1405,55 @@ void test_feature_flag_defaults() {
     check(std::string(gs::FeatureFlags::name(gs::Feature::CallFamily)) == "call_family", "flag names are stable");
 }
 
+void test_cloudsync_node_health_publication() {
+    using namespace gs::hub;
+    struct Authority final : CloudAuthoritySource {
+        NodeHealthPublication publication;
+        bool available{true};
+        bool current_binding(CloudAuthorityBinding& output) override {
+            output = {"home-1", "hub-1", 3}; return true;
+        }
+        bool original_event_owned(const gs::DomainEvent&,
+                                  const CloudAuthorityBinding&) override { return false; }
+        bool current_node_health(const CloudAuthorityBinding& binding,
+                                 const HubRuntime&, gs::Milliseconds,
+                                 std::vector<NodeHealthPublication>& out) override {
+            if (!available || binding.home_id != "home-1") return false;
+            out = {publication}; return true;
+        }
+    } authority;
+    struct Transport final : CloudBackendTransport {
+        unsigned sent{0};
+        BackendCommitReply submit(const BackendCommitRequest&) override { return {}; }
+        NodeHealthReply submit_node_health(const CloudAuthorityBinding& binding,
+                                           const NodeHealthPublication& status) override {
+            if (binding.home_id == "home-1" && status.valid()) ++sent;
+            return {NodeHealthReplyStatus::Accepted};
+        }
+    } transport;
+    authority.publication = {"c3-146393c5d158", "bathroom", 1, 7, 2, 5,
+        NodeHealthContactKind::NodeHealth, "configured", 300, 910,
+        1000, 1001, HubTimeReadiness::Trusted};
+    check(authority.publication.valid() &&
+          authority.publication.json_body("home-1").find("\"offline_seconds\":910") != std::string::npos,
+          "NodeHealth CloudSync payload is typed, bounded and profile-bound");
+    auto invalid = authority.publication;
+    invalid.time_readiness = HubTimeReadiness::Untrusted;
+    check(!invalid.valid(), "untrusted Hub time cannot publish NodeHealth");
+    invalid = authority.publication;
+    invalid.offline_seconds = 909;
+    check(!invalid.valid(), "Hub cannot alter configured Node lease boundary");
+    HubRuntime runtime;
+    CloudSyncWorker worker(runtime.journal(), runtime, authority, transport);
+    const auto sent = worker.run_once(true, 1, 1);
+    check(sent.node_health_submitted == 1 && sent.node_health_accepted == 1 && transport.sent == 1,
+          "existing CloudSync worker publishes current NodeHealth separately from events");
+    authority.publication.time_readiness = HubTimeReadiness::Untrusted;
+    const auto refused = worker.run_once(true, 2, 1);
+    check(refused.node_health_submitted == 0 && transport.sent == 1,
+          "invalid source state is refused without changing CloudSync event behavior");
+}
+
 }  // namespace
 
 int main() {
@@ -1425,6 +1474,7 @@ int main() {
         test_security_seams();
         test_logging_policy();
         test_feature_flag_defaults();
+        test_cloudsync_node_health_publication();
         std::cout << "cpp: " << checks << " checks passed\n";
         return 0;
     } catch (const std::exception& error) {

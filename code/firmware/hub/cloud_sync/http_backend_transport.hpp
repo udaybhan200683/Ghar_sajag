@@ -24,6 +24,8 @@ public:
     static constexpr std::size_t kMaximumResponseBytes = 1024;
     explicit HttpBackendTransport(BackendHttpChannel& channel) : channel_(channel) {}
     BackendCommitReply submit(const BackendCommitRequest& request) override;
+    NodeHealthReply submit_node_health(const CloudAuthorityBinding& binding,
+                                       const NodeHealthPublication& publication) override;
     // Decode only the established EventKey/COMMITTED/duplicate response grammar.
     // No transport success, 202, simulator DURABLE_MODEL or truncated JSON is a receipt.
     static BackendCommitReply decode(const BackendCommitRequest& request,

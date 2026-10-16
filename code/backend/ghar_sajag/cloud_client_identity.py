@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 import hashlib
 import re
 import sqlite3
@@ -25,6 +26,37 @@ _FINGERPRINT = re.compile(r"^[0-9a-f]{64}$")
 
 class CloudClientRejected(PermissionError):
     """Peer cannot be promoted to a permanent Hub identity."""
+
+
+class TimeReadiness(str, Enum):
+    """Explicit server time state used by the TLS and credential boundary."""
+
+    TRUSTED = "TRUSTED"
+    UNTRUSTED = "UNTRUSTED"
+
+
+@dataclass(frozen=True)
+class VerifiedHubContext:
+    """Typed proof result created only after TLS, credential and ownership checks."""
+
+    permanent_hub_id: str
+    home_id: str
+    installation_epoch: int
+    certificate_fingerprint_sha256: str
+    ownership_fingerprint_sha256: str
+    certificate_chain_verified: bool
+    time_readiness: TimeReadiness
+
+    def internal_event_context(self) -> dict[str, object]:
+        if not self.certificate_chain_verified or self.time_readiness is not TimeReadiness.TRUSTED:
+            raise CloudClientRejected("verified_hub_context_not_ready")
+        return {
+            "gs.verified_hub": self.permanent_hub_id,
+            "gs.hub_key_fingerprint": self.ownership_fingerprint_sha256,
+            "gs.installation_epoch": self.installation_epoch,
+            "gs.home_id": self.home_id,
+            "gs.time_readiness": self.time_readiness.value,
+        }
 
 
 @dataclass(frozen=True)
@@ -53,7 +85,7 @@ def authorize_cloud_tls_peer(peer: ssl.SSLSocket, *, trusted_now: datetime | Non
     """
     if (not isinstance(peer, ssl.SSLSocket) or not peer.server_side or
         peer.context.verify_mode != ssl.CERT_REQUIRED or not peer.cipher() or
-        peer.version() != "TLSv1.2"):
+        peer.version() != "TLSv1.2" or not peer.getpeercert()):
         raise CloudClientRejected("verified_tls12_client_required")
     if (not isinstance(trusted_now, datetime) or trusted_now.tzinfo is None):
         raise CloudClientRejected("trusted_time_required")
@@ -61,6 +93,37 @@ def authorize_cloud_tls_peer(peer: ssl.SSLSocket, *, trusted_now: datetime | Non
     return _authorize_verified_certificate(der, trusted_now=trusted_now,
                                            credentials=credentials,
                                            ownership_db=ownership_db)
+
+
+def authorize_cloud_tls_context(peer: ssl.SSLSocket, *, trusted_now: datetime | None,
+                                time_readiness: TimeReadiness,
+                                credentials: CloudCredentialRegistry,
+                                ownership_db: sqlite3.Connection) -> VerifiedHubContext:
+    """Return a typed current Hub/Home/epoch capability from verified TLS.
+
+    This requires a trusted server clock and the TLS stack's successful chain
+    validation. SNTP hints, request fields and headers cannot supply either.
+    Commercial routing remains disabled pending approved provisioning and
+    deployment decisions.
+    """
+    if time_readiness is not TimeReadiness.TRUSTED:
+        raise CloudClientRejected("trusted_time_required")
+    legacy = authorize_cloud_tls_peer(peer, trusted_now=trusted_now,
+                                      credentials=credentials,
+                                      ownership_db=ownership_db)
+    der = peer.getpeercert(binary_form=True)
+    if not der:
+        raise CloudClientRejected("client_certificate_required")
+    home_id = legacy.get("gs.home_id")
+    if not isinstance(home_id, str) or not home_id:
+        raise CloudClientRejected("current_home_required")
+    return VerifiedHubContext(
+        permanent_hub_id=str(legacy["gs.verified_hub"]), home_id=home_id,
+        installation_epoch=int(legacy["gs.installation_epoch"]),
+        certificate_fingerprint_sha256=hashlib.sha256(der).hexdigest(),
+        ownership_fingerprint_sha256=str(legacy["gs.hub_key_fingerprint"]),
+        certificate_chain_verified=True, time_readiness=time_readiness,
+    )
 
 
 def _authorize_verified_certificate(der: bytes | None, *, trusted_now: datetime | None,
@@ -100,4 +163,5 @@ def _authorize_verified_certificate(der: bytes | None, *, trusted_now: datetime 
         raise CloudClientRejected("current_hub_ownership_required")
     return {"gs.verified_hub": record.permanent_hub_id,
             "gs.hub_key_fingerprint": row[0],
-            "gs.installation_epoch": row[2]}
+            "gs.installation_epoch": row[2],
+            "gs.home_id": row[1]}

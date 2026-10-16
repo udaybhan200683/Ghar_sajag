@@ -8,7 +8,9 @@ import socket
 import ssl
 import threading
 
-from ghar_sajag.cloud_client_identity import authorize_cloud_tls_peer
+from ghar_sajag.cloud_client_identity import (
+    TimeReadiness, authorize_cloud_tls_context,
+)
 
 
 _NOT_GIVEN = object()
@@ -40,8 +42,11 @@ def tls_post(*, api, database, credentials, ca_file: Path,
             raw, _ = listener.accept()
             with raw, server.wrap_socket(raw, server_side=True) as peer:
                 peer.settimeout(4)
-                context = authorize_cloud_tls_peer(peer, trusted_now=trusted_now,
-                    credentials=credentials, ownership_db=database)
+                time_readiness = (TimeReadiness.TRUSTED if trusted_now is not None
+                                  else TimeReadiness.UNTRUSTED)
+                context = authorize_cloud_tls_context(peer, trusted_now=trusted_now,
+                    time_readiness=time_readiness, credentials=credentials,
+                    ownership_db=database)
                 data = b""
                 while b"\r\n\r\n" not in data and len(data) <= 4096:
                     chunk = peer.recv(4096)

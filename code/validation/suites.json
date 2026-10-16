@@ -3,8 +3,13 @@
   "stages": [
     {
       "id": "c8-ack-hold-gate",
-      "components": ["hub"],
-      "command": ["make", "c8-ack-hold-gate-host-test"],
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "c8-ack-hold-gate-host-test"
+      ],
       "inputs": [
         "tests/cpp/c8_ack_hold_gate_validation.cpp",
         "firmware/hub/target/esp32/hil_c8_ack_hold_gate.hpp",
@@ -16,8 +21,22 @@
     },
     {
       "id": "gs114-p9-signed-artifact-safety",
-      "components": ["node", "hub", "contract"],
-      "command": ["python3", "-m", "unittest", "discover", "-s", "tests/python", "-p", "test_gs114_p9_artifacts.py", "-v"],
+      "components": [
+        "node",
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_gs114_p9_artifacts.py",
+        "-v"
+      ],
       "inputs": [
         "tests/python/test_gs114_p9_artifacts.py",
         "scripts/prepare_gs114_p9_signed_artifacts.py",
@@ -275,7 +294,11 @@
         "cpp-test"
       ],
       "inputs": [
-        "tests/cpp/test_main.cpp"
+        "tests/cpp/test_main.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.hpp",
+        "firmware/hub/cloud_sync/http_backend_transport.cpp",
+        "firmware/hub/cloud_sync/http_backend_transport.hpp"
       ],
       "success": "^cpp: (\\d+) checks passed$",
       "timeout": 600,
@@ -1114,19 +1137,33 @@
     },
     {
       "id": "cloudsync-security-unit",
-      "components": ["hub", "contract", "backend"],
-      "command": ["make", "cloudsync-security-ut"],
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ],
+      "command": [
+        "make",
+        "cloudsync-security-ut"
+      ],
       "inputs": [
         "firmware/hub/target/esp32s3/https_backend_channel.cpp",
         "firmware/hub/target/esp32s3/https_backend_channel.hpp",
         "backend/ghar_sajag/cloud_client_identity.py",
+        "backend/ghar_sajag/node_health_status.py",
+        "tests/python/test_node_health_status.py",
+        "backend/migrations/012_node_health_latest.sql",
         "tests/cpp/cloudsync_mtls_adapter_validation.cpp",
         "tests/cpp/p2d_idf_fake/esp_http_client.h",
         "tests/support/test_cloudsync_security.py",
         "tests/support/cloudsync_mtls_certs.py"
       ],
       "success": "^CLOUDSYNC MTLS ADAPTER PASS cases=(8) physical=NOT_RUN$",
-      "required_success": ["Ran 12 tests", "^GS-CLOUD-MTLS-UT-008 PASS$"],
+      "required_success": [
+        "Ran 13 tests",
+        "Ran 5 tests",
+        "^GS-CLOUD-MTLS-UT-008 PASS$"
+      ],
       "timeout": 600,
       "count_kind": "cases",
       "fast": true,
@@ -1134,9 +1171,18 @@
     },
     {
       "id": "cloudsync-security-sim-hil",
-      "components": ["hub", "contract", "backend"],
-      "prerequisites": ["cloudsync-security-unit"],
-      "command": ["make", "cloudsync-security-sim-hil"],
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ],
+      "prerequisites": [
+        "cloudsync-security-unit"
+      ],
+      "command": [
+        "make",
+        "cloudsync-security-sim-hil"
+      ],
       "inputs": [
         "tests/support/cloudsync_mtls_sim_hil.py",
         "tests/support/cloudsync_mtls_local.py",
@@ -1158,7 +1204,9 @@
         "backend/migrations/010_durable_commit_ownership_provenance.sql"
       ],
       "success": "^CLOUDSYNC MTLS SIM HIL PASS cases=(18) physical=NOT_RUN$",
-      "required_success": ["\"physical\": \"NOT_RUN\", \"status\": \"PASS\""],
+      "required_success": [
+        "\"physical\": \"NOT_RUN\", \"status\": \"PASS\""
+      ],
       "timeout": 600,
       "count_kind": "cases",
       "fast": true,
@@ -1166,9 +1214,19 @@
     },
     {
       "id": "cloudsync-mtls-integration",
-      "components": ["hub", "contract", "backend"],
-      "prerequisites": ["cloudsync-security-sim-hil", "cloud-contract"],
-      "command": ["make", "cloudsync-mtls-integration-test"],
+      "components": [
+        "hub",
+        "contract",
+        "backend"
+      ],
+      "prerequisites": [
+        "cloudsync-security-sim-hil",
+        "cloud-contract"
+      ],
+      "command": [
+        "make",
+        "cloudsync-mtls-integration-test"
+      ],
       "inputs": [
         "tests/support/cloudsync_mtls_sim_hil.py",
         "tests/support/cloudsync_mtls_local.py",
@@ -1216,7 +1274,10 @@
         "backend/migrations/010_durable_commit_ownership_provenance.sql"
       ],
       "success": "^CLOUDSYNC MTLS INTEGRATION PASS cases=(1) physical=NOT_RUN$",
-      "required_success": ["RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2", "\"physical\": \"NOT_RUN\", \"status\": \"PASS\""],
+      "required_success": [
+        "RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2",
+        "\"physical\": \"NOT_RUN\", \"status\": \"PASS\""
+      ],
       "timeout": 900,
       "count_kind": "cases",
       "fast": true,
@@ -1233,7 +1294,11 @@
         "p2d-cloud-contract-host-test"
       ],
       "inputs": [
-        "tests/cpp/p2d_cloud_contract_validation.cpp"
+        "tests/cpp/p2d_cloud_contract_validation.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.cpp",
+        "firmware/hub/cloud_sync/cloud_sync.hpp",
+        "firmware/hub/cloud_sync/http_backend_transport.cpp",
+        "firmware/hub/cloud_sync/http_backend_transport.hpp"
       ],
       "success": "^[^\\n]*\\bPASS\\b[^\\n]*$",
       "timeout": 600
@@ -1379,6 +1444,13 @@
         "-v"
       ],
       "inputs": [
+        "backend/ghar_sajag/cloud_client_identity.py",
+        "backend/ghar_sajag/node_health_status.py",
+        "backend/ghar_sajag/http_api.py",
+        "backend/ghar_sajag/durable_api.py",
+        "backend/ghar_sajag/queries.py",
+        "backend/migrations/012_node_health_latest.sql",
+        "tests/python/test_node_health_status.py",
         "tests/python/test_node_health_config.py",
         "tests/python/test_durable_api.py",
         "tests/python/test_backend.py"
@@ -1407,6 +1479,7 @@
       ],
       "inputs": [
         "frontend/public/app.mjs",
+        "frontend/public/index.html",
         "frontend/public/service-worker.mjs",
         "frontend/src/features/home/index.mjs",
         "frontend/src/features/incidents/index.mjs",

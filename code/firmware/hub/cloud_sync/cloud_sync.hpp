@@ -23,6 +23,7 @@
 namespace gs::hub {
 
 class HubRuntime;
+struct CloudAuthorityBinding;
 
 struct BackendCommitRequest {
     std::string home_id;
@@ -41,6 +42,29 @@ struct BackendCommitReply {
     bool authenticated_backend{false};
     bool duplicate{false};
 };
+enum class HubTimeReadiness : std::uint8_t { Untrusted, Trusted };
+enum class NodeHealthContactKind : std::uint8_t { NodeHealth, AuthenticatedEvent };
+struct NodeHealthPublication {
+    std::string physical_node_id;
+    std::string logical_node_id;
+    std::uint32_t node_enrollment_generation{0};
+    std::uint64_t session_id{0};
+    std::uint64_t boot_generation{0};
+    std::uint64_t source_revision{0};
+    NodeHealthContactKind contact_kind{NodeHealthContactKind::NodeHealth};
+    std::string profile_id;
+    std::uint32_t heartbeat_seconds{0};
+    std::uint32_t offline_seconds{0};
+    EpochSeconds hub_received_at{0};
+    EpochSeconds hub_snapshot_at{0};
+    HubTimeReadiness time_readiness{HubTimeReadiness::Untrusted};
+    std::string json_body(const std::string& home_id) const;
+    bool valid() const;
+};
+enum class NodeHealthReplyStatus : std::uint8_t { Accepted, TransientFailure, AuthenticationFailure, InvalidResponse };
+struct NodeHealthReply {
+    NodeHealthReplyStatus status{NodeHealthReplyStatus::InvalidResponse};
+};
 enum class BackendReceiptResult { Completed, RetryScheduled, PermanentError, StorageFault };
 
 class CloudBackendTransport {
@@ -49,6 +73,11 @@ public:
     // Implementations set authenticated_backend only after validating the
     // backend TLS identity and decoding an exact EventKey response.
     virtual BackendCommitReply submit(const BackendCommitRequest& request) = 0;
+    // Additive current-state channel; it never produces EventKeys or durable ACKs.
+    virtual NodeHealthReply submit_node_health(const CloudAuthorityBinding&,
+                                               const NodeHealthPublication&) {
+        return {};
+    }
 };
 
 class CloudSync {
@@ -106,6 +135,11 @@ public:
     // A replacement Node or a transferred Home cannot authorize old data.
     virtual bool original_event_owned(const DomainEvent& event,
                                       const CloudAuthorityBinding& binding) = 0;
+    // Only an approved owner/time/profile adapter may create these records.
+    // False or empty keeps status publication disabled without affecting events.
+    virtual bool current_node_health(const CloudAuthorityBinding&,
+                                     const HubRuntime&, Milliseconds,
+                                     std::vector<NodeHealthPublication>&) { return false; }
 };
 
 enum class CloudWorkerState { Offline, AuthorityUnavailable, AuthorityChanged,
@@ -115,6 +149,8 @@ struct CloudWorkerResult {
     std::size_t submitted{0};
     std::size_t completed{0};
     std::size_t refused_original{0};
+    std::size_t node_health_submitted{0};
+    std::size_t node_health_accepted{0};
 };
 
 // Call only from a separately owned, bounded network worker, never the ESP-NOW
@@ -129,6 +165,7 @@ public:
 private:
     bool same_authority(const CloudAuthorityBinding& expected);
     HubJournal& journal_;
+    HubRuntime& runtime_;
     CloudSync sync_;
     CloudAuthoritySource& authority_;
     CloudBackendTransport& transport_;

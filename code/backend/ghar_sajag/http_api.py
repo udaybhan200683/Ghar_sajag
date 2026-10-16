@@ -20,6 +20,8 @@ from urllib.parse import parse_qs
 from .model import CloudEvent, Resident
 from .service import GharSajagService
 from .durable_commit import DurableEventCommit, EventCommitConflict
+from .cloud_client_identity import VerifiedHubContext
+from .node_health_status import NodeHealthStatusStore
 
 
 class JsonApi:
@@ -32,7 +34,8 @@ class JsonApi:
     def __init__(self, service: GharSajagService | None = None, now: Callable[[], int] | None = None,
                  durable_events: DurableEventCommit | None = None,
                  authorize_hub: Callable[[dict, str, dict], bool] | None = None,
-                 hub_ownership_registry=None) -> None:
+                 hub_ownership_registry=None,
+                 node_health_status: NodeHealthStatusStore | None = None) -> None:
         import time
 
         self.service = service or GharSajagService()
@@ -40,6 +43,7 @@ class JsonApi:
         self.durable_events = durable_events
         self.authorize_hub = authorize_hub
         self.hub_ownership_registry = hub_ownership_registry
+        self.node_health_status = node_health_status
 
     def __call__(self, environ: dict, start_response: Callable) -> Iterable[bytes]:
         try:
@@ -87,6 +91,8 @@ class JsonApi:
                 if self.durable_events is None:
                     return "503 Service Unavailable", {"error": "durable_event_store_unavailable"}
                 context = request_context or {}
+                if isinstance(context, VerifiedHubContext):
+                    context = context.internal_event_context()
                 # Trusted middleware sets this internal WSGI key; it must never
                 # be copied from a client-controlled HTTP header.
                 if not isinstance(context.get("gs.verified_hub"), str):
@@ -107,6 +113,15 @@ class JsonApi:
             event = CloudEvent(home_id, body["event_id"], body["kind"], body.get("location", ""), int(body["occurred_at"]), int(body["hub_received_at"]), at, int(body.get("uncertainty_s", 0)), bool(body.get("is_test", False)), body.get("payload", {}))
             _, duplicate = self.service.accept_hub_event(event)
             return ("200 OK" if duplicate else "202 Accepted"), {"event_id": event.event_id, "duplicate": duplicate, "commit": "DURABLE_MODEL"}
+        match = re.fullmatch(r"/v1/homes/([^/]+)/node-health", path)
+        if method == "POST" and match:
+            if self.node_health_status is None:
+                return "503 Service Unavailable", {"error": "node_health_store_unavailable"}
+            if not isinstance(request_context, VerifiedHubContext):
+                raise PermissionError("verified_hub_context_required")
+            accepted = self.node_health_status.ingest(
+                request_context, match.group(1), body, at)
+            return "200 OK", {"status": "ACCEPTED", **accepted}
         match = re.fullmatch(r"/v1/homes/([^/]+)/config", path)
         if match:
             home_id = match.group(1)

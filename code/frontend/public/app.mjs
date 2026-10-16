@@ -11,6 +11,7 @@ import { buildHomeView } from "../src/features/home/index.mjs";
 
 const connectivity = document.querySelector("#connectivity");
 const activity = document.querySelector("#activity");
+const nodeHealth = document.querySelector("#node-health");
 const incidents = document.querySelector("#incidents");
 const timeline = document.querySelector("#timeline");
 const door = document.querySelector("#door");
@@ -49,6 +50,24 @@ async function loadCaregiverSnapshot() {
     const view = buildHomeView(snapshot, now);
     replaceContent(connectivity, view.connectivity.title, view.connectivity.detail, view.connectivity.tone);
     replaceContent(activity, view.activity.title, view.activity.detail, view.activity.tone);
+
+    nodeHealth.replaceChildren();
+    if (view.nodeHealth.length === 0) {
+      const empty = document.createElement("p");
+      empty.textContent = "Sensor status unknown. No current authenticated Node contact is available.";
+      nodeHealth.append(empty);
+    } else {
+      for (const node of view.nodeHealth) {
+        const row = document.createElement("p");
+        const contact = node.contactAgeSeconds == null
+          ? "contact time unavailable" : `last authenticated contact ${node.contactAgeSeconds}s ago`;
+        const cloud = node.cloudAgeSeconds == null
+          ? "Hub/cloud freshness unavailable" : `Hub/cloud update ${node.cloudAgeSeconds}s ago`;
+        row.dataset.nodeId = node.id;
+        row.textContent = `${node.id}: ${node.status} · coverage ${node.coverage} · ${contact} · ${cloud}`;
+        nodeHealth.append(row);
+      }
+    }
 
     const doorStatus = snapshot.door_status;
     if (!doorStatus) {
@@ -93,6 +112,10 @@ async function loadCaregiverSnapshot() {
   } catch (error) {
     replaceContent(connectivity, "Caregiver data unavailable", "No current Hub or activity status can be confirmed.", "warning");
     replaceContent(activity, "Activity status unavailable", "The app could not load an authorized household snapshot.", "warning");
+    nodeHealth.replaceChildren();
+    const unavailable = document.createElement("p");
+    unavailable.textContent = "Sensor status UNKNOWN. A fresh authorized Hub snapshot is unavailable.";
+    nodeHealth.append(unavailable);
     incidents.replaceChildren();
     timeline.replaceChildren();
     updated.textContent = "Not updated";

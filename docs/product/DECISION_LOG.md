@@ -926,3 +926,9 @@ board/slot/session/EventKey state, a reset-safe S3 command path, qualified
 independent continuous observation and a verified recovery route. No product,
 security, protocol, storage or power-policy decision changed; CONTEXT_VERSION
 remains `2026-10-13.001`.
+
+## 2026-10-16 GS-40 / GS-109 / GS-68 / GS-148 NodeHealth integration evidence (no new decision)
+
+The additive software implementation provides a typed mTLS-derived permanent Hub/Home/installation-epoch/time-readiness context, an existing-CloudSync status publication/transport interface, an authenticated bounded latest-state backend model, and caregiver PWA projection. It preserves existing durable EventKey and ACK semantics. ESP-IDF 6.0.3 C3/S3 production-profile builds pass; host/backend/PWA and runner-integrity tests pass as recorded in [the integration evidence](../exec-plans/evidence/GS40_GS109_GS68_GS148_SOFTWARE_INTEGRATION_20261016.md).
+
+The S3 product runtime does not yet instantiate the status publisher with an approved permanent Hub identity, trusted time and current authenticated NodeHealth authority source. D05/D12 identity/key custody and D06 time decisions remain open. No live credentials, production endpoint, board, serial/USB or physical HIL operation was used. GS-40 physical acceptance stays NOT_RUN; the required P0 product result remains PARTIAL and the existing Hub migration gate remains FAIL. This is implementation evidence only; no locked behavior or CONTEXT_VERSION changed.

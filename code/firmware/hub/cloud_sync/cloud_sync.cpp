@@ -59,6 +59,54 @@ bool batch_before(const gs::DomainEvent& left, const gs::DomainEvent& right) {
 
 namespace gs::hub {
 
+bool NodeHealthPublication::valid() const {
+    constexpr auto max_integer = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const auto safe_id = [](const std::string& value, std::size_t max) {
+        if (value.empty() || value.size() > max) return false;
+        for (unsigned char c : value)
+            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                  (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == ':')) return false;
+        return true;
+    };
+    if (!safe_id(physical_node_id, 64) || !safe_id(logical_node_id, 64) ||
+        node_enrollment_generation == 0 || session_id == 0 || session_id > max_integer ||
+        boot_generation == 0 || boot_generation > max_integer || source_revision == 0 ||
+        source_revision > max_integer || time_readiness != HubTimeReadiness::Trusted ||
+        (contact_kind != NodeHealthContactKind::NodeHealth &&
+         contact_kind != NodeHealthContactKind::AuthenticatedEvent) ||
+        hub_received_at <= 0 || hub_snapshot_at < hub_received_at ||
+        heartbeat_seconds == 0 || heartbeat_seconds > 3600 ||
+        offline_seconds != 3U * heartbeat_seconds + 10U) return false;
+    if (profile_id == "configured") return heartbeat_seconds == 300 && offline_seconds == 910;
+    if (profile_id == "legacy_60") return heartbeat_seconds == 60 && offline_seconds == 190;
+    if (profile_id == "legacy_120") return heartbeat_seconds == 120 && offline_seconds == 310;
+    return false;
+}
+
+std::string NodeHealthPublication::json_body(const std::string& home_id) const {
+    if (!valid() || home_id.empty() || home_id.size() > 64) return {};
+    for (unsigned char c : home_id)
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '-' || c == '_')) return {};
+    std::ostringstream out;
+    out << "{\"home_id\":" << json_string(home_id)
+        << ",\"physical_node_id\":" << json_string(physical_node_id)
+        << ",\"logical_node_id\":" << json_string(logical_node_id)
+        << ",\"node_enrollment_generation\":" << node_enrollment_generation
+        << ",\"session_id\":" << session_id
+        << ",\"boot_generation\":" << boot_generation
+        << ",\"source_revision\":" << source_revision
+        << ",\"contact_kind\":" << json_string(contact_kind == NodeHealthContactKind::NodeHealth
+                ? "NODE_HEALTH" : "AUTHENTICATED_EVENT")
+        << ",\"profile_id\":" << json_string(profile_id)
+        << ",\"heartbeat_seconds\":" << heartbeat_seconds
+        << ",\"offline_seconds\":" << offline_seconds
+        << ",\"hub_received_at\":" << hub_received_at
+        << ",\"hub_snapshot_at\":" << hub_snapshot_at << '}';
+    const auto body = out.str();
+    return body.size() <= 4096 ? body : std::string{};
+}
+
 std::string BackendCommitRequest::json_body() const {
     const auto& key = event.key;
     const auto* kind = kind_name(event.kind);
@@ -263,7 +311,7 @@ void CloudSync::record_failure(Milliseconds now_ms) {
 CloudSyncWorker::CloudSyncWorker(HubJournal& journal, HubRuntime& runtime,
                                  CloudAuthoritySource& authority,
                                  CloudBackendTransport& transport)
-    : journal_(journal), sync_(journal, runtime), authority_(authority),
+    : journal_(journal), runtime_(runtime), sync_(journal, runtime), authority_(authority),
       transport_(transport) {}
 
 bool CloudSyncWorker::same_authority(const CloudAuthorityBinding& expected) {
@@ -342,6 +390,27 @@ CloudWorkerResult CloudSyncWorker::run_once(bool network_ready, Milliseconds now
         if (outcome == BackendReceiptResult::StorageFault) {
             result.state = CloudWorkerState::StorageFault;
             break;
+        }
+    }
+    // Current NodeHealth state is an additive CloudSync side channel. It is
+    // supplied only by the trusted identity/time/profile adapter and has no
+    // interaction with journal events, EventKeys, ACKs or Node retirement.
+    std::vector<NodeHealthPublication> node_health;
+    if (same_authority(binding) && authority_.current_node_health(
+            binding, runtime_, now_ms, node_health)) {
+        if (node_health.size() <= 4) {
+            for (const auto& publication : node_health) {
+                if (!publication.valid() || !same_authority(binding)) continue;
+                const auto health_reply = transport_.submit_node_health(binding, publication);
+                ++result.node_health_submitted;
+                if (health_reply.status == NodeHealthReplyStatus::Accepted)
+                    ++result.node_health_accepted;
+                if (!same_authority(binding)) {
+                    sync_.set_connected(false, now_ms);
+                    result.state = CloudWorkerState::AuthorityUnavailable;
+                    break;
+                }
+            }
         }
     }
     return result;

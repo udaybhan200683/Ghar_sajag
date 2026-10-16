@@ -169,4 +169,32 @@ BackendCommitReply HttpBackendTransport::submit(const BackendCommitRequest& requ
     if (body.empty() || body.size() > kMaximumRequestBytes) return {};
     return decode(request, channel_.post("/v1/homes/" + request.home_id + "/events", body));
 }
+
+NodeHealthReply HttpBackendTransport::submit_node_health(
+    const CloudAuthorityBinding& binding, const NodeHealthPublication& publication) {
+    NodeHealthReply reply;
+    if (binding.home_id.empty() || binding.home_id.size() > 64 ||
+        binding.hub_device_id.empty() || binding.ownership_epoch == 0) return reply;
+    const auto body = publication.json_body(binding.home_id);
+    if (body.empty() || body.size() > kMaximumRequestBytes) return reply;
+    const auto response = channel_.post(
+        "/v1/homes/" + binding.home_id + "/node-health", body);
+    if (!response.server_authenticated || !response.message_complete || response.body.size() > 512)
+        return reply;
+    if (response.status == 401 || response.status == 403) {
+        reply.status = NodeHealthReplyStatus::AuthenticationFailure;
+        return reply;
+    }
+    if (response.status >= 500) {
+        reply.status = NodeHealthReplyStatus::TransientFailure;
+        return reply;
+    }
+    std::string expected = "{\"status\":\"ACCEPTED\",\"accepted\":true,\"physical_node_id\":\"" +
+        publication.physical_node_id + "\",\"boot_generation\":" +
+        std::to_string(publication.boot_generation) + ",\"source_revision\":" +
+        std::to_string(publication.source_revision) + "}";
+    if (response.status == 200 && response.body == expected)
+        reply.status = NodeHealthReplyStatus::Accepted;
+    return reply;
+}
 }

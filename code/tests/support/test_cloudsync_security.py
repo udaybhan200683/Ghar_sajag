@@ -11,7 +11,8 @@ sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "tests/support"))
 from cloudsync_mtls_certs import issue_test_cert, make_test_ca
 from ghar_sajag.cloud_client_identity import (
-    CloudClientRejected, CloudCredentialRecord, _authorize_verified_certificate,
+    CloudClientRejected, CloudCredentialRecord, TimeReadiness, VerifiedHubContext,
+    _authorize_verified_certificate,
 )
 from ghar_sajag.database import initialize_sqlite
 from ghar_sajag.ownership_registry import (
@@ -62,7 +63,8 @@ class CloudSyncSecurityTest(unittest.TestCase):
     def test_001_valid_dedicated_rsa3072_maps_current_owner(self):
         self.assertEqual(self.authorize(), {"gs.verified_hub": "hub-permanent-1",
                                             "gs.hub_key_fingerprint": "a" * 64,
-                                            "gs.installation_epoch": 1})
+                                            "gs.installation_epoch": 1,
+                                            "gs.home_id": "home-a"})
 
     def test_002_unknown_or_cloned_identity_rejected(self):
         with self.assertRaisesRegex(CloudClientRejected, "unknown_revoked"):
@@ -120,6 +122,25 @@ class CloudSyncSecurityTest(unittest.TestCase):
     def test_012_repeated_lookup_preserves_state(self):
         for _ in range(3):
             self.assertEqual(self.authorize()["gs.installation_epoch"], 1)
+
+    def test_013_typed_context_binds_current_home_epoch_and_time_readiness(self):
+        legacy = self.authorize()
+        self.assertEqual(legacy["gs.home_id"], "home-a")
+        context = VerifiedHubContext(
+            permanent_hub_id=legacy["gs.verified_hub"], home_id=legacy["gs.home_id"],
+            installation_epoch=legacy["gs.installation_epoch"],
+            certificate_fingerprint_sha256=self.valid.fingerprint,
+            ownership_fingerprint_sha256=legacy["gs.hub_key_fingerprint"],
+            certificate_chain_verified=True, time_readiness=TimeReadiness.TRUSTED,
+        )
+        internal = context.internal_event_context()
+        self.assertEqual((internal["gs.verified_hub"], internal["gs.home_id"],
+                          internal["gs.installation_epoch"], internal["gs.time_readiness"]),
+                         ("hub-permanent-1", "home-a", 1, "TRUSTED"))
+        with self.assertRaisesRegex(CloudClientRejected, "context_not_ready"):
+            VerifiedHubContext(
+                **{**context.__dict__, "time_readiness": TimeReadiness.UNTRUSTED}
+            ).internal_event_context()
 
 
 if __name__ == "__main__":

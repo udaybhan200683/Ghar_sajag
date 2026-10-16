@@ -3685,3 +3685,56 @@ GS-95 handoff comment `11104` was posted and its source-consolidation issue
 transitioned to Done after these gates passed. GS-118, GS-108 and GS-96 remain
 To Do for their distinct physical acceptance work. Their test results and
 workflow statuses were not changed by branch retirement.
+
+
+## GS-40 source-to-caregiver software integration checkpoint — 2026-10-16
+
+The canonical branch now contains additive GS-109/GS-68/GS-148 software for
+verified Hub/Home/epoch/time context, current per-Node health publication over
+the existing CloudSync path, authenticated SQLite latest-state ingest, and
+caregiver projection. The backend read model keeps Hub contact, backend receipt
+and PWA snapshot times distinct; lease expiry or stale Hub/cloud source cannot
+render a healthy Node. EventKey durability and ACK/retry behavior are unchanged.
+
+**Production integration remains incomplete:** the S3 product application does
+not yet instantiate the worker with the approved permanent Hub identity, trusted
+time and current authenticated NodeHealth authority source. GS-40 cannot resume
+physical acceptance until that source-to-caregiver path is composed and its
+prerequisites are qualified. D05/D12 production Hub certificate/key custody and
+verifier, D06 trusted Hub time, plus the S3 owner/worker composition contract
+remain open. P0 stays PARTIAL; Hub journal migration stays FAIL; `PHY-GS40` and
+`PHY-GS68-CLOUD-MTLS` remain release-blocking / NOT_RUN. No workflow state,
+production credentials, production endpoint, hardware, flash, reset or physical
+case was changed or accessed.
+
+ESP-IDF 6.0.3 compile-only builds pass: C3 937,536 bytes, SHA-256
+`d94e011abd0e28b31cadb4dee2ff6451b0f5311c2783cdcbb2a631c03e86f765`; S3
+1,887,200 bytes, SHA-256
+`507df1e2a26707bc7c5267b98c369dd00e5141a29c6ccf687b5a06908d4480ed`. Their
+source baseline is `76516b963055977eab7cb2d2d084c69692d8690e` with working
+source fingerprint `ba043ee9da757a1cf0285223b94e145a4ed4478b06d07e74ad03bff2708ae913`.
+Focused mTLS 8 adapter cases + 13 certificate tests, NodeHealth 5 tests, C++
+1,488 checks, CloudSync contract, PWA JavaScript 24/24, GS-40 qualification
+17/17, GS-116 framework 47/47, GS-130 runner 70/70, traceability 22/22, and
+GS-130 mapping consistency 208 features / 218 modules / 24 physical cases pass.
+Backend component Python passed 513/513; PWA browser passed 86/86. Hub,
+contract, backend and PWA aggregate gates remain FAIL only at their preserved
+release conditions: P0 product_status=PARTIAL, and for Hub the historical
+journal migration validation (`clean migration commits`). Parallel component
+runs initially collided on shared binaries (`Text file busy`); affected
+feature-boundary (133 checks), board-stack (10 cases / 398 checks) and storage
+sanitizer targets were rerun sequentially and passed. Full exact results and
+limits are in the [dated evidence report](../exec-plans/evidence/GS40_GS109_GS68_GS148_SOFTWARE_INTEGRATION_20261016.md).
+
+This checkpoint is on the canonical `feature/r1-commercial-baseline` worktree;
+initial local and origin HEAD were both
+`76516b963055977eab7cb2d2d084c69692d8690e`. The pre-existing untracked PWA
+asset bundle, managed components, GS-114/C8 evidence and GS-40 UART evidence
+remain preserved and unstaged. Delivery commit/push, final remote equality, and
+GS-109/GS-68/GS-148/GS-40 comment IDs are to be recorded after review. No new
+product/security decision is made; CONTEXT_VERSION is unchanged.
+
+**Next action:** resolve D05/D12 and D06, then compose the S3 runtime's approved
+identity/time/current-NodeHealth source into the existing CloudSync worker and
+rerun focused source-to-caregiver gates. Keep production feed and physical
+qualification disabled until their separate prerequisites and approvals are met.

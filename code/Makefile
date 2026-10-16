@@ -588,6 +588,7 @@ $(CLOUDSYNC_MTLS_ADAPTER_BINARY): firmware/hub/target/esp32s3/https_backend_chan
 cloudsync-security-ut: $(CLOUDSYNC_MTLS_ADAPTER_BINARY)
 	$(CLOUDSYNC_MTLS_ADAPTER_BINARY)
 	PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_cloudsync_security.py' -v
+	PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_node_health_status.py' -v
 
 cloudsync-security-sim-hil:
 	PYTHONPATH=backend:. python3 tests/support/cloudsync_mtls_sim_hil.py

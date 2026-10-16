@@ -72,6 +72,23 @@ export function buildHomeView(snapshot, now) {
     activity,
     recentEvents: (snapshot.recent_events || []).map((event) => ({ ...eventPresentation(event, now), event })),
     incidents: snapshot.active_incidents ?? [],
+    nodeHealth: (snapshot.node_health ?? []).map((node) => {
+      const sourceFresh = snapshot.hub_reachable === true && node.source_fresh === true &&
+        Number(node.cloud_source_age_seconds) <= 190;
+      const status = sourceFresh && ["ONLINE", "OFFLINE"].includes(node.status)
+        ? node.status : "UNKNOWN";
+      const coverage = status === "ONLINE" && node.coverage === "COVERED"
+        ? "COVERED" : "UNKNOWN";
+      return {
+        id: node.logical_node_id || node.physical_node_id || "unknown-node",
+        status,
+        coverage,
+        contactAgeSeconds: Number.isFinite(Number(node.node_contact_age_seconds))
+          ? Number(node.node_contact_age_seconds) : null,
+        cloudAgeSeconds: Number.isFinite(Number(node.cloud_source_age_seconds))
+          ? Number(node.cloud_source_age_seconds) : null,
+      };
+    }),
     fetchedAt: snapshot.fetched_at,
   };
 }

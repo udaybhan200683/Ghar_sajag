@@ -19,6 +19,7 @@ from .http_api import JsonApi
 from .service import GharSajagService
 from .sqlite_events import SQLiteEventMap
 from .ownership_registry import HubOwnershipRegistry
+from .node_health_status import NodeHealthStatusStore
 
 
 @dataclass
@@ -66,9 +67,12 @@ def open_durable_event_api(
         service.store.events = event_map
         committer = DurableEventCommit(db, service.lock)
         ownership_registry = HubOwnershipRegistry(db, service.lock) if require_registered_ownership else None
+        node_health_status = NodeHealthStatusStore(db)
+        service.queries.node_health_status = node_health_status
         return DurableEventApi(
             JsonApi(service=service, now=now, durable_events=committer,
-                    authorize_hub=authorize_hub, hub_ownership_registry=ownership_registry),
+                    authorize_hub=authorize_hub, hub_ownership_registry=ownership_registry,
+                    node_health_status=node_health_status),
             db,
         )
     except BaseException:

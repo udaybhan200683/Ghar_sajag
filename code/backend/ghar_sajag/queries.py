@@ -34,6 +34,7 @@ class QueryService:
         self.store = store
         self.identity = identity
         self.hub_lease_seconds = hub_lease_seconds
+        self.node_health_status = None
 
     def _event_view(self, item) -> dict[str, Any]:
         payload = {k: v for k, v in item.payload.items() if k in _SAFE_PAYLOAD_KEYS}
@@ -100,8 +101,16 @@ class QueryService:
         else:
             hub_beats = self._events(home_id, kinds={"HUB_HEARTBEAT"})
             last_hub_event = max(hub_beats, key=lambda item: item.server_received_at, default=None)
-        last_hub = last_hub_event.server_received_at if last_hub_event else None
-        hub_reachable = last_hub is not None and at - last_hub <= self.hub_lease_seconds
+        event_hub_at = last_hub_event.server_received_at if last_hub_event else None
+        latest_node_health_received = (
+            self.node_health_status.latest_hub_backend_contact(home_id)
+            if self.node_health_status is not None else None)
+        last_hub = max(
+            (value for value in (event_hub_at, latest_node_health_received) if value is not None),
+            default=None,
+        )
+        hub_reachable = (last_hub is not None and
+                         0 <= at - last_hub <= self.hub_lease_seconds)
         active_incident_ids = (
             [
                 item.incident_id for item in self.store.incidents.values()
@@ -139,6 +148,13 @@ class QueryService:
             "home_version": home.version,
             "hub_reachable": hub_reachable,
             "last_hub_at": last_hub,
+            "last_hub_event_at": event_hub_at,
+            "last_node_health_hub_at": (
+                None if self.node_health_status is None else
+                self.node_health_status.latest_hub_contact(home_id)),
+            "last_node_health_backend_at": latest_node_health_received,
+            "node_health": ([] if self.node_health_status is None else
+                            self.node_health_status.latest(home_id, at)),
             "latest_activity": None if latest_activity is None else self._event_view(latest_activity),
             "recent_events": recent,
             "door_status": door_status,

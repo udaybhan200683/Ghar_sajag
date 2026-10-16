@@ -17,8 +17,11 @@ class ScriptChannel : public gs::hub::BackendHttpChannel {
 public:
     gs::hub::BackendHttpResponse response;
     std::size_t calls{0};
+    std::string expected_path{"/v1/homes/home-1/events"};
+    std::string last_body;
     gs::hub::BackendHttpResponse post(const std::string& path, const std::string& body) override {
-        require(path == "/v1/homes/home-1/events" && !body.empty(), "existing endpoint request");
+        require(path == expected_path && !body.empty(), "existing endpoint request");
+        last_body = body;
         ++calls; return response;
     }
 };
@@ -45,6 +48,24 @@ void protocol_and_bounds() {
     channel.response = {201, true, true, receipt_json(request->event.key)};
     require(transport.submit(*request).status == gs::hub::BackendReplyStatus::Committed,
             "exact complete authenticated COMMITTED parses");
+    gs::hub::NodeHealthPublication health{
+        "c3-146393c5d158", "bathroom", 1, 7, 2, 5,
+        gs::hub::NodeHealthContactKind::NodeHealth, "configured", 300, 910,
+        1000, 1001, gs::hub::HubTimeReadiness::Trusted};
+    const gs::hub::CloudAuthorityBinding binding{"home-1", "hub-1", 1};
+    channel.expected_path = "/v1/homes/home-1/node-health";
+    channel.response = {200, true, true,
+        "{\"status\":\"ACCEPTED\",\"accepted\":true,\"physical_node_id\":\"c3-146393c5d158\",\"boot_generation\":2,\"source_revision\":5}"};
+    require(transport.submit_node_health(binding, health).status ==
+                gs::hub::NodeHealthReplyStatus::Accepted &&
+            channel.last_body == health.json_body("home-1"),
+            "current NodeHealth uses the same authenticated bounded HTTPS channel");
+    channel.response.body += " ";
+    require(transport.submit_node_health(binding, health).status ==
+                gs::hub::NodeHealthReplyStatus::InvalidResponse,
+            "malformed NodeHealth response is not accepted as a receipt");
+    channel.expected_path = "/v1/homes/home-1/events";
+    channel.response = {201, true, true, receipt_json(request->event.key)};
     for (int mode = 0; mode < 15; ++mode) {
         auto response = channel.response;
         if (mode == 0) response.server_authenticated = false;
