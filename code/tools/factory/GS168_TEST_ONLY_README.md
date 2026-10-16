@@ -1,8 +1,8 @@
 # GS-168 TEST_ONLY credential issuer
 
-Standalone software simulation: \`pilot_test_issuer.py\` (Python 3, \`cryptography\`, SQLite). It is **not** an ESP32 key injector, manufacturing CA, production CloudSync verifier or customer-device certificate authority. This code does not contact hardware, the backend or the network.
+Standalone software simulation: `pilot_test_issuer.py` (Python 3, `cryptography`, SQLite). It is **not** an ESP32 key injector, manufacturing CA, production CloudSync verifier or customer-device certificate authority. This code does not contact hardware, the backend or the network.
 
-From \`code/\`:
+From `code/`:
 
 ~~~python
 from tools.factory.pilot_test_issuer import TestOnlyIssuer, new_test_csr
@@ -29,6 +29,6 @@ Optional slower 100-unit sequential synthetic batch:
 GS168_TEST_100=1 python3 -m unittest discover -s code/tests/python -p 'test_gs168_pilot_issuer.py' -v
 ~~~
 
-**Safety boundary:** TEST_ONLY root and leaves carry a critical proprietary marker, and non-TEST_ONLY mode throws \`NOT_READY_SECURITY_APPROVAL\`. Real customer infrastructure must exclude all test CA roots and credentials, regardless of certificate contents. No real device provisioning, USB/serial, eFuse changes, firmware flashing, production CloudSync or manufacturing READY claims are authorized.
+**Safety boundary:** TEST_ONLY root and leaves carry a critical proprietary marker, and non-TEST_ONLY mode throws `NOT_READY_SECURITY_APPROVAL`. Real customer infrastructure must exclude all test CA roots and credentials, regardless of certificate contents. No real device provisioning, USB/serial, eFuse changes, firmware flashing, production CloudSync or manufacturing READY claims are authorized.
 
 GS-166 documents the minimal contract. GS-167, GS-169, GS-170 and GS-171 own future station CLI, QR registry, QA and wider integration tests. GS-172 independently gates the real hardware/credential procedure.
