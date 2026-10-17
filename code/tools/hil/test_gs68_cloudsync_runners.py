@@ -51,7 +51,8 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
             "gs_hil_control": False, "gs_hil_commissioning": False,
             "gs_hil_c8_ack_drop": False, "tls_version": "TLS1.2",
             "console_primary": "USB_SERIAL_JTAG", "console_uart0_primary": False,
-            "console_usb_secondary": False, "stdin_read_mode": "USB_DRIVER_BLOCKING",
+            "console_usb_secondary": False, "main_task_stack_bytes": 8192,
+            "stdin_read_mode": "USB_DRIVER_BLOCKING",
             "hardware_signer": "ESP32_DS_PERIPHERAL_SELECTED_NOT_PROVISIONED"}
         report = {
             "target": "ESP32-S3", "idf_version": "v6.0.3",
@@ -321,6 +322,11 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
                     report["build_inputs"], report["build_inputs_sha256"]), field)
             report = json.loads(json.dumps(baseline))
             report["build_inputs"]["build_configuration"]["console_primary"] = "UART0"
+            report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
+            self.assertTrue(provenance.validate_manifest(runner.REPO,
+                report["build_inputs"], report["build_inputs_sha256"]))
+            report = json.loads(json.dumps(baseline))
+            report["build_inputs"]["build_configuration"]["main_task_stack_bytes"] = 3584
             report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
             self.assertTrue(provenance.validate_manifest(runner.REPO,
                 report["build_inputs"], report["build_inputs_sha256"]))

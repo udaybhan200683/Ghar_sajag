@@ -12,7 +12,8 @@ EXPECTED_BUILD_CONFIGURATION = {
     "gs_hil_control": False, "gs_hil_commissioning": False,
     "gs_hil_c8_ack_drop": False, "tls_version": "TLS1.2",
     "console_primary": "USB_SERIAL_JTAG", "console_uart0_primary": False,
-    "console_usb_secondary": False, "stdin_read_mode": "USB_DRIVER_BLOCKING",
+    "console_usb_secondary": False, "main_task_stack_bytes": 8192,
+    "stdin_read_mode": "USB_DRIVER_BLOCKING",
     "hardware_signer": "ESP32_DS_PERIPHERAL_SELECTED_NOT_PROVISIONED",
 }
 PROFILE = Path("code/firmware/hub/target/esp32s3/idf/sdkconfig.gs68_cloudsync_hil.defaults")
