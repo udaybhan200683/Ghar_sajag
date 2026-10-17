@@ -10,13 +10,14 @@ idf_component_register(
     SRCS
         "app_main.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32s3/https_backend_channel.cpp"
+        "${GS_ROOT}/firmware/hub/target/esp32s3/cloud_trust_provider.cpp"
     INCLUDE_DIRS
         "."
         "${GS_ROOT}"
         "${GS_ROOT}/firmware/common/shared/include"
         "${GS_ROOT}/firmware/hub"
         "${GS_ROOT}/firmware/hub/cloud_sync"
-    REQUIRES app_update esp_http_client esp_partition esp_psram esp_system esp_timer esp_hw_support mbedtls spi_flash
+    REQUIRES app_update esp_http_client esp_partition esp_psram esp_system esp_timer esp_hw_support mbedtls nvs_flash spi_flash
 )
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE

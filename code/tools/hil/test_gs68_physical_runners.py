@@ -15,12 +15,13 @@ from datetime import datetime, timedelta, timezone
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 import gs68_capture as capture
 import gs68_cloudsync_hil as runner
+from gs68_signed_time_fixture import SignedTimeFixtureError, TestOnlySignedTimeFixture
 from gs68_test_backend import GS68TestBackend
 
 
@@ -103,6 +104,7 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
         with self.assertRaisesRegex(capture.CaptureError, "running_image_sha256"):
             bad.request_node_observation(case_id, nonce, binding)
         bad.close()
+
 
     def test_truncated_oversized_and_invalid_frames_fail_closed(self):
         transport = FakeTransport(b"GS68/1 {\"schema\":\"gs68.target.event.v1\"}")
@@ -544,6 +546,53 @@ class GS68PhysicalCaptureTests(unittest.TestCase):
                 self.assertEqual(response["error"], "node_event_key_ack_mismatch")
             finally:
                 backend.close()
+
+
+class GS68SignedTimeFixtureTests(unittest.TestCase):
+    def test_ephemeral_public_key_and_current_challenge_proof(self):
+        fixture = TestOnlySignedTimeFixture()
+        key_command = fixture.load_key_command()
+        self.assertEqual(key_command["operation"], "LOAD_TIME_KEY")
+        self.assertEqual(key_command["case_id"], "GS68-PHY-003")
+        public_der = base64.b64decode(key_command["payload_b64"], validate=True)
+        public_key = serialization.load_der_public_key(public_der)
+        self.assertEqual(public_key.key_size, 3072)
+        self.assertNotIn("private", key_command)
+
+        challenge = {"schema": "gs68.target.event.v1", "event": "time_challenge",
+                     "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+                     "boot_generation": 7, "created_monotonic_ms": 1234}
+        command = fixture.proof_command(challenge, issued_at_utc=1_900_000_000)
+        proof = base64.b64decode(command["payload_b64"], validate=True)
+        self.assertEqual(len(proof), 456)
+        self.assertEqual(proof[:4], b"GSTP")
+        self.assertEqual(int.from_bytes(proof[8:16], "big"), 7)
+        self.assertEqual(proof[16:48], b"\xaa" * 32)
+        public_key.verify(proof[72:], proof[:72], padding.PKCS1v15(), hashes.SHA256())
+        self.assertEqual(command["challenge_nonce"], challenge["challenge_nonce"])
+        with self.assertRaisesRegex(SignedTimeFixtureError, "already signed"):
+            fixture.proof_command(challenge, issued_at_utc=1_900_000_001)
+
+    def test_invalid_challenge_and_generation_fail_closed(self):
+        fixture = TestOnlySignedTimeFixture()
+        invalid_frames = [
+            {},
+            {"schema": "gs68.target.event.v1", "event": "ready",
+             "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+             "boot_generation": 1},
+            {"schema": "gs68.target.event.v1", "event": "time_challenge",
+             "case_id": "GS68-PHY-003", "challenge_nonce": "A" * 64,
+             "boot_generation": 1},
+            {"schema": "gs68.target.event.v1", "event": "time_challenge",
+             "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+             "boot_generation": True},
+            {"schema": "gs68.target.event.v1", "event": "time_challenge",
+             "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+             "boot_generation": 0},
+        ]
+        for frame in invalid_frames:
+            with self.subTest(frame=frame), self.assertRaises(SignedTimeFixtureError):
+                fixture.proof_command(frame, issued_at_utc=1_900_000_000)
 
 
 if __name__ == "__main__":

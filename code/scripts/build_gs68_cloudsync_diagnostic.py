@@ -41,7 +41,13 @@ def main() -> int:
     source_commit = run("git", "rev-parse", "HEAD").stdout.strip()
     source_code_tree_oid = run("git", "rev-parse", f"{source_commit}:code").stdout.strip()
     source_status = run("git", "status", "--porcelain=v1", "--untracked-files=normal", "--", "code").stdout.splitlines()
-    allowed_untracked = {"?? code/firmware/hub/target/esp32s3/idf/managed_components/"}
+    # Preserve known, pre-existing user assets in the canonical worktree while
+    # still blocking any other uncommitted source input from a source-bound build.
+    allowed_untracked = {
+        "?? code/firmware/hub/target/esp32s3/idf/managed_components/",
+        "?? code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/",
+        "?? code/parivar_saathi_android_app/",
+    }
     unexpected = [line for line in source_status if line not in allowed_untracked]
     if unexpected:
         print("BLOCKED: tracked or untracked source changes must be committed before source-bound image build")

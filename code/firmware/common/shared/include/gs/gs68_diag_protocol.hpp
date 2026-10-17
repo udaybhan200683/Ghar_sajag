@@ -6,10 +6,11 @@
 
 namespace gs::diagnostic {
 
-constexpr std::size_t kTargetCommandMaxBytes = 512;
+constexpr std::size_t kTargetCommandMaxBytes = 1024;
 constexpr std::size_t kTargetCaseIdCapacity = 16;
 constexpr std::size_t kTargetNonceCapacity = 65;
-constexpr std::size_t kTargetOperationCapacity = 16;
+constexpr std::size_t kTargetOperationCapacity = 24;
+constexpr std::size_t kTargetPayloadBase64Capacity = 769;
 
 enum class TargetCommandError : std::uint8_t {
     Ok,
@@ -27,6 +28,7 @@ struct TargetCommand {
     char case_id[kTargetCaseIdCapacity]{};
     char challenge_nonce[kTargetNonceCapacity]{};
     char operation[kTargetOperationCapacity]{};
+    char payload_base64[kTargetPayloadBase64Capacity]{};
 };
 
 inline bool target_case_id_valid(const char* value) {
@@ -86,10 +88,13 @@ inline TargetCommandError parse_target_command(const char* bytes, std::size_t si
     bool case_seen = false;
     bool nonce_seen = false;
     bool operation_seen = false;
-    for (unsigned field = 0; field < 4; ++field) {
+    bool payload_seen = false;
+    bool closed = false;
+    unsigned field_count = 0;
+    while (field_count < 5) {
         cursor = detail::skip_target_space(cursor, end);
-        char key[24]{};
-        char value[129]{};
+        char key[32]{};
+        char value[kTargetPayloadBase64Capacity]{};
         if (!detail::parse_target_ascii_string(cursor, end, key, sizeof(key)))
             return TargetCommandError::Malformed;
         cursor = detail::skip_target_space(cursor, end);
@@ -118,23 +123,58 @@ inline TargetCommandError parse_target_command(const char* bytes, std::size_t si
             operation_seen = true;
             if (std::strlen(value) >= sizeof(output.operation)) return TargetCommandError::InvalidOperation;
             std::memcpy(output.operation, value, std::strlen(value) + 1);
+        } else if (std::strcmp(key, "payload_b64") == 0) {
+            if (payload_seen) return TargetCommandError::DuplicateField;
+            payload_seen = true;
+            if (value[0] == '\0') return TargetCommandError::Malformed;
+            std::memcpy(output.payload_base64, value, std::strlen(value) + 1);
         } else {
             return TargetCommandError::UnknownField;
         }
+        ++field_count;
         cursor = detail::skip_target_space(cursor, end);
-        const char expected = field == 3 ? '}' : ',';
-        if (cursor >= end || *cursor++ != expected) return TargetCommandError::Malformed;
+        if (cursor >= end) return TargetCommandError::Malformed;
+        if (*cursor == '}') {
+            ++cursor;
+            closed = true;
+            break;
+        }
+        if (*cursor++ != ',') return TargetCommandError::Malformed;
     }
     cursor = detail::skip_target_space(cursor, end);
-    if (cursor != end || !schema_seen || !case_seen || !nonce_seen || !operation_seen)
+    if (!closed || cursor != end || !schema_seen || !case_seen || !nonce_seen || !operation_seen)
         return TargetCommandError::Malformed;
     if (!target_case_id_valid(output.case_id)) return TargetCommandError::InvalidCase;
     if (!target_nonce_valid(output.challenge_nonce)) return TargetCommandError::InvalidNonce;
     if (std::strcmp(output.operation, "PING") != 0 &&
         std::strcmp(output.operation, "OBSERVE") != 0 &&
-        std::strcmp(output.operation, "RUN_CASE") != 0)
+        std::strcmp(output.operation, "RUN_CASE") != 0 &&
+        std::strcmp(output.operation, "LOAD_TIME_KEY") != 0 &&
+        std::strcmp(output.operation, "TIME_CHALLENGE") != 0 &&
+        std::strcmp(output.operation, "TIME_PROOF") != 0)
         return TargetCommandError::InvalidOperation;
+    const bool time_payload_operation =
+        std::strcmp(output.operation, "LOAD_TIME_KEY") == 0 ||
+        std::strcmp(output.operation, "TIME_PROOF") == 0;
+    const bool time_operation = time_payload_operation ||
+        std::strcmp(output.operation, "TIME_CHALLENGE") == 0;
+    if (time_payload_operation != payload_seen || (payload_seen && !time_operation))
+        return TargetCommandError::Malformed;
     return TargetCommandError::Ok;
+}
+
+enum class DiagnosticPreflightDisposition : std::uint8_t { Blocked, Fail };
+
+// The expected test-only identity rejection occurs before transport setup.
+// Any response metadata, body, or attempted request is an unexpected result
+// and must never be recorded as BLOCKED.
+inline DiagnosticPreflightDisposition classify_missing_identity_response(
+    unsigned status, bool server_authenticated, bool message_complete,
+    std::size_t body_size, bool request_attempted) {
+    return status == 0 && !server_authenticated && !message_complete &&
+                   body_size == 0 && !request_attempted
+        ? DiagnosticPreflightDisposition::Blocked
+        : DiagnosticPreflightDisposition::Fail;
 }
 
 }  // namespace gs::diagnostic

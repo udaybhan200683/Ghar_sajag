@@ -1149,6 +1149,7 @@
       "inputs": [
         "firmware/hub/target/esp32s3/https_backend_channel.cpp",
         "firmware/hub/target/esp32s3/https_backend_channel.hpp",
+        "firmware/hub/cloud_sync/http_backend_transport.hpp",
         "backend/ghar_sajag/cloud_client_identity.py",
         "backend/ghar_sajag/node_health_status.py",
         "tests/python/test_node_health_status.py",
@@ -1996,6 +1997,7 @@
         "tools/hil/gs68_cloudsync_hil.py",
         "tools/hil/gs68_capture.py",
         "tools/hil/gs68_test_backend.py",
+        "tools/hil/gs68_signed_time_fixture.py",
         "tools/hil/test_gs68_cloudsync_runners.py",
         "tools/hil/test_gs68_physical_runners.py",
         "tools/hil/gs68_cloudsync_cases.json",

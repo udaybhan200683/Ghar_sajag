@@ -105,8 +105,9 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
     } cleanup{client};
     if (esp_http_client_set_header(client, "Content-Type", "application/json") != ESP_OK ||
         (cloud_identity_ == nullptr &&
-         esp_http_client_set_header(client, "Authorization", authorization_.c_str()) != ESP_OK) ||
-        esp_http_client_open(client, static_cast<int>(body.size())) != ESP_OK) return result;
+         esp_http_client_set_header(client, "Authorization", authorization_.c_str()) != ESP_OK)) return result;
+    result.network_attempted = true;
+    if (esp_http_client_open(client, static_cast<int>(body.size())) != ESP_OK) return result;
     std::size_t sent = 0;
     while (sent < body.size()) {
         if (esp_timer_get_time() >= deadline) return result;

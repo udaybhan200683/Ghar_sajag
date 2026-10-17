@@ -72,12 +72,14 @@ int main() {
         gs::hub::target::HttpsBackendChannel channel("https://backend.invalid", "test CA", provider);
         constexpr auto path = "/v1/homes/home-1/events";
         auto success = channel.post(path, "{}");
-        check(success.server_authenticated && success.message_complete && initialized == 1 &&
+        check(success.server_authenticated && success.message_complete && success.network_attempted && initialized == 1 &&
               cleaned == 1 && authorization_headers == 0 && ds_context == provider.value.ds_context &&
               certificate == provider.value.client_certificate_pem, "mTLS DS path without bearer fallback");
         std::cout << "GS-CLOUD-MTLS-UT-001 PASS\n";
         provider.available = false;
-        check(!channel.post(path, "{}").server_authenticated && initialized == 1, "missing identity refused");
+        const auto missing_identity = channel.post(path, "{}");
+        check(!missing_identity.server_authenticated && !missing_identity.network_attempted && initialized == 1,
+              "missing identity refused before network attempt");
         std::cout << "GS-CLOUD-MTLS-UT-002 PASS\n";
         provider.available = true;
         provider.value.purpose = gs::hub::target::CloudTlsIdentity::Purpose::Commissioning;

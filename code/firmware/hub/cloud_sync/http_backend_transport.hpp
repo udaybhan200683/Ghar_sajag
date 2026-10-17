@@ -10,6 +10,9 @@ struct BackendHttpResponse {
     unsigned status{0};
     bool server_authenticated{false};
     bool message_complete{false};
+    // True once the channel starts opening the remote request. Diagnostics use
+    // this to distinguish a local fail-closed preflight from a network failure.
+    bool network_attempted{false};
     std::string body;
 };
 class BackendHttpChannel {
