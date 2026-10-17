@@ -2,7 +2,7 @@
 
 ## Current disposition
 
-`APK_BUILD_PENDING_HOSTED_CI`; the real phone + authenticated Internet backend acceptance is not met. A dashboard-only Android wrapper and a pinned hosted build workflow are implemented in the isolated GS-177 branch. No APK has been built yet, no live endpoint is configured, and the phone, production identity/session issuer, Firebase project, or S3 Hub media path are not available in this execution environment. Keep GS-177 open.
+`ANDROID_CI_RETRY_PENDING`; the real phone + authenticated Internet backend acceptance is not met. A dashboard-only Android wrapper and a pinned hosted build workflow are implemented in the isolated GS-177 branch. No APK has been built yet, no live endpoint is configured, and the phone, production identity/session issuer, Firebase project, or S3 Hub media path are not available in this execution environment. Keep GS-177 open.
 
 This build is an installable test shell intended to load the existing Parivar Saathi PWA from an administrator-provided HTTPS origin. It is not yet a usable caregiver service until that origin serves the actual authenticated PWA/backend.
 
@@ -43,7 +43,7 @@ At this continuation check, all 23 source files still matched their manifest has
 |---|---|
 | Local JDK / Android SDK / Gradle / ADB / apksigner | Not installed |
 | Local Android build | `NOT_BUILT`; hosted workflow must produce first APK |
-| Hosted Android workflow | Pending branch push; no run URL/result yet |
+| Hosted Android workflow | First run 39006792176 failed during Kotlin compilation; artifact/signature steps skipped. The component gate retained only the Gradle stack tail, so exact compiler diagnostics are not yet visible. The runner now re-emits compiler diagnostics for the retry. https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39006792176 |
 | Physical Android device / install | `NOT_RUN`; no phone is attached/observable |
 | `bash code/parivar_saathi_android_app/verify.sh` | PASS, 6/6 prototype tests; Node syntax and Android XML parse pass |
 | `make -C code feature-coverage-test` | PASS, 210 features / 234 modules / 25 physical cases; 22/22 mapping tests |
@@ -74,7 +74,7 @@ FCM provider receipt, Android displayed/ringing/answered state, S3 WebRTC media,
 
 ## Exact next actions
 
-1. Review and commit the GS-177-only changes, push only `feature/gs-177-caregiver-android`, and wait for the actual hosted workflow. Download the actual APK artifact only after the job passes; record run URL, commit, version, package, SHA-256 and signing certificate.
+1. Commit the GS-177-only diagnostic improvement and push only `feature/gs-177-caregiver-android`. Inspect the full Kotlin compiler diagnostic from the retry and repair it; download an APK only after the job passes, then record run URL, commit, version, package, SHA-256 and signing certificate.
 2. Obtain the approved live HTTPS PWA/API origin, production caregiver issuer/session + current-Home/epoch/revocation contract, persistent hosting/database, and a real Android phone with mobile-data access. Then install the artifact and capture actual device/backend evidence for each supported screen and denial/revocation case.
 3. Keep GS-25 Firebase delivery and GS-154/157 plus GS-40/68/109/143/148 call/identity/Hub work as upstream gates. Do not claim FCM delivery, manual/automatic voice, backup escalation, or S3 HIL until performed with the real phone and hardware under separate approved test conditions.
 4. Update Jira GS-177 and this handoff with the actual workflow and later device/backend results. Submit a reviewed GS-177 PR/handoff; do not merge into or push to the GS-40 branch.

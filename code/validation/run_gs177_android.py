@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -18,14 +19,22 @@ SDK_ROOT = Path(os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HO
 BUILD_TOOLS = SDK_ROOT / "build-tools" / "35.0.0"
 
 
-def run(command: list[str], *, cwd: Path) -> int:
+def run(command: list[str], *, cwd: Path) -> tuple[int, str]:
     print("COMMAND:", " ".join(command), flush=True)
     try:
-        result = subprocess.run(command, cwd=cwd, check=False)
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
     except FileNotFoundError as error:
         print(f"GS177 ANDROID DASHBOARD BLOCKED dependency={error.filename}", flush=True)
-        return 127
-    return result.returncode
+        return 127, ""
+    print(result.stdout, end="", flush=True)
+    return result.returncode, result.stdout
 
 
 def junit_counts() -> tuple[int, int, int]:
@@ -48,11 +57,20 @@ def main() -> int:
         print("GS177 ANDROID DASHBOARD BLOCKED dependency=ANDROID_SDK_ROOT_OR_ANDROID_HOME", flush=True)
         return 127
 
-    rc = run(
+    rc, gradle_output = run(
         [gradle, "--no-daemon", "--stacktrace", "--console=plain", ":app:testDebugUnitTest", ":app:assembleDebug"],
         cwd=PROJECT,
     )
     if rc:
+        diagnostics = [
+            line.strip()
+            for line in gradle_output.splitlines()
+            if re.search(r"(?:^e: |\berror:|^FAILURE:|^Execution failed for task)", line)
+        ]
+        if diagnostics:
+            print("GS177 ANDROID DASHBOARD DIAGNOSTICS:", flush=True)
+            for line in diagnostics[-20:]:
+                print(f"GS177 ANDROID DIAGNOSTIC {line}", flush=True)
         print(f"GS177 ANDROID DASHBOARD FAIL gradle_exit={rc}", flush=True)
         return rc
 
@@ -68,7 +86,7 @@ def main() -> int:
     if not apksigner.is_file():
         print(f"GS177 ANDROID DASHBOARD BLOCKED dependency={apksigner}", flush=True)
         return 127
-    rc = run([str(apksigner), "verify", "--verbose", str(APK)], cwd=PROJECT)
+    rc, _ = run([str(apksigner), "verify", "--verbose", str(APK)], cwd=PROJECT)
     if rc:
         print(f"GS177 ANDROID DASHBOARD FAIL apksigner_exit={rc}", flush=True)
         return rc
