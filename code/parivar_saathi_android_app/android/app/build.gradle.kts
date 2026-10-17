@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,7 +13,7 @@ val sourceRevision = providers.environmentVariable("GITHUB_SHA").orNull
 fun configuredBackendOrigin(propertyName: String): String {
     val raw = providers.gradleProperty(propertyName).orNull?.trim().orEmpty()
     if (raw.isEmpty()) return ""
-    val uri = try { java.net.URI(raw) } catch (_: Exception) {
+    val uri = try { URI(raw) } catch (_: Exception) {
         throw GradleException("$propertyName must be a public HTTPS origin")
     }
     val host = uri.host?.lowercase() ?: throw GradleException("$propertyName must contain a DNS host")
