@@ -52,18 +52,29 @@ Before any first physical interface action:
    Record commit, IDF 6.0.3/tool versions, build profile, sdkconfig, partition
    layout, binary SHA-256, signed-image verification and SBOM/config hashes.
    Do not install it without separate exact approval.
-6. Close the known software gaps: production application currently remains
-   `UnprovisionedS3CloudTrust`; the target does not instantiate the signer,
-   registry/ownership source, or D06 runtime provider. A physical DS/mTLS/time
-   PASS requires a target-capable implementation and source-bound test build,
-   not only the host provider tests. Commercial Wave P also requires the
-   signed OTA/recovery and anti-rollback path (GS-118/D15).
+6. Keep production fail closed: product application composition remains
+   `UnprovisionedS3CloudTrust`. The isolated diagnostic now has a TEST_ONLY D06
+   signed-time verifier flow, but it has no provisioned DS signer/client
+   identity or production authority/registry. That code is not silicon
+   evidence. Commercial Wave P also requires the signed OTA/recovery and
+   anti-rollback path (GS-118/D15). See the
+   [USB-console correction receipt](GS68_USB_COMMAND_CONSOLE_20261017.md).
 
 ## 3. GS-68 case sequence and acceptance evidence
 
 Use the existing case definitions in
 `GS68_CLOUDSYNC_PHYSICAL_HIL_AUTOMATION_20261016.md`; case IDs and catalogue
 expectations remain authoritative.
+
+After a separately authorized install of the exact image and before the
+security cases, perform the harmless USB command-console smoke check from the
+[correction receipt](GS68_USB_COMMAND_CONSOLE_20261017.md). Verify the running
+image digest, wait after startup, deliver a harmless `OBSERVE` command in
+delayed fragments with CRLF, send malformed input followed by valid input, and
+send two valid commands sequentially. Require each expected response and no
+reset or unexpected network attempt. A failed or absent response stops the
+case sequence; it does not count as a crypto PASS. Do not open the port or
+install the candidate without fixture-specific approval.
 
 | Case | Purpose and minimum correlated evidence | PASS requirement | Present state |
 |---|---|---|---|

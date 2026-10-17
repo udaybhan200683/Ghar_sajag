@@ -1,5 +1,21 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-68 isolated diagnostic USB console — 2026-10-17 (evidence only)
+
+Following GS-172 comment 11323, the GS-68 TEST_ONLY S3 diagnostic now selects
+USB Serial/JTAG as its primary console and uses the ESP-IDF 6.0.3
+driver-backed blocking VFS for stdin. The bounded command framer preserves
+partial input and rejects invalid/oversized lines without exiting the command
+loop. The TEST_ONLY profile and build guards verify UART0 is not primary and
+USB is not a secondary output-only console. Product defaults and production
+composition are unchanged. This is software/build evidence only: the new
+473,312-byte image (`c0fb82c69fe030f8a4358b7783e7c537156dfdb361b4df1a620831210d1bef65`)
+supersedes the earlier build-only candidate for any future install but was not
+installed. No product/security decision or context-version change is made;
+silicon console, PSA RNG/RSA verification, DS signing, mTLS, GS-68 PHY and
+GS-40 PHY remain NOT_RUN. See
+[`GS68_USB_COMMAND_CONSOLE_20261017.md`](../exec-plans/evidence/GS68_USB_COMMAND_CONSOLE_20261017.md).
+
 ## GS-172 first-device provisioning and qualification package — 2026-10-17 (proposal/evidence only)
 
 GS-172 comment 11296 is addressed by a versioned, non-executable first-device

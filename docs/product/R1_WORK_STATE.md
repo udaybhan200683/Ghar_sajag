@@ -1,5 +1,59 @@
 # R1 Current Work State
 
+## GS-172 / GS-68 USB diagnostic command-console correction — 2026-10-17
+
+Authority: GS-172 comment 11323 and GS-68 comment 11324. Context preflight
+passed. Canonical worktree and branch are
+`/home/udaybhan/projects/Ghar_sajag_r1` and
+`feature/r1-commercial-baseline`; before edits, local and origin both matched
+`3cb4146603594313c163d9b80483aa7c2fab88a1`. No writer was found in the
+canonical worktree. During final delivery, a backend validation process was
+observed in the separate `Ghar_sajag_gs177` worktree on
+`feature/gs-177-caregiver-android`; it and its uncommitted files were left
+untouched. The canonical remote still pointed to the expected base during the
+check. Existing untracked PWA, managed-components and C8/GS-114/GS-40 evidence
+remain untouched and unstaged.
+
+Verified the previous candidate's effective console was UART0 primary with
+USB Serial/JTAG secondary. ESP-IDF 6.0.3 documents that secondary input is not
+available to stdin and its simplified USB VFS reads are nonblocking. The
+isolated GS-68 diagnostic profile now makes USB Serial/JTAG primary, disables
+UART0 and the secondary USB console, initializes the driver-backed blocking
+VFS, and uses an incremental 1024-byte command framer. The command loop
+survives delayed/partial input, malformed and oversized lines, transient EOF,
+and sequential commands. Production sdkconfig defaults and product composition
+were not changed; existing nonce binding, RSA-3072/SHA-256 proof validation,
+fail-closed TLS/identity, and no-fake-verifier guards remain intact.
+
+Validation: host protocol/framing `1,736` assertions PASS; provider tests 5
+suites PASS; mTLS adapter 9/9; backend security 14/14; GS-40 identity/time/
+caregiver 4/4; GS-168 issuer 10/10; NodeHealth 5/5; GS-130 runner suite 72/72.
+ESP-IDF 6.0.3 non-flashing build PASS: 473,312 bytes, image SHA-256
+`c0fb82c69fe030f8a4358b7783e7c537156dfdb361b4df1a620831210d1bef65`; source
+commit `a5d2806b40023d0c42a90d082187398416fb956c`; profile SHA-256
+`7d13aa13684953744737b653c82ec7f8b95d0c6bfc715649bc99d501313d3c72`;
+effective sdkconfig SHA-256
+`ff3150eeeac79a4a80b5a718a20408386d90d5a491cb199d763e0b6190105a7a`.
+The old build-only candidate `e8e0a6236817f857346aced735f94f412245c693733710f749d56a55b248ef34`
+is superseded for future install; user-reported installed baseline
+`c905af73419c84af7a1d986dada3724da7e654b4d7eaa0235bd06e515902f8ef` remains
+unchanged. The /tmp tmpfs build attempt failed for lack of space; the preserved
+build was resumed successfully under ignored `code/build/validation_targets`
+with compiler TMPDIR on the root filesystem.
+
+No board, serial/USB interface, power, flash, reset, provisioning, DS/HMAC,
+eFuse, Secure Boot, Flash Encryption, production credential or endpoint was
+accessed. The new image is ready for owner review and separately authorized
+spare-S3 installation only. Installed-image match, USB console behavior on
+silicon, PSA RNG, RSA verification, DS signing, mTLS, GS-68 PHY, and GS-40 PHY
+remain NOT_RUN. Exact post-authorization harmless console smoke procedure and
+the full receipt are in
+[`GS68_USB_COMMAND_CONSOLE_20261017.md`](../exec-plans/evidence/GS68_USB_COMMAND_CONSOLE_20261017.md).
+At source-build time local HEAD was `a5d2806b40023d0c42a90d082187398416fb956c`
+and remote was still `3cb4146603594313c163d9b80483aa7c2fab88a1`; the evidence
+commit, normal push, remote read-back, and Jira comments are the next delivery
+actions. No workflow status changes are authorized.
+
 ## GS-68 D05/D12/D06 provider seams and GS-40 integration — 2026-10-17
 
 This is the latest canonical continuation of the GS-40/68/109/148 handoff.
