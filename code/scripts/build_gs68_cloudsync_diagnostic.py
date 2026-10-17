@@ -48,7 +48,7 @@ def main() -> int:
         for line in unexpected:
             print(line)
         return 2
-    if branch != "feature/r1-gs68-gs109-mtls-feasibility":
+    if branch != "feature/r1-commercial-baseline":
         print(f"BLOCKED: unexpected branch {branch}")
         return 2
     profile_sha = sha256(PROFILE)
