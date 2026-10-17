@@ -123,3 +123,40 @@ Before **PAIR-C**, owners must approve D16 resource/outage limits and the
 additional C3/interface/stimulus plan. **OTA-D** remains independently blocked
 on GS-118/D15. Until then, `PHY-GS68-CLOUD-MTLS` remains release-blocking and
 `NOT_RUN`.
+
+## Dated software continuation — 2026-10-17
+
+The S3 product now links the shared `cloud_trust_provider` seam, and the HTTPS
+adapter uses only trusted provider time for ESP-TLS certificate validation.
+TEST_ONLY provider/backend tests cover identity/authority, revocation, RSA-3072
+DS credential shape, current ownership epoch, authenticated-time startup and
+recovery, nonce replay, rollback, durable floor checkpointing and the GS-40
+NodeHealth publisher. Commercial composition remains explicitly
+`UnprovisionedS3CloudTrust`; no protected identity or authenticated time provider
+is instantiated. The app's CloudSync URL/trust root and provider prerequisites
+remain unconfigured, so the production request path still fails closed.
+
+The latest software candidate is an ESP-IDF 6.0.3 non-flashing S3
+production-profile build (`GS_HIL_BUILD=OFF`, project version
+`gs68-provider-20261017`) with a 2,168,128-byte S3 app image, SHA-256
+`2052ba8d233b66bd753d5f6572c01acd4a4cd3daf6017dde70c27d628fde69b5`, fitting
+the 4 MiB app slot. Its sdkconfig SHA-256 is
+`79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`. It embeds
+the unchanged previously validated C3 app (937,536 bytes, SHA-256
+`d94e011abd0e28b31cadb4dee2ff6451b0f5311c2783cdcbb2a631c03e86f765`). The
+source commit is recorded in the adjacent GS-40 readiness addendum. For a
+future installed-image check, an owner-approved
+fixture operator must read back the booted application image through the
+approved reset-safe observer and compare its device/image manifest to that
+exact SHA; a source build or UART log alone is insufficient. C3 pairing reuses
+the recorded validated C3 image until a Node source change invalidates it.
+Expected-image verification does not authorize flashing or serial access.
+
+This software result does not unblock S3-A/S3-B: the spare S3 fixture/revision,
+flash/PSRAM/pinout and isolated power/connector path are still unknown; the
+current D05 issuer/trust chain and active Hub/Home/revocation source, D12
+factory/DS key custody and test identity, D06 authenticated bootstrap/verifier,
+durable target counter/floor and approved freshness/checkpoint thresholds are
+still absent. The case-specific fixture-owner approval remains required. No
+physical, serial, USB, reset, flash, eFuse, credential or production-service
+operation occurred during this continuation.

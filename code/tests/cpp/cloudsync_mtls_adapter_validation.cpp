@@ -11,9 +11,20 @@ namespace {
 void check(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
 struct Provider final : gs::hub::target::CloudTlsIdentityProvider {
     bool available{true};
-    gs::hub::target::CloudTlsIdentity value{"-----BEGIN CERTIFICATE-----\nTEST\n-----END CERTIFICATE-----\n",
-                                             reinterpret_cast<void*>(0x1), 3072,
-                                             gs::hub::target::CloudTlsIdentity::Purpose::CloudTlsClient};
+    gs::hub::target::CloudTlsIdentity value;
+    Provider() {
+        value.client_certificate_pem =
+            "-----BEGIN CERTIFICATE-----\nTEST\n-----END CERTIFICATE-----\n";
+        value.ds_context = reinterpret_cast<void*>(0x1);
+        value.rsa_bits = 3072;
+        value.permanent_hub_id = "test-hub-permanent";
+        value.certificate_fingerprint_sha256 = std::string(64, 'a');
+        value.credential_generation = 1;
+        value.trusted_utc_seconds = 1'800'000'000;
+        value.trusted_monotonic_ms = 1;
+        value.trusted_time_boot_generation = 1;
+        value.purpose = gs::hub::target::CloudTlsIdentity::Purpose::CloudTlsClient;
+    }
     bool current_identity(gs::hub::target::CloudTlsIdentity& output) override {
         if (!available) return false;
         output = value;
@@ -91,7 +102,11 @@ int main() {
         check(channel.post(path, "{}").server_authenticated && initialized == 2 && cleaned == 2 &&
               authorization_headers == 0, "repeat initialization and cleanup");
         std::cout << "GS-CLOUD-MTLS-UT-008 PASS\n";
-        std::cout << "CLOUDSYNC MTLS ADAPTER PASS cases=8 physical=NOT_RUN\n";
+        provider.value.trusted_utc_seconds = 0;
+        check(!channel.post(path, "{}").server_authenticated && initialized == 2,
+              "untrusted time is refused before TLS initialization");
+        std::cout << "GS-CLOUD-MTLS-UT-009 PASS\n";
+        std::cout << "CLOUDSYNC MTLS ADAPTER PASS cases=9 physical=NOT_RUN\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "CLOUDSYNC MTLS ADAPTER FAIL " << error.what() << '\n';

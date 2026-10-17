@@ -1,5 +1,27 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-68 D05/D12/D06 provider-seam continuation — 2026-10-17 (evidence only)
+
+The canonical S3 application now consumes one shared fail-closed cloud-trust
+provider interface for current Hub/Home/ownership epoch, TLS identity and
+authenticated Hub time. Host tests exercise TEST_ONLY credential and ownership
+snapshots, concurrent revocation reads, D06 nonce-bound proof/freshness/floor
+recovery, rollback detection, durable floor checkpointing, and the existing
+bounded GS-40 NodeHealth-to-CloudSync publication path. The existing backend
+verifier continues to enforce certificate chain/client-auth purpose, permanent
+Hub identity, active Home/epoch, credential status and trusted time. ESP-TLS
+system time is set only from a provider-authenticated UTC snapshot.
+
+This is a software seam, not a production provider. No CA/issuer, factory or
+eFuse/DS custody, current ownership source, signed-time verifier, durable target
+floor/boot counter, approved freshness/checkpoint thresholds, or live credential
+was selected or activated. The S3 product composition remains unprovisioned
+and CloudSync remains fail closed. Physical qualification remains NOT_RUN;
+`product_status=PARTIAL` and the existing Hub journal migration FAIL are
+unchanged. No product decision or context version change is made. See the dated
+GS-68/GS-40 handoff and qualification addenda for commands, image hashes and
+exact owner prerequisites.
+
 ## GS-68 CloudSync physical-HIL software readiness — 2026-10-16 (evidence only)
 
 GS-68 comment 11174 authorized completion of isolated software readiness work

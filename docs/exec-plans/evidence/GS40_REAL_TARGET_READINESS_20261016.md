@@ -415,3 +415,43 @@ GS-148 authenticated ingest, freshness read model and PWA projection; verified
 current board image/config/session and safe observer; TC05 second trusted Node
 or fixture. All PHY-GS40-01..06 remain BLOCKED/NOT_RUN and GS-40 remains In
 Progress.
+
+## Follow-up — provider seam and physical prerequisites — 2026-10-17
+
+The later canonical integration now includes GS-68's bounded HubRuntime to
+CloudSync NodeHealth publisher and the backend/PWA software projection. The
+prior paragraph's GS-68 producer/GS-148 ingest/PWA items are superseded as
+software implementation gaps; they remain TEST_ONLY/software evidence, not a
+deployed commercial path. The S3 product is wired to one shared trust-provider
+seam but uses `UnprovisionedS3CloudTrust`, so production NodeHealth cannot be
+sent. The app lacks the provisioned CloudSync endpoint/trust root and approved
+credential/authority/time providers.
+
+Latest focused checks: D05/D12/D06/GS-40 provider integration passes under
+TEST_ONLY fixtures; mTLS adapter 9/9, backend security 14/14, NodeHealth API
+5/5, C++ 1,509 checks, durable EventKey contract, and local mTLS worker/API
+bridge 1/1 pass. Validation framework is 47/47; traceability is 208 features,
+220 modules, 24 physical cases and 22 mapping tests. The non-flashing ESP-IDF
+6.0.3 S3 `GS_HIL_BUILD=OFF` production-profile image is 2,168,128 bytes, fits
+the 4 MiB app slot and has SHA-256
+`2052ba8d233b66bd753d5f6572c01acd4a4cd3daf6017dde70c27d628fde69b5`; its
+sdkconfig SHA-256 is
+`79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`. It
+embeds the unchanged previously validated C3 image (937,536 bytes, SHA-256
+`d94e011abd0e28b31cadb4dee2ff6451b0f5311c2783cdcbb2a631c03e86f765`). The
+build used project version `gs68-provider-20261017`; the final source commit
+is recorded in delivery evidence. Managed-component file hashes were identical
+before and after. Prior caregiver browser result remains 86/86; it was
+not rerun because PWA code/contracts were not changed.
+
+**Still BLOCKED:** GS-40 PHY-01..06 and GS-68-PHY remain NOT_RUN. S3/C3 fixture
+identity/provenance, board revision and electrical/pinout verification, current
+installed-image/config/session verification and a named safe reset-free
+observer/recovery path need owner evidence and case-specific authorization.
+GS40 TC05 still needs a second enrolled Node or an approved profile fixture.
+Production prerequisites remain D05 CA/issuer and current Home/epoch/revocation
+source; D12 actual protected DS/eFuse custody and TEST_ONLY credential fixture;
+D06 approved signed bootstrap/verifier/CSPRNG nonce source, durable target
+counter/floor and freshness/floor-checkpoint thresholds; deployed trust mapping
+and live credentials/endpoints. No physical action occurred; no physical
+approval is implied by this software update.

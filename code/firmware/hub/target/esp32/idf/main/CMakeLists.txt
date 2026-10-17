@@ -20,6 +20,7 @@ if(IDF_TARGET STREQUAL "esp32s3")
     list(APPEND GS_HUB_SRCS
         "${GS_ROOT}/firmware/hub/cloud_sync/cloud_sync.cpp"
         "${GS_ROOT}/firmware/hub/cloud_sync/http_backend_transport.cpp"
+        "${GS_ROOT}/firmware/hub/target/esp32s3/cloud_trust_provider.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32s3/https_backend_channel.cpp")
 endif()
 

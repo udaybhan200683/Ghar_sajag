@@ -1,5 +1,56 @@
 # GS-40 NodeHealth software integration checkpoint — 2026-10-16
 
+## Follow-up — D05/D12/D06 integration seam — 2026-10-17
+
+This dated continuation supersedes the earlier follow-up's description of
+unimplemented provider *seams*. The S3 adapter now consumes shared typed
+identity/current-authority/time interfaces; the app remains wired to the
+explicit unprovisioned implementation and therefore still cannot send
+commercial CloudSync. TEST_ONLY host coverage now joins current HubRuntime
+contact through the existing bounded NodeHealth CloudSync publisher, exercises
+ownership transfer/revocation, per-device RSA-3072 DS credential constraints,
+TLS time readiness, authenticated-time recovery/rollback/floor persistence,
+and rejects proof nonce reuse. Backend verifier code and durable event/ACK
+semantics are unchanged.
+
+The HTTPS adapter sets ESP system time only from a fresh authenticated time
+snapshot before ESP-TLS certificate checks. It requires a Hub identity,
+credential generation/fingerprint, cloud-client purpose, RSA-3072 DS context,
+client certificate and TLS 1.2; no Authorization bearer fallback exists.
+Missing provider, endpoint or trust root remains fail closed. The abstract D06
+verifier, CSPRNG challenge source, durable target floor/boot-counter store and
+approved freshness/checkpoint thresholds do not have production implementations.
+
+Final-software-source focused results: `make cloudsync-security-ut` PASS
+(mTLS 9/9, D05/D12/D06/GS-40 provider suites, backend security 14/14,
+NodeHealth 5/5); `make cpp-test` PASS (1,509); P2D durable CloudSync/EventKey
+contract PASS (invalid receipts 15, pending 200, batch 16, retry 64, persistence
+cuts 2); local TLS worker/API bridge 1/1 PASS; validation framework 47/47;
+feature traceability 208 features / 220 modules / 24 physical cases / 22
+mapping tests PASS. The ESP-IDF 6.0.3 non-flashing S3 `GS_HIL_BUILD=OFF`
+production-profile app passed at 2,168,128 bytes in its 4 MiB slot, image
+SHA-256 `2052ba8d233b66bd753d5f6572c01acd4a4cd3daf6017dde70c27d628fde69b5`,
+sdkconfig SHA-256
+`79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`. It
+embedded the unchanged C3 app at 937,536 bytes, SHA-256
+`d94e011abd0e28b31cadb4dee2ff6451b0f5311c2783cdcbb2a631c03e86f765`. The
+initial configure with the ESP-IDF component manager disabled failed to resolve
+the pinned LittleFS dependency; rerun with the existing lockfile/manager enabled
+passed. Managed-component file hashes and `dependencies.lock` stayed unchanged.
+The build emitted one non-fatal `retirement_ack_sent` unused-variable warning
+in the Hub adapter. Historical backend
+and caregiver PWA results remain PASS; no browser/backend implementation was
+changed in this increment.
+
+Remaining owners: GS-68/GS-109 must supply approved production D05/D12 identity,
+credential custody and current Home/revocation source plus D06 authenticated
+bootstrap/verifier, durable target anti-rollback store and policy thresholds.
+The software CloudSync path remains TEST_ONLY; GS-40 and GS-68 physical gates
+remain BLOCKED/NOT_RUN pending those inputs and a separately identified,
+owner-authorized fixture. No serial, USB, board, flash, reset, credential issue,
+eFuse, production endpoint or physical operation was accessed. Git/Jira delivery
+evidence is added after final build verification.
+
 ## Follow-up — S3 runtime composition (2026-10-16)
 
 This follow-up supersedes the earlier statement below that the S3 product

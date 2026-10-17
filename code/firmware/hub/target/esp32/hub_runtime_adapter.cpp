@@ -21,6 +21,7 @@
 #if CONFIG_IDF_TARGET_ESP32S3
 #include "firmware/hub/cloud_sync/cloud_sync.hpp"
 #include "firmware/hub/cloud_sync/http_backend_transport.hpp"
+#include "firmware/hub/target/esp32s3/cloud_trust_provider.hpp"
 #include "firmware/hub/target/esp32s3/https_backend_channel.hpp"
 #include "firmware/hub/storage/durable_event_outbox.hpp"
 #include "firmware/hub/storage/outbox_journal_backend.hpp"
@@ -74,28 +75,6 @@ constexpr std::uint32_t kSecureOwnerStackBytes = 81920;
 constexpr std::uint32_t kCloudSyncRefreshMs = 5000U;
 constexpr std::uint32_t kCloudSyncWorkerDelayMs = 5000U;
 constexpr std::uint32_t kCloudSyncWorkerStackBytes = 8192U;
-
-// GS-109 must provide these values from the approved permanent Hub credential,
-// current ownership registry and trusted-time source. The production target has
-// no such provider yet; this implementation deliberately cannot read SNTP,
-// Hub/Home IDs derived from MAC, storage epoch, or caller-supplied headers.
-class S3CloudTrustProvisioning {
-public:
-    virtual ~S3CloudTrustProvisioning() = default;
-    // current_binding is queried from the owner and CloudSync network tasks;
-    // implementations must publish an immutable/thread-safe current snapshot
-    // and fail closed after transfer, revocation, or loss of credential proof.
-    virtual bool current_binding(CloudAuthorityBinding&) = 0;
-    // trusted_hub_time is called only from the Hub owner while it refreshes the
-    // immutable NodeHealth snapshot.
-    virtual bool trusted_hub_time(Milliseconds, TrustedHubTimeSnapshot&) = 0;
-};
-
-class UnprovisionedS3CloudTrust final : public S3CloudTrustProvisioning {
-public:
-    bool current_binding(CloudAuthorityBinding&) override { return false; }
-    bool trusted_hub_time(Milliseconds, TrustedHubTimeSnapshot&) override { return false; }
-};
 
 class S3CloudRuntimeAuthorityProvider final : public CloudRuntimeAuthorityProvider {
 public:
@@ -167,11 +146,6 @@ private:
     HubSecurityLink& security_link_;
     HubRuntime& runtime_;
     S3CloudTrustProvisioning& trust_;
-};
-
-class UnprovisionedCloudTlsIdentity final : public CloudTlsIdentityProvider {
-public:
-    bool current_identity(CloudTlsIdentity&) override { return false; }
 };
 
 struct CloudSyncTaskContext { CloudSyncWorker* worker{nullptr}; };
@@ -872,8 +846,7 @@ void secure_owner_task(void*) {
     S3CloudRuntimeAuthorityProvider cloud_authority(
         security_link, runtime, cloud_trust);
     CloudRuntimeAuthoritySource cloud_authority_source(cloud_authority);
-    UnprovisionedCloudTlsIdentity cloud_tls_identity;
-    HttpsBackendChannel cloud_channel("", "", cloud_tls_identity);
+    HttpsBackendChannel cloud_channel("", "", cloud_trust);
     HttpBackendTransport cloud_transport(cloud_channel);
     CloudSyncWorker cloud_worker(runtime.journal(), runtime,
                                  cloud_authority_source, cloud_transport);

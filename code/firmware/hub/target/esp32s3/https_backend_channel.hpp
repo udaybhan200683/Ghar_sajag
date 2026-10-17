@@ -1,5 +1,6 @@
 #pragma once
 #include "cloud_sync/http_backend_transport.hpp"
+#include <cstdint>
 
 namespace gs::hub::target {
 // Restricted cloud TLS identity. The provider owns the opaque DS context for
@@ -9,6 +10,12 @@ struct CloudTlsIdentity {
     std::string client_certificate_pem;
     void* ds_context{nullptr};
     unsigned rsa_bits{0};
+    std::string permanent_hub_id;
+    std::string certificate_fingerprint_sha256;
+    std::uint64_t credential_generation{0};
+    std::int64_t trusted_utc_seconds{0};
+    std::int64_t trusted_monotonic_ms{0};
+    std::uint64_t trusted_time_boot_generation{0};
     enum class Purpose { CloudTlsClient, Commissioning } purpose{Purpose::Commissioning};
 };
 class CloudTlsIdentityProvider {

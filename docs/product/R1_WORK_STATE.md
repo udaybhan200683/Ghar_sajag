@@ -1,5 +1,94 @@
 # R1 Current Work State
 
+## GS-68 D05/D12/D06 provider seams and GS-40 integration — 2026-10-17
+
+This is the latest canonical continuation of the GS-40/68/109/148 handoff.
+The task resumed on the sole canonical worktree
+`/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, at `cea35806b44ece7442a286606a7ec23bfe9ace87`;
+the branch was fetched and equal to origin before edits. Context preflight
+passed (`2026-10-13.001`). The previously untracked PWA BatteryAnalytics tree,
+ESP-IDF managed components, GS-114 captures and GS-40 UART evidence remain
+unstaged and preserved. No other worktree or branch was changed.
+
+Added `cloud_trust_provider` contracts and TEST_ONLY host fixtures. They model
+the permanent Hub identity, credential/certificate generation and cloud-only
+RSA-3072 DS signer context, atomic current Home/epoch/revocation snapshot,
+credential quarantine/revocation, and an authenticated-time startup/recovery
+state machine with nonce-bound proof verification, freshness, durable boot
+generation, monotonic rollback latching and policy-configured durable time-floor
+checkpoints. Unconfigured freshness or floor-checkpoint thresholds remain
+fail-closed. The production S3 owner still instantiates
+`UnprovisionedS3CloudTrust`; no fake credential, time authority, trusted SNTP,
+or production endpoint was introduced. The HTTPS channel requires authenticated
+time/Hub/credential metadata, passes only the DS context and client certificate,
+keeps TLS 1.2 and server certificate validation, has no bearer fallback, and
+sets ESP system time only from the authenticated provider snapshot. Existing
+backend mTLS verifier and NodeHealth model remain unchanged. The bounded GS-40
+NodeHealth CloudSync path and durable EventKey/ACK/retirement path are unchanged.
+
+Executed: `make cloudsync-security-ut` PASS (mTLS adapter 9/9; provider D05,
+D12, D06 and GS-40 integration suites PASS; backend security 14/14; NodeHealth
+API/model 5/5); `make cpp-test` PASS (1,509 checks); `make
+p2d-cloud-contract-host-test` PASS (15 invalid receipt modes, pending bound
+200, batch 16, retry 64, two persistence cuts); `make
+cloudsync-mtls-integration-test` PASS (1/1 local real-mTLS worker/API bridge,
+two attempts); `make validation-framework-test` PASS (47/47);
+`make feature-coverage-test` PASS (208 features, 220 modules, 24 physical
+cases, 22/22 mapping checks); suite JSON parsing and `git diff --check` PASS.
+The non-flashing ESP-IDF 6.0.3 S3 `GS_HIL_BUILD=OFF` production-profile build
+passed with `PROJECT_VER=gs68-provider-20261017`: 2,168,128-byte app image in
+the 4 MiB slot, SHA-256
+`2052ba8d233b66bd753d5f6572c01acd4a4cd3daf6017dde70c27d628fde69b5`, sdkconfig
+SHA-256 `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`.
+The paired C3 app was reused unchanged at 937,536 bytes, SHA-256
+`d94e011abd0e28b31cadb4dee2ff6451b0f5311c2783cdcbb2a631c03e86f765`. Build
+directory: `code/build/validation_targets/gs68-provider-KOykpg`. The initial
+configure with `IDF_COMPONENT_MANAGER=0` correctly failed because it hid the
+pinned LittleFS dependency; rerunning with the existing ESP-IDF lockfile and
+manager enabled completed. Before/after managed-component file hashes matched,
+and `dependencies.lock` stayed unchanged. The IDF build printed one
+non-fatal `unused variable 'retirement_ack_sent'` warning in the Hub adapter.
+The firmware build and size check returned success; an initial post-build hash
+command used the wrong sdkconfig path and was corrected by hashing the actual
+sibling sdkconfig. No flash command was run.
+
+The durable floor/high-water checkpoint and nonce-reuse tests were added during
+this continuation and are included in the final provider/security result above.
+No Hub journal migration or release aggregate was edited to mask existing
+failures: required `product_status=PARTIAL` and the known Hub migration
+`clean migration commits` failure remain. No PWA browser suite was rerun because
+no backend/PWA interface changed; the prior GS-40 PWA 86/86 and backend/API
+software evidence remains historical and separate from physical qualification.
+
+Affected component aggregates were executed sequentially after the focused
+tests. `make validation-hub` completed **FAIL / exit 2**: 47/49 stages PASS;
+the two failures are the unchanged `migration` assertion `clean migration
+commits` (exit 2, count 0) and required P0 `product_status=PARTIAL` (26/26
+assertions and its Chromium check pass, physical `NOT_RUN`). Report:
+`code/evidence/validation_framework/hub-1792205386802576887/report.json`.
+`make validation-contract` completed **FAIL / exit 2**: 40/41 stages PASS;
+the sole failure is that same P0 `PARTIAL` gate. Report:
+`code/evidence/validation_framework/contract-1792206089239429376/report.json`.
+No expectation was weakened and neither pre-existing failure was hidden.
+
+Production blockers: D05 needs the approved per-Hub CA/issuer, chain/trust-root
+and authenticated active Hub/Home/ownership-epoch/revocation registry source;
+D12 needs approved factory issuance/custody and actual ESP32-S3 DS/eFuse key
+provisioning plus isolated TEST_ONLY identity; D06 needs an approved signed-time
+bootstrap authority/protocol and nonce source, verifier trust anchor, durable
+target boot counter/floor store, response freshness and wear-bounded floor
+checkpoint/validity thresholds. All production provider implementations remain
+absent and commercial transmission stays disabled. Physical readiness additionally
+needs exact identified S3/C3 fixtures and verified current-image/config/session,
+owner-authorized safe observation/recovery plans, identity/time test fixtures,
+isolated backend trust mapping, and for GS-40 TC05 a second enrolled Node or an
+approved profile fixture. Physical cases remain NOT_RUN; no hardware action was
+performed. The exact image hashes and non-flashing build metadata are recorded
+in the dated evidence addenda. Jira receipts, committed source SHA, final
+local/remote equality and the next owner action will be recorded after the
+normal push.
+
 ## GS-40 S3 NodeHealth runtime composition — 2026-10-16
 
 The canonical task resumed on `/home/udaybhan/projects/Ghar_sajag_r1`, branch

@@ -37,6 +37,8 @@ class CloudSyncSecurityTest(unittest.TestCase):
         cls.other = issue_test_cert(ca_key, ca, "test-clone")
         cls.small = issue_test_cert(ca_key, ca, "test-small", key_bits=2048)
         cls.expired = issue_test_cert(ca_key, ca, "test-expired", expired=True)
+        cls.not_yet_valid = issue_test_cert(ca_key, ca, "test-not-yet-valid",
+                                            not_yet_valid=True)
         cls.server_only = issue_test_cert(ca_key, ca, "test-wrong-eku", client_purpose=False)
 
     def setUp(self):
@@ -141,6 +143,12 @@ class CloudSyncSecurityTest(unittest.TestCase):
             VerifiedHubContext(
                 **{**context.__dict__, "time_readiness": TimeReadiness.UNTRUSTED}
             ).internal_event_context()
+
+    def test_014_not_yet_valid_certificate_rejected(self):
+        self.credentials.records[self.not_yet_valid.fingerprint] = replace(
+            self.record, fingerprint_sha256=self.not_yet_valid.fingerprint)
+        with self.assertRaisesRegex(CloudClientRejected, "not_current"):
+            self.authorize(self.not_yet_valid.der)
 
 
 if __name__ == "__main__":

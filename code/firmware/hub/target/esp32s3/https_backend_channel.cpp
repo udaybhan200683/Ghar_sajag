@@ -2,8 +2,24 @@
 #include "esp_http_client.h"
 #include "esp_timer.h"
 #include <utility>
+#if defined(ESP_PLATFORM)
+#include <sys/time.h>
+#include <time.h>
+#endif
 
 namespace gs::hub::target {
+namespace {
+bool valid_cloud_identity_reference(const CloudTlsIdentity& identity) {
+    if (identity.permanent_hub_id.empty() || identity.permanent_hub_id.size() > 64 ||
+        identity.credential_generation == 0 ||
+        identity.certificate_fingerprint_sha256.size() != 64) return false;
+    for (const auto ch : identity.certificate_fingerprint_sha256) {
+        if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) return false;
+    }
+    return true;
+}
+}
+
 HttpsBackendChannel::HttpsBackendChannel(std::string origin, std::string trusted_ca,
                                          std::string authorization)
     : origin_(std::move(origin)), trusted_ca_(std::move(trusted_ca)),
@@ -24,6 +40,10 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
         if (!cloud_identity_->current_identity(identity) ||
             identity.purpose != CloudTlsIdentity::Purpose::CloudTlsClient ||
             identity.rsa_bits != 3072 || identity.ds_context == nullptr ||
+            identity.trusted_utc_seconds <= 0 ||
+            identity.trusted_monotonic_ms <= 0 ||
+            identity.trusted_time_boot_generation == 0 ||
+            !valid_cloud_identity_reference(identity) ||
             identity.client_certificate_pem.empty() ||
             identity.client_certificate_pem.size() > 8192 ||
             identity.client_certificate_pem.find("-----BEGIN CERTIFICATE-----") != 0 ||
@@ -42,6 +62,21 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
         authorization_.size() > 1024 || authorization_.find_first_of("\r\n") != std::string::npos ||
         path.compare(0, 10, "/v1/homes/") != 0 || path.size() > 128 ||
         body.empty() || body.size() > HttpBackendTransport::kMaximumRequestBytes) return result;
+#if defined(ESP_PLATFORM)
+    if (cloud_identity_ != nullptr) {
+        // ESP-TLS validates X.509 validity using the system clock. Set that
+        // clock only from the provider's authenticated snapshot; unauthenticated
+        // SNTP/wall-clock values never establish readiness or this TLS time.
+        const auto trusted_time = static_cast<time_t>(identity.trusted_utc_seconds);
+        if (trusted_time <= 0 ||
+            static_cast<std::int64_t>(trusted_time) != identity.trusted_utc_seconds)
+            return result;
+        timeval tv{};
+        tv.tv_sec = trusted_time;
+        tv.tv_usec = 0;
+        if (settimeofday(&tv, nullptr) != 0) return result;
+    }
+#endif
     const auto url = origin_ + path;
     esp_http_client_config_t config{};
     config.url = url.c_str();

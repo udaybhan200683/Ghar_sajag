@@ -46,14 +46,19 @@ def make_test_ca(name: str = "Ghar Sajag TEST ONLY CA"):
 
 def issue_test_cert(ca_key, ca_cert, name: str, *, server: bool = False,
                     key_bits: int = 3072, expired: bool = False,
+                    not_yet_valid: bool = False,
                     client_purpose: bool = True) -> TestCertificate:
     key = rsa.generate_private_key(public_exponent=65537, key_size=key_bits)
     now = datetime.now(timezone.utc)
     subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)])
     builder = (x509.CertificateBuilder().subject_name(subject).issuer_name(ca_cert.subject)
                .public_key(key.public_key()).serial_number(x509.random_serial_number())
-               .not_valid_before(now - timedelta(days=3) if expired else now - timedelta(hours=1))
-               .not_valid_after(now - timedelta(days=1) if expired else now + timedelta(days=1))
+               .not_valid_before(now - timedelta(days=3) if expired else
+                                 now + timedelta(days=1) if not_yet_valid else
+                                 now - timedelta(hours=1))
+               .not_valid_after(now - timedelta(days=1) if expired else
+                                now + timedelta(days=2) if not_yet_valid else
+                                now + timedelta(days=1))
                .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
                .add_extension(x509.ExtendedKeyUsage([
                    ExtendedKeyUsageOID.SERVER_AUTH if server or not client_purpose

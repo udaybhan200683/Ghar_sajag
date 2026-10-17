@@ -1154,15 +1154,24 @@
         "tests/python/test_node_health_status.py",
         "backend/migrations/012_node_health_latest.sql",
         "tests/cpp/cloudsync_mtls_adapter_validation.cpp",
+        "firmware/hub/target/esp32s3/cloud_trust_provider.cpp",
+        "firmware/hub/target/esp32s3/cloud_trust_provider.hpp",
+        "tests/cpp/cloud_trust_provider_validation.cpp",
         "tests/cpp/p2d_idf_fake/esp_http_client.h",
         "tests/support/test_cloudsync_security.py",
         "tests/support/cloudsync_mtls_certs.py"
       ],
-      "success": "^CLOUDSYNC MTLS ADAPTER PASS cases=(8) physical=NOT_RUN$",
+      "success": "^CLOUDSYNC MTLS ADAPTER PASS cases=(9) physical=NOT_RUN$",
       "required_success": [
-        "Ran 13 tests",
+        "Ran 14 tests",
         "Ran 5 tests",
-        "^GS-CLOUD-MTLS-UT-008 PASS$"
+        "GS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN",
+        "GS68-D05-AUTHORITY-PROVIDER PASS",
+        "GS68-D12-CREDENTIAL-PROVIDER PASS",
+        "GS68-D06-TIME-STATE-MACHINE PASS",
+        "GS40-PROVIDER-CLOUDSYNC-INTEGRATION PASS",
+        "^GS-CLOUD-MTLS-UT-008 PASS$",
+        "^GS-CLOUD-MTLS-UT-009 PASS$"
       ],
       "timeout": 600,
       "count_kind": "cases",
