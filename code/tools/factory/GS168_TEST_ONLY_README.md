@@ -29,6 +29,6 @@ Optional slower 100-unit sequential synthetic batch:
 GS168_TEST_100=1 python3 -m unittest discover -s code/tests/python -p 'test_gs168_pilot_issuer.py' -v
 ~~~
 
-**Safety boundary:** TEST_ONLY root and leaves carry a critical proprietary marker, and non-TEST_ONLY mode throws `NOT_READY_SECURITY_APPROVAL`. Real customer infrastructure must exclude all test CA roots and credentials, regardless of certificate contents. No real device provisioning, USB/serial, eFuse changes, firmware flashing, production CloudSync or manufacturing READY claims are authorized.
+**Safety boundary:** TEST_ONLY root and leaves carry the exact private GS-168 X.509 marker extension (`2.25.271828182845904523536028747135266249775`, value `GHAR_SAJAG_GS168_TEST_ONLY_V1`). The extension is deliberately **noncritical** for ordinary TLS interoperability; it is only a routing/test marker, not proof of identity or authority. GS-168 verification checks the exact marker and TEST_ONLY registry state. Any production trust bundle/verifier must exclude this test CA and its credentials. Non-TEST_ONLY issuer mode throws `NOT_READY_SECURITY_APPROVAL`. No real device provisioning, USB/serial, eFuse changes, firmware flashing, production CloudSync or manufacturing READY claims are authorized.
 
 GS-166 documents the minimal contract. GS-167, GS-169, GS-170 and GS-171 own future station CLI, QR registry, QA and wider integration tests. GS-172 independently gates the real hardware/credential procedure.

@@ -1,5 +1,32 @@
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-172 first-device provisioning and qualification package — 2026-10-17 (proposal/evidence only)
+
+GS-172 comment 11296 is addressed by a versioned, non-executable first-device
+SOP, a security approval matrix, a fixture-readiness checklist, and a linked
+GS-68/GS-40 physical acceptance plan. The bounded recommendation is one
+non-customer S3 fixture, isolated TEST_ONLY trust, one station/operator and an
+independent evidence reviewer for a 50–100 Hub pilot. It reuses GS-165–GS-171
+scope/contracts, the implemented GS-168 TEST_ONLY issuer, GS-109 and the
+existing GS-68/GS-40 source seams; it adds no PKI, ownership model, CloudSync
+transport or HIL framework. GS-167/GS-169–GS-171 remain planned/integration
+scope and are not represented as completed station software.
+
+This is a proposal, not a new LOCKED security/product decision. It does not
+select an issuer vendor/custodian, key-generation or DS/eFuse procedure,
+authenticated-time authority/threshold, protected rollback counter, registry
+service, Secure Boot/Flash Encryption fuse order, or recovery policy. The
+production app remains `UnprovisionedS3CloudTrust`; real DS/TLS/time target
+provisioning is not established. No board, USB/serial, certificate, eFuse,
+flash, production service or physical test was accessed or activated.
+Physical readiness remains NO-GO / NOT_RUN; P0 `product_status=PARTIAL` and
+the existing Hub journal-migration failure are unchanged. `CONTEXT_VERSION`
+remains `2026-10-13.001`. See
+[`GS172_FIRST_DEVICE_PROVISIONING_SOP_v1.0_20261017.md`](../exec-plans/evidence/GS172_FIRST_DEVICE_PROVISIONING_SOP_v1.0_20261017.md),
+[`GS172_SECURITY_DECISION_APPROVAL_MATRIX_v1.0_20261017.md`](../exec-plans/evidence/GS172_SECURITY_DECISION_APPROVAL_MATRIX_v1.0_20261017.md),
+[`GS172_FIRST_FIXTURE_READINESS_CHECKLIST_v1.0_20261017.md`](../exec-plans/evidence/GS172_FIRST_FIXTURE_READINESS_CHECKLIST_v1.0_20261017.md),
+and [`GS172_PHYSICAL_ACCEPTANCE_PLAN_v1.0_20261017.md`](../exec-plans/evidence/GS172_PHYSICAL_ACCEPTANCE_PLAN_v1.0_20261017.md).
+
 ## GS-68 D05/D12/D06 provider-seam continuation — 2026-10-17 (evidence only)
 
 The canonical S3 application now consumes one shared fail-closed cloud-trust

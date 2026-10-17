@@ -3918,6 +3918,57 @@ rerun focused source-to-caregiver gates. Keep production feed and physical
 qualification disabled until their separate prerequisites and approvals are met.
 
 
+## GS-172 first-device S3 security qualification package — 2026-10-17
+
+GS-172 comment 11296 is addressed with four versioned records:
+`GS172_FIRST_DEVICE_PROVISIONING_SOP_v1.0_20261017.md`,
+`GS172_SECURITY_DECISION_APPROVAL_MATRIX_v1.0_20261017.md`,
+`GS172_FIRST_FIXTURE_READINESS_CHECKLIST_v1.0_20261017.md`, and
+`GS172_PHYSICAL_ACCEPTANCE_PLAN_v1.0_20261017.md`. They follow GS-165–GS-171
+pilot scope/contracts and reuse the implemented GS-168 TEST_ONLY issuer,
+GS-109 Home/epoch authority seam, GS-68 D05/D12/D06 provider seam and existing
+GS-68/GS-40 physical cases. GS-167/GS-169–GS-171 remain planned/integration
+scope and are not represented as completed station software. No replacement
+PKI, backend authority model, transport, or validation infrastructure was
+introduced.
+
+The proposed pilot is one disposable non-customer S3 fixture, one isolated
+TEST_ONLY issuer/time/backend, one operator and one independent evidence
+reviewer for 50–100 Hubs. The decision matrix separates owner-ready scope/model
+decisions from Security review of issuer custody, RSA-3072 DS key generation
+and eFuse/HMAC handling, D06 authority/rollback limits, production registry
+lifecycle, and Secure Boot/Flash Encryption/anti-rollback/recovery order. The
+SOP is non-executable. Secure Boot/Flash Encryption sequencing is tied to the
+pinned ESP-IDF 6.0.3 workflow and requires a source-pinned reviewed procedure;
+the current S3 product lacks a production signed OTA/recovery path, so
+irreversible commercial lock-down is NO-GO.
+
+Current fixture readiness is NO-GO: board/revision, installed image,
+source/config/session, target DS signer, physical test-only credential/time
+fixtures, safe reset-free observer, recovery owner and fixture authorization
+are not established. The S3 app still composes `UnprovisionedS3CloudTrust`;
+the production providers and key/counter hardware are not instantiated or
+qualified. Existing GS-68 TEST_ONLY host evidence is retained as software
+evidence only. GS68-PHY-001..010 and PHY-GS40-01..06 remain NOT_RUN; TC05 needs
+another independently enrolled Node or approved profile fixture. BAT-C8
+evidence remains untouched. P0 `product_status=PARTIAL` and the existing Hub
+journal migration FAIL are preserved.
+
+This package makes no product/security decision, does not increment
+`CONTEXT_VERSION`, and does not authorize hardware or production operations.
+The starting canonical checkpoint was `71f7dc0518fc4705d2467bc70f772d861b02750e`
+on `feature/r1-commercial-baseline`, synchronized with origin with a clean
+tracked tree; all existing untracked PWA assets, IDF managed components,
+CloudSync architecture notes, GS-114/C8 and GS-40 evidence remain preserved
+and unstaged. The other historical worktrees were not modified, and no active
+writer was detected at the pre-edit check. Final delivery SHA and remote
+equality are recorded in the GS-172 Jira closeout. Next action: review and
+approve the owner scope rows, route P2–P8 to Security, implement and validate
+the target DS/time composition behind TEST_ONLY fixtures, then prepare exact
+fixture/image/observer/recovery records and request separate physical
+authorization.
+
+
 ## GS-68 D05/D12/D06 signed-time and registry follow-up — 2026-10-17
 
 Resumed on canonical `feature/r1-commercial-baseline` at local/origin
