@@ -4312,3 +4312,27 @@ remain UNKNOWN; candidate installation is NO-GO. After Windows interop is
 restored, verify the current device identity and port ownership before a single
 bounded `usb-reset`/ROM security query. Full evidence and the private receipt
 hash are in the linked GS-68 evidence record.
+
+### GS-172 / GS-68 controlled read-only ROM inspection — 2026-10-17
+
+Windows interop recovered. Current COM10/BUSID 3-1 metadata matched the
+restricted spare receipt; C8 was not accessed. One authorized esptool v5.4.0
+`usb-reset` entry succeeded. `get-security-info` and filtered read-only eFuse
+inspection observed Secure Boot disabled, Flash Encryption disabled, normal
+USB ROM download not fuse-disabled, and no secure-download mode. Flash ID
+reported 16 MiB. Read-only flash access succeeded.
+
+Installed table at measured offset 0x8000 has a valid MD5 and entries matching
+the candidate layout; OTA metadata at 0xF000 selects valid OTA0 at 0x20000.
+Bootloader image and app image validate as ESP-IDF v6.0.3. A 1 MiB private
+OTA0 capture fully contains the installed app image and covers the candidate's
+278,944-byte app write range. A full 4 MiB backup attempt timed out without a
+file; the smaller validated recovery range succeeded. Private artifacts and
+hashes are documented in the GS-68 evidence file; private backups remain
+outside Git. Restore was not tested because it would modify flash.
+
+Partition compatibility and an app-only recovery method are now prepared, but
+no candidate installation or write was performed under this task. Candidate
+remains uninstalled; running image differs from the candidate. Official GS-68
+and GS-40 physical acceptance, silicon DS signing and mTLS remain NOT_RUN. A
+separate installation authorization/task is required to act on the candidate.

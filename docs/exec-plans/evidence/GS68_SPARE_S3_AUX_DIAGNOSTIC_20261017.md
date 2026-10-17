@@ -231,3 +231,123 @@ be attempted, with a bounded `get-security-info` query and no stub. Stop on any
 failure; manual BOOT/EN intervention needs separate owner availability and
 approval. No partition access or installation is permitted until protection
 state and recovery readiness are known.
+
+## 2026-10-17 — ROM security and read-only partition/recovery inspection
+
+### Current fixture and transport
+
+Windows interoperability recovered: `cmd.exe /c ver` returned Windows
+10.0.19045.6466 and PowerShell returned 5.1.19041.6456. Canonical repository
+started at `39f52be046b399492e7259b6f5a6f0de826e1fb3`, synchronized with origin;
+context preflight passed. Current Windows USB parent metadata matched the
+restricted spare token hash; COM10 was present with WMI status OK, and usbipd
+showed BUSID 3-1 / VID:PID 303a:1001 as Shared. No other process command line
+referenced COM10; no handle-inspection utility was installed. The USB parent
+identity matched the prior spare receipt and is distinct from protected C8
+inventory. No C8 interface was opened.
+
+Installed Windows esptool/espefuse version was 5.4.0. A single automatic
+ROM-entry and read-only security query succeeded using:
+
+```text
+esptool.exe --chip esp32s3 --port COM10 --baud 115200 --before usb-reset --after no-reset --no-stub --connect-attempts 1 get-security-info
+```
+
+It identified ESP32-S3 QFN56 revision v0.2, 8 MiB embedded PSRAM, USB
+Serial/JTAG, and returned security flags `0x00000000`: **Secure Boot Disabled**,
+**Flash Encryption Disabled**, `SPI_BOOT_CRYPT_CNT=0`. The command left the
+device in ROM bootloader. A filtered, read-only `espefuse summary` query (no key
+blocks) confirmed `DIS_DOWNLOAD_MODE=False`, `ENABLE_SECURITY_DOWNLOAD=False`,
+`DIS_FORCE_DOWNLOAD=False`, `DIS_USB_SERIAL_JTAG_DOWNLOAD_MODE=False`,
+`DIS_USB_OTG_DOWNLOAD_MODE=False`, `DIS_USB_JTAG=False`,
+`DIS_USB_SERIAL_JTAG=False`, `DIS_DOWNLOAD_MANUAL_ENCRYPT=False`,
+`SECURE_BOOT_EN=False`, `SPI_BOOT_CRYPT_CNT=0`, and `RD_DIS=0`. The S3 ROM
+download path is therefore not fuse-disabled and secure-download mode is not
+enabled. This is observed eFuse/report data, not an inference from compilation.
+
+`esptool flash-id` returned manufacturer `0x68`, device `0x4018`, and detected
+flash capacity **16 MiB**. A real `read-flash` command succeeded, establishing
+ROM flash readback capability. Flash writes were not tested.
+
+### Installed layout and image evidence
+
+The following data was read with Windows-native esptool `--before no-reset
+--after no-reset --no-stub --connect-attempts 1`; no reset occurred after ROM
+entry:
+
+| Readback | Observed result | Private SHA-256 |
+|---|---|---|
+| Bootloader, 0x00000000, 0x8000 bytes | Valid ESP32-S3 image, flash size 16 MiB, checksum and image hash valid; ESP-IDF v6.0.3, compiled 2026-10-17 05:50:18 UTC | `ae304441aaaad2b52765d48f4b37752f2ab26a65a480f5f1f9586cd54ebe1580` |
+| Partition table, 0x8000, 0x1000 bytes | Valid entry MD5; six entries below; first 3072 bytes match candidate table exactly, followed by erased 0xFF padding | `101adada9e724af39b0ff503d609f7cf90378f5aa3a6be03799ba695160337d9` |
+| OTA metadata, 0xF000, 0x2000 bytes | Valid OTA data CRC; sequence 1 and valid state select OTA0; second record erased/invalid | `8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3` |
+| OTA0 app recovery range, 0x20000, 0x100000 bytes | Complete ESP32-S3 app image validates checksum and SHA-256 footer; app version `072e94`, ESP-IDF v6.0.3; source commit not established | `f15fb947e95e8e1526508bd79258554b2511ff6860d63e9059ca51908d5af41d` |
+
+Measured installed partition entries:
+
+| Label | Type/subtype | Offset | Size |
+|---|---:|---:|---:|
+| nvs | 0x01/0x02 | 0x9000 | 0x6000 |
+| otadata | 0x01/0x00 | 0xF000 | 0x2000 |
+| phy_init | 0x01/0x01 | 0x11000 | 0x1000 |
+| ota_0 | 0x00/0x10 | 0x20000 | 0x400000 |
+| ota_1 | 0x00/0x11 | 0x420000 | 0x400000 |
+| gs_journal | 0x01/0x02 | 0x820000 | 0x200000 |
+
+The installed 16 MiB table matches the TEST_ONLY candidate's partition entries
+and offsets. The installed app image is not the candidate: its observed app
+version/ELF digest differ from candidate version `cfc89a8` / ELF SHA-256
+`67a0ba642bca413e4018c0102d2a4c4e1d3b646e2f3b5add94abd8cf90d20c46`. The
+candidate remains 278,944 bytes, SHA-256
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`, and fits
+the measured 4 MiB OTA slots.
+
+### Recovery assessment and limits
+
+A 4 MiB OTA0 readback was attempted with a 330-second bound; it timed out at
+approximately 94.9% and produced no output file. It is not treated as a
+backup. Two successful 512 KiB reads were then combined into a contiguous 1 MiB
+private capture. `esptool image-info` validates the entire installed app image
+within that 1 MiB range. The range is larger than the candidate's 278,944-byte
+write length and covers the bytes/sectors an app-only update of the candidate
+would alter. Bootloader, partition table and OTA metadata were also read and
+hashed; NVS, OTA1 and `gs_journal` contents were intentionally not read.
+
+The private backup directory is mode 0700; readback and manifest files are
+mode 0600. The manifest SHA-256 is
+`4021c2294e7ee157800edffc4e115f03635611e9b0aaa0c822935bba44f607c6`. It records
+the commands and all private artifact hashes. No raw device identifiers,
+backups, NVS contents, credentials, or key material were committed or uploaded.
+
+**Recovery path:** after separate authorization, an app-only restore can write
+the private 1 MiB OTA0 capture back at the measured address `0x20000`, using
+esptool's documented `write-flash` address/file form, ROM USB Serial/JTAG, and
+no force/security override. The bootloader, table and OTA metadata are not part
+of the app write and remain unchanged. This command path and source image are
+validated offline, but restoration was not exercised (would modify flash).
+Therefore the recovery path is prepared and bounded to the app region, not
+destructive-restore tested. Full-flash, NVS, OTA1 or journal recovery is not
+established.
+
+| Gate | Result |
+|---|---|
+| Spare identity / C8 exclusion | PASS, current USB parent token matches restricted spare receipt; C8 untouched |
+| ROM entry and security report | PASS; one `usb-reset`, one connect attempt, no stub |
+| Secure Boot / Flash Encryption | Observed disabled / disabled |
+| ROM download restrictions | Queried download-disable bits false; normal ROM download not fuse-disabled |
+| Flash readback | PASS; flash-id and read-flash succeeded |
+| Installed partition/active slot | PASS; measured table, valid OTA metadata selects OTA0 |
+| Candidate partition compatibility | PASS; table content matches and candidate fits OTA0 |
+| App-only recovery artifact | PASS; complete valid app image plus candidate write-range margin, private/hash-verified |
+| Physical restore test | NOT_RUN; no flash modifications authorized |
+| Candidate installed / running-image match | NO / NO |
+| GS-68 and GS-40 official physical acceptance | NOT_RUN |
+
+The earlier 330-second full-slot read timeout did not change flash. Current task
+prohibits installation or writes, so no candidate was flashed. A separate task
+must authorize any future installation and use the exact current candidate
+digest, measured OTA0 offset, private app recovery file, no `--force`, and
+stop/recovery conditions. Production DS signing/mTLS, credentials and all
+official GS-68/GS-40 physical cases remain unqualified. Espressif documents the
+filtered eFuse summary as a read operation and ROM/download behavior in its
+[ESP32-S3 eFuse summary guide](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/espefuse/summary-cmd.html)
+and [ESP32-S3 serial connection guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/get-started/establish-serial-connection.html).
