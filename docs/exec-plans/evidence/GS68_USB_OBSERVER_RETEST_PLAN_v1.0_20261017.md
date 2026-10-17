@@ -327,3 +327,10 @@ checks. A later formal physical qualification still needs a correctly
 image-bound capture, reset/event correlation where required, certificate/DS
 provisioning decisions, and the official case evidence. No C8 or C3 access
 occurred.
+
+Post-session hardening: the restricted orchestration script now selects the
+stack-8192 fixture and checks fixture/build-report/install-receipt equality,
+including checksums for each installation evidence artifact, before any PnP
+or serial access. Its syntax was checked with py_compile. This post-session
+guard was not used for, and did not alter, the preserved physical result; no
+additional device session was run.

@@ -4678,3 +4678,9 @@ evidence directory. Next: correct the orchestration fixture binding for any
 future session; do not repeat the completed diagnostic. For formal GS-68/GS-40
 physical acceptance, obtain the required security-provisioning approvals and
 run the official cases on exact-image-bound evidence.
+
+After recording the result, the restricted auxiliary-session orchestration
+script was corrected to use the stack-8192 fixture and to reject mismatched
+build/install receipts before PnP or serial access. Its syntax check passed;
+this guard was not used for the already completed session and was not followed
+by another device access. See the dated evidence addendum for the distinction.
