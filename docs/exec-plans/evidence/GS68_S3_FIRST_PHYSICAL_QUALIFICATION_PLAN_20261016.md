@@ -144,8 +144,9 @@ the 4 MiB app slot. Its sdkconfig SHA-256 is
 `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`. It embeds
 the unchanged previously validated C3 app (937,536 bytes, SHA-256
 `d94e011abd0e28b31cadb4dee2ff6451b0f5311c2783cdcbb2a631c03e86f765`). The
-source commit is recorded in the adjacent GS-40 readiness addendum. For a
-future installed-image check, an owner-approved
+source commit `42f74034d5f1f5acd2c605ffee37f540da42ef7e` is pushed on the
+canonical branch. Jira evidence: GS-68 comment `11286`, GS-109 `11287`, GS-40
+`11288`. For a future installed-image check, an owner-approved
 fixture operator must read back the booted application image through the
 approved reset-safe observer and compare its device/image manifest to that
 exact SHA; a source build or UART log alone is insufficient. C3 pairing reuses

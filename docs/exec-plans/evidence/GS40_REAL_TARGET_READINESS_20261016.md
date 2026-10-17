@@ -439,8 +439,10 @@ sdkconfig SHA-256 is
 `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`. It
 embeds the unchanged previously validated C3 image (937,536 bytes, SHA-256
 `d94e011abd0e28b31cadb4dee2ff6451b0f5311c2783cdcbb2a631c03e86f765`). The
-build used project version `gs68-provider-20261017`; the final source commit
-is recorded in delivery evidence. Managed-component file hashes were identical
+build used project version `gs68-provider-20261017`; source commit
+`42f74034d5f1f5acd2c605ffee37f540da42ef7e` was pushed to the canonical branch.
+Jira evidence: GS-40 comment `11288`, GS-68 `11286`, GS-109 `11287`.
+Managed-component file hashes were identical
 before and after. Prior caregiver browser result remains 86/86; it was
 not rerun because PWA code/contracts were not changed.
 

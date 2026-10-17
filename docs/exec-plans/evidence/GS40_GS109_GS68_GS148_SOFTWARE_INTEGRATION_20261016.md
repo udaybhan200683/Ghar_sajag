@@ -48,8 +48,11 @@ bootstrap/verifier, durable target anti-rollback store and policy thresholds.
 The software CloudSync path remains TEST_ONLY; GS-40 and GS-68 physical gates
 remain BLOCKED/NOT_RUN pending those inputs and a separately identified,
 owner-authorized fixture. No serial, USB, board, flash, reset, credential issue,
-eFuse, production endpoint or physical operation was accessed. Git/Jira delivery
-evidence is added after final build verification.
+eFuse, production endpoint or physical operation was accessed. Implementation
+commit `42f74034d5f1f5acd2c605ffee37f540da42ef7e` was pushed to the canonical
+branch and matched GitHub. Jira comments were added without workflow changes:
+GS-68 `11286`, GS-109 `11287`, GS-40 `11288`; GS-148 was not updated because
+its backend/PWA code was unchanged.
 
 ## Follow-up — S3 runtime composition (2026-10-16)
 

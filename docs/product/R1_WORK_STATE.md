@@ -85,9 +85,16 @@ owner-authorized safe observation/recovery plans, identity/time test fixtures,
 isolated backend trust mapping, and for GS-40 TC05 a second enrolled Node or an
 approved profile fixture. Physical cases remain NOT_RUN; no hardware action was
 performed. The exact image hashes and non-flashing build metadata are recorded
-in the dated evidence addenda. Jira receipts, committed source SHA, final
-local/remote equality and the next owner action will be recorded after the
-normal push.
+in the dated evidence addenda. Source commit
+`42f74034d5f1f5acd2c605ffee37f540da42ef7e` was pushed normally to the
+canonical branch and matched GitHub at source-checkpoint verification. Jira
+comments were added without workflow transitions: GS-68 `11286`, GS-109
+`11287`, GS-40 `11288`; GS-148 was not updated because its backend/PWA
+implementation was not changed. This documentation receipt records those
+results. The next owner action is to approve/supply the production D05/D12
+identity and authority provider, then approve the D06 proof, storage and timing
+contract before a production adapter is instantiated; physical fixture and
+case-specific authorization are a separate prerequisite.
 
 ## GS-40 S3 NodeHealth runtime composition — 2026-10-16
 
