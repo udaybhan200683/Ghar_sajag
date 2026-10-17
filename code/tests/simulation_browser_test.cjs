@@ -1,4 +1,4 @@
-// Engineering-lab actual-browser test. The Parivar Sathi PWA is served at `/`; legacy engineering lab is `/lab`.
+// Engineering-lab actual-browser test. The Parivar Saathi PWA is served at `/`; legacy engineering lab is `/lab`.
 // Requires Playwright + its Chromium browser; manual browser use has no npm dependency.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');

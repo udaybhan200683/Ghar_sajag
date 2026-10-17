@@ -1,69 +1,70 @@
 # Parivar Saathi caregiver Android app
 
-**Current artifact scope:** installable Android **dashboard-only test build**. It
-loads the existing remote Parivar Saathi PWA in a WebView after the user enters
-an approved HTTPS service origin. It contains no local caregiver account, sample
-dashboard, simulated backend, or `example.invalid` runtime default. The configured
-origin is persisted locally; HTTPS navigation is restricted to that host, HTTP
-and mixed content are disabled, SSL errors are rejected, third-party cookies and
-privileged JavaScript bridges are not enabled, and WebView permissions are
-denied.
+## Current build scope
 
-Push notifications, FCM token registration, call invitations, microphone access,
-WebRTC, automatic abnormality calling and backup escalation are **disabled and
-not included in the dashboard APK**. The imported Android call classes are kept
-under `prototype/android/`, outside the Gradle app source tree; signaling and
-FCM files remain prototype source only. Production identity/session issuance, current Home role
-and epoch checks, revocation, a live authenticated HTTPS deployment, durable call
-management, TURN credentials and S3 Hub media are still upstream dependencies.
-No screen or local state in this APK substitutes for those services.
+The Android app starts the existing shared PWA bundled in the APK. It does not
+show a server-address form. The app label is **Parivar Saathi**; launcher,
+adaptive, round and monochrome icons use the approved family/home/shield mark.
+The Android launch splash combines that mark with the supplied Parivar Saathi
+wordmark and tagline. The PWA header and install manifest use the same logo and
+brand spelling.
 
-## Hosted build and install
+The app can start without a network and shows the familiar Home, Devices,
+Reports and Settings navigation with an explicit **Offline / Unable to connect**
+state. It contains no cached or simulated household status. Monitoring,
+notifications and calls remain unavailable until an authenticated caregiver
+service exists. Production sign-in, current-Home authorization, persistent
+household APIs, FCM delivery and S3 WebRTC are not implemented or qualified by
+this dashboard build.
 
-The isolated GS-177 branch workflow
-`.github/workflows/gs177-android-dashboard-apk.yml` builds with JDK 17, Gradle
-8.9, Android SDK platform 35 and Build Tools 35.0.0. It runs the Kotlin
-origin-validation unit tests, builds the debug APK, verifies its Android debug
-signature, writes `SHA256SUMS` and source/build metadata, and uploads the
-artifacts for 14 days. It also runs the separately registered call-signaling
-prototype contract tests and JavaScript/XML checks. The workflow uses no
-repository secrets and no Firebase configuration.
-
-After a successful run, download and unzip the artifact named
-`parivar-saathi-caregiver-debug-<commit-sha>` from that GitHub Actions run. On an
-Android device with API 26 or later:
-
-1. Verify the downloaded APK against the included `SHA256SUMS` file.
-2. Open the APK and allow installation from that file source if Android asks.
-3. Launch **Parivar Saathi** and enter the real HTTPS domain supplied by the
-   Ghar Sajag service owner. Do not enter a simulator, localhost, test domain,
-   or an unapproved server.
-4. The app opens that server's existing PWA. PWA authentication, authorization,
-   data freshness and available screens come from the server and must be
-   verified there; this build does not create or grant a caregiver session.
-
-This is a runner-generated Android **debug-signed testing APK**, not a
-pilot/release-signed binary. The runner's debug signing key is not retained or
-committed. Keep the exact artifact for reinstall; a later build signed by a
-different runner key will not update it in place. Uninstall the prior debug app
-before installing an APK with a different signing certificate. No keystore or
-private signing key is stored in this repository.
-
-## Local build
-
-Install JDK 17, Android SDK platform 35 and Build Tools 35.0.0, then run from
-`android/`:
+The approved logo was copied to `branding/source/Parivar_Saathi_Logo.png` from
+the owner-provided GS-40 source. Regenerate the PNG resources with:
 
 ```sh
-gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+python3 branding/generate_parivar_saathi_assets.py
 ```
 
-The output is `android/app/build/outputs/apk/debug/app-debug.apk`. The APK opens
-the server configuration screen because no service endpoint is embedded. This
-build command is reproducible from the pinned Gradle/plugin/SDK versions, but
-the runner-generated debug signing key is intentionally not reproducible or
-reused.
+The generator uses Python's standard library. It does not alter the source logo.
+The monochrome notification image is a resource only; FCM and Android
+notifications are disabled.
 
-`verify.sh` runs the isolated signaling/provider prototype tests and JavaScript
-syntax/XML checks. Those tests do not qualify the Android APK, production auth,
-FCM delivery, deployed backend, S3 media or full product behavior.
+## HTTPS origin configuration
+
+The origin is an internal build setting, never an in-app prompt. Builds reject
+HTTP, local/reserved hosts, credentials, paths, query strings, fragments and
+nonstandard ports. A debug endpoint can be supplied as a Gradle property:
+
+```sh
+gradle --no-daemon -PcaregiverDebugBackendOrigin="$CAREGIVER_API_ORIGIN" \
+  :app:testDebugUnitTest :app:assembleDebug
+```
+
+Set `CAREGIVER_API_ORIGIN` locally to an approved HTTPS service domain, not a
+simulator or local development server.
+The current PWA runtime still sets `caregiverApiConfigured=false`; adding an
+origin alone does not enable login or fetch household data. The default build
+therefore remains honestly offline. The release build does not allow the debug
+endpoint option. No secrets, Firebase configuration or signing key belong in
+Gradle properties committed to this repository.
+
+## Hosted APK and install
+
+The isolated workflow
+`.github/workflows/gs177-android-dashboard-apk.yml` runs JDK 17, Gradle 8.9,
+Android SDK 35 and Build Tools 35.0.0. It checks the logo provenance and Android
+resource dimensions, runs the PWA runtime and Kotlin origin tests, builds the
+debug APK, verifies its signature and APK resources, writes `SHA256SUMS` and
+build metadata, and uploads the artifact for 14 days. The signing key is
+runner-generated and testing-only.
+
+After the current GS-177 branch workflow succeeds, download
+`parivar-saathi-caregiver-debug-<commit-sha>` from that run. Verify the APK with
+the included `SHA256SUMS`, uninstall any earlier debug APK signed by another
+runner key, then install the new APK on Android API 26 or later. Launch
+**Parivar Saathi**; it opens the bundled UI immediately, including when the
+phone has no network. The startup UI does not imply live monitoring, household
+authorization, notifications or calling.
+
+The hosted runner can prove build and packaging only. It cannot prove a physical
+phone install, live HTTPS login, mobile-data operation, FCM display/answer, or
+Hub-to-phone audio. Keep GS-177 open until those real acceptance gates pass.

@@ -64,4 +64,48 @@ class Pwa68BrowserTest(unittest.TestCase):
    try:proc.wait(timeout=5)
    except subprocess.TimeoutExpired:proc.kill();proc.wait()
    shutil.rmtree(profile,ignore_errors=True)
+ def test_caregiver_runtime_starts_offline_without_simulated_household_data(self):
+  original=self.web.runtime_config
+  self.web.runtime_config={"mode":"caregiver","backendOrigin":"https://care.gharsajag.in/","caregiverApiConfigured":False}
+  port=free_port();profile=tempfile.mkdtemp(prefix='ps-caregiver-offline-')
+  proc=subprocess.Popen([self.chromium,'--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--remote-allow-origins=*',f'--remote-debugging-port={port}',f'--user-data-dir={profile}','about:blank'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+  try:
+   version=None
+   for _ in range(100):
+    try: version=json.loads(urlopen(f'http://127.0.0.1:{port}/json/version',timeout=.5).read());break
+    except Exception: time.sleep(.1)
+   self.assertIsNotNone(version,'Chromium DevTools endpoint did not start')
+   req=Request(f'http://127.0.0.1:{port}/json/new?{quote(self.base,safe="/:?=&")}',method='PUT')
+   page=json.loads(urlopen(req,timeout=3).read());ws=websocket.create_connection(page['webSocketDebuggerUrl'],timeout=10)
+   try:
+    cdp(ws,'Page.enable');cdp(ws,'Runtime.enable');cdp(ws,'Network.enable')
+    deadline=time.time()+15;dom=None
+    while time.time()<deadline:
+     result=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const e=document.querySelector('#connectionStatus');return e?{banner:e.innerText,home:document.querySelector('#homeTab')?.innerText||'',pilot:!!document.querySelector('.sim-sidebar')}:null})()",'returnByValue':True})
+     dom=result.get('result',{}).get('value')
+     if dom and 'Home unavailable' in dom['home']:break
+     time.sleep(.1)
+    self.assertIsNotNone(dom,'caregiver UI did not render')
+    self.assertIn('Offline / Unable to connect',dom['banner'])
+    self.assertIn('freshness are unavailable',dom['banner'])
+    self.assertIn('Home unavailable',dom['home'])
+    self.assertFalse(dom['pilot'])
+    branding=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const name=document.querySelector('.brand-name');const icon=document.querySelector('.brand-icon');return {name:name?.textContent?.trim(),icon:icon?.getAttribute('src'),loaded:!!icon?.complete&&icon.naturalWidth===192}})()",'returnByValue':True})['result']['value']
+    self.assertEqual(branding,{'name':'Parivar Saathi','icon':'assets/parivar-saathi-icon-192.png','loaded':True},'PWA branding must use the approved logo mark and name')
+    forbidden=cdp(ws,'Runtime.evaluate',{'expression':"/simulation-owner|simulation-home|All is well at home|Home looks normal/.test(document.body.innerText)",'returnByValue':True})['result']['value']
+    self.assertFalse(forbidden,'caregiver UI exposed simulator identity or a synthetic healthy state')
+    resources=cdp(ws,'Runtime.evaluate',{'expression':"performance.getEntriesByType('resource').map(x=>x.name).filter(x=>/\\/(?:pwa|v1)\\//.test(new URL(x).pathname))",'returnByValue':True})['result']['value']
+    self.assertEqual(resources,[],'offline startup must not call simulator or placeholder production API routes')
+    for tab,heading in [('devices','Devices unavailable'),('reports','Reports unavailable'),('settings','Caregiver sign-in')]:
+     cdp(ws,'Runtime.evaluate',{'expression':f"document.querySelector('[data-tab=\\\"{tab}\\\"]').click()"})
+     panel=cdp(ws,'Runtime.evaluate',{'expression':f"document.querySelector('#{tab}Tab').innerText",'returnByValue':True})['result']['value']
+     self.assertIn(heading,panel)
+    print('PASS caregiver offline browser E2E: familiar tabs, explicit unavailable state, no simulator data or API calls')
+   finally: ws.close()
+  finally:
+   self.web.runtime_config=original
+   proc.terminate()
+   try:proc.wait(timeout=5)
+   except subprocess.TimeoutExpired:proc.kill();proc.wait()
+   shutil.rmtree(profile,ignore_errors=True)
 if __name__=='__main__':unittest.main(verbosity=2)

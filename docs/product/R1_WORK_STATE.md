@@ -1,5 +1,53 @@
 # R1 Current Work State
 
+## GS-177 caregiver Android live-backend and startup audit — 2026-10-17
+
+GS-177 resumed only in the explicitly authorized isolated worktree
+`/home/udaybhan/projects/Ghar_sajag_gs177`, branch
+`feature/gs-177-caregiver-android`, starting HEAD
+`9b0f697bcf178e10fc4a164cda542270d193644d`; local and remote refs matched and
+the tree was clean. The worktree context preflight passed at
+`2026-10-13.001`. The active GS-40 canonical worktree was read-only and its
+existing untracked source/evidence was preserved.
+
+The existing APK and workflow remain intact; this checkpoint did not create a
+new APK. The owner reports that the dashboard APK was installed, but no device
+log, authenticated backend session or mobile-data evidence was provided. The
+PWA source `code/tools/sim/pwa/app.js` hard-codes the development
+`X-Actor-Id: simulation-owner` and `simulation-home`; `http_api.py` documents
+that actor header as development-only and binds its demo server to loopback.
+`human_authentication.py` is an inactive verifier/session seam. The backend
+composition defaults to in-memory state, the SQL adapter is SQLite-only, and
+`code/deployment/ops/compose.yaml` has no API/PWA/auth/TLS service. An installed
+PostgreSQL container therefore would not produce a real caregiver backend.
+
+GS-143 remains To Do; GS-68/109 production issuer/Home authority is unapproved;
+GS-148 durable production backend work is open; GS-40 remains active. No OIDC
+tenant/client, production Home membership/epoch/revocation authority, hosting
+account/domain or managed application database has been supplied. No public
+deployment was attempted. Priority-1 status is `BLOCKED_AUTH_PROVIDER` and
+`BLOCKED_DEPLOYMENT`; `LIVE_HTTPS_PWA_URL=NOT_DEPLOYED`.
+
+Owner addendum: the first-run server-address screen and missing offline startup
+are now an explicit GS-177 requirement. The current app uses remote WebView
+navigation; bundling `tools/sim/pwa/` unchanged would also bundle simulator
+identity and APIs. Preserve one UI source, remove the manual endpoint screen,
+configure the approved HTTPS backend internally, and show the familiar bundled
+UI with explicit offline/unknown state and no household data when unavailable.
+This becomes the next bounded app integration after the API/auth/Home runtime
+contract is established; it must not be misrepresented as backend completion.
+Detailed source facts, sequence, test receipts and the per-use-case matrix are
+in [`GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md`](../exec-plans/evidence/GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md).
+
+Focused local tests passed: injected human-auth boundary 14/14, caregiver JS
+24/24, simulator-backed PWA API 1/1 and frontend 1/1. These are not production
+OIDC, PostgreSQL, Android, remote-network or phone acceptance. Android build,
+new APK, physical install verification, live HTTPS, FCM receipts, WebRTC, S3
+HIL and full release gate are `NOT_RUN`. No application source changed. Keep
+GS-177 open; next unblock production issuer + current Home authority and
+PostgreSQL API composition before configuring the APK or attempting a public
+deployment.
+
 ## GS-68 D05/D12/D06 provider seams and GS-40 integration — 2026-10-17
 
 This is the latest canonical continuation of the GS-40/68/109/148 handoff.
@@ -4044,3 +4092,40 @@ Next: push only the isolated GS-177 branch, verify hosted APK output and
 checksum, then obtain approved hosting/identity and a real phone for Internet
 E2E. Keep GS-177 open and submit a reviewed integration handoff; do not modify
 or synchronize the GS-40 worktree.
+
+### GS-177 bundled offline startup and approved logo continuation — 2026-10-17
+
+The GS-177 startup/logo slice is implemented in the existing isolated
+`/home/udaybhan/projects/Ghar_sajag_gs177` worktree on
+`feature/gs-177-caregiver-android`. It began at
+`9b0f697bcf178e10fc4a164cda542270d193644d`; context preflight passed at
+`2026-10-13.001`. The owner logo
+`Parivar_Saathi_Logo.png` was inspected read-only in the GS-40 worktree, copied
+into GS-177 before processing, and SHA-256 matched on both sides:
+`d0ff244d61b5cb047c320fc3af1028fa8e780186189a481657b8fea14b679441`.
+
+Android now starts the bundled shared PWA without a manual server-address
+screen. The offline UI shows Home, Devices, Reports and Settings with explicit
+“Offline / Unable to connect” status and no simulated household information.
+Android launcher/adaptive/round icons use only the family/home/shield symbol;
+the splash combines the symbol, full Parivar Saathi wordmark and tagline. The
+notification monochrome resource exists, but FCM remains disabled. PWA title,
+header, favicon and install manifest align to the approved brand. This slice
+does not add a live caregiver API or authentication; release acceptance still
+requires approved OIDC/Home authorization, hosting and persistent backend.
+
+Validation: Android branding resource/provenance check PASS; `make -C code
+app-test` PASS 30/30; `make -C code pwa-e2e-test` PASS 14/14; performance profile
+PASS (startup payload 110,404 bytes; 9 cached assets); feature traceability
+PASS (211 features, 236 modules, 25 physical cases; mapping tests 22/22); and
+the isolated call/push prototype test PASS 6/6. Local Android APK build is
+BLOCKED because Gradle/JDK/Android SDK are absent. Local Chromium E2E is NOT_RUN
+because Chrome is not installed; the branch workflow is configured to install
+its pinned CDP dependency and run that browser stage on the hosted runner.
+Physical phone install, live HTTPS/API/auth, notification receipt, calls, S3
+media and full release gate are NOT_RUN/BLOCKED upstream. `LIVE_HTTPS_PWA_URL`
+remains `NOT_DEPLOYED`.
+
+Next: push only the GS-177 branch and validate the hosted browser + Android APK
+build, then record the actual run/artifact hash. Keep GS-177 open. Do not touch,
+synchronize or merge into the active GS-40 worktree.

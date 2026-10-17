@@ -85,7 +85,7 @@ class PwaBridgeTests(unittest.TestCase):
         self.reset(); self.toggle('battery'); self.toggle('door')
         s=self.req('/pwa/state'); times=[e['at'] for e in s['events']]; self.assertEqual(times,sorted(times,reverse=True))
     def test_pwa_assets(self):
-        for path in ('/','/app.js','/styles.css','/manifest.webmanifest','/assets/icon.svg','/lab'):
+        for path in ('/','/app.js','/styles.css','/manifest.webmanifest','/assets/icon.svg','/assets/parivar-saathi-icon-192.png','/assets/parivar-saathi-icon-maskable-512.png','/lab'):
             r=Request(self.base+path); data=urlopen(r,timeout=10).read(); self.assertGreater(len(data),50,path)
 
     def test_incomplete_morning_is_pending_not_missing(self):

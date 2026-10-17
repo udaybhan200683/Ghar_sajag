@@ -4,20 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#f5fbf7" />
-  <meta name="description" content="Parivar Sathi — Apno ka khayal, har pal" />
+  <meta name="description" content="Parivar Saathi caregiver app. Safer homes, happier families." />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/parivar-saathi-icon-192.png" type="image/png" sizes="192x192" />
   <link rel="stylesheet" href="styles.css" />
-  <title>Parivar Sathi</title>
+  <title>Parivar Saathi</title>
 </head>
 <body>
 <div id="app">
   <header class="topbar">
     <div class="brand">
-      <img src="assets/icon.svg" alt="" class="brand-icon">
+      <img src="assets/parivar-saathi-icon-192.png" alt="" class="brand-icon">
       <div>
-        <div class="brand-name">Parivar Sathi</div>
-        <div class="tagline">Apno ka khayal, har pal</div>
+        <div class="brand-name">Parivar Saathi</div>
+        <div class="tagline">Safer homes • Happier families</div>
       </div>
     </div>
     <label class="away-wrap">
@@ -31,6 +31,7 @@
     </div>
   </header>
 
+  <div id="connectionStatus" class="connection-status" role="status" aria-live="polite" hidden></div>
   <main>
     <section id="homeTab" class="tab-panel active"></section>
     <section id="devicesTab" class="tab-panel"></section>
@@ -46,6 +47,7 @@
   </nav>
 </div>
 <dialog id="phase1Dialog" aria-label="Application settings and device details"></dialog>
+<script src="runtime-config.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

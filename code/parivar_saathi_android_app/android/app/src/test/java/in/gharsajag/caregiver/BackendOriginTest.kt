@@ -48,11 +48,30 @@ class BackendOriginTest {
     }
 
     @Test
-    fun invalidServerEntryDoesNotPreventSelectingAValidOriginLater() {
+    fun invalidBuildOriginDoesNotNormalizeIntoATrustedOrigin() {
         assertNull(BackendOrigin.parse("http://care.gharsajag.in"))
         assertEquals(
             "https://care.gharsajag.in/",
             BackendOrigin.parse("https://care.gharsajag.in")?.baseUrl,
         )
+    }
+
+    @Test
+    fun normalLaunchUsesBundledPwaAssetsWithConfiguredOrOfflineOrigin() {
+        val configured = BackendOrigin.parse("https://care.gharsajag.in")
+        assertEquals(
+            "https://care.gharsajag.in/__caregiver_app__/index.html",
+            TrustedPwaWebView.startUrl(configured),
+        )
+        assertEquals(
+            "https://appassets.androidplatform.net/__caregiver_app__/index.html",
+            TrustedPwaWebView.startUrl(null),
+        )
+    }
+
+    @Test
+    fun debugEndpointIsBuildConfiguredAndUserRuntimeOverrideIsAbsent() {
+        assertTrue(BuildConfig.DEV_ENDPOINT_CONFIG_ALLOWED)
+        assertNull(BackendOrigin.parse(""))
     }
 }

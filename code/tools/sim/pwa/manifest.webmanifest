@@ -1,16 +1,22 @@
 {
-  "name": "Parivar Sathi",
-  "short_name": "Parivar Sathi",
-  "description": "Apno ka khayal, har pal",
+  "name": "Parivar Saathi",
+  "short_name": "Parivar Saathi",
+  "description": "Safer homes, happier families",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f6fbf8",
-  "theme_color": "#f6fbf8",
+  "background_color": "#f5fbf7",
+  "theme_color": "#f5fbf7",
   "icons": [
     {
-      "src": "assets/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "assets/parivar-saathi-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/parivar-saathi-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

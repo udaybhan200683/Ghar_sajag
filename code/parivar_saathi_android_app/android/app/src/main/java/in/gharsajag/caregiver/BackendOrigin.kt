@@ -3,7 +3,7 @@ package `in`.gharsajag.caregiver
 import java.net.URI
 import java.util.Locale
 
-/** Exact HTTPS origin selected by the installer. The app never accepts an HTTP or local server. */
+/** Exact HTTPS origin compiled into the app by its protected build configuration. */
 data class BackendOrigin private constructor(
     val baseUrl: String,
     val host: String,

@@ -1,10 +1,11 @@
 {
   "schema_version": 1,
-  "baseline": "Phase 2D / 9499381",
-  "rationale": "Byte budgets allow modest source growth while preventing accidental large payloads or a framework/bundle from entering the lightweight PWA. Count budgets are product bounds, not machine timing limits.",
+  "baseline": "Phase 2D / 9499381; GS-177 offline caregiver UI and approved brand assets",
+  "rationale": "Byte budgets protect the startup/offline UI payload. The offline caregiver shell and approved 192px brand icon are part of startup; the 512px install maskable icon is fetched only for install/icon surfaces and has a separate bound. Count budgets are product bounds, not machine timing limits.",
   "limits": {
-    "static.total_bytes": 90112,
-    "static.javascript_bytes": 65536,
+    "static.total_bytes": 114688,
+    "static.javascript_bytes": 69632,
+    "static.install_icon_bytes": 98304,
     "static.css_bytes": 18432,
     "static.service_worker_bytes": 2048,
     "payloads.home_compact_bytes": 6144,

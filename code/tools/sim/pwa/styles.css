@@ -10,6 +10,7 @@ html,body{margin:0;background:linear-gradient(#fff,#f7fbf8);color:var(--text);fo
 body{min-height:100vh}
 button,input,select{font:inherit}
 #app{max-width:1180px;margin:auto;min-height:100vh;padding:18px 22px 100px}
+.connection-status{display:flex;flex-direction:column;gap:4px;margin:0 22px 14px;padding:14px 18px;border:1px solid #efc46c;border-radius:14px;background:#fff8e8;color:#563c08}.connection-status strong{font-size:16px}.connection-status span{font-size:14px;line-height:1.4;color:#705d36}.connection-status[hidden]{display:none}
 .topbar{display:grid;grid-template-columns:1fr auto auto;gap:24px;align-items:center;margin-bottom:18px}
 .brand{display:flex;align-items:center;gap:14px;min-width:0}.brand-icon{width:76px;height:76px}.brand-name{font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1}.tagline{color:#5b73b0;font-size:clamp(14px,2vw,22px);margin-top:8px}
 .datetime{text-align:right;color:#111b37;font-size:16px}.datetime strong{display:block;font-size:28px;margin-top:4px}
@@ -97,3 +98,4 @@ button,input,select{font:inherit}
 .phase1-list{display:grid;gap:8px;margin-top:16px}.phase1-list>div{padding:12px;background:#f8fbfd;border-radius:10px;overflow-wrap:anywhere}.phase1-list button,#phase1Dialog>button{margin:8px 8px 0 0;padding:9px}
 .phase1-detail{overflow-wrap:anywhere}.phase1-detail p{margin:9px 0}.phase1-form input:focus-visible,.phase1-form select:focus-visible,#phase1Dialog button:focus-visible{outline:3px solid #2462e8;outline-offset:2px}
 @media(max-width:740px){#phase1Dialog{padding:16px}.phase1-form .schedule-actions{position:sticky;bottom:0;background:#fff;padding:10px 0}}
+@media(max-width:740px){.connection-status{margin:0 10px 12px;padding:12px 14px}}

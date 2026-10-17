@@ -25,8 +25,9 @@ STATIC_FILES = (
     "tools/sim/pwa/styles.css",
     "tools/sim/pwa/sw.js",
     "tools/sim/pwa/manifest.webmanifest",
-    "tools/sim/pwa/assets/icon.svg",
+    "tools/sim/pwa/assets/parivar-saathi-icon-192.png",
 )
+INSTALL_ICON_FILES = ("tools/sim/pwa/assets/parivar-saathi-icon-maskable-512.png",)
 BUDGET_PATH = ROOT / "tests/validation/phase3a_performance_budget.json"
 
 
@@ -55,13 +56,17 @@ def _rss_bytes():
 
 def _static_metrics():
     sizes = {path: (ROOT / path).stat().st_size for path in STATIC_FILES}
+    install_icon_bytes = sum((ROOT / path).stat().st_size for path in INSTALL_ICON_FILES)
     return {
         "files": sizes,
         "html_bytes": sizes["tools/sim/pwa/index.html"],
         "javascript_bytes": sum(size for path, size in sizes.items() if path.endswith((".js", ".mjs"))),
         "css_bytes": sizes["tools/sim/pwa/styles.css"],
         "service_worker_bytes": sizes["tools/sim/pwa/sw.js"],
-        "manifest_and_icon_bytes": sizes["tools/sim/pwa/manifest.webmanifest"] + sizes["tools/sim/pwa/assets/icon.svg"],
+        "manifest_and_icon_bytes": sizes["tools/sim/pwa/manifest.webmanifest"] + sum(
+            sizes[path] for path in STATIC_FILES if "/assets/" in path
+        ),
+        "install_icon_bytes": install_icon_bytes,
         "total_bytes": sum(sizes.values()),
     }
 

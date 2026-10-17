@@ -1,9 +1,18 @@
-name: GS-177 Android dashboard APK
+name: GS-177 branded Android caregiver APK build
 
 on:
   push:
     branches:
       - feature/gs-177-caregiver-android
+    paths:
+      - '.github/workflows/gs177-android-dashboard-apk.yml'
+      - 'code/Makefile'
+      - 'code/parivar_saathi_android_app/**'
+      - 'code/tools/performance/profile_pwa.py'
+      - 'code/tools/sim/local_lab.py'
+      - 'code/tools/sim/pwa/**'
+      - 'code/tests/**'
+      - 'code/validation/**'
 
 permissions:
   contents: read
@@ -13,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  android-dashboard:
+  android-caregiver-apk:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -43,6 +52,16 @@ jobs:
           gradle-version: '8.9'
           cache-provider: basic
 
+      - name: Install pinned Python browser-test dependency
+        shell: bash
+        run: python3 -m pip install --disable-pip-version-check --target "$RUNNER_TEMP/gs177-python-deps" websocket-client==1.8.0
+
+      - name: Run PWA browser and offline startup regression
+        working-directory: code
+        env:
+          PYTHONPATH: ${{ runner.temp }}/gs177-python-deps
+        run: make pwa-68-browser-test
+
       - name: Run GS-116 registered caregiver app and Android stages
         working-directory: code
         env:
@@ -70,9 +89,12 @@ jobs:
             printf 'source_revision=%s\n' "$ANDROID_SOURCE_REVISION"
             printf 'source_ref=%s\n' "$ANDROID_SOURCE_REF"
             printf 'package_name=in.gharsajag.caregiver\n'
-            printf 'version_name=0.1.0-dashboard\n'
+            printf 'version_name=0.3.0-branded-offline\n'
             printf 'gradle=8.9\njava=17\nandroid_compile_sdk=35\n'
-            printf 'backend_origin=first-run-user-configuration\n'
+            printf 'backend_origin=not-configured; runtime=offline-until-authenticated-service-is-implemented\n'
+            printf 'backend_build_properties=caregiverDebugBackendOrigin|caregiverReleaseBackendOrigin\n'
+            printf 'approved_logo_sha256=d0ff244d61b5cb047c320fc3af1028fa8e780186189a481657b8fea14b679441\n'
+            printf 'bundled_ui=existing-tools/sim/pwa\n'
             printf 'push_notifications=disabled\nvoice_calling=disabled\n'
             printf 'signing=runner-generated-debug-key; testing-only\n'
           } > "$apk_dir/build-info.txt"
