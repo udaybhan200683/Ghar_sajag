@@ -40,8 +40,8 @@ constexpr std::size_t kTimeProofBytes = 456;
 
 class TargetMonotonicClock final : public gs::hub::target::S3HubMonotonicClock {
 public:
-    gs::hub::Milliseconds now_ms() const override {
-        return static_cast<gs::hub::Milliseconds>(esp_timer_get_time() / 1000);
+    gs::Milliseconds now_ms() const override {
+        return static_cast<gs::Milliseconds>(esp_timer_get_time() / 1000);
     }
 };
 
