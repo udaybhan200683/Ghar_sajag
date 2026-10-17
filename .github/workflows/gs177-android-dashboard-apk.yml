@@ -1,6 +1,7 @@
 name: GS-177 branded Android caregiver APK build
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/gs-177-caregiver-android

@@ -2,7 +2,7 @@ services:
   - type: web
     name: parivar-saathi-lite-staging
     runtime: python
-    plan: 0.5c-512mb
+    plan: free
     branch: feature/gs-177-caregiver-android
     autoDeploy: false
     buildCommand: pip install -r code/parivar_saathi_android_app/server/requirements.txt && make -C code lab-build
@@ -22,5 +22,5 @@ services:
           envVarKey: RENDER_EXTERNAL_URL
 databases:
   - name: parivar-saathi-lite-db
-    plan: 0.1c-256mb
+    plan: free
     ipAllowList: []

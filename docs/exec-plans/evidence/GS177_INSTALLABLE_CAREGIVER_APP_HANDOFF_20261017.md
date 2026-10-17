@@ -760,3 +760,106 @@ workflow. After hosted DB readiness, run the interactive admin bootstrap,
 build/sign the connected APK, and execute owner-phone acceptance. Keep GS-177
 open. The connected staging slice does not satisfy FULL_PRODUCT_HIL or physical
 Hub CloudSync acceptance.
+
+### GS-177 Render free-tier cost correction — 2026-10-17
+
+The TEST_ONLY Render Blueprint now selects `plan: free` for both the single
+Python web service and PostgreSQL. All other service/database settings remain
+as previously configured. No Render service was created, synchronized or
+deployed, and no charge or production credential was authorized.
+
+Resource compatibility review: Render currently specifies the free web plan
+as 0.1 CPU / 512 MB RAM and free PostgreSQL as 0.1 CPU / 256 MB, up to 100
+connections. The API has bounded request/simulation inputs and intended
+single-owner TEST_ONLY usage is low-volume. This is configuration-level
+compatibility, **not a measured memory/latency or hosted load-test PASS**. The
+Blueprint retains its two Gunicorn workers; actual worker memory and bounded
+simulation behavior on the free instance must be observed after owner
+authorization. Excess resource use, cold starts and transient free database
+restarts can make the service slow or unavailable. APK builds run on a
+GitHub-hosted Actions runner, not within the Render service allocation. The
+Render `buildCommand` compiles the simulator during deploy and has not been
+exercised on Render. Free web use is also subject to workspace instance-hour,
+outbound bandwidth and build-pipeline quotas.
+
+New Free Render PostgreSQL instances expire 30 days after creation; at expiry
+they become inaccessible unless upgraded. The 14-day grace period is an
+upgrade window, not a backup guarantee: Render deletes the database and all
+data after that period. Free Postgres has 1 GB storage and no managed backups.
+Before creating a database, record its creation/expiry date and set a reminder
+well before day 30. Before expiry, use a trusted operator machine with
+PostgreSQL client tools and the database's **external** connection URL (never
+paste it into Git, Jira, chat, or a shell command recorded in history) to run:
+
+Render Free web services do not provide SSH or dashboard shell access. This
+supersedes the earlier handoff's Render-shell bootstrap wording: after owner-
+authorized provisioning, bootstrap/rotate the admin from a trusted operator
+machine with Python 3.12 and the pinned server requirements installed. Read
+the external `DATABASE_URL` with a hidden prompt, export it only in that
+process environment, and run `python connected_lite.py bootstrap-admin
+--email <owner-email>` (or `rotate-password`) from
+`code/parivar_saathi_android_app/server`; the script prompts for the password
+without echo and revokes sessions on rotation. For example, from that
+directory:
+
+```sh
+read -rsp 'External DATABASE_URL: ' DATABASE_URL
+export DATABASE_URL
+python connected_lite.py bootstrap-admin --email <owner-email>
+unset DATABASE_URL
+```
+
+Do not put the DB URL/password in Jira, Git, CI, chat, or shell history.
+
+```sh
+umask 077
+read -rsp 'Render external DATABASE_URL: ' DATABASE_URL
+export DATABASE_URL
+pg_dump --format=custom --no-owner --no-privileges \
+  --file="gs177-test-only-$(date -u +%Y%m%dT%H%M%SZ).dump" "$DATABASE_URL"
+unset DATABASE_URL
+sha256sum gs177-test-only-*.dump
+pg_restore --list gs177-test-only-*.dump >/dev/null
+```
+
+Move the dump and checksum to owner-controlled encrypted storage outside the
+Render service and repository. Preserve the dump before expiry; do not rely on
+the grace window. To restore after provisioning an authorized replacement
+PostgreSQL database, read its external URL into `TARGET_URL` using the same
+hidden-prompt pattern, export the variable, and restore **only into an empty
+database** with `pg_restore --no-owner --no-privileges
+--dbname="$TARGET_URL" gs177-test-only-<timestamp>.dump`; then unset the URL.
+Keep the archive/checksum and a restore receipt. Do not upgrade to paid compute
+or create a replacement service without owner authorization.
+
+The Android Actions workflow now has a `workflow_dispatch` trigger in addition
+to the existing filtered push trigger. Both paths retain the job condition
+that requires repository variable `GS177_BACKEND_ORIGIN`; no manual input can
+redirect the app to an arbitrary host. GitHub requires this workflow to exist
+on the repository default branch for the Run workflow UI/API trigger. After
+the file is present there, configure the variable to the approved HTTPS origin,
+select `feature/gs-177-caregiver-android`, and dispatch the workflow. The
+current branch change alone does not guarantee the button is visible while
+the workflow file is absent from the default branch. No build was dispatched
+because no approved backend origin exists.
+
+Dependency review: server requirements pin `gunicorn==23.0.0` and
+`psycopg[binary]==3.2.6`; the Blueprint selects Python 3.12.11, for which the
+CPython 3.12 Linux x86_64 wheel-resolution check succeeded using isolated
+`pip download --python-version 3.12 --implementation cp --abi cp312
+--platform manylinux2014_x86_64 --only-binary=:all:`. `make -C code lab-build`
+also passed locally, validating the Blueprint's simulator compile command.
+PyYAML parsed both deployment/workflow files and explicit assertions confirmed
+both resource plan IDs are `free`, the existing service/database settings are
+unchanged, `workflow_dispatch` exists, and the origin-required job guard is
+retained. `git diff --check` passed. These do not measure Render-side build
+resource use or free-tier runtime performance; both remain NOT_RUN because
+deployment is explicitly not authorized. The GitHub manual trigger is not
+available from the GS-177-only branch until the workflow is present on `main`.
+
+Checkpoint before this correction: `9b4bf94278f48fc7ae894c61cb30390749c718e6`
+on `feature/gs-177-caregiver-android`, equal to the remote; worktree clean.
+The implementation and focused checks are complete; commit/push is the next
+delivery step. GS-177 remains In Progress; cloud deployment, connected APK,
+phone acceptance, and physical Hub synchronization remain NOT_RUN/BLOCKED as
+previously recorded.

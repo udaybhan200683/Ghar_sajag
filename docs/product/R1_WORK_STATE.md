@@ -4285,3 +4285,24 @@ cloud admin account, and no owner-phone mobile-data acceptance. Hub Wi-Fi and
 real Hub CloudSync remain **BLOCKED/NOT_RUN**. GS-177 remains open; no R1
 release, physical qualification, or full-product call/push acceptance is
 claimed.
+
+GS-177 free-tier cost correction (2026-10-17): `render.yaml` sets both the
+TEST_ONLY web service and PostgreSQL to Render `free`; no resource was created
+or deployed. The free web plan is 0.1 CPU/512 MB, spins down after 15 minutes
+idle and can take about a minute to wake. Free Postgres is 0.1 CPU/256 MB,
+1 GB, has no managed backups, and expires after 30 days; after a 14-day grace
+period it is deleted. Export TEST_ONLY data with `pg_dump` to encrypted
+operator storage before expiration and verify archive/checksum; restore only
+into an empty replacement DB. The current two-worker Gunicorn runtime and
+Render deploy build have not been measured on free resources; runtime fit is
+NOT_RUN, not asserted. APK build runs on GitHub-hosted Actions. Workflow
+dispatch was added but still requires this workflow on the GitHub default
+branch and `GS177_BACKEND_ORIGIN` configured before manual build. GS-177
+remains In Progress pending authorized cloud deployment and owner-phone
+acceptance.
+
+Focused check receipt: PyYAML parse and plan/trigger/guard/settings assertions
+PASS; CPython 3.12 manylinux wheel resolution for pinned Gunicorn/Psycopg PASS;
+`make -C code lab-build` PASS; `git diff --check` PASS. Render deploy, database
+provisioning, backend resource profiling, connected APK build, and phone tests
+were NOT_RUN. No service was activated or deployed.
