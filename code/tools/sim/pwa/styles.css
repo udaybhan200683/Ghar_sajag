@@ -109,3 +109,51 @@ button,input,select{font:inherit}
 .connected-lite-runtime .bottom-nav[hidden]{display:none}
 .validation-row{overflow-wrap:anywhere}
 .card pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:20rem;overflow:auto}
+
+/* GS-177 Android system-bar and sticky-header acceptance fix. */
+/* Restrict these changes to Connected Lite; the desktop/local lab stays intact. */
+.connected-lite-runtime #app{
+  padding-bottom:calc(140px + env(safe-area-inset-bottom, 0px));
+}
+.connected-lite-runtime .topbar{
+  position:sticky;
+  top:0;
+  z-index:30;
+  padding:12px 14px;
+  margin-left:-14px;
+  margin-right:-14px;
+  background:rgba(247,252,249,.98);
+  border-bottom:1px solid var(--line);
+  border-radius:0 0 14px 14px;
+  box-shadow:0 3px 14px rgba(12,22,53,.08);
+}
+.connected-lite-runtime .bottom-nav{
+  bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+  padding:8px;
+  z-index:40;
+  -webkit-overflow-scrolling:touch;
+}
+.connected-lite-runtime .bottom-nav .nav-btn{
+  min-height:52px;
+  touch-action:manipulation;
+}
+.connected-lite-runtime .card button{
+  min-height:44px;
+  padding:10px 12px;
+  margin:4px 2px;
+  touch-action:manipulation;
+}
+.connected-lite-runtime .card input:not([type="checkbox"]),
+.connected-lite-runtime .card select:not([multiple]){
+  min-height:44px;
+}
+.connected-lite-runtime .toast{
+  bottom:calc(104px + env(safe-area-inset-bottom, 0px));
+}
+@media(max-width:740px){
+  .connected-lite-runtime .topbar{
+    padding:8px 12px;
+    margin-left:-12px;
+    margin-right:-12px;
+  }
+}
