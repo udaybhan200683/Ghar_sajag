@@ -3977,10 +3977,12 @@ unexecuted physical acceptance remain visible and unchanged.
 PARTIAL/BLOCKED pending the five approval groups in
 [`GS68_D05_D12_D06_PROVIDER_E2E_20261017.md`](../exec-plans/evidence/GS68_D05_D12_D06_PROVIDER_E2E_20261017.md): pilot CA/root and issuer custody; S3 DS/eFuse key custody/build/debug policy; authenticated-time authority and protected floor/boot counter; production registry and certificate lifecycle; pilot operations and fixture-specific physical authorization. Physical readiness remains NO-GO: exact S3/C3 fixture provenance, installed-image receipt, enrolled session/profile, safe reset-free observer, recovery owner and TC05's second Node/approved profile fixture are missing.
 
-**Delivery closeout:** finish the final diff review, stage only the intended
-GS-68/GS-40 implementation, focused tests, traceability and evidence files;
-recheck origin, commit and push normally; post dated evidence to GS-68, GS-109
-and GS-40 without workflow changes; then verify remote HEAD equality and append
-the final commit/comment IDs here and in the dated evidence. No hardware, real
-credential, eFuse, production endpoint or commercial activation action is
+**Delivery:** implementation/evidence commit
+`443f272e0277439ea932d3c7990db80d1672dd91` was pushed normally to
+`origin/feature/r1-commercial-baseline`, with local/origin equality confirmed
+at that checkpoint. Dated Jira comments were added without workflow changes:
+GS-68 `11294`, GS-109 `11292`, GS-40 `11293`. A documentation-only receipt
+commit follows this implementation commit on the same branch. The final local
+and remote HEAD equality is checked after that receipt push. No hardware, real
+credential, eFuse, production endpoint or commercial activation action was
 authorized or performed.
