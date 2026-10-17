@@ -49,10 +49,14 @@ silicon, PSA RNG, RSA verification, DS signing, mTLS, GS-68 PHY, and GS-40 PHY
 remain NOT_RUN. Exact post-authorization harmless console smoke procedure and
 the full receipt are in
 [`GS68_USB_COMMAND_CONSOLE_20261017.md`](../exec-plans/evidence/GS68_USB_COMMAND_CONSOLE_20261017.md).
-At source-build time local HEAD was `a5d2806b40023d0c42a90d082187398416fb956c`
-and remote was still `3cb4146603594313c163d9b80483aa7c2fab88a1`; the evidence
-commit, normal push, remote read-back, and Jira comments are the next delivery
-actions. No workflow status changes are authorized.
+Source-fix commits are `b545fb7e71f1ecdcef33bef753623fc58a8debe6` and
+`a5d2806b40023d0c42a90d082187398416fb956c`; the evidence packet was committed
+as `f23bdfe83cadf490285fd547ab97e4d9ebc3ebe0` and pushed normally. The remote
+read-back matched that commit. Dated Jira comments were added without workflow
+changes: GS-172 `11326` and GS-68 `11327`. This work-state handoff records those
+receipts; the final handoff commit is pushed and its local/remote equality was
+verified at delivery. No physical operations or production-security activation
+were authorized.
 
 ## GS-68 D05/D12/D06 provider seams and GS-40 integration — 2026-10-17
 
