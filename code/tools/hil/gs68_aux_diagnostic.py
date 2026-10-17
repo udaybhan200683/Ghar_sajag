@@ -56,6 +56,68 @@ def expected_running_image_digest(image_bytes: bytes, build_report: dict,
     return derived
 
 
+def validate_installed_image_receipt(fixture: object, build_report: object, *, repo: Path) -> list[str]:
+    """Validate inherited installation evidence when the original binary is absent.
+
+    This does not claim a fresh device observation. It preserves the previously
+    verified install binding while a new OBSERVE response proves that the app is
+    currently responsive.
+    """
+    errors = []
+    if not isinstance(fixture, dict) or not isinstance(build_report, dict):
+        return ["fixture/build report is unavailable for inherited image identity"]
+    receipt = fixture.get("installed_image_receipt")
+    image = fixture.get("image", {})
+    profile = fixture.get("profile", {})
+    if not isinstance(receipt, dict) or not isinstance(image, dict) or not isinstance(profile, dict):
+        return ["verified installed-image receipt is missing"]
+    expected = {
+        "schema": "gs68.installed-test-image-receipt.v1",
+        "status": "VERIFIED",
+        "source_commit": fixture.get("source_commit"),
+        "image_sha256": image.get("sha256"),
+        "image_validation_sha256": image.get("image_validation_sha256"),
+        "profile_sha256": profile.get("profile_sha256"),
+    }
+    for key, value in expected.items():
+        if value is None or receipt.get(key) != value:
+            errors.append(f"installed-image receipt binding mismatch: {key}")
+    evidence_files = receipt.get("evidence_files")
+    evidence_text = []
+    if not isinstance(evidence_files, list) or not evidence_files:
+        errors.append("installed-image evidence file/hash list is unavailable")
+    else:
+        for evidence in evidence_files:
+            if not isinstance(evidence, dict):
+                errors.append("installed-image evidence entry is malformed")
+                continue
+            evidence_path = Path(str(evidence.get("path", "")))
+            if not evidence_path.is_absolute():
+                evidence_path = Path(repo) / evidence_path
+            evidence_hash = evidence.get("sha256")
+            if (not evidence_path.is_file() or not isinstance(evidence_hash, str) or
+                    not capture.HEX64.fullmatch(evidence_hash)):
+                errors.append("installed-image evidence file/hash is unavailable")
+                continue
+            try:
+                raw_evidence = evidence_path.read_bytes()
+                if hashlib.sha256(raw_evidence).hexdigest() != evidence_hash:
+                    errors.append("installed-image evidence checksum mismatch")
+                else:
+                    evidence_text.append(raw_evidence.decode("utf-8", errors="replace"))
+            except OSError:
+                errors.append("installed-image evidence cannot be read")
+    joined_evidence = "\n".join(evidence_text)
+    for key in ("source_commit", "image_sha256", "image_validation_sha256", "profile_sha256"):
+        value = expected.get(key)
+        if not isinstance(value, str) or value not in joined_evidence:
+            errors.append(f"installed-image evidence does not contain {key} binding")
+    for key in ("source_commit", "image_sha256", "image_validation_sha256", "profile_sha256"):
+        if build_report.get(key) != expected.get(key):
+            errors.append(f"inherited build metadata mismatch: {key}")
+    return errors
+
+
 def classify(status: str, reason: str) -> dict:
     if status not in {"PASS", "FAIL", "BLOCKED", "NOT_RUN"}:
         raise ValueError("unsupported auxiliary status")
@@ -122,8 +184,9 @@ def validate_candidate_binding(fixture: object, build_report: object, *, repo: P
     image_path = Path(image.get("path", "")) if isinstance(image, dict) else Path()
     if not image_path.is_absolute():
         image_path = Path(repo) / image_path
-    if not image_path.is_file():
-        errors.append("candidate image is missing")
+    inherited_image = not image_path.is_file()
+    if inherited_image:
+        errors.extend(validate_installed_image_receipt(fixture, build_report, repo=repo))
     else:
         image_bytes = image_path.read_bytes()
         digest = hashlib.sha256(image_bytes).hexdigest()
@@ -145,19 +208,20 @@ def validate_candidate_binding(fixture: object, build_report: object, *, repo: P
         errors.append("candidate target or pinned ESP-IDF version is invalid")
     if fixture.get("target") != "ESP32-S3" or fixture.get("flash_mb") != 16 or fixture.get("psram_mb") != 8:
         errors.append("fixture target/flash/PSRAM profile does not match S3 N16R8")
-    errors.extend(provenance.validate_manifest(repo, build_report.get("build_inputs"),
-                                               build_report.get("build_inputs_sha256")))
-    report_path = Path(profile.get("build_report", ""))
-    if not report_path.is_absolute():
-        report_path = Path(repo) / report_path
-    try:
-        actual_report = json.loads(report_path.read_text())
-    except (OSError, json.JSONDecodeError):
-        actual_report = None
-    if (not report_path.is_file() or
-            hashlib.sha256(report_path.read_bytes()).hexdigest() != profile.get("build_report_sha256") or
-            actual_report != build_report):
-        errors.append("build report does not match fixture checksum")
+    if not inherited_image:
+        errors.extend(provenance.validate_manifest(repo, build_report.get("build_inputs"),
+                                                   build_report.get("build_inputs_sha256")))
+        report_path = Path(profile.get("build_report", ""))
+        if not report_path.is_absolute():
+            report_path = Path(repo) / report_path
+        try:
+            actual_report = json.loads(report_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            actual_report = None
+        if (not report_path.is_file() or
+                hashlib.sha256(report_path.read_bytes()).hexdigest() != profile.get("build_report_sha256") or
+                actual_report != build_report):
+            errors.append("build report does not match fixture checksum")
     return errors
 
 
@@ -248,6 +312,13 @@ class BoundedAuxiliarySession:
         return raw
 
     def wait_ready(self, timeout: float = 30.0, *, max_startup_lines: int = 256) -> dict:
+        frame = self.wait_ready_or_absent(timeout, max_startup_lines=max_startup_lines)
+        if frame is None:
+            raise AuxiliaryDiagnosticError("READY response missing before startup deadline")
+        return frame
+
+    def wait_ready_or_absent(self, timeout: float = 30.0, *, max_startup_lines: int = 256) -> dict | None:
+        """Drain bounded console output; no READY is valid for an already-running app."""
         if self.started is None:
             raise AuxiliaryDiagnosticError("auxiliary session is closed")
         if not 1 <= max_startup_lines <= 1024:
@@ -267,7 +338,8 @@ class BoundedAuxiliarySession:
                 self.startup_log_fingerprint = hashlib.sha256(b"".join(self.startup_log_lines)).hexdigest()
                 return frame
             raise AuxiliaryDiagnosticError("unexpected structured diagnostic frame before READY")
-        raise AuxiliaryDiagnosticError("READY response missing before startup deadline")
+        self.startup_log_fingerprint = hashlib.sha256(b"".join(self.startup_log_lines)).hexdigest()
+        return None
 
     def _decode_or_record_console_line(self, raw: bytes, *, startup: bool = False) -> dict | None:
         body = raw[:-1].rstrip(b"\r")
@@ -520,7 +592,7 @@ def run_signed_time_negative_proofs(session: BoundedAuxiliarySession, fixture) -
 
 
 def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
-                         transport_factory=None) -> dict:
+                         transport_factory=None, signed_time_fixture=None) -> dict:
     """Open only after exact candidate + fixture/security/recovery gates pass."""
     failures = validate_candidate_binding(fixture, build_report, repo=repo)
     failures.extend(validate_install_gates(fixture))
@@ -548,7 +620,9 @@ def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
                 image_sha256=fixture["image"]["sha256"], records=[classify("BLOCKED",
                     "verified Windows spare PnP identity is missing")])
         transport = WindowsNativeSerialTransport(identity.get("com_port", ""),
-            expected_port=identity.get("approved_com_port", ""), expected_pnp=pnp)
+            expected_port=identity.get("approved_com_port", ""), expected_pnp=pnp,
+            fixture_id=fixture.get("fixture_id"),
+            opening_mode=fixture.get("windows_opening_mode", "reset_safe"))
     else:
         try:
             observed = formal._inspect_by_id_port(identity["port_by_id"], identity["usb_serial_short"])
@@ -564,23 +638,47 @@ def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
     rows = []
     try:
         session.open()
-        ready = session.wait_ready(timeout=30)
+        ready = session.wait_ready_or_absent(timeout=15)
         image_path = Path(fixture["image"].get("path", ""))
         if not image_path.is_absolute():
             image_path = Path(repo) / image_path
-        expected_runtime_digest = expected_running_image_digest(
-            image_path.read_bytes(), build_report, fixture["image"])
-        if (ready.get("event") != "ready" or
-                ready.get("running_image_sha256") != expected_runtime_digest or
-                ready.get("source_commit") != fixture["source_commit"] or
-                ready.get("profile_sha256") != fixture["profile"]["profile_sha256"] or
-                formal._normalize_mac(str(ready.get("mac_address", ""))) !=
-                    formal._normalize_mac(identity["mac_address"]) or
-                ready.get("flash_bytes") != 16 * 1024 * 1024 or
-                ready.get("psram_bytes") != 8 * 1024 * 1024 or
-                ready.get("chip_model") != "ESP32-S3"):
-            raise AuxiliaryDiagnosticError("READY identity does not match approved candidate")
-        rows.extend(run_usb_sequence(session))
+        if image_path.is_file():
+            expected_runtime_digest = expected_running_image_digest(
+                image_path.read_bytes(), build_report, fixture["image"])
+        else:
+            receipt_errors = validate_installed_image_receipt(fixture, build_report, repo=repo)
+            if receipt_errors:
+                raise AuxiliaryDiagnosticError("inherited installed-image identity is not verified: " + "; ".join(receipt_errors))
+            expected_runtime_digest = fixture["installed_image_receipt"]["image_validation_sha256"]
+        if ready is not None:
+            if (ready.get("event") != "ready" or
+                    ready.get("running_image_sha256") != expected_runtime_digest or
+                    ready.get("source_commit") != fixture["source_commit"] or
+                    ready.get("profile_sha256") != fixture["profile"]["profile_sha256"] or
+                    formal._normalize_mac(str(ready.get("mac_address", ""))) !=
+                        formal._normalize_mac(identity["mac_address"]) or
+                    ready.get("flash_bytes") != 16 * 1024 * 1024 or
+                    ready.get("psram_bytes") != 8 * 1024 * 1024 or
+                    ready.get("chip_model") != "ESP32-S3"):
+                raise AuxiliaryDiagnosticError("READY identity does not match approved candidate")
+            image_identity_source = "DIRECT_READY_REOBSERVATION"
+        else:
+            image_identity_source = "INHERITED_VERIFIED_INSTALLATION_RECEIPT"
+            rows.append(classify("PASS", "running-image identity inherited from verified installation evidence; no fresh READY observed"))
+        # Fresh nonce-correlated OBSERVE is required in both cases. run_usb_sequence
+        # begins with the delayed/fragmented OBSERVE and fails closed on any mismatch.
+        usb_rows = run_usb_sequence(session)
+        rows.extend(usb_rows)
+        if signed_time_fixture is not None:
+            if not usb_rows or any(row.get("status") != "PASS" for row in usb_rows):
+                rows.append(classify("NOT_RUN", "TEST_ONLY signed-time checks require a complete passing USB command sequence"))
+            else:
+                time_rows = run_signed_time_valid_and_replay(session, signed_time_fixture)
+                rows.extend(time_rows)
+                if time_rows and all(row.get("status") == "PASS" for row in time_rows):
+                    rows.extend(run_signed_time_negative_proofs(session, signed_time_fixture))
+                else:
+                    rows.append(classify("NOT_RUN", "signed-time negative cases stopped after valid/replay proof failure"))
     except Exception as error:
         blocked = isinstance(error, (TimeoutError, OSError)) or "timeout" in str(error).lower() or "disconnect" in str(error).lower()
         rows.append(classify("BLOCKED" if blocked else "FAIL",
@@ -596,6 +694,18 @@ def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
     bundle["console_capture_sha256"] = hashlib.sha256(
         capture.canonical_json(session.console_records)).hexdigest()
     bundle["transport_control_events"] = getattr(transport, "control_events", [])
+    if "image_identity_source" in locals():
+        bundle["image_identity_source"] = image_identity_source
+        bundle["direct_ready_reobserved"] = image_identity_source == "DIRECT_READY_REOBSERVATION"
+        if getattr(transport, "opening_mode", None) == "controlled_reset_tolerant":
+            bundle["controlled_open_reset_observation"] = {
+                "reset_during_open_permitted": True,
+                "reset_safety_proven": False,
+                "ready_frame_observed_after_open": session.ready_frame is not None,
+                "reset_event_confirmed": False,
+                "classification": ("READY_OBSERVED_RESET_VS_BUFFER_REPLAY_UNKNOWN"
+                    if session.ready_frame is not None else "NO_READY_OBSERVED_RESET_STATE_UNKNOWN"),
+            }
     return bundle
 
 

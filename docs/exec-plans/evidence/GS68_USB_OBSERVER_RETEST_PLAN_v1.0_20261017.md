@@ -1,5 +1,42 @@
 # GS-68 spare-S3 USB observer retest plan v1.1
 
+## v1.2 owner-authorized execution amendment — 2026-10-17
+
+The latest owner instruction authorizes a single controlled Windows-native
+observation session on fixture `GS68-SPARE-S3-OWNER-DESIGNATED` only. It permits
+the initial COM open to reset the spare; this is **reset-tolerant**, not
+reset-safe qualification. The provider must retain current PnP-parent identity
+matching, exact COM binding, one exclusive open, bounded I/O, no reconnect and
+control-line evidence. Other fixtures retain the default fail-closed
+reset-safe-policy requirement. No C8/C3, flash, eFuse, credential, production
+endpoint or unrelated NVS operation is in scope.
+
+The session accepts either a READY frame received after opening or no READY at
+all. A received READY is compared to the installed image-validation digest and
+source/profile/board identity; it is recorded as directly reobserved in this
+session, without claiming that it proves a reset or excludes buffered replay.
+If no READY arrives, the previously verified installation receipt must bind
+source commit, complete image SHA-256, ESP image-validation digest and profile,
+and its cited evidence files must pass checksum/content checks. In both cases,
+qualification proceeds only when a new exact-nonce `OBSERVE` response arrives.
+The report distinguishes `DIRECT_READY_REOBSERVATION` from
+`INHERITED_VERIFIED_INSTALLATION_RECEIPT`.
+
+After that first delayed/fragmented OBSERVE passes, run malformed-input
+rejection plus valid recovery, oversized-input rejection plus recovery, and two
+sequential ordered OBSERVE responses. If all USB cases pass, the same open
+session may continue with the process-local TEST_ONLY RSA signer: target PSA
+RNG challenge, signed-time proof/replay and negative proofs. Only the dedicated
+TEST_ONLY `gs68time` state is in scope; no production trust anchor or live
+network is used. A repeated READY during a command, PnP event, line-control
+failure, mismatch or timeout stops the session. Reset-versus-buffer-replay
+remains ambiguous because this image lacks boot-generation/uptime evidence.
+
+This amendment supersedes v1.1's separate-authorization/reset-safe-open gate,
+single-OBSERVE-only procedure and exclusion of TEST_ONLY signed time for this
+one owner-authorized task. It does not qualify reset-safe Windows behavior or
+official GS-68/GS-40 acceptance.
+
 ## Scope and fixture
 
 This plan covers one auxiliary, read-only USB console observation on the

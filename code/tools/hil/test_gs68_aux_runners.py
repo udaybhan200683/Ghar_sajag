@@ -5,6 +5,7 @@ import json
 import struct
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import gs68_aux_diagnostic as aux
@@ -116,6 +117,9 @@ class FakeWindowsPlatform:
     def port_owner(self, port): return self.owner
     def reset_safe_open_policy(self, port):
         return {"verified": self.safe, "description": "mock-qualified no-toggle policy" if self.safe else "unqualified"}
+    def controlled_reset_open_policy(self, port, fixture_id, identity):
+        return {"verified": fixture_id == capture.WindowsNativeSerialTransport.OWNER_AUTHORIZED_SPARE_FIXTURE,
+                "description": "owner-authorized reset-tolerant test policy"}
     def open_serial(self, port, **kwargs):
         self.open_calls.append((port, kwargs))
         return self.device
@@ -410,6 +414,150 @@ class GS68AuxiliaryRunnerTests(unittest.TestCase):
             capture.WindowsNativeSerialTransport("COM10", expected_port="COM10", expected_pnp={"serial": "SPARE"}, platform=unsafe)
         with self.assertRaises(capture.WindowsPortPreflightError):
             capture.WindowsNativeSerialTransport("COM11", expected_port="COM10", expected_pnp=PNP, platform=wrong)
+
+    def test_controlled_reset_tolerant_open_is_spare_scoped_and_does_not_claim_reset_safety(self):
+        platform = FakeWindowsPlatform(safe=False)
+        transport = capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+            expected_pnp=PNP, platform=platform,
+            fixture_id=capture.WindowsNativeSerialTransport.OWNER_AUTHORIZED_SPARE_FIXTURE,
+            opening_mode="controlled_reset_tolerant")
+        transport.open()
+        event = next(row for row in transport.control_events if row.get("operation") == "open_policy")
+        self.assertEqual(event["result"], "owner_authorized_reset_tolerant")
+        self.assertFalse(event["reset_safety_proven"])
+        self.assertTrue(event["reset_during_open_acceptable"])
+        self.assertEqual(len(platform.open_calls), 1)
+        transport.close()
+
+        with self.assertRaisesRegex(capture.WindowsPortPreflightError, "restricted to the owner-authorized spare"):
+            capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+                expected_pnp=PNP, platform=FakeWindowsPlatform(), fixture_id="GS68-SPARE-OTHER",
+                opening_mode="controlled_reset_tolerant")
+
+    def test_default_open_still_requires_qualified_reset_safe_policy(self):
+        platform = FakeWindowsPlatform(safe=False)
+        transport = capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+            expected_pnp=PNP, platform=platform)
+        with self.assertRaisesRegex(capture.WindowsPortPreflightError, "cannot prove reset-safe"):
+            transport.open()
+        self.assertEqual(platform.open_calls, [])
+
+    def test_execute_without_new_ready_uses_verified_install_receipt_and_fresh_observe(self):
+        nonce_seen = []
+
+        class ResponsiveTransport(FakeTransport):
+            def write(self, payload):
+                super().write(payload)
+                command = json.loads(payload)
+                nonce_seen.append(command["challenge_nonce"])
+                self.lines.append(response(case_id=command["case_id"],
+                    challenge_nonce=command["challenge_nonce"], operation="OBSERVE",
+                    result="OBSERVED_NO_ACTION"))
+
+        transport = ResponsiveTransport([])
+        transport.opening_mode = "controlled_reset_tolerant"
+        fixture = {"fixture_id": "GS68-SPARE-S3-OWNER-DESIGNATED", "source_commit": "a" * 40,
+            "identity": {"mac_address": "02:00:00:00:68:01", "com_port": "COM10",
+                "approved_com_port": "COM10", "pnp": PNP, "port_by_id": "/dev/mock-spare",
+                "usb_serial_short": "SPARE-TEST"},
+            "transport": {"kind": "mock"},
+            "image": {"path": "/missing/previous-image.bin", "sha256": "c" * 64,
+                "image_validation_sha256": "d" * 64},
+            "profile": {"profile_sha256": "b" * 64},
+            "installed_image_receipt": {"schema": "gs68.installed-test-image-receipt.v1",
+                "status": "VERIFIED", "source_commit": "a" * 40, "image_sha256": "c" * 64,
+                "image_validation_sha256": "d" * 64, "profile_sha256": "b" * 64,
+                "evidence_path": "/missing/receipt", "evidence_sha256": "e" * 64}}
+        report = {"source_commit": "a" * 40, "image_sha256": "c" * 64,
+            "image_validation_sha256": "d" * 64, "profile_sha256": "b" * 64}
+
+        def observe(session):
+            nonce = "9" * 64
+            session.write(aux.command_frame("GS68-AUX-USB-001", nonce=nonce))
+            result = session.read_correlated_response(case_id="GS68-AUX-USB-001", nonce=nonce,
+                operation="OBSERVE", timeout=0.2)
+            self.assertEqual(result["result"], "OBSERVED_NO_ACTION")
+            return [aux.classify("PASS", "fresh OBSERVE response correlated")]
+
+        with patch.object(aux, "validate_candidate_binding", return_value=[]), \
+             patch.object(aux, "validate_install_gates", return_value=[]), \
+             patch.object(aux, "validate_installed_image_receipt", return_value=[]), \
+             patch("gs68_cloudsync_hil._inspect_by_id_port", return_value={"usb_serial_short": "SPARE-TEST"}), \
+             patch.object(aux, "run_usb_sequence", side_effect=observe), \
+             patch.object(aux, "run_signed_time_valid_and_replay", return_value=[aux.classify("PASS", "TEST_ONLY signed proof")]) as valid_time, \
+             patch.object(aux, "run_signed_time_negative_proofs", return_value=[aux.classify("PASS", "negative proofs")]) as negative_time:
+            bundle = aux.execute_usb_if_ready(fixture, report, repo=Path("."),
+                transport_factory=lambda _: transport, signed_time_fixture=object())
+        self.assertEqual(bundle["image_identity_source"], "INHERITED_VERIFIED_INSTALLATION_RECEIPT")
+        self.assertFalse(bundle["direct_ready_reobserved"])
+        self.assertEqual([row["status"] for row in bundle["records"]],
+            ["PASS", "PASS", "PASS", "PASS"])
+        self.assertEqual(len(nonce_seen), 1)
+        reset_observation = bundle["controlled_open_reset_observation"]
+        self.assertTrue(reset_observation["reset_during_open_permitted"])
+        self.assertFalse(reset_observation["reset_safety_proven"])
+        self.assertFalse(reset_observation["reset_event_confirmed"])
+        self.assertEqual(reset_observation["classification"], "NO_READY_OBSERVED_RESET_STATE_UNKNOWN")
+        valid_time.assert_called_once()
+        negative_time.assert_called_once()
+
+    def test_inherited_image_receipt_rejects_mismatched_digest_binding(self):
+        fixture = {"source_commit": "a" * 40,
+            "image": {"sha256": "c" * 64, "image_validation_sha256": "d" * 64},
+            "profile": {"profile_sha256": "b" * 64},
+            "installed_image_receipt": {"schema": "gs68.installed-test-image-receipt.v1",
+                "status": "VERIFIED", "source_commit": "a" * 40, "image_sha256": "c" * 64,
+                "image_validation_sha256": "0" * 64, "profile_sha256": "b" * 64}}
+        report = {"source_commit": "a" * 40, "image_sha256": "c" * 64,
+            "image_validation_sha256": "d" * 64, "profile_sha256": "b" * 64}
+        errors = aux.validate_installed_image_receipt(fixture, report, repo=Path("."))
+        self.assertTrue(any("image_validation_sha256" in error for error in errors))
+
+    def test_inherited_image_receipt_accepts_exact_bindings_and_evidence_hash(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "install.txt"
+            evidence.write_text("source=" + "a" * 40 + " image=" + "c" * 64 +
+                " runtime=" + "d" * 64 + " profile=" + "b" * 64, encoding="utf-8")
+            receipt = {"schema": "gs68.installed-test-image-receipt.v1", "status": "VERIFIED",
+                "source_commit": "a" * 40, "image_sha256": "c" * 64,
+                "image_validation_sha256": "d" * 64, "profile_sha256": "b" * 64,
+                "evidence_files": [{"path": str(evidence),
+                    "sha256": hashlib.sha256(evidence.read_bytes()).hexdigest()}]}
+            fixture = {"source_commit": "a" * 40,
+                "image": {"sha256": "c" * 64, "image_validation_sha256": "d" * 64},
+                "profile": {"profile_sha256": "b" * 64},
+                "installed_image_receipt": receipt}
+            report = {"source_commit": "a" * 40, "image_sha256": "c" * 64,
+                "image_validation_sha256": "d" * 64, "profile_sha256": "b" * 64}
+            self.assertEqual(aux.validate_installed_image_receipt(fixture, report, repo=Path(directory)), [])
+
+    def test_execute_revalidates_image_from_new_ready_when_emitted(self):
+        fields = {"source_commit": "a" * 40, "profile_sha256": "b" * 64,
+            "running_image_sha256": "d" * 64, "mac_address": "02:00:00:00:68:01",
+            "flash_bytes": 16 * 1024 * 1024, "psram_bytes": 8 * 1024 * 1024,
+            "chip_model": "ESP32-S3"}
+        transport = FakeTransport([ready(**fields)])
+        fixture = {"fixture_id": "GS68-SPARE-S3-OWNER-DESIGNATED", "source_commit": "a" * 40,
+            "identity": {"mac_address": "02:00:00:00:68:01", "port_by_id": "/dev/mock-spare",
+                "usb_serial_short": "SPARE-TEST"}, "image": {"path": "/missing/image.bin",
+                "sha256": "c" * 64, "image_validation_sha256": "d" * 64},
+            "profile": {"profile_sha256": "b" * 64},
+            "installed_image_receipt": {"schema": "gs68.installed-test-image-receipt.v1",
+                "status": "VERIFIED", "source_commit": "a" * 40, "image_sha256": "c" * 64,
+                "image_validation_sha256": "d" * 64, "profile_sha256": "b" * 64,
+                "evidence_path": "/missing/receipt", "evidence_sha256": "e" * 64}}
+        report = {"source_commit": "a" * 40, "image_sha256": "c" * 64,
+            "image_validation_sha256": "d" * 64, "profile_sha256": "b" * 64}
+        with patch.object(aux, "validate_candidate_binding", return_value=[]), \
+             patch.object(aux, "validate_install_gates", return_value=[]), \
+             patch.object(aux, "validate_installed_image_receipt", return_value=[]), \
+             patch("gs68_cloudsync_hil._inspect_by_id_port", return_value={"usb_serial_short": "SPARE-TEST"}), \
+             patch.object(aux, "run_usb_sequence", return_value=[aux.classify("PASS", "USB sequence")]):
+            bundle = aux.execute_usb_if_ready(fixture, report, repo=Path("."),
+                transport_factory=lambda _: transport)
+        self.assertEqual(bundle["image_identity_source"], "DIRECT_READY_REOBSERVATION")
+        self.assertTrue(bundle["direct_ready_reobserved"])
 
     def test_windows_transport_records_observable_control_line_events_and_disconnect(self):
         platform = FakeWindowsPlatform(data=b"x\n")

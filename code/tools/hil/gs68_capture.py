@@ -167,8 +167,9 @@ class WindowsSerialPlatform:
     Device enumeration uses the Windows PnP cmdlets and does not open COM.
     Port-owner PID is not available through a documented, reliable Windows
     interface. The subsequent share-mode-zero CreateFile is the atomic
-    exclusive-access test, but is reached only after reset-safe policy has
-    independently qualified the exact active driver. No policy means NO-GO.
+    exclusive-access test. Default opening requires a qualified reset-safe
+    policy. A separate transport mode can tolerate an opening reset for the
+    one owner-authorized spare fixture; it does not establish reset safety.
 
     `native_api` and `reset_safe_policy` are injectable for deterministic tests.
     The policy callback must be backed by external qualification evidence; a
@@ -317,8 +318,11 @@ class WindowsNativeSerialTransport:
     driver/open policy that does not pulse reset-related control lines. Merely
     setting DTR/RTS low after open is not accepted as proof.
     """
+    OWNER_AUTHORIZED_SPARE_FIXTURE = "GS68-SPARE-S3-OWNER-DESIGNATED"
+
     def __init__(self, port: str, *, expected_port: str, expected_pnp: dict[str, str],
-                 platform=None, baudrate: int = 115200):
+                 platform=None, baudrate: int = 115200, fixture_id: str | None = None,
+                 opening_mode: str = "reset_safe"):
         if not isinstance(port, str) or not re.fullmatch(r"COM[1-9][0-9]*", port.upper()):
             raise WindowsPortPreflightError("Windows transport requires an explicit COM port")
         required = ("instance_id", "vid", "pid", "serial")
@@ -332,6 +336,12 @@ class WindowsNativeSerialTransport:
         if not isinstance(expected_port, str) or expected_port.upper() != self.port:
             raise WindowsPortPreflightError("COM port substitution differs from the approved spare manifest")
         self.expected_pnp = dict(expected_pnp)
+        if opening_mode not in {"reset_safe", "controlled_reset_tolerant"}:
+            raise WindowsPortPreflightError("unsupported Windows port opening mode")
+        if opening_mode == "controlled_reset_tolerant" and fixture_id != self.OWNER_AUTHORIZED_SPARE_FIXTURE:
+            raise WindowsPortPreflightError("controlled-reset opening is restricted to the owner-authorized spare fixture")
+        self.fixture_id = fixture_id
+        self.opening_mode = opening_mode
         self.platform = platform or WindowsSerialPlatform()
         self.baudrate = baudrate
         self.device = None
@@ -361,18 +371,31 @@ class WindowsNativeSerialTransport:
             raise WindowsPortPreflightError("COM port ownership could not be checked")
         if owner:
             raise WindowsPortPreflightError("COM port is owned by another process")
-        policy = self.platform.reset_safe_open_policy(self.port)
-        if not isinstance(policy, dict) or policy.get("verified") is not True or not policy.get("description"):
-            raise WindowsPortPreflightError("Windows driver cannot prove reset-safe port opening")
-        # The provider, not pySerial line-state requests, is responsible for
-        # proving no DTR/RTS transition occurs during CreateFile/open.
-        self.control_events.append({"operation": "open_policy", "result": "verified",
+        if self.opening_mode == "controlled_reset_tolerant":
+            # This is a fixture-scoped authorization to tolerate an opening
+            # reset, not evidence that the Windows driver is reset-safe.
+            if observed.get("vid", "").lower() != "303a" or observed.get("pid", "").lower() != "1001":
+                raise WindowsPortPreflightError("controlled-reset opening requires the expected Espressif USB Serial/JTAG identity")
+            policy = {"verified": True, "description": "owner-authorized controlled reset is tolerated for this spare only",
+                      "reset_safety_proven": False}
+            event_result = "owner_authorized_reset_tolerant"
+        else:
+            policy = self.platform.reset_safe_open_policy(self.port)
+            if not isinstance(policy, dict) or policy.get("verified") is not True or not policy.get("description"):
+                raise WindowsPortPreflightError("Windows driver cannot prove reset-safe port opening")
+            event_result = "verified_reset_safe"
+        self.control_events.append({"operation": "open_policy", "result": event_result,
                                     "description": str(policy["description"]),
+                                    "reset_safety_proven": policy.get("reset_safety_proven", True),
+                                    "reset_during_open_acceptable": self.opening_mode == "controlled_reset_tolerant",
                                     "monotonic_ns": time.monotonic_ns()})
         if owner is None:
             self.control_events.append({"operation": "port_owner", "result": "UNKNOWN",
                 "verification": "share-mode-zero CreateFile is the atomic exclusive check",
                 "monotonic_ns": time.monotonic_ns()})
+        # Count the attempt before invoking the driver. A failed CreateFile or
+        # post-open DCB check must never trigger an automatic second open.
+        self.ever_opened = True
         try:
             self.device = self.platform.open_serial(self.port, baudrate=self.baudrate,
                 timeout=0.2, write_timeout=1.0, flow_control=False,
@@ -380,20 +403,16 @@ class WindowsNativeSerialTransport:
         except WindowsPortBusyError:
             self.control_events.append({"operation": "open", "result": "BUSY_OR_ACCESS_DENIED",
                                         "monotonic_ns": time.monotonic_ns()})
-            self.ever_opened = True
             raise
         except WindowsPortPreflightError:
             self.control_events.append({"operation": "open", "result": "preflight_rejected",
                                         "monotonic_ns": time.monotonic_ns()})
-            self.ever_opened = True
             raise
         except Exception as error:
             self.control_events.append({"operation": "open", "result": "failed",
                                         "error_type": type(error).__name__,
                                         "monotonic_ns": time.monotonic_ns()})
-            self.ever_opened = True
             raise WindowsPortPreflightError("Windows serial open failed; reconnect is forbidden") from error
-        self.ever_opened = True
         self.opened_monotonic_ns = time.monotonic_ns()
         self.control_events.append({"operation": "open", "result": "success",
                                     "monotonic_ns": self.opened_monotonic_ns})

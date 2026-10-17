@@ -1,5 +1,57 @@
 # R1 Current Work State
 
+## GS-68 / GS-172 authorized spare USB retest — 2026-10-17
+
+Started from canonical `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, HEAD `351683ab76ffeba0d7678a281ac94d5ca11f4caf`;
+local and origin matched and context preflight PASS. Pre-existing untracked PWA,
+Android, managed-component, GS-114/C8 and GS-40 evidence remain untouched. No
+other worktree/process was interrupted.
+
+Current host-only Windows PnP inspection found COM10 present, VID/PID
+303a:1001, and verified its parent-device serial against the private spare
+identity receipt; that parent identity is distinct from the protected C8
+inventory. The COM interface's own PnP serial differs from the USB parent
+serial; parent-chain verification resolved this without opening COM10. Windows
+interoperability works (Windows 10.0.19045; PowerShell 5.1; Windows Python
+3.12). No serial port has yet been opened in this task.
+
+The owner has now authorized one controlled reset-tolerant open and diagnostic
+session on the designated spare, including TEST_ONLY PSA RNG/signed-time tests.
+This does not prove reset-safe opening. The implementation adds a spare-ID-only
+opening mode and retains default fail-closed reset-safe behavior for all other
+fixtures. It logs reset tolerance separately from observed reset evidence.
+`execute_usb_if_ready()` can proceed without a new READY only when the prior
+installed-image receipt and its cited evidence files validate, then requires a
+fresh nonce-correlated OBSERVE. A new READY, if present, is directly checked
+against the ESP-IDF image-validation digest; evidence states whether identity
+was reobserved or inherited. The exact candidate binary is not present in the
+current build directory; do not substitute the different `c0fb...` artifact.
+
+Software changes in `gs68_capture.py`, `gs68_aux_diagnostic.py` and
+`test_gs68_aux_runners.py` pass focused validation: auxiliary runner suite
+40/40; GS-130 protocol assertions 1,738; GS-130 HIL runner regression 115/115;
+feature traceability 208 features, 220 modules, 24 physical cases, 22/22
+mappings and 22/22 tests; Python compile and `git diff --check` PASS. Expected
+physical runner paths remained NOT_RUN/BLOCKED and opened no port. No firmware
+build is needed. The private application install
+and READY receipts remain the prior image evidence; full digest
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`, runtime
+digest `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`,
+source `cfc89a8e7bd6009eddde5790814e557357d8a032`, profile
+`7d13aa13684953744737b653c82ec7f8b95d0c6bfc715649bc99d501313d3c72`.
+
+Physical procedure amendment is recorded in
+[`GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md`](../exec-plans/evidence/GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md)
+v1.2. Next action after the software gates: commit/push the host-only observer
+correction, validate the inherited image/installation receipt against the clean
+committed source, then perform exactly one bounded Windows-native session
+using current PnP-parent matching and exclusive COM open. Run the four USB
+command cases; only if all pass, continue with the in-memory TEST_ONLY signer
+and target PSA RNG/signed-time cases. Keep raw captures/private identifiers in
+mode-restricted evidence outside Git/Jira. Official GS-68/GS-40 physical
+acceptance, production DS signing and mTLS remain NOT_RUN.
+
 ## GS-68 / GS-172 Windows USB serial provider — 2026-10-17
 
 Task classification: `TEST_INFRA_ONLY`; no product semantics changed. Started
