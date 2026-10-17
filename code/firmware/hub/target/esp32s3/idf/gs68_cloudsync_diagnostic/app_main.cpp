@@ -293,11 +293,11 @@ void handle_time_proof(const gs::diagnostic::TargetCommand& command) {
         return;
     }
     std::printf("GS68/1 {\"schema\":\"gs68.target.event.v1\",\"event\":\"time_proof_result\","
-                "\"case_id\":\"%s\",\"result\":\"PASS\",\"signature\":\"RSA3072_SHA256_VERIFIED\","
+                "\"case_id\":\"%s\",\"challenge_nonce\":\"%s\",\"result\":\"PASS\",\"signature\":\"RSA3072_SHA256_VERIFIED\","
                 "\"time_authority\":\"TEST_ONLY\",\"boot_generation\":%llu,"
                 "\"trusted_utc_seconds\":%lld,\"private_key_exported\":false,"
                 "\"physical\":\"NOT_RUN\"}\n",
-                command.case_id,
+                command.case_id, command.challenge_nonce,
                 static_cast<unsigned long long>(snapshot.boot_generation),
                 static_cast<long long>(snapshot.utc_now));
     std::fflush(stdout);

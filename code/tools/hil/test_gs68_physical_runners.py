@@ -583,6 +583,12 @@ class GS68SignedTimeFixtureTests(unittest.TestCase):
         stale = fixture.proof_command(stale_generation)
         stale_proof = base64.b64decode(stale["payload_b64"], validate=True)
         self.assertEqual(int.from_bytes(stale_proof[8:16], "big"), 6)
+        generation_zero = dict(next_challenge, proof_variant={
+            "issued_at_utc": 1_900_000_001, "valid_from_utc": 1_900_000_001,
+            "valid_until_utc": 1_900_000_121, "boot_generation": 0})
+        zero = fixture.proof_command(generation_zero)
+        zero_proof = base64.b64decode(zero["payload_b64"], validate=True)
+        self.assertEqual(int.from_bytes(zero_proof[8:16], "big"), 0)
 
     def test_invalid_challenge_and_generation_fail_closed(self):
         fixture = TestOnlySignedTimeFixture()

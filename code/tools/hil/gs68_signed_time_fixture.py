@@ -68,7 +68,8 @@ class TestOnlySignedTimeFixture:
             valid_until = variant.get("valid_until_utc", issued + 120)
             proof_generation = variant.get("boot_generation", generation)
             if any(not isinstance(v, int) or isinstance(v, bool) or v <= 0
-                   for v in (issued, valid_from, valid_until, proof_generation)):
+                   for v in (issued, valid_from, valid_until)) or \
+                    not isinstance(proof_generation, int) or isinstance(proof_generation, bool) or proof_generation < 0:
                 raise SignedTimeFixtureError("TEST_ONLY proof variant fields must be positive integers")
         if valid_until <= valid_from:
             raise SignedTimeFixtureError("TEST_ONLY proof interval is invalid")

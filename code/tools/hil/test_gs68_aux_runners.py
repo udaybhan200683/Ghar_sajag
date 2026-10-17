@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import gs68_aux_diagnostic as aux
 import gs68_capture as capture
+from gs68_signed_time_fixture import TestOnlySignedTimeFixture
 
 
 class FakeTransport:
@@ -18,6 +19,33 @@ class FakeTransport:
     def write(self, payload): self.writes.append(payload)
     def read_line(self, timeout): return self.frames.pop(0) if self.frames else b""
     def close(self): self.closed = True
+
+
+class SignedTimeTarget(FakeTransport):
+    def __init__(self):
+        super().__init__([])
+        self.accepted = False
+
+    def write(self, payload):
+        super().write(payload)
+        command = json.loads(payload)
+        operation = command["operation"]
+        if operation == "LOAD_TIME_KEY":
+            self.frames.append(response("time_key_result", case_id=command["case_id"],
+                result="TEST_ONLY_PUBLIC_KEY_LOADED", private_key_loaded=False, production_anchor=False))
+        elif operation == "TIME_CHALLENGE":
+            self.frames.append(response("time_challenge", case_id=command["case_id"],
+                challenge_nonce="a" * 64, boot_generation=3, random_source="ESP32_S3_PSA"))
+        elif operation == "TIME_PROOF" and not self.accepted:
+            self.accepted = True
+            self.frames.append(response("time_proof_result", case_id=command["case_id"],
+                challenge_nonce=command["challenge_nonce"], result="PASS",
+                signature="RSA3072_SHA256_VERIFIED", time_authority="TEST_ONLY",
+                boot_generation=3, private_key_exported=False))
+        else:
+            self.frames.append(response("case_result", case_id=command["case_id"],
+                challenge_nonce=command["challenge_nonce"], case_outcome="FAIL",
+                reason="NO_MATCHING_CURRENT_CHALLENGE"))
 
 
 def response(event="command_result", **extra):
@@ -109,6 +137,18 @@ class GS68AuxiliaryRunnerTests(unittest.TestCase):
         self.assertEqual(result["physical"], "AUXILIARY_TEST_ONLY_ONLY")
         self.assertEqual(result["official_gs68_physical_acceptance"], "NOT_RUN")
         self.assertTrue(all(row["status"] == "BLOCKED" for row in result["records"]))
+
+    def test_test_only_rsa_challenge_proof_and_replay_are_correlated(self):
+        transport = SignedTimeTarget()
+        session = aux.BoundedAuxiliarySession(transport)
+        session.open()
+        try:
+            rows = aux.run_signed_time_valid_and_replay(session, TestOnlySignedTimeFixture())
+        finally:
+            session.close()
+        self.assertEqual(rows[0]["status"], "PASS")
+        self.assertEqual(transport.closed, True)
+        self.assertTrue(all(b"private" not in write for write in transport.writes))
 
     def test_missing_identity_target_preflight_never_constructs_http_request(self):
         from pathlib import Path

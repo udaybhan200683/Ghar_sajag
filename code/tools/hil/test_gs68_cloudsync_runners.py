@@ -324,6 +324,16 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
             report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
             self.assertTrue(provenance.validate_manifest(runner.REPO,
                 report["build_inputs"], report["build_inputs_sha256"]))
+            for key in ("effective_sdkconfig", "partition_table_binary"):
+                entry = baseline["build_inputs"]["files"][key]
+                path = Path(entry["path"])
+                original = path.read_bytes()
+                try:
+                    path.write_bytes(original + b"changed")
+                    self.assertTrue(provenance.validate_manifest(runner.REPO,
+                        baseline["build_inputs"], baseline["build_inputs_sha256"]), key)
+                finally:
+                    path.write_bytes(original)
             self.assertTrue(runner.validate_fixture(fixture, self.source, self.cases,
                 protected=self.protected) == [])
 

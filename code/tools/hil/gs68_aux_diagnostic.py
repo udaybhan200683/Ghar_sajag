@@ -12,6 +12,7 @@ import json
 import secrets
 import re
 import time
+import base64
 from pathlib import Path
 
 import gs68_capture as capture
@@ -43,6 +44,30 @@ def validate_candidate_binding(fixture: object, build_report: object, *, repo: P
     if not isinstance(fixture, dict) or not isinstance(build_report, dict):
         return ["fixture or build report is not a JSON object"]
     errors = []
+    if not formal._code_worktree_clean():
+        errors.append("uncommitted or unknown code inputs make candidate provenance unverifiable")
+    fixture_id = fixture.get("fixture_id")
+    if not isinstance(fixture_id, str) or not re.fullmatch(r"GS68-SPARE-[A-Z0-9-]+", fixture_id):
+        errors.append("fixture ID must identify a separate GS68 spare")
+    protected, protected_errors = formal._read_json(formal.PROTECTED_FIXTURE)
+    if protected_errors:
+        errors.append("protected C8 inventory is unavailable")
+    else:
+        protected_values = formal._protected_values(protected)
+        if fixture_id in protected_values["fixture_ids"]:
+            errors.append("fixture aliases the protected C8")
+        identity = fixture.get("identity", {})
+        if not isinstance(identity, dict):
+            identity = {}
+        for field in ("mac_address", "usb_serial_short", "port_by_id"):
+            if not isinstance(identity.get(field), str) or not identity[field].strip():
+                errors.append(f"fixture identity {field} is missing")
+        if identity.get("mac_address") and formal._normalize_mac(identity["mac_address"]) in protected_values["macs"]:
+            errors.append("fixture MAC aliases protected C8")
+        if identity.get("usb_serial_short") and identity["usb_serial_short"].strip().lower() in protected_values["serials"]:
+            errors.append("fixture USB serial aliases protected C8")
+        if identity.get("port_by_id") and identity["port_by_id"].strip() in protected_values["ports"]:
+            errors.append("fixture port aliases protected C8")
     source = fixture.get("source_commit")
     if not re.fullmatch(r"[0-9a-f]{40}", str(source or "")):
         errors.append("fixture source commit is invalid")
@@ -73,6 +98,8 @@ def validate_candidate_binding(fixture: object, build_report: object, *, repo: P
             errors.append("candidate image SHA-256 does not match build report")
     if build_report.get("target") != "ESP32-S3" or build_report.get("idf_version") != "v6.0.3":
         errors.append("candidate target or pinned ESP-IDF version is invalid")
+    if fixture.get("target") != "ESP32-S3" or fixture.get("flash_mb") != 16 or fixture.get("psram_mb") != 8:
+        errors.append("fixture target/flash/PSRAM profile does not match S3 N16R8")
     errors.extend(provenance.validate_manifest(repo, build_report.get("build_inputs"),
                                                build_report.get("build_inputs_sha256")))
     report_path = Path(profile.get("build_report", ""))
@@ -214,6 +241,127 @@ def run_usb_sequence(session: BoundedAuxiliarySession, *, fragment_delay: float 
     return results
 
 
+def _send_command(session: BoundedAuxiliarySession, command: dict) -> dict:
+    payload = capture.canonical_json(command) + b"\n"
+    if len(payload) > MAX_COMMAND_BYTES:
+        raise AuxiliaryDiagnosticError("signed-time command exceeds target command bound")
+    session.write(payload)
+    return session.read_frame()
+
+
+def _time_challenge(session: BoundedAuxiliarySession, case_id: str) -> dict:
+    request_nonce = secrets.token_hex(32)
+    frame = _send_command(session, {"schema": "gs68.target.command.v1", "case_id": case_id,
+        "challenge_nonce": request_nonce, "operation": "TIME_CHALLENGE"})
+    nonce = frame.get("challenge_nonce")
+    generation = frame.get("boot_generation")
+    if (frame.get("event") != "time_challenge" or frame.get("case_id") != case_id or
+            not isinstance(nonce, str) or not capture.HEX64.fullmatch(nonce) or
+            not isinstance(generation, int) or isinstance(generation, bool) or generation <= 0 or
+            frame.get("random_source") != "ESP32_S3_PSA"):
+        raise AuxiliaryDiagnosticError("target did not provide a valid PSA challenge and boot generation")
+    return frame
+
+
+def _load_test_time_authority(session, fixture):
+    result = _send_command(session, fixture.load_key_command())
+    if (result.get("event") != "time_key_result" or
+            result.get("case_id") != "GS68-AUX-TIME-001" or
+            result.get("result") != "TEST_ONLY_PUBLIC_KEY_LOADED" or
+            result.get("private_key_loaded") is not False or
+            result.get("production_anchor") is not False):
+        raise AuxiliaryDiagnosticError("target rejected or misreported TEST_ONLY public verification key")
+
+
+def run_signed_time_valid_and_replay(session: BoundedAuxiliarySession, fixture) -> list[dict]:
+    """Exercise target PSA challenge, RSA proof acceptance, then replay rejection."""
+    from gs68_signed_time_fixture import TestOnlySignedTimeFixture
+    if not isinstance(fixture, TestOnlySignedTimeFixture):
+        raise TypeError("a process-local TEST_ONLY signing fixture is required")
+    _load_test_time_authority(session, fixture)
+    challenge = _time_challenge(session, "GS68-AUX-TIME-001")
+    proof = fixture.proof_command(challenge)
+    accepted = _send_command(session, proof)
+    if (accepted.get("event") != "time_proof_result" or
+            accepted.get("case_id") != "GS68-AUX-TIME-001" or
+            accepted.get("challenge_nonce") != challenge["challenge_nonce"] or
+            accepted.get("result") != "PASS" or
+            accepted.get("signature") != "RSA3072_SHA256_VERIFIED" or
+            accepted.get("time_authority") != "TEST_ONLY" or
+            accepted.get("boot_generation") != challenge["boot_generation"] or
+            accepted.get("private_key_exported") is not False):
+        return [classify("FAIL", "target did not verify exact nonce/generation TEST_ONLY signed time")]
+    replay = _send_command(session, proof)
+    if (replay.get("event") != "case_result" or replay.get("case_outcome") != "FAIL" or
+            replay.get("reason") != "NO_MATCHING_CURRENT_CHALLENGE"):
+        return [classify("FAIL", "replayed signed-time proof was not rejected")]
+    return [classify("PASS", "silicon PSA challenge, RSA-3072 proof, nonce/generation binding and replay rejection observed")]
+
+
+def run_signed_time_negative_proofs(session: BoundedAuxiliarySession, fixture) -> list[dict]:
+    """Continue an already-keyed TEST_ONLY session through negative proof cases."""
+    from gs68_signed_time_fixture import TestOnlySignedTimeFixture
+    if not isinstance(fixture, TestOnlySignedTimeFixture):
+        raise TypeError("a process-local TEST_ONLY signing fixture is required")
+    rows = []
+    challenge = _time_challenge(session, "GS68-AUX-TIME-002")
+    wrong_nonce = ("b" if challenge["challenge_nonce"][0] != "b" else "c") + challenge["challenge_nonce"][1:]
+    wrong_frame = dict(challenge, challenge_nonce=wrong_nonce)
+    wrong_proof = fixture.proof_command(wrong_frame)
+    wrong_result = _send_command(session, wrong_proof)
+    if (wrong_result.get("event") == "case_result" and wrong_result.get("case_outcome") == "FAIL" and
+            wrong_result.get("reason") == "NO_MATCHING_CURRENT_CHALLENGE"):
+        correct_result = _send_command(session, fixture.proof_command(challenge))
+        if (correct_result.get("event") == "time_proof_result" and correct_result.get("result") == "PASS" and
+                correct_result.get("challenge_nonce") == challenge["challenge_nonce"]):
+            rows.append(classify("PASS", "mismatched nonce rejected and current challenge remained usable"))
+        else:
+            rows.append(classify("FAIL", "current challenge was not usable after wrong nonce rejection"))
+    else:
+        rows.append(classify("FAIL", "mismatched nonce proof was accepted or failure was unclassified"))
+
+    challenge = _time_challenge(session, "GS68-AUX-TIME-002")
+    invalid = fixture.proof_command(challenge)
+    proof_bytes = bytearray(base64.b64decode(invalid["payload_b64"], validate=True))
+    proof_bytes[-1] ^= 0x01
+    invalid["payload_b64"] = base64.b64encode(proof_bytes).decode("ascii")
+    result = _send_command(session, invalid)
+    if (result.get("event") == "case_result" and result.get("case_outcome") == "FAIL" and
+            result.get("reason") == "SIGNED_TIME_PROOF_REJECTED_OR_ROLLBACK_DETECTED"):
+        rows.append(classify("PASS", "invalid RSA signature rejected"))
+    else:
+        rows.append(classify("FAIL", "invalid RSA signature was accepted or failure was unclassified"))
+
+    expired_challenge = _time_challenge(session, "GS68-AUX-TIME-002")
+    now = int(time.time())
+    issued = now - 130
+    proof_variant = {"issued_at_utc": issued, "valid_from_utc": issued - 20,
+                     "valid_until_utc": issued + 120,
+                     "boot_generation": expired_challenge["boot_generation"]}
+    expired_challenge = dict(expired_challenge, proof_variant=proof_variant)
+    expired = fixture.proof_command(expired_challenge)
+    result = _send_command(session, expired)
+    if (result.get("event") == "case_result" and result.get("case_outcome") == "FAIL" and
+            result.get("reason") == "SIGNED_TIME_PROOF_REJECTED_OR_ROLLBACK_DETECTED"):
+        rows.append(classify("PASS", "expired signed-time statement rejected"))
+    else:
+        rows.append(classify("FAIL", "expired signed-time statement was accepted or failure was unclassified"))
+
+    stale_challenge = _time_challenge(session, "GS68-AUX-TIME-002")
+    stale_generation = max(0, stale_challenge["boot_generation"] - 1)
+    stale_frame = dict(stale_challenge, proof_variant={
+        "issued_at_utc": now, "valid_from_utc": now,
+        "valid_until_utc": now + 120, "boot_generation": stale_generation})
+    stale = fixture.proof_command(stale_frame)
+    result = _send_command(session, stale)
+    if (result.get("event") == "case_result" and result.get("case_outcome") == "FAIL" and
+            result.get("reason") == "SIGNED_TIME_PROOF_REJECTED_OR_ROLLBACK_DETECTED"):
+        rows.append(classify("PASS", "stale boot-generation signed proof rejected"))
+    else:
+        rows.append(classify("FAIL", "stale boot-generation proof was accepted or failure was unclassified"))
+    return rows
+
+
 def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
                          transport_factory=None) -> dict:
     """Open only after exact candidate + fixture/security/recovery gates pass."""
@@ -233,7 +381,17 @@ def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
             image_sha256=safe_hash,
             records=rows)
     from gs68_capture import PySerialTransport
+    import gs68_cloudsync_hil as formal
     identity = fixture["identity"]
+    try:
+        observed = formal._inspect_by_id_port(identity["port_by_id"], identity["usb_serial_short"])
+    except Exception as error:
+        return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
+            image_sha256=fixture["image"]["sha256"], records=[classify("BLOCKED",
+                f"stable USB fixture identity unavailable: {type(error).__name__}")])
+    if observed.get("usb_serial_short") != identity["usb_serial_short"]:
+        return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
+            image_sha256=fixture["image"]["sha256"], records=[classify("FAIL", "live USB identity changed")])
     transport = (transport_factory or PySerialTransport)(identity["port_by_id"])
     session = BoundedAuxiliarySession(transport)
     rows = []
@@ -243,7 +401,12 @@ def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
         if (ready.get("event") != "ready" or
                 ready.get("running_image_sha256") != fixture["image"]["sha256"] or
                 ready.get("source_commit") != fixture["source_commit"] or
-                ready.get("profile_sha256") != fixture["profile"]["profile_sha256"]):
+                ready.get("profile_sha256") != fixture["profile"]["profile_sha256"] or
+                formal._normalize_mac(str(ready.get("mac_address", ""))) !=
+                    formal._normalize_mac(identity["mac_address"]) or
+                ready.get("flash_bytes") != 16 * 1024 * 1024 or
+                ready.get("psram_bytes") != 8 * 1024 * 1024 or
+                ready.get("chip_model") != "ESP32-S3"):
             raise AuxiliaryDiagnosticError("READY identity does not match approved candidate")
         rows.extend(run_usb_sequence(session))
     except Exception as error:
