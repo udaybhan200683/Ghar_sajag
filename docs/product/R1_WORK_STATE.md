@@ -3986,3 +3986,38 @@ commit follows this implementation commit on the same branch. The final local
 and remote HEAD equality is checked after that receipt push. No hardware, real
 credential, eFuse, production endpoint or commercial activation action was
 authorized or performed.
+
+## GS-177 isolated Android caregiver app checkpoint — 2026-10-17
+
+GS-177 is executing in the explicitly authorized isolated worktree
+`/home/udaybhan/projects/Ghar_sajag_gs177`, branch
+`feature/gs-177-caregiver-android`, based on the verified current local and
+origin R1 commit `71f7dc0518fc4705d2467bc70f772d861b02750e`. The canonical R1
+worktree remains owned by GS-40; its pre-existing untracked files were
+preserved. Context preflight passed at `2026-10-13.001` from the isolated
+worktree.
+
+The first APK acceptance is blocked: Java/JDK, Android SDK, Gradle, ADB and
+apksigner are absent; no phone is observable; the referenced caregiver source
+ZIP is absent; no Firebase configuration or public HTTPS deployment exists.
+The tracked caregiver shell is a Home overview. The development WSGI API uses
+`X-Actor-Id` and binds to loopback, and the deployment compose file contains
+PostgreSQL/Mosquitto but no production caregiver API or HTTPS frontend. It was
+not exposed or used as production identity.
+
+Upstream state remains blocking and fail-closed: GS-68/109 production issuer,
+credential custody, Home/epoch registry and trusted-time authorities remain
+unapproved (GS-68 code is TEST_ONLY); GS-143 current caregiver role/session
+issuance and revocation are not qualified; GS-148 production durable event
+commit remains incomplete; GS-154/157 S3 audio/WebRTC and CallManager/AUTO_CALL
+are not delivered; GS-25 provider delivery is deferred. No server security
+contract, Firebase configuration, hosted service, or call policy was invented.
+
+No product code or tests changed/run. `GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md`
+records the full status matrix, source findings, run/build evidence, and exact
+safe prerequisites. The next task is to provision the Android/phone environment,
+supply the starter or identify the current UI for a replacement shell, and
+obtain the owning teams' production identity, durable API, hosting, Firebase,
+ICE/TURN, and Hub media contracts before implementation. The live app, APK,
+phone installation, provider display/answer, S3 media HIL and full release gate
+remain NOT_RUN/BLOCKED; GS-177 remains open.
