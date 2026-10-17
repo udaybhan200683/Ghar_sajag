@@ -351,3 +351,66 @@ official GS-68/GS-40 physical cases remain unqualified. Espressif documents the
 filtered eFuse summary as a read operation and ROM/download behavior in its
 [ESP32-S3 eFuse summary guide](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/espefuse/summary-cmd.html)
 and [ESP32-S3 serial connection guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/get-started/establish-serial-connection.html).
+
+
+## 2026-10-17 — Authorized spare-S3 application installation and bounded USB observation
+
+### Result
+
+- Application-only installation: **PASS** for the exact TEST_ONLY candidate on the owner-designated spare at the measured OTA0 start `0x20000`.
+- Post-write flash verification: **PASS**; Windows esptool v5.4.0 reported `Hash of data verified.` after writing exactly 278,944 bytes.
+- Running application identity: **PASS** using the equivalent image-validation digest returned by the target. Source, profile, project version, ESP-IDF, target, flash/PSRAM sizes and restricted spare identity receipt all matched.
+- Auxiliary USB command framing: **BLOCKED / INCOMPLETE**. One harmless fragmented OBSERVE frame was sent but no correlated response was captured. No malformed, oversized or sequential command checks completed.
+- Silicon PSA-RNG/signed-time, DS signing, live mTLS and official GS-68/GS-40 physical acceptance: **NOT_RUN**.
+
+This is a TEST_ONLY spare diagnostic installation and one partial auxiliary console observation. It does not qualify any official GS-68/GS-40 physical case.
+
+### Preflight and installation evidence
+
+Canonical repository was at `c896eabf982d787e0f83147b599388862a0f8397`, on `feature/r1-commercial-baseline`; local and origin matched, context preflight PASS, and tracked state was clean. Existing untracked PWA, Android, managed-component, C8/GS-114 and GS-40 evidence was preserved. No other worktree was touched.
+
+Host-only checks matched the current Windows USB identity to the restricted spare receipt and excluded C8. COM10 was present with status OK; BUSID 3-1 / VID:PID 303a:1001 remained Windows-side Shared. No matching esptool/Python process was active. A handle-inspection utility was not available; the bounded no-reset esptool query successfully opened COM10 and confirmed ROM protocol access.
+
+Immediately before installation, `--before no-reset --after no-reset --no-stub --connect-attempts 1 get-security-info` succeeded on COM10. It again reported ESP32-S3 QFN56 rev v0.2, Secure Boot disabled, Flash Encryption disabled, and `SPI_BOOT_CRYPT_CNT=0`. No eFuse write or key-block query occurred. Current read-only flash metadata matched the prior verified captures byte-for-byte:
+
+- Partition table at `0x8000`: SHA-256 `101adada9e724af39b0ff503d609f7cf90378f5aa3a6be03799ba695160337d9`; same validated candidate table and OTA0 layout.
+- OTA metadata at `0xF000`: SHA-256 `8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3`; valid metadata continued to select OTA0.
+- The protected private 1 MiB OTA0 baseline capture rehashed to `f15fb947e95e8e1526508bd79258554b2511ff6860d63e9059ca51908d5af41d`, matching the restricted manifest SHA-256 `4021c2294e7ee157800edffc4e115f03635611e9b0aaa0c822935bba44f607c6`. The two 512 KiB pieces recomposed exactly. Directory/files remain mode 0700/0600 outside the repository.
+- The candidate rehashed to 278,944 bytes, SHA-256 `855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`; source commit `cfc89a8e7bd6009eddde5790814e557357d8a032` is an ancestor of HEAD and its code tree matches current committed `code/` OID `e4c8fd938d394be5f1e595bd7d3036744a9888e3`. Profile SHA-256 `7d13aa13684953744737b653c82ec7f8b95d0c6bfc715649bc99d501313d3c72`; effective sdkconfig SHA-256 `ff3150eeeac79a4a80b5a718a20408386d90d5a491cb199d763e0b6190105a7a`. Build-input manifest and TEST_ONLY configuration checks passed. The target is USB Serial/JTAG primary; no production credential/time anchor or production endpoint is enabled; DS is selected but unprovisioned.
+- Candidate image-info validated the ESP32-S3 checksum and image validation hash `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`; version `cfc89a8`, ESP-IDF v6.0.3. Recovery range image-info also validated; restore syntax and app-only address/range were checked offline. Restoration itself remains untested and was not performed.
+
+Exact installation command (private log captures output and exit 0):
+
+```text
+esptool.exe --chip esp32s3 --port COM10 --baud 115200 --before no-reset --after hard-reset --no-stub --connect-attempts 1 write-flash --flash-size keep 0x20000 <verified candidate>
+```
+
+The one write covered raw app bytes `0x20000..0x64260`; ROM sector erase/write alignment was bounded to `0x20000..0x65000`, inside the measured 4 MiB OTA0 slot. It did not include the bootloader, partition table, OTA metadata, NVS, OTA1 or journal. No `--erase-all`, `--force`, encryption or security override was used. Esptool issued one hard reset via RTS after success to boot the app. No build was repeated.
+
+### Running image and USB observation
+
+The first observed target `ready` frame reported source `cfc89a8e7bd6009eddde5790814e557357d8a032`, the expected profile hash, project version `cfc89a8`, ESP-IDF v6.0.3, ESP32-S3, 16 MiB flash, 8 MiB PSRAM, the restricted spare identity, `ds_identity=NOT_PROVISIONED`, TEST_ONLY time-authority readiness and `physical=NOT_RUN`.
+
+The target's `running_image_sha256` was `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`. This is the ESP-IDF running-image validation digest, not the full on-disk artifact SHA-256; it exactly matches the candidate's valid esptool image-info validation hash. The initial auxiliary runner compared those unlike digest forms and stopped before sending input. The subsequent assessment therefore verified running identity against equivalent metadata rather than falsely requiring those digest strings to be equal.
+
+A second bounded Windows-native COM10 observer opened with DTR/RTS configured low and sent one harmless fragmented OBSERVE command. Before a correlated response could be captured, a console boot-log line appeared where the frame reader expected a `GS68/1` response. A subsequent observer open, without sending any command, received the same byte-for-byte 26-line boot transcript and `ready` frame. This is ambiguous between Windows/USB Serial/JTAG output replay and a reset associated with opening the COM port; the available evidence cannot distinguish them. No further serial access was attempted. Malformed/oversized recovery and sequential commands were not run. The auxiliary USB case is therefore BLOCKED/INCOMPLETE, not PASS. No signed-time proof or `gs68time` NVS write occurred.
+
+This observation reveals runner/transport limitations for a future separate diagnostic: normal ESP-IDF boot logs can precede structured frames, the current ready digest check must compare equivalent image-validation metadata rather than artifact-file SHA, and opening native USB Serial/JTAG may replay boot output or affect reset state. A reset-safe observer that drains and correlates frames without changing control lines must be validated before further board access. Do not infer a hardware fault or claim that an unexpected reset definitely occurred.
+
+### Private evidence and stop state
+
+Private, mode-0600 evidence remains outside Git under `/home/udaybhan/.local/share/ghar-sajag/GS68-20261017`. SHA-256 receipts:
+
+- Pre-install security query log: `c2aa6872bc8bd8936469e854b86d3128ed809c50186e1fe207229c46cfb8c44c`.
+- Pre-install partition read log: `15d25bbf6d5e65449619a5576e2bad9ab027146a5f985ab8e50fa9629b46b924`; OTA metadata read log: `5c416b252b8cffaf8e88ba2e9eb7c7cea30fa410eb7d510e5038db8a44be83a6`.
+- Candidate image-info log: `e5ab3dfc241cbb40f41d07fe5f7d8c4d2eddecfea48d7ec3f398e98127141069`; recovery image-info log: `4b20fb84c0e1da4db74d4a86ca8f40728cc8f5128c526545275e42e2458de01e`.
+- Application-only install output: `2eab8a80967b18655bd6e7671ae99c4e52d4641f961c707436d7011ee96297c0`.
+- Initial raw console/READY capture: `5661965fb304bf5327b3c6acb473a51d1893b497b61bc0523c5f1a429bb1fdce`.
+- Runtime image-equivalence assessment: `3de68bc433c12aed00d56b5da832fc5d5a00eb2b0931e2349d0033935d5bbcf8`.
+- Incomplete USB command observer output: `4d3c4f247c3975f8f1bdf38dc98ee5ddac12476133bfcbe48e860e62be8ef894`.
+
+No full identifiers, raw private flash backup, keys, credentials or NVS data are included here. C8/C3 and production services were untouched. No PSA proof, DS key, mTLS, eFuse, Secure Boot/Flash Encryption change, production credential or production endpoint was used.
+
+### Current disposition and next action
+
+The TEST_ONLY application is installed and its write hash and running identity are verified. The limited USB command smoke remains incomplete; official GS-68 and GS-40 physical acceptance remain NOT_RUN. Do not flash, erase, reset, provision, or reopen the board as part of this checkpoint. Next action is software-only: correct the auxiliary observer's frame-draining and equivalent-digest checks, then prepare a separately bounded reset-safe USB observation method. Resume physical commands only under a new reviewed plan that prevents an unintentional reset/replay and keeps the owner-designated spare identity pinned. Production D05/D12/D06 approvals, physical DS signing/mTLS, P0 `product_status=PARTIAL`, and the known Hub migration/sanitizer blockers remain open.

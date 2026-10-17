@@ -1,5 +1,47 @@
 # R1 Current Work State
 
+## GS-172 / GS-68 spare-S3 conditional installation — 2026-10-17
+
+Resumed on canonical `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, at `c896eabf982d787e0f83147b599388862a0f8397`;
+local and origin matched, context preflight PASS, tracked state clean. Existing
+untracked PWA, Android, managed-component, C8/GS-114 and GS-40 evidence was
+preserved. No other worktree was touched.
+
+Owner-authorized spare identity was reverified via the restricted USB receipt;
+COM10 was present/OK and BUSID 3-1 remained Windows-side Shared. No C8/C3 was
+accessed. The current no-reset security query again observed Secure Boot and
+Flash Encryption disabled. The measured partition table and OTA metadata were
+reread and hash-matched; OTA0 remained selected at `0x20000`. The private
+1 MiB OTA0 recovery capture and manifest were rehashed, and the recovery image
+format/one-slot restore syntax were checked offline. Restore remains
+unexercised.
+
+Installed the exact existing TEST_ONLY image only at OTA0: 278,944 bytes,
+SHA-256 `855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`,
+source `cfc89a8e7bd6009eddde5790814e557357d8a032`; esptool v5.4.0 returned
+success and `Hash of data verified`, then performed one hard reset to boot.
+No bootloader, partition table, OTA metadata, NVS, OTA1, journal, eFuse,
+credential, endpoint or security setting was changed. First target READY
+matched source/profile/version/chip/capacity and spare identity. Its runtime
+hash `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`
+matched the candidate's valid image-info validation hash; this is the correct
+ESP-IDF runtime measurement and differs from full artifact SHA-256.
+
+Bounded USB command verification is **BLOCKED/INCOMPLETE**. One harmless
+fragmented OBSERVE frame was sent, but a boot-log line preceded any correlated
+response. A later observer open without input received the same byte-identical
+startup transcript/READY again; this could be output replay or a reset on COM
+open, and cannot safely be distinguished. No more device I/O occurred. No
+malformed/oversized/sequential test was completed. Silicon PSA RNG/signed-time,
+DS signing, mTLS, and official GS-68/GS-40 physical qualification remain
+NOT_RUN. Do not reopen, reset, reflash or provision the spare at this checkpoint.
+The next action is software-only: fix frame draining and runtime digest
+comparison in the auxiliary observer, then propose a reviewed reset-safe
+observation plan before additional board access. Exact redacted results and
+private receipt hashes are in
+[`GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md`](../exec-plans/evidence/GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md).
+
 ## GS-172 / GS-68 spare-S3 installation preflight — 2026-10-17
 
 Resumed at canonical HEAD `c4bc525e1fea8555ab30affc5b9e9926703c7f8e` on
