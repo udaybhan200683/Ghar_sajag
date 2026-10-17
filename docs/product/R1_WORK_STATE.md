@@ -1,5 +1,59 @@
 # R1 Current Work State
 
+## GS-68 / GS-172 Windows USB serial provider — 2026-10-17
+
+Task classification: `TEST_INFRA_ONLY`; no product semantics changed. Started
+from canonical `feature/r1-commercial-baseline` HEAD
+`0deb657242bc0fec517d9554f49d09b2cf0f427a`; fetch confirmed local/origin equal,
+context preflight PASS, and no competing source writer was observed. Existing
+untracked PWA, Android, ESP-IDF managed components, GS-114/C8, GS-40 and other
+evidence remain preserved and unstaged. No other worktree was accessed.
+
+Implemented a Windows provider in `code/tools/hil/gs68_capture.py`: present
+PnP COM mapping via bounded PowerShell enumeration, VID/PID/instance/serial and
+driver-version extraction, immediate pre-open identity recheck, single native
+Win32 exclusive open, bounded synchronous read/write, flow-control disablement,
+no reconnect/buffer clearing, PnP presence polling and no explicit DTR/RTS
+calls. The native provider returns owner PID as UNKNOWN; share-mode-zero
+`CreateFileW` is its atomic exclusive-access check. It fails closed without an
+external reset-safe policy bound to the active PnP identity/driver version.
+No such policy is qualified. Windows COM handle opening cannot be atomically
+bound to the preceding PnP instance query, and Windows/driver DTR/RTS activity
+is not observable by this provider. Thus the software implementation is
+mock-validated, not yet Windows-runtime qualified or reset-safe qualified.
+
+Focused tests pass: `PYTHONPATH=tools/hil python3 -m unittest
+test_gs68_aux_runners -v` (34/34 PASS). Registered
+`make gs130-hil-runner-test` passed: 1,738 protocol assertions, 109 Python
+runner tests, with physical cases correctly NOT_RUN/BLOCKED and no hardware
+port opened. `make feature-coverage-test` passed: 208 features, 220 modules,
+24 physical cases and 22/22 mapping tests. Python compile and `git diff --check`
+passed. No firmware build, COM10 access, reset, flash, or other device action
+occurred. The installed TEST_ONLY application remains unchanged; no new image
+is necessary for a host-side observer update.
+
+Reset-safe physical observation is **BLOCKED**. Microsoft documents inherited
+serial DCB settings during `CreateFile`; ESP-IDF 6.0.3 documents USB
+Serial/JTAG buffering/flush behavior and automatic download-mode capability.
+Mock evidence cannot establish active Windows driver behavior. Before another
+physical open, require a separately authorized observation with exact Windows
+build/driver/PnP receipt, USB protocol capture of CDC
+`SET_CONTROL_LINE_STATE` (USBPcap/Wireshark or hardware analyzer), Windows
+USB/driver event trace, visible reset/BOOT observation, and target
+boot-generation/uptime correlation. Current installed image lacks boot
+generation/uptime. Duplicate startup output alone remains ambiguous replay vs
+new boot. The retest plan is
+[`GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md`](../exec-plans/evidence/GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md)
+(content revision v1.1).
+
+GS-68/GS-40 official physical qualification remains **NOT_RUN**. The
+TEST_ONLY image is unchanged and remains installed; no new installation or
+physical action is authorized by this software-only task. Next step: obtain a
+reviewed reset-safe policy/evidence for the precise Windows USB Serial/JTAG
+driver, then separately authorize the fixture-specific one-session USB
+observation. No production credentials/endpoints, DS signing, signed-time NVS
+write or hardware security setting is in scope.
+
 ## GS-172 / GS-68 spare-S3 conditional installation — 2026-10-17
 
 Resumed on canonical `/home/udaybhan/projects/Ghar_sajag_r1`, branch

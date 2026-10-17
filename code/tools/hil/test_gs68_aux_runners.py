@@ -127,6 +127,23 @@ class FakeWindowsPlatform:
         return events
 
 
+class FakeWindowsNativeApi:
+    def __init__(self, rows=None, *, open_error=None):
+        self.rows = rows if rows is not None else [{"port": "COM10",
+            "instance_id": "USB\\VID_303A&PID_1001&MI_00\\SPARE-TEST",
+            "driver_version": "1.2.3", "present": True}]
+        self.open_error = open_error
+        self.open_calls = []
+        self.device = FakeDevice()
+
+    def enumerate_pnp_ports(self): return list(self.rows)
+    def open_exclusive(self, port, **kwargs):
+        self.open_calls.append((port, kwargs))
+        if self.open_error:
+            raise self.open_error
+        return self.device
+
+
 PNP = {"instance_id": "USB\\VID_303A&PID_1001\\SPARE", "vid": "303a",
        "pid": "1001", "serial": "SPARE-TEST"}
 
@@ -366,7 +383,7 @@ class GS68AuxiliaryRunnerTests(unittest.TestCase):
                                                          platform=platform)
         transport.open()
         self.assertEqual(platform.open_calls[0][1], {"baudrate": 115200, "timeout": 0.2,
-            "write_timeout": 1.0, "flow_control": False})
+            "write_timeout": 1.0, "flow_control": False, "expected_pnp": PNP})
         self.assertEqual(transport.read_line(0.2), b"abc\n")
         transport.write(b"OBSERVE\n")
         self.assertEqual(platform.device.flush_count, 1)
@@ -420,6 +437,120 @@ class GS68AuxiliaryRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(capture.CaptureError, "automatic reconnect is disabled"):
             transport2.read_line(0.1)
         self.assertEqual(len(disconnected.open_calls), 1)
+
+    def test_windows_provider_resolves_current_pnp_identity_without_opening_port(self):
+        native = FakeWindowsNativeApi()
+        provider = capture.WindowsSerialPlatform(native_api=native)
+        self.assertEqual(provider.inspect_pnp_identity("COM10"), {
+            "instance_id": "USB\\VID_303A&PID_1001&MI_00\\SPARE-TEST",
+            "vid": "303a", "pid": "1001", "serial": "SPARE-TEST", "driver_version": "1.2.3"})
+        self.assertIsNone(provider.inspect_pnp_identity("COM11"))
+        self.assertEqual(native.open_calls, [])
+        self.assertIsNone(provider.port_owner("COM10"))
+        self.assertTrue(provider.exclusive_open_is_ownership_check("COM10"))
+
+    def test_windows_provider_rejects_duplicate_or_unparseable_pnp_and_missing_policy(self):
+        for rows in (
+            [{"port": "COM10", "instance_id": PNP["instance_id"], "present": True}] * 2,
+            [{"port": "COM10", "instance_id": "ROOT\\SERIAL\\UNKNOWN", "present": True}],
+        ):
+            provider = capture.WindowsSerialPlatform(native_api=FakeWindowsNativeApi(rows))
+            self.assertIsNone(provider.inspect_pnp_identity("COM10"))
+        native = FakeWindowsNativeApi()
+        provider = capture.WindowsSerialPlatform(native_api=native)
+        self.assertIsNone(provider.port_owner("COM10"))
+        self.assertFalse(provider.reset_safe_open_policy("COM10")["verified"])
+        self.assertEqual(native.open_calls, [])
+
+    def test_windows_provider_unavailable_on_non_windows_host_fails_before_port_io(self):
+        expected = {"instance_id": PNP["instance_id"], "vid": "303a", "pid": "1001",
+                    "serial": "SPARE-TEST"}
+        transport = capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+            expected_pnp=expected)
+        with self.assertRaisesRegex(capture.WindowsPortPreflightError, "unavailable on this host"):
+            transport.open()
+
+    def test_windows_transport_uses_one_exclusive_open_after_policy_and_reports_owner_unknown(self):
+        native = FakeWindowsNativeApi()
+        checked = []
+        provider = capture.WindowsSerialPlatform(native_api=native, reset_safe_policy=lambda identity: (
+            checked.append(identity) or {"verified": True, "evidence_id": "MOCK-ONLY"}))
+        expected = {"instance_id": "USB\\VID_303A&PID_1001&MI_00\\SPARE-TEST",
+                    "vid": "303a", "pid": "1001", "serial": "SPARE-TEST"}
+        transport = capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+            expected_pnp=expected, platform=provider)
+        with patch.object(capture.sys, "platform", "win32"):
+            transport.open()
+        self.assertEqual(len(native.open_calls), 1)
+        self.assertEqual(native.open_calls[0][0], "COM10")
+        self.assertEqual(native.open_calls[0][1], {"baudrate": 115200, "timeout": 0.2,
+                                                    "write_timeout": 1.0})
+        self.assertEqual(checked[0]["driver_version"], "1.2.3")
+        self.assertTrue(any(row.get("result") == "UNKNOWN" for row in transport.control_events))
+        transport.close()
+
+    def test_windows_exclusive_open_busy_or_access_denied_never_retries(self):
+        native = FakeWindowsNativeApi(open_error=capture.WindowsPortBusyError("busy"))
+        provider = capture.WindowsSerialPlatform(native_api=native, reset_safe_policy=lambda _: {
+            "verified": True, "evidence_id": "MOCK-ONLY"})
+        expected = {"instance_id": "USB\\VID_303A&PID_1001&MI_00\\SPARE-TEST",
+                    "vid": "303a", "pid": "1001", "serial": "SPARE-TEST"}
+        transport = capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+            expected_pnp=expected, platform=provider)
+        with patch.object(capture.sys, "platform", "win32"):
+            with self.assertRaisesRegex(capture.WindowsPortBusyError, "busy"):
+                transport.open()
+        self.assertEqual(len(native.open_calls), 1)
+        with self.assertRaisesRegex(capture.WindowsPortPreflightError, "only once"):
+            transport.open()
+
+    def test_windows_pnp_reenumeration_is_reported_without_reconnect(self):
+        native = FakeWindowsNativeApi()
+        provider = capture.WindowsSerialPlatform(native_api=native)
+        self.assertIsNotNone(provider.inspect_pnp_identity("COM10"))
+        native.rows = []
+        self.assertEqual(provider.take_port_events("COM10")[0]["kind"], "removed")
+        native.rows = [{"port": "COM10", "instance_id": PNP["instance_id"], "present": True}]
+        self.assertEqual(provider.take_port_events("COM10")[0]["kind"], "reenumerated")
+        self.assertEqual(native.open_calls, [])
+
+    def test_windows_transport_stops_on_pnp_reenumeration_or_unknown_presence(self):
+        for event in ({"kind": "reenumerated"}, {"kind": "presence_unknown"}):
+            platform = FakeWindowsPlatform(data=b"late\n")
+            transport = capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+                expected_pnp=PNP, platform=platform)
+            transport.open()
+            platform.port_events = [event]
+            with self.assertRaisesRegex(capture.CaptureError, "disconnected"):
+                transport.read_line(0.1)
+            self.assertEqual(len(platform.open_calls), 1)
+            transport.close()
+
+    def test_windows_provider_rechecks_pnp_identity_before_single_open(self):
+        original = {"port": "COM10", "instance_id": "USB\\VID_303A&PID_1001\\SPARE-TEST",
+                    "driver_version": "1.2.3", "present": True}
+        replacement = {"port": "COM10", "instance_id": "USB\\VID_303A&PID_1001\\OTHER-DEVICE",
+                       "driver_version": "1.2.3", "present": True}
+
+        class ChangesAfterPreflight(FakeWindowsNativeApi):
+            def __init__(self):
+                super().__init__()
+                self.calls = 0
+            def enumerate_pnp_ports(self):
+                self.calls += 1
+                return [replacement if self.calls >= 3 else original]
+
+        native = ChangesAfterPreflight()
+        provider = capture.WindowsSerialPlatform(native_api=native, reset_safe_policy=lambda _: {
+            "verified": True, "evidence_id": "MOCK-ONLY"})
+        expected = {"instance_id": original["instance_id"], "vid": "303a", "pid": "1001",
+                    "serial": "SPARE-TEST"}
+        transport = capture.WindowsNativeSerialTransport("COM10", expected_port="COM10",
+            expected_pnp=expected, platform=provider)
+        with patch.object(capture.sys, "platform", "win32"):
+            with self.assertRaisesRegex(capture.WindowsPortPreflightError, "immediately before"):
+                transport.open()
+        self.assertEqual(native.open_calls, [])
 
     def test_bundle_hashes_records_and_cannot_promote_official_cases(self):
         bundle = aux.evidence_bundle(fixture_id="GS68-SPARE-001", source_commit="a" * 40,

@@ -1,4 +1,4 @@
-# GS-68 spare-S3 USB observer retest plan v1.0
+# GS-68 spare-S3 USB observer retest plan v1.1
 
 ## Scope and fixture
 
@@ -21,27 +21,57 @@ the ESP32-S3 image structure, segments, checksum, appended hash, and source/buil
 provenance, then compares READY to the derived validation digest.
 
 The board identity receipt and full PnP identifiers remain in private evidence.
-Before a future session, revalidate the same PnP instance against that receipt
-and verify that the selected COM port is owned by no other process. COM number
-alone is insufficient.
+The Windows provider resolves a COM name to a present PnP instance (instance
+ID, VID, PID, device serial and driver version), then repeats the identity
+comparison immediately before one native exclusive open. It does not use
+pySerial, clear buffers, reconnect, or issue DTR/RTS calls. This is a
+best-effort identity pin: COM enumeration and opening the COM name are separate
+Windows operations, not an atomic device-instance-bound handle. Any PnP
+removal, re-enumeration or substitution stops observation.
 
 ## Transport prerequisite
 
-Use one Windows-native session through the identity-pinned adapter. The
-transport must verify the exact PnP instance, VID/PID and serial, check port
-ownership, disable RTS/CTS and XON/XOFF, use bounded read/write timeouts, and
-open at most once. It must not clear input buffers, reconnect, or request DTR or
-RTS transitions. It must record observable line and port events.
+The provider uses bounded PowerShell PnP enumeration and a Win32 serial handle
+opened with share mode zero, so another open handle is rejected by the one
+actual exclusive open. A documented reliable PID lookup for an arbitrary COM
+handle is not available here; pre-open owner status is **UNKNOWN**. A sharing
+or access-denied result is `BUSY_OR_ACCESS_DENIED`, never retried. The provider
+uses bounded read/write timeouts, disables hardware/software flow control and
+refuses an inherited DCB that requests DTR/RTS control. It does not alter those
+bits after open, clear input buffers, or reconnect.
 
-The adapter fails closed unless a host provider proves that its Windows driver
-does not pulse reset-related lines while opening the port. The current standard
-pySerial/Windows behavior has not been qualified for that guarantee. Until a
-provider supplies this evidence, the next physical observer session is
-**BLOCKED**; no port may be opened by the test plan.
+Opening fails closed unless an external reset-safe policy callback binds
+qualification evidence to the current PnP identity and driver version. No
+qualified policy/evidence is present. The provider cannot observe DTR/RTS
+transitions initiated internally by Windows/the driver; it records this
+limitation. Microsoft documents that a serial resource inherits the previous
+DCB at `CreateFile`; Espressif documents USB Serial/JTAG buffering and host-side
+flush behavior and notes that the controller can enter download mode
+automatically. Mock tests, DCB state after open, and duplicate startup
+transcripts do not prove reset-free open or an actual reboot. COM10 remains
+unopened and physical observation is **BLOCKED**. References:
+[Microsoft serial resource settings](https://learn.microsoft.com/en-us/windows/win32/devio/modification-of-communications-resource-settings)
+and [ESP-IDF 6.0.3 USB Serial/JTAG console](https://docs.espressif.com/projects/esp-idf/en/v6.0.3/esp32s3/api-guides/usb-serial-jtag-console.html).
+
+Before a separately authorized physical observation, collect:
+
+1. Windows build, active USB Serial/JTAG driver provider/version, exact PnP
+   instance and COM mapping against the restricted spare receipt.
+2. USB protocol capture (USBPcap/Wireshark or hardware USB analyzer) for the
+   one authorized open, preserving CDC `SET_CONTROL_LINE_STATE` requests and
+   timestamps. Correlate with Windows USB/driver ETW and visible reset/BOOT
+   observation. Evidence applies only to that host/driver version.
+3. Host monotonic timestamps, PnP remove/arrival, USB control transfers, reset
+   reason, and a target boot-generation/uptime marker to distinguish buffered
+   output from a new boot. The installed image lacks that marker; reset reason
+   alone is insufficient. Identical startup bytes remain ambiguous.
+4. Exact case/nonce/operation response correlation, bounded capture, and
+   stop-on-reset/PnP substitution. Mocks do not satisfy this physical evidence.
 
 ## Procedure after separate physical-access authorization
 
-1. Capture host time, exact PnP identity receipt match, COM ownership result,
+1. Capture host time, exact PnP identity receipt match, owner status UNKNOWN,
+   atomic exclusive-open result,
    reset-safe-open provider evidence, installed-image receipt, observer source
    commit, and candidate artifact hash. Abort on any mismatch, busy port, or
    failed driver policy.
@@ -71,7 +101,7 @@ provider supplies this evidence, the next physical observer session is
 
 ## Stop conditions and exclusions
 
-Stop immediately on PnP/COM mismatch, another process owning the port, reset
+Stop immediately on PnP/COM mismatch, a busy/access-denied exclusive open, reset
 line activity, unsafe/unknown driver-open behavior, USB removal, image mismatch,
 unexpected READY/startup replay, malformed structured frame, timeout, or
 response correlation failure. Do not retry, reconnect, reset, reflash, or

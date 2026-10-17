@@ -7,11 +7,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import base64
+import ctypes
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -35,32 +37,276 @@ class WindowsPortPreflightError(CaptureError):
     """Windows device/driver policy cannot prove a reset-safe observation."""
 
 
-class WindowsSerialPlatform:
-    """Fail-closed platform seam for a qualified Windows serial provider.
+class WindowsPortBusyError(WindowsPortPreflightError):
+    """The exclusive Windows COM open was denied because it is already held."""
 
-    The stock pySerial/Windows stack cannot prove that CreateFile and its driver
-    will leave DTR/RTS unchanged during open. A platform provider must supply
-    current PnP identity, process ownership, and an independently qualified
-    no-transition open policy before this transport can touch a COM port.
+
+class _Win32SerialHandle:
+    """Small synchronous Win32 serial handle with bounded I/O timeouts.
+
+    This configures data/flow-control parameters only. It does not call
+    EscapeCommFunction, SetCommBreak, or any DTR/RTS operation. CreateFileW
+    itself is still driver-dependent and therefore remains policy-gated.
     """
+    GENERIC_READ = 0x80000000
+    GENERIC_WRITE = 0x40000000
+    OPEN_EXISTING = 3
+    INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+    class _DCB(ctypes.Structure):
+        _fields_ = [("DCBlength", ctypes.c_uint32), ("BaudRate", ctypes.c_uint32),
+            ("fFlags", ctypes.c_uint32), ("wReserved", ctypes.c_uint16),
+            ("XonLim", ctypes.c_uint16), ("XoffLim", ctypes.c_uint16),
+            ("ByteSize", ctypes.c_uint8), ("Parity", ctypes.c_uint8),
+            ("StopBits", ctypes.c_uint8), ("XonChar", ctypes.c_int8),
+            ("XoffChar", ctypes.c_int8), ("ErrorChar", ctypes.c_int8),
+            ("EofChar", ctypes.c_int8), ("EvtChar", ctypes.c_int8),
+            ("wReserved1", ctypes.c_uint16)]
+
+    class _COMMTIMEOUTS(ctypes.Structure):
+        _fields_ = [("ReadIntervalTimeout", ctypes.c_uint32),
+            ("ReadTotalTimeoutMultiplier", ctypes.c_uint32),
+            ("ReadTotalTimeoutConstant", ctypes.c_uint32),
+            ("WriteTotalTimeoutMultiplier", ctypes.c_uint32),
+            ("WriteTotalTimeoutConstant", ctypes.c_uint32)]
+
+    def __init__(self, port: str, *, baudrate: int, timeout: float,
+                 write_timeout: float, kernel32=None):
+        if sys.platform != "win32" and kernel32 is None:
+            raise WindowsPortPreflightError("Win32 serial handles are available only on Windows")
+        self.kernel32 = kernel32 or ctypes.WinDLL("kernel32", use_last_error=True)
+        self._declare_win32_signatures()
+        self.handle = self.kernel32.CreateFileW("\\\\.\\" + port, self.GENERIC_READ | self.GENERIC_WRITE,
+            0, None, self.OPEN_EXISTING, 0, None)
+        if self.handle in (None, self.INVALID_HANDLE_VALUE):
+            error = ctypes.get_last_error()
+            if error in (5, 32, 33):
+                raise WindowsPortBusyError("exclusive COM open denied; owner is unavailable or port is busy")
+            raise OSError(error, "Windows COM open failed")
+        try:
+            dcb = self._DCB()
+            dcb.DCBlength = ctypes.sizeof(dcb)
+            if not self.kernel32.GetCommState(self.handle, ctypes.byref(dcb)):
+                raise OSError(ctypes.get_last_error(), "GetCommState failed")
+            # Never alter DTR/RTS state after CreateFile: first reject inherited
+            # DCBs that request either line, then preserve their disabled bits.
+            # A transition during CreateFile is outside this process's control
+            # and must be covered by the independent reset-safe policy.
+            if dcb.fFlags & (0x3 << 4) or dcb.fFlags & (0x3 << 12):
+                raise WindowsPortPreflightError("inherited DCB enables DTR/RTS control; refusing line change")
+            # Disable CTS/DSR hardware and XON/XOFF software flow control only.
+            dcb.fFlags &= ~((1 << 2) | (1 << 3) | (1 << 8) | (1 << 9))
+            dcb.BaudRate = baudrate
+            dcb.ByteSize, dcb.Parity, dcb.StopBits = 8, 0, 0
+            if not self.kernel32.SetCommState(self.handle, ctypes.byref(dcb)):
+                raise OSError(ctypes.get_last_error(), "SetCommState failed")
+            limits = self._COMMTIMEOUTS(0xFFFFFFFF, 0, max(1, int(timeout * 1000)),
+                                        0, max(1, int(write_timeout * 1000)))
+            if not self.kernel32.SetCommTimeouts(self.handle, ctypes.byref(limits)):
+                raise OSError(ctypes.get_last_error(), "SetCommTimeouts failed")
+        except Exception:
+            self.kernel32.CloseHandle(self.handle)
+            self.handle = None
+            raise
+
+    def _declare_win32_signatures(self):
+        """Prevent default ctypes int conversions from truncating 64-bit handles."""
+        declarations = {
+            "CreateFileW": ([ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32,
+                ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p], ctypes.c_void_p),
+            "GetCommState": ([ctypes.c_void_p, ctypes.POINTER(self._DCB)], ctypes.c_int),
+            "SetCommState": ([ctypes.c_void_p, ctypes.POINTER(self._DCB)], ctypes.c_int),
+            "SetCommTimeouts": ([ctypes.c_void_p, ctypes.POINTER(self._COMMTIMEOUTS)], ctypes.c_int),
+            "ReadFile": ([ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
+                ctypes.POINTER(ctypes.c_uint32), ctypes.c_void_p], ctypes.c_int),
+            "WriteFile": ([ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
+                ctypes.POINTER(ctypes.c_uint32), ctypes.c_void_p], ctypes.c_int),
+            "FlushFileBuffers": ([ctypes.c_void_p], ctypes.c_int),
+            "CloseHandle": ([ctypes.c_void_p], ctypes.c_int),
+        }
+        for name, (argtypes, restype) in declarations.items():
+            function = getattr(self.kernel32, name)
+            function.argtypes = argtypes
+            function.restype = restype
+
+    def read(self, count: int) -> bytes:
+        if self.handle is None:
+            raise OSError("COM handle is closed")
+        count = min(max(1, int(count)), MAX_FRAME_BYTES)
+        buffer = ctypes.create_string_buffer(count)
+        read_count = ctypes.c_uint32()
+        if not self.kernel32.ReadFile(self.handle, buffer, count, ctypes.byref(read_count), None):
+            raise OSError(ctypes.get_last_error(), "ReadFile failed")
+        return buffer.raw[:read_count.value]
+
+    def write(self, payload: bytes) -> int:
+        if self.handle is None:
+            raise OSError("COM handle is closed")
+        if len(payload) > MAX_FRAME_BYTES:
+            raise CaptureError("Windows serial write exceeds bound")
+        buffer = ctypes.create_string_buffer(payload)
+        written = ctypes.c_uint32()
+        if not self.kernel32.WriteFile(self.handle, buffer, len(payload), ctypes.byref(written), None):
+            raise OSError(ctypes.get_last_error(), "WriteFile failed")
+        return written.value
+
+    def flush(self):
+        if self.handle is not None and not self.kernel32.FlushFileBuffers(self.handle):
+            raise OSError(ctypes.get_last_error(), "FlushFileBuffers failed")
+
+    def close(self):
+        if self.handle is not None:
+            handle, self.handle = self.handle, None
+            if not self.kernel32.CloseHandle(handle):
+                raise OSError(ctypes.get_last_error(), "CloseHandle failed")
+
+
+class WindowsSerialPlatform:
+    """Windows PnP/native serial provider; reset-safety is never inferred.
+
+    Device enumeration uses the Windows PnP cmdlets and does not open COM.
+    Port-owner PID is not available through a documented, reliable Windows
+    interface. The subsequent share-mode-zero CreateFile is the atomic
+    exclusive-access test, but is reached only after reset-safe policy has
+    independently qualified the exact active driver. No policy means NO-GO.
+
+    `native_api` and `reset_safe_policy` are injectable for deterministic tests.
+    The policy callback must be backed by external qualification evidence; a
+    callback is not itself evidence and this repository supplies none.
+    """
+    _PNP_SCRIPT = r"""
+$ErrorActionPreference='Stop'
+$rows = @(Get-PnpDevice -Class Ports -PresentOnly | ForEach-Object {
+  $name = $_.FriendlyName
+  $m = [regex]::Match($name, '\((COM[0-9]+)\)$', 'IgnoreCase')
+  if ($m.Success) {
+    $id = $_.InstanceId
+    $version = (Get-PnpDeviceProperty -InstanceId $id -KeyName DEVPKEY_Device_DriverVersion -ErrorAction SilentlyContinue).Data
+    [pscustomobject]@{port=$m.Groups[1].Value.ToUpperInvariant(); instance_id=$id;
+      driver_version=[string]$version; present=$true}
+  }
+})
+ConvertTo-Json -InputObject $rows -Compress -Depth 3
+"""
+
+    def __init__(self, *, native_api=None, reset_safe_policy=None):
+        self.native_api = native_api
+        self.reset_safe_policy = reset_safe_policy
+        self._last_identity: dict | None = None
+        self._port_presence: dict[str, bool] = {}
+        self._port_events: dict[str, list[dict]] = {}
+        self._control_events: dict[str, list[dict]] = {}
+        self._line_unobservable_reported: set[str] = set()
+
+    def _api(self):
+        if self.native_api is None:
+            if sys.platform != "win32":
+                raise WindowsPortPreflightError("Windows PnP provider is unavailable on this host")
+            self.native_api = _WindowsNativeApi()
+        return self.native_api
+
+    def _ports(self) -> list[dict]:
+        return self._api().enumerate_pnp_ports()
+
     def inspect_pnp_identity(self, port: str) -> dict | None:
-        return None
+        if not re.fullmatch(r"COM[1-9][0-9]*", str(port).upper()):
+            return None
+        matches = [row for row in self._ports() if row.get("port", "").upper() == port.upper()]
+        if len(matches) != 1 or matches[0].get("present") is not True:
+            return None
+        row = matches[0]
+        match = re.search(r"VID_([0-9A-F]{4})&PID_([0-9A-F]{4})[^\\]*\\([^\\]+)$",
+                          str(row.get("instance_id", "")), re.IGNORECASE)
+        if not match:
+            return None
+        identity = {"instance_id": row["instance_id"], "vid": match.group(1).lower(),
+                    "pid": match.group(2).lower(), "serial": match.group(3),
+                    "driver_version": row.get("driver_version", "")}
+        self._last_identity = identity
+        self._port_presence[port.upper()] = True
+        return identity
 
     def port_owner(self, port: str) -> int | None:
+        # Windows has no documented reliable arbitrary-COM-handle -> PID query.
         return None
 
+    def exclusive_open_is_ownership_check(self, port: str) -> bool:
+        return True
+
     def reset_safe_open_policy(self, port: str) -> dict:
-        return {"verified": False, "description": "no qualified Windows driver policy"}
+        identity = self.inspect_pnp_identity(port)
+        if identity is None:
+            return {"verified": False, "description": "current PnP identity unavailable"}
+        if self.reset_safe_policy is None:
+            return {"verified": False,
+                    "description": "no externally qualified reset-safe policy for the active Windows driver"}
+        try:
+            result = self.reset_safe_policy(dict(identity))
+        except Exception:
+            return {"verified": False, "description": "reset-safe policy verification failed"}
+        if not isinstance(result, dict) or result.get("verified") is not True or not result.get("evidence_id"):
+            return {"verified": False, "description": "reset-safe policy evidence is absent or invalid"}
+        return {"verified": True, "description": str(result["evidence_id"])}
 
     def open_serial(self, port: str, *, baudrate: int, timeout: float,
-                    write_timeout: float, flow_control: bool):
-        raise WindowsPortPreflightError("no qualified Windows serial provider is installed")
+                    write_timeout: float, flow_control: bool, expected_pnp: dict | None = None):
+        if flow_control or not (0 < timeout <= 1 and 0 < write_timeout <= 2):
+            raise WindowsPortPreflightError("serial parameters exceed the bounded observer policy")
+        if expected_pnp is not None:
+            current = self.inspect_pnp_identity(port)
+            if not isinstance(current, dict) or any(current.get(key) != value
+                    for key, value in expected_pnp.items()):
+                raise WindowsPortPreflightError("PnP identity changed immediately before exclusive open")
+        return self._api().open_exclusive(port, baudrate=baudrate, timeout=timeout,
+                                          write_timeout=write_timeout)
 
     def take_control_line_events(self, port: str) -> list[dict]:
-        return []
+        events = self._control_events.pop(port.upper(), [])
+        if not events and port.upper() not in self._line_unobservable_reported:
+            events.append({"kind": "driver_line_state_unobservable",
+                           "note": "Win32 provider issues no DTR/RTS IOCTL; driver transitions are not observable here"})
+            self._line_unobservable_reported.add(port.upper())
+        return events
 
     def take_port_events(self, port: str) -> list[dict]:
-        return []
+        port = port.upper()
+        events = self._port_events.setdefault(port, [])
+        try:
+            present = any(row.get("port", "").upper() == port and row.get("present") is True
+                          for row in self._ports())
+        except Exception:
+            events.append({"kind": "presence_unknown"})
+            result, self._port_events[port] = events, []
+            return result
+        old = self._port_presence.get(port)
+        if old is True and not present:
+            events.append({"kind": "removed"})
+        elif old is False and present:
+            events.append({"kind": "reenumerated"})
+        self._port_presence[port] = present
+        result, self._port_events[port] = events, []
+        return result
+
+
+class _WindowsNativeApi:
+    def enumerate_pnp_ports(self) -> list[dict]:
+        command = ["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive",
+                   "-Command", WindowsSerialPlatform._PNP_SCRIPT]
+        try:
+            result = subprocess.run(command, check=True, capture_output=True, text=True,
+                                    timeout=5, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            rows = json.loads(result.stdout or "[]")
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+            raise WindowsPortPreflightError("Windows PnP enumeration failed or timed out") from error
+        if isinstance(rows, dict):
+            rows = [rows]
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise WindowsPortPreflightError("Windows PnP enumeration returned malformed data")
+        return rows
+
+    def open_exclusive(self, port: str, *, baudrate: int, timeout: float, write_timeout: float):
+        return _Win32SerialHandle(port, baudrate=baudrate, timeout=timeout,
+                                  write_timeout=write_timeout)
 
 
 class WindowsNativeSerialTransport:
@@ -103,8 +349,15 @@ class WindowsNativeSerialTransport:
         if not isinstance(observed, dict) or any(
                 observed.get(key) != value for key, value in self.expected_pnp.items()):
             raise WindowsPortPreflightError("COM port PnP identity does not match the designated spare")
+        self.control_events.append({"operation": "pnp_identity", "result": "matched",
+            "port": self.port,
+            "instance_id_sha256": hashlib.sha256(str(observed["instance_id"]).encode()).hexdigest(),
+            "driver_version": observed.get("driver_version", ""),
+            "monotonic_ns": time.monotonic_ns()})
         owner = self.platform.port_owner(self.port)
-        if owner is None:
+        exclusive_open_check = getattr(self.platform, "exclusive_open_is_ownership_check", None)
+        if owner is None and not (callable(exclusive_open_check) and
+                                  exclusive_open_check(self.port) is True):
             raise WindowsPortPreflightError("COM port ownership could not be checked")
         if owner:
             raise WindowsPortPreflightError("COM port is owned by another process")
@@ -116,9 +369,24 @@ class WindowsNativeSerialTransport:
         self.control_events.append({"operation": "open_policy", "result": "verified",
                                     "description": str(policy["description"]),
                                     "monotonic_ns": time.monotonic_ns()})
+        if owner is None:
+            self.control_events.append({"operation": "port_owner", "result": "UNKNOWN",
+                "verification": "share-mode-zero CreateFile is the atomic exclusive check",
+                "monotonic_ns": time.monotonic_ns()})
         try:
             self.device = self.platform.open_serial(self.port, baudrate=self.baudrate,
-                timeout=0.2, write_timeout=1.0, flow_control=False)
+                timeout=0.2, write_timeout=1.0, flow_control=False,
+                expected_pnp=self.expected_pnp)
+        except WindowsPortBusyError:
+            self.control_events.append({"operation": "open", "result": "BUSY_OR_ACCESS_DENIED",
+                                        "monotonic_ns": time.monotonic_ns()})
+            self.ever_opened = True
+            raise
+        except WindowsPortPreflightError:
+            self.control_events.append({"operation": "open", "result": "preflight_rejected",
+                                        "monotonic_ns": time.monotonic_ns()})
+            self.ever_opened = True
+            raise
         except Exception as error:
             self.control_events.append({"operation": "open", "result": "failed",
                                         "error_type": type(error).__name__,
@@ -194,7 +462,8 @@ class WindowsNativeSerialTransport:
     def _record_port_events(self, event: str):
         try:
             for item in self.platform.take_port_events(self.port) or ():
-                if item.get("kind") in {"removed", "disconnected", "arrival_lost"}:
+                if item.get("kind") in {"removed", "disconnected", "arrival_lost",
+                                         "reenumerated", "presence_unknown"}:
                     self.disconnected = True
                 self.control_events.append({"operation": "host_port_event", "event": event,
                                             "detail": dict(item), "monotonic_ns": time.monotonic_ns()})
