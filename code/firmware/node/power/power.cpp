@@ -107,10 +107,15 @@ bool NodeHealthCadence::due(Milliseconds now_ms, bool application_due,
 void observe_retained_delivery(LightSleepObservation& input,
                                const AckListeningWindow& listening,
                                bool pending, bool retained) {
-    const std::optional<Milliseconds> retry = input.next_retry_ms >= 0
-        ? std::optional<Milliseconds>{input.next_retry_ms} : std::nullopt;
-    input.outage_quiet = listening.outage_quiet(input.now_ms,
-        input.outage_active, pending, retry);
+    // Keep each optional state explicit to avoid GCC false positives at -O2
+    // with -Werror=maybe-uninitialized; the outage policy is unchanged.
+    if (input.next_retry_ms >= 0) {
+        input.outage_quiet = listening.outage_quiet(input.now_ms,
+            input.outage_active, pending, input.next_retry_ms);
+    } else {
+        input.outage_quiet = listening.outage_quiet(input.now_ms,
+            input.outage_active, pending, std::nullopt);
+    }
     input.pending_tx = input.authenticated && pending && !input.outage_quiet;
     input.ack_wait = listening.active(input.now_ms) || input.pending_tx;
     input.recovery_work = input.recovery_work ||
