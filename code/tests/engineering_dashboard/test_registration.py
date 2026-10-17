@@ -55,6 +55,10 @@ class RegistrationTest(unittest.TestCase):
             "gs144-workload-spec",
             "gs114-p9-signed-artifact-safety",
             "gs40-qualification-host",
+            "gs177-voice-prototype",
+            "gs177-android-dashboard",
+            "gs177-caregiver-offline-browser",
+            "gs177-connected-lite-api",
         })
         self.assertEqual(prior_ids-current_ids,set())
         for original in prior["stages"]:
@@ -90,7 +94,7 @@ class RegistrationTest(unittest.TestCase):
         self.assertEqual(len(browser.get("required_success",[])),21)
         self.assertEqual(current_by_id["python"].get("prerequisites"),["backend-receipts"])
         self.assertIn("tests/engineering_dashboard/test_service_access.py",
-                      current["stages"][-1]["inputs"])
+                      current_by_id["diagnostic-foundation"]["inputs"])
         for key in prior:
             if key == "opt_in_physical_suites":
                 expected_physical = dict(prior[key])

@@ -57,7 +57,7 @@ def select(data,suite):
     if suite not in COMPONENTS|SPECIAL_SUITES: raise ValueError("unknown suite")
     selected={s["id"] for s in data["stages"] if
         (suite=="android" and s["id"]=="gs177-android-dashboard") or
-        (suite=="caregiver-app" and s["id"] in {"gs177-android-dashboard","gs177-voice-prototype"}) or
+        (suite=="caregiver-app" and s["id"] in {"gs177-android-dashboard","gs177-voice-prototype","gs177-connected-lite-api"}) or
         (suite=="board-e2e" and s["id"]=="board-stack-e2e") or
         (suite=="p0-e2e" and s["id"]=="p0-full-product-e2e") or
         (suite=="release" and (s.get("fast",True) or s.get("release",False))) or
@@ -122,6 +122,13 @@ def stage_environment(stage,env):
         child.pop("PLAYWRIGHT_PORT",None)
         child.pop("PWA_BASE_URL",None)
     return child
+
+def base_environment(parent=None):
+    """Add repository imports without hiding isolated caller-supplied test deps."""
+    inherited=os.environ if parent is None else parent
+    pythonpath=[str(ROOT/"backend"),str(ROOT)]
+    pythonpath.extend(part for part in inherited.get("PYTHONPATH","").split(os.pathsep) if part)
+    return {**inherited,"PYTHONPATH":os.pathsep.join(pythonpath),"PYTHONUNBUFFERED":"1"}
 
 def adjudicate(stage,result):
     out=result["output"]
@@ -216,7 +223,7 @@ def main(argv=None):
     campaign=ROOT/"evidence/validation_framework"/(args.suite+"-"+str(time.time_ns()))
     campaign.mkdir(parents=True)
     rows=[];started=time.monotonic()
-    env={**os.environ,"PYTHONPATH":str(ROOT/"backend")+os.pathsep+str(ROOT),"PYTHONUNBUFFERED":"1"}
+    env=base_environment()
     profile=build_profile(env)
     receipts={}
     try:

@@ -23,8 +23,15 @@ concurrency:
 
 jobs:
   android-caregiver-apk:
+    if: vars.GS177_BACKEND_ORIGIN != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      GS177_BACKEND_ORIGIN: ${{ vars.GS177_BACKEND_ORIGIN }}
+      GS177_KEYSTORE_B64: ${{ secrets.GS177_KEYSTORE_B64 }}
+      GS177_KEYSTORE_PASSWORD: ${{ secrets.GS177_KEYSTORE_PASSWORD }}
+      GS177_KEY_ALIAS: ${{ secrets.GS177_KEY_ALIAS }}
+      GS177_KEY_PASSWORD: ${{ secrets.GS177_KEY_PASSWORD }}
     permissions:
       contents: read
     steps:
@@ -51,6 +58,20 @@ jobs:
         with:
           gradle-version: '8.9'
           cache-provider: basic
+
+      - name: Prepare owner-controlled pilot signing key when supplied
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$GS177_KEYSTORE_B64" ]]; then
+            : "${GS177_KEYSTORE_PASSWORD:?missing pilot keystore password}"
+            : "${GS177_KEY_ALIAS:?missing pilot key alias}"
+            : "${GS177_KEY_PASSWORD:?missing pilot key password}"
+            key_path="$RUNNER_TEMP/gs177-pilot.jks"
+            printf '%s' "$GS177_KEYSTORE_B64" | base64 -d > "$key_path"
+            chmod 600 "$key_path"
+            printf 'GS177_KEYSTORE_PATH=%s\n' "$key_path" >> "$GITHUB_ENV"
+          fi
 
       - name: Install pinned Python browser-test dependency
         shell: bash
@@ -89,14 +110,18 @@ jobs:
             printf 'source_revision=%s\n' "$ANDROID_SOURCE_REVISION"
             printf 'source_ref=%s\n' "$ANDROID_SOURCE_REF"
             printf 'package_name=in.gharsajag.caregiver\n'
-            printf 'version_name=0.3.0-branded-offline\n'
+            printf 'version_name=0.4.0-connected-lite-staging\n'
             printf 'gradle=8.9\njava=17\nandroid_compile_sdk=35\n'
-            printf 'backend_origin=not-configured; runtime=offline-until-authenticated-service-is-implemented\n'
+            printf 'backend_origin=%s\n' "$GS177_BACKEND_ORIGIN"
             printf 'backend_build_properties=caregiverDebugBackendOrigin|caregiverReleaseBackendOrigin\n'
             printf 'approved_logo_sha256=d0ff244d61b5cb047c320fc3af1028fa8e780186189a481657b8fea14b679441\n'
             printf 'bundled_ui=existing-tools/sim/pwa\n'
             printf 'push_notifications=disabled\nvoice_calling=disabled\n'
-            printf 'signing=runner-generated-debug-key; testing-only\n'
+            if [[ -n "${GS177_KEYSTORE_PATH:-}" ]]; then
+              printf 'signing=owner-controlled-pilot-key\n'
+            else
+              printf 'signing=runner-generated-debug-key; testing-only; uninstall-previous-may-be-required\n'
+            fi
           } > "$apk_dir/build-info.txt"
 
       - name: Upload APK and SHA-256 evidence

@@ -582,6 +582,10 @@ $$('.nav-btn').forEach(b=>b.onclick=async()=>{
   else render();
   if(currentTab==='reports')loadReport({quiet:true});
 });
+// Keep the static navigation hidden until the simulator handlers are attached.
+// Mobile taps immediately after a reload can otherwise hit inert buttons while
+// the module graph is still loading.
+$('.bottom-nav').hidden=false;
 $('#awayToggle').checked=false; $('#awayToggle').disabled=true;
 window.setReport=p=>{if(!reportApiPeriods[p])return;reportPeriod=p;if(!caregiverRuntime)loadReport()}
 window.toggleDemo=k=>{

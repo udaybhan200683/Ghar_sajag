@@ -1,5 +1,110 @@
 # R1 Current Work State
 
+## GS-177 Connected Lite resume and Hub CloudSync dependency — 2026-10-17
+
+The owner resumed the preserved GS-177 implementation at historical HEAD
+`6749b9e0cb5785a00cb87df88cb424b6107073bd` on
+`feature/gs-177-caregiver-android`. The existing worktree changes were retained;
+no reset, stash, branch replacement, or synchronization was performed. Jira
+GS-177 was already `In Progress`. The explicitly authorized GS-177 worktree is
+the only implementation location used. Canonical GS-40/R1 was inspected
+read-only and not modified.
+
+This continuation reused GS-120/122/124/125 diagnostics and authorization,
+integrated its existing seven-area Engineering experience into the shared
+Parivar Saathi PWA, and kept administrator-only entry server-enforced for
+TEST_ONLY Homes. Simulation and caregiver endpoints remain isolated under
+`/lite/v1`; the service explicitly does not mount the legacy `/v1` developer
+actor adapter or copy simulated data into GS-148 durable event storage. PWA
+Home, Devices, Engineering and Settings now show
+`Physical Home UNAVAILABLE / NO_HUB_CLOUDSYNC`, identify `GS-148_CLOUDSYNC` as
+the real-event contract, and retain UNKNOWN freshness and physical measurements.
+
+Host validation after these changes: Connected Lite API/storage/auth tests
+10/10, caregiver runtime 6/6, existing production-lab motion/door/morning
+scenarios 3/3, shared JS tests 30/30, and connected/offline Chromium tests 3/3
+(92/92 rendered validation cases). Engineering/diagnostic tests were 98/98;
+framework tests 49/49; GS-177 registration tests 6/6; feature traceability
+213 features / 242 modules / 25 physical cases with 22/22 mapping tests.
+The previous `make validation-pwa` aggregate report remains FAIL: its browser
+suite passed 86/86 and P0 checks passed 26/26, but P0 correctly reports
+`product_status=PARTIAL`; the GS-177 browser registration's unittest-output
+regex was then corrected and verified with focused meta/browser tests. The
+aggregate has not been rerun after that correction. Full release gate was not
+run.
+
+No deployment connection, authorized Render workspace, or configured
+`GS177_BACKEND_ORIGIN` is available. No live HTTPS service, managed-PostgreSQL
+restart/backup receipt, bootstrapped administrator, connected APK, or phone
+acceptance exists. Local Android validation exited 127 with
+`GS177 ANDROID BUILD BLOCKED dependency=approved_hosted_backend_origin` before
+Gradle/SDK checks. The prior `0.3.0-branded-offline` APK remains historical.
+Keep GS-177 open. The app offers 92 existing simulator catalogue entries;
+three deterministic scenarios were executed. The current Hub RoutineService
+has no longitudinal/calendar baseline learner, so the PWA truthfully reports
+`UNSUPPORTED_MULTI_DAY` rather than presenting a synthetic resident baseline.
+
+Read-only GS-148 / Hub audit for Jira comment 11330: the S3 target sets station
+mode and ESP-NOW channel 1 but has no Wi-Fi provisioning, STA configuration,
+connect, IP event, or reconnect handler. `CloudSyncWorker` is instantiated
+with `UnprovisionedS3CloudTrust` and empty HTTPS origin/CA configuration; its
+scheduled task only calls the NodeHealth path, not the durable event batch
+runner. Existing journal/outbox and CloudSync retain EventKey-bound events
+until an authenticated committed receipt, with bounded retry backoff, but
+production authority/time/TLS provisioning and an active event-sync schedule
+are absent. Real Hub → Home Wi-Fi → cloud → Android remains
+`BLOCKED/NOT_RUN`; no firmware, hardware, provisioning or serial operation was
+performed. Exact findings and operator prerequisites are in the latest
+GS-177 handoff below.
+
+Minimum external next steps: authorize/provision the HTTPS Render web service
+and persistent database (including backups), set the non-secret GitHub Actions
+variable `GS177_BACKEND_ORIGIN`, deploy and verify readiness, then run the
+server's interactive `bootstrap-admin --email ...` command in its secure shell
+to set—not transmit—the first password. Build with the owner-controlled pilot
+signing key if seamless APK updates are required; then perform Android mobile-
+data acceptance with the laptop off. Track B separately needs the GS-68/109/148
+identity, trusted time, Wi-Fi/ESP-NOW coexistence and CloudSync qualification.
+Do not close GS-177 or claim full-product/HIL completion.
+
+## GS-177 Connected Lite TEST_ONLY host integration — 2026-10-17
+
+The explicitly authorized GS-177 worktree remains isolated from canonical GS-40.
+Starting local and remote HEAD were both `6749b9e0cb5785a00cb87df88cb424b6107073bd` on
+`feature/gs-177-caregiver-android`; status was clean and the context preflight
+passed (`2026-10-13.001`). Jira GS-177/11325 and GS-125/11061 confirm that
+GS-120/122/124/125 engineering foundation is already integrated. This
+continuation adds a thin Android/PWA navigation and API adapter over
+`diagnostics.py` and `diagnostic_authorization.py`; no competing diagnostic
+domain engine or engineering worktree was created.
+
+The new staging WSGI service uses server-issued revocable sessions, current
+account/Home/role/epoch checks, PostgreSQL schema, bounded existing lab
+scenarios and persistent TEST_ONLY run records. The bundled PWA adds caregiver,
+Engineering and Simulation navigation; its Engineering areas display the
+existing GS-124 read projection and saved synthetic runs. Physical evidence is
+UNKNOWN/NOT_RUN. Real-Home consent/ticket route composition is not activated
+in this staging service, so real Homes remain denied. The previous offline APK
+remains historical; no new cloud-configured APK or live deployment exists yet.
+
+Focused host validation: 9 API/auth/storage tests, 6 JS runtime tests and 3
+existing lab scenarios passed; browser regression passed 2 tests and 92/92
+catalog cases. GS-130 traceability consistency passed. PostgreSQL, actual
+Render deployment, HTTPS endpoint, GitHub configured APK and mobile-data
+acceptance remain BLOCKED/NOT_RUN pending an authorized hosting connection and
+actual owner handset. Multi-day routine learning, real-Home GS-124 consent
+composition, production Hub ingest, FCM and S3/WebRTC calling remain open;
+GS-177 must not be marked Done. See the dated GS-177 handoff below for the
+operator procedure, exact evidence and next action. No GS-40 source or hardware
+was modified.
+
+Owner-directed pause: the full backend component gate exited 2 after existing
+Python/GS-124 registry assumptions and missing Playwright in the P0 stage;
+focused affected fixes passed 14/14, but the aggregate gate was not rerun.
+The PWA component and release gates remain NOT_RUN. The next session must
+start from the latest GS-177 handoff and current Git/Jira state, not this
+initial task prompt.
+
 ## GS-177 caregiver Android live-backend and startup audit — 2026-10-17
 
 GS-177 resumed only in the explicitly authorized isolated worktree
@@ -4157,3 +4262,26 @@ The implementation remains isolated at
 `feature/gs-177-caregiver-android`; hosted artifact source commit was verified
 equal to origin. Jira comment `11318` records this receipt. GS-40 remains
 untouched by this work.
+
+### GS-177 Connected Lite resume status — 2026-10-17
+
+GS-177 continuation work is isolated in its explicitly authorized GS-177
+worktree; it has not been merged into or implemented in the canonical R1/GS-40
+worktree. The source now includes the authenticated synthetic TEST_ONLY
+`/lite/v1` API, shared PWA caregiver/admin integration, persistent simulation
+runs, and a GS-124 read-only engineering adapter. It reuses the GS-120/GS-124
+engineering foundation and existing simulator. It intentionally does not mount
+the GS-148 Hub ingress. The detailed source, scope, validation, deployment,
+phone and read-only Hub audit are in
+[`GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md`](../exec-plans/evidence/GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md).
+
+Latest connected API test stage passes 12/12, the PWA browser stage 3/3 with
+92/92 catalogue assertions, validation-framework tests 50/50, and feature
+mapping 22/22. The final backend aggregate remains **FAIL** because the P0
+product vertical is `PARTIAL` while production GS-148 Hub TLS/credential and
+enrollment-generation binding remain unconfigured. There is no provisioned
+Render service/database or approved stable HTTPS origin, no connected APK, no
+cloud admin account, and no owner-phone mobile-data acceptance. Hub Wi-Fi and
+real Hub CloudSync remain **BLOCKED/NOT_RUN**. GS-177 remains open; no R1
+release, physical qualification, or full-product call/push acceptance is
+claimed.

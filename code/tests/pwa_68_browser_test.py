@@ -70,7 +70,7 @@ class Pwa68BrowserTest(unittest.TestCase):
    shutil.rmtree(profile,ignore_errors=True)
  def test_caregiver_runtime_starts_offline_without_simulated_household_data(self):
   original=self.web.runtime_config
-  self.web.runtime_config={"mode":"caregiver","backendOrigin":"https://care.gharsajag.in/","caregiverApiConfigured":False}
+  self.web.runtime_config={"mode":"caregiver","backendOrigin":"","caregiverApiConfigured":False}
   port=free_port();profile=tempfile.mkdtemp(prefix='ps-caregiver-offline-')
   proc=subprocess.Popen([self.chromium,'--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--remote-allow-origins=*',f'--remote-debugging-port={port}',f'--user-data-dir={profile}','about:blank'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   try:
@@ -83,16 +83,18 @@ class Pwa68BrowserTest(unittest.TestCase):
    page=json.loads(urlopen(req,timeout=3).read());ws=websocket.create_connection(page['webSocketDebuggerUrl'],timeout=10)
    try:
     cdp(ws,'Page.enable');cdp(ws,'Runtime.enable');cdp(ws,'Network.enable')
+    cdp(ws,'Page.navigate',{'url':self.base+'/'})
     deadline=time.time()+15;dom=None
     while time.time()<deadline:
      result=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const e=document.querySelector('#connectionStatus');return e?{banner:e.innerText,home:document.querySelector('#homeTab')?.innerText||'',pilot:!!document.querySelector('.sim-sidebar')}:null})()",'returnByValue':True})
      dom=result.get('result',{}).get('value')
-     if dom and 'Home unavailable' in dom['home']:break
+     if dom and 'Sign in to your authorized Home' in dom['home']:break
      time.sleep(.1)
-    self.assertIsNotNone(dom,'caregiver UI did not render')
-    self.assertIn('Offline / Unable to connect',dom['banner'])
-    self.assertIn('freshness are unavailable',dom['banner'])
-    self.assertIn('Home unavailable',dom['home'])
+    self.assertIsNotNone(dom,f'caregiver UI did not render; last evaluation={result!r}')
+    self.assertIn('OFFLINE / UNCONFIGURED',dom['banner'])
+    self.assertIn('no approved HTTPS backend',dom['banner'])
+    self.assertIn('Monitoring status is unknown',dom['home'])
+    self.assertIn('Approved HTTPS backend is not configured',dom['home'])
     self.assertFalse(dom['pilot'])
     branding=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const name=document.querySelector('.brand-name');const icon=document.querySelector('.brand-icon');return {name:name?.textContent?.trim(),icon:icon?.getAttribute('src'),loaded:!!icon?.complete&&icon.naturalWidth===192}})()",'returnByValue':True})['result']['value']
     self.assertEqual(branding,{'name':'Parivar Saathi','icon':'assets/parivar-saathi-icon-192.png','loaded':True},'PWA branding must use the approved logo mark and name')
@@ -100,11 +102,147 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertFalse(forbidden,'caregiver UI exposed simulator identity or a synthetic healthy state')
     resources=cdp(ws,'Runtime.evaluate',{'expression':"performance.getEntriesByType('resource').map(x=>x.name).filter(x=>/\\/(?:pwa|v1)\\//.test(new URL(x).pathname))",'returnByValue':True})['result']['value']
     self.assertEqual(resources,[],'offline startup must not call simulator or placeholder production API routes')
-    for tab,heading in [('devices','Devices unavailable'),('reports','Reports unavailable'),('settings','Caregiver sign-in')]:
-     cdp(ws,'Runtime.evaluate',{'expression':f"document.querySelector('[data-tab=\\\"{tab}\\\"]').click()"})
-     panel=cdp(ws,'Runtime.evaluate',{'expression':f"document.querySelector('#{tab}Tab').innerText",'returnByValue':True})['result']['value']
-     self.assertIn(heading,panel)
-    print('PASS caregiver offline browser E2E: familiar tabs, explicit unavailable state, no simulator data or API calls')
+    nav=cdp(ws,'Runtime.evaluate',{'expression':"document.querySelector('.bottom-nav').hidden",'returnByValue':True})['result']['value']
+    self.assertTrue(nav,'caregiver navigation must stay hidden until server authentication')
+    print('PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls')
+   finally: ws.close()
+  finally:
+   self.web.runtime_config=original
+   proc.terminate()
+   try:proc.wait(timeout=5)
+   except subprocess.TimeoutExpired:proc.kill();proc.wait()
+   shutil.rmtree(profile,ignore_errors=True)
+ def test_connected_lite_admin_navigation_simulation_and_caregiver_restriction(self):
+  original=self.web.runtime_config
+  self.web.runtime_config={"mode":"caregiver","backendOrigin":"https://care.gharsajag.in/","caregiverApiConfigured":True,"appVersion":"browser-test","sourceRevision":"0123456789ab"}
+  port=free_port();profile=tempfile.mkdtemp(prefix='ps-connected-lite-')
+  proc=subprocess.Popen([self.chromium,'--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--remote-allow-origins=*',f'--remote-debugging-port={port}',f'--user-data-dir={profile}','about:blank'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+  try:
+   version=None
+   for _ in range(100):
+    try: version=json.loads(urlopen(f'http://127.0.0.1:{port}/json/version',timeout=.5).read());break
+    except Exception: time.sleep(.1)
+   self.assertIsNotNone(version,'Chromium DevTools endpoint did not start')
+   req=Request(f'http://127.0.0.1:{port}/json/new?{quote(self.base,safe="/:?=&")}',method='PUT')
+   page=json.loads(urlopen(req,timeout=3).read());ws=websocket.create_connection(page['webSocketDebuggerUrl'],timeout=10)
+   try:
+    mock=r'''(()=>{
+      const home='gs177-test-browser-home',runs=[];let role=null;
+      const profile=()=>({account_id:'browser-account',email:role==='ADMIN'?'owner@example.org':'caregiver@example.org',home_id:home,role,test_only:true,expires_at:4102444800,backend_revision:'browser-test'});
+      const makeResult=scenario=>({status:'PASS',scenario:{id:scenario},provenance:'HOST_SIMULATION_TEST_ONLY',hardware_evidence:'NOT_RUN',source_revision:'0123456789ab',checks:[{pass:true,detail:scenario==='morning-missing-covered'?'Expected morning concern appears under covered test input':'Expected motion appears in the simulated timeline'}],state:{timeline:[{kind:scenario==='morning-missing-covered'?'MORNING_ROUTINE_MISSING':'MOTION',event_id:'simulated-event-'+(runs.length+1),occurred_at:'2026-10-17T08:00:00Z',location:'room1',source:'HOST_SIMULATION_TEST_ONLY',routine_decision:scenario==='morning-missing-covered'?'CONCERN':'ACTIVITY'}],incidents:[],devices:[]}});
+      const send=(body,status=200)=>Promise.resolve(new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}}));
+      const original=window.fetch.bind(window);
+      window.fetch=async(input,options={})=>{
+        const url=new URL(String(input));
+        if(url.origin!=='https://care.gharsajag.in')return original(input,options);
+        const path=url.pathname.replace('/lite/v1/','');
+        if(path==='auth/login'&&options.method==='POST'){const credentials=JSON.parse(options.body);role=credentials.email==='caregiver@example.org'?'CAREGIVER':'ADMIN';return send(profile())}
+        if(path==='auth/logout'&&options.method==='POST'){role=null;return send({status:'logged_out'})}
+        if(path==='me')return role?send(profile()):send({error:'not_authorized'},403);
+        if(!role)return send({error:'not_authorized'},403);
+        const prefix='homes/'+home+'/';
+        if(!path.startsWith(prefix))return send({error:'not_authorized'},403);
+        const sub=path.slice(prefix.length);
+        if(['sim/catalog','sim/runs','sim/reset','engineering'].some(value=>sub===value||sub.startsWith(value+'/'))&&role!=='ADMIN')return send({error:'not_authorized'},403);
+        if(sub==='overview')return send({home_id:home,test_only:true,source:'HOST_SIMULATION_TEST_ONLY',physical_status:'UNAVAILABLE',physical_status_reason:'NO_HUB_CLOUDSYNC',physical_data_contract:'GS-148_CLOUDSYNC',monitoring:'UNKNOWN',source_freshness:'UNKNOWN',runs})
+        if(sub==='devices')return send({home_id:home,test_only:true,devices:[],physical_status:'UNAVAILABLE',physical_status_reason:'NO_HUB_CLOUDSYNC',physical_data_contract:'GS-148_CLOUDSYNC'})
+        if(sub==='incidents')return send({home_id:home,test_only:true,incidents:[]})
+        if(sub.startsWith('reports'))return send({home_id:home,test_only:true,run_count:runs.length,runs,outcomes:{PASS:runs.length,FAIL:0,BLOCKED:0,NOT_RUN:0},event_count:runs.length,incident_count:0,period:'week'})
+        if(sub==='routines')return send({home_id:home,test_only:true,learning_status:'UNSUPPORTED_MULTI_DAY',runs:runs.filter(run=>run.scenario_id.startsWith('morning-'))})
+        if(sub==='engineering')return send({home_id:home,test_only:true,gs124_health:{status:'UNSUPPORTED',devices:[]},hardware_evidence:'UNKNOWN',physical_status:'UNAVAILABLE',physical_status_reason:'NO_HUB_CLOUDSYNC',physical_data_contract:'GS-148_CLOUDSYNC',source_revision:'0123456789ab',runs})
+        if(sub==='sim/catalog')return send({scenarios:[{id:'motion-room1-visible',title:'Motion in visible room'},{id:'morning-missing-covered',title:'Morning activity absent'}]})
+        if(sub==='sim/runs'&&options.method==='POST'){const scenario=JSON.parse(options.body).scenario_id,result=makeResult(scenario),item={run_id:'mock-run-'+(runs.length+1),scenario_id:scenario,status:'PASS',created_at:1000,result};runs.unshift(item);return send(item,201)}
+        if(sub==='sim/runs')return send({runs})
+        if(sub.startsWith('sim/runs/')){const saved=runs.find(run=>run.run_id===sub.split('/').at(-1));return saved?send(saved):send({error:'not_found'},404)}
+        if(sub==='sim/reset')return send({simulation_generation:2,saved_history:'PRESERVED'})
+        return send({error:'not_found'},404)
+      };
+    })()'''
+    cdp(ws,'Page.enable');cdp(ws,'Runtime.enable')
+    cdp(ws,'Page.addScriptToEvaluateOnNewDocument',{'source':mock})
+    cdp(ws,'Page.navigate',{'url':self.base+'/'})
+    def evaluate(expression):
+     return cdp(ws,'Runtime.evaluate',{'expression':expression,'returnByValue':True}).get('result',{}).get('value')
+    deadline=time.time()+15;screen=''
+    while time.time()<deadline:
+     screen=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'Sign in to your authorized Home' in screen:break
+     time.sleep(.1)
+    self.assertIn('Sign in to your authorized Home',screen)
+    evaluate("(()=>{document.querySelector('[name=email]').value='owner@example.org';document.querySelector('[name=password]').value='test-password';document.querySelector('#loginForm').requestSubmit()})()")
+    deadline=time.time()+15;tabs=[]
+    while time.time()<deadline:
+     tabs=evaluate("Array.from(document.querySelectorAll('.bottom-nav button')).map(button=>button.dataset.tab)") or []
+     if 'simulation' in tabs:break
+     time.sleep(.1)
+    self.assertEqual(tabs,['home','devices','incidents','reports','routines','settings','engineering','simulation'])
+    self.assertIn('Physical Home: UNAVAILABLE / NO_HUB_CLOUDSYNC',evaluate("document.querySelector('#homeTab').innerText"))
+    self.assertIn('Real Hub event source: GS-148_CLOUDSYNC.',evaluate("document.querySelector('#homeTab').innerText"))
+    self.assertIn('Physical monitoring: UNKNOWN',evaluate("document.querySelector('#homeTab').innerText"))
+    evaluate("document.querySelector('[data-tab=simulation]').click()")
+    deadline=time.time()+15
+    while time.time()<deadline and evaluate("!!document.querySelector('#scenarioChoice')") is not True:time.sleep(.1)
+    self.assertIsNotNone(evaluate("document.querySelector('#scenarioChoice')"))
+    evaluate("(()=>{const select=document.querySelector('#scenarioChoice');select.options[0].selected=true;document.querySelector('#runScenario').click()})()")
+    deadline=time.time()+15;detail=''
+    while time.time()<deadline:
+     detail=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'Expected versus observed' in detail:break
+     time.sleep(.1)
+    self.assertIn('simulated-event-1',detail)
+    self.assertIn('Export JSON',detail)
+    evaluate("document.querySelector('[data-tab=simulation]').click()")
+    deadline=time.time()+15
+    while time.time()<deadline and evaluate("!!document.querySelector('#scenarioChoice')") is not True:time.sleep(.1)
+    evaluate("(()=>{const select=document.querySelector('#scenarioChoice');Array.from(select.options).forEach(option=>option.selected=option.value==='morning-missing-covered');document.querySelector('#runScenario').click()})()")
+    deadline=time.time()+15;morning=''
+    while time.time()<deadline:
+     morning=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'MORNING_ROUTINE_MISSING' in morning:break
+     time.sleep(.1)
+    self.assertIn('Expected morning concern',morning)
+    evaluate("document.querySelector('[data-tab=routines]').click()")
+    deadline=time.time()+15;routine=''
+    while time.time()<deadline:
+     routine=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'UNSUPPORTED_MULTI_DAY' in routine:break
+     time.sleep(.1)
+    self.assertIn('Inspect morning-missing-covered',routine)
+    evaluate("document.querySelector('.open-run').click()")
+    deadline=time.time()+15;routine_detail=''
+    while time.time()<deadline:
+     routine_detail=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'Expected morning concern' in routine_detail:break
+     time.sleep(.1)
+    self.assertIn('MORNING_ROUTINE_MISSING',routine_detail)
+    self.assertIn('not form a multi-day resident baseline',routine_detail)
+    evaluate("document.querySelector('[data-tab=engineering]').click()")
+    deadline=time.time()+15;engineering=''
+    while time.time()<deadline:
+     engineering=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'Installation Overview' in engineering:break
+     time.sleep(.1)
+    areas=evaluate("Array.from(document.querySelectorAll('#engineeringArea option')).map(option=>option.textContent)")
+    self.assertEqual(len(areas),7)
+    self.assertIn('UNSUPPORTED',engineering)
+    evaluate("document.querySelector('[data-tab=settings]').click()")
+    deadline=time.time()+15
+    while time.time()<deadline and evaluate("!!document.querySelector('#logoutButton')") is not True:time.sleep(.1)
+    self.assertIsNotNone(evaluate("document.querySelector('#logoutButton')"))
+    evaluate("document.querySelector('#logoutButton').click()")
+    deadline=time.time()+10
+    while time.time()<deadline and evaluate("!!document.querySelector('#loginForm')") is not True:time.sleep(.1)
+    evaluate("(()=>{document.querySelector('[name=email]').value='caregiver@example.org';document.querySelector('[name=password]').value='test-password';document.querySelector('#loginForm').requestSubmit()})()")
+    deadline=time.time()+15;caregiver_tabs=[]
+    while time.time()<deadline:
+     caregiver_tabs=evaluate("Array.from(document.querySelectorAll('.bottom-nav button')).map(button=>button.dataset.tab)") or []
+     visible=evaluate("!document.querySelector('.bottom-nav').hidden")
+     if visible and 'home' in caregiver_tabs:break
+     time.sleep(.1)
+    self.assertEqual(caregiver_tabs,['home','devices','incidents','reports','routines','settings'])
+    direct=cdp(ws,'Runtime.evaluate',{'expression':"fetch('https://care.gharsajag.in/lite/v1/homes/gs177-test-browser-home/engineering',{credentials:'include'}).then(response=>response.status)",'awaitPromise':True,'returnByValue':True})
+    self.assertEqual(direct.get('result',{}).get('value'),403)
+    print('PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial (mock transport)')
    finally: ws.close()
   finally:
    self.web.runtime_config=original

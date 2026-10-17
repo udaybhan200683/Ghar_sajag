@@ -303,3 +303,460 @@ Next safe action: install this testing APK on the owner's phone and capture
 the actual Android launch evidence; supply the approved hosting/OIDC/Home
 authority inputs before configuring a live origin. Do not describe the
 dashboard build as a connected caregiver product or claim FCM/voice safety.
+
+## GS-177 Connected Lite continuation and GS-125 reuse — 2026-10-17
+
+**Status: source integration in progress; not deployed or Android-qualified.**
+GS-177 comment 11325 and GS-125 comment 11061 correct the Engineering scope:
+the GS-120 seven-screen architecture and GS-122/124 service-ticket,
+authorization and read-only projection foundation were merged into R1 on
+15 October. The current GS-177 branch already contains `diagnostics.py`,
+`diagnostic_authorization.py`, `service_access.py`, `human_authentication.py`,
+migration 011 and registered tests. This change reuses the read service and
+authorizer through a TEST_ONLY adapter; the production real-Home consent and
+ticket route remains disabled until a qualified production identity/Home
+authority is composed. There is no second Engineering domain implementation.
+
+Starting checkpoint: authorized `/home/udaybhan/projects/Ghar_sajag_gs177`,
+`feature/gs-177-caregiver-android`, local/remote HEAD
+`6749b9e0cb5785a00cb87df88cb424b6107073bd`, clean before edits. Context
+preflight PASS `2026-10-13.001`. No sync, reset, merge, rebase, branch switch,
+GS-40 write or hardware operation occurred.
+
+The staging implementation is `code/parivar_saathi_android_app/server/connected_lite.py`
+and `connected_lite_schema.sql`, with WSGI entry `wsgi.py` and `render.yaml`.
+It creates uniquely named TEST_ONLY Homes via a prompted operator bootstrap,
+stores password hashes and revocable session-token digests, checks active
+account/session, current Home membership/role/epoch on every route, checks
+POST Origin, limits request bodies and login attempts, and never mounts the
+development `X-Actor-Id` API. A PostgreSQL advisory transaction lock bounds
+lab concurrency; 120 saved runs per Home per hour is the initial staging cap.
+Each scenario invokes the existing `local_lab`/validation catalogue, stores
+source-labelled JSON in PostgreSQL and leaves emergency delivery disabled.
+The Android WebView serves the bundled shared PWA under the exact approved
+HTTPS backend origin, giving its HttpOnly SameSite session cookie first-party
+scope. The existing branded resources and package ID are preserved.
+
+The PWA adds login, Home, Devices, Incidents, Reports, Routines, Settings,
+admin-only Simulation Lab and Engineering navigation. The Engineering selector
+uses the seven GS-120 areas and the GS-124 health projection; unavailable
+physical signals show UNKNOWN/UNSUPPORTED/NOT_RUN. Saved synthetic event
+timelines and expected-versus-observed checks are inspectable/exportable.
+Selected and full-catalogue execution are supported; the backend rejects
+unapproved seed/config inputs rather than pretending to run a configurable
+clock. Routine summary currently reports `UNSUPPORTED_MULTI_DAY`; a synthetic
+single scenario is not a trained resident baseline. Real Home operations,
+caregiver Approve/Deny/Revoke route composition and actual long-term Hub
+event ingest are still absent from this TEST_ONLY staging API.
+
+### Validation receipt
+
+| Area | Outcome |
+|---|---|
+| Connected Lite host gate | PASS: 9 API/auth/storage tests, 6 JS runtime tests, 3 real existing lab scenarios (`motion-room1-visible`, `door-open-close-order`, `morning-missing-covered`) |
+| Shared PWA browser | PASS: 2 browser tests, 92/92 rendered catalogue cases; offline login gate shows no synthetic healthy data |
+| GS-130 traceability | PASS: 212 features, 242 modules, 25 physical cases; consistency only |
+| PostgreSQL hosted recovery | NOT_RUN: no provisioned database/service |
+| Android connected APK/signature/hash | BLOCKED: no approved stable HTTPS backend origin; previous `0.3.0-branded-offline` APK is historical |
+| Owner mobile-data/laptop-off acceptance A–E | NOT_RUN: no configured APK or independent phone evidence |
+| Real device/voice/Firebase/HIL | NOT_RUN/BLOCKED on GS-40/68/109/143/148/154/157 and physical qualification |
+
+### Deployment and credential procedure
+
+1. In an authorized Render account, review the paid `render.yaml` web and
+   PostgreSQL plans and approve provisioning. Import this repository's
+   `feature/gs-177-caregiver-android` branch as a Blueprint. The service pins
+   that branch and disables automatic deploys. Its `PUBLIC_ORIGIN` references
+   Render's own HTTPS service URL; database connection comes from private
+   managed PostgreSQL. No repository credential is required.
+2. Verify `/healthz` and `/readyz` over the assigned HTTPS URL. In the service's
+   private operator shell, run
+   `cd code/parivar_saathi_android_app/server && python3 connected_lite.py bootstrap-admin --email <owner-email>`.
+   Enter a unique password of at least 16 characters at the hidden prompt and
+   deliver it to the owner through a private channel. Do not post it to Jira,
+   source, CI or build metadata. Rotate with the same operator shell using
+   `python3 connected_lite.py rotate-password --email <owner-email>`; this
+   revokes existing sessions. A TEST_ONLY caregiver can be provisioned with
+   `bootstrap-caregiver --email <email> --home-id <test-home-id>` and a hidden
+   password prompt. This bootstrap has not yet been run on a hosted service.
+3. Set GitHub Actions repository variable `GS177_BACKEND_ORIGIN` to the exact
+   assigned HTTPS origin, then trigger the existing GS-177 Android workflow on
+   this branch. For upgrade signing, create and retain an owner-controlled
+   keystore outside Git; set `GS177_KEYSTORE_B64`,
+   `GS177_KEYSTORE_PASSWORD`, `GS177_KEY_ALIAS`, `GS177_KEY_PASSWORD` as GitHub
+   Actions secrets. Without them the runner signs with a temporary debug key;
+   the previous APK may need uninstalling and future seamless updates are not
+   guaranteed. Record the actual Actions URL, APK SHA-256 and `apksigner`
+   certificate receipt before installation.
+4. Configure managed PostgreSQL backup/snapshot retention in the Render
+   account, record a recovery owner, and test restoration into an isolated
+   database before relying on persistence. The service schema is versioned in
+   `lite_schema_migrations`; all simulation records remain under unique Home
+   and run IDs. No backup or restore has been executed here.
+5. Run owner-phone acceptance A–E on mobile data with the laptop off. Capture
+   login, Home freshness, scenario timeline/export/reopen, caregiver privileged
+   endpoint denial, app/backend restart and reconnect receipts. Keep each step
+   BLOCKED/NOT_RUN until independently observed.
+
+Next exact prerequisite is an authorized Render account and approval of its
+managed-service/database charges. Then the service can be provisioned, the
+owner credential bootstrapped privately, an APK built against the actual URL,
+and mobile-data acceptance executed. Do not mark GS-177 Done on host tests.
+
+### Pause/resume checkpoint requested by owner — 2026-10-17
+
+The owner requested a pause after a logical endpoint. No further feature work
+is authorized in this turn. The implementation and focused host checks above
+are preserved for resumption. Branch is
+`feature/gs-177-caregiver-android` in the authorized GS-177 worktree; starting
+HEAD and origin were `6749b9e0cb5785a00cb87df88cb424b6107073bd`. The
+validated changes are to be committed and pushed on this branch, with the
+actual final local/remote SHA recorded in the dated GS-177 Jira comment and
+turn receipt. Canonical GS-40 remains read-only.
+
+The affected backend component gate executed 22 stages. Its existing
+CloudSync/Hub/contracts/functional/API stages and new
+`gs177-connected-lite-api` stage passed, but the aggregate gate exited 2:
+the Python stage failed under a temporary directory mistakenly placed inside
+the repository and because `gs177-caregiver-offline-browser` was absent from
+release composition; the existing GS-124 registry test assumed diagnostics
+was the last suite after GS-177 stages were appended; and P0 full-product E2E
+could not find `frontend/node_modules/.bin/playwright`. The first two
+registration/environment issues were corrected without removing any test or
+weakening assertions. The three affected registration/private-key tests then
+passed 14/14 with an external temporary directory. The full backend gate has
+**not** been rerun after the fixes; its aggregate status remains FAIL. The PWA
+component gate and complete product release gate were not run. The separate
+PWA browser regression passed 2/2 and 92/92 catalogue assertions. The focused
+connected Lite gate passed 9/9 API tests, 6/6 JS tests and 3/3 lab scenarios.
+The GS-130 feature mapping test passed 22/22. There is no PostgreSQL, Android
+build or physical evidence in this checkpoint.
+
+Acceptance A (cloud laptop-off), B (phone Simulation Lab), C (multi-day routine),
+D (phone Engineering plus caregiver direct denial) and E (app/backend restart and
+reconnect) are all BLOCKED/NOT_RUN as end-to-end phone tests. Host-only role
+denial and saved-run reconstruction passed; they are not substitutes for the
+cloud/phone steps. No new APK path, SHA-256, Actions run or hosted URL exists.
+
+Exact resume sequence: verify worktree/branch/HEAD/remote/status and active
+writers; run context preflight; reread this handoff, Jira 11319/11320/11325,
+GS-125/11061 and current canonical decisions. Then run the backend gate with
+`TMPDIR=/home/udaybhan/.cache/gs177_tmp` after installing the repository's
+frontend Playwright dependencies, and run the affected PWA component gate.
+Review the unimplemented multi-day routine and real-Home GS-124 consent
+composition against canonical requirements before changing semantics. Obtain
+authorized Render account/billing, deploy and verify PostgreSQL/HTTPS, privately
+bootstrap the owner admin, set the GitHub backend-origin variable and pilot
+signing secrets, build/verify the new APK, and execute owner-phone A–E. Keep
+GS-177 open and physical/Firebase/WebRTC obligations separately blocked.
+
+## GS-177 Connected Lite resume and Hub Wi-Fi / CloudSync audit — 2026-10-17
+
+### Resume point and preservation
+
+Resumed the interrupted implementation in
+`/home/udaybhan/projects/Ghar_sajag_gs177`, branch
+`feature/gs-177-caregiver-android`, at local/remote HEAD
+`6749b9e0cb5785a00cb87df88cb424b6107073bd`. The pre-existing tracked edits
+and untracked Connected Lite/API/PWA/Render files were preserved. No reset,
+clean, stash, rebase, force push, branch replacement or worktree replacement
+was performed. GS-177 was already In Progress. The GS-177 context preflight had
+passed before resuming substantive changes. Jira comments 11319, 11320, 11325
+and 11330 and GS-125 comment 11061 were reconciled. Comment 11330 establishes
+two tracks: TEST_ONLY Connected Lite independent of Hub connectivity, and real
+Hub CloudSync separately BLOCKED/NOT_RUN.
+
+The canonical `/home/udaybhan/projects/Ghar_sajag_r1` checkout was only read.
+It had pre-existing unrelated dirty/untracked activity; no file, build, branch
+or hardware operation was performed there. No protected firmware/hardware
+operation was authorized or executed.
+
+### Changes completed in this continuation
+
+- Reused the existing GS-120/122/124/125 diagnostics and authorization
+  foundation. Connected Lite adds only thin authenticated navigation and API
+  adaptation to the existing seven Engineering areas; no second dashboard or
+  diagnostic domain engine was created.
+- The connected service remains isolated on `/lite/v1` and accepts only
+  authenticated `gs177-test-*` Homes. It does not mount legacy
+  `http_api.py`/`X-Actor-Id` authentication or write simulated events into the
+  GS-148 event store. A direct `/v1/homes/{home}/events` request to this service
+  returns 404. The response identifies `GS-148_CLOUDSYNC` as the future real
+  event contract.
+- Home, Devices, Engineering and Settings display
+  `Physical Home UNAVAILABLE / NO_HUB_CLOUDSYNC`. Physical monitoring freshness
+  and sensor/NodeHealth measurements remain UNKNOWN; simulation results retain
+  `HOST_SIMULATION_TEST_ONLY` provenance.
+- Corrected the registered GS-177 browser-stage success patterns to account for
+  unittest's test-name prefixes and added a validation-framework regression
+  proving those evidence lines are accepted, while missing lines and nonzero
+  exit remain failures.
+- The connected Home and Settings text distinguishes a Cloud API fetch from
+  physical Hub synchronization. Offline/unconfigured behavior and admin-only
+  navigation are retained.
+
+### Read-only Hub Wi-Fi, coexistence, buffering and CloudSync audit
+
+Read-only source inspection in canonical R1 found:
+
+1. `code/firmware/hub/target/esp32/hub_target_config.hpp` fixes the ESP-NOW
+   channel at 1. `hub_runtime_adapter.cpp::initialize_wifi()` initializes
+   netif/event loop, Wi-Fi, RAM storage and STA mode, starts the radio, disables
+   power save and sets channel 1. The inspected target code has no Home Wi-Fi
+   credential provisioning/configuration, `esp_netif_create_default_wifi_sta`,
+   `esp_wifi_connect`, IP/STA event handler or reconnect policy. Therefore no
+   Home association or IP route is established by this target path. ESP-NOW
+   initialization follows this setup; the HIL peer uses channel 0 (current
+   channel) and its fixture-only peer is unencrypted. AP/ESP-NOW channel
+   coexistence has not been qualified.
+2. `cloud_wan_ready()` checks an associated AP and a STA address/gateway, but
+   the target startup does not establish the missing STA association/netif in
+   this path. The S3 composition constructs `UnprovisionedS3CloudTrust`, an
+   HTTPS channel with empty origin/CA configuration, and an authority provider
+   that cannot return a binding. Permanent Hub/Home/ownership epoch,
+   enrollment generation, client TLS identity, approved DS key custody and
+   authenticated trusted time are not provisioned.
+3. The target schedules a task every 5 seconds that calls
+   `CloudSyncWorker::run_node_health_once`; it does not schedule the event
+   `run_once`/durable event-batch path. The worker's event path itself checks
+   current Home/Hub/epoch, original event ownership and GS-148 V2 enrollment
+   generation before and after I/O, and only retires after an authenticated
+   committed backend receipt. Its bounded retry delays are 1, 5, 30, 120 and
+   300 seconds. Existing durable journal/outbox state and EventKeys provide
+   the local buffering/replay basis, but live event catch-up through the target
+   scheduler is not established.
+4. Existing GS-148 backend code defines
+   `/v1/homes/{home_id}/events` and durable commit behavior, but the Connected
+   Lite deployment does not mount it. The public developer actor-header adapter
+   is not suitable for this use. The production Hub credential verifier,
+   active ownership/enrollment authority and authenticated caregiver read
+   projections remain upstream dependencies.
+
+Exact enablement prerequisites for real Hub → Home Wi-Fi → cloud → Android:
+
+1. An approved protected Home Wi-Fi provisioning source and target STA/netif,
+   association, IP and reconnect composition; define channel coexistence with
+   ESP-NOW channel 1 and qualify loss/rejoin without weakening Node durability.
+2. A scheduled GS-148 event CloudSync worker using trusted WAN-ready state,
+   retaining the same original EventKey/body through offline replay and waiting
+   for the exact authenticated durable COMMITTED receipt before clearing local
+   obligations. Keep NodeHealth publication distinct from event commit.
+3. Approved GS-68/GS-109 authority, credential and trusted-time providers:
+   permanent Hub ID, current Home and ownership epoch/revocation, Node
+   enrollment generation, approved CA/server identity, per-Hub TLS identity
+   and protected DS key-custody proof. No device secret or Wi-Fi password was
+   added to source or APK.
+4. A production GS-148 backend composition that verifies that identity and
+   current Home/epoch/enrollment before calling the existing durable commit
+   transaction, then exposes authorized caregiver projections to the app.
+   Do not accept `X-Actor-Id` as Hub or Internet identity.
+5. Separate approved physical C3/S3/Home-Wi-Fi fixture qualification for
+   coexistence, outage/reconnect, buffered catch-up, reboot/retry/duplicate
+   safety, exact EventKey/commit receipt, NodeHealth freshness and caregiver
+   mobile-data projection. This task performed no such operation.
+
+### Validation at this checkpoint
+
+| Command / stage | Result | Qualification boundary |
+|---|---:|---|
+| `python3 validation/run_gs177_connected_lite.py` | PASS: 10 API tests, 6 JS runtime tests, 3 production-lab scenarios | Local SQLite/host simulation only; physical `NOT_RUN` |
+| Existing event/routine scenarios | PASS: motion timeline 9, door timeline 12, covered missing-morning timeline 33 | Deterministic TEST_ONLY; not resident training or real Home behavior |
+| `make app-test` | PASS: 30/30 | Shared JS tests |
+| `make pwa-68-browser-test` | PASS: 3/3; PWA catalogue 92/92 | Chromium with mocked Connected Lite transport; no backend network or Android WebView |
+| `tests/engineering_dashboard` | PASS: 98/98 | Existing GS-124/service/access/auth tests, host only |
+| Component-gate meta tests | PASS: 49/49 | Includes unittest-prefixed GS-177 browser evidence handling |
+| Engineering registration tests | PASS: 6/6 | Preserves canonical stage membership and GS-177 stages |
+| `make feature-coverage-test` | PASS: 213 features, 242 modules, 25 physical cases; 22/22 mapping tests | Registration consistency only |
+| Latest `make validation-pwa` report | FAIL, exit 2 | Browser 86/86 PASS; P0 26/26 checks but `product_status=PARTIAL`; the old browser-stage marker regex was corrected and focused-tested afterward; aggregate not rerun |
+| `python3 validation/run_gs177_android.py` without origin | BLOCKED, exit 127 | `approved_hosted_backend_origin` absent; no connected APK built |
+| Render deploy / PostgreSQL restart and backup | NOT_RUN | No authorized connected Render account/service or billing approval |
+| Admin bootstrap in cloud | NOT_RUN | No service/database to bootstrap; source provides interactive `bootstrap-admin` and `rotate-password` commands |
+| Mobile-data laptop-off and physical Hub E2E | NOT_RUN / BLOCKED | No connected APK/hosted API or approved physical Hub qualification |
+| Full product release gate | NOT_RUN | Not run as ordinary development validation |
+
+P0's 26 assertions plus its browser check are software scenario evidence only;
+`product_status=PARTIAL` remains a gate failure because production GS-148
+identity/CloudSync composition is incomplete. Do not relabel it PASS. The current
+routine API reports `UNSUPPORTED_MULTI_DAY`; the existing Hub `RoutineService`
+has no longitudinal/calendar baseline learner. The Simulation Lab can run the
+existing 92-entry scenario catalogue and the verified three scenarios, but
+multi-day resident learning and a trained resident model are not delivered.
+
+### Deployment, bootstrap and owner acceptance boundary
+
+No Render MCP/deployment connection or approved hosting/billing authorization
+was available. `render.yaml` remains a deployable blueprint with PostgreSQL,
+but there is no real HTTPS URL, database backup/recovery receipt or hosted
+source revision. `GS177_BACKEND_ORIGIN` is not configured in GitHub Actions;
+the connected APK build gate therefore cannot run. The prior
+`0.3.0-branded-offline` artifact remains the latest APK and is not connected.
+
+After the owner authorizes a Render workspace/service and stable HTTPS URL:
+
+1. Set repository Actions variable `GS177_BACKEND_ORIGIN` to the exact HTTPS
+   service origin. Do not set an app password/token in Actions or the APK.
+2. Deploy and verify `/healthz` and `/readyz`, PostgreSQL schema startup,
+   restart recovery and provider-managed backup/restore configuration.
+3. In a secure Render shell with `DATABASE_URL` supplied by the service, run
+   `cd code/parivar_saathi_android_app/server` then
+   `python connected_lite.py bootstrap-admin --email <owner-email>`; type a
+   unique password of at least 16 characters at the hidden interactive prompt.
+   The command prints only the account id. The account receives a random
+   `gs177-test-*` Home on login. Use the same interactive
+   `rotate-password --email <owner-email>` command to rotate and revoke all
+   sessions. Deliver the password through the owner's private password manager
+   if an operator performs bootstrap; never put it in Jira, Git, CI or chat.
+4. Configure `GS177_KEYSTORE_B64`, `GS177_KEYSTORE_PASSWORD`, `GS177_KEY_ALIAS`
+   and `GS177_KEY_PASSWORD` only as GitHub Actions secrets if the owner supplies
+   an approved persistent pilot keystore. Without it, the hosted debug key is
+   ephemeral and the old APK may need uninstalling before update.
+5. Build and verify the connected APK, then perform owner-phone cloud/simulation/
+   routine/Engineering/offline/reconnect acceptance with the laptop off. Phone
+   evidence must be recorded separately from host and mock-browser PASS.
+
+Current commit checkpoint at authoring: branch
+`feature/gs-177-caregiver-android`, base HEAD
+`6749b9e0cb5785a00cb87df88cb424b6107073bd`; the implementation changes remain
+uncommitted until final review. Preserve every pre-existing modified and
+untracked path. Keep GS-177 open. On resume, inspect current Git/remote state and
+preflight again before writing; then complete authorized cloud setup and the
+owner-phone acceptance. Do not modify canonical GS-40 or run firmware/HIL,
+provisioning, serial, eFuse or protected-key operations.
+
+### GS-177 resumed Connected Lite source and validation checkpoint — 2026-10-17
+
+This checkpoint resumes the preserved uncommitted implementation in the
+authorized GS-177 worktree; it is not a fresh implementation. Startup checks
+confirmed workspace `/home/udaybhan/projects/Ghar_sajag_gs177`, branch
+`feature/gs-177-caregiver-android`, local/remote starting HEAD
+`6749b9e0cb5785a00cb87df88cb424b6107073bd`, GitHub origin unchanged, and no
+active competing writer. The mandatory context preflight passed
+(`2026-10-13.001`). GS-177 comments 11319, 11320, 11325 and 11330, GS-125
+comment 11061, and the cited dependency/validation decisions were reconciled.
+The canonical GS-40 worktree was only read for the requested Hub audit and was
+not modified; no hardware, provisioning, serial, eFuse, or HIL operation ran.
+
+The connected application source reuses the shared Parivar Saathi PWA, the
+production local simulation lab/scenario catalogue, the GS-124
+`DiagnosticReadService`/authorization boundary, and the GS-120 seven-area
+engineering structure. It does not recreate the engineering domain service,
+mount the development `http_api.py`, accept `X-Actor-Id`, or mount the GS-148
+real Hub event route. The added `/lite/v1` API is restricted to isolated
+synthetic `gs177-test-*` Homes. It has operator-only bootstrap/rotation,
+scrypt password storage, opaque revocable 12-hour sessions, current account,
+Home membership, role and ownership-epoch checks, same-origin POST protection,
+request-size/auth/simulation limits, PostgreSQL schema migration support, and
+durable synthetic run records. Caregivers see the shared caregiver screens;
+Simulation Lab and Engineering tabs appear only for server-authorized TEST_ONLY
+admins. The Android WebView uses a build-approved HTTPS origin and serves the
+shared PWA bundle with origin/navigation restrictions. The app reports
+`NO_HUB_CLOUDSYNC`, physical state/freshness `UNKNOWN`, and no physical
+measurements. It does not claim real-home caregiver consent or Hub data support.
+
+The seven Engineering areas are integrated as an Android/PWA adapter to the
+existing GS-124 authorized read projection and saved synthetic runs. Hardware
+identity, RSSI, battery, firmware, radio delivery, physical ACK and guided
+installation evidence remain UNKNOWN/UNSUPPORTED/NOT_RUN where the approved
+source is absent. Existing routine/activity rules can be run and inspected;
+the current simulator has no multi-day resident baseline learner, so the API
+and UI state `UNSUPPORTED_MULTI_DAY` and do not imply a trained resident model.
+The existing catalogue contains 92 scenarios; validated deterministic cases
+are motion, door open/close, and covered missing-morning activity. Run history
+survives local API/application reconstruction in SQLite tests. PostgreSQL
+restart recovery remains untested until deployment.
+
+`render.yaml` configures one Gunicorn/Python web service and managed PostgreSQL;
+the WSGI readiness path runs schema migrations. Gunicorn is pinned in server
+requirements, and the WSGI entry point/requirements/blueprint are registered as
+Connected Lite stage inputs. The Render plan identifiers were checked against
+Render's current Blueprint reference. No Render account, service, PostgreSQL
+instance, billing authorization, or deploy credential was available to
+provision; therefore there is no hosted URL. A local Gunicorn smoke using
+SQLite returned PASS for `/healthz` and database-backed `/readyz`. Psycopg
+3.2.6's CPython 3.12 manylinux wheel resolved for the blueprint's Python 3.12
+runtime; no PostgreSQL server or PostgreSQL migration/restart was available for
+a live database test.
+
+#### Validation receipt
+
+| Command or stage | Result | Scope and limits |
+|---|---:|---|
+| `python3 validation/run_gs177_connected_lite.py` after final API test addition | PASS: 12 API/WSGI tests, 6 JavaScript runtime tests, 3 existing lab scenarios | SQLite/local host; motion timeline 9, door timeline 12, missing-morning timeline 33; physical NOT_RUN |
+| Gunicorn WSGI smoke | PASS `/healthz` and SQLite-backed `/readyz` | Local host only; not a hosted PostgreSQL test |
+| `make pwa-68-browser-test` with cached Chromium 153 and isolated dependency path | PASS 3/3; catalogue 92/92 | Connected browser transport is mocked; no live network, Android WebView, or owner phone |
+| `make validation-framework-test` | PASS 50/50 | Includes inherited isolated `PYTHONPATH` regression and P0 fail-closed assertion |
+| Engineering registration tests | PASS 6/6 | Existing GS-116 stage membership preserved |
+| `make feature-coverage-test` | PASS: 213 features, 242 modules, 25 physical cases; mapping tests 22/22 | Mapping integrity only; not semantic/physical qualification |
+| `make app-test` | PASS 30/30 | Shared application JS tests |
+| Final `make validation-backend` report `code/evidence/validation_framework/backend-1792247859346014736/report.json` | **FAIL**, physical NOT_RUN | 527 Python, 92 functional, 98 diagnostic, 12 Connected Lite API, 9 CloudSync security, 18 CloudSync simulation, mTLS/worker/contract/health/HTTP/bridge stages PASS. Registered P0 stage has 26/26 software checks plus one Chromium test but `product_vertical_status=PARTIAL`; GS-148 production Hub credential/enrollment-generation binding is absent. The gate correctly returns FAIL. |
+| Earlier `make validation-pwa` report `code/evidence/validation_framework/pwa-1792243150186487736/report.json` | **FAIL**, not a current PASS receipt | That run had 84 browser tests pass and two mobile browser tests time out; its Connected Lite browser stage also lacked `websocket-client` because the child environment replaced `PYTHONPATH`. The two timed-out tests passed in isolated reruns, the dependency was installed outside the repository, `base_environment()` now preserves inherited isolated paths, and the direct 3/3 browser stage passed. The full PWA aggregate was not rerun after that fix; P0 remains PARTIAL. |
+| Full product release gate | NOT_RUN | Not an ordinary development gate and not authorized as a release candidate |
+
+The backend P0 output separately reports the exact product gap:
+`GS-148: production Hub TLS/credential authenticator and enrollment-generation
+registry binding are not configured; local test credential only`. Individual
+P0 host checks do not promote the product vertical to PASS. The Connected Lite
+deployment does not accept real Hub events.
+
+#### Cloud, Android and owner acceptance
+
+No cloud admin was bootstrapped and no credentials were created. The secure
+operator procedure remains `python connected_lite.py bootstrap-admin --email
+<owner-email>` in the deployed service shell with hidden password confirmation
+(minimum 16 characters); password rotation uses `rotate-password` and revokes
+sessions. Credentials must be delivered privately and never placed in Git,
+Jira, CI, or chat.
+
+The Android source version is `0.4.0-connected-lite-staging`, package
+`in.gharsajag.caregiver`, API 26+, preserving the approved logo and icons. The
+workflow is gated on Actions variable `GS177_BACKEND_ORIGIN`, supports an
+owner-supplied persistent pilot signing key through repository secrets, and
+otherwise identifies the debug certificate as ephemeral. Since no hosted
+origin is configured and the local Android SDK/JDK/Gradle build environment is
+unavailable, the connected APK was **NOT_BUILT**. The previous
+`0.3.0-branded-offline` APK is not this deliverable. No artifact URL, connected
+APK checksum, or connected signing receipt exists.
+
+Owner-phone tests A-E (mobile data with laptop off, live login/Home data,
+cloud simulation/save/reopen/export, live Engineering authorization, app and
+backend restart/reconnect) are **NOT_RUN/BLOCKED** because there is no deployed
+service or connected APK. Physical Hub-to-Wi-Fi-to-CloudSync-to-Android remains
+**BLOCKED/NOT_RUN**.
+
+#### Read-only Hub Wi-Fi / CloudSync audit
+
+The requested GS-177 comment 11330 audit found the current S3 target sets STA
+mode/channel 1 and ESP-NOW channel 1 but does not compose Home Wi-Fi credential
+provisioning, station connection, IP/gateway readiness, and reconnect into the
+inspected target startup path. The cloud trust object has empty HTTPS origin/CA
+and cannot provide an ownership binding; production Hub/Home/epoch,
+enrollment-generation, TLS identity, and trusted-time providers are not
+provisioned. The target recurring scheduler invokes NodeHealth; it does not
+schedule the event `CloudSyncWorker::run_once` batch path. That worker already
+contains the exact EventKey/retry/durable-COMMITTED-before-retirement logic,
+but the inspected target does not enable it. The GS-148 authenticated durable
+event route exists in backend source but is not mounted by Connected Lite.
+
+Real Hub → Home Wi-Fi → Cloud → Android therefore still requires: (1) approved
+protected Wi-Fi provisioning plus STA/IP/reconnect and ESP-NOW coexistence
+qualification; (2) target scheduling of the existing event batch worker and
+its exact authenticated durable receipt checks; (3) approved GS-68/GS-109
+Hub/Home/epoch/enrollment identity, TLS/CA/key-custody, and trusted-time
+providers; (4) production GS-148 identity middleware and caregiver projections
+composed with the hosted service; and (5) separately authorized C3/S3/Home-Wi-Fi
+physical outage/reconnect/replay/reboot and mobile-data end-to-end evidence.
+This task changed no Hub firmware or canonical GS-40 files.
+
+#### Git and next action
+
+At the start of this continuation, local and remote branch HEAD were both
+`6749b9e0cb5785a00cb87df88cb424b6107073bd`. The preserved implementation and
+this updated handoff remain uncommitted until the source review is complete;
+no reset, clean, stash, rebase, branch/worktree recreation, or force push was
+used. The next operator action is to authorize a Render workspace and any
+associated service/PostgreSQL charges (or provide an already-authorized
+equivalent), then configure the resulting approved HTTPS origin for the APK
+workflow. After hosted DB readiness, run the interactive admin bootstrap,
+build/sign the connected APK, and execute owner-phone acceptance. Keep GS-177
+open. The connected staging slice does not satisfy FULL_PRODUCT_HIL or physical
+Hub CloudSync acceptance.

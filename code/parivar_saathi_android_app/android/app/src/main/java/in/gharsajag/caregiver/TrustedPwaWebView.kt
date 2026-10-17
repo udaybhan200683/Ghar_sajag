@@ -80,7 +80,7 @@ object TrustedPwaWebView {
 
         if (relative == "runtime-config.js") {
             val origin = backendOrigin?.baseUrl.orEmpty()
-            val body = "window.PARIVAR_SAATHI_RUNTIME=Object.freeze({mode:\"caregiver\",backendOrigin:\"$origin\",caregiverApiConfigured:false});"
+            val body = "window.PARIVAR_SAATHI_RUNTIME=Object.freeze({mode:\"caregiver\",backendOrigin:\"$origin\",caregiverApiConfigured:${backendOrigin != null},appVersion:\"0.4.0-connected-lite-staging\",sourceRevision:\"${BuildConfig.SOURCE_REVISION}\"});"
             return response("text/javascript", ByteArrayInputStream(body.toByteArray(Charsets.UTF_8)), backendOrigin)
         }
 

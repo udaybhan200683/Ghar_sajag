@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {normalizeRuntimeConfig,parseCaregiverBackendOrigin,requestHeaders,requestUrl} from '../../tools/sim/pwa/runtime_mode.mjs';
 
-test('caregiver mode accepts only an internal public HTTPS origin and never enables API claims', () => {
+test('caregiver mode accepts only a public HTTPS origin and enables authenticated API transport', () => {
   const runtime=normalizeRuntimeConfig({mode:'caregiver',backendOrigin:'https://care.gharsajag.in/',caregiverApiConfigured:true},'https://care.gharsajag.in');
   assert.equal(runtime.mode,'caregiver');
   assert.equal(runtime.backendOrigin,'https://care.gharsajag.in/');
-  assert.equal(runtime.caregiverApiConfigured,false);
+  assert.equal(runtime.caregiverApiConfigured,true);
   assert.deepEqual(requestHeaders(runtime),{});
 });
 

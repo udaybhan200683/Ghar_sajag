@@ -78,6 +78,10 @@ class ComponentGateTest(unittest.TestCase):
         script="import importlib.util; s=importlib.util.spec_from_file_location('gate',"+repr(str(ROOT/'validation/component_gate.py'))+"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.build_profile({})['portable_crypto_sources']"
         result=subprocess.run([sys.executable,'-I','-c',script],cwd=ROOT,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
+    def test_component_gate_preserves_isolated_pythonpath_dependencies(self):
+        env=gate.base_environment({'PYTHONPATH':'/tmp/isolated-test-deps','KEEP':'value'})
+        self.assertEqual(env['PYTHONPATH'],os.pathsep.join((str(ROOT/'backend'),str(ROOT),'/tmp/isolated-test-deps')))
+        self.assertEqual(env['KEEP'],'value')
     def test_option_a_fault_matrix_and_old_reader_limit_are_mandatory(self):
         stages={s['id']:s for s in gate.load_registry()['stages']}
         storage=stages['storage-correctness']
@@ -102,6 +106,19 @@ class ComponentGateTest(unittest.TestCase):
             self.assertEqual(gate.adjudicate(self.stage(),self.result(text)),"FAIL")
     def test_positive_execution_count_passes(self):
         self.assertEqual(gate.adjudicate(self.stage(),self.result()),"PASS")
+    def test_gs177_caregiver_browser_accepts_unittest_qualified_evidence(self):
+        stage=next(s for s in gate.load_registry()["stages"]
+                   if s["id"]=="gs177-caregiver-offline-browser")
+        evidence=(
+            "test_catalog (__main__.BrowserTest) ... PASS PWA browser E2E: 92/92 rendered PASS\n"
+            "test_offline (__main__.BrowserTest) ... PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls\n"
+            "test_connected (__main__.BrowserTest) ... PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial (mock transport)\n"
+            "Ran 3 tests in 1.0s\n\nOK\n")
+        self.assertEqual(gate.adjudicate(stage,self.result(evidence)),"PASS")
+        self.assertEqual(gate.adjudicate(stage,self.result(evidence.replace(
+            "seven Engineering areas, caregiver UI/API denial (mock transport)",
+            "seven Engineering areas, caregiver UI/API denial (missing evidence)"))),"FAIL")
+        self.assertEqual(gate.adjudicate(stage,self.result(evidence,rc=1)),"FAIL")
     def test_sanitizer_diagnostic_fails_even_with_zero_exit(self):
         s=self.stage(failure_patterns=[r'runtime error:',r'ERROR: AddressSanitizer'])
         for text in ('runtime error: overflow','ERROR: AddressSanitizer: use-after-free'):

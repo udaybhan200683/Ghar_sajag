@@ -29,6 +29,11 @@ fun configuredBackendOrigin(propertyName: String): String {
 
 val caregiverDebugOrigin = configuredBackendOrigin("caregiverDebugBackendOrigin")
 val caregiverReleaseOrigin = configuredBackendOrigin("caregiverReleaseBackendOrigin")
+val pilotKeyPath = System.getenv("GS177_KEYSTORE_PATH")
+val pilotKeyPassword = System.getenv("GS177_KEYSTORE_PASSWORD")
+val pilotAlias = System.getenv("GS177_KEY_ALIAS")
+val pilotAliasPassword = System.getenv("GS177_KEY_PASSWORD")
+val pilotSigningConfigured = listOf(pilotKeyPath, pilotKeyPassword, pilotAlias, pilotAliasPassword).all { !it.isNullOrBlank() }
 
 android {
     namespace = "in.gharsajag.caregiver"
@@ -37,15 +42,24 @@ android {
         applicationId = "in.gharsajag.caregiver"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.3.0-branded-offline"
+        versionCode = 3
+        versionName = "0.4.0-connected-lite-staging"
         buildConfigField("String", "SOURCE_REVISION", "\"$sourceRevision\"")
         buildConfigField("boolean", "FCM_ENABLED", "false")
+    }
+    signingConfigs {
+        if (pilotSigningConfigured) create("pilot") {
+            storeFile = file(pilotKeyPath!!)
+            storePassword = pilotKeyPassword!!
+            keyAlias = pilotAlias!!
+            keyPassword = pilotAliasPassword!!
+        }
     }
     buildTypes {
         getByName("debug") {
             buildConfigField("String", "BACKEND_ORIGIN", "\"$caregiverDebugOrigin\"")
             buildConfigField("boolean", "DEV_ENDPOINT_CONFIG_ALLOWED", "true")
+            if (pilotSigningConfigured) signingConfig = signingConfigs.getByName("pilot")
         }
         getByName("release") {
             buildConfigField("String", "BACKEND_ORIGIN", "\"$caregiverReleaseOrigin\"")

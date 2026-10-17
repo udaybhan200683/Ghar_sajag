@@ -99,3 +99,13 @@ button,input,select{font:inherit}
 .phase1-detail{overflow-wrap:anywhere}.phase1-detail p{margin:9px 0}.phase1-form input:focus-visible,.phase1-form select:focus-visible,#phase1Dialog button:focus-visible{outline:3px solid #2462e8;outline-offset:2px}
 @media(max-width:740px){#phase1Dialog{padding:16px}.phase1-form .schedule-actions{position:sticky;bottom:0;background:#fff;padding:10px 0}}
 @media(max-width:740px){.connection-status{margin:0 10px 12px;padding:12px 14px}}
+/* GS-177 connected Lite: the shared PWA keeps the approved brand resources. */
+.test-watermark{background:#fff3cc;color:#594100;font-weight:700;padding:.7rem;border:1px solid #c69e31;border-radius:.7rem;margin:.7rem 0}
+.connected-auth{max-width:30rem;margin:2rem auto;padding:1.4rem}
+.connected-auth label{display:block;margin:.7rem 0}
+.connected-auth input,.connected-auth button{display:block;width:100%;min-height:2.7rem;margin-top:.3rem}
+.connected-lite-runtime .bottom-nav{display:flex;overflow-x:auto;justify-content:flex-start}
+.connected-lite-runtime .bottom-nav .nav-btn{flex:0 0 auto;min-width:5.5rem}
+.connected-lite-runtime .bottom-nav[hidden]{display:none}
+.validation-row{overflow-wrap:anywhere}
+.card pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:20rem;overflow:auto}

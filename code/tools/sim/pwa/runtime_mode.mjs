@@ -46,7 +46,9 @@ export function normalizeRuntimeConfig(raw, pageOrigin) {
   return Object.freeze({
     mode: 'caregiver',
     backendOrigin: parseCaregiverBackendOrigin(raw?.backendOrigin),
-    caregiverApiConfigured: false,
+    caregiverApiConfigured: !!parseCaregiverBackendOrigin(raw?.backendOrigin),
+    appVersion: typeof raw?.appVersion==='string'&&/^[a-zA-Z0-9._-]{1,80}$/.test(raw.appVersion)?raw.appVersion:'unknown',
+    sourceRevision: typeof raw?.sourceRevision==='string'&&/^[a-fA-F0-9]{12}$/.test(raw.sourceRevision)?raw.sourceRevision:'unknown',
   });
 }
 

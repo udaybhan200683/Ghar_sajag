@@ -2159,6 +2159,37 @@
       "qualification_scope": "NONACTIVE_POLICY_AND_READ_PROJECTION_PLUS_HOST_SQLITE_SERVICE_DESK_AND_INJECTED_GS76_IDENTITY_BOUNDARY; NOT_PRODUCTION_AUTHENTICATION_OR_POSTGRESQL"
     },
     {
+      "id": "gs177-connected-lite-api",
+      "components": ["backend", "pwa"],
+      "command": ["python3", "validation/run_gs177_connected_lite.py"],
+      "inputs": [
+        "validation/run_gs177_connected_lite.py",
+        "parivar_saathi_android_app/server/connected_lite.py",
+        "parivar_saathi_android_app/server/connected_lite_schema.sql",
+        "parivar_saathi_android_app/server/requirements.txt",
+        "parivar_saathi_android_app/server/wsgi.py",
+        "parivar_saathi_android_app/server/tests/test_connected_lite.py",
+        "../render.yaml",
+        "backend/ghar_sajag/human_authentication.py",
+        "backend/ghar_sajag/diagnostics.py",
+        "backend/ghar_sajag/diagnostic_authorization.py",
+        "tools/sim/pwa/boot.mjs",
+        "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/runtime_mode.mjs",
+        "tests/js/caregiver_runtime.test.mjs",
+        "tests/functional/scenario_catalog.json"
+      ],
+      "success": "^GS177 CONNECTED LITE PASS tests=(\\d+) scenarios=3 runtime=6 physical=NOT_RUN$",
+      "required_success": ["^GS177 SCENARIO PASS motion-room1-visible", "^GS177 SCENARIO PASS door-open-close-order", "^GS177 SCENARIO PASS morning-missing-covered"],
+      "timeout": 180,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true,
+      "pwa": true,
+      "allowed_skip_lines": ["^GS177 CONNECTED LITE PASS .*physical=NOT_RUN$"],
+      "qualification_scope": "AUTHENTICATED_TEST_ONLY_STAGING_API_AND_PRODUCTION_LAB_HOST_SCENARIOS; NO_POSTGRES_CLOUD_ANDROID_OR_PHYSICAL_QUALIFICATION"
+    },
+    {
       "id": "gs177-android-dashboard",
       "components": [
         "tooling"
@@ -2233,6 +2264,8 @@
       "inputs": [
         "tests/pwa_68_browser_test.py",
         "tools/sim/local_lab.py",
+        "tools/sim/pwa/boot.mjs",
+        "tools/sim/pwa/connected_lite.mjs",
         "tools/sim/pwa/index.html",
         "tools/sim/pwa/app.js",
         "tools/sim/pwa/runtime_mode.mjs",
@@ -2244,15 +2277,16 @@
       ],
       "success": "Ran (\\d+) tests?",
       "required_success": [
-        "^PASS PWA browser E2E: \\d+/\\d+ rendered PASS$",
-        "^PASS caregiver offline browser E2E: familiar tabs, explicit unavailable state, no simulator data or API calls$"
+        "^.*PASS PWA browser E2E: \\d+/\\d+ rendered PASS$",
+        "^.*PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls$",
+        "^.*PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial \\(mock transport\\)$"
       ],
       "timeout": 600,
       "fast": false,
-      "release": false,
+      "release": true,
       "count_kind": "tests",
       "pwa": true,
-      "qualification_scope": "BUNDLED_UI_OFFLINE_CAREGIVER_RUNTIME_IN_CHROMIUM; NO_ANDROID_WEBVIEW_OR_BACKEND_ACCEPTANCE"
+      "qualification_scope": "BUNDLED_UI_CONNECTED_AND_OFFLINE_RUNTIME_IN_CHROMIUM_WITH_MOCK_TRANSPORT; NO_ANDROID_WEBVIEW_OR_LIVE_BACKEND_ACCEPTANCE"
     },
     {
       "id": "gs177-voice-prototype",

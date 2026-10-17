@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and verify the GS-177 branded, offline-capable Android shell APK."""
+"""Build and verify the GS-177 branded, configured connected Lite APK."""
 from __future__ import annotations
 
 import hashlib
@@ -156,6 +156,10 @@ def main() -> int:
     if 'getByName("release")' not in gradle_build or 'DEV_ENDPOINT_CONFIG_ALLOWED", "false"' not in gradle_build:
         print("GS177 ANDROID DASHBOARD FAIL release_dev_override_policy_missing", flush=True)
         return 1
+    backend_origin = os.environ.get("GS177_BACKEND_ORIGIN", "")
+    if not backend_origin:
+        print("GS177 ANDROID BUILD BLOCKED dependency=approved_hosted_backend_origin", flush=True)
+        return 127
 
     valid, failure = validate_branding(app_root, app_pwa)
     if not valid:
@@ -176,7 +180,7 @@ def main() -> int:
         return 127
 
     rc, gradle_output = run(
-        [gradle, "--no-daemon", "--stacktrace", "--console=plain", ":app:testDebugUnitTest", ":app:assembleDebug"],
+        [gradle, "--no-daemon", "--stacktrace", "--console=plain", f"-PcaregiverDebugBackendOrigin={backend_origin}", ":app:testDebugUnitTest", ":app:assembleDebug"],
         cwd=PROJECT,
         emit_output=False,
     )
@@ -207,6 +211,8 @@ def main() -> int:
     required_assets = {
         "assets/index.html",
         "assets/app.js",
+        "assets/boot.mjs",
+        "assets/connected_lite.mjs",
         "assets/runtime_mode.mjs",
         "assets/styles.css",
         "assets/assets/parivar-saathi-icon-192.png",

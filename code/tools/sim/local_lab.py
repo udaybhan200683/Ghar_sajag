@@ -1386,6 +1386,8 @@ class WebLab:
         assets = {"/":("tools/sim/pwa/index.html","text/html"),
                   "/index.html":("tools/sim/pwa/index.html","text/html"),
                   "/app.js":("tools/sim/pwa/app.js","text/javascript"),
+                  "/boot.mjs":("tools/sim/pwa/boot.mjs","text/javascript"),
+                  "/connected_lite.mjs":("tools/sim/pwa/connected_lite.mjs","text/javascript"),
                   "/runtime_mode.mjs":("tools/sim/pwa/runtime_mode.mjs","text/javascript"),
                   "/performance_runtime.mjs":("tools/sim/pwa/performance_runtime.mjs","text/javascript"),
                   "/validation_engine.mjs":("tools/sim/pwa/validation_engine.mjs","text/javascript"),

@@ -82,7 +82,9 @@ test.describe('Phase 3A lightweight runtime contracts',()=>{
       for(const key of keys)for(const request of await (await caches.open(key)).keys())requests.push(new URL(request.url).pathname);
       return {keys,requests};
     });
-    expect(cached.requests.length).toBeLessThanOrEqual(9);
+    expect(cached.requests.length).toBeLessThanOrEqual(11);
+    expect(cached.requests).toContain('/boot.mjs');
+    expect(cached.requests).toContain('/connected_lite.mjs');
     expect(cached.requests.some(path=>path.startsWith('/pwa/')||path.startsWith('/v1/'))).toBe(false);
   });
 
