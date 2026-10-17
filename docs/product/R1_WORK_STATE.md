@@ -4013,11 +4013,15 @@ must be escaped, and Java source excludes did not exclude Kotlin prototype
 sources. Run 39006969459 failed on the same issues and exposed the prototype
 Firebase type errors. The current staged GS-177 tree escapes the Kotlin package
 segment and moves call/FCM Kotlin files outside the Android source tree. Run
-39007289252 built and signed the APK (4/4 Kotlin tests; SHA-256
-`0e458eb2e3bdbb46c49334831b1ef584d781bfe0851fb064a128498f1d3eaf96`), but the
-GS-116 stage was adjudicated FAIL and artifact upload was skipped. The runner
-now limits successful output to explicit tests/signature markers and fails on
-JUnit skips; next hosted run is pending. Local Android
+39007289252 built and signed the APK but the stage was adjudicated FAIL. Run
+39007561093 then passed all stages and uploaded the dashboard-only APK. The
+downloaded binary is 2,455,012 bytes, package `in.gharsajag.caregiver`, version
+`0.1.0-dashboard`, SHA-256
+`763952af6662ae2f4e186f7f9d866b58f6307a39960e9e9e6d50d312e9c979eb`; it is in
+the ignored GS-177 app build output. Its digest text matched, but its
+`SHA256SUMS` path was absolute to the CI runner and thus `sha256sum --check`
+failed after download. The workflow now writes and checks a relative path; next
+hosted run is pending. Local Android
 JDK/SDK/Gradle/ADB/apksigner and phone are unavailable. Prototype verification
 passed (6/6); feature traceability passed (210 features, 234 modules, 25
 physical cases, 22 mapping tests); validation framework passed (48/48); and

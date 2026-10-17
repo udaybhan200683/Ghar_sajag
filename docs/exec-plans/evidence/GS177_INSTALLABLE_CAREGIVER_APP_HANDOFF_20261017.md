@@ -2,7 +2,7 @@
 
 ## Current disposition
 
-`ANDROID_CI_RETRY_PENDING`; the real phone + authenticated Internet backend acceptance is not met. A dashboard-only Android wrapper and a pinned hosted build workflow are implemented in the isolated GS-177 branch. No APK has been built yet, no live endpoint is configured, and the phone, production identity/session issuer, Firebase project, or S3 Hub media path are not available in this execution environment. Keep GS-177 open.
+`APK_BUILT_DASHBOARD_ONLY_CHECKSUM_SIDECAR_FIX_PENDING`; the real phone + authenticated Internet backend acceptance is not met. A hosted build produced and uploaded an installable dashboard-only APK. The downloaded APK's computed SHA-256 matched the artifact digest, but the artifact `SHA256SUMS` contains the runner's absolute temp path and fails `sha256sum --check` after download. A workflow fix now writes a relative path and verifies it before upload; that fix awaits its hosted run. No live endpoint is configured, and the phone, production identity/session issuer, Firebase project, or S3 Hub media path are not available in this execution environment. Keep GS-177 open.
 
 This build is an installable test shell intended to load the existing Parivar Saathi PWA from an administrator-provided HTTPS origin. It is not yet a usable caregiver service until that origin serves the actual authenticated PWA/backend.
 
@@ -12,6 +12,7 @@ This build is an installable test shell intended to load the existing Parivar Sa
 |---|---|
 | GS-177 worktree | `/home/udaybhan/projects/Ghar_sajag_gs177` |
 | GS-177 branch | `feature/gs-177-caregiver-android` |
+| GS-177 current source revision before checksum fix commit | `9a6af519d929d3a8bd2e50a12cc93ed3c489ceef` |
 | GS-177 starting and remote ref at continuation start | `e92407139bc96a4fde91df39b6e38ebcc2dd6f56` |
 | Existing GS-177 base | `71f7dc0518fc4705d2467bc70f772d861b02750e`; branch retained without rebase/merge |
 | Canonical GS-40 worktree | `/home/udaybhan/projects/Ghar_sajag_r1` |
@@ -42,8 +43,8 @@ At this continuation check, all 23 source files still matched their manifest has
 | Check | Result |
 |---|---|
 | Local JDK / Android SDK / Gradle / ADB / apksigner | Not installed |
-| Local Android build | `NOT_BUILT`; hosted workflow must produce first APK |
-| Hosted Android workflow | Runs 39006792176 and 39006969459 failed at Kotlin compilation. Run 39007289252 then built the APK, passed 4/4 Kotlin tests, and verified the APK v2 signature (SHA-256 `0e458eb2e3bdbb46c49334831b1ef584d781bfe0851fb064a128498f1d3eaf96`), but the validation stage was adjudicated FAIL and the artifact-upload step was skipped. The precise gate predicate is not exposed in the runner report. The current runner suppresses raw Gradle task log noise on successful builds, reports the counted JUnit result, rejects skipped tests, and preserves compiler diagnostics on failure; a fourth hosted run is pending. [Run 39006792176](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39006792176) · [run 39006969459](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39006969459) · [run 39007289252](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39007289252) |
+| Local Android build | `NOT_BUILT` locally; JDK/SDK/Gradle absent |
+| Hosted Android workflow | Run 39007561093 passed on source `9a6af519d929d3a8bd2e50a12cc93ed3c489ceef`: registered stage, 4/4 Kotlin tests, apksigner, and upload passed. APK artifact was downloaded to `code/parivar_saathi_android_app/android/app/build/ci-artifact/parivar-saathi-caregiver-debug.apk` (2,455,012 bytes), package `in.gharsajag.caregiver`, version `0.1.0-dashboard`, debug testing key. Computed SHA-256: `763952af6662ae2f4e186f7f9d866b58f6307a39960e9e9e6d50d312e9c979eb`, matching the digest text in `SHA256SUMS`; however, that file names `/home/runner/work/_temp/gs177-apk/parivar-saathi-caregiver-debug.apk`, so `sha256sum --check` fails after download. The workflow now writes a relative filename and checks it before upload; rerun pending. [Successful run 39007561093](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39007561093) |
 | Physical Android device / install | `NOT_RUN`; no phone is attached/observable |
 | `bash code/parivar_saathi_android_app/verify.sh` | PASS, 6/6 prototype tests; Node syntax and Android XML parse pass |
 | `make -C code feature-coverage-test` | PASS, 210 features / 234 modules / 25 physical cases; 22/22 mapping tests |
@@ -74,7 +75,7 @@ FCM provider receipt, Android displayed/ringing/answered state, S3 WebRTC media,
 
 ## Exact next actions
 
-1. Commit and push the reviewed build-output/gate fix only to `feature/gs-177-caregiver-android`. Verify the next hosted run reaches artifact upload; download an APK only after the job passes, then record run URL, commit, version, package, SHA-256 and signing certificate. If it fails, use the retained runner output and repair only in this branch.
+1. Commit and push the relative-checksum fix only to `feature/gs-177-caregiver-android`. Verify the next hosted run passes `sha256sum --check` and artifact upload; download its artifact and record run URL, commit, version, package, SHA-256 and signing certificate.
 2. Obtain the approved live HTTPS PWA/API origin, production caregiver issuer/session + current-Home/epoch/revocation contract, persistent hosting/database, and a real Android phone with mobile-data access. Then install the artifact and capture actual device/backend evidence for each supported screen and denial/revocation case.
 3. Keep GS-25 Firebase delivery and GS-154/157 plus GS-40/68/109/143/148 call/identity/Hub work as upstream gates. Do not claim FCM delivery, manual/automatic voice, backup escalation, or S3 HIL until performed with the real phone and hardware under separate approved test conditions.
 4. Update Jira GS-177 and this handoff with the actual workflow and later device/backend results. Submit a reviewed GS-177 PR/handoff; do not merge into or push to the GS-40 branch.

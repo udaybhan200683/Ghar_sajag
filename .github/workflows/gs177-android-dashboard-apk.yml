@@ -61,7 +61,11 @@ jobs:
           mkdir -p "$apk_dir"
           cp "$apk_source" "$apk_dir/parivar-saathi-caregiver-debug.apk"
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_dir/parivar-saathi-caregiver-debug.apk"
-          sha256sum "$apk_dir/parivar-saathi-caregiver-debug.apk" > "$apk_dir/SHA256SUMS"
+          (
+            cd "$apk_dir"
+            sha256sum parivar-saathi-caregiver-debug.apk > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
           {
             printf 'source_revision=%s\n' "$ANDROID_SOURCE_REVISION"
             printf 'source_ref=%s\n' "$ANDROID_SOURCE_REF"
