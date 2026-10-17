@@ -265,6 +265,7 @@ bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& inpu
     // Hub boot ticks cannot refresh a Node lease from the previous boot.
     // Registry/session authority is independently restored by the security owner.
     target.last_authenticated_contact_ms_.clear();target.node_health_.clear();
+    target.cloud_contacts_.clear();
     return true;
 }
 } // namespace gs::hub

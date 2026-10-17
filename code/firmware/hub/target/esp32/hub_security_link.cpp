@@ -74,7 +74,7 @@ HubSecurityLink::~HubSecurityLink() {
 bool HubSecurityLink::initialize(const Mac& hub_mac) {
     if (registry_ || !crypto_.ready() || !identity_.initialize() ||
         !identity_.public_key("hub", hub_public_key_)) {
-        faulted_ = true;
+        faulted_.store(true, std::memory_order_release);
         return false;
     }
     const auto wrapping_result = security::load_or_create_target_wrapping_key_with_result(
@@ -82,7 +82,7 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
     bool home_created = false;
     if (wrapping_result == security::PersistentKeyLoadResult::Error ||
         !load_or_create_home_id(crypto_, home_id_, home_created)) {
-        faulted_ = true;
+        faulted_.store(true, std::memory_order_release);
         return false;
     }
     const bool wrap_created = wrapping_result == security::PersistentKeyLoadResult::Created;
@@ -100,7 +100,7 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
                              journal_key_)) {
         crypto_.secure_zero(journal_salt.data(), journal_salt.size());
         crypto_.secure_zero(wrapping_key_.data(), wrapping_key_.size());
-        faulted_ = true;
+        faulted_.store(true, std::memory_order_release);
         freshness_ = SecurityFreshness::Ambiguous;
         return false;
     }
@@ -116,7 +116,7 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
         loaded.status == HubRegistryLoadStatus::IoError ||
         (loaded.status == HubRegistryLoadStatus::Ready &&
          (!loaded.state || !registry_->restore(loaded.state->registry)))) {
-        faulted_ = true;
+        faulted_.store(true, std::memory_order_release);
         freshness_ = SecurityFreshness::Ambiguous;
         return false;
     }
@@ -130,7 +130,7 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
 
 bool HubSecurityLink::durable_storage_key(security::Key32& out) {
     out.fill(0);
-    if (faulted_ || !registry_ ||
+    if (faulted() || !registry_ ||
         std::all_of(journal_key_.begin(), journal_key_.end(),
                     [](std::uint8_t b) { return b == 0; })) return false;
     security::Bytes salt(home_id_.begin(), home_id_.end());
@@ -145,7 +145,7 @@ bool HubSecurityLink::durable_storage_key(security::Key32& out) {
 
 bool HubSecurityLink::event_journal_key(security::Key32& out) {
     out.fill(0);
-    if (faulted_ || !registry_ ||
+    if (faulted() || !registry_ ||
         std::none_of(journal_key_.begin(), journal_key_.end(),
                      [](std::uint8_t byte) { return byte != 0; })) {
         crypto_.secure_zero(out.data(), out.size());
@@ -158,7 +158,7 @@ bool HubSecurityLink::event_journal_key(security::Key32& out) {
 bool HubSecurityLink::authenticated_enrollment_table_digest(
         std::array<std::uint8_t,32>& out) const {
     out.fill(0);
-    if (faulted_ || !registry_ || !repository_ ||
+    if (faulted() || !registry_ || !repository_ ||
         registry_migration_.phase != hub::RegistryMigrationPhase::Activated) return false;
     hub::HubRegistryState state{registry_->snapshot(), bindings_, registry_migration_};
     const bool okay = repository_->enrollment_table_digest(state, out);
@@ -170,7 +170,7 @@ bool HubSecurityLink::authenticated_enrollment_table_digest(
 bool HubSecurityLink::attach_event_journal(hub::HubJournal& journal,
                                            hub::JournalSlotStore& store,
                                            void (*recovery_cooperate)()) {
-    return !faulted_ && registry_ && repository_ &&
+    return !faulted() && registry_ && repository_ &&
            std::any_of(journal_key_.begin(), journal_key_.end(),
                        [](std::uint8_t byte) { return byte != 0; }) &&
            journal.attach_persistence(crypto_, store, journal_key_, recovery_cooperate);
@@ -181,7 +181,7 @@ bool HubSecurityLink::persist_candidate(
     const std::vector<security::CommissioningBinding>& bindings) {
     HubRegistryState state{candidate.snapshot(), bindings, registry_migration_};
     const auto fail_closed = [&]() {
-        faulted_ = true;
+        faulted_.store(true, std::memory_order_release);
         active_.clear();
         rejoining_.clear();
         assemblers_.clear();
@@ -241,7 +241,7 @@ std::optional<HubSecurityLink::Mac> HubSecurityLink::expire_candidate(
 
 HubSecurityLink::Removal HubSecurityLink::remove_node(const std::string& device_id) {
     Removal outcome;
-    if (faulted_ || !registry_ || !repository_) return outcome;
+    if (faulted() || !registry_ || !repository_) return outcome;
     const auto existing = registry_->find(device_id);
     if (!existing) {
         outcome.result = registry_->is_revoked(device_id)
@@ -253,7 +253,7 @@ HubSecurityLink::Removal HubSecurityLink::remove_node(const std::string& device_
     auto candidate = std::make_unique<NodeRegistry>(home_id_, hub_id_,
                                                     kInstalledCapacity, kInstalledCapacity);
     if (!candidate->restore(registry_->snapshot())) {
-        faulted_ = true;
+        faulted_.store(true, std::memory_order_release);
         active_.clear();
         return outcome;
     }
@@ -266,7 +266,7 @@ HubSecurityLink::Removal HubSecurityLink::remove_node(const std::string& device_
         const auto old = std::find_if(next_bindings.begin(), next_bindings.end(),
             [&](const auto& value) { return value.device_id == device_id; });
         if (old == next_bindings.end()) {
-            faulted_ = true;
+            faulted_.store(true, std::memory_order_release);
             active_.clear();
             return outcome;
         }
@@ -274,7 +274,7 @@ HubSecurityLink::Removal HubSecurityLink::remove_node(const std::string& device_
         next_bindings.erase(old);
     }
     if (!persist_candidate(*candidate, next_bindings)) {
-        faulted_ = true;
+        faulted_.store(true, std::memory_order_release);
         active_.clear();
         return outcome;
     }
@@ -303,7 +303,7 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_commissioning(
 std::optional<HubSecurityLink::Outbound> HubSecurityLink::begin_replacement(
     const std::string& old_device_id, const ExpectedNode& exact,
     std::uint64_t now_ms) {
-    if (faulted_ || !registry_ || old_device_id == exact.device_id ||
+    if (faulted() || !registry_ || old_device_id == exact.device_id ||
         registry_->is_revoked(exact.device_id) ||
         registry_->find(exact.device_id) ||
         registry_->tombstone_count() >= kInstalledCapacity) return std::nullopt;
@@ -327,7 +327,7 @@ std::optional<HubSecurityLink::Outbound> HubSecurityLink::open_commissioning(
     requested.room = exact.room;
     requested.function = exact.function;
     const bool already_enrolled = registry_ && registry_->find(exact.device_id).has_value();
-    if (faulted_ || !registry_ || expected_ ||
+    if (faulted() || !registry_ || expected_ ||
         exact.device_id != id_for_mac(exact.radio_mac, "c3") ||
         exact.public_key[0] != 0x04 ||
         (!already_enrolled && replaced_device_id.empty() &&
@@ -364,7 +364,7 @@ std::optional<HubSecurityLink::ReplacedNode> HubSecurityLink::take_replaced_node
 std::optional<HubSecurityLink::Outbound> HubSecurityLink::accept(
     const Mac& source, const std::uint8_t* packet, std::size_t length,
     std::uint64_t now_ms) {
-    if (faulted_ || !expected_source(source)) return std::nullopt;
+    if (faulted() || !expected_source(source)) return std::nullopt;
     auto& assembler = assemblers_.try_emplace(source).first->second;
     const auto message = assembler.push(packet, length, now_ms);
     if (!message) return std::nullopt;
@@ -536,7 +536,7 @@ bool HubSecurityLink::retirement_enrollment_binding(
 bool HubSecurityLink::resolve_enrollment_binding(
         const std::string& physical_device_id, const std::string& claimed_logical_id,
         transport::RetirementEnrollmentBinding& out) const {
-    if (faulted_ || !registry_ || physical_device_id.empty() ||
+    if (faulted() || !registry_ || physical_device_id.empty() ||
         claimed_logical_id.empty()) return false;
     const auto record = registry_->find(physical_device_id);
     if (!record || record->quarantined || record->logical_id != claimed_logical_id ||

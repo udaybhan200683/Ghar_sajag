@@ -19,6 +19,9 @@
 #include "firmware/hub/target/esp32/nvs_store_inventory.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
 #if CONFIG_IDF_TARGET_ESP32S3
+#include "firmware/hub/cloud_sync/cloud_sync.hpp"
+#include "firmware/hub/cloud_sync/http_backend_transport.hpp"
+#include "firmware/hub/target/esp32s3/https_backend_channel.hpp"
 #include "firmware/hub/storage/durable_event_outbox.hpp"
 #include "firmware/hub/storage/outbox_journal_backend.hpp"
 #include "firmware/hub/target/esp32s3/littlefs_segment_store.hpp"
@@ -66,6 +69,138 @@ constexpr UBaseType_t kSecurityQueueDepth = 8U;
 // alone is 23456 bytes; recovery/checkpoint calls need additional stack.
 // tests/test_hub_runtime_stack.py checks the actual target frame budgets.
 constexpr std::uint32_t kSecureOwnerStackBytes = 81920;
+
+#if CONFIG_IDF_TARGET_ESP32S3 && !GS_HIL_BUILD
+constexpr std::uint32_t kCloudSyncRefreshMs = 5000U;
+constexpr std::uint32_t kCloudSyncWorkerDelayMs = 5000U;
+constexpr std::uint32_t kCloudSyncWorkerStackBytes = 8192U;
+
+// GS-109 must provide these values from the approved permanent Hub credential,
+// current ownership registry and trusted-time source. The production target has
+// no such provider yet; this implementation deliberately cannot read SNTP,
+// Hub/Home IDs derived from MAC, storage epoch, or caller-supplied headers.
+class S3CloudTrustProvisioning {
+public:
+    virtual ~S3CloudTrustProvisioning() = default;
+    // current_binding is queried from the owner and CloudSync network tasks;
+    // implementations must publish an immutable/thread-safe current snapshot
+    // and fail closed after transfer, revocation, or loss of credential proof.
+    virtual bool current_binding(CloudAuthorityBinding&) = 0;
+    // trusted_hub_time is called only from the Hub owner while it refreshes the
+    // immutable NodeHealth snapshot.
+    virtual bool trusted_hub_time(Milliseconds, TrustedHubTimeSnapshot&) = 0;
+};
+
+class UnprovisionedS3CloudTrust final : public S3CloudTrustProvisioning {
+public:
+    bool current_binding(CloudAuthorityBinding&) override { return false; }
+    bool trusted_hub_time(Milliseconds, TrustedHubTimeSnapshot&) override { return false; }
+};
+
+class S3CloudRuntimeAuthorityProvider final : public CloudRuntimeAuthorityProvider {
+public:
+    S3CloudRuntimeAuthorityProvider(HubSecurityLink& security_link, HubRuntime& runtime,
+                                    S3CloudTrustProvisioning& trust)
+        : security_link_(security_link), runtime_(runtime), trust_(trust) {}
+
+    bool current_binding(CloudAuthorityBinding& binding) override {
+        return !security_link_.faulted() && trust_.current_binding(binding) &&
+            !binding.home_id.empty() && !binding.hub_device_id.empty() &&
+            binding.ownership_epoch != 0;
+    }
+
+    bool original_event_owned(const DomainEvent& event,
+                              const CloudAuthorityBinding& binding) override {
+        CloudAuthorityBinding current;
+        transport::RetirementEnrollmentBinding enrollment{};
+        std::uint32_t generation = 0;
+        return current_binding(current) && current == binding &&
+            security_link_.resolve_enrollment_binding(event.key.physical_device_id,
+                event.key.source_id, enrollment) &&
+            runtime_.cloud_event_enrollment_generation(event, generation) &&
+            generation == enrollment.generation;
+    }
+
+    bool trusted_hub_time(Milliseconds monotonic_ms,
+                          TrustedHubTimeSnapshot& time) override {
+        return !security_link_.faulted() &&
+            trust_.trusted_hub_time(monotonic_ms, time) && time.trusted &&
+            time.monotonic_ms == monotonic_ms && time.boot_generation != 0 &&
+            time.utc_now > 0;
+    }
+
+    bool active_nodes(const CloudAuthorityBinding& binding,
+                      std::vector<CloudNodeEnrollment>& nodes) override {
+        CloudAuthorityBinding current;
+        if (security_link_.faulted() || !current_binding(current) ||
+            !(current == binding)) return false;
+        nodes.clear();
+        nodes.reserve(HubSecurityLink::kInstalledCapacity);
+        for (const auto& mac : security_link_.enrolled_macs()) {
+            const auto* node = security_link_.ready_node(mac);
+            if (node == nullptr || node->last_session == 0 ||
+                !runtime_.node_profile_known(node->logical_id)) continue;
+            transport::RetirementEnrollmentBinding enrollment{};
+            if (!security_link_.resolve_enrollment_binding(node->device_id,
+                    node->logical_id, enrollment)) continue;
+            const auto profile = deployment::for_device(node->device_id);
+            const auto runtime_lease = runtime_.node_offline_timeout_seconds(
+                node->logical_id);
+            if (!profile || !runtime_lease ||
+                *runtime_lease != profile->offline_seconds) continue;
+            std::string profile_id;
+            if (profile->heartbeat_seconds == 300 && profile->offline_seconds == 910)
+                profile_id = "configured";
+            else if (profile->heartbeat_seconds == 60 && profile->offline_seconds == 190)
+                profile_id = "legacy_60";
+            else if (profile->heartbeat_seconds == 120 && profile->offline_seconds == 310)
+                profile_id = "legacy_120";
+            else continue;
+            nodes.push_back({node->device_id, node->logical_id,
+                enrollment.generation, node->last_session, std::move(profile_id),
+                profile->heartbeat_seconds, profile->offline_seconds});
+            if (nodes.size() > HubSecurityLink::kInstalledCapacity) return false;
+        }
+        return true;
+    }
+private:
+    HubSecurityLink& security_link_;
+    HubRuntime& runtime_;
+    S3CloudTrustProvisioning& trust_;
+};
+
+class UnprovisionedCloudTlsIdentity final : public CloudTlsIdentityProvider {
+public:
+    bool current_identity(CloudTlsIdentity&) override { return false; }
+};
+
+struct CloudSyncTaskContext { CloudSyncWorker* worker{nullptr}; };
+
+bool cloud_wan_ready() {
+    wifi_ap_record_t ap{};
+    if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK) return false;
+    auto* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif == nullptr) return false;
+    esp_netif_ip_info_t address{};
+    return esp_netif_get_ip_info(netif, &address) == ESP_OK &&
+        address.ip.addr != 0 && address.gw.addr != 0;
+}
+
+void cloud_node_health_task(void* opaque) {
+    auto& context = *static_cast<CloudSyncTaskContext*>(opaque);
+    if (context.worker == nullptr) {
+        vTaskDelete(nullptr);
+        return;
+    }
+    for (;;) {
+        const auto now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
+        const auto result = context.worker->run_node_health_once(cloud_wan_ready(), now_ms);
+        if (result.state == CloudWorkerState::AuthorityChanged)
+            ESP_LOGE(kTag, "Cloud NodeHealth stopped after Hub/Home/epoch authority change");
+        vTaskDelay(pdMS_TO_TICKS(kCloudSyncWorkerDelayMs));
+    }
+}
+#endif
 
 #if CONFIG_IDF_TARGET_ESP32S3
 struct OutboxNodeRetirementContext {
@@ -729,6 +864,33 @@ void secure_owner_task(void*) {
     ESP_LOGI(kTag, "HIL_JOURNAL_RECOVERED records=%u", static_cast<unsigned>(runtime.journal().size()));
 #endif
 
+#if CONFIG_IDF_TARGET_ESP32S3
+    // Separate the owner-thread capture from HTTPS I/O. Until GS-109 supplies
+    // an approved permanent Hub/Home/epoch and trusted-time provider, the
+    // runtime authority and TLS identity adapters below remain fail closed.
+    UnprovisionedS3CloudTrust cloud_trust;
+    S3CloudRuntimeAuthorityProvider cloud_authority(
+        security_link, runtime, cloud_trust);
+    CloudRuntimeAuthoritySource cloud_authority_source(cloud_authority);
+    UnprovisionedCloudTlsIdentity cloud_tls_identity;
+    HttpsBackendChannel cloud_channel("", "", cloud_tls_identity);
+    HttpBackendTransport cloud_transport(cloud_channel);
+    CloudSyncWorker cloud_worker(runtime.journal(), runtime,
+                                 cloud_authority_source, cloud_transport);
+    CloudSyncTaskContext cloud_task_context{&cloud_worker};
+    TaskHandle_t cloud_task_handle = nullptr;
+    if (xTaskCreate(cloud_node_health_task, "gs_hub_cloud_health",
+            kCloudSyncWorkerStackBytes, &cloud_task_context, 3,
+            &cloud_task_handle) != pdPASS) {
+        ESP_LOGE(kTag, "Cloud NodeHealth worker unavailable; cloud publication disabled");
+        cloud_task_handle = nullptr;
+    } else {
+        ESP_LOGI(kTag,
+            "Cloud NodeHealth scheduler started; commercial identity/time remain unprovisioned and disabled");
+    }
+    std::uint64_t next_cloud_refresh_ms = 0;
+#endif
+
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
     std::map<HubSecurityLink::Mac, std::pair<std::uint64_t, std::uint32_t>> epoch_confirmed;
     struct RetirementRxState {
@@ -788,10 +950,23 @@ void secure_owner_task(void*) {
     for (;;) {
         if (security_link.faulted()) {
             ESP_LOGE(kTag, "Hub security owner faulted; refusing event admission");
+#if CONFIG_IDF_TARGET_ESP32S3
+            if (cloud_task_handle != nullptr) vTaskDelete(cloud_task_handle);
+#endif
             vTaskDelete(nullptr);
             return;
         }
         const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+#if CONFIG_IDF_TARGET_ESP32S3
+        if (cloud_task_handle != nullptr && now_ms >= next_cloud_refresh_ms) {
+            next_cloud_refresh_ms = now_ms + kCloudSyncRefreshMs;
+            if (!cloud_worker.refresh_node_health_snapshot(
+                    static_cast<Milliseconds>(now_ms))) {
+                // Missing identity, epoch, enrollment or trusted time remains
+                // UNKNOWN; local Node admission and durable ACK continue.
+            }
+        }
+#endif
         if (const auto expired = security_link.expire_candidate(now_ms)) {
             (void)esp_now_del_peer(expired->data());
 #if GS_HIL_COMMISSIONING

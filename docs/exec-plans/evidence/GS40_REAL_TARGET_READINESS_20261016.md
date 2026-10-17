@@ -1,6 +1,47 @@
 # GS-40 real-target readiness and production-path audit — 2026-10-16
 
+## Latest follow-up — S3 runtime composition (2026-10-16)
+
+This update follows the original audit and supersedes its claim that the S3
+runtime has no publisher composition. At canonical checkpoint
+`9d16556bbfe741bd4aa59c3df88a0ba0addca3c8`, the S3 Hub owner now refreshes
+bounded NodeHealth snapshots from HubRuntime and a separate network worker
+uses the existing CloudSync authority wrapper and HTTPS transport. The
+commercial identity/current-ownership, trusted-time and TLS identity providers
+are deliberately unprovisioned and fail closed; no live NodeHealth feed is
+active. Durable events remain on their existing path with EventKey, ACK, retry,
+replay and retirement semantics unchanged.
+
+The HubRuntime-to-CloudSync publisher tests cover authenticated ONLINE and
+OFFLINE transitions, strict lease expiry without another packet, the 300/910,
+60/190 and 120/310 profiles, session/enrollment and ownership changes, WAN
+outage/recovery, retry/backoff and unavailable identity/time. Backend NodeHealth
+ingest/read model and caregiver PWA projection passed their focused suites;
+the caregiver browser suite passed 86/86. Broader validation aggregates retain
+the existing Hub journal migration failure and required P0 `PARTIAL` result.
+The final Hub and contract reports are
+`code/evidence/validation_framework/hub-1792177423393802158/report.json` and
+`code/evidence/validation_framework/contract-1792177035924980667/report.json`;
+both record `source_unchanged=true` and the same tracked-source fingerprint.
+ESP-IDF 6.0.3 non-flashing S3 build passed at 2,166,688 bytes in its 4 MiB app
+slot (image SHA-256
+`e39dc13190b8f23d95a82f972ce9a896ce5c9f87a1ea33565ab31ff07e88e1d5`). No
+physical operation or production credential/service action occurred.
+
+**Next action:** complete approved D05/D12 Hub identity/key custody, verifier
+and current ownership/revocation source; approve D06 trusted Hub time; validate
+the deployed trust-provider and owner/network concurrency contract in software.
+Only then prepare the exact fixture, board/current-image/config/session and
+pending-EventKey provenance, verified non-resetting observer and per-case
+approval for PHY-GS40. PHY-GS40-01..06 remain BLOCKED / NOT_RUN. The earlier
+source-audit table below records the state before this follow-up; update its
+composition-related findings only when a production source is actually
+provisioned and tested.
+
 ## Disposition
+
+The statements in this original disposition describe the source audit before
+the runtime-composition follow-up above.
 
 **Software:** The completed GS-40 automation branch is reconciled into the
 canonical R1 branch. A reusable, pure observation-bundle validator and focused

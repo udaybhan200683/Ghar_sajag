@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <optional>
 #include <map>
+#include <mutex>
 #include <set>
 #include <string>
 #include <vector>
@@ -80,6 +81,40 @@ public:
     }
 };
 
+struct CloudNodeEnrollment {
+    std::string physical_node_id;
+    std::string logical_node_id;
+    std::uint32_t enrollment_generation{0};
+    std::uint64_t session_id{0};
+    std::string profile_id;
+    std::uint32_t heartbeat_seconds{0};
+    std::uint32_t offline_seconds{0};
+};
+
+struct TrustedHubTimeSnapshot {
+    bool trusted{false};
+    Milliseconds monotonic_ms{0};
+    EpochSeconds utc_now{0};
+    std::uint64_t boot_generation{0};
+};
+
+// Implemented by the approved GS-109/GS-68 authority and Hub registry
+// adapters. TEST_ONLY providers are confined to deterministic host fixtures.
+class CloudRuntimeAuthorityProvider {
+public:
+    virtual ~CloudRuntimeAuthorityProvider() = default;
+    // CloudSyncWorker rechecks this on its network task before and after
+    // publication. Implementations must be thread-safe and return false when
+    // current ownership, revocation, or epoch proof is unavailable.
+    virtual bool current_binding(CloudAuthorityBinding& binding) = 0;
+    virtual bool original_event_owned(const DomainEvent& event,
+                                     const CloudAuthorityBinding& binding) = 0;
+    virtual bool trusted_hub_time(Milliseconds monotonic_ms,
+                                  TrustedHubTimeSnapshot& time) = 0;
+    virtual bool active_nodes(const CloudAuthorityBinding& binding,
+                              std::vector<CloudNodeEnrollment>& nodes) = 0;
+};
+
 class CloudSync {
 public:
     static constexpr std::size_t kMaximumBatch = 16;
@@ -140,6 +175,38 @@ public:
     virtual bool current_node_health(const CloudAuthorityBinding&,
                                      const HubRuntime&, Milliseconds,
                                      std::vector<NodeHealthPublication>&) { return false; }
+    // Called by the HubRuntime owner task. Implementations copy bounded,
+    // immutable snapshots for the separate network worker to consume.
+    virtual bool refresh_node_health(const CloudAuthorityBinding&,
+                                     const HubRuntime&, Milliseconds) { return false; }
+    virtual bool latest_node_health(const CloudAuthorityBinding&,
+                                    std::vector<NodeHealthPublication>&) { return false; }
+};
+
+class CloudRuntimeAuthoritySource final : public CloudAuthoritySource {
+public:
+    explicit CloudRuntimeAuthoritySource(CloudRuntimeAuthorityProvider& provider)
+        : provider_(provider) {}
+    bool current_binding(CloudAuthorityBinding& binding) override;
+    bool original_event_owned(const DomainEvent& event,
+                              const CloudAuthorityBinding& binding) override;
+    bool current_node_health(const CloudAuthorityBinding& binding,
+                             const HubRuntime& runtime, Milliseconds now_ms,
+                             std::vector<NodeHealthPublication>& out) override;
+    bool refresh_node_health(const CloudAuthorityBinding& binding,
+                             const HubRuntime& runtime, Milliseconds now_ms) override;
+    bool latest_node_health(const CloudAuthorityBinding& binding,
+                            std::vector<NodeHealthPublication>& out) override;
+private:
+    void clear_snapshot();
+    CloudRuntimeAuthorityProvider& provider_;
+    std::mutex snapshot_mutex_;
+    std::optional<CloudAuthorityBinding> snapshot_binding_;
+    std::vector<NodeHealthPublication> snapshot_;
+    std::map<std::string, std::uint64_t> next_revision_;
+    std::uint64_t boot_generation_{0};
+    EpochSeconds last_trusted_utc_{0};
+    std::size_t round_robin_{0};
 };
 
 enum class CloudWorkerState { Offline, AuthorityUnavailable, AuthorityChanged,
@@ -162,6 +229,10 @@ public:
                     CloudAuthoritySource& authority, CloudBackendTransport& transport);
     CloudWorkerResult run_once(bool network_ready, Milliseconds now_ms,
                                std::size_t limit = 4);
+    // Split owner-thread capture from bounded network I/O. The capture method
+    // never sends; the network method never reads HubRuntime or the journal.
+    bool refresh_node_health_snapshot(Milliseconds now_ms);
+    CloudWorkerResult run_node_health_once(bool network_ready, Milliseconds now_ms);
 private:
     bool same_authority(const CloudAuthorityBinding& expected);
     HubJournal& journal_;
@@ -171,6 +242,12 @@ private:
     CloudBackendTransport& transport_;
     std::optional<CloudAuthorityBinding> pinned_;
     bool authority_changed_{false};
+    std::optional<CloudAuthorityBinding> node_health_pinned_;
+    bool node_health_authority_changed_{false};
+    struct HealthRetry { std::size_t failures{0}; Milliseconds retry_after_ms{0}; };
+    std::map<std::string, HealthRetry> node_health_retries_;
+    std::map<std::string, std::pair<std::uint64_t, std::uint64_t>>
+        node_health_accepted_revisions_;
 };
 
 }  // namespace gs::hub

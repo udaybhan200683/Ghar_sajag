@@ -1,5 +1,83 @@
 # R1 Current Work State
 
+## GS-40 S3 NodeHealth runtime composition — 2026-10-16
+
+The canonical task resumed on `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, at verified checkpoint
+`9d16556bbfe741bd4aa59c3df88a0ba0addca3c8`; local and fetched origin were equal
+before editing and the tracked tree was clean. Existing untracked PWA,
+managed-component, GS-114 and GS-40 UART evidence was preserved and excluded
+from the change.
+
+The S3 Hub owner now refreshes bounded NodeHealth snapshots from authenticated
+HubRuntime current-session contacts every five seconds. A separate five-second
+network worker uses the existing CloudSync authority wrapper and HTTPS
+transport; it publishes at most four current states per pass, checks the
+current Hub/Home/ownership epoch, retries with bounded backoff, and waits for
+WAN association plus IP. It does not process journal events or alter EventKey,
+durable-before-ACK, retry, replay or Node retirement. The installed policy
+mapping accepts configured 300/910 and trusted legacy 60/190 and 120/310
+profiles. Lease expiry is computed by HubRuntime without requiring another
+packet. Checkpoint restore, session changes and revocation clear/stop ephemeral
+publication. Hub security fault state is atomic for the network-side revocation
+check; registry/session tables remain owner-only.
+
+Commercial sending remains fail-closed: the S3 permanent identity/current
+ownership provider, D06 trusted-time source and TLS identity provider are
+explicit unprovisioned stubs. The provider seam requires an immutable,
+thread-safe current authority snapshot; untrusted SNTP, MAC-derived identity,
+caller headers and generated production credentials are not used. No live
+credential, backend service, board, serial port, eFuse, flash or reset was
+accessed. This completes software runtime composition with TEST_ONLY host
+fixtures, not commercial activation.
+
+Validation: `make -C code cpp-test` PASS (1,509 checks); CloudSync adapter 8/8,
+mTLS 13/13 and backend NodeHealth API/model 5/5 PASS; P2D durable EventKey and
+receipt contract PASS (15 invalid receipt modes, pending bound 200, batch 16,
+retry 64 and two persistence cuts); `make -C code app-test` PASS (24/24),
+backend Python suite 523 PASS and caregiver desktop/mobile browser suite 86/86
+PASS. `make -C code validation-hub` aggregate FAILs on the existing
+`clean migration commits` assertion and required P0 `product_status=PARTIAL`.
+Contract, backend and PWA aggregates also report the required P0
+`product_status=PARTIAL` (26/26 assertions and its Chromium scenario passed);
+the PWA browser suite itself passed 86/86. Final frozen-source aggregate
+reports (`source_unchanged=true`) are
+`code/evidence/validation_framework/hub-1792177423393802158/report.json` and
+`code/evidence/validation_framework/contract-1792177035924980667/report.json`;
+both used source fingerprint
+`478ca9b8d83835ebf5ebe4a9d3c500e1fc2cd54946573ba3bc770e9bccd9822c`. The
+first Hub aggregate attempt was discarded because its source changed during
+execution and was rerun with tracked content frozen. No release campaign was
+run. The
+ESP-IDF 6.0.3 non-flashing S3 production-profile build passed with
+`GS_HIL_BUILD=OFF`: 2,166,688 bytes in a 4 MiB app slot, image SHA-256
+`e39dc13190b8f23d95a82f972ce9a896ce5c9f87a1ea33565ab31ff07e88e1d5`, sdkconfig
+SHA-256 `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`.
+The initial target build exposed an incorrect `CloudAuthoritySource` wrapper
+argument; it was fixed and the subsequent S3 build passed. After adding the
+atomic terminal-fault read, `make -C code cpp-test` and the S3 target build
+passed again after the final bounded-map and revocation test updates. Feature
+coverage integrity also passes: 208 features, 218 source modules, 24 physical
+cases and 22 mapping tests. These results do not qualify credentials, time,
+radio or board behavior.
+
+The validated implementation and handoff changes are committed locally as
+`65e6bb83b636e803ec647bbef40a03ce74cedfbe`. The validation campaign ran against
+that code change on the working tree based on checkpoint `9d16556bbfe741bd4aa59c3df88a0ba0addca3c8`; its exact frozen-source fingerprint is
+recorded above and in the traceability row. The origin branch was still at the
+starting checkpoint when this implementation commit was created. The final
+delivery comment records the documentation-receipt commit and verified remote
+HEAD after the normal push.
+
+Remaining prerequisites: approved D05/D12 permanent Hub identity issuance,
+protected key custody, verifier, current Home/ownership-epoch and revocation
+source; approved D06 trusted Hub time; deployment-bound software verification
+using those providers; then exact physical fixture, board/image/config/session
+and pending-EventKey provenance plus a verified non-resetting safe observer and
+separate per-case authorization. PHY-GS40-01..06 remain NOT_RUN. P0 remains
+PARTIAL and the Hub journal migration gate remains FAIL. Latest source commit
+and actual origin HEAD are recorded in the dated Jira follow-up after delivery.
+
 ## GS-40 NodeHealth CloudSync evidence-contract increment — 2026-10-16
 
 The canonical source checkpoint before this increment was

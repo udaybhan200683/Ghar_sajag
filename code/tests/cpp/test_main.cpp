@@ -34,8 +34,10 @@
 #include <iostream>
 #include <cstdlib>
 #include <array>
+#include <map>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -1407,51 +1409,188 @@ void test_feature_flag_defaults() {
 
 void test_cloudsync_node_health_publication() {
     using namespace gs::hub;
-    struct Authority final : CloudAuthoritySource {
-        NodeHealthPublication publication;
+    struct Authority final : CloudRuntimeAuthorityProvider {
+        CloudAuthorityBinding binding{"home-1", "hub-1", 3};
         bool available{true};
+        bool trusted_time{true};
+        std::vector<CloudNodeEnrollment> nodes;
         bool current_binding(CloudAuthorityBinding& output) override {
-            output = {"home-1", "hub-1", 3}; return true;
+            if (!available) return false;
+            output = binding; return true;
         }
         bool original_event_owned(const gs::DomainEvent&,
-                                  const CloudAuthorityBinding&) override { return false; }
-        bool current_node_health(const CloudAuthorityBinding& binding,
-                                 const HubRuntime&, gs::Milliseconds,
-                                 std::vector<NodeHealthPublication>& out) override {
-            if (!available || binding.home_id != "home-1") return false;
-            out = {publication}; return true;
+                                  const CloudAuthorityBinding& requested) override {
+            return available && requested == binding;
+        }
+        bool trusted_hub_time(gs::Milliseconds monotonic_ms,
+                              TrustedHubTimeSnapshot& time) override {
+            if (!available || !trusted_time) return false;
+            time = {true, monotonic_ms,
+                    static_cast<gs::EpochSeconds>(100000 + monotonic_ms / 1000), 7};
+            return true;
+        }
+        bool active_nodes(const CloudAuthorityBinding& requested,
+                          std::vector<CloudNodeEnrollment>& out) override {
+            if (!available || !(requested == binding)) return false;
+            out = nodes; return true;
         }
     } authority;
     struct Transport final : CloudBackendTransport {
         unsigned sent{0};
+        bool fail_next{false};
+        std::map<std::string, NodeHealthPublication> accepted;
         BackendCommitReply submit(const BackendCommitRequest&) override { return {}; }
         NodeHealthReply submit_node_health(const CloudAuthorityBinding& binding,
                                            const NodeHealthPublication& status) override {
-            if (binding.home_id == "home-1" && status.valid()) ++sent;
+            ++sent;
+            if (fail_next) {
+                fail_next = false;
+                return {NodeHealthReplyStatus::TransientFailure};
+            }
+            if (binding.home_id == "home-1" && status.valid())
+                accepted[status.physical_node_id] = status;
             return {NodeHealthReplyStatus::Accepted};
         }
     } transport;
-    authority.publication = {"c3-146393c5d158", "bathroom", 1, 7, 2, 5,
-        NodeHealthContactKind::NodeHealth, "configured", 300, 910,
-        1000, 1001, HubTimeReadiness::Trusted};
-    check(authority.publication.valid() &&
-          authority.publication.json_body("home-1").find("\"offline_seconds\":910") != std::string::npos,
-          "NodeHealth CloudSync payload is typed, bounded and profile-bound");
-    auto invalid = authority.publication;
-    invalid.time_readiness = HubTimeReadiness::Untrusted;
-    check(!invalid.valid(), "untrusted Hub time cannot publish NodeHealth");
-    invalid = authority.publication;
-    invalid.offline_seconds = 909;
-    check(!invalid.valid(), "Hub cannot alter configured Node lease boundary");
+
+    const std::vector<CloudNodeEnrollment> nodes{
+        {"c3-configured", "configured-room", 1, 11, "configured", 300, 910},
+        {"c3-legacy-60", "legacy-room-60", 2, 12, "legacy_60", 60, 190},
+        {"c3-legacy-120", "legacy-room-120", 3, 13, "legacy_120", 120, 310},
+    };
+    authority.nodes = nodes;
     HubRuntime runtime;
-    CloudSyncWorker worker(runtime.journal(), runtime, authority, transport);
-    const auto sent = worker.run_once(true, 1, 1);
-    check(sent.node_health_submitted == 1 && sent.node_health_accepted == 1 && transport.sent == 1,
-          "existing CloudSync worker publishes current NodeHealth separately from events");
-    authority.publication.time_readiness = HubTimeReadiness::Untrusted;
-    const auto refused = worker.run_once(true, 2, 1);
-    check(refused.node_health_submitted == 0 && transport.sent == 1,
-          "invalid source state is refused without changing CloudSync event behavior");
+    const std::uint64_t start_ms = 1000000;
+    const std::uint32_t leases[] = {910, 190, 310};
+    const CloudContactKind kinds[] = {CloudContactKind::NodeHealth,
+        CloudContactKind::AuthenticatedEvent, CloudContactKind::NodeHealth};
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        runtime.authorize_node(nodes[i].logical_node_id, nodes[i].session_id, true);
+        runtime.set_node_offline_timeout(nodes[i].logical_node_id, leases[i]);
+        check(runtime.observe_authenticated_contact(nodes[i].logical_node_id,
+              nodes[i].session_id, start_ms, 0, kinds[i]),
+              "current authenticated Node contact enters cloud snapshot");
+    }
+    check(!runtime.observe_authenticated_contact("configured-room", 99,
+          start_ms + 1, 0, CloudContactKind::NodeHealth),
+          "wrong transport session cannot refresh cloud NodeHealth");
+    check(runtime.cloud_contact_online("configured-room", start_ms + 910000) &&
+          !runtime.cloud_contact_online("configured-room", start_ms + 910001),
+          "configured Node lease expires strictly after 910 seconds without another packet");
+    check(runtime.cloud_contact_online("legacy-room-60", start_ms + 190000) &&
+          !runtime.cloud_contact_online("legacy-room-60", start_ms + 190001) &&
+          runtime.cloud_contact_online("legacy-room-120", start_ms + 310000) &&
+          !runtime.cloud_contact_online("legacy-room-120", start_ms + 310001),
+          "trusted legacy Node leases expire strictly after 190 and 310 seconds");
+
+    CloudRuntimeAuthoritySource source(authority);
+    CloudSyncWorker worker(runtime.journal(), runtime, source, transport);
+    check(worker.refresh_node_health_snapshot(start_ms),
+          "HubRuntime contact snapshot is captured on its owner path");
+    std::vector<NodeHealthPublication> captured;
+    source.latest_node_health(authority.binding, captured);
+    const auto sent = worker.run_node_health_once(true, start_ms);
+    check(sent.node_health_submitted == 3 && sent.node_health_accepted == 3 &&
+          transport.accepted.size() == 3,
+          "bounded CloudSync publisher sends current contacts for configured and legacy profiles");
+    check(transport.accepted.at("c3-configured").json_body("home-1").find(
+              "\"offline_seconds\":910") != std::string::npos &&
+          transport.accepted.at("c3-legacy-60").contact_kind ==
+              NodeHealthContactKind::AuthenticatedEvent &&
+          transport.accepted.at("c3-legacy-120").offline_seconds == 310,
+          "publication keeps trusted profile and authenticated contact kind");
+
+    const auto original = transport.accepted.at("c3-configured");
+    check(original.valid() && !original.json_body("home-1").empty(),
+          "published status is typed, profile-bound and JSON bounded");
+    auto invalid_publication = original;
+    invalid_publication.time_readiness = HubTimeReadiness::Untrusted;
+    check(!invalid_publication.valid(), "untrusted Hub time cannot publish NodeHealth");
+    invalid_publication = original;
+    invalid_publication.offline_seconds = 909;
+    check(!invalid_publication.valid(), "Hub cannot alter configured lease boundary");
+    const auto expired_ms = start_ms + 911000;
+    check(worker.refresh_node_health_snapshot(expired_ms),
+          "silent Node expiry refreshes Hub snapshot without a new packet");
+    const auto expired = worker.run_node_health_once(true, expired_ms);
+    check(expired.node_health_accepted == 3 &&
+          transport.accepted.at("c3-configured").hub_received_at == original.hub_received_at &&
+          transport.accepted.at("c3-configured").hub_snapshot_at > original.hub_snapshot_at &&
+          transport.accepted.at("c3-configured").source_revision > original.source_revision,
+          "offline expiry publishes a newer bounded source revision while preserving last contact time");
+
+    const auto before_outage = transport.sent;
+    const auto offline = worker.run_node_health_once(false, expired_ms + 1);
+    check(offline.state == CloudWorkerState::Offline && transport.sent == before_outage,
+          "WAN outage suppresses publication without touching the local Node lease");
+    transport.fail_next = true;
+    check(worker.refresh_node_health_snapshot(expired_ms + 2000),
+          "status snapshot remains available during a transient WAN response failure");
+    const auto retry = worker.run_node_health_once(true, expired_ms + 2000);
+    const auto retry_sent = transport.sent;
+    const auto held = worker.run_node_health_once(true, expired_ms + 2500);
+    check(retry.node_health_submitted == 3 && held.node_health_submitted == 0 &&
+          transport.sent == retry_sent,
+          "transient NodeHealth response uses bounded retry backoff while other current statuses complete");
+    const auto recovered = worker.run_node_health_once(true, expired_ms + 4000);
+    check(recovered.node_health_accepted > 0,
+          "WAN recovery retries current state and resumes accepted publication");
+
+    authority.binding.ownership_epoch++;
+    const auto transferred = worker.run_node_health_once(true, expired_ms + 5000);
+    check(transferred.state == CloudWorkerState::AuthorityChanged &&
+          transferred.node_health_submitted == 0,
+          "ownership epoch change permanently stops the pinned Hub worker");
+
+    authority.binding = {"home-1", "hub-1", 3};
+    authority.trusted_time = false;
+    CloudRuntimeAuthoritySource untrusted_source(authority);
+    CloudSyncWorker untrusted_worker(runtime.journal(), runtime,
+                                     untrusted_source, transport);
+    check(!untrusted_worker.refresh_node_health_snapshot(expired_ms + 6000) &&
+          untrusted_worker.run_node_health_once(true, expired_ms + 6000).node_health_submitted == 0,
+          "unavailable trusted time fails closed and publishes no healthy status");
+
+    authority.trusted_time = true;
+    authority.nodes[0].session_id++;
+    CloudRuntimeAuthoritySource stale_source(authority);
+    CloudSyncWorker stale_worker(runtime.journal(), runtime, stale_source, transport);
+    check(stale_worker.refresh_node_health_snapshot(expired_ms + 7000),
+          "current enrollment snapshot remains capturable with stale Node session");
+    std::vector<NodeHealthPublication> stale;
+    check(stale_source.latest_node_health(authority.binding, stale) && stale.size() == 2,
+          "stale or replaced Node session is omitted from publication");
+
+    authority.nodes = {nodes.front()};
+    HubRuntime revoked_runtime;
+    revoked_runtime.authorize_node(nodes.front().logical_node_id,
+                                   nodes.front().session_id, true);
+    revoked_runtime.set_node_offline_timeout(nodes.front().logical_node_id, 910);
+    check(revoked_runtime.observe_authenticated_contact(nodes.front().logical_node_id,
+          nodes.front().session_id, expired_ms + 8000, 0, CloudContactKind::NodeHealth),
+          "revocation fixture starts with authenticated active contact");
+    CloudRuntimeAuthoritySource revoked_source(authority);
+    CloudSyncWorker revoked_worker(revoked_runtime.journal(), revoked_runtime,
+                                   revoked_source, transport);
+    const auto sent_before_revoke = transport.sent;
+    check(revoked_worker.refresh_node_health_snapshot(expired_ms + 8000) &&
+          revoked_worker.run_node_health_once(true, expired_ms + 8000).node_health_accepted == 1,
+          "active Node contact is publishable before revocation");
+    revoked_runtime.revoke_node(nodes.front().logical_node_id);
+    check(revoked_worker.refresh_node_health_snapshot(expired_ms + 8001) &&
+          revoked_worker.run_node_health_once(true, expired_ms + 8001).node_health_submitted == 0 &&
+          transport.sent == sent_before_revoke + 1,
+          "Node revocation clears the owner snapshot and stops further publication");
+
+    authority.available = false;
+    CloudRuntimeAuthoritySource unavailable_source(authority);
+    CloudSyncWorker unavailable_worker(runtime.journal(), runtime,
+                                       unavailable_source, transport);
+    const auto sent_before_unavailable = transport.sent;
+    check(!unavailable_worker.refresh_node_health_snapshot(expired_ms + 9000) &&
+          unavailable_worker.run_node_health_once(true, expired_ms + 9000).node_health_submitted == 0 &&
+          transport.sent == sent_before_unavailable,
+          "unavailable Hub identity/ownership proof fails closed");
 }
 
 }  // namespace

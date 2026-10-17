@@ -10,6 +10,7 @@
 #include "firmware/hub/storage/journal.hpp"
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -94,7 +95,9 @@ public:
     std::vector<Mac> enrolled_macs() const;
     const std::string& home_id() const { return home_id_; }
     const std::string& hub_id() const { return hub_id_; }
-    bool faulted() const { return faulted_; }
+    // The cloud network worker may read the terminal fault state while the
+    // owner task records it. The registry and session tables remain owner-only.
+    bool faulted() const { return faulted_.load(std::memory_order_acquire); }
 
 private:
     struct PendingRejoin {
@@ -141,7 +144,7 @@ private:
     std::string home_id_;
     std::string hub_id_;
     std::uint64_t pairing_deadline_ms_{0};
-    bool faulted_{false};
+    std::atomic<bool> faulted_{false};
     SecurityFreshness freshness_{SecurityFreshness::Ambiguous};
 };
 

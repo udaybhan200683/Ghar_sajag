@@ -12,6 +12,7 @@
 #include "../runtime/hub_runtime.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 #include <sstream>
 
@@ -76,11 +77,154 @@ bool NodeHealthPublication::valid() const {
          contact_kind != NodeHealthContactKind::AuthenticatedEvent) ||
         hub_received_at <= 0 || hub_snapshot_at < hub_received_at ||
         heartbeat_seconds == 0 || heartbeat_seconds > 3600 ||
-        offline_seconds != 3U * heartbeat_seconds + 10U) return false;
+        profile_id.empty()) return false;
     if (profile_id == "configured") return heartbeat_seconds == 300 && offline_seconds == 910;
     if (profile_id == "legacy_60") return heartbeat_seconds == 60 && offline_seconds == 190;
     if (profile_id == "legacy_120") return heartbeat_seconds == 120 && offline_seconds == 310;
     return false;
+}
+
+bool CloudRuntimeAuthoritySource::current_binding(CloudAuthorityBinding& binding) {
+    CloudAuthorityBinding candidate;
+    if (!provider_.current_binding(candidate) || candidate.home_id.empty() ||
+        candidate.home_id.size() > 64 || candidate.hub_device_id.empty() ||
+        candidate.hub_device_id.size() > 64 || candidate.ownership_epoch == 0) {
+        clear_snapshot();
+        return false;
+    }
+    binding = std::move(candidate);
+    return true;
+}
+
+bool CloudRuntimeAuthoritySource::original_event_owned(
+    const DomainEvent& event, const CloudAuthorityBinding& binding) {
+    return provider_.original_event_owned(event, binding);
+}
+
+void CloudRuntimeAuthoritySource::clear_snapshot() {
+    std::lock_guard<std::mutex> lock(snapshot_mutex_);
+    snapshot_binding_.reset();
+    snapshot_.clear();
+}
+
+bool CloudRuntimeAuthoritySource::refresh_node_health(
+    const CloudAuthorityBinding& binding, const HubRuntime& runtime,
+    Milliseconds now_ms) {
+    CloudAuthorityBinding current;
+    TrustedHubTimeSnapshot time;
+    std::vector<CloudNodeEnrollment> nodes;
+    if (!provider_.current_binding(current) || !(current == binding) ||
+        !provider_.trusted_hub_time(now_ms, time) || !time.trusted ||
+        now_ms <= 0 || time.monotonic_ms != now_ms || time.utc_now <= 0 ||
+        time.boot_generation == 0 ||
+        !provider_.active_nodes(binding, nodes) || nodes.size() > 10) {
+        clear_snapshot();
+        return false;
+    }
+    if (boot_generation_ != 0 && time.boot_generation < boot_generation_) {
+        clear_snapshot();
+        return false;
+    }
+
+    bool binding_changed = false;
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        binding_changed = !snapshot_binding_ || !(*snapshot_binding_ == binding);
+    }
+    const bool new_boot = boot_generation_ != time.boot_generation;
+    if (new_boot || binding_changed) {
+        next_revision_.clear();
+        round_robin_ = 0;
+        last_trusted_utc_ = 0;
+        boot_generation_ = time.boot_generation;
+    }
+    if (last_trusted_utc_ != 0 && time.utc_now < last_trusted_utc_) {
+        clear_snapshot();
+        return false;
+    }
+    last_trusted_utc_ = time.utc_now;
+    const auto now_monotonic = static_cast<std::uint64_t>(now_ms);
+
+    std::set<std::string> physical_ids;
+    std::set<std::string> logical_ids;
+    for (const auto& node : nodes) {
+        if (node.physical_node_id.empty() || node.logical_node_id.empty() ||
+            node.enrollment_generation == 0 || node.session_id == 0 ||
+            !physical_ids.insert(node.physical_node_id).second ||
+            !logical_ids.insert(node.logical_node_id).second) {
+            clear_snapshot();
+            return false;
+        }
+    }
+    for (auto it = next_revision_.begin(); it != next_revision_.end();) {
+        if (physical_ids.find(it->first) == physical_ids.end())
+            it = next_revision_.erase(it);
+        else
+            ++it;
+    }
+
+    constexpr std::size_t kMaximumPublications = 4;
+    const auto examined = nodes.size();
+    std::vector<NodeHealthPublication> selected;
+    selected.reserve(std::min(kMaximumPublications, nodes.size()));
+    if (examined != 0) {
+        const auto start = round_robin_ % examined;
+        for (std::size_t offset = 0; offset < examined &&
+             selected.size() < kMaximumPublications; ++offset) {
+            const auto& node = nodes[(start + offset) % examined];
+            const auto contact = runtime.cloud_contact(node.logical_node_id);
+            if (!contact || contact->session_id != node.session_id ||
+                contact->received_monotonic_ms == 0 || now_monotonic < contact->received_monotonic_ms ||
+                contact->source_revision == 0) continue;
+            const auto age_seconds = (now_monotonic - contact->received_monotonic_ms) / 1000U;
+            if (age_seconds > static_cast<std::uint64_t>(time.utc_now)) continue;
+            auto& revision = next_revision_[node.physical_node_id];
+            constexpr auto max_revision = static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max());
+            if (revision >= max_revision) continue;
+            ++revision;
+            const auto received_at = time.utc_now - static_cast<EpochSeconds>(age_seconds);
+            NodeHealthPublication publication{
+                node.physical_node_id, node.logical_node_id,
+                node.enrollment_generation, node.session_id,
+                time.boot_generation, revision,
+                contact->kind == CloudContactKind::NodeHealth
+                    ? NodeHealthContactKind::NodeHealth
+                    : NodeHealthContactKind::AuthenticatedEvent,
+                node.profile_id, node.heartbeat_seconds, node.offline_seconds,
+                received_at, time.utc_now, HubTimeReadiness::Trusted};
+            if (publication.valid()) selected.push_back(std::move(publication));
+        }
+        round_robin_ = (start + std::min(kMaximumPublications, examined)) % examined;
+    }
+    if (!provider_.current_binding(current) || !(current == binding)) {
+        clear_snapshot();
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        snapshot_binding_ = binding;
+        snapshot_ = std::move(selected);
+    }
+    return true;
+}
+
+bool CloudRuntimeAuthoritySource::current_node_health(
+    const CloudAuthorityBinding& binding, const HubRuntime& runtime,
+    Milliseconds now_ms, std::vector<NodeHealthPublication>& out) {
+    if (!refresh_node_health(binding, runtime, now_ms)) return false;
+    return latest_node_health(binding, out);
+}
+
+bool CloudRuntimeAuthoritySource::latest_node_health(
+    const CloudAuthorityBinding& binding, std::vector<NodeHealthPublication>& out) {
+    std::lock_guard<std::mutex> lock(snapshot_mutex_);
+    if (!snapshot_binding_ || !(*snapshot_binding_ == binding)) {
+        out.clear();
+        return false;
+    }
+    out = snapshot_;
+    return true;
 }
 
 std::string NodeHealthPublication::json_body(const std::string& home_id) const {
@@ -413,6 +557,88 @@ CloudWorkerResult CloudSyncWorker::run_once(bool network_ready, Milliseconds now
             }
         }
     }
+    return result;
+}
+
+bool CloudSyncWorker::refresh_node_health_snapshot(Milliseconds now_ms) {
+    CloudAuthorityBinding binding;
+    if (!authority_.current_binding(binding) || binding.home_id.empty() ||
+        binding.hub_device_id.empty() || binding.ownership_epoch == 0) return false;
+    return authority_.refresh_node_health(binding, runtime_, now_ms);
+}
+
+CloudWorkerResult CloudSyncWorker::run_node_health_once(bool network_ready,
+                                                         Milliseconds now_ms) {
+    CloudWorkerResult result;
+    if (!network_ready) {
+        result.state = CloudWorkerState::Offline;
+        return result;
+    }
+    CloudAuthorityBinding binding;
+    if (!authority_.current_binding(binding) || binding.home_id.empty() ||
+        binding.hub_device_id.empty() || binding.ownership_epoch == 0) {
+        result.state = CloudWorkerState::AuthorityUnavailable;
+        return result;
+    }
+    if (node_health_authority_changed_ ||
+        (node_health_pinned_ && !(*node_health_pinned_ == binding))) {
+        node_health_authority_changed_ = true;
+        result.state = CloudWorkerState::AuthorityChanged;
+        return result;
+    }
+    if (!node_health_pinned_) node_health_pinned_ = binding;
+    result.state = CloudWorkerState::Ready;
+
+    std::vector<NodeHealthPublication> publications;
+    if (!authority_.latest_node_health(binding, publications)) return result;
+    if (publications.size() > 4) return result;
+
+    const auto still_current = [&]() {
+        CloudAuthorityBinding current;
+        if (!authority_.current_binding(current)) return false;
+        if (!(current == binding)) {
+            node_health_authority_changed_ = true;
+            return false;
+        }
+        return true;
+    };
+    constexpr Milliseconds delays[] = {1000, 5000, 30000, 120000, 300000};
+    for (const auto& publication : publications) {
+        if (!publication.valid() || !still_current()) {
+            if (node_health_authority_changed_) result.state = CloudWorkerState::AuthorityChanged;
+            continue;
+        }
+        const auto accepted = node_health_accepted_revisions_.find(
+            publication.physical_node_id);
+        if (accepted != node_health_accepted_revisions_.end() &&
+            accepted->second.first == publication.boot_generation &&
+            accepted->second.second >= publication.source_revision) continue;
+        auto& retry = node_health_retries_[publication.physical_node_id];
+        if (now_ms < retry.retry_after_ms) continue;
+        const auto reply = transport_.submit_node_health(binding, publication);
+        ++result.node_health_submitted;
+        if (reply.status == NodeHealthReplyStatus::Accepted) {
+            ++result.node_health_accepted;
+            node_health_retries_.erase(publication.physical_node_id);
+            node_health_accepted_revisions_[publication.physical_node_id] = {
+                publication.boot_generation, publication.source_revision};
+        } else {
+            const auto delay = delays[std::min(retry.failures, std::size(delays) - 1U)];
+            if (retry.failures < std::size(delays) - 1U) ++retry.failures;
+            retry.retry_after_ms = now_ms > std::numeric_limits<Milliseconds>::max() - delay
+                ? std::numeric_limits<Milliseconds>::max() : now_ms + delay;
+        }
+        if (!still_current()) {
+            result.state = node_health_authority_changed_
+                ? CloudWorkerState::AuthorityChanged
+                : CloudWorkerState::AuthorityUnavailable;
+            break;
+        }
+    }
+    while (node_health_retries_.size() > 10)
+        node_health_retries_.erase(node_health_retries_.begin());
+    while (node_health_accepted_revisions_.size() > 10)
+        node_health_accepted_revisions_.erase(node_health_accepted_revisions_.begin());
     return result;
 }
 

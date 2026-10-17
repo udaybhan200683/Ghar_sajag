@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <limits>
 
 namespace gs::hub {
 namespace {
@@ -78,6 +79,7 @@ void HubRuntime::authorize_node(const std::string& node_id, std::uint64_t sessio
     GS_TRACE(gs::log::Category::Hub, "H00", "authorize_node.enter", "-");
     node_health_.erase(node_id);
     last_authenticated_contact_ms_.erase(node_id);
+    cloud_contacts_.erase(node_id);
     peers_.authorize(node_id, session_id);
     if (required_for_routine) coverage_.require_node(node_id);
     if (journal_replayed_) (void)checkpoint_state();
@@ -90,6 +92,7 @@ void HubRuntime::revoke_node(const std::string& node_id) {
     power_telemetry_.erase(node_id);
     node_health_.erase(node_id);
     last_authenticated_contact_ms_.erase(node_id);
+    cloud_contacts_.erase(node_id);
     node_offline_timeouts_.erase(node_id);
     for (auto it = ingress_identity_owners_.begin(); it != ingress_identity_owners_.end();) {
         if (it->second.source_id == node_id) it = ingress_identity_owners_.erase(it);
@@ -109,7 +112,8 @@ bool HubRuntime::observe_authenticated_health(
         (health.health_sequence <= found->second.snapshot.health_sequence ||
          now_monotonic_ms < found->second.last_seen_monotonic_ms)) return false;
     if (!observe_authenticated_contact(authenticated_node_id, transport_session,
-                                       now_monotonic_ms)) return false;
+                                       now_monotonic_ms, 0,
+                                       CloudContactKind::NodeHealth)) return false;
     // The compact C8 ACK trace deliberately omits unrelated health counters.
     // It refreshes the authenticated contact lease but cannot overwrite the
     // last complete NodeHealth snapshot used by operational status views.
@@ -120,13 +124,30 @@ bool HubRuntime::observe_authenticated_health(
 
 bool HubRuntime::observe_authenticated_contact(const std::string& node_id,
                                                 std::uint64_t transport_session,
-                                                std::uint64_t now_monotonic_ms, EpochSeconds trusted_contact_at) {
+                                                std::uint64_t now_monotonic_ms, EpochSeconds trusted_contact_at,
+                                                std::optional<CloudContactKind> cloud_contact_kind) {
     if (now_monotonic_ms == 0 ||
         !peers_.accepts_health(node_id, transport_session)) return false;
     const auto found = last_authenticated_contact_ms_.find(node_id);
     if (found != last_authenticated_contact_ms_.end() &&
         now_monotonic_ms < found->second) return false;
     last_authenticated_contact_ms_[node_id] = now_monotonic_ms;
+    if (cloud_contact_kind) {
+        constexpr auto max_revision = static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max());
+        auto found_cloud = cloud_contacts_.find(node_id);
+        const auto prior_revision = found_cloud == cloud_contacts_.end()
+            ? 0U : found_cloud->second.source_revision;
+        if (prior_revision < max_revision) {
+            cloud_contacts_[node_id] = AuthenticatedCloudContact{
+                transport_session, now_monotonic_ms, prior_revision + 1U,
+                *cloud_contact_kind};
+        } else {
+            // Exhaustion is fail closed for cloud freshness. Local liveness is
+            // still updated above and no event/ACK behavior is affected.
+            cloud_contacts_.erase(node_id);
+        }
+    }
     if (trusted_contact_at > 0) coverage_.observe(node_id, trusted_contact_at);
     return true;
 }
@@ -138,6 +159,27 @@ std::optional<AuthenticatedNodeHealth> HubRuntime::node_health(
     return found->second;
 }
 
+std::optional<AuthenticatedCloudContact> HubRuntime::cloud_contact(
+    const std::string& node_id) const {
+    const auto found = cloud_contacts_.find(node_id);
+    if (found == cloud_contacts_.end() || found->second.session_id == 0 ||
+        found->second.source_revision == 0 ||
+        !peers_.accepts_health(node_id, found->second.session_id)) return std::nullopt;
+    return found->second;
+}
+
+bool HubRuntime::cloud_contact_online(const std::string& node_id,
+                                      std::uint64_t now_monotonic_ms) const {
+    const auto contact = cloud_contact(node_id);
+    const auto profile = node_offline_timeouts_.find(node_id);
+    if (!contact || !node_profile_known(node_id) || now_monotonic_ms < contact->received_monotonic_ms)
+        return false;
+    const auto timeout = profile == node_offline_timeouts_.end()
+        ? NodeProtocolPolicy::offline_after_seconds : *profile->second;
+    return now_monotonic_ms - contact->received_monotonic_ms <=
+        static_cast<std::uint64_t>(timeout) * 1000U;
+}
+
 void HubRuntime::set_node_offline_timeout(const std::string& node_id, std::optional<std::uint32_t> seconds) {
     node_offline_timeouts_[node_id] = seconds;
     coverage_.set_node_lease(node_id, seconds ? *seconds : 0);
@@ -145,6 +187,13 @@ void HubRuntime::set_node_offline_timeout(const std::string& node_id, std::optio
 bool HubRuntime::node_profile_known(const std::string& node_id) const {
     const auto profile = node_offline_timeouts_.find(node_id);
     return profile == node_offline_timeouts_.end() || profile->second.has_value();
+}
+std::optional<std::uint32_t> HubRuntime::node_offline_timeout_seconds(
+    const std::string& node_id) const {
+    const auto profile = node_offline_timeouts_.find(node_id);
+    if (profile == node_offline_timeouts_.end())
+        return NodeProtocolPolicy::offline_after_seconds;
+    return profile->second;
 }
 
 bool HubRuntime::node_online(const std::string& node_id,
@@ -560,7 +609,8 @@ bool HubRuntime::authenticated_radio_message_callback(
     }
     if (accepted && now_monotonic_ms != 0)
         (void)observe_authenticated_contact(authenticated_node_id,
-                                            transport_session, now_monotonic_ms);
+                                            transport_session, now_monotonic_ms, 0,
+                                            CloudContactKind::AuthenticatedEvent);
     if (accepted && message.power.has_value())
         power_telemetry_[message.node_id] = *message.power;
     return accepted;
