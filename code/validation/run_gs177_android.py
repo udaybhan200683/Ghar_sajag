@@ -113,7 +113,7 @@ def validate_branding(app_root: Path, app_pwa: Path) -> tuple[bool, str]:
             return False, "android_app_label_mismatch"
         styles = (res / "values/styles.xml").read_text()
         activity = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/MainActivity.kt").read_text()
-        if "windowSplashScreenBrandingImage" not in styles or "parivar_saathi_splash_wordmark" not in styles:
+        if 'name="android:windowSplashScreenBrandingImage"' not in styles or "parivar_saathi_splash_wordmark" not in styles:
             return False, "complete_logo_missing_from_splash"
         if "installSplashScreen()" not in activity:
             return False, "splashscreen_api_not_installed"
