@@ -2180,7 +2180,7 @@
         "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/TrustedPwaWebView.kt",
         "parivar_saathi_android_app/android/app/src/test/java/in/gharsajag/caregiver/BackendOriginTest.kt"
       ],
-      "success": "^GS177 ANDROID DASHBOARD PASS tests=(\\d+) apk_sha256=[0-9a-f]{64}$",
+      "success": "^GS177 ANDROID DASHBOARD PASS tests=(\\d+) skipped=0 apk_sha256=[0-9a-f]{64}$",
       "required_success": [
         "^CASE GS177-ANDROID-ORIGIN-001 PASS$"
       ],

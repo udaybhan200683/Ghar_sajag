@@ -19,7 +19,7 @@ SDK_ROOT = Path(os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HO
 BUILD_TOOLS = SDK_ROOT / "build-tools" / "35.0.0"
 
 
-def run(command: list[str], *, cwd: Path) -> tuple[int, str]:
+def run(command: list[str], *, cwd: Path, emit_output: bool = True) -> tuple[int, str]:
     print("COMMAND:", " ".join(command), flush=True)
     try:
         result = subprocess.run(
@@ -33,19 +33,21 @@ def run(command: list[str], *, cwd: Path) -> tuple[int, str]:
     except FileNotFoundError as error:
         print(f"GS177 ANDROID DASHBOARD BLOCKED dependency={error.filename}", flush=True)
         return 127, ""
-    print(result.stdout, end="", flush=True)
+    if emit_output:
+        print(result.stdout, end="", flush=True)
     return result.returncode, result.stdout
 
 
-def junit_counts() -> tuple[int, int, int]:
+def junit_counts() -> tuple[int, int, int, int]:
     files = sorted(TEST_RESULTS.glob("TEST-*.xml"))
-    tests = failures = errors = 0
+    tests = failures = errors = skipped = 0
     for path in files:
         root = ET.parse(path).getroot()
         tests += int(root.attrib.get("tests", "0"))
         failures += int(root.attrib.get("failures", "0"))
         errors += int(root.attrib.get("errors", "0"))
-    return tests, failures, errors
+        skipped += int(root.attrib.get("skipped", "0"))
+    return tests, failures, errors, skipped
 
 
 def main() -> int:
@@ -60,6 +62,7 @@ def main() -> int:
     rc, gradle_output = run(
         [gradle, "--no-daemon", "--stacktrace", "--console=plain", ":app:testDebugUnitTest", ":app:assembleDebug"],
         cwd=PROJECT,
+        emit_output=False,
     )
     if rc:
         diagnostics = [
@@ -74,9 +77,12 @@ def main() -> int:
         print(f"GS177 ANDROID DASHBOARD FAIL gradle_exit={rc}", flush=True)
         return rc
 
-    tests, failures, errors = junit_counts()
-    if tests < 1 or failures or errors:
-        print(f"GS177 ANDROID DASHBOARD FAIL junit_tests={tests} failures={failures} errors={errors}", flush=True)
+    tests, failures, errors, skipped = junit_counts()
+    if tests < 1 or failures or errors or skipped:
+        print(
+            f"GS177 ANDROID DASHBOARD FAIL junit_tests={tests} failures={failures} errors={errors} skipped={skipped}",
+            flush=True,
+        )
         return 1
     if not APK.is_file():
         print(f"GS177 ANDROID DASHBOARD FAIL apk_missing={APK}", flush=True)
@@ -93,7 +99,7 @@ def main() -> int:
 
     digest = hashlib.sha256(APK.read_bytes()).hexdigest()
     print("CASE GS177-ANDROID-ORIGIN-001 PASS", flush=True)
-    print(f"GS177 ANDROID DASHBOARD PASS tests={tests} apk_sha256={digest}", flush=True)
+    print(f"GS177 ANDROID DASHBOARD PASS tests={tests} skipped={skipped} apk_sha256={digest}", flush=True)
     print(f"APK={APK.relative_to(ROOT)}", flush=True)
     print(f"SOURCE_REVISION={os.environ.get('GITHUB_SHA', 'local')}", flush=True)
     return 0
