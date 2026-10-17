@@ -175,11 +175,15 @@ class Pwa68BrowserTest(unittest.TestCase):
      tabs=evaluate("Array.from(document.querySelectorAll('.bottom-nav button')).map(button=>button.dataset.tab)") or []
      if 'simulation' in tabs:break
      time.sleep(.1)
-    self.assertEqual(tabs,['home','devices','incidents','reports','routines','settings','engineering','simulation'])
+    self.assertEqual(tabs,['home','simulation','reports','devices','incidents','routines','engineering','settings'])
+    self.assertIn('Your home overview',evaluate("document.querySelector('#homeTab').innerText"))
+    self.assertIn('Real-home monitoring is not active yet.',evaluate("document.querySelector('#homeTab').innerText"))
+    self.assertIn('Run a test scenario',evaluate("document.querySelector('#homeTab').innerText"))
+    evaluate("document.querySelector('.caregiver-tech summary').click()")
     self.assertIn('Physical Home: UNAVAILABLE / NO_HUB_CLOUDSYNC',evaluate("document.querySelector('#homeTab').innerText"))
-    self.assertIn('Real Hub event source: GS-148_CLOUDSYNC.',evaluate("document.querySelector('#homeTab').innerText"))
-    self.assertIn('Physical monitoring: UNKNOWN',evaluate("document.querySelector('#homeTab').innerText"))
-    evaluate("document.querySelector('[data-tab=simulation]').click()")
+    self.assertIn('Planned real Hub event interface: GS-148_CLOUDSYNC.',evaluate("document.querySelector('#homeTab').innerText"))
+    self.assertIn('Real monitoring freshness: UNKNOWN',evaluate("document.querySelector('#homeTab').innerText"))
+    evaluate("document.querySelector('#openSimulation').click()")
     deadline=time.time()+15
     while time.time()<deadline and evaluate("!!document.querySelector('#scenarioChoice')") is not True:time.sleep(.1)
     self.assertIsNotNone(evaluate("document.querySelector('#scenarioChoice')"))
@@ -239,7 +243,7 @@ class Pwa68BrowserTest(unittest.TestCase):
      visible=evaluate("!document.querySelector('.bottom-nav').hidden")
      if visible and 'home' in caregiver_tabs:break
      time.sleep(.1)
-    self.assertEqual(caregiver_tabs,['home','devices','incidents','reports','routines','settings'])
+    self.assertEqual(caregiver_tabs,['home','reports','devices','incidents','routines','settings'])
     direct=cdp(ws,'Runtime.evaluate',{'expression':"fetch('https://care.gharsajag.in/lite/v1/homes/gs177-test-browser-home/engineering',{credentials:'include'}).then(response=>response.status)",'awaitPromise':True,'returnByValue':True})
     self.assertEqual(direct.get('result',{}).get('value'),403)
     print('PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial (mock transport)')
