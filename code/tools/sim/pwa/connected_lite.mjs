@@ -49,22 +49,43 @@ function loginScreen(message=''){
 }
 
 function nav(){
-  const available=profile?.role==='ADMIN'&&profile.test_only?[...tabs,'engineering','simulation']:tabs;
+  // Keep the caregiver's most useful actions visible before the scrollable secondary tabs.
+  const available=profile?.role==='ADMIN'&&profile.test_only?
+    ['home','simulation','reports','devices','incidents','routines','engineering','settings']:
+    ['home','reports','devices','incidents','routines','settings'];
   $('.bottom-nav').hidden=false;
-  $('.bottom-nav').innerHTML=available.map(name=>`<button type="button" class="nav-btn ${tab===name?'active':''}" data-tab="${name}"><b>${esc(name==='simulation'?'Simulation Lab':name[0].toUpperCase()+name.slice(1))}</b></button>`).join('');
-  $('.bottom-nav').querySelectorAll('button').forEach(button=>button.onclick=async()=>{
-    tab=button.dataset.tab;selectedRun=null;nav();await refresh();
-  });
+  $('.bottom-nav').innerHTML=available.map(name=>`<button type="button" class="nav-btn ${tab===name?'active':''}" data-tab="${name}" aria-label="${esc(name==='simulation'?'Simulation Lab':name)}" ${tab===name?'aria-current="page"':''}><b>${esc(name==='simulation'?'Simulation Lab':name[0].toUpperCase()+name.slice(1))}</b></button>`).join('');
+  $('.bottom-nav').querySelectorAll('button').forEach(button=>button.onclick=()=>openTab(button.dataset.tab));
 }
-
+function openTab(next){
+  tab=next;selectedRun=null;
+  nav();
+  // New sections begin above the bottom navigation; keep the header visible.
+  window.scrollTo({top:0,behavior:'instant'});
+  void refresh();
+}
 function dataLabel(){return `<p class="test-watermark">TEST_ONLY synthetic Home · ${esc(profile.home_id)} · ${esc(view?.source||'No physical source')}</p>`}
 function card(title,body){return `<div class="card"><h2>${esc(title)}</h2>${body}</div>`}
 function tableRows(items,render){return items.length?items.map(render).join(''):'<p class="muted">No saved observations.</p>'}
 
 function renderHome(){
   const rows=view?.runs||[];
+  const lastFetch=lastSync?new Date(lastSync).toLocaleString():'Not yet synchronized';
   const latest=view?.latest_simulated_event;
-  panel(`${dataLabel()}${card('Household status',`<p>Physical Home: <strong>${esc(view?.physical_status||'UNKNOWN')} / ${esc(view?.physical_status_reason||'REASON_UNKNOWN')}</strong></p><p>Real Hub event source: ${esc(view?.physical_data_contract||'UNKNOWN')}.</p><p>Physical monitoring: <strong>UNKNOWN</strong></p><p>Cloud API: ${esc(connection)}</p><p>Last successful cloud data fetch: ${lastSync?esc(new Date(lastSync).toLocaleString()):'Not available'}</p><p>Physical-source freshness: UNKNOWN</p><p>Latest synthetic event: ${latest?esc(latest.kind+' · '+latest.event_id):'None recorded'}</p>`)}${card('Recent simulation activity',tableRows(rows.slice(0,8),r=>`<div class="validation-row"><b>${esc(r.status)}</b> ${esc(r.scenario_id)} <small>${esc(new Date(r.created_at*1000).toLocaleString())}</small></div>`))}`);
+  panel(`<section class="caregiver-hero">
+    <p class="caregiver-eyebrow">CAREGIVER HOME · TEST ONLY</p>
+    <h1>Your home overview</h1>
+    <p>Your test workspace is connected. Real-home monitoring is not active yet.</p>
+    <div class="caregiver-actions"><button id="openSimulation" type="button">Run a test scenario</button><button id="openReports" type="button" class="caregiver-secondary">View reports</button></div>
+  </section>
+  <div class="caregiver-tiles">
+    ${card('Cloud connection',`<p class="caregiver-state good">${esc(connection==='CONNECTED'?'Connected':'Unavailable')}</p><p>Last sync: ${esc(lastFetch)}</p><p class="muted">Test workspace only</p>`)}
+    ${card('Home monitoring',`<p class="caregiver-state pending">Not yet connected</p><p>Physical Hub events are not reaching this cloud app yet.</p><p class="muted">Device availability and resident status are unknown.</p>`)}
+  </div>
+  ${card('Recent test activity',`<p>${esc(rows.length)} recent saved test runs. ${latest?'Latest simulated event: '+esc(latest.kind||'event'):'No simulated events yet.'}</p>${tableRows(rows.slice(0,8),r=>`<div class="caregiver-run"><b>${esc(r.status)}</b><span>${esc(r.scenario_id)}</span><small>${esc(new Date(r.created_at*1000).toLocaleString())}</small></div>`)}`)}
+  <details class="caregiver-tech"><summary>Technical connection details</summary><p>Physical Home: ${esc(view?.physical_status||'UNKNOWN')} / ${esc(view?.physical_status_reason||'REASON_UNKNOWN')}</p><p>Planned real Hub event interface: ${esc(view?.physical_data_contract||'GS-148_CLOUDSYNC')}. This is not an active event source.</p><p>Real monitoring freshness: UNKNOWN. No emergency alerts or physical-device status are provided by this simulation Home.</p></details>`);
+  $('#openSimulation').onclick=()=>openTab('simulation');
+  $('#openReports').onclick=()=>openTab('reports');
 }
 function renderDevices(){
   panel(`${dataLabel()}${card('Devices and NodeHealth',`<p>Physical Home: <strong>${esc(view?.physical_status||'UNKNOWN')} / ${esc(view?.physical_status_reason||'REASON_UNKNOWN')}</strong>.</p><p>Real Hub event source: ${esc(view?.physical_data_contract||'UNKNOWN')}.</p><p>Physical device and NodeHealth measurements: <strong>UNKNOWN</strong>.</p>${tableRows(view?.devices||[],device=>`<details><summary>${esc(device.id)} · ${esc(device.health||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(device,null,2))}</pre></details>`)}`)}`);
@@ -130,7 +151,7 @@ function bindRunButtons(){
 }
 function renderSimulation(){
   const choices=catalog?.scenarios||[];
-  panel(`${dataLabel()}${card('Simulation Lab',`<p>Catalogued host scenarios: ${choices.length}. Each run starts with an isolated synthetic fixture and is saved in the cloud database.</p><label>Find scenario<input id="scenarioSearch" placeholder="motion, door, morning..."></label><select id="scenarioChoice" multiple size="7">${choices.map(s=>`<option value="${esc(s.id)}">${esc(s.id)} · ${esc(s.title)}</option>`).join('')}</select><button id="runScenario" ${busy?'disabled':''}>Run selected</button><button id="runSuite" ${busy?'disabled':''}>Run full catalog</button><button id="resetFixture" ${busy?'disabled':''}>Start fresh fixture</button><p id="runProgress" role="status"></p>`)}${selectedRun?runDetail(selectedRun):''}${card('Saved runs',tableRows(runs,r=>`<p><button class="open-run" data-run="${esc(r.run_id)}">${esc(r.scenario_id)}</button> · ${esc(r.status)} · ${esc(new Date(r.created_at*1000).toLocaleString())}</p>`))}`);
+  panel(`${dataLabel()}${card('Simulation Lab',`<p>Choose one synthetic scenario. Results are stored in your test cloud database, not sourced from real sensors.</p><label for="scenarioSearch">Find scenario</label><input id="scenarioSearch" placeholder="Motion, door, morning..." autocomplete="off"><label for="scenarioChoice">Choose a test scenario</label><select id="scenarioChoice" size="1">${choices.map(s=>`<option value="${esc(s.id)}">${esc(s.title)} · ${esc(s.id)}</option>`).join('')}</select><button id="runScenario" class="caregiver-primary" ${busy?'disabled':''}>Run selected scenario</button><p id="runProgress" role="status"></p><details class="caregiver-tech"><summary>Advanced simulation controls</summary><button id="runSuite" ${busy?'disabled':''}>Run full catalog</button><button id="resetFixture" ${busy?'disabled':''}>Start fresh fixture</button></details>`)}${selectedRun?runDetail(selectedRun):''}${card('Saved runs',tableRows(runs,r=>`<p><button class="open-run" data-run="${esc(r.run_id)}">${esc(r.scenario_id)}</button> · ${esc(r.status)} · ${esc(new Date(r.created_at*1000).toLocaleString())}</p>`))}`);
   const search=$('#scenarioSearch'),choice=$('#scenarioChoice');
   search.oninput=()=>{const term=search.value.toLowerCase();choice.innerHTML=choices.filter(s=>(s.id+' '+s.title).toLowerCase().includes(term)).map(s=>`<option value="${esc(s.id)}">${esc(s.id)} · ${esc(s.title)}</option>`).join('')};
   $('#runScenario').onclick=()=>execute([...choice.selectedOptions].map(option=>option.value));
@@ -175,7 +196,7 @@ async function refresh(){
       runs=(await api(`homes/${home}/sim/runs`)).runs;
     }
     connection='CONNECTED';lastSync=Date.now();
-    status('CONNECTED',`TEST_ONLY Home · cloud data fetched ${new Date(lastSync).toLocaleTimeString()}. Physical Home ${view?.physical_status||'UNKNOWN'} / ${view?.physical_status_reason||'REASON_UNKNOWN'}; freshness UNKNOWN.`);
+    status('CONNECTED',`TEST_ONLY workspace · last synced ${new Date(lastSync).toLocaleTimeString()}. Real-home monitoring is not connected.`);
     renderCurrent();
   }catch(error){
     connection='OFFLINE';status('OFFLINE / RECONNECTING',`Current data unavailable: ${error.message}. Physical monitoring UNKNOWN.`);
@@ -190,5 +211,6 @@ else{
   try{profile=await api('me');await refresh()}
   catch{status('SIGN IN REQUIRED','Current monitoring status is unknown.');loginScreen()}
 }
-setInterval(()=>{if(profile&&!document.hidden&&!busy)refresh()},15000);
+// Avoid replacing the scenario selector while the person is choosing/running a test.
+setInterval(()=>{if(profile&&!document.hidden&&!busy&&tab!=='simulation')refresh()},15000);
 document.addEventListener('visibilitychange',()=>{if(profile&&!document.hidden)refresh()});
