@@ -25,8 +25,12 @@ def cdp(ws, method, params=None, counter=[0]):
 class Pwa68BrowserTest(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
-  cls.chromium=shutil.which('chromium') or shutil.which('chromium-browser') or shutil.which('google-chrome') or shutil.which('google-chrome-stable')
+  # Prefer the hosted Google Chrome binary over Ubuntu's possible Chromium
+  # wrapper/snap stub; both implement the same DevTools protocol used below.
+  cls.chromium=shutil.which('google-chrome-stable') or shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
   if not cls.chromium:raise unittest.SkipTest('Chromium/Chrome not installed')
+  version=subprocess.run([cls.chromium,'--version'],capture_output=True,text=True,check=False).stdout.strip()
+  print(f'PWA browser E2E executable={cls.chromium} version={version or "unavailable"}')
   cls.lab=Lab();cls.web=WebLab(cls.lab,0);cls.server=make_server('127.0.0.1',0,cls.web,handler_class=QuietRequests);cls.web.port=cls.server.server_port;cls.base=f'http://127.0.0.1:{cls.server.server_port}';cls.t=threading.Thread(target=cls.server.serve_forever,daemon=True);cls.t.start()
  @classmethod
  def tearDownClass(cls):cls.server.shutdown();cls.t.join();cls.server.server_close();cls.lab.close()
