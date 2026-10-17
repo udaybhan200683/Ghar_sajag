@@ -4129,3 +4129,31 @@ remains `NOT_DEPLOYED`.
 Next: push only the GS-177 branch and validate the hosted browser + Android APK
 build, then record the actual run/artifact hash. Keep GS-177 open. Do not touch,
 synchronize or merge into the active GS-40 worktree.
+
+### GS-177 hosted branded APK receipt — 2026-10-17
+
+The approved `Parivar_Saathi_Logo.png` was copied from the read-only GS-40
+source into GS-177 before processing; the source and copy hash match
+`d0ff244d61b5cb047c320fc3af1028fa8e780186189a481657b8fea14b679441`.
+Android/PWA branding, symbol-only launcher/adaptive/round icons, splash
+wordmark/tagline, monochrome notification resource, direct bundled-PWA startup
+and explicit offline/no-household-data behavior are implemented. Hosted Actions
+run `39013127801` passed PWA browser tests (2; 92/92 rendered assertions),
+Android build/unit/resource gate (6 Android tests), prototype voice contract
+tests (6/6), APK v2 signature verification and checksum verification.
+
+APK source revision `da52b49fc05a5a7d8de48a855262e69ad147a37b`; package
+`in.gharsajag.caregiver`, version `0.3.0-branded-offline`; SHA-256
+`74363def11cd84566c080be03ddf59cf9c3d0dd71040591bffbd3f18a0974d51`.
+Artifact path and installation metadata are in
+`docs/exec-plans/evidence/GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md`.
+Signing uses an ephemeral runner-generated debug certificate. Phone install,
+live backend/login/Home authorization, FCM delivery, Internet call, automatic
+abnormality call, backup escalation, S3 media/HIL and full release gate remain
+NOT_RUN or blocked. `LIVE_HTTPS_PWA_URL=NOT_DEPLOYED`; do not mark GS-177 Done.
+
+The implementation remains isolated at
+`/home/udaybhan/projects/Ghar_sajag_gs177`, branch
+`feature/gs-177-caregiver-android`; hosted artifact source commit was verified
+equal to origin. Jira comment `11318` records this receipt. GS-40 remains
+untouched by this work.

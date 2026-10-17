@@ -237,3 +237,69 @@ SHA-256. Independently, obtain approved hosting/OIDC/Home authority and a real
 Android phone for mobile-data E2E. Keep the previous dashboard APK identified
 as historical; do not call an offline or build-only artifact a live caregiver
 product. Do not modify or merge into GS-40.
+
+## GS-177 approved logo and hosted APK receipt — 2026-10-17
+
+This latest checkpoint completes the requested branding/build slice. The
+verified input is the owner-provided
+`/home/udaybhan/projects/Ghar_sajag_r1/code/parivar_saathi_android_app/android/Parivar_Saathi_Logo.png`.
+It was copied into the GS-177-owned source directory before processing. The
+canonical input and GS-177 copy both hash to
+`d0ff244d61b5cb047c320fc3af1028fa8e780186189a481657b8fea14b679441`; the
+original GS-40 tree remains read-only. Android launcher, adaptive and round
+icons use only the family/home/shield mark. The Android label and shared PWA
+branding say `Parivar Saathi`; the splash includes the wordmark/tagline, and a
+monochrome notification icon resource is bundled. FCM remains disabled.
+
+The shared PWA launches from the APK without a manual server-address screen.
+It renders its familiar Home, Devices, Reports and Settings navigation with
+explicit offline/unavailable status and no fabricated household data. This is
+still an offline dashboard artifact: build metadata says
+`backend_origin=not-configured`, `push_notifications=disabled`, and
+`voice_calling=disabled`.
+
+| Evidence | Result |
+|---|---|
+| Context preflight in GS-177 worktree | PASS, `2026-10-13.001` |
+| Source logo provenance and generated Android/PWA resource checks | PASS, `GS177-ANDROID-BRANDING-001` |
+| Hosted browser regression, Actions run `39013127801` | PASS, 2 browser tests; 92/92 rendered PWA catalog assertions; explicit offline UI with no simulator data/API calls |
+| Android Gradle/unit/build gate, Actions run `39013127801` | PASS, 6/6 Android unit tests; `:app:testDebugUnitTest :app:assembleDebug`; origin/resource/bundle checks |
+| Voice prototype contract stage | PASS, 6/6 host-only tests; not production voice evidence |
+| APK verification | PASS, APK v2 signature verified; `sha256sum --check SHA256SUMS` passed |
+| Local Android build | BLOCKED, local Gradle/JDK/Android SDK unavailable; hosted runner produced the artifact |
+| Physical phone install/launch/offline recovery | NOT_RUN, no device evidence available to this execution |
+| Live HTTPS/auth/Home authorization/data | BLOCKED, `LIVE_HTTPS_PWA_URL=NOT_DEPLOYED` |
+
+The reproducible hosted build is [GitHub Actions run 39013127801](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39013127801), source revision
+`da52b49fc05a5a7d8de48a855262e69ad147a37b`, branch
+`feature/gs-177-caregiver-android`. APK package is
+`in.gharsajag.caregiver`, version `0.3.0-branded-offline`, min API 26, built
+with JDK 17, Gradle 8.9 and Android compile SDK 35. It uses a runner-generated
+debug certificate for testing only; this key is ephemeral and cannot provide
+stable upgrade signing.
+
+- APK: `code/parivar_saathi_android_app/android/app/build/ci-artifact-39013127801/parivar-saathi-caregiver-debug-da52b49fc05a5a7d8de48a855262e69ad147a37b/parivar-saathi-caregiver-debug.apk`
+- SHA-256: `74363def11cd84566c080be03ddf59cf9c3d0dd71040591bffbd3f18a0974d51`
+- Download: [Actions artifact 12093656871](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39013127801/artifacts/12093656871)
+- Build metadata and `SHA256SUMS` are beside the APK; extracted APK checksum reverified locally.
+
+Current caregiver acceptance remains incomplete. HOME, DEVICES, REPORTS,
+SETTINGS, INCIDENTS, NOTIFICATIONS, MANUAL_INTERNET_CALL,
+AUTO_ABNORMALITY_CALL and BACKUP_ESCALATION are `BLOCKED_UPSTREAM` for real
+use because there is no production caregiver issuer/session, current Home
+membership/epoch/revocation API, persistent deployed backend or configured
+HTTPS URL, FCM project, qualified CallManager/TURN/S3 media path. Android
+phone installation, provider delivery, displayed/answered receipt, mobile-data
+E2E and physical HIL are `NOT_RUN`. Full release gate remains `NOT_RUN`; GS-177
+remains open.
+
+The Jira handoff comment is GS-177 comment `11318`. GS-177 source changes are
+committed only to the isolated worktree `/home/udaybhan/projects/Ghar_sajag_gs177`
+on `feature/gs-177-caregiver-android`. Artifact source commit `da52b49` was
+verified equal to origin before documentation receipts. No GS-40 branch,
+index, source, untracked assets, or hardware was modified.
+
+Next safe action: install this testing APK on the owner's phone and capture
+the actual Android launch evidence; supply the approved hosting/OIDC/Home
+authority inputs before configuring a live origin. Do not describe the
+dashboard build as a connected caregiver product or claim FCM/voice safety.
