@@ -104,3 +104,80 @@ anchor, freshness and rollback-resistant state; authoritative ownership and
 credential registry/lifecycle; Secure Boot, Flash Encryption and recovery
 policy. Existing P0 product_status=PARTIAL and the Hub migration assertion and
 sanitizer timeout blockers remain open.
+
+## 2026-10-17 — Windows-native transport recovery attempt
+
+Canonical HEAD and `origin/feature/r1-commercial-baseline` were both
+`e81272909d803a311f9e6a08bf85eeba29b97d3f`; tracked state was clean. Existing
+untracked assets and the separate GS-177 worktree were preserved. Context
+preflight returned PASS. No esptool process was running before inspection; the
+separate GS-177 PWA/Playwright validation remained active and was not
+interrupted.
+
+Host-only checks found no WSL `/dev/ttyACM*`, `/dev/ttyUSB*`, or
+`/dev/serial/by-id` device. Current `/sys/bus/usb` entries were only vhci root
+hubs. Windows reported the owner-designated spare on BUSID 3-1, VID:PID
+303a:1001, as USB Serial Device (COM10) plus USB JTAG/serial debug unit;
+`usbipd list` state was **Shared**, not Attached to WSL. No detach or attach was
+performed. The Windows USB parent identity token hash matched the restricted
+prior spare receipt; no full identifier is included in public evidence. COM10
+WMI status was OK. Windows `mode COM10` read only the host line configuration.
+
+Candidate artifact recheck: 278,944 bytes and SHA-256
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`, matching
+the report's TEST_ONLY candidate. Source `cfc89a8e7bd6009eddde5790814e557357d8a032`
+is an ancestor of current HEAD. Effective sdkconfig hash remains
+`ff3150eeeac79a4a80b5a718a20408386d90d5a491cb199d763e0b6190105a7a`; profile
+hash remains `7d13aa13684953744737b653c82ec7f8b95d0c6bfc715649bc99d501313d3c72`.
+The build report identifies USB Serial/JTAG as primary console, no UART0
+primary, TEST_ONLY diagnostic composition, and no provisioned DS context. No
+build or firmware validation was repeated.
+
+Windows esptool v5.4.0 help confirmed `--before no-reset`, `--after no-reset`,
+`--no-stub`, and one connection attempt are available. The single bounded
+read-only command was:
+
+```text
+esptool.exe --chip esp32s3 --port COM10 --baud 115200 --before no-reset --after no-reset --no-stub --connect-attempts 1 get-security-info
+```
+
+Observed output reached “Connecting....” and returned pySerial **Write timeout**
+after about 11.4 seconds (exit 1). No security information was returned. This
+is consistent with ROM sync not being available on the current application-side
+USB console; it does not establish a device or driver fault. The command
+explicitly selected no-reset before and after connection. No flash write, flash
+read, eFuse operation, or USB/IP detach was requested. No further board I/O was
+performed after the timeout.
+
+The private redacted console receipt was retained with mode 0600 outside the
+repository; its SHA-256 is
+`7b09368bda3a72441cec194260379f341b35fce552152f65321a8d07ba9f698b`.
+
+| Gate | Updated result |
+|---|---|
+| Spare identity | Windows USB parent token hash matches the prior restricted spare receipt; owner designation remains spare, not C8 |
+| WSL USB/IP | No serial device attached; BUSID 3-1 remains Windows-side Shared |
+| esptool transport | COM10 opened; one no-reset ROM sync attempt ended in pySerial Write timeout |
+| Secure Boot / Flash Encryption / ROM restrictions | UNKNOWN; no device security report |
+| Installed partition table / OTA slot / app image | NOT READ |
+| Baseline backup / validated restoration | NOT ESTABLISHED |
+| Candidate installed / running image matched | NO / NO |
+| Physical auxiliary USB / PSA-RNG / signed-time tests | NOT_RUN |
+| Installation decision | **NO-GO** |
+
+The transport issue is narrowed: the stale WSL attachment is not current because
+usbipd shows Shared and WSL has no serial device; the Windows COM interface is
+present and matches the spare receipt, but no-reset ROM protocol communication
+is unavailable. `get-security-info` requires ROM bootloader protocol. The
+candidate's USB console firmware does not itself provide that ROM interface.
+Recovery therefore requires a separately planned and approved ROM-entry method
+or a qualified non-resetting debug path, followed by fresh security inspection.
+Do not change COM line state, force reset/download mode, detach unrelated USB
+devices, or retry esptool blindly. Until security state is known, partition
+compatibility and readback permissions remain unknown; until a restorable
+baseline and offline-validated method exist, application-only installation
+remains NO-GO.
+
+Private host-only transport receipts remain outside the repository under the
+existing restricted evidence directory. Public evidence contains no serial
+number, PnP instance ID, full port identity, raw flash or credential material.

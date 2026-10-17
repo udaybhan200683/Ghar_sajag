@@ -4276,3 +4276,24 @@ unstaged. The separate GS-177 PWA validation process remained in its own
 worktree and was not interrupted. No hardware installation or diagnostic was
 performed. The next action is read-only protection/partition inspection plus
 validated recovery preparation after stable USB transport is restored.
+### Windows-native spare-S3 transport update — 2026-10-17
+
+At canonical `e81272909d803a311f9e6a08bf85eeba29b97d3f` (equal to origin),
+host-only checks matched Windows USB parent metadata to the restricted receipt
+for the owner-designated spare. Windows lists BUSID 3-1, COM10, VID:PID
+303a:1001 as Shared and not attached to WSL; WSL has no serial device node. The
+prior esptool D-state/stuck process is no longer present. The separate GS-177
+validation remains active and was not interrupted.
+
+One Windows esptool v5.4.0 read-only `get-security-info` attempt used explicit
+`--before no-reset --after no-reset --no-stub --connect-attempts 1`. ROM sync
+ended in pySerial Write timeout; no security report was returned. No retry,
+reset, USB/IP detach, flash access, or security write followed. Secure Boot,
+Flash Encryption, ROM restrictions, installed partitions, OTA slot and recovery
+state remain UNKNOWN. The current TEST_ONLY candidate hash is verified as
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`; it is not
+installed. Physical installation remains NO-GO until an approved ROM-entry or
+qualified debug route enables read-only protection inspection, then actual
+partition/slot compatibility and an offline-validated restorable baseline are
+established. Full redacted findings are in
+`docs/exec-plans/evidence/GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md`.
