@@ -42,6 +42,11 @@ observation plan before additional board access. Exact redacted results and
 private receipt hashes are in
 [`GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md`](../exec-plans/evidence/GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md).
 
+The redacted evidence commit `a0be5b9651092e2db600107091012efa7a07a415` was
+pushed normally, and remote HEAD matched at that checkpoint. Jira updates: GS-172 comment `11345`; GS-68 comment
+`11346`; both remain In Progress. The commit staged only the evidence and work
+state files; existing untracked assets/evidence remain untouched.
+
 ## GS-172 / GS-68 spare-S3 installation preflight — 2026-10-17
 
 Resumed at canonical HEAD `c4bc525e1fea8555ab30affc5b9e9926703c7f8e` on
