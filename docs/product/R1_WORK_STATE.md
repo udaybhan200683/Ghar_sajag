@@ -3987,37 +3987,47 @@ and remote HEAD equality is checked after that receipt push. No hardware, real
 credential, eFuse, production endpoint or commercial activation action was
 authorized or performed.
 
-## GS-177 isolated Android caregiver app checkpoint — 2026-10-17
+## GS-177 isolated Android caregiver continuation — 2026-10-17
 
-GS-177 is executing in the explicitly authorized isolated worktree
-`/home/udaybhan/projects/Ghar_sajag_gs177`, branch
-`feature/gs-177-caregiver-android`, based on the verified current local and
-origin R1 commit `71f7dc0518fc4705d2467bc70f772d861b02750e`. The canonical R1
-worktree remains owned by GS-40; its pre-existing untracked files were
-preserved. Context preflight passed at `2026-10-13.001` from the isolated
-worktree.
+GS-177 remains open. The owner-supplied Android/PWA/signaling source at
+`/home/udaybhan/projects/Ghar_sajag_r1/code/parivar_saathi_android_app` was
+verified and copied read-only into the isolated GS-177 worktree. The original
+23-file source manifest still matches; reviewed edits are only in the GS-177
+copy. The Android shell and pinned hosted workflow now target an installable
+dashboard-only debug APK that loads the existing PWA from an administrator-
+provided HTTPS origin. It has no mock account/data, demo actor header, embedded
+placeholder URL, Firebase, notifications, microphone permission, or enabled
+voice calling.
 
-The first APK acceptance is blocked: Java/JDK, Android SDK, Gradle, ADB and
-apksigner are absent; no phone is observable; the referenced caregiver source
-ZIP is absent; no Firebase configuration or public HTTPS deployment exists.
-The tracked caregiver shell is a Home overview. The development WSGI API uses
-`X-Actor-Id` and binds to loopback, and the deployment compose file contains
-PostgreSQL/Mosquitto but no production caregiver API or HTTPS frontend. It was
-not exposed or used as production identity.
+The current worktree is `/home/udaybhan/projects/Ghar_sajag_gs177`, branch
+`feature/gs-177-caregiver-android`, continuation start HEAD
+`e92407139bc96a4fde91df39b6e38ebcc2dd6f56`, existing base
+`71f7dc0518fc4705d2467bc70f772d861b02750e`. Preflight passed at
+`2026-10-13.001`. The canonical GS-40 checkout remains untouched. Its local
+HEAD was `072e94ee7185b3797cc83a4308331571cba17663` while the read-only remote
+R1 head was `3075011dd1b0525a8dfa326131c6a435e515b02a`; no cross-branch sync was
+attempted.
 
-Upstream state remains blocking and fail-closed: GS-68/109 production issuer,
-credential custody, Home/epoch registry and trusted-time authorities remain
-unapproved (GS-68 code is TEST_ONLY); GS-143 current caregiver role/session
-issuance and revocation are not qualified; GS-148 production durable event
-commit remains incomplete; GS-154/157 S3 audio/WebRTC and CallManager/AUTO_CALL
-are not delivered; GS-25 provider delivery is deferred. No server security
-contract, Firebase configuration, hosted service, or call policy was invented.
+Hosted Android build is pending a push and actual Actions result. Local Android
+JDK/SDK/Gradle/ADB/apksigner and phone are unavailable. Prototype verification
+passed (6/6); feature traceability passed (210 features, 234 modules, 25
+physical cases, 22 mapping tests); validation framework passed (48/48); and
+physical HIL catalogue consistency passed (109 cases, device access NONE).
+These host tests do not qualify the APK or product E2E. Full release gate,
+physical install, phone/mobile-data E2E, provider delivery, Android answer,
+S3 WebRTC and Hub HIL remain `NOT_RUN`.
 
-No product code or tests changed/run. `GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md`
-records the full status matrix, source findings, run/build evidence, and exact
-safe prerequisites. The next task is to provision the Android/phone environment,
-supply the starter or identify the current UI for a replacement shell, and
-obtain the owning teams' production identity, durable API, hosting, Firebase,
-ICE/TURN, and Hub media contracts before implementation. The live app, APK,
-phone installation, provider display/answer, S3 media HIL and full release gate
-remain NOT_RUN/BLOCKED; GS-177 remains open.
+`LIVE_HTTPS_PWA_URL=NOT_DEPLOYED`. Production issuer/session, current Home role
+and epoch, revocation, durable hosted API, Firebase, CallManager, TURN, and S3
+media are unavailable or upstream (GS-25, GS-40, GS-68/109/143/148/154/157).
+Acceptance matrix: HOME, DEVICES, REPORTS, SETTINGS, INCIDENTS,
+NOTIFICATIONS, MANUAL_INTERNET_CALL, AUTO_ABNORMALITY_CALL and
+BACKUP_ESCALATION are each `BLOCKED_UPSTREAM`. No live caregiver use case is
+claimed as passed.
+
+The current source/build/evidence details and exact next actions are in
+`docs/exec-plans/evidence/GS177_INSTALLABLE_CAREGIVER_APP_HANDOFF_20261017.md`.
+Next: push only the isolated GS-177 branch, verify hosted APK output and
+checksum, then obtain approved hosting/identity and a real phone for Internet
+E2E. Keep GS-177 open and submit a reviewed integration handoff; do not modify
+or synchronize the GS-40 worktree.

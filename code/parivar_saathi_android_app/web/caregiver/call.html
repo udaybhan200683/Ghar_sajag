@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f5fbf7" />
+  <link rel="stylesheet" href="../styles.css" />
+  <title>Caregiver Call — Parivar Saathi</title>
+  <style>
+    body { background:#f5fbf7; }
+    .call-area { padding: 26px 20px; max-width: 460px; margin: 24px auto; text-align:center; }
+    .call-actions {display:flex; justify-content:center; flex-wrap:wrap;gap:12px;margin-top:25px}
+    .call-actions button { font-size:17px; padding:14px 22px; border-radius:24px;cursor:pointer; }
+    .call-status { font-size: 19px; font-weight:600; margin: 24px 0; color:#125a45 }
+    .call-help { font-size:14px;color:#475569;line-height:1.6 }
+    button:disabled {opacity:.45;cursor:not-allowed}
+    #answerBtn {background:#146e52;color:white;border:0}
+    #endBtn {background:#bc4242;color:white;border:0}
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="brand"><img class="brand-icon" src="../assets/icon.svg" alt="" />
+  <div><div class="brand-name">Parivar Sathi</div><div class="tagline">Apno ka khayal, har pal</div></div></div></header>
+  <main class="call-area">
+    <h1>Caregiver voice call</h1>
+    <p class="call-help">Please confirm the home and reason in your authenticated Parivar Saathi account. Opening this page does not mean the call was answered.</p>
+    <p id="callState" class="call-status" role="status" aria-live="polite">Checking call authorization…</p>
+    <div class="call-actions"><button id="answerBtn" type="button" disabled>Answer</button>
+    <button id="endBtn" type="button" disabled>End call</button></div>
+    <p id="callError" role="alert" class="call-help"></p>
+    <audio id="remote" autoplay playsinline controls></audio>
+  </main>
+  <script type="module" src="call.mjs"></script>
+</body>
+</html>

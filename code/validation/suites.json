@@ -2157,6 +2157,69 @@
       "timeout": 600,
       "count_kind": "tests",
       "qualification_scope": "NONACTIVE_POLICY_AND_READ_PROJECTION_PLUS_HOST_SQLITE_SERVICE_DESK_AND_INJECTED_GS76_IDENTITY_BOUNDARY; NOT_PRODUCTION_AUTHENTICATION_OR_POSTGRESQL"
+    },
+    {
+      "id": "gs177-android-dashboard",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "validation/run_gs177_android.py"
+      ],
+      "inputs": [
+        "validation/run_gs177_android.py",
+        "parivar_saathi_android_app/android/settings.gradle.kts",
+        "parivar_saathi_android_app/android/build.gradle.kts",
+        "parivar_saathi_android_app/android/gradle.properties",
+        "parivar_saathi_android_app/android/app/build.gradle.kts",
+        "parivar_saathi_android_app/android/app/src/main/AndroidManifest.xml",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/BackendOrigin.kt",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/BackendEndpointStore.kt",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/MainActivity.kt",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/TrustedPwaWebView.kt",
+        "parivar_saathi_android_app/android/app/src/test/java/in/gharsajag/caregiver/BackendOriginTest.kt"
+      ],
+      "success": "^GS177 ANDROID DASHBOARD PASS tests=(\\d+) apk_sha256=[0-9a-f]{64}$",
+      "required_success": [
+        "^CASE GS177-ANDROID-ORIGIN-001 PASS$"
+      ],
+      "timeout": 1800,
+      "count_kind": "tests",
+      "fast": false,
+      "release": false,
+      "qualification_scope": "DASHBOARD_ONLY_ANDROID_BUILD_AND_HTTPS_ORIGIN_VALIDATION; NO_LIVE_BACKEND_AUTH_OR_PHYSICAL_DEVICE_ACCEPTANCE"
+    },
+    {
+      "id": "gs177-voice-prototype",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "bash",
+        "parivar_saathi_android_app/verify.sh"
+      ],
+      "inputs": [
+        "parivar_saathi_android_app/verify.sh",
+        "parivar_saathi_android_app/server/call_signaling.py",
+        "parivar_saathi_android_app/server/push_adapter.py",
+        "parivar_saathi_android_app/server/tests/test_call_signaling.py",
+        "parivar_saathi_android_app/server/tests/test_push_adapter.py",
+        "parivar_saathi_android_app/web/caregiver/call.html",
+        "parivar_saathi_android_app/web/caregiver/call.mjs",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/CallActivity.kt",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/CaregiverMessagingService.kt",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/DeviceRegistration.kt"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": [
+        "^Android XML structure PASS$"
+      ],
+      "timeout": 600,
+      "count_kind": "tests",
+      "fast": false,
+      "release": false,
+      "qualification_scope": "ISOLATED_CALL_SIGNALING_AND_PUSH_PROTOTYPE_UNIT_CONTRACTS_PLUS_JS_XML_SYNTAX; NO_PRODUCTION_AUTH_FCM_PHONE_OR_S3_MEDIA_QUALIFICATION"
     }
   ],
   "separate_harnesses": {},

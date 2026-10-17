@@ -279,7 +279,21 @@ class ComponentGateTest(unittest.TestCase):
         mk=(ROOT/"Makefile").read_text()
         for name in ("node","hub","contract","backend","pwa"):
             self.assertIn("validation-"+name,mk)
+        self.assertIn("validation-android:",mk)
         self.assertIn("--suite fast",mk);self.assertIn("--suite release",mk)
+    def test_gs177_android_stage_is_explicit_and_outside_generic_release_gates(self):
+        data=gate.load_registry()
+        stage=next(s for s in data["stages"] if s["id"]=="gs177-android-dashboard")
+        self.assertFalse(stage.get("fast",True))
+        self.assertFalse(stage.get("release",False))
+        self.assertIn(stage,gate.select(data,"android"))
+        for suite in ("tooling","fast","release"):
+            self.assertNotIn(stage,gate.select(data,suite))
+        voice=next(s for s in data["stages"] if s["id"]=="gs177-voice-prototype")
+        self.assertIn(stage,gate.select(data,"caregiver-app"))
+        self.assertIn(voice,gate.select(data,"caregiver-app"))
+        self.assertNotIn(voice,gate.select(data,"release"))
+        self.assertIn("validation-caregiver-app:", (ROOT/"Makefile").read_text())
     def test_compiler_flags_have_distinct_cached_object_profiles(self):
         from scripts.host_build_profile import fingerprint
         self.assertNotEqual(fingerprint(["g++","-O2"]),fingerprint(["g++","-O0","-fsanitize=address"]))

@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 REGISTRY=ROOT/"validation/suites.json"
 COMPONENTS={"node","hub","contract","backend","pwa","tooling"}
-SPECIAL_SUITES={"fast","release","board-e2e","p0-e2e"}
+SPECIAL_SUITES={"fast","release","board-e2e","p0-e2e","android","caregiver-app"}
 CLASSIC_SKIP="classic ESP32 NVS reserve model is historical under GS-D030; S3 commercial capacity and reserve qualification remain open"
 
 def load_registry(path=REGISTRY, root=ROOT):
@@ -56,6 +56,8 @@ def load_registry(path=REGISTRY, root=ROOT):
 def select(data,suite):
     if suite not in COMPONENTS|SPECIAL_SUITES: raise ValueError("unknown suite")
     selected={s["id"] for s in data["stages"] if
+        (suite=="android" and s["id"]=="gs177-android-dashboard") or
+        (suite=="caregiver-app" and s["id"] in {"gs177-android-dashboard","gs177-voice-prototype"}) or
         (suite=="board-e2e" and s["id"]=="board-stack-e2e") or
         (suite=="p0-e2e" and s["id"]=="p0-full-product-e2e") or
         (suite=="release" and (s.get("fast",True) or s.get("release",False))) or

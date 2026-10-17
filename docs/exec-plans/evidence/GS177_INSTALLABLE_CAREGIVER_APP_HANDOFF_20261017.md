@@ -1,126 +1,80 @@
-# GS-177 installable caregiver app checkpoint — 2026-10-17
+# GS-177 caregiver Android continuation — 2026-10-17
 
-## Disposition
+## Current disposition
 
-`BLOCKED_ACCEPTANCE_NOT_MET`. No APK, live backend, physical-phone result, Firebase
-receipt, or S3-to-caregiver audio result exists at this checkpoint. GS-177 remains
-open. This report records the isolated execution state and prerequisites; it does
-not change product behavior or authorize a new security, hosting, or hardware
-contract.
+`APK_BUILD_PENDING_HOSTED_CI`; the real phone + authenticated Internet backend acceptance is not met. A dashboard-only Android wrapper and a pinned hosted build workflow are implemented in the isolated GS-177 branch. No APK has been built yet, no live endpoint is configured, and the phone, production identity/session issuer, Firebase project, or S3 Hub media path are not available in this execution environment. Keep GS-177 open.
 
-## Source and worktree
+This build is an installable test shell intended to load the existing Parivar Saathi PWA from an administrator-provided HTTPS origin. It is not yet a usable caregiver service until that origin serves the actual authenticated PWA/backend.
+
+## Branch and ownership
 
 | Item | Verified value |
 |---|---|
-| Canonical source | `/home/udaybhan/projects/Ghar_sajag_r1` |
-| Canonical branch | `feature/r1-commercial-baseline` |
-| Canonical local HEAD at startup | `71f7dc0518fc4705d2467bc70f772d861b02750e` |
-| `origin/feature/r1-commercial-baseline` at startup | `71f7dc0518fc4705d2467bc70f772d861b02750e` |
-| GS-177 base | `71f7dc0518fc4705d2467bc70f772d861b02750e` (includes GS-68 receipt commit; GS-68 implementation `443f272e0277439ea932d3c7990db80d1672dd91` is an ancestor) |
-| GS-177 branch | `feature/gs-177-caregiver-android` |
 | GS-177 worktree | `/home/udaybhan/projects/Ghar_sajag_gs177` |
-| Context preflight | `PASS`, `2026-10-13.001` |
-| Source checkout changes | Pre-existing untracked application, firmware, and evidence paths were preserved and not edited or staged. |
+| GS-177 branch | `feature/gs-177-caregiver-android` |
+| GS-177 starting and remote ref at continuation start | `e92407139bc96a4fde91df39b6e38ebcc2dd6f56` |
+| Existing GS-177 base | `71f7dc0518fc4705d2467bc70f772d861b02750e`; branch retained without rebase/merge |
+| Canonical GS-40 worktree | `/home/udaybhan/projects/Ghar_sajag_r1` |
+| Canonical local HEAD at continuation start | `072e94ee7185b3797cc83a4308331571cba17663` |
+| `origin/feature/r1-commercial-baseline` read-only remote HEAD | `3075011dd1b0525a8dfa326131c6a435e515b02a` |
+| Worktree safety | GS-40 directory and existing untracked hardware/PWA assets were read-only and untouched |
+| Context preflight | `PASS`, version `2026-10-13.001`, run from this GS-177 worktree at `e92407139bc96a4fde91df39b6e38ebcc2dd6f56` |
 
-The destination and local GS-177 branch were absent before creation. The remote
-GS-177 ref was also absent at the read-only check. No switch, reset, rebase,
-merge, stash, clean, canonical-worktree write, shared deployment, or hardware
-operation occurred.
+The canonical local and remote R1 heads differ, and both are newer than the established GS-177 base. GS-40 is active in that worktree. This branch remains isolated for a later conflict-reviewed integration; no synchronization with the canonical branch was attempted.
 
-## Contract and implementation audit
+## Owner-supplied source import
 
-- `code/backend/ghar_sajag/human_authentication.py` is an inactive verifier and
-  session-directory seam. It does not verify credentials, issue sessions, or
-  install routes. Its contract requires server-owned, current revocable session
-  state and separately authoritative Home membership.
-- `code/backend/ghar_sajag/http_api.py` is a local WSGI development adapter. It
-  takes the actor from `X-Actor-Id`; `main()` binds only to `127.0.0.1:8080`.
-  This is not a public caregiver API and cannot be placed in an APK or exposed
-  as production identity.
-- `code/deployment/ops/compose.yaml` contains PostgreSQL and a loopback-bound
-  Mosquitto broker only. It has no caregiver HTTP service, static PWA host,
-  HTTPS reverse proxy, issuer/session authority, or production deployment
-  configuration. No usable public HTTPS PWA/backend URL was found.
-- The tracked `code/frontend/public/index.html` is a Home overview (connectivity,
-  activity, sensor health, door state, incidents, and recent activity). The
-  tracked public shell has no login, Home selector, Devices/Reports/Settings
-  navigation, or native-call screen. Supporting backend and frontend modules
-  exist, but production authentication and the requested deployed flow are not
-  established by their presence.
-- The supplied `parivar_saathi_caregiver_package.zip` was not present in the
-  accessible project, `/tmp`, or `/mnt/data` paths, and GS-177 has no Jira
-  attachment. The ZIP's contents were not recreated or represented as reviewed.
-- Jira and source state agree that GS-68's latest identity/time composition is
-  TEST_ONLY and `app_main` still fails closed with
-  `UnprovisionedS3CloudTrust`. Production issuer, key custody, Home/epoch
-  registry, trusted-time root/floor, and approvals remain open (GS-68/109).
-  GS-143 still lacks a qualified production human issuer, current caregiver
-  membership/role/epoch authority, and revocation path. GS-148's production
-  durable event commit remains an explicit gap. GS-154 S3 audio/WebRTC and
-  GS-157 CallManager/AUTO_CALL remain separate To Do work; GS-25 provider
-  delivery was explicitly deferred. GS-117/121 real product E2E remains To Do.
+The read-only owner source exists at `/home/udaybhan/projects/Ghar_sajag_r1/code/parivar_saathi_android_app`. It directly contains `android/`, `server/`, `web/caregiver/`, tests, and starter documentation. It was copied (not moved) into `code/parivar_saathi_android_app/` in this GS-177 worktree. The import manifest is `docs/exec-plans/evidence/GS177_SOURCE_IMPORT_20261017.tsv`, SHA-256 `9d63d3c66acea6d1665fad9098610cce41fad5fa7eeca50938e2cdb9b341bf09`.
 
-No caller-supplied `is_caregiver`, `approved`, raw actor header, simulator
-account, or local API can satisfy these gaps. Product-semantic implementation
-stops here until the trusted identity, Home authorization, and production API
-contracts are available; none are invented in this worktree.
+At this continuation check, all 23 source files still matched their manifest hashes and sizes. Nine GS-177 destination files have intentional, reviewed edits for dashboard-only behavior/build configuration; the protected source copies remain unchanged. Source `Zone.Identifier` streams were not imported. Python `__pycache__` entries seen after tests are generated ignored files, not imported source. No Firebase JSON, service key, keystore, APK, `.env`, or build output was copied.
 
-## Android and delivery environment
+## Implemented app and build scope
+
+- The Android shell loads the existing PWA from a first-run configured public HTTPS origin. It rejects HTTP, local/reserved domains, credentials, paths, query/fragment, and nonstandard ports; normalizes the host and stores the selected endpoint in app-private preferences.
+- WebView uses TLS only, denies SSL errors, mixed content, file/content access, third-party cookies, multiple windows, web permissions, and privileged JavaScript bridges. Top-level navigation is constrained to the configured HTTPS host. Back navigation works. The user can clear cookies and change the server.
+- The app has no bundled demo data, synthetic account, `X-Actor-Id`, `example.invalid` runtime endpoint, or local mock dashboard. The APK will not create a caregiver session or grant Home access.
+- The dashboard artifact excludes the prototype call Activity, FCM service, and token registration sources; it has no notification or microphone permission and no Firebase dependency. The UI labels voice calls and notifications disabled. The included call/signaling sources remain an isolated prototype and are not qualified product behavior.
+- `.github/workflows/gs177-android-dashboard-apk.yml` is pinned to immutable action SHAs, runs on hosted Ubuntu 24.04 with Temurin JDK 17, Gradle 8.9, Android SDK 35 / Build Tools 35.0.0, runs registered tests/build, verifies debug signing, writes SHA/build metadata, and uploads a 14-day test artifact. It uses only read permissions and no secrets. It triggers only for pushes to the GS-177 branch.
+- App and voice prototype stages are separately registered in GS-116/130 traceability and are outside the generic fast/release suites. Physical qualification remains `NOT_RUN` and release-blocking.
+
+## Build and validation evidence at this checkpoint
 
 | Check | Result |
 |---|---|
-| Java / `javac` | `NOT_FOUND` |
-| Android SDK / `sdkmanager` | `NOT_FOUND`; `ANDROID_HOME` and `ANDROID_SDK_ROOT` unset |
-| Gradle | `NOT_FOUND` |
-| `adb` / `apksigner` | `NOT_FOUND` |
-| Compatible physical Android device | Not observable from this environment; ADB is absent |
-| Firebase app/project configuration | Not found in the isolated source tree |
-| APK output | `NOT_BUILT` |
-| Live HTTPS PWA/backend | `NOT_DEPLOYED` |
+| Local JDK / Android SDK / Gradle / ADB / apksigner | Not installed |
+| Local Android build | `NOT_BUILT`; hosted workflow must produce first APK |
+| Hosted Android workflow | Pending branch push; no run URL/result yet |
+| Physical Android device / install | `NOT_RUN`; no phone is attached/observable |
+| `bash code/parivar_saathi_android_app/verify.sh` | PASS, 6/6 prototype tests; Node syntax and Android XML parse pass |
+| `make -C code feature-coverage-test` | PASS, 210 features / 234 modules / 25 physical cases; 22/22 mapping tests |
+| `make -C code validation-framework-test` | PASS, 48/48 tests |
+| `make -C code physical-hil-catalogue-test` | PASS, 109 catalogue cases; device access `NONE` (catalogue consistency only) |
+| Source, endpoint and product E2E | Not run; no approved live endpoint/identity/phone |
+| Full release gate | `NOT_RUN` (deferred) |
 
-The container is the requested WSL path, but it cannot produce or install the
-first APK without the Android toolchain, app source, endpoint, and an available
-phone. No localhost demo was exposed and no development server was started.
+The prototype signaling tests are host-only contract tests and do not prove Android build, real FCM receipt, display/answer, production authorization, TURN media, or Hub connectivity.
 
-## Acceptance matrix
+## Deployment, trust and acceptance status
+
+`LIVE_HTTPS_PWA_URL=NOT_DEPLOYED`. No approved hosting credentials/domain or deployed persistent backend + PWA were available. Do not expose the localhost WSGI demo or `X-Actor-Id: simulation-owner`. Production server-side login/session issuance, current Home/caregiver role and epoch authorization, revocation, and audit remain upstream GS-68/109/143/148 work. No APK backend URL is embedded.
 
 | Use case | Status | Evidence boundary |
 |---|---|---|
-| HOME | `BLOCKED_UPSTREAM` | Tracked Home projection exists; no authenticated production session or live service. |
-| DEVICES | `BLOCKED_UPSTREAM` | NodeHealth projection exists; no authorized live Home feed or Android run. |
-| REPORTS | `BLOCKED_UPSTREAM` | Backend report model exists; no deployed production API/session. |
-| SETTINGS | `BLOCKED_UPSTREAM` | Backend policy/notification models exist; no qualified caregiver role or production write API. |
-| INCIDENTS | `BLOCKED_UPSTREAM` | Host incident actions exist; no production actor authority or deployed persistence. |
-| NOTIFICATIONS | `BLOCKED_UPSTREAM` | GS-25 local state/dedupe only; provider, Firebase registration, and handset delivery are unproven. |
-| MANUAL_INTERNET_CALL | `BLOCKED_UPSTREAM` | No production CallManager, signaling endpoint, ICE/TURN credentials, or Hub media. |
-| AUTO_ABNORMALITY_CALL | `BLOCKED_UPSTREAM` | GS-157 policy contract exists; qualified automatic trigger and CallManager are not implemented. |
-| BACKUP_ESCALATION | `BLOCKED_UPSTREAM` | No durable ordered-call lifecycle or qualified primary/no-answer/backup path. |
+| HOME | `BLOCKED_UPSTREAM` | No deployed authenticated PWA/API or authorized current Home session |
+| DEVICES | `BLOCKED_UPSTREAM` | No live authorized NodeHealth feed or mobile run |
+| REPORTS | `BLOCKED_UPSTREAM` | No live authenticated report/history service |
+| SETTINGS | `BLOCKED_UPSTREAM` | Production caregiver authority and writable API not qualified |
+| INCIDENTS | `BLOCKED_UPSTREAM` | No production persistence/actor authorization endpoint |
+| NOTIFICATIONS | `BLOCKED_UPSTREAM` | GS-25/Firebase setup deferred; no provider or handset evidence |
+| MANUAL_INTERNET_CALL | `BLOCKED_UPSTREAM` | GS-154/157 call service, authenticated signaling, ICE/TURN and S3 audio absent |
+| AUTO_ABNORMALITY_CALL | `BLOCKED_UPSTREAM` | Qualified Hub risk trigger and policy-owned CallManager absent |
+| BACKUP_ESCALATION | `BLOCKED_UPSTREAM` | Durable ordered backup/call lifecycle absent |
 
-`FCM_PROVIDER_RECEIPT=NOT_RUN`; `ANDROID_DISPLAYED=NOT_RUN`;
-`ANDROID_ANSWERED=NOT_RUN`; `S3_WEBRTC_MEDIA=NOT_RUN`;
-`PHYSICAL_HIL=NOT_RUN`; `FULL_RELEASE_GATE=NOT_RUN` (deferred under GS-116).
-Worst-case unattended reachability remains unqualified. Internet/power loss
-cannot be represented as caregiver reachability, and FCM acceptance must never
-be described as a displayed, ringing, answered, or life-critical alert.
+FCM provider receipt, Android displayed/ringing/answered state, S3 WebRTC media, physical HIL, and independent mobile-data E2E are all `NOT_RUN`. Worst-case unattended reachability is unqualified. Internet/power outage is not represented as successful caregiver reachability. FCM acceptance alone cannot establish a displayed alert or answer.
 
-## Validation and next safe action
+## Exact next actions
 
-No Android, backend, PWA, browser, security, or voice tests were run because no
-implementation was changed and the required runtime is absent. This is not a
-test pass. The context preflight passed before inspection; documentation checks
-for this checkpoint are recorded with the branch delivery.
-
-No credentials, private keys, certificates, or deployment secrets were added or
-copied. The delivery review is limited to the two documentation files in this
-checkpoint; it is not a repository-wide secret scan.
-
-Next action: provision the Android JDK/SDK/Gradle environment and a real Android
-phone; place the referenced starter archive in the execution environment (or
-identify the canonical UI source for a replacement shell); and obtain the
-owning teams' approved production issuer/session, Home-role/epoch/revocation,
-durable API, hosting domain, Firebase, signaling/ICE/TURN, and Hub media
-contracts. Then implement only in this branch, starting with the secure APK
-wrapper around the selected current PWA, and validate against the live endpoint.
-GS-143, GS-68/109, GS-148, GS-154/157, and GS-40 must remain independently
-tracked; no GS-177 completion claim is appropriate until the owner's phone and
-actual S3 audio path have evidence.
+1. Review and commit the GS-177-only changes, push only `feature/gs-177-caregiver-android`, and wait for the actual hosted workflow. Download the actual APK artifact only after the job passes; record run URL, commit, version, package, SHA-256 and signing certificate.
+2. Obtain the approved live HTTPS PWA/API origin, production caregiver issuer/session + current-Home/epoch/revocation contract, persistent hosting/database, and a real Android phone with mobile-data access. Then install the artifact and capture actual device/backend evidence for each supported screen and denial/revocation case.
+3. Keep GS-25 Firebase delivery and GS-154/157 plus GS-40/68/109/143/148 call/identity/Hub work as upstream gates. Do not claim FCM delivery, manual/automatic voice, backup escalation, or S3 HIL until performed with the real phone and hardware under separate approved test conditions.
+4. Update Jira GS-177 and this handoff with the actual workflow and later device/backend results. Submit a reviewed GS-177 PR/handoff; do not merge into or push to the GS-40 branch.

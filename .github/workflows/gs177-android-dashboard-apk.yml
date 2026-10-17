@@ -1,0 +1,82 @@
+name: GS-177 Android dashboard APK
+
+on:
+  push:
+    branches:
+      - feature/gs-177-caregiver-android
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gs177-android-dashboard-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android-dashboard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout GS-177 source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: 'false'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+        with:
+          gradle-version: '8.9'
+          cache-provider: basic
+
+      - name: Run GS-116 registered caregiver app and Android stages
+        working-directory: code
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: python3 validation/component_gate.py --suite caregiver-app
+
+      - name: Verify APK signature and write artifact evidence
+        shell: bash
+        env:
+          ANDROID_SOURCE_REVISION: ${{ github.sha }}
+          ANDROID_SOURCE_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          apk_source='code/parivar_saathi_android_app/android/app/build/outputs/apk/debug/app-debug.apk'
+          apk_dir="$RUNNER_TEMP/gs177-apk"
+          mkdir -p "$apk_dir"
+          cp "$apk_source" "$apk_dir/parivar-saathi-caregiver-debug.apk"
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_dir/parivar-saathi-caregiver-debug.apk"
+          sha256sum "$apk_dir/parivar-saathi-caregiver-debug.apk" > "$apk_dir/SHA256SUMS"
+          {
+            printf 'source_revision=%s\n' "$ANDROID_SOURCE_REVISION"
+            printf 'source_ref=%s\n' "$ANDROID_SOURCE_REF"
+            printf 'package_name=in.gharsajag.caregiver\n'
+            printf 'version_name=0.1.0-dashboard\n'
+            printf 'gradle=8.9\njava=17\nandroid_compile_sdk=35\n'
+            printf 'backend_origin=first-run-user-configuration\n'
+            printf 'push_notifications=disabled\nvoice_calling=disabled\n'
+            printf 'signing=runner-generated-debug-key; testing-only\n'
+          } > "$apk_dir/build-info.txt"
+
+      - name: Upload APK and SHA-256 evidence
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: parivar-saathi-caregiver-debug-${{ github.sha }}
+          path: ${{ runner.temp }}/gs177-apk/
+          if-no-files-found: error
+          retention-days: 14

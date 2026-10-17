@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Parivar Saathi</string>
+    <string name="call_notification_channel">Caregiver voice calls</string>
+</resources>
