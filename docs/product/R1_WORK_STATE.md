@@ -4014,14 +4014,14 @@ sources. Run 39006969459 failed on the same issues and exposed the prototype
 Firebase type errors. The current staged GS-177 tree escapes the Kotlin package
 segment and moves call/FCM Kotlin files outside the Android source tree. Run
 39007289252 built and signed the APK but the stage was adjudicated FAIL. Run
-39007561093 then passed all stages and uploaded the dashboard-only APK. The
-downloaded binary is 2,455,012 bytes, package `in.gharsajag.caregiver`, version
+39007561093 built and uploaded the APK but used a runner-absolute checksum path.
+The workflow fix is verified by run 39007792463: APK v2 signature, relative
+`SHA256SUMS`, 4/4 Kotlin tests and artifact upload all passed. The downloaded
+artifact is 2,455,020 bytes, package `in.gharsajag.caregiver`, version
 `0.1.0-dashboard`, SHA-256
-`763952af6662ae2f4e186f7f9d866b58f6307a39960e9e9e6d50d312e9c979eb`; it is in
-the ignored GS-177 app build output. Its digest text matched, but its
-`SHA256SUMS` path was absolute to the CI runner and thus `sha256sum --check`
-failed after download. The workflow now writes and checks a relative path; next
-hosted run is pending. Local Android
+`a82b60b7d5b2ab498bd5e19eb91f802e7e36f9539c19c15caced0c2d856490c1`; it is in
+the ignored GS-177 app build output, source revision
+`da21a22487e9325530554de0a49897f14490e200`. Local Android
 JDK/SDK/Gradle/ADB/apksigner and phone are unavailable. Prototype verification
 passed (6/6); feature traceability passed (210 features, 234 modules, 25
 physical cases, 22 mapping tests); validation framework passed (48/48); and
