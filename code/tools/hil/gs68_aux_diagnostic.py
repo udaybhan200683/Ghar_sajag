@@ -356,6 +356,13 @@ class BoundedAuxiliarySession:
                     self.startup_replay_suspected = True
                     record["kind"] = "startup_replay_suspected"
                     raise AuxiliaryDiagnosticError("startup transcript replay suspected; reset/replay cause is unknown")
+            lowered = body.lower()
+            panic_markers = (b"***error*** a stack overflow in task", b"guru meditation error",
+                             b"abort() was called", b"assert failed:")
+            if any(marker in lowered for marker in panic_markers):
+                record["kind"] = "target_panic_or_abort_log"
+                raise AuxiliaryDiagnosticError(
+                    "ESP-IDF panic/abort signature observed; device reset or buffered replay is not established")
             return None
         try:
             frame = capture.parse_device_frame(raw[:-1].rstrip(b"\r"))

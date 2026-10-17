@@ -191,6 +191,16 @@ class GS68AuxiliaryRunnerTests(unittest.TestCase):
                             for record in session.console_records))
         session.close()
 
+    def test_startup_panic_is_recorded_and_stops_before_command_io(self):
+        transport = FakeTransport([b"***ERROR*** A stack overflow in task main has been detected.\n"])
+        session = aux.BoundedAuxiliarySession(transport)
+        session.open()
+        with self.assertRaisesRegex(aux.AuxiliaryDiagnosticError, "reset or buffered replay is not established"):
+            session.wait_ready_or_absent(timeout=0.2)
+        self.assertEqual(session.console_records[0]["kind"], "target_panic_or_abort_log")
+        self.assertEqual(transport.writes, [])
+        session.close()
+
     def test_fragmented_command_response_after_startup_is_correlated(self):
         nonce = "1" * 64
         transport = FakeTransport([b"I (1) boot: log\n", ready(),

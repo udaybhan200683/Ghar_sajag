@@ -1,5 +1,45 @@
 # R1 Current Work State
 
+## GS-68 / GS-172 authorized spare USB diagnostic execution — 2026-10-17 update
+
+The first owner-authorized Windows-native session was executed after commit
+`2b5a7388421c59abea23bc444b2f91b037117c72` and clean-source candidate-binding
+validation. Immediate Windows PnP-parent verification matched the restricted
+spare receipt; the COM interface was opened exclusively once in
+`controlled_reset_tolerant` mode. The provider logged reset tolerance, not
+reset safety, recorded process ownership as UNKNOWN before the atomic exclusive
+open, and recorded the Windows driver's DTR/RTS state as unobservable.
+
+This session inherited the previously verified installation identity because
+it did not receive a new READY frame. Its private capture contains an ESP-IDF
+`stack overflow in task main` panic signature and no fresh nonce-correlated
+OBSERVE response. The auxiliary OBSERVE is **FAIL**; malformed, oversized,
+sequential and all TEST_ONLY PSA-RNG/signed-time physical cases are **NOT_RUN**.
+No reset was confirmed; reset versus buffered/replayed startup bytes remains
+unknown. No further port opening, flash, NVS update or firmware build was done
+at this point. Private result bundle SHA-256:
+`d241a196e3d5abd50691bb2c61f7f9e10d3c5c7ed15d01e82489de0553feb8d8`; raw
+console record digest:
+`092cf5ea5395cd68723cd743382ceb923a5f5ed071695ccf1676803b95752c56`.
+
+Follow-up software correction: startup observer classifies ESP-IDF panic/abort
+signatures as a fail-fast condition and sends no command after one is seen.
+The isolated TEST_ONLY diagnostic moves its line-framer state and command
+buffer out of ESP-IDF's 3584-byte `main` task stack. This addresses a plausible
+stack-pressure cause without claiming the capture proves where/when the panic
+occurred. Run affected tests and a non-flashing source-bound S3 build. The
+existing installed image is unchanged; any replacement installation must be
+re-evaluated against the owner-authorized recovery/install scope. Keep official
+GS-68 and GS-40 physical acceptance **NOT_RUN**.
+
+```text
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=GS-172 current execution instruction and GS-68 auxiliary diagnostic contract
+DECISION_IDS=NONE
+TASK_SCOPE=Spare-only GS-68 USB observer and isolated TEST_ONLY startup-stack correction
+OUT_OF_SCOPE=Production Hub composition, C8/C3 fixtures, security eFuses, credentials, endpoints, and official GS-68/GS-40 acceptance
+```
+
 ## GS-68 / GS-172 authorized spare USB retest — 2026-10-17
 
 Started from canonical `/home/udaybhan/projects/Ghar_sajag_r1`, branch

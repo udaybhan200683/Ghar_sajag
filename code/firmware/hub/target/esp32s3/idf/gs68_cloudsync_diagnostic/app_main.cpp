@@ -70,6 +70,12 @@ bool g_time_store_ready = false;
 bool g_time_provider_started = false;
 bool g_usb_driver_installed = false;
 bool g_stdin_unbuffered = false;
+// Keep the bounded 1 KiB line state and command buffer out of ESP-IDF's
+// 3.5 KiB main-task stack. app_main owns this single command loop, so static
+// storage preserves the same framing semantics while leaving stack headroom
+// for USB VFS and diagnostic call paths.
+gs::diagnostic::TargetCommandLineAccumulator g_command_line_accumulator;
+std::array<char, kCommandLimit + 1> g_command_buffer{};
 
 bool initialize_usb_command_console() {
     if (!g_stdin_unbuffered) {
@@ -345,8 +351,6 @@ extern "C" void app_main() {
     }
     ESP_LOGI(kTag, "TEST_ONLY GS-68 CloudSync identity/time diagnostic; no provisioning or network startup");
     emit_ready();
-    gs::diagnostic::TargetCommandLineAccumulator line_accumulator;
-    std::array<char, kCommandLimit + 1> command{};
     for (;;) {
         const int input = std::fgetc(stdin);
         if (input == EOF) {
@@ -357,11 +361,11 @@ extern "C" void app_main() {
             vTaskDelay(pdMS_TO_TICKS(10));
             continue;
         }
-        const auto framed = line_accumulator.push(
-            static_cast<char>(input), command.data(), command.size());
+        const auto framed = g_command_line_accumulator.push(
+            static_cast<char>(input), g_command_buffer.data(), g_command_buffer.size());
         if (framed == gs::diagnostic::TargetCommandFrameResult::Complete) {
-            handle_command(command.data());
-            std::memset(command.data(), 0, command.size());
+            handle_command(g_command_buffer.data());
+            std::memset(g_command_buffer.data(), 0, g_command_buffer.size());
         } else if (framed == gs::diagnostic::TargetCommandFrameResult::Invalid) {
             emit_capture_error("invalid_command_encoding");
         } else if (framed == gs::diagnostic::TargetCommandFrameResult::Oversized) {

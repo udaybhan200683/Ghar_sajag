@@ -37,6 +37,41 @@ single-OBSERVE-only procedure and exclusion of TEST_ONLY signed time for this
 one owner-authorized task. It does not qualify reset-safe Windows behavior or
 official GS-68/GS-40 acceptance.
 
+## 2026-10-17 — Owner-authorized single-session observation result
+
+The spare was reidentified immediately before opening by Windows PnP parent
+chain; the interface VID/PID and parent receipt matched the designated spare.
+The transport performed one exclusive COM open, recorded port ownership as
+UNKNOWN before the share-mode-zero open, and did not reconnect. Reset-tolerant
+opening was used as authorized; reset safety was not claimed. The driver did
+not expose DTR/RTS transition telemetry.
+
+The prior verified installation receipt was accepted as inherited image
+identity; this session did not receive a new READY frame. The session capture
+contains an ESP-IDF `stack overflow in task main` panic signature and no exact
+nonce-correlated OBSERVE response. The observer therefore recorded the USB
+probe as FAIL and did not run malformed, oversized, sequential, PSA-RNG or
+signed-time commands. The startup bytes do not establish whether the port open
+caused a reset or whether they were buffered/replayed. No reset was confirmed,
+and no second port opening was attempted.
+
+The restricted private bundle SHA-256 is
+`d241a196e3d5abd50691bb2c61f7f9e10d3c5c7ed15d01e82489de0553feb8d8`; the raw
+console-record digest inside it is
+`092cf5ea5395cd68723cd743382ceb923a5f5ed071695ccf1676803b95752c56`. No raw
+console or full hardware identity is included here. The host observer now
+fails immediately on recognizable ESP-IDF panic/abort startup lines instead
+of sending a command after that evidence. The TEST_ONLY diagnostic moves its
+bounded line accumulator and command buffer out of the 3584-byte main-task
+stack as a software mitigation; a new non-flashing build is required to
+validate this source change. The existing installed image remains unchanged.
+
+Auxiliary USB physical result: **FAIL / incomplete**. TEST_ONLY PSA RNG and
+signed-time physical checks: **NOT_RUN**. Official GS68-PHY-001..010, GS-68
+physical acceptance and GS-40 physical acceptance remain **NOT_RUN**. Do not
+reopen the port or claim the mitigation is effective until a new source-bound
+image is separately installed under its approved bounded recovery procedure.
+
 ## Scope and fixture
 
 This plan covers one auxiliary, read-only USB console observation on the
