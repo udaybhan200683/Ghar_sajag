@@ -36,7 +36,11 @@ Previously reported software validation was not rerun. Next action is owner
 approval for read-only identity observation only; after that verify C8
 exclusion and recovery/partition plan, resolve runner binding/case mapping,
 then prepare a new digest-bound installation approval. Do not flash based on
-this preflight.
+this preflight. The evidence/checklist update was committed as
+`1b37f40ddb21e154697cccd9709a798215b8b538` and pushed normally. Dated Jira
+comments record this new NO-GO decision without workflow transitions: GS-172
+`11328` and GS-68 `11329`. Final remote verification follows this handoff
+update.
 
 ## GS-172 / GS-68 USB diagnostic command-console correction — 2026-10-17
 

@@ -248,3 +248,7 @@ of the named spare. Then verify fixture/C8 exclusion and locate/approve a
 compatible recovery image/partition plan. Reconcile runner source/case binding.
 Only after those steps, submit a new digest-bound installation authorization;
 do not execute installation on this receipt.
+
+This preflight was delivered in commit
+`1b37f40ddb21e154697cccd9709a798215b8b538`. Jira evidence comments: GS-172
+`11328`, GS-68 `11329` (no workflow transitions).
