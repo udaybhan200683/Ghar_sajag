@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 import gs130_hil_common as common
 import gs68_capture as capture
+import gs68_build_provenance as provenance
 
 HERE = Path(__file__).resolve().parent
 PRODUCT = HERE.parents[1]
@@ -65,6 +66,26 @@ def _is_reachable_commit(commit):
     result = subprocess.run(["git", "-C", str(REPO), "merge-base", "--is-ancestor", commit, "HEAD"],
         capture_output=True, text=True, timeout=5)
     return result.returncode == 0
+
+
+def _commit_code_tree_oid(commit):
+    if not COMMIT_RE.fullmatch(str(commit)):
+        return None
+    result = subprocess.run(["git", "-C", str(REPO), "rev-parse", f"{commit}:code"],
+        capture_output=True, text=True, timeout=5)
+    value = result.stdout.strip()
+    return value if result.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", value) else None
+
+
+def _code_worktree_clean():
+    result = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain=v1",
+        "--untracked-files=normal", "--", "code"], capture_output=True, text=True, timeout=5)
+    allowed = {
+        "?? code/firmware/hub/target/esp32s3/idf/managed_components/",
+        "?? code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/",
+        "?? code/parivar_saathi_android_app/",
+    }
+    return result.returncode == 0 and all(line in allowed for line in result.stdout.splitlines())
 
 
 def _resolve_repo_file(value, base=REPO):
@@ -178,8 +199,15 @@ def validate_fixture(fixture, source_head, case_plan, profile_path=PROFILE,
         errors.append("fixture_class must be DISPOSABLE_RND_ONLY")
     errors.extend(validate_identity_receipt(fixture, base))
 
-    if fixture.get("source_commit") != source_head or not COMMIT_RE.fullmatch(str(fixture.get("source_commit", ""))):
-        errors.append("source_commit must equal the current isolated source HEAD")
+    image_source_commit = fixture.get("source_commit")
+    if not COMMIT_RE.fullmatch(str(image_source_commit or "")):
+        errors.append("fixture source_commit must identify the immutable image build commit")
+    elif not _is_reachable_commit(image_source_commit):
+        errors.append("fixture source_commit is not trusted/reachable from current HEAD")
+    elif _commit_code_tree_oid(image_source_commit) != _current_code_tree_oid():
+        errors.append("image source code tree differs from current committed code")
+    if not _code_worktree_clean():
+        errors.append("uncommitted or unknown code inputs make source provenance unverifiable")
 
     profile = fixture.get("profile", {})
     if not isinstance(profile, dict):
@@ -204,14 +232,25 @@ def validate_fixture(fixture, source_head, case_plan, profile_path=PROFILE,
         elif not isinstance(report, dict):
             errors.append("profile build report must be a JSON object")
         else:
+            if report.get("source_commit") != image_source_commit:
+                errors.append("profile build report source commit does not match image provenance")
             if not _is_reachable_commit(report.get("source_commit")):
                 errors.append("profile build report source commit is not reachable from current HEAD")
-            if report.get("source_code_tree_oid") != _current_code_tree_oid():
-                errors.append("profile build report code tree does not match current source")
+            report_tree = report.get("source_code_tree_oid")
+            if report_tree != _commit_code_tree_oid(report.get("source_commit")):
+                errors.append("profile build report source commit/code-tree binding is invalid")
+            if report_tree != _current_code_tree_oid():
+                errors.append("profile build report code tree does not match current committed code")
             if report.get("profile_sha256") != profile.get("profile_sha256"):
                 errors.append("profile build report does not match profile hash")
-            if report.get("target") not in (None, "ESP32-S3"):
+            if report.get("target") != "ESP32-S3":
                 errors.append("profile build report target is not ESP32-S3")
+            expected_report_hash = profile.get("build_report_sha256")
+            if (not SHA256_RE.fullmatch(str(expected_report_hash or "")) or
+                    _sha256(build_report) != expected_report_hash.lower()):
+                errors.append("profile build report checksum does not match fixture")
+            errors.extend(provenance.validate_manifest(REPO, report.get("build_inputs"),
+                report.get("build_inputs_sha256")))
 
     boards = fixture.get("boards", {})
     if not isinstance(boards, dict):
@@ -476,7 +515,7 @@ def adjudicate_case(case, evidence, fixture, authorization, plan_sha256, case_pl
     if evidence.get("fixture_id") != fixture.get("fixture_id"):
         return "BLOCKED", "evidence fixture identity does not match the approved fixture"
     expected_fields = {
-        "source_commit": source_head,
+        "source_commit": fixture.get("source_commit"),
         "case_plan_sha256": plan_sha256,
         "profile_sha256": fixture.get("profile", {}).get("profile_sha256"),
         "backend_id": backend_descriptor.get("backend_id"),
@@ -666,8 +705,15 @@ def _physical_preflight(fixture, backend, case_plan, source_head, fixture_errors
     elif (not SHA256_RE.fullmatch(str(backend.get("evidence_signing_public_key_sha256", ""))) or
           _sha256(verifier_path) != backend["evidence_signing_public_key_sha256"].lower()):
         errors.append("TEST_ONLY backend receipt verifier fingerprint mismatch")
-    if fixture.get("source_commit") != source_head:
-        errors.append("fixture source commit does not match current checkout")
+    try:
+        if (_commit_code_tree_oid(fixture.get("source_commit")) != _current_code_tree_oid()):
+            errors.append("fixture image code tree does not match current committed code")
+        if not _is_reachable_commit(fixture.get("source_commit")):
+            errors.append("fixture source_commit is not reachable from canonical HEAD")
+        if not _code_worktree_clean():
+            errors.append("uncommitted or unknown code inputs make source provenance unverifiable")
+    except Exception:
+        errors.append("fixture source_commit code-tree provenance could not be verified")
     return errors
 
 
@@ -709,6 +755,7 @@ def _execute_physical(fixture, backend, case_plan, source_head, plan_sha256,
     transport = (transport_factory or PySerialTransport)(port)
     session = BoundedCapture(transport)
     records = []
+    image_source_commit = fixture["source_commit"]
     opened = False
     ready = None
     try:
@@ -717,7 +764,7 @@ def _execute_physical(fixture, backend, case_plan, source_head, plan_sha256,
         hardware_actions.append({"action": "OPEN_EXACT_MANIFEST_PORT", "board": "s3", "port": port})
         ready = session.wait_ready()
         expected = {
-            "source_commit": source_head,
+            "source_commit": image_source_commit,
             "profile_sha256": fixture["profile"]["profile_sha256"],
             "running_image_sha256": fixture["boards"]["s3"]["image"]["sha256"].lower(),
             "mac_address": _normalize_mac(fixture["boards"]["s3"]["identity"]["mac_address"]),
@@ -735,7 +782,7 @@ def _execute_physical(fixture, backend, case_plan, source_head, plan_sha256,
         for case_id in case_ids:
             nonce = secrets.token_hex(32)
             frame = session.request_case(case_id, nonce, {"operation": "RUN_CASE"})
-            binding = {"fixture_id": fixture["fixture_id"], "source_commit": source_head,
+            binding = {"fixture_id": fixture["fixture_id"], "source_commit": image_source_commit,
                 "image_sha256": expected["running_image_sha256"],
                 "profile_sha256": expected["profile_sha256"], "case_plan_sha256": plan_sha256,
                 "backend_id": backend["backend_id"],
@@ -766,7 +813,7 @@ def _execute_physical(fixture, backend, case_plan, source_head, plan_sha256,
         row["device_frame"].get("case_outcome") in {"PASS", "FAIL"} for row in records)
     bundle_physical = "CAPTURED_UNADJUDICATED" if opened else "NOT_RUN"
     bundle = {"schema": "gs68.physical.capture.v1", "physical": bundle_physical,
-        "fixture_id": fixture["fixture_id"], "source_commit": source_head,
+        "fixture_id": fixture["fixture_id"], "source_commit": image_source_commit,
         "case_plan_sha256": plan_sha256, "profile_sha256": fixture["profile"]["profile_sha256"],
         "image_sha256": fixture["boards"]["s3"]["image"]["sha256"],
         "backend_id": backend["backend_id"],
@@ -774,7 +821,7 @@ def _execute_physical(fixture, backend, case_plan, source_head, plan_sha256,
         "server_certificate_sha256": backend["server_certificate_sha256"],
         "hub_id": backend["hub_id"], "home_id": backend["home_id"],
         "installation_epoch": str(backend["installation_epoch"]),
-        "binding": {"fixture_id": fixture["fixture_id"], "source_commit": source_head,
+        "binding": {"fixture_id": fixture["fixture_id"], "source_commit": image_source_commit,
             "image_sha256": fixture["boards"]["s3"]["image"]["sha256"],
             "profile_sha256": fixture["profile"]["profile_sha256"], "case_plan_sha256": plan_sha256,
             "backend_id": backend["backend_id"],

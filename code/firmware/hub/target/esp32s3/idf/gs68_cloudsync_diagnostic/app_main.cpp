@@ -202,29 +202,25 @@ void handle_missing_identity_case(const gs::diagnostic::TargetCommand& command) 
     // Reuse the existing provider contract. This diagnostic intentionally has
     // no Hub/Home/epoch, credential registry row, DS context, or trusted time.
     gs::hub::target::UnprovisionedS3CloudTrust identity;
-    gs::hub::target::HttpsBackendChannel channel(
-        "https://cloudsync.gs68.test", "", identity);
-    const auto response = channel.post("/v1/homes/gs68-test/events", "{\"test_only\":true}");
-    const auto disposition = gs::diagnostic::classify_missing_identity_response(
-        response.status, response.server_authenticated, response.message_complete,
-        response.body.size(), response.network_attempted);
-    const bool blocked = disposition ==
-        gs::diagnostic::DiagnosticPreflightDisposition::Blocked;
-    const char* outcome = blocked ? "BLOCKED" : "FAIL";
-    const char* reason = blocked ? "DS_HOME_EPOCH_CREDENTIAL_AND_TIME_NOT_PROVISIONED"
-                                 : "UNEXPECTED_RESPONSE_OR_NETWORK_ATTEMPT";
+    gs::hub::target::CloudAuthorityBinding binding{};
+    gs::hub::target::CloudTlsIdentity tls_identity{};
+    gs::hub::target::TrustedHubTimeSnapshot trusted_time{};
+    const bool unexpectedly_ready = identity.current_binding(binding) ||
+        identity.current_identity(tls_identity) || identity.trusted_hub_time(0, trusted_time);
+    // This is a local readiness gate only. Do not create even a TEST_ONLY
+    // network request while the diagnostic has no configured authority.
+    const char* outcome = unexpectedly_ready ? "FAIL" : "BLOCKED";
+    const char* reason = unexpectedly_ready ? "UNPROVISIONED_PROVIDER_REPORTED_READY"
+                                            : "DS_HOME_EPOCH_CREDENTIAL_AND_TIME_NOT_PROVISIONED";
     std::printf("GS68/1 {\"schema\":\"gs68.target.event.v1\",\"event\":\"case_result\","
                 "\"case_id\":\"%s\",\"challenge_nonce\":\"%s\","
                 "\"case_outcome\":\"%s\",\"reason\":\"%s\","
                 "\"signing\":\"BLOCKED_NO_DS_CONTEXT\",\"backend_authenticated\":%s,"
                 "\"network_attempted\":%s,\"private_key_exported\":false,"
                 "\"tls_profile\":\"TLS1.2\",\"physical\":\"NOT_RUN\"}\n",
-                command.case_id, command.challenge_nonce, outcome, reason,
-                response.server_authenticated ? "true" : "false",
-                response.network_attempted ? "true" : "false");
+                command.case_id, command.challenge_nonce, outcome, reason, "false", "false");
     std::fflush(stdout);
-    ESP_LOGI(kTag, "identity preflight outcome=%s status=%u network_attempted=%s",
-             outcome, response.status, response.network_attempted ? "true" : "false");
+    ESP_LOGI(kTag, "identity preflight outcome=%s network_attempted=false", outcome);
 }
 
 void handle_time_key(const gs::diagnostic::TargetCommand& command) {
@@ -328,9 +324,9 @@ void handle_command(const char* command_text) {
         handle_time_proof(command);
     } else {
         std::printf("GS68/1 {\"schema\":\"gs68.target.event.v1\",\"event\":\"command_result\","
-                    "\"case_id\":\"%s\",\"operation\":\"%s\","
+                    "\"case_id\":\"%s\",\"challenge_nonce\":\"%s\",\"operation\":\"%s\","
                     "\"result\":\"OBSERVED_NO_ACTION\",\"physical\":\"NOT_RUN\"}\n",
-                    command.case_id, command.operation);
+                    command.case_id, command.challenge_nonce, command.operation);
         std::fflush(stdout);
     }
 }

@@ -12,6 +12,8 @@ import sys
 import tempfile
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "code/tools/hil"))
+import gs68_build_provenance as provenance
 IDF_DIR = REPO / "code/firmware/hub/target/esp32s3/idf"
 IDF_EXPORT = Path("/home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh")
 PROFILE = IDF_DIR / "sdkconfig.gs68_cloudsync_hil.defaults"
@@ -166,6 +168,20 @@ def main() -> int:
             "Build output is not physical qualification or proof of running image identity.",
         ],
     }
+    partition_binary = build_dir / "partition_table/partition-table.bin"
+    if not partition_binary.is_file():
+        print("GS68_DIAGNOSTIC_BUILD=FAIL generated partition table is missing")
+        return 1
+    report["build_inputs"] = provenance.build_input_manifest(
+        REPO, source_code_tree_oid=source_code_tree_oid,
+        idf_version=report["idf_version"],
+        effective_sdkconfig_sha256=report["sdkconfig_sha256"],
+        build_configuration=report["build_configuration"],
+        effective_sdkconfig_path=sdkconfig,
+        partition_table_binary_path=partition_binary,
+    )
+    report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
+    report["partition_table_binary_sha256"] = sha256(partition_binary)
     report_path = root / "gs68_build_report.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"BUILD_REPORT={report_path}")

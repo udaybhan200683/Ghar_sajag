@@ -553,14 +553,14 @@ class GS68SignedTimeFixtureTests(unittest.TestCase):
         fixture = TestOnlySignedTimeFixture()
         key_command = fixture.load_key_command()
         self.assertEqual(key_command["operation"], "LOAD_TIME_KEY")
-        self.assertEqual(key_command["case_id"], "GS68-PHY-003")
+        self.assertEqual(key_command["case_id"], "GS68-AUX-TIME-001")
         public_der = base64.b64decode(key_command["payload_b64"], validate=True)
         public_key = serialization.load_der_public_key(public_der)
         self.assertEqual(public_key.key_size, 3072)
         self.assertNotIn("private", key_command)
 
         challenge = {"schema": "gs68.target.event.v1", "event": "time_challenge",
-                     "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+                     "case_id": "GS68-AUX-TIME-001", "challenge_nonce": "a" * 64,
                      "boot_generation": 7, "created_monotonic_ms": 1234}
         command = fixture.proof_command(challenge, issued_at_utc=1_900_000_000)
         proof = base64.b64decode(command["payload_b64"], validate=True)
@@ -570,24 +570,35 @@ class GS68SignedTimeFixtureTests(unittest.TestCase):
         self.assertEqual(proof[16:48], b"\xaa" * 32)
         public_key.verify(proof[72:], proof[:72], padding.PKCS1v15(), hashes.SHA256())
         self.assertEqual(command["challenge_nonce"], challenge["challenge_nonce"])
-        with self.assertRaisesRegex(SignedTimeFixtureError, "already signed"):
-            fixture.proof_command(challenge, issued_at_utc=1_900_000_001)
+        next_challenge = dict(challenge, challenge_nonce="b" * 64,
+                              case_id="GS68-AUX-TIME-002")
+        variant = dict(next_challenge, proof_variant={
+            "issued_at_utc": 1_900_000_001, "valid_from_utc": 1_900_000_001,
+            "valid_until_utc": 1_900_000_000, "boot_generation": 8})
+        with self.assertRaisesRegex(SignedTimeFixtureError, "interval"):
+            fixture.proof_command(variant)
+        stale_generation = dict(next_challenge, proof_variant={
+            "issued_at_utc": 1_900_000_001, "valid_from_utc": 1_900_000_001,
+            "valid_until_utc": 1_900_000_121, "boot_generation": 6})
+        stale = fixture.proof_command(stale_generation)
+        stale_proof = base64.b64decode(stale["payload_b64"], validate=True)
+        self.assertEqual(int.from_bytes(stale_proof[8:16], "big"), 6)
 
     def test_invalid_challenge_and_generation_fail_closed(self):
         fixture = TestOnlySignedTimeFixture()
         invalid_frames = [
             {},
             {"schema": "gs68.target.event.v1", "event": "ready",
-             "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+             "case_id": "GS68-AUX-TIME-001", "challenge_nonce": "a" * 64,
              "boot_generation": 1},
             {"schema": "gs68.target.event.v1", "event": "time_challenge",
-             "case_id": "GS68-PHY-003", "challenge_nonce": "A" * 64,
+             "case_id": "GS68-AUX-TIME-001", "challenge_nonce": "A" * 64,
              "boot_generation": 1},
             {"schema": "gs68.target.event.v1", "event": "time_challenge",
-             "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+             "case_id": "GS68-AUX-TIME-001", "challenge_nonce": "a" * 64,
              "boot_generation": True},
             {"schema": "gs68.target.event.v1", "event": "time_challenge",
-             "case_id": "GS68-PHY-003", "challenge_nonce": "a" * 64,
+             "case_id": "GS68-AUX-TIME-001", "challenge_nonce": "a" * 64,
              "boot_generation": 0},
         ]
         for frame in invalid_frames:

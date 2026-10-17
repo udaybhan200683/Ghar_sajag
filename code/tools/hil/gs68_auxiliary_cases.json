@@ -1,0 +1,13 @@
+{
+  "schema": "gs68.auxiliary-test-only-cases.v1",
+  "official_case_promotion": false,
+  "cases": [
+    {"case_id": "GS68-AUX-USB-001", "title": "Delayed and fragmented USB command"},
+    {"case_id": "GS68-AUX-USB-002", "title": "Malformed and oversized USB input recovery"},
+    {"case_id": "GS68-AUX-USB-003", "title": "Sequential USB commands"},
+    {"case_id": "GS68-AUX-PSA-001", "title": "PSA random challenge generation"},
+    {"case_id": "GS68-AUX-TIME-001", "title": "TEST_ONLY signed-time proof"},
+    {"case_id": "GS68-AUX-TIME-002", "title": "TEST_ONLY signed-time negative proofs"},
+    {"case_id": "GS68-AUX-FAIL-001", "title": "Missing identity and authority fail-closed"}
+  ]
+}

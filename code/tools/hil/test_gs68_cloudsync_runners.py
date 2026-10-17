@@ -14,11 +14,16 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 import gs68_capture as capture
 import gs68_cloudsync_hil as runner
+import gs68_build_provenance as provenance
 
 
 class GS68CloudSyncRunnerTests(unittest.TestCase):
     def setUp(self):
-        self.source = "a" * 40
+        self.source = runner.subprocess.run(["git", "-C", str(runner.REPO), "rev-parse", "HEAD"],
+            check=True, capture_output=True, text=True).stdout.strip()
+        clean_patch = patch.object(runner, "_code_worktree_clean", return_value=True)
+        clean_patch.start()
+        self.addCleanup(clean_patch.stop)
         self.cases = json.loads(runner.CASE_PLAN.read_text(encoding="utf-8"))
         self.protected = json.loads(runner.PROTECTED_FIXTURE.read_text(encoding="utf-8"))
         self.backend_dir = Path(tempfile.mkdtemp(prefix="gs68-backend-descriptor-"))
@@ -35,26 +40,47 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
         c3.write_bytes(b"synthetic C3 image")
         profile_hash = self._sha(runner.PROFILE)
         build = root / "build-report.json"
-        build_commit = runner.subprocess.run(["git", "-C", str(runner.REPO), "rev-parse", "HEAD"],
-            check=True, capture_output=True, text=True).stdout.strip()
+        sdkconfig = root / "sdkconfig"
+        partition_table = root / "partition-table.bin"
+        sdkconfig.write_text("CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y\n")
+        partition_table.write_bytes(b"test partition table")
+        build_commit = self.source
         code_tree_oid = runner._current_code_tree_oid()
-        build.write_text(json.dumps({
+        config = {"idf_target": "esp32s3", "diagnostic_profile": "GS68_CLOUDSYNC_DS_MTLS_HIL",
+            "gs68_cloudsync_diagnostic_only": True, "gs_hil_build": False,
+            "gs_hil_control": False, "gs_hil_commissioning": False,
+            "gs_hil_c8_ack_drop": False, "tls_version": "TLS1.2",
+            "console_primary": "USB_SERIAL_JTAG", "console_uart0_primary": False,
+            "console_usb_secondary": False, "stdin_read_mode": "USB_DRIVER_BLOCKING",
+            "hardware_signer": "ESP32_DS_PERIPHERAL_SELECTED_NOT_PROVISIONED"}
+        report = {
+            "target": "ESP32-S3", "idf_version": "v6.0.3",
             "source_commit": build_commit,
             "source_code_tree_oid": code_tree_oid,
             "profile_sha256": profile_hash,
             "s3_image_sha256": self._sha(s3),
-        }))
+            "sdkconfig_sha256": "c" * 64,
+            "build_configuration": config,
+        }
+        report["build_inputs"] = provenance.build_input_manifest(runner.REPO,
+            source_code_tree_oid=code_tree_oid, idf_version="v6.0.3",
+            effective_sdkconfig_sha256=self._sha(sdkconfig), build_configuration=config,
+            effective_sdkconfig_path=sdkconfig, partition_table_binary_path=partition_table)
+        report["sdkconfig_sha256"] = self._sha(sdkconfig)
+        report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
+        build.write_text(json.dumps(report, sort_keys=True, separators=(",", ":")))
         fixture = {
             "schema_version": 1,
             "fixture_id": "GS68-SPARE-UNIT-001",
             "fixture_class": "DISPOSABLE_RND_ONLY",
             "physical_authorization": {"status": "NOT_AUTHORIZED", "jira_comment": None, "authorized_case_ids": []},
-            "source_commit": self.source,
+            "source_commit": build_commit,
             "profile": {
                 "profile_id": "GS68_CLOUDSYNC_DS_MTLS_HIL",
                 "config_path": "code/firmware/hub/target/esp32s3/idf/sdkconfig.gs68_cloudsync_hil.defaults",
                 "profile_sha256": profile_hash,
                 "build_report": str(build),
+                "build_report_sha256": self._sha(build),
             },
             "boards": {
                 "s3": {
@@ -162,6 +188,24 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
             fixture, _, _, _ = self._valid_fixture(temporary)
             self.assertEqual(runner.validate_fixture(fixture, self.source, self.cases, protected=self.protected), [])
 
+    def test_binary_source_commit_survives_later_docs_only_commit(self):
+        prior = runner.subprocess.run(["git", "-C", str(runner.REPO), "rev-parse", "HEAD^"],
+            check=True, capture_output=True, text=True).stdout.strip()
+        self.assertTrue(runner._is_reachable_commit(prior))
+        self.assertEqual(runner._commit_code_tree_oid(prior), runner._current_code_tree_oid())
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture, _, _, build = self._valid_fixture(temporary)
+            report = json.loads(build.read_text())
+            report["source_commit"] = prior
+            report["source_code_tree_oid"] = runner._commit_code_tree_oid(prior)
+            report["build_inputs"]["source_code_tree_oid"] = report["source_code_tree_oid"]
+            report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
+            build.write_text(json.dumps(report, sort_keys=True, separators=(",", ":")))
+            fixture["source_commit"] = prior
+            fixture["profile"]["build_report_sha256"] = self._sha(build)
+            self.assertEqual(runner.validate_fixture(fixture, self.source, self.cases,
+                protected=self.protected), [])
+
     def test_incomplete_fixture_fails_closed(self):
         fixture = json.loads(runner.FIXTURE_TEMPLATE.read_text())
         errors = runner.validate_fixture(fixture, self.source, self.cases, protected=self.protected)
@@ -184,8 +228,16 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
     def test_wrong_source_commit_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             fixture, _, _, _ = self._valid_fixture(temporary)
-            errors = runner.validate_fixture(fixture, "b" * 40, self.cases, protected=self.protected)
+            fixture["source_commit"] = "b" * 40
+            errors = runner.validate_fixture(fixture, self.source, self.cases, protected=self.protected)
             self.assertTrue(any("source_commit" in error for error in errors))
+
+    def test_uncommitted_code_cannot_validate_an_existing_image(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture, _, _, _ = self._valid_fixture(temporary)
+            with patch.object(runner, "_code_worktree_clean", return_value=False):
+                errors = runner.validate_fixture(fixture, self.source, self.cases, protected=self.protected)
+            self.assertTrue(any("uncommitted" in error for error in errors))
 
     def test_wrong_s3_identity_is_rejected_as_protected_c8(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -255,6 +307,24 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
             build.write_text(json.dumps(report))
             errors = runner.validate_fixture(fixture, self.source, self.cases, protected=self.protected)
             self.assertTrue(any("code tree" in error for error in errors))
+
+    def test_build_manifest_rejects_changed_profile_partition_lock_and_configuration(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture, _, _, build = self._valid_fixture(temporary)
+            baseline = json.loads(build.read_text())
+            for field in ("profile", "partition_table_csv", "dependencies_lock"):
+                report = json.loads(json.dumps(baseline))
+                report["build_inputs"]["files"][field]["sha256"] = "0" * 64
+                report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
+                self.assertTrue(provenance.validate_manifest(runner.REPO,
+                    report["build_inputs"], report["build_inputs_sha256"]), field)
+            report = json.loads(json.dumps(baseline))
+            report["build_inputs"]["build_configuration"]["console_primary"] = "UART0"
+            report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
+            self.assertTrue(provenance.validate_manifest(runner.REPO,
+                report["build_inputs"], report["build_inputs_sha256"]))
+            self.assertTrue(runner.validate_fixture(fixture, self.source, self.cases,
+                protected=self.protected) == [])
 
     def test_backend_descriptor_accepts_test_only_nonproduction_profile(self):
         self.assertEqual(runner.validate_backend_descriptor(self._valid_backend(),

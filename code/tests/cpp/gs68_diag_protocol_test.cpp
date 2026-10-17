@@ -42,6 +42,14 @@ int main() {
     s3_case.replace(s3_case.find("OBSERVE"), 7, "RUN_CASE");
     expect(parse(s3_case, command) == TargetCommandError::Ok,
            "existing S3 runner command remains supported");
+    const std::string auxiliary = "{\"schema\":\"gs68.target.command.v1\",\"case_id\":\"GS68-AUX-TIME-001\",\"challenge_nonce\":\"" + nonce + "\",\"operation\":\"TIME_CHALLENGE\"}";
+    expect(parse(auxiliary, command) == TargetCommandError::Ok,
+           "signed-time diagnostic uses dedicated auxiliary case ID");
+    auto unknown_auxiliary = auxiliary;
+    unknown_auxiliary.replace(unknown_auxiliary.find("GS68-AUX-TIME-001"), 17,
+                             "GS68-AUX-TIME-099");
+    expect(parse(unknown_auxiliary, command) == TargetCommandError::InvalidCase,
+           "unknown auxiliary IDs remain rejected");
 
     expect(parse("{}", command) == TargetCommandError::Malformed, "missing fields");
     const auto duplicate = "{\"schema\":\"gs68.target.command.v1\",\"schema\":\"gs68.target.command.v1\",\"case_id\":\"GS68-PHY-006\",\"challenge_nonce\":\"" + nonce + "\",\"operation\":\"OBSERVE\"}";

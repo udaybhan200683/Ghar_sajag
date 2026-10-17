@@ -7,7 +7,7 @@
 namespace gs::diagnostic {
 
 constexpr std::size_t kTargetCommandMaxBytes = 1024;
-constexpr std::size_t kTargetCaseIdCapacity = 16;
+constexpr std::size_t kTargetCaseIdCapacity = 24;
 constexpr std::size_t kTargetNonceCapacity = 65;
 constexpr std::size_t kTargetOperationCapacity = 24;
 constexpr std::size_t kTargetPayloadBase64Capacity = 769;
@@ -99,11 +99,21 @@ struct TargetCommand {
 };
 
 inline bool target_case_id_valid(const char* value) {
-    if (value == nullptr || std::strlen(value) != 12 ||
-        std::strncmp(value, "GS68-PHY-", 9) != 0) return false;
-    return (value[9] == '0' && value[10] == '0' &&
-            value[11] >= '1' && value[11] <= '9') ||
-           (value[9] == '0' && value[10] == '1' && value[11] == '0');
+    if (value == nullptr) return false;
+    if (std::strncmp(value, "GS68-PHY-", 9) == 0 && std::strlen(value) == 12) {
+        return (value[9] == '0' && value[10] == '0' &&
+                value[11] >= '1' && value[11] <= '9') ||
+               (value[9] == '0' && value[10] == '1' && value[11] == '0');
+    }
+    static constexpr const char* kAuxiliaryCaseIds[] = {
+        "GS68-AUX-USB-001", "GS68-AUX-USB-002", "GS68-AUX-USB-003",
+        "GS68-AUX-PSA-001", "GS68-AUX-TIME-001", "GS68-AUX-TIME-002",
+        "GS68-AUX-FAIL-001",
+    };
+    for (const auto* allowed : kAuxiliaryCaseIds) {
+        if (std::strcmp(value, allowed) == 0) return true;
+    }
+    return false;
 }
 
 inline bool target_nonce_valid(const char* value) {
