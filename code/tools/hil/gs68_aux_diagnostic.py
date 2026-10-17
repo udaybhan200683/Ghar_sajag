@@ -30,6 +30,7 @@ HOST_ONLY_SOURCE_DELTA = {
     "code/tools/hil/gs68_capture.py",
     "code/tools/hil/gs68_build_provenance.py",
     "code/tools/hil/test_gs68_aux_runners.py",
+    "code/tools/hil/test_gs68_cloudsync_runners.py",
     "code/scripts/build_gs68_cloudsync_diagnostic.py",
 }
 

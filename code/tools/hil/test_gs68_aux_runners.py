@@ -172,6 +172,9 @@ class GS68AuxiliaryRunnerTests(unittest.TestCase):
 
     def test_source_provenance_allows_only_named_host_observer_deltas(self):
         self.assertTrue(aux.source_delta_is_host_only({"code/tools/hil/gs68_capture.py"}))
+        self.assertTrue(aux.source_delta_is_host_only({
+            "code/tools/hil/gs68_build_provenance.py",
+            "code/tools/hil/test_gs68_cloudsync_runners.py"}))
         self.assertFalse(aux.source_delta_is_host_only(set()))
         self.assertFalse(aux.source_delta_is_host_only({"code/firmware/hub/target/esp32s3/idf/app_main.cpp"}))
         self.assertFalse(aux.source_delta_is_host_only({
