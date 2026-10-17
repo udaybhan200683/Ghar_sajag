@@ -2207,9 +2207,9 @@
         "parivar_saathi_android_app/server/tests/test_push_adapter.py",
         "parivar_saathi_android_app/web/caregiver/call.html",
         "parivar_saathi_android_app/web/caregiver/call.mjs",
-        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/CallActivity.kt",
-        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/CaregiverMessagingService.kt",
-        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/DeviceRegistration.kt"
+        "parivar_saathi_android_app/prototype/android/CallActivity.kt",
+        "parivar_saathi_android_app/prototype/android/CaregiverMessagingService.kt",
+        "parivar_saathi_android_app/prototype/android/DeviceRegistration.kt"
       ],
       "success": "Ran (\\d+) tests?",
       "required_success": [

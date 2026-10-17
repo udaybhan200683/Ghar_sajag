@@ -11,8 +11,9 @@ denied.
 
 Push notifications, FCM token registration, call invitations, microphone access,
 WebRTC, automatic abnormality calling and backup escalation are **disabled and
-not included in the dashboard APK**. The imported signaling and FCM files remain
-prototype source only. Production identity/session issuance, current Home role
+not included in the dashboard APK**. The imported Android call classes are kept
+under `prototype/android/`, outside the Gradle app source tree; signaling and
+FCM files remain prototype source only. Production identity/session issuance, current Home role
 and epoch checks, revocation, a live authenticated HTTPS deployment, durable call
 management, TURN credentials and S3 Hub media are still upstream dependencies.
 No screen or local state in this APK substitutes for those services.

@@ -4008,7 +4008,12 @@ HEAD was `072e94ee7185b3797cc83a4308331571cba17663` while the read-only remote
 R1 head was `3075011dd1b0525a8dfa326131c6a435e515b02a`; no cross-branch sync was
 attempted.
 
-Hosted run 39006792176 reached Kotlin compilation but failed; artifact verification/upload were skipped. The validation runner is being improved to retain the compiler diagnostic before the isolated branch is retried. Local Android
+Hosted run 39006792176 exposed two build defects: Kotlin package segment `in`
+must be escaped, and Java source excludes did not exclude Kotlin prototype
+sources. Run 39006969459 failed on the same issues and exposed the prototype
+Firebase type errors. The current staged GS-177 tree escapes the Kotlin package
+segment and moves call/FCM Kotlin files outside the Android source tree; the
+next hosted build is pending. Local Android
 JDK/SDK/Gradle/ADB/apksigner and phone are unavailable. Prototype verification
 passed (6/6); feature traceability passed (210 features, 234 modules, 25
 physical cases, 22 mapping tests); validation framework passed (48/48); and

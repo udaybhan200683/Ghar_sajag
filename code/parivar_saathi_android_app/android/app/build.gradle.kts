@@ -21,11 +21,6 @@ android {
         buildConfigField("boolean", "FCM_ENABLED", "false")
     }
     buildFeatures { buildConfig = true }
-    sourceSets.getByName("main").java.exclude(
-        "in/gharsajag/caregiver/CallActivity.kt",
-        "in/gharsajag/caregiver/CaregiverMessagingService.kt",
-        "in/gharsajag/caregiver/DeviceRegistration.kt",
-    )
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
