@@ -1,5 +1,37 @@
 # R1 Current Work State
 
+## GS-68 / GS-172 stack-correction diagnostic update — 2026-10-17
+
+The first spare session on the previously installed `855b586d...` image
+captured an ESP-IDF main-task stack-overflow panic and no OBSERVE response. A
+host-only build then used commit `f7278f9746e756214502ac270dc8db43e6ab0489`,
+moving two bounded command buffers out of `app_main`'s stack. The 278,480-byte
+TEST_ONLY app (`9558665c928ea2ee2910b9297cba9feacebd00730410c1094137d57ff49b8c04`)
+was installed once at measured OTA0 offset `0x20000`; esptool v5.4.0 exited 0
+and reported `Hash of data verified.` The only written sector window was
+`0x20000..0x64000`; the command then performed its explicitly requested hard
+reset via RTS. A restricted 1 MiB baseline capture covers that candidate
+sector window. No NVS or other partition was written.
+
+One subsequent bounded native USB session matched the spare PnP parent receipt
+and opened exclusively once. It captured two startup lines, followed by a
+truncated READY frame ending mid-profile digest. No exact image identity or
+OBSERVE response was established, so no malformed/oversized/sequential commands
+or TEST_ONLY PSA/signed-time operations were sent. This capture does not show a
+complete panic and does not prove whether the serial open reset the device or
+whether incomplete bytes arose from USB/target output interruption. Private
+bundle SHA-256 `1eb39f84351907b9097f841dd7be9f9a4302bba2923a3d1dd3f0b39e8e9ea84c`;
+console digest `bc3a6ed7dab78b3e76068c478ba00639059f4222c1f1ace72656f871e68104be`.
+
+The isolated profile now sets `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192`, leaving
+the product defaults unchanged. This is the last targeted stack correction for
+this execution. It is unbuilt and not installed yet. Run the focused GS-68
+profile/runner tests, source-bound ESP-IDF 6.0.3 non-flashing build, validate
+the new candidate, then use at most one bounded app-only OTA0 installation and
+one final observation session if current identity/recovery gates still pass.
+Stop after any further incomplete READY, panic, response timeout or PnP event.
+Official GS-68/GS-40 physical acceptance and silicon DS/mTLS remain **NOT_RUN**.
+
 ## GS-68 / GS-172 authorized spare USB diagnostic execution — 2026-10-17 update
 
 The first owner-authorized Windows-native session was executed after commit

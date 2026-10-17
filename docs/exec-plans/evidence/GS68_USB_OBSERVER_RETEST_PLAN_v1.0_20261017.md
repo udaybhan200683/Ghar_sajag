@@ -1,4 +1,42 @@
-# GS-68 spare-S3 USB observer retest plan v1.1
+# GS-68 spare-S3 USB observer retest plan v1.3 execution update
+
+## 2026-10-17 — Replacement image session result and next correction
+
+After the source-bound TEST_ONLY stack-buffer build below was installed once
+app-only at measured OTA0 `0x20000`, Windows esptool v5.4.0 exited 0 and
+reported `Hash of data verified.` The exact image was 278,480 bytes, full
+SHA-256 `9558665c928ea2ee2910b9297cba9feacebd00730410c1094137d57ff49b8c04`,
+ESP image-validation digest
+`fb24ca983b3e16fefc6b6d9c71a40ce9f0a6d894832e898c852584e66d74de65`, source
+`f7278f9746e756214502ac270dc8db43e6ab0489`, profile hash
+`7d13aa13684953744737b653c82ec7f8b95d0c6bfc715649bc99d501313d3c72`.
+Only the app's sector range `0x20000..0x64000` was written. Esptool then
+reported its requested hard reset via RTS; it did not modify bootloader,
+partition table, OTA metadata, NVS, OTA1, journal or eFuses.
+
+The following single COM observation session again matched the private spare
+PnP parent receipt and opened exclusively once. It captured two complete
+ESP-IDF startup log lines and then an incomplete `GS68/1` READY frame ending
+mid-profile digest. The observer marked it truncated and sent no command.
+There is no direct running-image identity result, fresh OBSERVE, malformed or
+oversized recovery, sequential-command result, PSA-RNG result, or signed-time
+result from this session. The private result bundle SHA-256 is
+`1eb39f84351907b9097f841dd7be9f9a4302bba2923a3d1dd3f0b39e8e9ea84c`; its raw
+console digest is
+`bc3a6ed7dab78b3e76068c478ba00639059f4222c1f1ace72656f871e68104be`. The
+prior image session's complete stack-overflow panic remains an observed failure;
+this second transcript does not contain a complete panic or prove its cause.
+
+The latest source correction raises the isolated GS-68 profile's main-task
+stack from 3,584 to 8,192 bytes, in addition to moving its bounded input state
+to static storage. This directly addresses the long READY/crypto call-path
+stack-pressure hypothesis, but is not yet built, installed or physically
+verified. No more serial session is permitted until that source-bound build is
+validated and a replacement candidate is installed within the existing
+spare-only authorization. Reset-safe driver behavior remains unqualified.
+Auxiliary physical USB remains **FAIL/incomplete**; TEST_ONLY PSA RNG and
+signed time remain **NOT_RUN**; official GS-68 and GS-40 acceptance remain
+**NOT_RUN**.
 
 ## v1.2 owner-authorized execution amendment — 2026-10-17
 

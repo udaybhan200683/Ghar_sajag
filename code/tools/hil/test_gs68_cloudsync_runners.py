@@ -536,6 +536,7 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
     def test_test_profile_enables_only_ds_and_tls12(self):
         profile = runner.PROFILE.read_text()
         self.assertIn("CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y", profile)
+        self.assertIn("CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192", profile)
         self.assertIn("CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y", profile)
         self.assertNotIn("CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y", profile)
         self.assertNotIn("CONFIG_GS_CLOUDSYNC_ENABLED=y", profile)
@@ -544,6 +545,7 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
         defaults = (runner.PRODUCT / "firmware/hub/target/esp32s3/idf/sdkconfig.defaults").read_text()
         cmake = (runner.PRODUCT / "firmware/hub/target/esp32s3/idf/CMakeLists.txt").read_text()
         self.assertNotIn("CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y", defaults)
+        self.assertNotIn("CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192", defaults)
         self.assertNotIn("sdkconfig.gs68_cloudsync_hil.defaults", cmake)
 
 

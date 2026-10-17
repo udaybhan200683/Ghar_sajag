@@ -45,6 +45,7 @@ def main() -> int:
         "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
         "# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set",
         "# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set",
+        "CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192",
         "CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y",
     )
     if any(entry not in profile_config for entry in profile_required):
@@ -115,7 +116,8 @@ def main() -> int:
     config = sdkconfig.read_text(encoding="utf-8")
     required = ("CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y",
                 "CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y",
-                "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y")
+                "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+                "CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192")
     if any(entry not in config for entry in required):
         print("GS68_DIAGNOSTIC_BUILD=FAIL sdkconfig omitted a required DS/TLS/USB-console option")
         return 1
@@ -152,6 +154,7 @@ def main() -> int:
             "console_primary": "USB_SERIAL_JTAG",
             "console_uart0_primary": False,
             "console_usb_secondary": False,
+            "main_task_stack_bytes": 8192,
             "stdin_read_mode": "USB_DRIVER_BLOCKING",
             "hardware_signer": "ESP32_DS_PERIPHERAL_SELECTED_NOT_PROVISIONED",
         },

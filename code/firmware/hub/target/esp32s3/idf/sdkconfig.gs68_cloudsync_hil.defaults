@@ -6,6 +6,10 @@
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 # CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
 # CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set
+# The long READY JSON and the TEST_ONLY RSA verification call path need more
+# headroom than IDF's 3584-byte main-task default. This override is isolated to
+# the GS-68 diagnostic profile and does not affect production composition.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
 CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y
 CONFIG_MBEDTLS_HARDWARE_RSA_DS_PERIPHERAL=y
 CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y
