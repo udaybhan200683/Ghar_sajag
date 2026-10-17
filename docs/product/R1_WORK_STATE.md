@@ -4046,12 +4046,14 @@ checkpoint, then added the TEST_ONLY S3 diagnostic integration and a response
 field-layout compatibility fix. The implementation commits are
 `b2decb25bbc3ebdd5413613f5f290f4f5587458b`,
 `3d01bd92c80f0356d9686a9f3e3feebe7e7a2c18`, and
-`d75f6b730c0b4ddc1861f2f30bf9d3fa4f381f5a`. At this handoff checkpoint local
-HEAD is `d75f6b730c0b4ddc1861f2f30bf9d3fa4f381f5a`; origin was last observed at
-`6a0e482727c64cf5a34cb43e353bdc94b814aca1` before the final validation/doc
-commit and push, so local is three commits ahead. No branch/worktree switch was
-made. All pre-existing untracked PWA/Android assets, IDF managed components,
-CloudSync notes and GS-114/C8/GS-40 evidence remain untouched.
+`d75f6b730c0b4ddc1861f2f30bf9d3fa4f381f5a`. The target-build/source test
+checkpoint was d75f6b7. The validation/evidence commit
+`ccc903f07fc960bef1536d1a7e727ca6362bd4fd` was pushed normally after fetch
+confirmed origin remained at `6a0e482727c64cf5a34cb43e353bdc94b814aca1` and
+that origin was an ancestor. `git ls-remote` then matched local HEAD at ccc903f.
+No branch/worktree switch was made. All pre-existing untracked PWA/Android
+assets, IDF managed components, CloudSync notes and GS-114/C8/GS-40 evidence
+remain untouched.
 
 The isolated diagnostic target links the existing `cloud_trust_provider.cpp`
 and exercises runtime-injected TEST_ONLY public RSA-3072 key, S3 PSA RNG
@@ -4103,7 +4105,14 @@ runner, and sanitizer stages passed. The focused target/host tests, non-flashing
 S3 build, feature traceability, and exact candidate image hashes are recorded
 above and in the paired evidence file. No gate failure was suppressed.
 
-Next action: inspect and stage only the intended code/evidence/traceability
-files, recheck remote and active writers, commit/push normally, verify remote
-HEAD, then add dated GS-172 and GS-68 evidence comments. A separately authorized
-image install and physical observer plan is required before any target test.
+Delivery comments were added without workflow changes: GS-172 `11321` and GS-68
+`11322`. The evidence commit ccc903f and its remote equality were confirmed
+before those comments. This status receipt is the final handoff update on the
+same branch; its normal push and HEAD equality are verified after commit.
+
+Next action: obtain the open production security approvals and separate
+fixture-specific authorization before installing the candidate or opening a
+physical observer. A target test must verify the candidate's image hash before
+running the PSA RNG, signed-time proof and fail-closed diagnostic cases. DS
+signing/mTLS still require approved DS key provisioning, so this image does not
+qualify those paths.
