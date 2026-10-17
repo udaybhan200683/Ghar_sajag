@@ -4263,3 +4263,16 @@ partition/slot and restorable-baseline recovery preflight. Do not install unless
 security state and app-only compatibility are known and offline recovery is
 validated. No protected C8 access, flash/erase, eFuse/security writes,
 production credentials or endpoints were used.
+
+### Delivery receipt — GS-172 / GS-68 — 2026-10-17
+
+The auxiliary diagnostic NO-GO evidence is in delivery commit
+`1f7016d0e1482d6d541d541d97665e7aca9c9059`; it was pushed normally, and
+`origin/feature/r1-commercial-baseline` matched that commit. GS-172 and GS-68
+remain In Progress; dated Jira comments `11333` and `11334` respectively record
+the source-bound candidate, software results, blocked physical gates and
+redacted spare identity. The 35 pre-existing untracked paths were left
+unstaged. The separate GS-177 PWA validation process remained in its own
+worktree and was not interrupted. No hardware installation or diagnostic was
+performed. The next action is read-only protection/partition inspection plus
+validated recovery preparation after stable USB transport is restored.
