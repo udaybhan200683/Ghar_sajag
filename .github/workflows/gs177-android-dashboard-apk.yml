@@ -24,11 +24,13 @@ concurrency:
 
 jobs:
   android-caregiver-apk:
-    if: vars.GS177_BACKEND_ORIGIN != ''
+    # The fixed origin is the owner-verified, isolated TEST_ONLY free staging service.
+    # Repository variable overrides it for future approved environments; neither is a secret.
+    # This workflow only builds on the GS-177 feature branch; it is not a release pipeline.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      GS177_BACKEND_ORIGIN: ${{ vars.GS177_BACKEND_ORIGIN }}
+      GS177_BACKEND_ORIGIN: ${{ vars.GS177_BACKEND_ORIGIN || 'https://parivar-saathi-lite-staging.onrender.com' }}
       GS177_KEYSTORE_B64: ${{ secrets.GS177_KEYSTORE_B64 }}
       GS177_KEYSTORE_PASSWORD: ${{ secrets.GS177_KEYSTORE_PASSWORD }}
       GS177_KEY_ALIAS: ${{ secrets.GS177_KEY_ALIAS }}
