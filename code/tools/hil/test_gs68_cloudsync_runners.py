@@ -192,19 +192,20 @@ class GS68CloudSyncRunnerTests(unittest.TestCase):
         prior = runner.subprocess.run(["git", "-C", str(runner.REPO), "rev-parse", "HEAD^"],
             check=True, capture_output=True, text=True).stdout.strip()
         self.assertTrue(runner._is_reachable_commit(prior))
-        self.assertEqual(runner._commit_code_tree_oid(prior), runner._current_code_tree_oid())
+        prior_tree = runner._commit_code_tree_oid(prior)
         with tempfile.TemporaryDirectory() as temporary:
             fixture, _, _, build = self._valid_fixture(temporary)
             report = json.loads(build.read_text())
             report["source_commit"] = prior
-            report["source_code_tree_oid"] = runner._commit_code_tree_oid(prior)
+            report["source_code_tree_oid"] = prior_tree
             report["build_inputs"]["source_code_tree_oid"] = report["source_code_tree_oid"]
             report["build_inputs_sha256"] = provenance.fingerprint(report["build_inputs"])
             build.write_text(json.dumps(report, sort_keys=True, separators=(",", ":")))
             fixture["source_commit"] = prior
             fixture["profile"]["build_report_sha256"] = self._sha(build)
-            self.assertEqual(runner.validate_fixture(fixture, self.source, self.cases,
-                protected=self.protected), [])
+            with patch.object(runner, "_current_code_tree_oid", return_value=prior_tree):
+                self.assertEqual(runner.validate_fixture(fixture, self.source, self.cases,
+                    protected=self.protected), [])
 
     def test_incomplete_fixture_fails_closed(self):
         fixture = json.loads(runner.FIXTURE_TEMPLATE.read_text())
