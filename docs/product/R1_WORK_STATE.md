@@ -4216,3 +4216,50 @@ physical observer. A target test must verify the candidate's image hash before
 running the PSA RNG, signed-time proof and fail-closed diagnostic cases. DS
 signing/mTLS still require approved DS key provisioning, so this image does not
 qualify those paths.
+
+## 2026-10-17 — GS-172 / GS-68 spare-S3 auxiliary execution checkpoint
+
+Canonical source on `feature/r1-commercial-baseline` was advanced by four
+implementation commits ending at `cfc89a8e7bd6009eddde5790814e557357d8a032`.
+The final TEST_ONLY S3 diagnostic candidate is source-bound to that commit and
+builds with ESP-IDF 6.0.3. Image size/hash: 278,944 bytes /
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`;
+profile/sdkconfig SHA-256 are `7d13aa13684953744737b653c82ec7f8b95d0c6bfc715649bc99d501313d3c72` /
+`ff3150eeeac79a4a80b5a718a20408386d90d5a491cb199d763e0b6190105a7a`.
+The former c0fb82c candidate is superseded. Source/build runner checks now
+preserve immutable artifact provenance across documentation-only commits while
+rejecting code/build-input changes; auxiliary case IDs do not redefine official
+GS-68 cases.
+
+Validation: `make -C code gs130-hil-runner-test` PASS (1,738 protocol
+assertions, 84 Python tests; no port opened); focused auxiliary/source-binding/
+signed-time tests PASS (13); `make -C code gs68-node-diag-protocol-host-test`
+PASS (1,738); non-flashing ESP-IDF 6.0.3 S3 build PASS. Context preflight
+PASS. Full release validation was not run.
+
+Owner-designated spare identity is consistent with host-only USB/PnP evidence
+and distinct from protected C8 inventory. One documented read-only security
+inspection with reset-capable `--before default-reset --after hard-reset`
+transport options returned no security data and blocked. No retry/device I/O,
+flash readback/backup, candidate install, USB diagnostic or physical crypto
+operation followed. Secure Boot, Flash Encryption, ROM restrictions, installed
+partition/OTA state and recovery readiness remain UNKNOWN; install is NO-GO.
+Candidate not installed; running image not verified; USB/PSA/RSA tests and
+official GS-68/GS-40 physical acceptance remain NOT_RUN. Restricted private
+host evidence is under `~/.local/share/ghar-sajag/GS68-20261017`; public
+report redacts device identifiers.
+
+Local implementation HEAD was four commits ahead of origin at last check;
+fetch/push equality must be verified after documentation/Jira completion.
+Existing unrelated untracked artifacts remain unstaged. GS-172 and GS-68 are
+In Progress. The Hub migration `clean migration commits` assertion, 600-second
+sanitizer timeout, required P0 `product_status=PARTIAL`, production CA/DS/time/
+registry/recovery approvals and physical acceptance remain open. Precise
+candidate and next steps are in
+`docs/exec-plans/evidence/GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md`.
+
+Next action: re-establish stable USB and complete only read-only security,
+partition/slot and restorable-baseline recovery preflight. Do not install unless
+security state and app-only compatibility are known and offline recovery is
+validated. No protected C8 access, flash/erase, eFuse/security writes,
+production credentials or endpoints were used.

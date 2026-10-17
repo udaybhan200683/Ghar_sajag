@@ -1065,3 +1065,16 @@ trust anchors, CA/issuer custody, S3 DS/eFuse key handling, authenticated-time
 authority, rollback protection, Secure Boot/Flash Encryption, production
 registry, or physical operation. `CONTEXT_VERSION` remains
 `2026-10-13.001`.
+
+## 2026-10-17 — GS-172 / GS-68 spare-S3 diagnostic execution evidence (no decision)
+
+The current TEST_ONLY S3 candidate is source-bound to cfc89a8 and passed the
+non-flashing ESP-IDF 6.0.3 build. Its image SHA-256 is
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`; the
+previous c0fb82c build-only image is superseded. Host-only device enumeration
+is consistent with the owner-designated spare and excluded the protected C8
+inventory. A reset-capable read-only security query returned no security data
+and blocked, so protection, installed partitions, and recovery remain unknown.
+Installation was stopped at NO-GO. No product/security decision or
+`CONTEXT_VERSION` changed. See
+`docs/exec-plans/evidence/GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md`.

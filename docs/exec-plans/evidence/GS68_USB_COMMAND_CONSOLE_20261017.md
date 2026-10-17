@@ -102,3 +102,15 @@ verification, DS signing, mTLS, and current-image identity remain NOT_RUN until
 the corresponding approved physical observations pass. The image has no
 provisioned DS/HMAC context, production certificate, production time anchor,
 or commercial endpoint. GS-68 and GS-40 physical acceptance remain NOT_RUN.
+
+## 2026-10-17 source-bound build supersession
+
+The build-only candidate SHA-256 `c0fb82c69fe030f8a4358b7783e7c537156dfdb361b4df1a620831210d1bef65`
+was superseded after auxiliary runner/source-binding changes and a compile
+correction. The current source-bound candidate is
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049` from
+`cfc89a8e7bd6009eddde5790814e557357d8a032`; the successful non-flashing build
+and its configuration hashes are recorded in
+[the auxiliary diagnostic receipt](GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md).
+Neither build-only candidate has been installed. Physical console, PSA RNG,
+signed-time, DS signing, mTLS and official acceptance remain NOT_RUN.

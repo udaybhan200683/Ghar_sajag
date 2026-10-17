@@ -252,3 +252,33 @@ do not execute installation on this receipt.
 This preflight was delivered in commit
 `1b37f40ddb21e154697cccd9709a798215b8b538`. Jira evidence comments: GS-172
 `11328`, GS-68 `11329` (no workflow transitions).
+
+## 2026-10-17 execution addendum — host identity observed; install remains NO-GO
+
+This addendum supersedes the earlier fixture-unassigned and candidate-ready
+statements above. The owner identified the discussed ESP32-S3 N16R8 as the
+dedicated spare, distinct from the protected C8 Hub. Host-only USB/PnP
+observations are consistent with that selection and differ from the C8
+inventory; unique identifiers are in a restricted private receipt, not this
+public report.
+
+One read-only esptool v5.4.0 security inspection was attempted under ESP-IDF
+6.0.3. Its transport command included `--before default-reset --after
+hard-reset`, which are reset-capable options. It printed only its tool/serial
+header and blocked without returning security information. The process was
+not killed or retried. No further device I/O, flash readback, backup, or
+installation was performed. Therefore Secure Boot, Flash Encryption, ROM
+restrictions, installed partition map/OTA selection, and current image remain
+UNKNOWN; no restorable recovery route is established. Installation is NO-GO.
+
+The prior c0fb82c candidate is superseded. Current build-only candidate is
+SHA-256 `855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`,
+source `cfc89a8e7bd6009eddde5790814e557357d8a032`; see
+[auxiliary diagnostic execution](GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md) for
+its image/configuration hashes and software results. Candidate was not
+installed; all physical command and crypto cases remain NOT_RUN.
+
+Next gate: restore stable USB access, complete documented read-only security
+and partition/slot inspection, identify and validate an offline-restorable
+baseline image with metadata, then reassess measured app-only compatibility.
+Any unknown protection or missing recovery path remains NO-GO.

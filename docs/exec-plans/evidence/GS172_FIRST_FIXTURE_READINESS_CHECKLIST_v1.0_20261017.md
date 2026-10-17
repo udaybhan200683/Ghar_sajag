@@ -90,3 +90,23 @@ Related: [SOP](GS172_FIRST_DEVICE_PROVISIONING_SOP_v1.0_20261017.md),
 [decision matrix](GS172_SECURITY_DECISION_APPROVAL_MATRIX_v1.0_20261017.md),
 [physical plan](GS172_PHYSICAL_ACCEPTANCE_PLAN_v1.0_20261017.md),
 [GS-68 first physical plan](GS68_S3_FIRST_PHYSICAL_QUALIFICATION_PLAN_20261016.md).
+
+## 2026-10-17 execution status addendum
+
+This dated status supersedes earlier rows that called the fixture identity
+unknown and described c0fb82c as the current candidate. Owner selection plus
+host-only USB/PnP observation consistently identified the dedicated spare and
+excluded the protected C8 inventory. Public evidence redacts stable device
+identifiers.
+
+The current build-only TEST_ONLY image is
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`, source
+`cfc89a8e7bd6009eddde5790814e557357d8a032`; see
+[the auxiliary diagnostic receipt](GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md).
+The former c0fb82c candidate is superseded. A reset-capable read-only security
+query returned no data and blocked. Device security state, installed partition
+layout/slot, and recoverability are UNKNOWN. No readback, backup, installation,
+USB command, or cryptographic physical test was performed. Physical readiness
+is NO-GO until a successful security/partition inspection and validated
+recovery route are obtained. Official GS-68 and GS-40 physical cases remain
+NOT_RUN.
