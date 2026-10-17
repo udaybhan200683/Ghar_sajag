@@ -110,3 +110,30 @@ USB command, or cryptographic physical test was performed. Physical readiness
 is NO-GO until a successful security/partition inspection and validated
 recovery route are obtained. Official GS-68 and GS-40 physical cases remain
 NOT_RUN.
+
+## 2026-10-17 installation and USB observer status update
+
+This status supersedes the prior addendum's statements that the candidate was
+build-only, security/partition state was unknown, and no installation had
+occurred. Under separate authorization, the exact TEST_ONLY image
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049` was
+installed application-only at measured OTA0 `0x20000`; written bytes were
+verified and the running READY digest matched its validated appended ESP image
+hash `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`.
+Pre-install read-only evidence measured Secure Boot and Flash Encryption
+disabled, verified the partition table/OTA metadata and selected OTA0, and
+validated a private 1 MiB OTA0 recovery capture plus offline restore syntax.
+The restoration procedure itself remains untested.
+
+The auxiliary USB command test is still INCOMPLETE/BLOCKED. A repeated READY
+and startup output cannot determine replay versus reset because the installed
+target does not report boot generation/uptime and host reset-line/USB event
+evidence is missing. Host observer software now drains and retains logs,
+correlates exact structured responses, validates equivalent artifact/runtime
+digests, and tests a fail-closed Windows native transport seam. Its mock tests
+do not prove the installed Windows driver is reset-safe. Physical observer
+readiness remains **NO-GO** until that provider is qualified and separate
+explicit authorization is given for the exact
+[retest plan](GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md). No new physical
+access occurred in this software-only task. PSA RNG/signed-time, DS signing,
+mTLS, and official GS-68/GS-40 physical acceptance remain NOT_RUN.

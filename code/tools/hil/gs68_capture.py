@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 import time
 from datetime import datetime
 
@@ -28,6 +29,206 @@ CASE_ID = re.compile(r"^GS68-PHY-(00[1-9]|010)$")
 
 class CaptureError(RuntimeError):
     pass
+
+
+class WindowsPortPreflightError(CaptureError):
+    """Windows device/driver policy cannot prove a reset-safe observation."""
+
+
+class WindowsSerialPlatform:
+    """Fail-closed platform seam for a qualified Windows serial provider.
+
+    The stock pySerial/Windows stack cannot prove that CreateFile and its driver
+    will leave DTR/RTS unchanged during open. A platform provider must supply
+    current PnP identity, process ownership, and an independently qualified
+    no-transition open policy before this transport can touch a COM port.
+    """
+    def inspect_pnp_identity(self, port: str) -> dict | None:
+        return None
+
+    def port_owner(self, port: str) -> int | None:
+        return None
+
+    def reset_safe_open_policy(self, port: str) -> dict:
+        return {"verified": False, "description": "no qualified Windows driver policy"}
+
+    def open_serial(self, port: str, *, baudrate: int, timeout: float,
+                    write_timeout: float, flow_control: bool):
+        raise WindowsPortPreflightError("no qualified Windows serial provider is installed")
+
+    def take_control_line_events(self, port: str) -> list[dict]:
+        return []
+
+    def take_port_events(self, port: str) -> list[dict]:
+        return []
+
+
+class WindowsNativeSerialTransport:
+    """Single-open, identity-pinned Windows observation transport.
+
+    This adapter deliberately requires a provider that can prove all of the
+    following before opening: exact PnP identity, no competing process, and a
+    driver/open policy that does not pulse reset-related control lines. Merely
+    setting DTR/RTS low after open is not accepted as proof.
+    """
+    def __init__(self, port: str, *, expected_port: str, expected_pnp: dict[str, str],
+                 platform=None, baudrate: int = 115200):
+        if not isinstance(port, str) or not re.fullmatch(r"COM[1-9][0-9]*", port.upper()):
+            raise WindowsPortPreflightError("Windows transport requires an explicit COM port")
+        required = ("instance_id", "vid", "pid", "serial")
+        if not isinstance(expected_pnp, dict) or any(
+                not isinstance(expected_pnp.get(key), str) or not expected_pnp[key]
+                for key in required):
+            raise WindowsPortPreflightError("verified spare PnP identity is incomplete")
+        if not 1 <= baudrate <= 1_000_000:
+            raise WindowsPortPreflightError("baud rate is outside the bounded range")
+        self.port = port.upper()
+        if not isinstance(expected_port, str) or expected_port.upper() != self.port:
+            raise WindowsPortPreflightError("COM port substitution differs from the approved spare manifest")
+        self.expected_pnp = dict(expected_pnp)
+        self.platform = platform or WindowsSerialPlatform()
+        self.baudrate = baudrate
+        self.device = None
+        self.disconnected = False
+        self.ever_opened = False
+        self.control_events: list[dict] = []
+        self.opened_monotonic_ns: int | None = None
+
+    def open(self):
+        if self.ever_opened:
+            raise WindowsPortPreflightError("Windows serial port may be opened only once per session")
+        if sys.platform != "win32" and isinstance(self.platform, WindowsSerialPlatform):
+            raise WindowsPortPreflightError("Windows-native transport is unavailable on this host")
+        observed = self.platform.inspect_pnp_identity(self.port)
+        if not isinstance(observed, dict) or any(
+                observed.get(key) != value for key, value in self.expected_pnp.items()):
+            raise WindowsPortPreflightError("COM port PnP identity does not match the designated spare")
+        owner = self.platform.port_owner(self.port)
+        if owner is None:
+            raise WindowsPortPreflightError("COM port ownership could not be checked")
+        if owner:
+            raise WindowsPortPreflightError("COM port is owned by another process")
+        policy = self.platform.reset_safe_open_policy(self.port)
+        if not isinstance(policy, dict) or policy.get("verified") is not True or not policy.get("description"):
+            raise WindowsPortPreflightError("Windows driver cannot prove reset-safe port opening")
+        # The provider, not pySerial line-state requests, is responsible for
+        # proving no DTR/RTS transition occurs during CreateFile/open.
+        self.control_events.append({"operation": "open_policy", "result": "verified",
+                                    "description": str(policy["description"]),
+                                    "monotonic_ns": time.monotonic_ns()})
+        try:
+            self.device = self.platform.open_serial(self.port, baudrate=self.baudrate,
+                timeout=0.2, write_timeout=1.0, flow_control=False)
+        except Exception as error:
+            self.control_events.append({"operation": "open", "result": "failed",
+                                        "error_type": type(error).__name__,
+                                        "monotonic_ns": time.monotonic_ns()})
+            self.ever_opened = True
+            raise WindowsPortPreflightError("Windows serial open failed; reconnect is forbidden") from error
+        self.ever_opened = True
+        self.opened_monotonic_ns = time.monotonic_ns()
+        self.control_events.append({"operation": "open", "result": "success",
+                                    "monotonic_ns": self.opened_monotonic_ns})
+        self._record_control_line_events()
+        self._record_port_events("open")
+
+    def write(self, payload: bytes):
+        if self.device is None:
+            raise CaptureError("Windows serial transport is not open")
+        if not isinstance(payload, bytes) or len(payload) > MAX_FRAME_BYTES:
+            raise CaptureError("Windows serial write exceeds bound")
+        written = self.device.write(payload)
+        self.device.flush()
+        if written != len(payload):
+            raise CaptureError("short Windows serial write")
+
+    def read_line(self, timeout: float) -> bytes:
+        if self.device is None:
+            raise CaptureError("Windows serial transport is not open")
+        deadline = time.monotonic() + min(max(timeout, 0.05), 30.0)
+        data = bytearray()
+        while time.monotonic() < deadline:
+            try:
+                part = self.device.read(1)
+            except Exception as error:
+                self.disconnected = True
+                self.control_events.append({"operation": "serial_read", "result": "failed",
+                    "error_type": type(error).__name__, "monotonic_ns": time.monotonic_ns()})
+                raise CaptureError("Windows serial disconnected; automatic reconnect is disabled") from error
+            if not part:
+                continue
+            data.extend(part)
+            if len(data) > MAX_FRAME_BYTES:
+                raise CaptureError("Windows serial line exceeds size limit")
+            if part == b"\n":
+                self._record_control_line_events()
+                self._record_port_events("read")
+                if self.disconnected:
+                    raise CaptureError("Windows serial disconnected; automatic reconnect is disabled")
+                return bytes(data)
+        self._record_control_line_events()
+        self._record_port_events("read_timeout")
+        if self.disconnected:
+            raise CaptureError("Windows serial disconnected; automatic reconnect is disabled")
+        return bytes(data) if data else b""
+
+    def _record_control_line_events(self):
+        try:
+            for event in self.platform.take_control_line_events(self.port) or ():
+                self.control_events.append({"operation": "control_line", "detail": dict(event),
+                                            "monotonic_ns": time.monotonic_ns()})
+                line = str(event.get("line", "")).upper()
+                action = str(event.get("operation", "")).lower()
+                if line in {"DTR", "RTS"} and (
+                        event.get("changed") is True or event.get("status") == "FAIL" or
+                        action in {"set", "write", "toggle", "assert", "deassert", "pulse"}):
+                    raise WindowsPortPreflightError(f"unexpected {line} control-line activity")
+        except Exception as error:
+            if isinstance(error, WindowsPortPreflightError):
+                raise
+            self.control_events.append({"operation": "control_line_observation", "result": "failed",
+                                        "error_type": type(error).__name__,
+                                        "monotonic_ns": time.monotonic_ns()})
+            raise WindowsPortPreflightError("reset-related control-line observation failed") from error
+
+    def _record_port_events(self, event: str):
+        try:
+            for item in self.platform.take_port_events(self.port) or ():
+                if item.get("kind") in {"removed", "disconnected", "arrival_lost"}:
+                    self.disconnected = True
+                self.control_events.append({"operation": "host_port_event", "event": event,
+                                            "detail": dict(item), "monotonic_ns": time.monotonic_ns()})
+        except Exception as error:
+            self.control_events.append({"operation": "host_port_event_observation", "event": event,
+                                        "result": "failed", "error_type": type(error).__name__,
+                                        "monotonic_ns": time.monotonic_ns()})
+
+    def close(self):
+        if self.device is not None:
+            self.device.close()
+            self.device = None
+            self.control_events.append({"operation": "close", "result": "success",
+                                        "monotonic_ns": time.monotonic_ns()})
+            self._record_control_line_events()
+            self._record_port_events("close")
+
+
+def classify_ready_transition(previous: dict, current: dict) -> str:
+    """Classify only evidence-supported boot transitions; never infer from logs."""
+    old_generation, new_generation = previous.get("boot_generation"), current.get("boot_generation")
+    if (isinstance(old_generation, int) and not isinstance(old_generation, bool) and
+            isinstance(new_generation, int) and not isinstance(new_generation, bool)):
+        if new_generation > old_generation:
+            return "NEW_BOOT_CONFIRMED_BY_GENERATION"
+        if new_generation == old_generation:
+            return "SAME_GENERATION_OR_REPLAY"
+    old_uptime, new_uptime = previous.get("uptime_ms"), current.get("uptime_ms")
+    if (isinstance(old_uptime, int) and not isinstance(old_uptime, bool) and old_uptime >= 0 and
+            isinstance(new_uptime, int) and not isinstance(new_uptime, bool) and new_uptime >= 0):
+        if new_uptime < old_uptime:
+            return "UPTIME_REGRESSION_POSSIBLE_NEW_BOOT"
+        return "UPTIME_NONDECREASING"
+    return "BOOT_TRANSITION_AMBIGUOUS_INSUFFICIENT_TARGET_EVIDENCE"
 
 
 def canonical_json(value: object) -> bytes:

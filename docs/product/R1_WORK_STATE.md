@@ -47,6 +47,56 @@ pushed normally, and remote HEAD matched at that checkpoint. Jira updates: GS-17
 `11346`; both remain In Progress. The commit staged only the evidence and work
 state files; existing untracked assets/evidence remain untouched.
 
+## GS-172 / GS-68 software-only USB observer correction — 2026-10-17
+
+Starting canonical HEAD was `dece06e8d06ba140f51362bd118fc3d5c28eb687` on
+`feature/r1-commercial-baseline`, equal to origin; context preflight PASS. The
+dedicated S3 remains installed with the TEST_ONLY image. This task performed
+no hardware/serial access, reset, flash, erase, eFuse/security change, production
+service access, or C8/C3 operation.
+
+Investigation of the preserved private captures found an invalid digest
+comparison in the first observer: READY's ESP image-validation digest was
+compared against the complete artifact SHA-256. The candidate's validated
+appended hash is `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`;
+the complete binary SHA-256 remains
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`. A later
+observer retained 25 normal ESP-IDF lines plus READY, then saw another READY
+before command execution and stopped. The earlier physical-session report
+records a fragmented OBSERVE attempt without a correlated result, but the
+surviving raw receipts do not fully attribute that write to either preserved
+capture. The two captured 26-line streams are byte-identical (decoded transcript
+SHA-256 `3dbbdc84265cf9045c2f269c5114cfdb4f6bb30ddaffe5b9d1f67375131603be`).
+Available evidence does not
+distinguish USB-driver replay/buffering from reset-on-open: the installed READY
+does not contain boot generation or uptime, and host USB arrival/control-line
+events were not correlated. Do not label the S3 as reset based on repeated
+startup output alone.
+
+Software changes add bounded startup draining and mixed console/frame sync,
+raw line retention with monotonic timestamps/order, strict case/nonce/operation
+correlation, timeout/malformed separation, duplicate READY/startup-prefix stop
+conditions, ESP32-S3 image/footer validation and correct runtime digest
+comparison, source-provenance allowlisting for only host observer/build tooling,
+firmware-matched malformed/oversized response handling, and a mock-validated
+Windows-native transport that rejects unverified PnP identity, COM substitution,
+busy port, or a driver lacking a no-reset open guarantee. The builder emits both
+artifact and image-validation digests. Firmware behavior and the installed
+image are unchanged.
+
+Validation: `PYTHONPATH=tools/hil python3 -m unittest test_gs68_aux_runners -v`
+PASS, 26/26 tests; `make gs130-hil-runner-test` PASS, 1,738 C++ protocol
+assertions and 101 Python runner tests; `make feature-coverage-test` PASS,
+208 features / 220 modules / 24 physical cases with 22/22 mapping tests;
+`py_compile` PASS for the changed Python files; `git diff --check` PASS.
+No ESP-IDF rebuild was needed because no firmware code/configuration changed.
+New observer plan:
+[`GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md`](../exec-plans/evidence/GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md).
+The next physical observation is BLOCKED until a Windows serial provider proves
+reset-safe open behavior; any physical access additionally needs separate
+explicit authorization for that exact plan. Official GS-68 and GS-40 physical
+acceptance remain NOT_RUN.
+
 ## GS-172 / GS-68 spare-S3 installation preflight — 2026-10-17
 
 Resumed at canonical HEAD `c4bc525e1fea8555ab30affc5b9e9926703c7f8e` on

@@ -2,7 +2,7 @@
 
 ## Disposition
 
-**Software candidate: BUILD PASS. Physical installation: NO-GO.** Host-only USB/PnP observations are consistent with the owner's dedicated spare and differ from the protected C8 fixture inventory. A read-only security inspection produced no security data and its USB command blocked. Secure Boot, Flash Encryption, ROM/download restrictions, installed partitions, recovery capability, and running image remain UNKNOWN. No candidate installation or physical diagnostic was performed.
+**Current status: TEST_ONLY application installed and running identity verified; auxiliary USB command diagnostic INCOMPLETE.** The exact candidate was installed app-only to the measured spare OTA0 slot under separate authorization. The running image validation digest matches the candidate's appended ESP image hash. Startup/log framing and one harmless fragmented OBSERVE attempt did not yield a correlated response; a later session observed repeated READY/startup output, whose cause remains ambiguous. No further hardware access occurred in this software-only observer task. The previously completed read-only security/partition checks and verified private baseline backup remain recorded below.
 
 This is auxiliary TEST_ONLY readiness evidence. It does not satisfy GS68-PHY-001..010, DS signing, mTLS, GS-68 physical acceptance, or GS-40 physical acceptance.
 
@@ -393,7 +393,7 @@ The first observed target `ready` frame reported source `cfc89a8e7bd6009eddde579
 
 The target's `running_image_sha256` was `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`. This is the ESP-IDF running-image validation digest, not the full on-disk artifact SHA-256; it exactly matches the candidate's valid esptool image-info validation hash. The initial auxiliary runner compared those unlike digest forms and stopped before sending input. The subsequent assessment therefore verified running identity against equivalent metadata rather than falsely requiring those digest strings to be equal.
 
-A second bounded Windows-native COM10 observer opened with DTR/RTS configured low and sent one harmless fragmented OBSERVE command. Before a correlated response could be captured, a console boot-log line appeared where the frame reader expected a `GS68/1` response. A subsequent observer open, without sending any command, received the same byte-for-byte 26-line boot transcript and `ready` frame. This is ambiguous between Windows/USB Serial/JTAG output replay and a reset associated with opening the COM port; the available evidence cannot distinguish them. No further serial access was attempted. Malformed/oversized recovery and sequential commands were not run. The auxiliary USB case is therefore BLOCKED/INCOMPLETE, not PASS. No signed-time proof or `gs68time` NVS write occurred.
+The session delivery record reports one harmless fragmented OBSERVE attempt without a correlated response. The surviving private captures include an initial candidate-identity check that failed before command execution and a later observer session that saw a second READY before command execution. They do not contain a correlated successful command response. Exact attribution of the reported write to the two preserved captures is incomplete. The later session received the same byte-for-byte 26-line console transcript ending in `ready`; this is ambiguous between Windows/USB Serial/JTAG output replay and a reset associated with opening COM. The available evidence cannot distinguish them. No further serial access was attempted. Malformed/oversized recovery and sequential commands were not run. The auxiliary USB case is therefore BLOCKED/INCOMPLETE, not PASS. No signed-time proof or `gs68time` NVS write occurred.
 
 This observation reveals runner/transport limitations for a future separate diagnostic: normal ESP-IDF boot logs can precede structured frames, the current ready digest check must compare equivalent image-validation metadata rather than artifact-file SHA, and opening native USB Serial/JTAG may replay boot output or affect reset state. A reset-safe observer that drains and correlates frames without changing control lines must be validated before further board access. Do not infer a hardware fault or claim that an unexpected reset definitely occurred.
 
@@ -414,3 +414,88 @@ No full identifiers, raw private flash backup, keys, credentials or NVS data are
 ### Current disposition and next action
 
 The TEST_ONLY application is installed and its write hash and running identity are verified. The limited USB command smoke remains incomplete; official GS-68 and GS-40 physical acceptance remain NOT_RUN. Do not flash, erase, reset, provision, or reopen the board as part of this checkpoint. Next action is software-only: correct the auxiliary observer's frame-draining and equivalent-digest checks, then prepare a separately bounded reset-safe USB observation method. Resume physical commands only under a new reviewed plan that prevents an unintentional reset/replay and keeps the owner-designated spare identity pinned. Production D05/D12/D06 approvals, physical DS signing/mTLS, P0 `product_status=PARTIAL`, and the known Hub migration/sanitizer blockers remain open.
+
+## USB observer software correction — 2026-10-17
+
+This section supersedes the pre-correction next-action sentence above. The work
+was SOFTWARE_ONLY; no serial port was reopened and no board operation occurred.
+
+### Observed facts and limits
+
+- The installed artifact SHA-256 is
+  `855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`.
+  Its ESP32-S3 image header, segment bounds, XOR checksum and appended image
+  validation hash validate. The appended hash is
+  `d3d03609024b2b1ecf269150516bbfc08acd26f7caf9b220ab7f6a925b67e0b5`, matching
+  the READY `running_image_sha256`. These are distinct measurements.
+- The initial candidate identity check compared the target's image-validation
+  digest to the full binary-file SHA-256 and failed before it could accept a
+  correlated response. That comparison was invalid.
+- A later observer session retained 25 ordinary ESP-IDF startup lines and one
+  structured READY (26 console lines total) before it observed an additional
+  READY and stopped before command execution. The raw receipt checksums remain
+  `5661965fb304bf5327b3c6acb473a51d1893b497b61bc0523c5f1a429bb1fdce` and
+  `4d3c4f247c3975f8f1bdf38dc98ee5ddac12476133bfcbe48e860e62be8ef894`.
+- Read-only decoding of both private captures found 26 received console lines
+  in each; the decoded byte streams are identical (SHA-256
+  `3dbbdc84265cf9045c2f269c5114cfdb4f6bb30ddaffe5b9d1f67375131603be`). This
+  establishes identical transcript bytes, not whether the device rebooted or
+  the host/driver replayed buffered bytes.
+- The repeated startup/READY output does not prove a reset. The READY frame has
+  a reset reason but no boot generation or uptime. No correlated host USB
+  removal/re-enumeration or DTR/RTS transition evidence was recorded. Driver
+  buffering/replay and reset-related COM-open behavior remain possible.
+- One harmless fragmented OBSERVE attempt is reported in the physical-session
+  record, but no correlated successful `command_result` was retained. A later
+  observer session stopped at repeated READY before sending a command. The
+  evidence therefore remains INCOMPLETE/BLOCKED and does not establish a
+  firmware parser defect.
+
+### Corrections and validation scope
+
+The observer now drains startup messages under line/time/byte bounds and keeps
+each raw line, order and host monotonic timestamp. It accepts only valid
+structured `GS68/1` frames for adjudication. Valid OBSERVE responses require an
+exact case ID, nonce and operation. Missing, malformed, mismatched, duplicate
+READY, and repeated-startup-prefix conditions cannot pass. The runner retains
+an unexpected startup/READY event as ambiguous replay/reset, not a proven new
+boot.
+
+The image validator checks ESP32-S3 magic/chip ID, appended-hash declaration,
+segments, XOR checksum and SHA-256 footer. The build-report generator now emits
+the image-validation digest while retaining full-file SHA-256 for artifact
+integrity. Source binding tolerates only a narrow observer/build-tool delta;
+firmware source, build input, or unreviewed code changes remain rejected.
+
+Firmware behavior is unchanged. Malformed JSON input emits the current target's
+`case_result` with `INVALID_OR_OVERSIZED_COMMAND` and its fixed placeholder
+identity. The line accumulator's oversized input emits `capture_error` with
+`oversized_command`. The runner now expects those exact shapes, then requires a
+subsequent exact correlated valid OBSERVE response. Official
+GS68-PHY-001..010 remain unchanged.
+
+A Windows-native single-open transport seam checks expected COM number, exact
+PnP identity, port ownership and an independently verified reset-safe open
+policy. It uses bounded timeouts, disables flow control, does not request DTR
+or RTS changes, clear input, reopen, or reconnect, and records observable
+control/port events. Fake-provider tests verify fail-closed behavior. The real
+Windows driver/provider has not demonstrated reset-safe opening and remains a
+physical prerequisite.
+
+Focused tests exercise startup logs, mixed protocol frames, correct/wrong image
+digests, delayed fragmented response bytes, nonce/operation mismatch, missing
+response, duplicate READY, replayed startup transcript, simulated boot
+generation change, malformed/oversized rejection and recovery, command order,
+limits, timeouts, disconnect, wrong PnP/COM identity, busy port, unsafe driver
+policy, and unexpected line activity. The tests run in the existing GS-130
+runner stage and are registered in `MASTER_TRACEABILITY.csv`. No firmware
+build was repeated because firmware sources and the installed image did not
+change.
+
+The installed firmware remains suitable for a single harmless OBSERVE retest;
+these observer fixes do not require a new build or flash. Physical execution
+remains BLOCKED until the Windows reset-safe-open provider is qualified and
+separate explicit physical-access authorization is granted. No signed-time NVS
+write, PSA RNG, DS signing, mTLS, production access, C8/C3 operation, or official
+GS-68/GS-40 physical acceptance occurred. The exact plan is
+[`GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md`](GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md).

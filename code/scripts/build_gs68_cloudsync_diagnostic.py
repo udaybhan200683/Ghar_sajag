@@ -157,6 +157,7 @@ def main() -> int:
         },
         "image_path": str(image),
         "image_sha256": sha256(image),
+        "image_validation_sha256": provenance.esp_image_validation_sha256(image.read_bytes()),
         "image_bytes": image.stat().st_size,
         "build_directory": str(build_dir),
         "build_log": str(build_log),
@@ -187,6 +188,7 @@ def main() -> int:
     print(f"BUILD_REPORT={report_path}")
     print(f"BUILD_LOG={build_log}")
     print(f"IMAGE_SHA256={report['image_sha256']}")
+    print(f"IMAGE_VALIDATION_SHA256={report['image_validation_sha256']}")
     print(f"IMAGE_BYTES={report['image_bytes']}")
     print("GS68_DIAGNOSTIC_BUILD=PASS hardware_actions=0 physical=NOT_RUN")
     return 0

@@ -21,12 +21,39 @@ import gs68_build_provenance as provenance
 MAX_COMMAND_BYTES = 1024
 MAX_RUN_SECONDS = 900
 MAX_BYTES = 8 * 1024 * 1024
+MAX_CAPTURE_LINES = 8192
+MAX_LINE_BYTES = capture.MAX_FRAME_BYTES
 CASE_FILE = Path(__file__).with_name("gs68_auxiliary_cases.json")
 AUX_CASES = {row["case_id"] for row in json.loads(CASE_FILE.read_text())["cases"]}
+HOST_ONLY_SOURCE_DELTA = {
+    "code/tools/hil/gs68_aux_diagnostic.py",
+    "code/tools/hil/gs68_capture.py",
+    "code/tools/hil/gs68_build_provenance.py",
+    "code/tools/hil/test_gs68_aux_runners.py",
+    "code/scripts/build_gs68_cloudsync_diagnostic.py",
+}
+
+
+def source_delta_is_host_only(paths: set[str]) -> bool:
+    return bool(paths) and paths.issubset(HOST_ONLY_SOURCE_DELTA)
 
 
 class AuxiliaryDiagnosticError(RuntimeError):
     pass
+
+
+def expected_running_image_digest(image_bytes: bytes, build_report: dict,
+                                  image_metadata: dict) -> str:
+    """Return the runtime-comparable ESP image hash after provenance checks."""
+    try:
+        derived = provenance.esp_image_validation_sha256(image_bytes)
+    except (TypeError, ValueError) as error:
+        raise AuxiliaryDiagnosticError(f"candidate ESP image metadata is invalid: {error}") from error
+    for label, value in (("build report", build_report.get("image_validation_sha256")),
+                         ("fixture", image_metadata.get("image_validation_sha256"))):
+        if value is not None and value != derived:
+            raise AuxiliaryDiagnosticError(f"{label} image validation digest mismatch")
+    return derived
 
 
 def classify(status: str, reason: str) -> dict:
@@ -74,7 +101,14 @@ def validate_candidate_binding(fixture: object, build_report: object, *, repo: P
     elif not formal._is_reachable_commit(source):
         errors.append("fixture source commit is not reachable from canonical HEAD")
     elif formal._commit_code_tree_oid(source) != formal._current_code_tree_oid():
-        errors.append("candidate code tree differs from current committed source")
+        # Runner-only changes after an immutable firmware build do not alter its
+        # bytes. Permit only this explicit host tooling allowlist; any firmware,
+        # build input or unreviewed source delta still blocks the candidate.
+        changed = formal.subprocess.run(["git", "diff", "--name-only", f"{source}..HEAD", "--", "code"],
+            cwd=formal.REPO, check=False, capture_output=True, text=True)
+        paths = {line.strip() for line in changed.stdout.splitlines() if line.strip()}
+        if changed.returncode != 0 or not source_delta_is_host_only(paths):
+            errors.append("candidate code tree differs outside the approved host-only observer delta")
     if build_report.get("source_commit") != source:
         errors.append("build report source commit differs from fixture")
     if build_report.get("source_code_tree_oid") != formal._commit_code_tree_oid(source):
@@ -91,11 +125,22 @@ def validate_candidate_binding(fixture: object, build_report: object, *, repo: P
     if not image_path.is_file():
         errors.append("candidate image is missing")
     else:
-        digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
+        image_bytes = image_path.read_bytes()
+        digest = hashlib.sha256(image_bytes).hexdigest()
         if digest != str(image.get("sha256", "")).lower():
             errors.append("candidate image SHA-256 does not match fixture")
         if digest != build_report.get("image_sha256"):
             errors.append("candidate image SHA-256 does not match build report")
+        try:
+            validation_digest = expected_running_image_digest(image_bytes, build_report, image)
+            declared_validation_digest = build_report.get("image_validation_sha256")
+            if declared_validation_digest is not None and declared_validation_digest != validation_digest:
+                errors.append("candidate image validation digest differs from build metadata")
+        except (AuxiliaryDiagnosticError, TypeError, ValueError) as error:
+            validation_digest = None
+            errors.append(f"candidate image format or validation digest is unsupported: {error}")
+        if isinstance(image, dict) and image.get("image_validation_sha256") not in (None, validation_digest):
+            errors.append("candidate image validation digest differs from fixture metadata")
     if build_report.get("target") != "ESP32-S3" or build_report.get("idf_version") != "v6.0.3":
         errors.append("candidate target or pinned ESP-IDF version is invalid")
     if fixture.get("target") != "ESP32-S3" or fixture.get("flash_mb") != 16 or fixture.get("psram_mb") != 8:
@@ -146,12 +191,22 @@ def command_frame(case_id: str, operation: str = "OBSERVE", nonce: str | None = 
 
 class BoundedAuxiliarySession:
     def __init__(self, transport, *, timeout_seconds: int = MAX_RUN_SECONDS,
-                 max_bytes: int = MAX_BYTES):
-        if not 1 <= timeout_seconds <= MAX_RUN_SECONDS or not 1 <= max_bytes <= MAX_BYTES:
+                 max_bytes: int = MAX_BYTES, max_lines: int = MAX_CAPTURE_LINES):
+        if (not 1 <= timeout_seconds <= MAX_RUN_SECONDS or not 1 <= max_bytes <= MAX_BYTES or
+                not 1 <= max_lines <= MAX_CAPTURE_LINES):
             raise ValueError("auxiliary bounds are invalid")
         self.transport, self.timeout_seconds, self.max_bytes = transport, timeout_seconds, max_bytes
+        self.max_lines = max_lines
         self.started = None
         self.bytes_read = 0
+        self.lines_read = 0
+        self.console_records: list[dict] = []
+        self.startup_log_lines: list[bytes] = []
+        self.startup_log_fingerprint = None
+        self.ready_frame = None
+        self.ready_reobserved = False
+        self.startup_replay_suspected = False
+        self._post_ready_log_window: list[bytes] = []
 
     def open(self):
         self.transport.open()
@@ -164,20 +219,115 @@ class BoundedAuxiliarySession:
             raise AuxiliaryDiagnosticError("raw command exceeds bounded input size")
         self.transport.write(payload)
 
+    def _read_line(self, deadline: float) -> bytes:
+        if self.started is None:
+            raise AuxiliaryDiagnosticError("auxiliary session is closed")
+        if time.monotonic() - self.started >= self.timeout_seconds:
+            raise AuxiliaryDiagnosticError("auxiliary session time bound exceeded")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return b""
+        raw = self.transport.read_line(min(remaining, 30.0))
+        if not raw:
+            return b""
+        self.lines_read += 1
+        self.bytes_read += len(raw)
+        if self.lines_read > self.max_lines:
+            raise AuxiliaryDiagnosticError("auxiliary capture line-count limit exceeded")
+        if self.bytes_read > self.max_bytes:
+            raise AuxiliaryDiagnosticError("auxiliary capture byte limit exceeded")
+        self.console_records.append({"sequence": self.lines_read,
+            "host_monotonic_ns": time.monotonic_ns(),
+            "kind": "unclassified", "raw_base64": base64.b64encode(raw).decode("ascii")})
+        if len(raw) > MAX_LINE_BYTES:
+            self.console_records[-1]["kind"] = "oversized_line"
+            raise AuxiliaryDiagnosticError("console line exceeds size limit")
+        if not raw.endswith(b"\n"):
+            self.console_records[-1]["kind"] = "truncated_line"
+            raise AuxiliaryDiagnosticError("truncated console line")
+        return raw
+
+    def wait_ready(self, timeout: float = 30.0, *, max_startup_lines: int = 256) -> dict:
+        if self.started is None:
+            raise AuxiliaryDiagnosticError("auxiliary session is closed")
+        if not 1 <= max_startup_lines <= 1024:
+            raise ValueError("startup drain line bound is invalid")
+        deadline = time.monotonic() + min(max(timeout, 0.1), 60.0)
+        start_lines = self.lines_read
+        while time.monotonic() < deadline:
+            raw = self._read_line(deadline)
+            if not raw:
+                break
+            frame = self._decode_or_record_console_line(raw, startup=True)
+            if frame is None:
+                if self.lines_read - start_lines >= max_startup_lines:
+                    raise AuxiliaryDiagnosticError("startup console line limit exceeded before READY")
+                continue
+            if frame.get("event") == "ready":
+                self.startup_log_fingerprint = hashlib.sha256(b"".join(self.startup_log_lines)).hexdigest()
+                return frame
+            raise AuxiliaryDiagnosticError("unexpected structured diagnostic frame before READY")
+        raise AuxiliaryDiagnosticError("READY response missing before startup deadline")
+
+    def _decode_or_record_console_line(self, raw: bytes, *, startup: bool = False) -> dict | None:
+        body = raw[:-1].rstrip(b"\r")
+        record = self.console_records[-1]
+        if not body.startswith(capture.FRAME_PREFIX):
+            record["kind"] = "console_log"
+            if startup:
+                self.startup_log_lines.append(raw)
+            elif self.startup_log_lines:
+                self._post_ready_log_window.append(raw)
+                del self._post_ready_log_window[:-len(self.startup_log_lines)]
+                prefix = self.startup_log_lines[:min(3, len(self.startup_log_lines))]
+                if len(prefix) == 3 and self._post_ready_log_window[-3:] == prefix:
+                    self.startup_replay_suspected = True
+                    record["kind"] = "startup_replay_suspected"
+                    raise AuxiliaryDiagnosticError("startup transcript replay suspected; reset/replay cause is unknown")
+            return None
+        try:
+            frame = capture.parse_device_frame(raw[:-1].rstrip(b"\r"))
+        except Exception as error:
+            record["kind"] = "malformed_structured_frame"
+            raise AuxiliaryDiagnosticError(f"malformed GS68/1 frame: {error}") from error
+        record["kind"] = "structured_frame"
+        record["event"] = frame.get("event")
+        if frame.get("event") == "ready":
+            if self.ready_frame is not None:
+                self.ready_reobserved = True
+                record["kind"] = "unexpected_ready"
+                raise AuxiliaryDiagnosticError("unexpected READY while session is active; reboot/replay must be investigated")
+            self.ready_frame = frame
+        if self.startup_replay_suspected:
+            raise AuxiliaryDiagnosticError("startup transcript replay suspected; qualification stopped")
+        return frame
+
     def read_frame(self, timeout: float = 10.0) -> dict:
         if self.started is None or time.monotonic() - self.started > self.timeout_seconds:
             raise AuxiliaryDiagnosticError("auxiliary session is closed or expired")
-        raw = self.transport.read_line(min(max(timeout, 0.1), 30.0))
-        if not raw:
-            raise AuxiliaryDiagnosticError("serial timeout or USB/IP disconnect")
-        self.bytes_read += len(raw)
-        if self.bytes_read > self.max_bytes:
-            raise AuxiliaryDiagnosticError("auxiliary capture byte limit exceeded")
-        if len(raw) > capture.MAX_FRAME_BYTES or not raw.endswith(b"\n"):
-            raise AuxiliaryDiagnosticError("truncated or oversized target frame")
-        if not raw.startswith(capture.FRAME_PREFIX):
-            raise AuxiliaryDiagnosticError("target frame prefix is invalid")
-        return capture.parse_device_frame(raw[:-1])
+        deadline = time.monotonic() + min(max(timeout, 0.1), 30.0)
+        while time.monotonic() < deadline:
+            raw = self._read_line(deadline)
+            if not raw:
+                time.sleep(min(max(0.0, deadline - time.monotonic()), 0.01))
+                continue
+            frame = self._decode_or_record_console_line(raw)
+            if frame is not None:
+                return frame
+        raise AuxiliaryDiagnosticError("structured response missing before timeout/disconnect")
+
+    def read_correlated_response(self, *, case_id: str, nonce: str, operation: str,
+                                 timeout: float = 10.0) -> dict:
+        frame = self.read_frame(timeout)
+        if frame.get("event") == "ready":
+            raise AuxiliaryDiagnosticError("unexpected READY while command response was outstanding")
+        if frame.get("event") == "capture_error":
+            raise AuxiliaryDiagnosticError(f"malformed/unrelated framing response: {frame.get('reason', 'unspecified')}")
+        expected = {"case_id": case_id, "challenge_nonce": nonce, "operation": operation}
+        mismatches = [key for key, value in expected.items() if frame.get(key) != value]
+        if mismatches:
+            raise AuxiliaryDiagnosticError("uncorrelated command response fields: " + ",".join(mismatches))
+        return frame
 
     def close(self):
         try:
@@ -197,9 +347,12 @@ def run_usb_sequence(session: BoundedAuxiliarySession, *, fragment_delay: float 
     session.write(valid[:midpoint])
     time.sleep(fragment_delay)
     session.write(valid[midpoint:])
-    frame = session.read_frame()
-    if (frame.get("event") != "command_result" or frame.get("result") != "OBSERVED_NO_ACTION" or
-            frame.get("case_id") != "GS68-AUX-USB-001" or frame.get("challenge_nonce") != nonce):
+    try:
+        frame = session.read_correlated_response(case_id="GS68-AUX-USB-001", nonce=nonce,
+                                                 operation="OBSERVE")
+    except AuxiliaryDiagnosticError as error:
+        return [classify("FAIL", f"fragmented OBSERVE response missing, malformed or uncorrelated: {error}")]
+    if frame.get("event") != "command_result" or frame.get("result") != "OBSERVED_NO_ACTION":
         return [classify("FAIL", "fragmented command response did not match OBSERVE")]
     results.append(classify("PASS", "delayed fragmented command received a correlated response"))
 
@@ -208,11 +361,13 @@ def run_usb_sequence(session: BoundedAuxiliarySession, *, fragment_delay: float 
     session.write(b"not-json\n" + next_valid)
     malformed = session.read_frame()
     recovered = session.read_frame()
-    if (malformed.get("event") != "case_result" or malformed.get("case_outcome") != "FAIL" or
+    if (malformed.get("event") != "case_result" or malformed.get("case_id") != "GS68-PHY-001" or
+            malformed.get("challenge_nonce") != "0" * 64 or malformed.get("case_outcome") != "FAIL" or
             malformed.get("reason") != "INVALID_OR_OVERSIZED_COMMAND"):
         return results + [classify("FAIL", "malformed command was not explicitly rejected")]
     if (recovered.get("event") != "command_result" or recovered.get("result") != "OBSERVED_NO_ACTION" or
-            recovered.get("case_id") != "GS68-AUX-USB-002" or recovered.get("challenge_nonce") != nonce2):
+            recovered.get("case_id") != "GS68-AUX-USB-002" or recovered.get("challenge_nonce") != nonce2 or
+            recovered.get("operation") != "OBSERVE"):
         return results + [classify("FAIL", "valid command after malformed input was not served")]
 
     nonce3 = secrets.token_hex(32)
@@ -220,11 +375,11 @@ def run_usb_sequence(session: BoundedAuxiliarySession, *, fragment_delay: float 
                   command_frame("GS68-AUX-USB-002", nonce=nonce3))
     oversized = session.read_frame()
     recovered = session.read_frame()
-    if (oversized.get("event") != "case_result" or oversized.get("case_outcome") != "FAIL" or
-            oversized.get("reason") != "INVALID_OR_OVERSIZED_COMMAND"):
+    if (oversized.get("event") != "capture_error" or oversized.get("reason") != "oversized_command"):
         return results + [classify("FAIL", "oversized input was not explicitly rejected")]
     if (recovered.get("event") != "command_result" or recovered.get("result") != "OBSERVED_NO_ACTION" or
-            recovered.get("case_id") != "GS68-AUX-USB-002" or recovered.get("challenge_nonce") != nonce3):
+            recovered.get("case_id") != "GS68-AUX-USB-002" or recovered.get("challenge_nonce") != nonce3 or
+            recovered.get("operation") != "OBSERVE"):
         return results + [classify("FAIL", "valid command after oversized input was not served")]
     results.append(classify("PASS", "malformed and oversized lines were rejected and receiver recovered"))
 
@@ -232,10 +387,12 @@ def run_usb_sequence(session: BoundedAuxiliarySession, *, fragment_delay: float 
     cmds = (command_frame("GS68-AUX-USB-003", nonce=nonce4) +
             command_frame("GS68-AUX-USB-003", nonce=nonce5))
     session.write(cmds)
-    first, second = session.read_frame(), session.read_frame()
-    if any(f.get("event") != "command_result" or f.get("result") != "OBSERVED_NO_ACTION" or
-           f.get("case_id") != "GS68-AUX-USB-003" for f in (first, second)) or \
-            [first.get("challenge_nonce"), second.get("challenge_nonce")] != [nonce4, nonce5]:
+    first = session.read_correlated_response(case_id="GS68-AUX-USB-003", nonce=nonce4,
+                                             operation="OBSERVE")
+    second = session.read_correlated_response(case_id="GS68-AUX-USB-003", nonce=nonce5,
+                                              operation="OBSERVE")
+    if any(f.get("event") != "command_result" or f.get("result") != "OBSERVED_NO_ACTION"
+           for f in (first, second)):
         return results + [classify("FAIL", "sequential command response missing or unexpected")]
     results.append(classify("PASS", "sequential commands received two ordered responses"))
     return results
@@ -380,26 +537,41 @@ def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
             source_commit=safe_source,
             image_sha256=safe_hash,
             records=rows)
-    from gs68_capture import PySerialTransport
+    from gs68_capture import PySerialTransport, WindowsNativeSerialTransport
     import gs68_cloudsync_hil as formal
     identity = fixture["identity"]
-    try:
-        observed = formal._inspect_by_id_port(identity["port_by_id"], identity["usb_serial_short"])
-    except Exception as error:
-        return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
-            image_sha256=fixture["image"]["sha256"], records=[classify("BLOCKED",
-                f"stable USB fixture identity unavailable: {type(error).__name__}")])
-    if observed.get("usb_serial_short") != identity["usb_serial_short"]:
-        return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
-            image_sha256=fixture["image"]["sha256"], records=[classify("FAIL", "live USB identity changed")])
-    transport = (transport_factory or PySerialTransport)(identity["port_by_id"])
+    transport_kind = fixture.get("transport", {}).get("kind") if isinstance(fixture.get("transport"), dict) else None
+    if transport_factory is None and transport_kind == "windows-native":
+        pnp = identity.get("pnp")
+        if not isinstance(pnp, dict):
+            return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
+                image_sha256=fixture["image"]["sha256"], records=[classify("BLOCKED",
+                    "verified Windows spare PnP identity is missing")])
+        transport = WindowsNativeSerialTransport(identity.get("com_port", ""),
+            expected_port=identity.get("approved_com_port", ""), expected_pnp=pnp)
+    else:
+        try:
+            observed = formal._inspect_by_id_port(identity["port_by_id"], identity["usb_serial_short"])
+        except Exception as error:
+            return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
+                image_sha256=fixture["image"]["sha256"], records=[classify("BLOCKED",
+                    f"stable USB fixture identity unavailable: {type(error).__name__}")])
+        if observed.get("usb_serial_short") != identity["usb_serial_short"]:
+            return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
+                image_sha256=fixture["image"]["sha256"], records=[classify("FAIL", "live USB identity changed")])
+        transport = (transport_factory or PySerialTransport)(identity["port_by_id"])
     session = BoundedAuxiliarySession(transport)
     rows = []
     try:
         session.open()
-        ready = session.read_frame(timeout=30)
+        ready = session.wait_ready(timeout=30)
+        image_path = Path(fixture["image"].get("path", ""))
+        if not image_path.is_absolute():
+            image_path = Path(repo) / image_path
+        expected_runtime_digest = expected_running_image_digest(
+            image_path.read_bytes(), build_report, fixture["image"])
         if (ready.get("event") != "ready" or
-                ready.get("running_image_sha256") != fixture["image"]["sha256"] or
+                ready.get("running_image_sha256") != expected_runtime_digest or
                 ready.get("source_commit") != fixture["source_commit"] or
                 ready.get("profile_sha256") != fixture["profile"]["profile_sha256"] or
                 formal._normalize_mac(str(ready.get("mac_address", ""))) !=
@@ -418,8 +590,13 @@ def execute_usb_if_ready(fixture: object, build_report: object, *, repo: Path,
             session.close()
         except Exception as error:
             rows.append(classify("BLOCKED", f"transport close failed: {type(error).__name__}"))
-    return evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
+    bundle = evidence_bundle(fixture_id=fixture["fixture_id"], source_commit=fixture["source_commit"],
         image_sha256=fixture["image"]["sha256"], records=rows)
+    bundle["console_capture_records"] = session.console_records
+    bundle["console_capture_sha256"] = hashlib.sha256(
+        capture.canonical_json(session.console_records)).hexdigest()
+    bundle["transport_control_events"] = getattr(transport, "control_events", [])
+    return bundle
 
 
 def evidence_bundle(*, fixture_id: str, source_commit: str, image_sha256: str,

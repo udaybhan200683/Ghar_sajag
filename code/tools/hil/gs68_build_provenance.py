@@ -39,6 +39,56 @@ def sha256_tree(path: Path) -> str:
     return digest.hexdigest()
 
 
+def esp_image_validation_sha256(image: bytes, *, expected_chip_id: int = 9) -> str:
+    """Validate an ESP-IDF appended-image hash/checksum and return its digest.
+
+    ESP-IDF's running-image digest is the appended SHA-256 over the image body,
+    excluding the final 32-byte digest. It is not SHA-256(file). Validate the
+    ESP image header, S3 chip ID, segment bounds, XOR checksum and exact footer
+    before returning that runtime-comparable value.
+    """
+    import struct
+    import functools
+
+    if not isinstance(image, bytes):
+        raise ValueError("ESP image input is not bytes")
+    if image and image[0] != 0xE9:
+        raise ValueError("unsupported ESP image magic")
+    if len(image) < 24 + 8 + 33:
+        raise ValueError("ESP image is truncated")
+    segment_count = image[1]
+    if not 1 <= segment_count <= 16:
+        raise ValueError("unsupported ESP image segment count")
+    if int.from_bytes(image[12:14], "little") != expected_chip_id:
+        raise ValueError("ESP image target chip ID is not ESP32-S3")
+    if image[23] != 1:
+        raise ValueError("ESP image does not declare an appended validation hash")
+    offset = 24
+    checksum = 0xEF
+    for _ in range(segment_count):
+        if offset + 8 > len(image) - 32:
+            raise ValueError("ESP image segment header is truncated")
+        _, size = struct.unpack_from("<II", image, offset)
+        offset += 8
+        end = offset + size
+        if size == 0 or end > len(image) - 32:
+            raise ValueError("ESP image segment is empty or truncated")
+        checksum = functools.reduce(lambda value, byte: value ^ byte,
+                                     image[offset:end], checksum)
+        offset = end
+    checksum_offset = ((offset + 15) // 16) * 16 - 1
+    if checksum_offset >= len(image) - 32:
+        raise ValueError("ESP image checksum position is invalid")
+    if image[checksum_offset] != checksum:
+        raise ValueError("ESP image XOR checksum is invalid")
+    if checksum_offset + 1 + 32 != len(image):
+        raise ValueError("ESP image has unsupported trailing bytes or footer")
+    calculated = hashlib.sha256(image[:-32]).digest()
+    if calculated != image[-32:]:
+        raise ValueError("ESP image appended validation hash is invalid")
+    return calculated.hex()
+
+
 def canonical_json(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
 
