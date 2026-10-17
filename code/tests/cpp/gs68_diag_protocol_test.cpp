@@ -1,8 +1,11 @@
 #include "gs/gs68_diag_protocol.hpp"
 
+#include <array>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <thread>
 
 namespace {
 unsigned checks = 0;
@@ -107,6 +110,73 @@ int main() {
            "unexpected authentication state is FAIL");
     expect(!gs::diagnostic::target_case_id_valid("GS68-PHY-000"), "zero case rejected");
     expect(!gs::diagnostic::target_case_id_valid("GS68-PHY-011"), "unknown high case rejected");
+
+    using gs::diagnostic::TargetCommandFrameResult;
+    gs::diagnostic::TargetCommandLineAccumulator line_reader;
+    std::array<char, gs::diagnostic::kTargetCommandMaxBytes + 1> framed_line{};
+    framed_line.fill('!');
+    const auto split = valid.size() / 2;
+    for (std::size_t i = 0; i < split; ++i) {
+        expect(line_reader.push(valid[i], framed_line.data(), framed_line.size()) ==
+                   TargetCommandFrameResult::Pending,
+               "partial command remains pending");
+    }
+    expect(framed_line[0] == '!', "partial command is not exposed before its line ending");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    for (std::size_t i = split; i < valid.size(); ++i) {
+        expect(line_reader.push(valid[i], framed_line.data(), framed_line.size()) ==
+                   TargetCommandFrameResult::Pending,
+               "delayed command continuation remains buffered");
+    }
+    expect(line_reader.push('\r', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Complete,
+           "carriage return completes a command");
+    expect(std::string(framed_line.data()) == valid, "partial command reassembles exactly");
+    expect(line_reader.push('\n', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Pending,
+           "LF in CRLF is suppressed");
+
+    const std::string second = reordered + "\n" + valid + "\r\n";
+    unsigned completed = 0;
+    for (char byte : second) {
+        const auto state = line_reader.push(byte, framed_line.data(), framed_line.size());
+        if (state == TargetCommandFrameResult::Complete) ++completed;
+        expect(state != TargetCommandFrameResult::Invalid &&
+                   state != TargetCommandFrameResult::Oversized,
+               "multiple sequential commands stay within the frame limits");
+    }
+    expect(completed == 2, "LF and CRLF delimit multiple sequential commands");
+
+    const std::string oversized(gs::diagnostic::kTargetCommandMaxBytes + 1, 'x');
+    for (char byte : oversized) {
+        expect(line_reader.push(byte, framed_line.data(), framed_line.size()) ==
+                   TargetCommandFrameResult::Pending,
+               "oversized line is drained without a premature frame");
+    }
+    expect(line_reader.push('\n', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Oversized,
+           "oversized command rejected exactly at line boundary");
+    expect(line_reader.push('{', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Pending,
+           "command after oversized line starts cleanly");
+    expect(line_reader.push('\n', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Complete && framed_line[0] == '{',
+           "command after oversized line completes");
+
+    expect(line_reader.push('\0', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Pending,
+           "NUL is retained as an invalid-line condition");
+    expect(line_reader.push('\n', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Invalid,
+           "NUL-containing line cannot truncate into a valid command");
+    for (char byte : valid) {
+        expect(line_reader.push(byte, framed_line.data(), framed_line.size()) ==
+                   TargetCommandFrameResult::Pending,
+               "valid command after invalid line is accepted incrementally");
+    }
+    expect(line_reader.push('\n', framed_line.data(), framed_line.size()) ==
+               TargetCommandFrameResult::Complete && std::string(framed_line.data()) == valid,
+           "invalid line does not poison the next command");
 
     std::printf("GS68_NODE_PROTOCOL_TESTS=%u PASS\n", checks);
     return 0;

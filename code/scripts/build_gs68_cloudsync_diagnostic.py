@@ -34,7 +34,17 @@ def main() -> int:
     if not IDF_EXPORT.is_file():
         print("BLOCKED: required ESP-IDF 6.0.3 export.sh is unavailable")
         return 2
-    if not PROFILE.is_file() or "CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y" not in PROFILE.read_text():
+    if not PROFILE.is_file():
+        print("BLOCKED: GS-68 DS/TLS test profile is missing")
+        return 2
+    profile_config = PROFILE.read_text()
+    profile_required = (
+        "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+        "# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set",
+        "# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set",
+        "CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y",
+    )
+    if any(entry not in profile_config for entry in profile_required):
         print("BLOCKED: GS-68 DS/TLS test profile is missing or incomplete")
         return 2
     branch = run("git", "branch", "--show-current").stdout.strip()
@@ -100,12 +110,17 @@ def main() -> int:
         return result.returncode or 1
     config = sdkconfig.read_text(encoding="utf-8")
     required = ("CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y",
-                "CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y")
+                "CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y",
+                "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y")
     if any(entry not in config for entry in required):
-        print("GS68_DIAGNOSTIC_BUILD=FAIL sdkconfig omitted a required DS/TLS option")
+        print("GS68_DIAGNOSTIC_BUILD=FAIL sdkconfig omitted a required DS/TLS/USB-console option")
         return 1
     if "CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y" in config:
         print("GS68_DIAGNOSTIC_BUILD=FAIL TLS 1.3 is enabled in a TLS 1.2-only profile")
+        return 1
+    if ("CONFIG_ESP_CONSOLE_UART_DEFAULT=y" in config or
+            "CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y" in config):
+        print("GS68_DIAGNOSTIC_BUILD=FAIL USB Serial/JTAG is not the exclusive primary console")
         return 1
     image = build_dir / "gs_r1_s3_hub.bin"
     if not image.is_file():
@@ -130,6 +145,10 @@ def main() -> int:
             "gs68_cloudsync_diagnostic_only": True, "gs_hil_build": False,
             "gs_hil_control": False, "gs_hil_commissioning": False,
             "gs_hil_c8_ack_drop": False, "tls_version": "TLS1.2",
+            "console_primary": "USB_SERIAL_JTAG",
+            "console_uart0_primary": False,
+            "console_usb_secondary": False,
+            "stdin_read_mode": "USB_DRIVER_BLOCKING",
             "hardware_signer": "ESP32_DS_PERIPHERAL_SELECTED_NOT_PROVISIONED",
         },
         "image_path": str(image),
@@ -141,6 +160,7 @@ def main() -> int:
         "flash_or_serial_used": False,
         "limitations": [
             "No DS/HMAC identity is provisioned; target TLS execution remains blocked.",
+            "USB command framing and target crypto have not been observed on silicon.",
             "Build output is not physical qualification or proof of running image identity.",
         ],
     }

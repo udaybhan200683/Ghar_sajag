@@ -13,14 +13,20 @@
 #include "esp_psram.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "driver/usb_serial_jtag.h"
+#include "driver/usb_serial_jtag_vfs.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "mbedtls/base64.h"
 #include "nvs_flash.h"
 
+#include <fcntl.h>
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <memory>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 #if !defined(GS68_TEST_ONLY_BUILD) || GS68_TEST_ONLY_BUILD != 1
@@ -31,6 +37,15 @@
 #endif
 #if !CONFIG_ESP_TLS_USE_DS_PERIPHERAL || !CONFIG_MBEDTLS_SSL_PROTO_TLS1_2 || CONFIG_MBEDTLS_SSL_PROTO_TLS1_3
 #error "GS-68 diagnostic requires the isolated TLS 1.2 + ESP DS configuration"
+#endif
+#if !defined(CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG) || !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+#error "GS-68 diagnostic stdin/stdout must use primary USB Serial/JTAG"
+#endif
+#if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) && CONFIG_ESP_CONSOLE_UART_DEFAULT
+#error "GS-68 diagnostic must not select UART0 as its primary console"
+#endif
+#if defined(CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG) && CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG
+#error "GS-68 diagnostic must not use USB Serial/JTAG as an output-only secondary console"
 #endif
 
 namespace {
@@ -53,6 +68,30 @@ std::unique_ptr<gs::hub::target::AuthenticatedHubTimeProvider> g_time_provider;
 gs::hub::target::AuthenticatedTimeChallenge g_time_challenge{};
 bool g_time_store_ready = false;
 bool g_time_provider_started = false;
+bool g_usb_driver_installed = false;
+bool g_stdin_unbuffered = false;
+
+bool initialize_usb_command_console() {
+    if (!g_stdin_unbuffered) {
+        if (std::setvbuf(stdin, nullptr, _IONBF, 0) != 0) return false;
+        g_stdin_unbuffered = true;
+    }
+    usb_serial_jtag_vfs_set_rx_line_endings(ESP_LINE_ENDINGS_LF);
+    if (!g_usb_driver_installed) {
+        usb_serial_jtag_driver_config_t driver_config{};
+        // Buffer several back-to-back bounded frames even if the command task
+        // is briefly descheduled while USB packets arrive.
+        driver_config.tx_buffer_size = 256;
+        driver_config.rx_buffer_size = 4096;
+        if (usb_serial_jtag_driver_install(&driver_config) != ESP_OK) return false;
+        g_usb_driver_installed = true;
+        usb_serial_jtag_vfs_use_driver();
+    }
+    // The default simple USB VFS read returns the bytes currently in the FIFO.
+    // With the interrupt-driven driver selected, clearing O_NONBLOCK makes
+    // stdin wait for delayed input instead of turning an empty FIFO into EOF.
+    return fcntl(STDIN_FILENO, F_SETFL, 0) == 0;
+}
 
 std::string hex(const std::uint8_t* bytes, std::size_t size) {
     static constexpr char digits[] = "0123456789abcdef";
@@ -295,23 +334,42 @@ void handle_command(const char* command_text) {
         std::fflush(stdout);
     }
 }
+
+void emit_capture_error(const char* reason) {
+    std::printf("GS68/1 {\"schema\":\"gs68.target.event.v1\",\"event\":\"capture_error\","
+                "\"reason\":\"%s\",\"physical\":\"NOT_RUN\"}\n", reason);
+    std::fflush(stdout);
+}
 }  // namespace
 
 extern "C" void app_main() {
+    while (!initialize_usb_command_console()) {
+        ESP_LOGE(kTag, "USB Serial/JTAG command console initialization failed; retrying");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
     ESP_LOGI(kTag, "TEST_ONLY GS-68 CloudSync identity/time diagnostic; no provisioning or network startup");
     emit_ready();
-    char command[kCommandLimit + 2]{};
-    while (std::fgets(command, sizeof(command), stdin) != nullptr) {
-        const auto length = std::strlen(command);
-        if (length == 0 || command[length - 1] != '\n' || length - 1 > kCommandLimit) {
-            std::printf("GS68/1 {\"schema\":\"gs68.target.event.v1\",\"event\":\"capture_error\","
-                        "\"reason\":\"truncated_command\",\"physical\":\"NOT_RUN\"}\n");
-            std::fflush(stdout);
-            std::memset(command, 0, sizeof(command));
+    gs::diagnostic::TargetCommandLineAccumulator line_accumulator;
+    std::array<char, kCommandLimit + 1> command{};
+    for (;;) {
+        const int input = std::fgetc(stdin);
+        if (input == EOF) {
+            // A transient VFS/USB error is not a command-loop termination.
+            // Keep app_main alive, clear stdio's sticky error and retry while
+            // preserving any partial command already accumulated.
+            std::clearerr(stdin);
+            vTaskDelay(pdMS_TO_TICKS(10));
             continue;
         }
-        command[length - 1] = '\0';
-        handle_command(command);
-        std::memset(command, 0, sizeof(command));
+        const auto framed = line_accumulator.push(
+            static_cast<char>(input), command.data(), command.size());
+        if (framed == gs::diagnostic::TargetCommandFrameResult::Complete) {
+            handle_command(command.data());
+            std::memset(command.data(), 0, command.size());
+        } else if (framed == gs::diagnostic::TargetCommandFrameResult::Invalid) {
+            emit_capture_error("invalid_command_encoding");
+        } else if (framed == gs::diagnostic::TargetCommandFrameResult::Oversized) {
+            emit_capture_error("oversized_command");
+        }
     }
 }

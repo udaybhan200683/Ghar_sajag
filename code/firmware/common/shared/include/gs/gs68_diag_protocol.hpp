@@ -12,6 +12,73 @@ constexpr std::size_t kTargetNonceCapacity = 65;
 constexpr std::size_t kTargetOperationCapacity = 24;
 constexpr std::size_t kTargetPayloadBase64Capacity = 769;
 
+enum class TargetCommandFrameResult : std::uint8_t {
+    Pending,
+    Complete,
+    Invalid,
+    Oversized,
+};
+
+// Incremental, bounded stdin framing for the isolated target diagnostic.
+// A caller can feed bytes as they arrive; incomplete input remains buffered.
+// CR, LF, and CRLF are accepted without treating the LF in a CRLF pair as a
+// second empty command. Oversized or NUL-containing lines are drained to their
+// delimiter and reported once, so the next command starts at a clean boundary.
+class TargetCommandLineAccumulator {
+public:
+    TargetCommandFrameResult push(char byte, char* output,
+                                  std::size_t output_capacity) {
+        if (suppress_lf_after_cr_) {
+            suppress_lf_after_cr_ = false;
+            if (byte == '\n') return TargetCommandFrameResult::Pending;
+        }
+
+        if (byte == '\r' || byte == '\n') {
+            const bool was_cr = byte == '\r';
+            TargetCommandFrameResult result = TargetCommandFrameResult::Complete;
+            if (oversized_) {
+                result = TargetCommandFrameResult::Oversized;
+            } else if (invalid_) {
+                result = TargetCommandFrameResult::Invalid;
+            } else if (output == nullptr || output_capacity <= size_) {
+                result = TargetCommandFrameResult::Invalid;
+            } else {
+                std::memcpy(output, bytes_, size_);
+                output[size_] = '\0';
+            }
+            reset_line();
+            suppress_lf_after_cr_ = was_cr;
+            return result;
+        }
+
+        if (oversized_) return TargetCommandFrameResult::Pending;
+        if (byte == '\0') {
+            invalid_ = true;
+            return TargetCommandFrameResult::Pending;
+        }
+        if (size_ == sizeof(bytes_)) {
+            oversized_ = true;
+            return TargetCommandFrameResult::Pending;
+        }
+        bytes_[size_++] = byte;
+        return TargetCommandFrameResult::Pending;
+    }
+
+private:
+    void reset_line() {
+        std::memset(bytes_, 0, sizeof(bytes_));
+        size_ = 0;
+        invalid_ = false;
+        oversized_ = false;
+    }
+
+    char bytes_[kTargetCommandMaxBytes]{};
+    std::size_t size_ = 0;
+    bool invalid_ = false;
+    bool oversized_ = false;
+    bool suppress_lf_after_cr_ = false;
+};
+
 enum class TargetCommandError : std::uint8_t {
     Ok,
     Oversized,

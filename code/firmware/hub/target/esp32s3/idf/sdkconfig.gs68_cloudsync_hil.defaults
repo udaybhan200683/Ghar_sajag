@@ -1,6 +1,11 @@
 # Test-only S3 CloudSync DS/mTLS compilation profile.
 # This profile is NOT included by normal product builds and provisions no key.
 # GS-HIL-build/control flags remain OFF; no commissioning or ACK injection is enabled.
+# Commands are received over the native S3 USB Serial/JTAG console. USB must be
+# the primary stdio console because the secondary console is output-only.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
+# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set
 CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y
 CONFIG_MBEDTLS_HARDWARE_RSA_DS_PERIPHERAL=y
 CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y
