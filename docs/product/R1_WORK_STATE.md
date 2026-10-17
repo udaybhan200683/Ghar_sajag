@@ -4037,3 +4037,73 @@ commit follows this implementation commit on the same branch. The final local
 and remote HEAD equality is checked after that receipt push. No hardware, real
 credential, eFuse, production endpoint or commercial activation action was
 authorized or performed.
+
+## GS-172 #11316 / GS-68 #11317 — isolated signed-time diagnostic follow-up — 2026-10-17
+
+On the canonical `feature/r1-commercial-baseline` branch, the task safely
+fast-forwarded to the requested `6a0e482727c64cf5a34cb43e353bdc94b814aca1`
+checkpoint, then added the TEST_ONLY S3 diagnostic integration and a response
+field-layout compatibility fix. The implementation commits are
+`b2decb25bbc3ebdd5413613f5f290f4f5587458b`,
+`3d01bd92c80f0356d9686a9f3e3feebe7e7a2c18`, and
+`d75f6b730c0b4ddc1861f2f30bf9d3fa4f381f5a`. At this handoff checkpoint local
+HEAD is `d75f6b730c0b4ddc1861f2f30bf9d3fa4f381f5a`; origin was last observed at
+`6a0e482727c64cf5a34cb43e353bdc94b814aca1` before the final validation/doc
+commit and push, so local is three commits ahead. No branch/worktree switch was
+made. All pre-existing untracked PWA/Android assets, IDF managed components,
+CloudSync notes and GS-114/C8/GS-40 evidence remain untouched.
+
+The isolated diagnostic target links the existing `cloud_trust_provider.cpp`
+and exercises runtime-injected TEST_ONLY public RSA-3072 key, S3 PSA RNG
+challenge and signed-time proof interfaces. The fake host verifier macro is a
+target compile error. Production `app_main` still composes
+`UnprovisionedS3CloudTrust`; no private key or production anchor is included.
+Missing identity/time/authority, bad/replayed proof, revoked credential,
+incomplete TLS identity and unexpected network response remain fail-closed.
+
+Validation passed on the source at d75f6b7: 27 diagnostic protocol assertions;
+5 cloud-trust provider suites; mTLS adapter 9/9; backend security 14/14; GS-40
+identity/time/NodeHealth/caregiver 4/4; GS-168 issuer/registry 10/10;
+NodeHealth model 5/5; security simulation 18/18; local TLS-to-durable-API
+integration 1/1; runner Python 72/72; validation framework 47/47; and feature
+coverage 208 features / 220 modules / 24 physical cases / 22 mapping checks.
+After correcting a source-compatible `BackendHttpResponse` aggregate field
+order found by the integration compile, that integration passed. ESP-IDF 6.0.3
+non-flashing diagnostic build passed: 468,240-byte image SHA-256
+`e8e0a6236817f857346aced735f94f412245c693733710f749d56a55b248ef34`; source
+tree OID `a94fd18c6cd398b70bf067e6b207a0a66f6d0682`; profile SHA-256
+`00a8aefb20a6b67d34c6631128031d112ff091d3f255b21a7280db45a356b1d0`;
+sdkconfig SHA-256 `f120945dd0f4ccbeee29eff5f1514ea5f0533856b27eb5207435d464a5231741`.
+The prior installed spare-S3 image hash reported by the user is
+`c905af73419c84af7a1d986dada3724da7e654b4d7eaa0235bd06e515902f8ef`; the
+candidate was not flashed. Silicon PSA RNG, signature verification, DS signing,
+live mTLS, image match and all physical acceptance remain NOT_RUN.
+
+The candidate is build-ready for separately authorized physical validation of
+PSA RNG, signed-time proof and fail-closed diagnostics after explicit image
+installation and image matching; it does not qualify DS signing or mTLS because
+no device DS key is provisioned. Production CA/issuer and trust custody, S3 DS
+key lifecycle/eFuse authorization, authenticated-time authority and trust
+anchor, rollback-resistant boot/floor storage and thresholds, production
+ownership/revocation registry, Secure Boot/Flash Encryption and recovery order,
+and fixture-specific physical authorization remain unresolved. Existing P0
+`product_status=PARTIAL` and Hub journal migration failure are preserved.
+
+This handoff records no new locked decision; `CONTEXT_VERSION` remains
+`2026-10-13.001`. No hardware, serial/USB, flash, credentials, eFuses, Secure
+Boot/Flash Encryption, or production endpoints were accessed.
+
+Affected component gates completed: `make validation-hub` returned FAIL because
+the unchanged migration test reported `clean migration commits`, the registered
+ASan/UBSan storage stage timed out at 600 seconds, and P0 retained
+`product_status=PARTIAL`; the P0 scenario itself had 26/26 checks and one
+browser test pass. `make validation-contract` returned FAIL only because P0
+retained `product_status=PARTIAL`; its security, cloud-contract, HTTPS, worker,
+runner, and sanitizer stages passed. The focused target/host tests, non-flashing
+S3 build, feature traceability, and exact candidate image hashes are recorded
+above and in the paired evidence file. No gate failure was suppressed.
+
+Next action: inspect and stage only the intended code/evidence/traceability
+files, recheck remote and active writers, commit/push normally, verify remote
+HEAD, then add dated GS-172 and GS-68 evidence comments. A separately authorized
+image install and physical observer plan is required before any target test.

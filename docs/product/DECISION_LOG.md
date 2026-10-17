@@ -1018,3 +1018,22 @@ authenticated-time signer/anchor/freshness policy, rollback-resistant counter,
 production registry/certificate lifecycle, production endpoints or physical
 operation. CONTEXT_VERSION remains `2026-10-13.001`; no locked requirement was
 added or changed.
+
+## 2026-10-17 — GS-172 / GS-68 isolated S3 signed-time diagnostic milestone (evidence only)
+
+The existing S3 cloud-trust provider is linked into the isolated diagnostic
+target only. It exposes TEST_ONLY public-key loading, PSA RNG challenge
+generation, and RSA-3072/SHA-256 signed-time verification for the isolated
+fixture; the host fake-verifier compatibility macro is forbidden in target
+firmware. Production `UnprovisionedS3CloudTrust` composition is unchanged.
+Focused host security and CloudSync tests pass, and the non-flashing ESP-IDF
+6.0.3 target build passes. The candidate image was not installed. Silicon PSA
+RNG, RSA verification, DS signing and mTLS have not been observed; physical
+acceptance is NOT_RUN. See the dated provider evidence for exact commands,
+artifact hashes and approvals still required.
+
+This adds implementation/test evidence only. It does not approve production
+trust anchors, CA/issuer custody, S3 DS/eFuse key handling, authenticated-time
+authority, rollback protection, Secure Boot/Flash Encryption, production
+registry, or physical operation. `CONTEXT_VERSION` remains
+`2026-10-13.001`.
