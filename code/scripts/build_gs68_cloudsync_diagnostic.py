@@ -15,6 +15,7 @@ REPO = Path(__file__).resolve().parents[2]
 IDF_DIR = REPO / "code/firmware/hub/target/esp32s3/idf"
 IDF_EXPORT = Path("/home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh")
 PROFILE = IDF_DIR / "sdkconfig.gs68_cloudsync_hil.defaults"
+VALIDATION_BUILD_ROOT = (REPO / "code/build/validation_targets").resolve()
 
 
 def sha256(path: Path) -> str:
@@ -71,8 +72,9 @@ def main() -> int:
     requested_root = os.environ.get("GS68_DIAGNOSTIC_BUILD_ROOT")
     if requested_root:
         root = Path(requested_root).resolve()
-        if root.parent != Path("/tmp") or not root.name.startswith("gs68_cloudsync_diag_"):
-            print("BLOCKED: reusable build root must be a dedicated gs68_cloudsync_diag_* directory under /tmp")
+        if (root.parent not in (Path("/tmp"), VALIDATION_BUILD_ROOT) or
+                not root.name.startswith("gs68_cloudsync_diag_")):
+            print("BLOCKED: reusable build root must be a dedicated gs68_cloudsync_diag_* directory under /tmp or code/build/validation_targets")
             return 2
         root.mkdir(mode=0o700, parents=True, exist_ok=True)
     else:

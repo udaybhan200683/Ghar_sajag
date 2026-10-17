@@ -33,6 +33,10 @@ def check_console_contract() -> None:
     if "std::fgets(command" in app:
         raise AssertionError("GS-68 must not use a one-shot nonblocking fgets command loop")
 
+    builder = (ROOT / "scripts/build_gs68_cloudsync_diagnostic.py").read_text()
+    if '"code/build/validation_targets"' not in builder:
+        raise AssertionError("GS-68 build helper must support the ignored validation build area when /tmp is full")
+
 
 def main() -> int:
     check_console_contract()
