@@ -1,3 +1,15 @@
+## GS-172 / GS-68 spare-S3 install preflight — 2026-10-17 (evidence only)
+
+Read-only preflight rehashed the USB-primary TEST_ONLY candidate
+`c0fb82c69fe030f8b4358b7783e7c537156dfdb361b4df1a620831210d1bef65` and
+verified the recorded profile/sdkconfig hashes. Installation remains NO-GO:
+fixture identity is unassigned, no independently verified restore image or
+installed partition match is available, the formal runner binds to current
+full HEAD while the candidate records an earlier source commit, and the
+registered runner does not adjudicate the diagnostic console/time commands.
+No product or security requirement changes. See
+[`GS-68 spare-S3 install preflight`](../exec-plans/evidence/GS68_SPARE_S3_INSTALL_PREFLIGHT_20261017.md).
+
 # Ghar Sajag Product / Architecture Decision Log
 
 ## GS-68 isolated diagnostic USB console — 2026-10-17 (evidence only)

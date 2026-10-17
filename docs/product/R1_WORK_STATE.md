@@ -1,5 +1,43 @@
 # R1 Current Work State
 
+## GS-172 / GS-68 spare-S3 installation preflight — 2026-10-17
+
+Resumed at canonical HEAD `c4bc525e1fea8555ab30affc5b9e9926703c7f8e` on
+`feature/r1-commercial-baseline`; local, tracking and remote heads matched.
+Tracked state was clean. Existing untracked PWA, Android, managed-component,
+C8/GS-114 and GS-40 evidence was preserved. Context preflight was PASS. No
+canonical writer was found; a prior process in the separate GS-177 worktree was
+left untouched.
+
+The ignored TEST_ONLY S3 candidate was found and its app digest reverified:
+`c0fb82c69fe030f8b4358b7783e7c537156dfdb361b4df1a620831210d1bef65` (473,312
+bytes). Profile digest is
+`7d13aa13684953744737b653c82ec7f8b95d0c6bfc715649bc99d501313d3c72` and
+effective sdkconfig digest is
+`ff3150eeeac79a4a80b5a718a20408386d90d5a491cb199d763e0b6190105a7a`; USB
+Serial/JTAG is primary. Current `code/` tree equals the build source tree, but
+the formal runner requires exact full-HEAD equality and the candidate embeds
+source `a5d2806b40023d0c42a90d082187398416fb956c`, not current HEAD `c4bc525...`.
+
+**Physical disposition is NO-GO.** The spare remains unassigned in the fixture
+manifest; its historical BUSID/COM10/ttyACM0 and baseline-image digest were
+not rechecked. No independently hash-verified baseline restore image was
+found among discovered named S3 app artifacts, and installed partition-table
+compatibility is unknown. The formal runner executes signed `RUN_CASE` cases,
+not the auxiliary USB command/signed-time diagnostic; its time-fixture label
+also collides with catalogue GS68-PHY-003 (certificate validation). Valid
+time proof writes NVS namespace `gs68time`. No device/port was accessed and no
+physical test was run.
+
+Detailed source/image binding, stop/recovery procedure, P1–P3 plan, prepared
+owner authorization packet, and all outstanding blockers are in
+[`GS68_SPARE_S3_INSTALL_PREFLIGHT_20261017.md`](../exec-plans/evidence/GS68_SPARE_S3_INSTALL_PREFLIGHT_20261017.md).
+Previously reported software validation was not rerun. Next action is owner
+approval for read-only identity observation only; after that verify C8
+exclusion and recovery/partition plan, resolve runner binding/case mapping,
+then prepare a new digest-bound installation approval. Do not flash based on
+this preflight.
+
 ## GS-172 / GS-68 USB diagnostic command-console correction — 2026-10-17
 
 Authority: GS-172 comment 11323 and GS-68 comment 11324. Context preflight
