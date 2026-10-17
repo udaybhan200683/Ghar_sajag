@@ -181,3 +181,53 @@ remains NO-GO.
 Private host-only transport receipts remain outside the repository under the
 existing restricted evidence directory. Public evidence contains no serial
 number, PnP instance ID, full port identity, raw flash or credential material.
+
+## 2026-10-17 — Controlled ROM-entry preflight blocked before device operation
+
+Canonical branch remains `feature/r1-commercial-baseline`; starting HEAD was
+`ac42690c7c75b686aec27f5a0e61f1ced1dad40c` and matched origin. Context
+preflight passed. The candidate was rehashed at 278,944 bytes with SHA-256
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`.
+No implementation tests or builds were repeated. WSL again had no
+`/dev/ttyACM*`, `/dev/ttyUSB*`, or `/dev/serial/by-id` device.
+
+The authorized automatic ROM-entry attempt was **not started**. A host-only
+Windows interop probe failed before returning any Windows state:
+`UtilAcceptVsock:273: accept4 failed 110` (exit 1). As a result, current
+COM10/BUSID ownership, current spare identity and any competing COM10 handle
+could not be verified. No Windows-native esptool command, reset, ROM sync,
+USB/IP attach/detach, or other device I/O was performed. The prior session's
+Windows observation (COM10, BUSID 3-1, Shared and matching the spare receipt)
+is historical, not a current verification.
+
+The installed esptool v5.4.0 help was previously observed to offer
+`--before usb-reset`, `--before no-reset`, `--after no-reset`, and
+`--no-stub`. Espressif's S3 serial-connection guide documents entering ROM
+download mode using BOOT held while RESET is pressed; the USB Serial/JTAG
+controller documentation describes its ROM download behavior. The previous
+no-reset query demonstrated that application-console communication alone did
+not complete ROM synchronization. References: [ESP32-S3 serial connection and
+download mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/get-started/establish-serial-connection.html),
+[ESP32-S3 USB Serial/JTAG console](https://docs.espressif.com/projects/esp-idf/en/release-v5.5/esp32s3/api-guides/usb-serial-jtag-console.html),
+[esptool reset options](https://docs.espressif.com/projects/esptool/en/release-v4/esp32s3/esptool/advanced-options.html).
+
+| Gate | Result |
+|---|---|
+| Current Windows device and competing-handle check | BLOCKED by Windows interop failure; not verified this session |
+| Automatic ROM entry / reset | NOT_RUN; no device command issued |
+| Security information | UNKNOWN; no query executed |
+| Installed partition / OTA slot | NOT READ |
+| Recovery backup / validated restore path | NOT ESTABLISHED |
+| Candidate installed | NO |
+| Application-only installation readiness | **NO-GO** |
+
+Private host receipt is outside the repository with mode 0600; SHA-256
+`129c4d1588d64c8f82c8d16142266d97731dcee3472da20dc3338125f128a18e`.
+Next step: restore Windows interop without shutting down WSL or interrupting
+other work, then repeat host-only COM10/BUSID identity and handle checks. Only
+if the current device still matches the spare and the port is uncontended may
+the single owner-authorized `usb-reset`/documented automatic ROM-entry sequence
+be attempted, with a bounded `get-security-info` query and no stub. Stop on any
+failure; manual BOOT/EN intervention needs separate owner availability and
+approval. No partition access or installation is permitted until protection
+state and recovery readiness are known.

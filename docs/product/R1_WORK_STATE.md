@@ -4297,3 +4297,18 @@ qualified debug route enables read-only protection inspection, then actual
 partition/slot compatibility and an offline-validated restorable baseline are
 established. Full redacted findings are in
 `docs/exec-plans/evidence/GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md`.
+
+### Controlled spare-S3 ROM inspection checkpoint — 2026-10-17
+
+At canonical `ac42690c7c75b686aec27f5a0e61f1ced1dad40c` (local and origin
+equal), context preflight passed and the candidate still hashes to
+`855b586d6e7a51ebad22eb45c81c170897bbb0dbfd291b921d60bca72ae15049`. Windows
+interop failed with `UtilAcceptVsock:273: accept4 failed 110` before current
+COM10/BUSID identity and competing-port checks returned. WSL has no serial
+device. Therefore the authorized automatic ROM-entry sequence was NOT_RUN; no
+device I/O, reset, USB/IP operation, flash read/write or security operation
+occurred. Security state, installed partition/OTA state and recovery capability
+remain UNKNOWN; candidate installation is NO-GO. After Windows interop is
+restored, verify the current device identity and port ownership before a single
+bounded `usb-reset`/ROM security query. Full evidence and the private receipt
+hash are in the linked GS-68 evidence record.
