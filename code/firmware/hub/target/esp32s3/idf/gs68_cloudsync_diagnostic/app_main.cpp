@@ -202,9 +202,9 @@ void handle_missing_identity_case(const gs::diagnostic::TargetCommand& command) 
     // Reuse the existing provider contract. This diagnostic intentionally has
     // no Hub/Home/epoch, credential registry row, DS context, or trusted time.
     gs::hub::target::UnprovisionedS3CloudTrust identity;
-    gs::hub::target::CloudAuthorityBinding binding{};
+    gs::hub::CloudAuthorityBinding binding{};
     gs::hub::target::CloudTlsIdentity tls_identity{};
-    gs::hub::target::TrustedHubTimeSnapshot trusted_time{};
+    gs::hub::TrustedHubTimeSnapshot trusted_time{};
     const bool unexpectedly_ready = identity.current_binding(binding) ||
         identity.current_identity(tls_identity) || identity.trusted_hub_time(0, trusted_time);
     // This is a local readiness gate only. Do not create even a TEST_ONLY
