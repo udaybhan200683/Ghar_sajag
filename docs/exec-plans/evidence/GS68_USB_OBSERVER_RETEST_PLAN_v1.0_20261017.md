@@ -230,3 +230,100 @@ qualification remains NOT_RUN until its separately approved requirements and
 cases pass on matched evidence. If future qualification needs decisive reset
 attribution, add target boot-generation and monotonic uptime to a separately
 source-bound firmware build; the current image cannot supply those fields.
+
+## 2026-10-17 — 8192-byte-stack candidate and owner-authorized physical session
+
+The new non-flashing ESP-IDF 6.0.3 build used source commit
+f501d985c1ce5b8b89f0786b42af6e5a179469cb and code-tree OID
+cca5d51036e7a7da59f1b18f4b80fee26d814cd0. The image is 278,480 bytes,
+full artifact SHA-256
+fd072a0a02729fb7c0f2cadb27a30b4cbb3ef6c8f5d2dee89fa2f9049a33b8dd, and
+ESP image-validation SHA-256
+d60b1c4730e86dc4f1d0d8f034b5e3e170c10c0df6abae0d2399113920686346.
+Profile SHA-256 is
+d3a57024ecd0c8e0fda08f841d9aab14ca67b769d48610531ae464d747e0fd7c;
+effective sdkconfig SHA-256 is
+223c23490ffdf0a11bf24cda1984b3192355441ed03ede458c540bec5ae0535e.
+It selects USB Serial/JTAG primary console and an 8,192-byte main task stack;
+the target remains diagnostic-only, unprovisioned and network-disabled.
+
+Candidate provenance initially failed because the expected TEST_ONLY
+configuration omitted the new stack value. The validator and a negative
+configuration test now include it. Candidate binding and install gates then
+passed with no errors. The host-only follow-up delta allowlist also had omitted
+the changed cloudsync runner test file; that narrow host-only path was added
+with regression coverage. Neither correction changes firmware bytes. Focused
+tests passed: test_gs68_aux_runners.py 41/41 and
+test_gs68_cloudsync_runners.py 35/35. Commits d8ddb3f and 329a32c were
+pushed to canonical.
+
+Immediately before the single app-only install, Windows PnP COM10 VID/PID and
+the parent chain matched the private designated-spare receipt. The stored
+read-only partition-table, OTA metadata and 1 MiB recovery-image checksums
+still matched. Prior ROM inspection recorded Secure Boot disabled, Flash
+Encryption disabled, normal USB ROM download available, 16 MiB flash, and
+OTA0 selected at 0x20000; no security configuration changed. Windows esptool
+v5.4.0 used one --no-stub --connect-attempts 1 application write at
+0x20000, with no force option. It returned 0 and Hash of data verified.
+The write covered 0x20000..0x64000 only. Bootloader, partition table,
+otadata, NVS, OTA1, journal and eFuses were excluded. The installed-image
+receipt binds the write to the exact candidate digest above and the original
+recovery capture. The private installation log SHA-256 is
+6a28a9b6d15587c5b0bf87e3a0bc24f002783e1873163385ee0926d8a2f0844b.
+
+The first one-open observation used a 15-second READY wait and received two
+complete ESP-IDF startup lines followed by a 148-byte unterminated READY
+prefix. It sent no commands and failed as truncated. A second single-open
+session used a 30-second bounded startup wait. No complete READY was observed;
+the session therefore did not claim fresh runtime digest verification. It
+used the source-bound installation receipt as inherited image identity, then
+required new exact-nonce-correlated application responses. COM ownership was
+reported UNKNOWN before the atomic exclusive open; open succeeded. The driver
+did not expose DTR/RTS transition telemetry. Reset-safety remains unproven and
+no reset was confirmed.
+
+The second session's auxiliary checks were recorded PASS:
+
+- Delayed fragmented CRLF OBSERVE returned a correlated OBSERVED_NO_ACTION.
+- Malformed and oversized command lines were rejected; the receiver processed
+  valid commands after each rejection.
+- Two sequential OBSERVE responses returned in request order.
+- The silicon PSA RNG returned a fresh challenge with nonzero boot generation.
+- TEST_ONLY RSA-3072/SHA-256 signed time verified with challenge nonce and
+  generation binding; replay was rejected.
+- Wrong nonce, invalid signature, expired proof and stale-generation proof
+  were each rejected. The ephemeral signing key stayed in host process memory;
+  only its TEST_ONLY public key was sent to target runtime memory.
+- No production network or credential path was requested. Signed-time floor
+  testing exercised only the diagnostic's dedicated gs68time store; no NVS
+  dump or unrelated namespace operation was performed.
+
+Evidence reconciliation found that the private orchestration script had loaded
+the prior authorized-usb-session-fixture.json despite preparing a new
+stack-8192 fixture. Consequently its raw result bundle reports the older
+855b586d... image metadata. That original private result is preserved; it is
+not silently rewritten. A separate mode-0600 adjudication binds the session to
+the immediately preceding WRITE_HASH_VERIFIED receipt for the exact
+fd072a... candidate, and records the mismatch, the original bundle hash and
+the raw console-record hash. This supports the command/proof results and
+application responsiveness but does not create direct READY/runtime-digest
+evidence. The corrected private adjudication SHA-256 is
+57a79d386e5a23ccd29c0facb9bf1a3956105ec9f9e98af3e126539e7a286023;
+original runner bundle SHA-256 is
+921ca86ff99dbdfd8a1933d69c393be69c58a65ee608212c6b95ff96dcdbcc0f;
+raw console-record SHA-256 is
+860fff2bb6fea3b59b8fa9af22ea4316f67de6eef9b0a965d66af862b36981fe.
+Private transcripts, fixture identities, recovery bytes and ephemeral key
+material remain outside the repository and Jira.
+
+Auxiliary USB command and TEST_ONLY PSA/RSA diagnostics: PASS with inherited
+install identity and the explicit runner-metadata reconciliation above.
+Direct READY image identity: NOT_OBSERVED. Windows reset-safe opening:
+NOT_QUALIFIED. Silicon DS signing and live mTLS: NOT_RUN. Official
+GS68-PHY-001..010, GS-68 acceptance and GS-40 acceptance: NOT_RUN. The
+installed TEST_ONLY candidate remains suitable for this bounded diagnostic;
+no further firmware build or flash is indicated for the completed auxiliary
+checks. A later formal physical qualification still needs a correctly
+image-bound capture, reset/event correlation where required, certificate/DS
+provisioning decisions, and the official case evidence. No C8 or C3 access
+occurred.

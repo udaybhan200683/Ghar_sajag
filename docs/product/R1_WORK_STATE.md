@@ -4622,3 +4622,59 @@ no candidate installation or write was performed under this task. Candidate
 remains uninstalled; running image differs from the candidate. Official GS-68
 and GS-40 physical acceptance, silicon DS signing and mTLS remain NOT_RUN. A
 separate installation authorization/task is required to act on the candidate.
+
+### GS-68 / GS-172 8192-byte-stack spare diagnostic execution — 2026-10-17
+
+Canonical branch feature/r1-commercial-baseline now contains provenance
+corrections in commits d8ddb3f51e239ba839ef193b21dc60753de79044 and
+329a32c3da1425148edce1c5db71e08e3222bc3f; both were pushed. The new
+non-flashing ESP-IDF 6.0.3 TEST_ONLY candidate was built from
+f501d985c1ce5b8b89f0786b42af6e5a179469cb (code-tree OID
+cca5d51036e7a7da59f1b18f4b80fee26d814cd0): 278,480 bytes,
+SHA-256 fd072a0a02729fb7c0f2cadb27a30b4cbb3ef6c8f5d2dee89fa2f9049a33b8dd,
+runtime image-validation digest
+d60b1c4730e86dc4f1d0d8f034b5e3e170c10c0df6abae0d2399113920686346.
+Profile hash is d3a57024ecd0c8e0fda08f841d9aab14ca67b769d48610531ae464d747e0fd7c;
+effective sdkconfig hash is
+223c23490ffdf0a11bf24cda1984b3192355441ed03ede458c540bec5ae0535e.
+The provenance validator now accepts the actual 8,192-byte main-task setting
+and the explicit host-only test delta while rejecting changed build
+configuration. Focused runner tests passed 41/41 and 35/35.
+
+The designated spare was reidentified from Windows PnP immediately before
+installation. Stored security/partition/OTA/recovery receipts rehashed; Secure
+Boot and Flash Encryption were observed disabled, and OTA0 remained selected
+at 0x20000. One Windows esptool v5.4.0 application-only write at that offset
+returned exit 0 and Hash of data verified; only sectors
+0x20000..0x64000 were written. No bootloader, partition table, OTA metadata,
+OTA1, journal, eFuse, C8 or C3 was operated on.
+
+One 15-second console observation failed on an incomplete READY frame before
+sending commands. In the following single-open session, no full READY was
+observed, so direct runtime digest verification is NOT_OBSERVED. The session
+inherited the exact install identity receipt and obtained fresh
+nonce-correlated responses. Auxiliary tests passed for fragmented OBSERVE,
+malformed/oversized rejection and recovery, sequential ordering, PSA RNG,
+valid RSA-3072/SHA-256 signed-time verification, replay rejection, mismatched
+nonce, invalid signature, expired proof and stale generation.
+
+A private orchestration-script fixture-path error caused its raw session bundle
+to label the prior 855b586d... image. The original is preserved. A separate
+private reconciliation record binds the session to the immediately preceding
+verified write receipt for fd072a..., and states the limitation that no target
+READY digest was observed. It does not fabricate fresh image verification.
+Its hash and the original result/raw-record hashes are recorded in
+GS68_USB_OBSERVER_RETEST_PLAN_v1.0_20261017.md.
+
+Auxiliary TEST_ONLY USB + PSA/RSA diagnostic: PASS with inherited
+source-bound install receipt and disclosed runner metadata reconciliation.
+Reset-safe COM opening: NOT_QUALIFIED; COM owner attribution remains UNKNOWN,
+driver DTR/RTS transitions are unobservable, and reset-versus-buffer behavior
+is unresolved. Official GS-68/GS-40 physical acceptance, silicon DS signing
+and live mTLS remain NOT_RUN. No production network/credentials, security
+eFuse or protected C8/C3 access occurred. Full redacted evidence is in the
+linked retest plan; restricted raw artifacts remain in the private local
+evidence directory. Next: correct the orchestration fixture binding for any
+future session; do not repeat the completed diagnostic. For formal GS-68/GS-40
+physical acceptance, obtain the required security-provisioning approvals and
+run the official cases on exact-image-bound evidence.
