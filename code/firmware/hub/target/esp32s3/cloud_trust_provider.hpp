@@ -4,6 +4,7 @@
 #include "firmware/hub/target/esp32s3/https_backend_channel.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -141,6 +142,26 @@ public:
     virtual bool commit_floor(EpochSeconds utc_floor) = 0;
 };
 
+#if defined(ESP_PLATFORM)
+// ESP-IDF NVS persistence seam for isolated software/target validation. NVS
+// commits provide restart durability, but this adapter is NOT resistant to
+// restoring an older flash image and is not a production anti-rollback store.
+// Production composition must use an approved protected monotonic source.
+class NvsAuthenticatedTimeFloorStore final : public AuthenticatedTimeFloorStore {
+public:
+    explicit NvsAuthenticatedTimeFloorStore(std::string name_space)
+        : namespace_(std::move(name_space)) {}
+    bool begin_boot(std::uint64_t& boot_generation) override;
+    TrustedTimeFloorRead read_floor(EpochSeconds& utc_floor) override;
+    bool commit_floor(EpochSeconds utc_floor) override;
+
+private:
+    static bool valid_namespace(const std::string& name_space);
+    const std::string namespace_;
+    std::mutex mutex_;
+};
+#endif
+
 // A verifier must authenticate the approved time authority independently of
 // TLS certificate validity, bind the exact 32-byte one-use nonce and current
 // boot generation, and validate the signed validity interval. No verifier or
@@ -154,6 +175,51 @@ public:
                         AuthenticatedTimeStatement& statement) const = 0;
 };
 
+// Cryptographic TEST_ONLY / production-capable verifier. The authority key is
+// injected as DER SubjectPublicKeyInfo and is deliberately not compiled into
+// the product. Wire proofs use the fixed RSA-3072/SHA-256/PKCS#1-v1.5 profile.
+class Rsa3072Sha256TimeProofVerifier final : public AuthenticatedTimeProofVerifier {
+public:
+    explicit Rsa3072Sha256TimeProofVerifier(
+        std::vector<std::uint8_t> pinned_public_key_der)
+        : public_key_der_(std::move(pinned_public_key_der)) {}
+
+    bool verify(const std::vector<std::uint8_t>& proof,
+                const std::array<std::uint8_t, 32>& nonce,
+                std::uint64_t boot_generation,
+                AuthenticatedTimeStatement& statement) const override;
+
+private:
+    const std::vector<std::uint8_t> public_key_der_;
+};
+
+// Fixed v1 envelope. Signature covers the first 72 bytes; wire size is 456.
+// Integer fields are unsigned big-endian seconds/generation. All lengths and
+// reserved bytes are checked before cryptographic verification.
+std::vector<std::uint8_t> encode_authenticated_time_proof_payload(
+    const std::array<std::uint8_t, 32>& nonce,
+    std::uint64_t boot_generation,
+    const AuthenticatedTimeStatement& statement);
+
+class AuthenticatedTimeRandomSource {
+public:
+    virtual ~AuthenticatedTimeRandomSource() = default;
+    virtual bool fill(std::uint8_t* output, std::size_t length) = 0;
+};
+
+// Uses PSA's configured platform RNG on ESP-IDF and OpenSSL RAND_bytes in the
+// isolated host validation build. Failure is explicit and prevents a challenge.
+class S3AuthenticatedTimeRandomSource final : public AuthenticatedTimeRandomSource {
+public:
+    bool fill(std::uint8_t* output, std::size_t length) override;
+};
+
+struct AuthenticatedTimeChallenge {
+    std::array<std::uint8_t, 32> nonce{};
+    std::uint64_t boot_generation{0};
+    Milliseconds created_monotonic_ms{0};
+};
+
 struct AuthenticatedTimeBootstrapPolicy {
     // Both values are required before readiness: one limits authenticated
     // bootstrap response age, the other bounds durable floor writes. Production
@@ -163,6 +229,9 @@ struct AuthenticatedTimeBootstrapPolicy {
     // provider fail closed because the post-reboot rollback bound would not be
     // maintained. The production wear/freshness tradeoff remains a D06 decision.
     Milliseconds floor_checkpoint_interval_ms{0};
+    // Test fixture value in software validation. Product value remains an
+    // explicit D06 approval and zero keeps the provider disabled.
+    std::uint64_t max_statement_validity_seconds{0};
 };
 
 // Startup and recovery state machine for D06. A persisted floor alone never
@@ -172,17 +241,30 @@ class AuthenticatedHubTimeProvider final : public S3TrustedHubTimeSource {
 public:
     AuthenticatedHubTimeProvider(AuthenticatedTimeFloorStore& store,
                                  const AuthenticatedTimeProofVerifier& verifier,
+                                 AuthenticatedTimeRandomSource& random,
                                  const S3HubMonotonicClock& clock,
                                  AuthenticatedTimeBootstrapPolicy policy = {})
-        : store_(store), verifier_(verifier), clock_(clock), policy_(policy) {}
-
-    bool start();
-    // The bootstrap caller supplies a nonce from the approved CSPRNG and the
-    // monotonic time captured when that one-use challenge was created. The
-    // verifier must reject nonce reuse, including within the current boot.
+        : store_(store), verifier_(verifier), random_(random), clock_(clock),
+          policy_(policy) {}
+#if defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
+    // Compatibility harness for earlier fake-verifier state-machine tests.
+    // This overload does not exist in target/product builds; production calls
+    // must use provider-generated CSPRNG challenges and signed v1 proofs.
+    AuthenticatedHubTimeProvider(AuthenticatedTimeFloorStore& store,
+                                 const AuthenticatedTimeProofVerifier& verifier,
+                                 const S3HubMonotonicClock& clock,
+                                 AuthenticatedTimeBootstrapPolicy policy = {});
     bool accept_authenticated_time(const std::vector<std::uint8_t>& proof,
                                    const std::array<std::uint8_t, 32>& nonce,
                                    Milliseconds challenge_started_monotonic_ms);
+#endif
+
+    bool start();
+    // The provider owns nonce creation and accepts exactly one response to the
+    // current challenge. Replacing/consuming it prevents caller-chosen nonce,
+    // cross-boot replay, and response reuse.
+    bool create_challenge(AuthenticatedTimeChallenge& challenge);
+    bool accept_authenticated_time(const std::vector<std::uint8_t>& proof);
     bool trusted_hub_time(Milliseconds monotonic_ms,
                           TrustedHubTimeSnapshot& time) const override;
     std::uint64_t boot_generation() const;
@@ -190,6 +272,7 @@ public:
 private:
     AuthenticatedTimeFloorStore& store_;
     const AuthenticatedTimeProofVerifier& verifier_;
+    AuthenticatedTimeRandomSource& random_;
     const S3HubMonotonicClock& clock_;
     const AuthenticatedTimeBootstrapPolicy policy_;
     mutable std::mutex mutex_;
@@ -203,6 +286,13 @@ private:
     Milliseconds accepted_monotonic_ms_{0};
     EpochSeconds accepted_utc_{0};
     Milliseconds expires_monotonic_ms_{0};
+    AuthenticatedTimeChallenge pending_challenge_{};
+    bool challenge_pending_{false};
+#if defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
+    bool test_only_fake_proof_pending_{false};
+#endif
+    std::array<std::uint8_t, 32> last_nonce_{};
+    bool have_last_nonce_{false};
 };
 
 }  // namespace gs::hub::target

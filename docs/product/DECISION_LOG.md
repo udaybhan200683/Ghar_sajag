@@ -968,3 +968,26 @@ Hub gate still has its existing journal migration failure and the required P0
 stage remains PARTIAL. See the current work-state entry and follow-up in the
 GS-40 handoff and integration evidence. This records implementation status only;
 D05/D12/D06 and CONTEXT_VERSION are unchanged.
+
+
+## 2026-10-17 — GS-68 provider and signed-time implementation evidence (no new decision)
+
+The GS-168 TEST_ONLY pilot issuer now adapts its active/revoked/unknown registry
+state to backend CloudSync certificate lookup. The S3 trust adapter verifies
+RSA-3072 ClientAuth certificate material/fingerprint and atomically revalidates
+the current Home/epoch/credential generation. D06 includes a fixed-format
+RSA-3072/SHA-256 signed proof verifier, CSPRNG one-use nonce, boot-generation
+binding and floor/reboot/rollback checks. The TEST_ONLY time key is injected;
+no trust anchor is compiled into the product. The ESP-IDF NVS store adapter
+provides ordinary persistence only and is not rollback resistant or used by
+product composition. `app_main` remains on `UnprovisionedS3CloudTrust`; commercial
+activation stays disabled. The exact proof format, tests, production approvals
+and physical NO-GO checklist are in
+`docs/exec-plans/evidence/GS68_D05_D12_D06_PROVIDER_E2E_20261017.md`.
+
+This section records implementation and TEST_ONLY evidence only. It does not
+approve a CA/issuer, HSM/KMS or S3 DS key custody, production trust bundle,
+authenticated-time signer/anchor/freshness policy, rollback-resistant counter,
+production registry/certificate lifecycle, production endpoints or physical
+operation. CONTEXT_VERSION remains `2026-10-13.001`; no locked requirement was
+added or changed.

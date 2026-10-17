@@ -71,6 +71,19 @@ class PilotIssuerTests(unittest.TestCase):
         with self.assertRaises(TestIssuerRejected):
             self.issuer.issue("test-hub-001", csr)
 
+    def test_backend_registry_adapter_tracks_active_revoked_and_unknown_rows(self):
+        _, csr = self.pair()
+        issued = self.issuer.issue("test-hub-001", csr)
+        active = self.issuer.by_fingerprint(issued.fingerprint)
+        self.assertEqual((active.permanent_hub_id, active.state,
+                          active.purpose, active.algorithm),
+                         ("test-hub-001", "ACTIVE", "CLOUD_TLS_CLIENT", "RSA_3072"))
+        self.assertIsNone(self.issuer.by_fingerprint("f" * 64))
+        self.assertTrue(self.issuer.revoke(issued.fingerprint))
+        self.assertEqual(self.issuer.by_fingerprint(issued.fingerprint).state, "REVOKED")
+        with self.assertRaisesRegex(TestIssuerRejected, "invalid_test_fingerprint"):
+            self.issuer.by_fingerprint("not-a-fingerprint")
+
     def test_expiry_and_future_start(self):
         _, csr = self.pair()
         issued = self.issuer.issue("test-hub-001", csr, valid_days=1)

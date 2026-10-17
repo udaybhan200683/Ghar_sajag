@@ -3916,3 +3916,71 @@ product/security decision is made; CONTEXT_VERSION is unchanged.
 identity/time/current-NodeHealth source into the existing CloudSync worker and
 rerun focused source-to-caregiver gates. Keep production feed and physical
 qualification disabled until their separate prerequisites and approvals are met.
+
+
+## GS-68 D05/D12/D06 signed-time and registry follow-up — 2026-10-17
+
+Resumed on canonical `feature/r1-commercial-baseline` at local/origin
+`29890b36a753ffdc46d7be9399a4a6cbed97d727`; pre-edit tracked status was clean,
+and the context preflight passed (`2026-10-13.001`). Existing historical
+worktrees and all untracked PWA, ESP-IDF managed components, GS-114/C8 and
+GS-40 UART evidence remain untouched. No competing writer was active at the
+start of this change.
+
+Implemented and TEST_ONLY validated: the existing GS-168 pilot issuer now
+implements the backend credential-registry lookup by certificate fingerprint,
+including active/revoked/unknown state and Hub/source identity. Its localhost
+mTLS harness accepts the issuer's separate TEST_ONLY client root while
+preserving server-name and TLS validation. The S3 trust seam parses an RSA-3072
+ClientAuth certificate and checks the exact SHA-256 fingerprint, composes one
+immutable current Home/epoch/credential snapshot, and rechecks it after trusted
+time acquisition before returning identity. Credential changes, transfer,
+revocation, quarantine and unavailable sources fail closed.
+
+D06 now has a bounded fixed-format RSA-3072/SHA-256/PKCS#1-v1.5 signed proof
+verifier, PSA CSPRNG challenge source on ESP-IDF, one-use nonce and boot
+generation binding, signed validity interval/floor checks and reboot/rollback
+state-machine coverage. The target NVS floor adapter is only a durability
+seam: it has no anti-rollback protection and is not composed into product
+runtime. The test authority and all issued identities/certificates are
+ephemeral TEST_ONLY. Product `app_main` still uses
+`UnprovisionedS3CloudTrust`, keeping commercial CloudSync fail closed. No new
+security decision or production anchor was added; CONTEXT_VERSION remains
+unchanged.
+
+Focused execution on the 2026-10-17 working source: `make
+cloud-trust-provider-test` PASS (5 suites); `make cloudsync-security-ut` PASS
+(mTLS adapter 9/9, backend security 14/14, identity/time/NodeHealth/caregiver
+4/4, GS-168 issuer/registry 10/10, NodeHealth model 5/5);
+`make cloudsync-security-sim-hil` PASS (18/18); `make
+cloudsync-mtls-integration-test` PASS (1/1, durable worker/API bridge);
+framework 47/47; feature map 208 features / 220 source modules / 24 physical
+cases / 22 mapping checks PASS. The direct caregiver API/read-model projection
+passed; PWA source was unchanged, and historical browser 86/86 was not rerun.
+Paired non-flashing ESP-IDF 6.0.3 target build passed after switching the
+Mbed TLS 4 key-capability check to its PSA API. C3 app is 937,536 bytes,
+SHA-256 `b4e2b1c1d370fd2da2a30aae52cfbc2f85e91d0ff3b39da41eef23816829fedb`;
+S3 app is 2,168,128 bytes, SHA-256
+`e09e9651160719673958fffdc5c06f7a1787eb31403384324fd421b8f15a3ea1`, with
+2,023,104 bytes free in the 4 MiB slot. S3 sdkconfig SHA-256 is
+`79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b` and
+runtime config SHA-256 is
+`fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862`.
+Source fingerprint is
+`0944b96d91b13be9d0a8de1d9f83961e4cf38c8d05195972d27f84c50070134a`.
+Build produced existing Kconfig notes and an unrelated unused-variable
+warning in `hub_runtime_adapter.cpp`, no remaining build errors.
+Existing required `product_status=PARTIAL`, Hub journal-migration failure and
+unexecuted physical acceptance remain visible and unchanged.
+
+**Production status:** D05/D12/D06 and current Home/epoch/revocation remain
+PARTIAL/BLOCKED pending the five approval groups in
+[`GS68_D05_D12_D06_PROVIDER_E2E_20261017.md`](../exec-plans/evidence/GS68_D05_D12_D06_PROVIDER_E2E_20261017.md): pilot CA/root and issuer custody; S3 DS/eFuse key custody/build/debug policy; authenticated-time authority and protected floor/boot counter; production registry and certificate lifecycle; pilot operations and fixture-specific physical authorization. Physical readiness remains NO-GO: exact S3/C3 fixture provenance, installed-image receipt, enrolled session/profile, safe reset-free observer, recovery owner and TC05's second Node/approved profile fixture are missing.
+
+**Delivery closeout:** finish the final diff review, stage only the intended
+GS-68/GS-40 implementation, focused tests, traceability and evidence files;
+recheck origin, commit and push normally; post dated evidence to GS-68, GS-109
+and GS-40 without workflow changes; then verify remote HEAD equality and append
+the final commit/comment IDs here and in the dated evidence. No hardware, real
+credential, eFuse, production endpoint or commercial activation action is
+authorized or performed.

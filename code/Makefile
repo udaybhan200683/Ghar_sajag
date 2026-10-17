@@ -597,6 +597,8 @@ cloudsync-security-ut: $(CLOUDSYNC_MTLS_ADAPTER_BINARY) $(CLOUD_TRUST_PROVIDER_B
 	$(CLOUDSYNC_MTLS_ADAPTER_BINARY)
 	$(CLOUD_TRUST_PROVIDER_BINARY)
 	PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_cloudsync_security.py' -v
+	PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_gs68_gs40_identity_time_e2e.py' -v
+	PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_gs168_pilot_issuer.py' -v
 	PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_node_health_status.py' -v
 
 cloudsync-security-sim-hil:

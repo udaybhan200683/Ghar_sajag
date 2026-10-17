@@ -287,3 +287,25 @@ and a protected test identity; paired C3 cases wait for D16 and a separately
 identified C3/interface/stimulus plan. Signed OTA rollback is separately
 blocked on GS-118/D15. Preserve all prohibitions and the active GS-114 C8
 fixture. Jira workflow states remain unchanged.
+
+
+## Canonical D05/D12/D06 execution continuation — 2026-10-17
+
+This follow-up continues on the canonical `feature/r1-commercial-baseline`
+worktree, starting local/origin HEAD `29890b36a753ffdc46d7be9399a4a6cbed97d727`.
+It does not resume development in this handoff's historical isolated branch.
+The GS-168 TEST_ONLY issuer/registry is connected to backend TLS identity lookup;
+the S3 adapter verifies RSA-3072 ClientAuth certificate/fingerprint and fences
+authority changes; the signed-time verifier now checks a fixed RSA-3072/SHA-256
+proof bound to one CSPRNG nonce and boot generation. Test authority, identity
+and certificates are ephemeral TEST_ONLY fixtures. Product composition remains
+fail closed and no production key/time authority is selected.
+
+Focused security/provider and GS-40 source-to-caregiver tests pass; framework
+and feature-map integrity pass. Paired ESP-IDF 6.0.3 non-flashing build, exact
+final artifact hashes, final simulation/integration receipts, commit/push SHA
+and Jira comment IDs are recorded in the 2026-10-17 provider evidence report
+and current R1 work-state entry. Remaining exact decisions and physical NO-GO
+requirements are listed there. No hardware or production credential operation
+was performed. Resume by reading that report and comparing canonical local and
+origin HEAD before any further source edit.

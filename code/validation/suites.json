@@ -1152,6 +1152,8 @@
         "backend/ghar_sajag/cloud_client_identity.py",
         "backend/ghar_sajag/node_health_status.py",
         "tests/python/test_node_health_status.py",
+        "tools/factory/pilot_test_issuer.py",
+        "tests/python/test_gs168_pilot_issuer.py",
         "backend/migrations/012_node_health_latest.sql",
         "tests/cpp/cloudsync_mtls_adapter_validation.cpp",
         "firmware/hub/target/esp32s3/cloud_trust_provider.cpp",
@@ -1159,16 +1161,21 @@
         "tests/cpp/cloud_trust_provider_validation.cpp",
         "tests/cpp/p2d_idf_fake/esp_http_client.h",
         "tests/support/test_cloudsync_security.py",
-        "tests/support/cloudsync_mtls_certs.py"
+        "tests/support/test_gs68_gs40_identity_time_e2e.py",
+        "tests/support/cloudsync_mtls_certs.py",
+        "tests/support/cloudsync_mtls_local.py"
       ],
       "success": "^CLOUDSYNC MTLS ADAPTER PASS cases=(9) physical=NOT_RUN$",
       "required_success": [
         "Ran 14 tests",
+        "Ran 4 tests",
+        "Ran 10 tests",
         "Ran 5 tests",
         "GS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN",
         "GS68-D05-AUTHORITY-PROVIDER PASS",
         "GS68-D12-CREDENTIAL-PROVIDER PASS",
         "GS68-D06-TIME-STATE-MACHINE PASS",
+        "GS68-D06-SIGNED-PROOF-CRYPTO PASS",
         "GS40-PROVIDER-CLOUDSYNC-INTEGRATION PASS",
         "^GS-CLOUD-MTLS-UT-008 PASS$",
         "^GS-CLOUD-MTLS-UT-009 PASS$"

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 import sqlite3
+import threading
 from typing import Callable
 
 from cryptography import x509
@@ -69,7 +70,10 @@ class TestOnlyAuthority:
                                          key_encipherment=False, data_encipherment=False,
                                          key_agreement=False, key_cert_sign=True, crl_sign=True,
                                          encipher_only=False, decipher_only=False), critical=True)
-            .add_extension(x509.UnrecognizedExtension(_TEST_OID, _TEST_MARKER), critical=True)
+            # Keep the private TEST_ONLY marker noncritical so ordinary TLS
+            # stacks can validate the chain. The issuer/backend still require
+            # the exact marker and active registry mapping.
+            .add_extension(x509.UnrecognizedExtension(_TEST_OID, _TEST_MARKER), critical=False)
             .sign(self._key, hashes.SHA256())
         )
 
@@ -94,7 +98,7 @@ class TestOnlyAuthority:
                                          key_agreement=False, key_cert_sign=False, crl_sign=False,
                                          encipher_only=False, decipher_only=False), critical=True)
             .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]), critical=False)
-            .add_extension(x509.UnrecognizedExtension(_TEST_OID, _TEST_MARKER), critical=True)
+            .add_extension(x509.UnrecognizedExtension(_TEST_OID, _TEST_MARKER), critical=False)
             .sign(self._key, hashes.SHA256())
         )
 
@@ -106,6 +110,17 @@ class TestCredential:
     certificate_pem: bytes  # PUBLIC certificate; never private key.
     state: str
     issuer_fingerprint: str
+
+
+@dataclass(frozen=True)
+class RegisteredCloudCredential:
+    """Structural adapter for the existing backend CloudCredentialRegistry."""
+
+    fingerprint_sha256: str
+    permanent_hub_id: str
+    state: str
+    purpose: str = "CLOUD_TLS_CLIENT"
+    algorithm: str = "RSA_3072"
 
 
 class TestOnlyIssuer:
@@ -124,7 +139,8 @@ class TestOnlyIssuer:
         self.authority = authority or TestOnlyAuthority()
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self._available = True
-        self._db = sqlite3.connect(str(store), timeout=3)
+        self._lock = threading.RLock()
+        self._db = sqlite3.connect(str(store), timeout=3, check_same_thread=False)
         self._db.execute("PRAGMA foreign_keys=ON")
         self._db.executescript("""
             CREATE TABLE IF NOT EXISTS gs168_meta (
@@ -158,11 +174,13 @@ class TestOnlyIssuer:
         """Failure-injection toggle, never a production feature flag."""
         if type(available) is not bool:
             raise TestIssuerRejected("boolean_required")
-        self._available = available
+        with self._lock:
+            self._available = available
 
     def _check_ready(self):
-        if not self._available:
-            raise TestIssuerUnavailable("test_issuer_temporarily_unavailable")
+        with self._lock:
+            if not self._available:
+                raise TestIssuerUnavailable("test_issuer_temporarily_unavailable")
 
     def _validate_csr(self, hub_id: str, csr: x509.CertificateSigningRequest):
         if not isinstance(hub_id, str) or not _HUB_ID.fullmatch(hub_id):
@@ -183,27 +201,28 @@ class TestOnlyIssuer:
         if type(valid_days) is not int or not 1 <= valid_days <= 90 or type(renew) is not bool:
             raise TestIssuerRejected("invalid_test_issuance_policy")
         at = _utc(self.clock())
-        self._db.execute("BEGIN IMMEDIATE")
-        try:
-            prior = self._db.execute("SELECT fingerprint FROM gs168_credentials WHERE hub_id=? AND state='ACTIVE'", (hub_id,)).fetchone()
-            any_old = self._db.execute("SELECT 1 FROM gs168_credentials WHERE hub_id=? LIMIT 1", (hub_id,)).fetchone()
-            if renew and prior is None:
-                raise TestIssuerRejected("active_credential_required_for_renewal")
-            if not renew and any_old is not None:
-                raise TestIssuerRejected("test_hub_id_already_issued")
-            cert = self.authority._sign(hub_id, key, at, valid_days)
-            fingerprint = _fingerprint(cert)
-            if renew:
-                self._db.execute("UPDATE gs168_credentials SET state='SUPERSEDED' WHERE fingerprint=?", (prior[0],))
-            pem = cert.public_bytes(serialization.Encoding.PEM)
-            self._db.execute(
-                "INSERT INTO gs168_credentials VALUES (?,?,?,?,?,?)",
-                (fingerprint, hub_id, format(cert.serial_number, "x"), pem, "ACTIVE", at.isoformat()),
-            )
-            self._db.commit()
-        except Exception:
-            self._db.rollback()
-            raise
+        with self._lock:
+            self._db.execute("BEGIN IMMEDIATE")
+            try:
+                prior = self._db.execute("SELECT fingerprint FROM gs168_credentials WHERE hub_id=? AND state='ACTIVE'", (hub_id,)).fetchone()
+                any_old = self._db.execute("SELECT 1 FROM gs168_credentials WHERE hub_id=? LIMIT 1", (hub_id,)).fetchone()
+                if renew and prior is None:
+                    raise TestIssuerRejected("active_credential_required_for_renewal")
+                if not renew and any_old is not None:
+                    raise TestIssuerRejected("test_hub_id_already_issued")
+                cert = self.authority._sign(hub_id, key, at, valid_days)
+                fingerprint = _fingerprint(cert)
+                if renew:
+                    self._db.execute("UPDATE gs168_credentials SET state='SUPERSEDED' WHERE fingerprint=?", (prior[0],))
+                pem = cert.public_bytes(serialization.Encoding.PEM)
+                self._db.execute(
+                    "INSERT INTO gs168_credentials VALUES (?,?,?,?,?,?)",
+                    (fingerprint, hub_id, format(cert.serial_number, "x"), pem, "ACTIVE", at.isoformat()),
+                )
+                self._db.commit()
+            except Exception:
+                self._db.rollback()
+                raise
         return TestCredential(hub_id, fingerprint, pem, "ACTIVE", self.authority.fingerprint)
 
     def verify(self, pem: bytes, expected_hub_id: str, *, at: datetime | None = None,
@@ -222,7 +241,7 @@ class TestOnlyIssuer:
                 cert.signature, cert.tbs_certificate_bytes,
                 padding.PKCS1v15(), cert.signature_hash_algorithm)
             marker = cert.extensions.get_extension_for_oid(_TEST_OID)
-            if not marker.critical or marker.value.value != _TEST_MARKER:
+            if marker.value.value != _TEST_MARKER:
                 raise TestIssuerRejected("test_only_marker_required")
             if cert.subject != x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, f"TEST_ONLY:{expected_hub_id}")]):
                 raise TestIssuerRejected("certificate_hub_identity_mismatch")
@@ -247,7 +266,8 @@ class TestOnlyIssuer:
                 raise
             raise TestIssuerRejected("test_certificate_signature_invalid") from exc
         fingerprint = _fingerprint(cert)
-        row = self._db.execute("SELECT hub_id,state,certificate_pem FROM gs168_credentials WHERE fingerprint=?", (fingerprint,)).fetchone()
+        with self._lock:
+            row = self._db.execute("SELECT hub_id,state,certificate_pem FROM gs168_credentials WHERE fingerprint=?", (fingerprint,)).fetchone()
         if row is None or row[0] != expected_hub_id or row[1] != "ACTIVE" or row[2] != pem:
             raise TestIssuerRejected("unknown_revoked_or_superseded_test_certificate")
         return TestCredential(expected_hub_id, fingerprint, pem, "ACTIVE", self.authority.fingerprint)
@@ -256,12 +276,28 @@ class TestOnlyIssuer:
         self._check_ready()
         if not isinstance(fingerprint, str) or not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
             raise TestIssuerRejected("invalid_test_fingerprint")
-        with self._db:
+        with self._lock, self._db:
             row = self._db.execute("UPDATE gs168_credentials SET state='REVOKED' WHERE fingerprint=? AND state='ACTIVE'", (fingerprint,))
         return row.rowcount == 1
 
+    def by_fingerprint(self, fingerprint_sha256: str) -> RegisteredCloudCredential | None:
+        """Expose public registry metadata through CloudCredentialRegistry."""
+        self._check_ready()
+        if not isinstance(fingerprint_sha256, str) or not re.fullmatch(
+                r"[0-9a-f]{64}", fingerprint_sha256):
+            raise TestIssuerRejected("invalid_test_fingerprint")
+        with self._lock:
+            row = self._db.execute(
+                "SELECT hub_id,state FROM gs168_credentials WHERE fingerprint=?",
+                (fingerprint_sha256,),
+            ).fetchone()
+        if row is None:
+            return None
+        return RegisteredCloudCredential(fingerprint_sha256, row[0], row[1])
+
     def public_inventory(self) -> list[dict]:
         """Metadata export excludes PEM, CSRs, all private keys and ownership claims."""
-        rows = self._db.execute("SELECT hub_id,fingerprint,state FROM gs168_credentials ORDER BY hub_id,fingerprint").fetchall()
+        with self._lock:
+            rows = self._db.execute("SELECT hub_id,fingerprint,state FROM gs168_credentials ORDER BY hub_id,fingerprint").fetchall()
         return [{"environment": TEST_ONLY, "hub_id": hub_id, "fingerprint": fp,
                  "state": state} for hub_id, fp, state in rows]

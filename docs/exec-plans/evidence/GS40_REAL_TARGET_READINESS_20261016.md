@@ -457,3 +457,36 @@ D06 approved signed bootstrap/verifier/CSPRNG nonce source, durable target
 counter/floor and freshness/floor-checkpoint thresholds; deployed trust mapping
 and live credentials/endpoints. No physical action occurred; no physical
 approval is implied by this software update.
+
+
+## GS-68 D05/D12/D06 provider software addendum — 2026-10-17
+
+The existing GS-168 TEST_ONLY issuer now supplies certificate-fingerprint
+registry lookup to backend TLS authorization; tests cover active, revoked,
+unknown, expired and wrong-source credentials. The S3 provider validates
+RSA-3072 ClientAuth certificate material and rechecks Home/epoch/credential
+revision. D06's RSA-3072/SHA-256 proof verifier, PSA CSPRNG nonce, boot
+binding and floor/reboot/rollback behavior pass focused host validation. The
+issuer and time-authority keys are ephemeral TEST_ONLY fixtures. The product
+still instantiates `UnprovisionedS3CloudTrust`; no production path is enabled.
+See `GS68_D05_D12_D06_PROVIDER_E2E_20261017.md` for proof layout, test results,
+production approvals and physical case criteria.
+
+This does not change physical disposition: **NO-GO / NOT_RUN**. No board or
+interface was accessed. The S3/C3 fixture IDs and provenance, installed-image
+hash/runtime receipt, current enrollment/session/profile, reset-free observer,
+recovery owner and fixture-specific written authorization remain missing.
+GS-40 TC05 still requires a second independently enrolled Node or approved
+profile fixture. GS-68 physical cases additionally require the approved D05,
+D12 and D06 sources, and GS68-PHY-010 remains with GS-118/D15 signed-image and
+rollback approvals. No physical result is inferred from host crypto or build
+validation.
+
+The 2026-10-17 paired non-flashing ESP-IDF 6.0.3 software build passed after a
+Mbed TLS 4 PSA API compatibility correction. C3 app SHA-256 is
+`b4e2b1c1d370fd2da2a30aae52cfbc2f85e91d0ff3b39da41eef23816829fedb`; S3 app
+SHA-256 is `e09e9651160719673958fffdc5c06f7a1787eb31403384324fd421b8f15a3ea1`.
+This is a candidate artifact receipt only; it does not establish that this
+image is installed on a fixture. Provider tests, GS-40 backend/caregiver path,
+local mTLS bridge, simulation, validation framework and feature mapping
+results are documented in `GS68_D05_D12_D06_PROVIDER_E2E_20261017.md`.

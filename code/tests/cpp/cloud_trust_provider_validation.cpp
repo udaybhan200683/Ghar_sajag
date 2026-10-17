@@ -8,6 +8,12 @@
 #include <thread>
 #include <utility>
 
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+
 using namespace gs::hub;
 using namespace gs::hub::target;
 using gs::EpochSeconds;
@@ -15,7 +21,7 @@ using gs::Milliseconds;
 
 namespace {
 
-constexpr AuthenticatedTimeBootstrapPolicy kTestTimePolicy{5000, 2000};
+constexpr AuthenticatedTimeBootstrapPolicy kTestTimePolicy{5000, 2000, 300};
 
 void check(bool value, const char* message) {
     if (!value) throw std::runtime_error(message);
@@ -26,6 +32,166 @@ public:
     Milliseconds now_ms() const override { return now.load(); }
     std::atomic<Milliseconds> now{1000};
 };
+
+class TestTimeAuthority {
+public:
+    TestTimeAuthority() : key_(generate_key()), public_key_der_(encode_public_key(key_)),
+                          verifier_(public_key_der_) {}
+    ~TestTimeAuthority() { EVP_PKEY_free(key_); }
+    TestTimeAuthority(const TestTimeAuthority&) = delete;
+    TestTimeAuthority& operator=(const TestTimeAuthority&) = delete;
+
+    const Rsa3072Sha256TimeProofVerifier& verifier() const { return verifier_; }
+    std::vector<std::uint8_t> sign(const AuthenticatedTimeChallenge& challenge,
+                                   const AuthenticatedTimeStatement& statement) const {
+        auto payload = encode_authenticated_time_proof_payload(
+            challenge.nonce, challenge.boot_generation, statement);
+        if (payload.size() != 72) return {};
+        EVP_MD_CTX* context = EVP_MD_CTX_new();
+        EVP_PKEY_CTX* key_context = nullptr;
+        std::vector<std::uint8_t> signature(384);
+        std::size_t signature_size = signature.size();
+        const bool ok = context != nullptr &&
+            EVP_DigestSignInit(context, &key_context, EVP_sha256(), nullptr, key_) == 1 &&
+            key_context != nullptr &&
+            EVP_PKEY_CTX_set_rsa_padding(key_context, RSA_PKCS1_PADDING) == 1 &&
+            EVP_DigestSignUpdate(context, payload.data(), payload.size()) == 1 &&
+            EVP_DigestSignFinal(context, signature.data(), &signature_size) == 1 &&
+            signature_size == 384;
+        EVP_MD_CTX_free(context);
+        if (!ok) return {};
+        payload.insert(payload.end(), signature.begin(), signature.end());
+        return payload;
+    }
+
+private:
+    static EVP_PKEY* generate_key() {
+        EVP_PKEY_CTX* context = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+        EVP_PKEY* key = nullptr;
+        const bool ok = context != nullptr && EVP_PKEY_keygen_init(context) == 1 &&
+            EVP_PKEY_CTX_set_rsa_keygen_bits(context, 3072) == 1 &&
+            EVP_PKEY_keygen(context, &key) == 1;
+        EVP_PKEY_CTX_free(context);
+        if (!ok) {
+            EVP_PKEY_free(key);
+            throw std::runtime_error("test-only time authority key generation failed");
+        }
+        return key;
+    }
+    static std::vector<std::uint8_t> encode_public_key(EVP_PKEY* key) {
+        const int length = i2d_PUBKEY(key, nullptr);
+        if (length <= 0 || length > 2048)
+            throw std::runtime_error("test-only time public key encoding failed");
+        std::vector<std::uint8_t> result(static_cast<std::size_t>(length));
+        unsigned char* output = result.data();
+        if (i2d_PUBKEY(key, &output) != length)
+            throw std::runtime_error("test-only time public key encoding failed");
+        return result;
+    }
+
+    EVP_PKEY* key_;
+    const std::vector<std::uint8_t> public_key_der_;
+    const Rsa3072Sha256TimeProofVerifier verifier_;
+};
+
+struct TestClientCertificate {
+    std::string pem;
+    std::string fingerprint;
+    EVP_PKEY* key{nullptr};
+    TestClientCertificate() = default;
+    TestClientCertificate(const TestClientCertificate&) = delete;
+    TestClientCertificate& operator=(const TestClientCertificate&) = delete;
+    TestClientCertificate(TestClientCertificate&& other) noexcept
+        : pem(std::move(other.pem)), fingerprint(std::move(other.fingerprint)),
+          key(std::exchange(other.key, nullptr)) {}
+    ~TestClientCertificate() { EVP_PKEY_free(key); }
+};
+
+const TestClientCertificate& test_client_certificate() {
+    static const TestClientCertificate result = [] {
+        TestClientCertificate value;
+        EVP_PKEY_CTX* key_context = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+        const bool key_ok = key_context != nullptr &&
+            EVP_PKEY_keygen_init(key_context) == 1 &&
+            EVP_PKEY_CTX_set_rsa_keygen_bits(key_context, 3072) == 1 &&
+            EVP_PKEY_keygen(key_context, &value.key) == 1;
+        EVP_PKEY_CTX_free(key_context);
+        if (!key_ok) throw std::runtime_error("TEST_ONLY cloud identity key generation failed");
+
+        X509* certificate = X509_new();
+        bool cert_ok = certificate != nullptr && X509_set_version(certificate, 2) == 1 &&
+            ASN1_INTEGER_set(X509_get_serialNumber(certificate), 7) == 1 &&
+            X509_gmtime_adj(X509_getm_notBefore(certificate), -60) != nullptr &&
+            X509_gmtime_adj(X509_getm_notAfter(certificate), 86400) != nullptr &&
+            X509_set_pubkey(certificate, value.key) == 1;
+        X509_NAME* subject = certificate == nullptr ? nullptr : X509_get_subject_name(certificate);
+        cert_ok = cert_ok && subject != nullptr &&
+            X509_NAME_add_entry_by_txt(subject, "CN", MBSTRING_ASC,
+                reinterpret_cast<const unsigned char*>("TEST_ONLY:test-hub-1"), -1, -1, 0) == 1 &&
+            X509_set_issuer_name(certificate, subject) == 1;
+        X509V3_CTX extension_context;
+        if (certificate != nullptr)
+            X509V3_set_ctx(&extension_context, certificate, certificate, nullptr, nullptr, 0);
+        X509_EXTENSION* basic = cert_ok ? X509V3_EXT_conf_nid(
+            nullptr, &extension_context, NID_basic_constraints,
+            const_cast<char*>("critical,CA:FALSE")) : nullptr;
+        X509_EXTENSION* usage = cert_ok ? X509V3_EXT_conf_nid(
+            nullptr, &extension_context, NID_ext_key_usage,
+            const_cast<char*>("clientAuth")) : nullptr;
+        cert_ok = cert_ok && basic != nullptr && usage != nullptr &&
+            X509_add_ext(certificate, basic, -1) == 1 &&
+            X509_add_ext(certificate, usage, -1) == 1 &&
+            X509_sign(certificate, value.key, EVP_sha256()) > 0;
+        X509_EXTENSION_free(basic);
+        X509_EXTENSION_free(usage);
+        if (!cert_ok) {
+            X509_free(certificate);
+            throw std::runtime_error("TEST_ONLY cloud identity certificate generation failed");
+        }
+
+        BIO* output = BIO_new(BIO_s_mem());
+        if (output == nullptr || PEM_write_bio_X509(output, certificate) != 1) {
+            BIO_free(output);
+            X509_free(certificate);
+            throw std::runtime_error("TEST_ONLY cloud identity certificate encoding failed");
+        }
+        char* data = nullptr;
+        const auto size = BIO_get_mem_data(output, &data);
+        value.pem.assign(data, static_cast<std::size_t>(size));
+        std::array<unsigned char, 32> fingerprint{};
+        unsigned int fingerprint_size = 0;
+        if (X509_digest(certificate, EVP_sha256(), fingerprint.data(),
+                        &fingerprint_size) != 1 || fingerprint_size != fingerprint.size()) {
+            BIO_free(output);
+            X509_free(certificate);
+            throw std::runtime_error("TEST_ONLY cloud identity fingerprint failed");
+        }
+        static constexpr char kHex[] = "0123456789abcdef";
+        for (auto byte : fingerprint) {
+            value.fingerprint.push_back(kHex[(byte >> 4) & 0x0f]);
+            value.fingerprint.push_back(kHex[byte & 0x0f]);
+        }
+        BIO_free(output);
+        X509_free(certificate);
+        return value;
+    }();
+    return result;
+}
+
+class FailingRandom final : public AuthenticatedTimeRandomSource {
+public:
+    bool fill(std::uint8_t*, std::size_t) override { return false; }
+};
+
+bool accept_signed_time(AuthenticatedHubTimeProvider& provider,
+                        const TestTimeAuthority& authority,
+                        const AuthenticatedTimeStatement& statement,
+                        AuthenticatedTimeChallenge* used_challenge = nullptr) {
+    AuthenticatedTimeChallenge challenge;
+    if (!provider.create_challenge(challenge)) return false;
+    if (used_challenge != nullptr) *used_challenge = challenge;
+    return provider.accept_authenticated_time(authority.sign(challenge, statement));
+}
 
 class FakeMaterialSource final : public S3CloudTrustMaterialSource {
 public:
@@ -49,6 +215,10 @@ public:
     explicit FakeTimeSource(const FakeClock& input) : clock(input) {}
     bool trusted_hub_time(Milliseconds now, TrustedHubTimeSnapshot& out) const override {
         if (!ready || now != clock.now_ms()) return false;
+        if (on_read) {
+            auto callback = std::move(on_read);
+            callback();
+        }
         out = {true, now, utc, generation};
         return true;
     }
@@ -56,6 +226,7 @@ public:
     bool ready{false};
     EpochSeconds utc{1'800'000'000};
     std::uint64_t generation{1};
+    mutable std::function<void()> on_read;
 };
 
 class MemoryTimeStore final : public AuthenticatedTimeFloorStore {
@@ -109,15 +280,15 @@ public:
 };
 
 S3CloudTrustMaterial valid_material() {
+    const auto& certificate = test_client_certificate();
     S3CloudTrustMaterial material;
     material.binding = {"home-a", "hub-permanent-1", 7};
     material.authority_revision = 11;
     material.authority_authenticated = true;
     material.authority_active = true;
     material.permanent_hub_id = "hub-permanent-1";
-    material.certificate_fingerprint_sha256 = std::string(64, 'a');
-    material.client_certificate_pem =
-        "-----BEGIN CERTIFICATE-----\nTEST ONLY\n-----END CERTIFICATE-----\n";
+    material.certificate_fingerprint_sha256 = certificate.fingerprint;
+    material.client_certificate_pem = certificate.pem;
     material.ds_context = reinterpret_cast<void*>(0x1);
     material.rsa_bits = 3072;
     material.credential_generation = 3;
@@ -144,10 +315,25 @@ void test_identity_and_ownership_provider() {
     time.ready = true;
     check(provider.current_identity(identity) &&
           identity.permanent_hub_id == "hub-permanent-1" &&
-          identity.certificate_fingerprint_sha256 == std::string(64, 'a') &&
+          identity.certificate_fingerprint_sha256 == source.value.certificate_fingerprint_sha256 &&
           identity.credential_generation == 3 && identity.rsa_bits == 3072 &&
           identity.ds_context == reinterpret_cast<void*>(0x1),
           "current dedicated cloud credential is returned without private key");
+
+    FakeMaterialSource changing_source;
+    changing_source.value = valid_material();
+    FakeTimeSource changing_time{clock};
+    changing_time.ready = true;
+    changing_time.on_read = [&] {
+        auto transferred = changing_source.value;
+        transferred.binding.home_id = "home-raced";
+        ++transferred.binding.ownership_epoch;
+        ++transferred.authority_revision;
+        changing_source.update(transferred);
+    };
+    ProvisionedS3CloudTrust racing_provider(changing_source, changing_time, clock);
+    check(!racing_provider.current_identity(identity),
+          "Home transfer during identity/time composition fences mixed generations");
 
     const auto original = binding;
     auto next = source.value;
@@ -205,6 +391,7 @@ void test_identity_negative_matrix() {
         {"missing DS context", [](auto& x) { x.ds_context = nullptr; }},
         {"missing custody evidence", [](auto& x) { x.key_custody_verified = false; }},
         {"malformed fingerprint", [](auto& x) { x.certificate_fingerprint_sha256 = "00"; }},
+        {"certificate fingerprint mismatch", [](auto& x) { x.certificate_fingerprint_sha256[0] = x.certificate_fingerprint_sha256[0] == 'a' ? 'b' : 'a'; }},
         {"private key in certificate field", [](auto& x) { x.client_certificate_pem += "PRIVATE KEY"; }},
         {"missing certificate", [](auto& x) { x.client_certificate_pem.clear(); }},
         {"zero credential generation", [](auto& x) { x.credential_generation = 0; }},
@@ -220,6 +407,125 @@ void test_identity_negative_matrix() {
         check(!provider.current_binding(binding) && !provider.current_identity(identity),
               mutation.first);
     }
+}
+
+void test_signed_time_proof_cryptography_and_replay() {
+    TestTimeAuthority authority;
+    TestTimeAuthority other_authority;
+    S3AuthenticatedTimeRandomSource random;
+    FakeClock clock;
+    MemoryTimeStore store;
+    AuthenticatedHubTimeProvider time(store, authority.verifier(), random,
+                                     clock, kTestTimePolicy);
+    check(time.start() && time.boot_generation() == 1,
+          "signed-time provider starts with durable boot generation");
+    TrustedHubTimeSnapshot snapshot;
+    check(!time.trusted_hub_time(clock.now_ms(), snapshot),
+          "cold start has no trusted time before a signed proof");
+
+    AuthenticatedTimeChallenge challenge;
+    check(time.create_challenge(challenge) && challenge.boot_generation == 1,
+          "CSPRNG creates a nonce bound to the current boot");
+    const AuthenticatedTimeStatement statement{
+        1'900'000'000, 1'899'999'990, 1'900'000'030};
+    auto proof = authority.sign(challenge, statement);
+    check(proof.size() == 456 && time.accept_authenticated_time(proof) &&
+          time.trusted_hub_time(clock.now_ms(), snapshot) &&
+          snapshot.utc_now == statement.issued_at_utc && store.floor == snapshot.utc_now,
+          "RSA-3072/SHA-256 signed proof commits floor before trusted readiness");
+    check(!time.accept_authenticated_time(proof),
+          "accepted nonce cannot be replayed without a new provider challenge");
+
+    AuthenticatedTimeChallenge next;
+    check(time.create_challenge(next), "next challenge is fresh");
+    check(!time.accept_authenticated_time(proof),
+          "proof replay is rejected against a different fresh nonce");
+    auto altered = authority.sign(next, {1'900'000'001, 1'900'000'001,
+                                        1'900'000'031});
+    altered[48] ^= 1;
+    check(!time.accept_authenticated_time(altered),
+          "payload modification invalidates the cryptographic signature");
+
+    AuthenticatedTimeChallenge wrong_key_challenge;
+    check(time.create_challenge(wrong_key_challenge), "wrong-key challenge created");
+    check(!time.accept_authenticated_time(other_authority.sign(
+              wrong_key_challenge, {1'900'000'002, 1'900'000'002,
+                                    1'900'000'032})),
+          "signature from an unpinned time key is rejected");
+
+    FailingRandom failing_random;
+    MemoryTimeStore no_nonce_store;
+    AuthenticatedHubTimeProvider no_nonce(no_nonce_store, authority.verifier(),
+                                          failing_random, clock, kTestTimePolicy);
+    check(no_nonce.start() && !no_nonce.create_challenge(next),
+          "CSPRNG failure prevents challenge issuance and readiness");
+}
+
+void test_signed_time_boot_recovery_rollback_and_storage_failure() {
+    TestTimeAuthority authority;
+    S3AuthenticatedTimeRandomSource random;
+    FakeClock clock;
+    MemoryTimeStore store;
+    AuthenticatedHubTimeProvider first(store, authority.verifier(), random,
+                                       clock, kTestTimePolicy);
+    check(first.start() && accept_signed_time(first, authority,
+          {1'910'000'000, 1'910'000'000, 1'910'000'020}),
+          "first boot accepts a signed time proof");
+    const auto floor = store.floor;
+
+    AuthenticatedHubTimeProvider rebooted(store, authority.verifier(), random,
+                                          clock, kTestTimePolicy);
+    check(rebooted.start() && rebooted.boot_generation() == 2,
+          "restart advances durable boot generation");
+    TrustedHubTimeSnapshot snapshot;
+    check(!rebooted.trusted_hub_time(clock.now_ms(), snapshot),
+          "stored floor alone does not create trusted time after reboot");
+    AuthenticatedTimeChallenge old_boot = {};
+    check(rebooted.create_challenge(old_boot), "reboot challenge created");
+    auto stale_boot = old_boot;
+    stale_boot.boot_generation = 1;
+    check(!rebooted.accept_authenticated_time(authority.sign(
+              stale_boot, {floor + 1, floor + 1, floor + 10})),
+          "cross-boot proof replay is rejected");
+    check(!accept_signed_time(rebooted, authority,
+          {floor - 1, floor - 1, floor + 10}),
+          "signed time below the persisted trusted floor is rejected");
+    check(accept_signed_time(rebooted, authority,
+          {floor + 1, floor + 1, floor + 20}),
+          "fresh generation-two proof restores time after reboot");
+
+    MemoryTimeStore corrupt_store;
+    corrupt_store.floor = floor;
+    corrupt_store.read_state = TrustedTimeFloorRead::Corrupt;
+    AuthenticatedHubTimeProvider corrupt_recovery(
+        corrupt_store, authority.verifier(), random, clock, kTestTimePolicy);
+    check(corrupt_recovery.start() &&
+          accept_signed_time(corrupt_recovery, authority,
+              {floor + 2, floor + 2, floor + 20}) &&
+          corrupt_store.read_state == TrustedTimeFloorRead::Valid,
+          "fresh signed time recovers a corrupt stored floor without lowering it");
+
+    MemoryTimeStore write_failure;
+    write_failure.commit_ok = false;
+    AuthenticatedHubTimeProvider no_commit(write_failure, authority.verifier(),
+                                           random, clock, kTestTimePolicy);
+    check(no_commit.start() && !accept_signed_time(no_commit, authority,
+          {1'920'000'000, 1'920'000'000, 1'920'000'010}) &&
+          !no_commit.trusted_hub_time(clock.now_ms(), snapshot),
+          "time floor persistence failure leaves the provider untrusted");
+
+    MemoryTimeStore delayed_store;
+    AuthenticatedHubTimeProvider delayed(delayed_store, authority.verifier(),
+                                         random, clock, kTestTimePolicy);
+    check(delayed.start(), "delayed signed-time fixture starts");
+    AuthenticatedTimeChallenge delayed_challenge;
+    check(delayed.create_challenge(delayed_challenge), "delayed challenge created");
+    clock.now = delayed_challenge.created_monotonic_ms +
+                kTestTimePolicy.max_response_age_ms + 1;
+    check(!delayed.accept_authenticated_time(authority.sign(
+              delayed_challenge, {1'930'000'000, 1'930'000'000,
+                                  1'930'000'010})),
+          "valid signature outside the local response-age window is rejected");
 }
 
 void test_authenticated_time_bootstrap_and_recovery() {
@@ -419,12 +725,10 @@ void test_same_boot_clock_rollback_latches_fail_closed() {
 void test_provider_to_nodehealth_cloudsync_path() {
     FakeClock clock;
     MemoryTimeStore store;
-    FakeProofVerifier verifier;
-    std::array<std::uint8_t, 32> nonce{};
-    nonce[0] = 0x73;
-    verifier.expected_nonce = nonce;
-    verifier.statement = {1'800'000'000, 1'800'000'000, 1'800'100'000};
-    AuthenticatedHubTimeProvider trusted_time(store, verifier, clock, kTestTimePolicy);
+    TestTimeAuthority time_authority;
+    S3AuthenticatedTimeRandomSource random;
+    AuthenticatedHubTimeProvider trusted_time(
+        store, time_authority.verifier(), random, clock, kTestTimePolicy);
     check(trusted_time.start(), "integrated provider starts without trusted time");
 
     FakeMaterialSource material;
@@ -450,8 +754,8 @@ void test_provider_to_nodehealth_cloudsync_path() {
     transferred_during_recovery.binding.ownership_epoch++;
     transferred_during_recovery.authority_revision++;
     material.update(transferred_during_recovery);
-    check(trusted_time.accept_authenticated_time({0x47, 0x53}, nonce,
-                                                 clock.now_ms()),
+    check(accept_signed_time(trusted_time, time_authority,
+          {1'800'000'000, 1'800'000'000, 1'800'000'100}),
           "authenticated time recovers after an ownership-epoch change");
     CloudAuthorityBinding recovered_binding;
     check(cloud_trust.current_binding(recovered_binding) &&
@@ -548,6 +852,9 @@ int main() {
         test_authenticated_time_corruption_reboot_and_failures();
         test_same_boot_clock_rollback_latches_fail_closed();
         std::cout << "GS68-D06-TIME-STATE-MACHINE PASS\n";
+        test_signed_time_proof_cryptography_and_replay();
+        test_signed_time_boot_recovery_rollback_and_storage_failure();
+        std::cout << "GS68-D06-SIGNED-PROOF-CRYPTO PASS\n";
         test_provider_to_nodehealth_cloudsync_path();
         std::cout << "GS40-PROVIDER-CLOUDSYNC-INTEGRATION PASS\n";
         std::cout << "GS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN\n";

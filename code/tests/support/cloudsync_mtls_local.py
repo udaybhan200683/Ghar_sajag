@@ -21,7 +21,7 @@ def tls_post(*, api, database, credentials, ca_file: Path,
              client_key: Path | None, body: dict, path: str,
              trusted_now: datetime | None = _NOT_GIVEN, hostname: str = "localhost",
              client_ca: Path | None = None, tls13: bool = False,
-             before_dispatch=None):
+             server_client_ca: Path | None = None, before_dispatch=None):
     """Return (HTTP status, JSON body, server error) after a real TLS handshake."""
     result: dict = {}
     if trusted_now is _NOT_GIVEN:
@@ -29,7 +29,7 @@ def tls_post(*, api, database, credentials, ca_file: Path,
     server = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     server.minimum_version = server.maximum_version = ssl.TLSVersion.TLSv1_2
     server.verify_mode = ssl.CERT_REQUIRED
-    server.load_verify_locations(cafile=str(ca_file))
+    server.load_verify_locations(cafile=str(server_client_ca or ca_file))
     server.load_cert_chain(str(server_cert), str(server_key))
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind(("127.0.0.1", 0))
