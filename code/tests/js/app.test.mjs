@@ -55,6 +55,30 @@ test("GS148 caregiver NodeHealth stays unknown when its Hub/cloud source is stal
     cloud_source_age_seconds: 191 }] }, 2000).nodeHealth[0].coverage, "UNKNOWN");
 });
 
+test("GS40 caregiver NodeHealth preserves ONLINE/OFFLINE/UNKNOWN coverage semantics", () => {
+  const nodes = [
+    { logical_node_id: "online-node", status: "ONLINE", coverage: "COVERED",
+      source_fresh: true, cloud_source_age_seconds: 10, node_contact_age_seconds: 30 },
+    { logical_node_id: "offline-node", status: "OFFLINE", coverage: "UNKNOWN",
+      source_fresh: true, cloud_source_age_seconds: 10, node_contact_age_seconds: 911 },
+    { logical_node_id: "stale-node", status: "ONLINE", coverage: "COVERED",
+      source_fresh: false, cloud_source_age_seconds: 191, node_contact_age_seconds: 30 },
+  ];
+  const view = buildHomeView({
+    mode: "HOME", hub_reachable: true, fetched_at: 2000,
+    last_hub_at: 1990, latest_activity: null, node_health: nodes,
+  }, 2000);
+
+  assert.deepEqual(view.nodeHealth.map(({ id, status, coverage }) =>
+    ({ id, status, coverage })), [
+    { id: "online-node", status: "ONLINE", coverage: "COVERED" },
+    { id: "offline-node", status: "OFFLINE", coverage: "UNKNOWN" },
+    { id: "stale-node", status: "UNKNOWN", coverage: "UNKNOWN" },
+  ]);
+  assert.match(view.activity.title, /No activity evidence available/);
+  assert.match(view.activity.detail, /does not mean nobody is present/);
+});
+
 
 
 test("A02 presents exact activity meaning and age", () => {

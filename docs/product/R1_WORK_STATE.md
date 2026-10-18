@@ -4684,3 +4684,67 @@ script was corrected to use the stack-8192 fixture and to reject mismatched
 build/install receipts before PnP or serial access. Its syntax check passed;
 this guard was not used for the already completed session and was not followed
 by another device access. See the dated evidence addendum for the distinction.
+
+### GS-40 real-target qualification resume — 2026-10-18
+
+Resumed on canonical `feature/r1-commercial-baseline` from local/origin
+`65caf93df0011e6de29fb3d0e6310334b4e09036`; context preflight passed. The
+unrelated GS-177 validation remained active in its separate worktree and was
+not interrupted. All pre-existing untracked PWA/Android, managed components,
+GS-114/C8 and GS-40 evidence were preserved.
+
+Source audit confirms configured C3 heartbeat 300 s / strict offline after
+910 s, trusted legacy 60/190 and 120/310 support, HubRuntime authenticated
+contact and silent lease-expiry publication through the bounded CloudSync
+worker, authenticated backend NodeHealth ingest/read model, and caregiver
+ONLINE/OFFLINE/UNKNOWN projection. Test-only identity/time, local TLS,
+backend and caregiver path tests pass. Product S3 `app_main` still instantiates
+`UnprovisionedS3CloudTrust`; commercial CloudSync stays fail closed. The
+2026-10-17 C3/S3 app hashes (C3
+`b4e2b1c1d370fd2da2a30aae52cfbc2f85e91d0ff3b39da41eef23816829fedb`, S3
+`e09e9651160719673958fffdc5c06f7a1787eb31403384324fd421b8f15a3ea1`) are
+build candidates, not verified current installed images. Canonical config raw
+SHA-256 is `2e42da92784c6eed807d8df240d1c33a178c1c088a568cbf9cb6d5d20817aadb`;
+generated effective-config SHA-256 is
+`fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862`.
+
+Focused results: GS-40 C++ 1,320 checks; config/simulation 17 tests;
+qualification runner 17 tests; mTLS adapter 9/9; cloud trust 5 suites;
+identity/time/NodeHealth/caregiver local TLS 4/4; GS-168 issuer 10/10;
+NodeHealth backend 5/5; caregiver JS 25/25; board-stack E2E 10 cases / 398
+checks; CloudSync security simulation 18/18; local TLS worker/API bridge 1/1;
+traceability 22/22 and physical catalogue 108 cases PASS. Full details and the
+new caregiver status assertion are in
+[`GS40_REAL_TARGET_EXECUTION_20261018.md`](../exec-plans/evidence/GS40_REAL_TARGET_EXECUTION_20261018.md).
+The existing aggregate P0 `product_status=PARTIAL` and Hub `clean migration
+commits` assertion failure remain unchanged.
+
+The only source edit adds test coverage for caregiver ONLINE/OFFLINE/UNKNOWN,
+coverage-UNKNOWN on offline or stale source, and the distinction between no
+activity and no sensor coverage; the existing GS-130 traceability row was
+updated. No product behavior or firmware changed. No target build was needed.
+`git diff --check`, focused JS, traceability and physical-catalogue checks
+passed.
+
+No PHY-GS40-01..06 case was run. Historical GS-114 C8-P1/P2 and HIL-A03 remain
+reusable only for their recorded image-scoped timer wake, authenticated Hub
+contact, real event/durable ACK, and one 300-second opportunity; they do not
+establish current image, six-opportunity cadence, 910-second offline, mixed
+profile or caregiver physical acceptance. C8 and C3 were not accessed. TC05
+requires a second independently enrolled C3 or approved profile fixture.
+
+Minimum isolated TEST_ONLY physical path gap is distinct from commercial D05/
+D12/D06 approval: the current product S3 composition still selects the
+unprovisioned provider, so a reviewed TEST_ONLY-only runtime composition,
+isolated local endpoint/issuer/time authority and test credential source are
+needed before a physical end-to-caregiver run. No production DS/eFuse/CA is
+required for that isolated test, but exact C3/S3 fixture, image/config/session,
+observer/recovery method and fixture-specific operation authorization remain
+required. Physical work was not authorized for the protected C8/C3 in this
+execution. GS-40 and relevant dependency Jira comments record this boundary.
+
+Next action: implement/review the TEST_ONLY-only S3 product-runtime composition
+and source-bound build for the existing GS-168 issuer and signed-time contract;
+then obtain a specific isolated C3/S3 fixture and operation authorization,
+with a second enrolled Node/profile fixture for PHY-GS40-05. Do not activate
+commercial trust or reinterpret GS-68 spare diagnostic results as GS-40.
