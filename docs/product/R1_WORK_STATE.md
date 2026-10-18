@@ -1,5 +1,33 @@
 # R1 Current Work State
 
+## GS-177 canonical integration — 2026-10-18
+
+The owner authorized integrating `feature/gs-177-caregiver-android` into this
+canonical branch and safely retiring that branch after its deployment/build
+dependencies move. The canonical Android source that was untracked before the
+merge was preserved in commit `6cfba0dfad57a6279101591e16287dbd39c90652`;
+the Connected Lite app is now the compiled Android entry point. Canonical-only
+call/FCM classes remain under `code/parivar_saathi_android_app/prototype/` and
+are not activated or qualified. The isolated Hub simulator branch and worktree
+were excluded.
+
+The GS-177 merge is being recorded after focused integration checks. Initial
+host results: Connected Lite API/storage/auth 13/13; caregiver runtime 7/7;
+host event/routine scenarios 3/3; voice-prototype contracts 19/19; component
+gate framework tests 50/50; feature traceability 213 features / 249 source
+modules / 25 physical cases with consistent mappings. `make lab-build` passed
+as part of the Connected Lite runner. The local browser test could not execute
+because Chrome/Chromium is not installed (zero tests; skipped), and local
+Android build tools/SDK are absent; both are deferred to the focused GitHub
+Actions run. This is not a release-gate run.
+
+The existing Render Free service has not been migrated: Render CLI/API access
+is unavailable in this environment and the repository has no Render API secret.
+The service's latest recorded deployment still follows the GS-177 branch, so
+that remote branch must remain until the owner-controlled Render linkage is
+changed. No staging deployment was attempted. Physical phone, real Hub
+CloudSync and voice-call acceptance remain outside this integration evidence.
+
 ## GS-68 / GS-172 stack-correction diagnostic update — 2026-10-17
 
 The first spare session on the previously installed `855b586d...` image

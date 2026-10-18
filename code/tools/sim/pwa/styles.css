@@ -10,6 +10,7 @@ html,body{margin:0;background:linear-gradient(#fff,#f7fbf8);color:var(--text);fo
 body{min-height:100vh}
 button,input,select{font:inherit}
 #app{max-width:1180px;margin:auto;min-height:100vh;padding:18px 22px 100px}
+.connection-status{display:flex;flex-direction:column;gap:4px;margin:0 22px 14px;padding:14px 18px;border:1px solid #efc46c;border-radius:14px;background:#fff8e8;color:#563c08}.connection-status strong{font-size:16px}.connection-status span{font-size:14px;line-height:1.4;color:#705d36}.connection-status[hidden]{display:none}
 .topbar{display:grid;grid-template-columns:1fr auto auto;gap:24px;align-items:center;margin-bottom:18px}
 .brand{display:flex;align-items:center;gap:14px;min-width:0}.brand-icon{width:76px;height:76px}.brand-name{font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1}.tagline{color:#5b73b0;font-size:clamp(14px,2vw,22px);margin-top:8px}
 .datetime{text-align:right;color:#111b37;font-size:16px}.datetime strong{display:block;font-size:28px;margin-top:4px}
@@ -97,3 +98,162 @@ button,input,select{font:inherit}
 .phase1-list{display:grid;gap:8px;margin-top:16px}.phase1-list>div{padding:12px;background:#f8fbfd;border-radius:10px;overflow-wrap:anywhere}.phase1-list button,#phase1Dialog>button{margin:8px 8px 0 0;padding:9px}
 .phase1-detail{overflow-wrap:anywhere}.phase1-detail p{margin:9px 0}.phase1-form input:focus-visible,.phase1-form select:focus-visible,#phase1Dialog button:focus-visible{outline:3px solid #2462e8;outline-offset:2px}
 @media(max-width:740px){#phase1Dialog{padding:16px}.phase1-form .schedule-actions{position:sticky;bottom:0;background:#fff;padding:10px 0}}
+@media(max-width:740px){.connection-status{margin:0 10px 12px;padding:12px 14px}}
+/* GS-177 connected Lite: the shared PWA keeps the approved brand resources. */
+.test-watermark{background:#fff3cc;color:#594100;font-weight:700;padding:.7rem;border:1px solid #c69e31;border-radius:.7rem;margin:.7rem 0}
+.connected-auth{max-width:30rem;margin:2rem auto;padding:1.4rem}
+.connected-auth label{display:block;margin:.7rem 0}
+.connected-auth input,.connected-auth button{display:block;width:100%;min-height:2.7rem;margin-top:.3rem}
+.connected-lite-runtime .bottom-nav{display:flex;overflow-x:auto;justify-content:flex-start}
+.connected-lite-runtime .bottom-nav .nav-btn{flex:0 0 auto;min-width:5.5rem}
+.connected-lite-runtime .bottom-nav[hidden]{display:none}
+.validation-row{overflow-wrap:anywhere}
+.card pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:20rem;overflow:auto}
+
+/* GS-177 Android system-bar and sticky-header acceptance fix. */
+/* Restrict these changes to Connected Lite; the desktop/local lab stays intact. */
+.connected-lite-runtime #app{
+  padding-bottom:calc(140px + env(safe-area-inset-bottom, 0px));
+}
+.connected-lite-runtime .topbar{
+  position:sticky;
+  top:0;
+  z-index:30;
+  padding:12px 14px;
+  margin-left:-14px;
+  margin-right:-14px;
+  background:rgba(247,252,249,.98);
+  border-bottom:1px solid var(--line);
+  border-radius:0 0 14px 14px;
+  box-shadow:0 3px 14px rgba(12,22,53,.08);
+}
+.connected-lite-runtime .bottom-nav{
+  bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+  padding:8px;
+  z-index:40;
+  -webkit-overflow-scrolling:touch;
+}
+.connected-lite-runtime .bottom-nav .nav-btn{
+  min-height:52px;
+  touch-action:manipulation;
+}
+.connected-lite-runtime .card button{
+  min-height:44px;
+  padding:10px 12px;
+  margin:4px 2px;
+  touch-action:manipulation;
+}
+.connected-lite-runtime .card input:not([type="checkbox"]),
+.connected-lite-runtime .card select:not([multiple]){
+  min-height:44px;
+}
+.connected-lite-runtime .toast{
+  bottom:calc(104px + env(safe-area-inset-bottom, 0px));
+}
+@media(max-width:740px){
+  .connected-lite-runtime .topbar{
+    padding:8px 12px;
+    margin-left:-12px;
+    margin-right:-12px;
+  }
+}
+
+
+/* GS-177 connected Android caregiver-first pilot UI.
+   The Android activity already applies system-bar insets around the WebView.
+   Keep an additional touchscreen buffer above gesture/soft-key navigation. */
+.connected-lite-runtime .topbar {
+  grid-template-columns:minmax(0,1fr);
+  gap:0;
+}
+.connected-lite-runtime .topbar .away-wrap,
+.connected-lite-runtime .topbar .datetime {display:none}
+.connected-lite-runtime .brand-name{font-size:clamp(20px,5vw,30px)}
+.connected-lite-runtime .tagline{font-size:13px;margin-top:3px}
+.connected-lite-runtime .brand-icon{width:48px;height:48px;flex-shrink:0}
+.connected-lite-runtime #app{
+  padding-bottom:calc(164px + max(24px, env(safe-area-inset-bottom,0px)));
+}
+.connected-lite-runtime .bottom-nav{
+  bottom:calc(14px + max(22px, env(safe-area-inset-bottom,0px)));
+  max-width:calc(100% - 24px);
+  scroll-padding-inline:8px;
+  gap:5px;
+  touch-action:pan-x;
+  overscroll-behavior-x:contain;
+}
+.connected-lite-runtime .bottom-nav .nav-btn{
+  min-width:94px;
+  min-height:56px;
+  padding:10px 12px;
+  font-size:13px;
+  border-radius:14px;
+}
+.connected-lite-runtime .bottom-nav .nav-btn:focus-visible,
+.connected-lite-runtime button:focus-visible,
+.connected-lite-runtime select:focus-visible{
+  outline:3px solid #2462e8;outline-offset:2px;
+}
+.connected-lite-runtime .caregiver-hero{
+  background:linear-gradient(125deg,#eaf9ef,#f7fdfa);
+  border:1px solid #cbe7d6;
+  border-radius:20px;
+  padding:22px 20px;
+  box-shadow:var(--shadow);
+  margin:12px 0 16px;
+}
+.connected-lite-runtime .caregiver-eyebrow{
+  margin:0 0 8px;
+  font-size:12px;font-weight:800;letter-spacing:.07em;
+  color:#3d6f5a;
+}
+.connected-lite-runtime .caregiver-hero h1{font-size:clamp(24px,5vw,32px);margin:0}
+.connected-lite-runtime .caregiver-hero p:not(.caregiver-eyebrow){line-height:1.5;color:#36566a}
+.connected-lite-runtime .caregiver-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.connected-lite-runtime .caregiver-actions button,
+.connected-lite-runtime .caregiver-primary{
+  border:0;background:#0d7441;color:white;font-weight:750;
+  padding:12px 18px;border-radius:12px;min-height:48px;
+  cursor:pointer;touch-action:manipulation;
+}
+.connected-lite-runtime .caregiver-actions .caregiver-secondary{
+  background:white;color:#155e3f;border:1px solid #a1cab4;
+}
+.connected-lite-runtime .caregiver-tiles{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px;
+}
+.connected-lite-runtime .caregiver-tiles .card{min-width:0}
+.connected-lite-runtime .caregiver-state{font-size:18px;font-weight:800;margin:12px 0}
+.connected-lite-runtime .caregiver-state.good{color:#11683d}
+.connected-lite-runtime .caregiver-state.pending{color:#875a08}
+.connected-lite-runtime .caregiver-run{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:12px 0;border-bottom:1px solid #dceae1;overflow-wrap:anywhere;
+}
+.connected-lite-runtime .caregiver-run small{color:#64748b;margin-left:auto}
+.connected-lite-runtime .caregiver-tech{
+  margin:16px 0;padding:12px 16px;
+  border:1px solid #dceae1;border-radius:12px;
+  color:#4b5d70;background:#fff;
+  overflow-wrap:anywhere;
+}
+.connected-lite-runtime .caregiver-tech summary{cursor:pointer;padding:8px 2px;font-weight:700}
+.connected-lite-runtime .caregiver-tech p{line-height:1.45}
+.connected-lite-runtime #scenarioChoice,
+.connected-lite-runtime #scenarioSearch{
+  display:block;width:100%;max-width:100%;
+  padding:12px;margin:8px 0 16px;min-height:48px;
+  border:1px solid #b9d0c7;background:white;border-radius:12px;
+}
+.connected-lite-runtime .card label{display:block;font-weight:650}
+.connected-lite-runtime #runScenario{width:100%;max-width:100%;margin:8px 0 12px}
+.connected-lite-runtime #runProgress{min-height:20px}
+.connected-lite-runtime button:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:740px){
+  .connected-lite-runtime .topbar{grid-template-columns:minmax(0,1fr)}
+  .connected-lite-runtime .caregiver-tiles{grid-template-columns:1fr}
+  .connected-lite-runtime .caregiver-actions{display:grid;grid-template-columns:1fr}
+  .connected-lite-runtime .caregiver-actions button{width:100%}
+  .connected-lite-runtime .caregiver-hero{padding:18px 16px}
+  .connected-lite-runtime .bottom-nav .nav-btn{min-width:104px}
+}

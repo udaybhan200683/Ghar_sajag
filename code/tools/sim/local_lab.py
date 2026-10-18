@@ -1246,8 +1246,9 @@ class Lab:
 
 
 class WebLab:
-    def __init__(self, lab, port):
+    def __init__(self, lab, port, runtime_config=None):
         self.lab, self.port = lab, port
+        self.runtime_config = runtime_config
 
     def __call__(self, environ, start_response):
         # Restrict the local lab to its own origin. No wildcard bind/CORS or real user authentication.
@@ -1369,9 +1370,25 @@ class WebLab:
                 raise ValueError("request too large")
             return self.lab.api(env,start)
         # Exact allowlist keeps source/config/log files out of the HTTP file surface.
+        if method == "GET" and path == "/runtime-config.js":
+            # The development simulator identity is explicitly injected only by
+            # the local lab. Android packages generate a caregiver-mode file.
+            config = self.runtime_config or {
+                "mode": "local-simulator",
+                "allowSimulator": True,
+                "backendOrigin": f"{env.get('wsgi.url_scheme', 'http')}://{env.get('HTTP_HOST', '127.0.0.1')}",
+                "actorId": "simulation-owner",
+                "homeId": "simulation-home",
+            }
+            data = ("window.PARIVAR_SAATHI_RUNTIME=Object.freeze(" + json.dumps(config, separators=(",", ":")) + ");").encode()
+            start("200 OK",[("Content-Type","text/javascript; charset=utf-8"),("Content-Length",str(len(data))),("Cache-Control","no-store"),("X-Content-Type-Options","nosniff")])
+            return [data]
         assets = {"/":("tools/sim/pwa/index.html","text/html"),
                   "/index.html":("tools/sim/pwa/index.html","text/html"),
                   "/app.js":("tools/sim/pwa/app.js","text/javascript"),
+                  "/boot.mjs":("tools/sim/pwa/boot.mjs","text/javascript"),
+                  "/connected_lite.mjs":("tools/sim/pwa/connected_lite.mjs","text/javascript"),
+                  "/runtime_mode.mjs":("tools/sim/pwa/runtime_mode.mjs","text/javascript"),
                   "/performance_runtime.mjs":("tools/sim/pwa/performance_runtime.mjs","text/javascript"),
                   "/validation_engine.mjs":("tools/sim/pwa/validation_engine.mjs","text/javascript"),
                   "/schedule_feedback.mjs":("tools/sim/pwa/schedule_feedback.mjs","text/javascript"),
@@ -1379,6 +1396,8 @@ class WebLab:
                   "/sw.js":("tools/sim/pwa/sw.js","text/javascript"),
                   "/manifest.webmanifest":("tools/sim/pwa/manifest.webmanifest","application/manifest+json"),
                   "/assets/icon.svg":("tools/sim/pwa/assets/icon.svg","image/svg+xml"),
+                  "/assets/parivar-saathi-icon-192.png":("tools/sim/pwa/assets/parivar-saathi-icon-192.png","image/png"),
+                  "/assets/parivar-saathi-icon-maskable-512.png":("tools/sim/pwa/assets/parivar-saathi-icon-maskable-512.png","image/png"),
                   "/lab":("tools/sim/web/index.html","text/html"),
                   "/lab.mjs":("tools/sim/web/lab.mjs","text/javascript"),
                   "/lab.css":("tools/sim/web/lab.css","text/css"),

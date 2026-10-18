@@ -5,11 +5,11 @@ async function waitForApp(page) {
   // being initialized. Validate what matters: response committed + the real app
   // JavaScript has rendered the Home hero from backend state.
   await page.goto('/', { waitUntil: 'commit', timeout: 30_000 });
-  await expect(page.getByText('Parivar Sathi')).toBeVisible();
+  await expect(page.getByText('Parivar Saathi')).toBeVisible();
   await expect(page.locator('#homeTab .hero')).toBeVisible({ timeout: 30_000 });
 }
 
-test.describe('Parivar Sathi mandatory browser release gate', () => {
+test.describe('Parivar Saathi mandatory browser release gate', () => {
   test.afterEach(async ({ request }) => {
     await request.post('/pwa/action', { data: { action: 'reset_pass' } });
   });

@@ -375,9 +375,16 @@ endurance-test: lab-build
 
 VALIDATION_REUSE_REPORTS ?=
 VALIDATION_RECEIPTS = $(foreach report,$(VALIDATION_REUSE_REPORTS),--reuse-report $(report))
-.PHONY: validation-node validation-hub validation-contract validation-backend validation-pwa validation-tooling validation-build validation-sanitize validation-framework-test
+.PHONY: validation-node validation-hub validation-contract validation-backend validation-pwa validation-tooling validation-android validation-caregiver-app validation-build validation-sanitize validation-framework-test
 validation-node validation-hub validation-contract validation-backend validation-pwa validation-tooling:
 	python3 validation/component_gate.py --suite $(patsubst validation-%,%,$@) $(VALIDATION_RECEIPTS)
+
+# GS-177 Android build and origin unit tests; kept outside generic host/release suites.
+validation-android:
+	python3 validation/component_gate.py --suite android
+
+validation-caregiver-app:
+	python3 validation/component_gate.py --suite caregiver-app
 
 validation-fast:
 	python3 validation/component_gate.py --suite fast $(VALIDATION_RECEIPTS)

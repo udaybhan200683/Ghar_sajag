@@ -370,6 +370,8 @@ From repository root:
 | `make validation-backend` | Python discovery, configuration, API/HTTP/functional/bridge/frontend contracts |
 | `make validation-pwa` | JavaScript and backend-derived coverage/chronology/notification scenarios; browser separately when rendering is affected |
 | `make validation-tooling` | Framework self-tests, master negative injection, coverage registration and existing hardware-independent HIL tooling |
+| `make validation-android` | Explicit GS-177 JDK/Gradle/Android SDK build, HTTPS-origin unit tests, signed debug APK and SHA-256; excluded from generic fast/release suites |
+| `make validation-caregiver-app` | GS-177 Android stage plus isolated call-signaling/provider prototype tests and JS/XML checks; excluded from generic fast/release suites |
 | `make validation-fast` | Union of all registered fast component stages, preserving earlier API/PWA/security/FOTA/tool coverage |
 | `make release-gate-final` | All fast stages + product/feature/trace profiles, sanitizers, fresh C3/S3 production builds/config packaging, full desktop/mobile browser and bounded performance/SMALL stress |
 | `make validation-nightly` | Existing MEDIUM/concurrency/extended/coverage; explicit separate hardware authorization for physical mode |
@@ -380,6 +382,13 @@ List actual selected stages from the application directory with
 stages within each campaign. The real production runtime/codec harnesses are
 reused; there is no parallel protocol implementation. GS-148 host interfaces do
 not qualify unfinished production backend authentication/completion.
+
+The GS-177 Android dashboard stage is selected separately with
+`python3 validation/component_gate.py --suite caregiver-app`. It runs both the
+registered Android build and the isolated voice-contract prototype checks. It
+is not included in generic component, fast, or full release gates. Its APK is
+dashboard-only: successful assembly does not qualify a live backend, caregiver
+authentication, push, voice, or the owner's phone.
 
 ### Gate graph and integrity
 

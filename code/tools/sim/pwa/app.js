@@ -1,10 +1,20 @@
 import {evaluateScenario,renderValidationRow} from './validation_engine.mjs';
 import {nextScheduleFeedback} from './schedule_feedback.mjs';
 import {POLL_INTERVALS,addBounded,renderSignature,requestDue,shouldApplyStateUpdate} from './performance_runtime.mjs';
+import {normalizeRuntimeConfig,requestHeaders,requestUrl} from './runtime_mode.mjs';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const runtime=normalizeRuntimeConfig(window.PARIVAR_SAATHI_RUNTIME,window.location.origin);
+const localSimulator=runtime.mode==='local-simulator';
+const caregiverRuntime=!localSimulator;
+const connectionStatus=$('#connectionStatus');
+if(caregiverRuntime){
+  connectionStatus.hidden=false;
+  connectionStatus.dataset.connectionState='offline';
+  connectionStatus.innerHTML='<strong>Offline / Unable to connect</strong><span>Household data and freshness are unavailable. Monitoring, notifications and calling are not operational.</span>';
+}
 let state={
-  away:false,homeAlert:false,morning:true,morningMissing:false,morningStatus:'UNAVAILABLE',ok:true,okLastAgeSeconds:null,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,doorOpenForSeconds:0,indoorAgo:0,
-  nightBathroomVisits:0,nightCommonVisits:0,nightUnusual:false,nightConcernText:'',careSubtitle:'All is well at home.',careProblemKind:null,
+  away:false,homeAlert:false,morning:false,morningMissing:false,morningStatus:'UNAVAILABLE',ok:false,okLastAgeSeconds:null,doorOpen:false,doorLeftOpenAlert:false,doorUnexpectedAlert:false,doorPostCloseAlert:false,doorOpenForSeconds:0,indoorAgo:0,
+  nightBathroomVisits:0,nightCommonVisits:0,nightUnusual:false,nightConcernText:'',careSubtitle:'',careProblemKind:null,
   devices:[],events:[],deviceHealth:null,schedules:null,source:'Connecting to backend…'
 };
 let currentTab='home', reportPeriod='week';
@@ -37,9 +47,12 @@ function formatSimTime(sec){
 }
 
 async function backendRequest(path,body,extra={}){
-  const headers={'X-Actor-Id':'simulation-owner'};
+  if(!localSimulator)throw new Error('authenticated_caregiver_api_unavailable');
+  const url=requestUrl(runtime,path);
+  if(!url)throw new Error('backend_origin_unavailable');
+  const headers=requestHeaders(runtime);
   const options=body===undefined?{cache:'no-store',headers,...extra}:{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body),...extra};
-  const response=await fetch(path,options);
+  const response=await fetch(url,options);
   if(!response.ok){
     let detail=''; try{detail=(await response.json()).error||''}catch(_){ }
     throw new Error(detail||`HTTP ${response.status}`);
@@ -47,7 +60,10 @@ async function backendRequest(path,body,extra={}){
   return response.json();
 }
 async function foundationRequest(path,method='GET',body){
-  const response=await fetch(`/pwa/foundation/${path}`,{method,cache:'no-store',headers:{'Content-Type':'application/json','X-Actor-Id':'simulation-owner'},body:body===undefined?undefined:JSON.stringify(body)});
+  if(!localSimulator)throw new Error('authenticated_caregiver_api_unavailable');
+  const url=requestUrl(runtime,`/pwa/foundation/${path}`);
+  if(!url)throw new Error('backend_origin_unavailable');
+  const response=await fetch(url,{method,cache:'no-store',headers:requestHeaders(runtime,{'Content-Type':'application/json'}),body:body===undefined?undefined:JSON.stringify(body)});
   if(!response.ok){let detail='';try{detail=(await response.json()).error||''}catch(_){}throw new Error(detail||`HTTP ${response.status}`)}
   return response.json();
 }
@@ -196,7 +212,7 @@ async function loadReport({quiet=false}={}){
     renderReports();
   }
   try{
-    const data=requireReportPayload(await backendRequest(`/v1/homes/simulation-home/reports?period=${encodeURIComponent(apiPeriod)}`,undefined,{signal:reportAbortController.signal}));
+    const data=requireReportPayload(await backendRequest(`/v1/homes/${encodeURIComponent(runtime.homeId)}/reports?period=${encodeURIComponent(apiPeriod)}`,undefined,{signal:reportAbortController.signal}));
     if(requestId===reportRequestSeq)reportState={status:data.status==='NO_DATA'?'no-data':'data',data,error:''};
   }catch(err){
     if(requestId===reportRequestSeq){
@@ -269,6 +285,17 @@ function renderReportData(data){
 }
 
 function renderHome(){
+  if(caregiverRuntime){
+    $('#homeTab').innerHTML=`
+      <div class="home-layout"><div class="home-main">
+        <div class="hero alert" data-severity="unknown"><div class="hero-row"><div class="hero-icon">!</div><div><h1>Home unavailable</h1><p>Unable to connect securely. Household status and freshness are unknown.</p></div></div></div>
+        <div class="grid2 routine-grid">
+          ${['Morning routine','I am OK','Main door','Night activity','Device health'].map((label,index)=>`<div class="card wide-card" data-care-card="offline-${index}" data-status="unknown" data-severity="unknown"><div class="card-row"><div class="round-icon">${['☀️','❤','🚪','☾','🔋'][index]}</div><div><h2>${label}</h2><div class="muted">Unavailable while disconnected</div></div></div></div>`).join('')}
+        </div>
+        <div class="timeline"><div class="section-title"><h2>Recent important events</h2></div><p class="muted">Event history is unavailable. No household activity is shown offline.</p></div>
+      </div></div>`;
+    return;
+  }
   const signature=renderSignature({
     homeAlert:state.homeAlert,morningStatus:state.morningStatus,ok:state.ok,okStatus:state.okStatus,
     okLastAgeSeconds:state.okLastAgeSeconds,coverageLost:state.coverageLost,doorOpen:state.doorOpen,
@@ -329,6 +356,10 @@ function renderHome(){
   </div>`;
 }
 function renderDevices(){
+ if(caregiverRuntime){
+   $('#devicesTab').innerHTML=`<div class="card report-state error" data-device-status="unavailable"><h1>Devices</h1><h2>Devices unavailable</h2><p class="muted">Device and NodeHealth status cannot be checked without an authenticated backend connection. Freshness is unknown.</p></div>`;
+   return;
+ }
  const signature=renderSignature(state.devices);
  if(signature===lastRenderSignature.devices && $('#devicesTab').childElementCount)return;
  lastRenderSignature.devices=signature;
@@ -343,6 +374,10 @@ function renderDevices(){
  </div>`}).join('')}</div>`;
 }
 function renderReports(){
+ if(caregiverRuntime){
+   $('#reportsTab').innerHTML=`<div class="card"><div class="card-row"><div class="round-icon">▥</div><div><h1 style="margin:0">Reports</h1><div class="muted">Family care summary from backend history</div></div></div></div><div class="card report-state error" data-report-status="unavailable"><h2>Reports unavailable</h2><p class="muted">History is not stored in this app. Connect to the authenticated caregiver service to view reports.</p></div>`;
+   return;
+ }
  const signature=renderSignature({reportPeriod,reportState});
  if(signature===lastRenderSignature.reports && $('#reportsTab').childElementCount)return;
  lastRenderSignature.reports=signature;
@@ -383,6 +418,13 @@ function scheduleEditor(){
    </form></div>`;
 }
 function renderSettings(){
+ if(caregiverRuntime){
+   $('#settingsTab').innerHTML=`
+     <div class="card"><h1 style="margin:0">Settings</h1><div class="muted">Caregiver account and household settings</div></div>
+     <div class="settings-group"><h3>Account & household</h3><div class="setting" aria-disabled="true"><div class="setting-icon">🔐</div><div><strong>Caregiver sign-in</strong><small>Secure sign-in is unavailable until the authenticated caregiver service is configured.</small></div><div>Unavailable</div></div><div class="setting" aria-disabled="true"><div class="setting-icon">🏠</div><div><strong>Current home</strong><small>Home membership and authorization have not been verified.</small></div><div>Unknown</div></div></div>
+     <div class="settings-group"><h3>Availability</h3><div class="setting" aria-disabled="true"><div class="setting-icon">🔔</div><div><strong>Notifications</strong><small>Native notifications are not configured in this build.</small></div><div>Unavailable</div></div><div class="setting" aria-disabled="true"><div class="setting-icon">☎</div><div><strong>Internet calling</strong><small>Calling and escalation are not operational in this build.</small></div><div>Unavailable</div></div></div>`;
+   return;
+ }
  $('#settingsTab').innerHTML=`
  <div class="card"><h1 style="margin:0">Settings</h1><div class="muted">Customize your home and device preferences</div></div>
  ${settingsGroup('Home Settings',[['🏠','Home Details','Update home name, timezone and locale','openHomeDetails()'],['👥','Family Members','Manage family access and permissions','openFamilyMembers()'],['📶','Wi‑Fi & Network','View hub/network status','openNetworkStatus()']])}
@@ -534,28 +576,37 @@ $$('.nav-btn').forEach(b=>b.onclick=async()=>{
   $$('.nav-btn').forEach(x=>x.classList.toggle('active',x===b));
   $$('.tab-panel').forEach(x=>x.classList.remove('active'));
   $('#'+currentTab+'Tab').classList.add('active');
+  if(caregiverRuntime){render();return}
   if(currentTab==='devices')await refreshFromBackend(false,'full');
   else if(currentTab==='home')await refreshFromBackend(false,'home');
   else render();
   if(currentTab==='reports')loadReport({quiet:true});
 });
+// Keep the static navigation hidden until the simulator handlers are attached.
+// Mobile taps immediately after a reload can otherwise hit inert buttons while
+// the module graph is still loading.
+$('.bottom-nav').hidden=false;
 $('#awayToggle').checked=false; $('#awayToggle').disabled=true;
-window.setReport=p=>{if(!reportApiPeriods[p])return;reportPeriod=p;loadReport()}
+window.setReport=p=>{if(!reportApiPeriods[p])return;reportPeriod=p;if(!caregiverRuntime)loadReport()}
 window.toggleDemo=k=>{
+  if(!localSimulator)return toast('Simulation controls are available only in the local development lab.');
   scenarioActionQueue=scenarioActionQueue.then(()=>scenarioAction({action:'toggle',scenario:k}));
   return scenarioActionQueue;
 }
 window.resetDemo=async()=>{
+  if(!localSimulator)return toast('Simulation controls are available only in the local development lab.');
   scenarioActionQueue=scenarioActionQueue.then(()=>scenarioAction({action:'reset_pass'}));
   await scenarioActionQueue;
   toast('Reset complete: all scenarios PASS');
 }
 window.toast=t=>{let n=document.createElement('div');n.className='toast';n.textContent=t;document.body.appendChild(n);setTimeout(()=>n.remove(),2200)}
 window.enableNotifications=async()=>{if(!('Notification'in window))return toast('Browser notifications are not supported here.');let p=await Notification.requestPermission();toast(p==='granted'?'Notifications enabled':'Notification permission not granted')}
-function notify(title,body){if('Notification'in window && Notification.permission==='granted')new Notification(title,{body,icon:'assets/icon.svg'})}
-if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js');
-(async()=>{await refreshFromBackend(true,'home',{force:true});if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();
+function notify(title,body){if('Notification'in window && Notification.permission==='granted')new Notification(title,{body,icon:'assets/parivar-saathi-icon-192.png'})}
+if(localSimulator && 'serviceWorker'in navigator) navigator.serviceWorker.register('sw.js');
+if(localSimulator){(async()=>{await refreshFromBackend(true,'home',{force:true});if(new URLSearchParams(location.search).get('validation')==='autorun')await runAllValidation()})();}
+else {render();}
 async function pollApplication(){
+  if(caregiverRuntime)return;
   if(validation.running)return;
   pollBrowserNotifications();
   if(document.hidden)return;
