@@ -4841,3 +4841,37 @@ operation occurred. The next action is to supply/approve the target TEST_ONLY
 provisioning, current Home/epoch refresh, signed-time bootstrap and network
 configuration contracts; then wire the existing providers and build a new
 source-bound S3 product image.
+
+## GS-40 TEST_ONLY bootstrap decision boundary — 2026-10-18
+
+At canonical checkpoint `f8dc5ca44cdf4fabf85f481fa269d1c14112a62e`, branch
+`feature/r1-commercial-baseline`, local and origin matched and context preflight
+passed. Tracked state was clean before this documentation update. Existing
+untracked PWA, Android, ESP-IDF managed components, GS-114/C8 and GS-40
+evidence were preserved. The concurrently running Hub validation/sanitizer job
+was identified in `/home/udaybhan/projects/Ghar_sajag_hub_sim_gs177` and left
+untouched.
+
+No code or interface implementation can safely compose the product runtime
+until the three target inputs are selected: isolated runtime configuration,
+pre-TLS authenticated-time bootstrap, and fresh GS-168/current Home+epoch
+credential authority. GS-D032 leaves their mechanisms open. A bounded
+`GS40T/1` proposal was recorded as PROPOSED (not approved/LOCKED) in
+[`GS40_TEST_ONLY_BOOTSTRAP_DECISION_PROPOSAL_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_BOOTSTRAP_DECISION_PROPOSAL_20261018.md)
+and the Decision Log. It reuses existing issuer/ownership/time/CloudSync seams,
+defines its trust roots, signed encrypted lab configuration, UDP signed-time
+bootstrap, mTLS current-authority refresh, freshness limits, threats, failure
+behavior and acceptance tests. It explicitly does not claim production key
+custody, device attestation, or malicious flash rollback resistance.
+
+Validation for this documentation-only decision proposal: `git diff --check`
+PASS. No source, tests, image, target, physical fixture, serial port, production
+credential or endpoint was changed or accessed. Prior host integration results
+remain as documented in the runtime-composition evidence; they do not verify
+S3 product runtime. No tests or firmware build were repeated. GS-40 stays In
+Progress; physical PHY-GS40-01..06 remain NOT_RUN; P0 remains PARTIAL and the
+Hub `clean migration commits` failure remains open. Next action: approve or
+replace the complete `GS40T/1` interface contract; after that, implement the
+target adapters/composition and run the registered focused integration gates.
+Proposal comments are GS-40 `11374`, GS-109 `11375`, and GS-148 `11376`;
+the three Jira issues remain In Progress / unchanged.

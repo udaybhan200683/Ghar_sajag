@@ -1110,3 +1110,35 @@ authority claim, or production mechanism is selected here. Exact findings and
 validation are in
 [`GS40_TEST_ONLY_RUNTIME_COMPOSITION_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_RUNTIME_COMPOSITION_20261018.md).
 No locked requirement changed; CONTEXT_VERSION remains `2026-10-13.001`.
+
+## 2026-10-18 — GS-40 `GS40T/1` TEST_ONLY bootstrap contract (PROPOSED)
+
+**Status: PROPOSED; no user/security approval; not LOCKED.** The existing
+GS-168 issuer/registry, GS-109 ownership behavior, D06 verifier/provider and
+GS-40 CloudSync interfaces do not define target material delivery, pre-TLS
+signed-time transport/key supply, or isolated network configuration. Do not
+implement a target trust source by choosing these mechanisms implicitly.
+
+The recommended minimal isolated contract uses a signed, bounded,
+single-session encrypted TEST_ONLY fixture envelope; the existing
+`AuthenticatedHubTimeProvider` obtains its nonce/boot-generation-bound signed
+proof over an untrusted UDP carrier before any certificate-time-dependent TLS;
+and an authenticated TLS/mTLS refresh adapter obtains the current GS-168
+credential state and current Home/ownership epoch from the existing registries.
+The target fails closed on expiry, transfer, revocation, bad time, stale
+authority, network/config failure and test/commercial profile crossover. A
+controlled USB/PnP fixture is the TEST_ONLY config-delivery trust point; the
+proposal does not claim device attestation, hardware key custody or malicious
+flash rollback protection. Proposed TEST_ONLY time proof response age is 30 s,
+maximum statement lifetime 300 s, floor checkpoint 60 s, authority lease 60 s
+and refresh interval 15 s. These values and interfaces require approval as one
+bounded TEST_ONLY contract. They do not change GS-D032 or authorize physical or
+production operations.
+
+Full contract, wire fields, trust boundaries, alternatives, threats, failure
+behavior and acceptance tests:
+[`GS40_TEST_ONLY_BOOTSTRAP_DECISION_PROPOSAL_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_BOOTSTRAP_DECISION_PROPOSAL_20261018.md).
+Until approved, S3 product startup remains `UnprovisionedS3CloudTrust`,
+commercial profile remains fail-closed, and no runtime code or build artifact
+is claimed integrated. `CONTEXT_VERSION` remains `2026-10-13.001` because no
+locked decision changed.
