@@ -964,3 +964,13 @@ workspace or qualify the real Hub data path.
 - Keep GS-177 In Progress. The HTTPS backend redeploy, PostgreSQL backup/restore,
   owner admin login, owner-phone/mobile-data run, physical Hub sync and real
   calling remain outstanding acceptance gates.
+
+
+### GS-177 authorized Render Free deployment receipt — 2026-10-18
+
+- **Scope:** Deploy existing GS-177 connected TEST_ONLY event/routine projection to the previously authorized Render Free staging web service only. No new/paid resources, database settings, credentials, firmware, canonical GS-40 code or physical hardware were modified.
+- **Existing service:** `parivar-saathi-lite-staging` (`srv-db9p25m1egvs7383iss0`), HTTPS `https://parivar-saathi-lite-staging.onrender.com`, `plan: free`, autoDeploy `no`. Existing PostgreSQL `parivar-saathi-lite-db`; free DB expiry recorded 2026-11-16 15:14:58 UTC (backup/restore not yet qualified).
+- **Deployment:** `dep-dba3ut8m7kps73fclol0`, API-triggered for feature-branch HEAD `47e8faaff093184d0bcbf1bb95dc9e79aba03090` (contains implementation `27baa615cb0b1db41a56ba12cacfbbc08de80c1a`; last additional commit was documentation/traceability). Render reports `live`; finished **2026-10-18 03:40:52 UTC**. Logs show successful simulator build, Gunicorn gthread workers starting, Render service-live receipt and subsequent `GET /readyz` HTTP 200 from the new instance (e.g. 03:41:06 UTC).
+- **APK:** existing GitHub Actions success `39093929946`, artifact `12123996919`, `in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`. APK checksum independently verified against zipped `SHA256SUMS`: `68f5ef1a6a4548803b5993a7b304576ebc05e299a3e62e5ad4bb0d50e65802b2`. Runner-generated TEST_ONLY debug key; earlier installed APK may need replacement/uninstall after local-data preservation.
+- **Validation boundary:** Hosted deployment and internal readiness PASS; independent authenticated remote scenario execution, actual administrator login, PostgreSQL export/restore, owner Android install/mobile-data/laptop-off acceptance, real C3/S3 CloudSync, Android FCM, WebRTC/S3 audio and auto-call all remain **NOT_RUN/BLOCKED**. No signed-off product acceptance is implied. Historical broad PWA aggregate **FAIL** (legacy budgets/selector timeouts), P0 **PARTIAL**, full release gate **NOT_RUN**; focused GS-177 tests remain as documented in preceding checkpoint.
+- **Worktree safeguard:** Changes made through authorized GitHub document update on the feature branch; the original Codex WSL worktree was not accessed. On resume inspect/fetch and reconcile remote documentation commit before additional edits; never reset/overwrite or assume local HEAD equals remote.
