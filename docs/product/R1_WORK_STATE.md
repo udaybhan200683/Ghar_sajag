@@ -4793,3 +4793,11 @@ test-network configuration, then a source-bound S3 product build. Physical
 PHY-GS40-01..06 requires explicit fixture-specific authorization; TC05 also
 requires a second enrolled C3 with a trusted legacy profile or approved
 profile fixture. The C8/C3 and GS-68 spare remain untouched.
+
+Delivery checkpoint: provider code commit `2427622b44796779b3c0730d4da6baeebcde7835`
+and build-evidence commit `dc7c93760ec35853f0fb0e569f60341f7e76ba0b` are on
+`feature/r1-commercial-baseline`; origin matched dc7c937 after push. Jira
+comments: GS-40 `11366` plus compile-evidence correction `11369`, GS-109
+`11367`, GS-148 `11368`. Tracked files are clean; pre-existing untracked PWA,
+Android, managed-component, GS-114/C8 and GS-40 physical evidence remain
+untouched. No board, serial port, production endpoint or credential was used.
