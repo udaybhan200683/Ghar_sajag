@@ -4875,3 +4875,75 @@ replace the complete `GS40T/1` interface contract; after that, implement the
 target adapters/composition and run the registered focused integration gates.
 Proposal comments are GS-40 `11374`, GS-109 `11375`, and GS-148 `11376`;
 the three Jira issues remain In Progress / unchanged.
+
+## GS-40 TEST_ONLY S3 runtime composition checkpoint — 2026-10-18
+
+After task-specific authorization for bounded TEST_ONLY engineering, canonical
+source commit `8bd9cf3` adds the guarded target path: authenticated bounded
+`G40E` USB fixture envelope, isolated Wi-Fi/backend material, existing signed
+time proof verifier over an untrusted UDP carrier, a TEST_ONLY mTLS bootstrap
+identity, signed current-authority lease validation, and S3 owner-task
+composition with `ProvisionedS3CloudTrust` and the existing CloudSync worker.
+Commercial builds remain on `UnprovisionedS3CloudTrust`. The GS40T/1 decision
+proposal remains PROPOSED/not LOCKED; no commercial security mechanism was
+approved. A GS-116 registry correction is commit `0d7a5f0`.
+
+The TEST_ONLY ESP-IDF 6.0.3 S3 product-profile build passed from source commit
+`8bd9cf3`: image 2,187,584 bytes, ESP-IDF image validation hash
+`a4ac8be74997e0b5b1e1f993eb7707e757adaf2fd2d838fcf8ccceed0894ebc6`, artifact
+SHA-256 `d8df7d807059d65f37e5cf1b4df687234126418239f110cbaccb71f98305ded7`,
+effective sdkconfig hash `3750bc9360e4524d61d8209e2cbe7014f67be9ee55dcb553033bcc9858c83099`,
+and TEST_ONLY defaults hash
+`7339aa689a054a849ac14d29c0eb79de543d966a6440c18c8467ead4756cd073`. It fits
+the existing 0x400000 app partition. These are build facts, not installed or
+physical results. A clean non-TEST_ONLY S3 profile build also passed with
+`GS40_TEST_ONLY_CLOUDSYNC=OFF`, empty TEST_ONLY root configuration, and
+`GS40_TEST_ONLY_CLOUDSYNC_BUILD=0`: image 2,168,160 bytes, full artifact SHA-256
+`c2c886ddee480b2363a7b50b7bdd58f45c3e19bc212ba8bd3a170de046e494bb`, image
+validation hash
+`9642656a2d35d17774b9f9e90b0f418b3ca956f5af787a241a5149b25d45617f`, ELF SHA
+`57850c4ed02a35179b7db3557a1df9b60f5128e90fc54e043a3ff712b45c033a`, and
+effective sdkconfig SHA `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`.
+The commercial branch retains `UnprovisionedS3CloudTrust` and DS peripheral
+support in its build config; this is not eFuse/device evidence. Build metadata
+is app version `0d7a5f0-dirty`, with tracked dirt limited to documentation; the
+firmware source inputs match the cited implementation/registry commits. Results
+and full hashes are in
+[`GS40_TEST_ONLY_RUNTIME_CHECKPOINT_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_RUNTIME_CHECKPOINT_20261018.md).
+
+New TEST_ONLY bootstrap tests pass 29 checks. The focused suite passed cloud
+trust 5 suites; mTLS 9/9 and TEST_ONLY 5 assertions; backend security 14/14;
+existing identity/time/caregiver host integration 4/4; GS-168 issuer 10/10;
+NodeHealth 5/5; GS-40 liveness 1,320; configuration 17/17; qualification
+17/17; and feature coverage 208 features/224 modules/24 physical cases with
+22/22 mapping tests. `make validation-framework-test feature-coverage-test`
+passed 47/47 framework tests after the registered stage ownership was
+corrected. Existing board-stack simulation 10 cases / 398 checks remains prior
+evidence and was not repeated.
+
+This does not yet demonstrate a composed S3-to-caregiver software E2E. No
+fixture envelope sender, signed-time service, or backend
+`/v1/test/authority/refresh` handler exists in the exercised local service; the
+new S3 runtime was built, not executed. Existing localhost E2E tests exercise
+the host identity/backend/caregiver path only. Product status remains PARTIAL;
+the Hub `clean migration commits` assertion remains FAIL; physical PHY-GS40-01
+through 06 remain NOT_RUN, and PHY-GS40-05 still needs a second independently
+enrolled legacy-profile C3 or approved equivalent. No hardware, production
+endpoint, credential, eFuse, DS key or security setting was accessed. GS-40
+stays In Progress.
+
+### Canonical writer handoff
+
+After the evidence/doc commit and verified push, this GS-40 software checkpoint
+is ready for a separate GS-177 integration session. The isolated
+`Ghar_sajag_hub_sim_gs177` worktree and its branch were not read or modified and
+remain unintegrated. The next session must inventory its tracked/untracked
+changes against base `58487978988b609917f4d021d01480ab87bc220a`, exclude generated
+`managed_components` and sensitive evidence, and reuse canonical HubRuntime,
+replay/security, journal, NodeHealth and CloudSync code. Do not begin GS-104
+R01–R09; keep GS40T/1 PROPOSED and unapproved for production. Pre-existing
+untracked PWA, Android, managed-component and physical evidence in the canonical
+worktree remains preserved.
+
+Jira evidence comments for this checkpoint: GS-40 `11379`, GS-109 `11380`,
+GS-148 `11381`; all remain In Progress.

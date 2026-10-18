@@ -1142,3 +1142,15 @@ Until approved, S3 product startup remains `UnprovisionedS3CloudTrust`,
 commercial profile remains fail-closed, and no runtime code or build artifact
 is claimed integrated. `CONTEXT_VERSION` remains `2026-10-13.001` because no
 locked decision changed.
+
+### Bounded implementation note — 2026-10-18
+
+Under a later task-specific delegation for isolated TEST_ONLY engineering, a
+guarded implementation of the proposed envelope, authenticated-time bootstrap,
+current-authority lease verifier, and S3 startup composition was added and
+compiled. This does not convert `GS40T/1` from PROPOSED to approved or LOCKED,
+does not approve any commercial trust mechanism, and does not establish a
+working backend authority/time fixture or a complete S3-to-caregiver E2E. The
+commercial composition continues to use `UnprovisionedS3CloudTrust`. See the
+dated execution evidence for exact code and limits. `CONTEXT_VERSION` remains
+unchanged.
