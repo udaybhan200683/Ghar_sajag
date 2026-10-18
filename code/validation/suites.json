@@ -2179,7 +2179,7 @@
         "tests/js/caregiver_runtime.test.mjs",
         "tests/functional/scenario_catalog.json"
       ],
-      "success": "^GS177 CONNECTED LITE PASS tests=(\\d+) scenarios=3 runtime=6 physical=NOT_RUN$",
+      "success": "^GS177 CONNECTED LITE PASS tests=(\\d+) scenarios=3 runtime=(\\d+) physical=NOT_RUN$",
       "required_success": ["^GS177 SCENARIO PASS motion-room1-visible", "^GS177 SCENARIO PASS door-open-close-order", "^GS177 SCENARIO PASS morning-missing-covered"],
       "timeout": 180,
       "count_kind": "tests",

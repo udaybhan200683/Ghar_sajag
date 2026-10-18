@@ -145,6 +145,56 @@ class ConnectedLiteTests(unittest.TestCase):
         self.assertEqual(self.request('POST',url,{'scenario_id':'motion-room1-visible','seed':7},cookie)[0],'400 Bad Request')
         self.assertEqual(self.request('POST',url,{'scenario_id':'x'*17000},cookie)[0],'400 Bad Request')
 
+    def test_saved_run_exposes_test_only_event_and_routine_trace_projections(self):
+        cookie=self.login()
+        root=f'/lite/v1/homes/{HOME_ID}'
+        status,created,_=self.request('POST',root+'/sim/runs',{'scenario_id':'motion-room1-visible'},cookie)
+        self.assertEqual(status,'201 Created')
+        self.assertEqual(created['trace_id'],f"sim:{created['run_id']}")
+        trace=created['result']['trace']
+        self.assertFalse(trace['original_event_key_available'])
+        self.assertEqual(trace['event_count'],1)
+        overview=self.request('GET',root+'/overview',cookie=cookie)[1]
+        event=next(item for item in overview['recent_events'] if item['run_id']==created['run_id'])
+        self.assertIsNone(event['event_key'])
+        self.assertFalse(event['original_event_key_available'])
+        self.assertEqual(event['source'],'HOST_SIMULATION_TEST_ONLY')
+        self.assertEqual(event['trace_id'],f"sim:{created['run_id']}:1")
+
+        # This catalogue scenario is category=routine even though its ID does not contain
+        # "routine", "morning", "inactivity" or "night"; the catalogue is authoritative.
+        status,catalogue_routine,_=self.request('POST',root+'/sim/runs',
+            {'scenario_id':'door-left-open-two-hour-config-default'},cookie)
+        self.assertEqual(status,'201 Created')
+        routine_view=self.request('GET',root+'/routines',cookie=cookie)[1]
+        self.assertIn(catalogue_routine['run_id'],[item['run_id'] for item in routine_view['runs']])
+
+        saved_runner=self.api.runner
+        try:
+            self.api.runner=lambda scenario: {
+                'status':'PASS','scenario':{'id':scenario,'title':'Missing morning activity','category':'morning'},
+                'state':{'timeline':[],'simulation':{'reason':'no_qualifying_evidence'},
+                         'incidents':[{'incident_id':'incident-1','kind':'MISSING_MORNING_ACTIVITY',
+                                       'home_id':'simulation-home','is_test':False,'state':'OPEN'}]},
+                'step_results':[{'index':1,'passed':True,'detail':'scenario rule evaluated'}],
+                'checks':[{'pass':True,'detail':'expected missing-activity decision'}],
+                'provenance':'HOST_SIMULATION_TEST_ONLY','hardware_evidence':'NOT_RUN'}
+            status,morning,_=self.request('POST',root+'/sim/runs',{'scenario_id':'morning-missing-covered'},cookie)
+            self.assertEqual(status,'201 Created')
+            routines=self.request('GET',root+'/routines',cookie=cookie)[1]
+            decision=next(item for item in routines['decisions'] if item['run_id']==morning['run_id'])
+            self.assertEqual(decision['decision_reason'],'no_qualifying_evidence')
+            self.assertEqual(decision['learning_status'],'UNSUPPORTED_MULTI_DAY')
+            self.assertEqual(decision['incident_count'],1)
+            self.assertEqual(decision['provenance'],'HOST_SIMULATION_TEST_ONLY')
+            incidents=self.request('GET',root+'/incidents',cookie=cookie)[1]['incidents']
+            projected=next(item for item in incidents if item['run_id']==morning['run_id'])
+            self.assertNotIn('home_id',projected)
+            self.assertNotIn('is_test',projected)
+            self.assertEqual(projected['provenance'],'HOST_SIMULATION_TEST_ONLY')
+        finally:
+            self.api.runner=saved_runner
+
     def test_initial_schema_migration_is_recorded_once_across_restart(self):
         with self.store.connect() as db:
             versions=[row['version'] for row in self.store.sql(db,'SELECT version FROM lite_schema_migrations ORDER BY version').fetchall()]

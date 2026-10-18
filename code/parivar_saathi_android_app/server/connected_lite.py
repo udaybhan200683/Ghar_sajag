@@ -42,6 +42,7 @@ SESSION_SECONDS = 12 * 3600
 API_REQUESTS_PER_MINUTE = 240
 HOME_ID = "gs177-test-home"  # Local test fixture only; operator bootstrap allocates unique Homes.
 IDENT = re.compile(r"^[a-zA-Z0-9_-]{1,80}$")
+ROUTINE_CATEGORIES = frozenset({"routine", "morning", "inactivity"})
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 LOG = logging.getLogger("parivar_saathi_lite")
 
@@ -139,6 +140,69 @@ def run_scenario(scenario_id: str):
         return payload
     finally:
         lab.close()
+
+
+def _scenario_catalogue():
+    return {scenario["id"]: scenario for scenario in load_catalog(DEFAULT_CATALOG)["scenarios"]}
+
+
+def _run_event_rows(run_id: str, scenario_id: str, created_at: int, result: dict):
+    """Project persisted simulator timeline records without claiming product EventKeys."""
+    timeline = result.get("state", {}).get("timeline", [])
+    provenance = result.get("provenance", "HOST_SIMULATION_TEST_ONLY")
+    rows = []
+    for index, event in enumerate(timeline):
+        if not isinstance(event, dict):
+            continue
+        rows.append({
+            "trace_id": f"sim:{run_id}:{index + 1}",
+            "run_id": run_id,
+            "scenario_id": scenario_id,
+            "event_id": event.get("event_id"),
+            "event_key": None,
+            "original_event_key_available": False,
+            "source": provenance,
+            "provenance": provenance,
+            "kind": event.get("kind") or event.get("type") or "UNKNOWN",
+            "device_id": event.get("device_id"),
+            "location": event.get("location"),
+            "occurred_at": event.get("occurred_at"),
+            "received_at": event.get("received_at"),
+            "delayed": bool(event.get("delayed", False)),
+            "run_created_at": created_at,
+        })
+    return rows
+
+
+def _routine_decision(run_id: str, scenario_id: str, created_at: int, status: str, result: dict,
+                      catalogue: dict | None = None):
+    """Expose the scenario engine's recorded decision evidence, not a learned baseline."""
+    scenario = result.get("scenario") or {}
+    scenario_meta = (catalogue or {}).get(scenario_id, {})
+    category = scenario.get("category") or scenario_meta.get("category")
+    if category not in ROUTINE_CATEGORIES:
+        return None
+    state = result.get("state", {})
+    simulation = state.get("simulation") or {}
+    timeline = state.get("timeline", [])
+    incidents = state.get("incidents", [])
+    return {
+        "run_id": run_id,
+        "trace_id": f"sim:{run_id}",
+        "scenario_id": scenario_id,
+        "scenario_title": scenario.get("title") or scenario_meta.get("title") or scenario_id,
+        "category": category,
+        "evaluated_at": created_at,
+        "result": status,
+        "decision_reason": simulation.get("reason") or "NOT_EMITTED_BY_SCENARIO",
+        "step_results": result.get("step_results", []),
+        "checks": result.get("checks", []),
+        "event_ids": [event.get("event_id") for event in timeline if isinstance(event, dict) and event.get("event_id")],
+        "incident_ids": [incident.get("incident_id") for incident in incidents if isinstance(incident, dict) and incident.get("incident_id")],
+        "incident_count": len(incidents),
+        "provenance": result.get("provenance", "HOST_SIMULATION_TEST_ONLY"),
+        "learning_status": "UNSUPPORTED_MULTI_DAY",
+    }
 
 
 class SyntheticDiagnosticAuthority:
@@ -358,9 +422,21 @@ class LiteApi:
             if not home.startswith("gs177-test-") or not session["test_only"]:
                 raise Denied()  # Real Home authority/consent is not yet composed.
             if method == "GET" and sub == "overview":
-                rows = self.store.sql(db, "SELECT run_id,scenario_id,status,created_at FROM lite_runs WHERE home_id=? ORDER BY created_at DESC LIMIT 20", (home,)).fetchall()
-                latest = self.store.sql(db, "SELECT result_json FROM lite_runs WHERE home_id=? ORDER BY created_at DESC LIMIT 1", (home,)).fetchone()
-                timeline = json.loads(latest["result_json"]).get("state", {}).get("timeline", []) if latest else []
+                rows = self.store.sql(db, "SELECT run_id,scenario_id,status,created_at FROM lite_runs WHERE home_id=? ORDER BY created_at DESC,run_id DESC LIMIT 20", (home,)).fetchall()
+                saved = self.store.sql(db, "SELECT run_id,scenario_id,status,created_at,result_json FROM lite_runs WHERE home_id=? ORDER BY created_at DESC,run_id DESC LIMIT 20", (home,)).fetchall()
+                catalogue = _scenario_catalogue()
+                decoded = [(row, json.loads(row["result_json"])) for row in saved]
+                latest_events = [event for row, result in decoded
+                                 for event in _run_event_rows(row["run_id"], row["scenario_id"], row["created_at"], result)]
+                # The simulator timeline order is authoritative within a run; run creation time orders runs.
+                latest_events.sort(key=lambda event: (event["run_created_at"], str(event.get("occurred_at") or "")), reverse=True)
+                decisions = []
+                for row, result in decoded:
+                    decision = _routine_decision(row["run_id"], row["scenario_id"], row["created_at"], row["status"], result, catalogue)
+                    if decision:
+                        decisions.append(decision)
+                latest = decoded[0][1] if decoded else None
+                timeline = latest.get("state", {}).get("timeline", []) if latest else []
                 return "200 OK", {"home_id": home, "test_only": True, "source": "HOST_SIMULATION_TEST_ONLY",
                                   "physical_status": "UNAVAILABLE",
                                   "physical_status_reason": "NO_HUB_CLOUDSYNC",
@@ -368,6 +444,8 @@ class LiteApi:
                                   "monitoring": "UNKNOWN", "source_freshness": "UNKNOWN",
                                   "backend_data_retrieved_at": now,
                                   "latest_simulated_event": timeline[-1] if timeline else None,
+                                  "recent_events": latest_events[:100],
+                                  "routine_decisions": decisions[:20],
                                   "runs": [dict(r) for r in rows]}, []
             if method == "GET" and sub == "devices":
                 latest = self.store.sql(db, "SELECT result_json FROM lite_runs WHERE home_id=? ORDER BY created_at DESC LIMIT 1", (home,)).fetchone()
@@ -393,12 +471,30 @@ class LiteApi:
                                       "period": period, "outcomes": counts, "event_count": event_count,
                                       "incident_count": incident_count, "source": "SAVED_SIMULATION_RUNS_ONLY"}, []
                 if sub == "routines":
-                    related = [r for r in runs if any(x in r["scenario_id"] for x in ("routine", "morning", "inactivity", "night"))]
-                    return "200 OK", {"home_id": home, "test_only": True, "learning_status": "UNSUPPORTED_MULTI_DAY", "runs": related}, []
+                    catalogue = _scenario_catalogue()
+                    decisions = []
+                    related = []
+                    for row in rows:
+                        result = json.loads(row["result_json"])
+                        decision = _routine_decision(row["run_id"], row["scenario_id"], row["created_at"], row["status"], result, catalogue)
+                        if decision:
+                            decisions.append(decision)
+                            related.append({"run_id": row["run_id"], "scenario_id": row["scenario_id"],
+                                            "status": row["status"], "created_at": row["created_at"],
+                                            "trace_id": decision["trace_id"], "category": decision["category"]})
+                    return "200 OK", {"home_id": home, "test_only": True, "learning_status": "UNSUPPORTED_MULTI_DAY",
+                                      "source": "HOST_SIMULATION_TEST_ONLY", "runs": related,
+                                      "decisions": decisions}, []
                 incidents = []
                 for row in rows:
                     for incident in json.loads(row["result_json"]).get("state", {}).get("incidents", []):
-                        incidents.append({"run_id": row["run_id"], "provenance": "HOST_SIMULATION_TEST_ONLY", **incident})
+                        # The lab fixture's internal home_id/is_test fields are not household authority.
+                        incidents.append({"run_id": row["run_id"], "trace_id": f"sim:{row['run_id']}",
+                                          "incident_id": incident.get("incident_id"),
+                                          "kind": incident.get("kind") or incident.get("type") or "UNKNOWN",
+                                          "state": incident.get("state") or incident.get("status") or "SIMULATED",
+                                          "created_at": incident.get("created_at") or row["created_at"],
+                                          "provenance": "HOST_SIMULATION_TEST_ONLY"})
                 return "200 OK", {"home_id": home, "test_only": True, "incidents": incidents[:100]}, []
             if method == "GET" and sub == "sim/catalog":
                 return "200 OK", catalog_for_frontend(), []
@@ -427,9 +523,14 @@ class LiteApi:
                 run_id = str(uuid4())
                 status = result.get("status", "BLOCKED")
                 generation = self.store.sql(db, "SELECT simulation_generation FROM lite_homes WHERE home_id=?", (home,)).fetchone()["simulation_generation"]
+                result["trace"] = {"trace_id": f"sim:{run_id}", "run_id": run_id,
+                                    "created_at": now, "provenance": result.get("provenance", "HOST_SIMULATION_TEST_ONLY"),
+                                    "original_event_key_available": False,
+                                    "event_count": len(result.get("state", {}).get("timeline", []))}
                 self.store.sql(db, "INSERT INTO lite_runs(run_id,home_id,account_id,scenario_id,status,simulation_generation,created_at,result_json) VALUES(?,?,?,?,?,?,?,?)",
                                (run_id, home, session["account_id"], scenario_id, status, generation, now, json.dumps(result)))
-                return "201 Created", {"run_id": run_id, "status": status, "simulation_generation": generation, "result": result}, []
+                return "201 Created", {"run_id": run_id, "trace_id": result["trace"]["trace_id"], "status": status,
+                                        "simulation_generation": generation, "result": result}, []
             if method == "GET" and sub == "sim/runs":
                 rows = self.store.sql(db, "SELECT run_id,scenario_id,status,created_at FROM lite_runs WHERE home_id=? ORDER BY created_at DESC LIMIT 100", (home,)).fetchall()
                 return "200 OK", {"runs": [dict(r) for r in rows]}, []

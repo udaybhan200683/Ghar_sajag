@@ -129,7 +129,9 @@ class Pwa68BrowserTest(unittest.TestCase):
     mock=r'''(()=>{
       const home='gs177-test-browser-home',runs=[];let role=null;
       const profile=()=>({account_id:'browser-account',email:role==='ADMIN'?'owner@example.org':'caregiver@example.org',home_id:home,role,test_only:true,expires_at:4102444800,backend_revision:'browser-test'});
-      const makeResult=scenario=>({status:'PASS',scenario:{id:scenario},provenance:'HOST_SIMULATION_TEST_ONLY',hardware_evidence:'NOT_RUN',source_revision:'0123456789ab',checks:[{pass:true,detail:scenario==='morning-missing-covered'?'Expected morning concern appears under covered test input':'Expected motion appears in the simulated timeline'}],state:{timeline:[{kind:scenario==='morning-missing-covered'?'MORNING_ROUTINE_MISSING':'MOTION',event_id:'simulated-event-'+(runs.length+1),occurred_at:'2026-10-17T08:00:00Z',location:'room1',source:'HOST_SIMULATION_TEST_ONLY',routine_decision:scenario==='morning-missing-covered'?'CONCERN':'ACTIVITY'}],incidents:[],devices:[]}});
+      const makeResult=scenario=>({status:'PASS',scenario:{id:scenario,title:scenario==='morning-missing-covered'?'Missing morning activity':'Motion in visible room',category:scenario==='morning-missing-covered'?'morning':'expected'},provenance:'HOST_SIMULATION_TEST_ONLY',hardware_evidence:'NOT_RUN',source_revision:'0123456789ab',step_results:[{index:1,passed:true,detail:'scenario rule evaluated'}],checks:[{pass:true,detail:scenario==='morning-missing-covered'?'Expected morning concern appears under covered test input':'Expected motion appears in the simulated timeline'}],state:{timeline:[{kind:scenario==='morning-missing-covered'?'MORNING_ROUTINE_MISSING':'MOTION',event_id:'simulated-event-'+(runs.length+1),occurred_at:'2026-10-17T08:00:00Z',received_at:'2026-10-17T08:00:01Z',location:'room1',source:'HOST_SIMULATION_TEST_ONLY',routine_decision:scenario==='morning-missing-covered'?'CONCERN':'ACTIVITY'}],simulation:{reason:scenario==='morning-missing-covered'?'no_qualifying_evidence':'motion_observed'},incidents:[],notifications:[],devices:[]}});
+      const events=()=>runs.flatMap(run=>(run.result?.state?.timeline||[]).map((event,index)=>({trace_id:'sim:'+run.run_id+':'+(index+1),run_id:run.run_id,scenario_id:run.scenario_id,event_id:event.event_id,event_key:null,original_event_key_available:false,source:'HOST_SIMULATION_TEST_ONLY',provenance:'HOST_SIMULATION_TEST_ONLY',kind:event.kind,location:event.location,occurred_at:event.occurred_at,received_at:event.received_at,delayed:false,run_created_at:run.created_at})));
+      const decisions=()=>runs.filter(run=>['routine','morning','inactivity'].includes(run.result?.scenario?.category)).map(run=>({run_id:run.run_id,trace_id:'sim:'+run.run_id,scenario_id:run.scenario_id,scenario_title:run.result.scenario.title,category:run.result.scenario.category,evaluated_at:run.created_at,result:run.status,decision_reason:run.result.state.simulation.reason,step_results:run.result.step_results,checks:run.result.checks,event_ids:run.result.state.timeline.map(event=>event.event_id),incident_ids:[],incident_count:0,provenance:'HOST_SIMULATION_TEST_ONLY',learning_status:'UNSUPPORTED_MULTI_DAY'}));
       const send=(body,status=200)=>Promise.resolve(new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}}));
       const original=window.fetch.bind(window);
       window.fetch=async(input,options={})=>{
@@ -144,11 +146,11 @@ class Pwa68BrowserTest(unittest.TestCase):
         if(!path.startsWith(prefix))return send({error:'not_authorized'},403);
         const sub=path.slice(prefix.length);
         if(['sim/catalog','sim/runs','sim/reset','engineering'].some(value=>sub===value||sub.startsWith(value+'/'))&&role!=='ADMIN')return send({error:'not_authorized'},403);
-        if(sub==='overview')return send({home_id:home,test_only:true,source:'HOST_SIMULATION_TEST_ONLY',physical_status:'UNAVAILABLE',physical_status_reason:'NO_HUB_CLOUDSYNC',physical_data_contract:'GS-148_CLOUDSYNC',monitoring:'UNKNOWN',source_freshness:'UNKNOWN',runs})
+        if(sub==='overview')return send({home_id:home,test_only:true,source:'HOST_SIMULATION_TEST_ONLY',physical_status:'UNAVAILABLE',physical_status_reason:'NO_HUB_CLOUDSYNC',physical_data_contract:'GS-148_CLOUDSYNC',monitoring:'UNKNOWN',source_freshness:'UNKNOWN',recent_events:events(),routine_decisions:decisions(),runs})
         if(sub==='devices')return send({home_id:home,test_only:true,devices:[],physical_status:'UNAVAILABLE',physical_status_reason:'NO_HUB_CLOUDSYNC',physical_data_contract:'GS-148_CLOUDSYNC'})
         if(sub==='incidents')return send({home_id:home,test_only:true,incidents:[]})
         if(sub.startsWith('reports'))return send({home_id:home,test_only:true,run_count:runs.length,runs,outcomes:{PASS:runs.length,FAIL:0,BLOCKED:0,NOT_RUN:0},event_count:runs.length,incident_count:0,period:'week'})
-        if(sub==='routines')return send({home_id:home,test_only:true,learning_status:'UNSUPPORTED_MULTI_DAY',runs:runs.filter(run=>run.scenario_id.startsWith('morning-'))})
+        if(sub==='routines')return send({home_id:home,test_only:true,learning_status:'UNSUPPORTED_MULTI_DAY',source:'HOST_SIMULATION_TEST_ONLY',decisions:decisions(),runs:runs.filter(run=>run.scenario_id.startsWith('morning-'))})
         if(sub==='engineering')return send({home_id:home,test_only:true,gs124_health:{status:'UNSUPPORTED',devices:[]},hardware_evidence:'UNKNOWN',physical_status:'UNAVAILABLE',physical_status_reason:'NO_HUB_CLOUDSYNC',physical_data_contract:'GS-148_CLOUDSYNC',source_revision:'0123456789ab',runs})
         if(sub==='sim/catalog')return send({scenarios:[{id:'motion-room1-visible',title:'Motion in visible room'},{id:'morning-missing-covered',title:'Morning activity absent'}]})
         if(sub==='sim/runs'&&options.method==='POST'){const scenario=JSON.parse(options.body).scenario_id,result=makeResult(scenario),item={run_id:'mock-run-'+(runs.length+1),scenario_id:scenario,status:'PASS',created_at:1000,result};runs.unshift(item);return send(item,201)}
@@ -205,6 +207,16 @@ class Pwa68BrowserTest(unittest.TestCase):
      if 'MORNING_ROUTINE_MISSING' in morning:break
      time.sleep(.1)
     self.assertIn('Expected morning concern',morning)
+    evaluate("document.querySelector('[data-tab=home]').click()")
+    deadline=time.time()+15;home_trace=''
+    while time.time()<deadline:
+     home_trace=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'Recent routine decisions' in home_trace:break
+     time.sleep(.1)
+    self.assertIn('Recent test events',home_trace)
+    self.assertIn('MORNING_ROUTINE_MISSING',home_trace)
+    self.assertIn('Recent routine decisions',home_trace)
+    self.assertIn('no_qualifying_evidence',home_trace)
     evaluate("document.querySelector('[data-tab=routines]').click()")
     deadline=time.time()+15;routine=''
     while time.time()<deadline:

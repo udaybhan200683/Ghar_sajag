@@ -22,7 +22,11 @@ match=re.search(r'^Ran (\d+) tests? in ',api_output,re.MULTILINE)
 if not match:
     raise SystemExit('GS177 connected Lite API test count unavailable')
 api_test_count=int(match.group(1))
-run(['node','--test','tests/js/caregiver_runtime.test.mjs'])
+runtime_output=run(['node','--test','tests/js/caregiver_runtime.test.mjs'])
+runtime_match=re.search(r'^# tests (\d+)$',runtime_output,re.MULTILINE)
+runtime_test_count=int(runtime_match.group(1)) if runtime_match else 0
+if not runtime_test_count:
+    raise SystemExit('GS177 caregiver runtime test count unavailable')
 run(['make','lab-build'])
 sys.path.insert(0,str(ROOT/'parivar_saathi_android_app/server'))
 from connected_lite import run_scenario
@@ -31,4 +35,4 @@ for scenario in ('motion-room1-visible','door-open-close-order','morning-missing
     if result['status']!='PASS' or not result['checks'] or result['hardware_evidence']!='NOT_RUN':
         raise SystemExit(f'GS177 SCENARIO FAIL {scenario}')
     print(f'GS177 SCENARIO PASS {scenario} timeline={len(result["state"]["timeline"])}')
-print(f'GS177 CONNECTED LITE PASS tests={api_test_count} scenarios=3 runtime=6 physical=NOT_RUN')
+print(f'GS177 CONNECTED LITE PASS tests={api_test_count} scenarios=3 runtime={runtime_test_count} physical=NOT_RUN')

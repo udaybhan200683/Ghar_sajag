@@ -70,6 +70,12 @@ test('GS-177 connected caregiver UI keeps technical state secondary and preserve
   assert.match(script,/function openTab\(next\)/);
   assert.match(script,/Run selected scenario/);
   assert.match(script,/id="scenarioChoice" size="1"/);
+  assert.match(script,/Recent test events/);
+  assert.match(script,/Recent routine decisions/);
+  assert.match(script,/Original EventKey: UNAVAILABLE/);
+  assert.match(script,/function runDetail\(run\)/);
+  assert.match(script,/Engine processing steps/);
+  assert.match(script,/Routine \/ abnormality decision/);
   assert.match(script,/tab!=='simulation'/);
   assert.match(css,/connected-lite-runtime \.topbar[\s\S]*?position:sticky/);
   assert.match(css,/connected-lite-runtime \.bottom-nav[\s\S]*?safe-area-inset-bottom/);
