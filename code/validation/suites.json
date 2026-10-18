@@ -406,6 +406,26 @@
       "count_kind": "checks"
     },
     {
+      "id": "gs40-test-only-bootstrap",
+      "components": [
+        "hub",
+        "security",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "gs40-test-only-bootstrap-test"
+      ],
+      "inputs": [
+        "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp",
+        "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp",
+        "tests/cpp/gs40_test_only_bootstrap_validation.cpp"
+      ],
+      "success": "^GS40 TEST_ONLY bootstrap checks=(\\d+) PASS$",
+      "timeout": 180,
+      "count_kind": "checks"
+    },
+    {
       "id": "gs40-qualification-host",
       "components": [
         "tooling"

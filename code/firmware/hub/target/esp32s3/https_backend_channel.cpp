@@ -90,12 +90,19 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
 #endif
     }
     // A fixed HTTPS origin; no userinfo, fragments, queries, redirects or paths.
+    const bool node_health_path = path.compare(0, 10, "/v1/homes/") == 0;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    const bool test_authority_path = path == "/v1/test/authority/refresh" &&
+        test_only_software_identity;
+#else
+    constexpr bool test_authority_path = false;
+#endif
     if (origin_.compare(0, 8, "https://") != 0 || origin_.size() > 256 ||
         origin_.size() == 8 || origin_.find_first_of("/@?#\r\n", 8) != std::string::npos ||
         trusted_ca_.empty() || trusted_ca_.size() > 8192 ||
         (cloud_identity_ == nullptr && authorization_.empty()) ||
         authorization_.size() > 1024 || authorization_.find_first_of("\r\n") != std::string::npos ||
-        path.compare(0, 10, "/v1/homes/") != 0 || path.size() > 128 ||
+        (!node_health_path && !test_authority_path) || path.size() > 128 ||
         body.empty() || body.size() > HttpBackendTransport::kMaximumRequestBytes) return result;
 #if defined(ESP_PLATFORM)
     if (cloud_identity_ != nullptr) {

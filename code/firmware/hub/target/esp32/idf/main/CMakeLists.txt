@@ -15,6 +15,7 @@ if(GS_HIL_COMMISSIONING OR GS_HIL_C8_ACK_HOLD OR GS_HIL_SIGNED_FOTA)
 endif()
 
 set(GS_TARGET_STORAGE_REQUIRES)
+set(GS_TARGET_INCLUDE_DIRS)
 if(IDF_TARGET STREQUAL "esp32s3")
     if(GS40_TEST_ONLY_CLOUDSYNC AND CONFIG_ESP_TLS_USE_DS_PERIPHERAL)
         message(FATAL_ERROR "GS-40 TEST_ONLY software-key profile requires CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n")
@@ -25,6 +26,17 @@ if(IDF_TARGET STREQUAL "esp32s3")
         "${GS_ROOT}/firmware/hub/cloud_sync/http_backend_transport.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32s3/cloud_trust_provider.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32s3/https_backend_channel.cpp")
+    if(GS40_TEST_ONLY_CLOUDSYNC)
+        list(APPEND GS_HUB_SRCS
+            "${GS_ROOT}/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp"
+            "${GS_ROOT}/firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp")
+        list(APPEND GS_TARGET_STORAGE_REQUIRES lwip)
+        # ESP-IDF 6.0.3's split USB Serial/JTAG component may not propagate
+        # this legacy driver include directory through the aliased dependency.
+        # Keep the header visible only in the explicit TEST_ONLY composition.
+        list(APPEND GS_TARGET_INCLUDE_DIRS
+            "${IDF_PATH}/components/esp_driver_usb_serial_jtag/include")
+    endif()
 endif()
 
 if(DEFINED ENV{GS_NODE_FIRMWARE_ASSET})
@@ -41,6 +53,11 @@ endif()
 if(NOT EXISTS "${GS_NODE_FIRMWARE_ASSET}")
     message(FATAL_ERROR
         "Missing node_firmware.bin. Build the C3 product and copy its app binary here before configuring the Hub.")
+endif()
+
+set(GS_HUB_EMBED_FILES "${GS_NODE_FIRMWARE_ASSET}")
+if(GS40_TEST_ONLY_CLOUDSYNC)
+    list(APPEND GS_HUB_EMBED_FILES "${GS40_TEST_ONLY_CONFIG_ROOT_DER}")
 endif()
 
 idf_component_register(
@@ -87,6 +104,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/common/shared/include"
         "${GS_ROOT}/firmware/hub"
         "${GS_ROOT}/firmware/node"
+        ${GS_TARGET_INCLUDE_DIRS}
     PRIV_REQUIRES
         app_update
         esp_driver_gpio
@@ -99,8 +117,7 @@ idf_component_register(
         nvs_flash
         mbedtls
         ${GS_TARGET_STORAGE_REQUIRES}
-    EMBED_FILES
-        "${GS_NODE_FIRMWARE_ASSET}"
+    EMBED_FILES ${GS_HUB_EMBED_FILES}
 )
 
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)

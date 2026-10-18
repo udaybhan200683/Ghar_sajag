@@ -23,6 +23,9 @@
 #include "firmware/hub/cloud_sync/http_backend_transport.hpp"
 #include "firmware/hub/target/esp32s3/cloud_trust_provider.hpp"
 #include "firmware/hub/target/esp32s3/https_backend_channel.hpp"
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+#include "firmware/hub/target/esp32s3/gs40_test_only_runtime.hpp"
+#endif
 #include "firmware/hub/storage/durable_event_outbox.hpp"
 #include "firmware/hub/storage/outbox_journal_backend.hpp"
 #include "firmware/hub/target/esp32s3/littlefs_segment_store.hpp"
@@ -51,6 +54,10 @@
 #include <memory>
 #include <map>
 #include <vector>
+
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+#include "esp_timer.h"
+#endif
 
 namespace gs::hub::target {
 namespace {
@@ -149,6 +156,44 @@ private:
 };
 
 struct CloudSyncTaskContext { CloudSyncWorker* worker{nullptr}; };
+
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+class Gs40TestOnlyMonotonicClock final : public S3HubMonotonicClock {
+public:
+    Milliseconds now_ms() const override {
+        return static_cast<Milliseconds>(esp_timer_get_time() / 1000);
+    }
+};
+
+std::unique_ptr<Gs40TestOnlyRuntimeConfig> g_gs40_test_config;
+std::unique_ptr<Gs40TestOnlyMonotonicClock> g_gs40_test_clock;
+std::unique_ptr<NvsAuthenticatedTimeFloorStore> g_gs40_test_floor;
+std::unique_ptr<Rsa3072Sha256TimeProofVerifier> g_gs40_test_time_verifier;
+std::unique_ptr<S3AuthenticatedTimeRandomSource> g_gs40_test_random;
+std::unique_ptr<AuthenticatedHubTimeProvider> g_gs40_test_time;
+std::unique_ptr<Gs40TestOnlyMaterialSource> g_gs40_test_material;
+std::unique_ptr<Gs40TestOnlyAuthorityLeaseVerifier> g_gs40_test_authority_verifier;
+std::unique_ptr<Gs40TestOnlyBootstrapIdentityProvider> g_gs40_test_bootstrap_identity;
+
+struct CloudAuthorityRefreshContext {
+    Gs40TestOnlyMaterialSource* material{nullptr};
+    const S3TrustedHubTimeSource* time{nullptr};
+    const S3HubMonotonicClock* clock{nullptr};
+    AuthenticatedTimeRandomSource* random{nullptr};
+    HttpsBackendChannel* channel{nullptr};
+    Gs40TestOnlyAuthorityLeaseVerifier* verifier{nullptr};
+};
+
+void cloud_authority_refresh_task(void* opaque) {
+    auto& context = *static_cast<CloudAuthorityRefreshContext*>(opaque);
+    for (;;) {
+        if (!gs40_test_only_refresh_authority(*context.material, *context.time,
+                *context.clock, *context.random, *context.channel, *context.verifier))
+            ESP_LOGE(kTag, "TEST_ONLY current Home/epoch authority refresh failed; publication fenced");
+        vTaskDelay(pdMS_TO_TICKS(15000));
+    }
+}
+#endif
 
 bool cloud_wan_ready() {
     wifi_ap_record_t ap{};
@@ -842,11 +887,41 @@ void secure_owner_task(void*) {
     // Separate the owner-thread capture from HTTPS I/O. Until GS-109 supplies
     // an approved permanent Hub/Home/epoch and trusted-time provider, the
     // runtime authority and TLS identity adapters below remain fail closed.
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (!g_gs40_test_material || !g_gs40_test_time || !g_gs40_test_clock ||
+        !g_gs40_test_random || !g_gs40_test_authority_verifier ||
+        !g_gs40_test_bootstrap_identity || !g_gs40_test_config) {
+        ESP_LOGE(kTag, "TEST_ONLY bootstrap state unavailable; CloudSync stays fail closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+    Gs40TestOnlyMaterialSource* test_material = g_gs40_test_material.get();
+    Gs40TestOnlyMonotonicClock* test_clock = g_gs40_test_clock.get();
+    AuthenticatedHubTimeProvider* test_time = g_gs40_test_time.get();
+    S3AuthenticatedTimeRandomSource* test_random = g_gs40_test_random.get();
+    Gs40TestOnlyAuthorityLeaseVerifier* test_lease_verifier = g_gs40_test_authority_verifier.get();
+    Gs40TestOnlyBootstrapIdentityProvider* bootstrap_identity = g_gs40_test_bootstrap_identity.get();
+    HttpsBackendChannel bootstrap_channel(g_gs40_test_config->backend_origin,
+        g_gs40_test_config->backend_ca_pem, *bootstrap_identity);
+    CloudAuthorityRefreshContext refresh_context{test_material, test_time,
+        test_clock, test_random, &bootstrap_channel, test_lease_verifier};
+    if (!gs40_test_only_refresh_authority(*test_material, *test_time, *test_clock,
+            *test_random, bootstrap_channel, *test_lease_verifier)) {
+        ESP_LOGE(kTag, "TEST_ONLY authority bootstrap unavailable; publication remains fenced");
+    }
+    ProvisionedS3CloudTrust cloud_trust(*test_material, *test_time, *test_clock);
+#else
     UnprovisionedS3CloudTrust cloud_trust;
+#endif
     S3CloudRuntimeAuthorityProvider cloud_authority(
         security_link, runtime, cloud_trust);
     CloudRuntimeAuthoritySource cloud_authority_source(cloud_authority);
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    HttpsBackendChannel cloud_channel(g_gs40_test_config->backend_origin,
+        g_gs40_test_config->backend_ca_pem, cloud_trust);
+#else
     HttpsBackendChannel cloud_channel("", "", cloud_trust);
+#endif
     HttpBackendTransport cloud_transport(cloud_channel);
     CloudSyncWorker cloud_worker(runtime.journal(), runtime,
                                  cloud_authority_source, cloud_transport);
@@ -859,7 +934,17 @@ void secure_owner_task(void*) {
         cloud_task_handle = nullptr;
     } else {
         ESP_LOGI(kTag,
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+            "TEST_ONLY authenticated Cloud NodeHealth scheduler started; publication requires current authority lease");
+        TaskHandle_t refresh_task_handle = nullptr;
+        if (xTaskCreate(cloud_authority_refresh_task, "gs40_test_authority",
+                6144, &refresh_context, 4, &refresh_task_handle) != pdPASS) {
+            ESP_LOGE(kTag, "TEST_ONLY authority refresh task unavailable; CloudSync remains fail closed");
+            g_gs40_test_material->invalidate();
+        }
+#else
             "Cloud NodeHealth scheduler started; commercial identity/time remain unprovisioned and disabled");
+#endif
     }
     std::uint64_t next_cloud_refresh_ms = 0;
 #endif
@@ -1753,6 +1838,14 @@ void hil_log_test_identity() {
 esp_err_t start_runtime_adapter() {
     esp_err_t result = nvs_flash_init();
     if (result != ESP_OK) return result;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    g_gs40_test_config = std::make_unique<Gs40TestOnlyRuntimeConfig>();
+    if ((result = gs40_test_only_receive_config(*g_gs40_test_config)) != ESP_OK) {
+        ESP_LOGE(kTag, "TEST_ONLY authenticated configuration unavailable; startup refused: %s",
+                 esp_err_to_name(result));
+        return result;
+    }
+#endif
     g_data_queue = xQueueCreateStatic(kDataQueueDepth, sizeof(ReceivedFrame),
                                       g_data_storage.data(), &g_data_queue_state);
     g_control_queue = xQueueCreateStatic(kControlQueueDepth, sizeof(ReceivedFrame),
@@ -1789,6 +1882,35 @@ esp_err_t start_runtime_adapter() {
         return ESP_ERR_NO_MEM;
     }
     if ((result = initialize_wifi()) != ESP_OK) return result;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if ((result = gs40_test_only_connect_wifi(*g_gs40_test_config)) != ESP_OK) {
+        ESP_LOGE(kTag, "TEST_ONLY isolated Wi-Fi unavailable; startup refused: %s",
+                 esp_err_to_name(result));
+        return result;
+    }
+    g_gs40_test_clock = std::make_unique<Gs40TestOnlyMonotonicClock>();
+    g_gs40_test_floor = std::make_unique<NvsAuthenticatedTimeFloorStore>("gs40_time");
+    g_gs40_test_random = std::make_unique<S3AuthenticatedTimeRandomSource>();
+    g_gs40_test_time_verifier = std::make_unique<Rsa3072Sha256TimeProofVerifier>(
+        g_gs40_test_config->time_public_key_der);
+    const AuthenticatedTimeBootstrapPolicy time_policy{
+        30000, 60000, 300};
+    g_gs40_test_time = std::make_unique<AuthenticatedHubTimeProvider>(
+        *g_gs40_test_floor, *g_gs40_test_time_verifier,
+        *g_gs40_test_random, *g_gs40_test_clock, time_policy);
+    if ((result = gs40_test_only_bootstrap_time(*g_gs40_test_config,
+            *g_gs40_test_floor, *g_gs40_test_time)) != ESP_OK) {
+        ESP_LOGE(kTag, "TEST_ONLY signed-time bootstrap unavailable; startup refused: %s",
+                 esp_err_to_name(result));
+        return result;
+    }
+    g_gs40_test_authority_verifier = std::make_unique<Gs40TestOnlyAuthorityLeaseVerifier>(
+        g_gs40_test_config->authority_public_key_der);
+    g_gs40_test_material = std::make_unique<Gs40TestOnlyMaterialSource>(
+        std::move(*g_gs40_test_config), *g_gs40_test_time, *g_gs40_test_clock);
+    g_gs40_test_bootstrap_identity = std::make_unique<Gs40TestOnlyBootstrapIdentityProvider>(
+        *g_gs40_test_material, *g_gs40_test_time, *g_gs40_test_clock);
+#endif
     if ((result = initialize_esp_now()) != ESP_OK) return result;
 #if GS_HIL_BUILD
     if (xTaskCreate(owner_task, "gs_hub_owner", 8192, nullptr, 8, nullptr) != pdPASS) {

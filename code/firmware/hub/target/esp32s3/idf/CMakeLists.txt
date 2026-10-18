@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 option(GS_S3_DIAGNOSTIC_ONLY "Build a development-only memory/radio diagnostic" OFF)
 option(GS68_CLOUDSYNC_DIAGNOSTIC_ONLY "Build a GS-68 test-only CloudSync DS/TLS diagnostic image" OFF)
-option(GS40_TEST_ONLY_CLOUDSYNC "Compile isolated TEST_ONLY software-key CloudSync transport in the full S3 product profile; runtime credentials remain unprovisioned until a test source is installed" OFF)
+option(GS40_TEST_ONLY_CLOUDSYNC "Compose the isolated TEST_ONLY S3 CloudSync runtime (requires an external public config root)" OFF)
+set(GS40_TEST_ONLY_CONFIG_ROOT_DER "" CACHE FILEPATH "Ephemeral TEST_ONLY config-envelope root public key DER")
 option(GS_HIL_COMMISSIONING "Enable the isolated S3 UART fixture commissioning adapter (test only)" OFF)
 option(GS_HIL_C8_ACK_DROP "Enable one-shot postcommit ACK loss in the isolated S3 GS-114 fixture (test only)" OFF)
 option(GS_HIL_C8_ACK_HOLD "Enable bounded exact-key postcommit ACK hold in the isolated S3 GS-114 fixture (test only)" OFF)
@@ -46,6 +47,10 @@ else()
        GS_HIL_COMMISSIONING OR GS_HIL_C8_ACK_DROP OR GS_HIL_C8_ACK_HOLD OR
        GS_HIL_SIGNED_FOTA))
         message(FATAL_ERROR "GS-40 TEST_ONLY CloudSync is limited to the full isolated S3 product profile")
+    endif()
+    if(GS40_TEST_ONLY_CLOUDSYNC AND
+       (NOT GS40_TEST_ONLY_CONFIG_ROOT_DER OR NOT EXISTS "${GS40_TEST_ONLY_CONFIG_ROOT_DER}"))
+        message(FATAL_ERROR "GS40_TEST_ONLY_CLOUDSYNC requires an isolated external config-root DER public key")
     endif()
     # Reuse the complete existing product composition, including its C3 asset.
     set(EXTRA_COMPONENT_DIRS

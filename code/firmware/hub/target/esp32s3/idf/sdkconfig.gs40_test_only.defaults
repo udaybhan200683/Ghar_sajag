@@ -1,3 +1,6 @@
 # Isolated GS-40 product-profile build; this disables hardware DS so only the
 # explicitly guarded TEST_ONLY software-key path can be compiled.
 CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y

@@ -115,7 +115,7 @@ gs114-ack-wait-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_T
 gs144-workload-spec-test:
 	python3 -m unittest discover -s tests/python -p test_gs144_workload_spec.py -v
 
-.PHONY: gs40-host-test gs40-config-test gs40-qualification-test
+.PHONY: gs40-host-test gs40-config-test gs40-qualification-test gs40-test-only-bootstrap-test
 gs40-config-test: lab-build
 	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
 
@@ -127,6 +127,12 @@ HOST_TEST_OBJECTS += $(call host_objects,$(GS116_GS40_HOST_TEST_HOST_SOURCES))
 gs40-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_GS40_HOST_TEST_HOST_SOURCES))
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_GS40_HOST_TEST_HOST_SOURCES)) tests/cpp/gs40_node_health_validation.cpp -lcrypto -o build/gs40_node_health_validation
 	./build/gs40_node_health_validation
+
+gs40-test-only-bootstrap-test: build
+	$(HOST_CXX) $(CXXFLAGS) -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 $(INCLUDES) \
+		firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp \
+		tests/cpp/gs40_test_only_bootstrap_validation.cpp -lcrypto -o build/gs40_test_only_bootstrap_validation
+	./build/gs40_test_only_bootstrap_validation
 
 .PHONY: gs150-host-test
 GS116_GS150_HOST_TEST_HOST_SOURCES := firmware/hub/storage/durable_event_outbox.cpp firmware/common/security/runtime_frame_security.cpp firmware/common/security/rejoin_protocol.cpp firmware/node/storage/node_recovery_persistence.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
