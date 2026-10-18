@@ -4748,3 +4748,8 @@ and source-bound build for the existing GS-168 issuer and signed-time contract;
 then obtain a specific isolated C3/S3 fixture and operation authorization,
 with a second enrolled Node/profile fixture for PHY-GS40-05. Do not activate
 commercial trust or reinterpret GS-68 spare diagnostic results as GS-40.
+
+Delivery receipt: source/evidence commit
+`2a7c2f3a5371118524df25058f6e04c72f5b7b2a` was pushed normally to
+`origin/feature/r1-commercial-baseline`. Jira comments were added to GS-40
+`11360`, GS-109 `11361`, and GS-148 `11362`; no workflow status changed.
