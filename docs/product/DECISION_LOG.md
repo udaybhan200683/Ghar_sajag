@@ -35,10 +35,13 @@ client key only under the explicit `GS40_TEST_ONLY_CLOUDSYNC_BUILD` macro. The
 TEST_ONLY provider validates that the key matches the registered ClientAuth
 certificate and still requires trusted time/current authority. Commercial
 builds remain DS-only and reject TEST_ONLY identity material. Local mTLS,
-issuer, NodeHealth and caregiver tests pass. This does not yet compose a target
-GS-168/ownership/time material source: the product adapter still uses
-`UnprovisionedS3CloudTrust`, and no source-bound S3 image or physical GS-40 run
-is claimed. No product or security decision changed; context version remains
+issuer, NodeHealth and caregiver tests pass. A source-bound ESP-IDF 6.0.3
+full-product profile build also passes with the TEST_ONLY transport option;
+that image still composes `UnprovisionedS3CloudTrust` and contains no test
+identity, binding or endpoint, so it proves compilation only. The target
+GS-168/ownership/time material source and runtime provisioning remain absent;
+no integrated source-to-caregiver or physical GS-40 result is claimed. No
+product or security decision changed; context version remains
 `2026-10-13.001`. See
 [`GS40_TEST_ONLY_TLS_PROVIDER_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_TLS_PROVIDER_20261018.md).
 

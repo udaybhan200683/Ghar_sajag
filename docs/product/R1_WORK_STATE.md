@@ -4773,9 +4773,18 @@ TEST_ONLY adapter 5 assertions, local security 14/14, GS-40 TLS end-to-end
 17/17, qualification 17/17, board E2E 10 cases/398 checks, caregiver JS
 25/25; CloudSync security simulation 18/18 and local worker/HTTPS bridge 1/1;
 traceability 22/22 and physical catalogue 108 cases. All physical status is
-NOT_RUN. No S3 image was built, no physical fixture was accessed, and no
-production credential/endpoint was used. P0 remains PARTIAL and the existing
-Hub `clean migration commits` failure is unchanged.
+NOT_RUN. No physical fixture was accessed, and no production
+credential/endpoint was used. A non-flashing ESP-IDF 6.0.3 S3 full-product
+profile build with `GS40_TEST_ONLY_CLOUDSYNC=ON` then passed at commit
+`2427622b44796779b3c0730d4da6baeebcde7835`: 2,164,512-byte app,
+SHA-256 `9444365b32aab0a78a357f94fcdcd5538bb977eea52b5ff63fbcfc8f8c78f2bb`;
+effective sdkconfig SHA-256
+`8bff1b0e2cb4ff7f109e22a4962ef9d6e79ba50da42e44e9316bf14093b8f9fa`.
+It is compile-only transport capability: the selected product runtime remains
+`UnprovisionedS3CloudTrust`, and no test credentials, binding or endpoint were
+supplied. Thus runtime startup composition and target publication remain
+unimplemented and unclaimed. P0 remains PARTIAL and the existing Hub
+`clean migration commits` failure is unchanged.
 
 Full evidence and exact remaining source/configuration requirements:
 [`GS40_TEST_ONLY_TLS_PROVIDER_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_TLS_PROVIDER_20261018.md).
