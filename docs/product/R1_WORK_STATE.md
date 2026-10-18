@@ -11,22 +11,36 @@ call/FCM classes remain under `code/parivar_saathi_android_app/prototype/` and
 are not activated or qualified. The isolated Hub simulator branch and worktree
 were excluded.
 
-The GS-177 merge is being recorded after focused integration checks. Initial
-host results: Connected Lite API/storage/auth 13/13; caregiver runtime 7/7;
-host event/routine scenarios 3/3; voice-prototype contracts 19/19; component
-gate framework tests 50/50; feature traceability 213 features / 249 source
-modules / 25 physical cases with consistent mappings. `make lab-build` passed
-as part of the Connected Lite runner. The local browser test could not execute
-because Chrome/Chromium is not installed (zero tests; skipped), and local
-Android build tools/SDK are absent; both are deferred to the focused GitHub
-Actions run. This is not a release-gate run.
+Canonical integration commit `4b8a1de569d33c2bff2366d9d9eeab9ea36720f2`
+and its Android workflow are pushed. Focused local results: Connected Lite
+API/storage/auth 13/13; caregiver runtime 7/7; host event/routine scenarios
+3/3; voice-prototype contracts 19/19; component-gate framework 50/50;
+dashboard registration 6/6; feature coverage 22/22; traceability 213 features
+/ 249 source modules / 25 physical cases. Host `make lab-build` passed.
+`parivar_saathi_android_app/verify.sh` passed 19/19 and XML structure checks.
+GitHub Actions run [39143635257](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39143635257)
+passed: browser regression 3/3 and catalogue assertions 92/92; Connected Lite
+API 13/13; Android stage 6/6 (unit test, APK assemble, shared PWA bundle,
+branding/origin checks and signature verification); voice prototype 19/19.
+APK artifact ID `12142667693`, SHA-256
+`fb79da133083a5ed761be32843a69035045b8682fd6da8e08c00c512fc6c8551`, package
+`in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`. Signing is
+runner-generated debug-only; prior APK may need uninstalling. Local browser
+validation was skipped because no browser binary was installed; CI browser
+tests passed. This was not a release-gate run.
 
-The existing Render Free service has not been migrated: Render CLI/API access
-is unavailable in this environment and the repository has no Render API secret.
-The service's latest recorded deployment still follows the GS-177 branch, so
-that remote branch must remain until the owner-controlled Render linkage is
-changed. No staging deployment was attempted. Physical phone, real Hub
-CloudSync and voice-call acceptance remain outside this integration evidence.
+The Render Free service has not been migrated: no Render CLI/MCP or API
+credential is available. `healthz` and `readyz` return 200, readiness reports
+the database reachable, and anonymous `/lite/v1/me` returns 403. The last
+recorded deployment revision is `47e8faaff093184d0bcbf1bb95dc9e79aba03090`;
+the service still depends on the GS-177 source branch. `render.yaml` now points
+to canonical, but the service linkage was not changed and no staging deploy was
+attempted. Keep the remote GS-177 branch (and its worktree containing ignored
+APK build artifacts) until Render is migrated. The GS-68 archive branch was
+verified as an ancestor with zero unique commits and deleted locally/remotely;
+its remote absence was verified, and no archive worktree existed. Hub simulator
+commit `0ff9e3ba` remains untouched.
+Physical phone, real Hub CloudSync and voice-call acceptance remain NOT_RUN.
 
 ## GS-68 / GS-172 stack-correction diagnostic update — 2026-10-17
 

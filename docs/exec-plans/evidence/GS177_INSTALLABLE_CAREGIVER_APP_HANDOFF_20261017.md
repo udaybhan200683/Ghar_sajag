@@ -974,3 +974,55 @@ workspace or qualify the real Hub data path.
 - **APK:** existing GitHub Actions success `39093929946`, artifact `12123996919`, `in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`. APK checksum independently verified against zipped `SHA256SUMS`: `68f5ef1a6a4548803b5993a7b304576ebc05e299a3e62e5ad4bb0d50e65802b2`. Runner-generated TEST_ONLY debug key; earlier installed APK may need replacement/uninstall after local-data preservation.
 - **Validation boundary:** Hosted deployment and internal readiness PASS; independent authenticated remote scenario execution, actual administrator login, PostgreSQL export/restore, owner Android install/mobile-data/laptop-off acceptance, real C3/S3 CloudSync, Android FCM, WebRTC/S3 audio and auto-call all remain **NOT_RUN/BLOCKED**. No signed-off product acceptance is implied. Historical broad PWA aggregate **FAIL** (legacy budgets/selector timeouts), P0 **PARTIAL**, full release gate **NOT_RUN**; focused GS-177 tests remain as documented in preceding checkpoint.
 - **Worktree safeguard:** Changes made through authorized GitHub document update on the feature branch; the original Codex WSL worktree was not accessed. On resume inspect/fetch and reconcile remote documentation commit before additional edits; never reset/overwrite or assume local HEAD equals remote.
+
+### GS-177 canonical integration checkpoint — 2026-10-18
+
+- Canonical R1 started at `644f8e20d5d85bc5b2a47c7c2dd19a6efd99fd64`.
+  The canonical-only, previously untracked Android/call source was preserved in
+  checkpoint `6cfba0dfad57a6279101591e16287dbd39c90652`; the GS-177 merge is
+  `4b8a1de569d33c2bff2366d9d9eeab9ea36720f2`. Local and origin canonical HEAD
+  match at that merge commit. Canonical GS-40 files and protected hardware
+  evidence were not staged; `code/firmware/node/power/power.cpp` was retained
+  from canonical because the GS-177-only change was unrelated to this merge.
+- Shared `R1_WORK_STATE.md` and GS-130 inventories keep canonical R1 ordering
+  and authoritative rows while adding GS-177 traceability. The older canonical
+  FCM/call Android classes are preserved under
+  `code/parivar_saathi_android_app/prototype/android/canonical-preserved-20261018`
+  and are not in the compiled APK source set.
+- Focused local results: Connected Lite API 13/13; caregiver runtime 7/7;
+  host scenarios 3/3; voice prototype 19/19; component-gate meta tests 50/50;
+  dashboard registration 6/6; GS-130 traceability 213 features / 249 modules /
+  25 physical cases; feature-coverage tests 22/22; host `make lab-build` PASS.
+  Browser tests were skipped locally because no Chrome/Chromium binary exists;
+  the focused GitHub workflow is responsible for browser and Android APK
+  verification. Local Android SDK/Gradle are absent. Full release-gate tests
+  were not run.
+- The Android workflow now triggers on canonical R1. GitHub Actions run
+  [39143635257](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39143635257)
+  for commit `4b8a1de569d33c2bff2366d9d9eeab9ea36720f2` passed. Browser
+  regression was 3/3 with 92/92 catalogue assertions; Connected Lite API was
+  13/13; the registered Android stage was 6/6 (unit tests, APK assembly,
+  bundled PWA/branding/origin checks and signature verification); voice
+  prototype contracts were 19/19. APK artifact `12142667693` was downloaded
+  and checksum-verified outside the repository:
+  `fb79da133083a5ed761be32843a69035045b8682fd6da8e08c00c512fc6c8551`.
+  It is package `in.gharsajag.caregiver`, version
+  `0.4.0-connected-lite-staging`, signed with an ephemeral CI debug key. The
+  prior installed APK may need uninstalling. This is a build/CI result, not
+  physical-phone acceptance.
+- The existing Render service still responds `healthz=200`, `readyz=200` with
+  database reachable, and anonymous `/lite/v1/me=403`. Render control-plane
+  migration is not possible from this environment: Render CLI/MCP is absent and
+  no Render API credential is configured. `render.yaml` now selects canonical,
+  but the service linkage itself has not changed. Retain the GS-177 remote
+  branch until Render is migrated; no staging deployment was attempted.
+- Archive `docs/gs68-cloudsync-design-archive-20261016` was verified as an
+  ancestor with zero unique commits; its local and remote branch have been
+  deleted. No archive worktree existed. The GS-177 branch and worktree remain
+  because the Render control-plane linkage could not be migrated here. Render
+  CLI/MCP and API credentials are unavailable; no service deployment was
+  attempted. The Hub simulator branch/worktree at
+  `0ff9e3ba5c154093232b401ff46619d83565445f` remains excluded and untouched.
+- Physical phone, real Hub CloudSync, FCM delivery and real S3 calling remain
+  unverified. GS-177 remains In Progress; this is source integration, not
+  connected-Lite phone acceptance or R1 release qualification.
