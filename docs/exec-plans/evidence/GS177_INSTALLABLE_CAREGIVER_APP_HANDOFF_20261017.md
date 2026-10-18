@@ -863,3 +863,104 @@ The implementation and focused checks are complete; commit/push is the next
 delivery step. GS-177 remains In Progress; cloud deployment, connected APK,
 phone acceptance, and physical Hub synchronization remain NOT_RUN/BLOCKED as
 previously recorded.
+
+## 2026-10-18 connected event/routine trace implementation update
+
+This dated update supersedes the checkpoint above for GS-177 source, browser,
+APK-build and cloud-readiness status. It does not change the canonical R1/GS-40
+workspace or qualify the real Hub data path.
+
+### Implemented and verified
+
+- The connected caregiver Home now displays recent persisted TEST_ONLY event
+  projections and routine decisions. Engineering Live Events uses the same
+  projections. Run detail shows engine step results, expected-versus-observed
+  checks, actual simulator decision reason, generated incident/notification
+  counts, resulting simulated Home state and event occurrence/receipt fields.
+- Projections are derived from the existing `lite_runs.result_json`; there is
+  no second event database. A run has `sim:<run-id>` correlation and each
+  displayed event has a run-local trace correlation. These are application
+  trace IDs, not a product EventKey. Product EventKey remains explicitly
+  unavailable for simulator events.
+- Routine scenarios are selected from the existing catalogue category rather
+  than scenario-name heuristics. Displayed reasons, steps and checks come from
+  the existing scenario engine output. Multi-day resident baseline learning
+  remains `UNSUPPORTED_MULTI_DAY`; synthetic incidents omit the local runner's
+  internal `home_id` and `is_test` fixture values.
+- Regression coverage was extended in the registered Connected Lite API and
+  PWA browser stages. Commit `27baa615cb0b1db41a56ba12cacfbbc08de80c1a` is on
+  `feature/gs-177-caregiver-android`, pushed, and matches the remote.
+- Focused results: Connected Lite API 13/13; caregiver runtime 7/7; 3/3
+  existing deterministic motion/door/morning scenarios; GS-124 authorization
+  foundation 48/48; GS-124 service-access 30/30; validation framework meta
+  tests 13/13; feature traceability mapping 22/22; registered PWA browser 3/3,
+  including 92/92 catalogue render checks and connected admin/caregiver mock
+  navigation, event/routine trace and direct caregiver-denial checks.
+- GitHub Actions Android build run `39093929946` completed successfully at the
+  source commit above. The branded APK uses package `in.gharsajag.caregiver`,
+  version `0.4.0-connected-lite-staging`, API 26+ compatible configuration and
+  the existing bundled PWA. The artifact was downloaded and its SHA-256 file
+  validated. Build details and checksum are recorded in the GS-177 Jira update
+  and final execution report. Signing is still a runner-generated debug key;
+  this is not a persistent pilot update key.
+- Public staging `/readyz` returned HTTP 200 with the database reachable.
+  Unauthenticated `/lite/v1/me`, Home overview and Engineering calls returned
+  403. This verifies the existing deployed revision's health and denial only;
+  the event/routine API changes from this commit have not yet been deployed.
+
+### Validation findings
+
+- `make validation-pwa` remains FAIL. Its legacy PWA static budget reports
+  117,011 total bytes versus 114,688 and 21,694 CSS bytes versus 18,432. The
+  budgeted legacy assets/CSS were unchanged by this patch. Its full historical
+  desktop/mobile Playwright stage had 59 passes, 3 legacy settings-selector
+  timeouts and one interrupted case; it was stopped at the broad release-suite
+  substage per development validation scope. The focused registered Connected
+  Lite browser command was then run and passed 3/3.
+- The first aggregate run's registered PWA browser stage failed because the
+  system Python environment lacked `websocket-client`. It was installed with
+  `cryptography` into `/home/udaybhan/.cache/gs177-pwa-venv`, outside the
+  repository, and `make -C code pwa-68-browser-test` passed using that
+  environment and the already-cached Chromium binary.
+- The registered P0 vertical host scenario reported 26/26 checks PASS and
+  `product_status=PARTIAL`. Physical hardware remains NOT_RUN; P0's partial
+  product qualification is not a Connected Lite PASS.
+
+### Remaining external acceptance
+
+- Render deployment was not triggered: the current tools expose no Render
+  control plane, credential or database URL. The existing Render service has
+  `autoDeploy: false`. Deploy commit `27baa615…` to the already-approved Free
+  staging service before claiming the updated cloud event/routine UI is live.
+- The Free PostgreSQL export/restore rehearsal was NOT_RUN. The temporary
+  external database allow-list is removed, no database URL is available here,
+  and `pg_dump`/`pg_restore` are absent. Preserve/export the TEST_ONLY data
+  before the recorded 16 November 2026 expiry; the expiry/grace policy and
+  exact secure operator procedure remain in the preceding deployment-cost
+  section.
+- Actual owner-admin cloud login was NOT_RUN because the securely provisioned
+  password is not available to this environment. Host login/session tests
+  passed; do not reset the account merely to obtain a test credential.
+- Mobile-data/laptop-off acceptance and physical Android installation remain
+  NOT_RUN. No ADB-connected owner phone is exposed to this environment.
+- Real C3/S3 Hub → Home Wi-Fi → authenticated GS-148 CloudSync → Android
+  synchronization remains BLOCKED/NOT_RUN. The staging `/v1` event ingress is
+  intentionally unmounted until trusted Hub identity, enrollment/ownership
+  fencing, authenticated durable commit and caregiver projection are composed.
+  Firmware/Wi-Fi/coexistence/reconnect/buffering and actual hardware operation
+  were not changed.
+- FCM, real incoming-call UI, TURN-qualified WebRTC, duplex S3 audio and
+  unattended escalation remain NOT_RUN under GS-154/GS-157 and physical HIL
+  dependencies. The APK still reports push and voice calling disabled.
+
+### Git and workspace boundary
+
+- GS-177 initial synchronized HEAD for this work: `f518e201af9d608042c56995a043d35c7e02bfee`.
+- GS-177 committed/pushed HEAD: `27baa615cb0b1db41a56ba12cacfbbc08de80c1a`; remote equality verified.
+- Canonical R1 remained read-only. At the final read-only check it was on
+  `feature/r1-commercial-baseline`, HEAD `eef0152e5844eeb548a3b8d44d3cb8a05d06bf02`,
+  with pre-existing modified/untracked files visible. None were changed from
+  this GS-177 worktree.
+- Keep GS-177 In Progress. The HTTPS backend redeploy, PostgreSQL backup/restore,
+  owner admin login, owner-phone/mobile-data run, physical Hub sync and real
+  calling remain outstanding acceptance gates.
