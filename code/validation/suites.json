@@ -409,7 +409,6 @@
       "id": "gs40-test-only-bootstrap",
       "components": [
         "hub",
-        "security",
         "contract"
       ],
       "command": [
