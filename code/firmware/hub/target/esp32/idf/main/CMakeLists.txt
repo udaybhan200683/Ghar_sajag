@@ -16,6 +16,9 @@ endif()
 
 set(GS_TARGET_STORAGE_REQUIRES)
 if(IDF_TARGET STREQUAL "esp32s3")
+    if(GS40_TEST_ONLY_CLOUDSYNC AND CONFIG_ESP_TLS_USE_DS_PERIPHERAL)
+        message(FATAL_ERROR "GS-40 TEST_ONLY software-key profile requires CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n")
+    endif()
     list(APPEND GS_TARGET_STORAGE_REQUIRES s3_storage esp_http_client)
     list(APPEND GS_HUB_SRCS
         "${GS_ROOT}/firmware/hub/cloud_sync/cloud_sync.cpp"
@@ -102,6 +105,7 @@ idf_component_register(
 
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    GS40_TEST_ONLY_CLOUDSYNC_BUILD=$<BOOL:${GS40_TEST_ONLY_CLOUDSYNC}>
     GS_HIL_BUILD=$<BOOL:${GS_HIL_BUILD}>
     GS_HIL_CONTROL=$<BOOL:${GS_HIL_CONTROL}>
     GS_HIL_COMMISSIONING=$<BOOL:${GS_HIL_COMMISSIONING}>

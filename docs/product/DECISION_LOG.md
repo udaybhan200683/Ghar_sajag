@@ -28,6 +28,20 @@ silicon console, PSA RNG/RSA verification, DS signing, mTLS, GS-68 PHY and
 GS-40 PHY remain NOT_RUN. See
 [`GS68_USB_COMMAND_CONSOLE_20261017.md`](../exec-plans/evidence/GS68_USB_COMMAND_CONSOLE_20261017.md).
 
+## GS-40 isolated TEST_ONLY software-key transport — 2026-10-18 (evidence only)
+
+The existing S3 trust-provider/HTTPS seam now supports an RSA-3072 software
+client key only under the explicit `GS40_TEST_ONLY_CLOUDSYNC_BUILD` macro. The
+TEST_ONLY provider validates that the key matches the registered ClientAuth
+certificate and still requires trusted time/current authority. Commercial
+builds remain DS-only and reject TEST_ONLY identity material. Local mTLS,
+issuer, NodeHealth and caregiver tests pass. This does not yet compose a target
+GS-168/ownership/time material source: the product adapter still uses
+`UnprovisionedS3CloudTrust`, and no source-bound S3 image or physical GS-40 run
+is claimed. No product or security decision changed; context version remains
+`2026-10-13.001`. See
+[`GS40_TEST_ONLY_TLS_PROVIDER_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_TLS_PROVIDER_20261018.md).
+
 ## GS-172 first-device provisioning and qualification package — 2026-10-17 (proposal/evidence only)
 
 GS-172 comment 11296 is addressed by a versioned, non-executable first-device

@@ -15,7 +15,13 @@ struct Provider final : gs::hub::target::CloudTlsIdentityProvider {
     Provider() {
         value.client_certificate_pem =
             "-----BEGIN CERTIFICATE-----\nTEST\n-----END CERTIFICATE-----\n";
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        value.test_only_client_private_key_pem =
+            "-----BEGIN PRIVATE KEY-----\nTEST_ONLY\n-----END PRIVATE KEY-----\n";
+        value.test_only_software_identity = true;
+#else
         value.ds_context = reinterpret_cast<void*>(0x1);
+#endif
         value.rsa_bits = 3072;
         value.permanent_hub_id = "test-hub-permanent";
         value.certificate_fingerprint_sha256 = std::string(64, 'a');
@@ -34,17 +40,20 @@ struct Provider final : gs::hub::target::CloudTlsIdentityProvider {
 FakeHttpClient client;
 unsigned initialized = 0, cleaned = 0, authorization_headers = 0;
 std::string certificate;
+std::string client_key;
 void* ds_context = nullptr;
 }  // namespace
 
 esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t* config) {
-    check(config && config->client_cert_pem && config->ds_data && config->cert_pem &&
+    check(config && config->client_cert_pem && config->cert_pem &&
+          (config->ds_data != nullptr || config->client_key_pem != nullptr) &&
           config->transport_type == HTTP_TRANSPORT_OVER_SSL &&
           config->tls_version == ESP_HTTP_CLIENT_TLS_VER_TLS_1_2 &&
           !config->skip_cert_common_name_check && config->disable_auto_redirect,
           "DS client cert and verified server TLS required");
     certificate = config->client_cert_pem;
     ds_context = config->ds_data;
+    client_key = config->client_key_pem == nullptr ? "" : config->client_key_pem;
     ++initialized;
     return &client;
 }
@@ -72,6 +81,35 @@ int main() {
         gs::hub::target::HttpsBackendChannel channel("https://backend.invalid", "test CA", provider);
         constexpr auto path = "/v1/homes/home-1/events";
         auto success = channel.post(path, "{}");
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        check(success.server_authenticated && success.message_complete &&
+              success.network_attempted && initialized == 1 && cleaned == 1 &&
+              authorization_headers == 0 && ds_context == nullptr &&
+              certificate == provider.value.client_certificate_pem &&
+              client_key == provider.value.test_only_client_private_key_pem,
+              "isolated TEST_ONLY software-key mTLS path without bearer fallback");
+        std::cout << "GS-CLOUD-MTLS-TESTONLY-UT-001 PASS\n";
+        provider.value.test_only_software_identity = false;
+        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+              "software key without TEST_ONLY identity marker refused");
+        provider.value.test_only_software_identity = true;
+        provider.value.test_only_client_private_key_pem.clear();
+        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+              "missing TEST_ONLY software key refused");
+        provider.value.test_only_client_private_key_pem =
+            "-----BEGIN PRIVATE KEY-----\nTEST_ONLY\n-----END PRIVATE KEY-----\n";
+        provider.value.ds_context = reinterpret_cast<void*>(0x1);
+        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+              "mixed DS/software identity refused");
+        provider.value.ds_context = nullptr;
+        gs::hub::target::HttpsBackendChannel no_ca("https://backend.invalid", "", provider);
+        check(!no_ca.post(path, "{}").server_authenticated && initialized == 1,
+              "missing TEST_ONLY server trust refused");
+        provider.value.trusted_utc_seconds = 0;
+        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+              "missing authenticated time refused before TLS initialization");
+        std::cout << "CLOUDSYNC TEST_ONLY SOFTWARE MTLS PASS cases=5 physical=NOT_RUN\n";
+#else
         check(success.server_authenticated && success.message_complete && success.network_attempted && initialized == 1 &&
               cleaned == 1 && authorization_headers == 0 && ds_context == provider.value.ds_context &&
               certificate == provider.value.client_certificate_pem, "mTLS DS path without bearer fallback");
@@ -109,6 +147,7 @@ int main() {
               "untrusted time is refused before TLS initialization");
         std::cout << "GS-CLOUD-MTLS-UT-009 PASS\n";
         std::cout << "CLOUDSYNC MTLS ADAPTER PASS cases=9 physical=NOT_RUN\n";
+#endif
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "CLOUDSYNC MTLS ADAPTER FAIL " << error.what() << '\n';

@@ -129,6 +129,54 @@ bool cloud_client_certificate_matches(const S3CloudTrustMaterial& material) {
     return observed == material.certificate_fingerprint_sha256;
 }
 
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+bool test_only_private_key_matches(const S3CloudTrustMaterial& material) {
+    if (!material.test_only || material.test_only_client_private_key_pem.empty() ||
+        material.test_only_client_private_key_pem.size() > 8192) return false;
+#if defined(ESP_PLATFORM)
+    mbedtls_x509_crt certificate;
+    mbedtls_x509_crt_init(&certificate);
+    const int cert_status = mbedtls_x509_crt_parse(
+        &certificate,
+        reinterpret_cast<const unsigned char*>(material.client_certificate_pem.c_str()),
+        material.client_certificate_pem.size() + 1);
+    mbedtls_pk_context private_key;
+    mbedtls_pk_init(&private_key);
+    const int key_status = mbedtls_pk_parse_key(
+        &private_key,
+        reinterpret_cast<const unsigned char*>(
+            material.test_only_client_private_key_pem.c_str()),
+        material.test_only_client_private_key_pem.size() + 1,
+        nullptr, 0);
+    const bool matches = cert_status == 0 && key_status == 0 &&
+        mbedtls_pk_check_pair(&certificate.pk, &private_key) == 0;
+    mbedtls_pk_free(&private_key);
+    mbedtls_x509_crt_free(&certificate);
+    return matches;
+#else
+    BIO* cert_input = BIO_new_mem_buf(material.client_certificate_pem.data(),
+        static_cast<int>(material.client_certificate_pem.size()));
+    X509* certificate = cert_input == nullptr ? nullptr :
+        PEM_read_bio_X509(cert_input, nullptr, nullptr, nullptr);
+    BIO* key_input = BIO_new_mem_buf(material.test_only_client_private_key_pem.data(),
+        static_cast<int>(material.test_only_client_private_key_pem.size()));
+    EVP_PKEY* private_key = key_input == nullptr ? nullptr :
+        PEM_read_bio_PrivateKey(key_input, nullptr, nullptr, nullptr);
+    EVP_PKEY* public_key = certificate == nullptr ? nullptr :
+        X509_get_pubkey(certificate);
+    const bool matches = public_key != nullptr && private_key != nullptr &&
+        EVP_PKEY_base_id(private_key) == EVP_PKEY_RSA &&
+        EVP_PKEY_bits(private_key) == 3072 && EVP_PKEY_eq(public_key, private_key) == 1;
+    EVP_PKEY_free(public_key);
+    EVP_PKEY_free(private_key);
+    X509_free(certificate);
+    BIO_free(key_input);
+    BIO_free(cert_input);
+    return matches;
+#endif
+}
+#endif
+
 }  // namespace
 
 std::vector<std::uint8_t> encode_authenticated_time_proof_payload(
@@ -281,10 +329,21 @@ bool ProvisionedS3CloudTrust::valid_fingerprint(const std::string& value) {
 
 bool ProvisionedS3CloudTrust::valid_material(
     const S3CloudTrustMaterial& material) {
-#if !defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
-    if (material.test_only) return false;
-#else
+#if defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE) || \
+    (defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD)
     if (!material.test_only) return false;
+#else
+    if (material.test_only) return false;
+#endif
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    const bool test_software_key = material.test_only && material.ds_context == nullptr &&
+        !material.key_custody_verified && test_only_private_key_matches(material);
+    const bool hardware_ds_key = material.ds_context != nullptr &&
+        material.key_custody_verified;
+#else
+    const bool test_software_key = false;
+    const bool hardware_ds_key = material.ds_context != nullptr &&
+        material.key_custody_verified;
 #endif
     return material.authority_authenticated && material.authority_active &&
         !material.authority_revoked && material.authority_revision > 0 &&
@@ -300,11 +359,12 @@ bool ProvisionedS3CloudTrust::valid_material(
         material.client_certificate_pem.find(
             "-----END CERTIFICATE-----") != std::string::npos &&
         material.client_certificate_pem.find("PRIVATE KEY") == std::string::npos &&
-        material.ds_context != nullptr && material.rsa_bits == 3072 &&
+        (hardware_ds_key || test_software_key) && material.rsa_bits == 3072 &&
         material.credential_generation > 0 &&
         material.credential_state == CloudCredentialState::Active &&
         material.credential_purpose == CloudCredentialPurpose::CloudTlsClient &&
-        material.key_custody_verified && cloud_client_certificate_matches(material);
+        (test_software_key || material.key_custody_verified) &&
+        cloud_client_certificate_matches(material);
 }
 
 bool ProvisionedS3CloudTrust::current_material(
@@ -354,6 +414,9 @@ bool ProvisionedS3CloudTrust::current_identity(CloudTlsIdentity& identity) {
         current.permanent_hub_id != material.permanent_hub_id ||
         current.certificate_fingerprint_sha256 != material.certificate_fingerprint_sha256 ||
         current.client_certificate_pem != material.client_certificate_pem ||
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        current.test_only_client_private_key_pem != material.test_only_client_private_key_pem ||
+#endif
         current.ds_context != material.ds_context ||
         current.credential_state != material.credential_state ||
         current.authority_revoked != material.authority_revoked ||
@@ -362,6 +425,12 @@ bool ProvisionedS3CloudTrust::current_identity(CloudTlsIdentity& identity) {
 
     CloudTlsIdentity candidate;
     candidate.client_certificate_pem = material.client_certificate_pem;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    candidate.test_only_software_identity = material.test_only &&
+        material.ds_context == nullptr;
+    if (candidate.test_only_software_identity)
+        candidate.test_only_client_private_key_pem = material.test_only_client_private_key_pem;
+#endif
     candidate.ds_context = material.ds_context;
     candidate.rsa_bits = material.rsa_bits;
     candidate.purpose = CloudTlsIdentity::Purpose::CloudTlsClient;

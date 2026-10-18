@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 option(GS_S3_DIAGNOSTIC_ONLY "Build a development-only memory/radio diagnostic" OFF)
 option(GS68_CLOUDSYNC_DIAGNOSTIC_ONLY "Build a GS-68 test-only CloudSync DS/TLS diagnostic image" OFF)
+option(GS40_TEST_ONLY_CLOUDSYNC "Compile isolated TEST_ONLY software-key CloudSync transport in the full S3 product profile; runtime credentials remain unprovisioned until a test source is installed" OFF)
 option(GS_HIL_COMMISSIONING "Enable the isolated S3 UART fixture commissioning adapter (test only)" OFF)
 option(GS_HIL_C8_ACK_DROP "Enable one-shot postcommit ACK loss in the isolated S3 GS-114 fixture (test only)" OFF)
 option(GS_HIL_C8_ACK_HOLD "Enable bounded exact-key postcommit ACK hold in the isolated S3 GS-114 fixture (test only)" OFF)
@@ -27,6 +28,9 @@ endif()
 set(GS_HIL_BUILD OFF CACHE BOOL "Legacy insecure HIL composition" FORCE)
 set(GS_HIL_CONTROL OFF CACHE BOOL "Legacy HIL controls" FORCE)
 if(GS68_CLOUDSYNC_DIAGNOSTIC_ONLY)
+    if(GS40_TEST_ONLY_CLOUDSYNC)
+        message(FATAL_ERROR "GS-40 TEST_ONLY product composition cannot be combined with the GS-68 diagnostic image")
+    endif()
     if(GS_S3_DIAGNOSTIC_ONLY OR GS_HIL_BUILD OR GS_HIL_CONTROL OR
        GS_HIL_COMMISSIONING OR GS_HIL_C8_ACK_DROP)
         message(FATAL_ERROR "GS-68 diagnostic is isolated; do not combine it with product, C8, commissioning, or legacy HIL profiles")
@@ -37,6 +41,12 @@ elseif(GS_S3_DIAGNOSTIC_ONLY)
     set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/diagnostic")
     set(COMPONENTS diagnostic)
 else()
+    if(GS40_TEST_ONLY_CLOUDSYNC AND (NOT IDF_TARGET STREQUAL "esp32s3" OR
+       GS_S3_DIAGNOSTIC_ONLY OR GS_HIL_BUILD OR GS_HIL_CONTROL OR
+       GS_HIL_COMMISSIONING OR GS_HIL_C8_ACK_DROP OR GS_HIL_C8_ACK_HOLD OR
+       GS_HIL_SIGNED_FOTA))
+        message(FATAL_ERROR "GS-40 TEST_ONLY CloudSync is limited to the full isolated S3 product profile")
+    endif()
     # Reuse the complete existing product composition, including its C3 asset.
     set(EXTRA_COMPONENT_DIRS
         "${CMAKE_CURRENT_LIST_DIR}/../../esp32/idf/main"

@@ -289,12 +289,28 @@ S3CloudTrustMaterial valid_material() {
     material.permanent_hub_id = "hub-permanent-1";
     material.certificate_fingerprint_sha256 = certificate.fingerprint;
     material.client_certificate_pem = certificate.pem;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    BIO* key_output = BIO_new(BIO_s_mem());
+    if (key_output == nullptr || PEM_write_bio_PrivateKey(
+            key_output, certificate.key, nullptr, nullptr, 0, nullptr, nullptr) != 1)
+        throw std::runtime_error("TEST_ONLY private key serialization failed");
+    char* key_data = nullptr;
+    const auto key_size = BIO_get_mem_data(key_output, &key_data);
+    material.test_only_client_private_key_pem.assign(
+        key_data, static_cast<std::size_t>(key_size));
+    BIO_free(key_output);
+#else
     material.ds_context = reinterpret_cast<void*>(0x1);
+#endif
     material.rsa_bits = 3072;
     material.credential_generation = 3;
     material.credential_state = CloudCredentialState::Active;
     material.credential_purpose = CloudCredentialPurpose::CloudTlsClient;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    material.key_custody_verified = false;
+#else
     material.key_custody_verified = true;
+#endif
     material.test_only = true;
     return material;
 }
@@ -317,8 +333,15 @@ void test_identity_and_ownership_provider() {
           identity.permanent_hub_id == "hub-permanent-1" &&
           identity.certificate_fingerprint_sha256 == source.value.certificate_fingerprint_sha256 &&
           identity.credential_generation == 3 && identity.rsa_bits == 3072 &&
-          identity.ds_context == reinterpret_cast<void*>(0x1),
-          "current dedicated cloud credential is returned without private key");
+          identity.ds_context == (source.value.test_only_client_private_key_pem.empty()
+              ? reinterpret_cast<void*>(0x1) : nullptr),
+          "current dedicated cloud credential matches selected test/production key mode");
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    check(identity.test_only_software_identity &&
+          identity.test_only_client_private_key_pem ==
+              source.value.test_only_client_private_key_pem,
+          "isolated provider supplies only its matched TEST_ONLY software key");
+#endif
 
     FakeMaterialSource changing_source;
     changing_source.value = valid_material();
@@ -388,8 +411,13 @@ void test_identity_negative_matrix() {
         {"quarantined credential", [](auto& x) { x.credential_state = CloudCredentialState::Quarantined; }},
         {"wrong credential purpose", [](auto& x) { x.credential_purpose = CloudCredentialPurpose::Commissioning; }},
         {"wrong RSA size", [](auto& x) { x.rsa_bits = 2048; }},
+#if !defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD
         {"missing DS context", [](auto& x) { x.ds_context = nullptr; }},
         {"missing custody evidence", [](auto& x) { x.key_custody_verified = false; }},
+#else
+        {"missing TEST_ONLY private key", [](auto& x) { x.test_only_client_private_key_pem.clear(); }},
+        {"mismatched TEST_ONLY private key", [](auto& x) { x.test_only_client_private_key_pem = "not a private key"; }},
+#endif
         {"malformed fingerprint", [](auto& x) { x.certificate_fingerprint_sha256 = "00"; }},
         {"certificate fingerprint mismatch", [](auto& x) { x.certificate_fingerprint_sha256[0] = x.certificate_fingerprint_sha256[0] == 'a' ? 'b' : 'a'; }},
         {"private key in certificate field", [](auto& x) { x.client_certificate_pem += "PRIVATE KEY"; }},

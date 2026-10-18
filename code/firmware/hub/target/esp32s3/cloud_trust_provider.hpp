@@ -40,6 +40,10 @@ struct S3CloudTrustMaterial {
     std::string permanent_hub_id;
     std::string certificate_fingerprint_sha256;
     std::string client_certificate_pem;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    // Runtime-only isolated test key. Never compiled into a commercial build.
+    std::string test_only_client_private_key_pem;
+#endif
     void* ds_context{nullptr};
     unsigned rsa_bits{0};
     std::uint64_t credential_generation{0};

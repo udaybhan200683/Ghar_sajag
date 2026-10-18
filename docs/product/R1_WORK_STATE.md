@@ -4753,3 +4753,34 @@ Delivery receipt: source/evidence commit
 `2a7c2f3a5371118524df25058f6e04c72f5b7b2a` was pushed normally to
 `origin/feature/r1-commercial-baseline`. Jira comments were added to GS-40
 `11360`, GS-109 `11361`, and GS-148 `11362`; no workflow status changed.
+
+### GS-40 TEST_ONLY software-key transport continuation — 2026-10-18
+
+Canonical source began at `eef0152e5844eeb548a3b8d44d3cb8a05d06bf02`, local
+and origin equal; context preflight PASS. The full product S3 runtime still
+constructs `UnprovisionedS3CloudTrust`. Added an explicit build-guarded
+TEST_ONLY RSA-3072 software-key path to the existing trust/HTTPS abstractions;
+it verifies certificate/key match and requires current authenticated Home/
+epoch, active credential, and trusted time. The full product runtime is not
+yet wired to a target-side GS-168/ownership/time material source, so this is a
+transport/provider capability, not a credential-ready image or completed
+runtime composition.
+
+Current focused validation: `cloud-trust-provider-test` and
+`cloudsync-security-ut` PASS (provider 5 suites, production DS adapter 9/9,
+TEST_ONLY adapter 5 assertions, local security 14/14, GS-40 TLS end-to-end
+4/4, GS-168 10/10, NodeHealth 5/5); GS-40 Hub 1,320 checks, profile/simulation
+17/17, qualification 17/17, board E2E 10 cases/398 checks, caregiver JS
+25/25; CloudSync security simulation 18/18 and local worker/HTTPS bridge 1/1;
+traceability 22/22 and physical catalogue 108 cases. All physical status is
+NOT_RUN. No S3 image was built, no physical fixture was accessed, and no
+production credential/endpoint was used. P0 remains PARTIAL and the existing
+Hub `clean migration commits` failure is unchanged.
+
+Full evidence and exact remaining source/configuration requirements:
+[`GS40_TEST_ONLY_TLS_PROVIDER_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_TLS_PROVIDER_20261018.md).
+The next step is the TEST_ONLY target material/runtime source plus isolated
+test-network configuration, then a source-bound S3 product build. Physical
+PHY-GS40-01..06 requires explicit fixture-specific authorization; TC05 also
+requires a second enrolled C3 with a trusted legacy profile or approved
+profile fixture. The C8/C3 and GS-68 spare remain untouched.

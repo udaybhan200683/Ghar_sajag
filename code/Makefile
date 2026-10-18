@@ -581,10 +581,11 @@ $(P2D_TEST_BINARY): $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRAC
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_P2D_CLOUD_CONTRACT_HOST_TEST_HOST_SOURCES)) tests/cpp/p2d_cloud_contract_validation.cpp -lcrypto -o $(P2D_TEST_BINARY)
 
 CLOUDSYNC_MTLS_ADAPTER_BINARY ?= build/cloudsync_mtls_adapter_validation
+GS40_TESTONLY_MTLS_ADAPTER_BINARY ?= build/gs40_testonly_mtls_adapter_validation
 .PHONY: cloud-trust-provider-test
 CLOUD_TRUST_PROVIDER_BINARY ?= build/cloud_trust_provider_validation
 $(CLOUD_TRUST_PROVIDER_BINARY): $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) firmware/hub/target/esp32s3/cloud_trust_provider.cpp firmware/hub/target/esp32s3/cloud_trust_provider.hpp firmware/hub/target/esp32s3/https_backend_channel.hpp firmware/hub/cloud_sync/cloud_sync.hpp tests/cpp/cloud_trust_provider_validation.cpp | build
-	$(HOST_CXX) $(CXXFLAGS) -DGS_CLOUD_TRUST_TEST_ONLY_FIXTURE=1 -pthread $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) firmware/hub/target/esp32s3/cloud_trust_provider.cpp tests/cpp/cloud_trust_provider_validation.cpp -lcrypto -o $@
+	$(HOST_CXX) $(CXXFLAGS) -DGS_CLOUD_TRUST_TEST_ONLY_FIXTURE=1 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -pthread $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) firmware/hub/target/esp32s3/cloud_trust_provider.cpp tests/cpp/cloud_trust_provider_validation.cpp -lcrypto -o $@
 
 cloud-trust-provider-test: $(CLOUD_TRUST_PROVIDER_BINARY)
 	$(CLOUD_TRUST_PROVIDER_BINARY)
@@ -593,8 +594,12 @@ cloud-trust-provider-test: $(CLOUD_TRUST_PROVIDER_BINARY)
 $(CLOUDSYNC_MTLS_ADAPTER_BINARY): firmware/hub/target/esp32s3/https_backend_channel.cpp firmware/hub/target/esp32s3/https_backend_channel.hpp tests/cpp/cloudsync_mtls_adapter_validation.cpp tests/cpp/p2d_idf_fake/esp_http_client.h | build
 	$(HOST_CXX) $(CXXFLAGS) -DCONFIG_ESP_TLS_USE_DS_PERIPHERAL=1 $(INCLUDES) -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o $@
 
+$(GS40_TESTONLY_MTLS_ADAPTER_BINARY): firmware/hub/target/esp32s3/https_backend_channel.cpp firmware/hub/target/esp32s3/https_backend_channel.hpp tests/cpp/cloudsync_mtls_adapter_validation.cpp tests/cpp/p2d_idf_fake/esp_http_client.h | build
+	$(HOST_CXX) $(CXXFLAGS) -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 $(INCLUDES) -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o $@
+
 cloudsync-security-ut: $(CLOUDSYNC_MTLS_ADAPTER_BINARY) $(CLOUD_TRUST_PROVIDER_BINARY)
 	$(CLOUDSYNC_MTLS_ADAPTER_BINARY)
+	$(GS40_TESTONLY_MTLS_ADAPTER_BINARY)
 	$(CLOUD_TRUST_PROVIDER_BINARY)
 	PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_cloudsync_security.py' -v
 	PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_gs68_gs40_identity_time_e2e.py' -v

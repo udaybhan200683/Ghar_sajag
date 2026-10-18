@@ -9,6 +9,7 @@ struct esp_http_client_config_t {
     const char* url{};
     const char* cert_pem{};
     const char* client_cert_pem{};
+    const char* client_key_pem{};
     void* ds_data{};
     esp_http_client_transport_t transport_type{};
     esp_http_client_tls_version_t tls_version{};

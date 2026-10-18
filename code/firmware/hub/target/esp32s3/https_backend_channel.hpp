@@ -8,6 +8,12 @@ namespace gs::hub::target {
 // A future GS-165/172 adapter supplies a separately approved per-Hub identity.
 struct CloudTlsIdentity {
     std::string client_certificate_pem;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    // Isolated software-key path. This field is absent from normal product
+    // builds and is accepted only for identities explicitly marked TEST_ONLY.
+    std::string test_only_client_private_key_pem;
+    bool test_only_software_identity{false};
+#endif
     void* ds_context{nullptr};
     unsigned rsa_bits{0};
     std::string permanent_hub_id;

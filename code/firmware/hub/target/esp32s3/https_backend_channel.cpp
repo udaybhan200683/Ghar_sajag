@@ -7,6 +7,11 @@
 #include <time.h>
 #endif
 
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD && \
+    CONFIG_ESP_TLS_USE_DS_PERIPHERAL
+#error "GS-40 TEST_ONLY software-key profile must disable ESP-TLS DS mode"
+#endif
+
 namespace gs::hub::target {
 namespace {
 bool valid_cloud_identity_reference(const CloudTlsIdentity& identity) {
@@ -36,10 +41,25 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
     BackendHttpResponse result;
     const auto deadline = esp_timer_get_time() + 5000000;
     CloudTlsIdentity identity;
+    bool test_only_software_identity = false;
     if (cloud_identity_ != nullptr) {
-        if (!cloud_identity_->current_identity(identity) ||
+        if (!cloud_identity_->current_identity(identity)) return result;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        test_only_software_identity = identity.test_only_software_identity &&
+            identity.ds_context == nullptr &&
+            !identity.test_only_client_private_key_pem.empty();
+#endif
+        if (
             identity.purpose != CloudTlsIdentity::Purpose::CloudTlsClient ||
-            identity.rsa_bits != 3072 || identity.ds_context == nullptr ||
+            identity.rsa_bits != 3072 ||
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+            (!test_only_software_identity && identity.ds_context == nullptr) ||
+            (test_only_software_identity &&
+             (identity.ds_context != nullptr ||
+              identity.test_only_client_private_key_pem.empty())) ||
+#else
+            identity.ds_context == nullptr ||
+#endif
             identity.trusted_utc_seconds <= 0 ||
             identity.trusted_monotonic_ms <= 0 ||
             identity.trusted_time_boot_generation == 0 ||
@@ -49,9 +69,24 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
             identity.client_certificate_pem.find("-----BEGIN CERTIFICATE-----") != 0 ||
             !authorization_.empty()) return result;
 #if !CONFIG_ESP_TLS_USE_DS_PERIPHERAL
+#if !defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD
         // The SDK must be built with DS-backed ESP-TLS. Never fall back to a
         // software key, commissioning key or bearer authorization.
         return result;
+#else
+        if (!test_only_software_identity) return result;
+#endif
+#endif
+#if CONFIG_ESP_TLS_USE_DS_PERIPHERAL
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (test_only_software_identity) return result;
+#endif
+#else
+#if !defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (cloud_identity_ != nullptr) return result;
+#else
+    if (!test_only_software_identity) return result;
+#endif
 #endif
     }
     // A fixed HTTPS origin; no userinfo, fragments, queries, redirects or paths.
@@ -89,12 +124,19 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
     config.buffer_size_tx = 1024;
     config.method = HTTP_METHOD_POST;
 #if CONFIG_ESP_TLS_USE_DS_PERIPHERAL
-    if (cloud_identity_ != nullptr) {
+    if (cloud_identity_ != nullptr && !test_only_software_identity) {
         // Candidate profile exercised by the host mTLS integration and current
         // ESP-IDF 6.0.3 S3 build. Production TLS-profile approval is still pending.
         config.tls_version = ESP_HTTP_CLIENT_TLS_VER_TLS_1_2;
         config.client_cert_pem = identity.client_certificate_pem.c_str();
         config.ds_data = identity.ds_context;
+    }
+#endif
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (test_only_software_identity) {
+        config.tls_version = ESP_HTTP_CLIENT_TLS_VER_TLS_1_2;
+        config.client_cert_pem = identity.client_certificate_pem.c_str();
+        config.client_key_pem = identity.test_only_client_private_key_pem.c_str();
     }
 #endif
     auto client = esp_http_client_init(&config);
