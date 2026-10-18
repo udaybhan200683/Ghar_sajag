@@ -1095,3 +1095,18 @@ and blocked, so protection, installed partitions, and recovery remain unknown.
 Installation was stopped at NO-GO. No product/security decision or
 `CONTEXT_VERSION` changed. See
 `docs/exec-plans/evidence/GS68_SPARE_S3_AUX_DIAGNOSTIC_20261017.md`.
+
+## 2026-10-18 — GS-40 TEST_ONLY S3 runtime composition boundary (evidence; no new decision)
+
+Focused host suites reconfirmed the existing TEST_ONLY provider, GS-168 issuer,
+localhost mTLS NodeHealth ingest, and caregiver ONLINE/OFFLINE/UNKNOWN path.
+The full product startup still selects `UnprovisionedS3CloudTrust`; there is no
+target adapter for GS-168 credential/current Home-epoch refresh, no product
+signed-time bootstrap transport/key configuration, and no TEST_ONLY Wi-Fi
+configuration source. GS-D032 leaves these authentication/delivery mechanisms
+open. The current signed-time proof verifier and CloudSync TLS client remain
+fail closed until supplied through an approved boundary. No new wire protocol,
+authority claim, or production mechanism is selected here. Exact findings and
+validation are in
+[`GS40_TEST_ONLY_RUNTIME_COMPOSITION_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_RUNTIME_COMPOSITION_20261018.md).
+No locked requirement changed; CONTEXT_VERSION remains `2026-10-13.001`.

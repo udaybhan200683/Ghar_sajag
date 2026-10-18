@@ -4801,3 +4801,43 @@ comments: GS-40 `11366` plus compile-evidence correction `11369`, GS-109
 `11367`, GS-148 `11368`. Tracked files are clean; pre-existing untracked PWA,
 Android, managed-component, GS-114/C8 and GS-40 physical evidence remain
 untouched. No board, serial port, production endpoint or credential was used.
+
+## GS-40 TEST_ONLY product-runtime integration resumption — 2026-10-18
+
+Canonical source was `58487978988b609917f4d021d01480ab87bc220a`, branch
+`feature/r1-commercial-baseline`, local and origin equal before work. Context
+preflight PASS. Existing untracked PWA, Android, ESP-IDF managed components,
+GS-114/C8 and GS-40 evidence were preserved; the active GS-177 C3 build in its
+separate worktree was left untouched.
+
+The product S3 startup remains on `UnprovisionedS3CloudTrust`. The bounded
+NodeHealth scheduler/CloudSync worker, `ProvisionedS3CloudTrust`, signed-time
+verifier/state machine, GS-168 TEST_ONLY issuer/registry, backend model/API and
+caregiver projection are present, but the full target composition is missing
+an authenticated target material/ownership refresh source, signed-time proof
+bootstrap transport/configuration, and isolated Wi-Fi/config source. GS-D032
+leaves those mechanisms open; the latest GS-40/109/148 comments
+11369/11367/11368 confirm the target-side source gap. No insecure authority or
+time fallback was added. Detailed disposition and required contract inputs:
+[`GS40_TEST_ONLY_RUNTIME_COMPOSITION_20261018.md`](../exec-plans/evidence/GS40_TEST_ONLY_RUNTIME_COMPOSITION_20261018.md).
+
+Validation executed: provider 5 suites; mTLS adapters 9/9 and TEST_ONLY 5
+assertions; backend security 14/14; GS-68/GS-40 issued-identity NodeHealth and
+caregiver TLS E2E 4/4; GS-168 issuer 10/10; NodeHealth 5/5; GS-40 liveness
+1,320; timing/configuration 17/17; qualification runner 17/17; board-stack
+simulation 10 cases / 398 checks; caregiver JS 25/25. The combined command
+found a stale duplicate traceability command for GS40-NODEHEALTH-CLOUD-001;
+after correcting the row, `make -C code feature-coverage-test` passed with 208
+features, 220 modules, 24 physical cases and 22/22 mapping tests. No target
+source changed and no new image was built. Prior image
+`9444365b32aab0a78a357f94fcdcd5538bb977eea52b5ff63fbcfc8f8c78f2bb` is still
+compile-only transport capability, not an integrated candidate.
+
+GS-40 remains In Progress; PHY-GS40-01..06 remain NOT_RUN, and PHY-05 still
+requires a second independently enrolled Node/profile fixture. P0 remains
+PARTIAL and the existing Hub `clean migration commits` failure is unchanged.
+No physical, serial, production endpoint, credential, eFuse or security
+operation occurred. The next action is to supply/approve the target TEST_ONLY
+provisioning, current Home/epoch refresh, signed-time bootstrap and network
+configuration contracts; then wire the existing providers and build a new
+source-bound S3 product image.
