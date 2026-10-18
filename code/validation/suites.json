@@ -2163,6 +2163,56 @@
       "timeout": 600,
       "count_kind": "tests",
       "qualification_scope": "NONACTIVE_POLICY_AND_READ_PROJECTION_PLUS_HOST_SQLITE_SERVICE_DESK_AND_INJECTED_GS76_IDENTITY_BOUNDARY; NOT_PRODUCTION_AUTHENTICATION_OR_POSTGRESQL"
+    },
+    {
+      "id": "hub-scenario-simulator",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-scenario-simulator-host-test"
+      ],
+      "inputs": [
+        "firmware/hub/simulation/hub_scenario_simulator.hpp",
+        "firmware/hub/simulation/hub_scenario_simulator.cpp",
+        "firmware/hub/routines/routine_service.hpp",
+        "firmware/hub/routines/routine_service.cpp",
+        "firmware/common/shared/src/rules.cpp",
+        "firmware/common/shared/include/gs/rules.hpp",
+        "firmware/common/shared/include/gs/domain.hpp",
+        "tests/cpp/hub_scenario_simulator_validation.cpp",
+        "tests/cpp/hub_scenario_simulator_disabled_validation.cpp"
+      ],
+      "success": "^HUB SCENARIO SIMULATOR PASS checks=(\\d+) events=TEST_ONLY downstream=NOT_RUN$",
+      "timeout": 120,
+      "count_kind": "checks",
+      "fast": true
+    },
+    {
+      "id": "hub-scenario-runtime-bridge",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "hub-scenario-runtime-bridge-host-test"
+      ],
+      "inputs": [
+        "firmware/hub/simulation/hub_scenario_simulator.hpp",
+        "firmware/hub/simulation/hub_scenario_simulator.cpp",
+        "firmware/hub/simulation/hub_runtime_scenario_bridge.hpp",
+        "firmware/hub/simulation/hub_runtime_scenario_bridge.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/event_processing/ingest/ingest.hpp",
+        "firmware/hub/storage/journal.hpp",
+        "tests/cpp/hub_runtime_scenario_bridge_validation.cpp"
+      ],
+      "success": "^HUB SCENARIO RUNTIME BRIDGE PASS checks=(\\d+) events=TEST_ONLY durable=NOT_RUN$",
+      "timeout": 300,
+      "count_kind": "checks",
+      "fast": true
     }
   ],
   "separate_harnesses": {},

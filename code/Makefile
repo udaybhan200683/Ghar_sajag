@@ -69,7 +69,7 @@ $(CPP_OBJECT_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
 
-.PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build gs114-s3-c8-p8-build gs114-s3-c8-p9-build physical-hil-catalogue-test validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test gs68-cloudsync-diagnostic-build validation-cloudsync-hil
+.PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build gs114-s3-c8-p8-build gs114-s3-c8-p9-build physical-hil-catalogue-test validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test gs68-cloudsync-diagnostic-build validation-cloudsync-hil hub-scenario-simulator-host-test
 .PHONY: s3-durable-outbox-host-test hub-segmented-outbox-runtime-host-test
 .PHONY: c8-ack-drop-gate-host-test
 .PHONY: c8-ack-hold-gate-host-test
@@ -80,6 +80,25 @@ BATTERY_C8_SOURCES := firmware/common/shared/src/logging.cpp firmware/node/sensi
 BATTERY_C8_OBJECTS := $(patsubst %.cpp,$(CPP_OBJECT_DIR)/%.o,$(BATTERY_C8_SOURCES))
 
 all: verify
+
+.PHONY: hub-scenario-simulator-host-test hub-scenario-runtime-bridge-host-test
+GS_HUB_SCENARIO_SIMULATOR := firmware/hub/simulation/hub_scenario_simulator.cpp
+GS_HUB_SCENARIO_ROUTINE_SERVICE := firmware/hub/routines/routine_service.cpp
+GS_HUB_SCENARIO_RULES_OBJECT := $(CPP_OBJECT_DIR)/firmware/common/shared/src/rules.o
+hub-scenario-simulator-host-test: build $(GS_HUB_SCENARIO_RULES_OBJECT) $(GS_HUB_SCENARIO_SIMULATOR) $(GS_HUB_SCENARIO_ROUTINE_SERVICE) tests/cpp/hub_scenario_simulator_validation.cpp tests/cpp/hub_scenario_simulator_disabled_validation.cpp
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) -DGS_HUB_SCENARIO_SIMULATOR_TEST_ONLY=1 $(INCLUDES) $(GS_HUB_SCENARIO_RULES_OBJECT) $(GS_HUB_SCENARIO_SIMULATOR) $(GS_HUB_SCENARIO_ROUTINE_SERVICE) tests/cpp/hub_scenario_simulator_validation.cpp -o build/hub_scenario_simulator_validation
+	./build/hub_scenario_simulator_validation
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(GS_HUB_SCENARIO_RULES_OBJECT) $(GS_HUB_SCENARIO_SIMULATOR) $(GS_HUB_SCENARIO_ROUTINE_SERVICE) tests/cpp/hub_scenario_simulator_disabled_validation.cpp -o build/hub_scenario_simulator_disabled_validation
+	./build/hub_scenario_simulator_disabled_validation
+
+GS_HUB_RUNTIME_BRIDGE_SIMULATOR_OBJECT := build/hub_runtime_bridge_scenario_simulator.o
+GS_HUB_RUNTIME_BRIDGE_OBJECT := build/hub_runtime_scenario_bridge.o
+GS_HUB_RUNTIME_BRIDGE_SUPPORT_SOURCES := firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/outbox_journal_backend.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
+hub-scenario-runtime-bridge-host-test: build $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) $(call host_objects,$(GS_HUB_RUNTIME_BRIDGE_SUPPORT_SOURCES)) firmware/hub/simulation/hub_scenario_simulator.cpp firmware/hub/simulation/hub_runtime_scenario_bridge.cpp tests/cpp/hub_runtime_scenario_bridge_validation.cpp
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) -DGS_HUB_SCENARIO_SIMULATOR_TEST_ONLY=1 $(INCLUDES) -c firmware/hub/simulation/hub_scenario_simulator.cpp -o $(GS_HUB_RUNTIME_BRIDGE_SIMULATOR_OBJECT)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) -DGS_HUB_SCENARIO_SIMULATOR_TEST_ONLY=1 $(INCLUDES) -c firmware/hub/simulation/hub_runtime_scenario_bridge.cpp -o $(GS_HUB_RUNTIME_BRIDGE_OBJECT)
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS) $(call host_objects,$(GS_HUB_RUNTIME_BRIDGE_SUPPORT_SOURCES)) $(GS_HUB_RUNTIME_BRIDGE_SIMULATOR_OBJECT) $(GS_HUB_RUNTIME_BRIDGE_OBJECT) tests/cpp/hub_runtime_scenario_bridge_validation.cpp -lcrypto -o build/hub_runtime_scenario_bridge_validation
+	./build/hub_runtime_scenario_bridge_validation
 
 build/gs40_generated/gs/node_health_config.hpp: config/node_health.json scripts/generate_node_health_config.py backend/ghar_sajag/node_health_policy.py
 	python3 scripts/generate_node_health_config.py --output $@
