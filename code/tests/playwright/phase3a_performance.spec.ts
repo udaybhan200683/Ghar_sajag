@@ -74,6 +74,14 @@ test.describe('Phase 3A lightweight runtime contracts',()=>{
   });
 
   test('keeps the service-worker cache static-only and bounded',async({page})=>{
+    // Model an existing installation that still has the previous cache. The
+    // new worker must remove it on activation, rather than leaving stale app
+    // modules available to later offline requests.
+    await page.goto('/boot.mjs');
+    await page.evaluate(async()=>{
+      const previous=await caches.open('parivar-saathi-caregiver-v4');
+      await previous.put('/connected_lite.mjs',new Response('stale simulator module'));
+    });
     await waitForHome(page);
     const cached=await page.evaluate(async()=>{
       await navigator.serviceWorker.ready;
@@ -82,6 +90,8 @@ test.describe('Phase 3A lightweight runtime contracts',()=>{
       for(const key of keys)for(const request of await (await caches.open(key)).keys())requests.push(new URL(request.url).pathname);
       return {keys,requests};
     });
+    expect(cached.keys).toContain('parivar-saathi-caregiver-v5');
+    expect(cached.keys).not.toContain('parivar-saathi-caregiver-v4');
     expect(cached.requests.length).toBeLessThanOrEqual(9);
     expect(cached.requests).toContain('/styles.css');
     expect(cached.requests).toContain('/boot.mjs');
