@@ -1,3 +1,31 @@
+## GS-178 S3 deterministic rule-runtime integration — 2026-10-19
+
+Implementation commit `487ffa03e2cc95d84a8eafa5a51016fe413cdce7` integrates
+Hub-owned deterministic rule decisions into the S3 product source. HubRuntime
+checkpoint v3 persists rule state and bounded decision-publication intents
+together; v1/v2 decoding is preserved. Decisions use identities separate from
+Node EventKey. Replayed admission reconstructs the same decision identity, and
+the S3 adapter retires a publication intent only after its matching backend
+`COMMITTED` receipt is checkpointed. Trusted time and current Hub/Home/epoch
+authority gate target rule scheduling; unsupported TEST_ONLY timezone
+configuration fails closed. The host GS-178 path uses the production HubRuntime
+and existing CloudSync/backend/caregiver code.
+
+`make -C code gs178-software-e2e` passed 27/27; the registered checkpoint stage
+passed two assertion groups; board-stack simulation passed 10 scenarios. The
+ESP-IDF 6.0.3 standard C3/S3 profile and explicit GS40 TEST_ONLY S3 product
+profile both built without flashing. Detailed source, tests, exact artifact and
+configuration hashes, and aggregate gate failures are in
+[`GS178_S3_RULE_RUNTIME_20261019.md`](../exec-plans/evidence/GS178_S3_RULE_RUNTIME_20261019.md).
+
+Validation is not release acceptance: `validation-hub` still has the existing
+`clean migration commits` failure and required P0 `product_status=PARTIAL`;
+`validation-contract` also correctly fails on P0 PARTIAL. No target or physical
+execution is claimed. GS-40/GS-117/GS-121 remain NOT_RUN physically; GS-104
+R01–R09 stays on hold. The implementation source commit was local one commit
+ahead of origin when this update began. Commit and verified remote equality for
+this evidence update are reported in the execution closeout.
+
 ## GS-178 Node-originated software vertical — 2026-10-19
 
 Resumed from canonical HEAD `ceeddc0ff1f670d78414baddccdfcf9f9c89fcd0` on
@@ -26,15 +54,16 @@ build is unavailable in the current environment. The registered P0 scenario
 reports 26/26 assertions and browser PASS but remains an aggregate gate failure
 while required product status is PARTIAL.
 
-Known target gap: the host simulator captures HubRuntime rule signals into a
-separate durable outbox, but the S3 target scheduler does not atomically persist
-the pending derived-decision intent with the Hub checkpoint, and its current
-`run_state_once()` path lacks trusted local minute input for time-dependent
-rules. Therefore this is host software E2E evidence, not target or physical
-qualification. Full P0 remains PARTIAL. Physical GS-40/117/121 and phone
-acceptance are NOT_RUN. GS-104 R01–R09 remains on hold. No hardware was accessed.
-Untracked PWA/Android/managed-component/physical evidence and other worktrees
-remain untouched.
+Historical target gap at the earlier `ceeddc0` checkpoint: the host simulator
+then used a separate rule outbox, while the S3 scheduler did not persist
+publication intent with the Hub checkpoint and lacked trusted local-minute
+input. Those source gaps are implemented at `487ffa03e2cc95d84a8eafa5a51016fe413cdce7`;
+the detailed 2026-10-19 evidence is linked above. This remains host and
+compile-only validation, not physical target acceptance. Full P0 remains
+PARTIAL. Physical GS-40/117/121 and phone acceptance are NOT_RUN. GS-104
+R01–R09 remains on hold. No hardware was accessed. Untracked
+PWA/Android/managed-component/physical evidence and other worktrees remain
+untouched.
 
 Evidence and exact current results:
 [GS178_SOFTWARE_VERTICAL_20261018.md](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).

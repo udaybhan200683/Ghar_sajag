@@ -1,5 +1,23 @@
 # GS-178 software vertical — execution record
 
+## Current status update — 2026-10-19
+
+The earlier target-gap statements in this historical execution record describe
+the `ceeddc0` checkpoint and are superseded for current source by
+[`GS178_S3_RULE_RUNTIME_20261019.md`](GS178_S3_RULE_RUNTIME_20261019.md).
+Canonical `HubRuntime` now checkpoints pending Hub rule-decision publication
+intent with rule state, the S3 adapter schedules rules using trusted local-time
+input and current authority, and the existing CloudSync worker acknowledges
+only backend `COMMITTED` decisions. Host E2E and both S3 build profiles have
+been validated. This does not establish physical target execution; GS-40,
+GS-117 and GS-121 physical acceptance remain NOT_RUN, P0 remains PARTIAL, and
+the recorded migration assertion remains an open failure.
+
+The TEST_ONLY product image hash was rechecked after resume. The currently
+present artifact hash and image-validation digest are recorded in the new
+evidence. The earlier build digest below is historical and must not be used to
+identify that current artifact.
+
 Owning Jira: GS-178; dependencies GS-40/59/148/177/109/168. Started on
 `feature/r1-commercial-baseline` at `e74dc5190cccd2ebf4c4b37a54b73f7e95041c7a`,
 equal to origin. Context preflight PASS. Tracked tree was clean; all untracked
