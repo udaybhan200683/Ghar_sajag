@@ -157,6 +157,29 @@ git diff --check
 The registry unit test ran 6/6. Python compilation, both JavaScript syntax
 checks, and whitespace validation exited 0.
 
+The existing Android workflow also completed successfully for the pushed source
+commit `7b3f682431ca8b2ec750c69e06c8be0f507bd3d4`:
+
+* GitHub Actions run [39305728185](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39305728185): overall success.
+* PWA browser/offline regression: 92/92 assertions; registered GS-116 stages:
+  `gs177-connected-lite-api` 13/13, `gs177-android-dashboard` 6/6, and
+  `gs177-voice-prototype` 19/19.
+* APK package `in.gharsajag.caregiver`, version
+  `0.4.0-connected-lite-staging`, source ref
+  `feature/r1-commercial-baseline`, Android SDK 35, JDK 17, Gradle 8.9.
+* Artifact ID `12213208184`; APK size 2,909,502 bytes; SHA-256
+  `1e2a862239d57ac70d71783b215dd358da80c71c87b9386daf3f1d595a33b7ea`.
+  CI verified APK Signature Scheme v2. It used a runner-generated debug key
+  (certificate SHA-256
+  `7943b0724f7eb727b61d39b970a91444fec8756aaa8e5e50489090fc06d5b88a`), not a
+  pilot signing key. Build metadata points at the existing Render staging URL;
+  Render was not changed, so the APK is not evidence of a live Hub read model.
+
+This is a CI build/signature and software-gate result. The APK was not installed
+on a phone in this task; mobile-data behavior, update continuity with the
+previous debug key, and real monitoring data on an owner device remain
+`NOT_RUN`.
+
 The earlier aggregate `make validation-backend` and `make validation-pwa` runs
 remain FAIL and are not overridden by the focused PASS results. Recorded causes:
 the P0 aggregate scenario asserts correctly but required `product_status=PARTIAL`
@@ -212,8 +235,8 @@ scheme is implemented or proposed as approved.
   the already documented TLS termination / absent trusted peer identity and
   database network path.
 - Live staging software E2E: **NOT PASS**.
-- Android CI APK source/signing verification and owner-phone real-data behavior:
-  **NOT RUN in this checkpoint**.
+- Android CI build, v2 signature verification, and source/artifact digest:
+  **PASS** for run `39305728185`; owner-phone real-data behavior: **NOT RUN**.
 - Physical C3/S3 and real sensor qualification: **NOT RUN**.
 - GS-179 remains **In Progress**; GS-148 and GS-177 remain in their existing
   statuses. Product status remains `PARTIAL`.

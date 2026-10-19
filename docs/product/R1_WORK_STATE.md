@@ -2266,6 +2266,16 @@ same run also rejects a caregiver account absent from the durable Home roster
 and keeps a roster `PRIMARY` account at caregiver privilege. The PostgreSQL
 fixture was stopped after validation.
 
+The existing GS-177 Android workflow completed successfully for this pushed
+commit: GitHub Actions run `39305728185`; PWA browser 92/92; registered API
+13/13, Android dashboard 6/6 and voice-prototype 19/19. The CI-built
+`in.gharsajag.caregiver` v`0.4.0-connected-lite-staging` artifact (ID
+`12213208184`) is 2,909,502 bytes with SHA-256
+`1e2a862239d57ac70d71783b215dd358da80c71c87b9386daf3f1d595a33b7ea`. Its v2
+signature is runner-debug-key signed, not pilot signed. This CI result does not
+establish live Render monitoring, APK update continuity, or owner-phone use;
+those remain unqualified. Render was not changed.
+
 The physical pair remains commissioned on C3 app
 `1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and S3 app
 `84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`. Stable
