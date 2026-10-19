@@ -5198,24 +5198,61 @@ network path, or approve a new request-authentication contract for review. No
 source/API/database/service/deployment change or hardware action occurred in
 this checkpoint.
 
-## GS-58 Wi-Fi provisioning decision gate — 2026-10-19
+## GS-58 Wi-Fi provisioning and reconnect checkpoint — 2026-10-20
 
-GS-58 analysis is isolated in `/home/udaybhan/projects/Ghar_sajag_gs58` on
-`feature/gs-58-hub-wifi`, branched from fetched canonical source
-`4fbb8afbfb95a128fa942ac260939601af817411`. The new-worktree context preflight
-passed at `2026-10-13.001`. The audit checkpoint `21759bdea160a302fce1d8442e5f2c0c858b21c6`
-was pushed and matched its remote ref before this state note. The canonical
-worktree contains active uncommitted GS-179 changes and was not modified; the
-GS-165 worktree/branch was preserved.
+GS-58 remains isolated in `/home/udaybhan/projects/Ghar_sajag_gs58` on
+`feature/gs-58-hub-wifi`, based on checkpoint
+`10a12b6406f15198c6b67eeae416990ff4f10bc0`. The resumed mandatory context
+preflight passed at `2026-10-13.001`. Jira comment 11451 approved D1–D4 software
+direction: Espressif BLE provisioning with device-specific installer proof,
+encrypted NVS with protected per-device key custody and fail-closed behavior,
+authenticated C3/S3 channel discovery/rejoin, and the existing CloudSync trust
+boundary with separate Wi-Fi/Internet/authentication/monitoring states. These
+decisions do not authorize hardware security provisioning, actual credential
+provisioning, new protocol/persistent semantics, or production activation.
 
-No product code was changed. Implementation is paused pending decisions on
-authorized installer Wi-Fi onboarding, protected credential persistence,
-ESP-NOW/AP channel coexistence and the GS-58 CloudSync/status boundary. Exact
-options, recommendations, source findings and the next validation plan are in
-[`GS58_WIFI_PROVISIONING_DECISION_GATE_20261019.md`](../exec-plans/evidence/GS58_WIFI_PROVISIONING_DECISION_GATE_20261019.md).
-No tests/build were run. No physical device, USB/serial, credential, service,
-flash, reset or eFuse was accessed. GS-58 is In Progress; Jira comment 11444
-records the pending decisions. After approval, re-read the current branch,
-canonical source and active-writer state, rerun preflight, reconcile approved
-choices with GS-68/GS-109/GS-148 and implement only the approved scope. Update
-this section with the resulting evidence and exact validation results.
+The implemented production-code slice is deliberately limited to a pure bounded
+S3 station reconnect policy and its runtime adapter. Retry delays are
+1/2/4/8/16/30/60 seconds, saturate at 60 seconds, reset after IP connection,
+and a credential-ready notification requests an immediate attempt. Disconnects
+and driver failures are ignored until this secure-ready handoff; target event
+and reconnect tasks serialize policy access. The public handoff is only a
+notification contract; no BLE provisioning, installer proof, credential
+storage, credential source, channel migration, or CloudSync trust authority was
+added. D1 proof sourcing remains dependent on GS-165/GS-172 and D2 protected
+NVS key/partition provisioning remains separately gated. D3 is
+held because canonical requirements do not identify a shared country/regulatory
+domain and permitted scan-channel list for both radios; no channel list or wire
+behavior was invented. D4 continues to use the existing CloudSync authority
+and COMMITTED boundary. Details and the precise D3 decision request are in
+[`GS58_WIFI_RECONNECT_DESIGN_20261020.md`](../exec-plans/evidence/GS58_WIFI_RECONNECT_DESIGN_20261020.md).
+
+Validation on this branch: `make gs58-wifi-host-test` PASS (25 checks);
+`make feature-coverage-test` PASS (GS130 mapping consistency and 22 mapping
+unit tests); `make physical-hil-catalogue-test` PASS (110 cases; no device
+access); `python3 code/scripts/check_feature_traceability.py` PASS (216
+features/258 modules/26 mapped cases, consistency only). ESP-IDF 6.0.3 paired
+development C3/S3 builds PASS at 937,552 and 2,188,528 bytes respectively;
+they did not flash or access hardware. `make cloudsync-security-ut` PASS after
+fixing its omitted TEST_ONLY adapter prerequisite: production mTLS 9,
+TEST_ONLY mTLS 5, Cloud Trust 5 suites, backend security 14, identity/time 4,
+GS-168 issuer 10 and NodeHealth 5. `make validation-hub` remains FAIL for the
+pre-existing journal migration assertion `clean migration commits`, unavailable
+Playwright dependencies in `p0-full-product-e2e` and two GS-178 browser cases;
+its initial CloudSync stage also exposed the prerequisite defect now fixed and
+independently rerun PASS. All GS-58 registered tests and the other executed Hub
+stages passed. The full aggregate was not rerun after that isolated prerequisite
+repair. Physical qualification remains NOT_RUN.
+
+During that validation, ESP-IDF populated untracked
+`code/firmware/hub/target/esp32s3/idf/managed_components/`; it is preserved and
+excluded from the GS-58 source commit. Canonical `/home/udaybhan/projects/Ghar_sajag_r1`
+remains on the active `feature/r1-commercial-baseline` writer with unrelated
+GS-179 changes; it was not edited, synchronized or tested through this task.
+The GS-58 Jira issue remains In Progress. No hardware, USB/serial, flash, reset,
+eFuse, real credential or production service was accessed. The next action is
+to obtain the owner-approved D3 domain/channel answer and the GS-165/GS-172
+installer-proof plus protected-key provider contracts, then continue the
+independently permitted software work. Re-run the applicable station tests and
+paired builds before adding protocol or persistence integration; keep all
+physical/release states NOT_RUN until their own evidence exists.

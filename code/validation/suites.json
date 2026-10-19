@@ -406,6 +406,26 @@
       "count_kind": "checks"
     },
     {
+      "id": "gs58-wifi",
+      "components": [
+        "hub"
+      ],
+      "command": [
+        "make",
+        "gs58-wifi-host-test"
+      ],
+      "inputs": [
+        "firmware/hub/connectivity/wifi_reconnect_policy.cpp",
+        "firmware/hub/connectivity/wifi_reconnect_policy.hpp",
+        "firmware/hub/connectivity/wifi_station.hpp",
+        "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
+        "tests/cpp/gs58_wifi_reconnect_validation.cpp"
+      ],
+      "success": "^GS-58 Wi-Fi reconnect checks=(\\d+) PASS$",
+      "timeout": 120,
+      "count_kind": "checks"
+    },
+    {
       "id": "gs40-test-only-bootstrap",
       "components": [
         "hub",
