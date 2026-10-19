@@ -57,7 +57,14 @@ endif()
 
 set(GS_HUB_EMBED_FILES "${GS_NODE_FIRMWARE_ASSET}")
 if(GS40_TEST_ONLY_CLOUDSYNC)
-    list(APPEND GS_HUB_EMBED_FILES "${GS40_TEST_ONLY_CONFIG_ROOT_DER}")
+    # ESP-IDF derives embedded linker symbols from the input basename. Copy
+    # the external TEST_ONLY public root to a stable component-build filename
+    # so symbols do not depend on the caller's temporary path or filename.
+    set(GS40_TEST_ONLY_CONFIG_ROOT_EMBED_FILE
+        "${CMAKE_CURRENT_BINARY_DIR}/gs40_test_config_root.der")
+    configure_file("${GS40_TEST_ONLY_CONFIG_ROOT_DER}"
+        "${GS40_TEST_ONLY_CONFIG_ROOT_EMBED_FILE}" COPYONLY)
+    list(APPEND GS_HUB_EMBED_FILES "${GS40_TEST_ONLY_CONFIG_ROOT_EMBED_FILE}")
 endif()
 
 idf_component_register(
