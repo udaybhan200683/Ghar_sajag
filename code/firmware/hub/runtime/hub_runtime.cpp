@@ -727,14 +727,28 @@ bool HubRuntime::restore_from_journal() {
         if (ordinal == 0 || ordinal <= replay.last_ordinal) return false;
         replay.last_ordinal = ordinal;
         std::optional<std::uint16_t> minute;
+        storage::IdentityDecisionAuthorityContext decision_context;
         if (runtime.runtime_state_ &&
-            !runtime.runtime_state_->identity_context(event.key,ordinal,minute,&event)) return false;
+            !runtime.runtime_state_->identity_context(event.key,ordinal,minute,&event,
+                                                       &decision_context)) return false;
         if (ordinal <= runtime.applied_boundary_) return true;
         // A checkpoint permits absence only through its own boundary. Any gap
         // after that boundary leaves an uncheckpointed reducer transition
         // unprovable, so recovery must fail closed rather than skip it.
         if (ordinal != runtime.applied_boundary_ + 1U) return false;
-        (void)runtime.apply_committed_event(event,minute);
+        auto signals = runtime.apply_committed_event(event,minute);
+        CloudAuthorityBinding recovered_binding;
+        const CloudAuthorityBinding* binding = nullptr;
+        if (decision_context.bound()) {
+            recovered_binding = {decision_context.home_id,
+                decision_context.hub_device_id, decision_context.ownership_epoch};
+            binding = &recovered_binding;
+        }
+        const auto decided_at = decision_context.bound()
+            ? decision_context.decided_at_utc
+            : (event.received_at > 0 ? event.received_at : event.occurred_at);
+        if (!runtime.append_rule_decisions(signals, decided_at, event.key.str(), binding))
+            return false;
         runtime.applied_boundary_=ordinal;
         return true; // Recovery never routes historical notification effects.
     };
@@ -758,9 +772,13 @@ std::vector<RuleSignalDecision> HubRuntime::apply_committed_event(
         return RulesCore::apply_activity_event(
             activity_state_, activity_config_, event, *local_minute, context);
     }
+    // Preserve the source occurrence for chronology, but mark it unsuitable
+    // as an inactivity anchor until an authenticated-time event re-establishes
+    // the timer context.
     if (is_activity(event.kind) && (!activity_state_.last_activity_at ||
             event.occurred_at >= *activity_state_.last_activity_at)) {
         activity_state_.last_activity_at = event.occurred_at;
+        activity_state_.last_activity_time_trusted = false;
         activity_state_.last_activity_event_id = event.key.str();
         activity_state_.inactivity_alerted = false;
     }
@@ -770,9 +788,20 @@ std::vector<RuleSignalDecision> HubRuntime::apply_committed_event(
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
 // Consume one admitted event, apply privacy policy, commit and update the reducer.
 // Duplicate journal identities receive an ACK without repeating reducer effects.
-std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint16_t> local_minute) {
+std::optional<ProcessResult> HubRuntime::run_state_once(
+        std::optional<std::uint16_t> local_minute,
+        const CloudAuthorityBinding* decision_authority) {
     GS_TRACE(gs::log::Category::Hub, "H00", "run_state_once.enter", "-");
     if (!durable_admission_open()) return std::nullopt;
+    // Target rule state is scoped to the signed Home/epoch configuration that
+    // initialized it. A missing or changed authority disables time-dependent
+    // interpretation; raw Node events can still be durably admitted.
+    if (activity_authority_binding_ && local_minute &&
+        (decision_authority == nullptr ||
+         !(*decision_authority == *activity_authority_binding_))) {
+        local_minute.reset();
+        decision_authority = nullptr;
+    }
     auto event = ingest_.pop();
     if (!event) return std::nullopt;
     storage::IdentityOwnerEvidence ingress_owner;
@@ -812,13 +841,16 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
     }
     bool duplicate = false;
     bool identity_already_prepared = false;
+    CloudAuthorityBinding replay_binding;
     if (runtime_state_) {
         bool identity_found = false, payload_matches = false;
         std::uint64_t identity_ordinal = 0;
         std::optional<std::uint16_t> original_minute;
+        storage::IdentityDecisionAuthorityContext original_decision_context;
         storage::IdentityOwnerEvidence prepared_owner;
         if (!runtime_state_->lookup_identity(*event, identity_ordinal,
-                original_minute, identity_found, payload_matches,&prepared_owner)) {
+                original_minute, identity_found, payload_matches,&prepared_owner,
+                nullptr, &original_decision_context)) {
             checkpoint_fault_ = true;
             return ProcessResult{event->key, AckClass::Rejected, false, {}};
         }
@@ -850,6 +882,16 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
             // Its original local-time context is part of the durable identity
             // row; a retry may arrive after the Hub's clock context changed.
             local_minute = original_minute;
+            if (original_decision_context.bound()) {
+                // A prepared event can only recreate its original publication
+                // under the exact authority captured before its first commit.
+                replay_binding = {original_decision_context.home_id,
+                    original_decision_context.hub_device_id,
+                    original_decision_context.ownership_epoch};
+                decision_authority = &replay_binding;
+            } else {
+                decision_authority = nullptr;
+            }
             identity_already_prepared = true;
         }
         // The single owner holds admission serialized through all writes below.
@@ -859,15 +901,44 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
         std::uint64_t workspace = 0;
         {
             security::Bytes next_checkpoint;
+            storage::IdentityDecisionAuthorityContext decision_context;
+            const auto decision_time = event->received_at > 0
+                ? event->received_at : event->occurred_at;
+            const storage::IdentityDecisionAuthorityContext* decision_context_ptr = nullptr;
+            if (decision_authority != nullptr && local_minute && decision_time > 0 &&
+                !decision_authority->home_id.empty() &&
+                !decision_authority->hub_device_id.empty() &&
+                decision_authority->ownership_epoch != 0) {
+                decision_context.home_id = decision_authority->home_id;
+                decision_context.hub_device_id = decision_authority->hub_device_id;
+                decision_context.ownership_epoch = decision_authority->ownership_epoch;
+                decision_context.decided_at_utc = decision_time;
+                decision_context_ptr = &decision_context;
+            }
             if (!HubCheckpointCodec::encode_after_event(*this, *event, local_minute,
-                    next_checkpoint) || !runtime_state_->admission_workspace(*event,
-                    journal_.size() + 1U, next_checkpoint.size(), workspace) ||
+                    decision_authority, next_checkpoint) || !runtime_state_->admission_workspace(*event,
+                    journal_.size() + 1U, next_checkpoint.size(), workspace,
+                    decision_context_ptr) ||
                 !journal_.admission_ready(*event, workspace))
                 return ProcessResult{event->key, AckClass::Rejected, false, {}};
         }
+        storage::IdentityDecisionAuthorityContext decision_context;
+        const auto decision_time = event->received_at > 0
+            ? event->received_at : event->occurred_at;
+        const storage::IdentityDecisionAuthorityContext* decision_context_ptr = nullptr;
+        if (decision_authority != nullptr && local_minute && decision_time > 0 &&
+            !decision_authority->home_id.empty() && !decision_authority->hub_device_id.empty() &&
+            decision_authority->ownership_epoch != 0) {
+            decision_context.home_id = decision_authority->home_id;
+            decision_context.hub_device_id = decision_authority->hub_device_id;
+            decision_context.ownership_epoch = decision_authority->ownership_epoch;
+            decision_context.decided_at_utc = decision_time;
+            decision_context_ptr = &decision_context;
+        }
         if (duplicate || (!identity_already_prepared && !runtime_state_->prepare_identity(
                 *event, journal_.size() + 1U, local_minute,
-                ingress_owner.authenticated() ? &ingress_owner : nullptr))) {
+                ingress_owner.authenticated() ? &ingress_owner : nullptr,
+                decision_context_ptr))) {
             if (duplicate) checkpoint_fault_ = true;
             return ProcessResult{event->key, AckClass::Rejected, false, {}};
         }
@@ -892,6 +963,13 @@ std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint1
         checkpoint_fault_=true; return ProcessResult{event->key,AckClass::Rejected,false,{}};
     }
     auto signals = apply_committed_event(*event, local_minute);
+    const auto decision_time = event->received_at > 0
+        ? event->received_at : event->occurred_at;
+    if (!append_rule_decisions(signals, decision_time, event->key.str(),
+                               decision_authority)) {
+        checkpoint_fault_ = true;
+        return ProcessResult{event->key, AckClass::Rejected, false, {}};
+    }
     applied_boundary_=journal_.size();
     if (!checkpoint_state()) return ProcessResult{event->key,AckClass::Rejected,false,{}};
     return ProcessResult{event->key, AckClass::Durable, committed == CommitResult::Stored, signals};
@@ -916,16 +994,66 @@ bool HubRuntime::cloud_event_enrollment_generation(const DomainEvent& event,
 // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
 // Evaluate absence only with explicit clock and coverage state; full prompt/grace orchestration is
 // still G06.
-IncidentDecision HubRuntime::deadline(EpochSeconds now, bool clock_trusted) {
+IncidentDecision HubRuntime::deadline(EpochSeconds now, bool clock_trusted,
+        const CloudAuthorityBinding* decision_authority) {
     GS_TRACE(gs::log::Category::Hub, "H00", "deadline.enter", "-");
+    if (activity_authority_binding_ &&
+        (decision_authority == nullptr ||
+         !(*decision_authority == *activity_authority_binding_))) {
+        clock_trusted = false;
+        decision_authority = nullptr;
+    }
     routine_.set_coverage(coverage_.current(now));
     auto decision=routine_.deadline(now,clock_trusted);
+    if (decision.create) {
+        const std::vector<RuleSignalDecision> publication{{
+            RuleSignalKind::MissingMorningActivity, RuleTone::Concern,
+            decision.stable_key, decision.reason, 0, true, false}};
+        if (!append_rule_decisions(publication, now, {}, decision_authority)) {
+            checkpoint_fault_ = true;
+            decision.create = false;
+        }
+    }
     if (!checkpoint_state()) decision.create=false;
     return decision;
 }
 
 void HubRuntime::configure_activity_rules(const ActivityRuleConfig& config) {
-    activity_config_=config; if(journal_replayed_) (void)checkpoint_state();
+    if (activity_authority_binding_) {
+        activity_state_ = ActivityRuleState{};
+        activity_authority_binding_.reset();
+    }
+    activity_config_=config;
+    activity_rules_configured_ = true;
+    if(journal_replayed_) (void)checkpoint_state();
+}
+bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config, HomeMode mode) {
+    if (checkpoint_fault_ || static_cast<std::uint8_t>(mode) >
+            static_cast<std::uint8_t>(HomeMode::Privacy)) return false;
+    if (activity_authority_binding_) {
+        // An unbound configuration cannot retain state previously established
+        // under an authenticated Home authority.
+        activity_state_ = ActivityRuleState{};
+        activity_authority_binding_.reset();
+    }
+    activity_config_ = config;
+    activity_rules_configured_ = true;
+    routine_.set_mode(mode);
+    return !journal_replayed_ || checkpoint_state();
+}
+bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config, HomeMode mode,
+        const CloudAuthorityBinding& authority) {
+    if (checkpoint_fault_ || static_cast<std::uint8_t>(mode) >
+            static_cast<std::uint8_t>(HomeMode::Privacy) || authority.home_id.empty() ||
+        authority.hub_device_id.empty() || authority.ownership_epoch == 0) return false;
+    if (!activity_authority_binding_ ||
+        !(*activity_authority_binding_ == authority))
+        activity_state_ = ActivityRuleState{};
+    activity_authority_binding_ = authority;
+    activity_config_ = config;
+    activity_rules_configured_ = true;
+    routine_.set_mode(mode);
+    return !journal_replayed_ || checkpoint_state();
 }
 void HubRuntime::set_mode(HomeMode mode) {
     routine_.set_mode(mode); if(journal_replayed_) (void)checkpoint_state();
@@ -935,12 +1063,101 @@ void HubRuntime::start_activity_monitor(EpochSeconds at) {
     if(journal_replayed_) (void)checkpoint_state();
 }
 std::vector<RuleSignalDecision> HubRuntime::activity_timers(EpochSeconds now,
-        std::uint16_t local_minute, bool clock_trusted) {
+        std::uint16_t local_minute, bool clock_trusted,
+        const CloudAuthorityBinding* decision_authority) {
     if(checkpoint_fault_) return {};
+    if (activity_authority_binding_ &&
+        (decision_authority == nullptr ||
+         !(*decision_authority == *activity_authority_binding_))) return {};
     const RuleEvaluationContext context{routine_.state().mode,coverage_.current(now),clock_trusted};
     auto signals=RulesCore::evaluate_activity_timers(activity_state_,activity_config_,now,local_minute,context);
+    if (!append_rule_decisions(signals, now, {}, decision_authority)) {
+        checkpoint_fault_ = true;
+        return {};
+    }
     if(!checkpoint_state()) return {};
     return signals;
+}
+
+bool HubRuntime::append_rule_decisions(const std::vector<RuleSignalDecision>& signals,
+        EpochSeconds decided_at, const std::string& source_event_key,
+        const CloudAuthorityBinding* authority) {
+    if (signals.empty()) return true;
+    // Without a current authenticated publication binding, the reducer may
+    // still update its checkpoint, but no cloud intent is created. The target
+    // composition supplies a binding only after trusted time and authority
+    // verification; an unbound decision must never acquire a later Home.
+    if (authority == nullptr) return true;
+    if (authority->home_id.empty() || authority->hub_device_id.empty() ||
+        authority->ownership_epoch == 0) return false;
+    if (decided_at <= 0 || signals.size() > 8 || pending_rule_decisions_.size() > 32)
+        return false;
+    for (const auto& decision : signals) {
+        if (!decision.create) continue;
+        HubRuleDecisionIntent intent;
+        intent.decision = decision;
+        intent.decided_at = decided_at;
+        // Event reducer outputs are tied to the event that drove this exact
+        // transition. Timer decisions retain a source only when their stable
+        // key names a source EventKey; a monitor-time anchor is not an event.
+        intent.source_event_key = source_event_key;
+        if (source_event_key.empty() && decision.kind == RuleSignalKind::DoorLeftOpen) {
+            constexpr char prefix[] = "door-left-open:";
+            if (decision.stable_key.compare(0, sizeof(prefix) - 1, prefix) == 0)
+                intent.source_event_key = decision.stable_key.substr(sizeof(prefix) - 1);
+        }
+        intent.origin_home_id = authority->home_id;
+        intent.origin_hub_device_id = authority->hub_device_id;
+        intent.origin_ownership_epoch = authority->ownership_epoch;
+        HubRuleDecisionRequest request{intent.decision, intent.decided_at,
+                                       intent.source_event_key};
+        const auto id = intent.decision_id();
+        const auto body = request.json_body();
+        if (id.empty() || body.empty()) return false;
+        const auto existing = std::find_if(pending_rule_decisions_.begin(),
+            pending_rule_decisions_.end(), [&](const HubRuleDecisionIntent& prior) {
+                return prior.decision_id() == id;
+            });
+        if (existing != pending_rule_decisions_.end()) {
+            HubRuleDecisionRequest prior{existing->decision, existing->decided_at,
+                                         existing->source_event_key};
+            if (prior.json_body() != body || existing->origin_home_id != intent.origin_home_id ||
+                existing->origin_hub_device_id != intent.origin_hub_device_id ||
+                existing->origin_ownership_epoch != intent.origin_ownership_epoch) return false;
+            continue;
+        }
+        if (pending_rule_decisions_.size() >= 32) return false;
+        pending_rule_decisions_.push_back(std::move(intent));
+    }
+    return true;
+}
+
+std::vector<HubRuleDecisionIntent> HubRuntime::pending_hub_rule_decisions(
+        std::size_t limit) const {
+    limit = std::min<std::size_t>(limit, 32);
+    const auto count = std::min(limit, pending_rule_decisions_.size());
+    return {pending_rule_decisions_.begin(),
+            pending_rule_decisions_.begin() + static_cast<std::ptrdiff_t>(count)};
+}
+
+bool HubRuntime::acknowledge_hub_rule_decision(const HubRuleDecisionReceipt& receipt) {
+    if (checkpoint_fault_ || receipt.decision_id.empty() || receipt.home_id.empty() ||
+        receipt.hub_device_id.empty() || receipt.ownership_epoch == 0) return false;
+    const auto found = std::find_if(pending_rule_decisions_.begin(),
+        pending_rule_decisions_.end(), [&](const HubRuleDecisionIntent& intent) {
+            return intent.decision_id() == receipt.decision_id && intent.origin_bound() &&
+                intent.origin_home_id == receipt.home_id &&
+                intent.origin_hub_device_id == receipt.hub_device_id &&
+                intent.origin_ownership_epoch == receipt.ownership_epoch;
+        });
+    if (found == pending_rule_decisions_.end()) return false;
+    pending_rule_decisions_.erase(found);
+    if (!checkpoint_state()) {
+        // The previous checkpoint remains authoritative. Reopen this process
+        // only through recovery, which will retry the same idempotent id.
+        return false;
+    }
+    return true;
 }
 
 }  // namespace gs::hub

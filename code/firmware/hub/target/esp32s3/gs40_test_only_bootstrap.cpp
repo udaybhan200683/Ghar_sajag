@@ -1,4 +1,5 @@
 #include "gs40_test_only_bootstrap.hpp"
+#include "firmware/hub/lifecycle/configuration/config_service.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -226,6 +227,82 @@ bool read_u64(const std::vector<std::uint8_t>& in, std::size_t offset,
     return true;
 }
 
+bool read_rule_u16(const std::uint8_t* bytes, std::size_t size,
+                   std::size_t& offset, std::uint16_t& value) {
+    if (offset + 2 > size) return false;
+    value = static_cast<std::uint16_t>((bytes[offset] << 8) | bytes[offset + 1]);
+    offset += 2;
+    return true;
+}
+
+bool read_rule_u32(const std::uint8_t* bytes, std::size_t size,
+                   std::size_t& offset, std::uint32_t& value) {
+    if (offset + 4 > size) return false;
+    value = (static_cast<std::uint32_t>(bytes[offset]) << 24) |
+        (static_cast<std::uint32_t>(bytes[offset + 1]) << 16) |
+        (static_cast<std::uint32_t>(bytes[offset + 2]) << 8) | bytes[offset + 3];
+    offset += 4;
+    return true;
+}
+
+bool read_rule_location(const std::uint8_t* bytes, std::size_t size,
+                        std::size_t& offset, std::string& value) {
+    if (offset >= size) return false;
+    const auto length = bytes[offset++];
+    if (length == 0 || length > 32 || offset + length > size) return false;
+    value.assign(reinterpret_cast<const char*>(bytes + offset), length);
+    offset += length;
+    return valid_ascii(value, 32) && std::all_of(value.begin(), value.end(),
+        [](unsigned char ch) {
+            return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                (ch >= '0' && ch <= '9') || ch == '-' || ch == '_';
+        });
+}
+
+bool parse_activity_rule_config(const std::uint8_t* bytes, std::size_t size,
+                                ActivityRuleConfig& rules) {
+    // AR1 is a compact, versioned representation of the existing deterministic
+    // ActivityRuleConfig. It carries no algorithm or alternate rule engine.
+    if (bytes == nullptr || size < 40 || size > 512 ||
+        std::memcmp(bytes, "AR1", 3) != 0 || (bytes[3] & 0xe0U) != 0) return false;
+    const auto flags = bytes[3];
+    std::size_t offset = 4;
+    rules.quiet_hours_enabled = (flags & 1U) != 0;
+    rules.daytime_inactivity_enabled = (flags & 2U) != 0;
+    rules.morning_sequence_enabled = (flags & 4U) != 0;
+    rules.night_activity_enabled = (flags & 8U) != 0;
+    rules.post_door_inactivity_enabled = (flags & 16U) != 0;
+    std::uint32_t door_timeout = 0, daytime_timeout = 0, morning_window = 0;
+    std::uint32_t night_merge = 0, post_door_timeout = 0;
+    if (!read_rule_u16(bytes, size, offset, rules.quiet_start_minute) ||
+        !read_rule_u16(bytes, size, offset, rules.quiet_end_minute) ||
+        !read_rule_u32(bytes, size, offset, door_timeout) ||
+        !read_rule_u16(bytes, size, offset, rules.daytime_start_minute) ||
+        !read_rule_u16(bytes, size, offset, rules.daytime_end_minute) ||
+        !read_rule_u32(bytes, size, offset, daytime_timeout) ||
+        !read_rule_u16(bytes, size, offset, rules.morning_start_minute) ||
+        !read_rule_u16(bytes, size, offset, rules.morning_end_minute) ||
+        !read_rule_u32(bytes, size, offset, morning_window) ||
+        !read_rule_location(bytes, size, offset, rules.morning_bedroom_location) ||
+        !read_rule_location(bytes, size, offset, rules.morning_bathroom_location) ||
+        !read_rule_location(bytes, size, offset, rules.morning_kitchen_location) ||
+        !read_rule_u16(bytes, size, offset, rules.night_start_minute) ||
+        !read_rule_u16(bytes, size, offset, rules.night_end_minute) ||
+        !read_rule_location(bytes, size, offset, rules.night_bathroom_location) ||
+        !read_rule_u16(bytes, size, offset, rules.night_bathroom_visit_threshold) ||
+        !read_rule_location(bytes, size, offset, rules.night_common_location) ||
+        !read_rule_u16(bytes, size, offset, rules.night_common_visit_threshold) ||
+        !read_rule_u32(bytes, size, offset, night_merge) ||
+        !read_rule_u32(bytes, size, offset, post_door_timeout) || offset != size)
+        return false;
+    rules.door_open_timeout_seconds = door_timeout;
+    rules.daytime_inactivity_seconds = daytime_timeout;
+    rules.morning_sequence_window_seconds = morning_window;
+    rules.night_visit_merge_seconds = night_merge;
+    rules.post_door_inactivity_seconds = post_door_timeout;
+    return true;
+}
+
 bool parse_payload(const std::vector<std::uint8_t>& bytes,
                    Gs40TestOnlyRuntimeConfig& config) {
     if (bytes.size() < 5 || bytes.size() > Gs40TestOnlyEnvelopeSession::kMaximumPlaintextBytes ||
@@ -238,7 +315,7 @@ bool parse_payload(const std::vector<std::uint8_t>& bytes,
         std::uint16_t size = 0;
         if (!read_u16(bytes, offset, size)) return false;
         offset += 2;
-        if (id < 1 || id > 16 || offset + size > bytes.size()) return false;
+        if (id < 1 || id > 20 || offset + size > bytes.size()) return false;
         const auto bit = 1U << id;
         if ((seen & bit) != 0) return false;
         seen |= bit;
@@ -272,12 +349,28 @@ bool parse_payload(const std::vector<std::uint8_t>& bytes,
                 if (size != 8 || !read_u64(bytes, offset, config.envelope_expiry_utc)) return false;
                 break;
             case 16: config.authority_public_key_der.assign(value, value + size); break;
+            case 17: config.activity_home_id = string_value(); break;
+            case 18: config.household_timezone = string_value(); break;
+            case 19:
+                if (!parse_activity_rule_config(value, size, config.activity_rules)) return false;
+                config.activity_rules_present = true;
+                break;
+            case 20:
+                if (size != 1 || value[0] > static_cast<std::uint8_t>(HomeMode::Privacy)) return false;
+                config.home_mode = static_cast<HomeMode>(value[0]);
+                break;
             default: return false;
         }
         offset += size;
     }
-    constexpr std::uint32_t required = 0x1fffeU;  // Fields 1..16, bit zero unused.
-    return seen == required && config.valid_shape();
+    constexpr std::uint32_t base_fields = 0x1fffeU;  // Fields 1..16.
+    constexpr std::uint32_t rule_fields = (1U << 17) | (1U << 18) |
+        (1U << 19) | (1U << 20);
+    const auto supplied_rule_fields = seen & rule_fields;
+    const bool fields_valid = (seen & base_fields) == base_fields &&
+        (seen & ~(base_fields | rule_fields)) == 0 &&
+        (supplied_rule_fields == 0 || supplied_rule_fields == rule_fields);
+    return fields_valid && config.valid_shape();
 }
 
 bool verify_config_signature(const std::vector<std::uint8_t>& root_der,
@@ -463,8 +556,14 @@ Gs40TestOnlyRuntimeConfig& Gs40TestOnlyRuntimeConfig::operator=(Gs40TestOnlyRunt
     credential_generation = other.credential_generation;
     envelope_generation = other.envelope_generation;
     envelope_expiry_utc = other.envelope_expiry_utc;
+    activity_home_id = std::move(other.activity_home_id);
+    household_timezone = std::move(other.household_timezone);
+    activity_rules = std::move(other.activity_rules);
+    home_mode = other.home_mode;
+    activity_rules_present = other.activity_rules_present;
     other.time_port = 0;
     other.credential_generation = other.envelope_generation = other.envelope_expiry_utc = 0;
+    other.activity_rules_present = false;
     return *this;
 }
 
@@ -475,7 +574,40 @@ Gs40TestOnlyRuntimeConfig::~Gs40TestOnlyRuntimeConfig() {
 
 bool Gs40TestOnlyRuntimeConfig::valid_shape() const {
     return valid_ascii(wifi_ssid, 32) && wifi_psk.size() >= 8 &&
-        wifi_psk.size() <= 63 && valid_material_shape();
+        wifi_psk.size() <= 63 && valid_material_shape() &&
+        ((!activity_rules_present && activity_home_id.empty() && household_timezone.empty()) ||
+         valid_activity_rules_shape());
+}
+
+bool Gs40TestOnlyRuntimeConfig::valid_activity_rules_shape() const {
+    if (!activity_rules_present || !valid_ascii(activity_home_id, 64) ||
+        household_timezone != "Etc/UTC" ||
+        static_cast<std::uint8_t>(home_mode) > static_cast<std::uint8_t>(HomeMode::Privacy))
+        return false;
+    const auto& rules = activity_rules;
+    if (rules.quiet_start_minute >= 1440 || rules.quiet_end_minute >= 1440 ||
+        rules.daytime_start_minute >= 1440 || rules.daytime_end_minute >= 1440 ||
+        rules.morning_start_minute >= 1440 || rules.morning_end_minute >= 1440 ||
+        rules.night_start_minute >= 1440 || rules.night_end_minute >= 1440 ||
+        rules.door_open_timeout_seconds < 30 || rules.door_open_timeout_seconds > 86400 ||
+        rules.daytime_inactivity_seconds < 300 || rules.daytime_inactivity_seconds > 86400 ||
+        rules.morning_sequence_window_seconds <= 0 || rules.morning_sequence_window_seconds > 86400 ||
+        rules.night_bathroom_visit_threshold == 0 || rules.night_bathroom_visit_threshold > 32 ||
+        rules.night_common_visit_threshold == 0 || rules.night_common_visit_threshold > 32 ||
+        rules.night_visit_merge_seconds <= 0 || rules.night_visit_merge_seconds > 86400 ||
+        rules.post_door_inactivity_seconds < 300 || rules.post_door_inactivity_seconds > 86400)
+        return false;
+    HomeConfig home;
+    home.version = 1;
+    home.home_id = activity_home_id;
+    home.timezone = household_timezone;
+    home.mode = home_mode;
+    home.activity_rules = rules;
+    // This envelope carries the deterministic ActivityRuleConfig. The separate
+    // morning RoutineConfig is intentionally not part of GS40T/1 v1.
+    home.morning.enabled = false;
+    ConfigService validator;
+    return validator.apply(home).applied;
 }
 
 bool Gs40TestOnlyRuntimeConfig::valid_material_shape() const {

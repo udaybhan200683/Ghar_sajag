@@ -29,7 +29,8 @@ if(IDF_TARGET STREQUAL "esp32s3")
     if(GS40_TEST_ONLY_CLOUDSYNC)
         list(APPEND GS_HUB_SRCS
             "${GS_ROOT}/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp"
-            "${GS_ROOT}/firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp")
+            "${GS_ROOT}/firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp"
+            "${GS_ROOT}/firmware/hub/lifecycle/configuration/config_service.cpp")
         list(APPEND GS_TARGET_STORAGE_REQUIRES lwip)
         # ESP-IDF 6.0.3's split USB Serial/JTAG component may not propagate
         # this legacy driver include directory through the aliased dependency.

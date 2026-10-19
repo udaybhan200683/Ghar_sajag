@@ -95,6 +95,7 @@ void RulesCore::start_activity_monitor(ActivityRuleState& state, EpochSeconds at
     GS_TRACE(gs::log::Category::Rules, "S00", "start_activity_monitor.enter", "-");
     state.monitoring_started_at = at;
     state.last_activity_at.reset();
+    state.last_activity_time_trusted = true;
     state.last_activity_event_id.clear();
     state.inactivity_alerted = false;
 }
@@ -135,6 +136,7 @@ std::vector<RuleSignalDecision> RulesCore::apply_activity_event(
 
     if (is_activity(event.kind)) {
         state.last_activity_at = event.occurred_at;
+        state.last_activity_time_trusted = true;
         state.last_activity_event_id = event.key.str();
         state.inactivity_alerted = false;
         if (is_motion && state.door_closed_at.has_value()) state.post_door_activity_seen = true;
@@ -246,7 +248,8 @@ std::vector<RuleSignalDecision> RulesCore::evaluate_activity_timers(
         }
     }
 
-    const bool daytime = rules_eligible && config.daytime_inactivity_enabled &&
+    const bool daytime = rules_eligible && state.last_activity_time_trusted &&
+        config.daytime_inactivity_enabled &&
         minute_in_window(local_minute, config.daytime_start_minute, config.daytime_end_minute);
     const auto inactivity_anchor = state.last_activity_at.has_value()
         ? state.last_activity_at : state.monitoring_started_at;

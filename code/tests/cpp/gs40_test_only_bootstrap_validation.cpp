@@ -100,6 +100,26 @@ std::string pem_cert(EVP_PKEY* key, std::string& fingerprint) {
 void put16(std::vector<std::uint8_t>& out, std::uint16_t value) {
     out.push_back(static_cast<std::uint8_t>(value >> 8)); out.push_back(static_cast<std::uint8_t>(value));
 }
+void put32(std::vector<std::uint8_t>& out, std::uint32_t value) {
+    out.push_back(static_cast<std::uint8_t>(value >> 24));
+    out.push_back(static_cast<std::uint8_t>(value >> 16));
+    out.push_back(static_cast<std::uint8_t>(value >> 8));
+    out.push_back(static_cast<std::uint8_t>(value));
+}
+void put_location(std::vector<std::uint8_t>& out, const std::string& value) {
+    out.push_back(static_cast<std::uint8_t>(value.size()));
+    out.insert(out.end(), value.begin(), value.end());
+}
+std::vector<std::uint8_t> activity_rules() {
+    std::vector<std::uint8_t> out{'A','R','1',0x1f};
+    put16(out,60);put16(out,300);put32(out,7200);
+    put16(out,480);put16(out,1260);put32(out,10800);
+    put16(out,360);put16(out,660);put32(out,14400);
+    put_location(out,"bedroom");put_location(out,"bathroom");put_location(out,"kitchen");
+    put16(out,1320);put16(out,360);put_location(out,"bathroom");put16(out,4);
+    put_location(out,"common");put16(out,4);put32(out,300);put32(out,7200);
+    return out;
+}
 void put64(std::vector<std::uint8_t>& out, std::uint64_t value) {
     for (int shift = 56; shift >= 0; shift -= 8) out.push_back(static_cast<std::uint8_t>(value >> shift));
 }
@@ -170,6 +190,8 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     field(plain,8,time_der); field(plain,9,"test-hub-000001"); field(plain,10,cert); field(plain,11,key);
     field(plain,12,fingerprint); field(plain,13,number(1)); field(plain,14,number(1));
     field(plain,15,number(1893456000)); field(plain,16,authority_der);
+    field(plain,17,"home1"); field(plain,18,"Etc/UTC");
+    field(plain,19,activity_rules()); field(plain,20,std::vector<std::uint8_t>{0});
     EVP_PKEY* peer = p256_key();
     std::array<std::uint8_t, 65> peer_public{}; std::size_t peer_length = peer_public.size();
     check(peer && EVP_PKEY_get_octet_string_param(peer, OSSL_PKEY_PARAM_PUB_KEY,
@@ -241,7 +263,11 @@ int main() {
         cert,client_private,fingerprint);
     Gs40TestOnlyRuntimeConfig config;
     check(session.accept(envelope,config),"valid signed encrypted config");
-    check(config.valid_shape() && config.permanent_hub_id=="test-hub-000001","parsed config validity");
+    check(config.valid_shape() && config.permanent_hub_id=="test-hub-000001" &&
+          config.activity_rules_present && config.activity_home_id=="home1" &&
+          config.household_timezone=="Etc/UTC" &&
+          config.activity_rules.morning_bedroom_location=="bedroom",
+          "parsed signed Home activity configuration");
     check(!session.accept(envelope,config),"config envelope replay");
     config.backend_origin="https://api.example.com"; config.backend_hostname="api.example.com";
     check(!config.valid_shape(),"public/commercial endpoint rejected even with signed material");

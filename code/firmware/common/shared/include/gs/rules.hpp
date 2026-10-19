@@ -32,6 +32,10 @@ struct ActivityRuleState {
     // the inactivity rule detect "no activity at all for X hours" without depending on a GPIO event.
     std::optional<EpochSeconds> monitoring_started_at;
     std::optional<EpochSeconds> last_activity_at;
+    // Timestamp may be preserved for chronology when it is not based on
+    // authenticated Hub time. Timer-driven inactivity must ignore it until a
+    // trusted observation re-establishes the anchor.
+    bool last_activity_time_trusted{true};
     std::string last_activity_event_id;
     std::optional<EpochSeconds> door_opened_at;
     std::string door_open_event_id;

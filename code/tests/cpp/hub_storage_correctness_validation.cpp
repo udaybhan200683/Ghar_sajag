@@ -163,7 +163,7 @@ void workspace_boundary_test() {
     require(runtime.radio_callback(e), "workspace queue");
     Bytes checkpoint;
     std::uint64_t workspace = 0;
-    require(gs::hub::HubCheckpointCodec::encode_after_event(runtime, e, 100, checkpoint) &&
+    require(gs::hub::HubCheckpointCodec::encode_after_event(runtime, e, 100, nullptr, checkpoint) &&
             state.admission_workspace(e, 1, checkpoint.size(), workspace), "workspace sizing");
     // Combined filesystem ledger: runtime candidate + identity growth/head +
     // outbox body growth/head. One byte below the rounded requirement refuses

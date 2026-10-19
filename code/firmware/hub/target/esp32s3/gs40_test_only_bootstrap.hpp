@@ -33,6 +33,15 @@ struct Gs40TestOnlyRuntimeConfig {
     std::uint64_t credential_generation{0};
     std::uint64_t envelope_generation{0};
     std::uint64_t envelope_expiry_utc{0};
+    // Optional authenticated Home behavior snapshot used only by the isolated
+    // GS-40 product profile. It is enabled only when the signed envelope's
+    // Home matches the live authority lease. The first target timezone adapter
+    // deliberately supports Etc/UTC only and fails closed for other zones.
+    std::string activity_home_id;
+    std::string household_timezone;
+    ActivityRuleConfig activity_rules{};
+    HomeMode home_mode{HomeMode::Home};
+    bool activity_rules_present{false};
 
     Gs40TestOnlyRuntimeConfig() = default;
     Gs40TestOnlyRuntimeConfig(const Gs40TestOnlyRuntimeConfig&) = delete;
@@ -42,6 +51,7 @@ struct Gs40TestOnlyRuntimeConfig {
     ~Gs40TestOnlyRuntimeConfig();
     bool valid_shape() const;
     bool valid_material_shape() const;
+    bool valid_activity_rules_shape() const;
     void clear_wifi_secret();
 };
 

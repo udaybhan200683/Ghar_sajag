@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <memory>
 #include <new>
+#include <set>
 namespace gs::hub {
 namespace {
 // Explicit little-endian schema. Byte/count limits fail closed, never discard evidence.
@@ -51,20 +52,37 @@ struct Codec {
 };
 }
 bool HubCheckpointCodec::encode_after_event(HubRuntime& r, const DomainEvent& event,
-        std::optional<std::uint16_t> minute, security::Bytes& bytes) {
+        std::optional<std::uint16_t> minute,
+        const CloudAuthorityBinding* authority, security::Bytes& bytes) {
     // Keep the sizeable runtime object off the target owner's task stack.
     std::unique_ptr<HubRuntime> preview(new (std::nothrow) HubRuntime(0, 0));
     if (!preview) return false;
     preview->routine_ = r.routine_; preview->coverage_ = r.coverage_;
     preview->activity_config_ = r.activity_config_; preview->activity_state_ = r.activity_state_;
+    preview->activity_rules_configured_ = r.activity_rules_configured_;
+    preview->activity_authority_binding_ = r.activity_authority_binding_;
     preview->power_telemetry_ = r.power_telemetry_;
-    (void)preview->apply_committed_event(event, minute);
+    preview->pending_rule_decisions_ = r.pending_rule_decisions_;
+    const auto signals = preview->apply_committed_event(event, minute);
+    const auto decision_time = event.received_at > 0
+        ? event.received_at : event.occurred_at;
+    if (!preview->append_rule_decisions(signals, decision_time,
+            event.key.str(), authority)) return false;
     return encode(*preview, bytes);
 }
 
 bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
     bytes.clear(); Codec c{bytes,false};
-    std::uint32_t version=1; c.scalar(version); if(version!=1)c.ok=false;
+    const bool extended_rule_state = r.activity_rules_configured_ ||
+        !r.pending_rule_decisions_.empty() ||
+        r.activity_authority_binding_.has_value();
+    // Keep the legacy v1 byte layout for Hub states that do not use the new
+    // authority-bound deterministic rules. This preserves existing reader
+    // compatibility for ordinary journal/checkpoint updates. Once a signed
+    // Home/epoch binding or pending publication intent exists, store the
+    // complete v3 authority and decision state atomically in the checkpoint.
+    std::uint32_t version = extended_rule_state ? 3 : 1;
+    c.scalar(version);
     c.scalar(r.routine_.config_.start_at);
     c.scalar(r.routine_.config_.end_at);
     c.scalar(r.routine_.config_.grace_end_at);
@@ -116,6 +134,8 @@ bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
     c.scalar(r.activity_state_.post_door_inactivity_alerted);
     c.scalar(r.activity_state_.monitoring_started_at);
     c.scalar(r.activity_state_.last_activity_at);
+    if (version >= 3)
+        c.scalar(r.activity_state_.last_activity_time_trusted);
     c.scalar(r.activity_state_.door_opened_at);
     c.scalar(r.activity_state_.morning_started_at);
     c.scalar(r.activity_state_.last_night_bathroom_at);
@@ -156,13 +176,43 @@ bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
         c.scalar(p.boot_count);
         c.scalar(p.brownout_count);
         if(c.reading && (!valid_power_telemetry(p)||!r.power_telemetry_.emplace(node,p).second))c.ok=false;
+    }
+    if (version >= 2) {
+        std::uint32_t decision_count=static_cast<std::uint32_t>(r.pending_rule_decisions_.size());
+        c.scalar(decision_count);
+        if(decision_count>32)c.ok=false;
+        for(std::uint32_t i=0;i<decision_count && c.ok;++i) {
+            auto& intent=r.pending_rule_decisions_[i];
+            c.scalar(intent.decision.kind); c.scalar(intent.decision.tone);
+            c.scalar(intent.decision.stable_key); c.scalar(intent.decision.reason);
+            c.scalar(intent.decision.duration_seconds); c.scalar(intent.decision.create);
+            c.scalar(intent.decision.resolves_prior); c.scalar(intent.decided_at);
+            c.scalar(intent.source_event_key); c.scalar(intent.origin_home_id);
+            c.scalar(intent.origin_hub_device_id); c.scalar(intent.origin_ownership_epoch);
+        }
+    }
+    if (version >= 3) {
+        bool has_activity_authority = r.activity_authority_binding_.has_value();
+        c.scalar(has_activity_authority);
+        std::string activity_home;
+        std::string activity_hub;
+        std::uint64_t activity_epoch = 0;
+        if (has_activity_authority) {
+            const auto& binding = *r.activity_authority_binding_;
+            activity_home = binding.home_id;
+            activity_hub = binding.hub_device_id;
+            activity_epoch = binding.ownership_epoch;
+            if (activity_home.empty() || activity_hub.empty() || activity_epoch == 0)
+                c.ok = false;
+        }
+        c.scalar(activity_home); c.scalar(activity_hub); c.scalar(activity_epoch);
     }
     return c.ok && bytes.size()<=64U*1024U;
 }
 bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& input) {
     if(input.size()>64U*1024U)return false;
     security::Bytes bytes=input; HubRuntime r(0,0); Codec c{bytes,true};
-    std::uint32_t version=1; c.scalar(version); if(version!=1)c.ok=false;
+    std::uint32_t version=0; c.scalar(version); if(version<1 || version>3)c.ok=false;
     c.scalar(r.routine_.config_.start_at);
     c.scalar(r.routine_.config_.end_at);
     c.scalar(r.routine_.config_.grace_end_at);
@@ -214,6 +264,8 @@ bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& inpu
     c.scalar(r.activity_state_.post_door_inactivity_alerted);
     c.scalar(r.activity_state_.monitoring_started_at);
     c.scalar(r.activity_state_.last_activity_at);
+    if (version >= 3)
+        c.scalar(r.activity_state_.last_activity_time_trusted);
     c.scalar(r.activity_state_.door_opened_at);
     c.scalar(r.activity_state_.morning_started_at);
     c.scalar(r.activity_state_.last_night_bathroom_at);
@@ -255,13 +307,69 @@ bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& inpu
         c.scalar(p.brownout_count);
         if(c.reading && (!valid_power_telemetry(p)||!r.power_telemetry_.emplace(node,p).second))c.ok=false;
     }
+    if(version>=2) {
+        std::uint32_t decision_count=0; c.scalar(decision_count);
+        if(decision_count>32)c.ok=false;
+        std::set<std::string> decision_ids;
+        for(std::uint32_t i=0;i<decision_count && c.ok;++i) {
+            HubRuleDecisionIntent intent;
+            c.scalar(intent.decision.kind); c.scalar(intent.decision.tone);
+            c.scalar(intent.decision.stable_key); c.scalar(intent.decision.reason);
+            c.scalar(intent.decision.duration_seconds); c.scalar(intent.decision.create);
+            c.scalar(intent.decision.resolves_prior); c.scalar(intent.decided_at);
+            c.scalar(intent.source_event_key); c.scalar(intent.origin_home_id);
+            c.scalar(intent.origin_hub_device_id); c.scalar(intent.origin_ownership_epoch);
+            const auto kind=static_cast<unsigned>(intent.decision.kind);
+            const auto tone=static_cast<unsigned>(intent.decision.tone);
+            const HubRuleDecisionRequest request{intent.decision,intent.decided_at,
+                                                  intent.source_event_key};
+            const bool unbound=intent.origin_home_id.empty() &&
+                intent.origin_hub_device_id.empty() && intent.origin_ownership_epoch==0;
+            const bool bound=!intent.origin_home_id.empty() &&
+                !intent.origin_hub_device_id.empty() && intent.origin_ownership_epoch!=0;
+            if(kind>static_cast<unsigned>(RuleSignalKind::MissingMorningActivity) ||
+               tone>static_cast<unsigned>(RuleTone::Concern) || !intent.decision.create ||
+               intent.decided_at<=0 || intent.decision.duration_seconds<0 ||
+               intent.decision.stable_key.empty() || intent.decision.stable_key.size()>256 ||
+               intent.decision.reason.empty() || intent.decision.reason.size()>96 ||
+               intent.source_event_key.size()>256 || (!unbound && !bound) ||
+               request.json_body().empty() ||
+               !decision_ids.insert(intent.decision_id()).second) c.ok=false;
+            if(c.ok) r.pending_rule_decisions_.push_back(std::move(intent));
+        }
+    }
+    if (version >= 3) {
+        bool has_activity_authority = false;
+        std::string home_id, hub_device_id;
+        std::uint64_t ownership_epoch = 0;
+        c.scalar(has_activity_authority);
+        c.scalar(home_id); c.scalar(hub_device_id); c.scalar(ownership_epoch);
+        if (has_activity_authority) {
+            if (home_id.empty() || hub_device_id.empty() || ownership_epoch == 0)
+                c.ok = false;
+            else
+                r.activity_authority_binding_ = CloudAuthorityBinding{
+                    std::move(home_id), std::move(hub_device_id), ownership_epoch};
+        } else if (!home_id.empty() || !hub_device_id.empty() || ownership_epoch != 0) {
+            c.ok = false;
+        }
+    } else if (r.activity_state_.last_activity_at.has_value()) {
+        // Older checkpoints cannot prove whether this timestamp came from an
+        // authenticated Hub clock. Keep it for chronology but do not use it
+        // for timer-driven inactivity until a trusted event resets the flag.
+        r.activity_state_.last_activity_time_trusted = false;
+    }
+    r.activity_rules_configured_ = version >= 2;
     if(!c.ok || c.at!=bytes.size() || r.routine_.config_.window_id!=r.routine_.state_.window_id ||
        static_cast<unsigned>(r.routine_.state_.mode)>static_cast<unsigned>(HomeMode::Privacy)||
        static_cast<unsigned>(r.routine_.state_.coverage)>static_cast<unsigned>(CoverageState::Fault)||
        r.coverage_.lease_seconds_<=0)return false;
     target.routine_=std::move(r.routine_);target.coverage_=std::move(r.coverage_);
     target.activity_config_=std::move(r.activity_config_);target.activity_state_=std::move(r.activity_state_);
+    target.activity_rules_configured_=r.activity_rules_configured_;
+    target.activity_authority_binding_=std::move(r.activity_authority_binding_);
     target.power_telemetry_=std::move(r.power_telemetry_);
+    target.pending_rule_decisions_=std::move(r.pending_rule_decisions_);
     // Hub boot ticks cannot refresh a Node lease from the previous boot.
     // Registry/session authority is independently restored by the security owner.
     target.last_authenticated_contact_ms_.clear();target.node_health_.clear();

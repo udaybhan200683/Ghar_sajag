@@ -5,6 +5,7 @@
 #endif
 
 #include "gs40_test_only_bootstrap.hpp"
+#include "firmware/hub/runtime/hub_runtime.hpp"
 #include "esp_err.h"
 
 namespace gs::hub::target {
@@ -13,6 +14,13 @@ namespace gs::hub::target {
 // TEST_ONLY public config-signing key embedded by the isolated build profile.
 esp_err_t gs40_test_only_receive_config(Gs40TestOnlyRuntimeConfig& config);
 esp_err_t gs40_test_only_connect_wifi(Gs40TestOnlyRuntimeConfig& config);
+bool gs40_test_only_apply_activity_home(
+    const Gs40TestOnlyRuntimeConfig& config,
+    const CloudAuthorityBinding& current_authority,
+    HubRuntime& runtime);
+bool gs40_test_only_local_minute(const Gs40TestOnlyRuntimeConfig& config,
+                                 EpochSeconds trusted_utc,
+                                 std::uint16_t& local_minute);
 esp_err_t gs40_test_only_refresh_time(
     const Gs40TestOnlyRuntimeConfig& config,
     AuthenticatedHubTimeProvider& time_provider);

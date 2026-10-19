@@ -52,7 +52,11 @@ def encode_config(challenge: bytes, target_public: bytes, fields: dict[int, byte
     Caller must identify/authorize a fixture before delivering this frame. This
     pure sender neither identifies a board nor opens a port.
     """
-    if len(challenge) != 32 or not any(challenge) or set(fields) != set(range(1, 17)):
+    base_fields = set(range(1, 17))
+    rule_fields = set(range(17, 21))
+    supplied = set(fields)
+    if (len(challenge) != 32 or not any(challenge) or
+            supplied not in (base_fields, base_fields | rule_fields)):
         raise ValueError("invalid_fixture_challenge_or_fields")
     if not isinstance(signer, rsa.RSAPrivateKey) or signer.key_size != 3072:
         raise ValueError("test_config_rsa3072_signer_required")
@@ -65,8 +69,15 @@ def encode_config(challenge: bytes, target_public: bytes, fields: dict[int, byte
         raise ValueError("isolated_test_origin_required")
     if not fields[9].startswith(b"test-hub-"):
         raise ValueError("test_identity_required")
-    plaintext = b"G40P\x01" + b"".join(bytes([i]) + struct.pack(">H", len(fields[i])) + fields[i]
-                                        for i in range(1, 17))
+    if supplied == base_fields | rule_fields:
+        if (not fields[17] or len(fields[17]) > 64 or
+                fields[18] != b"Etc/UTC" or len(fields[19]) < 40 or
+                len(fields[19]) > 512 or not fields[19].startswith(b"AR1") or
+                len(fields[20]) != 1 or fields[20][0] > 4):
+            raise ValueError("invalid_signed_home_rule_config")
+    plaintext = b"G40P\x01" + b"".join(
+        bytes([i]) + struct.pack(">H", len(fields[i])) + fields[i]
+        for i in sorted(fields))
     if len(plaintext) > 16384:
         raise ValueError("config_too_large")
     target = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), target_public)

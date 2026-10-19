@@ -41,6 +41,17 @@ HOME = "gs177-test-product"
 HUB = "test-hub-product"
 
 
+def _test_activity_rules_ar1():
+    def location(value):
+        encoded=value.encode("ascii")
+        return bytes([len(encoded)])+encoded
+    return (b"AR1\x1f" + struct.pack(">HHIHHIHHI",60,300,7200,480,1260,10800,
+        360,660,14400) + location("bedroom") + location("bathroom") +
+        location("kitchen") + struct.pack(">HH",1320,360) +
+        location("bathroom") + struct.pack(">H",4) + location("common") +
+        struct.pack(">HII",4,300,7200))
+
+
 class ProductStack:
     def __init__(self):
         self.temp = tempfile.TemporaryDirectory(prefix="GS178_TEST_ONLY_")
@@ -198,7 +209,8 @@ class ProductStack:
             7:struct.pack(">H",self.time.port), 8:self.time.public_key_der, 9:HUB.encode(),
             10:self.credential.certificate_pem, 11:self.key_pem, 12:self.credential.fingerprint.encode(),
             13:struct.pack(">Q", self.credential.generation), 14:struct.pack(">Q",1),
-            15:struct.pack(">Q",self.now+3600), 16:self.authority.public_key_der}
+            15:struct.pack(">Q",self.now+3600), 16:self.authority.public_key_der,
+            17:HOME.encode(), 18:b"Etc/UTC", 19:_test_activity_rules_ar1(), 20:b"\x00"}
         fields.update(config_fields or {})
         frame = encode_config(bytes.fromhex(challenge["nonce"]), bytes.fromhex(challenge["public"]), fields, self.config_signer)
         if transform is not None:

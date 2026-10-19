@@ -428,6 +428,168 @@ void checkpoint_tests() {
     require(!standalone.verify_event_identity(conflict,4),"conflicting immutable payload rejected");
     std::cout<<"checkpoint_bytes="<<recovered.checkpoint_bytes()<<" identity_bytes="<<recovered.identity_bytes()<<" records=4\n";
 }
+
+#ifndef GS148_OLD_READER
+void rule_decision_intent_crash_replay_test() {
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    StateFiles files;
+    DurableEventOutbox outbox(segments, crypto, key);
+    require(outbox.recover() == OutboxRecovery::Empty,
+            "rule decision fixture starts with empty durable outbox");
+    OutboxJournalBackend backend(outbox);
+    const gs::hub::CloudAuthorityBinding binding{"home-rule-test", "hub-rule-test", 7};
+    const auto fixture = [&](std::uint64_t sequence) {
+        auto value = event(sequence);
+        value.kind = gs::EventKind::DoorOpen;
+        value.sensor_type = gs::SensorType::Reed;
+        value.location = "front-door";
+        value.occurred_at = 1000;
+        value.received_at = 1000;
+        return value;
+    };
+    {
+        RuntimeStateStore state(files, crypto, key);
+        gs::hub::HubRuntime runtime(32, backend);
+        runtime.bind_runtime_state(state);
+        require(runtime.restore_from_journal(), "rule decision initial checkpoint restored");
+        runtime.authorize_node("room1", 42, true);
+        require(runtime.configure_home_activity(gs::ActivityRuleConfig{},
+                    gs::HomeMode::Home, binding),
+                "signed Home/epoch rule configuration checkpoints with reducer");
+        runtime.start_activity_monitor(1);
+        auto door_open = fixture(1);
+        require(runtime.radio_callback(door_open), "rule event admitted through HubRuntime");
+        // Fail only the reducer checkpoint, after the identity row and event
+        // body have committed. The node must not receive a durable ACK yet.
+        files.fail_replace = "application.head";
+        const auto processed = runtime.run_state_once(120, &binding);
+        require(processed && processed->ack == gs::AckClass::Rejected,
+                "checkpoint interruption prevents application ACK");
+    }
+    files.halted = false;
+    files.fail_replace.clear();
+    RuntimeStateStore recovered_state(files, crypto, key);
+    gs::hub::HubRuntime recovered(32, backend);
+    recovered.bind_runtime_state(recovered_state);
+    require(recovered.restore_from_journal(),
+            "replay rebuilds reducer and pending publication intent from original identity context");
+    const auto pending = recovered.pending_hub_rule_decisions();
+    require(pending.size() == 1 && pending.front().origin_bound() &&
+            pending.front().origin_binding() == binding &&
+            pending.front().decision.kind == gs::RuleSignalKind::UnexpectedDoorOpen &&
+            pending.front().source_event_key == fixture(1).key.str(),
+            "replayed rule decision is bound to original Home/epoch and source EventKey");
+    const gs::hub::HubRuleDecisionReceipt wrong_epoch{
+        pending.front().decision_id(), binding.home_id, binding.hub_device_id, 8};
+    require(!recovered.acknowledge_hub_rule_decision(wrong_epoch) &&
+            recovered.pending_hub_rule_decisions().size() == 1,
+            "receipt from a different ownership epoch cannot retire pending decision");
+    const gs::hub::CloudAuthorityBinding transferred_binding{
+        binding.home_id, binding.hub_device_id, binding.ownership_epoch + 1};
+    gs::ActivityRuleConfig transferred_rules;
+    transferred_rules.daytime_inactivity_enabled = true;
+    transferred_rules.daytime_start_minute = 0;
+    transferred_rules.daytime_end_minute = 1440;
+    transferred_rules.daytime_inactivity_seconds = 1;
+    require(recovered.configure_home_activity(transferred_rules,
+                gs::HomeMode::Home, transferred_binding) &&
+            !recovered.activity_state().monitoring_started_at &&
+            !recovered.activity_state().door_opened_at &&
+            recovered.pending_hub_rule_decisions().size() == 1 &&
+            recovered.pending_hub_rule_decisions().front().origin_binding() == binding,
+            "ownership-epoch change resets reducer state and retains old intent under old authority");
+    RuntimeStateStore transferred_state(files, crypto, key);
+    gs::hub::HubRuntime transferred(32, backend);
+    transferred.bind_runtime_state(transferred_state);
+    require(transferred.restore_from_journal(),
+            "transferred rule authority and reducer reset survive restart");
+    transferred.start_activity_monitor(500);
+    transferred.authorize_node("room1", 42, true);
+    auto stale_epoch_event = fixture(2);
+    require(transferred.radio_callback(stale_epoch_event),
+            "stale-epoch event remains durably admitted for local evidence");
+    const auto stale_result = transferred.run_state_once(120, &binding);
+    require(stale_result && stale_result->ack == gs::AckClass::Durable &&
+            stale_result->rule_signals.empty() &&
+            transferred.pending_hub_rule_decisions().size() == 1 &&
+            !transferred.activity_state().door_opened_at,
+            "stale Home epoch cannot advance or publish deterministic rule state");
+    auto uncertain_time_event = fixture(3);
+    uncertain_time_event.occurred_at = 1500;
+    uncertain_time_event.received_at = 1500;
+    require(transferred.radio_callback(uncertain_time_event),
+            "event is durably accepted when trusted clock is unavailable");
+    const auto uncertain_result = transferred.run_state_once(std::nullopt, nullptr);
+    require(uncertain_result && uncertain_result->ack == gs::AckClass::Durable &&
+            transferred.activity_state().last_activity_at == 1500 &&
+            !transferred.activity_state().last_activity_time_trusted &&
+            transferred.pending_hub_rule_decisions().size() == 1,
+            "clock-uncertain event preserves chronology without trusted timer authority");
+    require(transferred.activity_timers(1502, 120, true, &transferred_binding).empty() &&
+            transferred.pending_hub_rule_decisions().size() == 1,
+            "untrusted activity timestamp cannot create an inactivity concern after clock recovery");
+    auto current_epoch_event = fixture(4);
+    current_epoch_event.occurred_at = 3000;
+    current_epoch_event.received_at = 3000;
+    require(transferred.radio_callback(current_epoch_event),
+            "current-epoch event admitted");
+    const auto current_result = transferred.run_state_once(120, &transferred_binding);
+    require(current_result && current_result->ack == gs::AckClass::Durable &&
+            transferred.pending_hub_rule_decisions().size() == 2 &&
+            transferred.pending_hub_rule_decisions().back().origin_binding() ==
+                transferred_binding,
+            "current-epoch event creates a separately bound Hub decision");
+    const gs::hub::HubRuleDecisionReceipt committed{
+        pending.front().decision_id(), binding.home_id, binding.hub_device_id,
+        binding.ownership_epoch};
+    require(transferred.acknowledge_hub_rule_decision(committed) &&
+            transferred.pending_hub_rule_decisions().size() == 1,
+            "exact backend COMMITTED receipt atomically retires checkpointed intent");
+    RuntimeStateStore final_state(files, crypto, key);
+    gs::hub::HubRuntime final_runtime(32, backend);
+    final_runtime.bind_runtime_state(final_state);
+    require(final_runtime.restore_from_journal() &&
+            final_runtime.pending_hub_rule_decisions().size() == 1 &&
+            final_runtime.pending_hub_rule_decisions().front().origin_binding() ==
+                transferred_binding,
+            "retired old intent stays retired while the new-epoch decision survives restart");
+    const auto current_pending = final_runtime.pending_hub_rule_decisions();
+    const auto& current_intent = current_pending.front();
+    require(final_runtime.acknowledge_hub_rule_decision({current_intent.decision_id(),
+                transferred_binding.home_id, transferred_binding.hub_device_id,
+                transferred_binding.ownership_epoch}) &&
+            final_runtime.pending_hub_rule_decisions().empty(),
+            "new authority can retire only its exact committed decision");
+}
+#endif
+#ifndef GS148_OLD_READER
+void configured_activity_checkpoint_extension_test() {
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    DurableEventOutbox outbox(segments, crypto, key);
+    require(outbox.recover() == OutboxRecovery::Empty,
+            "configured activity checkpoint fixture starts empty");
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubRuntime runtime(32, backend);
+    require(runtime.configure_home_activity(gs::ActivityRuleConfig{}, gs::HomeMode::Home),
+            "unbound Home rule configuration accepted for local deterministic evaluation");
+    gs::security::Bytes encoded;
+    require(gs::hub::HubCheckpointCodec::encode(runtime, encoded) && encoded.size() >= 4 &&
+            encoded[0] == 3 && encoded[1] == 0 && encoded[2] == 0 && encoded[3] == 0,
+            "explicitly configured activity state uses the extended checkpoint schema");
+    gs::hub::HubRuntime recovered(32, backend);
+    require(gs::hub::HubCheckpointCodec::restore(recovered, encoded),
+            "extended configured activity checkpoint restores");
+    gs::security::Bytes reencoded;
+    require(gs::hub::HubCheckpointCodec::encode(recovered, reencoded) &&
+            reencoded.size() >= 4 && reencoded[0] == 3 && reencoded[1] == 0 &&
+            reencoded[2] == 0 && reencoded[3] == 0,
+            "configured-rule schema remains extended after restart without a pending intent");
+}
+#endif
 void interruption_tests() {
     gs::host::security::OpenSslCommissioningCrypto crypto;const auto key=storage_key();
     for(const auto& failure: {std::string("append"),std::string("identity.head")}) {
@@ -2267,6 +2429,10 @@ int main(int argc, char** argv) {
             return 0;
         }
 checkpoint_tests();interruption_tests();published_checkpoint_interruption();timer_and_scale_tests();
+#ifndef GS148_OLD_READER
+        rule_decision_intent_crash_replay_test();
+        configured_activity_checkpoint_extension_test();
+#endif
         backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
         segmented_lifecycle_reuse_tests();
         identity_compaction_planning_test();

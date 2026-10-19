@@ -131,6 +131,7 @@ gs40-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_GS40_HOST_TEST_
 gs40-test-only-bootstrap-test: build
 	$(HOST_CXX) $(CXXFLAGS) -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 $(INCLUDES) \
 		firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp \
+		firmware/hub/lifecycle/configuration/config_service.cpp \
 		tests/cpp/gs40_test_only_bootstrap_validation.cpp -lcrypto -o build/gs40_test_only_bootstrap_validation
 	./build/gs40_test_only_bootstrap_validation
 
@@ -184,7 +185,7 @@ registry-persistence-host-test: build $(call host_objects,$(GS116_REGISTRY_PERSI
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_REGISTRY_PERSISTENCE_HOST_TEST_HOST_SOURCES)) tests/cpp/registry_persistence_validation.cpp -lcrypto -o build/registry_persistence_validation
 	./build/registry_persistence_validation
 
-GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES := firmware/common/shared/src/logging.cpp firmware/common/shared/src/rules.cpp firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/storage/journal.cpp firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/durable_transition.cpp firmware/hub/storage/node_retirement_snapshot.cpp firmware/hub/storage/hub_durability_owner.cpp firmware/hub/event_processing/ingest/ingest.cpp firmware/hub/event_processing/coverage/coverage.cpp firmware/hub/routines/routine_service.cpp firmware/hub/runtime/hub_runtime.cpp firmware/hub/runtime/hub_checkpoint_codec.cpp firmware/hub/storage/runtime_state_store.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
+GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES := firmware/common/shared/src/logging.cpp firmware/common/shared/src/rules.cpp firmware/common/transport/data_plane_codec.cpp firmware/common/transport/node_retirement_protocol.cpp firmware/hub/storage/journal.cpp firmware/hub/storage/durable_event_outbox.cpp firmware/hub/storage/durable_transition.cpp firmware/hub/storage/node_retirement_snapshot.cpp firmware/hub/storage/hub_durability_owner.cpp firmware/hub/event_processing/ingest/ingest.cpp firmware/hub/event_processing/coverage/coverage.cpp firmware/hub/routines/routine_service.cpp firmware/hub/cloud_sync/cloud_sync.cpp firmware/hub/runtime/hub_runtime.cpp firmware/hub/runtime/hub_checkpoint_codec.cpp firmware/hub/storage/runtime_state_store.cpp tests/support/host/security/openssl_commissioning_crypto.cpp
 HOST_TEST_OBJECTS += $(call host_objects,$(GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES))
 hub-journal-persistence-host-test: build $(call host_objects,$(GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES))
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) $(call host_objects,$(GS116_HUB_JOURNAL_PERSISTENCE_HOST_TEST_HOST_SOURCES)) tests/cpp/hub_journal_persistence_validation.cpp -lcrypto -o build/hub_journal_persistence_validation

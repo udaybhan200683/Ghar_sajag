@@ -30,7 +30,7 @@ public:
     NodeHealthReply submit_node_health(const CloudAuthorityBinding& binding,
                                        const NodeHealthPublication& publication) override;
     HubRuleDecisionReply submit_hub_rule_decision(const CloudAuthorityBinding& binding,
-                                                  const HubRuleDecisionRequest& request);
+                                                  const HubRuleDecisionRequest& request) override;
     // Retry the exact bytes recovered from the authenticated Hub-owned outbox.
     HubRuleDecisionReply submit_hub_rule_decision_body(const CloudAuthorityBinding& binding,
                                                        const std::string& decision_id,

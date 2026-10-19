@@ -218,12 +218,13 @@ bool RuntimeStateStore::save_checkpoint(const Bytes& plain, std::uint64_t bounda
 bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
         std::string& key, std::optional<std::uint16_t>& minute, Bytes& frame,
         security::Key32* event_digest, IdentityOwnerEvidence* owner,
-        std::uint64_t* actual_ordinal, const char* file) {
+        std::uint64_t* actual_ordinal, const char* file,
+        IdentityDecisionAuthorityContext* decision_authority) {
     std::uint8_t prefix[4]{};
     if(!files_.state_read(file,offset,prefix,4)) return false;
     const std::uint32_t n=std::uint32_t(prefix[0])|(std::uint32_t(prefix[1])<<8)|
         (std::uint32_t(prefix[2])<<16)|(std::uint32_t(prefix[3])<<24);
-    if(n<44 || n>512 || offset>maximum_identity_bytes-n-4) return false;
+    if(n<44 || n>764 || offset>maximum_identity_bytes-n-4) return false;
     frame.resize(n+4); std::copy_n(prefix,4,frame.begin());
     if(!files_.state_read(file,offset+4,frame.data()+4,n)) return false;
     std::uint64_t ordinal=0; Bytes plain;
@@ -231,8 +232,10 @@ bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
        (expected!=0 && ordinal!=expected)||plain.size()<35)
         return false;
     if(actual_ordinal)*actual_ordinal=ordinal;
+    if (decision_authority != nullptr) *decision_authority = {};
     const bool owner_format = (plain[0] & 0x80U) != 0;
-    if ((owner_format && (plain[0] & 0x7eU) != 0) || (!owner_format && plain[0] > 1))
+    const bool decision_context_format = (plain[0] & 0x40U) != 0;
+    if ((plain[0] & 0x3eU) != 0 || (decision_context_format && !owner_format))
         return false;
     const auto m=std::uint16_t(plain[1])|(std::uint16_t(plain[2])<<8);
     const bool has_minute = (plain[0] & 1U) != 0;
@@ -257,6 +260,31 @@ bool RuntimeStateStore::record_at(std::uint32_t offset, std::uint64_t expected,
         } else if (!parsed.authenticated()) return false;
         if (owner != nullptr) *owner = parsed;
         key_offset = 72;
+    }
+    if (decision_context_format) {
+        if (plain.size() < key_offset + 19) return false;
+        IdentityDecisionAuthorityContext parsed;
+        std::size_t at = key_offset;
+        if (plain[at++] != 1) return false;
+        const auto home_size = plain[at++];
+        if (home_size == 0 || home_size > 64 || at + home_size + 1 > plain.size())
+            return false;
+        parsed.home_id.assign(plain.begin() + at, plain.begin() + at + home_size);
+        at += home_size;
+        const auto hub_size = plain[at++];
+        if (hub_size == 0 || hub_size > 64 || at + hub_size + 16 > plain.size())
+            return false;
+        parsed.hub_device_id.assign(plain.begin() + at, plain.begin() + at + hub_size);
+        at += hub_size;
+        parsed.ownership_epoch = get(plain, at);
+        at += 8;
+        parsed.decided_at_utc = static_cast<EpochSeconds>(get(plain, at));
+        at += 8;
+        if (!parsed.bound()) return false;
+        key_offset = at;
+        if (decision_authority != nullptr) *decision_authority = std::move(parsed);
+    } else if (decision_authority != nullptr) {
+        *decision_authority = {};
     }
     key.assign(plain.begin()+key_offset,plain.end()); return !key.empty() && key.size()<=256;
 }
@@ -331,7 +359,7 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater,
         if(compacted_)std::copy_n(plain.begin()+17,32,expected_tail.begin());
         if(compacted_) {
             const auto row_limit=bytes_;
-            if(size<row_limit || size-row_limit>516)return fault();
+            if(size<row_limit || size-row_limit>768)return fault();
             while(offset<row_limit) {
                 if(!record_at(offset,0,key,minute,frame,nullptr,nullptr,&actual,
                               active_identity_file_.c_str()) || actual<=previous ||
@@ -357,7 +385,7 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater,
                 previous=actual;offset+=static_cast<std::uint32_t>(frame.size());
             }
             bytes_=offset;
-            if(size<bytes_ || size-bytes_>516)return fault();
+            if(size<bytes_ || size-bytes_>768)return fault();
             if(previous!=0 && (!crypto_.hmac_sha256(key_,frame,digest) ||
                !crypto_.constant_time_equal(digest.data(),plain.data(),32)))return fault();
             if(size>bytes_ && !files_.state_truncate(active_identity_file_.c_str(),bytes_))
@@ -368,7 +396,7 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater,
         return fault();
     }
     if(!found && exists) {
-        if(published_event_highwater!=0 || size>516 ||
+        if(published_event_highwater!=0 || size>768 ||
            !files_.state_truncate(active_identity_file_.c_str(),0))return fault();
     }
     Bytes checkpoint; std::uint64_t boundary=0; bool cp=false;
@@ -388,7 +416,8 @@ bool RuntimeStateStore::recover(std::uint64_t published_event_highwater,
     return true;
 }
 bool RuntimeStateStore::admission_workspace(const DomainEvent& event,
-        std::uint64_t ordinal, std::size_t checkpoint_size, std::uint64_t& workspace) {
+        std::uint64_t ordinal, std::size_t checkpoint_size, std::uint64_t& workspace,
+        const IdentityDecisionAuthorityContext* decision_authority) {
     workspace = 0;
     if (!healthy() || ordinal == 0 || checkpoint_size > maximum_checkpoint_bytes)
         return false;
@@ -398,9 +427,15 @@ bool RuntimeStateStore::admission_workspace(const DomainEvent& event,
     const auto rounded = [](std::uint64_t n) { return (n + 4095U) / 4096U * 4096U; };
     workspace = rounded(checkpoint_size + 41U);
     if (ordinal > count_) {
-        const auto row_bytes = 117U + canonical.size();
+        std::uint64_t row_bytes = 117U + canonical.size();
+        if (decision_authority != nullptr) {
+            if (!decision_authority->bound() || decision_authority->home_id.size() > 64 ||
+                decision_authority->hub_device_id.size() > 64) return false;
+            row_bytes += 19U + decision_authority->home_id.size() +
+                         decision_authority->hub_device_id.size();
+        }
         if (count_ == UINT64_MAX || ordinal != count_ + 1U ||
-            row_bytes > maximum_identity_bytes - bytes_) return false;
+            row_bytes > maximum_identity_bytes - bytes_ || row_bytes > 768U) return false;
         workspace += rounded(bytes_ + row_bytes) - rounded(bytes_) + 4096U;
         if (!reserve_identity_index(identity_index_size_ + 1U)) return false;
     }
@@ -411,20 +446,33 @@ bool RuntimeStateStore::admission_workspace(const DomainEvent& event,
 
 bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t ordinal,
                                          std::optional<std::uint16_t> minute,
-                                         const IdentityOwnerEvidence* owner) {
+                                         const IdentityOwnerEvidence* owner,
+                                         const IdentityDecisionAuthorityContext* decision_authority) {
     const auto& key=event.key;
     if(!healthy() || !ordinal || (minute && *minute>=1440) ||
-       (owner != nullptr && !owner->authenticated())) return false;
+       (owner != nullptr && !owner->authenticated()) ||
+       (decision_authority != nullptr && (!decision_authority->bound() ||
+        decision_authority->home_id.size() > 64 || decision_authority->hub_device_id.size() > 64))) return false;
     if(ordinal<=count_) {
         std::optional<std::uint16_t> existing;
-        return identity_context(key,ordinal,existing) && verify_event_identity(event,ordinal);
+        IdentityDecisionAuthorityContext existing_authority;
+        if (!identity_context(key,ordinal,existing,&event,&existing_authority) ||
+            !verify_event_identity(event,ordinal)) return false;
+        return decision_authority == nullptr ||
+            (existing_authority.home_id == decision_authority->home_id &&
+             existing_authority.hub_device_id == decision_authority->hub_device_id &&
+             existing_authority.ownership_epoch == decision_authority->ownership_epoch &&
+             existing_authority.decided_at_utc == decision_authority->decided_at_utc);
         // Retry uses the original decision context; accepted bytes are immutable.
     }
     if(ordinal!=count_+1) return fault();
     const auto canonical=key.str();
     if(canonical.empty() || canonical.size()>256) return false;
     if(!reserve_identity_index(identity_index_size_ + 1U)) return false;
-    Bytes plain{static_cast<std::uint8_t>(0x80U | (minute.has_value() ? 1U : 0U)),
+    const bool has_decision_authority = decision_authority != nullptr;
+    const bool has_owner_format = true; // Preserve the established authenticated owner-row layout.
+    Bytes plain{static_cast<std::uint8_t>((has_owner_format ? 0x80U : 0U) |
+                    (has_decision_authority ? 0x40U : 0U) | (minute.has_value() ? 1U : 0U)),
                 std::uint8_t(minute.value_or(0)),
                 std::uint8_t(minute.value_or(0)>>8)},blob,frame;
     Bytes payload;security::Key32 digest_of_event{};
@@ -432,28 +480,37 @@ bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t
        !crypto_.hmac_sha256(key_,payload,digest_of_event))return fault();
     crypto_.secure_zero(payload.data(),payload.size());
     plain.insert(plain.end(),digest_of_event.begin(),digest_of_event.end());
-    if (owner != nullptr) {
-        plain.push_back(owner->enrollment_slot);
+    if (has_owner_format) {
+        const IdentityOwnerEvidence empty_owner{};
+        const auto& stored_owner = owner != nullptr ? *owner : empty_owner;
+        plain.push_back(stored_owner.enrollment_slot);
         for (unsigned i = 0; i < 4; ++i)
-            plain.push_back(static_cast<std::uint8_t>(owner->enrollment_generation >> (i * 8U)));
-        plain.insert(plain.end(), owner->binding_digest.begin(), owner->binding_digest.end());
-    } else {
-        plain.push_back(0xff);
-        plain.insert(plain.end(), 4, 0);
-        plain.insert(plain.end(), 32, 0);
+            plain.push_back(static_cast<std::uint8_t>(stored_owner.enrollment_generation >> (i * 8U)));
+        plain.insert(plain.end(), stored_owner.binding_digest.begin(), stored_owner.binding_digest.end());
+    }
+    if (has_decision_authority) {
+        plain.push_back(1);
+        plain.push_back(static_cast<std::uint8_t>(decision_authority->home_id.size()));
+        plain.insert(plain.end(), decision_authority->home_id.begin(), decision_authority->home_id.end());
+        plain.push_back(static_cast<std::uint8_t>(decision_authority->hub_device_id.size()));
+        plain.insert(plain.end(), decision_authority->hub_device_id.begin(),
+                     decision_authority->hub_device_id.end());
+        u64(plain, decision_authority->ownership_epoch);
+        u64(plain, static_cast<std::uint64_t>(decision_authority->decided_at_utc));
     }
     plain.insert(plain.end(),canonical.begin(),canonical.end());
     if(!seal(1,ordinal,plain,blob)) return fault();
     const auto n=blob.size(); frame={std::uint8_t(n),std::uint8_t(n>>8),std::uint8_t(n>>16),std::uint8_t(n>>24)};
     frame.insert(frame.end(),blob.begin(),blob.end());
-    if(frame.size()>maximum_identity_bytes-bytes_) return false;
+    if(frame.size()>768U || frame.size()>maximum_identity_bytes-bytes_) return false;
     security::Key32 digest{}; Bytes head;
     if(!crypto_.hmac_sha256(key_,frame,digest)||
        !seal(2,ordinal,Bytes(digest.begin(),digest.end()),head)||
        !files_.state_append_sync(active_identity_file_.c_str(),frame)) return fault();
     Bytes verify; std::string exact; std::optional<std::uint16_t> m;
+    IdentityDecisionAuthorityContext verified_context;
     if(!record_at(bytes_,ordinal,exact,m,verify,nullptr,nullptr,nullptr,
-                  active_identity_file_.c_str())||verify!=frame) return fault();
+                  active_identity_file_.c_str(),&verified_context)||verify!=frame) return fault();
     if(compacted_) {
         Bytes root{'G','I','C',1,active_slot_};u64(root,ordinal);
         u32(root,bytes_+static_cast<std::uint32_t>(frame.size()));
@@ -470,14 +527,15 @@ bool RuntimeStateStore::prepare_identity(const DomainEvent& event, std::uint64_t
     count_=ordinal; bytes_+=frame.size(); return true;
 }
 bool RuntimeStateStore::identity_context(const EventKey& key, std::uint64_t ordinal,
-                                         std::optional<std::uint16_t>& minute, const DomainEvent* expected_event) {
+        std::optional<std::uint16_t>& minute, const DomainEvent* expected_event,
+        IdentityDecisionAuthorityContext* decision_authority) {
     if(!healthy() || ordinal==0 || ordinal>count_) return false;
     std::uint64_t indexed_ordinal=0;std::uint32_t offset=0;bool found=false;
     if(!find_identity_index(key.str(),indexed_ordinal,offset,found))return false;
     if(!found || indexed_ordinal!=ordinal)return false;
     Bytes frame;std::string exact;security::Key32 expected{};
     if(!record_at(offset,ordinal,exact,minute,frame,&expected,nullptr,nullptr,
-                  active_identity_file_.c_str()))return fault();
+                  active_identity_file_.c_str(),decision_authority))return fault();
     if(expected_event){
         Bytes payload;security::Key32 digest{};
         if(!HubJournal::encode_event_payload(*expected_event,payload)||
@@ -490,13 +548,15 @@ bool RuntimeStateStore::identity_context(const EventKey& key, std::uint64_t ordi
 }
 bool RuntimeStateStore::lookup_identity(const DomainEvent& event, std::uint64_t& ordinal,
         std::optional<std::uint16_t>& local_minute, bool& found, bool& payload_matches,
-        IdentityOwnerEvidence* owner, security::Key32* payload_digest) {
+        IdentityOwnerEvidence* owner, security::Key32* payload_digest,
+        IdentityDecisionAuthorityContext* decision_authority) {
     ordinal = 0;
     local_minute.reset();
     found = false;
     payload_matches = false;
     if (owner != nullptr) *owner = {};
     if (payload_digest != nullptr) payload_digest->fill(0);
+    if (decision_authority != nullptr) *decision_authority = {};
     if (!healthy()) return false;
     Bytes event_payload;
     security::Key32 expected_digest{};
@@ -520,7 +580,7 @@ bool RuntimeStateStore::lookup_identity(const DomainEvent& event, std::uint64_t&
     std::optional<std::uint16_t> minute;
     security::Key32 stored_digest{};
     if (!record_at(offset, ordinal, exact, minute, frame, &stored_digest, owner,nullptr,
-                   active_identity_file_.c_str()) ||
+                   active_identity_file_.c_str(), decision_authority) ||
         exact != event.key.str()) {
         crypto_.secure_zero(expected_digest.data(), expected_digest.size());
         crypto_.secure_zero(stored_digest.data(), stored_digest.size());
@@ -588,7 +648,8 @@ bool RuntimeStateStore::plan_identity_compaction(
         std::uint64_t ordinal=0;
         if (!record_at(offset, compacted_ ? 0 : row+1, record.event_key,
                        record.local_minute, frame, &record.payload_digest,
-                       &record.owner,&ordinal,active_identity_file_.c_str()) ||
+                       &record.owner,&ordinal,active_identity_file_.c_str(),
+                       &record.decision_authority) ||
             ordinal==0 || ordinal>count_) {
             plan.blocked_records = 1;
             crypto_.secure_zero(chain.data(), chain.size());
@@ -633,6 +694,17 @@ bool RuntimeStateStore::plan_identity_compaction(
         for (unsigned i = 0; i < 4; ++i)
             next.push_back(static_cast<std::uint8_t>(record.owner.enrollment_generation >> (i * 8U)));
         next.insert(next.end(), record.owner.binding_digest.begin(), record.owner.binding_digest.end());
+        next.push_back(record.decision_authority.bound() ? 1 : 0);
+        if (record.decision_authority.bound()) {
+            next.push_back(static_cast<std::uint8_t>(record.decision_authority.home_id.size()));
+            next.insert(next.end(), record.decision_authority.home_id.begin(),
+                        record.decision_authority.home_id.end());
+            next.push_back(static_cast<std::uint8_t>(record.decision_authority.hub_device_id.size()));
+            next.insert(next.end(), record.decision_authority.hub_device_id.begin(),
+                        record.decision_authority.hub_device_id.end());
+            u64(next, record.decision_authority.ownership_epoch);
+            u64(next, static_cast<std::uint64_t>(record.decision_authority.decided_at_utc));
+        }
         if (!crypto_.hmac_sha256(key_, next, plan.candidate_digest)) {
             crypto_.secure_zero(chain.data(), chain.size());
             crypto_.secure_zero(next.data(), next.size());

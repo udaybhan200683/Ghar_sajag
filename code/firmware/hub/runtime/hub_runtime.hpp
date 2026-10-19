@@ -20,6 +20,7 @@
 #include "storage/runtime_state_store.hpp"
 #include "storage/node_retirement_snapshot.hpp"
 #include "storage/durable_event_outbox.hpp"
+#include "cloud_sync/cloud_sync.hpp"
 
 #include <array>
 #include <cstddef>
@@ -151,7 +152,9 @@ public:
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Consume one admitted event, apply privacy policy, commit and update the reducer.
     // A duplicate journal identity does not repeat reducer effects.
-    std::optional<ProcessResult> run_state_once(std::optional<std::uint16_t> local_minute = std::nullopt);
+    std::optional<ProcessResult> run_state_once(
+        std::optional<std::uint16_t> local_minute = std::nullopt,
+        const CloudAuthorityBinding* decision_authority = nullptr);
     // Returns the original authenticated enrollment generation from the
     // encrypted identity ledger for this exact persisted event body.
     bool cloud_event_enrollment_generation(const DomainEvent& event,
@@ -159,12 +162,26 @@ public:
     // @requirements F04, F05, F06, F07, F08, F09, F10, E03, E06, AI05, NFR-01
     // Evaluate absence only with explicit clock and coverage state; full prompt/grace orchestration is
     // still G06.
-    IncidentDecision deadline(EpochSeconds now, bool clock_trusted);
+    IncidentDecision deadline(EpochSeconds now, bool clock_trusted,
+                              const CloudAuthorityBinding* decision_authority = nullptr);
     void configure_activity_rules(const ActivityRuleConfig& config);
+    // Apply the signed Home activity policy and mode as one checkpointed
+    // runtime update. Used by TEST_ONLY bootstrap; production callers still
+    // require the approved Home-configuration storage/provider.
+    bool configure_home_activity(const ActivityRuleConfig& config, HomeMode mode);
+    // Authority-bound form used by authenticated target configuration. A
+    // Home/epoch change starts a fresh reducer domain; pending decisions keep
+    // their original binding and are never reassigned.
+    bool configure_home_activity(const ActivityRuleConfig& config, HomeMode mode,
+                                 const CloudAuthorityBinding& authority);
     void set_mode(HomeMode mode);
     void start_activity_monitor(EpochSeconds at);
-    std::vector<RuleSignalDecision> activity_timers(EpochSeconds now, std::uint16_t local_minute,
-                                                   bool clock_trusted = true);
+    std::vector<RuleSignalDecision> activity_timers(
+        EpochSeconds now, std::uint16_t local_minute, bool clock_trusted = true,
+        const CloudAuthorityBinding* decision_authority = nullptr);
+    std::vector<HubRuleDecisionIntent> pending_hub_rule_decisions(
+        std::size_t limit = 8) const;
+    bool acknowledge_hub_rule_decision(const HubRuleDecisionReceipt& receipt);
     const ActivityRuleState& activity_state() const { return activity_state_; }
     std::optional<NodePowerTelemetry> latest_power_telemetry(const std::string& node_id) const {
         const auto it = power_telemetry_.find(node_id);
@@ -236,6 +253,10 @@ private:
     friend class HubCheckpointCodec;
     std::vector<RuleSignalDecision> apply_committed_event(
         const DomainEvent& event, std::optional<std::uint16_t> local_minute);
+    bool append_rule_decisions(const std::vector<RuleSignalDecision>& signals,
+                               EpochSeconds decided_at,
+                               const std::string& source_event_key,
+                               const CloudAuthorityBinding* authority);
     storage::RuntimeStateStore* runtime_state_{nullptr};
     bool checkpoint_fault_{false};
     bool replay_fence_ready_{false};
@@ -251,11 +272,14 @@ private:
     RoutineService routine_;
     ActivityRuleConfig activity_config_{};
     ActivityRuleState activity_state_{};
+    bool activity_rules_configured_{false};
+    std::optional<CloudAuthorityBinding> activity_authority_binding_;
     std::map<std::string, NodePowerTelemetry> power_telemetry_;
     std::map<std::string, AuthenticatedNodeHealth> node_health_;
     std::map<std::string, std::uint64_t> last_authenticated_contact_ms_;
     std::map<std::string, AuthenticatedCloudContact> cloud_contacts_;
     std::map<std::string, std::optional<std::uint32_t>> node_offline_timeouts_;
+    std::vector<HubRuleDecisionIntent> pending_rule_decisions_;
     bool state_applied_{false};
     bool journal_replayed_{false};
     bool replay_fence_fault_{false};

@@ -26,6 +26,8 @@ namespace gs::hub {
 
 class HubRuntime;
 struct CloudAuthorityBinding;
+struct HubRuleDecisionRequest;
+struct HubRuleDecisionReply;
 
 struct BackendCommitRequest {
     std::string home_id;
@@ -80,6 +82,8 @@ public:
                                                const NodeHealthPublication&) {
         return {};
     }
+    virtual HubRuleDecisionReply submit_hub_rule_decision(
+        const CloudAuthorityBinding&, const HubRuleDecisionRequest&);
 };
 
 struct CloudNodeEnrollment {
@@ -180,6 +184,28 @@ struct HubRuleDecisionReply {
     bool duplicate{false};
 };
 
+struct HubRuleDecisionIntent {
+    RuleSignalDecision decision;
+    EpochSeconds decided_at{0};
+    std::string source_event_key;
+    std::string origin_home_id;
+    std::string origin_hub_device_id;
+    std::uint64_t origin_ownership_epoch{0};
+    std::string decision_id() const;
+    bool origin_bound() const {
+        return !origin_home_id.empty() && !origin_hub_device_id.empty() &&
+               origin_ownership_epoch != 0;
+    }
+    CloudAuthorityBinding origin_binding() const;
+};
+
+struct HubRuleDecisionReceipt {
+    std::string decision_id;
+    std::string home_id;
+    std::string hub_device_id;
+    std::uint64_t ownership_epoch{0};
+};
+
 class CloudAuthoritySource {
 public:
     virtual ~CloudAuthoritySource() = default;
@@ -246,11 +272,21 @@ public:
     CloudSyncWorker(HubJournal& journal, HubRuntime& runtime,
                     CloudAuthoritySource& authority, CloudBackendTransport& transport);
     CloudWorkerResult run_once(bool network_ready, Milliseconds now_ms,
-                               std::size_t limit = 4);
+                               std::size_t limit = 4,
+                               bool include_live_node_health = true);
     // Split owner-thread capture from bounded network I/O. The capture method
     // never sends; the network method never reads HubRuntime or the journal.
     bool refresh_node_health_snapshot(Milliseconds now_ms);
     CloudWorkerResult run_node_health_once(bool network_ready, Milliseconds now_ms);
+    // Owner-task snapshot and receipt handoff keep the network worker away from
+    // mutable HubRuntime and checkpoint state.
+    bool refresh_hub_rule_decision_snapshot();
+    CloudWorkerResult run_hub_rule_decision_once(bool network_ready,
+                                                  Milliseconds now_ms,
+                                                  std::size_t limit = 2);
+    bool take_hub_rule_decision_receipts(std::vector<HubRuleDecisionReceipt>& out);
+    void finish_hub_rule_decision_receipt(const HubRuleDecisionReceipt& receipt,
+                                          bool checkpointed);
 private:
     bool same_authority(const CloudAuthorityBinding& expected);
     HubJournal& journal_;
@@ -266,6 +302,13 @@ private:
     std::map<std::string, HealthRetry> node_health_retries_;
     std::map<std::string, std::pair<std::uint64_t, std::uint64_t>>
         node_health_accepted_revisions_;
+    mutable std::mutex rule_decision_mutex_;
+    std::vector<HubRuleDecisionIntent> rule_decision_snapshot_;
+    std::vector<HubRuleDecisionReceipt> rule_decision_receipts_;
+    std::map<std::string, HealthRetry> rule_decision_retries_;
+    std::set<std::string> rule_decision_receipts_waiting_owner_;
+    std::optional<CloudAuthorityBinding> rule_decision_pinned_;
+    bool rule_decision_authority_changed_{false};
 };
 
 }  // namespace gs::hub

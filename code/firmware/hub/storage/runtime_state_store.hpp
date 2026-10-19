@@ -12,6 +12,24 @@ struct IdentityOwnerEvidence {
     std::array<std::uint8_t, 32> binding_digest{};
     bool authenticated() const;
 };
+// Authenticated per-event context used to reproduce Hub-owned rule decisions
+// when a committed event is replayed after interruption. It is sealed in the
+// same identity row as the event digest; replay cannot rebind old work to a
+// later Home or use a newer clock value.
+struct IdentityDecisionAuthorityContext {
+    std::string home_id;
+    std::string hub_device_id;
+    std::uint64_t ownership_epoch{0};
+    EpochSeconds decided_at_utc{0};
+    bool bound() const {
+        return !home_id.empty() && !hub_device_id.empty() &&
+               ownership_epoch != 0 && decided_at_utc > 0;
+    }
+    bool empty() const {
+        return home_id.empty() && hub_device_id.empty() &&
+               ownership_epoch == 0 && decided_at_utc == 0;
+    }
+};
 struct IdentityCompactionRecord {
     std::string event_key;
     std::uint64_t original_ordinal{0};
@@ -19,6 +37,7 @@ struct IdentityCompactionRecord {
     std::optional<std::uint16_t> local_minute;
     security::Key32 payload_digest{};
     IdentityOwnerEvidence owner{};
+    IdentityDecisionAuthorityContext decision_authority{};
 };
 enum class IdentityCompactionDisposition : std::uint8_t { Retain, Fenced, Blocked };
 struct IdentityCompactionPlan {
@@ -84,13 +103,16 @@ public:
     // Reserve the immediate identity/head/checkpoint workspace under the
     // existing single writer. Predictable refusal never publishes an identity.
     bool admission_workspace(const DomainEvent&, std::uint64_t ordinal,
-                             std::size_t checkpoint_size, std::uint64_t& bytes);
+                             std::size_t checkpoint_size, std::uint64_t& bytes,
+                             const IdentityDecisionAuthorityContext* = nullptr);
     bool prepare_identity(const DomainEvent&, std::uint64_t ordinal,
                           std::optional<std::uint16_t> local_minute,
-                          const IdentityOwnerEvidence* owner = nullptr);
+                          const IdentityOwnerEvidence* owner = nullptr,
+                          const IdentityDecisionAuthorityContext* = nullptr);
     bool identity_context(const EventKey&, std::uint64_t ordinal,
                           std::optional<std::uint16_t>& local_minute,
-                          const DomainEvent* expected_event = nullptr);
+                          const DomainEvent* expected_event = nullptr,
+                          IdentityDecisionAuthorityContext* = nullptr);
     // Finds exact retry identities independently of outbox body retention.
     // `payload_matches` is false when an authenticated key is reused with
     // different immutable event contents; callers must reject that conflict.
@@ -98,7 +120,8 @@ public:
                          std::optional<std::uint16_t>& local_minute,
                          bool& found, bool& payload_matches,
                          IdentityOwnerEvidence* owner = nullptr,
-                         security::Key32* payload_digest = nullptr);
+                         security::Key32* payload_digest = nullptr,
+                         IdentityDecisionAuthorityContext* = nullptr);
     // Exact identities, no contiguous watermark across sequence gaps. Body
     // eligibility is separate; this ledger never expires evidence in Phase 1.
     bool contains_identity(const EventKey&, bool& found);
@@ -140,7 +163,8 @@ private:
                    security::Key32* event_digest = nullptr,
                    IdentityOwnerEvidence* owner = nullptr,
                    std::uint64_t* actual_ordinal = nullptr,
-                   const char* file = "identity.log");
+                   const char* file = "identity.log",
+                   IdentityDecisionAuthorityContext* = nullptr);
     bool reserve_identity_index(std::size_t required);
     bool insert_identity_index(const std::string& key, std::uint64_t ordinal,
                                std::uint32_t offset);

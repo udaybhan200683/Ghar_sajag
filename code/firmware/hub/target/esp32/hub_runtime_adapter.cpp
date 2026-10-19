@@ -215,9 +215,20 @@ void cloud_node_health_task(void* opaque) {
     }
     for (;;) {
         const auto now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
-        const auto result = context.worker->run_node_health_once(cloud_wan_ready(), now_ms);
+        const bool network_ready = cloud_wan_ready();
+        // Durable Node events retain first priority. Current-state health and
+        // Hub-owned derived decisions use their existing bounded channels
+        // after the durable event batch has had its turn.
+        const auto events = context.worker->run_once(network_ready, now_ms, 4, false);
+        if (events.state == CloudWorkerState::AuthorityChanged)
+            ESP_LOGE(kTag, "Cloud event worker stopped after Hub/Home/epoch authority change");
+        const auto result = context.worker->run_node_health_once(network_ready, now_ms);
         if (result.state == CloudWorkerState::AuthorityChanged)
             ESP_LOGE(kTag, "Cloud NodeHealth stopped after Hub/Home/epoch authority change");
+        const auto decisions = context.worker->run_hub_rule_decision_once(
+            network_ready, now_ms, 2);
+        if (decisions.state == CloudWorkerState::AuthorityChanged)
+            ESP_LOGE(kTag, "Hub rule publication stopped after authority change");
         vTaskDelay(pdMS_TO_TICKS(kCloudSyncWorkerDelayMs));
     }
 }
@@ -921,6 +932,29 @@ void secure_owner_task(void*) {
         security_link, runtime, cloud_trust);
     CloudRuntimeAuthoritySource cloud_authority_source(cloud_authority);
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    bool test_activity_home_ready = false;
+    CloudAuthorityBinding initial_rule_binding;
+    if (cloud_trust.current_binding(initial_rule_binding) &&
+        gs40_test_only_apply_activity_home(test_material->config(),
+                                           initial_rule_binding, runtime)) {
+        test_activity_home_ready = true;
+        TrustedHubTimeSnapshot initial_time;
+        const auto initial_now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
+        std::uint16_t initial_local_minute = 0;
+        if (cloud_trust.trusted_hub_time(initial_now_ms, initial_time) &&
+            initial_time.trusted && initial_time.monotonic_ms == initial_now_ms &&
+            initial_time.boot_generation != 0 && initial_time.utc_now > 0 &&
+            gs40_test_only_local_minute(test_material->config(), initial_time.utc_now,
+                                        initial_local_minute) &&
+            !runtime.activity_state().monitoring_started_at) {
+            runtime.start_activity_monitor(initial_time.utc_now);
+            if (!runtime.durable_admission_open()) test_activity_home_ready = false;
+        }
+    }
+    if (!test_activity_home_ready)
+        ESP_LOGW(kTag, "TEST_ONLY deterministic activity rules disabled: signed Home config, current lease or trusted time unavailable");
+#endif
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
     auto& cloud_channel = cloud_composition.cloud_channel;
 #else
     HttpsBackendChannel cloud_channel("", "", cloud_trust);
@@ -950,6 +984,7 @@ void secure_owner_task(void*) {
 #endif
     }
     std::uint64_t next_cloud_refresh_ms = 0;
+    std::uint64_t next_rule_evaluation_ms = 0;
 #endif
 
     std::map<HubSecurityLink::Mac, std::uint64_t> authorized;
@@ -1019,12 +1054,41 @@ void secure_owner_task(void*) {
         }
         const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
 #if CONFIG_IDF_TARGET_ESP32S3
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        if (test_activity_home_ready && now_ms >= next_rule_evaluation_ms) {
+            next_rule_evaluation_ms = now_ms + 5000U;
+            TrustedHubTimeSnapshot trusted_time;
+            CloudAuthorityBinding rule_binding;
+            std::uint16_t local_minute = 0;
+            if (cloud_trust.trusted_hub_time(static_cast<Milliseconds>(now_ms), trusted_time) &&
+                trusted_time.trusted && trusted_time.monotonic_ms == now_ms &&
+                trusted_time.boot_generation != 0 && trusted_time.utc_now > 0 &&
+                cloud_trust.current_binding(rule_binding) &&
+                rule_binding.home_id == test_material->config().activity_home_id &&
+                gs40_test_only_local_minute(test_material->config(), trusted_time.utc_now,
+                                            local_minute)) {
+                (void)runtime.activity_timers(trusted_time.utc_now, local_minute, true,
+                                              &rule_binding);
+            }
+        }
+#endif
         if (cloud_task_handle != nullptr && now_ms >= next_cloud_refresh_ms) {
             next_cloud_refresh_ms = now_ms + kCloudSyncRefreshMs;
             if (!cloud_worker.refresh_node_health_snapshot(
                     static_cast<Milliseconds>(now_ms))) {
                 // Missing identity, epoch, enrollment or trusted time remains
                 // UNKNOWN; local Node admission and durable ACK continue.
+            }
+            (void)cloud_worker.refresh_hub_rule_decision_snapshot();
+            std::vector<HubRuleDecisionReceipt> decision_receipts;
+            if (cloud_worker.take_hub_rule_decision_receipts(decision_receipts)) {
+                for (const auto& receipt : decision_receipts) {
+                    const bool checkpointed = runtime.acknowledge_hub_rule_decision(receipt);
+                    cloud_worker.finish_hub_rule_decision_receipt(receipt, checkpointed);
+                    if (!checkpointed)
+                        ESP_LOGE(kTag, "Hub decision COMMITTED receipt could not be checkpointed; exact intent remains pending");
+                }
+                (void)cloud_worker.refresh_hub_rule_decision_snapshot();
             }
         }
 #endif
@@ -1558,13 +1622,33 @@ void secure_owner_task(void*) {
         if (!decoded || decoded.value->node_id != node->logical_id) continue;
         transport::RetirementEnrollmentBinding event_owner{};
         if (!security_link.retirement_enrollment_binding(frame.source_mac, event_owner)) continue;
-        constexpr EpochSeconds hub_received_at = 0;  // No trusted clock yet.
+        EpochSeconds hub_received_at = 0;
+        std::optional<std::uint16_t> local_minute;
+        CloudAuthorityBinding rule_binding;
+        const CloudAuthorityBinding* decision_authority = nullptr;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        TrustedHubTimeSnapshot trusted_time;
+        const auto event_now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
+        if (cloud_trust.trusted_hub_time(event_now_ms, trusted_time) &&
+            trusted_time.trusted && trusted_time.monotonic_ms == event_now_ms &&
+            trusted_time.boot_generation != 0 && trusted_time.utc_now > 0) {
+            hub_received_at = trusted_time.utc_now;
+            std::uint16_t household_minute = 0;
+            if (test_activity_home_ready && cloud_trust.current_binding(rule_binding) &&
+                rule_binding.home_id == test_material->config().activity_home_id &&
+                gs40_test_only_local_minute(test_material->config(), trusted_time.utc_now,
+                                            household_minute)) {
+                local_minute = household_minute;
+                decision_authority = &rule_binding;
+            }
+        }
+#endif
         if (!runtime.authenticated_radio_message_callback(
                 *decoded.value, node->logical_id, node->device_id,
                 node->last_session, hub_received_at,
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000),
                 event_owner.slot, event_owner.generation, event_owner.digest)) continue;
-        const auto processed = runtime.run_state_once();
+        const auto processed = runtime.run_state_once(local_minute, decision_authority);
         if (!processed) continue;
 #if (GS_HIL_COMMISSIONING || GS_HIL_C8_ACK_HOLD || GS_HIL_SIGNED_FOTA) && CONFIG_IDF_TARGET_ESP32S3
         bool key_found = false;

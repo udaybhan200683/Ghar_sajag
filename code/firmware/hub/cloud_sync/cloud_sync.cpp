@@ -60,10 +60,23 @@ bool batch_before(const gs::DomainEvent& left, const gs::DomainEvent& right) {
 
 namespace gs::hub {
 
+HubRuleDecisionReply CloudBackendTransport::submit_hub_rule_decision(
+    const CloudAuthorityBinding&, const HubRuleDecisionRequest&) {
+    return {};
+}
+
 std::string HubRuleDecisionRequest::decision_id() const {
     if (decision.resolves_prior)
         return decision.stable_key + ":clear";
     return decision.stable_key;
+}
+
+std::string HubRuleDecisionIntent::decision_id() const {
+    return HubRuleDecisionRequest{decision, decided_at, source_event_key}.decision_id();
+}
+
+CloudAuthorityBinding HubRuleDecisionIntent::origin_binding() const {
+    return {origin_home_id, origin_hub_device_id, origin_ownership_epoch};
 }
 
 std::string HubRuleDecisionRequest::json_body() const {
@@ -517,7 +530,8 @@ bool CloudSyncWorker::same_authority(const CloudAuthorityBinding& expected) {
 }
 
 CloudWorkerResult CloudSyncWorker::run_once(bool network_ready, Milliseconds now_ms,
-                                            std::size_t limit) {
+                                            std::size_t limit,
+                                            bool include_live_node_health) {
     CloudWorkerResult result;
     if (journal_.storage_fault()) {
         result.state = CloudWorkerState::StorageFault;
@@ -588,7 +602,7 @@ CloudWorkerResult CloudSyncWorker::run_once(bool network_ready, Milliseconds now
     // supplied only by the trusted identity/time/profile adapter and has no
     // interaction with journal events, EventKeys, ACKs or Node retirement.
     std::vector<NodeHealthPublication> node_health;
-    if (same_authority(binding) && authority_.current_node_health(
+    if (include_live_node_health && same_authority(binding) && authority_.current_node_health(
             binding, runtime_, now_ms, node_health)) {
         if (node_health.size() <= 4) {
             for (const auto& publication : node_health) {
@@ -688,6 +702,152 @@ CloudWorkerResult CloudSyncWorker::run_node_health_once(bool network_ready,
     while (node_health_accepted_revisions_.size() > 10)
         node_health_accepted_revisions_.erase(node_health_accepted_revisions_.begin());
     return result;
+}
+
+bool CloudSyncWorker::refresh_hub_rule_decision_snapshot() {
+    // This method is called by the Hub owner. It is the only path that reads
+    // the runtime's checkpoint-backed decision queue.
+    auto pending = runtime_.pending_hub_rule_decisions(32);
+    std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+    std::set<std::string> still_pending;
+    for (const auto& intent : pending) still_pending.insert(intent.decision_id());
+    for (auto it = rule_decision_receipts_waiting_owner_.begin();
+         it != rule_decision_receipts_waiting_owner_.end();) {
+        if (still_pending.find(*it) == still_pending.end()) {
+            rule_decision_retries_.erase(*it);
+            it = rule_decision_receipts_waiting_owner_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    rule_decision_snapshot_ = std::move(pending);
+    return true;
+}
+
+CloudWorkerResult CloudSyncWorker::run_hub_rule_decision_once(
+        bool network_ready, Milliseconds now_ms, std::size_t limit) {
+    CloudWorkerResult result;
+    if (!network_ready) {
+        result.state = CloudWorkerState::Offline;
+        return result;
+    }
+    CloudAuthorityBinding binding;
+    if (!authority_.current_binding(binding) || binding.home_id.empty() ||
+        binding.hub_device_id.empty() || binding.ownership_epoch == 0) {
+        result.state = CloudWorkerState::AuthorityUnavailable;
+        return result;
+    }
+    std::vector<HubRuleDecisionIntent> snapshot;
+    {
+        std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+        if (rule_decision_authority_changed_ ||
+            (rule_decision_pinned_ && !(*rule_decision_pinned_ == binding))) {
+            rule_decision_authority_changed_ = true;
+            result.state = CloudWorkerState::AuthorityChanged;
+            return result;
+        }
+        if (!rule_decision_pinned_) rule_decision_pinned_ = binding;
+        snapshot = rule_decision_snapshot_;
+    }
+    result.state = CloudWorkerState::Ready;
+    constexpr Milliseconds delays[] = {1000, 5000, 30000, 120000, 300000};
+    std::size_t attempted = 0;
+    for (const auto& intent : snapshot) {
+        if (attempted >= std::min<std::size_t>(limit, 8)) break;
+        if (!intent.origin_bound() || !(intent.origin_binding() == binding)) {
+            ++result.refused_original;
+            continue;
+        }
+        const std::string id = intent.decision_id();
+        if (id.empty() || intent.decision_id().size() > 256) {
+            ++result.refused_original;
+            continue;
+        }
+        HubRuleDecisionRequest request{intent.decision, intent.decided_at,
+                                       intent.source_event_key};
+        if (request.decision_id() != id || request.json_body().empty()) {
+            ++result.refused_original;
+            continue;
+        }
+        HealthRetry retry;
+        {
+            std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+            if (rule_decision_receipts_waiting_owner_.count(id) != 0) continue;
+            const auto found = rule_decision_retries_.find(id);
+            if (found != rule_decision_retries_.end()) retry = found->second;
+        }
+        if (now_ms < retry.retry_after_ms) continue;
+
+        CloudAuthorityBinding before;
+        if (!authority_.current_binding(before) || !(before == binding)) {
+            std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+            rule_decision_authority_changed_ = true;
+            result.state = before.home_id.empty() ? CloudWorkerState::AuthorityUnavailable
+                                                   : CloudWorkerState::AuthorityChanged;
+            break;
+        }
+        const auto reply = transport_.submit_hub_rule_decision(binding, request);
+        ++attempted;
+        ++result.submitted;
+        CloudAuthorityBinding after;
+        if (!authority_.current_binding(after) || !(after == binding)) {
+            std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+            rule_decision_authority_changed_ = true;
+            result.state = after.home_id.empty() ? CloudWorkerState::AuthorityUnavailable
+                                                  : CloudWorkerState::AuthorityChanged;
+            break;
+        }
+        if (reply.status == HubRuleDecisionReplyStatus::Committed) {
+            HubRuleDecisionReceipt receipt{id, binding.home_id, binding.hub_device_id,
+                                           binding.ownership_epoch};
+            std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+            if (rule_decision_receipts_waiting_owner_.insert(id).second)
+                rule_decision_receipts_.push_back(std::move(receipt));
+            rule_decision_retries_.erase(id);
+            ++result.completed;
+            continue;
+        }
+        if (reply.status == HubRuleDecisionReplyStatus::AuthenticationFailure) {
+            // An authentication response never becomes local completion. The
+            // bounded durable item stays pending and authority must recover.
+            ++result.refused_original;
+            continue;
+        }
+        {
+            std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+            auto& state = rule_decision_retries_[id];
+            const auto delay = delays[std::min(state.failures,
+                                                std::size(delays) - 1U)];
+            if (state.failures < std::size(delays) - 1U) ++state.failures;
+            state.retry_after_ms = now_ms >
+                std::numeric_limits<Milliseconds>::max() - delay
+                ? std::numeric_limits<Milliseconds>::max() : now_ms + delay;
+        }
+        if (reply.status == HubRuleDecisionReplyStatus::Conflict)
+            ++result.refused_original;
+    }
+    return result;
+}
+
+bool CloudSyncWorker::take_hub_rule_decision_receipts(
+        std::vector<HubRuleDecisionReceipt>& out) {
+    std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+    if (rule_decision_receipts_.empty()) return false;
+    out.swap(rule_decision_receipts_);
+    return true;
+}
+
+void CloudSyncWorker::finish_hub_rule_decision_receipt(
+        const HubRuleDecisionReceipt& receipt, bool checkpointed) {
+    std::lock_guard<std::mutex> lock(rule_decision_mutex_);
+    rule_decision_receipts_waiting_owner_.erase(receipt.decision_id);
+    if (checkpointed) {
+        rule_decision_retries_.erase(receipt.decision_id);
+        return;
+    }
+    auto& state = rule_decision_retries_[receipt.decision_id];
+    state.failures = std::max<std::size_t>(state.failures, 1U);
+    state.retry_after_ms = 0;  // Retry the exact idempotent request immediately.
 }
 
 }  // namespace gs::hub
