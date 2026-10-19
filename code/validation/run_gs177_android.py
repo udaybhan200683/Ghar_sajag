@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import shutil
 import struct
 import subprocess
 import sys
+from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -157,9 +159,61 @@ def main() -> int:
         print("GS177 ANDROID DASHBOARD FAIL release_dev_override_policy_missing", flush=True)
         return 1
     backend_origin = os.environ.get("GS177_BACKEND_ORIGIN", "")
+    local_lan_test_only = os.environ.get("GS177_LOCAL_LAN_TEST_ONLY", "0")
+    if local_lan_test_only not in {"0", "1"}:
+        print("GS177 ANDROID BUILD FAIL invalid_local_lan_profile", flush=True)
+        return 1
     if not backend_origin:
         print("GS177 ANDROID BUILD BLOCKED dependency=approved_hosted_backend_origin", flush=True)
         return 127
+    if local_lan_test_only == "1":
+        try:
+            parsed = urlsplit(backend_origin)
+            address = ipaddress.ip_address(parsed.hostname or "")
+        except ValueError:
+            address = None
+            parsed = None
+        allowed = isinstance(address, ipaddress.IPv4Address) and any(
+            address in network for network in (
+                ipaddress.ip_network("10.0.0.0/8"),
+                ipaddress.ip_network("172.16.0.0/12"),
+                ipaddress.ip_network("192.168.0.0/16"),
+            )
+        )
+        if (not allowed or parsed.scheme != "https" or parsed.netloc != parsed.hostname or
+                parsed.path not in {"", "/"} or parsed.query or parsed.fragment):
+            print("GS177 ANDROID BUILD FAIL LAN_TEST_ONLY_requires_exact_RFC1918_HTTPS_origin", flush=True)
+            return 1
+        local_profile = PROJECT / "app/src/gs179LocalLan"
+        ca_path = local_profile / "res/raw/gs179_local_lan_test_ca.pem"
+        manifest_path = local_profile / "AndroidManifest.xml"
+        trust_path = local_profile / "res/xml/network_security_config.xml"
+        if not ca_path.is_file() or not manifest_path.is_file() or not trust_path.is_file():
+            print("GS177 ANDROID BUILD FAIL LAN_TEST_ONLY_CA_missing", flush=True)
+            return 1
+        try:
+            manifest = ET.parse(manifest_path).getroot()
+            application = manifest.find("application")
+            android_ns = "{http://schemas.android.com/apk/res/android}"
+            trust_config = ET.parse(trust_path).getroot()
+            domain_configs = trust_config.findall("domain-config")
+            domains = [node.text.strip() for group in domain_configs for node in group.findall("domain")
+                       if node.text]
+            ca_text = ca_path.read_text(encoding="ascii")
+        except (OSError, ET.ParseError, UnicodeError) as error:
+            print(f"GS177 ANDROID BUILD FAIL invalid_LAN_TEST_ONLY_trust_profile:{error}", flush=True)
+            return 1
+        has_test_ca = any(
+            node.attrib.get("src") == "@raw/gs179_local_lan_test_ca"
+            for group in domain_configs for anchors in group.findall("trust-anchors")
+            for node in anchors.findall("certificates")
+        )
+        if (domains != [parsed.hostname] or application is None or
+                application.attrib.get(android_ns + "networkSecurityConfig") != "@xml/network_security_config" or
+                not has_test_ca or "-----BEGIN CERTIFICATE-----" not in ca_text or
+                "-----END CERTIFICATE-----" not in ca_text):
+            print("GS177 ANDROID BUILD FAIL origin_not_exactly_bound_to_CA_pinned_LAN_profile", flush=True)
+            return 1
 
     valid, failure = validate_branding(app_root, app_pwa)
     if not valid:
@@ -180,7 +234,10 @@ def main() -> int:
         return 127
 
     rc, gradle_output = run(
-        [gradle, "--no-daemon", "--stacktrace", "--console=plain", f"-PcaregiverDebugBackendOrigin={backend_origin}", ":app:testDebugUnitTest", ":app:assembleDebug"],
+        [gradle, "--no-daemon", "--stacktrace", "--console=plain",
+         f"-PcaregiverDebugBackendOrigin={backend_origin}",
+         f"-Pgs179LocalLanTestOnly={str(local_lan_test_only == '1').lower()}",
+         ":app:testDebugUnitTest", ":app:assembleDebug"],
         cwd=PROJECT,
         emit_output=False,
     )

@@ -2,6 +2,16 @@ name: GS-177 branded Android caregiver APK build
 
 on:
   workflow_dispatch:
+    inputs:
+      backend_origin:
+        description: Exact HTTPS origin (private RFC1918 IPv4 is accepted only with GS-179 LAN TEST_ONLY enabled)
+        required: false
+        type: string
+      gs179_local_lan_test_only:
+        description: Build a debug-only APK for the owner-authorized local GS-179 server
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - feature/gs-177-caregiver-android
@@ -32,7 +42,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      GS177_BACKEND_ORIGIN: ${{ vars.GS177_BACKEND_ORIGIN || 'https://parivar-saathi-lite-staging.onrender.com' }}
+      GS177_BACKEND_ORIGIN: ${{ inputs.backend_origin || vars.GS177_BACKEND_ORIGIN || 'https://parivar-saathi-lite-staging.onrender.com' }}
+      GS177_LOCAL_LAN_TEST_ONLY: ${{ inputs.gs179_local_lan_test_only && '1' || '0' }}
       GS177_KEYSTORE_B64: ${{ secrets.GS177_KEYSTORE_B64 }}
       GS177_KEYSTORE_PASSWORD: ${{ secrets.GS177_KEYSTORE_PASSWORD }}
       GS177_KEY_ALIAS: ${{ secrets.GS177_KEY_ALIAS }}
@@ -65,6 +76,7 @@ jobs:
           cache-provider: basic
 
       - name: Prepare owner-controlled pilot signing key when supplied
+        if: env.GS177_LOCAL_LAN_TEST_ONLY != '1' && env.GS177_KEYSTORE_B64 != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -118,11 +130,17 @@ jobs:
             printf 'version_name=0.4.0-connected-lite-staging\n'
             printf 'gradle=8.9\njava=17\nandroid_compile_sdk=35\n'
             printf 'backend_origin=%s\n' "$GS177_BACKEND_ORIGIN"
+            printf 'gs179_local_lan_test_only=%s\n' "$GS177_LOCAL_LAN_TEST_ONLY"
+            if [[ "$GS177_LOCAL_LAN_TEST_ONLY" == '1' ]]; then
+              printf 'lan_test_ca_sha256=%s\n' "$(sha256sum code/parivar_saathi_android_app/android/app/src/gs179LocalLan/res/raw/gs179_local_lan_test_ca.pem | awk '{print $1}')"
+            fi
             printf 'backend_build_properties=caregiverDebugBackendOrigin|caregiverReleaseBackendOrigin\n'
             printf 'approved_logo_sha256=d0ff244d61b5cb047c320fc3af1028fa8e780186189a481657b8fea14b679441\n'
             printf 'bundled_ui=existing-tools/sim/pwa\n'
             printf 'push_notifications=disabled\nvoice_calling=disabled\n'
-            if [[ -n "${GS177_KEYSTORE_PATH:-}" ]]; then
+            if [[ "$GS177_LOCAL_LAN_TEST_ONLY" == '1' ]]; then
+              printf 'signing=runner-generated-debug-key; local-lan-test-only\n'
+            elif [[ -n "${GS177_KEYSTORE_PATH:-}" ]]; then
               printf 'signing=owner-controlled-pilot-key\n'
             else
               printf 'signing=runner-generated-debug-key; testing-only; uninstall-previous-may-be-required\n'

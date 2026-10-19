@@ -8,7 +8,36 @@ from io import BytesIO
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from connected_lite import HOME_ID, LiteApi, Store, bootstrap_admin, bootstrap_caregiver, rotate_password, run_scenario
+from connected_lite import (HOME_ID, LiteApi, Store, bootstrap_admin, bootstrap_caregiver,
+                            rotate_password, run_scenario, validate_public_origin)
+
+
+class PublicOriginPolicyTests(unittest.TestCase):
+    def test_private_ipv4_is_only_accepted_by_explicit_gs179_test_profile(self):
+        self.assertEqual(
+            validate_public_origin("https://192.168.1.6", test_only_lan=True,
+                                   monitoring_enabled=True),
+            "https://192.168.1.6",
+        )
+        for origin in (
+            "http://192.168.1.6", "https://8.8.8.8", "https://172.15.1.2",
+            "https://172.32.1.2", "https://127.0.0.1", "https://192.168.1.6/",
+            "https://user@192.168.1.6", "https://192.168.1.6:8443",
+            "https://care.gharsajag.in",
+        ):
+            with self.subTest(origin=origin), self.assertRaises(ValueError):
+                validate_public_origin(origin, test_only_lan=True, monitoring_enabled=True)
+        with self.assertRaisesRegex(ValueError, "requires_gs179_test_only_monitoring"):
+            validate_public_origin("https://192.168.1.6", test_only_lan=True,
+                                   monitoring_enabled=False)
+
+    def test_commercial_profile_still_requires_existing_exact_https_dns_origin(self):
+        self.assertEqual(validate_public_origin("https://care.gharsajag.in"),
+                         "https://care.gharsajag.in")
+        for origin in ("https://192.168.1.6", "https://8.8.8.8", "https://127.0.0.1",
+                       "https://[::1]"):
+            with self.subTest(origin=origin), self.assertRaises(ValueError):
+                validate_public_origin(origin)
 
 
 class ConnectedLiteTests(unittest.TestCase):

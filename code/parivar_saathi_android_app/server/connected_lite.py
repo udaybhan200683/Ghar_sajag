@@ -10,6 +10,7 @@ from hashlib import scrypt, sha256
 from hmac import compare_digest
 from io import BytesIO
 import json
+import ipaddress
 import logging
 import os
 from pathlib import Path
@@ -18,7 +19,7 @@ import secrets
 import sqlite3
 import sys
 import time
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 CODE = Path(__file__).resolve().parents[2]
@@ -617,13 +618,49 @@ def rotate_password(store: Store, email: str, password: str):
                   (int(time.time()), account["account_id"]))
 
 
-def build_app():
-    origin = os.environ.get("PUBLIC_ORIGIN", "")
+def validate_public_origin(origin: str, *, test_only_lan: bool = False,
+                           monitoring_enabled: bool = False) -> str:
+    """Validate the exact caregiver origin; private-IP trust is local TEST_ONLY only."""
+    if test_only_lan:
+        if not monitoring_enabled:
+            raise ValueError("local_lan_origin_requires_gs179_test_only_monitoring")
+        try:
+            parsed = urlsplit(origin)
+            address = ipaddress.ip_address(parsed.hostname or "")
+        except ValueError as error:
+            raise ValueError("local_lan_origin_requires_rfc1918_ipv4_https") from error
+        rfc1918 = any(address in network for network in (
+            ipaddress.ip_network("10.0.0.0/8"),
+            ipaddress.ip_network("172.16.0.0/12"),
+            ipaddress.ip_network("192.168.0.0/16"),
+        )) if isinstance(address, ipaddress.IPv4Address) else False
+        if (parsed.scheme != "https" or parsed.netloc != parsed.hostname or parsed.path or
+                parsed.query or parsed.fragment or not rfc1918):
+            raise ValueError("local_lan_origin_requires_rfc1918_ipv4_https")
+        return origin
+    try:
+        ipaddress.ip_address(urlsplit(origin).hostname or "")
+    except ValueError:
+        pass
+    else:
+        raise ValueError("PUBLIC_ORIGIN must use an approved public DNS hostname")
     if not re.fullmatch(r"https://[a-z0-9](?:[a-z0-9.-]{1,251}[a-z0-9])", origin) or ".." in origin:
         raise ValueError("PUBLIC_ORIGIN must be the exact approved HTTPS origin")
+    return origin
+
+
+def build_app():
+    profile = os.environ.get("GS179_TEST_ONLY_MONITORING", "0")
+    lan_profile = os.environ.get("GS179_LOCAL_LAN_TEST_ONLY", "0")
+    if lan_profile not in {"0", "1"}:
+        raise ValueError("invalid_gs179_local_lan_profile")
+    origin = validate_public_origin(
+        os.environ.get("PUBLIC_ORIGIN", ""),
+        test_only_lan=lan_profile == "1",
+        monitoring_enabled=profile == "1",
+    )
     store = Store(os.environ["DATABASE_URL"])
     product_view = None
-    profile = os.environ.get("GS179_TEST_ONLY_MONITORING", "0")
     if profile not in {"0", "1"}:
         raise ValueError("invalid_gs179_test_only_monitoring_profile")
     if profile == "1":

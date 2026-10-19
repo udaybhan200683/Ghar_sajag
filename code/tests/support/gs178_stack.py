@@ -1,5 +1,6 @@
 """Isolated real TLS/relational database/caregiver stack for Node-origin E2E."""
 import io
+import hashlib
 import json
 import mimetypes
 import os
@@ -51,20 +52,42 @@ def _test_activity_rules_ar1():
 
 
 class ProductStack:
-    def __init__(self, *, postgres_dsn=None):
-        if postgres_dsn is not None:
+    def __init__(self, *, postgres_dsn=None, persistent_postgres=False,
+                 home_id=None, hub_id=None, caregiver_email=None,
+                 caregiver_password=None, reuse_existing_test_home=False,
+                 reuse_existing_caregiver=False):
+        self.postgres_schema = None
+        self.postgres_url = None
+        if persistent_postgres:
+            if os.environ.get("GS179_LOCAL_PERSISTENT_POSTGRES") != "1" or not postgres_dsn:
+                raise ValueError("explicit_gs179_local_persistent_postgres_guard_required")
+            from gs179_postgres_test_db import local_verified_postgres_url
+            self.postgres_dsn = postgres_dsn
+            self.postgres_url = local_verified_postgres_url(postgres_dsn)
+        elif postgres_dsn is not None:
             from gs179_postgres_test_db import IsolatedPostgresSchema
             self.postgres_schema = IsolatedPostgresSchema(postgres_dsn)
+            self.postgres_dsn = self.postgres_schema.dsn
+            self.postgres_url = self.postgres_schema.url
         else:
-            self.postgres_schema = None
-        self.postgres_dsn = self.postgres_schema.dsn if self.postgres_schema else None
+            self.postgres_dsn = None
+        self.home_id = home_id or HOME
+        self.hub_id = hub_id or HUB
+        self.caregiver_email = caregiver_email or "owner@gs178.dev"
+        if persistent_postgres and not self.home_id.startswith("gs177-test-"):
+            raise ValueError("persistent_local_home_must_use_test_only_prefix")
+        if reuse_existing_caregiver and (not reuse_existing_test_home or not caregiver_password):
+            raise ValueError("existing_caregiver_reuse_requires_existing_persistent_home_and_password")
+        if reuse_existing_test_home and (
+                not persistent_postgres or self.home_id != HOME or self.hub_id != HUB):
+            raise ValueError("existing_local_fixture_reuse_is_limited_to_the_seeded_gs178_home")
         self.temp = tempfile.TemporaryDirectory(prefix="GS178_TEST_ONLY_")
         self.path = Path(self.temp.name)
         self._env = {k: os.environ.get(k) for k in (
             "GS177_LOCAL_TEST", "GS178_LOCAL_TEST", "GS179_TEST_ONLY_MONITORING",
             "GS179_TEST_ONLY_HOME_PREFIX", "PUBLIC_ORIGIN")}
         os.environ.update(GS177_LOCAL_TEST="1", GS178_LOCAL_TEST="1", PUBLIC_ORIGIN="https://caregiver.gs178.dev")
-        if self.postgres_schema is not None:
+        if self.postgres_schema is not None or persistent_postgres:
             os.environ.update(GS179_TEST_ONLY_MONITORING="1",
                               GS179_TEST_ONLY_HOME_PREFIX="gs177-test-")
         else:
@@ -77,8 +100,8 @@ class ProductStack:
         self.drop_rule_receipt = False
         self.receipts = []
         self.issuer = TestOnlyIssuer(self.path / "issuer.sqlite")
-        key, csr = new_test_csr(HUB)
-        self.credential = self.issuer.issue(HUB, csr)
+        key, csr = new_test_csr(self.hub_id)
+        self.credential = self.issuer.issue(self.hub_id, csr)
         self.key_pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                          serialization.NoEncryption())
         server_key, server_ca = make_test_ca("GS178 TEST_ONLY HTTPS")
@@ -90,29 +113,106 @@ class ProductStack:
         self.client_ca.write_bytes(self.issuer.authority.public_ca_pem())
         self.service = GharSajagService()
         self.lite_store = Store(
-            self.postgres_schema.url if self.postgres_schema is not None
+            self.postgres_url if self.postgres_url is not None
             else "sqlite:///" + str(self.path / "caregiver.sqlite"))
         self.lite_store.migrate()
-        self.password = secrets.token_urlsafe(32)
-        self.actor = bootstrap_admin(self.lite_store, "owner@gs178.dev", self.password, HOME)
-        self.service.homes.create(HOME, "Isolated Node-origin Home", "Etc/UTC", "en-IN", self.actor,
+        self.password = caregiver_password or secrets.token_urlsafe(32)
+        if reuse_existing_caregiver:
+            with self.lite_store.connect() as lite_db:
+                account = self.lite_store.sql(
+                    lite_db,
+                    "SELECT a.account_id,m.active,m.ownership_epoch FROM lite_accounts a "
+                    "JOIN lite_memberships m ON m.account_id=a.account_id "
+                    "WHERE a.email=? AND a.active=? AND m.home_id=? AND m.role='CAREGIVER'",
+                    (self.caregiver_email.lower(), True, self.home_id),
+                ).fetchone()
+                home = self.lite_store.sql(
+                    lite_db, "SELECT ownership_epoch,test_only FROM lite_homes WHERE home_id=?",
+                    (self.home_id,),
+                ).fetchone()
+                if (account is None or home is None or not home["test_only"] or
+                        not account["active"] or account["ownership_epoch"] != home["ownership_epoch"]):
+                    raise ValueError("existing_test_caregiver_session_scope_not_current")
+                self.actor = account["account_id"]
+        elif reuse_existing_test_home:
+            from connected_lite import bootstrap_caregiver
+            self.actor = bootstrap_caregiver(
+                self.lite_store, self.caregiver_email, self.password, self.home_id)
+        else:
+            self.actor = bootstrap_admin(
+                self.lite_store, self.caregiver_email, self.password, self.home_id)
+        self.service.homes.create(self.home_id, "Isolated Node-origin Home", "Etc/UTC", "en-IN", self.actor,
             [Resident("test-resident", "TEST_ONLY", True, self.now)], self.now)
         self.durable = self._open_durable_api()
         db = self.durable.db
-        db.execute("INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES(?,?,?,?,?)",
-                   (HOME, "GS178 TEST_ONLY", "UTC", self.now, self.now))
-        db.execute("INSERT INTO caregivers(caregiver_id,display_name,created_at) VALUES(?,?,?)", (self.actor, "Test owner", self.now))
-        db.execute("INSERT INTO household_caregivers(home_id,caregiver_id,role) VALUES(?,?,'PRIMARY')", (HOME, self.actor))
-        owner = self.durable.api.hub_ownership_registry
-        self.identity = VerifiedHubIdentity(HUB, "a" * 64, "TEST_ONLY-verified-identity")
-        owner.register_unclaimed_identity(self.identity, self.now)
-        owner.claim_home(self.identity, AuthorizedHomeOperation("test-installer", HOME, "CLAIM_HUB", "test-claim"), self.now)
-        self.profiles = {}
-        for room in ("bedroom", "bathroom", "kitchen", "door"):
-            physical = "test-c3-" + room
-            owner.enroll_node(self.identity, AuthorizedHomeOperation("test-installer", HOME, "ENROLL_NODE", "test-enroll-" + room),
-                VerifiedNodeEnrollment(physical, room, 1, "b" * 64, "TEST_ONLY-node-proof"), self.now)
-            self.profiles[physical] = "configured"
+        if reuse_existing_test_home:
+            if not reuse_existing_caregiver:
+                db.execute("INSERT INTO caregivers(caregiver_id,display_name,created_at) VALUES(?,?,?)",
+                           (self.actor, "GS-179 local test caregiver", self.now))
+                db.execute("INSERT INTO household_caregivers(home_id,caregiver_id,role) VALUES(?,?,'FAMILY')",
+                           (self.home_id, self.actor))
+            else:
+                roster = db.execute(
+                    "SELECT 1 FROM household_caregivers WHERE home_id=? AND caregiver_id=? AND active=1",
+                    (self.home_id, self.actor),
+                ).fetchone()
+                if roster is None:
+                    raise ValueError("existing_test_caregiver_not_in_current_durable_roster")
+            binding = db.execute(
+                "SELECT identity_key_fingerprint,state,home_id,installation_epoch "
+                "FROM hub_ownership_registry WHERE hub_device_id=?", (self.hub_id,)
+            ).fetchone()
+            if (binding is None or binding[1] != "ACTIVE" or binding[2] != self.home_id or
+                    type(binding[3]) is not int or binding[3] <= 0 or
+                    not isinstance(binding[0], str) or len(binding[0]) != 64):
+                raise ValueError("seeded_test_hub_current_ownership_not_verified")
+            expected_nodes = {"test-c3-" + room: room
+                              for room in ("bedroom", "bathroom", "kitchen", "door")}
+            enrolled = db.execute(
+                "SELECT physical_node_id,logical_node_id,enrollment_generation "
+                "FROM node_enrollment_history WHERE hub_device_id=? AND home_id=? AND state='ACTIVE'",
+                (self.hub_id, self.home_id),
+            ).fetchall()
+            observed_nodes = {row[0]: (row[1], row[2]) for row in enrolled}
+            if observed_nodes != {node: (room, 1) for node, room in expected_nodes.items()}:
+                raise ValueError("seeded_test_node_enrollment_set_mismatch")
+            self.identity = VerifiedHubIdentity(
+                self.hub_id, binding[0], "TEST_ONLY-existing-local-fixture")
+            self.profiles = {node: "configured" for node in expected_nodes}
+            operation_prefix = "existing-" + self.home_id
+        else:
+            db.execute("INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES(?,?,?,?,?)",
+                       (self.home_id, "GS178 TEST_ONLY", "UTC", self.now, self.now))
+            db.execute("INSERT INTO caregivers(caregiver_id,display_name,created_at) VALUES(?,?,?)",
+                       (self.actor, "Test owner", self.now))
+            db.execute("INSERT INTO household_caregivers(home_id,caregiver_id,role) VALUES(?,?,'PRIMARY')",
+                       (self.home_id, self.actor))
+            owner = self.durable.api.hub_ownership_registry
+            if persistent_postgres:
+                identity_fingerprint = hashlib.sha256(("GS179_TEST_ONLY:" + self.hub_id).encode()).hexdigest()
+                identity_proof = "TEST_ONLY-verified-identity:" + self.hub_id
+                operation_prefix = "test-" + self.home_id
+            else:
+                identity_fingerprint = "a" * 64
+                identity_proof = "TEST_ONLY-verified-identity"
+                operation_prefix = "test"
+            self.identity = VerifiedHubIdentity(self.hub_id, identity_fingerprint, identity_proof)
+            owner.register_unclaimed_identity(self.identity, self.now)
+            owner.claim_home(self.identity, AuthorizedHomeOperation(
+                "test-installer", self.home_id, "CLAIM_HUB", operation_prefix + "-claim"), self.now)
+            self.profiles = {}
+            for room in ("bedroom", "bathroom", "kitchen", "door"):
+                physical = "test-c3-" + room
+                node_fingerprint = (hashlib.sha256(("GS179_TEST_ONLY_NODE:" + physical).encode()).hexdigest()
+                                    if persistent_postgres else "b" * 64)
+                owner.enroll_node(self.identity, AuthorizedHomeOperation(
+                    "test-installer", self.home_id, "ENROLL_NODE", operation_prefix + "-enroll-" + room),
+                    VerifiedNodeEnrollment(physical, room, 1, node_fingerprint,
+                                           "TEST_ONLY-node-proof:" + self.home_id), self.now)
+                self.profiles[physical] = "configured"
+        if persistent_postgres and not reuse_existing_test_home:
+            self.profiles = {"test-c3-" + room: "configured"
+                             for room in ("bedroom", "bathroom", "kitchen", "door")}
         self._health()
         self.authority = AuthorityService(self.issuer, db, self.service.lock, enabled=True)
         self.time = SignedTimeService().start()
@@ -234,11 +334,11 @@ class ProductStack:
         challenge = self.read()
         fields = {1:b"GS178-isolated", 2:secrets.token_urlsafe(16).encode(),
             3:self.hub_origin.encode(), 4:b"localhost", 5:self.ca_path.read_bytes(), 6:b"127.0.0.1",
-            7:struct.pack(">H",self.time.port), 8:self.time.public_key_der, 9:HUB.encode(),
+            7:struct.pack(">H",self.time.port), 8:self.time.public_key_der, 9:self.hub_id.encode(),
             10:self.credential.certificate_pem, 11:self.key_pem, 12:self.credential.fingerprint.encode(),
             13:struct.pack(">Q", self.credential.generation), 14:struct.pack(">Q",1),
             15:struct.pack(">Q",self.now+3600), 16:self.authority.public_key_der,
-            17:HOME.encode(), 18:b"Etc/UTC", 19:_test_activity_rules_ar1(), 20:b"\x00"}
+            17:self.home_id.encode(), 18:b"Etc/UTC", 19:_test_activity_rules_ar1(), 20:b"\x00"}
         fields.update(config_fields or {})
         frame = encode_config(bytes.fromhex(challenge["nonce"]), bytes.fromhex(challenge["public"]), fields, self.config_signer)
         if transform is not None:
@@ -297,7 +397,7 @@ class ProductStack:
             finally: error.close()
 
     def login(self):
-        status, _, headers = self.human("POST", "/lite/v1/auth/login", {"email":"owner@gs178.dev", "password":self.password})
+        status, _, headers = self.human("POST", "/lite/v1/auth/login", {"email":self.caregiver_email, "password":self.password})
         if status != 200: raise AssertionError("login failed")
         return headers["Set-Cookie"].split(";", 1)[0]
 

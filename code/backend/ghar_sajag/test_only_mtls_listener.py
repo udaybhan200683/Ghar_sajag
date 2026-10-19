@@ -177,18 +177,36 @@ class TestOnlyMtlsListener:
                         return
                     self._send(status, response)
                 except PermissionError as error:
-                    self._send(403, {"error": str(error)})
+                    response = {"error": str(error)}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, body, 403, response)
+                    self._send(403, response)
                 except (EventCommitConflict, HubDecisionConflict):
-                    self._send(409, {"error": "conflicting_committed_content"})
+                    response = {"error": "conflicting_committed_content"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, body, 409, response)
+                    self._send(409, response)
                 except (ValueError, KeyError, json.JSONDecodeError):
-                    self._send(400, {"error": "invalid_request"})
+                    response = {"error": "invalid_request"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, body, 400, response)
+                    self._send(400, response)
                 except sqlite3.Error:
-                    self._send(503, {"error": "durable_store_unavailable"})
+                    response = {"error": "durable_store_unavailable"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, body, 503, response)
+                    self._send(503, response)
                 except (TimeoutError, socket.timeout):
-                    self._send(503, {"error": "request_timeout"})
+                    response = {"error": "request_timeout"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, body, 503, response)
+                    self._send(503, response)
                 except Exception as error:
                     _LOG.warning("TEST_ONLY Hub request failed (%s)", type(error).__name__)
-                    self._send(503, {"error": "test_listener_unavailable"})
+                    response = {"error": "test_listener_unavailable"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, body, 503, response)
+                    self._send(503, response)
 
             def _send(self, status: int, payload):
                 if isinstance(payload, bytes):

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from psycopg import Connection, IntegrityError, OperationalError, connect
-from psycopg.conninfo import conninfo_to_dict
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
@@ -159,9 +159,10 @@ def connect_postgres(dsn: str, *, allow_local_unencrypted: bool = False) -> Post
         raise ValueError("remote_postgres_requires_sslmode_verify_full")
     if local and not allow_local_unencrypted and sslmode not in {"verify-full", "verify-ca"}:
         raise ValueError("local_postgres_requires_explicit_test_mode_or_tls")
-    connect_dsn = dsn
-    if "connect_timeout" not in fields:
-        connect_dsn += " connect_timeout=5"
+    # A URI cannot be extended with libpq keyword syntax. make_conninfo keeps
+    # both PostgreSQL URI and keyword DSNs valid while adding the bounded
+    # timeout without corrupting TLS query parameters such as sslrootcert.
+    connect_dsn = dsn if "connect_timeout" in fields else make_conninfo(dsn, connect_timeout=5)
     raw = connect(connect_dsn, row_factory=_row_factory, application_name="ghar-sajag-gs179",
                   autocommit=True)
     try:

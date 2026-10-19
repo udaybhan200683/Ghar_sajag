@@ -20,6 +20,20 @@ test('caregiver mode rejects HTTP, local, reserved, credential-bearing and path 
   }
 });
 
+test('private LAN backend origin is accepted only in the explicit GS-179 TEST_ONLY profile', () => {
+  assert.equal(parseCaregiverBackendOrigin('https://192.168.1.6'), '');
+  const raw = {mode:'caregiver',backendOrigin:'https://192.168.1.6',gs179LocalLanTestOnly:true};
+  const runtime = normalizeRuntimeConfig(raw,'https://192.168.1.6');
+  assert.equal(runtime.backendOrigin,'https://192.168.1.6/');
+  assert.equal(runtime.caregiverApiConfigured,true);
+  assert.equal(requestUrl(runtime,'/lite/v1/me'),'https://192.168.1.6/lite/v1/me');
+  for (const input of ['https://8.8.8.8','https://172.15.1.2','https://172.32.1.2',
+    'https://192.168.001.6','https://10.0.0.256','https://127.0.0.1']) {
+    assert.equal(parseCaregiverBackendOrigin(input,{gs179LocalLanTestOnly:true}),'',input);
+  }
+  assert.equal(normalizeRuntimeConfig({...raw,gs179LocalLanTestOnly:false},'https://192.168.1.6').backendOrigin,'');
+});
+
 test('simulator identity is enabled only by an explicit same-origin lab config', () => {
   const explicit=normalizeRuntimeConfig({mode:'local-simulator',allowSimulator:true,actorId:'simulation-owner',homeId:'simulation-home',backendOrigin:'http://127.0.0.1:8765/'},'http://127.0.0.1:8765');
   assert.equal(explicit.mode,'local-simulator');

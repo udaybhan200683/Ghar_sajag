@@ -13,6 +13,30 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg import sql
 
 
+def local_verified_postgres_url(base_dsn: str) -> str:
+    """Convert a local-only, hostname-verified TLS DSN to the app URL format."""
+    fields = conninfo_to_dict(base_dsn)
+    host = fields.get("host", "localhost")
+    if host not in {None, "", "localhost", "127.0.0.1", "::1"} and not str(host).startswith("/"):
+        raise ValueError("GS179 PostgreSQL local service accepts loopback hosts only")
+    if fields.get("sslmode") != "verify-full":
+        raise ValueError("GS179 PostgreSQL local service requires hostname-verified TLS")
+    user = quote(fields.pop("user", ""), safe="")
+    password = fields.pop("password", None)
+    credentials = user + ((":" + quote(password, safe="")) if password else "")
+    credentials += "@" if credentials else ""
+    database = quote(fields.pop("dbname", "postgres"), safe="")
+    host = fields.pop("host", "localhost")
+    port = fields.pop("port", "5432")
+    query = urlencode(fields, quote_via=quote)
+    if str(host).startswith("/"):
+        query = urlencode({**fields, "host": host, "port": port}, quote_via=quote)
+        authority = credentials + "/" + database
+    else:
+        authority = credentials + quote(str(host), safe="[]") + ":" + quote(str(port), safe="") + "/" + database
+    return "postgresql://" + authority + ("?" + query if query else "")
+
+
 class IsolatedPostgresSchema:
     def __init__(self, base_dsn: str):
         fields = conninfo_to_dict(base_dsn)
@@ -25,21 +49,7 @@ class IsolatedPostgresSchema:
             connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(self.schema)))
         self.dsn = make_conninfo(base_dsn, options=f"-c search_path={self.schema},public",
                                  connect_timeout=5)
-        fields = conninfo_to_dict(self.dsn)
-        user = quote(fields.pop("user", ""), safe="")
-        password = fields.pop("password", None)
-        credentials = user + ((":" + quote(password, safe="")) if password else "")
-        credentials += "@" if credentials else ""
-        database = quote(fields.pop("dbname", "postgres"), safe="")
-        host = fields.pop("host", "localhost")
-        port = fields.pop("port", "5432")
-        query = urlencode(fields, quote_via=quote)
-        if str(host).startswith("/"):
-            query = urlencode({**fields, "host": host, "port": port}, quote_via=quote)
-            authority = credentials + "/" + database
-        else:
-            authority = credentials + quote(str(host), safe="[]") + ":" + quote(str(port), safe="") + "/" + database
-        self.url = "postgresql://" + authority + ("?" + query if query else "")
+        self.url = local_verified_postgres_url(self.dsn)
 
     def close(self) -> None:
         with psycopg.connect(self._base_dsn, connect_timeout=5, autocommit=True) as connection:

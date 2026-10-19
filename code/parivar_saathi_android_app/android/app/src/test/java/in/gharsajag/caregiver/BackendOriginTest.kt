@@ -57,6 +57,18 @@ class BackendOriginTest {
     }
 
     @Test
+    fun privateLanOriginRequiresExplicitTestOnlyBuildPermission() {
+        assertNull(BackendOrigin.parse("https://192.168.1.6"))
+        assertEquals(
+            "https://192.168.1.6/",
+            BackendOrigin.parse("https://192.168.1.6/", allowTestOnlyPrivateIpv4 = true)?.baseUrl,
+        )
+        listOf("https://8.8.8.8", "https://172.15.1.2", "https://172.32.1.2",
+            "https://192.168.001.6", "https://10.0.0.256", "https://127.0.0.1")
+            .forEach { assertNull("unexpectedly accepted: $it", BackendOrigin.parse(it, true)) }
+    }
+
+    @Test
     fun normalLaunchUsesBundledPwaAssetsWithConfiguredOrOfflineOrigin() {
         val configured = BackendOrigin.parse("https://care.gharsajag.in")
         assertEquals(

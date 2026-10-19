@@ -1,8 +1,9 @@
 """Focused failure-closed PostgreSQL boundary tests for GS-179 TEST_ONLY."""
 import unittest
+import psycopg
 
 from ghar_sajag.postgres_database import connect_postgres, initialize_postgres
-from gs179_postgres_test_db import IsolatedPostgresSchema
+from gs179_postgres_test_db import IsolatedPostgresSchema, local_verified_postgres_url
 
 
 class PostgresSecurityBoundary(unittest.TestCase):
@@ -40,6 +41,26 @@ class PostgresSecurityBoundary(unittest.TestCase):
     def test_isolated_schema_refuses_nonlocal_database_before_connecting(self):
         with self.assertRaisesRegex(ValueError, "accepts local database hosts only"):
             IsolatedPostgresSchema("host=database.example.invalid dbname=ghar user=hub")
+
+    def test_persistent_local_server_dsn_requires_local_hostname_verified_tls(self):
+        with self.assertRaisesRegex(ValueError, "loopback hosts only"):
+            local_verified_postgres_url(
+                "host=database.example.invalid dbname=ghar user=hub sslmode=verify-full"
+            )
+        with self.assertRaisesRegex(ValueError, "requires hostname-verified TLS"):
+            local_verified_postgres_url("host=127.0.0.1 dbname=ghar user=hub sslmode=require")
+        url = local_verified_postgres_url(
+            "host=127.0.0.1 port=55432 dbname=gs179_monitoring user=gs179_app "
+            "password=private sslmode=verify-full sslrootcert=/private/pg-ca.pem"
+        )
+        self.assertTrue(url.startswith("postgresql://gs179_app:private@127.0.0.1:55432/"))
+        self.assertIn("sslmode=verify-full", url)
+
+    def test_postgres_adapter_preserves_tls_query_when_adding_connect_timeout(self):
+        dsn = ("postgresql://gs179_app:private@127.0.0.1:1/gs179_monitoring"
+               "?sslmode=verify-full&sslrootcert=%2Fprivate%2Fpostgres-ca.pem")
+        with self.assertRaises(psycopg.OperationalError):
+            connect_postgres(dsn)
 
 
 if __name__ == "__main__":

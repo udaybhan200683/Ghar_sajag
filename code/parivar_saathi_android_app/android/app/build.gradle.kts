@@ -10,7 +10,10 @@ val sourceRevision = providers.environmentVariable("GITHUB_SHA").orNull
     ?.take(12)
     ?: "local"
 
-fun configuredBackendOrigin(propertyName: String): String {
+val gs179LocalLanTestOnly = providers.gradleProperty("gs179LocalLanTestOnly")
+    .orNull?.toBooleanStrictOrNull() ?: false
+
+fun configuredBackendOrigin(propertyName: String, allowTestOnlyPrivateIpv4: Boolean = false): String {
     val raw = providers.gradleProperty(propertyName).orNull?.trim().orEmpty()
     if (raw.isEmpty()) return ""
     val uri = try { URI(raw) } catch (_: Exception) {
@@ -19,15 +22,54 @@ fun configuredBackendOrigin(propertyName: String): String {
     val host = uri.host?.lowercase() ?: throw GradleException("$propertyName must contain a DNS host")
     val labels = host.split('.')
     val dnsLabel = Regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+    val privateIpv4 = run {
+        val octets = host.split('.')
+        if (octets.size != 4 || octets.any { !it.matches(Regex("0|[1-9][0-9]{0,2}")) }) false
+        else {
+            val values = octets.map { it.toIntOrNull() ?: 256 }
+            values.all { it in 0..255 } && (
+                values[0] == 10 ||
+                    (values[0] == 172 && values[1] in 16..31) ||
+                    (values[0] == 192 && values[1] == 168)
+                )
+        }
+    }
+    val validHost = if (allowTestOnlyPrivateIpv4) privateIpv4 else {
+        labels.size >= 2 && labels.all { dnsLabel.matches(it) } &&
+            labels.last().length >= 2 && labels.last() !in setOf("local", "localhost", "test", "example", "invalid")
+    }
     if (!uri.scheme.equals("https", ignoreCase = true) || uri.rawUserInfo != null ||
         uri.rawQuery != null || uri.rawFragment != null || uri.port !in setOf(-1, 443) ||
-        uri.rawPath !in setOf("", "/") || labels.size < 2 || labels.any { !dnsLabel.matches(it) } ||
-        labels.last().length < 2 || labels.last() in setOf("local", "localhost", "test", "example", "invalid")
+        uri.rawPath !in setOf("", "/") || !validHost
     ) throw GradleException("$propertyName must be a public HTTPS origin without path, credentials, query, fragment, or custom port")
+    if (allowTestOnlyPrivateIpv4 && !privateIpv4) {
+        throw GradleException("$propertyName must be an RFC1918 IPv4 address for the GS-179 LAN TEST_ONLY profile")
+    }
     return "https://$host/"
 }
 
-val caregiverDebugOrigin = configuredBackendOrigin("caregiverDebugBackendOrigin")
+val caregiverDebugOrigin = configuredBackendOrigin(
+    "caregiverDebugBackendOrigin",
+    allowTestOnlyPrivateIpv4 = gs179LocalLanTestOnly,
+)
+if (gs179LocalLanTestOnly) {
+    val lanTrustConfig = file("src/gs179LocalLan/res/xml/network_security_config.xml")
+    val lanManifest = file("src/gs179LocalLan/AndroidManifest.xml")
+    val lanHost = URI(caregiverDebugOrigin).host
+    val configuredDomains = if (lanTrustConfig.isFile) {
+        Regex("""<domain\s+includeSubdomains="false">([^<]+)</domain>""")
+            .findAll(lanTrustConfig.readText())
+            .map { it.groupValues[1].trim() }
+            .toList()
+    } else emptyList()
+    if (configuredDomains != listOf(lanHost) ||
+        !lanManifest.isFile ||
+        !lanManifest.readText().contains("android:networkSecurityConfig=\"@xml/network_security_config\"") ||
+        !file("src/gs179LocalLan/res/raw/gs179_local_lan_test_ca.pem").isFile
+    ) {
+        throw GradleException("GS-179 LAN TEST_ONLY origin must exactly match its single CA-pinned network-security domain")
+    }
+}
 val caregiverReleaseOrigin = configuredBackendOrigin("caregiverReleaseBackendOrigin")
 val pilotKeyPath = System.getenv("GS177_KEYSTORE_PATH")
 val pilotKeyPassword = System.getenv("GS177_KEYSTORE_PASSWORD")
@@ -59,11 +101,17 @@ android {
         getByName("debug") {
             buildConfigField("String", "BACKEND_ORIGIN", "\"$caregiverDebugOrigin\"")
             buildConfigField("boolean", "DEV_ENDPOINT_CONFIG_ALLOWED", "true")
-            if (pilotSigningConfigured) signingConfig = signingConfigs.getByName("pilot")
+            buildConfigField("boolean", "GS179_LOCAL_LAN_TEST_ONLY", gs179LocalLanTestOnly.toString())
+            // The laptop LAN profile is always an installable TEST_ONLY build;
+            // never sign it with the owner-controlled pilot key.
+            if (pilotSigningConfigured && !gs179LocalLanTestOnly) {
+                signingConfig = signingConfigs.getByName("pilot")
+            }
         }
         getByName("release") {
             buildConfigField("String", "BACKEND_ORIGIN", "\"$caregiverReleaseOrigin\"")
             buildConfigField("boolean", "DEV_ENDPOINT_CONFIG_ALLOWED", "false")
+            buildConfigField("boolean", "GS179_LOCAL_LAN_TEST_ONLY", "false")
         }
     }
     buildFeatures { buildConfig = true }
@@ -73,6 +121,10 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     sourceSets.getByName("main").assets.srcDir(file("../../../tools/sim/pwa"))
+    if (gs179LocalLanTestOnly) {
+        sourceSets.getByName("debug").manifest.srcFile(file("src/gs179LocalLan/AndroidManifest.xml"))
+        sourceSets.getByName("debug").res.srcDir(file("src/gs179LocalLan/res"))
+    }
 }
 
 dependencies {

@@ -23,7 +23,10 @@ class MainActivity : ComponentActivity() {
         // cannot cover the app's bottom tabs or simulation controls.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val safeContent = FrameLayout(this)
-        val backendOrigin = BackendOrigin.parse(BuildConfig.BACKEND_ORIGIN)
+        val backendOrigin = BackendOrigin.parse(
+            BuildConfig.BACKEND_ORIGIN,
+            allowTestOnlyPrivateIpv4 = BuildConfig.GS179_LOCAL_LAN_TEST_ONLY,
+        )
         val dashboard = TrustedPwaWebView.create(this, backendOrigin)
         safeContent.addView(dashboard, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,

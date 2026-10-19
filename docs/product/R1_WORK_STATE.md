@@ -5247,3 +5247,48 @@ already-authorized direct mTLS-capable isolated backend ingress and database
 network path, or approve a new request-authentication contract for review. No
 source/API/database/service/deployment change or hardware action occurred in
 this checkpoint.
+
+## GS-179 local WSL2 caregiver validation host — 2026-10-20
+
+Following GS-179 owner decision comment 11452, the existing Windows 10/WSL2
+laptop is configured as the no-cost, same-trusted-Wi-Fi validation host. The
+canonical GS-148 caregiver HTTPS API and PostgreSQL run through an enabled WSL
+user systemd service. PostgreSQL listens only on WSL loopback with TLS
+`verify-full`, SCRAM app credentials, `fsync=on`, `synchronous_commit=on`, and
+`full_page_writes=on`. Windows forwards only the current private Wi-Fi address
+TCP 443 to the active WSL address TCP 8444. The Windows firewall allow rule is
+restricted to the Wi-Fi interface, exact local address and current Wi-Fi
+subnet. No router port-forward, public service, Render change, production
+credential, hardware or physical operation was used. Operational evidence and
+phone checklist are in
+[`GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md`](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md).
+
+The current LAN Android profile is opt-in and debug-only. It embeds only the
+public TEST_ONLY CA, uses a runner-generated debug key, and limits Android
+network trust to the exact configured LAN IP. Ordinary debug and release
+profiles keep the public-DNS origin policy and do not load this CA. The local
+server leaf was rotated after finding its previous CN-only certificate lacked
+an IP SAN; the replacement has the exact IP SAN and passed OpenSSL IP/chain
+verification and live HTTPS readiness. CA and private keys remain outside Git.
+
+The local source-linked host path has one authenticated GS-178 Node motion
+EventKey admitted through the existing TEST_ONLY mTLS listener, a matching
+GS-148 `COMMITTED` receipt, exactly one durable PostgreSQL row and the same
+caregiver timeline record. Service restart preserved it. Stale source was
+projected as UNKNOWN and a later authenticated NodeHealth refresh restored
+ONLINE/COVERED. The live canonical PWA browser check passed against laptop
+HTTPS, including exact EventKey, room, current source, Node status and reload
+without duplication. Focused connected-Lite API tests passed 15/15 and PWA
+runtime tests passed 8/8. `pwa-68-browser-test` was 0 run / 1 skipped because
+system Chromium is absent; the dedicated cached Playwright executable did run
+the focused laptop browser scenario successfully. The GS-177 Android workflow
+must still build a source-matched APK with `https://192.168.1.6` and
+`gs179_local_lan_test_only=true`; its artifact/hash are pending.
+
+Current state remains software-only: phone acceptance and C3/S3 target/physical
+acceptance are NOT_RUN; mobile-data/VPN use is unconfigured; Render remains
+untouched and `LIVE_STAGING_SOFTWARE_E2E_PASS=NO`. The continuous WSL service is
+HTTPS caregiver API plus PostgreSQL; existing host simulation invokes the
+application-terminated TEST_ONLY Hub mTLS listener with ephemeral credentials,
+not a persistent physical-Hub ingress. GS-179 remains In Progress. Existing P0,
+migration, product PARTIAL and release blockers remain unchanged.

@@ -20,7 +20,7 @@ data class BackendOrigin private constructor(
         )
         private val localOrReservedSuffixes = setOf("localhost", "local", "test", "example", "invalid")
 
-        fun parse(input: String?): BackendOrigin? {
+        fun parse(input: String?, allowTestOnlyPrivateIpv4: Boolean = false): BackendOrigin? {
             val raw = input?.trim()?.takeIf { it.isNotEmpty() && it.length <= 2048 } ?: return null
             val uri = try {
                 URI(raw)
@@ -33,12 +33,29 @@ data class BackendOrigin private constructor(
             if (uri.rawPath !in setOf("", "/")) return null
 
             val host = uri.host?.lowercase(Locale.ROOT) ?: return null
-            if (!dnsName.matches(host)) return null
-            if (host.split('.').any { it.isEmpty() || it.length > 63 }) return null
-            val suffix = host.substringAfterLast('.')
-            if (suffix.length < 2 || suffix in localOrReservedSuffixes) return null
+            if (allowTestOnlyPrivateIpv4) {
+                if (!isPrivateIpv4(host)) return null
+            } else {
+                if (!dnsName.matches(host)) return null
+                if (host.split('.').any { it.isEmpty() || it.length > 63 }) return null
+                val suffix = host.substringAfterLast('.')
+                if (suffix.length < 2 || suffix in localOrReservedSuffixes) return null
+            }
 
             return BackendOrigin(baseUrl = "https://$host/", host = host)
+        }
+
+        private fun isPrivateIpv4(host: String): Boolean {
+            val parts = host.split('.')
+            if (parts.size != 4) return false
+            val octets = parts.map { part ->
+                if (part.isEmpty() || (part.length > 1 && part.startsWith('0')) ||
+                    part.any { !it.isDigit() }) return false
+                part.toIntOrNull()?.takeIf { it in 0..255 } ?: return false
+            }
+            return octets[0] == 10 ||
+                (octets[0] == 172 && octets[1] in 16..31) ||
+                (octets[0] == 192 && octets[1] == 168)
         }
     }
 }
