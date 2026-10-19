@@ -5283,9 +5283,18 @@ HTTPS, including exact EventKey, room, current source, Node status and reload
 without duplication. Focused connected-Lite API tests passed 15/15 and PWA
 runtime tests passed 8/8. `pwa-68-browser-test` was 0 run / 1 skipped because
 system Chromium is absent; the dedicated cached Playwright executable did run
-the focused laptop browser scenario successfully. The GS-177 Android workflow
-must still build a source-matched APK with `https://192.168.1.6` and
-`gs179_local_lan_test_only=true`; its artifact/hash are pending.
+the focused laptop browser scenario successfully. The explicit local-LAN
+Android workflow passed as run 39326071201 on source commit
+`b8af8b37f3de4334a672588e5f5c8fad0dd855d4`. It ran the PWA browser/offline
+stage, registered API 15/15, Android dashboard 7/7, voice prototype 21/21,
+`:app:testDebugUnitTest`, `:app:assembleDebug` and APK v2 signature
+verification. The 2,913,584-byte local-LAN debug APK SHA-256 is
+`6935f71d06c38087f09b2bf95c6a216e4dae30836449e367c773e7afa65eab42`;
+artifact ID `12222706843`. Build metadata pins origin `https://192.168.1.6`
+and local TEST_ONLY profile, and reports CA SHA-256
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`.
+The CI build uses a runner-generated debug key. APK build/signature and
+software tests are not phone acceptance.
 
 Current state remains software-only: phone acceptance and C3/S3 target/physical
 acceptance are NOT_RUN; mobile-data/VPN use is unconfigured; Render remains

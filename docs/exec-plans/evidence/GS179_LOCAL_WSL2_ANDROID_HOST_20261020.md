@@ -153,11 +153,26 @@ Observed focused results:
   phone data use, production service or hardware test was executed in this
   evidence checkpoint.
 
-The Android APK still needs a source-matched run of the existing
-`GS-177 branded Android caregiver APK build` GitHub Actions workflow with
+The source-matched local-LAN Android build completed in GitHub Actions run
+[39326071201](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39326071201)
+on commit `b8af8b37f3de4334a672588e5f5c8fad0dd855d4` with
 `backend_origin=https://192.168.1.6` and
-`gs179_local_lan_test_only=true`. APK SHA/signature and exact commit must be
-appended after that run succeeds. A CI build is not phone acceptance.
+`gs179_local_lan_test_only=true`. The run passed the PWA browser/offline stage,
+the registered caregiver app gates (Connected Lite API 15/15, Android dashboard
+7/7, voice prototype 21/21), `:app:testDebugUnitTest`, `:app:assembleDebug`,
+APK signature verification and artifact upload. The CI artifact is
+`parivar-saathi-caregiver-debug-b8af8b37f3de4334a672588e5f5c8fad0dd855d4`
+(artifact ID `12222706843`, archive SHA-256
+`5e637ab363eb208c95f1f0217199175c3d696d7aef4e2992bff9d048ebbbd7ef`). Its
+APK is 2,913,584 bytes, SHA-256
+`6935f71d06c38087f09b2bf95c6a216e4dae30836449e367c773e7afa65eab42`; the
+downloaded file passed `sha256sum --check` and APK archive integrity. CI
+verified APK Signature Scheme v2. Build metadata binds it to the exact LAN
+origin, local TEST_ONLY flag, and CA SHA-256
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`.
+Signing is runner-generated debug signing, not a pilot key. This proves APK
+build and software gates only; it does not prove installation or behavior on
+the owner's phone.
 
 ## Phone acceptance steps after artifact availability
 
@@ -193,7 +208,8 @@ appended after that run succeeds. A CI build is not phone acceptance.
 `LAPTOP_SERVICE`: PASS (local TEST_ONLY API/PostgreSQL running)
 `HOST_SIM_NODE_EVENT_TO_POSTGRES_COMMITTED`: PASS
 `CAREGIVER_BROWSER_PROJECTION`: PASS (host Playwright)
-`ANDROID_LOCAL_LAN_APK_BUILD`: pending source-matched GitHub Actions run
+`ANDROID_LOCAL_LAN_APK_BUILD`: PASS (run 39326071201; source b8af8b37; APK
+SHA-256 6935f71d06c38087f09b2bf95c6a216e4dae30836449e367c773e7afa65eab42)
 `PHONE_FOREGROUND_BACKGROUND_ACCEPTANCE`: NOT_RUN
 `C3_S3_PHYSICAL_TARGET_ACCEPTANCE`: NOT_RUN
 `LIVE_STAGING_SOFTWARE_E2E_PASS`: NO (Render was not changed or accessed for
