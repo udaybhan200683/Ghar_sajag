@@ -1195,3 +1195,22 @@ non-regressing live chronology) are recorded in
 These are bounded TEST_ONLY/implementation corrections; GS40T/1 remains PROPOSED
 for commercial approval, GS-D031/D032 remain LOCKED and unchanged, and GS-104
 R01–R09 remain on hold. No physical or release acceptance is inferred.
+
+## GS-179 staging ingress inspection — 2026-10-19 (evidence; no decision)
+
+The existing Render public web service terminates inbound TLS at its load
+balancer and forwards HTTP to its Gunicorn WSGI process. The deployed app mounts
+the synthetic `/lite/v1` service only; the GS-148 `/v1` durable API is absent.
+The existing Hub identity adapter requires an actual verified server-side TLS
+peer socket before it can create `VerifiedHubContext`. Render's current WSGI
+boundary does not expose that peer certificate, and no trusted signed identity
+assertion from an ingress proxy is configured. Caller-supplied certificate or
+Hub-identity headers are not accepted as authentication.
+
+No source, database, service, trust root, credential, deployment, or physical
+device was changed. GS-D032 remains LOCKED for identity/ownership behavior;
+credential/proof/deployment middleware mechanisms remain OPEN. `GS40T/1`
+remains PROPOSED and is not made a production decision. The evidence and
+smallest safe isolated mTLS deployment path are recorded in
+[`GS-179 Render ingress evidence`](../exec-plans/evidence/GS179_RENDER_INGRESS_BLOCKER_20261019.md).
+`CONTEXT_VERSION` remains unchanged.

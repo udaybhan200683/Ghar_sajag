@@ -5161,3 +5161,39 @@ checkpoint and trusted-minute gaps remain. Existing Hub migration failure,
 P0 `product_status=PARTIAL`, PWA failures/budget, Android APK NOT_RUN and
 GS-40/GS-117/GS-121 physical acceptance NOT_RUN remain unchanged. No board,
 serial interface, production service, credential or eFuse was accessed.
+
+## GS-179 live Cloud-to-Android integration checkpoint — 2026-10-19
+
+Canonical `feature/r1-commercial-baseline` was at
+`3c0fec898d5cb2caae662f3dcc6324faaabf6b30`, equal to origin, with context
+preflight PASS. GS-179 was moved to In Progress. The current public Render
+staging service is still on the canonical commit with auto-deploy disabled. Its
+WSGI composition serves synthetic `/lite/v1` only; a deployed
+`GET /v1/homes/gs179-test-probe/snapshot` returned 404 and unauthenticated
+`/lite/v1/me` returned 403. The current app does not mount the GS-148 durable
+API or a genuine Hub-event caregiver projection.
+
+Render's public web-service ingress terminates HTTPS before the application and
+forwards HTTP to Gunicorn. The existing GS-148 identity verifier requires an
+actual verified TLS 1.2 client peer socket to construct `VerifiedHubContext`; no
+such peer reaches the WSGI app, and caller-controlled identity headers cannot
+substitute. Secure live Hub ingestion is blocked on this deployment boundary.
+Do not mount the durable API there until a trusted mTLS ingress is supplied or
+a new signed-request security contract is reviewed and approved. The smallest
+safe alternative and actual observations are recorded in
+[`GS-179 Render ingress evidence`](../exec-plans/evidence/GS179_RENDER_INGRESS_BLOCKER_20261019.md).
+
+The Render PostgreSQL service reports available, but the read-only SQL connector
+cannot reach it because its external IP allowlist is empty; no DB setting was
+changed, and no schema/persistence result is claimed. A first `/readyz` client
+request timed out, but subsequent Render logs report 200 responses; treat that
+timeout as inconclusive. Existing GS-178 host E2E 27/27 and GS-177 Android CI
+success are prior evidence only. No source-linked Node event, live PostgreSQL
+COMMITTED receipt or caregiver-visible real monitoring record was executed.
+GS-179 stays In Progress; GS-177, GS-148, GS-59 and GS-40 remain in their
+current statuses. `LIVE_STAGING_SOFTWARE_E2E_PASS=NO`; phone real-data and all
+physical acceptance remain NOT_RUN. The next action is to provide an
+already-authorized direct mTLS-capable isolated backend ingress and database
+network path, or approve a new request-authentication contract for review. No
+source/API/database/service/deployment change or hardware action occurred in
+this checkpoint.

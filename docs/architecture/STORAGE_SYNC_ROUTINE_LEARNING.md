@@ -489,3 +489,15 @@ integration gap, not a change to the GS-D031 contract. GS-109 owns trusted Hub
 identity/verifier policy and GS-148 owns durable CloudSync/API work. GS-40
 evidence records the exact source findings and leaves physical visibility
 blocked until that path is implemented and exercised end to end.
+
+**GS-179 public staging boundary update (2026-10-19):** the current Render
+Connected Lite public web service still does not mount the GS-148 durable API.
+Render documents that its load balancer terminates inbound TLS and forwards
+HTTP to a web service; the current Gunicorn WSGI process therefore cannot pass
+the actual Hub TLS peer socket to `authorize_cloud_tls_context`. The verified
+Hub context cannot be created from caller-supplied headers. Until a directly
+reachable trusted mTLS ingress or a separately approved authentication
+contract is provided, Hub ingestion must remain unmounted and caregiver
+monitoring must remain UNKNOWN/disconnected. This is deployment evidence, not a
+change to GS-D032 or the durable-event contract. See the [GS-179 staging
+evidence](../exec-plans/evidence/GS179_RENDER_INGRESS_BLOCKER_20261019.md).
