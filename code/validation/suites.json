@@ -142,6 +142,32 @@
       "count_kind": "tests"
     },
     {
+      "id": "pilot-factory",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-p",
+        "test_gs16*_pilot*.py",
+        "-v"
+      ],
+      "inputs": [
+        "tests/python/test_gs165_pilot_station.py",
+        "tests/python/test_gs168_pilot_issuer.py",
+        "tools/factory/pilot_station.py",
+        "tools/factory/pilot_test_issuer.py"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "timeout": 900,
+      "count_kind": "tests"
+    },
+    {
       "id": "board-stack-e2e",
       "components": [
         "node",

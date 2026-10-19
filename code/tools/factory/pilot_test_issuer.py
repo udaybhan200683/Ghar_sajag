@@ -142,6 +142,7 @@ class TestOnlyIssuer:
                  clock: Callable[[], datetime] | None = None):
         if environment != TEST_ONLY:
             raise TestIssuerRejected("NOT_READY_SECURITY_APPROVAL")
+        self.environment = environment
         self.authority = authority or TestOnlyAuthority()
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self._available = True
@@ -311,6 +312,27 @@ class TestOnlyIssuer:
         if row is None:
             return None
         return RegisteredCloudCredential(fingerprint_sha256, row[0], row[1], generation=row[2])
+
+    def active_credential_for_hub(self, hub_id: str) -> TestCredential | None:
+        """Return public TEST_ONLY certificate data for a safe interrupted retry.
+
+        Private keys and CSR data are never persisted or returned. The caller
+        still verifies the certificate and issuer through this authority.
+        """
+        self._check_ready()
+        if not isinstance(hub_id, str) or not _HUB_ID.fullmatch(hub_id):
+            raise TestIssuerRejected("invalid_test_hub_id")
+        with self._lock:
+            row = self._db.execute(
+                "SELECT gs168_credentials.fingerprint,gs168_credentials.certificate_pem,"
+                "gs168_meta.ca_fingerprint,gs168_credentials.generation FROM gs168_credentials "
+                "JOIN gs168_meta ON gs168_meta.only_row=1 WHERE gs168_credentials.hub_id=? "
+                "AND gs168_credentials.state='ACTIVE'",
+                (hub_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return TestCredential(hub_id, row[0], row[1], "ACTIVE", row[2], row[3])
 
     def public_inventory(self) -> list[dict]:
         """Metadata export excludes PEM, CSRs, all private keys and ownership claims."""
