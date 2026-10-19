@@ -16,11 +16,15 @@ bundle budget failure (117011 bytes total vs 114688; CSS 21694 vs 18432). The
 PWA gate ran 83 browser tests successfully and had three settings-page locator
 timeouts; its legacy `pwa_68_browser_test.py` stage also lacks the Python
 `websocket` module. These failures were not suppressed or reclassified. Board
-stack simulation passed 10 checks. Source-bound ESP-IDF 6.0.3 target build is
-pending final closeout; Android local APK build is unavailable in the current
-environment. The registered P0 scenario reports 26/26 assertions and browser
-PASS but remains an aggregate gate failure while required product status is
-PARTIAL.
+stack simulation passed 10 checks. The non-flashing ESP-IDF 6.0.3 C3/S3 build
+passed on source commit `2a389febe472c5e8a31da4a745dd8423a1087527`. S3 is
+2,168,368 bytes (SHA-256
+`310bafecbae5289fe4850edbb1d79c6f7714811fcce53df60f399fd0fd54ebe2`) and fits
+its 4,194,304-byte OTA slot. This is a production-profile target compile, not
+proof of TEST_ONLY runtime composition or physical behavior. Android local APK
+build is unavailable in the current environment. The registered P0 scenario
+reports 26/26 assertions and browser PASS but remains an aggregate gate failure
+while required product status is PARTIAL.
 
 Known target gap: the host simulator captures HubRuntime rule signals into a
 separate durable outbox, but the S3 target scheduler does not atomically persist

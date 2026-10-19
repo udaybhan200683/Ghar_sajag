@@ -362,15 +362,42 @@ Executed validation on the changed source:
   aggregate FAIL at `product_status=PARTIAL`. Backend's Python stage is 528
   tests with 1 existing static PWA bundle-budget failure: total 117011 bytes
   versus 114688, CSS 21694 versus 18432.
-- `make validation-pwa` ran 83 browser cases, 80 PASS and 3 unrelated settings
+- `make validation-pwa` reported 83 browser cases PASS and 3 unrelated settings
   locator timeouts (Family Members, Battery Alerts, Notifications). The legacy
   `pwa-68-browser-test` also exits 2 because Python module `websocket` is absent.
   All GS-178 browser integration assertions passed. The PWA aggregate therefore
   remains FAIL; these unrelated tests/assertions were not changed.
 - Host compile/format checks and `git diff --check` passed. Full release gates
-  were NOT_RUN. The source-bound ESP-IDF 6.0.3 target build, Android APK build,
-  and physical target execution are recorded separately below when completed;
-  no browser/simulation or compile result is physical evidence.
+  were NOT_RUN. Android APK assembly and physical target execution were not
+  performed; no browser/simulation or compile result is physical evidence.
+
+Committed-source target build:
+
+- Command: `python3 code/scripts/build_validation_targets.py`.
+- Result: PASS, ESP-IDF 6.0.3, `GS_HIL_BUILD=OFF`, production target profile,
+  target compile only; report
+  `code/build/validation_targets/gs116-p0e50i_4/report.json`.
+- Source HEAD: `2a389febe472c5e8a31da4a745dd8423a1087527`; source fingerprint:
+  `475210604d053bed455fd237b6d299cb5e6e406fb66115727344e9498fd75ed0`.
+- C3 image: 937,536 bytes, OTA slot 1,966,080 bytes, SHA-256
+  `d9541f3947ca65df0a80a949912d7b05191c85aab51459815a37b595ba4804fe`;
+  effective sdkconfig SHA-256
+  `c8a7e0dcaaf7053acb1bc46db5cdb2fe1c567e5a02e9eb391d011b23a9789986`.
+- S3 image: 2,168,368 bytes, OTA slot 4,194,304 bytes, SHA-256
+  `310bafecbae5289fe4850edbb1d79c6f7714811fcce53df60f399fd0fd54ebe2`;
+  effective sdkconfig SHA-256
+  `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`.
+- The builder emits no standalone profile-manifest file/hash; profile is the
+  recorded `production GS_HIL_BUILD=OFF`, with effective sdkconfig hashes above.
+  These images compile the canonical C3/S3 targets; this result does not show
+  the TEST_ONLY startup selecting a credential-ready runtime, runtime NodeHealth
+  delivery, or physical behavior. No image was flashed.
+
+Android caregiver verification: `bash code/parivar_saathi_android_app/verify.sh`
+passed 19 tests and XML structure
+  validation. Android SDK, Java, Gradle and adb are absent in this environment
+  (`ANDROID_HOME` unset), so no APK was assembled here. Existing connected-app
+  API/browser software results are separate from a phone installation.
 
 The implementation still has a real target gap: the S3 scheduler does not
 atomically persist Hub-derived publication intent with the Hub checkpoint, and
