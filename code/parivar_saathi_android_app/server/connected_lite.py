@@ -262,8 +262,13 @@ class CurrentSessionDirectory:
 class LiteApi:
     def __init__(self, store: Store, runner=run_scenario, clock=time.time, product_view=None):
         self.store, self.runner, self.clock = store, runner, clock
-        if product_view is not None and (not store.local or os.environ.get("GS178_LOCAL_TEST") != "1"):
-            raise ValueError("product_composition_requires_explicit_isolated_test")
+        if product_view is not None:
+            local_test = store.local and os.environ.get("GS178_LOCAL_TEST") == "1"
+            remote_test_only = (not store.local and
+                os.environ.get("GS179_TEST_ONLY_MONITORING") == "1" and
+                getattr(product_view, "bind_test_only_session", False) is True)
+            if not (local_test or remote_test_only):
+                raise ValueError("product_composition_requires_explicit_isolated_test")
         self.product_view = product_view
         self.diagnostics = DiagnosticReadService(
             DiagnosticAuthorizer(SyntheticDiagnosticAuthority()), clock=lambda: int(self.clock()),
@@ -616,7 +621,32 @@ def build_app():
     origin = os.environ.get("PUBLIC_ORIGIN", "")
     if not re.fullmatch(r"https://[a-z0-9](?:[a-z0-9.-]{1,251}[a-z0-9])", origin) or ".." in origin:
         raise ValueError("PUBLIC_ORIGIN must be the exact approved HTTPS origin")
-    return LiteApi(Store(os.environ["DATABASE_URL"]))
+    store = Store(os.environ["DATABASE_URL"])
+    product_view = None
+    profile = os.environ.get("GS179_TEST_ONLY_MONITORING", "0")
+    if profile not in {"0", "1"}:
+        raise ValueError("invalid_gs179_test_only_monitoring_profile")
+    if profile == "1":
+        if store.local or os.environ.get("GS179_TEST_ONLY_HOME_PREFIX") != "gs177-test-":
+            raise ValueError("test_only_monitoring_requires_postgres_and_test_home_scope")
+        from psycopg.conninfo import conninfo_to_dict
+        fields = conninfo_to_dict(store.url)
+        if fields.get("sslmode") != "verify-full":
+            raise ValueError("test_only_monitoring_requires_verified_postgres_tls")
+        from ghar_sajag.caregiver_product import CaregiverProductView
+        from ghar_sajag.durable_api import open_postgres_durable_event_api
+        from ghar_sajag.service import GharSajagService
+        service = GharSajagService()
+        durable = open_postgres_durable_event_api(
+            service, store.url, require_registered_ownership=True,
+            enable_test_hub_rule_decisions=True)
+        product_view = CaregiverProductView(
+            service, source="AUTHENTICATED_GS148_TEST_ONLY",
+            decision_reader=durable.api.hub_rule_decisions,
+            session_authority_db=durable.db, bind_test_only_session=True)
+        # Retain the durable connection composition for this WSGI worker.
+        product_view.durable_api = durable
+    return LiteApi(store, product_view=product_view)
 
 
 if __name__ == "__main__":

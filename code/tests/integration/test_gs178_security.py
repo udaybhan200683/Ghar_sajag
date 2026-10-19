@@ -2,17 +2,19 @@
 import copy
 import json
 import secrets
+import socket
+import ssl
 import unittest
 from datetime import datetime, timezone
 from cryptography.hazmat.primitives import serialization
 
-from gs178_stack import ProductStack, HOME, HUB
+from gs178_stack import ProductStack, HOME, HUB, product_stack_for_test
 from pilot_test_issuer import new_test_csr, TestOnlyIssuer
 
 
 class BootstrapSecurity(unittest.TestCase):
     def fixture(self):
-        fixture = ProductStack()
+        fixture = product_stack_for_test()
         self.addCleanup(fixture.close)
         return fixture
 
@@ -112,6 +114,26 @@ class BootstrapSecurity(unittest.TestCase):
         self.assertEqual(s.hub_request(path,old)[0],403)
         self.assertEqual(s.hub_request("/v1/homes/gs177-test-other/events",request)[0],403)
         self.assertEqual(s.durable.db.execute("SELECT COUNT(*) FROM events").fetchone()[0],1)
+
+    def test_spoofed_certificate_headers_cannot_replace_tls_client_certificate(self):
+        s = self.fixture()
+        ready = s.start_node()
+        del ready
+        body = json.dumps({"event_key": {"physical_device_id": "test-c3-bedroom"}}).encode()
+        context = ssl.create_default_context(cafile=str(s.ca_path))
+        context.minimum_version = context.maximum_version = ssl.TLSVersion.TLSv1_2
+        with socket.create_connection(("127.0.0.1", int(s.hub_origin.rsplit(":", 1)[1])), timeout=3) as raw:
+            with self.assertRaises((ssl.SSLError, OSError)):
+                with context.wrap_socket(raw, server_hostname="localhost") as peer:
+                    peer.sendall((f"POST /v1/homes/{HOME}/events HTTP/1.1\r\n"
+                                  "Host: localhost\r\n"
+                                  "X-Forwarded-Client-Cert: forged\r\n"
+                                  "X-Client-Cert: forged\r\n"
+                                  f"Content-Length: {len(body)}\r\n"
+                                  "Content-Type: application/json\r\n\r\n").encode() + body)
+                    peer.recv(512)
+        self.assertEqual(s.durable.db.execute("SELECT COUNT(*) FROM events").fetchone()[0], 0)
+        self.assertEqual(s.receipts, [])
 
 
 if __name__ == "__main__": unittest.main()

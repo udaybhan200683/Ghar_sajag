@@ -64,17 +64,20 @@ function openTab(next){
   window.scrollTo({top:0,behavior:'instant'});
   void refresh();
 }
-function dataLabel(){return `<p class="test-watermark">TEST_ONLY synthetic Home · ${esc(profile.home_id)} · ${esc(view?.source||'No physical source')}</p>`}
+function dataLabel(){return `<p class="test-watermark">${productSource()?'TEST_ONLY authenticated monitoring':'TEST_ONLY synthetic Home'} · ${esc(profile.home_id)} · ${esc(view?.source||'No physical source')}</p>`}
 function card(title,body){return `<div class="card"><h2>${esc(title)}</h2>${body}</div>`}
 function tableRows(items,render){return items.length?items.map(render).join(''):'<p class="muted">No saved observations.</p>'}
-function productSource(){return view?.source==='NODE_ORIGIN_HOST_SIM'}
+function productSource(){return ['NODE_ORIGIN_HOST_SIM','AUTHENTICATED_GS148_TEST_ONLY'].includes(view?.source)}
 function productEvents(events){return tableRows(events||[],e=>e.source_type==='HUB_RULE'
   ?`<article class="caregiver-run" data-hub-decision="${esc(e.decision_id)}"><b>${esc(e.kind)}</b><span>Hub rule decision · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>Decision ID: ${esc(e.decision_id)} · ${esc(e.details?.reason||'')}</small></article>`
   :`<article class="caregiver-run" data-event-key="${esc(JSON.stringify(e.event_key))}"><b>${esc(e.kind)}</b><span>${esc(e.location)} · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>EventKey: ${esc(JSON.stringify(e.event_key))} · ${e.delayed?'Delayed':'Current at receipt'}</small></article>`)}
 
 function renderHome(){
   if(productSource()){
-    panel(`${dataLabel()}${card('Node-originated software monitoring',`<p>Backend source: authenticated Hub CloudSync · ${esc(view.source_freshness)}</p><p>Observation coverage: ${esc(view.monitoring)}</p><p>Physical sensing: NOT_RUN. These records came from the production Node/Hub code running on the host.</p>`)}${card('Activity timeline',productEvents(view.recent_events))}${card('Active concerns',`<p>${esc(view.active_incidents?.length||0)} · inspect Incidents for caregiver actions.</p>`)}`);
+    const sourceEvidence=view.source==='NODE_ORIGIN_HOST_SIM'
+      ?'Production Node/Hub code executed in a host simulation; physical sensing remains NOT_RUN.'
+      :'Authenticated TEST_ONLY GS-148 Hub data; physical target and sensor acceptance remain NOT_RUN.';
+    panel(`${dataLabel()}${card('Home monitoring',`<p class="caregiver-state ${view.monitoring==='COVERED'?'good':'pending'}">${esc(view.monitoring)}</p><p>Backend source freshness: ${esc(view.source_freshness)} · latest Hub contact ${esc(view.last_hub_at?new Date(view.last_hub_at*1000).toISOString():'not observed')}.</p><p>Observation coverage is not evidence of resident wellbeing. ${esc(sourceEvidence)}</p>`)}${card('Activity timeline',productEvents(view.recent_events))}${card('Active concerns',`<p>${esc(view.active_incidents?.length||0)} · inspect Incidents for caregiver actions.</p>`)}`);
     return;
   }
   const rows=view?.runs||[];
@@ -120,11 +123,16 @@ function renderReports(){
   $('#reportPeriod').onchange=async event=>{view=await api(`homes/${profile.home_id}/reports?period=${event.target.value}`);renderReports()};
 }
 function renderRoutines(){
+  if(productSource()){
+    panel(`${dataLabel()}${card('Hub routine decisions',`<p>Observation coverage: <strong>${esc(view?.observation_coverage||'UNKNOWN')}</strong>.</p>${tableRows(view?.decisions||[],d=>`<article class="caregiver-run" data-hub-decision="${esc(d.decision_id)}"><b>${esc(d.kind)} · ${esc(d.details?.tone||'UNKNOWN')}</b><span>${esc(new Date(d.occurred_at*1000).toISOString())}</span><small>Decision ID: ${esc(d.decision_id)} · ${esc(d.details?.reason||'')}</small></article>`)}`)}${card('Personalized routines',`<p>Learning status: <strong>${esc(view?.learning_status||'UNKNOWN')}</strong>.</p><p>Only committed deterministic Hub decisions are shown. Personalized learning is not enabled.</p>`)}`);
+    return;
+  }
   panel(`${dataLabel()}${card('Routine insights',`<p>Longitudinal learning: <strong>${esc(view?.learning_status||'UNKNOWN')}</strong>.</p><p>Routine scenarios run the existing deterministic activity rules. The current lab does not form a multi-day resident baseline.</p>${tableRows(view?.decisions||[],d=>`<details><summary>${esc(d.scenario_title)} · ${esc(d.result)} · ${esc(d.category)}</summary><p>Evaluated: ${esc(new Date(d.evaluated_at*1000).toLocaleString())} · Trace: ${esc(d.trace_id)}</p><p>Engine reason: <strong>${esc(d.decision_reason)}</strong></p><p>Events: ${esc(d.event_ids.join(', ')||'none emitted')} · Incidents: ${esc(d.incident_count)}</p><p>Learning status: ${esc(d.learning_status)}</p>${tableRows(d.step_results,s=>`<p>Step ${esc(s.index)} · ${s.passed?'PASS':'FAIL'} · ${esc(s.detail)}</p>`)}${tableRows(d.checks,c=>`<p>${c.pass?'PASS':'FAIL'} · ${esc(c.detail)}</p>`)}<button class="open-run" data-run="${esc(d.run_id)}">Open full run trace</button></details>`)}<h3>Saved routine scenarios</h3>${tableRows(view?.runs||[],r=>`<p><button class="open-run" data-run="${esc(r.run_id)}">Inspect ${esc(r.scenario_id)}</button> · ${esc(r.status)} · ${esc(r.category)}</p>`)}<p class="muted">Coverage gaps remain UNKNOWN where the scenario has no evidence. Synthetic output is not a trained resident-specific model.</p>`)}${selectedRun?runDetail(selectedRun):''}`);
   bindRunButtons();
 }
 function renderSettings(){
-  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>Physical Hub CloudSync: UNAVAILABLE / NO_HUB_CLOUDSYNC</p>`)}`);
+  const hubState=productSource()?`${view.monitoring} / ${view.source_freshness}`:'UNKNOWN / NO_HUB_CLOUDSYNC';
+  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>`)}`);
   $('#logoutButton').onclick=async()=>{try{await api('auth/logout',{method:'POST'})}finally{status('SIGNED OUT','Current session has been revoked.');loginScreen()}};
 }
 function renderEngineering(){
@@ -220,7 +228,9 @@ async function refresh(){
       runs=(await api(`homes/${home}/sim/runs`)).runs;
     }
     connection='CONNECTED';lastSync=Date.now();
-    status('CONNECTED',`TEST_ONLY workspace · last synced ${new Date(lastSync).toLocaleTimeString()}. Real-home monitoring is not connected.`);
+    status('CONNECTED',productSource()
+      ?`Caregiver API connected · Hub monitoring ${view.monitoring} · source ${view.source_freshness}.`
+      :`TEST_ONLY workspace · last synced ${new Date(lastSync).toLocaleTimeString()}. Physical monitoring remains UNKNOWN.`);
     renderCurrent();
   }catch(error){
     connection='OFFLINE';status('OFFLINE / RECONNECTING',`Current data unavailable: ${error.message}. Physical monitoring UNKNOWN.`);

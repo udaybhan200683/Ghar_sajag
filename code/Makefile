@@ -663,7 +663,7 @@ board-stack-e2e-host-test: build $(BOARD_E2E_OBJECTS)
 validation-board-e2e:
 	python3 validation/component_gate.py --suite board-e2e $(VALIDATION_RECEIPTS)
 
-.PHONY: gs178-host-build gs178-software-e2e
+.PHONY: gs178-host-build gs178-software-e2e gs179-postgres-e2e
 gs178-host-build: build $(BOARD_E2E_OBJECTS)
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -Itests/cpp/p2d_idf_fake \
 		$(BOARD_E2E_OBJECTS) firmware/hub/target/esp32s3/cloud_trust_provider.cpp \
@@ -673,6 +673,9 @@ gs178-host-build: build $(BOARD_E2E_OBJECTS)
 		-lssl -lcrypto -o build/gs178_product_host
 gs178-software-e2e: gs178-host-build
 	PYTHONPATH=backend:tools/hil:tools/factory:tests/support:parivar_saathi_android_app/server python3 -m unittest discover -s tests/integration -p 'test_gs178*.py' -v
+gs179-postgres-e2e: gs178-host-build
+	@test -n "$${GS179_TEST_POSTGRES_DSN:-}" || (echo "GS179_TEST_POSTGRES_DSN must identify an isolated local PostgreSQL database"; exit 2)
+	GS179_TEST_POSTGRES_ONLY=1 PYTHONPATH=backend:tools/hil:tools/factory:tests/support:parivar_saathi_android_app/server:$${PYTHONPATH:-} python3 tests/integration/run_gs179_postgres_e2e.py
 
 .PHONY: validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test gs68-node-diag-protocol-host-test p0-product-e2e
 P0_BOARD_E2E_SOURCES := $(sort $(CPP_SOURCES) $(GS116_MULTINODE_HOST_TEST_HOST_SOURCES) $(GS116_SECURE_FOTA_ADAPTER_HOST_TEST_HOST_SOURCES) firmware/hub/storage/outbox_journal_backend.cpp firmware/node/lifecycle/fota/boot_health_gate.cpp)

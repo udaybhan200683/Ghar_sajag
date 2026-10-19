@@ -38,16 +38,40 @@ const os = require('os');
       const decision=page.locator('[data-hub-decision]');
       await expect(decision).toContainText('Decision ID:');
       if((await decision.textContent()).includes('EventKey:'))throw Error('Hub decision falsely rendered with Node EventKey');
+      let assertions=5;
+      if(config.routineKind){
+        await page.getByRole('button',{name:'routines',exact:true}).click();
+        await expect(page.locator('#homeTab [data-hub-decision]')).toHaveCount(1);
+        await expect(page.locator('#homeTab')).toContainText(config.routineKind);
+        await expect(page.locator('#homeTab')).toContainText('NOT_ENABLED');
+        assertions+=3;
+      }
       fs.writeFileSync(config.dom,await page.content());
-      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:5,requests,physical:'NOT_RUN'}));
+      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:assertions,requests,physical:'NOT_RUN'}));
       return;
     }
-    await expect(page.locator('[data-event-key]')).toHaveCount(2);
+    const expectedEventCount=config.eventCount||2;
+    await expect(page.locator('[data-event-key]')).toHaveCount(expectedEventCount);
+    if(config.eventKeys){
+      const renderedKeys=await page.locator('[data-event-key]').evaluateAll(nodes=>
+        nodes.map(node=>JSON.parse(node.getAttribute('data-event-key'))));
+      expect(renderedKeys).toEqual(config.eventKeys);
+    }
     await expect(page.locator('#homeTab')).toContainText('MOTION');
     await expect(page.locator('#homeTab')).toContainText('CALL_FAMILY');
     await expect(page.locator('#homeTab')).toContainText('bedroom');
+    let homeMonitoringAssertions=0;
+    if(config.monitoring){
+      const homeMonitoring=page.locator('#homeTab .card').filter({
+        has:page.getByRole('heading',{name:'Home monitoring',exact:true})
+      });
+      await expect(homeMonitoring).toContainText(config.monitoring);
+      await expect(homeMonitoring).toContainText(`Backend source freshness: ${config.sourceFreshness}`);
+      await expect(page.locator('#homeTab')).toContainText(config.source);
+      homeMonitoringAssertions=3;
+    }
     await page.getByRole('button',{name:'devices',exact:true}).click();
-    await expect(page.locator('[data-node-id]')).toHaveCount(2);
+    await expect(page.locator('[data-node-id]')).toHaveCount(config.nodeCount||2);
     await expect(page.locator('#homeTab')).toContainText('ONLINE');
     await page.getByRole('button',{name:'incidents',exact:true}).click();
     for(const [action,state] of [['claim','CLAIMED'],['acknowledge','ACKNOWLEDGED'],['resolve','RESOLVED']]){
@@ -64,8 +88,21 @@ const os = require('os');
     await expect(page.locator('[data-event-key]')).toHaveCount(0);
     offline=false;await context.setOffline(false);
     await page.getByRole('button',{name:'home',exact:true}).click();
-    await expect(page.locator('[data-event-key]')).toHaveCount(2);
+    await expect(page.locator('[data-event-key]')).toHaveCount(expectedEventCount);
+    if(config.eventKeys){
+      const reloadedKeys=await page.locator('[data-event-key]').evaluateAll(nodes=>
+        nodes.map(node=>JSON.parse(node.getAttribute('data-event-key'))));
+      expect(reloadedKeys).toEqual(config.eventKeys);
+    }
+    let assertions=14+homeMonitoringAssertions;
+    if(config.routineKind){
+      await page.getByRole('button',{name:'routines',exact:true}).click();
+      await expect(page.locator('#routinesTab [data-hub-decision]')).toHaveCount(1);
+      await expect(page.locator('#routinesTab')).toContainText(config.routineKind);
+      await expect(page.locator('#routinesTab')).toContainText('NOT_ENABLED');
+      assertions+=3;
+    }
     fs.writeFileSync(config.dom,await page.content());
-    console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:14,requests,physical:'NOT_RUN'}));
+    console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:assertions,requests,physical:'NOT_RUN'}));
   } finally {await browser.close();}
 })().catch(error=>{console.error(error.stack);process.exit(1)});

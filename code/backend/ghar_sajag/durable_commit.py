@@ -1,4 +1,4 @@
-"""Atomic SQLite event, incident and notification-outbox commit contract.
+"""Atomic relational event, incident and notification-outbox commit contract.
 
 This adapter requires an authenticated Hub boundary before ``commit`` is called.
 It never sends a notification while the database transaction is open.
@@ -34,13 +34,17 @@ class DurableEventCommit:
         "UNUSUAL_NIGHT_COMMON_ACTIVITY", "POST_DOOR_INACTIVITY",
     }
 
-    def __init__(self, db: sqlite3.Connection, lock: threading.RLock | None = None) -> None:
-        if db.in_transaction or db.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
-            raise ValueError("durable_store_requires_foreign_keys")
-        if db.execute("PRAGMA synchronous").fetchone()[0] < 2:
-            raise ValueError("durable_store_requires_full_sync")
-        if not db.execute("PRAGMA database_list").fetchone()[2]:
-            raise ValueError("durable_store_requires_file_database")
+    def __init__(self, db, lock: threading.RLock | None = None) -> None:
+        if getattr(db, "dialect", "sqlite") == "postgres":
+            if db.in_transaction or not getattr(db, "durable_commit_ready", False):
+                raise ValueError("postgres_durable_commit_settings_required")
+        else:
+            if db.in_transaction or db.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                raise ValueError("durable_store_requires_foreign_keys")
+            if db.execute("PRAGMA synchronous").fetchone()[0] < 2:
+                raise ValueError("durable_store_requires_full_sync")
+            if not db.execute("PRAGMA database_list").fetchone()[2]:
+                raise ValueError("durable_store_requires_file_database")
         self.db = db
         self.lock = lock or threading.RLock()
 
@@ -113,6 +117,14 @@ class DurableEventCommit:
     @staticmethod
     def _id(prefix: str, value: str) -> str:
         return prefix + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _notification_key(home_id: str, effect_key: str, recipient: str) -> str:
+        """Build an unambiguous text key portable to SQLite and PostgreSQL."""
+        parts = (home_id, effect_key, recipient)
+        if any(not isinstance(part, str) or "\0" in part for part in parts):
+            raise ValueError("invalid_notification_idempotency_key")
+        return "v1:" + "".join(f"{len(part.encode('utf-8'))}:{part}" for part in parts)
 
     def commit(self, home_id: str, body: dict, received_at: int,
                fail_at: str | None = None,
@@ -199,7 +211,7 @@ class DurableEventCommit:
                             continue
                         stage = 1 if role == "PRIMARY" else 2
                         due = received_at + (300 if stage == 2 else 0)
-                        unique = home_id + "\0" + effect_key + "\0" + recipient
+                        unique = self._notification_key(home_id, effect_key, recipient)
                         outbox_id = self._id("out_", unique)
                         if incident_id is not None:
                             self.db.execute(

@@ -1,4 +1,4 @@
-"""Isolated real TLS/SQLite/caregiver stack for the Node-originated vertical."""
+"""Isolated real TLS/relational database/caregiver stack for Node-origin E2E."""
 import io
 import json
 import mimetypes
@@ -23,10 +23,8 @@ from cryptography.hazmat.primitives import serialization
 from gs40_test_bootstrap import AuthorityService, SignedTimeService, encode_config, public_der, rsa3072
 from cloudsync_mtls_certs import make_test_ca, issue_test_cert
 from pilot_test_issuer import TestOnlyIssuer, new_test_csr
-from ghar_sajag.cloud_client_identity import authorize_cloud_tls_context, TimeReadiness
-from ghar_sajag.durable_api import open_durable_event_api
-from ghar_sajag.durable_commit import EventCommitConflict
-from ghar_sajag.hub_rule_decisions import HubDecisionConflict
+from ghar_sajag.durable_api import open_durable_event_api, open_postgres_durable_event_api
+from ghar_sajag.test_only_mtls_listener import TestOnlyMtlsListener
 from ghar_sajag.caregiver_product import CaregiverProductView
 from ghar_sajag.model import Resident
 from ghar_sajag.service import GharSajagService
@@ -53,11 +51,25 @@ def _test_activity_rules_ar1():
 
 
 class ProductStack:
-    def __init__(self):
+    def __init__(self, *, postgres_dsn=None):
+        if postgres_dsn is not None:
+            from gs179_postgres_test_db import IsolatedPostgresSchema
+            self.postgres_schema = IsolatedPostgresSchema(postgres_dsn)
+        else:
+            self.postgres_schema = None
+        self.postgres_dsn = self.postgres_schema.dsn if self.postgres_schema else None
         self.temp = tempfile.TemporaryDirectory(prefix="GS178_TEST_ONLY_")
         self.path = Path(self.temp.name)
-        self._env = {k: os.environ.get(k) for k in ("GS177_LOCAL_TEST", "GS178_LOCAL_TEST", "PUBLIC_ORIGIN")}
+        self._env = {k: os.environ.get(k) for k in (
+            "GS177_LOCAL_TEST", "GS178_LOCAL_TEST", "GS179_TEST_ONLY_MONITORING",
+            "GS179_TEST_ONLY_HOME_PREFIX", "PUBLIC_ORIGIN")}
         os.environ.update(GS177_LOCAL_TEST="1", GS178_LOCAL_TEST="1", PUBLIC_ORIGIN="https://caregiver.gs178.dev")
+        if self.postgres_schema is not None:
+            os.environ.update(GS179_TEST_ONLY_MONITORING="1",
+                              GS179_TEST_ONLY_HOME_PREFIX="gs177-test-")
+        else:
+            os.environ.update(GS179_TEST_ONLY_MONITORING="0",
+                              GS179_TEST_ONLY_HOME_PREFIX="gs177-test-")
         self.now = int(time.time())
         self.domain_now = self.now
         self.wan_up = True
@@ -77,15 +89,15 @@ class ProductStack:
         self.client_ca = self.path / "client-ca.pem"
         self.client_ca.write_bytes(self.issuer.authority.public_ca_pem())
         self.service = GharSajagService()
-        self.lite_store = Store("sqlite:///" + str(self.path / "caregiver.sqlite"))
+        self.lite_store = Store(
+            self.postgres_schema.url if self.postgres_schema is not None
+            else "sqlite:///" + str(self.path / "caregiver.sqlite"))
         self.lite_store.migrate()
         self.password = secrets.token_urlsafe(32)
         self.actor = bootstrap_admin(self.lite_store, "owner@gs178.dev", self.password, HOME)
         self.service.homes.create(HOME, "Isolated Node-origin Home", "Etc/UTC", "en-IN", self.actor,
             [Resident("test-resident", "TEST_ONLY", True, self.now)], self.now)
-        self.durable = open_durable_event_api(self.service, self.path / "product.sqlite",
-            now=lambda: self.domain_now, require_registered_ownership=True,
-            enable_test_hub_rule_decisions=True)
+        self.durable = self._open_durable_api()
         db = self.durable.db
         db.execute("INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES(?,?,?,?,?)",
                    (HOME, "GS178 TEST_ONLY", "UTC", self.now, self.now))
@@ -109,8 +121,11 @@ class ProductStack:
         self.root_path.write_bytes(public_der(self.config_signer))
         self.lite = LiteApi(self.lite_store, clock=lambda: self.domain_now,
             product_view=CaregiverProductView(self.service, source="NODE_ORIGIN_HOST_SIM",
-                decision_reader=self.durable.api.hub_rule_decisions))
+                decision_reader=self.durable.api.hub_rule_decisions,
+                session_authority_db=(self.durable.db if self.postgres_dsn else None),
+                bind_test_only_session=bool(self.postgres_dsn)))
         self.servers = []
+        self.mtls_listener = None
         self.hub_origin = self._server(True)
         self.human_origin = self._server(False)
         self.process = None
@@ -121,8 +136,47 @@ class ProductStack:
         self.durable.api.node_health_status = health
         self.service.queries.node_health_status = health
 
+    def _open_durable_api(self):
+        if self.postgres_dsn is not None:
+            return open_postgres_durable_event_api(
+                self.service, self.postgres_dsn, now=lambda: self.domain_now,
+                require_registered_ownership=True, enable_test_hub_rule_decisions=True,
+                allow_local_unencrypted=True)
+        return open_durable_event_api(self.service, self.path / "product.sqlite",
+            now=lambda: self.domain_now, require_registered_ownership=True,
+            enable_test_hub_rule_decisions=True)
+
     def _server(self, mtls):
         stack = self
+        if mtls:
+            def record_result(path, request, status, response):
+                if path != "/v1/test/authority/refresh":
+                    stack.receipts.append({"path": path, "request": request,
+                                           "status": status, "response": response})
+
+            def drop_receipt(path, _request, status, response):
+                if (stack.drop_rule_receipt and path.endswith("/hub-rule-decisions")
+                        and isinstance(response, dict) and response.get("status") == "COMMITTED"):
+                    stack.drop_rule_receipt = False
+                    return True
+                if (stack.drop_receipt and isinstance(response, dict)
+                        and response.get("status") == "COMMITTED"):
+                    stack.drop_receipt = False
+                    return True
+                return False
+
+            self.mtls_listener = TestOnlyMtlsListener(
+                profile="GS179_TEST_ONLY", api=self.durable.api,
+                credentials=self.issuer, ownership_db=self.durable.db,
+                server_cert=self.cert_path, server_key=self.key_path,
+                client_ca=self.client_ca,
+                trusted_time=lambda: datetime.now(timezone.utc),
+                authority_refresh=self.authority.refresh,
+                bind_host="127.0.0.1", port=0, max_request_bytes=16_384,
+                timeout_seconds=5, available=lambda: stack.wan_up,
+                on_result=record_result, drop_response=drop_receipt)
+            return self.mtls_listener.start()
+
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_):
                 pass
@@ -133,28 +187,7 @@ class ProductStack:
                     size = int(self.headers.get("Content-Length", "0"))
                     if size < 0 or size > 16384: raise ValueError("request_too_large")
                     raw = self.rfile.read(size)
-                    if mtls:
-                        if not stack.wan_up:
-                            status, body = 503, {"error": "test_wan_unavailable"}
-                        elif self.path == "/v1/test/authority/refresh":
-                            status, body = 200, stack.authority.refresh(self.connection, json.loads(raw))
-                        else:
-                            context = authorize_cloud_tls_context(self.connection,
-                                trusted_now=datetime.now(timezone.utc), time_readiness=TimeReadiness.TRUSTED,
-                                credentials=stack.issuer, ownership_db=stack.durable.db)
-                            status_line, body = stack.durable.api.dispatch(self.command, self.path, "", json.loads(raw), request_context=context)
-                            status = int(status_line[:3])
-                            stack.receipts.append({"path": self.path, "request": json.loads(raw), "status": status, "response": body})
-                            if (stack.drop_rule_receipt and self.path.endswith("/hub-rule-decisions")
-                                    and body.get("status") == "COMMITTED"):
-                                stack.drop_rule_receipt = False
-                                self.close_connection = True
-                                return
-                            if stack.drop_receipt and body.get("status") == "COMMITTED":
-                                stack.drop_receipt = False
-                                self.close_connection = True
-                                return
-                    elif self.path.startswith("/lite/"):
+                    if self.path.startswith("/lite/"):
                         env = {"REQUEST_METHOD": self.command, "PATH_INFO": urlsplit(self.path).path,
                                "QUERY_STRING": urlsplit(self.path).query, "CONTENT_LENGTH": str(size),
                                "wsgi.input": io.BytesIO(raw), "HTTP_COOKIE": self.headers.get("Cookie", ""),
@@ -182,19 +215,14 @@ class ProductStack:
                     self.send_header("Content-Type", content_type or "text/html")
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers(); self.wfile.write(body)
-                except (PermissionError, ValueError, KeyError, EventCommitConflict, HubDecisionConflict) as error:
-                    status = 409 if isinstance(error, (EventCommitConflict, HubDecisionConflict)) else 403 if isinstance(error, PermissionError) else 400
-                    if mtls:
-                        stack.receipts.append({"path": self.path, "status": status, "error": str(error)})
+                except (PermissionError, ValueError, KeyError) as error:
+                    status = 403 if isinstance(error, PermissionError) else 400
                     payload = json.dumps({"error": str(error)}, separators=(",", ":")).encode()
                     self.send_response(status); self.send_header("Content-Length", str(len(payload))); self.end_headers(); self.wfile.write(payload)
         server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = context.maximum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(self.cert_path, self.key_path)
-        if mtls:
-            context.verify_mode = ssl.CERT_REQUIRED
-            context.load_verify_locations(cafile=str(self.client_ca))
         server.socket = context.wrap_socket(server.socket, server_side=True)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start(); self.servers.append((server, thread))
@@ -259,7 +287,8 @@ class ProductStack:
         context = ssl.create_default_context(cafile=str(self.ca_path))
         context.minimum_version = context.maximum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(cert_path, key_path)
-        request = Request(self.hub_origin + path, data=json.dumps(body).encode(), method="POST")
+        request = Request(self.hub_origin + path, data=json.dumps(body).encode(), method="POST",
+                          headers={"Content-Type": "application/json"})
         try:
             with urlopen(request, context=context, timeout=5) as response:
                 return response.status, response.read()
@@ -274,11 +303,11 @@ class ProductStack:
 
     def restart_backend(self):
         self.durable.close()
-        self.durable = open_durable_event_api(self.service, self.path / "product.sqlite",
-            now=lambda: self.domain_now, require_registered_ownership=True,
-            enable_test_hub_rule_decisions=True)
+        self.durable = self._open_durable_api()
         self.authority.db = self.durable.db
         self.lite.product_view.decision_reader = self.durable.api.hub_rule_decisions
+        self.lite.product_view.session_authority_db = (
+            self.durable.db if self.postgres_dsn else None)
         self._health()
 
     def close(self):
@@ -290,7 +319,21 @@ class ProductStack:
             for stream in (self.process.stdin,self.process.stdout,self.process.stderr): stream.close()
         for server, thread in self.servers:
             server.shutdown();server.server_close();thread.join(timeout=2)
+        if self.mtls_listener is not None:
+            self.mtls_listener.close()
         self.time.close(); self.durable.close(); self.issuer.close(); self.temp.cleanup()
+        if self.postgres_schema is not None:
+            self.postgres_schema.close()
         for key, value in self._env.items():
             if value is None: os.environ.pop(key,None)
             else: os.environ[key]=value
+
+
+def product_stack_for_test():
+    """Select PostgreSQL only for the explicit GS-179 local integration run."""
+    if os.environ.get("GS179_TEST_POSTGRES_ONLY") != "1":
+        return ProductStack()
+    dsn = os.environ.get("GS179_TEST_POSTGRES_DSN")
+    if not dsn:
+        raise RuntimeError("GS179_TEST_POSTGRES_DSN_required_for_postgres_only_run")
+    return ProductStack(postgres_dsn=dsn)

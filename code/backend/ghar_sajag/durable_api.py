@@ -1,6 +1,6 @@
-"""File-backed composition for the existing authenticated Hub event API seam.
+"""Durable composition for the existing authenticated Hub event API seam.
 
-This module wires the implemented SQLite transaction and durable event query map
+This module wires the existing relational transaction and durable event query map
 into ``JsonApi``. It deliberately does not authenticate Hub requests: the server
 deployment must provide trusted middleware that sets ``gs.verified_hub`` and an
 authorizer bound to its enrollment registry. The local development ``main`` entry
@@ -26,10 +26,10 @@ from .hub_rule_decisions import HubRuleDecisionCommit
 
 @dataclass
 class DurableEventApi:
-    """A JsonApi backed by one durable SQLite event connection."""
+    """A JsonApi backed by one durable relational event connection."""
 
     api: JsonApi
-    db: sqlite3.Connection
+    db: object
 
     def close(self) -> None:
         self.db.close()
@@ -67,6 +67,52 @@ def open_durable_event_api(
         # QueryService uses the event mapping interface, so a committed Hub event
         # becomes visible through the existing caregiver projection after commit
         # and remains visible after this composition is reopened.
+        service.store.events = event_map
+        service.store.incidents = SQLiteIncidentMap(db, service.lock)
+        service.store.incident_keys = SQLiteIncidentKeys(service.store.incidents)
+        service.incidents = SQLiteIncidentService(service.store, service.identity, db, service.lock)
+        committer = DurableEventCommit(db, service.lock)
+        ownership_registry = HubOwnershipRegistry(db, service.lock) if require_registered_ownership else None
+        node_health_status = NodeHealthStatusStore(db)
+        service.queries.node_health_status = node_health_status
+        hub_rule_decisions = (HubRuleDecisionCommit(db, service.lock)
+                              if enable_test_hub_rule_decisions and require_registered_ownership
+                              else None)
+        return DurableEventApi(
+            JsonApi(service=service, now=now, durable_events=committer,
+                    authorize_hub=authorize_hub, hub_ownership_registry=ownership_registry,
+                    node_health_status=node_health_status,
+                    hub_rule_decisions=hub_rule_decisions),
+            db,
+        )
+    except BaseException:
+        db.close()
+        raise
+
+
+def open_postgres_durable_event_api(
+    service: GharSajagService,
+    dsn: str,
+    authorize_hub: Callable[[dict, str, dict], bool] | None = None,
+    now: Callable[[], int] | None = None,
+    require_registered_ownership: bool = True,
+    enable_test_hub_rule_decisions: bool = True,
+    *,
+    allow_local_unencrypted: bool = False,
+) -> DurableEventApi:
+    """Compose the existing Hub event and caregiver read paths on PostgreSQL.
+
+    The TLS/identity boundary must still create the typed Hub context. A remote
+    DSN must use verified TLS; local plaintext is opt-in for isolated tests.
+    """
+    from .postgres_database import connect_postgres, initialize_postgres
+
+    if not callable(authorize_hub) and not require_registered_ownership:
+        raise ValueError("trusted_hub_authorizer_required")
+    db = connect_postgres(dsn, allow_local_unencrypted=allow_local_unencrypted)
+    try:
+        initialize_postgres(db)
+        event_map = SQLiteEventMap(db, service.lock)
         service.store.events = event_map
         service.store.incidents = SQLiteIncidentMap(db, service.lock)
         service.store.incident_keys = SQLiteIncidentKeys(service.store.incidents)

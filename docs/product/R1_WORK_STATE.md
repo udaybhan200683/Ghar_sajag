@@ -2226,6 +2226,46 @@ historical logs, ignored target builds, PWA and generated managed components
 remain preserved. No destructive Git or hardware operation occurred in this
 checkpoint.
 
+## GS-179 PostgreSQL and caregiver software checkpoint — 2026-10-19
+
+On the existing canonical branch, GS-179 now has an opt-in TEST_ONLY host
+composition that uses the application-controlled TLS listener, existing
+verified Hub client-certificate and current-ownership checks, existing GS-148
+COMMITTED API, and the production-model caregiver projection on isolated local
+PostgreSQL. The final registered E2E run used the same per-test PostgreSQL
+schema for caregiver accounts/sessions and Hub monitoring data. The shared
+caregiver browser received the same authenticated event and Hub-decision rows.
+Synthetic scenario-run records remain a separate source. The final registered
+`gs179-postgres-e2e` stage passed 34/34. The focused SQLite GS-178 caregiver
+browser scenario passed after the Home monitoring assertion was added; the
+prior full SQLite regression passed 29/29. In the final PostgreSQL run, the
+caregiver browser passed 17 assertions including Home `COVERED`, source
+`CURRENT`, and explicit host-simulation provenance. The earlier standalone
+PWA browser suite passed 3 tests / 92 assertions. Traceability passed 22/22
+mapping checks (216 features, 257 source modules and 25 physical cases).
+Detailed command, source fingerprint, test log hash, limitations, aggregate-gate
+failures, and hosting recommendation are in
+[`GS179_POSTGRES_CAREGIVER_E2E_20261019.md`](../exec-plans/evidence/GS179_POSTGRES_CAREGIVER_E2E_20261019.md).
+
+This is host TEST_ONLY evidence. The public Render service was not modified and
+still cannot provide a verified Hub TLS peer identity to WSGI; live deployment
+and database networking remain blocked pending explicit host/account, DNS/TLS,
+secret, fixed-egress allowlist, and deployment authorization. No actual Android
+phone, firmware target, sensor, production credential, customer Home, physical
+fixture, or commercial service was exercised. GS-179 remains In Progress;
+GS-148 and GS-177 keep their current statuses; `product_status=PARTIAL` and
+physical qualification stays NOT_RUN. The final source-bound rerun passed
+34/34 in 202.324 seconds (202.999 seconds total gate runtime). Its ignored
+local report is
+`code/evidence/validation_framework/postgres-integration-1792435470522033688/report.json`;
+it binds to source fingerprint
+`366a503df78677b4ce3d6ff13981cfce822afce705f59c444b81ae8d1d54413e` with
+`source_unchanged=true`, and the stage log SHA-256 is
+`27af77200aa8fc841660aff65853ae27a83472c6ac368ed97226175083cec299`. The
+same run also rejects a caregiver account absent from the durable Home roster
+and keeps a roster `PRIMARY` account at caregiver privilege. The PostgreSQL
+fixture was stopped after validation.
+
 The physical pair remains commissioned on C3 app
 `1df36cd1a7c779869ea439f2b1e1e45e599c136fd6957ebb59a129870288b814` and S3 app
 `84358b7deab37c1c66aab3fd134fb23dffd6f497493b806c27accb6b19f56df7`. Stable

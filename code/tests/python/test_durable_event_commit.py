@@ -15,6 +15,15 @@ from ghar_sajag.http_api import JsonApi
 
 
 class DurableEventCommitTest(unittest.TestCase):
+    def test_notification_idempotency_key_is_nul_free_and_collision_safe(self):
+        key = DurableEventCommit._notification_key
+        self.assertNotIn("\0", key("home", "effect", "recipient"))
+        self.assertNotEqual(key("ab", "c", "d"), key("a", "bc", "d"))
+        self.assertEqual(key("home", "effect", "recipient"),
+                         key("home", "effect", "recipient"))
+        with self.assertRaisesRegex(ValueError, "invalid_notification_idempotency_key"):
+            key("home\0other", "effect", "recipient")
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "events.sqlite"

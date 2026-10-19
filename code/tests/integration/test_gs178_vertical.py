@@ -5,13 +5,13 @@ from pathlib import Path
 import unittest
 import subprocess
 
-from gs178_stack import ProductStack, HOME
+from gs178_stack import ProductStack, HOME, product_stack_for_test
 from ghar_sajag.ownership_registry import AuthorizedHomeOperation
 
 
 class NodeOriginVertical(unittest.TestCase):
     def setUp(self):
-        self.stack = ProductStack()
+        self.stack = product_stack_for_test()
         self.addCleanup(self.stack.close)
         self.ready = self.stack.start_node()
         self.cookie = self.stack.login()
@@ -105,8 +105,13 @@ class NodeOriginVertical(unittest.TestCase):
         self.assertEqual(expired["health_accepted"],1,expired)
         device=self.view("devices")["devices"][0]
         self.assertEqual((device["status"],device["coverage"]),("OFFLINE","UNKNOWN"))
-        self.assertEqual(self.view()["monitoring"],"UNKNOWN")
+        offline_view=self.view()
+        self.assertEqual(offline_view["monitoring"],"UNKNOWN")
+        self.assertEqual(offline_view["source_freshness"],"CURRENT")
         self.stack.domain_now+=191
+        stale_view=self.view()
+        self.assertEqual(stale_view["source_freshness"],"STALE")
+        self.assertEqual(stale_view["monitoring"],"UNKNOWN")
         self.assertEqual(self.view("devices")["devices"][0]["status"],"UNKNOWN")
         self.stack.domain_now=self.now+1104
         self.stack.command("health 0 1104000")
@@ -346,6 +351,52 @@ class NodeOriginVertical(unittest.TestCase):
         finally:
             ordinary.close()
 
+    def test_18_committed_hub_decisions_feed_the_caregiver_routines_view(self):
+        for index in range(4):
+            self.stack.command(f"health {index} 1000")
+        for index, minute in ((0, 420), (1, 421), (2, 422)):
+            result = self.input(index, "motion", minute=minute)
+        self.assertTrue(any(signal["kind"] == 4 for signal in result["signals"]), result)
+        synced = self.sync()
+        self.assertEqual((synced["completed"], synced["rules_completed"]), (3, 1), synced)
+        routines = self.view("routines")
+        self.assertEqual(routines["source"], "NODE_ORIGIN_HOST_SIM")
+        self.assertEqual(routines["learning_status"], "NOT_ENABLED")
+        self.assertEqual(len(routines["decisions"]), 1)
+        self.assertEqual(routines["decisions"][0]["kind"], "MORNING_ROUTINE_COMPLETED")
+        if self.stack.postgres_dsn is not None:
+            self.assertEqual(self.stack.service.store.memberships[(HOME, self.stack.actor)].role.value,
+                             "CAREGIVER")
+            with self.stack.lite_store.connect() as lite_db:
+                session = self.stack.lite._session(
+                    lite_db, {"HTTP_COOKIE": self.cookie}, HOME)
+            for changed in (
+                {**dict(session), "test_only": False},
+                {**dict(session), "home_id": "gs177-test-other"},
+                {**dict(session), "ownership_epoch": session["ownership_epoch"] + 1},
+                {**dict(session), "expires_at": self.stack.domain_now},
+                {**dict(session), "account_id": "gs177-test-unrostered"},
+            ):
+                with self.assertRaises(PermissionError):
+                    self.stack.lite.product_view.dispatch(
+                        changed, HOME, "overview", "GET", {}, self.stack.domain_now)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM hub_rule_decisions").fetchone()[0], 1)
+
+        reports = Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
+        reports.mkdir(parents=True, exist_ok=True)
+        env = {**os.environ, "NODE_EXTRA_CA_CERTS": str(self.stack.ca_path)}
+        result = subprocess.run(["node", "tests/support/gs178_browser.cjs"],
+            input=json.dumps({"base": self.stack.human_origin, "password": self.stack.password,
+                              "dom": str(reports / "caregiver_routines_dom.html"),
+                              "ruleKind": "MORNING_ROUTINE_COMPLETED", "routineKind": "MORNING_ROUTINE_COMPLETED",
+                              "nodeEventCount": 3}), text=True, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, timeout=90, env=env)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        report = json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(report["status"], "HOST_SIM_PASS")
+        self.save_report("GS179-HUB-RULE-CAREGIVER-ROUTINES", report)
+
     def save_report(self, case_id, outcome):
         path=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
         path.mkdir(parents=True,exist_ok=True)
@@ -355,15 +406,55 @@ class NodeOriginVertical(unittest.TestCase):
         (path/(case_id+".json")).write_text(json.dumps(payload,indent=2)+"\n")
 
     def test_07_actual_shared_caregiver_browser_and_actions(self):
+        # Establish current, authenticated contact for every enrolled Node so
+        # the Home card can assert COVERED rather than merely rendering events.
+        for node in range(4):
+            self.stack.command(f"health {node} 1000")
+        self.stack.domain_now = self.now + 1
+        health = self.stack.command("sync 1000 1")
+        self.assertEqual(health["health_accepted"], 4, health)
+        initial_view = self.view()
+        self.assertEqual(initial_view["monitoring"], "COVERED", initial_view)
+        self.assertEqual(initial_view["source_freshness"], "CURRENT", initial_view)
         self.input(0,"motion")
         self.input(1,"help")
         self.assertEqual(self.sync()["completed"],2)
+        committed = [receipt for receipt in self.stack.receipts
+            if receipt.get("path") == f"/v1/homes/{HOME}/events"
+            and receipt.get("status") in (200, 201)
+            and receipt.get("response", {}).get("status") == "COMMITTED"]
+        self.assertEqual(len(committed), 2, self.stack.receipts)
+        receipt_keys = [receipt["request"]["event_key"] for receipt in committed]
+        stored_keys = []
+        for receipt in committed:
+            key = receipt["response"].get("event_key")
+            self.assertEqual(key, receipt["request"].get("event_key"))
+            rows = self.stack.durable.db.execute(
+                """SELECT e.canonical_event_id FROM events e
+                   JOIN durable_event_commits c ON c.event_id=e.event_id
+                   WHERE c.home_id=? AND c.physical_device_id=? AND c.logical_node_id=?
+                     AND c.origin_session_id=? AND c.event_sequence=?""",
+                (HOME, key["physical_device_id"], key["logical_node_id"],
+                 key["origin_session_id"], key["event_sequence"])).fetchall()
+            self.assertEqual(len(rows), 1, key)
+            provenance = self.stack.service.store.events.event_provenance(
+                HOME, rows[0]["canonical_event_id"])
+            self.assertEqual(provenance.get("event_key"), key)
+            stored_keys.append(provenance["event_key"])
+        self.assertCountEqual(stored_keys, receipt_keys)
+        timeline_keys = [event["event_key"] for event in self.view()["recent_events"]]
+        self.assertCountEqual(timeline_keys, receipt_keys)
         reports=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
         reports.mkdir(parents=True,exist_ok=True)
         env={**os.environ,"NODE_EXTRA_CA_CERTS":str(self.stack.ca_path)}
         result=subprocess.run(["node","tests/support/gs178_browser.cjs"],
             input=json.dumps({"base":self.stack.human_origin,"password":self.stack.password,
-                              "dom":str(reports/"caregiver_dom.html")}),
+                              "dom":str(reports/"caregiver_dom.html"),
+                              "eventKeys":timeline_keys,
+                              "nodeCount":4,
+                              "monitoring":"COVERED",
+                              "sourceFreshness":"CURRENT",
+                              "source":"NODE_ORIGIN_HOST_SIM"}),
             text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=90,env=env)
         self.assertEqual(result.returncode,0,result.stdout)
         report=json.loads(result.stdout.splitlines()[-1])
