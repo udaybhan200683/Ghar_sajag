@@ -173,11 +173,10 @@ std::unique_ptr<S3AuthenticatedTimeRandomSource> g_gs40_test_random;
 std::unique_ptr<AuthenticatedHubTimeProvider> g_gs40_test_time;
 std::unique_ptr<Gs40TestOnlyMaterialSource> g_gs40_test_material;
 std::unique_ptr<Gs40TestOnlyAuthorityLeaseVerifier> g_gs40_test_authority_verifier;
-std::unique_ptr<Gs40TestOnlyBootstrapIdentityProvider> g_gs40_test_bootstrap_identity;
 
 struct CloudAuthorityRefreshContext {
     Gs40TestOnlyMaterialSource* material{nullptr};
-    const S3TrustedHubTimeSource* time{nullptr};
+    AuthenticatedHubTimeProvider* time{nullptr};
     const S3HubMonotonicClock* clock{nullptr};
     AuthenticatedTimeRandomSource* random{nullptr};
     HttpsBackendChannel* channel{nullptr};
@@ -187,9 +186,12 @@ struct CloudAuthorityRefreshContext {
 void cloud_authority_refresh_task(void* opaque) {
     auto& context = *static_cast<CloudAuthorityRefreshContext*>(opaque);
     for (;;) {
-        if (!gs40_test_only_refresh_authority(*context.material, *context.time,
-                *context.clock, *context.random, *context.channel, *context.verifier))
-            ESP_LOGE(kTag, "TEST_ONLY current Home/epoch authority refresh failed; publication fenced");
+        if (gs40_test_only_refresh_time(context.material->config(), *context.time) != ESP_OK ||
+            !gs40_test_only_refresh_authority(*context.material, *context.time,
+                *context.clock, *context.random, *context.channel, *context.verifier)) {
+            context.material->invalidate();
+            ESP_LOGE(kTag, "TEST_ONLY time/authority refresh failed; publication fenced");
+        }
         vTaskDelay(pdMS_TO_TICKS(15000));
     }
 }
@@ -422,6 +424,10 @@ esp_err_t initialize_wifi() {
     if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) return result;
     result = esp_event_loop_create_default();
     if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) return result;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (esp_netif_get_handle_from_ifkey("WIFI_STA_DEF") == nullptr &&
+        esp_netif_create_default_wifi_sta() == nullptr) return ESP_ERR_NO_MEM;
+#endif
     const wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
     if ((result = esp_wifi_init(&config)) != ESP_OK) return result;
     if ((result = esp_wifi_set_storage(WIFI_STORAGE_RAM)) != ESP_OK) return result;
@@ -889,8 +895,7 @@ void secure_owner_task(void*) {
     // runtime authority and TLS identity adapters below remain fail closed.
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
     if (!g_gs40_test_material || !g_gs40_test_time || !g_gs40_test_clock ||
-        !g_gs40_test_random || !g_gs40_test_authority_verifier ||
-        !g_gs40_test_bootstrap_identity || !g_gs40_test_config) {
+        !g_gs40_test_random || !g_gs40_test_authority_verifier) {
         ESP_LOGE(kTag, "TEST_ONLY bootstrap state unavailable; CloudSync stays fail closed");
         vTaskDelete(nullptr);
         return;
@@ -900,16 +905,15 @@ void secure_owner_task(void*) {
     AuthenticatedHubTimeProvider* test_time = g_gs40_test_time.get();
     S3AuthenticatedTimeRandomSource* test_random = g_gs40_test_random.get();
     Gs40TestOnlyAuthorityLeaseVerifier* test_lease_verifier = g_gs40_test_authority_verifier.get();
-    Gs40TestOnlyBootstrapIdentityProvider* bootstrap_identity = g_gs40_test_bootstrap_identity.get();
-    HttpsBackendChannel bootstrap_channel(g_gs40_test_config->backend_origin,
-        g_gs40_test_config->backend_ca_pem, *bootstrap_identity);
+    Gs40TestOnlyCloudComposition cloud_composition(*test_material, *test_time, *test_clock);
+    auto& bootstrap_channel = cloud_composition.bootstrap_channel;
     CloudAuthorityRefreshContext refresh_context{test_material, test_time,
         test_clock, test_random, &bootstrap_channel, test_lease_verifier};
     if (!gs40_test_only_refresh_authority(*test_material, *test_time, *test_clock,
             *test_random, bootstrap_channel, *test_lease_verifier)) {
         ESP_LOGE(kTag, "TEST_ONLY authority bootstrap unavailable; publication remains fenced");
     }
-    ProvisionedS3CloudTrust cloud_trust(*test_material, *test_time, *test_clock);
+    auto& cloud_trust = cloud_composition.trust;
 #else
     UnprovisionedS3CloudTrust cloud_trust;
 #endif
@@ -917,8 +921,7 @@ void secure_owner_task(void*) {
         security_link, runtime, cloud_trust);
     CloudRuntimeAuthoritySource cloud_authority_source(cloud_authority);
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
-    HttpsBackendChannel cloud_channel(g_gs40_test_config->backend_origin,
-        g_gs40_test_config->backend_ca_pem, cloud_trust);
+    auto& cloud_channel = cloud_composition.cloud_channel;
 #else
     HttpsBackendChannel cloud_channel("", "", cloud_trust);
 #endif
@@ -1908,8 +1911,7 @@ esp_err_t start_runtime_adapter() {
         g_gs40_test_config->authority_public_key_der);
     g_gs40_test_material = std::make_unique<Gs40TestOnlyMaterialSource>(
         std::move(*g_gs40_test_config), *g_gs40_test_time, *g_gs40_test_clock);
-    g_gs40_test_bootstrap_identity = std::make_unique<Gs40TestOnlyBootstrapIdentityProvider>(
-        *g_gs40_test_material, *g_gs40_test_time, *g_gs40_test_clock);
+    g_gs40_test_config.reset();
 #endif
     if ((result = initialize_esp_now()) != ESP_OK) return result;
 #if GS_HIL_BUILD

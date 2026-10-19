@@ -38,6 +38,7 @@ struct FileBlob final:security::SecurityBlobStore{
 };
 class FileSegments final:public hub::storage::SegmentStore{
     std::filesystem::path root;
+    std::filesystem::path filesystem_root;
     std::filesystem::path segment(std::uint16_t id)const{return root/("segment-"+std::to_string(id));}
     bool size(const std::filesystem::path& p,bool& exists,std::uint32_t& bytes){
         exists=std::filesystem::exists(p);bytes=exists?std::filesystem::file_size(p):0;return true;
@@ -56,8 +57,14 @@ class FileSegments final:public hub::storage::SegmentStore{
     }
 public:
     bool fail_publication=false;
-    explicit FileSegments(std::filesystem::path p):root(std::move(p)){std::filesystem::create_directories(root);}
+    explicit FileSegments(std::filesystem::path p,std::filesystem::path shared_root={}):root(std::move(p)),filesystem_root(shared_root.empty()?root:std::move(shared_root)){std::filesystem::create_directories(root);}
     std::uint64_t partition_capacity_bytes()const override{return 4U*1024U*1024U;}
+    bool filesystem_usage(std::uint64_t& total,std::uint64_t& used)override{
+        total=partition_capacity_bytes();used=0;
+        for(const auto& file:std::filesystem::recursive_directory_iterator(filesystem_root))
+            if(file.is_regular_file())used+=file.file_size();
+        return used<=total;
+    }
     bool segment_size(std::uint16_t id,bool& found,std::uint32_t& bytes)override{return size(segment(id),found,bytes);}
     bool read(std::uint16_t id,std::uint32_t offset,std::uint8_t* out,std::size_t count,std::size_t& actual)override{return read_at(segment(id),offset,out,count,actual);}
     bool append(std::uint16_t id,const std::uint8_t* in,std::size_t count)override{return append_at(segment(id),in,count);}

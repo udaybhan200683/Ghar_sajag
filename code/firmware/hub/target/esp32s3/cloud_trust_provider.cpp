@@ -597,8 +597,12 @@ bool AuthenticatedHubTimeProvider::trusted_hub_time(
     std::lock_guard<std::mutex> lock(mutex_);
     if (!started_ || monotonic_faulted_ || monotonic_ms <= 0) return false;
     const auto actual_now_ms = clock_.now_ms();
+    // Nested material/time reads may advance the observed platform clock after
+    // a caller captured its reference timestamp. That older reference is not
+    // platform rollback. The injected platform clock remains the authority for
+    // detecting/latching an actual same-boot monotonic rollback.
     if (actual_now_ms <= 0 || actual_now_ms < highest_monotonic_ms_ ||
-        monotonic_ms < highest_monotonic_ms_ || actual_now_ms < monotonic_ms) {
+        actual_now_ms < monotonic_ms) {
         monotonic_faulted_ = true;
         ready_ = false;
         return false;

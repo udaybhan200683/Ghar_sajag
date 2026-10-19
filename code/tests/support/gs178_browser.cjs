@@ -1,0 +1,60 @@
+// Browser DNS/transport routing stays inside the ephemeral localhost HTTPS
+// stack. Every API body comes from its real authenticated service/database.
+// NODE_EXTRA_CA_CERTS trusts only the temporary fixture CA for that connection.
+const {chromium, expect} = require('../../frontend/node_modules/@playwright/test');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+(async () => {
+  let input='';for await (const chunk of process.stdin) input+=chunk;
+  const config=JSON.parse(input);
+  const cached=path.join(os.homedir(),'.cache','ms-playwright');
+  const candidates=fs.readdirSync(cached).filter(name=>name.startsWith('chromium-')).flatMap(name=>[
+    path.join(cached,name,'chrome-linux64','chrome'),path.join(cached,name,'chrome-linux','chrome')]);
+  const executablePath=process.env.GS178_CHROMIUM||candidates.find(file=>fs.existsSync(file));
+  if(!executablePath)throw Error('GS178 browser executable unavailable');
+  const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-background-networking']});
+  try {
+    const context=await browser.newContext();
+    const requests=[];let offline=false;
+    await context.route('**/*',async route=>{
+      if(offline){await route.abort('internetdisconnected');return;}
+      const original=new URL(route.request().url());
+      if(original.origin!=='https://caregiver.gs178.dev')throw Error('unexpected external browser origin');
+      const response=await route.fetch({url:config.base+original.pathname+original.search});
+      requests.push({path:original.pathname,status:response.status()});
+      await route.fulfill({response});
+    });
+    const page=await context.newPage();
+    await page.goto('https://caregiver.gs178.dev/');
+    await page.getByLabel('Email').fill('owner@gs178.dev');
+    await page.getByLabel('Password',{exact:true}).fill(config.password);
+    await page.getByRole('button',{name:'Log in',exact:true}).click();
+    await expect(page.locator('[data-event-key]')).toHaveCount(2);
+    await expect(page.locator('#homeTab')).toContainText('MOTION');
+    await expect(page.locator('#homeTab')).toContainText('CALL_FAMILY');
+    await expect(page.locator('#homeTab')).toContainText('bedroom');
+    await page.getByRole('button',{name:'devices',exact:true}).click();
+    await expect(page.locator('[data-node-id]')).toHaveCount(2);
+    await expect(page.locator('#homeTab')).toContainText('ONLINE');
+    await page.getByRole('button',{name:'incidents',exact:true}).click();
+    for(const [action,state] of [['claim','CLAIMED'],['acknowledge','ACKNOWLEDGED'],['resolve','RESOLVED']]){
+      await page.locator(`[data-incident-action="${action}"]`).click();
+      await expect(page.locator('[data-incident-id]')).toContainText(state);
+    }
+    await page.reload();
+    await page.getByRole('button',{name:'incidents',exact:true}).click();
+    await expect(page.locator('[data-incident-id]')).toContainText('RESOLVED');
+    offline=true;await context.setOffline(true);
+    await page.getByRole('button',{name:'home',exact:true}).click();
+    await expect(page.locator('#connectionStatus')).toContainText('OFFLINE');
+    await expect(page.locator('#homeTab')).toContainText('Data unavailable');
+    await expect(page.locator('[data-event-key]')).toHaveCount(0);
+    offline=false;await context.setOffline(false);
+    await page.getByRole('button',{name:'home',exact:true}).click();
+    await expect(page.locator('[data-event-key]')).toHaveCount(2);
+    fs.writeFileSync(config.dom,await page.content());
+    console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:14,requests,physical:'NOT_RUN'}));
+  } finally {await browser.close();}
+})().catch(error=>{console.error(error.stack);process.exit(1)});

@@ -1,3 +1,27 @@
+## GS-178 Node-originated software vertical — 2026-10-19 (paused at host checkpoint)
+
+Canonical branch `feature/r1-commercial-baseline`; execution started at
+`e74dc5190cccd2ebf4c4b37a54b73f7e95041c7a` equal to remote. Read the
+current Git commit/remote before resuming; the paused checkpoint is being
+committed and pushed without changing branches or worktrees.
+New code connects production Node processing/authenticated admission/durable Hub
+ACK and CloudSync to real loopback TLS/mTLS backend commits and the shared
+caregiver app. GS-40 sender/time/authority services and persistent incident
+projection/actions are implemented. Expanded integrated host suite: 22/22 PASS.
+Full affected-component gates, board-stack, sanitizers, current-source target
+and Android builds, and release gates are NOT_RUN for this checkpoint. The raw
+`/tmp` test logs were lost across the execution environment restart; the
+contemporaneous counts and commands are retained in the linked handoff.
+
+Evidence/handoff:
+[GS178_SOFTWARE_VERTICAL_20261018.md](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).
+Full P0 product status remains PARTIAL: derived Hub routine-decision cloud
+persistence/publication is not completed. This is the next software task after
+Git/context preflight. Physical GS-40/117/121 and phone
+acceptance are NOT_RUN. GS-104 learning remains on hold. No boards were accessed.
+All historical worktrees and unrelated untracked evidence remain untouched.
+No GS-177 branch integration is restarted; its shared app is already canonical.
+
 # R1 Current Work State
 
 ## GS-177 canonical integration — 2026-10-18

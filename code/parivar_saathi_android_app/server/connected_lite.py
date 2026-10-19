@@ -260,8 +260,11 @@ class CurrentSessionDirectory:
 
 
 class LiteApi:
-    def __init__(self, store: Store, runner=run_scenario, clock=time.time):
+    def __init__(self, store: Store, runner=run_scenario, clock=time.time, product_view=None):
         self.store, self.runner, self.clock = store, runner, clock
+        if product_view is not None and (not store.local or os.environ.get("GS178_LOCAL_TEST") != "1"):
+            raise ValueError("product_composition_requires_explicit_isolated_test")
+        self.product_view = product_view
         self.diagnostics = DiagnosticReadService(
             DiagnosticAuthorizer(SyntheticDiagnosticAuthority()), clock=lambda: int(self.clock()),
             limits=DiagnosticLimits(20, 65536, 4, 3600, 60))
@@ -421,6 +424,11 @@ class LiteApi:
             session = self._session(db, env, home, admin=sub.startswith(("sim", "engineering")))
             if not home.startswith("gs177-test-") or not session["test_only"]:
                 raise Denied()  # Real Home authority/consent is not yet composed.
+            if self.product_view is not None:
+                with self.product_view.service.lock:
+                    result = self.product_view.dispatch(session, home, sub, method, body, now)
+                if result is not None:
+                    return "200 OK", result, []
             if method == "GET" and sub == "overview":
                 rows = self.store.sql(db, "SELECT run_id,scenario_id,status,created_at FROM lite_runs WHERE home_id=? ORDER BY created_at DESC,run_id DESC LIMIT 20", (home,)).fetchall()
                 saved = self.store.sql(db, "SELECT run_id,scenario_id,status,created_at,result_json FROM lite_runs WHERE home_id=? ORDER BY created_at DESC,run_id DESC LIMIT 20", (home,)).fetchall()

@@ -2185,8 +2185,14 @@
     },
     {
       "id": "gs177-connected-lite-api",
-      "components": ["backend", "pwa"],
-      "command": ["python3", "validation/run_gs177_connected_lite.py"],
+      "components": [
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "python3",
+        "validation/run_gs177_connected_lite.py"
+      ],
       "inputs": [
         "validation/run_gs177_connected_lite.py",
         "parivar_saathi_android_app/server/connected_lite.py",
@@ -2205,13 +2211,19 @@
         "tests/functional/scenario_catalog.json"
       ],
       "success": "^GS177 CONNECTED LITE PASS tests=(\\d+) scenarios=3 runtime=(\\d+) physical=NOT_RUN$",
-      "required_success": ["^GS177 SCENARIO PASS motion-room1-visible", "^GS177 SCENARIO PASS door-open-close-order", "^GS177 SCENARIO PASS morning-missing-covered"],
+      "required_success": [
+        "^GS177 SCENARIO PASS motion-room1-visible",
+        "^GS177 SCENARIO PASS door-open-close-order",
+        "^GS177 SCENARIO PASS morning-missing-covered"
+      ],
       "timeout": 180,
       "count_kind": "tests",
       "fast": true,
       "release": true,
       "pwa": true,
-      "allowed_skip_lines": ["^GS177 CONNECTED LITE PASS .*physical=NOT_RUN$"],
+      "allowed_skip_lines": [
+        "^GS177 CONNECTED LITE PASS .*physical=NOT_RUN$"
+      ],
       "qualification_scope": "AUTHENTICATED_TEST_ONLY_STAGING_API_AND_PRODUCTION_LAB_HOST_SCENARIOS; NO_POSTGRES_CLOUD_ANDROID_OR_PHYSICAL_QUALIFICATION"
     },
     {
@@ -2285,7 +2297,10 @@
       "components": [
         "pwa"
       ],
-      "command": ["make", "pwa-68-browser-test"],
+      "command": [
+        "make",
+        "pwa-68-browser-test"
+      ],
       "inputs": [
         "tests/pwa_68_browser_test.py",
         "tools/sim/local_lab.py",
@@ -2343,6 +2358,47 @@
       "fast": false,
       "release": false,
       "qualification_scope": "ISOLATED_CALL_SIGNALING_AND_PUSH_PROTOTYPE_UNIT_CONTRACTS_PLUS_JS_XML_SYNTAX; NO_PRODUCTION_AUTH_FCM_PHONE_OR_S3_MEDIA_QUALIFICATION"
+    },
+    {
+      "id": "gs178-node-caregiver-e2e",
+      "components": [
+        "node",
+        "hub",
+        "contract",
+        "backend",
+        "pwa"
+      ],
+      "command": [
+        "make",
+        "gs178-software-e2e"
+      ],
+      "inputs": [
+        "tests/integration/test_gs178_vertical.py",
+        "tests/integration/test_gs178_security.py",
+        "tests/support/gs178_stack.py",
+        "tests/support/gs178_browser.cjs",
+        "tests/support/host/simulator/gs178.cpp",
+        "tests/support/host/gs178_https_sdk.cpp",
+        "tools/hil/gs40_test_bootstrap.py",
+        "tools/factory/pilot_test_issuer.py",
+        "backend/ghar_sajag/sqlite_incidents.py",
+        "backend/ghar_sajag/caregiver_product.py",
+        "firmware/hub/target/esp32s3/cloud_trust_provider.cpp",
+        "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp",
+        "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp",
+        "firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp",
+        "firmware/hub/target/esp32s3/gs40_test_only_runtime.hpp"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": [
+        "^OK$"
+      ],
+      "timeout": 600,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true,
+      "pwa": true,
+      "qualification_scope": "NODE_PRODUCTION_HOST_COMPONENTS_TO_REAL_LOOPBACK_TLS_SQLITE_AND_SHARED_CAREGIVER_BROWSER; NO_HARDWARE_ANDROID_PHONE_OR_PRODUCTION_SECURITY_QUALIFICATION"
     }
   ],
   "separate_harnesses": {},

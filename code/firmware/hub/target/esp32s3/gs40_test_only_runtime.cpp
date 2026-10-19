@@ -3,6 +3,7 @@
 #include "driver/usb_serial_jtag.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "esp_netif.h"
 #include "freertos/FreeRTOS.h"
 #include "mbedtls/pk.h"
 #include "psa/crypto.h"
@@ -95,6 +96,24 @@ esp_err_t gs40_test_only_bootstrap_time(
     AuthenticatedTimeFloorStore& floor_store,
     AuthenticatedHubTimeProvider& time_provider) {
     if (!config.valid_material_shape() || !time_provider.start()) return ESP_ERR_INVALID_STATE;
+    (void)floor_store;
+    return gs40_test_only_refresh_time(config, time_provider);
+}
+
+esp_err_t gs40_test_only_refresh_time(
+    const Gs40TestOnlyRuntimeConfig& config,
+    AuthenticatedHubTimeProvider& time_provider) {
+    if (!config.valid_material_shape()) return ESP_ERR_INVALID_STATE;
+    auto* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    esp_netif_ip_info_t ip{};
+    wifi_ap_record_t ap{};
+    if (netif == nullptr || esp_wifi_sta_get_ap_info(&ap) != ESP_OK ||
+        esp_netif_get_ip_info(netif, &ip) != ESP_OK || ip.ip.addr == 0) {
+        // Driver retains only RAM configuration. Retry is paced by the existing
+        // 15-second refresh task; it never reloads a stale envelope or writes NVS.
+        (void)esp_wifi_connect();
+        return ESP_ERR_INVALID_STATE;
+    }
     AuthenticatedTimeChallenge challenge;
     if (!time_provider.create_challenge(challenge)) return ESP_FAIL;
     addrinfo hints{};
@@ -136,7 +155,6 @@ esp_err_t gs40_test_only_bootstrap_time(
     clock.tv_sec = static_cast<time_t>(snapshot.utc_now);
     if (static_cast<std::int64_t>(clock.tv_sec) != snapshot.utc_now || settimeofday(&clock, nullptr) != 0)
         return ESP_FAIL;
-    (void)floor_store;
     return ESP_OK;
 }
 
@@ -159,7 +177,11 @@ esp_err_t gs40_test_only_connect_wifi(Gs40TestOnlyRuntimeConfig& config) {
     while (static_cast<std::uint64_t>(esp_timer_get_time()) < deadline) {
         wifi_ap_record_t ap{};
         if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
-            return ap.primary == 1 ? ESP_OK : ESP_ERR_INVALID_STATE;
+            if (ap.primary != 1) return ESP_ERR_INVALID_STATE;
+            auto* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+            esp_netif_ip_info_t ip{};
+            if (netif != nullptr && esp_netif_get_ip_info(netif, &ip) == ESP_OK &&
+                ip.ip.addr != 0) return ESP_OK;
         }
         vTaskDelay(pdMS_TO_TICKS(250));
     }

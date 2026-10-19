@@ -742,6 +742,11 @@ void test_same_boot_clock_rollback_latches_fail_closed() {
           time.accept_authenticated_time({0x47, 0x53}, nonce, clock.now_ms()),
           "rollback fixture reaches authenticated time");
     TrustedHubTimeSnapshot snapshot;
+    clock.now = 1100;
+    check(time.trusted_hub_time(1100, snapshot), "platform clock advances normally");
+    clock.now = 1200;
+    check(time.trusted_hub_time(1150, snapshot) && snapshot.monotonic_ms == 1150,
+          "nested provider read accepts prior reference while platform clock advances");
     clock.now = 999;
     check(!time.trusted_hub_time(clock.now_ms(), snapshot),
           "same-boot monotonic rollback is rejected");

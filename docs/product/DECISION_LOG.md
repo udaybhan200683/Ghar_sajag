@@ -1154,3 +1154,18 @@ working backend authority/time fixture or a complete S3-to-caregiver E2E. The
 commercial composition continues to use `UnprovisionedS3CloudTrust`. See the
 dated execution evidence for exact code and limits. `CONTEXT_VERSION` remains
 unchanged.
+
+
+### GS-178 TEST_ONLY implementation continuation — 2026-10-18
+
+The later delegated software scope now supplies the G40E sender, signed-time
+service and certificate-authenticated current-authority handler in an isolated
+local environment. Actual shared S3 trust/HTTPS composition is exercised by a
+production-component host vertical to durable backend and caregiver UI. The
+engineering refinements (receipt-time lease validation, conservative whole-second
+lease interval, isolated destinations, immutable retry receipt metadata and
+non-regressing live chronology) are recorded in
+[GS178 software evidence](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).
+These are bounded TEST_ONLY/implementation corrections; GS40T/1 remains PROPOSED
+for commercial approval, GS-D031/D032 remain LOCKED and unchanged, and GS-104
+R01–R09 remain on hold. No physical or release acceptance is inferred.

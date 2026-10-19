@@ -33,6 +33,18 @@ class ComponentGateTest(unittest.TestCase):
             self.assertEqual(gate.adjudicate(stage,self.result(summary.replace(f"cases={count}","cases=0")+extras)),"FAIL")
             self.assertEqual(gate.adjudicate(stage,self.result(summary.replace("physical=NOT_RUN","physical=PASS")+extras)),"FAIL")
         self.assertFalse(gate.software_report_status([{"status":"PASS"}],physical="NOT_RUN")["physically_qualified"])
+    def test_gs178_registered_vertical_is_mandatory_and_propagates_failure(self):
+        data=gate.load_registry()
+        stage=next(s for s in data["stages"] if s["id"]=="gs178-node-caregiver-e2e")
+        for suite in ("node","hub","contract","backend","pwa","fast","release"):
+            self.assertIn(stage["id"],{s["id"] for s in gate.select(data,suite)})
+        self.assertEqual(stage["command"],["make","gs178-software-e2e"])
+        good="Ran 20 tests in 10.0s\n\nOK\n"
+        self.assertEqual(gate.adjudicate(stage,self.result(good)),"PASS")
+        for output,rc in ((good,1),(good.replace("20","0"),0),(good.replace("OK","FAILED"),0)):
+            self.assertEqual(gate.adjudicate(stage,self.result(output,rc=rc)),"FAIL")
+        self.assertFalse(gate.software_report_status([{"status":"PASS"}])["physically_qualified"])
+
     def stage(self,**kwargs):
         return {"id":"sample","success":r"^PASS tests=(\d+)$","allowed_skips":[],**kwargs}
     def result(self,output="PASS tests=1\n",rc=0):

@@ -66,6 +66,8 @@ class TestOnlyAuthority:
             .not_valid_before(at - timedelta(minutes=5))
             .not_valid_after(at + timedelta(days=365))
             .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(self._key.public_key()), critical=False)
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(self._key.public_key()), critical=False)
             .add_extension(x509.KeyUsage(digital_signature=False, content_commitment=False,
                                          key_encipherment=False, data_encipherment=False,
                                          key_agreement=False, key_cert_sign=True, crl_sign=True,
@@ -93,6 +95,8 @@ class TestOnlyAuthority:
             .not_valid_before(at - timedelta(minutes=1))
             .not_valid_after(at + timedelta(days=days))
             .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(public_key), critical=False)
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(self._key.public_key()), critical=False)
             .add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False,
                                          key_encipherment=False, data_encipherment=False,
                                          key_agreement=False, key_cert_sign=False, crl_sign=False,
@@ -110,6 +114,7 @@ class TestCredential:
     certificate_pem: bytes  # PUBLIC certificate; never private key.
     state: str
     issuer_fingerprint: str
+    generation: int = 1
 
 
 @dataclass(frozen=True)
@@ -121,6 +126,7 @@ class RegisteredCloudCredential:
     state: str
     purpose: str = "CLOUD_TLS_CLIENT"
     algorithm: str = "RSA_3072"
+    generation: int = 1
 
 
 class TestOnlyIssuer:
@@ -166,6 +172,16 @@ class TestOnlyIssuer:
         elif existing != (TEST_ONLY, self.authority.fingerprint):
             self._db.close()
             raise TestIssuerRejected("test_ca_mismatch_or_production_namespace")
+        # Public TEST_ONLY registry metadata only. Keep generation stable across
+        # reopen/renewal; never derive credential authority from caller JSON.
+        if "generation" not in {row[1] for row in self._db.execute("PRAGMA table_info(gs168_credentials)")}:
+            with self._db:
+                self._db.execute("ALTER TABLE gs168_credentials ADD COLUMN generation INTEGER NOT NULL DEFAULT 1")
+                rows = self._db.execute("SELECT fingerprint,hub_id FROM gs168_credentials ORDER BY issued_at,rowid").fetchall()
+                generations = {}
+                for fingerprint, hub_id in rows:
+                    generations[hub_id] = generations.get(hub_id, 0) + 1
+                    self._db.execute("UPDATE gs168_credentials SET generation=? WHERE fingerprint=?", (generations[hub_id], fingerprint))
 
     def close(self):
         self._db.close()
@@ -215,15 +231,16 @@ class TestOnlyIssuer:
                 if renew:
                     self._db.execute("UPDATE gs168_credentials SET state='SUPERSEDED' WHERE fingerprint=?", (prior[0],))
                 pem = cert.public_bytes(serialization.Encoding.PEM)
+                generation = self._db.execute("SELECT COALESCE(MAX(generation),0)+1 FROM gs168_credentials WHERE hub_id=?", (hub_id,)).fetchone()[0]
                 self._db.execute(
-                    "INSERT INTO gs168_credentials VALUES (?,?,?,?,?,?)",
-                    (fingerprint, hub_id, format(cert.serial_number, "x"), pem, "ACTIVE", at.isoformat()),
+                    "INSERT INTO gs168_credentials(fingerprint,hub_id,serial_hex,certificate_pem,state,issued_at,generation) VALUES (?,?,?,?,?,?,?)",
+                    (fingerprint, hub_id, format(cert.serial_number, "x"), pem, "ACTIVE", at.isoformat(), generation),
                 )
                 self._db.commit()
             except Exception:
                 self._db.rollback()
                 raise
-        return TestCredential(hub_id, fingerprint, pem, "ACTIVE", self.authority.fingerprint)
+        return TestCredential(hub_id, fingerprint, pem, "ACTIVE", self.authority.fingerprint, generation)
 
     def verify(self, pem: bytes, expected_hub_id: str, *, at: datetime | None = None,
                expected_csr: x509.CertificateSigningRequest | None = None) -> TestCredential:
@@ -267,10 +284,10 @@ class TestOnlyIssuer:
             raise TestIssuerRejected("test_certificate_signature_invalid") from exc
         fingerprint = _fingerprint(cert)
         with self._lock:
-            row = self._db.execute("SELECT hub_id,state,certificate_pem FROM gs168_credentials WHERE fingerprint=?", (fingerprint,)).fetchone()
+            row = self._db.execute("SELECT hub_id,state,certificate_pem,generation FROM gs168_credentials WHERE fingerprint=?", (fingerprint,)).fetchone()
         if row is None or row[0] != expected_hub_id or row[1] != "ACTIVE" or row[2] != pem:
             raise TestIssuerRejected("unknown_revoked_or_superseded_test_certificate")
-        return TestCredential(expected_hub_id, fingerprint, pem, "ACTIVE", self.authority.fingerprint)
+        return TestCredential(expected_hub_id, fingerprint, pem, "ACTIVE", self.authority.fingerprint, row[3])
 
     def revoke(self, fingerprint: str) -> bool:
         self._check_ready()
@@ -288,12 +305,12 @@ class TestOnlyIssuer:
             raise TestIssuerRejected("invalid_test_fingerprint")
         with self._lock:
             row = self._db.execute(
-                "SELECT hub_id,state FROM gs168_credentials WHERE fingerprint=?",
+                "SELECT hub_id,state,generation FROM gs168_credentials WHERE fingerprint=?",
                 (fingerprint_sha256,),
             ).fetchone()
         if row is None:
             return None
-        return RegisteredCloudCredential(fingerprint_sha256, row[0], row[1])
+        return RegisteredCloudCredential(fingerprint_sha256, row[0], row[1], generation=row[2])
 
     def public_inventory(self) -> list[dict]:
         """Metadata export excludes PEM, CSRs, all private keys and ownership claims."""

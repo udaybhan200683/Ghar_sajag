@@ -55,6 +55,8 @@ class QueryService:
             tone = "neutral"
         return {
             "event_id": item.event_id,
+            **(self.store.events.event_provenance(item.home_id, item.event_id)
+               if hasattr(self.store.events, "event_provenance") else {}),
             "kind": item.kind,
             "location": item.location,
             "occurred_at": item.occurred_at,

@@ -626,6 +626,13 @@ void test_protocol_and_generic_rules() {
     check(morning_sequence(101, 100 + routines.morning_sequence_window_seconds).size() == 1,
           "morning evidence at the exact sequence-window boundary completes it");
 
+    const auto old_bedroom = gs::RulesCore::apply_activity_event(routine_state, routines,
+        event(73, gs::EventKind::Motion, 50, "room1", "room1"), 7*60);
+    check(old_bedroom.empty() && routine_state.last_activity_at == 300,
+          "backlogged motion cannot rewind the live inactivity anchor");
+    check(routine_state.morning_completed && routine_state.morning_started_at == 100,
+          "backlogged bedroom evidence cannot reset an already completed morning sequence");
+
     gs::ActivityRuleState night_state;
     routines.night_bathroom_visit_threshold=1; routines.night_visit_merge_seconds=60;
     check(gs::RulesCore::apply_activity_event(night_state,routines,event(63,gs::EventKind::Motion,1000,"bathroom","bathroom"),23*60).empty(),

@@ -108,6 +108,10 @@ std::vector<RuleSignalDecision> RulesCore::apply_activity_event(
     GS_TRACE(gs::log::Category::Rules, "S00", "apply_activity_event.enter", "-");
     std::vector<RuleSignalDecision> result;
     if (event.is_test || event.kind == EventKind::MotionSummary) return result;
+    // Backlog remains chronological evidence in the journal/cloud, but must
+    // not move live activity, morning or night state backwards.
+    if (is_activity(event.kind) && state.last_activity_at &&
+        event.occurred_at < *state.last_activity_at) return result;
 
     if (!state.monitoring_started_at.has_value()) state.monitoring_started_at = event.occurred_at;
 

@@ -758,7 +758,8 @@ std::vector<RuleSignalDecision> HubRuntime::apply_committed_event(
         return RulesCore::apply_activity_event(
             activity_state_, activity_config_, event, *local_minute, context);
     }
-    if (is_activity(event.kind)) {
+    if (is_activity(event.kind) && (!activity_state_.last_activity_at ||
+            event.occurred_at >= *activity_state_.last_activity_at)) {
         activity_state_.last_activity_at = event.occurred_at;
         activity_state_.last_activity_event_id = event.key.str();
         activity_state_.inactivity_alerted = false;
@@ -772,13 +773,30 @@ std::vector<RuleSignalDecision> HubRuntime::apply_committed_event(
 std::optional<ProcessResult> HubRuntime::run_state_once(std::optional<std::uint16_t> local_minute) {
     GS_TRACE(gs::log::Category::Hub, "H00", "run_state_once.enter", "-");
     if (!durable_admission_open()) return std::nullopt;
-    const auto event = ingest_.pop();
+    auto event = ingest_.pop();
     if (!event) return std::nullopt;
     storage::IdentityOwnerEvidence ingress_owner;
     const auto owner_it = ingress_identity_owners_.find(event->key.str());
     if (owner_it != ingress_identity_owners_.end()) {
         ingress_owner = owner_it->second.evidence;
         ingress_identity_owners_.erase(owner_it);
+    }
+    // Hub receipt time is observation metadata, not a Node-authored field.
+    // Keep the original durable timestamp across authenticated retries. All
+    // Node payload fields still pass the exact identity digest check below.
+    // No missing/reclaimed body is reconstructed or authorized by this step.
+    if (ingress_owner.authenticated() && journal_.contains(event->key)) {
+        struct OriginalReceipt { DomainEvent* incoming; bool found{false}; } receipt{&*event};
+        if (!journal_.for_each([](void* opaque, const DomainEvent& stored) {
+                auto& receipt = *static_cast<OriginalReceipt*>(opaque);
+                if (stored.key.str() == receipt.incoming->key.str()) {
+                    receipt.incoming->received_at = stored.received_at;
+                    receipt.found = true;
+                }
+                return true;
+            }, &receipt) || !receipt.found) {
+            return ProcessResult{event->key, AckClass::Rejected, false, {}};
+        }
     }
     const bool passive = is_passive_sensor_event(event->kind);
     // Identity selection happened after the original admission policy check.

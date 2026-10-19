@@ -67,8 +67,14 @@ function openTab(next){
 function dataLabel(){return `<p class="test-watermark">TEST_ONLY synthetic Home · ${esc(profile.home_id)} · ${esc(view?.source||'No physical source')}</p>`}
 function card(title,body){return `<div class="card"><h2>${esc(title)}</h2>${body}</div>`}
 function tableRows(items,render){return items.length?items.map(render).join(''):'<p class="muted">No saved observations.</p>'}
+function productSource(){return view?.source==='NODE_ORIGIN_HOST_SIM'}
+function productEvents(events){return tableRows(events||[],e=>`<article class="caregiver-run" data-event-key="${esc(JSON.stringify(e.event_key))}"><b>${esc(e.kind)}</b><span>${esc(e.location)} · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>EventKey: ${esc(JSON.stringify(e.event_key))} · ${e.delayed?'Delayed':'Current at receipt'}</small></article>`)}
 
 function renderHome(){
+  if(productSource()){
+    panel(`${dataLabel()}${card('Node-originated software monitoring',`<p>Backend source: authenticated Hub CloudSync · ${esc(view.source_freshness)}</p><p>Observation coverage: ${esc(view.monitoring)}</p><p>Physical sensing: NOT_RUN. These records came from the production Node/Hub code running on the host.</p>`)}${card('Activity timeline',productEvents(view.recent_events))}${card('Active concerns',`<p>${esc(view.active_incidents?.length||0)} · inspect Incidents for caregiver actions.</p>`)}`);
+    return;
+  }
   const rows=view?.runs||[];
   const events=view?.recent_events||[];
   const decisions=view?.routine_decisions||[];
@@ -93,12 +99,20 @@ function renderHome(){
   bindRunButtons();
 }
 function renderDevices(){
+  if(productSource()){
+    panel(`${dataLabel()}${card('Devices and NodeHealth',tableRows(view.devices||[],d=>`<article class="caregiver-run" data-node-id="${esc(d.physical_node_id)}"><b>${esc(d.logical_node_id)} · ${esc(d.status)}</b><p>Sensor coverage: ${esc(d.coverage)} · profile ${esc(d.profile_id)}</p><p>Offline coverage is UNKNOWN; it does not establish resident inactivity.</p></article>`))}`);return;
+  }
   panel(`${dataLabel()}${card('Devices and NodeHealth',`<p>Physical Home: <strong>${esc(view?.physical_status||'UNKNOWN')} / ${esc(view?.physical_status_reason||'REASON_UNKNOWN')}</strong>.</p><p>Real Hub event source: ${esc(view?.physical_data_contract||'UNKNOWN')}.</p><p>Physical device and NodeHealth measurements: <strong>UNKNOWN</strong>.</p>${tableRows(view?.devices||[],device=>`<details><summary>${esc(device.id)} · ${esc(device.health||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(device,null,2))}</pre></details>`)}`)}`);
 }
 function renderIncidents(){
+  if(productSource()){
+    panel(`${dataLabel()}${card('Incident history',tableRows(view.incidents||[],i=>`<article class="caregiver-run" data-incident-id="${esc(i.incident_id)}"><b>${esc(i.kind)} · ${esc(i.state)} · ${esc(i.severity)}</b><p>Notification or actual phone contact: not established.</p>${i.state==='RESOLVED'?'':['claim','acknowledge','resolve'].map(action=>`<button data-incident-action="${action}" data-id="${esc(i.incident_id)}">${esc(action)}</button>`).join('')}</article>`))}`);
+    document.querySelectorAll('[data-incident-action]').forEach(button=>button.onclick=async()=>{try{await api(`homes/${profile.home_id}/incidents/${button.dataset.id}/${button.dataset.incidentAction}`,{method:'POST',body:{}});await refresh()}catch(error){status('ACTION FAILED',error.message)}});return;
+  }
   panel(`${dataLabel()}${card('Incident history',tableRows(view?.incidents||[],r=>`<details><summary>${esc(r.kind||'Incident')} · ${esc(r.state||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(r,null,2))}</pre></details>`))}<p class="muted">No real household incident can be acknowledged from this TEST_ONLY service.</p>`);
 }
 function renderReports(){
+  if(productSource()){panel(`${dataLabel()}${card('Committed event history',`<p>${esc(view.event_count)} durable events</p>${productEvents(view.recent_events)}`)}`);return;}
   panel(`${dataLabel()}${card('Simulation reports',`<label>Period<select id="reportPeriod"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label><p>${esc(view?.run_count??0)} saved scenario runs · ${esc(view?.period||'week')}.</p><p>Saved synthetic events: ${esc(view?.event_count??0)} · incident snapshots: ${esc(view?.incident_count??0)}</p><p>PASS ${esc(view?.outcomes?.PASS||0)} · FAIL ${esc(view?.outcomes?.FAIL||0)} · BLOCKED ${esc(view?.outcomes?.BLOCKED||0)}</p>${tableRows(view?.runs||[],r=>`<p>${esc(r.scenario_id)} · ${esc(r.status)} · ${esc(new Date(r.created_at*1000).toLocaleString())}</p>`)}<p class="muted">Real Hub event reports are unavailable until authenticated Hub ingest is deployed.</p>`)}`);
   $('#reportPeriod').value=view?.period||'week';
   $('#reportPeriod').onchange=async event=>{view=await api(`homes/${profile.home_id}/reports?period=${event.target.value}`);renderReports()};

@@ -13,6 +13,9 @@ namespace gs::hub::target {
 // TEST_ONLY public config-signing key embedded by the isolated build profile.
 esp_err_t gs40_test_only_receive_config(Gs40TestOnlyRuntimeConfig& config);
 esp_err_t gs40_test_only_connect_wifi(Gs40TestOnlyRuntimeConfig& config);
+esp_err_t gs40_test_only_refresh_time(
+    const Gs40TestOnlyRuntimeConfig& config,
+    AuthenticatedHubTimeProvider& time_provider);
 esp_err_t gs40_test_only_bootstrap_time(
     const Gs40TestOnlyRuntimeConfig& config,
     AuthenticatedTimeFloorStore& floor_store,

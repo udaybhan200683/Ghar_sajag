@@ -136,6 +136,22 @@ private:
     const S3HubMonotonicClock& clock_;
 };
 
+// One composition shared by product startup and the host vertical. Endpoint
+// material must come from its live owner after the initial config was moved.
+struct Gs40TestOnlyCloudComposition {
+    Gs40TestOnlyBootstrapIdentityProvider bootstrap_identity;
+    ProvisionedS3CloudTrust trust;
+    HttpsBackendChannel bootstrap_channel;
+    HttpsBackendChannel cloud_channel;
+    Gs40TestOnlyCloudComposition(Gs40TestOnlyMaterialSource& material,
+        const S3TrustedHubTimeSource& time, const S3HubMonotonicClock& clock)
+        : bootstrap_identity(material, time, clock), trust(material, time, clock),
+          bootstrap_channel(material.config().backend_origin,
+              material.config().backend_ca_pem, bootstrap_identity),
+          cloud_channel(material.config().backend_origin,
+              material.config().backend_ca_pem, trust) {}
+};
+
 bool gs40_test_only_refresh_authority(
     Gs40TestOnlyMaterialSource& material,
     const S3TrustedHubTimeSource& time,

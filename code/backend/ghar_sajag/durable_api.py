@@ -20,6 +20,7 @@ from .service import GharSajagService
 from .sqlite_events import SQLiteEventMap
 from .ownership_registry import HubOwnershipRegistry
 from .node_health_status import NodeHealthStatusStore
+from .sqlite_incidents import SQLiteIncidentMap, SQLiteIncidentKeys, SQLiteIncidentService
 
 
 @dataclass
@@ -65,6 +66,9 @@ def open_durable_event_api(
         # becomes visible through the existing caregiver projection after commit
         # and remains visible after this composition is reopened.
         service.store.events = event_map
+        service.store.incidents = SQLiteIncidentMap(db, service.lock)
+        service.store.incident_keys = SQLiteIncidentKeys(service.store.incidents)
+        service.incidents = SQLiteIncidentService(service.store, service.identity, db, service.lock)
         committer = DurableEventCommit(db, service.lock)
         ownership_registry = HubOwnershipRegistry(db, service.lock) if require_registered_ownership else None
         node_health_status = NodeHealthStatusStore(db)

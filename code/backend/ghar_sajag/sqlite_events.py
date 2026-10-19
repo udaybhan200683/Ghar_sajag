@@ -97,6 +97,19 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
         with self.lock:
             return int(self.db.execute("SELECT COUNT(*) FROM events").fetchone()[0])
 
+    def event_provenance(self, home_id: str, canonical_event_id: str) -> dict:
+        with self.lock:
+            row = self.db.execute("""SELECT c.* FROM durable_event_commits c JOIN events e
+                ON e.event_id=c.event_id WHERE c.home_id=? AND e.canonical_event_id=?""",
+                (home_id, canonical_event_id)).fetchone()
+        if row is None:
+            return {}
+        return {"event_key": {"physical_device_id": row["physical_device_id"],
+                "logical_node_id": row["logical_node_id"], "origin_session_id": row["origin_session_id"],
+                "event_sequence": row["event_sequence"]}, "hub_id": row["hub_device_id"],
+                "ownership_epoch": row["ownership_epoch"],
+                "node_enrollment_generation": row["node_enrollment_generation"]}
+
     def items(self) -> Iterable[tuple[tuple[str, str], CloudEvent]]:  # type: ignore[override]
         with self.lock:
             rows = self.db.execute("SELECT * FROM events ORDER BY occurred_at,canonical_event_id").fetchall()

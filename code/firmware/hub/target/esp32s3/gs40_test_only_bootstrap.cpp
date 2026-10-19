@@ -56,6 +56,37 @@ bool valid_hostname(const std::string& value) {
     });
 }
 
+// TEST_ONLY destinations: synthetic DNS names, loopback or RFC1918 IPv4.
+// Exact hostname/CA authentication still applies; redirects are never accepted.
+bool isolated_destination(const std::string& host) {
+    if (host == "localhost" || (host.size() > 5 && host.compare(host.size()-5, 5, ".test") == 0))
+        return valid_hostname(host);
+    unsigned octets[4]{}; std::size_t at = 0;
+    for (unsigned i = 0; i < 4; ++i) {
+        const auto begin = at;
+        while (at < host.size() && host[at] >= '0' && host[at] <= '9') {
+            if (at-begin >= 3) return false;
+            octets[i] = octets[i]*10 + static_cast<unsigned>(host[at++]-'0');
+        }
+        if (at == begin || octets[i] > 255 || (at-begin > 1 && host[begin] == '0')) return false;
+        if (i < 3 && (at >= host.size() || host[at++] != '.')) return false;
+    }
+    return at == host.size() && (octets[0] == 127 || octets[0] == 10 ||
+        (octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31) ||
+        (octets[0] == 192 && octets[1] == 168));
+}
+
+bool valid_backend_port(const std::string& authority, const std::string& host) {
+    if (authority == host) return true;
+    if (authority.size() <= host.size()+1 || authority[host.size()] != ':') return false;
+    unsigned port = 0;
+    for (std::size_t i = host.size()+1; i < authority.size(); ++i) {
+        if (authority[i] < '0' || authority[i] > '9' || port > 6553) return false;
+        port = port*10 + static_cast<unsigned>(authority[i]-'0');
+    }
+    return port > 0 && port <= 65535;
+}
+
 std::string hex_bytes(const std::uint8_t* bytes, std::size_t size) {
     static constexpr char digits[] = "0123456789abcdef";
     std::string result;
@@ -452,11 +483,12 @@ bool Gs40TestOnlyRuntimeConfig::valid_material_shape() const {
     const auto authority_end = authority.find_first_of(":/?#@\r\n");
     const auto host = authority.substr(0, authority_end);
     if (!valid_ascii(wifi_ssid, 32) || backend_origin.size() > 256 || backend_origin.rfind("https://", 0) != 0 ||
-        !valid_hostname(backend_hostname) ||
+        !valid_hostname(backend_hostname) || !isolated_destination(backend_hostname) ||
+        !valid_backend_port(authority, host) ||
         host != backend_hostname || backend_origin.find_first_of("?#@\r\n", 8) != std::string::npos ||
         authority.find('/') != std::string::npos ||
         backend_ca_pem.size() < 64 || backend_ca_pem.size() > 4096 ||
-        !valid_hostname(time_host) || time_port == 0 ||
+        !valid_hostname(time_host) || !isolated_destination(time_host) || time_port == 0 ||
         !valid_rsa3072_public_der(time_public_key_der) ||
         !valid_rsa3072_public_der(authority_public_key_der) ||
         time_public_key_der == authority_public_key_der ||
@@ -626,7 +658,7 @@ bool Gs40TestOnlyAuthorityLeaseVerifier::verify(
     if (public_key_der_.empty() || public_key_der_.size() > 2048 ||
         response.size() < fixed_prefix + 2 + kSignatureBytes || response.size() > 1024 ||
         std::memcmp(response.data(), "G40A", 4) != 0 || response[4] != 1 ||
-        !std::equal(nonce.begin(), nonce.end(), response.begin() + 5)) return false;
+        std::memcmp(nonce.data(), response.data() + 5, nonce.size()) != 0) return false;
     const auto* bytes = reinterpret_cast<const std::uint8_t*>(response.data());
     std::vector<std::uint8_t> wire(bytes, bytes + response.size());
     std::uint64_t generation = 0, issued = 0, expires = 0, revision = 0,
@@ -793,12 +825,21 @@ bool gs40_test_only_refresh_authority(
         !response.message_complete || response.status != 200 ||
         response.body.empty() || response.body.size() > 1024)
         return fail();
+    // Evaluate server issuance against authenticated time AFTER the round trip.
+    // A proof issued in the next UTC second is not future-dated merely because
+    // the request began just before that boundary. Never add clock tolerance.
+    const auto received_ms = clock.now_ms();
+    TrustedHubTimeSnapshot received_time;
+    if (received_ms < now_ms || received_ms - now_ms > 30000 ||
+        !time.trusted_hub_time(received_ms, received_time) || !received_time.trusted ||
+        received_time.boot_generation != snapshot.boot_generation || received_time.utc_now <= 0)
+        return fail();
     Gs40TestOnlyAuthorityLease lease;
-    if (!verifier.verify(response.body, nonce, snapshot.boot_generation,
-            static_cast<std::uint64_t>(snapshot.utc_now),
-            static_cast<std::uint64_t>(now_ms), lease) ||
+    if (!verifier.verify(response.body, nonce, received_time.boot_generation,
+            static_cast<std::uint64_t>(received_time.utc_now),
+            static_cast<std::uint64_t>(received_ms), lease) ||
         !material.install_authority_lease(lease,
-            static_cast<std::uint64_t>(clock.now_ms()), snapshot.boot_generation))
+            static_cast<std::uint64_t>(clock.now_ms()), received_time.boot_generation))
         return fail();
     return true;
 }

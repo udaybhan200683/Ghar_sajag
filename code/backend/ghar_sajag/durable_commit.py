@@ -228,8 +228,11 @@ class DurableEventCommit:
         """Read committed pending work; pass outbox_id as provider idempotency key."""
         with self.lock:
             return self.db.execute(
-                """SELECT outbox_id,recipient_id,payload_json FROM durable_notification_outbox
-                   WHERE state='PENDING' AND due_at<=? ORDER BY due_at,outbox_id LIMIT ?""",
+                """SELECT o.outbox_id,o.recipient_id,o.payload_json FROM durable_notification_outbox o
+                   LEFT JOIN alerts a ON a.home_id=o.home_id AND a.stable_key=o.effect_key
+                   WHERE o.state='PENDING' AND o.due_at<=?
+                     AND (a.alert_id IS NULL OR a.state NOT IN ('ACKNOWLEDGED','RESOLVED','CANCELLED'))
+                   ORDER BY o.due_at,o.outbox_id LIMIT ?""",
                 (at, max(0, min(limit, 100))),
             ).fetchall()
 

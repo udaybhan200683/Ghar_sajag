@@ -243,6 +243,16 @@ int main() {
     check(session.accept(envelope,config),"valid signed encrypted config");
     check(config.valid_shape() && config.permanent_hub_id=="test-hub-000001","parsed config validity");
     check(!session.accept(envelope,config),"config envelope replay");
+    config.backend_origin="https://api.example.com"; config.backend_hostname="api.example.com";
+    check(!config.valid_shape(),"public/commercial endpoint rejected even with signed material");
+    config.backend_origin="https://127.0.0.1:0"; config.backend_hostname="127.0.0.1";
+    check(!config.valid_shape(),"zero backend port rejected");
+    config.backend_origin="https://192.168.50.2:9443"; config.backend_hostname="192.168.50.2";
+    check(config.valid_shape(),"isolated private fixture endpoint accepted with exact CA/hostname");
+    config.time_host="169.254.169.254";
+    check(!config.valid_shape(),"metadata/public signed-time carrier rejected");
+    config.backend_origin="https://127.0.0.1:9443"; config.backend_hostname="127.0.0.1"; config.time_host="127.0.0.1";
+
 
     Gs40TestOnlyEnvelopeSession tampered_session(config_der);
     std::array<std::uint8_t,32> challenge2{}; std::vector<std::uint8_t> target2;
@@ -258,7 +268,7 @@ int main() {
     auto wrong=signed_config(config_root,challenge3,target3,time_der,authority_der,cert,client_private,fingerprint);
     check(!wrong_root.accept(wrong,config),"wrong config root rejected");
 
-    std::array<std::uint8_t,32> nonce{}; nonce[0]=0x77;
+    std::array<std::uint8_t,32> nonce{}; nonce[0]=0xff; nonce[31]=0x80;
     std::vector<std::uint8_t> lease{'G','4','0','A',1};
     lease.insert(lease.end(),nonce.begin(),nonce.end()); put64(lease,7); put64(lease,1700000000);
     put64(lease,1700000060); put64(lease,2); put64(lease,1); put64(lease,3); lease.push_back(1);

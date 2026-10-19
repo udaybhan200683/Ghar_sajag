@@ -168,3 +168,14 @@ session after the documentation and Jira updates are committed and pushed.
 
 Jira evidence comments: GS-40 `11379`, GS-109 `11380`, and GS-148 `11381`.
 All remain In Progress; no issue was marked complete.
+
+
+## GS-178 continuation — 2026-10-18
+
+The missing host services are now implemented in `tools/hil/gs40_test_bootstrap.py`
+and exercised with the actual shared trust/HTTPS composition in the registered
+Node-to-caregiver vertical. Original checkpoint results above remain historical;
+see [GS178 evidence](GS178_SOFTWARE_VERTICAL_20261018.md) for the corrected
+moved-configuration startup references, refresh/clock behavior and final hashes.
+No prior build digest is reused for changed source. Physical acceptance remains
+NOT_RUN and no production trust mechanism is activated.
