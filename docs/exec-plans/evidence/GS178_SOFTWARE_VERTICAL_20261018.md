@@ -399,6 +399,10 @@ passed 19 tests and XML structure
   (`ANDROID_HOME` unset), so no APK was assembled here. Existing connected-app
   API/browser software results are separate from a phone installation.
 
+Jira evidence comments: GS-178 #11397, GS-59 #11398, GS-40 #11399, GS-148
+#11400, GS-177 #11401, GS-116 #11402, GS-130 #11403. Ticket completion and
+physical acceptance states were not advanced by host or compile-only evidence.
+
 The implementation still has a real target gap: the S3 scheduler does not
 atomically persist Hub-derived publication intent with the Hub checkpoint, and
 the current target rule invocation lacks trusted local minute input. The new

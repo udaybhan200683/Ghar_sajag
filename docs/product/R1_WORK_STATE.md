@@ -38,6 +38,8 @@ remain untouched.
 
 Evidence and exact current results:
 [GS178_SOFTWARE_VERTICAL_20261018.md](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).
+Jira comments: GS-178 #11397; GS-59 #11398; GS-40 #11399; GS-148 #11400;
+GS-177 #11401; GS-116 #11402; GS-130 #11403.
 
 # R1 Current Work State
 
