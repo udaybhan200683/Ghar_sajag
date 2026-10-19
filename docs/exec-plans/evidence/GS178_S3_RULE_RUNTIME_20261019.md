@@ -14,8 +14,9 @@ rule was introduced.
 
 The target rule scheduler is gated by authenticated current Hub/Home/epoch
 authority and trusted time. It derives the local-minute input from the trusted
-UTC provider and the configured timezone. The current TEST_ONLY adapter accepts
-`Etc/UTC` only; other timezone identifiers fail closed. Missing/invalid time,
+UTC provider and the authenticated configured timezone. The TEST_ONLY adapter
+accepts `Etc/UTC` and `Asia/Kolkata` (fixed UTC+05:30, no DST); other timezone
+identifiers fail closed. Missing/invalid time,
 authority, or observation coverage suppresses time-dependent inactivity/night
 conclusions. This is deterministic existing R1 rule behavior; GS-104 R01–R09
 personalized learning remains on hold.
@@ -133,3 +134,69 @@ feature-coverage rerun then passed 22/22. The initial mismatch was not hidden.
 - Hub journal migration assertion remains an open failure.
 - Physical hardware, production credentials/endpoints and eFuses were not
   accessed or changed.
+
+## Current P0 readiness and build provenance — 2026-10-19
+
+This section supersedes the earlier note above that called the image digest
+change unexplained. The source-bound checkpoint is commit
+`cc7d6ab32c756219320777f8afe1592e5a962337`, tree
+`75d631cf1b1303dc6b773fe284888da4f42321f9`. Earlier `2,238,400`-byte image
+`54f8fcda...` was built from source `487ffa03` with a different effective
+configuration; it is not the artifact for this checkpoint.
+
+The current guarded TEST_ONLY S3 product image is 2,233,392 bytes, full binary
+SHA-256
+`da3b28c54dd9e06e88b25b12a96c0f9fa3f2d80c07c190b6a6fadfa41e2eb1c6`, ESP
+validation digest
+`294bd9e668ad71870c212a59b030267708d8238e43ed0a63133c3bfa8fde1761`, and
+effective sdkconfig SHA-256
+`3750bc9360e4524d61d8209e2cbe7014f67be9ee55dcb553033bcc9858c83099`. It fits
+the 4 MiB OTA slot. The profile has
+`GS40_TEST_ONLY_CLOUDSYNC=ON`, `GS_HIL_BUILD=OFF`, DS peripheral disabled, and
+build-time secure boot/flash-encryption options unset. Its 1,097-byte external
+TEST_ONLY public config root is SHA-256
+`fe7d71fbe68797fe6fcd28e4364e9cd161005f15befeef4be78b19e0ce355fb0`; the
+binary contains those exact bytes once. The paired C3 asset is SHA-256
+`384eb4f5b194fb02d3d49044f952d3d7fbb2a01f14ca29d63ea17d06d3aea37d`. The
+artifact was built with ESP-IDF 6.0.3 and was not installed or run on a board.
+
+The paired standard production C3/S3 build on the same source passed with
+`GS_HIL_BUILD=OFF`; the S3 has `GS40_TEST_ONLY_CLOUDSYNC=OFF`, DS peripheral
+enabled and only `UnprovisionedS3CloudTrust` linked. Its report is
+`code/build/validation_targets/gs116-a1ppl5pl/report.json`; S3 is 2,184,704
+bytes, SHA-256
+`f10393df9bafb78bb419fc8d8be9fb564434e2f93fcfa7323414877bc7b7378c`, in the
+4 MiB slot. The paired production C3 image is 937,536 bytes, SHA-256
+`384eb4f5b194fb02d3d49044f952d3d7fbb2a01f14ca29d63ea17d06d3aea37d`.
+
+For the TEST_ONLY target, `SOURCE_DATE_EPOCH=1792429200` fixed the app compile
+date. A clean rebuild in the same absolute build directory reproduced both
+the full BIN and ELF byte-for-byte (ELF SHA-256
+`1d07ef7be54055fdf86b015132a0ebd22224f0db7da758e39945b56dedb848ed`). Builds
+from separate absolute paths differed only in the app descriptor's embedded
+ELF SHA-256 (32 bytes) and dependent image footer (33 bytes). This is
+path-sensitive ELF metadata; no content variation was observed in the other
+image bytes. Reproducibility is confirmed for a stable path and pinned date,
+not across arbitrary build paths.
+
+Focused current-source evidence: `make -C code gs40-test-only-bootstrap-test`
+passed 47 checks on `94591ab` (the later `cc7d6ab` commit changes only the PWA
+cache profile); `make -C code gs178-software-e2e` passed 27/27 and
+`make -C code hub-runtime-checkpoint-host-test` passed two assertion groups on
+the rule/time source. After the cache-v5 correction,
+`python3 code/tools/performance/profile_pwa.py` passed at 62,513 bytes,
+`pwa-68-browser-test` passed 3 tests / 92 assertions, and the Phase 3A
+desktop/mobile regression passed 8/8 including stale-cache eviction.
+`make -C code validation-framework-test` passed 51/51 and the corrected
+`make -C code feature-coverage-test` passed 22/22 mapping tests, reporting 215
+features, 255 modules and 25 physical cases.
+
+The single `make -C code validation-hub` execution on `94591ab` completed in
+833.586 seconds. Its affected implementation stages passed, while the
+aggregate remains FAIL on the existing `clean migration commits` assertion
+and required P0 gate (`product_status=PARTIAL`; scenario assertions 26/26).
+The P0 matrix at
+[`GS178_P0_SOFTWARE_READINESS_MATRIX_20261019.md`](GS178_P0_SOFTWARE_READINESS_MATRIX_20261019.md)
+classifies all 17 use cases PARTIAL and links implementation, evidence and
+gaps. No release gate, physical case, phone, production service or hardware
+operation was run in this follow-up.

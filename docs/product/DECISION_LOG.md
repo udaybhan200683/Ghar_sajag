@@ -12,6 +12,18 @@ No product or security requirement changes. See
 
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-178 / GS-40 India local-time adapter — 2026-10-19 (bounded TEST_ONLY implementation evidence)
+
+The explicit GS-40 TEST_ONLY S3 configuration now accepts authenticated
+household timezone `Asia/Kolkata` in addition to `Etc/UTC`, converting from
+already trusted UTC with the fixed India UTC+05:30 offset. The adapter rejects
+unknown zones, invalid time, and overflow and does not set process-global TZ or
+accept an unauthenticated clock. This is a bounded test-profile implementation
+detail; it does not lock worldwide timezone/DST policy, commercial configuration
+semantics, or physical qualification. Existing deterministic morning/night
+rules remain unchanged, and GS-104 R01–R09 remain on hold. The change is
+source/test evidence only and does not increment the canonical context version.
+
 ## GS-178 isolated Hub rule receipt — 2026-10-19 (implementation evidence only)
 
 The TEST_ONLY host vertical now uses a Hub-owned decision identity and separate
@@ -20,8 +32,10 @@ to the caregiver. Node EventKeys remain exclusive to Node events. The backend
 requires verified TLS Hub identity, current Home/epoch and a committed source
 event for event-derived decisions. This does not lock a target storage format,
 resolve GS-D023 crash atomicity or authorize commercial credentials. The S3
-target still lacks a trusted local minute and a composed durable rule-decision
-outbox; product P0 remains PARTIAL. See the
+source now has a bounded TEST_ONLY trusted-UTC-to-local-minute adapter; its
+target behavior is not physically qualified. The composed durable Hub
+rule-decision outbox is source-integrated and host-tested, with target flash
+behavior still unqualified. Product P0 remains PARTIAL. See the
 [GS-178 execution evidence](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).
 
 ## GS-68 isolated diagnostic USB console — 2026-10-17 (evidence only)

@@ -1,3 +1,68 @@
+## GS-178 P0 software readiness and targeted regressions — 2026-10-19
+
+Current source checkpoint before this evidence closeout: canonical branch
+`feature/r1-commercial-baseline`, local HEAD
+`cc7d6ab32c756219320777f8afe1592e5a962337`, source tree
+`75d631cf1b1303dc6b773fe284888da4f42321f9`. The code changes are in
+`94591ab51dd393af730c8edcc772838d171a2ff2` (TEST_ONLY India local-minute
+adapter and caregiver bundle split) and `cc7d6ab32c756219320777f8afe1592e5a962337`
+(service-worker v5 stale-cache purge and regression). At this checkpoint local
+was two commits ahead of origin; this evidence/work-state update is pending its
+own commit and normal push. Context preflight passed (`2026-10-13.001`). No
+other worktree, physical board or production service was used.
+
+The source-linked matrix is
+[`GS178_P0_SOFTWARE_READINESS_MATRIX_20261019.md`](../exec-plans/evidence/GS178_P0_SOFTWARE_READINESS_MATRIX_20261019.md);
+all 17 registered P0 use cases remain `PARTIAL`. Deterministic approved rules
+have a host path through production HubRuntime/checkpoint, CloudSync, local
+authenticated backend and caregiver projection. TEST_ONLY target scheduling
+now derives Asia/Kolkata local minute from authenticated UTC; missing time,
+overflow or unsupported zone fails closed. The change does not approve a
+commercial timezone policy or implement GS-104 learning.
+
+Only affected regression checks were rerun after the user's direction to limit
+validation scope: bootstrap 47 checks, GS-178 E2E 27/27, Hub checkpoint two
+assertion groups, PWA startup profile 62,513/114,688 bytes, focused caregiver
+browser 3 tests / 92 assertions, Phase 3A desktop/mobile 8/8, framework 51/51,
+and traceability mapping 22/22. One `validation-hub` run already completed on
+`94591ab` before that direction; component stages passed except the existing
+`clean migration commits` assertion, and the aggregate also correctly failed
+the mandatory P0 `product_status=PARTIAL` check (26/26 scenario assertions).
+No additional broad component or release aggregate was run after the direction.
+
+ESP-IDF 6.0.3 source-bound, non-flashing builds on `cc7d6ab` passed. Standard
+production C3 is 937,536 bytes, SHA-256
+`384eb4f5b194fb02d3d49044f952d3d7fbb2a01f14ca29d63ea17d06d3aea37d`; S3 is
+2,184,704 bytes, SHA-256
+`f10393df9bafb78bb419fc8d8be9fb564434e2f93fcfa7323414877bc7b7378c`. The
+guarded GS40 TEST_ONLY S3 product image is 2,233,392 bytes, SHA-256
+`da3b28c54dd9e06e88b25b12a96c0f9fa3f2d80c07c190b6a6fadfa41e2eb1c6`, ESP
+validation hash
+`294bd9e668ad71870c212a59b030267708d8238e43ed0a63133c3bfa8fde1761`,
+effective sdkconfig SHA-256
+`3750bc9360e4524d61d8209e2cbe7014f67be9ee55dcb553033bcc9858c83099`. Both
+fit their slots. With `SOURCE_DATE_EPOCH=1792429200`, a clean same-directory
+rebuild was byte-identical; separate absolute paths change the ELF digest
+embedded in app metadata and the dependent image footer. The commercial
+profile remains `GS40_TEST_ONLY_CLOUDSYNC=OFF`, DS peripheral enabled and
+linked to fail-closed `UnprovisionedS3CloudTrust`. Neither image was flashed.
+
+Open status is unchanged: R1 `product_status=PARTIAL`; 17/17 P0 matrix rows
+PARTIAL; journal migration gate still fails `clean migration commits` and needs
+GS-173 adjudication against the R1 release contract; GS-104 R01–R09 remains on
+hold; current-image sensor, target runtime and all physical cases are NOT_RUN;
+production identity/issuer, notification delivery and phone acceptance remain
+unqualified. The Android APK was not assembled here. Full
+`release-gate-final` was NOT_RUN. Untracked PWA, Android, managed components,
+`sdkconfig`, GS-114/C8/GS-40 evidence and historical worktrees remain
+preserved.
+
+An unrelated tracked edit to `code/firmware/node/power/power.cpp` was present
+during closeout. Its diff changes optional retry-state handling to avoid a GCC
+`-Werror=maybe-uninitialized` false positive; it was not part of this evidence
+work and is excluded from the documentation commit. It remains untouched and
+uncommitted.
+
 ## GS-178 S3 deterministic rule-runtime integration — 2026-10-19
 
 Implementation commit `487ffa03e2cc95d84a8eafa5a51016fe413cdce7` integrates

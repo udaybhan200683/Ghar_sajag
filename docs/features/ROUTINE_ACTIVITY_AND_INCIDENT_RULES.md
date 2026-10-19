@@ -191,11 +191,16 @@ planned concepts in the roadmap.
 `received_at` (Hub receive/order time), monotonic milliseconds, uncertainty,
 and event identity. Rules use occurrence time and local minute/window
 configuration. Receive order is useful transport evidence but is not a
-substitute for event chronology. The current secure target adapter does not
-provide a trusted wall-clock local minute to the runtime rule-timer path, and
-target events currently lack a trusted absolute Node clock. Time-based rules
-must therefore not be claimed as physically operating on the secure target
-path merely because the shared rules compile and host tests pass.
+substitute for event chronology. The explicit GS-40 TEST_ONLY S3 composition
+now derives a local minute from already authenticated trusted UTC for the
+signed household zones `Etc/UTC` and `Asia/Kolkata` (fixed UTC+05:30, no DST).
+Unknown zones, invalid UTC, and arithmetic overflow fail closed; this adapter
+does not establish time trust or use an operating-system wall clock. This is a
+bounded TEST_ONLY software capability, not a commercial timezone policy or
+physical result. Target events still lack a qualified trusted absolute Node
+clock, and the TEST_ONLY S3 scheduler has not been physically exercised.
+Time-based rules must not be claimed as physically operating merely because
+the shared rules compile or host tests pass.
 
 Sensor `CoverageState` is distinct from resident activity. The 190-second
 Hub-side authenticated-contact policy marks a Node offline/coverage unknown;
