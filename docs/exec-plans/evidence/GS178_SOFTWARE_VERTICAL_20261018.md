@@ -411,3 +411,15 @@ software vertical for the simulated Hub runtime, not loss-safe target-side Hub
 rule delivery. Keep the P0 release state PARTIAL and official GS-40/117/121
 physical acceptance NOT_RUN. No board, production service, production identity,
 or commercial trust setting was accessed.
+
+### GS-40 TEST_ONLY product-build linker follow-up — 2026-10-19
+
+Fixed deterministic naming for the external public config-root asset, rebuilt
+the GS-40 TEST_ONLY S3 product profile from commit
+`26e49162071975873881e88294216d08fe5e20c7`, and verified ESP image metadata,
+partition fit, guarded TEST_ONLY symbols, and commercial-profile separation.
+The artifact is build-only and not physically executed. Full hashes and
+commands are in
+[`GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md`](GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md).
+GS-178 27/27 software E2E remains prior evidence and was not repeated because
+this correction was confined to the build-time asset basename.

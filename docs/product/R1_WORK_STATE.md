@@ -5032,3 +5032,37 @@ worktree remains preserved.
 
 Jira evidence comments for this checkpoint: GS-40 `11379`, GS-109 `11380`,
 GS-148 `11381`; all remain In Progress.
+
+## GS-178 / GS-40 TEST_ONLY S3 linker fix — 2026-10-19
+
+At canonical source HEAD `50fbb6886af07cb7412ec3dbe3531e6692b7c542`, the
+isolated S3 TEST_ONLY image failed to link because ESP-IDF's embedded asset
+symbols were derived from the external DER filename (`config-root.der`) while
+the guarded runtime referenced fixed `gs40_test_config_root.der` symbols.
+Commit `26e49162071975873881e88294216d08fe5e20c7` copies only the externally
+supplied public TEST_ONLY DER into the build-local stable basename before
+embedding. The TEST_ONLY S3 product profile now builds and passes ESP image
+validation; image SHA-256 is
+`1f247cbcdbe1bbc326b5224abf18c2fdb377a9005c37724b4f48e08be50430d8`, image
+validation hash
+`1e9cf8c57ab03ee3a5f6415f58b3749b4be8e619aa1637822d5136924cd406d5`, size
+2,211,104 bytes, and app descriptor `26e4916-gs40t1`. Effective sdkconfig SHA-256
+is `e18bccdaf876c0442ff6119d9d8dac49ed67cde964cf4f8c9281edb9eeb7f065`; the
+4 MiB OTA application partition has 1,983,200 bytes free. The exact external
+root/embedded bytes match. Build evidence and validation commands:
+[`GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md`](../exec-plans/evidence/GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md).
+
+Focused validation: `make -C code gs40-test-only-bootstrap-test` PASS 33;
+`make -C code cloudsync-security-ut` PASS (mTLS 9, TEST_ONLY mTLS 5, Cloud
+Trust 5 suites, backend security 14, identity/time 4, GS-168 issuer 10,
+NodeHealth 5); ESP-IDF 6.0.3 `reconfigure build size` PASS; esptool image-info
+PASS. The existing GS-178 27/27 software E2E remains valid and was not rerun.
+The existing production-profile build uses TEST_ONLY OFF/macro 0 and
+`UnprovisionedS3CloudTrust`; no production composition change is made.
+
+This is target build evidence only, not S3 execution or physical acceptance.
+The previously reported GS-178 host-simulator target-side atomic rule-decision
+checkpoint and trusted-minute gaps remain. Existing Hub migration failure,
+P0 `product_status=PARTIAL`, PWA failures/budget, Android APK NOT_RUN and
+GS-40/GS-117/GS-121 physical acceptance NOT_RUN remain unchanged. No board,
+serial interface, production service, credential or eFuse was accessed.

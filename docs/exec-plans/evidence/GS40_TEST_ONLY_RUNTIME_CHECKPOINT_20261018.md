@@ -169,6 +169,15 @@ session after the documentation and Jira updates are committed and pushed.
 Jira evidence comments: GS-40 `11379`, GS-109 `11380`, and GS-148 `11381`.
 All remain In Progress; no issue was marked complete.
 
+### Linker correction follow-up — 2026-10-19
+
+The earlier TEST_ONLY image described above predates the external-root linker
+fix and is not the new candidate. The follow-up fix pins ESP-IDF's embedded
+asset basename to `gs40_test_config_root.der`; the source-bound successful
+image, generated-symbol evidence, security profile, and hashes are recorded in
+[`GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md`](GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md).
+No image was installed and no physical acceptance changed.
+
 
 ## GS-178 continuation — 2026-10-18
 
