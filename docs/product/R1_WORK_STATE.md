@@ -5202,7 +5202,9 @@ this checkpoint.
 
 GS-58 remains isolated in `/home/udaybhan/projects/Ghar_sajag_gs58` on
 `feature/gs-58-hub-wifi`, based on checkpoint
-`10a12b6406f15198c6b67eeae416990ff4f10bc0`. The resumed mandatory context
+`10a12b6406f15198c6b67eeae416990ff4f10bc0`; implementation commit
+`358a2fe83a37a7dc4eac8f916fd41a585c7452f6` contains the validated source
+slice and evidence. The resumed mandatory context
 preflight passed at `2026-10-13.001`. Jira comment 11451 approved D1–D4 software
 direction: Espressif BLE provisioning with device-specific installer proof,
 encrypted NVS with protected per-device key custody and fail-closed behavior,
