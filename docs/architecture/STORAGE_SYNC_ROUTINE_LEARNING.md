@@ -12,6 +12,16 @@ corrected readers in both supported commercial S3 images; no signed pair is
 selected/qualified. Physical and release acceptance remain pending. Retention,
 overflow, deletion, CloudSync and D-A–D-M decisions remain separate.
 
+**GS-178 software evidence — 2026-10-19:** The isolated TEST_ONLY host path
+delivers existing deterministic Hub rule decisions over authenticated HTTPS
+with a separate Hub decision ID, idempotent backend commit and caregiver
+projection. This demonstrates the intended backend effect without assigning a
+Node EventKey to a Hub decision. It does not establish target crash atomicity:
+the current Hub checkpoint can persist a rule latch before the host harness
+captures its publication intent. The S3 target has no composed rule outbox or
+trusted local-minute input. Product P0 remains PARTIAL. See the
+[GS-178 execution record](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).
+
 ## Architectural intent
 
 The Hub is not the long-term caregiver database.

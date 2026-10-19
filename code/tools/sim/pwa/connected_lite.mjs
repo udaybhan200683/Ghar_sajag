@@ -68,7 +68,9 @@ function dataLabel(){return `<p class="test-watermark">TEST_ONLY synthetic Home 
 function card(title,body){return `<div class="card"><h2>${esc(title)}</h2>${body}</div>`}
 function tableRows(items,render){return items.length?items.map(render).join(''):'<p class="muted">No saved observations.</p>'}
 function productSource(){return view?.source==='NODE_ORIGIN_HOST_SIM'}
-function productEvents(events){return tableRows(events||[],e=>`<article class="caregiver-run" data-event-key="${esc(JSON.stringify(e.event_key))}"><b>${esc(e.kind)}</b><span>${esc(e.location)} · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>EventKey: ${esc(JSON.stringify(e.event_key))} · ${e.delayed?'Delayed':'Current at receipt'}</small></article>`)}
+function productEvents(events){return tableRows(events||[],e=>e.source_type==='HUB_RULE'
+  ?`<article class="caregiver-run" data-hub-decision="${esc(e.decision_id)}"><b>${esc(e.kind)}</b><span>Hub rule decision · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>Decision ID: ${esc(e.decision_id)} · ${esc(e.details?.reason||'')}</small></article>`
+  :`<article class="caregiver-run" data-event-key="${esc(JSON.stringify(e.event_key))}"><b>${esc(e.kind)}</b><span>${esc(e.location)} · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>EventKey: ${esc(JSON.stringify(e.event_key))} · ${e.delayed?'Delayed':'Current at receipt'}</small></article>`)}
 
 function renderHome(){
   if(productSource()){

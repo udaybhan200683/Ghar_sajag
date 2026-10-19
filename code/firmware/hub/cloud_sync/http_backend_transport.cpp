@@ -27,6 +27,24 @@ public:
         } while (take(','));
         return seen == 7 && take('}') && end();
     }
+    bool decision_receipt(std::string& id, bool& duplicate) {
+        if (!take('{')) return false;
+        unsigned seen = 0;
+        do {
+            std::string name;
+            if (!string(name, 32) || !take(':')) return false;
+            unsigned bit = 0;
+            if (name == "decision_id") { bit = 1; if (!string(id, 256)) return false; }
+            else if (name == "status") {
+                bit = 2; std::string status;
+                if (!string(status, 16) || status != "COMMITTED") return false;
+            } else if (name == "duplicate") { bit = 4; if (!boolean(duplicate)) return false; }
+            else return false;
+            if (seen & bit) return false;
+            seen |= bit;
+        } while (take(','));
+        return seen == 7 && take('}') && end();
+    }
 private:
     std::string_view input_;
     std::size_t pos_{0};
@@ -195,6 +213,47 @@ NodeHealthReply HttpBackendTransport::submit_node_health(
         std::to_string(publication.source_revision) + "}";
     if (response.status == 200 && response.body == expected)
         reply.status = NodeHealthReplyStatus::Accepted;
+    return reply;
+}
+
+HubRuleDecisionReply HttpBackendTransport::submit_hub_rule_decision(
+    const CloudAuthorityBinding& binding, const HubRuleDecisionRequest& request) {
+    return submit_hub_rule_decision_body(binding, request.decision_id(),
+                                         request.json_body());
+}
+
+HubRuleDecisionReply HttpBackendTransport::submit_hub_rule_decision_body(
+    const CloudAuthorityBinding& binding, const std::string& decision_id,
+    const std::string& body) {
+    HubRuleDecisionReply reply;
+    if (binding.home_id.empty() || binding.home_id.size() > 64 ||
+        binding.hub_device_id.empty() || binding.ownership_epoch == 0) return reply;
+    for (unsigned char c : binding.home_id)
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '-' || c == '_')) return reply;
+    if (decision_id.empty() || decision_id.size() > 256 ||
+        body.empty() || body.size() > kMaximumRequestBytes) return reply;
+    const auto response = channel_.post(
+        "/v1/homes/" + binding.home_id + "/hub-rule-decisions", body);
+    if (!response.server_authenticated || !response.message_complete ||
+        response.body.size() > kMaximumResponseBytes) return reply;
+    if (response.status == 401 || response.status == 403) {
+        reply.status = HubRuleDecisionReplyStatus::AuthenticationFailure;
+        return reply;
+    }
+    if (response.status == 409) {
+        reply.status = HubRuleDecisionReplyStatus::Conflict;
+        return reply;
+    }
+    if (response.status >= 500) {
+        reply.status = HubRuleDecisionReplyStatus::TransientFailure;
+        return reply;
+    }
+    if (response.status != 200 && response.status != 201) return reply;
+    std::string id;
+    if (!ReceiptParser(response.body).decision_receipt(id, reply.duplicate) ||
+        id != decision_id) return reply;
+    reply.status = HubRuleDecisionReplyStatus::Committed;
     return reply;
 }
 }

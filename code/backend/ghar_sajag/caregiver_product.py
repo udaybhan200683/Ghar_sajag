@@ -7,8 +7,16 @@ from dataclasses import asdict
 
 
 class CaregiverProductView:
-    def __init__(self, service, *, source):
+    def __init__(self, service, *, source, decision_reader=None):
         self.service, self.source = service, source
+        self.decision_reader = decision_reader
+
+    def _timeline(self, home, actor, now):
+        events = self.service.queries.timeline(home, actor, now)
+        if self.decision_reader is not None:
+            events.extend(self.decision_reader.timeline(home))
+            events.sort(key=lambda item: (item["occurred_at"], item["event_id"]), reverse=True)
+        return events[:100]
 
     def dispatch(self, session, home, sub, method, body, now):
         actor = session["account_id"]
@@ -22,7 +30,7 @@ class CaregiverProductView:
             return {**base, **snapshot, "source_freshness": "CURRENT" if snapshot["hub_reachable"] else "UNKNOWN",
                     "monitoring": "COVERED" if (snapshot["hub_reachable"] and snapshot["node_health"] and
                         all(n["status"] == "ONLINE" and n["coverage"] == "COVERED" for n in snapshot["node_health"])) else "UNKNOWN",
-                    "backend_data_retrieved_at": now, "recent_events": self.service.queries.timeline(home, actor, now)}
+                    "backend_data_retrieved_at": now, "recent_events": self._timeline(home, actor, now)}
         if method == "GET" and sub == "devices":
             return {**base, "devices": snapshot["node_health"]}
         if method == "GET" and sub == "incidents":
@@ -31,7 +39,7 @@ class CaregiverProductView:
                 for i in self.service.store.incidents.values() if i.home_id == home]}
         if method == "GET" and sub == "reports":
             return {**base, "event_count": sum(snapshot["event_counts"].values()),
-                    "event_counts": snapshot["event_counts"], "recent_events": self.service.queries.timeline(home, actor, now)}
+                    "event_counts": snapshot["event_counts"], "recent_events": self._timeline(home, actor, now)}
         parts = sub.split("/")
         if (method == "POST" and len(parts) == 3 and parts[0] == "incidents"
                 and parts[2] in {"claim", "acknowledge", "resolve"}):

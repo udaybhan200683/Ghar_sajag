@@ -1,26 +1,39 @@
-## GS-178 Node-originated software vertical — 2026-10-19 (paused at host checkpoint)
+## GS-178 Node-originated software vertical — 2026-10-19
 
-Canonical branch `feature/r1-commercial-baseline`; execution started at
-`e74dc5190cccd2ebf4c4b37a54b73f7e95041c7a` equal to remote. Read the
-current Git commit/remote before resuming; the paused checkpoint is being
-committed and pushed without changing branches or worktrees.
-New code connects production Node processing/authenticated admission/durable Hub
-ACK and CloudSync to real loopback TLS/mTLS backend commits and the shared
-caregiver app. GS-40 sender/time/authority services and persistent incident
-projection/actions are implemented. Expanded integrated host suite: 22/22 PASS.
-Full affected-component gates, board-stack, sanitizers, current-source target
-and Android builds, and release gates are NOT_RUN for this checkpoint. The raw
-`/tmp` test logs were lost across the execution environment restart; the
-contemporaneous counts and commands are retained in the linked handoff.
+Resumed from canonical HEAD `ceeddc0ff1f670d78414baddccdfcf9f9c89fcd0` on
+`feature/r1-commercial-baseline`; the initial local and origin HEADs matched and
+context preflight passed. The host vertical now carries Hub-owned deterministic
+rule decisions through a separate TEST_ONLY receipt/outbox path, backend
+storage and caregiver projection. It preserves Node EventKey and durable event
+semantics. The expanded `make -C code gs178-software-e2e` passed 27/27.
+Hub/CloudSync and backend trust regressions passed in the affected stages.
 
-Evidence/handoff:
+The latest registered component-gate executions have honest aggregate failures:
+Hub fails the existing journal migration assertion (`clean migration commits`)
+and required P0 composition because `product_status=PARTIAL`; backend and
+contract gates likewise retain P0 PARTIAL, plus backend's existing static PWA
+bundle budget failure (117011 bytes total vs 114688; CSS 21694 vs 18432). The
+PWA gate ran 83 browser tests successfully and had three settings-page locator
+timeouts; its legacy `pwa_68_browser_test.py` stage also lacks the Python
+`websocket` module. These failures were not suppressed or reclassified. Board
+stack simulation passed 10 checks. Source-bound ESP-IDF 6.0.3 target build is
+pending final closeout; Android local APK build is unavailable in the current
+environment. The registered P0 scenario reports 26/26 assertions and browser
+PASS but remains an aggregate gate failure while required product status is
+PARTIAL.
+
+Known target gap: the host simulator captures HubRuntime rule signals into a
+separate durable outbox, but the S3 target scheduler does not atomically persist
+the pending derived-decision intent with the Hub checkpoint, and its current
+`run_state_once()` path lacks trusted local minute input for time-dependent
+rules. Therefore this is host software E2E evidence, not target or physical
+qualification. Full P0 remains PARTIAL. Physical GS-40/117/121 and phone
+acceptance are NOT_RUN. GS-104 R01–R09 remains on hold. No hardware was accessed.
+Untracked PWA/Android/managed-component/physical evidence and other worktrees
+remain untouched.
+
+Evidence and exact current results:
 [GS178_SOFTWARE_VERTICAL_20261018.md](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).
-Full P0 product status remains PARTIAL: derived Hub routine-decision cloud
-persistence/publication is not completed. This is the next software task after
-Git/context preflight. Physical GS-40/117/121 and phone
-acceptance are NOT_RUN. GS-104 learning remains on hold. No boards were accessed.
-All historical worktrees and unrelated untracked evidence remain untouched.
-No GS-177 branch integration is restarted; its shared app is already canonical.
 
 # R1 Current Work State
 

@@ -21,6 +21,7 @@ from .sqlite_events import SQLiteEventMap
 from .ownership_registry import HubOwnershipRegistry
 from .node_health_status import NodeHealthStatusStore
 from .sqlite_incidents import SQLiteIncidentMap, SQLiteIncidentKeys, SQLiteIncidentService
+from .hub_rule_decisions import HubRuleDecisionCommit
 
 
 @dataclass
@@ -40,6 +41,7 @@ def open_durable_event_api(
     authorize_hub: Callable[[dict, str, dict], bool] | None = None,
     now: Callable[[], int] | None = None,
     require_registered_ownership: bool = False,
+    enable_test_hub_rule_decisions: bool = False,
 ) -> DurableEventApi:
     """Compose existing migrations, event projection and durable commit logic.
 
@@ -73,10 +75,14 @@ def open_durable_event_api(
         ownership_registry = HubOwnershipRegistry(db, service.lock) if require_registered_ownership else None
         node_health_status = NodeHealthStatusStore(db)
         service.queries.node_health_status = node_health_status
+        hub_rule_decisions = (HubRuleDecisionCommit(db, service.lock)
+                              if enable_test_hub_rule_decisions and require_registered_ownership
+                              else None)
         return DurableEventApi(
             JsonApi(service=service, now=now, durable_events=committer,
                     authorize_hub=authorize_hub, hub_ownership_registry=ownership_registry,
-                    node_health_status=node_health_status),
+                    node_health_status=node_health_status,
+                    hub_rule_decisions=hub_rule_decisions),
             db,
         )
     except BaseException:

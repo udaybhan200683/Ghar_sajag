@@ -29,6 +29,12 @@ public:
     BackendCommitReply submit(const BackendCommitRequest& request) override;
     NodeHealthReply submit_node_health(const CloudAuthorityBinding& binding,
                                        const NodeHealthPublication& publication) override;
+    HubRuleDecisionReply submit_hub_rule_decision(const CloudAuthorityBinding& binding,
+                                                  const HubRuleDecisionRequest& request);
+    // Retry the exact bytes recovered from the authenticated Hub-owned outbox.
+    HubRuleDecisionReply submit_hub_rule_decision_body(const CloudAuthorityBinding& binding,
+                                                       const std::string& decision_id,
+                                                       const std::string& body);
     // Decode only the established EventKey/COMMITTED/duplicate response grammar.
     // No transport success, 202, simulator DURABLE_MODEL or truncated JSON is a receipt.
     static BackendCommitReply decode(const BackendCommitRequest& request,

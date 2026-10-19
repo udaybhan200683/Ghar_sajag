@@ -148,10 +148,16 @@ class NodeOriginVertical(unittest.TestCase):
         for mode in ("away","paused","privacy"):
             self.stack.command("mode "+mode)
             self.assertFalse(self.stack.command(f"deadline {self.now+121} 1")["create"])
-        # Do not claim rule concern delivery: the durable derived-rule cloud
-        # outbox is still an explicit product seam, separate from raw events.
-        self.assertEqual(self.sync()["completed"],3)
-        self.save_report("P0-B-M-HUB_RULE_ONLY",completed)
+        synchronized=self.sync()
+        self.assertEqual((synchronized["completed"],synchronized["rules_completed"]),(3,1),synchronized)
+        decisions=self.stack.durable.db.execute(
+            "SELECT kind,source_event_id FROM hub_rule_decisions").fetchall()
+        self.assertEqual(len(decisions),1)
+        self.assertEqual(decisions[0][0],"MORNING_ROUTINE_COMPLETED")
+        self.assertIsNotNone(decisions[0][1])
+        self.assertIn("MORNING_ROUTINE_COMPLETED",[e["kind"] for e in self.view()["recent_events"]])
+        self.assertEqual(self.view("incidents")["incidents"],[])
+        self.save_report("P0-B-M-HUB_RULE_SYNC",self.view())
 
     def test_08_mixed_trusted_profiles_strict_boundaries(self):
         for index,profile,interval in [(0,"configured",300),(1,"legacy_60",60),(2,"legacy_120",120)]:
@@ -198,8 +204,29 @@ class NodeOriginVertical(unittest.TestCase):
         result=self.input(1,"motion",minute=72)
         self.assertTrue(any(s["kind"]==5 and s["create"] for s in result["signals"]),result)
         self.assertFalse(self.stack.command(f"deadline {self.now+121} 0")["create"])
-        self.assertEqual(self.sync()["completed"],6)
-        self.save_report("P0-C-HUB_RULE_ONLY",result)
+        self.stack.wan_up=False
+        self.assertEqual(self.sync()["rules_completed"],0)
+        self.stack.command("restart")
+        self.stack.wan_up=True
+        self.assertTrue(self.stack.command("refresh")["authority"])
+        self.stack.drop_rule_receipt=True
+        first=self.sync()
+        self.assertEqual((first["completed"],first["rules_completed"]),(6,0),first)
+        retried=self.sync()
+        self.assertEqual((retried["completed"],retried["rules_completed"]),(0,1),retried)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM hub_rule_decisions").fetchone()[0],1)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM alerts WHERE alert_type='UNUSUAL_NIGHT_BATHROOM_ACTIVITY'").fetchone()[0],1)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT is_test FROM alerts WHERE alert_type='UNUSUAL_NIGHT_BATHROOM_ACTIVITY'").fetchone()[0],1)
+        self.assertIn("UNUSUAL_NIGHT_BATHROOM_ACTIVITY",[e["kind"] for e in self.view()["recent_events"]])
+        concern=[i for i in self.view("incidents")["incidents"] if i["kind"]=="UNUSUAL_NIGHT_BATHROOM_ACTIVITY"]
+        self.assertEqual(len(concern),1)
+        self.assertTrue(concern[0]["is_test"])
+        self.stack.restart_backend()
+        self.assertEqual(len([i for i in self.view("incidents")["incidents"] if i["kind"]=="UNUSUAL_NIGHT_BATHROOM_ACTIVITY"]),1)
+        self.save_report("P0-C-HUB_RULE_SYNC",self.view())
 
     def test_11_checkin_does_not_resolve_unrelated_assistance(self):
         self.input(1,"help")
@@ -225,6 +252,99 @@ class NodeOriginVertical(unittest.TestCase):
         self.assertEqual(self.sync()["completed"],1)
         self.assertEqual(self.view("incidents")["incidents"][0]["kind"],"CALL_FAMILY")
         self.save_report("P0-M-PRIVACY-POLICY",self.view())
+
+    def test_13_hub_rule_receipt_idempotency_conflict_and_revocation(self):
+        for index, minute in ((0,420),(1,421),(2,422)):
+            self.input(index,"motion",minute=minute)
+        self.assertEqual(self.sync()["rules_completed"],1)
+        receipt=next(r for r in self.stack.receipts if r.get("path","").endswith("/hub-rule-decisions"))
+        path=receipt["path"]
+        original=receipt["request"]
+        status, response=self.stack.hub_request(path,original)
+        self.assertEqual(status,200,response)
+        self.assertTrue(json.loads(response)["duplicate"])
+        changed={**original,"reason":original["reason"]+" changed"}
+        self.assertEqual(self.stack.hub_request(path,changed)[0],409)
+        invalid={**original,"decision_id":"new-decision","source_event_key":"wrong/source"}
+        self.assertEqual(self.stack.hub_request(path,invalid)[0],409)
+        future={**original,"decision_id":"future-decision",
+                "decided_at":self.stack.domain_now+301}
+        self.assertEqual(self.stack.hub_request(path,future)[0],400)
+        self.stack.issuer.revoke(self.stack.credential.fingerprint)
+        self.assertEqual(self.stack.hub_request(path,original)[0],403)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM hub_rule_decisions").fetchone()[0],1)
+
+    def test_14_rule_publication_fenced_after_home_transfer(self):
+        for index, minute in ((0,420),(1,421),(2,422)):
+            self.input(index,"motion",minute=minute)
+        self.assertEqual(self.stack.command("restart")["restart"],True)
+        owner=self.stack.durable.api.hub_ownership_registry
+        self.stack.durable.db.execute("INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES(?,?,?,?,?)",
+            ("gs177-test-new-home","Transfer fixture","UTC",self.now,self.now))
+        owner.begin_transfer(self.stack.identity,AuthorizedHomeOperation("test-installer",HOME,"TRANSFER_HUB","test-transfer-rule"),
+            "gs177-test-new-home",self.now+1)
+        self.assertFalse(self.stack.command("refresh")["authority"])
+        result=self.sync()
+        self.assertEqual((result["completed"],result["rules_completed"]),(0,0),result)
+        self.assertEqual(self.stack.durable.db.execute("SELECT COUNT(*) FROM hub_rule_decisions").fetchone()[0],0)
+
+    def test_15_caregiver_browser_renders_hub_decision_separately(self):
+        for index, minute in ((0,420),(1,421),(2,422)):
+            self.input(index,"motion",minute=minute)
+        self.assertEqual(self.sync()["rules_completed"],1)
+        reports=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
+        reports.mkdir(parents=True,exist_ok=True)
+        env={**os.environ,"NODE_EXTRA_CA_CERTS":str(self.stack.ca_path)}
+        result=subprocess.run(["node","tests/support/gs178_browser.cjs"],
+            input=json.dumps({"base":self.stack.human_origin,"password":self.stack.password,
+                              "dom":str(reports/"caregiver_rule_dom.html"),
+                              "ruleKind":"MORNING_ROUTINE_COMPLETED","nodeEventCount":3}),
+            text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=90,env=env)
+        self.assertEqual(result.returncode,0,result.stdout)
+        report=json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(report["status"],"HOST_SIM_PASS")
+        self.save_report("P0-B-CAREGIVER-RULE-BROWSER",report)
+
+    def test_16_door_left_open_then_close_clears_warning_without_erasing_history(self):
+        opened=self.input(3,"door_open",minute=420)
+        self.assertEqual(opened["ack"],"DURABLE")
+        self.domain=7_200_000
+        for index, kind in ((2,"motion"),(1,"motion"),(0,"motion"),(3,"ok")):
+            self.input(index,kind,minute=420)
+        timed=self.stack.command(f"timer {self.now+7210} 420 1")
+        self.assertEqual(timed["rule_signals"],1,timed)
+        self.assertEqual(self.sync()["rules_completed"],1)
+        warning=[i for i in self.view("incidents")["incidents"] if i["kind"]=="DOOR_LEFT_OPEN"]
+        self.assertEqual(len(warning),1)
+        self.assertEqual(warning[0]["state"],"OPEN")
+        closed=self.input(3,"door_close",at=self.now+7212,minute=420)
+        self.assertTrue(any(s["kind"]==2 and s["resolves_prior"] for s in closed["signals"]),closed)
+        self.assertEqual(self.sync()["rules_completed"],1)
+        warning=[i for i in self.view("incidents")["incidents"] if i["kind"]=="DOOR_LEFT_OPEN"]
+        self.assertEqual(len(warning),1)
+        self.assertEqual(warning[0]["state"],"RESOLVED")
+        self.assertIn("DOOR_CLOSED_AFTER_LONG_OPEN",[e["kind"] for e in self.view()["recent_events"]])
+        self.assertEqual(self.stack.durable.db.execute("SELECT COUNT(*) FROM hub_rule_decisions").fetchone()[0],2)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM hub_rule_decisions WHERE source_event_id IS NOT NULL").fetchone()[0],2)
+        self.stack.restart_backend()
+        self.assertEqual([i for i in self.view("incidents")["incidents"] if i["kind"]=="DOOR_LEFT_OPEN"][0]["state"],"RESOLVED")
+        self.save_report("P0-D-DOOR-CLEAR-RULE",self.view())
+
+    def test_17_hub_rule_endpoint_is_disabled_without_explicit_test_composition(self):
+        from ghar_sajag.durable_api import open_durable_event_api
+        from ghar_sajag.service import GharSajagService
+        ordinary=open_durable_event_api(GharSajagService(),
+            self.stack.path/"default-disabled.sqlite", require_registered_ownership=True)
+        try:
+            self.assertIsNone(ordinary.api.hub_rule_decisions)
+            status, body=ordinary.api.dispatch("POST",
+                f"/v1/homes/{HOME}/hub-rule-decisions", "", {})
+            self.assertEqual(status,"503 Service Unavailable")
+            self.assertEqual(body["error"],"hub_rule_decision_commit_unavailable")
+        finally:
+            ordinary.close()
 
     def save_report(self, case_id, outcome):
         path=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))

@@ -22,6 +22,7 @@ from .service import GharSajagService
 from .durable_commit import DurableEventCommit, EventCommitConflict
 from .cloud_client_identity import VerifiedHubContext
 from .node_health_status import NodeHealthStatusStore
+from .hub_rule_decisions import HubDecisionConflict, HubRuleDecisionCommit
 
 
 class JsonApi:
@@ -35,7 +36,8 @@ class JsonApi:
                  durable_events: DurableEventCommit | None = None,
                  authorize_hub: Callable[[dict, str, dict], bool] | None = None,
                  hub_ownership_registry=None,
-                 node_health_status: NodeHealthStatusStore | None = None) -> None:
+                 node_health_status: NodeHealthStatusStore | None = None,
+                 hub_rule_decisions: HubRuleDecisionCommit | None = None) -> None:
         import time
 
         self.service = service or GharSajagService()
@@ -44,6 +46,7 @@ class JsonApi:
         self.authorize_hub = authorize_hub
         self.hub_ownership_registry = hub_ownership_registry
         self.node_health_status = node_health_status
+        self.hub_rule_decisions = hub_rule_decisions
 
     def __call__(self, environ: dict, start_response: Callable) -> Iterable[bytes]:
         try:
@@ -55,7 +58,7 @@ class JsonApi:
             status, payload = self.dispatch(method, path, actor, body, query, environ)
         except PermissionError as error:
             status, payload = "403 Forbidden", {"error": str(error)}
-        except EventCommitConflict as error:
+        except (EventCommitConflict, HubDecisionConflict) as error:
             status, payload = "409 Conflict", {"error": str(error)}
         except sqlite3.Error:
             status, payload = "503 Service Unavailable", {"error": "event_commit_unavailable"}
@@ -84,6 +87,12 @@ class JsonApi:
             residents = [Resident(item["resident_id"], item["display_name"], bool(item["consent_active"]), at) for item in body["residents"]]
             home = self.service.homes.create(body["home_id"], body["display_name"], body["timezone"], body.get("language", "en-IN"), actor, residents, at)
             return "201 Created", {"home_id": home.home_id, "version": home.version}
+        match = re.fullmatch(r"/v1/homes/([^/]+)/hub-rule-decisions", path)
+        if method == "POST" and match:
+            if self.hub_rule_decisions is None:
+                return "503 Service Unavailable", {"error": "hub_rule_decision_commit_unavailable"}
+            result = self.hub_rule_decisions.commit(match.group(1), body, request_context, at)
+            return ("200 OK" if result["duplicate"] else "201 Created"), result
         match = re.fullmatch(r"/v1/homes/([^/]+)/events", path)
         if method == "POST" and match:
             home_id = match.group(1)

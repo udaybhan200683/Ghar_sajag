@@ -60,6 +60,54 @@ bool batch_before(const gs::DomainEvent& left, const gs::DomainEvent& right) {
 
 namespace gs::hub {
 
+std::string HubRuleDecisionRequest::decision_id() const {
+    if (decision.resolves_prior)
+        return decision.stable_key + ":clear";
+    return decision.stable_key;
+}
+
+std::string HubRuleDecisionRequest::json_body() const {
+    const char* kind = nullptr;
+    switch (decision.kind) {
+        case RuleSignalKind::UnexpectedDoorOpen: kind = "UNEXPECTED_DOOR_OPEN"; break;
+        case RuleSignalKind::DoorLeftOpen: kind = "DOOR_LEFT_OPEN"; break;
+        case RuleSignalKind::DoorClosedAfterLongOpen:
+            kind = "DOOR_CLOSED_AFTER_LONG_OPEN"; break;
+        case RuleSignalKind::DaytimeInactivity: kind = "DAYTIME_INACTIVITY"; break;
+        case RuleSignalKind::MorningRoutineCompleted: kind = "MORNING_ROUTINE_COMPLETED"; break;
+        case RuleSignalKind::UnusualNightBathroomActivity:
+            kind = "UNUSUAL_NIGHT_BATHROOM_ACTIVITY"; break;
+        case RuleSignalKind::UnusualNightCommonActivity:
+            kind = "UNUSUAL_NIGHT_COMMON_ACTIVITY"; break;
+        case RuleSignalKind::PostDoorInactivity: kind = "POST_DOOR_INACTIVITY"; break;
+        case RuleSignalKind::MissingMorningActivity: kind = "MISSING_MORNING_ACTIVITY"; break;
+    }
+    if (!kind || !decision.create || decision.stable_key.empty() ||
+        decision_id().size() > 256 || decision.reason.empty() ||
+        decision.reason.size() > 96 || decided_at <= 0 ||
+        decision.duration_seconds < 0 || decision.duration_seconds > 7 * 86400)
+        return {};
+    if (decision.resolves_prior !=
+        (decision.kind == RuleSignalKind::DoorClosedAfterLongOpen)) return {};
+    for (unsigned char c : decision.stable_key)
+        if (c < 0x21 || c > 0x7e) return {};
+    for (unsigned char c : decision.reason)
+        if (c < 0x20 || c > 0x7e) return {};
+    if (source_event_key.size() > 256) return {};
+    std::ostringstream out;
+    out << "{\"decision_version\":1,\"decision_id\":"
+        << json_string(decision_id()) << ",\"kind\":" << json_string(kind)
+        << ",\"tone\":\"" << (decision.tone == RuleTone::Concern ? "CONCERN" : "EXPECTED")
+        << "\",\"reason\":" << json_string(decision.reason)
+        << ",\"decided_at\":" << decided_at
+        << ",\"duration_seconds\":" << decision.duration_seconds
+        << ",\"source_event_key\":"
+        << (source_event_key.empty() ? "null" : json_string(source_event_key))
+        << ",\"resolves_prior_id\":"
+        << (decision.resolves_prior ? json_string(decision.stable_key) : "null") << '}';
+    return out.str();
+}
+
 bool NodeHealthPublication::valid() const {
     constexpr auto max_integer = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
     const auto safe_id = [](const std::string& value, std::size_t max) {

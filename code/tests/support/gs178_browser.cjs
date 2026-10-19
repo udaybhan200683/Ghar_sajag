@@ -31,6 +31,17 @@ const os = require('os');
     await page.getByLabel('Email').fill('owner@gs178.dev');
     await page.getByLabel('Password',{exact:true}).fill(config.password);
     await page.getByRole('button',{name:'Log in',exact:true}).click();
+    if(config.ruleKind){
+      await expect(page.locator('[data-hub-decision]')).toHaveCount(1);
+      await expect(page.locator('#homeTab')).toContainText(config.ruleKind);
+      await expect(page.locator('[data-event-key]')).toHaveCount(config.nodeEventCount);
+      const decision=page.locator('[data-hub-decision]');
+      await expect(decision).toContainText('Decision ID:');
+      if((await decision.textContent()).includes('EventKey:'))throw Error('Hub decision falsely rendered with Node EventKey');
+      fs.writeFileSync(config.dom,await page.content());
+      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:5,requests,physical:'NOT_RUN'}));
+      return;
+    }
     await expect(page.locator('[data-event-key]')).toHaveCount(2);
     await expect(page.locator('#homeTab')).toContainText('MOTION');
     await expect(page.locator('#homeTab')).toContainText('CALL_FAMILY');

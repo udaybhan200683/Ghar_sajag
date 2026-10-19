@@ -244,3 +244,139 @@ board-stack, browser, sanitizer, GS-116/130 and source-bound ESP-IDF 6.0.3 and
 Android build checks; (6) update Jira/evidence, commit and push. Physical tests
 need separately identified, image-verified, authorized fixtures. Do not access
 the C8 Hub, C3 Node or GS-68 spare under this handoff.
+
+## Resumed execution — 2026-10-19
+
+Preflight PASS at `ceeddc0ff1f670d78414baddccdfcf9f9c89fcd0`, equal to
+origin with a clean tracked tree; GS-178 remains In Progress. Owning Jira:
+GS-178. Affected components: Hub deterministic rule output/checkpoint,
+CloudSync, authenticated backend commit/incident projection, caregiver read
+model and GS-116/130 host vertical. Prior Node/Hub/contract/backend/PWA,
+board-stack and security suites remain the affected regressions. Required new
+checks: source identity, current Hub/Home/epoch, exact retry/conflict,
+revocation/transfer, WAN/restart and caregiver rule concern. Hardware remains
+NOT_RUN; release gates remain deferred to a release candidate.
+
+BUG_CLASSIFICATION=R1_BLOCKER
+REQUIREMENT_SOURCE=docs/product/P0_PRODUCT_REQUIREMENTS.md; docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md
+DECISION_IDS=GS-D007; GS-D009; GS-D010; GS-D022; GS-D023; GS-D032
+TASK_SCOPE=GS-178 software Hub rule-decision to caregiver delivery
+OUT_OF_SCOPE=GS-104 learning; production issuance; physical qualification; unapproved retention or partition changes
+
+The current Node durable event stream cannot identify Hub-owned decisions:
+Node EventKeys and enrollment provenance must remain attached to Node data.
+The existing Hub checkpoint persists local rule latches but has no pending
+derived-decision publication intent. Initial implementation will first establish
+the independently authenticated backend receipt/read-model contract in the
+isolated TEST_ONLY vertical, then attach a bounded Hub-owned durable sender.
+No host receipt will be described as a qualified target storage format.
+
+## GS-178 resumed implementation: separate Hub rule receipt (2026-10-19)
+
+This checkpoint adds an isolated TEST_ONLY delivery path for deterministic Hub
+rule decisions. It does not change the Node event wire identity. The production
+`HubRuntime` still generates morning/night rule signals. The GS-178 host stack
+serializes those signals as bounded Hub-owned decisions, stores them in a
+separate protected `DurableEventOutbox`, and sends them after the ordinary
+CloudSync event batch. The backend accepts a decision only over the existing
+TLS 1.2 mTLS channel with a typed verified Hub context, trusted time, current
+Hub/Home/epoch registry state, and (for event-derived decisions) a source Node
+event already committed under that same owner. Exact retries return a duplicate
+COMMITTED receipt; same-ID changed content is a conflict. Transfer or revocation
+fences submission. The backend's rule endpoint is disabled by default and is
+enabled only by the isolated TEST_ONLY durable API composition. It uses a
+separate `hub_rule_decisions` table; concern decisions create one persistent
+alert for the existing caregiver action workflow. The caregiver timeline and
+browser display Hub decisions with their own decision ID and never show an
+undefined or synthetic Node EventKey.
+The existing long-open door rule has an explicit `:clear` Hub decision identity;
+the close transition preserves the open/close history and resolves an earlier
+door-left-open alert without recording a caregiver acknowledgement. A late
+arrival of the warning is also marked resolved when its prior clear receipt
+already exists.
+
+The host outbox is durable once the decision intent is captured, and a lost
+backend receipt is retried with the same bytes. **A crash between the existing
+HubRuntime event checkpoint and capture of its rule signal can still lose the
+derived decision**: the current target checkpoint persists rule latches but
+does not atomically persist pending publication intent. The host outbox is not
+composed into the S3 target scheduler. That scheduler currently calls
+`run_state_once()` without a trusted local minute, so time-dependent target
+rule execution also remains unqualified. These are explicit product gaps,
+not qualifications conferred by host TLS/browser PASS. Full P0 product status
+stays PARTIAL. GS-104 personalized learning remains on hold. No physical
+operation or production endpoint was used.
+
+New permanent cases cover morning decision, night concern, WAN/restart and lost
+rule receipt, exact duplicate versus changed payload, wrong source, future
+decision time, revoked credential, Home transfer, door warning clear and browser
+identity display.
+See `GS178-HUB-RULE-02` in GS-130 traceability. Exact final validation and
+source checkpoint are recorded in the closeout below.
+
+### Resumed execution closeout — 2026-10-19
+
+Validated on the original canonical source checkpoint `ceeddc0` plus the
+recorded working-tree changes. Local and `origin/feature/r1-commercial-baseline`
+were equal before editing; no other worktree or hardware was used.
+
+Implementation adds a TEST_ONLY Hub rule-decision transport and read model
+separate from Node `DomainEvent`/EventKey. HubRuntime rule outputs are serialized
+with stable decision IDs and a separate `:clear` identity for the door-close
+resolution. The host simulator captures these into its bounded durable outbox;
+CloudSync submits them after ordinary durable events through the existing
+authenticated TLS/mTLS transport. Backend persistence is a separate table and
+the handler is default-disabled outside explicit TEST_ONLY composition. It
+requires verified Hub context, current Home/epoch, trusted time and, for
+event-derived decisions, the already committed source event. Same-ID exact retry
+is idempotent; changed content conflicts; revocation, transfer, wrong source,
+and invalid chronology fail closed. The caregiver view renders the Hub decision
+identity independently and retains original event history when the door alert
+is cleared.
+
+Executed validation on the changed source:
+
+- `make -C code gs178-software-e2e`: PASS, 27/27. This includes normal
+  Node-originated scenarios, morning/night deterministic Hub decisions, door
+  alert clear, lost receipt/retry/restart/WAN recovery, ownership/revocation
+  negatives, and browser caregiver rendering.
+- `make -C code p2d-https-channel-host-test`: PASS; bounded real HTTPS channel
+  host contract (`modes=8`, configured body/response/I/O limits and deadline).
+- `make -C code cloudsync-security-ut`: PASS: mTLS 9 cases, TEST_ONLY adapter
+  5, cloud trust 5 suites, CloudSync security 14, identity/time E2E 4, GS-168
+  issuer/registry 10, NodeHealth 5.
+- `make -C code validation-board-e2e`: PASS, 10 host-stack checks; physical
+  stage NOT_RUN.
+- `make -C code feature-coverage-test`: PASS at the working source checkpoint;
+  215 features, 255 modules, 25 physical cases, mapping tests 22/22.
+- `make validation-framework-test`: PASS, 51 tests.
+- `make validation-hub` (reusing exact-source backend receipts): component
+  stages include board-stack 10, C++ 1511, GS-40 1320, GS40 test bootstrap 33,
+  storage sanitizer, CloudSync/mTLS and GS-130 HIL integrity 116, all PASS.
+  Aggregate exits 2 because the existing Hub journal migration test fails
+  `clean migration commits` and the mandatory P0 gate returns FAIL while
+  `product_status=PARTIAL` (26/26 assertions themselves pass).
+- `make validation-node`, `make validation-contract` and `make
+  validation-backend` on the same source fingerprint: affected component
+  stages pass; the required P0 stage preserves 26/26 assertion PASS but keeps
+  aggregate FAIL at `product_status=PARTIAL`. Backend's Python stage is 528
+  tests with 1 existing static PWA bundle-budget failure: total 117011 bytes
+  versus 114688, CSS 21694 versus 18432.
+- `make validation-pwa` ran 83 browser cases, 80 PASS and 3 unrelated settings
+  locator timeouts (Family Members, Battery Alerts, Notifications). The legacy
+  `pwa-68-browser-test` also exits 2 because Python module `websocket` is absent.
+  All GS-178 browser integration assertions passed. The PWA aggregate therefore
+  remains FAIL; these unrelated tests/assertions were not changed.
+- Host compile/format checks and `git diff --check` passed. Full release gates
+  were NOT_RUN. The source-bound ESP-IDF 6.0.3 target build, Android APK build,
+  and physical target execution are recorded separately below when completed;
+  no browser/simulation or compile result is physical evidence.
+
+The implementation still has a real target gap: the S3 scheduler does not
+atomically persist Hub-derived publication intent with the Hub checkpoint, and
+the current target rule invocation lacks trusted local minute input. The new
+outbox is composed in the host simulator only. Thus the tests establish a
+software vertical for the simulated Hub runtime, not loss-safe target-side Hub
+rule delivery. Keep the P0 release state PARTIAL and official GS-40/117/121
+physical acceptance NOT_RUN. No board, production service, production identity,
+or commercial trust setting was accessed.

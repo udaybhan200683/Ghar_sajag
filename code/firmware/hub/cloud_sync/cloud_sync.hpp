@@ -11,6 +11,7 @@
 
 #include "gs/domain.hpp"
 #include "storage/journal.hpp"
+#include "gs/rules.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -160,6 +161,23 @@ struct CloudAuthorityBinding {
         return home_id == other.home_id && hub_device_id == other.hub_device_id &&
                ownership_epoch == other.ownership_epoch;
     }
+};
+
+// Hub rule decisions have their own identity and receipt. They are never
+// serialized into DomainEvent or assigned a Node EventKey.
+struct HubRuleDecisionRequest {
+    RuleSignalDecision decision;
+    EpochSeconds decided_at{0};
+    std::string source_event_key;
+    std::string decision_id() const;
+    std::string json_body() const;
+};
+enum class HubRuleDecisionReplyStatus : std::uint8_t {
+    Committed, Conflict, TransientFailure, AuthenticationFailure, InvalidResponse
+};
+struct HubRuleDecisionReply {
+    HubRuleDecisionReplyStatus status{HubRuleDecisionReplyStatus::InvalidResponse};
+    bool duplicate{false};
 };
 
 class CloudAuthoritySource {

@@ -30,6 +30,7 @@ const char* signal_name(RuleSignalKind kind) {
         case RuleSignalKind::UnusualNightBathroomActivity: return "UNUSUAL_NIGHT_BATHROOM_ACTIVITY";
         case RuleSignalKind::UnusualNightCommonActivity: return "UNUSUAL_NIGHT_COMMON_ACTIVITY";
         case RuleSignalKind::PostDoorInactivity: return "POST_DOOR_INACTIVITY";
+        case RuleSignalKind::MissingMorningActivity: return "MISSING_MORNING_ACTIVITY";
     }
     return "UNKNOWN_SIGNAL";
 }

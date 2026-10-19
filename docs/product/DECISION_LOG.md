@@ -12,6 +12,18 @@ No product or security requirement changes. See
 
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-178 isolated Hub rule receipt — 2026-10-19 (implementation evidence only)
+
+The TEST_ONLY host vertical now uses a Hub-owned decision identity and separate
+backend table/receipt to carry existing deterministic morning/night rule output
+to the caregiver. Node EventKeys remain exclusive to Node events. The backend
+requires verified TLS Hub identity, current Home/epoch and a committed source
+event for event-derived decisions. This does not lock a target storage format,
+resolve GS-D023 crash atomicity or authorize commercial credentials. The S3
+target still lacks a trusted local minute and a composed durable rule-decision
+outbox; product P0 remains PARTIAL. See the
+[GS-178 execution evidence](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md).
+
 ## GS-68 isolated diagnostic USB console — 2026-10-17 (evidence only)
 
 Following GS-172 comment 11323, the GS-68 TEST_ONLY S3 diagnostic now selects

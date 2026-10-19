@@ -21,7 +21,8 @@ enum class RuleSignalKind {
     MorningRoutineCompleted,
     UnusualNightBathroomActivity,
     UnusualNightCommonActivity,
-    PostDoorInactivity
+    PostDoorInactivity,
+    MissingMorningActivity
 };
 
 enum class RuleTone { Expected, Concern };

@@ -218,20 +218,27 @@ class Fixture {
 public:
   host::security::OpenSslCommissioningCrypto crypto;
   Key32 key{};
+  Key32 rule_key{};
   test::TempFlash flash;
   test::FileSegments segments{flash.path / "outbox", flash.path};
+  test::FileSegments rule_segments{flash.path / "hub-rule-outbox", flash.path};
   Files files{flash.path / "state"};
   SnapshotBlobs snapshots{flash.path / "retirement"};
   durable::RetirementSnapshot snapshot;
   durable::RetirementSnapshotReference snapshot_reference;
   std::unique_ptr<DurableEventOutbox> outbox;
+  std::unique_ptr<DurableEventOutbox> rule_outbox;
   std::unique_ptr<OutboxJournalBackend> journal;
   std::unique_ptr<RuntimeStateStore> state;
   std::unique_ptr<HubRuntime> hub;
   std::vector<std::unique_ptr<Peer>> peers;
+  CloudAuthorityBinding rule_binding;
   bool booted = false;
   Fixture() {
     key.fill(7);
+    const std::string key_domain = "GS178 TEST_ONLY Hub rule decision outbox";
+    SHA256(reinterpret_cast<const unsigned char *>(key_domain.data()),
+           key_domain.size(), rule_key.data());
     for (const auto &name : {"bedroom", "bathroom", "kitchen", "door"}) {
       auto p = std::make_unique<Peer>();
       p->logical = name;
@@ -282,6 +289,12 @@ public:
     state.reset();
     journal.reset();
     outbox.reset();
+    rule_outbox.reset();
+    rule_outbox = std::make_unique<DurableEventOutbox>(rule_segments, crypto, rule_key);
+    const auto rule_recovered = rule_outbox->recover();
+    need(rule_recovered == OutboxRecovery::Empty ||
+             rule_recovered == OutboxRecovery::Ready,
+         "Hub-owned decision outbox restart");
     outbox = std::make_unique<DurableEventOutbox>(segments, crypto, key);
     auto recovered = outbox->recover();
     need(recovered == OutboxRecovery::Empty ||
@@ -353,6 +366,46 @@ public:
     need(hub->restore_from_journal(), "reducer recovery");
     booted = true;
   }
+  void capture_rules(const std::vector<RuleSignalDecision> &signals,
+                     EpochSeconds at, const std::string &source) {
+    for (const auto &signal : signals) {
+      std::string original_source = source;
+      if (original_source.empty() && signal.kind == RuleSignalKind::DoorLeftOpen) {
+        const std::string prefix = "door-left-open:";
+        if (signal.stable_key.rfind(prefix, 0) == 0)
+          original_source = signal.stable_key.substr(prefix.size());
+      }
+      HubRuleDecisionRequest request{signal, at, original_source};
+      const auto body = request.json_body();
+      need(!body.empty() && !rule_binding.home_id.empty() &&
+               rule_binding.ownership_epoch != 0,
+           "bounded authenticated Hub rule intent");
+      const auto id = rule_binding.home_id + "/" + rule_binding.hub_device_id +
+                      "/" + std::to_string(rule_binding.ownership_epoch) +
+                      "/" + request.decision_id();
+      const Bytes payload(body.begin(), body.end());
+      const auto stored = rule_outbox->append(id, payload, AdmissionClass::Protected);
+      need(stored == OutboxAdmission::Committed ||
+               stored == OutboxAdmission::Duplicate,
+           "Hub-owned rule intent durable before application ACK");
+    }
+  }
+  std::vector<std::pair<std::string, Bytes>> pending_rules(std::size_t limit) {
+    struct Pending {
+      Fixture *fixture;
+      std::size_t limit;
+      std::vector<std::pair<std::string, Bytes>> rows;
+    } pending{this, limit, {}};
+    need(rule_outbox->for_each([](void *opaque, std::uint64_t,
+                                  const std::string &id, const Bytes &payload) {
+      auto &p = *static_cast<Pending *>(opaque);
+      bool completed = false;
+      if (!p.fixture->rule_outbox->backend_completed(id, completed)) return false;
+      if (!completed && p.rows.size() < p.limit) p.rows.emplace_back(id, payload);
+      return true;
+    }, &pending), "read durable Hub rule intents");
+    return pending.rows;
+  }
   ProcessResult deliver(Peer &p, const NodeMessage &msg, EpochSeconds received,
                         Milliseconds domain, std::uint16_t minute, bool drop,
                         bool reject = false) {
@@ -393,6 +446,8 @@ public:
     need(hub->journal().contains(result->key) ==
              (result->ack == AckClass::Durable),
          "policy drop cannot invent durable storage");
+    if (result->ack == AckClass::Durable && !result->rule_signals.empty())
+      capture_rules(result->rule_signals, received, result->key.str());
     NodeAckMessage ack;
     ack.node_id = msg.node_id;
     ack.session_id = msg.session_id;
@@ -493,6 +548,8 @@ int main(int argc, char **argv) {
     Authority provider(trust, fixture.peers, clock);
     provider.domain_anchor = trusted.utc_now;
     CloudRuntimeAuthoritySource authority(provider);
+    need(provider.current_binding(fixture.rule_binding),
+         "initial Hub decision owner binding");
     auto &channel = composition.cloud_channel;
     HttpBackendTransport transport(channel);
     auto worker = std::make_unique<CloudSyncWorker>(
@@ -576,7 +633,9 @@ int main(int argc, char **argv) {
             std::cout << ",";
           const auto &s = result.rule_signals[n];
           std::cout << "{\"kind\":" << static_cast<int>(s.kind)
-                    << ",\"create\":" << (s.create ? "true" : "false") << "}";
+                    << ",\"create\":" << (s.create ? "true" : "false")
+                    << ",\"resolves_prior\":"
+                    << (s.resolves_prior ? "true" : "false") << "}";
         }
         std::cout << "],\"last_activity_at\":"
                   << fixture.hub->activity_state().last_activity_at.value_or(0)
@@ -628,11 +687,33 @@ int main(int argc, char **argv) {
         in >> domain >> connected;
         need(bool(in), "sync parameters");
         auto r = worker->run_once(connected != 0, domain, 16);
+        unsigned rule_submitted = 0, rule_completed = 0;
+        CloudAuthorityBinding current;
+        if (connected && r.state == CloudWorkerState::Ready &&
+            provider.current_binding(current) && current == fixture.rule_binding &&
+            r.submitted < 16) {
+          const auto prefix = current.home_id + "/" + current.hub_device_id +
+                              "/" + std::to_string(current.ownership_epoch) + "/";
+          for (const auto &[id, payload] : fixture.pending_rules(4)) {
+            if (id.rfind(prefix, 0) != 0) continue;
+            ++rule_submitted;
+            const std::string body(payload.begin(), payload.end());
+            const auto reply = transport.submit_hub_rule_decision_body(
+                current, id.substr(prefix.size()), body);
+            if (reply.status == HubRuleDecisionReplyStatus::Committed) {
+              need(fixture.rule_outbox->mark_backend_completed(id),
+                   "authenticated Hub decision completion persisted");
+              ++rule_completed;
+            }
+          }
+        }
         std::cout << "{\"state\":" << static_cast<int>(r.state)
                   << ",\"submitted\":" << r.submitted
                   << ",\"completed\":" << r.completed
                   << ",\"health_submitted\":" << r.node_health_submitted
                   << ",\"health_accepted\":" << r.node_health_accepted
+                  << ",\"rules_submitted\":" << rule_submitted
+                  << ",\"rules_completed\":" << rule_completed
                   << ",\"stored\":" << fixture.hub->journal().size() << "}"
                   << std::endl;
       } else if (op == "refresh") {
@@ -652,7 +733,20 @@ int main(int argc, char **argv) {
         unsigned trusted_clock;
         in >> now >> trusted_clock;
         auto d = fixture.hub->deadline(now, trusted_clock != 0);
+        if (d.create) fixture.capture_rules({{RuleSignalKind::MissingMorningActivity,
+            RuleTone::Concern, d.stable_key, d.reason, 0, true, false}}, now, "");
         std::cout << "{\"create\":" << (d.create ? "true" : "false") << "}"
+                  << std::endl;
+      } else if (op == "timer") {
+        EpochSeconds now;
+        unsigned minute, trusted_clock;
+        in >> now >> minute >> trusted_clock;
+        need(in && minute < 1440 && trusted_clock <= 1,
+             "bounded authenticated rule timer input");
+        auto signals = fixture.hub->activity_timers(
+            now, static_cast<std::uint16_t>(minute), trusted_clock != 0);
+        fixture.capture_rules(signals, now, "");
+        std::cout << "{\"rule_signals\":" << signals.size() << "}"
                   << std::endl;
       } else if (op == "mode") {
         std::string mode;

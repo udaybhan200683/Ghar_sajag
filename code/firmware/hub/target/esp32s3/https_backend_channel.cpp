@@ -41,7 +41,11 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
     BackendHttpResponse result;
     const auto deadline = esp_timer_get_time() + 5000000;
     CloudTlsIdentity identity;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
     bool test_only_software_identity = false;
+#else
+    [[maybe_unused]] constexpr bool test_only_software_identity = false;
+#endif
     if (cloud_identity_ != nullptr) {
         if (!cloud_identity_->current_identity(identity)) return result;
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD

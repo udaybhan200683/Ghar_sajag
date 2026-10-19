@@ -26,6 +26,7 @@ from pilot_test_issuer import TestOnlyIssuer, new_test_csr
 from ghar_sajag.cloud_client_identity import authorize_cloud_tls_context, TimeReadiness
 from ghar_sajag.durable_api import open_durable_event_api
 from ghar_sajag.durable_commit import EventCommitConflict
+from ghar_sajag.hub_rule_decisions import HubDecisionConflict
 from ghar_sajag.caregiver_product import CaregiverProductView
 from ghar_sajag.model import Resident
 from ghar_sajag.service import GharSajagService
@@ -50,6 +51,7 @@ class ProductStack:
         self.domain_now = self.now
         self.wan_up = True
         self.drop_receipt = False
+        self.drop_rule_receipt = False
         self.receipts = []
         self.issuer = TestOnlyIssuer(self.path / "issuer.sqlite")
         key, csr = new_test_csr(HUB)
@@ -71,7 +73,8 @@ class ProductStack:
         self.service.homes.create(HOME, "Isolated Node-origin Home", "Etc/UTC", "en-IN", self.actor,
             [Resident("test-resident", "TEST_ONLY", True, self.now)], self.now)
         self.durable = open_durable_event_api(self.service, self.path / "product.sqlite",
-            now=lambda: self.domain_now, require_registered_ownership=True)
+            now=lambda: self.domain_now, require_registered_ownership=True,
+            enable_test_hub_rule_decisions=True)
         db = self.durable.db
         db.execute("INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) VALUES(?,?,?,?,?)",
                    (HOME, "GS178 TEST_ONLY", "UTC", self.now, self.now))
@@ -94,7 +97,8 @@ class ProductStack:
         self.root_path = self.path / "config-root.der"
         self.root_path.write_bytes(public_der(self.config_signer))
         self.lite = LiteApi(self.lite_store, clock=lambda: self.domain_now,
-            product_view=CaregiverProductView(self.service, source="NODE_ORIGIN_HOST_SIM"))
+            product_view=CaregiverProductView(self.service, source="NODE_ORIGIN_HOST_SIM",
+                decision_reader=self.durable.api.hub_rule_decisions))
         self.servers = []
         self.hub_origin = self._server(True)
         self.human_origin = self._server(False)
@@ -130,6 +134,11 @@ class ProductStack:
                             status_line, body = stack.durable.api.dispatch(self.command, self.path, "", json.loads(raw), request_context=context)
                             status = int(status_line[:3])
                             stack.receipts.append({"path": self.path, "request": json.loads(raw), "status": status, "response": body})
+                            if (stack.drop_rule_receipt and self.path.endswith("/hub-rule-decisions")
+                                    and body.get("status") == "COMMITTED"):
+                                stack.drop_rule_receipt = False
+                                self.close_connection = True
+                                return
                             if stack.drop_receipt and body.get("status") == "COMMITTED":
                                 stack.drop_receipt = False
                                 self.close_connection = True
@@ -162,8 +171,8 @@ class ProductStack:
                     self.send_header("Content-Type", content_type or "text/html")
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers(); self.wfile.write(body)
-                except (PermissionError, ValueError, KeyError, EventCommitConflict) as error:
-                    status = 409 if isinstance(error, EventCommitConflict) else 403 if isinstance(error, PermissionError) else 400
+                except (PermissionError, ValueError, KeyError, EventCommitConflict, HubDecisionConflict) as error:
+                    status = 409 if isinstance(error, (EventCommitConflict, HubDecisionConflict)) else 403 if isinstance(error, PermissionError) else 400
                     if mtls:
                         stack.receipts.append({"path": self.path, "status": status, "error": str(error)})
                     payload = json.dumps({"error": str(error)}, separators=(",", ":")).encode()
@@ -254,8 +263,10 @@ class ProductStack:
     def restart_backend(self):
         self.durable.close()
         self.durable = open_durable_event_api(self.service, self.path / "product.sqlite",
-            now=lambda: self.domain_now, require_registered_ownership=True)
+            now=lambda: self.domain_now, require_registered_ownership=True,
+            enable_test_hub_rule_decisions=True)
         self.authority.db = self.durable.db
+        self.lite.product_view.decision_reader = self.durable.api.hub_rule_decisions
         self._health()
 
     def close(self):

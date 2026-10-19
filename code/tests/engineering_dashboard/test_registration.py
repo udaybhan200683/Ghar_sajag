@@ -60,6 +60,7 @@ class RegistrationTest(unittest.TestCase):
             "gs177-android-dashboard",
             "gs177-caregiver-offline-browser",
             "gs177-connected-lite-api",
+            "gs178-node-caregiver-e2e",
         })
         self.assertEqual(prior_ids-current_ids,set())
         for original in prior["stages"]:
