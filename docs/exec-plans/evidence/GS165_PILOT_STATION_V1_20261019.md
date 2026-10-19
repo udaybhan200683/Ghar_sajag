@@ -99,3 +99,27 @@ tests and feature coverage on the integration commit. Do not overwrite any
 GS-179 changes. Actual process-loss continuation remains limited by GS-168's
 ephemeral test authority; changing that boundary requires the owning security
 decision, not a key-storage workaround in this station branch.
+
+## Delivery checkpoint
+
+- Implementation commit: `e40058af55eb76385fc4e5ce64bc877c0c97cba6`.
+- Pushed only to `origin/feature/gs-165-pilot-station`; `git ls-remote` matched
+  this commit immediately after push.
+- The fetched canonical remote remained
+  `4fbb8afbfb95a128fa942ac260939601af817411`; the GS-177 fallback branch
+  remained `0120f6f2f57a2568700b5933bcab8eb4ddf18edc`.
+- No merge, cherry-pick or rebase was performed. No canonical or GS-179 worktree
+  files were changed by this implementation.
+- GS-165 remains In Progress. GS-166 remains In Progress. GS-167 remains open
+  because process-loss continuation cannot bypass the GS-168 ephemeral-authority
+  rule. GS-169, GS-170 and GS-171 deliverables are implemented and registered;
+  their Jira workflow statuses are updated separately after validation.
+- `R1_WORK_STATE.md` is intentionally not changed on this isolated source branch
+  while the canonical GS-179/R1 state writer is active. Integrate a concise status
+  note only during canonical review.
+
+Next action: after GS-179 is complete and a canonical integration window is
+explicitly opened, re-read the latest GS-165/166/179 comments and current
+canonical state, inspect commit/file-level conflicts, rerun preflight, reconcile
+the TEST_ONLY issuer boundary and run the registered pilot-factory plus
+feature-traceability checks on the integration commit.
