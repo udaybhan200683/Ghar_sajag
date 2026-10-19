@@ -203,6 +203,24 @@ def main() -> int:
         except (OSError, ET.ParseError, UnicodeError) as error:
             print(f"GS177 ANDROID BUILD FAIL invalid_LAN_TEST_ONLY_trust_profile:{error}", flush=True)
             return 1
+        openssl = shutil.which("openssl")
+        if not openssl:
+            print("GS177 ANDROID BUILD BLOCKED dependency=openssl_for_LAN_CA_validation", flush=True)
+            return 127
+        ca_result = subprocess.run(
+            [openssl, "x509", "-in", str(ca_path), "-noout", "-subject", "-issuer", "-text", "-checkend", "0"],
+            check=False, capture_output=True, text=True,
+        )
+        ca_output = ca_result.stdout
+        subject = next((line.partition("=")[2].strip() for line in ca_output.splitlines()
+                        if line.startswith("subject=")), "")
+        issuer = next((line.partition("=")[2].strip() for line in ca_output.splitlines()
+                       if line.startswith("issuer=")), "")
+        if (ca_result.returncode != 0 or not subject or subject != issuer or
+                not re.search(r"X509v3 Basic Constraints: critical\s+CA:TRUE", ca_output) or
+                not re.search(r"X509v3 Key Usage: critical\s+Certificate Sign, CRL Sign", ca_output)):
+            print("GS177 ANDROID BUILD FAIL LAN_TEST_ONLY_anchor_must_be_current_self_signed_CA", flush=True)
+            return 1
         has_test_ca = any(
             node.attrib.get("src") == "@raw/gs179_local_lan_test_ca"
             for group in domain_configs for anchors in group.findall("trust-anchors")

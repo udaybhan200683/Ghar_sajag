@@ -49,15 +49,18 @@ physical Hub identity or client credential is installed on this laptop.
 
 The Android profile includes only the public local TEST_ONLY CA certificate;
 its private key remains owner-only under the user's local data directory and
-was not committed. The CA SHA-256 is
-`f992de806e19351306970e7c2161554bffd9c4a5d238317862923311b0e72f45`.
+was not committed. The standards-shaped CA has `CA:TRUE,pathlen:0` and
+`keyCertSign,cRLSign`; its file SHA-256 is
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5` and its
+certificate fingerprint is
+`124e28f34b8d73aa9fdd3f0f0fa2b7ff216e601c25162d1d6a224f1d63372b7c`.
 
 During review, the original server leaf was found to have no IP SAN. Although
 the current curl/OpenSSL environment accepted its legacy common-name identity,
 that was insufficient evidence for Android's IP hostname check. The local
-TEST_ONLY leaf was reissued under the same private CA with `IP:192.168.1.6`,
-`CA:FALSE`, and `serverAuth`. Its SHA-256 is
-`6ed5b70e1a47f9458669e705f294e086b96072ed6a828b2ead4fb5e69d40f6c1`.
+TEST_ONLY leaf was reissued under that CA with `IP:192.168.1.6`, `CA:FALSE`,
+and `serverAuth`. Its file SHA-256 is
+`390e1505b37a47f0dd08272a52fbd96a5a716828e7e6dc580a38abd2629b6119`.
 `openssl verify -CAfile <private-ca.pem> -verify_ip 192.168.1.6 <server.pem>`
 and a live CA-verified HTTPS `/readyz` request both passed after service restart.
 The leaf and CA private keys remain mode 0600 outside the repository.
@@ -67,6 +70,9 @@ The local APK trust profile is conditional on the explicit
 single matching `network_security_config` domain and trusts the embedded local
 test CA only for that domain. Release builds and ordinary debug builds retain
 the public-DNS-only origin rule and do not include the local CA/profile. The
+LAN build runner also verifies the manifest/resource binding, exact origin
+match, and that the bundled certificate is a current self-signed CA with
+critical CA constraints and certificate-signing usages. The
 LAN APK always uses a runner-generated debug signing key, not a pilot or
 production key. The build runner rejects an origin that differs from the
 profile's pinned domain.

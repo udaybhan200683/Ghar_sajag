@@ -5264,9 +5264,11 @@ phone checklist are in
 [`GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md`](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md).
 
 The current LAN Android profile is opt-in and debug-only. It embeds only the
-public TEST_ONLY CA, uses a runner-generated debug key, and limits Android
-network trust to the exact configured LAN IP. Ordinary debug and release
-profiles keep the public-DNS origin policy and do not load this CA. The local
+public TEST_ONLY CA (`CA:TRUE,pathlen:0`, `keyCertSign,cRLSign`), uses a
+runner-generated debug key, and limits Android network trust to the exact
+configured LAN IP. The build runner checks the CA constraints and the exact
+origin-to-domain trust binding. Ordinary debug and release profiles keep the
+public-DNS origin policy and do not load this CA. The local
 server leaf was rotated after finding its previous CN-only certificate lacked
 an IP SAN; the replacement has the exact IP SAN and passed OpenSSL IP/chain
 verification and live HTTPS readiness. CA and private keys remain outside Git.
