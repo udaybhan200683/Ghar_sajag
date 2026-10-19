@@ -7,11 +7,10 @@ Current source checkpoint before this evidence closeout: canonical branch
 `94591ab51dd393af730c8edcc772838d171a2ff2` (TEST_ONLY India local-minute
 adapter and caregiver bundle split) and `cc7d6ab32c756219320777f8afe1592e5a962337`
 (service-worker v5 stale-cache purge and regression). This evidence/work-state
-bundle was committed locally as `4d66110`; the final closeout update is a
-separate documentation commit. At the first evidence-commit check, local was
-three commits ahead of origin; push and remote equality verification remain
-pending. Context preflight passed (`2026-10-13.001`). No other worktree,
-physical board or production service was used.
+bundle was committed as `4d66110`, followed by closeout commit `d883c75`; both
+were pushed normally with the preceding source commits. `git ls-remote` matched
+local HEAD at `d883c75`. Context preflight passed (`2026-10-13.001`). No other
+worktree, physical board or production service was used.
 
 The source-linked matrix is
 [`GS178_P0_SOFTWARE_READINESS_MATRIX_20261019.md`](../exec-plans/evidence/GS178_P0_SOFTWARE_READINESS_MATRIX_20261019.md);
