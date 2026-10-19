@@ -5197,3 +5197,25 @@ already-authorized direct mTLS-capable isolated backend ingress and database
 network path, or approve a new request-authentication contract for review. No
 source/API/database/service/deployment change or hardware action occurred in
 this checkpoint.
+
+## GS-58 Wi-Fi provisioning decision gate — 2026-10-19
+
+GS-58 analysis is isolated in `/home/udaybhan/projects/Ghar_sajag_gs58` on
+`feature/gs-58-hub-wifi`, branched from fetched canonical source
+`4fbb8afbfb95a128fa942ac260939601af817411`. The new-worktree context preflight
+passed at `2026-10-13.001`. The audit checkpoint `21759bdea160a302fce1d8442e5f2c0c858b21c6`
+was pushed and matched its remote ref before this state note. The canonical
+worktree contains active uncommitted GS-179 changes and was not modified; the
+GS-165 worktree/branch was preserved.
+
+No product code was changed. Implementation is paused pending decisions on
+authorized installer Wi-Fi onboarding, protected credential persistence,
+ESP-NOW/AP channel coexistence and the GS-58 CloudSync/status boundary. Exact
+options, recommendations, source findings and the next validation plan are in
+[`GS58_WIFI_PROVISIONING_DECISION_GATE_20261019.md`](../exec-plans/evidence/GS58_WIFI_PROVISIONING_DECISION_GATE_20261019.md).
+No tests/build were run. No physical device, USB/serial, credential, service,
+flash, reset or eFuse was accessed. GS-58 is In Progress; Jira comment 11444
+records the pending decisions. After approval, re-read the current branch,
+canonical source and active-writer state, rerun preflight, reconcile approved
+choices with GS-68/GS-109/GS-148 and implement only the approved scope. Update
+this section with the resulting evidence and exact validation results.
