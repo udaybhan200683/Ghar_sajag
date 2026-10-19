@@ -10,11 +10,8 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdlib>
 #include <cstdio>
 #include <cstring>
-#include <ctime>
-#include <mutex>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netdb.h>
@@ -22,9 +19,6 @@
 
 namespace gs::hub::target {
 namespace {
-std::mutex g_household_timezone_mutex;
-bool g_utc_timezone_selected = false;
-
 extern const std::uint8_t _binary_gs40_test_config_root_der_start[] asm(
     "_binary_gs40_test_config_root_der_start");
 extern const std::uint8_t _binary_gs40_test_config_root_der_end[] asm(
@@ -201,42 +195,18 @@ bool gs40_test_only_apply_activity_home(
         current_authority.home_id != config.activity_home_id ||
         current_authority.hub_device_id.empty() ||
         current_authority.ownership_epoch == 0) return false;
-    {
-        std::lock_guard<std::mutex> lock(g_household_timezone_mutex);
-        if (!g_utc_timezone_selected) {
-            if (::setenv("TZ", "UTC0", 1) != 0) return false;
-            ::tzset();
-            g_utc_timezone_selected = true;
-        }
-    }
     // The authenticated fixture HomeConfig is applied in one reducer
-    // checkpoint. The exact TEST_ONLY fixture contract currently provisions
-    // Etc/UTC; unsupported zones remain disabled instead of being guessed.
-    return config.household_timezone == "Etc/UTC" &&
-        runtime.configure_home_activity(config.activity_rules, config.home_mode,
-                                        current_authority);
+    // checkpoint. The test-only timezone helper validates the signed zone and
+    // computes minutes without mutating process-global TZ state.
+    return runtime.configure_home_activity(config.activity_rules, config.home_mode,
+                                           current_authority);
 }
 
 bool gs40_test_only_local_minute(const Gs40TestOnlyRuntimeConfig& config,
         EpochSeconds trusted_utc, std::uint16_t& local_minute) {
-    if (!config.valid_activity_rules_shape() ||
-        config.household_timezone != "Etc/UTC" || trusted_utc <= 0) return false;
-    {
-        std::lock_guard<std::mutex> lock(g_household_timezone_mutex);
-        if (!g_utc_timezone_selected) {
-            if (::setenv("TZ", "UTC0", 1) != 0) return false;
-            ::tzset();
-            g_utc_timezone_selected = true;
-        }
-    }
-    const auto converted = static_cast<time_t>(trusted_utc);
-    if (static_cast<EpochSeconds>(converted) != trusted_utc) return false;
-    std::tm broken_down{};
-    if (::localtime_r(&converted, &broken_down) == nullptr ||
-        broken_down.tm_hour < 0 || broken_down.tm_hour > 23 ||
-        broken_down.tm_min < 0 || broken_down.tm_min > 59) return false;
-    local_minute = static_cast<std::uint16_t>(broken_down.tm_hour * 60 + broken_down.tm_min);
-    return local_minute < 1440;
+    return config.valid_activity_rules_shape() &&
+        gs40_test_only_local_minute_from_utc(config.household_timezone,
+                                             trusted_utc, local_minute);
 }
 
 }  // namespace gs::hub::target

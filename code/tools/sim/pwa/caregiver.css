@@ -1,0 +1,67 @@
+:root{
+  --bg:#f6fbf8;--card:#fff;--line:#dceae1;--green:#0d8a43;--text:#0c1635;
+  --muted:#63749a;--red:#d91920;--amber:#eba900;--blue:#2462e8;
+  --shadow:0 7px 24px rgba(12,22,53,.07);--radius:22px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:linear-gradient(#fff,#f7fbf8);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+body{min-height:100vh}
+button,input,select{font:inherit}
+#app{max-width:1180px;min-height:100vh;margin:auto;padding:0 22px calc(164px + max(24px,env(safe-area-inset-bottom,0px)))}
+.connection-status{display:flex;flex-direction:column;gap:4px;margin:0 22px 14px;padding:14px 18px;border:1px solid #efc7a1;border-radius:14px;background:#fff8ed;color:#64400b}
+.connection-status[hidden]{display:none}
+.topbar{position:sticky;top:0;z-index:30;display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0 -14px 18px;padding:12px 14px;background:rgba(247,252,249,.98);border-bottom:1px solid var(--line);border-radius:0 0 14px 14px;box-shadow:0 3px 14px rgba(12,22,53,.08)}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand-icon{width:48px;height:48px;flex-shrink:0}
+.brand-name{font-size:clamp(20px,5vw,30px);font-weight:850;line-height:1.05}
+.tagline{margin-top:3px;color:var(--muted);font-size:13px}
+.away-wrap,.datetime{display:none}
+main{min-width:0}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.card{min-width:0;margin:12px 0 16px;padding:20px;background:linear-gradient(110deg,#f5fff7,#fff);border:1px solid #dceae1;border-radius:var(--radius);box-shadow:var(--shadow)}
+.card h1,.card h2,.card h3{margin:0 0 8px}
+.card p{line-height:1.5}
+.card button,.connected-lite-runtime .caregiver-actions button{min-height:48px;margin:4px 2px;padding:10px 14px;border:1px solid #c7d7cd;border-radius:12px;background:#fff;color:#174631;font-weight:700;cursor:pointer;touch-action:manipulation}
+.card button:disabled,.connected-lite-runtime button:disabled{opacity:.6;cursor:not-allowed}
+.card input,.card select{display:block;max-width:100%;min-height:44px;margin:5px 0 12px;padding:9px 10px;border:1px solid #b9d0c7;border-radius:9px;background:#fff;color:var(--text)}
+.connected-auth{max-width:30rem;margin:2rem auto;padding:1.4rem}
+.connected-auth label,.connected-lite-runtime .card label{display:block;margin:.7rem 0;font-weight:650}
+.connected-auth input,.connected-auth button{width:100%}
+.status-bad{color:var(--red);font-weight:800}
+.muted{color:var(--muted)}
+.bottom-nav{position:fixed;bottom:calc(14px + max(22px,env(safe-area-inset-bottom,0px)));left:50%;z-index:40;display:flex;width:calc(100% - 24px);max-width:900px;justify-content:flex-start;gap:5px;overflow-x:auto;padding:8px;transform:translateX(-50%);border:1px solid #e1e7ee;border-radius:24px;background:rgba(255,255,255,.96);box-shadow:0 10px 35px rgba(12,22,53,.11);-webkit-overflow-scrolling:touch;scroll-padding-inline:8px;touch-action:pan-x;overscroll-behavior-x:contain}
+.bottom-nav[hidden]{display:none}
+.nav-btn{flex:0 0 auto;min-width:104px;min-height:56px;padding:10px 12px;border:0;border-radius:14px;background:transparent;color:#5870aa;font-size:13px;cursor:pointer;touch-action:manipulation}
+.nav-btn.active{background:#eaf8ed;color:var(--green)}
+.nav-btn:focus-visible,.connected-lite-runtime button:focus-visible,.connected-lite-runtime select:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.toast{position:fixed;bottom:calc(104px + max(22px,env(safe-area-inset-bottom,0px)));left:50%;z-index:50;max-width:calc(100% - 24px);padding:12px 18px;transform:translateX(-50%);border-radius:12px;background:#10192b;color:#fff;box-shadow:var(--shadow)}
+.test-watermark{margin:.7rem 0;padding:.7rem;border:1px solid #c69e31;border-radius:.7rem;background:#fff3cc;color:#594100;font-weight:700;overflow-wrap:anywhere}
+.validation-row{overflow-wrap:anywhere}
+.card pre{max-height:20rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.caregiver-hero{margin:12px 0 16px;padding:22px 20px;border:1px solid #cbe7d6;border-radius:20px;background:linear-gradient(125deg,#eaf9ef,#f7fdfa);box-shadow:var(--shadow)}
+.caregiver-eyebrow{margin:0 0 8px;color:#3d6f5a;font-size:12px;font-weight:800;letter-spacing:.07em}
+.caregiver-hero h1{margin:0;font-size:clamp(24px,5vw,32px)}
+.caregiver-hero p:not(.caregiver-eyebrow){color:#36566a;line-height:1.5}
+.caregiver-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.caregiver-actions button,.caregiver-primary{border:0!important;background:#0d7441!important;color:#fff!important;font-weight:750!important;cursor:pointer;touch-action:manipulation}
+.caregiver-actions .caregiver-secondary{border:1px solid #a1cab4!important;background:#fff!important;color:#155e3f!important}
+.caregiver-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.caregiver-tiles .card{min-width:0}
+.caregiver-state{margin:12px 0;font-size:18px;font-weight:800}
+.caregiver-state.good{color:#11683d}.caregiver-state.pending{color:#875a08}
+.caregiver-run{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid #dceae1;overflow-wrap:anywhere}
+.caregiver-run small{margin-left:auto;color:#64748b}
+.caregiver-tech{margin:16px 0;padding:12px 16px;overflow-wrap:anywhere;border:1px solid #dceae1;border-radius:12px;background:#fff;color:#4b5d70}
+.caregiver-tech summary{padding:8px 2px;cursor:pointer;font-weight:700}
+.caregiver-tech p{line-height:1.45}
+#scenarioChoice,#scenarioSearch{display:block;width:100%;max-width:100%;min-height:48px;margin:8px 0 16px;padding:12px;border:1px solid #b9d0c7;border-radius:12px;background:#fff}
+#runScenario{width:100%;max-width:100%;margin:8px 0 12px}
+#runProgress{min-height:20px}
+@media(max-width:740px){
+  #app{padding-right:12px;padding-left:12px}
+  .topbar{padding:8px 12px;margin-right:-12px;margin-left:-12px}
+  .caregiver-tiles{grid-template-columns:1fr}
+  .caregiver-actions{display:grid;grid-template-columns:1fr}
+  .caregiver-actions button{width:100%}
+  .caregiver-hero{padding:18px 16px}
+}

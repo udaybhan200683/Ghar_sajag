@@ -35,8 +35,8 @@ struct Gs40TestOnlyRuntimeConfig {
     std::uint64_t envelope_expiry_utc{0};
     // Optional authenticated Home behavior snapshot used only by the isolated
     // GS-40 product profile. It is enabled only when the signed envelope's
-    // Home matches the live authority lease. The first target timezone adapter
-    // deliberately supports Etc/UTC only and fails closed for other zones.
+    // Home matches the live authority lease. The bounded target timezone adapter
+    // supports Etc/UTC and Asia/Kolkata only and fails closed for other zones.
     std::string activity_home_id;
     std::string household_timezone;
     ActivityRuleConfig activity_rules{};
@@ -54,6 +54,12 @@ struct Gs40TestOnlyRuntimeConfig {
     bool valid_activity_rules_shape() const;
     void clear_wifi_secret();
 };
+
+// Deterministic conversion for explicitly supported TEST_ONLY household zones.
+// The input must already be authenticated trusted UTC; this function does not
+// establish time trust or accept host/local wall-clock time.
+bool gs40_test_only_local_minute_from_utc(const std::string& timezone,
+    EpochSeconds trusted_utc, std::uint16_t& local_minute);
 
 // GS40T/1 config envelope. Public key is the TEST_ONLY config-signing root DER
 // supplied to this isolated build; the matching private key stays host-side.

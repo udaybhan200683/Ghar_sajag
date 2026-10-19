@@ -102,6 +102,11 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertFalse(forbidden,'caregiver UI exposed simulator identity or a synthetic healthy state')
     resources=cdp(ws,'Runtime.evaluate',{'expression':"performance.getEntriesByType('resource').map(x=>x.name).filter(x=>/\\/(?:pwa|v1)\\//.test(new URL(x).pathname))",'returnByValue':True})['result']['value']
     self.assertEqual(resources,[],'offline startup must not call simulator or placeholder production API routes')
+    app_assets=cdp(ws,'Runtime.evaluate',{'expression':"performance.getEntriesByType('resource').map(x=>new URL(x.name).pathname)",'returnByValue':True})['result']['value']
+    self.assertIn('/caregiver.css',app_assets,'caregiver runtime must load its bounded production stylesheet')
+    self.assertNotIn('/styles.css',app_assets,'caregiver runtime must not download the development simulator stylesheet')
+    self.assertNotIn('/app.js',app_assets,'caregiver runtime must not download local simulator code')
+    self.assertNotIn('/sw.js',app_assets,'caregiver runtime must not register or fetch simulator service-worker code')
     nav=cdp(ws,'Runtime.evaluate',{'expression':"document.querySelector('.bottom-nav').hidden",'returnByValue':True})['result']['value']
     self.assertTrue(nav,'caregiver navigation must stay hidden until server authentication')
     print('PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls')

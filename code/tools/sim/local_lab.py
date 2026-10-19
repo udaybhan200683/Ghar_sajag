@@ -1393,6 +1393,7 @@ class WebLab:
                   "/validation_engine.mjs":("tools/sim/pwa/validation_engine.mjs","text/javascript"),
                   "/schedule_feedback.mjs":("tools/sim/pwa/schedule_feedback.mjs","text/javascript"),
                   "/styles.css":("tools/sim/pwa/styles.css","text/css"),
+                  "/caregiver.css":("tools/sim/pwa/caregiver.css","text/css"),
                   "/sw.js":("tools/sim/pwa/sw.js","text/javascript"),
                   "/manifest.webmanifest":("tools/sim/pwa/manifest.webmanifest","application/manifest+json"),
                   "/assets/icon.svg":("tools/sim/pwa/assets/icon.svg","image/svg+xml"),

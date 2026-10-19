@@ -49,6 +49,10 @@ bool valid_ascii(const std::string& value, std::size_t maximum) {
         });
 }
 
+bool supported_household_timezone(const std::string& value) {
+    return value == "Etc/UTC" || value == "Asia/Kolkata";
+}
+
 bool valid_hostname(const std::string& value) {
     if (value.empty() || value.size() > 253 || value.front() == '.' || value.back() == '.') return false;
     return std::all_of(value.begin(), value.end(), [](unsigned char ch) {
@@ -581,7 +585,7 @@ bool Gs40TestOnlyRuntimeConfig::valid_shape() const {
 
 bool Gs40TestOnlyRuntimeConfig::valid_activity_rules_shape() const {
     if (!activity_rules_present || !valid_ascii(activity_home_id, 64) ||
-        household_timezone != "Etc/UTC" ||
+        !supported_household_timezone(household_timezone) ||
         static_cast<std::uint8_t>(home_mode) > static_cast<std::uint8_t>(HomeMode::Privacy))
         return false;
     const auto& rules = activity_rules;
@@ -608,6 +612,24 @@ bool Gs40TestOnlyRuntimeConfig::valid_activity_rules_shape() const {
     home.morning.enabled = false;
     ConfigService validator;
     return validator.apply(home).applied;
+}
+
+bool gs40_test_only_local_minute_from_utc(const std::string& timezone,
+        EpochSeconds trusted_utc, std::uint16_t& local_minute) {
+    if (trusted_utc <= 0 || !supported_household_timezone(timezone)) return false;
+    constexpr EpochSeconds kSecondsPerDay = 24 * 60 * 60;
+    constexpr EpochSeconds kIndiaOffsetSeconds = 5 * 60 * 60 + 30 * 60;
+    EpochSeconds local_epoch = trusted_utc;
+    if (timezone == "Asia/Kolkata") {
+        if (trusted_utc > std::numeric_limits<EpochSeconds>::max() - kIndiaOffsetSeconds)
+            return false;
+        local_epoch += kIndiaOffsetSeconds;
+    }
+    const auto seconds_of_local_day = local_epoch % kSecondsPerDay;
+    const auto minute = static_cast<std::uint16_t>(seconds_of_local_day / 60);
+    if (minute >= 24 * 60) return false;
+    local_minute = minute;
+    return true;
 }
 
 bool Gs40TestOnlyRuntimeConfig::valid_material_shape() const {

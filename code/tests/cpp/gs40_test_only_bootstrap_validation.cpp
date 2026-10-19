@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -181,7 +182,8 @@ bool derive(EVP_PKEY* private_key, const std::vector<std::uint8_t>& peer_sec1,
 std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     const std::array<std::uint8_t, 32>& challenge, const std::vector<std::uint8_t>& target_public,
     const std::vector<std::uint8_t>& time_der, const std::vector<std::uint8_t>& authority_der,
-    const std::string& cert, const std::string& key, const std::string& fingerprint) {
+    const std::string& cert, const std::string& key, const std::string& fingerprint,
+    const std::string& timezone = "Etc/UTC") {
     std::vector<std::uint8_t> plain{'G','4','0','P',1};
     field(plain,1,"gs40-lab"); field(plain,2,"test-passphrase");
     field(plain,3,"https://127.0.0.1:9443"); field(plain,4,"127.0.0.1");
@@ -190,7 +192,7 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     field(plain,8,time_der); field(plain,9,"test-hub-000001"); field(plain,10,cert); field(plain,11,key);
     field(plain,12,fingerprint); field(plain,13,number(1)); field(plain,14,number(1));
     field(plain,15,number(1893456000)); field(plain,16,authority_der);
-    field(plain,17,"home1"); field(plain,18,"Etc/UTC");
+    field(plain,17,"home1"); field(plain,18,timezone);
     field(plain,19,activity_rules()); field(plain,20,std::vector<std::uint8_t>{0});
     EVP_PKEY* peer = p256_key();
     std::array<std::uint8_t, 65> peer_public{}; std::size_t peer_length = peer_public.size();
@@ -269,6 +271,40 @@ int main() {
           config.activity_rules.morning_bedroom_location=="bedroom",
           "parsed signed Home activity configuration");
     check(!session.accept(envelope,config),"config envelope replay");
+
+    Gs40TestOnlyEnvelopeSession kolkata_session(config_der);
+    std::array<std::uint8_t,32> kolkata_challenge{}; std::vector<std::uint8_t> kolkata_target;
+    check(kolkata_session.begin(kolkata_challenge,kolkata_target),"Asia/Kolkata challenge");
+    auto kolkata_envelope=signed_config(config_root,kolkata_challenge,kolkata_target,
+        time_der,authority_der,cert,client_private,fingerprint,"Asia/Kolkata");
+    Gs40TestOnlyRuntimeConfig kolkata_config;
+    check(kolkata_session.accept(kolkata_envelope,kolkata_config) &&
+          kolkata_config.valid_activity_rules_shape() &&
+          kolkata_config.household_timezone=="Asia/Kolkata",
+          "authenticated Asia/Kolkata Home configuration accepted");
+
+    constexpr gs::EpochSeconds kDay = 24 * 60 * 60;
+    const gs::EpochSeconds utc_1829 = 100 * kDay + 18 * 60 * 60 + 29 * 60;
+    std::uint16_t local_minute=999;
+    check(gs40_test_only_local_minute_from_utc("Etc/UTC",utc_1829,local_minute) &&
+          local_minute==18*60+29,"UTC conversion remains unchanged");
+    check(gs40_test_only_local_minute_from_utc("Asia/Kolkata",utc_1829,local_minute) &&
+          local_minute==1439,"India zone reaches local-day final minute");
+    check(gs40_test_only_local_minute_from_utc("Asia/Kolkata",utc_1829+60,local_minute) &&
+          local_minute==0,"India zone rolls local day at UTC 18:30");
+    check(gs40_test_only_local_minute_from_utc("Asia/Kolkata",100*kDay+4*3600,local_minute) &&
+          local_minute==9*60+30,"India morning window input derives from UTC");
+    check(gs40_test_only_local_minute_from_utc("Asia/Kolkata",utc_1829+60,local_minute) &&
+          local_minute<360,"India midnight remains inside cross-midnight night window");
+    local_minute=999;
+    check(!gs40_test_only_local_minute_from_utc("America/New_York",utc_1829,local_minute) &&
+          local_minute==999,"unsupported timezone fails closed without output mutation");
+    check(!gs40_test_only_local_minute_from_utc("Asia/Kolkata",0,local_minute) &&
+          !gs40_test_only_local_minute_from_utc("Asia/Kolkata",-1,local_minute),
+          "missing or invalid trusted UTC rejected");
+    check(!gs40_test_only_local_minute_from_utc("Asia/Kolkata",
+          std::numeric_limits<gs::EpochSeconds>::max(),local_minute),
+          "India offset overflow rejected");
     config.backend_origin="https://api.example.com"; config.backend_hostname="api.example.com";
     check(!config.valid_shape(),"public/commercial endpoint rejected even with signed material");
     config.backend_origin="https://127.0.0.1:0"; config.backend_hostname="127.0.0.1";

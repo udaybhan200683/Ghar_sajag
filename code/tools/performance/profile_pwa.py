@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import resource
 import sys
 import tempfile
@@ -16,14 +17,12 @@ sys.path.insert(0, str(ROOT))
 
 from tools.sim.local_lab import HOME, OWNER, Lab, WebLab  # noqa: E402
 
-STATIC_FILES = (
+CAREGIVER_STARTUP_FILES = (
     "tools/sim/pwa/index.html",
-    "tools/sim/pwa/app.js",
-    "tools/sim/pwa/performance_runtime.mjs",
-    "tools/sim/pwa/validation_engine.mjs",
-    "tools/sim/pwa/schedule_feedback.mjs",
-    "tools/sim/pwa/styles.css",
-    "tools/sim/pwa/sw.js",
+    "tools/sim/pwa/boot.mjs",
+    "tools/sim/pwa/connected_lite.mjs",
+    "tools/sim/pwa/runtime_mode.mjs",
+    "tools/sim/pwa/caregiver.css",
     "tools/sim/pwa/manifest.webmanifest",
     "tools/sim/pwa/assets/parivar-saathi-icon-192.png",
 )
@@ -55,16 +54,41 @@ def _rss_bytes():
 
 
 def _static_metrics():
-    sizes = {path: (ROOT / path).stat().st_size for path in STATIC_FILES}
+    # Count the real Connected Lite caregiver runtime graph. The local
+    # simulator's app.js, engineering validation UI, and service worker are
+    # development-only and are not requested by caregiver mode.
+    sizes = {path: (ROOT / path).stat().st_size for path in CAREGIVER_STARTUP_FILES}
+    runtime_config = {
+        "mode": "caregiver",
+        "backendOrigin": "https://care.gharsajag.in",
+        "caregiverApiConfigured": True,
+        "appVersion": "1.5.4-r1",
+        "sourceRevision": "0123456789ab",
+    }
+    runtime_config_bytes = len((
+        "window.PARIVAR_SAATHI_RUNTIME=Object.freeze(" +
+        json.dumps(runtime_config, separators=(",", ":")) + ");"
+    ).encode())
+    sizes["caregiver-runtime-config.js"] = runtime_config_bytes
     install_icon_bytes = sum((ROOT / path).stat().st_size for path in INSTALL_ICON_FILES)
+    service_worker = (ROOT / "tools/sim/pwa/sw.js").read_text(encoding="utf-8")
+    allowlist = re.search(r"const\s+ASSETS\s*=\s*\[(.*?)\]\s*;", service_worker, re.S)
+    if not allowlist:
+        raise RuntimeError("service-worker static allowlist is missing")
+    service_worker_cache_entries = len(re.findall(r"(['\"])[^'\"]*\1", allowlist.group(1)))
     return {
+        "profile": "connected-caregiver-startup",
         "files": sizes,
         "html_bytes": sizes["tools/sim/pwa/index.html"],
         "javascript_bytes": sum(size for path, size in sizes.items() if path.endswith((".js", ".mjs"))),
-        "css_bytes": sizes["tools/sim/pwa/styles.css"],
-        "service_worker_bytes": sizes["tools/sim/pwa/sw.js"],
+        "css_bytes": sizes["tools/sim/pwa/caregiver.css"],
+        # The worker is measured against its existing implementation bound,
+        # but is excluded from caregiver startup because only local-simulator
+        # mode registers it.
+        "service_worker_bytes": (ROOT / "tools/sim/pwa/sw.js").stat().st_size,
+        "service_worker_cache_entries": service_worker_cache_entries,
         "manifest_and_icon_bytes": sizes["tools/sim/pwa/manifest.webmanifest"] + sum(
-            sizes[path] for path in STATIC_FILES if "/assets/" in path
+            sizes[path] for path in CAREGIVER_STARTUP_FILES if "/assets/" in path
         ),
         "install_icon_bytes": install_icon_bytes,
         "total_bytes": sum(sizes.values()),
@@ -148,7 +172,7 @@ def run_profile(check=True):
                 "report_highlights": max(len(report["highlights"]) for report in reports.values()),
                 "report_room_activity": max(len(report["room_activity"]) for report in reports.values()),
                 "report_month_buckets": len(reports["MONTH"]["trend"]),
-                "service_worker_cache_entries": len(STATIC_FILES),
+                "service_worker_cache_entries": static["service_worker_cache_entries"],
             }
             result = {
                 "schema_version": 1,
