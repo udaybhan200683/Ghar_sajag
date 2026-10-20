@@ -1,6 +1,6 @@
 # GS-58 / GS-177 customer Hub Wi-Fi onboarding — software checkpoint
 
-Date: 2026-10-20. Source baseline: `7990fc0e6ef4f5b98a3b1a80d7263f6323dc0a66` on `feature/r1-commercial-baseline`. Owning Jira: GS-58; Android surface: GS-177. This is a source and host-software checkpoint, not a claim of customer-ready provisioning, installed firmware or physical BLE/Wi-Fi acceptance.
+Date: 2026-10-20. Source baseline: `7990fc0e6ef4f5b98a3b1a80d7263f6323dc0a66`; implementation commit: `1043827858609a1212e403ddf4d4494e90c6165e` on `feature/r1-commercial-baseline`. Source `code/` tree OID: `19f705568942d7e1e800fb67cc3b5ee30dd2992e`. Owning Jira: GS-58; Android surface: GS-177. This is a source and host-software checkpoint, not a claim of customer-ready provisioning, installed firmware or physical BLE/Wi-Fi acceptance.
 
 ## Reuse and exact software boundary
 
@@ -36,13 +36,28 @@ After those gates, run first-time setup, wrong/expired proof, unsupported and hi
 
 ## Validation and limits
 
-- `make -C code gs58-wifi-host-test gs58-onboarding-host-test`: 77 existing + 28 new checks PASS at the preceding checkpoint; the two subsequent scan-invalidation checks are 30/30 PASS under ASAN/UBSAN and will be rerun without sanitizers before delivery.
+- `make -C code gs58-wifi-host-test gs58-onboarding-host-test`: 77 existing + 28 new checks PASS at the preceding checkpoint; final `make -C code gs58-onboarding-host-test`: 30/30 PASS after adding scan invalidation checks.
 - New onboarding test under ASAN/UBSAN: 30 checks PASS, including revocation during scan and during protected replacement, then refusal to reuse the invalidated scan.
 - `node --test code/tests/js/caregiver_runtime.test.mjs`: 9/9 PASS.
 - `make -C code app-test`: 34/34 PASS.
 - `make -C code feature-coverage-test`: 222 features, 269 modules, 26 physical cases; 22/22 mapping tests PASS. Registration consistency is not semantic or physical proof.
 - `make -C code validation-framework-test`: 51/51 PASS, including registered-stage failure propagation.
 - `PYTHONPATH=code/build/gs58_browser_pydeps python3 code/tests/pwa_68_browser_test.py`: NOT_RUN, Chrome/Chromium is absent on this WSL host. The pinned Python `websocket-client` dependency is available in an ignored build directory; the existing Android CI browser stage will run after push.
-- ESP-IDF S3 build and Android CI: record final outcomes below before closing this checkpoint.
+- ESP-IDF 6.0.3 standard S3 profile: `GS40_TEST_ONLY_CLOUDSYNC=OFF`, `CONFIG_ESP_TLS_USE_DS_PERIPHERAL=y`; `sdkconfig.defaults` SHA-256 `be0624e0d4efb47d6e3868a42c7a5925c5be1dea8520df644271ad2e66a4c024`, effective sdkconfig SHA-256 `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`. The paired C3 *build asset* is historical GS-114 P8 (`5256779c8c0b592cea219f3e3a3d0c7da72892a37207399bfce388e549c25659`); it is not evidence of a current deployed C3 image. Final S3 image result is pending.
+- Android CI workflow run `39437956269` is in progress on exact source commit `1043827`; it includes browser and Android registered stages. Record final result and APK hash below when available.
 
 Physical acceptance is **NOT_RUN** for BLE identity/phone, actual S3 Wi-Fi scan, protected storage, AP association/change, C3 rejoin, cloud Home claim and caregiver freshness. GS-58/177 remain In Progress. The next implementation step is the approved D1 device-specific Security 2 proof and D2 encrypted-store provider, followed by an authorized image-matched S3/Android fixture run; no password submission is enabled before those gates.
+
+## Pause and resume handoff — 2026-10-20
+
+The implementation checkpoint is `1043827858609a1212e403ddf4d4494e90c6165e` on `feature/r1-commercial-baseline`; local and remote HEAD matched after push. Only this evidence file was modified after that checkpoint while the final validations were in flight. The pre-existing untracked PWA, ESP-IDF managed components, Zone.Identifier files and hardware evidence were not staged or changed. Recheck Git state and active writers at resume rather than assuming this line remains current.
+
+Completed: bounded Hub scan/policy integration port, fail-closed current-authority and protected-store checks, Android discovery-only Settings route, GS-116 registration and GS-130 mapping. Existing station reconnect, C3 channel rejoin, caregiver Home and protected credential-store port were reused. Host results: GS-58 reconnect 77/77, onboarding 30/30 normal and ASAN/UBSAN, caregiver runtime 9/9, app test 34/34, validation framework 51/51, feature mapping 22/22. Local browser cases were NOT_RUN because Chrome/Chromium is absent in WSL. Android workflow `39437956269` first attempt failed 1/4 browser tests because its first Chrome DevTools endpoint did not start; the other 3 browser tests passed. A single failed-job rerun was started and its result was pending at this checkpoint. The final ESP-IDF 6.0.3 S3 non-flashing rebuild was also pending after a Ninja build-log-version mismatch caused dependency recompilation. No firmware was flashed; no phone, board, Windows network, production credential or backend was operated.
+
+Open gates: D1 approved device-specific Security 2 pairing/installer authority; D2 verified encrypted NVS with per-device key custody and atomic recovery; authenticated current Hub/Home/epoch claim; production cloud origin and physical fixture qualification. No password entry or credential-bearing BLE flow is enabled; first-time setup and change-Wi-Fi remain SECURITY_BLOCKED. Android APK/source check and S3 final image hash must be recorded from actual finished jobs. Do not count a compile, host test or advertisement as authenticated customer provisioning.
+
+Resume sequence: verify canonical worktree, branch, local/remote HEAD, tracked/untracked state and writer ownership; run context preflight; read this handoff, current Jira GS-58/177 and source. Collect ESP-IDF build exit, image size/hash and configuration; collect workflow `39437956269` rerun outcome and APK SHA if it passed. If browser startup fails again, retain FAIL and diagnose the Chrome launch/port evidence without weakening browser assertions. Update this handoff and `R1_WORK_STATE.md`, run `git diff --check`, commit only redacted evidence, push, verify remote equality, and post factual GS-58/177 Jira comments. Continue D1/D2 implementation only after those approved authority/key contracts exist.
+
+### Ready-to-copy resume prompt
+
+> Resume GS-58/GS-177 customer Hub Wi-Fi onboarding from `/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`. Read AGENTS.md, run `tools/context/ghar_sajag_context_preflight.sh`, inspect Git/writers and this evidence file. Preserve all untracked evidence. Do not redo the committed discovery/policy work at `1043827`. Collect the in-flight ESP-IDF S3 build and Android workflow `39437956269` rerun results, resolve only concrete failures, record image/APK hashes and tests, complete R1_WORK_STATE and Jira GS-58/177, commit/push evidence and verify remote HEAD. Keep customer password submission and commercial provisioning disabled until D1 device-specific Security 2 authority, D2 protected encrypted storage and Home/epoch claim are approved and implemented. No hardware or production operations.
