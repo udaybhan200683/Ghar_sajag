@@ -5423,3 +5423,37 @@ unresolved. GS-58 D1/D2, commissioning/channel qualification, GS-165
 production/physical QA, GS-177 phone acceptance, GS-40/117 physical cases and
 other release/security gates remain incomplete. No commercial readiness or
 physical acceptance is claimed.
+
+## GS-179 / GS-59 bounded mTLS ingress hardening — 2026-10-20
+
+At source checkpoint `29cdc43f569a9a512e68e073cb85aa3ebc0eebbd`, the existing
+application-terminated `TestOnlyMtlsListener` was hardened without composing
+or starting it in the persistent laptop caregiver unit. Listener construction
+now requires backend-readiness and aware trusted-time providers that pass
+before socket creation; both are rechecked per request. Default bind remains
+loopback, private IPv4 requires explicit TEST_ONLY opt-in, wildcard/public
+bindings fail, TLS handshakes run in bounded connection workers (8 default,
+32 maximum) with socket timeouts, and close has a bounded drain with no restart
+after close. Certificate-derived Hub identity, current ownership/epoch
+authorization, GS-148 PostgreSQL commit and caregiver projection code remain the
+existing implementations.
+
+The registered isolated PostgreSQL integration passed 40/40 using GS-178's
+production-code host stack and ephemeral TEST_ONLY credentials. Listener
+regressions cover saturation/recovery/drain, startup and per-request readiness,
+time failure, bind bounds and closed-instance behavior. Validation framework
+passed 51/51; feature traceability passed at 221 features, 263 modules, 26
+physical cases, with 22/22 mapping tests. Python compilation and `git diff
+--check` passed. This is HOST_SIM/TEST_ONLY software evidence, not a persistent
+live service or physical Hub result. Exact details are in
+[`GS-179 continuous-ingress audit`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md).
+
+The current laptop systemd unit remains stopped/failed because its Windows
+forwarding `ExecStartPost` failed; its `ExecStopPost` stopped PostgreSQL. It
+was not restarted, and no forwarding, firewall, address, account, credential or
+database state was changed. Continuous live ingress remains BLOCKED pending an
+authorized/recovered network route, ingress server/client trust material,
+current enrolled TEST_ONLY Hub authority and a trusted-time source. GS-59 and
+GS-179 remain In Progress. Physical cases and production credential/security
+qualification remain NOT_RUN; Hub migration `clean migration commits` and P0
+`product_status=PARTIAL` remain open.

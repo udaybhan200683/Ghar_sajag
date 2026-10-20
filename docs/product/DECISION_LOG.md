@@ -1214,3 +1214,20 @@ remains PROPOSED and is not made a production decision. The evidence and
 smallest safe isolated mTLS deployment path are recorded in
 [`GS-179 Render ingress evidence`](../exec-plans/evidence/GS179_RENDER_INGRESS_BLOCKER_20261019.md).
 `CONTEXT_VERSION` remains unchanged.
+
+## GS-179 bounded TEST_ONLY listener implementation — 2026-10-20 (evidence; no decision)
+
+The existing application-terminated `TestOnlyMtlsListener` now requires
+successful backend-readiness and trusted-time providers before binding, repeats
+those checks for every request, defaults to loopback, requires explicit
+TEST_ONLY opt-in for private IPv4 binding, rejects wildcard/public binding,
+bounds concurrent connection workers, performs TLS handshakes with socket
+timeouts inside those workers, and drains them with a bounded shutdown.
+This is fail-closed implementation hardening of the existing TEST_ONLY mTLS
+contract; it creates no new identity authority, certificate policy, network
+deployment or production trust mechanism. It was validated by the registered
+GS-179 isolated PostgreSQL suite (40/40), framework tests (51/51) and traceability
+tests (22/22). The laptop service remains stopped after its Windows-forwarding
+startup failure, and no listener was activated. See
+[`GS-179 continuous-ingress audit`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md).
+GS-D031, GS-D032 and `CONTEXT_VERSION` are unchanged.

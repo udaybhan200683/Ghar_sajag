@@ -8,6 +8,7 @@ No HTTP header can create or replace a ``VerifiedHubContext``.
 from __future__ import annotations
 
 from datetime import datetime
+import ipaddress
 import json
 import logging
 from pathlib import Path
@@ -16,7 +17,8 @@ import socket
 import ssl
 import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from threading import Thread
+from threading import BoundedSemaphore, Condition, Thread
+import time
 from typing import Callable
 from urllib.parse import urlsplit
 
@@ -29,14 +31,122 @@ _HOME_ROUTE = re.compile(r"^/v1/homes/([A-Za-z0-9_-]{1,80})/(events|node-health|
 _LOG = logging.getLogger("ghar_sajag.test_only_mtls_listener")
 
 
+class _BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    """Bound accepted request workers and expose a bounded shutdown wait."""
+
+    daemon_threads = True
+    block_on_close = False
+
+    def __init__(self, address, handler, *, max_workers: int,
+                 tls_context: ssl.SSLContext, connection_timeout_seconds: float):
+        self.request_queue_size = max_workers
+        self._worker_slots = BoundedSemaphore(max_workers)
+        self._worker_condition = Condition()
+        self._active_workers = 0
+        self._tls_context = tls_context
+        self._connection_timeout_seconds = connection_timeout_seconds
+        super().__init__(address, handler)
+
+    @property
+    def active_workers(self) -> int:
+        with self._worker_condition:
+            return self._active_workers
+
+    def process_request(self, request, client_address):
+        # Do not create an unbounded thread backlog under slow or abusive
+        # clients. A full listener closes the newly accepted socket before TLS
+        # or HTTP work begins; clients must retry through CloudSync's normal
+        # bounded retry policy.
+        if not self._worker_slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        with self._worker_condition:
+            self._active_workers += 1
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._finish_worker()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        tls_request = None
+        try:
+            # The listening socket remains plain. TLS handshake work happens
+            # only after a bounded worker slot is acquired, and its socket
+            # timeout is active before the peer can send its ClientHello.
+            request.settimeout(self._connection_timeout_seconds)
+            tls_request = self._tls_context.wrap_socket(
+                request, server_side=True, do_handshake_on_connect=False)
+            tls_request.settimeout(self._connection_timeout_seconds)
+            tls_request.do_handshake()
+        except (OSError, ssl.SSLError):
+            try:
+                self.shutdown_request(tls_request if tls_request is not None else request)
+            finally:
+                self._finish_worker()
+            return
+        except BaseException:
+            try:
+                self.shutdown_request(tls_request if tls_request is not None else request)
+            finally:
+                self._finish_worker()
+            raise
+        try:
+            super().process_request_thread(tls_request, client_address)
+        finally:
+            self._finish_worker()
+
+    def _finish_worker(self):
+        with self._worker_condition:
+            self._active_workers -= 1
+            self._worker_condition.notify_all()
+        self._worker_slots.release()
+
+    def wait_for_workers(self, timeout_seconds: float) -> bool:
+        deadline = time.monotonic() + timeout_seconds
+        with self._worker_condition:
+            while self._active_workers:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._worker_condition.wait(remaining)
+            return True
+
+
+def _validate_bind_host(bind_host: str, allow_private_bind: bool) -> None:
+    """Keep accidental wildcard/public listeners out of TEST_ONLY composition."""
+    if bind_host == "localhost":
+        return
+    try:
+        address = ipaddress.ip_address(bind_host)
+    except ValueError as error:
+        raise ValueError("test_listener_bind_must_be_loopback_or_private_ip") from error
+    if not isinstance(address, ipaddress.IPv4Address):
+        raise ValueError("test_listener_ipv4_bind_required")
+    if address.is_loopback:
+        return
+    if address.is_unspecified or address.is_multicast or address.is_reserved:
+        raise ValueError("test_listener_wildcard_or_reserved_bind_forbidden")
+    if (not allow_private_bind or not isinstance(address, ipaddress.IPv4Address)
+            or not address.is_private):
+        raise ValueError("test_listener_private_bind_requires_explicit_opt_in")
+
+
+def _trusted_time_ready(value) -> bool:
+    return (isinstance(value, datetime) and value.tzinfo is not None
+            and value.utcoffset() is not None)
+
+
 class TestOnlyMtlsListener:
     """Bounded HTTP/1.1 adapter that terminates TLS and dispatches GS-148 APIs.
 
     Callers must explicitly select ``profile='GS179_TEST_ONLY'``. Requests are
     limited to test-only Hub and Home namespaces, TLS 1.2 client certificates
     are mandatory, and trusted-time readiness must be supplied by the caller.
-    ``bind_host`` may be a private/public address for an independently isolated
-    test deployment; never use this class for commercial service composition.
+    Loopback is the default binding. A private IPv4 binding requires an
+    explicit ``allow_private_bind=True`` at the call site; wildcard and public
+    addresses are rejected. This does not configure or attest network
+    isolation. Never use this class for commercial service composition.
     """
 
     def __init__(self, *, profile: str, api, credentials, ownership_db,
@@ -46,14 +156,32 @@ class TestOnlyMtlsListener:
                  bind_host: str = "127.0.0.1", port: int = 0,
                  max_request_bytes: int = 16_384, timeout_seconds: float = 5.0,
                  available: Callable[[], bool] | None = None,
+                 max_concurrent_requests: int = 8,
+                 allow_private_bind: bool = False,
                  on_result: Callable[[str, dict, int, object], None] | None = None,
                  drop_response: Callable[[str, dict, int, object], bool] | None = None):
         if profile != "GS179_TEST_ONLY":
             raise ValueError("explicit_gs179_test_only_profile_required")
-        if not callable(trusted_time) or not bind_host or not (0 < max_request_bytes <= 16_384):
+        if not callable(trusted_time) or not (0 < max_request_bytes <= 16_384):
             raise ValueError("invalid_test_listener_configuration")
+        if not callable(available):
+            raise ValueError("test_listener_readiness_provider_required")
+        if type(max_concurrent_requests) is not int or not 1 <= max_concurrent_requests <= 32:
+            raise ValueError("test_listener_concurrency_out_of_bounds")
+        if type(port) is not int or not 0 <= port <= 65_535:
+            raise ValueError("test_listener_port_out_of_bounds")
+        try:
+            backend_ready = available()
+            trusted_now = trusted_time()
+        except Exception as error:
+            raise ValueError("test_listener_startup_prerequisite_check_failed") from error
+        if backend_ready is not True:
+            raise ValueError("test_listener_backend_not_ready")
+        if not _trusted_time_ready(trusted_now):
+            raise ValueError("test_listener_trusted_time_not_ready")
         if not (0 < timeout_seconds <= 15):
             raise ValueError("invalid_test_listener_timeout")
+        _validate_bind_host(bind_host, allow_private_bind)
         for path in (server_cert, server_key, client_ca):
             if not Path(path).is_file():
                 raise ValueError("test_listener_tls_material_missing")
@@ -71,10 +199,11 @@ class TestOnlyMtlsListener:
         self.authority_refresh = authority_refresh
         self.max_request_bytes = max_request_bytes
         self.timeout_seconds = timeout_seconds
-        self.available = available or (lambda: True)
+        self.available = available
         self.on_result = on_result
         self.drop_response = drop_response
         self._started = False
+        self._closed = False
 
         listener = self
 
@@ -145,8 +274,8 @@ class TestOnlyMtlsListener:
                         now = listener.trusted_time()
                         context = authorize_cloud_tls_context(
                             self.connection, trusted_now=now,
-                            time_readiness=(TimeReadiness.TRUSTED if isinstance(now, datetime)
-                                            and now.tzinfo is not None else TimeReadiness.UNTRUSTED),
+                            time_readiness=(TimeReadiness.TRUSTED if _trusted_time_ready(now)
+                                            else TimeReadiness.UNTRUSTED),
                             credentials=listener.credentials,
                             ownership_db=listener.ownership_db,
                         )
@@ -227,16 +356,16 @@ class TestOnlyMtlsListener:
                     # remains safe through the canonical idempotent EventKey.
                     pass
 
-        class Server(ThreadingHTTPServer):
-            daemon_threads = True
-            block_on_close = False
-
-        self.server = Server((bind_host, int(port)), Handler)
-        self.server.socket = tls.wrap_socket(self.server.socket, server_side=True)
+        self.server = _BoundedThreadingHTTPServer(
+            (bind_host, int(port)), Handler,
+            max_workers=max_concurrent_requests, tls_context=tls,
+            connection_timeout_seconds=timeout_seconds)
         self.origin = f"https://localhost:{self.server.server_port}" if bind_host in {"127.0.0.1", "::1", "localhost"} else f"https://{bind_host}:{self.server.server_port}"
         self._thread: Thread | None = None
 
     def start(self) -> str:
+        if self._closed:
+            raise RuntimeError("test_listener_closed")
         if self._started:
             raise RuntimeError("test_listener_already_started")
         self._thread = Thread(target=self.server.serve_forever, name="gs179-test-mtls", daemon=True)
@@ -244,11 +373,19 @@ class TestOnlyMtlsListener:
         self._started = True
         return self.origin
 
-    def close(self) -> None:
+    def close(self, *, timeout_seconds: float = 5.0) -> None:
+        if self._closed:
+            return
+        if not (0 < timeout_seconds <= 30):
+            raise ValueError("test_listener_shutdown_timeout_out_of_bounds")
         if self._started:
             self.server.shutdown()
-            self._thread.join(timeout=3)
+            self._thread.join(timeout=timeout_seconds)
             if self._thread.is_alive():
                 raise TimeoutError("test_listener_shutdown_timeout")
             self._started = False
         self.server.server_close()
+        if not self.server.wait_for_workers(timeout_seconds):
+            self._closed = True
+            raise TimeoutError("test_listener_request_drain_timeout")
+        self._closed = True

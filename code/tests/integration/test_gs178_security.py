@@ -1,15 +1,21 @@
 """Permanent complete-bootstrap negatives; all connections are loopback TLS."""
 import copy
+from concurrent.futures import ThreadPoolExecutor
+import http.client
 import json
 import secrets
 import socket
 import ssl
+import time
 import unittest
 from datetime import datetime, timezone
+from threading import Event
+from urllib.error import URLError
 from cryptography.hazmat.primitives import serialization
 
 from gs178_stack import ProductStack, HOME, HUB, product_stack_for_test
 from pilot_test_issuer import new_test_csr, TestOnlyIssuer
+from ghar_sajag.test_only_mtls_listener import TestOnlyMtlsListener
 
 
 class BootstrapSecurity(unittest.TestCase):
@@ -17,6 +23,23 @@ class BootstrapSecurity(unittest.TestCase):
         fixture = product_stack_for_test()
         self.addCleanup(fixture.close)
         return fixture
+
+    @staticmethod
+    def listener(s, **overrides):
+        options = {
+            "profile": "GS179_TEST_ONLY",
+            "api": s.durable.api,
+            "credentials": s.issuer,
+            "ownership_db": s.durable.db,
+            "server_cert": s.cert_path,
+            "server_key": s.key_path,
+            "client_ca": s.client_ca,
+            "trusted_time": lambda: datetime.now(timezone.utc),
+            "bind_host": "127.0.0.1",
+            "available": lambda: True,
+        }
+        options.update(overrides)
+        return TestOnlyMtlsListener(**options)
 
     def test_configuration_signature_failure_prevents_time_and_tls(self):
         s = self.fixture()
@@ -134,6 +157,141 @@ class BootstrapSecurity(unittest.TestCase):
                     peer.recv(512)
         self.assertEqual(s.durable.db.execute("SELECT COUNT(*) FROM events").fetchone()[0], 0)
         self.assertEqual(s.receipts, [])
+
+    def test_listener_requires_readiness_and_rejects_unsafe_or_unbounded_configuration(self):
+        s = self.fixture()
+        options = {
+            "profile": "GS179_TEST_ONLY", "api": s.durable.api,
+            "credentials": s.issuer, "ownership_db": s.durable.db,
+            "server_cert": s.cert_path, "server_key": s.key_path,
+            "client_ca": s.client_ca,
+            "trusted_time": lambda: datetime.now(timezone.utc),
+        }
+        with self.subTest("missing readiness"):
+            with self.assertRaisesRegex(ValueError, "readiness_provider_required"):
+                TestOnlyMtlsListener(**options)
+        with self.subTest("private address requires explicit bind opt-in"):
+            with self.assertRaisesRegex(ValueError, "private_bind_requires_explicit_opt_in"):
+                TestOnlyMtlsListener(**options, available=lambda: True,
+                                     bind_host="192.168.1.6")
+        with self.subTest("wildcard is never accepted"):
+            with self.assertRaisesRegex(ValueError, "wildcard_or_reserved_bind_forbidden"):
+                TestOnlyMtlsListener(**options, available=lambda: True,
+                                     bind_host="0.0.0.0", allow_private_bind=True)
+        with self.subTest("worker count is bounded"):
+            with self.assertRaisesRegex(ValueError, "concurrency_out_of_bounds"):
+                TestOnlyMtlsListener(**options, available=lambda: True,
+                                     max_concurrent_requests=33)
+        with self.subTest("backend readiness is checked before serving"):
+            with self.assertRaisesRegex(ValueError, "backend_not_ready"):
+                TestOnlyMtlsListener(**options, available=lambda: False)
+        with self.subTest("trusted time is checked before serving"):
+            no_time_options = {**options, "trusted_time": lambda: None}
+            with self.assertRaisesRegex(ValueError, "trusted_time_not_ready"):
+                TestOnlyMtlsListener(**no_time_options, available=lambda: True)
+        with self.subTest("port is bounded"):
+            with self.assertRaisesRegex(ValueError, "port_out_of_bounds"):
+                TestOnlyMtlsListener(**options, available=lambda: True, port=65_536)
+
+    def test_runtime_readiness_loss_rejects_backend_and_trusted_time(self):
+        s = self.fixture()
+        s.mtls_listener.close()
+        readiness = [True]
+        trusted_time = [datetime.now(timezone.utc)]
+        listener = self.listener(
+            s, available=lambda: readiness[0],
+            trusted_time=lambda: trusted_time[0])
+        s.mtls_listener = listener
+        s.hub_origin = listener.start()
+        path = f"/v1/homes/{HOME}/events"
+
+        readiness[0] = False
+        self.assertEqual(s.hub_request(path, {})[0], 503)
+        readiness[0] = True
+        trusted_time[0] = None
+        self.assertEqual(s.hub_request(path, {})[0], 403)
+        self.assertEqual(s.durable.db.execute("SELECT COUNT(*) FROM events").fetchone()[0], 0)
+
+    def test_listener_bounds_workers_then_recovers_and_drains_on_close(self):
+        s = self.fixture()
+        s.mtls_listener.close()
+        entered = Event()
+        release = Event()
+        readiness_calls = 0
+        serving = [False]
+
+        def readiness():
+            nonlocal readiness_calls
+            if not serving[0]:
+                return True
+            readiness_calls += 1
+            if readiness_calls == 1:
+                entered.set()
+                if not release.wait(5):
+                    return False
+            return True
+
+        listener = self.listener(s, available=readiness, max_concurrent_requests=1)
+        s.mtls_listener = listener
+        s.hub_origin = listener.start()
+        serving[0] = True
+        path = f"/v1/homes/{HOME}/events"
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            first = pool.submit(s.hub_request, path, {})
+            self.assertTrue(entered.wait(3), "first authenticated request did not reach readiness")
+            self.assertEqual(listener.server.active_workers, 1)
+            with self.assertRaises((URLError, http.client.HTTPException, OSError)):
+                s.hub_request(path, {})
+            self.assertEqual(listener.server.active_workers, 1)
+            self.assertEqual(readiness_calls, 1)
+            release.set()
+            status, _ = first.result(timeout=5)
+            self.assertEqual(status, 400)  # empty event rejected; not misclassified as success
+
+        # The capacity is released after the first request; the still-running
+        # service accepts a later authenticated request and returns its actual
+        # validation result.
+        status, _ = s.hub_request(path, {})
+        self.assertEqual(status, 400)
+        self.assertEqual(readiness_calls, 2)
+        self.assertTrue(listener.server.wait_for_workers(2))
+        self.assertEqual(listener.server.active_workers, 0)
+        listener.close(timeout_seconds=2)
+        with self.assertRaisesRegex(RuntimeError, "test_listener_closed"):
+            listener.start()
+
+    def test_listener_bounds_incomplete_tls_handshakes_before_http_dispatch(self):
+        s = self.fixture()
+        s.mtls_listener.close()
+        listener = self.listener(s, max_concurrent_requests=1, timeout_seconds=2)
+        s.mtls_listener = listener
+        s.hub_origin = listener.start()
+        port = int(s.hub_origin.rsplit(":", 1)[1])
+
+        # A TCP client that sends no TLS ClientHello occupies the one allowed
+        # worker until the configured handshake timeout. It must not block the
+        # accept loop or permit unbounded handshake work.
+        stalled = socket.create_connection(("127.0.0.1", port), timeout=2)
+        self.addCleanup(stalled.close)
+        deadline = time.monotonic() + 2
+        while listener.server.active_workers != 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(listener.server.active_workers, 1)
+
+        excess = socket.create_connection(("127.0.0.1", port), timeout=2)
+        self.addCleanup(excess.close)
+        excess.settimeout(2)
+        self.assertEqual(excess.recv(1), b"")
+        self.assertEqual(listener.server.active_workers, 1)
+
+        self.assertTrue(listener.server.wait_for_workers(3))
+        self.assertEqual(listener.server.active_workers, 0)
+        stalled.settimeout(2)
+        self.assertEqual(stalled.recv(1), b"")
+        # After the stalled peer is gone, the application listener still
+        # accepts a correctly authenticated client and applies normal request
+        # validation. The empty body is deliberately invalid (400).
+        self.assertEqual(s.hub_request(f"/v1/homes/{HOME}/events", {})[0], 400)
 
 
 if __name__ == "__main__": unittest.main()
