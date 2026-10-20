@@ -5539,3 +5539,54 @@ and encrypted-store adapters, and run the listed regressions/builds before any
 separately authorized fixture test. The current untracked development
 `sdkconfig` and partition configuration were not altered. No Windows/network,
 production, eFuse, board or phone operation was performed.
+
+## GS-58 Phase 3 secure onboarding software checkpoint — 2026-10-20
+
+Added host-testable, fail-closed D1/D2 adapters in canonical source commit
+`99142b8c3a939ff5a8875fe8c850d97eb7a66fa2` (`feature/r1-commercial-baseline`,
+pushed). The two-slot credential backend verifies the inactive record before
+selector commit and resolves ambiguous commit results only by reread. The
+ESP-IDF encrypted-NVS adapter requires already-enabled Secure Boot and Flash
+Encryption, the expected encrypted key/data partitions, and an injected
+device-key fingerprint verifier; it creates no keys, erases no partition, and
+is not initialized by S3 product startup. The one-use setup-permit gate binds
+the injected GS-109 verifier result to the exact Security 2 session, Hub,
+Home/epoch, operation, nonce, boot generation and bounded monotonic lease.
+Credential reconnect notification is after protected commit and permit
+completion. Android adds a unit-tested fail-closed native policy predicate;
+existing Add Hub remains discovery-only, with no Security 2 transport, Hub scan
+display, password entry or credential submission.
+
+Focused validation on the implementation commit: credential-slot tests 18/18
+normal and ASAN/UBSAN; setup-permit tests 30/30 normal and ASAN/UBSAN; existing
+onboarding 30/30 normal and ASAN/UBSAN; reconnect 77/77; validation framework
+51/51; traceability 222 features / 275 modules / 26 physical cases, mapping
+tests 22/22. Paired ESP-IDF 6.0.3 C3/S3 builds completed without flashing. S3
+profile is `GS40_TEST_ONLY_CLOUDSYNC=OFF`, 16 MiB flash, and 4 MiB app slot; the
+2,193,248-byte image SHA-256 is
+`79449e37837591c26ed1a05711a7b0c0fff24d5b24bf1236aff9b276dd19d138`, with
+valid ESP image digest
+`67664f95c2f06de2cbac603c89b08bb304a8a4df977eaf25fd9bdcd691ee70f3`. Effective
+S3 sdkconfig SHA-256 is
+`79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`; profile
+cache SHA-256 is
+`52219cd12310b54fbd3213748693fab754c0945575892058ef8ef34c4d599d9d`. The
+paired C3 image is 940,608 bytes, SHA-256
+`2401c650fc58e517bfdbcbc91950a4bbde72a94444c92928dd590eb1f545e0ec8`, and was
+byte-compared to the embedded S3 asset. Build provenance, generated config
+fingerprint and partition hash are in the linked evidence.
+
+D1/D2 remain PROPOSED. The standard S3 profile leaves Secure Boot and Flash
+Encryption disabled, so the new encrypted-NVS adapter cannot initialize. No
+GS-109 signature verifier, device proof/key delivery, Security 2 target
+transport, protected partition/key custody or Android credential path is
+composed. No physical setup, phone test, eFuse/security operation or production
+credential activity occurred. `PHY-GS58-WIFI-01` remains NOT_RUN; GS-58 and
+GS-177 remain In Progress. Android Actions run `39479165553` completed SUCCESS
+on the source commit, including registered Android unit tests, `assembleDebug`
+and PWA browser 92/92. Its runner-generated Render-origin debug APK is
+2,925,210 bytes, SHA-256
+`a3dbd873a08936e120c388cce9a30f2e68f5810a09c641cf98fdaf62a91ac493`; it was
+not installed on a phone and is not a laptop-LAN package.
+The latest Phase 3 results and constraints are maintained in
+[`GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md`](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md).

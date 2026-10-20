@@ -257,3 +257,157 @@ eFuse, router or network operation was run in this continuation.
 Technical references: [ESP-IDF 6.0.3 NVS encryption guide](https://docs.espressif.com/projects/esp-idf/en/v6.0.3/esp32s3/api-reference/storage/nvs_encryption.html), [ESP-IDF 6.0.3 NVS API](https://docs.espressif.com/projects/esp-idf/en/v6.0.3/esp32s3/api-reference/storage/nvs_flash.html), [ESP-IDF 6.0 migration: provisioning moved to the managed `network_provisioning` component](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/migration-guides/release-6.x/6.0/provisioning.html), [ESP-IDF Security 2 description](https://docs.espressif.com/projects/esp-idf/en/v6.0.2/esp32/api-reference/provisioning/provisioning.html#security-schemes), [network_provisioning v1.2.4 dependency metadata](https://components.espressif.com/components/espressif/network_provisioning/versions/1.2.4/dependencies?language=en), and [Espressif Android provisioning library](https://github.com/espressif/esp-idf-provisioning-android).
 
 Canonical local/remote source was `e7f8a88631aab0f88686ee44bf9b5c4b2da67a1d`; context preflight PASS. The focused test is against unchanged production policy at that source. This proposal does not change `CONTEXT_VERSION`; all listed design decisions remain PROPOSED until approved.
+
+## GS-58 Phase 3 secure software implementation checkpoint — 2026-10-20
+
+This checkpoint implements host-testable portions of the existing D1/D2
+proposal. It does **not** approve or activate D1, D2, commercial provisioning,
+or an Android credential flow.
+
+### Implemented source
+
+- `wifi_credential_slots.*` adds a bounded two-slot/generation-selector
+  transaction behind `WifiCredentialStoreBackend`. It writes the inactive
+  slot, verifies exact readback, then changes the selector; faults do not
+  retire a previously selected record. Ambiguous selector outcomes are
+  accepted only when a reread proves the exact new generation. The fixed
+  record/selector CRC detects accidental corruption only; it is not a MAC or a
+  malicious rollback defense.
+- `esp_idf_encrypted_wifi_credential_slots.*` adds an ESP-IDF 6.0.3 encrypted
+  NVS storage adapter. Initialization requires Secure Boot and Flash
+  Encryption already enabled, an encrypted NVS key partition, a dedicated
+  writable NVS partition of at least three 4 KiB pages, and an injected
+  device-key fingerprint verifier. It reads existing NVS security material
+  and uses secure initialization; it does not generate keys, format/erase
+  storage, or touch eFuses. The adapter was compiled only. It is not
+  instantiated by the product startup, and the current development profile
+  has no approved `nvs_keys`/credential partition or key custody.
+- `wifi_setup_permit_gate.*` adapts the existing `WifiSetupAuthority` seam to
+  an injected GS-109 one-use permit verifier. It binds the permit to the
+  permanent Hub, Home, ownership epoch, operation, 32-byte nonce, boot
+  generation and authenticated Security 2 session ID. The challenge age is
+  bounded to 30 seconds; the test implementation caps the monotonic permit
+  lifetime at 120 seconds from challenge creation. This is a stricter software
+  test bound than the five-minute maximum in the earlier PROPOSED packet, not
+  a newly approved product policy. The signature format, trust anchor, verifier
+  implementation, transfer/revocation race policy and key lifecycle remain
+  owned by GS-109/security and unimplemented here.
+- `WifiOnboarding::commit` completes/closes a one-use authority session only
+  after the protected credential store reports a verified commit and the
+  current generation still matches; only then does it notify the existing
+  reconnect path. No reconnect occurs on rejected or ambiguous store results.
+- The existing Android discovery-only screen remains intact. A small native
+  policy predicate and unit test describe the Security 2/identity/permit/store
+  prerequisites, but no Protocomm Security 2 client, Hub Wi-Fi result display,
+  password UI, or credential submission path is wired. The predicate is not
+  authentication evidence; the Hub must independently enforce the permit.
+
+No managed provisioning dependency or Android provisioning library was added.
+The earlier investigation found the ESP-IDF 6.x managed provisioning boundary
+and candidate libraries, but did not establish a reviewed end-to-end Security 2
+integration compatible with the existing secret-handling constraints. The
+current firmware/Android provisioning path therefore remains disabled rather
+than adopting an unverified fallback. Existing India scan/reconnect policy is
+reused; no parallel Wi-Fi manager, registry, issuer, or commissioning protocol
+was introduced.
+
+### Focused validation
+
+Executed on the Phase 3 working source:
+
+| Command | Result |
+|---|---:|
+| `make gs58-credential-slots-host-test` | 18/18 PASS |
+| credential-slot host test with ASAN/UBSAN | 18/18 PASS |
+| `make gs58-setup-permit-host-test` | 30/30 PASS |
+| setup-permit host test with ASAN/UBSAN | 30/30 PASS |
+| `make gs58-onboarding-host-test` | 30/30 PASS |
+| onboarding host test with ASAN/UBSAN | 30/30 PASS |
+| `make gs58-wifi-host-test` | 77/77 PASS |
+| `make validation-framework-test` | 51/51 PASS after stage ownership correction |
+| `make feature-coverage-test` | 22/22 mapping assertions PASS; traceability consistency reports 222 features, 275 modules, 26 physical cases |
+
+The initial registration check caught an invalid `security` component label and
+stage/command ordering mismatch; these metadata errors were corrected without
+weakening test or traceability assertions. A missing malformed-verifier-id
+length case was added to setup-permit coverage, raising it from 29 to 30
+assertions; its normal and ASAN/UBSAN runs pass. The final framework and mapping
+checks pass. Android Kotlin validation is delegated to the existing Android
+GitHub Actions workflow because Java/Gradle are not installed in this WSL
+environment. Physical BLE, encrypted-NVS, real phone, and commercial setup
+tests are NOT_RUN.
+
+### Target build and remaining gates
+
+ESP-IDF 6.0.3 non-flashing C3 and S3 builds use separate `/var/tmp` build and
+sdkconfig directories; the C3 image is the S3 project's paired Node asset. The
+S3 profile is `GS40_TEST_ONLY_CLOUDSYNC=OFF`. Both builds completed successfully
+and neither flashed nor accessed a board. Exact source/image/configuration
+hashes and the remaining gates are recorded in the Phase 3 closeout below.
+
+D1/D2 remain PROPOSED. Production pairing proof, GS-109 signing/trust
+distribution, transfer/revocation serialization, Security 2 framework/client
+pin review, Secure Boot/Flash Encryption and NVS key custody, commercial
+partition geometry, old-credential recovery/purge policy, current Home claim,
+real Hub scan and credential-bearing Android transport all remain gates.
+Existing GS-58/GS-177 tickets remain In Progress; physical qualification stays
+NOT_RUN. No context version or locked product decision changed.
+
+### Phase 3 closeout — source commit `99142b8c3a939ff5a8875fe8c850d97eb7a66fa2`
+
+The source/test/registry commit was pushed to the canonical branch. The
+source-bound no-flash build used that code commit and the paired C3 image built
+from the same source checkout. At build time the only tracked working-tree
+change was this evidence document, so ESP-IDF's project version string carries
+`99142b8-dirty`; no firmware source or build input was dirty. Full artifact
+hashes and configuration fingerprints below are the authoritative provenance.
+
+| Artifact / input | Result |
+|---|---|
+| ESP-IDF | v6.0.3 |
+| S3 `gs_r1_s3_hub.bin` | 2,193,248 bytes; SHA-256 `79449e37837591c26ed1a05711a7b0c0fff24d5b24bf1236aff9b276dd19d138` |
+| S3 ESP image validation digest | `67664f95c2f06de2cbac603c89b08bb304a8a4df977eaf25fd9bdcd691ee70f3` (valid) |
+| Paired C3 `gs_hw_m1_node.bin` | 940,608 bytes; SHA-256 `2401c650fc58e517bfdbcbc91950a4bbde72a94444c92928dd590eb1f545e0ec` |
+| C3 ESP image validation digest | `e180999cada060e8c62b812b391a5d55b70a2d89cad0501fbf9303439658816d` (valid) |
+| S3 effective sdkconfig | SHA-256 `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b` |
+| S3 CMake cache/profile | SHA-256 `52219cd12310b54fbd3213748693fab754c0945575892058ef8ef34c4d599d9d` |
+| Generated GS-40 config fingerprint | `fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862` |
+| S3 partition table | SHA-256 `4828fb04f0569bcc5ffafaf887bb7f360e6ab858ec29df00297671f5f2a468fe` |
+| Paired C3 embedded asset | byte-for-byte match with the C3 build artifact (verified with `cmp`) |
+
+The S3 image is compatible with the development 4 MiB app slot (`0x400000`);
+ESP-IDF reports 48% slot space free. The effective build selects 16 MiB flash
+and `GS40_TEST_ONLY_CLOUDSYNC=OFF`. Secure Boot and Flash Encryption are not
+enabled in this development profile. The new encrypted-NVS adapter therefore
+cannot initialize in this profile: it requires both protections, the expected
+encrypted NVS key partition, a dedicated data partition, and a separately
+injected device-key fingerprint verifier. The target adapter compiles but is
+not composed into startup. The image is not a provisioning-ready or physical
+test candidate. No board, phone, eFuse, credential, router, production endpoint
+or persistent device storage was accessed.
+
+The final affected host results on commit `99142b8` are: credential slots
+18/18 normal and ASAN/UBSAN; setup permit 30/30 normal and ASAN/UBSAN; onboarding
+30/30 normal and ASAN/UBSAN; reconnect 77/77; validation framework 51/51;
+feature traceability 222 features / 275 modules / 26 physical cases, with
+22/22 mapping tests. All commands exited 0. `git diff --check` passed. The
+Android workflow run `39479165553` completed SUCCESS on the exact source
+commit. Its registered Android unit-test and `assembleDebug` steps passed; PWA
+browser E2E was 92/92, including authenticated Home and offline regressions.
+The runner-generated APK is 2,925,210 bytes, SHA-256
+`a3dbd873a08936e120c388cce9a30f2e68f5810a09c641cf98fdaf62a91ac493`, package
+`in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`, source
+`99142b8`, Render staging origin, and `gs179_local_lan_test_only=0`; it was not
+installed on a phone and is not the laptop-LAN APK. Full `validation-fast`,
+`release-gate-final`, physical BLE, credential replacement on hardware,
+Android phone acceptance and commercial qualification were not run.
+
+D1/D2 remain PROPOSED: per-Hub proof creation/delivery/recovery and GS-109
+permit signer/trust distribution, expiry and ownership-transfer race behavior
+need security approval; Secure Boot/Flash Encryption/eNVS key custody,
+partition geometry and credential rotation/recovery/purge semantics need
+GS-68/GS-172 approval. The credential-bearing Android Security 2 flow and the
+target session/authority composition remain disabled. GS-58 and GS-177 remain
+In Progress. Android Actions run `39479165553` passed for the source commit;
+this does not qualify an Android phone or enable provisioning. Physical case
+`PHY-GS58-WIFI-01` remains NOT_RUN.
