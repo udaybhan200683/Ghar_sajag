@@ -5502,3 +5502,7 @@ GS-179 remains In Progress; GS-59's event contract is unchanged. GS-117 phone
 and physical acceptance remain NOT_RUN. The next step is confirmation from the
 network owner that `.6` is reserved/available, followed by separate
 authorization for any Windows networking update.
+
+## GS-58 / GS-177 customer Wi-Fi onboarding software checkpoint — 2026-10-20
+
+Canonical source adds a bounded S3 Hub Wi-Fi scanner and a guarded setup policy requiring current installer authority generation, a recent Hub-observed supported 2.4 GHz network and a verified protected atomic credential commit before reconnect. Android Settings now opens a native, bounded BLE discovery screen; device names are labelled unverified. No password collection or credential-bearing BLE session is enabled. The commercial target still has no approved D1 device-specific installer/Hub proof or D2 encrypted-NVS key/partition provider, and current Home/epoch cloud claim remains a separate GS-109/68/148 gate. Accordingly first-time setup, change-Wi-Fi, real S3/phone acceptance and commercial readiness remain BLOCKED/NOT_RUN. Existing GS-58 India profile, C3 rejoin and station retry semantics are unchanged. Exact code, tests, build status and handoff: [GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md). No physical board, phone, Windows networking, PostgreSQL or production service was operated.

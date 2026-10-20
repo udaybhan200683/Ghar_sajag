@@ -59,6 +59,18 @@ test('offline caregiver runtime has no data route when backend origin is absent'
   assert.equal(requestUrl(runtime,'/v1/homes/home/reports'),'');
 });
 
+test('Hub Wi-Fi native discovery is explicit and cannot become credential submission', () => {
+  const base={mode:'caregiver',backendOrigin:'https://care.gharsajag.in/'};
+  assert.equal(normalizeRuntimeConfig(base,'https://care.gharsajag.in').hubWifiNativeDiscovery,false);
+  assert.equal(normalizeRuntimeConfig({...base,hubWifiNativeDiscovery:'true'},'https://care.gharsajag.in').hubWifiNativeDiscovery,false);
+  assert.equal(normalizeRuntimeConfig({...base,hubWifiNativeDiscovery:true},'https://care.gharsajag.in').hubWifiNativeDiscovery,true);
+  const codeRoot=resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+  const settings=readFileSync(resolve(codeRoot,'tools/sim/pwa/connected_lite.mjs'),'utf8');
+  assert.match(settings,/Add Hub \/ configure Hub Wi-Fi/);
+  assert.match(settings,/Secure pairing, protected credential storage and Home claim/);
+  assert.doesNotMatch(settings,/wifiPassword|wifi_password|provisionCredential/);
+});
+
 test('API URLs remain pinned to the configured HTTPS origin', () => {
   const runtime=normalizeRuntimeConfig({mode:'caregiver',backendOrigin:'https://care.gharsajag.in'},'https://appassets.androidplatform.net');
   assert.equal(requestUrl(runtime,'/healthz'),'https://care.gharsajag.in/healthz');

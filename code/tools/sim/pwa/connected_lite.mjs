@@ -224,7 +224,11 @@ function renderRoutines(){
 }
 function renderSettings(){
   const hubState=productSource()?`${view.monitoring} / ${view.source_freshness}`:'UNKNOWN / NO_HUB_CLOUDSYNC';
-  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>`)}`);
+  const hubSetup=runtime.hubWifiNativeDiscovery
+    ?'<button id="addHubWifi" type="button">Add Hub / configure Hub Wi-Fi</button><p class="muted">Nearby BLE discovery is available in Android. Secure pairing, protected credential storage and Home claim must be ready before a password can be sent.</p>'
+    :'<p class="muted">Hub Wi-Fi setup requires the Parivar Saathi Android app. Secure pairing and protected credential storage are still required.</p>';
+  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Add Hub / Hub Wi-Fi',hubSetup)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>`)}`);
+  if(runtime.hubWifiNativeDiscovery)$('#addHubWifi').onclick=()=>{window.location.href='gharsajag://hub-wifi/add'};
   $('#logoutButton').onclick=async()=>{try{await api('auth/logout',{method:'POST'})}finally{status('SIGNED OUT','Current session has been revoked.');loginScreen()}};
 }
 function renderEngineering(){

@@ -138,6 +138,13 @@ gs58-wifi-host-test: build
 		-o build/gs58_wifi_reconnect_validation
 	./build/gs58_wifi_reconnect_validation
 
+gs58-onboarding-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) \
+		firmware/hub/connectivity/wifi_onboarding.cpp \
+		tests/cpp/gs58_wifi_onboarding_validation.cpp \
+		-o build/gs58_wifi_onboarding_validation
+	./build/gs58_wifi_onboarding_validation
+
 gs40-qualification-test:
 	PYTHONPATH=tools/hil python3 -m unittest tests.python.test_gs40_qualification -v
 

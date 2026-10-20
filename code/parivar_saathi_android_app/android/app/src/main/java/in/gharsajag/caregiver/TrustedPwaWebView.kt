@@ -12,6 +12,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.net.URI
+import java.net.URISyntaxException
 
 /** Serves the shared PWA from the APK and permits network access only to its configured origin. */
 object TrustedPwaWebView {
@@ -23,7 +25,10 @@ object TrustedPwaWebView {
         return "https://$host$APP_ASSET_PREFIX" + "index.html"
     }
 
-    fun create(activity: Activity, backendOrigin: BackendOrigin?): WebView {
+    const val HUB_WIFI_SETUP_URL = "gharsajag://hub-wifi/add"
+
+    fun create(activity: Activity, backendOrigin: BackendOrigin?,
+               onHubWifiSetup: () -> Unit = {}): WebView {
         val trustedHost = backendOrigin?.host ?: APP_ASSET_HOST
         val view = WebView(activity)
         view.settings.javaScriptEnabled = true
@@ -51,10 +56,21 @@ object TrustedPwaWebView {
                 return blockedResponse()
             }
 
-            override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean =
-                !request.url.scheme.equals("https", ignoreCase = true) ||
+            override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
+                if (request.url.toString() == HUB_WIFI_SETUP_URL) {
+                    // Only the bundled first-party Settings page can open the
+                    // native discovery screen. No command parameters or secrets
+                    // cross a JavaScript bridge.
+                    if (HubWifiNavigationPolicy.canOpen(
+                            request.url.toString(), v.url, trustedHost, request.isForMainFrame)) {
+                        onHubWifiSetup()
+                    }
+                    return true
+                }
+                return !request.url.scheme.equals("https", ignoreCase = true) ||
                     request.url.host?.equals(trustedHost, ignoreCase = true) != true ||
                     (request.url.port != -1 && request.url.port != 443)
+            }
 
             override fun onReceivedSslError(v: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel()
@@ -80,7 +96,7 @@ object TrustedPwaWebView {
 
         if (relative == "runtime-config.js") {
             val origin = backendOrigin?.baseUrl.orEmpty()
-            val body = "window.PARIVAR_SAATHI_RUNTIME=Object.freeze({mode:\"caregiver\",backendOrigin:\"$origin\",caregiverApiConfigured:${backendOrigin != null},gs179LocalLanTestOnly:${BuildConfig.GS179_LOCAL_LAN_TEST_ONLY},appVersion:\"0.4.0-connected-lite-staging\",sourceRevision:\"${BuildConfig.SOURCE_REVISION}\"});"
+            val body = "window.PARIVAR_SAATHI_RUNTIME=Object.freeze({mode:\"caregiver\",backendOrigin:\"$origin\",caregiverApiConfigured:${backendOrigin != null},gs179LocalLanTestOnly:${BuildConfig.GS179_LOCAL_LAN_TEST_ONLY},hubWifiNativeDiscovery:true,appVersion:\"0.4.0-connected-lite-staging\",sourceRevision:\"${BuildConfig.SOURCE_REVISION}\"});"
             return response("text/javascript", ByteArrayInputStream(body.toByteArray(Charsets.UTF_8)), backendOrigin)
         }
 
@@ -134,4 +150,18 @@ object TrustedPwaWebView {
         mapOf("Cache-Control" to "no-store", "X-Content-Type-Options" to "nosniff"),
         ByteArrayInputStream(message.toByteArray(Charsets.UTF_8)),
     )
+}
+
+object HubWifiNavigationPolicy {
+    fun canOpen(destination: String, pageUrl: String?, trustedHost: String,
+                mainFrame: Boolean): Boolean {
+        if (destination != TrustedPwaWebView.HUB_WIFI_SETUP_URL || !mainFrame || pageUrl == null)
+            return false
+        val page = try { URI(pageUrl) } catch (_: URISyntaxException) { return false }
+        return page.scheme.equals("https", ignoreCase = true) &&
+            page.host.equals(trustedHost, ignoreCase = true) &&
+            (page.port == -1 || page.port == 443) &&
+            page.rawUserInfo == null &&
+            page.path?.startsWith("/__caregiver_app__/") == true
+    }
 }

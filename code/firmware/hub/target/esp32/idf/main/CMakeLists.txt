@@ -26,6 +26,8 @@ if(IDF_TARGET STREQUAL "esp32s3")
         "${GS_ROOT}/firmware/hub/cloud_sync/http_backend_transport.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32s3/cloud_trust_provider.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32s3/https_backend_channel.cpp")
+    list(APPEND GS_HUB_SRCS
+        "${GS_ROOT}/firmware/hub/target/esp32s3/esp_idf_wifi_setup_scanner.cpp")
     if(GS40_TEST_ONLY_CLOUDSYNC)
         list(APPEND GS_HUB_SRCS
             "${GS_ROOT}/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp"
@@ -99,6 +101,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/hub/runtime/hub_runtime.cpp"
         "${GS_ROOT}/firmware/hub/runtime/hub_checkpoint_codec.cpp"
         "${GS_ROOT}/firmware/hub/connectivity/wifi_reconnect_policy.cpp"
+        "${GS_ROOT}/firmware/hub/connectivity/wifi_onboarding.cpp"
         "${GS_ROOT}/firmware/hub/storage/runtime_state_store.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32/hub_runtime_adapter.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32/hub_security_link.cpp"

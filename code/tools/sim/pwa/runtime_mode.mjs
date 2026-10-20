@@ -71,6 +71,7 @@ export function normalizeRuntimeConfig(raw, pageOrigin) {
     caregiverApiConfigured: !!parseCaregiverBackendOrigin(raw?.backendOrigin, {
       gs179LocalLanTestOnly: raw?.gs179LocalLanTestOnly === true,
     }),
+    hubWifiNativeDiscovery: raw?.hubWifiNativeDiscovery === true,
     appVersion: typeof raw?.appVersion==='string'&&/^[a-zA-Z0-9._-]{1,80}$/.test(raw.appVersion)?raw.appVersion:'unknown',
     sourceRevision: typeof raw?.sourceRevision==='string'&&/^[a-fA-F0-9]{12}$/.test(raw.sourceRevision)?raw.sourceRevision:'unknown',
   });

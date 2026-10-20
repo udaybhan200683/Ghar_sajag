@@ -1,6 +1,7 @@
 package `in`.gharsajag.caregiver
 
 import android.os.Bundle
+import android.content.Intent
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.FrameLayout
@@ -27,7 +28,9 @@ class MainActivity : ComponentActivity() {
             BuildConfig.BACKEND_ORIGIN,
             allowTestOnlyPrivateIpv4 = BuildConfig.GS179_LOCAL_LAN_TEST_ONLY,
         )
-        val dashboard = TrustedPwaWebView.create(this, backendOrigin)
+        val dashboard = TrustedPwaWebView.create(this, backendOrigin) {
+            startActivity(Intent(this, HubWifiSetupActivity::class.java))
+        }
         safeContent.addView(dashboard, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT,

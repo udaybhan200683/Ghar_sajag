@@ -1,5 +1,7 @@
 # GS-58 Wi-Fi onboarding and reconnect design — 2026-10-20
 
+> Current canonical implementation checkpoint: [GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md](GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md). The older branch/worktree descriptions below are historical. The integrated India channel/reconnect code and new fail-closed scan/Android discovery work live in the canonical branch. D1/D2 credential-bearing BLE and protected storage remain blocked.
+
 ## Scope and source authority
 
 Owning Jira: GS-58. Affected components are the ESP32-S3 Hub network startup,
