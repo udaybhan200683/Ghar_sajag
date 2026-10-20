@@ -115,9 +115,16 @@ gs114-ack-wait-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_T
 gs144-workload-spec-test:
 	python3 -m unittest discover -s tests/python -p test_gs144_workload_spec.py -v
 
-.PHONY: gs40-host-test gs40-config-test gs40-qualification-test gs40-test-only-bootstrap-test
+.PHONY: gs40-host-test gs40-config-test gs40-qualification-test gs40-test-only-bootstrap-test gs58-wifi-host-test
 gs40-config-test: lab-build
 	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
+
+gs58-wifi-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) \
+		firmware/hub/connectivity/wifi_reconnect_policy.cpp \
+		tests/cpp/gs58_wifi_reconnect_validation.cpp \
+		-o build/gs58_wifi_reconnect_validation
+	./build/gs58_wifi_reconnect_validation
 
 gs40-qualification-test:
 	PYTHONPATH=tools/hil python3 -m unittest tests.python.test_gs40_qualification -v
@@ -611,7 +618,7 @@ $(CLOUDSYNC_MTLS_ADAPTER_BINARY): firmware/hub/target/esp32s3/https_backend_chan
 $(GS40_TESTONLY_MTLS_ADAPTER_BINARY): firmware/hub/target/esp32s3/https_backend_channel.cpp firmware/hub/target/esp32s3/https_backend_channel.hpp tests/cpp/cloudsync_mtls_adapter_validation.cpp tests/cpp/p2d_idf_fake/esp_http_client.h | build
 	$(HOST_CXX) $(CXXFLAGS) -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 $(INCLUDES) -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o $@
 
-cloudsync-security-ut: $(CLOUDSYNC_MTLS_ADAPTER_BINARY) $(CLOUD_TRUST_PROVIDER_BINARY)
+cloudsync-security-ut: $(CLOUDSYNC_MTLS_ADAPTER_BINARY) $(GS40_TESTONLY_MTLS_ADAPTER_BINARY) $(CLOUD_TRUST_PROVIDER_BINARY)
 	$(CLOUDSYNC_MTLS_ADAPTER_BINARY)
 	$(GS40_TESTONLY_MTLS_ADAPTER_BINARY)
 	$(CLOUD_TRUST_PROVIDER_BINARY)

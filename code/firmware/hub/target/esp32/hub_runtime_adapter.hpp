@@ -24,7 +24,8 @@ struct ReceivedFrame {
     std::array<std::uint8_t, kTargetEspNowPayloadMax> bytes{};
 };
 
-// Initializes channel 1 ESP-NOW and starts the sole HubRuntime owner task.
+// Initializes the Hub radio under its selected regulatory profile and starts
+// the sole HubRuntime owner task.
 // The separate control-plane queue is the explicit handoff to the product
 // FOTA worker and is never consumed as business data.
 esp_err_t start_runtime_adapter();

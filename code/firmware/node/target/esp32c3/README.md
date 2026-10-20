@@ -5,9 +5,11 @@ traffic. `start_runtime_adapter()` creates the bounded callback queues and the
 single owner task for `NodeRuntime`; callbacks never invoke portable business
 logic.
 
-The adapter preserves the qualified C3 configuration: AM312 GPIO4, active-low
-LED GPIO8, ESP-NOW channel 1, TX power API value 40 (10 dBm), qualified node
-and Hub MAC addresses. It fails closed if the NVS boot-session counter cannot
+The adapter retains the configured C3 baseline: AM312 GPIO4, active-low LED
+GPIO8, India profile `IN-V1` (2.4 GHz channels 1–13), TX power API value 40
+(10 dBm), and configured Node and Hub MAC addresses. The regulatory profile is
+software policy; it does not establish physical RF qualification. The adapter
+fails closed if the NVS boot-session counter cannot
 be durably incremented, so a reboot does not knowingly reuse
 `(node_id, session_id, sequence)` identity.
 

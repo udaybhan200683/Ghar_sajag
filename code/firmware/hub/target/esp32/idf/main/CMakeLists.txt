@@ -98,6 +98,7 @@ idf_component_register(
         "${GS_ROOT}/firmware/hub/routines/routine_service.cpp"
         "${GS_ROOT}/firmware/hub/runtime/hub_runtime.cpp"
         "${GS_ROOT}/firmware/hub/runtime/hub_checkpoint_codec.cpp"
+        "${GS_ROOT}/firmware/hub/connectivity/wifi_reconnect_policy.cpp"
         "${GS_ROOT}/firmware/hub/storage/runtime_state_store.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32/hub_runtime_adapter.cpp"
         "${GS_ROOT}/firmware/hub/target/esp32/hub_security_link.cpp"

@@ -15,7 +15,6 @@ inline constexpr std::array<std::uint8_t, 6> kQualifiedHubMac{
 inline constexpr int kPirGpio = 4;
 inline constexpr int kLedGpio = 8;
 inline constexpr bool kLedActiveLow = true;
-inline constexpr std::uint8_t kEspNowChannel = 1;
 inline constexpr std::int8_t kTxPowerQuarterDbm = 40;  // 10 dBm
 
 inline constexpr std::uint32_t kPirStabilizationMs = 10000;

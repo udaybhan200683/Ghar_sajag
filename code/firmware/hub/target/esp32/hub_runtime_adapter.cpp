@@ -8,6 +8,8 @@
 #endif
 
 #include "firmware/common/transport/data_plane_codec.hpp"
+#include "firmware/common/connectivity/esp_idf_india_wifi_country.hpp"
+#include "firmware/common/connectivity/india_wifi_profile.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/hub/lifecycle/fota/hub_fota_guard.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
@@ -18,7 +20,9 @@
 #include "firmware/hub/target/esp32/nvs_journal_slot_store.hpp"
 #include "firmware/hub/target/esp32/nvs_store_inventory.hpp"
 #include "firmware/hub/target/esp32/hub_target_config.hpp"
+#include "firmware/hub/connectivity/wifi_station.hpp"
 #if CONFIG_IDF_TARGET_ESP32S3
+#include "firmware/hub/connectivity/wifi_reconnect_policy.hpp"
 #include "firmware/hub/cloud_sync/cloud_sync.hpp"
 #include "firmware/hub/cloud_sync/http_backend_transport.hpp"
 #include "firmware/hub/target/esp32s3/cloud_trust_provider.hpp"
@@ -82,6 +86,68 @@ constexpr std::uint32_t kSecureOwnerStackBytes = 81920;
 constexpr std::uint32_t kCloudSyncRefreshMs = 5000U;
 constexpr std::uint32_t kCloudSyncWorkerDelayMs = 5000U;
 constexpr std::uint32_t kCloudSyncWorkerStackBytes = 8192U;
+#if !defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD
+constexpr char kWifiReconnectTaskTag[] = "gs58_wifi_reconnect";
+constexpr std::uint32_t kWifiReconnectTaskStackBytes = 3072U;
+constexpr std::uint32_t kWifiReconnectPollMs = 250U;
+connectivity::WifiReconnectPolicy g_wifi_reconnect_policy;
+portMUX_TYPE g_wifi_reconnect_mux = portMUX_INITIALIZER_UNLOCKED;
+
+std::uint64_t monotonic_ms_u64() {
+    const auto elapsed = esp_timer_get_time();
+    return elapsed <= 0 ? 0U : static_cast<std::uint64_t>(elapsed / 1000);
+}
+
+void station_event_handler(void*, esp_event_base_t event_base,
+                           std::int32_t event_id, void* event_data) {
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
+        const auto* connected = static_cast<const wifi_event_sta_connected_t*>(event_data);
+        if (connected == nullptr ||
+            !gs::connectivity::IndiaWifiProfileV1::allows_channel(connected->channel)) {
+            ESP_LOGE(kTag, "WIFI_RADIO_UNSUPPORTED channel=%u profile=IN-V1",
+                     connected == nullptr ? 0U :
+                         static_cast<unsigned>(connected->channel));
+            (void)esp_wifi_disconnect();
+            return;
+        }
+        ESP_LOGI(kTag, "WIFI_RADIO_CHANNEL channel=%u profile=IN-V1",
+                 static_cast<unsigned>(connected->channel));
+    }
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        portENTER_CRITICAL(&g_wifi_reconnect_mux);
+        g_wifi_reconnect_policy.on_disconnected(monotonic_ms_u64());
+        portEXIT_CRITICAL(&g_wifi_reconnect_mux);
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        portENTER_CRITICAL(&g_wifi_reconnect_mux);
+        g_wifi_reconnect_policy.on_connected();
+        portEXIT_CRITICAL(&g_wifi_reconnect_mux);
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP) {
+        portENTER_CRITICAL(&g_wifi_reconnect_mux);
+        g_wifi_reconnect_policy.on_disconnected(monotonic_ms_u64());
+        portEXIT_CRITICAL(&g_wifi_reconnect_mux);
+    }
+}
+
+void wifi_reconnect_task(void*) {
+    for (;;) {
+        const auto now_ms = monotonic_ms_u64();
+        portENTER_CRITICAL(&g_wifi_reconnect_mux);
+        const bool attempt_due = g_wifi_reconnect_policy.take_due_attempt(now_ms);
+        portEXIT_CRITICAL(&g_wifi_reconnect_mux);
+        if (attempt_due) {
+            const auto result = esp_wifi_connect();
+            if (result != ESP_OK) {
+                portENTER_CRITICAL(&g_wifi_reconnect_mux);
+                g_wifi_reconnect_policy.on_attempt_failed(monotonic_ms_u64());
+                portEXIT_CRITICAL(&g_wifi_reconnect_mux);
+                ESP_LOGW(kTag, "Wi-Fi reconnect request failed: %s",
+                         esp_err_to_name(result));
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(kWifiReconnectPollMs));
+    }
+}
+#endif
 
 class S3CloudRuntimeAuthorityProvider final : public CloudRuntimeAuthorityProvider {
 public:
@@ -197,9 +263,12 @@ void cloud_authority_refresh_task(void* opaque) {
 }
 #endif
 
-bool cloud_wan_ready() {
+bool cloud_route_available() {
     wifi_ap_record_t ap{};
-    if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK) return false;
+    // Association and a local route permit a CloudSync attempt; they do not
+    // establish Internet, cloud authentication, COMMITTED, or monitoring.
+    if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK ||
+        !gs::connectivity::IndiaWifiProfileV1::allows_channel(ap.primary)) return false;
     auto* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     if (netif == nullptr) return false;
     esp_netif_ip_info_t address{};
@@ -215,18 +284,18 @@ void cloud_node_health_task(void* opaque) {
     }
     for (;;) {
         const auto now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
-        const bool network_ready = cloud_wan_ready();
+        const bool route_available = cloud_route_available();
         // Durable Node events retain first priority. Current-state health and
         // Hub-owned derived decisions use their existing bounded channels
         // after the durable event batch has had its turn.
-        const auto events = context.worker->run_once(network_ready, now_ms, 4, false);
+        const auto events = context.worker->run_once(route_available, now_ms, 4, false);
         if (events.state == CloudWorkerState::AuthorityChanged)
             ESP_LOGE(kTag, "Cloud event worker stopped after Hub/Home/epoch authority change");
-        const auto result = context.worker->run_node_health_once(network_ready, now_ms);
+        const auto result = context.worker->run_node_health_once(route_available, now_ms);
         if (result.state == CloudWorkerState::AuthorityChanged)
             ESP_LOGE(kTag, "Cloud NodeHealth stopped after Hub/Home/epoch authority change");
         const auto decisions = context.worker->run_hub_rule_decision_once(
-            network_ready, now_ms, 2);
+            route_available, now_ms, 2);
         if (decisions.state == CloudWorkerState::AuthorityChanged)
             ESP_LOGE(kTag, "Hub rule publication stopped after authority change");
         vTaskDelay(pdMS_TO_TICKS(kCloudSyncWorkerDelayMs));
@@ -442,13 +511,37 @@ esp_err_t initialize_wifi() {
     const wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
     if ((result = esp_wifi_init(&config)) != ESP_OK) return result;
     if ((result = esp_wifi_set_storage(WIFI_STORAGE_RAM)) != ESP_OK) return result;
+#if CONFIG_IDF_TARGET_ESP32S3
+    if ((result = gs::connectivity::configure_india_wifi_country()) != ESP_OK) {
+        ESP_LOGE(kTag, "India Wi-Fi regulatory profile activation failed: %s",
+                 esp_err_to_name(result));
+        return result;
+    }
+#endif
     if ((result = esp_wifi_set_mode(WIFI_MODE_STA)) != ESP_OK) return result;
+#if CONFIG_IDF_TARGET_ESP32S3 && \
+    (!defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD)
+    if ((result = esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+            station_event_handler, nullptr)) != ESP_OK) return result;
+    if ((result = esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+            station_event_handler, nullptr)) != ESP_OK) return result;
+    if ((result = esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP,
+            station_event_handler, nullptr)) != ESP_OK) return result;
+#endif
     if ((result = esp_wifi_start()) != ESP_OK) return result;
     if ((result = esp_wifi_set_ps(WIFI_PS_NONE)) != ESP_OK) return result;
-    if ((result = esp_wifi_set_channel(kEspNowChannel, WIFI_SECOND_CHAN_NONE)) != ESP_OK) return result;
+    if ((result = esp_wifi_set_channel(
+            gs::connectivity::IndiaWifiProfileV1::first_2ghz_channel,
+            WIFI_SECOND_CHAN_NONE)) != ESP_OK) return result;
 
     std::array<std::uint8_t, 6> actual_mac{};
     if ((result = esp_wifi_get_mac(WIFI_IF_STA, actual_mac.data())) != ESP_OK) return result;
+#if CONFIG_IDF_TARGET_ESP32S3 && \
+    (!defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD)
+    if (xTaskCreate(wifi_reconnect_task, kWifiReconnectTaskTag,
+            kWifiReconnectTaskStackBytes, nullptr, 3, nullptr) != pdPASS)
+        return ESP_ERR_NO_MEM;
+#endif
 #if GS_HIL_BUILD
     if (actual_mac != kQualifiedHubMac) {
         ESP_LOGE(kTag, "STA MAC does not match qualified Hub");
@@ -481,8 +574,11 @@ esp_err_t initialize_esp_now() {
 void owner_task(void*) {
     HubRuntime runtime(32, 1024);
     std::uint64_t authorized_session = 0;
-    ESP_LOGI(kTag, "HubRuntime owner started channel=%u",
-             static_cast<unsigned>(kEspNowChannel));
+    std::uint8_t initial_channel = 0;
+    wifi_second_chan_t initial_secondary_channel = WIFI_SECOND_CHAN_NONE;
+    (void)esp_wifi_get_channel(&initial_channel, &initial_secondary_channel);
+    ESP_LOGI(kTag, "HubRuntime owner started radio_channel=%u",
+             static_cast<unsigned>(initial_channel));
 
     for (;;) {
         if (g_control_plane_active.load(std::memory_order_acquire)) {
@@ -2009,3 +2105,20 @@ esp_err_t start_runtime_adapter() {
 }
 
 }  // namespace gs::hub::target
+
+namespace gs::hub::target {
+void notify_wifi_credentials_ready_internal() {
+#if CONFIG_IDF_TARGET_ESP32S3 && \
+    (!defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD)
+    portENTER_CRITICAL(&g_wifi_reconnect_mux);
+    g_wifi_reconnect_policy.on_credentials_ready(monotonic_ms_u64());
+    portEXIT_CRITICAL(&g_wifi_reconnect_mux);
+#endif
+}
+}  // namespace gs::hub::target
+
+namespace gs::hub::connectivity {
+void notify_s3_wifi_credentials_ready() {
+    gs::hub::target::notify_wifi_credentials_ready_internal();
+}
+}  // namespace gs::hub::connectivity
