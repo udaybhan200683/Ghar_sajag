@@ -65,9 +65,21 @@ CPP_DEPENDENCIES := $(CPP_OBJECTS:.o=.d) $(CPP_EXTRA_OBJECTS:.o=.d)
 -include $(CPP_DEPENDENCIES)
 
 $(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS): Makefile build/gs40_generated/gs/node_health_config.hpp
+# A host compiler interrupted while writing directly to its target can leave a
+# zero-byte object that make considers newer than its sources. Force only such
+# incomplete artifacts through the normal compile rule; keep valid cached
+# objects reusable.
+.PHONY: force-empty-host-objects
+$(foreach object,$(CPP_OBJECTS) $(CPP_EXTRA_OBJECTS),$(if $(shell test -s "$(object)" && echo present),,$(eval $(object): force-empty-host-objects)))
 $(CPP_OBJECT_DIR)/%.o: %.cpp
-	mkdir -p $(dir $@)
-	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
+	@set -eu; \
+	  mkdir -p $(dir $@); \
+	  object_tmp="$@.tmp"; dependency_tmp="$(@:.o=.d).tmp"; \
+	  trap 'rm -f "$$object_tmp" "$$dependency_tmp"' EXIT; \
+	  $(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) -MMD -MP -MF "$$dependency_tmp" -c $< -o "$$object_tmp"; \
+	  mv "$$dependency_tmp" "$(@:.o=.d)"; \
+	  mv "$$object_tmp" "$@"; \
+	  trap - EXIT
 
 .PHONY: all verify cpp-test hub-recovery-scheduling-host-test hub-fresh-install-host-test hub-durable-storage-host-test hub-durable-provider-host-test hub-journal-migration-host-test hub-retirement-snapshot-host-test battery-c8-host-test master-validation master-validation-self-test fota-host-test hub-fota-guard-host-test secure-fota-adapter-host-test multinode-host-test registry-host-test registry-persistence-host-test hub-journal-persistence-host-test hub-backend-commit-host-test commissioning-crypto-host-test rejoin-host-test association-host-test node-recovery-host-test node-recovery-persistence-host-test node-retirement-protocol-host-test simulator simulate-matrix python-test app-test contracts clean validation-fast release-gate release-gate-browser manual-test-plan functional-test dummy-sensor-test coverage-test performance-profile performance-test stress-test concurrency-test endurance-test hw-validation-fast hw-pair-build hw-release-gate validation-nightly validation-coverage hil-setup hil-preflight hil-smoke hil-regression hil-qualify hil-checkpoint-smoke hil-checkpoint-fota hil-secure-signed-fota hil-checkpoint-secure-signed-fota hil-fota hil-supervisor-test hil-tooling-test hil-host-check hil-target-build-check s3-fixture-commissioning-test gs114-s3-rpf-diagnostic-build gs114-s3-c8-p8-build gs114-s3-c8-p9-build physical-hil-catalogue-test validation-p0-e2e validation-board-hil validation-motion-hil gs130-hil-runner-test gs68-cloudsync-diagnostic-build validation-cloudsync-hil
 .PHONY: s3-durable-outbox-host-test hub-segmented-outbox-runtime-host-test

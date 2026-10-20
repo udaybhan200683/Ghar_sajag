@@ -32,10 +32,14 @@ const os = require('os');
     await page.getByLabel('Password',{exact:true}).fill(config.password);
     await page.getByRole('button',{name:'Log in',exact:true}).click();
     if(config.ruleKind){
-      await expect(page.locator('[data-hub-decision]')).toHaveCount(1);
-      await expect(page.locator('#homeTab')).toContainText(config.ruleKind);
+      await expect(page.locator('.connected-product-event[data-hub-decision]')).toHaveCount(1);
+      const ruleLabels={MORNING_ROUTINE_COMPLETED:'Morning routine completed',
+        MISSING_MORNING_ACTIVITY:'Morning routine concern',
+        UNUSUAL_NIGHT_BATHROOM_ACTIVITY:'Night activity concern',
+        UNUSUAL_NIGHT_COMMON_ACTIVITY:'Night activity concern'};
+      await expect(page.locator('#homeTab')).toContainText(ruleLabels[config.ruleKind]||config.ruleKind);
       await expect(page.locator('[data-event-key]')).toHaveCount(config.nodeEventCount);
-      const decision=page.locator('[data-hub-decision]');
+      const decision=page.locator('.connected-product-event[data-hub-decision]');
       await expect(decision).toContainText('Decision ID:');
       if((await decision.textContent()).includes('EventKey:'))throw Error('Hub decision falsely rendered with Node EventKey');
       let assertions=5;
@@ -57,16 +61,17 @@ const os = require('os');
         nodes.map(node=>JSON.parse(node.getAttribute('data-event-key'))));
       expect(renderedKeys).toEqual(config.eventKeys);
     }
-    await expect(page.locator('#homeTab')).toContainText('MOTION');
-    await expect(page.locator('#homeTab')).toContainText('CALL_FAMILY');
+    await expect(page.locator('#homeTab')).toContainText('Motion recorded');
+    await expect(page.locator('#homeTab')).toContainText('Call Family request');
     await expect(page.locator('#homeTab')).toContainText('bedroom');
     let homeMonitoringAssertions=0;
     if(config.monitoring){
       const homeMonitoring=page.locator('#homeTab .card').filter({
         has:page.getByRole('heading',{name:'Home monitoring',exact:true})
       });
-      await expect(homeMonitoring).toContainText(config.monitoring);
-      await expect(homeMonitoring).toContainText(`Backend source freshness: ${config.sourceFreshness}`);
+      const coverageLabels={COVERED:'Current observation coverage',UNKNOWN:'Monitoring status unknown'};
+      await expect(homeMonitoring).toContainText(coverageLabels[config.monitoring]||config.monitoring);
+      await expect(homeMonitoring).toContainText(`Backend source: ${config.sourceFreshness}`);
       await expect(page.locator('#homeTab')).toContainText(config.source);
       homeMonitoringAssertions=3;
     }

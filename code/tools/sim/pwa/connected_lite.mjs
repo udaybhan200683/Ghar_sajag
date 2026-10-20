@@ -111,13 +111,20 @@ function productEvents(events){
   if(!events?.length)return '<p class="muted" data-empty-events="true">No committed Node or Hub events are currently returned by the authorized caregiver API. This does not mean there was no household activity.</p>';
   return events.map(event=>{
     const hubDecision=event.source_type==='HUB_RULE'||Boolean(event.decision_id);
-    const eventKey=event.event_key?JSON.stringify(event.event_key):event.decision_id||event.event_id||'';
+    const eventKey=!hubDecision&&event.event_key?JSON.stringify(event.event_key):'';
+    const decisionId=hubDecision?(event.decision_id||event.event_id||'') : '';
+    const identityAttribute=hubDecision
+      ?`data-hub-decision="${esc(decisionId||'unknown')}"`
+      :`data-event-key="${esc(eventKey)}"`;
+    const identityLabel=hubDecision
+      ?`Decision ID: ${decisionId||'Stable decision identity unavailable'}`
+      :`EventKey: ${eventKey||'Unavailable'}`;
     const time=productTime(event.occurred_at);
     const room=event.location||event.event_key?.logical_node_id||'Room not reported';
     const icon=hubDecision?'◉':event.kind?.startsWith('DOOR_')?'🚪':event.kind==='OK_PRESSED'?'❤':'•';
     const received=event.received_at&&event.received_at!==event.occurred_at
       ?`<small>Backend received ${esc(productTime(event.received_at))}${event.delayed?' · delayed':''}</small>`:'';
-    return `<article class="event connected-product-event" data-source-origin="${esc(productEventOrigin(event))}" data-event-key="${esc(eventKey)}"><time class="event-time" datetime="${esc(typeof event.occurred_at==='number'?new Date(event.occurred_at*1000).toISOString():event.occurred_at||'')}">${esc(time)}</time><span class="event-icon" aria-hidden="true">${icon}</span><div class="event-detail"><span class="event-pill ${event.tone==='danger'?'red':event.tone==='positive'?'blue':''}">${esc(productEventLabel(event.kind))}</span><p>${esc(room)} · <span class="event-origin">${esc(productEventOrigin(event))}</span></p><details><summary>Event details</summary><code>${esc(eventKey||'Stable decision identity unavailable')}</code></details>${received}</div></article>`;
+    return `<article class="event connected-product-event" data-source-origin="${esc(productEventOrigin(event))}" ${identityAttribute}><time class="event-time" datetime="${esc(typeof event.occurred_at==='number'?new Date(event.occurred_at*1000).toISOString():event.occurred_at||'')}">${esc(time)}</time><span class="event-icon" aria-hidden="true">${icon}</span><div class="event-detail"><span class="event-pill ${event.tone==='danger'?'red':event.tone==='positive'?'blue':''}">${esc(productEventLabel(event.kind))}</span><p>${esc(room)} · <span class="event-origin">${esc(productEventOrigin(event))}</span></p><details><summary>${hubDecision?'Decision details':'Event details'}</summary><code>${esc(identityLabel)}</code></details>${received}</div></article>`;
   }).join('');
 }
 function homeFreshnessText(home){

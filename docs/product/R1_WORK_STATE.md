@@ -5373,3 +5373,47 @@ ingress to laptop PostgreSQL have not been observed. Production identity,
 credential and eFuse approvals remain separate. GS-177 and GS-179 stay In
 Progress; GS-117 physical acceptance stays NOT_RUN. No phone, board, serial
 port, production endpoint, database row, login, or device state was modified.
+
+### GS-58 / GS-165 canonical integration and regression closeout — 2026-10-20
+
+GS-58 and GS-165 source histories are integrated into canonical through merge
+commits `de1ec0a4c1cec3907e04efd2fc91cd0b43f7aad8` and
+`c60828b264bdb8d4d562a614b2126c7d211a8037`. GS-177 source is already an
+ancestor; no duplicate merge was performed. A source-level feature audit
+confirmed one shared `IndiaWifiProfileV1` for C3/Hub, reuse of the existing
+authenticated C3 rejoin and GS-168 TEST_ONLY issuer, and preservation of the
+current GS-177 authenticated Home, docked navigation, other tabs, caregiver
+role, and freshness behavior. The narrow Home correction distinguishes Hub
+decision IDs from Node EventKeys.
+
+Focused current-source results: GS-58 Wi-Fi 77 checks; GS-165/GS-168 24 tests;
+GS-178 29/29; connected caregiver API/runtime 20 API + 8 runtime; browser 4/4
+with 92/92 catalogue assertions; PWA frontend 1/1; framework 51/51 and feature
+mapping 22/22. Non-flashing ESP-IDF 6.0.3 production C3/S3 builds passed at
+940,608 and 2,193,248 bytes, respectively. Image and sdkconfig hashes and the
+full validation record are in
+[`CANONICAL_GS58_GS165_GS177_INTEGRATION_20261020.md`](../exec-plans/evidence/CANONICAL_GS58_GS165_GS177_INTEGRATION_20261020.md).
+
+The requested `make -C code validation-fast` completed with 79/83 stages PASS
+and exit 2. Its four failures were: the existing Hub migration assertion
+`clean migration commits`; an incomplete zero-byte sanitizer object that
+caused unresolved `RuntimeStateStore` symbols; a registry expectation missing
+the integrated `gs58-wifi` and `pilot-factory` stages; and P0 `product_status=PARTIAL`
+despite 26/26 scenario checks. The host object build now atomically promotes
+completed objects and selectively rebuilds zero-byte objects; the sanitizer
+target passes. The diagnostic registry assertion now expects the two
+additional stages and passes 6/6. The full fast gate was not repeated after
+these focused corrections. Thus Hub migration and P0 PARTIAL remain blockers,
+and the recorded aggregate fast run remains FAIL. No release gate was run.
+
+At this checkpoint canonical local HEAD is
+`c60828b264bdb8d4d562a614b2126c7d211a8037` and remote HEAD remains
+`5e8cec135e3f72fd14c9818e67bb6e138899077c`; push and PR reconciliation are
+pending. Draft PR #1 and #2 remain open until the canonical push is verified.
+The source worktrees remain preserved: GS-58 has pre-existing untracked
+`managed_components/`; the path named `Ghar_sajag_gs177` holds the GS-165
+branch. Fast-forward synchronization is only permitted after process/dirty
+checks and canonical push. All pre-existing untracked app assets, IDF files
+and physical evidence remain untouched. GS-58, GS-165, GS-177, GS-40 and
+physical qualification statuses remain In Progress/NOT_RUN as applicable;
+this integration does not claim commercial readiness.

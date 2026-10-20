@@ -35,6 +35,10 @@ class Pwa68BrowserTest(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.server.shutdown();cls.t.join();cls.server.server_close();cls.lab.close()
  def test_all_catalog_cases_in_real_pwa_dom(self):
+  # Fetch the static catalog before the autorun page starts POSTing scenarios.
+  # The local test server is single-threaded and serializes mutations, so a
+  # concurrent catalog GET can otherwise wait behind an entire scenario run.
+  catalog=json.loads(urlopen(self.base+'/pwa/validation/catalog',timeout=5).read());expected=int(catalog['count'])
   port=free_port();profile=tempfile.mkdtemp(prefix='ps-chrome-')
   proc=subprocess.Popen([self.chromium,'--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--remote-allow-origins=*',f'--remote-debugging-port={port}',f'--user-data-dir={profile}','about:blank'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   try:
@@ -47,7 +51,6 @@ class Pwa68BrowserTest(unittest.TestCase):
    page=json.loads(urlopen(req,timeout=3).read());ws=websocket.create_connection(page['webSocketDebuggerUrl'],timeout=10)
    try:
     cdp(ws,'Page.enable');cdp(ws,'Runtime.enable')
-    catalog=json.loads(urlopen(self.base+'/pwa/validation/catalog',timeout=5).read());expected=int(catalog['count'])
     deadline=time.time()+180;status=None;count=0
     while time.time()<deadline:
      r=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const e=document.querySelector('#validationOverall');return e?{status:e.dataset.validationStatus,count:Number(e.dataset.validationCount),text:e.textContent}:null})()",'returnByValue':True})

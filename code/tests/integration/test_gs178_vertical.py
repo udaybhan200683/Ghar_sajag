@@ -454,7 +454,7 @@ class NodeOriginVertical(unittest.TestCase):
                               "nodeCount":4,
                               "monitoring":"COVERED",
                               "sourceFreshness":"CURRENT",
-                              "source":"NODE_ORIGIN_HOST_SIM"}),
+                              "source":"Authenticated GS-148 TEST_ONLY caregiver data"}),
             text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=90,env=env)
         self.assertEqual(result.returncode,0,result.stdout)
         report=json.loads(result.stdout.splitlines()[-1])

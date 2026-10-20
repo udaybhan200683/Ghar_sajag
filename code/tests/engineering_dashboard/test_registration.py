@@ -62,6 +62,8 @@ class RegistrationTest(unittest.TestCase):
             "gs177-connected-lite-api",
             "gs178-node-caregiver-e2e",
             "gs179-postgres-e2e",
+            "gs58-wifi",
+            "pilot-factory",
         })
         self.assertEqual(prior_ids-current_ids,set())
         for original in prior["stages"]:
