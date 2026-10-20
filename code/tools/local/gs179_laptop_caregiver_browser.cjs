@@ -34,7 +34,10 @@ const path = require('node:path');
     const context = await browser.newContext();
     context.setDefaultTimeout(10000);
     const apiRequests = [];
+    let activeRouteHandlers = 0;
     await context.route('**/*', async route => {
+      activeRouteHandlers += 1;
+      try {
       const url = new URL(route.request().url());
       if (url.origin !== origin) throw new Error(`unexpected_external_origin:${url.origin}`);
       if (url.pathname.startsWith('/lite/v1/')) {
@@ -70,6 +73,9 @@ const path = require('node:path');
         '.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon'})[ext] || 'application/octet-stream';
       await route.fulfill({status: 200, contentType: mime, body: fs.readFileSync(file),
         headers: {'cache-control': 'no-store'}});
+      } finally {
+        activeRouteHandlers -= 1;
+      }
     });
 
     const page = await context.newPage();
@@ -81,18 +87,44 @@ const path = require('node:path');
     await expect(eventCard).toHaveCount(1);
     const renderedKey = await eventCard.evaluate(node => JSON.parse(node.getAttribute('data-event-key')));
     expect(renderedKey).toEqual(config.eventKey);
-    await expect(page.locator('#homeTab')).toContainText(config.eventKind);
+    await expect(page.locator('#homeTab')).toContainText(config.eventDisplayKind);
     await expect(page.locator('#homeTab')).toContainText(config.room);
-    await expect(page.locator('#homeTab .card').filter({
-      has: page.getByRole('heading', {name: 'Home monitoring', exact: true}),
-    })).toContainText('COVERED');
-    await expect(page.locator('#homeTab')).toContainText('Backend source freshness: CURRENT');
-    await expect(page.locator('#homeTab')).toContainText('AUTHENTICATED_GS148_TEST_ONLY');
+    await expect(eventCard).toHaveAttribute('data-source-origin', config.eventOrigin);
+    await expect(page.locator('#homeTab')).toContainText('physical C3/S3 qualification NOT_RUN');
+    if (config.sourceFreshness === 'CURRENT') {
+      await expect(page.locator('#homeTab')).toContainText('Current observation coverage');
+      expect(config.monitoring).toBe('COVERED');
+      expect(config.nodeStatus).toBe('ONLINE');
+      expect(config.nodeCoverage).toBe('COVERED');
+    } else {
+      await expect(page.locator('#homeTab')).toContainText(config.sourceFreshness === 'STALE'
+        ? 'Monitoring data is stale'
+        : 'Monitoring status is unknown');
+      await expect(page.locator('#homeTab')).toContainText('status unknown');
+      expect(config.monitoring).toBe('UNKNOWN');
+    }
+    await expect(page.locator('#homeTab')).toContainText('Authenticated GS-148 TEST_ONLY caregiver data');
 
     await page.getByRole('button', {name: 'devices', exact: true}).click();
     const node = page.locator(`[data-node-id="${config.physicalNodeId}"]`);
-    await expect(node).toContainText(`${config.room} · ONLINE`);
-    await expect(node).toContainText('COVERED');
+    await expect(node).toContainText(`${config.room} · ${config.nodeStatus}`);
+    await expect(node).toContainText(config.nodeCoverage);
+    for (const tabName of ['reports', 'settings']) {
+      await expect(page.getByRole('button', {name: tabName, exact: true})).toBeVisible();
+    }
+
+    const engineeringStatus = await page.evaluate(async homeId => {
+      const response = await fetch(`/lite/v1/homes/${encodeURIComponent(homeId)}/engineering`,
+        {credentials: 'include'});
+      return response.status;
+    }, config.homeId);
+    if (config.role === 'CAREGIVER') {
+      expect(engineeringStatus).toBe(403);
+      await expect(page.locator('[data-tab="engineering"]')).toHaveCount(0);
+    } else if (config.role === 'ADMIN' && config.testOnly === true) {
+      expect(engineeringStatus).toBe(200);
+      await expect(page.locator('[data-tab="engineering"]')).toHaveCount(1);
+    }
 
     await page.reload();
     await expect(page.locator('[data-event-key]')).toHaveCount(1);
@@ -103,14 +135,34 @@ const path = require('node:path');
         !apiRequests.some(item => item.path.endsWith('/devices') && item.status === 200)) {
       throw new Error('caregiver_api_projection_not_observed');
     }
+    if (apiRequests.some(item => /\/sim\//.test(item.path))) {
+      throw new Error('authorized_home_requested_simulator_data');
+    }
+    const loggedOut = await page.evaluate(async () => {
+      const response = await fetch('/lite/v1/auth/logout', {method: 'POST', credentials: 'include'});
+      return response.status;
+    });
+    expect(loggedOut).toBe(200);
+    // Let any authorized freshness poll already in flight finish before the
+    // browser context closes. Teardown must not turn a valid API response into
+    // a disposed-context transport failure.
+    await context.unroute('**/*');
+    const routeDrainDeadline = Date.now() + 5000;
+    while (activeRouteHandlers > 0 && Date.now() < routeDrainDeadline) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    if (activeRouteHandlers !== 0) throw new Error('browser_route_handlers_did_not_drain');
     console.log(JSON.stringify({
       status: 'HOST_SIM_PASS',
       pwa: 'canonical_bundle_against_laptop_https_api',
       event_key: renderedKey,
       event_kind: config.eventKind,
       room: config.room,
-      monitoring: 'COVERED',
-      node_status: 'ONLINE',
+      event_origin: config.eventOrigin,
+      source_freshness: config.sourceFreshness,
+      monitoring: config.monitoring,
+      node_status: config.nodeStatus,
+      engineering_access: config.role === 'CAREGIVER' ? 'DENIED_AS_REQUIRED' : 'ROLE_GRANTED',
       reload_event_count: 1,
       api_requests: apiRequests,
       physical_phone: 'NOT_RUN',

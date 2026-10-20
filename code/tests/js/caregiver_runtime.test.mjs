@@ -70,11 +70,13 @@ test('GS-177 connected caregiver UI keeps technical state secondary and preserve
   const codeRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const scriptPath = resolve(codeRoot,'tools/sim/pwa/connected_lite.mjs');
   const stylesPath = resolve(codeRoot,'tools/sim/pwa/styles.css');
+  const caregiverStylesPath = resolve(codeRoot,'tools/sim/pwa/caregiver.css');
   const androidPath = resolve(codeRoot,'parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/MainActivity.kt');
   // Check executable syntax, not only that expected text exists.
   execFileSync(process.execPath,['--check',scriptPath]);
   const script = readFileSync(scriptPath,'utf8');
   const css = readFileSync(stylesPath,'utf8');
+  const caregiverCss = readFileSync(caregiverStylesPath,'utf8');
   const android = readFileSync(androidPath,'utf8');
 
   assert.match(script,/CAREGIVER HOME · TEST ONLY/);
@@ -87,6 +89,11 @@ test('GS-177 connected caregiver UI keeps technical state secondary and preserve
   assert.match(script,/Recent test events/);
   assert.match(script,/Recent routine decisions/);
   assert.match(script,/Original EventKey: UNAVAILABLE/);
+  assert.match(script,/function productEvents\(events\)/);
+  assert.match(script,/HOST_SIM · TEST_ONLY/);
+  assert.match(script,/Monitoring, events and resident status are unknown; simulated data is not shown/);
+  assert.match(script,/api\(`\$\{base\}\/overview`\),api\(`\$\{base\}\/devices`\),api\(`\$\{base\}\/routines`\),api\(`\$\{base\}\/incidents`\)/);
+  assert.match(script,/function dockNavigationUnderHeader\(\)/);
   assert.match(script,/function runDetail\(run\)/);
   assert.match(script,/Engine processing steps/);
   assert.match(script,/Routine \/ abnormality decision/);
@@ -94,6 +101,12 @@ test('GS-177 connected caregiver UI keeps technical state secondary and preserve
   assert.match(css,/connected-lite-runtime \.topbar[\s\S]*?position:sticky/);
   assert.match(css,/connected-lite-runtime \.bottom-nav[\s\S]*?safe-area-inset-bottom/);
   assert.match(css,/connected-lite-runtime \.caregiver-tiles/);
+  assert.match(caregiverCss,/\.bottom-nav\{position:sticky;top:var\(--connected-header-height/);
+  assert.match(caregiverCss,/width:100vw;max-width:none/);
+  assert.match(caregiverCss,/border-radius:0;background:#fff;box-shadow:none/);
+  assert.match(caregiverCss,/safe-area-inset-left/);
+  assert.match(caregiverCss,/\.connected-home \.hero/);
+  assert.match(caregiverCss,/\.connected-home-timeline/);
   assert.match(android,/WindowInsetsCompat\.Type\.systemBars\(\)/);
   assert.match(android,/view\.setPadding\(safe\.left, safe\.top, safe\.right, safe\.bottom\)/);
 });

@@ -87,12 +87,19 @@ def main() -> int:
     if event is None:
         print("FAIL caregiver_timeline_does_not_match_postgres_event_key")
         return 1
+    freshness = overview.get("source_freshness")
+    monitoring = overview.get("monitoring")
     if (overview.get("source") != "AUTHENTICATED_GS148_TEST_ONLY" or
-            overview.get("source_freshness") != "CURRENT" or
-            overview.get("monitoring") != "COVERED" or node is None or
-            node.get("status") != "ONLINE" or node.get("coverage") != "COVERED"):
-        print("BLOCKED run_gs179_laptop_server_health-source_for_fresh_online_node")
+            freshness not in {"CURRENT", "STALE", "UNKNOWN"} or node is None or
+            (freshness == "CURRENT" and
+             (monitoring != "COVERED" or node.get("status") != "ONLINE" or
+              node.get("coverage") != "COVERED")) or
+            (freshness != "CURRENT" and monitoring != "UNKNOWN")):
+        print("FAIL caregiver_projection_source_or_freshness_contract_mismatch")
         return 2
+
+    # Revoke this preflight login before the browser creates its own session.
+    call("/lite/v1/auth/logout", "POST", {})
 
     config = {
         "origin": origin,
@@ -101,8 +108,22 @@ def main() -> int:
         "homeId": home,
         "eventKey": event_key,
         "eventKind": event.get("kind"),
+        "eventDisplayKind": {
+            "MOTION": "Motion recorded",
+            "DOOR_OPEN": "Door opened",
+            "DOOR_CLOSED": "Door closed",
+            "OK_PRESSED": "I Am OK check-in",
+            "CALL_FAMILY": "Call Family request",
+        }.get(event.get("kind"), event.get("kind") or "Recorded activity"),
         "room": event_key["logical_node_id"],
         "physicalNodeId": event_key["physical_device_id"],
+        "eventOrigin": "HOST_SIM · TEST_ONLY",
+        "sourceFreshness": freshness,
+        "monitoring": monitoring,
+        "nodeStatus": node.get("status"),
+        "nodeCoverage": node.get("coverage"),
+        "role": profile.get("role"),
+        "testOnly": profile.get("test_only"),
         "gs179LocalLanTestOnly": True,
     }
     env = os.environ.copy()

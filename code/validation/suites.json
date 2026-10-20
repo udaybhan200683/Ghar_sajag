@@ -2208,6 +2208,7 @@
         "backend/ghar_sajag/diagnostic_authorization.py",
         "tools/sim/pwa/boot.mjs",
         "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/caregiver.css",
         "tools/sim/pwa/runtime_mode.mjs",
         "tests/js/caregiver_runtime.test.mjs",
         "tests/functional/scenario_catalog.json"
@@ -2308,6 +2309,7 @@
         "tools/sim/local_lab.py",
         "tools/sim/pwa/boot.mjs",
         "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/caregiver.css",
         "tools/sim/pwa/index.html",
         "tools/sim/pwa/app.js",
         "tools/sim/pwa/runtime_mode.mjs",
@@ -2321,7 +2323,8 @@
       "required_success": [
         "^.*PASS PWA browser E2E: \\d+/\\d+ rendered PASS$",
         "^.*PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls$",
-        "^.*PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial \\(mock transport\\)$"
+        "^.*PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial \\(mock transport\\)$",
+        "^.*PASS authenticated GS-148 Home browser regression: committed HOST_SIM EventKey/room/time, stale UNKNOWN, stale Node ONLINE downgraded to UNKNOWN, full-width docked navigation, existing tabs preserved, unrecognized source fail-closed; no simulator request$"
       ],
       "timeout": 600,
       "fast": false,

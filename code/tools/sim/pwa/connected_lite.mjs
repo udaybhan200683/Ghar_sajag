@@ -7,6 +7,21 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const tabs=['home','devices','incidents','reports','routines','settings'];
 let profile=null,tab='home',catalog=null,runs=[],selectedRun=null,view=null,lastSync=null,connection='OFFLINE';
 let busy=false,engineeringScreen='Installation Overview';
+let lastNavTab=null,headerResizeObserver=null;
+
+function dockNavigationUnderHeader(){
+  const header=$('.topbar'),navigation=$('.bottom-nav');
+  if(!header||!navigation)return;
+  if(navigation.previousElementSibling!==header)header.insertAdjacentElement('afterend',navigation);
+  const measureHeader=()=>document.documentElement.style.setProperty(
+    '--connected-header-height',`${Math.ceil(header.getBoundingClientRect().height)}px`);
+  measureHeader();
+  if(typeof ResizeObserver==='function'){
+    headerResizeObserver=new ResizeObserver(measureHeader);
+    headerResizeObserver.observe(header);
+  }else window.addEventListener('resize',measureHeader,{passive:true});
+}
+dockNavigationUnderHeader();
 
 async function api(path,{method='GET',body}={}){
   const url=requestUrl(runtime,`/lite/v1/${path}`);
@@ -49,18 +64,21 @@ function loginScreen(message=''){
 }
 
 function nav(){
-  // Keep the caregiver's most useful actions visible before the scrollable secondary tabs.
   const available=profile?.role==='ADMIN'&&profile.test_only?
     ['home','simulation','reports','devices','incidents','routines','engineering','settings']:
     ['home','reports','devices','incidents','routines','settings'];
-  $('.bottom-nav').hidden=false;
-  $('.bottom-nav').innerHTML=available.map(name=>`<button type="button" class="nav-btn ${tab===name?'active':''}" data-tab="${name}" aria-label="${esc(name==='simulation'?'Simulation Lab':name)}" ${tab===name?'aria-current="page"':''}><b>${esc(name==='simulation'?'Simulation Lab':name[0].toUpperCase()+name.slice(1))}</b></button>`).join('');
-  $('.bottom-nav').querySelectorAll('button').forEach(button=>button.onclick=()=>openTab(button.dataset.tab));
+  const navigation=$('.bottom-nav');
+  navigation.hidden=false;
+  navigation.innerHTML=available.map(name=>`<button type="button" class="nav-btn ${tab===name?'active':''}" data-tab="${name}" aria-label="${esc(name==='simulation'?'Simulation Lab':name)}" ${tab===name?'aria-current="page"':''}><b>${esc(name==='simulation'?'Simulation Lab':name[0].toUpperCase()+name.slice(1))}</b></button>`).join('');
+  navigation.querySelectorAll('button').forEach(button=>button.onclick=()=>openTab(button.dataset.tab));
+  const active=navigation.querySelector(`[data-tab="${tab}"]`);
+  if(active&&lastNavTab!==tab)active.scrollIntoView({block:'nearest',inline:'nearest'});
+  lastNavTab=tab;
 }
 function openTab(next){
   tab=next;selectedRun=null;
   nav();
-  // New sections begin above the bottom navigation; keep the header visible.
+  // Each view opens at its heading; the header and tab strip remain docked.
   window.scrollTo({top:0,behavior:'instant'});
   void refresh();
 }
@@ -68,16 +86,83 @@ function dataLabel(){return `<p class="test-watermark">${productSource()?'TEST_O
 function card(title,body){return `<div class="card"><h2>${esc(title)}</h2>${body}</div>`}
 function tableRows(items,render){return items.length?items.map(render).join(''):'<p class="muted">No saved observations.</p>'}
 function productSource(){return ['NODE_ORIGIN_HOST_SIM','AUTHENTICATED_GS148_TEST_ONLY'].includes(view?.source)}
-function productEvents(events){return tableRows(events||[],e=>e.source_type==='HUB_RULE'
-  ?`<article class="caregiver-run" data-hub-decision="${esc(e.decision_id)}"><b>${esc(e.kind)}</b><span>Hub rule decision · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>Decision ID: ${esc(e.decision_id)} · ${esc(e.details?.reason||'')}</small></article>`
-  :`<article class="caregiver-run" data-event-key="${esc(JSON.stringify(e.event_key))}"><b>${esc(e.kind)}</b><span>${esc(e.location)} · ${esc(new Date(e.occurred_at*1000).toISOString())}</span><small>EventKey: ${esc(JSON.stringify(e.event_key))} · ${e.delayed?'Delayed':'Current at receipt'}</small></article>`)}
+function explicitSimulationHome(){return profile?.test_only===true&&view?.source==='HOST_SIMULATION_TEST_ONLY'}
+function productTime(value){
+  const milliseconds=typeof value==='number'?value*1000:Date.parse(value||'');
+  return Number.isFinite(milliseconds)?new Date(milliseconds).toLocaleString():'Time unavailable';
+}
+function productEventLabel(kind){
+  return ({MOTION:'Motion recorded',DOOR_OPEN:'Door opened',DOOR_CLOSED:'Door closed',
+    OK_PRESSED:'I Am OK check-in',CALL_FAMILY:'Call Family request',
+    MORNING_ROUTINE_COMPLETED:'Morning routine completed',MISSING_MORNING_ACTIVITY:'Morning routine concern',
+    UNUSUAL_NIGHT_BATHROOM_ACTIVITY:'Night activity concern',UNUSUAL_NIGHT_COMMON_ACTIVITY:'Night activity concern'})[kind]||kind||'Recorded activity';
+}
+function productEventOrigin(event){
+  if(event.source_type==='HUB_RULE'||event.decision_id)return 'Hub rule decision';
+  const key=event.event_key||{};
+  // This exact TEST_ONLY fixture identity is the previously committed GS-178 host-simulation event.
+  // It is a presentation label from the known fixture, never Hub or device attestation.
+  if(profile?.home_id==='gs177-test-product'&&key.physical_device_id==='test-c3-bedroom'&&
+     key.logical_node_id==='bedroom'&&key.origin_session_id===10&&key.event_sequence===1)
+    return 'HOST_SIM · TEST_ONLY';
+  return view?.source==='NODE_ORIGIN_HOST_SIM'?'HOST_SIM · TEST_ONLY':'TEST_ONLY · physical origin not verified';
+}
+function productEvents(events){
+  if(!events?.length)return '<p class="muted" data-empty-events="true">No committed Node or Hub events are currently returned by the authorized caregiver API. This does not mean there was no household activity.</p>';
+  return events.map(event=>{
+    const hubDecision=event.source_type==='HUB_RULE'||Boolean(event.decision_id);
+    const eventKey=event.event_key?JSON.stringify(event.event_key):event.decision_id||event.event_id||'';
+    const time=productTime(event.occurred_at);
+    const room=event.location||event.event_key?.logical_node_id||'Room not reported';
+    const icon=hubDecision?'◉':event.kind?.startsWith('DOOR_')?'🚪':event.kind==='OK_PRESSED'?'❤':'•';
+    const received=event.received_at&&event.received_at!==event.occurred_at
+      ?`<small>Backend received ${esc(productTime(event.received_at))}${event.delayed?' · delayed':''}</small>`:'';
+    return `<article class="event connected-product-event" data-source-origin="${esc(productEventOrigin(event))}" data-event-key="${esc(eventKey)}"><time class="event-time" datetime="${esc(typeof event.occurred_at==='number'?new Date(event.occurred_at*1000).toISOString():event.occurred_at||'')}">${esc(time)}</time><span class="event-icon" aria-hidden="true">${icon}</span><div class="event-detail"><span class="event-pill ${event.tone==='danger'?'red':event.tone==='positive'?'blue':''}">${esc(productEventLabel(event.kind))}</span><p>${esc(room)} · <span class="event-origin">${esc(productEventOrigin(event))}</span></p><details><summary>Event details</summary><code>${esc(eventKey||'Stable decision identity unavailable')}</code></details>${received}</div></article>`;
+  }).join('');
+}
+function homeFreshnessText(home){
+  if(home.source_freshness==='CURRENT'&&home.monitoring==='COVERED')return 'Current observation coverage';
+  if(home.source_freshness==='STALE')return 'Monitoring source stale · status unknown';
+  return 'Monitoring status unknown';
+}
+function homeDeviceSummary(devices,sourceCurrent){
+  if(!devices.length)return '<p class="muted">No NodeHealth records are available for this Home.</p>';
+  return devices.slice(0,4).map(device=>{
+    const reported=device.status||'UNKNOWN';
+    const status=sourceCurrent?reported:'UNKNOWN';
+    const detail=!sourceCurrent&&reported!=='UNKNOWN'
+      ?`Last authenticated report: ${reported} · source not current`
+      :`Coverage ${sourceCurrent?(device.coverage||'UNKNOWN'):'UNKNOWN'}`;
+    return `<div class="home-summary-row" data-node-status="${esc(status)}"><span class="round-icon">◉</span><div><b>${esc(device.logical_node_id||device.physical_node_id||'Node')} · ${esc(status)}</b><p>${esc(detail)}</p></div></div>`;
+  }).join('');
+}
+function homeDecisionSummary(decisions){
+  if(!decisions.length)return '<p class="muted">No committed Hub routine decisions are currently available. Missing observations are not treated as missed activity.</p>';
+  return decisions.slice(0,2).map(decision=>`<div class="home-summary-row" data-hub-decision="${esc(decision.decision_id||decision.event_id||'unknown')}"><span class="round-icon">☀</span><div><b>${esc(productEventLabel(decision.kind))}</b><p>${esc(productTime(decision.occurred_at||decision.decided_at))} · ${esc(decision.reason||decision.details?.reason||'Committed Hub decision')}</p></div></div>`).join('');
+}
 
 function renderHome(){
   if(productSource()){
-    const sourceEvidence=view.source==='NODE_ORIGIN_HOST_SIM'
-      ?'Production Node/Hub code executed in a host simulation; physical sensing remains NOT_RUN.'
-      :'Authenticated TEST_ONLY GS-148 Hub data; physical target and sensor acceptance remain NOT_RUN.';
-    panel(`${dataLabel()}${card('Home monitoring',`<p class="caregiver-state ${view.monitoring==='COVERED'?'good':'pending'}">${esc(view.monitoring)}</p><p>Backend source freshness: ${esc(view.source_freshness)} · latest Hub contact ${esc(view.last_hub_at?new Date(view.last_hub_at*1000).toISOString():'not observed')}.</p><p>Observation coverage is not evidence of resident wellbeing. ${esc(sourceEvidence)}</p>`)}${card('Activity timeline',productEvents(view.recent_events))}${card('Active concerns',`<p>${esc(view.active_incidents?.length||0)} · inspect Incidents for caregiver actions.</p>`)}`);
+    const freshness=view.source_freshness||'UNKNOWN';
+    const heading=freshness==='STALE'?'Monitoring data is stale':
+      freshness==='CURRENT'&&view.monitoring==='COVERED'?'Observation coverage is current':'Monitoring status is unknown';
+    const lastHub=view.last_hub_at?productTime(view.last_hub_at):'No authenticated Hub contact recorded';
+    const decisions=view.decisions||[];
+    const activeIncidents=(view.incidents||[]).filter(item=>item.state!=='RESOLVED');
+    panel(`<div class="test-watermark">Authenticated GS-148 TEST_ONLY caregiver data · Home ${esc(profile.home_id)} · physical C3/S3 qualification NOT_RUN</div><div class="home-layout connected-home"><div class="home-main">
+      <section class="hero connected-home-hero" data-source-freshness="${esc(freshness)}"><div class="hero-row"><div class="hero-icon" aria-hidden="true">${freshness==='CURRENT'&&view.monitoring==='COVERED'?'✓':'?'}</div><div><p class="home-eyebrow">PARIVAR SAATHI · HOME</p><h1>${esc(heading)}</h1><p>Latest authenticated Hub contact: ${esc(lastHub)}. Monitoring coverage is not proof of resident wellbeing.</p></div></div></section>
+      <div class="grid2 routine-grid connected-home-summary">
+        <section class="card" data-home-card="monitoring"><div class="card-row"><span class="round-icon">⌁</span><div><h2>Home monitoring</h2><p class="caregiver-state pending">${esc(homeFreshnessText(view))}</p><p>Backend source: ${esc(view.source_freshness||'UNKNOWN')} · physical status ${esc(view.physical_status||'NOT_RUN')}.</p></div></div></section>
+        <section class="card" data-home-card="devices"><div class="card-row"><span class="round-icon">🔋</span><div><h2>Device health</h2>${homeDeviceSummary(view.devices||[],freshness==='CURRENT'&&view.monitoring==='COVERED')}</div></div></section>
+        <section class="card" data-home-card="routines"><div class="card-row"><span class="round-icon night">☾</span><div><h2>Routine activity</h2>${homeDecisionSummary(decisions)}</div></div></section>
+        <section class="card" data-home-card="concerns"><div class="card-row"><span class="round-icon">!</span><div><h2>Active concerns</h2><p>${activeIncidents.length} unresolved committed concern${activeIncidents.length===1?'':'s'} in the caregiver projection.</p>${activeIncidents.slice(0,2).map(item=>`<p><b>${esc(item.kind)}</b> · ${esc(item.severity||'severity unavailable')} · ${esc(item.state)}</p>`).join('')}</div></div></section>
+      </div>
+      <section class="timeline connected-home-timeline" aria-labelledby="recentEventsTitle"><div class="section-title"><h2 id="recentEventsTitle">Recent important events</h2><span class="muted">Authorized caregiver history</span></div>${productEvents(view.recent_events||[])}</section>
+    </div></div>`);
+    return;
+  }
+  if(!explicitSimulationHome()){
+    panel(`<div class="test-watermark">Authorized caregiver API · Home ${esc(profile?.home_id||'unavailable')}</div>${card('Home data unavailable','<p>The current authorized backend did not provide a recognized Home projection. Monitoring, events and resident status are unknown; simulated data is not shown.</p>')}`);
     return;
   }
   const rows=view?.runs||[];
@@ -221,8 +306,17 @@ async function refresh(){
   try{
     profile=await api('me');
     const home=profile.home_id;
-    const area={home:'overview',devices:'devices',incidents:'incidents',reports:'reports',routines:'routines',engineering:'engineering'}[tab];
-    if(area)view=await api(`homes/${home}/${area}`);
+    const base=`homes/${encodeURIComponent(home)}`;
+    const area={devices:'devices',incidents:'incidents',reports:'reports',routines:'routines',engineering:'engineering'}[tab];
+    if(tab==='home'){
+      const [overview,devices,routines,incidents]=await Promise.all([
+        api(`${base}/overview`),api(`${base}/devices`),api(`${base}/routines`),api(`${base}/incidents`),
+      ]);
+      if([overview,devices,routines,incidents].some(result=>result.home_id!==home||
+          Boolean(result.test_only)!==Boolean(profile.test_only)))
+        throw new Error('authorized_home_projection_mismatch');
+      view={...overview,devices:devices.devices||[],decisions:routines.decisions||[],incidents:incidents.incidents||[]};
+    }else if(area)view=await api(`${base}/${area}`);
     if(tab==='simulation'){
       catalog=catalog||await api(`homes/${home}/sim/catalog`);
       runs=(await api(`homes/${home}/sim/runs`)).runs;

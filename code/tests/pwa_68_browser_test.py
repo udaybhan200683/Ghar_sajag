@@ -271,4 +271,118 @@ class Pwa68BrowserTest(unittest.TestCase):
    try:proc.wait(timeout=5)
    except subprocess.TimeoutExpired:proc.kill();proc.wait()
    shutil.rmtree(profile,ignore_errors=True)
+ def test_authenticated_gs148_home_shows_committed_host_sim_event_and_docked_tabs(self):
+  original=self.web.runtime_config
+  self.web.runtime_config={"mode":"caregiver","backendOrigin":"https://care.gharsajag.in/","caregiverApiConfigured":True,"appVersion":"browser-test","sourceRevision":"0123456789ab"}
+  port=free_port();profile=tempfile.mkdtemp(prefix='ps-connected-product-home-')
+  proc=subprocess.Popen([self.chromium,'--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--remote-allow-origins=*',f'--remote-debugging-port={port}',f'--user-data-dir={profile}','about:blank'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+  try:
+   version=None
+   for _ in range(100):
+    try:version=json.loads(urlopen(f'http://127.0.0.1:{port}/json/version',timeout=.5).read());break
+    except Exception:time.sleep(.1)
+   self.assertIsNotNone(version,'Chromium DevTools endpoint did not start')
+   req=Request(f'http://127.0.0.1:{port}/json/new?{quote(self.base,safe="/:?=&")}',method='PUT')
+   page=json.loads(urlopen(req,timeout=3).read());ws=websocket.create_connection(page['webSocketDebuggerUrl'],timeout=10)
+   try:
+    mock=r'''(()=>{
+      const home='gs177-test-product';let role=null,homeSource='AUTHENTICATED_GS148_TEST_ONLY';window.__caregiverRequests=[];
+      window.__setHomeSource=value=>{homeSource=value};
+      const eventKey={physical_device_id:'test-c3-bedroom',logical_node_id:'bedroom',origin_session_id:10,event_sequence:1};
+      const event={event_id:'evt-host-sim-1',event_key:eventKey,kind:'MOTION',location:'bedroom',occurred_at:1792442670,received_at:1792442675,source_type:'NODE',tone:'positive'};
+      const profile=()=>({account_id:'browser-owner',email:'owner@example.org',home_id:home,role,test_only:true,expires_at:4102444800,backend_revision:'browser-test'});
+      const send=(body,status=200)=>Promise.resolve(new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}}));
+      const original=window.fetch.bind(window);
+      window.fetch=async(input,options={})=>{
+        const url=new URL(String(input));
+        if(url.origin!=='https://care.gharsajag.in')return original(input,options);
+        const path=url.pathname.replace('/lite/v1/','');window.__caregiverRequests.push(path);
+        if(path==='auth/login'&&options.method==='POST'){role='ADMIN';return send(profile())}
+        if(path==='me')return role?send(profile()):send({error:'not_authorized'},403);
+        if(!role)return send({error:'not_authorized'},403);
+        const prefix='homes/'+home+'/';if(!path.startsWith(prefix))return send({error:'not_authorized'},403);
+        const sub=path.slice(prefix.length);
+        if(sub==='overview')return send({home_id:home,test_only:true,source:homeSource,physical_status:'NOT_RUN',physical_status_reason:'TEST_ONLY_PHYSICAL_NOT_RUN',physical_data_contract:'GS-148_CLOUDSYNC_V2',monitoring:'UNKNOWN',source_freshness:'STALE',last_hub_at:1792440000,event_count:1,recent_events:[event]});
+        if(sub==='devices')return send({home_id:home,test_only:true,source:homeSource,devices:[{physical_node_id:'test-c3-bedroom',logical_node_id:'bedroom',status:'ONLINE',coverage:'COVERED',profile_id:'default'}]});
+        if(sub==='routines')return send({home_id:home,test_only:true,source:homeSource,learning_status:'NOT_ENABLED',decisions:[]});
+        if(sub==='incidents')return send({home_id:home,test_only:true,source:homeSource,incidents:[]});
+        if(sub==='reports')return send({home_id:home,test_only:true,source:homeSource,event_count:1,recent_events:[event]});
+        if(sub==='auth/logout'&&options.method==='POST'){role=null;return send({status:'logged_out'})}
+        if(sub==='engineering')return send({error:'not_authorized'},403);
+        return send({error:'not_found'},404);
+      };
+    })()'''
+    cdp(ws,'Page.enable');cdp(ws,'Runtime.enable')
+    cdp(ws,'Emulation.setDeviceMetricsOverride',{'width':390,'height':844,'deviceScaleFactor':1,'mobile':True})
+    cdp(ws,'Page.addScriptToEvaluateOnNewDocument',{'source':mock})
+    cdp(ws,'Page.navigate',{'url':self.base+'/'})
+    def evaluate(expression):
+     return cdp(ws,'Runtime.evaluate',{'expression':expression,'returnByValue':True}).get('result',{}).get('value')
+    deadline=time.time()+15;screen=''
+    while time.time()<deadline:
+     screen=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'Sign in to your authorized Home' in screen:break
+     time.sleep(.1)
+    self.assertIn('Sign in to your authorized Home',screen)
+    evaluate("(()=>{document.querySelector('[name=email]').value='owner@example.org';document.querySelector('[name=password]').value='test-password';document.querySelector('#loginForm').requestSubmit()})()")
+    deadline=time.time()+15;home_text=''
+    while time.time()<deadline:
+     home_text=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'Motion recorded' in home_text:break
+     time.sleep(.1)
+    self.assertIn('Monitoring data is stale',home_text)
+    self.assertIn('Monitoring source stale · status unknown',home_text)
+    self.assertIn('Motion recorded',home_text)
+    self.assertIn('bedroom',home_text)
+    self.assertIn('HOST_SIM · TEST_ONLY',home_text)
+    self.assertIn('physical C3/S3 qualification NOT_RUN',home_text)
+    self.assertNotIn('Run a test scenario',home_text)
+    node=evaluate("(()=>{const e=document.querySelector('[data-home-card=devices] [data-node-status]');return {status:e?.dataset.nodeStatus,text:e?.innerText}})()")
+    self.assertEqual(node['status'],'UNKNOWN')
+    self.assertIn('Last authenticated report: ONLINE · source not current',node['text'])
+    event=evaluate("(()=>{const e=document.querySelector('.connected-product-event');return {origin:e?.dataset.sourceOrigin,key:e?.getAttribute('data-event-key'),homeSource:document.querySelector('.test-watermark')?.innerText}})()")
+    self.assertEqual(event['origin'],'HOST_SIM · TEST_ONLY')
+    self.assertEqual(event['key'],json.dumps({'physical_device_id':'test-c3-bedroom','logical_node_id':'bedroom','origin_session_id':10,'event_sequence':1},separators=(',',':')))
+    nav=evaluate("(()=>{const n=document.querySelector('.bottom-nav'),h=document.querySelector('.topbar'),r=n.getBoundingClientRect(),hr=h.getBoundingClientRect(),s=getComputedStyle(n);return {position:s.position,left:Math.round(r.left),width:Math.round(r.width),viewport:innerWidth,radius:s.borderRadius,shadow:s.boxShadow,gap:Math.round(r.top-hr.bottom),adjacent:h.nextElementSibling===n,scrollWidth:n.scrollWidth,clientWidth:n.clientWidth,tabs:Array.from(n.querySelectorAll('button[data-tab]')).map(b=>b.dataset.tab)}})()")
+    self.assertEqual(nav['position'],'sticky')
+    self.assertEqual(nav['left'],0)
+    self.assertEqual(nav['width'],nav['viewport'])
+    self.assertEqual(nav['radius'],'0px')
+    self.assertIn(nav['shadow'],('none','rgba(0, 0, 0, 0) 0px 0px 0px 0px'))
+    self.assertLessEqual(abs(nav['gap']),1)
+    self.assertTrue(nav['adjacent'])
+    self.assertEqual(nav['tabs'],['home','simulation','reports','devices','incidents','routines','engineering','settings'])
+    self.assertGreater(nav['scrollWidth'],nav['clientWidth'])
+    self.assertFalse(any(path.startswith(('sim/','simulation')) for path in evaluate('window.__caregiverRequests')))
+    evaluate("document.querySelector('[data-tab=settings]').click()")
+    deadline=time.time()+15
+    while time.time()<deadline and evaluate("!!document.querySelector('#logoutButton')") is not True:time.sleep(.1)
+    self.assertIsNotNone(evaluate("document.querySelector('#logoutButton')"))
+    settings_tab=evaluate("(()=>{const b=document.querySelector('[data-tab=settings]'),n=document.querySelector('.bottom-nav').getBoundingClientRect(),r=b.getBoundingClientRect();return {current:b.getAttribute('aria-current'),active:b.classList.contains('active'),visible:r.left>=n.left&&r.right<=n.right}})()")
+    self.assertEqual(settings_tab,{'current':'page','active':True,'visible':True})
+    evaluate("document.querySelector('[data-tab=devices]').click()")
+    deadline=time.time()+15
+    while time.time()<deadline and 'Devices and NodeHealth' not in (evaluate("document.querySelector('#homeTab')?.innerText||''") or ''):time.sleep(.1)
+    self.assertIn('Devices and NodeHealth',evaluate("document.querySelector('#homeTab').innerText"))
+    evaluate("document.querySelector('[data-tab=reports]').click()")
+    deadline=time.time()+15
+    while time.time()<deadline and 'Committed event history' not in (evaluate("document.querySelector('#homeTab')?.innerText||''") or ''):time.sleep(.1)
+    self.assertIn('Committed event history',evaluate("document.querySelector('#homeTab').innerText"))
+    evaluate("window.__setHomeSource('UNRECOGNIZED_SOURCE');document.querySelector('[data-tab=home]').click()")
+    deadline=time.time()+15;unknown_text=''
+    while time.time()<deadline:
+     unknown_text=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
+     if 'simulated data is not shown' in unknown_text:break
+     time.sleep(.1)
+    self.assertIn('Monitoring, events and resident status are unknown; simulated data is not shown',unknown_text)
+    self.assertNotIn('Motion recorded',unknown_text)
+    self.assertIsNone(evaluate("document.querySelector('.connected-product-event')"))
+    print('PASS authenticated GS-148 Home browser regression: committed HOST_SIM EventKey/room/time, stale UNKNOWN, stale Node ONLINE downgraded to UNKNOWN, full-width docked navigation, existing tabs preserved, unrecognized source fail-closed; no simulator request')
+   finally:ws.close()
+  finally:
+   self.web.runtime_config=original
+   proc.terminate()
+   try:proc.wait(timeout=5)
+   except subprocess.TimeoutExpired:proc.kill();proc.wait()
+   shutil.rmtree(profile,ignore_errors=True)
 if __name__=='__main__':unittest.main(verbosity=2)
