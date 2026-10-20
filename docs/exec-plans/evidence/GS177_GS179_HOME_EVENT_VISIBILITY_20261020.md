@@ -66,15 +66,23 @@ TEST_ONLY Engineering permission.
   modules, 25 physical cases and 22/22 mapping tests.
 - Local Android assembly was attempted with the existing TEST_ONLY LAN profile.
   PWA runtime checks passed 8/8; APK assembly stopped with exit 127 because
-  Gradle is not installed in this WSL environment. No APK or phone result is
-  claimed by this local attempt. The WSL-bound HTTPS listener passed its
+  Gradle is not installed in this WSL environment. The existing Android Actions
+  workflow then succeeded as run 39371372388 on evidence commit
+  `5a7a10965e8734bfff567d362e7254845a1633f1`. It produced a 2,914,926-byte
+  debug APK with SHA-256
+  `d36eab8982a655fbb6678eb7124c46c3e289b8681beb4b0452ead1809c14eab1`
+  (artifact 12241890946). Its metadata shows
+  `GS177_LOCAL_LAN_TEST_ONLY=0` and the default Render origin, so this artifact
+  is not suitable for reading the owner's laptop PostgreSQL event and should
+  not be installed for this task. It is build/signature evidence only. The
+  WSL-bound HTTPS listener passed its
   certificate-verified `/readyz` check, but the existing Windows Wi-Fi HTTPS
   forwarding endpoint on port 443 refused the connection. Thus the configured
   laptop LAN APK origin is not presently reachable from a phone. A refreshed
-  APK can be built by the existing Android Actions workflow, but phone use must
-  wait until the already-approved scoped forwarding is healthy. No forwarding
-  or firewall rule was changed in this task. Owner-phone installation and
-  acceptance remain NOT_RUN.
+  local-LAN APK can be built by the existing Android Actions workflow after
+  restoring the pinned endpoint or completing an approved TLS/origin rotation.
+  No forwarding or firewall rule was changed in this task. Owner-phone
+  installation and acceptance remain NOT_RUN.
 - `git diff --check` — PASS.
 
 The backend record and physical evidence were read only; no synthetic event

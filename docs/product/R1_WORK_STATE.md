@@ -5351,8 +5351,14 @@ frontend 1/1; feature coverage 217 features / 257 modules / 25 physical cases
 with 22/22 mapping tests; live laptop read-only browser `HOST_SIM_PASS`;
 `git diff --check` PASS. Android local assembly reached the build step after
 PWA runtime 8/8 and stopped with exit 127 because Gradle is absent from WSL.
-Physical phone, Node sensor, Hub publication and GS-117 E2E acceptance remain
-NOT_RUN. Exact evidence and dependency boundaries are in
+The existing Actions workflow succeeded as run 39371372388 and assembled a
+2,914,926-byte signed debug APK (SHA-256
+`d36eab8982a655fbb6678eb7124c46c3e289b8681beb4b0452ead1809c14eab1`, artifact
+12241890946). It used the default Render origin with
+`GS177_LOCAL_LAN_TEST_ONLY=0`, so this build is not the laptop-connected APK and
+must not be installed to test the current laptop event. Physical phone, Node
+sensor, Hub publication and GS-117 E2E acceptance remain NOT_RUN. Exact
+evidence and dependency boundaries are in
 [`GS177_GS179_HOME_EVENT_VISIBILITY_20261020.md`](../exec-plans/evidence/GS177_GS179_HOME_EVENT_VISIBILITY_20261020.md).
 
 The WSL-bound HTTPS listener passed certificate-verified `/readyz`; the
