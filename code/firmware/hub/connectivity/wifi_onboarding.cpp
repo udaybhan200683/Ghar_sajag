@@ -110,6 +110,11 @@ WifiSetupResult WifiOnboarding::commit(std::uint64_t now_ms,
         last_binding_generation_ = 0;
         return WifiSetupResult::Unauthorized;
     }
+    if (!authority_.complete_setup_operation(now_ms, generation)) {
+        last_scan_count_ = 0;
+        last_binding_generation_ = 0;
+        return WifiSetupResult::Unauthorized;
+    }
     last_scan_count_ = 0;
     last_binding_generation_ = 0;
     notify_s3_wifi_credentials_ready();

@@ -20,6 +20,13 @@ public:
     // device-specific installer session and current Home/ownership epoch; it
     // must change on transfer, revocation or a new session.
     virtual std::uint64_t current_generation(std::uint64_t now_ms) const = 0;
+    // Called only after a successful protected credential commit and a final
+    // current-generation check. One-use permit authorities close the session
+    // here; simple host policy authorities may retain their current behavior.
+    virtual bool complete_setup_operation(std::uint64_t now_ms,
+                                          std::uint64_t generation) {
+        return generation != 0 && current_generation(now_ms) == generation;
+    }
 };
 
 enum class WifiScanSecurity : std::uint8_t { Open, Wep, Wpa2, Wpa3, Unknown };
