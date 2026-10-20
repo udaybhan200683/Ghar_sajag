@@ -8,6 +8,9 @@ import subprocess
 from gs178_stack import ProductStack, HOME, product_stack_for_test
 from ghar_sajag.ownership_registry import AuthorizedHomeOperation
 
+CODE_ROOT = Path(__file__).resolve().parents[2]
+CAREGIVER_BROWSER = CODE_ROOT / "tests" / "support" / "gs178_browser.cjs"
+
 
 class NodeOriginVertical(unittest.TestCase):
     def setUp(self):
@@ -301,7 +304,7 @@ class NodeOriginVertical(unittest.TestCase):
         reports=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
         reports.mkdir(parents=True,exist_ok=True)
         env={**os.environ,"NODE_EXTRA_CA_CERTS":str(self.stack.ca_path)}
-        result=subprocess.run(["node","tests/support/gs178_browser.cjs"],
+        result=subprocess.run(["node",str(CAREGIVER_BROWSER)],
             input=json.dumps({"base":self.stack.human_origin,"password":self.stack.password,
                               "dom":str(reports/"caregiver_rule_dom.html"),
                               "ruleKind":"MORNING_ROUTINE_COMPLETED","nodeEventCount":3}),
@@ -386,7 +389,7 @@ class NodeOriginVertical(unittest.TestCase):
         reports = Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
         reports.mkdir(parents=True, exist_ok=True)
         env = {**os.environ, "NODE_EXTRA_CA_CERTS": str(self.stack.ca_path)}
-        result = subprocess.run(["node", "tests/support/gs178_browser.cjs"],
+        result = subprocess.run(["node", str(CAREGIVER_BROWSER)],
             input=json.dumps({"base": self.stack.human_origin, "password": self.stack.password,
                               "dom": str(reports / "caregiver_routines_dom.html"),
                               "ruleKind": "MORNING_ROUTINE_COMPLETED", "routineKind": "MORNING_ROUTINE_COMPLETED",
@@ -447,7 +450,7 @@ class NodeOriginVertical(unittest.TestCase):
         reports=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
         reports.mkdir(parents=True,exist_ok=True)
         env={**os.environ,"NODE_EXTRA_CA_CERTS":str(self.stack.ca_path)}
-        result=subprocess.run(["node","tests/support/gs178_browser.cjs"],
+        result=subprocess.run(["node",str(CAREGIVER_BROWSER)],
             input=json.dumps({"base":self.stack.human_origin,"password":self.stack.password,
                               "dom":str(reports/"caregiver_dom.html"),
                               "eventKeys":timeline_keys,

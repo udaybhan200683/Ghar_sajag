@@ -89,11 +89,6 @@ function Get-ExactFirewallRule([string]$ExpectedSubnet) {
     return $rule
 }
 
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-        [Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Stop-WithError "administrator_token_required_for_scoped_portproxy_and_firewall_rule"
-}
-
 $adapter = Get-NetAdapter -Name "Wi-Fi" -ErrorAction SilentlyContinue
 if ($null -eq $adapter -or $adapter.Status -ne "Up") { Stop-WithError "wifi_adapter_not_up" }
 $profile = Get-NetConnectionProfile -InterfaceAlias "Wi-Fi" -ErrorAction SilentlyContinue |
@@ -111,19 +106,55 @@ $wslPrivate = Is-Rfc1918 $WslAddress
 $scope = Get-Ipv4Network $actualAddress $ipInfo.PrefixLength
 
 if ($Action -eq "Audit") {
+    $firewallReadable = $false
+    $firewallExists = $null
+    $firewallReadStatus = "QUERY_FAILED"
+    try {
+        $firewall = Get-NetFirewallRule -Name $RuleName -ErrorAction Stop
+        $firewallReadable = $true
+        $firewallExists = ($null -ne $firewall)
+        $firewallReadStatus = if ($firewallExists) { "READABLE" } else { "ABSENT" }
+    } catch {
+        if ($_.Exception.Message -match 'Access is denied|Unauthorized|permission') {
+            $firewallReadStatus = "BLOCKED_ADMIN_READ_PERMISSION"
+        }
+    }
+    $listenerCount = $null
+    $listenerReadStatus = "QUERY_FAILED"
+    try {
+        $listenerCount = @(Get-NetTCPConnection -State Listen -LocalAddress $actualAddress `
+            -LocalPort $ListenPort -ErrorAction Stop).Count
+        $listenerReadStatus = "READABLE"
+    } catch {
+        if ($_.Exception.Message -match 'Access is denied|Unauthorized|permission') {
+            $listenerReadStatus = "BLOCKED_ADMIN_READ_PERMISSION"
+        }
+    }
     [pscustomobject]@{
         Action = $Action
         WifiName = $profile.Name
         NetworkCategory = $profile.NetworkCategory
         WifiAddress = $actualAddress
         WifiPrefixLength = $ipInfo.PrefixLength
+        WifiAddressMatchesExpected = if ([string]::IsNullOrWhiteSpace($WifiAddress)) { $null } else { $actualAddress -eq $WifiAddress }
+        WifiNameMatchesExpected = if ([string]::IsNullOrWhiteSpace($ExpectedWifiName)) { $null } else { $profile.Name -eq $ExpectedWifiName }
         ScopedRemoteSubnet = $scope
         WslAddress = $WslAddress
         PortProxyRows = (Get-PortProxyRows | ConvertTo-Json -Compress)
-        FirewallRuleExists = ($null -ne (Get-NetFirewallRule -Name $RuleName -ErrorAction SilentlyContinue))
-        Port443Listeners = (@(Get-NetTCPConnection -State Listen -LocalAddress $actualAddress -LocalPort $ListenPort -ErrorAction SilentlyContinue).Count)
+        FirewallRuleReadStatus = $firewallReadStatus
+        FirewallRuleExists = $firewallExists
+        Port443ListenerReadStatus = $listenerReadStatus
+        Port443Listeners = $listenerCount
     } | ConvertTo-Json -Compress
     exit 0
+}
+
+# Only Start and Stop can mutate Windows state. Audit performs read-only
+# adapter, route, firewall and socket queries and is available without an
+# administrative token. Never weaken the mutation gate below.
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Stop-WithError "administrator_token_required_for_scoped_portproxy_and_firewall_rule"
 }
 
 if (-not $wifiPrivate -or -not $addressMatches -or -not $expectedNameMatches -or

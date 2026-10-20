@@ -5457,3 +5457,48 @@ current enrolled TEST_ONLY Hub authority and a trusted-time source. GS-59 and
 GS-179 remain In Progress. Physical cases and production credential/security
 qualification remain NOT_RUN; Hub migration `clean migration commits` and P0
 `product_status=PARTIAL` remain open.
+
+## GS-179 laptop service recovery and read-only Windows diagnostics — 2026-10-20
+
+The prior laptop-service failure is resolved on the Linux/WSL side. Root cause
+was systemd `ExecStartPost=proxy-start`: the Windows portproxy/firewall action
+correctly refused the non-administrator token, causing systemd to terminate
+the caregiver service. Its unconditional `ExecStopPost` then stopped the
+persistent PostgreSQL server, making later worker database/TLS errors
+secondary. The corrected user unit has no automatic Windows network hooks;
+failed application startup preserves PostgreSQL, while intentional clean stop
+stops only the local database. Start/restart load the existing private
+configuration and wait up to 30 seconds for verified local DB and HTTPS
+readiness.
+
+The existing PostgreSQL cluster started cleanly, with 13/13 migration records
+present. A read-only TLS query after the isolated E2E run reported 6 households,
+7 caregiver accounts, 1 existing event, 1 COMMITTED receipt, 1 NodeHealth row,
+and no Hub decisions. E2E used temporary isolated schemas. No caregiver
+account, session, Home, event, or private credential was altered. Local
+PostgreSQL and caregiver HTTPS both pass readiness; repeated start and restart
+also pass. This does not establish Hub ingress readiness.
+
+Windows read-only audit observed Wi-Fi `192.168.1.3/24`, WSL NAT
+`172.17.152.10`, and the existing mapping `192.168.1.6:443` to WSL TCP 8444.
+There is no Windows TCP 443 listener. The server certificate and existing
+LAN-origin configuration remain bound to `.6`; the expected address is not the
+current Wi-Fi address. Firewall details were blocked by non-admin read
+permissions, and router DHCP reservation/lease evidence was unavailable, so
+`.6` availability is UNCONFIRMED. No Windows address, portproxy, firewall,
+certificate, WSL networking or Android artifact was changed. Windows-to-WSL
+TCP connected, but Windows Schannel reported unknown certificate revocation
+status for the diagnostic HTTPS request; validation was not bypassed. Phone
+LAN remains BLOCKED, Hub ingress remains NOT_CONFIGURED, and GS-117 phone/
+physical acceptance remains NOT_RUN.
+
+Focused results: registered local GS-179 PostgreSQL E2E 46/46; affected browser
+scenarios 3/3; GS-179 lifecycle/security 14/14; validation framework 51/51;
+traceability 221 features / 263 modules / 26 physical cases and mapping tests
+22/22. `validation-fast` and `release-gate-final` were not run. Detailed commands,
+readiness output, Windows limitations and the safe next address decision are in
+[`GS-179 laptop service recovery evidence`](../exec-plans/evidence/GS179_LAPTOP_SERVICE_RECOVERY_20261020.md).
+GS-179 remains In Progress; GS-59's event contract is unchanged. GS-117 phone
+and physical acceptance remain NOT_RUN. The next step is confirmation from the
+network owner that `.6` is reserved/available, followed by separate
+authorization for any Windows networking update.

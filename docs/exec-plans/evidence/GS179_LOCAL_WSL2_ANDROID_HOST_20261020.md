@@ -1,5 +1,14 @@
 # GS-179 local WSL2 caregiver validation host — 2026-10-20
 
+> **Recovery update (2026-10-20):** The earlier forwarding description below
+> records the setup at the time it was validated. The current Wi-Fi address is
+> `192.168.1.3`, while the existing certificate, Android origin and Windows
+> forwarding mapping use `192.168.1.6`. No Windows network setting was changed.
+> The recovered WSL backend is locally ready, but the Windows-to-phone route is
+> currently unavailable. The current service lifecycle and network findings
+> are recorded in
+> [`GS-179 laptop service recovery`](GS179_LAPTOP_SERVICE_RECOVERY_20261020.md).
+
 ## Result and scope
 
 The owner selected the existing Windows 10 laptop and WSL2 for no-cost,
@@ -25,21 +34,26 @@ physical Hub identity or client credential is installed on this laptop.
   may change with DHCP. The Android trust profile and server certificate are
   bound to this exact address and must be deliberately renewed together if it
   changes).
-- Windows TCP 443 is port-proxied to the current WSL NAT address on TCP 8444.
-  The app binds to the WSL interface and serves TLS 1.2 or later.
-- Windows firewall rule `GS179-Local-LAN-HTTPS` permits inbound TCP 443 only
-  from the current Wi-Fi subnet, on the Wi-Fi interface and local address.
-  The observed subnet is `192.168.1.0/24`. No router port-forward or public
-  listener is configured.
+- The existing Windows mapping is `192.168.1.6:443` to the current WSL NAT
+  address on TCP 8444. It is not usable while Wi-Fi is `192.168.1.3`; read-only
+  inspection found no Windows TCP 443 listener. The firewall rule's current
+  presence/scope could not be verified using the non-administrator account.
+  No router port-forward or public listener is configured.
+- The app binds to the WSL interface and serves TLS 1.2 or later. Windows can
+  reach the WSL TCP listener, but Windows curl's Schannel validation returned
+  `CERT_TRUST_REVOCATION_STATUS_UNKNOWN` when supplied the local CA. This was
+  not bypassed. WSL's CA- and IP-SAN-verified `/readyz` check passes.
 - The PostgreSQL listener is only `127.0.0.1:55432`. Its HBA rejects remote
   hosts; the application role uses SCRAM and `sslmode=verify-full` against the
   private local PostgreSQL test CA.
 - PostgreSQL was checked with `fsync=on`, `synchronous_commit=on`, and
   `full_page_writes=on`. A service restart preserved the committed event.
   A separate machine-loss backup/restore rehearsal was not run.
-- The Windows Wi-Fi profile is Public. The firewall rule additionally pins
-  address, interface and remote subnet. Re-run the provided audit/start command
-  after network or WSL address changes; mismatched addresses fail closed.
+- The observed Windows Wi-Fi profile is Public. The firewall rule was
+  previously configured with an interface/address/subnet scope, but that scope
+  could not be re-read without administrator permission. Re-run the read-only
+  audit after a network or WSL address change; mismatched addresses fail
+  closed.
 - The laptop must remain awake, logged in to WSL and connected to the same
   trusted Wi-Fi while the phone test is running. Mobile-data access is not
   configured. Do not add a router port-forward; any off-LAN VPN/overlay remains
@@ -98,11 +112,14 @@ state. The `event` command intentionally creates a source-linked event only
 for an empty GS-179 persistent test Home; it refuses if an event already
 exists. Do not run it to repeat the already committed event.
 
-`start` enables/restarts the WSL user service, PostgreSQL and the bounded
-Windows proxy, then validates both WSL and Windows-Wi-Fi HTTPS readiness.
-`restart` does the same without reinitializing the database. `status`/`logs`
-are for recovery and diagnosis. The service does not install a Windows startup
-task; after a Windows/WSL restart, open the existing WSL distro and run `start`.
+`start` and `restart` start the WSL user service and PostgreSQL only, wait up to
+30 seconds for verified local PostgreSQL and caregiver HTTPS readiness, then
+report phone-LAN and Hub-ingress states separately. They do not start or stop
+Windows forwarding. `proxy-audit` is read-only. `proxy-start` and `proxy-stop`
+remain explicit Windows network mutation commands and were not invoked during
+this recovery. `status`/`logs` are for diagnosis. The service does not install
+a Windows startup task; after a Windows/WSL restart, open the existing WSL
+distro and run `start`.
 
 ## Validation evidence
 

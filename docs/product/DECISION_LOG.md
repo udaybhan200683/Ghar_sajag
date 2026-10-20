@@ -1231,3 +1231,16 @@ tests (22/22). The laptop service remains stopped after its Windows-forwarding
 startup failure, and no listener was activated. See
 [`GS-179 continuous-ingress audit`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md).
 GS-D031, GS-D032 and `CONTEXT_VERSION` are unchanged.
+
+## GS-179 laptop lifecycle recovery — 2026-10-20 (operational evidence; no decision)
+
+The laptop caregiver service previously coupled local backend startup to an
+administrator-only Windows forwarding action. The GS-179 recovery removes
+Windows forwarding from automatic Linux systemd start/stop, preserves
+PostgreSQL when the caregiver process fails, and waits for bounded local TLS
+readiness. This is an operational reliability correction under existing
+GS-179 scope; it creates no new product/security policy, does not alter
+GS-D031 or GS-D032, and does not authorize Windows network changes. Current
+local-vs-phone readiness and unresolved `.6` address availability are recorded
+in [`GS-179 laptop service recovery evidence`](../exec-plans/evidence/GS179_LAPTOP_SERVICE_RECOVERY_20261020.md).
+`CONTEXT_VERSION` remains unchanged.

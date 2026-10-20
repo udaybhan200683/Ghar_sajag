@@ -45,6 +45,7 @@ load_config() {
     export LD_LIBRARY_PATH="$PG_ROOT/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     export PYTHONPATH="$PY_DEPS:$REPO_ROOT/code/backend:$REPO_ROOT/code/validation:$REPO_ROOT/code/tools/sim"
     export GS179_ANDROID_CA="$ANDROID_CA"
+    export GS179_LOCAL_PG_CA="$PG_CA"
 }
 
 wsl_ipv4() {
@@ -126,6 +127,16 @@ proxy_stop() {
         -WslAddress "$current_wsl" -PreviousWslAddress "$previous" \
         -ExpectedWifiName "$GS179_WIFI_NAME"
     rm -f "$WINDOWS_TARGET_FILE"
+}
+
+proxy_audit() {
+    load_config
+    local current_wsl="$(wsl_ipv4 || true)"
+    local win_script
+    win_script="$(wslpath -w "$PROXY_PS1")"
+    windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" \
+        -Action Audit -WifiAddress "$GS179_WINDOWS_WIFI_IPV4" \
+        -WslAddress "$current_wsl" -ExpectedWifiName "$GS179_WIFI_NAME"
 }
 
 provision() {
@@ -279,7 +290,6 @@ StartLimitBurst=4
 [Service]
 Type=simple
 ExecStart=/bin/bash $script_path run
-ExecStartPost=/bin/bash $script_path proxy-start
 ExecStopPost=/bin/bash $script_path stop-post
 Restart=on-failure
 RestartSec=5
@@ -309,25 +319,137 @@ run_service() {
 }
 
 stop_post() {
-    proxy_stop || true
+    local service_result="${SERVICE_RESULT:-unknown}"
+    if [[ "$service_result" != "success" ]]; then
+        printf 'GS179_STOP_POST: service_result=%s; PostgreSQL left running for local recovery\n' "$service_result"
+        return 0
+    fi
     if [[ -x "$PG_BIN/pg_ctl" && -d "$PG_DATA" ]] && pg_ctl_status; then
         LD_LIBRARY_PATH="$PG_ROOT/usr/lib/x86_64-linux-gnu" \
             "$PG_BIN/pg_ctl" -D "$PG_DATA" -m fast -w stop
     fi
 }
 
+postgres_health_check() {
+    if ! pg_ctl_status; then
+        printf 'POSTGRES_READY=FAIL reason=server_not_running\n'
+        return 1
+    fi
+    if ! GS179_LOCAL_SERVER_DSN="$GS179_LOCAL_SERVER_DSN" GS179_LOCAL_PG_CA="$GS179_LOCAL_PG_CA" \
+        python3 - <<'PY' >/dev/null 2>&1
+import os
+from pathlib import Path
+import psycopg
+from psycopg.conninfo import conninfo_to_dict
+
+dsn = os.environ["GS179_LOCAL_SERVER_DSN"]
+fields = conninfo_to_dict(dsn)
+expected_ca = Path(os.environ["GS179_LOCAL_PG_CA"]).resolve(strict=True)
+if (fields.get("host") != "127.0.0.1" or fields.get("port") != "55432" or
+        fields.get("dbname") != "gs179_monitoring" or fields.get("user") != "gs179_app" or
+        fields.get("sslmode") != "verify-full" or
+        Path(fields.get("sslrootcert", "")).resolve(strict=True) != expected_ca):
+    raise SystemExit("local_postgres_identity_or_tls_config_mismatch")
+with psycopg.connect(dsn, connect_timeout=3) as connection:
+    connection.execute("SET TRANSACTION READ ONLY")
+    actual = connection.execute(
+        "SELECT current_database(), current_user, current_setting('fsync'), "
+        "current_setting('synchronous_commit'), current_setting('full_page_writes'), "
+        "(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid())"
+    ).fetchone()
+if actual != ("gs179_monitoring", "gs179_app", "on", "on", "on", True):
+    raise SystemExit("local_postgres_identity_tls_or_durability_check_failed")
+PY
+    then
+        printf 'POSTGRES_READY=FAIL reason=verified_readiness_check_failed\n'
+        return 1
+    fi
+    printf 'POSTGRES_READY=PASS tls=verify-full durability=fsync,synchronous_commit,full_page_writes\n'
+}
+
+local_https_health_check() {
+    local address
+    address="$(wsl_ipv4 || true)"
+    if [[ -z "$address" ]]; then
+        printf 'CAREGIVER_HTTPS_READY=FAIL reason=wsl_ipv4_unavailable\n'
+        return 1
+    fi
+    if ! curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
+        --cacert "$ANDROID_CA" --resolve "$GS179_WINDOWS_WIFI_IPV4:$APP_PORT:$address" \
+        "https://$GS179_WINDOWS_WIFI_IPV4:$APP_PORT/readyz"; then
+        printf 'CAREGIVER_HTTPS_READY=FAIL reason=local_tls_readiness_failed\n'
+        return 1
+    fi
+    printf '\nCAREGIVER_HTTPS_READY=PASS tls=ca_and_ip_san_verified\n'
+}
+
+phone_lan_health_check() {
+    local observed_ip observed_name
+    observed_ip="$(windows_wifi_address 2>/dev/null || true)"
+    observed_name="$(windows_wifi_name 2>/dev/null || true)"
+    if [[ -z "$observed_ip" || -z "$observed_name" ]]; then
+        printf 'PHONE_LAN_REACHABLE=UNKNOWN reason=windows_wifi_read_unavailable\n'
+        return 0
+    fi
+    if [[ "$observed_ip" != "$GS179_WINDOWS_WIFI_IPV4" ]]; then
+        printf 'PHONE_LAN_REACHABLE=BLOCKED_CONFIG_MISMATCH expected_address=%s observed_address=%s\n' \
+            "$GS179_WINDOWS_WIFI_IPV4" "$observed_ip"
+        return 0
+    fi
+    if [[ "$observed_name" != "$GS179_WIFI_NAME" ]]; then
+        printf 'PHONE_LAN_REACHABLE=BLOCKED_CONFIG_MISMATCH reason=wifi_identity_mismatch\n'
+        return 0
+    fi
+    if curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
+        --cacert "$ANDROID_CA" "https://$GS179_WINDOWS_WIFI_IPV4/readyz"; then
+        printf '\nPHONE_LAN_REACHABLE=PASS tls=ca_and_ip_san_verified\n'
+    else
+        printf 'PHONE_LAN_REACHABLE=FAIL reason=existing_windows_forwarding_or_endpoint_unavailable\n'
+    fi
+    return 0
+}
+
 health_check() {
     load_config
-    local address
-    address="$(wsl_ipv4)"
-    [[ -n "$address" ]] || fail "wsl_ipv4_unavailable"
-    curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
-        --cacert "$ANDROID_CA" --resolve "$GS179_WINDOWS_WIFI_IPV4:$APP_PORT:$address" \
-        "https://$GS179_WINDOWS_WIFI_IPV4:$APP_PORT/readyz"
-    printf '\n'
-    curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
-        --cacert "$ANDROID_CA" "https://$GS179_WINDOWS_WIFI_IPV4/readyz"
-    printf '\n'
+    local local_ready=0
+    if postgres_health_check; then :; else local_ready=1; fi
+    if local_https_health_check; then :; else local_ready=1; fi
+    if (( local_ready == 0 )); then
+        printf 'LOCAL_BACKEND_READY=PASS\n'
+    else
+        printf 'LOCAL_BACKEND_READY=FAIL\n'
+    fi
+    phone_lan_health_check
+    printf 'HUB_INGRESS_READY=NOT_CONFIGURED (caregiver service has no active authenticated Hub ingress)\n'
+    return "$local_ready"
+}
+
+wait_for_local_backend() {
+    local attempt
+    for attempt in $(seq 1 30); do
+        if postgres_health_check >/dev/null 2>&1 && local_https_health_check >/dev/null 2>&1; then
+            return 0
+        fi
+        if (( attempt < 30 )); then sleep 1; fi
+    done
+    printf 'GS179_STARTUP_READINESS: local PostgreSQL/caregiver HTTPS did not become ready within 30 seconds\n' >&2
+    return 1
+}
+
+start_service() {
+    load_config
+    systemctl --user reset-failed gs179-laptop.service
+    systemctl --user start gs179-laptop.service
+    wait_for_local_backend || { health_check || true; return 1; }
+    health_check
+}
+
+restart_service() {
+    load_config
+    systemctl --user reset-failed gs179-laptop.service
+    systemctl --user restart gs179-laptop.service
+    wait_for_local_backend || { health_check || true; return 1; }
+    health_check
 }
 
 run_event() {
@@ -357,9 +479,9 @@ run_caregiver_browser() {
 case "${1:-}" in
     provision) provision ;;
     install-unit) install_unit ;;
-    start) systemctl --user start gs179-laptop.service; health_check ;;
+    start) start_service ;;
     stop) systemctl --user stop gs179-laptop.service ;;
-    restart) systemctl --user restart gs179-laptop.service; health_check ;;
+    restart) restart_service ;;
     status)
         systemctl --user status --no-pager gs179-laptop.service || true
         if [[ -x "$PG_BIN/pg_ctl" && -d "$PG_DATA" ]]; then
@@ -375,5 +497,6 @@ case "${1:-}" in
     proxy-start) load_config; proxy_start ;;
     stop-post) stop_post ;;
     health-source) run_health_source ;;
-    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
+    proxy-audit) proxy_audit ;;
+    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|proxy-audit|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
 esac
