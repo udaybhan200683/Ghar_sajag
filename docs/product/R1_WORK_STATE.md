@@ -5293,9 +5293,20 @@ The IDF-generated untracked
 `code/firmware/hub/target/esp32s3/idf/managed_components/` is preserved and
 excluded from source commits. Canonical
 `/home/udaybhan/projects/Ghar_sajag_r1` and its active GS-179 writer were not
-modified. Jira GS-58 remains In Progress. Next action: finish the paired
-non-flashing build from the final registered source snapshot, record both image
-sizes and report hash here, then review/stage explicit GS-58 files, commit and
-push only this branch, verify remote HEAD, and add the Jira evidence comment.
-Later canonical integration must re-check ancestry/context and review shared
-traceability/validation conflicts; do not merge while GS-179 is active.
+modified. Jira GS-58 remains In Progress; delivery evidence is recorded in
+comment 11464. Implementation commit
+`26b8c5369153d736f66774e433d267a5d4abad92` was pushed to
+`origin/feature/gs-58-hub-wifi` and its remote HEAD was verified equal. Tracked
+source was clean after delivery; the generated `managed_components/` directory
+remains untracked and preserved. The paired production-profile build and
+affected validation results above are final for this source snapshot. The P0
+PARTIAL and existing Hub migration failures remain open; physical qualification
+and D1/D2 security gates remain NOT_RUN/BLOCKED as stated above.
+
+Next action: after GS-179 finishes, re-check current canonical context and Git
+ancestry, then review shared Hub/Node runtime, validation registration and
+traceability/physical catalogue changes for conflicts before proposing
+integration. Do not merge while GS-179 is active. Run affected regressions on
+the integrated tree; re-open D1/D2 only after the missing approved contracts
+exist. No physical acceptance or production activation is implied by software
+build/test results.
