@@ -2,6 +2,8 @@
 
 #include "firmware/common/transport/data_plane_codec.hpp"
 #include "firmware/common/transport/node_retirement_protocol.hpp"
+#include "firmware/common/connectivity/esp_idf_india_wifi_country.hpp"
+#include "firmware/common/connectivity/india_wifi_profile.hpp"
 #include "firmware/common/security/psa_commissioning_crypto.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/common/security/target_wrapping_key.hpp"
@@ -114,6 +116,8 @@ std::atomic<bool> g_ota_post_sensing_radio_confirmed{false};
 std::atomic<std::uint32_t> g_ota_post_sensing_runtime_ticks{0};
 std::atomic<bool> g_wifi_active{false};
 std::atomic<bool> g_esp_now_active{false};
+std::atomic<std::uint8_t> g_radio_channel{
+    gs::connectivity::IndiaWifiProfileV1::first_2ghz_channel};
 #if GS_HIL_CONTROL
 std::atomic<std::uint32_t> g_hil_motion_pending{0};
 std::atomic<bool> g_hil_force_health{false};
@@ -125,6 +129,14 @@ std::atomic<std::uint32_t> g_hil_sensing_live{0};
 
 Milliseconds monotonic_ms() {
     return static_cast<Milliseconds>(esp_timer_get_time() / 1000);
+}
+
+esp_err_t set_node_radio_channel(std::uint8_t channel) {
+    if (!gs::connectivity::IndiaWifiProfileV1::allows_channel(channel))
+        return ESP_ERR_INVALID_ARG;
+    const auto result = esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+    if (result == ESP_OK) g_radio_channel.store(channel, std::memory_order_release);
+    return result;
 }
 
 #if GS_HIL_BUILD
@@ -236,11 +248,18 @@ esp_err_t initialize_wifi() {
     const wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
     if ((result = esp_wifi_init(&config)) != ESP_OK) return result;
     if ((result = esp_wifi_set_storage(WIFI_STORAGE_RAM)) != ESP_OK) return result;
+    if ((result = gs::connectivity::configure_india_wifi_country()) != ESP_OK) {
+        ESP_LOGE(kTag, "India Wi-Fi regulatory profile activation failed: %s",
+                 esp_err_to_name(result));
+        return result;
+    }
     if ((result = esp_wifi_set_mode(WIFI_MODE_STA)) != ESP_OK) return result;
     if ((result = esp_wifi_start()) != ESP_OK) return result;
     g_wifi_active.store(true, std::memory_order_release);
     if ((result = esp_wifi_set_ps(WIFI_PS_NONE)) != ESP_OK) return result;
-    if ((result = esp_wifi_set_channel(kEspNowChannel, WIFI_SECOND_CHAN_NONE)) != ESP_OK) return result;
+    if ((result = set_node_radio_channel(
+            gs::connectivity::IndiaWifiProfileV1::first_2ghz_channel)) != ESP_OK)
+        return result;
     if ((result = esp_wifi_set_max_tx_power(kTxPowerQuarterDbm)) != ESP_OK) return result;
 
     std::array<std::uint8_t, 6> actual_mac{};
@@ -349,7 +368,8 @@ esp_err_t initialize_esp_now() {
         g_wifi_active.store(true, std::memory_order_release);
     }
     if ((result = esp_wifi_set_ps(WIFI_PS_NONE)) != ESP_OK) return result;
-    if ((result = esp_wifi_set_channel(kEspNowChannel, WIFI_SECOND_CHAN_NONE)) != ESP_OK)
+    if ((result = set_node_radio_channel(
+            g_radio_channel.load(std::memory_order_acquire))) != ESP_OK)
         return result;
     if ((result = esp_wifi_set_max_tx_power(kTxPowerQuarterDbm)) != ESP_OK) return result;
     if (!g_esp_now_active.load(std::memory_order_acquire)) {
@@ -511,6 +531,24 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound,
     }
     return true;
 }
+
+bool send_rejoin_message(const NodeSecurityLink::Outbound& outbound,
+                         gs::connectivity::IndiaWifiChannelDiscovery& discovery,
+                         bool wait_for_callback = true,
+                         bool* submitted_to_radio = nullptr) {
+    if (submitted_to_radio != nullptr) *submitted_to_radio = false;
+    std::optional<std::uint8_t> channel;
+    if (outbound.message.kind == security::wire::Kind::RejoinHello) {
+        channel = discovery.next_rejoin_hello_channel();
+    } else if (outbound.message.kind == security::wire::Kind::RejoinFinal) {
+        channel = discovery.current_channel();
+    }
+    if (channel) {
+        if (!gs::connectivity::IndiaWifiProfileV1::allows_channel(*channel) ||
+            set_node_radio_channel(*channel) != ESP_OK) return false;
+    }
+    return send_security_message(outbound, wait_for_callback, submitted_to_radio);
+}
 #endif
 
 void owner_task(void*) {
@@ -543,6 +581,7 @@ void owner_task(void*) {
         boot_reset == ESP_RST_INT_WDT || boot_reset == ESP_RST_WDT ||
         boot_reset == ESP_RST_BROWNOUT) energy.unexpected_resets = 1;
 #if !GS_HIL_BUILD
+    gs::connectivity::IndiaWifiChannelDiscovery channel_discovery;
     NodeSecurityLink security_link;
     std::array<std::uint8_t, 6> physical_mac{};
     if (esp_wifi_get_mac(WIFI_IF_STA, physical_mac.data()) != ESP_OK ||
@@ -553,7 +592,8 @@ void owner_task(void*) {
     }
     auto last_outbound = security_link.initial_message();
     const bool rejoining_existing_association = last_outbound.has_value();
-    if (last_outbound) (void)send_security_message(*last_outbound);
+    if (last_outbound)
+        (void)send_rejoin_message(*last_outbound, channel_discovery);
     Milliseconds rejoin_started_ms = monotonic_ms();
     Milliseconds final_started_ms = -1;
     Milliseconds ambiguity_window_ms = kInitialAmbiguityWindowMs;
@@ -569,12 +609,21 @@ void owner_task(void*) {
         }
         ReceivedFrame frame;
         if (xQueueReceive(g_security_queue, &frame, pdMS_TO_TICKS(100)) == pdTRUE) {
+            if (!gs::connectivity::IndiaWifiProfileV1::allows_channel(frame.channel))
+                continue;
             const auto response = security_link.accept(frame.source_mac,
                 frame.bytes.data(), frame.size, monotonic_ms());
             if (response) {
+                if (response->message.kind == security::wire::Kind::RejoinFinal &&
+                    (!channel_discovery.pin_authenticated_challenge(frame.channel) ||
+                     set_node_radio_channel(frame.channel) != ESP_OK)) {
+                    ESP_LOGE(kTag, "Authenticated rejoin channel could not be retained");
+                    vTaskDelete(nullptr);
+                    return;
+                }
                 last_outbound = response;
                 bool submitted = false;
-                (void)send_security_message(*response, true, &submitted);
+                (void)send_rejoin_message(*response, channel_discovery, true, &submitted);
                 if (response->message.kind == security::wire::Kind::RejoinHello)
                     rejoin_started_ms = monotonic_ms();
                 if (submitted &&
@@ -593,7 +642,7 @@ void owner_task(void*) {
                 security_link.rejoin_version(), security_now - rejoin_started_ms)) {
             if (const auto fallback = security_link.fallback_to_v1()) {
                 last_outbound = fallback;
-                (void)send_security_message(*fallback);
+                (void)send_rejoin_message(*fallback, channel_discovery);
                 rejoin_started_ms = security_now;
                 security_retry_stage = 0;
                 next_security_retry_ms = security_now +
@@ -604,6 +653,7 @@ void owner_task(void*) {
                 security_now, final_started_ms, final_transmissions,
                 ambiguity_window_ms)) {
             const auto next_session = allocate_nvs_session_id();
+            channel_discovery.begin_rejoin();
             if (!next_session || !security_link.start_rejoin(*next_session)) {
                 ESP_LOGE(kTag, "Rejoin session allocation failed closed");
                 vTaskDelete(nullptr);
@@ -611,7 +661,8 @@ void owner_task(void*) {
             }
             g_session_id = *next_session;
             last_outbound = security_link.initial_message();
-            if (last_outbound) (void)send_security_message(*last_outbound);
+            if (last_outbound)
+                (void)send_rejoin_message(*last_outbound, channel_discovery);
             ambiguity_window_ms = SessionRecoveryPolicy::next_ambiguity_window(
                 ambiguity_window_ms);
             rejoin_started_ms = security_now;
@@ -623,13 +674,19 @@ void owner_task(void*) {
         }
         if (last_outbound && monotonic_ms() >= next_security_retry_ms) {
             bool submitted = false;
-            (void)send_security_message(*last_outbound, true, &submitted);
+            (void)send_rejoin_message(*last_outbound, channel_discovery, true, &submitted);
             if (submitted &&
                 last_outbound->message.kind == security::wire::Kind::RejoinFinal)
                 ++final_transmissions;
             next_security_retry_ms = monotonic_ms() +
                 rejoin_retry_delay(security_retry_stage++, security_link.session());
         }
+    }
+    if (!channel_discovery.complete_authenticated_session(
+            g_radio_channel.load(std::memory_order_acquire))) {
+        ESP_LOGE(kTag, "Authenticated session has no permitted radio channel");
+        vTaskDelete(nullptr);
+        return;
     }
     if (rejoining_existing_association) energy.authenticated_rejoins = 1;
     g_security_phase.store(false, std::memory_order_release);
@@ -687,7 +744,7 @@ void owner_task(void*) {
         // A complete initial handshake retry opportunity protects reception
         // and the existing MAC callback bound. Lost responses use the original
         // rejoin state machine, including its ambiguity/session safeguards.
-        const bool sent = send_security_message(outbound, false);
+        const bool sent = send_rejoin_message(outbound, channel_discovery, false);
         ack_listening.require_until(monotonic_ms() +
             rejoin_retry_delay(0, security_link.session()));
         return sent;
@@ -720,7 +777,7 @@ void owner_task(void*) {
 
     ESP_LOGI(kTag, "NodeRuntime owner started session=%llu channel=%u tx_power_qdbm=%d",
              static_cast<unsigned long long>(g_session_id),
-             static_cast<unsigned>(kEspNowChannel),
+             static_cast<unsigned>(g_radio_channel.load(std::memory_order_acquire)),
              kTxPowerQuarterDbm);
     vTaskDelay(pdMS_TO_TICKS(kPirStabilizationMs));
     ESP_LOGI(kTag, "PIR ready on GPIO%d", kPirGpio);
@@ -766,10 +823,31 @@ void owner_task(void*) {
         if (!security_link.ready()) {
             ReceivedFrame security_frame;
             while (xQueueReceive(g_security_queue, &security_frame, 0) == pdTRUE) {
+                if (!gs::connectivity::IndiaWifiProfileV1::allows_channel(
+                        security_frame.channel)) continue;
                 const auto response = security_link.accept(security_frame.source_mac,
                     security_frame.bytes.data(), security_frame.size,
                     static_cast<std::uint64_t>(now));
                 if (response) {
+                    if (response->message.kind == security::wire::Kind::RejoinFinal &&
+                        !channel_discovery.pin_authenticated_challenge(
+                            security_frame.channel)) {
+                        ESP_LOGE(kTag, "Authenticated rejoin channel could not be retained");
+                        vTaskDelete(nullptr);
+                        return;
+                    }
+                    if (response->message.kind == security::wire::Kind::RejoinFinal) {
+                        const auto channel_result =
+                            set_node_radio_channel(security_frame.channel);
+                        if (channel_result != ESP_OK) {
+                            // Keep the sensing owner alive. send_rejoin_message
+                            // retries this same authenticated channel on the
+                            // existing bounded session schedule; pending Events
+                            // remain durable while the radio is unavailable.
+                            ESP_LOGW(kTag, "Authenticated rejoin channel retune pending error=%s",
+                                     esp_err_to_name(channel_result));
+                        }
+                    }
                     rejoin_outbound = response;
                     const bool submitted = send_rejoin(*response);
                     if (submitted &&
@@ -788,6 +866,12 @@ void owner_task(void*) {
                 return;
             }
             if (security_link.ready()) {
+                if (!channel_discovery.complete_authenticated_session(
+                        g_radio_channel.load(std::memory_order_acquire))) {
+                    ESP_LOGE(kTag, "Authenticated session has no permitted radio channel");
+                    vTaskDelete(nullptr);
+                    return;
+                }
                 g_session_id = security_link.session();
                 security_callback_settle_until_ms = now + kSendCallbackTimeoutMs;
                 last_authenticated_contact_ms = now;
@@ -818,6 +902,7 @@ void owner_task(void*) {
                         now, rejoin_final_started_ms, rejoin_final_transmissions,
                         rejoin_ambiguity_window_ms)) {
                     const auto candidate = allocate_nvs_session_id();
+                    channel_discovery.begin_rejoin();
                     if (!candidate || !security_link.start_rejoin(*candidate)) {
                         ESP_LOGE(kTag, "Rejoin candidate allocation failed closed");
                         vTaskDelete(nullptr);
@@ -1172,6 +1257,7 @@ void owner_task(void*) {
             health_in_flight = false;
             outstanding_health_sequence.reset();
             const auto candidate = allocate_nvs_session_id();
+            channel_discovery.begin_rejoin();
             if (!candidate || !security_link.start_rejoin(*candidate)) {
                 ESP_LOGE(kTag, "Session recovery allocation failed closed");
                 vTaskDelete(nullptr);

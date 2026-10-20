@@ -408,7 +408,9 @@
     {
       "id": "gs58-wifi",
       "components": [
-        "hub"
+        "hub",
+        "node",
+        "contract"
       ],
       "command": [
         "make",
@@ -418,6 +420,10 @@
         "firmware/hub/connectivity/wifi_reconnect_policy.cpp",
         "firmware/hub/connectivity/wifi_reconnect_policy.hpp",
         "firmware/hub/connectivity/wifi_station.hpp",
+        "firmware/hub/connectivity/wifi_credential_store.hpp",
+        "firmware/common/connectivity/india_wifi_profile.hpp",
+        "firmware/common/connectivity/esp_idf_india_wifi_country.hpp",
+        "firmware/node/target/esp32c3/node_runtime_adapter.cpp",
         "firmware/hub/target/esp32/hub_runtime_adapter.cpp",
         "tests/cpp/gs58_wifi_reconnect_validation.cpp"
       ],

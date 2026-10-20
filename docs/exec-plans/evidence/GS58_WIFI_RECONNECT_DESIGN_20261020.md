@@ -147,16 +147,73 @@ physical HIL or any device/credential/key operation. Physical Wi-Fi association,
 router-loss recovery, BLE commissioning, encrypted-NVS key custody and channel
 rejoin remain NOT_RUN until a separately authorized fixture plan is approved.
 
+## GS58-D3 — India regulatory profile and bounded channel recovery
+
+Jira comment 11457 selects the India-only R1 pilot profile: country code `IN`,
+2.4 GHz primary channels 1–13 inclusive, and channel 14 excluded. One shared,
+versioned profile is compiled into both C3 Node and S3 Hub. On each boot, after
+`esp_wifi_init` and before `esp_wifi_start`, both targets call the pinned
+ESP-IDF 6.0.3 `esp_wifi_set_country_code("IN", false)` API and read the active
+country code back. A setter/getter error or mismatch fails Wi-Fi startup. The
+profile is not configurable from AP country information, phone locale, SSID,
+QR, or unsigned input. ESP-IDF 6.0.3 source maps `IN` to the WPC regulatory
+profile whose 2.4 GHz rule is channels 1–13; this source inspection and target
+build do not establish RF qualification.
+
+The Hub's station associates on the router's actual supported channel; ESP-NOW
+peers continue to use channel 0, which follows the active S3 radio. No post-
+association channel-1 pin is used. The C3 has no station association, so it
+advances one channel only when the existing bounded rejoin policy schedules an
+existing `RejoinHello` transmission. It does not run a rapid scan loop or add
+transmissions/wakeups. A response is considered only on a profile channel and
+the existing NodeSecurityLink still checks the exact previously authorized Hub
+MAC and the authenticated rejoin transcript. An authenticated challenge pins
+that channel for the `RejoinFinal`/ACK retries. The channel becomes the preferred
+channel for later outages only after the existing handshake completes; a failed
+handshake keeps rotating within channels 1–13. No wire, session, ownership,
+EventKey, retry, or persistent format is changed. Radio restoration after C3
+light sleep preserves the current scan/session channel. The normal C3 bounded
+rejoin deadlines continue to control scan pace and queued durable Events remain
+retained until the existing authenticated ACK path succeeds.
+
+First-time Node commissioning still uses its existing installer-controlled
+commissioning flow and does not gain a new discovery frame or persistent channel
+state in this change. Multi-channel physical recovery, sleep current, RF range,
+and router association remain physical acceptance items.
+
+## D1/D2 dependency boundary
+
+GS-165 and GS-172 still have no owner-approved source/lifecycle contract for
+the unique installer proof. Do not enable a commercial BLE service or substitute
+the TEST_ONLY issuer. The credential store implementation is limited to the
+approved encrypted-device-key boundary and an opaque atomic backend operation;
+it defines no on-flash record encoding and has no target provider. A backend is
+usable only when it attests that encrypted NVS and the verified per-device key
+are available. The target continues to fail closed without that provider.
+Partition label/geometry, key creation and recovery, hardware security
+configuration, and physical key custody remain gated by GS-68/GS-172. No
+credential provisioning or hardware operation is enabled.
+
 ## Current status
 
-This checkpoint implements the bounded S3 reconnect scheduling policy and its
-target event/task hook. The policy ignores disconnect and driver-failure events
-until the secure credential-ready handoff, and target event/task callers
-serialize access to policy state. Host tests cover this fail-closed boundary.
-D3 is awaiting the country/channel-domain decision. D1 proof issuer and D2
-production key/partition inputs remain named external prerequisites; no BLE
-service or credential persistence is enabled by this change. See the GS-58
-Jira handoff for exact test and build results.
+This resume adds the shared India profile/country guard and a bounded C3
+channel cursor around the existing authenticated rejoin, plus a fail-closed
+protected credential-store port with no target backend. The existing S3
+reconnect policy and target event/task hook remain unchanged. D1 proof issuer
+and D2 production key/partition inputs remain external prerequisites; no BLE
+service or real credential persistence is enabled. D4 continues to use
+existing CloudSync authority, transport and committed-event boundaries;
+Wi-Fi routing is only permission to attempt CloudSync, not Internet,
+authentication, or current monitoring evidence. See the GS-58 Jira handoff
+for exact test and build results.
+
+The current Hub target has no approved surfaced status contract that publishes
+Wi-Fi association, Internet reachability, CloudSync authentication, and current
+monitoring freshness as separate caregiver-visible states. This change does not
+add an API or change the active GS-179 Android/backend work. Until those states
+are mapped to an approved existing interface, this branch makes no
+caregiver-visible `monitoring ready` claim; status-surface integration remains
+an explicit canonical integration dependency.
 
 ## Validation infrastructure triage
 
