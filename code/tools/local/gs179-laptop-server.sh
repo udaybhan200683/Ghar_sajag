@@ -343,6 +343,12 @@ run_health_source() {
     python3 "$REPO_ROOT/code/tools/local/gs179_laptop_node_event.py" --health-only
 }
 
+change_login() {
+    load_config
+    export GS179_CAREGIVER_CREDENTIALS="${GS179_CAREGIVER_CREDENTIALS:-$STATE_ROOT/caregiver-login.json}"
+    python3 "$REPO_ROOT/code/tools/local/gs179_change_login.py"
+}
+
 run_caregiver_browser() {
     load_config
     python3 "$REPO_ROOT/code/tools/local/gs179_laptop_browser.py"
@@ -363,10 +369,11 @@ case "${1:-}" in
     health) health_check ;;
     logs) journalctl --user-unit=gs179-laptop.service --no-pager -n "${2:-100}" ;;
     event) run_event ;;
+    change-login) change_login ;;
     browser) run_caregiver_browser ;;
     run) run_service ;;
     proxy-start) load_config; proxy_start ;;
     stop-post) stop_post ;;
     health-source) run_health_source ;;
-    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|logs [N]|event|health-source|browser}\n' "$0"; exit 2 ;;
+    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
 esac

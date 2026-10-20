@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -6,10 +7,236 @@ import tempfile
 import unittest
 from io import BytesIO
 from uuid import uuid4
+import stat
+import secrets
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "local"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "support"))
 from connected_lite import (HOME_ID, LiteApi, Store, bootstrap_admin, bootstrap_caregiver,
-                            rotate_password, run_scenario, validate_public_origin)
+                            rotate_password, run_scenario, validate_public_origin,
+                            token_digest, password_hash, password_valid)
+from gs179_change_login import (DuplicateEmail, LoginChangeError, _atomic_write,
+                                _encode_json, update_existing_login,
+                                main as change_login_main)
+
+
+class CaregiverLoginChangeTests(unittest.TestCase):
+    """Existing-account-only login update, using SQLite by default or isolated PG on demand."""
+
+    HOME = "gs177-test-login-change"
+    OLD_EMAIL = "owner-before@example.org"
+    NEW_EMAIL = "owner-after@example.org"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="gs179-login-change-")
+        self.root = Path(self.temp.name)
+        self.root.chmod(0o700)
+        self.postgres_schema = None
+        self.addCleanup(self._cleanup_test_resources)
+        os.environ["GS177_LOCAL_TEST"] = "1"
+        os.environ["PUBLIC_ORIGIN"] = "https://care.gharsajag.in"
+        base_dsn = os.environ.get("GS179_CHANGE_LOGIN_TEST_DSN")
+        if base_dsn:
+            from gs179_postgres_test_db import IsolatedPostgresSchema
+            self.postgres_schema = IsolatedPostgresSchema(base_dsn)
+            url = self.postgres_schema.url
+        else:
+            url = "sqlite:///" + str(self.root / "test.db")
+            os.environ["GS177_LOCAL_TEST"] = "1"
+        self.store = Store(url)
+        self.store.migrate()
+        self.old_password = secrets.token_urlsafe(24)
+        self.new_password = secrets.token_urlsafe(24)
+        self.other_password = secrets.token_urlsafe(24)
+        self.second_password = secrets.token_urlsafe(24)
+        self.account_id = bootstrap_admin(self.store, self.OLD_EMAIL,
+                                          self.old_password, self.HOME)
+        self.credentials_path = self.root / "caregiver-login.json"
+        self.credentials = {"created_by": "GS179_TEST_ONLY", "profile": "GS179_TEST_ONLY",
+                            "email": self.OLD_EMAIL, "password": self.old_password,
+                            "home_id": self.HOME}
+        self._write_credentials(self.credentials)
+        with self.store.connect() as db:
+            self.store.sql(db,
+                "INSERT INTO lite_runs(run_id,home_id,account_id,scenario_id,status,"
+                "simulation_generation,created_at,result_json) VALUES(?,?,?,?,?,?,?,?)",
+                ("preserved-run", self.HOME, self.account_id, "motion-room1-visible",
+                 "PASS", 1, 1000, '{"timeline":["preserve"]}'))
+            self.store.sql(db,
+                "INSERT INTO lite_api_limits(account_id,window_start,request_count) VALUES(?,?,?)",
+                (self.account_id, 1000, 7))
+            # A minimal isolated fixture matching the durable GS-148 event-key table.
+            db.execute("CREATE TABLE IF NOT EXISTS households(home_id TEXT PRIMARY KEY)")
+            db.execute("CREATE TABLE IF NOT EXISTS events(event_id TEXT PRIMARY KEY,home_id TEXT,payload_json TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS durable_event_commits(home_id TEXT,physical_device_id TEXT,"
+                       "logical_node_id TEXT,origin_session_id INTEGER,event_sequence INTEGER,event_id TEXT,"
+                       "payload_sha256 TEXT,committed_at INTEGER,PRIMARY KEY(home_id,physical_device_id,"
+                       "logical_node_id,origin_session_id,event_sequence))")
+            self.store.sql(db, "INSERT INTO households(home_id) VALUES(?)", (self.HOME,))
+            self.store.sql(db, "INSERT INTO events(event_id,home_id,payload_json) VALUES(?,?,?)",
+                           ("preserved-event", self.HOME, '{"kind":"MOTION"}'))
+            self.store.sql(db, "INSERT INTO durable_event_commits(home_id,physical_device_id,logical_node_id,"
+                       "origin_session_id,event_sequence,event_id,payload_sha256,committed_at) "
+                       "VALUES(?,?,?,?,?,?,?,?)",
+                           (self.HOME, "test-node", "bedroom", 1, 1, "preserved-event", "a" * 64, 1001))
+
+    def _cleanup_test_resources(self):
+        if self.postgres_schema is not None:
+            self.postgres_schema.close()
+            self.postgres_schema = None
+        self.temp.cleanup()
+
+    def _write_credentials(self, value):
+        self.credentials_path.write_text(json.dumps(value), encoding="utf-8")
+        self.credentials_path.chmod(0o600)
+
+    def _credentials(self):
+        return json.loads(self.credentials_path.read_text(encoding="utf-8"))
+
+    def _add_session(self):
+        token = secrets.token_urlsafe(24)
+        with self.store.connect() as db:
+            self.store.sql(db,
+                "INSERT INTO lite_sessions(session_id,account_id,token_hash,issued_at,expires_at,revoked_at) "
+                "VALUES(?,?,?,?,?,?)",
+                ("session-1", self.account_id, token_digest(token), 1000, 5000, None))
+        return token
+
+    def test_changes_existing_account_revokes_sessions_and_preserves_home_and_data(self):
+        old_session = self._add_session()
+        update_existing_login(self.store, self.credentials_path, self.NEW_EMAIL.upper(),
+                              self.new_password, self.new_password)
+        updated = self._credentials()
+        self.assertEqual(updated["email"], self.NEW_EMAIL)
+        self.assertEqual(updated["account_id"], self.account_id)
+        self.assertEqual(updated["home_id"], self.HOME)
+        self.assertEqual(updated["created_by"], "GS179_TEST_ONLY")
+        self.assertEqual(stat.S_IMODE(self.credentials_path.stat().st_mode), 0o600)
+        self.assertFalse(self.credentials_path.with_name("caregiver-login.json.pending").exists())
+        with self.store.connect() as db:
+            account = self.store.sql(db, "SELECT account_id,email,password_hash FROM lite_accounts").fetchall()
+            memberships = self.store.sql(db, "SELECT account_id,home_id,role,active,ownership_epoch FROM lite_memberships").fetchall()
+            session = self.store.sql(db, "SELECT revoked_at FROM lite_sessions WHERE session_id=?", ("session-1",)).fetchone()
+            run = self.store.sql(db, "SELECT run_id,result_json FROM lite_runs WHERE run_id=?", ("preserved-run",)).fetchone()
+            committed = self.store.sql(db, "SELECT event_id,payload_sha256 FROM durable_event_commits").fetchall()
+        self.assertEqual(account[0]["account_id"], self.account_id)
+        self.assertEqual(account[0]["email"], self.NEW_EMAIL)
+        self.assertTrue(password_valid(updated["password"], account[0]["password_hash"]))
+        self.assertEqual(len(account), 1)
+        self.assertEqual(dict(memberships[0]), {"account_id": self.account_id, "home_id": self.HOME,
+                                               "role": "ADMIN", "active": True, "ownership_epoch": 1})
+        self.assertIsNotNone(session["revoked_at"])
+        self.assertEqual(dict(run), {"run_id": "preserved-run", "result_json": '{"timeline":["preserve"]}'})
+        self.assertEqual([dict(row) for row in committed], [{"event_id": "preserved-event", "payload_sha256": "a" * 64}])
+
+        api = LiteApi(self.store, clock=lambda: 2000)
+        session_env = {"REQUEST_METHOD": "GET", "PATH_INFO": "/lite/v1/me",
+                       "CONTENT_LENGTH": "0", "wsgi.input": BytesIO(b""),
+                       "HTTP_ORIGIN": "https://care.gharsajag.in",
+                       "HTTP_COOKIE": "ps_session=" + old_session,
+                       "REMOTE_ADDR": "192.0.2.9"}
+        session_status = []
+        api(session_env, lambda status, headers: session_status.append(status))
+        self.assertEqual(session_status[0], "403 Forbidden")
+        def login(email, password):
+            body = json.dumps({"email": email, "password": password}).encode()
+            env = {"REQUEST_METHOD": "POST", "PATH_INFO": "/lite/v1/auth/login",
+                   "CONTENT_LENGTH": str(len(body)), "wsgi.input": BytesIO(body),
+                   "HTTP_ORIGIN": "https://care.gharsajag.in", "REMOTE_ADDR": "192.0.2.9"}
+            response = []
+            api(env, lambda status, headers: response.append(status))
+            return response[0]
+        os.environ["GS177_LOCAL_TEST"] = "1"
+        self.assertEqual(login(self.OLD_EMAIL, self.old_password), "401 Unauthorized")
+        self.assertEqual(login(self.NEW_EMAIL, self.new_password), "200 OK")
+
+    def test_invalid_email_short_password_and_confirmation_leave_state_unchanged(self):
+        before_digest = hashlib.sha256(self.credentials_path.read_bytes()).hexdigest()
+        for email, password, confirmation, error in (
+            ("bad-email", self.new_password, self.new_password, "invalid_email"),
+            (self.NEW_EMAIL, "x" * 15, "x" * 15, "password_must_be_16_to_256_characters"),
+            (self.NEW_EMAIL, self.new_password, self.new_password + "x", "password_confirmation_mismatch"),
+        ):
+            with self.subTest(error=error), self.assertRaisesRegex(LoginChangeError, error):
+                update_existing_login(self.store, self.credentials_path, email, password, confirmation)
+        self.assertEqual(hashlib.sha256(self.credentials_path.read_bytes()).hexdigest(), before_digest)
+        with self.store.connect() as db:
+            row = self.store.sql(db, "SELECT account_id,email FROM lite_accounts").fetchone()
+            self.assertEqual(dict(row), {"account_id": self.account_id, "email": self.OLD_EMAIL})
+        self.assertFalse(self.credentials_path.with_name("caregiver-login.json.pending").exists())
+
+    def test_duplicate_email_does_not_change_existing_account(self):
+        other = bootstrap_caregiver(self.store, "already-used@example.org",
+                                    self.other_password, self.HOME)
+        before_digest = hashlib.sha256(self.credentials_path.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(DuplicateEmail, "email_already_in_use"):
+            update_existing_login(self.store, self.credentials_path, "already-used@example.org",
+                                  self.new_password, self.new_password)
+        self.assertEqual(hashlib.sha256(self.credentials_path.read_bytes()).hexdigest(), before_digest)
+        with self.store.connect() as db:
+            row = self.store.sql(db, "SELECT account_id,email FROM lite_accounts WHERE account_id=?",
+                                 (self.account_id,)).fetchone()
+            self.assertEqual(dict(row), {"account_id": self.account_id, "email": self.OLD_EMAIL})
+            self.assertTrue(self.store.sql(db, "SELECT 1 FROM lite_accounts WHERE account_id=?", (other,)).fetchone())
+
+    def test_restart_recovers_commit_before_credential_file_promotion(self):
+        new_email = self.NEW_EMAIL
+        new_password = self.new_password
+        target = dict(self.credentials, email=new_email, password=new_password, account_id=self.account_id)
+        target_hash = password_hash(new_password)
+        pending = {"version": 1, "target": target, "target_password_hash": target_hash,
+                   "previous_email": self.OLD_EMAIL, "account_id": self.account_id, "home_id": self.HOME}
+        pending_path = self.credentials_path.with_name("caregiver-login.json.pending")
+        _atomic_write(pending_path, _encode_json(pending))
+        with self.store.connect() as db:
+            self.store.sql(db, "UPDATE lite_accounts SET email=?,password_hash=? WHERE account_id=?",
+                           (new_email, target_hash, self.account_id))
+            recovery_token = secrets.token_urlsafe(24)
+            self.store.sql(db, "INSERT INTO lite_sessions(session_id,account_id,token_hash,issued_at,expires_at) "
+                           "VALUES(?,?,?,?,?)", ("session-recovery", self.account_id,
+                                                 token_digest(recovery_token), 1000, 5000))
+            self.store.sql(db, "UPDATE lite_sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL",
+                           (2000, self.account_id))
+        reopened = Store(self.store.url)
+        second_email = "second-change@example.org"
+        with self.assertRaisesRegex(LoginChangeError, "previous_login_change_recovered_retry_with_new_values"):
+            update_existing_login(reopened, self.credentials_path, second_email,
+                                  self.second_password, self.second_password)
+        self.assertEqual(self._credentials()["email"], new_email)
+        self.assertFalse(pending_path.exists())
+        update_existing_login(reopened, self.credentials_path, second_email,
+                              self.second_password, self.second_password)
+        state = self._credentials()
+        self.assertEqual(state["email"], second_email)
+        self.assertEqual(state["account_id"], self.account_id)
+        self.assertFalse(pending_path.exists())
+        with reopened.connect() as db:
+            row = self.store.sql(db, "SELECT email FROM lite_accounts WHERE account_id=?", (self.account_id,)).fetchone()
+            self.assertEqual(row["email"], second_email)
+            self.assertTrue(self.store.sql(db, "SELECT revoked_at FROM lite_sessions WHERE session_id=?",
+                                           ("session-recovery",)).fetchone()["revoked_at"])
+
+    def test_interactive_command_uses_hidden_password_prompts(self):
+        class Tty:
+            @staticmethod
+            def isatty():
+                return True
+        env = {"GS179_LOCAL_SERVER_DSN": self.store.url,
+               "GS179_CAREGIVER_CREDENTIALS": str(self.credentials_path),
+               "GS177_LOCAL_TEST": "1", "PUBLIC_ORIGIN": "https://care.gharsajag.in"}
+        with patch.dict(os.environ, env, clear=False), \
+             patch("sys.stdin", Tty()), patch("sys.stderr", Tty()), \
+             patch("builtins.input", return_value=self.NEW_EMAIL), \
+             patch("getpass.getpass", side_effect=(self.new_password, self.new_password)):
+            self.assertEqual(change_login_main(), 0)
+        credential = self._credentials()
+        self.assertEqual(credential["email"], self.NEW_EMAIL)
+        with self.store.connect() as db:
+            stored = self.store.sql(db, "SELECT password_hash FROM lite_accounts WHERE account_id=?",
+                                    (self.account_id,)).fetchone()
+        self.assertTrue(password_valid(credential["password"], stored["password_hash"]))
 
 
 class PublicOriginPolicyTests(unittest.TestCase):

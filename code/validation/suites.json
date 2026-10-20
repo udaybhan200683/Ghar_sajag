@@ -2200,6 +2200,8 @@
         "parivar_saathi_android_app/server/requirements.txt",
         "parivar_saathi_android_app/server/wsgi.py",
         "parivar_saathi_android_app/server/tests/test_connected_lite.py",
+        "tools/local/gs179_change_login.py",
+        "tests/support/gs179_postgres_test_db.py",
         "../render.yaml",
         "backend/ghar_sajag/human_authentication.py",
         "backend/ghar_sajag/diagnostics.py",

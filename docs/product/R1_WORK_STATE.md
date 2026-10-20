@@ -5303,3 +5303,23 @@ HTTPS caregiver API plus PostgreSQL; existing host simulation invokes the
 application-terminated TEST_ONLY Hub mTLS listener with ephemeral credentials,
 not a persistent physical-Hub ingress. GS-179 remains In Progress. Existing P0,
 migration, product PARTIAL and release blockers remain unchanged.
+
+### Caregiver login self-service — 2026-10-20
+
+Added `code/tools/local/gs179-laptop-server.sh change-login` for the existing
+laptop TEST_ONLY caregiver account. It verifies the private credential file,
+current database password, active account, and matching TEST_ONLY Home
+membership/epoch; uses the existing Scrypt hash; atomically changes the same
+PostgreSQL account and revokes its active sessions; and atomically refreshes
+the existing private login JSON. A private pending envelope enables fail-closed
+reconciliation if the process stops between database commit and file promotion.
+No live caregiver account, event, Home membership, role, or monitoring data was
+modified during implementation.
+
+Focused login-change tests passed 5/5 in SQLite and 5/5 against isolated schemas
+on the existing TLS PostgreSQL service. The registered connected-caregiver gate
+passed: 20 API tests, 8 browser-runtime tests, lab build, and three host
+scenarios. Exact commands and limits are recorded in
+[`GS-179 caregiver login change evidence`](../exec-plans/evidence/GS179_CAREGIVER_LOGIN_CHANGE_20261020.md).
+GS-179 remains In Progress; phone acceptance and physical C3/S3 acceptance
+remain NOT_RUN.
