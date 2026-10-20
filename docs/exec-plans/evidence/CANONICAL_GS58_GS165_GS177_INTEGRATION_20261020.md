@@ -20,12 +20,14 @@ Android phone acceptance.
   filter, authenticated GS-148 API and freshness behavior were preserved.
 
 The repository remote was verified as
-`https://github.com/udaybhan200683/Ghar_sajag`. At this evidence checkpoint,
-the canonical local branch was 10 commits ahead of the unchanged remote tip
-`5e8cec135e3f72fd14c9818e67bb6e138899077c`; the integration had not yet been
-pushed. Jira GS-58, GS-165 and GS-177 remain In Progress. Draft PR #1 and #2
-were still open, unmerged and targeted the stale pre-integration canonical
-base; reconciliation is pending the normal canonical push.
+`https://github.com/udaybhan200683/Ghar_sajag`. Final canonical local and remote
+HEAD is `bbf073f775aca138d84092b916d005653eab8ae3`. GitHub reports draft PR #1
+closed/merged at the GS-58 merge `de1ec0a4c1cec3907e04efd2fc91cd0b43f7aad8`
+and PR #2 closed/merged at the GS-165 merge
+`c60828b264bdb8d4d562a614b2126c7d211a8037`. These are the existing canonical
+merge commits, not duplicate integrations. Jira comments added: GS-58 #11474,
+GS-165 #11475, GS-177 #11476, GS-116 #11477 and GS-130 #11478. Tickets remain
+In Progress where acceptance is incomplete.
 
 ## Duplicate and obsolete functionality audit
 
@@ -168,3 +170,26 @@ the laptop LAN address/forwarding mismatch already recorded in work-state.
 Production CA/DS/eFuse/secure-boot approvals, production endpoints, notifications
 and calling qualification are separate gates. Protected C8/C3/GS-68 spare,
 serial ports, eFuses, production services and databases were not accessed.
+
+## Final canonical and worktree disposition
+
+The final integration/validation commit is
+`bbf073f775aca138d84092b916d005653eab8ae3`; local `HEAD` and
+`origin/feature/r1-commercial-baseline` were verified equal. Tracked canonical
+files are clean. Pre-existing untracked files, including PWA/Android assets,
+ESP-IDF managed components/configuration, and physical evidence, were preserved.
+
+Inactive feature worktrees were fast-forwarded locally to the canonical commit
+without pushing their feature refs: `Ghar_sajag_gs58` remains on
+`feature/gs-58-hub-wifi` and retains its untracked `managed_components/`;
+`Ghar_sajag_gs177` is the GS-165 worktree on
+`feature/gs-165-pilot-station`. No separate GS-177 worktree was found. The
+detached historical repository, Hub simulator worktree and `/tmp` qualification
+worktree were untouched.
+
+The recorded validation-fast run remains FAIL at 79/83 stages; it was not
+rerun after focused fixes. The zero-byte sanitizer-object issue and integrated
+stage registry expectation were corrected and their focused tests passed.
+The Hub migration assertion and required P0 `product_status=PARTIAL` remain
+open. D1/D2, physical qualification, production provisioning, and phone
+acceptance remain separate incomplete gates.

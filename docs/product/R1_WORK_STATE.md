@@ -5406,14 +5406,20 @@ additional stages and passes 6/6. The full fast gate was not repeated after
 these focused corrections. Thus Hub migration and P0 PARTIAL remain blockers,
 and the recorded aggregate fast run remains FAIL. No release gate was run.
 
-At this checkpoint canonical local HEAD is
-`c60828b264bdb8d4d562a614b2126c7d211a8037` and remote HEAD remains
-`5e8cec135e3f72fd14c9818e67bb6e138899077c`; push and PR reconciliation are
-pending. Draft PR #1 and #2 remain open until the canonical push is verified.
-The source worktrees remain preserved: GS-58 has pre-existing untracked
-`managed_components/`; the path named `Ghar_sajag_gs177` holds the GS-165
-branch. Fast-forward synchronization is only permitted after process/dirty
-checks and canonical push. All pre-existing untracked app assets, IDF files
-and physical evidence remain untouched. GS-58, GS-165, GS-177, GS-40 and
-physical qualification statuses remain In Progress/NOT_RUN as applicable;
-this integration does not claim commercial readiness.
+At final integration checkpoint canonical local and remote HEAD is
+`bbf073f775aca138d84092b916d005653eab8ae3`; the tracked worktree is clean.
+PR #1 and #2 are closed/merged at the existing GS-58 and GS-165 merge commits.
+Jira comments 11474–11478 record GS-58, GS-165, GS-177, GS-116 and GS-130
+integration/validation outcomes. The inactive GS-58 and GS-165 worktrees were
+fast-forwarded locally to canonical after dirty/process checks; their feature
+refs were not pushed. GS-58's untracked `managed_components/` and all canonical
+untracked app assets, IDF files and physical evidence remain preserved.
+
+The validation-fast report remains 79/83 PASS, exit 2; no full rerun followed
+the focused repairs. The sanitizer link issue and missing integrated-stage
+registry expectation passed focused revalidation. Hub migration
+`clean migration commits` and required P0 `product_status=PARTIAL` remain
+unresolved. GS-58 D1/D2, commissioning/channel qualification, GS-165
+production/physical QA, GS-177 phone acceptance, GS-40/117 physical cases and
+other release/security gates remain incomplete. No commercial readiness or
+physical acceptance is claimed.
