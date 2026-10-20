@@ -5323,3 +5323,47 @@ scenarios. Exact commands and limits are recorded in
 [`GS-179 caregiver login change evidence`](../exec-plans/evidence/GS179_CAREGIVER_LOGIN_CHANGE_20261020.md).
 GS-179 remains In Progress; phone acceptance and physical C3/S3 acceptance
 remain NOT_RUN.
+
+### GS-177 / GS-179 authenticated Home event visibility — 2026-10-20
+
+At canonical source commit `45efec6a051cda87732888ba88097b381ceeb57d`, the
+Connected Lite Home was changed to use the established Parivar Saathi PWA
+hero/cards/timeline against the current authenticated GS-148 caregiver
+projection. Devices, Reports, Settings and other existing tabs remain. The
+floating bottom pill is now an accessible full-width strip directly below the
+app header. Source provenance and stale freshness remain visible; stale or
+unrecognized source data fails closed to UNKNOWN/unavailable, with no
+simulator fallback.
+
+The live WSL laptop browser observed the already committed
+`test-c3-bedroom` HOST_SIM event exactly once, with its EventKey, room and source
+time. It was labelled `HOST_SIM · TEST_ONLY`; Hub/source freshness was stale and
+monitoring/Node state were UNKNOWN. No event or health record was inserted by
+this work. The existing caregiver account has CAREGIVER role; its direct
+Engineering request returned 403 and the tab stayed hidden because the existing
+route requires ADMIN plus TEST_ONLY. No role was elevated. A decision to grant
+that account the existing TEST_ONLY Engineering permission remains for the
+owner.
+
+Focused validation: caregiver runtime 8/8; registered browser stage 4/4 with
+92/92 catalogue assertions; registered component adjudication PASS; PWA
+frontend 1/1; feature coverage 217 features / 257 modules / 25 physical cases
+with 22/22 mapping tests; live laptop read-only browser `HOST_SIM_PASS`;
+`git diff --check` PASS. Android local assembly reached the build step after
+PWA runtime 8/8 and stopped with exit 127 because Gradle is absent from WSL.
+Physical phone, Node sensor, Hub publication and GS-117 E2E acceptance remain
+NOT_RUN. Exact evidence and dependency boundaries are in
+[`GS177_GS179_HOME_EVENT_VISIBILITY_20261020.md`](../exec-plans/evidence/GS177_GS179_HOME_EVENT_VISIBILITY_20261020.md).
+
+The WSL-bound HTTPS listener passed certificate-verified `/readyz`; the
+existing Windows Wi-Fi forwarding endpoint on TCP 443 currently refuses the
+connection. No forwarding/firewall rule was changed. A LAN-configured APK can
+be built from the existing workflow, but the phone cannot reach this laptop
+until the already-approved scoped forwarding is restored and health-checked.
+
+This does not close GS-40/58/68/109/148/117. Actual C3 authenticated motion,
+current S3 Hub health/authority, and a persistent application-terminated mTLS
+ingress to laptop PostgreSQL have not been observed. Production identity,
+credential and eFuse approvals remain separate. GS-177 and GS-179 stay In
+Progress; GS-117 physical acceptance stays NOT_RUN. No phone, board, serial
+port, production endpoint, database row, login, or device state was modified.
