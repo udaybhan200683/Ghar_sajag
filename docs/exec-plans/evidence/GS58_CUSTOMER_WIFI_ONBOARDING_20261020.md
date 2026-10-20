@@ -56,7 +56,7 @@ Completed: bounded Hub scan/policy integration port, fail-closed current-authori
 
 Open gates: D1 approved device-specific Security 2 pairing/installer authority; D2 verified encrypted NVS with per-device key custody and atomic recovery; authenticated current Hub/Home/epoch claim; production cloud origin and physical fixture qualification. No password entry or credential-bearing BLE flow is enabled; first-time setup and change-Wi-Fi remain SECURITY_BLOCKED. APK and firmware results are software build evidence only; do not count them as installation, physical phone behavior, actual S3 execution or authenticated customer provisioning.
 
-Resume sequence: validate this documentation-only checkpoint, commit/push the handoff and work-state update, verify remote equality, and add factual GS-58/GS-177 Jira updates. Do not re-run the successful build or CI. Any later D1/D2 work requires the device-specific Security 2 authority and encrypted credential-storage contract; no physical or network operation is currently authorized.
+Resume sequence: the preceding documentation/work-state checkpoint is `82bdcafae17d7fd7376c55c530910f280c931034`; follow-up Jira comments 11487 (GS-58) and 11488 (GS-177) record the validation results. Do not re-run the successful build or CI. Any later D1/D2 work requires the device-specific Security 2 authority and encrypted credential-storage contract; no physical or network operation is currently authorized.
 
 ### Ready-to-copy resume prompt
 
