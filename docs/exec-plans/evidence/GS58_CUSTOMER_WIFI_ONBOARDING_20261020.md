@@ -61,3 +61,199 @@ Resume sequence: the preceding documentation/work-state checkpoint is `82bdcafae
 ### Ready-to-copy resume prompt
 
 > Resume GS-58/GS-177 from the latest canonical evidence commit. Read AGENTS.md, this handoff and R1_WORK_STATE; verify current branch/HEAD/remote and preserve all untracked evidence. Do not repeat the completed host tests, successful Android CI, or no-flash S3 build. The next action is documentation checkpoint delivery and factual Jira updates. Keep customer password submission and commercial provisioning disabled until D1 device-specific Security 2 authority, D2 protected encrypted storage and Home/epoch claim are approved and implemented. No hardware or production operations.
+
+## GS-58 Phase 2 D1/D2 implementation decision packet — 2026-10-20
+
+**Disposition: PROPOSED, not approved or LOCKED.** This section records a
+minimum pilot design for 50–100 Hubs, based on the current interfaces and the
+owner's GS-58 comments 11482/11485 and GS-177 comment 11486. It does not enable
+credential-bearing provisioning, modify firmware configuration/partitions, or
+change GS-D031/GS-D032. Production and physical status remain blocked/NOT_RUN.
+
+### D1 — per-Hub BLE pairing plus current-owner authorization
+
+**Recommendation.** Reuse Espressif's BLE `network_provisioning` component with
+Protocomm Security 2 only. Security 2 uses SRP6a to establish an authenticated
+session and AES-GCM to protect messages. The Hub stores the SRP salt/verifier;
+the phone needs the corresponding per-Hub username/proof. Pin the device to
+Security 2: reject absent/unknown security version and Security 0/1, with no
+downgrade or fallback. This protects the local session and proves possession of
+a Hub-specific setup secret; it does **not** authorize a user, Home, ownership
+epoch, Hub transfer, or CloudSync.
+
+ESP-IDF 6 moved provisioning out of ESP-IDF into the separately managed
+`espressif/network_provisioning` component. Candidate version 1.2.4 declares
+ESP-IDF >=5.1 and is a reasonable IDF 6.0.3 build candidate, not a verified
+project dependency. Candidate Android library is
+`espressif/esp-idf-provisioning-android` 2.4.4 (Android API 26+); both versions
+still require source/security review, pinning and project CI before adoption.
+
+**Factory and exact identity.** Keep the existing GS-168 registry as the source
+of permanent Hub identity; do not add an issuer or identity registry. An
+authorized station generates a fresh, CSPRNG-derived per-Hub setup secret with
+at least 128 bits of entropy and the matching Security 2 salt/verifier. The
+HubId is the Security 2 username/registry binding, not a secret. Load the
+verifier and permanent HubId through the approved secure manufacturing path;
+deliver the secret once on a sealed/scratch-off insert kept separate from a
+public QR/serial label. A QR may contain only a public lookup/reference. Never
+log, retain in an ordinary QA report, or commit the setup secret. Station
+records contain HubId, verifier fingerprint/generation, operator/fixture
+receipt and disposition only; zeroize working buffers and quarantine failed
+units. Security 2 verifier storage depends on D2 and is not safely deployable
+on the current unencrypted development profile.
+
+**Owner/Home authority.** After login, only a Home Owner or explicitly
+authorized Installer with Hub-setup permission may request a setup permit.
+The phone may use mobile data while the Hub's prior router is offline. After
+Security 2 establishes the exact local Hub session, the Hub supplies a fresh
+random challenge, boot-generation value, permanent HubId and operation
+(`INITIAL_CLAIM` or `CHANGE_WIFI`). The app sends that challenge and the
+authenticated account session to the existing GS-109 ownership authority.
+That authority verifies the GS-168 Hub registry state, current Home, owner,
+ownership epoch, enrollment generation, revocation/transfer state and the
+requesting user's role, then issues a one-use, purpose-bound permit containing
+those bindings and the challenge. The Hub verifies the permit with the
+GS-109-approved authority key and exact Hub identity, consumes the nonce once,
+and enforces a local monotonic session deadline. Reboot invalidates outstanding
+challenges. The current `WifiSetupAuthority` port can enforce an immutable
+session generation but has no production provider, permit format, signer or
+key pin; those must come from the existing GS-109 authority contract. Do not
+reuse the GS-168 TLS issuer or FOTA signing key for setup permits. If GS-109
+has no purpose-separated signing capability, approve the smallest dedicated
+permit-signing key and trust anchor; do not create a second general PKI.
+
+**Lease and race policy.** The target has no trusted wall clock before Wi-Fi,
+so permit validity must not depend on SNTP or a phone timestamp. Bind issuance
+to the fresh target challenge and boot generation, and bound the target's full
+setup operation by monotonic time measured from challenge creation. The server
+must serialize transfer/revocation against an outstanding short-lived permit;
+otherwise an offline Hub cannot learn that ownership changed after issuance.
+Recommend a maximum five-minute setup lease and block a competing transfer
+until expiry/consumption. These are proposed limits, not approved policy. Once
+network returns, the Hub must refresh current Home/epoch and revocation before
+CloudSync or monitoring readiness. Wi-Fi association never implies
+`INTERNET_REACHABLE`, `CLOUD_AUTHENTICATED`, `HOME_CLAIMED` or
+`MONITORING_FRESH`.
+
+**Recovery and threat boundary.** A neighboring phone with only the BLE name,
+MAC, public QR or HubId cannot authenticate or obtain a permit. A phone with
+the sealed proof but no authorized account cannot claim/configure a Home. A
+logged-in authorized owner can use cellular data to change Wi-Fi while the old
+router is unavailable. If both the old router and phone Internet are
+unavailable, do not accept stale cached Home authority; require an approved
+attended service/recovery flow. A lost phone is recovered by account login on
+another phone. Lost setup proof or a transferred Hub requires current-owner
+verification and attended proof rotation/reissue with registry epoch/revocation
+update; factory reset, public QR or old-owner offline access is not recovery.
+
+**Alternatives rejected.** Security 0, public QR/MAC/device-name authorization,
+universal PoP, advertisement-only identity and custom GATT cryptography are
+rejected. Security 1 is not selected because owner direction prefers Security 2
+and there is no reviewed reason to add a second mode. SoftAP adds an unneeded
+transport and does not solve owner/Home authorization.
+
+### D2 — protected, recoverable Wi-Fi credential storage
+
+**Recommendation.** Reuse ESP-IDF encrypted NVS with the Flash-Encryption-based
+NVS key protection scheme, after GS-68/GS-172 approve and execute the existing
+Secure Boot/Flash Encryption sequence. Allocate the documented 4 KiB `nvs_keys`
+partition marked encrypted and a supported NVS data partition in the reviewed
+commercial layout. Generate each device's NVS XTS keys only in an explicit,
+authorized manufacturing/first-provisioning step after Flash Encryption is
+confirmed active; keep them on-device, do not export them, and record only a
+sanitized provisioning receipt. Normal application startup must load an
+existing security configuration and call secure NVS initialization; it must
+never auto-generate keys, auto-format NVS, or recover by erasing. A missing,
+malformed or unreadable key partition leaves Wi-Fi setup disabled. Use
+`WIFI_STORAGE_RAM` for the ESP-IDF station so it does not independently persist
+a second credential copy in default NVS; the GS-58 store is the only credential
+persistence path. Encrypt every NVS partition that may contain credentials or
+pairing-verifier material. The current development partition table lacks
+`nvs_keys`, its untracked effective `sdkconfig` has NVS encryption off, and
+neither file is changed by this proposal.
+
+**Atomic replacement model.** Keep a versioned credential record in two slots
+and a separately committed active-slot/generation selector, all inside the
+approved encrypted partition. Validate SSID/password bounds before writing;
+write the inactive slot, commit, read back and validate it, then commit the
+selector. Preserve the former active slot until the selector is verified. Only
+an unambiguous successful selector commit returns `Ok` and triggers the
+existing station reconnect. A rejected write leaves the old selector/record
+active. An ambiguous commit returns `CommitOutcomeUnknown`, triggers no
+reconnect, and is resolved only by reopening NVS and validating the committed
+selector and both slots after restart; never guess the newest generation. A
+corrupt selector, missing key, impossible generation, or invalid selected
+record fails closed without falling back to stale credentials or reformatting.
+The two-slot layout bounds retained history to current plus one previous
+credential. Whether/when the previous slot is purged after the new network
+associates needs product/security approval; no unbounded credential history is
+permitted. Keep passwords only in bounded RAM buffers, clear them after use,
+and redact all logs, crash output and diagnostic exports.
+
+Encrypted NVS protects confidentiality and recognized read/modify/add against
+an attacker without its key, but it does not prevent flash erase. It is not a
+claim of malicious full-flash rollback protection; retain GS-D029's stated
+rollback boundary. Do not choose the HMAC NVS scheme for this pilot: it consumes
+an additional HMAC_UP eFuse key, and normal `nvs_flash_init()` may generate and
+program that key when absent. A secure element or custom file-encryption
+framework adds hardware/key infrastructure without a demonstrated need for
+the first 50–100 units.
+
+**Alternatives considered.** Plain/default NVS, Wi-Fi-driver persistence,
+plaintext files and host-side firmware constants are rejected. HMAC-derived
+NVS keys are rejected in favor of reusing the Flash Encryption trust boundary.
+A custom encrypted file store is unnecessary while the existing
+`WifiCredentialStore` and NVS API can implement the two-slot transaction.
+
+### Approval matrix and qualification sequence
+
+| Decision | Recommendation | Approval needed before enabling |
+|---|---|---|
+| D1 pairing scheme | ESP-IDF Security 2 only; unique >=128-bit per-Hub proof; verifier bound to permanent GS-168 HubId | GS-68 security + GS-172 manufacturing approve proof generation, storage, sealed delivery, rotation, retry/window limits and exact pinned component/client versions |
+| D1 owner permit | GS-109 current-owner service issues one-use challenge/boot-generation/Home/epoch/operation permit; max five-minute lease proposed | GS-109/security approve claims, signer/trust key and purpose separation, transfer/revocation race lock, phone-online requirement, time/replay behavior and recovery authority |
+| D2 storage/key lifecycle | ESP-IDF NVS encryption protected by the approved per-device Flash Encryption key; target-generated NVS XTS keys only in explicit controlled provisioning; secure read-only runtime init | GS-68/172 approve Secure Boot/FE sequence, exact eFuse/key custody and verification, `nvs_keys` and NVS partition map, first-boot authorization and recovery/rotation handling |
+| D2 record recovery | Two encrypted credential slots + committed selector; no autoformat or stale fallback; one previous slot maximum | Product/security approve when old credentials are purged, failed-association retry UX and limits of erase/rollback recovery |
+| Android transport | Espressif Android provisioning library candidate; native password/transport path only after permit | GS-177/security review pinned source/dependency, Security 2 downgrade behavior, permission, memory-zeroization/logging, lifecycle and accessibility tests |
+
+**Acceptance tests before customer activation.** Host tests: permit
+signature/HubId/Home/epoch/operation mismatch; unauthorized role; nonce replay;
+wrong boot generation; expired monotonic session; duplicate sessions;
+transfer/revocation races; lost/rotated proof; Security 0/1/missing-version
+rejection; malformed/oversized scan and credentials. Store fault injection:
+failure before data write, during slot write, after data commit, before selector,
+selector commit unknown, restart at each boundary, corrupt/missing key/slot/
+selector, rejected candidate preserving the former active record, no reconnect
+before verified activation, and no plaintext output. Android: runtime permission
+denial, exact Hub confirmation only after Security 2, Hub-scanned SSID list, no
+password before permit, cancel/disconnect/app death, no password in
+WebView/storage/logs, no downgrade, and correct distinct status rendering.
+Target qualification: reviewed commercial image and partition, actual
+per-device key status, flash-read confidentiality checks, power interruption/
+reboot recovery, incorrect password/AP unavailable, old-credential recovery,
+revocation/transfer, and C3 pending-event/rejoin retention. Physical cases need
+separately authorized, identified fixtures; none ran in this task.
+
+### Evidence and implementation disposition
+
+The code at this checkpoint already has `WifiSetupAuthority`,
+`WifiCredentialStoreBackend`, `WifiCredentialStore`, `WifiOnboarding`, the
+bounded S3 scanner and Android discovery-only screen. The host policy requires
+current authority generation, a fresh Hub scan and `EncryptedWithVerifiedDeviceKey`
+before reconnect; no production provider, Security 2 session, permit verifier,
+NVS key partition or credential-bearing Android transport exists. I made no
+source, dependency, partition or effective configuration change because doing
+so would pre-empt the unresolved D1/D2 trust/key decisions. This is not a claim
+that design alone completes customer onboarding.
+
+Focused current-source check: `make -C code gs58-onboarding-host-test` —
+**30/30 PASS**, exit 0. Previously recorded, unchanged evidence remains:
+reconnect 77/77, onboarding ASAN/UBSAN 30/30, app 34/34, framework 51/51,
+traceability 22/22, S3 no-flash build PASS and Android Actions 39437956269
+SUCCESS. These do not prove target credential storage, BLE provisioning,
+physical phone operation or commercial acceptance. No Android CI, firmware
+build, full validation campaign, physical device, production authority, key,
+eFuse, router or network operation was run in this continuation.
+
+Technical references: [ESP-IDF 6.0.3 NVS encryption guide](https://docs.espressif.com/projects/esp-idf/en/v6.0.3/esp32s3/api-reference/storage/nvs_encryption.html), [ESP-IDF 6.0.3 NVS API](https://docs.espressif.com/projects/esp-idf/en/v6.0.3/esp32s3/api-reference/storage/nvs_flash.html), [ESP-IDF 6.0 migration: provisioning moved to the managed `network_provisioning` component](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/migration-guides/release-6.x/6.0/provisioning.html), [ESP-IDF Security 2 description](https://docs.espressif.com/projects/esp-idf/en/v6.0.2/esp32/api-reference/provisioning/provisioning.html#security-schemes), [network_provisioning v1.2.4 dependency metadata](https://components.espressif.com/components/espressif/network_provisioning/versions/1.2.4/dependencies?language=en), and [Espressif Android provisioning library](https://github.com/espressif/esp-idf-provisioning-android).
+
+Canonical local/remote source was `e7f8a88631aab0f88686ee44bf9b5c4b2da67a1d`; context preflight PASS. The focused test is against unchanged production policy at that source. This proposal does not change `CONTEXT_VERSION`; all listed design decisions remain PROPOSED until approved.

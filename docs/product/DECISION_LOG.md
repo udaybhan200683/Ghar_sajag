@@ -1244,3 +1244,25 @@ GS-D031 or GS-D032, and does not authorize Windows network changes. Current
 local-vs-phone readiness and unresolved `.6` address availability are recorded
 in [`GS-179 laptop service recovery evidence`](../exec-plans/evidence/GS179_LAPTOP_SERVICE_RECOVERY_20261020.md).
 `CONTEXT_VERSION` remains unchanged.
+
+## GS-58 Phase 2 D1/D2 onboarding design — PROPOSED, 2026-10-20
+
+Recommended pilot direction: reuse ESP-IDF BLE `network_provisioning` with
+Security 2 only and a unique per-Hub setup proof tied to the existing GS-168
+permanent Hub identity; require a separately authenticated GS-109 owner/installer
+permit bound to a fresh target nonce, boot generation, Home/epoch and operation;
+and store Wi-Fi credentials in encrypted NVS protected by the approved
+Flash-Encryption key lifecycle, with a two-slot/selector transaction and no
+auto-generation or auto-format on normal startup. The phone may use cellular
+data when the Hub's old router is unavailable. Wi-Fi, Internet, cloud
+authentication, Home claim and monitoring freshness remain separate states.
+
+This is a bounded proposal only. It does not lock a provisioning protocol,
+factory secret-delivery method, authority signer/key, permit lease/transfer
+policy, eFuse sequence, partition map, credential-retention rule or recovery
+process. No code, firmware configuration, partition, secret or hardware was
+changed. The complete alternatives, threat boundaries, exact approval matrix
+and acceptance plan are in
+[`GS-58 Phase 2 D1/D2 evidence`](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md#gs-58-phase-2-d1d2-implementation-decision-packet--2026-10-20).
+GS-D031/D032 and `CONTEXT_VERSION` are unchanged; keep GS-58/GS-177
+In Progress and credential-bearing setup disabled pending the listed approvals.

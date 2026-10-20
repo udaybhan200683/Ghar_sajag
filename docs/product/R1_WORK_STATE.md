@@ -5508,3 +5508,34 @@ authorization for any Windows networking update.
 Canonical source adds a bounded S3 Hub Wi-Fi scanner and a guarded setup policy requiring current installer authority generation, a recent Hub-observed supported 2.4 GHz network and a verified protected atomic credential commit before reconnect. Android Settings now opens a native, bounded BLE discovery screen; device names are labelled unverified. No password collection or credential-bearing BLE session is enabled. The commercial target still has no approved D1 device-specific installer/Hub proof or D2 encrypted-NVS key/partition provider, and current Home/epoch cloud claim remains a separate GS-109/68/148 gate. Accordingly first-time setup, change-Wi-Fi, real S3/phone acceptance and commercial readiness remain BLOCKED/NOT_RUN. Existing GS-58 India profile, C3 rejoin and station retry semantics are unchanged. Exact code, tests, build status and handoff: [GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md). No physical board, phone, Windows networking, PostgreSQL or production service was operated.
 
 Implementation commit `1043827858609a1212e403ddf4d4494e90c6165e` and evidence checkpoint `ea94240c52a80d88709620a88248127bdb17250c` are pushed. Rechecked canonical branch and local/remote equality at `ea94240`; context preflight PASS, filesystem writable, `git fsck --no-reflogs` exit 0 with only dangling-object notices, tracked worktree clean before this documentation checkpoint. Host reconnect 77/77, onboarding 30/30 (normal and ASAN/UBSAN), caregiver runtime 9/9, app 34/34, validation framework 51/51 and mapping 22/22 passed. Android workflow `39437956269` SUCCESS after a single failed-job rerun: browser 4/4, catalogue 92/92, caregiver API 20, Android dashboard 9, voice prototype 26; downloaded debug APK 2,923,446 bytes, SHA-256 `6c12a4439636b0ea9f9a762cdf4f99d41b16fc4dc8f4c9fbb6674d7a9c83a757`, Render origin, not installed. No-flash ESP-IDF 6.0.3 S3 `idf.py build` verification exit 0; 2,191,664-byte image, full SHA-256 `5416a715fc3862977aed9584534c53c3b6726fa888599ee973930df67dee75c3`, image validation digest `d47429105d7b2499ffbb00963372a8408d2c0adfdb546e299ce59ba54affc38f`, effective sdkconfig SHA-256 `79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`, standard profile `GS40_TEST_ONLY_CLOUDSYNC=OFF`, app version `ea94240`, source code tree `19f705568942d7e1e800fb67cc3b5ee30dd2992e`. Build verification reused the existing build tree and passed size checks; it did not access hardware. Local browser remains NOT_RUN because Chrome/Chromium is absent in WSL. Evidence and exact security/physical gates are in [`GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md`](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md). GS-58 and GS-177 remain In Progress; D1, D2, authenticated Home/epoch claim, actual BLE credential submission, S3/phone and commercial acceptance remain blocked/NOT_RUN.
+
+
+## GS-58 Phase 2 D1/D2 secure onboarding decision checkpoint — 2026-10-20
+
+At canonical source `e7f8a88631aab0f88686ee44bf9b5c4b2da67a1d`, context
+preflight PASS and local/origin equal, the focused command
+`make -C code gs58-onboarding-host-test` passed 30/30. No
+source/provider/configuration was changed: current production source still has only the fail-closed authority
+and protected-store seams, the bounded S3 scanner, and Android BLE discovery.
+No live Security 2 session, per-device verifier, signed Home/epoch permit,
+encrypted NVS provider/key partition or native credential-transfer adapter is
+activated. Existing untracked assets and hardware evidence remain untouched.
+
+The implementation-ready but unapproved proposal recommends Security 2 only,
+per-Hub factory proof plus GS-109 one-use current-owner permit, and encrypted
+NVS protected by the approved per-device Flash Encryption lifecycle with
+two-slot/selector recovery. Exact alternatives, security assumptions, approval
+matrix and target/host/Android acceptance plan are in
+[`GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md`](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md#gs-58-phase-2-d1d2-implementation-decision-packet--2026-10-20).
+No context version, product decision, commercial configuration or physical
+acceptance status changed. GS-58/GS-177 remain In Progress; first-time setup,
+change-Wi-Fi and real S3/phone qualification remain SECURITY_BLOCKED/NOT_RUN.
+
+Next action: obtain the D1 Security 2 proof/factory delivery and GS-109 signed
+permit/transfer-revocation decisions, plus the D2 Flash Encryption/NVS key
+custody, partition and record-recovery decisions. Only then pin/add the ESP-IDF
+6 managed provisioning component and Android library, implement target session
+and encrypted-store adapters, and run the listed regressions/builds before any
+separately authorized fixture test. The current untracked development
+`sdkconfig` and partition configuration were not altered. No Windows/network,
+production, eFuse, board or phone operation was performed.
