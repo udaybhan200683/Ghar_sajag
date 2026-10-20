@@ -402,6 +402,39 @@ installed on a phone and is not the laptop-LAN APK. Full `validation-fast`,
 `release-gate-final`, physical BLE, credential replacement on hardware,
 Android phone acceptance and commercial qualification were not run.
 
+Exact sanitizer commands (run from `code/`; all three exited 0):
+
+```sh
+g++ -B/usr/bin -std=c++17 -O1 -g1 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security firmware/hub/connectivity/wifi_credential_slots.cpp tests/cpp/gs58_wifi_credential_slots_validation.cpp -o /var/tmp/gs58_wifi_credential_slots_validation_asan
+g++ -B/usr/bin -std=c++17 -O1 -g1 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security firmware/hub/connectivity/wifi_setup_permit_gate.cpp tests/cpp/gs58_wifi_setup_permit_validation.cpp -o /var/tmp/gs58_wifi_setup_permit_validation_asan
+g++ -B/usr/bin -std=c++17 -O1 -g1 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -DGS_PRODUCT_AI=0 -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security firmware/hub/connectivity/wifi_onboarding.cpp tests/cpp/gs58_wifi_onboarding_validation.cpp -o /var/tmp/gs58_wifi_onboarding_validation_asan
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 /var/tmp/gs58_wifi_credential_slots_validation_asan
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 /var/tmp/gs58_wifi_setup_permit_validation_asan
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 /var/tmp/gs58_wifi_onboarding_validation_asan
+```
+
+Source-bound ESP-IDF build commands (run from `code/` after sourcing the
+ESP-IDF 6.0.3 export script):
+
+```sh
+idf.py -C firmware/node/target/esp32c3/idf -B /var/tmp/gs58-phase3-c3-build -D SDKCONFIG=/var/tmp/gs58-phase3-c3-sdkconfig -D IDF_TARGET=esp32c3 build size
+cp /var/tmp/gs58-phase3-c3-build/gs_hw_m1_node.bin /var/tmp/gs58-phase3-assets/node_firmware.bin
+export GS_NODE_FIRMWARE_ASSET=/var/tmp/gs58-phase3-assets/node_firmware.bin
+idf.py -C firmware/hub/target/esp32s3/idf -B /var/tmp/gs58-phase3-s3-build -D SDKCONFIG=/var/tmp/gs58-phase3-s3-sdkconfig -D IDF_TARGET=esp32s3 -D GS40_TEST_ONLY_CLOUDSYNC=OFF build size
+```
+
+Normal focused validation was invoked from `code/` as:
+
+```sh
+make gs58-credential-slots-host-test gs58-setup-permit-host-test gs58-onboarding-host-test gs58-wifi-host-test validation-framework-test feature-coverage-test
+make feature-coverage-test
+```
+
+Android Actions run `39479165553` ran the registered app/browser stage and the
+Gradle tasks `:app:testDebugUnitTest :app:assembleDebug`; both passed. Local
+Android execution was unavailable because WSL has no Java/Gradle installation
+or Android Gradle wrapper.
+
 D1/D2 remain PROPOSED: per-Hub proof creation/delivery/recovery and GS-109
 permit signer/trust distribution, expiry and ownership-transfer race behavior
 need security approval; Secure Boot/Flash Encryption/eNVS key custody,
