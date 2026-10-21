@@ -444,6 +444,8 @@
       "inputs": [
         "firmware/hub/connectivity/wifi_onboarding.hpp",
         "firmware/hub/connectivity/wifi_onboarding.cpp",
+        "firmware/hub/connectivity/wifi_credential_slots.hpp",
+        "firmware/hub/connectivity/wifi_credential_slots.cpp",
         "firmware/hub/connectivity/wifi_credential_store.hpp",
         "tests/cpp/gs58_wifi_onboarding_validation.cpp"
       ],

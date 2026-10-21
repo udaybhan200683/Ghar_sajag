@@ -141,6 +141,7 @@ gs58-wifi-host-test: build
 gs58-onboarding-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) \
 		firmware/hub/connectivity/wifi_onboarding.cpp \
+		firmware/hub/connectivity/wifi_credential_slots.cpp \
 		tests/cpp/gs58_wifi_onboarding_validation.cpp \
 		-o build/gs58_wifi_onboarding_validation
 	./build/gs58_wifi_onboarding_validation

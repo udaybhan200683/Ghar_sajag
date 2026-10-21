@@ -45,8 +45,12 @@ public:
 
     WifiCredentialProtection protection() const override;
     WifiCredentialStoreResult load(WifiCredentialRecord& record) override;
-    WifiCredentialStoreResult replace_atomically(
-        const WifiCredentialRecord& record) override;
+    WifiCredentialStoreResult stage_candidate(
+        const WifiCredentialRecord& record, std::uint32_t& generation) override;
+    WifiCredentialStoreResult load_candidate(
+        std::uint32_t& generation, WifiCredentialRecord& record) override;
+    WifiCredentialStoreResult activate_candidate(std::uint32_t generation) override;
+    WifiCredentialStoreResult discard_candidate(std::uint32_t generation) override;
     WifiCredentialStoreResult erase() override;
 
 private:
@@ -58,6 +62,9 @@ private:
     };
 
     WifiCredentialStoreResult read_state(ActiveState& state);
+    WifiCredentialStoreResult read_candidate(ActiveState& active,
+        std::uint8_t& slot, std::uint32_t& generation,
+        WifiCredentialRecord& record);
     WifiCredentialStoreResult write_selector_verified(
         std::uint8_t slot, std::uint32_t generation, bool tombstone,
         const ActiveState& previous);

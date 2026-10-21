@@ -107,6 +107,28 @@ class HubOwnershipRegistry:
             if row is None or row[0] != identity.identity_key_fingerprint:
                 raise OwnershipConflict("hub_identity_proof_mismatch")
             if row[1] != "UNCLAIMED" or row[2] is not None or row[3] != 0:
+                # claim_home is a durable transaction boundary. If the caller
+                # lost its response after COMMIT, allow only the exact original
+                # operation to read back the already committed result. This is
+                # not a second claim authorization: all identity, Home, actor,
+                # authorization-reference and proof fields must match the
+                # recorded transition, and the Hub must still be at that first
+                # active epoch. Transfers, revocation, or a different claim
+                # remain conflicts.
+                if (row[1] == "ACTIVE" and row[2] == operation.home_id and
+                        row[3] == 1 and self.db.execute(
+                            """SELECT 1 FROM hub_ownership_history
+                               WHERE hub_device_id=? AND transition='CLAIMED'
+                                 AND prior_epoch=0 AND new_epoch=1
+                                 AND from_home_id IS NULL AND to_home_id=?
+                                 AND actor_id=? AND authorization_reference=?
+                                 AND possession_proof_reference=?
+                               LIMIT 1""",
+                            (identity.hub_device_id, operation.home_id,
+                             operation.actor_id, operation.authorization_reference,
+                             identity.proof_reference),
+                        ).fetchone() is not None):
+                    return 1
                 raise OwnershipConflict("hub_not_claimable")
             if not self.db.execute("SELECT 1 FROM households WHERE home_id=?", (operation.home_id,)).fetchone():
                 raise OwnershipConflict("unknown_home")

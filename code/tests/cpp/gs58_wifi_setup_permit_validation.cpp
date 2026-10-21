@@ -31,11 +31,13 @@ public:
 class PermitVerifier final : public Gs109SetupPermitVerifier {
 public:
     bool accept{true};
+    unsigned calls{0};
     VerifiedGs109SetupPermit output{};
     bool verify_and_consume_one_use_permit(const std::uint8_t* permit, std::size_t size,
                                            const WifiSetupChallenge& challenge,
                                            std::uint64_t now,
                                            VerifiedGs109SetupPermit& verified) override {
+        ++calls;
         if (!accept || permit == nullptr || size != 3 || permit[0] != 'G' ||
             permit[1] != 'S' || permit[2] != '1') return false;
         verified = output;
@@ -211,6 +213,30 @@ void test_rejects_invalid_time_generation_and_input() {
     expect(gate.open(session, input, permit, 0, verifier, 1005) ==
            WifiSetupPermitResult::InvalidInput, "empty permit envelope is rejected");
 }
+
+void test_initial_claim_requires_committed_nonzero_epoch() {
+    CurrentAuthority authority;
+    WifiSetupPermitGate gate(authority);
+    Session session;
+    PermitVerifier verifier;
+    const std::uint8_t permit[] = {'G', 'S', '1'};
+
+    auto unclaimed = challenge();
+    unclaimed.ownership_epoch = 0;
+    expect(gate.open(session, unclaimed, permit, sizeof(permit), verifier, 1005) ==
+           WifiSetupPermitResult::InvalidInput,
+           "unclaimed epoch zero cannot authorize credential setup");
+    expect(verifier.calls == 0,
+           "epoch-zero request is rejected before invoking the permit verifier");
+
+    auto claimed = challenge();
+    claimed.ownership_epoch = 1;
+    claimed.nonce[0] = 0x44;
+    set_valid(verifier, claimed);
+    expect(gate.open(session, claimed, permit, sizeof(permit), verifier, 1005) ==
+           WifiSetupPermitResult::Ok,
+           "initial-claim Wi-Fi setup accepts only the committed first ownership epoch");
+}
 }  // namespace
 
 int main() {
@@ -218,6 +244,7 @@ int main() {
         test_security2_binding_expiry_and_revocation();
         test_rejects_wrong_security_and_claim_binding();
         test_rejects_invalid_time_generation_and_input();
+        test_initial_claim_requires_committed_nonzero_epoch();
         std::cout << "GS-58 setup permit checks=" << checks << " PASS\n";
     } catch (const std::exception& error) {
         std::cerr << "GS-58 setup permit FAIL: " << error.what() << '\n';

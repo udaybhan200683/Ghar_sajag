@@ -184,17 +184,90 @@ WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::load(WifiCredential
     return result;
 }
 
-WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::replace_atomically(
-    const WifiCredentialRecord& record) {
+WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::read_candidate(
+    ActiveState& active, std::uint8_t& slot, std::uint32_t& generation,
+    WifiCredentialRecord& record) {
+    record.clear();
+    slot = 0;
+    generation = 0;
+    const auto active_result = read_state(active);
+    if (active_result != WifiCredentialStoreResult::Ok &&
+        active_result != WifiCredentialStoreResult::NotFound)
+        return active_result;
+    if (active.generation == UINT32_MAX)
+        return WifiCredentialStoreResult::CommitRejected;
+    generation = active.generation + 1;
+    slot = active_result == WifiCredentialStoreResult::Ok
+        ? static_cast<std::uint8_t>(1u - active.slot) : 0;
+
+    SensitiveBuffer encoded;
+    std::size_t size = 0;
+    const auto io = storage_.read(slot == 0 ? WifiCredentialSlot::SlotA
+                                            : WifiCredentialSlot::SlotB,
+                                  encoded.bytes.data(), encoded.bytes.size(), size);
+    if (io == WifiCredentialIoResult::NotFound) return WifiCredentialStoreResult::NotFound;
+    if (io != WifiCredentialIoResult::Ok) return map_io(io);
+    if (size < kRecordHeaderSize + kRecordCrcSize ||
+        size > WifiCredentialSlotStorage::kMaxEncodedBytes ||
+        !constant_bytes_equal(encoded.bytes.data(), kRecordMagic.data(), kRecordMagic.size()))
+        return WifiCredentialStoreResult::CorruptRecord;
+    // The inactive slot normally contains the previous active generation. It
+    // is not a staged candidate unless it is exactly the successor of the
+    // current selector.
+    if (get_u32(encoded.bytes.data() + 4) != generation) {
+        generation = 0;
+        return WifiCredentialStoreResult::NotFound;
+    }
+    if (!decode_record(encoded.bytes.data(), size, generation, record)) {
+        generation = 0;
+        return WifiCredentialStoreResult::CorruptRecord;
+    }
+    return WifiCredentialStoreResult::CandidateStaged;
+}
+
+WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::load_candidate(
+    std::uint32_t& generation, WifiCredentialRecord& record) {
+    generation = 0;
+    record.clear();
+    if (protection() != WifiCredentialProtection::EncryptedWithVerifiedDeviceKey)
+        return WifiCredentialStoreResult::ProtectedStorageUnavailable;
+    ActiveState active;
+    std::uint8_t slot = 0;
+    const auto result = read_candidate(active, slot, generation, record);
+    if (result != WifiCredentialStoreResult::CandidateStaged) {
+        generation = 0;
+        record.clear();
+    }
+    return result;
+}
+
+WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::stage_candidate(
+    const WifiCredentialRecord& record, std::uint32_t& generation) {
+    generation = 0;
     if (protection() != WifiCredentialProtection::EncryptedWithVerifiedDeviceKey)
         return WifiCredentialStoreResult::ProtectedStorageUnavailable;
     if (!record.valid()) return WifiCredentialStoreResult::InvalidRecord;
 
     ActiveState previous;
-    const auto previous_result = read_state(previous);
+    auto previous_result = read_state(previous);
     if (previous_result != WifiCredentialStoreResult::Ok &&
         previous_result != WifiCredentialStoreResult::NotFound)
         return previous_result;
+
+    // For first-time setup, persist an empty selector before the candidate so
+    // a restart can distinguish a staged record from unreferenced/corrupt
+    // bytes. This marker never selects a credential.
+    if (previous_result == WifiCredentialStoreResult::NotFound &&
+        previous.generation == 0 && !previous.tombstone) {
+        const auto initialized = write_selector_verified(
+            kTombstoneSlot, 1, true, previous);
+        if (initialized != WifiCredentialStoreResult::Ok) return initialized;
+        previous_result = read_state(previous);
+        if (previous_result != WifiCredentialStoreResult::NotFound ||
+            !previous.tombstone || previous.generation != 1)
+            return WifiCredentialStoreResult::CommitOutcomeUnknown;
+    }
+
     const std::uint32_t previous_generation = previous.generation;
     if (previous_generation == UINT32_MAX) return WifiCredentialStoreResult::CommitRejected;
     const std::uint32_t next_generation = previous_generation + 1;
@@ -210,19 +283,64 @@ WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::replace_atomically(
     SensitiveBuffer readback;
     std::size_t readback_size = 0;
     const auto read_result = storage_.read(slot, readback.bytes.data(), readback.bytes.size(), readback_size);
-    const bool slot_verified = read_result == WifiCredentialIoResult::Ok &&
+    const bool candidate_verified = read_result == WifiCredentialIoResult::Ok &&
         readback_size == candidate_size &&
         constant_bytes_equal(readback.bytes.data(), candidate_bytes.bytes.data(), candidate_size);
-    if (!slot_verified) {
-        return write_result == WifiCredentialIoResult::Rejected
-            ? WifiCredentialStoreResult::CommitRejected
-            : (write_result == WifiCredentialIoResult::OutcomeUnknown ||
-               read_result == WifiCredentialIoResult::IoError
-                ? WifiCredentialStoreResult::CommitOutcomeUnknown
-                : WifiCredentialStoreResult::CommitRejected);
+    if (candidate_verified) {
+        generation = next_generation;
+        return WifiCredentialStoreResult::CandidateStaged;
     }
+    if (read_result == WifiCredentialIoResult::IoError ||
+        write_result == WifiCredentialIoResult::OutcomeUnknown) {
+        return WifiCredentialStoreResult::CommitOutcomeUnknown;
+    }
+    return WifiCredentialStoreResult::CommitRejected;
+}
 
-    return write_selector_verified(next_slot, next_generation, false, previous);
+WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::activate_candidate(
+    std::uint32_t generation) {
+    if (protection() != WifiCredentialProtection::EncryptedWithVerifiedDeviceKey)
+        return WifiCredentialStoreResult::ProtectedStorageUnavailable;
+    if (generation == 0) return WifiCredentialStoreResult::InvalidRecord;
+    ActiveState previous;
+    std::uint8_t slot = 0;
+    std::uint32_t staged_generation = 0;
+    WifiCredentialRecord candidate;
+    const auto staged = read_candidate(previous, slot, staged_generation, candidate);
+    if (staged != WifiCredentialStoreResult::CandidateStaged) return staged;
+    if (staged_generation != generation) return WifiCredentialStoreResult::CommitRejected;
+    return write_selector_verified(slot, staged_generation, false, previous);
+}
+
+WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::discard_candidate(
+    std::uint32_t generation) {
+    if (protection() != WifiCredentialProtection::EncryptedWithVerifiedDeviceKey)
+        return WifiCredentialStoreResult::ProtectedStorageUnavailable;
+    if (generation == 0) return WifiCredentialStoreResult::InvalidRecord;
+    ActiveState active;
+    std::uint8_t slot = 0;
+    std::uint32_t staged_generation = 0;
+    WifiCredentialRecord candidate;
+    const auto staged = read_candidate(active, slot, staged_generation, candidate);
+    if (staged != WifiCredentialStoreResult::CandidateStaged) return staged;
+    if (staged_generation != generation) return WifiCredentialStoreResult::CommitRejected;
+    const auto io = storage_.erase(slot == 0 ? WifiCredentialSlot::SlotA
+                                             : WifiCredentialSlot::SlotB);
+    if (io == WifiCredentialIoResult::Rejected)
+        return WifiCredentialStoreResult::CommitRejected;
+    ActiveState after_active;
+    std::uint8_t after_slot = 0;
+    std::uint32_t after_generation = 0;
+    WifiCredentialRecord after_candidate;
+    const auto after = read_candidate(after_active, after_slot, after_generation,
+                                      after_candidate);
+    if (after == WifiCredentialStoreResult::NotFound)
+        return WifiCredentialStoreResult::Ok;
+    if (io == WifiCredentialIoResult::OutcomeUnknown ||
+        after == WifiCredentialStoreResult::IoError ||
+        after == WifiCredentialStoreResult::CommitOutcomeUnknown)
+        return WifiCredentialStoreResult::CommitOutcomeUnknown;
+    return WifiCredentialStoreResult::CommitRejected;
 }
 
 WifiCredentialStoreResult TwoSlotWifiCredentialStoreBackend::write_selector_verified(

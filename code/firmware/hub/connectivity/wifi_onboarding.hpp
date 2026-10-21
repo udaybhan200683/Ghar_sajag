@@ -20,7 +20,7 @@ public:
     // device-specific installer session and current Home/ownership epoch; it
     // must change on transfer, revocation or a new session.
     virtual std::uint64_t current_generation(std::uint64_t now_ms) const = 0;
-    // Called only after a successful protected credential commit and a final
+    // Called only after a protected candidate is staged and a final
     // current-generation check. One-use permit authorities close the session
     // here; simple host policy authorities may retain their current behavior.
     virtual bool complete_setup_operation(std::uint64_t now_ms,
@@ -47,7 +47,7 @@ public:
 enum class WifiSetupResult : std::uint8_t {
     Ok, Unauthorized, ProtectedStorageUnavailable, ScanFailed,
     NoSupportedNetworks, InvalidNetwork, InvalidPassword,
-    CommitRejected, CommitOutcomeUnknown,
+    CredentialStaged, CommitRejected, CommitOutcomeUnknown,
 };
 
 // No commercial target supplies WifiSetupAuthority or protected storage yet.
@@ -63,9 +63,13 @@ public:
 
     WifiSetupResult scan(std::uint64_t now_ms, WifiScanEntry* output,
                          std::size_t capacity, std::size_t& count);
-    WifiSetupResult commit(std::uint64_t now_ms,
-                           const WifiCredentialRecord& candidate,
-                           const WifiScanEntry& selected);
+    // Persists a verified candidate without changing the active selector or
+    // triggering reconnect. Network verification and final activation are
+    // separate, currently uncomposed operations.
+    WifiSetupResult stage_candidate(std::uint64_t now_ms,
+                                    const WifiCredentialRecord& candidate,
+                                    const WifiScanEntry& selected,
+                                    std::uint32_t& candidate_generation);
 
 private:
     WifiSetupAuthority& authority_;
