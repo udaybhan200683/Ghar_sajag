@@ -5657,3 +5657,67 @@ permissions and phone receipt qualification. Keep the worker disabled by
 default and preserve provider acceptance as distinct from device delivery or
 human acknowledgement. The GS-75 worktree and ignored build/cache artifacts
 remain preserved.
+
+### GS-75 PR #4 merge clarification — 2026-10-21
+
+The preceding GS-75 checkpoint records the state before canonical integration.
+PR #4 was subsequently merged into the canonical branch; the merge is present
+at `ef352611528ea8ddd302229ef8371bd7528a8c61` (`feat(GS-75): integrate durable
+autonomous notification worker (#4)`). The historical `OPEN/DRAFT` sentence
+above is retained as an accurate checkpoint-time statement and is no longer the
+current canonical PR status. This clarification does not reopen GS-75 work.
+
+### GS-179 resumed software integration checkpoint — 2026-10-21
+
+GS-179 remains In Progress and at its existing Jira Rank; GS-114 remains ahead
+of GS-117 and GS-179. The authorized canonical fast-forward advanced
+`feature/r1-commercial-baseline` from `2b8dee5dc0494a06bcc34210cd08bdc63e6339b0`
+to `ef352611528ea8ddd302229ef8371bd7528a8c61`, exactly matching the verified
+remote. The 25 incoming paths had no collision with pre-existing untracked or
+ignored paths. The preserved counts were 301 untracked and 174,433 ignored
+before and after synchronization. Context preflight passed before and after.
+
+No new backend, listener, identity path, data model, caregiver view or Android
+UI was needed or added. The TLS 1.2 TEST_ONLY listener, GS-148 durable
+PostgreSQL API/COMMITTED behavior, and GS-179 Home-authorized caregiver
+projection remain implemented and were reused. The remaining operational gap
+is still `HUB_INGRESS_READY=NOT_CONFIGURED`: the laptop service does not compose
+the listener and has no approved TEST_ONLY Hub credential/issuer artifacts,
+trusted-time provider, current Hub/Home/epoch binding, or authorized Hub route.
+The minimum safe runtime change cannot be completed without those approved
+inputs; synthetic/persistent credentials, inferred time/authority, and network
+activation were not introduced.
+
+Focused validation on canonical source `ef352611528ea8ddd302229ef8371bd7528a8c61`:
+`make -C code gs179-postgres-e2e` passed 47/47 after using the laptop's existing
+private Python and libpq dependency paths (two earlier environment-only
+attempts exited 2 at import/collection, 34 errors each). The suite included
+production Node/Hub host simulation, authenticated TEST_ONLY ingress, durable
+PostgreSQL commit/retry, restart, Home isolation, security negatives and
+NodeHealth stale/UNKNOWN/recovery cases. The same source EventKey
+`test-c3-bedroom / bedroom / session 10 / sequence 1` returned `COMMITTED`,
+then an idempotent duplicate receipt; one logical row was asserted and the
+event was read from its authorized TEST_ONLY caregiver Home.
+`validation-framework-test` passed 51/51; `feature-coverage-test` passed with
+223 features, 277 modules, 26 physical cases and mapping 22/22; laptop script
+`bash -n` and `git diff --check` passed. Tests used host simulation and isolated
+TEST_ONLY software, not target or physical hardware. The existing read-only
+health probe reported local PostgreSQL, caregiver HTTPS and backend ready;
+phone LAN reachability was `BLOCKED_CONFIG_MISMATCH`; Hub ingress remained
+`NOT_CONFIGURED`.
+
+Evidence and exact commands/correlation are in
+[`GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md#canonical-fast-forward-and-resumed-gs-179-checkpoint--2026-10-21).
+No product decision, release gate, source code, test registry, or physical
+acceptance state changed. No real S3 authentication, real C3 sensor event,
+Android handset observation, persistent ingress activation, firewall/route
+change, or production trust operation occurred. GS-117 remains unaccepted;
+GS-74 FCM is not a prerequisite for ordinary authenticated monitoring display.
+
+Next action: supply/approve the existing TEST_ONLY credential registry and
+client artifacts, trusted-time provider, current Hub/Home/epoch authority, and
+authorized private route needed to compose and start the laptop listener. Then
+validate authenticated Hub-to-caregiver flow in that runtime. Separately,
+complete the GS-117 fixture/image/authority/network/reset-safe handoff before
+any real PIR qualification. Do not infer physical or commercial readiness from
+the host-simulation PASS.

@@ -97,3 +97,102 @@ step is to provide existing approved TEST_ONLY artifacts and an authorized
 route, then start only on an approved private interface and validate real
 S3-originated HTTPS/mTLS ingestion. Physical and production paths remain
 blocked separately.
+
+## Canonical fast-forward and resumed GS-179 checkpoint — 2026-10-21
+
+The user-authorized fast-forward was performed in the canonical worktree only.
+The verified starting commit was `2b8dee5dc0494a06bcc34210cd08bdc63e6339b0`;
+`origin/feature/r1-commercial-baseline` was exactly
+`ef352611528ea8ddd302229ef8371bd7528a8c61` and the starting commit was its
+ancestor. The incoming 25 changed paths were checked against existing
+untracked and ignored paths, including path ancestry and filesystem types;
+there were no collisions. The tracked worktree was clean. `git merge --ff-only
+origin/feature/r1-commercial-baseline` advanced the branch to the approved
+commit. Before and after counts remained 301 untracked and 174,433 ignored
+paths; no cleanup or other worktree operation was performed. Context preflight
+passed before and after the fast-forward (`2026-10-13.001`).
+
+The fast-forward changed no GS-179 runtime implementation. Current-source
+inspection reconfirmed this reuse/gap matrix:
+
+| Component | Classification | Evidence and minimum change |
+|---|---|---|
+| Application-terminated TEST_ONLY TLS 1.2/mTLS listener | `ALREADY_IMPLEMENTED / REUSE` | `test_only_mtls_listener.py` already enforces verified TLS peer identity, certificate purpose/validity, registry and ownership checks, trusted-time/backend readiness, bounded request handling, and bounded shutdown. |
+| GS-148 durable PostgreSQL event API | `ALREADY_IMPLEMENTED / REUSE` | `durable_api.py` and its PostgreSQL commit path already perform ownership-checked durable event and NodeHealth processing and expose the caregiver query projection. COMMITTED and exact-body retry contracts remain unchanged. |
+| GS-179 caregiver projection and Android-facing API | `ALREADY_IMPLEMENTED / REUSE` | `connected_lite.py` already composes the durable API with the Home-authorized caregiver view. No duplicate store, API, or UI was introduced. |
+| Laptop TEST_ONLY Hub ingress runtime composition | `GENUINE_GAP / BLOCKED` | `gs179-laptop-server.sh` still starts caregiver Gunicorn/WSGI and reports `HUB_INGRESS_READY=NOT_CONFIGURED`; it does not compose the listener. It also lacks approved Hub credential-registry/artifact, trusted-time, current Hub/Home/epoch authority, and authorized route configuration. |
+| Runtime code/configuration change | `MINIMUM_REQUIRED_CHANGE: none safely implementable with current approved inputs` | Do not invent a persistent issuer, client identity, trusted clock, authority binding, or network route. Keep ingress default-disabled and report the exact configuration/trust gate. No source code or runtime configuration changed in this checkpoint. |
+
+### Focused validation on `ef352611528ea8ddd302229ef8371bd7528a8c61`
+
+The existing GS-179 test was first attempted without the laptop's existing
+private Python dependency paths: it exited 2 with 34 collection/import errors
+(`psycopg` unavailable). A second attempt with the Python package path but
+without its existing libpq loader path also exited 2 with 34 import errors.
+No database schemas were created in either attempt. With the existing private
+dependency paths supplied, the registered suite passed:
+
+```text
+source /home/udaybhan/.config/ghar-sajag/gs179-laptop/server.env
+export GS179_TEST_POSTGRES_DSN="$GS179_LOCAL_SERVER_DSN"
+export PYTHONPATH="/home/udaybhan/.local/share/ghar-sajag/gs179-laptop/python-deps${PYTHONPATH:+:$PYTHONPATH}"
+export LD_LIBRARY_PATH="/home/udaybhan/.local/share/ghar-sajag/gs179-laptop/postgres-root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+make -C code gs179-postgres-e2e
+```
+
+Result: exit 0, 47/47 tests passed (`15 test_gs178_security`, 18
+`test_gs178_vertical`, 14 `test_gs179_postgres_security`); the suite built and
+ran the production Node/Hub host-simulation path. A read-only post-run query
+found zero leftover `GS179_TEST_*` schemas. Additional checks:
+
+- `make -C code validation-framework-test`: exit 0, 51/51.
+- `make -C code feature-coverage-test`: exit 0; 223 features, 277 modules,
+  26 physical cases; mapping tests 22/22.
+- `bash -n code/tools/local/gs179-laptop-server.sh`: exit 0.
+- `git diff --check`: exit 0 at validation time.
+
+The existing scenario's original source `EventKey` is
+`{physical_device_id: "test-c3-bedroom", logical_node_id: "bedroom",
+origin_session_id: 10, event_sequence: 1}` with `occurred_at=1792605498`,
+motion type and bedroom room. The GS-178 host simulation produced and retained
+that Node event; the existing Hub processing/CloudSync path submitted it via
+the verified TEST_ONLY mTLS fixture. The durable API returned 201
+`COMMITTED`/`duplicate=false`; the exact retry returned 200
+`COMMITTED`/`duplicate=true`. The test asserts exactly one PostgreSQL logical
+row for that EventKey and the caregiver projection returned the same source
+event in the authorized TEST_ONLY Home. The browser/shared-UI scenario recorded
+17 assertions and `HOST_SIM_PASS`. This is source-linked host simulation plus
+isolated TEST_ONLY host services; it is not C3/S3 target execution, physical
+PIR evidence, a real Hub certificate, or Android handset evidence.
+
+The same registered cases exercise exact retry across restart, conflicting
+EventKey/body rejection, wrong/revoked/expired certificate or identity,
+wrong-Home isolation, forged identity headers, missing/untrusted time,
+backend-readiness loss, stale/revoked ownership, NodeHealth freshness and
+UNKNOWN transition, authenticated health refresh, bounds and shutdown. They
+pass for the isolated software fixture only. No physical/target test was run.
+
+### Current operational readiness and gate
+
+The existing read-only laptop health command reported:
+
+```text
+POSTGRES_READY=PASS tls=verify-full durability=fsync,synchronous_commit,full_page_writes
+CAREGIVER_HTTPS_READY=PASS tls=ca_and_ip_san_verified
+LOCAL_BACKEND_READY=PASS
+PHONE_LAN_REACHABLE=BLOCKED_CONFIG_MISMATCH
+HUB_INGRESS_READY=NOT_CONFIGURED
+```
+
+Caregiver HTTPS/PostgreSQL readiness does not imply Hub ingress or physical
+monitoring availability. The phone's configured LAN endpoint does not match
+the currently observed laptop address; no network or forwarding setting was
+changed. Persistent Hub ingress remains blocked until the owner-approved
+TEST_ONLY credential/issuer registry and artifacts, trusted-time provider,
+current Hub/Home/epoch binding and authorized route are supplied and verified.
+Production credential custody and production TLS remain separate approval
+gates. The next product milestone is the separately authorized GS-117 physical
+qualification: identify and verify the actual C3/S3 images and authority,
+trusted session/time and pending journal state, approve the secure endpoint and
+route, then observe real PIR → C3 → S3 → backend → Android APK behavior under a
+written stop/recovery plan. No such physical operation is authorized here.
