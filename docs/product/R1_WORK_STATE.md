@@ -5628,3 +5628,32 @@ that checkpoint. Delivery-note commit `ce751b8e261d1b0ef2344272ca15e9b5c86d2b5f`
 was also pushed. Final local/remote task-branch equality is recorded in GS-58
 comment `11499` and the execution handoff. Do not merge into canonical
 automatically. GS-58 remains In Progress and physical qualification is NOT_RUN.
+
+## GS-75 notification worker hardening checkpoint — 2026-10-21
+
+The authorized GS-75 worktree is on
+`feature/gs75-autonomous-notifications-20261020`. It was reconciled by normal
+merge with canonical remote `5fd6fe0cb5e161f6e8d8e14e00f2d5f21c20747f`
+(merge commit `fbf50fd8f2c2d3714cf5c468baaa7d1140b41aad`). Source/test and
+GS-116/130 registry corrections are committed at `94b6167`; the detailed
+source-linked evidence is in
+[`GS75_AUTONOMOUS_NOTIFICATION_WORKER_20261020.md`](../exec-plans/evidence/GS75_AUTONOMOUS_NOTIFICATION_WORKER_20261020.md).
+
+The worker now claims jobs just before processing, bounded to one row per
+claim, and calculates retry deadlines from the actual provider failure
+completion time. SQLite and PostgreSQL lease/retry tests, current authorization
+checks, restart recovery and provider-boundary behavior passed. The registered
+worker stage and traceability mapping are present. Focused backend regression
+passed 50/50, isolated PostgreSQL integration 1/1, validation framework and
+traceability checks 73/73, and feature mapping checks 22/22. Exact commands and
+the initial missing-generated-binary setup error followed by its successful
+recovery are documented in the evidence file.
+
+GS-75 remains In Progress. PR #4 remains OPEN/DRAFT and is not merged. No
+production provider, FCM credentials, Android notification delivery, phone
+acceptance or commercial activation was executed. GS-74 owns the FCM provider
+and authorized destination resolution; GS-177 owns native registration,
+permissions and phone receipt qualification. Keep the worker disabled by
+default and preserve provider acceptance as distinct from device delivery or
+human acknowledgement. The GS-75 worktree and ignored build/cache artifacts
+remain preserved.

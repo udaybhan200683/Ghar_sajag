@@ -167,3 +167,62 @@ canonical owner should first finish the GS-58 checkpoint, then review the
 transaction/migration and security code, integrate the shared GS-116/130 rows,
 run the registered backend worker stage plus the isolated PostgreSQL test, and
 only then merge. No automatic merge is requested.
+
+## 2026-10-21 canonical reconciliation and timing fixes
+
+This section supersedes the earlier registry-integration requirement and
+integration handoff above. Those statements describe the original 2026-10-20
+branch checkpoint. The GS-75 worktree was reconciled with the then-current
+canonical remote `5fd6fe0cb5e161f6e8d8e14e00f2d5f21c20747f` using a normal merge;
+merge commit `fbf50fd8f2c2d3714cf5c468baaa7d1140b41aad` has canonical ancestry.
+The latest canonical GS-58 and GS-179 changes are present. No canonical files
+were edited, and no feature branches or worktrees were created or removed.
+
+Two timing defects were reproduced and corrected in source commit `94b6167`:
+
+- `run_once()` now claims one outbox row at a time immediately before handling
+  it, up to the configured batch bound. A slow earlier provider call therefore
+  cannot leave later jobs waiting under leases started at the beginning of the
+  batch. The worker stops the cycle when its authorization/completion fence is
+  lost, so it cannot continue a batch with stale ownership.
+- Retry `due_at` is based on the current clock after the provider failure
+  returns, then adds the existing bounded retry delay. Retry policy and
+  idempotency keys are unchanged.
+
+The shared validation integration is now present: the `gs75-notification-worker`
+stage is registered in `code/validation/suites.json`; the worker and migration
+are inventoried; `GS75-NOTIFICATION-01` is mapped in
+`MASTER_TRACEABILITY.csv`. This stage tests the worker boundary only. The
+provider remains injected; no real FCM delivery is claimed.
+
+### Focused validation
+
+- `PYTHONPATH=backend:. python3 -m unittest tests.python.test_notification_worker tests.python.test_phase2b_notifications tests.python.test_durable_event_commit tests.python.test_database_schema tests.python.test_durable_api tests.python.test_p2d_cloud_contract -v` — PASS, 50/50.
+- `GS75_ISOLATED_TEST_DSN='host=127.0.0.1 port=35557 dbname=gs75_worker_isolated user=udaybhan' PYTHONPATH='/tmp/gs75_notification_pydeps_20261020:backend:.' python3 -m unittest tests.integration.test_gs75_notification_worker_postgres -v` — PASS, 1/1 against a newly initialized disposable UTF-8 PostgreSQL 18.6 cluster; concurrent workers used `SKIP LOCKED`, and retry state survived connection reopen. The pre-existing GS-179 laptop database was not contacted.
+- `PYTHONPATH=backend:. python3 -m unittest tests.python.test_component_gate tests.python.test_feature_traceability -v` — PASS, 73/73, including selection and failure-propagation checks.
+- `make feature-coverage-test` — PASS: 223 feature rows, 277 modules, 26 physical cases; mapping tests 22/22.
+- `make p2d-cloud-contract-host-test` — PASS; its generated executable was then available to the combined 50-test regression.
+- `python3 -m py_compile ...`, `python3 -m json.tool code/validation/suites.json`, and `git diff --check` — PASS.
+
+An initial combined invocation before building the P2D host-contract executable
+reported two `FileNotFoundError` setup errors for that absent generated binary.
+After `make p2d-cloud-contract-host-test` built it, the combined affected suite
+passed 50/50. This was a missing generated test executable, not a product-test
+assertion failure. `validation-fast`, `release-gate-final`, firmware builds,
+Android builds, physical HIL and live provider delivery were not run.
+
+### Delivery and remaining limits
+
+The worker's SQLite/PostgreSQL persistence, authorization reread, lease fencing,
+restart recovery and provider boundary are software-validated. The worker
+remains disabled by default. GS-74 still owns Android FCM provider integration
+and destination/token resolution; GS-177 owns native registration, permission,
+receipt display and phone qualification. Provider idempotency and deployment
+activation require their own review. Provider acceptance is not proof of phone
+delivery or caregiver acknowledgement. GS-75 remains In Progress, and PR #4
+remains open as a draft; no merge or worktree deletion is authorized here.
+
+The root engineering-principles document referenced by the supplied current
+policy was not present in this checkout at preflight. This is recorded as a
+repository-policy documentation gap; the existing tracked AGENTS instructions
+and this task's boundaries were followed, and no AGENTS file was overwritten.
