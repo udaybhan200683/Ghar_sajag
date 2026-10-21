@@ -127,7 +127,7 @@ gs114-ack-wait-host-test: build $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_T
 gs144-workload-spec-test:
 	python3 -m unittest discover -s tests/python -p test_gs144_workload_spec.py -v
 
-.PHONY: gs40-host-test gs40-config-test gs40-qualification-test gs40-test-only-bootstrap-test gs58-wifi-host-test
+.PHONY: gs40-host-test gs40-config-test gs40-qualification-test gs40-test-only-bootstrap-test gs58-wifi-host-test gs58-onboarding-host-test gs58-credential-slots-host-test gs58-setup-permit-host-test
 gs40-config-test: lab-build
 	PYTHONPATH=backend:tests/python python3 -m unittest test_node_health_config -v
 
@@ -141,9 +141,24 @@ gs58-wifi-host-test: build
 gs58-onboarding-host-test: build
 	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) \
 		firmware/hub/connectivity/wifi_onboarding.cpp \
+		firmware/hub/connectivity/wifi_credential_slots.cpp \
 		tests/cpp/gs58_wifi_onboarding_validation.cpp \
 		-o build/gs58_wifi_onboarding_validation
 	./build/gs58_wifi_onboarding_validation
+
+gs58-credential-slots-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) \
+		firmware/hub/connectivity/wifi_credential_slots.cpp \
+		tests/cpp/gs58_wifi_credential_slots_validation.cpp \
+		-o build/gs58_wifi_credential_slots_validation
+	./build/gs58_wifi_credential_slots_validation
+
+gs58-setup-permit-host-test: build
+	$(HOST_CXX) $(CXXFLAGS) $(TRACE_FLAGS) $(INCLUDES) \
+		firmware/hub/connectivity/wifi_setup_permit_gate.cpp \
+		tests/cpp/gs58_wifi_setup_permit_validation.cpp \
+		-o build/gs58_wifi_setup_permit_validation
+	./build/gs58_wifi_setup_permit_validation
 
 gs40-qualification-test:
 	PYTHONPATH=tools/hil python3 -m unittest tests.python.test_gs40_qualification -v

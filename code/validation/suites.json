@@ -444,10 +444,52 @@
       "inputs": [
         "firmware/hub/connectivity/wifi_onboarding.hpp",
         "firmware/hub/connectivity/wifi_onboarding.cpp",
+        "firmware/hub/connectivity/wifi_credential_slots.hpp",
+        "firmware/hub/connectivity/wifi_credential_slots.cpp",
         "firmware/hub/connectivity/wifi_credential_store.hpp",
         "tests/cpp/gs58_wifi_onboarding_validation.cpp"
       ],
       "success": "^GS-58 onboarding checks=(\\d+) PASS$",
+      "timeout": 120,
+      "count_kind": "checks"
+    },
+    {
+      "id": "gs58-credential-slots",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "gs58-credential-slots-host-test"
+      ],
+      "inputs": [
+        "firmware/hub/connectivity/wifi_credential_store.hpp",
+        "firmware/hub/connectivity/wifi_credential_slots.hpp",
+        "firmware/hub/connectivity/wifi_credential_slots.cpp",
+        "tests/cpp/gs58_wifi_credential_slots_validation.cpp"
+      ],
+      "success": "^GS-58 credential slots checks=(\\d+) PASS$",
+      "timeout": 120,
+      "count_kind": "checks"
+    },
+    {
+      "id": "gs58-setup-permit",
+      "components": [
+        "hub",
+        "contract"
+      ],
+      "command": [
+        "make",
+        "gs58-setup-permit-host-test"
+      ],
+      "inputs": [
+        "firmware/hub/connectivity/wifi_setup_permit_gate.hpp",
+        "firmware/hub/connectivity/wifi_setup_permit_gate.cpp",
+        "firmware/hub/connectivity/wifi_onboarding.hpp",
+        "tests/cpp/gs58_wifi_setup_permit_validation.cpp"
+      ],
+      "success": "^GS-58 setup permit checks=(\\d+) PASS$",
       "timeout": 120,
       "count_kind": "checks"
     },
@@ -2352,7 +2394,9 @@
         "parivar_saathi_android_app/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
         "parivar_saathi_android_app/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
         "parivar_saathi_android_app/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
-        "parivar_saathi_android_app/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png"
+        "parivar_saathi_android_app/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+        "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/HubWifiSetupActivity.kt",
+        "parivar_saathi_android_app/android/app/src/test/java/in/gharsajag/caregiver/HubWifiSetupTest.kt"
       ],
       "success": "^GS177 ANDROID DASHBOARD PASS tests=(\\d+) skipped=0 apk_sha256=[0-9a-f]{64}$",
       "required_success": [

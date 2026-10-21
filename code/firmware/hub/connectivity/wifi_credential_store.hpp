@@ -40,6 +40,7 @@ enum class WifiCredentialProtection : std::uint8_t {
 
 enum class WifiCredentialStoreResult : std::uint8_t {
     Ok,
+    CandidateStaged,
     NotFound,
     InvalidRecord,
     CorruptRecord,
@@ -51,15 +52,25 @@ enum class WifiCredentialStoreResult : std::uint8_t {
 
 // A production provider must report EncryptedWithVerifiedDeviceKey only after
 // it has verified encrypted-NVS availability and approved per-device key
-// custody. replace_atomically must preserve the previous complete record if
-// it returns CommitRejected. The provider owns encoding and partition details.
+// custody. stage_candidate must never change the active selector. Activation
+// is an explicit second operation so onboarding can keep the previous working
+// credential while association, Internet, cloud-authentication and current
+// Home checks are performed by separately authorized runtime providers.
 class WifiCredentialStoreBackend {
 public:
     virtual ~WifiCredentialStoreBackend() = default;
     virtual WifiCredentialProtection protection() const = 0;
     virtual WifiCredentialStoreResult load(WifiCredentialRecord& record) = 0;
-    virtual WifiCredentialStoreResult replace_atomically(
-        const WifiCredentialRecord& record) = 0;
+    virtual WifiCredentialStoreResult stage_candidate(
+        const WifiCredentialRecord& record, std::uint32_t& generation) = 0;
+    virtual WifiCredentialStoreResult load_candidate(
+        std::uint32_t& generation, WifiCredentialRecord& record) = 0;
+    // This storage primitive only commits a staged generation. Product code
+    // must call it after its independent authorization/network readiness gate.
+    virtual WifiCredentialStoreResult activate_candidate(
+        std::uint32_t generation) = 0;
+    virtual WifiCredentialStoreResult discard_candidate(
+        std::uint32_t generation) = 0;
     virtual WifiCredentialStoreResult erase() = 0;
 };
 
@@ -82,12 +93,46 @@ public:
         return result;
     }
 
-    WifiCredentialStoreResult replace(
-        const WifiCredentialRecord& record) {
+    WifiCredentialStoreResult stage_candidate(
+        const WifiCredentialRecord& record, std::uint32_t& generation) {
+        generation = 0;
         if (!protected_backend())
             return WifiCredentialStoreResult::ProtectedStorageUnavailable;
         if (!record.valid()) return WifiCredentialStoreResult::InvalidRecord;
-        return backend_.replace_atomically(record);
+        return backend_.stage_candidate(record, generation);
+    }
+
+    WifiCredentialStoreResult load_candidate(
+        std::uint32_t& generation, WifiCredentialRecord& record) {
+        generation = 0;
+        clear(record);
+        if (!protected_backend())
+            return WifiCredentialStoreResult::ProtectedStorageUnavailable;
+        const auto result = backend_.load_candidate(generation, record);
+        if (result == WifiCredentialStoreResult::CandidateStaged && !record.valid()) {
+            clear(record);
+            generation = 0;
+            return WifiCredentialStoreResult::CorruptRecord;
+        }
+        if (result != WifiCredentialStoreResult::CandidateStaged) {
+            clear(record);
+            generation = 0;
+        }
+        return result;
+    }
+
+    WifiCredentialStoreResult activate_candidate(std::uint32_t generation) {
+        if (!protected_backend())
+            return WifiCredentialStoreResult::ProtectedStorageUnavailable;
+        if (generation == 0) return WifiCredentialStoreResult::InvalidRecord;
+        return backend_.activate_candidate(generation);
+    }
+
+    WifiCredentialStoreResult discard_candidate(std::uint32_t generation) {
+        if (!protected_backend())
+            return WifiCredentialStoreResult::ProtectedStorageUnavailable;
+        if (generation == 0) return WifiCredentialStoreResult::InvalidRecord;
+        return backend_.discard_candidate(generation);
     }
 
     WifiCredentialStoreResult erase() {

@@ -1266,3 +1266,18 @@ and acceptance plan are in
 [`GS-58 Phase 2 D1/D2 evidence`](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md#gs-58-phase-2-d1d2-implementation-decision-packet--2026-10-20).
 GS-D031/D032 and `CONTEXT_VERSION` are unchanged; keep GS-58/GS-177
 In Progress and credential-bearing setup disabled pending the listed approvals.
+
+## GS-58 commercial integration hardening — 2026-10-21 (implementation; no decision)
+
+The isolated hardening task adds exact lost-response retry for an already
+committed epoch-1 Hub claim and separates Wi-Fi credential candidate staging
+from explicit selector activation. Staging leaves the previous active
+credential selected and does not trigger reconnect. Initial-claim permit
+reservation/finalization, network qualification and activation authority,
+transfer data disposition, and D1/D2 production key custody remain unresolved
+and fail closed. These are source-level reliability corrections under existing
+GS-D032/GS-109 and GS-58 boundaries; they do not approve or lock a commercial
+pairing, provisioning, transfer, credential-retention, partition, or key
+lifecycle policy. `CONTEXT_VERSION`, GS-D031 and GS-D032 are unchanged. See
+[`GS-58 commercial integration hardening evidence`](../exec-plans/evidence/GS58_COMMERCIAL_INTEGRATION_HARDENING_20261021.md)
+for test results, target-build provenance and exact remaining gates.

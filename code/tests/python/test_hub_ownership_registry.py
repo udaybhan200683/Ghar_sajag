@@ -6,7 +6,9 @@ These tests exercise the real registry/transaction code, not certificate proof.
 import sqlite3
 import sys
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -142,6 +144,78 @@ class HubOwnershipRegistryTest(unittest.TestCase):
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM durable_event_commits").fetchone()[0], 0)
         print("P0-P2D-010 PASS permanent identity, exact Home ownership and unverified claims fail closed")
 
+    def test_initial_claim_result_is_idempotent_only_for_exact_committed_operation(self):
+        identity = VerifiedHubIdentity("hub-first-claim-retry", "e" * 64,
+                                       "proof-first-claim-retry")
+        operation = AuthorizedHomeOperation("installer-first", "home-a", "CLAIM_HUB",
+                                            "auth-first-claim-once")
+        self.registry.register_unclaimed_identity(identity, 39)
+        self.assertEqual(tuple(self.db.execute(
+            "SELECT state,home_id,installation_epoch FROM hub_ownership_registry WHERE hub_device_id=?",
+            (identity.hub_device_id,),
+        ).fetchone()), ("UNCLAIMED", None, 0))
+
+        # The committed first claim establishes the nonzero epoch needed by
+        # a later setup permit. A lost response is recovered by exact lookup.
+        self.assertEqual(self.registry.claim_home(identity, operation, 40), 1)
+        self.db.close()
+        self.db = self.connect()
+        self.registry = HubOwnershipRegistry(self.db)
+        self.assertEqual(self.registry.claim_home(identity, operation, 41), 1)
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM hub_ownership_history WHERE hub_device_id=? "
+            "AND transition='CLAIMED' AND authorization_reference=?",
+            (identity.hub_device_id, operation.authorization_reference),
+        ).fetchone()[0], 1)
+
+        with self.assertRaisesRegex(OwnershipConflict, "hub_not_claimable"):
+            self.registry.claim_home(identity, AuthorizedHomeOperation(
+                "installer-other", "home-a", "CLAIM_HUB", "auth-different-operation"), 42)
+        with self.assertRaisesRegex(OwnershipConflict, "hub_not_claimable"):
+            self.registry.claim_home(identity, AuthorizedHomeOperation(
+                "installer-first", "home-b", "CLAIM_HUB", operation.authorization_reference), 42)
+
+        self.registry.revoke_hub(identity, AuthorizedHomeOperation(
+            "owner-a", "home-a", "REVOKE_HUB", "auth-revoke-first-claim"), 43)
+        with self.assertRaisesRegex(OwnershipConflict, "hub_not_claimable"):
+            self.registry.claim_home(identity, operation, 44)
+        with self.assertRaisesRegex(OwnershipConflict, "already_registered"):
+            self.registry.register_unclaimed_identity(identity, 45)
+
+    def test_competing_initial_claims_commit_exactly_one_home(self):
+        identity = VerifiedHubIdentity("hub-claim-race", "f" * 64,
+                                       "proof-claim-race")
+        self.registry.register_unclaimed_identity(identity, 49)
+        barrier = threading.Barrier(2)
+
+        def claim(home_id, reference):
+            connection = self.connect()
+            registry = HubOwnershipRegistry(connection)
+            operation = AuthorizedHomeOperation("installer-race", home_id,
+                                                "CLAIM_HUB", reference)
+            try:
+                barrier.wait(timeout=3)
+                return ("committed", home_id, registry.claim_home(identity, operation, 50))
+            except OwnershipConflict:
+                return ("conflict", home_id, None)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda item: claim(*item), (
+                ("home-a", "auth-race-a"), ("home-b", "auth-race-b"))))
+        self.assertEqual([result[0] for result in results].count("committed"), 1)
+        self.assertEqual([result[0] for result in results].count("conflict"), 1)
+        committed_home = next(result[1] for result in results if result[0] == "committed")
+        self.assertEqual(tuple(self.db.execute(
+            "SELECT state,home_id,installation_epoch FROM hub_ownership_registry WHERE hub_device_id=?",
+            (identity.hub_device_id,),
+        ).fetchone()), ("ACTIVE", committed_home, 1))
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM hub_ownership_history WHERE hub_device_id=? AND transition='CLAIMED'",
+            (identity.hub_device_id,),
+        ).fetchone()[0], 1)
+
     def test_generation_replacement_revocation_and_old_event_replay(self):
         first = self.body(sequence=1, generation=1)
         self.assertTrue(self.submit("home-a", first)[0].startswith("201"))
@@ -176,10 +250,23 @@ class HubOwnershipRegistryTest(unittest.TestCase):
         self.assertTrue(self.submit("home-a", pending)[0].startswith("201"))
         operation = AuthorizedHomeOperation("owner-a", "home-a", "TRANSFER_HUB", "auth-transfer-1")
         self.assertEqual(self.registry.begin_transfer(self.identity, operation, "home-b", 40), 2)
+        with self.assertRaisesRegex(OwnershipConflict, "current_home_transfer_authorization_required"):
+            self.registry.begin_transfer(self.identity, AuthorizedHomeOperation(
+                "owner-a", "home-a", "TRANSFER_HUB", "auth-transfer-competing"),
+                "home-other", 40)
         with self.assertRaises(PermissionError):
             self.submit("home-a", self.body(sequence=2), self.context(epoch=1))
         with self.assertRaises(PermissionError):
             self.submit("home-b", self.body(sequence=3), self.context(epoch=2))
+        with self.assertRaisesRegex(OwnershipConflict, "hub_not_claimable"):
+            self.registry.claim_home(self.identity, AuthorizedHomeOperation(
+                "owner-b", "home-b", "CLAIM_HUB", "auth-new-owner-proof"), 40)
+        # If a previously committed receipt was lost by an offline Hub before
+        # transfer began, transfer-pending state deliberately does not accept
+        # an old-epoch retry. The old Home's committed row remains untouched;
+        # disposition/rebind policy is still a prerequisite to finishing.
+        with self.assertRaises(PermissionError):
+            self.submit("home-a", pending, self.context(epoch=1))
         with self.assertRaisesRegex(TransferBlocked, "disposition_and_local_rebind_unapproved"):
             self.registry.complete_transfer(self.identity, "home-b", 41)
         row = self.db.execute(
@@ -189,10 +276,42 @@ class HubOwnershipRegistryTest(unittest.TestCase):
         self.assertEqual(tuple(row), ("TRANSFER_PENDING", "home-a", "home-b", 2))
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM events WHERE home_id='home-a'").fetchone()[0], 1)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM events WHERE home_id='home-b'").fetchone()[0], 0)
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM node_enrollment_history WHERE hub_device_id=? AND state='ACTIVE'",
+            (self.identity.hub_device_id,),
+        ).fetchone()[0], 1)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM hub_ownership_history WHERE hub_device_id=?",
                                          (self.identity.hub_device_id,)).fetchone()[0], 3)
         with self.assertRaises(sqlite3.IntegrityError):
             self.db.execute("DELETE FROM households WHERE home_id='home-a'")
+
+        # A backend restart must retain the transfer fence and old-Home event;
+        # retries cannot silently complete an unapproved data-disposition step.
+        self.db.close()
+        self.db = self.connect()
+        self.registry = HubOwnershipRegistry(self.db)
+        self.api = JsonApi(durable_events=DurableEventCommit(self.db),
+                           hub_ownership_registry=self.registry, now=lambda: 102)
+        with self.assertRaisesRegex(TransferBlocked, "disposition_and_local_rebind_unapproved"):
+            self.registry.complete_transfer(self.identity, "home-b", 42)
+        self.assertEqual(tuple(self.db.execute(
+            "SELECT state,home_id,pending_home_id,installation_epoch FROM hub_ownership_registry WHERE hub_device_id=?",
+            (self.identity.hub_device_id,),
+        ).fetchone()), ("TRANSFER_PENDING", "home-a", "home-b", 2))
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM events WHERE home_id='home-a'"
+        ).fetchone()[0], 1)
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM events WHERE home_id='home-b'"
+        ).fetchone()[0], 0)
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM node_enrollment_history WHERE hub_device_id=? AND state='ACTIVE'",
+            (self.identity.hub_device_id,),
+        ).fetchone()[0], 1)
+        with self.assertRaises(PermissionError):
+            self.submit("home-a", self.body(sequence=4), self.context(epoch=1))
+        with self.assertRaises(PermissionError):
+            self.submit("home-b", self.body(sequence=5), self.context(epoch=2))
         print("P0-P2D-012 PASS transfer epoch blocks both Homes and preserves old-Home data")
 
     def test_node_identity_cannot_be_active_under_two_homes(self):

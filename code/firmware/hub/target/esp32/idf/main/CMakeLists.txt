@@ -28,6 +28,10 @@ if(IDF_TARGET STREQUAL "esp32s3")
         "${GS_ROOT}/firmware/hub/target/esp32s3/https_backend_channel.cpp")
     list(APPEND GS_HUB_SRCS
         "${GS_ROOT}/firmware/hub/target/esp32s3/esp_idf_wifi_setup_scanner.cpp")
+    list(APPEND GS_HUB_SRCS
+        "${GS_ROOT}/firmware/hub/connectivity/wifi_credential_slots.cpp"
+        "${GS_ROOT}/firmware/hub/connectivity/wifi_setup_permit_gate.cpp"
+        "${GS_ROOT}/firmware/hub/target/esp32s3/esp_idf_encrypted_wifi_credential_slots.cpp")
     if(GS40_TEST_ONLY_CLOUDSYNC)
         list(APPEND GS_HUB_SRCS
             "${GS_ROOT}/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp"
@@ -121,8 +125,11 @@ idf_component_register(
         app_update
         esp_driver_gpio
         esp_event
+        efuse
         esp_hw_support
+        esp_partition
         esp_netif
+        bootloader_support
         esp_system
         esp_timer
         esp_wifi

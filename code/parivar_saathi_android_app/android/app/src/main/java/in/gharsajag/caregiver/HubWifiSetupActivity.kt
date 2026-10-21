@@ -157,3 +157,31 @@ object HubWifiDiscoveryPolicy {
         name.length in 7..32 && name.startsWith("PROV_") &&
             name.drop(5).all { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '_' }
 }
+
+/**
+ * UI-side fail-closed gate for future native provisioning. These facts must be
+ * supplied by native protocol/authority adapters; an advertisement, displayed
+ * Hub name, QR reference, or WebView value must never set them. The Hub remains
+ * the security enforcement point and independently checks the same permit and
+ * protected-store conditions before accepting credentials.
+ */
+data class HubWifiProvisioningEvidence(
+    val securityVersion: Int?,
+    val security2SessionAuthenticated: Boolean,
+    val permanentHubIdentityVerified: Boolean,
+    val oneUseHomePermitVerified: Boolean,
+    val currentHomeEpoch: Boolean,
+    val selectedNetworkCameFromHubScan: Boolean,
+    val protectedCredentialStoreReady: Boolean,
+)
+
+object HubWifiProvisioningGate {
+    fun canRequestHubScan(evidence: HubWifiProvisioningEvidence): Boolean =
+        evidence.securityVersion == 2 && evidence.security2SessionAuthenticated &&
+            evidence.permanentHubIdentityVerified && evidence.oneUseHomePermitVerified &&
+            evidence.currentHomeEpoch
+
+    fun canSubmitCredentials(evidence: HubWifiProvisioningEvidence): Boolean =
+        canRequestHubScan(evidence) && evidence.selectedNetworkCameFromHubScan &&
+            evidence.protectedCredentialStoreReady
+}

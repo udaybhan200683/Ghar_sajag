@@ -202,9 +202,13 @@ public:
     using Result = gs::hub::connectivity::WifiCredentialStoreResult;
 
     Protection protection_state{Protection::EncryptedWithVerifiedDeviceKey};
-    Result next_replace_result{Result::Ok};
+    Result next_stage_result{Result::CandidateStaged};
     Record persisted{};
+    Record candidate{};
+    std::uint32_t active_generation{0};
+    std::uint32_t candidate_generation{0};
     bool has_record{false};
+    bool has_candidate{false};
     unsigned loads{0};
     unsigned replacements{0};
     unsigned erases{0};
@@ -216,15 +220,39 @@ public:
         record = persisted;
         return Result::Ok;
     }
-    Result replace_atomically(const Record& record) override {
+    Result stage_candidate(const Record& record, std::uint32_t& generation) override {
         ++replacements;
-        const auto result = next_replace_result;
-        next_replace_result = Result::Ok;
-        if (result == Result::Ok) {
-            persisted = record;
-            has_record = true;
+        generation = 0;
+        const auto result = next_stage_result;
+        next_stage_result = Result::CandidateStaged;
+        if (result == Result::CandidateStaged) {
+            candidate = record;
+            candidate_generation = active_generation + 1U;
+            generation = candidate_generation;
+            has_candidate = true;
         }
         return result;
+    }
+    Result load_candidate(std::uint32_t& generation, Record& record) override {
+        if (!has_candidate) return Result::NotFound;
+        generation = candidate_generation;
+        record = candidate;
+        return Result::CandidateStaged;
+    }
+    Result activate_candidate(std::uint32_t generation) override {
+        if (!has_candidate || generation != candidate_generation) return Result::CommitRejected;
+        persisted = candidate;
+        has_record = true;
+        active_generation = candidate_generation;
+        candidate.clear();
+        has_candidate = false;
+        return Result::Ok;
+    }
+    Result discard_candidate(std::uint32_t generation) override {
+        if (!has_candidate || generation != candidate_generation) return Result::NotFound;
+        candidate.clear();
+        has_candidate = false;
+        return Result::Ok;
     }
     Result erase() override {
         ++erases;
@@ -249,32 +277,34 @@ void test_protected_credential_store_fail_closed_and_atomicity() {
     WifiCredentialStore store(backend);
     const auto original = credential(0x11, 0x22);
     const auto replacement = credential(0x33, 0x44);
-    check(store.replace(original) == WifiCredentialStoreResult::Ok &&
+    std::uint32_t generation = 0;
+    check(store.stage_candidate(original, generation) == WifiCredentialStoreResult::CandidateStaged &&
+              store.activate_candidate(generation) == WifiCredentialStoreResult::Ok &&
               backend.has_record,
           "encrypted device-key backend accepts first committed record");
 
-    backend.next_replace_result = WifiCredentialStoreResult::CommitRejected;
-    check(store.replace(replacement) == WifiCredentialStoreResult::CommitRejected,
-          "atomic provider reports a rejected replacement without claiming commit");
+    backend.next_stage_result = WifiCredentialStoreResult::CommitRejected;
+    check(store.stage_candidate(replacement, generation) == WifiCredentialStoreResult::CommitRejected,
+          "candidate provider reports a rejected stage without changing active data");
     WifiCredentialRecord loaded;
     check(store.load(loaded) == WifiCredentialStoreResult::Ok &&
               loaded.ssid[0] == original.ssid[0] &&
               loaded.password[0] == original.password[0],
           "failed replacement preserves the prior complete credential record");
 
-    backend.next_replace_result = WifiCredentialStoreResult::CommitOutcomeUnknown;
-    check(store.replace(replacement) ==
+    backend.next_stage_result = WifiCredentialStoreResult::CommitOutcomeUnknown;
+    check(store.stage_candidate(replacement, generation) ==
               WifiCredentialStoreResult::CommitOutcomeUnknown,
-          "ambiguous commit outcome is returned as failure, never as connected-ready");
+          "ambiguous candidate stage is returned as failure");
 
     auto invalid = replacement;
     invalid.ssid_size = static_cast<std::uint8_t>(invalid.ssid.size() + 1U);
-    check(store.replace(invalid) == WifiCredentialStoreResult::InvalidRecord,
+    check(store.stage_candidate(invalid, generation) == WifiCredentialStoreResult::InvalidRecord,
           "oversized credential input is rejected before backend mutation");
     invalid = replacement;
     invalid.password_size =
         static_cast<std::uint8_t>(invalid.password.size() + 1U);
-    check(store.replace(invalid) == WifiCredentialStoreResult::InvalidRecord,
+    check(store.stage_candidate(invalid, generation) == WifiCredentialStoreResult::InvalidRecord,
           "oversized password input is rejected before backend mutation");
 
     const auto calls_before_unprotected =
@@ -286,11 +316,11 @@ void test_protected_credential_store_fail_closed_and_atomicity() {
               unavailable.ssid_size == 0 && unavailable.password_size == 0 &&
               unavailable.ssid[0] == 0 && unavailable.password[0] == 0,
           "unavailable protected storage is refused and input buffers are erased");
-    check(store.replace(replacement) ==
+    check(store.stage_candidate(replacement, generation) ==
               WifiCredentialStoreResult::ProtectedStorageUnavailable &&
               backend.loads + backend.replacements + backend.erases ==
                   calls_before_unprotected,
-          "unavailable storage cannot load, replace or silently initialize");
+          "unavailable storage cannot load, stage, or silently initialize");
 
     backend.protection_state = WifiCredentialProtection::PlaintextOnly;
     WifiCredentialRecord refused = credential(0x55, 0x66);
@@ -299,12 +329,12 @@ void test_protected_credential_store_fail_closed_and_atomicity() {
               refused.ssid_size == 0 && refused.password_size == 0 &&
               refused.ssid[0] == 0 && refused.password[0] == 0,
           "plaintext-only backend is refused and output buffer is erased");
-    check(store.replace(replacement) ==
+    check(store.stage_candidate(replacement, generation) ==
               WifiCredentialStoreResult::ProtectedStorageUnavailable &&
               store.erase() == WifiCredentialStoreResult::ProtectedStorageUnavailable &&
               backend.loads + backend.replacements + backend.erases ==
                   calls_before_unprotected,
-          "unprotected storage cannot load, replace, erase or fall back");
+          "unprotected storage cannot load, stage, erase or fall back");
 
     backend.protection_state =
         WifiCredentialProtection::EncryptedWithVerifiedDeviceKey;

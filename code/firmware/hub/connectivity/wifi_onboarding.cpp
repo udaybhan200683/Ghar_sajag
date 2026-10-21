@@ -1,5 +1,4 @@
 #include "firmware/hub/connectivity/wifi_onboarding.hpp"
-#include "firmware/hub/connectivity/wifi_station.hpp"
 
 #include <algorithm>
 
@@ -67,9 +66,10 @@ WifiSetupResult WifiOnboarding::scan(std::uint64_t now_ms,
     return count == 0 ? WifiSetupResult::NoSupportedNetworks : WifiSetupResult::Ok;
 }
 
-WifiSetupResult WifiOnboarding::commit(std::uint64_t now_ms,
-                                       const WifiCredentialRecord& candidate,
-                                       const WifiScanEntry& selected) {
+WifiSetupResult WifiOnboarding::stage_candidate(
+    std::uint64_t now_ms, const WifiCredentialRecord& candidate,
+    const WifiScanEntry& selected, std::uint32_t& candidate_generation) {
+    candidate_generation = 0;
     const auto generation = authority_.current_generation(now_ms);
     if (generation == 0) {
         last_scan_count_ = 0;
@@ -95,25 +95,41 @@ WifiSetupResult WifiOnboarding::commit(std::uint64_t now_ms,
     if (!supported(selected) || !candidate.valid() ||
         !same_ssid(candidate, selected)) return WifiSetupResult::InvalidNetwork;
     if (!valid_wpa_password(candidate)) return WifiSetupResult::InvalidPassword;
-    const auto result = store_.replace(candidate);
+    const auto result = store_.stage_candidate(candidate, candidate_generation);
     if (result == WifiCredentialStoreResult::ProtectedStorageUnavailable)
         return WifiSetupResult::ProtectedStorageUnavailable;
     if (result == WifiCredentialStoreResult::CommitOutcomeUnknown)
         return WifiSetupResult::CommitOutcomeUnknown;
-    if (result != WifiCredentialStoreResult::Ok)
+    if (result != WifiCredentialStoreResult::CandidateStaged) {
+        candidate_generation = 0;
         return WifiSetupResult::CommitRejected;
+    }
+    const auto discard_staged_candidate = [&]() {
+        const auto discarded = store_.discard_candidate(candidate_generation);
+        return discarded == WifiCredentialStoreResult::Ok ||
+               discarded == WifiCredentialStoreResult::NotFound;
+    };
     // A revocation between the preflight and commit must not start a station
-    // connection. The store's committed generation remains available for the
-    // approved recovery owner; it cannot authorize Home publication.
+    // connection or leave a credential candidate when cleanup is possible.
+    // Cleanup uncertainty still cannot change the active selector.
     if (authority_.current_generation(now_ms) != generation) {
         last_scan_count_ = 0;
         last_binding_generation_ = 0;
+        if (!discard_staged_candidate()) return WifiSetupResult::CommitOutcomeUnknown;
+        return WifiSetupResult::Unauthorized;
+    }
+    if (!authority_.complete_setup_operation(now_ms, generation)) {
+        last_scan_count_ = 0;
+        last_binding_generation_ = 0;
+        if (!discard_staged_candidate()) return WifiSetupResult::CommitOutcomeUnknown;
         return WifiSetupResult::Unauthorized;
     }
     last_scan_count_ = 0;
     last_binding_generation_ = 0;
-    notify_s3_wifi_credentials_ready();
-    return WifiSetupResult::Ok;
+    // A protected durable candidate is not evidence that its password works,
+    // the AP is reachable, Internet/cloud auth succeeds, or the Home binding
+    // remains current. Keep the selector on the previous verified record.
+    return WifiSetupResult::CredentialStaged;
 }
 
 }  // namespace gs::hub::connectivity
