@@ -5590,3 +5590,38 @@ and PWA browser 92/92. Its runner-generated Render-origin debug APK is
 not installed on a phone and is not a laptop-LAN package.
 The latest Phase 3 results and constraints are maintained in
 [`GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md`](../exec-plans/evidence/GS58_CUSTOMER_WIFI_ONBOARDING_20261020.md).
+
+## GS-58 Commercial integration hardening — 2026-10-21
+
+Task branch `feature/gs58-integration-hardening-20261021` is isolated from the
+canonical writer and is based on canonical `2b8dee5dc0494a06bcc34210cd08bdc63e6339b0`.
+Implementation commit `47be1e3abcac54af37c4b5ea4407c9420b82372b` adds
+idempotent recovery of an exact already-committed first Hub claim and stages a
+Wi-Fi credential candidate without switching the active selector or starting
+reconnect. The previous active credential remains selected through staging and
+restart; explicit activation is a separate primitive and has no product-flow
+caller. Transfer completion and initial-claim permit reservation remain
+fail-closed because their GS-109 authority/data-disposition semantics are not
+approved. D1/D2 stay PROPOSED; no Android, physical, key/eFuse, production
+credential or network operation occurred.
+
+Focused host validation recorded in the hardening evidence: onboarding 41
+checks, credential slots 48, setup permit 33, reconnect 77, ownership lifecycle
+8/8; the four C++ suites also passed ASAN/UBSAN. Framework 51/51 and traceability
+222 features / 275 modules / 26 physical cases / mapping 22/22 passed. A paired
+ESP-IDF 6.0.3 non-flashing C3/S3 build passed on committed source `47be1e3`.
+The S3 image is 2,193,264 bytes, full SHA-256
+`1cbda4501ac41bda39e0a47af3db75777f4bdaa4947bcddcaf24b6b4ad611b3e`, ESP
+validation hash `200ac124511950950055512a1f99bcd3b21adf8ca7924e80f5b1ba0b48048f02`,
+and effective sdkconfig hash
+`79aa5a0b45b155a97e60feb1f93bc7b653b10d745aea932d57eac9f6bc5da27b`. The
+paired C3 image (940,608 bytes) and embedded C3 asset match at SHA-256
+`38e12e4f730a5afabf017d4b6ba094b32afd54dd09515ebd396ade2251c8d610`. This
+development profile has `GS40_TEST_ONLY_CLOUDSYNC=OFF`; Secure Boot, Flash
+Encryption and NVS encryption are disabled, and the build is compile evidence
+only. See
+[`GS58_COMMERCIAL_INTEGRATION_HARDENING_20261021.md`](../exec-plans/evidence/GS58_COMMERCIAL_INTEGRATION_HARDENING_20261021.md)
+for exact provenance and remaining gates. Jira comments: GS-58 `11499`, GS-109
+`11500`. Evidence/work-state closeout commit and task-branch push remain
+pending. Do not merge into canonical automatically. GS-58 remains In Progress
+and physical qualification is NOT_RUN.
