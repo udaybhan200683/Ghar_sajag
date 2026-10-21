@@ -241,11 +241,12 @@ is preserved as untracked data and excluded from the commits.
 ## M. COMMIT_SHA_AND_REMOTE_VERIFICATION
 
 Implementation commit: `47be1e3abcac54af37c4b5ea4407c9420b82372b`.
-The evidence/work-state closeout is delivered on the same authorized task branch.
-After push, `git ls-remote` must match the final local task-branch HEAD; the
-exact resulting delivery SHA is included in the execution handoff and the GS-58
-Jira comment. Canonical remains at the separate base and is not merged by this
-task.
+Evidence/work-state closeout commit `600ffe8f9040fdf5b2594079f7e1782972e8a883`
+was pushed normally to the authorized task branch. `git ls-remote` matched its
+local HEAD exactly at that SHA. A later small delivery-note commit records that
+verification in the work-state; its final SHA is reported in the execution
+handoff and GS-58 Jira comment. Canonical remained at the separate base and was
+not merged by this task.
 
 ## N. JIRA_UPDATES
 

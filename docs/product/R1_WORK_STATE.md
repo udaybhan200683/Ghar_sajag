@@ -5622,6 +5622,8 @@ Encryption and NVS encryption are disabled, and the build is compile evidence
 only. See
 [`GS58_COMMERCIAL_INTEGRATION_HARDENING_20261021.md`](../exec-plans/evidence/GS58_COMMERCIAL_INTEGRATION_HARDENING_20261021.md)
 for exact provenance and remaining gates. Jira comments: GS-58 `11499`, GS-109
-`11500`. Evidence/work-state closeout commit and task-branch push remain
-pending. Do not merge into canonical automatically. GS-58 remains In Progress
-and physical qualification is NOT_RUN.
+`11500`. Evidence/work-state commit `600ffe8f9040fdf5b2594079f7e1782972e8a883`
+was pushed to the authorized task branch and `git ls-remote` matched local at
+that checkpoint. This final delivery-note update will also be pushed and its
+remote equality reported in the handoff. Do not merge into canonical
+automatically. GS-58 remains In Progress and physical qualification is NOT_RUN.
