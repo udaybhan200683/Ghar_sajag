@@ -223,11 +223,11 @@ class DurableEventCommit:
                                  stage, due, unique))
                         self.db.execute(
                             """INSERT INTO durable_notification_outbox
-                               (outbox_id,home_id,event_id,effect_key,recipient_id,payload_json,due_at)
-                               VALUES(?,?,?,?,?,?,?)
+                               (outbox_id,home_id,event_id,effect_key,recipient_id,payload_json,due_at,stage)
+                               VALUES(?,?,?,?,?,?,?,?)
                                ON CONFLICT(home_id,effect_key,recipient_id) DO NOTHING""",
                             (outbox_id, home_id, event_id, effect_key, recipient,
-                             json.dumps({"kind": kind, "event_key": canonical}, sort_keys=True), due))
+                             json.dumps({"kind": kind, "event_key": canonical}, sort_keys=True), due, stage))
                 self._fault(fail_at, "after_outbox")
                 self._fault(fail_at, "commit_failure")
                 self.db.commit()
