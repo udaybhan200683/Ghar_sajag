@@ -2578,6 +2578,34 @@
       "fast": false,
       "release": false,
       "qualification_scope": "GS178_NODE_HUB_MTLS_DURABLE_POSTGRES_CAREGIVER_PRODUCTION_CODE_ON_EXPLICIT_LOCAL_TEST_DATABASE; NO_EXTERNAL_DEPLOYMENT_OR_PHYSICAL_QUALIFICATION"
+    },
+    {
+      "id": "gs75-notification-worker",
+      "components": [
+        "backend"
+      ],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.python.test_notification_worker",
+        "-v"
+      ],
+      "inputs": [
+        "backend/ghar_sajag/notification_worker.py",
+        "backend/ghar_sajag/durable_commit.py",
+        "backend/migrations/014_notification_worker_leases.sql",
+        "tests/python/test_notification_worker.py"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": [
+        "^OK$"
+      ],
+      "timeout": 180,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true,
+      "qualification_scope": "GS148_EXISTING_OUTBOX_WITH_PRODUCTION_WORKER_AND_SQLITE_RESTART_CONCURRENCY_TESTS; NO_REAL_FCM_OR_ANDROID_DELIVERY"
     }
   ],
   "separate_harnesses": {},

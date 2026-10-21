@@ -147,6 +147,51 @@ class NotificationWorkerTest(unittest.TestCase):
         self.assertTrue(all(not thread.is_alive() for thread in threads))
         self.assertEqual(sum(provider.calls.__len__() for provider in providers), 1)
 
+    def test_batch_claims_each_job_just_in_time_under_slow_provider(self):
+        self.committer.commit("home-1", self.body(sequence=2), 110)
+        self.db.execute("UPDATE durable_notification_outbox SET due_at=110 WHERE stage=2")
+        clock_value = [110]
+
+        def slow_but_bounded_send():
+            clock_value[0] += 30
+
+        provider = FakeProvider([ProviderResult(True)] * 3, on_send=slow_but_bounded_send)
+        provider.max_send_seconds = 30
+        metrics = self.worker(provider, clock=lambda: clock_value[0], batch_size=3,
+                              lease_seconds=35).run_once()
+
+        self.assertEqual(metrics["claimed"], 3)
+        self.assertEqual(metrics["accepted"], 3)
+        self.assertEqual(len(provider.calls), 3)
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM durable_notification_outbox WHERE state='DELIVERED'"
+        ).fetchone()[0], 3)
+
+    def test_retry_deadline_uses_provider_failure_completion_time(self):
+        self.committer.commit("home-1", self.body(sequence=2), 110)
+        self.db.execute("UPDATE durable_notification_outbox SET due_at=110 WHERE stage=2")
+        clock_value = [110]
+        elapsed = iter((20, 7))
+
+        def provider_operation_time():
+            clock_value[0] += next(elapsed)
+
+        provider = FakeProvider(
+            [ProviderResult(True, "accepted"), ProviderResult(False, retryable=True)],
+            on_send=provider_operation_time,
+        )
+        metrics = self.worker(provider, clock=lambda: clock_value[0], batch_size=2,
+                              base_retry_seconds=10, max_retry_seconds=40).run_once()
+
+        self.assertEqual(metrics["accepted"], 1)
+        self.assertEqual(metrics["retry_scheduled"], 1)
+        pending_retry = self.db.execute(
+            "SELECT due_at,last_attempt_at FROM durable_notification_outbox "
+            "WHERE state='PENDING' AND attempts=1 ORDER BY outbox_id LIMIT 1"
+        ).fetchone()
+        self.assertEqual(tuple(pending_retry), (147, 130))
+        self.assertEqual(clock_value[0], 137)
+
     def test_expired_claim_recovery_rejects_stale_completion_token(self):
         provider = FakeProvider()
         provider.max_send_seconds = 1

@@ -82,58 +82,76 @@ class NotificationWorker:
             return False
 
     def run_once(self) -> dict[str, int]:
-        """Claim and process a bounded batch; never keeps an unbounded task queue."""
+        """Process a bounded batch while claiming each row immediately before use."""
         if not self.ready():
             raise RuntimeError("notification_worker_not_ready")
         metrics = {"claimed": 0, "accepted": 0, "retry_scheduled": 0,
                    "failed": 0, "expired_leases": 0, "cancelled": 0}
-        now = int(self.now())
-        claims = self._claim(now, metrics)
-        metrics["claimed"] = len(claims)
-        for row in claims:
-            if not self._authorized(row):
-                reason = "INCIDENT_NOT_ACTIVE" if row.get("alert_id") and row.get("alert_state") not in ("OPEN", "CLAIMED") else "AUTHORIZATION_DENIED"
-                if self._finish(row, state="FAILED", reason=reason):
-                    metrics["cancelled" if reason == "INCIDENT_NOT_ACTIVE" else "failed"] += 1
-                continue
-            delivery = Delivery(row["outbox_id"], row["home_id"], row["recipient_id"],
-                                row["stage"], row["event_type"],
-                                "URGENT" if row["event_type"] == "CALL_FAMILY" else "CONCERN")
-            try:
-                result = self.provider.send(delivery, idempotency_key=row["outbox_id"])
-                if not isinstance(result, ProviderResult):
-                    raise TypeError("invalid_provider_result")
-            except TimeoutError:
-                result = ProviderResult(False, retryable=True)
-                error_class = "TIMEOUT"
-            except (ConnectionError, OSError):
-                result = ProviderResult(False, retryable=True)
-                error_class = "NETWORK"
-            except Exception:
-                result = ProviderResult(False, retryable=True)
-                error_class = "PROVIDER_ERROR"
-            else:
-                error_class = "PROVIDER_REJECTED"
-            if result.accepted:
-                if self._finish(row, state="DELIVERED", provider_reference=result.reference):
-                    metrics["accepted"] += 1
-            elif not result.retryable:
-                if self._finish(row, state="FAILED", reason="PROVIDER_PERMANENT",
-                                error_class="PROVIDER_PERMANENT"):
-                    metrics["failed"] += 1
-            else:
-                attempts = row["attempts"]
-                if attempts >= self.max_attempts:
-                    if self._finish(row, state="FAILED", reason="RETRY_LIMIT", error_class=error_class):
-                        metrics["failed"] += 1
-                else:
-                    retry_at = now + self._retry_delay(attempts)
-                    if self._finish(row, state="PENDING", retry_at=retry_at, error_class=error_class):
-                        metrics["retry_scheduled"] += 1
+        for _ in range(self.batch_size):
+            claims = self._claim(int(self.now()), metrics, limit=1)
+            if not claims:
+                break
+            metrics["claimed"] += 1
+            # If the lease was replaced or expired while processing, stop this
+            # cycle. A later poll can safely reclaim it without starving other
+            # rows in this batch or sending under an expired lease.
+            if not self._process_claim(claims[0], metrics):
+                break
         return metrics
 
-    def _claim(self, now: int, metrics: dict[str, int]) -> list[dict]:
+    def _process_claim(self, row: dict, metrics: dict[str, int]) -> bool:
+        if not self._authorized(row):
+            reason = "INCIDENT_NOT_ACTIVE" if row.get("alert_id") and row.get("alert_state") not in ("OPEN", "CLAIMED") else "AUTHORIZATION_DENIED"
+            finished = self._finish(row, state="FAILED", reason=reason)
+            if finished:
+                metrics["cancelled" if reason == "INCIDENT_NOT_ACTIVE" else "failed"] += 1
+            return finished
+        delivery = Delivery(row["outbox_id"], row["home_id"], row["recipient_id"],
+                            row["stage"], row["event_type"],
+                            "URGENT" if row["event_type"] == "CALL_FAMILY" else "CONCERN")
+        try:
+            result = self.provider.send(delivery, idempotency_key=row["outbox_id"])
+            if not isinstance(result, ProviderResult):
+                raise TypeError("invalid_provider_result")
+        except TimeoutError:
+            result = ProviderResult(False, retryable=True)
+            error_class = "TIMEOUT"
+        except (ConnectionError, OSError):
+            result = ProviderResult(False, retryable=True)
+            error_class = "NETWORK"
+        except Exception:
+            result = ProviderResult(False, retryable=True)
+            error_class = "PROVIDER_ERROR"
+        else:
+            error_class = "PROVIDER_REJECTED"
+        if result.accepted:
+            finished = self._finish(row, state="DELIVERED", provider_reference=result.reference)
+            if finished:
+                metrics["accepted"] += 1
+            return finished
+        if not result.retryable:
+            finished = self._finish(row, state="FAILED", reason="PROVIDER_PERMANENT",
+                                    error_class="PROVIDER_PERMANENT")
+            if finished:
+                metrics["failed"] += 1
+            return finished
+        attempts = row["attempts"]
+        if attempts >= self.max_attempts:
+            finished = self._finish(row, state="FAILED", reason="RETRY_LIMIT", error_class=error_class)
+            if finished:
+                metrics["failed"] += 1
+            return finished
+        # Provider calls may consume most of the lease. Schedule from the
+        # observed failure/completion time, not the cycle's initial timestamp.
+        retry_at = int(self.now()) + self._retry_delay(attempts)
+        finished = self._finish(row, state="PENDING", retry_at=retry_at, error_class=error_class)
+        if finished:
+            metrics["retry_scheduled"] += 1
+        return finished
+
+    def _claim(self, now: int, metrics: dict[str, int], *, limit: int | None = None) -> list[dict]:
         metrics.setdefault("failed", 0)
+        claim_limit = self.batch_size if limit is None else max(1, min(self.batch_size, int(limit)))
         postgres = getattr(self.db, "dialect", "sqlite") == "postgres"
         self.db.execute("BEGIN" if postgres else "BEGIN IMMEDIATE")
         try:
@@ -173,7 +191,7 @@ class NotificationWorker:
                 """SELECT outbox_id,lease_until FROM durable_notification_outbox
                    WHERE state='PENDING' AND due_at<=? AND (lease_until IS NULL OR lease_until<=?)
                      AND attempts<? ORDER BY due_at,outbox_id LIMIT ?""" + lock,
-                (now, now, self.max_attempts, self.batch_size),
+                (now, now, self.max_attempts, claim_limit),
             ).fetchall()
             rows = []
             for candidate in candidates:
