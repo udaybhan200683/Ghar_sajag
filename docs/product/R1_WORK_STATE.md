@@ -6024,10 +6024,16 @@ physical event exists. GS-117 and GS-60 remain incomplete.
 
 Implementation commits are `cf5def1` (Hub certificate validity), `19afb18`
 and `7ca1889` (source-bound diagnostic guard for preserved artifacts), and
-`2f94d0a` (aligned ESP image validation). Current follow-up is to finish
-evidence/traceability and Jira records, commit/push normally, then obtain exact
-security and laptop endpoint/route prerequisites before attempting a matching
-local-LAN Android build or any physical test. Starting local/remote HEAD was
+`2f94d0a` (aligned ESP image validation). Evidence/traceability and source
+commits were pushed at `c3b024488fe0a123087517152d5caa08800eaf28`. Factual
+updates were added without workflow changes: GS-68 comment 11542, GS-179
+comment 11543 and GS-117 comment 11544. This work-state closeout records those
+comments; its final documentation-only delivery and remote equality are
+verified by the follow-up Git/Jira handoff. The next executable action is owner
+resolution of the exact current laptop endpoint/certificate/route and approved
+D05/D12/D06 test identity/time inputs; then prepare the matching existing
+local-LAN Android build and, only after fixture/image/observer approval, run
+one real PIR test. Starting local/remote HEAD was
 `f65c503baa538b232162a61228a70c9d585313f6`; the initial 301 untracked items
 were preserved. Two untracked Python bytecode files from the explicit compile
 check are also preserved; no cleanup was run. The diagnostic artifacts remain
