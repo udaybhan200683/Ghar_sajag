@@ -162,7 +162,8 @@ def main() -> int:
         print("GS177 ANDROID DASHBOARD FAIL secure_TEST_ONLY_reconnect_flow_missing", flush=True)
         return 1
     required_pwa = [
-        "index.html", "app.js", "runtime_mode.mjs", "styles.css",
+        "index.html", "app.js", "connected_lite.mjs", "caregiver.css",
+        "runtime_mode.mjs", "styles.css",
         "assets/parivar-saathi-icon-192.png",
         "assets/parivar-saathi-icon-maskable-512.png", "assets/icon.svg",
     ]
@@ -314,6 +315,7 @@ def main() -> int:
         "assets/app.js",
         "assets/boot.mjs",
         "assets/connected_lite.mjs",
+        "assets/caregiver.css",
         "assets/runtime_mode.mjs",
         "assets/styles.css",
         "assets/assets/parivar-saathi-icon-192.png",
@@ -323,13 +325,20 @@ def main() -> int:
     try:
         with zipfile.ZipFile(APK) as apk:
             bundled_assets = set(apk.namelist())
-    except (OSError, zipfile.BadZipFile) as error:
+            source_bound_assets = (
+                "index.html", "boot.mjs", "connected_lite.mjs", "caregiver.css",
+            )
+            stale_or_mismatched = [
+                relative for relative in source_bound_assets
+                if apk.read(f"assets/{relative}") != (app_pwa / relative).read_bytes()
+            ]
+    except (OSError, KeyError, zipfile.BadZipFile) as error:
         print(f"GS177 ANDROID DASHBOARD FAIL invalid_apk={error}", flush=True)
         return 1
     missing_assets = sorted(required_assets - bundled_assets)
-    if missing_assets or "assets/runtime-config.js" in bundled_assets:
+    if missing_assets or stale_or_mismatched or "assets/runtime-config.js" in bundled_assets:
         print(
-            f"GS177 ANDROID DASHBOARD FAIL shared_pwa_assets_missing={missing_assets} static_runtime_config={('assets/runtime-config.js' in bundled_assets)}",
+            f"GS177 ANDROID DASHBOARD FAIL shared_pwa_assets_missing={missing_assets} source_asset_mismatch={stale_or_mismatched} static_runtime_config={('assets/runtime-config.js' in bundled_assets)}",
             flush=True,
         )
         return 1
