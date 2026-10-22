@@ -5960,3 +5960,76 @@ must qualify caregiver authentication and Home membership; the owner must
 approve the paid host/database/domain before provisioning. The next Jira action
 is the production Hub identity/authority contract decision under GS-172/68/109.
 GS-179 remains In Progress and GS-117/GS-60 remain open.
+
+## GS-68 security correction and GS-179 laptop amendment — 2026-10-22
+
+The owner amended the near-term deployment/validation direction in GS-179
+comment 11538 and GS-117 comment 11539: use the existing Windows 10/WSL2 laptop
+for initial same-Wi-Fi physical testing; no paid cloud hosting now. This
+supersedes the immediate cloud-host recommendation above, not the commercial
+requirement that customer operation work without a laptop. Jira Rank and
+acceptance remain unchanged: GS-114 R31, GS-117 R52, GS-179 R173; GS-68,
+GS-179 and GS-117 In Progress; GS-60 remains open.
+
+Implemented one approved fail-closed correction in
+`ProvisionedS3CloudTrust`: it now checks the S3 Hub client certificate's
+`notBefore` and `notAfter` against the already authenticated trusted-time
+snapshot before returning the TLS identity. It preserves existing
+fingerprint/material-generation, revocation, purpose, trusted-time and backend
+authority checks. Deterministic expired and not-yet-valid certificate
+regressions are registered as `GS68-D05-CERT-VALIDITY-001` in the existing
+GS-116/130 path. No production issuer, key, trust registry, time source, Home
+claim, caregiver provider, or parallel backend was introduced.
+
+The first target report exposed a defect in the existing ESP image checker for
+segment streams ending on a 16-byte boundary; the image itself passed
+`esptool image-info`. The validator was corrected and its aligned-boundary test
+added. The diagnostic runner's pre-existing untracked-file guard was also
+narrowed so the preserved IDF-generated sdkconfig and the already excluded,
+non-input Android workspace do not block a source-bound S3 build; tracked
+source changes remain rejected. Details and failed-attempt history are in
+[`GS68 D05/D12/D06 provider evidence`](../exec-plans/evidence/GS68_D05_D12_D06_PROVIDER_E2E_20261017.md#2026-10-22--authenticated-hub-certificate-validity-and-laptop-check).
+
+Validation: `make cloudsync-security-ut` PASS (mTLS 9/9; TEST_ONLY adapter 5
+cases; provider 5 suites; backend security 14/14; GS-68/GS-40 identity/time
+4/4; GS-168 registry 10/10; NodeHealth 5/5). `make gs130-hil-runner-test` PASS
+(protocol 1,738 assertions, 116 Python tests); physical board/motion cases
+remained NOT_RUN/BLOCKED without port access. ESP-IDF 6.0.3 S3 diagnostic
+`BUILD_ONLY_PASS`, source commit `2f94d0a38250826f833cb8c82db3c386e1f094eb`,
+image SHA-256
+`f98e8617284cb56f3f5253b9383e8e92980c69f15091b6705d12a2574fe82bac`, no
+flash/serial. Existing focused results also include 18/18 security simulation,
+1/1 local mTLS integration, validation framework 51/51 and feature mapping
+22/22. These are software evidence; no commercial key or silicon behavior is
+qualified.
+
+Read-only laptop status: PostgreSQL `verify-full` and caregiver HTTPS CA/IP-SAN
+both PASS; WSL2 caregiver service and PostgreSQL remain running. The existing
+Hub ingress runtime is implemented but `AUTOSTART=DISABLED`, Hub identity is
+unauthenticated, freshness `UNKNOWN` and persistent ingress
+`NOT_CONFIGURED`. Current Windows Wi-Fi is `192.168.1.10`, while configured
+endpoint/Android profile expects `192.168.1.6`; existing forwarding still
+targets `.6:443 → 172.17.152.10:8444`, and firewall inspection requires
+administrator access. No endpoint, certificate, forwarding, firewall, network,
+service, credential, customer data, or hardware change was made. The current
+Render-targeted APK is not aligned with this laptop; no local-LAN APK was
+built or installed.
+
+Production D05/D12 issuer and DS-key custody; D06 authenticated-time authority
+and rollback-resistant storage; GS-109 epoch-0 Home claim/transfer; GS-76/143
+production caregiver issuer/session/membership; exact laptop endpoint/cert
+and network authorization; and current physical fixture/image/observer
+approval remain open. No original physical EventKey or caregiver-visible
+physical event exists. GS-117 and GS-60 remain incomplete.
+
+Implementation commits are `cf5def1` (Hub certificate validity), `19afb18`
+and `7ca1889` (source-bound diagnostic guard for preserved artifacts), and
+`2f94d0a` (aligned ESP image validation). Current follow-up is to finish
+evidence/traceability and Jira records, commit/push normally, then obtain exact
+security and laptop endpoint/route prerequisites before attempting a matching
+local-LAN Android build or any physical test. Starting local/remote HEAD was
+`f65c503baa538b232162a61228a70c9d585313f6`; the initial 301 untracked items
+were preserved. Two untracked Python bytecode files from the explicit compile
+check are also preserved; no cleanup was run. The diagnostic artifacts remain
+in `/tmp/gs68_cloudsync_diag_e1pbdu7c` (initial failed report generation) and
+`/tmp/gs68_cloudsync_diag_retry_20261022` (passing report).

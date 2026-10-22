@@ -1302,3 +1302,24 @@ capability/cost findings are in
 [`GS-179 commercial cloud vertical evidence`](../exec-plans/evidence/GS179_COMMERCIAL_CLOUD_VERTICAL_20261022.md).
 `CONTEXT_VERSION` remains unchanged because no new locked product/security
 decision was made.
+
+## GS-179 / GS-117 laptop validation host — 2026-10-22 (owner execution amendment; no product architecture change)
+
+GS-179 comment 11538 and GS-117 comment 11539 direct the first controlled
+physical qualification to use the existing Windows 10/WSL2 laptop as the
+backend host, with no paid cloud provisioned now. This updates the immediate
+validation/deployment environment only. It does not make a laptop part of the
+customer architecture: commercial Hub-to-service operation remains portable
+and must not require a developer computer. The earlier small-cloud-host
+recommendation above is deferred and nonbinding; the owner-selected laptop is
+the current test-host direction. No Jira Rank, product architecture, credential
+policy or acceptance scope changes.
+
+The laptop's existing PostgreSQL and caregiver HTTPS services are healthy, but
+Hub ingress is disabled and unconfigured. Current Windows Wi-Fi IPv4 is
+192.168.1.10 while the existing Android certificate/forwarding profile expects
+192.168.1.6. No IP, certificate, firewall, forwarding, credential or service
+activation change was made. See the dated GS-68 security/laptop evidence
+[`GS68_D05_D12_D06_PROVIDER_E2E_20261017.md`](../exec-plans/evidence/GS68_D05_D12_D06_PROVIDER_E2E_20261017.md#2026-10-22--authenticated-hub-certificate-validity-and-laptop-check).
+`CONTEXT_VERSION` remains unchanged; this is an owner-scoped execution-host
+update, not a new product/security contract.
