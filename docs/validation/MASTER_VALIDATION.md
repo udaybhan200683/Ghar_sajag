@@ -993,3 +993,7 @@ acceptance. The overall GitHub run remained `in_progress` after its sole job
 reported success. Preserve the separate default-origin push run failure
 39797636040: Chrome DevTools did not start for the first catalog case; later
 correctly configured local-LAN workflow passed the full browser stage.
+
+Final status refresh: workflow run 39797650882 finalized `completed / success`
+at 2026-10-22 14:50:44 UTC; the prior in-progress aggregate state was delayed
+status propagation.
