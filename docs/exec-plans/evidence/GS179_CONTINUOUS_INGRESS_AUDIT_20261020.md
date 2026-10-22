@@ -307,5 +307,9 @@ approved security lifecycle; the TEST_ONLY issuer and listener are not that
 lifecycle. GS-117 then requires the fixture/image/authority, journal,
 reset-safe observation, endpoint and recovery checks before authorized real PIR
 qualification and a verified Android APK read. Keep GS-179 In Progress and
-GS-117 open. The next Jira action remains GS-179 software runtime delivery and
-owner-approved operational configuration; no physical pass is claimed.
+GS-117 open. The default-disabled runtime source and software evidence were
+committed and pushed as `acde2183c74351db403b49b441deea67a3474142`; local and
+remote matched at delivery. Jira comment 11526 records the implementation and
+validation. Remaining GS-179 work is separately approved persistent/runtime
+configuration and the broader live staging/phone acceptance. No physical pass
+is claimed.

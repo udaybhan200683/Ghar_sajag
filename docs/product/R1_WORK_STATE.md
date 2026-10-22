@@ -5785,8 +5785,11 @@ Status: runtime implementation, isolated software integration, durable
 COMMITTED, retry/restart and caregiver API readback are **PASS**. Persistent
 laptop ingress remains **NOT_CONFIGURED**. Real S3 authentication, C3 sensor
 input, Android handset visibility, GS-117 physical E2E and commercial release
-remain **NOT_RUN**. Commit, push and remote verification follow final validation;
-the Jira comment will record the delivery revision. Next customer milestone is
-the separate GS-117 physical qualification after owner-approved security,
+remain **NOT_RUN**. Runtime source and validation were committed as
+`acde2183c74351db403b49b441deea67a3474142` and pushed normally; the live
+canonical remote matched that commit. Jira comment 11526 records the delivery.
+GS-179 remains In Progress because persistent configuration and its broader
+staging/phone acceptance remain incomplete. Next customer milestone is the
+separate GS-117 physical qualification after owner-approved security,
 authority, endpoint, network, fixture/image and recovery inputs. Do not claim
 HOST_SIM as physical acceptance.
