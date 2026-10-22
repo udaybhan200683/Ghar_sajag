@@ -2358,6 +2358,9 @@
         "tests/js/caregiver_runtime.test.mjs",
         "tools/sim/pwa/index.html",
         "tools/sim/pwa/app.js",
+        "tools/sim/pwa/boot.mjs",
+        "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/caregiver.css",
         "tools/sim/pwa/runtime_mode.mjs",
         "tools/sim/pwa/styles.css",
         "tools/sim/pwa/assets/icon.svg",
@@ -2441,7 +2444,7 @@
         "^.*PASS PWA browser E2E: \\d+/\\d+ rendered PASS$",
         "^.*PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls$",
         "^.*PASS connected Lite browser E2E: prompt login, slow-session cancellation, expired/revoked session gating, Home, four-tab navigation, role-gated simulation/engineering \\(mock transport\\)$",
-        "^.*PASS authenticated GS-148 Home browser regression: approved Home cards/header/logo, committed HOST_SIM EventKey/room/time, stale NodeHealth UNKNOWN, fixed four-label bottom ribbon, unrecognized source fail-closed; no simulator request$"
+        "^.*PASS authenticated GS-148 caregiver browser regression: normal/concern/stale/unknown/offline states, incident lifecycle, source provenance, four text-only tabs, narrow layout, supported settings; no simulator request$"
       ],
       "timeout": 600,
       "fast": false,

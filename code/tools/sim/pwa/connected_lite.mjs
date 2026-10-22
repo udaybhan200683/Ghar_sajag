@@ -123,7 +123,11 @@ function openTab(next){
   window.scrollTo({top:0,behavior:'instant'});
   void refresh();
 }
-function dataLabel(){return `<p class="test-watermark">${productSource()?'TEST_ONLY authenticated monitoring':'TEST_ONLY synthetic Home'} · ${esc(profile.home_id)} · ${esc(view?.source||'No physical source')}</p>`}
+function dataLabel(){
+  const label=productSource()?'TEST_ONLY authenticated caregiver data':explicitSimulationHome()
+    ?'TEST_ONLY simulator data':'TEST_ONLY · unrecognized source data hidden';
+  return `<p class="test-watermark">${label} · ${esc(profile.home_id)} · ${esc(view?.source||'No physical source')}</p>`;
+}
 function card(title,body){return `<div class="card"><h2>${esc(title)}</h2>${body}</div>`}
 function tableRows(items,render){return items.length?items.map(render).join(''):'<p class="muted">No saved observations.</p>'}
 function productSource(){return ['NODE_ORIGIN_HOST_SIM','AUTHENTICATED_GS148_TEST_ONLY'].includes(view?.source)}
@@ -148,7 +152,25 @@ function productEventOrigin(event){
     return 'HOST_SIM · TEST_ONLY';
   return view?.source==='NODE_ORIGIN_HOST_SIM'?'HOST_SIM · TEST_ONLY':'TEST_ONLY · physical origin not verified';
 }
-function productEvents(events){
+const ACTIVE_INCIDENT_STATES=new Set(['OPEN','CLAIMED','ROUTE_EXHAUSTED']);
+function incidentIsActive(incident){return ACTIVE_INCIDENT_STATES.has(incident?.state);}
+function incidentVisualSeverity(incident,currentSource){
+  if(!currentSource||!incidentIsActive(incident))return '';
+  return ['URGENT','CONCERN'].includes(incident.severity)?incident.severity:'';
+}
+function eventVisualSeverity(event,{currentSource=false,routineCoverage='UNKNOWN'}={}){
+  if(!currentSource||!event)return '';
+  const hubDecision=event.source_type==='HUB_RULE'||Boolean(event.decision_id);
+  const routineConcern=['MISSING_MORNING_ACTIVITY','UNUSUAL_NIGHT_BATHROOM_ACTIVITY',
+    'UNUSUAL_NIGHT_COMMON_ACTIVITY'].includes(event.kind)||hubDecision;
+  if(routineConcern&&routineCoverage!=='COVERED')return '';
+  if(hubDecision)return event.details?.tone==='CONCERN'?'CONCERN':'';
+  if(event.tone==='danger')return 'CONCERN';
+  if(event.tone==='warning')return 'WARNING';
+  if(event.tone==='positive')return 'POSITIVE';
+  return '';
+}
+function productEvents(events,{currentSource=false,freshness='UNKNOWN',routineCoverage='UNKNOWN',historical=false}={}){
   if(!events?.length)return '<p class="muted" data-empty-events="true">No committed Node or Hub events are currently returned by the authorized caregiver API. This does not mean there was no household activity.</p>';
   return events.map(event=>{
     const hubDecision=event.source_type==='HUB_RULE'||Boolean(event.decision_id);
@@ -163,22 +185,29 @@ function productEvents(events){
     const time=productTime(event.occurred_at);
     const room=event.location||event.event_key?.logical_node_id||'Room not reported';
     const icon=hubDecision?'◉':event.kind?.startsWith('DOOR_')?'🚪':event.kind==='OK_PRESSED'?'❤':'•';
+    const visualSeverity=eventVisualSeverity(event,{currentSource,routineCoverage});
+    const visualTone=visualSeverity==='CONCERN'?'red':visualSeverity==='WARNING'?'warning':visualSeverity==='POSITIVE'?'blue':'';
+    const sourceQuality=historical?'Recorded history':currentSource
+      ?(visualSeverity?`Current source · ${visualSeverity}`:'Current source report')
+      :freshness==='STALE'?'STALE · last reported':'UNKNOWN · source quality unavailable';
     const received=event.received_at&&event.received_at!==event.occurred_at
       ?`<small>Backend received ${esc(productTime(event.received_at))}${event.delayed?' · delayed':''}</small>`:'';
-    return `<article class="event connected-product-event" data-source-origin="${esc(productEventOrigin(event))}" ${identityAttribute}><time class="event-time" datetime="${esc(typeof event.occurred_at==='number'?new Date(event.occurred_at*1000).toISOString():event.occurred_at||'')}">${esc(time)}</time><span class="event-icon" aria-hidden="true">${icon}</span><div class="event-detail"><span class="event-pill ${event.tone==='danger'?'red':event.tone==='positive'?'blue':''}">${esc(productEventLabel(event.kind))}</span><p>${esc(room)} · <span class="event-origin">${esc(productEventOrigin(event))}</span></p><details><summary>${hubDecision?'Decision details':'Event details'}</summary><code>${esc(identityLabel)}</code></details>${received}</div></article>`;
+    return `<article class="event connected-product-event" data-source-origin="${esc(productEventOrigin(event))}" data-visual-severity="${esc(visualSeverity||'NONE')}" ${identityAttribute}><time class="event-time" datetime="${esc(typeof event.occurred_at==='number'?new Date(event.occurred_at*1000).toISOString():event.occurred_at||'')}">${esc(time)}</time><span class="event-icon" aria-hidden="true">${icon}</span><div class="event-detail"><span class="event-pill ${visualTone}">${esc(productEventLabel(event.kind))}</span><span class="event-quality">${esc(sourceQuality)}</span><p>${esc(room)} · <span class="event-origin">${esc(productEventOrigin(event))}</span></p><details><summary>${hubDecision?'Decision details':'Event details'}</summary><code>${esc(identityLabel)}</code></details>${received}</div></article>`;
   }).join('');
 }
 function latestEvent(kinds){
   return (productSource()?view?.recent_events||[]:[]).find(event=>kinds.includes(event.kind))||null;
 }
 function latestNightDecision(){
-  return (productSource()?view?.decisions||[]:[]).find(item=>String(item.kind||'').startsWith('UNUSUAL_NIGHT_'))||null;
+  return (productSource()?view?.decisions||[]:[])
+    .filter(item=>String(item.kind||'').startsWith('UNUSUAL_NIGHT_'))
+    .sort((a,b)=>Number(b.occurred_at??b.decided_at??0)-Number(a.occurred_at??a.decided_at??0))[0]||null;
 }
 function connectHomeActions(){
   $('#homeTab').querySelectorAll('[data-open-tab]').forEach(button=>button.onclick=()=>openTab(button.dataset.openTab));
 }
-function homeInfoCard({id,title,icon,value,detail,tab:targetTab}){
-  return `<section class="card home-info-card" data-home-card="${esc(id)}"><div class="home-info-icon" aria-hidden="true">${icon}</div><div class="home-info-copy"><h2>${esc(title)}</h2><strong data-home-value="${esc(id)}">${esc(value)}</strong><p>${esc(detail)}</p></div>${targetTab?`<button class="home-card-link" type="button" data-open-tab="${esc(targetTab)}" aria-label="Open ${esc(title)} details">›</button>`:''}</section>`;
+function homeInfoCard({id,title,icon,value,detail,tab:targetTab,attention=''}){
+  return `<section class="card home-info-card" data-home-card="${esc(id)}" data-attention="${esc(attention||'NONE')}"><div class="home-info-icon" aria-hidden="true">${icon}</div><div class="home-info-copy"><h2>${esc(title)}</h2><strong data-home-value="${esc(id)}">${esc(value)}</strong><p>${esc(detail)}</p></div>${targetTab?`<button class="home-card-link" type="button" data-open-tab="${esc(targetTab)}" aria-label="Open ${esc(title)} details">›</button>`:''}</section>`;
 }
 function homeDeviceText(devices,coverageCurrent){
   if(!coverageCurrent){
@@ -195,78 +224,137 @@ function renderHome(){
   const recognized=productSource();
   const freshness=recognized?(view?.source_freshness||'UNKNOWN'):'UNKNOWN';
   const coverageCurrent=recognized&&freshness==='CURRENT'&&view?.monitoring==='COVERED';
+  const routineCoverage=view?.routine_coverage||'UNKNOWN';
   const stale=freshness==='STALE';
   const events=recognized?view?.recent_events||[]:[];
   const decisions=recognized?view?.decisions||[]:[];
   const devices=recognized?view?.devices||[]:[];
   const incidents=recognized?view?.incidents||[]:[];
-  const heading=coverageCurrent?'Monitoring coverage is current':stale?'Monitoring source is stale':'Monitoring status is unknown';
-  const hubContact=recognized&&view?.last_hub_at?`Latest authenticated Hub contact: ${productTime(view.last_hub_at)}.`:'No current authenticated Hub contact is available.';
-  const morning=[...events,...decisions].find(item=>['MORNING_ROUTINE_COMPLETED','MISSING_MORNING_ACTIVITY'].includes(item.kind));
-  const morningSummary=morning?(coverageCurrent?productEventLabel(morning.kind):`${stale?'STALE':'UNKNOWN'} · last reported: ${productEventLabel(morning.kind)}`):'Routine status UNKNOWN';
+  const morning=[...events,...decisions]
+    .filter(item=>['MORNING_ROUTINE_COMPLETED','MISSING_MORNING_ACTIVITY'].includes(item.kind))
+    .sort((a,b)=>Number(b.occurred_at??b.decided_at??0)-Number(a.occurred_at??a.decided_at??0))[0]||null;
+  const morningSeverity=coverageCurrent?eventVisualSeverity(morning,{currentSource:true,routineCoverage}):'';
+  const missedRoutineQualified=morning?.kind==='MISSING_MORNING_ACTIVITY'&&morningSeverity==='CONCERN';
+  const doorStatus=recognized?view?.door_status:null;
+  const doorConcern=coverageCurrent&&doorStatus?.state==='OPEN'&&(doorStatus.left_open===true||doorStatus.unexpected===true);
+  const nightDecision=latestNightDecision();
+  const nightSeverity=coverageCurrent?eventVisualSeverity(nightDecision,{currentSource:true,routineCoverage}):'';
   const activeIncidents=coverageCurrent?incidents.filter(item=>item.state!=='RESOLVED'):null;
-  const incidentSummary=activeIncidents?`Unresolved incidents: ${activeIncidents.length}`:'Unusual-activity status UNKNOWN';
+  const urgentIncident=activeIncidents?.find(item=>incidentVisualSeverity(item,true)==='URGENT')||null;
+  const concernIncident=activeIncidents?.find(item=>incidentVisualSeverity(item,true)==='CONCERN')||null;
+  const otherConcern=(coverageCurrent?events:[]).find(item=>item.kind!=='MISSING_MORNING_ACTIVITY'&&
+    eventVisualSeverity(item,{currentSource:true,routineCoverage})==='CONCERN')||null;
+  const attention=urgentIncident?'URGENT':(missedRoutineQualified||concernIncident||otherConcern||doorConcern||nightSeverity==='CONCERN')?'CONCERN':'';
+  const heading=urgentIncident?'Urgent incident needs attention':missedRoutineQualified?'Attention needed at home':
+    concernIncident||otherConcern||doorConcern||nightSeverity==='CONCERN'?'A home concern needs attention':coverageCurrent?'Monitoring coverage is current':
+      stale?'Monitoring source is stale':'Monitoring status is unknown';
+  const hubContact=recognized&&view?.last_hub_at?`Latest authenticated Hub contact: ${productTime(view.last_hub_at)}.`:'No current authenticated Hub contact is available.';
+  const morningSummary=morning?(!coverageCurrent?`${stale?'STALE':'UNKNOWN'} · last reported: ${productEventLabel(morning.kind)}`:
+    morning.kind==='MISSING_MORNING_ACTIVITY'&&routineCoverage!=='COVERED'?'UNKNOWN · routine observation coverage unavailable':
+    missedRoutineQualified?'Morning activity missed':productEventLabel(morning.kind)):'Routine status UNKNOWN';
+  const acknowledgedCount=activeIncidents?.filter(item=>item.state==='ACKNOWLEDGED').length||0;
+  const incidentSummary=activeIncidents?`Unresolved incidents: ${activeIncidents.length}${acknowledgedCount?` · acknowledged ${acknowledgedCount}`:''}`:'Unusual-activity status UNKNOWN';
   const deviceSummary=homeDeviceText(devices,coverageCurrent);
   const okEvent=latestEvent(['OK_PRESSED']);
   const doorEvent=latestEvent(['DOOR_OPEN','DOOR_CLOSED']);
-  const nightDecision=latestNightDecision();
   const freshnessQualifier=coverageCurrent?'Current source report':stale?'STALE · last reported':'UNKNOWN';
   const okValue=okEvent?(coverageCurrent?'Reported':'STALE · last reported'):'UNKNOWN';
   const okDetail=okEvent?`${freshnessQualifier} · ${productTime(okEvent.occurred_at)}`:'No current I am OK event is available.';
-  const doorValue=doorEvent?`${coverageCurrent?'Last event':stale?'STALE · last event':'UNKNOWN · last event'}: ${doorEvent.kind==='DOOR_OPEN'?'opened':'closed'}`:'UNKNOWN';
-  const doorDetail=doorEvent?`${freshnessQualifier} · ${productTime(doorEvent.occurred_at)}`:'No current door event is available.';
+  const doorValue=doorStatus?`${coverageCurrent?'Main door ':stale?'STALE · last door report ':'UNKNOWN · last door report '}${doorStatus.state==='OPEN'?'open':doorStatus.state==='CLOSED'?'closed':'state unavailable'}`:
+    doorEvent?`${coverageCurrent?'Last event':stale?'STALE · last event':'UNKNOWN · last event'}: ${doorEvent.kind==='DOOR_OPEN'?'opened':'closed'}`:'UNKNOWN';
+  const doorDetail=doorStatus?(doorStatus.state==='OPEN'&&doorStatus.since?`${freshnessQualifier} · open since ${productTime(doorStatus.since)}${doorConcern?' · attention':''}`:`${freshnessQualifier} · state from latest door report`):
+    doorEvent?`${freshnessQualifier} · ${productTime(doorEvent.occurred_at)}`:'No current door event is available.';
   const nightValue=nightDecision?(coverageCurrent?productEventLabel(nightDecision.kind):`${stale?'STALE':'UNKNOWN'} · last reported: ${productEventLabel(nightDecision.kind)}`):'UNKNOWN';
   const nightDetail=nightDecision?`${freshnessQualifier} · ${productTime(nightDecision.occurred_at||nightDecision.decided_at)}`:'No current night-activity decision is available.';
   const deviceDetail=coverageCurrent?`Current NodeHealth · ${devices.length} enrolled Node${devices.length===1?'':'s'}`:deviceSummary.detail;
+  const deviceAttention=recognized&&freshness==='CURRENT'&&devices.some(device=>device.status==='OFFLINE')?'WARNING':'';
   const timeline=events.slice(0,5);
   const unknownProjection=!recognized&&view!==null;
-  const testLabel=profile?.test_only?`<p class="test-watermark">${recognized?'Authenticated GS-148 TEST_ONLY caregiver data':'TEST_ONLY Home · monitoring data unavailable'} · Home ${esc(profile.home_id)} · physical C3/S3 qualification NOT_RUN</p>`:'';
+  const testLabel=profile?.test_only?`<p class="test-watermark">TEST_ONLY · ${recognized?'authenticated GS-148 caregiver data':'Home monitoring unavailable'} · Home ${esc(profile.home_id)} · physical C3/S3 qualification NOT_RUN</p>`:'';
   const unknownNote=unknownProjection?'<p class="home-unknown-note">The current authorized backend did not provide a recognized Home projection. Monitoring, events and resident status are unknown; simulated data is not shown.</p>':'';
   panel(`${testLabel}<div class="connected-home">
     ${unknownNote}
-    <section class="hero connected-home-hero" data-source-freshness="${esc(freshness)}" data-monitoring="${coverageCurrent?'COVERED':'UNKNOWN'}">
-      <div class="hero-row"><div class="hero-icon" aria-hidden="true">${coverageCurrent?'●':'?'}</div><div class="home-hero-copy"><p class="home-eyebrow">HOME MONITORING</p><h1>${esc(heading)}</h1><p>${esc(hubContact)} Monitoring coverage never establishes resident wellbeing.</p></div></div>
+    <section class="hero connected-home-hero" data-source-freshness="${esc(freshness)}" data-monitoring="${coverageCurrent?'COVERED':'UNKNOWN'}" data-attention="${esc(attention||'NONE')}">
+      <div class="hero-row"><div class="hero-icon" aria-hidden="true">${attention?'!':coverageCurrent?'●':'?'}</div><div class="home-hero-copy"><p class="home-eyebrow">HOME MONITORING</p><h1>${esc(heading)}</h1><p>${missedRoutineQualified?'Morning activity was not completed. Please check the home status. Severity: CONCERN; this is not an emergency classification.':urgentIncident?'An active incident is reported by the authorized service. Review its status in Reports.':concernIncident||otherConcern?'A current authorized source reported a concern. Review the recorded details.':`${esc(hubContact)} Monitoring coverage never establishes resident wellbeing.`}</p></div></div>
       <div class="connected-home-summary" aria-label="Current Home summary">
-        <div class="home-summary-chip" data-home-summary="routine"><span aria-hidden="true">☀</span><p><b>Routine</b><br>${esc(morningSummary)}</p></div>
-        <div class="home-summary-chip" data-home-summary="incidents"><span aria-hidden="true">!</span><p><b>Unusual activity</b><br>${esc(incidentSummary)}</p></div>
-        <div class="home-summary-chip" data-home-summary="devices"><span aria-hidden="true">◉</span><p><b>Device connectivity</b><br>${esc(deviceSummary.value)}</p></div>
+        <div class="home-summary-chip" data-home-summary="routine" data-attention="${esc(morningSeverity||'NONE')}" data-source-quality="${coverageCurrent?'CURRENT':esc(freshness)}"><span aria-hidden="true">☀</span><p><b>Routine</b><br>${esc(morningSummary)}</p></div>
+        <div class="home-summary-chip" data-home-summary="incidents" data-attention="${urgentIncident?'URGENT':concernIncident?'CONCERN':'NONE'}"><span aria-hidden="true">!</span><p><b>Unusual activity</b><br>${esc(incidentSummary)}</p></div>
+        <div class="home-summary-chip" data-home-summary="devices" data-attention="${deviceAttention}"><span aria-hidden="true">◉</span><p><b>Device connectivity</b><br>${esc(deviceSummary.value)}</p></div>
       </div>
     </section>
     <div class="connected-home-cards">
       ${homeInfoCard({id:'ok',title:'I am OK',icon:'♥',value:okValue,detail:okDetail,tab:'reports'})}
-      ${homeInfoCard({id:'door',title:'Main door',icon:'▯',value:doorValue,detail:doorDetail,tab:'reports'})}
-      ${homeInfoCard({id:'night',title:'Night activity',icon:'☾',value:nightValue,detail:nightDetail,tab:'routines'})}
-      ${homeInfoCard({id:'device-health',title:'Device health',icon:'▱',value:deviceSummary.value,detail:deviceDetail,tab:'devices'})}
+      ${homeInfoCard({id:'door',title:'Main door',icon:'<svg class="door-icon" viewBox="0 0 24 24" focusable="false"><path d="M5 3.5h14v17H5z"/><path d="M9 20.5v-17M15.5 12h.01"/></svg>',value:doorValue,detail:doorDetail,tab:'reports',attention:doorConcern?'CONCERN':''})}
+      ${homeInfoCard({id:'night',title:'Night activity',icon:'☾',value:nightValue,detail:nightDetail,tab:'routines',attention:nightSeverity})}
+      ${homeInfoCard({id:'device-health',title:'Device health',icon:'▱',value:deviceSummary.value,detail:deviceDetail,tab:'devices',attention:deviceAttention})}
     </div>
-    <section class="timeline connected-home-timeline" aria-labelledby="recentEventsTitle"><div class="section-title"><h2 id="recentEventsTitle">Recent important events</h2><button type="button" class="link-btn" data-open-tab="reports">View all ›</button></div>${productEvents(timeline)}</section>
+    <section class="timeline connected-home-timeline" aria-labelledby="recentEventsTitle"><div class="section-title"><h2 id="recentEventsTitle">Recent important events</h2><button type="button" class="link-btn" data-open-tab="reports">View all ›</button></div>${productEvents(timeline,{currentSource:coverageCurrent,freshness,routineCoverage})}</section>
   </div>`);
   connectHomeActions();
 }
 function renderDevices(){
   if(productSource()){
-    panel(`${dataLabel()}${card('Devices and NodeHealth',tableRows(view.devices||[],d=>`<article class="caregiver-run" data-node-id="${esc(d.physical_node_id)}"><b>${esc(d.logical_node_id)} · ${esc(d.status)}</b><p>Sensor coverage: ${esc(d.coverage)} · profile ${esc(d.profile_id)}</p><p>Offline coverage is UNKNOWN; it does not establish resident inactivity.</p></article>`))}`);return;
+    const devices=view.devices||[];
+    const current=view.source_freshness==='CURRENT';
+    const online=current?devices.filter(d=>d.status==='ONLINE'&&d.coverage==='COVERED').length:null;
+    const offline=current?devices.filter(d=>d.status==='OFFLINE').length:null;
+    const quality=view.source_freshness==='STALE'?'STALE · latest authenticated reports':
+      !current?'UNKNOWN · source freshness unavailable':view.monitoring==='COVERED'?'Current source · coverage covered':'Current source · coverage UNKNOWN';
+    const summary=current
+      ?`<div class="device-summary-count"><strong>${devices.length}</strong><span>reported NodeHealth records</span></div><div class="device-summary-state"><strong>${online}</strong><span>online and covered</span></div><div class="device-summary-state ${offline?'warning':''}"><strong>${offline}</strong><span>offline reports</span></div>`
+      :`<div class="device-summary-count"><strong>${devices.length}</strong><span>last reported NodeHealth records</span></div><p>${esc(quality)}</p>`;
+    const rows=devices.map(d=>{
+      const rowState=current?d.status:'UNKNOWN';
+      const visibleStatus=current?d.status:view.source_freshness==='STALE'?`STALE · last ${d.status}`:`UNKNOWN · last ${d.status}`;
+      const warning=current&&d.status==='OFFLINE';
+      return `<article class="device-row" data-node-id="${esc(d.physical_node_id)}" data-device-state="${esc(rowState)}" data-attention="${warning?'WARNING':'NONE'}"><span class="device-status-mark" aria-hidden="true">${warning?'!':'●'}</span><div class="device-row-copy"><h2>${esc(d.logical_node_id||'Node')}</h2><p>Node ID ${esc(d.physical_node_id||'UNKNOWN')} · profile ${esc(d.profile_id||'UNKNOWN')}</p><p>NodeHealth: <strong>${esc(visibleStatus)}</strong> · coverage ${esc(d.coverage||'UNKNOWN')}</p></div><span class="device-source-quality">${esc(quality)}</span></article>`;
+    }).join('')||'<p class="muted">No NodeHealth records are available from this authorized Home.</p>';
+    panel(`${dataLabel()}<section class="screen-heading"><h1>Devices</h1><p>Authorized NodeHealth and monitoring coverage</p></section><section class="device-summary" aria-label="NodeHealth summary">${summary}</section><div class="device-list" aria-label="Reported Nodes">${rows}</div><p class="device-note">Offline or unknown NodeHealth means monitoring coverage is unavailable; it does not establish resident inactivity or an emergency.</p>`);return;
   }
-  panel(`${dataLabel()}${card('Devices and NodeHealth',`<p>Physical Home: <strong>${esc(view?.physical_status||'UNKNOWN')} / ${esc(view?.physical_status_reason||'REASON_UNKNOWN')}</strong>.</p><p>Real Hub event source: ${esc(view?.physical_data_contract||'UNKNOWN')}.</p><p>Physical device and NodeHealth measurements: <strong>UNKNOWN</strong>.</p>${tableRows(view?.devices||[],device=>`<details><summary>${esc(device.id)} · ${esc(device.health||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(device,null,2))}</pre></details>`)}`)}`);
+  if(explicitSimulationHome()){
+    panel(`${dataLabel()}${card('Devices and NodeHealth',`<p>Physical Home: <strong>${esc(view?.physical_status||'UNKNOWN')} / ${esc(view?.physical_status_reason||'REASON_UNKNOWN')}</strong>.</p><p>Real Hub event source: ${esc(view?.physical_data_contract||'UNKNOWN')}.</p><p>Physical device and NodeHealth measurements: <strong>UNKNOWN</strong>.</p>${tableRows(view?.devices||[],device=>`<details><summary>${esc(device.id)} · ${esc(device.health||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(device,null,2))}</pre></details>`)}`)}`);return;
+  }
+  panel(`${dataLabel()}${card('Devices unavailable',`<p>The authorized service did not provide a recognized NodeHealth projection. Device status, battery and coverage are UNKNOWN.</p>`)}`);
 }
 function renderIncidents(){
   if(productSource()){
-    panel(`${dataLabel()}${card('Incident history',tableRows(view.incidents||[],i=>`<article class="caregiver-run" data-incident-id="${esc(i.incident_id)}"><b>${esc(i.kind)} · ${esc(i.state)} · ${esc(i.severity)}</b><p>Notification or actual phone contact: not established.</p>${i.state==='RESOLVED'?'':['claim','acknowledge','resolve'].map(action=>`<button data-incident-action="${action}" data-id="${esc(i.incident_id)}">${esc(action)}</button>`).join('')}</article>`))}`);
+    const current=view.source_freshness==='CURRENT'&&view.monitoring==='COVERED';
+    const incidents=view.incidents||[];
+    const rows=incidents.map(i=>{
+      const severity=incidentVisualSeverity(i,current);
+      const stateLabel=i.state==='ACKNOWLEDGED'?'Acknowledged':i.state==='RESOLVED'?'Resolved':
+        view.source_freshness==='STALE'?`STALE · last state ${i.state}`:current?i.state:`UNKNOWN · last state ${i.state}`;
+      return `<article class="incident-row" data-incident-id="${esc(i.incident_id)}" data-incident-state="${esc(i.state)}" data-visual-severity="${esc(severity||'NONE')}"><div class="incident-row-heading"><h2>${esc(productEventLabel(i.kind))}</h2><span class="incident-state">${esc(stateLabel)}</span></div><p class="incident-severity ${severity==='URGENT'?'urgent':severity==='CONCERN'?'concern':''}">Severity ${esc(i.severity||'UNKNOWN')}</p><p>Service state only · notification delivery or actual phone contact is not established.</p>${i.state==='RESOLVED'?'':['claim','acknowledge','resolve'].map(action=>`<button data-incident-action="${action}" data-id="${esc(i.incident_id)}">${esc(action)}</button>`).join('')}</article>`;
+    }).join('')||'<p class="muted">No incident records are currently returned by the authorized service.</p>';
+    panel(`${dataLabel()}<section class="screen-heading"><h1>Incident history</h1><p>Severity and lifecycle are shown as returned by the authorized service.</p></section><div class="incident-list">${rows}</div>`);
     document.querySelectorAll('[data-incident-action]').forEach(button=>button.onclick=async()=>{try{await api(`homes/${profile.home_id}/incidents/${button.dataset.id}/${button.dataset.incidentAction}`,{method:'POST',body:{}});await refresh()}catch(error){status('ACTION FAILED',error.message)}});return;
   }
-  panel(`${dataLabel()}${card('Incident history',tableRows(view?.incidents||[],r=>`<details><summary>${esc(r.kind||'Incident')} · ${esc(r.state||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(r,null,2))}</pre></details>`))}<p class="muted">No real household incident can be acknowledged from this TEST_ONLY service.</p>`);
+  if(explicitSimulationHome()){
+    panel(`${dataLabel()}${card('Incident history',tableRows(view?.incidents||[],r=>`<details><summary>${esc(r.kind||'Incident')} · ${esc(r.state||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(r,null,2))}</pre></details>`))}<p class="muted">No real household incident can be acknowledged from this TEST_ONLY service.</p>`);return;
+  }
+  panel(`${dataLabel()}${card('Incident history unavailable','<p>The authorized service did not provide a recognized incident projection. No incident action is available.</p>')}`);
 }
 function renderReports(){
   const links='<div class="secondary-view-links" aria-label="Reports and history"><button type="button" data-open-tab="incidents">Incidents</button><button type="button" data-open-tab="routines">Routine activity</button></div>';
-  if(productSource()){panel(`${dataLabel()}${card('Committed event history',`<p>${esc(view.event_count)} durable events</p>${productEvents(view.recent_events)}`)}${links}`);connectHomeActions();return;}
-  panel(`${dataLabel()}${card('Simulation reports',`<label>Period<select id="reportPeriod"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label><p>${esc(view?.run_count??0)} saved scenario runs · ${esc(view?.period||'week')}.</p><p>Saved synthetic events: ${esc(view?.event_count??0)} · incident snapshots: ${esc(view?.incident_count??0)}</p><p>PASS ${esc(view?.outcomes?.PASS||0)} · FAIL ${esc(view?.outcomes?.FAIL||0)} · BLOCKED ${esc(view?.outcomes?.BLOCKED||0)}</p>${tableRows(view?.runs||[],r=>`<p>${esc(r.scenario_id)} · ${esc(r.status)} · ${esc(new Date(r.created_at*1000).toLocaleString())}</p>`)}<p class="muted">Real Hub event reports are unavailable until authenticated Hub ingest is deployed.</p>`)}${links}`);
-  connectHomeActions();
-  $('#reportPeriod').value=view?.period||'week';
-  $('#reportPeriod').onchange=async event=>{view=await api(`homes/${profile.home_id}/reports?period=${event.target.value}`);renderReports()};
+  if(productSource()){
+    const count=Number.isFinite(Number(view.event_count))?String(view.event_count):'UNKNOWN';
+    panel(`${dataLabel()}<section class="screen-heading"><h1>Reports</h1><p>Durable event history from the authorized caregiver service</p></section><section class="report-summary"><span class="report-summary-icon" aria-hidden="true">▤</span><div><h2>Recorded events</h2><p>${esc(count)} durable event records · source-backed event times and provenance</p></div></section><section class="report-history">${productEvents(view.recent_events,{historical:true})}</section>${links}`);connectHomeActions();return;
+  }
+  if(explicitSimulationHome()){
+    panel(`${dataLabel()}${card('Simulation reports',`<label>Period<select id="reportPeriod"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label><p>${esc(view?.run_count??0)} saved scenario runs · ${esc(view?.period||'week')}.</p><p>Saved synthetic events: ${esc(view?.event_count??0)} · incident snapshots: ${esc(view?.incident_count??0)}</p><p>PASS ${esc(view?.outcomes?.PASS||0)} · FAIL ${esc(view?.outcomes?.FAIL||0)} · BLOCKED ${esc(view?.outcomes?.BLOCKED||0)}</p>${tableRows(view?.runs||[],r=>`<p>${esc(r.scenario_id)} · ${esc(r.status)} · ${esc(new Date(r.created_at*1000).toLocaleString())}</p>`)}<p class="muted">Real Hub event reports are unavailable until authenticated Hub ingest is deployed.</p>`)}${links}`);
+    connectHomeActions();
+    $('#reportPeriod').value=view?.period||'week';
+    $('#reportPeriod').onchange=async event=>{view=await api(`homes/${profile.home_id}/reports?period=${event.target.value}`);renderReports()};return;
+  }
+  panel(`${dataLabel()}${card('Reports unavailable','<p>The authorized service did not provide a recognized report projection. Historical metrics are UNKNOWN.</p>')}`);
 }
 function renderRoutines(){
   if(productSource()){
     panel(`${dataLabel()}${card('Hub routine decisions',`<p>Observation coverage: <strong>${esc(view?.observation_coverage||'UNKNOWN')}</strong>.</p>${tableRows(view?.decisions||[],d=>`<article class="caregiver-run" data-hub-decision="${esc(d.decision_id)}"><b>${esc(d.kind)} · ${esc(d.details?.tone||'UNKNOWN')}</b><span>${esc(new Date(d.occurred_at*1000).toISOString())}</span><small>Decision ID: ${esc(d.decision_id)} · ${esc(d.details?.reason||'')}</small></article>`)}`)}${card('Personalized routines',`<p>Learning status: <strong>${esc(view?.learning_status||'UNKNOWN')}</strong>.</p><p>Only committed deterministic Hub decisions are shown. Personalized learning is not enabled.</p>`)}`);
     return;
+  }
+  if(!explicitSimulationHome()){
+    panel(`${dataLabel()}${card('Routine activity unavailable','<p>The authorized service did not provide a recognized routine projection. Routine status is UNKNOWN.</p>')}`);return;
   }
   panel(`${dataLabel()}${card('Routine insights',`<p>Longitudinal learning: <strong>${esc(view?.learning_status||'UNKNOWN')}</strong>.</p><p>Routine scenarios run the existing deterministic activity rules. The current lab does not form a multi-day resident baseline.</p>${tableRows(view?.decisions||[],d=>`<details><summary>${esc(d.scenario_title)} · ${esc(d.result)} · ${esc(d.category)}</summary><p>Evaluated: ${esc(new Date(d.evaluated_at*1000).toLocaleString())} · Trace: ${esc(d.trace_id)}</p><p>Engine reason: <strong>${esc(d.decision_reason)}</strong></p><p>Events: ${esc(d.event_ids.join(', ')||'none emitted')} · Incidents: ${esc(d.incident_count)}</p><p>Learning status: ${esc(d.learning_status)}</p>${tableRows(d.step_results,s=>`<p>Step ${esc(s.index)} · ${s.passed?'PASS':'FAIL'} · ${esc(s.detail)}</p>`)}${tableRows(d.checks,c=>`<p>${c.pass?'PASS':'FAIL'} · ${esc(c.detail)}</p>`)}<button class="open-run" data-run="${esc(d.run_id)}">Open full run trace</button></details>`)}<h3>Saved routine scenarios</h3>${tableRows(view?.runs||[],r=>`<p><button class="open-run" data-run="${esc(r.run_id)}">Inspect ${esc(r.scenario_id)}</button> · ${esc(r.status)} · ${esc(r.category)}</p>`)}<p class="muted">Coverage gaps remain UNKNOWN where the scenario has no evidence. Synthetic output is not a trained resident-specific model.</p>`)}${selectedRun?runDetail(selectedRun):''}`);
   bindRunButtons();
@@ -279,7 +367,7 @@ function renderSettings(){
   const adminTools=profile?.role==='ADMIN'&&profile?.test_only===true
     ?card('Engineering and simulation · TEST_ONLY','<p>These tools are available only to the authorized TEST_ONLY administrator. They do not populate caregiver monitoring results.</p><div class="secondary-view-links"><button id="openSimulation" type="button">Simulation Lab</button><button id="openEngineering" type="button">Engineering</button></div>')
     :'';
-  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Add Hub / Hub Wi-Fi',hubSetup)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>`)}${adminTools}`);
+  panel(`${dataLabel()}<section class="screen-heading"><h1>Settings</h1><p>Account, session and supported Home connection options</p></section><div class="settings-grid"><section class="settings-section"><h2>Account &amp; session</h2><p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button></section><section class="settings-section"><h2>Hub setup</h2>${hubSetup}</section><section class="settings-section"><h2>App &amp; connection</h2><p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p></section>${adminTools}</div>`);
   if(runtime.hubWifiNativeDiscovery)$('#addHubWifi').onclick=()=>{window.location.href='gharsajag://hub-wifi/add'};
   $('#openSimulation')?.addEventListener('click',()=>openTab('simulation'));
   $('#openEngineering')?.addEventListener('click',()=>openTab('engineering'));
@@ -388,7 +476,17 @@ async function refresh({verifiedProfile=null}={}){
         if([overview,devices,routines,incidents].some(result=>result.home_id!==home||
             Boolean(result.test_only)!==Boolean(profile.test_only)))
           throw new Error('authorized_home_projection_mismatch');
-        nextView={...overview,devices:devices.devices||[],decisions:routines.decisions||[],incidents:incidents.incidents||[]};
+        nextView={...overview,devices:devices.devices||[],decisions:routines.decisions||[],
+          incidents:incidents.incidents||[],routine_coverage:routines.observation_coverage||'UNKNOWN'};
+      }else if(requestedTab==='devices'||requestedTab==='incidents'){
+        const [overview,projection]=await Promise.all([
+          api(`${base}/overview`),api(`${base}/${requestedTab}`),
+        ]);
+        if([overview,projection].some(result=>result.home_id!==home||
+            Boolean(result.test_only)!==Boolean(profile.test_only)))
+          throw new Error('authorized_home_projection_mismatch');
+        nextView={...projection,source_freshness:overview.source_freshness||'UNKNOWN',
+          monitoring:overview.monitoring||'UNKNOWN',last_hub_at:overview.last_hub_at||null};
       }else if(area)nextView=await api(`${base}/${area}`);
       if(requestedTab==='simulation'){
         if(profile.role!=='ADMIN'||profile.test_only!==true)throw new Error('not_authorized');
@@ -402,7 +500,7 @@ async function refresh({verifiedProfile=null}={}){
       view=nextView;
       connection='CONNECTED';lastSync=Date.now();
       status('CONNECTED',productSource()
-        ?`Caregiver API connected · Hub monitoring ${view.monitoring||'UNKNOWN'} · source ${view.source_freshness||'UNKNOWN'}.`
+        ?`Caregiver API connected · monitoring ${view.monitoring||'UNKNOWN'} · source ${view.source_freshness||'UNKNOWN'}.`
         :`TEST_ONLY workspace · last synced ${new Date(lastSync).toLocaleTimeString()}. Physical monitoring remains UNKNOWN.`);
       renderCurrent();
     }catch(error){
