@@ -644,3 +644,28 @@ APK remain NOT_RUN. No IP, forwarding, firewall, Windows network profile,
 certificate, or listener configuration was changed as part of source
 validation/build. Current Windows Public profile and unregistered privileged
 network watcher still prevent claiming operational automatic discovery.
+
+### Watcher fail-closed guard and focused regression — 2026-10-22
+
+Added a Windows profile check before registering the privileged reconnect
+watcher and before its `Start`/`Watch` forwarding or firewall mutations. Only
+`Private` or `DomainAuthenticated` profiles with bounded RFC1918 Wi-Fi
+addresses are accepted. This prevents a persisted task or network changes on a
+Public/Unknown Wi-Fi profile. No watcher was registered and no Windows network
+state was changed.
+
+Separated writing the current WSL target from starting the DNS-SD advertiser.
+The watcher now starts the advertiser explicitly after it records the target;
+this keeps the state-recording command independently testable and preserves
+the runtime sequence. `LaptopServiceLifecycleBoundary` passed 11/11 after this
+correction. `make -C code feature-coverage-test` passed 22/22 (225 feature rows,
+280 modules, 26 physical cases); Bash parsing, Windows PowerShell parser, and
+`git diff --check` passed.
+
+The preceding `make -C code gs179-postgres-e2e` run executed 55 tests and had
+one failure in `test_proxy_target_recorder_accepts_only_wsl_nat_addresses`:
+the test fixture did not create the private server configuration newly
+required when that command also launched DNS-SD. The command was then split as
+described above, and the complete 11-test laptop lifecycle class passed. The
+full 55-test suite was not repeated. The remaining test evidence is software
+only; automatic phone DNS-SD and Yogi → Agrim → Yogi remain unverified.

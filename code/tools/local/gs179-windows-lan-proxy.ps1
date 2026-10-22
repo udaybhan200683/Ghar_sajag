@@ -126,6 +126,10 @@ function Get-NetworkCategoryName($Category) {
     return "Unknown"
 }
 
+function Test-TrustedWifiProfile($Category) {
+    return (Get-NetworkCategoryName $Category) -in @("Private", "DomainAuthenticated")
+}
+
 if ($Action -eq "UnregisterWatch") {
     Assert-Administrator
     Unregister-ScheduledTask -TaskName $WatchTaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -136,6 +140,16 @@ if ($Action -eq "UnregisterWatch") {
 if ($Action -eq "RegisterWatch") {
     Assert-Administrator
     if (-not (Test-LinuxScriptPath $LinuxScriptPath)) { Stop-WithError "canonical_wsl_script_path_required" }
+    # A persistent watcher is allowed to mutate forwarding only while Windows
+    # classifies the active Wi-Fi as owner-trusted. Check before registering so
+    # a failed first run cannot leave a task behind on Public/Unknown Wi-Fi.
+    $registrationWifi = Get-ActiveWifiState $false
+    if (-not (Test-TrustedWifiProfile $registrationWifi.Profile.NetworkCategory) -or
+        -not (Is-Rfc1918 $registrationWifi.IpInfo.IPAddress) -or
+        $registrationWifi.IpInfo.PrefixLength -lt 16 -or
+        $registrationWifi.IpInfo.PrefixLength -gt 29) {
+        Stop-WithError "watch_registration_requires_trusted_private_or_domain_rfc1918_wifi"
+    }
     $powershell = Join-Path $PSHOME "powershell.exe"
     $taskArguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Action Watch -LinuxScriptPath `"$LinuxScriptPath`""
     $escapedPowerShell = [System.Security.SecurityElement]::Escape($powershell)
@@ -241,6 +255,10 @@ if ($Action -eq "Audit") {
 # adapter, route, firewall and socket queries and is available without an
 # administrative token. Never weaken the mutation gate below.
 if ($Action -in @("Start", "Stop", "Watch")) { Assert-Administrator }
+
+if ($Action -in @("Start", "Watch") -and -not (Test-TrustedWifiProfile $networkCategory)) {
+    Stop-WithError "active_wifi_must_be_owner_trusted_private_or_domain_authenticated"
+}
 
 if (-not $wifiPrivate -or $networkCategory -eq "Unknown" -or $ipInfo.PrefixLength -lt 16 -or
     $ipInfo.PrefixLength -gt 29) {
@@ -367,6 +385,8 @@ if ($Action -eq "Start") {
     if ($wasWatch) {
         $record = & $wslExe --exec bash -lc "'$LinuxScriptPath' record-proxy-target '$WslAddress'" 2>&1
         if ($LASTEXITCODE -ne 0) { Stop-WithError "wsl_proxy_target_record_failed" }
+        $advertise = & $wslExe --exec bash -lc "'$LinuxScriptPath' start-mdns-advertiser" 2>&1
+        if ($LASTEXITCODE -ne 0) { Stop-WithError "wsl_mdns_advertiser_start_failed" }
     }
     exit 0
 }

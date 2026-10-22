@@ -6263,3 +6263,24 @@ sensor provenance is implied.
 
 Detailed evidence is in
 [GS-179 laptop/Android evidence](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#ciapk-and-owner-verification-addendum--2026-10-22).
+
+#### GS-179 reconnect guard follow-up — 2026-10-22
+
+The optional Windows network watcher now fails closed unless the current Wi-Fi
+profile is Private or DomainAuthenticated and has a bounded RFC1918 address.
+The profile check runs before watcher registration and before forwarding or
+firewall mutation. The watcher remains unregistered; no live laptop network
+state was changed. The WSL target-recording command and explicit DNS-SD
+advertiser-start command are now separate, with the watcher invoking them in
+sequence after refreshing forwarding.
+
+Validation: `LaptopServiceLifecycleBoundary` 11/11 PASS; feature traceability
+22/22 PASS (225 features, 280 modules, 26 physical cases); Bash syntax,
+PowerShell parse, and `git diff --check` PASS. The preceding full GS-179 suite
+ran 55 tests with one lifecycle-fixture failure because the test did not create
+the private config now required by the DNS-SD side effect. That side effect was
+removed from the target-recording command and the lifecycle class passed after
+the correction; the full suite was not rerun. Physical phone automatic DNS-SD
+and router-switch validation remain NOT_RUN. See the dated GS-179 execution
+evidence for exact artifact, current Windows profile, signing mismatch and
+owner-reported IP-fallback result.

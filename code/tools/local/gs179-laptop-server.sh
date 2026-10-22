@@ -288,8 +288,6 @@ record_proxy_target() {
     printf '%s\n' "$address" > "$temp_file"
     mv -f "$temp_file" "$WINDOWS_TARGET_FILE"
     chmod 600 "$WINDOWS_TARGET_FILE"
-    load_config
-    start_mdns_advertiser
 }
 
 network_refresh_config() {
@@ -687,5 +685,6 @@ case "${1:-}" in
     proxy-watch-unregister) unregister_network_watch ;;
     network-refresh-config) network_refresh_config ;;
     record-proxy-target) record_proxy_target "${2:-}" ;;
+    start-mdns-advertiser) load_config; start_mdns_advertiser ;;
     *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
 esac

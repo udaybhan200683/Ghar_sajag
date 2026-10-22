@@ -248,6 +248,7 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         proxy = WINDOWS_PROXY.read_text(encoding="utf-8")
         self.assertIn("network-refresh-config)", source)
         self.assertIn("record-proxy-target)", source)
+        self.assertIn("start-mdns-advertiser)", source)
         self.assertIn("proxy-watch-register)", source)
         self.assertIn("-Action RegisterWatch -LinuxScriptPath", source)
         self.assertIn("NetworkProfile/Operational", proxy)
@@ -256,6 +257,15 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         self.assertIn("-RemoteAddress $scope", proxy)
         self.assertIn('-InterfaceAlias "Wi-Fi"', proxy)
         self.assertIn("-Profile $firewallProfile", proxy)
+        self.assertLess(proxy.index("record-proxy-target '$WslAddress'"),
+                        proxy.index("start-mdns-advertiser"))
+        self.assertIn('function Test-TrustedWifiProfile($Category)', proxy)
+        register = proxy[proxy.index('if ($Action -eq "RegisterWatch")'):proxy.index('# Rollback must remain available')]
+        self.assertIn('Get-ActiveWifiState $false', register)
+        self.assertIn('watch_registration_requires_trusted_private_or_domain_rfc1918_wifi', register)
+        self.assertLess(register.index('Test-TrustedWifiProfile'), register.index('Register-ScheduledTask'))
+        trusted_start = proxy.index('if ($Action -in @("Start", "Watch") -and -not (Test-TrustedWifiProfile')
+        self.assertLess(trusted_start, proxy.index('$existingRule = Get-ExactFirewallRule', trusted_start))
         self.assertNotIn("ExpectedWifiName", proxy)
         self.assertNotIn("WifiAddress = \"192.168.", proxy)
         print("CASE GS179-LAN-AUTO-001 PASS")
