@@ -370,3 +370,50 @@ A separate live caregiver browser rerun initially got a transient
 a read-only proxy audit was also running. The service health/TLS checks stayed
 PASS; the browser rerun by itself passed with the same EventKey and no source
 change. The transient was not reproduced.
+
+## 2026-10-22 — router-independent TEST_ONLY reconnect implementation
+
+This follow-up adds a reusable reconnect path for the existing laptop host and
+Parivar Saathi app. It remains TEST_ONLY and leaves the commercial release
+origin and trust configuration unchanged. The Android app can restore a
+previously paired `https://<computer-name>.local` origin or use an explicit
+private IPv4 fallback in the bundled reconnect flow. It persists the selected
+origin, while WebView continues normal TLS hostname and certificate
+verification. Address discovery is never treated as authentication. The
+caregiver server permits the `.local` HTTPS origin only under its explicit
+TEST_ONLY LAN setting.
+
+The Windows helper now reads the active Wi-Fi IPv4 and current WSL2 address and
+can retarget only its owned portproxy/firewall configuration. A bounded,
+opt-in watcher is available for operator activation but was not registered:
+the current Windows session is not elevated. No broad firewall rule, router
+change, server restart, or phone operation was performed.
+
+At final read-only inspection, Windows was connected to `Airtel_Agrim` at
+`192.168.1.8/24` and WSL2 was `172.17.152.10`. PostgreSQL, caregiver HTTPS and
+local service checks were healthy. The existing Windows portproxy still
+targeted the previous `192.168.1.6`, so
+`LAPTOP_LAN_ENDPOINT_TLS_READY=FAIL`; phone reachability remains NOT_VERIFIED.
+The server certificate covers the stable computer-name `.local` origin. The
+stale route was left unchanged to preserve the live network/server state. No
+phone-side Yogi → Agrim → Yogi test has been performed.
+
+Focused validation on this source passed: PWA runtime JS 10/10; caregiver API
+22/22; GS-179 security 18/18; source-linked GS-179 PostgreSQL E2E 55/55;
+GS-177 connected-lite runner (22 API tests, 10 JS tests, 3 source scenarios,
+10 runtime checks); validation framework 51/51; feature coverage and
+traceability; PWA browser 4/4 tests and 92/92 rendered checks; and GS-178
+caregiver integration 33/33. Python, Node, shell and JSON syntax checks and
+`git diff --check` passed. The broader backend/PWA aggregates retain the
+existing mandatory P0 `product_status=PARTIAL`, diagnostic-foundation's
+stale-stage registration assertion, and an initial offline-browser attempt
+that lacked the Python `websocket` dependency; the isolated browser target
+passed after that dependency was supplied outside the repository. These
+results were not suppressed or altered. Local Gradle and ADB are unavailable,
+so the updated combined APK was not built. Physical phone, Hub and PIR
+validation remain NOT_RUN.
+
+This is the Wi-Fi source checkpoint only. GS-177 UX commit integration is
+deferred until this checkpoint is committed and pushed. Starting local and
+remote HEAD was `aeb2ab52a4f1c0e286817b77026d4fe13f03580b`; pre-existing
+untracked and ignored assets remain preserved.

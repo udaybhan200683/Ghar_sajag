@@ -10,7 +10,7 @@ object BackendEndpointStore {
     fun load(context: Context): BackendOrigin? =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(URL, null)
-            ?.let(BackendOrigin::parse)
+            ?.let { BackendOrigin.parse(it, allowTestOnlyLanEndpoint = BuildConfig.GS179_LOCAL_LAN_TEST_ONLY) }
 
     fun save(context: Context, origin: BackendOrigin) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

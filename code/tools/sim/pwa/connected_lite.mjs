@@ -47,7 +47,9 @@ function loginScreen(message=''){
   if(restoreController){authGeneration++;restoreController.abort();restoreController=null;}
   $('.bottom-nav').hidden=true;
   $('.bottom-nav').replaceChildren();
-  panel(`<div class="card connected-auth"><h1>Sign in</h1><p>Use your caregiver account to open its authorized Home.</p><p id="loginError" class="status-bad" role="alert" aria-live="polite">${esc(message)}</p><form id="loginForm"><label>Email<input name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Log in</button></form><p class="muted">Monitoring status remains unknown until the server verifies your session and current Home access.</p></div>`);
+  const reconnect=runtime.localBackendReconnect?'<p><a class="local-backend-reconnect" href="gharsajag://backend/reconnect">Reconnect to laptop server</a></p>':'';
+  panel(`<div class="card connected-auth"><h1>Sign in</h1><p>Use your caregiver account to open its authorized Home.</p><p id="loginError" class="status-bad" role="alert" aria-live="polite">${esc(message)}</p><form id="loginForm"><label>Email<input name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Log in</button></form>${reconnect}<p class="muted">Monitoring status remains unknown until the server verifies your session and current Home access.</p></div>`);
+  document.querySelector('.local-backend-reconnect')?.addEventListener('click',event=>{event.preventDefault();window.location.href='gharsajag://backend/reconnect'});
   const form=$('#loginForm');
   const markCredentialEntry=()=>{
     loginFormTouched=true;
@@ -279,8 +281,11 @@ function renderSettings(){
   const adminTools=profile?.role==='ADMIN'&&profile?.test_only===true
     ?card('Engineering and simulation · TEST_ONLY','<p>These tools are available only to the authorized TEST_ONLY administrator. They do not populate caregiver monitoring results.</p><div class="secondary-view-links"><button id="openSimulation" type="button">Simulation Lab</button><button id="openEngineering" type="button">Engineering</button></div>')
     :'';
-  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Add Hub / Hub Wi-Fi',hubSetup)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>`)}${adminTools}`);
+  const localReconnect=runtime.localBackendReconnect?'<p><a class="local-backend-reconnect" href="gharsajag://backend/reconnect">Change local server</a> · <a class="local-backend-reset" href="gharsajag://backend/reset">Use paired laptop</a></p>':'';
+  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Add Hub / Hub Wi-Fi',hubSetup)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>${localReconnect}`)}${adminTools}`);
   if(runtime.hubWifiNativeDiscovery)$('#addHubWifi').onclick=()=>{window.location.href='gharsajag://hub-wifi/add'};
+  document.querySelector('.local-backend-reconnect')?.addEventListener('click',event=>{event.preventDefault();window.location.href='gharsajag://backend/reconnect'});
+  document.querySelector('.local-backend-reset')?.addEventListener('click',event=>{event.preventDefault();window.location.href='gharsajag://backend/reset'});
   $('#openSimulation')?.addEventListener('click',()=>openTab('simulation'));
   $('#openEngineering')?.addEventListener('click',()=>openTab('engineering'));
   $('#logoutButton').onclick=async()=>{try{await api('auth/logout',{method:'POST'})}finally{status('SIGNED OUT','Current session has been revoked.');loginScreen()}};

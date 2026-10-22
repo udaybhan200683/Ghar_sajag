@@ -6051,3 +6051,42 @@ Caregiver HTTPS and Hub ingress configuration point to the same local PostgreSQL
 Validation on the implementation source: registered GS-179 PostgreSQL/source-linked integration **52/52 PASS**; the two repaired browser regressions **2/2 PASS**; focused GS-179 security/lifecycle **15/15 PASS**; laptop HTTPS browser returned HOST_SIM_PASS with one committed test event visible after reload and stale/UNKNOWN monitoring. The existing Python/PostgreSQL security cases verify Home isolation, forged-header rejection, retries and restart behavior. This does not establish phone reachability or physical acceptance. The approved local-LAN APK workflow completed PASS at run 39766494060 on source 8c134487a4afdde0869aad0e0c5b9c9b19f1b544. Artifact ID 12420842385 is linked in the evidence; APK SHA-256 is ab61481bbdaf9b8d98b86b0c67ef8b7bdfb10be0605dc4a425f6343de03754f9, package in.gharsajag.caregiver version 0.4.0-connected-lite-staging, origin https://192.168.1.6, and runner-generated debug signer certificate SHA-256 58f9d58042af12a1eca6b4fadd8bb836e3b04220995fb710ad3eac0d1b1972ac. CI software gates passed; physical status NOT_RUN and the app was not installed.
 
 Evidence and rollback details are in [GS-179 laptop LAN / Android host evidence](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#2026-10-22--owner-approved-windowswsl2-lan-configuration). Starting source HEAD was `ad170206152714bcfbedaa0e3a26108f03cb638e` and matched the remote. Five tracked helper/test files and this evidence/work-state are the only intended source/documentation changes; all pre-existing untracked and ignored files remain preserved. Implementation commit 8c134487a4afdde0869aad0e0c5b9c9b19f1b544 is pushed and equals the verified remote. The APK artifact provenance is included in the linked evidence. Phone verification, real S3 authentication, Hub-ingress activation, and genuine PIR remain the next separate authorized stages.
+
+## GS-177/GS-179 router-independent TEST_ONLY reconnect — 2026-10-22
+
+The Wi-Fi roaming source change is implemented and its focused host/API/security
+regressions pass. The local TEST_ONLY Android build now supports a persisted
+paired `.local` HTTPS origin and an explicit private-address reconnect fallback
+without bypassing certificate hostname validation. The backend allows that
+origin only in the isolated local-LAN profile. Windows tooling derives current
+Wi-Fi/WSL addresses and contains an opt-in, narrowly scoped forwarding refresh
+watcher; it is not registered because the current Windows token is not
+elevated.
+
+Current read-only laptop state is Agrim `192.168.1.8/24`, WSL2
+`172.17.152.10`. PostgreSQL and caregiver HTTPS are healthy, but existing
+portproxy still targets historical `.6`; therefore current LAN HTTPS readiness
+is FAIL and phone reachability is NOT_VERIFIED. No route refresh, firewall
+change, watcher registration, phone action, or live server restart was made.
+The source change is not physical Wi-Fi-switch acceptance: Yogi → Agrim → Yogi
+on the same installed phone APK remains NOT_RUN. The combined Wi-Fi and approved
+UX APK is deferred until after the Wi-Fi source checkpoint is committed.
+
+Validation: PWA runtime 10/10; caregiver API 22/22; GS-179 security 18/18;
+GS-179 PostgreSQL E2E 55/55; GS-177 connected-lite/API runner 22 API, 10 JS,
+3 scenarios and 10 runtime checks; framework 51/51; feature/traceability
+integrity PASS; isolated PWA browser 4/4 and 92/92 rendered checks; GS-178
+caregiver integration 33/33; syntax and `git diff --check` PASS. The broad
+backend/PWA aggregates still report the existing mandatory P0 `PARTIAL` and
+stale diagnostic-foundation registration expectation; an initial aggregate
+also lacked `websocket`, after which its focused browser stage passed using a
+temporary external dependency. Android Gradle/APK and handset validation were
+not available in this environment. Detailed commands and the exact current
+route state are in [the dated GS-179 evidence](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#2026-10-22--router-independent-test_only-reconnect-implementation).
+
+The Wi-Fi changes are not yet committed at this checkpoint. Starting local and
+remote HEAD is `aeb2ab52a4f1c0e286817b77026d4fe13f03580b`; pre-existing
+untracked and ignored files are preserved. GS-177, GS-179, GS-117 and GS-60
+remain open/In Progress or otherwise at their existing Jira states. After this
+Wi-Fi-only source checkpoint is validated and pushed, continue the owner-
+authorized GS-177 UX integration in this same worktree.

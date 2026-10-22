@@ -19,6 +19,8 @@ import java.net.URISyntaxException
 object TrustedPwaWebView {
     private const val APP_ASSET_HOST = "appassets.androidplatform.net"
     private const val APP_ASSET_PREFIX = "/__caregiver_app__/"
+    const val BACKEND_RECONNECT_URL = "gharsajag://backend/reconnect"
+    const val BACKEND_RESET_URL = "gharsajag://backend/reset"
 
     fun startUrl(origin: BackendOrigin?): String {
         val host = origin?.host ?: APP_ASSET_HOST
@@ -28,7 +30,9 @@ object TrustedPwaWebView {
     const val HUB_WIFI_SETUP_URL = "gharsajag://hub-wifi/add"
 
     fun create(activity: Activity, backendOrigin: BackendOrigin?,
-               onHubWifiSetup: () -> Unit = {}): WebView {
+               onHubWifiSetup: () -> Unit = {},
+               onBackendReconnect: () -> Unit = {},
+               onBackendReset: () -> Unit = {}): WebView {
         val trustedHost = backendOrigin?.host ?: APP_ASSET_HOST
         val view = WebView(activity)
         view.settings.javaScriptEnabled = true
@@ -67,6 +71,16 @@ object TrustedPwaWebView {
                     }
                     return true
                 }
+                if (request.url.toString() == BACKEND_RECONNECT_URL ||
+                    request.url.toString() == BACKEND_RESET_URL) {
+                    if (BuildConfig.GS179_LOCAL_LAN_TEST_ONLY &&
+                        BackendReconnectNavigationPolicy.canOpen(
+                            request.url.toString(), v.url, trustedHost, request.isForMainFrame)) {
+                        if (request.url.toString() == BACKEND_RECONNECT_URL) onBackendReconnect()
+                        else onBackendReset()
+                    }
+                    return true
+                }
                 return !request.url.scheme.equals("https", ignoreCase = true) ||
                     request.url.host?.equals(trustedHost, ignoreCase = true) != true ||
                     (request.url.port != -1 && request.url.port != 443)
@@ -96,7 +110,7 @@ object TrustedPwaWebView {
 
         if (relative == "runtime-config.js") {
             val origin = backendOrigin?.baseUrl.orEmpty()
-            val body = "window.PARIVAR_SAATHI_RUNTIME=Object.freeze({mode:\"caregiver\",backendOrigin:\"$origin\",caregiverApiConfigured:${backendOrigin != null},gs179LocalLanTestOnly:${BuildConfig.GS179_LOCAL_LAN_TEST_ONLY},hubWifiNativeDiscovery:true,appVersion:\"0.4.0-connected-lite-staging\",sourceRevision:\"${BuildConfig.SOURCE_REVISION}\"});"
+            val body = "window.PARIVAR_SAATHI_RUNTIME=Object.freeze({mode:\"caregiver\",backendOrigin:\"$origin\",caregiverApiConfigured:${backendOrigin != null},gs179LocalLanTestOnly:${BuildConfig.GS179_LOCAL_LAN_TEST_ONLY},hubWifiNativeDiscovery:true,localBackendReconnect:${BuildConfig.GS179_LOCAL_LAN_TEST_ONLY},appVersion:\"0.4.0-connected-lite-staging\",sourceRevision:\"${BuildConfig.SOURCE_REVISION}\"});"
             return response("text/javascript", ByteArrayInputStream(body.toByteArray(Charsets.UTF_8)), backendOrigin)
         }
 
@@ -162,6 +176,21 @@ object HubWifiNavigationPolicy {
             page.host.equals(trustedHost, ignoreCase = true) &&
             (page.port == -1 || page.port == 443) &&
             page.rawUserInfo == null &&
+            page.path?.startsWith("/__caregiver_app__/") == true
+    }
+}
+
+/** Endpoint entry is reachable only from the bundled caregiver UI in an explicitly TEST_ONLY APK. */
+object BackendReconnectNavigationPolicy {
+    fun canOpen(destination: String, pageUrl: String?, trustedHost: String,
+                mainFrame: Boolean): Boolean {
+        if (destination !in setOf(TrustedPwaWebView.BACKEND_RECONNECT_URL,
+                TrustedPwaWebView.BACKEND_RESET_URL) || !mainFrame || pageUrl == null)
+            return false
+        val page = try { URI(pageUrl) } catch (_: URISyntaxException) { return false }
+        return page.scheme.equals("https", ignoreCase = true) &&
+            page.host.equals(trustedHost, ignoreCase = true) &&
+            (page.port == -1 || page.port == 443) && page.rawUserInfo == null &&
             page.path?.startsWith("/__caregiver_app__/") == true
     }
 }

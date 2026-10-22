@@ -144,8 +144,22 @@ def main() -> int:
     app_pwa = ROOT / "tools" / "sim" / "pwa"
     main_activity = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/MainActivity.kt").read_text()
     gradle_build = (app_root / "android/app/build.gradle.kts").read_text()
-    if "showSetup" in main_activity or "HTTPS server address" in main_activity or "EditText" in main_activity:
-        print("GS177 ANDROID DASHBOARD FAIL manual_server_setup_screen_present", flush=True)
+    endpoint_store = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/BackendEndpointStore.kt").read_text()
+    trusted_webview = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/TrustedPwaWebView.kt").read_text()
+    origin_tests = (app_root / "android/app/src/test/java/in/gharsajag/caregiver/BackendOriginTest.kt").read_text()
+    if "showSetup" in main_activity or "HTTPS server address" in main_activity:
+        print("GS177 ANDROID DASHBOARD FAIL legacy_manual_setup_screen_present", flush=True)
+        return 1
+    if ("BuildConfig.GS179_LOCAL_LAN_TEST_ONLY" not in main_activity or
+            "BackendOrigin.parse(" not in main_activity or
+            "BackendEndpointStore.save(this, candidate)" not in main_activity or
+            "BackendEndpointStore.load(this)" not in main_activity or
+            "BackendEndpointStore.clear(this)" not in main_activity or
+            "BuildConfig.GS179_LOCAL_LAN_TEST_ONLY" not in endpoint_store or
+            "gs177AndroidLanReconnectStableMdnsHostnameAndManualPrivateAddressAreTestOnly" not in origin_tests or
+            "gs177AndroidLanReconnectIsReachableOnlyFromBundledFirstPartyMainFrame" not in origin_tests or
+            "handler.cancel()" not in trusted_webview):
+        print("GS177 ANDROID DASHBOARD FAIL secure_TEST_ONLY_reconnect_flow_missing", flush=True)
         return 1
     required_pwa = [
         "index.html", "app.js", "runtime_mode.mjs", "styles.css",
@@ -169,20 +183,27 @@ def main() -> int:
     if local_lan_test_only == "1":
         try:
             parsed = urlsplit(backend_origin)
-            address = ipaddress.ip_address(parsed.hostname or "")
+            host = parsed.hostname or ""
+            try:
+                address = ipaddress.ip_address(host)
+            except ValueError:
+                address = None
         except ValueError:
             address = None
             parsed = None
-        allowed = isinstance(address, ipaddress.IPv4Address) and any(
+            host = ""
+        private_ip = isinstance(address, ipaddress.IPv4Address) and any(
             address in network for network in (
                 ipaddress.ip_network("10.0.0.0/8"),
                 ipaddress.ip_network("172.16.0.0/12"),
                 ipaddress.ip_network("192.168.0.0/16"),
             )
         )
-        if (not allowed or parsed.scheme != "https" or parsed.netloc != parsed.hostname or
+        local_hostname = bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.local", host))
+        if (not (private_ip or local_hostname) or parsed is None or parsed.scheme != "https" or
+                parsed.netloc != parsed.hostname or
                 parsed.path not in {"", "/"} or parsed.query or parsed.fragment):
-            print("GS177 ANDROID BUILD FAIL LAN_TEST_ONLY_requires_exact_RFC1918_HTTPS_origin", flush=True)
+            print("GS177 ANDROID BUILD FAIL LAN_TEST_ONLY_requires_exact_private_or_local_HTTPS_origin", flush=True)
             return 1
         local_profile = PROJECT / "app/src/gs179LocalLan"
         ca_path = local_profile / "res/raw/gs179_local_lan_test_ca.pem"
@@ -196,9 +217,7 @@ def main() -> int:
             application = manifest.find("application")
             android_ns = "{http://schemas.android.com/apk/res/android}"
             trust_config = ET.parse(trust_path).getroot()
-            domain_configs = trust_config.findall("domain-config")
-            domains = [node.text.strip() for group in domain_configs for node in group.findall("domain")
-                       if node.text]
+            base_config = trust_config.find("base-config")
             ca_text = ca_path.read_text(encoding="ascii")
         except (OSError, ET.ParseError, UnicodeError) as error:
             print(f"GS177 ANDROID BUILD FAIL invalid_LAN_TEST_ONLY_trust_profile:{error}", flush=True)
@@ -223,11 +242,13 @@ def main() -> int:
             return 1
         has_test_ca = any(
             node.attrib.get("src") == "@raw/gs179_local_lan_test_ca"
-            for group in domain_configs for anchors in group.findall("trust-anchors")
+            for group in ([base_config] if base_config is not None else [])
+            for anchors in group.findall("trust-anchors")
             for node in anchors.findall("certificates")
         )
-        if (domains != [parsed.hostname] or application is None or
+        if (application is None or
                 application.attrib.get(android_ns + "networkSecurityConfig") != "@xml/network_security_config" or
+                base_config is None or base_config.attrib.get("cleartextTrafficPermitted") != "false" or
                 not has_test_ca or "-----BEGIN CERTIFICATE-----" not in ca_text or
                 "-----END CERTIFICATE-----" not in ca_text):
             print("GS177 ANDROID BUILD FAIL origin_not_exactly_bound_to_CA_pinned_LAN_profile", flush=True)
@@ -238,10 +259,14 @@ def main() -> int:
         print(f"GS177 ANDROID BRANDING FAIL {failure}", flush=True)
         return 1
 
-    rc, _ = run([node, "--test", "tests/js/caregiver_runtime.test.mjs"], cwd=ROOT)
+    rc, runtime_output = run([node, "--test", "tests/js/caregiver_runtime.test.mjs"], cwd=ROOT)
     if rc:
         print(f"GS177 PWA RUNTIME FAIL exit={rc}", flush=True)
         return rc
+    if not re.search(r"(?m)^ok \d+ - GS177-PWA-LAN-RECONNECT-001\b", runtime_output):
+        print("GS177 PWA RUNTIME FAIL LAN_reconnect_test_not_reported", flush=True)
+        return 1
+    print("CASE GS177-PWA-LAN-RECONNECT-001 PASS", flush=True)
     print("CASE GS177-PWA-RUNTIME-001 PASS", flush=True)
 
     if not gradle:
@@ -279,6 +304,7 @@ def main() -> int:
             flush=True,
         )
         return 1
+    print("CASE GS177-ANDROID-LAN-RECONNECT-001 PASS", flush=True)
     if not APK.is_file():
         print(f"GS177 ANDROID DASHBOARD FAIL apk_missing={APK}", flush=True)
         return 1

@@ -934,3 +934,24 @@ aggregate is preserved. Historical migration remains FAIL, physical qualificatio
 remains NOT_RUN, release approval remains false, and release-gate-final was not
 run. These results are integration-candidate evidence only; they do not change
 canonical release status or authorize a merge.
+
+## GS-177/GS-179 local-LAN reconnect test registration — 2026-10-22
+
+Router-independent local TEST_ONLY reconnection uses the existing GS-177 and
+GS-179 registered suites. Added required markers are `GS177-API-LAN-ORIGIN-001`
+and `GS177-API-LAN-ORIGIN-002` in the caregiver API suite,
+`GS177-PWA-LAN-RECONNECT-001` and `GS177-ANDROID-LAN-RECONNECT-001` in the
+Android dashboard suite, and `GS179-LAN-AUTO-001` / `GS179-LAN-RECOVERY-001`
+in the PostgreSQL E2E suite. The updated feature row is `GS-PWA-01` in
+`MASTER_TRACEABILITY.csv`; Android phone/network acceptance remains
+`PHY-GS177-ANDROID-01` and NOT_RUN.
+
+On 2026-10-22, focused source-linked host/API/security and browser tests passed
+as recorded in
+[`GS-179 laptop LAN evidence`](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#2026-10-22--router-independent-test_only-reconnect-implementation).
+The phone transition across Yogi → Agrim → Yogi was not executed. Current
+Agrim readback found that the Windows portproxy still targeted the prior
+address; therefore current laptop LAN reachability is FAIL, despite healthy
+local PostgreSQL and caregiver HTTPS. The optional elevated Windows refresh
+watcher was not registered. These software results do not promote the physical
+case or real Hub/PIR status.

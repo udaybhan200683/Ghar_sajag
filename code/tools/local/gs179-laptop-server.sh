@@ -56,8 +56,125 @@ windows_wifi_address() {
     windows_powershell -NoProfile -Command 'Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4 | Where-Object { $_.AddressState -eq "Preferred" } | Select-Object -First 1 -ExpandProperty IPAddress' | tr -d '\r'
 }
 
-windows_wifi_name() {
-    windows_powershell -NoProfile -Command 'Get-NetConnectionProfile -InterfaceAlias "Wi-Fi" | Select-Object -First 1 -ExpandProperty Name' | tr -d '\r'
+windows_computer_name() {
+    windows_powershell -NoProfile -Command '$env:COMPUTERNAME' | tr -d '\r' | tr '[:upper:]' '[:lower:]'
+}
+
+refresh_endpoint_certificate() {
+    local address="$1" host="$2" cert_dir="$TLS_ROOT/android" ca_key="$TLS_ROOT/android/ca.key"
+    local host_local="${host}.local"
+    [[ "$host" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] || fail "windows_computer_name_not_a_valid_single_dns_label"
+    [[ -f "$ANDROID_CA" && -f "$ca_key" && -f "$ANDROID_KEY" ]] || fail "local_test_ca_signing_material_missing"
+    if openssl x509 -in "$ANDROID_CERT" -noout -checkhost "$host_local" >/dev/null 2>&1 &&
+       openssl x509 -in "$ANDROID_CERT" -noout -checkip "$address" >/dev/null 2>&1 &&
+       openssl verify -CAfile "$ANDROID_CA" -purpose sslserver "$ANDROID_CERT" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local temp_dir serial backup
+    temp_dir="$(mktemp -d "$cert_dir/.network-refresh.XXXXXX")"
+    chmod 700 "$temp_dir"
+    trap 'rm -rf "$temp_dir"' RETURN
+    cat > "$temp_dir/extensions.cnf" <<EOF
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+subjectAltName=DNS:$host_local,IP:$address
+EOF
+    openssl req -new -key "$ANDROID_KEY" -subj "/CN=$host_local" -out "$temp_dir/server.csr" >/dev/null 2>&1 || fail "test_server_csr_generation_failed"
+    serial="$(openssl rand -hex 16)"
+    openssl x509 -req -in "$temp_dir/server.csr" -CA "$ANDROID_CA" -CAkey "$ca_key" \
+        -set_serial "0x$serial" -days 365 -sha256 -extfile "$temp_dir/extensions.cnf" \
+        -out "$temp_dir/server.pem" >/dev/null 2>&1 || fail "test_server_leaf_issuance_failed"
+    openssl verify -CAfile "$ANDROID_CA" -purpose sslserver "$temp_dir/server.pem" >/dev/null 2>&1 || \
+        fail "test_server_leaf_chain_validation_failed"
+    openssl x509 -in "$temp_dir/server.pem" -noout -checkhost "$host_local" >/dev/null 2>&1 || \
+        fail "test_server_leaf_dns_san_validation_failed"
+    openssl x509 -in "$temp_dir/server.pem" -noout -checkip "$address" >/dev/null 2>&1 || \
+        fail "test_server_leaf_ip_san_validation_failed"
+    backup="$STATE_ROOT/server.pem.before-network-refresh.$(date -u +%Y%m%dT%H%M%SZ).$$.$RANDOM"
+    install -m 600 "$ANDROID_CERT" "$backup"
+    chmod 600 "$temp_dir/server.pem"
+    mv -f "$temp_dir/server.pem" "$ANDROID_CERT"
+    printf 'GS179_TEST_ONLY_TLS_IDENTITY_REFRESHED=YES hostname=%s ip_san=%s rollback=%s\n' \
+        "$host_local" "$address" "$backup"
+    rm -rf "$temp_dir"
+    trap - RETURN
+}
+
+refresh_network_configuration() {
+    local address host
+    address="$(windows_wifi_address)"
+    host="$(windows_computer_name)"
+    python3 - "$address" "$host" <<'PY' || fail "active_wifi_requires_rfc1918_and_valid_laptop_hostname"
+import ipaddress, re, sys
+address, host = sys.argv[1:]
+try:
+    ip = ipaddress.ip_address(address)
+except ValueError:
+    raise SystemExit(1)
+if not isinstance(ip, ipaddress.IPv4Address) or not any(
+    ip in ipaddress.ip_network(network) for network in
+    ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+):
+    raise SystemExit(1)
+if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", host):
+    raise SystemExit(1)
+PY
+    refresh_endpoint_certificate "$address" "$host"
+    if [[ -f "$ENV_FILE" ]]; then
+        python3 - "$ENV_FILE" "$host" "$address" <<'PY'
+import os, shlex, sys, tempfile, secrets
+from datetime import datetime, timezone
+from pathlib import Path
+import shutil
+target, host, address = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+original = target.read_text(encoding="utf-8")
+lines = original.splitlines()
+values = {
+    "PUBLIC_ORIGIN": "https://" + host + ".local",
+    "GS179_LAN_HOSTNAME": host + ".local",
+    "GS179_TEST_ONLY_ALLOWED_ORIGINS": "https://" + address,
+}
+seen = set()
+updated = []
+for line in lines:
+    key = line.partition("=")[0].removeprefix("export ")
+    if key in {"GS179_WINDOWS_WIFI_IPV4", "GS179_WIFI_NAME"}:
+        continue
+    if key in values:
+        updated.append("export " + key + "=" + shlex.quote(values[key]))
+        seen.add(key)
+    else:
+        updated.append(line)
+for key, value in values.items():
+    if key not in seen:
+        updated.append("export " + key + "=" + shlex.quote(value))
+new_content = "\n".join(updated) + "\n"
+if new_content == original:
+    raise SystemExit(0)
+backup = target.with_name("server.env.before-network-refresh." +
+                          datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") +
+                          "." + str(os.getpid()) + "." + secrets.token_hex(4))
+shutil.copy2(target, backup)
+fd, temp_name = tempfile.mkstemp(prefix="server.env.", suffix=".tmp", dir=target.parent)
+try:
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        stream.write("\n".join(updated) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temp_name, target)
+finally:
+    if os.path.exists(temp_name):
+        os.unlink(temp_name)
+print("GS179_TEST_ONLY_ENDPOINT_CONFIG_REFRESHED=YES hostname=" + host +
+      ".local current_wifi_ip=" + address + " rollback=" + str(backup))
+PY
+        chmod 600 "$ENV_FILE"
+    fi
 }
 
 pg_ctl_status() {
@@ -107,36 +224,66 @@ proxy_start() {
     local win_script
     win_script="$(wslpath -w "$PROXY_PS1")"
     windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" \
-        -Action Start -WifiAddress "$GS179_WINDOWS_WIFI_IPV4" \
-        -WslAddress "$current_wsl" -PreviousWslAddress "$previous" \
-        -ExpectedWifiName "$GS179_WIFI_NAME"
+        -Action Start -WslAddress "$current_wsl" -PreviousWslAddress "$previous"
     printf '%s\n' "$current_wsl" > "$WINDOWS_TARGET_FILE"
     chmod 600 "$WINDOWS_TARGET_FILE"
 }
 
 proxy_stop() {
-    [[ -f "$ENV_FILE" ]] || return 0
-    load_config
     local current_wsl previous=""
     current_wsl="$(wsl_ipv4 || true)"
     [[ -f "$WINDOWS_TARGET_FILE" ]] && previous="$(cat "$WINDOWS_TARGET_FILE")"
     local win_script
     win_script="$(wslpath -w "$PROXY_PS1")"
     windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" \
-        -Action Stop -WifiAddress "$GS179_WINDOWS_WIFI_IPV4" \
-        -WslAddress "$current_wsl" -PreviousWslAddress "$previous" \
-        -ExpectedWifiName "$GS179_WIFI_NAME"
+        -Action Stop -WslAddress "$current_wsl" -PreviousWslAddress "$previous"
     rm -f "$WINDOWS_TARGET_FILE"
 }
 
 proxy_audit() {
-    load_config
     local current_wsl="$(wsl_ipv4 || true)"
     local win_script
     win_script="$(wslpath -w "$PROXY_PS1")"
     windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" \
-        -Action Audit -WifiAddress "$GS179_WINDOWS_WIFI_IPV4" \
-        -WslAddress "$current_wsl" -ExpectedWifiName "$GS179_WIFI_NAME"
+        -Action Audit -WslAddress "$current_wsl"
+}
+
+register_network_watch() {
+    local win_script
+    win_script="$(wslpath -w "$PROXY_PS1")"
+    windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" \
+        -Action RegisterWatch -LinuxScriptPath "$SCRIPT_DIR/gs179-laptop-server.sh"
+}
+
+unregister_network_watch() {
+    local win_script
+    win_script="$(wslpath -w "$PROXY_PS1")"
+    windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" -Action UnregisterWatch
+}
+
+record_proxy_target() {
+    local address="${1:-}"
+    [[ "$address" =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || \
+        fail "refusing_to_record_non_wsl_nat_address"
+    local temp_file
+    temp_file="$(mktemp "$STATE_ROOT/.windows-wsl-target.XXXXXX")"
+    chmod 600 "$temp_file"
+    printf '%s\n' "$address" > "$temp_file"
+    mv -f "$temp_file" "$WINDOWS_TARGET_FILE"
+    chmod 600 "$WINDOWS_TARGET_FILE"
+}
+
+network_refresh_config() {
+    refresh_network_configuration
+    load_config
+    systemctl --user reset-failed gs179-laptop.service
+    systemctl --user restart gs179-laptop.service
+    wait_for_local_backend || {
+        printf 'GS179_NETWORK_REFRESH: backend_not_ready_after_certificate_or_origin_refresh\n' >&2
+        return 1
+    }
+    printf 'GS179_TEST_ONLY_NETWORK_REFRESH=PASS hostname=%s current_wifi_ip=%s\n' \
+        "$GS179_LAN_HOSTNAME" "$(windows_wifi_address)"
 }
 
 provision() {
@@ -145,16 +292,8 @@ provision() {
     if [[ -d "$PG_DATA" || -e "$ENV_FILE" ]]; then
         [[ -d "$PG_DATA" && -f "$ENV_FILE" ]] || \
             fail "partial_private_provisioning_state_found_preserve_and_inspect_manually"
+        refresh_network_configuration
         load_config
-        [[ "$GS179_WINDOWS_WIFI_IPV4" == "192.168.1.6" &&
-           -n "$GS179_WIFI_NAME" ]] || \
-            fail "stored_wifi_identity_changed_recheck_before_resuming_provision"
-        local resume_ip resume_name
-        resume_ip="$(windows_wifi_address)"
-        resume_name="$(windows_wifi_name)"
-        [[ "$resume_ip" == "$GS179_WINDOWS_WIFI_IPV4" &&
-           "$resume_name" == "$GS179_WIFI_NAME" ]] || \
-            fail "observed_wifi_identity_changed_recheck_before_resuming_provision"
         pg_start
         bootstrap_database
         install_unit
@@ -185,13 +324,13 @@ host all all 0.0.0.0/0 reject
 host all all ::/0 reject
 EOF
     chmod 600 "$TLS_ROOT/postgres/pg_hba.conf"
+    refresh_network_configuration
     local db_password
     db_password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(36))')"
-    local ip_config wifi_name
+    local ip_config host_name
     ip_config="$(windows_wifi_address)"
-    wifi_name="$(windows_wifi_name)"
-    [[ "$ip_config" == "192.168.1.6" && -n "$wifi_name" ]] || fail "observed_wifi_identity_changed_recheck_before_provisioning"
-    GS179_APP_DB_PASSWORD="$db_password" GS179_WINDOWS_WIFI_IPV4="$ip_config" GS179_WIFI_NAME="$wifi_name" \
+    host_name="$(windows_computer_name)"
+    GS179_APP_DB_PASSWORD="$db_password" GS179_WINDOWS_WIFI_IPV4="$ip_config" GS179_LAN_HOSTNAME="$host_name" \
         SERVICE_ROOT="$SERVICE_ROOT" TLS_ROOT="$TLS_ROOT" PG_SOCKET="$PG_SOCKET" \
         PG_PORT="$PG_PORT" CONFIG_ROOT="$CONFIG_ROOT" \
         python3 - <<'PY'
@@ -203,13 +342,13 @@ password = os.environ["GS179_APP_DB_PASSWORD"]
 ca = str(Path(os.environ["TLS_ROOT"]) / "postgres" / "ca.pem")
 dsn = ("postgresql://gs179_app:" + quote(password, safe="") +
        "@127.0.0.1:" + os.environ["PG_PORT"] + "/gs179_monitoring?sslmode=verify-full&sslrootcert=" + quote(ca, safe="/"))
-origin = "https://" + os.environ["GS179_WINDOWS_WIFI_IPV4"]
+origin = "https://" + os.environ["GS179_LAN_HOSTNAME"].lower() + ".local"
 content = "\n".join((
     "export DATABASE_URL=" + repr(dsn),
     "export GS179_LOCAL_SERVER_DSN=" + repr(dsn),
     "export PUBLIC_ORIGIN=" + repr(origin),
-    "export GS179_WINDOWS_WIFI_IPV4=" + repr(os.environ["GS179_WINDOWS_WIFI_IPV4"]),
-    "export GS179_WIFI_NAME=" + repr(os.environ["GS179_WIFI_NAME"]),
+    "export GS179_LAN_HOSTNAME=" + repr(os.environ["GS179_LAN_HOSTNAME"].lower() + ".local"),
+    "export GS179_TEST_ONLY_ALLOWED_ORIGINS=" + repr("https://" + os.environ["GS179_WINDOWS_WIFI_IPV4"]),
     "export GS179_TEST_ONLY_MONITORING='1'",
     "export GS179_LOCAL_LAN_TEST_ONLY='1'",
     "export GS179_TEST_ONLY_HOME_PREFIX='gs177-test-'",
@@ -375,37 +514,27 @@ local_https_health_check() {
         return 1
     fi
     if ! curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
-        --cacert "$ANDROID_CA" --resolve "$GS179_WINDOWS_WIFI_IPV4:$APP_PORT:$address" \
-        "https://$GS179_WINDOWS_WIFI_IPV4:$APP_PORT/readyz"; then
+        --cacert "$ANDROID_CA" --resolve "$GS179_LAN_HOSTNAME:$APP_PORT:$address" \
+        "https://$GS179_LAN_HOSTNAME:$APP_PORT/readyz"; then
         printf 'CAREGIVER_HTTPS_READY=FAIL reason=local_tls_readiness_failed\n'
         return 1
     fi
-    printf '\nCAREGIVER_HTTPS_READY=PASS tls=ca_and_ip_san_verified\n'
+    printf '\nCAREGIVER_HTTPS_READY=PASS tls=ca_and_dns_san_verified hostname=%s\n' "$GS179_LAN_HOSTNAME"
 }
 
 lan_endpoint_health_check() {
-    local observed_ip observed_name
+    local observed_ip
     observed_ip="$(windows_wifi_address 2>/dev/null || true)"
-    observed_name="$(windows_wifi_name 2>/dev/null || true)"
-    if [[ -z "$observed_ip" || -z "$observed_name" ]]; then
+    if [[ -z "$observed_ip" ]]; then
         printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=UNKNOWN reason=windows_wifi_read_unavailable\n'
         printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
         return 0
     fi
-    if [[ "$observed_ip" != "$GS179_WINDOWS_WIFI_IPV4" ]]; then
-        printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=BLOCKED_CONFIG_MISMATCH expected_address=%s observed_address=%s\n' \
-            "$GS179_WINDOWS_WIFI_IPV4" "$observed_ip"
-        printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
-        return 0
-    fi
-    if [[ "$observed_name" != "$GS179_WIFI_NAME" ]]; then
-        printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=BLOCKED_CONFIG_MISMATCH reason=wifi_identity_mismatch\n'
-        printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
-        return 0
-    fi
     if curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
-        --cacert "$ANDROID_CA" "https://$GS179_WINDOWS_WIFI_IPV4/readyz"; then
-        printf '\nLAPTOP_LAN_ENDPOINT_TLS_READY=PASS tls=ca_and_ip_san_verified probe_source=WSL\n'
+        --cacert "$ANDROID_CA" --resolve "$GS179_LAN_HOSTNAME:443:$observed_ip" \
+        "https://$GS179_LAN_HOSTNAME/readyz"; then
+        printf '\nLAPTOP_LAN_ENDPOINT_TLS_READY=PASS tls=ca_and_dns_san_verified host=%s current_wifi_ip=%s probe_source=WSL\n' \
+            "$GS179_LAN_HOSTNAME" "$observed_ip"
     else
         printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=FAIL reason=windows_forwarding_or_endpoint_unavailable\n'
     fi
@@ -446,17 +575,21 @@ wait_for_local_backend() {
 }
 
 start_service() {
+    refresh_network_configuration
     load_config
     systemctl --user reset-failed gs179-laptop.service
-    systemctl --user start gs179-laptop.service
+    systemctl --user restart gs179-laptop.service
+    proxy_start
     wait_for_local_backend || { health_check || true; return 1; }
     health_check
 }
 
 restart_service() {
+    refresh_network_configuration
     load_config
     systemctl --user reset-failed gs179-laptop.service
     systemctl --user restart gs179-laptop.service
+    proxy_start
     wait_for_local_backend || { health_check || true; return 1; }
     health_check
 }
@@ -503,9 +636,30 @@ case "${1:-}" in
     change-login) change_login ;;
     browser) run_caregiver_browser ;;
     run) run_service ;;
-    proxy-start) load_config; proxy_start ;;
+    proxy-start)
+        refresh_network_configuration
+        load_config
+        systemctl --user reset-failed gs179-laptop.service
+        systemctl --user restart gs179-laptop.service
+        proxy_start
+        wait_for_local_backend || { health_check || true; exit 1; }
+        health_check
+        ;;
+    network-refresh)
+        refresh_network_configuration
+        load_config
+        systemctl --user reset-failed gs179-laptop.service
+        systemctl --user restart gs179-laptop.service
+        proxy_start
+        wait_for_local_backend || { health_check || true; exit 1; }
+        health_check
+        ;;
     stop-post) stop_post ;;
     health-source) run_health_source ;;
     proxy-audit) proxy_audit ;;
-    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|proxy-audit|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
+    proxy-watch-register) register_network_watch ;;
+    proxy-watch-unregister) unregister_network_watch ;;
+    network-refresh-config) network_refresh_config ;;
+    record-proxy-target) record_proxy_target "${2:-}" ;;
+    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
 esac

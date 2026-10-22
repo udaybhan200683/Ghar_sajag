@@ -3,7 +3,7 @@ package `in`.gharsajag.caregiver
 import java.net.URI
 import java.util.Locale
 
-/** Exact HTTPS origin compiled into the app by its protected build configuration. */
+/** Exact HTTPS origin selected from protected build configuration or TEST_ONLY pairing. */
 data class BackendOrigin private constructor(
     val baseUrl: String,
     val host: String,
@@ -20,7 +20,7 @@ data class BackendOrigin private constructor(
         )
         private val localOrReservedSuffixes = setOf("localhost", "local", "test", "example", "invalid")
 
-        fun parse(input: String?, allowTestOnlyPrivateIpv4: Boolean = false): BackendOrigin? {
+        fun parse(input: String?, allowTestOnlyLanEndpoint: Boolean = false): BackendOrigin? {
             val raw = input?.trim()?.takeIf { it.isNotEmpty() && it.length <= 2048 } ?: return null
             val uri = try {
                 URI(raw)
@@ -33,8 +33,8 @@ data class BackendOrigin private constructor(
             if (uri.rawPath !in setOf("", "/")) return null
 
             val host = uri.host?.lowercase(Locale.ROOT) ?: return null
-            if (allowTestOnlyPrivateIpv4) {
-                if (!isPrivateIpv4(host)) return null
+            if (allowTestOnlyLanEndpoint) {
+                if (!isPrivateIpv4(host) && !isTestOnlyLocalDnsName(host)) return null
             } else {
                 if (!dnsName.matches(host)) return null
                 if (host.split('.').any { it.isEmpty() || it.length > 63 }) return null
@@ -56,6 +56,13 @@ data class BackendOrigin private constructor(
             return octets[0] == 10 ||
                 (octets[0] == 172 && octets[1] in 16..31) ||
                 (octets[0] == 192 && octets[1] == 168)
+        }
+
+        /** TEST_ONLY pairing accepts a single laptop hostname under mDNS's reserved .local suffix. */
+        private fun isTestOnlyLocalDnsName(host: String): Boolean {
+            val name = host.removeSuffix(".local")
+            return host.endsWith(".local") && name.length in 1..63 &&
+                name.matches(Regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"))
         }
     }
 }
