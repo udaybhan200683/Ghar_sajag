@@ -5793,3 +5793,76 @@ staging/phone acceptance remain incomplete. Next customer milestone is the
 separate GS-117 physical qualification after owner-approved security,
 authority, endpoint, network, fixture/image and recovery inputs. Do not claim
 HOST_SIM as physical acceptance.
+
+### GS-117 Android physical vertical readiness — 2026-10-22
+
+GS-117 was moved from To Do to In Progress for the owner-directed first
+real-sensor-to-Android milestone; its Rank was not changed (Rank 52, below
+GS-114 Rank 31). The Jira inventory contains 173 issues. GS-60 remains To Do,
+GS-121 remains downstream, and no physical acceptance state changed.
+
+The current canonical checkout was `ec9076aa1326999de32d5ecc1e8ceb055cdff96e`,
+equal to origin, with tracked files clean and context preflight PASS at
+`2026-10-13.001`. The 301 existing untracked and 174,518 ignored assets were
+preserved. A focused GS-179 runtime/test change now allows a private bind only
+when `GS179_TEST_ONLY_HUB_ALLOW_PRIVATE_BIND=1`, a specific RFC1918 IPv4
+address, and a fixed port are explicitly supplied. The default remains
+loopback and disabled; no listener or network was activated. The GS-130
+`PHY-GS117` catalogue entry now names the Parivar Saathi Android APK as the
+physical caregiver endpoint in accordance with GS-117/GS-177 owner direction;
+browser checks remain supporting shared-UI evidence. The row remains
+`NOT_RUN`.
+
+Read-only WSL health reports local PostgreSQL and caregiver HTTPS ready, but
+phone LAN reachability blocked: configured certificate/forwarding address
+`192.168.1.6` differs from current Windows Wi-Fi `192.168.1.10`. The GS-179
+Hub runtime is implemented and default-disabled, with loopback as default and
+an explicit RFC1918 private-bind opt-in;
+`HUB_IDENTITY_AUTHENTICATED=NO`, monitoring freshness is `UNKNOWN`, and
+`PERSISTENT_HUB_INGRESS=NOT_CONFIGURED`. Render remains on
+`3c0fec898d5cb2caae662f3dcc6324faaabf6b30` and cannot provide an application-
+verified Hub TLS peer through its TLS-terminating proxy. The latest identified
+Android APK is a debug TESTING artifact from source `acde2183c74351db403b49b441deea67a3474142`
+targeting Render, not the laptop PostgreSQL backend; its APK SHA-256 is
+`fa0a53b7f9cff822e27409701d7b60d78f142f08989d8362e672594d1f5e8c72`. The
+owner-reported installation was not independently inspected on the phone.
+
+Current physical C3/S3 identity and image, effective configuration, session,
+Home/epoch/enrollment, pending EventKey state, trusted time, actual PIR wiring,
+approved no-reset observer and current operator remain unverified. The only
+inspected S3 receive-only capture is historical (2026-10-16, source
+`d738dc51a25e72de570a11fc39f0e26522ead3d8`). Production S3 source composition
+still defaults to `UnprovisionedS3CloudTrust`; GS-D032's production identity,
+registry and receipt mechanisms remain open. No board/serial operation,
+listener activation, network change, credential operation, Render change,
+customer data mutation or physical stimulus occurred. No physical EventKey or
+Android-visible event exists from this checkpoint.
+
+The registered `make -C code gs179-postgres-e2e` rerun passed **51/51** against
+the existing isolated local TLS PostgreSQL fixture (`physical=NOT_RUN`),
+including source-linked HOST_SIM, security/lifecycle and runtime composition.
+The new private-bind policy test validates explicit RFC1918/fixed-port
+configuration and rejects unsafe/missing opt-ins; the full runtime process E2E
+continues to bind loopback and no private socket was opened. The initial command
+without `GS179_TEST_POSTGRES_DSN` exited 2 at the target's fail-fast guard. Also
+`make -C code validation-framework-test` passed **51/51**, and
+`make -C code feature-coverage-test` passed at 223 features, 278 modules, 26
+physical cases, mapping **22/22**. `git diff --check` and the physical-case CSV
+schema/status assertion passed. These are software/configuration results, not
+physical proof. The focused current command `code/tools/local/gs179-laptop-server.sh
+health` returned local PostgreSQL/caregiver readiness PASS, phone route
+`BLOCKED_CONFIG_MISMATCH`, and Hub ingress `NOT_CONFIGURED`. The full findings
+and exact next gates are in
+[`GS-117 Android vertical readiness`](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md).
+
+Next action: fixture owner identifies the current C3/S3 and image/state and
+approves a named reset-safe passive observer plus the genuine PIR stimulus;
+security/authority owner supplies the current authorized Hub trust, Home/epoch,
+Node enrollment/revocation and trusted-time inputs; network owner selects the
+current laptop origin and separately authorizes any route, private-bind
+configuration/listener activation and certificate changes. Then reuse the
+existing GS-179 runtime and build the
+existing CA-pinned GS-177 LAN TEST_ONLY APK only after its origin/SAN/route
+match. Do not change live credentials, networking or hardware, and do not
+replace the real sensor path with HOST_SIM. GS-117 remains open; GS-60 and
+physical/commercial qualification remain NOT_RUN.

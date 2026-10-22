@@ -4,7 +4,8 @@ This runtime composes the existing TLS listener and durable PostgreSQL API. It
 is deliberately separate from WSGI/Gunicorn: ordinary caregiver startup never
 opens a Hub socket. All credentials, ownership and trusted-time dependencies
 are injected by the caller, and this TEST_ONLY composition cannot serve a
-commercial identity or non-test Home namespace.
+commercial identity or non-test Home namespace. Private-network binding needs
+an explicit opt-in and a fixed RFC1918 IPv4 address; loopback remains default.
 """
 from __future__ import annotations
 
@@ -55,6 +56,7 @@ class HubIngressRuntimeConfig:
     installation_epoch: int = 0
     bind_host: str = "127.0.0.1"
     port: int = 0
+    allow_private_bind: bool = False
 
     @classmethod
     def disabled(cls) -> "HubIngressRuntimeConfig":
@@ -88,6 +90,9 @@ class HubIngressRuntimeConfig:
             port = int(env.get("GS179_TEST_ONLY_HUB_PORT", "0"), 10)
         except (TypeError, ValueError) as error:
             raise ValueError("hub_ingress_numeric_configuration_invalid") from error
+        private_bind_flag = env.get("GS179_TEST_ONLY_HUB_ALLOW_PRIVATE_BIND", "0")
+        if private_bind_flag not in {"0", "1"}:
+            raise ValueError("hub_ingress_private_bind_flag_invalid")
         return cls(
             enabled=True,
             profile=env[names["profile"]],
@@ -100,6 +105,7 @@ class HubIngressRuntimeConfig:
             installation_epoch=epoch,
             bind_host=env.get("GS179_TEST_ONLY_HUB_BIND_HOST", "127.0.0.1"),
             port=port,
+            allow_private_bind=private_bind_flag == "1",
         )
 
 
@@ -129,6 +135,35 @@ def _trusted_utc(source: TrustedTimeSource) -> datetime:
     return value
 
 
+def _validate_runtime_bind(bind_host: str, port: int, allow_private_bind: bool) -> None:
+    if type(allow_private_bind) is not bool:
+        raise ValueError("hub_ingress_private_bind_flag_must_be_boolean")
+    if type(port) is not int or not 0 <= port <= 65_535:
+        raise ValueError("hub_ingress_port_out_of_bounds")
+    if not isinstance(bind_host, str) or not bind_host:
+        raise ValueError("hub_ingress_ipv4_bind_required")
+    try:
+        address = ipaddress.ip_address(bind_host)
+    except ValueError as error:
+        raise ValueError("hub_ingress_ipv4_bind_required") from error
+    if not isinstance(address, ipaddress.IPv4Address):
+        raise ValueError("hub_ingress_ipv4_bind_required")
+    if address.is_loopback:
+        return
+    private_ranges = (
+        ipaddress.ip_network("10.0.0.0/8"),
+        ipaddress.ip_network("172.16.0.0/12"),
+        ipaddress.ip_network("192.168.0.0/16"),
+    )
+    if (address.is_unspecified or address.is_multicast or address.is_reserved or
+            not any(address in network for network in private_ranges)):
+        raise ValueError("hub_ingress_rfc1918_bind_required")
+    if not allow_private_bind:
+        raise ValueError("hub_ingress_private_bind_requires_explicit_opt_in")
+    if port == 0:
+        raise ValueError("hub_ingress_private_bind_fixed_port_required")
+
+
 def _validate_config(config: HubIngressRuntimeConfig) -> tuple[str, str, str]:
     if config.profile != _PROFILE:
         raise ValueError("explicit_gs179_test_only_profile_required")
@@ -136,15 +171,9 @@ def _validate_config(config: HubIngressRuntimeConfig) -> tuple[str, str, str]:
         raise ValueError("test_only_hub_home_namespace_required")
     if type(config.installation_epoch) is not int or config.installation_epoch <= 0:
         raise ValueError("current_installation_epoch_required")
-    if config.bind_host != "127.0.0.1":
-        try:
-            address = ipaddress.ip_address(config.bind_host)
-        except ValueError as error:
-            raise ValueError("hub_ingress_loopback_bind_required") from error
-        if not address.is_loopback or not isinstance(address, ipaddress.IPv4Address):
-            raise ValueError("hub_ingress_loopback_bind_required")
-    if type(config.port) is not int or not 0 <= config.port <= 65_535:
-        raise ValueError("hub_ingress_port_out_of_bounds")
+    _validate_runtime_bind(
+        config.bind_host, config.port, config.allow_private_bind
+    )
     if not isinstance(config.dsn, str) or not config.dsn.strip():
         raise ValueError("hub_ingress_postgres_dsn_required")
     fields = conninfo_to_dict(config.dsn)
@@ -263,6 +292,7 @@ class Gs179TestOnlyHubIngressRuntime:
                     authority_refresh=self.authority_refresh,
                     bind_host=self.config.bind_host,
                     port=self.config.port,
+                    allow_private_bind=self.config.allow_private_bind,
                     max_request_bytes=16_384,
                     timeout_seconds=5.0,
                     available=self._backend_ready,

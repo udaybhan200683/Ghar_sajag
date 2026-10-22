@@ -19,6 +19,7 @@ from ghar_sajag.cloud_client_identity import TimeReadiness
 from ghar_sajag.gs179_hub_ingress_runtime import (
     Gs179TestOnlyHubIngressRuntime,
     HubIngressRuntimeConfig,
+    _validate_runtime_bind,
     start_gs179_test_only_hub_ingress,
 )
 from gs178_stack import ProductStack, HOME
@@ -76,6 +77,38 @@ class RuntimeDefaultDisabledTests(unittest.TestCase):
     def test_explicit_enable_requires_all_configuration_before_resources(self):
         with self.assertRaisesRegex(ValueError, "hub_ingress_configuration_incomplete"):
             HubIngressRuntimeConfig.from_environment({"GS179_TEST_ONLY_HUB_INGRESS": "1"})
+
+    def test_private_bind_requires_explicit_rfc1918_and_fixed_port_opt_in(self):
+        _validate_runtime_bind("127.0.0.1", 0, False)
+        _validate_runtime_bind("192.168.1.10", 8444, True)
+        with self.assertRaisesRegex(ValueError, "private_bind_requires_explicit_opt_in"):
+            _validate_runtime_bind("192.168.1.10", 8444, False)
+        with self.assertRaisesRegex(ValueError, "fixed_port_required"):
+            _validate_runtime_bind("192.168.1.10", 0, True)
+        for address in ("0.0.0.0", "8.8.8.8", "172.15.0.10", "2001:db8::1"):
+            with self.subTest(address=address), self.assertRaises(ValueError):
+                _validate_runtime_bind(address, 8444, True)
+
+        env = {
+            "GS179_TEST_ONLY_HUB_INGRESS": "1",
+            "GS179_TEST_ONLY_HUB_PROFILE": "GS179_TEST_ONLY",
+            "GS179_TEST_ONLY_HUB_DSN": "postgresql://test@127.0.0.1/gs179_monitoring?sslmode=verify-full",
+            "GS179_TEST_ONLY_HUB_SERVER_CERT": "/tmp/server.pem",
+            "GS179_TEST_ONLY_HUB_SERVER_KEY": "/tmp/server.key",
+            "GS179_TEST_ONLY_HUB_CLIENT_CA": "/tmp/client-ca.pem",
+            "GS179_TEST_ONLY_HUB_ID": "test-hub-private-bind",
+            "GS179_TEST_ONLY_HUB_HOME_ID": "gs177-test-private-bind",
+            "GS179_TEST_ONLY_HUB_INSTALLATION_EPOCH": "1",
+            "GS179_TEST_ONLY_HUB_BIND_HOST": "192.168.1.10",
+            "GS179_TEST_ONLY_HUB_PORT": "8444",
+            "GS179_TEST_ONLY_HUB_ALLOW_PRIVATE_BIND": "1",
+        }
+        config = HubIngressRuntimeConfig.from_environment(env)
+        self.assertTrue(config.allow_private_bind)
+        with self.assertRaisesRegex(ValueError, "private_bind_flag_invalid"):
+            HubIngressRuntimeConfig.from_environment({
+                **env, "GS179_TEST_ONLY_HUB_ALLOW_PRIVATE_BIND": "yes"
+            })
 
 
 @unittest.skipUnless(os.environ.get("GS179_TEST_POSTGRES_DSN"),
