@@ -134,6 +134,8 @@ test('GS-177 connected caregiver UI restores Home safely and keeps the approved 
   assert.match(script,/function openTab\(next\)/);
   assert.match(script,/runtime\.localBackendReconnect\?'<p><a class="local-backend-reconnect"/);
   assert.match(script,/gharsajag:\/\/backend\/reconnect/);
+  assert.match(script,/const localReconnect=runtime\.localBackendReconnect\?'<div class="settings-actions"/);
+  assert.match(script,/gharsajag:\/\/backend\/reset/);
   assert.match(script,/Run selected scenario/);
   assert.match(script,/id="scenarioChoice" size="1"/);
   assert.match(script,/function productEvents\(events,/);

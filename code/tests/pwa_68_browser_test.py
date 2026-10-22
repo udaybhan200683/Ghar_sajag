@@ -372,6 +372,9 @@ class Pwa68BrowserTest(unittest.TestCase):
      target=Path(screenshot_dir);target.mkdir(parents=True,exist_ok=True)
      shot=cdp(ws,'Page.captureScreenshot',{'format':'png','captureBeyondViewport':False})
      (target/name).write_bytes(base64.b64decode(shot['data']))
+     evaluate('window.scrollTo(0,0)')
+     full=cdp(ws,'Page.captureScreenshot',{'format':'png','captureBeyondViewport':True})
+     (target/name.replace('.png','-full.png')).write_bytes(base64.b64decode(full['data']))
     def wait_text(needle,timeout=12):
      deadline=time.time()+timeout;last=''
      while time.time()<deadline:
@@ -385,6 +388,16 @@ class Pwa68BrowserTest(unittest.TestCase):
       if evaluate("!!document.querySelector("+json.dumps(selector)+")"):return
       time.sleep(.1)
      self.fail(f'Caregiver screen did not render {selector!r}')
+    def assert_screen_layout(selector):
+     for width in (320,360,390,412,768):
+      cdp(ws,'Emulation.setDeviceMetricsOverride',{'width':width,'height':844,'deviceScaleFactor':1,'mobile':True})
+      metrics=evaluate("(()=>{const e=document.querySelector("+json.dumps(selector)+"),r=e?.getBoundingClientRect(),n=document.querySelector('.bottom-nav').getBoundingClientRect();return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,left:r?.left,right:r?.right,visible:!!r&&r.width>0,navHeight:n.height,navBottom:Math.round(innerHeight-n.bottom)}})()")
+      self.assertTrue(metrics['visible'],f'{selector} absent at {width}px')
+      self.assertLessEqual(metrics['documentWidth'],width,f'{selector} scrolls horizontally at {width}px')
+      self.assertGreaterEqual(metrics['left'],-1)
+      self.assertLessEqual(metrics['right'],width+1)
+      self.assertEqual((metrics['navHeight'],metrics['navBottom']),(56,0))
+     cdp(ws,'Emulation.setDeviceMetricsOverride',{'width':390,'height':844,'deviceScaleFactor':1,'mobile':True})
     deadline=time.time()+15;home_text=''
     while time.time()<deadline:
      home_text=evaluate("document.querySelector('#homeTab')?.innerText||''") or ''
@@ -409,6 +422,25 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertEqual(event['origin'],'HOST_SIM · TEST_ONLY')
     self.assertEqual(event['key'],json.dumps({'physical_device_id':'test-c3-bedroom','logical_node_id':'bedroom','origin_session_id':10,'event_sequence':1},separators=(',',':')))
     capture('home-normal-after.png')
+    # The five reference screens must remain legible across common Android widths.
+    for width in (320,360,390,412,768):
+     cdp(ws,'Emulation.setDeviceMetricsOverride',{'width':width,'height':844,'deviceScaleFactor':1,'mobile':True})
+     layout=evaluate("(()=>{const q=s=>document.querySelector(s)?.getBoundingClientRect(),nav=q('.bottom-nav'),header=q('.topbar'),hero=q('.connected-home-hero'),summary=q('.connected-home-summary'),cards=[...document.querySelectorAll('.home-info-card')].map(e=>e.getBoundingClientRect());return {width:innerWidth,documentWidth:document.documentElement.scrollWidth,headerHeight:header.height,heroHeight:hero.height,summaryInside:summary.left>=hero.left-1&&summary.right<=hero.right+1,summaryBelow:summary.top>=q('.hero-row').bottom-1,cardsInside:cards.every(r=>r.left>=0&&r.right<=innerWidth+1),cardsClear:cards.every((r,i)=>cards.slice(i+1).every(s=>r.right<=s.left+1||s.right<=r.left+1||r.bottom<=s.top+1||s.bottom<=r.top+1)),navHeight:nav.height,navBottom:Math.round(innerHeight-nav.bottom)}})()")
+     self.assertEqual(layout['width'],width)
+     self.assertLessEqual(layout['documentWidth'],width,f'{width}px Home scrolls horizontally')
+     self.assertLess(layout['headerHeight'],110,f'{width}px header crowds content')
+     self.assertLess(layout['heroHeight'],370,f'{width}px hero is disproportionate')
+     self.assertTrue(layout['summaryInside'] and layout['summaryBelow'],f'{width}px summary overlaps hero copy: {layout}')
+     self.assertTrue(layout['cardsInside'] and layout['cardsClear'],f'{width}px Home cards overlap or clip: {layout}')
+     self.assertEqual((layout['navHeight'],layout['navBottom']),(56,0))
+    cdp(ws,'Emulation.setDeviceMetricsOverride',{'width':390,'height':844,'deviceScaleFactor':1,'mobile':True})
+    # Stress the actual cards with longer English/Hindi text and increased font scale.
+    for width in (320,390):
+     cdp(ws,'Emulation.setDeviceMetricsOverride',{'width':width,'height':844,'deviceScaleFactor':1,'mobile':True})
+     text_layout=evaluate("(()=>{const nodes=[document.querySelector('.connected-home-hero h1'),document.querySelector('[data-home-summary=routine] p'),document.querySelector('[data-home-card=door] h2')],old=nodes.map(n=>n.textContent);nodes[0].textContent='घर की निगरानी स्थिति और Morning activity';nodes[1].textContent='सुबह की नियमित गतिविधि की स्थिति UNKNOWN';nodes[2].textContent='मुख्य दरवाज़ा और Main door';document.documentElement.style.fontSize='125%';const r=document.querySelector('[data-home-card=door]').getBoundingClientRect(),result={width:innerWidth,documentWidth:document.documentElement.scrollWidth,cardWidth:r.width,cardScroll:document.querySelector('[data-home-card=door]').scrollWidth};nodes.forEach((n,i)=>n.textContent=old[i]);document.documentElement.style.fontSize='100%';return result})()")
+     self.assertLessEqual(text_layout['documentWidth'],width,f'{width}px long English/Hindi labels overflow: {text_layout}')
+     self.assertLessEqual(text_layout['cardScroll'],text_layout['cardWidth']+1,f'{width}px long card label clips: {text_layout}')
+    cdp(ws,'Emulation.setDeviceMetricsOverride',{'width':390,'height':844,'deviceScaleFactor':1,'mobile':True})
     nav=evaluate("(()=>{const n=document.querySelector('.bottom-nav'),r=n.getBoundingClientRect(),s=getComputedStyle(n),buttons=Array.from(n.querySelectorAll('button[data-tab]'));return {position:s.position,left:Math.round(r.left),width:Math.round(r.width),viewport:innerWidth,bottomGap:Math.round(innerHeight-r.bottom),height:Math.round(r.height),radius:s.borderRadius,shadow:s.boxShadow,scrollWidth:n.scrollWidth,clientWidth:n.clientWidth,tabs:buttons.map(b=>b.dataset.tab),labels:buttons.map(b=>b.textContent.trim()),buttonHeights:buttons.map(b=>Math.round(b.getBoundingClientRect().height)),decorativeIcons:buttons.filter(b=>b.querySelector('[aria-hidden=true]')).length}})()")
     self.assertEqual(nav['position'],'fixed')
     self.assertEqual(nav['left'],0)
@@ -494,6 +526,7 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertEqual(evaluate("document.querySelector('.device-row')?.dataset.attention"),'WARNING')
     self.assertNotIn('resident emergency',evaluate("document.querySelector('#homeTab')?.innerText||''"))
     wait_selector('.device-row')
+    assert_screen_layout('.device-row')
     capture('devices-after.png','.device-row')
 
     # The existing incident API owns lifecycle and severity; acknowledge then resolve it.
@@ -506,6 +539,7 @@ class Pwa68BrowserTest(unittest.TestCase):
     evaluate("document.querySelector('[data-tab=reports]').click()")
     wait_text('Reports')
     wait_selector('.report-summary')
+    assert_screen_layout('.report-history')
     capture('reports-after.png','.report-summary')
     evaluate("document.querySelector('[data-open-tab=incidents]').click()")
     wait_text('Incident history')
@@ -539,6 +573,8 @@ class Pwa68BrowserTest(unittest.TestCase):
 
     # Return to authorized data and inspect the remaining supported Settings controls.
     evaluate("window.__setFixture("+json.dumps({'source':'AUTHENTICATED_GS148_TEST_ONLY','freshness':'CURRENT','monitoring':'COVERED','routineCoverage':'COVERED','events':[motion_event,morning_event],'decisions':[],'devices':[{'physical_node_id':'test-c3-bedroom','logical_node_id':'bedroom','status':'ONLINE','coverage':'COVERED','profile_id':'default'}],'incidents':[]})+");document.querySelector('[data-tab=settings]').click()")
+    wait_text('TEST_ONLY authenticated caregiver data')
+    self.assertIn('Hub monitoring · COVERED / CURRENT',evaluate("document.querySelector('#homeTab')?.innerText||''"))
     deadline=time.time()+15
     while time.time()<deadline and evaluate("!!document.querySelector('#logoutButton')") is not True:time.sleep(.1)
     self.assertIsNotNone(evaluate("document.querySelector('#logoutButton')"))
@@ -559,6 +595,7 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertTrue(scale['sectionVisible'] and scale['buttonVisible'])
     evaluate("document.documentElement.style.fontSize='100%'")
     wait_selector('#logoutButton')
+    assert_screen_layout('.settings-section')
     capture('settings-after.png','.settings-section')
     settings_tab=evaluate("(()=>{const b=document.querySelector('[data-tab=settings]'),n=document.querySelector('.bottom-nav').getBoundingClientRect(),r=b.getBoundingClientRect();return {current:b.getAttribute('aria-current'),active:b.classList.contains('active'),visible:r.left>=n.left&&r.right<=n.right}})()")
     self.assertEqual(settings_tab,{'current':'page','active':True,'visible':True})
