@@ -2439,8 +2439,8 @@
       "required_success": [
         "^.*PASS PWA browser E2E: \\d+/\\d+ rendered PASS$",
         "^.*PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls$",
-        "^.*PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial \\(mock transport\\)$",
-        "^.*PASS authenticated GS-148 Home browser regression: committed HOST_SIM EventKey/room/time, stale UNKNOWN, stale Node ONLINE downgraded to UNKNOWN, full-width docked navigation, existing tabs preserved, unrecognized source fail-closed; no simulator request$"
+        "^.*PASS connected Lite browser E2E: prompt login, slow-session cancellation, expired/revoked session gating, Home, four-tab navigation, role-gated simulation/engineering \\(mock transport\\)$",
+        "^.*PASS authenticated GS-148 Home browser regression: approved Home cards/header/logo, committed HOST_SIM EventKey/room/time, stale NodeHealth UNKNOWN, fixed four-label bottom ribbon, unrecognized source fail-closed; no simulator request$"
       ],
       "timeout": 600,
       "fast": false,

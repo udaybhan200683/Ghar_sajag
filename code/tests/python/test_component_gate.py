@@ -124,15 +124,15 @@ class ComponentGateTest(unittest.TestCase):
         evidence=(
             "test_catalog (__main__.BrowserTest) ... PASS PWA browser E2E: 92/92 rendered PASS\n"
             "test_offline (__main__.BrowserTest) ... PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls\n"
-            "test_connected (__main__.BrowserTest) ... PASS connected Lite browser E2E: admin login/navigation, simulation result, routine boundary, seven Engineering areas, caregiver UI/API denial (mock transport)\n"
-            "test_authenticated_home (__main__.BrowserTest) ... PASS authenticated GS-148 Home browser regression: committed HOST_SIM EventKey/room/time, stale UNKNOWN, stale Node ONLINE downgraded to UNKNOWN, full-width docked navigation, existing tabs preserved, unrecognized source fail-closed; no simulator request\n"
+            "test_connected (__main__.BrowserTest) ... PASS connected Lite browser E2E: prompt login, slow-session cancellation, expired/revoked session gating, Home, four-tab navigation, role-gated simulation/engineering (mock transport)\n"
+            "test_authenticated_home (__main__.BrowserTest) ... PASS authenticated GS-148 Home browser regression: approved Home cards/header/logo, committed HOST_SIM EventKey/room/time, stale NodeHealth UNKNOWN, fixed four-label bottom ribbon, unrecognized source fail-closed; no simulator request\n"
             "Ran 4 tests in 1.0s\n\nOK\n")
         self.assertEqual(gate.adjudicate(stage,self.result(evidence)),"PASS")
         self.assertEqual(gate.adjudicate(stage,self.result(evidence.replace(
             "PASS authenticated GS-148 Home browser regression:",
             "FAIL authenticated GS-148 Home browser regression:"))),"FAIL")
         self.assertEqual(gate.adjudicate(stage,self.result(evidence.replace(
-            "seven Engineering areas, caregiver UI/API denial (mock transport)",
+            "role-gated simulation/engineering (mock transport)",
             "seven Engineering areas, caregiver UI/API denial (missing evidence)"))),"FAIL")
         self.assertEqual(gate.adjudicate(stage,self.result(evidence,rc=1)),"FAIL")
     def test_sanitizer_diagnostic_fails_even_with_zero_exit(self):

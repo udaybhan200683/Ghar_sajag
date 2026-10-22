@@ -5871,3 +5871,36 @@ existing CA-pinned GS-177 LAN TEST_ONLY APK only after its origin/SAN/route
 match. Do not change live credentials, networking or hardware, and do not
 replace the real sensor path with HOST_SIM. GS-117 remains open; GS-60 and
 physical/commercial qualification remain NOT_RUN.
+
+## 2026-10-22 — GS-177 approved Android UI regression correction
+
+The latest owner direction is GS-177 comment 11534; the prior regression diagnosis is
+comment 11530. The shared caregiver PWA now renders the sign-in form synchronously
+before starting asynchronous `/lite/v1/me` session restoration. A single-flight
+restore is cancelled when credential entry begins; generation checks prevent a
+late response from changing the form. Successful login verifies `/me` before
+showing Home and opens Home by default. The startup diagnostic reports only the
+form-visible duration, with no credentials or tokens.
+
+The connected caregiver Home now follows the approved 22 October hierarchy using
+the existing authorized GS-148 projection: brand/header/date/Away, monitoring
+hero, routine/activity/device summary, I am OK/Main door/Night activity/Device
+health cards and recent-event timeline. Unknown, stale, unavailable and
+unrecognized sources remain truthful; HOST_SIM/TEST_ONLY provenance remains
+visible and is not presented as physical monitoring. Bottom navigation is the
+four text-only Home/Devices/Reports/Settings labels in a flat, full-width,
+56-pixel fixed ribbon; the header-reparenting helper and sticky-under-header
+rules were removed. The Android WebView uses `adjustResize` and applies system
+bar/cutout/IME insets so the app viewport and ribbon reflow around system UI.
+
+Local production-code JS/runtime and validation framework checks passed. GS-130
+traceability passes at 224 features / 278 modules / 26 physical cases, mapping
+22/22. The registered Chromium browser test could not execute on this host because Chrome /
+Chromium is absent; it is included in the Android Actions workflow. `adb` is also
+absent, so no physical-phone login timing, 3-button/gesture navigation, keyboard,
+font-scaling or screenshot comparison is claimed. No APK was built or installed
+at this checkpoint. The exact test evidence, modified files, test IDs, workflow
+and remaining device/backend boundaries are in
+[`GS177_ANDROID_UI_REGRESSION_FIX_20261022.md`](../exec-plans/evidence/GS177_ANDROID_UI_REGRESSION_FIX_20261022.md).
+GS-177 remains In Progress; GS-179 and physical Android/real Hub acceptance are
+unchanged.

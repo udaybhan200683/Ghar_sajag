@@ -2,31 +2,27 @@ import {normalizeRuntimeConfig,requestUrl} from './runtime_mode.mjs';
 
 const runtime=normalizeRuntimeConfig(window.PARIVAR_SAATHI_RUNTIME,window.location.origin);
 document.body.classList.add('connected-lite-runtime');
+performance.mark('gs177-connected-ui-start');
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const tabs=['home','devices','incidents','reports','routines','settings'];
 let profile=null,tab='home',catalog=null,runs=[],selectedRun=null,view=null,lastSync=null,connection='OFFLINE';
 let busy=false,engineeringScreen='Installation Overview';
-let lastNavTab=null,headerResizeObserver=null;
+let refreshPromise=null,refreshRequested=false;
+let restoreController=null,restorePromise=null,authGeneration=0;
+let loginFormTouched=false,loginPending=false,startupLoginMetricRecorded=false;
 
-function dockNavigationUnderHeader(){
-  const header=$('.topbar'),navigation=$('.bottom-nav');
-  if(!header||!navigation)return;
-  if(navigation.previousElementSibling!==header)header.insertAdjacentElement('afterend',navigation);
-  const measureHeader=()=>document.documentElement.style.setProperty(
-    '--connected-header-height',`${Math.ceil(header.getBoundingClientRect().height)}px`);
-  measureHeader();
-  if(typeof ResizeObserver==='function'){
-    headerResizeObserver=new ResizeObserver(measureHeader);
-    headerResizeObserver.observe(header);
-  }else window.addEventListener('resize',measureHeader,{passive:true});
+function updateHeaderClock(){
+  const now=new Date();
+  $('#dateText').textContent=now.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  $('#timeText').textContent=now.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
 }
-dockNavigationUnderHeader();
+updateHeaderClock();
+setInterval(updateHeaderClock,15000);
 
-async function api(path,{method='GET',body}={}){
+async function api(path,{method='GET',body,signal}={}){
   const url=requestUrl(runtime,`/lite/v1/${path}`);
   if(!url)throw new Error('Approved HTTPS backend is not configured');
-  const reply=await fetch(url,{method,credentials:'include',cache:'no-store',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
+  const reply=await fetch(url,{method,credentials:'include',cache:'no-store',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal});
   const data=await reply.json().catch(()=>({error:'invalid_server_response'}));
   if(!reply.ok)throw new Error(data.error||`HTTP ${reply.status}`);
   return data;
@@ -47,38 +43,83 @@ function panel(html){
 }
 
 function loginScreen(message=''){
-  profile=null;view=null;
+  profile=null;view=null;loginPending=false;loginFormTouched=false;
+  if(restoreController){authGeneration++;restoreController.abort();restoreController=null;}
   $('.bottom-nav').hidden=true;
   $('.bottom-nav').replaceChildren();
-  const problem=message?`<p class="status-bad" role="alert">${esc(message)}</p>`:'';
-  panel(`<div class="card connected-auth"><h1>Parivar Saathi</h1><p>Sign in to your authorized Home.</p>${problem}<form id="loginForm"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Log in</button></form><p class="muted">Monitoring status is unknown until current Home data is available.</p></div>`);
-  $('#loginForm').onsubmit=async event=>{
+  panel(`<div class="card connected-auth"><h1>Sign in</h1><p>Use your caregiver account to open its authorized Home.</p><p id="loginError" class="status-bad" role="alert" aria-live="polite">${esc(message)}</p><form id="loginForm"><label>Email<input name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Log in</button></form><p class="muted">Monitoring status remains unknown until the server verifies your session and current Home access.</p></div>`);
+  const form=$('#loginForm');
+  const markCredentialEntry=()=>{
+    loginFormTouched=true;
+    if(restoreController&&!restoreController.signal.aborted){
+      authGeneration++;
+      restoreController.abort();
+      restoreController=null;
+    }
+  };
+  form.addEventListener('focusin',markCredentialEntry,{once:true});
+  form.addEventListener('input',markCredentialEntry,{once:true});
+  if(!startupLoginMetricRecorded){
+    performance.mark('gs177-login-form-visible');
+    performance.measure('gs177-login-form-visible','gs177-connected-ui-start','gs177-login-form-visible');
+    const measurements=performance.getEntriesByName('gs177-login-form-visible','measure');
+    const measurement=measurements[measurements.length-1];
+    console.info(`GS177_STARTUP login_form_visible_ms=${Math.round(measurement?.duration||0)}`);
+    startupLoginMetricRecorded=true;
+  }
+  form.onsubmit=async event=>{
     event.preventDefault();
+    if(loginPending)return;
+    markCredentialEntry();
+    loginPending=true;
     const data=new FormData(event.target);
     const button=event.target.querySelector('button');button.disabled=true;
+    const error=$('#loginError');
+    error.textContent='';
     try{
-      profile=await api('auth/login',{method:'POST',body:{email:data.get('email'),password:data.get('password')}});
-      tab='home';await refresh();
-    }catch(error){loginScreen(`Login failed: ${error.message}`)}
+      const loginProfile=await api('auth/login',{method:'POST',body:{email:data.get('email'),password:data.get('password')}});
+      const verifiedProfile=await api('me');
+      if(!validServerProfile(verifiedProfile)||
+          (loginProfile.home_id&&loginProfile.home_id!==verifiedProfile.home_id))
+        throw new Error('The server could not verify this session and Home access.');
+      loginPending=false;
+      profile=verifiedProfile;view=null;tab='home';
+      renderCurrent();
+      await refresh({verifiedProfile});
+    }catch(failure){
+      loginPending=false;
+      if($('#loginForm')){
+        button.disabled=false;
+        error.textContent=`Login failed: ${failure.message}`;
+      }else if(failure.message==='not_authorized')loginScreen('Session expired or access revoked. Please log in again.');
+      else status('HOME DATA UNAVAILABLE',`Current authorized Home data could not be loaded: ${failure.message}. Monitoring is UNKNOWN.`);
+    }
   };
 }
 
+function validServerProfile(value){
+  return Boolean(value&&typeof value.home_id==='string'&&value.home_id&&
+    ['ADMIN','CAREGIVER'].includes(value.role)&&Number.isFinite(Number(value.expires_at)));
+}
+
+function navCategory(name){
+  if(['incidents','routines'].includes(name))return 'reports';
+  if(['simulation','engineering'].includes(name))return 'settings';
+  return name;
+}
+
 function nav(){
-  const available=profile?.role==='ADMIN'&&profile.test_only?
-    ['home','simulation','reports','devices','incidents','routines','engineering','settings']:
-    ['home','reports','devices','incidents','routines','settings'];
+  const available=['home','devices','reports','settings'];
   const navigation=$('.bottom-nav');
   navigation.hidden=false;
-  navigation.innerHTML=available.map(name=>`<button type="button" class="nav-btn ${tab===name?'active':''}" data-tab="${name}" aria-label="${esc(name==='simulation'?'Simulation Lab':name)}" ${tab===name?'aria-current="page"':''}><b>${esc(name==='simulation'?'Simulation Lab':name[0].toUpperCase()+name.slice(1))}</b></button>`).join('');
+  const activeTab=navCategory(tab);
+  navigation.innerHTML=available.map(name=>`<button type="button" class="nav-btn ${activeTab===name?'active':''}" data-tab="${name}" ${activeTab===name?'aria-current="page"':''}><span>${name[0].toUpperCase()+name.slice(1)}</span></button>`).join('');
   navigation.querySelectorAll('button').forEach(button=>button.onclick=()=>openTab(button.dataset.tab));
-  const active=navigation.querySelector(`[data-tab="${tab}"]`);
-  if(active&&lastNavTab!==tab)active.scrollIntoView({block:'nearest',inline:'nearest'});
-  lastNavTab=tab;
 }
 function openTab(next){
   tab=next;selectedRun=null;
   nav();
-  // Each view opens at its heading; the header and tab strip remain docked.
+  // Secondary views share their parent ribbon label and remain reachable from it.
   window.scrollTo({top:0,behavior:'instant'});
   void refresh();
 }
@@ -127,73 +168,79 @@ function productEvents(events){
     return `<article class="event connected-product-event" data-source-origin="${esc(productEventOrigin(event))}" ${identityAttribute}><time class="event-time" datetime="${esc(typeof event.occurred_at==='number'?new Date(event.occurred_at*1000).toISOString():event.occurred_at||'')}">${esc(time)}</time><span class="event-icon" aria-hidden="true">${icon}</span><div class="event-detail"><span class="event-pill ${event.tone==='danger'?'red':event.tone==='positive'?'blue':''}">${esc(productEventLabel(event.kind))}</span><p>${esc(room)} · <span class="event-origin">${esc(productEventOrigin(event))}</span></p><details><summary>${hubDecision?'Decision details':'Event details'}</summary><code>${esc(identityLabel)}</code></details>${received}</div></article>`;
   }).join('');
 }
-function homeFreshnessText(home){
-  if(home.source_freshness==='CURRENT'&&home.monitoring==='COVERED')return 'Current observation coverage';
-  if(home.source_freshness==='STALE')return 'Monitoring source stale · status unknown';
-  return 'Monitoring status unknown';
+function latestEvent(kinds){
+  return (productSource()?view?.recent_events||[]:[]).find(event=>kinds.includes(event.kind))||null;
 }
-function homeDeviceSummary(devices,sourceCurrent){
-  if(!devices.length)return '<p class="muted">No NodeHealth records are available for this Home.</p>';
-  return devices.slice(0,4).map(device=>{
-    const reported=device.status||'UNKNOWN';
-    const status=sourceCurrent?reported:'UNKNOWN';
-    const detail=!sourceCurrent&&reported!=='UNKNOWN'
-      ?`Last authenticated report: ${reported} · source not current`
-      :`Coverage ${sourceCurrent?(device.coverage||'UNKNOWN'):'UNKNOWN'}`;
-    return `<div class="home-summary-row" data-node-status="${esc(status)}"><span class="round-icon">◉</span><div><b>${esc(device.logical_node_id||device.physical_node_id||'Node')} · ${esc(status)}</b><p>${esc(detail)}</p></div></div>`;
-  }).join('');
+function latestNightDecision(){
+  return (productSource()?view?.decisions||[]:[]).find(item=>String(item.kind||'').startsWith('UNUSUAL_NIGHT_'))||null;
 }
-function homeDecisionSummary(decisions){
-  if(!decisions.length)return '<p class="muted">No committed Hub routine decisions are currently available. Missing observations are not treated as missed activity.</p>';
-  return decisions.slice(0,2).map(decision=>`<div class="home-summary-row" data-hub-decision="${esc(decision.decision_id||decision.event_id||'unknown')}"><span class="round-icon">☀</span><div><b>${esc(productEventLabel(decision.kind))}</b><p>${esc(productTime(decision.occurred_at||decision.decided_at))} · ${esc(decision.reason||decision.details?.reason||'Committed Hub decision')}</p></div></div>`).join('');
+function connectHomeActions(){
+  $('#homeTab').querySelectorAll('[data-open-tab]').forEach(button=>button.onclick=()=>openTab(button.dataset.openTab));
+}
+function homeInfoCard({id,title,icon,value,detail,tab:targetTab}){
+  return `<section class="card home-info-card" data-home-card="${esc(id)}"><div class="home-info-icon" aria-hidden="true">${icon}</div><div class="home-info-copy"><h2>${esc(title)}</h2><strong data-home-value="${esc(id)}">${esc(value)}</strong><p>${esc(detail)}</p></div>${targetTab?`<button class="home-card-link" type="button" data-open-tab="${esc(targetTab)}" aria-label="Open ${esc(title)} details">›</button>`:''}</section>`;
+}
+function homeDeviceText(devices,coverageCurrent){
+  if(!coverageCurrent){
+    const lastReported=devices.filter(device=>typeof device.status==='string'&&device.status)
+      .map(device=>`${device.logical_node_id||device.physical_node_id||'Node'} ${device.status}`).join(', ');
+    return {value:'UNKNOWN',detail:`Device status is unavailable until source freshness and coverage are current.${lastReported?` Last authenticated report: ${lastReported} · source not current.`:''}`};
+  }
+  if(!devices.length)return {value:'UNKNOWN',detail:'No current NodeHealth records were returned.'};
+  const online=devices.filter(device=>device.status==='ONLINE'&&device.coverage==='COVERED').length;
+  return {value:`${online} of ${devices.length} covered`,detail:'Current authenticated NodeHealth projection.'};
 }
 
 function renderHome(){
-  if(productSource()){
-    const freshness=view.source_freshness||'UNKNOWN';
-    const heading=freshness==='STALE'?'Monitoring data is stale':
-      freshness==='CURRENT'&&view.monitoring==='COVERED'?'Observation coverage is current':'Monitoring status is unknown';
-    const lastHub=view.last_hub_at?productTime(view.last_hub_at):'No authenticated Hub contact recorded';
-    const decisions=view.decisions||[];
-    const activeIncidents=(view.incidents||[]).filter(item=>item.state!=='RESOLVED');
-    panel(`<div class="test-watermark">Authenticated GS-148 TEST_ONLY caregiver data · Home ${esc(profile.home_id)} · physical C3/S3 qualification NOT_RUN</div><div class="home-layout connected-home"><div class="home-main">
-      <section class="hero connected-home-hero" data-source-freshness="${esc(freshness)}"><div class="hero-row"><div class="hero-icon" aria-hidden="true">${freshness==='CURRENT'&&view.monitoring==='COVERED'?'✓':'?'}</div><div><p class="home-eyebrow">PARIVAR SAATHI · HOME</p><h1>${esc(heading)}</h1><p>Latest authenticated Hub contact: ${esc(lastHub)}. Monitoring coverage is not proof of resident wellbeing.</p></div></div></section>
-      <div class="grid2 routine-grid connected-home-summary">
-        <section class="card" data-home-card="monitoring"><div class="card-row"><span class="round-icon">⌁</span><div><h2>Home monitoring</h2><p class="caregiver-state pending">${esc(homeFreshnessText(view))}</p><p>Backend source: ${esc(view.source_freshness||'UNKNOWN')} · physical status ${esc(view.physical_status||'NOT_RUN')}.</p></div></div></section>
-        <section class="card" data-home-card="devices"><div class="card-row"><span class="round-icon">🔋</span><div><h2>Device health</h2>${homeDeviceSummary(view.devices||[],freshness==='CURRENT'&&view.monitoring==='COVERED')}</div></div></section>
-        <section class="card" data-home-card="routines"><div class="card-row"><span class="round-icon night">☾</span><div><h2>Routine activity</h2>${homeDecisionSummary(decisions)}</div></div></section>
-        <section class="card" data-home-card="concerns"><div class="card-row"><span class="round-icon">!</span><div><h2>Active concerns</h2><p>${activeIncidents.length} unresolved committed concern${activeIncidents.length===1?'':'s'} in the caregiver projection.</p>${activeIncidents.slice(0,2).map(item=>`<p><b>${esc(item.kind)}</b> · ${esc(item.severity||'severity unavailable')} · ${esc(item.state)}</p>`).join('')}</div></div></section>
+  const recognized=productSource();
+  const freshness=recognized?(view?.source_freshness||'UNKNOWN'):'UNKNOWN';
+  const coverageCurrent=recognized&&freshness==='CURRENT'&&view?.monitoring==='COVERED';
+  const stale=freshness==='STALE';
+  const events=recognized?view?.recent_events||[]:[];
+  const decisions=recognized?view?.decisions||[]:[];
+  const devices=recognized?view?.devices||[]:[];
+  const incidents=recognized?view?.incidents||[]:[];
+  const heading=coverageCurrent?'Monitoring coverage is current':stale?'Monitoring source is stale':'Monitoring status is unknown';
+  const hubContact=recognized&&view?.last_hub_at?`Latest authenticated Hub contact: ${productTime(view.last_hub_at)}.`:'No current authenticated Hub contact is available.';
+  const morning=[...events,...decisions].find(item=>['MORNING_ROUTINE_COMPLETED','MISSING_MORNING_ACTIVITY'].includes(item.kind));
+  const morningSummary=morning?(coverageCurrent?productEventLabel(morning.kind):`${stale?'STALE':'UNKNOWN'} · last reported: ${productEventLabel(morning.kind)}`):'Routine status UNKNOWN';
+  const activeIncidents=coverageCurrent?incidents.filter(item=>item.state!=='RESOLVED'):null;
+  const incidentSummary=activeIncidents?`Unresolved incidents: ${activeIncidents.length}`:'Unusual-activity status UNKNOWN';
+  const deviceSummary=homeDeviceText(devices,coverageCurrent);
+  const okEvent=latestEvent(['OK_PRESSED']);
+  const doorEvent=latestEvent(['DOOR_OPEN','DOOR_CLOSED']);
+  const nightDecision=latestNightDecision();
+  const freshnessQualifier=coverageCurrent?'Current source report':stale?'STALE · last reported':'UNKNOWN';
+  const okValue=okEvent?(coverageCurrent?'Reported':'STALE · last reported'):'UNKNOWN';
+  const okDetail=okEvent?`${freshnessQualifier} · ${productTime(okEvent.occurred_at)}`:'No current I am OK event is available.';
+  const doorValue=doorEvent?`${coverageCurrent?'Last event':stale?'STALE · last event':'UNKNOWN · last event'}: ${doorEvent.kind==='DOOR_OPEN'?'opened':'closed'}`:'UNKNOWN';
+  const doorDetail=doorEvent?`${freshnessQualifier} · ${productTime(doorEvent.occurred_at)}`:'No current door event is available.';
+  const nightValue=nightDecision?(coverageCurrent?productEventLabel(nightDecision.kind):`${stale?'STALE':'UNKNOWN'} · last reported: ${productEventLabel(nightDecision.kind)}`):'UNKNOWN';
+  const nightDetail=nightDecision?`${freshnessQualifier} · ${productTime(nightDecision.occurred_at||nightDecision.decided_at)}`:'No current night-activity decision is available.';
+  const deviceDetail=coverageCurrent?`Current NodeHealth · ${devices.length} enrolled Node${devices.length===1?'':'s'}`:deviceSummary.detail;
+  const timeline=events.slice(0,5);
+  const unknownProjection=!recognized&&view!==null;
+  const testLabel=profile?.test_only?`<p class="test-watermark">${recognized?'Authenticated GS-148 TEST_ONLY caregiver data':'TEST_ONLY Home · monitoring data unavailable'} · Home ${esc(profile.home_id)} · physical C3/S3 qualification NOT_RUN</p>`:'';
+  const unknownNote=unknownProjection?'<p class="home-unknown-note">The current authorized backend did not provide a recognized Home projection. Monitoring, events and resident status are unknown; simulated data is not shown.</p>':'';
+  panel(`${testLabel}<div class="connected-home">
+    ${unknownNote}
+    <section class="hero connected-home-hero" data-source-freshness="${esc(freshness)}" data-monitoring="${coverageCurrent?'COVERED':'UNKNOWN'}">
+      <div class="hero-row"><div class="hero-icon" aria-hidden="true">${coverageCurrent?'●':'?'}</div><div class="home-hero-copy"><p class="home-eyebrow">HOME MONITORING</p><h1>${esc(heading)}</h1><p>${esc(hubContact)} Monitoring coverage never establishes resident wellbeing.</p></div></div>
+      <div class="connected-home-summary" aria-label="Current Home summary">
+        <div class="home-summary-chip" data-home-summary="routine"><span aria-hidden="true">☀</span><p><b>Routine</b><br>${esc(morningSummary)}</p></div>
+        <div class="home-summary-chip" data-home-summary="incidents"><span aria-hidden="true">!</span><p><b>Unusual activity</b><br>${esc(incidentSummary)}</p></div>
+        <div class="home-summary-chip" data-home-summary="devices"><span aria-hidden="true">◉</span><p><b>Device connectivity</b><br>${esc(deviceSummary.value)}</p></div>
       </div>
-      <section class="timeline connected-home-timeline" aria-labelledby="recentEventsTitle"><div class="section-title"><h2 id="recentEventsTitle">Recent important events</h2><span class="muted">Authorized caregiver history</span></div>${productEvents(view.recent_events||[])}</section>
-    </div></div>`);
-    return;
-  }
-  if(!explicitSimulationHome()){
-    panel(`<div class="test-watermark">Authorized caregiver API · Home ${esc(profile?.home_id||'unavailable')}</div>${card('Home data unavailable','<p>The current authorized backend did not provide a recognized Home projection. Monitoring, events and resident status are unknown; simulated data is not shown.</p>')}`);
-    return;
-  }
-  const rows=view?.runs||[];
-  const events=view?.recent_events||[];
-  const decisions=view?.routine_decisions||[];
-  const lastFetch=lastSync?new Date(lastSync).toLocaleString():'Not yet synchronized';
-  const latest=view?.latest_simulated_event;
-  panel(`<section class="caregiver-hero">
-    <p class="caregiver-eyebrow">CAREGIVER HOME · TEST ONLY</p>
-    <h1>Your home overview</h1>
-    <p>Your test workspace is connected. Real-home monitoring is not active yet.</p>
-    <div class="caregiver-actions"><button id="openSimulation" type="button">Run a test scenario</button><button id="openReports" type="button" class="caregiver-secondary">View reports</button></div>
-  </section>
-  <div class="caregiver-tiles">
-    ${card('Cloud connection',`<p class="caregiver-state good">${esc(connection==='CONNECTED'?'Connected':'Unavailable')}</p><p>Last sync: ${esc(lastFetch)}</p><p class="muted">Test workspace only</p>`)}
-    ${card('Home monitoring',`<p class="caregiver-state pending">Not yet connected</p><p>Physical Hub events are not reaching this cloud app yet.</p><p class="muted">Device availability and resident status are unknown.</p>`)}
-  </div>
-  ${card('Recent test events',`${events.length?'<p>Events below were generated by saved TEST_ONLY simulations. Product EventKeys are unavailable.</p>':''}${tableRows(events.slice(0,12),e=>`<details class="caregiver-run"><summary><b>${esc(e.kind)}</b> · ${esc(e.occurred_at||'time unknown')} · ${esc(e.event_id||'simulated ID unavailable')}</summary><p>Source: ${esc(e.provenance)} · Trace: ${esc(e.trace_id)}</p><p>Device: ${esc(e.device_id||'not emitted')} · Location: ${esc(e.location||'not emitted')}</p><p>Received: ${esc(e.received_at||'not emitted')} · Delayed: ${e.delayed?'YES':'NO'}</p><p>Original EventKey: UNAVAILABLE</p><button class="open-run" data-run="${esc(e.run_id)}">Inspect run</button></details>`)}`)}
-  ${card('Recent routine decisions',tableRows(decisions.slice(0,8),d=>`<div class="caregiver-run"><b>${esc(d.result)} · ${esc(d.category)}</b><span>${esc(d.scenario_title)}</span><small>${esc(d.decision_reason)} · ${esc(new Date(d.evaluated_at*1000).toLocaleString())}</small><button class="open-run" data-run="${esc(d.run_id)}">Inspect decision trace</button></div>`))}
-  ${card('Recent test activity',`<p>${esc(rows.length)} recent saved test runs. ${latest?'Most recent run contains '+esc(latest.kind||'simulated activity'):'No simulated events yet.'}</p>${tableRows(rows.slice(0,8),r=>`<div class="caregiver-run"><b>${esc(r.status)}</b><span>${esc(r.scenario_id)}</span><small>${esc(new Date(r.created_at*1000).toLocaleString())}</small></div>`)}`)}
-  <details class="caregiver-tech"><summary>Technical connection details</summary><p>Physical Home: ${esc(view?.physical_status||'UNKNOWN')} / ${esc(view?.physical_status_reason||'REASON_UNKNOWN')}</p><p>Planned real Hub event interface: ${esc(view?.physical_data_contract||'GS-148_CLOUDSYNC')}. This is not an active event source.</p><p>Real monitoring freshness: UNKNOWN. No emergency alerts or physical-device status are provided by this simulation Home.</p></details>`);
-  $('#openSimulation').onclick=()=>openTab('simulation');
-  $('#openReports').onclick=()=>openTab('reports');
-  bindRunButtons();
+    </section>
+    <div class="connected-home-cards">
+      ${homeInfoCard({id:'ok',title:'I am OK',icon:'♥',value:okValue,detail:okDetail,tab:'reports'})}
+      ${homeInfoCard({id:'door',title:'Main door',icon:'▯',value:doorValue,detail:doorDetail,tab:'reports'})}
+      ${homeInfoCard({id:'night',title:'Night activity',icon:'☾',value:nightValue,detail:nightDetail,tab:'routines'})}
+      ${homeInfoCard({id:'device-health',title:'Device health',icon:'▱',value:deviceSummary.value,detail:deviceDetail,tab:'devices'})}
+    </div>
+    <section class="timeline connected-home-timeline" aria-labelledby="recentEventsTitle"><div class="section-title"><h2 id="recentEventsTitle">Recent important events</h2><button type="button" class="link-btn" data-open-tab="reports">View all ›</button></div>${productEvents(timeline)}</section>
+  </div>`);
+  connectHomeActions();
 }
 function renderDevices(){
   if(productSource()){
@@ -209,8 +256,10 @@ function renderIncidents(){
   panel(`${dataLabel()}${card('Incident history',tableRows(view?.incidents||[],r=>`<details><summary>${esc(r.kind||'Incident')} · ${esc(r.state||'UNKNOWN')} · SIMULATED</summary><pre>${esc(JSON.stringify(r,null,2))}</pre></details>`))}<p class="muted">No real household incident can be acknowledged from this TEST_ONLY service.</p>`);
 }
 function renderReports(){
-  if(productSource()){panel(`${dataLabel()}${card('Committed event history',`<p>${esc(view.event_count)} durable events</p>${productEvents(view.recent_events)}`)}`);return;}
-  panel(`${dataLabel()}${card('Simulation reports',`<label>Period<select id="reportPeriod"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label><p>${esc(view?.run_count??0)} saved scenario runs · ${esc(view?.period||'week')}.</p><p>Saved synthetic events: ${esc(view?.event_count??0)} · incident snapshots: ${esc(view?.incident_count??0)}</p><p>PASS ${esc(view?.outcomes?.PASS||0)} · FAIL ${esc(view?.outcomes?.FAIL||0)} · BLOCKED ${esc(view?.outcomes?.BLOCKED||0)}</p>${tableRows(view?.runs||[],r=>`<p>${esc(r.scenario_id)} · ${esc(r.status)} · ${esc(new Date(r.created_at*1000).toLocaleString())}</p>`)}<p class="muted">Real Hub event reports are unavailable until authenticated Hub ingest is deployed.</p>`)}`);
+  const links='<div class="secondary-view-links" aria-label="Reports and history"><button type="button" data-open-tab="incidents">Incidents</button><button type="button" data-open-tab="routines">Routine activity</button></div>';
+  if(productSource()){panel(`${dataLabel()}${card('Committed event history',`<p>${esc(view.event_count)} durable events</p>${productEvents(view.recent_events)}`)}${links}`);connectHomeActions();return;}
+  panel(`${dataLabel()}${card('Simulation reports',`<label>Period<select id="reportPeriod"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label><p>${esc(view?.run_count??0)} saved scenario runs · ${esc(view?.period||'week')}.</p><p>Saved synthetic events: ${esc(view?.event_count??0)} · incident snapshots: ${esc(view?.incident_count??0)}</p><p>PASS ${esc(view?.outcomes?.PASS||0)} · FAIL ${esc(view?.outcomes?.FAIL||0)} · BLOCKED ${esc(view?.outcomes?.BLOCKED||0)}</p>${tableRows(view?.runs||[],r=>`<p>${esc(r.scenario_id)} · ${esc(r.status)} · ${esc(new Date(r.created_at*1000).toLocaleString())}</p>`)}<p class="muted">Real Hub event reports are unavailable until authenticated Hub ingest is deployed.</p>`)}${links}`);
+  connectHomeActions();
   $('#reportPeriod').value=view?.period||'week';
   $('#reportPeriod').onchange=async event=>{view=await api(`homes/${profile.home_id}/reports?period=${event.target.value}`);renderReports()};
 }
@@ -227,8 +276,13 @@ function renderSettings(){
   const hubSetup=runtime.hubWifiNativeDiscovery
     ?'<button id="addHubWifi" type="button">Add Hub / configure Hub Wi-Fi</button><p class="muted">Nearby BLE discovery is available in Android. Secure pairing, protected credential storage and Home claim must be ready before a password can be sent.</p>'
     :'<p class="muted">Hub Wi-Fi setup requires the Parivar Saathi Android app. Secure pairing and protected credential storage are still required.</p>';
-  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Add Hub / Hub Wi-Fi',hubSetup)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>`)}`);
+  const adminTools=profile?.role==='ADMIN'&&profile?.test_only===true
+    ?card('Engineering and simulation · TEST_ONLY','<p>These tools are available only to the authorized TEST_ONLY administrator. They do not populate caregiver monitoring results.</p><div class="secondary-view-links"><button id="openSimulation" type="button">Simulation Lab</button><button id="openEngineering" type="button">Engineering</button></div>')
+    :'';
+  panel(`${dataLabel()}${card('Account',`<p>${esc(profile.email)} · ${esc(profile.role)}</p><p>Session expires: ${esc(new Date(profile.expires_at*1000).toLocaleString())}</p><p>Home: ${esc(profile.home_id)}</p><button id="logoutButton">Log out</button>`)}${card('Add Hub / Hub Wi-Fi',hubSetup)}${card('Connection',`<p>Approved backend: ${esc(runtime.backendOrigin||'UNCONFIGURED')}</p><p>App: ${esc(runtime.appVersion)} (${esc(runtime.sourceRevision)})</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p><p>Backend API connection: ${esc(connection)}</p><p>TEST_ONLY Hub monitoring: ${esc(hubState)}</p>`)}${adminTools}`);
   if(runtime.hubWifiNativeDiscovery)$('#addHubWifi').onclick=()=>{window.location.href='gharsajag://hub-wifi/add'};
+  $('#openSimulation')?.addEventListener('click',()=>openTab('simulation'));
+  $('#openEngineering')?.addEventListener('click',()=>openTab('engineering'));
   $('#logoutButton').onclick=async()=>{try{await api('auth/logout',{method:'POST'})}finally{status('SIGNED OUT','Current session has been revoked.');loginScreen()}};
 }
 function renderEngineering(){
@@ -312,44 +366,99 @@ function renderCurrent(){
   nav();
   ({home:renderHome,devices:renderDevices,incidents:renderIncidents,reports:renderReports,routines:renderRoutines,settings:renderSettings,engineering:renderEngineering,simulation:renderSimulation}[tab]||renderHome)();
 }
-async function refresh(){
+async function refresh({verifiedProfile=null}={}){
   if(!profile)return;
-  try{
-    profile=await api('me');
-    const home=profile.home_id;
-    const base=`homes/${encodeURIComponent(home)}`;
-    const area={devices:'devices',incidents:'incidents',reports:'reports',routines:'routines',engineering:'engineering'}[tab];
-    if(tab==='home'){
-      const [overview,devices,routines,incidents]=await Promise.all([
-        api(`${base}/overview`),api(`${base}/devices`),api(`${base}/routines`),api(`${base}/incidents`),
-      ]);
-      if([overview,devices,routines,incidents].some(result=>result.home_id!==home||
-          Boolean(result.test_only)!==Boolean(profile.test_only)))
+  if(refreshPromise){refreshRequested=true;return refreshPromise;}
+  refreshPromise=(async()=>{
+    const requestedTab=tab;
+    try{
+      const currentProfile=verifiedProfile||await api('me');
+      if(!validServerProfile(currentProfile))throw new Error('not_authorized');
+      if(!profile)return;
+      profile=currentProfile;
+      if(requestedTab!==tab){refreshRequested=true;return;}
+      const home=profile.home_id;
+      const base=`homes/${encodeURIComponent(home)}`;
+      const area={devices:'devices',incidents:'incidents',reports:'reports',routines:'routines',engineering:'engineering'}[requestedTab];
+      let nextView=null;
+      if(requestedTab==='home'){
+        const [overview,devices,routines,incidents]=await Promise.all([
+          api(`${base}/overview`),api(`${base}/devices`),api(`${base}/routines`),api(`${base}/incidents`),
+        ]);
+        if([overview,devices,routines,incidents].some(result=>result.home_id!==home||
+            Boolean(result.test_only)!==Boolean(profile.test_only)))
+          throw new Error('authorized_home_projection_mismatch');
+        nextView={...overview,devices:devices.devices||[],decisions:routines.decisions||[],incidents:incidents.incidents||[]};
+      }else if(area)nextView=await api(`${base}/${area}`);
+      if(requestedTab==='simulation'){
+        if(profile.role!=='ADMIN'||profile.test_only!==true)throw new Error('not_authorized');
+        catalog=catalog||await api(`homes/${home}/sim/catalog`);
+        runs=(await api(`homes/${home}/sim/runs`)).runs;
+      }
+      if(requestedTab!==tab){refreshRequested=true;return;}
+      if(nextView&&('home_id' in nextView)&&
+          (nextView.home_id!==home||Boolean(nextView.test_only)!==Boolean(profile.test_only)))
         throw new Error('authorized_home_projection_mismatch');
-      view={...overview,devices:devices.devices||[],decisions:routines.decisions||[],incidents:incidents.incidents||[]};
-    }else if(area)view=await api(`${base}/${area}`);
-    if(tab==='simulation'){
-      catalog=catalog||await api(`homes/${home}/sim/catalog`);
-      runs=(await api(`homes/${home}/sim/runs`)).runs;
+      view=nextView;
+      connection='CONNECTED';lastSync=Date.now();
+      status('CONNECTED',productSource()
+        ?`Caregiver API connected · Hub monitoring ${view.monitoring||'UNKNOWN'} · source ${view.source_freshness||'UNKNOWN'}.`
+        :`TEST_ONLY workspace · last synced ${new Date(lastSync).toLocaleTimeString()}. Physical monitoring remains UNKNOWN.`);
+      renderCurrent();
+    }catch(error){
+      if(error.name==='AbortError')return;
+      if(error.message==='not_authorized'){
+        loginScreen('Session expired or access revoked. Please log in again.');
+        return;
+      }
+      connection='OFFLINE';view=null;
+      status('OFFLINE / RECONNECTING',`Current authorized Home data is unavailable: ${error.message}. Monitoring is UNKNOWN.`);
+      if(profile&&requestedTab===tab)renderCurrent();
     }
-    connection='CONNECTED';lastSync=Date.now();
-    status('CONNECTED',productSource()
-      ?`Caregiver API connected · Hub monitoring ${view.monitoring} · source ${view.source_freshness}.`
-      :`TEST_ONLY workspace · last synced ${new Date(lastSync).toLocaleTimeString()}. Physical monitoring remains UNKNOWN.`);
-    renderCurrent();
-  }catch(error){
-    connection='OFFLINE';status('OFFLINE / RECONNECTING',`Current data unavailable: ${error.message}. Physical monitoring UNKNOWN.`);
-    if(error.message==='not_authorized'){loginScreen('Session expired or access revoked. Please log in again.');return}
-    if(profile)panel(`${dataLabel()}${card('Data unavailable','<p>Internet or backend connection failed. Previously loaded data is hidden until authorization and freshness are restored.</p>')}`);
+  })();
+  try{await refreshPromise}
+  finally{
+    refreshPromise=null;
+    if(refreshRequested&&profile){refreshRequested=false;void refresh();}
   }
 }
 
-$('#awayToggle').disabled=true;
-if(!runtime.caregiverApiConfigured){status('OFFLINE / UNCONFIGURED','This APK has no approved HTTPS backend.');loginScreen('Approved HTTPS backend is not configured.');}
-else{
-  try{profile=await api('me');await refresh()}
-  catch{status('SIGN IN REQUIRED','Current monitoring status is unknown.');loginScreen()}
+async function restoreSession(){
+  if(restorePromise)return restorePromise;
+  if(!runtime.caregiverApiConfigured)return null;
+  const generation=authGeneration;
+  const controller=new AbortController();
+  restoreController=controller;
+  restorePromise=(async()=>{
+    try{
+      const session=await api('me',{signal:controller.signal});
+      if(controller.signal.aborted||generation!==authGeneration||loginFormTouched||loginPending)return null;
+      if(!validServerProfile(session))throw new Error('invalid_server_session');
+      profile=session;view=null;tab='home';
+      renderCurrent();
+      await refresh({verifiedProfile:session});
+      return session;
+    }catch(error){
+      if(error.name!=='AbortError'&&generation===authGeneration&&!loginFormTouched&&!loginPending){
+        profile=null;view=null;
+        status('SIGN IN REQUIRED','No current authorized session was restored. Sign in to access Home data.');
+      }
+      return null;
+    }finally{
+      if(restoreController===controller)restoreController=null;
+    }
+  })();
+  return restorePromise;
 }
-// Avoid replacing the scenario selector while the person is choosing/running a test.
-setInterval(()=>{if(profile&&!document.hidden&&!busy&&tab!=='simulation')refresh()},15000);
-document.addEventListener('visibilitychange',()=>{if(profile&&!document.hidden)refresh()});
+
+$('#awayToggle').disabled=true;
+loginScreen();
+if(!runtime.caregiverApiConfigured){
+  status('OFFLINE / UNCONFIGURED','This APK has no approved HTTPS backend.');
+}else{
+  status('CHECKING SESSION','Home data remains hidden until the server verifies this session and its Home access.');
+  void restoreSession();
+}
+// Home and caregiver API refreshes are single-flight; the simulation remains user-triggered.
+setInterval(()=>{if(profile&&!document.hidden&&!busy&&tab!=='simulation')void refresh()},15000);
+document.addEventListener('visibilitychange',()=>{if(profile&&!document.hidden)void refresh()});

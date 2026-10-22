@@ -78,47 +78,64 @@ test('API URLs remain pinned to the configured HTTPS origin', () => {
 });
 
 
-test('GS-177 connected caregiver UI keeps technical state secondary and preserves safe mobile navigation', () => {
+test('GS-177 connected caregiver UI restores Home safely and keeps the approved four-tab layout', () => {
   const codeRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const scriptPath = resolve(codeRoot,'tools/sim/pwa/connected_lite.mjs');
-  const stylesPath = resolve(codeRoot,'tools/sim/pwa/styles.css');
   const caregiverStylesPath = resolve(codeRoot,'tools/sim/pwa/caregiver.css');
   const androidPath = resolve(codeRoot,'parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/MainActivity.kt');
+  const androidManifestPath = resolve(codeRoot,'parivar_saathi_android_app/android/app/src/main/AndroidManifest.xml');
+  const indexPath = resolve(codeRoot,'tools/sim/pwa/index.html');
   // Check executable syntax, not only that expected text exists.
   execFileSync(process.execPath,['--check',scriptPath]);
   const script = readFileSync(scriptPath,'utf8');
-  const css = readFileSync(stylesPath,'utf8');
   const caregiverCss = readFileSync(caregiverStylesPath,'utf8');
   const android = readFileSync(androidPath,'utf8');
+  const androidManifest = readFileSync(androidManifestPath,'utf8');
+  const index = readFileSync(indexPath,'utf8');
 
-  assert.match(script,/CAREGIVER HOME · TEST ONLY/);
-  assert.match(script,/Your home overview/);
-  assert.match(script,/Real-home monitoring is not active yet/);
-  assert.match(script,/Technical connection details/);
+  assert.match(script,/performance\.measure\('gs177-login-form-visible'/);
+  assert.match(script,/GS177_STARTUP login_form_visible_ms=/);
+  assert.match(script,/async function restoreSession\(\)/);
+  assert.match(script,/form\.addEventListener\('focusin',markCredentialEntry/);
+  assert.match(script,/form\.addEventListener\('input',markCredentialEntry/);
+  assert.match(script,/profile=verifiedProfile;view=null;tab='home'/);
+  assert.match(script,/const verifiedProfile=await api\('me'\)/);
+  assert.match(script,/Current authorized Home data is unavailable/);
+  assert.match(script,/function renderHome\(\)/);
+  for(const title of ['I am OK','Main door','Night activity','Device health','Recent important events'])
+    assert.ok(script.includes(title),`Home must render ${title}`);
+  assert.match(script,/Monitoring status is unknown/);
+  assert.match(script,/simulated data is not shown/);
+  assert.doesNotMatch(script,/Home looks normal|All is well at home|4\/4 devices online|No unusual activity/);
+  assert.match(script,/const available=\['home','devices','reports','settings'\]/);
+  assert.match(script,/profile\?\.role==='ADMIN'&&profile\?\.test_only===true/);
+  assert.match(script,/function navCategory\(name\)/);
+  assert.doesNotMatch(script,/dockNavigationUnderHeader/);
   assert.match(script,/function openTab\(next\)/);
   assert.match(script,/Run selected scenario/);
   assert.match(script,/id="scenarioChoice" size="1"/);
-  assert.match(script,/Recent test events/);
-  assert.match(script,/Recent routine decisions/);
-  assert.match(script,/Original EventKey: UNAVAILABLE/);
   assert.match(script,/function productEvents\(events\)/);
   assert.match(script,/HOST_SIM · TEST_ONLY/);
-  assert.match(script,/Monitoring, events and resident status are unknown; simulated data is not shown/);
   assert.match(script,/api\(`\$\{base\}\/overview`\),api\(`\$\{base\}\/devices`\),api\(`\$\{base\}\/routines`\),api\(`\$\{base\}\/incidents`\)/);
-  assert.match(script,/function dockNavigationUnderHeader\(\)/);
   assert.match(script,/function runDetail\(run\)/);
   assert.match(script,/Engine processing steps/);
   assert.match(script,/Routine \/ abnormality decision/);
   assert.match(script,/tab!=='simulation'/);
-  assert.match(css,/connected-lite-runtime \.topbar[\s\S]*?position:sticky/);
-  assert.match(css,/connected-lite-runtime \.bottom-nav[\s\S]*?safe-area-inset-bottom/);
-  assert.match(css,/connected-lite-runtime \.caregiver-tiles/);
-  assert.match(caregiverCss,/\.bottom-nav\{position:sticky;top:var\(--connected-header-height/);
-  assert.match(caregiverCss,/width:100vw;max-width:none/);
-  assert.match(caregiverCss,/border-radius:0;background:#fff;box-shadow:none/);
-  assert.match(caregiverCss,/safe-area-inset-left/);
+  assert.match(caregiverCss,/\.bottom-nav\{position:fixed;left:0;right:0;bottom:0/);
+  assert.match(caregiverCss,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(caregiverCss,/height:56px/);
+  assert.match(caregiverCss,/border:0;border-top:1px solid #dceae1;border-radius:0;background:#fff;box-shadow:none/);
+  assert.doesNotMatch(caregiverCss,/\.bottom-nav\{position:sticky;top:/);
   assert.match(caregiverCss,/\.connected-home \.hero/);
   assert.match(caregiverCss,/\.connected-home-timeline/);
+  assert.match(caregiverCss,/\.datetime\{text-align:right/);
+  assert.match(caregiverCss,/\.away-wrap\{display:flex/);
+  assert.match(index,/id="dateText"/);
+  assert.match(index,/id="timeText"/);
+  assert.match(index,/class="brand-icon"/);
+  assert.match(android,/WindowInsetsCompat\.Type\.ime\(\)/);
+  assert.match(android,/max\(safe\.bottom, keyboard\.bottom\)/);
+  assert.match(androidManifest,/android:windowSoftInputMode="adjustResize"/);
   assert.match(android,/WindowInsetsCompat\.Type\.systemBars\(\)/);
-  assert.match(android,/view\.setPadding\(safe\.left, safe\.top, safe\.right, safe\.bottom\)/);
+  assert.match(android,/view\.setPadding\(safe\.left, safe\.top, safe\.right, max\(safe\.bottom, keyboard\.bottom\)\)/);
 });
