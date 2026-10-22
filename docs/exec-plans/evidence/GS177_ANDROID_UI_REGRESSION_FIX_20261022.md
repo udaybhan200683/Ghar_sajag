@@ -78,21 +78,24 @@ working-tree changes:
 - `python3 -m json.tool code/validation/suites.json` — PASS.
 - `make -C code pwa-68-browser-test` — command exited 0 but skipped the browser cases because this host has no Chrome/Chromium. This is NOT browser PASS; the provisioned GitHub Actions workflow must run the browser assertions.
 - `adb devices -l` — NOT_RUN; `adb` is not installed. No physical phone interaction occurred.
+- GitHub Actions run [39721322469](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39721322469) — SUCCESS on source `2a1b5ffa9a52d4ad81726d8d99ba95773ff03085`: PWA browser 4/4 with 92/92 catalogue assertions; registered caregiver API stage 20 checks; Android dashboard stage 10 checks including `testDebugUnitTest` and `assembleDebug`; voice-prototype stage 26 checks; APK v2 signature verification and upload passed.
+
+## APK artifact
+
+Artifact ID `12401098317`, name `parivar-saathi-caregiver-debug-2a1b5ffa9a52d4ad81726d8d99ba95773ff03085`, uploaded artifact SHA-256 `9c624301a13c07e5ee22d05c7eca4fe61b80872d8356ccb978e8d41a6d8720cd`. Downloaded APK size: 2,927,482 bytes. APK SHA-256: `c42fd1817f85eae52f9e7df3cb016a173ff0275b20307a2274b48a07042bab64` (downloaded file matched the artifact SHA256SUMS). Package `in.gharsajag.caregiver`; version `0.4.0-connected-lite-staging`; source revision `2a1b5ffa9a52d4ad81726d8d99ba95773ff03085`; backend origin `https://parivar-saathi-lite-staging.onrender.com`; `GS177_LOCAL_LAN_TEST_ONLY=0`; signing is runner-generated Android Debug key, certificate SHA-256 `1a7d691b550351607b336250b6c0a9b41a35e1d390b2fd81a8b059eaa3747fb5`. This testing signature may require uninstalling the previously installed debug APK before installation. It is not owner-controlled pilot signing. The APK was not installed on a phone and is not aligned to the WSL2 PostgreSQL/Hub HOST_SIM route.
 
 The temporary Python environment used pinned test dependencies only; no repository
-runtime dependency was added. Android Actions run 39721098614 used Chromium and
-passed the new delayed-session/login-race and authenticated Home/navigation cases,
-but failed the existing offline-startup case on an assertion expecting the old
-login copy. The current copy correctly says monitoring remains unknown until the
-server verifies session and Home access; the stale assertion was corrected. That
-run stopped before Android stages/APK creation. The follow-up workflow is pending.
+runtime dependency was added. The initial Actions run 39721098614 is preserved as a
+failure: the new login-race and Home/navigation browser cases passed, but the
+existing offline-startup case asserted old login copy and stopped before Android
+build. The assertion was corrected. Follow-up run 39721322469 passed browser, GS-116
+stages, Android build/signature and artifact upload, as recorded above.
 
 ## Remaining acceptance boundaries
 
-The eventual APK workflow uses its configured Render staging origin unless an
-approved workflow input/configuration selects another allowed origin. It does
-not redeploy Render. This build therefore does not connect the installed app to
-the WSL2 PostgreSQL used by the existing HOST_SIM fixture. No real S3 mTLS
+The successful APK workflow uses its configured Render staging origin and does
+not redeploy Render. It therefore does not connect the APK to the WSL2 PostgreSQL
+used by the existing HOST_SIM fixture. No real S3 mTLS
 identity, physical Node event, production caregiver authority or same-event
 backend route is established by this UI change. The local prior screenshot file
 is an older design and is not used as the binding reference; browser structural

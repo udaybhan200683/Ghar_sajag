@@ -5898,11 +5898,16 @@ traceability passes at 224 features / 278 modules / 26 physical cases, mapping
 22/22. The registered Chromium browser test could not execute on this host because Chrome /
 Chromium is absent; it is included in the Android Actions workflow. `adb` is also
 absent, so no physical-phone login timing, 3-button/gesture navigation, keyboard,
-font-scaling or screenshot comparison is claimed. GitHub Actions run 39721098614
-used Chromium, passed the new login-race and Home/navigation cases, then failed
-one offline-login copy assertion before Android build. The assertion now matches
-the corrected truthful copy; follow-up workflow is pending, so no APK was produced
-by that run. The exact test evidence, modified files, test IDs, workflow and
+font-scaling or screenshot comparison is claimed. Initial GitHub Actions run
+39721098614 passed the new browser cases but failed a stale offline-login copy
+assertion; the failure is preserved in the evidence. Follow-up run 39721322469
+passed browser 4/4 with 92/92 assertions, GS-116 caregiver/API and Android stages,
+APK build/signature and artifact upload. The runner-debug APK is source `2a1b5ffa`,
+package `in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`,
+configured for Render staging (not WSL2 HOST_SIM), 2,927,482 bytes, SHA-256
+`c42fd1817f85eae52f9e7df3cb016a173ff0275b20307a2274b48a07042bab64`. The owner
+phone was unavailable; installation, real startup timing and Android system
+navigation/keyboard behavior remain NOT_RUN. Test evidence, files, IDs and
 remaining device/backend boundaries are in
 [`GS177_ANDROID_UI_REGRESSION_FIX_20261022.md`](../exec-plans/evidence/GS177_ANDROID_UI_REGRESSION_FIX_20261022.md).
 GS-177 remains In Progress; GS-179 and physical Android/real Hub acceptance are
