@@ -99,3 +99,19 @@ The baseline image is the original Home view captured with the same TEST_ONLY mo
 - Do not change `docs/product/R1_WORK_STATE.md` until GS-179 writer ownership is coordinated. Updating that shared state remains a pending integration action.
 
 No GS-179 source/worktree/server/database/network/credential changes were made. No canonical merge or shared R1 work-state edit is authorized in this execution.
+
+## Canonical GS-179 Wi-Fi and GS-177 UX integration — 2026-10-22
+
+The owner requested that the completed router-independent TEST_ONLY Wi-Fi work be checkpointed before UX integration. That ordering was preserved: Wi-Fi implementation was committed first as `fd6437eee69ca6cfabd78ab3fc3b9f38801444db`; the approved UX implementation and evidence commits were then integrated on the canonical branch as `608c5ba40453f3eead9b5e831fe22dbbe68efed5` and `794b355364471c89bf0ec30006e77e5e64e15735`. Shared Settings and source/traceability conflicts were resolved by retaining the approved UX and reconnect/reset functionality together.
+
+The combined regression exposed stale browser-test assumptions from before the approved UX change: an active urgent incident changes the Home heading, the authenticated watermark changed, and incident state is represented by a semantic `data-incident-state` attribute rather than visible label text. Existing source-linked assertions now derive the heading from authorized active incidents, check the current watermark, and assert semantic incident state. The focused browser case and full GS-179 run pass after this correction; no production assertion was weakened.
+
+Combined validation on the integrated source:
+
+- `make -C code gs179-postgres-e2e` — PASS, 55 tests; source-linked HOST_SIM event delivery, durable PostgreSQL and caregiver projection. Physical sensor remains NOT_RUN.
+- `make -C code pwa-68-browser-test` — PASS, 4/4 browser tests and 92/92 rendered catalog assertions, including Home severity/freshness, all four tabs and responsive UX.
+- Connected caregiver API — PASS, 22/22; JavaScript runtime — PASS, 10/10.
+- GS-179 PostgreSQL security — PASS, 18/18; GS-116 validation framework — PASS, 51/51; GS-130 feature coverage/traceability — PASS, 225 features / 278 modules / 26 physical cases and 22/22 framework cases.
+- JavaScript/Python syntax and `git diff --check` — PASS. Local Android Gradle build is unavailable because this host lacks Gradle/Android SDK; the authorized CI workflow is the APK build path.
+
+The live laptop route is not ready for a phone test: current Agrim address is `192.168.1.8/24`, while existing portproxy still targets historical `192.168.1.6`. No elevated Windows forwarding/firewall change was made. Yogi → Agrim → Yogi on the physical phone, APK installation/signature comparison, real Hub authentication, and a genuine PIR event remain NOT_RUN. A combined APK workflow is required from the final pushed source; that build will not establish phone acceptance.

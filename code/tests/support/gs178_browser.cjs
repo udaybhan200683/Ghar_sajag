@@ -68,9 +68,10 @@ const os = require('os');
     let homeMonitoringAssertions=0;
     if(config.monitoring){
       const homeMonitoring=page.locator('#homeTab .connected-home-hero');
-      const heading=config.sourceFreshness==='CURRENT'&&config.monitoring==='COVERED'
-        ?'Monitoring coverage is current'
-        :config.sourceFreshness==='STALE'?'Monitoring source is stale':'Monitoring status is unknown';
+      const heading=config.expectedMonitoringHeading||(
+        config.sourceFreshness==='CURRENT'&&config.monitoring==='COVERED'
+          ?'Monitoring coverage is current'
+          :config.sourceFreshness==='STALE'?'Monitoring source is stale':'Monitoring status is unknown');
       await expect(homeMonitoring).toHaveAttribute('data-source-freshness',config.sourceFreshness);
       await expect(homeMonitoring).toHaveAttribute('data-monitoring',config.monitoring);
       await expect(homeMonitoring).toContainText(heading);
@@ -84,12 +85,12 @@ const os = require('os');
     await page.locator('[data-open-tab="incidents"]').click();
     for(const [action,state] of [['claim','CLAIMED'],['acknowledge','ACKNOWLEDGED'],['resolve','RESOLVED']]){
       await page.locator(`[data-incident-action="${action}"]`).click();
-      await expect(page.locator('[data-incident-id]')).toContainText(state);
+      await expect(page.locator('[data-incident-id]')).toHaveAttribute('data-incident-state',state);
     }
     await page.reload();
     await page.locator('[data-tab="reports"]').click();
     await page.locator('[data-open-tab="incidents"]').click();
-    await expect(page.locator('[data-incident-id]')).toContainText('RESOLVED');
+    await expect(page.locator('[data-incident-id]')).toHaveAttribute('data-incident-state','RESOLVED');
     offline=true;await context.setOffline(true);
     await page.locator('[data-tab="home"]').click();
     await expect(page.locator('#connectionStatus')).toContainText('OFFLINE');

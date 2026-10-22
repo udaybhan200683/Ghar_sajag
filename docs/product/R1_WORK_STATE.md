@@ -6090,3 +6090,31 @@ untracked and ignored files are preserved. GS-177, GS-179, GS-117 and GS-60
 remain open/In Progress or otherwise at their existing Jira states. After this
 Wi-Fi-only source checkpoint is validated and pushed, continue the owner-
 authorized GS-177 UX integration in this same worktree.
+
+## GS-177 UX integrated after Wi-Fi checkpoint — 2026-10-22
+
+The requested implementation order was followed. Router-independent TEST_ONLY
+Wi-Fi source is first checkpointed at `fd6437eee69ca6cfabd78ab3fc3b9f38801444db`.
+The owner-approved GS-177 UX implementation and APK evidence were then
+integrated sequentially on the same canonical branch at
+`608c5ba40453f3eead9b5e831fe22dbbe68efed5` and
+`794b355364471c89bf0ec30006e77e5e64e15735`. Shared Settings and traceability
+conflicts preserve the approved UX and guarded reconnect/reset behavior.
+
+The combined GS-179 PostgreSQL vertical passes 55/55, the shared PWA browser
+stage passes 4/4 with 92/92 catalog assertions, caregiver API 22/22, runtime JS
+10/10, GS-179 security 18/18, validation framework 51/51, and feature coverage
+and traceability pass (225 features, 278 modules, 26 physical cases; framework
+22/22). Existing browser assertions now check incident-driven Home status, the
+current authenticated watermark, and semantic incident state after UX changes.
+These are HOST_SIM and TEST_ONLY software results.
+
+No phone test has been performed. Current read-only Agrim evidence still shows
+Windows `192.168.1.8/24`, WSL2 `172.17.152.10`, and an existing portproxy target
+of `192.168.1.6`; caregiver HTTPS/PostgreSQL are healthy locally but current
+LAN route is not verified. The optional address-refresh watcher is not registered
+because the available Windows token is not elevated. The combined local-LAN APK
+build is pending the established Android CI workflow from final pushed source.
+No app was installed, cleared or removed. Real Hub authentication, physical
+Yogi → Agrim → Yogi reconnection, real PIR, and GS-117/GS-60 acceptance remain
+NOT_RUN.

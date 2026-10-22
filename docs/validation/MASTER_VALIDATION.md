@@ -955,3 +955,22 @@ address; therefore current laptop LAN reachability is FAIL, despite healthy
 local PostgreSQL and caregiver HTTPS. The optional elevated Windows refresh
 watcher was not registered. These software results do not promote the physical
 case or real Hub/PIR status.
+
+## GS-177 UX integration after the Wi-Fi checkpoint — 2026-10-22
+
+The router-independent TEST_ONLY source checkpoint was committed first at
+`fd6437eee69ca6cfabd78ab3fc3b9f38801444db`; the approved UX commits were then
+integrated on the canonical branch at `608c5ba40453f3eead9b5e831fe22dbbe68efed5`
+and `794b355364471c89bf0ec30006e77e5e64e15735`. Existing source-linked browser
+assertions were corrected for the approved incident-driven Home heading,
+authenticated watermark and semantic incident-state attribute.
+
+Integrated-source validation: `make -C code gs179-postgres-e2e` 55/55 PASS;
+`make -C code pwa-68-browser-test` 4/4 PASS and 92/92 catalog assertions;
+caregiver API 22/22 PASS; runtime JavaScript 10/10 PASS; GS-179 security 18/18
+PASS; validation framework 51/51 PASS; feature coverage/traceability PASS
+(225 features, 278 source modules, 26 physical cases; 22/22 framework checks).
+These are HOST_SIM/TEST_ONLY and browser/API software results. The actual
+Android phone and Yogi → Agrim → Yogi sequence remain NOT_RUN. Current Agrim
+portproxy still points to the historical Windows address, so phone LAN route is
+not verified. The Android CI APK build remains pending on final integrated source.

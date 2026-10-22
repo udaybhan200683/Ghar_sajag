@@ -422,6 +422,13 @@ class NodeOriginVertical(unittest.TestCase):
         self.input(0,"motion")
         self.input(1,"help")
         self.assertEqual(self.sync()["completed"],2)
+        active_incidents=[item for item in self.view("incidents")["incidents"]
+                          if item["state"] in {"OPEN","CLAIMED","ROUTE_EXHAUSTED"}]
+        expected_heading=("Urgent incident needs attention"
+                          if any(item["severity"]=="URGENT" for item in active_incidents)
+                          else "A home concern needs attention"
+                          if any(item["severity"]=="CONCERN" for item in active_incidents)
+                          else "Monitoring coverage is current")
         committed = [receipt for receipt in self.stack.receipts
             if receipt.get("path") == f"/v1/homes/{HOME}/events"
             and receipt.get("status") in (200, 201)
@@ -457,7 +464,8 @@ class NodeOriginVertical(unittest.TestCase):
                               "nodeCount":4,
                               "monitoring":"COVERED",
                               "sourceFreshness":"CURRENT",
-                              "source":"Authenticated GS-148 TEST_ONLY caregiver data"}),
+                              "expectedMonitoringHeading":expected_heading,
+                              "source":"TEST_ONLY · authenticated GS-148 caregiver data"}),
             text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=90,env=env)
         self.assertEqual(result.returncode,0,result.stdout)
         report=json.loads(result.stdout.splitlines()[-1])
