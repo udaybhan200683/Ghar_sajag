@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <ctime>
 #include <limits>
 #include <utility>
 
@@ -39,6 +40,31 @@ bool valid_time_snapshot(Milliseconds requested_ms,
         time.monotonic_ms == requested_ms && time.utc_now > 0 &&
         time.boot_generation > 0;
 }
+
+bool trusted_utc_components(EpochSeconds trusted_utc,
+                            std::array<int, 6>& components) {
+    if (trusted_utc <= 0) return false;
+    const auto instant = static_cast<std::time_t>(trusted_utc);
+    if (static_cast<EpochSeconds>(instant) != trusted_utc) return false;
+    std::tm utc{};
+    if (gmtime_r(&instant, &utc) == nullptr) return false;
+    components = {utc.tm_year + 1900, utc.tm_mon + 1, utc.tm_mday,
+                  utc.tm_hour, utc.tm_min, utc.tm_sec};
+    return true;
+}
+
+#if !defined(ESP_PLATFORM)
+std::array<int, 6> certificate_time_components(const std::tm& value) {
+    return {value.tm_year + 1900, value.tm_mon + 1, value.tm_mday,
+            value.tm_hour, value.tm_min, value.tm_sec};
+}
+#endif
+
+#if defined(ESP_PLATFORM)
+std::array<int, 6> certificate_time_components(const mbedtls_x509_time& value) {
+    return {value.year, value.mon, value.day, value.hour, value.min, value.sec};
+}
+#endif
 
 bool all_zero(const std::array<std::uint8_t, 32>& nonce) {
     return std::all_of(nonce.begin(), nonce.end(),
@@ -127,6 +153,43 @@ bool cloud_client_certificate_matches(const S3CloudTrustMaterial& material) {
         observed.push_back(kHex[byte & 0x0f]);
     }
     return observed == material.certificate_fingerprint_sha256;
+}
+
+bool cloud_client_certificate_current(const S3CloudTrustMaterial& material,
+                                      EpochSeconds trusted_utc) {
+    std::array<int, 6> now{};
+    if (!trusted_utc_components(trusted_utc, now) ||
+        material.client_certificate_pem.empty() ||
+        material.client_certificate_pem.size() > 8192) return false;
+#if defined(ESP_PLATFORM)
+    mbedtls_x509_crt certificate;
+    mbedtls_x509_crt_init(&certificate);
+    const auto parse_status = mbedtls_x509_crt_parse(
+        &certificate,
+        reinterpret_cast<const unsigned char*>(material.client_certificate_pem.c_str()),
+        material.client_certificate_pem.size() + 1);
+    const bool valid = parse_status == 0 &&
+        certificate_time_components(certificate.valid_from) <= now &&
+        now <= certificate_time_components(certificate.valid_to);
+    mbedtls_x509_crt_free(&certificate);
+    return valid;
+#else
+    BIO* input = BIO_new_mem_buf(material.client_certificate_pem.data(),
+                                 static_cast<int>(material.client_certificate_pem.size()));
+    X509* certificate = input == nullptr ? nullptr :
+        PEM_read_bio_X509(input, nullptr, nullptr, nullptr);
+    std::tm not_before{};
+    std::tm not_after{};
+    const bool parsed = certificate != nullptr &&
+        ASN1_TIME_to_tm(X509_get0_notBefore(certificate), &not_before) == 1 &&
+        ASN1_TIME_to_tm(X509_get0_notAfter(certificate), &not_after) == 1;
+    const bool valid = parsed &&
+        certificate_time_components(not_before) <= now &&
+        now <= certificate_time_components(not_after);
+    X509_free(certificate);
+    BIO_free(input);
+    return valid;
+#endif
 }
 
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
@@ -421,6 +484,8 @@ bool ProvisionedS3CloudTrust::current_identity(CloudTlsIdentity& identity) {
         current.credential_state != material.credential_state ||
         current.authority_revoked != material.authority_revoked ||
         current.test_only != material.test_only)
+        return false;
+    if (!cloud_client_certificate_current(current, trusted_time.utc_now))
         return false;
 
     CloudTlsIdentity candidate;

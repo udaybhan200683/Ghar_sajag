@@ -59,6 +59,9 @@ def main() -> int:
     # still blocking any other uncommitted source input from a source-bound build.
     allowed_untracked = {
         "?? code/firmware/hub/target/esp32s3/idf/managed_components/",
+        # This legacy IDF-generated file is preserved in the canonical worktree;
+        # this build explicitly selects its isolated SDKCONFIG under /tmp.
+        "?? code/firmware/hub/target/esp32s3/idf/sdkconfig",
         "?? code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/",
         "?? code/parivar_saathi_android_app/",
     }

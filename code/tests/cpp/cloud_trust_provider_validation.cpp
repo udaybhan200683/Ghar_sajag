@@ -2,6 +2,7 @@
 #include "firmware/hub/runtime/hub_runtime.hpp"
 
 #include <atomic>
+#include <ctime>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
@@ -107,72 +108,90 @@ struct TestClientCertificate {
     ~TestClientCertificate() { EVP_PKEY_free(key); }
 };
 
+TestClientCertificate make_test_client_certificate(EVP_PKEY* key,
+                                                    EpochSeconds not_before,
+                                                    EpochSeconds not_after) {
+    TestClientCertificate value;
+    if (key == nullptr || not_before <= 0 || not_after <= not_before ||
+        EVP_PKEY_up_ref(key) != 1)
+        throw std::runtime_error("TEST_ONLY cloud identity key reference failed");
+    value.key = key;
+
+    X509* certificate = X509_new();
+    bool cert_ok = certificate != nullptr && X509_set_version(certificate, 2) == 1 &&
+        ASN1_INTEGER_set(X509_get_serialNumber(certificate), 7) == 1 &&
+        ASN1_TIME_set(X509_getm_notBefore(certificate),
+                      static_cast<std::time_t>(not_before)) != nullptr &&
+        ASN1_TIME_set(X509_getm_notAfter(certificate),
+                      static_cast<std::time_t>(not_after)) != nullptr &&
+        X509_set_pubkey(certificate, key) == 1;
+    X509_NAME* subject = certificate == nullptr ? nullptr : X509_get_subject_name(certificate);
+    cert_ok = cert_ok && subject != nullptr &&
+        X509_NAME_add_entry_by_txt(subject, "CN", MBSTRING_ASC,
+            reinterpret_cast<const unsigned char*>("TEST_ONLY:test-hub-1"), -1, -1, 0) == 1 &&
+        X509_set_issuer_name(certificate, subject) == 1;
+    X509V3_CTX extension_context;
+    if (certificate != nullptr)
+        X509V3_set_ctx(&extension_context, certificate, certificate, nullptr, nullptr, 0);
+    X509_EXTENSION* basic = cert_ok ? X509V3_EXT_conf_nid(
+        nullptr, &extension_context, NID_basic_constraints,
+        const_cast<char*>("critical,CA:FALSE")) : nullptr;
+    X509_EXTENSION* usage = cert_ok ? X509V3_EXT_conf_nid(
+        nullptr, &extension_context, NID_ext_key_usage,
+        const_cast<char*>("clientAuth")) : nullptr;
+    cert_ok = cert_ok && basic != nullptr && usage != nullptr &&
+        X509_add_ext(certificate, basic, -1) == 1 &&
+        X509_add_ext(certificate, usage, -1) == 1 &&
+        X509_sign(certificate, key, EVP_sha256()) > 0;
+    X509_EXTENSION_free(basic);
+    X509_EXTENSION_free(usage);
+    if (!cert_ok) {
+        X509_free(certificate);
+        throw std::runtime_error("TEST_ONLY cloud identity certificate generation failed");
+    }
+
+    BIO* output = BIO_new(BIO_s_mem());
+    if (output == nullptr || PEM_write_bio_X509(output, certificate) != 1) {
+        BIO_free(output);
+        X509_free(certificate);
+        throw std::runtime_error("TEST_ONLY cloud identity certificate encoding failed");
+    }
+    char* data = nullptr;
+    const auto size = BIO_get_mem_data(output, &data);
+    value.pem.assign(data, static_cast<std::size_t>(size));
+    std::array<unsigned char, 32> fingerprint{};
+    unsigned int fingerprint_size = 0;
+    if (X509_digest(certificate, EVP_sha256(), fingerprint.data(),
+                    &fingerprint_size) != 1 || fingerprint_size != fingerprint.size()) {
+        BIO_free(output);
+        X509_free(certificate);
+        throw std::runtime_error("TEST_ONLY cloud identity fingerprint failed");
+    }
+    static constexpr char kHex[] = "0123456789abcdef";
+    for (auto byte : fingerprint) {
+        value.fingerprint.push_back(kHex[(byte >> 4) & 0x0f]);
+        value.fingerprint.push_back(kHex[byte & 0x0f]);
+    }
+    BIO_free(output);
+    X509_free(certificate);
+    return value;
+}
+
 const TestClientCertificate& test_client_certificate() {
     static const TestClientCertificate result = [] {
-        TestClientCertificate value;
         EVP_PKEY_CTX* key_context = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+        EVP_PKEY* key = nullptr;
         const bool key_ok = key_context != nullptr &&
             EVP_PKEY_keygen_init(key_context) == 1 &&
             EVP_PKEY_CTX_set_rsa_keygen_bits(key_context, 3072) == 1 &&
-            EVP_PKEY_keygen(key_context, &value.key) == 1;
+            EVP_PKEY_keygen(key_context, &key) == 1;
         EVP_PKEY_CTX_free(key_context);
-        if (!key_ok) throw std::runtime_error("TEST_ONLY cloud identity key generation failed");
-
-        X509* certificate = X509_new();
-        bool cert_ok = certificate != nullptr && X509_set_version(certificate, 2) == 1 &&
-            ASN1_INTEGER_set(X509_get_serialNumber(certificate), 7) == 1 &&
-            X509_gmtime_adj(X509_getm_notBefore(certificate), -60) != nullptr &&
-            X509_gmtime_adj(X509_getm_notAfter(certificate), 86400) != nullptr &&
-            X509_set_pubkey(certificate, value.key) == 1;
-        X509_NAME* subject = certificate == nullptr ? nullptr : X509_get_subject_name(certificate);
-        cert_ok = cert_ok && subject != nullptr &&
-            X509_NAME_add_entry_by_txt(subject, "CN", MBSTRING_ASC,
-                reinterpret_cast<const unsigned char*>("TEST_ONLY:test-hub-1"), -1, -1, 0) == 1 &&
-            X509_set_issuer_name(certificate, subject) == 1;
-        X509V3_CTX extension_context;
-        if (certificate != nullptr)
-            X509V3_set_ctx(&extension_context, certificate, certificate, nullptr, nullptr, 0);
-        X509_EXTENSION* basic = cert_ok ? X509V3_EXT_conf_nid(
-            nullptr, &extension_context, NID_basic_constraints,
-            const_cast<char*>("critical,CA:FALSE")) : nullptr;
-        X509_EXTENSION* usage = cert_ok ? X509V3_EXT_conf_nid(
-            nullptr, &extension_context, NID_ext_key_usage,
-            const_cast<char*>("clientAuth")) : nullptr;
-        cert_ok = cert_ok && basic != nullptr && usage != nullptr &&
-            X509_add_ext(certificate, basic, -1) == 1 &&
-            X509_add_ext(certificate, usage, -1) == 1 &&
-            X509_sign(certificate, value.key, EVP_sha256()) > 0;
-        X509_EXTENSION_free(basic);
-        X509_EXTENSION_free(usage);
-        if (!cert_ok) {
-            X509_free(certificate);
-            throw std::runtime_error("TEST_ONLY cloud identity certificate generation failed");
+        if (!key_ok) {
+            EVP_PKEY_free(key);
+            throw std::runtime_error("TEST_ONLY cloud identity key generation failed");
         }
-
-        BIO* output = BIO_new(BIO_s_mem());
-        if (output == nullptr || PEM_write_bio_X509(output, certificate) != 1) {
-            BIO_free(output);
-            X509_free(certificate);
-            throw std::runtime_error("TEST_ONLY cloud identity certificate encoding failed");
-        }
-        char* data = nullptr;
-        const auto size = BIO_get_mem_data(output, &data);
-        value.pem.assign(data, static_cast<std::size_t>(size));
-        std::array<unsigned char, 32> fingerprint{};
-        unsigned int fingerprint_size = 0;
-        if (X509_digest(certificate, EVP_sha256(), fingerprint.data(),
-                        &fingerprint_size) != 1 || fingerprint_size != fingerprint.size()) {
-            BIO_free(output);
-            X509_free(certificate);
-            throw std::runtime_error("TEST_ONLY cloud identity fingerprint failed");
-        }
-        static constexpr char kHex[] = "0123456789abcdef";
-        for (auto byte : fingerprint) {
-            value.fingerprint.push_back(kHex[(byte >> 4) & 0x0f]);
-            value.fingerprint.push_back(kHex[byte & 0x0f]);
-        }
-        BIO_free(output);
-        X509_free(certificate);
+        auto value = make_test_client_certificate(key, 1'799'999'000, 1'800'001'000);
+        EVP_PKEY_free(key);
         return value;
     }();
     return result;
@@ -435,6 +454,34 @@ void test_identity_negative_matrix() {
         check(!provider.current_binding(binding) && !provider.current_identity(identity),
               mutation.first);
     }
+}
+
+void test_hub_identity_rejects_certificate_outside_authenticated_time() {
+    FakeClock clock;
+    FakeTimeSource time{clock};
+    time.ready = true;
+    FakeMaterialSource source;
+    source.value = valid_material();
+    ProvisionedS3CloudTrust provider(source, time, clock);
+
+    auto assert_rejected = [&](EpochSeconds not_before, EpochSeconds not_after,
+                               const char* reason) {
+        const auto& base = test_client_certificate();
+        const auto invalid = make_test_client_certificate(
+            base.key, not_before, not_after);
+        auto material = valid_material();
+        material.client_certificate_pem = invalid.pem;
+        material.certificate_fingerprint_sha256 = invalid.fingerprint;
+        source.update(material);
+        CloudTlsIdentity identity;
+        check(!provider.current_identity(identity), reason);
+    };
+
+    // The fake trusted clock is exactly 1,800,000,000 UTC seconds.
+    assert_rejected(1'799'000'000, 1'799'999'999,
+                    "expired Hub client certificate is rejected using trusted time");
+    assert_rejected(1'800'000'001, 1'801'000'000,
+                    "not-yet-valid Hub client certificate is rejected using trusted time");
 }
 
 void test_signed_time_proof_cryptography_and_replay() {
@@ -879,6 +926,8 @@ int main() {
     try {
         test_identity_and_ownership_provider();
         std::cout << "GS68-D05-AUTHORITY-PROVIDER PASS\n";
+        test_hub_identity_rejects_certificate_outside_authenticated_time();
+        std::cout << "GS68-D05-CERT-VALIDITY-001 PASS\n";
         test_identity_negative_matrix();
         std::cout << "GS68-D12-CREDENTIAL-PROVIDER PASS\n";
         test_authenticated_time_bootstrap_and_recovery();
