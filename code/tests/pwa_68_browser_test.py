@@ -96,8 +96,7 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertIsNotNone(dom,f'caregiver UI did not render; last evaluation={result!r}')
     self.assertIn('OFFLINE / UNCONFIGURED',dom['banner'])
     self.assertIn('no approved HTTPS backend',dom['banner'])
-    self.assertIn('Monitoring status is unknown',dom['home'])
-    self.assertIn('Approved HTTPS backend is not configured',dom['home'])
+    self.assertIn('Monitoring status remains unknown until the server verifies your session and current Home access.',dom['home'])
     self.assertFalse(dom['pilot'])
     branding=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const name=document.querySelector('.brand-name');const icon=document.querySelector('.brand-icon');return {name:name?.textContent?.trim(),icon:icon?.getAttribute('src'),loaded:!!icon?.complete&&icon.naturalWidth===192}})()",'returnByValue':True})['result']['value']
     self.assertEqual(branding,{'name':'Parivar Saathi','icon':'assets/parivar-saathi-icon-192.png','loaded':True},'PWA branding must use the approved logo mark and name')

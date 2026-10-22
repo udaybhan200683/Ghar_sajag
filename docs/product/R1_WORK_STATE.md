@@ -5898,9 +5898,12 @@ traceability passes at 224 features / 278 modules / 26 physical cases, mapping
 22/22. The registered Chromium browser test could not execute on this host because Chrome /
 Chromium is absent; it is included in the Android Actions workflow. `adb` is also
 absent, so no physical-phone login timing, 3-button/gesture navigation, keyboard,
-font-scaling or screenshot comparison is claimed. No APK was built or installed
-at this checkpoint. The exact test evidence, modified files, test IDs, workflow
-and remaining device/backend boundaries are in
+font-scaling or screenshot comparison is claimed. GitHub Actions run 39721098614
+used Chromium, passed the new login-race and Home/navigation cases, then failed
+one offline-login copy assertion before Android build. The assertion now matches
+the corrected truthful copy; follow-up workflow is pending, so no APK was produced
+by that run. The exact test evidence, modified files, test IDs, workflow and
+remaining device/backend boundaries are in
 [`GS177_ANDROID_UI_REGRESSION_FIX_20261022.md`](../exec-plans/evidence/GS177_ANDROID_UI_REGRESSION_FIX_20261022.md).
 GS-177 remains In Progress; GS-179 and physical Android/real Hub acceptance are
 unchanged.

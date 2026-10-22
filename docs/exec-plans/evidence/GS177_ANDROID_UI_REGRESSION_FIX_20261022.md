@@ -80,8 +80,12 @@ working-tree changes:
 - `adb devices -l` — NOT_RUN; `adb` is not installed. No physical phone interaction occurred.
 
 The temporary Python environment used pinned test dependencies only; no repository
-runtime dependency was added. Android Actions and reproducible APK build have not
-yet been triggered in this checkpoint.
+runtime dependency was added. Android Actions run 39721098614 used Chromium and
+passed the new delayed-session/login-race and authenticated Home/navigation cases,
+but failed the existing offline-startup case on an assertion expecting the old
+login copy. The current copy correctly says monitoring remains unknown until the
+server verifies session and Home access; the stale assertion was corrected. That
+run stopped before Android stages/APK creation. The follow-up workflow is pending.
 
 ## Remaining acceptance boundaries
 
