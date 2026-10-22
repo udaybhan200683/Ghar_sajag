@@ -5914,3 +5914,49 @@ remaining device/backend boundaries are in
 [`GS177_ANDROID_UI_REGRESSION_FIX_20261022.md`](../exec-plans/evidence/GS177_ANDROID_UI_REGRESSION_FIX_20261022.md).
 GS-177 remains In Progress; GS-179 and physical Android/real Hub acceptance are
 unchanged.
+
+## 2026-10-22 — GS-179 customer cloud architecture checkpoint
+
+Owner directions GS-179 comment 11532 and GS-117 comment 11533 select an
+outbound customer Hub-to-cloud path; the laptop is not the product architecture.
+The Jira inventory was refreshed (173 issues; Rank unchanged): GS-114 Rank 31,
+GS-117 Rank 52, GS-60 Rank 60, and GS-179 Rank 173. GS-179 remains In Progress;
+GS-117 remains In Progress; GS-60 remains To Do.
+
+At checkpoint start, `/home/udaybhan/projects/Ghar_sajag_r1` on
+`feature/r1-commercial-baseline` was at `1f6b72b3fac0a4ddf5b58a78d42ed430ffb124e4`,
+equal to the live origin. Tracked files were clean; the 301 pre-existing
+untracked items and 174,520 ignored paths were preserved. Context preflight
+passed at `2026-10-13.001`.
+
+The current Render caregiver service is still the Free staging deployment at
+`3c0fec898d5cb2caae662f3dcc6324faaabf6b30`. Its TLS-terminating edge does not
+provide the WSGI process with the verified Hub peer socket. The current WSGI
+app does not mount the commercial GS-148 durable API/read model, and the
+production S3 source still uses `UnprovisionedS3CloudTrust`. The existing
+GS-179 runtime and same-PostgreSQL caregiver projection are implemented and
+validated only in isolated TEST_ONLY/HOST_SIM mode.
+
+An engineering topology recommendation is recorded in
+[`GS-179 commercial cloud vertical evidence`](../exec-plans/evidence/GS179_COMMERCIAL_CLOUD_VERTICAL_20261022.md): a small Mumbai cloud host with
+application-terminated Hub TLS and caregiver HTTPS routed by SNI to distinct
+processes, both using one private managed PostgreSQL database. Indicative
+baseline is about USD 42/month before domain, tax, snapshots and overage. This
+is not provisioned, not a locked product/security decision, and not approval to
+spend or change DNS. It avoids accepting caller-supplied identity headers and
+does not rely on Render's TLS-terminating ingress for Hub authentication.
+
+No source or tests changed in this checkpoint. The latest registered GS-179
+PostgreSQL/runtime result remains 51/51 PASS with framework 51/51 and feature
+mapping 22/22; these are existing TEST_ONLY/HOST_SIM evidence, not a cloud or
+physical result. No production Hub identity, caregiver OIDC/Home authorization,
+same-event Android read, actual S3 authentication or physical PIR event is
+verified.
+
+GS-D032 continues to leave production credential/proof, verifier, trust
+registry, trusted-time/authority and deployment middleware/database composition
+open. GS-68/109/172 must approve the production Hub trust contract; GS-76/143
+must qualify caregiver authentication and Home membership; the owner must
+approve the paid host/database/domain before provisioning. The next Jira action
+is the production Hub identity/authority contract decision under GS-172/68/109.
+GS-179 remains In Progress and GS-117/GS-60 remain open.

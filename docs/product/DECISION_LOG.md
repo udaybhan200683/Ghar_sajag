@@ -1281,3 +1281,24 @@ pairing, provisioning, transfer, credential-retention, partition, or key
 lifecycle policy. `CONTEXT_VERSION`, GS-D031 and GS-D032 are unchanged. See
 [`GS-58 commercial integration hardening evidence`](../exec-plans/evidence/GS58_COMMERCIAL_INTEGRATION_HARDENING_20261021.md)
 for test results, target-build provenance and exact remaining gates.
+
+## GS-179 customer cloud topology checkpoint — 2026-10-22 (recommendation; no new lock)
+
+Following owner directions GS-179 comment 11532 and GS-117 comment 11533, the
+customer data path is outbound S3 Hub-to-cloud and must not depend on a
+developer laptop. The engineering topology recommendation is one small cloud
+host with application-terminated Hub TLS ingress and caregiver HTTPS on
+separate SNI hostnames, sharing one private managed PostgreSQL database. The
+existing TEST_ONLY listener is not a commercial listener and remains isolated.
+
+This recommendation does not resolve or lock the production certificate,
+proof-of-possession, issuer/registry, trusted-time, current authority, caregiver
+identity, Home-membership, middleware or deployment contracts. Those remain
+open under GS-D032 and their GS-68/109/148/172/76/143 owners. No production
+credential or cloud resource was created, and no external service, domain,
+network, database or customer data was changed. Owner resource/security
+approval is still required before deployment. Evidence and current provider
+capability/cost findings are in
+[`GS-179 commercial cloud vertical evidence`](../exec-plans/evidence/GS179_COMMERCIAL_CLOUD_VERTICAL_20261022.md).
+`CONTEXT_VERSION` remains unchanged because no new locked product/security
+decision was made.
