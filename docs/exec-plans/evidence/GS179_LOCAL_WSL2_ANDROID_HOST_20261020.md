@@ -600,3 +600,47 @@ feature traceability suite (22/22), shell/Python/JSON syntax checks and
 `git diff --check`. The registered runner reaches its Android stage but exits
 127 because Gradle and Android SDK are absent in WSL. No APK was built or
 installed during that local run.
+
+
+### CI/APK and owner-verification addendum — 2026-10-22
+
+The source push at `8ca19768ea3da392d2badbb8b9e9077702bc54dc` triggered GS-177
+workflow 39821567855, which passed its registered PWA and Android stages. The
+separate local-LAN workflow 39822389037 was dispatched with
+`backend_origin=https://desktop-3qqu64b.local` and
+`gs179_local_lan_test_only=true`. Its first attempt failed before Android
+build because Chromium DevTools did not start in two pre-existing browser cases;
+the same run's failed job was retried, and attempt 2 passed:
+
+- `make pwa-68-browser-test`: 4 browser tests; 92/92 rendered cases PASS.
+- `python3 validation/component_gate.py --suite caregiver-app`: API 22,
+  Android dashboard 17, voice prototype 28; all registered stages PASS.
+- Android `:app:testDebugUnitTest :app:assembleDebug`: PASS.
+- APK signature verification and uploaded SHA-256 evidence: PASS.
+
+Artifact: [workflow 39822389037](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39822389037),
+artifact `parivar-saathi-caregiver-debug-8ca19768ea3da392d2badbb8b9e9077702bc54dc`,
+available through 2026-11-05. Build metadata says package
+`in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`, TEST_ONLY
+origin `https://desktop-3qqu64b.local`, CA SHA-256
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`.
+APK SHA-256 is
+`b54d0ebd45653d2e085be1deaaf5686c5d73802f05fbaaeb7338e1315f8084c3`.
+Signer certificate SHA-256 is
+`8caa922ccf7efae2337ba8d63780d12a0d2935bba3f10872b0466f51330eed11`.
+The prior installed workflow 39797650882 signer was
+`141f15cdaec4645094cb0657956f8b82110f2f4eccfda61a9b5260052e111392`;
+the signatures differ, so this artifact cannot update that installation in
+place. It was not installed; do not uninstall/clear the owner's app without
+approval.
+
+A documentation synchronization check initially failed because the GS179-LAN-01 row command and assertion anchor diverged from the registered suite/source. The row was corrected to the three registered commands and the source test marker; `make -C code feature-coverage-test` then passed (225 features, 280 modules, 26 physical cases; 22/22 mapping tests). The failed first check was preserved here rather than hidden.
+
+The owner separately reports that the already-installed APK connects on Agrim,
+logs in and loads authorized Home using the manual IP fallback
+`https://192.168.1.8`. This is phone PASS for IP fallback only. Automatic
+DNS-SD, unchanged-APK Yogi → Agrim → Yogi switching, and phone use of this new
+APK remain NOT_RUN. No IP, forwarding, firewall, Windows network profile,
+certificate, or listener configuration was changed as part of source
+validation/build. Current Windows Public profile and unregistered privileged
+network watcher still prevent claiming operational automatic discovery.

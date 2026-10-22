@@ -6224,3 +6224,42 @@ static `GS177-LAN-NSD-001`, Windows DNS-SD validation 13 policy cases, traceabil
 22/22, syntax/JSON and `git diff --check`. The local Android runner again exits
 127 because Gradle/Android SDK are not installed in WSL. No APK or Android JUnit
 result is claimed from this local environment.
+
+
+### GS-177 / GS-179 Android discovery CI and APK — 2026-10-22
+
+Commit `8ca19768ea3da392d2badbb8b9e9077702bc54dc` is pushed and remote-verified.
+Push workflow 39821567855 passed. Local-LAN workflow 39822389037 used
+`https://desktop-3qqu64b.local` and GS179 TEST_ONLY. Attempt 1 had two existing
+PWA browser tests fail because Chromium DevTools did not start; retry attempt 2
+passed all stages. PWA: 4 tests, 92/92 rendered cases. Registered caregiver-app
+stages: connected-lite API 22, Android dashboard 17, voice prototype 28, all
+PASS. Android unit tests and assembleDebug passed, APK signature verified.
+
+The 14-day artifact is
+[workflow 39822389037](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39822389037),
+APK SHA-256
+`b54d0ebd45653d2e085be1deaaf5686c5d73802f05fbaaeb7338e1315f8084c3`, package
+`in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`, source
+`8ca19768ea3da392d2badbb8b9e9077702bc54dc`, origin
+`https://desktop-3qqu64b.local`, CA SHA-256
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`.
+The generated debug signer SHA-256 is
+`8caa922ccf7efae2337ba8d63780d12a0d2935bba3f10872b0466f51330eed11`, which
+differs from installed workflow 39797650882 signer
+`141f15cdaec4645094cb0657956f8b82110f2f4eccfda61a9b5260052e111392`.
+Therefore it is not an in-place update. It was not installed and no existing
+phone app data was cleared.
+
+While synchronizing the latest CI evidence, `make -C code feature-coverage-test` first rejected a mismatched command and test anchor in GS179-LAN-01. The traceability row was corrected to the commands in `suites.json` and the JUnit marker; rerun passed with 225 feature rows, 280 modules, 26 physical cases and 22/22 framework tests. The initial failure is recorded in the evidence file.
+
+The owner's physical phone report still proves only Agrim login/Home through
+manual HTTPS IP fallback `192.168.1.8`. New automatic DNS-SD and Yogi → Agrim
+→ Yogi behavior remain NOT_RUN. No laptop network/IP/portproxy/firewall changes
+were made. Windows currently categorizes Agrim as Public, so the TEST_ONLY
+advertiser remains fail-closed; the privileged network watcher is unregistered.
+Stale .6 portproxy cleanup remains separate. No real Hub/PIR event or physical
+sensor provenance is implied.
+
+Detailed evidence is in
+[GS-179 laptop/Android evidence](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#ciapk-and-owner-verification-addendum--2026-10-22).
