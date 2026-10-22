@@ -5907,7 +5907,9 @@ package `in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`,
 configured for Render staging (not WSL2 HOST_SIM), 2,927,482 bytes, SHA-256
 `c42fd1817f85eae52f9e7df3cb016a173ff0275b20307a2274b48a07042bab64`. The owner
 phone was unavailable; installation, real startup timing and Android system
-navigation/keyboard behavior remain NOT_RUN. Test evidence, files, IDs and
+navigation/keyboard behavior remain NOT_RUN. This runner signing certificate
+differs from immediately previous CI run 39716865657; if that is the installed
+APK, Android will require uninstall/reinstall, which may clear local app state. Test evidence, files, IDs and
 remaining device/backend boundaries are in
 [`GS177_ANDROID_UI_REGRESSION_FIX_20261022.md`](../exec-plans/evidence/GS177_ANDROID_UI_REGRESSION_FIX_20261022.md).
 GS-177 remains In Progress; GS-179 and physical Android/real Hub acceptance are
