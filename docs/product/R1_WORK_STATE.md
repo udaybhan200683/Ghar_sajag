@@ -6128,3 +6128,41 @@ CI passed PWA browser 4/4 / rendered checks 92/92, caregiver API 22/22, Android 
 
 The GitHub run aggregate later finalized `completed / success` at 2026-10-22
 14:50:44 UTC; the earlier in-progress status reflected delayed aggregation.
+
+## GS-179/GS-177 owner-reported Android Wi-Fi regression — 2026-10-22
+
+The owner installed combined TEST_ONLY APK workflow 39797650882 and reports
+login `Failed to fetch` on both Yogi and Agrim; the previous IP-origin APK had
+connected on Yogi. This is a phone-connectivity FAIL, not an authentication
+result or Hub/sensor acceptance.
+
+Current read-only state: Windows Wi-Fi profile Airtel_Agrim, `192.168.1.8/24`,
+Public profile; WSL2 `172.17.152.10`; stale portproxy
+`192.168.1.6:443 -> 172.17.152.10:8444`. WSL PostgreSQL and caregiver HTTPS
+are healthy. The caregiver TLS certificate has a valid `desktop-3qqu64b.local`
+DNS SAN and the APK-pinned CA, but its only IPv4 SAN is old `.6`; no current
+`.8` SAN exists. Correct-host TLS verification passes from WSL, wrong-host TLS
+is rejected, and current `.8` Windows-LAN HTTPS times out.
+
+Windows DNS returns both WSL virtual gateway `172.17.144.1` and Wi-Fi address
+`.8` for `desktop-3qqu64b.local`; WSL's ordinary resolver returns no `.local`
+answer. Android's selected address is unknown. A read-only direct-to-WSL
+authenticated caregiver probe passed with the existing TEST_ONLY login, read
+the one pre-existing PostgreSQL EventKey from the authorized Home, denied a
+foreign Home, and returned STALE/UNKNOWN. This record is HOST_SIM/TEST_ONLY.
+Existing caregiver regression suite `test_connected_lite.py`: 22/22 PASS.
+
+No Windows changes were made: current token is non-administrator and firewall
+readback is blocked. The automatic watcher remains unregistered; its current
+generic network-event task would run HighestAvailable and can enable the scoped
+listener on any RFC1918 Wi-Fi because it has no owner-trusted network allowlist.
+Do not register it until that trust gate is resolved. Next action: run
+`code/tools/local/gs179-laptop-server.sh network-refresh` from the canonical
+WSL distro launched by an elevated Windows Terminal while on a specifically
+owner-approved Wi-Fi; repeat for each Wi-Fi transition until a safely scoped
+watcher is approved. Require the LAN TLS probe to pass, then use phone Chrome
+`https://desktop-3qqu64b.local/readyz` to separate DNS/TLS/route failures before
+retrying APK login. If `.local` fails, use the app's reconnect action with the
+current private IPv4 only after the server leaf includes that IP SAN. No APK
+rebuild/reinstall, Home data mutation, physical Hub operation, or sensor test
+was performed in this checkpoint.

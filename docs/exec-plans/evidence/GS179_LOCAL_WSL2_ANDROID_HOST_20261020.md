@@ -417,3 +417,96 @@ This is the Wi-Fi source checkpoint only. GS-177 UX commit integration is
 deferred until this checkpoint is committed and pushed. Starting local and
 remote HEAD was `aeb2ab52a4f1c0e286817b77026d4fe13f03580b`; pre-existing
 untracked and ignored assets remain preserved.
+
+## 2026-10-22 — owner-reported Android connectivity regression
+
+The owner installed the combined TEST_ONLY APK from workflow 39797650882 and
+reported caregiver login `Failed to fetch` on both Yogi and Agrim. The previous
+IP-origin APK had connected on Yogi. This supersedes the earlier statement that
+phone-side testing was NOT_RUN: an owner-operated phone login attempt was made
+and failed. It does not establish a real Hub or sensor event.
+
+### Current read-only state and isolation
+
+- Canonical source is `feature/r1-commercial-baseline` at
+  `7d352118e37681be036c0d410ea0e4df27be53bc`, equal to the remote at the start
+  of this check. Context preflight passed. The tracked tree was clean; existing
+  untracked/generated assets were left untouched.
+- Windows reports Wi-Fi profile `Airtel_Agrim`, category `Public`,
+  `192.168.1.8/24`. WSL2 is `172.17.152.10`. The existing portproxy row remains
+  `192.168.1.6:443 -> 172.17.152.10:8444`. The WSL service and PostgreSQL are
+  active. PostgreSQL is loopback-only on 55432 and its verified TLS/durability
+  health check passes.
+- `gs179-laptop-server.sh health` reports PostgreSQL and caregiver HTTPS
+  ready locally, but its Windows-LAN TLS probe times out at the current `.8`
+  address. It reports phone reachability NOT_VERIFIED and Hub ingress
+  default-disabled. This is not a claim of physical monitoring availability.
+- The current leaf certificate chains to the same TEST_ONLY CA embedded in the
+  installed APK (CA file SHA-256
+  `7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`). The
+  leaf has DNS SAN `desktop-3qqu64b.local` and IP SAN `192.168.1.6`; its DNS
+  name verifies locally, but its IP SAN does not cover current Agrim address
+  `192.168.1.8`. A wrong TLS hostname is rejected. No TLS verification was
+  bypassed. Refreshing the leaf for `.8` was not performed because the Windows
+  forwarding operation that makes the route usable requires an elevated
+  Windows token.
+- Windows `Resolve-DnsName desktop-3qqu64b.local` currently returns A records
+  `172.17.144.1` (the WSL virtual-network gateway) and `192.168.1.8`, plus
+  link-local IPv6 records. WSL `getent hosts desktop-3qqu64b.local` returned no
+  result, and the existing browser helper failed at name resolution before
+  login. The actual Android resolver-selected address was not captured, so
+  these are concrete risks for the `.local` path, not proof of the phone's
+  selected address.
+- A direct WSL TLS probe to the caregiver listener used the `.local` SNI and
+  hostname verification with the pinned TEST_ONLY CA. Login through the
+  existing caregiver API succeeded for the owner-only TEST_ONLY fixture; the
+  same authorized Home overview returned the single pre-existing PostgreSQL
+  EventKey exactly once, and a different Home was denied. The API reported
+  source freshness `STALE` and monitoring `UNKNOWN`. The diagnostic logged out
+  its temporary session. The event is existing HOST_SIM/TEST_ONLY data, not a
+  real household or sensor event.
+- `test_connected_lite.py` ran 22/22 PASS. Its fixtures are isolated. The
+  direct WSL API probe above used the running local service and database, but
+  did not traverse Windows portproxy or the phone.
+
+### Operations not performed and exact remaining steps
+
+The current Windows token is not an administrator. The helper audit could not
+read the firewall rule, and no portproxy/firewall/certificate/service change
+was made. The existing helper's network watcher also remains unregistered. Its
+scheduled task runs with `HighestAvailable` at logon and every generic
+NetworkProfile-connected event; the `Watch` path accepts any RFC1918 Wi-Fi
+profile and has no allowlist for owner-trusted networks. It is not safe to
+register as-is under the requirement to fail closed on untrusted networks.
+Until a trusted-network policy is supplied and enforced, use an elevated
+one-time refresh only while connected to an owner-approved Wi-Fi:
+
+```bash
+code/tools/local/gs179-laptop-server.sh network-refresh
+```
+
+Run it from the canonical WSL distro launched by an elevated Windows Terminal;
+first verify that the helper's Windows PowerShell child reports an
+administrator token. This refreshes the current TEST_ONLY certificate SAN and
+private server origin, restarts the WSL service, and updates only the existing
+GS-179 Wi-Fi/subnet-scoped forwarding/firewall rule. Require
+`LAPTOP_LAN_ENDPOINT_TLS_READY=PASS` before testing the phone. Repeat the
+one-time refresh after each Yogi/Agrim switch until a safe, explicitly approved
+watcher exists.
+
+After the route is ready, test from the phone's Chrome browser first at
+`https://desktop-3qqu64b.local/readyz`; require the ready JSON without a
+certificate warning. If name resolution fails, use the APK's **Reconnect to
+laptop server** action and enter the current Windows Wi-Fi IPv4 as an HTTPS
+private-IP origin only after the helper has placed that exact IP in the leaf
+certificate SAN. Never bypass a certificate error. Then log in and confirm the
+authorized Home loads. Repeat Yogi → Agrim → Yogi with the same installed APK;
+run the elevated one-time helper refresh at each Wi-Fi transition, and record
+the displayed endpoint and phone outcome. No phone OS/device logs or screenshots
+were captured by this WSL session.
+
+The installed artifact remains workflow 39797650882, APK SHA-256
+`5aaea3c6f71e1d60b401436d987fb50633c4766ba4e7318384e077ad7f0bd02f`, package
+`in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`, origin
+`https://desktop-3qqu64b.local`. No APK rebuild or reinstall is presently
+indicated; the reported failure needs route and resolver isolation first.
