@@ -6146,7 +6146,9 @@ is rejected, and current `.8` Windows-LAN HTTPS times out.
 
 Windows DNS returns both WSL virtual gateway `172.17.144.1` and Wi-Fi address
 `.8` for `desktop-3qqu64b.local`; WSL's ordinary resolver returns no `.local`
-answer. Android's selected address is unknown. A read-only direct-to-WSL
+answer. Android source loads the `.local` origin in WebView and delegates name
+resolution to the platform; there is no app-level NSD/DNS-SD resolver. The
+Android-selected address is still unknown. A read-only direct-to-WSL
 authenticated caregiver probe passed with the existing TEST_ONLY login, read
 the one pre-existing PostgreSQL EventKey from the authorized Home, denied a
 foreign Home, and returned STALE/UNKNOWN. This record is HOST_SIM/TEST_ONLY.

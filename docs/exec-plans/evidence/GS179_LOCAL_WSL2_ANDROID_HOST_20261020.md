@@ -457,6 +457,13 @@ and failed. It does not establish a real Hub or sensor event.
   login. The actual Android resolver-selected address was not captured, so
   these are concrete risks for the `.local` path, not proof of the phone's
   selected address.
+- Android source inspection confirms `BackendOrigin` accepts the configured
+  `.local` host and `TrustedPwaWebView` loads it as the WebView origin; the
+  reconnect flow preserves normal TLS hostname validation. There is no app
+  `NsdManager`/DNS-SD resolver in this path, so `.local` resolution is delegated
+  to Android's platform/WebView resolver. This identifies a plausible boundary
+  for the phone failure, but does not prove what address or resolver error the
+  handset observed.
 - A direct WSL TLS probe to the caregiver listener used the `.local` SNI and
   hostname verification with the pinned TEST_ONLY CA. Login through the
   existing caregiver API succeeded for the owner-only TEST_ONLY fixture; the
