@@ -517,3 +517,86 @@ The installed artifact remains workflow 39797650882, APK SHA-256
 `in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`, origin
 `https://desktop-3qqu64b.local`. No APK rebuild or reinstall is presently
 indicated; the reported failure needs route and resolver isolation first.
+
+## 2026-10-22 — TEST_ONLY DNS-SD discovery and Android secure reconnect
+
+The latest owner phone report (GS-177 comment 11583) corrects the prior phone
+failure: on Agrim, the same installed TEST_ONLY APK logged in and loaded its
+authorized Home after the owner selected `https://192.168.1.8` through the
+existing reconnect control. This proves the current-IP HTTPS fallback and
+caregiver API path on that phone. The `.local` route failed, and Android
+automatic discovery plus Yogi → Agrim → Yogi remain unverified.
+
+The source change adds a TEST_ONLY-only Windows DNS-SD advertisement for the
+current HTTPS listener and foreground Android NSD discovery. Android accepts
+DNS-SD only as a locator: it probes a private IPv4 endpoint using the platform
+trust store, default IP-hostname verification, the exact configured
+`desktop-3qqu64b.local` certificate SAN, a persisted SPKI continuity pin after
+first success, no redirects, and the existing bounded `/readyz` response with
+PostgreSQL reachable. It stores the IP endpoint only after those checks, then
+reopens the same PWA/WebView origin. No identity headers, TLS override, new
+backend, or production profile change is introduced. Discovery is foreground
+and Wi-Fi only; each generation probes no more than four distinct private
+addresses, keeps at most two DNS-SD resolves pending, uses 3.5-second connect
+and read timeouts, and reads at most 4096 readiness bytes. A stale probe cannot
+persist its IP after a Wi-Fi generation change.
+
+The Windows advertiser is a non-privileged process started with the existing
+explicit `GS179_LOCAL_LAN_TEST_ONLY=1` laptop-server command. It only registers
+the existing service when active Wi-Fi is classified by Windows as `Private`
+or `DomainAuthenticated`, has an RFC1918 address, and already has the HTTPS
+listener. `Public` and unknown Windows profiles fail closed. The current
+read-only Windows profile is `Airtel_Agrim / Public`, so the advertiser will
+not publish until that owner-trusted Wi-Fi is classified as Private. The
+existing elevated network watcher remains unregistered: route, forwarding,
+firewall and current-IP certificate refresh still require its separately
+approved trusted-network lifecycle. The stale owned `192.168.1.6:443` mapping
+remains a separate cleanup issue; the current `192.168.1.8:443` mapping to
+WSL `172.17.152.10:8444` and listener were present during read-only recheck.
+
+Validation on source before delivery:
+
+- GS177 Android runner source/policy marker: `GS177-LAN-NSD-001 SOURCE_PASS`.
+- Existing PWA runtime: 10/10 PASS.
+- Windows PowerShell DNS-SD construction and policy validation: 13/13 policy
+  assertions PASS; DNS-SD record construction PASS; no socket or registration
+  opened.
+- `make -C code feature-coverage-test`: PASS, 225 feature rows, 280 source
+  modules, 26 physical cases; 22/22 framework tests.
+- Shell syntax, Python compilation, `suites.json` parse, and `git diff --check`:
+  PASS.
+- The full local Android runner exits 127 after source checks, branding, and
+  PWA tests because Gradle/Android SDK are absent from WSL. The registered CI
+  Android unit/build stage is required to compile the new Kotlin and produce
+  the TEST_ONLY APK. No phone NSD test, Wi-Fi switch, forwarding/firewall
+  mutation, or persistent watcher registration was performed.
+
+Current laptop API/TLS health checks pass from WSL; Windows IP is
+`192.168.1.8/24`, WSL is `172.17.152.10`, and Windows reports listeners on
+`.8:443` and the historical `.6:443`. This does not prove the phone's mDNS
+visibility. The real phone result remains IP-fallback PASS only. A new APK build
+will be needed because the Android source changed, but CI signing compatibility
+with the installed build must be checked before installation. If the server
+address changes, caregiver login may be required again because HTTPS cookies
+are origin-bound.
+
+### Same-origin route recovery correction
+
+The Android activity now observes `ConnectivityManager.NetworkCallback` link
+properties as well as default-network changes. It restarts bounded NSD discovery
+when the active Wi-Fi network or its address/route signature changes. After a
+candidate passes HTTPS CA validation, the current IP SAN, the expected laptop
+DNS SAN, the persisted SPKI continuity check and database readiness, it reloads
+the caregiver WebView when either the endpoint or Wi-Fi route changed. This
+handles a route transition that retains the same private IP; simply foregrounding
+the app on an unchanged network does not force a reload. JUnit coverage was
+added for this same-origin route transition. CI Android compilation and actual
+phone DNS-SD/Yogi → Agrim → Yogi validation remain pending.
+
+The follow-up validation on this source re-ran the PWA JS tests (10/10), the
+GS-179 local Android source/policy checks, Windows DNS-SD policy/record
+construction validation (13 policy cases; no registration or socket), the
+feature traceability suite (22/22), shell/Python/JSON syntax checks and
+`git diff --check`. The registered runner reaches its Android stage but exits
+127 because Gradle and Android SDK are absent in WSL. No APK was built or
+installed during that local run.

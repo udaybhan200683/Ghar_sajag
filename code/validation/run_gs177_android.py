@@ -145,6 +145,10 @@ def main() -> int:
     main_activity = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/MainActivity.kt").read_text()
     gradle_build = (app_root / "android/app/build.gradle.kts").read_text()
     endpoint_store = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/BackendEndpointStore.kt").read_text()
+    lan_discovery = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/Gs179LanDiscovery.kt").read_text()
+    lan_discovery_tests = (app_root / "android/app/src/test/java/in/gharsajag/caregiver/Gs179LanDiscoveryPolicyTest.kt").read_text()
+    windows_mdns = (ROOT / "tools/local/gs179-windows-mdns-advertiser.ps1").read_text()
+    local_lan_manifest = (app_root / "android/app/src/gs179LocalLan/AndroidManifest.xml").read_text()
     trusted_webview = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/TrustedPwaWebView.kt").read_text()
     origin_tests = (app_root / "android/app/src/test/java/in/gharsajag/caregiver/BackendOriginTest.kt").read_text()
     if "showSetup" in main_activity or "HTTPS server address" in main_activity:
@@ -158,9 +162,37 @@ def main() -> int:
             "BuildConfig.GS179_LOCAL_LAN_TEST_ONLY" not in endpoint_store or
             "gs177AndroidLanReconnectStableMdnsHostnameAndManualPrivateAddressAreTestOnly" not in origin_tests or
             "gs177AndroidLanReconnectIsReachableOnlyFromBundledFirstPartyMainFrame" not in origin_tests or
-            "handler.cancel()" not in trusted_webview):
+            "handler.cancel()" not in trusted_webview or
+            "ConnectivityManager.NetworkCallback" not in main_activity or
+            "onLinkPropertiesChanged" not in main_activity or
+            "wifiRouteSignature" not in main_activity or
+            "shouldReloadForVerifiedEndpoint" not in main_activity or
+            "NsdManager.PROTOCOL_DNS_SD" not in lan_discovery or
+            "HttpsURLConnection" not in lan_discovery or
+            "serverCertificates" not in lan_discovery or
+            "certificateNamesExpectedHost" not in lan_discovery or
+            "serverSpkiSha256" not in lan_discovery or
+            "saveVerifiedLanServer" not in lan_discovery or
+            "Gs179LanDiscoveryPolicy.isPrivateIpv4(origin.host)" not in endpoint_store or
+            "MAX_PROBE_ADDRESSES = 4" not in lan_discovery or
+            "MAX_PENDING_RESOLVES = 2" not in lan_discovery or
+            "MAX_READY_BYTES = 4096" not in lan_discovery or
+            "connection.connectTimeout = TIMEOUT_MILLIS" not in lan_discovery or
+            "connection.readTimeout = TIMEOUT_MILLIS" not in lan_discovery or
+            "connection.instanceFollowRedirects = false" not in lan_discovery or
+            "GS177-LAN-NSD-001" not in lan_discovery_tests or
+            "verifiedSameOriginReconnectsOnlyAfterWifiRouteChanges" not in lan_discovery_tests or
+            "DnsServiceRegister" not in windows_mdns or
+            "UnicastEnabled = false" not in windows_mdns or
+            "Test-TrustedWifiProfile" not in windows_mdns or
+            '@("Private", "DomainAuthenticated")' not in windows_mdns or
+            "PersistentPrivilegedTaskRegistered = $false" not in windows_mdns or
+            "android.permission.ACCESS_NETWORK_STATE" not in local_lan_manifest or
+            "android.permission.ACCESS_WIFI_STATE" not in local_lan_manifest or
+            "android.permission.CHANGE_WIFI_MULTICAST_STATE" not in local_lan_manifest):
         print("GS177 ANDROID DASHBOARD FAIL secure_TEST_ONLY_reconnect_flow_missing", flush=True)
         return 1
+    print("CASE GS177-LAN-NSD-001 SOURCE_PASS", flush=True)
     required_pwa = [
         "index.html", "app.js", "connected_lite.mjs", "caregiver.css",
         "runtime_mode.mjs", "styles.css",

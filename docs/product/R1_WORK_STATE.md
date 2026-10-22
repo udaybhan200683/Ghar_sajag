@@ -6168,3 +6168,59 @@ retrying APK login. If `.local` fails, use the app's reconnect action with the
 current private IPv4 only after the server leaf includes that IP SAN. No APK
 rebuild/reinstall, Home data mutation, physical Hub operation, or sensor test
 was performed in this checkpoint.
+
+## GS-177 / GS-179 owner phone result and secure DNS-SD follow-up — 2026-10-22
+
+Owner correction in GS-177 comment 11583: the installed local-LAN TEST_ONLY
+APK successfully logged in and loaded its authorized Home on Agrim after
+selecting `https://192.168.1.8` through the existing reconnect flow. This is
+physical phone PASS for the IP fallback and caregiver API/Home path. The
+hostname-based `.local` route failed; automatic DNS-SD and Yogi → Agrim → Yogi
+on the same APK remain unverified. No physical sensor provenance is implied.
+
+Implemented source adds a TEST_ONLY Windows DNS-SD locator and foreground
+Android NSD client. Discovery metadata never authenticates the service. The
+Android client requires platform CA and IP-hostname verification, exact
+`desktop-3qqu64b.local` DNS SAN, persisted SPKI continuity after the first
+verified connection, healthy PostgreSQL `/readyz`, bounded probes, and current
+network-generation checks before saving the discovered private IP. The test
+profile alone adds Wi-Fi multicast/network-state permissions and the local CA;
+the commercial/release origin and UI remain unchanged. The Windows advertiser
+only runs from the explicit TEST_ONLY server path and is restricted to RFC1918
+Wi-Fi that Windows classifies Private or DomainAuthenticated.
+
+Current read-only checks: Windows is `Airtel_Agrim`, `192.168.1.8/24`, profile
+Public; WSL2 is `172.17.152.10`; both `.8:443` (active) and historical `.6:443`
+portproxy mappings/listeners exist to the same WSL service. PostgreSQL,
+caregiver HTTPS and WSL-originated TLS health pass. Because Windows classifies
+Agrim Public, the new advertiser intentionally will not publish there until
+the owner marks that trusted network Private. The privileged Wi-Fi watcher
+remains unregistered pending its trusted-network approval; it is still needed
+to refresh current-IP certificate SAN, firewall and forwarding across a router
+change. Stale `.6` cleanup remains a separate issue.
+
+Validation on this source: PWA JS runtime 10/10; `GS177-LAN-NSD-001` source
+marker PASS; Windows PowerShell TEST_ONLY DNS-SD policy/record-construction
+validation 13 policy cases PASS with no registration/socket; feature coverage
+and traceability 22/22 PASS (225 features, 280 modules, 26 physical cases);
+shell syntax, Python compilation, registry JSON, and `git diff --check` PASS.
+The local Android runner exits 127 after source and PWA tests because WSL lacks
+Gradle/Android SDK. Android JUnit, APK build, automatic phone discovery and
+router-switch acceptance are pending the registered CI build and owner phone
+test. No portproxy/firewall mutation, network-profile change, watcher
+registration, APK installation, Hub operation or PIR stimulus was performed.
+
+Detailed implementation and read-only laptop evidence:
+[`GS-179 local WSL2 host — DNS-SD follow-up`](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#2026-10-22--test_only-dns-sd-discovery-and-android-secure-reconnect).
+
+The Android route-recovery correction now tracks default Wi-Fi network and
+link-address/route changes. After a verified NSD/TLS candidate, the app reloads
+the caregiver WebView on either a changed endpoint or a changed route, including
+the case where a router transition retains the same private IP. It does not
+reload solely on foregrounding an unchanged network. A JUnit regression covers
+same-origin route recovery; it is registered but still requires CI's Android
+Gradle stage for execution. Post-correction source validation re-ran PWA 10/10,
+static `GS177-LAN-NSD-001`, Windows DNS-SD validation 13 policy cases, traceability
+22/22, syntax/JSON and `git diff --check`. The local Android runner again exits
+127 because Gradle/Android SDK are not installed in WSL. No APK or Android JUnit
+result is claimed from this local environment.

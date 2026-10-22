@@ -20,6 +20,7 @@ PG_CERT="$TLS_ROOT/postgres/server.pem"
 PG_KEY="$TLS_ROOT/postgres/server.key"
 PG_CA="$TLS_ROOT/postgres/ca.pem"
 PROXY_PS1="$SCRIPT_DIR/gs179-windows-lan-proxy.ps1"
+MDNS_PS1="$SCRIPT_DIR/gs179-windows-mdns-advertiser.ps1"
 UNIT_PATH="$HOME/.config/systemd/user/gs179-laptop.service"
 WINDOWS_TARGET_FILE="$STATE_ROOT/windows-wsl-target"
 PG_PORT="55432"
@@ -237,7 +238,23 @@ proxy_stop() {
     win_script="$(wslpath -w "$PROXY_PS1")"
     windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" \
         -Action Stop -WslAddress "$current_wsl" -PreviousWslAddress "$previous"
+    stop_mdns_advertiser
     rm -f "$WINDOWS_TARGET_FILE"
+}
+
+start_mdns_advertiser() {
+    [[ "${GS179_LOCAL_LAN_TEST_ONLY:-}" == "1" ]] || fail "mDNS_advertisement_requires_explicit_GS179_TEST_ONLY_profile"
+    [[ -f "$MDNS_PS1" ]] || fail "GS179_TEST_ONLY_mDNS_helper_missing"
+    local win_script
+    win_script="$(wslpath -w "$MDNS_PS1")"
+    windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" -Action Start
+}
+
+stop_mdns_advertiser() {
+    [[ -f "$MDNS_PS1" ]] || return 0
+    local win_script
+    win_script="$(wslpath -w "$MDNS_PS1")"
+    windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" -Action Stop
 }
 
 proxy_audit() {
@@ -271,6 +288,8 @@ record_proxy_target() {
     printf '%s\n' "$address" > "$temp_file"
     mv -f "$temp_file" "$WINDOWS_TARGET_FILE"
     chmod 600 "$WINDOWS_TARGET_FILE"
+    load_config
+    start_mdns_advertiser
 }
 
 network_refresh_config() {
@@ -581,6 +600,7 @@ start_service() {
     systemctl --user restart gs179-laptop.service
     proxy_start
     wait_for_local_backend || { health_check || true; return 1; }
+    start_mdns_advertiser
     health_check
 }
 
@@ -591,6 +611,7 @@ restart_service() {
     systemctl --user restart gs179-laptop.service
     proxy_start
     wait_for_local_backend || { health_check || true; return 1; }
+    start_mdns_advertiser
     health_check
 }
 
@@ -622,7 +643,10 @@ case "${1:-}" in
     provision) provision ;;
     install-unit) install_unit ;;
     start) start_service ;;
-    stop) systemctl --user stop gs179-laptop.service ;;
+    stop)
+        stop_mdns_advertiser
+        systemctl --user stop gs179-laptop.service
+        ;;
     restart) restart_service ;;
     status)
         systemctl --user status --no-pager gs179-laptop.service || true
@@ -643,6 +667,7 @@ case "${1:-}" in
         systemctl --user restart gs179-laptop.service
         proxy_start
         wait_for_local_backend || { health_check || true; exit 1; }
+        start_mdns_advertiser
         health_check
         ;;
     network-refresh)
@@ -652,6 +677,7 @@ case "${1:-}" in
         systemctl --user restart gs179-laptop.service
         proxy_start
         wait_for_local_backend || { health_check || true; exit 1; }
+        start_mdns_advertiser
         health_check
         ;;
     stop-post) stop_post ;;
