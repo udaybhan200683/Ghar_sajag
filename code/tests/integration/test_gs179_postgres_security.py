@@ -207,10 +207,21 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         for mutation in ("New-NetFirewallRule", "Remove-NetFirewallRule", "portproxy add", "portproxy delete"):
             self.assertGreater(source.index(mutation), admin_gate)
 
+    def test_proxy_start_repairs_dormant_mapping_and_fails_closed_without_listener(self):
+        source = WINDOWS_PROXY.read_text(encoding="utf-8")
+        start = source[source.index('if ($Action -eq "Start")'):
+                       source.index('if ($Action -eq "Stop")')]
+        self.assertIn("elseif ($occupied.Count -eq 0)", start)
+        self.assertIn("Wait-PortProxyListener $actualAddress $ListenPort", start)
+        self.assertIn("portproxy_listener_not_active", start)
+        self.assertIn("$originalMappingRemoved -and $mapRows.Count -eq 1", start)
+        self.assertIn('if ($createdFirewall) { Remove-NetFirewallRule', start)
+
     def test_health_states_do_not_promote_host_or_wifi_to_hub_health(self):
         source = LAPTOP_SERVER.read_text(encoding="utf-8")
         self.assertIn("LOCAL_BACKEND_READY=PASS", source)
-        self.assertIn("PHONE_LAN_REACHABLE=BLOCKED_CONFIG_MISMATCH", source)
+        self.assertIn("LAPTOP_LAN_ENDPOINT_TLS_READY=BLOCKED_CONFIG_MISMATCH", source)
+        self.assertIn("PHONE_LAN_REACHABLE=NOT_VERIFIED", source)
         self.assertIn("HUB_INGRESS_RUNTIME_IMPLEMENTED=YES", source)
         self.assertIn("HUB_INGRESS_AUTOSTART=DISABLED", source)
         self.assertIn("HUB_IDENTITY_AUTHENTICATED=NO", source)

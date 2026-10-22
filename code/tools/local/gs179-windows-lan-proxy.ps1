@@ -89,6 +89,16 @@ function Get-ExactFirewallRule([string]$ExpectedSubnet) {
     return $rule
 }
 
+function Wait-PortProxyListener([string]$Address, [int]$Port) {
+    for ($attempt = 0; $attempt -lt 12; $attempt++) {
+        $listeners = @(Get-NetTCPConnection -State Listen -LocalAddress $Address `
+            -LocalPort $Port -ErrorAction SilentlyContinue)
+        if ($listeners.Count -gt 0) { return $true }
+        Start-Sleep -Milliseconds 250
+    }
+    return $false
+}
+
 $adapter = Get-NetAdapter -Name "Wi-Fi" -ErrorAction SilentlyContinue
 if ($null -eq $adapter -or $adapter.Status -ne "Up") { Stop-WithError "wifi_adapter_not_up" }
 $profile = Get-NetConnectionProfile -InterfaceAlias "Wi-Fi" -ErrorAction SilentlyContinue |
@@ -184,6 +194,7 @@ if ($Action -eq "Start") {
         $createdFirewall = $true
     }
     $attemptedPortProxy = $false
+    $originalMappingRemoved = $false
     try {
         if ($mapRows.Count -eq 0) {
             $attemptedPortProxy = $true
@@ -196,9 +207,23 @@ if ($Action -eq "Start") {
             if (-not $knownPrevious) { Stop-WithError "existing_portproxy_target_is_not_the_recorded_gs179_target" }
             & netsh.exe interface portproxy delete v4tov4 listenaddress=$actualAddress listenport=$ListenPort | Out-Null
             if ($LASTEXITCODE -ne 0) { Stop-WithError "known_old_portproxy_delete_failed" }
+            $originalMappingRemoved = $true
             $attemptedPortProxy = $true
             & netsh.exe interface portproxy add v4tov4 listenaddress=$actualAddress listenport=$ListenPort connectaddress=$WslAddress connectport=$TargetPort | Out-Null
             if ($LASTEXITCODE -ne 0) { Stop-WithError "portproxy_retarget_failed" }
+        } elseif ($occupied.Count -eq 0) {
+            # An old row can outlive the Wi-Fi address it was created for.
+            # Re-add the exact same row to make IP Helper bind the now-current
+            # address; never report Start success for a dormant forwarding row.
+            & netsh.exe interface portproxy delete v4tov4 listenaddress=$actualAddress listenport=$ListenPort | Out-Null
+            if ($LASTEXITCODE -ne 0) { Stop-WithError "stale_portproxy_delete_failed" }
+            $originalMappingRemoved = $true
+            $attemptedPortProxy = $true
+            & netsh.exe interface portproxy add v4tov4 listenaddress=$actualAddress listenport=$ListenPort connectaddress=$WslAddress connectport=$TargetPort | Out-Null
+            if ($LASTEXITCODE -ne 0) { Stop-WithError "stale_portproxy_refresh_failed" }
+        }
+        if (-not (Wait-PortProxyListener $actualAddress $ListenPort)) {
+            Stop-WithError "portproxy_listener_not_active"
         }
     } catch {
         if ($attemptedPortProxy) {
@@ -209,6 +234,11 @@ if ($Action -eq "Start") {
             if ($partial.Count -eq 1) {
                 & netsh.exe interface portproxy delete v4tov4 listenaddress=$actualAddress listenport=$ListenPort | Out-Null
             }
+        }
+        if ($originalMappingRemoved -and $mapRows.Count -eq 1) {
+            & netsh.exe interface portproxy add v4tov4 `
+                listenaddress=$mapRows[0].ListenAddress listenport=$mapRows[0].ListenPort `
+                connectaddress=$mapRows[0].TargetAddress connectport=$mapRows[0].TargetPort | Out-Null
         }
         if ($createdFirewall) { Remove-NetFirewallRule -Name $RuleName -ErrorAction SilentlyContinue }
         throw

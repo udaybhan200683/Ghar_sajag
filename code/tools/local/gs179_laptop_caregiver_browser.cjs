@@ -98,19 +98,20 @@ const path = require('node:path');
       expect(config.nodeCoverage).toBe('COVERED');
     } else {
       await expect(page.locator('#homeTab')).toContainText(config.sourceFreshness === 'STALE'
-        ? 'Monitoring data is stale'
+        ? 'Monitoring source is stale'
         : 'Monitoring status is unknown');
-      await expect(page.locator('#homeTab')).toContainText('status unknown');
+      await expect(page.locator('#homeTab')).toContainText(
+        'Device status is unavailable until source freshness and coverage are current.');
       expect(config.monitoring).toBe('UNKNOWN');
     }
     await expect(page.locator('#homeTab')).toContainText('Authenticated GS-148 TEST_ONLY caregiver data');
 
-    await page.getByRole('button', {name: 'devices', exact: true}).click();
+    await page.locator('[data-tab="devices"]').click();
     const node = page.locator(`[data-node-id="${config.physicalNodeId}"]`);
     await expect(node).toContainText(`${config.room} · ${config.nodeStatus}`);
     await expect(node).toContainText(config.nodeCoverage);
     for (const tabName of ['reports', 'settings']) {
-      await expect(page.getByRole('button', {name: tabName, exact: true})).toBeVisible();
+      await expect(page.locator(`[data-tab="${tabName}"]`)).toBeVisible();
     }
 
     const engineeringStatus = await page.evaluate(async homeId => {

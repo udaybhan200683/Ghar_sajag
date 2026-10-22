@@ -233,3 +233,98 @@ SHA-256 6935f71d06c38087f09b2bf95c6a216e4dae30836449e367c773e7afa65eab42)
 this local-host validation)
 `PRODUCT_OR_RELEASE_PASS`: NO; broader P0 and physical release gates are not
 reclassified by this local demonstration.
+
+## 2026-10-22 — owner-approved Windows/WSL2 LAN configuration
+
+Owner approval was recorded in GS-179 comment 11546 and GS-117 comment 11547.
+This section supersedes the earlier statement in this file that no LAN
+endpoint/forwarding/firewall changes were made; it does not change the physical
+acceptance boundary.
+
+### Current endpoint and trust
+
+- Windows Wi-Fi is connected to SSID `Yogi`, IPv4 `192.168.1.6/24`,
+  network category Public. The address is DHCP; the observed lease expires
+  2026-10-23 15:36 local time. No router reservation was inspected or changed,
+  so this is a verified current endpoint, not a guaranteed stable address.
+- WSL2 address is `172.17.152.10`; caregiver HTTPS listens on that address at
+  port 8444. PostgreSQL listens on WSL loopback port 55432.
+- Existing TEST_ONLY server certificate already has the `192.168.1.6`
+  address SAN and serverAuth purpose. Existing local CA SHA-256 is
+  `7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`,
+  matching the Android local-LAN CA pin. The certificate verified for
+  `192.168.1.6`; no CA, leaf certificate, key, or Android pin was changed.
+- Caregiver HTTPS and Hub-ingress configuration use the same verified local
+  PostgreSQL database: `gs179_monitoring`, role `gs179_app`, endpoint
+  `127.0.0.1:55432`, PostgreSQL `verify-full`, with fsync,
+  synchronous_commit, and full_page_writes enabled. Secret DSN contents are
+  held only in the owner-private mode-600 configuration.
+
+### Reversible LAN configuration
+
+The existing portproxy row was `192.168.1.6:443 ->
+172.17.152.10:8444`, but Windows had no active TCP 443 listener. The
+owner-approved start helper now refreshes the same row when it is dormant and
+fails closed unless the listener appears. It restores a replaced prior row and
+removes only a newly created firewall rule if startup fails.
+
+The Windows helper created rule `GS179-Local-LAN-HTTPS` for inbound TCP 443,
+local address `192.168.1.6`, remote subnet `192.168.1.0/24`, Wi-Fi
+interface, Public profile, and blocked edge traversal. It does not add a
+router rule or Internet exposure. The current firewall query from WSL is
+limited by Windows administrator-read permissions. The elevated Start
+operation successfully created the rule with the exact parameters above;
+post-change audit confirmed the listener and forwarding row, while firewall
+rule readback remained blocked for the non-administrator WSL token.
+
+Private rollback material is preserved at
+`/home/udaybhan/.local/state/ghar-sajag/gs179-laptop/lan-rollback-20261022T103148Z`.
+The saved private config is mode 600. To roll back: remove only firewall rule
+`GS179-Local-LAN-HTTPS` from an elevated PowerShell prompt; restore
+`server.env.before` to
+`/home/udaybhan/.config/ghar-sajag/gs179-laptop/server.env` with mode 600;
+and remove the newly created
+`/home/udaybhan/.local/state/ghar-sajag/gs179-laptop/windows-wsl-target`
+marker. The portproxy entry had the same target before this task; removing the
+firewall rule restores the prior effective network access. If the forwarding
+row itself is intentionally removed, first compare it to the saved
+`windows-proxy-audit` snapshot and remove only that exact GS-179 row.
+No certificate rollback is required.
+
+### Live and isolated validation
+
+After setup, `code/tools/local/gs179-laptop-server.sh health` reported
+PostgreSQL durability PASS, caregiver HTTPS PASS, local backend PASS, and
+`LAPTOP_LAN_ENDPOINT_TLS_READY=PASS` with a verified CA/IP-SAN HTTPS request
+from WSL through the Windows endpoint. It correctly reported
+`PHONE_LAN_REACHABLE=NOT_VERIFIED`. Hub ingress remains implemented but
+default-disabled: `HUB_INGRESS_AUTOSTART=DISABLED`,
+`HUB_IDENTITY_AUTHENTICATED=NO`, freshness UNKNOWN and
+`PERSISTENT_HUB_INGRESS=NOT_CONFIGURED`.
+
+`code/tools/local/gs179-laptop-server.sh browser` returned HOST_SIM_PASS
+against the live laptop HTTPS caregiver API. It logged in, read the same
+PostgreSQL-backed authorized Home, rendered the existing source-linked
+TEST_ONLY event once after reload, and displayed stale source/UNKNOWN
+monitoring. EventKey:
+`{"physical_device_id":"test-c3-bedroom","logical_node_id":"bedroom","origin_session_id":10,"event_sequence":1}`.
+Event kind/room were MOTION/bedroom; provenance was HOST_SIM TEST_ONLY.
+This is not a real Node, Hub, phone, or PIR event.
+
+The registered `make -C code gs179-postgres-e2e` run passed **52/52** with
+the isolated local PostgreSQL database, including source-linked Node/Hub
+HOST_SIM, durable commit/retry/restart/caregiver projection, listener and
+authority negatives, runtime lifecycle, and the added dormant-portproxy
+regression. The two previously stale browser-helper cases passed directly
+(2/2) after updating selectors to the current four-tab navigation and
+asserting its current fail-closed UNKNOWN state. The independent focused
+`test_gs179_postgres_security.py` suite passed 15/15. Shell and Node syntax
+checks and `git diff --check` passed. Initial direct focused invocations
+without the repository's backend/support Python paths failed at import time;
+the registered Make target supplied those paths and completed successfully.
+
+No phone-side reachability probe, APK installation, S3 authentication,
+persistent Hub-ingress activation, customer enrollment, physical board
+operation, or PIR stimulus was performed. The current Windows DHCP lease is
+short-lived; a stable router reservation or hostname would require separate
+network-owner approval if the endpoint changes before phone validation.

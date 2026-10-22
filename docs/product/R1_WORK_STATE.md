@@ -6039,3 +6039,15 @@ were preserved. Two untracked Python bytecode files from the explicit compile
 check are also preserved; no cleanup was run. The diagnostic artifacts remain
 in `/tmp/gs68_cloudsync_diag_e1pbdu7c` (initial failed report generation) and
 `/tmp/gs68_cloudsync_diag_retry_20261022` (passing report).
+
+## GS-179 owner-approved laptop LAN readiness — 2026-10-22
+
+Owner approval in GS-179 comment 11546 and GS-117 comment 11547 permits reversible, private TEST_ONLY LAN setup. This records the resulting state and supersedes the preceding paragraph's statement that laptop endpoint/forwarding work was still pending. It does not authorize phone, Hub, board, credential, customer-data, or PIR operations.
+
+Current Windows Wi-Fi is SSID Yogi at `192.168.1.6/24` (Public profile); WSL2 is `172.17.152.10`. The existing server certificate already covers `192.168.1.6` and uses the same CA fingerprint pinned in the existing Android local-LAN profile, so no certificate/key or Android trust change was needed. Windows forwards `192.168.1.6:443` to caregiver HTTPS at `172.17.152.10:8444`; the narrowly scoped firewall rule permits TCP 443 only from `192.168.1.0/24` on Wi-Fi. The DHCP lease expires 2026-10-23 15:36 local; no router reservation or static IP was configured. Private rollback state is preserved at `/home/udaybhan/.local/state/ghar-sajag/gs179-laptop/lan-rollback-20261022T103148Z`.
+
+Caregiver HTTPS and Hub ingress configuration point to the same local PostgreSQL database (`gs179_monitoring`, `gs179_app`, TLS verify-full and durable server settings). Live health reports PostgreSQL, caregiver HTTPS and the WSL-to-Windows TLS endpoint ready. It reports phone reachability NOT_VERIFIED and Hub ingress NOT_CONFIGURED/default-disabled; no actual Hub identity or fresh physical source is present.
+
+Validation on the implementation source: registered GS-179 PostgreSQL/source-linked integration **52/52 PASS**; the two repaired browser regressions **2/2 PASS**; focused GS-179 security/lifecycle **15/15 PASS**; laptop HTTPS browser returned HOST_SIM_PASS with one committed test event visible after reload and stale/UNKNOWN monitoring. The existing Python/PostgreSQL security cases verify Home isolation, forged-header rejection, retries and restart behavior. This does not establish phone reachability or physical acceptance. Exact local-LAN APK provenance will be added after the approved GitHub Actions workflow completes.
+
+Evidence and rollback details are in [GS-179 laptop LAN / Android host evidence](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#2026-10-22--owner-approved-windowswsl2-lan-configuration). Starting source HEAD was `ad170206152714bcfbedaa0e3a26108f03cb638e` and matched the remote. Five tracked helper/test files and this evidence/work-state are the only intended source/documentation changes; all pre-existing untracked and ignored files remain preserved. Current delivery SHA and APK workflow result will be recorded in the final handoff after commit and push.

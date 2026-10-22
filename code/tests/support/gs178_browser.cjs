@@ -44,7 +44,8 @@ const os = require('os');
       if((await decision.textContent()).includes('EventKey:'))throw Error('Hub decision falsely rendered with Node EventKey');
       let assertions=5;
       if(config.routineKind){
-        await page.getByRole('button',{name:'routines',exact:true}).click();
+        await page.locator('[data-tab="reports"]').click();
+        await page.locator('[data-open-tab="routines"]').click();
         await expect(page.locator('#homeTab [data-hub-decision]')).toHaveCount(1);
         await expect(page.locator('#homeTab')).toContainText(config.routineKind);
         await expect(page.locator('#homeTab')).toContainText('NOT_ENABLED');
@@ -66,33 +67,37 @@ const os = require('os');
     await expect(page.locator('#homeTab')).toContainText('bedroom');
     let homeMonitoringAssertions=0;
     if(config.monitoring){
-      const homeMonitoring=page.locator('#homeTab .card').filter({
-        has:page.getByRole('heading',{name:'Home monitoring',exact:true})
-      });
-      const coverageLabels={COVERED:'Current observation coverage',UNKNOWN:'Monitoring status unknown'};
-      await expect(homeMonitoring).toContainText(coverageLabels[config.monitoring]||config.monitoring);
-      await expect(homeMonitoring).toContainText(`Backend source: ${config.sourceFreshness}`);
+      const homeMonitoring=page.locator('#homeTab .connected-home-hero');
+      const heading=config.sourceFreshness==='CURRENT'&&config.monitoring==='COVERED'
+        ?'Monitoring coverage is current'
+        :config.sourceFreshness==='STALE'?'Monitoring source is stale':'Monitoring status is unknown';
+      await expect(homeMonitoring).toHaveAttribute('data-source-freshness',config.sourceFreshness);
+      await expect(homeMonitoring).toHaveAttribute('data-monitoring',config.monitoring);
+      await expect(homeMonitoring).toContainText(heading);
       await expect(page.locator('#homeTab')).toContainText(config.source);
       homeMonitoringAssertions=3;
     }
-    await page.getByRole('button',{name:'devices',exact:true}).click();
+    await page.locator('[data-tab="devices"]').click();
     await expect(page.locator('[data-node-id]')).toHaveCount(config.nodeCount||2);
     await expect(page.locator('#homeTab')).toContainText('ONLINE');
-    await page.getByRole('button',{name:'incidents',exact:true}).click();
+    await page.locator('[data-tab="reports"]').click();
+    await page.locator('[data-open-tab="incidents"]').click();
     for(const [action,state] of [['claim','CLAIMED'],['acknowledge','ACKNOWLEDGED'],['resolve','RESOLVED']]){
       await page.locator(`[data-incident-action="${action}"]`).click();
       await expect(page.locator('[data-incident-id]')).toContainText(state);
     }
     await page.reload();
-    await page.getByRole('button',{name:'incidents',exact:true}).click();
+    await page.locator('[data-tab="reports"]').click();
+    await page.locator('[data-open-tab="incidents"]').click();
     await expect(page.locator('[data-incident-id]')).toContainText('RESOLVED');
     offline=true;await context.setOffline(true);
-    await page.getByRole('button',{name:'home',exact:true}).click();
+    await page.locator('[data-tab="home"]').click();
     await expect(page.locator('#connectionStatus')).toContainText('OFFLINE');
-    await expect(page.locator('#homeTab')).toContainText('Data unavailable');
+    await expect(page.locator('#homeTab .connected-home-hero')).toHaveAttribute('data-monitoring','UNKNOWN');
+    await expect(page.locator('#homeTab .connected-home-hero')).toContainText('Monitoring status is unknown');
     await expect(page.locator('[data-event-key]')).toHaveCount(0);
     offline=false;await context.setOffline(false);
-    await page.getByRole('button',{name:'home',exact:true}).click();
+    await page.locator('[data-tab="home"]').click();
     await expect(page.locator('[data-event-key]')).toHaveCount(expectedEventCount);
     if(config.eventKeys){
       const reloadedKeys=await page.locator('[data-event-key]').evaluateAll(nodes=>
@@ -101,7 +106,8 @@ const os = require('os');
     }
     let assertions=14+homeMonitoringAssertions;
     if(config.routineKind){
-      await page.getByRole('button',{name:'routines',exact:true}).click();
+      await page.locator('[data-tab="reports"]').click();
+      await page.locator('[data-open-tab="routines"]').click();
       await expect(page.locator('#routinesTab [data-hub-decision]')).toHaveCount(1);
       await expect(page.locator('#routinesTab')).toContainText(config.routineKind);
       await expect(page.locator('#routinesTab')).toContainText('NOT_ENABLED');

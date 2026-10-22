@@ -383,29 +383,33 @@ local_https_health_check() {
     printf '\nCAREGIVER_HTTPS_READY=PASS tls=ca_and_ip_san_verified\n'
 }
 
-phone_lan_health_check() {
+lan_endpoint_health_check() {
     local observed_ip observed_name
     observed_ip="$(windows_wifi_address 2>/dev/null || true)"
     observed_name="$(windows_wifi_name 2>/dev/null || true)"
     if [[ -z "$observed_ip" || -z "$observed_name" ]]; then
-        printf 'PHONE_LAN_REACHABLE=UNKNOWN reason=windows_wifi_read_unavailable\n'
+        printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=UNKNOWN reason=windows_wifi_read_unavailable\n'
+        printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
         return 0
     fi
     if [[ "$observed_ip" != "$GS179_WINDOWS_WIFI_IPV4" ]]; then
-        printf 'PHONE_LAN_REACHABLE=BLOCKED_CONFIG_MISMATCH expected_address=%s observed_address=%s\n' \
+        printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=BLOCKED_CONFIG_MISMATCH expected_address=%s observed_address=%s\n' \
             "$GS179_WINDOWS_WIFI_IPV4" "$observed_ip"
+        printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
         return 0
     fi
     if [[ "$observed_name" != "$GS179_WIFI_NAME" ]]; then
-        printf 'PHONE_LAN_REACHABLE=BLOCKED_CONFIG_MISMATCH reason=wifi_identity_mismatch\n'
+        printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=BLOCKED_CONFIG_MISMATCH reason=wifi_identity_mismatch\n'
+        printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
         return 0
     fi
     if curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
         --cacert "$ANDROID_CA" "https://$GS179_WINDOWS_WIFI_IPV4/readyz"; then
-        printf '\nPHONE_LAN_REACHABLE=PASS tls=ca_and_ip_san_verified\n'
+        printf '\nLAPTOP_LAN_ENDPOINT_TLS_READY=PASS tls=ca_and_ip_san_verified probe_source=WSL\n'
     else
-        printf 'PHONE_LAN_REACHABLE=FAIL reason=existing_windows_forwarding_or_endpoint_unavailable\n'
+        printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=FAIL reason=windows_forwarding_or_endpoint_unavailable\n'
     fi
+    printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
     return 0
 }
 
@@ -419,7 +423,7 @@ health_check() {
     else
         printf 'LOCAL_BACKEND_READY=FAIL\n'
     fi
-    phone_lan_health_check
+    lan_endpoint_health_check
     printf 'HUB_INGRESS_RUNTIME_IMPLEMENTED=YES\n'
     printf 'HUB_INGRESS_AUTOSTART=DISABLED\n'
     printf 'HUB_IDENTITY_AUTHENTICATED=NO\n'
