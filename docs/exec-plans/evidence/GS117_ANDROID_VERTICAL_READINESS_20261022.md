@@ -18,6 +18,12 @@ contains 173 issues. GS-117 was To Do and Rank 52 at task start; it was moved to
 In Progress for this active execution, without changing Rank. GS-114 remains
 ahead at Rank 31 and In Progress. GS-60 remains To Do.
 
+The runtime/test/catalogue/work-state implementation was committed as
+`32460ef93dac3695a84467e8a6d84efcfef080e4` and pushed normally to the canonical
+branch; origin matched that commit after push. GS-117 remains In Progress and
+its Rank is unchanged. Jira comments 11528 (GS-117) and 11529 (GS-179) record
+the update and remaining physical gates.
+
 ## Existing / reuse / gap / minimum change / Jira owner
 
 | EXISTING | REUSE | GENUINE GAP | MINIMUM CHANGE | JIRA_OWNER |
