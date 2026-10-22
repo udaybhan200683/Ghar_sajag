@@ -26,17 +26,16 @@ def ready(**extra):
     return response("ready", **fields)
 
 
-def valid_esp_image(chip_id=9):
+def valid_esp_image(chip_id=9, segment=b"diagnostic-segment"):
     header = bytearray(24)
     header[0:4] = bytes((0xE9, 1, 0, 0x40))
     header[12:14] = chip_id.to_bytes(2, "little")
     header[23] = 1
-    segment = b"diagnostic-segment"
     body = bytes(header) + struct.pack("<II", 0x3C030020, len(segment)) + segment
     checksum = 0xEF
     for value in segment:
         checksum ^= value
-    checksum_offset = ((len(body) + 15) // 16) * 16 - 1
+    checksum_offset = ((len(body) // 16) + 1) * 16 - 1
     body += bytes(checksum_offset - len(body)) + bytes((checksum,))
     return body + hashlib.sha256(body).digest()
 
@@ -369,11 +368,11 @@ class GS68AuxiliaryRunnerTests(unittest.TestCase):
         session.close()
 
     def test_esp_image_validation_digest_matches_runtime_but_not_full_artifact_hash(self):
-        image = valid_esp_image()
-        runtime_digest = provenance.esp_image_validation_sha256(image)
-        self.assertEqual(runtime_digest, image[-32:].hex())
-        self.assertEqual(runtime_digest, hashlib.sha256(image[:-32]).hexdigest())
-        self.assertNotEqual(runtime_digest, hashlib.sha256(image).hexdigest())
+        for image in (valid_esp_image(), valid_esp_image(segment=b"A" * 16)):
+            runtime_digest = provenance.esp_image_validation_sha256(image)
+            self.assertEqual(runtime_digest, image[-32:].hex())
+            self.assertEqual(runtime_digest, hashlib.sha256(image[:-32]).hexdigest())
+            self.assertNotEqual(runtime_digest, hashlib.sha256(image).hexdigest())
 
     def test_invalid_or_unsupported_image_digest_is_rejected(self):
         image = bytearray(valid_esp_image())

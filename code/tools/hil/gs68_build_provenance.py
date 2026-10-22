@@ -77,7 +77,10 @@ def esp_image_validation_sha256(image: bytes, *, expected_chip_id: int = 9) -> s
         checksum = functools.reduce(lambda value, byte: value ^ byte,
                                      image[offset:end], checksum)
         offset = end
-    checksum_offset = ((offset + 15) // 16) * 16 - 1
+    # The checksum is the final byte of the next 16-byte block.  When the
+    # segment stream already ends on a boundary, that still means a full block
+    # of padding; rounding up and subtracting one would select payload data.
+    checksum_offset = ((offset // 16) + 1) * 16 - 1
     if checksum_offset >= len(image) - 32:
         raise ValueError("ESP image checksum position is invalid")
     if image[checksum_offset] != checksum:
