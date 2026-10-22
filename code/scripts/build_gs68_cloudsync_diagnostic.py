@@ -65,7 +65,12 @@ def main() -> int:
         "?? code/ParivarSathi_v1.5.4_PWA_BatteryAnalytics_v3_4_2/",
         "?? code/parivar_saathi_android_app/",
     }
-    unexpected = [line for line in source_status if line not in allowed_untracked]
+    # Git expands this intentionally excluded, non-input Android workspace into
+    # individual untracked paths when tracked files already exist in the tree.
+    allowed_untracked_prefixes = ("?? code/parivar_saathi_android_app/",)
+    unexpected = [line for line in source_status
+                  if line not in allowed_untracked and
+                  not line.startswith(allowed_untracked_prefixes)]
     if unexpected:
         print("BLOCKED: tracked or untracked source changes must be committed before source-bound image build")
         for line in unexpected:
