@@ -13,11 +13,11 @@ val sourceRevision = providers.environmentVariable("GITHUB_SHA").orNull
 val gs179LocalLanTestOnly = providers.gradleProperty("gs179LocalLanTestOnly")
     .orNull?.toBooleanStrictOrNull() ?: false
 
-fun configuredBackendOrigin(propertyName: String, allowTestOnlyPrivateIpv4: Boolean = false): String {
+fun configuredBackendOrigin(propertyName: String, allowTestOnlyLanEndpoint: Boolean = false): String {
     val raw = providers.gradleProperty(propertyName).orNull?.trim().orEmpty()
     if (raw.isEmpty()) return ""
     val uri = try { URI(raw) } catch (_: Exception) {
-        throw GradleException("$propertyName must be a public HTTPS origin")
+        throw GradleException("$propertyName must be an HTTPS origin")
     }
     val host = uri.host?.lowercase() ?: throw GradleException("$propertyName must contain a DNS host")
     val labels = host.split('.')
@@ -34,40 +34,37 @@ fun configuredBackendOrigin(propertyName: String, allowTestOnlyPrivateIpv4: Bool
                 )
         }
     }
-    val validHost = if (allowTestOnlyPrivateIpv4) privateIpv4 else {
+    val localMdnsName = host.matches(Regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.local$"))
+    val validHost = if (allowTestOnlyLanEndpoint) privateIpv4 || localMdnsName else {
         labels.size >= 2 && labels.all { dnsLabel.matches(it) } &&
             labels.last().length >= 2 && labels.last() !in setOf("local", "localhost", "test", "example", "invalid")
     }
     if (!uri.scheme.equals("https", ignoreCase = true) || uri.rawUserInfo != null ||
         uri.rawQuery != null || uri.rawFragment != null || uri.port !in setOf(-1, 443) ||
         uri.rawPath !in setOf("", "/") || !validHost
-    ) throw GradleException("$propertyName must be a public HTTPS origin without path, credentials, query, fragment, or custom port")
-    if (allowTestOnlyPrivateIpv4 && !privateIpv4) {
-        throw GradleException("$propertyName must be an RFC1918 IPv4 address for the GS-179 LAN TEST_ONLY profile")
+    ) throw GradleException("$propertyName must be an HTTPS origin without path, credentials, query, fragment, or custom port")
+    if (allowTestOnlyLanEndpoint && !privateIpv4 && !localMdnsName) {
+        throw GradleException("$propertyName must be a private IPv4 or single-label .local hostname for the GS-179 LAN TEST_ONLY profile")
     }
     return "https://$host/"
 }
 
 val caregiverDebugOrigin = configuredBackendOrigin(
     "caregiverDebugBackendOrigin",
-    allowTestOnlyPrivateIpv4 = gs179LocalLanTestOnly,
+    allowTestOnlyLanEndpoint = gs179LocalLanTestOnly,
 )
 if (gs179LocalLanTestOnly) {
     val lanTrustConfig = file("src/gs179LocalLan/res/xml/network_security_config.xml")
     val lanManifest = file("src/gs179LocalLan/AndroidManifest.xml")
-    val lanHost = URI(caregiverDebugOrigin).host
-    val configuredDomains = if (lanTrustConfig.isFile) {
-        Regex("""<domain\s+includeSubdomains="false">([^<]+)</domain>""")
-            .findAll(lanTrustConfig.readText())
-            .map { it.groupValues[1].trim() }
-            .toList()
-    } else emptyList()
-    if (configuredDomains != listOf(lanHost) ||
+    val trustConfigText = if (lanTrustConfig.isFile) lanTrustConfig.readText() else ""
+    val testCaInBaseConfig = Regex("(?s)<base-config[^>]*>.*?<certificates\\s+src=\"@raw/gs179_local_lan_test_ca\"\\s*/>.*?</base-config>")
+        .containsMatchIn(trustConfigText)
+    if (!testCaInBaseConfig ||
         !lanManifest.isFile ||
         !lanManifest.readText().contains("android:networkSecurityConfig=\"@xml/network_security_config\"") ||
         !file("src/gs179LocalLan/res/raw/gs179_local_lan_test_ca.pem").isFile
     ) {
-        throw GradleException("GS-179 LAN TEST_ONLY origin must exactly match its single CA-pinned network-security domain")
+        throw GradleException("GS-179 LAN TEST_ONLY profile must trust only its bundled test CA in the app network-security configuration")
     }
 }
 val caregiverReleaseOrigin = configuredBackendOrigin("caregiverReleaseBackendOrigin")

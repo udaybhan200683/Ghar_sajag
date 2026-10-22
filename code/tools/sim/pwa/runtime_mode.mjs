@@ -14,10 +14,9 @@ export function parseCaregiverBackendOrigin(value, {gs179LocalLanTestOnly = fals
   if (typeof value !== 'string' || !value.trim() || value.length > 2048) return '';
   const raw = value.trim();
   const rawLanAuthority = gs179LocalLanTestOnly
-    ? /^https:\/\/(\d{1,3}(?:\.\d{1,3}){3})(?::443)?\/?$/i.exec(raw)
+    ? /^https:\/\/([a-z0-9.-]+)(?::443)?\/?$/i.exec(raw)
     : null;
   if (gs179LocalLanTestOnly && !rawLanAuthority) return '';
-  if (rawLanAuthority && !isTestOnlyPrivateIpv4(rawLanAuthority[1])) return '';
   let url;
   try {
     url = new URL(raw);
@@ -28,7 +27,9 @@ export function parseCaregiverBackendOrigin(value, {gs179LocalLanTestOnly = fals
       !['', '/'].includes(url.pathname) || url.search || url.hash) return '';
   const host = url.hostname.toLowerCase();
   if (gs179LocalLanTestOnly) {
-    if (host !== rawLanAuthority[1].toLowerCase() || !isTestOnlyPrivateIpv4(host)) return '';
+    const privateIp = isTestOnlyPrivateIpv4(host);
+    const localName = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.local$/.test(host);
+    if (host !== rawLanAuthority[1].toLowerCase() || (!privateIp && !localName)) return '';
   } else {
     const labels = host.split('.');
     if (labels.length < 2 || labels.some(label => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) return '';
@@ -72,6 +73,7 @@ export function normalizeRuntimeConfig(raw, pageOrigin) {
       gs179LocalLanTestOnly: raw?.gs179LocalLanTestOnly === true,
     }),
     hubWifiNativeDiscovery: raw?.hubWifiNativeDiscovery === true,
+    localBackendReconnect: raw?.localBackendReconnect === true && raw?.gs179LocalLanTestOnly === true,
     appVersion: typeof raw?.appVersion==='string'&&/^[a-zA-Z0-9._-]{1,80}$/.test(raw.appVersion)?raw.appVersion:'unknown',
     sourceRevision: typeof raw?.sourceRevision==='string'&&/^[a-fA-F0-9]{12}$/.test(raw.sourceRevision)?raw.sourceRevision:'unknown',
   });

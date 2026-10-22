@@ -99,3 +99,30 @@ The baseline image is the original Home view captured with the same TEST_ONLY mo
 - Do not change `docs/product/R1_WORK_STATE.md` until GS-179 writer ownership is coordinated. Updating that shared state remains a pending integration action.
 
 No GS-179 source/worktree/server/database/network/credential changes were made. No canonical merge or shared R1 work-state edit is authorized in this execution.
+
+## Canonical GS-179 Wi-Fi and GS-177 UX integration — 2026-10-22
+
+The owner requested that the completed router-independent TEST_ONLY Wi-Fi work be checkpointed before UX integration. That ordering was preserved: Wi-Fi implementation was committed first as `fd6437eee69ca6cfabd78ab3fc3b9f38801444db`; the approved UX implementation and evidence commits were then integrated on the canonical branch as `608c5ba40453f3eead9b5e831fe22dbbe68efed5` and `794b355364471c89bf0ec30006e77e5e64e15735`. Shared Settings and source/traceability conflicts were resolved by retaining the approved UX and reconnect/reset functionality together.
+
+The combined regression exposed stale browser-test assumptions from before the approved UX change: an active urgent incident changes the Home heading, the authenticated watermark changed, and incident state is represented by a semantic `data-incident-state` attribute rather than visible label text. Existing source-linked assertions now derive the heading from authorized active incidents, check the current watermark, and assert semantic incident state. The focused browser case and full GS-179 run pass after this correction; no production assertion was weakened.
+
+Combined validation on the integrated source:
+
+- `make -C code gs179-postgres-e2e` — PASS, 55 tests; source-linked HOST_SIM event delivery, durable PostgreSQL and caregiver projection. Physical sensor remains NOT_RUN.
+- `make -C code pwa-68-browser-test` — PASS, 4/4 browser tests and 92/92 rendered catalog assertions, including Home severity/freshness, all four tabs and responsive UX.
+- Connected caregiver API — PASS, 22/22; JavaScript runtime — PASS, 10/10.
+- GS-179 PostgreSQL security — PASS, 18/18; GS-116 validation framework — PASS, 51/51; GS-130 feature coverage/traceability — PASS, 225 features / 278 modules / 26 physical cases and 22/22 framework cases.
+- JavaScript/Python syntax and `git diff --check` — PASS. Local Android Gradle build is unavailable because this host lacks Gradle/Android SDK; the authorized CI workflow is the APK build path.
+
+The live laptop route is not ready for a phone test: current Agrim address is `192.168.1.8/24`, while existing portproxy still targets historical `192.168.1.6`. No elevated Windows forwarding/firewall change was made. Yogi → Agrim → Yogi on the physical phone, APK installation/signature comparison, real Hub authentication, and a genuine PIR event remain NOT_RUN. A combined APK workflow is required from the final pushed source; that build will not establish phone acceptance.
+
+## Combined local-LAN APK follow-up — 2026-10-22
+
+The established workflow completed the integrated local-LAN TEST_ONLY APK build on source `ed99dbe1d73286110670c0128e2476415e387d2a`:
+[workflow run 39797650882](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39797650882), artifact `parivar-saathi-caregiver-debug-ed99dbe1d73286110670c0128e2476415e387d2a` (artifact ID `12434502262`, expires after 14 days). The artifact contains APK, build metadata and SHA256SUMS. APK SHA-256 is `5aaea3c6f71e1d60b401436d987fb50633c4766ba4e7318384e077ad7f0bd02f`; package `in.gharsajag.caregiver`, versionName `0.4.0-connected-lite-staging`, source versionCode 3, backend `https://desktop-3qqu64b.local`, local-LAN TEST_ONLY enabled, and trusted LAN CA SHA-256 `7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`. Build used JDK 17, Gradle 8.9 and Android compile SDK 35. CI verified APK v2 signature. Signer certificate SHA-256 is `141f15cdaec4645094cb0657956f8b82110f2f4eccfda61a9b5260052e111392`; this runner-generated debug signer differs from the previously recorded local-LAN signer (`58f9d580…`) and staging signer (`d2429959…`). The installed phone signer was not inspected, and the APK was not installed. In-place update compatibility is therefore not established; with a different installed signer, Android requires uninstall/reinstall, which was not authorized.
+
+The Android workflow's browser suite passed 4/4 and 92/92 rendered checks; the registered caregiver/API and Android stages passed (22 API checks, 12 Android dashboard checks, 28 voice-prototype checks), signature verification passed, and artifact upload passed. The overall GitHub run status remained `in_progress` after its only job had completed successfully; job result is success. A separate automatic default-origin push run `39797636040` failed in the first all-catalog test because Chrome DevTools did not start; the remaining three browser tests passed in that attempt. The manually dispatched `.local` TEST_ONLY run passed the same complete browser stage.
+
+The workflow artifact is build evidence only. It does not establish physical installation, phone server reachability, Yogi → Agrim → Yogi reconnection, live Home authorization, Hub authentication, or physical sensor acceptance. Current laptop portproxy state still targets the earlier `.6` address while Agrim readback was `.8`; the actual phone route must be refreshed and observed before installation validation.
+
+Final workflow status refresh: GitHub run `39797650882` finalized `completed / success` at 2026-10-22 14:50:44 UTC. Its only Android job had already completed successfully; the prior in-progress aggregate observation was delayed status propagation.

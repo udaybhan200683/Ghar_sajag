@@ -32,6 +32,26 @@ test('private LAN backend origin is accepted only in the explicit GS-179 TEST_ON
     assert.equal(parseCaregiverBackendOrigin(input,{gs179LocalLanTestOnly:true}),'',input);
   }
   assert.equal(normalizeRuntimeConfig({...raw,gs179LocalLanTestOnly:false},'https://192.168.1.6').backendOrigin,'');
+  assert.equal(runtime.localBackendReconnect,false);
+});
+
+test('GS177-PWA-LAN-RECONNECT-001 stable mDNS origin survives router changes and pairing stays TEST_ONLY', () => {
+  const origin='https://desktop-r1.local';
+  assert.equal(parseCaregiverBackendOrigin(origin), '');
+  const runtime=normalizeRuntimeConfig({mode:'caregiver',backendOrigin:origin,
+    gs179LocalLanTestOnly:true,localBackendReconnect:true},origin);
+  assert.equal(runtime.backendOrigin,`${origin}/`);
+  assert.equal(runtime.localBackendReconnect,true);
+  assert.equal(requestUrl(runtime,'/lite/v1/me'),`${origin}/lite/v1/me`);
+  const codeRoot=resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+  const caregiverUi=readFileSync(resolve(codeRoot,'tools/sim/pwa/connected_lite.mjs'),'utf8');
+  assert.match(caregiverUi,/runtime\.localBackendReconnect\?'<p><a class="local-backend-reconnect"/);
+  assert.match(caregiverUi,/gharsajag:\/\/backend\/reconnect/);
+  for(const input of ['https://local','https://evil.example.local','https://user@desktop-r1.local',
+    'https://desktop-r1.local:8443','http://desktop-r1.local'])
+    assert.equal(parseCaregiverBackendOrigin(input,{gs179LocalLanTestOnly:true}),'',input);
+  assert.equal(normalizeRuntimeConfig({mode:'caregiver',backendOrigin:origin,
+    gs179LocalLanTestOnly:false,localBackendReconnect:true},origin).localBackendReconnect,false);
 });
 
 test('simulator identity is enabled only by an explicit same-origin lab config', () => {
@@ -112,6 +132,8 @@ test('GS-177 connected caregiver UI restores Home safely and keeps the approved 
   assert.match(script,/function navCategory\(name\)/);
   assert.doesNotMatch(script,/dockNavigationUnderHeader/);
   assert.match(script,/function openTab\(next\)/);
+  assert.match(script,/runtime\.localBackendReconnect\?'<p><a class="local-backend-reconnect"/);
+  assert.match(script,/gharsajag:\/\/backend\/reconnect/);
   assert.match(script,/Run selected scenario/);
   assert.match(script,/id="scenarioChoice" size="1"/);
   assert.match(script,/function productEvents\(events,/);

@@ -1323,3 +1323,20 @@ activation change was made. See the dated GS-68 security/laptop evidence
 [`GS68_D05_D12_D06_PROVIDER_E2E_20261017.md`](../exec-plans/evidence/GS68_D05_D12_D06_PROVIDER_E2E_20261017.md#2026-10-22--authenticated-hub-certificate-validity-and-laptop-check).
 `CONTEXT_VERSION` remains unchanged; this is an owner-scoped execution-host
 update, not a new product/security contract.
+
+## GS-177/GS-179 router-independent TEST_ONLY reconnect — 2026-10-22 (implementation checkpoint; no new lock)
+
+The local-LAN TEST_ONLY app and laptop tooling now support a persisted stable
+computer-name `.local` HTTPS origin, explicit private-address reconnect, and
+dynamic Windows Wi-Fi/WSL address discovery. HTTPS certificate hostname
+verification remains the identity check; service discovery or the private
+address is not authentication. The commercial app origin/trust profile is
+unchanged. The optional Windows route watcher remains operator-activated and
+was not registered because the current session lacks elevation. This records
+implementation behavior under existing GS-177/179 decisions; it does not
+approve a persistent listener, router changes, or physical-device access.
+
+At the final read-only check the laptop was on Agrim (`192.168.1.8/24`), while
+the existing Windows forwarding rule still targeted the previous `.6` address.
+Thus current laptop LAN endpoint readiness is FAIL and phone roaming remains
+NOT_RUN. No product/security decision or `CONTEXT_VERSION` change is made.

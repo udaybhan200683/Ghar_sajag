@@ -22,6 +22,14 @@ match=re.search(r'^Ran (\d+) tests? in ',api_output,re.MULTILINE)
 if not match:
     raise SystemExit('GS177 connected Lite API test count unavailable')
 api_test_count=int(match.group(1))
+for case_id in (
+    'GS177_API_LAN_ORIGIN_001_ip_pairing_is_an_explicit_test_only_origin_alias',
+    'GS177_API_LAN_ORIGIN_002_alias_configuration_is_rejected_outside_lan_test_only_mode',
+):
+    if not re.search(rf'^test_{re.escape(case_id)} .*ok$', api_output, re.MULTILINE):
+        raise SystemExit(f'GS177 connected Lite missing required LAN origin case: {case_id}')
+print('CASE GS177-API-LAN-ORIGIN-001 PASS')
+print('CASE GS177-API-LAN-ORIGIN-002 PASS')
 runtime_output=run(['node','--test','tests/js/caregiver_runtime.test.mjs'])
 runtime_match=re.search(r'^# tests (\d+)$',runtime_output,re.MULTILINE)
 runtime_test_count=int(runtime_match.group(1)) if runtime_match else 0

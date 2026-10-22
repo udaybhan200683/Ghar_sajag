@@ -14,8 +14,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "local"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "support"))
-from connected_lite import (HOME_ID, LiteApi, Store, bootstrap_admin, bootstrap_caregiver,
-                            rotate_password, run_scenario, validate_public_origin,
+from connected_lite import (HOME_ID, Denied, LiteApi, Store, bootstrap_admin, bootstrap_caregiver,
+                            build_app, rotate_password, run_scenario, validate_public_origin,
                             token_digest, password_hash, password_valid)
 from gs179_change_login import (DuplicateEmail, LoginChangeError, _atomic_write,
                                 _encode_json, update_existing_login,
@@ -246,17 +246,57 @@ class PublicOriginPolicyTests(unittest.TestCase):
                                    monitoring_enabled=True),
             "https://192.168.1.6",
         )
+        self.assertEqual(
+            validate_public_origin("https://desktop-r1.local", test_only_lan=True,
+                                   monitoring_enabled=True),
+            "https://desktop-r1.local",
+        )
         for origin in (
             "http://192.168.1.6", "https://8.8.8.8", "https://172.15.1.2",
             "https://172.32.1.2", "https://127.0.0.1", "https://192.168.1.6/",
             "https://user@192.168.1.6", "https://192.168.1.6:8443",
             "https://care.gharsajag.in",
+            "https://host.other.local", "https://desktop-r1.local:443",
+            "https://desktop_r1.local", "https://user@desktop-r1.local",
         ):
             with self.subTest(origin=origin), self.assertRaises(ValueError):
                 validate_public_origin(origin, test_only_lan=True, monitoring_enabled=True)
         with self.assertRaisesRegex(ValueError, "requires_gs179_test_only_monitoring"):
             validate_public_origin("https://192.168.1.6", test_only_lan=True,
                                    monitoring_enabled=False)
+
+    def test_GS177_API_LAN_ORIGIN_001_ip_pairing_is_an_explicit_test_only_origin_alias(self):
+        api = object.__new__(LiteApi)
+        api.allowed_origins = frozenset(("https://desktop-r1.local", "https://192.168.1.10"))
+        with patch.dict(os.environ, {
+            "PUBLIC_ORIGIN": "https://desktop-r1.local",
+            "GS179_LOCAL_LAN_TEST_ONLY": "1",
+            "GS179_TEST_ONLY_MONITORING": "1",
+        }, clear=False):
+            api._csrf({"HTTP_ORIGIN": "https://desktop-r1.local"})
+            api._csrf({"HTTP_ORIGIN": "https://192.168.1.10"})
+            with self.assertRaises(Denied):
+                api._csrf({"HTTP_ORIGIN": "https://192.168.1.11"})
+        with patch.dict(os.environ, {
+            "PUBLIC_ORIGIN": "https://care.gharsajag.in",
+            "GS179_LOCAL_LAN_TEST_ONLY": "0",
+            "GS179_TEST_ONLY_MONITORING": "0",
+            "GS179_TEST_ONLY_ALLOWED_ORIGINS": "https://192.168.1.10",
+        }, clear=False):
+            api.allowed_origins = frozenset(("https://care.gharsajag.in",))
+            with self.assertRaises(Denied):
+                api._csrf({"HTTP_ORIGIN": "https://192.168.1.10"})
+
+    def test_GS177_API_LAN_ORIGIN_002_alias_configuration_is_rejected_outside_lan_test_only_mode(self):
+        with patch.dict(os.environ, {
+            "PUBLIC_ORIGIN": "https://care.gharsajag.in",
+            "GS179_LOCAL_LAN_TEST_ONLY": "0",
+            "GS179_TEST_ONLY_MONITORING": "0",
+            "GS179_TEST_ONLY_ALLOWED_ORIGINS": "https://192.168.1.10",
+        }, clear=False):
+            with self.assertRaisesRegex(
+                    ValueError, "test_only_origin_aliases_require_isolated_gs179_lan_profile"):
+                build_app()
 
     def test_commercial_profile_still_requires_existing_exact_https_dns_origin(self):
         self.assertEqual(validate_public_origin("https://care.gharsajag.in"),

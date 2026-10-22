@@ -370,3 +370,233 @@ A separate live caregiver browser rerun initially got a transient
 a read-only proxy audit was also running. The service health/TLS checks stayed
 PASS; the browser rerun by itself passed with the same EventKey and no source
 change. The transient was not reproduced.
+
+## 2026-10-22 — router-independent TEST_ONLY reconnect implementation
+
+This follow-up adds a reusable reconnect path for the existing laptop host and
+Parivar Saathi app. It remains TEST_ONLY and leaves the commercial release
+origin and trust configuration unchanged. The Android app can restore a
+previously paired `https://<computer-name>.local` origin or use an explicit
+private IPv4 fallback in the bundled reconnect flow. It persists the selected
+origin, while WebView continues normal TLS hostname and certificate
+verification. Address discovery is never treated as authentication. The
+caregiver server permits the `.local` HTTPS origin only under its explicit
+TEST_ONLY LAN setting.
+
+The Windows helper now reads the active Wi-Fi IPv4 and current WSL2 address and
+can retarget only its owned portproxy/firewall configuration. A bounded,
+opt-in watcher is available for operator activation but was not registered:
+the current Windows session is not elevated. No broad firewall rule, router
+change, server restart, or phone operation was performed.
+
+At final read-only inspection, Windows was connected to `Airtel_Agrim` at
+`192.168.1.8/24` and WSL2 was `172.17.152.10`. PostgreSQL, caregiver HTTPS and
+local service checks were healthy. The existing Windows portproxy still
+targeted the previous `192.168.1.6`, so
+`LAPTOP_LAN_ENDPOINT_TLS_READY=FAIL`; phone reachability remains NOT_VERIFIED.
+The server certificate covers the stable computer-name `.local` origin. The
+stale route was left unchanged to preserve the live network/server state. No
+phone-side Yogi → Agrim → Yogi test has been performed.
+
+Focused validation on this source passed: PWA runtime JS 10/10; caregiver API
+22/22; GS-179 security 18/18; source-linked GS-179 PostgreSQL E2E 55/55;
+GS-177 connected-lite runner (22 API tests, 10 JS tests, 3 source scenarios,
+10 runtime checks); validation framework 51/51; feature coverage and
+traceability; PWA browser 4/4 tests and 92/92 rendered checks; and GS-178
+caregiver integration 33/33. Python, Node, shell and JSON syntax checks and
+`git diff --check` passed. The broader backend/PWA aggregates retain the
+existing mandatory P0 `product_status=PARTIAL`, diagnostic-foundation's
+stale-stage registration assertion, and an initial offline-browser attempt
+that lacked the Python `websocket` dependency; the isolated browser target
+passed after that dependency was supplied outside the repository. These
+results were not suppressed or altered. Local Gradle and ADB are unavailable,
+so the updated combined APK was not built. Physical phone, Hub and PIR
+validation remain NOT_RUN.
+
+This is the Wi-Fi source checkpoint only. GS-177 UX commit integration is
+deferred until this checkpoint is committed and pushed. Starting local and
+remote HEAD was `aeb2ab52a4f1c0e286817b77026d4fe13f03580b`; pre-existing
+untracked and ignored assets remain preserved.
+
+## 2026-10-22 — owner-reported Android connectivity regression
+
+The owner installed the combined TEST_ONLY APK from workflow 39797650882 and
+reported caregiver login `Failed to fetch` on both Yogi and Agrim. The previous
+IP-origin APK had connected on Yogi. This supersedes the earlier statement that
+phone-side testing was NOT_RUN: an owner-operated phone login attempt was made
+and failed. It does not establish a real Hub or sensor event.
+
+### Current read-only state and isolation
+
+- Canonical source is `feature/r1-commercial-baseline` at
+  `7d352118e37681be036c0d410ea0e4df27be53bc`, equal to the remote at the start
+  of this check. Context preflight passed. The tracked tree was clean; existing
+  untracked/generated assets were left untouched.
+- Windows reports Wi-Fi profile `Airtel_Agrim`, category `Public`,
+  `192.168.1.8/24`. WSL2 is `172.17.152.10`. The existing portproxy row remains
+  `192.168.1.6:443 -> 172.17.152.10:8444`. The WSL service and PostgreSQL are
+  active. PostgreSQL is loopback-only on 55432 and its verified TLS/durability
+  health check passes.
+- `gs179-laptop-server.sh health` reports PostgreSQL and caregiver HTTPS
+  ready locally, but its Windows-LAN TLS probe times out at the current `.8`
+  address. It reports phone reachability NOT_VERIFIED and Hub ingress
+  default-disabled. This is not a claim of physical monitoring availability.
+- The current leaf certificate chains to the same TEST_ONLY CA embedded in the
+  installed APK (CA file SHA-256
+  `7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`). The
+  leaf has DNS SAN `desktop-3qqu64b.local` and IP SAN `192.168.1.6`; its DNS
+  name verifies locally, but its IP SAN does not cover current Agrim address
+  `192.168.1.8`. A wrong TLS hostname is rejected. No TLS verification was
+  bypassed. Refreshing the leaf for `.8` was not performed because the Windows
+  forwarding operation that makes the route usable requires an elevated
+  Windows token.
+- Windows `Resolve-DnsName desktop-3qqu64b.local` currently returns A records
+  `172.17.144.1` (the WSL virtual-network gateway) and `192.168.1.8`, plus
+  link-local IPv6 records. WSL `getent hosts desktop-3qqu64b.local` returned no
+  result, and the existing browser helper failed at name resolution before
+  login. The actual Android resolver-selected address was not captured, so
+  these are concrete risks for the `.local` path, not proof of the phone's
+  selected address.
+- Android source inspection confirms `BackendOrigin` accepts the configured
+  `.local` host and `TrustedPwaWebView` loads it as the WebView origin; the
+  reconnect flow preserves normal TLS hostname validation. There is no app
+  `NsdManager`/DNS-SD resolver in this path, so `.local` resolution is delegated
+  to Android's platform/WebView resolver. This identifies a plausible boundary
+  for the phone failure, but does not prove what address or resolver error the
+  handset observed.
+- A direct WSL TLS probe to the caregiver listener used the `.local` SNI and
+  hostname verification with the pinned TEST_ONLY CA. Login through the
+  existing caregiver API succeeded for the owner-only TEST_ONLY fixture; the
+  same authorized Home overview returned the single pre-existing PostgreSQL
+  EventKey exactly once, and a different Home was denied. The API reported
+  source freshness `STALE` and monitoring `UNKNOWN`. The diagnostic logged out
+  its temporary session. The event is existing HOST_SIM/TEST_ONLY data, not a
+  real household or sensor event.
+- `test_connected_lite.py` ran 22/22 PASS. Its fixtures are isolated. The
+  direct WSL API probe above used the running local service and database, but
+  did not traverse Windows portproxy or the phone.
+
+### Operations not performed and exact remaining steps
+
+The current Windows token is not an administrator. The helper audit could not
+read the firewall rule, and no portproxy/firewall/certificate/service change
+was made. The existing helper's network watcher also remains unregistered. Its
+scheduled task runs with `HighestAvailable` at logon and every generic
+NetworkProfile-connected event; the `Watch` path accepts any RFC1918 Wi-Fi
+profile and has no allowlist for owner-trusted networks. It is not safe to
+register as-is under the requirement to fail closed on untrusted networks.
+Until a trusted-network policy is supplied and enforced, use an elevated
+one-time refresh only while connected to an owner-approved Wi-Fi:
+
+```bash
+code/tools/local/gs179-laptop-server.sh network-refresh
+```
+
+Run it from the canonical WSL distro launched by an elevated Windows Terminal;
+first verify that the helper's Windows PowerShell child reports an
+administrator token. This refreshes the current TEST_ONLY certificate SAN and
+private server origin, restarts the WSL service, and updates only the existing
+GS-179 Wi-Fi/subnet-scoped forwarding/firewall rule. Require
+`LAPTOP_LAN_ENDPOINT_TLS_READY=PASS` before testing the phone. Repeat the
+one-time refresh after each Yogi/Agrim switch until a safe, explicitly approved
+watcher exists.
+
+After the route is ready, test from the phone's Chrome browser first at
+`https://desktop-3qqu64b.local/readyz`; require the ready JSON without a
+certificate warning. If name resolution fails, use the APK's **Reconnect to
+laptop server** action and enter the current Windows Wi-Fi IPv4 as an HTTPS
+private-IP origin only after the helper has placed that exact IP in the leaf
+certificate SAN. Never bypass a certificate error. Then log in and confirm the
+authorized Home loads. Repeat Yogi → Agrim → Yogi with the same installed APK;
+run the elevated one-time helper refresh at each Wi-Fi transition, and record
+the displayed endpoint and phone outcome. No phone OS/device logs or screenshots
+were captured by this WSL session.
+
+The installed artifact remains workflow 39797650882, APK SHA-256
+`5aaea3c6f71e1d60b401436d987fb50633c4766ba4e7318384e077ad7f0bd02f`, package
+`in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`, origin
+`https://desktop-3qqu64b.local`. No APK rebuild or reinstall is presently
+indicated; the reported failure needs route and resolver isolation first.
+
+## 2026-10-22 — TEST_ONLY DNS-SD discovery and Android secure reconnect
+
+The latest owner phone report (GS-177 comment 11583) corrects the prior phone
+failure: on Agrim, the same installed TEST_ONLY APK logged in and loaded its
+authorized Home after the owner selected `https://192.168.1.8` through the
+existing reconnect control. This proves the current-IP HTTPS fallback and
+caregiver API path on that phone. The `.local` route failed, and Android
+automatic discovery plus Yogi → Agrim → Yogi remain unverified.
+
+The source change adds a TEST_ONLY-only Windows DNS-SD advertisement for the
+current HTTPS listener and foreground Android NSD discovery. Android accepts
+DNS-SD only as a locator: it probes a private IPv4 endpoint using the platform
+trust store, default IP-hostname verification, the exact configured
+`desktop-3qqu64b.local` certificate SAN, a persisted SPKI continuity pin after
+first success, no redirects, and the existing bounded `/readyz` response with
+PostgreSQL reachable. It stores the IP endpoint only after those checks, then
+reopens the same PWA/WebView origin. No identity headers, TLS override, new
+backend, or production profile change is introduced. Discovery is foreground
+and Wi-Fi only; each generation probes no more than four distinct private
+addresses, keeps at most two DNS-SD resolves pending, uses 3.5-second connect
+and read timeouts, and reads at most 4096 readiness bytes. A stale probe cannot
+persist its IP after a Wi-Fi generation change.
+
+The Windows advertiser is a non-privileged process started with the existing
+explicit `GS179_LOCAL_LAN_TEST_ONLY=1` laptop-server command. It only registers
+the existing service when active Wi-Fi is classified by Windows as `Private`
+or `DomainAuthenticated`, has an RFC1918 address, and already has the HTTPS
+listener. `Public` and unknown Windows profiles fail closed. The current
+read-only Windows profile is `Airtel_Agrim / Public`, so the advertiser will
+not publish until that owner-trusted Wi-Fi is classified as Private. The
+existing elevated network watcher remains unregistered: route, forwarding,
+firewall and current-IP certificate refresh still require its separately
+approved trusted-network lifecycle. The stale owned `192.168.1.6:443` mapping
+remains a separate cleanup issue; the current `192.168.1.8:443` mapping to
+WSL `172.17.152.10:8444` and listener were present during read-only recheck.
+
+Validation on source before delivery:
+
+- GS177 Android runner source/policy marker: `GS177-LAN-NSD-001 SOURCE_PASS`.
+- Existing PWA runtime: 10/10 PASS.
+- Windows PowerShell DNS-SD construction and policy validation: 13/13 policy
+  assertions PASS; DNS-SD record construction PASS; no socket or registration
+  opened.
+- `make -C code feature-coverage-test`: PASS, 225 feature rows, 280 source
+  modules, 26 physical cases; 22/22 framework tests.
+- Shell syntax, Python compilation, `suites.json` parse, and `git diff --check`:
+  PASS.
+- The full local Android runner exits 127 after source checks, branding, and
+  PWA tests because Gradle/Android SDK are absent from WSL. The registered CI
+  Android unit/build stage is required to compile the new Kotlin and produce
+  the TEST_ONLY APK. No phone NSD test, Wi-Fi switch, forwarding/firewall
+  mutation, or persistent watcher registration was performed.
+
+Current laptop API/TLS health checks pass from WSL; Windows IP is
+`192.168.1.8/24`, WSL is `172.17.152.10`, and Windows reports listeners on
+`.8:443` and the historical `.6:443`. This does not prove the phone's mDNS
+visibility. The real phone result remains IP-fallback PASS only. A new APK build
+will be needed because the Android source changed, but CI signing compatibility
+with the installed build must be checked before installation. If the server
+address changes, caregiver login may be required again because HTTPS cookies
+are origin-bound.
+
+### Same-origin route recovery correction
+
+The Android activity now observes `ConnectivityManager.NetworkCallback` link
+properties as well as default-network changes. It restarts bounded NSD discovery
+when the active Wi-Fi network or its address/route signature changes. After a
+candidate passes HTTPS CA validation, the current IP SAN, the expected laptop
+DNS SAN, the persisted SPKI continuity check and database readiness, it reloads
+the caregiver WebView when either the endpoint or Wi-Fi route changed. This
+handles a route transition that retains the same private IP; simply foregrounding
+the app on an unchanged network does not force a reload. JUnit coverage was
+added for this same-origin route transition. CI Android compilation and actual
+phone DNS-SD/Yogi → Agrim → Yogi validation remain pending.
+
+The follow-up validation on this source re-ran the PWA JS tests (10/10), the
+GS-179 local Android source/policy checks, Windows DNS-SD policy/record
+construction validation (13 policy cases; no registration or socket), the
+feature traceability suite (22/22), shell/Python/JSON syntax checks and
+`git diff --check`. The registered runner reaches its Android stage but exits
+127 because Gradle and Android SDK are absent in WSL. No APK was built or
+installed during that local run.

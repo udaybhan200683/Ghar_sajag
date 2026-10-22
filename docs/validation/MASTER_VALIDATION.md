@@ -934,3 +934,66 @@ aggregate is preserved. Historical migration remains FAIL, physical qualificatio
 remains NOT_RUN, release approval remains false, and release-gate-final was not
 run. These results are integration-candidate evidence only; they do not change
 canonical release status or authorize a merge.
+
+## GS-177/GS-179 local-LAN reconnect test registration — 2026-10-22
+
+Router-independent local TEST_ONLY reconnection uses the existing GS-177 and
+GS-179 registered suites. Added required markers are `GS177-API-LAN-ORIGIN-001`
+and `GS177-API-LAN-ORIGIN-002` in the caregiver API suite,
+`GS177-PWA-LAN-RECONNECT-001` and `GS177-ANDROID-LAN-RECONNECT-001` in the
+Android dashboard suite, and `GS179-LAN-AUTO-001` / `GS179-LAN-RECOVERY-001`
+in the PostgreSQL E2E suite. The updated feature row is `GS-PWA-01` in
+`MASTER_TRACEABILITY.csv`; Android phone/network acceptance remains
+`PHY-GS177-ANDROID-01` and NOT_RUN.
+
+On 2026-10-22, focused source-linked host/API/security and browser tests passed
+as recorded in
+[`GS-179 laptop LAN evidence`](../exec-plans/evidence/GS179_LOCAL_WSL2_ANDROID_HOST_20261020.md#2026-10-22--router-independent-test_only-reconnect-implementation).
+The phone transition across Yogi → Agrim → Yogi was not executed. Current
+Agrim readback found that the Windows portproxy still targeted the prior
+address; therefore current laptop LAN reachability is FAIL, despite healthy
+local PostgreSQL and caregiver HTTPS. The optional elevated Windows refresh
+watcher was not registered. These software results do not promote the physical
+case or real Hub/PIR status.
+
+## GS-177 UX integration after the Wi-Fi checkpoint — 2026-10-22
+
+The router-independent TEST_ONLY source checkpoint was committed first at
+`fd6437eee69ca6cfabd78ab3fc3b9f38801444db`; the approved UX commits were then
+integrated on the canonical branch at `608c5ba40453f3eead9b5e831fe22dbbe68efed5`
+and `794b355364471c89bf0ec30006e77e5e64e15735`. Existing source-linked browser
+assertions were corrected for the approved incident-driven Home heading,
+authenticated watermark and semantic incident-state attribute.
+
+Integrated-source validation: `make -C code gs179-postgres-e2e` 55/55 PASS;
+`make -C code pwa-68-browser-test` 4/4 PASS and 92/92 catalog assertions;
+caregiver API 22/22 PASS; runtime JavaScript 10/10 PASS; GS-179 security 18/18
+PASS; validation framework 51/51 PASS; feature coverage/traceability PASS
+(225 features, 278 source modules, 26 physical cases; 22/22 framework checks).
+These are HOST_SIM/TEST_ONLY and browser/API software results. The actual
+Android phone and Yogi → Agrim → Yogi sequence remain NOT_RUN. Current Agrim
+portproxy still points to the historical Windows address, so phone LAN route is
+not verified. The Android CI APK build remains pending on final integrated source.
+
+### Combined local-LAN APK build result — 2026-10-22
+
+Workflow [39797650882](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39797650882)
+built source `ed99dbe1d73286110670c0128e2476415e387d2a` with origin
+`https://desktop-3qqu64b.local` and `GS177_LOCAL_LAN_TEST_ONLY=1`. Its sole
+Android job completed SUCCESS: PWA browser 4/4 and 92/92 rendered checks,
+caregiver API 22/22, Android dashboard 12 checks, voice prototype 28 checks,
+APK v2 signature and upload passed. Artifact ID `12434502262`, APK SHA-256
+`5aaea3c6f71e1d60b401436d987fb50633c4766ba4e7318384e077ad7f0bd02f`; signer
+certificate SHA-256 `141f15cdaec4645094cb0657956f8b82110f2f4eccfda61a9b5260052e111392`.
+The runner-generated debug signer differs from previously recorded APKs, so
+installation as an in-place update is not established. The installed phone
+signer was not inspected and no install/uninstall occurred. The artifact build
+and simulated tests do not establish phone network, WebView, or physical-sensor
+acceptance. The overall GitHub run remained `in_progress` after its sole job
+reported success. Preserve the separate default-origin push run failure
+39797636040: Chrome DevTools did not start for the first catalog case; later
+correctly configured local-LAN workflow passed the full browser stage.
+
+Final status refresh: workflow run 39797650882 finalized `completed / success`
+at 2026-10-22 14:50:44 UTC; the prior in-progress aggregate state was delayed
+status propagation.

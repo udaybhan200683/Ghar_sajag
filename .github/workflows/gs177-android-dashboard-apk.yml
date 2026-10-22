@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       backend_origin:
-        description: Exact HTTPS origin (private RFC1918 IPv4 is accepted only with GS-179 LAN TEST_ONLY enabled)
+        description: Exact HTTPS origin (private IPv4 or single-label .local is accepted only with GS-179 LAN TEST_ONLY enabled)
         required: false
         type: string
       gs179_local_lan_test_only:

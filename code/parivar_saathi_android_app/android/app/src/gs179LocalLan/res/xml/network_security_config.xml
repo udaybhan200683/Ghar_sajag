@@ -3,13 +3,10 @@
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
-        </trust-anchors>
-    </base-config>
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="false">192.168.1.6</domain>
-        <trust-anchors>
-            <certificates src="system" />
+            <!-- This CA is included only in the debug TEST_ONLY source set. The app
+                 still requires a matching DNS/IP SAN and its WebView pins one exact
+                 configured origin before any request is allowed. -->
             <certificates src="@raw/gs179_local_lan_test_ca" />
         </trust-anchors>
-    </domain-config>
+    </base-config>
 </network-security-config>

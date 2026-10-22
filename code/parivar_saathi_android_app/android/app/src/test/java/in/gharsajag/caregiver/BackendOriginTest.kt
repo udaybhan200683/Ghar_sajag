@@ -61,10 +61,24 @@ class BackendOriginTest {
         assertNull(BackendOrigin.parse("https://192.168.1.6"))
         assertEquals(
             "https://192.168.1.6/",
-            BackendOrigin.parse("https://192.168.1.6/", allowTestOnlyPrivateIpv4 = true)?.baseUrl,
+            BackendOrigin.parse("https://192.168.1.6/", allowTestOnlyLanEndpoint = true)?.baseUrl,
         )
         listOf("https://8.8.8.8", "https://172.15.1.2", "https://172.32.1.2",
             "https://192.168.001.6", "https://10.0.0.256", "https://127.0.0.1")
+            .forEach { assertNull("unexpectedly accepted: $it", BackendOrigin.parse(it, true)) }
+    }
+
+    @Test
+    fun gs177AndroidLanReconnectStableMdnsHostnameAndManualPrivateAddressAreTestOnly() {
+        val hostname = BackendOrigin.parse("https://desktop-r1.local", allowTestOnlyLanEndpoint = true)
+        assertEquals("https://desktop-r1.local/", hostname?.baseUrl)
+        assertNull(BackendOrigin.parse("https://desktop-r1.local"))
+        val privateAddress = BackendOrigin.parse("https://10.20.30.40", allowTestOnlyLanEndpoint = true)
+        assertEquals("https://10.20.30.40/", privateAddress?.baseUrl)
+        assertTrue(privateAddress!!.allows("https", "10.20.30.40", 443))
+        assertFalse(privateAddress.allows("https", "10.20.30.41", 443))
+        listOf("https://.local", "https://evil.example.local", "https://desktop_r1.local",
+            "https://desktop-r1.local:8443", "http://desktop-r1.local")
             .forEach { assertNull("unexpectedly accepted: $it", BackendOrigin.parse(it, true)) }
     }
 
@@ -85,5 +99,21 @@ class BackendOriginTest {
     fun debugEndpointIsBuildConfiguredAndUserRuntimeOverrideIsAbsent() {
         assertTrue(BuildConfig.DEV_ENDPOINT_CONFIG_ALLOWED)
         assertNull(BackendOrigin.parse(""))
+    }
+
+    @Test
+    fun gs177AndroidLanReconnectIsReachableOnlyFromBundledFirstPartyMainFrame() {
+        val endpoint = TrustedPwaWebView.BACKEND_RECONNECT_URL
+        assertTrue(BackendReconnectNavigationPolicy.canOpen(
+            endpoint, "https://desktop-r1.local/__caregiver_app__/index.html",
+            "desktop-r1.local", true))
+        assertFalse(BackendReconnectNavigationPolicy.canOpen(
+            endpoint, "https://attacker.example/__caregiver_app__/index.html",
+            "desktop-r1.local", true))
+        assertFalse(BackendReconnectNavigationPolicy.canOpen(
+            endpoint, "https://desktop-r1.local/lite/v1/me", "desktop-r1.local", true))
+        assertFalse(BackendReconnectNavigationPolicy.canOpen(
+            endpoint, "https://desktop-r1.local/__caregiver_app__/index.html",
+            "desktop-r1.local", false))
     }
 }

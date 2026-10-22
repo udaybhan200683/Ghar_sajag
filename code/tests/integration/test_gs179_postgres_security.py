@@ -131,11 +131,11 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         path.write_text(textwrap.dedent(body).lstrip(), encoding="utf-8")
         path.chmod(0o700)
 
-    def _run_script(self, command: str, *, extra_env=None):
+    def _run_script(self, command: str, *arguments: str, extra_env=None):
         env = self.env.copy()
         env.update(extra_env or {})
         return subprocess.run(
-            ["bash", str(LAPTOP_SERVER), command], env=env,
+            ["bash", str(LAPTOP_SERVER), command, *arguments], env=env,
             text=True, capture_output=True, timeout=15, check=False)
 
     def _write_private_server_env(self):
@@ -201,16 +201,24 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         source = WINDOWS_PROXY.read_text(encoding="utf-8")
         audit = source.index('if ($Action -eq "Audit")')
         audit_exit = source.index("exit 0", audit)
-        admin_gate = source.index("administrator_token_required_for_scoped_portproxy_and_firewall_rule")
+        admin_gate = source.index('if ($Action -in @("Start", "Stop", "Watch")) { Assert-Administrator }')
         self.assertLess(audit, audit_exit)
         self.assertLess(audit_exit, admin_gate)
-        for mutation in ("New-NetFirewallRule", "Remove-NetFirewallRule", "portproxy add", "portproxy delete"):
-            self.assertGreater(source.index(mutation), admin_gate)
+        stop = source[source.index('if ($Action -eq "Stop")'):source.index('$wifiState = Get-ActiveWifiState')]
+        self.assertLess(stop.index("Assert-Administrator"), stop.index("portproxy delete"))
+        self.assertLess(stop.index("Assert-Administrator"), stop.index("Remove-NetFirewallRule"))
+        start = source[source.index('if ($Action -eq "Start")', admin_gate):]
+        for mutation in ("New-NetFirewallRule -Name", "Set-NetFirewallAddressFilter",
+                         "portproxy add", "portproxy delete"):
+            self.assertGreater(start.index(mutation), 0)
+        self.assertLess(source.index('if ($Action -eq "UnregisterWatch")'),
+                        source.index("Unregister-ScheduledTask"))
+        self.assertLess(source.index('if ($Action -eq "RegisterWatch")'),
+                        source.index("Register-ScheduledTask"))
 
     def test_proxy_start_repairs_dormant_mapping_and_fails_closed_without_listener(self):
         source = WINDOWS_PROXY.read_text(encoding="utf-8")
-        start = source[source.index('if ($Action -eq "Start")'):
-                       source.index('if ($Action -eq "Stop")')]
+        start = source[source.index('if ($Action -eq "Start")', source.index('$existingRule = Get-ExactFirewallRule')):]
         self.assertIn("elseif ($occupied.Count -eq 0)", start)
         self.assertIn("Wait-PortProxyListener $actualAddress $ListenPort", start)
         self.assertIn("portproxy_listener_not_active", start)
@@ -220,7 +228,7 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
     def test_health_states_do_not_promote_host_or_wifi_to_hub_health(self):
         source = LAPTOP_SERVER.read_text(encoding="utf-8")
         self.assertIn("LOCAL_BACKEND_READY=PASS", source)
-        self.assertIn("LAPTOP_LAN_ENDPOINT_TLS_READY=BLOCKED_CONFIG_MISMATCH", source)
+        self.assertIn("LAPTOP_LAN_ENDPOINT_TLS_READY=PASS tls=ca_and_dns_san_verified", source)
         self.assertIn("PHONE_LAN_REACHABLE=NOT_VERIFIED", source)
         self.assertIn("HUB_INGRESS_RUNTIME_IMPLEMENTED=YES", source)
         self.assertIn("HUB_INGRESS_AUTOSTART=DISABLED", source)
@@ -228,9 +236,55 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         self.assertIn("HUB_MONITORING_FRESHNESS=UNKNOWN", source)
         self.assertIn("PERSISTENT_HUB_INGRESS=NOT_CONFIGURED", source)
         self.assertIn("HUB_INGRESS_READY=NOT_CONFIGURED", source)
-        mismatch = source.index('if [[ "$observed_ip" != "$GS179_WINDOWS_WIFI_IPV4" ]]')
-        phone_probe = source.index('"https://$GS179_WINDOWS_WIFI_IPV4/readyz"')
-        self.assertLess(mismatch, phone_probe)
+        self.assertNotIn("192.168.1.6", source)
+        self.assertNotIn("GS179_WIFI_NAME=", source)
+        self.assertIn('--resolve "$GS179_LAN_HOSTNAME:443:$observed_ip"', source)
+        self.assertIn('"https://$GS179_LAN_HOSTNAME/readyz"', source)
+        self.assertIn('network-refresh)', source)
+        self.assertIn('"PUBLIC_ORIGIN": "https://" + host + ".local"', source)
+
+    def test_GS179_LAN_AUTO_001_network_refresh_and_watcher_retarget_only_owned_service(self):
+        source = LAPTOP_SERVER.read_text(encoding="utf-8")
+        proxy = WINDOWS_PROXY.read_text(encoding="utf-8")
+        self.assertIn("network-refresh-config)", source)
+        self.assertIn("record-proxy-target)", source)
+        self.assertIn("proxy-watch-register)", source)
+        self.assertIn("-Action RegisterWatch -LinuxScriptPath", source)
+        self.assertIn("NetworkProfile/Operational", proxy)
+        self.assertIn("EventID=10000", proxy)
+        self.assertIn("Get-ActiveWifiState ($Action -eq \"Watch\")", proxy)
+        self.assertIn("-RemoteAddress $scope", proxy)
+        self.assertIn('-InterfaceAlias "Wi-Fi"', proxy)
+        self.assertIn("-Profile $firewallProfile", proxy)
+        self.assertNotIn("ExpectedWifiName", proxy)
+        self.assertNotIn("WifiAddress = \"192.168.", proxy)
+        print("CASE GS179-LAN-AUTO-001 PASS")
+
+    def test_GS179_LAN_RECOVERY_001_proxy_stop_rollback_needs_no_active_wifi(self):
+        source = WINDOWS_PROXY.read_text(encoding="utf-8")
+        stop_branch = source.index('if ($Action -eq "Stop")')
+        wifi_probe = source.index('$wifiState = Get-ActiveWifiState')
+        stop = source[stop_branch:wifi_probe]
+        self.assertLess(stop_branch, wifi_probe)
+        self.assertIn("Assert-Administrator", stop)
+        self.assertIn("Get-PortProxyRows", stop)
+        self.assertIn("Get-ExactFirewallRule", stop)
+        self.assertNotIn("Get-ActiveWifiState", stop)
+        print("CASE GS179-LAN-RECOVERY-001 PASS")
+
+    def test_proxy_target_recorder_accepts_only_wsl_nat_addresses(self):
+        accepted = self._run_script("record-proxy-target", "172.17.152.10")
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        target = self.home / ".local/state/ghar-sajag/gs179-laptop/windows-wsl-target"
+        self.assertEqual(target.read_text().strip(), "172.17.152.10")
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+
+        for invalid in ("192.168.1.10", "172.15.0.1", "172.32.0.1", "not-an-ip"):
+            with self.subTest(invalid=invalid):
+                rejected = self._run_script("record-proxy-target", invalid)
+                self.assertEqual(rejected.returncode, 2)
+                self.assertIn("refusing_to_record_non_wsl_nat_address", rejected.stderr)
+        self.assertEqual(target.read_text().strip(), "172.17.152.10")
 
     def test_start_and_restart_wait_for_bounded_verified_local_readiness(self):
         source = LAPTOP_SERVER.read_text(encoding="utf-8")

@@ -261,8 +261,10 @@ class CurrentSessionDirectory:
 
 
 class LiteApi:
-    def __init__(self, store: Store, runner=run_scenario, clock=time.time, product_view=None):
+    def __init__(self, store: Store, runner=run_scenario, clock=time.time, product_view=None,
+                 allowed_origins=None):
         self.store, self.runner, self.clock = store, runner, clock
+        self.allowed_origins = frozenset(allowed_origins or ())
         if product_view is not None:
             local_test = store.local and os.environ.get("GS178_LOCAL_TEST") == "1"
             remote_test_only = (not store.local and
@@ -314,7 +316,8 @@ class LiteApi:
     def _csrf(self, env):
         origin = env.get("HTTP_ORIGIN", "")
         expected = os.environ.get("PUBLIC_ORIGIN", "")
-        if not expected or origin != expected:
+        allowed = self.allowed_origins or ({expected} if expected else set())
+        if origin not in allowed:
             raise Denied()
 
     def _session(self, db, env, home_id=None, admin=False):
@@ -624,19 +627,22 @@ def validate_public_origin(origin: str, *, test_only_lan: bool = False,
     if test_only_lan:
         if not monitoring_enabled:
             raise ValueError("local_lan_origin_requires_gs179_test_only_monitoring")
+        parsed = urlsplit(origin)
+        host = parsed.hostname or ""
         try:
-            parsed = urlsplit(origin)
-            address = ipaddress.ip_address(parsed.hostname or "")
-        except ValueError as error:
-            raise ValueError("local_lan_origin_requires_rfc1918_ipv4_https") from error
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            address = None
         rfc1918 = any(address in network for network in (
             ipaddress.ip_network("10.0.0.0/8"),
             ipaddress.ip_network("172.16.0.0/12"),
             ipaddress.ip_network("192.168.0.0/16"),
         )) if isinstance(address, ipaddress.IPv4Address) else False
-        if (parsed.scheme != "https" or parsed.netloc != parsed.hostname or parsed.path or
-                parsed.query or parsed.fragment or not rfc1918):
-            raise ValueError("local_lan_origin_requires_rfc1918_ipv4_https")
+        local_hostname = bool(re.fullmatch(
+            r"https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])\.local", origin))
+        if (parsed.scheme != "https" or parsed.netloc != host or parsed.path or
+                parsed.query or parsed.fragment or not (rfc1918 or local_hostname)):
+            raise ValueError("local_lan_origin_requires_private_ipv4_or_single_label_local_https")
         return origin
     try:
         ipaddress.ip_address(urlsplit(origin).hostname or "")
@@ -659,6 +665,13 @@ def build_app():
         test_only_lan=lan_profile == "1",
         monitoring_enabled=profile == "1",
     )
+    configured_aliases = os.environ.get("GS179_TEST_ONLY_ALLOWED_ORIGINS", "")
+    if configured_aliases and (lan_profile != "1" or profile != "1"):
+        raise ValueError("test_only_origin_aliases_require_isolated_gs179_lan_profile")
+    aliases = [validate_public_origin(candidate.strip(), test_only_lan=True,
+                                      monitoring_enabled=True)
+               for candidate in configured_aliases.split(",") if candidate.strip()]
+    allowed_origins = tuple(dict.fromkeys([origin, *aliases]))
     store = Store(os.environ["DATABASE_URL"])
     product_view = None
     if profile not in {"0", "1"}:
@@ -683,7 +696,7 @@ def build_app():
             session_authority_db=durable.db, bind_test_only_session=True)
         # Retain the durable connection composition for this WSGI worker.
         product_view.durable_api = durable
-    return LiteApi(store, product_view=product_view)
+    return LiteApi(store, product_view=product_view, allowed_origins=allowed_origins)
 
 
 if __name__ == "__main__":

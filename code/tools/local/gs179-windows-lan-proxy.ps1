@@ -1,21 +1,32 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("Audit", "Start", "Stop")]
+    [ValidateSet("Audit", "Start", "Stop", "Watch", "RegisterWatch", "UnregisterWatch")]
     [string]$Action,
-    [string]$WifiAddress = "",
     [string]$WslAddress = "",
     [string]$PreviousWslAddress = "",
-    [string]$ExpectedWifiName = ""
+    [string]$LinuxScriptPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 $RuleName = "GS179-Local-LAN-HTTPS"
 $RuleDescription = "GS-179 TEST_ONLY caregiver HTTPS, limited to the active owner Wi-Fi subnet."
+$WatchTaskName = "Ghar Sajag GS-179 Trusted Wi-Fi Reconnect"
 $ListenPort = 443
 $TargetPort = 8444
 
 function Stop-WithError([string]$Message) {
     throw ("GS179-WINDOWS-PROXY BLOCKED: " + $Message)
+}
+
+function Assert-Administrator {
+    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+            [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Stop-WithError "administrator_token_required_for_scoped_portproxy_and_firewall_rule"
+    }
+}
+
+function Test-LinuxScriptPath([string]$Path) {
+    return $Path -match '^/[A-Za-z0-9_./-]+$'
 }
 
 function Is-Rfc1918([string]$Address) {
@@ -58,30 +69,14 @@ function Get-PortProxyRows {
     return $rows
 }
 
-function Get-ExactFirewallRule([string]$ExpectedSubnet) {
+function Get-ExactFirewallRule {
     $rule = Get-NetFirewallRule -Name $RuleName -ErrorAction SilentlyContinue
     if ($null -eq $rule) { return $null }
     $port = $rule | Get-NetFirewallPortFilter
-    $address = $rule | Get-NetFirewallAddressFilter
     $interface = $rule | Get-NetFirewallInterfaceFilter
-    $local = @($address.LocalAddress) -join ","
-    $remote = @($address.RemoteAddress) -join ","
-    $parts = $ExpectedSubnet.Split("/")
-    $expectedNetwork = [System.Net.IPAddress]::Parse($parts[0]).GetAddressBytes()
-    $prefix = [int]$parts[1]
-    $maskBytes = New-Object byte[] 4
-    for ($index = 0; $index -lt 4; $index++) {
-        $remaining = $prefix - ($index * 8)
-        if ($remaining -ge 8) { $maskBytes[$index] = 255 }
-        elseif ($remaining -le 0) { $maskBytes[$index] = 0 }
-        else { $maskBytes[$index] = [byte]((255 -shl (8 - $remaining)) -band 255) }
-    }
-    $windowsSubnet = ([System.Net.IPAddress]::new($expectedNetwork)).ToString() + "/" +
-        ([System.Net.IPAddress]::new($maskBytes)).ToString()
     if ($rule.Direction -ne "Inbound" -or $rule.Action -ne "Allow" -or
-        $rule.Enabled -ne "True" -or $rule.Profile -ne "Public" -or
+        $rule.Enabled -ne "True" -or
         $port.Protocol -ne "TCP" -or $port.LocalPort -ne "$ListenPort" -or
-        $local -ne $WifiAddress -or $remote -notin @($ExpectedSubnet, $windowsSubnet) -or
         (@($interface.InterfaceAlias) -join ",") -ne "Wi-Fi" -or
         $rule.Description -ne $RuleDescription) {
         Stop-WithError "existing_firewall_rule_does_not_match_gs179_lan_scope"
@@ -99,21 +94,106 @@ function Wait-PortProxyListener([string]$Address, [int]$Port) {
     return $false
 }
 
-$adapter = Get-NetAdapter -Name "Wi-Fi" -ErrorAction SilentlyContinue
-if ($null -eq $adapter -or $adapter.Status -ne "Up") { Stop-WithError "wifi_adapter_not_up" }
-$profile = Get-NetConnectionProfile -InterfaceAlias "Wi-Fi" -ErrorAction SilentlyContinue |
-    Where-Object { $_.IPv4Connectivity -ne "Disconnected" } | Select-Object -First 1
-if ($null -eq $profile) { Stop-WithError "active_wifi_profile_unavailable" }
-$ipInfo = Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-    Where-Object { $_.AddressState -eq "Preferred" } | Select-Object -First 1
-if ($null -eq $ipInfo) { Stop-WithError "active_wifi_ipv4_unavailable" }
+function Get-ActiveWifiState([bool]$WaitForReady) {
+    $attempts = if ($WaitForReady) { 30 } else { 1 }
+    for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
+        $adapter = Get-NetAdapter -Name "Wi-Fi" -ErrorAction SilentlyContinue
+        $profile = Get-NetConnectionProfile -InterfaceAlias "Wi-Fi" -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPv4Connectivity -ne "Disconnected" } | Select-Object -First 1
+        $ipInfo = Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.AddressState -eq "Preferred" -and $_.IPAddress -notlike "169.254.*" } |
+            Select-Object -First 1
+        if ($null -ne $adapter -and $adapter.Status -eq "Up" -and
+            $null -ne $profile -and $null -ne $ipInfo) {
+            return [pscustomobject]@{ Adapter = $adapter; Profile = $profile; IpInfo = $ipInfo }
+        }
+        if ($attempt + 1 -lt $attempts) { Start-Sleep -Seconds 2 }
+    }
+    Stop-WithError "active_wifi_ipv4_unavailable_after_bounded_wait"
+}
+
+function Get-NetworkCategoryName($Category) {
+    if ($Category -is [string] -and $Category -in @("Public", "Private", "DomainAuthenticated")) {
+        return $Category
+    }
+    try {
+        switch ([int]$Category) {
+            0 { return "Public" }
+            1 { return "Private" }
+            2 { return "DomainAuthenticated" }
+        }
+    } catch { }
+    return "Unknown"
+}
+
+if ($Action -eq "UnregisterWatch") {
+    Assert-Administrator
+    Unregister-ScheduledTask -TaskName $WatchTaskName -Confirm:$false -ErrorAction SilentlyContinue
+    [pscustomobject]@{ Action = $Action; Task = $WatchTaskName; Removed = $true } | ConvertTo-Json -Compress
+    exit 0
+}
+
+if ($Action -eq "RegisterWatch") {
+    Assert-Administrator
+    if (-not (Test-LinuxScriptPath $LinuxScriptPath)) { Stop-WithError "canonical_wsl_script_path_required" }
+    $powershell = Join-Path $PSHOME "powershell.exe"
+    $taskArguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Action Watch -LinuxScriptPath `"$LinuxScriptPath`""
+    $escapedPowerShell = [System.Security.SecurityElement]::Escape($powershell)
+    $escapedArguments = [System.Security.SecurityElement]::Escape($taskArguments)
+    $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $eventPath = "Microsoft-Windows-NetworkProfile/Operational"
+    $taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <LogonTrigger><Enabled>true</Enabled></LogonTrigger>
+    <EventTrigger><Enabled>true</Enabled><Subscription><![CDATA[<QueryList><Query Id="0" Path="$eventPath"><Select Path="$eventPath">*[System[(EventID=10000)]]</Select></Query></QueryList>]]></Subscription></EventTrigger>
+  </Triggers>
+  <Principals><Principal id="Author"><UserId>$userSid</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>
+  <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><StartWhenAvailable>true</StartWhenAvailable><ExecutionTimeLimit>PT3M</ExecutionTimeLimit><Enabled>true</Enabled></Settings>
+  <Actions Context="Author"><Exec><Command>$escapedPowerShell</Command><Arguments>$escapedArguments</Arguments></Exec></Actions>
+</Task>
+"@
+    Register-ScheduledTask -TaskName $WatchTaskName -Xml $taskXml -Force -ErrorAction Stop | Out-Null
+    [pscustomobject]@{ Action = $Action; Task = $WatchTaskName; Triggers = "logon,Wi-Fi profile connected"; LinuxScriptPath = $LinuxScriptPath } | ConvertTo-Json -Compress
+    & $PSCommandPath -Action Watch -LinuxScriptPath $LinuxScriptPath
+    exit $LASTEXITCODE
+}
+
+# Rollback must remain available even when the laptop has no active Wi-Fi
+# profile. Remove only mappings to a recorded/current WSL NAT target and the
+# uniquely named GS-179 rule after verifying its shape.
+if ($Action -eq "Stop") {
+    Assert-Administrator
+    $knownTargets = @($WslAddress, $PreviousWslAddress) | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_)
+    }
+    $ownedMaps = @(Get-PortProxyRows | Where-Object {
+        $_.ListenPort -eq $ListenPort -and $_.TargetPort -eq $TargetPort -and
+        $_.TargetAddress -in $knownTargets
+    })
+    foreach ($owned in $ownedMaps) {
+        & netsh.exe interface portproxy delete v4tov4 listenaddress=$owned.ListenAddress listenport=$owned.ListenPort | Out-Null
+        if ($LASTEXITCODE -ne 0) { Stop-WithError "portproxy_delete_failed" }
+    }
+    $existingRule = Get-ExactFirewallRule
+    if ($null -ne $existingRule) { Remove-NetFirewallRule -Name $RuleName }
+    [pscustomobject]@{ Action = "Stop"; PortProxyRemoved = ($ownedMaps.Count -gt 0); `
+        FirewallRuleRemoved = ($null -ne $existingRule); KnownWslTargets = $knownTargets.Count } |
+        ConvertTo-Json -Compress
+    exit 0
+}
+
+$wifiState = Get-ActiveWifiState ($Action -eq "Watch")
+$adapter = $wifiState.Adapter
+$profile = $wifiState.Profile
+$ipInfo = $wifiState.IpInfo
 $actualAddress = $ipInfo.IPAddress
-$expectedNameMatches = [string]::IsNullOrWhiteSpace($ExpectedWifiName) -or
-    $profile.Name -eq $ExpectedWifiName
-$addressMatches = [string]::IsNullOrWhiteSpace($WifiAddress) -or $actualAddress -eq $WifiAddress
 $wifiPrivate = Is-Rfc1918 $actualAddress
 $wslPrivate = Is-Rfc1918 $WslAddress
 $scope = Get-Ipv4Network $actualAddress $ipInfo.PrefixLength
+$networkCategory = Get-NetworkCategoryName $profile.NetworkCategory
+$firewallProfile = if ($networkCategory -eq "DomainAuthenticated") { "Domain" } else { $networkCategory }
 
 if ($Action -eq "Audit") {
     $firewallReadable = $false
@@ -143,11 +223,9 @@ if ($Action -eq "Audit") {
     [pscustomobject]@{
         Action = $Action
         WifiName = $profile.Name
-        NetworkCategory = $profile.NetworkCategory
+        NetworkCategory = $networkCategory
         WifiAddress = $actualAddress
         WifiPrefixLength = $ipInfo.PrefixLength
-        WifiAddressMatchesExpected = if ([string]::IsNullOrWhiteSpace($WifiAddress)) { $null } else { $actualAddress -eq $WifiAddress }
-        WifiNameMatchesExpected = if ([string]::IsNullOrWhiteSpace($ExpectedWifiName)) { $null } else { $profile.Name -eq $ExpectedWifiName }
         ScopedRemoteSubnet = $scope
         WslAddress = $WslAddress
         PortProxyRows = (Get-PortProxyRows | ConvertTo-Json -Compress)
@@ -159,21 +237,32 @@ if ($Action -eq "Audit") {
     exit 0
 }
 
-# Only Start and Stop can mutate Windows state. Audit performs read-only
+# Only Start, Stop, and Watch can mutate Windows state. Audit performs read-only
 # adapter, route, firewall and socket queries and is available without an
 # administrative token. Never weaken the mutation gate below.
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-        [Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Stop-WithError "administrator_token_required_for_scoped_portproxy_and_firewall_rule"
-}
+if ($Action -in @("Start", "Stop", "Watch")) { Assert-Administrator }
 
-if (-not $wifiPrivate -or -not $addressMatches -or -not $expectedNameMatches -or
-    $profile.NetworkCategory -ne "Public" -or $ipInfo.PrefixLength -lt 16 -or
+if (-not $wifiPrivate -or $networkCategory -eq "Unknown" -or $ipInfo.PrefixLength -lt 16 -or
     $ipInfo.PrefixLength -gt 29) {
-    Stop-WithError "wifi_identity_or_private_subnet_changed"
+    Stop-WithError "active_wifi_must_have_a_bounded_rfc1918_subnet_and_known_windows_profile"
 }
 
-$existingRule = Get-ExactFirewallRule $scope
+$wasWatch = $Action -eq "Watch"
+if ($wasWatch) {
+    if (-not (Test-LinuxScriptPath $LinuxScriptPath)) { Stop-WithError "canonical_wsl_script_path_required" }
+    $wslExe = Join-Path $env:WINDIR "System32\wsl.exe"
+    if (-not (Test-Path $wslExe)) { Stop-WithError "wsl_executable_unavailable" }
+    $refresh = & $wslExe --exec bash -lc "'$LinuxScriptPath' network-refresh-config" 2>&1
+    if ($LASTEXITCODE -ne 0) { Stop-WithError "wsl_network_configuration_refresh_failed" }
+    $ipOutput = (& $wslExe --exec ip -4 -o addr show dev eth0 2>&1) -join "`n"
+    $wslMatch = [regex]::Match($ipOutput, '\binet\s+(?<address>172\.(?:1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3})/')
+    if (-not $wslMatch.Success) { Stop-WithError "current_wsl_nat_ipv4_unavailable" }
+    $PreviousWslAddress = ((& $wslExe --exec bash -lc "cat ~/.local/state/ghar-sajag/gs179-laptop/windows-wsl-target 2>/dev/null || true") -join "").Trim()
+    $WslAddress = $wslMatch.Groups["address"].Value
+    $Action = "Start"
+}
+
+$existingRule = Get-ExactFirewallRule
 $mapRows = @(Get-PortProxyRows | Where-Object {
     $_.ListenAddress -eq $actualAddress -and $_.ListenPort -eq $ListenPort
 })
@@ -186,12 +275,22 @@ if ($Action -eq "Start") {
     if ($mapRows.Count -gt 1) { Stop-WithError "ambiguous_existing_portproxy_entries" }
 
     $createdFirewall = $false
+    $oldFirewallAddress = $null
+    $oldFirewallProfile = $null
     if ($null -eq $existingRule) {
         New-NetFirewallRule -Name $RuleName -DisplayName "Ghar Sajag GS-179 Local Validation HTTPS" `
             -Description $RuleDescription -Direction Inbound -Action Allow -Enabled True `
             -Protocol TCP -LocalAddress $actualAddress -LocalPort $ListenPort `
-            -RemoteAddress $scope -Profile Public -InterfaceAlias "Wi-Fi" -EdgeTraversalPolicy Block | Out-Null
+            -RemoteAddress $scope -Profile $firewallProfile -InterfaceAlias "Wi-Fi" -EdgeTraversalPolicy Block | Out-Null
         $createdFirewall = $true
+    } else {
+        $oldFirewallAddress = $existingRule | Get-NetFirewallAddressFilter
+        $oldFirewallProfile = $existingRule.Profile
+        # The named GS-179 rule is preserved and narrowed to the currently active
+        # Wi-Fi address/subnet. It is never broadened to Any local/remote address.
+        $existingRule | Get-NetFirewallAddressFilter |
+            Set-NetFirewallAddressFilter -LocalAddress $actualAddress -RemoteAddress $scope | Out-Null
+        Set-NetFirewallRule -Name $RuleName -Profile $firewallProfile | Out-Null
     }
     $attemptedPortProxy = $false
     $originalMappingRemoved = $false
@@ -241,26 +340,33 @@ if ($Action -eq "Start") {
                 connectaddress=$mapRows[0].TargetAddress connectport=$mapRows[0].TargetPort | Out-Null
         }
         if ($createdFirewall) { Remove-NetFirewallRule -Name $RuleName -ErrorAction SilentlyContinue }
+        elseif ($null -ne $oldFirewallAddress) {
+            Get-NetFirewallRule -Name $RuleName -ErrorAction SilentlyContinue |
+                Get-NetFirewallAddressFilter |
+                Set-NetFirewallAddressFilter -LocalAddress $oldFirewallAddress.LocalAddress `
+                    -RemoteAddress $oldFirewallAddress.RemoteAddress | Out-Null
+            Set-NetFirewallRule -Name $RuleName -Profile $oldFirewallProfile | Out-Null
+        }
         throw
     }
-    [pscustomobject]@{ Action = "Start"; WifiName = $profile.Name; WifiAddress = $actualAddress; `
-        NetworkCategory = $profile.NetworkCategory; RemoteSubnet = $scope; ListenPort = $ListenPort; `
-        TargetAddress = $WslAddress; TargetPort = $TargetPort; FirewallRule = $RuleName } | ConvertTo-Json -Compress
-    exit 0
-}
-
-if ($Action -eq "Stop") {
-    if ($mapRows.Count -gt 0) {
-        $targetIsKnown = $mapRows[0].TargetPort -eq $TargetPort -and
-            ($mapRows[0].TargetAddress -eq $WslAddress -or
-             (-not [string]::IsNullOrWhiteSpace($PreviousWslAddress) -and
-              $mapRows[0].TargetAddress -eq $PreviousWslAddress))
-        if (-not $targetIsKnown) { Stop-WithError "refusing_to_remove_unrecognized_portproxy_target" }
-        & netsh.exe interface portproxy delete v4tov4 listenaddress=$actualAddress listenport=$ListenPort | Out-Null
-        if ($LASTEXITCODE -ne 0) { Stop-WithError "portproxy_delete_failed" }
+    # Remove only stale rows that still target this known GS-179 listener and
+    # the recorded prior/current WSL address. Unrecognized portproxy entries stay untouched.
+    $knownTargets = @($WslAddress, $PreviousWslAddress) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    $staleMaps = @(Get-PortProxyRows | Where-Object {
+        $_.ListenPort -eq $ListenPort -and $_.ListenAddress -ne $actualAddress -and
+        $_.TargetPort -eq $TargetPort -and $_.TargetAddress -in $knownTargets
+    })
+    foreach ($stale in $staleMaps) {
+        & netsh.exe interface portproxy delete v4tov4 listenaddress=$stale.ListenAddress listenport=$stale.ListenPort | Out-Null
+        if ($LASTEXITCODE -ne 0) { Stop-WithError "stale_owned_portproxy_cleanup_failed" }
     }
-    if ($null -ne $existingRule) { Remove-NetFirewallRule -Name $RuleName }
-    [pscustomobject]@{ Action = "Stop"; PortProxyRemoved = ($mapRows.Count -gt 0); `
-        FirewallRuleRemoved = ($null -ne $existingRule); WifiAddress = $actualAddress } | ConvertTo-Json -Compress
+    [pscustomobject]@{ Action = "Start"; WifiName = $profile.Name; WifiAddress = $actualAddress; `
+        NetworkCategory = $networkCategory; RemoteSubnet = $scope; ListenPort = $ListenPort; `
+        TargetAddress = $WslAddress; TargetPort = $TargetPort; StaleOwnedMappingsRemoved = $staleMaps.Count; `
+        FirewallRule = $RuleName } | ConvertTo-Json -Compress
+    if ($wasWatch) {
+        $record = & $wslExe --exec bash -lc "'$LinuxScriptPath' record-proxy-target '$WslAddress'" 2>&1
+        if ($LASTEXITCODE -ne 0) { Stop-WithError "wsl_proxy_target_record_failed" }
+    }
     exit 0
 }
