@@ -67,7 +67,10 @@ def main() -> int:
     }
     # Git expands this intentionally excluded, non-input Android workspace into
     # individual untracked paths when tracked files already exist in the tree.
-    allowed_untracked_prefixes = ("?? code/parivar_saathi_android_app/",)
+    allowed_untracked_prefixes = (
+        "?? code/parivar_saathi_android_app/",
+        '?? "code/parivar_saathi_android_app/',
+    )
     unexpected = [line for line in source_status
                   if line not in allowed_untracked and
                   not line.startswith(allowed_untracked_prefixes)]
