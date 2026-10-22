@@ -328,3 +328,45 @@ persistent Hub-ingress activation, customer enrollment, physical board
 operation, or PIR stimulus was performed. The current Windows DHCP lease is
 short-lived; a stable router reservation or hostname would require separate
 network-owner approval if the endpoint changes before phone validation.
+
+### Source-matched local-LAN APK — 2026-10-22
+
+The existing GS-177 Android workflow was manually dispatched with
+`backend_origin=https://192.168.1.6` and
+`gs179_local_lan_test_only=true` against source commit
+`8c134487a4afdde0869aad0e0c5b9c9b19f1b544`.
+[GitHub Actions run 39766494060](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39766494060)
+completed SUCCESS. Artifact
+[parivar-saathi-caregiver-debug-8c134487a4afdde0869aad0e0c5b9c9b19f1b544](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39766494060/artifacts/12420842385)
+(ID 12420842385, 14-day retention) was downloaded and checked locally.
+
+Artifact contents:
+
+- APK: `parivar-saathi-caregiver-debug.apk`, 2,929,936 bytes,
+  SHA-256 `ab61481bbdaf9b8d98b86b0c67ef8b7bdfb10be0605dc4a425f6343de03754f9`.
+  `sha256sum --check` and APK ZIP integrity checks passed.
+- Package `in.gharsajag.caregiver`, version name
+  `0.4.0-connected-lite-staging`, version code 3, existing Parivar Saathi app.
+- Origin `https://192.168.1.6`, local-LAN TEST_ONLY enabled, CA SHA-256
+  `7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`.
+- CI `apksigner` verified one RSA-2048 debug signer. Certificate SHA-256
+  `58f9d58042af12a1eca6b4fadd8bb836e3b04220995fb710ad3eac0d1b1972ac`.
+  This is a runner-generated debug key, not the installed APK's verified
+  signer or a production signing key; an update-signature conflict may require
+  uninstall/reinstall and a new sign-in.
+- Workflow gates passed: PWA browser/offline 4 tests and 92 rendered cases;
+  registered caregiver API 20, Android dashboard 10, and voice prototype 26;
+  Android debug unit/build/signature/artifact stages. Validation reported
+  SOFTWARE PASS, PHYSICAL NOT_RUN.
+
+The physical phone was not accessed and the APK was not installed. Current
+Windows DHCP lease has no confirmed reservation and may change; if it changes,
+recheck the certificate/SAN and rebuild against the new verified origin before
+phone-side login. No PIN, TLS-validation bypass, or untrusted certificate was
+introduced.
+
+A separate live caregiver browser rerun initially got a transient
+`route.fetch: socket hang up` on the Windows forwarded `/devices` request while
+a read-only proxy audit was also running. The service health/TLS checks stayed
+PASS; the browser rerun by itself passed with the same EventKey and no source
+change. The transient was not reproduced.
