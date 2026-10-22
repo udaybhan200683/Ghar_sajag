@@ -55,7 +55,7 @@ class ProductStack:
     def __init__(self, *, postgres_dsn=None, persistent_postgres=False,
                  home_id=None, hub_id=None, caregiver_email=None,
                  caregiver_password=None, reuse_existing_test_home=False,
-                 reuse_existing_caregiver=False):
+                 reuse_existing_caregiver=False, start_hub_listener=True):
         self.postgres_schema = None
         self.postgres_url = None
         if persistent_postgres:
@@ -226,7 +226,7 @@ class ProductStack:
                 bind_test_only_session=bool(self.postgres_dsn)))
         self.servers = []
         self.mtls_listener = None
-        self.hub_origin = self._server(True)
+        self.hub_origin = self._server(True) if start_hub_listener else None
         self.human_origin = self._server(False)
         self.process = None
         self.trace = []

@@ -187,6 +187,17 @@ class TestOnlyIssuer:
     def close(self):
         self._db.close()
 
+    @property
+    def ca_fingerprint(self) -> str:
+        """Public TEST_ONLY CA fingerprint for injected runtime trust checks."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT ca_fingerprint FROM gs168_meta WHERE only_row=1"
+            ).fetchone()
+        if row is None:
+            raise TestIssuerRejected("test_ca_registry_metadata_missing")
+        return row[0]
+
     def set_test_available(self, available: bool):
         """Failure-injection toggle, never a production feature flag."""
         if type(available) is not bool:

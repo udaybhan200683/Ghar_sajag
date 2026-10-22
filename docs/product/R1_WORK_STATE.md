@@ -5721,3 +5721,72 @@ validate authenticated Hub-to-caregiver flow in that runtime. Separately,
 complete the GS-117 fixture/image/authority/network/reset-safe handoff before
 any real PIR qualification. Do not infer physical or commercial readiness from
 the host-simulation PASS.
+
+### GS-179 default-disabled runtime implementation — 2026-10-22
+
+This checkpoint supersedes the preceding GS-179 conclusion only for safe
+software implementation. Live credentials, trusted-time configuration and
+network route remain separate activation gates; they were not prerequisites to
+implementing and testing an injected, default-disabled composition.
+
+At task start, the canonical worktree and live `origin/feature/r1-commercial-baseline`
+both pointed to `b7ef58a4cf595f35f692e7a1986aace2e3331580`, tracked files were
+clean, and `tools/context/ghar_sajag_context_preflight.sh` passed at context
+version `2026-10-13.001`. GS-179 remains In Progress at its existing Rank; GS-114
+remains ahead of GS-117 and GS-179. No branch/worktree synchronization, cleanup,
+credential activation, network mutation or physical operation was performed.
+
+Reused the existing bounded application-terminated TLS 1.2 TEST_ONLY listener,
+verified peer/GS-168 registry and current ownership checks, GS-40 authority
+refresh, GS-148 PostgreSQL commit/NodeHealth/decision/read APIs, and the existing
+Home-authorized caregiver projection. The minimum runtime composition is now
+[`gs179_hub_ingress_runtime.py`](../../code/backend/ghar_sajag/gs179_hub_ingress_runtime.py).
+It requires explicit TEST_ONLY configuration and injected credential registry,
+trusted-time source and authority refresh; checks the registry CA fingerprint,
+current configured Hub/Home/epoch and active Node enrollment, and verifies
+loopback PostgreSQL with `sslmode=verify-full` and durable settings before
+binding. It scopes ingress to one configured TEST_ONLY Hub, loops back only,
+remains disabled by default, and is never started in WSGI/Gunicorn. The existing
+laptop health command now reports runtime implemented, autostart disabled,
+real Hub authentication `NO`, monitoring freshness `UNKNOWN`, and persistent
+ingress `NOT_CONFIGURED` while retaining `HUB_INGRESS_READY=NOT_CONFIGURED`.
+
+The registered [`test_gs179_runtime_composition.py`](../../code/tests/integration/test_gs179_runtime_composition.py)
+executes the actual entry point in a separate process. Production-code HOST_SIM
+Node input and CloudSync reached the listener over loopback TLS. Original
+EventKey `{physical_device_id: test-c3-bedroom, logical_node_id: bedroom,
+origin_session_id: 10, event_sequence: 1}`, source occurrence time, `MOTION`
+type, bedroom, configured Hub/Home/epoch and one durable PostgreSQL row were
+correlated. The first COMMITTED response was lost; after listener process
+restart the exact retry returned duplicate COMMITTED without another row. The
+authenticated caregiver Home read the same event before and after caregiver
+API connection restart. New fail-closed cases cover disabled/incomplete config,
+missing authority/time/TLS material, CA mismatch, stale epoch and unavailable
+PostgreSQL; wrong Home is rejected. Existing GS-178/179 security tests retain
+revocation, expiry, forged-header, body conflict, bounds, cross-Home,
+NodeHealth freshness/UNKNOWN and recovery coverage.
+
+Validation: `make -C code gs179-postgres-e2e` **50/50 PASS** (15 security, 18
+Node-origin vertical, 14 PostgreSQL/security, 3 runtime composition); focused
+runtime rerun **3/3 PASS** after the exact EventKey assertion;
+`make -C code validation-framework-test` **51/51 PASS**;
+`make -C code feature-coverage-test` **223 features, 278 modules, 26 physical
+cases, mapping 22/22 PASS**. The full gate built and executed the production
+HOST_SIM path against isolated schemas. The first feature-map attempt identified
+that test/tool files were outside configured source inventory roots; the new
+backend runtime is inventoried and test fixtures remain in the registry/trace.
+The initial runtime subprocess attempt correctly exposed the missing GS-40
+authority-refresh callback; it is now explicitly required and supplied through
+the existing TEST_ONLY fixture. The detailed command/results and no-live-
+activation limits are in
+[`GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md#default-disabled-runtime-composition-implementation--2026-10-22).
+
+Status: runtime implementation, isolated software integration, durable
+COMMITTED, retry/restart and caregiver API readback are **PASS**. Persistent
+laptop ingress remains **NOT_CONFIGURED**. Real S3 authentication, C3 sensor
+input, Android handset visibility, GS-117 physical E2E and commercial release
+remain **NOT_RUN**. Commit, push and remote verification follow final validation;
+the Jira comment will record the delivery revision. Next customer milestone is
+the separate GS-117 physical qualification after owner-approved security,
+authority, endpoint, network, fixture/image and recovery inputs. Do not claim
+HOST_SIM as physical acceptance.

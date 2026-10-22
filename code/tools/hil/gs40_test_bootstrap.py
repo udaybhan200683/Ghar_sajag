@@ -155,11 +155,12 @@ class AuthorityService:
     1.2. authorize_cloud_tls_context verifies that precondition and resolves
     active credentials/current ownership. Ingest rechecks independently.
     """
-    def __init__(self, issuer, ownership_db, lock, *, clock=time.time, enabled=False):
+    def __init__(self, issuer, ownership_db, lock, *, clock=time.time, enabled=False,
+                 signer=None):
         if enabled is not True:
             raise ValueError("explicit_test_only_composition_required")
         self.issuer, self.db, self.lock, self.clock = issuer, ownership_db, lock, clock
-        self.signer = rsa3072()
+        self.signer = signer if signer is not None else rsa3072()
         self._seen = set()
 
     @property

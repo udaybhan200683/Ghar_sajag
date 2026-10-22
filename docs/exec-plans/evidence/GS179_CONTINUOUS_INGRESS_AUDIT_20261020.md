@@ -196,3 +196,116 @@ qualification: identify and verify the actual C3/S3 images and authority,
 trusted session/time and pending journal state, approve the secure endpoint and
 route, then observe real PIR → C3 → S3 → backend → Android APK behavior under a
 written stop/recovery plan. No such physical operation is authorized here.
+
+## Default-disabled runtime composition implementation — 2026-10-22
+
+The 2026-10-21 statement that the runtime change was not safely implementable
+without live credential and route inputs is superseded for software work by the
+owner's implementation instruction. The safe code-level composition has now
+been implemented and exercised with disposable TEST_ONLY dependencies. No live
+credential, route, network listener or customer data was enabled.
+
+### Reuse and minimum change
+
+| Component | Classification | Delivery |
+|---|---|---|
+| Application-terminated TLS 1.2/mTLS listener | `ALREADY_IMPLEMENTED / REUSE` | `test_only_mtls_listener.py` remains the socket, TLS, peer identity, request-bound and shutdown owner. The runtime passes it the existing API, credential registry, current ownership database, trusted-time callback and GS-40 authority-refresh callback. |
+| GS-148 PostgreSQL durable API | `ALREADY_IMPLEMENTED / REUSE` | `open_postgres_durable_event_api` remains the event, NodeHealth, Hub-decision and caregiver projection store. The runtime opens one durable API connection and checks durable settings plus `SELECT 1` before constructing the listener. |
+| GS-168 TEST_ONLY credential registry and GS-40 authority refresh | `ALREADY_IMPLEMENTED / REUSE` | Runtime trust is injected and bound to the client CA fingerprint. Authority refresh uses the existing `AuthorityService`; test subprocesses read issuer metadata read-only and use only the stack's disposable authority signer fixture. |
+| Hub-ingress process composition | `GENUINE_GAP / MINIMUM_REQUIRED_CHANGE` | Added `gs179_hub_ingress_runtime.py`, a default-disabled lifecycle that requires explicit `GS179_TEST_ONLY` config, loopback PostgreSQL over `verify-full`, server key/cert and client CA, a matching TEST_ONLY credential registry, an explicit trusted-time source, authority refresh, and a current Hub/Home/epoch with active Node enrollment. It scopes the registry to that configured Hub and binds only to loopback. It never starts in WSGI/Gunicorn. |
+| Laptop operational status | `REUSE / MINIMUM_REQUIRED_CHANGE` | The caregiver service still does not activate Hub ingress. Health output now reports runtime available, autostart disabled, no authenticated real Hub, freshness UNKNOWN, persistent ingress not configured, and preserves `HUB_INGRESS_READY=NOT_CONFIGURED`. |
+| Caregiver projection, API and Android shared UI | `ALREADY_IMPLEMENTED / REUSE` | The same committed PostgreSQL event remains readable through the current Home-authorized projection. No caregiver data model, API, Home UI or Android feature was duplicated or changed. |
+
+### Runtime behavior and failure closure
+
+`start_gs179_test_only_hub_ingress` is the runtime entry point. Unset enable
+configuration returns disabled without contacting PostgreSQL or opening a
+socket. Enabled startup rejects missing/unsafe TLS paths, non-loopback or
+non-`verify-full` PostgreSQL, a non-TEST_ONLY or CA-mismatched registry,
+missing/untrusted time, absent authority refresh, invalid Home/Hub namespace,
+stale epoch, missing active enrollment, unhealthy PostgreSQL or unsafe durable
+settings before the listener is opened. Request processing and shutdown remain
+bounded by the existing listener. Runtime status can report listener, database
+and trusted-time readiness but always reports real Hub authentication `NO`,
+Hub connected `NO`, and monitoring freshness `UNKNOWN`.
+
+The persistent laptop operation is unchanged and remains disabled. This code
+does not provide a TEST_ONLY CA as a commercial credential lifecycle, add a
+second worker/store, start a listener from Gunicorn, or make firewall, portproxy,
+router, cloud or hardware changes.
+
+### Runtime-owned source-linked E2E
+
+The new registered test launches the production runtime entry point in a
+separate process, then starts the existing GS-178 production-code HOST_SIM Node
+and performs CloudSync over an actual loopback TLS socket. The event identity is
+`{physical_device_id: "test-c3-bedroom", logical_node_id: "bedroom",
+origin_session_id: 10, event_sequence: 1}`. The C++ Node's original EventKey
+string is checked against the key sent by CloudSync. Its occurrence time,
+`MOTION` type, bedroom location, Hub ID, current Home and ownership epoch are
+checked against the single durable PostgreSQL record.
+
+The runtime's first HTTP response was intentionally dropped after PostgreSQL
+commit. The listener process was shut down and restarted on the same loopback
+port. The Node retried the same retained event; the second receipt was
+`COMMITTED` with `duplicate=true`, and PostgreSQL still contained one logical
+row. The authenticated caregiver API read the same EventKey from
+`gs177-test-product` before and after listener and caregiver API connection
+restart. Initial monitoring was `UNKNOWN`; runtime status did not infer a Hub
+connection from service readiness. The scenario is HOST_SIM plus disposable
+TEST_ONLY software; it is not target execution or physical sensor evidence.
+
+### Validation on the runtime implementation
+
+- Registered `make -C code gs179-postgres-e2e`: **50/50 PASS**, exit 0. This
+  comprises 15 existing GS-178 security cases, 18 existing Node-origin vertical
+  cases, 14 PostgreSQL/security cases and 3 runtime-composition cases. The
+  production HOST_SIM target was built; all database schemas were isolated.
+- Focused new runtime module after adding the exact EventKey assertion:
+  **3/3 PASS**, exit 0. This includes disabled/missing configuration, missing
+  authority, untrusted time, missing server certificate/key/client CA,
+  CA-registry mismatch, stale epoch, PostgreSQL unavailable, wrong-Home peer,
+  listener process restart, lost receipt and caregiver readback.
+- `make -C code validation-framework-test`: **51/51 PASS**, exit 0.
+- `make -C code feature-coverage-test`: **223 features, 278 modules, 26
+  physical cases; mapping 22/22 PASS**, exit 0. A first mapping attempt exposed
+  that fixture/tool files were outside the source inventory's configured source
+  roots; the inventory was narrowed to the new backend runtime while the test
+  and fixture paths remain registered as suite and traceability inputs.
+- Physical C3/S3, real PIR, real Hub TLS authentication, real Android APK
+  handset, network routing and commercial release tests were not run.
+
+One early process-test attempt failed because the separate runtime had not yet
+been given the existing GS-40 authority-refresh callback; the production
+HOST_SIM Hub correctly refused bootstrap. The composition was corrected to
+require that callback and the subprocess now uses the existing TEST_ONLY
+`AuthorityService` with the same ephemeral fixture signer as the Node. The
+subsequent focused and registered runs passed. An initial test command without
+the established Python/libpq paths also failed at import; the registered run
+used the already configured local test environment and passed. These setup
+failures did not change product behavior or weaken test assertions.
+
+### Current readiness and next action
+
+```text
+GS179_RUNTIME_COMPOSITION_IMPLEMENTED=PASS
+GS179_RUNTIME_INTEGRATION_TESTED=PASS
+GS179_ISOLATED_SOFTWARE_E2E=PASS
+PERSISTENT_LAPTOP_HUB_INGRESS_ACTIVE=NOT_CONFIGURED
+REAL_S3_AUTHENTICATED=NOT_RUN
+REAL_PIR_EVENT_RECEIVED=NOT_RUN
+ANDROID_REAL_EVENT_VISIBLE=NOT_RUN
+GS117_PHYSICAL_E2E=NOT_RUN
+COMMERCIAL_RELEASE=NOT_RUN
+```
+
+To activate a persistent real-S3 ingress later, the owner must approve the
+specific Hub credential/registry artifact, current Home/epoch and Node
+enrollment, trusted-time source, server endpoint identity, and private network
+route plus service activation. Production credentials require the separate
+approved security lifecycle; the TEST_ONLY issuer and listener are not that
+lifecycle. GS-117 then requires the fixture/image/authority, journal,
+reset-safe observation, endpoint and recovery checks before authorized real PIR
+qualification and a verified Android APK read. Keep GS-179 In Progress and
+GS-117 open. The next Jira action remains GS-179 software runtime delivery and
+owner-approved operational configuration; no physical pass is claimed.

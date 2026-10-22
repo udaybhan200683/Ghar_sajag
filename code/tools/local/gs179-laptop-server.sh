@@ -420,7 +420,12 @@ health_check() {
         printf 'LOCAL_BACKEND_READY=FAIL\n'
     fi
     phone_lan_health_check
-    printf 'HUB_INGRESS_READY=NOT_CONFIGURED (caregiver service has no active authenticated Hub ingress)\n'
+    printf 'HUB_INGRESS_RUNTIME_IMPLEMENTED=YES\n'
+    printf 'HUB_INGRESS_AUTOSTART=DISABLED\n'
+    printf 'HUB_IDENTITY_AUTHENTICATED=NO\n'
+    printf 'HUB_MONITORING_FRESHNESS=UNKNOWN\n'
+    printf 'PERSISTENT_HUB_INGRESS=NOT_CONFIGURED\n'
+    printf 'HUB_INGRESS_READY=NOT_CONFIGURED (TEST_ONLY runtime is default-disabled; caregiver service has no active Hub ingress)\n'
     return "$local_ready"
 }
 
