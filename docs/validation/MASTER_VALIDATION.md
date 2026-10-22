@@ -974,3 +974,22 @@ These are HOST_SIM/TEST_ONLY and browser/API software results. The actual
 Android phone and Yogi → Agrim → Yogi sequence remain NOT_RUN. Current Agrim
 portproxy still points to the historical Windows address, so phone LAN route is
 not verified. The Android CI APK build remains pending on final integrated source.
+
+### Combined local-LAN APK build result — 2026-10-22
+
+Workflow [39797650882](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39797650882)
+built source `ed99dbe1d73286110670c0128e2476415e387d2a` with origin
+`https://desktop-3qqu64b.local` and `GS177_LOCAL_LAN_TEST_ONLY=1`. Its sole
+Android job completed SUCCESS: PWA browser 4/4 and 92/92 rendered checks,
+caregiver API 22/22, Android dashboard 12 checks, voice prototype 28 checks,
+APK v2 signature and upload passed. Artifact ID `12434502262`, APK SHA-256
+`5aaea3c6f71e1d60b401436d987fb50633c4766ba4e7318384e077ad7f0bd02f`; signer
+certificate SHA-256 `141f15cdaec4645094cb0657956f8b82110f2f4eccfda61a9b5260052e111392`.
+The runner-generated debug signer differs from previously recorded APKs, so
+installation as an in-place update is not established. The installed phone
+signer was not inspected and no install/uninstall occurred. The artifact build
+and simulated tests do not establish phone network, WebView, or physical-sensor
+acceptance. The overall GitHub run remained `in_progress` after its sole job
+reported success. Preserve the separate default-origin push run failure
+39797636040: Chrome DevTools did not start for the first catalog case; later
+correctly configured local-LAN workflow passed the full browser stage.
