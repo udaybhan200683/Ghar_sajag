@@ -669,3 +669,52 @@ required when that command also launched DNS-SD. The command was then split as
 described above, and the complete 11-test laptop lifecycle class passed. The
 full 55-test suite was not repeated. The remaining test evidence is software
 only; automatic phone DNS-SD and Yogi → Agrim → Yogi remain unverified.
+
+### 2026-10-23 — DNS-SD result, combined APK and physical-test handoff
+
+Latest owning Jira: GS-179 (In Progress). Canonical branch:
+`feature/r1-commercial-baseline`; code source HEAD and verified origin HEAD at
+the start of this handoff: `dce8a52e6a294c40d6f8fe949430418c54042a3c`.
+Tracked source changes are committed; pre-existing unrelated untracked files
+and evidence remain preserved. The documentation/artifact checkpoint is being
+committed and pushed separately after this update.
+
+Windows TEST_ONLY advertiser status was read without restarting the worker:
+PID 4280, `REGISTERED`, `DnsServiceRegister` API return 9506
+(`DNS_REQUEST_PENDING`), callback status 0, service
+`GharSajag-GS179-desktop-3qqu64b._https._tcp.local` at `192.168.1.8:443`,
+interface 18. This proves Windows DNS-SD registration completion, not
+multicast delivery to Android. Wi-Fi remains Private. The persistent privileged
+network watcher is not registered.
+
+The combined Local-LAN TEST_ONLY workflow
+[39887837848](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39887837848)
+completed SUCCESS on source `dce8a52e`. Browser assertions passed 92/92;
+registered API/Android-dashboard/voice gates passed 22/19/28; Android unit
+tests and APK build passed; signature/upload passed. The verified APK is at
+`docs/exec-plans/evidence/GS179_DNSSD_AUTODISCOVERY_20261023/apk/`, SHA-256
+`0ae141221233ba39a997396bb496a818250668ccf1b4d354372dad5add630c80`, signer
+SHA-256 `61710682d9c43052a1e1f07dbe6fef7ae7671391d82335d91b61bd0cf3a564cf`,
+origin `https://desktop-3qqu64b.local`, CA SHA-256
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`.
+Artifact ID `12473876313`, 14-day Actions retention. The installed phone
+package signer was not inspected, and the candidate uses a runner-generated
+debug key, so update compatibility is unverified. No installation,
+uninstallation, data clear or phone access occurred.
+
+Physical acceptance remains NOT_RUN: Android discovery visibility, service
+resolution/TXT acceptance, secure readiness, and Yogi → Agrim → Yogi have not
+been observed on the handset. No ADB/device is available in this environment.
+The latest app change preserves the working saved manual-IP origin and SPKI pin
+when “Use paired laptop” is tapped; automatic discovery replaces the origin
+only after the existing CA/IP-hostname, expected DNS SAN, SPKI continuity and
+`/readyz` checks pass. TEST_ONLY logs now expose each discovery, validation,
+storage and delivery failure stage. Preserve certificate verification and
+manual-IP connectivity.
+
+Next exact action: owner confirms a signer-compatible route for the delivered
+APK without removing the working app or clearing data. Then run phone browse,
+resolve and Yogi → Agrim → Yogi checks while capturing `ParivarSaathiLan` logs;
+record the actual phone visibility result separately from the Windows callback
+and hosted CI. Do not activate the privileged watcher, mutate firewall or
+forwarding, or claim physical acceptance from software results.

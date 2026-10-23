@@ -1026,7 +1026,24 @@ branding checks PASS; shared PWA runtime 10/10 PASS; feature coverage 225 rows,
 280 modules, 26 physical cases and 22/22 mapping checks PASS; Windows policy
 validation 14/14 plus record construction PASS. The local Android runner stopped
 at its missing-Gradle dependency after source/runtime checks, so hosted browser,
-Android unit tests, APK build and artifact/signature verification remain
-pending. Physical phone DNS-SD and Yogi → Agrim → Yogi remain NOT_RUN; no app
-installation, data clear, hardware access or privileged watcher activation was
-performed.
+Android unit tests, APK build and artifact/signature verification were pending
+at this local checkpoint. Physical phone DNS-SD and Yogi → Agrim → Yogi remain
+NOT_RUN; no app installation, data clear, hardware access or privileged watcher
+activation was performed.
+
+### Combined GS-179 TEST_ONLY APK and regression result — 2026-10-23
+
+Workflow [39887837848](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39887837848)
+completed SUCCESS on source `dce8a52e6a294c40d6f8fe949430418c54042a3c`, with
+origin `https://desktop-3qqu64b.local` and `GS177_LOCAL_LAN_TEST_ONLY=1`.
+PWA browser regression passed 92/92 rendered assertions; registered caregiver
+gates passed API 22, Android dashboard 19 and voice prototype 28; Android
+`:app:testDebugUnitTest` and `:app:assembleDebug` passed; APK v2 signature and
+upload passed. Physical acceptance is NOT_RUN. APK SHA-256 is
+`0ae141221233ba39a997396bb496a818250668ccf1b4d354372dad5add630c80`; artifact
+ID `12473876313`; signer certificate SHA-256
+`61710682d9c43052a1e1f07dbe6fef7ae7671391d82335d91b61bd0cf3a564cf`. This
+runner-generated TEST_ONLY debug signer differs from previously recorded
+installed-build evidence; in-place update compatibility is unverified. No
+install or app-data change occurred. Detailed evidence is in
+[`GS-179 DNS-SD discovery handoff`](../exec-plans/evidence/GS179_DNSSD_AUTODISCOVERY_20261023.md).

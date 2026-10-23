@@ -113,11 +113,11 @@ physical acceptance, not release qualification.
 - The GS-75 UI refinements already present on the canonical branch are retained
   unchanged in the combined build. No historical branch files were copied.
 
-### Validation
+### Local validation before hosted CI
 
-Pending combined regression runs and APK artifact verification. No physical
-phone, app install, data clear, privileged watcher, firewall or production
-security changes were performed.
+At this initial checkpoint, hosted combined regressions and APK verification
+were pending. No physical phone, app install, data clear, privileged watcher,
+firewall or production-security changes were performed.
 
 Executed before APK workflow dispatch:
 
@@ -142,4 +142,66 @@ Executed before APK workflow dispatch:
 - The current worker (PID 4280) remains registered with callback status 0 and
   API pending status 9506. `adb` is unavailable on both WSL and Windows. No
   phone browse result is claimed. Browser regression and Android Gradle tests
-  remain pending the hosted combined workflow.
+  were pending at this checkpoint; the completed hosted results follow below.
+
+### Combined regressions and deliverable APK — 2026-10-23
+
+The push-triggered default-origin workflow
+[39887820771](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39887820771)
+completed SUCCESS on source `dce8a52e6a294c40d6f8fe949430418c54042a3c`. Its
+browser and registered caregiver/Android stages, Android unit tests, APK
+assembly, signature verification and artifact upload passed. Its default
+staging-origin APK is not the GS-179 deliverable.
+
+The explicit Local-LAN TEST_ONLY workflow
+[39887837848](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39887837848)
+completed SUCCESS on that same source with origin
+`https://desktop-3qqu64b.local` and `GS177_LOCAL_LAN_TEST_ONLY=1`. Results:
+
+- PWA browser regression: 92/92 rendered assertions PASS, including
+  authenticated caregiver, offline, session gating and connected-lite browser
+  cases.
+- Registered caregiver gates: connected-lite API 22 PASS, Android dashboard
+  19 PASS, voice prototype 28 PASS.
+- Android `:app:testDebugUnitTest` and `:app:assembleDebug`: PASS.
+- APK signature scheme v2 verification, SHA-256 verification and upload: PASS.
+- `make -C code feature-coverage-test`: 225 feature rows, 280 source modules,
+  26 physical cases and 22/22 mapping checks PASS. Earlier local GS-179
+  PostgreSQL E2E (55/55), connected-lite API/runtime (22 API, 3 scenarios,
+  runtime 10/10), Windows policy validation (14/14) and source/branding checks
+  are recorded above.
+
+The one deliverable is
+[`parivar-saathi-caregiver-debug.apk`](GS179_DNSSD_AUTODISCOVERY_20261023/apk/parivar-saathi-caregiver-debug.apk)
+(2,962,184 bytes), artifact ID `12473876313`, source `dce8a52e`, package
+`in.gharsajag.caregiver`, version `0.4.0-connected-lite-staging`, TEST_ONLY
+origin `https://desktop-3qqu64b.local`, local CA SHA-256
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`, and APK
+SHA-256
+`0ae141221233ba39a997396bb496a818250668ccf1b4d354372dad5add630c80`.
+The runner-generated debug signer fingerprint is
+`61710682d9c43052a1e1f07dbe6fef7ae7671391d82335d91b61bd0cf3a564cf`. Its
+compatibility with the APK installed on the physical phone has not been
+checked; earlier installed-build evidence records a different signer. The
+APK was not installed, and the working app was not uninstalled or cleared.
+
+Windows DNS-SD registration remains host-verified only: API return 9506
+(`DNS_REQUEST_PENDING`), callback status 0, service
+`GharSajag-GS179-desktop-3qqu64b._https._tcp.local`, address `192.168.1.8`,
+interface 18. Android phone browse/resolve and Yogi → Agrim → Yogi remain
+NOT_RUN because no phone/ADB access is available here. This workflow reports
+`PHYSICAL NOT_RUN`; its Android tests do not prove phone multicast visibility.
+The persistent privileged watcher remains unregistered, and no network,
+firewall, forwarding, production-security, device or app-data changes were
+made.
+
+### Next physical acceptance checkpoint
+
+Before installing this artifact, compare its signer to the currently installed
+package or arrange an owner-approved signing path that preserves the working
+app. Do not uninstall or clear data. With a compatible install path, capture
+`ParivarSaathiLan` logs while checking service discovery, resolution, TXT
+validation, IPv4 selection, TLS/SAN/SPKI, `/readyz`, endpoint persistence and
+the Yogi → Agrim → Yogi transition. Save device observations and logs without
+credentials, cookies or certificate private keys. A successful Windows
+registration and this APK's CI PASS are not phone-discovery PASS.
