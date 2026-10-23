@@ -147,6 +147,9 @@ def main() -> int:
     endpoint_store = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/BackendEndpointStore.kt").read_text()
     lan_discovery = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/Gs179LanDiscovery.kt").read_text()
     lan_discovery_tests = (app_root / "android/app/src/test/java/in/gharsajag/caregiver/Gs179LanDiscoveryPolicyTest.kt").read_text()
+    pairing_action = main_activity.split("private fun usePairedLaptop()", 1)[1].split(
+        "private fun lanDiagnostic(", 1,
+    )[0]
     windows_mdns = (ROOT / "tools/local/gs179-windows-mdns-advertiser.ps1").read_text()
     local_lan_manifest = (app_root / "android/app/src/gs179LocalLan/AndroidManifest.xml").read_text()
     trusted_webview = (app_root / "android/app/src/main/java/in/gharsajag/caregiver/TrustedPwaWebView.kt").read_text()
@@ -159,6 +162,10 @@ def main() -> int:
             "BackendEndpointStore.save(this, candidate)" not in main_activity or
             "BackendEndpointStore.load(this)" not in main_activity or
             "BackendEndpointStore.clear(this)" not in main_activity or
+            "currentEndpointRetained=true" not in pairing_action or
+            "BackendEndpointStore.clear" in pairing_action or
+            "backendOrigin = pairedOrigin" in pairing_action or
+            "usePairedLaptop()" not in main_activity or
             "BuildConfig.GS179_LOCAL_LAN_TEST_ONLY" not in endpoint_store or
             "gs177AndroidLanReconnectStableMdnsHostnameAndManualPrivateAddressAreTestOnly" not in origin_tests or
             "gs177AndroidLanReconnectIsReachableOnlyFromBundledFirstPartyMainFrame" not in origin_tests or
@@ -168,6 +175,19 @@ def main() -> int:
             "wifiRouteSignature" not in main_activity or
             "shouldReloadForVerifiedEndpoint" not in main_activity or
             "NsdManager.PROTOCOL_DNS_SD" not in lan_discovery or
+            "DISCOVERY_STARTED" not in lan_discovery or
+            "DISCOVERY_NO_EXPECTED_SERVICE_FOUND" not in lan_discovery or
+            "DISCOVERY_DIAGNOSTIC_TIMER_FAILED" not in lan_discovery or
+            "SERVICE_FOUND" not in lan_discovery or
+            "unexpected_service_type" not in lan_discovery or
+            "SERVICE_RESOLVE_FAILED" not in lan_discovery or
+            "serviceMismatchReason" not in lan_discovery or
+            "persistence_failure" not in lan_discovery or
+            "main_handler_rejected" not in lan_discovery or
+            "no_private_ipv4" not in lan_discovery or
+            "saved_spki_pin_mismatch" not in lan_discovery or
+            "readyz_database_not_ready" not in lan_discovery or
+            "hostAddresses" not in lan_discovery or
             "HttpsURLConnection" not in lan_discovery or
             "serverCertificates" not in lan_discovery or
             "certificateNamesExpectedHost" not in lan_discovery or
@@ -181,8 +201,18 @@ def main() -> int:
             "connection.readTimeout = TIMEOUT_MILLIS" not in lan_discovery or
             "connection.instanceFollowRedirects = false" not in lan_discovery or
             "GS177-LAN-NSD-001" not in lan_discovery_tests or
+            "GS179-LAN-DIAGNOSTICS-001" not in lan_discovery_tests or
             "verifiedSameOriginReconnectsOnlyAfterWifiRouteChanges" not in lan_discovery_tests or
+            "selectsEveryPrivateIpv4AndRejectsPublicIpv4AndIpv6Candidates" not in lan_discovery_tests or
+            "tlsDiagnosticReasonsDistinguishTimeoutHostnameAndOtherHandshakeFailures" not in lan_discovery_tests or
             "DnsServiceRegister" not in windows_mdns or
+            "ToIp4AddressHostOrder" not in windows_mdns or
+            "HasExpectedIp4HostOrder" not in windows_mdns or
+            "REGISTER_CALLBACK_FAILED_status_" not in windows_mdns or
+            "registercallbackstatus" not in windows_mdns.lower() or
+            "Ip4AddressHostByteOrder = \"PASS\"" not in windows_mdns or
+            "Action -eq \"Status\"" not in windows_mdns or
+            "REGISTER_FAILED" not in windows_mdns or
             "UnicastEnabled = false" not in windows_mdns or
             "Test-TrustedWifiProfile" not in windows_mdns or
             '@("Private", "DomainAuthenticated")' not in windows_mdns or

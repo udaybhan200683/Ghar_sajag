@@ -13,6 +13,7 @@ import android.widget.EditText
 import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.Toast
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -93,14 +94,22 @@ class MainActivity : ComponentActivity() {
         if (!BuildConfig.GS179_LOCAL_LAN_TEST_ONLY) return
         val configuredOrigin = BackendOrigin.parse(
             BuildConfig.BACKEND_ORIGIN, allowTestOnlyLanEndpoint = true,
-        ) ?: return
-        if (!configuredOrigin.host.endsWith(".local")) return
+        ) ?: run {
+            lanDiagnostic("DISCOVERY_APP_START_SKIPPED reason=invalid_backend_origin")
+            return
+        }
+        if (!configuredOrigin.host.endsWith(".local")) {
+            lanDiagnostic("DISCOVERY_APP_START_SKIPPED reason=configured_origin_not_local_dns")
+            return
+        }
         lanDiscoveryForeground = true
+        lanDiagnostic("DISCOVERY_APP_FOREGROUND expectedTlsHost=${configuredOrigin.host}")
 
         if (lanDiscovery == null) {
             lanDiscovery = Gs179LanServerDiscovery(this, configuredOrigin.host) { verified ->
                 val wifiRouteChanged = activeWifiNetwork != lastVerifiedWifiNetwork ||
                     activeWifiRouteSignature != lastVerifiedWifiRouteSignature
+                lanDiagnostic("VERIFIED_ENDPOINT address=${verified.host} wifiRouteChanged=$wifiRouteChanged")
                 if (Gs179LanDiscoveryPolicy.shouldReloadForVerifiedEndpoint(
                         backendOrigin?.baseUrl, verified.baseUrl, wifiRouteChanged,
                     )) {
@@ -109,6 +118,8 @@ class MainActivity : ComponentActivity() {
                     lastVerifiedWifiRouteSignature = activeWifiRouteSignature
                     Toast.makeText(this, "Laptop server reconnected securely", Toast.LENGTH_SHORT).show()
                     showDashboard()
+                } else {
+                    lanDiagnostic("VERIFIED_ENDPOINT_RELOAD_SKIPPED reason=origin_and_route_unchanged")
                 }
             }
         }
@@ -116,7 +127,10 @@ class MainActivity : ComponentActivity() {
         connectivityManager = manager
         if (networkCallback == null) {
             val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) = updateDiscoveryNetwork(network)
+                override fun onAvailable(network: Network) {
+                    lanDiagnostic("DEFAULT_NETWORK_AVAILABLE")
+                    updateDiscoveryNetwork(network)
+                }
 
                 override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
                     updateDiscoveryNetwork(network, capabilities)
@@ -127,14 +141,16 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onLost(network: Network) {
+                    lanDiagnostic("DEFAULT_NETWORK_LOST isActiveWifi=${activeWifiNetwork == network}")
                     if (activeWifiNetwork == network) updateDiscoveryNetwork(null)
                 }
             }
             networkCallback = callback
             try {
                 manager.registerDefaultNetworkCallback(callback)
-            } catch (_: RuntimeException) {
+            } catch (error: RuntimeException) {
                 networkCallback = null
+                lanDiagnostic("NETWORK_CALLBACK_REGISTER_FAILED type=${error.javaClass.simpleName}")
             }
         }
         updateDiscoveryNetwork(manager.activeNetwork)
@@ -153,6 +169,7 @@ class MainActivity : ComponentActivity() {
                 activeWifiRouteSignature = null
                 lanDiscovery?.stop()
                 if (hadWifi) lastVerifiedWifiNetwork = null
+                if (hadWifi || network == null) lanDiagnostic("WIFI_DISCOVERY_STOPPED reason=no_default_wifi_network")
                 return@runOnUiThread
             }
             val routeSignature = network?.let { manager.getLinkProperties(it) }
@@ -163,8 +180,10 @@ class MainActivity : ComponentActivity() {
             activeWifiNetwork = network
             activeWifiRouteSignature = routeSignature
             if (networkChanged || routeChanged) {
+                lanDiagnostic("WIFI_DISCOVERY_RESTART reason=${if (networkChanged) "network_changed" else "route_changed"}")
                 lanDiscovery?.restart()
             } else {
+                lanDiagnostic("WIFI_DISCOVERY_START_REQUESTED reason=network_current")
                 lanDiscovery?.start()
             }
         }
@@ -177,6 +196,7 @@ class MainActivity : ComponentActivity() {
             if (signature != activeWifiRouteSignature) {
                 activeWifiRouteSignature = signature
                 activeWifiNetwork = network
+                lanDiagnostic("WIFI_DISCOVERY_RESTART reason=link_properties_changed")
                 lanDiscovery?.restart()
             }
         }
@@ -197,8 +217,9 @@ class MainActivity : ComponentActivity() {
         networkCallback?.let { callback ->
             try {
                 connectivityManager?.unregisterNetworkCallback(callback)
-            } catch (_: RuntimeException) {
+            } catch (error: RuntimeException) {
                 // The callback may already have been removed by the system.
+                lanDiagnostic("NETWORK_CALLBACK_UNREGISTER_FAILED type=${error.javaClass.simpleName}")
             }
         }
         networkCallback = null
@@ -240,7 +261,7 @@ class MainActivity : ComponentActivity() {
             .setMessage("Use the laptop's stable .local hostname when available. A private IPv4 address is a fallback and must match the laptop's current HTTPS certificate. The app always verifies the server certificate.")
             .setView(input)
             .setNegativeButton("Cancel", null)
-            .setNeutralButton("Use paired laptop") { _, _ -> resetBackendOrigin() }
+            .setNeutralButton("Use paired laptop") { _, _ -> usePairedLaptop() }
             .setPositiveButton("Connect") { _, _ ->
                 val candidate = BackendOrigin.parse(
                     input.text.toString(),
@@ -263,6 +284,39 @@ class MainActivity : ComponentActivity() {
         if (!BuildConfig.GS179_LOCAL_LAN_TEST_ONLY) return
         BackendEndpointStore.clear(this)
         backendOrigin = BackendOrigin.parse(BuildConfig.BACKEND_ORIGIN, allowTestOnlyLanEndpoint = true)
+        lanDiagnostic("PAIRING_RESET explicitTrustReset=true")
         showDashboard()
+    }
+
+    private fun usePairedLaptop() {
+        if (!BuildConfig.GS179_LOCAL_LAN_TEST_ONLY) return
+        val pairedOrigin = BackendOrigin.parse(
+            BuildConfig.BACKEND_ORIGIN, allowTestOnlyLanEndpoint = true,
+        )
+        if (pairedOrigin == null || !pairedOrigin.host.endsWith(".local")) {
+            lanDiagnostic("PAIRING_REQUEST_REJECTED reason=invalid_configured_local_origin")
+            Toast.makeText(this, "The paired laptop address is unavailable.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val currentHost = backendOrigin?.host ?: "none"
+        val pinPresent = BackendEndpointStore.serverSpkiSha256(this) != null
+        lanDiagnostic("PAIRING_DISCOVERY_REQUESTED currentEndpointRetained=true currentHost=$currentHost savedSpkiPinPresent=$pinPresent")
+        if (activeWifiNetwork != null) {
+            if (lanDiscovery != null) {
+                lanDiscovery?.restart()
+            } else {
+                lanDiagnostic("PAIRING_DISCOVERY_FAILED reason=discovery_instance_unavailable")
+            }
+        } else {
+            lanDiagnostic("PAIRING_DISCOVERY_WAITING reason=no_active_wifi_network")
+        }
+    }
+
+    private fun lanDiagnostic(message: String) {
+        if (BuildConfig.GS179_LOCAL_LAN_TEST_ONLY) Log.i(TAG, "GS179_LAN_$message")
+    }
+
+    companion object {
+        private const val TAG = "ParivarSaathiLan"
     }
 }

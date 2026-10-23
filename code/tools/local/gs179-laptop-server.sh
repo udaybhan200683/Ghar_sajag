@@ -257,6 +257,13 @@ stop_mdns_advertiser() {
     windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" -Action Stop
 }
 
+mdns_status() {
+    [[ -f "$MDNS_PS1" ]] || fail "GS179_TEST_ONLY_mDNS_helper_missing"
+    local win_script
+    win_script="$(wslpath -w "$MDNS_PS1")"
+    windows_powershell -NoProfile -ExecutionPolicy Bypass -File "$win_script" -Action Status
+}
+
 proxy_audit() {
     local current_wsl="$(wsl_ipv4 || true)"
     local win_script
@@ -686,5 +693,6 @@ case "${1:-}" in
     network-refresh-config) network_refresh_config ;;
     record-proxy-target) record_proxy_target "${2:-}" ;;
     start-mdns-advertiser) load_config; start_mdns_advertiser ;;
-    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
+    mdns-status) mdns_status ;;
+    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|start-mdns-advertiser|mdns-status|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
 esac

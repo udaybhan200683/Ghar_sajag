@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("Start", "Stop", "Worker", "Validate")]
+    [ValidateSet("Start", "Stop", "Status", "Worker", "Validate")]
     [string]$Action
 )
 
@@ -9,6 +9,8 @@ $ServiceType = "_https._tcp"
 $ServicePort = 443
 $WorkerMutexName = "Local\GharSajagGS179MdnsWorker"
 $StopEventName = "Local\GharSajagGS179MdnsStop"
+$StatusRoot = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "GharSajag\GS179" } else { Join-Path $env:TEMP "GharSajag\GS179" }
+$StatusPath = Join-Path $StatusRoot "mdns-advertiser-status.json"
 
 if (-not ("GharSajag.Gs179DnsSd" -as [type])) {
     Add-Type -TypeDefinition @"
@@ -46,6 +48,8 @@ namespace GharSajag {
             private GCHandle callbackHandle;
             private DnsServiceRegisterRequest request;
             private bool disposed;
+            public uint ApiStatus { get; private set; }
+            public uint CallbackStatus { get; private set; }
 
             internal Registration(IntPtr instance, uint interfaceIndex) {
                 callbackState = new CallbackState();
@@ -58,10 +62,10 @@ namespace GharSajag {
                     QueryContext = GCHandle.ToIntPtr(callbackHandle),
                     UnicastEnabled = false
                 };
-                uint result = DnsServiceRegister(ref request, IntPtr.Zero);
-                if (result != DnsRequestPending) {
+                ApiStatus = DnsServiceRegister(ref request, IntPtr.Zero);
+                if (ApiStatus != DnsRequestPending) {
                     Free();
-                    throw new InvalidOperationException("DnsServiceRegister returned " + result);
+                    throw new InvalidOperationException("DnsServiceRegister returned " + ApiStatus);
                 }
                 if (!callbackState.Completed.WaitOne(5000)) {
                     // The pending native operation still owns the request and
@@ -69,9 +73,10 @@ namespace GharSajag {
                     // then withdraws the advertisement without freeing live state.
                     throw new InvalidOperationException("GS179_MDNS_FATAL_registration_timeout");
                 }
-                if (callbackState.Status != 0) {
+                CallbackStatus = callbackState.Status;
+                if (CallbackStatus != 0) {
                     Free();
-                    throw new InvalidOperationException("mDNS service registration did not complete");
+                    throw new InvalidOperationException("GS179_MDNS_REGISTER_CALLBACK_FAILED_status_" + CallbackStatus);
                 }
             }
 
@@ -87,6 +92,11 @@ namespace GharSajag {
                     // Do not free a request/context still owned by the native API.
                     // The worker exits and Windows withdraws it with process exit.
                     throw new InvalidOperationException("GS179_MDNS_FATAL_deregistration_timeout");
+                }
+                if (callbackState.Status != 0) {
+                    uint status = callbackState.Status;
+                    Free();
+                    throw new InvalidOperationException("GS179_MDNS_DEREGISTER_CALLBACK_FAILED_status_" + status);
                 }
                 Free();
             }
@@ -134,9 +144,7 @@ namespace GharSajag {
         }
 
         public static Registration Register(string hostLabel, string address, uint interfaceIndex) {
-            byte[] octets = IPAddress.Parse(address).GetAddressBytes();
-            uint ipv4 = ((uint)octets[0] << 24) | ((uint)octets[1] << 16) |
-                        ((uint)octets[2] << 8) | octets[3];
+            uint ipv4 = ToIp4AddressHostOrder(address);
             string host = hostLabel + ".local";
             string instance = "GharSajag-GS179-" + hostLabel + "." + "_https._tcp.local";
             string[] keys = new string[] { "profile", "tls_host", "protocol" };
@@ -148,9 +156,7 @@ namespace GharSajag {
         }
 
         public static bool CanConstructTestOnlyAdvertisement(string hostLabel, string address) {
-            byte[] octets = IPAddress.Parse(address).GetAddressBytes();
-            uint ipv4 = ((uint)octets[0] << 24) | ((uint)octets[1] << 16) |
-                        ((uint)octets[2] << 8) | octets[3];
+            uint ipv4 = ToIp4AddressHostOrder(address);
             string host = hostLabel + ".local";
             string instance = "GharSajag-GS179-" + hostLabel + "." + "_https._tcp.local";
             string[] keys = new string[] { "profile", "tls_host", "protocol" };
@@ -160,6 +166,18 @@ namespace GharSajag {
             if (service == IntPtr.Zero) return false;
             DnsServiceFreeInstance(service);
             return true;
+        }
+
+        public static uint ToIp4AddressHostOrder(string address) {
+            // Windns.h defines IP4_ADDRESS in host byte order (for example,
+            // 127.0.0.1 is 0x7F000001), independent of CPU memory endianness.
+            byte[] octets = IPAddress.Parse(address).GetAddressBytes();
+            return ((uint)octets[0] << 24) | ((uint)octets[1] << 16) |
+                ((uint)octets[2] << 8) | octets[3];
+        }
+
+        public static bool HasExpectedIp4HostOrder(string address, uint expected) {
+            return ToIp4AddressHostOrder(address) == expected;
         }
 
         public static string ApiVersion { get { return "Windows DNS-SD mDNS API / TEST_ONLY"; } }
@@ -183,6 +201,41 @@ function Test-TrustedWifiProfile([object]$NetworkCategory) {
     return ([string]$NetworkCategory) -in @("Private", "DomainAuthenticated")
 }
 
+function Write-WorkerStatus {
+    param(
+        [Parameter(Mandatory = $true)][string]$State,
+        [string]$Reason = "",
+        [string]$Address = "",
+        [uint32]$InterfaceIndex = 0,
+        [string]$HostLabel = "",
+        [uint32]$ApiStatus = 0,
+        [uint32]$CallbackStatus = 0
+    )
+    try {
+        [System.IO.Directory]::CreateDirectory($StatusRoot) | Out-Null
+        $record = [ordered]@{
+            updatedAtUtc = [DateTime]::UtcNow.ToString("o")
+            workerPid = $PID
+            state = $State
+            reason = $Reason
+            serviceName = if ($HostLabel) { "GharSajag-GS179-$HostLabel._https._tcp.local" } else { "" }
+            serviceType = "_https._tcp.local"
+            port = $ServicePort
+            wifiIpv4 = $Address
+            interfaceIndex = $InterfaceIndex
+            registerApiStatus = $ApiStatus
+            registerCallbackStatus = $CallbackStatus
+            persistentPrivilegedTaskRegistered = $false
+        }
+        $temporaryPath = Join-Path $StatusRoot ("mdns-advertiser-status.$PID.tmp")
+        $json = ConvertTo-Json -InputObject $record -Compress
+        [System.IO.File]::WriteAllText($temporaryPath, $json, [System.Text.UTF8Encoding]::new($false))
+        Move-Item -LiteralPath $temporaryPath -Destination $StatusPath -Force
+    } catch {
+        # Status reporting is diagnostic only and must not control advertising.
+    }
+}
+
 function Get-EligibleWifi {
     $adapter = Get-NetAdapter -Name "Wi-Fi" -ErrorAction SilentlyContinue
     $profile = Get-NetConnectionProfile -InterfaceAlias "Wi-Fi" -ErrorAction SilentlyContinue |
@@ -190,13 +243,29 @@ function Get-EligibleWifi {
     $ip = Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4 -ErrorAction SilentlyContinue |
         Where-Object { $_.AddressState -eq "Preferred" -and $_.IPAddress -notlike "169.254.*" } |
         Select-Object -First 1
-    if ($null -eq $adapter -or $adapter.Status -ne "Up" -or $null -eq $profile -or
-        -not (Test-TrustedWifiProfile $profile.NetworkCategory) -or $null -eq $ip -or
-        $ip.PrefixLength -lt 16 -or $ip.PrefixLength -gt 29 -or -not (Test-Rfc1918 $ip.IPAddress)) {
+    if ($null -eq $adapter -or $adapter.Status -ne "Up") {
+        $script:EligibilityReason = "wifi_adapter_unavailable"
+        return $null
+    }
+    if ($null -eq $profile) {
+        $script:EligibilityReason = "wifi_profile_unavailable"
+        return $null
+    }
+    if (-not (Test-TrustedWifiProfile $profile.NetworkCategory)) {
+        $script:EligibilityReason = "wifi_profile_not_private_or_domain_authenticated"
+        return $null
+    }
+    if ($null -eq $ip -or $ip.PrefixLength -lt 16 -or $ip.PrefixLength -gt 29 -or
+        -not (Test-Rfc1918 $ip.IPAddress)) {
+        $script:EligibilityReason = "private_wifi_ipv4_unavailable"
         return $null
     }
     $hostLabel = $env:COMPUTERNAME.ToLowerInvariant()
-    if ($hostLabel -notmatch '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$') { return $null }
+    if ($hostLabel -notmatch '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$') {
+        $script:EligibilityReason = "laptop_hostname_invalid"
+        return $null
+    }
+    $script:EligibilityReason = "eligible"
     return [pscustomobject]@{ Address = $ip.IPAddress; InterfaceIndex = [uint32]$adapter.ifIndex; HostLabel = $hostLabel }
 }
 
@@ -226,7 +295,11 @@ if ($Action -eq "Validate") {
     if (-not [GharSajag.Gs179DnsSd]::CanConstructTestOnlyAdvertisement("desktop-3qqu64b", "192.168.1.8")) {
         throw "GS179_WINDOWS_MDNS_VALIDATE_FAIL service_record_construction"
     }
-    [pscustomobject]@{ Action = $Action; Api = [GharSajag.Gs179DnsSd]::ApiVersion; PolicyCases = 13; ServiceRecordConstruction = "PASS"; SocketOrRegistrationOpened = $false } |
+    if (-not [GharSajag.Gs179DnsSd]::HasExpectedIp4HostOrder("192.168.1.8", [uint32]::Parse("3232235784")) -or
+        -not [GharSajag.Gs179DnsSd]::HasExpectedIp4HostOrder("10.20.30.40", [uint32]::Parse("169090600"))) {
+        throw "GS179_WINDOWS_MDNS_VALIDATE_FAIL ip4_address_host_byte_order"
+    }
+    [pscustomobject]@{ Action = $Action; Api = [GharSajag.Gs179DnsSd]::ApiVersion; PolicyCases = 14; ServiceRecordConstruction = "PASS"; Ip4AddressHostByteOrder = "PASS"; SocketOrRegistrationOpened = $false } |
         ConvertTo-Json -Compress
     exit 0
 }
@@ -236,6 +309,18 @@ if ($Action -eq "Stop") {
     try { $stop.Set() } finally { $stop.Dispose() }
     [pscustomobject]@{ Action = $Action; AdvertisementStopped = "REQUESTED"; PortProxyChanged = $false; FirewallChanged = $false } |
         ConvertTo-Json -Compress
+    exit 0
+}
+
+if ($Action -eq "Status") {
+    if (-not [System.IO.File]::Exists($StatusPath)) {
+        [pscustomobject]@{ Action = $Action; State = "NO_STATUS"; StatusPath = $StatusPath; RegistrationResult = "UNKNOWN" } |
+            ConvertTo-Json -Compress
+        exit 0
+    }
+    $status = Get-Content -LiteralPath $StatusPath -Raw | ConvertFrom-Json
+    $status | Add-Member -NotePropertyName statusPath -NotePropertyValue $StatusPath -Force
+    $status | ConvertTo-Json -Compress
     exit 0
 }
 
@@ -256,15 +341,23 @@ if (-not $createdNew) { $mutex.Dispose(); exit 0 }
 $stop = Open-StopEvent $true
 $registration = $null
 $registeredTuple = ""
+$script:EligibilityReason = "worker_started"
+Write-WorkerStatus -State "WORKER_STARTED" -Reason "awaiting_eligible_private_wifi"
 try {
     while (-not $stop.WaitOne(0)) {
         $wifi = Get-EligibleWifi
         $tuple = ""
-        if ($null -ne $wifi -and (Test-CurrentHttpsListener $wifi.Address)) {
-            $tuple = "$($wifi.Address)|$($wifi.InterfaceIndex)|$($wifi.HostLabel)"
+        if ($null -ne $wifi) {
+            if (Test-CurrentHttpsListener $wifi.Address) {
+                $tuple = "$($wifi.Address)|$($wifi.InterfaceIndex)|$($wifi.HostLabel)"
+            } else {
+                $script:EligibilityReason = "https_listener_not_listening_on_current_wifi_ipv4"
+            }
         }
         if ($tuple -ne $registeredTuple) {
             if ($null -ne $registration) {
+                Write-WorkerStatus -State "DEREGISTERING" -Reason "wifi_address_or_interface_changed" `
+                    -Address $wifi.Address -InterfaceIndex $wifi.InterfaceIndex -HostLabel $wifi.HostLabel
                 $registration.Dispose()
                 $registration = $null
                 $registeredTuple = ""
@@ -274,19 +367,37 @@ try {
                     $registration = [GharSajag.Gs179DnsSd]::Register(
                         $wifi.HostLabel, $wifi.Address, $wifi.InterfaceIndex)
                     $registeredTuple = $tuple
+                    Write-WorkerStatus -State "REGISTERED" -Reason "dns_service_register_callback_success" `
+                        -Address $wifi.Address -InterfaceIndex $wifi.InterfaceIndex -HostLabel $wifi.HostLabel `
+                        -ApiStatus $registration.ApiStatus -CallbackStatus $registration.CallbackStatus
                 } catch {
+                    $reason = $_.Exception.GetType().Name + ":" + $_.Exception.Message
+                    Write-WorkerStatus -State "REGISTER_FAILED" -Reason $reason `
+                        -Address $wifi.Address -InterfaceIndex $wifi.InterfaceIndex -HostLabel $wifi.HostLabel
                     if ($_.Exception.ToString().Contains("GS179_MDNS_FATAL_")) { throw }
-                    # Fail closed. The Android client separately requires valid TLS and readyz.
                     $registration = $null
                     $registeredTuple = ""
                 }
             }
+        } elseif ($tuple -eq "") {
+            Write-WorkerStatus -State "WAITING" -Reason $script:EligibilityReason
+        } else {
+            Write-WorkerStatus -State "REGISTERED" -Reason "registration_active" `
+                -Address $wifi.Address -InterfaceIndex $wifi.InterfaceIndex -HostLabel $wifi.HostLabel `
+                -ApiStatus $registration.ApiStatus -CallbackStatus $registration.CallbackStatus
         }
         if ($stop.WaitOne(3000)) { break }
     }
+} catch {
+    Write-WorkerStatus -State "WORKER_FAILED" -Reason ($_.Exception.GetType().Name + ":" + $_.Exception.Message)
+    throw
 } finally {
-    if ($null -ne $registration) { $registration.Dispose() }
+    if ($null -ne $registration) {
+        Write-WorkerStatus -State "DEREGISTERING" -Reason "worker_stopping"
+        $registration.Dispose()
+    }
     $stop.Dispose()
     $mutex.ReleaseMutex()
     $mutex.Dispose()
+    Write-WorkerStatus -State "WORKER_STOPPED" -Reason "stop_requested"
 }

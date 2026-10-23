@@ -997,3 +997,36 @@ correctly configured local-LAN workflow passed the full browser stage.
 Final status refresh: workflow run 39797650882 finalized `completed / success`
 at 2026-10-22 14:50:44 UTC; the prior in-progress aggregate state was delayed
 status propagation.
+
+## GS-179 Android discovery diagnostics and endpoint retention — 2026-10-23
+
+The explicit “Use paired laptop” action previously cleared the working saved
+endpoint and immediately loaded the stable `.local` origin before foreground
+NSD had resolved and verified a candidate. It now retains the existing working
+origin and its server SPKI pin while restarting discovery; only a candidate
+that passes platform TLS trust/IP hostname validation, expected laptop DNS SAN,
+saved-key continuity and `/readyz` replaces it. The GS-75 caregiver UI
+refinements already integrated on the canonical branch are preserved.
+
+The TEST_ONLY Android diagnostics now expose browse/no-service timeout, service
+and TXT filtering, resolve failures, IPv4 selection, TLS/SAN/SPKI/readiness,
+endpoint persistence and handler delivery. The Windows advertiser now records
+the `DnsServiceRegister` return and completion callback status in a read-only
+status file. At this checkpoint, Windows reports status 9506
+(`DNS_REQUEST_PENDING`) followed by callback status 0 for
+`GharSajag-GS179-desktop-3qqu64b._https._tcp.local` at `192.168.1.8`. This is
+Windows registration evidence only; handset discoverability remains NOT_RUN.
+The initial byte-order hypothesis was rejected against Microsoft's
+`IP4_ADDRESS` documentation: the API expects host byte order, and the original
+conversion was retained.
+
+Software validation: GS-179 PostgreSQL E2E 55/55 PASS; connected-lite API
+22/22, three scenarios and shared runtime 10/10 PASS; Android runner source and
+branding checks PASS; shared PWA runtime 10/10 PASS; feature coverage 225 rows,
+280 modules, 26 physical cases and 22/22 mapping checks PASS; Windows policy
+validation 14/14 plus record construction PASS. The local Android runner stopped
+at its missing-Gradle dependency after source/runtime checks, so hosted browser,
+Android unit tests, APK build and artifact/signature verification remain
+pending. Physical phone DNS-SD and Yogi → Agrim → Yogi remain NOT_RUN; no app
+installation, data clear, hardware access or privileged watcher activation was
+performed.
