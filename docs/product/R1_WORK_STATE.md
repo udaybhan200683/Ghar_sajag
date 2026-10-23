@@ -6317,3 +6317,9 @@ three integration commits and evidence commit to the canonical branch, verify
 remote HEAD, then dispatch the combined TEST_ONLY Android workflow and record
 artifact/source/signature evidence. Do not install the APK or claim phone
 acceptance.
+
+### GS-177 + GS-179 final software artifact checkpoint — 2026-10-23
+
+The TEST_ONLY Android workflow completed successfully: [run 39885083296](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39885083296), source `f023319ec1e49bf69e27e314a964b1ab43812367`, artifact ID `12472705475`. Hosted browser checks passed 92/92 rendered assertions; registered stages passed API 22, Android 17 and voice prototype 28. The final integrated GS-179 isolated PostgreSQL/security suite passed 55/55. See the dated GS-177 evidence for APK SHA-256, TEST_ONLY origin/CA, source asset parity, package/version and signer certificate. APK signature passed, but installed phone signer continuity and update compatibility are unverified.
+
+Canonical was pushed and verified at `f023319ec1e49bf69e27e314a964b1ab43812367`; this evidence addendum is being committed separately. GS-177 and GS-179 remain In Progress. Physical phone login and visual comparison, automatic discovery, Yogi → Agrim → Yogi switching, offline/recovery behavior, unauthorized TLS rejection, and untrusted-network watcher behavior remain NOT_RUN. Do not uninstall, replace or clear the current phone app without separate approval. Real C3/PIR/Hub acceptance remains outside this software integration.
