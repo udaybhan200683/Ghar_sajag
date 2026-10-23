@@ -6392,21 +6392,27 @@ secrets; source contains only its public SHA-256 fingerprint. TLS CA/IP SAN,
 laptop DNS SAN, SPKI continuity, authentication/Home authorization and manual
 IP fallback are unchanged.
 
-Before the hosted build, `make -C code feature-coverage-test` passed with 225
-features, 280 modules, 26 physical cases and 22/22 checks. Python compilation,
-validation-registry JSON parsing, workflow YAML parsing and `git diff --check`
-passed. Hosted Android/browser build and APK signature/package checks are
-pending push. ADB, Java and Gradle are unavailable locally, so physical Agrim
-discovery is NOT_RUN; no APK was installed and no existing app/data/settings
-were modified. Do not infer handset reception from the Windows advertiser or
-workflow results.
+Before push, `make -C code feature-coverage-test` passed with 225 features,
+280 modules, 26 physical cases and 22/22 checks. Python compilation, registry
+JSON parsing, workflow YAML parsing and `git diff --check` passed. Source
+`7f1626428e5a45f27ab07f6094977e05fb20ad38` is pushed and remote-verified.
+Standard workflow 39905741965 passed. TEST_ONLY workflow 39905750839 passed
+PWA browser 92/92, registered API 22, Android dashboard 19, voice 28, Android
+unit tests/build, package/label assertions, pinned signer verification, APK
+SHA verification and upload. It reports SOFTWARE PASS / PHYSICAL NOT_RUN.
+APK SHA-256 is
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`, signer
+SHA-256 is `d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`,
+artifact ID is `12480713458`; see linked evidence for the APK file path.
 
-Next action: push this source, run the hosted registered caregiver/Android
-suite and PWA browser regression, verify package and persistent signer in the
-APK, and record its SHA-256/artifact/source. Then the owner must first test the
-new app on Agrim without manually entering the laptop IP, distinguish DNS-SD
-receive/resolve from verified TLS/readiness and caregiver Home authorization,
-and only after those pass run Yogi → Agrim → Yogi. Preserve the existing
-commercial APK and its data. The privileged network watcher remains
-unregistered and requires separate explicit approval; do not operate the Hub or
-PIR. See [GS-179 discovery acceptance evidence](../exec-plans/evidence/GS179_DNSSD_AUTODISCOVERY_20261023.md#side-by-side-discovery-acceptance-apk-preparation--2026-10-23).
+ADB/Android SDK are unavailable locally. Physical Agrim discovery remains
+NOT_RUN, no APK was installed, and the existing app/data/settings are
+untouched. Do not infer phone multicast reception from Windows registration or
+CI. Next action: on Agrim, install the separate TEST_ONLY package, capture
+`ParivarSaathiLan` logs, select “Use paired laptop” without first entering the
+laptop IP, and report DNS-SD receive/resolve separately from HTTPS/TLS,
+readiness, endpoint persistence and authorized Home. Only after Agrim passes,
+run Yogi → Agrim → Yogi using the TEST_ONLY app. Preserve the original package
+and its data. The privileged network watcher remains unregistered and requires
+separate explicit approval; do not operate the Hub or PIR. See [GS-179
+discovery acceptance evidence](../exec-plans/evidence/GS179_DNSSD_AUTODISCOVERY_20261023.md#side-by-side-discovery-acceptance-apk-preparation--2026-10-23).

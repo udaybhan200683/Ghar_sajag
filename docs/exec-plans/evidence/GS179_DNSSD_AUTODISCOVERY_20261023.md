@@ -232,15 +232,38 @@ build change is confined to the explicit GS-179 local-LAN debug profile:
   manual-IP fallback were not changed. Certificate verification remains
   mandatory.
 
-Pre-build validation on base `c8ad185b235cd73346e3bc90501cbcb56d8b2853`:
+Source commit `7f1626428e5a45f27ab07f6094977e05fb20ad38` is pushed to
+`feature/r1-commercial-baseline`; `git ls-remote` matched local HEAD.
+
+Checks and hosted build:
 
 - `make -C code feature-coverage-test`: PASS, 225 feature rows, 280 modules,
   26 physical cases, 22/22 traceability checks.
 - Python byte-compilation, `suites.json` parsing, workflow YAML parsing and
   `git diff --check`: PASS.
-- Hosted Android/browser regression and APK build are pending push. Local
-  Gradle/Android SDK and ADB are unavailable here; no APK was installed and no
-  phone app data/settings were touched.
+- Push-triggered standard workflow [39905741965](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39905741965)
+  passed on this source; its APK package assertion confirmed the normal
+  `in.gharsajag.caregiver` ID and `Parivar Saathi` label.
+- TEST_ONLY workflow [39905750839](https://github.com/udaybhan200683/Ghar_sajag/actions/runs/39905750839)
+  passed: PWA browser 4 tests / 92 rendered assertions, registered API 22,
+  Android dashboard 19, voice prototype 28, Android unit tests and APK
+  assembly. Package and `Parivar Saathi TEST_ONLY` label assertions passed;
+  apksigner verification matched the pinned persistent signer fingerprint.
+  Artifact SHA verification and upload passed. The suite reported
+  `SOFTWARE PASS PHYSICAL NOT_RUN`.
+- Delivered APK:
+  [`parivar-saathi-discoverytest-debug.apk`](GS179_DISCOVERYTEST_APK_20261023/parivar-saathi-discoverytest-debug-7f1626428e5a45f27ab07f6094977e05fb20ad38/parivar-saathi-discoverytest-debug.apk),
+  2,962,212 bytes; package `in.gharsajag.caregiver.discoverytest`; version
+  `0.4.0-connected-lite-staging`; source `7f1626428e5a45f27ab07f6094977e05fb20ad38`;
+  APK SHA-256
+  `0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`;
+  signer certificate SHA-256
+  `d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`;
+  artifact ID `12480713458` (14-day Actions retention). Downloaded
+  `SHA256SUMS` verification passed. The public TEST_ONLY CA SHA-256 remains
+  `7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`.
+- ADB and local Gradle/Android SDK are unavailable here. No APK was installed;
+  the working phone app and its data/settings were not touched.
 - Physical Agrim discovery is NOT_RUN. The required first handset attempt is
   the side-by-side APK on Agrim with “Use paired laptop”, without entering a
   laptop IP. DNS-SD reception must be assessed from `SERVICE_FOUND` and
@@ -251,13 +274,15 @@ Capture Android diagnostics without clearing the log buffer:
 
 ```bash
 adb devices -l
-adb install -r parivar-saathi-discoverytest-debug.apk
+adb install -r docs/exec-plans/evidence/GS179_DISCOVERYTEST_APK_20261023/parivar-saathi-discoverytest-debug-7f1626428e5a45f27ab07f6094977e05fb20ad38/parivar-saathi-discoverytest-debug.apk
 adb shell pm list packages | grep in.gharsajag.caregiver
 adb logcat -v threadtime -s ParivarSaathiLan:I > gs179-agrim-discovery.log
 ```
 
-With the log capture running, launch the app named **Parivar Saathi TEST_ONLY**
-and select **Use paired laptop** without configuring an IP. `SERVICE_FOUND` and
+The last command waits in Terminal 1. In Terminal 2, launch the side-by-side
+app with `adb shell monkey -p in.gharsajag.caregiver.discoverytest 1` (or tap
+the app named **Parivar Saathi TEST_ONLY**). Select **Use paired laptop**
+without configuring an IP. `SERVICE_FOUND` and
 `SERVICE_RESOLVED_VALID` prove Android received and validated the DNS-SD
 record/TXT data; they do not prove HTTPS. `HTTPS_PROBE_VERIFIED` records
 platform CA/IP-hostname, laptop DNS SAN, saved SPKI continuity (or first-use

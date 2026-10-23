@@ -728,14 +728,18 @@ a repeatable signer isolated from production signing. Implementation and local
 validation details, Android logcat instructions and the Agrim-first test
 sequence are in [GS-179 discovery evidence](GS179_DNSSD_AUTODISCOVERY_20261023.md#side-by-side-discovery-acceptance-apk-preparation--2026-10-23).
 
-Current checkpoint: feature traceability passed 22/22 (225 rows, 280 modules,
-26 physical cases); Python, registry JSON, workflow YAML and diff checks passed.
-Hosted Android/browser build and artifact verification remain pending the
-canonical push. No local ADB/Android SDK is available, so no installation,
-phone discovery, log capture, uninstall, or data change occurred. Agrim
-automatic discovery and Yogi → Agrim → Yogi remain NOT_RUN. The TEST_ONLY
-signer fingerprint is recorded in the GS-179 evidence; its private key and
-password remain in owner-only storage and GitHub Actions secrets. Next action:
-push the validated source, run the registered combined Android/browser gate,
-then update the evidence with the built APK hash and source commit. The
-privileged watcher remains unregistered.
+Current source is pushed at `7f1626428e5a45f27ab07f6094977e05fb20ad38` and
+remote-verified. The standard workflow 39905741965 passed; the explicit
+TEST_ONLY workflow 39905750839 passed browser 92/92, API 22, Android dashboard
+19, voice 28, unit tests/build, package/label checks, persistent signer check,
+APK SHA verification and upload. Artifact 12480713458 is the side-by-side APK
+with SHA-256
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76` and signer
+SHA-256 `d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`.
+The exact APK path and metadata are in the linked GS-179 evidence. No local ADB
+or Android SDK is available, so there was no installation, phone discovery, log
+capture, uninstall or data change. Agrim automatic discovery and Yogi → Agrim →
+Yogi remain NOT_RUN. The privileged watcher remains unregistered. Next action:
+owner installs this side-by-side package on Agrim, captures the existing
+TEST_ONLY logs and reports DNS-SD reception separately from secure readiness;
+do not enter the laptop IP before the first discovery attempt.
