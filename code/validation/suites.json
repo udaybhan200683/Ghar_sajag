@@ -2374,6 +2374,8 @@
         "parivar_saathi_android_app/android/gradle.properties",
         "parivar_saathi_android_app/android/app/build.gradle.kts",
         "parivar_saathi_android_app/android/app/src/main/AndroidManifest.xml",
+        "parivar_saathi_android_app/android/app/src/gs179LocalLan/res/values/strings.xml",
+        "parivar_saathi_android_app/android/app/gs179_discovery_test_signer_sha256.txt",
         "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/BackendOrigin.kt",
         "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/BackendEndpointStore.kt",
         "parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/Gs179LanDiscovery.kt",
@@ -2421,7 +2423,9 @@
         "^CASE GS177-ANDROID-LAN-RECONNECT-001 PASS$",
         "^CASE GS177-ANDROID-ORIGIN-001 PASS$",
         "^CASE GS177-ANDROID-PWA-BUNDLE-001 PASS$",
-        "^CASE GS177-ANDROID-BRANDING-001 PASS$"
+        "^CASE GS177-ANDROID-BRANDING-001 PASS$",
+        "^CASE GS177-ANDROID-PACKAGE-ID-001 PASS package=.+ label=.+$",
+        "^CASE GS179-DISCOVERYTEST-SIGNER-001 (PASS sha256=[0-9a-f]{64}|NOT_APPLICABLE production_profile)$"
       ],
       "timeout": 1800,
       "count_kind": "tests",

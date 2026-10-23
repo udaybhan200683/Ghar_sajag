@@ -205,3 +205,69 @@ validation, IPv4 selection, TLS/SAN/SPKI, `/readyz`, endpoint persistence and
 the Yogi → Agrim → Yogi transition. Save device observations and logs without
 credentials, cookies or certificate private keys. A successful Windows
 registration and this APK's CI PASS are not phone-discovery PASS.
+
+### Side-by-side discovery acceptance APK preparation — 2026-10-23
+
+The canonical source already contains the approved GS-75 interface and the
+corrected GS-179 discovery path. No prior UI branch was replayed. The current
+build change is confined to the explicit GS-179 local-LAN debug profile:
+
+- Commercial and ordinary debug/release builds retain
+  `in.gharsajag.caregiver`; only this profile uses
+  `in.gharsajag.caregiver.discoverytest` and the launcher label
+  `Parivar Saathi TEST_ONLY`. Android therefore treats it as a separate app
+  with separate preferences; it does not replace the installed commercial
+  package.
+- TEST_ONLY APK signing now requires a dedicated persistent PKCS#12 key. Its
+  public certificate fingerprint is pinned in source and checked against the
+  built APK. The encrypted identity is kept outside the repository in
+  `/home/udaybhan/.config/ghar-sajag/gs179-discoverytest-signing` (directory
+  mode 0700; private files mode 0600) and in GitHub Actions encrypted secrets
+  named `GS179_DISCOVERY_TEST_*`. No signing key or password was committed or
+  printed. Its signer certificate SHA-256 is
+  `d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`. No
+  production signing secret was changed.
+- The existing HTTPS CA trust, IP SAN and expected laptop DNS SAN checks,
+  saved SPKI continuity, caregiver authentication/Home authorization and
+  manual-IP fallback were not changed. Certificate verification remains
+  mandatory.
+
+Pre-build validation on base `c8ad185b235cd73346e3bc90501cbcb56d8b2853`:
+
+- `make -C code feature-coverage-test`: PASS, 225 feature rows, 280 modules,
+  26 physical cases, 22/22 traceability checks.
+- Python byte-compilation, `suites.json` parsing, workflow YAML parsing and
+  `git diff --check`: PASS.
+- Hosted Android/browser regression and APK build are pending push. Local
+  Gradle/Android SDK and ADB are unavailable here; no APK was installed and no
+  phone app data/settings were touched.
+- Physical Agrim discovery is NOT_RUN. The required first handset attempt is
+  the side-by-side APK on Agrim with “Use paired laptop”, without entering a
+  laptop IP. DNS-SD reception must be assessed from `SERVICE_FOUND` and
+  `SERVICE_RESOLVED_VALID`; TLS/readiness is a later result requiring
+  `HTTPS_PROBE_VERIFIED`, followed by endpoint delivery and authorized login.
+
+Capture Android diagnostics without clearing the log buffer:
+
+```bash
+adb devices -l
+adb install -r parivar-saathi-discoverytest-debug.apk
+adb shell pm list packages | grep in.gharsajag.caregiver
+adb logcat -v threadtime -s ParivarSaathiLan:I > gs179-agrim-discovery.log
+```
+
+With the log capture running, launch the app named **Parivar Saathi TEST_ONLY**
+and select **Use paired laptop** without configuring an IP. `SERVICE_FOUND` and
+`SERVICE_RESOLVED_VALID` prove Android received and validated the DNS-SD
+record/TXT data; they do not prove HTTPS. `HTTPS_PROBE_VERIFIED` records
+platform CA/IP-hostname, laptop DNS SAN, saved SPKI continuity (or first-use
+pin establishment) and `/readyz` success. `ENDPOINT_SAVED` and
+`VERIFIED_ENDPOINT_DELIVERED` prove endpoint persistence/delivery; caregiver
+login and authorized Home are a separate acceptance result. Keep the original
+commercial package installed throughout.
+
+Only after Agrim passes those separate discovery and secure-readiness checks,
+continue Yogi → Agrim → Yogi on the TEST_ONLY app and retain the same test-app
+data. The persistent privileged network watcher remains unregistered and
+requires separate explicit approval. Physical Hub/PIR operation is not part of
+this task.

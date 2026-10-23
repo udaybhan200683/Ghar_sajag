@@ -718,3 +718,24 @@ resolve and Yogi → Agrim → Yogi checks while capturing `ParivarSaathiLan` lo
 record the actual phone visibility result separately from the Windows callback
 and hosted CI. Do not activate the privileged watcher, mutate firewall or
 forwarding, or claim physical acceptance from software results.
+
+### 2026-10-23 side-by-side build checkpoint
+
+The owner requested a separate GS-179 discovery APK, not a replacement of the
+commercial app. The debug TEST_ONLY build now has application ID
+`in.gharsajag.caregiver.discoverytest`, a visible TEST_ONLY launcher label and
+a repeatable signer isolated from production signing. Implementation and local
+validation details, Android logcat instructions and the Agrim-first test
+sequence are in [GS-179 discovery evidence](GS179_DNSSD_AUTODISCOVERY_20261023.md#side-by-side-discovery-acceptance-apk-preparation--2026-10-23).
+
+Current checkpoint: feature traceability passed 22/22 (225 rows, 280 modules,
+26 physical cases); Python, registry JSON, workflow YAML and diff checks passed.
+Hosted Android/browser build and artifact verification remain pending the
+canonical push. No local ADB/Android SDK is available, so no installation,
+phone discovery, log capture, uninstall, or data change occurred. Agrim
+automatic discovery and Yogi → Agrim → Yogi remain NOT_RUN. The TEST_ONLY
+signer fingerprint is recorded in the GS-179 evidence; its private key and
+password remain in owner-only storage and GitHub Actions secrets. Next action:
+push the validated source, run the registered combined Android/browser gate,
+then update the evidence with the built APK hash and source commit. The
+privileged watcher remains unregistered.

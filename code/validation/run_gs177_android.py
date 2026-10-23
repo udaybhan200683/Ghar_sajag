@@ -22,6 +22,7 @@ APK = PROJECT / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
 TEST_RESULTS = PROJECT / "app" / "build" / "test-results" / "testDebugUnitTest"
 SDK_ROOT = Path(os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HOME", ""))
 BUILD_TOOLS = SDK_ROOT / "build-tools" / "35.0.0"
+EXPECTED_TEST_SIGNER = PROJECT / "app" / "gs179_discovery_test_signer_sha256.txt"
 BRANDING_SCRIPT = ROOT / "parivar_saathi_android_app/branding/generate_parivar_saathi_assets.py"
 BRANDING_SOURCE = ROOT / "parivar_saathi_android_app/branding/source/Parivar_Saathi_Logo.png"
 BRANDING_SOURCE_SHA256 = "d0ff244d61b5cb047c320fc3af1028fa8e780186189a481657b8fea14b679441"
@@ -244,6 +245,17 @@ def main() -> int:
         print("GS177 ANDROID BUILD BLOCKED dependency=approved_hosted_backend_origin", flush=True)
         return 127
     if local_lan_test_only == "1":
+        if ('"in.gharsajag.caregiver.discoverytest"' not in gradle_build or
+                '"in.gharsajag.caregiver"' not in gradle_build or
+                "GS179_DISCOVERY_TEST_KEYSTORE_PATH" not in gradle_build or
+                "GS179_DISCOVERY_TEST_KEYSTORE_PASSWORD" not in gradle_build or
+                "gs179DiscoveryTest" not in gradle_build):
+            print("GS177 ANDROID BUILD FAIL side_by_side_TEST_ONLY_identity_missing", flush=True)
+            return 1
+        if not EXPECTED_TEST_SIGNER.is_file() or not re.fullmatch(
+                r"[0-9a-f]{64}", EXPECTED_TEST_SIGNER.read_text(encoding="ascii").strip()):
+            print("GS177 ANDROID BUILD FAIL persistent_TEST_ONLY_signer_fingerprint_missing", flush=True)
+            return 1
         try:
             parsed = urlsplit(backend_origin)
             host = parsed.hostname or ""
@@ -371,6 +383,54 @@ def main() -> int:
     if not APK.is_file():
         print(f"GS177 ANDROID DASHBOARD FAIL apk_missing={APK}", flush=True)
         return 1
+
+    expected_package = (
+        "in.gharsajag.caregiver.discoverytest"
+        if local_lan_test_only == "1"
+        else "in.gharsajag.caregiver"
+    )
+    rc, package_output = run(
+        [str(BUILD_TOOLS / "aapt"), "dump", "badging", str(APK)],
+        cwd=PROJECT,
+        emit_output=False,
+    )
+    package_match = re.search(r"(?m)^package: name='([^']+)'", package_output)
+    expected_label = (
+        "Parivar Saathi TEST_ONLY"
+        if local_lan_test_only == "1"
+        else "Parivar Saathi"
+    )
+    label_match = re.search(r"(?m)^application-label:'([^']+)'", package_output)
+    if (rc or not package_match or package_match.group(1) != expected_package or
+            not label_match or label_match.group(1) != expected_label):
+        print(
+            f"GS177 ANDROID DASHBOARD FAIL apk_identity_mismatch expected_package={expected_package}",
+            flush=True,
+        )
+        return 1
+    print(
+        f"CASE GS177-ANDROID-PACKAGE-ID-001 PASS package={expected_package} label={expected_label}",
+        flush=True,
+    )
+
+    if local_lan_test_only == "1":
+        rc, signature_output = run(
+            [str(BUILD_TOOLS / "apksigner"), "verify", "--verbose", "--print-certs", str(APK)],
+            cwd=PROJECT,
+            emit_output=False,
+        )
+        match = re.search(
+            r"(?mi)^Signer #1 certificate SHA-256 digest:\s*([0-9a-f]{64})\s*$",
+            signature_output,
+        )
+        signer_sha256 = match.group(1).lower() if match else ""
+        expected_sha256 = EXPECTED_TEST_SIGNER.read_text(encoding="ascii").strip()
+        if rc or signer_sha256 != expected_sha256:
+            print("GS177 ANDROID DASHBOARD FAIL persistent_TEST_ONLY_signer_mismatch", flush=True)
+            return 1
+        print(f"CASE GS179-DISCOVERYTEST-SIGNER-001 PASS sha256={signer_sha256}", flush=True)
+    else:
+        print("CASE GS179-DISCOVERYTEST-SIGNER-001 NOT_APPLICABLE production_profile", flush=True)
 
     required_assets = {
         "assets/index.html",

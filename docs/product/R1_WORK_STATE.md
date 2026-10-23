@@ -6377,3 +6377,36 @@ working app. Then capture `ParivarSaathiLan` logs while exercising Android
 discovery, secure endpoint verification and Yogi → Agrim → Yogi. Record handset
 visibility separately from Windows callback/CI results. Physical acceptance,
 release approval and Hub/PIR qualification remain NOT_RUN.
+
+## GS-179 / GS-177 side-by-side discovery build — 2026-10-23
+
+The owner requested a separate physical-discovery APK while preserving the
+installed commercial application. Canonical GS-75 UI and corrected GS-179
+discovery sources are reused as-is; no old UI branch was merged. The explicit
+GS-179 debug TEST_ONLY profile now produces package
+`in.gharsajag.caregiver.discoverytest` with a visible TEST_ONLY label. Normal
+debug/release IDs and production behavior remain unchanged. A separate
+persistent TEST_ONLY PKCS#12 identity is stored outside Git at the owner-only
+path documented in the GS-179 evidence and in GitHub Actions encrypted
+secrets; source contains only its public SHA-256 fingerprint. TLS CA/IP SAN,
+laptop DNS SAN, SPKI continuity, authentication/Home authorization and manual
+IP fallback are unchanged.
+
+Before the hosted build, `make -C code feature-coverage-test` passed with 225
+features, 280 modules, 26 physical cases and 22/22 checks. Python compilation,
+validation-registry JSON parsing, workflow YAML parsing and `git diff --check`
+passed. Hosted Android/browser build and APK signature/package checks are
+pending push. ADB, Java and Gradle are unavailable locally, so physical Agrim
+discovery is NOT_RUN; no APK was installed and no existing app/data/settings
+were modified. Do not infer handset reception from the Windows advertiser or
+workflow results.
+
+Next action: push this source, run the hosted registered caregiver/Android
+suite and PWA browser regression, verify package and persistent signer in the
+APK, and record its SHA-256/artifact/source. Then the owner must first test the
+new app on Agrim without manually entering the laptop IP, distinguish DNS-SD
+receive/resolve from verified TLS/readiness and caregiver Home authorization,
+and only after those pass run Yogi → Agrim → Yogi. Preserve the existing
+commercial APK and its data. The privileged network watcher remains
+unregistered and requires separate explicit approval; do not operate the Hub or
+PIR. See [GS-179 discovery acceptance evidence](../exec-plans/evidence/GS179_DNSSD_AUTODISCOVERY_20261023.md#side-by-side-discovery-acceptance-apk-preparation--2026-10-23).

@@ -73,12 +73,30 @@ val pilotKeyPassword = System.getenv("GS177_KEYSTORE_PASSWORD")
 val pilotAlias = System.getenv("GS177_KEY_ALIAS")
 val pilotAliasPassword = System.getenv("GS177_KEY_PASSWORD")
 val pilotSigningConfigured = listOf(pilotKeyPath, pilotKeyPassword, pilotAlias, pilotAliasPassword).all { !it.isNullOrBlank() }
+val gs179TestKeyPath = System.getenv("GS179_DISCOVERY_TEST_KEYSTORE_PATH")
+val gs179TestKeyPassword = System.getenv("GS179_DISCOVERY_TEST_KEYSTORE_PASSWORD")
+val gs179TestAlias = System.getenv("GS179_DISCOVERY_TEST_KEY_ALIAS")
+val gs179TestAliasPassword = System.getenv("GS179_DISCOVERY_TEST_KEY_PASSWORD")
+val gs179TestSigningConfigured = listOf(
+    gs179TestKeyPath, gs179TestKeyPassword, gs179TestAlias, gs179TestAliasPassword,
+).all { !it.isNullOrBlank() }
+
+if (gs179LocalLanTestOnly && !gs179TestSigningConfigured) {
+    throw GradleException("GS-179 side-by-side TEST_ONLY builds require the persistent discovery-test signing identity")
+}
+if (gs179LocalLanTestOnly && gs179TestKeyPath?.let { file(it).isFile } != true) {
+    throw GradleException("GS-179 discovery-test keystore is missing")
+}
 
 android {
     namespace = "in.gharsajag.caregiver"
     compileSdk = 35
     defaultConfig {
-        applicationId = "in.gharsajag.caregiver"
+        applicationId = if (gs179LocalLanTestOnly) {
+            "in.gharsajag.caregiver.discoverytest"
+        } else {
+            "in.gharsajag.caregiver"
+        }
         minSdk = 26
         targetSdk = 35
         versionCode = 3
@@ -93,15 +111,24 @@ android {
             keyAlias = pilotAlias!!
             keyPassword = pilotAliasPassword!!
         }
+        if (gs179TestSigningConfigured) create("gs179DiscoveryTest") {
+            storeFile = file(gs179TestKeyPath!!)
+            storePassword = gs179TestKeyPassword!!
+            keyAlias = gs179TestAlias!!
+            keyPassword = gs179TestAliasPassword!!
+            storeType = "pkcs12"
+        }
     }
     buildTypes {
         getByName("debug") {
             buildConfigField("String", "BACKEND_ORIGIN", "\"$caregiverDebugOrigin\"")
             buildConfigField("boolean", "DEV_ENDPOINT_CONFIG_ALLOWED", "true")
             buildConfigField("boolean", "GS179_LOCAL_LAN_TEST_ONLY", gs179LocalLanTestOnly.toString())
-            // The laptop LAN profile is always an installable TEST_ONLY build;
-            // never sign it with the owner-controlled pilot key.
-            if (pilotSigningConfigured && !gs179LocalLanTestOnly) {
+            // The LAN build has its own stable TEST_ONLY package and signer.
+            // Commercial debug/release identity and pilot signing stay unchanged.
+            if (gs179LocalLanTestOnly) {
+                signingConfig = signingConfigs.getByName("gs179DiscoveryTest")
+            } else if (pilotSigningConfigured) {
                 signingConfig = signingConfigs.getByName("pilot")
             }
         }

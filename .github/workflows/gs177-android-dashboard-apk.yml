@@ -44,10 +44,6 @@ jobs:
     env:
       GS177_BACKEND_ORIGIN: ${{ inputs.backend_origin || vars.GS177_BACKEND_ORIGIN || 'https://parivar-saathi-lite-staging.onrender.com' }}
       GS177_LOCAL_LAN_TEST_ONLY: ${{ inputs.gs179_local_lan_test_only && '1' || '0' }}
-      GS177_KEYSTORE_B64: ${{ secrets.GS177_KEYSTORE_B64 }}
-      GS177_KEYSTORE_PASSWORD: ${{ secrets.GS177_KEYSTORE_PASSWORD }}
-      GS177_KEY_ALIAS: ${{ secrets.GS177_KEY_ALIAS }}
-      GS177_KEY_PASSWORD: ${{ secrets.GS177_KEY_PASSWORD }}
     permissions:
       contents: read
     steps:
@@ -75,9 +71,33 @@ jobs:
           gradle-version: '8.9'
           cache-provider: basic
 
-      - name: Prepare owner-controlled pilot signing key when supplied
-        if: env.GS177_LOCAL_LAN_TEST_ONLY != '1' && env.GS177_KEYSTORE_B64 != ''
+      - name: Prepare persistent GS-179 discovery-test signing identity
+        if: env.GS177_LOCAL_LAN_TEST_ONLY == '1'
         shell: bash
+        env:
+          GS179_DISCOVERY_TEST_KEYSTORE_B64: ${{ secrets.GS179_DISCOVERY_TEST_KEYSTORE_B64 }}
+          GS179_DISCOVERY_TEST_KEYSTORE_PASSWORD: ${{ secrets.GS179_DISCOVERY_TEST_KEYSTORE_PASSWORD }}
+          GS179_DISCOVERY_TEST_KEY_ALIAS: ${{ secrets.GS179_DISCOVERY_TEST_KEY_ALIAS }}
+          GS179_DISCOVERY_TEST_KEY_PASSWORD: ${{ secrets.GS179_DISCOVERY_TEST_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${GS179_DISCOVERY_TEST_KEYSTORE_B64:?missing persistent TEST_ONLY keystore}"
+          : "${GS179_DISCOVERY_TEST_KEYSTORE_PASSWORD:?missing TEST_ONLY keystore password}"
+          : "${GS179_DISCOVERY_TEST_KEY_ALIAS:?missing TEST_ONLY key alias}"
+          : "${GS179_DISCOVERY_TEST_KEY_PASSWORD:?missing TEST_ONLY key password}"
+          key_path="$RUNNER_TEMP/gs179-discovery-test.p12"
+          printf '%s' "$GS179_DISCOVERY_TEST_KEYSTORE_B64" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+          printf 'GS179_DISCOVERY_TEST_KEYSTORE_PATH=%s\n' "$key_path" >> "$GITHUB_ENV"
+
+      - name: Prepare owner-controlled pilot signing key when supplied
+        if: env.GS177_LOCAL_LAN_TEST_ONLY != '1'
+        shell: bash
+        env:
+          GS177_KEYSTORE_B64: ${{ secrets.GS177_KEYSTORE_B64 }}
+          GS177_KEYSTORE_PASSWORD: ${{ secrets.GS177_KEYSTORE_PASSWORD }}
+          GS177_KEY_ALIAS: ${{ secrets.GS177_KEY_ALIAS }}
+          GS177_KEY_PASSWORD: ${{ secrets.GS177_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           if [[ -n "$GS177_KEYSTORE_B64" ]]; then
@@ -104,6 +124,12 @@ jobs:
         working-directory: code
         env:
           GITHUB_SHA: ${{ github.sha }}
+          GS177_KEYSTORE_PASSWORD: ${{ inputs.gs179_local_lan_test_only != true && secrets.GS177_KEYSTORE_PASSWORD || '' }}
+          GS177_KEY_ALIAS: ${{ inputs.gs179_local_lan_test_only != true && secrets.GS177_KEY_ALIAS || '' }}
+          GS177_KEY_PASSWORD: ${{ inputs.gs179_local_lan_test_only != true && secrets.GS177_KEY_PASSWORD || '' }}
+          GS179_DISCOVERY_TEST_KEYSTORE_PASSWORD: ${{ inputs.gs179_local_lan_test_only && secrets.GS179_DISCOVERY_TEST_KEYSTORE_PASSWORD || '' }}
+          GS179_DISCOVERY_TEST_KEY_ALIAS: ${{ inputs.gs179_local_lan_test_only && secrets.GS179_DISCOVERY_TEST_KEY_ALIAS || '' }}
+          GS179_DISCOVERY_TEST_KEY_PASSWORD: ${{ inputs.gs179_local_lan_test_only && secrets.GS179_DISCOVERY_TEST_KEY_PASSWORD || '' }}
         run: python3 validation/component_gate.py --suite caregiver-app
 
       - name: Verify APK signature and write artifact evidence
@@ -116,17 +142,35 @@ jobs:
           apk_source='code/parivar_saathi_android_app/android/app/build/outputs/apk/debug/app-debug.apk'
           apk_dir="$RUNNER_TEMP/gs177-apk"
           mkdir -p "$apk_dir"
-          cp "$apk_source" "$apk_dir/parivar-saathi-caregiver-debug.apk"
-          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_dir/parivar-saathi-caregiver-debug.apk"
+          if [[ "$GS177_LOCAL_LAN_TEST_ONLY" == '1' ]]; then
+            apk_name='parivar-saathi-discoverytest-debug.apk'
+            expected_package='in.gharsajag.caregiver.discoverytest'
+            signing_label='persistent-GS179-TEST_ONLY'
+          else
+            apk_name='parivar-saathi-caregiver-debug.apk'
+            expected_package='in.gharsajag.caregiver'
+            signing_label='owner-controlled-pilot-or-debug'
+          fi
+          cp "$apk_source" "$apk_dir/$apk_name"
+          signature_output=$("$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_dir/$apk_name")
+          printf '%s\n' "$signature_output"
+          signer_fingerprint=$(printf '%s\n' "$signature_output" | sed -nE 's/^Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]{64})$/\1/p' | head -n 1 | tr '[:upper:]' '[:lower:]')
+          test -n "$signer_fingerprint"
+          actual_package=$("$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging "$apk_dir/$apk_name" | sed -nE "s/^package: name='([^']+)'.*/\1/p" | head -n 1)
+          test "$actual_package" = "$expected_package"
+          if [[ "$GS177_LOCAL_LAN_TEST_ONLY" == '1' ]]; then
+            expected_signer=$(tr -d '\r\n' < code/parivar_saathi_android_app/android/app/gs179_discovery_test_signer_sha256.txt)
+            test "$signer_fingerprint" = "$expected_signer"
+          fi
           (
             cd "$apk_dir"
-            sha256sum parivar-saathi-caregiver-debug.apk > SHA256SUMS
+            sha256sum "$apk_name" > SHA256SUMS
             sha256sum --check SHA256SUMS
           )
           {
             printf 'source_revision=%s\n' "$ANDROID_SOURCE_REVISION"
             printf 'source_ref=%s\n' "$ANDROID_SOURCE_REF"
-            printf 'package_name=in.gharsajag.caregiver\n'
+            printf 'package_name=%s\n' "$expected_package"
             printf 'version_name=0.4.0-connected-lite-staging\n'
             printf 'gradle=8.9\njava=17\nandroid_compile_sdk=35\n'
             printf 'backend_origin=%s\n' "$GS177_BACKEND_ORIGIN"
@@ -139,18 +183,19 @@ jobs:
             printf 'bundled_ui=existing-tools/sim/pwa\n'
             printf 'push_notifications=disabled\nvoice_calling=disabled\n'
             if [[ "$GS177_LOCAL_LAN_TEST_ONLY" == '1' ]]; then
-              printf 'signing=runner-generated-debug-key; local-lan-test-only\n'
+              printf 'signing=%s\n' "$signing_label"
             elif [[ -n "${GS177_KEYSTORE_PATH:-}" ]]; then
               printf 'signing=owner-controlled-pilot-key\n'
             else
               printf 'signing=runner-generated-debug-key; testing-only; uninstall-previous-may-be-required\n'
             fi
+            printf 'signer_certificate_sha256=%s\n' "$signer_fingerprint"
           } > "$apk_dir/build-info.txt"
 
       - name: Upload APK and SHA-256 evidence
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: parivar-saathi-caregiver-debug-${{ github.sha }}
+          name: parivar-saathi-${{ inputs.gs179_local_lan_test_only && 'discoverytest' || 'caregiver' }}-debug-${{ github.sha }}
           path: ${{ runner.temp }}/gs177-apk/
           if-no-files-found: error
           retention-days: 14
