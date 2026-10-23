@@ -6284,3 +6284,36 @@ the correction; the full suite was not rerun. Physical phone automatic DNS-SD
 and router-switch validation remain NOT_RUN. See the dated GS-179 execution
 evidence for exact artifact, current Windows profile, signing mismatch and
 owner-reported IP-fallback result.
+
+## GS-177 + GS-179 canonical integration — 2026-10-23
+
+GS-179 source ownership was explicitly handed off before this integration. The
+incremental GS-177 UI correction from feature HEAD
+`a0f49c5bb855a716647521ad3bd1f7a487394816` was integrated into canonical starting
+at `b4eaa05f999680d3dfe0f8c3d9e553a19941c032`, preserving commit history and
+avoiding replay of earlier UI work already present in canonical. Current local
+HEAD is `563691589e72b09f7b5ef2564e6c4464cd2512b4`; canonical remote was still at
+the starting SHA at the last check. Three local commits are pending normal push.
+
+The final isolated GS-179 PostgreSQL/security run passed all 55 tests in
+491.530 seconds using a temporary database/TLS environment. The GS-177
+connected-lite suite passed 22 API tests, 10 runtime tests and 3 scenarios;
+standalone caregiver runtime passed 10/10; feature coverage passed at 225 rows,
+280 modules, 26 physical cases and 22/22 framework tests. Caregiver-app gate
+API (22) and voice prototype (28) stages passed. Its Android stage reached the
+source, branding and runtime checks, then stopped because local Gradle is not
+installed. The local PWA browser gate skipped all tests because no Chromium or
+Chrome executable is installed. Hosted Android workflow and full browser stage
+are still required for the final APK artifact.
+
+Visual evidence is the existing five-screen 390×844 mock-authenticated browser
+capture set linked in `GS177_ANDROID_UX_IMPLEMENTATION_20261022.md`; these are
+not phone/WebView acceptance. Physical Android login, discovery, Yogi → Agrim →
+Yogi roaming, offline recovery, untrusted-network guard, and sensor/Hub tests
+remain NOT_RUN. The owner services were intentionally left running. All
+pre-existing untracked files and reference images were preserved. Next steps:
+review and commit the evidence plus the narrow Playwright teardown fix, push the
+three integration commits and evidence commit to the canonical branch, verify
+remote HEAD, then dispatch the combined TEST_ONLY Android workflow and record
+artifact/source/signature evidence. Do not install the APK or claim phone
+acceptance.

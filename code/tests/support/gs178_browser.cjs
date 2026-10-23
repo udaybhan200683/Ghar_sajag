@@ -15,8 +15,9 @@ const os = require('os');
   const executablePath=process.env.GS178_CHROMIUM||candidates.find(file=>fs.existsSync(file));
   if(!executablePath)throw Error('GS178 browser executable unavailable');
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-background-networking']});
+  let context;
   try {
-    const context=await browser.newContext();
+    context=await browser.newContext();
     const requests=[];let offline=false;
     await context.route('**/*',async route=>{
       if(offline){await route.abort('internetdisconnected');return;}
@@ -116,5 +117,10 @@ const os = require('os');
     }
     fs.writeFileSync(config.dom,await page.content());
     console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:assertions,requests,physical:'NOT_RUN'}));
-  } finally {await browser.close();}
+  } finally {
+    // Ignore route.fetch failures that arrive after teardown starts; request
+    // assertions above still fail on errors raised during the active scenario.
+    if(context)await context.unrouteAll({behavior:'ignoreErrors'});
+    await browser.close();
+  }
 })().catch(error=>{console.error(error.stack);process.exit(1)});
