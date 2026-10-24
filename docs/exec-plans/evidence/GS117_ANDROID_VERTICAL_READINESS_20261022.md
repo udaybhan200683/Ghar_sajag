@@ -825,3 +825,83 @@ inputs are approved and present. Verify the installed APK package/signer,
 backend origin and authorized Home on the phone. Then complete the owner-only
 receipts and run TC-001. Preserve all stored events and the separate optical
 PIR qualification gate.
+
+### 2026-10-24 current-source C3 HIL-awake deployment — HEAD 60574c4
+
+**Authorization:** Owner explicitly authorized current-source HIL-awake
+TEST_ONLY C3 app firmware on COM4 / `14:63:93:C5:D1:58`, including the
+expected app reboot, after partition, compatibility and recovery verification.
+No S3 write, whole-chip erase, eFuse, NVS, credentials, enrollment, ownership
+or database mutation was authorized or performed. The inactive C3 OTA app
+partition alone was erased/written by the app-only update. COM10 identity
+inspection used the expected read-only `flash-id` reset and wrote no S3 flash.
+
+**Build:** Context preflight passed (`2026-10-13.001`) at
+`60574c4d3b98ded68bd18df611335afea48862fc`. ESP-IDF 6.0.3 C3 HIL-awake
+candidate version `60574c4-gs117-hilawake-20261024`, 945,584 bytes,
+SHA-256 `d1e7f89d473d3443b4b0380a53764f7521e88df2a452251f8a326656a8d74136`;
+flags `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`, `IDF_TARGET=esp32c3`. A separate normal
+sleep-enabled C3 image built from the same source, with HIL control disabled;
+it was not installed. GS-114 physical-wake/battery qualification is
+unchanged.
+
+**App-only installation:** Live COM4 identity was rechecked as ESP32-C3 rev
+0.4 / 4 MiB XMC flash. The live partition table matched the candidate. Before
+the update, `ota_0` was active, `ota_1` was entirely erased, and a complete
+`ota_0` readback was preserved under the ignored build directory. The
+bootloader matched a build with rollback support enabled; it was not written.
+The existing `otatool.py write_ota_partition` wrapper failed before writing
+because of its `input`/`input_file` parameter mismatch. The ESP-IDF
+`parttool.py write_partition --partition-name ota_1` then erased/wrote only
+the blank inactive app slot, and the full slot readback matched the candidate
+byte-for-byte. `otatool.py switch_ota_partition --slot 1` changed the OTA
+selector in `otadata`; it did not touch application data in NVS.
+
+The installed app reported `ota_slot=ota_1`,
+`power_mode=HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`,
+`physical_wake=0`. Windows COM4/USB identity remained stable during 27
+read-only `GET_STATE` queries spanning approximately 15–132 seconds, with
+stable later heap values. However, `sensing_live=0` and `runtime_live=0`
+throughout. The source marks NodeRuntime owner-start only after its
+authenticated Hub session/channel path; the current authenticated Hub
+readiness is therefore not established. Do not issue `INJECT_MOTION` until
+that gate and the console's owner-only fixture receipts pass.
+
+COM10 was independently identified read-only as ESP32-S3 rev 0.2 with
+16 MiB flash / 8 MiB PSRAM. Its running firmware composition is still
+unverified. The existing console's owner-only fixture file is absent, and its
+read-only backend readiness reports PostgreSQL, caregiver HTTPS, local
+backend and LAN TLS `PASS`, but Hub ingress `NOT_CONFIGURED`. No TC-001
+injection/EventKey/database event/APK event was generated. The existing
+HOST_SIM seed remains historical only.
+
+The untouched `ota_0` image is available for manual selector restoration.
+Automatic rollback is not claimed: the external selector switch preserves
+the prior OTA image-state field rather than setting `ESP_OTA_IMG_NEW`, and no
+automatic return to `ota_0` occurred during observation. If recovery is needed,
+use the official ESP-IDF selector to return to slot 0; do not erase the device.
+
+Focused tests passed: C3 USB-stable profile **4/4**, TC-001 console **17/17**.
+The normal sleep-enabled C3 image built successfully and was not flashed.
+`make -C code validation-node` completed with exit **2**,
+`software_status=FAIL`, `physical_status=NOT_RUN`, and source unchanged.
+The C3 HIL profile stage passed **4/4**; 29 other registered stages passed.
+`p0-full-product-e2e` remains a gate FAIL because `product_status=PARTIAL`
+while physical qualification is `NOT_RUN` (all 26 scenario assertions
+passed). `gs178-node-caregiver-e2e` ran 33 tests and failed one existing
+browser assertion: `[data-event-key]` expected 2 elements and found 0 in
+`test_07_actual_shared_caregiver_browser_and_actions`; product source was
+unchanged. Host board-stack simulation passed 10 groups but is not physical
+evidence. Build outputs and readbacks are ignored/local and are intentionally
+not staged. Full hashes, flash ranges and stage evidence are in
+[`GS117_C3_HIL_AWAKE_FLASH_20261024`](../../hw/evidence/GS117_C3_HIL_AWAKE_FLASH_20261024/README.md).
+
+**Next exact action:** Before any TC-001 injection, establish the running
+S3 product image and authenticated Hub/Home/epoch/Node relationship, configure
+the existing approved TEST_ONLY ingress, verify trusted time/mTLS, install
+fresh owner-only C3/S3/APK/ingress receipts, and confirm C3 `runtime_live`
+advances. Then use the existing console for one controlled motion and verify
+the same original EventKey through the physical S3, durable backend and actual
+Android APK. Preserve both OTA application slots, the current Home and all
+stored events.

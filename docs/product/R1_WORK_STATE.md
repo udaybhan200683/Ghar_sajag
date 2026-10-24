@@ -6665,3 +6665,47 @@ reason are in the [dated GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VE
 No flash, reset command, USB/IP detach, credential, ownership or database
 change occurred; serial-open reset effects are not qualified. Existing
 untracked/ignored files, all stored data and GS-114 status remain preserved.
+
+### GS-117 current-source C3 HIL-awake deployment — 2026-10-24, HEAD 60574c4
+
+Owner-authorized COM4 app-only deployment used the ESP-IDF 6.0.3 C3 product
+build from canonical HEAD `60574c4d3b98ded68bd18df611335afea48862fc`. Candidate
+version `60574c4-gs117-hilawake-20261024`, SHA-256
+`d1e7f89d473d3443b4b0380a53764f7521e88df2a452251f8a326656a8d74136`, with
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`. It was installed to the verified blank
+`ota_1` app partition only; full-slot readback matched. COM4 identity and
+installed `HIL_AWAKE_TEST_ONLY` state were verified; 27 status queries were
+responsive with stable later heap. The untouched prior `ota_0` app is retained
+as manual recovery. Automatic rollback is not claimed for the host selector
+method. The separate normal sleep-enabled C3 build succeeded and was not
+flashed. GS-114 physical-wake/battery qualification is unchanged.
+
+C3 state remained `sensing_live=0`, `runtime_live=0`; therefore the physical
+NodeRuntime is not ready and `INJECT_MOTION` was not issued. COM10 is verified
+as ESP32-S3 rev 0.2, 16 MiB flash / 8 MiB PSRAM, but its current product image
+and Hub credentials/ownership/trusted time are not verified. Existing TC-001
+fixture receipt is absent; current laptop readiness is PostgreSQL, caregiver
+HTTPS, backend and LAN TLS `PASS`, with `HUB_INGRESS_READY=NOT_CONFIGURED`.
+TC-001 remains BLOCKED/NOT_RUN with no new EventKey, database event or APK
+observation. See the [deployment evidence](../hw/evidence/GS117_C3_HIL_AWAKE_FLASH_20261024/README.md)
+and [dated handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-current-source-c3-hil-awake-deployment--head-60574c4).
+
+C3 USB profile regression **4/4 PASS**; TC-001 console regression **17/17
+PASS**; normal sleep-enabled firmware build **PASS**. `make -C code
+validation-node` completed with exit **2**, `software_status=FAIL`,
+`physical_status=NOT_RUN`, and source unchanged. The registered C3 HIL profile
+stage passed **4/4**; 29 other stages passed. `p0-full-product-e2e` is a gate
+FAIL because `product_status=PARTIAL` while physical qualification is
+`NOT_RUN` (all 26 scenario assertions passed). `gs178-node-caregiver-e2e` ran
+33 tests and failed the existing browser assertion `[data-event-key]` expected
+2, received 0, in `test_07_actual_shared_caregiver_browser_and_actions`; product
+source was unchanged. Host board-stack simulation passed 10 groups and is not
+physical evidence. No source implementation changed; only scoped
+status/evidence documentation is intended for commit. Untracked and ignored
+owner assets and all existing application/device data remain preserved.
+
+Next action: complete the existing Hub identity/trusted-time/mTLS/ownership and Android APK/Home receipts
+before attempting the existing TC-001 console. Require C3 `runtime_live`
+to advance before injection; do not treat HIL UART acknowledgement alone as a
+NodeRuntime event or claim physical end-to-end success.
