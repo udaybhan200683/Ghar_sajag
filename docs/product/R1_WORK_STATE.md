@@ -6637,3 +6637,31 @@ No safe current-image observer, reset-safe COM handoff, app-only rollback
 package, physical Hub identity/trusted-time/ownership binding or phone receipt
 is available. No flash, reset, USB detach, enrollment, credential or listener
 change was performed. Keep all existing data and release/GS-114 statuses.
+
+### GS-117 owner-authorized inspection — 2026-10-24, HEAD 44f53a1
+
+Owner authorization was recorded in GS-117 comment 11618 for exact COM4 C3
+`14:63:93:C5:D1:58` and COM10 spare S3 `E0:72:A1:D3:8D:34`: Windows port
+discovery, reset-aware serial inspection and existing status queries; one
+`INJECT_MOTION` only after current C3 mode and security/delivery prerequisites
+are verified. Flash, eFuse, NVS, credential and ownership changes remain out of
+scope absent compatibility, preservation and verified recovery evidence.
+
+Fresh Windows PnP and the TC-001 helper matched both exact serial interfaces.
+COM4 returned `GET_STATE`, with session 20, retained/in-flight 0, but
+`sensing_live=0`, `runtime_live=0`; the response did not establish the running
+firmware version or HIL-awake/build/physical-wake flags. COM10 opened once, but
+no allow-listed startup/status line or HIL acknowledgement was captured. The
+latest recorded S3 image is still diagnostic-only, not full product HubRuntime
++ CloudSync. No S3 retry/reopen followed the missing response, consistent with
+the bounded one-open observer stop rule.
+
+Laptop PostgreSQL/caregiver HTTPS/LAN TLS remain PASS. Physical Hub ingress is
+still `NOT_CONFIGURED`; real Hub certificate/trusted-time/ownership/enrollment
+binding and phone package/origin/Home evidence remain absent. Therefore no
+injection was issued. TC-001 remains `BLOCKED` / `NOT_RUN`, with no EventKey,
+new database record or APK observation. The full stage evidence and stop
+reason are in the [dated GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-owner-authorized-physical-inspection--head-44f53a1).
+No flash, reset command, USB/IP detach, credential, ownership or database
+change occurred; serial-open reset effects are not qualified. Existing
+untracked/ignored files, all stored data and GS-114 status remain preserved.

@@ -1,5 +1,81 @@
 # GS-117 Android sensor vertical readiness — 2026-10-22
 
+## 2026-10-24 owner-authorized physical inspection — HEAD 44f53a1
+
+The owner authorized this identified TEST_ONLY fixture session in GS-117
+comment **11618**: Windows COM discovery, reset-aware serial inspection and
+existing firmware/HIL queries for COM4 C3 (`14:63:93:C5:D1:58`) and COM10
+owner-designated spare S3 (`E0:72:A1:D3:8D:34`). One C3 `INJECT_MOTION` is
+authorized only after firmware eligibility and Home/Node/Hub security and
+delivery prerequisites verify. Flash, eFuse, NVS, credential and ownership
+changes are explicitly excluded without separate compatibility/state/recovery
+proof.
+
+Immediately before inspection, local and remote canonical HEAD were
+`44f53a1d0026ef61a6bdc84416050044809fc4bd`; context preflight passed. Windows
+PnP found COM4 and COM10 present with status OK. `usbipd` showed both native
+Espressif USB Serial/JTAG interfaces as Shared; no ownership handoff or detach
+was needed. The existing Windows helper's read-only `List` matched each exact
+COM number, USB hardware ID and USB serial. Both single-port serial opens
+succeeded, which is evidence that no conflicting exclusive open blocked them
+at those instants. DTR/RTS were requested low before open; no control-line
+telemetry was available, so this does not qualify reset-safe behavior.
+
+The COM4 C3 returned `HIL_OK command=GET_STATE` and
+`HIL_STATE role=c3 session=20 retained=0 in_flight=0 sensing_live=0
+runtime_live=0 pending_inject=0 heap=197956 min_heap=189708 ota_slot=ota_0`.
+The observed HIL state did not include the required power-mode/build/control/
+physical-wake flags, and no current firmware version or startup receipt was
+captured. This proves the query interface answered, but does not prove
+`HIL_AWAKE_TEST_ONLY` or injection eligibility. The runtime/sensing readiness
+values are both false (`sensing_live=0`, `runtime_live=0`), a further stop
+condition for motion injection.
+
+The existing C3 HIL-awake build artifact remains SHA-256
+`2497e6bbecc0f8b09954c9e3ac83b994b17f72621abb19eddd719d5dda4df67f` with
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`, and
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`; this artifact is not evidence of the installed
+image.
+
+The COM10 S3 opened once and received a `GET_STATE` request, but the bounded
+redacted observer captured no allow-listed startup/status line and no HIL
+acknowledgement. This is not a current firmware identity or S3 product-runtime
+receipt. The latest recorded install evidence remains the spare's TEST_ONLY
+GS-68 diagnostic image, which is not full HubRuntime + CloudSync and has no
+provisioned DS identity. The S3 query was attempted once. No retry/reopen
+followed the missing response, consistent with the existing bounded one-open
+observer stop rule.
+
+The laptop backend health was checked again: PostgreSQL, caregiver HTTPS and
+LAN TLS passed, but physical Hub ingress remains `NOT_CONFIGURED`, Hub identity
+is unauthenticated and monitoring freshness is unknown. The existing local
+Home/Hub/Node enrollment is synthetic. No Android Debug Bridge or current
+phone-install receipt is available. Thus the authenticated S3-to-backend path,
+physical ownership/enrollment, same-Home APK connection and APK event view
+remain unverified.
+
+| Stage | Result | Evidence |
+|---|---|---|
+| Exact Windows COM/USB identity | `PASS` | COM4 and COM10 match the identified fixture serials and PnP entries. |
+| C3 status-query transport | `PASS` | One open and `GET_STATE` acknowledgement; no exclusive-port conflict. |
+| C3 current image / HIL-awake / injection eligibility | `NOT_VERIFIED` | Runtime flags/version missing; `sensing_live=0`, `runtime_live=0`. |
+| S3 current image / product HubRuntime | `NOT_VERIFIED` | No captured startup/status response; historical image receipt is diagnostic-only. |
+| Physical S3 CloudSync / authenticated ingress | `BLOCKED` | Existing backend health says ingress `NOT_CONFIGURED`; physical identity/trust/time/ownership binding absent. |
+| C3 motion injection / new EventKey | `BLOCKED` | Not issued because C3 runtime and authenticated S3/backend prerequisites did not verify. |
+| PostgreSQL / caregiver API / APK for a fresh physical event | `NOT_VERIFIED` | No new physical EventKey; phone origin/Home and APK observation unavailable. |
+| TC-001 | `BLOCKED` | Inspection only; no injection or event delivery claim. HOST_SIM seed remains excluded. |
+
+No flash, reset command, eFuse action, NVS write, credential operation,
+ownership mutation, USB/IP detach or database mutation was issued. A serial
+open can have reset effects; available evidence does not establish the
+reset-line behavior of either port in general. Physical TC-001 remains
+`NOT_RUN`, not PASS. Preserve existing events and GS-114 qualification status.
+
+After inspection, existing software guard regressions ran without hardware
+access: TC-001 console **17/17**, GS-179 verified endpoint **2/2**, and C3
+HIL-awake/sleep profile **4/4** passed. Context preflight and
+`git diff --check` passed. These checks do not promote the physical stages.
+
 ## 2026-10-24 full physical E2E readiness audit — HEAD 5328c31
 
 Local and remote canonical HEAD were `5328c313918db7f7086752d2c9838a2ec8ccd460`;

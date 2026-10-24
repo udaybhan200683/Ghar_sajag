@@ -1361,3 +1361,23 @@ CloudSync activation. Physical TC-001 remains NOT_RUN. No requirement, trust
 policy, firmware, ownership, credential or network decision changed, and
 `CONTEXT_VERSION` is unchanged. See the dated
 [`GS-117 readiness evidence`](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-full-physical-e2e-readiness-audit--head-5328c31).
+
+## 2026-10-24 GS-117 owner-authorized inspection (evidence; no new decision)
+
+The owner granted and Jira GS-117 comment 11618 records scoped TEST_ONLY
+inspection of COM4 C3 and COM10 spare S3, including Windows discovery,
+reset-aware serial reads and current HIL/status queries. The C3 `GET_STATE`
+response confirms the HIL query transport but reports `sensing_live=0` and
+`runtime_live=0`; required installed HIL-awake flags/version were not captured.
+The one S3 query returned no status response. The laptop's physical Hub ingress
+remains `NOT_CONFIGURED`, with no authenticated physical identity/trust/time/
+ownership binding. Consequently, the authorized single C3 motion injection
+was withheld: its explicit security and runtime prerequisites do not pass.
+
+No firmware, NVS, eFuse, credential, ownership, USB/IP ownership, or database
+state was changed. The inspection does not qualify reset-safe serial behavior,
+Hub CloudSync, or APK connectivity. TC-001 remains `BLOCKED` / `NOT_RUN`; the
+existing GS-114 and GS-68 qualification states are unchanged. Full stage
+evidence is in the [dated GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-owner-authorized-physical-inspection--head-44f53a1).
+No locked decision or product requirement changed; `CONTEXT_VERSION` remains
+unchanged.
