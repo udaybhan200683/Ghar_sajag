@@ -331,6 +331,13 @@ int main() {{
         self.assertIn('option(GS_HIL_C8_ACK_DROP', cmake)
         self.assertRegex(cmake, r'if\(GS_HIL_C8_ACK_DROP AND \(NOT GS_HIL_COMMISSIONING')
         self.assertRegex(cmake, r'if\(GS_HIL_BUILD OR GS_HIL_CONTROL\)\s+message\(FATAL_ERROR')
+        gs40_guard = cmake.split('if(GS40_TEST_ONLY_CLOUDSYNC AND (', 1)[1].split('))', 1)[0]
+        self.assertNotIn('GS_HIL_COMMISSIONING', gs40_guard,
+                         'the exact-node commissioning adapter must compose with TEST_ONLY CloudSync')
+        for forbidden in ('GS_HIL_BUILD', 'GS_HIL_CONTROL', 'GS_HIL_C8_ACK_DROP',
+                          'GS_HIL_C8_ACK_HOLD', 'GS_HIL_SIGNED_FOTA'):
+            self.assertIn(forbidden, gs40_guard,
+                          f'GS40 TEST_ONLY CloudSync must continue rejecting {forbidden}')
         self.assertIn('if(GS_HIL_COMMISSIONING OR GS_HIL_C8_ACK_HOLD OR GS_HIL_SIGNED_FOTA)', main_cmake)
         self.assertIn('if(GS_HIL_COMMISSIONING AND GS_S3_DIAGNOSTIC_ONLY)', cmake)
         self.assertIn('#if GS_HIL_COMMISSIONING || GS_HIL_C8_ACK_HOLD || GS_HIL_SIGNED_FOTA\n    start_fixture_commissioning_control();', app)

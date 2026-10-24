@@ -1601,3 +1601,54 @@ was the same P0 physical qualification status. That report is
 Neither report establishes physical TC-001 acceptance. The focused C3 hardware
 request remains safely rejected at the Home-binding check; no new EventKey or
 APK event exists.
+
+## 2026-10-24 resumed GS-117 S3 profile integration
+
+This checkpoint resumes from canonical local/remote HEAD
+`eea7e176d94a74638d7b17b894266ba1d4b6638c`. Scoped source changes allow the
+existing `GS_HIL_COMMISSIONING` UART fixture adapter to compose with the
+full-product `GS40_TEST_ONLY_CLOUDSYNC` profile. Legacy HIL build/control, ACK
+fault injection/hold and signed-FOTA profiles remain rejected. Both options
+stay default-OFF; existing HubRuntime, HubSecurity, storage, GS40 bootstrap and
+CloudSync code are reused.
+
+ESP-IDF 6.0.3 build-only verification completed for
+`GS40_TEST_ONLY_CLOUDSYNC=ON`, `GS_HIL_COMMISSIONING=ON`, DS peripheral
+disabled and the existing development `gs_journal` partition map. The
+`gs_r1_s3_hub.bin` output is 2,253,664 bytes, SHA-256
+`692aa9df6cc9b3f6d04d427a01ed98b4072417a63b64ce7de96e37551a50553a`;
+the smallest 4 MiB OTA app slot has 46% reported headroom. The build used the
+existing C3 app asset hash
+`380ee48ad667b5565d76a045dc67037a8e9ebc297adc52f0c5c34d8e7d03715a` and a
+throwaway TEST_ONLY public config-root used only to prove compilation. This
+image is not provisioned or deployable as built. No C3/S3 firmware, partition,
+credential, ownership or database state was changed.
+
+Focused S3 fixture test: 17/17 PASS. Current-source `validation-hub` ran
+55 stages: 53 PASS, 2 FAIL. The migration test reproduces
+`clean migration commits` (exit 2); it is unrelated to this profile change and
+remains unmodified. The P0 stage ran 26/26 software checks but is marked FAIL
+because `product_status=PARTIAL`, `physical=NOT_RUN`. Current-source
+`validation-contract` ran 48 stages: 47 PASS, 1 FAIL for the same P0 partial
+product status. Reports are under
+`code/evidence/validation_framework/hub-1792865674152985578/` and
+`code/evidence/validation_framework/contract-1792866408396005279/`.
+
+| Stage | Result | Current evidence |
+|---|---|---|
+| C3 COM4 identity/profile | `PASS` | USB serial `14:63:93:C5:D1:58`; `GET_STATE` reports `HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`, `physical_wake=0`, `ota_slot=ota_1`; `runtime_live=0`, `sensing_live=0`, `retained=0`, `in_flight=0`. |
+| S3 COM10 identity | `PASS` | USB serial `E0:72:A1:D3:8D:34`, matching the authorized S3. |
+| S3 product startup/storage/CloudSync | `NOT_VERIFIED` | Reset-aware passive serial capture returned no startup, mount or CloudSync markers. The candidate above was not flashed. |
+| C3/S3/Home association | `BLOCKED` | Existing reassociation command previously returned `home_mismatch`; binding was preserved. No Home check was bypassed and no event was injected. |
+| GS-179 Hub ingress | `BLOCKED` | No persistent exact physical Hub certificate/trusted-time/Home-epoch registration was configured. |
+| LAN route | `BLOCKED` | Current Windows Wi-Fi profile is Public and has no IPv4 address in this observation; no forwarding/firewall changes were made. |
+| Android APK | `NOT_VERIFIED` | `adb` is unavailable; no device-side package, Home or event observation. |
+| TC-001 event | `NOT_RUN` | No new C3 EventKey, S3 receipt, PostgreSQL physical commit or APK event exists. Historical HOST_SIM seed is excluded. |
+
+The pre-existing untracked APK/evidence assets, ignored ESP-IDF state and
+owner-only hardware backups remain preserved. Local scoped code/docs changes
+at this checkpoint are the S3 CMake profile guard, its fixture regression and
+the S3 target README. TC-001 remains blocked pending an authenticated,
+recoverable C3 Home transition; deployable exact-Hub TEST_ONLY configuration
+and trusted-time/mTLS registration; a private laptop route; and actual phone
+observation.

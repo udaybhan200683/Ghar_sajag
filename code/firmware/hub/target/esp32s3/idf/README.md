@@ -40,6 +40,16 @@ idf.py -C firmware/hub/target/esp32s3/idf -B /tmp/gs-s3-diagnostic-build \
   -D GS_S3_DIAGNOSTIC_ONLY=ON build size
 ```
 
+For an explicitly selected physical TEST_ONLY fixture image, the full product
+composition may combine `GS40_TEST_ONLY_CLOUDSYNC=ON` with
+`GS_HIL_COMMISSIONING=ON`. Both remain default-OFF. Supply the isolated
+TEST_ONLY config-root public DER outside the repository and the exact paired
+C3 app asset; this composes the existing fixture commissioning adapter with
+the existing CloudSync runtime. It does not create credentials, enroll devices,
+or make the image deployable by itself. `GS_HIL_BUILD`, `GS_HIL_CONTROL`,
+`GS_HIL_C8_ACK_DROP`, `GS_HIL_C8_ACK_HOLD`, and `GS_HIL_SIGNED_FOTA` remain
+rejected in this CloudSync profile. Build and deployment are separate actions.
+
 From this directory, `./build-outbox.sh` builds the full Hub against the
 explicit `gs_outbox` / `gs_state` candidate profile in an isolated build tree
 under `/home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build`. It does

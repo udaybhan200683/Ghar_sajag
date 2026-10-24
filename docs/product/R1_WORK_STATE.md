@@ -7027,3 +7027,29 @@ registered expected identity/time suite count was corrected to 6; its full
 security target passed, and the validation framework tests passed 51/51.
 Focused C3 association/recovery, GS40 fixture and BAT-C8 checks passed. These
 software results do not alter the physical TC-001 status.
+
+### 2026-10-24 resumed GS-117 S3 commissioning/CloudSync profile
+
+From canonical source/remote HEAD `eea7e176d94a74638d7b17b894266ba1d4b6638c`,
+the full-product S3 TEST_ONLY build guard now permits the existing
+`GS_HIL_COMMISSIONING` fixture adapter together with
+`GS40_TEST_ONLY_CLOUDSYNC`; both are default-OFF and all legacy HIL/fault/FOTA
+controls remain rejected. The isolated ESP-IDF 6.0.3 build passed at 2,253,664
+bytes (SHA-256 `692aa9df6cc9b3f6d04d427a01ed98b4072417a63b64ce7de96e37551a50553a`)
+with 46% headroom in the 4 MiB app slot. It used a disposable config-root
+public key and was not flashed or provisioned. The exact implementation,
+build fingerprints, live fixture evidence and gate reports are in the
+[GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-resumed-gs-117-s3-profile-integration).
+
+Focused fixture coverage passes 17/17. `validation-hub` is 53/55 with the
+existing reproducible `hub_journal_migration_validation` failure and required
+P0 `product_status=PARTIAL`; `validation-contract` is 47/48 with the same P0
+partial result. Fresh USB evidence again maps COM4 to the approved C3 and
+COM10 to the approved S3; C3 is HIL-awake but `runtime_live=0` and
+`sensing_live=0`; S3 runtime/storage/CloudSync startup is still
+`NOT_VERIFIED`. The reassociation guard returned `home_mismatch` earlier and
+has not been bypassed. The live Windows Wi-Fi is Public with no IPv4 address,
+ADB is absent, and no authenticated physical Hub certificate/trusted-time/
+Home-epoch registration is configured. No motion event, database mutation or
+firmware update occurred. TC-001 stays BLOCKED/NOT_RUN; Android stays
+NOT_VERIFIED.
