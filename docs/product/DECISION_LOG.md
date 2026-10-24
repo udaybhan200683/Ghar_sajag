@@ -1340,3 +1340,24 @@ At the final read-only check the laptop was on Agrim (`192.168.1.8/24`), while
 the existing Windows forwarding rule still targeted the previous `.6` address.
 Thus current laptop LAN endpoint readiness is FAIL and phone roaming remains
 NOT_RUN. No product/security decision or `CONTEXT_VERSION` change is made.
+
+## 2026-10-24 GS-117 physical execution re-audit (evidence; no new decision)
+
+The current read-only audit confirms COM4's C3 identity and COM10's separate
+GS68 spare-S3 identity, but does not establish either running image. Both USB
+devices are attached to WSL and the existing Windows TC-001 serial helper sees
+no COM ports. The C3's saved Oct 9 full-flash snapshot includes retained pending
+events and a different historical Hub pairing; it is not an app-only rollback
+artifact. The S3's latest Oct 17 receipt is diagnostic-only with DS identity
+unprovisioned, not current product CloudSync proof.
+
+The local TEST_ONLY Home is bound to synthetic `test-hub-product` and
+`test-c3-bedroom`; it is not authenticated physical ownership/enrollment.
+Laptop caregiver/PostgreSQL health remains PASS while Hub ingress and actual
+APK origin/Home remain unverified. GS-114 comment 11145 still limits hardware
+access to passive Stage 1 and rejects risky serial opens; GS-68 comments 11163,
+11169 and 11217 do not authorize device access, identity provisioning or
+CloudSync activation. Physical TC-001 remains NOT_RUN. No requirement, trust
+policy, firmware, ownership, credential or network decision changed, and
+`CONTEXT_VERSION` is unchanged. See the dated
+[`GS-117 readiness evidence`](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-full-physical-e2e-readiness-audit--head-5328c31).

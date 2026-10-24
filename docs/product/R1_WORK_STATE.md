@@ -6602,3 +6602,38 @@ registry and existing Home/Hub/epoch/Node binding. Verify APK origin/Home on the
 existing phone before executing the existing TC-001 console. Preserve the
 current Home, database, credentials, event history, device NVS and GS-114
 qualification status.
+
+### GS-117 physical execution audit — 2026-10-24, HEAD 5328c31
+
+Read-only USB identity still matches COM4 to the documented C3 and COM10 to
+the owner-designated spare S3. Both devices are attached to WSL; the Windows
+TC-001 serial helper's `List` action returns no COM ports. Neither WSL TTY was
+opened, and USB/IP ownership was not changed. ADB is absent on the host.
+
+The existing 950,032-byte C3 HIL-awake artifact rehashes to
+`2497e6bbecc0f8b09954c9e3ac83b994b17f72621abb19eddd719d5dda4df67f` with
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`; the normal sleep image rehashes to
+`eec59be390315bad53e05bb7c3c60e0fd3311ec16a11d19040d3ad36ef4c733b`. Neither
+is evidenced as installed. Historical Oct 9 full-flash backups are not valid
+app-only rollback proof; the C3 snapshot contains seven retained pending
+records and a different Hub pairing. The latest Oct 17 S3 record remains
+diagnostic GS68 mTLS HIL with DS unprovisioned, not current full product image.
+
+Read-only local database checks show TEST_ONLY `gs177-test-product` is enrolled
+to synthetic `test-hub-product` / `test-c3-bedroom` and contains the preserved
+single historical seed row. That is not a binding for the physical C3/S3.
+Backend and caregiver service health remain PASS; physical Hub ingress is
+unconfigured. Owner-reported APK Connected is not verified as using this
+backend/Home; package, origin and actual event display remain NOT_VERIFIED.
+
+Current focused software results: TC-001 console 17/17, C3 profile 4/4,
+GS-179 verified endpoint 2/2; GS-179 configuration/TLS boundary 21 passed and
+one isolated PostgreSQL mTLS runtime test skipped without a dedicated test
+DSN. Physical TC-001 is NOT_RUN: no board access, EventKey, event commit or APK
+observation. See the [dated execution audit](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-full-physical-e2e-readiness-audit--head-5328c31).
+
+No safe current-image observer, reset-safe COM handoff, app-only rollback
+package, physical Hub identity/trusted-time/ownership binding or phone receipt
+is available. No flash, reset, USB detach, enrollment, credential or listener
+change was performed. Keep all existing data and release/GS-114 statuses.

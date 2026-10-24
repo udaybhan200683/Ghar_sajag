@@ -1,5 +1,115 @@
 # GS-117 Android sensor vertical readiness — 2026-10-22
 
+## 2026-10-24 full physical E2E readiness audit — HEAD 5328c31
+
+Local and remote canonical HEAD were `5328c313918db7f7086752d2c9838a2ec8ccd460`;
+preflight passed. The canonical worktree had no tracked changes before this
+evidence update. Existing untracked Android assets, S3 components/configuration,
+backups, hardware evidence and ignored build outputs were left untouched.
+
+### Board and console observations
+
+Passive `usbipd`, sysfs and owner-local fixture records reconfirm COM4 / BUSID
+`3-1` / `ttyACM0` / USB serial `14:63:93:C5:D1:58` as the documented C3, and
+COM10 / BUSID `3-2` / `ttyACM1` / USB serial `E0:72:A1:D3:8D:34` as the
+owner-designated spare ESP32-S3. Both USB devices are currently attached to
+WSL. No process holds either WSL TTY, but neither TTY was opened. The existing
+Windows helper's read-only `List` action returns `[]`; Windows SerialPort also
+reports no COM ports while USB/IP ownership remains in WSL. No `usbipd detach`
+was attempted because it would change device attachment and may cause USB
+re-enumeration/reset behavior. The existing Windows console therefore cannot
+currently control these boards through its COM path.
+
+Windows and WSL have no `adb`; Windows reports `ADB_NOT_INSTALLED`. No phone
+debugging device was present in the passive USB inventory. The exact owner-only
+TC-001 fixture receipt and phone-install receipt are absent. The console's
+gates for current firmware receipts, reset-safe UART, full S3 product image,
+Hub ingress and APK/Home origin consequently cannot be satisfied.
+
+### Firmware, recovery and identity evidence
+
+The existing C3 HIL-awake candidate is present and rehashed at 950,032 bytes,
+SHA-256
+`2497e6bbecc0f8b09954c9e3ac83b994b17f72621abb19eddd719d5dda4df67f`; its
+ESP-IDF cache confirms target `esp32c3`, `GS_HIL_BUILD=OFF`,
+`GS_HIL_CONTROL=ON`, `GS_BAT_C8_PHYSICAL_WAKE=OFF`. The separate normal
+sleep-enabled candidate is 940,608 bytes, SHA-256
+`eec59be390315bad53e05bb7c3c60e0fd3311ec16a11d19040d3ad36ef4c733b`, with
+`GS_HIL_CONTROL=OFF`. Both are build artifacts only. No current C3 image,
+partition table, active OTA slot, installed mode or firmware version was
+observed; the HIL candidate is not known installed.
+
+An owner-local Oct 9 C3 full-flash backup manifest records a digest match at
+backup time for USB identity `14:63:93:C5:D1:58`, prior association to Hub
+`hub-5c013bbeb9f8`, logical Node `hil-signed-fota` and seven retained pending
+records. This is a historical 4 MiB full-flash snapshot, not current-image
+readback or an app-only rollback image. Restoring it could replace newer NVS
+and retained-event state. It is not approved or safe to use as a rollback for
+the current board. Current pending EventKeys remain unknown and untouched.
+
+The Oct 17 COM10 receipt remains the latest S3 install record: diagnostic
+profile `GS68_CLOUDSYNC_DS_MTLS_HIL`, image SHA-256
+`fd072a0a02729fb7c0f2cadb27a30b4cbb3ef6c8f5d2dee89fa2f9049a33b8dd`, DS
+peripheral selected but not provisioned. It is not evidence of the current
+running image or full product HubRuntime/CloudSync. The Oct 9 S3 backup is a
+16 MiB full-flash/NVS/VFS set predating that later app install; it is not a
+verified current app-only rollback. No board image or storage was changed.
+
+The existing local TEST_ONLY database was inspected in a PostgreSQL read-only
+transaction. Its configured caregiver profile is `GS179_TEST_ONLY` for
+`gs177-test-product`; that database has active synthetic Hub
+`test-hub-product`, active Node `test-c3-bedroom`, and one pre-existing event
+row. This row is the historical HOST_SIM seed and is not TC-001. The Oct 9 C3
+snapshot's Hub/Node identity differs from those TEST_ONLY enrollment identities.
+This establishes no current physical Hub/Home/Node binding; no ownership,
+commissioning or enrollment mutation was made. Other retained test fixtures
+were not changed.
+
+### Current service, APK and test status
+
+The live laptop health check still reports TLS-verified PostgreSQL, caregiver
+HTTPS, local backend and certificate-verified LAN endpoint `PASS`. The only
+listener observed is caregiver HTTPS on the existing WSL port. Operator config
+contains no Hub-ingress enablement, Hub client-certificate registry,
+trusted-time/authority source or physical Hub/Home/epoch/Node binding. Existing
+caregiver/PostgreSQL certificates are not a Hub client identity. The GS-179
+runtime requires injected `TEST_ONLY` credentials, trusted time and authority
+refresh; its synthetic integration subprocess is not an operator trust source.
+No safe lifecycle-only adapter can make the physical path work without
+inventing or provisioning those missing security authorities, so none was
+added or enabled.
+
+The owner-reported APK Connected state remains unverified. Its installed
+package/version, HTTPS origin, authenticated Home and event rendering were not
+observable without ADB or an existing phone receipt. The local TEST_ONLY
+caregiver configuration is not evidence that the installed APK uses it.
+
+Focused software validation on the existing implementation passed: TC-001
+console **17/17**, C3 HIL-awake/sleep profile **4/4**, and GS-179 verified
+endpoint **2/2**. The GS-179 configuration/TLS-boundary suite passed **21**
+tests; its isolated runtime/mTLS/PostgreSQL E2E was skipped because no dedicated
+test DSN was configured. No live caregiver database was used as a test DB.
+These are software checks, not physical or phone acceptance.
+
+| Stage | Result | Evidence |
+|---|---|---|
+| C3 USB identity | `PASS` | Exact documented USB serial; no current image or safe live observer. |
+| S3 USB identity | `PASS` | Exact owner-local spare-S3 receipt; not the historical GS-114 S3 fixture. |
+| Windows TC-001 serial discovery | `BLOCKED` | Windows helper sees no COM ports while both devices are attached to WSL. |
+| C3 HIL candidate | `PASS` | Existing candidate hash/flags verified; installed image, slot and rollback remain unknown. |
+| S3 full product firmware / identity | `NOT_VERIFIED` | Only historical diagnostic image and unprovisioned DS receipt. |
+| Local backend/PostgreSQL | `PASS` | Existing TLS and durability health checks pass. |
+| Physical S3 ingress / CloudSync | `BLOCKED` | No provisioned physical Hub identity or persistent authorized ingress configuration. |
+| Physical C3-to-Hub enrollment | `BLOCKED` | Local TEST_ONLY enrollment is synthetic and does not match the C3's historical pairing snapshot. |
+| APK backend/Home/event display | `NOT_VERIFIED` | No phone-side install/origin/Home observation or ADB connection. |
+| TC-001 | `NOT_RUN` | No serial open, injection, new EventKey, Hub delivery, commit or APK observation. |
+
+No hardware operation, firmware deployment, reset, USB ownership change,
+credential issuance or database write occurred. Existing GS-114 passive-only
+authorization remains narrower than live firmware query, injection, flash or
+re-enrollment. The full blocker and recovery plan is consolidated in this
+section; the earlier stage-specific evidence below remains historical.
+
 ## 2026-10-24 receipt reconciliation at canonical HEAD 063007d
 
 This read-only update corrects the earlier 2026-10-24 note below that left
