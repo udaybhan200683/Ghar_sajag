@@ -6472,7 +6472,7 @@ diff. HIL-awake candidate: 950,032 bytes, SHA-256
 `GS_BAT_C8_PHYSICAL_WAKE=OFF`. Normal sleep-enabled candidate: 940,608 bytes,
 SHA-256 `eec59be390315bad53e05bb7c3c60e0fd3311ec16a11d19040d3ad36ef4c733b`,
 all three flags OFF. Both fit the 1,966,080-byte smallest app partition.
-Focused results: TC-001 16/16, endpoint 2/2, C3 profile 4/4, BAT-C8 invariants
+Focused results: TC-001 17/17, endpoint 2/2, C3 profile 4/4, BAT-C8 invariants
 11/11, validation framework 51/51, feature traceability 22/22, physical
 catalogue 111 cases PASS with `device_access=NONE`. Build output remains in
 ignored `code/build/gs117-c3-*` directories; not staged or installed.
@@ -6498,3 +6498,22 @@ do not touch NVS, credentials, partition table, Home or enrollment. Then verify
 the running profile, build fresh receipts and continue the existing TC-001
 console against the same Home and backend. Preserve GS-114 physical status and
 the independent genuine-PIR qualification.
+
+### Delivery checkpoint — 2026-10-24
+
+Implementation source commit `15b983ef604cd9fc6ba2ab9f8865d64f0f5bec84` was
+pushed to canonical branch `feature/r1-commercial-baseline`; remote HEAD was
+verified equal. Context preflight passed. Jira comments 11602 (GS-117) and
+11603 (GS-114) record the exact builds, tests and physical limitations. The
+implementation source/test commit is on the remote; this document-only
+checkpoint records the remaining state. Pre-existing untracked Android assets,
+S3 managed components and `sdkconfig`, historical
+hardware evidence, and ignored target build outputs were preserved.
+
+Remaining gates: exact fixture-specific authorization and verified no-reset
+serial path for current C3/S3 image inspection; installed C3 HIL profile and
+current OTA identity; safe repeated idle/injection serial behavior; authenticated
+persistent Hub-ingress identity/readiness; phone-side current APK/backend/Home
+receipt and explicit display confirmation. No C3 injection or device update has
+been performed. Continue from the existing TC-001 console only after those
+receipts are obtained; retain the same Home, backend and APK.

@@ -65,6 +65,30 @@ behavior for missing/wrong mode evidence. Physical idle serial availability and
 repeated board injections remain `NOT_RUN`; GS-114 sleep/wake qualification
 results and optical PIR evidence are unchanged.
 
+## 2026-10-24 delivery checkpoint and next action
+
+Implementation commit `15b983ef604cd9fc6ba2ab9f8865d64f0f5bec84` is pushed to
+`feature/r1-commercial-baseline`; `git ls-remote` matched that SHA before this
+documentation-only checkpoint. Context preflight passed on that source.
+Jira updates: [GS-117 comment 11602](https://udaybhan200683.atlassian.net/browse/GS-117)
+and [GS-114 comment 11603](https://udaybhan200683.atlassian.net/browse/GS-114).
+Tracked source/test/docs for the implementation commit are clean. Existing
+untracked Android assets, S3 `managed_components/` and `sdkconfig`, historical
+hardware evidence and ignored C3 build outputs remain preserved; none were
+staged or removed.
+
+Exact next action: obtain separate fixture-specific approval for no-reset
+current-image/OTA identity inspection and the exact C3/S3 serial endpoints;
+then complete current installed-image and ownership receipts without sending
+an HIL command. If the C3 does not report the built HIL-awake profile, separately
+authorize a documented app-only update with an expected reboot and recovery
+plan, preserving partition table, NVS, credentials and enrollment. After
+rechecking idle serial availability, repeated injection and reset-safe behavior,
+complete the existing authenticated GS-179 Hub-ingress identity/listener and
+phone-install receipts for the same Home, then run TC-001 and verify the new
+EventKey on the existing Android APK. Do not alter the distinct GS-114 optical
+PIR or battery qualification gates.
+
 ## Scope and checkpoint
 
 This is a bounded readiness checkpoint for the first genuine
