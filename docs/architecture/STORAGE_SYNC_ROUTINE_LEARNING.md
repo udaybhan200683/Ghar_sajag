@@ -535,6 +535,19 @@ TC-001 scope uses only the existing C3 HIL injection, authenticated Node/Hub
 path, product S3 CloudSync, existing GS-179 ingress and caregiver API. It does
 not require commercial fleet or credential-lifecycle automation.
 
+Image selection is not sufficient when the persistent partition map is
+incompatible. The current S3 development table labels `0x820000..0xA20000`
+(`2 MiB`) as `gs_journal`, type NVS. Product `LittleFsSegmentStore` mounts the
+`gs_outbox` LittleFS label with `format_if_mount_failed=false`; the separate
+outbox candidate table instead allocates a `4 MiB` `gs_outbox` at `0x820000`
+and a `256 KiB` `gs_state` at `0xC20000`. An app-only product update with the
+current table cannot mount its durable outbox and fails closed. Installing the
+candidate table would overlap/reinterpret the existing `gs_journal` bytes, so
+it is a persistent-layout migration, not an app-only update. Do not update a
+physical S3 until preservation, migration compatibility and rollback are
+explicitly reviewed and authorized; no TC-001 event may proceed without the
+product outbox.
+
 Configuration persistence applies to non-secret profile choices and validated
 defaults. GS40 TEST_ONLY envelope credentials remain transient in RAM under the
 existing security contract and are not serialized to NVS or logged; a reboot

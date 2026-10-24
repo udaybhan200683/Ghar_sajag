@@ -6745,6 +6745,17 @@ rejoin and CloudSync regressions passed as recorded in the handoff. TC-001 was
 not run: no new EventKey, S3 admission, database event, caregiver presentation
 or APK observation exists. The historical HOST_SIM event remains excluded.
 
+Additional source/fixture compatibility check: the live table matches the
+development `partitions.development.csv`: `gs_journal` is a 2 MiB NVS partition
+at `0x820000`. Product `LittleFsSegmentStore` requires a `gs_outbox` LittleFS
+partition with formatting disabled on mount failure. The separate product
+candidate table allocates 4 MiB `gs_outbox` at `0x820000` plus 256 KiB `gs_state`
+at `0xC20000`; it overlaps/reinterprets the current journal bytes. Therefore an
+app-only product image against the current table is incompatible and cannot
+admit durable events. Changing the table is a storage-layout migration, not an
+app-only update. The current journal partition was not read or written. No
+migration/recovery evidence exists, and no repartition was attempted.
+
 One earlier `gs179-laptop-server.sh health-source` invocation was not
 read-only: it ran the existing HOST_SIM health scenario and accepted a
 synthetic `test-c3-bedroom` NodeHealth update (source revision 8). It did not
@@ -6761,8 +6772,9 @@ mechanisms and do not add a second feature-flag system. Release gates remain
 responsible for required commercial capabilities even when development defaults
 are OFF. For TC-001, do not require commercial commissioning or fleet services;
 use the existing product/TEST_ONLY path with only its authorized identity and
-authority prerequisites. Existing GS40 test secrets remain ephemeral under
-their security contract. Full policy: [CloudSync and configuration
+authority prerequisites, and a product-compatible durable outbox layout.
+Existing GS40 test secrets remain ephemeral under their security contract. Full
+policy: [CloudSync and configuration
 architecture](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md#configurable-supporting-infrastructure-policy-2026-10-24).
 
 Validation on this source: `make -C code gs40-test-only-bootstrap-test

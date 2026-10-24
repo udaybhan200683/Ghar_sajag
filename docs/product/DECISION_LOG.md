@@ -1410,3 +1410,19 @@ recorded in
 [`STORAGE_SYNC_ROUTINE_LEARNING.md`](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md#configurable-supporting-infrastructure-policy-2026-10-24)
 and the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md).
 No product semantics or context version changed.
+
+## 2026-10-24 GS-117 S3 partition compatibility correction (evidence; no new decision)
+
+The live COM10 table matches the development profile: `gs_journal` is NVS at
+`0x820000`, size 2 MiB. The product S3 `LittleFsSegmentStore` requires the
+`gs_outbox` LittleFS label and mounts with `format_if_mount_failed=false`.
+The separate product outbox candidate table allocates 4 MiB `gs_outbox` at
+`0x820000` and 256 KiB `gs_state` at `0xC20000`, overlapping/reinterpreting
+the existing `gs_journal` address range. An app-only update with the live table
+would fail closed at durable storage initialization; switching to the candidate
+table requires a persistent-layout migration and verified preservation/
+recovery, neither of which is available or authorized. No partition, app,
+NVS, journal or identity was changed. The previous handoff suggestion of an
+app-only S3 update is superseded. This evidence does not authorize migration,
+change GS-D032 or change `CONTEXT_VERSION`; details are in the
+[GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-s3-authenticated-session-and-configurable-infrastructure-policy).

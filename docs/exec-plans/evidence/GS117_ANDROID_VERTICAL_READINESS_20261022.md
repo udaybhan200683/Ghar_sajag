@@ -985,7 +985,8 @@ only; no hardware test executed.
 | C3 identity and HIL-awake firmware | PASS | COM4 identity and installed HIL-awake image were verified in the authorized deployment receipt; no C3 rebuild or flash this checkpoint. |
 | S3 identity and installed image | PASS | COM10 identity and active image were read back; image is GS-68 diagnostic-only. |
 | Authenticated C3→S3 session | BLOCKED | Current S3 image lacks full product HubRuntime; live enrollment/owner/epoch binding also remains unverified. |
-| S3 journal admission and CloudSync | BLOCKED | No product HubRuntime image or physical mTLS/trusted-time/authority binding was demonstrated. |
+| Product S3 durable-storage compatibility | BLOCKED | Live `gs_journal` is 2 MiB NVS; product requires 4 MiB LittleFS `gs_outbox` and 256 KiB `gs_state`. Existing candidate table overlaps the current journal; migration/recovery is unapproved and unverified. |
+| S3 journal admission and CloudSync | BLOCKED | No compatible product storage table, product HubRuntime image or physical mTLS/trusted-time/authority binding was demonstrated. |
 | GS-179 Hub ingress / PostgreSQL event | PARTIAL | PostgreSQL and caregiver HTTPS health PASS; physical Hub ingress is disabled/unconfigured; no new event row. |
 | Existing caregiver API / APK Home | NOT_VERIFIED | No phone-side package/origin/Home or event observation. |
 | Fresh TC-001 EventKey and actual APK presentation | NOT_RUN | No `INJECT_MOTION`, new EventKey, commit or APK display; HOST_SIM seed excluded. |
@@ -998,13 +999,24 @@ or change a business-event row; PostgreSQL still has the single preserved
 historical HOST_SIM seed. The command was not repeated and no compensating
 mutation was made. This result is excluded from physical evidence.
 
-**Remaining exact physical/security prerequisite:** TC-001 cannot continue on
-the currently installed diagnostic S3 image. Any proposed next operation must
-be an app-only S3 product-profile update into a verified inactive OTA app slot,
-preserving the active diagnostic app, bootloader, partition table, NVS and
-`gs_journal`, with a verified selector rollback path. Before that operation,
-the exact TEST_ONLY image/build hash and bootstrap/identity scope must be
-reviewed together with slot compatibility, current identity and recovery
-evidence. Existing board-inspection approval does not authorize S3 flashing,
-credential issuance, ownership mutation or trust-root replacement. Do not
-inject on COM4 before those gates and `runtime_live=1` pass.
+**Remaining exact physical/storage prerequisite:** TC-001 cannot continue on
+the currently installed diagnostic S3 image. A source/partition comparison
+establishes that app-only replacement is insufficient: the live development
+table has a 2 MiB NVS partition named `gs_journal` at `0x820000`; product
+`LittleFsSegmentStore` requires a 4 MiB LittleFS partition named `gs_outbox`
+and a `gs_state` partition. The product mount sets
+`format_if_mount_failed=false`, so it fails closed instead of formatting the
+missing label. The source-controlled outbox candidate table would
+reinterpret the existing `gs_journal` address range and is a persistent-layout
+migration. The current journal bytes have not been read/backed up; no
+migration, compatibility or rollback plan has been validated. The previously
+suggested app-only-update path is superseded by this finding.
+
+No S3 image or partition table may be written until an authorized, verified
+preservation/migration path exists for old `gs_journal` data and the exact
+candidate outbox/state layout, together with the TEST_ONLY identity/trusted-time
+inputs and rollback procedure. Existing board-inspection approval does not
+authorize S3 flashing, repartitioning, credential issuance, ownership mutation
+or trust-root replacement. Do not inject on COM4 before those gates,
+product-compatible durable storage and `runtime_live=1` pass. C3 and S3
+persistent data remain untouched.
