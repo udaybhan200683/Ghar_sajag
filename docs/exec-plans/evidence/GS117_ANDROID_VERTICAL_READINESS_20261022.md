@@ -1020,3 +1020,90 @@ authorize S3 flashing, repartitioning, credential issuance, ownership mutation
 or trust-root replacement. Do not inject on COM4 before those gates,
 product-compatible durable storage and `runtime_live=1` pass. C3 and S3
 persistent data remain untouched.
+
+## 2026-10-24 owner-approved S3 product storage deployment and Agrim network recheck
+
+**Source checkpoint:** canonical branch feature/r1-commercial-baseline,
+source HEAD e9e610b353309996cb69a5865373a05f9ab1a30a; context preflight
+PASS. No tracked source changes were made. Existing untracked owner Android
+assets, S3 sdkconfig/managed components and historical hardware evidence were
+preserved.
+
+**Owner decision and backup gate:** the owner explicitly approved OPTION 1 for
+the development COM10 ESP32-S3 N16R8, allowing the existing product storage
+layout after backup, empty-pending-data and recovery checks. The live chip was
+identified as MAC e0:72:a1:d3:8d:34, ESP32-S3 rev 0.2, 16 MiB flash and 8 MiB
+PSRAM. The old 2 MiB NVS gs_journal partition at 0x820000 was fully read back
+and contained no allocated records; the proposed 4 MiB outbox and 256 KiB
+state regions were erased before installation. The old ota_0 4 MiB application
+image, bootloader region, partition table, OTA selector, old journal, OTA1
+slot, outbox and NVS readbacks remain in the owner-only directory
+~/.local/share/ghar-sajag/GS117-20261024-s3-storage-deploy/. The complete old
+OTA0 image is retained for manual recovery. Automatic rollback is not claimed.
+Existing base-NVS keys gs68time.boot_gen and gs68time.utc_floor were compared
+before/after and their stored value bytes are unchanged. No bootloader, eFuse,
+C3, protected base-NVS value, credential or ownership data was intentionally
+written.
+
+**Installed product image and storage layout:** built the complete
+gs_r1_s3_hub application from this source HEAD with ESP-IDF 6.0.3; the
+diagnostic-only composition and HIL controls are OFF. The existing candidate
+partition table preserves both 4 MiB OTA slots and maps gs_outbox LittleFS
+4 MiB at 0x820000 plus gs_state NVS 256 KiB at 0xC20000. The 4 MiB LittleFS
+image was explicitly initialized before write; product
+format_if_mount_failed=false remains unchanged. The first product app was
+2,198,224 bytes, SHA-256
+8f93d05a7c890e9d5d0f8ff9a075dc54d1bbc6796048d63b3890d3a910e45429.
+After the UART0 console produced no COM10 startup output, a second same-source
+product build changed only the primary debug console to native USB
+Serial/JTAG. That 2,194,768-byte app, SHA-256
+a46c843ef66f4a0862668304b27f6cf6079ee70c0e2e48a3acbaa6e307462fa7, was
+written app-only to the already selected OTA1 address 0x420000. Esptool
+identified the expected MAC and verified the write; an independent post-write
+readback compared byte-for-byte to the candidate. OTA0, partition table,
+selector, outbox and NVS were not targeted by this second app update.
+
+After the initial product app boot, the physical table/outbox readbacks matched
+the intended table and formatted filesystem image, and the state partition was
+still erased. No storage readback was taken after the later console-only app
+update. Runtime
+LittleFS-mount and HubRuntime-startup evidence remain NOT_VERIFIED: the existing
+bounded COM10 boot observer first captured no lines, and its subsequent attempt
+timed out during Windows PnP enumeration before opening the port. The
+identity-pinned helper was not bypassed. The installed profile has
+GS40_TEST_ONLY_CLOUDSYNC=OFF; no authenticated Hub/Home/epoch identity,
+current Node enrollment, trusted-time/authority material or Hub-ingress client
+credential is configured. The product image installation is verified; Hub
+admission and CloudSync are not ready or proven.
+
+**Agrim network recheck:** Windows currently reports Wi-Fi profile
+Airtel_Agrim, category Private, address 192.168.1.10/24; current WSL NAT
+address is 172.17.152.10. The existing owner-configured TLS certificate and
+service settings were previously refreshed for the current address. Fresh
+backend health still reports TLS-verified PostgreSQL and local caregiver HTTPS
+PASS. The phone-facing probe fails because the existing Windows portproxy
+still listens at stale address 192.168.1.7:443 and targets the current WSL
+listener at 172.17.152.10:8444. Firewall-rule reads are blocked by the
+current non-administrator Windows token; the existing scoped proxy start
+requires that token, so this recheck made no new firewall or forwarding
+mutation. Phone-side reachability and APK origin/Home remain NOT_VERIFIED.
+
+| Stage | Result | Evidence |
+|---|---|---|
+| COM10 physical S3 identity and installed app | PASS | Exact USB serial and esptool MAC match; post-write app readback SHA-256 matches the USB-console product candidate. |
+| Product partition table and outbox initialization | PASS | Product table and preformatted outbox image were written/read back; old journal was empty before replacement; base-NVS values checked unchanged. |
+| S3 LittleFS mount and HubRuntime startup | NOT_VERIFIED | Current identity-pinned boot observer did not capture startup output; PnP preflight timed out before serial open. |
+| C3 current image / authenticated C3-S3 session | PARTIAL / BLOCKED | C3 was not reflashed; latest GET_STATE remains runtime_live=0, sensing_live=0; no authenticated session or enrollment binding is available. |
+| S3 CloudSync / persistent Hub ingress | BLOCKED | TEST_ONLY CloudSync is disabled in this build; authenticated Hub identity, trusted-time/authority inputs, ownership binding and ingress credential/configuration are absent. |
+| Backend local service | PASS | PostgreSQL durability/TLS and local caregiver HTTPS pass. |
+| Laptop LAN endpoint / existing APK | PARTIAL / NOT_VERIFIED | Current Wi-Fi is Agrim, but stale Windows forwarding blocks the new IP; no phone-side APK origin/Home/event observation exists. |
+| Fresh TC-001 event / APK presentation | NOT_RUN | No INJECT_MOTION, new EventKey, physical Hub receipt, durable event commit or APK observation occurred; HOST_SIM history is excluded. |
+
+The existing focused storage, association, recovery, CloudSync security and
+TEST_ONLY bootstrap regressions passed before the console-only app change. The
+console-only product build and esptool write verification also passed. No
+software behavior test claims physical runtime qualification. GS-114 battery
+and physical-wake qualification remains unchanged; no optical PIR test ran.
+The next physical gate is a verified S3 startup/mount and an existing approved
+TEST_ONLY Home/Hub/Node identity, time and mTLS binding. Do not inject while
+C3 runtime and authenticated-session readiness remain false.

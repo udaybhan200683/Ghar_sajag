@@ -6787,3 +6787,43 @@ rejoin; HTTPS transport 8 modes; and cloud receipt/recovery checks (15 invalid
 receipt modes and 2 persistence-cut modes). These are software regressions,
 not physical Hub, backend-ingress or APK evidence. See the
 [GS-117 dated handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-s3-authenticated-session-and-configurable-infrastructure-policy).
+
+## GS-117 / GS-68 development S3 storage deployment and network recheck — 2026-10-24, source HEAD e9e610b
+
+The owner approved the existing product ESP32-S3 storage layout for the
+development COM10 board after preservation and recovery checks. Current
+identity is USB serial/MAC E0:72:A1:D3:8D:34, ESP32-S3 rev 0.2, 16 MiB flash
+and 8 MiB PSRAM. The existing product candidate table now supplies 4 MiB
+LittleFS gs_outbox at 0x820000 and 256 KiB NVS gs_state at 0xC20000 while
+preserving two 4 MiB OTA slots. The former 2 MiB gs_journal readback contained
+no allocated records. The outbox filesystem was explicitly initialized;
+mount-on-failure formatting remains disabled. OTA0, bootloader, base-NVS keys,
+credentials and C3 were preserved. Recovery is manual via backed-up OTA0 and
+saved table/selector; no automatic rollback is claimed.
+
+The complete gs_r1_s3_hub product app was installed app-only to selected OTA1.
+After the first product build used UART0 and yielded no COM10 startup lines, a
+second app-only build changed only the debug console to native USB
+Serial/JTAG. Its 2,194,768-byte readback matches SHA-256
+a46c843ef66f4a0862668304b27f6cf6079ee70c0e2e48a3acbaa6e307462fa7. The
+selected product app is verified installed. Runtime startup and LittleFS mount
+remain NOT_VERIFIED because the existing identity-pinned observer captured no
+startup lines and then hit a PnP query timeout before opening COM10. The
+product build has GS40_TEST_ONLY_CLOUDSYNC=OFF. No physical Hub identity,
+current Node enrollment, time authority or GS-179 mTLS ingress configuration
+is present, so authenticated event admission and CloudSync remain blocked.
+
+The Agrim recheck reports Airtel_Agrim / Private / 192.168.1.10/24; WSL NAT is
+172.17.152.10. PostgreSQL durability/TLS and local caregiver HTTPS pass.
+LAN HTTPS fails because Windows still forwards stale 192.168.1.7:443 to the
+current WSL listener at 172.17.152.10:8444. The existing scoped proxy start
+requires a Windows administrator token, which is not available; no firewall
+or forwarding rule was changed during this recheck. Phone-side APK origin,
+Home and event presentation remain NOT_VERIFIED.
+
+C3 was not reflashed, no serial injection occurred, and no new EventKey,
+database business event or Android observation exists. Latest C3 state remains
+runtime_live=0 and sensing_live=0 pending authenticated Hub readiness.
+TC-001 remains NOT_RUN/BLOCKED, the HOST_SIM seed remains excluded, and
+GS-114 physical-wake/battery qualification is unchanged. See the [dated
+GS-117 execution evidence](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-owner-approved-s3-product-storage-deployment-and-agrim-network-recheck).
