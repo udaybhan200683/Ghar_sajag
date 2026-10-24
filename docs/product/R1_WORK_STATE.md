@@ -6709,3 +6709,69 @@ Next action: complete the existing Hub identity/trusted-time/mTLS/ownership and 
 before attempting the existing TC-001 console. Require C3 `runtime_live`
 to advance before injection; do not treat HIL UART acknowledgement alone as a
 NodeRuntime event or claim physical end-to-end success.
+
+### GS-117 S3 authenticated-session dependency and infrastructure policy — 2026-10-24, source HEAD afc2486
+
+At source HEAD `afc248610f897882482bad0d2eb830bd37b61a3b`, read-only COM10
+flash inspection matched USB identity `E0:72:A1:D3:8D:34` to the owner-
+designated ESP32-S3 rev 0.2 / 16 MiB flash / 8 MiB PSRAM. Its partition table
+selects `ota_0` (two 4 MiB app slots and the existing journal partition). The
+active app readback is 278,480 bytes, SHA-256
+`fd072a0a02729fb7c0f2cadb27a30b4cbb3ef6c8f5d2dee89fa2f9049a33b8dd`, and
+matches the saved GS-68 receipt for the diagnostic-only
+`GS68_CLOUDSYNC_DS_MTLS_HIL` profile. The DS identity was recorded as selected
+but not provisioned. This is not the complete `gs_r1_s3_hub` product
+composition. No S3 flash, eFuse, NVS, journal, credential or ownership write
+occurred.
+
+The C3 HIL-awake image remains unchanged from its authorized deployment. Its
+most recent state was `sensing_live=0`, `runtime_live=0`; source confirms
+NodeRuntime admission begins after its authenticated Hub security link is
+ready. Thus `runtime_live=0` without a session does not demonstrate a C3
+firmware regression. A live matching Node enrollment/Home/Hub/epoch binding
+has not been established. The local TEST_ONLY Home still names synthetic
+`test-hub-product` / `test-c3-bedroom`, and laptop Hub ingress is
+disabled/unconfigured. PostgreSQL and caregiver HTTPS health pass, but no
+physical Hub mTLS/CloudSync receipt exists. The owner's reported APK Connected
+state does not verify its backend origin or Home.
+
+Reuse audit: the full S3 product HubRuntime and CloudSync composition already
+exists; `GS40_TEST_ONLY_CLOUDSYNC` is its explicit default-OFF isolated profile
+and uses the guarded one-session bootstrap. The separate GS-68 diagnostic
+composition cannot substitute for it. Existing JSON inputs are narrow, not a
+general infrastructure feature map; no new flag system, runtime or backend was
+added. The GS40 bootstrap regression passed 47 checks and existing security,
+rejoin and CloudSync regressions passed as recorded in the handoff. TC-001 was
+not run: no new EventKey, S3 admission, database event, caregiver presentation
+or APK observation exists. The historical HOST_SIM event remains excluded.
+
+One earlier `gs179-laptop-server.sh health-source` invocation was not
+read-only: it ran the existing HOST_SIM health scenario and accepted a
+synthetic `test-c3-bedroom` NodeHealth update (source revision 8). It did not
+create or alter a business-event row; the backend still has only the preserved
+historical HOST_SIM seed. The command was not repeated and no rollback was
+attempted. This is recorded for traceability, not physical evidence.
+
+Owner-directed engineering policy for future work: keep optional provisioning
+automation, credential-lifecycle management, fleet management and nonessential
+operations OFF by default in product-development profiles; enable a supporting
+capability only in its explicit implementation/validation profile. Retain all
+foundational security and durability checks. Reuse existing JSON/profile/build
+mechanisms and do not add a second feature-flag system. Release gates remain
+responsible for required commercial capabilities even when development defaults
+are OFF. For TC-001, do not require commercial commissioning or fleet services;
+use the existing product/TEST_ONLY path with only its authorized identity and
+authority prerequisites. Existing GS40 test secrets remain ephemeral under
+their security contract. Full policy: [CloudSync and configuration
+architecture](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md#configurable-supporting-infrastructure-policy-2026-10-24).
+
+Validation on this source: `make -C code gs40-test-only-bootstrap-test
+gs40-config-test cloudsync-security-ut rejoin-host-test
+p2d-https-channel-host-test p2d-cloud-contract-host-test` exited 0. It passed
+the envelope suite 47 checks; NodeHealth JSON/config suite 17 tests; CloudSync
+mTLS adapter 9, TEST_ONLY adapter 5, trust-provider 5 suites; backend CloudSync
+security 14, identity/time integration 4, issuer 10, NodeHealth API 5; secure
+rejoin; HTTPS transport 8 modes; and cloud receipt/recovery checks (15 invalid
+receipt modes and 2 persistence-cut modes). These are software regressions,
+not physical Hub, backend-ingress or APK evidence. See the
+[GS-117 dated handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-s3-authenticated-session-and-configurable-infrastructure-policy).

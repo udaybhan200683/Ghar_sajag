@@ -501,3 +501,46 @@ contract is provided, Hub ingestion must remain unmounted and caregiver
 monitoring must remain UNKNOWN/disconnected. This is deployment evidence, not a
 change to GS-D032 or the durable-event contract. See the [GS-179 staging
 evidence](../exec-plans/evidence/GS179_RENDER_INGRESS_BLOCKER_20261019.md).
+
+## Configurable supporting infrastructure policy, 2026-10-24
+
+Owner-directed engineering policy: develop and validate product behavior
+without making optional operations infrastructure a prerequisite. Advanced
+provisioning automation, credential lifecycle tooling, fleet management and
+nonessential operational services remain disabled in the product-development
+profile and are enabled only by the profile implementing or validating that
+capability. This does not disable authentication, transport security, trusted
+identity/time, Home/epoch ownership, durable-before-ACK or replay protections
+required by the product.
+
+Reuse existing configuration boundaries; do not add another feature-flag
+framework. The active JSON inputs are deliberately scoped: `config/node_health.json`
+provides the validated GS-D031 heartbeat/deployment policy,
+`config/service_access.json` provides a service-access duration, and
+`contracts/config.schema.json` describes Home behavior configuration. The
+shared C++ `FeatureFlags` are compile-time product capabilities, not an
+infrastructure control plane. None is a general JSON switch for provisioning
+or fleet services. Add a JSON setting only for a supported, schema-validated
+product/deployment value; otherwise use the existing target profile/build
+option. Defaults must be explicit, validated and stable across builds.
+
+Keep development, infrastructure-validation and release compositions distinct
+where their dependencies differ. Optional profile defaults do not waive release
+requirements: release gates must independently require every commercial
+capability in the release contract. For the S3 target,
+`GS40_TEST_ONLY_CLOUDSYNC` is default-OFF and composes the existing full product
+Hub with its guarded TEST_ONLY bootstrap; the GS-68 diagnostic image is a
+separate composition and cannot qualify HubRuntime or product CloudSync. The
+TC-001 scope uses only the existing C3 HIL injection, authenticated Node/Hub
+path, product S3 CloudSync, existing GS-179 ingress and caregiver API. It does
+not require commercial fleet or credential-lifecycle automation.
+
+Configuration persistence applies to non-secret profile choices and validated
+defaults. GS40 TEST_ONLY envelope credentials remain transient in RAM under the
+existing security contract and are not serialized to NVS or logged; a reboot
+requires a fresh authenticated test envelope. This is an intentional secret
+handling boundary, not a reason to persist keys for convenience. This policy
+does not change GS-D032, approve the still-PROPOSED `GS40T/1` contract, issue
+credentials, or authorize a physical image/ownership change. See the current
+[GS-117 evidence](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md)
+for the actual S3 image and remaining test-only authority prerequisites.

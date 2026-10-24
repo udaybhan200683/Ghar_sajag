@@ -1381,3 +1381,32 @@ existing GS-114 and GS-68 qualification states are unchanged. Full stage
 evidence is in the [dated GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-owner-authorized-physical-inspection--head-44f53a1).
 No locked decision or product requirement changed; `CONTEXT_VERSION` remains
 unchanged.
+
+## 2026-10-24 owner-directed configurable supporting-infrastructure policy (engineering policy; no new product lock)
+
+The owner directed that ordinary product development and validation must not
+depend on advanced optional infrastructure. Keep provisioning automation,
+credential-lifecycle services, fleet management and nonessential operations
+disabled in the product-development profile; enable each capability only in
+its explicit implementation/validation profile. Preserve foundational
+authentication, TLS, trusted identity/time, ownership, durability and replay
+checks. Reuse existing configuration mechanisms and do not create a second
+feature-flag framework. Release gates must still require every mandatory
+commercial capability even when its development default is OFF.
+
+The active source audit found narrow JSON configurations (`node_health.json`,
+`service_access.json`, and the Home configuration contract), plus compile-time
+product `FeatureFlags`; there is no general JSON infrastructure-feature map.
+The S3 `GS40_TEST_ONLY_CLOUDSYNC` CMake option is explicitly default-OFF and
+separate from the GS-68 diagnostic profile. TC-001 should reuse that existing
+isolated product/test path and existing GS-179 backend, with only the minimal
+authorized TEST_ONLY identity/authority inputs it needs. Commercial
+commissioning/fleet automation remains outside this test scope. GS40 envelope
+secrets stay ephemeral under the existing contract. This engineering policy
+does not resolve GS-D032's open credential/ownership mechanism, approve the
+PROPOSED `GS40T/1` contract details, provision an identity, or authorize
+hardware writes. The architecture application and current physical blocker are
+recorded in
+[`STORAGE_SYNC_ROUTINE_LEARNING.md`](../architecture/STORAGE_SYNC_ROUTINE_LEARNING.md#configurable-supporting-infrastructure-policy-2026-10-24)
+and the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md).
+No product semantics or context version changed.

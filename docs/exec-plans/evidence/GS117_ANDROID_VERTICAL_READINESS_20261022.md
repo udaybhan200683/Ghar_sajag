@@ -905,3 +905,106 @@ advances. Then use the existing console for one controlled motion and verify
 the same original EventKey through the physical S3, durable backend and actual
 Android APK. Preserve both OTA application slots, the current Home and all
 stored events.
+
+## 2026-10-24 S3 authenticated-session and configurable-infrastructure policy
+
+**Source checkpoint:** canonical branch `feature/r1-commercial-baseline`,
+local/remote HEAD `afc248610f897882482bad0d2eb830bd37b61a3b`; context preflight
+PASS (`2026-10-13.001`). Tracked files were clean before these documentation
+edits. Historical worktrees were left untouched. Existing untracked Android,
+firmware `sdkconfig`/managed-component and hardware-evidence assets were
+preserved.
+
+**Live S3 identity/image:** Windows COM10 / WSL `/dev/ttyACM1` and USB identity
+`E0:72:A1:D3:8D:34` identify the owner-designated ESP32-S3 rev 0.2 with 16 MiB
+flash and 8 MiB PSRAM. One reset-aware, read-only `esptool` inspection read the
+partition table/OTA selector and active application; it made no write. The
+partition-table SHA-256 is
+`101adada9e724af39b0ff503d609f7cf90378f5aa3a6be03799ba695160337d9`;
+`ota_0` is selected. It has two 4 MiB OTA app slots and the existing 2 MiB
+`gs_journal` partition. The 278,480-byte active image SHA-256 is
+`fd072a0a02729fb7c0f2cadb27a30b4cbb3ef6c8f5d2dee89fa2f9049a33b8dd`; its
+ESP-IDF image hash is
+`d60b1c4730e86dc4f1d0d8f034b5e3e170c10c0df6abae0d2399113920686346`. The
+active image readback exactly matches the owner-local Oct 17 GS-68 installation
+receipt: `GS68_CLOUDSYNC_DS_MTLS_HIL`, source
+`f501d985c1ce5b8b89f0786b42af6e5a179469cb`, diagnostic-only composition,
+DS selected but not provisioned. Receipt path:
+`~/.local/share/ghar-sajag/GS68-20261017/stack8192-installed-test-image-receipt.json`.
+Readback files remain in the mode-0700 owner evidence directory
+`~/.local/share/ghar-sajag/GS117-20261024-readonly/`; NVS-containing bytes are
+not copied into the repository. The physical board is not running the full
+`gs_r1_s3_hub` product HubRuntime image.
+
+**C3/S3 session result:** no authenticated C3↔S3 session was demonstrated. The
+C3 HIL-awake image was not rebuilt or reflashed. Its most recent state had
+`runtime_live=0`, `sensing_live=0`; source confirms NodeRuntime admission
+begins after `security_link.ready()` and authenticated channel setup. The live
+S3 image is diagnostic-only, not HubRuntime, so this is an S3 composition
+blocker rather than evidence of a C3 firmware defect. Current physical Node
+enrollment and Home/Hub/ownership-epoch binding are not verified. No serial
+motion command was issued.
+
+**Cloud/backend/APK:** product S3 CloudSync cannot be inferred from the
+diagnostic image. Existing `GS40_TEST_ONLY_CLOUDSYNC` is default-OFF, rejects
+diagnostic-only composition and composes the existing full product Hub with
+the isolated software-key TEST_ONLY trust path. Its config-root public DER and
+one-session envelope are explicit inputs; secret fields are memory-only. The
+GS-179 backend remains healthy for TLS-verified PostgreSQL, caregiver HTTPS
+and APIs, but Hub-ingress autostart is disabled and no physical Hub credential/
+registry, trusted-time authority or Home/epoch/Node binding is configured. The
+one HOST_SIM event remains historical and is not TC-001. The installed APK's
+package, backend origin, authorized Home and current event projection are not
+verified on the phone; ADB is unavailable.
+
+**Policy applied:** owner direction is product-first, configurable supporting
+infrastructure. Existing JSON inputs are narrow (`node_health.json`,
+`service_access.json`, Home configuration); compile-time feature flags and
+target-profile CMake options already exist. No general JSON infrastructure
+feature map was found, so no second flag system was added. Advanced provisioning
+automation, credential lifecycle and fleet management remain outside TC-001.
+The existing S3 TEST_ONLY profile stays explicitly opt-in; authentication,
+TLS, trusted identity/time, ownership and durable event rules remain mandatory.
+GS40 test credentials remain ephemeral; no NVS secret persistence is
+introduced. This policy does not approve the separately PROPOSED `GS40T/1`
+contract details, create an identity, or authorize S3 flash.
+
+**Regression:**
+`make -C code gs40-test-only-bootstrap-test gs40-config-test cloudsync-security-ut rejoin-host-test p2d-https-channel-host-test p2d-cloud-contract-host-test`
+exited 0. Results: TEST_ONLY bootstrap 47 checks; JSON NodeHealth configuration
+17 tests; CloudSync mTLS adapter 9, TEST_ONLY adapter 5, trust-provider 5
+suites; backend CloudSync security 14, identity/time integration 4, issuer 10,
+NodeHealth API 5; secure rejoin PASS; HTTPS transport 8 modes; CloudSync
+receipt validation 15 invalid modes and persistence recovery 2 modes. Software
+only; no hardware test executed.
+
+**Stage disposition:**
+
+| TC-001 stage | Result | Evidence/status |
+|---|---|---|
+| C3 identity and HIL-awake firmware | PASS | COM4 identity and installed HIL-awake image were verified in the authorized deployment receipt; no C3 rebuild or flash this checkpoint. |
+| S3 identity and installed image | PASS | COM10 identity and active image were read back; image is GS-68 diagnostic-only. |
+| Authenticated C3→S3 session | BLOCKED | Current S3 image lacks full product HubRuntime; live enrollment/owner/epoch binding also remains unverified. |
+| S3 journal admission and CloudSync | BLOCKED | No product HubRuntime image or physical mTLS/trusted-time/authority binding was demonstrated. |
+| GS-179 Hub ingress / PostgreSQL event | PARTIAL | PostgreSQL and caregiver HTTPS health PASS; physical Hub ingress is disabled/unconfigured; no new event row. |
+| Existing caregiver API / APK Home | NOT_VERIFIED | No phone-side package/origin/Home or event observation. |
+| Fresh TC-001 EventKey and actual APK presentation | NOT_RUN | No `INJECT_MOTION`, new EventKey, commit or APK display; HOST_SIM seed excluded. |
+
+**Owner-local side-effect disclosure:** an earlier invocation of
+`gs179-laptop-server.sh health-source`, mistaken for a read-only health probe,
+ran the existing HOST_SIM scenario and updated only the synthetic
+`test-c3-bedroom` NodeHealth projection to source revision 8. It did not insert
+or change a business-event row; PostgreSQL still has the single preserved
+historical HOST_SIM seed. The command was not repeated and no compensating
+mutation was made. This result is excluded from physical evidence.
+
+**Remaining exact physical/security prerequisite:** TC-001 cannot continue on
+the currently installed diagnostic S3 image. Any proposed next operation must
+be an app-only S3 product-profile update into a verified inactive OTA app slot,
+preserving the active diagnostic app, bootloader, partition table, NVS and
+`gs_journal`, with a verified selector rollback path. Before that operation,
+the exact TEST_ONLY image/build hash and bootstrap/identity scope must be
+reviewed together with slot compatibility, current identity and recovery
+evidence. Existing board-inspection approval does not authorize S3 flashing,
+credential issuance, ownership mutation or trust-root replacement. Do not
+inject on COM4 before those gates and `runtime_live=1` pass.
