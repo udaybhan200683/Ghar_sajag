@@ -6517,3 +6517,37 @@ persistent Hub-ingress identity/readiness; phone-side current APK/backend/Home
 receipt and explicit display confirmation. No C3 injection or device update has
 been performed. Continue from the existing TC-001 console only after those
 receipts are obtained; retain the same Home, backend and APK.
+
+### GS-117 fresh physical/backend recheck — 2026-10-24
+
+At canonical HEAD `44f384afaa3d3efd1c7fb48d220cf3d6f6e1dcf8`, remote matched
+local and context preflight passed. Read-only USB metadata maps COM4 / BUSID
+`3-1` / `ttyACM0` / `14:63:93:C5:D1:58` to the documented C3 USB identity.
+COM10 / BUSID `3-2` / `ttyACM1` / `E0:72:A1:D3:8D:34` is a second native
+Espressif interface but does not match the historical S3 CH343 identity
+`5CBC401023`; do not infer S3 identity from COM number. No TTY was open under a
+WSL process at the snapshot, but the ports remain attached through USB/IP and
+reset-safe open behavior is unverified.
+
+Jira GS-114 comment 11145 is still the controlling physical authorization:
+passive enumeration is allowed; active open/read is permitted only if exact
+adapter/endpoint reset safety is independently proven, otherwise stop. The
+TC-001 fixture and phone receipts are absent. Existing C3 serial observation
+has prior `USB_UART_CHIP_RESET` evidence. `HIL_READY`/`GET_STATE` contain the
+needed build/profile status, but no safe current query path is established. The
+candidate HIL-awake image is available and rehashed at
+`2497e6bbecc0f8b09954c9e3ac83b994b17f72621abb19eddd719d5dda4df67f`; installed
+profile, active slot, whether an update is required, and exact prior-app
+rollback image are all `NOT_VERIFIED`. No board update/reset was performed.
+
+Current laptop service health: PostgreSQL, caregiver HTTPS, backend and
+certificate-verified LAN endpoint `PASS`. Existing Hub-ingress implementation
+is present, but its listener/autostart is disabled, authenticated physical Hub
+identity is `NO`, freshness is `UNKNOWN`, and persistent ingress is
+`NOT_CONFIGURED`; no S3 CloudSync receipt exists. The actual S3's running image,
+trust/time, ownership epoch and Node enrollment are not safely observable. The
+owner-reported APK Connected state does not identify its backend/Home; phone
+reachability is `NOT_VERIFIED` and `adb` is unavailable. No event/EventKey was
+created and no APK PASS is claimed. Detailed stage evidence and safe next
+prerequisites are in
+[`GS117_ANDROID_VERTICAL_READINESS_20261022.md`](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-fresh-physicalbackend-recheck--read-only).

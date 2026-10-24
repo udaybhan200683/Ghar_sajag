@@ -1,5 +1,91 @@
 # GS-117 Android sensor vertical readiness — 2026-10-22
 
+## 2026-10-24 fresh physical/backend recheck — read-only
+
+Starting checkpoint was canonical `feature/r1-commercial-baseline` HEAD
+`44f384afaa3d3efd1c7fb48d220cf3d6f6e1dcf8`, matching origin; context
+preflight passed. Existing untracked Android assets, S3 `managed_components/`
+and `sdkconfig`, historical hardware evidence, and ignored build outputs were
+preserved. The listed noncanonical worktrees are historical; no other canonical
+R1 worktree was created.
+
+`usbipd.exe list` and Linux USB sysfs metadata (no serial open) show COM4 / BUSID
+`3-1` / `/dev/ttyACM0`, VID:PID `303a:1001`, USB serial
+`14:63:93:C5:D1:58`, and COM10 / BUSID `3-2` / `/dev/ttyACM1`, same VID:PID,
+USB serial `E0:72:A1:D3:8D:34`. COM4's USB identity matches the documented
+historical C3 fixture identity. COM10 is not the documented S3 fixture's
+CH343 serial `5CBC401023` and cannot be assigned as the S3 from its COM number
+or generic Espressif descriptor. Thus C3 USB mapping is `PASS` (metadata match),
+S3 identity is `NOT_VERIFIED`. `usbipd` reports both interfaces attached to
+WSL; `fuser` found no WSL process holding either TTY at the snapshot. This does
+not establish reset-safe open behavior or a Windows-side owner check. Neither
+serial interface was opened.
+
+No fixture-safe current-image query was established. The source's `HIL_READY`
+startup record and read-only `GET_STATE` response include firmware version and
+power/HIL flags, but both require the serial control path. Existing GS-114
+evidence records a C3 `USB_UART_CHIP_RESET` during serial observation and
+explicitly rejects assuming that lowering DTR/RTS after open prevents reset.
+The documented future candidate is a receive-only, high-impedance UART0 TX tap
+with no DTR/RTS/reset connection after the exact board revision, pin routing and
+electrical path are verified; that path is not established on this fixture and
+would not itself provide a live `GET_STATE` query. Current installed image,
+partition/OTA slot, HIL flags and sleep state therefore remain
+`NOT_VERIFIED`.
+
+The existing ignored HIL-awake image is present and rehashed at 950,032 bytes,
+SHA-256 `2497e6bbecc0f8b09954c9e3ac83b994b17f72621abb19eddd719d5dda4df67f`
+(`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`). The separately built normal sleep image is
+940,608 bytes, SHA-256
+`eec59be390315bad53e05bb7c3c60e0fd3311ec16a11d19040d3ad36ef4c733b`.
+Neither is installed. Because the running C3 image, active slot and preserved
+rollback image are unknown, whether an update is needed is `NOT_VERIFIED` and
+there is no safe exact app-only deployment/rollback package yet. If later
+required, approval must name the matched C3, candidate hash, existing authorized
+app-only transport, expected reboot, verified prior-image recovery path, and
+preservation of bootloader, partition table, NVS, credentials, enrollment and
+retained events. No update or reboot was attempted.
+
+Latest GS-114 authorization remains Jira comment 11145: Stage 1 read-only
+preflight only, and stop before opening an interface whose reset behavior is
+uncertain. TC-001's exact local `fixture.json` and phone-install receipt are
+absent. The historical `code/tools/hil/gs130_fixture.json` contains the old
+pair identities and artifact provenance, not current flash readback or current
+approval. No serial command, sensor stimulus, flash, reset, commissioning or
+ownership change is authorized by those records.
+
+The fresh `gs179-laptop-server.sh health` check reports PostgreSQL, caregiver
+HTTPS, backend and certificate-verified LAN endpoint `PASS`; Hub-ingress source
+is implemented, but autostart is disabled, authenticated Hub identity is `NO`,
+monitoring freshness is `UNKNOWN`, and persistent ingress/readiness are
+`NOT_CONFIGURED`. The live S3 image/configuration, trusted-time source,
+Hub/Home/epoch ownership and Node enrollment cannot be read through the safe
+interfaces available. Real S3 CloudSync-to-backend is therefore `BLOCKED` at
+ingress readiness and has no physical receipt. The prior GS-68 evidence says
+the production trust provider is fail-closed when unprovisioned; it does not
+identify this board's installed state.
+
+The owner-reported existing APK `Connected` state is retained as owner report,
+not app verification. Current health reports phone-side reachability
+`NOT_VERIFIED`; neither WSL nor Windows exposes `adb`, and the physical APK's
+backend origin and authorized Home could not be matched to this laptop backend.
+No second APK, Home or account was created or changed.
+
+| TC-001 stage | Result | Evidence |
+|---|---|---|
+| C3 USB mapping | `PASS` | COM4 serial matches documented C3 USB identity; firmware/runtime not inferred. |
+| S3 identity | `NOT_VERIFIED` | COM10 descriptor does not match historical S3 adapter identity. |
+| C3 installed HIL-awake profile / safe serial | `BLOCKED` | No current image receipt; no demonstrated reset-safe query path or exact fixture receipt. |
+| New C3 EventKey / authenticated ESP-NOW / S3 durable admission | `NOT_VERIFIED` | Injection was not run; no physical source event. |
+| S3 CloudSync / authenticated backend ingress | `BLOCKED` | Existing listener is not configured/authenticated for a physical Hub. |
+| PostgreSQL and caregiver backend health | `PASS` | Current service health only; no event row was created or correlated. |
+| Same Home on actual APK / event display | `NOT_VERIFIED` | Owner-reported Connected only; no phone-side origin/Home/EventKey observation. |
+
+No new EventKey exists. The preserved HOST_SIM seed
+`test-c3-bedroom / session 10 / sequence 1` is not a physical event and was not
+reused. TC-001 remains `NOT_RUN`; Android acceptance is not claimed.
+
 ## 2026-10-24 C3 USB-serial / HIL-awake audit
 
 The C3 sleep audit found an existing reusable awake profile; no new sleep flag
