@@ -5,12 +5,14 @@ const {chromium, expect} = require('../../frontend/node_modules/@playwright/test
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const net = require('node:net');
 
 (async () => {
   let input = '';
   for await (const chunk of process.stdin) input += chunk;
   const config = JSON.parse(input);
   const origin = new URL(config.origin).origin;
+  if (net.isIP(config.routeIpv4) !== 4) throw new Error('verified_ipv4_route_required');
   const repo = path.resolve(__dirname, '../../..');
   const pwaRoot = path.join(repo, 'code/tools/sim/pwa');
   const prefix = '/__caregiver_app__/';
@@ -28,7 +30,8 @@ const path = require('node:path');
   const browser = await chromium.launch({
     headless: true,
     executablePath,
-    args: ['--no-sandbox', '--disable-background-networking'],
+    args: ['--no-sandbox', '--disable-background-networking',
+      `--host-resolver-rules=MAP ${new URL(origin).hostname} ${config.routeIpv4}`],
   });
   try {
     const context = await browser.newContext();
@@ -41,7 +44,11 @@ const path = require('node:path');
       const url = new URL(route.request().url());
       if (url.origin !== origin) throw new Error(`unexpected_external_origin:${url.origin}`);
       if (url.pathname.startsWith('/lite/v1/')) {
-        const response = await route.fetch();
+        // The current Windows IP is in the same trusted certificate's IP SAN.
+        // Playwright's request worker cannot resolve Windows mDNS from WSL.
+        // The original browser origin/cookies stay .local; the proxied fetch
+        // verifies the owner-private CA and the current IP SAN independently.
+        const response = await route.fetch({url: `https://${config.routeIpv4}${url.pathname}${url.search}`});
         apiRequests.push({method: route.request().method(), path: url.pathname, status: response.status()});
         await route.fulfill({response});
         return;
@@ -104,11 +111,12 @@ const path = require('node:path');
         'Device status is unavailable until source freshness and coverage are current.');
       expect(config.monitoring).toBe('UNKNOWN');
     }
-    await expect(page.locator('#homeTab')).toContainText('Authenticated GS-148 TEST_ONLY caregiver data');
+    await expect(page.locator('#homeTab')).toContainText('TEST_ONLY · authenticated GS-148 caregiver data');
 
     await page.locator('[data-tab="devices"]').click();
     const node = page.locator(`[data-node-id="${config.physicalNodeId}"]`);
-    await expect(node).toContainText(`${config.room} · ${config.nodeStatus}`);
+    await expect(node).toContainText(config.room);
+    await expect(node).toHaveAttribute('data-device-state', config.nodeStatus);
     await expect(node).toContainText(config.nodeCoverage);
     for (const tabName of ['reports', 'settings']) {
       await expect(page.locator(`[data-tab="${tabName}"]`)).toBeVisible();

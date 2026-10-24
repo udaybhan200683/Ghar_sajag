@@ -63,6 +63,12 @@ class RegistrationTest(unittest.TestCase):
             "gs178-node-caregiver-e2e",
             "gs179-postgres-e2e",
             "gs58-wifi",
+            "gs58-setup-permit",
+            "gs58-onboarding",
+            "gs58-credential-slots",
+            "gs75-notification-worker",
+            "gs117-tc001-console",
+            "gs179-verified-endpoint",
             "pilot-factory",
         })
         self.assertEqual(prior_ids-current_ids,set())

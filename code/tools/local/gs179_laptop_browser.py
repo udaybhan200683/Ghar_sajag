@@ -11,6 +11,8 @@ import subprocess
 import sys
 import urllib.request
 
+from gs179_verified_endpoint import VerifiedAddressHTTPSHandler, windows_wifi_ipv4
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -56,8 +58,16 @@ def main() -> int:
         return 2
 
     context = ssl.create_default_context(cafile=str(ca))
+    # Windows advertises the .local name to the phone, but WSL need not have
+    # mDNS. Route to the current Windows Wi-Fi address while preserving the
+    # original hostname for SNI and certificate verification.
+    try:
+        route_ipv4 = windows_wifi_ipv4(origin)
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
+        print(f"BLOCKED verified_windows_wifi_route_unavailable: {type(error).__name__}")
+        return 2
     jar = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context),
+    opener = urllib.request.build_opener(VerifiedAddressHTTPSHandler(context, route_ipv4),
                                          urllib.request.HTTPCookieProcessor(jar))
 
     def call(path: str, method: str = "GET", body: dict | None = None):
@@ -125,6 +135,7 @@ def main() -> int:
         "role": profile.get("role"),
         "testOnly": profile.get("test_only"),
         "gs179LocalLanTestOnly": True,
+        "routeIpv4": route_ipv4,
     }
     env = os.environ.copy()
     env["NODE_EXTRA_CA_CERTS"] = str(ca)

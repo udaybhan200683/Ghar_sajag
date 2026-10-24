@@ -2551,6 +2551,45 @@
       "qualification_scope": "NODE_PRODUCTION_HOST_COMPONENTS_TO_REAL_LOOPBACK_TLS_SQLITE_AND_SHARED_CAREGIVER_BROWSER; NO_HARDWARE_ANDROID_PHONE_OR_PRODUCTION_SECURITY_QUALIFICATION"
     },
     {
+      "id": "gs117-tc001-console",
+      "components": ["tooling", "contract", "backend"],
+      "command": ["python3", "tests/python/test_gs117_tc001_console.py"],
+      "inputs": [
+        "tests/python/test_gs117_tc001_console.py",
+        "tools/local/gs117_tc001_console.py",
+        "tools/local/gs117_tc001_serial_windows.py",
+        "tools/local/gs117_tc001_backend.py",
+        "tools/local/gs117-tc001-backend.sh",
+        "tools/local/gs117-tc001-launch.sh",
+        "tools/local/GS117-TC001-Console.cmd"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": ["^OK$"],
+      "timeout": 120,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true,
+      "qualification_scope": "TEST_ONLY_CONTROLLER_SOFTWARE; PHYSICAL_BOARD_AND_ANDROID_NOT_RUN"
+    },
+    {
+      "id": "gs179-verified-endpoint",
+      "components": ["tooling", "backend", "pwa"],
+      "command": ["python3", "tests/python/test_gs179_verified_endpoint.py"],
+      "inputs": [
+        "tests/python/test_gs179_verified_endpoint.py",
+        "tools/local/gs179_verified_endpoint.py",
+        "tools/local/gs179_laptop_browser.py",
+        "tools/local/gs179_laptop_caregiver_browser.cjs"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": ["^OK$"],
+      "timeout": 120,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true,
+      "qualification_scope": "VERIFIED_TEST_ONLY_MDNS_ROUTE_SOFTWARE; ANDROID_PHONE_NOT_RUN"
+    },
+    {
       "id": "gs179-postgres-e2e",
       "components": [
         "node",

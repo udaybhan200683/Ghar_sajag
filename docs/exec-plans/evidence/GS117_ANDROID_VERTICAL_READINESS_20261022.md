@@ -178,3 +178,169 @@ The next physical step is blocked on those fixture, trust/authority, trusted
 time and network approvals. Do not substitute HOST_SIM or a direct backend
 insert, and do not infer a real Hub connection from local PostgreSQL or HTTPS
 readiness.
+
+## 2026-10-23 — TC-001 injected-motion console checkpoint
+
+**Scope:** GS-117 TC-001 with GS-179 TEST_ONLY backend. This is an injected
+sensor stimulus on a physical C3, separate from the genuine optical PIR case
+`PHY-GS117`. No current board was opened, reset, flashed, stimulated or
+commissioned in this checkpoint. Starting canonical branch/HEAD and origin
+were `feature/r1-commercial-baseline` /
+`f5b2042bf36ebd01da85dc147ae2ae3e873c9c2f`; context preflight PASS at
+`2026-10-13.001`. The tracked worktree was clean at start. Existing untracked
+Android/build/evidence assets and historical worktrees were preserved.
+
+| Reuse class | Finding | Action |
+|---|---|---|
+| Implemented/reusable | C3 `INJECT_MOTION` enters `hil_inject_motion`; NodeRuntime owns EventKey/retry/ACK. S3 full product composition owns authenticated radio, durable HubRuntime and CloudSync. GS-179 owns TEST_ONLY mTLS, PostgreSQL and caregiver APIs; GS-177 owns APK UI. GS-130 owns existing HIL evidence rules. | The controller issues only the existing C3 command and reads the existing DB/API. No new event pipeline, ingress API or store. |
+| Implemented/configuration gap | GS-179 laptop PostgreSQL and caregiver HTTPS pass; Hub ingress remains disabled/unconfigured, no authenticated physical Hub identity. WSL cannot resolve the Windows `.local` name in Node's Playwright request worker. | The browser helper now routes API fetches through the current Wi-Fi IP with the owner-private CA and current certificate IP SAN; Python keeps the original `.local` SNI and hostname validation. Existing `browser` command passes against the one prior HOST_SIM event. No ingress was activated. |
+| Implemented/physical proof missing | Source HIL flags do not prove the installed C3 image. The source S3 composition does not prove the installed S3 image, Node enrollment, trusted time, ownership or TLS credential. | The console refuses the Run path without a current fixture-specific image/USB/approval receipt and authenticated ingress receipt. |
+| Genuinely missing | Local one-click test UI, multi-run orchestration and stage/evidence ledger. | Added localhost-only TC-001 console, Windows COM helper, read-only PostgreSQL/API helper, bounded run history and explicit phone confirmation. |
+
+The existing `browser` command initially failed on WSL `.local` DNS. A first
+Chromium-only resolver rule left Playwright's separate Node request worker
+unresolved; routing that worker through the current IP with CA/IP SAN
+validation reached the real API. Two subsequent assertions had stale GS-177
+UI copy/markup expectations; they were updated to assert the current TEST_ONLY
+label and device-state attribute. The final command exited 0 with
+`HOST_SIM_PASS`, preserved EventKey `test-c3-bedroom / 10 / 1`, one displayed
+event and authorized Home API responses. This result is not a TC-001 physical
+or Android result.
+
+**Use after prerequisites:** Double-click
+`code/tools/local/GS117-TC001-Console.cmd` from Windows, open
+`http://127.0.0.1:18791/`, then press **Run Test**. The launcher starts the
+controller in the canonical WSL worktree and starts only the already-installed
+GS-179 caregiver systemd service if inactive. It does not refresh Windows
+network rules or activate Hub ingress. Windows Python 3 with pyserial is used
+for exact COM access. No PowerShell execution-policy change is needed.
+The console binds only to loopback, checks Host/Origin and an ephemeral CSRF
+token, accepts one active run, bounds serial/backend waits, and stores each
+sanitized report under owner-only `~/.local/state/ghar-sajag/gs117-tc001/`.
+It never invokes the GS-179 one-time seed helper or deletes prior data.
+Immediately before injection, a read-only PostgreSQL lookup also requires
+the selected Hub to remain ACTIVE for the exact Home/installation epoch and
+the physical C3/logical bedroom Node to have one ACTIVE enrollment. The
+recorded enrollment generation must match the new durable commit. On the
+existing HOST_SIM seed authority, this read returned `authority_ready=true`,
+generation `1`, and the preserved key `[10,1]`; it does not establish a
+connected physical Hub.
+
+The owner-only `~/.config/ghar-sajag/gs117-tc001/fixture.json` must be mode
+0600 and contain `schema_version=1`, `test_id=TC-001`,
+`profile=GS179_TEST_ONLY`, `home_id=gs177-test-product`,
+`logical_node_id=bedroom`, the exact TEST_ONLY `physical_device_id`,
+`hub_id`, positive `installation_epoch`, a dated fixture `approval_ref`,
+`expected_caregiver_origin` as the current verified HTTPS `.local` name,
+`approval_scope="C3 GET_STATE and INJECT_MOTION; C3/S3 UART observation"`, and
+`reset_safe_uart_verified=true`. Each `c3`/`s3` object must name its exact
+Windows `port`, `usb_hwid`, `serial_number`, local image path/SHA-256,
+`firmware_source_head` and `installed_image_receipt`; the C3 additionally
+needs `hil_control=true`, `physical_wake=false`, and the S3 needs
+`full_product_composition=true`. Both installed-image receipts must contain
+matching target/USB/source/running-image hash, installation date and a
+timezone-aware observation within 24 hours, plus active OTA slot, partition
+table hash and measured flash capacity; the S3 receipt must also identify its
+N16R8 PSRAM capacity. `hub_ingress_receipt` must name
+the verified GS-179 TEST_ONLY Hub/Home/epoch, enrolled Node, both certificate
+fingerprints, trusted-time readiness, authenticated physical Hub identity and
+an active persistent listener, observed within 24 hours. These receipts are
+operator evidence, not automatically issued credentials or proof invented by
+the console. Do not create them until the corresponding real checks and
+fixture-specific approval have occurred.
+The separate `phone_install_receipt` must record the installed TEST_ONLY APK
+package, public signer SHA-256, exact backend origin, authorized Home and a
+timezone-aware observation within 24 hours; the console still requires
+post-run confirmation that the *new* event appeared on that phone.
+
+The Win32 read-only pyserial scan found only `COM10` at this checkpoint; it
+returned one USB identity and no second board interface. The current fixture
+approval/image receipts are absent. `gs179-laptop-server.sh health` returned
+PostgreSQL `PASS`, caregiver HTTPS `PASS`, Wi-Fi TLS endpoint `PASS`, but Hub
+ingress `NOT_CONFIGURED`. No `adb` executable was found. The console smoke
+check returned HTTP 200 for status, HTTP 403 for missing CSRF, and a TC-001
+run report `BLOCKED` at environment before opening serial. This report is
+software guard evidence only. No new physical EventKey exists. The older
+`test-c3-bedroom / session 10 / sequence 1` is the preserved HOST_SIM seed,
+not a TC-001 result.
+Local source C3 CMake defaults keep `GS_HIL_CONTROL=OFF`; the HIL command is
+disabled in physical-wake builds. A historical ignored C3 GS-114 P9 signed
+image and an untracked S3 `sdkconfig` using a development partition table are
+present but do not identify either installed board or establish its OTA slot.
+The S3 product CMake rejects `GS_HIL_CONTROL`; no diagnostic-only Hub image is
+used by TC-001. These local artifacts were inspected read-only and preserved.
+
+**Stage acceptance:** A valid run must see `HIL_OK`, one new C3 NodeRuntime
+session/sequence, the same authenticated S3 event with durable ACK, a new
+matching PostgreSQL row carrying the exact Hub identity, ownership epoch and
+Node enrollment generation, and one authorized caregiver API presentation.
+This source-linked durable commit is the CloudSync delivery evidence; a row
+without ownership provenance fails that stage. Android remains `NOT_VERIFIED`
+until explicit operator confirmation of the exact new EventKey in the actual
+APK, recorded as `USER_CONFIRMED`; a browser PASS cannot fill this stage.
+Receipt-loss recovery, cross-Home negative physical testing, repeated physical
+runs, installed APK identity and genuine PIR remain `NOT_RUN`.
+
+**Validation:** focused TC-001 console tests **15/15 PASS**, verified-endpoint
+tests **2/2 PASS**, HIL catalogue **8/8 PASS**, GS-120 exact registry
+**6/6 PASS**, the read-only GS-179 backend/API probe, registered feature
+mapping and the live GS-179 browser helper were executed. Final aggregate
+gate results and exact Git checkpoint are recorded in the dated Jira update.
+The browser result was `HOST_SIM_PASS`
+for the preserved event only. The new `PHY-GS117-TC001` case remains
+`NOT_RUN` and is distinct from optical `PHY-GS117`. Release qualification is
+`NOT_RUN`, and no RC/commercial promotion is implied.
+
+Adjacent gate triage before correction:
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`,
+`REQUIREMENT_SOURCE=docs/validation/MASTER_VALIDATION.md`,
+`DECISION_IDS=NONE`,
+`TASK_SCOPE=TC-001 physical traceability and affected validation`,
+`OUT_OF_SCOPE=GS-177 visual payload optimization`.
+The required HIL catalogue checker treated an existing GS-177 semicolon-separated
+pair of evidence paths as one filename, so the tooling gate failed even though
+both files exist. It now validates each path separately; its focused suite
+passes 8/8 and the existing catalogue status remains unchanged. The same
+initial tooling run also failed the pre-existing Phase 3A CSS byte budget
+(`29,576` actual vs `18,432` maximum). That UI performance problem is not
+altered by TC-001 and is recorded as an unresolved component-gate failure,
+not a PASS. No rule, threshold or assertion was weakened.
+The backend component gate also found the GS-120 diagnostic registry test's
+exact expected list had not been updated for four already registered GS-58/75
+stages or the two new TC-001/GS-179 stages. The test's exact expected set was
+updated while preserving its parent-stage no-loss assertion; its focused
+registration suite passes 6/6. This is `TEST_INFRA_ONLY` within affected
+registry validation, not a diagnostic product change. The backend gate's
+`p0-full-product-e2e` stage still fails its required product-status check:
+26/26 scenario assertions pass, but `product_status=PARTIAL` and physical
+qualification remains `NOT_RUN`.
+The PWA gate's actual Chromium stage passed **86/86**. Its GS-177 connected
+Lite API stage passed **22/22** and diagnostic-foundation passed **98/98**
+after the additive registry correction. Its separate GS-68 offline browser
+stage failed before running tests because this WSL Python lacks the
+`websocket` package. The aggregate PWA gate therefore remains **FAIL**;
+the P0 stage also remains **FAIL** with 26/26 scenario assertions and
+`product_status=PARTIAL`. These unrelated environment/product gaps are not
+claimed as TC-001 physical evidence.
+The isolated `make gs179-postgres-e2e` regression passed **55/55** with
+`physical=NOT_RUN`, using the existing owner-local dependency paths and
+temporary isolated PostgreSQL schemas. Its first attempt failed before tests
+because that shell omitted the packaged `psycopg` path; the corrected rerun
+passed. No historical business event was modified.
+
+At the precommit handoff checkpoint, local and origin HEAD were both
+`f5b2042bf36ebd01da85dc147ae2ae3e873c9c2f` on
+`feature/r1-commercial-baseline`. Only the reviewed TC-001, GS-179 endpoint,
+traceability, affected test-registry and dated handoff files were changed.
+Pre-existing untracked/ignored Android, firmware build and historical
+evidence assets were preserved. The dated GS-117/GS-179 Jira comments carry
+the pushed implementation SHA and final remote verification.
+
+**Next exact action:** Obtain the exact C3/S3 fixture and reset-safe UART
+authorization; independently verify current running images, HIL flags,
+partition/slot and Node/Home/Hub/epoch enrollment. Configure the existing
+GS-179 TEST_ONLY mTLS ingress only after its identity, trust and trusted-time
+inputs are approved and present. Verify the installed APK package/signer,
+backend origin and authorized Home on the phone. Then complete the owner-only
+receipts and run TC-001. Preserve all stored events and the separate optical
+PIR qualification gate.

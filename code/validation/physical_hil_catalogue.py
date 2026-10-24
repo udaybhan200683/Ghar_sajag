@@ -48,17 +48,19 @@ def validate(catalogue_path: Path = CATALOGUE, traceability_path: Path = TRACEAB
         if row.get("RELEASE_BLOCKING") not in {"YES", "NO"}:
             errors.append(f"{row.get('TEST_ID')}: RELEASE_BLOCKING must be YES or NO")
         evidence = row.get("EVIDENCE", "")
-        if evidence and not evidence.startswith(("http://", "https://")):
-            if not (catalogue_path.parent / evidence).resolve().exists():
-                errors.append(f"{row.get('TEST_ID')}: evidence path does not exist: {evidence}")
+        evidence_refs = [ref.strip() for ref in evidence.split(";") if ref.strip()]
+        for ref in evidence_refs:
+            if not ref.startswith(("http://", "https://")) and not (catalogue_path.parent / ref).resolve().exists():
+                errors.append(f"{row.get('TEST_ID')}: evidence path does not exist: {ref}")
         if row.get("STATUS") == "PASS":
             if not re.fullmatch(r"[0-9a-f]{40}", row.get("SOURCE_HEAD", "")):
                 errors.append(f"{row.get('TEST_ID')}: PASS lacks exact source HEAD")
             hashes = re.findall(r"(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])", row.get("IMAGE_SHA256", ""))
             if not hashes:
                 errors.append(f"{row.get('TEST_ID')}: PASS lacks image SHA-256")
-            if evidence and not evidence.startswith(("http://", "https://")) and not (catalogue_path.parent / evidence).resolve().is_file():
-                errors.append(f"{row.get('TEST_ID')}: PASS lacks evidence file")
+            for ref in evidence_refs:
+                if not ref.startswith(("http://", "https://")) and not (catalogue_path.parent / ref).resolve().is_file():
+                    errors.append(f"{row.get('TEST_ID')}: PASS lacks evidence file: {ref}")
     required_features = 0
     conditional_features = 0
     for row in trace:

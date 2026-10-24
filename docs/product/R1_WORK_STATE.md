@@ -6416,3 +6416,39 @@ run Yogi → Agrim → Yogi using the TEST_ONLY app. Preserve the original packa
 and its data. The privileged network watcher remains unregistered and requires
 separate explicit approval; do not operate the Hub or PIR. See [GS-179
 discovery acceptance evidence](../exec-plans/evidence/GS179_DNSSD_AUTODISCOVERY_20261023.md#side-by-side-discovery-acceptance-apk-preparation--2026-10-23).
+
+### GS-117 TC-001 physical-C3/S3 injected-motion console — 2026-10-23
+
+The canonical branch began this work at
+`f5b2042bf36ebd01da85dc147ae2ae3e873c9c2f`, matching origin; context
+preflight passed. The existing C3 HIL command, production NodeRuntime,
+physical S3 product composition, GS-179 mTLS/PostgreSQL/API runtime and
+GS-177 APK UI were audited and reused. A loopback-only Windows-launchable
+TC-001 console and exact-COM helper now provide a guarded path for repeatable
+`C3_HIL_INJECTED` events. The existing GS-179 browser probe also resolves the
+WSL `.local` routing problem through a current IP and certificate-verified
+endpoint. The live browser result is `HOST_SIM_PASS` on the old one-time event;
+it is not physical or APK acceptance. See the [GS-117 TC-001 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-23--tc-001-injected-motion-console-checkpoint).
+
+At this checkpoint Windows exposes only one COM interface, there are no
+current C3/S3 installed-image/reset-safe/fixture approval receipts, the
+existing Hub ingress remains `NOT_CONFIGURED`, and no ADB executable is
+available. The localhost console's guarded smoke run reports `BLOCKED`
+before serial access. No new EventKey, physical S3 admission, mTLS COMMITTED
+receipt, fresh caregiver event or APK display was observed. `PHY-GS117-TC001`
+and optical `PHY-GS117` both remain `NOT_RUN`; GS-117/179 remain In Progress.
+The latest handoff lists exact prerequisites, validation and next action.
+
+Focused TC-001 orchestration tests passed **15/15** and certificate-verified
+endpoint tests **2/2**; the read-only live caregiver browser probe passed on
+the preserved HOST_SIM seed only. GS-130 traceability passed (226 rows,
+280 modules, 27 physical cases) and the framework passed 51/51. The PWA
+Chromium stage passed 86/86 while the aggregate PWA/backend/tooling gates
+remain **FAIL** for the recorded CSS budget, partial P0 physical status and
+the PWA offline browser's missing local `websocket` dependency. No TC-001
+physical acceptance or release gate was executed.
+The isolated GS-179 PostgreSQL regression passed **55/55**, with physical
+`NOT_RUN`. A live read-only authority lookup verified only the existing
+HOST_SIM seed's active test Hub/Node registry; the console uses that lookup
+to block injection if the selected fixture's current Home, epoch or
+enrollment has changed.

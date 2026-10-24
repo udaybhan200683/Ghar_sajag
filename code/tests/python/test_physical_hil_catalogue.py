@@ -66,6 +66,27 @@ class PhysicalHilCatalogueTest(unittest.TestCase):
             errors, _, _, _ = validate(catalogue, TRACEABILITY)
         self.assertIn("test IDs must be nonempty and unique", errors)
 
+    def test_multiple_evidence_paths_are_checked_individually(self):
+        with CATALOGUE.open(newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            (folder / "first.md").write_text("first\n")
+            (folder / "second.md").write_text("second\n")
+            for row in rows:
+                row["EVIDENCE"] = ""
+            target = next(row for row in rows if row["TEST_ID"] == "PHY-GS117-TC001")
+            target["EVIDENCE"] = "first.md;second.md"
+            catalogue = folder / "catalogue.csv"
+            with catalogue.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=rows[0].keys())
+                writer.writeheader(); writer.writerows(rows)
+            errors, _, _, _ = validate(catalogue, TRACEABILITY)
+            self.assertEqual(errors, [])
+            (folder / "second.md").unlink()
+            errors, _, _, _ = validate(catalogue, TRACEABILITY)
+            self.assertTrue(any("second.md" in error for error in errors))
+
     def test_catalogue_status_is_not_promoted_to_physical_pass(self):
         with CATALOGUE.open(newline="") as stream:
             rows = {r["TEST_ID"]: r for r in csv.DictReader(stream)}
