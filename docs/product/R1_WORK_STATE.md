@@ -6932,3 +6932,25 @@ synthetic-ID-only and host-keyed; it is not an authorized physical Hub issuer.
 No physical key/CSR-backed TEST_ONLY certificate registry or matching
 Home/epoch/Node binding is available, so the syntax change does not enroll or
 authenticate the boards.
+
+## 2026-10-24 latest GS-117 live recheck
+
+From source `3cf644b928cb1c573ce80c0d4887e0e984964627`, live COM discovery
+again matches COM4 to C3 USB serial `14:63:93:C5:D1:58` and COM10 to S3
+`E0:72:A1:D3:8D:34`. Reset-aware C3 `GET_STATE` confirms the HIL-awake profile
+and `runtime_live=0`, `sensing_live=0`, `retained=0`, `in_flight=0`; no
+injection was sent. S3 passive UART observation produced no startup markers,
+so its HubRuntime and storage startup remain NOT_VERIFIED.
+
+The live Yogi Wi-Fi is now Private at `192.168.1.8/24`; the existing GS-179
+portproxy is still stale at `.7:443 -> 172.17.152.10:8444`, and the current
+Windows token is not elevated. The existing caregiver/PostgreSQL service is
+healthy. A local CA- and hostname-verified API check confirmed the existing
+Home `gs177-test-product` and authenticated GS-148 projection, with stale
+monitoring. Read-only registry inspection found no ownership/enrollment for
+the historical or current physical Hub and no physical C3 commits. Hub ingress
+is still disabled and lacks physical client identity/trusted-time authority;
+the S3 CloudSync build remains OFF. ADB is unavailable, so APK verification is
+NOT_VERIFIED and TC-001 remains BLOCKED/NOT_RUN with no EventKey. Exact stage
+evidence, focused regressions, and the one consolidated authority/network gate
+are in the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-live-c3s3-backend-and-route-recheck).

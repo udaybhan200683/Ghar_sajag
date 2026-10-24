@@ -1453,3 +1453,17 @@ credentials, ownership or product contract were changed. See the
 [GS-117 execution handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-physical-identity-compatibilitysecurity-contract-boundary)
 for implementation and validation evidence.
 `CONTEXT_VERSION` and GS-D032 are unchanged.
+
+## 2026-10-24 GS-117 live fixture evidence (no new lock)
+
+Reset-aware status confirms the installed C3 remains in its existing
+HIL-awake profile but has no authenticated Hub session. COM10 is the expected
+physical S3 by USB serial, but passive startup markers, storage mounts and
+HubRuntime were not observed. The existing authenticated caregiver API and
+PostgreSQL Home are reachable through a local TLS-verified route; the live
+phone route is stale and the Windows token is not elevated. Physical Hub mTLS,
+trusted time, Home/epoch ownership, C3 enrollment/reassociation and S3
+CloudSync remain unconfigured. No event, identity, credential, persistent
+record or device configuration changed. TC-001 stays BLOCKED/NOT_RUN and the
+existing GS-D032/GS40T/1 authority boundary remains unchanged; details are in
+the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-live-c3s3-backend-and-route-recheck).

@@ -1351,3 +1351,48 @@ trusted time, plus an owner-trusted non-Public Wi-Fi profile and elevated
 execution context to refresh only the named GS-179 portproxy. Actual APK
 origin/Home/event acceptance also remains NOT_VERIFIED until device-side
 diagnostics or genuine user observation exists.
+
+## 2026-10-24 live C3/S3, backend, and route recheck
+
+The current owner task authorizes reset-aware UART discovery/status for these
+two development boards and one C3 injection only after authenticated readiness.
+This section records the non-stimulating recheck; it does not extend authority
+to issue credentials, claim ownership, alter C3 association, flash the S3, or
+change Windows networking.
+
+| Stage | Result | Live evidence |
+|---|---|---|
+| COM identity | PASS | Windows pyserial and PnP metadata agree: COM4 USB serial `14:63:93:C5:D1:58` (USB JTAG/serial `303A:1001`) and COM10 `E0:72:A1:D3:8D:34`. Both ports opened exclusively with DTR=0/RTS=0; no competing serial client was observed. |
+| C3 firmware/profile | PASS | Read-only `GET_STATE` returned `HIL_OK`; `power_mode=HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`, `physical_wake=0`, `ota_slot=ota_1`. No firmware was built or flashed. |
+| C3 NodeRuntime/radio | BLOCKED | Latest response: `session=43`, `retained=0`, `in_flight=0`, `pending_inject=0`, `runtime_live=0`, `sensing_live=0`. No radio session with the current Hub is ready. No `INJECT_MOTION` was sent. |
+| S3 identity/startup | PARTIAL / NOT_VERIFIED | COM10 matches the expected physical S3 USB serial. Two reset-aware, DTR/RTS-low opens yielded no product startup/status markers during passive capture. This does not prove HubRuntime or storage startup. No S3 flash/configuration write occurred. The latest prior application readback remains `a46c843ef66f4a0862668304b27f6cf6079ee70c0e2e48a3acbaa6e307462fa7`; installed TEST_ONLY CloudSync was previously verified OFF. |
+| Hub/Node ownership and enrollment | BLOCKED | Read-only query of the active GS-179 PostgreSQL registry returned no ownership or enrollment rows for either `hub-7c4fadb72a20` or current `hub-e072a1d38d34`, and no physical C3 commit rows for `c3-146393c5d158`. The preserved C3 association evidence still names the historical Hub, not this S3. No records were changed. |
+| Backend/PostgreSQL | PASS | Existing `gs179-laptop.service` and PostgreSQL are active. `gs179-laptop-server.sh health` reports PostgreSQL durable settings and caregiver HTTPS PASS, while phone-facing HTTPS fails because forwarding is stale. A separate read-only API check routed directly to the same WSL listener while preserving `https://desktop-3qqu64b.local`, SNI, CA and hostname verification; authenticated Home `gs177-test-product` returned `AUTHENTICATED_GS148_TEST_ONLY`, `caregiver_home_ready=true`, `source_freshness=STALE`, `monitoring=UNKNOWN`. This verifies backend/API access, not the APK or phone route. |
+| Physical Hub ingress/CloudSync | BLOCKED | No `GS179_TEST_ONLY_HUB_*` runtime configuration is present in the owner server environment; only the caregiver systemd unit is active, no Hub ingress listener is running, and no registered physical client certificate/time/ownership package exists. The discovery TEST_ONLY CA in `gs179-discoverytest-signing` is the separately documented APK signing authority; it was not repurposed for Hub identity. Existing S3 product image has CloudSync OFF. |
+| Windows-to-phone route | BLOCKED | Live Wi-Fi is `Yogi`, category `Private`, IPv4 `192.168.1.8/24`; WSL listener is `172.17.152.10:8444`. Existing `192.168.1.7:443 -> 172.17.152.10:8444` forwarding is stale. The current Windows token is not Administrator. No portproxy, firewall, TLS, or address configuration was changed. |
+| Existing Android APK | NOT_VERIFIED | `adb` is unavailable and no current phone-install observation/receipt exists. Backend login/API success is not an APK result. |
+| TC-001 | BLOCKED / NOT_RUN | No fresh C3 EventKey was created; no physical S3 receipt, CloudSync acknowledgement, PostgreSQL physical event commit, or APK event display exists. HOST_SIM history remains excluded. |
+
+The first temporary status-probe invocation had an incorrectly escaped line
+ending and logged one harmless HIL `unknown_command`; the corrected supported
+`GET_STATE` then returned the state above. No event, credential, ownership, or
+storage operation resulted. Stability across repeated injections remains
+NOT_TESTED.
+
+Focused regression results from this recheck: `make -C code
+gs40-test-only-bootstrap-test` 59 checks PASS; TC-001 console 19/19 PASS;
+verified endpoint 2/2 PASS; GS-179 runtime composition 4/4 PASS using the
+existing isolated PostgreSQL test schema; GS-179 PostgreSQL security 18/18
+PASS; caregiver connected-lite API 22/22 PASS. The runtime composition was
+rerun with its documented isolated PostgreSQL DSN after the default invocation
+left its PostgreSQL-only case skipped. Existing persistent Home and event
+tables were not mutated.
+
+The precise external gate is authorization/material for a separate TEST_ONLY
+physical Hub issuer and current trusted-time source, plus authority to create
+the exact S3/Home/epoch ownership and C3 Node enrollment and to perform the
+existing-protocol reassociation without erasing the old binding or retained
+data. The APK signing key is not an acceptable substitute. Separately, phone
+route repair requires an elevated Windows run of the existing narrowly scoped
+proxy action after verifying the current `Private` Wi-Fi and `.8` address. Do
+not inject motion until these gates and actual S3 product startup are verified.
