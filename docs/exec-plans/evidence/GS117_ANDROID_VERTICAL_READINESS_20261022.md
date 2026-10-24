@@ -1107,3 +1107,78 @@ and physical-wake qualification remains unchanged; no optical PIR test ran.
 The next physical gate is a verified S3 startup/mount and an existing approved
 TEST_ONLY Home/Hub/Node identity, time and mTLS binding. Do not inject while
 C3 runtime and authenticated-session readiness remain false.
+
+## 2026-10-24 Agrim recheck and C3↔S3 identity evidence — source HEAD 94be192
+
+**Repository checkpoint:** canonical branch `feature/r1-commercial-baseline`,
+local and remote HEAD `94be1926770d3fd10569cbcfdcde7398df32cd57`; required
+context preflight PASS. Tracked worktree was clean before this evidence update.
+Existing untracked Android assets, S3 sdkconfig/managed components and prior
+hardware evidence remain untouched.
+
+**Fresh C3 status:** the authorized read-only `GET_STATE` on COM4 matched USB
+identity `14:63:93:C5:D1:58` and reported session 42, `runtime_live=0`,
+`sensing_live=0`, retained/in-flight/pending injection all zero, and
+`power_mode=HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`,
+`physical_wake=0`, `ota_slot=ota_1`. The C3 image was not rebuilt or flashed;
+no motion command was sent.
+
+**Identity comparison (read-only):** source in
+`node_security_link.cpp` and `hub_security_link.cpp` derives Hub IDs as
+`hub-` followed by the six lowercase MAC bytes. The current COM10 S3 MAC
+`e0:72:a1:d3:8d:34` therefore maps to `hub-e072a1d38d34`. A protected-mode
+COM4 NVS readback (24,576 bytes, SHA-256
+`4363b2f6a38e77b5c4f92776adeae8cfbba8120620af23ad86a237517947c58c`, file
+mode 0600 in the owner-only evidence directory) contains a readable
+`health_ack_hub` value for `hub-7c4fadb72a20`, which does not match COM10.
+That ID matches a different historical Hub fixture. This is evidence of a
+stale/different Hub pin, not proof of the encrypted association record's
+contents: the `gs_assoc/binding` record remains AEAD-protected and was not
+decoded or changed. No association, ownership, credentials, NVS or event data
+was modified.
+
+COM10's current `gs_state` readback is 262,144 bytes, SHA-256
+`3b874d3ba46c638fc3094f8e92fb744ca974893873f8885f54e23760f9b6311b`, all
+`0xff`; this establishes that the `gs_state` partition has no records, but does
+not establish that identity metadata is absent from base NVS. Base NVS contents
+were not dumped in this check. Its current product app
+readback remains the authorized OTA1 image SHA-256
+`a46c843ef66f4a0862668304b27f6cf6079ee70c0e2e48a3acbaa6e307462fa7`, but
+runtime startup and LittleFS mount remain `NOT_VERIFIED` because the bounded
+identity-pinned serial observer captured no startup output.
+`GS40_TEST_ONLY_CLOUDSYNC` is OFF. The S3 does not currently have verified
+Home/epoch ownership, Node enrollment, trusted-time authority or Hub-ingress
+mTLS configuration.
+
+**Network/API/APK:** fresh Agrim state is `Airtel_Agrim`, Private,
+`192.168.1.10/24`, with WSL NAT `172.17.152.10`. PostgreSQL TLS/durability and
+local caregiver HTTPS remain PASS. The existing Windows portproxy still
+listens on stale `192.168.1.7:443` and targets `172.17.152.10:8444`; the
+existing scoped refresh needs an administrator token unavailable in this
+session. No forwarding or firewall mutation was attempted. Phone reachability,
+installed APK backend origin, authorized Home and event display remain
+`NOT_VERIFIED`; the owner-reported Connected label is not backend or event
+evidence.
+
+| TC-001 stage | Result | Evidence |
+|---|---|---|
+| C3 identity / HIL-awake profile | PASS | COM4 identity and current GET_STATE; HIL control enabled, HIL build off, physical wake off, awake mode. |
+| C3 NodeRuntime and sensing readiness | BLOCKED | `runtime_live=0`, `sensing_live=0`; authenticated security link has not become ready. |
+| Current COM10 product image | PASS (image only) | USB/MAC identity and app readback match the installed product candidate; startup/mount remain NOT_VERIFIED. |
+| C3↔current S3 identity/session | BLOCKED | C3 readable health-ACK Hub pin differs from MAC-derived COM10 Hub ID; protected association binding is not decoded. |
+| S3 Home/Node/time/mTLS readiness | BLOCKED | `gs_state` readback is erased; current ownership, enrollment, trusted-time and ingress identity/configuration have not been verified. |
+| S3 CloudSync / backend Hub ingress | BLOCKED | TEST_ONLY CloudSync OFF; Hub ingress not configured; no physical receipt. |
+| PostgreSQL / caregiver local API | PASS | TLS-verified durable PostgreSQL and local caregiver HTTPS health. |
+| Phone-facing LAN / APK | BLOCKED / NOT_VERIFIED | Existing proxy address is stale; no ADB/phone evidence of app origin, Home or event. |
+| Fresh C3 EventKey / APK presentation | NOT_RUN | Injection withheld; no new EventKey, Hub receipt, business-event commit or phone display. Historical HOST_SIM remains excluded. |
+
+**Remaining exact prerequisite:** obtain/use the authorized TEST_ONLY identity
+and ownership fixture for the current COM10 Hub and the intended existing Home,
+including the matching C3 association/Node enrollment, trusted-time authority
+and mTLS inputs. None of those values can be reconstructed from the encrypted
+C3 association or established by the empty `gs_state` readback; base NVS was
+not dumped to inspect identity material. Do not clear/re-enroll the C3 or
+create new credentials/Home to work around this. Separately, refreshing
+the existing Agrim LAN proxy requires the existing Windows administrator
+operation. Until the identity/session is valid, do not inject. TC-001 remains
+`BLOCKED` / `NOT_RUN`; GS-114 physical-wake/battery qualification is unchanged.

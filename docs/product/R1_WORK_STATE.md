@@ -6827,3 +6827,28 @@ runtime_live=0 and sensing_live=0 pending authenticated Hub readiness.
 TC-001 remains NOT_RUN/BLOCKED, the HOST_SIM seed remains excluded, and
 GS-114 physical-wake/battery qualification is unchanged. See the [dated
 GS-117 execution evidence](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-owner-approved-s3-product-storage-deployment-and-agrim-network-recheck).
+
+### GS-117 fresh Agrim and C3↔S3 identity recheck — 2026-10-24, HEAD 94be192
+
+Fresh authorized COM4 `GET_STATE` still reports `HIL_AWAKE_TEST_ONLY`,
+`hil_control=1`, `runtime_live=0`, and `sensing_live=0`; C3 was not reflashed
+and no motion was injected. Read-only source-derived identity comparison
+shows current COM10 MAC `e0:72:a1:d3:8d:34` maps to Hub ID
+`hub-e072a1d38d34`, while the COM4 NVS health-ACK pin names a different
+historical Hub. The encrypted C3 association binding was not decoded or
+changed. COM10 `gs_state` readback is all-erased; base NVS was not dumped, so
+this does not establish whether identity metadata exists outside `gs_state`.
+Current ownership and Node enrollment remain unverified. The installed product app
+readback is verified, but S3 runtime mount/startup is NOT_VERIFIED and
+TEST_ONLY CloudSync remains OFF.
+
+Agrim is `192.168.1.10/24`; local PostgreSQL durability/TLS and caregiver
+HTTPS pass. Existing Windows LAN portproxy remains bound to stale
+`192.168.1.7`; refreshing it requires the unavailable administrator token.
+Phone reachability and actual APK backend/Home/event remain NOT_VERIFIED.
+No new EventKey or backend row exists, and the HOST_SIM seed remains excluded.
+TC-001 is BLOCKED/NOT_RUN pending the existing authorized matching
+TEST_ONLY Home/Hub/Node ownership, time and mTLS fixture; no identity,
+credential, NVS or ownership changes were performed in this recheck. Full
+stage evidence and private-readback hashes are in the
+[GS-117 dated handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-agrim-recheck-and-c3s3-identity-evidence--source-head-94be192).
