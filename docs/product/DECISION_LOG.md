@@ -1426,3 +1426,21 @@ NVS, journal or identity was changed. The previous handoff suggestion of an
 app-only S3 update is superseded. This evidence does not authorize migration,
 change GS-D032 or change `CONTEXT_VERSION`; details are in the
 [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-s3-authenticated-session-and-configurable-infrastructure-policy).
+
+## 2026-10-24 GS-117 physical identity / TEST_ONLY compatibility (evidence; no new lock)
+
+Current physical C3/S3 source identities are MAC-derived as `c3-<MAC>` and
+`hub-<MAC>`. The existing GS40 TEST_ONLY bootstrap and GS-179 Hub ingress
+accept only the isolated `test-hub-*` identity namespace; the TC-001 fixture
+and backend helper likewise accept synthetic `test-hub-*` / `test-c3-*`
+identities. These checks prevent the current physical identities from being
+bound to the existing TEST_ONLY Home through the current code. No identity
+alias or guard relaxation is safe because it would break authenticated
+identity continuity. GS-D032 still requires authorized proof-of-possession
+and Home/epoch ownership, and GS40T/1 remains PROPOSED; this evidence does not
+select missing trust or issuance mechanics, authorize credentials, or change
+the product contract. TC-001 stays BLOCKED/NOT_RUN pending an explicit
+security-approved TEST_ONLY physical-identity binding for the current Home
+and exact boards. Full source findings are in the
+[GS-117 execution handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-physical-identity-compatibilitysecurity-contract-boundary).
+`CONTEXT_VERSION` and GS-D032 are unchanged.

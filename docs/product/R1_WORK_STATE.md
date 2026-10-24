@@ -6852,3 +6852,20 @@ TEST_ONLY Home/Hub/Node ownership, time and mTLS fixture; no identity,
 credential, NVS or ownership changes were performed in this recheck. Full
 stage evidence and private-readback hashes are in the
 [GS-117 dated handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-agrim-recheck-and-c3s3-identity-evidence--source-head-94be192).
+
+### GS-117 physical identity/TEST_ONLY contract compatibility — 2026-10-24
+
+An additional source audit established that the current physical C3/S3
+identities are MAC-derived (`c3-<MAC>` and `hub-<MAC>`), while the existing
+GS40 TEST_ONLY bootstrap, GS-179 Hub ingress, TC-001 fixture and backend
+helper accept only synthetic `test-c3-*` / `test-hub-*` identities. They
+cannot safely identify this physical pair under the existing TEST_ONLY Home
+without an approved identity binding; no alias or guard bypass was introduced.
+GS-D032's proof-of-possession/Home-epoch behavior is LOCKED, while the target
+`GS40T/1` bootstrap details remain PROPOSED. No issuer, matching Node
+enrollment, trusted-time or mTLS fixture is present. TC-001 remains
+BLOCKED/NOT_RUN. Required next input is an approved minimal TEST_ONLY
+identity/ownership and trust contract for the existing Home and these exact
+physical IDs; this is a security/product decision, not a routine serial or
+network step. The existing Agrim proxy also needs a scoped Windows-admin
+refresh. See the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-physical-identity-compatibilitysecurity-contract-boundary).

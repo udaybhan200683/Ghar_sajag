@@ -1182,3 +1182,42 @@ create new credentials/Home to work around this. Separately, refreshing
 the existing Agrim LAN proxy requires the existing Windows administrator
 operation. Until the identity/session is valid, do not inject. TC-001 remains
 `BLOCKED` / `NOT_RUN`; GS-114 physical-wake/battery qualification is unchanged.
+
+## 2026-10-24 physical identity compatibility/security-contract boundary
+
+Source audit found that the current physical identities and the existing
+TEST_ONLY stack use different identity namespaces:
+
+- C3 `NodeSecurityLink::initialize()` derives the permanent Node identity as
+  `c3-<12 lowercase MAC hex digits>`; S3 `HubSecurityLink::initialize()`
+  derives the Hub identity as `hub-<12 lowercase MAC hex digits>`.
+- The existing GS40 TEST_ONLY bootstrap accepts only `test-hub-*` identities.
+  GS-179 TEST_ONLY mTLS ingress enforces the same Hub namespace and a
+  `gs177-test-*` Home. The TC-001 fixture and caregiver backend helper also
+  require synthetic `test-hub-*` / `test-c3-*` IDs.
+- The current product S3 therefore cannot present its MAC-derived permanent
+  Hub identity to the existing TEST_ONLY ingress, and the physical C3 EventKey
+  identity cannot be represented by the TC-001 backend helper's device-ID
+  guard. Replacing physical identity with a simulator alias would break the
+  required identity continuity and is not an acceptable workaround.
+
+These prefixes are active security/isolation guards, not a safe local config
+mistake. GS-D032 locks proof-of-possession and authorized Home ownership; the
+2026-10-18 `GS40T/1` bootstrap contract remains explicitly PROPOSED and says
+not to select its missing trust/identity mechanics implicitly. The owner has
+authorized the identified boards for bounded inspection and a controlled HIL
+test after prerequisites pass, but no approved physical-ID TEST_ONLY issuer,
+Home/epoch proof, matching Node enrollment, trusted-time authority or mTLS
+credential package is available. No validators were relaxed, no synthetic
+identity was mapped to either board, and no ownership or credentials changed.
+
+This adds an integration/security-contract blocker to the prior fixture
+readiness blocker. TC-001 must remain BLOCKED/NOT_RUN until the existing
+security authority supplies the minimal approved TEST_ONLY binding for these
+MAC-derived physical IDs under the existing Home, including a defined
+proof-of-possession/epoch, trusted-time and credential path. If the intended
+security meaning is to permit physical IDs in the isolated TEST_ONLY profile,
+that precise extension must be decided before implementation. The existing
+Agrim LAN proxy also remains stale and its scoped refresh needs a Windows
+administrator token. No `INJECT_MOTION` was sent and the HOST_SIM seed remains
+excluded.
