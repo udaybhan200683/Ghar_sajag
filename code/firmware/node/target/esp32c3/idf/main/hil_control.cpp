@@ -40,6 +40,11 @@ void dispatch_command(const char* command) {
         ESP_LOGI(kTag, "HIL_OK command=GET_STATE");
     } else if (std::strcmp(command, "GET_TEST_QR") == 0) {
         gs::node::target::hil_log_test_qr();
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+    } else if (std::strcmp(command, "REASSOCIATE_GS117_TEST_HUB") == 0) {
+        gs::node::target::hil_request_gs117_reassociation();
+        ESP_LOGI(kTag, "HIL_OK command=REASSOCIATE_GS117_TEST_HUB status=REQUESTED_TEST_ONLY");
+#endif
     } else if (std::strcmp(command, "SOFTWARE_RESTART") == 0) {
         ESP_LOGI(kTag, "HIL_OK command=SOFTWARE_RESTART reset_class=SOFTWARE_RESET");
         std::fflush(stdout);

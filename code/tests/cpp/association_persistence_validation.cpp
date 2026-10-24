@@ -96,6 +96,46 @@ int main() {
         store.read_error = true;
         require(corrupted.load().status == AssociationStatus::IoError,
                 "storage read error was treated as unpaired");
+
+        MemoryBlob reassociation_store;
+        MemoryBlob previous_store;
+        CommissioningBinding old_binding = binding;
+        old_binding.hub_id = "hub-old";
+        AssociationRepository old_fixture(crypto, reassociation_store, wrapping_key,
+                                          &previous_store);
+        require(old_fixture.save_initial(old_binding),
+                "reassociation baseline could not be saved");
+        CommissioningBinding new_binding = old_binding;
+        new_binding.hub_id = "hub-new";
+        new_binding.hub_public_key[1] = 0x42;
+        require(crypto.random_bytes(new_binding.installation_key.data(),
+                                    new_binding.installation_key.size()),
+                "new Hub binding key RNG failed");
+        CommissioningBinding cross_home = new_binding;
+        cross_home.home_id = "home-other";
+        require(!old_fixture.save_reassociation(cross_home) &&
+                old_fixture.load().binding->hub_id == old_binding.hub_id &&
+                !previous_store.present,
+                "cross-Home reassociation changed or backed up the active binding");
+        require(old_fixture.preserve_previous_for_reassociation() &&
+                previous_store.bytes == reassociation_store.bytes,
+                "previous association ciphertext was not durably preserved");
+        require(old_fixture.save_reassociation(new_binding),
+                "authenticated same-Home reassociation did not commit");
+        const auto current_fixture = old_fixture.load();
+        const auto prior_fixture = old_fixture.load_previous_association();
+        require(current_fixture.status == AssociationStatus::Paired &&
+                current_fixture.binding && current_fixture.binding->hub_id == "hub-new" &&
+                current_fixture.generation == 2 &&
+                current_fixture.binding->installation_key == new_binding.installation_key &&
+                prior_fixture.status == AssociationStatus::Paired && prior_fixture.binding &&
+                prior_fixture.binding->hub_id == "hub-old" &&
+                prior_fixture.binding->installation_key == old_binding.installation_key,
+                "reassociation did not retain both recoverable encrypted bindings");
+        require(old_fixture.restore_previous_association() &&
+                old_fixture.load().binding->hub_id == "hub-old" &&
+                old_fixture.load().generation == current_fixture.generation + 1U,
+                "previous association recovery rolled back the generation counter");
         std::cout << "P2-PERSIST-ASSOC HOST PASS reboot/write-failure/reset/corruption\n";
         return 0;
     } catch (const std::exception& error) {

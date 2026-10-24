@@ -1396,3 +1396,94 @@ data. The APK signing key is not an acceptable substitute. Separately, phone
 route repair requires an elevated Windows run of the existing narrowly scoped
 proxy action after verifying the current `Private` Wi-Fi and `.8` address. Do
 not inject motion until these gates and actual S3 product startup are verified.
+
+## 2026-10-24 fixture integration implementation and executable validation
+
+Owner approval is recorded on GS-117 comment 11649 for the exact physical
+C3/S3 fixture and existing Home `gs177-test-product`, including authenticated
+same-Home reassociation after recoverable backup. This approval does not
+authorize an unverified firmware update or credential extraction.
+
+### Implemented in the current source worktree
+
+- The existing C3 commissioning path now has an HIL-awake-only command
+  `REASSOCIATE_GS117_TEST_HUB`, compiled only with
+  `GS_HIL_CONTROL=ON`, `GS_HIL_BUILD=OFF`, and
+  `GS_BAT_C8_PHYSICAL_WAKE=OFF`. It requests the existing authenticated
+  commissioning proof/Offer/ACK flow for the exact physical Hub ID and exact
+  existing Home. It does not edit the binding directly.
+- Before that request can proceed, the C3 checks its old association and
+  encrypted retained-event recovery record, copies each into distinct bounded
+  NVS namespaces and verifies the copied bytes. Reassociation is limited to
+  the same Node, Home, logical identity, room, function and public key. The
+  recovery path re-authenticates the old AEAD snapshot, carries original
+  EventKeys/retry state forward under the new Hub binding, and retains the
+  prior association snapshot for rollback. It fails closed on absent or
+  mismatched backup, Home change, altered enrollment data, or storage error.
+- The existing GS40 TEST_ONLY host bootstrap accepts only the exact
+  `hub-e072a1d38d34` physical Hub paired to `gs177-test-product`, in addition
+  to existing synthetic fixtures. Authority leases still require the exact
+  registered certificate fingerprint and live Home/epoch registry entry;
+  neighboring physical-shaped IDs and wrong Home remain rejected. This is an
+  identity-syntax and fixture-boundary integration, not certificate issuance,
+  Node enrollment, trusted-time setup or live S3 authority.
+- The TC-001 backend helper now selects the current WSL-private listener
+  address for the existing backend while retaining the configured `.local`
+  hostname in the HTTPS URL, SNI and certificate verification. Focused tests
+  cover malformed endpoint, TLS-hostname preservation and private-address
+  selection.
+
+### Builds and tests
+
+Source baseline was `81f389cf62e15b049fbcff51eb193183675eb8f2` before the
+scoped working changes. ESP-IDF 6.0.3 target builds completed without device
+writes:
+
+| Target/profile | Result |
+|---|---|
+| C3 HIL-awake candidate | PASS, SHA-256 `380ee48ad667b5565d76a045dc67037a8e9ebc297adc52f0c5c34d8e7d03715a`, 950,336 bytes, `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`, `GS_BAT_C8_PHYSICAL_WAKE=OFF`; candidate contains guarded reassociation command and is not installed. |
+| C3 normal product/sleep-enabled | PASS, SHA-256 `8d88a7cbfc425c17fdf48ce088c6f0e0afc5ecc13d753a98cc5624f25a751a4a`, 943,888 bytes; normal HIL control and physical wake flags OFF. Build only; existing GS-114 physical-wake qualification unchanged. |
+| Full S3 product HubRuntime | PASS (build only) | SHA-256 `827799fd7806d05373a662e154a8d135f29e8cb53225f44a4554ad66329d58d9`, 2,189,104 bytes; full product composition, `GS_S3_DIAGNOSTIC_ONLY=OFF`, `GS40_TEST_ONLY_CLOUDSYNC=OFF`; embeds the rebuilt normal C3 asset SHA-256 `8d88a7cbfc425c17fdf48ce088c6f0e0afc5ecc13d753a98cc5624f25a751a4a`. Build only; not current-image or CloudSync-on evidence. |
+
+Focused execution: association and Node-recovery persistence host tests PASS;
+GS40 fixture identity/time suite 6/6 PASS; `make cloudsync-security-ut` PASS
+(mTLS adapter 9, TEST_ONLY adapter 5, CloudTrust suites 5, support tests
+14/14, 6/6, issuer 10/10 and NodeHealth 5/5); `gs40-test-only-bootstrap-test`
+59 checks PASS; TC-001 console 19/19 PASS; verified endpoint 4/4 PASS;
+USB-stable profile 4/4 PASS; battery power invariants 11/11 PASS; secure
+signed FOTA fixture 23/23 PASS; isolated GS-178 software E2E 33/33 PASS;
+`make -C code validation-board-e2e` PASS (10 board-stack groups); `make -C
+code feature-coverage-test` PASS (226 features, 281 modules, 27 physical
+cases, 22 registry tests). `git diff --check` PASS.
+
+The complete `make validation-node` invocation remains FAIL: the P0 vertical
+stage correctly reports `product_status=PARTIAL`, and the concurrent cold
+GS-178 stage timed out at 600 seconds during simultaneous ESP-IDF builds. The
+isolated GS-178 rerun then passed all 33 tests. No assertions or timeouts were
+weakened. The standalone board-stack simulation is software evidence only.
+
+### Live physical/backend result
+
+| Stage | Result | Evidence |
+|---|---|---|
+| COM identity | PASS | Current reset-aware discovery maps COM4 to USB serial `14:63:93:C5:D1:58` and COM10 to `E0:72:A1:D3:8D:34`; no competing serial owner was seen. |
+| Installed C3 | PARTIAL | `GET_STATE` reports `HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`, `physical_wake=0`, `ota_slot=ota_1`; `runtime_live=0`, `sensing_live=0`, `retained=0`, `in_flight=0`. Candidate above is unflashed; installed image is not proven to include the new reassociation command. |
+| Installed S3 | NOT_VERIFIED | COM10 identity matches, but reset-aware `FIXTURE_STATUS` returned no response and passive capture showed no startup markers. Product HubRuntime, storage mounts, active image/configuration and CloudSync readiness are not established. No S3 write occurred. |
+| C3/S3 session | BLOCKED | No authenticated current-Hub session, no observed enrollment, and no verified physical Hub/Home/epoch authority. HIL acknowledgement/injection has not been attempted. |
+| GS-179 ingress | BLOCKED | Existing service/PostgreSQL/caregiver HTTPS are healthy and the existing authorized Home API was read through a local CA/hostname-verified route. The separate physical Hub mTLS listener remains disabled/unconfigured, without a registered physical certificate or trusted-time package. |
+| Caregiver API/Home | PASS (backend only) | Authenticated API returned the existing Home `gs177-test-product`, `caregiver_home_ready=true`, source `AUTHENTICATED_GS148_TEST_ONLY`; monitoring was `UNKNOWN` and freshness `STALE`. This is not evidence of physical CloudSync or Android app behavior. |
+| Windows phone route | BLOCKED | Live Yogi profile is Public at `192.168.1.6/24`; existing scoped portproxy still uses stale `192.168.1.7:443 -> 172.17.152.10:8444`. Current token is not Administrator. No route/firewall change was attempted; existing script correctly refuses mutation on Public. |
+| Android APK | NOT_VERIFIED | `adb` unavailable; no device-side package/backend/Home/event observation. |
+| TC-001 | BLOCKED / NOT_RUN | No `INJECT_MOTION`, no fresh EventKey, no S3 receipt, CloudSync ACK, physical backend commit, or APK display. Historical HOST_SIM seed remains excluded. |
+
+The minimum remaining physical fixture setup is a persistent, approved
+TEST_ONLY authority/certificate and trusted-time configuration tied to the
+verified S3 key, exact Hub ID and existing Home/epoch; an S3 product image that
+reports startup and supported CloudSync readiness; and a verified matching
+Node enrollment/current C3 reassociation command. The current C3 candidate
+would need installation only if the installed image lacks the new guarded
+command, after current image compatibility/recovery is confirmed under the
+existing flash authorization. Separately, updating the phone route requires an
+elevated Windows run on a trusted Private network. No credential, ownership,
+Home, event history, NVS, partition or device firmware was modified in this
+run. Current physical status is not a TC-001 pass.

@@ -4,7 +4,11 @@ from pathlib import Path
 import sqlite3
 import sys
 import tempfile
+import threading
+import struct
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
@@ -12,11 +16,18 @@ from cryptography.hazmat.primitives import serialization
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "tools" / "factory"))
+sys.path.insert(0, str(ROOT / "tools" / "hil"))
 sys.path.insert(0, str(ROOT / "tests" / "support"))
 
 from cloudsync_mtls_certs import issue_test_cert, make_test_ca
 from cloudsync_mtls_local import tls_post
 from pilot_test_issuer import TestOnlyIssuer, new_test_csr
+from gs40_test_bootstrap import AuthorityService, encode_config, rsa3072
+from cryptography.hazmat.primitives.asymmetric import ec
+
+
+PHYSICAL_GS117_HUB = "hub-e072a1d38d34"
+PHYSICAL_GS117_HOME = "gs177-test-product"
 from ghar_sajag.cloud_client_identity import (
     CloudClientRejected, _authorize_verified_certificate,
 )
@@ -195,6 +206,61 @@ class Gs68Gs40IdentityTimeE2eTest(unittest.TestCase):
                 wrong_der, trusted_now=self.now + timedelta(minutes=1),
                 credentials=self.issuer, ownership_db=self.db)
         self.assertEqual(wrong_key.key_size, 3072)
+
+    def test_005_gs117_physical_config_is_exact_fixture_only(self):
+        target = ec.generate_private_key(ec.SECP256R1()).public_key().public_bytes(
+            serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+        signer = rsa3072()
+        fields = {index: b"fixture" for index in range(1, 17)}
+        fields[3] = b"https://localhost"
+        fields[4] = b"localhost"
+        fields[6] = b"127.0.0.1"
+        fields[9] = PHYSICAL_GS117_HUB.encode("ascii")
+        physical = encode_config(b"n" * 32, target, fields, signer)
+        self.assertTrue(physical.startswith(b"\x00\x00"))
+
+        fields[9] = b"hub-e072a1d38d35"
+        with self.assertRaisesRegex(ValueError, "test_identity_required"):
+            encode_config(b"n" * 32, target, fields, signer)
+        fields[9] = b"test-hub-product"
+        synthetic = encode_config(b"n" * 32, target, fields, signer)
+        self.assertTrue(synthetic)
+
+    def test_006_gs117_physical_authority_is_bound_to_exact_home(self):
+        fingerprint = "c" * 64
+        issuer = SimpleNamespace(
+            by_fingerprint=lambda value: SimpleNamespace(generation=2)
+            if value == fingerprint else None)
+        context = SimpleNamespace(
+            permanent_hub_id=PHYSICAL_GS117_HUB,
+            home_id=PHYSICAL_GS117_HOME,
+            certificate_fingerprint_sha256=fingerprint,
+            installation_epoch=3,
+        )
+        service = AuthorityService(issuer, object(), threading.RLock(),
+                                   enabled=True, signer=rsa3072())
+        body = {
+            "protocol": "GS40T/1", "hub_id": PHYSICAL_GS117_HUB,
+            "credential_generation": 2,
+            "certificate_fingerprint_sha256": fingerprint,
+            "boot_generation": 5, "nonce": "d" * 64,
+        }
+        with patch("gs40_test_bootstrap.authorize_cloud_tls_context",
+                   return_value=context):
+            lease = service.refresh(object(), body)
+        self.assertIn(PHYSICAL_GS117_HUB.encode(), lease)
+        self.assertIn(PHYSICAL_GS117_HOME.encode(), lease)
+        self.assertEqual(struct.unpack(">Q", lease[61:69])[0], 3)
+
+        for overrides in ({"home_id": "gs177-test-other"},
+                          {"permanent_hub_id": "hub-e072a1d38d35"}):
+            rejected_context = SimpleNamespace(**{**vars(context), **overrides})
+            rejected_service = AuthorityService(
+                issuer, object(), threading.RLock(), enabled=True, signer=rsa3072())
+            with patch("gs40_test_bootstrap.authorize_cloud_tls_context",
+                       return_value=rejected_context):
+                with self.assertRaisesRegex(PermissionError, "invalid_authority_challenge"):
+                    rejected_service.refresh(object(), body)
 
 if __name__ == "__main__":
     unittest.main()

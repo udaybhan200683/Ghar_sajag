@@ -37,6 +37,12 @@ public:
     // Missing association opens one bounded first-boot commissioning window.
     bool initialize(const Mac& physical_mac, std::uint64_t session,
                     std::uint64_t now_ms);
+    // Narrow reassociation path for the owner-approved GS-117 physical
+    // TEST_ONLY fixture. It reuses NodeCommissioning proof-of-possession and
+    // never changes the stored binding until the authenticated ACK arrives.
+    bool begin_gs117_test_reassociation(const std::string& expected_hub_id,
+                                        std::uint64_t now_ms);
+    bool commissioning() const { return phase_ == Phase::Commissioning; }
     std::optional<Outbound> initial_message();
     std::optional<Outbound> accept(const Mac& source, const std::uint8_t* packet,
                                     std::size_t length, std::uint64_t now_ms);
@@ -71,7 +77,9 @@ private:
     security::TargetIdentitySigner identity_{"node", 0x7001};
     security::PsaCommissioningCrypto crypto_{identity_};
     security::NvsAssociationBlobStore store_;
+    security::NvsPreviousAssociationBlobStore previous_store_;
     security::NvsNodeRecoveryBlobStore recovery_store_;
+    security::NvsPreviousNodeRecoveryBlobStore previous_recovery_store_;
     security::Key32 wrapping_key_{};
     security::Key32 recovery_key_{};
     std::unique_ptr<security::AssociationRepository> repository_;
@@ -88,6 +96,8 @@ private:
     bool pinned_v2_{false};
     bool health_ack_supported_{false};
     bool challenge_seen_{false};
+    bool test_reassociation_pending_{false};
+    std::string expected_reassociation_hub_id_;
     Phase phase_{Phase::Uninitialized};
 };
 

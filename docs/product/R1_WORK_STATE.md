@@ -6954,3 +6954,33 @@ the S3 CloudSync build remains OFF. ADB is unavailable, so APK verification is
 NOT_VERIFIED and TC-001 remains BLOCKED/NOT_RUN with no EventKey. Exact stage
 evidence, focused regressions, and the one consolidated authority/network gate
 are in the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-live-c3s3-backend-and-route-recheck).
+
+### 2026-10-24 GS-117 fixture integration implementation
+
+Current source adds recoverable same-Home C3 reassociation through the existing
+commissioning proof/Offer/ACK path, with a guarded HIL-awake-only request for
+the exact `hub-e072a1d38d34` fixture. Old association and encrypted retained
+EventKey/retry state are copied to bounded NVS backup stores and verified
+before a binding change. The existing GS40 TEST_ONLY host config accepts that
+exact Hub only for `gs177-test-product`; this does not grant authority or
+provide credentials. The TC-001 local API helper now routes through the
+current WSL listener while retaining HTTPS hostname/SNI/CA verification.
+
+Validation: C3 HIL-awake and normal sleep-enabled builds and full S3 product
+build passed (hashes and flags in the linked handoff); association and recovery
+host tests, GS40 fixture bootstrap (59), identity/time fixture (6), TC-001
+console (19), verified endpoint (4), USB stable profile (4), battery invariants
+(11), signed FOTA fixture (23), GS-178 isolated software E2E (33), board-stack
+simulation (10 groups) and feature mapping (226 features) passed. The broader
+Node gate remains FAIL on P0 `product_status=PARTIAL` and one cold GS-178 timeout;
+the isolated 33-test rerun passed.
+
+Physical acceptance remains BLOCKED/NOT_RUN: C3 reports HIL-awake but
+`runtime_live=0`, `sensing_live=0`; S3 identity is observed by USB but product
+startup/storage/CloudSync are not verified; the authenticated physical Hub
+certificate, trusted time and current Home/epoch/Node enrollment are absent;
+the Windows Yogi Wi-Fi is Public and its existing portproxy targets stale
+`.7`; Android diagnostics are unavailable. No firmware, credentials,
+ownership, data or event history changed; no motion was injected and no new
+EventKey exists. Exact live evidence and candidate hashes are in the
+[GS-117 execution handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-fixture-integration-implementation-and-executable-validation).

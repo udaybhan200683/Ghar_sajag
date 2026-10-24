@@ -44,6 +44,16 @@ bool valid_binding(const CommissioningBinding& binding) {
                        [](std::uint8_t value) { return value != 0; });
 }
 
+bool same_node_home(const CommissioningBinding& left,
+                    const CommissioningBinding& right) {
+    return left.device_id == right.device_id &&
+           left.home_id == right.home_id &&
+           left.logical_id == right.logical_id &&
+           left.room == right.room &&
+           left.function == right.function &&
+           left.device_public_key == right.device_public_key;
+}
+
 Bytes encode_binding(const CommissioningBinding& binding) {
     Bytes out;
     append_string(out, binding.device_id);
@@ -83,8 +93,10 @@ bool decode_binding(const Bytes& data, CommissioningBinding& binding) {
 
 AssociationRepository::AssociationRepository(CommissioningCrypto& crypto,
                                              AssociationBlobStore& store,
-                                             const Key32& protected_wrapping_key)
-    : crypto_(crypto), store_(store), wrapping_key_(protected_wrapping_key) {}
+                                             const Key32& protected_wrapping_key,
+                                             AssociationBlobStore* previous_store)
+    : crypto_(crypto), store_(store), previous_store_(previous_store),
+      wrapping_key_(protected_wrapping_key) {}
 
 AssociationRepository::~AssociationRepository() {
     crypto_.secure_zero(wrapping_key_.data(), wrapping_key_.size());
@@ -170,6 +182,89 @@ bool AssociationRepository::save_initial(const CommissioningBinding& binding) {
         current.status != AssociationStatus::Unpaired) return false;
     if (current.generation == std::numeric_limits<std::uint64_t>::max()) return false;
     return write_record(current.generation + 1, true, &binding);
+}
+
+bool AssociationRepository::preserve_previous_for_reassociation() {
+    if (previous_store_ == nullptr) return false;
+    const auto active = load();
+    if (active.status != AssociationStatus::Paired || !active.binding) return false;
+    Bytes source;
+    bool source_found = false;
+    if (!store_.read(source, source_found) || !source_found) return false;
+    Bytes prior;
+    bool prior_found = false;
+    if (!previous_store_->read(prior, prior_found)) return false;
+    if (prior_found) {
+        AssociationRepository backup(crypto_, *previous_store_, wrapping_key_);
+        const auto saved = backup.load();
+        return saved.status == AssociationStatus::Paired && saved.binding &&
+               same_node_home(*active.binding, *saved.binding) &&
+               active.binding->hub_id == saved.binding->hub_id && prior == source;
+    }
+    if (!previous_store_->write(source)) return false;
+    Bytes verified;
+    bool verified_found = false;
+    if (!previous_store_->read(verified, verified_found) || !verified_found ||
+        verified != source) return false;
+    AssociationRepository backup(crypto_, *previous_store_, wrapping_key_);
+    const auto saved = backup.load();
+    return saved.status == AssociationStatus::Paired && saved.binding &&
+           same_node_home(*active.binding, *saved.binding) &&
+           active.binding->hub_id == saved.binding->hub_id;
+}
+
+bool AssociationRepository::save_reassociation(
+        const CommissioningBinding& binding) {
+    if (previous_store_ == nullptr || !valid_binding(binding)) return false;
+    const auto current = load();
+    if (current.status != AssociationStatus::Paired || !current.binding ||
+        current.generation == std::numeric_limits<std::uint64_t>::max() ||
+        !same_node_home(*current.binding, binding) ||
+        current.binding->hub_id == binding.hub_id ||
+        !preserve_previous_for_reassociation()) return false;
+    const auto saved = load_previous_association();
+    if (saved.status != AssociationStatus::Paired || !saved.binding ||
+        !same_node_home(*current.binding, *saved.binding) ||
+        current.binding->hub_id != saved.binding->hub_id) return false;
+    if (!write_record(current.generation + 1U, true, &binding)) return false;
+    const auto committed = load();
+    return committed.status == AssociationStatus::Paired && committed.binding &&
+           committed.generation == current.generation + 1U &&
+           same_node_home(*committed.binding, binding) &&
+           committed.binding->hub_id == binding.hub_id &&
+           committed.binding->hub_public_key == binding.hub_public_key &&
+           committed.binding->installation_key == binding.installation_key;
+}
+
+AssociationState AssociationRepository::load_previous_association() {
+    if (previous_store_ == nullptr)
+        return {AssociationStatus::Missing, 0, std::nullopt};
+    AssociationRepository backup(crypto_, *previous_store_, wrapping_key_);
+    return backup.load();
+}
+
+bool AssociationRepository::restore_previous_association() {
+    if (previous_store_ == nullptr) return false;
+    const auto previous = load_previous_association();
+    if (previous.status != AssociationStatus::Paired || !previous.binding)
+        return false;
+    const auto current = load();
+    if (current.status == AssociationStatus::Paired && current.binding &&
+        current.binding->hub_id == previous.binding->hub_id &&
+        same_node_home(*current.binding, *previous.binding)) return true;
+    if (current.status != AssociationStatus::Paired || !current.binding ||
+        current.generation == std::numeric_limits<std::uint64_t>::max() ||
+        !same_node_home(*current.binding, *previous.binding)) return false;
+    // Restore the previous association data as a new monotonic generation.
+    // Replaying the old opaque record would roll back the generation counter.
+    if (!write_record(current.generation + 1U, true, &*previous.binding)) return false;
+    const auto restored = load();
+    return restored.status == AssociationStatus::Paired && restored.binding &&
+           restored.generation == current.generation + 1U &&
+           same_node_home(*restored.binding, *previous.binding) &&
+           restored.binding->hub_id == previous.binding->hub_id &&
+           restored.binding->hub_public_key == previous.binding->hub_public_key &&
+           restored.binding->installation_key == previous.binding->installation_key;
 }
 
 bool AssociationRepository::factory_reset() {

@@ -26,6 +26,14 @@ from gs68_signed_time_fixture import TestOnlySignedTimeFixture
 from ghar_sajag.cloud_client_identity import authorize_cloud_tls_context, TimeReadiness
 
 
+# This is an owner-designated development fixture, not a general physical-ID
+# enrollment rule. The authenticated certificate registry and current
+# ownership/epoch checks remain authoritative for every request.
+_GS117_PHYSICAL_HUB_ID = "hub-e072a1d38d34"
+_GS117_PHYSICAL_HOME_ID = "gs177-test-product"
+_PHYSICAL_HUB_ID = re.compile(r"hub-[0-9a-f]{12}\Z")
+
+
 def public_der(key):
     return key.public_key().public_bytes(serialization.Encoding.DER,
                                          serialization.PublicFormat.SubjectPublicKeyInfo)
@@ -67,7 +75,13 @@ def encode_config(challenge: bytes, target_public: bytes, fields: dict[int, byte
             or not 0 < (origin.port or 443) <= 65535
             or not isolated_destination(fields[6].decode("ascii"))):
         raise ValueError("isolated_test_origin_required")
-    if not fields[9].startswith(b"test-hub-"):
+    try:
+        configured_hub_id = fields[9].decode("ascii")
+    except (UnicodeDecodeError, AttributeError):
+        raise ValueError("test_identity_required") from None
+    if (not configured_hub_id.startswith("test-hub-") and
+            not (configured_hub_id == _GS117_PHYSICAL_HUB_ID and
+                 _PHYSICAL_HUB_ID.fullmatch(configured_hub_id))):
         raise ValueError("test_identity_required")
     if supplied == base_fields | rule_fields:
         if (not fields[17] or len(fields[17]) > 64 or
@@ -176,8 +190,12 @@ class AuthorityService:
                         "boot_generation", "nonce"}
             if (not isinstance(body, dict) or set(body) != expected or body["protocol"] != "GS40T/1"
                     or body["hub_id"] != context.permanent_hub_id
-                    or not context.permanent_hub_id.startswith("test-hub-")
-                    or not context.home_id.startswith("gs177-test-")
+                    or not (
+                        (context.permanent_hub_id.startswith("test-hub-") and
+                         context.home_id.startswith("gs177-test-")) or
+                        (context.permanent_hub_id == _GS117_PHYSICAL_HUB_ID and
+                         context.home_id == _GS117_PHYSICAL_HOME_ID)
+                    )
                     or body["certificate_fingerprint_sha256"] != context.certificate_fingerprint_sha256
                     or type(body["boot_generation"]) is not int or not 0 < body["boot_generation"] < 2**63
                     or not isinstance(body["nonce"], str) or not re.fullmatch(r"[0-9a-f]{64}", body["nonce"])

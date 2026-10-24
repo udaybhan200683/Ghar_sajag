@@ -45,6 +45,8 @@ fota::BootHealthObservation ota_boot_health_observation();
 #if GS_HIL_CONTROL
 void hil_inject_motion();
 void hil_request_health();
+void hil_request_gs117_reassociation();
+bool hil_take_gs117_reassociation_request();
 void hil_log_state();
 void hil_log_test_qr();
 #endif

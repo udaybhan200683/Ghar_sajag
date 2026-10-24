@@ -30,12 +30,20 @@ using AssociationBlobStore = SecurityBlobStore;
 class AssociationRepository {
 public:
     AssociationRepository(CommissioningCrypto& crypto, AssociationBlobStore& store,
-                          const Key32& protected_wrapping_key);
+                          const Key32& protected_wrapping_key,
+                          AssociationBlobStore* previous_store = nullptr);
     ~AssociationRepository();
     AssociationRepository(const AssociationRepository&) = delete;
     AssociationRepository& operator=(const AssociationRepository&) = delete;
     AssociationState load();
     bool save_initial(const CommissioningBinding& binding);
+    // TEST_ONLY reassociation support. The previous AEAD-wrapped record is
+    // copied and verified before the active record can be replaced. The new
+    // binding must retain the same Node, Home, logical identity and room.
+    bool preserve_previous_for_reassociation();
+    bool save_reassociation(const CommissioningBinding& binding);
+    bool restore_previous_association();
+    AssociationState load_previous_association();
     bool factory_reset();
 
 private:
@@ -43,6 +51,7 @@ private:
                       const CommissioningBinding* binding);
     CommissioningCrypto& crypto_;
     AssociationBlobStore& store_;
+    AssociationBlobStore* previous_store_;
     Key32 wrapping_key_{};
 };
 

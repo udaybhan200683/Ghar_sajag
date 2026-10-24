@@ -25,6 +25,13 @@ public:
     NvsAssociationBlobStore();
 };
 
+// Opaque AEAD-wrapped checkpoint retained for a single TEST_ONLY Hub
+// reassociation. It contains no plaintext binding or private key.
+class NvsPreviousAssociationBlobStore final : public NvsBoundedSecurityBlobStore {
+public:
+    NvsPreviousAssociationBlobStore();
+};
+
 class NvsRegistryBlobStore final : public NvsBoundedSecurityBlobStore {
 public:
     NvsRegistryBlobStore();
@@ -33,6 +40,11 @@ public:
 class NvsNodeRecoveryBlobStore final : public NvsBoundedSecurityBlobStore {
 public:
     NvsNodeRecoveryBlobStore();
+};
+
+class NvsPreviousNodeRecoveryBlobStore final : public NvsBoundedSecurityBlobStore {
+public:
+    NvsPreviousNodeRecoveryBlobStore();
 };
 
 }  // namespace gs::security

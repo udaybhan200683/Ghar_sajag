@@ -33,6 +33,13 @@ public:
 
     NodeRecoveryLoad load();
     bool save(const NodeRuntimeRecoveryState& state);
+    // Rebind an already authenticated snapshot to a newly commissioned Hub
+    // in the same Home. The caller must have decrypted the prior snapshot
+    // with the prior Hub binding and preserved its ciphertext before calling.
+    bool rebind_from_authenticated_previous(
+        const NodeRuntimeRecoveryState& state, std::uint64_t previous_generation,
+        const security::Bytes& previous_ciphertext,
+        const std::string& previous_home_id, const std::string& previous_hub_id);
 
 private:
     bool valid(const NodeRuntimeRecoveryState& state) const;

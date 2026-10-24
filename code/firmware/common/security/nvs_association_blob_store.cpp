@@ -11,11 +11,20 @@ NvsBoundedSecurityBlobStore::NvsBoundedSecurityBlobStore(
 NvsAssociationBlobStore::NvsAssociationBlobStore()
     : NvsBoundedSecurityBlobStore("gs_assoc", "binding", 1024) {}
 
+NvsPreviousAssociationBlobStore::NvsPreviousAssociationBlobStore()
+    : NvsBoundedSecurityBlobStore("gs_assoc_prev", "binding", 1024) {}
+
 NvsRegistryBlobStore::NvsRegistryBlobStore()
     : NvsBoundedSecurityBlobStore("gs_registry", "snapshot", 8192) {}
 
 NvsNodeRecoveryBlobStore::NvsNodeRecoveryBlobStore()
     : NvsBoundedSecurityBlobStore("gs_node_rec", "snapshot", 8192) {}
+
+NvsPreviousNodeRecoveryBlobStore::NvsPreviousNodeRecoveryBlobStore()
+    // ESP-IDF limits NVS namespace names to 15 characters. Keep the dedicated
+    // reassociation backup namespace below that limit so backup verification
+    // cannot silently fail on target hardware.
+    : NvsBoundedSecurityBlobStore("gs_node_prev", "snapshot", 8192) {}
 
 bool NvsBoundedSecurityBlobStore::read(Bytes& blob, bool& found) {
     found = false;

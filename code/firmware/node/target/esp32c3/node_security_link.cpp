@@ -67,7 +67,7 @@ bool NodeSecurityLink::initialize(const Mac& physical_mac, std::uint64_t session
     }
     crypto_.secure_zero(recovery_salt.data(), recovery_salt.size());
     repository_ = std::make_unique<security::AssociationRepository>(
-        crypto_, store_, wrapping_key_);
+        crypto_, store_, wrapping_key_, &previous_store_);
     crypto_.secure_zero(wrapping_key_.data(), wrapping_key_.size());
     const auto loaded = repository_->load();
     if (loaded.status == security::AssociationStatus::Corrupt ||
@@ -115,22 +115,134 @@ bool NodeSecurityLink::initialize(const Mac& physical_mac, std::uint64_t session
     return true;
 }
 
+bool NodeSecurityLink::begin_gs117_test_reassociation(
+        const std::string& expected_hub_id, std::uint64_t now_ms) {
+    constexpr char kFixtureHub[] = "hub-e072a1d38d34";
+    constexpr char kFixtureHome[] = "gs177-test-product";
+    if (phase_ != Phase::Rejoining || !binding_ || !repository_ ||
+        expected_hub_id != kFixtureHub || binding_->hub_id == expected_hub_id ||
+        binding_->home_id != kFixtureHome ||
+        !mac_from_hub_id(expected_hub_id, hub_mac_)) return false;
+
+    // Prove that the previous recovery state is readable before any live
+    // association change. Its encrypted bytes are copied to a separate NVS
+    // namespace and are retained after a successful re-association.
+    node::NodeRecoveryRepository prior_recovery(
+        crypto_, recovery_store_, recovery_key_, binding_->home_id,
+        binding_->hub_id, binding_->logical_id);
+    const auto prior_state = prior_recovery.load();
+    if (prior_state.status == node::NodeRecoveryLoadStatus::Corrupt ||
+        prior_state.status == node::NodeRecoveryLoadStatus::IoError) return false;
+
+    security::Bytes recovery_blob;
+    bool recovery_found = false;
+    if (!recovery_store_.read(recovery_blob, recovery_found)) return false;
+    security::Bytes backup_blob;
+    bool backup_found = false;
+    if (!previous_recovery_store_.read(backup_blob, backup_found)) return false;
+    if (recovery_found) {
+        if (prior_state.status != node::NodeRecoveryLoadStatus::Ready ||
+            !prior_state.state) return false;
+        if (backup_found) {
+            if (backup_blob != recovery_blob) return false;
+        } else if (!previous_recovery_store_.write(recovery_blob)) {
+            return false;
+        }
+        if (!previous_recovery_store_.read(backup_blob, backup_found) ||
+            !backup_found || backup_blob != recovery_blob) return false;
+    } else if (backup_found) {
+        return false;
+    }
+    if (!repository_->preserve_previous_for_reassociation()) return false;
+
+    security::Key32 installer_code{};
+    if (!security::load_target_installer_code(crypto_, installer_code)) return false;
+    commissioning_ = std::make_unique<security::NodeCommissioning>(
+        crypto_, "node", physical_id_, installer_code);
+    crypto_.secure_zero(installer_code.data(), installer_code.size());
+    if (!commissioning_->enable_window(now_ms, 10U * 60U * 1000U)) {
+        commissioning_.reset();
+        return false;
+    }
+    expected_reassociation_hub_id_ = expected_hub_id;
+    test_reassociation_pending_ = true;
+    frames_.reset();
+    rejoin_.reset();
+    assembler_.reset();
+    phase_ = Phase::Commissioning;
+    return true;
+}
+
 bool NodeSecurityLink::restore_recovery(node::NodeRuntime& runtime,
                                         Milliseconds now_ms) {
     if (!ready() || !binding_ || recovery_repository_) return false;
     recovery_repository_ = std::make_unique<node::NodeRecoveryRepository>(
         crypto_, recovery_store_, recovery_key_, binding_->home_id,
         binding_->hub_id, binding_->logical_id);
-    crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
     const auto loaded = recovery_repository_->load();
-    if (loaded.status == node::NodeRecoveryLoadStatus::Corrupt ||
-        loaded.status == node::NodeRecoveryLoadStatus::IoError ||
-        (loaded.status == node::NodeRecoveryLoadStatus::Ready &&
-         (!loaded.state || !runtime.restore_recovery(*loaded.state, now_ms)))) {
-        phase_ = Phase::Fault;
-        return false;
+    if (loaded.status == node::NodeRecoveryLoadStatus::Ready) {
+        crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
+        if (!loaded.state || !runtime.restore_recovery(*loaded.state, now_ms)) {
+            phase_ = Phase::Fault;
+            return false;
+        }
+        return true;
     }
-    return true;
+    if (loaded.status == node::NodeRecoveryLoadStatus::Missing) {
+        crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
+        return true;
+    }
+    if (loaded.status == node::NodeRecoveryLoadStatus::Corrupt) {
+        // An interrupted authenticated Hub reassociation can leave the prior
+        // AEAD-bound snapshot under the previous binding. Recover it only from
+        // the verified opaque backup and migrate every original EventKey into
+        // a new snapshot bound to the new authenticated Hub.
+        const auto previous = repository_->load_previous_association();
+        if (previous.status != security::AssociationStatus::Paired ||
+            !previous.binding || previous.binding->hub_id == binding_->hub_id ||
+            previous.binding->home_id != binding_->home_id ||
+            previous.binding->device_id != binding_->device_id ||
+            previous.binding->logical_id != binding_->logical_id ||
+            previous.binding->room != binding_->room ||
+            previous.binding->function != binding_->function) {
+            crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
+            phase_ = Phase::Fault;
+            return false;
+        }
+        security::Bytes saved_recovery;
+        bool saved_found = false;
+        if (!previous_recovery_store_.read(saved_recovery, saved_found) || !saved_found) {
+            crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
+            phase_ = Phase::Fault;
+            return false;
+        }
+        security::Bytes current_recovery;
+        bool current_found = false;
+        if (!recovery_store_.read(current_recovery, current_found) || !current_found ||
+            current_recovery != saved_recovery) {
+            crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
+            phase_ = Phase::Fault;
+            return false;
+        }
+        node::NodeRecoveryRepository prior_repository(
+            crypto_, previous_recovery_store_, recovery_key_,
+            previous.binding->home_id, previous.binding->hub_id,
+            previous.binding->logical_id);
+        crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
+        const auto prior = prior_repository.load();
+        if (prior.status != node::NodeRecoveryLoadStatus::Ready || !prior.state ||
+            !runtime.restore_recovery(*prior.state, now_ms) ||
+            !recovery_repository_->rebind_from_authenticated_previous(
+                runtime.recovery_snapshot(), prior.generation, saved_recovery,
+                previous.binding->home_id, previous.binding->hub_id)) {
+            phase_ = Phase::Fault;
+            return false;
+        }
+        return true;
+    }
+    crypto_.secure_zero(recovery_key_.data(), recovery_key_.size());
+    phase_ = Phase::Fault;
+    return false;
 }
 
 bool NodeSecurityLink::persist_recovery(const node::NodeRuntime& runtime) {
@@ -224,10 +336,18 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
     if (!message) return std::nullopt;
     security::wire::Message outbound;
     if (phase_ == Phase::Commissioning) {
-        if (message->kind == security::wire::Kind::Offer && hub_mac_ == Mac{}) {
+        if (message->kind == security::wire::Kind::Offer &&
+            (hub_mac_ == Mac{} || test_reassociation_pending_)) {
             security::CommissioningOffer offer;
             if (!security::wire::decode(*message, offer) ||
-                offer.hub_id != id_for_mac(source, "hub")) return std::nullopt;
+                offer.hub_id != id_for_mac(source, "hub") ||
+                (test_reassociation_pending_ &&
+                 (!binding_ || offer.hub_id != expected_reassociation_hub_id_ ||
+                  offer.device_public_key != binding_->device_public_key ||
+                  offer.home_id != binding_->home_id ||
+                  offer.logical_id != binding_->logical_id ||
+                  offer.room != binding_->room ||
+                  offer.function != binding_->function))) return std::nullopt;
             const auto proof = commissioning_->respond(offer, now_ms);
             if (!proof || !security::wire::encode(*proof, outbound)) return std::nullopt;
             hub_mac_ = source;
@@ -246,11 +366,17 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
             if (!security::wire::decode(*message, ack) ||
                 !commissioning_->commit(ack, now_ms) ||
                 !commissioning_->binding() ||
-                !repository_->save_initial(*commissioning_->binding())) {
+                !(test_reassociation_pending_
+                    ? repository_->save_reassociation(*commissioning_->binding())
+                    : repository_->save_initial(*commissioning_->binding()))) {
                 phase_ = Phase::Fault;
                 return std::nullopt;
             }
             binding_ = *commissioning_->binding();
+            if (test_reassociation_pending_) {
+                pinned_v2_ = false;
+                health_ack_supported_ = false;
+            }
             commissioning_.reset();
             return begin_rejoin();
         }
@@ -276,7 +402,7 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
             phase_ = Phase::Fault;
             return std::nullopt;
         }
-        if (negotiated && !pinned_v2_) {
+        if (negotiated && (!pinned_v2_ || test_reassociation_pending_)) {
             if (!pin_health_ack_for_hub(binding_->hub_id)) {
                 phase_ = Phase::Fault;
                 return std::nullopt;
@@ -290,6 +416,8 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
         }
         rejoin_.reset();
         health_ack_supported_ = negotiated;
+        test_reassociation_pending_ = false;
+        expected_reassociation_hub_id_.clear();
         phase_ = Phase::Ready;
     }
     return std::nullopt;

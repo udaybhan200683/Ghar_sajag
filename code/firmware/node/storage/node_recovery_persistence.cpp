@@ -306,4 +306,87 @@ bool NodeRecoveryRepository::save(const NodeRuntimeRecoveryState& state) {
     return resolved;
 }
 
+bool NodeRecoveryRepository::rebind_from_authenticated_previous(
+        const NodeRuntimeRecoveryState& state, std::uint64_t previous_generation,
+        const security::Bytes& previous_ciphertext,
+        const std::string& previous_home_id, const std::string& previous_hub_id) {
+    if (previous_home_id != home_id_ || previous_hub_id.empty() ||
+        previous_hub_id == hub_id_ || previous_generation == 0 ||
+        previous_generation == std::numeric_limits<std::uint64_t>::max() ||
+        previous_ciphertext.size() < kHeaderSize + security::GcmTag{}.size() ||
+        previous_ciphertext.size() > kMaximumBlob ||
+        previous_ciphertext[0] != 'G' || previous_ciphertext[1] != 'S' ||
+        previous_ciphertext[2] != 'N' || previous_ciphertext[3] != 'R' ||
+        previous_ciphertext[4] < 1 || previous_ciphertext[4] > 3 ||
+        !valid(state)) return false;
+
+    // The prior repository has already authenticated this ciphertext. Here we
+    // fence the replacement to that exact preserved record; arbitrary or
+    // concurrently changed bytes cannot be overwritten as a rebind.
+    std::size_t old_pos = 5;
+    std::uint64_t old_generation = 0;
+    if (!get_unsigned(previous_ciphertext, old_pos, 8, old_generation) ||
+        old_generation != previous_generation) return false;
+    security::Bytes stored;
+    bool found = false;
+    if (!store_.read(stored, found) || !found || stored != previous_ciphertext)
+        return false;
+
+    const auto current = load();
+    if (current.status == NodeRecoveryLoadStatus::Ready && current.state) {
+        security::Bytes current_plain;
+        security::Bytes requested_plain;
+        const bool same = encode(*current.state, current_plain) &&
+                          encode(state, requested_plain) &&
+                          current_plain == requested_plain;
+        crypto_.secure_zero(current_plain.data(), current_plain.size());
+        crypto_.secure_zero(requested_plain.data(), requested_plain.size());
+        return same;
+    }
+    if (current.status != NodeRecoveryLoadStatus::Corrupt ||
+        previous_generation == std::numeric_limits<std::uint64_t>::max()) return false;
+
+    security::Bytes plain;
+    if (!encode(state, plain) ||
+        plain.size() + kHeaderSize + security::GcmTag{}.size() > kMaximumBlob) {
+        crypto_.secure_zero(plain.data(), plain.size());
+        return false;
+    }
+    security::Nonce12 nonce{};
+    if (!crypto_.random_bytes(nonce.data(), nonce.size())) {
+        crypto_.secure_zero(plain.data(), plain.size());
+        return false;
+    }
+    security::Bytes blob{'G', 'S', 'N', 'R', 3};
+    put_u64(blob, previous_generation + 1U);
+    blob.insert(blob.end(), nonce.begin(), nonce.end());
+    put_u16(blob, static_cast<std::uint16_t>(plain.size()));
+    security::Bytes aad = blob;
+    if (!put_string(aad, home_id_) || !put_string(aad, hub_id_) ||
+        !put_string(aad, node_id_)) {
+        crypto_.secure_zero(plain.data(), plain.size());
+        return false;
+    }
+    security::Bytes cipher;
+    security::GcmTag tag{};
+    const bool sealed = crypto_.seal_aes256_gcm(wrapping_key_, nonce, aad,
+                                                 plain, cipher, tag);
+    crypto_.secure_zero(plain.data(), plain.size());
+    if (!sealed || cipher.size() + kHeaderSize + tag.size() > kMaximumBlob)
+        return false;
+    blob.insert(blob.end(), cipher.begin(), cipher.end());
+    blob.insert(blob.end(), tag.begin(), tag.end());
+    const bool committed = store_.write(blob);
+    const auto verified = load();
+    security::Bytes expected_plain;
+    security::Bytes actual_plain;
+    const bool resolved = encode(state, expected_plain) &&
+        verified.status == NodeRecoveryLoadStatus::Ready && verified.state &&
+        verified.generation == previous_generation + 1U &&
+        encode(*verified.state, actual_plain) && actual_plain == expected_plain;
+    crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+    crypto_.secure_zero(actual_plain.data(), actual_plain.size());
+    return committed || resolved;
+}
+
 }  // namespace gs::node

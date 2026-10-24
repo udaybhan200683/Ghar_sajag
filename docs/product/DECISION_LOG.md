@@ -1467,3 +1467,19 @@ CloudSync remain unconfigured. No event, identity, credential, persistent
 record or device configuration changed. TC-001 stays BLOCKED/NOT_RUN and the
 existing GS-D032/GS40T/1 authority boundary remains unchanged; details are in
 the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-live-c3s3-backend-and-route-recheck).
+
+## 2026-10-24 GS-117 TEST_ONLY fixture implementation evidence (no new lock)
+
+The owner-approved exact C3/S3/Home fixture is recorded in GS-117 comment
+11649. Source now supports a guarded C3 same-Home reassociation request over
+the existing authenticated commissioning exchange and preserves/verifies the
+previous encrypted association and retained-event snapshot first. The exact
+physical S3 ID is accepted by the existing GS40 TEST_ONLY host configuration
+only for the existing Home; production validation and authority checks remain
+unchanged. A certificate, trusted-time source, and persistent physical Hub/Node
+Home-epoch enrollment have not been issued or configured. The firmware
+candidate was built but not installed, and the physical reassociation was not
+triggered. This evidence does not alter GS-D032, GS40T/1 status, or
+`CONTEXT_VERSION`; it is an implementation/evidence update, not a new product
+or security decision. See the dated GS-117 handoff for source hashes, tests and
+the exact physical results.

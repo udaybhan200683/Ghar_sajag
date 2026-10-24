@@ -13,7 +13,11 @@ import psycopg
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 from ghar_sajag.identity_namespaces import is_gs179_test_node_id
-from gs179_verified_endpoint import VerifiedAddressHTTPSHandler, windows_wifi_ipv4
+from gs179_verified_endpoint import (
+    VerifiedAddressHTTPSHandler,
+    wsl_ipv4,
+    wsl_local_backend_origin,
+)
 
 HOME = "gs177-test-product"
 
@@ -75,7 +79,13 @@ def run(request: dict) -> dict:
     if action == "event" and len(rows) != 1:
         return {"durable_count": len(rows), "caregiver_count": 0}
 
-    route = windows_wifi_ipv4(origin)
+    # This helper runs inside WSL, where the current Windows Wi-Fi address and
+    # its phone-facing portproxy are not a reliable route to the local API.
+    # Connect to the existing local listener, but keep the configured .local
+    # hostname in the URL so CA, SNI, and certificate hostname verification
+    # remain unchanged. 8444 is the existing GS-179 APP_PORT.
+    local_origin = wsl_local_backend_origin(origin, 8444)
+    route = wsl_ipv4()
     context = ssl.create_default_context(cafile=str(ca))
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(
@@ -83,7 +93,7 @@ def run(request: dict) -> dict:
 
     def call(path: str, method="GET", body=None):
         data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(origin + path, data=data, method=method,
+        req = urllib.request.Request(local_origin + path, data=data, method=method,
                                      headers={"Origin": origin, "Content-Type": "application/json"})
         with opener.open(req, timeout=8) as response:
             return response.status, json.loads(response.read(1_000_000))

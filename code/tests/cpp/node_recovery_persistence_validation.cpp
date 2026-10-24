@@ -286,9 +286,9 @@ int main() {
                 "summary identity did not survive restart and ACK retirement");
         MemoryBlob epoch_store;
         NodeRuntime epoch_node("bathroom", 21);
-        require(epoch_node.record(EventKind::Heartbeat, "", 1, 0).has_value() &&
+        require(epoch_node.record(EventKind::Motion, "Bedroom", 1, 0).has_value() &&
                 epoch_node.set_retirement_epoch(9),
-                "epoch recovery fixture did not admit pending heartbeat");
+                "epoch recovery fixture did not admit pending motion");
         NodeRecoveryRepository epoch_repo(crypto, epoch_store, wrapping_key,
                                           "home-a", "hub-a", "bathroom");
         require(epoch_repo.save(epoch_node.recovery_snapshot()),
@@ -305,6 +305,31 @@ int main() {
                 reboot_report.pending_count == 1 &&
                 reboot_report.pending[0].origin_session == 21,
                 "reboot report did not include the full durable pending set");
+        const auto old_recovery_ciphertext = epoch_store.bytes;
+        NodeRecoveryRepository rebound_repo(crypto, epoch_store, wrapping_key,
+                                            "home-a", "hub-new", "bathroom");
+        require(rebound_repo.load().status == NodeRecoveryLoadStatus::Corrupt &&
+                !rebound_repo.rebind_from_authenticated_previous(
+                    *epoch_loaded.state, epoch_loaded.generation,
+                    old_recovery_ciphertext, "home-other", "hub-a") &&
+                !rebound_repo.rebind_from_authenticated_previous(
+                    *epoch_loaded.state, epoch_loaded.generation,
+                    Bytes{1, 2, 3}, "home-a", "hub-a") &&
+                epoch_store.bytes == old_recovery_ciphertext,
+                "invalid prior binding or ciphertext changed recovery storage");
+        require(rebound_repo.rebind_from_authenticated_previous(
+                    *epoch_loaded.state, epoch_loaded.generation,
+                    old_recovery_ciphertext, "home-a", "hub-a"),
+                "authenticated same-Home recovery rebind failed");
+        const auto rebound = rebound_repo.load();
+        require(rebound.status == NodeRecoveryLoadStatus::Ready && rebound.state &&
+                rebound.generation == epoch_loaded.generation + 1 &&
+                rebound.state->pending.size() == 1 &&
+                rebound.state->retained.size() == 1 &&
+                rebound.state->pending[0].event.key.session_id == 21 &&
+                rebound.state->pending[0].event.key.sequence == 1 &&
+                epoch_store.bytes != old_recovery_ciphertext,
+                "rebind did not preserve the original pending EventKey and retry state");
         std::cout << "P2-PERSIST-NODE-RECOVERY HOST PASS encrypted bounded recovery\n";
         return 0;
     } catch (const std::exception& error) {

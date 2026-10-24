@@ -121,6 +121,7 @@ std::atomic<std::uint8_t> g_radio_channel{
 #if GS_HIL_CONTROL
 std::atomic<std::uint32_t> g_hil_motion_pending{0};
 std::atomic<bool> g_hil_force_health{false};
+std::atomic<bool> g_hil_gs117_reassociation_requested{false};
 std::atomic<std::uint32_t> g_hil_retained{0};
 std::atomic<std::uint32_t> g_hil_in_flight{0};
 std::atomic<std::uint32_t> g_hil_runtime_live{0};
@@ -602,6 +603,21 @@ void owner_task(void*) {
     Milliseconds next_security_retry_ms = monotonic_ms() +
         rejoin_retry_delay(security_retry_stage++, security_link.session());
     while (!security_link.ready()) {
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+        if (hil_take_gs117_reassociation_request()) {
+            if (security_link.begin_gs117_test_reassociation(
+                    "hub-e072a1d38d34", monotonic_ms())) {
+                last_outbound.reset();
+                final_started_ms = -1;
+                final_transmissions = 0;
+                ESP_LOGW(kTag,
+                         "GS117_TEST_ONLY_REASSOCIATION started target=hub-e072a1d38d34 prior_binding_preserved=1");
+            } else {
+                ESP_LOGW(kTag,
+                         "GS117_TEST_ONLY_REASSOCIATION rejected; current binding and recovery data unchanged");
+            }
+        }
+#endif
         if (security_link.faulted()) {
             ESP_LOGE(kTag, "Node security owner faulted; runtime admission disabled");
             vTaskDelete(nullptr);
@@ -2002,6 +2018,21 @@ void hil_inject_motion() {
 
 void hil_request_health() {
     g_hil_force_health.store(true, std::memory_order_release);
+}
+
+void hil_request_gs117_reassociation() {
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+    g_hil_gs117_reassociation_requested.store(true, std::memory_order_release);
+#endif
+}
+
+bool hil_take_gs117_reassociation_request() {
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+    return g_hil_gs117_reassociation_requested.exchange(
+        false, std::memory_order_acq_rel);
+#else
+    return false;
+#endif
 }
 
 void hil_log_state() {
