@@ -97,7 +97,8 @@ def exact_fixture() -> dict:
     if fixture["c3"]["port"] == fixture["s3"]["port"]:
         raise ValueError("c3_and_s3_ports_must_differ")
     if (fixture["c3"].get("hil_control") is not True or
-            fixture["c3"].get("physical_wake") is True or
+            fixture["c3"].get("physical_wake") is not False or
+            fixture["c3"].get("hil_build") is not False or
             fixture["s3"].get("full_product_composition") is not True):
         raise ValueError("installed_C3_HIL_or_full_S3_product_profile_unverified")
     if not fixture.get("physical_device_id", "").startswith("test-c3-"):
@@ -151,7 +152,10 @@ def powershell(action: str, fixture: dict | None = None) -> object:
     payload = {"action": action}
     if action == "Run":
         payload.update({name: {key: fixture[name][key] for key in
-                               ("port", "usb_hwid", "serial_number")} for name in ("c3", "s3")})
+                               (("port", "usb_hwid", "serial_number", "hil_control", "hil_build",
+                                 "physical_wake") if name == "c3" else
+                                ("port", "usb_hwid", "serial_number",))}
+                        for name in ("c3", "s3")})
     encoded = base64.b64encode(json.dumps(payload).encode()).decode()
     if not re.fullmatch(r"[A-Za-z0-9+/=]+", encoded):
         raise ValueError("invalid_serial_helper_payload")
@@ -253,6 +257,12 @@ class Controller:
                         item.get("usb_hwid") == board["usb_hwid"] and
                         item.get("serial_number") == board["serial_number"] for item in ports
                     ) else "BLOCKED"
+                hardware["c3_power_mode"] = (
+                    "HIL_AWAKE_TEST_ONLY (installed image claimed; runtime NOT_VERIFIED until GET_STATE)"
+                    if fixture["c3"].get("hil_control") is True and
+                       fixture["c3"].get("hil_build") is False and
+                       fixture["c3"].get("physical_wake") is False
+                    else "UNSUPPORTED_OR_UNVERIFIED")
                 hardware["status"] = "PARTIAL" if hardware["c3"] == hardware["s3"] == "PASS" else "BLOCKED"
                 hardware["reason"] = "USB/image receipts matched; live runtime requires authorized Run" if hardware["status"] == "PARTIAL" else "exact board interface absent"
             except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as error:
@@ -338,6 +348,16 @@ class Controller:
                        ("HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime", "NodeMessage sent", "Application ACK"))][:20],
                 "s3": [line for line in s3 if "Authenticated event logical=" in line][:20],
             }
+            mode_line = next((line for line in c3 if "HIL_STATE role=c3" in line), "")
+            report["c3_power_mode"] = (
+                "HIL_AWAKE_TEST_ONLY" if
+                "power_mode=HIL_AWAKE_TEST_ONLY" in mode_line and
+                "hil_build=0" in mode_line and "hil_control=1" in mode_line and
+                "physical_wake=0" in mode_line else "NOT_VERIFIED")
+            if report["c3_power_mode"] != "HIL_AWAKE_TEST_ONLY":
+                stage(report, "c3_injection", "BLOCKED",
+                      "installed C3 did not report the required HIL_AWAKE_TEST_ONLY runtime profile")
+                return
             if not any("HIL_OK command=INJECT_MOTION" in line for line in c3):
                 stage(report, "c3_injection", "FAIL", "installed C3 did not accept INJECT_MOTION")
                 return
@@ -439,6 +459,7 @@ class Handler(BaseHTTPRequestHandler):
             readiness = CONTROLLER.readiness()
             self.reply(200, {"csrf": CONTROLLER.csrf, "current": CONTROLLER.current,
                              "previous": [json.loads(path.read_text()) for path in recent],
+                             "running": CONTROLLER.lock.locked(),
                              **readiness})
         else:
             self.reply(404, {"error": "unknown_route"})
@@ -474,11 +495,11 @@ class Handler(BaseHTTPRequestHandler):
 HTML = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ghar Sajag TC-001</title><style>body{font:16px system-ui;max-width:850px;margin:2rem auto;padding:0 1rem;background:#f7f7f3;color:#18252b}button{padding:.7rem 1rem;background:#13495a;color:white;border:0;border-radius:5px;cursor:pointer}button:disabled{opacity:.5}section{background:white;padding:1rem;margin:1rem 0;border-radius:7px}li{margin:.5rem 0}code{overflow-wrap:anywhere}</style>
 <h1>TC-001 — Bedroom Motion</h1><p>Physical C3 HIL stimulus → physical S3 → GS-179 backend → Parivar Saathi Android APK. Sensor source: C3_HIL_INJECTED.</p>
-<section><h2>Readiness</h2><pre id="readiness">Loading…</pre><button id="run">Run Test</button></section>
+<section><h2>Readiness</h2><pre id="readiness">Loading…</pre><p id="power-mode">C3 power/HIL mode: NOT_VERIFIED</p><button id="run">Run Test</button></section>
 <section><h2>Current run</h2><div id="current">No run yet.</div><button id="confirm" disabled>Confirm visible in actual APK</button></section>
 <section><h2>Previous runs</h2><div id="previous"></div></section>
 <script>let csrf='',current=null;const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;document.getElementById('readiness').textContent=JSON.stringify({backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards},null,2);document.getElementById('run').disabled=!!(current&&current.stages&&Object.values(current.stages).some(s=>s.reason==='not reached')&&current.stages.environment.status==='PASS');
+async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;document.getElementById('readiness').textContent=JSON.stringify({backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards},null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.c3_power_mode||d.physical_boards&&d.physical_boards.c3_power_mode||'NOT_VERIFIED');document.getElementById('run').disabled=!!d.running;
 const show=x=>x?'<p><b>'+escape(x.run_id)+'</b> — '+escape(x.overall)+' — APK '+escape(x.apk_observation)+'</p><p>EventKey: <code>'+escape(JSON.stringify(x.event_key||'not observed'))+'</code></p><ol>'+Object.entries(x.stages).map(([k,v])=>'<li>'+escape(k)+': <b>'+escape(v.status)+'</b> — '+escape(v.reason)+'</li>').join('')+'</ol>':'No run yet.';
 document.getElementById('current').innerHTML=show(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+escape(x.run_id)+' — '+escape(x.overall)+'</summary>'+show(x)+'</details>').join('');document.getElementById('confirm').disabled=!(current&&current.stages.caregiver_api.status==='PASS'&&current.apk_observation==='NOT_VERIFIED');}
 async function post(path,payload){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});if(!r.ok)alert((await r.json()).error);await refresh()}

@@ -39,6 +39,16 @@ int main() { return 0; }
         self.assertIn('#if GS_HIL_CONTROL || GS_BAT_C8_PHYSICAL_WAKE',adapter)
         control=(NODE/'idf/main/app_main.cpp').read_text()
         self.assertIn('#if GS_HIL_CONTROL\n    start_hil_control();',control)
+        control_source=(NODE/'idf/main/hil_control.cpp').read_text()
+        runtime_source=(NODE/'node_runtime_adapter.cpp').read_text()
+        self.assertIn('power_mode=%s hil_build=%d hil_control=%d physical_wake=%d', control_source)
+        self.assertIn('power_mode=%s hil_build=%d hil_control=%d physical_wake=%d', runtime_source)
+        self.assertIn('"HIL_AWAKE_TEST_ONLY"', control_source)
+        self.assertIn('if (!returned_from_light_sleep) vTaskDelay(pdMS_TO_TICKS(kPirPollMs));', adapter)
+        serial_helper=(ROOT/'tools/local/gs117_tc001_serial_windows.py').read_text()
+        self.assertIn('finally:', serial_helper)
+        self.assertIn('if c3_stream.is_open:\n            c3_stream.close()', serial_helper)
+        self.assertIn('if s3_stream.is_open:\n            s3_stream.close()', serial_helper)
 
     def test_get_state_remains_enabled_in_both_hil_profiles(self):
         source=(NODE/'idf/main/hil_control.cpp').read_text()

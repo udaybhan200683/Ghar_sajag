@@ -59,7 +59,7 @@ class TC001Test(unittest.TestCase):
                                  "image": str(image), "image_sha256": digest,
                                  "installed_image_receipt": str(receipt),
                                  "firmware_source_head": "a" * 40}
-            fixture["c3"].update(hil_control=True, physical_wake=False)
+            fixture["c3"].update(hil_control=True, hil_build=False, physical_wake=False)
             fixture["s3"]["full_product_composition"] = True
             phone = root / "phone.json"
             phone_state = {"profile": "GS179_TEST_ONLY", "package": "in.gharsajag.caregiver.discoverytest",
@@ -113,7 +113,7 @@ class TC001Test(unittest.TestCase):
                 "apk_observation": "NOT_VERIFIED", "stages": {
                     name: {"status": "NOT_VERIFIED", "reason": "not reached"} for name in tc.STAGES}}
 
-    def execute(self, report, serial_data, baseline=None, outcome=None, home_origin="https://laptop.local", ports_override=None):
+    def execute(self, report, serial_data, baseline=None, outcome=None, home_origin="https://laptop.local", ports_override=None, mode_state=True):
         fixture = {"home_id": "gs177-test-product", "physical_device_id": "test-c3-bedroom",
                    "expected_caregiver_origin": "https://laptop.local",
                    "approval_ref": "test", "hub_id": "test-hub-a", "installation_epoch": 1,
@@ -124,6 +124,9 @@ class TC001Test(unittest.TestCase):
         ports = [{"port": b["port"], "usb_hwid": b["usb_hwid"], "serial_number": b["serial_number"]}
                  for b in (fixture["c3"], fixture["s3"])]
         baseline = baseline or {"keys": [], "count": 0}
+        if (mode_state and "c3" in serial_data and
+                any("HIL_OK command=INJECT_MOTION" in line for line in serial_data["c3"])):
+            serial_data["c3"].insert(0, "HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0")
         baseline.setdefault("authority_ready", True)
         baseline.setdefault("enrollment_generation", 1)
         outcome = outcome or {"durable_count": 1, "caregiver_count": 1,
@@ -165,6 +168,18 @@ class TC001Test(unittest.TestCase):
         self.execute(report, {"c3": c3, "s3": []})
         self.assertEqual(report["stages"]["s3_admission"]["status"], "FAIL")
         self.assertEqual(report["stages"]["backend_commit"]["status"], "NOT_VERIFIED")
+
+    def test_wrong_or_missing_c3_power_mode_blocks_injection_result(self):
+        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3"]
+        for mode in (None, "power_mode=SLEEP_ENABLED hil_build=0 hil_control=1 physical_wake=0"):
+            with self.subTest(mode=mode):
+                report = self.report()
+                serial_lines = {"c3": list(c3), "s3": []}
+                if mode:
+                    serial_lines["c3"].insert(0, "HIL_STATE role=c3 " + mode)
+                self.execute(report, serial_lines, mode_state=False)
+                self.assertEqual(report["stages"]["c3_injection"]["status"], "BLOCKED")
+                self.assertEqual(report["c3_power_mode"], "NOT_VERIFIED")
 
     def test_different_installed_apk_backend_blocks_before_serial(self):
         report = self.report()
@@ -252,6 +267,28 @@ class TC001Test(unittest.TestCase):
                     self.assertEqual(rejected.exception.code, 403)
                     rejected.exception.close()
                 start.assert_not_called()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+    def test_console_reports_single_run_lock_for_repeatable_retry(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), tc.Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_address[1]}/api/status"
+        try:
+            with patch.object(tc.CONTROLLER, "readiness", return_value={"backend": {}, "caregiver_home": {}, "physical_boards": {}}):
+                for locked, expected in ((True, True), (False, False)):
+                    if locked:
+                        tc.CONTROLLER.lock.acquire()
+                    try:
+                        request = urllib.request.Request(url, headers={"Host": "127.0.0.1:18791"})
+                        with urllib.request.urlopen(request, timeout=3) as response:
+                            self.assertEqual(json.load(response)["running"], expected)
+                    finally:
+                        if locked:
+                            tc.CONTROLLER.lock.release()
         finally:
             server.shutdown()
             server.server_close()

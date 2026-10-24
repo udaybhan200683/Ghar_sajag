@@ -39,6 +39,9 @@ def exact_port(board: dict, candidates: list[dict]) -> bool:
 
 def run(config: dict) -> dict:
     c3, s3 = config["c3"], config["s3"]
+    if (c3.get("hil_control") is not True or c3.get("hil_build") is not False or
+            c3.get("physical_wake") is not False):
+        raise ValueError("TC001_C3_PROFILE_MUST_BE_PRODUCT_RUNTIME_HIL_CONTROL_AWAKE")
     if (c3["port"] == s3["port"] or
             not all(exact_port(board, ports()) for board in (c3, s3))):
         raise ValueError("TC001_VERIFIED_USB_INTERFACE_MISMATCH")
@@ -69,6 +72,11 @@ def run(config: dict) -> dict:
         if (not any("HIL_STATE role=c3" in line for line in c3_lines) or
                 not any("HIL_OK command=GET_STATE" in line for line in c3_lines)):
             raise ValueError("TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
+        mode_line = next(line for line in c3_lines if "HIL_STATE role=c3" in line)
+        if not all(marker in mode_line for marker in (
+                "power_mode=HIL_AWAKE_TEST_ONLY", "hil_build=0", "hil_control=1",
+                "physical_wake=0")):
+            raise ValueError("TC001_C3_NOT_IN_HIL_AWAKE_TEST_ONLY_MODE")
         c3_stream.write(b"INJECT_MOTION\n")
         deadline = time.monotonic() + 35
         while time.monotonic() < deadline:

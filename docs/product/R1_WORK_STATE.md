@@ -6452,3 +6452,49 @@ The isolated GS-179 PostgreSQL regression passed **55/55**, with physical
 HOST_SIM seed's active test Hub/Node registry; the console uses that lookup
 to block injection if the selected fixture's current Home, epoch or
 enrollment has changed.
+
+## GS-117 C3 HIL awake profile audit — 2026-10-24
+
+The observed loss of C3 USB serial during light sleep is addressed for TC-001
+by reusing the existing test-only profile `GS_HIL_BUILD=OFF`,
+`GS_HIL_CONTROL=ON`, `GS_BAT_C8_PHYSICAL_WAKE=OFF` (default remains OFF). The
+physical-wake eligibility gate already inhibits light sleep in that profile;
+the regular 20 ms PIR poll delay avoids a busy-loop. The build reports its
+active power/HIL mode, and the serial helper must see the expected `GET_STATE`
+profile before it can send `INJECT_MOTION`. Production sleep and GS-114
+qualification policy remain unchanged; no firmware has been installed.
+
+ESP-IDF 6.0.3 non-flashing profile builds both passed from the current
+`ad717c715bf8399546632c954bc45ed60f104be1` source HEAD plus the tracked working
+diff. HIL-awake candidate: 950,032 bytes, SHA-256
+`2497e6bbecc0f8b09954c9e3ac83b994b17f72621abb19eddd719d5dda4df67f`, flags
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`. Normal sleep-enabled candidate: 940,608 bytes,
+SHA-256 `eec59be390315bad53e05bb7c3c60e0fd3311ec16a11d19040d3ad36ef4c733b`,
+all three flags OFF. Both fit the 1,966,080-byte smallest app partition.
+Focused results: TC-001 16/16, endpoint 2/2, C3 profile 4/4, BAT-C8 invariants
+11/11, validation framework 51/51, feature traceability 22/22, physical
+catalogue 111 cases PASS with `device_access=NONE`. Build output remains in
+ignored `code/build/gs117-c3-*` directories; not staged or installed.
+
+Fresh read-only enumeration found two native Espressif USB Serial/JTAG
+interfaces attached to WSL: Windows USB/IP COM4 / WSL `/dev/ttyACM0` with
+historical C3 serial `14:63:93:C5:D1:58`, and COM10 / `/dev/ttyACM1` with serial
+`E0:72:A1:D3:8D:34`, which is not yet matched to the expected S3 fixture. No
+serial port was opened, so current firmware/profile/OTA state is `NOT_VERIFIED`.
+GS-114's documented approval is passive-only and prohibits uncertain serial
+opens; the fixture's exact current-image receipts and approval are absent.
+
+Laptop PostgreSQL, caregiver HTTPS and local backend health are `PASS`. Owner
+reports the existing single APK showed Connected, but no phone-side observation
+was available; phone reachability remains `NOT_VERIFIED`. Hub ingress is not
+configured or identity-authenticated, so real S3 CloudSync remains
+`NOT_VERIFIED`. No new event, EventKey or physical APK presentation exists.
+
+Next action: after separately approved exact-fixture non-reset serial/image
+inspection, verify the installed C3 profile. If it is not HIL-awake, approve an
+app-only deployment of the built candidate with an identified recovery path;
+do not touch NVS, credentials, partition table, Home or enrollment. Then verify
+the running profile, build fresh receipts and continue the existing TC-001
+console against the same Home and backend. Preserve GS-114 physical status and
+the independent genuine-PIR qualification.

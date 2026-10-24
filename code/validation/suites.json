@@ -2572,6 +2572,25 @@
       "qualification_scope": "TEST_ONLY_CONTROLLER_SOFTWARE; PHYSICAL_BOARD_AND_ANDROID_NOT_RUN"
     },
     {
+      "id": "gs117-c3-hil-awake-profile",
+      "components": ["node", "tooling"],
+      "command": ["python3", "tests/test_node_usb_stable_profile.py"],
+      "inputs": [
+        "tests/test_node_usb_stable_profile.py",
+        "firmware/node/target/esp32c3/physical_wake_capability.hpp",
+        "firmware/node/target/esp32c3/node_runtime_adapter.cpp",
+        "firmware/node/target/esp32c3/idf/main/hil_control.cpp",
+        "tools/local/gs117_tc001_serial_windows.py"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": ["^OK$"],
+      "timeout": 120,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true,
+      "qualification_scope": "C3 HIL-awake compile-time profile and serial-loop safeguards; no hardware opened"
+    },
+    {
       "id": "gs179-verified-endpoint",
       "components": ["tooling", "backend", "pwa"],
       "command": ["python3", "tests/python/test_gs179_verified_endpoint.py"],

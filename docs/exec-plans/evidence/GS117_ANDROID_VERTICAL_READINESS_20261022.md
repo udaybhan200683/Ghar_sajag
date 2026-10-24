@@ -1,5 +1,70 @@
 # GS-117 Android sensor vertical readiness — 2026-10-22
 
+## 2026-10-24 C3 USB-serial / HIL-awake audit
+
+The C3 sleep audit found an existing reusable awake profile; no new sleep flag
+or second power-management implementation was added. Use the product-runtime
+profile `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`. `GS_HIL_CONTROL` is default OFF. The existing
+`physical_wake_permitted()` gate keeps this profile from entering light sleep;
+the runtime continues its normal 20 ms `kPirPollMs` delay while sleep is
+ineligible. EventKey, ESP-NOW/security, storage, retry/ACK and normal production
+sleep paths are unchanged. `INJECT_MOTION` remains compile-time disabled when
+`GS_BAT_C8_PHYSICAL_WAKE=ON`; the console now requires the running `GET_STATE`
+to report `power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1
+physical_wake=0` before it sends the existing injection command. The console
+displays the claimed image profile before observation and the reported active
+mode after the read-only status stage.
+
+Read-only USB discovery on 2026-10-24 found Windows USB/IP devices COM4 and
+COM10 attached to WSL, exposed as `/dev/ttyACM0` and `/dev/ttyACM1`. Their
+native Espressif USB Serial/JTAG serial IDs are `14:63:93:C5:D1:58` and
+`E0:72:A1:D3:8D:34`. The first matches the historical C3 USB identity; the
+second is not independently matched to the expected S3 identity. No serial
+device was opened. Current running firmware, HIL flags, partition/OTA slot,
+sleep state, and current Home/Hub enrollment therefore remain unverified.
+Current exact per-fixture approval/image receipts are absent, and the existing
+GS-114 approval permits passive enumeration only; it explicitly stops before
+opening a possibly resetting serial interface. No `GET_STATE`, injection,
+flash, or reset was performed.
+
+The C3 CloudSync chain is distinct from the APK's “Connected” report. Owner
+reports that the existing APK previously showed Connected; this was not
+verified from the phone in this run. A fresh owner-laptop health check shows
+PostgreSQL, caregiver HTTPS and the local backend `PASS`, while phone-side
+reachability is `NOT_VERIFIED`; Hub ingress autostart is disabled, authenticated
+Hub identity is absent, persistent ingress is not configured and Hub monitoring
+freshness is unknown. No S3-to-backend CloudSync success is claimed.
+
+Build/deployment plan: produce and hash the profile above using ESP-IDF 6.0.3
+into a unique ignored build directory; separately build production defaults
+with `GS_HIL_CONTROL=OFF`, `GS_HIL_BUILD=OFF`, and
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`. Do not use a blind serial flash command. If the
+current C3 image lacks the required HIL flags or status report, first obtain
+separate explicit approval for the identified C3, exact candidate hash, allowed
+app-only update method, expected reboot and recovery plan. Preserve bootloader,
+partition table, NVS, credentials, enrollment and active data; use only an
+already authorized app-only update path and stop if no such path is documented.
+Then verify running hash/profile and reset-safe serial behavior before creating
+the fixture receipt or running TC-001. The S3 is not to be changed for this
+serial-availability issue.
+
+Focused software coverage: TC-001 console 17/17, verified endpoint 2/2, C3
+profile 4/4, BAT-C8 invariants 11/11, validation framework 51/51, feature
+traceability 22/22 and physical catalogue 111 cases PASS (`device_access=NONE`).
+The non-flashing ESP-IDF 6.0.3 C3 HIL-awake build passed at 950,032 bytes,
+SHA-256 `2497e6bbecc0f8b09954c9e3ac83b994b17f72621abb19eddd719d5dda4df67f`.
+Separate normal sleep-enabled C3 build passed at 940,608 bytes, SHA-256
+`eec59be390315bad53e05bb7c3c60e0fd3311ec16a11d19040d3ad36ef4c733b`. Each
+fits the configured 1,966,080-byte smallest app partition. Build caches and
+images are ignored under `code/build/gs117-c3-*`; neither image was installed.
+
+These tests verify the existing sleep-gate matrix, idle task delay, unchanged
+retry/durable-ACK paths, repeatable software orchestration and fail-closed
+behavior for missing/wrong mode evidence. Physical idle serial availability and
+repeated board injections remain `NOT_RUN`; GS-114 sleep/wake qualification
+results and optical PIR evidence are unchanged.
+
 ## Scope and checkpoint
 
 This is a bounded readiness checkpoint for the first genuine
@@ -236,7 +301,7 @@ The owner-only `~/.config/ghar-sajag/gs117-tc001/fixture.json` must be mode
 `reset_safe_uart_verified=true`. Each `c3`/`s3` object must name its exact
 Windows `port`, `usb_hwid`, `serial_number`, local image path/SHA-256,
 `firmware_source_head` and `installed_image_receipt`; the C3 additionally
-needs `hil_control=true`, `physical_wake=false`, and the S3 needs
+needs `hil_control=true`, `hil_build=false`, `physical_wake=false`, and the S3 needs
 `full_product_composition=true`. Both installed-image receipts must contain
 matching target/USB/source/running-image hash, installation date and a
 timezone-aware observation within 24 hours, plus active OTA slot, partition

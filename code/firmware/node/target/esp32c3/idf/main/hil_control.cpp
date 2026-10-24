@@ -12,6 +12,14 @@
 namespace {
 constexpr char kTag[] = "gs_hil_control";
 
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+constexpr char kPowerMode[] = "HIL_AWAKE_TEST_ONLY";
+#elif GS_BAT_C8_PHYSICAL_WAKE
+constexpr char kPowerMode[] = "BAT_C8_PHYSICAL_WAKE_QUALIFICATION";
+#else
+constexpr char kPowerMode[] = "SLEEP_ENABLED";
+#endif
+
 void dispatch_command(const char* command) {
     if (std::strcmp(command, "INJECT_MOTION") == 0) {
 #if GS_BAT_C8_PHYSICAL_WAKE
@@ -44,8 +52,10 @@ void dispatch_command(const char* command) {
 
 void control_task(void*) {
     std::string command;
-    ESP_LOGI(kTag, "HIL_READY role=c3 protocol=1 version=%s",
-             esp_app_get_description()->version);
+    ESP_LOGI(kTag,
+             "HIL_READY role=c3 protocol=1 version=%s power_mode=%s hil_build=%d hil_control=%d physical_wake=%d",
+             esp_app_get_description()->version, kPowerMode,
+             GS_HIL_BUILD, GS_HIL_CONTROL, GS_BAT_C8_PHYSICAL_WAKE);
     for (;;) {
         const int value = std::fgetc(stdin);
         if (value == EOF) {
