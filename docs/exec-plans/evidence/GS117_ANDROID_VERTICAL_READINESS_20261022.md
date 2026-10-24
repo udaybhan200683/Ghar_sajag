@@ -1221,3 +1221,133 @@ that precise extension must be decided before implementation. The existing
 Agrim LAN proxy also remains stale and its scoped refresh needs a Windows
 administrator token. No `INJECT_MOTION` was sent and the HOST_SIM seed remains
 excluded.
+
+## 2026-10-24 strict physical identity compatibility implementation
+
+**Source checkpoint:** canonical `feature/r1-commercial-baseline` at
+`b91e14bc13ac8aeae6ad62595c082f5a8443528c`, with only the scoped working-tree
+changes listed below. Required context preflight passed before edits. No
+concurrent writer or remote advance was found at the start of this execution.
+
+The verified source identities are retained verbatim as `c3-<12 lowercase MAC
+hex>` and `hub-<12 lowercase MAC hex>`. The existing GS40 TEST_ONLY bootstrap,
+signed authority lease parser, GS-179 TEST_ONLY ingress, and TC-001 fixture and
+read-only backend helper now recognize these strict forms alongside existing
+HOST_SIM IDs. This is syntax support only: the TEST_ONLY S3 composition checks
+that its signed configured Hub ID equals the identity derived from the live
+HubSecurityLink MAC before continuing; GS-179 still requires the exact verified
+client-certificate fingerprint and active Hub/Home/epoch binding; event
+admission still requires the current enrolled Node and the existing durable
+EventKey path. The TC-001 fixture also requires physical C3/S3 image receipts
+to name the same MAC-derived IDs. Production identity validation is unchanged,
+and no alias, credential, Home, ownership or enrollment was created.
+
+Focused software validation completed before this checkpoint:
+
+- `make -C code gs40-test-only-bootstrap-test`: 59 checks PASS, including
+  signed physical-ID config and authority lease, exact Hub runtime binding,
+  malformed identity rejection and preserved synthetic fixture coverage.
+- `python3 code/tests/python/test_gs117_tc001_console.py`: 19/19 PASS,
+  including strict identity profile matching, image-receipt correlation and
+  launching the console import with `PYTHONPATH` unset.
+- `tests.integration.test_gs179_runtime_composition`: 4/4 PASS against an
+  isolated TLS-verified temporary PostgreSQL cluster. A syntactically physical
+  but unregistered Hub is rejected before listener bind; the existing
+  registered synthetic runtime, mTLS/time/Home/epoch guards, durable commit,
+  caregiver projection and retry/restart behavior still pass. Temporary
+  database and test TLS files were removed; the persistent laptop DB was not
+  changed.
+- Full S3 `gs_r1_s3_hub` product target build PASS with
+  `GS40_TEST_ONLY_CLOUDSYNC=ON`, `GS_S3_DIAGNOSTIC_ONLY=OFF`, ESP-IDF 6.0.3,
+  and defaults `sdkconfig.defaults;sdkconfig.defaults.outbox;sdkconfig.gs40_test_only.defaults`.
+  Built image is 2,243,408 bytes, SHA-256
+  `3add51b98fa21192b42ae07b75eba31985e19c82dc46f6e2036ae4ce094b34ed`, with
+  47% application-slot headroom. The generated TEST_ONLY root was a temporary
+  public build input, not the authorized physical trust root; this image is
+  build evidence only and is not eligible for deployment. COM10 was not flashed
+  and runtime/storage startup remains unverified.
+
+The full `make -C code validation-hub` component gate continued through its
+host-only tests. Board-stack E2E passed 10 scenario groups; feature boundaries
+133, signed-FOTA tooling 23, C++ integration 1,511, GS114 ACK-wait trace 36,
+GS40 1,320, GS58 onboarding 41, credential slots 48, setup-permit 33, Wi-Fi
+77, TEST_ONLY bootstrap 59, commissioning 4, rejoin 1, Hub FOTA guard 1, FOTA
+34, master validation 49, multinode 14, registry 6, registry persistence 1,
+journal 1, durable codec 3, fresh install 3, recovery scheduling 4, provider
+1, Hub retirement 1, backend receipts 1, Hub ownership lifecycle 8, S3 outbox
+1, segmented runtime 1, checkpoint 2, and storage correctness 1 all passed.
+The initial `host-build` stage timed out at its configured 600 seconds while
+compiling a cold host tree. The separate historical
+`hub-journal-migration-host-test` failed at the existing “clean migration
+commits” assertion (test line 194); the same failure is documented in
+`docs/architecture/GS148_ARCHITECTURE_REVIEW_20261012.md`. Diagnostic replay
+localized it to `DurableStore::commit()` returning `NotCommitted` because the
+checkpoint remains in `migration_view`. That is the existing fail-closed
+owner-domain guard; the architecture review explicitly says not to weaken it
+and requires the existing GS-D001/GS-116 applicability decision before a
+coordinator repair. No storage code or migration assertions were changed.
+The final full Hub gate result and focused retry results are recorded below.
+
+| Stage | Result | Current evidence |
+|---|---|---|
+| COM4 identity and C3 HIL image | PASS (existing verified state) | USB ID `14:63:93:C5:D1:58`, firmware identity `c3-146393c5d158`; installed HIL-awake app is 945,584 bytes, SHA-256 `d1e7f89d473d3443b4b0380a53764f7521e88df2a452251f8a326656a8d74136`, matching the app prefix of the existing full-flash readback. `GET_STATE` reports `HIL_AWAKE_TEST_ONLY`, `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`, `GS_BAT_C8_PHYSICAL_WAKE=OFF`. No C3 build or flash in this execution. |
+| C3 NodeRuntime/sensing | BLOCKED | Latest state reports `runtime_live=0`, `sensing_live=0`; an authenticated Hub session is not ready. |
+| COM10 identity/current product image | PASS (image only) | USB ID `E0:72:A1:D3:8D:34`, firmware identity `hub-e072a1d38d34`; installed product application readback SHA-256 `a46c843ef66f4a0862668304b27f6cf6079ee70c0e2e48a3acbaa6e307462fa7`. No S3 flash in this execution. |
+| S3 startup, outbox/state mount, HubRuntime | NOT_VERIFIED | The identity-pinned reset-tolerant observer produced no boot lines. The `gs_state` readback was all `0xff`; this does not prove base-NVS state. |
+| Physical C3↔S3 authenticated session | BLOCKED | C3 readable health-ACK Hub pin is `hub-7c4fadb72a20`; current COM10 MAC derives `hub-e072a1d38d34`. The protected C3 association record remains encrypted and untouched. |
+| Live GS-179 physical ingress/CloudSync | BLOCKED | Installed S3 profile has `GS40_TEST_ONLY_CLOUDSYNC=OFF`; no exact physical Home/epoch owner, active Node enrollment, trusted-time authority, or authorized physical Hub mTLS package is configured. |
+| Local backend/database | PASS | Existing PostgreSQL durability/TLS and caregiver HTTPS checks remain PASS; read-only DB audit showed only the historic synthetic identities and seed. No persistent DB changes occurred. |
+| Agrim laptop-to-phone route | BLOCKED | Current Wi-Fi is `Airtel_Agrim`, `192.168.1.10/24`; existing Windows forwarding still targets stale `192.168.1.7`. Refresh needs a Windows administrator token unavailable here; no network rule was changed. |
+| Existing APK/Home | NOT_VERIFIED | No ADB/device diagnostic transport is available. The prior `Connected` label does not prove origin, Home projection or physical Hub delivery. |
+| Fresh TC-001 event / actual APK | NOT_RUN | No injection was sent, so there is no new EventKey, physical S3 receipt, backend COMMITTED or APK display. HOST_SIM history remains excluded. |
+
+The code change resolves the previously identified **source identity syntax**
+gap, not the absent physical authority or association state. The installed C3
+must first authenticate to the exact current S3 under the existing Home and
+enrollment; ingress and trusted time must then be configured using approved
+existing authority. Do not infer that from a successful source test or S3
+build. GS-114 physical-wake and genuine optical PIR qualification are unchanged.
+
+## 2026-10-24 regression completion and live Windows route recheck
+
+The code change and validation were performed from source commit
+`b91e14bc13ac8aeae6ad62595c082f5a8443528c` with scoped tracked changes in the
+working tree. No physical board, persistent Home database, credential, NVS,
+ownership record, route or firewall rule was changed. No `INJECT_MOTION` was
+sent and no event/EventKey was created.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Focused physical identity changes | PASS | `make -C code gs40-test-only-bootstrap-test` 59 checks; `python3 code/tests/python/test_gs117_tc001_console.py` 19/19; isolated `test_gs179_runtime_composition` 4/4 against temporary TLS-verified PostgreSQL. Arbitrary unregistered physical-shaped Hub identity is rejected before listener bind. |
+| Product S3 image | PASS (build only) | Full `gs_r1_s3_hub`, `GS40_TEST_ONLY_CLOUDSYNC=ON`, `GS_S3_DIAGNOSTIC_ONLY=OFF`; SHA-256 `3add51b98fa21192b42ae07b75eba31985e19c82dc46f6e2036ae4ce094b34ed`, 2,243,408 bytes. Temporary public trust root; not eligible for flashing. COM10 remained unchanged. |
+| Full Hub component gate | FAIL, 49/55 stages PASS | Report `code/evidence/validation_framework/hub-1792824270335666431/report.json`. Failures: cold `host-build`, `first-event-reader-compatibility`, and `storage-correctness-sanitizers` timeouts; existing `hub-journal-migration-host-test` clean-migration commit assertion; P0 vertical stage returns `product_status=PARTIAL`; 1 GS-178 browser helper timeout in its 33-test stage. |
+| Hub timeout retries | PASS | `make -C code validation-build`; `make -C code hub-first-event-reader-host-test` (`GS148-ARCH-049 PASS`, with the expected known commercial first-event rollback limitation reported); `make -C code hub-storage-correctness-sanitize`; isolated `make -C code gs178-software-e2e` 33/33. No assertions/timeouts were changed. |
+| Backend component gate | FAIL, 23/26 stages PASS | Report `code/evidence/validation_framework/backend-1792829610061440299/report.json`. Physical-relevant `gs117-tc001-console` 19/19, `gs179-verified-endpoint` 2/2, `gs178-node-caregiver-e2e` 33/33 pass. Other failures: unrelated CSS budget (`static.css_bytes=29576`, max 18432), stale diagnostic-stage registry expectation (`gs117-c3-hil-awake-profile`), and P0 `product_status=PARTIAL`. |
+| Contract component gate | FAIL, 47/48 stages PASS | Report `code/evidence/validation_framework/contract-1792830522577829830/report.json`. Only failing stage is P0 `product_status=PARTIAL`; Hub security/storage/GS40 contracts, reader compatibility, and TC-001 console stages pass. |
+| Feature traceability | PASS | `make -C code feature-coverage-test`: 226 features, 281 modules, 27 physical cases, 22 registry tests. This establishes mapping consistency only. |
+| Physical C3/S3 and APK | BLOCKED / NOT_RUN | C3 is still `runtime_live=0`, `sensing_live=0`; readable C3 health-ACK Hub pin remains `hub-7c4fadb72a20` and differs from current COM10-derived `hub-e072a1d38d34`. S3 installed CloudSync is OFF; startup/mount, current Hub ownership, Node enrollment, trusted time and mTLS authority are unverified. `adb` is not installed. No new physical event, durable event row, caregiver API event or APK observation exists. HOST_SIM seed excluded. |
+
+Fresh Windows read-only queries supersede the earlier owner-reported Agrim
+address for this run: the active Wi-Fi connection profile is `Yogi`, classified
+Public, with IPv4 `192.168.1.6/24`; WSL remains `172.17.152.10`. The existing
+GS-179 portproxy is still `192.168.1.7:443 -> 172.17.152.10:8444`. The current
+Windows token is not Administrator, and PowerShell refuses to load the
+repository proxy script under its execution policy. Even with elevation, that
+script refuses mutation on a Public network. No policy bypass, public exposure,
+firewall change or route mutation was attempted.
+
+**TC-001 remains BLOCKED / NOT_RUN.** The source identity syntax mismatch is
+fixed, but the authority gap is not: the existing `GS40T/1` physical bootstrap
+details remain PROPOSED, no approved signed Home/epoch/Hub/Node binding or
+physical mTLS/trusted-time material exists, and the C3's preserved association
+pin refers to a different Hub. The installed software-only GS-168
+`TestOnlyIssuer` deliberately accepts only synthetic `test-hub-*` identities
+and creates host-held private keys; it is not a valid physical-Hub credential
+provider and was not broadened or used to impersonate the S3. No registered
+physical certificate/provider exists in the approved TEST_ONLY fixture. The
+exact minimal next prerequisites are an authorized physical key/CSR-backed
+TEST_ONLY credential and Home/epoch/Hub/Node binding for the existing Home,
+trusted time, plus an owner-trusted non-Public Wi-Fi profile and elevated
+execution context to refresh only the named GS-179 portproxy. Actual APK
+origin/Home/event acceptance also remains NOT_VERIFIED until device-side
+diagnostics or genuine user observation exists.

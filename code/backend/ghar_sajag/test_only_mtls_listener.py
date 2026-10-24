@@ -25,6 +25,7 @@ from urllib.parse import urlsplit
 from .cloud_client_identity import TimeReadiness, authorize_cloud_tls_context
 from .durable_commit import EventCommitConflict
 from .hub_rule_decisions import HubDecisionConflict
+from .identity_namespaces import is_gs179_test_hub_id
 
 
 _HOME_ROUTE = re.compile(r"^/v1/homes/([A-Za-z0-9_-]{1,80})/(events|node-health|hub-rule-decisions)$")
@@ -279,7 +280,7 @@ class TestOnlyMtlsListener:
                             credentials=listener.credentials,
                             ownership_db=listener.ownership_db,
                         )
-                        if (not context.permanent_hub_id.startswith("test-hub-") or
+                        if (not is_gs179_test_hub_id(context.permanent_hub_id) or
                                 not context.home_id.startswith("gs177-test-")):
                             raise PermissionError("test_only_identity_required")
                         if request_path.path == "/v1/test/authority/refresh":

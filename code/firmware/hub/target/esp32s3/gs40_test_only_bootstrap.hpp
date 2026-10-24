@@ -14,6 +14,15 @@
 
 namespace gs::hub::target {
 
+// TEST_ONLY accepts the preserved HOST_SIM namespace and the physical
+// MAC-derived `hub-<12 lowercase hex>` namespace. These are syntax checks only;
+// target code must additionally match the actual HubSecurityLink identity and
+// backend authorization must continue to prove certificate ownership, Home,
+// epoch and enrollment.
+bool gs40_test_only_hub_id_allowed(const std::string& hub_id);
+bool gs40_test_only_hub_id_matches_runtime(const std::string& configured_hub_id,
+                                           const std::string& runtime_hub_id);
+
 // Secrets in this value are transient TEST_ONLY inputs. Do not serialize this
 // object, log it, or persist it. Destruction overwrites the secret strings.
 struct Gs40TestOnlyRuntimeConfig {

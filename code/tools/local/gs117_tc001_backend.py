@@ -11,6 +11,8 @@ import urllib.request
 
 import psycopg
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+from ghar_sajag.identity_namespaces import is_gs179_test_node_id
 from gs179_verified_endpoint import VerifiedAddressHTTPSHandler, windows_wifi_ipv4
 
 HOME = "gs177-test-product"
@@ -32,7 +34,7 @@ def run(request: dict) -> dict:
                                            request.get("logical_node_id") != "bedroom"):
         raise ValueError("TC001_wrong_Home_or_room")
     device = request.get("physical_device_id")
-    if action != "readiness" and (not isinstance(device, str) or not device.startswith("test-c3-")):
+    if action != "readiness" and not is_gs179_test_node_id(device):
         raise ValueError("TC001_unapproved_test_device_id")
     with psycopg.connect(dsn, connect_timeout=5) as db:
         if action == "readiness":

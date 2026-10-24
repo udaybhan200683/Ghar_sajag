@@ -65,7 +65,8 @@ std::string pem_key(EVP_PKEY* key) {
     return result;
 }
 
-std::string pem_cert(EVP_PKEY* key, std::string& fingerprint) {
+std::string pem_cert(EVP_PKEY* key, std::string& fingerprint,
+                     const std::string& common_name = "test-hub-000001") {
     X509* cert = X509_new();
     X509_set_version(cert, 2);
     ASN1_INTEGER_set(X509_get_serialNumber(cert), 77);
@@ -74,7 +75,7 @@ std::string pem_cert(EVP_PKEY* key, std::string& fingerprint) {
     X509_set_pubkey(cert, key);
     X509_NAME* name = X509_get_subject_name(cert);
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC,
-        reinterpret_cast<const unsigned char*>("test-hub-000001"), -1, -1, 0);
+        reinterpret_cast<const unsigned char*>(common_name.c_str()), -1, -1, 0);
     X509_set_issuer_name(cert, name);
     X509_EXTENSION* usage = X509V3_EXT_conf_nid(nullptr, nullptr,
         NID_ext_key_usage, const_cast<char*>("clientAuth"));
@@ -183,13 +184,14 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     const std::array<std::uint8_t, 32>& challenge, const std::vector<std::uint8_t>& target_public,
     const std::vector<std::uint8_t>& time_der, const std::vector<std::uint8_t>& authority_der,
     const std::string& cert, const std::string& key, const std::string& fingerprint,
-    const std::string& timezone = "Etc/UTC") {
+    const std::string& timezone = "Etc/UTC",
+    const std::string& hub_id = "test-hub-000001") {
     std::vector<std::uint8_t> plain{'G','4','0','P',1};
     field(plain,1,"gs40-lab"); field(plain,2,"test-passphrase");
     field(plain,3,"https://127.0.0.1:9443"); field(plain,4,"127.0.0.1");
     field(plain,5,"-----BEGIN CERTIFICATE-----\nTEST ROOT\n-----END CERTIFICATE-----\n");
     field(plain,6,"127.0.0.1"); field(plain,7,std::vector<std::uint8_t>{0x12,0x34});
-    field(plain,8,time_der); field(plain,9,"test-hub-000001"); field(plain,10,cert); field(plain,11,key);
+    field(plain,8,time_der); field(plain,9,hub_id); field(plain,10,cert); field(plain,11,key);
     field(plain,12,fingerprint); field(plain,13,number(1)); field(plain,14,number(1));
     field(plain,15,number(1893456000)); field(plain,16,authority_der);
     field(plain,17,"home1"); field(plain,18,timezone);
@@ -251,10 +253,15 @@ void sign_lease(EVP_PKEY* signer, std::vector<std::uint8_t>& wire) {
 int main() {
     EVP_PKEY* config_root=rsa_key(); EVP_PKEY* time_root=rsa_key();
     EVP_PKEY* authority_root=rsa_key(); EVP_PKEY* client_key=rsa_key();
-    check(config_root && time_root && authority_root && client_key,"RSA fixture keys");
+    EVP_PKEY* physical_client_key=rsa_key();
+    check(config_root && time_root && authority_root && client_key && physical_client_key,"RSA fixture keys");
     std::string fingerprint;
     const auto cert=pem_cert(client_key,fingerprint);
     const auto client_private=pem_key(client_key);
+    std::string physical_fingerprint;
+    const auto physical_hub_id=std::string("hub-001122334455");
+    const auto physical_cert=pem_cert(physical_client_key,physical_fingerprint,physical_hub_id);
+    const auto physical_client_private=pem_key(physical_client_key);
     const auto config_der=public_der(config_root); const auto time_der=public_der(time_root);
     const auto authority_der=public_der(authority_root);
 
@@ -270,6 +277,33 @@ int main() {
           config.household_timezone=="Etc/UTC" &&
           config.activity_rules.morning_bedroom_location=="bedroom",
           "parsed signed Home activity configuration");
+    check(gs40_test_only_hub_id_allowed("test-hub-000001") &&
+          gs40_test_only_hub_id_allowed(physical_hub_id) &&
+          !gs40_test_only_hub_id_allowed("hub-00112233445z") &&
+          !gs40_test_only_hub_id_allowed("hub-00112233445500") &&
+          !gs40_test_only_hub_id_allowed("hub-001122334455 "),
+          "TEST_ONLY Hub identity accepts only preserved synthetic or exact lowercase MAC form");
+    check(gs40_test_only_hub_id_matches_runtime(physical_hub_id, physical_hub_id) &&
+          !gs40_test_only_hub_id_matches_runtime(physical_hub_id, "hub-aabbccddeeff") &&
+          !gs40_test_only_hub_id_matches_runtime("test-hub-000001", physical_hub_id),
+          "configured Hub identity must exactly match runtime hardware identity");
+
+    Gs40TestOnlyEnvelopeSession physical_session(config_der);
+    std::array<std::uint8_t,32> physical_challenge{};
+    std::vector<std::uint8_t> physical_target;
+    check(physical_session.begin(physical_challenge,physical_target),"physical identity config challenge");
+    auto physical_envelope=signed_config(config_root,physical_challenge,physical_target,
+        time_der,authority_der,physical_cert,physical_client_private,physical_fingerprint,
+        "Etc/UTC",physical_hub_id);
+    Gs40TestOnlyRuntimeConfig physical_config;
+    check(physical_session.accept(physical_envelope,physical_config) &&
+          physical_config.valid_material_shape() &&
+          physical_config.permanent_hub_id==physical_hub_id,
+          "signed TEST_ONLY config accepts the verified physical Hub identity shape");
+    check(gs40_test_only_hub_id_matches_runtime(physical_config.permanent_hub_id,
+          physical_hub_id),"signed physical identity remains exact through runtime binding");
+    check(!gs40_test_only_hub_id_matches_runtime(physical_config.permanent_hub_id,
+          "hub-ffffffffffff"),"signed physical identity cannot bind to another Hub");
     check(!session.accept(envelope,config),"config envelope replay");
 
     Gs40TestOnlyEnvelopeSession kolkata_session(config_der);
@@ -342,6 +376,22 @@ int main() {
     Gs40TestOnlyAuthorityLease parsed_lease;
     check(lease_verifier.verify(std::string(lease.begin(),lease.end()),nonce,7,1700000010,5000,parsed_lease),"valid current authority lease");
     check(parsed_lease.binding.home_id==home && parsed_lease.expires_monotonic_ms==55000,"lease binding and bound");
+    std::vector<std::uint8_t> physical_lease{'G','4','0','A',1};
+    physical_lease.insert(physical_lease.end(),nonce.begin(),nonce.end());
+    put64(physical_lease,7); put64(physical_lease,1700000000);
+    put64(physical_lease,1700000060); put64(physical_lease,2);
+    put64(physical_lease,1); put64(physical_lease,3); physical_lease.push_back(1);
+    physical_lease.insert(physical_lease.end(),32,0x44);
+    physical_lease.push_back(static_cast<std::uint8_t>(physical_hub_id.size()));
+    physical_lease.insert(physical_lease.end(),physical_hub_id.begin(),physical_hub_id.end());
+    physical_lease.push_back(static_cast<std::uint8_t>(home.size()));
+    physical_lease.insert(physical_lease.end(),home.begin(),home.end());
+    sign_lease(authority_root,physical_lease);
+    check(lease_verifier.verify(std::string(physical_lease.begin(),physical_lease.end()),
+          nonce,7,1700000010,5000,parsed_lease) &&
+          parsed_lease.binding.hub_device_id==physical_hub_id &&
+          parsed_lease.binding.home_id==home && parsed_lease.binding.ownership_epoch==3,
+          "signed current Home/epoch authority lease retains exact physical Hub identity");
     auto wrong_nonce=nonce; wrong_nonce[1]=1;
     check(!lease_verifier.verify(std::string(lease.begin(),lease.end()),wrong_nonce,7,1700000010,5000,parsed_lease),"lease nonce mismatch");
     check(!lease_verifier.verify(std::string(lease.begin(),lease.end()),nonce,8,1700000010,5000,parsed_lease),"lease boot generation mismatch");
@@ -349,5 +399,6 @@ int main() {
     check(!lease_verifier.verify(std::string(corrupted.begin(),corrupted.end()),nonce,7,1700000010,5000,parsed_lease),"inactive authority rejected");
     check(!lease_verifier.verify(std::string(lease.begin(),lease.end()),nonce,7,1700000100,5000,parsed_lease),"expired lease rejected");
     std::cout << "GS40 TEST_ONLY bootstrap checks=" << checks << " PASS\n";
-    EVP_PKEY_free(config_root); EVP_PKEY_free(time_root); EVP_PKEY_free(authority_root); EVP_PKEY_free(client_key);
+    EVP_PKEY_free(config_root); EVP_PKEY_free(time_root); EVP_PKEY_free(authority_root);
+    EVP_PKEY_free(client_key); EVP_PKEY_free(physical_client_key);
 }

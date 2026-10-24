@@ -759,6 +759,16 @@ void secure_owner_task(void*) {
         vTaskDelete(nullptr);
         return;
     }
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (!g_gs40_test_material ||
+        !gs40_test_only_hub_id_matches_runtime(
+            g_gs40_test_material->config().permanent_hub_id,
+            security_link.hub_id())) {
+        ESP_LOGE(kTag, "TEST_ONLY configured Hub identity does not match physical Hub; startup refused");
+        vTaskDelete(nullptr);
+        return;
+    }
+#endif
     for (const auto& mac : security_link.enrolled_macs()) {
         if (!add_runtime_peer(mac)) {
             ESP_LOGE(kTag, "Could not restore enrolled ESP-NOW peer");

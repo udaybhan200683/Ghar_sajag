@@ -5,7 +5,9 @@ import json
 from datetime import datetime, timezone
 import hashlib
 from http.server import ThreadingHTTPServer
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import threading
@@ -19,10 +21,35 @@ import gs117_tc001_console as tc
 
 
 class TC001Test(unittest.TestCase):
+    def test_console_loads_shared_identity_rules_without_pythonpath(self):
+        environment = os.environ.copy()
+        environment.pop("PYTHONPATH", None)
+        probe = (
+            "import runpy; runpy.run_path(" + repr(str(Path(tc.__file__).resolve())) +
+            ", run_name='gs117_console_import_probe')"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", probe], cwd=Path(__file__).resolve().parents[3],
+            env=environment, capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_missing_fixture_blocks_before_serial(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(tc, "FIXTURE", Path(directory) / "missing.json"):
             with self.assertRaisesRegex(ValueError, "owner_only_fixture"):
                 tc.exact_fixture()
+
+    def test_physical_mac_identity_shapes_are_strict_and_distinct_from_host_sim(self):
+        self.assertTrue(tc.is_gs179_test_hub_id("test-hub-a"))
+        self.assertTrue(tc.is_gs179_test_node_id("test-c3-bedroom"))
+        self.assertTrue(tc.is_gs179_test_hub_id("hub-001122334455"))
+        self.assertTrue(tc.is_gs179_test_node_id("c3-001122334455"))
+        for invalid in ("hub-00112233445z", "hub-00112233445500", "test-hub-a "):
+            with self.subTest(invalid=invalid):
+                self.assertFalse(tc.is_gs179_test_hub_id(invalid))
+        for invalid in ("c3-00112233445z", "c3-00112233445500", "test-c3-bedroom "):
+            with self.subTest(invalid=invalid):
+                self.assertFalse(tc.is_gs179_test_node_id(invalid))
 
     def test_second_run_is_refused_while_one_is_active(self):
         controller = tc.Controller()
@@ -90,6 +117,26 @@ class TC001Test(unittest.TestCase):
                 ingress_state["trusted_time_ready"] = True; ingress.write_text(json.dumps(ingress_state))
                 phone_state["backend_origin"] = "https://other.local"; phone.write_text(json.dumps(phone_state))
                 with self.assertRaisesRegex(ValueError, "installed_APK"):
+                    tc.exact_fixture()
+                phone_state["backend_origin"] = "https://laptop.local"; phone.write_text(json.dumps(phone_state))
+                fixture["hub_id"] = "hub-001122334455"
+                fixture["physical_device_id"] = "c3-001122334455"
+                ingress_state["hub_id"] = fixture["hub_id"]
+                ingress_state["node_device_id"] = fixture["physical_device_id"]
+                ingress.write_text(json.dumps(ingress_state))
+                for name, identity in (("c3", fixture["physical_device_id"]),
+                                       ("s3", fixture["hub_id"])):
+                    receipt_path = Path(fixture[name]["installed_image_receipt"])
+                    receipt_state = json.loads(receipt_path.read_text())
+                    receipt_state["permanent_device_id"] = identity
+                    receipt_path.write_text(json.dumps(receipt_state))
+                write()
+                self.assertEqual(tc.exact_fixture()["physical_device_id"], "c3-001122334455")
+                c3_receipt_path = Path(fixture["c3"]["installed_image_receipt"])
+                c3_receipt = json.loads(c3_receipt_path.read_text())
+                c3_receipt["permanent_device_id"] = "c3-aabbccddeeff"
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+                with self.assertRaisesRegex(ValueError, "physical_MAC_derived_identity_receipts"):
                     tc.exact_fixture()
 
     def test_c3_event_requires_hil_ack_and_exactly_one_new_key(self):

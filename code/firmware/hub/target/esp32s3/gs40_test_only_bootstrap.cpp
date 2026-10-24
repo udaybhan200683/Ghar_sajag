@@ -536,6 +536,32 @@ bool decrypt_payload(const std::array<std::uint8_t, 32>& key,
 
 }  // namespace
 
+bool gs40_test_only_hub_id_allowed(const std::string& hub_id) {
+    constexpr char kTestPrefix[] = "test-hub-";
+    constexpr char kPhysicalPrefix[] = "hub-";
+    if (hub_id.size() > 64) return false;
+    if (hub_id.rfind(kTestPrefix, 0) == 0) {
+        const auto suffix = hub_id.substr(sizeof(kTestPrefix) - 1);
+        return !suffix.empty() && std::all_of(suffix.begin(), suffix.end(),
+            [](unsigned char ch) {
+                return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                    (ch >= '0' && ch <= '9') || ch == '_' || ch == '-';
+            });
+    }
+    if (hub_id.size() != sizeof(kPhysicalPrefix) - 1 + 12 ||
+        hub_id.rfind(kPhysicalPrefix, 0) != 0) return false;
+    return std::all_of(hub_id.begin() + static_cast<std::ptrdiff_t>(sizeof(kPhysicalPrefix) - 1),
+        hub_id.end(), [](unsigned char ch) {
+            return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+        });
+}
+
+bool gs40_test_only_hub_id_matches_runtime(const std::string& configured_hub_id,
+                                           const std::string& runtime_hub_id) {
+    return gs40_test_only_hub_id_allowed(configured_hub_id) &&
+        !runtime_hub_id.empty() && configured_hub_id == runtime_hub_id;
+}
+
 Gs40TestOnlyRuntimeConfig::Gs40TestOnlyRuntimeConfig(Gs40TestOnlyRuntimeConfig&& other) noexcept {
     *this = std::move(other);
 }
@@ -646,7 +672,7 @@ bool Gs40TestOnlyRuntimeConfig::valid_material_shape() const {
         !valid_rsa3072_public_der(time_public_key_der) ||
         !valid_rsa3072_public_der(authority_public_key_der) ||
         time_public_key_der == authority_public_key_der ||
-        permanent_hub_id.rfind("test-hub-", 0) != 0 || permanent_hub_id.size() > 64 ||
+        !gs40_test_only_hub_id_allowed(permanent_hub_id) ||
         client_certificate_pem.empty() || client_certificate_pem.size() > 4096 ||
         client_private_key_pem.empty() || client_private_key_pem.size() > 4096 ||
         credential_fingerprint_sha256.size() != 64 || credential_generation == 0 ||
@@ -834,7 +860,7 @@ bool Gs40TestOnlyAuthorityLeaseVerifier::verify(
     const auto home_offset = home_length_offset + 1;
     const auto signed_size = wire.size() - kSignatureBytes;
     if (home_length == 0 || home_length > 64 || home_offset + static_cast<std::size_t>(home_length) != signed_size ||
-        hub.rfind("test-hub-", 0) != 0 || !valid_ascii(hub, 64) || !valid_ascii(
+        !gs40_test_only_hub_id_allowed(hub) || !valid_ascii(hub, 64) || !valid_ascii(
             std::string(reinterpret_cast<const char*>(wire.data() + home_offset), home_length), 64))
         return false;
     const std::string home(reinterpret_cast<const char*>(wire.data() + home_offset), home_length);

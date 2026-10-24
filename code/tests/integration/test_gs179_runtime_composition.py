@@ -244,6 +244,18 @@ class RuntimeOwnedPostgresCaregiverE2E(unittest.TestCase):
             no_authority.start()
         self.assertIsNone(no_authority.origin)
 
+        # A MAC-shaped ID passes only the TEST_ONLY namespace check. Without
+        # an exact active ownership/epoch row the existing durable registry
+        # still refuses it before the listener binds.
+        unregistered_physical = Gs179TestOnlyHubIngressRuntime(
+            replace(self._config(), hub_id="hub-001122334455"),
+            credentials=self.stack.issuer, trusted_time=self.trusted,
+            authority_refresh=lambda *_args: b"",
+        )
+        with self.assertRaisesRegex(ValueError, "current_hub_home_epoch_binding_required"):
+            unregistered_physical.start()
+        self.assertIsNone(unregistered_physical.origin)
+
         untrusted = _FixtureTrustedTime(self.trusted.value, ready=False)
         no_time = Gs179TestOnlyHubIngressRuntime(
             self._config(), credentials=self.stack.issuer, trusted_time=untrusted,

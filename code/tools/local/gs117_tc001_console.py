@@ -12,11 +12,20 @@ from pathlib import Path
 import re
 import secrets
 import subprocess
+import sys
 import threading
 import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+sys.path.insert(0, str(ROOT / "code" / "backend"))
+from ghar_sajag.identity_namespaces import (
+    is_gs179_test_hub_id,
+    is_gs179_test_node_id,
+    is_physical_hub_id,
+    is_physical_node_id,
+)
+
 STATE = Path.home() / ".local/state/ghar-sajag/gs117-tc001"
 FIXTURE = Path.home() / ".config/ghar-sajag/gs117-tc001/fixture.json"
 ORIGIN = "http://127.0.0.1:18791"
@@ -58,10 +67,11 @@ def exact_fixture() -> dict:
             fixture.get("approval_scope") != "C3 GET_STATE and INJECT_MOTION; C3/S3 UART observation" or
             fixture.get("reset_safe_uart_verified") is not True):
         raise ValueError("fixture_specific_authorization_or_reset_safe_receipt_missing")
-    if (not re.fullmatch(r"test-hub-[A-Za-z0-9_-]{1,64}", fixture.get("hub_id", "")) or
+    if (not is_gs179_test_hub_id(fixture.get("hub_id")) or
             not isinstance(fixture.get("installation_epoch"), int) or
             fixture["installation_epoch"] < 1):
         raise ValueError("TEST_ONLY_Hub_Home_epoch_identity_missing")
+    installed_receipts = {}
     for name in ("c3", "s3"):
         board = fixture.get(name, {})
         if (not re.fullmatch(r"COM[0-9]+", board.get("port", "")) or
@@ -74,6 +84,7 @@ def exact_fixture() -> dict:
                 not re.fullmatch(r"[0-9a-f]{64}", expected) or sha256(image) != expected):
             raise ValueError(name + "_image_artifact_mismatch")
         installed = json.loads(receipt.read_text(encoding="utf-8"))
+        installed_receipts[name] = installed
         try:
             observed_at = datetime.fromisoformat(installed["observed_at"])
             age = (datetime.now(timezone.utc) - observed_at).total_seconds()
@@ -101,8 +112,16 @@ def exact_fixture() -> dict:
             fixture["c3"].get("hil_build") is not False or
             fixture["s3"].get("full_product_composition") is not True):
         raise ValueError("installed_C3_HIL_or_full_S3_product_profile_unverified")
-    if not fixture.get("physical_device_id", "").startswith("test-c3-"):
+    physical_device_id = fixture.get("physical_device_id")
+    physical_hub_id = fixture.get("hub_id")
+    if not is_gs179_test_node_id(physical_device_id):
         raise ValueError("test_only_C3_ownership_identity_missing")
+    if is_physical_node_id(physical_device_id) != is_physical_hub_id(physical_hub_id):
+        raise ValueError("physical_C3_and_S3_identity_profiles_must_match")
+    if is_physical_node_id(physical_device_id):
+        if (installed_receipts["c3"].get("permanent_device_id") != physical_device_id or
+                installed_receipts["s3"].get("permanent_device_id") != physical_hub_id):
+            raise ValueError("physical_MAC_derived_identity_receipts_do_not_match_fixture")
     expected_origin = fixture.get("expected_caregiver_origin", "")
     if not re.fullmatch(r"https://[a-z0-9-]+\.local", expected_origin):
         raise ValueError("TEST_ONLY_caregiver_origin_missing")

@@ -6869,3 +6869,66 @@ identity/ownership and trust contract for the existing Home and these exact
 physical IDs; this is a security/product decision, not a routine serial or
 network step. The existing Agrim proxy also needs a scoped Windows-admin
 refresh. See the [GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-physical-identity-compatibilitysecurity-contract-boundary).
+
+### GS-117 physical MAC-identity syntax integration — 2026-10-24
+
+The source-level syntax mismatch is now corrected in the existing isolated
+TEST_ONLY path: strict MAC-derived C3/S3 IDs are accepted by GS40 bootstrap,
+GS-179 ingress and TC-001 checks, while the Hub runtime exact-MAC binding,
+verified certificate fingerprint, active Home/epoch ownership and Node
+enrollment guards remain mandatory. Existing HOST_SIM IDs remain supported;
+production validation is unchanged. This does not provision or enroll the
+physical pair. Focused GS40 bootstrap, TC-001 console and isolated
+GS-179/PostgreSQL runtime tests pass. The full product S3 TEST_ONLY build
+completed successfully as build-only; the installed application was not
+changed.
+
+Current physical status remains: COM4 has the already-installed HIL-awake C3
+app (945,584 bytes, SHA-256
+`d1e7f89d473d3443b4b0380a53764f7521e88df2a452251f8a326656a8d74136`), with
+HIL build off/control on/physical wake off; it was not rebuilt or reflashed.
+C3 `runtime_live=0`, `sensing_live=0`; its readable health-ACK pin names
+`hub-7c4fadb72a20`, not current COM10's
+MAC-derived `hub-e072a1d38d34`; S3 startup/mount is NOT_VERIFIED and installed
+TEST_ONLY CloudSync is OFF; there is no verified physical Home/epoch/Node
+enrollment, trusted-time or mTLS package. No HIL event was sent. The Agrim
+portproxy remains stale at `192.168.1.7`, and refresh requires Windows admin.
+No ADB evidence is available for the existing APK, so phone origin/Home/event
+remain NOT_VERIFIED. TC-001 is NOT_RUN; the HOST_SIM seed is excluded. Exact
+tests, stage evidence and required external fixture are in the
+[dated GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-strict-physical-identity-compatibility-implementation).
+
+The full S3 `gs_r1_s3_hub` product TEST_ONLY build passed from current source
+(2,243,408-byte build-only image, SHA-256
+`3add51b98fa21192b42ae07b75eba31985e19c82dc46f6e2036ae4ce094b34ed`,
+47% application-slot headroom). It uses an ephemeral public root build input
+and was not flashed. The Hub component gate passed the board-stack simulation
+(10 groups) and most security/storage regressions. The full Hub gate ran 55
+stages: 49 PASS and 6 FAIL. Failures were three cold-build timeouts, the known
+legacy journal migration assertion (`clean migration commits`, returning
+`NotCommitted` while the checkpoint is in `migration_view`), P0 vertical
+`product_status=PARTIAL`, and one GS-178 browser-helper timeout. Warmed direct
+retries then passed `validation-build`, the GS148 reader-compatibility target
+and the full storage sanitizer suite; the GS-178 retry is recorded in the
+dated handoff. The existing GS148 architecture review requires preserving
+this owner-domain guard pending the GS-D001/GS-116 scope decision; no storage
+fix was attempted. A live Windows query now reports Wi-Fi profile `Yogi` as
+Public at `192.168.1.6/24`, not the earlier owner-reported Agrim `.10`; the
+portproxy still listens on stale `.7`. The repository proxy script is blocked
+by PowerShell execution policy in this session, and it refuses mutation on a
+Public profile. Full gate stages and exact results are in the
+[GS-117 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-strict-physical-identity-compatibility-implementation).
+
+Follow-on affected-suite results: backend gate 23/26 stages PASS (TC-001
+console 19/19, verified endpoint 2/2, GS-178 33/33); its remaining failures
+are the existing CSS budget, diagnostic-stage registry expectation and P0
+`PARTIAL` result. Contract gate 47/48 stages PASS; its only failure is P0
+`PARTIAL`. `make feature-coverage-test` passes for 226 features/281 modules/27
+physical cases. No TC-001 EventKey exists and the physical stages remain
+BLOCKED/NOT_RUN; the Android APK remains NOT_VERIFIED. The newer live Windows
+profile/route result and all stage-level counts are in the dated handoff.
+The existing GS-168 software-only credential issuer intentionally remains
+synthetic-ID-only and host-keyed; it is not an authorized physical Hub issuer.
+No physical key/CSR-backed TEST_ONLY certificate registry or matching
+Home/epoch/Node binding is available, so the syntax change does not enroll or
+authenticate the boards.
