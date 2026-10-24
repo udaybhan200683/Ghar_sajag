@@ -1,5 +1,125 @@
 # GS-117 Android sensor vertical readiness — 2026-10-22
 
+## 2026-10-24 receipt reconciliation at canonical HEAD 063007d
+
+This read-only update corrects the earlier 2026-10-24 note below that left
+COM10 unmatched. It does not change the earlier restriction on opening either
+serial port or the scope of prior hardware approvals.
+
+Current local and origin HEAD are both
+`063007ddd1f0256cf4e45c533122f1cb7a49b280` on
+`feature/r1-commercial-baseline`; context preflight passed. The canonical
+worktree has no tracked modifications. Existing untracked Android assets,
+S3 `managed_components/` and `sdkconfig`, hardware evidence, and ignored build
+outputs were preserved. Historical worktrees remain read-only references.
+
+Fresh `usbipd.exe list` and Linux sysfs metadata show COM4 / BUSID `3-1` /
+`/dev/ttyACM0` / USB serial `14:63:93:C5:D1:58`, and COM10 / BUSID `3-2` /
+`/dev/ttyACM1` / USB serial `E0:72:A1:D3:8D:34`; both are native Espressif
+USB Serial/JTAG devices and attached to WSL. The COM4 serial matches the
+documented C3 identity. COM10 is positively identified as the separate
+`GS68-SPARE-S3-OWNER-DESIGNATED` ESP32-S3 by the owner-local fixture receipt
+`GS68-20261017/stack8192-authorized-usb-fixture.json`, which binds COM10,
+USB serial/MAC `E0:72:A1:D3:8D:34`, 16 MiB flash and 8 MiB PSRAM to that board.
+This is a spare S3, not the historical GS-114 CH343 S3 (`5CBC401023`). No
+serial interface was opened; `fuser` found no process holding either WSL TTY.
+These are identity/metadata checks, not current running-image or reset-safety
+proof.
+
+The latest recorded app-only image receipt for this spare S3 is dated
+2026-10-17: SHA-256
+`fd072a0a02729fb7c0f2cadb27a30b4cbb3ef6c8f5d2dee89fa2f9049a33b8dd`, source
+commit `f501d985c1ce5b8b89f0786b42af6e5a179469cb`, profile
+`GS68_CLOUDSYNC_DS_MTLS_HIL`, profile SHA-256
+`d3a57024ecd0c8e0fda08f841d9aab14ca67b769d48610531ae464d747e0fd7c`, status
+`WRITE_HASH_VERIFIED`. The profile selects the DS peripheral but explicitly
+records `ESP32_DS_PERIPHERAL_SELECTED_NOT_PROVISIONED`; it is diagnostic/test
+firmware, not the full product HubRuntime + provisioned CloudSync composition.
+This receipt is historical and does not prove the image currently running.
+No fresh image, OTA slot, trusted-time, Hub ownership/epoch, Node enrollment or
+CloudSync session query was made.
+
+The laptop health check was rerun. PostgreSQL (TLS `verify-full`), caregiver
+HTTPS, local backend and certificate-verified LAN endpoint report `PASS`;
+phone-side reachability is `NOT_VERIFIED`. The Hub-ingress runtime reports
+implemented but autostart `DISABLED`, Hub identity `NO`, monitoring freshness
+`UNKNOWN`, persistent ingress `NOT_CONFIGURED`, and readiness
+`NOT_CONFIGURED`. The caregiver WSGI process serves the existing Home/API and
+database; it does not mount or start the separate GS-179 Hub-ingress runtime.
+The operator `server.env` has caregiver service settings but no Hub listener,
+Hub client-certificate registry, trusted-time/authority provider or Hub/Home/
+epoch/Node enrollment configuration. The existing integration test helper
+uses synthetic TEST_ONLY registry/time fixtures and explicitly is not an
+operator service or physical-device credential source. Turning on the flag
+alone would therefore fail closed and would not safely configure a real Hub.
+No replacement listener, credential, ownership entry, network rule or service
+was created.
+
+Focused GS-179 runtime-configuration and PostgreSQL/TLS boundary regression
+completed: **21 passed, 1 skipped** across
+`test_gs179_runtime_composition` and `test_gs179_postgres_security`. The
+skipped case is the registered runtime-process/mTLS/PostgreSQL E2E, which
+requires a separate `GS179_TEST_POSTGRES_DSN`; that isolated database was not
+configured, and the live caregiver database was not used as a test database.
+These software checks exercise default-disabled/configuration guards and TLS
+failure boundaries; they do not prove physical Hub mTLS or CloudSync delivery.
+
+The owner-reported APK `Connected` remains a report only. No Android Debug
+Bridge is available on this host and no phone-side receipt identifies the
+installed APK's HTTPS origin, authenticated user or Home. The current laptop
+backend's healthy API and PostgreSQL therefore cannot be assumed to be the
+backend/Home used by the phone. No new Home, account, APK or backend was made.
+
+| Integration stage | Result | Evidence / limitation |
+|---|---|---|
+| C3 identity | `PASS` | COM4 USB serial matches the documented C3 identity; current firmware/profile and safe control path remain unverified. |
+| S3 identity | `PASS` | COM10 exactly matches the owner-local GS68 spare-S3 receipt; this is identity only. |
+| Current S3 image / product CloudSync | `NOT_VERIFIED` | Only the Oct 17 diagnostic image receipt is available; no current readback or active-image evidence. |
+| Laptop backend / PostgreSQL | `PASS` | Existing health reports TLS-verified service and database readiness. |
+| GS-179 software security regression | `PASS` | 21 passed; registered isolated runtime/PostgreSQL E2E skipped because no isolated test DSN was configured. |
+| Physical Hub mTLS ingress | `BLOCKED` | No persistent composition, provisioned Hub identity, issuer/trust registry, trusted-time authority or ownership/enrollment binding is configured. |
+| APK backend and Home identity | `NOT_VERIFIED` | Owner-reported Connected only; app origin, authenticated Home and phone reachability not observed. |
+| Fresh physical event / durable EventKey / APK display | `NOT_RUN` | No serial command, injection, Hub transfer, database event query or phone observation occurred. HOST_SIM seed is excluded. |
+
+### Consolidated minimum-risk physical plan
+
+1. Obtain fixture-specific authorization for **read-only current-image and
+   configuration inspection** of exact COM4 C3 and COM10 spare S3, naming the
+   no-reset observer/transport. COM4 serial open has prior reset evidence;
+   without independently verified reset-safe observation, use a physically
+   reviewed passive UART tap or stop. COM10's historical GS68 authorization
+   covered the recorded diagnostic install/query only, not a current TC-001 or
+   product-CloudSync session.
+2. Before any S3 update, obtain separate authorization for the exact app-only
+   product/test image hash, measured active OTA app slot, expected reboot,
+   preservation of bootloader/partition table/NVS and Hub state, and a verified
+   app-only rollback image plus recovery method. The Oct 17 write receipt is
+   not a current readback; the historical pre-update backup must be matched to
+   the running image before it is considered a rollback candidate. An image
+   write can make the Hub unavailable until recovery and the current app image
+   must not be overwritten without that match.
+3. Separately authorize the TEST_ONLY Hub identity path: certificate issuance
+   and private-key location, backend client-CA and exact Hub fingerprint
+   registry, authenticated trusted-time/authority source, existing Home/Hub/
+   installation epoch and active Node-enrollment binding, plus a private
+   ingress bind/reachability plan. Do not use APK signing material. Preserve
+   the same backend, Home, credentials, trust roots and event history.
+4. Verify the existing APK's origin/user/Home on the actual phone and confirm
+   it reaches the same PostgreSQL-backed caregiver API. Only then run the
+   existing TC-001 console: one fresh C3 injection, correlate its original
+   EventKey through the identified physical S3 and mTLS ingress, verify exactly
+   one durable record and caregiver projection, then observe the same event in
+   the installed APK. Any phone-side evidence is `USER_CONFIRMED` unless an
+   existing safe Android automation connection provides direct observation.
+
+The required gates are the exact fixture/inspection authorization and reset-
+safe path; any app-only firmware update and recovery authorization if the
+current S3 image is unsuitable; TEST_ONLY identity/trust/time/ownership
+configuration approval; and phone-side APK/Home evidence. No hardware or
+credential operation was performed. The old “COM10 unmatched” classification
+in the sections below is historical and superseded by this receipt
+reconciliation.
+
 ## 2026-10-24 fresh physical/backend recheck — read-only
 
 Starting checkpoint was canonical `feature/r1-commercial-baseline` HEAD

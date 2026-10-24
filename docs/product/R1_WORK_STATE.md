@@ -6551,3 +6551,54 @@ reachability is `NOT_VERIFIED` and `adb` is unavailable. No event/EventKey was
 created and no APK PASS is claimed. Detailed stage evidence and safe next
 prerequisites are in
 [`GS117_ANDROID_VERTICAL_READINESS_20261022.md`](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-fresh-physicalbackend-recheck--read-only).
+
+### GS-117 / GS-179 receipt reconciliation — 2026-10-24, HEAD 063007d
+
+Fresh read-only `usbipd` and sysfs checks map COM4 / `ttyACM0` /
+`14:63:93:C5:D1:58` to the documented C3 identity and COM10 / `ttyACM1` /
+`E0:72:A1:D3:8D:34` to the separate owner-designated GS68 spare ESP32-S3. The
+exact COM10/USB-identity/board match is recorded in the owner-local
+`GS68-20261017/stack8192-authorized-usb-fixture.json`; this corrects the prior
+statement that COM10 was unmatched. The historical GS-114 S3 adapter identity
+`5CBC401023` belongs to a different fixture. Neither serial port was opened.
+
+The latest COM10 install receipt records an app-only diagnostic image from
+2026-10-17 (`GS68_CLOUDSYNC_DS_MTLS_HIL`, SHA-256
+`fd072a0a02729fb7c0f2cadb27a30b4cbb3ef6c8f5d2dee89fa2f9049a33b8dd`, source
+`f501d985c1ce5b8b89f0786b42af6e5a179469cb`). The DS peripheral was selected
+but not provisioned. This receipt is not current-image readback and does not
+prove full product HubRuntime/CloudSync is running.
+
+Live laptop health remains PASS for TLS-verified PostgreSQL, caregiver HTTPS,
+local backend and certificate-verified LAN endpoint; phone reachability is
+NOT_VERIFIED. The existing GS-179 ingress source is implemented but the
+caregiver WSGI service does not mount/start it. Autostart is disabled, Hub
+identity is unauthenticated, freshness is unknown and persistent ingress is
+not configured. Current operator configuration has no Hub credential registry,
+trusted-time/authority source or physical Hub/Home/epoch/Node enrollment
+binding. Synthetic integration-test fixtures are not a safe physical Hub
+configuration. No listener, credential, ownership, route or board settings
+were changed.
+
+Focused `test_gs179_runtime_composition` and `test_gs179_postgres_security`
+regressions passed **21 tests**, with the registered runtime-process/mTLS/
+PostgreSQL integration case skipped because no separate isolated
+`GS179_TEST_POSTGRES_DSN` was configured. The caregiver database was not used
+as a test database. This is software configuration/TLS-boundary evidence only;
+it is not a physical Hub mTLS or CloudSync result.
+
+Owner-reported APK Connected remains unverified on the phone; its backend
+origin, authenticated Home and identity with this laptop database are unknown.
+TC-001 remains NOT_RUN: no EventKey was created, and no HOST_SIM seed is
+counted. Detailed stage results, limits and consolidated physical plan are in
+[`GS117_ANDROID_VERTICAL_READINESS_20261022.md`](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-receipt-reconciliation-at-canonical-head-063007d).
+
+Next action: obtain fixture-specific approval for a reset-safe read-only image
+and configuration observation path. If the current S3 image is unsuitable,
+separately approve an exact app-only image, measured slot, reboot behavior and
+verified app-only recovery image. Provisioning remains separately gated on an
+approved TEST_ONLY Hub identity, trusted-time/authority source, backend trust
+registry and existing Home/Hub/epoch/Node binding. Verify APK origin/Home on the
+existing phone before executing the existing TC-001 console. Preserve the
+current Home, database, credentials, event history, device NVS and GS-114
+qualification status.
