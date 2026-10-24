@@ -115,14 +115,17 @@ bool NodeSecurityLink::initialize(const Mac& physical_mac, std::uint64_t session
     return true;
 }
 
-bool NodeSecurityLink::begin_gs117_test_reassociation(
+Gs117ReassociationStatus NodeSecurityLink::begin_gs117_test_reassociation(
         const std::string& expected_hub_id, std::uint64_t now_ms) {
     constexpr char kFixtureHub[] = "hub-e072a1d38d34";
     constexpr char kFixtureHome[] = "gs177-test-product";
-    if (phase_ != Phase::Rejoining || !binding_ || !repository_ ||
-        expected_hub_id != kFixtureHub || binding_->hub_id == expected_hub_id ||
-        binding_->home_id != kFixtureHome ||
-        !mac_from_hub_id(expected_hub_id, hub_mac_)) return false;
+    Mac target_hub_mac{};
+    const auto preflight = gs117_reassociation_preflight(
+        phase_ == Phase::Rejoining, binding_.has_value() && repository_ != nullptr,
+        expected_hub_id == kFixtureHub && mac_from_hub_id(expected_hub_id, target_hub_mac),
+        binding_ && binding_->hub_id == expected_hub_id,
+        binding_ && binding_->home_id == kFixtureHome);
+    if (preflight != Gs117ReassociationStatus::Ready) return preflight;
 
     // Prove that the previous recovery state is readable before any live
     // association change. Its encrypted bytes are copied to a separate NVS
@@ -131,46 +134,57 @@ bool NodeSecurityLink::begin_gs117_test_reassociation(
         crypto_, recovery_store_, recovery_key_, binding_->home_id,
         binding_->hub_id, binding_->logical_id);
     const auto prior_state = prior_recovery.load();
-    if (prior_state.status == node::NodeRecoveryLoadStatus::Corrupt ||
-        prior_state.status == node::NodeRecoveryLoadStatus::IoError) return false;
+    if (prior_state.status == node::NodeRecoveryLoadStatus::Corrupt)
+        return Gs117ReassociationStatus::RecoveryCorrupt;
+    if (prior_state.status == node::NodeRecoveryLoadStatus::IoError)
+        return Gs117ReassociationStatus::RecoveryIoError;
 
     security::Bytes recovery_blob;
     bool recovery_found = false;
-    if (!recovery_store_.read(recovery_blob, recovery_found)) return false;
+    if (!recovery_store_.read(recovery_blob, recovery_found))
+        return Gs117ReassociationStatus::RecoverySnapshotReadFailed;
     security::Bytes backup_blob;
     bool backup_found = false;
-    if (!previous_recovery_store_.read(backup_blob, backup_found)) return false;
+    if (!previous_recovery_store_.read(backup_blob, backup_found))
+        return Gs117ReassociationStatus::RecoverySnapshotReadFailed;
     if (recovery_found) {
         if (prior_state.status != node::NodeRecoveryLoadStatus::Ready ||
-            !prior_state.state) return false;
+            !prior_state.state) return Gs117ReassociationStatus::RecoveryStateUnavailable;
         if (backup_found) {
-            if (backup_blob != recovery_blob) return false;
+            if (backup_blob != recovery_blob)
+                return Gs117ReassociationStatus::RecoveryBackupConflict;
         } else if (!previous_recovery_store_.write(recovery_blob)) {
-            return false;
+            return Gs117ReassociationStatus::RecoveryBackupWriteFailed;
         }
         if (!previous_recovery_store_.read(backup_blob, backup_found) ||
-            !backup_found || backup_blob != recovery_blob) return false;
+            !backup_found || backup_blob != recovery_blob)
+            return Gs117ReassociationStatus::RecoveryBackupVerifyFailed;
     } else if (backup_found) {
-        return false;
+        return Gs117ReassociationStatus::RecoveryBackupConflict;
     }
-    if (!repository_->preserve_previous_for_reassociation()) return false;
+    if (!repository_->preserve_previous_for_reassociation())
+        return Gs117ReassociationStatus::AssociationBackupFailed;
 
     security::Key32 installer_code{};
-    if (!security::load_target_installer_code(crypto_, installer_code)) return false;
+    if (!security::load_target_installer_code(crypto_, installer_code)) {
+        crypto_.secure_zero(installer_code.data(), installer_code.size());
+        return Gs117ReassociationStatus::InstallerCodeUnavailable;
+    }
     commissioning_ = std::make_unique<security::NodeCommissioning>(
         crypto_, "node", physical_id_, installer_code);
     crypto_.secure_zero(installer_code.data(), installer_code.size());
     if (!commissioning_->enable_window(now_ms, 10U * 60U * 1000U)) {
         commissioning_.reset();
-        return false;
+        return Gs117ReassociationStatus::CommissioningWindowFailed;
     }
+    hub_mac_ = target_hub_mac;
     expected_reassociation_hub_id_ = expected_hub_id;
     test_reassociation_pending_ = true;
     frames_.reset();
     rejoin_.reset();
     assembler_.reset();
     phase_ = Phase::Commissioning;
-    return true;
+    return Gs117ReassociationStatus::Ready;
 }
 
 bool NodeSecurityLink::restore_recovery(node::NodeRuntime& runtime,

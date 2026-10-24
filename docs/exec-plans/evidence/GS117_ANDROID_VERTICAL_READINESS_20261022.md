@@ -1487,3 +1487,117 @@ existing flash authorization. Separately, updating the phone route requires an
 elevated Windows run on a trusted Private network. No credential, ownership,
 Home, event history, NVS, partition or device firmware was modified in this
 run. Current physical status is not a TC-001 pass.
+
+## 2026-10-24 C3 app-only deployment and reassociation result
+
+From source HEAD `43ee4017d2b33d5f54375c96381277d1bbebfab3` on the canonical
+branch, context preflight passed. The remote was at the same HEAD before this
+work. The worktree contains the scoped C3 reassociation diagnostics change;
+pre-existing untracked Android assets, S3 `managed_components/` and
+`sdkconfig`, build outputs and hardware evidence were preserved.
+
+### C3 app-only update
+
+The owner authorized installing the current HIL-awake application on COM4. Live
+USB metadata identified COM4 as USB serial `14:63:93:C5:D1:58`. Before writing,
+the partition table matched the recorded layout (SHA-256
+`219614d3586ae564ce51dfc462e6e7773b590abe41048a10bc513e1a7d799469`); OTA
+metadata showed `ota_0` active and `ota_1` inactive. The active `ota_0` app
+readback was preserved (950,336 bytes, SHA-256
+`380ee48ad667b5565d76a045dc67037a8e9ebc297adc52f0c5c34d8e7d03715a`) as the
+recovery application, and the complete inactive `ota_1` slot was also read
+back and preserved. Private readback/installation artifacts are in the
+owner-only state directory `~/.local/state/ghar-sajag/gs117-tc001/deployment-20261024/`.
+
+The rebuilt C3 app was written only to inactive `ota_1` at `0x200000`; no
+bootloader, partition table, NVS, identity, enrollment or retained-event
+partition was written. Readback matched the candidate exactly: 951,216 bytes,
+SHA-256
+`86bb487dfbc41d3e781d115cc014144202a424b714185ca1ee95fec517098fdd`.
+The official ESP-IDF OTA selector then changed `otadata` to boot `ota_1`;
+`ota_0` remains the prior recovery app. The installed image reports
+`HIL_AWAKE_TEST_ONLY`, `hil_control=1`, `physical_wake=0`, and
+`ota_slot=ota_1`. Repeated status requests remained available over the
+identified serial interface. `retained=0` and `in_flight=0` were observed.
+
+An independent sleep-enabled C3 product build also passed from the same
+source: SHA-256
+`b134d133a7510cc1882d73ede39522ce37f5d9e31258a2b50b6142138c27b147`,
+943,888 bytes, with HIL control disabled. This is a compile result only and
+does not alter GS-114 physical-wake qualification.
+
+### Physical association attempt and S3 observation
+
+One authorized `REASSOCIATE_GS117_TEST_HUB` request was sent to the identified
+C3 after installing the command-bearing app. The C3 acknowledged the request,
+then rejected it with `reason=home_mismatch` and reported the active binding
+unchanged and recovery snapshot preserved. This is a fail-closed security
+result. No association, credential, ownership or event data changed; no
+`INJECT_MOTION` was sent. The C3 still reports `runtime_live=0` and
+`sensing_live=0` because no authenticated Hub session was established.
+
+COM10 read-only identification confirmed the physical S3 USB serial
+`E0:72:A1:D3:8D:34`, ESP32-S3 revision v0.2, 16 MiB flash and 8 MiB PSRAM.
+Its installed product partition table already contains `ota_0`, `ota_1`,
+`gs_outbox` and `gs_state`; no repartition is needed. Active `ota_1` readback
+was saved with full-partition SHA-256
+`3767e80d33f11748642d1174c55a76e4a61d2ceae5f9699b7f7fabafb3b86b71` and
+validated as an ESP32-S3 `gs_r1_s3_hub` image, app version `e9e610b`, built
+with ESP-IDF 6.0.3. This establishes installed image bytes only. The UART
+status probe observed no product startup/runtime/storage/CloudSync markers;
+HubRuntime startup and CloudSync are therefore `NOT_VERIFIED`, not PASS. No
+S3 write occurred.
+
+### Current TC-001 status
+
+| Stage | Result | Evidence |
+|---|---|---|
+| C3 identity and HIL-awake app | `PASS` | COM4 USB identity matches; installed active app readback matches the newly built image hash; repeated serial status requests succeed. |
+| C3 reassociation | `BLOCKED` | Existing authenticated commissioning path rejected the request because the persisted Home does not match `gs177-test-product`; binding and recovery snapshot remained unchanged. |
+| S3 identity and installed image | `PASS` for identity/readback | COM10 USB identity and S3 product image bytes verified; this does not prove product startup. |
+| S3 HubRuntime, storage mount and CloudSync | `NOT_VERIFIED` | No startup/status markers from the reset-aware UART query; no CloudSync receipt. |
+| GS-179 physical Hub mTLS and ownership | `BLOCKED` | Physical certificate, trusted-time authority and exact S3/Home/epoch registry binding are not configured. |
+| Fresh C3 event/EventKey | `NOT_RUN` | No injection was sent. |
+| PostgreSQL and caregiver API for physical event | `NOT_RUN` | No physical EventKey was produced or committed. Historical HOST_SIM seed excluded. |
+| Existing Android APK event display | `NOT_VERIFIED` | No ADB/phone-side observation; backend/browser results cannot establish APK display. |
+| TC-001 | `BLOCKED / NOT_RUN` | No C3-to-S3 authenticated session or end-to-end event exists. |
+
+The exact remaining security dependency is authorization-backed handling of
+the C3's persisted Home binding, together with a valid physical TEST_ONLY
+Hub credential/trusted-time and Home/epoch registry for COM10. The Home guard
+was not bypassed. Backend ingress, current Wi-Fi forwarding and actual APK
+observation remain separate readiness checks. No historical HOST_SIM row is
+counted as TC-001.
+
+### Focused and component validation for this checkpoint
+
+The following focused checks passed after the C3 app deployment and the
+gate-count correction:
+
+- `make -C code gs40-test-only-bootstrap-test`: 59 checks.
+- `make -C code association-host-test`, `rejoin-host-test`, and
+  `node-recovery-persistence-host-test`: PASS.
+- `make -C code battery-c8-host-test`: 72 checks; its power-invariant suite
+  passed 11/11.
+- `PYTHONPATH=backend:. python3 -m unittest tests.python.test_component_gate -v`
+  from `code/`: 51/51.
+- `make -C code cloudsync-security-ut`: PASS, including the six GS-68/GS-40
+  identity/time integration tests.
+- `git diff --check` and `python3 -m json.tool code/validation/suites.json`:
+  PASS.
+
+The stale CloudSync stage expectation was corrected from `Ran 4 tests` to
+`Ran 6 tests`, matching the existing identity/time suite's six executed tests.
+No test assertion, security guard or product behavior was weakened.
+
+The current-source contract gate completed 47/48 stages PASS in 624.057
+seconds; the sole failure is `p0-full-product-e2e`, which correctly reports
+`product_status=PARTIAL`, `physical=NOT_RUN` after 26/26 software scenario
+checks. Its report is
+`code/evidence/validation_framework/contract-1792860766074485189/report.json`.
+The earlier current-source Node gate ran 30/31 stages PASS; its only failure
+was the same P0 physical qualification status. That report is
+`code/evidence/validation_framework/node-1792859283006633290/report.json`.
+Neither report establishes physical TC-001 acceptance. The focused C3 hardware
+request remains safely rejected at the Home-binding check; no new EventKey or
+APK event exists.

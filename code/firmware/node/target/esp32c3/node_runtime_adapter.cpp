@@ -605,8 +605,9 @@ void owner_task(void*) {
     while (!security_link.ready()) {
 #if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
         if (hil_take_gs117_reassociation_request()) {
-            if (security_link.begin_gs117_test_reassociation(
-                    "hub-e072a1d38d34", monotonic_ms())) {
+            const auto status = security_link.begin_gs117_test_reassociation(
+                "hub-e072a1d38d34", monotonic_ms());
+            if (status == Gs117ReassociationStatus::Ready) {
                 last_outbound.reset();
                 final_started_ms = -1;
                 final_transmissions = 0;
@@ -614,7 +615,8 @@ void owner_task(void*) {
                          "GS117_TEST_ONLY_REASSOCIATION started target=hub-e072a1d38d34 prior_binding_preserved=1");
             } else {
                 ESP_LOGW(kTag,
-                         "GS117_TEST_ONLY_REASSOCIATION rejected; current binding and recovery data unchanged");
+                         "GS117_TEST_ONLY_REASSOCIATION rejected reason=%s active_binding=unchanged recovery_snapshot=preserved_or_unchanged",
+                         gs117_reassociation_status_name(status));
             }
         }
 #endif

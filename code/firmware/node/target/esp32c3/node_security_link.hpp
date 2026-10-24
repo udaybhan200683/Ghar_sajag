@@ -8,6 +8,7 @@
 #include "firmware/common/security/runtime_frame_security.hpp"
 #include "firmware/common/security/target_identity_signer.hpp"
 #include "firmware/node/storage/node_recovery_persistence.hpp"
+#include "firmware/node/target/esp32c3/gs117_reassociation_status.hpp"
 
 #include <array>
 #include <cstdint>
@@ -40,8 +41,8 @@ public:
     // Narrow reassociation path for the owner-approved GS-117 physical
     // TEST_ONLY fixture. It reuses NodeCommissioning proof-of-possession and
     // never changes the stored binding until the authenticated ACK arrives.
-    bool begin_gs117_test_reassociation(const std::string& expected_hub_id,
-                                        std::uint64_t now_ms);
+    Gs117ReassociationStatus begin_gs117_test_reassociation(
+        const std::string& expected_hub_id, std::uint64_t now_ms);
     bool commissioning() const { return phase_ == Phase::Commissioning; }
     std::optional<Outbound> initial_message();
     std::optional<Outbound> accept(const Mac& source, const std::uint8_t* packet,

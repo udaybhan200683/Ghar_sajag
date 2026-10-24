@@ -138,3 +138,46 @@ Host board-stack simulation passed 10 groups; this is not physical evidence.
 The captured report is
 `code/evidence/validation_framework/node-1792812572305490461/report.json`.
 Full stage notes are in the dated GS-117 handoff and R1 work state.
+
+## Subsequent current-source install — 2026-10-24
+
+The later approved app-only deployment from canonical source HEAD
+`43ee4017d2b33d5f54375c96381277d1bbebfab3` supersedes the candidate and
+installed-image hashes above. The current COM4 device was positively
+identified again as USB serial `14:63:93:C5:D1:58`. Before update,
+`ota_0` was active and retained as the recovery image; the inactive `ota_1`
+application slot was read back and preserved. The current partition table
+matched the live layout. The full readbacks and hash manifest are retained in
+the owner-only state directory
+`~/.local/state/ghar-sajag/gs117-tc001/deployment-20261024/`.
+
+The rebuilt current-source HIL-awake application (951,216 bytes, SHA-256
+`86bb487dfbc41d3e781d115cc014144202a424b714185ca1ee95fec517098fdd`) was
+written only to `ota_1` at `0x200000` and verified byte-for-byte by readback.
+The official ESP-IDF OTA selector switched boot selection to `ota_1`; no
+bootloader, partition table, NVS, credentials, enrollment or retained-event
+data was written. `ota_0` still contains the pre-update app image
+(950,336 bytes, SHA-256
+`380ee48ad667b5565d76a045dc67037a8e9ebc297adc52f0c5c34d8e7d03715a`).
+
+The installed app reports `HIL_AWAKE_TEST_ONLY`, `GS_HIL_BUILD=OFF`,
+`GS_HIL_CONTROL=ON`, `GS_BAT_C8_PHYSICAL_WAKE=OFF` and `ota_slot=ota_1`.
+Repeated `GET_STATE` requests confirmed responsive serial access. One
+`REASSOCIATE_GS117_TEST_HUB` request returned
+`reason=home_mismatch`; the existing association and recovery snapshot
+remained unchanged. `runtime_live=0` and `sensing_live=0` remain expected
+until the authenticated Hub session is established. No motion injection was
+sent and no new EventKey exists.
+
+The separate normal sleep-enabled build from this source also completed:
+943,888 bytes, SHA-256
+`b134d133a7510cc1882d73ede39522ce37f5d9e31258a2b50b6142138c27b147`.
+It was not installed and does not change GS-114 physical-wake qualification.
+
+The same run verified the COM10 board identity and read back its active
+full-product `gs_r1_s3_hub` image and existing `gs_outbox`/`gs_state` product
+partition table without writing the S3. The readback identifies app version
+`e9e610b`; however no HubRuntime, storage-mount or CloudSync startup marker
+was captured. S3 runtime remains `NOT_VERIFIED`; this evidence is not a
+physical integration PASS. TC-001 remains `BLOCKED / NOT_RUN` with no new
+physical event and no APK observation.

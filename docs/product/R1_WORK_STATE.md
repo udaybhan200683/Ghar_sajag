@@ -6984,3 +6984,46 @@ the Windows Yogi Wi-Fi is Public and its existing portproxy targets stale
 ownership, data or event history changed; no motion was injected and no new
 EventKey exists. Exact live evidence and candidate hashes are in the
 [GS-117 execution handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-fixture-integration-implementation-and-executable-validation).
+
+### 2026-10-24 GS-117 C3 app-only install and live association result
+
+The authorized current C3 HIL-awake application was installed app-only on the
+identified COM4 device. The new app readback exactly matches SHA-256
+`86bb487dfbc41d3e781d115cc014144202a424b714185ca1ee95fec517098fdd` and
+boots from inactive `ota_1`; the prior `ota_0` app readback and the full
+inactive slot were preserved before write. Only the `ota_1` application range
+and OTA selector metadata were written. NVS, partition table, bootloader,
+credentials, association and retained-event state were not written. The
+installed image reports `HIL_AWAKE_TEST_ONLY`, HIL control enabled, physical
+wake disabled; serial status requests remain responsive. A normal
+sleep-enabled C3 build also passes, with no change to GS-114 qualification.
+
+One authorized authenticated reassociation request was attempted through the
+existing commissioning path. Firmware rejected it with `home_mismatch` and
+preserved the current binding/recovery snapshot. This is the verified blocker,
+not a reason to bypass Home ownership. C3 remains `runtime_live=0`,
+`sensing_live=0`; no motion was injected and no new EventKey exists.
+
+COM10 identifies the physical S3 and its active full-product `gs_r1_s3_hub`
+image and product partition table were read back. The table already includes
+`gs_outbox`/`gs_state`; the S3 was not flashed. No HubRuntime, storage-mount
+or CloudSync startup markers were observed, so runtime status remains
+`NOT_VERIFIED`. A physical Hub client credential, trusted-time authority and
+authorized Home/epoch/Node binding are not configured in GS-179. The existing
+caregiver backend Home and database do not prove physical Hub identity. Phone
+side APK event visibility remains `NOT_VERIFIED`.
+
+**TC-001 is `BLOCKED / NOT_RUN`.** There is no fresh C3 EventKey, S3 receipt,
+CloudSync acknowledgement, physical PostgreSQL commit or Android APK event
+observation. The historical HOST_SIM seed remains excluded. Full source,
+installation, recovery and stage evidence is in the [GS-117 dated
+handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-24-c3-app-only-deployment-and-reassociation-result).
+
+Current-source validation: the Node gate ran 30/31 stages PASS; the only
+failure is P0 reporting `product_status=PARTIAL` because physical qualification
+is `NOT_RUN`. The contract gate ran 47/48 stages PASS; its only failure is the
+same P0 physical status. The CloudSync security stage itself passes after its
+registered expected identity/time suite count was corrected to 6; its full
+security target passed, and the validation framework tests passed 51/51.
+Focused C3 association/recovery, GS40 fixture and BAT-C8 checks passed. These
+software results do not alter the physical TC-001 status.

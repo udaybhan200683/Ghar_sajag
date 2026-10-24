@@ -1,8 +1,10 @@
 #include "firmware/common/security/association_persistence.hpp"
+#include "firmware/node/target/esp32c3/gs117_reassociation_status.hpp"
 #include "tests/support/host/security/openssl_commissioning_crypto.hpp"
 
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 using namespace gs::security;
 using gs::host::security::OpenSslCommissioningCrypto;
@@ -38,6 +40,31 @@ public:
 
 int main() {
     try {
+        using gs::node::target::Gs117ReassociationStatus;
+        using gs::node::target::gs117_reassociation_preflight;
+        using gs::node::target::gs117_reassociation_status_name;
+        require(gs117_reassociation_preflight(false, true, true, false, true) ==
+                    Gs117ReassociationStatus::NotRejoining,
+                "reassociation did not reject a non-rejoining Node");
+        require(gs117_reassociation_preflight(true, false, true, false, true) ==
+                    Gs117ReassociationStatus::BindingUnavailable,
+                "reassociation did not reject a missing binding");
+        require(gs117_reassociation_preflight(true, true, false, false, true) ==
+                    Gs117ReassociationStatus::InvalidTargetHub,
+                "reassociation did not reject an unapproved Hub");
+        require(gs117_reassociation_preflight(true, true, true, false, false) ==
+                    Gs117ReassociationStatus::HomeMismatch,
+                "reassociation did not reject a Home mismatch");
+        require(gs117_reassociation_preflight(true, true, true, true, true) ==
+                    Gs117ReassociationStatus::AlreadyBoundToTarget,
+                "reassociation did not reject a redundant binding change");
+        require(gs117_reassociation_preflight(true, true, true, false, true) ==
+                    Gs117ReassociationStatus::Ready,
+                "approved same-Home reassociation preflight was rejected");
+        require(std::string(gs117_reassociation_status_name(
+                    Gs117ReassociationStatus::RecoveryBackupConflict)) ==
+                    "recovery_backup_conflict",
+                "reassociation refusal reason is not stable for HIL evidence");
         OpenSslCommissioningCrypto crypto;
         Key32 wrapping_key{};
         require(crypto.random_bytes(wrapping_key.data(), wrapping_key.size()),
