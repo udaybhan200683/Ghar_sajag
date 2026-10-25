@@ -1757,3 +1757,49 @@ scoped repair of the stale Windows private-LAN forwarding entry; and direct
 observation from the existing Android phone. No credential was issued, no
 firmware or protected storage was written, and no database/event history was
 changed.
+
+## 2026-10-25 authorized C3 inactive-slot deployment
+
+After the preceding software checkpoint, the owner-authorized app-only C3
+deployment gates were rechecked against live COM4 and owner-local backups.
+COM4 enumerated as USB `14:63:93:C5:D1:58`; `GET_STATE` and the live OTA
+selector reported `ota_0` active. A read-only ESP32-C3 `get-security-info`
+query reported Secure Boot disabled and Flash Encryption disabled. The live
+partition table has `ota_0` at `0x020000` and `ota_1` at `0x200000`, each
+`0x1e0000` bytes. Both complete app slots, the 8 KiB OTA selector, and the
+partition table had already been read back to the owner-only deployment
+evidence directory before the write. The prior `ota_0` app remains unchanged
+as the manual recovery app.
+
+The current-source HIL-awake build from source `b629b3e04a7b5ca63d23238a37e3f72a5a8cb63b`
+was written with ESP-IDF 6.0.3 `parttool.py write_partition --partition-name
+ota_1` only. Candidate size is 958,368 bytes, SHA-256
+`183417fdd840ed9cce333e7b276beeaba83d085173f9cbe28589d617d874739f`; it
+fits the verified inactive slot. ESP-IDF reported `Hash of data verified`.
+A complete 1,966,080-byte `ota_1` readback has SHA-256
+`5413f9137176d1ca1bc923e1beb4320a9186340bfe91b48782b3cba54b17e5b6`; its
+candidate-length prefix matches byte-for-byte and all remaining bytes are
+`0xff`. The official `otatool.py switch_ota_partition --slot 1` then wrote
+and hash-verified the OTA selector. No bootloader, partition table, NVS,
+identity key, association/recovery data, retained-event data, or S3 state was
+written. Recovery remains a manual selector switch to preserved `ota_0`.
+
+The selector update caused the expected reset. Post-reset Windows COM
+verification could not complete: Windows interop from WSL began returning
+`UtilAcceptVsock: accept4 failed 110`; the WSL `/dev/ttyS4` fallback is not a
+usable serial device. Therefore the C3 candidate is `FLASHED` and its app
+partition/selector writes are verified, but the running image, HIL status,
+NodeRuntime, stable post-boot serial and reassociation command availability
+are `NOT_VERIFIED`. The last pre-write `GET_STATE` was HIL-awake with
+`runtime_live=0`, `sensing_live=0`, `retained=0`, `in_flight=0`. No
+commissioning or `INJECT_MOTION` command was issued.
+
+The same-day live S3 partition-table readback confirms the approved product
+layout already exists: 4 MiB OTA slots, `gs_outbox` at `0x820000` with size
+4 MiB and `gs_state` at `0xc20000` with size 256 KiB. S3 runtime startup,
+storage mounts, current application profile and CloudSync remain
+`NOT_VERIFIED`; no S3 write occurred. TC-001 remains `BLOCKED / NOT_RUN` with
+no new EventKey or APK event. The exact remaining integration prerequisites
+are current C3 post-boot verification, authenticated physical C3/S3
+commissioning, deployable exact-Hub trust/time/ownership configuration and
+ingress, and actual phone-side APK observation.

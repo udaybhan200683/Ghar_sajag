@@ -7107,3 +7107,26 @@ seed is excluded. No hardware flash, protected-storage update, credential or
 ownership change, DB mutation, or event-history change occurred. Detailed
 stage evidence is in the [2026-10-25 GS-117
 handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-25-resumed-gs-117-fixture-integration-and-validation).
+
+### 2026-10-25 C3 inactive-slot deployment update
+
+Current source is commit `b629b3e04a7b5ca63d23238a37e3f72a5a8cb63b` on
+`feature/r1-commercial-baseline`, pushed and verified at origin. Under the
+owner's existing C3 app-only deployment authorization, the latest-source
+HIL-awake app (`183417fdd840ed9cce333e7b276beeaba83d085173f9cbe28589d617d874739f`,
+958,368 bytes) was written to the verified inactive `ota_1` only. Full slot
+readback matched the candidate prefix exactly; official ESP-IDF OTA selector
+update to slot 1 passed its write-hash verification. The prior app remains in
+`ota_0`; NVS and retained state were not written. Secure Boot and Flash
+Encryption are confirmed disabled by read-only device security query.
+
+The expected reset occurred, but post-boot COM observation is now
+`NOT_VERIFIED` because Windows interop from WSL fails with
+`UtilAcceptVsock: accept4 failed 110`. Thus the C3 app/selector deployment is
+verified at flash readback, while installed-image startup, HIL state and
+NodeRuntime readiness are not yet verified. No association or motion command
+was sent. The S3's live readback confirms the approved `gs_outbox` and
+`gs_state` product partition layout; S3 runtime/mount/CloudSync startup is
+still `NOT_VERIFIED`. TC-001 remains `BLOCKED / NOT_RUN` with no new EventKey,
+backend commit, or Android APK event. See the [dated GS-117 deployment
+evidence](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-25-authorized-c3-inactive-slot-deployment).
