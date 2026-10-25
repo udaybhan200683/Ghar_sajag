@@ -7130,3 +7130,48 @@ was sent. The S3's live readback confirms the approved `gs_outbox` and
 still `NOT_VERIFIED`. TC-001 remains `BLOCKED / NOT_RUN` with no new EventKey,
 backend commit, or Android APK event. See the [dated GS-117 deployment
 evidence](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-25-authorized-c3-inactive-slot-deployment).
+
+## 2026-10-25 GS-117 native physical access recovered
+
+Canonical entry HEAD `30af100d2d5c84b56c7bd7abc99be031cd075cc6`, context PASS.
+Windows execution and the existing native serial helper work again, without a
+WSL restart or bridge configuration change. COM4 and COM10 match the expected
+USB identities. Repeated C3 status samples establish active `ota_1`, session 99,
+`HIL_AWAKE_TEST_ONLY`, HIL build/control/physical-wake flags 0/1/0, stable heap,
+and empty event queues. No C3 write/reset, commissioning or motion was issued.
+The prior verified candidate write plus current running-slot evidence clears
+the C3 post-boot-observation blocker; runtime/sensing remain 0 pending Hub auth.
+
+One authorized same-stream S3 boot observation now proves the full product
+`gs_r1_s3_hub` version `e9e610b` starts from OTA1 and then reports `Hub security
+bootstrap failed closed`. The installed non-fixture identity profile reaches
+the protected production checks on this development board; no security check
+was removed. Storage mounts, HubRuntime and CloudSync remain unverified.
+
+Implementation delivered/prepared in this continuation: existing native helper
+retains full HIL and boot/error lines, supports an explicit S3 status/reset and
+bounded encrypted GS40 config carrier; existing GS40 profile installs its native
+USB driver/VFS; existing GS168 issuer gains owner-only persistent exact-fixture
+CA support; existing GS68 time carrier accepts a supplied signing key and an
+explicit private bind. Default synthetic and production behavior stay guarded.
+Fixture CA/client/time/lease material is prepared outside Git but not installed
+or registered as backend ownership. Corrected full S3 product build passes and
+fits its existing slot. Tooling issued no S3 firmware, partition or credential update.
+
+Focused console/issuer/security/UDP/target tests pass. The existing ingress
+process test now passes all five cases using isolated PostgreSQL schemas rather
+than skipping its database case. Existing Home remains `gs177-test-product`,
+with one preserved historical business event and no physical Hub/Node registry
+rows. Current authenticated caregiver API is ready but stale/monitoring UNKNOWN.
+The existing endpoint refresh preserves its trust root/login and follows the
+current Wi-Fi IP; LAN portproxy remains stale and needs Windows elevation.
+
+TC-001 is still `BLOCKED / NOT_RUN`; no new EventKey or APK acceptance exists.
+The exact next deployment prerequisite is the owner-approved protected
+`Airtel_Agrim` Wi-Fi config (the saved Windows secret was not extracted), plus
+approved elevated scoped networking. Then complete the prepared signed config,
+verified inactive-slot S3 update, existing authenticated fresh commissioning and
+physical ingress ownership; inject only after those pass. Android diagnostics
+are unavailable; actual phone observation remains required. Detailed evidence,
+validation limits and precise resume steps are in the
+[GS-117 native-access record](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md).

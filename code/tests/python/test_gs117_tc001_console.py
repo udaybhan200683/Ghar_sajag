@@ -1,9 +1,11 @@
 """TC-001 software guard and correlation checks; never opens hardware."""
 from __future__ import annotations
 
+import base64
 import json
 from datetime import datetime, timezone
 import hashlib
+import io
 from http.server import ThreadingHTTPServer
 import os
 from pathlib import Path
@@ -261,25 +263,129 @@ class TC001Test(unittest.TestCase):
             "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
                    "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34"},
         }
-        fake_streams = [FakeSerial(), FakeSerial()]
-        stream_iter = iter(fake_streams)
-        clock_value = [0.0]
+        for query_s3, reset_s3 in ((False, False), (True, False), (True, True)):
+            with self.subTest(query_s3=query_s3, reset_s3=reset_s3):
+                fake_streams = [FakeSerial(), FakeSerial()]
+                stream_iter = iter(fake_streams)
+                clock_value = [0.0]
+                resets = []
 
-        def fake_clock():
-            clock_value[0] += 1.0
-            return clock_value[0]
+                def fake_clock():
+                    clock_value[0] += 1.0
+                    return clock_value[0]
 
-        result = tc_serial.observe(
-            {"c3": boards["c3"], "s3": boards["s3"]},
-            serial_factory=lambda: next(stream_iter),
-            port_finder=lambda: [boards["c3"], boards["s3"]],
-            clock=fake_clock, sleep=lambda _seconds: None)
-        self.assertEqual(fake_streams[0].writes, [])
-        self.assertEqual(fake_streams[1].writes, [b"GET_STATE\n"])
-        self.assertTrue(all(not stream.is_open for stream in fake_streams))
-        self.assertTrue(any("HIL_AWAKE_TEST_ONLY" in line for line in result["c3"]))
-        self.assertTrue(any("CloudSync=disabled" in line for line in result["s3"]))
-        self.assertFalse(any("private" in line for lines in result.values() for line in lines))
+                result = tc_serial.observe(
+                    {"c3": boards["c3"], "s3": boards["s3"],
+                     "query_s3_status": query_s3, "s3_boot_reset": reset_s3},
+                    serial_factory=lambda: next(stream_iter),
+                    port_finder=lambda: [boards["c3"], boards["s3"]],
+                    clock=fake_clock, sleep=lambda _seconds: None,
+                    boot_reset=lambda stream: resets.append(stream))
+                self.assertEqual(resets, [fake_streams[0]] if reset_s3 else [])
+                self.assertEqual(fake_streams[0].writes,
+                                 [b"FIXTURE_STATUS\n"] if query_s3 else [])
+                self.assertEqual(fake_streams[1].writes, [b"GET_STATE\n"])
+                self.assertTrue(all(not stream.is_open for stream in fake_streams))
+                self.assertTrue(any("HIL_AWAKE_TEST_ONLY" in line for line in result["c3"]))
+                self.assertTrue(any("CloudSync=disabled" in line for line in result["s3"]))
+                self.assertFalse(any("private" in line for lines in result.values() for line in lines))
+
+    def test_serial_evidence_preserves_complete_profile_and_boot_failure(self):
+        state = (
+            "I (3395682) gs_node_runtime: HIL_STATE role=c3 session=99 retained=0 "
+            "in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197292 "
+            "min_heap=179820 ota_slot=ota_1 power_mode=HIL_AWAKE_TEST_ONLY "
+            "hil_build=0 hil_control=1 physical_wake=0 wifi_psk=private"
+        )
+        class Stream:
+            data = (state + "\nI (1) gs_hub_product: Starting product composition\n"
+                    "I (2) app_init: App version: current\n"
+                    "abort() was called at PC 0x40370000\n"
+                    "HIL_FIXTURE_STATUS state=idle\n").encode()
+            in_waiting = len(data)
+
+            def read(self, count):
+                return self.data[:count]
+
+        lines = []
+        self.assertEqual(tc_serial.collect(Stream(), "", lines), "")
+        self.assertEqual(len(lines), 5)
+        self.assertIn("physical_wake=0", lines[0])
+        self.assertNotIn("private", "\n".join(lines))
+        self.assertIn("abort()", lines[3])
+
+    def test_status_query_rejects_non_boolean_before_open(self):
+        for flag in ("query_s3_status", "s3_boot_reset"):
+            with self.subTest(flag=flag), self.assertRaisesRegex(ValueError, "FLAG_MUST_BE_BOOLEAN"):
+                tc_serial.observe({"c3": {}, "s3": {}, flag: "true"})
+
+    def test_observation_duration_is_bounded_before_open(self):
+        for duration in (True, 0, 9, 61, "10"):
+            with self.subTest(duration=duration), self.assertRaisesRegex(ValueError, "SECONDS_OUT_OF_RANGE"):
+                tc_serial.observe({"c3": {}, "s3": {}, "observation_seconds": duration})
+
+    def test_bootstrap_carries_only_target_bound_encrypted_frame(self):
+        nonce = b"n" * 32
+        public = "04" + "ab" * 64
+
+        class Stream:
+            def __init__(self):
+                self.data = bytearray((f"GS40T/1 CHALLENGE nonce={nonce.hex()} "
+                                      f"public_key={public} max_envelope=24576\n").encode())
+                self.writes = []
+
+            @property
+            def in_waiting(self):
+                return len(self.data)
+
+            def read(self, count):
+                result = bytes(self.data[:count])
+                del self.data[:count]
+                return result
+
+            def write(self, data):
+                self.writes.append(data)
+                return len(data)
+
+            def flush(self):
+                pass
+
+        envelope = b"G40E\x01" + nonce + b"encrypted-not-plaintext".ljust(480, b"x")
+        frame = len(envelope).to_bytes(4, "big") + envelope
+        for valid in (True, False):
+            stream, output = Stream(), io.StringIO()
+            supplied = frame if valid else frame[:9] + b"z" * 32 + frame[41:]
+            response = io.StringIO(json.dumps({
+                "encrypted_envelope_b64": base64.b64encode(supplied).decode()}) + "\n")
+            if valid:
+                tc_serial.bootstrap_config(stream, incoming=response, outgoing=output)
+                self.assertEqual(stream.writes, [frame])
+                self.assertEqual(json.loads(output.getvalue())["nonce"], nonce.hex())
+            else:
+                with self.assertRaisesRegex(ValueError, "ENCRYPTED_RESPONSE_INVALID"):
+                    tc_serial.bootstrap_config(stream, incoming=response, outgoing=output)
+                self.assertEqual(stream.writes, [])
+            self.assertNotIn("encrypted-not-plaintext", output.getvalue())
+            self.assertNotIn(base64.b64encode(frame).decode(), output.getvalue())
+
+    def test_bootstrap_missing_target_challenge_is_bounded_and_sends_nothing(self):
+        class EmptyStream:
+            in_waiting = 0
+
+            def read(self, count):
+                return b""
+
+            def write(self, data):
+                raise AssertionError("no frame may be sent without a target challenge")
+
+        ticks = [0]
+
+        def clock():
+            ticks[0] += 1
+            return ticks[0]
+
+        with self.assertRaisesRegex(ValueError, "TARGET_CHALLENGE_NOT_OBSERVED"):
+            tc_serial.bootstrap_config(EmptyStream(), clock=clock)
 
     def test_observer_refuses_wrong_physical_ports_before_open(self):
         opened = []

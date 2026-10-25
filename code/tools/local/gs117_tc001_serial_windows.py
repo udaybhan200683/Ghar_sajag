@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import base64
 import json
+import queue
 import re
 import sys
+import threading
 import time
 
 import serial
@@ -22,12 +24,12 @@ def collect(stream, pending: str, lines: list[str]) -> str:
     fragments = pending.split("\n")
     for line in fragments[:-1]:
         safe = "".join(c for c in line if 32 <= ord(c) < 127).strip()
-        if re.search(r"HIL_(?:READY|STATE|OK|ERROR)|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image", safe, re.I):
-            safe = re.sub(r"(?i)(credential|secret|private.key|session.key|wifi_psk|password|token|authorization|ssid|certificate)\s*[:=]\s*\S+",
+        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:", safe, re.I):
+            safe = re.sub(r"(?i)(credential|secret|private.key|session.key|installer.code|wifi_psk|password|token|authorization|ssid|certificate)\s*[:=]\s*\S+",
                           r"\1=[REDACTED]", safe)
             if len(lines) < 300:
-                lines.append(safe[:300])
-    return fragments[-1][-500:]
+                lines.append(safe[:1024])
+    return fragments[-1][-2048:]
 
 
 def exact_port(board: dict, candidates: list[dict]) -> bool:
@@ -37,10 +39,83 @@ def exact_port(board: dict, candidates: list[dict]) -> bool:
                for item in candidates)
 
 
+def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None) -> None:
+    """Carry the existing GS40 encrypted envelope; private material stays host-side.
+
+    The parent receives only a public target challenge and returns an encrypted,
+    signed GS40 wire frame. Firmware remains the signature/AEAD authority.
+    This child process accepts one response with a bounded wait and never logs it.
+    """
+    incoming = sys.stdin if incoming is None else incoming
+    outgoing = sys.stdout if outgoing is None else outgoing
+    clock = time.monotonic if clock is None else clock
+    deadline = clock() + 20
+    pending = ""
+    challenge = None
+    while clock() < deadline and challenge is None:
+        lines = []
+        pending = collect(stream, pending, lines)
+        for line in lines:
+            match = re.search(r"GS40T/1 CHALLENGE nonce=([0-9a-f]{64}) "
+                              r"public_key=(04[0-9a-f]{128}) max_envelope=([0-9]+)", line)
+            if match:
+                challenge = match
+                break
+        if challenge is None:
+            time.sleep(0.01)
+    if challenge is None or not any(bytes.fromhex(challenge[1])):
+        raise ValueError("TC001_BOOTSTRAP_TARGET_CHALLENGE_NOT_OBSERVED")
+    maximum = int(challenge[3])
+    if not 517 <= maximum <= 24576:
+        raise ValueError("TC001_BOOTSTRAP_TARGET_LIMIT_INVALID")
+    print(json.dumps({"stage": "CONFIG_CHALLENGE", "nonce": challenge[1],
+                      "public_key": challenge[2], "max_envelope": maximum}),
+          file=outgoing, flush=True)
+    responses = queue.Queue(maxsize=1)
+
+    def receive():
+        try:
+            responses.put(incoming.readline(40000))
+        except Exception:
+            responses.put("")
+
+    # One daemon reader per CLI child. Timeout exits the child; it cannot leave
+    # a blocked worker in the long-lived web console or own another COM port.
+    reader = threading.Thread(target=receive, daemon=True)
+    reader.start()
+    try:
+        response = responses.get(timeout=20)
+        payload = json.loads(response)
+        if not isinstance(payload, dict) or set(payload) != {"encrypted_envelope_b64"}:
+            raise ValueError("invalid response shape")
+        frame = base64.b64decode(payload["encrypted_envelope_b64"], validate=True)
+        if (not 521 <= len(frame) <= maximum + 4 or
+                int.from_bytes(frame[:4], "big") != len(frame) - 4 or
+                frame[4:9] != b"G40E\x01" or
+                frame[9:41] != bytes.fromhex(challenge[1])):
+            raise ValueError("invalid target-bound encrypted frame")
+    except queue.Empty:
+        raise ValueError("TC001_BOOTSTRAP_HOST_RESPONSE_TIMEOUT") from None
+    except (ValueError, TypeError, KeyError):
+        raise ValueError("TC001_BOOTSTRAP_ENCRYPTED_RESPONSE_INVALID") from None
+    if stream.write(frame) != len(frame):
+        raise ValueError("TC001_BOOTSTRAP_ENVELOPE_WRITE_INCOMPLETE")
+    stream.flush()
+
+
 def observe(config: dict, *, serial_factory=None, port_finder=None,
-            clock=None, sleep=None) -> dict:
+            clock=None, sleep=None, boot_reset=None, bootstrap_exchange=None) -> dict:
     """Reset-aware, bounded status observation; never sends an event command."""
     c3, s3 = config["c3"], config["s3"]
+    query_s3_status = config.get("query_s3_status", False)
+    if type(query_s3_status) is not bool:
+        raise ValueError("TC001_S3_STATUS_QUERY_FLAG_MUST_BE_BOOLEAN")
+    s3_boot_reset = config.get("s3_boot_reset", False)
+    if type(s3_boot_reset) is not bool:
+        raise ValueError("TC001_S3_BOOT_RESET_FLAG_MUST_BE_BOOLEAN")
+    observation_seconds = config.get("observation_seconds", 10)
+    if type(observation_seconds) is not int or not 10 <= observation_seconds <= 60:
+        raise ValueError("TC001_OBSERVATION_SECONDS_OUT_OF_RANGE")
     serial_factory = serial.Serial if serial_factory is None else serial_factory
     port_finder = ports if port_finder is None else port_finder
     clock = time.monotonic if clock is None else clock
@@ -65,6 +140,17 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             stream.open()
             streams.append(stream)
         c3_stream, s3_stream = streams[1], streams[0]
+        # Opt-in only under the exact fixture's reset-aware inspection approval.
+        # Keep the same open stream to retain early boot diagnostics. Reuse
+        # Espressif's native-USB reset sequence; never enter a flash operation.
+        if s3_boot_reset:
+            if boot_reset is None:
+                from esptool.reset import HardReset
+
+                boot_reset = lambda stream: HardReset(stream, uses_usb=True).reset()
+            boot_reset(s3_stream)
+        if bootstrap_exchange is not None:
+            bootstrap_exchange(s3_stream)
         c3_lines: list[str] = []
         s3_lines: list[str] = []
         c3_tail = s3_tail = ""
@@ -75,7 +161,10 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             sleep(0.02)
         c3_stream.write(b"GET_STATE\n")
         c3_stream.flush()
-        deadline = clock() + 6
+        if query_s3_status:
+            s3_stream.write(b"FIXTURE_STATUS\n")
+            s3_stream.flush()
+        deadline = clock() + observation_seconds - 4
         while clock() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines)
             s3_tail = collect(s3_stream, s3_tail, s3_lines)
@@ -150,6 +239,8 @@ if __name__ == "__main__":
             value = ports()
         elif action == "Observe":
             value = observe(config)
+        elif action == "Bootstrap":
+            value = {"stage": "OBSERVATION", **observe(config, bootstrap_exchange=bootstrap_config)}
         elif action == "Run":
             value = run(config)
         else:

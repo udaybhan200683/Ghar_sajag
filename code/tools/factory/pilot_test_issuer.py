@@ -1,14 +1,19 @@
-"""GS-168: isolated software-only TEST_ONLY X.509 issuer.
+"""GS-168 isolated TEST_ONLY X.509 issuer and GS-117 fixture authority.
 
-Never import into commercial CloudSync or trust a test certificate as a Hub credential.
+Never import into commercial CloudSync or use this as a production issuer.
 This module generates synthetic RSA keys in host memory, not on an ESP32-S3.
+The explicit GS-117 physical fixture authority is persisted in an owner-only
+host file. It issues only for the designated development S3; it is not a
+manufacturing authority and never reads a device's protected private key.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import os
 import re
+import stat
 import sqlite3
 import threading
 from typing import Callable
@@ -22,6 +27,8 @@ TEST_ONLY = "TEST_ONLY"
 _TEST_MARKER = b"GHAR_SAJAG_GS168_TEST_ONLY_V1"
 _TEST_OID = ObjectIdentifier("2.25.271828182845904523536028747135266249775")
 _HUB_ID = re.compile(r"test-hub-[a-z0-9][a-z0-9-]{0,31}\Z")
+GS117_FIXTURE_HUB = "hub-e072a1d38d34"
+_GS117_ROOT_NAME = "GHAR_SAJAG_GS117_PHYSICAL_TEST_ONLY_ROOT"
 
 
 class TestIssuerRejected(ValueError):
@@ -42,9 +49,12 @@ def _fingerprint(cert: x509.Certificate) -> str:
     return cert.fingerprint(hashes.SHA256()).hex()
 
 
-def new_test_csr(hub_id: str):
+def new_test_csr(hub_id: str, *, gs117_fixture: bool = False):
     """Host-only fixture helper: returns (private key, CSR); never log the key."""
-    if not isinstance(hub_id, str) or not _HUB_ID.fullmatch(hub_id):
+    if type(gs117_fixture) is not bool or not isinstance(hub_id, str):
+        raise TestIssuerRejected("invalid_test_hub_id")
+    allowed = hub_id == GS117_FIXTURE_HUB if gs117_fixture else bool(_HUB_ID.fullmatch(hub_id))
+    if not allowed:
         raise TestIssuerRejected("invalid_test_hub_id")
     key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
     subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, f"TEST_ONLY:{hub_id}")])
@@ -56,6 +66,7 @@ class TestOnlyAuthority:
     """Ephemeral test CA: private material stays in process memory."""
 
     def __init__(self, now: datetime | None = None):
+        self.fixture_hub_id = None
         at = _utc(now or datetime.now(timezone.utc))
         self._key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
         subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "GHAR_SAJAG_TEST_ONLY_ROOT")])
@@ -78,6 +89,89 @@ class TestOnlyAuthority:
             .add_extension(x509.UnrecognizedExtension(_TEST_OID, _TEST_MARKER), critical=False)
             .sign(self._key, hashes.SHA256())
         )
+
+    @classmethod
+    def for_gs117_fixture(cls, bundle: str | Path, *, initialize: bool = False,
+                         now: datetime | None = None) -> "TestOnlyAuthority":
+        """Load one persistent, owner-only fixture CA; never replace an existing CA.
+
+        Initialization is explicit. Interrupted/partial files, wrong permissions,
+        symlinks, mismatched keys and expired authorities fail closed. The bundle
+        contains only newly authorized host fixture CA material, never device keys.
+        """
+        if type(initialize) is not bool or os.name != "posix":
+            raise TestIssuerRejected("fixture_authority_posix_owner_only_store_required")
+        path = Path(bundle)
+        if initialize:
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            parent = path.parent.stat()
+        except OSError as error:
+            raise TestIssuerRejected("fixture_authority_directory_unavailable") from error
+        if (path.parent.is_symlink() or parent.st_uid != os.getuid() or
+                stat.S_IMODE(parent.st_mode) & 0o077):
+            raise TestIssuerRejected("fixture_authority_owner_only_directory_required")
+        if initialize and not path.exists() and not path.is_symlink():
+            authority = cls(now)
+            subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, _GS117_ROOT_NAME)])
+            at = _utc(now or datetime.now(timezone.utc))
+            authority.certificate = (
+                x509.CertificateBuilder().subject_name(subject).issuer_name(subject)
+                .public_key(authority._key.public_key()).serial_number(x509.random_serial_number())
+                .not_valid_before(at - timedelta(minutes=5)).not_valid_after(at + timedelta(days=365))
+                .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+                .add_extension(x509.KeyUsage(digital_signature=False, content_commitment=False,
+                    key_encipherment=False, data_encipherment=False, key_agreement=False,
+                    key_cert_sign=True, crl_sign=True, encipher_only=False, decipher_only=False), critical=True)
+                .add_extension(x509.UnrecognizedExtension(_TEST_OID, _TEST_MARKER), critical=False)
+                .sign(authority._key, hashes.SHA256())
+            )
+            payload = authority._key.private_bytes(serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8, serialization.NoEncryption()) + authority.public_ca_pem()
+            try:
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except OSError as error:
+                raise TestIssuerRejected("fixture_authority_initialization_failed") from error
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(fd, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                        stat.S_IMODE(info.st_mode) & 0o077 or not 0 < info.st_size <= 16384):
+                    raise TestIssuerRejected("fixture_authority_owner_only_file_required")
+                payload = stream.read(16385)
+            parts = re.fullmatch(
+                rb"(-----BEGIN PRIVATE KEY-----\n.*?-----END PRIVATE KEY-----\n)"
+                rb"(-----BEGIN CERTIFICATE-----\n.*?-----END CERTIFICATE-----\n)", payload, re.S)
+            if parts is None:
+                raise ValueError("invalid bundle")
+            key = serialization.load_pem_private_key(parts[1], password=None)
+            cert = x509.load_pem_x509_certificate(parts[2])
+            subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, _GS117_ROOT_NAME)])
+            if (not isinstance(key, rsa.RSAPrivateKey) or key.key_size != 3072 or
+                    not isinstance(cert.public_key(), rsa.RSAPublicKey) or
+                    cert.public_key().public_numbers() != key.public_key().public_numbers() or
+                    cert.subject != subject or cert.issuer != subject or
+                    cert.extensions.get_extension_for_oid(_TEST_OID).value.value != _TEST_MARKER or
+                    cert.extensions.get_extension_for_class(x509.BasicConstraints).value !=
+                    x509.BasicConstraints(ca=True, path_length=0) or
+                    not cert.extensions.get_extension_for_class(x509.KeyUsage).value.key_cert_sign or
+                    not cert.not_valid_before_utc <= _utc(now or datetime.now(timezone.utc)) <= cert.not_valid_after_utc):
+                raise ValueError("invalid fixture CA")
+            cert.public_key().verify(cert.signature, cert.tbs_certificate_bytes,
+                                     padding.PKCS1v15(), cert.signature_hash_algorithm)
+        except TestIssuerRejected:
+            raise
+        except Exception as error:
+            raise TestIssuerRejected("fixture_authority_missing_or_invalid") from error
+        authority = cls.__new__(cls)
+        authority._key, authority.certificate = key, cert
+        authority.fixture_hub_id = GS117_FIXTURE_HUB
+        return authority
 
     @property
     def fingerprint(self) -> str:
@@ -132,8 +226,9 @@ class RegisteredCloudCredential:
 class TestOnlyIssuer:
     """GS-168 scoped issuer; SQLite persists public metadata, never key material.
 
-    Reopening a metadata DB requires the same in-memory TestOnlyAuthority.
-    Durable CA private-key backup/real provisioning is deliberately NOT implemented.
+    Reopening a metadata DB requires the same authority. The GS-117 exact-fixture
+    authority can be reloaded from its protected host bundle; commercial device
+    provisioning is deliberately not implemented.
     """
 
     def __init__(self, store: str | Path = ":memory:", *,
@@ -211,7 +306,7 @@ class TestOnlyIssuer:
                 raise TestIssuerUnavailable("test_issuer_temporarily_unavailable")
 
     def _validate_csr(self, hub_id: str, csr: x509.CertificateSigningRequest):
-        if not isinstance(hub_id, str) or not _HUB_ID.fullmatch(hub_id):
+        if not self._hub_id_allowed(hub_id):
             raise TestIssuerRejected("invalid_test_hub_id")
         if not isinstance(csr, x509.CertificateSigningRequest) or not csr.is_signature_valid:
             raise TestIssuerRejected("invalid_csr_signature")
@@ -221,6 +316,14 @@ class TestOnlyIssuer:
         if not isinstance(key, rsa.RSAPublicKey) or key.key_size != 3072:
             raise TestIssuerRejected("test_rsa3072_csr_required")
         return key
+
+    def _hub_id_allowed(self, hub_id: str) -> bool:
+        if not isinstance(hub_id, str):
+            return False
+        fixture = getattr(self.authority, "fixture_hub_id", None)
+        if fixture == GS117_FIXTURE_HUB:
+            return hub_id == GS117_FIXTURE_HUB
+        return bool(_HUB_ID.fullmatch(hub_id))
 
     def issue(self, hub_id: str, csr: x509.CertificateSigningRequest, *, renew: bool = False,
               valid_days: int = 30) -> TestCredential:
@@ -260,7 +363,7 @@ class TestOnlyIssuer:
         now = _utc(at or self.clock())
         if not isinstance(pem, bytes) or len(pem) > 8192:
             raise TestIssuerRejected("invalid_certificate_input")
-        if not isinstance(expected_hub_id, str) or not _HUB_ID.fullmatch(expected_hub_id):
+        if not self._hub_id_allowed(expected_hub_id):
             raise TestIssuerRejected("invalid_test_hub_id")
         try:
             cert = x509.load_pem_x509_certificate(pem)
@@ -331,7 +434,7 @@ class TestOnlyIssuer:
         still verifies the certificate and issuer through this authority.
         """
         self._check_ready()
-        if not isinstance(hub_id, str) or not _HUB_ID.fullmatch(hub_id):
+        if not self._hub_id_allowed(hub_id):
             raise TestIssuerRejected("invalid_test_hub_id")
         with self._lock:
             row = self._db.execute(

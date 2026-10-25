@@ -1483,3 +1483,25 @@ triggered. This evidence does not alter GS-D032, GS40T/1 status, or
 `CONTEXT_VERSION`; it is an implementation/evidence update, not a new product
 or security decision. See the dated GS-117 handoff for source hashes, tests and
 the exact physical results.
+
+## 2026-10-25 GS-117 native access and fixture bootstrap implementation note
+
+This is an implementation/evidence update under the existing exact-fixture owner
+approvals, not a new LOCKED product decision. Windows native access recovered;
+the newly selected C3 application answers from `ota_1` in HIL-awake mode. One
+approved reset-aware S3 boot capture proves its old full-product profile stops
+at the existing production identity guard. The guard remains intact. The existing
+TEST_ONLY commissioning/CloudSync profile is the development path; its missing
+native USB driver initialization is corrected by reusing GS-68 setup.
+
+The existing GS-168 issuer now supports an explicitly scoped, persistent,
+owner-only authority for only `hub-e072a1d38d34`. Its default synthetic authority
+still rejects physical identities, and the physical authority rejects synthetic
+and neighboring identities. The existing GS-68 signed-time carrier remains
+loopback by default, with an explicit private fixed-port option. Prepared TLS
+material uses the existing encrypted TEST_ONLY RAM-import mechanism, not a
+protected production DS credential or hardware provisioning attestation. No
+device credential or backend ownership was installed/asserted. GS-D032,
+production trust, Home/epoch authority, commercial lifecycle scope and
+`CONTEXT_VERSION` are unchanged. See the dated GS-117 handoff and
+`docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.

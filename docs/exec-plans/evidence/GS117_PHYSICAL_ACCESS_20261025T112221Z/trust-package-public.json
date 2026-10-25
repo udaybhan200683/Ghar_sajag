@@ -1,0 +1,14 @@
+{
+  "profile": "GS117_PHYSICAL_TEST_ONLY",
+  "hub_id": "hub-e072a1d38d34",
+  "node_id": "c3-146393c5d158",
+  "home_id": "gs177-test-product",
+  "tls_key_source": "OWNER_ONLY_FIXTURE_HOST_GENERATED_ENCRYPTED_RAM_IMPORT",
+  "client_certificate_sha256": "aa0b1eff16547ad67a790d122bae1d88fd0e8040a50901ed841464d77a7f2732",
+  "client_ca_sha256": "42d36b8e8a3bb60705d81a6987994e7e763c430dbd75868cd6f239101e7f47ea",
+  "credential_generation": 1,
+  "status": "PREPARED_NOT_INSTALLED",
+  "wifi_secret_configured": false,
+  "backend_ownership_registered": false,
+  "created_at": "2026-10-25T11:43:38.633965+00:00"
+}

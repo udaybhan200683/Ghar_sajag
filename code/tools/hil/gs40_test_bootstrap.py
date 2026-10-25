@@ -123,10 +123,27 @@ def encode_config(challenge: bytes, target_public: bytes, fields: dict[int, byte
 
 class SignedTimeService:
     """Bounded loopback UDP carrier for the existing GS-68 proof format."""
-    def __init__(self, clock=time.time):
-        self.fixture, self.clock = TestOnlySignedTimeFixture(), clock
+    def __init__(self, clock=time.time, *, fixture=None, bind_host="127.0.0.1",
+                 allow_private_bind=False, port=0):
+        if (type(allow_private_bind) is not bool or type(port) is not int or
+                not 0 <= port <= 65535):
+            raise ValueError("invalid_test_time_bind_configuration")
+        try:
+            address = ipaddress.IPv4Address(bind_host)
+        except ipaddress.AddressValueError:
+            raise ValueError("explicit_test_time_ipv4_required") from None
+        if not address.is_loopback and (not allow_private_bind or
+                not isolated_destination(bind_host) or port == 0):
+            raise ValueError("private_test_time_bind_requires_explicit_fixed_port")
+        if fixture is not None and not isinstance(fixture, TestOnlySignedTimeFixture):
+            raise ValueError("explicit_test_signed_time_fixture_required")
+        self.fixture, self.clock = fixture or TestOnlySignedTimeFixture(), clock
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(("127.0.0.1", 0))
+        try:
+            self.socket.bind((bind_host, port))
+        except OSError:
+            self.socket.close()
+            raise
         self.socket.settimeout(.1)
         self.port = self.socket.getsockname()[1]
         self.stop = threading.Event()

@@ -1,0 +1,1 @@
+{"c3": ["I (6440342) gs_node_runtime: HIL_STATE role=c3 session=99 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197292 min_heap=179820 ota_slot=ota_1 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0", "I (6440342) gs_hil_control: HIL_OK command=GET_STATE"], "s3": []}

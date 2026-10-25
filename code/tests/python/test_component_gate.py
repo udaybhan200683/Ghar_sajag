@@ -21,7 +21,7 @@ class ComponentGateTest(unittest.TestCase):
             self.assertTrue(stage["fast"] and stage["release"])
             summary=f"{marker} PASS cases={count} physical=NOT_RUN\n"
             extras={
-                "cloudsync-security-unit":"Ran 14 tests\nRan 6 tests\nRan 10 tests\nRan 5 tests\nGS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN\nGS68-D05-AUTHORITY-PROVIDER PASS\nGS68-D05-CERT-VALIDITY-001 PASS\nGS68-D12-CREDENTIAL-PROVIDER PASS\nGS68-D06-TIME-STATE-MACHINE PASS\nGS68-D06-SIGNED-PROOF-CRYPTO PASS\nGS40-PROVIDER-CLOUDSYNC-INTEGRATION PASS\nGS-CLOUD-MTLS-UT-008 PASS\nGS-CLOUD-MTLS-UT-009 PASS\n",
+                "cloudsync-security-unit":"Ran 14 tests\nRan 9 tests\nRan 13 tests\nRan 5 tests\nGS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN\nGS68-D05-AUTHORITY-PROVIDER PASS\nGS68-D05-CERT-VALIDITY-001 PASS\nGS68-D12-CREDENTIAL-PROVIDER PASS\nGS68-D06-TIME-STATE-MACHINE PASS\nGS68-D06-SIGNED-PROOF-CRYPTO PASS\nGS40-PROVIDER-CLOUDSYNC-INTEGRATION PASS\nGS-CLOUD-MTLS-UT-008 PASS\nGS-CLOUD-MTLS-UT-009 PASS\n",
                 "cloudsync-security-sim-hil":'"physical": "NOT_RUN", "status": "PASS"\n',
                 "cloudsync-mtls-integration":'RESULT gs148_worker_api_bridge=PASS completed=1 attempts=2\n"physical": "NOT_RUN", "status": "PASS"\n',
             }[name]
@@ -29,6 +29,9 @@ class ComponentGateTest(unittest.TestCase):
             # required even if the subprocess itself exits successfully.
             self.assertEqual(gate.adjudicate(stage,self.result(summary)),"FAIL")
             self.assertEqual(gate.adjudicate(stage,self.result(summary+extras)),"PASS")
+            if name == "cloudsync-security-unit":
+                old_counts = extras.replace("Ran 9 tests", "Ran 6 tests").replace("Ran 13 tests", "Ran 10 tests")
+                self.assertEqual(gate.adjudicate(stage,self.result(summary+old_counts)),"FAIL")
             self.assertEqual(gate.adjudicate(stage,self.result(summary+extras,rc=1)),"FAIL")
             self.assertEqual(gate.adjudicate(stage,self.result(summary.replace(f"cases={count}","cases=0")+extras)),"FAIL")
             self.assertEqual(gate.adjudicate(stage,self.result(summary.replace("physical=NOT_RUN","physical=PASS")+extras)),"FAIL")

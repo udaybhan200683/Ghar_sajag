@@ -1,0 +1,17 @@
+{
+  "source_head": "30af100d2d5c84b56c7bd7abc99be031cd075cc6+working-tree",
+  "project": "gs_r1_s3_hub",
+  "image_bytes": 2274768,
+  "image_sha256": "1290e680f458882bbb82c9f8bc73d3cb1280b14b345df26cb25bb72c82793c9f",
+  "profile": {
+    "GS_HIL_BUILD": false,
+    "GS_HIL_CONTROL": false,
+    "GS_HIL_COMMISSIONING": true,
+    "GS40_TEST_ONLY_CLOUDSYNC": true,
+    "console": "USB_SERIAL_JTAG"
+  },
+  "app_partition_bytes": 4194304,
+  "deployed": false,
+  "production_approved": false,
+  "config_root_public_sha256": "53c5e81b87d1510c0d137d64a2e0b8989e250dcf981c33a34c5783db314e887a"
+}

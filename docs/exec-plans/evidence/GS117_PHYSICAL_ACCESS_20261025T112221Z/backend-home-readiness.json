@@ -1,0 +1,8 @@
+{
+  "backend_origin": "https://desktop-3qqu64b.local",
+  "caregiver_home_ready": true,
+  "home_id": "gs177-test-product",
+  "monitoring": "UNKNOWN",
+  "source": "AUTHENTICATED_GS148_TEST_ONLY",
+  "source_freshness": "STALE"
+}

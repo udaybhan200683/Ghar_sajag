@@ -1803,3 +1803,132 @@ no new EventKey or APK event. The exact remaining integration prerequisites
 are current C3 post-boot verification, authenticated physical C3/S3
 commissioning, deployable exact-Hub trust/time/ownership configuration and
 ingress, and actual phone-side APK observation.
+
+## 2026-10-25 native serial recovery and exact physical fixture authority
+
+Entry canonical source/remote HEAD was `30af100d2d5c84b56c7bd7abc99be031cd075cc6`;
+context preflight PASS and tracked worktree clean. Latest GS-117/GS-68/GS-179
+comments were reconciled. Existing untracked assets and historical worktrees
+remain preserved. This continuation does not rebuild or reflash C3.
+
+### Actual physical access and running firmware
+
+Windows execution now works without restarting WSL or changing its bridge.
+The existing native helper List identifies COM4 as `303A:1001` / USB serial
+`14:63:93:C5:D1:58`, COM10 as `303A:1001` / `E0:72:A1:D3:8D:34`.
+Observe with DTR/RTS low receives C3 `GET_STATE`/`HIL_OK`, active `ota_1`,
+session 99, `HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`, and
+`physical_wake=0`. Samples approximately 50 minutes apart retain free/minimum
+heap `197292/179820`, no retained/in-flight/pending injection, and no session
+change. `runtime_live=0` and `sensing_live=0` remain expected pending secure Hub
+connectivity. The previous exact OTA1 readback plus current running-slot
+evidence identifies the installed candidate SHA-256
+`183417fdd840ed9cce333e7b276beeaba83d085173f9cbe28589d617d874739f`.
+Its fresh-commissioning command is present in that image; it was not invoked
+merely as a capability probe. No C3 reset, flash or event stimulation occurred.
+
+Silent S3 status observation was followed by a no-reset/no-stub ROM query,
+which returned USB write timeout. One explicit reset-aware observation, within
+the existing exact-fixture owner authorization, reused Espressif HardReset on
+the same open native USB stream. It captured `USB_UART_CHIP_RESET`, boot from
+`0x420000`, project `gs_r1_s3_hub`, version `e9e610b`, IDF 6.0.3, the expected
+product partition table, product startup, then `Hub security bootstrap failed
+closed`. The installed image has commissioning and TEST_ONLY CloudSync OFF;
+the production identity path correctly refuses the unprovisioned development
+fixture. No protection was bypassed. HubRuntime/storage mount and CloudSync
+are not operational or accepted. Tooling issued no S3 firmware, partition or
+credential update; no claim is made that normal boot leaves every runtime
+counter byte unchanged.
+
+### Reused components and concrete corrections
+
+The native helper now retains complete HIL profile lines and boot/fatal/status
+markers instead of truncating/excluding evidence. Optional S3 status and a
+default-OFF exact-fixture boot reset reuse the same helper. Its bounded
+Bootstrap action carries the existing GS40 public challenge and encrypted,
+signed response through stdin/stdout and the same COM stream. It never accepts
+plaintext credentials as serial input or exposes them in arguments/logs. It
+does not create a new commissioning or crypto protocol.
+
+The existing GS40 full-product profile was missing native USB driver/VFS
+initialization before its driver-based config read. It now reuses the GS68
+setup. The existing GS168 issuer supports an explicit persistent owner-only
+CA for only this S3. Default synthetic issuance still rejects physical IDs;
+the physical authority rejects synthetic and neighboring physical IDs. CA
+reopen checks permissions, ownership, symlinks, partial data, CA/key matching,
+signature, purpose/marker and validity, without replacing an existing root.
+The existing GS68 signed-time service accepts a separately supplied persistent
+signing key and explicit RFC1918 fixed-port bind; default remains loopback,
+and wildcard/public binds fail before a socket opens.
+
+Fixture TLS/CA/time/lease/config material is in the existing owner-only
+`~/.config/ghar-sajag/gs117-tc001/` directory, outside Git. Client credential
+fingerprint is `aa0b1eff16547ad67a790d122bae1d88fd0e8040a50901ed841464d77a7f2732`,
+generation 1; CA fingerprint
+`42d36b8e8a3bb60705d81a6987994e7e763c430dbd75868cd6f239101e7f47ea`.
+Status is PREPARED_NOT_INSTALLED. This is explicitly authorized host-generated
+TEST_ONLY TLS material for the existing encrypted RAM-import path; it is not
+a protected DS key, hardware provisioning attestation or commercial issuer.
+No physical private key was extracted; no backend ownership was fabricated.
+
+The corrected native USB full S3 product profile builds: 2,274,768 bytes,
+SHA-256 `1290e680f458882bbb82c9f8bc73d3cb1280b14b345df26cb25bb72c82793c9f`,
+4 MiB slot with 46% headroom. It enables only existing commissioning and
+GS40 TEST_ONLY CloudSync; the public config root matches the persistent
+protected fixture signer. The candidate is not installed, because the secure
+boot config and remaining network inputs must be complete before deployment.
+
+### Backend, network and Android
+
+The existing GS179 ingress process now passes its previously skipped database
+test: five tests PASS against random isolated PostgreSQL schemas, including
+runtime lifecycle and lost-receipt retry. This is software evidence only.
+Read-only checks of the preserved Home report one historical business event,
+zero physical Hub registry rows and zero physical Node enrollment rows.
+Existing caregiver authentication still returns Home `gs177-test-product`,
+source `AUTHENTICATED_GS148_TEST_ONLY`, freshness STALE and monitoring UNKNOWN.
+No Home, account, deployment or event was created in that preserved namespace.
+
+Network observation initially found Private `Airtel_Agrim` at `192.168.1.4`,
+channel 6; the existing refresh helper later detected `192.168.1.8` and updated
+the endpoint certificate/configuration using the existing trust root and keys,
+with rollback backups. PostgreSQL durability, local HTTPS and caregiver API
+remain PASS. Windows portproxy still listens at stale `.7`; admin token is
+not elevated and no approved elevated watcher exists. The existing scoped
+proxy action needs elevation. No firewall or proxy rule was changed. No
+protected Wi-Fi input exists in the fixture package; the saved Windows secret
+was not extracted. Only its protected configuration file path was requested
+asynchronously. ADB was not found in Linux or the standard existing SDK paths;
+actual APK origin/Home/event observation remains NOT_VERIFIED.
+
+### Acceptance and precise resume
+
+| Stage | Result | Evidence |
+|---|---|---|
+| Native Windows C3/S3 identity/access | PASS | Exact live COM/USB pairs, existing helper |
+| Current C3 image/OTA/HIL/idle serial | PASS | Verified OTA1 write chain plus repeated active-slot/profile/status |
+| C3 runtime/sensing/authenticated Hub session | BLOCKED | No ready authenticated physical S3 |
+| S3 product boot | PASS | Same-stream boot of installed OTA1 `e9e610b` |
+| S3 identity/bootstrap | FAIL | Existing production-profile identity guard fails closed |
+| Corrected S3 profile/trust package | PARTIAL | Built/prepared; not installed |
+| S3 storage mount/HubRuntime/CloudSync | NOT_VERIFIED | Boot exits security initialization before admission |
+| Physical Hub backend ownership/ingress | BLOCKED | No real commissioning/enrollment/physical mTLS yet |
+| Existing PostgreSQL/caregiver Home | PASS | Health/authenticated API; historical count unchanged |
+| LAN forwarding | BLOCKED | Stale entry; elevation required |
+| Fresh EventKey/backend commit/APK display | NOT_VERIFIED | No injection; no physical source event |
+
+Next: obtain the approved protected Wi-Fi input, prepare the real signed
+GS40 config, verify current S3 inactive-slot preservation/recovery gates, then
+perform the already-authorized app-only product-profile update. Use the
+existing PoP commissioning with the backed-up disposable C3 association and
+the exact signed Home, then register only verified physical identity/enrollment
+through the existing ownership boundary, configure GS179 ingress and trusted
+time, repair scoped LAN forwarding through authorized elevation, and inject
+one event after readiness. No C3 reflash is needed. Actual APK observation is
+mandatory; no event or phone PASS is implied by these preparations.
+
+Software results, supporting receipts, external prerequisites and final Git/Jira
+checkpoint are maintained in
+`docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
+GS-117 remains In Progress; commercial release and optical PIR qualification
+remain outside this TC-001 result.

@@ -2,6 +2,7 @@
 #include "gs40_test_only_wifi.hpp"
 
 #include "driver/usb_serial_jtag.h"
+#include "driver/usb_serial_jtag_vfs.h"
 #include "driver/uart.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -84,7 +85,19 @@ esp_err_t gs40_test_only_receive_config(Gs40TestOnlyRuntimeConfig& config) {
     }
     if (!uart_is_driver_installed(UART_NUM_0)) return ESP_ERR_INVALID_STATE;
 #else
-    if (!usb_serial_jtag_is_driver_installed()) return ESP_ERR_INVALID_STATE;
+    // The normal product console starts with the simple VFS, which does not
+    // install the interrupt-driven transport used by read_exact(). Reuse the
+    // existing GS-68 diagnostic's driver/VFS setup for this TEST_ONLY profile.
+    if (!usb_serial_jtag_is_driver_installed()) {
+        usb_serial_jtag_driver_config_t driver_config{};
+        driver_config.tx_buffer_size = 256;
+        driver_config.rx_buffer_size = 4096;
+        const auto installed = usb_serial_jtag_driver_install(&driver_config);
+        if (installed != ESP_OK) return installed;
+    }
+    usb_serial_jtag_vfs_set_rx_line_endings(ESP_LINE_ENDINGS_LF);
+    usb_serial_jtag_vfs_use_driver();
+    if (std::setvbuf(stdin, nullptr, _IONBF, 0) != 0) return ESP_FAIL;
 #endif
     std::printf("GS40T/1 CHALLENGE nonce=%s public_key=%s max_envelope=%u\n",
         hex(challenge.data(), challenge.size()).c_str(),

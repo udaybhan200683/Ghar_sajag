@@ -1,0 +1,15 @@
+{
+  "action": "Observe",
+  "c3": {
+    "port": "COM4",
+    "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58 LOCATION=1-1:x.0",
+    "serial_number": "14:63:93:C5:D1:58"
+  },
+  "s3": {
+    "port": "COM10",
+    "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34 LOCATION=1-2:x.0",
+    "serial_number": "E0:72:A1:D3:8D:34"
+  },
+  "s3_boot_reset": true,
+  "query_s3_status": false
+}

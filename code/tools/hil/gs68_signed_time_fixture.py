@@ -1,7 +1,8 @@
 """Ephemeral host signer for the isolated GS-68 TEST_ONLY signed-time probe.
 
-This module never opens a device or writes key material. Its RSA private key
-exists only in the current Python process and is discarded when it exits.
+This module never opens a device or writes key material. By default its RSA
+private key exists only in the current process. An explicitly approved fixture
+may inject its separately protected, persistent signing key.
 """
 from __future__ import annotations
 
@@ -28,8 +29,12 @@ class SignedTimeFixtureError(ValueError):
 class TestOnlySignedTimeFixture:
     """Build command payloads for the external-key target verification path."""
 
-    def __init__(self):
-        self.__private_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    def __init__(self, *, private_key=None):
+        if private_key is not None and (
+                not isinstance(private_key, rsa.RSAPrivateKey) or private_key.key_size != 3072):
+            raise SignedTimeFixtureError("TEST_ONLY RSA3072 private signing key required")
+        self.__private_key = (private_key if private_key is not None else
+                              rsa.generate_private_key(public_exponent=65537, key_size=3072))
 
     def load_key_command(self) -> dict[str, str]:
         public_der = self.__private_key.public_key().public_bytes(

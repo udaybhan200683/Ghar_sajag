@@ -6,6 +6,7 @@ import sys
 import tempfile
 import threading
 import struct
+import socket
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -21,9 +22,11 @@ sys.path.insert(0, str(ROOT / "tests" / "support"))
 
 from cloudsync_mtls_certs import issue_test_cert, make_test_ca
 from cloudsync_mtls_local import tls_post
-from pilot_test_issuer import TestOnlyIssuer, new_test_csr
-from gs40_test_bootstrap import AuthorityService, encode_config, rsa3072
-from cryptography.hazmat.primitives.asymmetric import ec
+from pilot_test_issuer import TestOnlyAuthority, TestOnlyIssuer, new_test_csr
+from gs40_test_bootstrap import AuthorityService, SignedTimeService, encode_config, rsa3072
+from gs68_signed_time_fixture import TestOnlySignedTimeFixture, SignedTimeFixtureError
+from cryptography.hazmat.primitives.asymmetric import ec, padding
+from cryptography.hazmat.primitives import hashes
 
 
 PHYSICAL_GS117_HUB = "hub-e072a1d38d34"
@@ -267,6 +270,91 @@ class Gs68Gs40IdentityTimeE2eTest(unittest.TestCase):
                        return_value=rejected_context):
                 with self.assertRaisesRegex(PermissionError, "invalid_authority_challenge"):
                     rejected_service.refresh(object(), body)
+
+    def test_007_persistent_physical_fixture_certificate_mtls_and_home_rejection(self):
+        authority = TestOnlyAuthority.for_gs117_fixture(
+            self.paths / "physical-ca.pem", initialize=True, now=self.now)
+        issuer = TestOnlyIssuer(self.paths / "physical-issuer.sqlite3", authority=authority,
+                               clock=lambda: self.now)
+        try:
+            key, csr = new_test_csr(PHYSICAL_GS117_HUB, gs117_fixture=True)
+            credential = issuer.issue(PHYSICAL_GS117_HUB, csr)
+            cert_path = _write(self.paths / "physical-client.pem", credential.certificate_pem)
+            key_path = _write(self.paths / "physical-client-key.pem", key.private_bytes(
+                serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption()))
+            root_path = _write(self.paths / "physical-root.pem", authority.public_ca_pem())
+            self.db.execute(
+                "INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) "
+                "VALUES(?, 'Isolated physical-ID contract test', 'UTC', 1, 1)",
+                (PHYSICAL_GS117_HOME,))
+            identity = VerifiedHubIdentity(PHYSICAL_GS117_HUB, "f" * 64,
+                                          "SOFTWARE_TEST_ONLY-not-device-proof")
+            self.owner.register_unclaimed_identity(identity, 1)
+            self.owner.claim_home(identity, AuthorizedHomeOperation(
+                "isolated-test", PHYSICAL_GS117_HOME, "CLAIM_HUB", "isolated-claim"), 2)
+            physical_node = "c3-146393c5d158"
+            self.owner.enroll_node(identity, AuthorizedHomeOperation(
+                "isolated-test", PHYSICAL_GS117_HOME, "ENROLL_NODE", "isolated-enrollment"),
+                VerifiedNodeEnrollment(physical_node, "bedroom", 1, "e" * 64,
+                                       "SOFTWARE_TEST_ONLY-not-device-proof"), 3)
+            health = NodeHealthStatusStore(self.db, DeploymentPolicy(
+                NodeHealthPolicy(300), {physical_node: "configured"}))
+            api = JsonApi(service=self.service, now=lambda: self.backend_clock[0],
+                          node_health_status=health)
+            body = {**self.body, "home_id": PHYSICAL_GS117_HOME,
+                    "physical_node_id": physical_node, "logical_node_id": "bedroom"}
+
+            def exchange(payload):
+                return tls_post(api=api, database=self.db, credentials=issuer,
+                    ca_file=self.server_root, server_cert=self.server_cert,
+                    server_key=self.server_key, client_cert=cert_path, client_key=key_path,
+                    server_client_ca=root_path, body=payload,
+                    path=f"/v1/homes/{PHYSICAL_GS117_HOME}/node-health")
+
+            accepted = exchange(body)
+            self.assertEqual(accepted.get("status"), 200, accepted)
+            wrong_home = exchange({**body, "home_id": "home-b", "source_revision": 2})
+            self.assertEqual(wrong_home.get("status"), 403, wrong_home)
+            issuer.revoke(credential.fingerprint)
+            rejected = exchange({**body, "source_revision": 3})
+            self.assertIn("unknown_revoked_or_wrong_purpose_credential",
+                          rejected.get("server_error", ""), rejected)
+        finally:
+            issuer.close()
+
+    def test_008_signed_time_reuses_injected_key_over_existing_udp_carrier(self):
+        signer = rsa3072()
+        fixture = TestOnlySignedTimeFixture(private_key=signer)
+        restored = TestOnlySignedTimeFixture(private_key=signer)
+        self.assertEqual(fixture.load_key_command(), restored.load_key_command())
+        service = SignedTimeService(clock=lambda: 1_900_000_000, fixture=restored).start()
+        try:
+            nonce = b"n" * 32
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
+                client.settimeout(2)
+                client.sendto(b"GSTQ\x01" + struct.pack(">Q", 7) + nonce,
+                              ("127.0.0.1", service.port))
+                proof, _ = client.recvfrom(1024)
+            self.assertEqual(len(proof), 456)
+            self.assertEqual(proof[8:16], struct.pack(">Q", 7))
+            self.assertEqual(proof[16:48], nonce)
+            signer.public_key().verify(proof[72:], proof[:72],
+                                       padding.PKCS1v15(), hashes.SHA256())
+        finally:
+            service.close()
+        with self.assertRaises(SignedTimeFixtureError):
+            TestOnlySignedTimeFixture(private_key=ec.generate_private_key(ec.SECP256R1()))
+
+    def test_009_time_private_binding_is_explicit_and_never_wildcard_or_public(self):
+        for options in ({"bind_host": "192.168.1.4", "port": 18792},
+                        {"bind_host": "192.168.1.4", "allow_private_bind": True},
+                        {"bind_host": "0.0.0.0", "port": 18792, "allow_private_bind": True},
+                        {"bind_host": "8.8.8.8", "port": 18792, "allow_private_bind": True}):
+            with self.subTest(options=options), patch("gs40_test_bootstrap.socket.socket") as constructor:
+                with self.assertRaises(ValueError):
+                    SignedTimeService(**options)
+                constructor.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

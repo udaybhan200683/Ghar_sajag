@@ -9,7 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "factory"))
 from pilot_test_issuer import (TestOnlyAuthority, TestOnlyIssuer, TestIssuerRejected,
-                                TestIssuerUnavailable, new_test_csr)
+                                TestIssuerUnavailable, new_test_csr, GS117_FIXTURE_HUB)
 
 
 class PilotIssuerTests(unittest.TestCase):
@@ -37,6 +37,72 @@ class PilotIssuerTests(unittest.TestCase):
         self.assertEqual(self.issuer.verify(issued.certificate_pem, issued.hub_id, expected_csr=csr), issued)
         self.assertIn(b"BEGIN CERTIFICATE", issued.certificate_pem)
         self.assertEqual(key.key_size, 3072)
+
+    def test_physical_fixture_authority_persists_and_is_namespace_isolated(self):
+        bundle = Path(self.tmp.name) / "physical-ca.pem"
+        authority = TestOnlyAuthority.for_gs117_fixture(bundle, initialize=True, now=self.now)
+        key, csr = new_test_csr(GS117_FIXTURE_HUB, gs117_fixture=True)
+        store = Path(self.tmp.name) / "physical.sqlite3"
+        issuer = TestOnlyIssuer(store, authority=authority, clock=lambda: self.now)
+        try:
+            issued = issuer.issue(GS117_FIXTURE_HUB, csr)
+            self.assertEqual(issuer.verify(issued.certificate_pem, GS117_FIXTURE_HUB,
+                                          expected_csr=csr), issued)
+            _, synthetic = new_test_csr("test-hub-001")
+            with self.assertRaises(TestIssuerRejected):
+                issuer.issue("test-hub-001", synthetic)
+            with self.assertRaises(TestIssuerRejected):
+                self.issuer.issue(GS117_FIXTURE_HUB, csr)
+            with self.assertRaises(TestIssuerRejected):
+                self.issuer.verify(issued.certificate_pem, GS117_FIXTURE_HUB)
+        finally:
+            issuer.close()
+        reloaded = TestOnlyAuthority.for_gs117_fixture(bundle, now=self.now)
+        self.assertEqual(reloaded.fingerprint, authority.fingerprint)
+        reopened = TestOnlyIssuer(store, authority=reloaded, clock=lambda: self.now)
+        try:
+            self.assertEqual(reopened.verify(issued.certificate_pem, GS117_FIXTURE_HUB), issued)
+            self.assertEqual(reopened.by_fingerprint(issued.fingerprint).permanent_hub_id,
+                             GS117_FIXTURE_HUB)
+        finally:
+            reopened.close()
+        self.assertEqual(bundle.stat().st_mode & 0o777, 0o600)
+        for wrong in ("hub-001122334455", "test-hub-001", "hub-e072a1d38d34 "):
+            with self.subTest(wrong=wrong), self.assertRaises(TestIssuerRejected):
+                new_test_csr(wrong, gs117_fixture=True)
+        self.assertEqual(key.key_size, 3072)
+
+    def test_fixture_authority_rejects_partial_symlink_and_public_files(self):
+        bundle = Path(self.tmp.name) / "fixture-ca.pem"
+        authority = TestOnlyAuthority.for_gs117_fixture(bundle, initialize=True, now=self.now)
+        before = bundle.read_bytes()
+        self.assertEqual(TestOnlyAuthority.for_gs117_fixture(
+            bundle, initialize=True, now=self.now).fingerprint, authority.fingerprint)
+        self.assertEqual(bundle.read_bytes(), before)
+        bundle.chmod(0o644)
+        with self.assertRaises(TestIssuerRejected):
+            TestOnlyAuthority.for_gs117_fixture(bundle, now=self.now)
+        bundle.chmod(0o600)
+        link = Path(self.tmp.name) / "linked-ca.pem"
+        link.symlink_to(bundle)
+        with self.assertRaises(TestIssuerRejected):
+            TestOnlyAuthority.for_gs117_fixture(link, initialize=True, now=self.now)
+        bundle.write_bytes(b"interrupted private fixture authority")
+        with self.assertRaises(TestIssuerRejected):
+            TestOnlyAuthority.for_gs117_fixture(bundle, initialize=True, now=self.now)
+        self.assertEqual(bundle.read_bytes(), b"interrupted private fixture authority")
+
+    def test_fixture_authority_rejects_changed_certificate_key_and_expiry(self):
+        bundle = Path(self.tmp.name) / "fixture-ca.pem"
+        TestOnlyAuthority.for_gs117_fixture(bundle, initialize=True, now=self.now)
+        original = bundle.read_bytes()
+        with self.assertRaises(TestIssuerRejected):
+            TestOnlyAuthority.for_gs117_fixture(bundle, now=self.now + timedelta(days=366))
+        marker = b"-----BEGIN CERTIFICATE-----"
+        original_key = original[:original.index(marker)]
+        bundle.write_bytes(original_key + self.authority.public_ca_pem())
+        with self.assertRaises(TestIssuerRejected):
+            TestOnlyAuthority.for_gs117_fixture(bundle, now=self.now)
 
     def test_wrong_hub_and_wrong_csr_public_key(self):
         _, csr = self.pair()
