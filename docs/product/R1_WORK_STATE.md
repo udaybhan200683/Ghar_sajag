@@ -7191,3 +7191,10 @@ No S3 flash/credential update occurred; protected Wi-Fi input and scoped
 Windows elevation remain the immediate external prerequisites. Exact matched
 software gate outcomes and artifact provenance are in the native-access record.
 TC-001 and actual APK acceptance remain NOT_RUN/NOT_VERIFIED, respectively.
+
+
+## 2026-10-25 GS-117 S3 app-only deployment, precise TLS rejection and requested pause
+
+Entry71ebd920b6e49cd3cf0eda2cb02dff7f9e1564bf; scoped owner Wi-Fi reuse approval recordedGS117/11671. Fresh live S3 backup/partition/identity/recovery checks passed. Existing full-product commissioning+CloudSync app installed/read back inOTA0; protected NVS/table/oldOTA1/outbox/state byte-preserved. Actual boot proven. Existing signed encrypted GS40 transport succeeds through signature/decryption, but target policy reports fields=1/time_key=1/authority_key=1/tls_identity=0. Added only fixed-name nonsecret diagnostics; no security check relaxed. Final instrumented candidate fdb1555a795214dea12aece2a822d56cd6985ec571d990972c5060d3fe1052d6 preserved. At owner-requested8% usage pause, official selector returned to retainedOTA1 recovery to avoid config-rejection reboot looping; current recovery observation/evidence in dated record. C3 unchanged, session99/awake, runtime/sensing0; no commissioning/injection/EventKey.35 focused tests and82 bootstrap checks PASS, target build/write/boot PASS; broader gates not rerun for diagnostics; prior failures unchanged. Existing caregiver/PG/Home preserved. UAC request canceled, scoped LAN proxy unchanged. No physical ingress or APK acceptance. Exact next action is diagnose the target TLS identity subcheck, fix compatibility without weakening checks, then resume existing secure fixture pipeline.
+
+Detailed deployment/backup/recovery paths, software delta, evidence and resume sequence: [GS117 native-access execution record](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-25-scoped-wi-fi-authorization-physical-s3-deployment-and-rate-limit-checkpoint). TC001 BLOCKED/NOT_RUN, APK NOT_VERIFIED.

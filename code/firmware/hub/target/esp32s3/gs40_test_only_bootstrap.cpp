@@ -8,6 +8,7 @@
 #include <utility>
 
 #if defined(ESP_PLATFORM)
+#include "esp_log.h"
 #include "esp_timer.h"
 #include "mbedtls/md.h"
 #include "mbedtls/pk.h"
@@ -379,7 +380,19 @@ bool parse_payload(const std::vector<std::uint8_t>& bytes,
     const bool fields_valid = (seen & base_fields) == base_fields &&
         (seen & ~(base_fields | rule_fields | fixture_home_field)) == 0 &&
         (supplied_rule_fields == 0 || supplied_rule_fields == rule_fields);
-    return fields_valid && config.valid_shape();
+    const bool valid = fields_valid && config.valid_shape();
+#if defined(ESP_PLATFORM)
+    if (!valid) {
+        ESP_LOGW("gs40_test_config",
+            "GS40T/1 POLICY fields=%d material=%d time_key=%d authority_key=%d tls_identity=%d",
+            fields_valid, config.valid_material_shape(),
+            valid_rsa3072_public_der(config.time_public_key_der),
+            valid_rsa3072_public_der(config.authority_public_key_der),
+            valid_tls_identity(config.client_certificate_pem,
+                config.client_private_key_pem, config.credential_fingerprint_sha256));
+    }
+#endif
+    return valid;
 }
 
 bool verify_config_signature(const std::vector<std::uint8_t>& root_der,
@@ -768,33 +781,42 @@ bool Gs40TestOnlyEnvelopeSession::accept(
     if (!active_) return false;
     // A challenge is one-shot even when the supplied envelope is malformed.
     active_ = false;
-    const auto reject = [this]() { clear(); return false; };
+    const auto reject = [this](const char* stage) {
+#if defined(ESP_PLATFORM)
+        // Fixed stage names only: never emit envelope bytes or parsed secrets.
+        ESP_LOGW("gs40_test_config", "GS40T/1 REJECT stage=%s", stage);
+#else
+        (void)stage;
+#endif
+        clear();
+        return false;
+    };
     if (envelope.size() < kHeaderBytes + kTagBytes + kSignatureBytes ||
         envelope.size() > kMaximumEnvelopeBytes || std::memcmp(envelope.data(), "G40E", 4) != 0 ||
         envelope[4] != 1 || !std::equal(challenge_.begin(), challenge_.end(), envelope.begin() + 5))
-        return reject();
+        return reject("header");
     std::uint16_t cipher_size = 0;
     if (!read_u16(envelope, 114, cipher_size) || cipher_size == 0 ||
         cipher_size > kMaximumPlaintextBytes ||
         envelope.size() != kHeaderBytes + cipher_size + kTagBytes + kSignatureBytes)
-        return reject();
+        return reject("length");
     const auto signed_size = envelope.size() - kSignatureBytes;
-    if (!verify_config_signature(root_public_key_der_, envelope, signed_size)) return reject();
+    if (!verify_config_signature(root_public_key_der_, envelope, signed_size)) return reject("signature");
     std::vector<std::uint8_t> peer_public(envelope.begin() + 37, envelope.begin() + 102);
     std::array<std::uint8_t, 32> key{};
-    if (!derive_session_key(private_key_der_, key_id_, peer_public, challenge_, key)) return reject();
+    if (!derive_session_key(private_key_der_, key_id_, peer_public, challenge_, key)) return reject("key_agreement");
     std::vector<std::uint8_t> plaintext;
     const bool decrypted = decrypt_payload(key, envelope, kHeaderBytes, cipher_size, plaintext);
     volatile std::uint8_t* key_bytes = key.data();
     for (std::size_t i = 0; i < key.size(); ++i) key_bytes[i] = 0;
-    if (!decrypted) return reject();
+    if (!decrypted) return reject("aead");
     Gs40TestOnlyRuntimeConfig candidate;
     const bool parsed = parse_payload(plaintext, candidate);
     volatile std::uint8_t* plain = plaintext.data();
     for (std::size_t i = 0; i < plaintext.size(); ++i) plain[i] = 0;
     if (!parsed || candidate.envelope_generation == 0 ||
         candidate.time_public_key_der == root_public_key_der_ ||
-        candidate.authority_public_key_der == root_public_key_der_) return reject();
+        candidate.authority_public_key_der == root_public_key_der_) return reject("payload_policy");
     config = std::move(candidate);
     clear();
     return true;

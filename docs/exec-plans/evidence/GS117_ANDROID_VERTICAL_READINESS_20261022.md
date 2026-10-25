@@ -1951,3 +1951,10 @@ Hub 53/55 PASS (known migration + P0 fail), backend 24/26 PASS (known CSS + P0
 fail). Current security/fixture code tests pass; these are not release or
 physical acceptance results. Protected Wi-Fi input and Windows elevation
 remain external; secure commissioning/real CloudSync/fresh EventKey/APK are pending.
+
+
+## 2026-10-25 GS-117 S3 app-only deployment, precise TLS rejection and requested pause
+
+Entry71ebd920b6e49cd3cf0eda2cb02dff7f9e1564bf; scoped owner Wi-Fi reuse approval recordedGS117/11671. Fresh live S3 backup/partition/identity/recovery checks passed. Existing full-product commissioning+CloudSync app installed/read back inOTA0; protected NVS/table/oldOTA1/outbox/state byte-preserved. Actual boot proven. Existing signed encrypted GS40 transport succeeds through signature/decryption, but target policy reports fields=1/time_key=1/authority_key=1/tls_identity=0. Added only fixed-name nonsecret diagnostics; no security check relaxed. Final instrumented candidate fdb1555a795214dea12aece2a822d56cd6985ec571d990972c5060d3fe1052d6 preserved. At owner-requested8% usage pause, official selector returned to retainedOTA1 recovery to avoid config-rejection reboot looping; current recovery observation/evidence in dated record. C3 unchanged, session99/awake, runtime/sensing0; no commissioning/injection/EventKey.35 focused tests and82 bootstrap checks PASS, target build/write/boot PASS; broader gates not rerun for diagnostics; prior failures unchanged. Existing caregiver/PG/Home preserved. UAC request canceled, scoped LAN proxy unchanged. No physical ingress or APK acceptance. Exact next action is diagnose the target TLS identity subcheck, fix compatibility without weakening checks, then resume existing secure fixture pipeline.
+
+Detailed deployment/backup/recovery paths, software delta, evidence and resume sequence: [GS117 native-access execution record](GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-25-scoped-wi-fi-authorization-physical-s3-deployment-and-rate-limit-checkpoint). TC001 BLOCKED/NOT_RUN, APK NOT_VERIFIED.

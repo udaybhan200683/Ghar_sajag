@@ -1505,3 +1505,8 @@ device credential or backend ownership was installed/asserted. GS-D032,
 production trust, Home/epoch authority, commercial lifecycle scope and
 `CONTEXT_VERSION` are unchanged. See the dated GS-117 handoff and
 `docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
+
+
+### 2026-10-25 GS117 fixture execution evidence; no new LOCKED product decision
+
+Owner scoped saved-Windows Wi-Fi use to encrypted local commissioning and approved existing proxy repair via normal UAC (GS117/11671). Existing S3 app-only conditional authority used after verified backup/layout/recovery checks. Target encrypted-config transport passes cryptography but rejects TLS identity material; checks remain fail closed. Retained OTA1 recovery selected at owner-requested usage pause. See the GS117 native-access execution record for exact evidence and next action. No production trust, Home-transfer, data-lifecycle or release policy changed; context version unchanged.
