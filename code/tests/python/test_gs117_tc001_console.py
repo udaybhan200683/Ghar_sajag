@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "local"))
 import gs117_tc001_console as tc
+import gs117_tc001_serial_windows as tc_serial
 
 
 class TC001Test(unittest.TestCase):
@@ -44,6 +45,13 @@ class TC001Test(unittest.TestCase):
         self.assertTrue(tc.is_gs179_test_node_id("test-c3-bedroom"))
         self.assertTrue(tc.is_gs179_test_hub_id("hub-001122334455"))
         self.assertTrue(tc.is_gs179_test_node_id("c3-001122334455"))
+        self.assertTrue(tc.is_gs179_test_hub_home(
+            "hub-e072a1d38d34", "gs177-test-product"))
+        self.assertFalse(tc.is_gs179_test_hub_home(
+            "hub-001122334455", "gs177-test-product"))
+        self.assertFalse(tc.is_gs179_test_hub_home(
+            "hub-e072a1d38d34", "gs177-test-other"))
+        self.assertTrue(tc.is_gs179_test_hub_home("test-hub-a", "gs177-test-product"))
         for invalid in ("hub-00112233445z", "hub-00112233445500", "test-hub-a "):
             with self.subTest(invalid=invalid):
                 self.assertFalse(tc.is_gs179_test_hub_id(invalid))
@@ -119,8 +127,8 @@ class TC001Test(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "installed_APK"):
                     tc.exact_fixture()
                 phone_state["backend_origin"] = "https://laptop.local"; phone.write_text(json.dumps(phone_state))
-                fixture["hub_id"] = "hub-001122334455"
-                fixture["physical_device_id"] = "c3-001122334455"
+                fixture["hub_id"] = "hub-e072a1d38d34"
+                fixture["physical_device_id"] = "c3-146393c5d158"
                 ingress_state["hub_id"] = fixture["hub_id"]
                 ingress_state["node_device_id"] = fixture["physical_device_id"]
                 ingress.write_text(json.dumps(ingress_state))
@@ -131,7 +139,7 @@ class TC001Test(unittest.TestCase):
                     receipt_state["permanent_device_id"] = identity
                     receipt_path.write_text(json.dumps(receipt_state))
                 write()
-                self.assertEqual(tc.exact_fixture()["physical_device_id"], "c3-001122334455")
+                self.assertEqual(tc.exact_fixture()["physical_device_id"], "c3-146393c5d158")
                 c3_receipt_path = Path(fixture["c3"]["installed_image_receipt"])
                 c3_receipt = json.loads(c3_receipt_path.read_text())
                 c3_receipt["permanent_device_id"] = "c3-aabbccddeeff"
@@ -205,6 +213,86 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(report["stages"]["android_apk"]["status"], "NOT_VERIFIED")
                 self.assertEqual(report["apk_observation"], "NOT_VERIFIED")
                 self.assertEqual(report["event_key"]["event_sequence"], sequence)
+
+    def test_reset_aware_observer_queries_status_without_motion_injection(self):
+        class FakeSerial:
+            def __init__(self):
+                self.port = ""
+                self.timeout = None
+                self.write_timeout = None
+                self.dtr = True
+                self.rts = True
+                self.is_open = False
+                self.buffer = bytearray()
+                self.writes = []
+
+            @property
+            def in_waiting(self):
+                return len(self.buffer)
+
+            def open(self):
+                self.is_open = True
+                if self.port == "COM10":
+                    self.buffer.extend(b"I (1) HubRuntime storage=ready CloudSync=disabled\n")
+
+            def write(self, data):
+                self.writes.append(data)
+                if data == b"GET_STATE\n":
+                    self.buffer.extend(
+                        b"I (2) HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+                        b"hil_build=0 hil_control=1 physical_wake=0 "
+                        b"wifi_psk=private password=private\n")
+                return len(data)
+
+            def flush(self):
+                pass
+
+            def read(self, count):
+                result = bytes(self.buffer[:count])
+                del self.buffer[:count]
+                return result
+
+            def close(self):
+                self.is_open = False
+
+        boards = {
+            "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58",
+                   "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58"},
+            "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
+                   "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34"},
+        }
+        fake_streams = [FakeSerial(), FakeSerial()]
+        stream_iter = iter(fake_streams)
+        clock_value = [0.0]
+
+        def fake_clock():
+            clock_value[0] += 1.0
+            return clock_value[0]
+
+        result = tc_serial.observe(
+            {"c3": boards["c3"], "s3": boards["s3"]},
+            serial_factory=lambda: next(stream_iter),
+            port_finder=lambda: [boards["c3"], boards["s3"]],
+            clock=fake_clock, sleep=lambda _seconds: None)
+        self.assertEqual(fake_streams[0].writes, [])
+        self.assertEqual(fake_streams[1].writes, [b"GET_STATE\n"])
+        self.assertTrue(all(not stream.is_open for stream in fake_streams))
+        self.assertTrue(any("HIL_AWAKE_TEST_ONLY" in line for line in result["c3"]))
+        self.assertTrue(any("CloudSync=disabled" in line for line in result["s3"]))
+        self.assertFalse(any("private" in line for lines in result.values() for line in lines))
+
+    def test_observer_refuses_wrong_physical_ports_before_open(self):
+        opened = []
+        config = {
+            "c3": {"port": "COM4", "serial_number": "wrong",
+                   "usb_hwid": "wrong"},
+            "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
+                   "usb_hwid": "s3"},
+        }
+        with self.assertRaisesRegex(ValueError, "USB_INTERFACE_MISMATCH"):
+            tc_serial.observe(config, serial_factory=lambda: opened.append(True),
+                              port_finder=lambda: [])
+        self.assertEqual(opened, [])
 
     def test_duplicate_or_missing_s3_does_not_reach_backend(self):
         c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3"]

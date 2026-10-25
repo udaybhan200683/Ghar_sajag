@@ -22,6 +22,7 @@ from ghar_sajag.gs179_hub_ingress_runtime import (
     _validate_runtime_bind,
     start_gs179_test_only_hub_ingress,
 )
+from ghar_sajag.identity_namespaces import is_gs179_test_hub_home
 from gs178_stack import ProductStack, HOME
 
 
@@ -60,6 +61,16 @@ def _readline(process: subprocess.Popen, timeout=15) -> dict:
 
 
 class RuntimeDefaultDisabledTests(unittest.TestCase):
+    def test_only_exact_owner_approved_physical_hub_home_pair_is_admissible(self):
+        self.assertTrue(is_gs179_test_hub_home(
+            "hub-e072a1d38d34", "gs177-test-product"))
+        self.assertFalse(is_gs179_test_hub_home(
+            "hub-001122334455", "gs177-test-product"))
+        self.assertFalse(is_gs179_test_hub_home(
+            "hub-e072a1d38d34", "gs177-test-other"))
+        self.assertFalse(is_gs179_test_hub_home(
+            "test-hub-product", "production-home"))
+
     def test_default_environment_is_disabled_and_does_not_require_dependencies(self):
         config = HubIngressRuntimeConfig.from_environment({})
         runtime = Gs179TestOnlyHubIngressRuntime(config)
@@ -248,7 +259,8 @@ class RuntimeOwnedPostgresCaregiverE2E(unittest.TestCase):
         # an exact active ownership/epoch row the existing durable registry
         # still refuses it before the listener binds.
         unregistered_physical = Gs179TestOnlyHubIngressRuntime(
-            replace(self._config(), hub_id="hub-001122334455"),
+            replace(self._config(), hub_id="hub-e072a1d38d34",
+                    home_id="gs177-test-product"),
             credentials=self.stack.issuer, trusted_time=self.trusted,
             authority_refresh=lambda *_args: b"",
         )

@@ -29,6 +29,7 @@
 #include "firmware/hub/target/esp32s3/https_backend_channel.hpp"
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
 #include "firmware/hub/target/esp32s3/gs40_test_only_runtime.hpp"
+#include "firmware/hub/target/esp32s3/gs40_test_only_startup_policy.hpp"
 #endif
 #include "firmware/hub/storage/durable_event_outbox.hpp"
 #include "firmware/hub/storage/outbox_journal_backend.hpp"
@@ -753,8 +754,18 @@ void secure_owner_task(void*) {
              deployment::policy.heartbeat_seconds, deployment::policy.offline_seconds);
     HubSecurityLink security_link;
     HubSecurityLink::Mac physical_mac{};
-    if (esp_wifi_get_mac(WIFI_IF_STA, physical_mac.data()) != ESP_OK ||
-        !security_link.initialize(physical_mac)) {
+    if (esp_wifi_get_mac(WIFI_IF_STA, physical_mac.data()) != ESP_OK) {
+        ESP_LOGE(kTag, "Hub security bootstrap failed closed");
+        vTaskDelete(nullptr);
+        return;
+    }
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (!g_gs40_test_material ||
+        !security_link.initialize(physical_mac,
+            g_gs40_test_material->config().fixture_home_id)) {
+#else
+    if (!security_link.initialize(physical_mac)) {
+#endif
         ESP_LOGE(kTag, "Hub security bootstrap failed closed");
         vTaskDelete(nullptr);
         return;
@@ -2077,10 +2088,10 @@ esp_err_t start_runtime_adapter() {
     if ((result = initialize_wifi()) != ESP_OK) return result;
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
     if ((result = gs40_test_only_connect_wifi(*g_gs40_test_config)) != ESP_OK) {
-        ESP_LOGE(kTag, "TEST_ONLY isolated Wi-Fi unavailable; startup refused: %s",
+        ESP_LOGW(kTag, "TEST_ONLY CloudSync route unavailable at boot; local Hub startup continues: %s",
                  esp_err_to_name(result));
-        return result;
     }
+    const bool fixture_station_connected = result == ESP_OK;
     g_gs40_test_clock = std::make_unique<Gs40TestOnlyMonotonicClock>();
     g_gs40_test_floor = std::make_unique<NvsAuthenticatedTimeFloorStore>("gs40_time");
     g_gs40_test_random = std::make_unique<S3AuthenticatedTimeRandomSource>();
@@ -2091,17 +2102,24 @@ esp_err_t start_runtime_adapter() {
     g_gs40_test_time = std::make_unique<AuthenticatedHubTimeProvider>(
         *g_gs40_test_floor, *g_gs40_test_time_verifier,
         *g_gs40_test_random, *g_gs40_test_clock, time_policy);
-    if ((result = gs40_test_only_bootstrap_time(*g_gs40_test_config,
-            *g_gs40_test_floor, *g_gs40_test_time)) != ESP_OK) {
-        ESP_LOGE(kTag, "TEST_ONLY signed-time bootstrap unavailable; startup refused: %s",
-                 esp_err_to_name(result));
-        return result;
+    const auto time_result = gs40_test_only_bootstrap_time(*g_gs40_test_config,
+        *g_gs40_test_floor, *g_gs40_test_time);
+    const bool fixture_signed_time_ready = time_result == ESP_OK;
+    if (!fixture_signed_time_ready) {
+        ESP_LOGW(kTag, "TEST_ONLY signed-time bootstrap unavailable; local Hub starts and CloudSync stays fenced: %s",
+                 esp_err_to_name(time_result));
     }
     g_gs40_test_authority_verifier = std::make_unique<Gs40TestOnlyAuthorityLeaseVerifier>(
         g_gs40_test_config->authority_public_key_der);
     g_gs40_test_material = std::make_unique<Gs40TestOnlyMaterialSource>(
         std::move(*g_gs40_test_config), *g_gs40_test_time, *g_gs40_test_clock);
     g_gs40_test_config.reset();
+    if (!gs40_test_only_local_hub_start_allowed(true, true))
+        return ESP_ERR_INVALID_STATE;
+    if (!gs40_test_only_cloud_bootstrap_ready(
+            true, fixture_station_connected, fixture_signed_time_ready)) {
+        ESP_LOGW(kTag, "TEST_ONLY CloudSync deferred until authenticated station and signed time are ready");
+    }
 #endif
     if ((result = initialize_esp_now()) != ESP_OK) return result;
 #if GS_HIL_BUILD

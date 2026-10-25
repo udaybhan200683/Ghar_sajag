@@ -68,6 +68,7 @@ class RegistrationTest(unittest.TestCase):
             "gs58-credential-slots",
             "gs75-notification-worker",
             "gs117-tc001-console",
+            "gs117-c3-hil-awake-profile",
             "gs179-verified-endpoint",
             "pilot-factory",
         })

@@ -1,4 +1,5 @@
 #include "firmware/common/security/association_persistence.hpp"
+#include "firmware/node/target/esp32c3/gs117_fixture_commissioning.hpp"
 #include "firmware/node/target/esp32c3/gs117_reassociation_status.hpp"
 #include "tests/support/host/security/openssl_commissioning_crypto.hpp"
 
@@ -65,6 +66,57 @@ int main() {
                     Gs117ReassociationStatus::RecoveryBackupConflict)) ==
                     "recovery_backup_conflict",
                 "reassociation refusal reason is not stable for HIL evidence");
+        using gs::node::target::gs117_fixture_offer_matches;
+        using gs::node::target::gs117_fixture_recovery_is_disposable;
+        CommissioningBinding fixture_prior;
+        fixture_prior.device_id = "c3-146393c5d158";
+        fixture_prior.device_public_key[0] = 0x04;
+        CommissioningOffer fixture_offer;
+        fixture_offer.hub_id = "hub-e072a1d38d34";
+        fixture_offer.home_id = "gs177-test-product";
+        fixture_offer.device_public_key = fixture_prior.device_public_key;
+        fixture_offer.logical_id = "bedroom";
+        fixture_offer.room = "Bedroom";
+        fixture_offer.function = "motion";
+        require(gs117_fixture_offer_matches(fixture_prior, fixture_offer,
+                    "c3-146393c5d158", "hub-e072a1d38d34"),
+                "exact physical fixture commissioning offer was rejected");
+        fixture_offer.home_id = "another-home";
+        require(!gs117_fixture_offer_matches(fixture_prior, fixture_offer,
+                    "c3-146393c5d158", "hub-e072a1d38d34"),
+                "fixture commissioning accepted an unauthorized Home");
+        fixture_offer.home_id = "gs177-test-product";
+        fixture_offer.hub_id = "hub-000000000000";
+        require(!gs117_fixture_offer_matches(fixture_prior, fixture_offer,
+                    "c3-146393c5d158", "hub-e072a1d38d34"),
+                "fixture commissioning accepted a different physical Hub");
+        fixture_offer.hub_id = "hub-e072a1d38d34";
+        fixture_offer.device_public_key[1] = 1;
+        require(!gs117_fixture_offer_matches(fixture_prior, fixture_offer,
+                    "c3-146393c5d158", "hub-e072a1d38d34"),
+                "fixture commissioning accepted a different Node identity key");
+        fixture_offer.device_public_key = fixture_prior.device_public_key;
+        fixture_offer.room = "Living room";
+        require(!gs117_fixture_offer_matches(fixture_prior, fixture_offer,
+                    "c3-146393c5d158", "hub-e072a1d38d34"),
+                "fixture commissioning accepted a different logical room");
+        gs::node::NodeRuntimeRecoveryState fixture_recovery;
+        gs::DomainEvent test_motion;
+        test_motion.kind = gs::EventKind::Motion;
+        test_motion.is_test = true;
+        fixture_recovery.retained.push_back(test_motion);
+        gs::node::PendingTx test_pending;
+        test_pending.event = test_motion;
+        fixture_recovery.pending.push_back(test_pending);
+        require(gs117_fixture_recovery_is_disposable(fixture_recovery),
+                "TEST_ONLY motion fixture data was not recognized as disposable");
+        fixture_recovery.retained.front().is_test = false;
+        require(!gs117_fixture_recovery_is_disposable(fixture_recovery),
+                "fixture retirement accepted a non-test retained event");
+        fixture_recovery.retained.front().is_test = true;
+        fixture_recovery.gap_marker_required = true;
+        require(!gs117_fixture_recovery_is_disposable(fixture_recovery),
+                "fixture retirement accepted an unresolved event gap");
         OpenSslCommissioningCrypto crypto;
         Key32 wrapping_key{};
         require(crypto.random_bytes(wrapping_key.data(), wrapping_key.size()),

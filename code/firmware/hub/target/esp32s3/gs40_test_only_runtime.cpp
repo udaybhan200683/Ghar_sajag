@@ -1,6 +1,8 @@
 #include "gs40_test_only_runtime.hpp"
+#include "gs40_test_only_wifi.hpp"
 
 #include "driver/usb_serial_jtag.h"
+#include "driver/uart.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
@@ -40,8 +42,13 @@ bool read_exact(std::uint8_t* output, std::size_t length, std::uint64_t deadline
     while (received < length && static_cast<std::uint64_t>(esp_timer_get_time()) < deadline_us) {
         const auto left_us = deadline_us - static_cast<std::uint64_t>(esp_timer_get_time());
         const auto wait_ms = static_cast<std::uint32_t>(std::min<std::uint64_t>(left_us / 1000, 500));
+#if CONFIG_ESP_CONSOLE_UART_NUM == 0
+        const int count = uart_read_bytes(UART_NUM_0, output + received,
+            static_cast<std::uint32_t>(length - received), pdMS_TO_TICKS(wait_ms));
+#else
         const int count = usb_serial_jtag_read_bytes(output + received,
             static_cast<std::uint32_t>(length - received), pdMS_TO_TICKS(wait_ms));
+#endif
         if (count < 0 || static_cast<std::size_t>(count) > length - received) return false;
         received += static_cast<std::size_t>(count);
     }
@@ -66,9 +73,19 @@ esp_err_t gs40_test_only_receive_config(Gs40TestOnlyRuntimeConfig& config) {
     std::vector<std::uint8_t> target_public;
     if (!session.begin(challenge, target_public)) return ESP_FAIL;
 
-    // sdkconfig selects USB Serial/JTAG as the primary console, so ESP-IDF
-    // owns driver/VFS installation. Refuse if startup did not install it.
+    // Use the console selected by this explicit TEST_ONLY image. UART0 is the
+    // identified CH343 control path on the GS-117 fixture; USB Serial/JTAG
+    // remains the default for boards that expose the native USB interface.
+#if CONFIG_ESP_CONSOLE_UART_NUM == 0
+    if (!uart_is_driver_installed(UART_NUM_0)) {
+        const auto installed = uart_driver_install(UART_NUM_0, 4096, 0, 0, nullptr, 0);
+        if (installed != ESP_OK && installed != ESP_ERR_INVALID_STATE)
+            return installed;
+    }
+    if (!uart_is_driver_installed(UART_NUM_0)) return ESP_ERR_INVALID_STATE;
+#else
     if (!usb_serial_jtag_is_driver_installed()) return ESP_ERR_INVALID_STATE;
+#endif
     std::printf("GS40T/1 CHALLENGE nonce=%s public_key=%s max_envelope=%u\n",
         hex(challenge.data(), challenge.size()).c_str(),
         hex(target_public.data(), target_public.size()).c_str(),
@@ -177,7 +194,8 @@ esp_err_t gs40_test_only_connect_wifi(Gs40TestOnlyRuntimeConfig& config) {
     while (static_cast<std::uint64_t>(esp_timer_get_time()) < deadline) {
         wifi_ap_record_t ap{};
         if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
-            if (ap.primary != 1) return ESP_ERR_INVALID_STATE;
+            if (!gs40_test_only_wifi_channel_supported(ap.primary))
+                return ESP_ERR_INVALID_STATE;
             auto* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
             esp_netif_ip_info_t ip{};
             if (netif != nullptr && esp_netif_get_ip_info(netif, &ip) == ESP_OK &&

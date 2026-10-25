@@ -1652,3 +1652,108 @@ the S3 target README. TC-001 remains blocked pending an authenticated,
 recoverable C3 Home transition; deployable exact-Hub TEST_ONLY configuration
 and trusted-time/mTLS registration; a private laptop route; and actual phone
 observation.
+
+## 2026-10-25 resumed GS-117 fixture integration and validation
+
+This checkpoint resumes from local and remote canonical HEAD
+`1e08b32397dbc0a98dbe23b17ec089e589bf0d55` on
+`feature/r1-commercial-baseline`; the context preflight passed. No concurrent
+worktree was active. Scoped implementation and evidence changes are currently
+uncommitted. Unrelated untracked Android, APK, hardware-evidence and ignored
+ESP-IDF assets remain preserved.
+
+### Work completed in this checkpoint
+
+- Reused the physical C3 HIL-awake image and the existing C3 NodeRuntime,
+  association/recovery repository, HubSecurityLink, GS40 TEST_ONLY config and
+  CloudSync, GS-179 ingress, PostgreSQL APIs, and TC-001 console. No new event
+  pipeline, Home, backend, APK, or simulator was added.
+- Added an owner-fixture-only fresh commissioning path. It validates the exact
+  C3/S3/Home/function tuple, verifies a bounded opaque backup of the old
+  encrypted association/recovery state, retires only approved disposable
+  TEST_ONLY motion records with a monotonic tombstone, retains device identity
+  and security counters, and then uses the existing proof-of-possession
+  commissioning offer/ACK flow. Missing, mismatched, or corrupt recovery
+  evidence fails closed.
+- Added exact physical S3/Home acceptance to the TEST_ONLY ingress identity
+  namespace while retaining HOST_SIM identities and requiring mTLS certificate,
+  ownership, epoch and Node-enrollment authorization for actual requests.
+- Composed the existing UART fixture adapter with the full-product S3
+  CloudSync profile. When optional Wi-Fi or signed time is unavailable, local
+  Hub startup can proceed while CloudSync stays fenced and retryable; security
+  checks were not relaxed.
+- Corrected validation registration and inventory for the new fixture policy,
+  C3 profile stage and physical acceptance case.
+
+### Verification and current physical evidence
+
+The latest focused checks passed: GS40 bootstrap 82 checks; S3 fixture
+commissioning 18/18; TC-001 console 21/21; GS178 Node/caregiver E2E 33/33;
+GS-179 runtime composition 4 passed with the isolated-PostgreSQL case skipped;
+feature traceability 22/22 with consistency check PASS (226 features, 285
+modules, 27 physical cases); engineering stage registration 6/6; `git diff
+--check`; and `code/validation/suites.json` JSON parsing. The backend-wide gate
+was not rerun after the final registry corrections. Its prior run had one
+unrelated PWA static CSS-budget failure, a required P0 partial/physical-not-run
+failure, and the then-unfixed traceability/registration findings. Node, Hub
+and contract gates also retain the required P0 `product_status=PARTIAL` result;
+the Hub gate additionally has the pre-existing clean journal migration failure.
+
+COM4 USB identity remains `14:63:93:C5:D1:58`. Its installed C3 reports
+`HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`,
+`physical_wake=0`, `ota_slot=ota_0`, `runtime_live=0`,
+`sensing_live=0`, no retained events and no in-flight event. No injection or
+fresh-commissioning command was sent in this checkpoint.
+
+Latest-source C3 compile-only verification also completed under ESP-IDF 6.0.3
+in `/tmp/gs117-c3-hil-awake-current-20261025`. The image is 958,368 bytes,
+SHA-256 `183417fdd840ed9cce333e7b276beeaba83d085173f9cbe28589d617d874739f`;
+the requested flags are `GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`, USB Serial/JTAG is selected, and
+`CONFIG_PM_ENABLE` is unset for the HIL-awake profile. The binary contains the
+existing `INJECT_MOTION` and exact-fixture fresh-commissioning command markers
+and fits the 1,920 KiB OTA app slot with 51% reported headroom. This is a
+compile-only unsigned image; no matching current trusted signing-key provenance
+was established, so it is not deployable and was not flashed. The C3 installed
+image remains the earlier HIL-awake image reported above.
+
+COM10 USB identity remains `E0:72:A1:D3:8D:34`. The build-only full-product
+S3 candidate uses `GS40_TEST_ONLY_CLOUDSYNC=ON` and
+`GS_HIL_COMMISSIONING=ON`, is 2,267,584 bytes (SHA-256
+`21e78b2882f180e917c2d6dd5599d5a1f0fbfa1c9b7d18a782e8ef5f49ea05c6`) and
+fits the 4 MiB app slot. The owner-only persistent config-root used by this
+build matched the embedded public key. The candidate has no active exact-Hub
+certificate, signed-time/ownership runtime envelope and current receipt; it is
+therefore not deployable as built and was not flashed. Current S3 product boot,
+storage-mount and CloudSync status remain `NOT_VERIFIED`.
+
+The existing caregiver backend and PostgreSQL are ready; the authorized Home
+`gs177-test-product` API login succeeds, but source freshness is `STALE`. This
+does not prove real Hub ingress or APK event visibility. The Windows Wi-Fi is
+currently `Airtel_Agrim`, Private, `192.168.1.6/24`; existing scoped
+portproxy still points at old `192.168.1.7`. The current process is not
+elevated, and no firewall/forwarding mutation was made. ADB is unavailable, so
+the existing Android app's live package/backend/Home and event display remain
+`NOT_VERIFIED`.
+
+### TC-001 result and remaining gates
+
+| Stage | Result | Evidence |
+|---|---|---|
+| Physical C3 identity and HIL-awake profile | `PASS` | COM4 descriptor and installed `GET_STATE` above. |
+| Physical S3 identity | `PASS` | COM10 USB descriptor matches the authorized fixture. |
+| C3 fresh authenticated commissioning / live NodeRuntime | `BLOCKED` | No authenticated target S3 session/config receipt; `runtime_live=0`, `sensing_live=0`; no association mutation attempted. |
+| S3 product boot, storage, Node admission and CloudSync | `NOT_VERIFIED` | Candidate is build-only; live runtime did not report startup/mount state. |
+| Physical Hub mTLS / Home, epoch and Node ownership | `BLOCKED` | Current exact-Hub client credential, trusted-time lease and durable ingress ownership/enrollment are not active. |
+| Backend/PostgreSQL caregiver Home | `PASS` for readiness only | Existing backend login succeeds; Home API reports stale source freshness. No physical event exists. |
+| New physical EventKey / durable event commit | `NOT_RUN` | No injection; HOST_SIM seed excluded. |
+| Actual caregiver APK event display | `NOT_VERIFIED` | No phone-side diagnostic or observation. |
+| TC-001 | `BLOCKED / NOT_RUN` | No physical end-to-end event was generated or presented. |
+
+The remaining operational blockers are an authenticated, deployable TEST_ONLY
+runtime envelope and enrolled identity for the exact S3/Home/epoch/Node;
+observed S3 product startup and authenticated C3 admission; an elevated,
+scoped repair of the stale Windows private-LAN forwarding entry; and direct
+observation from the existing Android phone. No credential was issued, no
+firmware or protected storage was written, and no database/event history was
+changed.

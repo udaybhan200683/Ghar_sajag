@@ -40,6 +40,17 @@ public:
         const NodeRuntimeRecoveryState& state, std::uint64_t previous_generation,
         const security::Bytes& previous_ciphertext,
         const std::string& previous_home_id, const std::string& previous_hub_id);
+    // Explicit GS-117 development-fixture path. The caller must authenticate
+    // and retain the previous snapshot, prove it contains only disposable
+    // TEST_ONLY motion records, and pass its exact ciphertext. This writes an
+    // empty checkpoint under the newly commissioned Home without erasing NVS.
+    bool initialize_after_gs117_fixture_data_retirement(
+        const NodeRuntimeRecoveryState& retired_state,
+        const NodeRuntimeRecoveryState& fresh_state,
+        std::uint64_t previous_generation,
+        const security::Bytes& previous_ciphertext,
+        const std::string& previous_home_id,
+        const std::string& previous_hub_id);
 
 private:
     bool valid(const NodeRuntimeRecoveryState& state) const;

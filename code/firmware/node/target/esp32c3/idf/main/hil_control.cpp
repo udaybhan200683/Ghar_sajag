@@ -44,6 +44,9 @@ void dispatch_command(const char* command) {
     } else if (std::strcmp(command, "REASSOCIATE_GS117_TEST_HUB") == 0) {
         gs::node::target::hil_request_gs117_reassociation();
         ESP_LOGI(kTag, "HIL_OK command=REASSOCIATE_GS117_TEST_HUB status=REQUESTED_TEST_ONLY");
+    } else if (std::strcmp(command, "FRESH_COMMISSION_GS117_TEST_FIXTURE") == 0) {
+        gs::node::target::hil_request_gs117_fresh_commissioning();
+        ESP_LOGI(kTag, "HIL_OK command=FRESH_COMMISSION_GS117_TEST_FIXTURE status=REQUESTED_TEST_ONLY");
 #endif
     } else if (std::strcmp(command, "SOFTWARE_RESTART") == 0) {
         ESP_LOGI(kTag, "HIL_OK command=SOFTWARE_RESTART reset_class=SOFTWARE_RESET");

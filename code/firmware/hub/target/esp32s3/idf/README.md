@@ -50,6 +50,13 @@ or make the image deployable by itself. `GS_HIL_BUILD`, `GS_HIL_CONTROL`,
 `GS_HIL_C8_ACK_DROP`, `GS_HIL_C8_ACK_HOLD`, and `GS_HIL_SIGNED_FOTA` remain
 rejected in this CloudSync profile. Build and deployment are separate actions.
 
+For the GS-117 board whose identified COM interface is the CH343 UART bridge,
+select `sdkconfig.gs40_test_only_uart.defaults` instead of
+`sdkconfig.gs40_test_only.defaults`. The existing GS40 one-shot signed and
+encrypted envelope then uses UART0; it retains the same challenge, identity,
+signature and payload validation. The USB Serial/JTAG profile remains available
+for boards that expose that native interface. Both profiles are default-OFF.
+
 From this directory, `./build-outbox.sh` builds the full Hub against the
 explicit `gs_outbox` / `gs_state` candidate profile in an isolated build tree
 under `/home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build`. It does

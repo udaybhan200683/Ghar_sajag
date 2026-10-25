@@ -55,7 +55,8 @@ public:
     ~HubSecurityLink();
     HubSecurityLink(const HubSecurityLink&) = delete;
     HubSecurityLink& operator=(const HubSecurityLink&) = delete;
-    bool initialize(const Mac& hub_mac);
+    bool initialize(const Mac& hub_mac,
+                    const std::string& signed_test_fixture_home_id = {});
     SecurityFreshness installation_freshness() const { return freshness_; }
     bool durable_storage_key(security::Key32& out);
     bool event_journal_key(security::Key32& out);

@@ -216,12 +216,18 @@ class Gs68Gs40IdentityTimeE2eTest(unittest.TestCase):
         fields[4] = b"localhost"
         fields[6] = b"127.0.0.1"
         fields[9] = PHYSICAL_GS117_HUB.encode("ascii")
+        fields[21] = PHYSICAL_GS117_HOME.encode("ascii")
         physical = encode_config(b"n" * 32, target, fields, signer)
         self.assertTrue(physical.startswith(b"\x00\x00"))
 
         fields[9] = b"hub-e072a1d38d35"
         with self.assertRaisesRegex(ValueError, "test_identity_required"):
             encode_config(b"n" * 32, target, fields, signer)
+        fields[9] = PHYSICAL_GS117_HUB.encode("ascii")
+        fields[21] = b"another-home"
+        with self.assertRaisesRegex(ValueError, "invalid_test_fixture_home_binding"):
+            encode_config(b"n" * 32, target, fields, signer)
+        fields.pop(21)
         fields[9] = b"test-hub-product"
         synthetic = encode_config(b"n" * 32, target, fields, signer)
         self.assertTrue(synthetic)

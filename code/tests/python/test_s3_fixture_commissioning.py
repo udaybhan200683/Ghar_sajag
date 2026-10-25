@@ -350,6 +350,21 @@ int main() {{
         self.assertIn('GS_HIL_COMMISSIONING=OFF',
                       (ROOT / "scripts/build_secure_fota_hub.py").read_text())
 
+    def test_gs40_uart_profile_reuses_the_signed_envelope_receiver(self):
+        defaults = (ROOT / "firmware/hub/target/esp32s3/idf/"
+                    "sdkconfig.gs40_test_only_uart.defaults").read_text()
+        runtime = (ROOT / "firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp").read_text()
+        main_cmake = (ROOT / "firmware/hub/target/esp32/idf/main/CMakeLists.txt").read_text()
+        self.assertIn("CONFIG_ESP_CONSOLE_UART_NUM=0", defaults)
+        self.assertIn("CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n", defaults)
+        self.assertIn("CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n", defaults)
+        self.assertIn("uart_read_bytes(UART_NUM_0", runtime)
+        self.assertIn("usb_serial_jtag_read_bytes", runtime)
+        self.assertIn("Gs40TestOnlyEnvelopeSession session", runtime)
+        self.assertIn("session.begin(challenge, target_public)", runtime)
+        self.assertIn("session.accept(envelope, config)", runtime)
+        self.assertIn("esp_driver_uart\n        esp_event", main_cmake)
+
     def test_c8_ack_drop_is_postcommit_durable_and_profile_scoped(self):
         owner = (ROOT / "firmware/hub/target/esp32/hub_runtime_adapter.cpp").read_text()
         control = SOURCE.read_text()

@@ -43,6 +43,12 @@ public:
     // never changes the stored binding until the authenticated ACK arrives.
     Gs117ReassociationStatus begin_gs117_test_reassociation(
         const std::string& expected_hub_id, std::uint64_t now_ms);
+    // Owner-approved development-fixture path for a fresh TEST_ONLY pairing.
+    // It preserves the encrypted prior association/recovery blobs, advances
+    // the association tombstone generation, and pins commissioning to the
+    // identified physical S3 and Bedroom motion role.
+    Gs117FreshCommissioningStatus begin_gs117_test_fresh_commissioning(
+        const std::string& expected_hub_id, std::uint64_t now_ms);
     bool commissioning() const { return phase_ == Phase::Commissioning; }
     std::optional<Outbound> initial_message();
     std::optional<Outbound> accept(const Mac& source, const std::uint8_t* packet,
@@ -98,6 +104,7 @@ private:
     bool health_ack_supported_{false};
     bool challenge_seen_{false};
     bool test_reassociation_pending_{false};
+    bool test_fresh_commissioning_pending_{false};
     std::string expected_reassociation_hub_id_;
     Phase phase_{Phase::Uninitialized};
 };

@@ -1,4 +1,6 @@
 #include "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp"
+#include "firmware/hub/target/esp32s3/gs40_test_only_wifi.hpp"
+#include "firmware/hub/target/esp32s3/gs40_test_only_startup_policy.hpp"
 
 #include <openssl/evp.h>
 #include <openssl/core_names.h>
@@ -185,7 +187,8 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     const std::vector<std::uint8_t>& time_der, const std::vector<std::uint8_t>& authority_der,
     const std::string& cert, const std::string& key, const std::string& fingerprint,
     const std::string& timezone = "Etc/UTC",
-    const std::string& hub_id = "test-hub-000001") {
+    const std::string& hub_id = "test-hub-000001",
+    const std::string& fixture_home_id = {}) {
     std::vector<std::uint8_t> plain{'G','4','0','P',1};
     field(plain,1,"gs40-lab"); field(plain,2,"test-passphrase");
     field(plain,3,"https://127.0.0.1:9443"); field(plain,4,"127.0.0.1");
@@ -196,6 +199,7 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     field(plain,15,number(1893456000)); field(plain,16,authority_der);
     field(plain,17,"home1"); field(plain,18,timezone);
     field(plain,19,activity_rules()); field(plain,20,std::vector<std::uint8_t>{0});
+    if (!fixture_home_id.empty()) field(plain,21,fixture_home_id);
     EVP_PKEY* peer = p256_key();
     std::array<std::uint8_t, 65> peer_public{}; std::size_t peer_length = peer_public.size();
     check(peer && EVP_PKEY_get_octet_string_param(peer, OSSL_PKEY_PARAM_PUB_KEY,
@@ -251,6 +255,23 @@ void sign_lease(EVP_PKEY* signer, std::vector<std::uint8_t>& wire) {
 }
 
 int main() {
+    check(gs40_test_only_local_hub_start_allowed(true, true),
+          "authenticated_configuration_and_radio_allow_local_hub_start");
+    check(!gs40_test_only_local_hub_start_allowed(false, true) &&
+          !gs40_test_only_local_hub_start_allowed(true, false),
+          "local_hub_rejects_missing_authenticated_configuration_or_radio");
+    check(gs40_test_only_cloud_bootstrap_ready(true, true, true),
+          "cloud_bootstrap_requires_all_authenticated_prerequisites");
+    check(!gs40_test_only_cloud_bootstrap_ready(true, false, true) &&
+          !gs40_test_only_cloud_bootstrap_ready(true, true, false) &&
+          !gs40_test_only_cloud_bootstrap_ready(false, true, true),
+          "cloud_bootstrap_fails_closed_without_route_or_signed_time");
+    check(gs40_test_only_wifi_channel_supported(1), "2.4 GHz channel 1 accepted");
+    check(gs40_test_only_wifi_channel_supported(6), "2.4 GHz channel 6 accepted");
+    check(gs40_test_only_wifi_channel_supported(13), "2.4 GHz channel 13 accepted");
+    check(!gs40_test_only_wifi_channel_supported(0), "unknown Wi-Fi channel rejected");
+    check(!gs40_test_only_wifi_channel_supported(14), "channel 14 rejected");
+    check(!gs40_test_only_wifi_channel_supported(36), "5 GHz channel rejected");
     EVP_PKEY* config_root=rsa_key(); EVP_PKEY* time_root=rsa_key();
     EVP_PKEY* authority_root=rsa_key(); EVP_PKEY* client_key=rsa_key();
     EVP_PKEY* physical_client_key=rsa_key();
@@ -304,6 +325,47 @@ int main() {
           physical_hub_id),"signed physical identity remains exact through runtime binding");
     check(!gs40_test_only_hub_id_matches_runtime(physical_config.permanent_hub_id,
           "hub-ffffffffffff"),"signed physical identity cannot bind to another Hub");
+    const std::string fixture_hub_id = "hub-e072a1d38d34";
+    check(gs40_test_only_fixture_home_binding_allowed(
+              fixture_hub_id, "gs177-test-product") &&
+          !gs40_test_only_fixture_home_binding_allowed(
+              "hub-ffffffffffff", "gs177-test-product") &&
+          !gs40_test_only_fixture_home_binding_allowed(
+              fixture_hub_id, "another-home"),
+          "fixture Home binding is restricted to the owner-approved physical Hub and Home");
+
+    Gs40TestOnlyEnvelopeSession fixture_home_session(config_der);
+    std::array<std::uint8_t,32> fixture_home_challenge{};
+    std::vector<std::uint8_t> fixture_home_target;
+    check(fixture_home_session.begin(fixture_home_challenge, fixture_home_target),
+          "physical fixture Home challenge");
+    std::string fixture_physical_fingerprint;
+    const auto fixture_physical_cert = pem_cert(physical_client_key,
+        fixture_physical_fingerprint, fixture_hub_id);
+    const auto fixture_home_envelope = signed_config(config_root,
+        fixture_home_challenge, fixture_home_target, time_der, authority_der,
+        fixture_physical_cert, physical_client_private, fixture_physical_fingerprint,
+        "Etc/UTC", fixture_hub_id, "gs177-test-product");
+    Gs40TestOnlyRuntimeConfig fixture_home_config;
+    check(fixture_home_session.accept(fixture_home_envelope, fixture_home_config) &&
+          fixture_home_config.fixture_home_id_present &&
+          fixture_home_config.fixture_home_id == "gs177-test-product" &&
+          fixture_home_config.valid_shape(),
+          "signed fixture Home binding parses only for its exact physical Hub");
+
+    Gs40TestOnlyEnvelopeSession synthetic_fixture_home_session(config_der);
+    std::array<std::uint8_t,32> synthetic_fixture_home_challenge{};
+    std::vector<std::uint8_t> synthetic_fixture_home_target;
+    check(synthetic_fixture_home_session.begin(synthetic_fixture_home_challenge,
+        synthetic_fixture_home_target), "synthetic fixture Home challenge");
+    const auto synthetic_fixture_home_envelope = signed_config(config_root,
+        synthetic_fixture_home_challenge, synthetic_fixture_home_target, time_der,
+        authority_der, cert, client_private, fingerprint, "Etc/UTC",
+        "test-hub-000001", "gs177-test-product");
+    Gs40TestOnlyRuntimeConfig synthetic_fixture_home_config;
+    check(!synthetic_fixture_home_session.accept(synthetic_fixture_home_envelope,
+        synthetic_fixture_home_config),
+        "synthetic Hub cannot receive physical fixture Home binding");
     check(!session.accept(envelope,config),"config envelope replay");
 
     Gs40TestOnlyEnvelopeSession kolkata_session(config_der);

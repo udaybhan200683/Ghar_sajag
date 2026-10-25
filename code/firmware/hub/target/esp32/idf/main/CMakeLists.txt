@@ -124,6 +124,9 @@ idf_component_register(
     PRIV_REQUIRES
         app_update
         esp_driver_gpio
+        # UART is an existing product console transport and is also the
+        # identified GS-117 fixture's signed-envelope receive path.
+        esp_driver_uart
         esp_event
         efuse
         esp_hw_support

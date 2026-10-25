@@ -7053,3 +7053,57 @@ ADB is absent, and no authenticated physical Hub certificate/trusted-time/
 Home-epoch registration is configured. No motion event, database mutation or
 firmware update occurred. TC-001 stays BLOCKED/NOT_RUN; Android stays
 NOT_VERIFIED.
+
+### 2026-10-25 GS-117 fixture integration checkpoint
+
+Current canonical branch is `feature/r1-commercial-baseline`; local and remote
+source baseline is `1e08b32397dbc0a98dbe23b17ec089e589bf0d55`. Context preflight
+passed. The scoped working-tree integration adds exact-fixture C3 fresh
+commissioning with a verified encrypted-association/recovery backup and
+monotonic retirement limited to owner-approved disposable TEST_ONLY motion
+records; physical S3/Home namespace compatibility at GS-179; and composition
+of the existing fixture UART path with the full-product S3 TEST_ONLY CloudSync
+profile. Existing commissioning proof, HubRuntime, security and event handling
+are reused. No new event pipeline or Home/backend/APK was created.
+
+Focused checks after traceability corrections: `make feature-coverage-test`
+PASS (226 features, 285 modules, 27 physical cases; 22/22 tests), engineering
+stage registration 6/6 PASS, TC-001 console 21/21 PASS, fixture commissioning
+18/18 PASS, GS40 bootstrap 82 checks PASS, GS178 Node/caregiver E2E 33/33
+PASS, GS-179 runtime composition 4 PASS/1 isolated-PostgreSQL skip, JSON parse
+and `git diff --check` PASS. Node/Hub/contract component reports remain gated
+by required P0 `product_status=PARTIAL` because physical acceptance is
+`NOT_RUN`; Hub also has the known clean-journal migration failure. The previous
+backend suite had one unrelated PWA CSS-budget failure and was not rerun after
+the traceability fixes.
+
+Physical status: COM4 still identifies C3 `14:63:93:C5:D1:58`, installed
+`HIL_AWAKE_TEST_ONLY`, with `runtime_live=0` and `sensing_live=0`; no
+commissioning or motion command was sent. COM10 identifies S3
+`E0:72:A1:D3:8D:34`; the full-product TEST_ONLY CloudSync candidate
+(`21e78b2882f180e917c2d6dd5599d5a1f0fbfa1c9b7d18a782e8ef5f49ea05c6`,
+2,267,584 bytes) builds and fits the 4 MiB app slot, but has no active
+authenticated Hub credential/time/ownership envelope and was not flashed.
+S3 boot, storage and CloudSync remain `NOT_VERIFIED`.
+
+The latest-source C3 HIL-awake profile also compiles under ESP-IDF 6.0.3 to
+958,368 bytes (SHA-256
+`183417fdd840ed9cce333e7b276beeaba83d085173f9cbe28589d617d874739f`), with
+`GS_HIL_BUILD=OFF`, `GS_HIL_CONTROL=ON`,
+`GS_BAT_C8_PHYSICAL_WAKE=OFF`, and light-sleep PM disabled by the TEST_ONLY
+profile. `INJECT_MOTION` and the guarded fresh-commissioning command are in the
+binary, which fits the 1,920 KiB OTA app slot. This compile-only image is
+unsigned; the current trusted signing key and recovery compatibility were not
+verified, so it was not flashed.
+
+Existing PostgreSQL/caregiver backend and the authorized
+`gs177-test-product` API login are ready, but source freshness is `STALE` and
+there is no physical event. Wi-Fi is `Airtel_Agrim`, Private,
+`192.168.1.6/24`; the existing scoped proxy still targets `.7`, and this
+process is not elevated. Android ADB/phone observation is unavailable. TC-001
+therefore remains `BLOCKED / NOT_RUN`: no new EventKey, physical S3 receipt,
+CloudSync commit or actual APK presentation exists; the historical HOST_SIM
+seed is excluded. No hardware flash, protected-storage update, credential or
+ownership change, DB mutation, or event-history change occurred. Detailed
+stage evidence is in the [2026-10-25 GS-117
+handoff](../exec-plans/evidence/GS117_ANDROID_VERTICAL_READINESS_20261022.md#2026-10-25-resumed-gs-117-fixture-integration-and-validation).

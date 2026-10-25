@@ -122,6 +122,7 @@ std::atomic<std::uint8_t> g_radio_channel{
 std::atomic<std::uint32_t> g_hil_motion_pending{0};
 std::atomic<bool> g_hil_force_health{false};
 std::atomic<bool> g_hil_gs117_reassociation_requested{false};
+std::atomic<bool> g_hil_gs117_fresh_commissioning_requested{false};
 std::atomic<std::uint32_t> g_hil_retained{0};
 std::atomic<std::uint32_t> g_hil_in_flight{0};
 std::atomic<std::uint32_t> g_hil_runtime_live{0};
@@ -617,6 +618,21 @@ void owner_task(void*) {
                 ESP_LOGW(kTag,
                          "GS117_TEST_ONLY_REASSOCIATION rejected reason=%s active_binding=unchanged recovery_snapshot=preserved_or_unchanged",
                          gs117_reassociation_status_name(status));
+            }
+        }
+        if (hil_take_gs117_fresh_commissioning_request()) {
+            const auto status = security_link.begin_gs117_test_fresh_commissioning(
+                "hub-e072a1d38d34", monotonic_ms());
+            if (status == Gs117FreshCommissioningStatus::Ready) {
+                last_outbound.reset();
+                final_started_ms = -1;
+                final_transmissions = 0;
+                ESP_LOGW(kTag,
+                         "GS117_TEST_ONLY_FRESH_COMMISSIONING started target=hub-e072a1d38d34 prior_association_backed_up=1 event_data=TEST_ONLY_ONLY");
+            } else {
+                ESP_LOGW(kTag,
+                         "GS117_TEST_ONLY_FRESH_COMMISSIONING rejected reason=%s active_binding=unchanged_or_unpaired_tombstone_recoverable=1",
+                         gs117_fresh_commissioning_status_name(status));
             }
         }
 #endif
@@ -2031,6 +2047,21 @@ void hil_request_gs117_reassociation() {
 bool hil_take_gs117_reassociation_request() {
 #if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
     return g_hil_gs117_reassociation_requested.exchange(
+        false, std::memory_order_acq_rel);
+#else
+    return false;
+#endif
+}
+
+void hil_request_gs117_fresh_commissioning() {
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+    g_hil_gs117_fresh_commissioning_requested.store(true, std::memory_order_release);
+#endif
+}
+
+bool hil_take_gs117_fresh_commissioning_request() {
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+    return g_hil_gs117_fresh_commissioning_requested.exchange(
         false, std::memory_order_acq_rel);
 #else
     return false;

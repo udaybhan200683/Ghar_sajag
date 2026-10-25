@@ -22,6 +22,10 @@ namespace gs::hub::target {
 bool gs40_test_only_hub_id_allowed(const std::string& hub_id);
 bool gs40_test_only_hub_id_matches_runtime(const std::string& configured_hub_id,
                                            const std::string& runtime_hub_id);
+// The sole signed first-boot Home binding permitted for the physical TC-001
+// fixture; this is not a general Home-transfer mechanism.
+bool gs40_test_only_fixture_home_binding_allowed(
+    const std::string& permanent_hub_id, const std::string& fixture_home_id);
 
 // Secrets in this value are transient TEST_ONLY inputs. Do not serialize this
 // object, log it, or persist it. Destruction overwrites the secret strings.
@@ -36,6 +40,8 @@ struct Gs40TestOnlyRuntimeConfig {
     std::vector<std::uint8_t> time_public_key_der;
     std::vector<std::uint8_t> authority_public_key_der;
     std::string permanent_hub_id;
+    std::string fixture_home_id;
+    bool fixture_home_id_present{false};
     std::string client_certificate_pem;
     std::string client_private_key_pem;
     std::string credential_fingerprint_sha256;

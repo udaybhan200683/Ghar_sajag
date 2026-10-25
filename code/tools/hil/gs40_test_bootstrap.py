@@ -62,9 +62,12 @@ def encode_config(challenge: bytes, target_public: bytes, fields: dict[int, byte
     """
     base_fields = set(range(1, 17))
     rule_fields = set(range(17, 21))
+    fixture_home_field = {21}
     supplied = set(fields)
     if (len(challenge) != 32 or not any(challenge) or
-            supplied not in (base_fields, base_fields | rule_fields)):
+            supplied not in (base_fields, base_fields | rule_fields,
+                             base_fields | fixture_home_field,
+                             base_fields | rule_fields | fixture_home_field)):
         raise ValueError("invalid_fixture_challenge_or_fields")
     if not isinstance(signer, rsa.RSAPrivateKey) or signer.key_size != 3072:
         raise ValueError("test_config_rsa3072_signer_required")
@@ -83,6 +86,14 @@ def encode_config(challenge: bytes, target_public: bytes, fields: dict[int, byte
             not (configured_hub_id == _GS117_PHYSICAL_HUB_ID and
                  _PHYSICAL_HUB_ID.fullmatch(configured_hub_id))):
         raise ValueError("test_identity_required")
+    if 21 in supplied:
+        try:
+            fixture_home = fields[21].decode("ascii")
+        except (UnicodeDecodeError, AttributeError):
+            raise ValueError("invalid_test_fixture_home_binding") from None
+        if (configured_hub_id != _GS117_PHYSICAL_HUB_ID or
+                fixture_home != _GS117_PHYSICAL_HOME_ID):
+            raise ValueError("invalid_test_fixture_home_binding")
     if supplied == base_fields | rule_fields:
         if (not fields[17] or len(fields[17]) > 64 or
                 fields[18] != b"Etc/UTC" or len(fields[19]) < 40 or

@@ -389,4 +389,106 @@ bool NodeRecoveryRepository::rebind_from_authenticated_previous(
     return committed || resolved;
 }
 
+bool NodeRecoveryRepository::initialize_after_gs117_fixture_data_retirement(
+        const NodeRuntimeRecoveryState& retired_state,
+        const NodeRuntimeRecoveryState& fresh_state,
+        std::uint64_t previous_generation,
+        const security::Bytes& previous_ciphertext,
+        const std::string& previous_home_id,
+        const std::string& previous_hub_id) {
+    if (home_id_.empty() || home_id_ == previous_home_id ||
+        hub_id_ != "hub-e072a1d38d34" || previous_hub_id.empty() ||
+        previous_hub_id == hub_id_ || previous_generation == 0 ||
+        previous_generation == std::numeric_limits<std::uint64_t>::max() ||
+        previous_ciphertext.size() < kHeaderSize + security::GcmTag{}.size() ||
+        previous_ciphertext.size() > kMaximumBlob ||
+        previous_ciphertext[0] != 'G' || previous_ciphertext[1] != 'S' ||
+        previous_ciphertext[2] != 'N' || previous_ciphertext[3] != 'R' ||
+        previous_ciphertext[4] < 1 || previous_ciphertext[4] > 3 ||
+        retired_state.gap_marker_required ||
+        retired_state.prior_boot_session == 0 ||
+        retired_state.prior_boot_session == std::numeric_limits<std::uint64_t>::max() ||
+        retired_state.report_generation == std::numeric_limits<std::uint64_t>::max() ||
+        !valid(fresh_state) || fresh_state.node_id != node_id_ ||
+        fresh_state.prior_boot_session != retired_state.prior_boot_session ||
+        fresh_state.retirement_epoch != 0 ||
+        fresh_state.durable_admission_highwater != 0 ||
+        fresh_state.report_generation != retired_state.report_generation ||
+        fresh_state.gap_marker_required || !fresh_state.pending.empty() ||
+        !fresh_state.retained.empty()) return false;
+
+    const auto test_motion = [](const gs::DomainEvent& event) {
+        return event.is_test &&
+            (event.kind == gs::EventKind::Motion ||
+             event.kind == gs::EventKind::MotionSummary);
+    };
+    if (!std::all_of(retired_state.retained.begin(), retired_state.retained.end(),
+                     test_motion) ||
+        !std::all_of(retired_state.pending.begin(), retired_state.pending.end(),
+            [&test_motion](const PendingTx& pending) {
+                return test_motion(pending.event);
+            })) return false;
+
+    std::size_t cursor = 5;
+    std::uint64_t stored_generation = 0;
+    if (!get_unsigned(previous_ciphertext, cursor, 8, stored_generation) ||
+        stored_generation != previous_generation) return false;
+
+    const auto current = load();
+    security::Bytes expected_plain;
+    if (!encode(fresh_state, expected_plain)) return false;
+    if (current.status == NodeRecoveryLoadStatus::Ready && current.state) {
+        security::Bytes current_plain;
+        const bool same = current.generation == previous_generation + 1U &&
+            encode(*current.state, current_plain) && current_plain == expected_plain;
+        crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+        crypto_.secure_zero(current_plain.data(), current_plain.size());
+        return same;
+    }
+    security::Bytes stored;
+    bool found = false;
+    if (!store_.read(stored, found) || !found || stored != previous_ciphertext)
+        { crypto_.secure_zero(expected_plain.data(), expected_plain.size()); return false; }
+    if (current.status != NodeRecoveryLoadStatus::Corrupt ||
+        expected_plain.size() + kHeaderSize + security::GcmTag{}.size() > kMaximumBlob) {
+        crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+        return false;
+    }
+
+    security::Nonce12 nonce{};
+    if (!crypto_.random_bytes(nonce.data(), nonce.size())) {
+        crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+        return false;
+    }
+    security::Bytes blob{'G', 'S', 'N', 'R', 3};
+    put_u64(blob, previous_generation + 1U);
+    blob.insert(blob.end(), nonce.begin(), nonce.end());
+    put_u16(blob, static_cast<std::uint16_t>(expected_plain.size()));
+    security::Bytes aad = blob;
+    if (!put_string(aad, home_id_) || !put_string(aad, hub_id_) ||
+        !put_string(aad, node_id_)) {
+        crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+        return false;
+    }
+    security::Bytes cipher;
+    security::GcmTag tag{};
+    const bool sealed = crypto_.seal_aes256_gcm(
+        wrapping_key_, nonce, aad, expected_plain, cipher, tag);
+    crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+    if (!sealed || cipher.size() + kHeaderSize + tag.size() > kMaximumBlob)
+        return false;
+    blob.insert(blob.end(), cipher.begin(), cipher.end());
+    blob.insert(blob.end(), tag.begin(), tag.end());
+    const bool committed = store_.write(blob);
+    const auto verified = load();
+    security::Bytes actual_plain;
+    const bool resolved = verified.status == NodeRecoveryLoadStatus::Ready &&
+        verified.state && verified.generation == previous_generation + 1U &&
+        encode(*verified.state, actual_plain) && encode(fresh_state, expected_plain) &&
+        actual_plain == expected_plain;
+    crypto_.secure_zero(actual_plain.data(), actual_plain.size());
+    crypto_.secure_zero(expected_plain.data(), expected_plain.size());
+    return committed || resolved;
+}
+
 }  // namespace gs::node

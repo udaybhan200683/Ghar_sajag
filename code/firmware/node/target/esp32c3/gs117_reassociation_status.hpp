@@ -23,6 +23,46 @@ enum class Gs117ReassociationStatus : std::uint8_t {
     CommissioningWindowFailed,
 };
 
+enum class Gs117FreshCommissioningStatus : std::uint8_t {
+    Ready,
+    NotReady,
+    WrongPhysicalNode,
+    InvalidTargetHub,
+    BindingUnavailable,
+    AlreadyBoundToTarget,
+    RecoveryCorrupt,
+    RecoveryIoError,
+    RecoveryNotDisposable,
+    RecoveryBackupConflict,
+    RecoveryBackupFailed,
+    AssociationBackupFailed,
+    TombstoneWriteFailed,
+    InstallerCodeUnavailable,
+    CommissioningWindowFailed,
+};
+
+constexpr const char* gs117_fresh_commissioning_status_name(
+        Gs117FreshCommissioningStatus status) {
+    switch (status) {
+        case Gs117FreshCommissioningStatus::Ready: return "ready";
+        case Gs117FreshCommissioningStatus::NotReady: return "not_ready";
+        case Gs117FreshCommissioningStatus::WrongPhysicalNode: return "wrong_physical_node";
+        case Gs117FreshCommissioningStatus::InvalidTargetHub: return "invalid_target_hub";
+        case Gs117FreshCommissioningStatus::BindingUnavailable: return "binding_unavailable";
+        case Gs117FreshCommissioningStatus::AlreadyBoundToTarget: return "already_bound_to_target";
+        case Gs117FreshCommissioningStatus::RecoveryCorrupt: return "recovery_corrupt";
+        case Gs117FreshCommissioningStatus::RecoveryIoError: return "recovery_io_error";
+        case Gs117FreshCommissioningStatus::RecoveryNotDisposable: return "recovery_not_disposable";
+        case Gs117FreshCommissioningStatus::RecoveryBackupConflict: return "recovery_backup_conflict";
+        case Gs117FreshCommissioningStatus::RecoveryBackupFailed: return "recovery_backup_failed";
+        case Gs117FreshCommissioningStatus::AssociationBackupFailed: return "association_backup_failed";
+        case Gs117FreshCommissioningStatus::TombstoneWriteFailed: return "tombstone_write_failed";
+        case Gs117FreshCommissioningStatus::InstallerCodeUnavailable: return "installer_code_unavailable";
+        case Gs117FreshCommissioningStatus::CommissioningWindowFailed: return "commissioning_window_failed";
+    }
+    return "unknown";
+}
+
 constexpr const char* gs117_reassociation_status_name(
         Gs117ReassociationStatus status) {
     switch (status) {

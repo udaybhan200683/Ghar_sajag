@@ -1,5 +1,6 @@
 #include "firmware/node/storage/node_recovery_persistence.hpp"
 #include "firmware/common/transport/node_retirement_protocol.hpp"
+#include "firmware/node/target/esp32c3/gs117_fixture_commissioning.hpp"
 #include "tests/support/host/security/openssl_commissioning_crypto.hpp"
 
 #include <algorithm>
@@ -241,6 +242,86 @@ int main() {
                                            "home-a", "hub-b", "bathroom");
         require(foreign_hub.load().status == NodeRecoveryLoadStatus::Corrupt,
                 "foreign Hub opened bound recovery record");
+
+        MemoryBlob fixture_store;
+        NodeRuntime fixture_old("old-bedroom-node", 41);
+        require(fixture_old.set_retirement_epoch(7) &&
+                fixture_old.record(EventKind::Motion, "Bedroom", 120, 0, 0, 0,
+                                   true, gs::SensorType::Pir).has_value(),
+                "TEST_ONLY fixture event setup failed");
+        NodeRecoveryRepository fixture_old_repo(
+            crypto, fixture_store, wrapping_key, "old-test-home", "hub-old-test",
+            "old-bedroom-node");
+        require(fixture_old_repo.save(fixture_old.recovery_snapshot()),
+                "TEST_ONLY old recovery snapshot did not persist");
+        const auto fixture_prior = fixture_old_repo.load();
+        const Bytes fixture_ciphertext = fixture_store.bytes;
+        require(fixture_prior.status == NodeRecoveryLoadStatus::Ready &&
+                fixture_prior.state && fixture_prior.state->pending.size() == 1 &&
+                gs::node::target::gs117_fixture_recovery_is_disposable(
+                    *fixture_prior.state),
+                "owner-approved TEST_ONLY motion did not pass disposal preflight");
+        NodeRecoveryRepository fixture_new_repo(
+            crypto, fixture_store, wrapping_key, "new-test-home",
+            "hub-e072a1d38d34", "bedroom");
+        require(fixture_new_repo.load().status == NodeRecoveryLoadStatus::Corrupt,
+                "new fixture Home unexpectedly opened prior Home recovery");
+        gs::node::NodeRuntimeRecoveryState fresh_fixture_state;
+        fresh_fixture_state.node_id = "bedroom";
+        fresh_fixture_state.prior_boot_session = fixture_prior.state->prior_boot_session;
+        fresh_fixture_state.report_generation = fixture_prior.state->report_generation;
+        require(fixture_new_repo.initialize_after_gs117_fixture_data_retirement(
+                    *fixture_prior.state, fresh_fixture_state, fixture_prior.generation,
+                    fixture_ciphertext, "old-test-home", "hub-old-test"),
+                "authorized empty fixture checkpoint did not replace the old Home-bound snapshot");
+        const auto fixture_fresh = fixture_new_repo.load();
+        require(fixture_fresh.status == NodeRecoveryLoadStatus::Ready &&
+                fixture_fresh.generation == fixture_prior.generation + 1U &&
+                fixture_fresh.state && fixture_fresh.state->pending.empty() &&
+                fixture_fresh.state->retained.empty() &&
+                fixture_fresh.state->retirement_epoch == 0 &&
+                fixture_fresh.state->report_generation == fixture_prior.state->report_generation &&
+                fixture_store.bytes != fixture_ciphertext &&
+                fixture_new_repo.initialize_after_gs117_fixture_data_retirement(
+                    *fixture_prior.state, fresh_fixture_state, fixture_prior.generation,
+                    fixture_ciphertext, "old-test-home", "hub-old-test"),
+                "fresh fixture checkpoint lost counters, generation, or interruption idempotency");
+
+        MemoryBlob non_test_fixture_store;
+        NodeRuntime non_test_fixture("old-bedroom-node", 51);
+        require(non_test_fixture.record(EventKind::Motion, "Bedroom", 121, 0, 0, 0,
+                                        false, gs::SensorType::Pir).has_value(),
+                "non-test fixture record setup failed");
+        NodeRecoveryRepository non_test_old_repo(
+            crypto, non_test_fixture_store, wrapping_key, "old-test-home",
+            "hub-old-test", "old-bedroom-node");
+        require(non_test_old_repo.save(non_test_fixture.recovery_snapshot()),
+                "non-test recovery snapshot did not persist");
+        const auto non_test_prior = non_test_old_repo.load();
+        const Bytes non_test_ciphertext = non_test_fixture_store.bytes;
+        NodeRecoveryRepository non_test_new_repo(
+            crypto, non_test_fixture_store, wrapping_key, "new-test-home",
+            "hub-e072a1d38d34", "bedroom");
+        gs::node::NodeRuntimeRecoveryState non_test_fresh_state;
+        non_test_fresh_state.node_id = "bedroom";
+        non_test_fresh_state.prior_boot_session = non_test_prior.state->prior_boot_session;
+        non_test_fresh_state.report_generation = non_test_prior.state->report_generation;
+        require(!gs::node::target::gs117_fixture_recovery_is_disposable(
+                    *non_test_prior.state) &&
+                !non_test_new_repo.initialize_after_gs117_fixture_data_retirement(
+                    *non_test_prior.state, non_test_fresh_state,
+                    non_test_prior.generation, non_test_ciphertext,
+                    "old-test-home", "hub-old-test") &&
+                non_test_fixture_store.bytes == non_test_ciphertext,
+                "non-test event was retired by the TEST_ONLY fixture path");
+        NodeRecoveryRepository wrong_fixture_hub(
+            crypto, non_test_fixture_store, wrapping_key, "new-test-home",
+            "hub-unregistered", "bedroom");
+        require(!wrong_fixture_hub.initialize_after_gs117_fixture_data_retirement(
+                    *non_test_prior.state, non_test_fresh_state,
+                    non_test_prior.generation, non_test_ciphertext,
+                    "old-test-home", "hub-old-test"),
+                "unregistered Hub was accepted for fixture recovery rebind");
         Key32 wrong_key = wrapping_key;
         wrong_key[0] ^= 1;
         NodeRecoveryRepository wrong(crypto, store, wrong_key,

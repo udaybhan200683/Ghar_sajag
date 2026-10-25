@@ -25,13 +25,12 @@ from psycopg.conninfo import conninfo_to_dict
 
 from .cloud_client_identity import TimeReadiness
 from .durable_api import DurableEventApi, open_postgres_durable_event_api
-from .identity_namespaces import is_gs179_test_hub_id
+from .identity_namespaces import is_gs179_test_hub_home
 from .service import GharSajagService
 from .test_only_mtls_listener import TestOnlyMtlsListener
 
 
 _PROFILE = "GS179_TEST_ONLY"
-_HOME_ID = re.compile(r"^gs177-test-[A-Za-z0-9_-]{1,64}$")
 _FINGERPRINT = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -167,7 +166,7 @@ def _validate_runtime_bind(bind_host: str, port: int, allow_private_bind: bool) 
 def _validate_config(config: HubIngressRuntimeConfig) -> tuple[str, str, str]:
     if config.profile != _PROFILE:
         raise ValueError("explicit_gs179_test_only_profile_required")
-    if not is_gs179_test_hub_id(config.hub_id) or not _HOME_ID.fullmatch(config.home_id):
+    if not is_gs179_test_hub_home(config.hub_id, config.home_id):
         raise ValueError("test_only_hub_home_namespace_required")
     if type(config.installation_epoch) is not int or config.installation_epoch <= 0:
         raise ValueError("current_installation_epoch_required")

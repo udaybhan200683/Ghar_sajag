@@ -47,6 +47,8 @@ void hil_inject_motion();
 void hil_request_health();
 void hil_request_gs117_reassociation();
 bool hil_take_gs117_reassociation_request();
+void hil_request_gs117_fresh_commissioning();
+bool hil_take_gs117_fresh_commissioning_request();
 void hil_log_state();
 void hil_log_test_qr();
 #endif

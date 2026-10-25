@@ -319,7 +319,7 @@ bool parse_payload(const std::vector<std::uint8_t>& bytes,
         std::uint16_t size = 0;
         if (!read_u16(bytes, offset, size)) return false;
         offset += 2;
-        if (id < 1 || id > 20 || offset + size > bytes.size()) return false;
+        if (id < 1 || id > 21 || offset + size > bytes.size()) return false;
         const auto bit = 1U << id;
         if ((seen & bit) != 0) return false;
         seen |= bit;
@@ -363,6 +363,10 @@ bool parse_payload(const std::vector<std::uint8_t>& bytes,
                 if (size != 1 || value[0] > static_cast<std::uint8_t>(HomeMode::Privacy)) return false;
                 config.home_mode = static_cast<HomeMode>(value[0]);
                 break;
+            case 21:
+                config.fixture_home_id = string_value();
+                config.fixture_home_id_present = true;
+                break;
             default: return false;
         }
         offset += size;
@@ -370,9 +374,10 @@ bool parse_payload(const std::vector<std::uint8_t>& bytes,
     constexpr std::uint32_t base_fields = 0x1fffeU;  // Fields 1..16.
     constexpr std::uint32_t rule_fields = (1U << 17) | (1U << 18) |
         (1U << 19) | (1U << 20);
+    constexpr std::uint32_t fixture_home_field = 1U << 21;
     const auto supplied_rule_fields = seen & rule_fields;
     const bool fields_valid = (seen & base_fields) == base_fields &&
-        (seen & ~(base_fields | rule_fields)) == 0 &&
+        (seen & ~(base_fields | rule_fields | fixture_home_field)) == 0 &&
         (supplied_rule_fields == 0 || supplied_rule_fields == rule_fields);
     return fields_valid && config.valid_shape();
 }
@@ -562,6 +567,12 @@ bool gs40_test_only_hub_id_matches_runtime(const std::string& configured_hub_id,
         !runtime_hub_id.empty() && configured_hub_id == runtime_hub_id;
 }
 
+bool gs40_test_only_fixture_home_binding_allowed(
+    const std::string& permanent_hub_id, const std::string& fixture_home_id) {
+    return permanent_hub_id == "hub-e072a1d38d34" &&
+        fixture_home_id == "gs177-test-product";
+}
+
 Gs40TestOnlyRuntimeConfig::Gs40TestOnlyRuntimeConfig(Gs40TestOnlyRuntimeConfig&& other) noexcept {
     *this = std::move(other);
 }
@@ -580,6 +591,8 @@ Gs40TestOnlyRuntimeConfig& Gs40TestOnlyRuntimeConfig::operator=(Gs40TestOnlyRunt
     time_public_key_der = std::move(other.time_public_key_der);
     authority_public_key_der = std::move(other.authority_public_key_der);
     permanent_hub_id = std::move(other.permanent_hub_id);
+    fixture_home_id = std::move(other.fixture_home_id);
+    fixture_home_id_present = other.fixture_home_id_present;
     client_certificate_pem = std::move(other.client_certificate_pem);
     client_private_key_pem = std::move(other.client_private_key_pem);
     credential_fingerprint_sha256 = std::move(other.credential_fingerprint_sha256);
@@ -594,6 +607,7 @@ Gs40TestOnlyRuntimeConfig& Gs40TestOnlyRuntimeConfig::operator=(Gs40TestOnlyRunt
     other.time_port = 0;
     other.credential_generation = other.envelope_generation = other.envelope_expiry_utc = 0;
     other.activity_rules_present = false;
+    other.fixture_home_id_present = false;
     return *this;
 }
 
@@ -605,6 +619,9 @@ Gs40TestOnlyRuntimeConfig::~Gs40TestOnlyRuntimeConfig() {
 bool Gs40TestOnlyRuntimeConfig::valid_shape() const {
     return valid_ascii(wifi_ssid, 32) && wifi_psk.size() >= 8 &&
         wifi_psk.size() <= 63 && valid_material_shape() &&
+        fixture_home_id_present == !fixture_home_id.empty() &&
+        (!fixture_home_id_present || gs40_test_only_fixture_home_binding_allowed(
+            permanent_hub_id, fixture_home_id)) &&
         ((!activity_rules_present && activity_home_id.empty() && household_timezone.empty()) ||
          valid_activity_rules_shape());
 }

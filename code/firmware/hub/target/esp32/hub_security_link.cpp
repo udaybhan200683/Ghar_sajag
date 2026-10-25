@@ -18,14 +18,82 @@ std::string id_for_mac(const HubSecurityLink::Mac& mac, const char* prefix) {
 }
 
 bool load_or_create_home_id(security::CommissioningCrypto& crypto,
-                            std::string& home_id, bool& created) {
+                            std::string& home_id, bool& created,
+                            const std::string& signed_test_fixture_home_id,
+                            bool exact_fixture_hub) {
     created = false;
     nvs_handle_t handle = 0;
     if (nvs_open("gs_home", NVS_READWRITE, &handle) != ESP_OK) return false;
+
+    // A signed TEST_ONLY Home binding is persistent so disabling the profile
+    // later cannot silently change the Hub's local Home identity. It is only
+    // written into a fresh namespace. Any existing/ambiguous legacy identity
+    // is preserved and causes a fail-closed result instead of migration.
+    std::size_t fixture_length = 0;
+    const auto fixture_read = nvs_get_str(handle, "fixture_home", nullptr,
+                                          &fixture_length);
+    if (fixture_read == ESP_OK) {
+        if (fixture_length < 2 || fixture_length > 65) {
+            nvs_close(handle);
+            return false;
+        }
+        std::array<char, 65> fixture{};
+        if (nvs_get_str(handle, "fixture_home", fixture.data(),
+                        &fixture_length) != ESP_OK || fixture_length == 0 ||
+            fixture[fixture_length - 1] != '\0') {
+            nvs_close(handle);
+            return false;
+        }
+        std::array<std::uint8_t, 16> prior_raw{};
+        std::size_t prior_length = prior_raw.size();
+        const auto legacy_read = nvs_get_blob(handle, "id", prior_raw.data(),
+                                              &prior_length);
+        crypto.secure_zero(prior_raw.data(), prior_raw.size());
+        const std::string stored_fixture(fixture.data());
+        if (!exact_fixture_hub || legacy_read != ESP_ERR_NVS_NOT_FOUND ||
+            stored_fixture != "gs177-test-product" ||
+            (!signed_test_fixture_home_id.empty() &&
+             signed_test_fixture_home_id != stored_fixture)) {
+            nvs_close(handle);
+            return false;
+        }
+        home_id = stored_fixture;
+        nvs_close(handle);
+        return true;
+    }
+    if (fixture_read != ESP_ERR_NVS_NOT_FOUND) {
+        nvs_close(handle);
+        return false;
+    }
+
     std::array<std::uint8_t, 16> raw{};
     std::size_t length = raw.size();
     const auto read = nvs_get_blob(handle, "id", raw.data(), &length);
     if (read == ESP_ERR_NVS_NOT_FOUND) {
+        if (!signed_test_fixture_home_id.empty()) {
+            if (signed_test_fixture_home_id != "gs177-test-product" ||
+                nvs_set_str(handle, "fixture_home",
+                            signed_test_fixture_home_id.c_str()) != ESP_OK ||
+                nvs_commit(handle) != ESP_OK) {
+                nvs_close(handle);
+                return false;
+            }
+            std::array<char, 65> verified{};
+            std::size_t verified_length = verified.size();
+            const bool committed = nvs_get_str(handle, "fixture_home",
+                verified.data(), &verified_length) == ESP_OK &&
+                verified_length > 1 && verified_length <= verified.size() &&
+                verified[verified_length - 1] == '\0' &&
+                signed_test_fixture_home_id == verified.data();
+            if (!committed) {
+                nvs_close(handle);
+                return false;
+            }
+            created = true;
+            home_id = signed_test_fixture_home_id;
+            nvs_close(handle);
+            return true;
+        }
         if (!crypto.random_bytes(raw.data(), raw.size()) ||
             nvs_set_blob(handle, "id", raw.data(), raw.size()) != ESP_OK ||
             nvs_commit(handle) != ESP_OK) {
@@ -43,7 +111,8 @@ bool load_or_create_home_id(security::CommissioningCrypto& crypto,
             return false;
         }
         created = true;
-    } else if (read != ESP_OK || length != raw.size()) {
+    } else if (read != ESP_OK || length != raw.size() ||
+               !signed_test_fixture_home_id.empty()) {
         nvs_close(handle);
         return false;
     }
@@ -71,7 +140,8 @@ HubSecurityLink::~HubSecurityLink() {
     crypto_.secure_zero(journal_key_.data(), journal_key_.size());
 }
 
-bool HubSecurityLink::initialize(const Mac& hub_mac) {
+bool HubSecurityLink::initialize(
+    const Mac& hub_mac, const std::string& signed_test_fixture_home_id) {
     if (registry_ || !crypto_.ready() || !identity_.initialize() ||
         !identity_.public_key("hub", hub_public_key_)) {
         faulted_.store(true, std::memory_order_release);
@@ -80,8 +150,19 @@ bool HubSecurityLink::initialize(const Mac& hub_mac) {
     const auto wrapping_result = security::load_or_create_target_wrapping_key_with_result(
         crypto_, wrapping_key_);
     bool home_created = false;
+    const bool exact_fixture_hub = id_for_mac(hub_mac, "hub") ==
+        "hub-e072a1d38d34";
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    const bool fixture_home_valid = signed_test_fixture_home_id.empty() ||
+        (id_for_mac(hub_mac, "hub") == "hub-e072a1d38d34" &&
+         signed_test_fixture_home_id == "gs177-test-product");
+#else
+    const bool fixture_home_valid = signed_test_fixture_home_id.empty();
+#endif
     if (wrapping_result == security::PersistentKeyLoadResult::Error ||
-        !load_or_create_home_id(crypto_, home_id_, home_created)) {
+        !fixture_home_valid ||
+        !load_or_create_home_id(crypto_, home_id_, home_created,
+                                signed_test_fixture_home_id, exact_fixture_hub)) {
         faulted_.store(true, std::memory_order_release);
         return false;
     }

@@ -21,6 +21,7 @@ ROOT = HERE.parents[2]
 sys.path.insert(0, str(ROOT / "code" / "backend"))
 from ghar_sajag.identity_namespaces import (
     is_gs179_test_hub_id,
+    is_gs179_test_hub_home,
     is_gs179_test_node_id,
     is_physical_hub_id,
     is_physical_node_id,
@@ -67,7 +68,7 @@ def exact_fixture() -> dict:
             fixture.get("approval_scope") != "C3 GET_STATE and INJECT_MOTION; C3/S3 UART observation" or
             fixture.get("reset_safe_uart_verified") is not True):
         raise ValueError("fixture_specific_authorization_or_reset_safe_receipt_missing")
-    if (not is_gs179_test_hub_id(fixture.get("hub_id")) or
+    if (not is_gs179_test_hub_home(fixture.get("hub_id"), fixture.get("home_id")) or
             not isinstance(fixture.get("installation_epoch"), int) or
             fixture["installation_epoch"] < 1):
         raise ValueError("TEST_ONLY_Hub_Home_epoch_identity_missing")
@@ -119,7 +120,9 @@ def exact_fixture() -> dict:
     if is_physical_node_id(physical_device_id) != is_physical_hub_id(physical_hub_id):
         raise ValueError("physical_C3_and_S3_identity_profiles_must_match")
     if is_physical_node_id(physical_device_id):
-        if (installed_receipts["c3"].get("permanent_device_id") != physical_device_id or
+        if (physical_device_id != "c3-146393c5d158" or
+                physical_hub_id != "hub-e072a1d38d34" or
+                installed_receipts["c3"].get("permanent_device_id") != physical_device_id or
                 installed_receipts["s3"].get("permanent_device_id") != physical_hub_id):
             raise ValueError("physical_MAC_derived_identity_receipts_do_not_match_fixture")
     expected_origin = fixture.get("expected_caregiver_origin", "")

@@ -22,8 +22,8 @@ def collect(stream, pending: str, lines: list[str]) -> str:
     fragments = pending.split("\n")
     for line in fragments[:-1]:
         safe = "".join(c for c in line if 32 <= ord(c) < 127).strip()
-        if re.search(r"HIL_(?:READY|STATE|OK|ERROR)|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED", safe, re.I):
-            safe = re.sub(r"(?i)(credential|secret|private.key|session.key)\s*[:=]\s*\S+",
+        if re.search(r"HIL_(?:READY|STATE|OK|ERROR)|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image", safe, re.I):
+            safe = re.sub(r"(?i)(credential|secret|private.key|session.key|wifi_psk|password|token|authorization|ssid|certificate)\s*[:=]\s*\S+",
                           r"\1=[REDACTED]", safe)
             if len(lines) < 300:
                 lines.append(safe[:300])
@@ -35,6 +35,58 @@ def exact_port(board: dict, candidates: list[dict]) -> bool:
                item["usb_hwid"] == board["usb_hwid"] and
                item["serial_number"] == board["serial_number"]
                for item in candidates)
+
+
+def observe(config: dict, *, serial_factory=None, port_finder=None,
+            clock=None, sleep=None) -> dict:
+    """Reset-aware, bounded status observation; never sends an event command."""
+    c3, s3 = config["c3"], config["s3"]
+    serial_factory = serial.Serial if serial_factory is None else serial_factory
+    port_finder = ports if port_finder is None else port_finder
+    clock = time.monotonic if clock is None else clock
+    sleep = time.sleep if sleep is None else sleep
+    if (c3.get("port") != "COM4" or c3.get("serial_number") != "14:63:93:C5:D1:58" or
+            s3.get("port") != "COM10" or s3.get("serial_number") != "E0:72:A1:D3:8D:34" or
+            c3["port"] == s3["port"] or
+            not all(exact_port(board, port_finder()) for board in (c3, s3))):
+        raise ValueError("TC001_VERIFIED_USB_INTERFACE_MISMATCH")
+    # Opening a USB serial endpoint can reset some boards. DTR/RTS are held low
+    # before open, but this does not assert that the interface is reset-free.
+    streams = []
+    try:
+        for board in (s3, c3):
+            stream = serial_factory()
+            stream.port = board["port"]
+            stream.baudrate = 115200
+            stream.timeout = 0.1
+            stream.write_timeout = 1
+            stream.dtr = False
+            stream.rts = False
+            stream.open()
+            streams.append(stream)
+        c3_stream, s3_stream = streams[1], streams[0]
+        c3_lines: list[str] = []
+        s3_lines: list[str] = []
+        c3_tail = s3_tail = ""
+        deadline = clock() + 4
+        while clock() < deadline:
+            c3_tail = collect(c3_stream, c3_tail, c3_lines)
+            s3_tail = collect(s3_stream, s3_tail, s3_lines)
+            sleep(0.02)
+        c3_stream.write(b"GET_STATE\n")
+        c3_stream.flush()
+        deadline = clock() + 6
+        while clock() < deadline:
+            c3_tail = collect(c3_stream, c3_tail, c3_lines)
+            s3_tail = collect(s3_stream, s3_tail, s3_lines)
+            sleep(0.02)
+        if not any("HIL_STATE role=c3" in line for line in c3_lines):
+            raise ValueError("TC001_INSTALLED_C3_HIL_STATUS_NOT_OBSERVED")
+        return {"c3": c3_lines, "s3": s3_lines}
+    finally:
+        for stream in reversed(streams):
+            if stream.is_open:
+                stream.close()
 
 
 def run(config: dict) -> dict:
@@ -93,7 +145,16 @@ def run(config: dict) -> dict:
 if __name__ == "__main__":
     try:
         config = json.loads(base64.b64decode(sys.argv[1], validate=True))
-        print(json.dumps(ports() if config.get("action") == "List" else run(config)))
+        action = config.get("action")
+        if action == "List":
+            value = ports()
+        elif action == "Observe":
+            value = observe(config)
+        elif action == "Run":
+            value = run(config)
+        else:
+            raise ValueError("TC001_SERIAL_ACTION_NOT_ALLOWED")
+        print(json.dumps(value))
     except Exception as error:
         print(json.dumps({"error": str(error) if isinstance(error, ValueError) else type(error).__name__}))
         raise SystemExit(2)
