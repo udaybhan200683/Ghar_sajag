@@ -290,6 +290,26 @@ class TC001Test(unittest.TestCase):
                 self.assertTrue(any("CloudSync=disabled" in line for line in result["s3"]))
                 self.assertFalse(any("private" in line for lines in result.values() for line in lines))
 
+        fake_streams = [FakeSerial(), FakeSerial()]
+        stream_iter = iter(fake_streams)
+        clock_value = [0.0]
+
+        def fake_clock():
+            clock_value[0] += 1.0
+            return clock_value[0]
+
+        result = tc_serial.observe(
+            {"c3": boards["c3"], "s3": boards["s3"],
+             "query_s3_status": False, "s3_boot_reset": False,
+             "observation_seconds": 10},
+            serial_factory=lambda: next(stream_iter),
+            port_finder=lambda: [boards["c3"], boards["s3"]],
+            clock=fake_clock, sleep=lambda _seconds: None,
+            bootstrap_exchange=lambda _stream: 7323)
+        self.assertEqual(result["bootstrap_host_write_bytes"], 7323)
+        self.assertGreater(result["bootstrap_exchange_ms"], 0)
+        self.assertGreaterEqual(clock_value[0], 20)
+
     def test_serial_evidence_preserves_complete_profile_and_boot_failure(self):
         state = (
             "I (3395682) gs_node_runtime: HIL_STATE role=c3 session=99 retained=0 "
@@ -350,6 +370,13 @@ class TC001Test(unittest.TestCase):
             def flush(self):
                 pass
 
+        for timeout in (True, 4, 76, "70"):
+            with self.subTest(timeout=timeout), self.assertRaisesRegex(
+                    ValueError, "TC001_BOOTSTRAP_CHALLENGE_TIMEOUT_OUT_OF_RANGE"):
+                tc_serial.bootstrap_config(
+                    Stream(), incoming=io.StringIO(), outgoing=io.StringIO(),
+                    challenge_timeout_seconds=timeout)
+
         envelope = b"G40E\x01" + nonce + b"encrypted-not-plaintext".ljust(480, b"x")
         frame = len(envelope).to_bytes(4, "big") + envelope
         for valid in (True, False):
@@ -358,11 +385,9 @@ class TC001Test(unittest.TestCase):
             response = io.StringIO(json.dumps({
                 "encrypted_envelope_b64": base64.b64encode(supplied).decode()}) + "\n")
             if valid:
-                tc_serial.bootstrap_config(stream, incoming=response, outgoing=output)
-                self.assertEqual(b"".join(stream.writes), frame)
-                self.assertTrue(all(0 < len(chunk) <= 256 for chunk in stream.writes))
-                self.assertEqual(stream.writes[0], frame[:4])
-                self.assertGreater(len(stream.writes), 1)
+                sent = tc_serial.bootstrap_config(stream, incoming=response, outgoing=output)
+                self.assertEqual(sent, len(frame))
+                self.assertEqual(stream.writes, [frame])
                 self.assertEqual(json.loads(output.getvalue())["nonce"], nonce.hex())
             else:
                 with self.assertRaisesRegex(ValueError, "ENCRYPTED_RESPONSE_INVALID"):

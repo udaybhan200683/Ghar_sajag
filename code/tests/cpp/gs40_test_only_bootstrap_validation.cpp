@@ -255,6 +255,8 @@ void sign_lease(EVP_PKEY* signer, std::vector<std::uint8_t>& wire) {
 }
 
 int main() {
+    check(kGs40TestOnlyConfigRxBufferBytes == 4096U,
+          "USB config receiver uses a bounded incrementally drained RX ring");
     check(gs40_test_only_local_hub_start_allowed(true, true),
           "authenticated_configuration_and_radio_allow_local_hub_start");
     check(!gs40_test_only_local_hub_start_allowed(false, true) &&

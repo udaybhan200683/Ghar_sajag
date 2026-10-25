@@ -95,13 +95,17 @@ esp_err_t gs40_test_only_receive_config(Gs40TestOnlyRuntimeConfig& config) {
     if (!usb_serial_jtag_is_driver_installed()) {
         usb_serial_jtag_driver_config_t driver_config{};
         driver_config.tx_buffer_size = 256;
-        driver_config.rx_buffer_size = 4096;
+        driver_config.rx_buffer_size = kGs40TestOnlyConfigRxBufferBytes;
         const auto installed = usb_serial_jtag_driver_install(&driver_config);
         if (installed != ESP_OK) return installed;
     }
     usb_serial_jtag_vfs_set_rx_line_endings(ESP_LINE_ENDINGS_LF);
     usb_serial_jtag_vfs_use_driver();
     if (std::setvbuf(stdin, nullptr, _IONBF, 0) != 0) return ESP_FAIL;
+    ESP_LOGI("gs40_test_config",
+        "GS40T/1 RX transport=usb_serial_jtag driver=%d connected=%d buffer=%u",
+        usb_serial_jtag_is_driver_installed(), usb_serial_jtag_is_connected(),
+        static_cast<unsigned>(kGs40TestOnlyConfigRxBufferBytes));
 #endif
     std::printf("GS40T/1 CHALLENGE nonce=%s public_key=%s max_envelope=%u\n",
         hex(challenge.data(), challenge.size()).c_str(),
@@ -114,9 +118,17 @@ esp_err_t gs40_test_only_receive_config(Gs40TestOnlyRuntimeConfig& config) {
     std::size_t received_bytes = 0;
     if (!read_exact(length_bytes.data(), length_bytes.size(), deadline,
                     &received_bytes)) {
+#if CONFIG_ESP_CONSOLE_UART_NUM == 0
         ESP_LOGW("gs40_test_config",
             "GS40T/1 RX status=timeout stage=length bytes=%u",
             static_cast<unsigned>(received_bytes));
+#else
+        ESP_LOGW("gs40_test_config",
+            "GS40T/1 RX status=timeout stage=length bytes=%u driver=%d connected=%d buffer=%u",
+            static_cast<unsigned>(received_bytes),
+            usb_serial_jtag_is_driver_installed(), usb_serial_jtag_is_connected(),
+            static_cast<unsigned>(kGs40TestOnlyConfigRxBufferBytes));
+#endif
         return ESP_ERR_TIMEOUT;
     }
     const auto length = (static_cast<std::uint32_t>(length_bytes[0]) << 24) |

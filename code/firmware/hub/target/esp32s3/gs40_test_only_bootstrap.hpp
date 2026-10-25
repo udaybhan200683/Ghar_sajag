@@ -6,6 +6,7 @@
 
 #include "cloud_trust_provider.hpp"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -101,6 +102,10 @@ private:
     std::uint32_t key_id_{0};
     bool active_{false};
 };
+
+// The receiver drains the length-prefixed envelope incrementally. Keep the
+// USB Serial/JTAG ring bounded instead of allocating a full envelope buffer.
+inline constexpr std::size_t kGs40TestOnlyConfigRxBufferBytes = 4096U;
 
 // TEST_ONLY current authority snapshot. The lease is issued only by a
 // certificate-authenticated, CA/hostname-verified authority refresh response.

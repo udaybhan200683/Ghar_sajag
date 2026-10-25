@@ -7198,3 +7198,94 @@ TC-001 and actual APK acceptance remain NOT_RUN/NOT_VERIFIED, respectively.
 Entry71ebd920b6e49cd3cf0eda2cb02dff7f9e1564bf; scoped owner Wi-Fi reuse approval recordedGS117/11671. Fresh live S3 backup/partition/identity/recovery checks passed. Existing full-product commissioning+CloudSync app installed/read back inOTA0; protected NVS/table/oldOTA1/outbox/state byte-preserved. Actual boot proven. Existing signed encrypted GS40 transport succeeds through signature/decryption, but target policy reports fields=1/time_key=1/authority_key=1/tls_identity=0. Added only fixed-name nonsecret diagnostics; no security check relaxed. Final instrumented candidate fdb1555a795214dea12aece2a822d56cd6985ec571d990972c5060d3fe1052d6 preserved. At owner-requested8% usage pause, official selector returned to retainedOTA1 recovery to avoid config-rejection reboot looping; current recovery observation/evidence in dated record. C3 unchanged, session99/awake, runtime/sensing0; no commissioning/injection/EventKey.35 focused tests and82 bootstrap checks PASS, target build/write/boot PASS; broader gates not rerun for diagnostics; prior failures unchanged. Existing caregiver/PG/Home preserved. UAC request canceled, scoped LAN proxy unchanged. No physical ingress or APK acceptance. Exact next action is diagnose the target TLS identity subcheck, fix compatibility without weakening checks, then resume existing secure fixture pipeline.
 
 Detailed deployment/backup/recovery paths, software delta, evidence and resume sequence: [GS117 native-access execution record](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-25-scoped-wi-fi-authorization-physical-s3-deployment-and-rate-limit-checkpoint). TC001 BLOCKED/NOT_RUN, APK NOT_VERIFIED.
+
+### 2026-10-25 GS-117 authenticated-envelope transport retry
+
+At source HEAD `d0e5f84ed5c56142452fc0ccec42bf4543e6aedb` on the canonical branch,
+the S3 TLS target validator still has no new subcheck result. Comparing the
+known successful OTA0 envelope delivery with the failed d0 candidate attempts
+found a host transport regression: the existing helper had changed the proven
+single `write(frame)` to a split, paced length/body transfer. The target saw
+zero RX bytes with that split framing. Restored the one-write challenge-bound
+frame, retained bounded host-write timing, and updated the existing helper
+regression. TC-001 console tests passed 26/26; `make -C code
+gs40-test-only-bootstrap-test` passed 84/84. No TLS checks were weakened.
+
+Fresh COM enumeration still matches COM4 `14:63:93:C5:D1:58` and COM10
+`E0:72:A1:D3:8D:34`; read-only C3 GET_STATE remains session99, HIL-awake,
+runtime/sensing0. A new current `otadata` readback was saved mode0600 and
+confirmed selector copies11/12 select OTA1 before the retry. The official
+ESP-IDF `otatool.py switch_ota_partition --slot 0` then changed only otadata
+and verified its write hash; OTA0 still contains the preserved d0 diagnostic
+candidate and OTA1 remains the verified recovery app. The protected bootstrap
+runner subsequently could not start the Windows port enumerator due
+`UtilAcceptVsock: accept4 failed 110`; a second attempt failed at its
+Windows-backed network preflight. No envelope reached COM10 and no target TLS
+subcheck was produced. Do not claim current OTA0 startup or rollback until a
+fresh observation; the next action is restore WSL-to-Windows interop, observe
+COM10, then either send one full-frame protected bootstrap with the existing
+helper or use the official selector to return to OTA1.
+
+The local tracked delta is confined to `gs117_tc001_serial_windows.py` and its
+existing Python tests; canonical documentation is being updated in the same
+delivery. Existing unrelated untracked firmware/assets/evidence remain
+untouched. No C3 write/injection, event insert, ownership change, TLS bypass,
+or Android acceptance occurred. TC-001 remains BLOCKED/NOT_RUN; actual APK
+event remains NOT_VERIFIED.
+
+### 2026-10-25 GS-117 resumed S3 receive diagnosis
+
+Source HEAD at resume was `d0e5f84ed5c56142452fc0ccec42bf4543e6aedb`; context
+preflight PASS. Existing Windows serial identities remain COM4/C3
+`14:63:93:C5:D1:58` and COM10/S3 `E0:72:A1:D3:8D:34`. Reused the existing
+TC-001 serial helper and GS40 envelope protocol. Its bounded reset-aware path
+now retains the S3 challenge, verifies the same COM identity after
+re-enumeration, and reopens before TX; it restores the historical paced
+256-byte whole-frame transfer. No security or ownership check changed.
+
+The exact OTA0 candidate
+`d4517c92a6ce5f8c2ce3aae1cbe98a984f886b9c7149b83e5ba47a5007669ade`
+still reports `GS40T/1 RX status=timeout stage=length bytes=0` after a
+7,323-byte host write. This blocks all later envelope/TLS checks; the previous
+`tls_identity=0` remains undiagnosed. Official ESP-IDF `otatool.py` restored
+OTA1 with a verified selector write. Reset-aware observation then confirmed
+OTA1 (`0x420000`, version `e9e610b`) and its existing fail-closed Hub security
+bootstrap. OTA0 and the protected recovery/backups remain preserved.
+
+Current physical state: C3 COM4 HIL-awake, session99, retained/in-flight0,
+`runtime_live=0`, `sensing_live=0`; S3 COM10 selected OTA1 recovery. No motion
+injection, fresh EventKey, S3 admission, backend COMMITTED, caregiver event or
+APK observation. Existing PostgreSQL/Home/history unchanged. TC-001 remains
+BLOCKED/NOT_RUN; Android event visibility NOT_VERIFIED.
+
+Checks: TC-001 helper 26/26 PASS; GS40 bootstrap host checks 85/85 PASS;
+`git diff --check` PASS. Five-hour status tool returned null for goal and
+remaining budget, so the percentage is unavailable. Detailed exact retries
+and artifacts are in the [GS-117 physical access record](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-25-resumed-physical-s3-receive-diagnosis).
+
+### 2026-10-25 — latest GS-117 S3 receive-path evidence
+
+Fresh native Windows COM evidence identifies COM10 (`303A:1001`, serial
+`E0:72:A1:D3:8D:34`) as the S3 USB Serial/JTAG endpoint, not a CH343 UART. The
+active diagnostic attempt used the existing native-USB path; the S3 emitted a
+GS40 challenge and reported its driver connected. Windows pyserial accepted a
+single 7,323-byte encrypted frame in 1,610 ms, but the target logged
+`GS40T/1 RX status=timeout stage=length bytes=0`. The envelope did not reach
+TLS parsing, so the historical `tls_identity=0` has not been diagnosed. The
+helper source comment now distinguishes host write acceptance from target
+receipt. The source RX ring is back at the bounded 4 KiB setting; the
+preserved inactive OTA0 image still has its prior 32 KiB setting. OTA1 remains
+the selected recovery app and failed closed at Hub-security startup. No flash,
+reset, injection, persistent-data change or backend/Home mutation occurred in
+this latest diagnosis.
+
+Focused results after the ring change: `PYTHONPATH=code python3 -m unittest
+tests.python.test_gs117_tc001_console` PASS, 26/26; `make -C code
+gs40-test-only-bootstrap-test` PASS, 85/85; `git diff --check` PASS. C3
+`runtime_live=0` and `sensing_live=0`; no fresh EventKey, physical S3
+admission, PostgreSQL commit, caregiver API event or Android observation.
+TC-001 remains BLOCKED/NOT_RUN and APK event visibility remains
+NOT_VERIFIED. Preserve OTA0 candidate and owner-only S3 backups; next actionable
+step is to resolve why the native USB Serial/JTAG RX path receives zero bytes
+before attempting further TLS diagnostics. Five-hour status returned no budget
+value; remaining percentage is unavailable.

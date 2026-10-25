@@ -39,7 +39,8 @@ def exact_port(board: dict, candidates: list[dict]) -> bool:
                for item in candidates)
 
 
-def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None) -> None:
+def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None,
+                     challenge_timeout_seconds=20) -> int:
     """Carry the existing GS40 encrypted envelope; private material stays host-side.
 
     The parent receives only a public target challenge and returns an encrypted,
@@ -49,7 +50,10 @@ def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None) -> Non
     incoming = sys.stdin if incoming is None else incoming
     outgoing = sys.stdout if outgoing is None else outgoing
     clock = time.monotonic if clock is None else clock
-    deadline = clock() + 20
+    if (type(challenge_timeout_seconds) is not int or
+            not 5 <= challenge_timeout_seconds <= 75):
+        raise ValueError("TC001_BOOTSTRAP_CHALLENGE_TIMEOUT_OUT_OF_RANGE")
+    deadline = clock() + challenge_timeout_seconds
     pending = ""
     challenge = None
     while clock() < deadline and challenge is None:
@@ -98,19 +102,13 @@ def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None) -> Non
         raise ValueError("TC001_BOOTSTRAP_HOST_RESPONSE_TIMEOUT") from None
     except (ValueError, TypeError, KeyError):
         raise ValueError("TC001_BOOTSTRAP_ENCRYPTED_RESPONSE_INVALID") from None
-    # Deliver the length prefix first so the S3 receiver enters its exact-body
-    # read before the encrypted payload begins. Then keep packets smaller than
-    # the USB Serial/JTAG RX ring and yield so Windows cannot overrun it.
-    if stream.write(frame[:4]) != 4:
+    # Send the challenge-bound, length-prefixed envelope as one bounded host
+    # write. A successful pyserial write proves host-side acceptance only;
+    # target receipt must be confirmed independently in the S3 receive log.
+    if stream.write(frame) != len(frame):
         raise ValueError("TC001_BOOTSTRAP_ENVELOPE_WRITE_INCOMPLETE")
     stream.flush()
-    time.sleep(0.02)
-    for offset in range(4, len(frame), 256):
-        chunk = frame[offset:offset + 256]
-        if stream.write(chunk) != len(chunk):
-            raise ValueError("TC001_BOOTSTRAP_ENVELOPE_WRITE_INCOMPLETE")
-        stream.flush()
-        time.sleep(0.002)
+    return len(frame)
 
 
 def observe(config: dict, *, serial_factory=None, port_finder=None,
@@ -151,16 +149,20 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             streams.append(stream)
         c3_stream, s3_stream = streams[1], streams[0]
         # Opt-in only under the exact fixture's reset-aware inspection approval.
-        # Keep the same open stream to retain early boot diagnostics. Reuse
-        # Espressif's native-USB reset sequence; never enter a flash operation.
+        # Reuse Espressif's native-USB reset sequence; never enter a flash
+        # operation.
         if s3_boot_reset:
             if boot_reset is None:
                 from esptool.reset import HardReset
 
                 boot_reset = lambda stream: HardReset(stream, uses_usb=True).reset()
             boot_reset(s3_stream)
-        if bootstrap_exchange is not None:
-            bootstrap_exchange(s3_stream)
+
+        bootstrap_started = clock()
+        bootstrap_tx_bytes = (bootstrap_exchange(s3_stream)
+                              if bootstrap_exchange is not None else None)
+        bootstrap_exchange_ms = (max(0, int((clock() - bootstrap_started) * 1000))
+                                 if bootstrap_tx_bytes is not None else None)
         c3_lines: list[str] = []
         s3_lines: list[str] = []
         c3_tail = s3_tail = ""
@@ -181,7 +183,23 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             sleep(0.02)
         if not any("HIL_STATE role=c3" in line for line in c3_lines):
             raise ValueError("TC001_INSTALLED_C3_HIL_STATUS_NOT_OBSERVED")
-        return {"c3": c3_lines, "s3": s3_lines}
+        result = {"c3": c3_lines, "s3": s3_lines}
+        if bootstrap_tx_bytes is not None:
+            # This confirms only host API acceptance; target receipt is proven
+            # separately by its GS40 RX/policy response in the captured logs.
+            result["bootstrap_host_write_bytes"] = bootstrap_tx_bytes
+            result["bootstrap_exchange_ms"] = bootstrap_exchange_ms
+            # GS40's authenticated receiver has a 60-second device-side
+            # deadline. Preserve that entire observation window after the
+            # host has delivered the challenge-bound frame, then allow a short
+            # bounded margin for the target's fixed rejection/startup log.
+            deadline = clock() + 10
+            while clock() < deadline:
+                c3_tail = collect(c3_stream, c3_tail, c3_lines)
+                s3_tail = collect(s3_stream, s3_tail, s3_lines)
+                sleep(0.02)
+            result["s3"] = s3_lines
+        return result
     finally:
         for stream in reversed(streams):
             if stream.is_open:
@@ -250,7 +268,15 @@ if __name__ == "__main__":
         elif action == "Observe":
             value = observe(config)
         elif action == "Bootstrap":
-            value = {"stage": "OBSERVATION", **observe(config, bootstrap_exchange=bootstrap_config)}
+            def exchange(stream, **kwargs):
+                return bootstrap_config(
+                    stream,
+                    challenge_timeout_seconds=config.get(
+                        "bootstrap_challenge_timeout_seconds", 20),
+                    **kwargs)
+
+            value = {"stage": "OBSERVATION",
+                     **observe(config, bootstrap_exchange=exchange)}
         elif action == "Run":
             value = run(config)
         else:
