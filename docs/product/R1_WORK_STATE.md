@@ -7175,3 +7175,19 @@ physical ingress ownership; inject only after those pass. Android diagnostics
 are unavailable; actual phone observation remains required. Detailed evidence,
 validation limits and precise resume steps are in the
 [GS-117 native-access record](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md).
+
+### GS-117 final paired build and delivery source
+
+Implementation commit `0af99da0451a1c4eb8cc8d5ea034efc51f3893b6` is pushed and
+remote-verified. The clean-source S3-only rebuild replaces the older embedded
+Node asset with the exact installed C3 binary, without rebuilding/flashing C3.
+Current prepared S3 image is version `0af99da0451a-gs117-test`, 2,270,336 bytes,
+SHA-256 `59f9ffb80ce7f7d7af94af691f7dc7cdfe11fb39737835d08c29e44893bf1047`.
+Its embedded C3/root and partition-reference checks PASS; image-info validates
+ESP32-S3/16MB/DIO/40MHz. The initial `1290e680` candidate is superseded and
+preserved. The new app is backed up under the owner-only
+`~/.local/state/ghar-sajag/gs117-tc001/s3-ready-0af99da0451a/` directory.
+No S3 flash/credential update occurred; protected Wi-Fi input and scoped
+Windows elevation remain the immediate external prerequisites. Exact matched
+software gate outcomes and artifact provenance are in the native-access record.
+TC-001 and actual APK acceptance remain NOT_RUN/NOT_VERIFIED, respectively.

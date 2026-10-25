@@ -1932,3 +1932,22 @@ checkpoint are maintained in
 `docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
 GS-117 remains In Progress; commercial release and optical PIR qualification
 remain outside this TC-001 result.
+
+### Final paired candidate from committed implementation
+
+Source `0af99da0451a1c4eb8cc8d5ea034efc51f3893b6` is pushed and remote-verified.
+The final S3-only build uses the exact installed C3 asset rather than the older
+paired asset. Version `0af99da0451a-gs117-test`, size 2,270,336 bytes, SHA-256
+`59f9ffb80ce7f7d7af94af691f7dc7cdfe11fb39737835d08c29e44893bf1047`.
+The binary contains that exact C3 app and the persistent public config root;
+the partition bytes match the saved live reference. Espressif image-info
+validates chip/profile compatibility. This supersedes the earlier `1290e680`
+build, which remains preserved as historical evidence. Ready artifact is
+`~/.local/state/ghar-sajag/gs117-tc001/s3-ready-0af99da0451a/gs_r1_s3_hub.bin`.
+No C3 rebuild/reflash and no S3 update occurred. The latest public artifact
+record is `GS117_PHYSICAL_ACCESS_20261025T112221Z/s3-ready-public.json`.
+Matched-source mandatory reports are contract 47/48 PASS (P0 PARTIAL fails),
+Hub 53/55 PASS (known migration + P0 fail), backend 24/26 PASS (known CSS + P0
+fail). Current security/fixture code tests pass; these are not release or
+physical acceptance results. Protected Wi-Fi input and Windows elevation
+remain external; secure commissioning/real CloudSync/fresh EventKey/APK are pending.

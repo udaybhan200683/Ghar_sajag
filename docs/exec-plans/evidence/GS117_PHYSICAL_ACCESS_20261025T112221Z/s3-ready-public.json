@@ -1,0 +1,23 @@
+{
+  "source_head": "0af99da0451a1c4eb8cc8d5ea034efc51f3893b6",
+  "project": "gs_r1_s3_hub",
+  "version": "0af99da0451a-gs117-test",
+  "image_bytes": 2270336,
+  "image_sha256": "59f9ffb80ce7f7d7af94af691f7dc7cdfe11fb39737835d08c29e44893bf1047",
+  "embedded_installed_c3_sha256": "183417fdd840ed9cce333e7b276beeaba83d085173f9cbe28589d617d874739f",
+  "embedded_c3_matches_installed": true,
+  "config_root_public_embedded": true,
+  "product_partition_table_matches_saved_live_readback": true,
+  "partition_table_sha256": "bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a",
+  "app_partition_bytes": 4194304,
+  "deployed": false,
+  "deployment_gate": "BLOCKED_WIFI_CONFIG_AND_VERIFIED_LIVE_PRESERVATION_CHECKS",
+  "profile": {
+    "GS_HIL_BUILD": false,
+    "GS_HIL_CONTROL": false,
+    "GS_HIL_COMMISSIONING": true,
+    "GS40_TEST_ONLY_CLOUDSYNC": true,
+    "diagnostic_only": false,
+    "console": "USB_SERIAL_JTAG"
+  }
+}
