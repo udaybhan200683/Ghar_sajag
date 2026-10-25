@@ -279,6 +279,8 @@ int main() {
     std::string fingerprint;
     const auto cert=pem_cert(client_key,fingerprint);
     const auto client_private=pem_key(client_key);
+    check(client_private.rfind("-----BEGIN PRIVATE KEY-----\n", 0) == 0,
+          "physical fixture credential uses unencrypted PKCS#8 PEM accepted by target parser");
     std::string physical_fingerprint;
     const auto physical_hub_id=std::string("hub-001122334455");
     const auto physical_cert=pem_cert(physical_client_key,physical_fingerprint,physical_hub_id);
@@ -321,6 +323,11 @@ int main() {
           physical_config.valid_material_shape() &&
           physical_config.permanent_hub_id==physical_hub_id,
           "signed TEST_ONLY config accepts the verified physical Hub identity shape");
+    auto saved_physical_private_key = std::move(physical_config.client_private_key_pem);
+    physical_config.client_private_key_pem = client_private;
+    check(!physical_config.valid_material_shape(),
+          "RSA-3072 credential rejects a private key that does not prove the certificate public key");
+    physical_config.client_private_key_pem = std::move(saved_physical_private_key);
     check(gs40_test_only_hub_id_matches_runtime(physical_config.permanent_hub_id,
           physical_hub_id),"signed physical identity remains exact through runtime binding");
     check(!gs40_test_only_hub_id_matches_runtime(physical_config.permanent_hub_id,

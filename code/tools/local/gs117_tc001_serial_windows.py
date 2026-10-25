@@ -98,9 +98,19 @@ def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None) -> Non
         raise ValueError("TC001_BOOTSTRAP_HOST_RESPONSE_TIMEOUT") from None
     except (ValueError, TypeError, KeyError):
         raise ValueError("TC001_BOOTSTRAP_ENCRYPTED_RESPONSE_INVALID") from None
-    if stream.write(frame) != len(frame):
+    # Deliver the length prefix first so the S3 receiver enters its exact-body
+    # read before the encrypted payload begins. Then keep packets smaller than
+    # the USB Serial/JTAG RX ring and yield so Windows cannot overrun it.
+    if stream.write(frame[:4]) != 4:
         raise ValueError("TC001_BOOTSTRAP_ENVELOPE_WRITE_INCOMPLETE")
     stream.flush()
+    time.sleep(0.02)
+    for offset in range(4, len(frame), 256):
+        chunk = frame[offset:offset + 256]
+        if stream.write(chunk) != len(chunk):
+            raise ValueError("TC001_BOOTSTRAP_ENVELOPE_WRITE_INCOMPLETE")
+        stream.flush()
+        time.sleep(0.002)
 
 
 def observe(config: dict, *, serial_factory=None, port_finder=None,

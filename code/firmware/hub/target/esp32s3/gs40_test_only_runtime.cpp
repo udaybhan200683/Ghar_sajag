@@ -5,6 +5,7 @@
 #include "driver/usb_serial_jtag_vfs.h"
 #include "driver/uart.h"
 #include "esp_timer.h"
+#include "esp_log.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "freertos/FreeRTOS.h"
@@ -38,8 +39,10 @@ std::string hex(const std::uint8_t* bytes, std::size_t size) {
     return out;
 }
 
-bool read_exact(std::uint8_t* output, std::size_t length, std::uint64_t deadline_us) {
+bool read_exact(std::uint8_t* output, std::size_t length,
+                std::uint64_t deadline_us, std::size_t* received_bytes = nullptr) {
     std::size_t received = 0;
+    if (received_bytes != nullptr) *received_bytes = 0;
     while (received < length && static_cast<std::uint64_t>(esp_timer_get_time()) < deadline_us) {
         const auto left_us = deadline_us - static_cast<std::uint64_t>(esp_timer_get_time());
         const auto wait_ms = static_cast<std::uint32_t>(std::min<std::uint64_t>(left_us / 1000, 500));
@@ -52,6 +55,7 @@ bool read_exact(std::uint8_t* output, std::size_t length, std::uint64_t deadline
 #endif
         if (count < 0 || static_cast<std::size_t>(count) > length - received) return false;
         received += static_cast<std::size_t>(count);
+        if (received_bytes != nullptr) *received_bytes = received;
     }
     return received == length;
 }
@@ -107,14 +111,29 @@ esp_err_t gs40_test_only_receive_config(Gs40TestOnlyRuntimeConfig& config) {
 
     const auto deadline = static_cast<std::uint64_t>(esp_timer_get_time()) + 60000000ULL;
     std::array<std::uint8_t, 4> length_bytes{};
-    if (!read_exact(length_bytes.data(), length_bytes.size(), deadline)) return ESP_ERR_TIMEOUT;
+    std::size_t received_bytes = 0;
+    if (!read_exact(length_bytes.data(), length_bytes.size(), deadline,
+                    &received_bytes)) {
+        ESP_LOGW("gs40_test_config",
+            "GS40T/1 RX status=timeout stage=length bytes=%u",
+            static_cast<unsigned>(received_bytes));
+        return ESP_ERR_TIMEOUT;
+    }
     const auto length = (static_cast<std::uint32_t>(length_bytes[0]) << 24) |
         (static_cast<std::uint32_t>(length_bytes[1]) << 16) |
         (static_cast<std::uint32_t>(length_bytes[2]) << 8) | length_bytes[3];
-    if (length < 517 || length > Gs40TestOnlyEnvelopeSession::kMaximumEnvelopeBytes)
+    if (length < 517 || length > Gs40TestOnlyEnvelopeSession::kMaximumEnvelopeBytes) {
+        ESP_LOGW("gs40_test_config", "GS40T/1 RX status=invalid stage=length");
         return ESP_ERR_INVALID_SIZE;
+    }
     std::vector<std::uint8_t> envelope(length);
-    if (!read_exact(envelope.data(), envelope.size(), deadline)) return ESP_ERR_TIMEOUT;
+    if (!read_exact(envelope.data(), envelope.size(), deadline,
+                    &received_bytes)) {
+        ESP_LOGW("gs40_test_config",
+            "GS40T/1 RX status=timeout stage=envelope received=%u expected=%u",
+            static_cast<unsigned>(received_bytes), static_cast<unsigned>(length));
+        return ESP_ERR_TIMEOUT;
+    }
     if (!session.accept(envelope, config)) return ESP_ERR_INVALID_ARG;
     volatile std::uint8_t* bytes = envelope.data();
     for (std::size_t i = 0; i < envelope.size(); ++i) bytes[i] = 0;

@@ -359,7 +359,10 @@ class TC001Test(unittest.TestCase):
                 "encrypted_envelope_b64": base64.b64encode(supplied).decode()}) + "\n")
             if valid:
                 tc_serial.bootstrap_config(stream, incoming=response, outgoing=output)
-                self.assertEqual(stream.writes, [frame])
+                self.assertEqual(b"".join(stream.writes), frame)
+                self.assertTrue(all(0 < len(chunk) <= 256 for chunk in stream.writes))
+                self.assertEqual(stream.writes[0], frame[:4])
+                self.assertGreater(len(stream.writes), 1)
                 self.assertEqual(json.loads(output.getvalue())["nonce"], nonce.hex())
             else:
                 with self.assertRaisesRegex(ValueError, "ENCRYPTED_RESPONSE_INVALID"):

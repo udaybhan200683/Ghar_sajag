@@ -130,33 +130,106 @@ bool valid_tls_identity(const std::string& certificate_pem,
     mbedtls_pk_context key;
     mbedtls_pk_init(&key);
     const auto rsa_sha256 = PSA_ALG_RSA_PKCS1V15_SIGN(PSA_ALG_SHA_256);
-    bool valid = mbedtls_x509_crt_parse(&certificate,
+    const bool certificate_parsed = mbedtls_x509_crt_parse(&certificate,
             reinterpret_cast<const unsigned char*>(certificate_pem.c_str()),
-            certificate_pem.size() + 1) == 0 &&
-        mbedtls_pk_parse_key(&key,
+            certificate_pem.size() + 1) == 0;
+    const bool private_key_parsed = mbedtls_pk_parse_key(&key,
             reinterpret_cast<const unsigned char*>(private_key_pem.c_str()),
-            private_key_pem.size() + 1, nullptr, 0) == 0 &&
+            private_key_pem.size() + 1, nullptr, 0) == 0;
+    const bool rsa_3072 = certificate_parsed && private_key_parsed &&
         mbedtls_pk_get_bitlen(&certificate.pk) == 3072 &&
-        mbedtls_pk_get_bitlen(&key) == 3072 &&
-        mbedtls_pk_can_do_psa(&certificate.pk, rsa_sha256, PSA_KEY_USAGE_VERIFY_HASH) &&
-        mbedtls_pk_can_do_psa(&key, rsa_sha256, PSA_KEY_USAGE_SIGN_HASH) &&
-        mbedtls_pk_check_pair(&certificate.pk, &key) == 0;
+        mbedtls_pk_get_bitlen(&key) == 3072;
+    const bool psa_verify = certificate_parsed && rsa_3072 &&
+        mbedtls_pk_can_do_psa(&certificate.pk, rsa_sha256, PSA_KEY_USAGE_VERIFY_HASH);
+    const bool psa_sign = private_key_parsed && rsa_3072 &&
+        mbedtls_pk_can_do_psa(&key, rsa_sha256, PSA_KEY_USAGE_SIGN_HASH);
+    const int key_pair_status = certificate_parsed && private_key_parsed && rsa_3072
+        ? mbedtls_pk_check_pair(&certificate.pk, &key)
+        : MBEDTLS_ERR_PK_BAD_INPUT_DATA;
+    bool pair_type_matches = false;
+    bool pair_raw_length_matches = false;
+    bool pair_raw_bytes_match = false;
+    if (certificate_parsed && private_key_parsed && rsa_3072) {
+        pair_type_matches =
+            certificate.pk.MBEDTLS_PRIVATE(psa_type) == PSA_KEY_TYPE_RSA_PUBLIC_KEY &&
+            key.MBEDTLS_PRIVATE(psa_type) == PSA_KEY_TYPE_RSA_KEY_PAIR;
+        pair_raw_length_matches =
+            certificate.pk.MBEDTLS_PRIVATE(pub_raw_len) > 0 &&
+            certificate.pk.MBEDTLS_PRIVATE(pub_raw_len) ==
+                key.MBEDTLS_PRIVATE(pub_raw_len);
+        pair_raw_bytes_match = pair_raw_length_matches;
+        for (size_t index = 0; pair_raw_bytes_match &&
+             index < certificate.pk.MBEDTLS_PRIVATE(pub_raw_len); ++index) {
+            pair_raw_bytes_match =
+                certificate.pk.MBEDTLS_PRIVATE(pub_raw)[index] ==
+                key.MBEDTLS_PRIVATE(pub_raw)[index];
+        }
+    }
+    int pair_sign_status = MBEDTLS_ERR_PK_BAD_INPUT_DATA;
+    int pair_verify_status = MBEDTLS_ERR_PK_BAD_INPUT_DATA;
+    bool pair_signature_matches = false;
+    if (key_pair_status != 0 && certificate_parsed && private_key_parsed &&
+        rsa_3072 && psa_verify && psa_sign && certificate.raw.p != nullptr &&
+        certificate.raw.len > 0) {
+        constexpr char pair_domain[] = "GS40T/1/TLS-IDENTITY-PAIR\0";
+        std::array<unsigned char, 32> pair_challenge{};
+        const bool challenge_ready = sha256_concat(pair_domain,
+            sizeof(pair_domain) - 1, certificate.raw.p, certificate.raw.len,
+            pair_challenge);
+        std::array<unsigned char, MBEDTLS_PK_SIGNATURE_MAX_SIZE> signature{};
+        size_t signature_size = 0;
+        if (challenge_ready) {
+            pair_sign_status = mbedtls_pk_sign_ext(
+                MBEDTLS_PK_SIGALG_RSA_PKCS1V15, &key, MBEDTLS_MD_SHA256,
+                pair_challenge.data(), pair_challenge.size(), signature.data(),
+                signature.size(), &signature_size);
+            if (pair_sign_status == 0 && signature_size > 0 &&
+                signature_size <= signature.size()) {
+                pair_verify_status = mbedtls_pk_verify_ext(
+                    MBEDTLS_PK_SIGALG_RSA_PKCS1V15, &certificate.pk,
+                    MBEDTLS_MD_SHA256, pair_challenge.data(),
+                    pair_challenge.size(), signature.data(), signature_size);
+                pair_signature_matches = pair_verify_status == 0;
+            }
+        }
+        std::fill(pair_challenge.begin(), pair_challenge.end(), 0);
+        std::fill(signature.begin(), signature.end(), 0);
+    }
+    const bool key_pair = key_pair_status == 0 || pair_signature_matches;
+    if (key_pair_status != 0 && pair_signature_matches) {
+        ESP_LOGI("gs40_test_config",
+            "GS40T/1 TLS pair_check=psa_signature raw_pair_equal=%d",
+            pair_raw_bytes_match);
+    }
     bool client_auth = false;
-    for (const mbedtls_x509_sequence* item = &certificate.ext_key_usage;
-         valid && item != nullptr && item->buf.p != nullptr; item = item->next) {
+    for (const mbedtls_x509_sequence* item =
+             certificate_parsed ? &certificate.ext_key_usage : nullptr;
+         item != nullptr && item->buf.p != nullptr; item = item->next) {
         if (item->buf.len == MBEDTLS_OID_SIZE(MBEDTLS_OID_CLIENT_AUTH) &&
             std::memcmp(item->buf.p, MBEDTLS_OID_CLIENT_AUTH, item->buf.len) == 0)
             client_auth = true;
     }
     std::array<unsigned char, 32> digest{};
-    if (valid && client_auth && certificate.raw.p != nullptr && certificate.raw.len > 0) {
+    bool fingerprint_hashed = false;
+    bool fingerprint_match = false;
+    if (certificate_parsed && certificate.raw.p != nullptr && certificate.raw.len > 0) {
         const auto* sha256 = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-        valid = sha256 != nullptr &&
+        fingerprint_hashed = sha256 != nullptr &&
             mbedtls_md(sha256, certificate.raw.p, certificate.raw.len,
                        digest.data()) == 0;
-        valid = valid && hex_bytes(digest.data(), digest.size()) == fingerprint;
-    } else {
-        valid = false;
+        fingerprint_match = fingerprint_hashed &&
+            hex_bytes(digest.data(), digest.size()) == fingerprint;
+    }
+    const bool valid = certificate_parsed && private_key_parsed && rsa_3072 &&
+        psa_verify && psa_sign && key_pair && client_auth && fingerprint_match;
+    if (!valid) {
+        ESP_LOGW("gs40_test_config",
+            "GS40T/1 TLS cert_pem=%d private_key_pem=%d rsa3072=%d psa_verify=%d psa_sign=%d key_pair=%d pair_status=%d pair_type=%d pair_raw_len=%d pair_raw_equal=%d pair_sign=%d pair_verify=%d pair_signature=%d client_auth_eku=%d fingerprint_hashed=%d fingerprint_match=%d",
+            certificate_parsed, private_key_parsed, rsa_3072, psa_verify,
+            psa_sign, key_pair, key_pair_status, pair_type_matches,
+            pair_raw_length_matches, pair_raw_bytes_match, pair_sign_status,
+            pair_verify_status, pair_signature_matches, client_auth,
+            fingerprint_hashed, fingerprint_match);
     }
     mbedtls_pk_free(&key);
     mbedtls_x509_crt_free(&certificate);
