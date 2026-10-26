@@ -1424,3 +1424,12 @@ serial-observer contract and GS40T/1 frame parser`; `DECISION_IDS=NONE`;
 readiness and cover its secure-config-wait negative case`;
 `OUT_OF_SCOPE=any second serial observation, S3 bootstrap/write, firmware
 change, C3 injection, reset/recommission, or reset-safe claim`.
+
+Delivery checkpoint: canonical branch `feature/r1-commercial-baseline`;
+implementation commit `b04d700ed91a59e9426ec76d7cb0471be012fd3e` was pushed and
+matched the remote. Focused console tests (32) and feature traceability tests
+(22) pass; context preflight passes. Only the intended eight implementation and
+evidence files were committed. Existing untracked firmware, Android, hardware
+evidence and owner-local credentials were preserved and not staged. The final
+HEAD including this handoff closeout is recorded in the latest GS-117 Jira
+comment.

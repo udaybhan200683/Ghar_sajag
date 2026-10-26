@@ -7816,3 +7816,11 @@ CloudSync and new-event API/APK visibility remain unverified. The one-use
 observation approval is consumed; the normal owner fixture is still absent.
 TC-001 remains `BLOCKED / NOT_RUN`, with no new EventKey. See the linked
 GS-117 execution record and sanitized serial observation JSON for evidence.
+
+The focused tests passed and implementation/evidence were pushed on
+`feature/r1-commercial-baseline` as
+`b04d700ed91a59e9426ec76d7cb0471be012fd3e`; the remote matched at verification.
+Only the eight scoped implementation and evidence files were committed.
+Existing untracked and ignored firmware, Android, hardware evidence and
+owner-local credentials were preserved. The latest GS-117 Jira comment records
+the final HEAD including the handoff closeout.
