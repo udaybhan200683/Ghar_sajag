@@ -7705,3 +7705,29 @@ assemble the owner-only fixture only from those current receipts. Run one
 controlled injection after all gates pass and require owner confirmation of the
 event in the actual APK before marking PASS. Full checkpoint:
 `docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
+
+### GS-117 refreshed device enumeration — 2026-10-26 16:02 UTC
+
+Following the owner's updated USB inventory, Windows serial enumeration now
+independently confirms COM4 is the expected C3 identity
+`14:63:93:C5:D1:58` and COM10 is the expected S3 identity
+`E0:72:A1:D3:8D:34`. The unrelated `0000:0002` descriptor-failure device is
+not a board. No serial port was opened: canonical validation documents prior
+`USB_UART_CHIP_RESET` on C3 serial access and does not qualify the current port
+open as reset-safe. A current C3 installed-image receipt and reset-safe UART
+receipt are absent, so the owner-only console fixture cannot be truthfully
+reconstructed from stable identities alone.
+
+Windows ADB was restarted but reports no attached device; prior app/Home
+evidence is retained, though current phone observation needs ADB enumeration.
+The existing bounded GS-179 listener is active on `172.17.152.10:8445`; its
+PostgreSQL and signed-time checks pass, but the physical S3 has not authenticated
+after listener restart and persistent ingress is not configured. Historical 66
+commits remain excluded. No event was injected; TC-001 is still
+`BLOCKED / NOT_RUN` with no new EventKey.
+
+Next: obtain a verified reset-isolated UART path or owner decision covering the
+documented COM4 reset risk; restore ADB enumeration for the phone; then collect
+current receipts, verify live C3/S3 session and ingress, execute one controlled
+injection, and require owner confirmation in the actual APK. Evidence is in
+`docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.

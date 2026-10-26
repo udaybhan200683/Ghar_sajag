@@ -1206,3 +1206,44 @@ exact identity; then use the existing approved observation path and verify
 live C3/S3 session plus ingress before creating the fixture and running exactly
 one injection. Require the owner's actual APK visibility confirmation before
 marking TC-001 PASS.
+
+### 2026-10-26 refreshed USB enumeration checkpoint
+
+After the owner supplied a fresh `usbipd`/PnP inventory and confirmed all
+devices were cabled, the existing Windows serial helper independently listed
+COM4 as USB VID/PID `303A:1001`, serial `14:63:93:C5:D1:58` (the expected C3),
+and COM10 as USB VID/PID `303A:1001`, serial `E0:72:A1:D3:8D:34` (the expected
+S3). The unrelated `0000:0002` descriptor-failure device is not either board.
+This confirms the two USB identities without opening serial ports.
+
+The owner-provided physical-session record and recent S3 installed-image receipt
+remain available; only an S3 image receipt exists in the current fixture cache.
+No current C3 installed-image receipt or reset-safe UART receipt exists. The
+canonical physical validation record documents a prior C3 `USB_UART_CHIP_RESET`
+on serial observation and does not qualify the existing open path as reset-safe.
+Because the current request says to avoid board resets and the existing console
+requires a verified reset-safe receipt, neither COM port was opened and no
+`GET_STATE`, `FIXTURE_STATUS`, rejoin, or injection command was sent. The exact
+owner-only console fixture remains absent and cannot be truthfully assembled
+from identity metadata alone.
+
+The official Windows ADB server was restarted and `adb devices -l` still reports
+no attached Android device. Prior APK installation/Home/history evidence is
+preserved, but current ADB observation is unavailable until Windows enumerates
+the phone as an authorized device.
+
+The bounded GS-179 ingress process remains active at `172.17.152.10:8445` with
+PostgreSQL and signed-time ready. Current status remains
+`real_hub_authenticated=NO`, `hub_connected=NO`,
+`persistent_hub_ingress=NOT_CONFIGURED`; no request arrived after its restart.
+The 66 historical commit responses remain excluded. No protected record,
+credential, backend configuration, USB/IP attachment, firmware, or event data
+was changed. TC-001 remains `BLOCKED / NOT_RUN` with no new EventKey.
+
+**Exact next action:** obtain a physically verified reset-isolated serial
+observation/control path for the C3 (the documented COM4 open can reset it), or
+an explicit owner decision that accepts this known reset risk for the necessary
+read-only status and single injection workflow. Also restore Windows ADB device
+enumeration for actual APK confirmation. Then produce fresh current-image and
+reset-safety receipts, verify live C3/S3 authentication and ingress, and only
+then create the owner-only fixture and run the single controlled injection.
