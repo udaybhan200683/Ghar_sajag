@@ -1577,3 +1577,14 @@ open connection and changes no firmware/protocol semantics. Physical reset and
 configuration delivery remain subject to the owner's specific approval. No
 production trust, persistence, ownership or release requirement changed;
 `CONTEXT_VERSION` is unchanged.
+
+### 2026-10-26 GS117 approved configuration recovery evidence
+
+The exact owner-approved encrypted S3 configuration recovery executed once:
+installed product OTA1, guarded persistent storage, authenticated C3 rejoin and
+physical mTLS CloudSync recovery receipts are established. No firmware or
+enrollment change occurred. A separate stale HOST_SIM/physical live bedroom
+enrollment collision explains NodeHealth unique-constraint failures; it was
+diagnosed read-only and not hidden by record removal or ownership changes.
+TC-001 controlled-event/APK acceptance remains NOT_RUN. No LOCKED requirement,
+production security/lifecycle policy or CONTEXT_VERSION changed.

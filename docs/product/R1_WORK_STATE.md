@@ -7854,3 +7854,37 @@ FIXTURE_STATUS query is disabled throughout recovery. No motion/flash/enrollment
 change is included. Exact bounds, script hash, risks and stop/recovery conditions
 are in the existing GS117 EXECUTION.md. Physical recovery is APPROVAL_PENDING;
 TC-001 remains NOT_RUN and the normal console fixture/origin gates remain.
+
+### GS-117 approved S3 configuration recovery — 2026-10-26 17:11 UTC
+
+The owner approved the exact prepared attempt. It executed once and exited 0:
+expected c26 OTA1 boot metadata verified, one encrypted GS40 frame accepted,
+TLS identity valid=1, no FIXTURE_STATUS sent. Product owner started with one
+enrolled Node and storage epoch 1 after guarded persistent outbox recovery.
+No captured abort/watchdog/backtrace; no flash, OTA selection, C3 reset command,
+commissioning or motion injection. Existing protected state/backups preserved.
+
+Physical S3 mTLS/CloudSync now has fresh evidence: repeated authority HTTP 200
+and two retained physical session112 events COMMITTED. Both have exactly one
+PostgreSQL record and one caregiver projection; duplicate retry is suppressed.
+The existing 66 records remain, total 68. These are recovery events, excluded
+from controlled TC-001 acceptance. The runtime status fields for authentication
+and connection are hardcoded NO and must not override actual mTLS receipts.
+
+S3 recorded authenticated ordinary C3 rejoin/session118 and Node liveness
+online at uptime69 seconds. The six zero-counter GET_STATE samples ended
+before rejoin, so increasing runtime/sensing counters remain NOT_VERIFIED.
+No extra serial open was performed after the approved capture.
+
+NodeHealth 503/STALE is traced to the unique Home/logical-node constraint:
+historical HOST_SIM bedroom health/enrollment and the physical bedroom
+enrollment are both ACTIVE in gs177-test-product. Read-only diagnosis only;
+both enrollments, credentials and all history were preserved. Resolve through
+the existing fixture lifecycle before claiming monitoring freshness. Console
+fixture/reset-risk and verified IP-versus-DNS origin gates also remain.
+
+Actual Android readiness is CONNECTED/Home gs177-test-product, with monitoring
+UNKNOWN/source STALE; no new controlled event is displayed or confirmed.
+TC-001 remains NOT_RUN. Existing bounded ingress/time services remain running.
+See the existing execution handoff and recovery_20261026T1711Z.json for exact
+physical evidence, source checkpoint and next actions.

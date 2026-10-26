@@ -1,0 +1,113 @@
+{
+  "apk": "existing actual APK CONNECTED/Home gs177-test-product readiness; no controlled event observation",
+  "at": "2026-10-26T17:19:27.140237+00:00",
+  "authority_http_200_count": 24,
+  "backend_count_after": 68,
+  "boot": {
+    "app_offset": "0x420000",
+    "app_version": "9bbc6d0-dirty",
+    "elf_sha256_prefix": "c77483102"
+  },
+  "bootstrap_timeline": {
+    "boot": {
+      "app_offset": "0x420000",
+      "app_version": "9bbc6d0-dirty",
+      "elf_sha256_prefix": "c77483102"
+    },
+    "challenge_wait_ms": 1328,
+    "host_dtr": false,
+    "host_rts": false,
+    "host_write_ms": 31,
+    "ignored_pre_boot_challenges": 0,
+    "post_reset_boot_verified": true,
+    "response_generation_ms": 390
+  },
+  "c3_authenticated_rejoin": "PASS: session 118; S3 Node liveness online",
+  "c3_counter_progression": "NOT_VERIFIED: all six queries preceded authenticated rejoin at S3 uptime 69241 ms",
+  "c3_state_samples": [
+    "I (4435247) gs_node_runtime: HIL_STATE role=c3 session=118 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197008 min_heap=179580 ota_slot=ota_0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0",
+    "I (4445387) gs_node_runtime: HIL_STATE role=c3 session=118 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197008 min_heap=179580 ota_slot=ota_0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0",
+    "I (4455467) gs_node_runtime: HIL_STATE role=c3 session=118 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197008 min_heap=179580 ota_slot=ota_0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0",
+    "I (4465507) gs_node_runtime: HIL_STATE role=c3 session=118 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197008 min_heap=179580 ota_slot=ota_0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0",
+    "I (4475647) gs_node_runtime: HIL_STATE role=c3 session=118 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197008 min_heap=179580 ota_slot=ota_0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0",
+    "I (4485787) gs_node_runtime: HIL_STATE role=c3 session=118 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197008 min_heap=179580 ota_slot=ota_0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0"
+  ],
+  "captured_watchdog_or_abort": false,
+  "commissioning_operations": 0,
+  "encrypted_frame_host_bytes": 7326,
+  "firmware_writes": 0,
+  "ingress_status_limitation": "runtime.status returns static NO authentication/connection fields; actual authenticated trace is the evidence",
+  "motion_injections": 0,
+  "node_health": "FAIL: duplicate node_health_latest_home_id_logical_node_id_key; preserved active synthetic and physical bedroom enrollments",
+  "operation": "APPROVED_SINGLE_S3_CONFIGURATION_RECOVERY",
+  "overall": "PASS",
+  "owner_local_raw_evidence": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/s3-runtime-recovery-20261026T170152Z/bootstrap-observation.json",
+  "raw_evidence_sha256": "a9c50b72aebeb7f6f60436e5ceff19eb94cd32cfc0532f46e2a029473e4e5fc9",
+  "recovered_events": {
+    "1": {
+      "caregiver_count": 1,
+      "caregiver_event_id": "p15:c3-146393c5d158n7:bedrooms112q1",
+      "committed_at": 1793034712,
+      "committing_hub_id": "hub-e072a1d38d34",
+      "durable_count": 1,
+      "event_id": "evt_a9a1ebb912658fd7e5565758910a5d08b58d15cb1a14c7c1656d8c4148f4e7b4",
+      "event_key": {
+        "event_sequence": 1,
+        "logical_node_id": "bedroom",
+        "origin_session_id": 112,
+        "physical_device_id": "c3-146393c5d158"
+      },
+      "event_kind": "MOTION",
+      "event_location": "Bedroom",
+      "monitoring": "UNKNOWN",
+      "node_enrollment_generation": 1,
+      "occurred_at": 1793034712,
+      "ownership_epoch": 1,
+      "received_at": 1793034712,
+      "source_freshness": "STALE"
+    },
+    "2": {
+      "caregiver_count": 1,
+      "caregiver_event_id": "p15:c3-146393c5d158n7:bedrooms112q2",
+      "committed_at": 1793034745,
+      "committing_hub_id": "hub-e072a1d38d34",
+      "durable_count": 1,
+      "event_id": "evt_e3672a0837e776a5ca6ee339f881ba1b85fdaf78ccbfb7f0b14e488f5d1d9472",
+      "event_key": {
+        "event_sequence": 2,
+        "logical_node_id": "bedroom",
+        "origin_session_id": 112,
+        "physical_device_id": "c3-146393c5d158"
+      },
+      "event_kind": "MOTION",
+      "event_location": "Bedroom",
+      "monitoring": "UNKNOWN",
+      "node_enrollment_generation": 1,
+      "occurred_at": 1793034745,
+      "ownership_epoch": 1,
+      "received_at": 1793034745,
+      "source_freshness": "STALE"
+    }
+  },
+  "s3_authenticated_time_and_mtls": "PASS: signed-time service requests plus physical authority HTTP 200 and event COMMITTED",
+  "s3_capture": [
+    "I (2441) gs40_test_config: GS40T/1 TLS validation=begin stack_min_free=5392",
+    "I (4301) gs40_test_config: GS40T/1 TLS pair_check=psa_signature raw_pair_equal=0",
+    "I (4301) gs40_test_config: GS40T/1 TLS validation=end valid=1 stack_min_free=2960",
+    "I (4321) wifi:wifi firmware version: da143fa",
+    "I (9521) gs_hub_runtime: GS40 config=fdbf961f544afc16112ddf9a640248d6bf00adaa1acb25c0f4b41641829af862 heartbeat=300 offline=910",
+    "I (9971) gs_fixture_commissioning: HIL_FIXTURE_READY protocol=1 commands=COMMISSION_EXPECTED_NODE,FIXTURE_STATUS",
+    "W (24041) gs_hub_runtime: TEST_ONLY deterministic activity rules disabled: signed Home config, current lease or trusted time unavailable",
+    "I (24041) gs_hub_runtime: TEST_ONLY authenticated Cloud NodeHealth scheduler started; publication requires current authority lease",
+    "I (24041) gs_hub_runtime: Authenticated Hub owner started enrolled=1 storage_epoch=1",
+    "I (24041) gs_hub_runtime: HIL_FIXTURE_HOME hub_id=hub-e072a1d38d34 home_id=gs177-test-product",
+    "E (29761) gs_hub_runtime: TEST_ONLY time/authority refresh failed; publication fenced",
+    "I (69241) gs_hub_runtime: Authenticated rejoin device=c3-146393c5d158 logical=bedroom session=118",
+    "I (69341) gs_hub_runtime: Node liveness logical=bedroom online=1 profile_known=1 session=118"
+  ],
+  "s3_fixture_status_command_sent": false,
+  "s3_product_storage_and_runtime": "PASS: guarded native recovery and owner-start reached; retained outbox exported",
+  "s3_tls_identity": "PASS",
+  "source_head": "8b936b167d30850761e8882d6193e133ce89c7f2",
+  "tc001": "NOT_RUN"
+}

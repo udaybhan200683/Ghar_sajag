@@ -1536,3 +1536,79 @@ Preparation base is canonical local/remote
 in GS-117 Jira. Owner-local runtime files, credentials, screenshots and existing
 untracked/ignored assets remain outside the commit. No board serial handle was
 opened in this preparation task.
+
+### 2026-10-26 17:11 UTC — approved recovery executed, product Hub/CloudSync PASS
+
+Owner approved the exact prepared attempt. Canonical context PASS at local and
+remote `8b936b167d30850761e8882d6193e133ce89c7f2`; prepared script and helper
+hashes unchanged, attempt marker absent, exact COM4/COM10 USB identities,
+Private Airtel_Agrim/.10, existing routes, ingress and signed-time reverified.
+The approval was recorded owner-only, then the prepared script ran once and
+exited 0. No retry, firmware write, OTA selection, C3 reset command, enrollment
+change or motion command was performed.
+
+Physical evidence is in
+[`recovery_20261026T1711Z.json`](recovery_20261026T1711Z.json); complete sanitized
+capture and operator logs remain in the protected preparation directory.
+The explicit S3 application reset produced the expected OTA1 boot at
+`0x420000`, version `9bbc6d0-dirty`, ELF prefix `c77483102`. The existing
+encrypted configuration frame (7326 host bytes) was accepted, with target TLS
+identity validation `valid=1`, PSA pair proof and 2960 bytes minimum free stack.
+Host exchange took 1750 ms. `FIXTURE_STATUS` sent count was zero.
+
+The product Hub reached `Authenticated Hub owner started enrolled=1
+storage_epoch=1` and the correct Hub/Home binding. Source guards require a
+successful gs_outbox LittleFS mount, authenticated native outbox recovery and
+persistent journal before that log; restored outbox events also reached the
+backend. No abort/watchdog/backtrace appeared during this roughly 70-second
+capture. An initial time/authority refresh failure was logged; later signed
+time requests and repeated authenticated authority HTTP 200 responses recovered
+without intervention.
+
+S3 logged ordinary authenticated C3 rejoin at uptime 69241 ms, logical bedroom,
+session 118, then Node liveness online. Six GET_STATE samples, ending before
+that rejoin, all showed zero runtime/sensing counters. Therefore authenticated
+rejoin is PASS but increasing counters are NOT_VERIFIED, not a demonstrated C3
+firmware failure. No second port open was used to obtain a later sample.
+
+Actual physical S3 mTLS/CloudSync is PASS for recovered retained EventKeys
+`(c3-146393c5d158, bedroom, 112, 1)` and `(…,112,2)`: HTTP 201 COMMITTED for
+both, plus one duplicate=true HTTP 200 retry for key112/1. Read-only PostgreSQL
+and authenticated caregiver API checks find exactly one durable record and one
+projection per key, committing Hub `hub-e072a1d38d34`, Home
+`gs177-test-product`, ownership epoch/enrollment generation 1. The prior 66
+records remain and the count is now 68. These are retained recovery events,
+not a fresh controlled TC-001 event or REAL_PIR qualification.
+
+Current runtime `status()` returns literal NO for its Hub-authentication and
+connection fields; those values are placeholders, not measurements. The
+authenticated listener trace establishes actual mTLS success despite them.
+Do not reinstate a false authentication blocker from those static fields.
+
+NodeHealth HTTP 503 is a separate demonstrated fixture-data collision:
+PostgreSQL reports duplicate unique key
+`node_health_latest_home_id_logical_node_id_key`. Read-only inspection finds
+the stale latest-health bedroom row belongs to `test-c3-bedroom` /
+`test-hub-product`, while both that synthetic enrollment and the physical
+C3/Hub bedroom enrollment remain ACTIVE in the same Home. No row, enrollment,
+credential or historical event was removed/changed to conceal this conflict.
+Monitoring remains UNKNOWN/source STALE. Classification is INVESTIGATE_ONLY for
+an existing TEST_ONLY fixture lifecycle/configuration conflict; no commercial
+transfer implementation or ownership mutation was undertaken.
+
+The existing APK/CA-verified IP origin and actual CONNECTED/Home readiness from
+preparation remain the available phone evidence; no controlled event was sent
+or confirmed in the APK. TC-001 remains NOT_RUN. Bounded ingress/signed-time
+services remain running for their original one-hour windows; no persistent task
+was added. Firmware, protected backups, owner-local secrets and unrelated assets
+are preserved.
+
+Next exact work: resolve the live synthetic/physical fixture conflict using the
+existing authorized lifecycle while preserving historical events; obtain later
+C3 status samples without reopening/resetting the now-running S3; reconcile the
+existing console's truthful fixture/reset-risk and verified IP/DNS-origin gates.
+Only then may a separately scoped controlled injection be executed and the
+original EventKey confirmed on the actual APK. This recovery approval included
+no injection or further port operation. Host suite receipts from unchanged
+8b936b1 (32 console/helper tests and 22 mapping tests) are reused; no release,
+new firmware build or optical acceptance is claimed.
