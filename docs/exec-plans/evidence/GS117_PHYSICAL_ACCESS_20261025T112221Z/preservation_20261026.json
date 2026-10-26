@@ -1,0 +1,126 @@
+{
+  "apk": {
+    "apk_bytes": 2962212,
+    "apk_observation": "USER_CONFIRMED owner reports new Bedroom Motion after recovery; no exact key supplied",
+    "apk_sha256": "0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76",
+    "archive_crc": "PASS",
+    "backend_origin": "https://192.168.1.10/",
+    "home_id": "gs177-test-product",
+    "package": "in.gharsajag.caregiver.discoverytest",
+    "package_metadata": [
+      "versionCode=3 minSdk=26 targetSdk=35",
+      "versionName=0.4.0-connected-lite-staging",
+      "lastUpdateTime=2026-10-23 21:51:15"
+    ],
+    "signature_reverification": "NOT_RUN: no additional SDK installed",
+    "tc001": "NOT_RUN"
+  },
+  "candidate_events_not_exact_phone_binding": [
+    {
+      "caregiver_count": 1,
+      "committed_at_utc": "2026-10-26T17:11:52+00:00",
+      "committing_hub_id": "hub-e072a1d38d34",
+      "durable_count": 1,
+      "event_key": {
+        "event_sequence": 1,
+        "logical_node_id": "bedroom",
+        "origin_session_id": 112,
+        "physical_device_id": "c3-146393c5d158"
+      },
+      "event_kind": "MOTION",
+      "event_location": "Bedroom",
+      "node_enrollment_generation": 1,
+      "occurred_at_utc": "2026-10-26T17:11:52+00:00",
+      "ownership_epoch": 1,
+      "received_at_utc": "2026-10-26T17:11:52+00:00"
+    },
+    {
+      "caregiver_count": 1,
+      "committed_at_utc": "2026-10-26T17:12:25+00:00",
+      "committing_hub_id": "hub-e072a1d38d34",
+      "durable_count": 1,
+      "event_key": {
+        "event_sequence": 2,
+        "logical_node_id": "bedroom",
+        "origin_session_id": 112,
+        "physical_device_id": "c3-146393c5d158"
+      },
+      "event_kind": "MOTION",
+      "event_location": "Bedroom",
+      "node_enrollment_generation": 1,
+      "occurred_at_utc": "2026-10-26T17:12:25+00:00",
+      "ownership_epoch": 1,
+      "received_at_utc": "2026-10-26T17:12:25+00:00"
+    }
+  ],
+  "enrollment_changes": 0,
+  "final_non_disruptive_check": {
+    "age_seconds": 8.0,
+    "at": "2026-10-26T17:54:02.227140+00:00",
+    "console_fixture_gate_still_enforced": true,
+    "console_restarted_without_test": true,
+    "last_physical_authority_http_200": "2026-10-26T17:53:54.225458+00:00",
+    "listener_postgres_time_ready": true,
+    "no_hardware_or_injection": true,
+    "signed_time_last_counter": "{\"requests\": 140}"
+  },
+  "focused_regressions": {
+    "console": 32,
+    "endpoint_real_tls": 8,
+    "feature_traceability": 22,
+    "status": "PASS"
+  },
+  "hardware_operations_this_task": 0,
+  "history_deletions": 0,
+  "known_limits": [
+    "bounded one-hour ingress and time services",
+    "RAM GS40 startup configuration and one-hour envelope expiry; reboot needs approved encrypted bootstrap",
+    "two ACTIVE synthetic/physical bedroom enrollments conflict in latest NodeHealth projection",
+    "console exact fixture/reset-safe or explicitly authorized control path still missing",
+    "no live database restore or restart fault campaign executed to avoid disturbing working pipeline"
+  ],
+  "last_physical_authority_refresh": {
+    "at": "2026-10-26T17:47:33.101546+00:00",
+    "duplicate": null,
+    "event_key": null,
+    "http_status": 200,
+    "receipt_event_key": null,
+    "receipt_status": null,
+    "route": "/v1/test/authority/refresh"
+  },
+  "motion_injections_this_task": 0,
+  "origin_verification": {
+    "apk_origin": "https://192.168.1.10",
+    "canonical_origin": "https://desktop-3qqu64b.local",
+    "caregiver_home_ready": true,
+    "home_id": "gs177-test-product",
+    "method": "CA_HOSTNAME_AND_SAME_INSTALLED_LEAF",
+    "observed_at": "2026-10-26T17:41:16.298044+00:00",
+    "profile": "GS179_TEST_ONLY",
+    "route_ipv4": "192.168.1.10",
+    "server_cert_sha256": "77955a3bb7d421b3438bd615c2388ce1ff349b1b49cba02b7a57d3b45bc8705a"
+  },
+  "owner_apk_confirmation": {
+    "apk_capture_for_statement": "NONE_FABRICATED",
+    "classification": "USER_CONFIRMED",
+    "controlled_tc001_injection": false,
+    "observed_at": "NOT_SUPPLIED",
+    "owner_statement": "I personally observed new Bedroom Motion events appearing in the actual Parivar Saathi APK after recovery.",
+    "recorded_at": "2026-10-26T17:47:50.119845+00:00",
+    "specific_event_key": "NOT_SUPPLIED"
+  },
+  "persistent_service_changes": 0,
+  "pipeline": "PHYSICAL_RECOVERY_FLOW_WITH_OWNER_APK_VISIBILITY",
+  "protected_checkpoint": {
+    "database_archive_decode": "PASS",
+    "directory": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/working-pipeline-checkpoint-20261026T173535Z",
+    "live_database_restore": "NOT_RUN",
+    "manifest_verification": "PASS",
+    "mode": "0700",
+    "private_assets_committed": false,
+    "regular_files_verified": 1008
+  },
+  "recorded_at": "2026-10-26T17:47:50.119845+00:00",
+  "source_head_before_changes": "8003b7024df928f2b1922831d9194b83c64b0563",
+  "tc001": "NOT_RUN"
+}

@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import http.client
+import hashlib
 import ipaddress
+from pathlib import Path
+import re
 import socket
 import ssl
 import subprocess
@@ -95,3 +98,57 @@ class VerifiedAddressHTTPSHandler(urllib.request.HTTPSHandler):
                 host, route_ipv4=self.route_ipv4, context=self.context, **kw),
             request,
         )
+
+
+def verify_caregiver_origin_alias(canonical_origin: str, apk_origin: str,
+                                 ca_file: Path, server_cert_file: Path, *,
+                                 wifi_address_reader=None, connection_factory=None) -> dict:
+    """Verify TEST_ONLY DNS/IP aliases of the same installed HTTPS endpoint.
+
+    A private address or matching certificate SAN alone does not grant an alias.
+    The APK address must be the measured current Wi-Fi address, and both names
+    must pass the existing CA/hostname policy and serve the installed leaf.
+    """
+    def origin_host(value):
+        if not isinstance(value, str):
+            raise ValueError("invalid_caregiver_https_origin")
+        parsed = urlsplit(value)
+        if (parsed.scheme != "https" or parsed.username is not None or
+                parsed.password is not None or not parsed.hostname or
+                parsed.port not in (None, 443) or parsed.path not in ("", "/") or
+                parsed.query or parsed.fragment):
+            raise ValueError("invalid_caregiver_https_origin")
+        return parsed.hostname
+
+    canonical_host = origin_host(canonical_origin)
+    if not re.fullmatch(r"[a-z0-9-]+\.local", canonical_host):
+        raise ValueError("canonical_test_only_local_origin_required")
+    apk_host = origin_host(apk_origin)
+    try:
+        address = ipaddress.IPv4Address(apk_host)
+    except ipaddress.AddressValueError:
+        raise ValueError("apk_alias_must_be_current_private_ipv4") from None
+    if not any(address in ipaddress.IPv4Network(network) for network in
+               ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")):
+        raise ValueError("apk_alias_must_be_current_private_ipv4")
+    reader = wifi_address_reader or windows_wifi_ipv4
+    route = reader(canonical_origin)
+    if str(address) != route:
+        raise ValueError("apk_origin_is_not_current_windows_wifi_address")
+    context = ssl.create_default_context(cafile=str(ca_file))
+    installed_der = ssl.PEM_cert_to_DER_cert(Path(server_cert_file).read_text())
+    expected_hash = hashlib.sha256(installed_der).hexdigest()
+    factory = connection_factory or VerifiedAddressHTTPSConnection
+    for host in (canonical_host, apk_host):
+        connection = factory(host, route_ipv4=route, context=context, timeout=3)
+        try:
+            connection.connect()
+            peer = connection.sock.getpeercert(binary_form=True)
+            if not peer or hashlib.sha256(peer).hexdigest() != expected_hash:
+                raise ValueError("caregiver_alias_installed_server_certificate_mismatch")
+        finally:
+            connection.close()
+    return {"profile": "GS179_TEST_ONLY", "method": "CA_HOSTNAME_AND_SAME_INSTALLED_LEAF",
+            "canonical_origin": "https://" + canonical_host,
+            "apk_origin": "https://" + apk_host,
+            "route_ipv4": route, "server_cert_sha256": expected_hash}

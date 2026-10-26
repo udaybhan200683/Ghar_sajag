@@ -7888,3 +7888,44 @@ UNKNOWN/source STALE; no new controlled event is displayed or confirmed.
 TC-001 remains NOT_RUN. Existing bounded ingress/time services remain running.
 See the existing execution handoff and recovery_20261026T1711Z.json for exact
 physical evidence, source checkpoint and next actions.
+
+### GS-117 working pipeline preservation — 2026-10-26
+
+Owner personally observed new Bedroom Motion in the actual existing APK after
+physical recovery. Record USER_CONFIRMED application visibility separately:
+no exact phone observation time/EventKey was supplied. Most recent correlated
+backend candidates are retained physical session112/1 and112/2, each exactly
+once in PostgreSQL/caregiver API. This is a working recovery pipeline with
+owner phone acceptance, not a controlled TC-001 injection; TC-001 remains NOT_RUN.
+
+The existing execution handoff now contains the permanent startup/recovery
+runbook (top quick link), exact existing script references, commands, guarded
+S3 recovery and automatic/manual/missing restart behavior. Private checkpoint
+working-pipeline-checkpoint-20261026T173535Z contains 1008 verified files,
+including existing trust/config/issuer backup, runtime dependencies, actual APK,
+firmware/recovery assets and a consistent standard PostgreSQL archive. Archive
+listing/full decode PASS; live restore NOT_RUN. Private assets remain outside
+Git in owner-only storage; no saved Wi-Fi secret exported. Saved firmware
+metadata was inspected offline with existing esptool; no board port opened.
+
+Console IP/.local mismatch corrected using the existing verified endpoint
+helper: phone IP must equal current measured Wi-Fi IP, both DNS/IP TLS identities
+must validate through the existing CA, and both must serve the exact installed
+leaf. Actual laptop proof PASS; wrong CA/SAN/leaf/address and unsafe URL tests
+reject. No phone configuration, trust policy or other fixture guard changed.
+Endpoint 8/console 32 focused tests PASS; existing serial timing guard retained.
+
+NodeHealth collision remains preserved and read-only: both synthetic/physical
+bedroom enrollments ACTIVE, stale synthetic latest row conflicts. Existing
+authenticated REVOKE_NODE lifecycle is reusable but needs explicit authority;
+current code also needs an authority-checked latest-projection handover. No
+enrollment, credential or history mutation was performed.
+
+Restart limits remain explicit: existing backend unit enabled/on-failure but
+WSL Linger=no; physical ingress/time are bounded one-hour manual processes;
+S3 TEST_ONLY startup is RAM-only with one-hour configuration expiry. Persistent
+services, auto-launch, protected credential changes, hardware and injection were
+not performed. Keep the working Hub untouched; use actual mTLS receipts rather
+than hardcoded NO status fields. Remaining controlled TC-001 prerequisites:
+truthful fixture/reset-risk control, later live counters, one approved fresh
+injection and exact-key APK confirmation. See preservation_20261026.json.

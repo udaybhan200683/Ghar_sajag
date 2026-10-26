@@ -1,5 +1,8 @@
 # GS-117 physical access recovery — 2026-10-25
 
+Current reference: [working pipeline preservation and startup runbook](#working-pipeline-preservation-and-startup-runbook--2026-10-26).
+Earlier entries are dated historical checkpoints, not current blockers.
+
 Source HEAD: `30af100d2d5c84b56c7bd7abc99be031cd075cc6`. Canonical branch and context preflight PASS; no tracked changes on entry.
 
 Owning Jira: GS-117, with GS-68/GS-179 dependencies.
@@ -1612,3 +1615,280 @@ original EventKey confirmed on the actual APK. This recovery approval included
 no injection or further port operation. Host suite receipts from unchanged
 8b936b1 (32 console/helper tests and 22 mapping tests) are reused; no release,
 new firmware build or optical acceptance is claimed.
+
+### 2026-10-26 — working pipeline preservation and verified-origin correction
+
+Owner personally confirmed new Bedroom Motion events visible in the actual APK
+after recovery. Classification: USER_CONFIRMED recovery/application visibility;
+no exact EventKey or observation timestamp supplied, and not a controlled
+TC-001 injection. Preserve candidate-key correlation separately from this
+statement. Owning Jira GS-117/GS-179; no physical control or injection in scope.
+
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`; `REQUIREMENT_SOURCE=existing GS117 console
+origin gate and GS179 CA/hostname-verified endpoint selection`;
+`DECISION_IDS=NONE`; `TASK_SCOPE=allow the actual APK's current private-IP HTTPS
+origin only after both IP and canonical DNS TLS identities verify against the
+existing CA and exact installed server leaf certificate`;
+`OUT_OF_SCOPE=TLS bypass, trust/certificate changes, enrollment mutation,
+hardware access, persistent-service enablement or motion injection`.
+
+Affected components: existing endpoint helper and TC001 console fixture gate.
+Reuse registered endpoint/console suites; add actual loopback TLS positive and
+wrong-CA/SAN/leaf/address cases and fixture integration rejection tests. Existing
+serial timing/security/receipt gates remain intact. This is host tooling only;
+no firmware build or physical qualification is implied.
+
+## Working pipeline preservation and startup runbook — 2026-10-26
+
+This is the maintained reference for the existing single TEST_ONLY fixture,
+owned by GS-117/GS-179/GS-68. GS-148 owns the health/ownership collision.
+Preservation baseline local/remote: `8003b7024df928f2b1922831d9194b83c64b0563`.
+No hardware control, injection, enrollment mutation, credential issuance,
+service-persistence or network-policy change occurred in this checkpoint.
+Final delivery SHA is recorded in the GS-117 Jira comment.
+
+### Verified working state
+
+| Component | Preserved state and evidence |
+| --- | --- |
+| C3 | COM4, `c3-146393c5d158`, USB `14:63:93:C5:D1:58`, OTA0, HIL_AWAKE_TEST_ONLY; HIL_BUILD=0/HIL_CONTROL=1/PHYSICAL_WAKE=0. Saved readback SHA `591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea`; official offline descriptor `gs_hw_m1_node`, `8cbda4b-dirty`, IDF v6.0.3. No readback repeated. |
+| S3 | COM10, `hub-e072a1d38d34`, USB `E0:72:A1:D3:8D:34`, product OTA1 `0x420000`; SHA `c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16`, `gs_r1_s3_hub`, `9bbc6d0-dirty`, ELF `c77483102425bcb77b95df4570b09168f64cd290522705d92241dc766da39e0c`, IDF v6.0.3. Recovery OTA0 preserved. |
+| Radio/ownership/storage | Existing Home `gs177-test-product`, epoch1, physical Node enrollment generation1. Authenticated ordinary session118 rejoin and Node liveness online. Guarded product gs_outbox mount/native recovery and owner-start enrolled1/storage_epoch1. Counter samples preceded rejoin; increasing counters not claimed. |
+| Backend | Existing PG/caregiver HTTPS, physical mTLS8445, signed-time4468. Sustained actual authority HTTP200, retained physical keys112/1 and112/2 COMMITTED, one row/API projection each, duplicate retry suppressed. Original66 records retained, total68 at checkpoint. |
+| Android | Existing `in.gharsajag.caregiver.discoverytest`, v0.4.0-connected-lite-staging, saved `https://192.168.1.10/`, Home correct. Actual installed APK SHA `0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76` preserved; no reinstall. |
+
+Owner personally confirmed new Bedroom Motion visible after recovery:
+**USER_CONFIRMED** recovery/application visibility. No exact EventKey or phone
+observation time was supplied. The most recent correlated candidates are
+physical session112 sequence1 (delivery17:11:53 UTC) and sequence2
+(17:12:25 UTC). Their API chronology/counts and the separate owner statement
+are in [preservation_20261026.json](preservation_20261026.json). Do not claim
+that the owner individually identified either key, or fabricate an APK capture.
+**TC-001 remains NOT_RUN**: no controlled C3_HIL_INJECTED event was generated.
+Optical PIR acceptance remains separate.
+
+### Git and protected preservation inventory
+
+Git contains the production firmware/security/storage/API implementations,
+serial helper, GS40 envelope and signed-time code, issuer contracts, GS179
+listener/PG composition, LAN proxy, APK source, console, tests and sanitized
+reports. Private credentials/configuration, binaries and raw backups stay out.
+
+Owner-only verified checkpoint directory:
+`~/.local/state/ghar-sajag/gs117-tc001/working-pipeline-checkpoint-20261026T173535Z/`.
+`MANIFEST.json` records relative paths, sizes, modes and hashes; every recorded
+file was read back and verified. It contains existing fixture trust/keys and
+consistent issuer SQLite backup; backend TLS/server.env/login/user unit;
+C3/S3 binaries and official image metadata; dated verified S3 deployment
+snapshots; runtime PG/Python dependencies; actual installed APK; protected
+operator scripts; origin proof, original evidence and owner confirmation.
+
+A standard consistent `pg_dump` custom archive is included. Matching-major18
+Ubuntu client tools were downloaded/extracted locally, without installing a
+service. Archive listing and full `pg_restore --file=/dev/null` decode PASS;
+a live restore/fault restart was NOT_RUN. Global DB roles/system OS state are
+not a full-machine backup. Do not copy the running PG data directory or
+restore over the live database. Any restoration needs an approved clean-target
+plan. Raw NVS/outbox/state snapshots are dated deployment evidence, not current
+security-counter state or authority for blind rollback.
+
+No saved Wi-Fi secret was exported/stored. The protected bootstrap retrieves
+the approved Windows profile into memory only during an authorized operation.
+Do not run `provision` to restore working identities/credentials.
+
+### Safe initial checks and backend startup
+
+```bash
+cd /home/udaybhan/projects/Ghar_sajag_r1
+tools/context/ghar_sajag_context_preflight.sh
+git branch --show-current
+git rev-parse HEAD
+git ls-remote origin refs/heads/feature/r1-commercial-baseline
+ip -4 -o addr show dev eth0
+systemctl --user is-active gs179-laptop.service
+bash code/tools/local/gs179-laptop-server.sh health
+```
+
+If endpoint bindings/certificates are unchanged and the existing unit is
+inactive, use `systemctl --user start gs179-laptop.service`. That existing unit
+starts PG and caregiver HTTPS. It is already enabled with Restart=on-failure;
+Linger=no, so an active WSL user manager/session is required. Do not enable
+linger/tasks here. Windows boot is not qualified unattended WSL startup.
+`gs179-laptop-server.sh start/restart/network-refresh` also refreshes endpoint
+configuration/restarts/proxies; it is not a read-only health check.
+
+Serial List action reads Windows metadata only. Do not open either COM port to
+check health: native USB open/close can reset a board. Observe running S3 via
+actual authority/event receipts. Current ingress status() hardcodes auth and
+connection NO; these placeholders do not override actual authenticated traces.
+
+### Trusted Windows forwarding after address changes
+
+Use only existing `code/tools/local/gs179-windows-lan-proxy.ps1`, reviewed
+against canonical source/hash before elevation. In Windows PowerShell:
+
+```powershell
+$script = '\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179-windows-lan-proxy.ps1'
+$p = Get-NetConnectionProfile -InterfaceAlias 'Wi-Fi'
+if ($p.Name -ne 'Airtel_Agrim' -or $p.NetworkCategory -ne 'Private') { throw 'Trusted Private Wi-Fi required' }
+$line = wsl.exe -d Ubuntu -- ip -4 -o addr show dev eth0
+if ($line -notmatch '\binet\s+([0-9.]+)/') { throw 'Current WSL IPv4 missing' }
+$wslAddress = $Matches[1]
+foreach ($endpoint in @('Caregiver','PhysicalHubIngress')) {
+  powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $script -Action Audit -EndpointKind $endpoint -WslAddress $wslAddress
+}
+```
+
+Repair only if needed: use the same script/arguments with Action Start through
+normal UAC (`Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList ...`),
+process-only RemoteSigned. Supply PreviousWslAddress only from the preserved
+GS179 target record if replacing a stale owned target. The script discovers
+Wi-Fi IP/subnet and limits the exact named rules:443→8444 and8445→8445.
+Action Stop for the exact endpoint is the existing rollback. Never guess/delete
+unknown entries, allow Public networks, use unrestricted rules or RegisterWatch.
+If a new IP is absent from TLS SANs, the existing network-refresh-config /
+approved leaf refresh is a protected configuration write; do not silently
+reissue certificates. No such change was needed/performed here.
+
+### Fresh bounded host services using the existing protected scripts
+
+Do not overwrite historical logs or reuse a consumed attempt marker. Prepare
+fresh code copies/evidence only (this snippet does no device I/O):
+
+```bash
+umask 077
+python3 - <<'PY'
+from pathlib import Path
+from datetime import datetime, timezone
+import ast
+backup = Path.home()/'.local/state/ghar-sajag/gs117-tc001/working-pipeline-checkpoint-20261026T173535Z'
+run = backup.parent/('fixture-session-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+run.mkdir(mode=0o700)
+for source in (backup/'operator-scripts').glob('*.py'):
+    tree = ast.parse(source.read_text())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'state' for t in node.targets):
+            node.value = ast.parse('Path('+repr(str(run))+')', mode='eval').body
+    target = run/source.name
+    target.write_text(ast.unparse(tree)+'\n')
+    target.chmod(0o600)
+print(run)
+PY
+```
+
+Verify protected-template manifest hashes first. Set GS117_SESSION_DIR to the
+printed directory; do not start duplicates if8445/4468 already have a listener.
+The existing scripts require these established dependency paths:
+
+```bash
+export PYTHONPATH="$HOME/.local/share/ghar-sajag/gs179-laptop/python-deps${PYTHONPATH:+:$PYTHONPATH}"
+export LD_LIBRARY_PATH="$HOME/.local/share/ghar-sajag/gs179-laptop/postgres-root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+nohup python3 -u "$GS117_SESSION_DIR/gs117-active-ingress.py" >"$GS117_SESSION_DIR/ingress-service.log" 2>&1 &
+printf '%s\n' "$!" >"$GS117_SESSION_DIR/ingress-operator.pid"
+nohup python3 -u "$GS117_SESSION_DIR/gs117-start-existing-signed-time.py" >"$GS117_SESSION_DIR/signed-time-operator.log" 2>&1 &
+printf '%s\n' "$!" >"$GS117_SESSION_DIR/signed-time-operator.pid"
+```
+
+Both stop after3600s; no persistent task/autostart. Ingress uses measured WSL
+private bind; signed-time uses verified current Windows Private address. Check
+READY, listener/PG/time status, then genuine S3 authority/event receipts. Stop
+only session-recorded PIDs; SIGNED_TIME_READY records the exact Windows child
+PID for ordinary Stop-Process if needed. Existing Home/issuer/epoch are reused.
+
+### S3 encrypted startup and C3 rejoin
+
+Do not reset/bootstrap a healthy S3 following only a host-service restart.
+Existing15-second station/time/authority refresh can recover while its RAM
+configuration remains valid. A real S3 reboot loses TEST_ONLY RAM configuration
+and Wi-Fi credentials. Its existing GS40 receiver then requires a fresh
+challenge-bound encrypted frame; never replay cached ciphertext. The fixture
+script sets a one-hour envelope expiry; expiry fences time/authority refresh.
+Host restart alone does not extend the envelope.
+
+Only after explicit current approval for exact serial/reset/config risks,
+use the copied, reviewed existing bootstrap once:
+
+```bash
+env GS117_APPROVED_RECOVERY=GS117-S3-RUNTIME-RECOVERY-ONE-ATTEMPT \
+  python3 "$GS117_SESSION_DIR/gs117-protected-bootstrap-current-network.py"
+```
+
+It opens exact COM10/S3 and COM4/C3, resets S3 once, checks OTA1/version/ELF,
+sends one encrypted frame from existing protected material and observes bounded
+status. The environment marker does not substitute for owner approval; do not
+set it globally. Its pinned helper hash must not be altered after a source
+upgrade without review. No plaintext secret is logged/saved. Stop on rejection
+or mismatch; no retry/flash/recommission fallback. FIXTURE_STATUS stays disabled
+throughout bootstrap. The preserved helper independently requires explicit
+HIL_FIXTURE_READY and no pending GS40 challenge before sending that text.
+
+C3 keeps identity/association/events and rejoins normally. Long-outage
+channel/backoff recovery may take about13 minutes; no reset/flash/commissioning
+is needed. Do not reopen S3 to poll C3 and lose restored RAM configuration.
+Samples taken before rejoin do not establish a runtime failure.
+
+### Verify delivery and APK without generating events
+
+Existing read-only helper example for retained recovery data (not TC-001):
+
+```bash
+printf '%s' '{"action":"event","home_id":"gs177-test-product","physical_device_id":"c3-146393c5d158","logical_node_id":"bedroom","origin_session_id":112,"event_sequence":1}' \
+  | bash code/tools/local/gs117-tc001-backend.sh
+```
+
+Require durable_count=1, caregiver_count=1, original EventKey, correct physical
+Hub/Home/epoch/enrollment and real mTLS COMMITTED trace. Duplicate receipt does
+not mean duplicate business event. Never use seed/event/health-source generation
+as a health probe. Open the existing APK with saved login; verify Home, HTTPS
+origin and chronology. ADB is optional; reuse existing official Platform-Tools.
+The console now accepts the current private IP alias only after live CA and
+hostname verification for both names and exact installed leaf equality.
+No APK origin, pin, credential or trust-policy change is needed.
+
+### Restart reliability and remaining work
+
+| Trigger | Existing behavior | Qualification/remaining gap |
+| --- | --- | --- |
+| Caregiver process crash | Existing enabled user-unit Restart=on-failure; preserved PG/config | Automated within active WSL user manager; no disruptive restart tested here. |
+| Laptop/WSL reboot | Database/keys/unit persist | Manual WSL/user service and endpoint audit; Linger=no; no new auto-launch. |
+| Ingress/time stop | Restart existing bounded scripts and same credentials | Manual one-hour windows, not persistent service configuration. |
+| Wi-Fi/WSL IP change | Scoped proxy audit/normal-UAC repair and approved SAN refresh | Manual; no Public exposure, watch task or certificate change here. |
+| Backend outage, S3 powered | Durable outbox and authenticated retry/refresh | Implemented; duplicate recovery receipt observed, no outage campaign repeated. |
+| S3 reboot/envelope expiry | Fresh approved encrypted configuration | Manual TEST_ONLY recovery. RAM profile is not commercial unattended startup. |
+| C3 restart/outage | Retained association/events, ordinary authenticated rejoin | Physically observed; no new restart test. |
+| APK restart | Saved origin/login and reconnect logic | Working app/owner visibility confirmed; IP-change phone recovery not qualified here. |
+
+Smallest next development improvement: explicit opt-in lifecycle composition of
+the existing ingress/time processes in the existing launcher/service, with
+truthful health and session bounds. Keep it disabled until authorized; do not
+create another framework. Commercial release must use the existing persistent
+credential/time architecture and separately qualify restart/backup restore;
+this checkpoint enables neither persistence nor new provisioning infrastructure.
+
+The NodeHealth collision is preserved: two ACTIVE synthetic/physical bedroom
+enrollments and the synthetic latest-health row occupy the same Home/room.
+Existing HubOwnershipRegistry.revoke_node supports scoped authenticated
+retirement while retaining event history; invoking it needs explicit authority.
+Revocation alone does not reclaim the latest-health unique row in current
+source, so a tested authority-checked projection handover is also needed.
+Do not delete rows, weaken uniqueness or silently revoke either fixture.
+Track this in existing GS-179/GS-148 work; no commercial transfer implementation.
+
+Minimum TC-001 prerequisites remain: truthful current fixture and approved
+serial/reset-risk control that preserves the running S3; fresh C3 runtime/
+sensing proof; one separately authorized INJECT_MOTION, original-key durable
+correlation, and actual APK confirmation of that controlled event. This task
+performs no hardware operation or motion injection.
+
+Preservation validation: endpoint8 real-TLS tests PASS; existing console32
+PASS (including serial timing, no-approval/wrong-fixture and alias integration
+rejection); feature mapping/framework22 PASS; Python compilation, JSON parsing,
+context preflight and whitespace checks PASS. Actual DNS/IP proof validates
+through the same CA and installed leaf, with canonical Home readiness PASS.
+The idle local console was restarted through the existing launcher to load the
+fix; its missing full fixture gate remains BLOCKED, and no Run/serial action
+was invoked. PostgreSQL/caregiver service and physical S3 were not restarted.
+Sustained actual authority HTTP200 and ready signed-time/listener evidence were
+rechecked after preservation; exact final timestamp is in preservation JSON.
+Unrelated untracked/ignored assets remain intact. No full release, disruptive
+restart, database restoration or new physical acceptance test was performed.

@@ -8,6 +8,7 @@ import hashlib
 import io
 from http.server import ThreadingHTTPServer
 import os
+import ssl
 from pathlib import Path
 import subprocess
 import sys
@@ -129,6 +130,19 @@ class TC001Test(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "installed_APK"):
                     tc.exact_fixture()
                 phone_state["backend_origin"] = "https://laptop.local"; phone.write_text(json.dumps(phone_state))
+                phone_state["backend_origin"] = "https://192.168.1.10/"
+                phone.write_text(json.dumps(phone_state))
+                proof = {"profile": "GS179_TEST_ONLY", "server_cert_sha256": "f" * 64}
+                with patch.object(tc, "verify_caregiver_origin_alias", return_value=proof) as verify:
+                    self.assertEqual(tc.exact_fixture()["caregiver_origin_verification"], proof)
+                    self.assertEqual(verify.call_args.args[:2],
+                                     ("https://laptop.local", "https://192.168.1.10/"))
+                with patch.object(tc, "verify_caregiver_origin_alias",
+                                  side_effect=ssl.SSLCertVerificationError("invalid test identity")):
+                    with self.assertRaisesRegex(ValueError, "installed_APK"):
+                        tc.exact_fixture()
+                phone_state["backend_origin"] = "https://laptop.local"
+                phone.write_text(json.dumps(phone_state))
                 fixture["hub_id"] = "hub-e072a1d38d34"
                 fixture["physical_device_id"] = "c3-146393c5d158"
                 ingress_state["hub_id"] = fixture["hub_id"]

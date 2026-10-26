@@ -19,6 +19,7 @@ import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(ROOT / "code" / "backend"))
 from ghar_sajag.identity_namespaces import (
     is_gs179_test_hub_id,
@@ -27,6 +28,7 @@ from ghar_sajag.identity_namespaces import (
     is_physical_hub_id,
     is_physical_node_id,
 )
+from gs179_verified_endpoint import verify_caregiver_origin_alias
 
 STATE = Path.home() / ".local/state/ghar-sajag/gs117-tc001"
 FIXTURE = Path.home() / ".config/ghar-sajag/gs117-tc001/fixture.json"
@@ -182,10 +184,17 @@ def exact_fixture() -> dict:
             phone.get("package") not in {"in.gharsajag.caregiver", "in.gharsajag.caregiver.discoverytest"} or
             phone.get("installed") is not True or
             phone.get("home_id") != fixture["home_id"] or
-            phone.get("backend_origin") != expected_origin or
             not re.fullmatch(r"[0-9a-f]{64}", phone.get("signer_sha256", "")) or
             phone_observed.tzinfo is None or not 0 <= phone_age <= 86400):
         raise ValueError("installed_APK_backend_Home_or_signer_unverified")
+    if phone.get("backend_origin") != expected_origin:
+        tls_dir = Path.home() / ".local/share/ghar-sajag/gs179-laptop/tls/android"
+        try:
+            fixture["caregiver_origin_verification"] = verify_caregiver_origin_alias(
+                expected_origin, phone.get("backend_origin"),
+                tls_dir / "ca.pem", tls_dir / "server.pem")
+        except (ValueError, OSError):
+            raise ValueError("installed_APK_backend_Home_or_signer_unverified") from None
     if not fixture.get("hub_ingress_receipt"):
         raise ValueError("authenticated_persistent_Hub_ingress_receipt_missing")
     ingress = json.loads(Path(fixture["hub_ingress_receipt"]).read_text(encoding="utf-8"))
@@ -515,6 +524,8 @@ class Controller:
                 "s3": {"port": fixture["s3"]["port"], "image_sha256": fixture["s3"]["image_sha256"],
                        "firmware_source_head": fixture["s3"]["firmware_source_head"]},
             }
+            if "caregiver_origin_verification" in fixture:
+                report["caregiver_origin_verification"] = fixture["caregiver_origin_verification"]
             stage(report, "environment", "PASS", "TEST_ONLY backend and exact approval receipt present")
             ports = powershell("List")
             if isinstance(ports, dict):

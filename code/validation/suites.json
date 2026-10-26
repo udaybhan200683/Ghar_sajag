@@ -2572,6 +2572,7 @@
       "inputs": [
         "tests/python/test_gs117_tc001_console.py",
         "tools/local/gs117_tc001_console.py",
+        "tools/local/gs179_verified_endpoint.py",
         "tools/local/gs117_tc001_serial_windows.py",
         "tools/local/gs117_tc001_backend.py",
         "tools/local/gs117-tc001-backend.sh",

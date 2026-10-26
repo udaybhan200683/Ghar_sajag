@@ -1588,3 +1588,15 @@ enrollment collision explains NodeHealth unique-constraint failures; it was
 diagnosed read-only and not hidden by record removal or ownership changes.
 TC-001 controlled-event/APK acceptance remains NOT_RUN. No LOCKED requirement,
 production security/lifecycle policy or CONTEXT_VERSION changed.
+
+### 2026-10-26 GS117 working pipeline preservation; no new LOCKED decision
+
+Owner confirmed recovery-motion visibility in the actual APK (USER_CONFIRMED,
+exact key/time unspecified), separate from controlled TC-001 NOT_RUN. Existing
+implementation/evidence and protected runtime/credential/database/firmware
+assets are preserved with a verified manifest and maintained recovery runbook.
+The console now verifies current private-IP/DNS alias identity through the
+existing CA, hostname checks and exact installed leaf; production trust and
+other fixture guards are unchanged. No enrollment/history mutation, persistent
+service enablement, device operation or injection occurred. RAM-only TEST_ONLY
+restart/expiry limits remain explicit; CONTEXT_VERSION is unchanged.
