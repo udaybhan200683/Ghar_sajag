@@ -7824,3 +7824,33 @@ Only the eight scoped implementation and evidence files were committed.
 Existing untracked and ignored firmware, Android, hardware evidence and
 owner-local credentials were preserved. The latest GS-117 Jira comment records
 the final HEAD including the handoff closeout.
+
+### GS-117 S3 runtime recovery prepared — 2026-10-26
+
+The existing protected GS40 bootstrap and c26 OTA1 boot evidence were reviewed.
+All 16 saved pre/post-deployment backup regions verify. Existing fixture
+keys/certificate match their backup; the current RSA-3072 ClientAuth pair and
+exact ACTIVE Hub generation 1 registry entry verify. No credential issuance,
+Wi-Fi secret retrieval or board serial open occurred during preparation.
+
+The existing Private Airtel_Agrim address is dynamically confirmed as
+192.168.1.10/24, with correct existing 443/8445 forwarding. Existing bounded
+signed-time and physical ingress services are running again for 3600 seconds;
+ingress reports listener/PostgreSQL/time ready but no actual Hub authentication.
+The initial ingress dependency-path error was fixed by reusing the GS179
+dependency environment. No service replacement or network-policy change.
+
+The actual existing Android APK now visibly shows CONNECTED and Home
+gs177-test-product; monitoring remains UNKNOWN/source STALE. The saved
+CA-verified IP origin is unchanged. No fresh motion display is claimed.
+
+A single-attempt protected recovery invocation is prepared in the owner-local
+`s3-runtime-recovery-20261026T170152Z` state directory. It requires explicit
+approval for serial-open/close risks on both boards, one S3 application reset,
+one encrypted GS40 configuration delivery, and bounded read-only status
+sampling. The existing serial helper's optional default-OFF GET_STATE polling
+permits increasing C3 counters to be checked without reopening S3. The S3
+FIXTURE_STATUS query is disabled throughout recovery. No motion/flash/enrollment
+change is included. Exact bounds, script hash, risks and stop/recovery conditions
+are in the existing GS117 EXECUTION.md. Physical recovery is APPROVAL_PENDING;
+TC-001 remains NOT_RUN and the normal console fixture/origin gates remain.

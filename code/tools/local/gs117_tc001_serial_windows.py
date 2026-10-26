@@ -249,6 +249,10 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
     observation_seconds = config.get("observation_seconds", 10)
     if type(observation_seconds) is not int or not 10 <= observation_seconds <= 60:
         raise ValueError("TC001_OBSERVATION_SECONDS_OUT_OF_RANGE")
+    c3_status_interval_seconds = config.get("c3_status_interval_seconds", 0)
+    if (type(c3_status_interval_seconds) is not int or
+            c3_status_interval_seconds != 0 and not 5 <= c3_status_interval_seconds <= 30):
+        raise ValueError("TC001_C3_STATUS_INTERVAL_OUT_OF_RANGE")
     serial_factory = serial.Serial if serial_factory is None else serial_factory
     port_finder = ports if port_finder is None else port_finder
     clock = time.monotonic if clock is None else clock
@@ -311,6 +315,7 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             sleep(0.02)
         c3_stream.write(b"GET_STATE\n")
         c3_stream.flush()
+        c3_status_queries = 1
         s3_config_receive_pending = any("GS40T/1 CHALLENGE" in line for line in s3_lines)
         s3_status_command_ready = any(
             "HIL_FIXTURE_READY" in line and "FIXTURE_STATUS" in line for line in s3_lines)
@@ -327,13 +332,21 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
                 s3_stream.flush()
                 s3_status_command_sent = True
         deadline = clock() + observation_seconds - 4
+        next_c3_status = (clock() + c3_status_interval_seconds
+                          if c3_status_interval_seconds else None)
         while clock() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines)
             s3_tail = collect(s3_stream, s3_tail, s3_lines)
+            if next_c3_status is not None and clock() >= next_c3_status:
+                c3_stream.write(b"GET_STATE\n")
+                c3_stream.flush()
+                c3_status_queries += 1
+                next_c3_status = clock() + c3_status_interval_seconds
             sleep(0.02)
         if not any("HIL_STATE role=c3" in line for line in c3_lines):
             raise ValueError("TC001_INSTALLED_C3_HIL_STATUS_NOT_OBSERVED")
         result = {"c3": c3_lines, "s3": s3_lines,
+                  "c3_status_queries": c3_status_queries,
                   "s3_config_receive_pending": s3_config_receive_pending,
                   "s3_status_command_ready": s3_status_command_ready,
                   "s3_status_command_sent": s3_status_command_sent}

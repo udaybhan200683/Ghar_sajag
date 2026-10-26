@@ -1567,3 +1567,13 @@ startup. The helper now sends that query only after the running Hub advertises
 the command. Authentication, ownership, configuration, storage and production
 requirements are unchanged. TC-001 remains NOT_RUN; see the current GS117
 execution record. `CONTEXT_VERSION` is unchanged.
+
+### 2026-10-26 GS117 recovery preparation; no new LOCKED decision
+
+Reuse the same protected GS40 RAM configuration, installed c26 product Hub,
+fixture authority and bounded services for the proposed S3 recovery. Existing
+observer polling is default-OFF and bounded; it samples C3 status on an already
+open connection and changes no firmware/protocol semantics. Physical reset and
+configuration delivery remain subject to the owner's specific approval. No
+production trust, persistence, ownership or release requirement changed;
+`CONTEXT_VERSION` is unchanged.

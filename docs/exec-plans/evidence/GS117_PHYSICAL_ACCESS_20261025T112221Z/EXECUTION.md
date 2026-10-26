@@ -1433,3 +1433,106 @@ evidence files were committed. Existing untracked firmware, Android, hardware
 evidence and owner-local credentials were preserved and not staged. The final
 HEAD including this handoff closeout is recorded in the latest GS-117 Jira
 comment.
+
+### 2026-10-26 — S3 configuration recovery preparation (physical approval pending)
+
+Owning Jira: GS-117, with GS-68/GS-179 integration evidence. Reuse the existing
+protected bootstrap/operator scripts, installed OTA1 c26 application, fixture
+CA/Hub credential, signed-time service and PostgreSQL ingress. No issuance,
+enrollment, firmware or storage-layout change is planned.
+
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`; `REQUIREMENT_SOURCE=GS117 bounded physical
+recovery and live C3 counter verification`; `DECISION_IDS=NONE`;
+`TASK_SCOPE=optional bounded GET_STATE polling inside the existing open serial
+observation, so recovery can verify increasing counters without reopening S3`;
+`OUT_OF_SCOPE=firmware/security/protocol changes, motion injection and physical
+execution before the owner approves the exact recovery attempt`.
+
+The existing registered GS117 console/helper suite owns positive, invalid-option
+and no-command-during-GS40-receive regressions. Host-only tests cannot establish
+physical recovery or TC-001 acceptance; no commercial release gate is claimed.
+
+Preparation results (no board port opened): exact Windows USB metadata still
+matches COM4/C3 `14:63:93:C5:D1:58` and COM10/S3 `E0:72:A1:D3:8D:34`.
+`Airtel_Agrim` is Private at dynamically observed `192.168.1.10/24`; existing
+443/8445 routes match that address. Caregiver TLS validates through the existing
+CA for both the IP and `desktop-3qqu64b.local`. Backend authority remains the
+same Home/epoch/enrollment; the existing 66 events remain historical.
+
+All 16 saved pre/post-deployment region backups match their manifests. The
+saved installed OTA1 prefix matches c26 SHA-256, and its embedded configuration
+root matches the existing protected root key/public DER. The existing Hub
+certificate is current, RSA-3072, ClientAuth, paired with its private key and
+registered ACTIVE for exact Hub generation 1. Existing key/certificate files
+match the protected trust backup and are owner-only. No new credential was
+issued, and no saved Wi-Fi secret was fetched during preparation.
+
+Existing bounded host services were restarted from the prior operator scripts
+in owner-only runtime directory
+`~/.local/state/ghar-sajag/gs117-tc001/s3-runtime-recovery-20261026T170152Z/`.
+The initial ingress start lacked the existing Python dependency environment;
+it failed before listening. Reusing the established GS179 Python/LD paths
+corrected startup. Ingress now reports listener/PostgreSQL/trusted-time ready
+on WSL `172.17.152.10:8445`; Windows signed-time is ready on
+`192.168.1.10:4468`. Both are bounded to 3600 seconds, without autostart or
+firewall changes. A TCP route check used no client certificate and is not Hub
+authentication. `real_hub_authenticated=NO` / `hub_connected=NO` remain honest.
+
+The existing Motorola is authorized in ADB. The existing app was opened without
+changing its data; the actual screen shows CONNECTED, Home
+`gs177-test-product`, monitoring UNKNOWN/source STALE. Its saved origin is
+`https://192.168.1.10/`, without a stored SPKI pin. Owner-only screenshot
+`android-caregiver-screen.png` is readiness evidence only. Remaining console
+gates include the missing full fixture receipt, reset-risk handling for an
+event run, and its strict `.local`/exact-origin check against the phone's
+CA-verified IP origin. None was bypassed or represented as PASS.
+
+**Prepared physical operation — explicit approval pending:**
+
+1. Recheck the exact USB identities, Private network, unchanged helper and live
+   services. Open COM10 and COM4 once, DTR/RTS low. Either native-USB serial open
+   or close may reboot a board; this remains unqualified as reset-safe.
+2. Use the existing S3 native-USB `HardReset(uses_usb=True)` once to obtain a
+   fresh boot/challenge. Require OTA1 offset `0x420000`, version
+   `9bbc6d0-dirty`, ELF prefix `c77483102` before sending anything confidential.
+   This is an application reboot, with no ROM flash write or OTA selection.
+3. Use the same approved saved Windows Wi-Fi profile and existing protected
+   fixture keys to generate one challenge-bound encrypted/signed GS40 frame.
+   Keep plaintext only in memory. Send it once; send no `FIXTURE_STATUS` at any
+   point in this attempt. Do not issue or replace credentials or enrollment.
+4. Observe up to 60 seconds, polling only C3 GET_STATE every 10 seconds on the
+   same handle. Record actual S3 acceptance/startup/storage/time/CloudTrust,
+   ordinary C3 rejoin and counter progression, and actual backend mTLS traffic.
+   No INJECT_MOTION is part of this approval request.
+5. Close both handles and stop on mismatch, rejection, timeout or crash, with
+   no retry, flash, erase, selector change or commissioning fallback. A failed
+   bootstrap may leave S3 waiting for configuration/restarting; preserve power
+   and report the exact evidence. Existing recovery image/backups are retained
+   but this operation does not authorize their deployment.
+
+Configuration/Wi-Fi credential material is RAM-only (`WIFI_STORAGE_RAM`).
+Successful normal runtime may advance authenticated time/security counters,
+journal acknowledgements and ordinary durable state; it does not promise
+byte-identical live NVS. No raw persistent-region write or deletion is planned.
+
+The prepared operator script reuses the successful bootstrap, pins the reviewed
+helper hash, refuses execution without the exact owner approval marker and
+creates an exclusive one-attempt marker before launching the child. Challenge
+wait is capped at 30 seconds and subsequent completion at 85 seconds; there is
+no automatic retry. Host preflight plus the physical attempt are bounded to
+approximately three minutes. Current script SHA-256:
+`e760c04dd312b3b1078862cd1973496e42e2f1f9e3eed595f25963c2c76c0278`.
+Running it with approval absent was verified to stop before device access;
+`recovery-attempt.started.json` does not exist. Its owner-local path is
+`s3-runtime-recovery-20261026T170152Z/gs117-protected-bootstrap-current-network.py`.
+
+Validation: existing console/helper suite 32/32 PASS (including default one-query
+behavior, bounded polling, invalid intervals, challenge-only, stale READY plus
+challenge, and absent READY exclusion); feature mapping/framework 22/22 PASS;
+Python compilation, diff whitespace and context preflight PASS. Firmware,
+board-stack and release suites are NOT_RUN for this host-only preparation.
+Preparation base is canonical local/remote
+`940256596d73e7beff4877f42dc048932df8983a`; final scoped delivery SHA is recorded
+in GS-117 Jira. Owner-local runtime files, credentials, screenshots and existing
+untracked/ignored assets remain outside the commit. No board serial handle was
+opened in this preparation task.

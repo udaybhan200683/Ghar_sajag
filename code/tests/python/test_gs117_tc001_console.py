@@ -338,9 +338,27 @@ class TC001Test(unittest.TestCase):
             clock=fake_clock, sleep=lambda _seconds: None,
             boot_reset=after_reset, bootstrap_exchange=exchange)
 
+        # GS117-RECOVERY-STATUS-001: sample live counters without reopening ports.
+        fake_streams = [FakeSerial(), FakeSerial()]
+        stream_iter = iter(fake_streams)
+        clock_value[0] = 0.0
+        result = tc_serial.observe(
+            {"c3": boards["c3"], "s3": boards["s3"],
+             "observation_seconds": 30, "c3_status_interval_seconds": 5},
+            serial_factory=lambda: next(stream_iter),
+            port_finder=lambda: [boards["c3"], boards["s3"]],
+            clock=fake_clock, sleep=lambda _seconds: None)
+        self.assertGreater(result["c3_status_queries"], 1)
+        self.assertLessEqual(result["c3_status_queries"], 6)
+        self.assertEqual(fake_streams[0].writes, [])
+        self.assertEqual(fake_streams[1].writes,
+                         [b"GET_STATE\n"] * result["c3_status_queries"])
+        self.assertTrue(all(not stream.is_open for stream in fake_streams))
+
     def test_observer_skips_status_command_during_secure_config_receive(self):
         """GS117-S3-STATUS-GATE-001: do not feed CLI text to GS40 envelope RX."""
         class FakeSerial:
+            startup = b""
             def __init__(self):
                 self.port = ""
                 self.timeout = None
@@ -355,7 +373,7 @@ class TC001Test(unittest.TestCase):
             def open(self):
                 self.is_open = True
                 if self.port == "COM10":
-                    self.buffer.extend(b"GS40T/1 CHALLENGE nonce=fixture-test\n")
+                    self.buffer.extend(self.startup)
             def write(self, data):
                 self.writes.append(data)
                 if data == b"GET_STATE\n":
@@ -373,25 +391,30 @@ class TC001Test(unittest.TestCase):
             "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
                    "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34"},
         }
-        streams = [FakeSerial(), FakeSerial()]
-        iterator = iter(streams)
-        tick = [0.0]
-        def clock():
-            tick[0] += 1.0
-            return tick[0]
+        challenge = b"GS40T/1 CHALLENGE nonce=fixture-test\n"
+        ready = b"HIL_FIXTURE_READY protocol=1 commands=FIXTURE_STATUS\n"
+        for startup in (challenge, ready + challenge, b""):
+            with self.subTest(startup=startup):
+                FakeSerial.startup = startup
+                streams = [FakeSerial(), FakeSerial()]
+                iterator = iter(streams)
+                tick = [0.0]
+                def clock():
+                    tick[0] += 1.0
+                    return tick[0]
 
-        result = tc_serial.observe(
-            {"c3": boards["c3"], "s3": boards["s3"], "query_s3_status": True,
-             "s3_boot_reset": False, "observation_seconds": 10},
-            serial_factory=lambda: next(iterator),
-            port_finder=lambda: [boards["c3"], boards["s3"]],
-            clock=clock, sleep=lambda _seconds: None)
-        self.assertTrue(result["s3_config_receive_pending"])
-        self.assertFalse(result["s3_status_command_ready"])
-        self.assertFalse(result["s3_status_command_sent"])
-        self.assertEqual(streams[0].writes, [])
-        self.assertEqual(streams[1].writes, [b"GET_STATE\n"])
-        self.assertTrue(all(not stream.is_open for stream in streams))
+                result = tc_serial.observe(
+                    {"c3": boards["c3"], "s3": boards["s3"], "query_s3_status": True,
+                     "s3_boot_reset": False, "observation_seconds": 10},
+                    serial_factory=lambda: next(iterator),
+                    port_finder=lambda: [boards["c3"], boards["s3"]],
+                    clock=clock, sleep=lambda _seconds: None)
+                self.assertEqual(result["s3_config_receive_pending"], bool(startup))
+                self.assertEqual(result["s3_status_command_ready"], ready in startup)
+                self.assertFalse(result["s3_status_command_sent"])
+                self.assertEqual(streams[0].writes, [])
+                self.assertEqual(streams[1].writes, [b"GET_STATE\n"])
+                self.assertTrue(all(not stream.is_open for stream in streams))
 
     def test_serial_evidence_preserves_complete_profile_and_boot_failure(self):
         state = (
@@ -432,6 +455,9 @@ class TC001Test(unittest.TestCase):
         for duration in (True, 0, 9, 61, "10"):
             with self.subTest(duration=duration), self.assertRaisesRegex(ValueError, "SECONDS_OUT_OF_RANGE"):
                 tc_serial.observe({"c3": {}, "s3": {}, "observation_seconds": duration})
+        for interval in (True, -1, 1, 4, 31, "10"):
+            with self.subTest(interval=interval), self.assertRaisesRegex(ValueError, "INTERVAL_OUT_OF_RANGE"):
+                tc_serial.observe({"c3": {}, "s3": {}, "c3_status_interval_seconds": interval})
 
     def test_bootstrap_carries_only_target_bound_encrypted_frame(self):
         nonce = b"n" * 32
