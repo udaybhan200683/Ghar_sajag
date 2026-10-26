@@ -1133,19 +1133,22 @@ physical baseline remains 66; none counts as TC-001. Freshness remains `STALE`
 and monitoring `UNKNOWN`: no row exists in `node_health_latest`; historical
 NodeHealth requests returned 503, and event commits do not refresh NodeHealth.
 
-Windows native enumeration through the existing serial helper now returns only
-COM10, USB VID/PID `303A:1001`, serial `E0:72:A1:D3:8D:34` (the S3). This is
-expected while the C3 is unplugged. Repeated Windows PnP checks still expose no
-Android, ADB or MTP device, and `adb.exe` is not installed in the checked SDK
-locations. Therefore no actual APK package/signer/backend/Home receipt exists.
+Windows native enumeration through the existing serial helper returns only
+COM10, USB VID/PID `303A:1001`, serial `E0:72:A1:D3:8D:34` (the S3), expected
+while the C3 is unplugged. After the owner connected the Motorola phone, PnP
+identified `motorola edge 60 fusion`, USB VID/PID `22B8:2E81`, service `WinUSB`.
+No `adb.exe` is installed in checked SDK locations, so package/signer/backend/
+Home and app-screen evidence remain unavailable. The official Android SDK
+Platform-Tools download page requires acceptance of its SDK license; do not
+accept it on the owner's behalf.
 The existing TC-001 console is blocked because its owner-only current
 fixture/approval/identity file is absent; genuine phone receipt is also
 unavailable. No UART injection was issued;
 no new EventKey was generated; TC-001 remains `NOT_RUN`.
 
-**Next action:** keep the phone attached, unlocked and in a data-transfer USB
-mode; accept the phone's normal USB-debugging authorization dialog if presented
-and resolve its Windows USB/ADB enumeration. Use existing Android diagnostics to
-create the real install receipt, then reconnect C3 COM4 and perform exactly one
-console-controlled injection. Do not fake receipts, count historical events,
-reflash or recommission either board.
+**Next action:** obtain the owner's acceptance of the Android SDK Platform-Tools
+license or an existing approved `adb.exe` path. Then use read-only ADB commands
+to record the real package/signer/backend/Home receipt and app visibility. After
+those checks pass, ask the owner to reconnect C3, discover its live COM port and
+identity, then perform exactly one console-controlled injection. Do not fake
+receipts, count historical events, reflash or recommission either board.

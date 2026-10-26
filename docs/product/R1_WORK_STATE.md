@@ -7663,17 +7663,18 @@ TC-001. Freshness remains `STALE` and monitoring `UNKNOWN` because no
 `node_health_latest` row exists; prior NodeHealth requests returned 503, and
 motion event commits alone do not update source-health freshness.
 
-Windows native enumeration currently sees only S3 COM10 / identity
-`E0:72:A1:D3:8D:34`; this is expected while C3 is unplugged. Despite the owner
-connecting the phone with USB debugging enabled, repeat PnP checks show no
-Android/ADB/MTP device and no `adb.exe` is present in checked SDK locations.
-No current APK installation receipt can be produced. Existing TC-001 console
-remains blocked because the owner-only fixture/approval/identity file is absent;
-the genuine phone receipt is also unavailable. No injection occurred; TC-001
-remains `NOT_RUN`.
+Windows native enumeration sees S3 COM10 / identity `E0:72:A1:D3:8D:34`, expected
+while C3 is unplugged. A subsequent PnP query identified the connected phone as
+`motorola edge 60 fusion`, USB VID/PID `22B8:2E81`, service `WinUSB`. No `adb.exe`
+is installed in checked SDK locations, so no current APK package/signer/origin/
+Home receipt can be produced. The official Android SDK Platform-Tools download
+page requires acceptance of its SDK license; that acceptance has not been made.
+Existing TC-001 console remains blocked because the owner-only
+fixture/approval/identity file is absent and the genuine phone receipt is
+unavailable. No injection occurred; TC-001 remains `NOT_RUN`.
 
-Next: obtain Windows USB enumeration for the unlocked phone and its normal ADB
-authorization, record the installed APK/signer/origin/Home using device-side
-diagnostics, reconnect C3 COM4, then run exactly one controlled console event
-and trace its original EventKey to the actual APK. Detailed evidence is in
+Next: obtain owner acceptance of the Android SDK Platform-Tools license (or use
+an existing approved `adb.exe`), record the installed APK/signer/origin/Home via
+read-only device diagnostics, then ask the owner to reconnect C3 and discover its
+live COM port before one controlled console event. Detailed evidence is in
 `docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
