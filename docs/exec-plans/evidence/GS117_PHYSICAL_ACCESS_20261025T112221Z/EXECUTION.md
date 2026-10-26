@@ -287,3 +287,254 @@ subsequent S3 receive log demonstrates bytes reached the parser.
 
 Five-hour usage status was queried; the available status tool returned no goal
 or remaining-budget values, so a remaining percentage cannot be computed.
+
+## 2026-10-26 — reset/challenge timeline investigation
+
+Owning Jira GS-117 / GS-68; scope is the existing Windows serial helper and
+its registered TC-001 tests. Classification TEST_INFRA_ONLY. GS40 envelope
+bytes, cryptography, Node/Hub semantics and credentials are unchanged. Existing
+requirements: original EventKey, authenticated enrollment/ownership and secure
+TEST_ONLY bootstrap. Positive/negative/recovery validation remains in the
+existing `gs117-tc001-console` stage; real matched COM10 receipt is mandatory.
+No release qualification is claimed.
+
+Entry local/remote HEAD `8cbda4b742e9c216bb667fe5fdf710326915ecca`, canonical
+branch/worktree and context preflight PASS. Fresh native Windows List matches
+COM4/C3 and COM10/S3 serials. A fresh owner-only readback is preserved at
+`~/.local/state/ghar-sajag/gs117-tc001/s3-usb-timeline-20261026/`. Table, NVS,
+both application slots, outbox and state match the prior backup byte-for-byte;
+otadata reflects the previously selected OTA1. OTA0 image prefix matches
+`d4517c92a6ce5f8c2ce3aae1cbe98a984f886b9c7149b83e5ba47a5007669ade`,
+2,272,576 bytes; remaining app tail is erased. Archived image-info and exact
+build config SHA `44ee7d9514441f30ed520a0af9cfef6f30eeee685719ab91bfd45d4862164dc9`
+prove this deployed candidate requests 32 KiB USB RX, primary USB Serial/JTAG,
+UART_NUM=-1, and PM disabled. This is distinct from current source's 4 KiB ring.
+
+Comparison of raw observations reveals the failed run records a new boot and
+challenge *after* host TX, then the 60-second timeout. The helper previously
+accepted any buffered challenge immediately following HardReset. Hypothesis:
+a previous-boot challenge was consumed, so TX raced the next boot/driver setup.
+The helper now purges input before the approved reset, requires new boot/app
+metadata before selecting a challenge, rejects an unexpected image/port, and
+refuses response generation beyond a 25-second target budget or an intervening
+reset. It records separate challenge/parent/TX timing and actual DTR/RTS state.
+Focused 27-test regression PASS; exact physical verification is in progress.
+The official OTA selector selected preserved OTA0; no application image write
+or partition/NVS/outbox/state change was made for this test.
+
+
+## 2026-10-26 — Physical encrypted provisioning and C3/S3 session operational
+
+This checkpoint supersedes the earlier zero-byte-receive and C3-inactive blockers.
+Owning issues GS-117 / GS-68 / GS-179 / GS-114. Entry canonical local/remote
+HEAD `8cbda4b742e9c216bb667fe5fdf710326915ecca`; context preflight PASS.
+Implementation classification TEST_INFRA_ONLY / R1_FIX for the demonstrated
+fixture activation defects; no protocol, production identity, durability or
+commercial transfer policy changed. All work remains in the canonical worktree
+and branch. The earlier stale-challenge hypothesis was tested and not reproduced.
+
+### Root cause and smallest fixes
+
+The exact installed S3 OTA0 image/ELF/config were matched to readback, rather
+than inferred from current source. Fresh challenge timing was 1,328 ms, response
+generation 281 ms and host write 31 ms with DTR/RTS false. The target received,
+authenticated and decrypted the complete 7,323-byte frame, then crashed during
+PSA RSA private signing in TLS key-pair validation. Symbolized stack evidence
+shows at least 3,824 bytes in a 3,584-byte main task. The apparent zero-byte
+60-second timeout was emitted by the subsequent boot, not the receiving boot.
+No USB transport downgrade, chunking workaround or authentication relaxation
+was needed. Existing Windows helper evidence now retains fixed assertion headings,
+fences challenges on fresh boot/image/port evidence, and records bounded timing.
+Raw memory dumps and secrets remain excluded.
+
+The isolated GS40 profile now reuses the existing GS68 main-task budget of
+8,192 bytes, with a compile-time guard and four bounded stack diagnostics.
+After one verified app-only S3 OTA0 update, physical TLS parsing, RSA3072,
+PSA sign/verify, key-pair proof, client EKU and fingerprint validation PASS:
+`valid=1`, `pair_check=psa_signature`, `raw_pair_equal=0`, minimum headroom
+3,024 bytes. Existing cryptographic pair-proof fallback is retained. The S3
+started its authenticated product Hub owner for the actual physical identity
+and existing Home, storage_epoch=1. The saved Wi-Fi secret was used only in the
+approved encrypted commissioning path and never written to logs or Git.
+
+First physical C3 commissioning correctly failed closed at
+`association_backup_failed`. The demonstrated first-use bug required the saved
+association before invoking its creation. The correction prepares and verifies
+the existing encrypted backup before requiring it and before the monotonic
+unpaired tombstone. It verifies all binding fields, generation, both public keys
+and installation key; it rejects conflicting/corrupt backups. Existing recovery,
+identity and same-Home production checks are unchanged. The existing native helper
+now has a restricted exact-fixture setup action using existing QR/PoP and
+commissioning commands; the installer code stays in RAM. This is not a web
+endpoint or new commissioning protocol. Do not run this action again on the
+now-commissioned fixture.
+
+### Installed images and preservation
+
+| Board | Current app / physical result | Preserved recovery |
+|---|---|---|
+| C3 COM4 / 14:63:93:C5:D1:58 | OTA0, 958,832 bytes, SHA256 `591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea`, version `8cbda4b-dirty`, ELF `990fe1f2e4033780035777d044f57f3b0acf5849ffcdff65fcf30f60386d8e47` | Prior OTA1 image `183417fdd840ed9cce333e7b276beeaba83d085173f9cbe28589d617d874739f` preserved and readback verified |
+| S3 COM10 / E0:72:A1:D3:8D:34 | OTA0, 2,272,944 bytes, SHA256 `b92e85440430608d3190d0a22cb7d65cc2156210fa6b7878129edb614294a728`, version `8cbda4b-dirty`, ELF `eed78cac476c2f7dfd14356373510561de268959b1323cf33dc38124e016350c` | OTA1 recovery `3767e80d33f11748642d1174c55a76e4a61d2ceae5f9699b7f7fabafb3b86b71` preserved |
+
+Official ESP-IDF otatool app-partition API was reused after exact identity,
+layout, backup and recovery checks under existing conditional owner authorization.
+The upstream write CLI failed before any app write because of its argument
+adapter; the existing API performed the scoped app-only update. Only the app
+partition was erased/programmed; no whole-chip erase, table/bootloader write,
+eFuse operation or protected-key extraction occurred. S3 table/NVS/OTA1/outbox/
+state readbacks were byte-identical after installation. C3 bootloader/table/OTA1
+were byte-identical; raw NVS comparison initially differed and was classified
+before commissioning: only the legitimate boot_session counter advanced, while
+32 other active records were unchanged. Boot-session monotonicity was preserved.
+Full opaque backups, selectors and manifests remain owner-only under
+`~/.local/state/ghar-sajag/gs117-tc001/s3-usb-timeline-20261026/`.
+
+C3 is `HIL_AWAKE_TEST_ONLY`, GS_HIL_BUILD=OFF, GS_HIL_CONTROL=ON,
+GS_BAT_C8_PHYSICAL_WAKE=OFF. No production sleep/physical-wake changes.
+The S3 full-product image has commissioning and TEST_ONLY CloudSync enabled;
+its embedded older C3 FOTA asset is not the new C3 app. No FOTA was invoked and
+this is not a release-qualified paired artifact. Neither board needs another
+flash for the next network/configuration step.
+
+### Actual authenticated fixture and existing backend
+
+The owner-approved disposable previous C3 binding belonged to
+`home-37e0751595a51eb3994dfe4c93c480a5` / `hub-7c4fadb72a20`, generation1.
+Encrypted association/recovery backup was verified; retained/pending counts were
+zero. The scoped retirement committed monotonic generation2 without deleting
+factory identity or security counters. Existing commissioning/PoP/rejoin then
+established the real pair `c3-146393c5d158` -> `hub-e072a1d38d34` in
+`gs177-test-product`. Both sides reported authenticated rejoin, C3 session107.
+The same permanent Node public key was verified before/after. Public Hub key was
+observed only after authenticated rejoin. Runtime/sensing counters rose from131
+to22090 in later independent observation; these are counters, not Boolean flags.
+Serial remained accessible with no further reset.
+
+Public proof: `physical-pair-20261026.json` (proof SHA256
+`9eae1b774125ac04c9bdfc7195f2879ce98e8e247ee675fff1af289e92464ee4`),
+plus `physical-activation-20261026.json` and the exact crash diagnosis JSON.
+The existing PostgreSQL ownership registry now contains the verified physical
+Hub/Home epoch1 and Node/bedroom enrollment generation1, using explicit owner
+fixture authorization. Generation1 follows the first committed NodeRegistry
+enrollment contract; no unsupported generation query is claimed. Event count
+remained exactly1 before/after registry configuration: no fake event insertion,
+new Home, account, database, credential issuance or historical seed deletion.
+
+Existing GS179 strict-mTLS listener composition ran a bounded private-interface
+trial on WSL172.17.152.10:8445: listener/PostgreSQL/TEST_ONLY trusted-time readiness
+PASS. Real Hub authentication remained NO; trace contained no requests. This
+trial is not persistent autostart deployment. Existing Windows signed-time
+service received eight UDP requests using the persistent approved time key;
+requests alone do not prove physical trusted-time acceptance. No UDP firewall
+change was needed. Bounded trial services are stopped at the handoff; caregiver
+HTTPS/PostgreSQL remain in place. The one-hour encrypted S3 config has expired
+and must be refreshed after the route is operational, using the same protected
+bootstrap. C3 must then rejoin normally; do not retire/commission it again.
+
+### TC-001 acceptance status
+
+| Stage | Result / evidence |
+|---|---|
+| Exact boards, active apps, HIL profile | PASS; current readbacks and startup/status |
+| Encrypted target receipt and TLS material validation | PASS; physical GS40 validation and 3,024-byte headroom |
+| Product Hub startup, authenticated C3 enrollment | PASS; real Hub owner and authenticated rejoin |
+| C3 runtime/sensing and stable serial | PASS; positive increasing counters and later status |
+| Backend ownership/Home/Node enrollment | PASS; existing registry, event count unchanged |
+| Physical S3 signed-time/authority acceptance | NOT_VERIFIED; CloudSync remains fenced |
+| Physical S3 mTLS/CloudSync delivery | BLOCKED; no Windows8445 route; no authenticated Hub trace |
+| Controlled C3 INJECT_MOTION | NOT_RUN; no injection command issued |
+| Same fresh EventKey exactly-once PostgreSQL/API | NOT_VERIFIED |
+| Actual Android event display | NOT_VERIFIED; no approved ADB device access available |
+
+A buffered `PIR -> NodeRuntime session=107 seq=1` line appeared during idle
+observation. It is uncontrolled sensor input, not TC001, not C3_HIL_INJECTED and
+not genuine optical qualification. Preserve it; use a new later EventKey for
+the controlled test after CloudSync readiness. Do not count the historical
+HOST_SIM seed or this incidental line as acceptance.
+
+Authenticated caregiver backend readiness PASS at
+`https://desktop-3qqu64b.local`, existing Home `gs177-test-product`; returned
+monitoring UNKNOWN/freshness STALE. This is backend/API evidence, not proof of the
+installed APK origin, Home or fresh presentation. No APK was rebuilt/reinstalled.
+
+### Focused and component verification
+
+- Existing TC001 suite: 28/28 PASS, including stale challenge/image/port/reboot/
+  deadline rejection, private QR handling, commissioning failure and real counter
+  semantics. GS40 bootstrap85 checks PASS; association/recovery production tests
+  PASS including GS117-FRESH-BACKUP-001 first-use/I/O/conflict/recovery cases.
+- Full C3 and S3 target builds PASS. Existing production battery/wake and optical
+  qualification status unchanged. Power profile source was not redesigned.
+- Proxy extension: existing Windows script AST parse PASS; focused PostgreSQL
+  security suite19 PASS, including fixed endpoint/default-off and existing guards.
+- Affected campaign actually ran: Node30/31 stages PASS, Hub53/55 PASS,
+  contract47/48 PASS. Campaign FAIL remains explicit: required P0 test has
+  product_status=PARTIAL despite scenario exit0; Hub migration exits2/count0.
+  Board-stack E2E PASS, 10 cases. These known failures are not weakened.
+- Campaign logs/builds are in
+  `code/build/validation_targets/gs117-s3-stack8192-20261026/`; component reports
+  node-1792983455848551833, hub-1792983941705998306,
+  contract-1792984889884005184, board-e2e-1792985557310432517.
+- Initial additional GS179 command lacked opt-in DSN, then lacked local libpq;
+  both were harness environment failures, corrected using existing isolated-schema
+  helper, protected local DSN and service library path. Final result recorded below.
+- Release-gate-final/full release, physical lost-receipt recovery, optical PIR
+  and Android acceptance NOT_RUN. No commercial/release PASS.
+
+### One consolidated external operation and exact resume action
+
+Live read-only Windows evidence: Airtel_Agrim Private192.168.1.4/24; S3 neighbor
+192.168.1.10 MAC matches. Stale owned proxy192.168.1.7:443->WSL172.17.152.10:8444;
+no8445 proxy. Normal existing-script invocation was rejected by Windows Restricted
+execution policy (all scopes Undefined). No policy/elevation bypass or firewall
+change was performed.
+
+The existing proxy now supports one explicit `-EndpointKind PhysicalHubIngress`
+fixed8445->8445 route, distinct named rule `GS117-Physical-Hub-mTLS`, default OFF.
+Only Audit/Start/Stop are enabled for it. Original dynamic Wi-Fi, Private/Domain,
+subnet, administrator, ownership and rollback guards are reused. Caregiver default
+443->8444 is unchanged; console18791 remains localhost-only.
+
+Required owner approval is one scoped normal-UAC Windows operation: execute a
+hash-verified local copy of the reviewed existing script with process-scoped
+RemoteSigned permission (no persistent/global/organization policy change), repair
+owned caregiver443 forwarding and add only physical-Hub8445 forwarding/rule on
+the dynamically detected trusted Private Wi-Fi subnet. Rollback is existing Stop
+for each exact endpoint and recorded WSL target. No UDP rule or broad port opening.
+
+After approval, agent performs the operation; owner need not run terminal commands.
+Restart existing signed-time and GS179 listener components, refresh encrypted S3
+configuration, verify target time/authority and real Hub mTLS, observe ordinary
+C3 authenticated rejoin, baseline all events, then use existing console to inject
+one NEW event and correlate durable backend/API and actual APK. If ADB remains
+unavailable, require genuine phone-side USER_CONFIRMED evidence for that EventKey.
+
+Source checkpoint is entry HEAD plus scoped changes; final commit/verified remote
+SHA and Jira comment IDs are in delivery below. All unrelated untracked/ignored
+assets, credentials and historical backups are preserved. No new branch/worktree.
+Available status telemetry returned no five-hour quota values; percentage is unknown.
+
+
+### Final validation and delivery preparation — 2026-10-26
+
+Corrected-environment `make -C code gs179-postgres-e2e` PASS, 57/57 tests,
+no skips, isolated random schemas only; historical fixture data untouched.
+Log: `code/build/validation_targets/gs117-s3-stack8192-20261026/gs179-current-regression-isolated.log`.
+The initial unconfigured DSN/libpq attempts are superseded by this actual run.
+`make -C code feature-coverage-test` PASS: 226 features, 285 modules,
+27 physical cases; 22 consistency/framework tests. Adding the existing opt-in
+PostgreSQL stage to this feature's mapping required correcting its derived
+command/gate/fast/release columns; the opt-in stage remains outside ordinary
+fast/release composition. No suite was disabled. Context preflight PASS at
+04:04 UTC and whitespace checks PASS. Bounded owned ingress process215181
+stopped cleanly; no8445 listener remains. Signed-time service was a15-minute
+window and has ended. Caregiver/backend services are preserved.
+
+Final scoped implementation is nine existing code/test/config files, canonical
+handoff/work-state/validation updates, three public evidence JSON receipts and
+one existing traceability/catalogue row each. Unrelated untracked and ignored
+firmware/Android/evidence assets remain untouched. Installed images were built
+from parent8cbda4b plus the committed implementation changes; version strings
+retain8cbda4b-dirty, exact SHA256 above is authoritative. Final commit/remote
+and Jira receipt are supplied in the delivery response. Next operation remains
+the single reviewed Windows policy/UAC scoped route operation, not another flash.

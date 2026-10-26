@@ -196,6 +196,35 @@ int main() {
                 old_fixture.load().binding->hub_id == old_binding.hub_id &&
                 !previous_store.present,
                 "cross-Home reassociation changed or backed up the active binding");
+        using gs::node::target::gs117_fixture_prepare_association_backup;
+        require(!gs117_fixture_prepare_association_backup(
+                    crypto, old_fixture, old_binding, 1, false) &&
+                !previous_store.present,
+                "interrupted fixture transfer fabricated a missing backup");
+        previous_store.fail_next_write = true;
+        const auto active_before_backup = reassociation_store.bytes;
+        require(!gs117_fixture_prepare_association_backup(
+                    crypto, old_fixture, old_binding, 1, true) &&
+                reassociation_store.bytes == active_before_backup && !previous_store.present,
+                "failed fixture backup changed the active association");
+        require(gs117_fixture_prepare_association_backup(
+                    crypto, old_fixture, old_binding, 1, true) &&
+                previous_store.bytes == active_before_backup &&
+                gs117_fixture_prepare_association_backup(
+                    crypto, old_fixture, old_binding, 1, false),
+                "first fixture transfer required an already-existing backup");
+        require(!gs117_fixture_prepare_association_backup(
+                    crypto, old_fixture, cross_home, 1, true) &&
+                !gs117_fixture_prepare_association_backup(
+                    crypto, old_fixture, old_binding, 2, false),
+                "fixture backup accepted changed Home or generation");
+        previous_store.bytes.back() ^= 1;
+        require(!gs117_fixture_prepare_association_backup(
+                    crypto, old_fixture, old_binding, 1, true) &&
+                reassociation_store.bytes == active_before_backup,
+                "corrupt fixture backup was overwritten or trusted");
+        previous_store.bytes.back() ^= 1;
+        std::cout << "GS117-FRESH-BACKUP-001 PASS first-use/failure/recovery/identity\n";
         require(old_fixture.preserve_previous_for_reassociation() &&
                 previous_store.bytes == reassociation_store.bytes,
                 "previous association ciphertext was not durably preserved");

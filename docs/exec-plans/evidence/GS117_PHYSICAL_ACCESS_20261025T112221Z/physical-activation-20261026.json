@@ -1,0 +1,121 @@
+{
+  "date_utc": "2026-10-26",
+  "source_parent": "8cbda4b742e9c216bb667fe5fdf710326915ecca",
+  "build_source": "parent plus scoped working changes; versions 8cbda4b-dirty",
+  "fixture": {
+    "c3": "c3-146393c5d158 / COM4",
+    "s3": "hub-e072a1d38d34 / COM10",
+    "home": "gs177-test-product",
+    "installation_epoch": 1
+  },
+  "s3": {
+    "image_sha256": "b92e85440430608d3190d0a22cb7d65cc2156210fa6b7878129edb614294a728",
+    "image_bytes": 2272944,
+    "active_slot": "ota_0",
+    "main_stack_bytes": 8192,
+    "tls_validation": "PASS",
+    "minimum_stack_headroom_bytes": 3024,
+    "preservation": "partition table, NVS, OTA1 recovery, outbox and state readback byte-identical after scoped OTA0 app update",
+    "runtime": "Authenticated Hub owner started; storage_epoch=1",
+    "bootstrap_timeline": {
+      "boot": {
+        "app_offset": "0x20000",
+        "app_version": "8cbda4b-dirty",
+        "elf_sha256_prefix": "eed78cac4"
+      },
+      "post_reset_boot_verified": true,
+      "ignored_pre_boot_challenges": 0,
+      "challenge_wait_ms": 1327,
+      "host_dtr": false,
+      "host_rts": false,
+      "response_generation_ms": 343,
+      "host_write_ms": 31
+    }
+  },
+  "c3": {
+    "image_sha256": "591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea",
+    "image_bytes": 958832,
+    "active_slot": "ota_0",
+    "flags": {
+      "GS_HIL_BUILD": false,
+      "GS_HIL_CONTROL": true,
+      "GS_BAT_C8_PHYSICAL_WAKE": false
+    },
+    "mode": "HIL_AWAKE_TEST_ONLY",
+    "preservation": "bootloader, table and OTA1 byte-identical; NVS comparison found only expected boot_session counter increment before commissioning; 32 other active records unchanged",
+    "association": "previous encrypted association/recovery verified before owner-approved scoped development retirement",
+    "identity": "same permanent Node public key before/after; counters preserved"
+  },
+  "physical_pair": {
+    "status": "PASS",
+    "proof": "AUTHENTICATED_REJOIN",
+    "liveness_first": {
+      "runtime": 131,
+      "sensing": 131
+    },
+    "liveness_later": {
+      "runtime": 22090,
+      "sensing": 22090
+    },
+    "proof_sha256": "9eae1b774125ac04c9bdfc7195f2879ce98e8e247ee675fff1af289e92464ee4"
+  },
+  "backend": {
+    "status": "OWNERSHIP_AND_ENROLLMENT_REGISTERED_NO_EVENTS_INSERTED",
+    "home_id": "gs177-test-product",
+    "hub_id": "hub-e072a1d38d34",
+    "node_id": "c3-146393c5d158",
+    "installation_epoch": 1,
+    "enrollment_generation": 1,
+    "event_count_before": 1,
+    "event_count_after": 1
+  },
+  "ingress": {
+    "listener_trial": "READY strict mTLS/PostgreSQL/trusted-time composition",
+    "real_hub_authenticated": "NO",
+    "physical_commit": "NOT_VERIFIED",
+    "persistent_lifecycle": "NOT_CONFIGURED; bounded trial service stopped"
+  },
+  "network": {
+    "observed_wifi": "Airtel_Agrim",
+    "category": "Private",
+    "windows_ipv4": "192.168.1.4",
+    "s3_neighbor_ipv4": "192.168.1.10",
+    "stale_caregiver_proxy": "192.168.1.7:443 -> 172.17.152.10:8444",
+    "hub_proxy": "ABSENT",
+    "script_execution": "Restricted; no policy change or firewall write"
+  },
+  "stage_results": {
+    "encrypted_target_receipt": "PASS",
+    "target_tls_identity": "PASS",
+    "product_hub_startup": "PASS",
+    "authenticated_node_enrollment": "PASS",
+    "node_runtime_and_sensing": "PASS",
+    "backend_ownership_registration": "PASS",
+    "s3_trusted_time_acceptance": "NOT_VERIFIED",
+    "real_hub_mtls": "BLOCKED",
+    "controlled_c3_motion_injection": "NOT_RUN",
+    "same_event_postgres_commit": "NOT_VERIFIED",
+    "same_event_caregiver_api": "NOT_VERIFIED",
+    "actual_android_apk": "NOT_VERIFIED"
+  },
+  "incidental_sensor_line": {
+    "session": 107,
+    "sequence": 1,
+    "classification": "UNCONTROLLED_SENSOR_INPUT; NOT TC001; NOT optical qualification",
+    "injection_issued": false
+  },
+  "TC001": "NOT_RUN",
+  "provenance_for_future_controlled_test": "C3_HIL_INJECTED",
+  "release_approved": false,
+  "limitation": "S3 embedded C3 FOTA asset is prior 183417fd image; no FOTA was invoked; paired release artifact qualification is not claimed.",
+  "software_validation": {
+    "gs179_isolated_postgres_tests": 57,
+    "gs179_result": "PASS_NO_SKIPS",
+    "console_tests": 28,
+    "bootstrap_checks": 85,
+    "traceability_tests": 22,
+    "traceability_features": 226,
+    "board_e2e_cases": 10,
+    "component_campaign": "FAIL required P0 PARTIAL and Hub migration; no release acceptance"
+  }
+}

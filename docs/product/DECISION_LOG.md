@@ -1510,3 +1510,16 @@ production trust, Home/epoch authority, commercial lifecycle scope and
 ### 2026-10-25 GS117 fixture execution evidence; no new LOCKED product decision
 
 Owner scoped saved-Windows Wi-Fi use to encrypted local commissioning and approved existing proxy repair via normal UAC (GS117/11671). Existing S3 app-only conditional authority used after verified backup/layout/recovery checks. Target encrypted-config transport passes cryptography but rejects TLS identity material; checks remain fail closed. Retained OTA1 recovery selected at owner-requested usage pause. See the GS117 native-access execution record for exact evidence and next action. No production trust, Home-transfer, data-lifecycle or release policy changed; context version unchanged.
+
+
+### 2026-10-26 GS117 physical activation evidence; no new LOCKED decision
+
+The existing owner-authorized TEST_ONLY fixture now physically accepts encrypted
+S3 configuration/TLS identity and completes C3/S3 authenticated commissioning.
+Reused GS68 stack sizing and corrected first-use encrypted backup ordering; no
+production ownership, cryptography, transfer, durability or sleep semantics changed.
+Backend physical ownership/enrollment registered against the existing Home with
+no event insertion. Windows policy/UAC scoped route operation remains a distinct
+approval gate. TC001/actual APK still NOT_RUN/NOT_VERIFIED. No release or optical
+qualification. Context version unchanged; see the existing GS117 physical-access
+execution handoff and public activation receipt dated2026-10-26.

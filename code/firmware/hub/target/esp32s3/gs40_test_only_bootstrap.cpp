@@ -8,8 +8,11 @@
 #include <utility>
 
 #if defined(ESP_PLATFORM)
+#include <atomic>
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "mbedtls/md.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/oid.h"
@@ -125,6 +128,14 @@ bool valid_tls_identity(const std::string& certificate_pem,
                         const std::string& private_key_pem,
                         const std::string& fingerprint) {
 #if defined(ESP_PLATFORM)
+    static_assert(CONFIG_ESP_MAIN_TASK_STACK_SIZE >= 8192,
+        "GS40 TEST_ONLY RSA credential bootstrap requires the GS68 8192-byte stack budget");
+    static std::atomic<unsigned> diagnostic_count{0};
+    const bool trace_stack = diagnostic_count.fetch_add(1, std::memory_order_relaxed) < 4;
+    if (trace_stack) {
+        ESP_LOGI("gs40_test_config", "GS40T/1 TLS validation=begin stack_min_free=%u",
+            static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+    }
     mbedtls_x509_crt certificate;
     mbedtls_x509_crt_init(&certificate);
     mbedtls_pk_context key;
@@ -222,6 +233,10 @@ bool valid_tls_identity(const std::string& certificate_pem,
     }
     const bool valid = certificate_parsed && private_key_parsed && rsa_3072 &&
         psa_verify && psa_sign && key_pair && client_auth && fingerprint_match;
+    if (trace_stack) {
+        ESP_LOGI("gs40_test_config", "GS40T/1 TLS validation=end valid=%d stack_min_free=%u",
+            valid, static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+    }
     if (!valid) {
         ESP_LOGW("gs40_test_config",
             "GS40T/1 TLS cert_pem=%d private_key_pem=%d rsa3072=%d psa_verify=%d psa_sign=%d key_pair=%d pair_status=%d pair_type=%d pair_raw_len=%d pair_raw_equal=%d pair_sign=%d pair_verify=%d pair_signature=%d client_auth_eku=%d fingerprint_hashed=%d fingerprint_match=%d",

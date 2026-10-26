@@ -322,13 +322,11 @@ Gs117FreshCommissioningStatus NodeSecurityLink::begin_gs117_test_fresh_commissio
         return Gs117FreshCommissioningStatus::RecoveryCorrupt;
     }
 
-    auto saved_association = repository_->load_previous_association();
-    AssociationStateKeyWiper saved_key_wiper(crypto_, saved_association);
-    if (saved_association.status != security::AssociationStatus::Paired ||
-        !saved_association.binding ||
-        saved_association.binding->device_id != previous_binding.device_id ||
-        saved_association.binding->hub_id != previous_binding.hub_id ||
-        saved_association.binding->home_id != previous_binding.home_id)
+    const auto prior_association_generation = resetting_active_pair
+        ? active.generation : active.generation - 1U;
+    if (!gs117_fixture_prepare_association_backup(crypto_, *repository_,
+            previous_binding, prior_association_generation,
+            resetting_active_pair))
         return Gs117FreshCommissioningStatus::AssociationBackupFailed;
     const auto retired_count = prior.state
         ? static_cast<unsigned>(prior.state->retained.size()) : 0U;
@@ -338,7 +336,7 @@ Gs117FreshCommissioningStatus NodeSecurityLink::begin_gs117_test_fresh_commissio
              "GS117_TEST_ONLY_FIXTURE_STATE device=%s old_home=%s old_hub=%s association_generation=%llu recovery_generation=%llu retained=%u pending=%u gap_marker=0 disposal=TEST_ONLY_MOTION_ONLY",
              previous_binding.device_id.c_str(), previous_binding.home_id.c_str(),
              previous_binding.hub_id.c_str(),
-             static_cast<unsigned long long>(saved_association.generation),
+             static_cast<unsigned long long>(prior_association_generation),
              static_cast<unsigned long long>(prior.generation), retired_count,
              pending_count);
 
@@ -357,8 +355,6 @@ Gs117FreshCommissioningStatus NodeSecurityLink::begin_gs117_test_fresh_commissio
         return Gs117FreshCommissioningStatus::CommissioningWindowFailed;
 
     if (resetting_active_pair) {
-        if (!repository_->preserve_previous_for_reassociation())
-            return Gs117FreshCommissioningStatus::AssociationBackupFailed;
         auto preserved = repository_->load_previous_association();
         AssociationStateKeyWiper preserved_key_wiper(crypto_, preserved);
         if (preserved.status != security::AssociationStatus::Paired ||
@@ -701,6 +697,23 @@ std::optional<NodeSecurityLink::Outbound> NodeSecurityLink::accept(
         }
         rejoin_.reset();
         health_ack_supported_ = negotiated;
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+        if (test_fresh_commissioning_pending_ &&
+            binding_->device_id == "c3-146393c5d158" &&
+            binding_->hub_id == "hub-e072a1d38d34" &&
+            binding_->home_id == "gs177-test-product") {
+            std::array<char, security::P256PublicKey{}.size() * 2U + 1U> public_key_hex{};
+            constexpr char hex[] = "0123456789abcdef";
+            for (std::size_t i = 0; i < binding_->hub_public_key.size(); ++i) {
+                public_key_hex[2U * i] = hex[binding_->hub_public_key[i] >> 4];
+                public_key_hex[2U * i + 1U] = hex[binding_->hub_public_key[i] & 15U];
+            }
+            ESP_LOGI(kTag,
+                "GS117_TEST_ONLY_FIXTURE_BOUND device=%s hub=%s home=%s hub_public_key=%s proof=AUTHENTICATED_REJOIN",
+                binding_->device_id.c_str(), binding_->hub_id.c_str(),
+                binding_->home_id.c_str(), public_key_hex.data());
+        }
+#endif
         test_reassociation_pending_ = false;
         expected_reassociation_hub_id_.clear();
         phase_ = Phase::Ready;

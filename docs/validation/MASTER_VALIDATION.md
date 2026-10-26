@@ -1047,3 +1047,26 @@ runner-generated TEST_ONLY debug signer differs from previously recorded
 installed-build evidence; in-place update compatibility is unverified. No
 install or app-data change occurred. Detailed evidence is in
 [`GS-179 DNS-SD discovery handoff`](../exec-plans/evidence/GS179_DNSSD_AUTODISCOVERY_20261023.md).
+
+
+### GS117 physical fixture preparation — 2026-10-26
+
+Current-image S3 encrypted receipt/TLS validation and full product Hub startup
+PASS; exact C3/S3 authenticated commissioning/rejoin and increasing runtime/sensing
+counters PASS. These are physical preparation stages, not TC001 acceptance.
+Controlled INJECT_MOTION NOT_RUN; physical CloudSync/COMMITTED/fresh caregiver API
+and actual Android APK NOT_VERIFIED. Source parent8cbda4b plus scoped fixes; exact
+images/backups and stage evidence are in the existing
+[GS117 execution record](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md).
+Console28, GS40 checks85, production association/recovery, proxy security19 and
+C3/S3 target builds PASS; board E2E10 PASS. Affected component campaign remains
+FAIL: Node30/31, Hub53/55, contract47/48 stages PASS, required P0 PARTIAL and Hub
+migration failures retained. No release-gate-final or optical qualification.
+Existing traceability row GS117-TC001-01 and physical case PHY-GS117-TC001 retain
+PARTIAL/NOT_RUN; mapping integrity never substitutes for Android acceptance.
+
+
+GS179 current-source PostgreSQL integration PASS57/57, isolated schemas, no skips.
+Traceability consistency PASS226 features/285 modules/27 physical cases plus22
+tests. This does not override the affected component campaign failures or
+physical TC001/Android NOT_RUN. See the same execution record for exact logs.

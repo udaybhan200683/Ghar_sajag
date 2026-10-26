@@ -1,0 +1,22 @@
+{
+  "profile": "GS117_PHYSICAL_TEST_ONLY",
+  "observed_at": "2026-10-26T02:57:28.134071+00:00",
+  "home_id": "gs177-test-product",
+  "hub_id": "hub-e072a1d38d34",
+  "node_id": "c3-146393c5d158",
+  "logical_node_id": "bedroom",
+  "installation_epoch": 1,
+  "enrollment_generation": 1,
+  "enrollment_generation_source": "FIRST_COMMITTED_ENROLLMENT_NODE_REGISTRY_CONTRACT",
+  "hub_public_key": "048998db796295bf935d4dec1adf362d5d4095c10f5d63132ed5eb95f63e129dd7d70b1aaa7613cea1a231c5b5a23df563ae19aa6900a8a84a6f7fc452deae87f7",
+  "node_public_key": "046d80a19df80a8dd837c7f9286fe71f79261cd84e3deeb7322b5469594b23920a0af44c96c83bfc6aac22d347700b91f7d4d093aa9dd4565816a31ff6bccd6174",
+  "hub_identity_fingerprint": "6240a32ed3f9a3ac01d98b926f721e3769369344d5f3ed3769b052a1153d08fe",
+  "node_identity_fingerprint": "83b01f420b7ba0870eb985d7305b7aedfaff920bea0c5705abcc0145cf3f8bf0",
+  "proof": "PHYSICAL_AUTHENTICATED_COMMISSIONING_AND_REJOIN",
+  "source_evidence": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/s3-usb-timeline-20261026/after-fix/commission-retry-result.json",
+  "c3_image_sha256": "591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea",
+  "s3_image_sha256": "b92e85440430608d3190d0a22cb7d65cc2156210fa6b7878129edb614294a728",
+  "tls_client_certificate_sha256": "aa0b1eff16547ad67a790d122bae1d88fd0e8040a50901ed841464d77a7f2732",
+  "authorization": "OWNER_APPROVED_EXACT_DEVELOPMENT_FIXTURE_FRESH_COMMISSIONING",
+  "proof_sha256": "9eae1b774125ac04c9bdfc7195f2879ce98e8e247ee675fff1af289e92464ee4"
+}

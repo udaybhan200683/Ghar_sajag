@@ -4,7 +4,9 @@ param(
     [string]$Action,
     [string]$WslAddress = "",
     [string]$PreviousWslAddress = "",
-    [string]$LinuxScriptPath = ""
+    [string]$LinuxScriptPath = "",
+    [ValidateSet("Caregiver", "PhysicalHubIngress")]
+    [string]$EndpointKind = "Caregiver"
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,6 +15,19 @@ $RuleDescription = "GS-179 TEST_ONLY caregiver HTTPS, limited to the active owne
 $WatchTaskName = "Ghar Sajag GS-179 Trusted Wi-Fi Reconnect"
 $ListenPort = 443
 $TargetPort = 8444
+$RuleDisplayName = "Ghar Sajag GS-179 Local Validation HTTPS"
+if ($EndpointKind -eq "PhysicalHubIngress") {
+    # Explicit GS-117 TEST_ONLY data ingress; never the loopback test console.
+    # Reuse the same Private/Domain Wi-Fi, subnet and administrator guards.
+    if ($Action -notin @("Audit", "Start", "Stop")) {
+        throw "GS179-WINDOWS-PROXY BLOCKED: physical_hub_ingress_watch_not_enabled"
+    }
+    $RuleName = "GS117-Physical-Hub-mTLS"
+    $RuleDescription = "GS-117 TEST_ONLY physical Hub mTLS, limited to the active owner Wi-Fi subnet."
+    $RuleDisplayName = "Ghar Sajag GS-117 Physical Hub mTLS"
+    $ListenPort = 8445
+    $TargetPort = 8445
+}
 
 function Stop-WithError([string]$Message) {
     throw ("GS179-WINDOWS-PROXY BLOCKED: " + $Message)
@@ -236,6 +251,9 @@ if ($Action -eq "Audit") {
     }
     [pscustomobject]@{
         Action = $Action
+        EndpointKind = $EndpointKind
+        ListenPort = $ListenPort
+        TargetPort = $TargetPort
         WifiName = $profile.Name
         NetworkCategory = $networkCategory
         WifiAddress = $actualAddress
@@ -296,7 +314,7 @@ if ($Action -eq "Start") {
     $oldFirewallAddress = $null
     $oldFirewallProfile = $null
     if ($null -eq $existingRule) {
-        New-NetFirewallRule -Name $RuleName -DisplayName "Ghar Sajag GS-179 Local Validation HTTPS" `
+        New-NetFirewallRule -Name $RuleName -DisplayName $RuleDisplayName `
             -Description $RuleDescription -Direction Inbound -Action Allow -Enabled True `
             -Protocol TCP -LocalAddress $actualAddress -LocalPort $ListenPort `
             -RemoteAddress $scope -Profile $firewallProfile -InterfaceAlias "Wi-Fi" -EdgeTraversalPolicy Block | Out-Null

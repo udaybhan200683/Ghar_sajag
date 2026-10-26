@@ -227,6 +227,7 @@ class TC001Test(unittest.TestCase):
                 self.is_open = False
                 self.buffer = bytearray()
                 self.writes = []
+                self.input_purges = 0
 
             @property
             def in_waiting(self):
@@ -248,6 +249,10 @@ class TC001Test(unittest.TestCase):
 
             def flush(self):
                 pass
+
+            def reset_input_buffer(self):
+                self.input_purges += 1
+                self.buffer.clear()
 
             def read(self, count):
                 result = bytes(self.buffer[:count])
@@ -305,10 +310,26 @@ class TC001Test(unittest.TestCase):
             serial_factory=lambda: next(stream_iter),
             port_finder=lambda: [boards["c3"], boards["s3"]],
             clock=fake_clock, sleep=lambda _seconds: None,
-            bootstrap_exchange=lambda _stream: 7323)
+            bootstrap_exchange=lambda _stream, **_kwargs: 7323)
         self.assertEqual(result["bootstrap_host_write_bytes"], 7323)
         self.assertGreater(result["bootstrap_exchange_ms"], 0)
         self.assertGreaterEqual(clock_value[0], 20)
+
+        fake_streams = [FakeSerial(), FakeSerial()]
+        stream_iter = iter(fake_streams)
+        def after_reset(stream):
+            self.assertEqual(stream.input_purges, 1)
+            self.assertEqual(stream.buffer, b"")
+        def exchange(stream, **kwargs):
+            self.assertTrue(kwargs["require_boot"])
+            self.assertTrue(kwargs["identity_check"]())
+            return 7323
+        tc_serial.observe(
+            {"c3": boards["c3"], "s3": boards["s3"], "s3_boot_reset": True},
+            serial_factory=lambda: next(stream_iter),
+            port_finder=lambda: [boards["c3"], boards["s3"]],
+            clock=fake_clock, sleep=lambda _seconds: None,
+            boot_reset=after_reset, bootstrap_exchange=exchange)
 
     def test_serial_evidence_preserves_complete_profile_and_boot_failure(self):
         state = (
@@ -321,6 +342,9 @@ class TC001Test(unittest.TestCase):
             data = (state + "\nI (1) gs_hub_product: Starting product composition\n"
                     "I (2) app_init: App version: current\n"
                     "abort() was called at PC 0x40370000\n"
+                    "assert failed: xQueueSemaphoreTake queue.c:1713 (pxQueue->uxItemSize == 0)\n"
+                    "Guru Meditation Error: Core 0 panic'ed (Stack protection fault).\n"
+                    "3fca0000: 0x12345678 raw_stack_bytes\n"
                     "HIL_FIXTURE_STATUS state=idle\n").encode()
             in_waiting = len(data)
 
@@ -329,10 +353,13 @@ class TC001Test(unittest.TestCase):
 
         lines = []
         self.assertEqual(tc_serial.collect(Stream(), "", lines), "")
-        self.assertEqual(len(lines), 5)
+        self.assertEqual(len(lines), 7)
         self.assertIn("physical_wake=0", lines[0])
         self.assertNotIn("private", "\n".join(lines))
         self.assertIn("abort()", lines[3])
+        self.assertIn("assert failed:", lines[4])
+        self.assertIn("Guru Meditation Error", lines[5])
+        self.assertNotIn("raw_stack_bytes", "\n".join(lines))
 
     def test_status_query_rejects_non_boolean_before_open(self):
         for flag in ("query_s3_status", "s3_boot_reset"):
@@ -395,6 +422,139 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(stream.writes, [])
             self.assertNotIn("encrypted-not-plaintext", output.getvalue())
             self.assertNotIn(base64.b64encode(frame).decode(), output.getvalue())
+
+    def test_bootstrap_fences_stale_challenge_on_new_running_image(self):
+        """GS117-USB-BOOT-002: reject stale boot/image/port/deadline evidence."""
+        old_nonce, nonce = b"o" * 32, b"n" * 32
+        public = "04" + "ab" * 64
+        def challenge(value):
+            return (f"GS40T/1 CHALLENGE nonce={value.hex()} public_key={public} "
+                    "max_envelope=24576\n")
+        boot = ("ESP-ROM:esp32s3-20210327\n"
+                "I (693) boot: Loaded app from partition at offset 0x20000\n"
+                "I (1493) app_init: App version: d0e5f84\n"
+                "I (1493) app_init: ELF file SHA256: b576c52f5...\n")
+        expected = {"app_offset": "0x20000", "app_version": "d0e5f84",
+                    "elf_sha256_prefix": "b576c52f5"}
+        envelope = b"G40E\x01" + nonce + b"encrypted".ljust(480, b"x")
+        frame = len(envelope).to_bytes(4, "big") + envelope
+        response = json.dumps({"encrypted_envelope_b64": base64.b64encode(frame).decode()}) + "\n"
+
+        class Stream:
+            def __init__(self, text):
+                self.data, self.writes = bytearray(text.encode()), []
+            @property
+            def in_waiting(self): return len(self.data)
+            def read(self, count):
+                value = bytes(self.data[:count]); del self.data[:count]
+                return value
+            def write(self, value): self.writes.append(value); return len(value)
+            def flush(self): pass
+
+        stream = Stream(challenge(old_nonce) + boot + challenge(nonce))
+        evidence, output = {}, io.StringIO()
+        tc_serial.bootstrap_config(stream, require_boot=True, expected_boot=expected,
+                                   incoming=io.StringIO(response), outgoing=output,
+                                   evidence=evidence)
+        self.assertEqual(json.loads(output.getvalue())["nonce"], nonce.hex())
+        self.assertEqual(stream.writes, [frame])
+        self.assertTrue(evidence["post_reset_boot_verified"])
+        self.assertEqual(evidence["ignored_pre_boot_challenges"], 1)
+        self.assertEqual(evidence["boot"], expected)
+
+        stream = Stream(boot + challenge(nonce))
+        with self.assertRaisesRegex(ValueError, "USB_INTERFACE_MISMATCH"):
+            tc_serial.bootstrap_config(stream, require_boot=True, expected_boot=expected,
+                incoming=io.StringIO(response), outgoing=io.StringIO(), identity_check=lambda: False)
+        self.assertEqual(stream.writes, [])
+
+        for observed, error in ((challenge(old_nonce), "CHALLENGE_NOT_OBSERVED"),
+                                (boot.replace("d0e5f84", "wrong") + challenge(nonce),
+                                 "RUNNING_IMAGE_MISMATCH")):
+            stream = Stream(observed)
+            ticks = iter(range(100))
+            with self.subTest(error=error), self.assertRaisesRegex(ValueError, error):
+                tc_serial.bootstrap_config(stream, require_boot=True, expected_boot=expected,
+                    incoming=io.StringIO(response), outgoing=io.StringIO(), clock=lambda: next(ticks))
+            self.assertEqual(stream.writes, [])
+
+        stream = Stream(boot + challenge(nonce))
+        class RestartResponse(io.StringIO):
+            def readline(self, size):
+                stream.data.extend(b"ESP-ROM:esp32s3-20210327\n")
+                return super().readline(size)
+        with self.assertRaisesRegex(ValueError, "TARGET_RESTARTED_OR_EXPIRED"):
+            tc_serial.bootstrap_config(stream, require_boot=True, expected_boot=expected,
+                incoming=RestartResponse(response), outgoing=io.StringIO())
+        self.assertEqual(stream.writes, [])
+
+        stream = Stream(boot + challenge(nonce))
+        ticks = iter((0, 0, 0, 0, 26))
+        with self.assertRaisesRegex(ValueError, "EXCEEDED_TARGET_BUDGET"):
+            tc_serial.bootstrap_config(stream, require_boot=True, expected_boot=expected,
+                incoming=io.StringIO(response), outgoing=io.StringIO(), clock=lambda: next(ticks))
+        self.assertEqual(stream.writes, [])
+
+    def test_exact_fixture_commissioning_keeps_qr_proof_private_and_requires_session(self):
+        public, secret = "04" + "ab" * 64, "cd" * 32
+        idle = ("HIL_STATE role=c3 retained=0 in_flight=0 sensing_live=0 runtime_live=0 "
+                "pending_inject=0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0")
+        class Stream:
+            def __init__(self, role, reject=False):
+                self.role, self.reject = role, reject
+                self.data, self.writes = bytearray(), []
+            @property
+            def in_waiting(self): return len(self.data)
+            def read(self, count):
+                out = bytes(self.data[:count]); del self.data[:count]; return out
+            def flush(self): pass
+            def write(self, value):
+                self.writes.append(value)
+                if value == b"GET_TEST_QR\n":
+                    self.data.extend((f"HIL_TEST_QR profile=TEST_ONLY device_id=c3-146393c5d158 public_key={public}\n"
+                                      f"HIL_TEST_CODE profile=TEST_ONLY device_id=c3-146393c5d158 installer_code={secret}\n").encode())
+                elif value.startswith(b"COMMISSION_EXPECTED_NODE "):
+                    self.data.extend(b"HIL_FIXTURE_OK request=exact_node\n" if not self.reject else b"HIL_FIXTURE_ERROR reason=rejected\n")
+                elif value == b"FRESH_COMMISSION_GS117_TEST_FIXTURE\n":
+                    self.data.extend(b"GS117_TEST_ONLY_FRESH_COMMISSIONING rejected reason=association_backup_failed\n"
+                                     if self.reject else
+                                     b"GS117_TEST_ONLY_FRESH_COMMISSIONING started prior_association_backed_up=1\n")
+                elif value == b"GET_STATE\n":
+                    self.data.extend(b"HIL_STATE role=c3 runtime_live=27 sensing_live=42\n")
+                elif value == b"FIXTURE_STATUS\n":
+                    self.data.extend(b"HIL_FIXTURE_STATUS state=authenticated_rejoin\n")
+                return len(value)
+        for reject in (False, True):
+            c3, s3 = Stream("c3"), Stream("s3", reject)
+            c3_lines, s3_lines = [idle], ["HIL_FIXTURE_STATUS state=idle commissioning_window_ms=120000"]
+            ticks = [0.0]
+            def clock(): ticks[0] += 0.05; return ticks[0]
+            if reject:
+                with self.assertRaisesRegex(ValueError, "REQUEST_NOT_ACCEPTED"):
+                    tc_serial.commission_fixture(c3, s3, c3_lines, s3_lines, clock=clock, sleep=lambda _: None)
+                self.assertNotIn(b"FRESH_COMMISSION_GS117_TEST_FIXTURE\n", c3.writes)
+            else:
+                result = tc_serial.commission_fixture(c3, s3, c3_lines, s3_lines, clock=clock, sleep=lambda _: None)
+                self.assertEqual(result["status"], "PASS")
+                self.assertEqual(result["node_public_key"], public)
+                self.assertEqual(result["liveness"], {"runtime": 27, "sensing": 42})
+                self.assertNotIn(secret, json.dumps([result, c3_lines, s3_lines]))
+        c3, s3 = Stream("c3"), Stream("s3")
+        with self.assertRaisesRegex(ValueError, "NOT_IDLE_OR_EMPTY"):
+            tc_serial.commission_fixture(c3, s3, [idle.replace("retained=0", "retained=1")], [])
+        self.assertEqual(c3.writes + s3.writes, [])
+        c3, s3 = Stream("c3"), Stream("s3")
+        with self.assertRaisesRegex(ValueError, "IDENTITY_KEY_CHANGED"):
+            tc_serial.commission_fixture(c3, s3, [idle],
+                ["HIL_FIXTURE_STATUS state=timed_out commissioning_window_ms=120000"],
+                clock=clock, sleep=lambda _: None, expected_public_key="04" + "ef" * 64)
+        self.assertEqual(s3.writes, [])
+        c3, s3 = Stream("c3", True), Stream("s3")
+        result = tc_serial.commission_fixture(c3, s3, [idle],
+            ["HIL_FIXTURE_STATUS state=timed_out commissioning_window_ms=120000"],
+            clock=clock, sleep=lambda _: None, expected_public_key=public)
+        self.assertEqual(result["status"], "FAIL")
+        self.assertNotIn(b"INJECT_MOTION\n", c3.writes)
 
     def test_bootstrap_missing_target_challenge_is_bounded_and_sends_nothing(self):
         class EmptyStream:

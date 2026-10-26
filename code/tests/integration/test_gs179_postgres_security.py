@@ -197,6 +197,22 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         self.assertNotIn("proxy-start", (self.home / ".config/systemd/user/gs179-laptop.service").read_text()
                          if (self.home / ".config/systemd/user/gs179-laptop.service").exists() else "")
 
+    def test_GS117_HUB_ROUTE_001_explicit_fixed_port_reuses_scoped_proxy_guards(self):
+        source = WINDOWS_PROXY.read_text(encoding="utf-8")
+        self.assertIn('[string]$EndpointKind = "Caregiver"', source)
+        self.assertIn('[ValidateSet("Caregiver", "PhysicalHubIngress")]', source)
+        physical = source[source.index('if ($EndpointKind -eq "PhysicalHubIngress")'):
+                          source.index('function Stop-WithError')]
+        for required in ('$ListenPort = 8445', '$TargetPort = 8445',
+                         '$RuleName = "GS117-Physical-Hub-mTLS"',
+                         '$Action -notin @("Audit", "Start", "Stop")'):
+            self.assertIn(required, physical)
+        self.assertNotIn("18791", source)
+        self.assertIn('if ($Action -in @("Start", "Stop", "Watch")) { Assert-Administrator }', source)
+        self.assertIn('Test-TrustedWifiProfile', source)
+        self.assertIn('-LocalAddress $actualAddress -LocalPort $ListenPort', source)
+        print("CASE GS117-HUB-ROUTE-001 PASS")
+
     def test_read_only_audit_precedes_mutation_admin_gate(self):
         source = WINDOWS_PROXY.read_text(encoding="utf-8")
         audit = source.index('if ($Action -eq "Audit")')

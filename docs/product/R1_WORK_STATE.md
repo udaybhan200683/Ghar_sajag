@@ -7289,3 +7289,80 @@ NOT_VERIFIED. Preserve OTA0 candidate and owner-only S3 backups; next actionable
 step is to resolve why the native USB Serial/JTAG RX path receives zero bytes
 before attempting further TLS diagnostics. Five-hour status returned no budget
 value; remaining percentage is unavailable.
+
+### 2026-10-26 — S3 encrypted receive and TLS identity physically resolved
+
+Entry HEAD local/remote `8cbda4b742e9c216bb667fe5fdf710326915ecca`, context PASS.
+Exact deployed-image symbolization proved the reported zero-byte RX timeout was
+a subsequent boot: the first boot had received/authenticated/decrypted the
+7,323-byte envelope and asserted inside `valid_tls_identity()` RSA signing.
+The old 3,584-byte main task could not contain the observed >3,824-byte call
+stack. The existing GS-68 8,192-byte RSA budget is now reused in the isolated
+GS40 TEST_ONLY profile, guarded at build time. A single authorized app-only
+OTA0 update/readback installed image `b92e85440430608d3190d0a22cb7d65cc2156210fa6b7878129edb614294a728`
+(version `8cbda4b-dirty`, ELF `eed78cac476c2f7dfd14356373510561de268959b1323cf33dc38124e016350c`).
+Full before/after readback verified table, NVS, OTA1 recovery, outbox and state
+unchanged. Physical TLS validation now PASS (`valid=1`, RSA signature pair proof
+with `raw_pair_equal=0`, 3,024 bytes stack headroom). S3 authenticated Hub owner
+started for `hub-e072a1d38d34` / `gs177-test-product`, storage_epoch=1. Later
+serial observation proved stable runtime and an idle commissioning interface.
+Signed-time/authority refresh is still unavailable; CloudSync remains fenced.
+
+The approved exact-fixture commissioning attempt queued at S3 but C3 rejected
+`association_backup_failed` before retirement. Source inspection identifies a
+first-use ordering defect: it requires the previous-association backup to
+exist before invoking the routine that creates it. A scoped correction using
+the existing encrypted repository is being tested; C3 firmware remains
+unchanged at this checkpoint. No injection, EventKey, backend insert or actual
+APK event observation. Detailed public stack diagnosis is in
+`GS117_PHYSICAL_ACCESS_20261025T112221Z/usb-receive-diagnosis-20261026.json`;
+owner-only full device/readback evidence is in
+`~/.local/state/ghar-sajag/gs117-tc001/s3-usb-timeline-20261026/`.
+
+
+### 2026-10-26 — Actual S3 TLS and C3/S3 authenticated runtime PASS
+
+Supersedes earlier C3-inactive/USB-zero-byte blockers. Exact-image symbolization
+identified S3 RSA stack exhaustion, followed by a new boot's receive timeout.
+Existing GS68 8192-byte stack budget physically fixes GS40 TLS validation with
+3024-byte headroom. Installed S3 OTA0 SHA256
+`b92e85440430608d3190d0a22cb7d65cc2156210fa6b7878129edb614294a728` starts the
+full product Hub for the correct Home. Scoped first-use encrypted backup ordering
+fix installed on C3 OTA0 SHA256
+`591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea`.
+Both retain verified prior OTA1 recovery images; protected state preservation
+is recorded in the existing handoff. No additional flash is needed.
+
+Real exact-fixture PoP/commissioning/rejoin PASS; C3 session107 runtime/sensing
+counters131 then22090, HIL_AWAKE_TEST_ONLY. The owner-approved disposable old
+association was backed up before scoped retirement; permanent keys/counters kept.
+Actual public-key proof is `physical-pair-20261026.json` in the existing evidence
+directory. Existing PostgreSQL ownership now registers physical Hub/Node in
+`gs177-test-product`, epoch1/gen1; event count stayed1. No fake event insertion.
+Bounded existing mTLS listener trial was ready but no real Hub peer connected;
+persistent ingress lifecycle remains NOT_CONFIGURED. Signed-time UDP requests
+were observed, target acceptance NOT_VERIFIED. Trials stopped at checkpoint.
+
+TC001 NOT_RUN: no INJECT_MOTION issued. Incidental sensor107/1 is not acceptance.
+Physical CloudSync/COMMITTED/API fresh-event and actual APK remain NOT_VERIFIED.
+Backend authenticated Home/API readiness PASS; phone-side evidence unavailable.
+One consolidated protected action remains: normal UAC with process-only
+RemoteSigned permission for reviewed hash-verified existing proxy; repair owned
+443 route and explicitly add restricted Private-Wi-Fi8445 mTLS route. Windows
+Restricted policy rejected normal script execution; no bypass or firewall change.
+Then restart existing time/ingress, refresh expired encrypted S3 config, ordinary
+C3 rejoin, and execute one new controlled console event plus actual APK evidence.
+
+Focused console28, GS40 checks85, production association/recovery, proxy security19,
+both target builds and board E2E10 PASS. Actually executed Node/Hub/contracts
+remain FAIL at existing P0 PARTIAL, plus Hub migration; no release gate claimed.
+See `docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`
+and `physical-activation-20261026.json` for preservation, exact results, next action
+and final Git/Jira receipt. Canonical branch unchanged; unrelated assets preserved.
+
+
+Final current-source GS179 PostgreSQL E2E PASS57/57 with isolated schemas and no
+skips; feature-coverage consistency PASS226 features/285 modules/27 cases plus
+22 tests. No physical Hub commit or phone event inferred from those results.
+Bounded ingress trial stopped; no8445 listener remains. The final scoped commit
+and verified remote are recorded in GS117/GS68/GS179 delivery comments.

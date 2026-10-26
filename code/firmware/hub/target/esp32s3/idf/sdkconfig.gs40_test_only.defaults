@@ -4,3 +4,6 @@ CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 # CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y
+# Reuse the GS-68 RSA validation stack budget. The product's 3584-byte default
+# is insufficient for the TEST_ONLY RSA-3072 private-key proof during bootstrap.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
