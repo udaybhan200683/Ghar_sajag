@@ -7608,3 +7608,35 @@ public cache-deployment JSON and existing handoff/work-state/validation mappings
 are the intended Git delivery; untracked/ignored unrelated assets are preserved.
 Final integrated commit/verified remote is supplied by the delivery/Jira receipt;
 parent9bbc6d0 is not a claim that these uncommitted fixes were already pushed.
+
+### GS-117 current physical integration — 2026-10-26
+
+Context preflight PASS; canonical local/remote HEAD `8303a3293af8cfcce1e56063434e8d625f9c93b8`.
+The owner-approved, reviewed Windows proxy repair completed through one visible
+normal UAC run. Current trusted Wi-Fi is `Airtel_Agrim` Private
+`192.168.1.10/24`; only `.10:443→WSL:8444` and `.10:8445→WSL:8445` remain. The
+exact stale `.7` mappings were removed. Netsh confirms the two GS-owned inbound
+rules are Private-only and limited to local `.10/32`, remote subnet
+`192.168.1.0/24`, and their respective TCP ports. Caregiver TLS and PostgreSQL
+health pass.
+
+Existing signed time and the bounded TEST_ONLY GS-179 ingress are active. The
+physical S3 has returned HTTP 200 authority refreshes; 66 distinct physical C3
+EventKeys across sessions 107 and 111 received HTTP 201 `COMMITTED`,
+`duplicate=false`. These unrequested/replayed records are not TC-001 evidence.
+The listener's autostart remains disabled and permanent service status remains
+`NOT_CONFIGURED`; no persistent service was fabricated. The existing caregiver
+Home/API reports `gs177-test-product` and `https://desktop-3qqu64b.local` ready,
+with monitoring `UNKNOWN` and source freshness `STALE`.
+
+C3 is unchanged; its latest read-only observation is authenticated session 111,
+`HIL_AWAKE_TEST_ONLY`, `runtime_live=39236`, `sensing_live=39236`. No board was
+reset, reflashed or recommissioned during this continuation. TC-001 remains
+`NOT_RUN`: the existing console sees COM4/COM10 but has no owner-only current
+fixture/Android installation receipt. No Android device/ADB evidence is
+available, so installed APK identity, backend/Home and event display remain
+`NOT_VERIFIED`. The owner was asked for USB-debuggable phone access or a genuine
+phone-side installation receipt. Next: verify the existing APK and assemble the
+console fixture from genuine receipts, then run one controlled injection and
+correlate the original EventKey through physical S3, PostgreSQL, caregiver API
+and actual APK. Full details are in the dated GS-117 execution evidence above.

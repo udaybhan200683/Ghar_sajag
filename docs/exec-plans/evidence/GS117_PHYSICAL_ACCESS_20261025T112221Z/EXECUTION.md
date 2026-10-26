@@ -1041,3 +1041,57 @@ public cache-deployment JSON and existing handoff/work-state/validation mappings
 are the intended Git delivery; untracked/ignored unrelated assets are preserved.
 Final integrated commit/verified remote is supplied by the delivery/Jira receipt;
 parent9bbc6d0 is not a claim that these uncommitted fixes were already pushed.
+
+### 2026-10-26 resumed execution — LAN proxy and physical CloudSync
+
+Context preflight PASS at source `8303a3293af8cfcce1e56063434e8d625f9c93b8`;
+local and remote canonical branch HEAD matched, tracked tree clean. Existing
+untracked/ignored owner assets were preserved.
+
+The active Windows Wi-Fi was re-read as `Airtel_Agrim`, Private,
+`192.168.1.10/24`; WSL NAT address was `172.17.152.10`. The reviewed canonical
+proxy script hash `01a8778b552e698deb3f80021c043a323e2410b822fda4af71d9ce36b80e2b26`
+matched the reviewed copy. One visible normal-UAC run completed with exit 0. Only
+the stale exact `.7` mappings were removed. Current mappings are `.10:443 →
+172.17.152.10:8444` and `.10:8445 → 172.17.152.10:8445`. Netsh confirms both
+GS-owned inbound rules are enabled for Private only, local `.10/32`, remote
+`192.168.1.0/24`, TCP 443 and TCP 8445 respectively. No unrelated portproxy or
+firewall settings were changed. Windows TCP probes to both ports passed;
+certificate-verified caregiver HTTPS and PostgreSQL health passed.
+
+The existing bounded signed-time process is active and S3 authority refreshes
+returned HTTP 200. The existing GS-179 ingress process is listening on WSL
+`172.17.152.10:8445`; the corrected Windows forwarding is carrying physical S3
+CloudSync requests. In the owner-only ingress trace, 42 authority refreshes and
+66 distinct physical C3 EventKeys (sessions 107 and 111) received HTTP 201,
+`COMMITTED`, `duplicate=false`. These ambient/replayed device events are not the
+controlled TC-001 event and are not acceptance evidence. The runtime remains
+TEST_ONLY and foreground/bounded; `gs179-laptop-server.sh health` truthfully
+continues to report Hub-ingress autostart/persistent service as
+`NOT_CONFIGURED`. No caregiver backend, Home, database or event history was
+replaced.
+
+The existing Home `gs177-test-product` and caregiver origin
+`https://desktop-3qqu64b.local` pass backend readiness. Monitoring is still
+`UNKNOWN` and source freshness `STALE`. The C3 remains unchanged; the latest
+read-only HIL observation recorded authenticated session 111 with
+`runtime_live=39236`, `sensing_live=39236`, `HIL_AWAKE_TEST_ONLY`, no retained or
+in-flight events. No C3 reset/reflash/recommission or S3 reflash occurred in
+this continuation.
+
+**TC-001 remains NOT_RUN.** The loopback console lists COM4 and COM10 but its
+readiness is BLOCKED because the current owner-only fixture file and genuine
+Android installation receipt are absent. Windows has no attached Android/ADB
+device evidence, and no ADB executable was found in the checked SDK locations.
+The actual APK package/version/signer/origin and event presentation therefore
+remain `NOT_VERIFIED`. The owner was asked to connect the existing phone over
+USB and accept its normal USB-debugging prompt, or provide a genuine phone-side
+installation receipt. No HIL injection was issued, no new TC-001 EventKey was
+created, and none of the session-107/111 commits is counted as TC-001.
+
+**Next action:** after real phone installation evidence is available, assemble
+the existing console's owner-only fixture from verified current device, ingress,
+Home and phone receipts; run exactly one controlled C3 `INJECT_MOTION`; correlate
+that original EventKey through the physical Hub, PostgreSQL and caregiver API;
+then require actual APK observation (`USER_CONFIRMED` when manual). Do not reflash
+or recommission either board.
