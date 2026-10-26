@@ -7753,3 +7753,36 @@ reset-isolated serial observation/injection path (or an explicit owner decision
 covering COM4's documented reset risk), current Hub mTLS authentication, and
 phone-side confirmation in the existing APK. Details are in the dated GS-117
 execution evidence above.
+
+### GS-117 USB-port return and Android refresh — 2026-10-26 16:26 UTC
+
+After the owner returned the devices to their original USB ports, fresh
+Windows-native enumeration confirms COM4 is C3 `14:63:93:C5:D1:58` and COM10 is
+S3 `E0:72:A1:D3:8D:34`; both PnP entries are OK. The Motorola is again
+authorized in ADB, with the existing caregiver package
+`in.gharsajag.caregiver.discoverytest` version `0.4.0-connected-lite-staging`
+foreground. Its live screen displays `CONNECTED`, Home `gs177-test-product`,
+and monitoring `UNKNOWN` / source `STALE`; this is not TC-001 event evidence.
+The saved endpoint is `https://192.168.1.10/`. TLS remains enforced by the APK;
+the server certificate at the IP has an IP SAN and the `.local` DNS SAN, but
+the app has no stored SPKI pin. The current console accepts only `.local` and
+exact-origin equality, so it does not accept this phone endpoint as presently
+configured.
+
+Historical C3 evidence at 08:51 UTC showed active `ota_0`,
+`HIL_AWAKE_TEST_ONLY`, session 111 and live runtime/sensing counters. It does
+not prove the post-disconnect boot. Port `List` was read-only; no serial port,
+reset, flash, commissioning or motion command was used. A USB cable removal can
+explain temporary enumeration loss and, if USB is the sole supply, a normal
+power cycle. It is distinct from the separately documented
+`USB_UART_CHIP_RESET` on serial open. Windows pySerial opens the COM handle
+before applying DTR/RTS, so the present path remains unqualified as reset-safe.
+
+The existing ingress listener, PostgreSQL and signed-time checks are ready,
+but current S3 authentication is `NO`, persistent ingress is not configured,
+and the trace has no entries after 13:27 UTC. CloudSync may remain silent when
+there are no pending journal events or current NodeHealth publications; the
+current evidence cannot distinguish this idle case from an S3 connectivity
+failure. No fresh EventKey exists; TC-001 remains `BLOCKED / NOT_RUN` pending a
+single explicitly authorized reset-aware observation. Exact supporting
+evidence and its recovery boundaries are in the linked GS-117 execution record.

@@ -1288,3 +1288,72 @@ available. Restore ADB enumeration or be ready to confirm the event on the phone
 screen after backend/API verification. Only after current C3/S3 rejoin and Hub
 mTLS readiness pass may the existing console fixture be completed and exactly
 one controlled event injected.
+
+### 2026-10-26 USB-port return, ADB and serial-safety refresh — 16:26 UTC
+
+After the owner returned the C3, phone and S3 to their original USB ports, a
+fresh Windows-native `List` (enumeration only; no serial handle opened) again
+maps COM4 `303A:1001` / `14:63:93:C5:D1:58` to the C3 and COM10 `303A:1001` /
+`E0:72:A1:D3:8D:34` to the S3. Windows PnP reports both serial devices `OK`.
+The Motorola Edge 60 Fusion is again authorized in ADB. Its installed package
+is `in.gharsajag.caregiver.discoverytest`, version
+`0.4.0-connected-lite-staging`; the saved app origin is
+`https://192.168.1.10/`. The app was foregrounded without changing its data.
+An owner-local screenshot at
+`~/.local/state/ghar-sajag/gs117-tc001/android-readiness-20261026/apk-home-screen.png`
+(SHA-256 `bf78b26f43a93fe95e90d9d5b12ea9139f1f5254912865abe8fb0ef4661112f0`)
+shows `CONNECTED`, the TEST_ONLY Home `gs177-test-product`, and monitoring
+`UNKNOWN` / source `STALE`. It is readiness evidence, not a new-event receipt.
+The latest displayed authenticated Hub contact is still 24 October.
+
+The Android TEST_ONLY origin parser accepts a private IPv4 endpoint, and the
+server certificate presented at `192.168.1.10` includes both that IP and
+`desktop-3qqu64b.local` in its SAN. The APK source keeps cleartext disabled and
+cancels WebView SSL errors; no TLS bypass was found. The app currently has no
+stored SPKI pin, so pin continuity is not established. The console still
+requires a literal `.local` origin and exact equality with the caregiver API
+origin; the current APK IP origin does not satisfy that controller check. Do
+not fabricate an origin receipt or relax certificate/identity validation.
+
+The laptop backend readiness and existing Home API remain PASS. At 16:20 UTC
+the bounded ingress status was listener/PostgreSQL/signed-time ready, but
+`real_hub_authenticated=NO`, `hub_connected=NO`, and
+`persistent_hub_ingress=NOT_CONFIGURED`. Its trace has 137 historical rows and
+ends at 13:27 UTC, before the current listener start. The source CloudSync
+worker submits outstanding journal entries and, when available, the current
+authenticated NodeHealth snapshot; it need not issue an ingress request when
+both are empty. Thus an idle Hub is plausible, but the absence of post-restart
+traffic does not prove that the S3 is healthy or broken. Current S3 runtime,
+outbox and authenticated session remain unobserved.
+
+The best saved C3 physical evidence is a readback image captured at 08:44 UTC
+(app SHA-256 `591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea`)
+followed at 08:51 UTC by `GET_STATE`: active `ota_0`,
+`HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`, `physical_wake=0`,
+session 111, and `runtime_live=sensing_live=39236`. This is pre-port-swap
+evidence; current running slot/session after cable disconnection is not
+verified. No reflashing is indicated.
+
+USB removal explains disappearance from Windows COM/ADB enumeration. If USB
+was a board's sole supply it may also cause a normal power cycle, but no reset
+reason was captured for this latest reconnect. This is distinct from the
+historical C3 `USB_UART_CHIP_RESET` reported during serial observation. Windows
+pySerial opens with `CreateFile` before applying DTR/RTS through its subsequent
+serial reconfiguration, so setting DTR/RTS low before `.open()` is not a
+reset-safety qualification. The existing console still lacks its owner-only
+`fixture.json` and will not run with a fabricated `reset_safe_uart_verified`
+receipt. No serial port was opened, no board state was changed, and no motion
+was injected.
+
+**TC-001 remains `BLOCKED / NOT_RUN`; there is no new EventKey.** No qualified
+reset-isolated observation path is attached. If the owner accepts the reset
+risk, the next action is to add an explicit, owner-only risk-acceptance gate to
+the existing console/helper path (leaving `reset_safe_uart_verified` false),
+then perform one bounded read-only `Observe`: require the exact COM identities,
+set DTR/RTS low, query C3 `GET_STATE` and S3 `FIXTURE_STATUS`, and send no motion
+command. Either board may reboot on open; leave both powered, allow their
+existing images to boot and allow the C3 to rejoin. If either fails to recover,
+stop without flashing, erasing, recommissioning or injecting. After live
+C3/S3, storage and CloudSync readiness evidence, the already scoped one-event
+test can proceed; the exact fresh EventKey must still be confirmed in the
+physical APK.
