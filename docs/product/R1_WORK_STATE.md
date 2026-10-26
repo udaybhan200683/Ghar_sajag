@@ -7366,3 +7366,245 @@ skips; feature-coverage consistency PASS226 features/285 modules/27 cases plus
 22 tests. No physical Hub commit or phone event inferred from those results.
 Bounded ingress trial stopped; no8445 listener remains. The final scoped commit
 and verified remote are recorded in GS117/GS68/GS179 delivery comments.
+
+
+### 2026-10-26 04:48 UTC — OWNER PAUSED after verified inactive S3 update
+
+Approved normal-UAC process-RemoteSigned proxy operation PASS: current trusted
+Private Airtel_Agrim192.168.1.7/24,443->existing8444 and8445->existing8445,
+restricted subnet192.168.1.0/24. Same CA/private key retained during existing
+network certificate SAN refresh; caregiver/PG/LAN HTTPS health PASS. No global
+policy change or persistent elevated task. Physical S3 mTLS authority-refresh
+requests returned200 to existing GS179 runtime, but no event COMMITTED.
+
+Found CloudTrust's duplicate raw key-pair comparison still rejecting the actual
+PSA format. Reused existing secure bootstrap validator; new production CloudTrust
+PKCS1/PKCS8/wrong-key regression PASS. Full-product S3 build PASS. New app
+SHA256404dd1ec32ec3f66585f3a8c54e1ee94e8e068b5ff619f9e6369df154a6d51bf
+is written/readback verified in inactive OTA1(0x420000), **NOT SELECTED/BOOTED**.
+OTA0 b92e8544 remains selected, valid sequence27, preserved recovery. Table,
+otadata,NVS,OTA0,outbox,state byte-identical. S3 left in ROM/stub, handle closed.
+C3 untouched; do not reflash or repeat successful commissioning.
+
+Temporary time/ingress stopped; existing caregiver service and approved scoped
+routes remain. Source parent9bbc6d0 plus delivered scoped fix; exact final commit
+in Jira/delivery. Focused security groups14/9/13/5, adapters9/5, provider suites5,
+simulation18, bootstrap85 PASS. Affected full campaign for this change deferred
+at explicit owner pause; prior P0/migration failures not resolved. TC001 NOT_RUN;
+no injection or actual Android observation. Current console fixture/phone receipts
+still absent; do not fabricate them.
+
+Resume: existing services, verify current route/metadata, official selector-only
+activation of already-written OTA1, encrypted config refresh expected offset
+0x420000/version9bbc6d0-dirty/ELF c40486743, real CloudTrust/CloudSync and ordinary
+C3 rejoin, then genuine console/phone acceptance. Full preservation and exact
+commands/prerequisites in existing GS117 physical-access EXECUTION.md latest pause.
+
+Pause mapping/preflight checks PASS (traceability22 tests,226 features/285 modules/
+27 physical cases); exact candidate and source-provenance manifest preserved
+owner-only in current session s3-cloudtrust-ready/. No further hardware operation
+was performed after the verified readback checkpoint.
+
+
+Final pause review preserved the original8192-byte private-key limit in the shared
+API and added oversize rejection. This supersedes selector-only resume: written
+inactive404dd1ec is an earlier candidate, NOT_SELECTED; do not activate it.
+Latest bounded full-product candidate BUILT_NOT_WRITTEN, bytes2272880,
+SHA256ce33f40aefee2ad9009c5c88a518dd83b5bb02186d204788d510a10dac945e65, ELF1140ce12cc8b0b0240e0836fb4f26fb71c54e4c1f42e98f7edda3a03f2d3523e. Exact owner-only manifest in
+current session s3-cloudtrust-bounded-ready/. After resume verify preservation,
+write latest bounded candidate to inactive OTA1, verify, then select/bootstrap.
+No additional physical action after owner pause. OTA0 recovery remains intact.
+
+
+### 2026-10-26 resume — ce33 product app physically running; bounded proof cache prepared
+
+ce33f40a candidate now installed/readback and boot-verified on S3 OTA1, recovery
+OTA0b92e8544 protected. Ordinary C3 rejoin109/110, real original107/41..52 durable
+S3 admissions/ACKs and duplicate-safe retained recovery observed. C3 firmware,
+identity and commissioning unchanged. Private Airtel_Agrim192.168.1.7 scoped
+443/8445 routes and existing caregiver Home/API ready at stable .local origin.
+
+Repeated private RSA proof validation starves both S3 cores (exact ce33 ELF
+watchdog symbolization) and accompanies refresh/HTTP completion failures. Shared
+validator now has one-entry RAM/digest cache of immutable crypto proof; live
+ownership/epoch/revocation/time checks retained. Bootstrap85/provider/cache
+regressions and target build PASS. New imagec26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16
+is BUILT_TESTED_NOT_WRITTEN, pending specific owner approval because resume
+named onlyce33. ce33 restored/running while waiting; fresh preservation checks
+required before new write. Exact plan and artifacts in existing execution record
+and owner-only resume-20261026T062943Z/proof-cache-ready/.
+
+No controlled injection; TC001 NOT_RUN; no physical event COMMITTED/API/actual
+APK acceptance. Phone current Home/origin/version and genuine install/ingress
+receipts remain pending. Existing localhost console is present but guarded;
+no receipts fabricated. Affected component campaigns running with native strict
+PASS-receipt verification; mandatory failures remain visible. Final validated
+Git/Jira receipt follows delivery. No new provisioning platform or product scope.
+
+
+Current bounded time/physical-ingress trial has been shut down cleanly; existing
+caregiver service/PG and approved Windows forwarding remain. No8445 listener is
+active now; previous READY receipts are historical. New-image approval and phone
+evidence have not arrived. ce33 remains last boot-verified image; c26 remains
+BUILT_TESTED_NOT_WRITTEN. Exact new image approval is the next physical gate;
+restart existing services with a fresh window and fresh preservation backup
+before an approved operation. TC001 remains NOT_RUN, actual APK NOT_VERIFIED.
+
+
+### Power-outage interruption — summary checkpoint, 2026-10-26
+
+Owner reports power outage and requests execution summary, not further hardware
+operations. Post-outage context preflight PASS; actual local/remote remain
+9bbc6d0c89f5a8dcad575e3f4f8a4f5aafc8c117. All intended source changes are still
+UNCOMMITTED. Candidate c26b6241 BIN/ELF/config/metadata hashes and saved source-file
+hashes all match. Existing caregiver user service is active. No board was opened,
+reset, flashed or commissioned during this post-outage reconciliation.
+
+Last physical observation before outage: ce33 running OTA1; OTA0 recovery b92e8544
+preserved; C3 ordinary rejoin110/runtime/sensing verified. Current post-outage
+board startup, network address/routing and transient protected S3 configuration
+are NOT_RECHECKED. Do not infer current CloudSync readiness from old receipts.
+Bounded ingress/time services were already stopped cleanly before interruption.
+
+Completed software receipts: initial Hub52/55 stages PASS (overall FAIL),
+Contract47/48 (FAIL existing P0 PARTIAL), Backend24/26 (FAIL existing P0 and CSS
+budget). Initial GS178 browser timeout then focused case PASS and full33/33 PASS.
+Registered board-stack-e2e10/10 PASS in the Hub report. PWA final report is absent;
+its process was interrupted, so PWA remains INCOMPLETE/FAIL, not PASS. The separate
+queued board-e2e target never started. Keep the existing executed board10 receipt.
+No validation campaign remains running. Full campaign summary JSON was not written.
+
+Next exact action: obtain/check specific new c26 image-write authorization, then
+refresh current fixture/network/protected-state backups; use official app-only
+OTA1 procedure preserving OTA0 recovery, readback, selector/boot and same protected
+configuration. Do not write ce33 again, do not activate superseded404dd1ec, and do
+not touch C3 commissioning/firmware. Verify real CloudSync before any controlled
+injection. Finish interrupted PWA/mapping/final review, then commit/push scoped
+changes and verify remote. Actual phone evidence remains missing. TC001 NOT_RUN;
+no controlled EventKey, physical backend COMMITTED or actual APK PASS exists.
+
+
+### 2026-10-26 approved c26 deployment — actual physical boot PASS
+
+Owner specifically approved c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16.
+Post-outage context PASS, actual local/remote9bbc6d0, preserved source/artifact
+hashes match. Live COM4/C3 and COM10/S3 USB identities match; actual prior ce33
+boot confirmed. Fresh eight-region owner-only backup includes bootloader, table,
+otadata, NVS, both full4MiB apps, outbox and state. Official partition decoder
+confirms product layout and valid seq27/28 selectors. OTA0 recovery b92e8544 and
+prior ce33 app hashes match. Official esptool confirms S3 revision0.2,16MiB flash,
+embedded8MiB PSRAM. Initial uninitialized raw-ROM flash-ID assertion stopped before
+any write; using official stub/SPI attachment confirmed capacity without relaxing
+the check. Aborted inspection log preserved.
+
+Official otatool selected recovery OTA0 before app-only OTA1 write. Full post-write
+readback exactly matches candidate2273344 bytes plus erased tail; bootloader,
+table,NVS,OTA0,outbox,state byte-identical; otadata exactly matches intended
+recovery-selector snapshot. Official selector then selected OTA1. Actual protected
+bootstrap verifies offset0x420000/version9bbc6d0-dirty/ELF c77483102. Encrypted
+7323-byte frame accepted; exchange1640ms, generation265ms, hostwrite31ms.
+TLS signature proof valid1, raw_pair_equal0 is correctly handled. Full product
+owner starts enrolled1/storage_epoch1. No C3 write/reset/commissioning performed.
+First two capture windows show no watchdog/backtrace. Sustained capture ongoing;
+CloudSync remains fenced without a reachable authority endpoint.
+
+Network changed to trusted Private Airtel_Agrim192.168.1.6/24. Existing server's
+network-refresh-config safely refreshed leaf IP SAN/origin using the existing
+CA/key and saved rollback files. Existing signed-time and physical GS179 ingress
+started with fresh bounded3600s window; actual S3 time requests observed. Existing
+caregiver authenticated Home/API and PG readiness PASS. Physical Hub/Node owner
+and enrollment1 verified; physical durable backend baseline count0. No historical
+HOST_SIM seed is counted. Actual Android diagnostic interface absent; phone
+Home/origin/version requested, no response yet.
+
+Approved existing Windows proxy source exactly matched canonical reviewed HEAD.
+Normal-UAC process-only RemoteSigned invocation did not complete within its wait;
+no status/log/elevated process receipt exists and routes remain old.7. No UAC
+bypass, global policy change, firewall broadening or persistent task. Specific
+normal-dialog result requested. Complete scoped443/8445 repair before claiming
+physical mTLS. Independent firmware work proceeded.
+
+C3 latest initial capture remains session111/runtime0/sensing0 while Hub recovers;
+existing max60s backoff and13-channel sweep may take~13min after long outage.
+Read-only bounded observations are running; do not reflash/recommission/reset C3
+or call this a new firmware failure without evidence. Existing PWA gate resumed
+using only native reverified PASS receipts from completed unaffected stages;
+failures still rerun/propagate. TC001 NOT_RUN, actual APK NOT_VERIFIED.
+
+Current owner-only evidence: /home/udaybhan/.local/state/ghar-sajag/gs117-tc001/cache-deploy-20261026T082637Z.
+
+
+Ordinary C3 authenticated rejoin has now recovered without intervention:
+actual HIL_STATE session111 runtime_live5338/sensing_live5338, retained0/inflight0,
+HIL_AWAKE_TEST_ONLY. NodeRuntime cannot become active before security_link.ready
+and authenticated channel completion; no firmware/association/reset change was
+used. S3 sustained capture still has no watchdog/backtrace. Public current
+cache-deployment receipt updated; time/authority remains fenced by stale route.
+
+
+### FINAL RESUME HANDOFF — owner-requested quota pause, 2026-10-26
+
+**Current hardware checkpoint:** corrected full-product S3 c26b6241 is installed,
+fully readback-verified, selected OTA1 and physically boot/config verified. Do NOT
+flash it again. OTA0 recovery b92e8544 preserved. C3 firmware591e9016 unchanged;
+ordinary authenticated rejoin session111 recovered without reset/commissioning.
+Runtime/sensing grew5338->39236, retained0/inflight0, HIL_AWAKE_TEST_ONLY.
+Captured S3 windows through uptime972071ms have no watchdog/backtrace. This proves
+local product/crypto recovery only, not successful CloudSync or TC001 acceptance.
+
+**Actual remaining gates:** approved scoped Windows443/8445 routes still target
+old192.168.1.7, while verified trusted Private Airtel_Agrim is192.168.1.6/24.
+Logged normal-UAC retry returned "operation was canceled by the user"; no elevated
+completion receipt, no route/firewall change and no bypass. Need normal Windows
+UAC completion for the exact reviewed existing script, not new firmware approval.
+Actual installed Android origin/Home/signer evidence and final event visibility
+remain missing; no diagnostic interface or owner confirmation arrived. Existing
+backend Home gs177-test-product and ownership epoch1/enrollment1 verified; physical
+backend baseline0. No controlled INJECT_MOTION has been issued.
+
+**Software delivery:** source parent9bbc6d0 plus preserved shared TLS validator and
+bounded successful immutable-proof cache; original8192-byte bounds, PKCS1/8 and
+wrong-key rejection, current authority/Home/epoch/revocation/time checks retained.
+Bootstrap85/provider/cache checks and full target build PASS. Latest registered
+Hub53/55 stages PASS (gate FAIL migration/P0 PARTIAL); contract47/48 (FAIL P0);
+backend24/26 (FAIL CSS/P0); PWA17/19 (FAIL CSS/P0). Browser86 PASS, GS177 real
+Chromium4 tests/92 catalogue assertions PASS; initial post-outage missing websocket/
+Chrome process paths repaired using existing cached dependencies, no new framework.
+Board target1/1 stage with10 cases PASS. Mandatory nonzero failures preserved.
+Prior GS178 transient browser timeout subsequently passed focused and full33.
+Feature mapping22 tests/226features/285modules/27physical cases PASS. After executable
+campaigns only documentary mapping/status CSVs changed; actual tested firmware/
+unit-source hashes still match candidate manifest. No release-gate-final,
+commercial release or optical qualification is claimed.
+
+**Pause safety:** current allowance read through official account/rateLimits/read
+is92% used in300min window =8% remaining, reset 2026-10-26T11:29:17+00:00. Owner's below9%
+pause condition triggered. Bounded ingress PID3000 stopped cleanly (explicit
+GS117_BOUNDED_INGRESS_STOPPED); exact Windows signed-time PID5984 stopped after
+command identity check. No8445 fixture listener should be treated as active;
+old READY receipts are historical. Caregiver service/PG and loopback console
+http://127.0.0.1:18791 remain. All serial observation/write handles are closed.
+No more elevation or physical action after pause. Existing network leaf/config
+rollback backups and all old/new hardware backups preserved owner-only.
+
+**Exact next action after resume:** run context/status preflight, verify current
+trusted Wi-Fi/IP and actual existing route state. Use the existing reviewed scoped
+proxy with process RemoteSigned and normal UAC (no global policy, task or broad
+firewall change). If same approved script is copied locally, verify hash against
+canonical source before elevation. Restart the preserved existing time/ingress
+operators with a fresh bounded window, current endpoint certificate/IP and existing
+trust. Reuse running S3 config if still valid; otherwise refresh only the existing
+encrypted config through approved S3 reset-aware bootstrap, expecting OTA1@0x420000,
+version9bbc6d0-dirty/ELFc77483102. No S3 reflash, no C3 reflash/reset/commissioning.
+Verify physical mTLS authority and actual event CloudSync; let any old retained
+records recover and capture a new baseline. Obtain genuine phone/ingress/image
+receipts for existing console fixture guard; never fabricate or weaken them.
+Then invoke ONE existing console Run Test, original EventKey exactly once through
+physical Hub/PG/API and actual APK, manual evidence USER_CONFIRMED when applicable.
+
+**Artifacts and reports:** owner-only /home/udaybhan/.local/state/ghar-sajag/gs117-tc001/cache-deploy-20261026T082637Z; prior proof-cache-ready manifest/BIN/ELF
+in resume-20261026T062943Z. All source hashes/candidate checks match. Full source,
+public cache-deployment JSON and existing handoff/work-state/validation mappings
+are the intended Git delivery; untracked/ignored unrelated assets are preserved.
+Final integrated commit/verified remote is supplied by the delivery/Jira receipt;
+parent9bbc6d0 is not a claim that these uncommitted fixes were already pushed.

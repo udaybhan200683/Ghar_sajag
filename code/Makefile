@@ -639,8 +639,8 @@ CLOUDSYNC_MTLS_ADAPTER_BINARY ?= build/cloudsync_mtls_adapter_validation
 GS40_TESTONLY_MTLS_ADAPTER_BINARY ?= build/gs40_testonly_mtls_adapter_validation
 .PHONY: cloud-trust-provider-test
 CLOUD_TRUST_PROVIDER_BINARY ?= build/cloud_trust_provider_validation
-$(CLOUD_TRUST_PROVIDER_BINARY): $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) firmware/hub/target/esp32s3/cloud_trust_provider.cpp firmware/hub/target/esp32s3/cloud_trust_provider.hpp firmware/hub/target/esp32s3/https_backend_channel.hpp firmware/hub/cloud_sync/cloud_sync.hpp tests/cpp/cloud_trust_provider_validation.cpp | build
-	$(HOST_CXX) $(CXXFLAGS) -DGS_CLOUD_TRUST_TEST_ONLY_FIXTURE=1 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -pthread $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) firmware/hub/target/esp32s3/cloud_trust_provider.cpp tests/cpp/cloud_trust_provider_validation.cpp -lcrypto -o $@
+$(CLOUD_TRUST_PROVIDER_BINARY): $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) firmware/hub/target/esp32s3/cloud_trust_provider.cpp firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp firmware/hub/target/esp32s3/cloud_trust_provider.hpp firmware/hub/target/esp32s3/https_backend_channel.hpp firmware/hub/cloud_sync/cloud_sync.hpp tests/cpp/cloud_trust_provider_validation.cpp | build
+	$(HOST_CXX) $(CXXFLAGS) -DGS_CLOUD_TRUST_TEST_ONLY_FIXTURE=1 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -pthread $(TRACE_FLAGS) $(INCLUDES) $(CPP_OBJECTS) $(call host_objects,$(GS116_CPP_TEST_HOST_SOURCES)) firmware/hub/target/esp32s3/cloud_trust_provider.cpp firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp tests/cpp/cloud_trust_provider_validation.cpp -lcrypto -o $@
 
 cloud-trust-provider-test: $(CLOUD_TRUST_PROVIDER_BINARY)
 	$(CLOUD_TRUST_PROVIDER_BINARY)

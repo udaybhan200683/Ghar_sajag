@@ -1,0 +1,171 @@
+{
+  "date_utc": "2026-10-26",
+  "source_parent": "9bbc6d0c89f5a8dcad575e3f4f8a4f5aafc8c117",
+  "profile": "GS117_PHYSICAL_TEST_ONLY",
+  "deployment": {
+    "status": "APP_AND_PROTECTED_REGIONS_READBACK_PASS",
+    "candidate_sha256": "ce33f40aefee2ad9009c5c88a518dd83b5bb02186d204788d510a10dac945e65",
+    "candidate_bytes": 2272880,
+    "written_slot": "ota_1",
+    "protected_byte_identical": {
+      "table": true,
+      "otadata": true,
+      "nvs": true,
+      "ota0": true,
+      "outbox": true,
+      "state": true
+    },
+    "recovery_slot": "ota_0",
+    "recovery_sha256": "b92e85440430608d3190d0a22cb7d65cc2156210fa6b7878129edb614294a728",
+    "source_parent": "9bbc6d0c89f5a8dcad575e3f4f8a4f5aafc8c117",
+    "source": "plus preserved CloudTrust fix exact manifest patch match"
+  },
+  "running_boot": {
+    "app_offset": "0x420000",
+    "app_version": "9bbc6d0-dirty",
+    "elf_sha256_prefix": "1140ce12c"
+  },
+  "target_identity": "hub-e072a1d38d34 COM10",
+  "node_identity": "c3-146393c5d158 COM4",
+  "home_id": "gs177-test-product",
+  "physical_results": {
+    "product_hub_started": "PASS enrolled1/storage_epoch1",
+    "ordinary_rejoin": "PASS transport109, then110 after approved restart",
+    "retained_original_keys": "107/41..52 observed with durable authenticated ACK; not controlled TC001",
+    "no_c3_firmware_or_commissioning_change": true,
+    "authority_mtls_endpoint": "HTTP200 observed; complete usable target authority/event receipt not inferred",
+    "cloudsync_event_committed": "NOT_VERIFIED",
+    "controlled_injection": "NOT_RUN",
+    "actual_android": "NOT_VERIFIED"
+  },
+  "timing_failure": {
+    "watchdog": [
+      "E (42751) task_wdt: Print CPU 0 (current core) backtrace",
+      "E (42751) task_wdt: Print CPU 1 backtrace"
+    ],
+    "exact_elf_sha256": "1140ce12cc8b0b0240e0836fb4f26fb71c54e4c1f42e98f7edda3a03f2d3523e",
+    "symbolized_stacks": [
+      [
+        "0x42053af4: task_wdt_timeout_handling at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/task_wdt/task_wdt.c:436",
+        " (inlined by) task_wdt_isr at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/task_wdt/task_wdt.c:509",
+        "0x403770f3: _xt_lowint1 at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/xtensa_vectors.S:1264",
+        "0x420f509b: mbedtls_mpi_core_cond_assign at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/bignum_core.c:176",
+        "0x4206dc38: mbedtls_mpi_core_gcd_modinv_odd at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/bignum_core.c:1189",
+        "0x4206cb16: mbedtls_mpi_gcd_modinv_odd at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/bignum.c:1820",
+        "0x4207f960: rsa_gen_rand_with_inverse at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:983",
+        " (inlined by) rsa_prepare_blinding at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:1033",
+        " (inlined by) mbedtls_rsa_private at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:1180",
+        "0x4207fbc8: mbedtls_rsa_rsassa_pkcs1_v15_sign at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:2155",
+        "0x4207fc67: mbedtls_rsa_pkcs1_sign at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:2194",
+        "0x4207ee0e: mbedtls_psa_rsa_sign_hash at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/psa_crypto_rsa.c:343",
+        "0x4207290c: psa_sign_hash_builtin at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3345",
+        "0x42072a78: psa_driver_wrapper_sign_hash at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto_driver_wrappers.h:348",
+        " (inlined by) psa_sign_internal at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3154",
+        " (inlined by) psa_sign_internal at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3104",
+        "0x42072a98: psa_sign_hash at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3396",
+        "0x4206f2eb: mbedtls_pk_psa_rsa_sign_ext at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk_wrap.c:105",
+        "0x4206f315: rsa_sign_wrap at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk_wrap.c:119",
+        "0x4206e610: mbedtls_pk_sign_restartable at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk.c:1338",
+        "0x4206e632: mbedtls_pk_sign at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk.c:1350",
+        "0x4206eb6f: mbedtls_pk_sign_ext at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk.c:1373",
+        "0x4201f866: gs::hub::target::(anonymous namespace)::valid_tls_identity(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp:193 (discriminator 1)",
+        "0x4201fb12: gs::hub::target::gs40_test_only_tls_identity_valid(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp:651",
+        "0x4201d1c1: gs::hub::target::ProvisionedS3CloudTrust::valid_material(gs::hub::target::S3CloudTrustMaterial const&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/cloud_trust_provider.cpp:200 (discriminator 1)",
+        " (inlined by) gs::hub::target::ProvisionedS3CloudTrust::valid_material(gs::hub::target::S3CloudTrustMaterial const&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/cloud_trust_provider.cpp:367 (discriminator 1)",
+        "0x4201d3a4: gs::hub::target::ProvisionedS3CloudTrust::current_material(gs::hub::target::S3CloudTrustMaterial&) const at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/cloud_trust_provider.cpp:401 (discriminator 3)",
+        "0x4201d586: gs::hub::target::ProvisionedS3CloudTrust::current_binding(gs::hub::CloudAuthorityBinding&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/cloud_trust_provider.cpp:409",
+        "0x4200de01: gs::hub::target::(anonymous namespace)::S3CloudRuntimeAuthorityProvider::current_binding(gs::hub::CloudAuthorityBinding&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32/hub_runtime_adapter.cpp:160",
+        "0x42019d14: gs::hub::CloudRuntimeAuthoritySource::refresh_node_health(gs::hub::CloudAuthorityBinding const&, gs::hub::HubRuntime const&, long long) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/cloud_sync/cloud_sync.cpp:177",
+        "0x42018084: gs::hub::CloudSyncWorker::refresh_node_health_snapshot(long long) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/cloud_sync/cloud_sync.cpp:629",
+        "0x42011418: gs::hub::target::(anonymous namespace)::secure_owner_task(void*) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32/hub_runtime_adapter.cpp:1194"
+      ],
+      [
+        "0x4037775a: esp_crosscore_isr at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/esp_system/crosscore_int.c:74",
+        "0x403770f3: _xt_lowint1 at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/xtensa/xtensa_vectors.S:1264",
+        "0x4206d5d8: mbedtls_mpi_core_sub at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/bignum_core.c:457",
+        "0x4206dbf1: mbedtls_mpi_core_gcd_modinv_odd at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/bignum_core.c:1179",
+        "0x4206cb16: mbedtls_mpi_gcd_modinv_odd at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/bignum.c:1820",
+        "0x4207f9d0: rsa_gen_rand_with_inverse at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:992",
+        " (inlined by) rsa_prepare_blinding at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:1033",
+        " (inlined by) mbedtls_rsa_private at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:1180",
+        "0x4207fbc8: mbedtls_rsa_rsassa_pkcs1_v15_sign at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:2155",
+        "0x4207fc67: mbedtls_rsa_pkcs1_sign at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/rsa.c:2194",
+        "0x4207ee0e: mbedtls_psa_rsa_sign_hash at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/drivers/builtin/src/psa_crypto_rsa.c:343",
+        "0x4207290c: psa_sign_hash_builtin at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3345",
+        "0x42072a78: psa_driver_wrapper_sign_hash at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto_driver_wrappers.h:348",
+        " (inlined by) psa_sign_internal at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3154",
+        " (inlined by) psa_sign_internal at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3104",
+        "0x42072a98: psa_sign_hash at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/core/psa_crypto.c:3396",
+        "0x4206f2eb: mbedtls_pk_psa_rsa_sign_ext at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk_wrap.c:105",
+        "0x4206f315: rsa_sign_wrap at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk_wrap.c:119",
+        "0x4206e610: mbedtls_pk_sign_restartable at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk.c:1338",
+        "0x4206e632: mbedtls_pk_sign at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk.c:1350",
+        "0x4206eb6f: mbedtls_pk_sign_ext at /home/udaybhan/.espressif/v6.0.3/esp-idf/components/mbedtls/mbedtls/tf-psa-crypto/extras/pk.c:1373",
+        "0x4201f866: gs::hub::target::(anonymous namespace)::valid_tls_identity(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp:193 (discriminator 1)",
+        "0x4201fd33: gs::hub::target::Gs40TestOnlyRuntimeConfig::valid_material_shape() const at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp:810 (discriminator 1)",
+        "0x4202142b: gs::hub::target::gs40_test_only_refresh_authority(gs::hub::target::Gs40TestOnlyMaterialSource&, gs::hub::target::S3TrustedHubTimeSource const&, gs::hub::target::S3HubMonotonicClock const&, gs::hub::target::AuthenticatedTimeRandomSource&, gs::hub::target::HttpsBackendChannel&, gs::hub::target::Gs40TestOnlyAuthorityLeaseVerifier&) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp:1129",
+        "0x4200d6d8: gs::hub::target::(anonymous namespace)::cloud_authority_refresh_task(void*) at /home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32/hub_runtime_adapter.cpp:257"
+      ]
+    ],
+    "finding": "Repeated RSA proof validation on both cores causes watchdog starvation and is present alongside refresh/HTTP completion failure; immutable-proof cache removes repeat signing, target result pending"
+  },
+  "prepared_fix": {
+    "source_parent": "9bbc6d0c89f5a8dcad575e3f4f8a4f5aafc8c117",
+    "artifacts": {
+      "gs_r1_s3_hub.bin": {
+        "bytes": 2273344,
+        "sha256": "c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16"
+      },
+      "gs_r1_s3_hub.elf": {
+        "bytes": 28924508,
+        "sha256": "c77483102425bcb77b95df4570b09168f64cd290522705d92241dc766da39e0c"
+      },
+      "project_description.json": {
+        "bytes": 274762,
+        "sha256": "b4c2136aae6544d2d2c959df66a85d8388fe8fa8df4db79245734927692e4536"
+      },
+      "sdkconfig": {
+        "bytes": 89613,
+        "sha256": "de51ef853d6023b1eed88d18e90af6962e5a24287ac9188b51b7e85bf2bbbfad"
+      }
+    },
+    "firmware_patch_sha256": "bc3e9f54f6dbe62dbdff630981247041d7c02824345e00ab83687fe9621b9702",
+    "change": "bounded immutable credential proof cache; live authority/time checks retained",
+    "target_profile": "GS40_TEST_ONLY_CLOUDSYNC + GS_HIL_COMMISSIONING; full gs_r1_s3_hub",
+    "status": "BUILT_TESTED_NOT_WRITTEN"
+  },
+  "authorization_status": "NEW_C26_IMAGE_AUTHORIZATION_PENDING; resume named ce33 specifically; no new image written without reply",
+  "preservation": "Fresh backup after ce33 runtime includes both firmware slots and all protected data. Restore current ce33 while waiting; refresh preservation evidence before any later write.",
+  "console_status": "Existing localhost18791 console running; fixture/current phone/ingress receipts still absent; no guard bypass",
+  "backend_status": "Existing authenticated caregiver Home at https://desktop-3qqu64b.local ready; monitoringUNKNOWN/sourceSTALE",
+  "TC001": "NOT_RUN",
+  "release_approved": false,
+  "bounded_services": {
+    "physical_ingress": "STOPPED_CLEANLY",
+    "signed_time": "STOPPED_CLEANLY",
+    "caregiver_service": "ACTIVE",
+    "postgresql": "PRESERVED",
+    "windows_private_forwarding": "PRESERVED",
+    "last_ingress_ready_receipt": "HISTORICAL_NOT_CURRENT_HEALTH"
+  },
+  "software_validation": {
+    "hub_initial": "52/55 stages PASS; gate FAIL migration/P0 PARTIAL/one GS178 browser timeout",
+    "contract": "47/48 stages PASS; gate FAIL existing P0 PARTIAL",
+    "backend": "24/26 stages PASS; gate FAIL existing CSS budget/P0 PARTIAL",
+    "gs178_rerun": "focused failed browser case PASS then full registered 33/33 PASS",
+    "pwa": "INTERRUPTED_NO_FINAL_REPORT",
+    "board_e2e": "10/10 registered Hub stage PASS; separate queued target NOT_STARTED"
+  },
+  "interruption": {
+    "cause": "OWNER_REPORTED_POWER_OUTAGE",
+    "local_and_remote_head": "9bbc6d0c89f5a8dcad575e3f4f8a4f5aafc8c117",
+    "changes": "UNCOMMITTED_PRESERVED",
+    "candidate_and_source_hashes": "MATCH",
+    "physical_state_after_outage": "NOT_RECHECKED",
+    "caregiver_service": "ACTIVE",
+    "pwa": "INTERRUPTED_NO_FINAL_REPORT",
+    "separate_board_target": "NOT_STARTED",
+    "registered_board_stage": "10/10 PASS in completed Hub report",
+    "current_validation_processes": "NONE"
+  }
+}

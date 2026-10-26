@@ -2,13 +2,13 @@
 #include "firmware/hub/lifecycle/configuration/config_service.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstring>
 #include <limits>
 #include <utility>
 
 #if defined(ESP_PLATFORM)
-#include <atomic>
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -123,6 +123,52 @@ bool sha256_concat(const char* domain, std::size_t domain_size,
         mbedtls_md(sha256, input.data(), input.size(), digest.data()) == 0;
 }
 #endif
+
+// Only immutable credential proof is cached. Ownership, epoch, revocation,
+// certificate validity and authenticated time remain live provider checks.
+#if defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
+std::atomic<std::uint64_t> tls_validation_checks{0};
+#endif
+bool tls_identity_digest(const std::string& certificate,
+                         const std::string& private_key,
+                         const std::string& fingerprint,
+                         std::array<unsigned char, 32>& digest) {
+#if defined(ESP_PLATFORM)
+    mbedtls_md_context_t context;
+    mbedtls_md_init(&context);
+    const auto* sha256 = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    bool ok = sha256 != nullptr && mbedtls_md_setup(&context, sha256, 0) == 0 &&
+        mbedtls_md_starts(&context) == 0;
+    auto update = [&](const unsigned char* data, std::size_t size) {
+        return mbedtls_md_update(&context, data, size) == 0;
+    };
+#else
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    bool ok = context != nullptr && EVP_DigestInit_ex(context, EVP_sha256(), nullptr) == 1;
+    auto update = [&](const unsigned char* data, std::size_t size) {
+        return EVP_DigestUpdate(context, data, size) == 1;
+    };
+#endif
+    constexpr unsigned char domain[] = "GS40T/1/TLS-IDENTITY-CACHE";
+    ok = ok && update(domain, sizeof(domain));
+    for (const auto* value : {&certificate, &private_key, &fingerprint}) {
+        std::array<unsigned char, 8> length{};
+        for (unsigned i = 0; i < length.size(); ++i)
+            length[7U - i] = static_cast<unsigned char>(
+                static_cast<std::uint64_t>(value->size()) >> (8U * i));
+        ok = ok && update(length.data(), length.size()) &&
+            update(reinterpret_cast<const unsigned char*>(value->data()), value->size());
+    }
+#if defined(ESP_PLATFORM)
+    ok = ok && mbedtls_md_finish(&context, digest.data()) == 0;
+    mbedtls_md_free(&context);
+#else
+    unsigned length = 0;
+    ok = ok && EVP_DigestFinal_ex(context, digest.data(), &length) == 1 && length == digest.size();
+    EVP_MD_CTX_free(context);
+#endif
+    return ok;
+}
 
 bool valid_tls_identity(const std::string& certificate_pem,
                         const std::string& private_key_pem,
@@ -642,6 +688,42 @@ bool decrypt_payload(const std::array<std::uint8_t, 32>& key,
 
 }  // namespace
 
+bool gs40_test_only_tls_identity_valid(const std::string& certificate_pem,
+                                       const std::string& private_key_pem,
+                                       const std::string& fingerprint) {
+    if (certificate_pem.empty() || certificate_pem.size() > 8192 ||
+        private_key_pem.empty() || private_key_pem.size() > 8192 ||
+        fingerprint.size() != 64) return false;
+    std::array<unsigned char, 32> digest{};
+    if (!tls_identity_digest(certificate_pem, private_key_pem, fingerprint, digest))
+        return false;
+    struct ProofCache {
+        std::mutex mutex;
+        std::array<unsigned char, 32> digest{};
+        bool ready{false};
+    };
+    static ProofCache cache;  // One bounded successful proof, RAM only.
+    std::lock_guard<std::mutex> lock(cache.mutex);
+    unsigned difference = 0;
+    for (std::size_t i = 0; i < digest.size(); ++i)
+        difference |= digest[i] ^ cache.digest[i];
+    if (cache.ready && difference == 0) return true;
+#if defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
+    tls_validation_checks.fetch_add(1, std::memory_order_relaxed);
+#endif
+    if (!valid_tls_identity(certificate_pem, private_key_pem, fingerprint))
+        return false;
+    cache.digest = digest;
+    cache.ready = true;
+    return true;
+}
+
+#if defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
+std::uint64_t gs40_test_only_tls_validation_checks() {
+    return tls_validation_checks.load(std::memory_order_relaxed);
+}
+#endif
+
 bool gs40_test_only_hub_id_allowed(const std::string& hub_id) {
     constexpr char kTestPrefix[] = "test-hub-";
     constexpr char kPhysicalPrefix[] = "hub-";
@@ -798,7 +880,7 @@ bool Gs40TestOnlyRuntimeConfig::valid_material_shape() const {
     return std::all_of(credential_fingerprint_sha256.begin(),
         credential_fingerprint_sha256.end(), [](unsigned char ch) {
             return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
-        }) && valid_tls_identity(client_certificate_pem, client_private_key_pem,
+        }) && gs40_test_only_tls_identity_valid(client_certificate_pem, client_private_key_pem,
             credential_fingerprint_sha256);
 }
 

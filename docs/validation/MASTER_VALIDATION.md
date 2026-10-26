@@ -1070,3 +1070,37 @@ GS179 current-source PostgreSQL integration PASS57/57, isolated schemas, no skip
 Traceability consistency PASS226 features/285 modules/27 physical cases plus22
 tests. This does not override the affected component campaign failures or
 physical TC001/Android NOT_RUN. See the same execution record for exact logs.
+
+
+### GS117 owner pause after inactive CloudTrust fix — 2026-10-26
+
+Network443/8445 approved scoped UAC operation and physical S3 mTLS authority200
+PASS. Existing bootstrap identity validator reused by TEST_ONLY CloudTrust;
+GS117-CLOUD-PAIR-001 production provider tests accept PKCS1/PKCS8 and reject an
+unrelated valid RSA3072 key. Bootstrap85 checks, cloud adapters9/5, provider
+suites5, Python security groups14/9/13/5 and software simulation18 PASS.
+Full S3 build PASS; inactive OTA1 app SHA404dd1ec readback and erased tail PASS;
+table/otadata/NVS/OTA0/outbox/state preserved byte-for-byte. Selected OTA0 remains
+b92e8544. New app NOT_SELECTED/NOT_BOOT_VERIFIED, no controlled injection, TC001
+NOT_RUN and actual APK NOT_VERIFIED. Owner pause deferred full affected campaign;
+prior P0/migration gate failures remain explicit. Evidence and exact next action
+in latest GS117 physical-access EXECUTION.md and network-pause-20261026.json.
+
+
+### GS117 corrected CloudTrust physically deployed — 2026-10-26
+
+c26b6241 full-product S3 app-only readback/boot/encrypted config PASS; recovery and
+protected storage preserved. Unchanged C3 ordinary authenticated session111 has
+increasing HIL-awake runtime/sensing; no captured watchdog. Controlled TC001 remains
+NOT_RUN and actual Android NOT_VERIFIED. Scoped LAN repair awaits normal UAC;
+existing services stopped cleanly for owner-requested8%-remaining quota pause.
+Focused bootstrap85/provider/cache and S3 target build PASS. Executed final Hub
+53/55, contract47/48, backend24/26, PWA17/19 stages PASS, all overall FAIL at existing
+migration/P0 PARTIAL/CSS budget. Browser86, GS177 browser4/92 catalogue and board
+E2E10 PASS. Initial missing browser dependency paths after outage were corrected
+by reusing existing caches; the zero-test failure and later successful rerun are
+both retained. Mapping22 tests PASS. No gate weakening, commercial release,
+optical qualification or physical event acceptance. Exact source/image, commands,
+receipts, safety state and next operation: existing GS117 EXECUTION.md final handoff
+and cache-deployment-20261026.json. Documentary mapping updates after campaigns
+are separately checked; executable source hashes remain unchanged.

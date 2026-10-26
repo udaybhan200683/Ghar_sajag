@@ -1,5 +1,8 @@
 #include "firmware/hub/target/esp32s3/cloud_trust_provider.hpp"
 #include "firmware/hub/runtime/hub_runtime.hpp"
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+#include "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp"
+#endif
 
 #include <atomic>
 #include <ctime>
@@ -14,6 +17,16 @@
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+
+// The provider unit has no HTTP transport. Reuse the bootstrap unit's closed
+// network adapter; physical and production-stack tests link the real channel.
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+namespace gs::hub::target {
+BackendHttpResponse HttpsBackendChannel::post(const std::string&, const std::string&) {
+    return {};
+}
+}
+#endif
 
 using namespace gs::hub;
 using namespace gs::hub::target;
@@ -412,6 +425,85 @@ void test_identity_and_ownership_provider() {
           "revoked binding disables identity and publication authority");
 }
 
+// GS117-CLOUD-PAIR-001: both supported PEM encodings use the same secure
+// TEST_ONLY pair verifier as encrypted bootstrap; unrelated valid keys reject.
+void test_test_only_pair_formats() {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    FakeClock clock;
+    FakeTimeSource time{clock};
+    time.ready = true;
+    const auto& certificate = test_client_certificate();
+    auto encode = [](EVP_PKEY* key, bool traditional) {
+        BIO* output = BIO_new(BIO_s_mem());
+        check(output != nullptr, "pair PEM output allocation");
+        const auto written = traditional
+            ? PEM_write_bio_PrivateKey_traditional(output, key, nullptr, nullptr, 0, nullptr, nullptr)
+            : PEM_write_bio_PrivateKey(output, key, nullptr, nullptr, 0, nullptr, nullptr);
+        check(written == 1, "pair PEM encoding");
+        char* bytes = nullptr;
+        const auto length = BIO_get_mem_data(output, &bytes);
+        std::string pem(bytes, static_cast<std::size_t>(length));
+        BIO_free(output);
+        return pem;
+    };
+    for (const auto traditional : {false, true}) {
+        FakeMaterialSource source;
+        source.value = valid_material();
+        source.value.test_only_client_private_key_pem = encode(certificate.key, traditional);
+        ProvisionedS3CloudTrust provider(source, time, clock);
+        CloudAuthorityBinding binding;
+        CloudTlsIdentity identity;
+        check(provider.current_binding(binding) && provider.current_identity(identity),
+              "same certificate/key accepted in PKCS8 and PKCS1 PEM");
+    }
+    EVP_PKEY_CTX* context = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+    EVP_PKEY* other = nullptr;
+    check(context != nullptr && EVP_PKEY_keygen_init(context) == 1 &&
+          EVP_PKEY_CTX_set_rsa_keygen_bits(context, 3072) == 1 &&
+          EVP_PKEY_keygen(context, &other) == 1, "unrelated valid RSA key");
+    FakeMaterialSource source;
+    source.value = valid_material();
+    source.value.test_only_client_private_key_pem = encode(other, false);
+    EVP_PKEY_free(other);
+    EVP_PKEY_CTX_free(context);
+    ProvisionedS3CloudTrust provider(source, time, clock);
+    CloudAuthorityBinding binding;
+    CloudTlsIdentity identity;
+    check(!provider.current_binding(binding) && !provider.current_identity(identity),
+          "unrelated well-formed RSA3072 key rejected");
+#endif
+}
+
+void test_cached_pair_proof_keeps_authority_live() {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD && \
+    defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
+    FakeClock clock;
+    FakeTimeSource time{clock};
+    time.ready = true;
+    FakeMaterialSource source;
+    source.value = valid_material();
+    ProvisionedS3CloudTrust provider(source, time, clock);
+    CloudTlsIdentity identity;
+    CloudAuthorityBinding binding;
+    check(provider.current_identity(identity), "warm immutable credential proof");
+    const auto proofs = gs40_test_only_tls_validation_checks();
+    for (unsigned i = 0; i < 16; ++i)
+        check(provider.current_binding(binding) && provider.current_identity(identity),
+              "unchanged credential proof remains usable");
+    check(gs40_test_only_tls_validation_checks() == proofs,
+          "trust lookups must not repeat expensive private signing");
+    source.value.authority_revoked = true;
+    check(!provider.current_binding(binding) && !provider.current_identity(identity),
+          "cached key proof cannot bypass live revocation");
+    source.value.authority_revoked = false;
+    time.ready = false;
+    check(!provider.current_identity(identity), "cached key proof cannot replace trusted time");
+    time.ready = true;
+    source.value.certificate_fingerprint_sha256[0] ^= 1;
+    check(!provider.current_identity(identity), "changed fingerprint misses immutable proof cache");
+#endif
+}
+
 void test_identity_negative_matrix() {
     FakeClock clock;
     FakeTimeSource time{clock};
@@ -435,6 +527,7 @@ void test_identity_negative_matrix() {
         {"missing custody evidence", [](auto& x) { x.key_custody_verified = false; }},
 #else
         {"missing TEST_ONLY private key", [](auto& x) { x.test_only_client_private_key_pem.clear(); }},
+        {"oversized TEST_ONLY private key", [](auto& x) { x.test_only_client_private_key_pem.append(8192, ' '); }},
         {"mismatched TEST_ONLY private key", [](auto& x) { x.test_only_client_private_key_pem = "not a private key"; }},
 #endif
         {"malformed fingerprint", [](auto& x) { x.certificate_fingerprint_sha256 = "00"; }},
@@ -928,6 +1021,10 @@ int main() {
         std::cout << "GS68-D05-AUTHORITY-PROVIDER PASS\n";
         test_hub_identity_rejects_certificate_outside_authenticated_time();
         std::cout << "GS68-D05-CERT-VALIDITY-001 PASS\n";
+        test_test_only_pair_formats();
+        std::cout << "GS117-CLOUD-PAIR-001 PASS PKCS1/PKCS8/wrong-key\n";
+        test_cached_pair_proof_keeps_authority_live();
+        std::cout << "GS117-CLOUD-PAIR-CACHE-001 PASS immutable-proof/live-authority\n";
         test_identity_negative_matrix();
         std::cout << "GS68-D12-CREDENTIAL-PROVIDER PASS\n";
         test_authenticated_time_bootstrap_and_recovery();

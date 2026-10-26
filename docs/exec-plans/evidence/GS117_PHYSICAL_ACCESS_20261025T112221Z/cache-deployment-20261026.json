@@ -1,0 +1,96 @@
+{
+  "source_parent": "9bbc6d0c89f5a8dcad575e3f4f8a4f5aafc8c117",
+  "profile": "GS117_PHYSICAL_TEST_ONLY",
+  "approved_image_sha256": "c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16",
+  "deployment": {
+    "image_sha256": "c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16",
+    "complete_app_and_erased_tail": "PASS",
+    "protected_byte_identical": {
+      "bootloader": true,
+      "table": true,
+      "nvs": true,
+      "ota0": true,
+      "outbox": true,
+      "state": true
+    },
+    "otadata_matches_intended_recovery_selection": true,
+    "new_app_selected": true,
+    "boot_verified": {
+      "app_offset": "0x420000",
+      "app_version": "9bbc6d0-dirty",
+      "elf_sha256_prefix": "c77483102"
+    },
+    "encrypted_config_accepted": true,
+    "first_observation_watchdog_count": 0,
+    "cloudsync": "BLOCKED_STALE_WINDOWS_FORWARDING"
+  },
+  "home_id": "gs177-test-product",
+  "hub_id": "hub-e072a1d38d34",
+  "node_id": "c3-146393c5d158",
+  "network": "Private Airtel_Agrim current192.168.1.6/24; existing scoped routes stale.7; normal UAC completion pending",
+  "backend_physical_baseline": {
+    "authority_ready": true,
+    "count": 0,
+    "enrollment_generation": 1,
+    "keys": []
+  },
+  "c3_rejoin": {
+    "status": "PASS",
+    "session": 111,
+    "runtime_live": 5338,
+    "sensing_live": 5338,
+    "no_flash_reset_or_commissioning": true,
+    "proof": "NodeRuntime admission requires authenticated security_link.ready and channel; actual HIL_STATE counters positive",
+    "second_runtime_live": 39236,
+    "second_sensing_live": 39236
+  },
+  "tc001": "NOT_RUN",
+  "android": "NOT_VERIFIED",
+  "windows_elevation": "NORMAL_UAC_CANCELED_BY_WINDOWS_RESPONSE; no route changes",
+  "software_final": [
+    {
+      "suite": "pwa",
+      "exit": 2,
+      "report": "code/evidence/validation_framework/pwa-1793004736107844924/report.json",
+      "status": "FAIL",
+      "pass_stages": 17,
+      "stages": 19,
+      "source_unchanged": true
+    },
+    {
+      "suite": "hub",
+      "exit": 2,
+      "report": "code/evidence/validation_framework/hub-1793004872838975150/report.json",
+      "status": "FAIL",
+      "pass_stages": 53,
+      "stages": 55,
+      "source_unchanged": true
+    },
+    {
+      "suite": "board-e2e",
+      "exit": 0,
+      "report": "code/evidence/validation_framework/board-e2e-1793004907129147744/report.json",
+      "status": "PASS",
+      "pass_stages": 1,
+      "stages": 1,
+      "source_unchanged": true
+    }
+  ],
+  "software_contract": "47/48 PASS, overall FAIL P0 PARTIAL",
+  "software_backend": "24/26 PASS, overall FAIL P0 PARTIAL/CSS budget",
+  "source_mapping_note": "After executable campaigns, only documentary mapping/status CSVs changed; firmware/test source hashes remain identical; mapping consistency rerun separately.",
+  "pause": {
+    "reason": "OWNER_REQUESTED_FIVE_HOUR_ALLOWANCE_BELOW_9_PERCENT",
+    "remaining_percent": 8,
+    "used_percent": 92,
+    "window_minutes": 300,
+    "reset_utc": "2026-10-26T11:29:17+00:00",
+    "signed_time": "STOPPED_OWNED_PROCESS",
+    "physical_ingress": "STOPPED_CLEANLY",
+    "console": "LOOPBACK_ONLY_ACTIVE",
+    "caregiver_service": "ACTIVE",
+    "tc001": "NOT_RUN",
+    "apk": "NOT_VERIFIED"
+  },
+  "mapping": "PASS22 tests;226features/285modules/27physicalcases"
+}

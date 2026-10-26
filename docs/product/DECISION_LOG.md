@@ -1523,3 +1523,35 @@ no event insertion. Windows policy/UAC scoped route operation remains a distinct
 approval gate. TC001/actual APK still NOT_RUN/NOT_VERIFIED. No release or optical
 qualification. Context version unchanged; see the existing GS117 physical-access
 execution handoff and public activation receipt dated2026-10-26.
+
+
+### 2026-10-26 GS117 network approval and owner pause; no new LOCKED policy
+
+Owner approved process-only RemoteSigned/normal UAC for existing scoped443/8445
+Private Airtel_Agrim forwarding; execution PASS with unchanged global policies
+and no elevated task. Existing TEST_ONLY CloudTrust now reuses bootstrap's
+certificate/private-key proof rather than the incompatible duplicate raw check.
+No production authentication, ownership, security or durability contract changed.
+Corrected S3 inactive app write/readback verified; selection/boot/TC001 pending
+explicit owner-requested pause. See latest GS117 execution handoff; CONTEXT_VERSION
+unchanged. No commercial or physical end-to-end acceptance claimed.
+
+
+### 2026-10-26 GS117 runtime evidence; no LOCKED policy change
+
+Owner-named ce33 S3 app safely installed and boot-verified; ordinary C3 rejoin and
+retained durable events recovered without new commissioning. Exact-image watchdog
+traces demonstrate repeated RSA proof work on both cores. Isolated GS40 validator
+now memoizes only immutable credential proof in bounded RAM; current authority,
+Home/epoch, revocation and time are still checked. Production validation and
+all durability/deadline rules unchanged. New binary requires the requested
+specific-image approval; no permission inferred. TC001/actual APK not accepted.
+See current GS117 execution record; CONTEXT_VERSION unchanged.
+
+
+2026-10-26 runtime evidence update, no new LOCKED decision: approved corrected
+S3 imagec26b6241 is now physically installed/booted with protected storage/recovery
+preserved; unchanged C3 ordinary rejoin active. Actual CloudSync/TC001/APK remain
+blocked by canceled normal Windows UAC and missing phone evidence. Owner-requested
+quota pause triggered at8% remaining. Existing security/release requirements and
+CONTEXT_VERSION unchanged. See latest GS117 execution handoff.

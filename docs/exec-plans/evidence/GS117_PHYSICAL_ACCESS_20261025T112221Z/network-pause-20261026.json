@@ -1,0 +1,206 @@
+{
+  "date_utc": "2026-10-26",
+  "pause_reason": "EXPLICIT_OWNER_REQUEST",
+  "source_parent": "9bbc6d0c89f5a8dcad575e3f4f8a4f5aafc8c117",
+  "network": {
+    "Status": "PASS",
+    "ScriptSHA256": "01a8778b552e698deb3f80021c043a323e2410b822fda4af71d9ce36b80e2b26",
+    "Results": [
+      {
+        "EndpointKind": "Caregiver",
+        "Before": {
+          "Action": "Audit",
+          "EndpointKind": "Caregiver",
+          "ListenPort": 443,
+          "TargetPort": 8444,
+          "WifiName": "Airtel_Agrim",
+          "NetworkCategory": "Private",
+          "WifiAddress": "192.168.1.7",
+          "WifiPrefixLength": 24,
+          "ScopedRemoteSubnet": "192.168.1.0/24",
+          "WslAddress": "172.17.152.10",
+          "PortProxyRows": "{\"ListenAddress\":\"192.168.1.7\",\"ListenPort\":443,\"TargetAddress\":\"172.17.152.10\",\"TargetPort\":8444}",
+          "FirewallRuleReadStatus": "READABLE",
+          "FirewallRuleExists": true,
+          "Port443ListenerReadStatus": "QUERY_FAILED",
+          "Port443Listeners": null
+        },
+        "Start": {
+          "Action": "Start",
+          "WifiName": "Airtel_Agrim",
+          "WifiAddress": "192.168.1.7",
+          "NetworkCategory": "Private",
+          "RemoteSubnet": "192.168.1.0/24",
+          "ListenPort": 443,
+          "TargetAddress": "172.17.152.10",
+          "TargetPort": 8444,
+          "StaleOwnedMappingsRemoved": 0,
+          "FirewallRule": "GS179-Local-LAN-HTTPS"
+        },
+        "After": {
+          "Action": "Audit",
+          "EndpointKind": "Caregiver",
+          "ListenPort": 443,
+          "TargetPort": 8444,
+          "WifiName": "Airtel_Agrim",
+          "NetworkCategory": "Private",
+          "WifiAddress": "192.168.1.7",
+          "WifiPrefixLength": 24,
+          "ScopedRemoteSubnet": "192.168.1.0/24",
+          "WslAddress": "172.17.152.10",
+          "PortProxyRows": "{\"ListenAddress\":\"192.168.1.7\",\"ListenPort\":443,\"TargetAddress\":\"172.17.152.10\",\"TargetPort\":8444}",
+          "FirewallRuleReadStatus": "READABLE",
+          "FirewallRuleExists": true,
+          "Port443ListenerReadStatus": "READABLE",
+          "Port443Listeners": 1
+        }
+      },
+      {
+        "EndpointKind": "PhysicalHubIngress",
+        "Before": {
+          "Action": "Audit",
+          "EndpointKind": "PhysicalHubIngress",
+          "ListenPort": 8445,
+          "TargetPort": 8445,
+          "WifiName": "Airtel_Agrim",
+          "NetworkCategory": "Private",
+          "WifiAddress": "192.168.1.7",
+          "WifiPrefixLength": 24,
+          "ScopedRemoteSubnet": "192.168.1.0/24",
+          "WslAddress": "172.17.152.10",
+          "PortProxyRows": "{\"ListenAddress\":\"192.168.1.7\",\"ListenPort\":443,\"TargetAddress\":\"172.17.152.10\",\"TargetPort\":8444}",
+          "FirewallRuleReadStatus": "QUERY_FAILED",
+          "FirewallRuleExists": null,
+          "Port443ListenerReadStatus": "QUERY_FAILED",
+          "Port443Listeners": null
+        },
+        "Start": {
+          "Action": "Start",
+          "WifiName": "Airtel_Agrim",
+          "WifiAddress": "192.168.1.7",
+          "NetworkCategory": "Private",
+          "RemoteSubnet": "192.168.1.0/24",
+          "ListenPort": 8445,
+          "TargetAddress": "172.17.152.10",
+          "TargetPort": 8445,
+          "StaleOwnedMappingsRemoved": 0,
+          "FirewallRule": "GS117-Physical-Hub-mTLS"
+        },
+        "After": {
+          "Action": "Audit",
+          "EndpointKind": "PhysicalHubIngress",
+          "ListenPort": 8445,
+          "TargetPort": 8445,
+          "WifiName": "Airtel_Agrim",
+          "NetworkCategory": "Private",
+          "WifiAddress": "192.168.1.7",
+          "WifiPrefixLength": 24,
+          "ScopedRemoteSubnet": "192.168.1.0/24",
+          "WslAddress": "172.17.152.10",
+          "PortProxyRows": "[{\"ListenAddress\":\"192.168.1.7\",\"ListenPort\":443,\"TargetAddress\":\"172.17.152.10\",\"TargetPort\":8444},{\"ListenAddress\":\"192.168.1.7\",\"ListenPort\":8445,\"TargetAddress\":\"172.17.152.10\",\"TargetPort\":8445}]",
+          "FirewallRuleReadStatus": "READABLE",
+          "FirewallRuleExists": true,
+          "Port443ListenerReadStatus": "READABLE",
+          "Port443Listeners": 1
+        }
+      }
+    ]
+  },
+  "physical_authority_refresh": {
+    "authenticated_http_200_count": 14,
+    "first": {
+      "at": "2026-10-26T04:35:45.650162+00:00",
+      "route": "/v1/test/authority/refresh",
+      "http_status": 200,
+      "receipt_status": null,
+      "duplicate": null,
+      "event_key": null,
+      "receipt_event_key": null
+    },
+    "last": {
+      "at": "2026-10-26T04:41:00.926158+00:00",
+      "route": "/v1/test/authority/refresh",
+      "http_status": 200,
+      "receipt_status": null,
+      "duplicate": null,
+      "event_key": null,
+      "receipt_event_key": null
+    },
+    "claim": "Strict-mTLS physical S3 authority endpoint operational before update; no event COMMITTED or accepted target CloudTrust claimed"
+  },
+  "deployment": {
+    "status": "OWNER_PAUSED_AFTER_INACTIVE_APP_WRITE_VERIFIED",
+    "image_sha256": "404dd1ec32ec3f66585f3a8c54e1ee94e8e068b5ff619f9e6369df154a6d51bf",
+    "image_bytes": 2272848,
+    "written_slot": "ota_1",
+    "written_offset": "0x420000",
+    "written_image_readback_verified": true,
+    "erased_tail_verified": true,
+    "protected_regions_byte_identical": {
+      "table": true,
+      "otadata": true,
+      "nvs": true,
+      "ota0": true,
+      "outbox": true,
+      "state": true
+    },
+    "selectors": [
+      {
+        "sector_offset": 0,
+        "sequence": 27,
+        "state": 2,
+        "slot": 0
+      },
+      {
+        "sector_offset": 4096,
+        "sequence": 26,
+        "state": 4294967295,
+        "slot": 1
+      }
+    ],
+    "selected_slot": "ota_0",
+    "selected_app_sha256": "b92e85440430608d3190d0a22cb7d65cc2156210fa6b7878129edb614294a728",
+    "device_state": "ROM/stub after readback; serial handle closed; new OTA1 not selected or boot-verified",
+    "next_action": "After resume, official OTA selector switch to ota_1 and existing encrypted config refresh with observed new app metadata; do not reflash",
+    "TC001": "NOT_RUN",
+    "INJECT_MOTION_issued": false
+  },
+  "candidate_version": "9bbc6d0-dirty",
+  "candidate_elf_sha256": "c404867432239b103690f14bc5fc31e8261897413c5be25ed5ab0a6b5221a8ae",
+  "services_at_pause": {
+    "caregiver_https": "ACTIVE existing service",
+    "windows_proxy": "443 and8445 approved Private subnet routes remain",
+    "temporary_ingress": "STOPPED listener8445 closed",
+    "temporary_signed_time": "STOPPED",
+    "new_elevated_tasks": "NONE",
+    "execution_policy_global_or_user_changes": "NONE"
+  },
+  "tests": {
+    "bootstrap_checks": 85,
+    "CloudTrust_pair_formats_wrong_key": "GS117-CLOUD-PAIR-001 PASS",
+    "cloudsync_mtls_adapters": "9 and5 cases PASS",
+    "security_python_groups": [
+      14,
+      9,
+      13,
+      5
+    ],
+    "cloudsync_sim_hil": 18,
+    "target_build": "PASS full product; no target boot of corrected image",
+    "affected_full_component_campaign": "NOT_RERUN_AFTER_THIS_CHANGE_OWNER_PAUSED; previous P0/migration failures unresolved"
+  },
+  "TC001": "NOT_RUN",
+  "fresh_controlled_EventKey": null,
+  "actual_Android": "NOT_VERIFIED",
+  "final_review": {
+    "reason": "Retain original8192-byte private-key bound explicitly in shared verifier, add oversized valid PEM rejection",
+    "latest_bounded_candidate_sha256": "ce33f40aefee2ad9009c5c88a518dd83b5bb02186d204788d510a10dac945e65",
+    "latest_candidate_bytes": 2272880,
+    "latest_candidate_elf_sha256": "1140ce12cc8b0b0240e0836fb4f26fb71c54e4c1f42e98f7edda3a03f2d3523e",
+    "latest_candidate_status": "BUILT_NOT_WRITTEN",
+    "written_404dd1ec_status": "SUPERSEDED_NOT_SELECTED",
+    "next_action": "After resume verified app-only replacement of inactive OTA1 with bounded candidate, readback then selector and encrypted config",
+    "candidate_artifacts": "owner-only network-activation-20261026/s3-cloudtrust-bounded-ready/",
+    "no_physical_operation_after_pause": true
+  }
+}

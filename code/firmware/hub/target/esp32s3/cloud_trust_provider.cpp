@@ -1,4 +1,7 @@
 #include "cloud_trust_provider.hpp"
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+#include "gs40_test_only_bootstrap.hpp"
+#endif
 
 #include <algorithm>
 #include <cstring>
@@ -194,49 +197,10 @@ bool cloud_client_certificate_current(const S3CloudTrustMaterial& material,
 
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
 bool test_only_private_key_matches(const S3CloudTrustMaterial& material) {
-    if (!material.test_only || material.test_only_client_private_key_pem.empty() ||
-        material.test_only_client_private_key_pem.size() > 8192) return false;
-#if defined(ESP_PLATFORM)
-    mbedtls_x509_crt certificate;
-    mbedtls_x509_crt_init(&certificate);
-    const int cert_status = mbedtls_x509_crt_parse(
-        &certificate,
-        reinterpret_cast<const unsigned char*>(material.client_certificate_pem.c_str()),
-        material.client_certificate_pem.size() + 1);
-    mbedtls_pk_context private_key;
-    mbedtls_pk_init(&private_key);
-    const int key_status = mbedtls_pk_parse_key(
-        &private_key,
-        reinterpret_cast<const unsigned char*>(
-            material.test_only_client_private_key_pem.c_str()),
-        material.test_only_client_private_key_pem.size() + 1,
-        nullptr, 0);
-    const bool matches = cert_status == 0 && key_status == 0 &&
-        mbedtls_pk_check_pair(&certificate.pk, &private_key) == 0;
-    mbedtls_pk_free(&private_key);
-    mbedtls_x509_crt_free(&certificate);
-    return matches;
-#else
-    BIO* cert_input = BIO_new_mem_buf(material.client_certificate_pem.data(),
-        static_cast<int>(material.client_certificate_pem.size()));
-    X509* certificate = cert_input == nullptr ? nullptr :
-        PEM_read_bio_X509(cert_input, nullptr, nullptr, nullptr);
-    BIO* key_input = BIO_new_mem_buf(material.test_only_client_private_key_pem.data(),
-        static_cast<int>(material.test_only_client_private_key_pem.size()));
-    EVP_PKEY* private_key = key_input == nullptr ? nullptr :
-        PEM_read_bio_PrivateKey(key_input, nullptr, nullptr, nullptr);
-    EVP_PKEY* public_key = certificate == nullptr ? nullptr :
-        X509_get_pubkey(certificate);
-    const bool matches = public_key != nullptr && private_key != nullptr &&
-        EVP_PKEY_base_id(private_key) == EVP_PKEY_RSA &&
-        EVP_PKEY_bits(private_key) == 3072 && EVP_PKEY_eq(public_key, private_key) == 1;
-    EVP_PKEY_free(public_key);
-    EVP_PKEY_free(private_key);
-    X509_free(certificate);
-    BIO_free(key_input);
-    BIO_free(cert_input);
-    return matches;
-#endif
+    return material.test_only && gs40_test_only_tls_identity_valid(
+        material.client_certificate_pem,
+        material.test_only_client_private_key_pem,
+        material.certificate_fingerprint_sha256);
 }
 #endif
 

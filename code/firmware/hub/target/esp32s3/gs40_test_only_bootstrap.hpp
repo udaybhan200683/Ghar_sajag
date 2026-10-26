@@ -28,6 +28,18 @@ bool gs40_test_only_hub_id_matches_runtime(const std::string& configured_hub_id,
 bool gs40_test_only_fixture_home_binding_allowed(
     const std::string& permanent_hub_id, const std::string& fixture_home_id);
 
+// One verifier for envelope admission and CloudTrust publication. In ESP-IDF
+// PSA, equivalent RSA public keys may have different raw encodings; the
+// existing signature proof still establishes certificate/private-key equality.
+bool gs40_test_only_tls_identity_valid(const std::string& certificate_pem,
+                                       const std::string& private_key_pem,
+                                       const std::string& fingerprint);
+
+#if defined(GS_CLOUD_TRUST_TEST_ONLY_FIXTURE)
+// Host-test observation only; no verifier override or target control endpoint.
+std::uint64_t gs40_test_only_tls_validation_checks();
+#endif
+
 // Secrets in this value are transient TEST_ONLY inputs. Do not serialize this
 // object, log it, or persist it. Destruction overwrites the secret strings.
 struct Gs40TestOnlyRuntimeConfig {
