@@ -2,12 +2,20 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
+import os
 import queue
 import re
+import shutil
 import sys
 import threading
 import time
+import xml.etree.ElementTree as ET
+from pathlib import Path
+import subprocess
+import uuid
+from urllib.parse import urlsplit
 
 import serial
 from serial.tools import list_ports
@@ -378,6 +386,13 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
 
 
 def run(config: dict) -> dict:
+    """Run one approved C3 injection; enumerate S3, but never open its UART.
+
+    Opening the physical S3 UART can reboot the Hub and discard its RAM-only
+    GS40 envelope. The Node's authenticated class-0 application ACK is the
+    evidence of durable Hub admission; CloudSync is checked independently at
+    GS-179 using the original EventKey.
+    """
     c3, s3 = config["c3"], config["s3"]
     if (c3.get("hil_control") is not True or c3.get("hil_build") is not False or
             c3.get("physical_wake") is not False):
@@ -385,49 +400,362 @@ def run(config: dict) -> dict:
     if (c3["port"] == s3["port"] or
             not all(exact_port(board, ports()) for board in (c3, s3))):
         raise ValueError("TC001_VERIFIED_USB_INTERFACE_MISMATCH")
-    # Set control lines before open. A board-specific reset-safe serial receipt
-    # is still mandatory in the controller; this cannot prove driver behavior.
+    # Current USB descriptors are checked for both devices. Only COM4 is
+    # opened; DTR/RTS low is not represented as proof of reset safety.
     c3_stream = serial.Serial()
-    s3_stream = serial.Serial()
-    for stream, board in ((c3_stream, c3), (s3_stream, s3)):
-        stream.port = board["port"]
-        stream.baudrate = 115200
-        stream.timeout = 0.1
-        stream.dtr = False
-        stream.rts = False
+    c3_stream.port = c3["port"]
+    c3_stream.baudrate = 115200
+    c3_stream.timeout = 0.1
+    c3_stream.write_timeout = 1
+    c3_stream.dtr = False
+    c3_stream.rts = False
     c3_lines: list[str] = []
-    s3_lines: list[str] = []
-    c3_tail = s3_tail = ""
+    c3_tail = ""
     try:
-        s3_stream.open()
         c3_stream.open()
         c3_stream.write(b"GET_STATE\n")
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + 30
+        next_query = time.monotonic() + 2
+        mode_line = ""
         while time.monotonic() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines)
-            s3_tail = collect(s3_stream, s3_tail, s3_lines)
-            if (any("HIL_STATE role=c3" in line for line in c3_lines) and
-                    any("HIL_OK command=GET_STATE" in line for line in c3_lines)):
-                break
-        if (not any("HIL_STATE role=c3" in line for line in c3_lines) or
-                not any("HIL_OK command=GET_STATE" in line for line in c3_lines)):
-            raise ValueError("TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
-        mode_line = next(line for line in c3_lines if "HIL_STATE role=c3" in line)
-        if not all(marker in mode_line for marker in (
+            mode_line = next((line for line in reversed(c3_lines)
+                              if "HIL_STATE role=c3" in line), "")
+            live = re.search(r"\bruntime_live=([0-9]+)\b", mode_line)
+            sensing = re.search(r"\bsensing_live=([0-9]+)\b", mode_line)
+            pending = re.search(r"\bpending_inject=([0-9]+)\b", mode_line)
+            retained = re.search(r"\bretained=([0-9]+)\b", mode_line)
+            in_flight = re.search(r"\bin_flight=([0-9]+)\b", mode_line)
+            ready = (all(marker in mode_line for marker in (
                 "power_mode=HIL_AWAKE_TEST_ONLY", "hil_build=0", "hil_control=1",
-                "physical_wake=0")):
-            raise ValueError("TC001_C3_NOT_IN_HIL_AWAKE_TEST_ONLY_MODE")
+                "physical_wake=0")) and live and sensing and pending and retained and
+                     in_flight and int(live[1]) > 0 and int(sensing[1]) > 0 and
+                     int(pending[1]) == 0 and int(retained[1]) == 0 and
+                     int(in_flight[1]) == 0)
+            if (ready and any("HIL_OK command=GET_STATE" in line for line in c3_lines)):
+                break
+            if time.monotonic() >= next_query:
+                c3_stream.write(b"GET_STATE\n")
+                c3_stream.flush()
+                next_query = time.monotonic() + 2
+        if not (ready and any("HIL_OK command=GET_STATE" in line for line in c3_lines)):
+            raise ValueError("TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
+        c3_state = mode_line
+        runtime_value, sensing_value = int(live[1]), int(sensing[1])
+        # Drain already buffered runtime diagnostics before the single HIL
+        # trigger so pre-existing or ambient events cannot be correlated as
+        # this run's stimulus.
+        drain_deadline = time.monotonic() + 0.3
+        while time.monotonic() < drain_deadline:
+            c3_tail = collect(c3_stream, c3_tail, c3_lines)
+        c3_lines = []
+        c3_tail = ""
         c3_stream.write(b"INJECT_MOTION\n")
+        c3_stream.flush()
+        command_sent_at = time.monotonic()
         deadline = time.monotonic() + 35
         while time.monotonic() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines)
-            s3_tail = collect(s3_stream, s3_tail, s3_lines)
-        return {"c3": c3_lines, "s3": s3_lines}
+            pair = node_event_pair(c3_lines)
+            if pair is not None and c3_durable_ack(c3_lines, *pair):
+                break
+        pair = node_event_pair(c3_lines)
+        return {"c3": c3_lines, "s3": [], "s3_serial_opened": False,
+                "c3_serial_opened": True, "c3_power_mode": "HIL_AWAKE_TEST_ONLY",
+                "c3_state": c3_state, "runtime_live": runtime_value,
+                "sensing_live": sensing_value,
+                "injection_command_sent": True,
+                "injection_command_acknowledged": any(
+                    "HIL_OK command=INJECT_MOTION" in line for line in c3_lines),
+                "node_event_observed": pair is not None,
+                "hub_application_acknowledged": bool(
+                    pair is not None and c3_durable_ack(c3_lines, *pair)),
+                "s3_admission_source": "C3_AUTHENTICATED_APPLICATION_ACK_CLASS_0",
+                "event_wait_ms": int((time.monotonic() - command_sent_at) * 1000)}
     finally:
         if c3_stream.is_open:
             c3_stream.close()
-        if s3_stream.is_open:
-            s3_stream.close()
+
+
+def c3_durable_ack(lines: list[str], session: int, sequence: int) -> bool:
+    expected = re.compile(
+        rf"\bApplication ACK session={session} seq={sequence} class=0 retired=1\b")
+    return any(expected.search(line) for line in lines)
+
+
+def node_event_pair(lines: list[str]) -> tuple[int, int] | None:
+    if not any("HIL_OK command=INJECT_MOTION" in line for line in lines):
+        return None
+    pairs = []
+    for line in lines:
+        match = re.search(r"PIR -> NodeRuntime session=(\d+) seq=(\d+)", line)
+        if match:
+            pairs.append((int(match[1]), int(match[2])))
+    return pairs[0] if len(pairs) == 1 else None
+
+
+def find_adb() -> Path:
+    candidates = []
+    found = shutil.which("adb.exe") or shutil.which("adb")
+    if found:
+        candidates.append(Path(found))
+    user_profile = os.environ.get("USERPROFILE")
+    if user_profile:
+        downloads = Path(user_profile) / "Downloads"
+        candidates.extend(downloads.glob("platform-tools*/platform-tools/adb.exe"))
+        candidates.extend(downloads.glob("platform-tools*/adb.exe"))
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise ValueError("TC001_ANDROID_ADB_NOT_FOUND_IN_PATH_OR_DOWNLOADS")
+
+
+def adb_call(adb: Path, serial_number: str, *arguments: str,
+             timeout_seconds: int = 12) -> bytes:
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", serial_number):
+        raise ValueError("TC001_ANDROID_ADB_SERIAL_INVALID")
+    try:
+        result = subprocess.run([str(adb), "-s", serial_number, *arguments],
+                                capture_output=True, timeout=timeout_seconds, check=False)
+    except subprocess.TimeoutExpired:
+        raise ValueError("TC001_ANDROID_ADB_COMMAND_TIMEOUT") from None
+    if result.returncode != 0:
+        raise ValueError("TC001_ANDROID_ADB_COMMAND_FAILED")
+    return result.stdout
+
+
+def android_device_ready(config: dict, *, adb_locator=find_adb,
+                         call=adb_call) -> dict:
+    """Read-only check of the already installed, receipt-bound Android app."""
+    phone = config.get("phone", {})
+    serial_number = phone.get("adb_serial") or phone.get("device_serial")
+    package = phone.get("package")
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", str(serial_number or "")):
+        raise ValueError("TC001_ANDROID_ADB_IDENTITY_RECEIPT_MISSING")
+    if package not in {"in.gharsajag.caregiver", "in.gharsajag.caregiver.discoverytest"}:
+        raise ValueError("TC001_ANDROID_PACKAGE_NOT_APPROVED")
+    adb = adb_locator()
+    try:
+        devices = subprocess.run([str(adb), "devices", "-l"], capture_output=True,
+                                 text=True, timeout=10, check=False)
+    except subprocess.TimeoutExpired:
+        raise ValueError("TC001_ANDROID_ADB_DEVICE_QUERY_TIMEOUT") from None
+    if devices.returncode != 0:
+        raise ValueError("TC001_ANDROID_ADB_DEVICE_QUERY_FAILED")
+    authorized = {line.split()[0] for line in devices.stdout.splitlines()[1:]
+                  if len(line.split()) >= 2 and line.split()[1] == "device"}
+    if serial_number not in authorized:
+        raise ValueError("TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED")
+    installed = call(adb, serial_number, "shell", "pm", "path", package).decode(
+        "utf-8", "replace").strip()
+    if not installed.startswith("package:/data/app/"):
+        raise ValueError("TC001_APPROVED_ANDROID_PACKAGE_NOT_INSTALLED")
+    package_dump = call(adb, serial_number, "shell", "dumpsys", "package", package,
+                        timeout_seconds=15).decode("utf-8", "replace")
+    version = re.search(r"\bversionName=([^\s]+)", package_dump)
+    version_code = re.search(r"\bversionCode=([0-9]+)", package_dump)
+    expected_version = phone.get("version_name") or phone.get("version")
+    if not version or not version_code or (expected_version and version[1] != expected_version):
+        raise ValueError("TC001_ANDROID_INSTALLED_VERSION_RECEIPT_MISMATCH")
+    return {"status": "PASS", "device_serial": serial_number, "package": package,
+            "version_name": version[1], "version_code": int(version_code[1]),
+            "signer_sha256": phone.get("signer_sha256"),
+            "signer_source": "CURRENT_OWNER_ONLY_INSTALL_RECEIPT",
+            "installed_path_verified": True}
+
+
+def ui_dump(adb: Path, serial_number: str) -> tuple[ET.Element, bytes]:
+    remote = "/sdcard/gs117_tc001_" + uuid.uuid4().hex + ".xml"
+    try:
+        adb_call(adb, serial_number, "shell", "uiautomator", "dump", "--compressed", remote,
+                 timeout_seconds=15)
+        raw = adb_call(adb, serial_number, "shell", "cat", remote,
+                       timeout_seconds=8)
+        if len(raw) > 2 * 1024 * 1024:
+            raise ValueError("TC001_ANDROID_UI_TREE_EXCEEDS_SIZE_LIMIT")
+        return ET.fromstring(raw), raw
+    except ET.ParseError:
+        raise ValueError("TC001_ANDROID_UI_TREE_INVALID") from None
+    finally:
+        try:
+            adb_call(adb, serial_number, "shell", "rm", "-f", remote,
+                     timeout_seconds=5)
+        except Exception:
+            pass
+
+
+def ui_texts(root: ET.Element) -> list[str]:
+    return [node.get("text", "").strip() for node in root.iter("node")
+            if node.get("text", "").strip()]
+
+
+def exact_key_in_ui(root: ET.Element, expected: dict) -> bool:
+    texts = ui_texts(root)
+    for text in texts:
+        if not text.startswith("EventKey:"):
+            continue
+        raw = text.partition(":")[2].strip()
+        try:
+            decoded, end = json.JSONDecoder().raw_decode(raw)
+        except json.JSONDecodeError:
+            continue
+        if decoded == expected and not raw[end:].strip():
+            return True
+    return False
+
+
+def canonical_https_origin(value: str) -> tuple[str, str, int] | None:
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme.casefold() != "https" or not parsed.hostname or
+                parsed.username or parsed.password or parsed.path not in {"", "/"} or
+                parsed.query or parsed.fragment):
+            return None
+        return ("https", parsed.hostname.casefold(), parsed.port or 443)
+    except (TypeError, ValueError):
+        return None
+
+
+def tap_text(adb: Path, serial_number: str, root: ET.Element,
+             target: str, *, index: int = 0, call=adb_call) -> bool:
+    matches = [node for node in root.iter("node") if node.get("text", "").strip() == target]
+    if index >= len(matches):
+        return False
+    bounds = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+                          matches[index].get("bounds", ""))
+    if not bounds:
+        return False
+    x1, y1, x2, y2 = map(int, bounds.groups())
+    call(adb, serial_number, "shell", "input", "tap",
+         str((x1 + x2) // 2), str((y1 + y2) // 2), timeout_seconds=5)
+    return True
+
+
+def android_verify_event(config: dict, *, adb_locator=find_adb,
+                         call=adb_call, sleep=time.sleep) -> dict:
+    """Foreground the real app, refresh Reports, open details, and match key."""
+    adb = adb_locator()
+    ready = android_device_ready(config, adb_locator=lambda: adb, call=call)
+    phone = config["phone"]
+    serial_number = ready["device_serial"]
+    package = ready["package"]
+    home_id = config.get("home_id")
+    expected_origin = config.get("backend_origin")
+    expected_key = config.get("event_key")
+    if not isinstance(home_id, str) or not isinstance(expected_key, dict):
+        raise ValueError("TC001_ANDROID_EVENT_SCOPE_MISSING")
+    call(adb, serial_number, "shell", "monkey", "-p", package,
+         "-c", "android.intent.category.LAUNCHER", "1", timeout_seconds=12)
+    foreground = call(adb, serial_number, "shell", "dumpsys", "activity", "activities",
+                      timeout_seconds=12).decode("utf-8", "replace")
+    resumed = next((line for line in foreground.splitlines()
+                    if "mResumedActivity" in line or "topResumedActivity" in line), "")
+    if package not in resumed:
+        raise ValueError("TC001_APPROVED_ANDROID_APP_NOT_FOREGROUNDED")
+    root = None
+    raw = b""
+    for _ in range(12):
+        sleep(0.5)
+        root, raw = ui_dump(adb, serial_number)
+        if package in " ".join(ui_texts(root)) or "connected" in " ".join(ui_texts(root)).casefold():
+            break
+    if root is None:
+        raise ValueError("TC001_ANDROID_APP_UI_NOT_AVAILABLE")
+    texts = ui_texts(root)
+    if not tap_text(adb, serial_number, root, "Settings", call=call):
+        if "App & connection" not in " ".join(texts):
+            raise ValueError("TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND")
+    for _ in range(20):
+        sleep(0.4)
+        root, raw = ui_dump(adb, serial_number)
+        texts = ui_texts(root)
+        joined = "\n".join(texts)
+        if "App & connection" in joined and home_id in joined:
+            break
+    joined = "\n".join(ui_texts(root))
+    settings_origin = None
+    for text in ui_texts(root):
+        for match in re.finditer(r"https://[^\s<>]+", text):
+            candidate = match.group(0).rstrip(".,;)")
+            if canonical_https_origin(candidate) is not None:
+                settings_origin = candidate
+                break
+        if settings_origin:
+            break
+    backend_status = next((text for text in ui_texts(root)
+                           if "Backend API" in text), "")
+    if ("Settings" not in joined or "App & connection" not in joined or home_id not in joined or
+            not settings_origin or canonical_https_origin(settings_origin) !=
+            canonical_https_origin(expected_origin) or "CONNECTED" not in backend_status):
+        raise ValueError("TC001_ANDROID_BACKEND_ORIGIN_HOME_OR_AUTHENTICATED_SESSION_MISMATCH")
+    root, raw = ui_dump(adb, serial_number)
+    if not tap_text(adb, serial_number, root, "Reports", call=call):
+        if "Latest recorded events" not in " ".join(texts):
+            raise ValueError("TC001_ANDROID_REPORTS_NAVIGATION_NOT_FOUND")
+    for _ in range(20):
+        sleep(0.4)
+        root, raw = ui_dump(adb, serial_number)
+        texts = ui_texts(root)
+        joined = "\n".join(texts)
+        if "Latest recorded events" in joined and home_id in joined:
+            break
+    joined = "\n".join(ui_texts(root))
+    if "Latest recorded events" not in joined or home_id not in joined:
+        raise ValueError("TC001_ANDROID_REPORTS_HOME_NOT_VERIFIED")
+    # The app already refreshes its visible view on document.visibilitychange.
+    # Background and foreground the real app after opening Reports to invoke
+    # that production refresh path rather than relying on the 15-second timer.
+    call(adb, serial_number, "shell", "input", "keyevent", "KEYCODE_HOME",
+         timeout_seconds=5)
+    sleep(0.25)
+    call(adb, serial_number, "shell", "monkey", "-p", package,
+         "-c", "android.intent.category.LAUNCHER", "1", timeout_seconds=12)
+    foreground = call(adb, serial_number, "shell", "dumpsys", "activity", "activities",
+                      timeout_seconds=12).decode("utf-8", "replace")
+    resumed = next((line for line in foreground.splitlines()
+                    if "mResumedActivity" in line or "topResumedActivity" in line), "")
+    if package not in resumed:
+        raise ValueError("TC001_APPROVED_ANDROID_APP_NOT_FOREGROUNDED_AFTER_REFRESH")
+
+    # Poll for at most 30 seconds. The view may need to finish its authenticated
+    # request; details are expanded sequentially until this exact EventKey is
+    # exposed by the installed APK's accessibility tree.
+    for _ in range(60):
+        sleep(0.5)
+        root, raw = ui_dump(adb, serial_number)
+        joined = "\n".join(ui_texts(root))
+        if "Latest recorded events" not in joined or home_id not in joined:
+            raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_REFRESH")
+        if exact_key_in_ui(root, expected_key):
+            screenshot = call(adb, serial_number, "exec-out", "screencap", "-p",
+                              timeout_seconds=12)
+            if (not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or
+                    len(screenshot) > 8 * 1024 * 1024):
+                raise ValueError("TC001_ANDROID_SCREENSHOT_CAPTURE_INVALID")
+            if "Motion recorded" not in joined or "bedroom" not in joined.casefold():
+                raise ValueError("TC001_ANDROID_EXACT_KEY_NOT_ASSOCIATED_WITH_BEDROOM_MOTION")
+            return {"status": "PASS", "observation": "AUTOMATED_PASS",
+                    "package": package, "device_serial": serial_number,
+                    "version_name": ready["version_name"],
+                    "signer_sha256": ready.get("signer_sha256"),
+                    "home_id": home_id, "backend_origin": settings_origin,
+                    "backend_status": backend_status,
+                    "event_key": expected_key,
+                    "reports_view": "Latest recorded events",
+                    "event_details_open": True,
+                    "event_label": "Motion recorded", "logical_node_id": "bedroom",
+                    "ui_dump_sha256": hashlib.sha256(raw).hexdigest(),
+                    "ui_hierarchy_xml_b64": base64.b64encode(raw).decode("ascii"),
+                    "screenshot_png_b64": base64.b64encode(screenshot).decode("ascii")}
+        summaries = [node for node in root.iter("node")
+                     if node.get("text", "").strip() == "Event details"]
+        expanded = sum(1 for text in ui_texts(root) if text.startswith("EventKey:"))
+        if summaries and expanded < len(summaries):
+            if not tap_text(adb, serial_number, root, "Event details",
+                            index=expanded, call=call):
+                raise ValueError("TC001_ANDROID_EVENT_DETAILS_CONTROL_UNAVAILABLE")
+            sleep(0.25)
+    raise ValueError("TC001_EXACT_EVENT_KEY_NOT_VISIBLE_IN_ANDROID_EVENT_DETAILS")
 
 
 if __name__ == "__main__":
@@ -458,6 +786,10 @@ if __name__ == "__main__":
                      **observe(config, bootstrap_exchange=exchange)}
         elif action == "Run":
             value = run(config)
+        elif action == "AndroidReady":
+            value = android_device_ready(config)
+        elif action == "AndroidVerify":
+            value = android_verify_event(config)
         else:
             raise ValueError("TC001_SERIAL_ACTION_NOT_ALLOWED")
         print(json.dumps(value))

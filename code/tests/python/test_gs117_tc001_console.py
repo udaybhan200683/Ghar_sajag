@@ -103,6 +103,7 @@ class TC001Test(unittest.TestCase):
             phone_state = {"profile": "GS179_TEST_ONLY", "package": "in.gharsajag.caregiver.discoverytest",
                            "installed": True, "home_id": "gs177-test-product",
                            "backend_origin": "https://laptop.local", "signer_sha256": "b" * 64,
+                       "adb_serial": "ZA2237MRHN", "version_name": "0.4.0-connected-lite-staging",
                            "observed_at": now}
             phone.write_text(json.dumps(phone_state)); fixture["phone_install_receipt"] = str(phone)
             ingress = root / "ingress.json"
@@ -111,7 +112,7 @@ class TC001Test(unittest.TestCase):
                              "node_device_id": "test-c3-bedroom", "node_enrollment_verified": True,
                              "mtls_client_cert_sha256": "c" * 64, "server_cert_sha256": "d" * 64,
                              "authenticated_hub_identity": True, "trusted_time_ready": True,
-                             "persistent_listener_ready": True, "observed_at": now}
+                             "bounded_listener_ready": True, "observed_at": now}
             ingress.write_text(json.dumps(ingress_state)); fixture["hub_ingress_receipt"] = str(ingress)
             manifest = root / "fixture.json"
             def write():
@@ -179,8 +180,233 @@ class TC001Test(unittest.TestCase):
             with self.subTest(altered=altered):
                 self.assertFalse(tc.s3_durable_event([altered], 12, 3, "test-c3-bedroom"))
 
+    def test_matching_class_zero_node_ack_is_the_s3_durable_admission_evidence(self):
+        good = "Application ACK session=12 seq=3 class=0 retired=1"
+        self.assertTrue(tc.c3_application_durable_ack([good], 12, 3))
+        for altered in (good.replace("seq=3", "seq=4"), good.replace("class=0", "class=1"),
+                        good.replace("retired=1", "retired=0"), good.replace("Application", "Transport")):
+            self.assertFalse(tc.c3_application_durable_ack([altered], 12, 3))
+
+    def test_apk_event_details_parser_requires_exact_event_key(self):
+        key = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+               "origin_session_id": 81, "event_sequence": 4}
+        xml = '<hierarchy><node text="Latest recorded events"/><node text="gs177-test-product"/>' \
+              '<node text="Motion recorded"/><node text="Bedroom"/><node text="EventKey: ' + \
+              json.dumps(key).replace('&', '&amp;').replace('"', '&quot;') + '"/></hierarchy>'
+        self.assertTrue(tc_serial.exact_key_in_ui(tc_serial.ET.fromstring(xml), key))
+        altered = dict(key, event_sequence=5)
+        self.assertFalse(tc_serial.exact_key_in_ui(tc_serial.ET.fromstring(xml), altered))
+
+    def _android_tree(self, entries):
+        root = tc_serial.ET.Element("hierarchy")
+        for text, bounds in entries:
+            tc_serial.ET.SubElement(root, "node", {"text": text, "bounds": bounds})
+        raw = tc_serial.ET.tostring(root, encoding="utf-8")
+        return tc_serial.ET.fromstring(raw), raw
+
+    def _run_android_verification(self, *, event_key=None, visible_key=None,
+                                  settings_origin="https://laptop.local"):
+        package = "in.gharsajag.caregiver.discoverytest"
+        adb_serial = "ZA2237MRHN"
+        expected_key = event_key or {"physical_device_id": "c3-146393c5d158",
+                                     "logical_node_id": "bedroom",
+                                     "origin_session_id": 82, "event_sequence": 9}
+        home = self._android_tree([("Home", "[0,0][80,80]"),
+                                   ("Settings", "[0,0][100,100]")])
+        settings = self._android_tree([
+            ("Settings", "[0,0][100,100]"), ("App & connection", "[0,0][100,100]"),
+            ("Authorized Home", "[0,0][100,100]"), ("gs177-test-product", "[0,0][100,100]"),
+            ("Backend API · CONNECTED", "[0,0][100,100]"),
+            (settings_origin, "[0,0][100,100]"),
+            ("Reports", "[0,0][100,100]")])
+        reports = self._android_tree([
+            ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
+            ("gs177-test-product", "[0,0][100,100]"),
+            ("Motion recorded", "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
+            ("Event details", "[0,0][100,100]")])
+        key_json = json.dumps(visible_key or expected_key)
+        expanded = self._android_tree([
+            ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
+            ("gs177-test-product", "[0,0][100,100]"),
+            ("Motion recorded", "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
+            ("Event details", "[0,0][100,100]"),
+            ("EventKey: " + key_json, "[0,0][100,100]")])
+        ui_sequence = iter((home, settings, settings, reports, reports, expanded))
+        last = [reports]
+        def dump(_adb, _serial):
+            try:
+                last[0] = next(ui_sequence)
+            except StopIteration:
+                pass
+            return last[0]
+
+        calls = []
+        def adb_call(_adb, serial_number, *args, **kwargs):
+            calls.append((serial_number, args))
+            if args[:3] == ("shell", "pm", "path"):
+                return ("package:/data/app/" + package + "/base.apk").encode()
+            if args[:3] == ("shell", "dumpsys", "package"):
+                return b"versionName=0.4.0-connected-lite-staging versionCode=42"
+            if args[:3] == ("shell", "dumpsys", "activity"):
+                return ("mResumedActivity: ActivityRecord{abc " + package + "/.MainActivity}").encode()
+            if args[:2] == ("exec-out", "screencap"):
+                return b"\x89PNG\r\n\x1a\nexample"
+            return b""
+
+        config = {"phone": {"adb_serial": adb_serial, "package": package,
+                             "version_name": "0.4.0-connected-lite-staging",
+                             "signer_sha256": "a" * 64,
+                             "backend_origin": "https://laptop.local"},
+                  "home_id": "gs177-test-product", "backend_origin": "https://laptop.local",
+                  "event_key": expected_key}
+        with (patch.object(tc_serial.subprocess, "run", return_value=subprocess.CompletedProcess(
+                ["adb", "devices", "-l"], 0,
+                "List of devices attached\n" + adb_serial + " device product:motorola\n", "")),
+              patch.object(tc_serial, "ui_dump", side_effect=dump)):
+            result = tc_serial.android_verify_event(config, adb_locator=lambda: Path("adb.exe"),
+                                                    call=adb_call, sleep=lambda _seconds: None)
+        return result, calls
+
+    def test_android_verification_foregrounds_refreshes_and_captures_exact_event(self):
+        result, calls = self._run_android_verification()
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertEqual(result["reports_view"], "Latest recorded events")
+        self.assertTrue(result["event_details_open"])
+        self.assertEqual(result["event_key"]["event_sequence"], 9)
+        self.assertTrue(result["ui_hierarchy_xml_b64"])
+        self.assertTrue(result["screenshot_png_b64"])
+        commands = [args for _serial, args in calls]
+        home_index = commands.index(("shell", "input", "keyevent", "KEYCODE_HOME"))
+        foreground_index = next(i for i, args in enumerate(commands)
+                                if i > home_index and args[:2] == ("shell", "monkey"))
+        self.assertGreater(foreground_index, home_index)
+        self.assertEqual(sum(args[:2] == ("shell", "monkey") for args in commands), 2)
+
+    def test_android_verification_fails_when_exact_event_key_is_not_visible(self):
+        with self.assertRaisesRegex(ValueError, "EXACT_EVENT_KEY_NOT_VISIBLE"):
+            self._run_android_verification(
+                event_key={"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                           "origin_session_id": 82, "event_sequence": 10},
+                visible_key={"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                             "origin_session_id": 82, "event_sequence": 9})
+
+    def test_android_verification_fails_closed_on_wrong_live_backend_origin(self):
+        with self.assertRaisesRegex(ValueError, "BACKEND_ORIGIN_HOME_OR_AUTHENTICATED_SESSION_MISMATCH"):
+            self._run_android_verification(settings_origin="https://other.example")
+
+    def test_android_readiness_requires_the_receipt_bound_adb_device(self):
+        phone = {"adb_serial": "ZA2237MRHN", "package": "in.gharsajag.caregiver.discoverytest",
+                 "version_name": "0.4.0-connected-lite-staging"}
+        with patch.object(tc_serial.subprocess, "run", return_value=subprocess.CompletedProcess(
+                ["adb", "devices", "-l"], 0, "List of devices attached\n", "")):
+            with self.assertRaisesRegex(ValueError, "NOT_AUTHORIZED_OR_CONNECTED"):
+                tc_serial.android_device_ready({"phone": phone}, adb_locator=lambda: Path("adb.exe"))
+
+    def test_windows_injection_opens_only_c3_and_requires_matching_hub_ack(self):
+        opened = []
+        class FakeStream:
+            def __init__(self):
+                self.port = ""; self.buffer = bytearray(); self.is_open = False
+                self.timeout = None; self.write_timeout = None; self.dtr = True; self.rts = True
+            @property
+            def in_waiting(self): return len(self.buffer)
+            def open(self): self.is_open = True; opened.append(self.port)
+            def write(self, value):
+                if value == b"GET_STATE\n":
+                    self.buffer.extend(b"I HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+                        b"hil_build=0 hil_control=1 physical_wake=0 runtime_live=4 sensing_live=5 "
+                        b"retained=0 in_flight=0 pending_inject=0\nI HIL_OK command=GET_STATE\n")
+                elif value == b"INJECT_MOTION\n":
+                    self.buffer.extend(b"I HIL_OK command=INJECT_MOTION\n"
+                        b"I PIR -> NodeRuntime session=81 seq=4\n"
+                        b"I NodeMessage sent session=81 seq=4\n"
+                        b"I Application ACK session=81 seq=4 class=0 retired=1\n")
+                return len(value)
+            def flush(self): pass
+            def read(self, count):
+                value = bytes(self.buffer[:count]); del self.buffer[:count]; return value
+            def close(self): self.is_open = False
+        c3 = {"port": "COM4", "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58 LOCATION=1-1",
+              "serial_number": "14:63:93:C5:D1:58", "hil_control": True,
+              "hil_build": False, "physical_wake": False}
+        s3 = {"port": "COM10", "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34 LOCATION=1-2",
+              "serial_number": "E0:72:A1:D3:8D:34"}
+        config = {"c3": c3, "s3": s3}
+        with (patch.object(tc_serial, "ports", return_value=[c3, s3]),
+              patch.object(tc_serial.serial, "Serial", FakeStream)):
+            result = tc_serial.run(config)
+        self.assertEqual(opened, ["COM4"])
+        self.assertFalse(result["s3_serial_opened"])
+        self.assertEqual(result["runtime_live"], 4)
+        self.assertEqual(result["sensing_live"], 5)
+        self.assertTrue(result["hub_application_acknowledged"])
+        self.assertEqual(tc.physical_key(result["c3"]), (81, 4))
+        self.assertNotIn("reset_safe_uart_verified", result)
+
+    def test_five_run_approval_is_exact_owner_only_and_keeps_s3_uart_closed(self):
+        fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",
+                   "hub_id": "hub-e072a1d38d34",
+                   "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+                   "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
+        approval = {"schema_version": 1, "test_id": "TC-001", "profile": "GS179_TEST_ONLY",
+                    "run_count": 5, "operation": "C3_INJECT_MOTION_FIVE_RUN_CAMPAIGN",
+                    "home_id": fixture["home_id"], "physical_device_id": fixture["physical_device_id"],
+                    "hub_id": fixture["hub_id"], "c3": fixture["c3"],
+                    "s3": {**fixture["s3"], "uart_open_authorized": False},
+                    "c3_serial_open_reset_risk_accepted": True, "stop_on_first_failure": True,
+                    "android_auto_verify_each_event": True, "firmware_write_authorized": False,
+                    "commissioning_authorized": False,
+                    "ownership_or_enrollment_mutation_authorized": False,
+                    "database_mutation_authorized": False,
+                    "approval_ref": "owner-chat-2026-10-27", "approved_at": datetime.now(timezone.utc).isoformat()}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "approval.json"
+            path.write_text(json.dumps(approval)); path.chmod(0o600)
+            self.assertEqual(tc.campaign_approval(path, fixture)["run_count"], 5)
+            approval["s3"]["uart_open_authorized"] = True
+            path.write_text(json.dumps(approval)); path.chmod(0o600)
+            with self.assertRaisesRegex(ValueError, "scope_or_fixture_mismatch"):
+                tc.campaign_approval(path, fixture)
+
+    def test_campaign_stops_after_first_failed_run_and_marks_remaining_not_run(self):
+        fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",
+                   "hub_id": "hub-e072a1d38d34",
+                   "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+                   "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
+        approval = {"approval_ref": "owner-approved"}
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+                     "caregiver_home": {"caregiver_home_ready": True},
+                     "physical_boards": {"c3": "PASS", "s3": "PASS"},
+                     "fixture": {"status": "PASS"}, "android_apk": {"status": "PASS"},
+                     "hub_ingress": {"status": "PASS"}}
+        with tempfile.TemporaryDirectory() as directory:
+            approval_path = Path(directory) / "approval.json"
+            approval_path.write_text("{}"); approval_path.chmod(0o600)
+            controller = tc.Controller()
+            controller.lock.acquire()
+            campaign = {"run_id": "TC001-CAMPAIGN-test", "planned_runs": 5,
+                        "passed_runs": 0, "completed_runs": 0, "runs": [], "overall": "PARTIAL",
+                        "stages": {"campaign_preflight": {"status": "NOT_VERIFIED"}}}
+            controller.current = campaign
+            def fail_once(report, **_kwargs):
+                report["overall"] = "FAIL"
+                report["stages"]["c3_injection"] = {"status": "FAIL", "reason": "test"}
+            with (patch.object(controller, "readiness", return_value=readiness),
+                  patch.object(tc, "exact_fixture", return_value=fixture),
+                  patch.object(tc, "campaign_approval", return_value=approval),
+                  patch.object(tc, "CAMPAIGN_APPROVAL", approval_path),
+                  patch.object(controller, "execute", side_effect=fail_once) as execute,
+                  patch.object(controller, "save")):
+                controller.execute_campaign(campaign)
+            self.assertEqual(execute.call_count, 1)
+            self.assertEqual(campaign["completed_runs"], 1)
+            self.assertEqual(campaign["passed_runs"], 0)
+            self.assertEqual(len(campaign["not_run"]), 4)
+            self.assertEqual(campaign["overall"], "FAIL")
+            self.assertFalse(controller.lock.locked())
+
     def report(self):
-        return {"run_id": "TC001-test", "test_id": "TC-001", "overall": "PARTIAL",
+        return {"run_id": "TC001-test-" + tc.secrets.token_hex(4), "test_id": "TC-001", "overall": "PARTIAL",
                 "apk_observation": "NOT_VERIFIED", "stages": {
                     name: {"status": "NOT_VERIFIED", "reason": "not reached"} for name in tc.STAGES}}
 
@@ -188,6 +414,9 @@ class TC001Test(unittest.TestCase):
         fixture = {"home_id": "gs177-test-product", "physical_device_id": "test-c3-bedroom",
                    "expected_caregiver_origin": "https://laptop.local",
                    "approval_ref": "test", "hub_id": "test-hub-a", "installation_epoch": 1,
+                   "phone_receipt": {"adb_serial": "ZA2237MRHN", "package": "in.gharsajag.caregiver.discoverytest",
+                                     "version_name": "0.4.0-connected-lite-staging", "signer_sha256": "b" * 64,
+                                     "backend_origin": "https://laptop.local"},
                    "c3": {"port": "COM10", "usb_hwid": "c3", "serial_number": "c3s",
                           "image_sha256": "a" * 64, "firmware_source_head": "a" * 40},
                    "s3": {"port": "COM11", "usb_hwid": "s3", "serial_number": "s3s",
@@ -197,7 +426,10 @@ class TC001Test(unittest.TestCase):
         baseline = baseline or {"keys": [], "count": 0}
         if (mode_state and "c3" in serial_data and
                 any("HIL_OK command=INJECT_MOTION" in line for line in serial_data["c3"])):
-            serial_data["c3"].insert(0, "HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0")
+            if not any("HIL_STATE role=c3" in line for line in serial_data["c3"]):
+                serial_data["c3"].insert(0, "HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+                    "hil_build=0 hil_control=1 physical_wake=0 runtime_live=2 sensing_live=2 "
+                    "retained=0 in_flight=0 pending_inject=0")
         baseline.setdefault("authority_ready", True)
         baseline.setdefault("enrollment_generation", 1)
         outcome = outcome or {"durable_count": 1, "caregiver_count": 1,
@@ -208,27 +440,81 @@ class TC001Test(unittest.TestCase):
                               "node_enrollment_generation": 1}
         controller = tc.Controller()
         controller.lock.acquire()
-        with (patch.object(controller, "readiness", return_value={"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"}, "caregiver_home": {"caregiver_home_ready": True, "backend_origin": home_origin}}),
+        serial_data["s3"] = []
+        serial_data["s3_serial_opened"] = False
+        serial_data.setdefault("c3_state", next((line for line in reversed(serial_data.get("c3", []))
+                                                  if "HIL_STATE role=c3" in line), ""))
+        apk_png = base64.b64encode(b"\x89PNG\r\n\x1a\nTC001-test").decode()
+        apk_ui = b"<hierarchy><node text=\"EventKey\"/></hierarchy>"
+        apk_result = {"status": "PASS", "observation": "AUTOMATED_PASS",
+                      "event_key": outcome["event_key"] if "event_key" in outcome else None,
+                      "home_id": fixture["home_id"], "screenshot_png_b64": apk_png,
+                      "ui_hierarchy_xml_b64": base64.b64encode(apk_ui).decode(),
+                      "backend_origin": "https://laptop.local", "backend_status": "Backend API · CONNECTED",
+                      "package": fixture["phone_receipt"]["package"],
+                      "device_serial": fixture["phone_receipt"]["adb_serial"],
+                      "version_name": fixture["phone_receipt"]["version_name"],
+                      "signer_sha256": fixture["phone_receipt"]["signer_sha256"],
+                      "reports_view": "Latest recorded events", "event_details_open": True,
+                      "event_label": "Motion recorded", "logical_node_id": "bedroom",
+                      "ui_dump_sha256": hashlib.sha256(apk_ui).hexdigest()}
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        with (patch.object(tc, "STATE", Path(state_dir.name)),
+              patch.object(controller, "readiness", return_value={"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"}, "caregiver_home": {"caregiver_home_ready": True, "backend_origin": home_origin}, "android_apk": {"status": "PASS"}, "hub_ingress": {"status": "PASS"}}),
               patch.object(tc, "exact_fixture", return_value=fixture),
-              patch.object(tc, "powershell", side_effect=[ports if ports_override is None else ports_override, serial_data]) as hardware,
+              patch.object(tc, "powershell", side_effect=[ports if ports_override is None else ports_override, serial_data, apk_result]) as hardware,
               patch.object(tc, "backend", side_effect=[baseline, outcome]),
               patch.object(controller, "save")):
+            if "c3" in serial_data:
+                pair_for_apk = tc.physical_key(serial_data["c3"])
+                apk_result["event_key"] = {"physical_device_id": fixture["physical_device_id"],
+                                            "logical_node_id": "bedroom",
+                                            "origin_session_id": pair_for_apk[0],
+                                            "event_sequence": pair_for_apk[1]}
+                apk_result["screenshot_png_b64"] = apk_png
+                serial_data.setdefault("c3_state", "HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+                                       "hil_build=0 hil_control=1 physical_wake=0 runtime_live=2 "
+                                       "sensing_live=2 retained=0 in_flight=0 pending_inject=0")
+                serial_data.setdefault("s3_serial_opened", False)
             controller.execute(report)
         self.assertFalse(controller.lock.locked())
         return hardware
 
-    def test_source_linked_success_waits_for_apk_and_is_repeatable(self):
+    def test_source_linked_success_requires_automated_apk_exact_key_and_is_repeatable(self):
         for session, sequence in ((12, 3), (12, 4)):
             with self.subTest(key=(session, sequence)):
                 c3 = ["HIL_OK command=INJECT_MOTION",
-                      f"PIR -> NodeRuntime session={session} seq={sequence}"]
+                      f"PIR -> NodeRuntime session={session} seq={sequence}",
+                      f"NodeMessage sent session={session} seq={sequence}",
+                      f"Application ACK session={session} seq={sequence} class=0 retired=1"]
                 s3 = [f"Authenticated event logical=bedroom session={session} seq={sequence} sensor=PIR event=MOTION event_id=p15:test-c3-bedroomn7:bedrooms{session}q{sequence} room=bedroom ack=0 send=ESP_OK"]
                 report = self.report()
                 self.execute(report, {"c3": c3, "s3": s3}, baseline={"keys": [[12, sequence - 1]], "count": 1})
                 self.assertEqual(report["stages"]["caregiver_api"]["status"], "PASS")
-                self.assertEqual(report["stages"]["android_apk"]["status"], "NOT_VERIFIED")
-                self.assertEqual(report["apk_observation"], "NOT_VERIFIED")
+                self.assertEqual(report["stages"]["android_apk"]["status"], "PASS",
+                                 report["stages"]["android_apk"])
+                self.assertEqual(report["apk_observation"], "AUTOMATED_PASS")
+                self.assertEqual(report["overall"], "PASS")
                 self.assertEqual(report["event_key"]["event_sequence"], sequence)
+                self.assertFalse(report["serial_evidence"]["s3_uart_opened"])
+                self.assertEqual(report["duplicate_count"], 0)
+
+    def test_duplicate_durable_event_count_is_recorded_before_campaign_stops(self):
+        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3",
+              "Application ACK session=12 seq=3 class=0 retired=1"]
+        report = self.report()
+        self.execute(report, {"c3": c3}, outcome={
+            "durable_count": 2, "caregiver_count": 2, "event_kind": "MOTION",
+            "event_location": "bedroom", "event_id": "evt-1",
+            "caregiver_event_id": tc.event_key_text("test-c3-bedroom", 12, 3),
+            "committing_hub_id": "test-hub-a", "ownership_epoch": 1,
+            "node_enrollment_generation": 1})
+        self.assertEqual(report["stages"]["backend_commit"]["status"], "PASS")
+        self.assertEqual(report["duplicate_count"], 1)
+        self.assertEqual(report["stages"]["postgres_exactly_once"]["status"], "FAIL")
+        self.assertEqual(report["stages"]["hub_cloudsync"]["status"], "NOT_VERIFIED")
+        self.assertEqual(report["overall"], "FAIL")
 
     def test_reset_aware_observer_queries_status_without_motion_injection(self):
         class FakeSerial:
@@ -746,7 +1032,8 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(report["stages"]["c3_injection"]["status"], "NOT_VERIFIED")
 
     def test_wrong_caregiver_room_fails_after_exact_backend_commit(self):
-        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3"]
+        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3",
+              "Application ACK session=12 seq=3 class=0 retired=1"]
         s3 = ["Authenticated event logical=bedroom session=12 seq=3 sensor=PIR event=MOTION event_id=p15:test-c3-bedroomn7:bedrooms12q3 room=bedroom ack=0 send=ESP_OK"]
         report = self.report()
         self.execute(report, {"c3": c3, "s3": s3}, outcome={"durable_count": 1,
@@ -758,7 +1045,8 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(report["stages"]["caregiver_api"]["status"], "FAIL")
 
     def test_wrong_hub_provenance_cannot_claim_cloudsync_delivery(self):
-        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3"]
+        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3",
+              "Application ACK session=12 seq=3 class=0 retired=1"]
         s3 = ["Authenticated event logical=bedroom session=12 seq=3 sensor=PIR event=MOTION event_id=p15:test-c3-bedroomn7:bedrooms12q3 room=bedroom ack=0 send=ESP_OK"]
         report = self.report()
         self.execute(report, {"c3": c3, "s3": s3}, outcome={"durable_count": 1,
@@ -770,7 +1058,8 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(report["stages"]["backend_commit"]["status"], "PASS")
 
     def test_caregiver_projection_with_other_event_id_fails(self):
-        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3"]
+        c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3",
+              "Application ACK session=12 seq=3 class=0 retired=1"]
         s3 = ["Authenticated event logical=bedroom session=12 seq=3 sensor=PIR event=MOTION event_id=p15:test-c3-bedroomn7:bedrooms12q3 room=bedroom ack=0 send=ESP_OK"]
         report = self.report()
         self.execute(report, {"c3": c3, "s3": s3}, outcome={"durable_count": 1,
@@ -798,6 +1087,33 @@ class TC001Test(unittest.TestCase):
                     self.assertEqual(rejected.exception.code, 403)
                     rejected.exception.close()
                 start.assert_not_called()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+    def test_loopback_status_and_private_apk_evidence_reject_cross_site_gets(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), tc.Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_address[1]}/api/status"
+        try:
+            with patch.object(tc.CONTROLLER, "readiness", return_value={}):
+                for headers in ({"Origin": "http://evil.example"},
+                                {"Sec-Fetch-Site": "cross-site"},
+                                {"Origin": "http://127.0.0.1:18791",
+                                 "Sec-Fetch-Site": "same-site"}):
+                    request = urllib.request.Request(
+                        url, headers={"Host": "127.0.0.1:18791", **headers})
+                    with self.assertRaises(urllib.error.HTTPError) as rejected:
+                        urllib.request.urlopen(request, timeout=3)
+                    self.assertEqual(rejected.exception.code, 403)
+                    rejected.exception.close()
+                request = urllib.request.Request(
+                    url, headers={"Host": "127.0.0.1:18791", "Origin": tc.ORIGIN,
+                                  "Sec-Fetch-Site": "same-origin"})
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
         finally:
             server.shutdown()
             server.server_close()

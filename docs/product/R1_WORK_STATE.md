@@ -7929,3 +7929,39 @@ not performed. Keep the working Hub untouched; use actual mTLS receipts rather
 than hardcoded NO status fields. Remaining controlled TC-001 prerequisites:
 truthful fixture/reset-risk control, later live counters, one approved fresh
 injection and exact-key APK confirmation. See preservation_20261026.json.
+
+### GS-117 five-run console and automated APK verification — 2026-10-26
+
+The existing TC-001 console/Windows helper now supports the requested five-run
+campaign: one lock, five sequential fresh C3 HIL events with separate
+timestamped reports, and stop-on-first-non-PASS. It opens only C3 COM for the
+authorized injection, records possible COM4-open reboot risk (never claims
+reset-safe DTR/RTS), and never opens S3 COM10. The helper validates active
+HIL-awake mode, positive runtime/sensing counters and empty pending queues before
+each injection; it requires the matching authenticated class-0 Node ACK, exact
+physical CloudSync provenance, one PostgreSQL row, caregiver projection and
+exact-key APK observation. Duplicate row counts are retained on failures.
+
+Per controlled event, ADB foregrounds the existing Parivar Saathi APK, verifies
+its receipt-bound backend origin/Home/CONNECTED status in Settings, opens
+Reports, triggers the APK's own visibility-change refresh, expands Latest
+recorded events/Event details and compares the exact EventKey. The APK already
+exposes the key, so no APK feature change was needed. Actual screenshot and
+accessibility-tree evidence are stored privately with 0600 permissions. The
+signer digest is sourced from the owner-only install receipt and matched to the
+installed package/version; it was not independently extracted from the installed
+APK in this software pass.
+
+Software checks: TC-001 console/ADB automation 43/43 PASS; GS-179 verified
+endpoint 8/8 PASS; Python compilation PASS; feature coverage PASS (226 feature
+rows, 285 source modules, 27 physical cases, 22 registry tests). These checks
+do not establish actual phone automation or hardware results. No ADB command,
+serial-port open, injection, firmware operation or database mutation occurred.
+Physical TC-001 is still NOT_RUN. It requires a current exact owner-only fixture
+receipt and a separate one-use owner approval explicitly accepting exactly five
+COM4 C3 injections and possible serial-open reboot, while excluding COM10 UART,
+flash/reset command/recommission, credentials/ownership/enrollment/database
+changes. The campaign approval is not present in this execution and was not
+fabricated. Existing S3/CloudSync recovery events and owner APK observation
+remain historical, not TC-001. NodeHealth UNKNOWN/STALE is preserved and is not
+an event-delivery gate. Full evidence is in the existing GS117 EXECUTION.md.

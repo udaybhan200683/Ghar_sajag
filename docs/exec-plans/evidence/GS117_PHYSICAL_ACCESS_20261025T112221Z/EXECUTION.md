@@ -1892,3 +1892,73 @@ Sustained actual authority HTTP200 and ready signed-time/listener evidence were
 rechecked after preservation; exact final timestamp is in preservation JSON.
 Unrelated untracked/ignored assets remain intact. No full release, disruptive
 restart, database restoration or new physical acceptance test was performed.
+
+## 2026-10-26 18:31 UTC — repeatable campaign and automated Android evidence
+
+Entry source was `b85a4dbb2de9afd666fa0cc0f1c763eafb5be0d7` on
+`feature/r1-commercial-baseline`; local and remote matched and context preflight
+passed. The existing code changes in progress were preserved. Existing firmware,
+physical credentials, owner-only backups, APK artifacts and unrelated
+untracked/ignored files were not modified. Latest Jira context read: GS-117
+comment 11714, GS-179 comment 11715, GS-148 comment 11716, and GS-130 comment
+11718 (five independently traceable TC-001 runs with automated APK observation).
+
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=GS-117 TC-001; latest GS-130 owner acceptance comment 11718
+DECISION_IDS=NONE (existing physical test procedure only)
+TASK_SCOPE=Improve the existing TC-001 console/Windows ADB helper for one-use,
+five-run physical campaign reporting and exact-event observation in the actual
+installed APK.
+OUT_OF_SCOPE=Physical injection in this software checkpoint; C3/S3 firmware,
+security, credential, ownership, enrollment, NodeHealth, database and network
+changes; new test framework or APK build.
+
+The existing console now models one five-run campaign under its existing
+single-run lock. It validates a one-use owner-only approval bound to the exact
+physical C3/S3, Home and run count before any C3 serial operation; approval
+records acceptance that opening COM4 may reboot the C3. Each sequential run has
+its own report, stage statuses/timestamps, original EventKey and saved result.
+The campaign stops on its first non-PASS. COM10 is only enumerated and is never
+opened. Serial status must report the expected HIL-awake flags, positive
+runtime/sensing counters, and empty pending/retained/in-flight state before the
+single injection command. A matching authenticated class-0 Node ACK establishes
+S3 durable admission without an S3 UART open. Duplicate PostgreSQL counts are
+retained in the failure report instead of being hidden by an early return.
+
+The existing Windows helper now reuses the approved ADB device identity and
+installed package/version receipt. Per run it foregrounds Parivar Saathi,
+checks Settings for the receipt-bound HTTPS backend origin, existing Home and
+`Backend API · CONNECTED`, navigates to Reports, and backgrounds/foregrounds the
+same app to trigger the APK's existing visibility-change refresh. It then polls
+`Latest recorded events`, expands Event details and compares the exact original
+EventKey. The existing caregiver UI exposes this key, so no APK source change
+was needed. A screenshot and the matching accessibility XML are retained with
+0600 mode under the existing private TC-001 state directory; only screenshot
+preview is served by the loopback console. GET status/evidence requests reject
+foreign Origin and cross-site/same-site browser fetches; POST retains exact
+Origin plus CSRF checks. The signer fingerprint is carried
+from the current owner-only APK install receipt and matched to the installed
+package/version; this pass did not independently re-extract a signer from the
+installed APK binary.
+
+Focused validation on the modified source: Python compilation PASS;
+`python3 code/tests/python/test_gs117_tc001_console.py` PASS, 43 tests; GS-179
+verified endpoint PASS, 8 tests; `make -C code feature-coverage-test` PASS,
+226 feature rows / 285 source modules / 27 physical cases and 22 framework
+tests. These are software/registry checks only. No ADB phone command, COM-port
+open, board operation, motion injection or TC-001 event was performed here.
+No actual device run of the new Android automation has yet been observed.
+
+TC-001 remains NOT_RUN. The older physical recovery events and owner-reported
+APK visibility are not campaign results. The synthetic/physical NodeHealth
+collision remains unchanged, monitoring may still show UNKNOWN/STALE, and it is
+not used to block event-delivery acceptance. Before campaign execution, a fresh
+exact owner-only fixture/install receipt and a separate one-use approval for
+exactly five consecutive C3 injections are required. The approval must accept
+possible C3 reboot on COM4 open, no S3 UART open, stop-on-first-failure, and no
+flash/reset command/recommission/credential/ownership/database changes. On
+unexpected C3 reboot or failed rejoin, the campaign stops and existing
+authenticated rejoin recovery is required; it does not flash or recommission.
+The bounded listener, current phone session, COM enumeration and board runtime
+were not refreshed in this software-only pass. The exact delivery commit and
+remote verification are recorded in the follow-up GS-117 Jira comment.
