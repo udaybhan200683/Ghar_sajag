@@ -1357,3 +1357,70 @@ stop without flashing, erasing, recommissioning or injecting. After live
 C3/S3, storage and CloudSync readiness evidence, the already scoped one-event
 test can proceed; the exact fresh EventKey must still be confirmed in the
 physical APK.
+
+Implementation triage for the newly approved observation gate:
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`; `REQUIREMENT_SOURCE=AGENTS.md physical
+HIL authorization and existing GS117-TC001-01`; `DECISION_IDS=NONE`;
+`TASK_SCOPE=one owner-approved, one-use, read-only C3/S3 observation through
+the existing TC-001 console/helper`; `OUT_OF_SCOPE=motion injection, reset
+commands, firmware/credential/storage changes, or any assertion that the UART
+path is reset-safe`.
+
+### 2026-10-26 16:39 UTC — returned USB devices and one-use observation
+
+The owner returned the C3, S3 and phone to their stable USB connections. A fresh
+Windows-native enumeration through the existing helper identifies COM4 as C3
+`14:63:93:C5:D1:58` and COM10 as S3 `E0:72:A1:D3:8D:34`; Windows PnP reports
+both serial interfaces `OK`. The unrelated descriptor-failure device is not in
+the serial-port list. The official `adb.exe` was found recursively under
+Downloads; the authorized Motorola Edge 60 Fusion is online. Package
+`in.gharsajag.caregiver.discoverytest`, version `0.4.0-connected-lite-staging`,
+is installed with `MainActivity` foreground. This confirms ADB/app presence, not
+a fresh event display or a newly verified backend/Home session.
+
+After the owner authorized one read-only observation, the existing native
+helper opened only COM10 and COM4 with DTR/RTS low, queried S3 `FIXTURE_STATUS`
+and C3 `GET_STATE`, and closed both ports. The one-use owner-only approval was
+consumed. Sanitized captured evidence is
+[`observe_20261026T163858Z.json`](observe_20261026T163858Z.json), SHA-256
+`654240822971719bc1999f561ac604c0ec438f941238f75972423aa02d1a6880`.
+
+C3 answered `GET_STATE` from OTA0 in `HIL_AWAKE_TEST_ONLY` (`hil_build=0`,
+`hil_control=1`, `physical_wake=0`), session 118, but `runtime_live=0` and
+`sensing_live=0`. No C3 reset transcript appeared in this capture. S3 booted
+the product composition from partition `0x420000` (observed version
+`9bbc6d0-dirty`, ELF SHA prefix `c77483102`), but did not report
+`HIL_FIXTURE_STATUS`, HubRuntime, mounted product storage or CloudSync. Instead
+it logged `TEST_ONLY authenticated configuration unavailable` with
+`ESP_ERR_INVALID_SIZE`, called `abort()`, then logged
+`rst:0xc (RTC_SW_CPU_RST)`. This reset transcript follows the S3 startup abort;
+it is not evidence of a USB power-cycle reset reason. The cause of the initial
+boot seen in this 10-second capture cannot be distinguished from a prior cable
+power cycle or serial-open reset.
+
+Source correlation identifies a test-tool sequencing defect: the S3 startup
+path receives its GS40 configuration before HubRuntime command parsing. The
+observer sent plain-text `FIXTURE_STATUS` before seeing a command-ready marker;
+the first four bytes (`FIXT`) exceed the receiver's accepted envelope-length
+range. The following `ESP_ERR_INVALID_SIZE` and startup abort are consistent
+with those bytes being consumed as the frame length. No encrypted configuration
+envelope, explicit NVS/partition write, firmware write, commissioning or motion
+command was sent. The abort means current NVS contents were not freshly
+verified.
+
+The existing helper now sends `FIXTURE_STATUS` only after the S3 advertises
+`HIL_FIXTURE_READY` with that command, and skips it while a GS40 configuration
+challenge is pending. Regression `GS117-S3-STATUS-GATE-001` and the existing
+registered console suite pass (32 tests). The helper does not assert reset
+safety. The TC-001 console's normal owner fixture remains absent; its Run path
+is still blocked. Current C3/S3 authentication, HubRuntime, storage and
+CloudSync are not verified. No event/EventKey was generated, and TC-001 remains
+`NOT_RUN`; Android ADB is online but no fresh motion was observed in the APK.
+
+Implementation triage:
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`; `REQUIREMENT_SOURCE=existing GS117
+serial-observer contract and GS40T/1 frame parser`; `DECISION_IDS=NONE`;
+`TASK_SCOPE=gate the existing S3 status query on explicit runtime command
+readiness and cover its secure-config-wait negative case`;
+`OUT_OF_SCOPE=any second serial observation, S3 bootstrap/write, firmware
+change, C3 injection, reset/recommission, or reset-safe claim`.

@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import stat
 import subprocess
 import sys
 import threading
@@ -29,6 +30,7 @@ from ghar_sajag.identity_namespaces import (
 
 STATE = Path.home() / ".local/state/ghar-sajag/gs117-tc001"
 FIXTURE = Path.home() / ".config/ghar-sajag/gs117-tc001/fixture.json"
+OBSERVE_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/read-only-observe-approval.json"
 ORIGIN = "http://127.0.0.1:18791"
 STATUSES = ("PASS", "FAIL", "BLOCKED", "PARTIAL", "NOT_VERIFIED")
 STAGES = ("environment", "c3_identity", "s3_identity", "c3_injection",
@@ -54,6 +56,45 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def read_only_observe_approval(path: Path) -> dict:
+    """Validate the one-use owner consent without calling it reset-safe."""
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        raise ValueError("one_use_read_only_observation_approval_missing_or_consumed") from None
+    if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600 or
+            info.st_uid != os.geteuid()):
+        raise ValueError("one_use_observation_approval_must_be_owner_only_regular_file")
+    try:
+        approval = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        raise ValueError("one_use_observation_approval_invalid") from None
+    required = {
+        "schema_version", "test_id", "profile", "approval_ref", "approval_scope",
+        "approved_at", "serial_open_reset_risk_accepted", "reset_safe_uart_verified",
+        "motion_injection_authorized", "c3", "s3",
+    }
+    if (not isinstance(approval, dict) or set(approval) != required or
+            approval.get("schema_version") != 1 or approval.get("test_id") != "TC-001" or
+            approval.get("profile") != "GS179_TEST_ONLY" or
+            approval.get("approval_ref") != "owner-chat-approval-2026-10-26-read-only-observe" or
+            approval.get("approval_scope") !=
+            "C3 GET_STATE and S3 FIXTURE_STATUS only; one serial-open observation; reset risk accepted" or
+            approval.get("serial_open_reset_risk_accepted") is not True or
+            approval.get("reset_safe_uart_verified") is not False or
+            approval.get("motion_injection_authorized") is not False or
+            approval.get("c3") != {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"} or
+            approval.get("s3") != {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}):
+        raise ValueError("one_use_observation_approval_scope_or_identity_mismatch")
+    try:
+        approved_at = datetime.fromisoformat(approval["approved_at"])
+    except (TypeError, ValueError):
+        raise ValueError("one_use_observation_approval_timestamp_invalid") from None
+    if approved_at.tzinfo is None or approved_at > datetime.now(timezone.utc):
+        raise ValueError("one_use_observation_approval_timestamp_invalid")
+    return approval
 
 
 def exact_fixture() -> dict:
@@ -172,12 +213,15 @@ def exact_fixture() -> dict:
 def powershell(action: str, fixture: dict | None = None) -> object:
     script = subprocess.check_output(["wslpath", "-w", str(SERIAL)], text=True, timeout=5).strip()
     payload = {"action": action}
-    if action == "Run":
+    if action in {"Run", "Observe"}:
         payload.update({name: {key: fixture[name][key] for key in
                                (("port", "usb_hwid", "serial_number", "hil_control", "hil_build",
-                                 "physical_wake") if name == "c3" else
+                                 "physical_wake") if action == "Run" and name == "c3" else
                                 ("port", "usb_hwid", "serial_number",))}
                         for name in ("c3", "s3")})
+    if action == "Observe":
+        payload.update({"query_s3_status": True, "s3_boot_reset": False,
+                        "observation_seconds": 10})
     encoded = base64.b64encode(json.dumps(payload).encode()).decode()
     if not re.fullmatch(r"[A-Za-z0-9+/=]+", encoded):
         raise ValueError("invalid_serial_helper_payload")
@@ -305,6 +349,135 @@ class Controller:
             os.fsync(stream.fileno())
         os.chmod(temp, 0o600)
         os.replace(temp, target)
+
+    def save_observation(self, report: dict, path: Path | None = None) -> Path:
+        STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+        STATE.chmod(0o700)
+        target = path or (STATE / (report["run_id"] + ".json"))
+        temp = target.with_suffix(target.suffix + ".tmp")
+        with temp.open("x", encoding="utf-8") as stream:
+            json.dump(report, stream, indent=2, sort_keys=True)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temp, 0o600)
+        os.replace(temp, target)
+        return target
+
+    def observe_once(self, *, approval_path: Path | None = None,
+                     evidence_path: Path | None = None) -> dict:
+        """One bounded read-only status query under an explicit reset-risk receipt."""
+        if not self.lock.acquire(blocking=False):
+            raise ValueError("TC001_OPERATION_ALREADY_RUNNING")
+        try:
+            approval_path = OBSERVE_APPROVAL if approval_path is None else Path(approval_path)
+            report = {
+                "run_id": "OBSERVE-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S-") + secrets.token_hex(4),
+                "test_id": "TC-001", "profile": "GS179_TEST_ONLY",
+                "operation": "READ_ONLY_SERIAL_OBSERVATION", "started_at": utc(),
+                "overall": "BLOCKED", "tc001_acceptance": "NOT_RUN",
+                "serial_open_reset_risk_accepted": True,
+                "reset_safe_uart_verified": False, "motion_injection": "NOT_AUTHORIZED",
+                "stages": {"approval": "BLOCKED", "identity": "NOT_RUN",
+                           "c3_get_state": "NOT_RUN", "s3_fixture_status": "NOT_RUN",
+                           "cloudsync": "NOT_VERIFIED"},
+            }
+            approval = read_only_observe_approval(approval_path)
+            report["approval_ref"] = approval["approval_ref"]
+            visible = powershell("List")
+            if isinstance(visible, dict):
+                visible = [visible]
+            boards = {}
+            for name in ("c3", "s3"):
+                expected = approval[name]
+                matches = [item for item in visible if
+                           item.get("port") == expected["port"] and
+                           item.get("serial_number") == expected["serial_number"] and
+                           item.get("usb_hwid", "").startswith(
+                               "USB VID:PID=303A:1001 SER=" + expected["serial_number"])]
+                if len(matches) != 1:
+                    raise ValueError("TC001_VERIFIED_USB_INTERFACE_MISMATCH")
+                boards[name] = {"port": expected["port"],
+                                "serial_number": expected["serial_number"],
+                                "usb_hwid": matches[0]["usb_hwid"]}
+            report["stages"]["identity"] = "PASS"
+            report["devices"] = {name: {"port": board["port"],
+                                        "serial_number": board["serial_number"]}
+                                 for name, board in boards.items()}
+
+            consumed = approval_path.with_name(
+                approval_path.stem + ".consumed." +
+                datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") + approval_path.suffix)
+            os.rename(approval_path, consumed)
+            os.chmod(consumed, 0o600)
+            report["approval_consumed_at"] = utc()
+            report["approval_receipt_consumed"] = True
+
+            try:
+                observed = powershell("Observe", boards)
+            except Exception as error:
+                report["overall"] = "FAIL"
+                report["failure"] = (str(error) if isinstance(error, ValueError)
+                                     else type(error).__name__)
+                report["completed_at"] = utc()
+                self.save_observation(report, evidence_path)
+                return report
+
+            c3 = observed.get("c3", []) if isinstance(observed, dict) else []
+            s3 = observed.get("s3", []) if isinstance(observed, dict) else []
+            report["s3_config_receive_pending"] = (
+                observed.get("s3_config_receive_pending") is True
+                if isinstance(observed, dict) else False)
+            report["s3_status_command_ready"] = (
+                observed.get("s3_status_command_ready") is True
+                if isinstance(observed, dict) else False)
+            report["s3_status_command_sent"] = (
+                observed.get("s3_status_command_sent") is True
+                if isinstance(observed, dict) else False)
+            safe_markers = (
+                "ESP-ROM:", "rst:", "boot: Loaded app from partition", "app_init: App version:",
+                "app_init: ELF file SHA256:", "HIL_STATE role=c3", "HIL_OK command=GET_STATE",
+                "HIL_FIXTURE_STATUS", "HIL_FIXTURE_ERROR", "HIL_FIXTURE_READY",
+                "gs_hub_product:", "gs_hub_runtime:", "HubRuntime", "CloudSync",
+                "storage", "outbox", "panic", "abort()", "assert failed:",
+                "Guru Meditation", "watchdog", "Stack canary", "Stack overflow",
+            )
+            report["serial_evidence"] = {
+                role: [line for line in lines if isinstance(line, str) and
+                       any(marker.casefold() in line.casefold() for marker in safe_markers)][:80]
+                for role, lines in (("c3", c3), ("s3", s3))
+            }
+            c3_state = next((line for line in c3 if "HIL_STATE role=c3" in line), "")
+            c3_ack = any("HIL_OK command=GET_STATE" in line for line in c3)
+            s3_status = next((line for line in s3 if "HIL_FIXTURE_STATUS" in line), "")
+            report["c3_power_mode"] = (
+                "HIL_AWAKE_TEST_ONLY" if all(marker in c3_state for marker in
+                ("power_mode=HIL_AWAKE_TEST_ONLY", "hil_build=0", "hil_control=1",
+                 "physical_wake=0")) else "NOT_VERIFIED")
+            report["c3_runtime_live"] = bool(re.search(r"\bruntime_live=[1-9][0-9]*\b", c3_state))
+            report["c3_sensing_live"] = bool(re.search(r"\bsensing_live=[1-9][0-9]*\b", c3_state))
+            report["s3_fixture_state"] = (
+                re.search(r"\bstate=([a-z_]+)", s3_status).group(1)
+                if re.search(r"\bstate=([a-z_]+)", s3_status) else "NOT_REPORTED")
+            report["reset_reason_observed"] = next(
+                (line for role in ("c3", "s3") for line in report["serial_evidence"][role]
+                 if "rst:" in line), "NOT_OBSERVED")
+            report["serial_open_reset_assessment"] = (
+                "reset transcript observed; reset may be from power-cycle or port-open"
+                if report["reset_reason_observed"] != "NOT_OBSERVED" else
+                "no reset transcript observed; this does not prove port-open was reset-free")
+            report["stages"]["c3_get_state"] = (
+                "PASS" if c3_state and c3_ack else "FAIL")
+            report["stages"]["s3_fixture_status"] = "PASS" if s3_status else "NOT_VERIFIED"
+            report["stages"]["approval"] = "PASS"
+            report["stages"]["cloudsync"] = "NOT_VERIFIED"
+            report["overall"] = (
+                "PASS" if report["stages"]["c3_get_state"] == "PASS" and
+                report["stages"]["s3_fixture_status"] == "PASS" else "PARTIAL")
+            report["completed_at"] = utc()
+            self.save_observation(report, evidence_path)
+            return report
+        finally:
+            self.lock.release()
 
     def start(self) -> dict | None:
         if not self.lock.acquire(blocking=False):
@@ -530,6 +703,18 @@ document.getElementById('run').onclick=()=>post('/api/run',{});document.getEleme
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--observe-once"]:
+        try:
+            observation = CONTROLLER.observe_once()
+            print(json.dumps(observation, sort_keys=True))
+            raise SystemExit(0 if observation["overall"] == "PASS" else 2)
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
+            print(json.dumps({"overall": "BLOCKED", "tc001_acceptance": "NOT_RUN",
+                              "reason": (str(error) if isinstance(error, ValueError)
+                                         else type(error).__name__),
+                              "reset_safe_uart_verified": False,
+                              "motion_injection": "NOT_AUTHORIZED"}, sort_keys=True))
+            raise SystemExit(2)
     server = ThreadingHTTPServer(("127.0.0.1", 18791), Handler)
     print(ORIGIN, flush=True)
     try:

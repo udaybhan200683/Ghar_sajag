@@ -7786,3 +7786,33 @@ current evidence cannot distinguish this idle case from an S3 connectivity
 failure. No fresh EventKey exists; TC-001 remains `BLOCKED / NOT_RUN` pending a
 single explicitly authorized reset-aware observation. Exact supporting
 evidence and its recovery boundaries are in the linked GS-117 execution record.
+
+### GS-117 one-use physical observation — 2026-10-26 16:39 UTC
+
+After the USB devices returned to stable ports, the existing Windows helper
+identified COM4 as the physical C3 and COM10 as the physical S3; Windows PnP
+reports both OK. ADB now sees the authorized Motorola Edge 60 Fusion, and the
+existing caregiver APK package/version is installed and foreground. This is
+not a current event-display confirmation.
+
+The owner authorized one reset-risk-accepted, read-only serial observation.
+C3 `GET_STATE` returned OTA0 / `HIL_AWAKE_TEST_ONLY`, session 118, with
+`runtime_live=0` and `sensing_live=0`. S3 booted the product composition from
+`0x420000`, but the observed `FIXTURE_STATUS` text was sent while its GS40
+receiver was waiting for encrypted configuration. The GS40 startup path parses
+that envelope before HubRuntime commands; the four-byte `FIXT` prefix exceeds
+its accepted length. The subsequent `ESP_ERR_INVALID_SIZE` and abort are
+consistent with that parser receiving the status text; S3 then reported
+`RTC_SW_CPU_RST`. This is an observer sequencing defect, not proof of a USB
+power-cycle reset cause. The
+existing serial helper now requires the S3 to advertise `FIXTURE_STATUS`
+readiness before sending it and skips the command during a configuration
+challenge. Regression `GS117-S3-STATUS-GATE-001` and the registered console
+suite pass: 32 tests. No motion, reconfiguration, commissioning or firmware
+operation was performed.
+
+Current S3 HubRuntime, mounted product storage, authenticated C3 rejoin, mTLS
+CloudSync and new-event API/APK visibility remain unverified. The one-use
+observation approval is consumed; the normal owner fixture is still absent.
+TC-001 remains `BLOCKED / NOT_RUN`, with no new EventKey. See the linked
+GS-117 execution record and sanitized serial observation JSON for evidence.

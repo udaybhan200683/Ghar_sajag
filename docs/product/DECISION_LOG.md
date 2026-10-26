@@ -1555,3 +1555,15 @@ preserved; unchanged C3 ordinary rejoin active. Actual CloudSync/TC001/APK remai
 blocked by canceled normal Windows UAC and missing phone evidence. Owner-requested
 quota pause triggered at8% remaining. Existing security/release requirements and
 CONTEXT_VERSION unchanged. See latest GS117 execution handoff.
+
+
+### 2026-10-26 GS117 USB observer correction; no new LOCKED decision
+
+One owner-authorized read-only COM observation confirmed the returned C3/S3
+identities and exposed an existing helper sequencing hazard: it sent
+`FIXTURE_STATUS` while the S3 GS40 receiver was waiting for an encrypted
+configuration frame, causing the receiver to reject the text length and abort
+startup. The helper now sends that query only after the running Hub advertises
+the command. Authentication, ownership, configuration, storage and production
+requirements are unchanged. TC-001 remains NOT_RUN; see the current GS117
+execution record. `CONTEXT_VERSION` is unchanged.

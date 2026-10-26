@@ -311,9 +311,21 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             sleep(0.02)
         c3_stream.write(b"GET_STATE\n")
         c3_stream.flush()
+        s3_config_receive_pending = any("GS40T/1 CHALLENGE" in line for line in s3_lines)
+        s3_status_command_ready = any(
+            "HIL_FIXTURE_READY" in line and "FIXTURE_STATUS" in line for line in s3_lines)
+        s3_status_command_sent = False
         if query_s3_status:
-            s3_stream.write(b"FIXTURE_STATUS\n")
-            s3_stream.flush()
+            # GS40 TEST_ONLY boot waits for the encrypted, length-prefixed
+            # configuration envelope before HubRuntime/fixture command parsing
+            # starts. Sending plain-text FIXTURE_STATUS into that receiver is
+            # interpreted as an invalid envelope length and aborts startup.
+            # Send only after the running firmware advertises this exact
+            # command; otherwise retain passive boot evidence and fail closed.
+            if s3_status_command_ready and not s3_config_receive_pending:
+                s3_stream.write(b"FIXTURE_STATUS\n")
+                s3_stream.flush()
+                s3_status_command_sent = True
         deadline = clock() + observation_seconds - 4
         while clock() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines)
@@ -321,7 +333,10 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             sleep(0.02)
         if not any("HIL_STATE role=c3" in line for line in c3_lines):
             raise ValueError("TC001_INSTALLED_C3_HIL_STATUS_NOT_OBSERVED")
-        result = {"c3": c3_lines, "s3": s3_lines}
+        result = {"c3": c3_lines, "s3": s3_lines,
+                  "s3_config_receive_pending": s3_config_receive_pending,
+                  "s3_status_command_ready": s3_status_command_ready,
+                  "s3_status_command_sent": s3_status_command_sent}
         if fixture_exchange is not None:
             result["commissioning"] = fixture_exchange(c3_stream, s3_stream,
                 c3_lines, s3_lines, clock=clock, sleep=sleep,

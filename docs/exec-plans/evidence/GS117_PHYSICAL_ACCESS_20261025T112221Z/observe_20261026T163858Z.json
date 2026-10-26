@@ -1,0 +1,56 @@
+{
+  "approval_consumed_at": "2026-10-26T16:38:59.805146+00:00",
+  "approval_receipt_consumed": true,
+  "approval_ref": "owner-chat-approval-2026-10-26-read-only-observe",
+  "c3_power_mode": "HIL_AWAKE_TEST_ONLY",
+  "c3_runtime_live": false,
+  "c3_sensing_live": false,
+  "completed_at": "2026-10-26T16:39:11.160240+00:00",
+  "devices": {
+    "c3": {
+      "port": "COM4",
+      "serial_number": "14:63:93:C5:D1:58"
+    },
+    "s3": {
+      "port": "COM10",
+      "serial_number": "E0:72:A1:D3:8D:34"
+    }
+  },
+  "motion_injection": "NOT_AUTHORIZED",
+  "operation": "READ_ONLY_SERIAL_OBSERVATION",
+  "overall": "PARTIAL",
+  "profile": "GS179_TEST_ONLY",
+  "reset_reason_observed": "rst:0xc (RTC_SW_CPU_RST),boot:0x8 (SPI_FAST_FLASH_BOOT)",
+  "reset_safe_uart_verified": false,
+  "run_id": "OBSERVE-20261026T163858-8f80b4a9",
+  "s3_fixture_state": "NOT_REPORTED",
+  "serial_evidence": {
+    "c3": [
+      "I (2492907) gs_node_runtime: HIL_STATE role=c3 session=118 retained=0 in_flight=0 sensing_live=0 runtime_live=0 pending_inject=0 heap=197008 min_heap=179580 ota_slot=ota_0 power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0",
+      "I (2492907) gs_hil_control: HIL_OK command=GET_STATE"
+    ],
+    "s3": [
+      "E (42543) gs_hub_runtime: TEST_ONLY authenticated configuration unavailable; startup refused: ESP_ERR_INVALID_SIZE",
+      "abort() was called at PC 0x4037d57e on core 0",
+      "ESP-ROM:esp32s3-20210327",
+      "rst:0xc (RTC_SW_CPU_RST),boot:0x8 (SPI_FAST_FLASH_BOOT)",
+      "I (91) boot:  5 gs_outbox        Unknown data     01 83 00820000 00400000",
+      "I (694) boot: Loaded app from partition at offset 0x420000",
+      "I (1493) app_init: App version:      9bbc6d0-dirty",
+      "I (1494) app_init: ELF file SHA256:  c77483102...",
+      "I (1501) gs_hub_product: Starting HW-M1.3 ESP32 Hub product composition"
+    ]
+  },
+  "serial_open_reset_assessment": "reset transcript observed; reset may be from power-cycle or port-open",
+  "serial_open_reset_risk_accepted": true,
+  "stages": {
+    "approval": "PASS",
+    "c3_get_state": "PASS",
+    "cloudsync": "NOT_VERIFIED",
+    "identity": "PASS",
+    "s3_fixture_status": "NOT_VERIFIED"
+  },
+  "started_at": "2026-10-26T16:38:58.952401+00:00",
+  "tc001_acceptance": "NOT_RUN",
+  "test_id": "TC-001"
+}

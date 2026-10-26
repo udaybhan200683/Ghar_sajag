@@ -236,7 +236,9 @@ class TC001Test(unittest.TestCase):
             def open(self):
                 self.is_open = True
                 if self.port == "COM10":
-                    self.buffer.extend(b"I (1) HubRuntime storage=ready CloudSync=disabled\n")
+                    self.buffer.extend(
+                        b"I (1) HIL_FIXTURE_READY protocol=1 commands=FIXTURE_STATUS\n"
+                        b"I (2) HubRuntime storage=ready CloudSync=disabled\n")
 
             def write(self, data):
                 self.writes.append(data)
@@ -290,10 +292,15 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(fake_streams[0].writes,
                                  [b"FIXTURE_STATUS\n"] if query_s3 else [])
                 self.assertEqual(fake_streams[1].writes, [b"GET_STATE\n"])
+                self.assertEqual(result["s3_status_command_ready"], True)
+                self.assertEqual(result["s3_status_command_sent"], query_s3)
+                self.assertEqual(result["s3_config_receive_pending"], False)
                 self.assertTrue(all(not stream.is_open for stream in fake_streams))
                 self.assertTrue(any("HIL_AWAKE_TEST_ONLY" in line for line in result["c3"]))
                 self.assertTrue(any("CloudSync=disabled" in line for line in result["s3"]))
-                self.assertFalse(any("private" in line for lines in result.values() for line in lines))
+                self.assertFalse(any("private" in line
+                                     for role in ("c3", "s3")
+                                     for line in result[role]))
 
         fake_streams = [FakeSerial(), FakeSerial()]
         stream_iter = iter(fake_streams)
@@ -330,6 +337,61 @@ class TC001Test(unittest.TestCase):
             port_finder=lambda: [boards["c3"], boards["s3"]],
             clock=fake_clock, sleep=lambda _seconds: None,
             boot_reset=after_reset, bootstrap_exchange=exchange)
+
+    def test_observer_skips_status_command_during_secure_config_receive(self):
+        """GS117-S3-STATUS-GATE-001: do not feed CLI text to GS40 envelope RX."""
+        class FakeSerial:
+            def __init__(self):
+                self.port = ""
+                self.timeout = None
+                self.write_timeout = None
+                self.dtr = True
+                self.rts = True
+                self.is_open = False
+                self.buffer = bytearray()
+                self.writes = []
+            @property
+            def in_waiting(self): return len(self.buffer)
+            def open(self):
+                self.is_open = True
+                if self.port == "COM10":
+                    self.buffer.extend(b"GS40T/1 CHALLENGE nonce=fixture-test\n")
+            def write(self, data):
+                self.writes.append(data)
+                if data == b"GET_STATE\n":
+                    self.buffer.extend(b"HIL_STATE role=c3\n")
+                return len(data)
+            def flush(self): pass
+            def reset_input_buffer(self): self.buffer.clear()
+            def read(self, count):
+                value = bytes(self.buffer[:count]); del self.buffer[:count]; return value
+            def close(self): self.is_open = False
+
+        boards = {
+            "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58",
+                   "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58"},
+            "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
+                   "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34"},
+        }
+        streams = [FakeSerial(), FakeSerial()]
+        iterator = iter(streams)
+        tick = [0.0]
+        def clock():
+            tick[0] += 1.0
+            return tick[0]
+
+        result = tc_serial.observe(
+            {"c3": boards["c3"], "s3": boards["s3"], "query_s3_status": True,
+             "s3_boot_reset": False, "observation_seconds": 10},
+            serial_factory=lambda: next(iterator),
+            port_finder=lambda: [boards["c3"], boards["s3"]],
+            clock=clock, sleep=lambda _seconds: None)
+        self.assertTrue(result["s3_config_receive_pending"])
+        self.assertFalse(result["s3_status_command_ready"])
+        self.assertFalse(result["s3_status_command_sent"])
+        self.assertEqual(streams[0].writes, [])
+        self.assertEqual(streams[1].writes, [b"GET_STATE\n"])
+        self.assertTrue(all(not stream.is_open for stream in streams))
 
     def test_serial_evidence_preserves_complete_profile_and_boot_failure(self):
         state = (
@@ -722,6 +784,117 @@ class TC001Test(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
+
+    def _write_read_only_observation_approval(self, path):
+        approval = {
+            "schema_version": 1,
+            "test_id": "TC-001",
+            "profile": "GS179_TEST_ONLY",
+            "approval_ref": "owner-chat-approval-2026-10-26-read-only-observe",
+            "approval_scope": (
+                "C3 GET_STATE and S3 FIXTURE_STATUS only; one serial-open observation; "
+                "reset risk accepted"),
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "serial_open_reset_risk_accepted": True,
+            "reset_safe_uart_verified": False,
+            "motion_injection_authorized": False,
+            "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+            "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"},
+        }
+        path.write_text(json.dumps(approval))
+        path.chmod(0o600)
+        return approval
+
+    def test_read_only_observation_requires_owner_only_non_reset_safe_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            receipt = Path(directory) / "approval.json"
+            approval = self._write_read_only_observation_approval(receipt)
+            controller = tc.Controller()
+            for field, value in (("reset_safe_uart_verified", True),
+                                 ("motion_injection_authorized", True)):
+                approval[field] = value
+                receipt.write_text(json.dumps(approval)); receipt.chmod(0o600)
+                with patch.object(tc, "powershell") as hardware:
+                    with self.assertRaisesRegex(ValueError, "scope_or_identity_mismatch"):
+                        controller.observe_once(approval_path=receipt)
+                    hardware.assert_not_called()
+                self.assertFalse(controller.lock.locked())
+                approval[field] = not value
+
+            approval["c3"]["serial_number"] = "14:63:93:C5:D1:59"
+            receipt.write_text(json.dumps(approval)); receipt.chmod(0o600)
+            with patch.object(tc, "powershell") as hardware:
+                with self.assertRaisesRegex(ValueError, "scope_or_identity_mismatch"):
+                    controller.observe_once(approval_path=receipt)
+                hardware.assert_not_called()
+            self.assertFalse(controller.lock.locked())
+
+            receipt.write_text(json.dumps(approval)); receipt.chmod(0o644)
+            with patch.object(tc, "powershell") as hardware:
+                with self.assertRaisesRegex(ValueError, "owner_only_regular_file"):
+                    controller.observe_once(approval_path=receipt)
+                hardware.assert_not_called()
+            self.assertFalse(controller.lock.locked())
+
+    def test_read_only_observation_identity_mismatch_does_not_consume_or_open_serial(self):
+        with tempfile.TemporaryDirectory() as directory:
+            receipt = Path(directory) / "approval.json"
+            self._write_read_only_observation_approval(receipt)
+            visible = [
+                {"port": "COM4", "serial_number": "14:63:93:C5:D1:58",
+                 "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58 LOCATION=1-1"},
+                {"port": "COM10", "serial_number": "wrong",
+                 "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34 LOCATION=1-2"},
+            ]
+            controller = tc.Controller()
+            with patch.object(tc, "powershell", return_value=visible) as hardware:
+                with self.assertRaisesRegex(ValueError, "VERIFIED_USB_INTERFACE_MISMATCH"):
+                    controller.observe_once(approval_path=receipt)
+            self.assertEqual([call.args[0] for call in hardware.call_args_list], ["List"])
+            self.assertTrue(receipt.exists())
+            self.assertFalse(controller.lock.locked())
+
+    def test_one_use_observation_queries_exact_pair_once_and_never_injects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            receipt = root / "approval.json"
+            self._write_read_only_observation_approval(receipt)
+            evidence = root / "observation.json"
+            visible = [
+                {"port": "COM4", "serial_number": "14:63:93:C5:D1:58",
+                 "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58 LOCATION=1-1"},
+                {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
+                 "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34 LOCATION=1-2"},
+            ]
+            serial_result = {
+                "c3": ["I (1) HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+                       "hil_build=0 hil_control=1 physical_wake=0 runtime_live=0 sensing_live=0",
+                       "HIL_OK command=GET_STATE"],
+                "s3": ["HIL_FIXTURE_STATUS state=authenticated_rejoin"],
+            }
+            controller = tc.Controller()
+            with patch.object(tc, "powershell", side_effect=[visible, serial_result]) as hardware:
+                report = controller.observe_once(approval_path=receipt, evidence_path=evidence)
+            self.assertEqual(report["overall"], "PASS")
+            self.assertEqual(report["tc001_acceptance"], "NOT_RUN")
+            self.assertEqual(report["stages"]["c3_get_state"], "PASS")
+            self.assertEqual(report["stages"]["s3_fixture_status"], "PASS")
+            self.assertEqual(report["stages"]["cloudsync"], "NOT_VERIFIED")
+            self.assertFalse(report["reset_safe_uart_verified"])
+            self.assertTrue(report["serial_open_reset_risk_accepted"])
+            self.assertEqual(report["motion_injection"], "NOT_AUTHORIZED")
+            self.assertTrue(report["approval_receipt_consumed"])
+            self.assertEqual(evidence.stat().st_mode & 0o777, 0o600)
+            self.assertEqual([call.args[0] for call in hardware.call_args_list], ["List", "Observe"])
+            observe_payload = hardware.call_args_list[1].args[1]
+            self.assertEqual(observe_payload["c3"]["serial_number"], "14:63:93:C5:D1:58")
+            self.assertEqual(observe_payload["s3"]["serial_number"], "E0:72:A1:D3:8D:34")
+            consumed = list(root.glob("approval.consumed.*.json"))
+            self.assertEqual(len(consumed), 1)
+            with self.assertRaisesRegex(ValueError, "approval_missing_or_consumed"):
+                controller.observe_once(approval_path=receipt, evidence_path=evidence)
+            self.assertFalse(controller.lock.locked())
+            self.assertEqual(len(hardware.call_args_list), 2)
 
 
 if __name__ == "__main__":
