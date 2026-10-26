@@ -7731,3 +7731,25 @@ documented COM4 reset risk; restore ADB enumeration for the phone; then collect
 current receipts, verify live C3/S3 session and ingress, execute one controlled
 injection, and require owner confirmation in the actual APK. Evidence is in
 `docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
+
+### GS-117 USB identities refreshed — 2026-10-26 16:03 UTC
+
+The existing Windows serial helper now independently enumerates COM4 as C3
+`14:63:93:C5:D1:58` and COM10 as S3 `E0:72:A1:D3:8D:34`; the separate unknown
+USB descriptor-failure device is neither board. The active Private Wi-Fi and
+existing 443/8445 proxy mappings remain correct and were not changed. No serial
+port was opened because canonical evidence records a prior `USB_UART_CHIP_RESET`
+on COM4 observation and the existing open path is not reset-safe. The protected
+physical-session record is present, but current C3 image and reset-safe receipts
+needed by the console fixture are not; no fixture was synthesized.
+
+The one-hour existing GS-179 ingress remains actively listening, with PostgreSQL
+and signed-time ready, but current Hub authentication/connection remain NO and
+persistent ingress remains NOT_CONFIGURED. ADB currently lists no device after
+the official server was restarted; prior app/Home evidence remains historical,
+not a new event observation. The 66 previous commits remain excluded. TC-001 is
+still `BLOCKED / NOT_RUN`, with no new EventKey. The next gate is a verified
+reset-isolated serial observation/injection path (or an explicit owner decision
+covering COM4's documented reset risk), current Hub mTLS authentication, and
+phone-side confirmation in the existing APK. Details are in the dated GS-117
+execution evidence above.

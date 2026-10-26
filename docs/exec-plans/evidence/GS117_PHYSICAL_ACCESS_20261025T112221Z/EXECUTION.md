@@ -1247,3 +1247,44 @@ read-only status and single injection workflow. Also restore Windows ADB device
 enumeration for actual APK confirmation. Then produce fresh current-image and
 reset-safety receipts, verify live C3/S3 authentication and ingress, and only
 then create the owner-only fixture and run the single controlled injection.
+
+### 2026-10-26 owner-reported all devices connected; identity refresh
+
+Following the owner-provided `usbipd` and PnP information, the existing native
+Windows serial helper independently lists COM4 as USB VID/PID `303A:1001`,
+serial `14:63:93:C5:D1:58` (C3), and COM10 as `303A:1001`, serial
+`E0:72:A1:D3:8D:34` (S3). The separate unknown `0000:0002` descriptor-failure
+device does not appear as either COM identity. The currently active network is
+still `Airtel_Agrim` / Private / `192.168.1.10`; the existing scoped mappings
+remain `.10:443 -> 172.17.152.10:8444` and `.10:8445 -> 172.17.152.10:8445`.
+No network settings were changed.
+
+No serial port was opened. The canonical GS-114/GS-117 evidence records a prior
+`USB_UART_CHIP_RESET` on COM4 observation and explicitly says the existing
+serial-open path is not qualified reset-safe. The fixture requires a current
+C3 installed-image receipt and `reset_safe_uart_verified=true`; the protected
+physical session alone and USB descriptors do not establish those facts. The
+current cache has a recent S3 image receipt but no C3 running-image receipt.
+Therefore no `fixture.json`, `GET_STATE`, `FIXTURE_STATUS`, rejoin or injection
+was manufactured or attempted.
+
+ADB was restarted using the existing official Platform-Tools binary, but the
+current Windows ADB server lists no device. Prior installed-app and Home
+evidence remains valid as historical readiness evidence; no current phone-side
+event observation exists.
+
+The existing bounded GS-179 ingress remains active on `172.17.152.10:8445`;
+PostgreSQL and signed-time are ready. It has not received a current physical S3
+authentication or event after restart (`real_hub_authenticated=NO`,
+`hub_connected=NO`, persistent configuration `NOT_CONFIGURED`). The existing
+66 committed event responses predate this runtime and are excluded from
+TC-001. TC-001 remains `BLOCKED / NOT_RUN` with no new EventKey.
+
+**Next exact gate:** use an independently qualified reset-isolated UART path for
+the live C3/S3 status query and eventual injection. If none exists, the owner
+must explicitly decide whether to accept the documented COM4 open/reset risk;
+the existing fixture safety guard remains in force until a genuine receipt is
+available. Restore ADB enumeration or be ready to confirm the event on the phone
+screen after backend/API verification. Only after current C3/S3 rejoin and Hub
+mTLS readiness pass may the existing console fixture be completed and exactly
+one controlled event injected.
