@@ -1095,3 +1095,57 @@ Home and phone receipts; run exactly one controlled C3 `INJECT_MOTION`; correlat
 that original EventKey through the physical Hub, PostgreSQL and caregiver API;
 then require actual APK observation (`USER_CONFIRMED` when manual). Do not reflash
 or recommission either board.
+
+### 2026-10-26 resumed Android/network checkpoint
+
+Current canonical local/remote HEAD is `6abc9b43f3d1216f66cb2c4d871523ed33445ccd`;
+context preflight PASS. Tracked worktree remains clean and all pre-existing
+untracked/ignored firmware, Android and evidence assets are preserved.
+
+The owner clarified the C3 was unplugged to connect the Android phone. The
+existing proxy script was copied to Windows temporary storage only after its
+SHA-256 matched canonical source (`01a8778b552e698deb3f80021c043a323e2410b822fda4af71d9ce36b80e2b26`).
+The existing `PhysicalHubIngress` Start action ran once under process-only
+`RemoteSigned` using the normal Windows `RunAs` elevation flow; elevated process
+exit was 0. Current
+Windows state is still trusted `Airtel_Agrim` Private `192.168.1.10/24` and WSL
+NAT `172.17.152.10`. Portproxy rows are exactly `.10:443 -> 172.17.152.10:8444`
+and `.10:8445 -> 172.17.152.10:8445`; Windows TCP probes to both ports pass.
+The scoped Start path was used only for physical Hub ingress. No unrelated
+mapping/firewall rule was changed.
+
+The existing bounded signed-time operator and bounded mTLS ingress are running;
+the ingress listener binds WSL `.10` NAT address on 8445, with PostgreSQL and
+trusted-time readiness. The runtime's `status()` deliberately does not attest
+Hub authentication and currently reports `real_hub_authenticated=NO` and
+`persistent_hub_ingress=NOT_CONFIGURED`. The persisted physical trace still has
+66 unique event commits, 63 authority refreshes and 8 NodeHealth requests ending
+in 503; no new ingress request has been observed in the restarted listener yet.
+Prior physical CloudSync commits remain valid historical evidence, but are not a
+new delivery in this resumed window.
+
+The protected read-only backend helper verified caregiver API login and Home
+`gs177-test-product`, origin `https://desktop-3qqu64b.local`, and retrieved
+historical physical EventKey `(c3-146393c5d158, bedroom, session 111, sequence 8)`
+exactly once (`durable_count=1`, `caregiver_count=1`, kind `MOTION`, location
+`Bedroom`, Hub `hub-e072a1d38d34`, epoch 1, enrollment generation 1). The total
+physical baseline remains 66; none counts as TC-001. Freshness remains `STALE`
+and monitoring `UNKNOWN`: no row exists in `node_health_latest`; historical
+NodeHealth requests returned 503, and event commits do not refresh NodeHealth.
+
+Windows native enumeration through the existing serial helper now returns only
+COM10, USB VID/PID `303A:1001`, serial `E0:72:A1:D3:8D:34` (the S3). This is
+expected while the C3 is unplugged. Repeated Windows PnP checks still expose no
+Android, ADB or MTP device, and `adb.exe` is not installed in the checked SDK
+locations. Therefore no actual APK package/signer/backend/Home receipt exists.
+The existing TC-001 console is blocked because its owner-only current
+fixture/approval/identity file is absent; genuine phone receipt is also
+unavailable. No UART injection was issued;
+no new EventKey was generated; TC-001 remains `NOT_RUN`.
+
+**Next action:** keep the phone attached, unlocked and in a data-transfer USB
+mode; accept the phone's normal USB-debugging authorization dialog if presented
+and resolve its Windows USB/ADB enumeration. Use existing Android diagnostics to
+create the real install receipt, then reconnect C3 COM4 and perform exactly one
+console-controlled injection. Do not fake receipts, count historical events,
+reflash or recommission either board.

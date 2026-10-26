@@ -7640,3 +7640,40 @@ phone-side installation receipt. Next: verify the existing APK and assemble the
 console fixture from genuine receipts, then run one controlled injection and
 correlate the original EventKey through physical S3, PostgreSQL, caregiver API
 and actual APK. Full details are in the dated GS-117 execution evidence above.
+
+### GS-117 resumed Android/network checkpoint — 2026-10-26
+
+Current canonical local and remote HEAD is `6abc9b43f3d1216f66cb2c4d871523ed33445ccd`;
+context preflight PASS. No tracked source changes were made; pre-existing
+untracked/ignored assets are preserved.
+
+Owner confirmed the C3 is unplugged to connect the phone. After revalidating the
+canonical proxy script hash, the existing physical-Hub `Start` path completed
+once through normal Windows UAC under process-only `RemoteSigned`. Wi-Fi is
+`Airtel_Agrim` Private `192.168.1.10/24`, WSL NAT `172.17.152.10`; current routes
+are `.10:443 -> WSL:8444` and `.10:8445 -> WSL:8445`. Windows TCP probes pass for
+both ports. Existing bounded signed-time and mTLS ingress processes are active.
+No unrelated Windows network state changed.
+
+The authenticated caregiver API helper passes login and retrieves historical
+physical EventKey `(c3-146393c5d158, bedroom, session 111, sequence 8)` exactly
+once (`durable_count=1`, `caregiver_count=1`, `MOTION`, `Bedroom`) for
+`gs177-test-product`. The physical baseline remains 66, all historical and not
+TC-001. Freshness remains `STALE` and monitoring `UNKNOWN` because no
+`node_health_latest` row exists; prior NodeHealth requests returned 503, and
+motion event commits alone do not update source-health freshness.
+
+Windows native enumeration currently sees only S3 COM10 / identity
+`E0:72:A1:D3:8D:34`; this is expected while C3 is unplugged. Despite the owner
+connecting the phone with USB debugging enabled, repeat PnP checks show no
+Android/ADB/MTP device and no `adb.exe` is present in checked SDK locations.
+No current APK installation receipt can be produced. Existing TC-001 console
+remains blocked because the owner-only fixture/approval/identity file is absent;
+the genuine phone receipt is also unavailable. No injection occurred; TC-001
+remains `NOT_RUN`.
+
+Next: obtain Windows USB enumeration for the unlocked phone and its normal ADB
+authorization, record the installed APK/signer/origin/Home using device-side
+diagnostics, reconnect C3 COM4, then run exactly one controlled console event
+and trace its original EventKey to the actual APK. Detailed evidence is in
+`docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
