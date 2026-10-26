@@ -7678,3 +7678,30 @@ an existing approved `adb.exe`), record the installed APK/signer/origin/Home via
 read-only device diagnostics, then ask the owner to reconnect C3 and discover its
 live COM port before one controlled console event. Detailed evidence is in
 `docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
+
+### GS-117 current physical checkpoint — 2026-10-26 15:47 UTC
+
+The owner reports C3, S3 and Android are connected. Fresh Windows serial-helper
+enumeration and PnP evidence show only the S3 on COM10
+(`E0:72:A1:D3:8D:34`); no C3 COM interface enumerates. ADB sees the authorized
+Motorola Edge 60 Fusion and the existing foreground Parivar Saathi app, version
+`0.4.0-connected-lite-staging`. Prior read-only APK evidence confirms the
+existing Home and motion history; this is not a fresh TC-001 event. No serial
+port was opened, avoiding the documented USB-UART reset risk.
+
+The protected physical-session record binds the intended C3/S3 pair to
+`gs177-test-product`, epoch 1, but the console-required owner-only `fixture.json`
+is absent and current C3 port/image/reset-safety receipts cannot be reconstructed
+truthfully from the old session record. Historical ingress evidence contains 66
+commits, which remain excluded from TC-001. The existing one-hour bounded
+GS-179 ingress was restarted on `172.17.152.10:8445`; listener, PostgreSQL and
+signed-time are ready, while current Hub authentication/connection remain NO
+and persistent ingress remains NOT_CONFIGURED.
+
+No reset, flash, recommission or motion injection occurred. TC-001 remains
+`BLOCKED / NOT_RUN` with no new EventKey. Resume by restoring C3 Windows USB
+serial enumeration, then verify the live device pair and current S3 mTLS session;
+assemble the owner-only fixture only from those current receipts. Run one
+controlled injection after all gates pass and require owner confirmation of the
+event in the actual APK before marking PASS. Full checkpoint:
+`docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.

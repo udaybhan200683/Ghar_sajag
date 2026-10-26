@@ -1152,3 +1152,57 @@ to record the real package/signer/backend/Home receipt and app visibility. After
 those checks pass, ask the owner to reconnect C3, discover its live COM port and
 identity, then perform exactly one console-controlled injection. Do not fake
 receipts, count historical events, reflash or recommission either board.
+
+### 2026-10-26 Android verified; live C3 enumeration and ingress checkpoint
+
+Current source remains canonical `feature/r1-commercial-baseline` at
+`6e7c303da38b4130b007a90248db2510af038fa0`; local and remote matched and
+context preflight passed. Tracked worktree was clean before this checkpoint;
+existing untracked/ignored Android, PWA, firmware, managed-component and
+hardware evidence assets remain untouched.
+
+The owner reports all three devices connected. Fresh Windows Platform-Tools
+enumeration and ADB show the authorized Motorola Edge 60 Fusion as
+`ZA2237MRHN`, model `motorola_edge_60_fusion`, state `device`. The existing
+Parivar Saathi package is foreground, version `0.4.0-connected-lite-staging`.
+Prior read-only APK evidence matches its existing artifact and records the
+authenticated Home `gs177-test-product`; the app showed existing motion history.
+No APK was modified or reinstalled. This is readiness/history evidence, not a
+new TC-001 event.
+
+Fresh Windows native enumeration through the existing serial helper `List`
+action returned only COM10, USB VID/PID `303A:1001`, serial
+`E0:72:A1:D3:8D:34` (physical S3). A Windows PnP inventory also showed only
+that Espressif USB device; no C3 COM interface is present in this observation,
+despite the owner's report of reconnection. Neither board serial port was opened
+in this checkpoint, avoiding the documented USB-UART reset risk. C3 current
+port/identity/runtime and ordinary rejoin are therefore not re-verified. No
+flash, reset, recommission or injection was performed.
+
+The owner-only `~/.config/ghar-sajag/gs117-tc001/physical-session.json` exists
+with the intended physical Node/Hub, Home `gs177-test-product`, and installation
+epoch 1. The console-required `fixture.json` is absent. It was not synthesized
+from stale or partial records: current live C3 port/image evidence and the
+required serial reset-safety receipt are not available.
+
+The caregiver/PostgreSQL service is healthy. Historical bounded-ingress trace
+contains 66 `COMMITTED` responses; these ambient/replayed physical events remain
+excluded from TC-001. At checkpoint entry there was no listener/process on
+TCP 8445. The existing owner-only exact-fixture GS-179 ingress launcher was
+started with its protected credentials, existing PostgreSQL settings, signed-
+time authority, S3 identity, Home and epoch. Process PID 26481 reports listener,
+PostgreSQL and signed-time ready and binds to `172.17.152.10:8445`. It currently
+reports `real_hub_authenticated=NO`, `hub_connected=NO`, and
+`persistent_hub_ingress=NOT_CONFIGURED`; prior commits do not prove a current
+Hub session. The launcher is bounded to one hour and remains attached to the
+active execution session. No credential, backend ownership or persistent
+service configuration was changed.
+
+**Result:** TC-001 remains `BLOCKED / NOT_RUN`; no new EventKey exists. The hard
+blockers are absent Windows enumeration for the C3, no current S3 authentication
+to the restarted ingress, and missing current receipts needed to truthfully
+create the owner-only fixture. Next, restore C3 USB enumeration and verify its
+exact identity; then use the existing approved observation path and verify
+live C3/S3 session plus ingress before creating the fixture and running exactly
+one injection. Require the owner's actual APK visibility confirmation before
+marking TC-001 PASS.
