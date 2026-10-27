@@ -1,4 +1,4 @@
-## GS-178 software use-case batch S3 — 2026-10-27 (validated; closeout in progress)
+## GS-178 software use-case batch S3 — 2026-10-27 (validated and published)
 
 Owning Jira GS-178; coverage inventory GS-130; regression policy GS-116. This
 batch resumed at canonical HEAD `b2aab27a049927718c21198bb5787adbf7c587b3`
@@ -46,9 +46,11 @@ The focused test passed again on that exact commit (1/1 in 21.788s); its report
 records the same five receipts/rows, browser 4/4, null first failure,
 `HOST_SIM_PASS`, physical `NOT_RUN`, and `APK_NOT_VERIFIED`. The full 39/39 suite
 ran on the identical code tree before commit. Its reports remain under
-`code/build/gs178_s3_20261027/`. Remaining closeout: commit the evidence updates,
-push both commits, verify remote equality and post the concise Jira updates.
-GS-178 stays In Progress; all 17 P0 groups remain PARTIAL. GS-117 stays OnHold with
+`code/build/gs178_s3_20261027/`. The code/test commit is `a98c1830aa4309805e2d244fd88595d00fc45f0c`;
+evidence/traceability updates were committed and pushed normally. At the
+publication checkpoint, local and origin matched at `a0a28fd4cba886068c6c620f5235737ae3bb9a6f`.
+The final GS-178/GS-130/GS-116 Jira comments record the resulting source and
+remote SHAs. GS-178 stays In Progress; all 17 P0 groups remain PARTIAL. GS-117 stays OnHold with
 TC-001 0/5 NOT_RUN. Next audit target: proposed R1AUTO-010 invalid-input and
 wrong Node/room enrollment rejection, reusing existing ownership and admission
 guards rather than adding a new input path. Continue without physical access.
